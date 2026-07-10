@@ -1,0 +1,187 @@
+{
+ "BrainBotShock": {
+  "animID": 16,
+  "damageTiming": 1,
+  "sfxID": "punch.wav",
+  "sfxTiming": 1
+ },
+ "BroBotAttack": {
+  "animID": 14,
+  "damageTiming": 1,
+  "sfxID": "punch.wav",
+  "sfxTiming": 1
+ },
+ "CorporateBossPunch": {
+  "animID": 4,
+  "damageMultiplier": 1,
+  "damageTiming": 0.4,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.4,
+  "speedMultiplier": 1
+ },
+ "CorporateBossPunchSpecial": {
+  "animID": 4,
+  "damageMultiplier": 1,
+  "damageTiming": 0.4,
+  "knockBack": true,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.4,
+  "speedMultiplier": 1,
+  "stun": true,
+  "stunTimer": 1
+ },
+ "CrazedWorkerAttack": {
+  "animID": 1,
+  "damageTiming": 1,
+  "sfxID": "punch.wav",
+  "sfxTiming": 1
+ },
+ "FarmhandPoke": {
+  "animID": 5,
+  "damageTiming": 0.33,
+  "sfxID": "poke.wav",
+  "sfxTiming": 0.33
+ },
+ "JunkBotBite": {
+  "animID": 15,
+  "damageTiming": 1,
+  "sfxID": "bite.wav",
+  "sfxTiming": 1
+ },
+ "LawyerAttack": {
+  "animID": 6,
+  "damageTiming": 0.75,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.75
+ },
+ "LumberjackSlice": {
+  "animID": 17,
+  "damageTiming": 0.75,
+  "sfxID": "swipe.wav",
+  "sfxTiming": 0.75
+ },
+ "LumberjackSpecial": {
+  "animID": 18,
+  "damageMultiplier": 1.5,
+  "knockBack": true,
+  "sfxID": "swipe.wav",
+  "speedMultiplier": 5
+ },
+ "MidgetStackAttack": {
+  "animID": 23,
+  "damageTiming": 0.2,
+  "sfxID": "poke.wav",
+  "sfxTiming": 0.2
+ },
+ "NinjaStab": {
+  "animID": 7,
+  "damageTiming": 0.5,
+  "sfxID": "poke.wav",
+  "sfxTiming": 0.5
+ },
+ "OldMcDonnellPunch": {
+  "animID": 6,
+  "damageMultiplier": 1,
+  "damageTiming": 0.4,
+  "knockBack": true,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.4,
+  "speedMultiplier": 1
+ },
+ "PirateBossSlash": {
+  "animID": 2,
+  "damageTiming": 0.95,
+  "sfxID": "swipe.wav",
+  "sfxTiming": 0.95
+ },
+ "RingMasterAttack": {
+  "animID": 24,
+  "damageTiming": 0.75,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.75
+ },
+ "SpecialBossAttack": {
+  "animID": 21,
+  "damageTiming": 0.7,
+  "knockBack": true,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.7
+ },
+ "SpecialMinion1Attack": {
+  "animID": 19,
+  "damageTiming": 0.8,
+  "sfxID": "poke.wav",
+  "sfxTiming": 0.8
+ },
+ "SpecialMinion2Attack1": {
+  "animID": 20,
+  "damageTiming": 0.9,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.9
+ },
+ "SpecialMinion2Attack2": {
+  "animID": 27,
+  "damageTiming": 0.7,
+  "knockBack": true,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.7
+ },
+ "SpecialMinion3Attack1": {
+  "animID": 25,
+  "damageTiming": 0.9,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.9
+ },
+ "SpecialMinion3Attack2": {
+  "animID": 26,
+  "damageTiming": 0.2,
+  "knockBack": true,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.7
+ },
+ "SwashbucklerSlice": {
+  "animID": 3,
+  "damageTiming": 0.95,
+  "sfxID": "swipe.wav",
+  "sfxTiming": 0.9
+ },
+ "UnicycleBearAttack": {
+  "animID": 22,
+  "damageTiming": 0.3,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.3
+ },
+ "VideoGameBossPunch": {
+  "animID": 9,
+  "damageTiming": 0.33,
+  "knockBack": true,
+  "sfxID": "punch.wav",
+  "sfxTiming": 0.33
+ },
+ "VideoGameGhostBite": {
+  "animID": 9,
+  "damageTiming": 0.75,
+  "sfxID": "bite.wav",
+  "sfxTiming": 0.75
+ },
+ "VideoGameKnightPoke": {
+  "animID": 9,
+  "damageTiming": 0.5,
+  "knockBack": true,
+  "sfxID": "poke.wav",
+  "sfxTiming": 0.5
+ },
+ "VideoGameMonsterFlail": {
+  "animID": 9,
+  "damageTiming": 0.55,
+  "knockBack": true,
+  "sfxID": "flail.wav",
+  "sfxTiming": 0.55
+ },
+ "VideoGameZombieBite": {
+  "animID": 8,
+  "damageTiming": 0.25,
+  "sfxID": "bite.wav",
+  "sfxTiming": 0.25
+ }
+}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zombie Farm — Field (Milestone 1)</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #33502b; overflow: hidden; }
+      #app { position: fixed; inset: 0; }
+      #hud {
+        position: fixed; left: 10px; top: 8px; z-index: 10;
+        font: 12px/1.4 system-ui, sans-serif; color: #fff;
+        text-shadow: 0 1px 2px rgba(0,0,0,.6); pointer-events: none;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud">
+      <b>Zombie Farm — Milestone 1</b><br />
+      Click a tile to walk there · drag to pan
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

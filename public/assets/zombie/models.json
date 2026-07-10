@@ -1,0 +1,7173 @@
+{
+ "ZombieActorRegularTier1": {
+  "name": "Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier2": {
+  "name": "Zyborg",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "cyborgFeature",
+    "group": "head",
+    "px": 4,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier3": {
+  "name": "Zombot",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   255,
+   127,
+   127
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "robotFeature",
+    "group": "head",
+    "px": -4,
+    "py": -54,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier4": {
+  "name": "Robo Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   255,
+   255,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "robocopFeature",
+    "group": "head",
+    "px": -4,
+    "py": -54,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "robocopJaw",
+    "group": "head",
+    "px": 6,
+    "py": -36,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier5": {
+  "name": "Zombotron",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "zombotronBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "zombotronFeature",
+    "group": "head",
+    "px": -1,
+    "py": -58,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularCrazy": {
+  "name": "Crazy Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   255,
+   255,
+   125
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "cupidBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "crazyEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "crazyEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "beard",
+    "group": "head",
+    "px": 6,
+    "py": -36,
+    "ax": 0.7,
+    "ay": 0.050000000000000044,
+    "z": 8,
+    "tint": false
+   },
+   {
+    "file": "mustache",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.58,
+    "ay": -0.5,
+    "z": 9,
+    "tint": false
+   }
+  ]
+ },
+ "ZombieActorRegularTier1Carrots": {
+  "name": "Carrot Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier1Tomatoes": {
+  "name": "Tomato Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier1Onions": {
+  "name": "Onion Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier1Turnips": {
+  "name": "Turnip Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier1Potatoes": {
+  "name": "Potato Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier1Coffee": {
+  "name": "Coffee Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier2Celery": {
+  "name": "Celery Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier2Broccoli": {
+  "name": "Broccoli Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier2Garlic": {
+  "name": "Garlic Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier2Cauliflower": {
+  "name": "Cauliflower Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier2LimaBeans": {
+  "name": "Lima Bean Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier3VenusFlytrap": {
+  "name": "Flytrap Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   255,
+   95,
+   117
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier3DragonFruit": {
+  "name": "Dragon Fruit Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   255,
+   95,
+   117
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegularTier4Eyebiscus": {
+  "name": "Eyebiscus Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ],
+  "mutationOverrides": {
+   "4": "eyebiscusHat"
+  }
+ },
+ "ZombieActorRegularTier4Heartichoke": {
+  "name": "Heartichoke Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ],
+  "mutationOverrides": {
+   "512": "heartichokeBody"
+  }
+ },
+ "ZombieActorRegular2Tier5": {
+  "name": "JackoZombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "pumpkinFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": false
+   },
+   {
+    "file": "pumpkinFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": false
+   },
+   {
+    "file": "pumpkinBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "pumpkinHatFeature",
+    "group": "head",
+    "px": 10,
+    "py": -54,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 7,
+    "tint": false
+   }
+  ]
+ },
+ "ZombieActorRegular3Tier5": {
+  "name": "Reindeer Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "reindeerBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "reindeerFeature",
+    "group": "head",
+    "px": 14,
+    "py": -54,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorRegular4Tier5": {
+  "name": "Teddy Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.9,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "valentinesBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "valentinesHatFeature",
+    "group": "head",
+    "px": 3,
+    "py": -41,
+    "ax": 0.6,
+    "ay": 0.6,
+    "z": 4,
+    "tint": false
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGirlTier1": {
+  "name": "Girl Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.8,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "girlBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "femaleFeature",
+    "group": "head",
+    "px": 9,
+    "py": -52,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGirlTier2": {
+  "name": "ZomBeauty",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.8,
+  "color": [
+   95,
+   194,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "girlBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "beautyFeature",
+    "group": "head",
+    "px": -4,
+    "py": -53,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGirlTier3": {
+  "name": "Amazombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.1,
+  "color": [
+   255,
+   150,
+   150
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "amazonBody",
+    "group": "root",
+    "px": 8,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "amazonFeature",
+    "group": "head",
+    "px": -4,
+    "py": -53,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGirlTier4": {
+  "name": "Zombielocks",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.8,
+  "color": [
+   255,
+   255,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "girlBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "locksFeature",
+    "group": "head",
+    "px": 16,
+    "py": -33,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGirlTier5": {
+  "name": "Zombelly Dancer",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.8,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "bellydancerBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "bellydancerFeature",
+    "group": "head",
+    "px": 13,
+    "py": -52,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorSmallTier1": {
+  "name": "Mini Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.6,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "eyeBrowFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorSmallTier2": {
+  "name": "Zmurf",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.6,
+  "color": [
+   95,
+   194,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "eyeBrowFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorSmallTier3": {
+  "name": "ZomGoblin",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.6,
+  "color": [
+   255,
+   65,
+   65
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "eyeBrowFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "goblinEarFeature",
+    "group": "head",
+    "px": 33,
+    "py": -51,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorSmallTier4": {
+  "name": "Imp Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.6,
+  "color": [
+   255,
+   255,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "eyeBrowFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "goblinEarFeature",
+    "group": "head",
+    "px": 33,
+    "py": -51,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "impFeature",
+    "group": "head",
+    "px": 4,
+    "py": -60,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorSmallTier5": {
+  "name": "Zombricaun",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.6,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "leprachaunEarFeature",
+    "group": "head",
+    "px": 27,
+    "py": -37,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "leprachaunBrowFeature",
+    "group": "head",
+    "px": -1,
+    "py": -56,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "leprachaunJaw",
+    "group": "head",
+    "px": 6,
+    "py": -38,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "leprachaunHatFeature",
+    "group": "head",
+    "px": 8,
+    "py": -66,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 7,
+    "tint": false
+   }
+  ]
+ },
+ "ZombieActorLargeTier1": {
+  "name": "ZomBumpkin",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.15,
+  "color": [
+   117,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "browFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "bruteJaw",
+    "group": "head",
+    "px": 6,
+    "py": -38,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorLargeTier2": {
+  "name": "ZomBruiser",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.15,
+  "color": [
+   95,
+   117,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "browFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "bruteJaw",
+    "group": "head",
+    "px": 6,
+    "py": -38,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorLargeTier3": {
+  "name": "ZomBrute",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.15,
+  "color": [
+   255,
+   95,
+   117
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "browFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "barbarianJaw",
+    "group": "head",
+    "px": 6,
+    "py": -38,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorLargeTier4": {
+  "name": "Zombarian",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.15,
+  "color": [
+   255,
+   255,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "browFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "barbarianHair",
+    "group": "head",
+    "px": 2,
+    "py": -52,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "barbarianJaw",
+    "group": "head",
+    "px": 6,
+    "py": -38,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorLargeTier5": {
+  "name": "Zomviking",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.15,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "browFeature",
+    "group": "head",
+    "px": -1,
+    "py": -53,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "vikingJaw",
+    "group": "head",
+    "px": 6,
+    "py": -38,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "vikingMustacheFeature",
+    "group": "head",
+    "px": -3,
+    "py": -53,
+    "ax": 0.58,
+    "ay": -0.5,
+    "z": 6,
+    "tint": false
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "vikingHatFeature",
+    "group": "head",
+    "px": 19,
+    "py": -57,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 7,
+    "tint": false
+   }
+  ]
+ },
+ "ZombieActorLarge2Tier5": {
+  "name": "Zcarecrow",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.15,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "scarecrowBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "scarecrowHatFeature",
+    "group": "head",
+    "px": 19,
+    "py": -52,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 7,
+    "tint": false
+   }
+  ]
+ },
+ "ZombieActorLarge3Tier5": {
+  "name": "Zanta Clause",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 1.15,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "santaFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": false
+   },
+   {
+    "file": "santaFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": false
+   },
+   {
+    "file": "santaBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeL",
+    "group": "head",
+    "px": -19,
+    "py": -49,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultEyeR",
+    "group": "head",
+    "px": 2,
+    "py": -50,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "santaHatFeature",
+    "group": "head",
+    "px": 6,
+    "py": -54,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorHeadlessTier1": {
+  "name": "Headless Zombie",
+  "neck": {
+   "x": 0,
+   "y": 0
+  },
+  "scale": 0.9,
+  "color": [
+   117,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorHeadlessTier2": {
+  "name": "Kindlehead",
+  "neck": {
+   "x": 0,
+   "y": 0
+  },
+  "scale": 0.9,
+  "color": [
+   95,
+   117,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorHeadlessTier3": {
+  "name": "Flamehead",
+  "neck": {
+   "x": 0,
+   "y": 0
+  },
+  "scale": 0.9,
+  "color": [
+   255,
+   95,
+   117
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorHeadlessTier4": {
+  "name": "Party Zombie",
+  "neck": {
+   "x": 0,
+   "y": 0
+  },
+  "scale": 0.9,
+  "color": [
+   255,
+   255,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "partyCollar",
+    "group": "root",
+    "px": -12,
+    "py": -37,
+    "ax": 0,
+    "ay": 0,
+    "z": 4,
+    "tint": false
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorHeadlessTier5": {
+  "name": "Skull Head",
+  "neck": {
+   "x": 12,
+   "y": -50
+  },
+  "scale": 0.8,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "skullHead",
+    "group": "head",
+    "px": 12,
+    "py": -50,
+    "ax": 0.73,
+    "ay": 0.7,
+    "z": 4,
+    "tint": false
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorHeadless2Tier5": {
+  "name": "Diver Zombie",
+  "neck": {
+   "x": 12,
+   "y": -41
+  },
+  "scale": 0.9,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "diverArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": false
+   },
+   {
+    "file": "diverFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -6,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": false
+   },
+   {
+    "file": "diverFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -6,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": false
+   },
+   {
+    "file": "diverBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "diverHead",
+    "group": "head",
+    "px": 12,
+    "py": -41,
+    "ax": 0.73,
+    "ay": 0.7,
+    "z": 4,
+    "tint": false
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -2,
+    "py": -38,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 12,
+    "py": -40,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -4,
+    "py": -35,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "diverArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": false
+   }
+  ]
+ },
+ "ZombieActorGardenTier1": {
+  "name": "Garden Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   159,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "gnomeFeature",
+    "group": "head",
+    "px": 7,
+    "py": -38,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 8,
+    "tint": false
+   }
+  ]
+ },
+ "ZombieActorGardenTier2": {
+  "name": "ZomBotanist",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   95,
+   159,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "nerdFeature",
+    "group": "head",
+    "px": 12,
+    "py": -49,
+    "ax": 0.73,
+    "ay": 0.75,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGardenTier3": {
+  "name": "Flower Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   255,
+   95,
+   159
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "sunflowerFeature",
+    "group": "head",
+    "px": -2,
+    "py": -51,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGardenTier3GreenFlower": {
+  "name": "Green Flower Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   117,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "sunflowerFeature",
+    "group": "head",
+    "px": -2,
+    "py": -51,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGardenTier4": {
+  "name": "Zombee",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   255,
+   255,
+   255
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "beeButt",
+    "group": "root",
+    "px": 13,
+    "py": -33,
+    "ax": 0,
+    "ay": 0,
+    "z": 1,
+    "tint": false
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "beeFeature",
+    "group": "head",
+    "px": -4,
+    "py": -65,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGardenTier5": {
+  "name": "Zombutterfly",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   194,
+   255,
+   95
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "butterflyWings",
+    "group": "root",
+    "px": 4,
+    "py": -55,
+    "ax": 0,
+    "ay": 0,
+    "z": 1,
+    "tint": false
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "defaultBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": true
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "beeFeature",
+    "group": "head",
+    "px": -4,
+    "py": -65,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGardenCupid": {
+  "name": "Cupid Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   255,
+   255,
+   125
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "cupidWings",
+    "group": "root",
+    "px": 4,
+    "py": -38,
+    "ax": 0,
+    "ay": 0,
+    "z": 1,
+    "tint": false
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "cupidBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "cupidFeature",
+    "group": "head",
+    "px": -4,
+    "py": -56,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ },
+ "ZombieActorGardenCupidPink": {
+  "name": "Cupid Zombie",
+  "neck": {
+   "x": 7,
+   "y": -36
+  },
+  "scale": 0.7,
+  "color": [
+   255,
+   255,
+   125
+  ],
+  "parts": [
+   {
+    "file": "defaultArmB",
+    "group": "root",
+    "px": -3,
+    "py": -25,
+    "ax": 0.93,
+    "ay": 0.24,
+    "z": 0,
+    "tint": true
+   },
+   {
+    "file": "defaultFootB",
+    "group": "footB",
+    "px": -1,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 1,
+    "tint": true
+   },
+   {
+    "file": "cupidWings",
+    "group": "root",
+    "px": 4,
+    "py": -38,
+    "ax": 0,
+    "ay": 0,
+    "z": 1,
+    "tint": false
+   },
+   {
+    "file": "defaultFootF",
+    "group": "footF",
+    "px": 16,
+    "py": -8,
+    "ax": 0.75,
+    "ay": 0.09999999999999998,
+    "z": 2,
+    "tint": true
+   },
+   {
+    "file": "cupidBody",
+    "group": "root",
+    "px": 10,
+    "py": -13,
+    "ax": 0.63,
+    "ay": 0.6599999999999999,
+    "z": 3,
+    "tint": false
+   },
+   {
+    "file": "defaultHead",
+    "group": "head",
+    "px": 7,
+    "py": -36,
+    "ax": 0.72,
+    "ay": 0.8200000000000001,
+    "z": 4,
+    "tint": true
+   },
+   {
+    "file": "defaultUpperTeeth",
+    "group": "head",
+    "px": -7,
+    "py": -33,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "defaultScar",
+    "group": "head",
+    "px": 13,
+    "py": -59,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": true
+   },
+   {
+    "file": "cupidFeature",
+    "group": "head",
+    "px": -4,
+    "py": -56,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 5,
+    "tint": false
+   },
+   {
+    "file": "defaultJaw",
+    "group": "head",
+    "px": 7,
+    "py": -35,
+    "ax": 0.8,
+    "ay": 0.050000000000000044,
+    "z": 6,
+    "tint": true
+   },
+   {
+    "file": "defaultLowerTeeth",
+    "group": "head",
+    "px": -9,
+    "py": -30,
+    "ax": 0.5,
+    "ay": 0.5,
+    "z": 7,
+    "tint": true
+   },
+   {
+    "file": "defaultArmF",
+    "group": "root",
+    "px": 9,
+    "py": -28,
+    "ax": 0.93,
+    "ay": 0.28,
+    "z": 7,
+    "tint": true
+   }
+  ]
+ }
+}

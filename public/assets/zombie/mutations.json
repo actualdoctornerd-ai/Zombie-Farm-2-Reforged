@@ -1,0 +1,152 @@
+{
+ "1": {
+  "file": "tomatoHead",
+  "group": "head",
+  "headRel": false,
+  "ox": 6,
+  "oy": 38,
+  "ax": 0.73,
+  "ay": 0.7,
+  "z": 4
+ },
+ "2": {
+  "file": "onionHead",
+  "group": "head",
+  "headRel": false,
+  "ox": 6,
+  "oy": 36,
+  "ax": 0.73,
+  "ay": 0.8,
+  "z": 4
+ },
+ "4": {
+  "file": "carrotHat",
+  "group": "head",
+  "headRel": true,
+  "ox": -12,
+  "oy": 9,
+  "ax": 0,
+  "ay": 1,
+  "z": 6
+ },
+ "8": {
+  "file": "turnipArm",
+  "group": "root",
+  "headRel": false,
+  "ox": 0,
+  "oy": 28,
+  "ax": 1,
+  "ay": 0.28,
+  "z": 8
+ },
+ "16": {
+  "file": "potatoHead",
+  "group": "head",
+  "headRel": false,
+  "ox": 4,
+  "oy": 33,
+  "ax": 0.73,
+  "ay": 0.85,
+  "z": 4
+ },
+ "32": {
+  "file": "coffeeHead",
+  "group": "head",
+  "headRel": false,
+  "ox": 6,
+  "oy": 36,
+  "ax": 0.73,
+  "ay": 0.85,
+  "z": 4
+ },
+ "64": {
+  "file": "celeryArm",
+  "group": "root",
+  "headRel": false,
+  "ox": 0,
+  "oy": 28,
+  "ax": 1,
+  "ay": 0.28,
+  "z": 8
+ },
+ "128": {
+  "file": "broccoliHat",
+  "group": "head",
+  "headRel": true,
+  "ox": 7,
+  "oy": 9,
+  "ax": 0.73,
+  "ay": 0.75,
+  "z": 6
+ },
+ "256": {
+  "file": "garlicHead",
+  "group": "head",
+  "headRel": false,
+  "ox": 6,
+  "oy": 36,
+  "ax": 0.73,
+  "ay": 0.8,
+  "z": 4
+ },
+ "512": {
+  "file": "cauliflowerHat",
+  "group": "head",
+  "headRel": true,
+  "ox": 7,
+  "oy": 9,
+  "ax": 0.73,
+  "ay": 0.75,
+  "z": 6
+ },
+ "1024": {
+  "file": "limaBeanBody",
+  "group": "root",
+  "headRel": false,
+  "ox": 10,
+  "oy": 13,
+  "ax": 0.63,
+  "ay": 0.6599999999999999,
+  "z": 3
+ },
+ "2048": {
+  "file": "flytrapCollar",
+  "group": "root",
+  "headRel": false,
+  "ox": 0.0,
+  "oy": 12,
+  "ax": 0.5,
+  "ay": 0.9,
+  "z": 3
+ },
+ "4096": {
+  "file": "dragonArm",
+  "group": "root",
+  "headRel": false,
+  "ox": 0,
+  "oy": 28,
+  "ax": 1,
+  "ay": 0.4,
+  "z": 8
+ },
+ "eyebiscusHat": {
+  "file": "eyebiscusHat",
+  "group": "head",
+  "headRel": true,
+  "ox": 18,
+  "oy": 26,
+  "ax": 0.93,
+  "ay": 0.28,
+  "z": 7
+ },
+ "heartichokeBody": {
+  "file": "heartichokeBody",
+  "group": "root",
+  "headRel": false,
+  "ox": 26,
+  "oy": 15,
+  "ax": 0.73,
+  "ay": 0.75,
+  "z": 3
+ }
+}

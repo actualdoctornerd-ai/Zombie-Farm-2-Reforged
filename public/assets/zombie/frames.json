@@ -1,0 +1,542 @@
+{
+ "amazonBody": {
+  "x": 212,
+  "y": 293,
+  "w": 25,
+  "h": 34
+ },
+ "amazonFeature": {
+  "x": 162,
+  "y": 298,
+  "w": 49,
+  "h": 32
+ },
+ "barbarianHair": {
+  "x": 66,
+  "y": 197,
+  "w": 63,
+  "h": 50
+ },
+ "barbarianJaw": {
+  "x": 130,
+  "y": 237,
+  "w": 45,
+  "h": 24
+ },
+ "beard": {
+  "x": 1,
+  "y": 305,
+  "w": 52,
+  "h": 30
+ },
+ "beautyFeature": {
+  "x": 244,
+  "y": 119,
+  "w": 53,
+  "h": 44
+ },
+ "beeButt": {
+  "x": 81,
+  "y": 127,
+  "w": 21,
+  "h": 18
+ },
+ "beeFeature": {
+  "x": 136,
+  "y": 143,
+  "w": 53,
+  "h": 54
+ },
+ "bellydancerBody": {
+  "x": 331,
+  "y": 94,
+  "w": 33,
+  "h": 33
+ },
+ "bellydancerFeature": {
+  "x": 111,
+  "y": 1,
+  "w": 58,
+  "h": 62
+ },
+ "broccoliHat": {
+  "x": 170,
+  "y": 1,
+  "w": 70,
+  "h": 58
+ },
+ "browFeature": {
+  "x": 425,
+  "y": 43,
+  "w": 39,
+  "h": 11
+ },
+ "bruteJaw": {
+  "x": 185,
+  "y": 274,
+  "w": 44,
+  "h": 18
+ },
+ "butterflyWings": {
+  "x": 106,
+  "y": 442,
+  "w": 42,
+  "h": 48
+ },
+ "carrotHat": {
+  "x": 298,
+  "y": 117,
+  "w": 31,
+  "h": 38
+ },
+ "cauliflowerHat": {
+  "x": 241,
+  "y": 1,
+  "w": 70,
+  "h": 58
+ },
+ "celeryArm": {
+  "x": 149,
+  "y": 122,
+  "w": 34,
+  "h": 19
+ },
+ "coffeeHead": {
+  "x": 289,
+  "y": 60,
+  "w": 41,
+  "h": 56
+ },
+ "crazyEyeL": {
+  "x": 107,
+  "y": 181,
+  "w": 14,
+  "h": 15
+ },
+ "crazyEyeR": {
+  "x": 453,
+  "y": 28,
+  "w": 14,
+  "h": 14
+ },
+ "cupidBody": {
+  "x": 370,
+  "y": 56,
+  "w": 33,
+  "h": 33
+ },
+ "cupidFeature": {
+  "x": 1,
+  "y": 146,
+  "w": 67,
+  "h": 50
+ },
+ "cupidWings": {
+  "x": 330,
+  "y": 128,
+  "w": 45,
+  "h": 27
+ },
+ "cyborgFeature": {
+  "x": 390,
+  "y": 1,
+  "w": 33,
+  "h": 35
+ },
+ "defaultArmB": {
+  "x": 425,
+  "y": 28,
+  "w": 27,
+  "h": 14
+ },
+ "defaultArmF": {
+  "x": 370,
+  "y": 90,
+  "w": 32,
+  "h": 17
+ },
+ "defaultBody": {
+  "x": 302,
+  "y": 156,
+  "w": 38,
+  "h": 36
+ },
+ "defaultEyeL": {
+  "x": 468,
+  "y": 28,
+  "w": 14,
+  "h": 14
+ },
+ "defaultEyeR": {
+  "x": 468,
+  "y": 28,
+  "w": 14,
+  "h": 14
+ },
+ "defaultFootB": {
+  "x": 111,
+  "y": 248,
+  "w": 18,
+  "h": 11
+ },
+ "defaultFootF": {
+  "x": 111,
+  "y": 248,
+  "w": 18,
+  "h": 11
+ },
+ "defaultHead": {
+  "x": 188,
+  "y": 219,
+  "w": 50,
+  "h": 54
+ },
+ "defaultJaw": {
+  "x": 69,
+  "y": 181,
+  "w": 37,
+  "h": 15
+ },
+ "defaultLowerTeeth": {
+  "x": 466,
+  "y": 43,
+  "w": 24,
+  "h": 7
+ },
+ "defaultScar": {
+  "x": 483,
+  "y": 28,
+  "w": 9,
+  "h": 10
+ },
+ "defaultUpperTeeth": {
+  "x": 477,
+  "y": 56,
+  "w": 27,
+  "h": 11
+ },
+ "diverArmB": {
+  "x": 54,
+  "y": 366,
+  "w": 26,
+  "h": 13
+ },
+ "diverArmF": {
+  "x": 1,
+  "y": 414,
+  "w": 31,
+  "h": 16
+ },
+ "diverBody": {
+  "x": 2,
+  "y": 381,
+  "w": 33,
+  "h": 32
+ },
+ "diverFootB": {
+  "x": 38,
+  "y": 381,
+  "w": 17,
+  "h": 11
+ },
+ "diverFootF": {
+  "x": 38,
+  "y": 381,
+  "w": 17,
+  "h": 11
+ },
+ "diverHead": {
+  "x": 409,
+  "y": 192,
+  "w": 62,
+  "h": 53
+ },
+ "dragonArm": {
+  "x": 149,
+  "y": 442,
+  "w": 46,
+  "h": 28
+ },
+ "eyeBrowFeature": {
+  "x": 440,
+  "y": 55,
+  "w": 35,
+  "h": 13
+ },
+ "eyebiscusHat": {
+  "x": 198,
+  "y": 474,
+  "w": 43,
+  "h": 30
+ },
+ "femaleFeature": {
+  "x": 239,
+  "y": 219,
+  "w": 51,
+  "h": 36
+ },
+ "flytrapCollar": {
+  "x": 1,
+  "y": 1,
+  "w": 109,
+  "h": 98
+ },
+ "garlicHead": {
+  "x": 54,
+  "y": 313,
+  "w": 51,
+  "h": 51
+ },
+ "girlBody": {
+  "x": 331,
+  "y": 58,
+  "w": 38,
+  "h": 35
+ },
+ "gnomeFeature": {
+  "x": 192,
+  "y": 60,
+  "w": 51,
+  "h": 103
+ },
+ "goblinEarFeature": {
+  "x": 81,
+  "y": 100,
+  "w": 28,
+  "h": 26
+ },
+ "heartichokeBody": {
+  "x": 196,
+  "y": 401,
+  "w": 51,
+  "h": 70
+ },
+ "impFeature": {
+  "x": 365,
+  "y": 108,
+  "w": 47,
+  "h": 14
+ },
+ "leprachaunBrowFeature": {
+  "x": 66,
+  "y": 248,
+  "w": 44,
+  "h": 13
+ },
+ "leprachaunEarFeature": {
+  "x": 163,
+  "y": 262,
+  "w": 21,
+  "h": 35
+ },
+ "leprachaunHatFeature": {
+  "x": 69,
+  "y": 146,
+  "w": 66,
+  "h": 34
+ },
+ "leprachaunJaw": {
+  "x": 106,
+  "y": 330,
+  "w": 49,
+  "h": 28
+ },
+ "limaBeanBody": {
+  "x": 312,
+  "y": 3,
+  "w": 40,
+  "h": 56
+ },
+ "locksFeature": {
+  "x": 111,
+  "y": 64,
+  "w": 80,
+  "h": 57
+ },
+ "mustache": {
+  "x": 110,
+  "y": 262,
+  "w": 52,
+  "h": 14
+ },
+ "nerdFeature": {
+  "x": 130,
+  "y": 198,
+  "w": 57,
+  "h": 38
+ },
+ "onionHead": {
+  "x": 110,
+  "y": 277,
+  "w": 51,
+  "h": 52
+ },
+ "partyCollar": {
+  "x": 469,
+  "y": 14,
+  "w": 20,
+  "h": 11
+ },
+ "potatoHead": {
+  "x": 244,
+  "y": 60,
+  "w": 44,
+  "h": 58
+ },
+ "pumpkinBody": {
+  "x": 72,
+  "y": 387,
+  "w": 32,
+  "h": 37
+ },
+ "pumpkinFootB": {
+  "x": 23,
+  "y": 468,
+  "w": 18,
+  "h": 11
+ },
+ "pumpkinFootF": {
+  "x": 23,
+  "y": 468,
+  "w": 18,
+  "h": 11
+ },
+ "pumpkinHatFeature": {
+  "x": 43,
+  "y": 425,
+  "w": 61,
+  "h": 54
+ },
+ "reindeerBody": {
+  "x": 34,
+  "y": 391,
+  "w": 36,
+  "h": 32
+ },
+ "reindeerFeature": {
+  "x": 342,
+  "y": 164,
+  "w": 66,
+  "h": 68
+ },
+ "robocopFeature": {
+  "x": 1,
+  "y": 262,
+  "w": 54,
+  "h": 42
+ },
+ "robocopJaw": {
+  "x": 353,
+  "y": 37,
+  "w": 38,
+  "h": 18
+ },
+ "robotFeature": {
+  "x": 1,
+  "y": 336,
+  "w": 51,
+  "h": 44
+ },
+ "santaBody": {
+  "x": 1,
+  "y": 429,
+  "w": 40,
+  "h": 37
+ },
+ "santaFootB": {
+  "x": 2,
+  "y": 469,
+  "w": 17,
+  "h": 10
+ },
+ "santaFootF": {
+  "x": 2,
+  "y": 469,
+  "w": 17,
+  "h": 10
+ },
+ "santaHatFeature": {
+  "x": 435,
+  "y": 106,
+  "w": 75,
+  "h": 84
+ },
+ "scarecrowBody": {
+  "x": 378,
+  "y": 126,
+  "w": 43,
+  "h": 38
+ },
+ "scarecrowHatFeature": {
+  "x": 107,
+  "y": 361,
+  "w": 82,
+  "h": 80
+ },
+ "skullHead": {
+  "x": 470,
+  "y": 68,
+  "w": 41,
+  "h": 37
+ },
+ "sunflowerFeature": {
+  "x": 1,
+  "y": 197,
+  "w": 64,
+  "h": 64
+ },
+ "tomatoHead": {
+  "x": 251,
+  "y": 164,
+  "w": 50,
+  "h": 48
+ },
+ "turnipArm": {
+  "x": 404,
+  "y": 55,
+  "w": 35,
+  "h": 14
+ },
+ "valentinesBody": {
+  "x": 152,
+  "y": 470,
+  "w": 40,
+  "h": 36
+ },
+ "valentinesHatFeature": {
+  "x": 193,
+  "y": 332,
+  "w": 56,
+  "h": 66
+ },
+ "vikingHatFeature": {
+  "x": 1,
+  "y": 100,
+  "w": 79,
+  "h": 45
+ },
+ "vikingJaw": {
+  "x": 424,
+  "y": 1,
+  "w": 44,
+  "h": 26
+ },
+ "vikingMustacheFeature": {
+  "x": 404,
+  "y": 70,
+  "w": 43,
+  "h": 13
+ },
+ "zombotronBody": {
+  "x": 353,
+  "y": 1,
+  "w": 36,
+  "h": 35
+ },
+ "zombotronFeature": {
+  "x": 190,
+  "y": 164,
+  "w": 60,
+  "h": 54
+ }
+}

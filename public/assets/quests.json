@@ -1,0 +1,3290 @@
+{
+ "0": {
+  "id": "0",
+  "title": "Tomato Farmin'",
+  "messageComplete": "You completed Tomato Farmin'!",
+  "tip": "These take 4 hours to grow.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 2,
+  "requirements": [
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "Tomatoes",
+    "countTotal": 10,
+    "text": "Plant 10 Tomatoes",
+    "type": 2,
+    "sprite": "stex0004.png"
+   },
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Tomatoes",
+    "countTotal": 10,
+    "text": "Harvest 10 Tomatoes",
+    "type": 2,
+    "sprite": "stex0004.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "1": {
+  "id": "1",
+  "title": "Preparin' The Farm",
+  "messageComplete": "You got yerself a farm!",
+  "tip": "Tap on the Multi-Tool and select the Plow Tool.",
+  "sprite": "Icon_Quest_Plowing.png",
+  "levelRequired": 1,
+  "prerequisiteQuest": 71,
+  "requirements": [
+   {
+    "notificationID": "kSoilPlowedNotification",
+    "notificationObject": "Plow",
+    "countTotal": 10,
+    "text": "Plow 10 patches of soil",
+    "type": 2,
+    "sprite": "stex0036.png"
+   },
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "Carrots",
+    "countTotal": 10,
+    "text": "Plant 10 carrots",
+    "type": 2,
+    "sprite": "stex0006.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 20,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "10": {
+  "id": "10",
+  "title": "Farm Essentials 2",
+  "messageComplete": "You completed Farm Essentials 2!",
+  "tip": "You don't want to know what's in those barrels.",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 9,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Barrel",
+    "countTotal": 2,
+    "text": "Buy 2 Brown Barrels",
+    "type": 2,
+    "sprite": "stex0040.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Hedge",
+    "countTotal": 2,
+    "text": "Buy 2 Green Hedges",
+    "type": 2,
+    "sprite": "stex0039.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 40,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "1000": {
+  "id": "1000",
+  "title": "Dr. Zombie",
+  "messageComplete": "You defeated Dr. Groundhog Level 5!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_drgroundhog.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "5",
+    "countTotal": 1,
+    "text": "Dr. Groundhog Level 5 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 5,
+  "rewardValue": 0,
+  "rewardItem": "Dr. Zombie",
+  "rewardItemKey": "ZombieActorRegularData",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "1001": {
+  "id": "1001",
+  "title": "Defeat Dr. Groundhog Level 10",
+  "messageComplete": "You defeated Dr. Groundhog Level 10!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_drgroundhog.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 1000,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "10",
+    "countTotal": 1,
+    "text": "Dr. Groundhog Level 10 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Invasion Voucher",
+  "rewardItemKey": "Invasion Voucher",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "1002": {
+  "id": "1002",
+  "title": "Defeat Dr. Groundhog Level 15",
+  "messageComplete": "You defeated Dr. Groundhog Level 15!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_drgroundhog.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 1001,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "15",
+    "countTotal": 1,
+    "text": "Dr. Groundhog Level 15 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 1,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "1003": {
+  "id": "1003",
+  "title": "Defeat Dr. Groundhog Level 20",
+  "messageComplete": "You defeated Dr. Groundhog Level 20!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_drgroundhog.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 1002,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "20",
+    "countTotal": 1,
+    "text": "Dr. Groundhog Level 20 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "Golden Dice",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "1010": {
+  "id": "1010",
+  "title": "Dr. Groundhog's Evil Items",
+  "messageComplete": "You pilfered Dr. Groundhog into poverty!",
+  "tip": "Defeat Dr. Groundhog to collect these items",
+  "sprite": "questicon_drgroundhog.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Evil Device",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Evil Device",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Tricycle",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Tricycle",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Nut Stash",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Nut Stash",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Lab Shelves",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Lab Shelves",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Lab Table",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Lab Table",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Lab",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Lab",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Burrow",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Burrow",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Dr. Groundhog's Distillery",
+    "countTotal": 1,
+    "text": "Dr. Groundhog's Distillery",
+    "type": 2,
+    "sprite": "questicon_drgroundhog.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 5,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "1011": {
+  "id": "1011",
+  "title": "Omega Dr. Zombie",
+  "messageComplete": "You defeated Dr. Groundhog Level 20!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_drgroundhog.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "20",
+    "countTotal": 1,
+    "text": "Dr. Groundhog Level 20 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 5,
+  "rewardValue": 0,
+  "rewardItem": "Omega Dr. Zombie",
+  "rewardItemKey": "ZombieActorRegularData",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "11": {
+  "id": "11",
+  "title": "Grave Essentials",
+  "messageComplete": "You completed Grave Essentials!",
+  "tip": "No Zombie Farm is complete without a few gravestones.",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Gravestone",
+    "countTotal": 2,
+    "text": "Buy 2 Gravestones",
+    "type": 2,
+    "sprite": "stex0041.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Daisy",
+    "countTotal": 5,
+    "text": "Buy 5 Daisies",
+    "type": 2,
+    "sprite": "tex1021.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 40,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "12": {
+  "id": "12",
+  "title": "Gardening 101",
+  "messageComplete": "You completed Gardening 101!",
+  "tip": "Garden Zombies can fertilize your crops, making them worth double!",
+  "sprite": "Icon_Quest_HarvestZombies.png",
+  "levelRequired": 6,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Garden Zombie",
+    "countTotal": 2,
+    "text": "Harvest 2 Garden Zombies",
+    "type": 2,
+    "sprite": "stex0000.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 40,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "13": {
+  "id": "13",
+  "title": "Farming the farmer",
+  "messageComplete": "You beat Old McDonnell 3 times!",
+  "tip": "For the best results, invade with at least 16 zombies.",
+  "sprite": "Icon_Quest_OldMcDonnell.png",
+  "levelRequired": 10,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Old McDonnell's Farm",
+    "countTotal": 3,
+    "text": "Beat Old McDonnell 3x",
+    "type": 2,
+    "sprite": "Icon_Quest_OldMcDonnell.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 50,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "14": {
+  "id": "14",
+  "title": "Laying Down The Law",
+  "messageComplete": "You beat CorporateVille 3 times!",
+  "tip": "Try investing in blue or red zombies.",
+  "sprite": "Icon_Quest_City.png",
+  "levelRequired": 16,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Zombies vs Lawyers",
+    "countTotal": 3,
+    "text": "Beat CorporateVille 3x",
+    "type": 2,
+    "sprite": "Icon_Quest_City.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 75,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "15": {
+  "id": "15",
+  "title": "Plundering the Pirates",
+  "messageComplete": "You beat The Dread Pirate Arrrnold 3 times!",
+  "tip": "Speed might prove dangerous here.",
+  "sprite": "Icon_Quest_Pirates.png",
+  "levelRequired": 21,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Zombies vs Pirates",
+    "countTotal": 3,
+    "text": "Beat The Dread Pirate Arrrnold 3x",
+    "type": 2,
+    "sprite": "Icon_Quest_Pirates.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 150,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "16": {
+  "id": "16",
+  "title": "Looting the Ninjas",
+  "messageComplete": "You beat Mr. Whiskers 3 times!",
+  "tip": "Get a strong army of mutated and special zombies.",
+  "sprite": "Icon_Quest_Ninjas.png",
+  "levelRequired": 26,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Zombies vs Ninjas",
+    "countTotal": 3,
+    "text": "Beat Mr. Whiskers 3 times",
+    "type": 2,
+    "sprite": "Icon_Quest_Ninjas.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 500,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "17": {
+  "id": "17",
+  "title": "Farm Photography 1",
+  "messageComplete": "You took some great photos!",
+  "tip": "Buy the camera in the store under Functional Items.",
+  "sprite": "Icon_Quest_Camera.png",
+  "levelRequired": 12,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kPhotoTakenNotification",
+    "notificationObject": "",
+    "countTotal": 3,
+    "text": "Take 3 pictures with camera",
+    "type": 2,
+    "sprite": "Icon_Quest_Camera.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 50,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "18": {
+  "id": "18",
+  "title": "Farm Photography 2",
+  "messageComplete": "You took some great photos!",
+  "tip": "Buy the camera in the store under Functional Items.",
+  "sprite": "Icon_Quest_Camera.png",
+  "levelRequired": 18,
+  "prerequisiteQuest": 17,
+  "requirements": [
+   {
+    "notificationID": "kPhotoTakenNotification",
+    "notificationObject": "",
+    "countTotal": 3,
+    "text": "Take 3 pictures with camera",
+    "type": 2,
+    "sprite": "Icon_Quest_Camera.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 100,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "19": {
+  "id": "19",
+  "title": "Farm Photography 3",
+  "messageComplete": "You took some great photos!",
+  "tip": "Buy the camera in the store under Functional Items.",
+  "sprite": "Icon_Quest_Camera.png",
+  "levelRequired": 23,
+  "prerequisiteQuest": 18,
+  "requirements": [
+   {
+    "notificationID": "kPhotoTakenNotification",
+    "notificationObject": "",
+    "countTotal": 3,
+    "text": "Take 3 pictures with camera",
+    "type": 2,
+    "sprite": "Icon_Quest_Camera.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 150,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "2": {
+  "id": "2",
+  "title": "A Bountiful Harvest",
+  "messageComplete": "You completed A Bountiful Harvest!",
+  "tip": "Any 15 crops will do!",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "",
+    "countTotal": 15,
+    "text": "Harvest 15 crops",
+    "type": 2,
+    "sprite": "stex0029.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 20,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "20": {
+  "id": "20",
+  "title": "Farm Photography 4",
+  "messageComplete": "You took some great photos!",
+  "tip": "Buy the camera in the store under Functional Items.",
+  "sprite": "Icon_Quest_Camera.png",
+  "levelRequired": 28,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kPhotoTakenNotification",
+    "notificationObject": "",
+    "countTotal": 3,
+    "text": "Take 3 pictures with camera",
+    "type": 2,
+    "sprite": "Icon_Quest_Camera.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "2000": {
+  "id": "2000",
+  "title": "Bandido Zombie",
+  "messageComplete": "You defeated Loco Locust Level 5!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "5",
+    "countTotal": 1,
+    "text": "Loco Locust Level 5 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 5,
+  "rewardValue": 0,
+  "rewardItem": "Bandido Zombie",
+  "rewardItemKey": "ZombieActorRegularData",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "2001": {
+  "id": "2001",
+  "title": "Defeat Loco Locust Level 10",
+  "messageComplete": "You defeated Loco Locust Level 10!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 2000,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "10",
+    "countTotal": 1,
+    "text": "Loco Locust Level 10 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Invasion Voucher",
+  "rewardItemKey": "Invasion Voucher",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "2002": {
+  "id": "2002",
+  "title": "Defeat Loco Locust Level 15",
+  "messageComplete": "You defeated Loco Locust Level 15!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 2001,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "15",
+    "countTotal": 1,
+    "text": "Loco Locust Level 15 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 1,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "2003": {
+  "id": "2003",
+  "title": "Defeat Loco Locust Level 20",
+  "messageComplete": "You defeated Loco Locust Level 20!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 2002,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "20",
+    "countTotal": 1,
+    "text": "Loco Locust Level 20 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "Golden Dice",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "2004": {
+  "id": "2004",
+  "title": "Defeat Loco Locust Level 25",
+  "messageComplete": "You defeated Loco Locust Level 25!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 2003,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "25",
+    "countTotal": 1,
+    "text": "Loco Locust Level 25 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 2,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "2005": {
+  "id": "2005",
+  "title": "Defeat Loco Locust Level 30",
+  "messageComplete": "You defeated Loco Locust Level 30!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 2004,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "30",
+    "countTotal": 1,
+    "text": "Loco Locust Level 30 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "Golden Dice",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "2006": {
+  "id": "2006",
+  "title": "Defeat Loco Locust Level 35",
+  "messageComplete": "You defeated Loco Locust Level 35!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 2005,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "35",
+    "countTotal": 1,
+    "text": "Loco Locust Level 35 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 5,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "2010": {
+  "id": "2010",
+  "title": "Loco Locust's Evil Items",
+  "messageComplete": "You pilfered Loco Locust into poverty!",
+  "tip": "Defeat Loco Locust to collect these items",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Cactus Target",
+    "countTotal": 1,
+    "text": "Loco Locust's Cactus Target",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Saddle",
+    "countTotal": 1,
+    "text": "Loco Locust's Saddle",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Rocking Horse",
+    "countTotal": 1,
+    "text": "Loco Locust's Rocking Horse",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Boots",
+    "countTotal": 1,
+    "text": "Loco Locust's Boots",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Banjo",
+    "countTotal": 1,
+    "text": "Loco Locust's Banjo",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Saloon",
+    "countTotal": 1,
+    "text": "Loco Locust's Saloon",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Gun Rack",
+    "countTotal": 1,
+    "text": "Loco Locust's Gun Rack",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Loco Locust's Hideout",
+    "countTotal": 1,
+    "text": "Loco Locust's Hideout",
+    "type": 2,
+    "sprite": "questicon_locolocust.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 5,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "2011": {
+  "id": "2011",
+  "title": "Vagabond Zombie",
+  "messageComplete": "You defeated Loco Locust Level 40!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "questicon_locolocust.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "40",
+    "countTotal": 1,
+    "text": "Loco Locust Level 40 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 5,
+  "rewardValue": 0,
+  "rewardItem": "Vagabond Zombie",
+  "rewardItemKey": "ZombieActorRegularData",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "21": {
+  "id": "21",
+  "title": "Cook Up Some Zombies",
+  "messageComplete": "You completed Cook Up Some Zombies!",
+  "tip": "Experiment with the Zombie Pot to get these.",
+  "sprite": "Icon_Quest_Combining.png",
+  "levelRequired": 25,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCombinerHarvestedNotification",
+    "notificationObject": "Robo Zombie",
+    "countTotal": 1,
+    "text": "Combine for a Robo Zombie",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   },
+   {
+    "notificationID": "kCombinerHarvestedNotification",
+    "notificationObject": "Zombielocks",
+    "countTotal": 1,
+    "text": "Combine for a Zombielocks",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   },
+   {
+    "notificationID": "kCombinerHarvestedNotification",
+    "notificationObject": "Imp Zombie",
+    "countTotal": 1,
+    "text": "Combine for an Imp Zombie",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "22": {
+  "id": "22",
+  "title": "Cook Up Some More Zombies",
+  "messageComplete": "You completed Cook Up Some More Zombies!",
+  "tip": "Experiment with the Zombie Pot to get these.",
+  "sprite": "Icon_Quest_Combining.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 21,
+  "requirements": [
+   {
+    "notificationID": "kCombinerHarvestedNotification",
+    "notificationObject": "Party Zombie",
+    "countTotal": 1,
+    "text": "Combine for a Party Zombie",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   },
+   {
+    "notificationID": "kCombinerHarvestedNotification",
+    "notificationObject": "Zombarian",
+    "countTotal": 1,
+    "text": "Combine for a Zombarian",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   },
+   {
+    "notificationID": "kCombinerHarvestedNotification",
+    "notificationObject": "Zombee",
+    "countTotal": 1,
+    "text": "Combine for a Zombee",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "23": {
+  "id": "23",
+  "title": "Plow Now Brown Cow",
+  "messageComplete": "You completed Plow Now Brown Cow!",
+  "tip": "Why settle for 50 when you can have 85?",
+  "sprite": "Icon_Quest_Plowing.png",
+  "levelRequired": 13,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kSoilPlowedNotification",
+    "notificationObject": "",
+    "countTotal": 100,
+    "text": "Plow 100 patches of soil",
+    "type": 2,
+    "sprite": "stex0036.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 50,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "24": {
+  "id": "24",
+  "title": "It's Plow Or Never",
+  "messageComplete": "You completed It's Plow Or Never!",
+  "tip": "Plots! Plots as far as the eye can see!",
+  "sprite": "Icon_Quest_Plowing.png",
+  "levelRequired": 17,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kSoilPlowedNotification",
+    "notificationObject": "",
+    "countTotal": 150,
+    "text": "Plow 150 patches of soil",
+    "type": 2,
+    "sprite": "stex0036.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 100,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "25": {
+  "id": "25",
+  "title": "Plow It Good",
+  "messageComplete": "You completed Plow It Good!",
+  "tip": "You can never have too many plots. Or maybe you can.",
+  "sprite": "Icon_Quest_Plowing.png",
+  "levelRequired": 22,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kSoilPlowedNotification",
+    "notificationObject": "",
+    "countTotal": 200,
+    "text": "Plow 200 patches of soil",
+    "type": 2,
+    "sprite": "stex0036.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 100,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "26": {
+  "id": "26",
+  "title": "Live Laugh Plow",
+  "messageComplete": "You completed Live Laugh Plow!",
+  "tip": "Now this is getting a bit silly.",
+  "sprite": "Icon_Quest_Plowing.png",
+  "levelRequired": 27,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kSoilPlowedNotification",
+    "notificationObject": "",
+    "countTotal": 250,
+    "text": "Plow 250 patches of soil",
+    "type": 2,
+    "sprite": "stex0036.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 250,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "27": {
+  "id": "27",
+  "title": "Candyland",
+  "messageComplete": "You completed CandyLand!",
+  "tip": "Not for human (or zombie) consumption.",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": 23,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Giant Lollipop",
+    "countTotal": 2,
+    "text": "Buy 2 Giant Lollipops",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Cotton Candy Tree",
+    "countTotal": 2,
+    "text": "Buy 2 Cotton Candy Trees",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Balloon",
+    "countTotal": 2,
+    "text": "Buy 2 Red Balloons",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "28": {
+  "id": "28",
+  "title": "Flower Power",
+  "messageComplete": "You completed Flower Power!",
+  "tip": "Zombies love to stop and smell the roses.",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": 13,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Red Flower Bed",
+    "countTotal": 2,
+    "text": "Buy 2 Red Flower Beds",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Violet Flower Bed",
+    "countTotal": 2,
+    "text": "Buy 2 Violet Flower Beds",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Yellow Flower Bed",
+    "countTotal": 2,
+    "text": "Buy 2 Yellow Flower Beds",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 50,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "29": {
+  "id": "29",
+  "title": "Man or Machine",
+  "messageComplete": "You completed Man or Machine!",
+  "tip": "Part robot. Part zombie. Not even a little bit cop.",
+  "sprite": "Icon_Quest_HarvestZombies.png",
+  "levelRequired": 18,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Zombot",
+    "countTotal": 8,
+    "text": "Harvest 8 Zombots",
+    "type": 2,
+    "sprite": "stex0000.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 100,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "3": {
+  "id": "3",
+  "title": "A Zombieful Harvest",
+  "messageComplete": "You completed A Zombieful Harvest!",
+  "tip": "This is an excellent start to your army.",
+  "sprite": "Icon_Quest_HarvestZombies.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "",
+    "countTotal": 8,
+    "text": "Harvest 8 Zombies",
+    "type": 2,
+    "sprite": "stex0000.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 20,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "30": {
+  "id": "30",
+  "title": "Dead Flowers",
+  "messageComplete": "You completed Dead Flowers!",
+  "tip": "This fertilizes better than the Garden Zombie.",
+  "sprite": "Icon_Quest_HarvestZombies.png",
+  "levelRequired": 20,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Flower Zombie",
+    "countTotal": 3,
+    "text": "Harvest 3 Flower Zombies",
+    "type": 2,
+    "sprite": "stex0000.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 100,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "31": {
+  "id": "31",
+  "title": "Corpse Party",
+  "messageComplete": "You completed Corpse Party!",
+  "tip": "This is much more cheerful than you might think.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 24,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "Corpse Flower",
+    "countTotal": 20,
+    "text": "Plant 20 Corpse Flowers",
+    "type": 2,
+    "sprite": "stex0029.png"
+   },
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Corpse Flower",
+    "countTotal": 20,
+    "text": "Harvest 20 Corpse Flowers",
+    "type": 2,
+    "sprite": "stex0029.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "32": {
+  "id": "32",
+  "title": "Broccoflower",
+  "messageComplete": "You completed Broccoflower!",
+  "tip": "The favored food for vegetarian zombies.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 19,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Broccoli",
+    "countTotal": 10,
+    "text": "Harvest 10 Broccoli",
+    "type": 2,
+    "sprite": "stex0029.png"
+   },
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Cauliflower",
+    "countTotal": 10,
+    "text": "Harvest 10 Cauliflower",
+    "type": 2,
+    "sprite": "stex0029.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 100,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "33": {
+  "id": "33",
+  "title": "A Fruit and a Spine",
+  "messageComplete": "You completed A Fruit and a Spine!",
+  "tip": "This fast crop only takes 15 minutes to grow!",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 14,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "Spineapple",
+    "countTotal": 10,
+    "text": "Plant 10 Spineapples",
+    "type": 2,
+    "sprite": "stex0029.png"
+   },
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Spineapple",
+    "countTotal": 10,
+    "text": "Harvest 10 Spineapples",
+    "type": 2,
+    "sprite": "stex0029.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 75,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "34": {
+  "id": "34",
+  "title": "Chocoholic",
+  "messageComplete": "You completed Chocoholic!",
+  "tip": "Create the most delicious of roads.",
+  "sprite": "Icon_Quest_Valentines.png",
+  "levelRequired": 34,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Chocolate Tile",
+    "countTotal": 6,
+    "text": "Buy 6 chocolate tiles",
+    "type": 2,
+    "sprite": "Icon_Quest_Valentines.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 75,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "35": {
+  "id": "35",
+  "title": "Have a Heart",
+  "messageComplete": "You completed Have a Heart!",
+  "tip": "Love is in the air and on your farm.",
+  "sprite": "Icon_Quest_Valentines.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 34,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Heart Gravestone",
+    "countTotal": 1,
+    "text": "Buy 1 Heart Gravestone",
+    "type": 2,
+    "sprite": "Icon_Quest_Valentines.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Heart Hedge",
+    "countTotal": 1,
+    "text": "Buy 1 Heart Hedge",
+    "type": 2,
+    "sprite": "Icon_Quest_Valentines.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Heart Candle",
+    "countTotal": 1,
+    "text": "Buy 1 Heart Candle",
+    "type": 2,
+    "sprite": "Icon_Quest_Valentines.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 75,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "36": {
+  "id": "36",
+  "title": "Statuesque",
+  "messageComplete": "You completed Statuesque!",
+  "tip": "Nothing says love more than creepy zombie cupids.",
+  "sprite": "Icon_Quest_Valentines.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 35,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Cupid Statue A",
+    "countTotal": 1,
+    "text": "Buy 1 Cupid Statue A",
+    "type": 2,
+    "sprite": "Icon_Quest_Valentines.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Cupid Statue B",
+    "countTotal": 1,
+    "text": "Buy 1 Cupid Statue B",
+    "type": 2,
+    "sprite": "Icon_Quest_Valentines.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Valentine Gift",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "37": {
+  "id": "37",
+  "title": "Raiding the Robots",
+  "messageComplete": "You beat the Robots 3 times!",
+  "tip": "Having trouble? Buy a Zombie Monolith to get more reinforcements.",
+  "sprite": "Icon_Quest_Robots.png",
+  "levelRequired": 31,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Zombies vs Robots",
+    "countTotal": 3,
+    "text": "Beat the Robots 3x",
+    "type": 2,
+    "sprite": "Icon_Quest_Robots.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 600,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "38": {
+  "id": "38",
+  "title": "Badger Badger Badger",
+  "messageComplete": "You beat the Easter Badger 3 times!",
+  "tip": "Balloons are surprisingly dangerous.",
+  "sprite": "Icon_Quest_Easter.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Seasonal: Easter",
+    "countTotal": 3,
+    "text": "Beat the Easter Badger",
+    "type": 2,
+    "sprite": "Icon_Quest_Easter.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "5/7/2011",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "39": {
+  "id": "39",
+  "title": "Egg Hunting",
+  "messageComplete": "You completed Egg Hunting",
+  "tip": "You don't want to know where the Easter Badger got these.",
+  "sprite": "Icon_Quest_Easter.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Blue Easter Egg",
+    "countTotal": 3,
+    "text": "Buy 3 Blue Easter Egg",
+    "type": 2,
+    "sprite": "Icon_Quest_Easter.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Pink Easter Egg",
+    "countTotal": 3,
+    "text": "Buy 3 Pink Easter Egg",
+    "type": 2,
+    "sprite": "Icon_Quest_Easter.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Egg",
+    "countTotal": 3,
+    "text": "Buy 3 Eggs",
+    "type": 2,
+    "sprite": "Icon_Quest_Easter.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "5/7/2011",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "4": {
+  "id": "4",
+  "title": "Corpse Variety",
+  "messageComplete": "You completed Corpse Variety!",
+  "tip": "Need more room for zombies? Buy a mausoleum!",
+  "sprite": "Icon_Quest_HarvestZombies.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 3,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Mini Zombie",
+    "countTotal": 3,
+    "text": "Harvest 3 Mini Zombies",
+    "type": 2,
+    "sprite": "stex0000.png"
+   },
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Zombie",
+    "countTotal": 2,
+    "text": "Harvest 2 Regular Zombies",
+    "type": 2,
+    "sprite": "stex0000.png"
+   },
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Girl Zombie",
+    "countTotal": 2,
+    "text": "Harvest 2 Girl Zombies",
+    "type": 2,
+    "sprite": "stex0000.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "40": {
+  "id": "40",
+  "title": "99 Red Balloons",
+  "messageComplete": "You popped 99 red balloons!",
+  "tip": "Persistence pays off.",
+  "sprite": "Icon_Quest_Easter.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kStageActorDefeated",
+    "notificationObject": "Red Balloon",
+    "countTotal": 99,
+    "text": "Pop the Badger's balloons",
+    "type": 2,
+    "sprite": "Icon_Quest_Easter.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "White Bunny",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "5/7/2011",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "4000": {
+  "id": "4000",
+  "title": "Christmas Ghost Zombie",
+  "messageComplete": "You defeated Foul Owl Level 5!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "5",
+    "countTotal": 1,
+    "text": "Foul Owl Level 5 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 5,
+  "rewardValue": 0,
+  "rewardItem": "Christmas Ghost Zombie",
+  "rewardItemKey": "ZombieActorRegularData",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "4001": {
+  "id": "4001",
+  "title": "Defeat Foul Owl Level 10",
+  "messageComplete": "You defeated Foul Owl Level 10!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 4000,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "10",
+    "countTotal": 1,
+    "text": "Foul Owl Level 10 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Invasion Voucher",
+  "rewardItemKey": "Invasion Voucher",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "4002": {
+  "id": "4002",
+  "title": "Defeat Foul Owl Level 15",
+  "messageComplete": "You defeated Foul Owl Level 15!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 4001,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "15",
+    "countTotal": 1,
+    "text": "Foul Owl Level 15 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 1,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "4003": {
+  "id": "4003",
+  "title": "Defeat Foul Owl Level 20",
+  "messageComplete": "You defeated Foul Owl Level 20!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 4002,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "20",
+    "countTotal": 1,
+    "text": "Foul Owl Level 20 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "Golden Dice",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "4004": {
+  "id": "4004",
+  "title": "Defeat Foul Owl Level 25",
+  "messageComplete": "You defeated Foul Owl Level 25!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 4003,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "25",
+    "countTotal": 1,
+    "text": "Foul Owl Level 25 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 2,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "4005": {
+  "id": "4005",
+  "title": "Defeat Fould Owl Level 30",
+  "messageComplete": "You defeated Foul Owl Level 30!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 4004,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "30",
+    "countTotal": 1,
+    "text": "Foul Owl Level 30 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "Golden Dice",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "4006": {
+  "id": "4006",
+  "title": "Defeat Foul Owl Level 35",
+  "messageComplete": "You defeated Foul Owl Level 35!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 4005,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "35",
+    "countTotal": 1,
+    "text": "Foul Owl Level 35 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 5,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "4010": {
+  "id": "4010",
+  "title": "Foul Owl's Evil Items",
+  "messageComplete": "You pilfered Foul Owl into poverty!",
+  "tip": "Defeat Foul Owl to collect these items",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Foul Owl's Gift Incinerator",
+    "countTotal": 1,
+    "text": "Foul Owl's Gift Incinerator",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Foul Owl's Evil Carriage",
+    "countTotal": 1,
+    "text": "Foul Owl's Evil Carriage",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Farmhand Snowman",
+    "countTotal": 1,
+    "text": "Farmhand Snowman",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Lumberjack Snowman",
+    "countTotal": 1,
+    "text": "Lumberjack Snowman",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Boss Farmer Snowman",
+    "countTotal": 1,
+    "text": "Boss Farmer Snowman",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Zombie Snowman",
+    "countTotal": 1,
+    "text": "Zombie Snowman",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Foul Owl's Gift Vault",
+    "countTotal": 1,
+    "text": "Foul Owl's Gift Vault",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   },
+   {
+    "notificationID": "kEpicBossEpicItemWonNotification",
+    "notificationObject": "Foul Owl's Colossal Snowman",
+    "countTotal": 1,
+    "text": "Foul Owl's Colossal Snowman",
+    "type": 2,
+    "sprite": "Icon_Quest_FoulOwl.png"
+   }
+  ],
+  "rewardType": 2,
+  "rewardValue": 5,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "4011": {
+  "id": "4011",
+  "title": "Scrooge Zombie",
+  "messageComplete": "You defeated Foul Owl Level 40!",
+  "tip": "Harvest crops to reveal the Enemy.",
+  "sprite": "Icon_Quest_FoulOwl.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "40",
+    "countTotal": 1,
+    "text": "Foul Owl Level 40 Defeated",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 5,
+  "rewardValue": 0,
+  "rewardItem": "Scrooge Zombie",
+  "rewardItemKey": "ZombieActorRegularData",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "41": {
+  "id": "41",
+  "title": "Ambushing the Aliens",
+  "messageComplete": "You beat the Aliens 3 times!",
+  "tip": "There sure are a lot of them.",
+  "sprite": "Icon_Quest_Invasion.png",
+  "levelRequired": 36,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Zombies vs Aliens",
+    "countTotal": 3,
+    "text": "Beat the Aliens 3x",
+    "type": 2,
+    "sprite": "Icon_Quest_Invasion.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 700,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "42": {
+  "id": "42",
+  "title": "Lactose Intolerance",
+  "messageComplete": "You beat the Dairy King 3 times!",
+  "tip": "Watch out for the blizzard!",
+  "sprite": "quest_icon_brainfreeze.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Seasonal : Brain Freeze",
+    "countTotal": 3,
+    "text": "Beat the Dairy King 3x",
+    "type": 2,
+    "sprite": "quest_icon_brainfreeze.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Golden Dice",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "6/30/2011",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "43": {
+  "id": "43",
+  "title": "Brain Freeze",
+  "messageComplete": "You collected all 3 ice cream cones!",
+  "tip": "Invade the Dairy King to win these!",
+  "sprite": "quest_icon_brainfreeze.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Vanilla Cone",
+    "countTotal": 1,
+    "text": "Win a vanilla cone",
+    "type": 1,
+    "sprite": "quest_icon_brainfreeze.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Chocolate Cone",
+    "countTotal": 1,
+    "text": "Win a chocolate cone",
+    "type": 1,
+    "sprite": "quest_icon_brainfreeze.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Strawberry Cone",
+    "countTotal": 1,
+    "text": "Win a strawberry cone",
+    "type": 1,
+    "sprite": "quest_icon_brainfreeze.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "6/30/2011",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "44": {
+  "id": "44",
+  "title": "Survivin' the Blizzard",
+  "messageComplete": "You completed Survivin' the Blizzard!",
+  "tip": "Don't lose a single zombie in the fight.",
+  "sprite": "quest_icon_brainfreeze.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionPerfectGameNotification",
+    "notificationObject": "Seasonal : Brain Freeze",
+    "countTotal": 1,
+    "text": "Beat the Dairy King unscathed",
+    "type": 2,
+    "sprite": "quest_icon_brainfreeze.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "6/30/2011",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "45": {
+  "id": "45",
+  "title": "Big Top Bash",
+  "messageComplete": "You beat the Ringmaster 3 times!",
+  "tip": "Watch out for the trapeze!",
+  "sprite": "Icon_Quest_Circus.png",
+  "levelRequired": 12,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Zombies vs Circus",
+    "countTotal": 3,
+    "text": "Beat the Ringmaster 3x",
+    "type": 2,
+    "sprite": "Icon_Quest_Circus.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Circus Popcorn",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "46": {
+  "id": "46",
+  "title": "Capture the Flag",
+  "messageComplete": "You collected all 3 circus flags!",
+  "tip": "Invade the Ringmaster to win these!",
+  "sprite": "Icon_Quest_Circus.png",
+  "levelRequired": 12,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Circus Flag: Blue",
+    "countTotal": 1,
+    "text": "Win a blue circus flag",
+    "type": 1,
+    "sprite": "Icon_Quest_Circus.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Circus Flag: Green",
+    "countTotal": 1,
+    "text": "Win a green circus flag",
+    "type": 1,
+    "sprite": "Icon_Quest_Circus.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Circus Flag: Yellow",
+    "countTotal": 1,
+    "text": "Win a yellow circus flag",
+    "type": 1,
+    "sprite": "Icon_Quest_Circus.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "47": {
+  "id": "47",
+  "title": "Ringmastered",
+  "messageComplete": "You completed Ringmastered!",
+  "tip": "Don't lose a single zombie in the fight.",
+  "sprite": "Icon_Quest_Circus.png",
+  "levelRequired": 12,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionPerfectGameNotification",
+    "notificationObject": "Zombies vs Circus",
+    "countTotal": 1,
+    "text": "Defeat the Ringmaster unscathed",
+    "type": 2,
+    "sprite": "Icon_Quest_Circus.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "48": {
+  "id": "48",
+  "title": "Down for the Count",
+  "messageComplete": "You beat Count von Uberbiss 3 times!",
+  "tip": "Break down the pumpkin!",
+  "sprite": "Icon_Quest_Halloween.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Seasonal : Halloween",
+    "countTotal": 3,
+    "text": "Beat the Count 3x",
+    "type": 2,
+    "sprite": "Icon_Quest_Halloween.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Spooky Tree",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "49": {
+  "id": "49",
+  "title": "Six Feet Under",
+  "messageComplete": "You collected all 3 coffins!",
+  "tip": "Invade Count von Uberbiss to win these!",
+  "sprite": "Icon_Quest_Halloween.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Coffin 1",
+    "countTotal": 1,
+    "text": "Win Coffin 1",
+    "type": 1,
+    "sprite": "Icon_Quest_Halloween.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Coffin 2",
+    "countTotal": 1,
+    "text": "Win Coffin 2",
+    "type": 1,
+    "sprite": "Icon_Quest_Halloween.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Coffin 3",
+    "countTotal": 1,
+    "text": "Win Coffin 3",
+    "type": 1,
+    "sprite": "Icon_Quest_Halloween.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "5": {
+  "id": "5",
+  "title": "Ruff n' Tuff",
+  "messageComplete": "You completed Ruff n' Tuff!",
+  "tip": "These zombies are great front line fighters.",
+  "sprite": "Icon_Quest_HarvestZombies.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 4,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Headless Zombie",
+    "countTotal": 2,
+    "text": "Harvest 2 Headless Zombies",
+    "type": 2,
+    "sprite": "stex0000.png"
+   },
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "ZomBumpkin",
+    "countTotal": 1,
+    "text": "Harvest 1 Zombumpkin",
+    "type": 2,
+    "sprite": "stex0000.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "50": {
+  "id": "50",
+  "title": "Uber Loser",
+  "messageComplete": "You completed Uber Loser!",
+  "tip": "Don't lose a single zombie in the fight.",
+  "sprite": "Icon_Quest_Halloween.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionPerfectGameNotification",
+    "notificationObject": "Seasonal : Halloween",
+    "countTotal": 1,
+    "text": "Defeat the Count unscathed",
+    "type": 2,
+    "sprite": "Icon_Quest_Halloween.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "5000": {
+  "id": "5000",
+  "title": "Collect Em All",
+  "messageComplete": "You completed all of Skunkarella's Prize Cards!",
+  "tip": "Keep defeating Skunkarella to collect stamps.",
+  "sprite": "questIcon_EP_Boss7.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "5",
+    "countTotal": 1,
+    "text": "Complete Card 1",
+    "type": 3,
+    "sprite": "stex1003.png"
+   },
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "10",
+    "countTotal": 1,
+    "text": "Complete Card 2",
+    "type": 3,
+    "sprite": "stex1003.png"
+   },
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "15",
+    "countTotal": 1,
+    "text": "Complete Card 3",
+    "type": 3,
+    "sprite": "stex1003.png"
+   },
+   {
+    "notificationID": "kEpicStageEnemyDefeatedNotification",
+    "notificationObject": "20",
+    "countTotal": 1,
+    "text": "Complete Card 4",
+    "type": 3,
+    "sprite": "stex1003.png"
+   }
+  ],
+  "rewardType": 5,
+  "rewardValue": 0,
+  "rewardItem": "Diva Zombie",
+  "rewardItemKey": "ZombieActorGirlData",
+  "tutorialQuest": false,
+  "epicEvent": true,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "51": {
+  "id": "51",
+  "title": "Breaking the Spell",
+  "messageComplete": "You beat Goffy!",
+  "tip": "Watch out for her spells!",
+  "sprite": "Icon_Quest_TW.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Tree World",
+    "countTotal": 1,
+    "text": "Defeat Goffy, the evil fairy",
+    "type": 2,
+    "sprite": "Icon_Quest_TW.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "52": {
+  "id": "52",
+  "title": "Poppy Power",
+  "messageComplete": "You beat Goffy 5 times!",
+  "tip": "Watch out for her spells!",
+  "sprite": "Icon_Quest_TW.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": 51,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Tree World",
+    "countTotal": 5,
+    "text": "Defeat Goffy five times",
+    "type": 2,
+    "sprite": "Icon_Quest_TW.png"
+   }
+  ],
+  "rewardType": 3,
+  "rewardValue": 0,
+  "rewardItem": "Poppy",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "53": {
+  "id": "53",
+  "title": "Bushwhacked",
+  "messageComplete": "You collected all 3 bushes!",
+  "tip": "Invade Goffy to win these!",
+  "sprite": "Icon_Quest_TW.png",
+  "levelRequired": 8,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Bunnypig Bush",
+    "countTotal": 1,
+    "text": "Win Bunnypig Bush",
+    "type": 1,
+    "sprite": "Icon_Quest_TW.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Mosscrab Bush",
+    "countTotal": 1,
+    "text": "Win Mosscrab Bush",
+    "type": 1,
+    "sprite": "Icon_Quest_TW.png"
+   },
+   {
+    "notificationID": "kLootItemWonNotification",
+    "notificationObject": "Cobrahawk Bush",
+    "countTotal": 1,
+    "text": "Win Cobrahawk Bush",
+    "type": 1,
+    "sprite": "Icon_Quest_TW.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": true,
+  "seasonalDate": "",
+  "removeQuest": true,
+  "ignoreCheckQuest": false
+ },
+ "54": {
+  "id": "54",
+  "title": "Hello, Zombie!",
+  "messageComplete": "Yer very own Zombie!",
+  "tip": "Tap on the plowed land to open the Market.",
+  "sprite": "Icon_Quest_HarvestZombies.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 71,
+  "requirements": [
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "Zombie",
+    "countTotal": 1,
+    "text": "Plant a regular zombie",
+    "type": 2,
+    "sprite": "Icon_Quest_HarvestZombies.png"
+   }
+  ],
+  "rewardType": 1,
+  "rewardValue": 20,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": true,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "55": {
+  "id": "55",
+  "title": "Mutation Nation",
+  "messageComplete": "They're alive! Sort of.",
+  "tip": "You can find these in the Mutants section of Zombies in the store.",
+  "sprite": "Icon_Quest_Combining.png",
+  "levelRequired": 3,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Tomato Zombie",
+    "countTotal": 1,
+    "text": "Harvest a Tomato Zombie",
+    "type": 2,
+    "sprite": "stex0000.png"
+   },
+   {
+    "notificationID": "kCropHarvestedZombieNotification",
+    "notificationObject": "Carrot Zombie",
+    "countTotal": 1,
+    "text": "Harvest a Carrot Zombie",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 35,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "56": {
+  "id": "56",
+  "title": "It's Alive!",
+  "messageComplete": "You've completed It's Alive!",
+  "tip": "You need a Zombie Pot to combine zombies. Buy it in the store.",
+  "sprite": "Icon_Quest_Combining.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 55,
+  "requirements": [
+   {
+    "notificationID": "kCombinerCombinedNotification",
+    "notificationObject": "Carrot Zombie Tomato Zombie",
+    "countTotal": 1,
+    "text": "Combine Tomato and Carrot mutants",
+    "type": 2,
+    "sprite": "Icon_Quest_Combining.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 40,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "57": {
+  "id": "57",
+  "title": "Eye See You",
+  "messageComplete": "You completed Eye See You!",
+  "tip": "These take 12 hours to grow.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 41,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "Eyebiscus",
+    "countTotal": 10,
+    "text": "Plant 10 Eyebiscuses",
+    "type": 2,
+    "sprite": "stex0029.png"
+   },
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Eyebiscus",
+    "countTotal": 10,
+    "text": "Harvest 10 Eyebiscuses",
+    "type": 2,
+    "sprite": "stex0029.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "58": {
+  "id": "58",
+  "title": "We Heart Crops",
+  "messageComplete": "You completed We Heart Crops!",
+  "tip": "These take a full day to grow.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 43,
+  "prerequisiteQuest": 57,
+  "requirements": [
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "Heartichoke",
+    "countTotal": 10,
+    "text": "Plant 10 Heartichokes",
+    "type": 2,
+    "sprite": "stex0029.png"
+   },
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Heartichoke",
+    "countTotal": 10,
+    "text": "Harvest 10 Heartichokes",
+    "type": 2,
+    "sprite": "stex0029.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "59": {
+  "id": "59",
+  "title": "Creepy Crops",
+  "messageComplete": "You completed Creepy Crops!",
+  "tip": "This will take you at least a full day.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 44,
+  "prerequisiteQuest": 58,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Eyebiscus",
+    "countTotal": 25,
+    "text": "Harvest 25 Eyebiscuses",
+    "type": 2,
+    "sprite": "stex0029.png"
+   },
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Heartichoke",
+    "countTotal": 25,
+    "text": "Harvest 25 Heartichokes",
+    "type": 2,
+    "sprite": "stex0029.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "6": {
+  "id": "6",
+  "title": "Bread Farm",
+  "messageComplete": "You completed Bread Farm!",
+  "tip": "These take 1 hour to grow.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 5,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Bread Fruit",
+    "countTotal": 15,
+    "text": "Harvest 15 Bread Fruits",
+    "type": 2,
+    "sprite": "stex0015.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "60": {
+  "id": "60",
+  "title": "Zombie Zen",
+  "messageComplete": "You completed Zombie Zen!",
+  "tip": "Even zombies need tranquility.",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": 44,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Zen Garden",
+    "countTotal": 1,
+    "text": "Buy 1 Zen Garden",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Koi Pond",
+    "countTotal": 1,
+    "text": "Buy 1 Koi Pond",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "61": {
+  "id": "61",
+  "title": "The Perfect Yard",
+  "messageComplete": "You completed The Perfect Yard!",
+  "tip": "Be the envy of your neighborhood.",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": 44,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Birdhouse",
+    "countTotal": 1,
+    "text": "Buy 1 Birdhouse",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Croquet Set",
+    "countTotal": 1,
+    "text": "Buy 1 Croquet Set",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Lawnmower",
+    "countTotal": 1,
+    "text": "Buy 1 Lawnmower",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 200,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "62": {
+  "id": "62",
+  "title": "An Apple a Day...",
+  "messageComplete": "You completed An Apple a Day!",
+  "tip": "Find this in the Market in the Trees category under Crops.",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": 1,
+  "prerequisiteQuest": 71,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Apple Tree",
+    "countTotal": 1,
+    "text": "Buy 1 Apple Tree",
+    "type": 2,
+    "sprite": "Icon_Quest_Decorating.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "63": {
+  "id": "63",
+  "title": "Apple Harvest",
+  "messageComplete": "You completed Apple Harvest!",
+  "tip": "This is a very fast crop.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 62,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Apple Tree",
+    "countTotal": 10,
+    "text": "Harvest Apple Tree 10 times",
+    "type": 2,
+    "sprite": "stex0004.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 35,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "64": {
+  "id": "64",
+  "title": "Orange You Glad",
+  "messageComplete": "You completed Orange You Glad!",
+  "tip": "This is a very fast crop.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 15,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Orange Tree",
+    "countTotal": 15,
+    "text": "Harvest Orange Tree 15 times",
+    "type": 2,
+    "sprite": "stex0004.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 50,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "65": {
+  "id": "65",
+  "title": "If Life Gives You Lemons",
+  "messageComplete": "You completed If Life Gives You Lemons!",
+  "tip": "This is a very fast crop.",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": 10,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kCropHarvestedNotification",
+    "notificationObject": "Lemon Tree",
+    "countTotal": 15,
+    "text": "Harvest Lemon Tree 15 times",
+    "type": 2,
+    "sprite": "stex0004.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 75,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "67": {
+  "id": "67",
+  "title": "Party of Five",
+  "messageComplete": "Make sure you Collect from your neighbors every day!",
+  "tip": "Tap on the house button in the neighbor list to visit!",
+  "sprite": "Icon_Quest_Social.png",
+  "levelRequired": 6,
+  "prerequisiteQuest": 66,
+  "requirements": [
+   {
+    "notificationID": "kSocialManagerDidVisit",
+    "notificationObject": "",
+    "countTotal": 5,
+    "text": "Visit 5 neighbors",
+    "type": 2,
+    "sprite": "Icon_Quest_Social.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "68": {
+  "id": "68",
+  "title": "You're It!",
+  "messageComplete": "Playing tag gives you both XP!",
+  "tip": "Visit a neighbor's farm to play tag.",
+  "sprite": "Icon_Quest_Social.png",
+  "levelRequired": 6,
+  "prerequisiteQuest": 67,
+  "requirements": [
+   {
+    "notificationID": "kSocialManagerDidFinishTag",
+    "notificationObject": "",
+    "countTotal": 5,
+    "text": "Play tag with 5 neighbors",
+    "type": 2,
+    "sprite": "Icon_Quest_Social.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 35,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "69": {
+  "id": "69",
+  "title": "Thank You For Being A Friend",
+  "messageComplete": "Don't forget to give out 3 Brains every day!",
+  "tip": "You can give 3 Brains per day!",
+  "sprite": "Icon_Quest_Social.png",
+  "levelRequired": 6,
+  "prerequisiteQuest": 68,
+  "requirements": [
+   {
+    "notificationID": "kSocialManagerDidGiftBrain",
+    "notificationObject": "",
+    "countTotal": 5,
+    "text": "Give 3 Brains to neighbors",
+    "type": 2,
+    "sprite": "Icon_Quest_Social.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 35,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "7": {
+  "id": "7",
+  "title": "Overrun the Farm",
+  "messageComplete": "You completed Overrun the Farm!",
+  "tip": "Make sure you have at least 8 zombies.",
+  "sprite": "Icon_Quest_Invasion.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kInvasionSuccessfulNotification",
+    "notificationObject": "Old McDonnell's Farm",
+    "countTotal": 1,
+    "text": "Win an invasion",
+    "type": 2,
+    "sprite": "Icon_Quest_Invasion.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": true
+ },
+ "70": {
+  "id": "70",
+  "title": "Learn to Plow",
+  "messageComplete": "You completed Learn to Plow!",
+  "tip": "Use the plow tool to make more plowed soil.",
+  "sprite": "Icon_Quest_Plowing.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kNewSoilPlowedNotification",
+    "notificationObject": "",
+    "countTotal": 3,
+    "text": "Plow 3 new plots of land!",
+    "type": 2,
+    "sprite": "stex0036.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 10,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "71": {
+  "id": "71",
+  "title": "Learn to Plant",
+  "messageComplete": "You completed Learn to Plant!",
+  "tip": "Open the market or tap on plowed land to plant!",
+  "sprite": "Icon_Quest_HarvestVegetables.png",
+  "levelRequired": -1,
+  "prerequisiteQuest": 70,
+  "requirements": [
+   {
+    "notificationID": "kCropPlantedNotification",
+    "notificationObject": "",
+    "countTotal": 1,
+    "text": "Plant a crop!",
+    "type": 2,
+    "sprite": "stex0004.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 20,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "8": {
+  "id": "8",
+  "title": "Clean Up After Yerself",
+  "messageComplete": "You completed Clean Up After Yerself!",
+  "tip": "You'll need these to create and fund your zombies.",
+  "sprite": "Icon_Quest_Plowing.png",
+  "levelRequired": 4,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kSoilPlowedNotification",
+    "notificationObject": "",
+    "countTotal": 50,
+    "text": "Plow 50 patches of soil",
+    "type": 2,
+    "sprite": "stex0036.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 30,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ },
+ "9": {
+  "id": "9",
+  "title": "Farm Essentials",
+  "messageComplete": "You completed Farm Essentials!",
+  "tip": "To keep intruders out, or to keep zombies in?",
+  "sprite": "Icon_Quest_Decorating.png",
+  "levelRequired": 7,
+  "prerequisiteQuest": -1,
+  "requirements": [
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Fence",
+    "countTotal": 4,
+    "text": "Buy 4 White Fences",
+    "type": 2,
+    "sprite": "stex0037.png"
+   },
+   {
+    "notificationID": "kItemBoughtNotification",
+    "notificationObject": "Fence Gate",
+    "countTotal": 1,
+    "text": "Buy 1 White Fence Gate",
+    "type": 2,
+    "sprite": "stex0038.png"
+   }
+  ],
+  "rewardType": 0,
+  "rewardValue": 40,
+  "rewardItem": "",
+  "rewardItemKey": "",
+  "tutorialQuest": false,
+  "epicEvent": false,
+  "seasonal": false,
+  "seasonalDate": "",
+  "removeQuest": false,
+  "ignoreCheckQuest": false
+ }
+}

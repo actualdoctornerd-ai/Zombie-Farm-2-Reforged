@@ -1,0 +1,134 @@
+[
+ {
+  "key": "carrot",
+  "name": "Carrots",
+  "cost": 5,
+  "sell": 16,
+  "growMs": 900000,
+  "stage1": "carrot_stage1.png",
+  "stage2": "carrot_stage2.png",
+  "level": 1,
+  "xp": 1
+ },
+ {
+  "key": "onion",
+  "name": "Onions",
+  "cost": 20,
+  "sell": 60,
+  "growMs": 86400000,
+  "stage1": "onion_stage1.png",
+  "stage2": "onion_stage2.png",
+  "level": 1,
+  "xp": 2
+ },
+ {
+  "key": "breadfruit",
+  "name": "Bread Fruit",
+  "cost": 20,
+  "sell": 33,
+  "growMs": 3600000,
+  "stage1": "breadfruit_stage1.png",
+  "stage2": "breadfruit_stage2.png",
+  "level": 5,
+  "xp": 1
+ },
+ {
+  "key": "potato",
+  "name": "Potatoes",
+  "cost": 50,
+  "sell": 100,
+  "growMs": 86400000,
+  "stage1": "potato_stage1.png",
+  "stage2": "potato_stage2.png",
+  "level": 6,
+  "xp": 1
+ },
+ {
+  "key": "sampaguita",
+  "name": "Sampaguita",
+  "cost": 25,
+  "sell": 38,
+  "growMs": 1800000,
+  "stage1": "sampaguita_stage1.png",
+  "stage2": "sampaguita_stage2.png",
+  "level": 8,
+  "xp": 1
+ },
+ {
+  "key": "coffee",
+  "name": "Coffee",
+  "cost": 20,
+  "sell": 52,
+  "growMs": 28800000,
+  "stage1": "coffee_stage1.png",
+  "stage2": "coffee_stage2.png",
+  "level": 9,
+  "xp": 1
+ },
+ {
+  "key": "candycorn",
+  "name": "Corn",
+  "cost": 60,
+  "sell": 76,
+  "growMs": 7200000,
+  "stage1": "candycorn_stage1.png",
+  "stage2": "candycorn_stage2.png",
+  "level": 10,
+  "xp": 1
+ },
+ {
+  "key": "Spineapple",
+  "name": "Spineapple",
+  "cost": 17,
+  "sell": 29,
+  "growMs": 900000,
+  "stage1": "Spineapple_stage1.png",
+  "stage2": "Spineapple_stage2.png",
+  "level": 14,
+  "xp": 1
+ },
+ {
+  "key": "broccoli",
+  "name": "Broccoli",
+  "cost": 70,
+  "sell": 92,
+  "growMs": 14400000,
+  "stage1": "broccoli_stage1.png",
+  "stage2": "broccoli_stage2.png",
+  "level": 15,
+  "xp": 1
+ },
+ {
+  "key": "garlic",
+  "name": "Garlic",
+  "cost": 50,
+  "sell": 80,
+  "growMs": 28800000,
+  "stage1": "garlic_stage1.png",
+  "stage2": "garlic_stage2.png",
+  "level": 16,
+  "xp": 1
+ },
+ {
+  "key": "Bloodberry",
+  "name": "Bloodberry",
+  "cost": 55,
+  "sell": 70,
+  "growMs": 3600000,
+  "stage1": "Bloodberry_stage1.png",
+  "stage2": "Bloodberry_stage2.png",
+  "level": 17,
+  "xp": 1
+ },
+ {
+  "key": "cauliflower",
+  "name": "Cauliflower",
+  "cost": 90,
+  "sell": 132,
+  "growMs": 43200000,
+  "stage1": "cauliflower_stage1.png",
+  "stage2": "cauliflower_stage2.png",
+  "level": 18,
+  "xp": 1
+ }
+]
