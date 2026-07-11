@@ -100,20 +100,27 @@ HEAD_ADD = {
     "scarecrowHatFeature", "valentinesHatFeature", "barbarianHair", "beard", "mustache",
     "vikingHatFeature", "vikingMustacheFeature", "zombotronFeature",
 }
-# Facial overlays that cover the eyes (so drop the default eyes underneath). NOTE:
-# brow features (browFeature/eyeBrowFeature/leprachaunBrowFeature) are NOT here — they
-# sit above the eyes and the engine draws them additively, keeping the eyes visible.
-FACE_FEATURES = {
-    "beautyFeature", "amazonFeature", "femaleFeature", "cyborgFeature", "robotFeature",
-    "robocopFeature", "impFeature", "gnomeFeature", "nerdFeature", "cupidFeature",
-    "beeFeature", "reindeerFeature", "sunflowerFeature", "locksFeature",
-    "bellydancerFeature",
-}
-# Only the grey skeleton (+ grey group bodies) is tinted by the unit colour; themed
-# parts keep their designed colours.
+# Facial FEATURES (Features slot) are ADDITIVE in the engine — they never remove the
+# separate default eye attachments (EyeL/EyeR). The default head has empty eye SOCKETS;
+# the eyes are the defaultEyeL/R parts, and every feature draws over/around them:
+#   - additive overlays (lashes, hat, horns, hair, antlers) leave the eyeballs visible;
+#   - masks/visors/glasses with holes or transparent lenses show the eyes THROUGH them
+#     (amazon, cyborg, robot, robocop, nerd, sunflower — all verified against the sheet);
+#   - a feature with its OWN opaque eyes (bee) simply paints over the default ones.
+# So NO facial feature drops the eyes. (A themed HEAD swap still does — see below.)
+# Empirically dropping them left girl/garden/small/etc. with hollow black sockets.
+FACE_FEATURES: set = set()
+# The grey skeleton is tinted by the unit colour; themed parts keep their designed
+# colours. In the engine a part inherits colour BY DEFAULT (verified: base ZombieActor
+# adds body/head/jaw with no setInheritColor call, yet zombies are coloured); only
+# themed parts explicitly setInheritColor:0. The Large brow + brute/barbarian jaws are
+# grey skeleton parts with NO opt-out, so they tint too (they were rendering grey on a
+# coloured body). vikingJaw is the one Large jaw that explicitly setInheritColor:0, so
+# it stays as designed and is NOT tinted.
 TINTABLE = {"defaultArmB", "defaultBody", "defaultHead", "defaultEyeL", "defaultEyeR",
             "defaultJaw", "defaultUpperTeeth", "defaultLowerTeeth", "defaultScar",
-            "defaultFootF", "defaultFootB", "defaultArmF", "amazonBody"}
+            "defaultFootF", "defaultFootB", "defaultArmF", "amazonBody",
+            "browFeature", "bruteJaw", "barbarianJaw"}
 
 # ---------------------------------------------------------------------------
 # Per-unit part additions/removals, keyed by catalog unitKey. `add` = extra parts;

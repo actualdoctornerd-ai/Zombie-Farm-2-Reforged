@@ -69,6 +69,20 @@ export interface MutationPart {
   z: number;
 }
 
+// A raid-enemy rig part (raids/enemies/models.json). rx/ry/rw/rh slice the enemy's
+// packed part strip (raids/enemies/parts/<key>.png); px/py/ax/ay/z/rot place it (see
+// tools/prep_enemies.py). `group` drives the procedural animation in EnemyActor.
+export interface EnemyPart {
+  rx: number; ry: number; rw: number; rh: number;
+  px: number; py: number; ax: number; ay: number; z: number; rot: number;
+  group: "head" | "leg" | "arm" | "wing" | "wheel" | "body";
+  back: boolean;
+}
+export interface EnemyModel {
+  parts: EnemyPart[];
+  neck: { x: number; y: number } | null;
+}
+
 // Market catalog entries (from Market.plist), used by the plant/zombie picker.
 export interface PlantDef {
   key: string;
@@ -165,6 +179,7 @@ export interface GameAssets {
   soil: Record<string, Texture>; // plot filename -> texture
   crop: Record<string, Texture>; // crop-stage filename -> texture
   zombieModels: Record<string, ZombieModel>; // unitKey -> per-type model
+  enemyModels: Record<string, EnemyModel>; // raid-enemy key -> animated rig
   zombiePartTex: Record<string, Texture>; // ZombieSheet part name -> sub-texture
   mutationParts: Record<string, MutationPart>; // mutation bit (as string) -> body part
   plants: PlantDef[];
@@ -341,13 +356,14 @@ export async function loadAssets(): Promise<GameAssets> {
 
   // Per-type zombie models: one shared atlas (ZombieSheet.png) sliced into part
   // sub-textures via frames.json, plus models.json (composition per unit type).
-  const [zombieModels, zombieFrames, mutationParts, sheet] = await Promise.all([
+  const [zombieModels, zombieFrames, mutationParts, sheet, enemyModels] = await Promise.all([
     json<Record<string, ZombieModel>>(BASE + "assets/zombie/models.json"),
     json<Record<string, { x: number; y: number; w: number; h: number }>>(
       BASE + "assets/zombie/frames.json"
     ),
     json<Record<string, MutationPart>>(BASE + "assets/zombie/mutations.json"),
     Assets.load(BASE + "assets/zombie/ZombieSheet.png") as Promise<Texture>,
+    json<Record<string, EnemyModel>>(BASE + "assets/raids/enemies/models.json").catch(() => ({})),
   ]);
   const zombiePartTex: Record<string, Texture> = {};
   for (const [name, f] of Object.entries(zombieFrames)) {
@@ -375,7 +391,7 @@ export async function loadAssets(): Promise<GameAssets> {
 
   return {
     field, groundIndex, rig, ground, player, soil, crop,
-    zombieModels, zombiePartTex, mutationParts, plants, zombies, placeables, boosts, quests,
+    zombieModels, enemyModels, zombiePartTex, mutationParts, plants, zombies, placeables, boosts, quests,
     raids, enemyStats, raidAttacks, drops, objects, background, scenery, upgrades,
   };
 }

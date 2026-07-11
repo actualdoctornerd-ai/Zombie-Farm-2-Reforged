@@ -158,6 +158,11 @@ export interface CombatUnit {
   knockBack?: boolean;
   /** Enemy attack stun on hit, in ms (Attacks.json `stun`/`stunTimer`). 0 = none. */
   stunMs?: number;
+  /** Fraction (0..1) of the attack animation at which the strike connects — Attacks.json
+   *  `damageTiming` of the enemy's primary attack (Farmhand poke 0.33, Lumberjack slice
+   *  0.75, boss punch 0.4). Purely cosmetic: shapes the enemy's lunge/thrust in the raid
+   *  scene so the forward peak lands with the hit. Players: unused. */
+  attackDamageTiming?: number;
   /** Flat armor: subtracted from incoming damage before the % reduction (binary
    *  `Actor damage:`). 0/absent = none. */
   armor?: number;

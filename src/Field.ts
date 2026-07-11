@@ -86,6 +86,11 @@ export class Field {
   readonly container = new Container();
   readonly groundLayer = new Container();
   readonly plotLayer = new Container();
+  // Seed-stage crops live here — ABOVE the soil but BELOW the entity layer, so a
+  // just-seeded plot layers exactly like plain plowed soil (actors always draw over
+  // it). Once a crop grows past the seed stage it graduates to the entity layer and
+  // depth-sorts by its footprint like any object. See layoutCrop.
+  readonly cropSeedLayer = new Container();
   readonly groundObjectLayer = new Container();
   readonly highlightLayer = new Container();
   readonly labelLayer = new Container();
@@ -128,7 +133,7 @@ export class Field {
     this.objGhost.visible = false;
     this.cursor.addChild(this.objGhost);
     this.container.addChild(
-      this.groundLayer, this.plotLayer, this.groundObjectLayer, this.highlightLayer
+      this.groundLayer, this.plotLayer, this.cropSeedLayer, this.groundObjectLayer, this.highlightLayer
     );
   }
 
@@ -488,19 +493,23 @@ export class Field {
       ? { ...cfg, growMs: Math.round(cfg.growMs * 0.5) }
       : cfg;
     const crop: Planting = { cfg: useCfg, ageMs: 0, sprite: new Sprite(), baseY: 0 };
-    crop.baseY = this.layoutCrop(crop, tex, oc, or);
-    this.entityLayer.addChild(crop.sprite); // whole crop, depth-sorted with objects/actors
+    crop.baseY = this.layoutCrop(crop, tex, oc, or); // layoutCrop parents by stage
     p.crop = crop;
     p.state = "planted";
     return true;
   }
 
-  /** Lay out a crop's single sprite for stage `tex`. The WHOLE crop lives in the
-   *  depth-sorted entityLayer and sorts by the tile under its base (the front of
-   *  the plot), exactly like a placed object: a character whose tile is farther
-   *  back (smaller depth = higher on screen) is drawn behind the crop; one at the
-   *  crop's tile or nearer the front draws in front of it. Simple painter's order —
-   *  no per-crop splitting — so nothing "splits" when someone stands on the plot. */
+  /** Lay out a crop's single sprite for stage `tex`, and put it in the right layer.
+   *
+   *  At the SEED stage (stages[0]) the crop layers like plain tilled soil: it lives
+   *  in cropSeedLayer (above the soil, below the entity layer) so actors always draw
+   *  OVER it and never get hidden behind a flat seeded plot.
+   *
+   *  Once it grows PAST the seed stage the whole crop graduates to the depth-sorted
+   *  entityLayer and sorts by its 4x4 plot footprint, exactly like a placed object:
+   *  an actor standing anywhere on the plot (or south of it) draws in front, one
+   *  standing north (behind) is covered. Simple painter's order — no per-crop
+   *  splitting — so nothing "splits" when someone stands on the plot. */
   private layoutCrop(c: Planting, tex: Texture, oc: number, or: number): number {
     const soil = this.assets.soil[PLOWED_FILE];
     const scale = (PLOT * TILE_W) / tex.width;
@@ -512,9 +521,14 @@ export class Field {
     c.sprite.texture = tex;
     c.sprite.scale.set(scale);
     c.sprite.position.set(p.x, baseY);
-    // Depth-sorts by the whole 4x4 plot footprint: an actor standing anywhere on
-    // the plot draws in front of the crop, one standing north (behind) is covered.
-    setFootprint(c.sprite, oc, or, oc + PLOT - 1, or + PLOT - 1);
+    if (tex === this.assets.crop[c.cfg.stages[0]]) {
+      // Seed stage: treat like tilled land — ground layer, no footprint depth-sort.
+      this.cropSeedLayer.addChild(c.sprite);
+    } else {
+      // Past seed: a real depth-sorted entity keyed to the whole 4x4 plot footprint.
+      this.entityLayer.addChild(c.sprite);
+      setFootprint(c.sprite, oc, or, oc + PLOT - 1, or + PLOT - 1);
+    }
     return baseY;
   }
 
@@ -981,8 +995,9 @@ export class Field {
           // and sat while the game was closed correctly loses freshness offline.
           const ageMs = Math.max(0, Math.min(staleAgeMs(cfg.growMs), now - ps.crop.plantedAt));
           const crop: Planting = { cfg, ageMs, sprite: new Sprite(), baseY: 0 };
+          // layoutCrop parents by stage; the update(0) below then re-layers it to
+          // match its restored age (seed -> ground layer, grown -> entity layer).
           crop.baseY = this.layoutCrop(crop, this.assets.crop[cfg.stages[0]], oc, or);
-          this.entityLayer.addChild(crop.sprite); // whole crop, depth-sorted with objects/actors
           plot.crop = crop;
         } else {
           // Unknown crop key: leave a plowed plot rather than a broken one.

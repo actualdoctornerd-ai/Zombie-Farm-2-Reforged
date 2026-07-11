@@ -11,6 +11,12 @@ import {
   levelScaleT,
   levelScaleStat,
   LEVEL_SCALE_ENDPOINTS,
+  deriveMaxHp,
+  deriveAttackIntervalMs,
+  deriveHitDamage,
+  POWER_PER_STR,
+  HP_PER_CON,
+  DAMAGE_SCALAR_K,
 } from "./combatStats";
 
 // Ground truth: Actor calculateFinal* / Actor damage: / rollAgainstFrequencyInArray:
@@ -115,6 +121,37 @@ describe("levelScaleStat — lerp(endpoint, base, t) for str/con/dex", () => {
     expect(LEVEL_SCALE_ENDPOINTS.Headless).toEqual({ str: 3.0, con: 11.0, dex: 1.0 });
     expect(LEVEL_SCALE_ENDPOINTS.Large).toEqual({ str: 8.5, con: 6.5, dex: 1.3 });
     expect(LEVEL_SCALE_ENDPOINTS.Small).toEqual({ str: 3.125, con: 2.75, dex: 4.0 });
+  });
+});
+
+describe("stat -> fight-data conversion (initFightDataAfterLoad)", () => {
+  it("hitPointsTotal = con × 100", () => {
+    expect(HP_PER_CON).toBe(100);
+    expect(deriveMaxHp(2)).toBe(200); // basic zombie con 2 -> 200 HP
+    expect(deriveMaxHp(0)).toBe(1); // floored at 1
+  });
+
+  it("power = str × 10", () => {
+    expect(POWER_PER_STR).toBe(10);
+  });
+
+  it("attack interval = C/dex sec — enemies (C=1) attack twice as fast as zombies (C=2)", () => {
+    expect(deriveAttackIntervalMs(2, "player")).toBeCloseTo(1000); // 2.0/2 s
+    expect(deriveAttackIntervalMs(2, "enemy")).toBeCloseTo(500); // 1.0/2 s
+    // same dex → enemy interval is exactly half the zombie's
+    expect(deriveAttackIntervalMs(5, "enemy")).toBeCloseTo(deriveAttackIntervalMs(5, "player") / 2);
+  });
+
+  it("guards dex=0 against an infinite interval", () => {
+    expect(Number.isFinite(deriveAttackIntervalMs(0, "player"))).toBe(true);
+  });
+
+  it("per-swing damage = finalPower × attackMult × K (K=0.7)", () => {
+    expect(DAMAGE_SCALAR_K).toBe(0.7);
+    // basic zombie: power = str2×10 = 20; ZombieBite mult 1 -> 20 × 1 × 0.7 = 14
+    expect(deriveHitDamage(20, 1)).toBeCloseTo(14);
+    // a 2× attack multiplier doubles it
+    expect(deriveHitDamage(20, 2)).toBeCloseTo(28);
   });
 });
 

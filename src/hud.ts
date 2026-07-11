@@ -12,6 +12,7 @@ import { mutationLabel, mutationBonus } from "./zombie/mutations";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
+import { isMobile } from "./platform";
 import { fmtCooldown } from "./raid/RaidCatalog";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
   ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
@@ -40,6 +41,7 @@ interface MktEntry {
   brains?: boolean; // priced in brains rather than gold
   sell?: number; // harvest value (plants only)
   graveNeeded?: "Blue" | "Red" | "Silver"; // locked until this colored grave is owned
+  ownedLimit?: boolean; // "1 per farm" limit reached (gift vouchers) — can't buy
   onPick: () => void;
 }
 
@@ -836,6 +838,59 @@ const STYLE = `
   border-radius: 6px; color: #ffe9a8; font-weight: 700; font-size: 14px; padding: 3px 0;
   text-shadow: 0 1px 1px rgba(0,0,0,.5); }
 #hud .pm-cost img { height: 16px; }
+
+/* ========================================================================
+   RESPONSIVE / TOUCH LAYOUT
+   Driven by viewport width (so a small desktop window reflows too), with
+   safe-area insets for notched phones. The 760px breakpoint matches
+   COMPACT_MAX_WIDTH in platform.ts; <html data-platform> is also set there. */
+
+/* Keep the corner chrome clear of the notch / home indicator. */
+@supports (padding: env(safe-area-inset-top)) {
+  #hud .topbar { top: calc(6px + env(safe-area-inset-top));
+    left: calc(6px + env(safe-area-inset-left)); right: calc(6px + env(safe-area-inset-right)); }
+  #hud .questcol { left: calc(8px + env(safe-area-inset-left)); }
+  #hud .menucol { right: calc(8px + env(safe-area-inset-right)); }
+  #hud .tools { bottom: calc(10px + env(safe-area-inset-bottom)); }
+  #hud .fab { bottom: calc(12px + env(safe-area-inset-bottom));
+    right: calc(14px + env(safe-area-inset-right)); }
+  #hud .qtoggle { bottom: calc(10px + env(safe-area-inset-bottom));
+    left: calc(10px + env(safe-area-inset-left)); }
+}
+
+/* Compact layout for touch devices (any width, so LANDSCAPE phones count) OR any
+   narrow viewport (a small desktop window). Landscape phones are ~700-930px wide,
+   above a pure width breakpoint, so the coarse-pointer clause is what catches them. */
+@media (pointer: coarse), (max-width: 760px) {
+  /* top bar: shrink chips + drop the name plate so currencies fit a phone. */
+  #hud .topbar { gap: 5px; padding: 4px 6px; border-radius: 13px; }
+  #hud .chip { font-size: 12px; border-width: 8px 10px; }
+  #hud .chip img { height: 17px; }
+  #hud .chip .xpbar { width: 42px; }
+  #hud .nameplate { display: none; }
+  #hud .gear { width: 40px; height: 40px; }
+
+  /* right menu column: narrower pills. */
+  #hud .menucol { gap: 6px; }
+  #hud .mbtn { width: 118px; }
+  #hud .mbtn .gbtn { font-size: 13px; }
+
+  /* market: 3 roomy columns instead of 5 cramped ones. */
+  #hud .mkt-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 116px; }
+  #hud .mkt-title { font-size: 19px; width: 190px; height: 50px; top: -26px; }
+  #hud .mkt-tabs { flex-wrap: wrap; }
+  #hud .mkt-tab { font-size: 13px; border-width: 6px 13px; }
+
+  /* zombie detail: stack the card above the stats instead of side-by-side. */
+  #hud .zdetail { flex-direction: column; gap: 14px; }
+  #hud .zcard { width: 100%; max-width: 220px; margin: 0 auto; }
+  #hud .zright { min-width: 0; }
+}
+
+/* Narrow portrait phones: market down to 2 columns. */
+@media (max-width: 430px) {
+  #hud .mkt-grid { grid-template-columns: repeat(2, 1fr); }
+}
 `;
 
 export class Hud {
@@ -888,6 +943,15 @@ export class Hud {
     this.wireMenuSounds();
     state.onChange(() => this.update());
     this.update();
+    // Mobile (esp. landscape) has little room: start with the menu + tools tucked
+    // into the corner fab and the quest rail hidden, so the default view is the
+    // farm plus a compact top bar. Everything is one tap away (fab / quest button).
+    // Desktop keeps the full chrome on screen.
+    if (isMobile()) {
+      this.collapse();
+      this.questsShown = false;
+      this.questCol.style.display = "none";
+    }
   }
 
   // Centralized menu audio: every overlay opens with a whoosh and closes with a
@@ -1314,6 +1378,10 @@ export class Hud {
   getShedSlots: (() => number) | null = null;
   /** Whether a colored grave is placed (gates planting that zombie class). */
   hasGrave: ((color: "Blue" | "Red" | "Silver") => boolean) | null = null;
+  /** Whether a gift voucher has hit its "1 per farm" limit — you already own that
+   *  zombie, or hold an (unused) voucher for it (set by main; spans both Cupid
+   *  vouchers, which grant the same zombie). Keyed by the boost key. */
+  giftLimitReached: ((boostKey: string) => boolean) | null = null;
 
   // ---- Market Upgrade tab: Farm Size (set by main) ----
   /** The farm's current NxN dimension (drives owned/next/locked card states). */
@@ -1387,13 +1455,10 @@ export class Hud {
   /** Battle-consumable stock for a raid: owned Concentration + Golden Dice, and the
    *  most dice worth spending on this raid (its rare-tier depth). */
   getRaidBoosts: ((raidId: number) => { concentration: number; dice: number; maxDice: number }) | null = null;
-  /** Run an invasion instantly with the chosen party; returns the result view.
-   *  `opts` carries the voucher/concentration/dice choices. Used by the "Quick
-   *  Resolve" button and as a fallback if no live scene is wired. */
-  onStartRaid: ((raidId: number, partyIds: string[], opts: RaidLaunchOpts) => RaidResultView | null) | null = null;
-  /** Launch the live battle scene for the chosen party. Returns true if it took
-   *  over (it will show the result itself on finish); false means fall back to the
-   *  instant path. `opts` carries the voucher/concentration/dice choices. */
+  /** Launch the live battle scene for the chosen party. Returns true if it took over
+   *  (it will show the result itself on finish); false means it declined (cooldown /
+   *  a raid already running). There is no instant/auto-resolve fallback. `opts` carries
+   *  the voucher/concentration/dice choices. */
   onLaunchRaid: ((raidId: number, partyIds: string[], opts: RaidLaunchOpts) => boolean) | null = null;
 
   // ---- save profiles (set by main) ----
@@ -1500,9 +1565,13 @@ export class Hud {
         // Buying stays in the panel (buy several); the count owned shows in the name.
         return this.boosts.map((b) => {
           const owned = this.state.boostCount(b.key);
+          // Gift vouchers are "1 per farm": lock once you own that zombie or hold
+          // the voucher (main supplies the predicate; it spans both Cupid vouchers).
+          const ownedLimit = b.effect === "gift" && !!this.giftLimitReached?.(b.key);
           return {
             name: owned ? `${b.name} (x${owned})` : b.name,
             portrait: `${BASE}assets/boosts/${b.icon}`, cost: b.cost, level: b.level, brains: b.brainsNeeded,
+            ownedLimit,
             onPick: () => {
               if (this.onBuyBoost && this.onBuyBoost(b)) { refreshCur(); renderGrid(); }
             },
@@ -1591,10 +1660,12 @@ export class Hud {
     const locked = this.state.level < en.level;
     // Colored-grave gate: this zombie class can't be planted until you own it.
     const graveLock = !locked && !!en.graveNeeded && !!this.hasGrave && !this.hasGrave(en.graveNeeded);
+    // "1 per farm" gift-voucher limit: already own that zombie (or hold the voucher).
+    const limitLock = !locked && !graveLock && !!en.ownedLimit;
     const curAmt = en.brains ? this.state.brains : this.state.gold;
-    const poor = !locked && !graveLock && curAmt < en.cost;
+    const poor = !locked && !graveLock && !limitLock && curAmt < en.cost;
     const card = document.createElement("div");
-    card.className = "mkt-card" + (locked || poor || graveLock ? " locked" : "");
+    card.className = "mkt-card" + (locked || poor || graveLock || limitLock ? " locked" : "");
 
     const hd = document.createElement("div");
     hd.className = "hd";
@@ -1620,11 +1691,13 @@ export class Hud {
       ? `🔒 Lvl ${en.level}`
       : graveLock
         ? `🔒 ${en.graveNeeded} Grave`
-        : `${en.cost}<img src="${UI(coin)}">`;
+        : limitLock
+          ? `✓ Owned`
+          : `${en.cost}<img src="${UI(coin)}">`;
     body.appendChild(cost);
 
     card.append(hd, body);
-    if (!locked && !poor && !graveLock) card.onclick = en.onPick;
+    if (!locked && !poor && !graveLock && !limitLock) card.onclick = en.onPick;
     return card;
   }
 
@@ -1894,9 +1967,9 @@ export class Hud {
               btn.textContent = "Use";
               btn.onclick = () => { this.onUseBoost?.(def); render(); };
             } else {
-              // Invasion Voucher is spent from the Invade menu (skips the cooldown);
-              // Concentration/Golden Dice apply during the (future) live battle.
-              btn.textContent = def.key === "invasion_voucher" ? "At Invade" : "In battle";
+              // Battle boosts (Invasion Voucher / Concentration / Golden Dice) are all
+              // chosen on the Invade screens, not from Storage — so just label them.
+              btn.textContent = "At Invade";
               btn.disabled = true;
             }
             row.append(img, info, btn);
@@ -3359,28 +3432,14 @@ export class Hud {
       refresh();
     };
 
-    // Instant resolve (skip the animated battle) — kept as an escape hatch.
-    const quick = document.createElement("button");
-    quick.className = "raid-quick";
-    quick.textContent = "Quick Resolve";
-    const instant = () => {
-      const view = this.onStartRaid ? this.onStartRaid(raid.id, [...order], launchOpts()) : null;
-      if (view) this.openRaidResult(view);
-    };
-
     start.onclick = () => {
       if (order.length < min) return;
-      bg.remove();
-      // Prefer the live scene; if it declines (or isn't wired), resolve instantly.
-      if (this.onLaunchRaid && this.onLaunchRaid(raid.id, [...order], launchOpts())) return;
-      instant();
+      // Always play the live battle scene — there is no instant/auto-resolve. If the
+      // scene declines (cooldown, or a raid already running), leave this screen up so
+      // the player can retry rather than closing into nothing.
+      if (this.onLaunchRaid && this.onLaunchRaid(raid.id, [...order], launchOpts())) bg.remove();
     };
-    quick.onclick = () => {
-      if (order.length < min) return;
-      bg.remove();
-      instant();
-    };
-    foot.append(pick, start, quick);
+    foot.append(pick, start);
     refresh();
   }
 

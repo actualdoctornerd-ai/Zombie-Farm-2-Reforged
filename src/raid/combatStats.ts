@@ -107,6 +107,47 @@ export function levelScaleStat(
   return endpoint + levelScaleT(playerLevel) * (base - endpoint);
 }
 
+// ---------------------------------------------------------------------------
+// Stat → fight-data conversion — GROUND TRUTH (`initFightDataAfterLoad`, recovered for
+// BOTH ZombieActor and StageActor). The game turns a unit's (modified) raw stats into
+// its combat values; these feed the calculateFinal* modifiers above.
+//   power           = str × 10          (feeds per-swing damage)
+//   hitPointsTotal  = con × 100
+//   attackInterval  = C / dex seconds,  C = 2.0 for zombies, 1.0 for enemies
+// The dex asymmetry is real: at equal dex an enemy attacks TWICE as often as a zombie.
+// Per-swing melee damage (`Actor damageIn:`, deterministic — the only arc4random there is
+// knockback force): damage = finalPower × attackDamageMultiplier × K, K = 0.7 (a second
+// branch uses 0.55 under an un-pinned condition; we use 0.7). The target then applies it via
+// `applyDamage` (armor then damage-reduction). See docs/mechanics/COMBAT_STATS_RECOVERED.md.
+//
+// NOTE: these make the combat INPUTS faithful. The battle-sim loop (targeting, timing,
+// scheduling, hazards) is still the reimpl's approximation — tune from here once the real
+// sim is reversed.
+export const POWER_PER_STR = 10; // power = str × 10
+export const HP_PER_CON = 100; // hitPointsTotal = con × 100
+/** Attack interval numerator (seconds): interval = ATTACK_INTERVAL_SEC[side] / dex. */
+export const ATTACK_INTERVAL_SEC = { player: 2.0, enemy: 1.0 } as const;
+/** Main-branch per-swing damage scalar (0.55 conditional branch not pinned). */
+export const DAMAGE_SCALAR_K = 0.7;
+
+/** Max HP from constitution (binary: hitPointsTotal = con × 100). Floored at 1. */
+export function deriveMaxHp(con: number): number {
+  return Math.max(1, con * HP_PER_CON);
+}
+
+/** Attack interval in ms from dexterity (binary: C/dex seconds; C=2 zombie, 1 enemy).
+ *  `dex` is guarded against 0 so a 0-dex unit doesn't stall the sim forever. */
+export function deriveAttackIntervalMs(dex: number, side: "player" | "enemy"): number {
+  return (ATTACK_INTERVAL_SEC[side] / Math.max(0.1, dex)) * 1000;
+}
+
+/** Per-swing melee damage (binary: finalPower × attackDamageMultiplier × K). `power` is
+ *  the unit's finalPower (= effective str × 10); `multiplier` is the chosen attack's
+ *  damageMultiplier. Pre-armor/DR — the target applies those via `applyDamage`. */
+export function deriveHitDamage(power: number, multiplier = 1, k = DAMAGE_SCALAR_K): number {
+  return power * multiplier * k;
+}
+
 /** Weighted random selection — the binary's universal picker
  *  (`+[GameState rollAgainstFrequencyInArray:]`). Sums every entry's `frequency`,
  *  draws `arc4random_uniform(Σfreq)`, and returns the first entry whose cumulative

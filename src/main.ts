@@ -22,8 +22,12 @@ import { NightLayer, makeLight, NIGHT_BG } from "./lighting";
 import { buyXp, sellBack, zombieSellValue } from "./economy";
 import { isFastMode, setFastMode } from "./devSettings";
 import { BASE } from "./base";
+import { initPlatform } from "./platform";
 
 async function main() {
+  // Detect device up front so <html data-platform> is set before the HUD's CSS
+  // renders (drives the compact/desktop layout; re-evaluates on resize/rotate).
+  initPlatform();
   const app = new Application();
   await app.init({
     background: "#67bb4e", // grass green around the farm, matching the backdrop hills
@@ -320,21 +324,26 @@ async function main() {
   };
   recenter();
 
+  // Zoom by `factor` while keeping the world point under (sx,sy) — a screen-space
+  // pixel — fixed. Shared by mouse-wheel (desktop) and pinch (touch) so both zoom
+  // toward the pointer/pinch-midpoint identically.
+  const zoomAt = (sx: number, sy: number, factor: number) => {
+    const cursor = new Point(sx, sy);
+    const before = world.toLocal(cursor);
+    const ns = Math.max(minSceneZoom(), Math.min(MAX_ZOOM, world.scale.x * factor));
+    world.scale.set(ns);
+    world.position.set(
+      cursor.x - (before.x - world.pivot.x) * ns,
+      cursor.y - (before.y - world.pivot.y) * ns
+    );
+    clampCamera(); // don't let zoom-out reveal above the sky
+  };
+
   app.canvas.addEventListener(
     "wheel",
     (e: WheelEvent) => {
       e.preventDefault();
-      const cursor = new Point(e.offsetX, e.offsetY);
-      const before = world.toLocal(cursor);
-      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-      const ns = Math.max(minSceneZoom(), Math.min(MAX_ZOOM, world.scale.x * factor));
-      world.scale.set(ns);
-      // keep the world point under the cursor fixed while zooming
-      world.position.set(
-        cursor.x - (before.x - world.pivot.x) * ns,
-        cursor.y - (before.y - world.pivot.y) * ns
-      );
-      clampCamera(); // don't let zoom-out reveal above the sky
+      zoomAt(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.12 : 1 / 1.12);
     },
     { passive: false }
   );
@@ -381,7 +390,25 @@ async function main() {
   );
 
   // ---- consumable boosts: buy (into inventory) + use (apply farm effect) ----
+  // Gift vouchers are "1 per farm": you can't buy/use one once you already own
+  // that zombie OR already hold an (unused) voucher granting it. The check is keyed
+  // by the RESULTING zombie, so the two Cupid vouchers (Valentine / Valentine 2012)
+  // share one limit.
+  const ownsGiftZombie = (giftKey: string) =>
+    !!giftKey && zombies.roster().some((z) => z.key === giftKey);
+  const holdsGiftVoucher = (giftKey: string) =>
+    !!giftKey &&
+    assets.boosts.some(
+      (b) => b.effect === "gift" && b.giftZombieKey === giftKey && state.boostCount(b.key) > 0
+    );
+  const giftLimitReached = (boostKey: string) => {
+    const gk = boostCatalog.get(boostKey)?.giftZombieKey ?? "";
+    return !!gk && (ownsGiftZombie(gk) || holdsGiftVoucher(gk));
+  };
+  hud.giftLimitReached = giftLimitReached;
+
   hud.onBuyBoost = (def) => {
+    if (def.effect === "gift" && giftLimitReached(def.key)) return false; // 1 per farm
     const paid = def.brainsNeeded ? state.spendBrains(def.cost) : state.spendGold(def.cost);
     if (!paid) return false;
     state.addBoost(def.key, def.perPurchase); // a purchase grants `perPurchase` uses
@@ -425,7 +452,7 @@ async function main() {
   const applyBoost = (def: BoostDef): boolean => {
     const c = tileCenter(walk.tile.col, walk.tile.row); // float near the farmer
     if (def.effect === "grow") {
-      const n = field.growSomeCrops(def.amount || 10);
+      const n = field.growSomeCrops(def.amount || 1); // single-use: grows one crop
       if (n) { audio.play("instaGrow"); floatText(c.x, c.y, `Grew ${n}!`); }
       return n > 0;
     }
@@ -455,6 +482,8 @@ async function main() {
     }
     if (def.effect === "gift") {
       if (!def.giftZombieKey) return false;
+      // 1 per farm: don't spawn a duplicate of a gift zombie you already own.
+      if (ownsGiftZombie(def.giftZombieKey)) { floatText(c.x, c.y, `Already have ${def.name}!`); return false; }
       if (!zombies.canAdd()) { floatText(c.x, c.y, "Army full!"); return false; }
       zombies.spawn(def.giftZombieKey, walk.tile.col, walk.tile.row);
       floatText(c.x, c.y, `Got ${def.name}!`);
@@ -500,6 +529,75 @@ async function main() {
   let moved = false;
   let lastPlot = "";
   const last = new Point();
+
+  // ---- multi-touch pinch-to-zoom (mobile) ----
+  // Handled with native touch events (not Pixi pointers): e.touches reliably
+  // lists every finger with coordinates, which is exactly what a pinch needs.
+  // While two fingers are down, `touchPinch` is set — the Pixi pan/tap path
+  // early-returns on it — and the finger-spread ratio drives zoom (toward the
+  // midpoint) while the midpoint's travel pans, i.e. one pinch-and-drag gesture.
+  // Attached unconditionally: the handlers no-op unless exactly two fingers are
+  // down, so a mouse device pays nothing and any touch-capable device works
+  // without depending on feature detection.
+  let touchPinch = false;
+  let pinchDist = 0;
+  const pinchMid = new Point();
+  // Canvas-relative CSS pixels (same space wheel/zoomAt use).
+  const canvasXY = (clientX: number, clientY: number) => {
+    const r = app.canvas.getBoundingClientRect();
+    return { x: clientX - r.left, y: clientY - r.top };
+  };
+  const pinchInfo = (t: TouchList) => {
+    const a = canvasXY(t[0].clientX, t[0].clientY);
+    const b = canvasXY(t[1].clientX, t[1].clientY);
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+  };
+  const tileAtScreen = (sx: number, sy: number) => {
+    const w = world.toLocal(new Point(sx, sy));
+    const g = screenToGrid(w.x, w.y);
+    return { col: Math.round(g.col), row: Math.round(g.row) };
+  };
+
+  {
+    app.canvas.addEventListener("touchstart", (e: TouchEvent) => {
+      if (e.touches.length !== 2 || raidActive) return;
+      e.preventDefault();
+      touchPinch = true;
+      dragging = false; // abandon any in-progress single-finger pan
+      // Each finger's pointerdown may have queued a tool action before the second
+      // finger arrived; undo both so a pinch never plows/plants.
+      for (let i = 0; i < 2; i++) {
+        const p = canvasXY(e.touches[i].clientX, e.touches[i].clientY);
+        const { col, row } = tileAtScreen(p.x, p.y);
+        jobs.cancelAtTile(col, row);
+      }
+      lastPlot = "";
+      field.hideCursor();
+      const g = pinchInfo(e.touches);
+      pinchDist = g.dist;
+      pinchMid.set(g.mx, g.my);
+    }, { passive: false });
+
+    app.canvas.addEventListener("touchmove", (e: TouchEvent) => {
+      if (!touchPinch || e.touches.length < 2) return;
+      e.preventDefault();
+      const g = pinchInfo(e.touches);
+      if (pinchDist > 0) zoomAt(pinchMid.x, pinchMid.y, g.dist / pinchDist); // zoom by spread
+      world.position.x += g.mx - pinchMid.x; // and pan by the midpoint's travel
+      world.position.y += g.my - pinchMid.y;
+      clampCamera();
+      pinchDist = g.dist;
+      pinchMid.set(g.mx, g.my);
+    }, { passive: false });
+
+    const endPinch = (e: TouchEvent) => {
+      // Once fewer than two fingers remain the pinch is over. Stay out of pan mode
+      // so the last finger doesn't jump the camera.
+      if (e.touches.length < 2) { touchPinch = false; dragging = false; }
+    };
+    app.canvas.addEventListener("touchend", endPinch);
+    app.canvas.addEventListener("touchcancel", endPinch);
+  }
   const toWorld = (e: FederatedPointerEvent) => world.toLocal(e.global);
   const tileAt = (e: FederatedPointerEvent) => {
     const w = toWorld(e);
@@ -748,20 +846,16 @@ async function main() {
     maxDice: raids.maxDiceFor(raidId),
   });
 
-  hud.onStartRaid = (raidId, partyIds, opts) => {
-    const view = raids.start(raidId, partyIds, opts);
-    if (view) postRaidWinQuests(view, assets.raids.find((r) => r.id === raidId)?.name ?? "");
-    return view;
-  };
-
-  // Live battle scene. `raidActive` gates farm input synchronously (the scene
-  // itself loads its textures async); `raidScene` is the running scene once ready.
+  // Live battle scene — the ONLY way a raid is played out (no instant/auto-resolve in
+  // the game; `raids.start` remains only for the `ZF.runRaid` dev hook + headless tests).
+  // `raidActive` gates farm input synchronously (the scene loads its textures async);
+  // `raidScene` is the running scene once ready.
   let raidScene: RaidScene | null = null;
   let raidActive = false;
   hud.onLaunchRaid = (raidId, partyIds, opts) => {
     if (raidActive) return false;
     const setup = raids.beginRaid(raidId, partyIds, opts);
-    if (!setup) return false; // gated (cooldown/army) — HUD falls back to instant
+    if (!setup) return false; // gated (cooldown/army) — the army screen stays up
     raidActive = true;
     world.visible = false;
     hud.setRaiding(true); // battle scene takes over the screen
@@ -999,6 +1093,7 @@ async function main() {
 
   app.stage.on("pointerdown", (e: FederatedPointerEvent) => {
     if (raidActive) return; // farm input is inert during a live raid
+    if (touchPinch) return; // a pinch is in progress; ignore extra finger-downs
     if (e.button === 2) { // right-click -> back to the select tool
       cancelCarry();
       hud.setMode("walk");
@@ -1046,6 +1141,7 @@ async function main() {
   });
   app.stage.on("pointermove", (e: FederatedPointerEvent) => {
     if (raidActive) return;
+    if (touchPinch) return; // pinch owns the gesture; skip pan/cursor updates
     const { col, row, wx, wy } = tileAt(e);
     if (hud.mode === "place" && hud.placing) {
       field.setObjectCursor(hud.placing, col, row); // ghost follows the cursor
@@ -1184,8 +1280,13 @@ async function main() {
     dragging = false;
     lastPlot = "";
   };
-  app.stage.on("pointerup", endDrag);
-  app.stage.on("pointerupoutside", endDrag);
+  const onPointerUp = (e: FederatedPointerEvent) => {
+    // During/after a pinch, dragging was cleared so endDrag fires no stray tap.
+    if (touchPinch) return;
+    endDrag(e);
+  };
+  app.stage.on("pointerup", onPointerUp);
+  app.stage.on("pointerupoutside", onPointerUp);
 
   // Right-click anywhere returns to the select tool (and suppress the browser menu).
   app.canvas.addEventListener("contextmenu", (e) => {

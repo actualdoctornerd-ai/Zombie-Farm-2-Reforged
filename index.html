@@ -2,11 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: draw under notches; user-scalable=no + touch-action
+         none: the browser must not pinch-zoom or scroll the page, so those
+         gestures reach the game's own pinch-zoom / pan instead. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>Zombie Farm — Field (Milestone 1)</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #33502b; overflow: hidden; }
-      #app { position: fixed; inset: 0; }
+      html, body { margin: 0; height: 100%; background: #33502b; overflow: hidden;
+        overscroll-behavior: none; }
+      /* Fill the safe area (notch / home indicator) so the canvas covers the
+         whole screen; the HUD reads these insets to stay clear of the notch. */
+      #app { position: fixed; inset: 0; touch-action: none; -webkit-user-select: none;
+        user-select: none; -webkit-tap-highlight-color: transparent; }
       #hud {
         position: fixed; left: 10px; top: 8px; z-index: 10;
         font: 12px/1.4 system-ui, sans-serif; color: #fff;

@@ -8,7 +8,7 @@ emits a runtime catalog + icons:
   public/assets/boosts/<key>.png   each boost's 32x32 icon (loose stex PNGs)
 
 Effect classification (from the entry's boolean flags):
-  instaGrow    -> "grow"          grow up to `amount` planted crops/zombies
+  instaGrow    -> "grow"          single-use: grows ONE crop; bought 10x per purchase
   instaHarvest -> "harvest"       harvest every ripe plot
   instaPlow    -> "plow"          re-plow all harvested (spent) plots
   treatAsGift  -> "gift"          grant a specific zombie (giftZombieKey)
@@ -99,11 +99,23 @@ def main():
             "brainsNeeded": bool(e.get("brainsNeeded", False)),
             "level": max(0, e.get("level", 0)),  # source uses negatives as "always"
             "effect": eff,
-            "amount": e.get("amount", 0),
-            "perPurchase": e.get("amountGivenPerPurchase", 1),
+            # Insta-Grow is single-use (grows ONE crop per use). To keep the same
+            # total value for the same price, a purchase grants 10x the volume:
+            # amount 10 -> 1, perPurchase 2 -> 20 (= source amount x perPurchase).
+            "amount": 1 if eff == "grow" else e.get("amount", 0),
+            "perPurchase": (
+                e.get("amount", 1) * e.get("amountGivenPerPurchase", 1)
+                if eff == "grow"
+                else e.get("amountGivenPerPurchase", 1)
+            ),
             "giftZombieKey": gift_key(e) if eff == "gift" else "",
             "usableOnFarm": eff in FARM_USABLE,
-            "info": " ".join(x for x in (e.get("info"), e.get("info2")) if x).strip(),
+            # Insta-Grow is single-use now, so its source "grows 10" copy is wrong.
+            "info": (
+                "Instantly grows a crop or zombie!"
+                if eff == "grow"
+                else " ".join(x for x in (e.get("info"), e.get("info2")) if x).strip()
+            ),
             "flavorText": e.get("flavorText", ""),
             "icon": icon,
         })

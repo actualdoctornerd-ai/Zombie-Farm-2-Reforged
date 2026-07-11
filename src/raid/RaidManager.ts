@@ -1,9 +1,10 @@
 // Raid orchestration: turns the raid catalog + owned-zombie roster into the
-// view-models the HUD renders, runs the instant-resolve battle, and applies the
-// win rewards through GameState + the roster (veterancy) + save.
+// view-models the HUD renders, commits a raid (beginRaid) for the live scene to play
+// out, and applies win rewards (finishRaid) through GameState + roster (veterancy) + save.
 //
-// The HUD is kept decoupled from raid internals — it only ever sees the *View
-// types below, and calls back into start().
+// The game ALWAYS plays raids in the live scene (beginRaid + finishRaid). `start()` is a
+// headless instant-resolve (beginRaid + resolveRaid + finishRaid) retained ONLY for the
+// ZF.runRaid dev hook and tests — it is not wired to any player-facing control.
 import { GameAssets, zombiePortrait, raidImage, lootImage } from "../assets";
 import { GameState } from "../GameState";
 import { ZombieField } from "../zombie/ZombieField";
@@ -40,10 +41,23 @@ const BRAIN_DROP_TABLE = [
   { amount: 50, lower: 0.005, upper: 0.01 },
 ];
 const BRAIN_OPTIMAL_LEVEL = 20; // gameplayParameters `epicBossLootLevelWithOptimalChances`
-/** Contact damage an environmental obstacle deals (source carries no value). */
-const HAZARD_DAMAGE = 4;
+/** Contact damage an environmental obstacle deals (source carries no value; a tuned
+ *  chip value kept proportional to the ground-truth melee/HP scale — see BattleSim). */
+const HAZARD_DAMAGE = 28;
 /** Cadence for grab hazards (Lawyers cars / Circus trapeze), source has no timer. */
 const GRAB_SPAWN_MS = 9000;
+/** Real falling-obstacle art per raid id (raids/images/). Unmapped -> warning dot.
+ *  Summer/Beach mine, Tree World pinecone, Valentine's teapot — all shipped sprites. */
+const OBSTACLE_SPRITE: Record<number, string> = {
+  7: "beach_debris_seamine.png",
+  10: "weapon_pinecone.png",
+  11: "valentines2012_debris_pot.png",
+};
+/** Real grab-hazard art per raid id. Circus = the trapeze girl (extracted from the
+ *  stage atlas). Lawyers has no shipped car sprite, so it keeps the dot. */
+const GRAB_SPRITE: Record<number, string> = {
+  8: "hazard_trapeze_girl.png",
+};
 
 // ---- HUD-facing view models ----
 
@@ -370,20 +384,21 @@ export class RaidManager {
   /** Build the raid's environmental-hazard config (null if it has none). Damage
    *  obstacles (Beach/Tree/Valentine) carry no source damage value, so a small
    *  default is used; grab hazards (Lawyers cars / Circus trapeze) seize a zombie
-   *  instead and spawn on a steady cadence. */
+   *  instead and spawn on a steady cadence. Real hazard art (by raid id) is used
+   *  where it ships; anything unmapped falls back to a round warning dot. */
   private hazardOf(raid: RaidDef): HazardConfig | null {
     if (raid.obstacleLimit && raid.obstacleSpawnSecs > 0) {
       return {
         limit: raid.obstacleLimit,
         spawnMs: raid.obstacleSpawnSecs * 1000,
         damage: HAZARD_DAMAGE,
-        sprite: "", // obstacle atlas frames aren't preloaded; renders as a hazard dot
+        sprite: OBSTACLE_SPRITE[raid.id] ?? "",
         initial: !!raid.initialSpawnClass,
         grab: false,
       };
     }
     if (raid.hasGrab) {
-      return { limit: 1, spawnMs: GRAB_SPAWN_MS, damage: 0, sprite: "", initial: false, grab: true };
+      return { limit: 1, spawnMs: GRAB_SPAWN_MS, damage: 0, sprite: GRAB_SPRITE[raid.id] ?? "", initial: false, grab: true };
     }
     return null;
   }
@@ -528,9 +543,10 @@ export class RaidManager {
     return "";
   }
 
-  /** Quick-resolve path: commit, resolve the fight instantly, apply rewards.
-   *  Returns null if the raid can't launch. Kept for the "Quick Resolve" button
-   *  and headless tests; the live scene uses beginRaid + finishRaid instead. */
+  /** Headless instant-resolve: commit, resolve the fight instantly, apply rewards.
+   *  Returns null if the raid can't launch. NOT player-facing — retained only for the
+   *  `ZF.runRaid` dev hook and tests; the game plays raids via beginRaid + the live
+   *  scene + finishRaid. */
   start(raidId: number, partyIds: string[], opts: RaidLaunchOpts = {}): RaidResultView | null {
     const setup = this.beginRaid(raidId, partyIds, opts);
     if (!setup) return null;

@@ -1,8 +1,9 @@
 // The live battle simulation (Phase 3+): a pure, RNG-free, real-time stepping
 // model that the RaidScene renders. No Pixi, no DOM — positions, health, focus
 // charge, ballistic boss projectiles, and attack clocks over a 1D combat lane.
-// This is the AUTHORITY for a raid's outcome (instant CombatEngine.resolveRaid
-// stays only as "Quick Resolve").
+// This is the AUTHORITY for a raid's outcome — the game ALWAYS plays it out; there is
+// no instant/auto-resolve (CombatEngine.resolveRaid is retained only for the ZF.runRaid
+// dev hook + headless tests).
 //
 // Cadence (both sides "one at a time"):
 //   Zombies mill in a GROUP on the LEFT. One at a time the front zombie steps out
@@ -17,17 +18,20 @@
 //
 // Deferred: focus-bar distractions (Phase 4), ability effects (Phase 5).
 //
-// Combat numbers reuse the instant-resolve model:
-//   maxHp = con*10, damage = max(1, round(str*mult)), cadence = attackCooldownMs.
+// Combat numbers are the GROUND-TRUTH fight-data model (combatStats.ts, recovered from
+// the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
+// arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult * 0.7.
 import type { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidOutcome } from "./types";
 import { ACTIVATED_ABILITY, activatedKeyFor, teamAbilitiesIn } from "../zombie/abilities";
+import { deriveHitDamage, POWER_PER_STR } from "./combatStats";
 
 /** Logical field the sim runs in; RaidScene scales this to the viewport. */
 export const FIELD_W = 1000;
 export const FIELD_H = 560;
 
 const CHARGE_X = 220; // staging slot the front zombie steps into to focus
-const ENEMY_HOLD_X = 990; // enemies stand just outside the entrance (near right edge)
+const ENEMY_HOLD_X = 915; // enemies hold in the structure's doorway (not the far edge),
+// ~2/3 of a sprite forward of the entrance so they stand IN the open door
 const ENEMY_SPAWN_X = 1120; // off the right edge (hidden) before emerging
 // Boss perch field-x. Chosen so RaidScene.mapX() lands it on the silo perch
 // (PERCH_FX), which is also where thrown projectiles originate.
@@ -66,10 +70,12 @@ const GRAVITY = 820; // sim px/s^2 pulling projectiles down
 const GROUND_Y = BAND_BOT + 24; // a throw that reaches here has missed (fizzles)
 const ZOMBIE_HIT_R = 30; // zombie collision radius in sim units
 const PROJ_HIT_FACTOR = 0.4; // projectile radius = spriteSize * this
-// Raw bossActions throw damage (6/12/18) is on a much bigger scale than melee
-// (~2/hit) and would two-shot a 20-HP basic zombie. Scale it down so throws chip
-// rather than delete zombies (bucket 18→~5, chicken 12→3, tomato 6→~2).
-const PROJ_DMG_SCALE = 0.25;
+// Raw bossActions throw damage (6/12/18) has no melee-comparable scale in the data, so
+// it's a tuned chip value. Scaled to sit alongside the ground-truth melee/HP numbers
+// (a basic zombie is now ~14 dmg/hit vs con×100 HP): raw 6/12/18 × 1.75 = ~10/21/32,
+// i.e. a throw ≈ a couple of melee hits. (Kept proportional to the ×7 melee-damage
+// increase from the fight-data correction; NOT ground truth — tune with playtesting.)
+const PROJ_DMG_SCALE = 1.75;
 
 // ---- Round timer + enrage (ZFFightMan updateTimer:/showEnrageTimer) ----
 // The fight is a countdown; when it expires the boss ENRAGES. The reference build
@@ -87,7 +93,7 @@ const ENRAGE_DMG_MULT = 1.5; // boss melee damage grows
 // ticks them so timing stays faithful, but they land no effect yet).
 const LASER_SPEED = 900; // straight-bolt speed (sim px/s)
 const DEFAULT_SPECIAL_DMG = 8; // data carries no damage for most specials
-const SPECIAL_DMG_SCALE = 0.25; // same chip-scaling as thrown projectiles
+const SPECIAL_DMG_SCALE = 1.75; // same chip-scaling as thrown projectiles (see PROJ_DMG_SCALE)
 
 // ---- Knockback (Actor knockBackBy:force:) ----
 // A knockback attack interrupts the struck zombie and, in the source, calls
@@ -184,6 +190,7 @@ export interface SimUnit {
   // ---- enemy attack effects inflicted on a struck zombie ----
   knockBack: boolean; // this enemy's attack shoves the zombie back down the lane
   stunInflictMs: number; // stun this enemy applies to a zombie on hit (ms)
+  attackDamageTiming: number; // 0..1 fraction of the swing when it connects (enemy anim)
 }
 
 /** A boss projectile in flight, consumed by the renderer. Ballistic throws use the
@@ -234,7 +241,8 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     distractStep: 0,
     bubbleMs: 0,
     struckThisTick: false,
-    damage: Math.max(1, Math.round(u.str * mult)),
+    // Ground-truth per-swing damage: finalPower(str×10) × attackMult × K(0.7).
+    damage: Math.max(1, Math.round(deriveHitDamage(u.str * POWER_PER_STR, mult))),
     cooldownMs: u.attackCooldownMs,
     timerMs: u.attackCooldownMs,
     moveSpeed: isPlayer ? advanceSpeed(u.dex) : EMERGE_SPEED,
@@ -253,6 +261,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stunMs: 0,
     knockBack: !isPlayer && !!u.knockBack,
     stunInflictMs: isPlayer ? 0 : u.stunMs ?? 0,
+    attackDamageTiming: u.attackDamageTiming ?? 0.5,
   };
 }
 
@@ -632,10 +641,29 @@ export class BattleSim {
       if (p.abilityCdMs > 0) p.abilityCdMs -= dtMs; // activated-move recharge
       switch (p.state) {
         case "waiting": {
-          // Pace back and forth on the spot (a slow walk that flips their facing),
-          // not a vertical hover. Each zombie has its own speed/phase.
-          const freq = 0.0012 + (p.mill / (Math.PI * 2)) * 0.0007;
-          p.x = p.homeX + Math.sin(this.elapsed * freq + p.mill) * 26;
+          // Idle in the back group: stand STILL most of the time, with only an
+          // occasional brief shuffle to a nearby spot — so the crowd looks alive
+          // without the old constant pacing. Deterministic (cycle-indexed hash, no
+          // RNG): each zombie holds a spot for ~85% of its cycle, then eases a few
+          // px to the next spot in the last ~15%. No vertical hover.
+          const off = p.mill / (Math.PI * 2); // 0..1 per-unit phase
+          const period = 2600 + off * 2200; // 2.6-4.8s per shuffle cycle
+          const raw = this.elapsed / period + off;
+          const cyc = Math.floor(raw);
+          const ph = raw - cyc; // 0..1 within the cycle
+          const MOVE_FRAC = 0.12; // only the last 12% of the cycle is a shuffle
+          const AMP = 14; // shuffle reach in sim px (was a ±26 constant pace) — big
+          // enough that the brief shuffle clears the walk-anim threshold (a real
+          // step, not a glide), while the long still stretch keeps them planted
+          const spot = (c: number) => (hash(c * 1.73 + p.mill) - 0.5) * 2 * AMP;
+          const from = spot(cyc);
+          let d = from;
+          if (ph > 1 - MOVE_FRAC) {
+            const t = (ph - (1 - MOVE_FRAC)) / MOVE_FRAC; // 0..1 across the shuffle
+            const e = t * t * (3 - 2 * t); // smoothstep ease
+            d = from + (spot(cyc + 1) - from) * e;
+          }
+          p.x = p.homeX + d;
           p.y = p.homeY;
           break;
         }

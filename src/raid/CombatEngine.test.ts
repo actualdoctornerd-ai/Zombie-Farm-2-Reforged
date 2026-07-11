@@ -56,12 +56,38 @@ describe("damage formula is wired into the resolver", () => {
   });
 
   it("flat armor ≥ the attacker's per-hit damage blocks all of it", () => {
-    // player hitDamage = str(20) × mult(1) = 20; armor 25 fully absorbs each hit.
+    // player hitDamage = finalPower(str20×10) × mult(1) × K(0.7) = 140; armor 200 absorbs it.
     const blocked = resolveRaid(player(), [
-      mk({ id: "e", team: "enemy", str: 3, con: 20, armor: 25 }),
+      mk({ id: "e", team: "enemy", str: 3, con: 20, armor: 200 }),
     ]);
     expect(blocked.win).toBe(false);
     expect(blocked.playerDamage).toBe(0);
+  });
+});
+
+describe("enemies engage one at a time (army concentration matters)", () => {
+  const army = (team: "player" | "enemy", n: number) =>
+    Array.from({ length: n }, (_, i) => mk({ id: `${team}${i}`, team, str: 10, con: 10 }));
+
+  it("an even-stat army beats a same-size wave by focusing it down one at a time", () => {
+    // Under an all-at-once wave this is a loss; one-at-a-time, the army's concentrated
+    // fire wins with survivors.
+    const r = resolveRaid(army("player", 5), army("enemy", 5));
+    expect(r.win).toBe(true);
+    expect(r.enemiesBeaten).toBe(5);
+    expect(r.survivors.length).toBeGreaterThan(0);
+  });
+
+  it("still loses when badly outnumbered by equal units", () => {
+    const r = resolveRaid(army("player", 1), army("enemy", 4));
+    expect(r.win).toBe(false);
+  });
+
+  it("faces the wave sequentially — a lone zombie can chip several before falling", () => {
+    // Weak-but-many player vs one tanky enemy: the whole army piles the single enemy.
+    const tank = mk({ id: "boss", team: "enemy", str: 8, con: 40 });
+    const r = resolveRaid(army("player", 6), [tank]);
+    expect(r.win).toBe(true);
   });
 });
 
@@ -90,13 +116,13 @@ describe("buildPlayerUnits — level-scaling is applied", () => {
     const lo = buildPlayerUnits(headless(), { playerLevel: 8 })[0]; // con -> floor 11
     const hi = buildPlayerUnits(headless(), { playerLevel: 25 })[0]; // con -> base 29.7
     expect(lo.maxHp).toBeLessThan(hi.maxHp);
-    expect(lo.maxHp).toBe(110); // con 11 × 10
-    expect(hi.maxHp).toBe(297); // con 29.7 × 10
+    expect(lo.maxHp).toBe(1100); // con 11 × 100 (ground-truth hitPointsTotal)
+    expect(hi.maxHp).toBe(2970); // con 29.7 × 100
   });
 
   it("omitting playerLevel fights at full base stats (no scaling)", () => {
     const full = buildPlayerUnits(headless(), {})[0];
-    expect(full.maxHp).toBe(297);
+    expect(full.maxHp).toBe(2970);
   });
 
   it("does not scale focus (only str/con/dex)", () => {

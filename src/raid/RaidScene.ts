@@ -13,6 +13,8 @@ import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
 import { BattleSim, BOSS_STRUCT_Y, FIELD_H, FIELD_W, SimUnit } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
+import { EnemyActor } from "./EnemyActor";
+import { ParticleField, ParticleConfig } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
 import { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
 import { BASE } from "../base";
@@ -36,15 +38,32 @@ export interface RaidSceneParams {
   onFinish: (outcome: RaidOutcome) => void;
 }
 
+// Smash (bash / bashV2) tell: while charging, the zombie GROWS to 1+SMASH_GROW as it
+// raises its arms; when the raise completes (damage lands) it rapidly slams the arms
+// back down and shrinks over SMASH_SLAM_S. Grow is anchored at the feet so it looms
+// upward in place. Only the bash family smashes (explode/mini keep the plain raise).
+const SMASH_KEYS = new Set(["bash", "bashV2"]);
+const SMASH_GROW = 0.4;
+const SMASH_SLAM_S = 0.18;
 const INTRO_MS = 700; // zombies slide in
 const END_PAUSE_MS = 650; // beat after the last blow before we move on
+const DEATH_FADE = 0.45; // seconds for a fallen unit to poof + fade out
 const PLAYER_COLOR = 0x8bc34a;
 const ENEMY_COLOR = 0xef5350;
 const BOSS_COLOR = 0xffc107;
-// On-screen heights (px) the unit sprites are scaled to.
+// On-screen heights (px) the unit sprites are scaled to. Enemies + boss read bigger
+// than the zombies in the real game (a lumberjack towers over a grunt, McDonnell is
+// huge on the silo), so they carry a larger target height.
+// These are the target heights (px) AT the reference stage scale below. Because the
+// stage is contain-fit (it scales with the window), units are drawn at H * (current
+// stage scale / SIZE_REF_SCALE) so they track the background instead of being a fixed
+// pixel size (which turned them into giants on a small window / specks on a big one).
 const ZOMBIE_H = 91;
-const ENEMY_H = 109;
-const BOSS_H = 156;
+const ENEMY_H = 130;
+const BOSS_H = 195;
+// The contain-fit scale at which the *_H heights above render 1:1. Raise this to make
+// all units smaller across the board, lower it to make them bigger.
+const SIZE_REF_SCALE = 1.6;
 // Background layout. The bg is CONTAIN-fit (whole scene visible, no bottom crop);
 // the ground line the characters stand on sits GROUND_FY down the image, and the
 // boss perches on the silo at PERCH_F*. Letterbox areas fill with sky/grass.
@@ -57,8 +76,23 @@ const PLAYER_NUDGE = ZOMBIE_H * 0.22;
 // structure — the boss hovers up-right like a UFO (Aliens) rather than standing.
 const PERCH_FX = 0.82;
 const PERCH_FY = 0.2;
-const SKY_COLOR = 0x9fd4ef;
-const GRASS_COLOR = 0x74a63a;
+// How far to sink the boss BELOW the perch structure's top edge (fraction of the
+// structure height), so it stands behind the roof/silo with its legs occluded by the
+// structure — the boss renders in a layer BEHIND the perch art (see bossBackLayer).
+const PERCH_SINK_F = 0.14;
+// Where along the perch structure (fraction from its LEFT edge) the boss stands.
+// 0.5 = dead centre (a big boss then clips the screen's right edge); lower = farther
+// left, over the building.
+const PERCH_BIAS_FX = 0.22;
+// Letterbox fill behind the contain-fit stage image (visible only where the screen
+// shape leaves bars around the 480x320 art). Kept DARK so it reads as an inset stage
+// rather than fake sky/grass that never matched the real background art. (The stage
+// backgrounds themselves still need proper work — this is the interim treatment.)
+const LETTERBOX_TOP = 0x1b1e24;
+const LETTERBOX_BOT = 0x101216;
+// Horizontal inset of the combat lane inside the stage rect: units used to run right
+// to ~4% of the edges and spill past the ground area of the art. Pull them in.
+const FIELD_INSET_FX = 0.1;
 const CENTER_Y = FIELD_H / 2; // sim y that sits on the ground line
 // Source fight-stage design space: level assets are authored 1:1 in 480x320 points
 // (verified: every fightBG*_bg is 480x320; structures like the barn are positioned
@@ -73,6 +107,8 @@ function parseVec(s: string): [number, number] {
 }
 /** Composited static enemy sprite (from tools/prep_enemies.py), if one exists. */
 const enemySprite = (key: string) => `${BASE}assets/raids/enemies/${key}.png`;
+/** Packed part strip for an enemy's animated rig (raids/enemies/parts/<key>.png). */
+const enemyStripUrl = (key: string) => `${BASE}assets/raids/enemies/parts/${key}.png`;
 // Source-game focus thought-bubbles (misc/thoughtBubble*.png), shown over the
 // charging zombie. Butterfly = distracted; brain = fully focused / ready.
 const BUBBLE_BUTTERFLY = BASE + "assets/ui/thoughtBubbleButterfly.png";
@@ -85,18 +121,37 @@ type Phase = "intro" | "fight" | "outro" | "defeat" | "done";
 interface Token {
   root: Container;
   actor?: RaidActor; // player zombie rig (walk animation)
+  enemyActor?: EnemyActor; // enemy rig (idle bob / walk / limb animation)
   hp: Graphics;
   charge: Graphics; // focus bar (zombies, while charging)
   base: number; // half-width for the bars
   topY: number; // y of the sprite top (negative), for the hp bar
   pulse: number; // hit lunge, decays to 0
-  lastX: number; // previous screen pos (for the moving flag)
-  lastY: number;
+  atkCount: number; // basic hits landed (parity drives the arm-wave switch)
+  lastSimX: number; // previous SIM pos (for the moving/facing flags — resize-safe)
+  lastSimY: number;
+  deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
+  emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
+  // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
+  // inactive); wasSmashWindup is last frame's smash charge (0..1) to detect release.
+  smashSlam: number;
+  wasSmashWindup: number;
+  actorBaseScale: number; // the zombie rig's normal container scale (for the feet-anchored grow)
+  actorBaseY: number; // and its normal container y (feet at the token origin)
 }
 
 async function loadTex(url: string): Promise<Texture | null> {
   try {
     return (await Assets.load(url)) as Texture;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch a cocos2d particle config (raids/particles/<name>.json); null on failure. */
+async function loadParticle(name: string): Promise<ParticleConfig | null> {
+  try {
+    return (await (await fetch(`${BASE}assets/raids/particles/${name}.json`)).json()) as ParticleConfig;
   } catch {
     return null;
   }
@@ -110,21 +165,37 @@ export class RaidScene {
 
   private assets: GameAssets;
   private backdrop = new Graphics(); // sky/grass fill behind the (letterboxed) stage
-  private stageLayer = new Container(); // all parallax level-asset layers, z-sorted
+  private stageLayer = new Container(); // parallax level-asset layers (behind everyone)
   private stageLayers: { sp: Sprite; asset: RaidLevelAsset }[] = [];
+  // The perch STRUCTURE (barn/silo/…) is split into its own layer drawn in FRONT of
+  // the boss, so a boss standing on it has its legs occluded by the roof, while
+  // ground units (enemies in the doorway) still render in front of the structure.
+  private stageFrontLayer = new Container();
+  private bossBackLayer = new Container(); // boss token, BEHIND the perch structure
+  private perchLayer: { sp: Sprite; asset: RaidLevelAsset } | null = null;
   private perchFX = PERCH_FX; // boss perch, computed from the stage's structure
   private perchFY = PERCH_FY;
   private tokenLayer = new Container();
   private tokens = new Map<string, Token>();
   private texByUnit = new Map<string, Texture | null>(); // fallback portrait tokens
   private enemyTex = new Map<string, Texture | null>(); // composited enemy sprites
+  private enemyStrip = new Map<string, Texture | null>(); // packed part strips (animated rigs)
+  private playerScale = 0; // common px-per-rig-unit for player zombies (see refPlayerScale)
 
   // Boss projectiles.
   private bossThrow: BossThrowConfig | null;
+  private hazardSprite = ""; // this raid's obstacle/grab art, preloaded for syncProjectiles
   private wallTemplate: CombatUnit | null; // preloaded so a spawned wall renders as a sprite
   private projLayer = new Container();
   private projTex = new Map<string, Texture | null>();
   private projSprites = new Map<string, Sprite>();
+  private dotTex: Texture | null = null; // round placeholder for sprite-less hazards
+  private fxLayer = new Container(); // transient effects (death poofs) above the field
+  private fx: { g: Graphics; t: number; life: number; color: number }[] = [];
+  private particles = new ParticleField(); // melee-impact dust + victory confetti
+  private bashCfg: ParticleConfig | null = null;
+  private confettiCfg: ParticleConfig | null = null;
+  private confettiFired = false;
 
   // team bars
   private pFill = new Graphics();
@@ -163,6 +234,7 @@ export class RaidScene {
     this.assets = params.assets;
     this.onFinish = params.onFinish;
     this.bossThrow = params.bossThrow;
+    this.hazardSprite = params.hazard?.sprite ?? "";
     this.wallTemplate = params.wallTemplate ?? null;
     this.sim = new BattleSim(
       params.playerUnits,
@@ -202,18 +274,36 @@ export class RaidScene {
       this.stageLayer.addChild(sp);
     }
     this.computePerch();
+    // Move the perch structure into a FRONT layer, with the boss layer just behind
+    // it: render order becomes backdrop → stage (bg) → boss → perch structure →
+    // ground tokens. So the boss stands behind the barn/silo (legs hidden by the
+    // roof) while enemies in the doorway still draw in front of the structure.
+    if (this.perchLayer) {
+      this.stageLayer.removeChild(this.perchLayer.sp);
+      this.stageFrontLayer.addChild(this.perchLayer.sp);
+    }
+    this.container.addChild(this.bossBackLayer, this.stageFrontLayer);
 
     // Enemy sprites: one composited actor per enemy type (farmhand/boss/…). Fall
     // back to the raid's flat enemy icon / boss portrait for types without one.
     const enemyKeys = [...new Set(this.sim.units.filter((u) => u.team === "enemy").map((u) => u.sourceKey))];
     await Promise.all(
-      enemyKeys.map(async (k) => this.enemyTex.set(k, await loadTex(enemySprite(k))))
+      enemyKeys.map(async (k) => {
+        // Prefer the animated rig (part strip) when a model exists; else the flat
+        // composite; else the token falls back to the raid's icon / boss portrait.
+        if (this.assets.enemyModels[k]) {
+          this.enemyStrip.set(k, await loadTex(enemyStripUrl(k)));
+        } else {
+          this.enemyTex.set(k, await loadTex(enemySprite(k)));
+        }
+      })
     );
     const enemyUrl = this.raid.enemyIcon ? raidImage(this.raid.enemyIcon) : "";
     const bossUrl = this.raid.bossPortrait ? raidImage(this.raid.bossPortrait) : "";
     const fallbackUrls = new Map<string, string>();
     for (const u of this.sim.units) {
-      if (u.team !== "enemy" || this.enemyTex.get(u.sourceKey)) continue;
+      if (u.team !== "enemy") continue;
+      if (this.enemyTex.get(u.sourceKey) || this.enemyStrip.get(u.sourceKey)) continue;
       fallbackUrls.set(u.id, u.isBoss ? bossUrl : enemyUrl);
     }
     const uniq = [...new Set([...fallbackUrls.values()].filter(Boolean))];
@@ -232,9 +322,19 @@ export class RaidScene {
 
     // Preload boss projectile sprites (chicken/bucket/debris).
     this.container.addChild(this.projLayer);
+    this.container.addChild(this.fxLayer); // death poofs draw above everything
+    this.container.addChild(this.particles.container); // impact dust / confetti on top
+    [this.bashCfg, this.confettiCfg] = await Promise.all([
+      loadParticle("bash"),
+      loadParticle("confetti"),
+    ]);
     for (const opt of this.bossThrow?.options ?? []) {
       if (this.projTex.has(opt.sprite)) continue;
       this.projTex.set(opt.sprite, await loadTex(raidImage(opt.sprite)));
+    }
+    // Environmental hazard art (falling obstacle / grab), so it isn't a warning dot.
+    if (this.hazardSprite && !this.projTex.has(this.hazardSprite)) {
+      this.projTex.set(this.hazardSprite, await loadTex(raidImage(this.hazardSprite)));
     }
 
     // Team-bar face badges: a representative party zombie on the left, the raid's
@@ -358,26 +458,62 @@ export class RaidScene {
     this.container.addChild(badge);
   }
 
+  // px-per-rig-unit shared by all player zombies. Calibrated ONCE so a baseline
+  // Regular zombie renders at ZOMBIE_H; every other type then scales by the same
+  // factor, preserving the authentic relative sizes baked into each model's group
+  // scale (Large 1.15, Small 0.60, …) instead of squashing them all to one height.
+  private refPlayerScale(): number {
+    if (this.playerScale) return this.playerScale;
+    const ref = new RaidActor(this.assets, "ZombieActorRegularTier1");
+    const h = Math.max(1, ref.container.getLocalBounds().height);
+    ref.container.destroy({ children: true });
+    this.playerScale = ZOMBIE_H / h;
+    return this.playerScale;
+  }
+
   private makeToken(u: SimUnit): Token {
     const root = new Container();
     let actor: RaidActor | undefined;
+    let enemyActor: EnemyActor | undefined;
     let base = 22;
     let topY = -60;
+    let actorBaseScale = 1;
+    let actorBaseY = 0;
 
     if (u.team === "player") {
-      // Real farm-style zombie rig (with the walk animation), scaled to fit.
+      // Real farm-style zombie rig (with the walk animation). A COMMON scale is
+      // applied to every player zombie (not a per-unit fit-to-height), so the
+      // authentic per-group sizes carry through — a Large brute towers over a Small
+      // gnome instead of all zombies rendering at one height.
       actor = new RaidActor(this.assets, u.sourceKey);
       const b = actor.container.getLocalBounds();
-      const s = ZOMBIE_H / Math.max(1, b.height);
+      const s = this.refPlayerScale();
       actor.container.scale.set(s);
       actor.container.y = -(b.y + b.height) * s; // stand its feet at the origin
       root.addChild(actor.container);
       base = Math.max(14, (b.width * s) / 2);
-      topY = -ZOMBIE_H;
+      topY = -(b.height * s); // this unit's actual rendered height
+      // Remember the base transform so the Smash grow can scale the rig about its
+      // FEET (container.y scales with the same factor) without moving the HP bar.
+      actorBaseScale = s;
+      actorBaseY = actor.container.y;
     } else {
       const targetH = u.isBoss ? BOSS_H : ENEMY_H;
+      const strip = this.enemyStrip.get(u.sourceKey) ?? null;
+      const model = this.assets.enemyModels[u.sourceKey];
       const tex = this.enemyTex.get(u.sourceKey) ?? null;
-      if (tex) {
+      if (strip && model) {
+        // Animated rig: assemble from the part strip and fit to the role height.
+        const ea = new EnemyActor(strip, model);
+        const b = ea.container.getLocalBounds();
+        const s = targetH / Math.max(1, b.height);
+        ea.container.scale.set(s);
+        ea.container.y = -(b.y + b.height) * s; // stand its feet at the origin
+        root.addChild(ea.container);
+        base = Math.max(16, (b.width * s) / 2);
+        topY = -(b.height * s);
+        enemyActor = ea;
+      } else if (tex) {
         const sp = new Sprite(tex);
         sp.anchor.set(0.5, 1); // feet at the origin
         const s = targetH / Math.max(1, tex.height);
@@ -415,8 +551,15 @@ export class RaidScene {
     charge.y = 8;
     root.addChild(charge);
 
-    this.tokenLayer.addChild(root);
-    return { root, actor, hp, charge, base, topY, pulse: 0, lastX: 0, lastY: 0 };
+    // A boss on a perch structure renders BEHIND it (legs occluded by the roof);
+    // everyone else, including a boss with no structure (sky-perch UFO), is in front.
+    const layer = u.isBoss && this.perchLayer ? this.bossBackLayer : this.tokenLayer;
+    layer.addChild(root);
+    return {
+      root, actor, enemyActor, hp, charge, base, topY, pulse: 0, atkCount: 0,
+      lastSimX: u.x, lastSimY: u.y, deathAnim: -1, emerged: false,
+      smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
+    };
   }
 
   private buildTeamBars() {
@@ -503,12 +646,20 @@ export class RaidScene {
       }
     }
     if (!best) return;
+    this.perchLayer = best; // this layer gets drawn in front of the boss (leg occlusion)
     const [ax, ay] = parseVec(best.asset.anchor);
     const [px, py] = parseVec(best.asset.position);
     const tw = best.sp.texture.width;
     const th = best.sp.texture.height;
-    const centerX = px - ax * tw + tw / 2; // structure center (design x)
-    const topY = py + (1 - ay) * th; // structure top edge (design y, Y-up)
+    // Perch LEFT-of-centre on the structure. Structures are right-edge anchored, so a
+    // big boss centred on the structure hangs off the screen's right edge; biasing it
+    // toward the structure's left keeps it on-screen and over the building (not the
+    // silo tip). tw*0.5 = centre; tw*PERCH_BIAS_FX pulls it left.
+    const centerX = px - ax * tw + tw * PERCH_BIAS_FX;
+    // Sink the perch BELOW the structure's top edge so the boss stands down behind
+    // the roof (its legs hidden by the structure it renders behind), not floating on
+    // the peak. topY is the top edge (design y, Y-up); subtract to move the feet down.
+    const topY = py + (1 - ay) * th - PERCH_SINK_F * th;
     this.perchFX = centerX / DESIGN_W;
     this.perchFY = (DESIGN_H - topY) / DESIGN_H; // screen fraction from the top
   }
@@ -516,13 +667,19 @@ export class RaidScene {
   // Sim→screen mapping, anchored to the background rect + its ground line.
   private mapX(sx: number): number {
     const r = this.bgRect();
-    const mx = r.w * 0.04;
+    const mx = r.w * FIELD_INSET_FX;
     return r.left + mx + (sx / FIELD_W) * (r.w - 2 * mx);
+  }
+  /** How much to scale unit-space sizes/offsets so they track the contain-fit stage
+   *  (1 at SIZE_REF_SCALE). Everything measured in "unit px" — heights, ground nudges,
+   *  poof offsets — multiplies by this so it grows/shrinks with the window. */
+  private sizeScale(): number {
+    return this.bgRect().scale / SIZE_REF_SCALE;
   }
   private mapY(sy: number): number {
     const r = this.bgRect();
     // Shallow vertical band around the ground line (rows give a little depth).
-    return r.groundY + GROUND_NUDGE + (sy - CENTER_Y) * (r.h * 0.00028);
+    return r.groundY + GROUND_NUDGE * this.sizeScale() + (sy - CENTER_Y) * (r.h * 0.00028);
   }
   /** Vertical mapping for boss projectiles: unlike mapY's shallow ground band,
    *  this spans the full drop so a throw leaves the boss's perch and lands at the
@@ -530,14 +687,14 @@ export class RaidScene {
   private mapProjY(sy: number): number {
     const r = this.bgRect();
     const perchY = r.top + this.perchFY * r.h;
-    const groundLineY = r.groundY + GROUND_NUDGE;
+    const groundLineY = r.groundY + GROUND_NUDGE * this.sizeScale();
     const t = (sy - BOSS_STRUCT_Y) / (CENTER_Y - BOSS_STRUCT_Y);
     return perchY + t * (groundLineY - perchY);
   }
   /** Horizontal sim→screen scale, for sizing projectiles in field units. */
   private scaleX(): number {
     const r = this.bgRect();
-    return (r.w - r.w * 0.08) / FIELD_W;
+    return (r.w * (1 - 2 * FIELD_INSET_FX)) / FIELD_W;
   }
 
   /** Recompute all screen positions from the current viewport + sim state.
@@ -560,8 +717,8 @@ export class RaidScene {
     }
     this.backdrop
       .clear()
-      .rect(0, 0, W, r.groundY).fill(SKY_COLOR)
-      .rect(0, r.groundY, W, Math.max(0, H - r.groundY)).fill(GRASS_COLOR);
+      .rect(0, 0, W, r.groundY).fill(LETTERBOX_TOP)
+      .rect(0, r.groundY, W, Math.max(0, H - r.groundY)).fill(LETTERBOX_BOT);
 
     const toX = (sx: number) => this.mapX(sx);
     const toY = (sy: number) => this.mapY(sy);
@@ -606,26 +763,102 @@ export class RaidScene {
       }
       tok.root.visible = true;
 
+      // Units track the stage size: their whole token (rig + bars) is scaled by szs,
+      // so a smaller window shrinks them with the background instead of leaving them
+      // fixed-pixel giants. szs also scales unit-space offsets (drop, poof, settle).
+      const szs = this.sizeScale();
       const slide = u.team === "player" ? -introSlide : 0;
-      const drop = u.team === "player" ? PLAYER_NUDGE : 0; // zombies sit lower
+      const drop = u.team === "player" ? PLAYER_NUDGE * szs : 0; // zombies sit lower
       const [sx, sy] = u.isBoss ? bossPos(u) : [toX(u.x) + slide, toY(u.y) + drop];
       tok.root.position.set(sx, sy);
-      tok.root.scale.set(1 + 0.16 * tok.pulse);
-      tok.root.alpha = u.alive ? 1 : 0.18;
       tok.root.zIndex = u.isBoss ? 3 : u.alive ? 2 : 1;
+
+      // Spawn puff the first time a unit reaches the field mid-fight (queued enemies
+      // emerging, summoned minions) — the intro roster slides in and doesn't puff.
+      if (!tok.emerged) {
+        tok.emerged = true;
+        if (this.phase !== "intro" && u.alive) this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, 0xe6d6b0);
+      }
+
+      if (u.alive) {
+        tok.root.scale.set((1 + 0.16 * tok.pulse) * szs);
+        tok.root.alpha = 1;
+      } else {
+        // On death: puff a dust cloud once, then fade + settle out over DEATH_FADE
+        // (was a lingering 18%-alpha ghost).
+        if (tok.deathAnim < 0) {
+          tok.deathAnim = 0;
+          const color = u.team === "player" ? 0xbfe39a : 0xe6d6b0;
+          this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, color);
+        }
+        tok.deathAnim += dtSec;
+        const k = Math.min(1, tok.deathAnim / DEATH_FADE);
+        tok.root.scale.set((1 + 0.16 * tok.pulse) * (1 - 0.28 * k) * szs);
+        tok.root.alpha = 1 - k;
+        tok.root.y = sy + k * 7 * szs; // slight settle downward
+      }
 
       // Zombie rig: play the walk animation whenever it's actually moving, and
       // turn to face the way it's pacing (so waiting zombies mill back and forth).
       const windup = u.windupKey ? 1 - u.windupMs / Math.max(1, u.windupTotal) : 0;
+      // Drive the walk anim + facing from SIM-space movement (u.x/u.y), NOT screen
+      // position: a viewport RESIZE shifts every screen pos at once, which used to
+      // read as a giant step — spuriously flipping facing (backwards bosses on the
+      // first frame, when lastX was 0) and firing the walk cycle on resize. Sim
+      // positions are resolution-independent, so a resize is a no-op here.
+      const simDx = u.x - tok.lastSimX;
+      const simMoved = Math.hypot(simDx, u.y - tok.lastSimY);
+      const introMarch = this.phase === "intro"; // zombies slide in during the intro
       if (tok.actor) {
-        const dxm = sx - tok.lastX;
-        const moved = Math.hypot(dxm, sy - tok.lastY);
-        if (Math.abs(dxm) > 0.5) tok.actor.setFacingFromDelta(dxm);
-        tok.actor.update(dtSec, u.alive && moved > 0.3);
-        tok.actor.setWindup(windup); // raises the arms while charging an activated move
+        if (Math.abs(simDx) > 0.3) tok.actor.setFacingFromDelta(simDx);
+        const moving = u.alive && (simMoved > 0.3 || introMarch);
+        tok.actor.update(dtSec, moving);
+
+        // Smash (bash family): grow to 1+SMASH_GROW while charging (tracks the arm
+        // raise), then a rapid slam+shrink on release. Detect release by the smash
+        // charge dropping to 0 (windupKey clears once the payoff blow lands).
+        const smashing = !!u.windupKey && SMASH_KEYS.has(u.windupKey);
+        if (tok.wasSmashWindup > 0 && !smashing && tok.smashSlam < 0) {
+          tok.smashSlam = SMASH_SLAM_S; // just released — begin the slam
+        }
+        tok.wasSmashWindup = smashing ? windup : 0;
+        let grow = 1;
+        let slamProg = -1;
+        if (smashing) {
+          grow = 1 + SMASH_GROW * windup; // loom up as the arms rise
+        } else if (tok.smashSlam >= 0) {
+          tok.smashSlam -= dtSec;
+          slamProg = Math.max(0, tok.smashSlam) / SMASH_SLAM_S; // 1 → 0
+          grow = 1 + SMASH_GROW * slamProg; // shrink 1.4 → 1
+          if (tok.smashSlam <= 0) tok.smashSlam = -1;
+        }
+        // Feet-anchored grow: scale the rig container (and its feet offset) — NOT the
+        // whole token — so the HP bar doesn't balloon with it.
+        tok.actor.container.scale.set(tok.actorBaseScale * grow);
+        tok.actor.container.y = tok.actorBaseY * grow;
+
+        // Arms: smash slam > wind-up (activated) > attack (forward + wave) > walking
+        // (forward) > waiting (sides). The attack wave is locked to the sim's attack
+        // clock — a full switch per cooldown — kept continuous per hit by atkCount.
+        const fighting = u.state === "fight" && !u.windupKey && u.alive;
+        const atkProg = Math.max(0, Math.min(1, 1 - u.timerMs / Math.max(1, u.cooldownMs)));
+        tok.actor.poseArms(windup, fighting, moving, atkProg, tok.atkCount, slamProg);
       }
-      tok.lastX = sx;
-      tok.lastY = sy;
+      // Enemy rig: idle bob when holding position, walk cycle while advancing, and a
+      // forward strike lunge while trading blows — the lunge peaks at the attack's
+      // damageTiming so its reach lands with the sim's hit (see EnemyActor).
+      if (tok.enemyActor) {
+        if (Math.abs(simDx) > 0.3) tok.enemyActor.setFacingFromDelta(simDx);
+        const enemyFighting = u.state === "fight" && u.alive;
+        const atkProg = Math.max(0, Math.min(1, 1 - u.timerMs / Math.max(1, u.cooldownMs)));
+        tok.enemyActor.update(
+          dtSec,
+          u.alive && simMoved > 0.3,
+          enemyFighting ? { atkProg, damageTiming: u.attackDamageTiming } : null
+        );
+      }
+      tok.lastSimX = u.x;
+      tok.lastSimY = u.y;
 
       const frac = Math.max(0, u.hp / u.maxHp);
       tok.hp.clear();
@@ -662,8 +895,13 @@ export class RaidScene {
       this.bubble.visible = true;
       const tex = bub.kind === "brain" ? this.bubbleTexBrain : this.bubbleTexButterfly;
       if (tex) this.bubbleSprite.texture = tex;
-      const bob = Math.sin(this.phaseT / 260) * 3;
-      this.bubble.position.set(bubTok.root.x + BUBBLE_DX, bubTok.root.y - (bubTok.base + 34) + bob);
+      const szs = this.sizeScale();
+      this.bubbleSprite.scale.set(-BUBBLE_SCALE * szs, BUBBLE_SCALE * szs); // track unit size
+      const bob = Math.sin(this.phaseT / 260) * 3 * szs;
+      this.bubble.position.set(
+        bubTok.root.x + BUBBLE_DX * szs,
+        bubTok.root.y - (bubTok.base + 34) * szs + bob
+      );
       const s = this.bubble.scale.x;
       this.bubble.scale.set(s + (1 - s) * Math.min(1, dtSec * 14)); // ease tap-feedback back
     } else {
@@ -724,6 +962,41 @@ export class RaidScene {
   }
 
   /** Mirror the sim's live projectiles into pooled sprites. */
+  /** A dust puff at (x,y): a soft expanding disc that fades over ~0.45s. Zombies
+   *  poof a pale green, enemies a neutral dust. Replaces the old lingering ghost. */
+  private spawnPoof(x: number, y: number, color: number) {
+    const g = new Graphics();
+    g.position.set(x, y);
+    this.fxLayer.addChild(g);
+    this.fx.push({ g, t: 0, life: 0.45, color });
+  }
+
+  private stepFx(dtSec: number) {
+    for (const e of this.fx) {
+      e.t += dtSec;
+      const k = Math.min(1, e.t / e.life);
+      const r = 7 + 24 * k;
+      const a = (1 - k) * 0.5;
+      e.g.clear()
+        .circle(0, -6 * k, r).fill({ color: e.color, alpha: a })
+        .circle(7 * (1 - k), -20 * k, r * 0.55).fill({ color: e.color, alpha: a * 0.8 });
+    }
+    if (this.fx.some((e) => e.t >= e.life)) {
+      for (const e of this.fx) if (e.t >= e.life) e.g.destroy();
+      this.fx = this.fx.filter((e) => e.t < e.life);
+    }
+  }
+
+  /** A round white texture (tinted at use) for hazards that ship no projectile art. */
+  private hazardDotTex(): Texture {
+    if (!this.dotTex) {
+      const g = new Graphics().circle(16, 16, 15).fill(0xffffff);
+      this.dotTex = this.app.renderer.generateTexture(g);
+      g.destroy();
+    }
+    return this.dotTex;
+  }
+
   private syncProjectiles() {
     const live = new Set<string>();
     const s = this.scaleX();
@@ -732,9 +1005,11 @@ export class RaidScene {
       let sp = this.projSprites.get(pr.id);
       if (!sp) {
         const tex = this.projTex.get(pr.sprite) ?? null;
-        sp = new Sprite(tex ?? Texture.WHITE);
+        // Hazards with no preloaded sprite (falling obstacles / grabs) render as a
+        // round warning dot — NOT Texture.WHITE, which read as a spinning square.
+        sp = new Sprite(tex ?? this.hazardDotTex());
         sp.anchor.set(0.5);
-        if (!tex) sp.tint = 0xffe08a; // fallback dot for a missing sprite
+        if (!tex) sp.tint = 0xff7a3c;
         this.projLayer.addChild(sp);
         this.projSprites.set(pr.id, sp);
       }
@@ -765,6 +1040,8 @@ export class RaidScene {
     const dtMs = Math.min(dtSec * 1000, 50);
     this.phaseT += dtMs;
     for (const t of this.tokens.values()) t.pulse = Math.max(0, t.pulse - dtSec * 6);
+    this.stepFx(dtSec);
+    this.particles.update(dtSec);
 
     // Retreat is handled here (not in the tap handler) so nothing runs mid
     // event-dispatch on the button that triggered it.
@@ -783,8 +1060,21 @@ export class RaidScene {
         for (const u of this.sim.units) {
           if (u.struckThisTick) {
             const t = this.tokens.get(u.id);
-            if (t) t.pulse = 1;
+            if (t) {
+              t.pulse = 1;
+              t.atkCount++; // completes an arm-wave switch (the attacker just hit)
+              // A small dust burst at the point of impact (victim's mid-body).
+              if (this.bashCfg && u.alive) {
+                this.particles.burst(this.bashCfg, t.root.x, t.root.y + t.topY * 0.5, 0.28);
+              }
+            }
           }
+        }
+        // Confetti pops the moment the players win (across the top of the field).
+        if (this.sim.finished && this.sim.playerWon && !this.confettiFired && this.confettiCfg) {
+          this.confettiFired = true;
+          const r = this.bgRect();
+          this.particles.burst(this.confettiCfg, r.left + r.w / 2, r.top + r.h * 0.12, 1.4, true);
         }
         if (this.sim.finished && this.phaseT >= END_PAUSE_MS) {
           this.setPhase(this.sim.playerWon ? "outro" : "defeat");

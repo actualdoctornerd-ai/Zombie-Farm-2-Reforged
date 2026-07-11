@@ -15,7 +15,14 @@
 import type { OwnedZombie } from "../zombie/types";
 import { veterancyMultiplier } from "../zombie/traits";
 import { activeAbilities, combatEffect, ARMY_HP_MULT_CAP } from "../zombie/abilities";
-import { applyDamage, levelScaleStat } from "./combatStats";
+import {
+  applyDamage,
+  levelScaleStat,
+  deriveMaxHp,
+  deriveAttackIntervalMs,
+  deriveHitDamage,
+  POWER_PER_STR,
+} from "./combatStats";
 import type {
   AttackDef,
   CombatUnit,
@@ -60,7 +67,9 @@ function unit(
   isGarden = false,
   isHeadless = false
 ): CombatUnit {
-  const maxHp = Math.max(1, Math.round(con * 10));
+  // Ground-truth stat->fight-data derivation (initFightDataAfterLoad):
+  //   maxHp = con × 100; attack interval = (2s zombie / 1s enemy) ÷ dex.
+  const maxHp = Math.max(1, Math.round(deriveMaxHp(con)));
   return {
     id,
     sourceKey,
@@ -72,7 +81,7 @@ function unit(
     focus,
     hp: maxHp,
     maxHp,
-    attackCooldownMs: clamp(3000 / Math.max(0.1, dex), 600, 3500),
+    attackCooldownMs: deriveAttackIntervalMs(dex, team),
     attacks: [{ name: "", frequency: 1, mult }],
     isBoss,
     alive: true,
@@ -82,9 +91,13 @@ function unit(
   };
 }
 
-/** Effective per-hit damage of a combat unit. */
+/** Effective per-hit damage of a combat unit. Ground truth (`Actor damageIn:`):
+ *  finalPower × attackDamageMultiplier × K, where finalPower = effective str × 10 and the
+ *  per-hit `mult` carries the attack's damageMultiplier plus focus/ability modifiers.
+ *  Min 1 so the sim can't stall. */
 function hitDamage(u: CombatUnit): number {
-  return Math.max(1, Math.round(u.str * (u.attacks[0]?.mult ?? 1)));
+  const power = u.str * POWER_PER_STR;
+  return Math.max(1, Math.round(deriveHitDamage(power, u.attacks[0]?.mult ?? 1)));
 }
 
 // Distraction model: during an invasion the enemy distracts your zombies, costing
@@ -186,6 +199,27 @@ function attackEffects(
   return { knockBack, stunMs };
 }
 
+/** Representative damage-timing for an enemy's swing animation: the `damageTiming` of
+ *  its most-frequent (primary) attack that defines one — the visible normal attack —
+ *  falling back to a neutral mid-swing 0.5. Cosmetic only (drives the raid-scene lunge). */
+function primaryDamageTiming(
+  attacks: { name: string; frequency: number }[] | undefined,
+  table: Record<string, AttackDef>
+): number {
+  let best: number | undefined;
+  let bestFreq = -1;
+  for (const a of attacks ?? []) {
+    const dt = table[a.name]?.damageTiming;
+    if (dt === undefined) continue;
+    const f = a.frequency || 0;
+    if (f > bestFreq) {
+      bestFreq = f;
+      best = dt;
+    }
+  }
+  return best ?? 0.5;
+}
+
 /** Build one enemy wave's combat line from a raid stage + stat/attack tables.
  *  Weighted-population waves fall back to filling `population` from the table. */
 export function buildEnemyUnits(
@@ -212,6 +246,7 @@ export function buildEnemyUnits(
     const fx = attackEffects(st.attacks, attacks);
     u.knockBack = fx.knockBack;
     u.stunMs = fx.stunMs;
+    u.attackDamageTiming = primaryDamageTiming(st.attacks, attacks);
     out.push(u);
   };
   const keys =
@@ -227,7 +262,15 @@ export function buildEnemyUnits(
   return out;
 }
 
-/** Run the deterministic auto-battle. Player wins iff all enemies die first. */
+/** Run the deterministic auto-battle. Player wins iff all enemies die first.
+ *
+ *  Engagement model: **enemies come out ONE AT A TIME** (matching the live raid scene) —
+ *  only the front enemy is "out": it attacks the lead zombie, and the player's whole living
+ *  army focus-fires it. The rest of the wave is queued and doesn't act until it reaches the
+ *  front. This is what makes army SIZE matter (concentration) instead of the enemy wave
+ *  dog-piling the front zombie; a single strong enemy or a numbers disadvantage still loses.
+ *  (Player-side melee-slot limits — how many zombies can reach the one enemy at once — are
+ *  not yet modeled; today the whole army engages.) */
 export function resolveRaid(
   player: CombatUnit[],
   enemy: CombatUnit[]
@@ -244,29 +287,28 @@ export function resolveRaid(
   let playerDamage = 0;
 
   for (let t = 0; t < MAX_SIM_MS; t += STEP_MS) {
-    if (!firstAlive(p) || !firstAlive(e)) break;
-    // Enemies act, then players — order is fixed for determinism.
-    for (const side of [e, p]) {
-      const foes = side === p ? e : p;
-      for (const u of side) {
-        if (!u.alive) continue;
-        const left = (cd.get(u.id) ?? u.attackCooldownMs) - STEP_MS;
-        if (left > 0) {
-          cd.set(u.id, left);
-          continue;
-        }
-        cd.set(u.id, u.attackCooldownMs); // reset regardless of a valid target
-        const target = firstAlive(foes);
-        if (!target) continue;
-        // Binary `Actor damage:`: flat armor subtracts first, then % reduction.
-        // Both default to 0 (no enemy/player DR is modeled yet) so this is
-        // behavior-preserving today, but faithful in shape and DR-ready.
-        const dmg = applyDamage(hitDamage(u), target.armor ?? 0, target.damageReduction ?? 0);
-        target.hp -= dmg;
-        rounds++;
-        if (u.team === "player") playerDamage += dmg;
-        if (target.hp <= 0) target.alive = false;
+    const frontEnemy = firstAlive(e);
+    if (!firstAlive(p) || !frontEnemy) break;
+    // Acting units this tick: the ONE front enemy, then every living zombie (order fixed
+    // for determinism — enemy first). Queued enemies stay off the field.
+    const actors: CombatUnit[] = [frontEnemy, ...p];
+    for (const u of actors) {
+      if (!u.alive) continue;
+      const foes = u.team === "player" ? e : p;
+      const left = (cd.get(u.id) ?? u.attackCooldownMs) - STEP_MS;
+      if (left > 0) {
+        cd.set(u.id, left);
+        continue;
       }
+      cd.set(u.id, u.attackCooldownMs); // reset regardless of a valid target
+      const target = firstAlive(foes);
+      if (!target) continue;
+      // Binary `Actor damage:`: flat armor subtracts first, then % reduction.
+      const dmg = applyDamage(hitDamage(u), target.armor ?? 0, target.damageReduction ?? 0);
+      target.hp -= dmg;
+      rounds++;
+      if (u.team === "player") playerDamage += dmg;
+      if (target.hp <= 0) target.alive = false;
     }
   }
 

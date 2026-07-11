@@ -14,8 +14,21 @@ const TILT_BACK_FRAC = 0.6;
 const STEP_SPEED = 4.5;
 const STEP_LIFT = 2.5;
 const STEP_ANGLE = 0.18;
-// Arms rest pointing down (rotation 0); swing them up-and-back to raise overhead.
+// Empirically, from the rendered rig: rotation 0 = arms STRAIGHT OUT IN FRONT (toward
+// the enemy); rotating toward ARM_REST drops them DOWN to the sides; RAISE_ANGLE swings
+// them up overhead (activated-move wind-up).
 const RAISE_ANGLE = -2.5;
+// Arms held STRAIGHT OUT IN FRONT (toward the enemy) — the classic zombie pose, used
+// while WALKING (advancing) and as the base while ATTACKING.
+const ARM_FWD = 0.0;
+// Arms hanging DOWN at the sides — only while WAITING in the back group.
+const ARM_REST = -1.5;
+// Basic-attack wave: from the forward pose, the arms pump up/down in opposition (one
+// up while the other's down) — a full switch per landed hit. Kept small so they stay
+// reading as "out in front" rather than flailing overhead.
+const ARM_WAVE = 0.34;
+// A faint alternating sway on the forward arms while walking, so they're not stiff.
+const ARM_WALK_SWAY = 0.09;
 
 export class RaidActor {
   readonly container = new Container();
@@ -77,13 +90,58 @@ export class RaidActor {
     else if (dx < -0.01) this.facing = 1;
   }
 
-  /** Pose the arms for an activated wind-up: 0 = rest (arms down), 1 = arms fully
-   *  raised overhead (about to bash). The scene passes the charge progress; when it
-   *  releases (progress→0) the arms snap back and the token's hit-lunge reads as
-   *  the strike. Both arms swing the same way so it looks like a two-handed raise. */
-  setWindup(progress: number) {
-    const a = Math.max(0, Math.min(1, progress)) * RAISE_ANGLE;
-    for (const arm of this.arms) arm.rotation = a;
+  /** Pose the arms each frame. Priority: an activated-move WIND-UP (both arms swing
+   *  overhead, two-handed) > a basic ATTACK (arms held out in front, pumping up/down
+   *  in OPPOSITION — one up while the other is down, a full switch per landed hit) >
+   *  WALKING (arms straight out in front, a faint sway) > WAITING (arms at the sides).
+   *  So arms are FORWARD whenever the zombie is moving or fighting, and only drop to
+   *  the sides while it stands idle in the back group.
+   *
+   *  windup:    0..1 activated-charge progress (0 = none).
+   *  attacking: is this zombie trading basic blows right now.
+   *  walking:   is this zombie advancing/marching (arms out, like the attack pose).
+   *  atkProg:   0..1 through the current attack cooldown (0 = just hit).
+   *  atkCount:  hits landed so far — its parity flips the wave each attack so the
+   *             reach stays continuous when atkProg snaps 1→0 on the landed hit.
+   *
+   *  TODO(bite): a SECOND basic-attack variant — a head-lunge BITE (the zombie
+   *  darts its head/upper body forward to chomp) — is noted for a later pass. */
+  poseArms(
+    windup: number,
+    attacking: boolean,
+    walking: boolean,
+    atkProg: number,
+    atkCount: number,
+    smashSlam = -1
+  ) {
+    if (smashSlam >= 0) {
+      // Smash SLAM: arms drive from fully overhead (1) back down (0) as the zombie
+      // shrinks; continuous from the wind-up, which ended with the arms at RAISE_ANGLE.
+      const a = smashSlam * RAISE_ANGLE;
+      for (const arm of this.arms) arm.rotation = a;
+    } else if (windup > 0) {
+      const a = Math.max(0, Math.min(1, windup)) * RAISE_ANGLE;
+      for (const arm of this.arms) arm.rotation = a;
+    } else if (attacking && this.arms.length) {
+      // Out in front + up/down wave. One full switch = one attack; the parity term
+      // keeps the wave continuous across the cooldown reset (atkProg 1→0 + a π step
+      // cancel out).
+      const phase = atkProg * Math.PI + (atkCount % 2 ? Math.PI : 0);
+      const c = Math.cos(phase);
+      this.arms.forEach((arm, i) => {
+        const dir = i % 2 === 0 ? 1 : -1; // alternate arms: one up while the other's down
+        arm.rotation = ARM_FWD + dir * c * ARM_WAVE;
+      });
+    } else if (walking && this.arms.length) {
+      // Straight out in front (like the attack base) with a faint alternating sway.
+      const s = Math.sin(this.stepPhase);
+      this.arms.forEach((arm, i) => {
+        const dir = i % 2 === 0 ? 1 : -1;
+        arm.rotation = ARM_FWD + dir * s * ARM_WALK_SWAY;
+      });
+    } else {
+      for (const arm of this.arms) arm.rotation = ARM_REST; // hang down at the sides (waiting)
+    }
   }
 
   update(dt: number, moving: boolean) {
