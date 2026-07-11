@@ -16,8 +16,6 @@
 import { Container, Graphics, Matrix, RenderTexture, Sprite, Texture } from "pixi.js";
 import type { Renderer } from "pixi.js";
 
-export const NIGHT_BG = 0x0a1020; // app clear colour at night (day is grass green)
-
 // The darkness: a cool dark-blue mask. Its alpha in fully-unlit areas sets how
 // dark night is; lights erase this alpha away to reveal the daytime scene.
 const NIGHT_MASK = 0x0a1430;
@@ -58,16 +56,19 @@ export function makeLight(radius: number, _color = 0xffffff, alpha = 1): Sprite 
   return s;
 }
 
-// Glowing objects and the reveal-radius of their light (from ZF2 pointLights;
-// radius scaled to the reimpl's world px). Colour is kept for reference/future
-// warm-tint work but the erase mask reveals true daytime colour regardless.
+// Glowing objects and the reveal-radius of their light. Radius is in the reimpl's
+// world px. Colour is kept for reference/future warm-tint work but the erase mask
+// reveals true daytime colour regardless.
 export const OBJECT_GLOWS: Record<string, { color: number; radius: number }> = {
+  // --- Authoritative: objects ZF2 itself lights (pointLights in TileProperties) ---
   fireflies: { color: 0xcfe6ff, radius: 70 },
   sparklers: { color: 0xffffff, radius: 80 },
   swampFence: { color: 0xffd98a, radius: 80 },
   swampShack: { color: 0xffcf78, radius: 120 },
   greatPyramid: { color: 0xfff0c0, radius: 130 },
   antiHolidayIncinerator: { color: 0xffb060, radius: 90 },
+  // ZF2 self-illuminates these via a night-sprite swap (no cast light); we give them
+  // a soft glow so they read as light sources at night.
   candleAltarDay: { color: 0xffe0a0, radius: 120 },
   candleAltarNight: { color: 0xffe0a0, radius: 120 },
   glowFlowerDay: { color: 0xaef0ff, radius: 60 },
@@ -78,6 +79,22 @@ export const OBJECT_GLOWS: Record<string, { color: number; radius: number }> = {
   glowSkullNight: { color: 0xd7b0ff, radius: 60 },
   glowStoneDay: { color: 0xbfe0ff, radius: 60 },
   glowStoneNight: { color: 0xbfe0ff, radius: 60 },
+
+  // --- Reimpl additions: obvious real light sources the original never wired up.
+  // Open flame (warm orange), candles (amber), and lamps/lanterns (soft amber). ---
+  bonfire: { color: 0xff8a3c, radius: 110 },
+  pixelCampfire: { color: 0xff8a3c, radius: 100 },
+  fireRing: { color: 0xff7a30, radius: 130 },
+  fancyFireplace: { color: 0xff8a3c, radius: 90 },
+  tikiTorch: { color: 0xffa845, radius: 70 },
+  candle: { color: 0xffdca0, radius: 55 },
+  bunchOfCandles: { color: 0xffdca0, radius: 65 },
+  skullCandle: { color: 0xffdca0, radius: 55 },
+  heartCandle: { color: 0xffc0d0, radius: 55 },
+  eggLamp: { color: 0xffe6b0, radius: 90 },
+  cityLamp: { color: 0xffe6b0, radius: 95 },
+  streetLight: { color: 0xffe6b0, radius: 105 },
+  boxoLantern: { color: 0xffa64a, radius: 70 }, // lit jack-o'-lantern
 };
 
 /** The night layer. Owns an offscreen light-map (a dark mask with light-holes

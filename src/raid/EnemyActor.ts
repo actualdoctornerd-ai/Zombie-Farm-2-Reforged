@@ -44,6 +44,10 @@ const LUNGE_PX = 13; // how far forward (toward the target) the rig jabs at the 
 const LUNGE_COCK = 0.28; // small backward wind-up before the jab (× LUNGE_PX)
 const ARM_THRUST = 0.5; // front-arm rotation added at the peak (rad; +ve reads as a forward jab)
 const ARM_COCK = 0.35; // arm wind-up back-swing (× ARM_THRUST)
+// A PUNCHER (bare-fisted lawyer / office boss — model.punch) rests its front arm DOWN
+// at its side and only lifts it to jab; a weapon-holder keeps its tool up. The droop
+// rotates the front arm about the shoulder; it eases back to 0 (extended) at the jab peak.
+const ARM_PUNCH_DROOP = -1.3; // rad the front arm hangs down at rest (negative = swings DOWN)
 
 /** Smoothstep 0..1. */
 const smooth = (t: number) => {
@@ -64,6 +68,7 @@ export class EnemyActor {
   /** Shared shoulder pivot the front arm(s) + held tool swing about during an attack —
    *  the top-most (min py) front arm part's anchor. Null if the rig has no front arm. */
   private shoulder: { x: number; y: number } | null = null;
+  private punch = false; // bare-fisted: rest arms at the sides, extend only to jab
   /** Art faces LEFT; enemies attack leftward (toward the zombies), so no flip by default. */
   private facing = 1;
   private tiltPhase = 0;
@@ -74,6 +79,7 @@ export class EnemyActor {
     this.container.addChild(this.root);
     this.root.sortableChildren = true;
     this.neck = model.neck;
+    this.punch = !!model.punch;
     for (const p of model.parts) {
       const tex = new Texture({
         source: strip.source,
@@ -182,14 +188,19 @@ export class EnemyActor {
     // floaters. Rotating about the shoulder (not each part's own anchor) is what makes
     // the weapon travel WITH the arm instead of spinning in place.
     const swing = attack ? ARM_THRUST * thrust - ARM_THRUST * ARM_COCK * cock : 0;
-    const cos = Math.cos(swing), sin = Math.sin(swing);
+    // A puncher's front arm hangs at its side (droop) and eases up to extended (0) at the
+    // jab's peak; a weapon-holder has no droop and just thrusts.
+    const droop = this.punch ? ARM_PUNCH_DROOP : 0;
     const sway = (a: { back: boolean }) =>
       this.hasLegs ? 0 : Math.sin(this.t * ARM_FREQ + (a.back ? Math.PI : 0)) * (moving ? ARM_SWAY_MOVE : ARM_SWAY_IDLE);
     for (const a of this.arms) {
-      if (attack && !a.back && this.shoulder) {
+      if (!a.back && this.shoulder && (droop > 0 || attack)) {
+        // Front arm rotates about the shared shoulder: rest at the droop, lift to jab.
+        const theta = droop * (1 - thrust) + swing;
+        const cos = Math.cos(theta), sin = Math.sin(theta);
         const dx = a.baseX - this.shoulder.x, dy = a.baseY - this.shoulder.y;
         a.sp.position.set(this.shoulder.x + dx * cos - dy * sin, this.shoulder.y + dx * sin + dy * cos);
-        a.sp.rotation = a.baseRot + swing;
+        a.sp.rotation = a.baseRot + theta;
       } else {
         a.sp.position.set(a.baseX, a.baseY);
         a.sp.rotation = a.baseRot + sway(a);

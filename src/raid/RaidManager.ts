@@ -387,6 +387,12 @@ export class RaidManager {
    *  instead and spawn on a steady cadence. Real hazard art (by raid id) is used
    *  where it ships; anything unmapped falls back to a round warning dot. */
   private hazardOf(raid: RaidDef): HazardConfig | null {
+    // Ground-crossing obstacle/grab hazards are DISABLED for now — the little sprite/dot
+    // sliding along the lane read as an out-of-place "ground projectile" and didn't fit the
+    // scene. The mechanic (Beach crab, Tree World turtle, Lawyers/Circus grab) is preserved
+    // below; flip this early-return off to bring it back once the visuals are right.
+    return null;
+    // eslint-disable-next-line no-unreachable
     if (raid.obstacleLimit && raid.obstacleSpawnSecs > 0) {
       return {
         limit: raid.obstacleLimit,

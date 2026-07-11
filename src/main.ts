@@ -18,7 +18,7 @@ import { RaidScene } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS } from "./raid/RaidCatalog";
 import { screenToGrid, tileCenter, TILE_H, TILE_W, HW, HH } from "./iso";
 import { setFootprint } from "./depthSort";
-import { NightLayer, makeLight, NIGHT_BG } from "./lighting";
+import { NightLayer, makeLight } from "./lighting";
 import { buyXp, sellBack, zombieSellValue } from "./economy";
 import { isFastMode, setFastMode } from "./devSettings";
 import { BASE } from "./base";
@@ -238,7 +238,11 @@ async function main() {
   const setNight = (on: boolean) => {
     isNight = on;
     night.visible = on;
-    app.renderer.background.color = on ? NIGHT_BG : 0x67bb4e;
+    // Leave the viewport FILLER (the area beyond the hills backdrop) the daytime
+    // hill/grass green in both modes — it's the exact colour of the backdrop hills
+    // (sampled 0x67bb4e). At night the NightLayer's dark overlay covers the whole
+    // screen, so it darkens this filler by the SAME amount as the hills; they read
+    // as one continuous surface instead of the hills floating over a near-black void.
   };
   window.addEventListener("keydown", (e) => {
     if (e.key === "n" || e.key === "N") setNight(!isNight);

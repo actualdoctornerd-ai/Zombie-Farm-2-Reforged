@@ -29,6 +29,15 @@ const ARM_REST = -1.5;
 const ARM_WAVE = 0.34;
 // A faint alternating sway on the forward arms while walking, so they're not stiff.
 const ARM_WALK_SWAY = 0.09;
+// ---- death: the head POPS OFF and tumbles backward ----
+// On death the head detaches and launches up-and-back (away from the enemy), falling
+// under gravity while it spins. Worked in the rig's LOCAL space (a POSITIVE x is always
+// "backward" because root.scale.x carries the facing sign), so it flies the right way
+// whichever direction the zombie faced.
+const DEATH_HEAD_VX = 62; // local px/s, backward (away from the enemy)
+const DEATH_HEAD_VY = -255; // local px/s, up
+const DEATH_HEAD_G = 820; // gravity pulling the head back down
+const DEATH_HEAD_SPIN = 13; // rad/s tumble
 
 export class RaidActor {
   readonly container = new Container();
@@ -47,6 +56,7 @@ export class RaidActor {
   private facing = -1;
   private tiltPhase = 0;
   private stepPhase = 0;
+  private deathT = -1; // ≥0 once dead: seconds into the head-pop animation
 
   constructor(assets: GameAssets, key: string) {
     this.container.addChild(this.root);
@@ -144,7 +154,31 @@ export class RaidActor {
     }
   }
 
+  /** Mark this zombie dead — begins the head-pop on the next update. Idempotent. */
+  markDead() {
+    if (this.deathT < 0) this.deathT = 0;
+  }
+
   update(dt: number, moving: boolean) {
+    // Dead: pop the head off and let it tumble backward (skip the normal idle/walk).
+    if (this.deathT >= 0) {
+      this.deathT += dt;
+      const t = this.deathT;
+      const hx = DEATH_HEAD_VX * t;
+      const hy = DEATH_HEAD_VY * t + 0.5 * DEATH_HEAD_G * t * t;
+      const rot = DEATH_HEAD_SPIN * t;
+      for (const h of this.headParts) {
+        h.sp.position.set(h.bx + hx, h.by + hy);
+        h.sp.rotation = rot;
+      }
+      this.footF.y = this.footFBaseY;
+      this.footF.rotation = 0;
+      this.footB.y = this.footBBaseY;
+      this.footB.rotation = 0;
+      this.root.scale.set(this.renderScale * this.facing, this.renderScale);
+      return;
+    }
+
     // Head tilt (rocks back/forth; faster while moving).
     const period = moving ? TILT_PERIOD_MOVE : TILT_PERIOD_IDLE;
     const amp = moving ? TILT_AMP_MOVE : TILT_AMP_IDLE;

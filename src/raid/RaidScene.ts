@@ -11,7 +11,7 @@
 // portraits, not side-view stage actors.
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
-import { BattleSim, BOSS_STRUCT_Y, FIELD_H, FIELD_W, SimUnit } from "./BattleSim";
+import { BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, ENEMY_SPAWN_X, FIELD_H, FIELD_W, SimUnit } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
 import { EnemyActor } from "./EnemyActor";
 import { ParticleField, ParticleConfig } from "./Particles";
@@ -84,6 +84,27 @@ const PERCH_SINK_F = 0.14;
 // 0.5 = dead centre (a big boss then clips the screen's right edge); lower = farther
 // left, over the building.
 const PERCH_BIAS_FX = 0.22;
+// Per-raid perch nudge (screen-rect fractions; +dx = right, +dy = DOWN). Corrects the
+// computed/default perch where a specific boss reads wrong vs. the real game — eyeballed.
+// Applies to BOTH structure perches (sinks the boss lower behind the building) and sky
+// perches (moves the hovering boss). Keyed by raid id.
+const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
+  2: { dy: 0.13 }, // Lawyers: boss sat too high on the front building
+  4: { dy: 0.12 }, // Ninjas: too high on the structure
+  5: { dy: 0.16 }, // Robots (sky perch): hovering too high
+  6: { dx: -0.03, dy: 0.2 }, // Aliens (sky perch): too high; rides a UFO
+  7: { dx: -0.18, dy: 0.13 }, // Summer Break (sky perch): squid boss too far right
+  8: { dx: -0.14 }, // Circus: boss too far right on the car
+};
+// Alien boss rides a UFO (AlienStageElements bossShip/bossShipBack): the saucer + glass
+// dome sit IN FRONT of the alien (its transparent centre shows the pilot), the small back
+// dome behind. Sizes/offsets in unit-px (scaled with the boss token). Eyeballed.
+const ALIEN_BOSS_KEY = "AlienStageActorBoss";
+const UFO_FRONT_H = 156; // saucer rendered height (unit px)
+const UFO_FRONT_DY = -8; // saucer base ~at the boss's feet, so its legs sit inside
+const UFO_BACK_H = 30; // back dome height
+const UFO_BACK_DY = -120; // back dome up behind the pilot
+const UFO_BACK_DX = 6;
 // Letterbox fill behind the contain-fit stage image (visible only where the screen
 // shape leaves bars around the 480x320 art). Kept DARK so it reads as an inset stage
 // rather than fake sky/grass that never matched the real background art. (The stage
@@ -181,6 +202,8 @@ export class RaidScene {
   private enemyTex = new Map<string, Texture | null>(); // composited enemy sprites
   private enemyStrip = new Map<string, Texture | null>(); // packed part strips (animated rigs)
   private playerScale = 0; // common px-per-rig-unit for player zombies (see refPlayerScale)
+  private ufoBackTex: Texture | null = null; // alien boss UFO (back dome)
+  private ufoFrontTex: Texture | null = null; // alien boss UFO (saucer + glass dome)
 
   // Boss projectiles.
   private bossThrow: BossThrowConfig | null;
@@ -315,6 +338,14 @@ export class RaidScene {
     // under its source key so the lazily-built token draws it, not a fallback circle.
     if (this.wallTemplate) {
       this.enemyTex.set(this.wallTemplate.sourceKey, await loadTex(raidImage("carrotWall.png")));
+    }
+
+    // Alien boss rides a UFO — preload its two ship sprites so makeToken can build it.
+    if (this.sim.units.some((u) => u.isBoss && u.sourceKey === ALIEN_BOSS_KEY)) {
+      [this.ufoBackTex, this.ufoFrontTex] = await Promise.all([
+        loadTex(raidImage("ufo_bossShipBack.png")),
+        loadTex(raidImage("ufo_bossShip.png")),
+      ]);
     }
 
     this.container.addChild(this.tokenLayer);
@@ -541,6 +572,23 @@ export class RaidScene {
       }
     }
 
+    // Alien boss rides a UFO: the small back dome BEHIND the pilot, the saucer + glass
+    // dome IN FRONT (its transparent centre shows the alien through the canopy).
+    if (this.ufoFrontTex && u.isBoss && u.sourceKey === ALIEN_BOSS_KEY) {
+      if (this.ufoBackTex) {
+        const back = new Sprite(this.ufoBackTex);
+        back.anchor.set(0.5, 0.5);
+        back.scale.set(UFO_BACK_H / back.texture.height);
+        back.position.set(UFO_BACK_DX, UFO_BACK_DY);
+        root.addChildAt(back, 0); // behind the pilot rig
+      }
+      const front = new Sprite(this.ufoFrontTex);
+      front.anchor.set(0.5, 0.78); // near the saucer base
+      front.scale.set(UFO_FRONT_H / front.texture.height);
+      front.position.set(0, UFO_FRONT_DY);
+      root.addChild(front); // in front of the pilot, below the bars added next
+    }
+
     // Health bar sits ABOVE the head (enemies red, players green — set in layout).
     const hp = new Graphics();
     hp.y = topY - 8;
@@ -645,7 +693,10 @@ export class RaidScene {
         best = layer;
       }
     }
-    if (!best) return;
+    if (!best) {
+      this.applyPerchTweak(); // sky-perch raids still take their per-raid nudge
+      return;
+    }
     this.perchLayer = best; // this layer gets drawn in front of the boss (leg occlusion)
     const [ax, ay] = parseVec(best.asset.anchor);
     const [px, py] = parseVec(best.asset.position);
@@ -662,6 +713,15 @@ export class RaidScene {
     const topY = py + (1 - ay) * th - PERCH_SINK_F * th;
     this.perchFX = centerX / DESIGN_W;
     this.perchFY = (DESIGN_H - topY) / DESIGN_H; // screen fraction from the top
+    this.applyPerchTweak();
+  }
+
+  /** Nudge the computed perch by this raid's per-raid tuning override (if any). */
+  private applyPerchTweak() {
+    const tw = PERCH_TWEAK[this.raid.id];
+    if (!tw) return;
+    this.perchFX += tw.dx ?? 0;
+    this.perchFY += tw.dy ?? 0;
   }
 
   // Sim→screen mapping, anchored to the background rect + its ground line.
@@ -726,9 +786,15 @@ export class RaidScene {
     const perchX = r.left + this.perchFX * r.w;
     const perchY = r.top + this.perchFY * r.h;
     const bossPos = (u: SimUnit): [number, number] => {
+      // Perched: on the structure. Descending: slide right off-screen at perch height
+      // (behind the structure — reads as exiting through the entrance). Emerging/hold/
+      // fight: a normal ground unit, walking in from the right to the attack spot.
       if (u.state === "structure") return [perchX, perchY];
-      const t = Math.max(0, Math.min(1, (BOSS_STRUCT_Y - u.y) / (BOSS_STRUCT_Y - CENTER_Y)));
-      return [perchX + (toX(u.x) - perchX) * t, perchY + (toY(u.y) - perchY) * t];
+      if (u.state === "descending") {
+        const t = Math.max(0, Math.min(1, (u.x - BOSS_STRUCT_X) / (ENEMY_SPAWN_X - BOSS_STRUCT_X)));
+        return [perchX + t * (r.left + r.w + 140 - perchX), perchY];
+      }
+      return [toX(u.x), toY(u.y)];
     };
 
     const introSlide = this.phase === "intro" ? (1 - this.phaseT / INTRO_MS) * (r.w * 0.28) : 0;
@@ -763,6 +829,15 @@ export class RaidScene {
       }
       tok.root.visible = true;
 
+      // Boss layering: perched or exiting right, it renders BEHIND the structure
+      // (legs/exit occluded by the roof); once it re-enters as a ground unit it's a
+      // normal front-layer token that walks in front of the building.
+      if (u.isBoss && this.perchLayer) {
+        const wantLayer =
+          u.state === "structure" || u.state === "descending" ? this.bossBackLayer : this.tokenLayer;
+        if (tok.root.parent !== wantLayer) wantLayer.addChild(tok.root);
+      }
+
       // Units track the stage size: their whole token (rig + bars) is scaled by szs,
       // so a smaller window shrinks them with the background instead of leaving them
       // fixed-pixel giants. szs also scales unit-space offsets (drop, poof, settle).
@@ -790,6 +865,7 @@ export class RaidScene {
           tok.deathAnim = 0;
           const color = u.team === "player" ? 0xbfe39a : 0xe6d6b0;
           this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, color);
+          tok.actor?.markDead(); // zombie: pop the head off, tumbling backward
         }
         tok.deathAnim += dtSec;
         const k = Math.min(1, tok.deathAnim / DEATH_FADE);

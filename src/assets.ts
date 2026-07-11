@@ -81,6 +81,9 @@ export interface EnemyPart {
 export interface EnemyModel {
   parts: EnemyPart[];
   neck: { x: number; y: number } | null;
+  /** True for a bare-fisted actor (lawyer / office boss): arms rest at the sides and
+   *  only extend to jab. A weapon-holder keeps its tool up. */
+  punch?: boolean;
 }
 
 // Market catalog entries (from Market.plist), used by the plant/zombie picker.

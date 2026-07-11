@@ -32,10 +32,10 @@ export const FIELD_H = 560;
 const CHARGE_X = 220; // staging slot the front zombie steps into to focus
 const ENEMY_HOLD_X = 915; // enemies hold in the structure's doorway (not the far edge),
 // ~2/3 of a sprite forward of the entrance so they stand IN the open door
-const ENEMY_SPAWN_X = 1120; // off the right edge (hidden) before emerging
+export const ENEMY_SPAWN_X = 1120; // off the right edge (hidden) before emerging
 // Boss perch field-x. Chosen so RaidScene.mapX() lands it on the silo perch
 // (PERCH_FX), which is also where thrown projectiles originate.
-const BOSS_STRUCT_X = 848;
+export const BOSS_STRUCT_X = 848;
 /** Boss perch height in sim space (negative = up); RaidScene reads it to place
  *  the boss on the barn and lerp its descent. */
 export const BOSS_STRUCT_Y = -150;
@@ -726,27 +726,28 @@ export class BattleSim {
     for (const e of this.enemies) {
       if (!e.alive || e.state === "queued" || e.state === "structure") continue;
       if (e.state === "descending") {
-        // Boss climbs down off the silo and heads out the back (off the right
-        // edge, through the entrance) — then re-enters as a normal ground enemy.
+        // Leave the perch by heading OUT THE RIGHT SIDE (through the entrance),
+        // staying up at structure height; the renderer slides it off-screen behind
+        // the structure. Only once fully off-screen does it drop to the ground and
+        // re-enter — no floating diagonally toward the middle.
         const sx = (EMERGE_SPEED * dtMs) / 1000;
-        const dy = CENTER_Y - e.y;
-        e.y += Math.sign(dy) * Math.min(Math.abs(dy), sx); // ease down to the ground
         e.x = Math.min(ENEMY_SPAWN_X, e.x + sx); // walk out to the hidden spawn
         e.timerMs = e.cooldownMs;
-        if (e.x >= ENEMY_SPAWN_X && Math.abs(dy) < 2) {
+        if (e.x >= ENEMY_SPAWN_X) {
           e.x = ENEMY_SPAWN_X;
-          e.y = CENTER_Y;
-          e.state = "emerging"; // now walk back in from the entrance
+          e.y = CENTER_Y; // now a ground unit, hidden off the right edge
+          e.state = "emerging"; // walk back in from the entrance, facing the zombies
         }
         continue;
       }
       if (e.state === "emerging") {
+        // Re-enter from the right at ground level and walk left to the hold spot —
+        // exactly where the normal enemies attack from.
         const sx = (EMERGE_SPEED * dtMs) / 1000;
         e.x = Math.max(ENEMY_HOLD_X, e.x - sx);
-        const dy = CENTER_Y - e.y; // boss eases down from the structure
-        e.y += Math.sign(dy) * Math.min(Math.abs(dy), sx);
+        e.y = CENTER_Y;
         e.timerMs = e.cooldownMs;
-        if (e.x <= ENEMY_HOLD_X && Math.abs(CENTER_Y - e.y) < 2) {
+        if (e.x <= ENEMY_HOLD_X) {
           e.x = ENEMY_HOLD_X;
           e.y = CENTER_Y;
           e.state = "hold";

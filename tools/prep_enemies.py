@@ -77,6 +77,51 @@ CX, CY = 300, 420
 
 CROPDIR = os.path.join(EXTRACT, "assets", "spritesheets", "crops")
 MISCDIR = os.path.join(EXTRACT, "data", "json", "misc")
+SPRITEDIR = os.path.join(EXTRACT, "data", "json", "sprites")
+
+# --- GROUND-TRUTH bare-sheet rigs (Ninja / Pirate / City) --------------------
+# NinjaStage/PirateStage/CityStage ship a 256x256 paper-doll sheet with NO plist.
+# Their rig (per-part textureRect / anchor / offset / z-order) is hardcoded in the
+# binary's -[<Actor> initSpriteDictionary]. tools/re/extract_stage_rigs.py decodes
+# those calls into data/json/sprites/BareStageRigs.json (regenerate with:
+#   cd ../ZF2R_extracted/tools/re && python extract_stage_rigs.py --class ...).
+# We assemble each actor through the SAME pivot/offset compositor as Farm/Alien/
+# Robot — no eyeballing (this replaces the old prep_bare_stages.py). The rig's
+# conventions match FarmStage.json: offset is cocos2d y-UP, anchor.y is from the
+# BOTTOM, z is draw order.
+BARE_RIGS_JSON = os.path.join(SPRITEDIR, "BareStageRigs.json")
+BARE_SHEETS = {  # actor-key prefix -> its 256x256 part sheet
+    "NinjaStageActor": os.path.join(SHEETDIR, "NinjaStage.png"),
+    "PirateStageActor": os.path.join(SHEETDIR, "PirateStage.png"),
+    "CityStageActor": os.path.join(SHEETDIR, "CityStage.png"),
+}
+# The "default*" parts sit in ACTOR space; every other part is a child BONE whose
+# (0,0)-ish offset is relative to its parent bone's ref point (the binary wires
+# these as parentAttachment/childAttachments — see ActorAttachment). We fold the
+# parent's offset in so held/worn parts land on the hand/head instead of at the
+# feet. Parent is inferred from the part name (weapon->front arm, worn->head/body).
+DEFAULT_PARTS = {"defaultArmF", "defaultArmB", "defaultHead",
+                 "defaultBody", "defaultFootF", "defaultFootB"}
+PARENT_ARM = ("sickle", "carrot", "sword", "bat", "dagger", "pencil", "gavel",
+              "hammer", "knife", "blade", "staff", "club", "cutlass", "hook",
+              "wrench", "katana", "talon", "fist", "gun", "axe", "mace")
+PARENT_HEAD = ("glasses", "headset", "hat", "mask", "hair", "horn", "helmet",
+               "ear", "eye", "beard", "band", "bandana")
+PARENT_BODY = ("cape", "coat", "tail", "belt", "apron", "tie", "vest", "cloak")
+
+# --- VideoGame raid actors ---------------------------------------------------
+# Video Games' 5 enemies are NOT paper dolls: each -[VideoGameStage*Actor
+# initSpriteDictionary] loads a TexturePacker atlas (<Name>.plist) of pre-rendered
+# frames (idle_fr##, attack_fr##). We extract the standing IDLE frame as the flat
+# actor sprite (the scene renders a flat enemy texture when no part-rig exists).
+# Key -> the plist/png basename its initSpriteDictionary references (binary-verified).
+VIDEOGAME_ATLASES = {
+    "VideoGameStageBossActor": os.path.join(EXTRACT, "assets", "spritesheets", "misc", "VideoGameBoss"),
+    "VideoGameStageKnightActor": os.path.join(EXTRACT, "assets", "spritesheets", "misc", "VideoGameKnight"),
+    "VideoGameStageMonsterActor": os.path.join(EXTRACT, "assets", "spritesheets", "misc", "VideoGameMonster"),
+    "VideoGameStageGhostActor": os.path.join(EXTRACT, "assets", "spritesheets", "pets", "VideoGameGhost"),
+    "VideoGameStageZombieActor": os.path.join(EXTRACT, "assets", "spritesheets", "zombies", "VideoGameZombie"),
+}
 
 # Sheets that ship a TexturePacker atlas (as .plist OR a plist-shaped .json) but NO
 # JSON rig. Their parts are TRIMMED layers of one composition sharing a
@@ -131,6 +176,13 @@ TRIM_SHEETS = [
     },
 ]
 
+# Bare-fisted PUNCHERS: the business-suited City lawyers + office boss rest their arms at
+# their sides and only extend to jab (EnemyActor idle droop). Everyone else holds a weapon
+# (baked into the arm sprite for many, e.g. the lumberjack's axe) or is non-humanoid, so an
+# arm-droop would look wrong — hence an explicit allowlist, not a heuristic.
+PUNCHER_KEYS = {"CityStageActorLawyer", "CityStageActorBoss"}
+
+
 # Anatomical tiebreak for parts that share the same skeleton z (or have none).
 # Lower = further back. Mirrors cocos2d's insertion order for a left-facing actor:
 # back limbs, then body/torso, then head, then front limbs / held items. Matched
@@ -155,6 +207,14 @@ def part_tie(name):
     return 5
 
 
+def eff_z(zmap, name):
+    """Effective draw z for a trimmed-actor part: its explicit skeleton z if it has
+    one, else its anatomical part_tie (so a z-less body/head sits mid-stack, not at 0
+    behind the explicitly-z'd back limbs)."""
+    z = zmap.get(name)
+    return z if isinstance(z, (int, float)) else part_tie(name)
+
+
 def parse_rect(s):
     return [float(x) for x in re.findall(r"-?[\d.]+", s or "")]
 
@@ -168,8 +228,9 @@ def classify(name):
                                 "leg_back", "leg_b", ".pngb", "_right", "arm_upper_b",
                                 "arm_lower_b",
                                 # camelCase suffixes with no underscore (McDonnell/lumberjack
-                                # "…ArmB", "…FistB", "…HandB") — the rear arm must NOT thrust.
-                                "armb", "handb", "fistb", "clawb"))
+                                # "…ArmB", "…FistB", "…HandB"; bare-sheet "defaultFootB"/"…DaggerB")
+                                # — the rear limb must swing in anti-phase and not thrust.
+                                "armb", "handb", "fistb", "clawb", "footb", "daggerb"))
     if "wheel" in n:
         return "wheel", back  # spins when the actor rolls (bear unicycle)
     if "wing" in n:
@@ -184,9 +245,12 @@ def classify(name):
     if any(t in n for t in ("body", "torso", "chest", "pelvis", "surf", "board")):
         return "body", back  # torso + carried boards/shields — static
     # Held tools swing WITH the arm (shared-shoulder rotation in EnemyActor), so tag
-    # them "arm". Only real enemy weapons here (pitchfork); boards handled above.
+    # them "arm". Farm pitchfork plus the bare-sheet weapons (carrot sickle, sword,
+    # bat, dagger, office pencil/gavel, boss's huge carrot, pirate hook).
     if any(t in n for t in ("pitchfork", "fork", "axe", "sword", "spear", "staff",
-                            "club", "hammer", "mace", "scythe", "lance", "trident")):
+                            "club", "hammer", "mace", "scythe", "lance", "trident",
+                            "sickle", "carrot", "bat", "dagger", "pencil", "gavel",
+                            "cutlass", "hook", "knife", "blade", "katana")):
         return "arm", back
     # tentacles/tails/claws/hands read as swinging "arms"; the squid's arm_front/back
     # ARE its tentacles. coat_tail sways too.
@@ -263,7 +327,9 @@ def emit_rig(key, placed):
         })
     os.makedirs(OUT_PARTS, exist_ok=True)
     strip.save(os.path.join(OUT_PARTS, f"{key}.png"))
-    MODELS[key] = {"parts": parts_json, "neck": neck}
+    # A PUNCHER (allowlisted bare-fisted suit) rests its arms at its sides and only
+    # extends them to jab; everyone else keeps a weapon/limb up in a ready pose.
+    MODELS[key] = {"parts": parts_json, "neck": neck, "punch": key in PUNCHER_KEYS}
 
 
 def skeletal_placed(parts, atlas, frames):
@@ -304,7 +370,7 @@ def trim_placed(prefix, atlas, frames, zmap, offmap):
         ox, oy = offset_of(offmap, name)
         g, back = classify(name)
         placed.append(dict(name=name, crop=crop, tlx=cx + ox, tly=cy + oy, w=int(cw), h=int(ch),
-                           z=zmap.get(name, 0), rot=0, group=g, back=back))
+                           z=eff_z(zmap, name), rot=0, group=g, back=back))
     return placed
 
 
@@ -346,7 +412,7 @@ def reconstruct(prefix, atlas, frames, zmap, offmap):
     base_h = int(max(s[1] for s in sizes if s))
     pad = 160
     canvas = Image.new("RGBA", (base_w + 2 * pad, base_h + 2 * pad), (0, 0, 0, 0))
-    order = sorted(uniq, key=lambda t: (zmap.get(t[0], 0), part_tie(t[0])))
+    order = sorted(uniq, key=lambda t: (eff_z(zmap, t[0]), part_tie(t[0])))
     for name, m in order:
         tx, ty, tw, th = parse_rect(m["textureRect"])
         rotated = m.get("textureRotated", False)
@@ -381,9 +447,12 @@ def build_trim_actors():
         frames = load_frames(framespath)
         skelpath = sheet.get("skeleton")
         skel = json.load(open(skelpath, encoding="utf-8")) if skelpath and os.path.exists(skelpath) else {}
-        # authentic draw order: part-name -> z (bones without a z default to 0),
-        # and per-bone position offset (stacks the clown's 3 bodies, shifts back limbs).
-        zmap = {k: v.get("z", 0) for k, v in skel.items() if isinstance(v, dict)}
+        # authentic draw order: part-name -> z. Keep ONLY real numeric z values; a bone
+        # with no z (or null) falls back to its anatomical part_tie in eff_z() below —
+        # NOT 0, which wrongly slid z-less bodies/heads BEHIND explicitly-z'd back limbs
+        # (e.g. the circus bear's back arm z=2 drew in front of its z-less body).
+        zmap = {k: v["z"] for k, v in skel.items()
+                if isinstance(v, dict) and isinstance(v.get("z"), (int, float))}
         offmap = {k: parse_rect(v.get("offset", "")) for k, v in skel.items()
                   if isinstance(v, dict) and v.get("offset")}
         for key, prefix in sheet["actors"].items():
@@ -394,6 +463,105 @@ def build_trim_actors():
             out.save(os.path.join(OUT_DIR, f"{key}.png"))
             emit_rig(key, trim_placed(prefix, atlas, frames, zmap, offmap))  # animated rig
             print(f"  {key}: '{prefix}' -> {out.width}x{out.height}")
+
+
+def bare_sheet_for(key):
+    for pfx, png in BARE_SHEETS.items():
+        if key.startswith(pfx):
+            return png
+    return None
+
+
+def parent_bone(name, present):
+    """The bone a held/worn part hangs off (its (0,0) offset is relative to that
+    bone's ref point). None for the actor-root default parts."""
+    if name in DEFAULT_PARTS:
+        return None
+    n = name.lower()
+    if any(t in n for t in PARENT_ARM) and "defaultArmF" in present:
+        return "defaultArmF"
+    if any(t in n for t in PARENT_HEAD) and "defaultHead" in present:
+        return "defaultHead"
+    if any(t in n for t in PARENT_BODY) and "defaultBody" in present:
+        return "defaultBody"
+    return None
+
+
+def bare_frames(entries):
+    """Turn extracted rig entries (rect/anchor/offset/z) into a FarmStage.json-style
+    `frames` dict + ordered part names, folding each child bone's parent offset into
+    its own so held/worn parts render on the hand/head, not at the actor root."""
+    off = {e["name"]: e["offset"] for e in entries}
+    present = set(off)
+    frames, order = {}, []
+    for e in entries:
+        rx, ry, rw, rh = e["rect"]
+        if rw <= 0 or rh <= 0:
+            continue
+        ox, oy = e["offset"]
+        par = parent_bone(e["name"], present)
+        if par:
+            ox += off[par][0]
+            oy += off[par][1]
+        frames[e["name"]] = {
+            "x": rx, "y": ry, "width": rw, "height": rh,
+            "pivotX": e["anchor"][0], "pivotY": e["anchor"][1],
+            "offsetX": ox, "offsetY": oy, "z": e["z"], "rotation": 0,
+        }
+        order.append(e["name"])
+    return order, frames
+
+
+def build_bare_actors():
+    """Ninja / Pirate / City actors from the binary-decoded rig (BareStageRigs.json)."""
+    if not os.path.exists(BARE_RIGS_JSON):
+        print("skip bare-sheet actors: run tools/re/extract_stage_rigs.py first "
+              "(BareStageRigs.json missing)")
+        return
+    rigs = json.load(open(BARE_RIGS_JSON, encoding="utf-8"))
+    atlases = {}
+    for key, entries in rigs.items():
+        png = bare_sheet_for(key)
+        if not (png and os.path.exists(png)):
+            print(f"  {key}: no sheet")
+            continue
+        atlas = atlases.get(png) or Image.open(png).convert("RGBA")
+        atlases[png] = atlas
+        order, frames = bare_frames(entries)
+        out = composite(key, order, atlas, frames)
+        if out is None:
+            print(f"  {key}: NO parts")
+            continue
+        out.save(os.path.join(OUT_DIR, f"{key}.png"))
+        emit_rig(key, skeletal_placed(order, atlas, frames))
+        print(f"  {key}: {len(order)} parts -> {out.width}x{out.height}")
+
+
+def build_videogame_actors():
+    """VideoGame enemies: extract the standing IDLE frame from each TexturePacker
+    atlas as the flat actor sprite (the scene shows a flat texture when no rig)."""
+    for key, base in VIDEOGAME_ATLASES.items():
+        png, plist = base + ".png", base + ".plist"
+        if not (os.path.exists(png) and os.path.exists(plist)):
+            print(f"  {key}: missing atlas")
+            continue
+        atlas = Image.open(png).convert("RGBA")
+        frames = plistlib.load(open(plist, "rb"))["frames"]
+        idle = sorted(k for k in frames if "idle" in k.lower()) or sorted(frames)
+        f = frames[idle[0]]
+        tx, ty, tw, th = parse_rect(f["textureRect"])
+        if f.get("textureRotated", False):
+            crop = atlas.crop((int(tx), int(ty), int(tx + th), int(ty + tw))).rotate(-90, expand=True)
+        else:
+            crop = atlas.crop((int(tx), int(ty), int(tx + tw), int(ty + th)))
+        cx, cy, _cw, _ch = parse_rect(f["spriteColorRect"])
+        ssz = parse_rect(f["spriteSourceSize"])
+        canvas = Image.new("RGBA", (int(ssz[0]), int(ssz[1])), (0, 0, 0, 0))
+        canvas.alpha_composite(crop, (int(cx), int(cy)))
+        box = canvas.getbbox()
+        out = canvas.crop(box) if box else canvas
+        out.save(os.path.join(OUT_DIR, f"{key}.png"))
+        print(f"  {key}: idle '{idle[0]}' -> {out.width}x{out.height}")
 
 
 def resolve_parts(spec, frames):
@@ -455,6 +623,10 @@ def main():
             emit_rig(key, skeletal_placed(parts, atlas, frames))  # animated rig
             print(f"  {key}: {len(parts)} parts -> {out.width}x{out.height}")
     build_trim_actors()
+    print("bare-sheet actors (Ninja/Pirate/City, binary rig):")
+    build_bare_actors()
+    print("videogame actors (idle frame):")
+    build_videogame_actors()
     with open(os.path.join(OUT_DIR, "models.json"), "w", encoding="utf-8") as f:
         json.dump(MODELS, f, separators=(",", ":"))
     print(f"models.json: {len(MODELS)} enemy rigs")

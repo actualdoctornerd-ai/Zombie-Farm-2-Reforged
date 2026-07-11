@@ -40,6 +40,8 @@ there so future agents do not work from stale assumptions.
 - Storage UI with Items, Pets placeholder, Boosts, and Received tabs.
 - Quest engine loading all 96 source quests, with active farm/item quest events and dormant unsupported quest classes.
 - Raid select, army select, quick resolve, live battle scene, result panel, cooldown, voucher, loot, XP/gold/brain rewards, and ability tier unlocks.
+- Side-view enemy actor art for all 11 raids: procedurally-animated rigs for 10 (idle/walk/attack-lunge) plus Video Games' real frame-atlas sprites. Ninja/Pirate/City rigs are decoded from the iOS binary (`tools/re/extract_stage_rigs.py`). Raid particle FX (impact dust, victory confetti, heal).
+- One responsive build for phone and desktop: capability autodetection (`src/platform.ts`), a compact touch HUD, and pinch-to-zoom/pan.
 - Audio toggles for farm BGM and a small SFX set; developer controls for testing.
 
 `window.ZF` exposes debug handles including app, world, field, farmer, zombies, state, HUD,
@@ -53,7 +55,7 @@ jobs, audio, save manager, quests, quest bus, raids, and helper functions.
 - **Pets:** extracted pet data/art exists, but gameplay is missing and the Pets storage tab is a placeholder.
 - **Quests:** raid, epic, photo, social, loot, and some combiner quest events remain dormant until their events are added to `LIVE_EVENTS` and emitted consistently.
 - **QoL/UI:** market pagination/search, Received item cards/reveal/use flow, boost raid frontend for Concentration/Golden Dice, save reset/export/import, and fuller settings/help menus are missing. (Zombie selling now routes through a confirmation window.)
-- **Assets:** particles/VFX, title/loading/news/social promo art, most localization/fonts, most audio, many terrain tiles, and many stage/pet assets are extracted but not wired into runtime systems.
+- **Assets:** raid particle FX (impact/confetti/heal) are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage/pet assets are extracted but not wired into runtime systems.
 - **Docs/tests:** docs must be kept current manually; build passes, but there is no automated test script.
 
 ## Run It Locally

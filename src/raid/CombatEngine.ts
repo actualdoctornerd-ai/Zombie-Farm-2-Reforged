@@ -34,6 +34,15 @@ import type {
 const STEP_MS = 100; // simulation tick
 const MAX_SIM_MS = 20 * 60 * 1000; // safety cap (min-damage 1 prevents true stalls)
 
+// Enemy attack-pace correction. The disassembled fight-data interval is C/dex with
+// C=1.0 for enemies (combatStats.ts, ground truth). But in the live scene enemies then
+// re-attack the instant their clock expires — the reimpl sim doesn't model the per-swing
+// attack-ANIMATION time that gates the real game's next strike, so enemies come out ~2×
+// too fast. Eyeballed against the real game: a Pirate brute (dex 0.5) attacks ~every 4s
+// and the boss (dex 0.4) ~every 5-6s — i.e. 2/dex, not 1/dex. So we scale enemy cooldowns
+// by this. (Kept OUT of combatStats.ts so its disassembly ground truth + tests stay intact.)
+const ENEMY_ATTACK_PACE = 2;
+
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Frequency-weighted mean damage multiplier for a unit's attack list. */
@@ -81,7 +90,8 @@ function unit(
     focus,
     hp: maxHp,
     maxHp,
-    attackCooldownMs: deriveAttackIntervalMs(dex, team),
+    attackCooldownMs:
+      deriveAttackIntervalMs(dex, team) * (team === "enemy" ? ENEMY_ATTACK_PACE : 1),
     attacks: [{ name: "", frequency: 1, mult }],
     isBoss,
     alive: true,
