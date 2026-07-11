@@ -7,9 +7,6 @@ export const XP_THRESHOLDS = [
   127000, 137000, 151000, 165000, 179000, 193000, 218000,
 ];
 
-/** Max pets storable in the shed. */
-export const PET_CAP = 4;
-
 type Listener = () => void;
 
 export class GameState {
@@ -22,7 +19,6 @@ export class GameState {
   // ---- storage (the tool shed) ----
   storageItemCap = 8; // Shabby Shed default; a bigger shed raises it (+8/tier)
   storedItems: { key: string; count: number }[] = [];
-  storedPets: string[] = []; // max PET_CAP
   received: string[] = []; // raid loot, unlimited
   // ---- ground/climate skins owned (Market Upgrade → Ground) ----
   // "grass" is the free default; buying a skin adds its terrain key here so it can

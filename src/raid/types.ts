@@ -49,6 +49,9 @@ export interface RaidDef {
   /** Additional possible bonus gold on a win. Wiki-sourced, approximate. */
   bonusGold: number;
   throwSpeed: number;
+  /** Looping battle BGM filename under /assets/audio/ (themed track for the 5
+   *  stages that ship one, generic fightBGM.mp3 for the rest). */
+  music: string;
   /** Event/seasonal invasion — shown apart from the level ladder. */
   seasonal: boolean;
   /** Has playable stages (enemy data). Others show as a locked/coming-soon card. */

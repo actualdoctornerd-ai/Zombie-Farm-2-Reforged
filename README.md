@@ -49,7 +49,7 @@ jobs, audio, save manager, quests, quest bus, raids, and helper functions.
 
 ## Current Gaps
 
-- **Raids:** only a subset of raids have playable stage data; most invasions are thin or catalog-only. Combat still needs broader stage data, better side-view actors, full multi-wave flow, permanent casualties, status/focus polish, and tuning.
+- **Raids:** all 11 invasions now scale by player level through a full 7-stage difficulty ladder (McDonnell's authored ladder, extrapolated onto every other raid from its own minions/boss — the source only authored McDonnell's, and the game is a difficulty ladder, one stage per invasion, not sequential waves). Combat still needs better side-view actors, permanent casualties, status/focus polish, and per-raid balance tuning. (Enemies still emerge one at a time by design.)
 - **Market/upgrades:** Farm Size expansion works (40/50/60 tiers grow the field + adjust the
   backdrop/foliage/camera). Ground climate/terrain skins and authored TMX map loading are not implemented.
 - **Pets:** extracted pet data/art exists, but gameplay is missing and the Pets storage tab is a placeholder.

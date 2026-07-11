@@ -163,10 +163,12 @@ export interface SimUnit {
   alive: boolean;
   state: UnitState;
   charge: number; // 0..1 focus fill (zombies only)
+  focus: number; // 0..100 focus stat: distraction resistance (ground truth Help.json)
   // ---- focus-bubble minigame (zombies, while charging) ----
   distracted: boolean; // butterfly bubble showing — fill paused until popped
   awaitRelease: boolean; // brain bubble showing — full, gated until popped
   distractStep: number; // how many CHARGE_STEPS have fired (0..4)
+  distractSeed: number; // per-unit seed for the deterministic distraction roll
   bubbleMs: number; // ms until the current bubble auto-resolves
   struckThisTick: boolean;
   damage: number;
@@ -236,9 +238,11 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     alive: true,
     state: isPlayer ? "waiting" : "queued",
     charge: 0,
+    focus: u.focus ?? 0,
     distracted: false,
     awaitRelease: false,
     distractStep: 0,
+    distractSeed: i,
     bubbleMs: 0,
     struckThisTick: false,
     // Ground-truth per-swing damage: finalPower(str×10) × attackMult × K(0.7).
@@ -524,9 +528,29 @@ export class BattleSim {
     p.charge = Math.min(next, p.charge + dtMs / CHARGE_MS);
     if (p.charge >= next) {
       p.distractStep++;
-      if (next >= 1) { p.awaitRelease = true; p.bubbleMs = BRAIN_AUTO_MS; }
-      else { p.distracted = true; p.bubbleMs = BUTTERFLY_AUTO_MS; }
+      if (next >= 1) {
+        // Full bar: gate the release (brain bubble). This is a release prompt, not
+        // a focus roll, so it always shows (Concentration path above skips it).
+        p.awaitRelease = true;
+        p.bubbleMs = BRAIN_AUTO_MS;
+      } else if (this.rollDistract(p)) {
+        // Passing a 0.25 segment: distract only if the focus roll fails. Miss the
+        // roll and the meter keeps filling toward the next segment uninterrupted.
+        p.distracted = true;
+        p.bubbleMs = BUTTERFLY_AUTO_MS;
+      }
     }
+  }
+
+  /** Deterministic per-segment distraction roll. GROUND TRUTH (`-[FightFocusBar
+   *  update:]`): at each 0.25 charge segment a zombie is distracted iff
+   *  `rand01 > focus/100` — so focus 100 (premium) is NEVER distracted, and a
+   *  focus-40 starter is distracted ~60% of the time per segment. Uses the
+   *  replayable `hash` (keyed by the unit's seed + which segment) instead of an RNG
+   *  so the sim stays deterministic/replayable. */
+  private rollDistract(p: SimUnit): boolean {
+    const r = hash(p.distractSeed * 16.7 + p.distractStep * 3.1);
+    return r > clamp(p.focus, 0, 100) / 100;
   }
 
   /** Release a fully-charged zombie to advance to the front line. */

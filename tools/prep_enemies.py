@@ -219,6 +219,24 @@ def parse_rect(s):
     return [float(x) for x in re.findall(r"-?[\d.]+", s or "")]
 
 
+# Held-weapon part names (a superset of the farm pitchfork + bare-sheet weapons). A
+# weapon is a CHILD of the arm bone — it must NOT be mistaken for the shoulder pivot
+# (a raised sword's tip would otherwise become the pivot; see emit_rig `shoulder`).
+WEAPON_TOOLS = ("pitchfork", "fork", "axe", "sword", "spear", "staff", "club",
+                "hammer", "mace", "scythe", "lance", "trident", "sickle", "carrot",
+                "bat", "dagger", "pencil", "gavel", "cutlass", "hook", "knife",
+                "blade", "katana")
+
+
+def is_weapon(name):
+    return any(t in name.lower() for t in WEAPON_TOOLS)
+
+
+# Bosses whose melee is a two-handed OVERHEAD SLAM (both arms raise above the head,
+# then slam down at the hit) instead of the default forward jab — EnemyActor `slam`.
+SLAM_KEYS = {"PirateStageActorBoss"}
+
+
 # --- runtime rig (animation) --------------------------------------------------
 # Classify a part into an animation group by its name. `back` marks the rear of a
 # limb pair (rear leg/arm) so the walk cycle can swing them in anti-phase.
@@ -247,10 +265,7 @@ def classify(name):
     # Held tools swing WITH the arm (shared-shoulder rotation in EnemyActor), so tag
     # them "arm". Farm pitchfork plus the bare-sheet weapons (carrot sickle, sword,
     # bat, dagger, office pencil/gavel, boss's huge carrot, pirate hook).
-    if any(t in n for t in ("pitchfork", "fork", "axe", "sword", "spear", "staff",
-                            "club", "hammer", "mace", "scythe", "lance", "trident",
-                            "sickle", "carrot", "bat", "dagger", "pencil", "gavel",
-                            "cutlass", "hook", "knife", "blade", "katana")):
+    if is_weapon(name):
         return "arm", back
     # tentacles/tails/claws/hands read as swinging "arms"; the squid's arm_front/back
     # ARE its tentacles. coat_tail sways too.
@@ -325,11 +340,28 @@ def emit_rig(key, placed):
             "px": round(px, 1), "py": round(py, 1), "ax": ax, "ay": ay,
             "z": p["z"], "rot": rrad, "group": grp, "back": bool(p["back"]),
         })
+    # Shoulder pivot for the attack swing. EnemyActor otherwise guesses it as the
+    # top-most front-arm part — which breaks when a held weapon (a raised sword) is the
+    # top-most part, making the whole arm orbit the blade TIP. When the rig has a
+    # distinct arm BONE plus a separate weapon, pin the shoulder to the arm bone's
+    # authentic anchor (axc/ayc, shifted into strip space) so the weapon swings from
+    # the shoulder as it should.
+    shoulder = None
+    front = [p for p in placed if p["group"] == "arm" and not p["back"]]
+    arm_bones = [p for p in front if not is_weapon(p.get("name", "")) and "axc" in p]
+    weapons = [p for p in front if is_weapon(p.get("name", ""))]
+    if arm_bones and weapons:
+        a = arm_bones[0]
+        shoulder = {"x": round(a["axc"] - minx, 1), "y": round(a["ayc"] - miny, 1)}
     os.makedirs(OUT_PARTS, exist_ok=True)
     strip.save(os.path.join(OUT_PARTS, f"{key}.png"))
     # A PUNCHER (allowlisted bare-fisted suit) rests its arms at its sides and only
     # extends them to jab; everyone else keeps a weapon/limb up in a ready pose.
     MODELS[key] = {"parts": parts_json, "neck": neck, "punch": key in PUNCHER_KEYS}
+    if shoulder:
+        MODELS[key]["shoulder"] = shoulder
+    if key in SLAM_KEYS:
+        MODELS[key]["slam"] = True
 
 
 def skeletal_placed(parts, atlas, frames):

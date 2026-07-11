@@ -91,6 +91,29 @@ export class ZombieUnit {
     return this.data;
   }
 
+  /** Zombie GROUP ("Garden", "Regular", …) — used to find fertilizers. */
+  get group(): string {
+    return this.data.group;
+  }
+  /** This unit's type key + individual name (for the fertilize toast/roll). */
+  get typeKey(): string {
+    return this.data.key;
+  }
+  get displayName(): string {
+    return this.data.name;
+  }
+
+  /** Instantly move to a world spot and pause there a beat — a Garden zombie
+   *  "teleports" to a crop it fertilizes, then resumes wandering. */
+  teleportTo(wx: number, wy: number) {
+    this.wx = wx;
+    this.wy = wy;
+    this.path = [];
+    this.sleeping = false;
+    this.pauseMs = 1600; // linger by the crop before wandering off
+    this.sync();
+  }
+
   private buildRing() {
     // No ground shadow: ZF2 renders none for characters (binary-verified), so the
     // zombie casts none too. Only the select ring below is drawn.

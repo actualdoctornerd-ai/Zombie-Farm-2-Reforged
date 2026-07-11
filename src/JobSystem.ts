@@ -60,7 +60,10 @@ export class JobSystem {
     // Fired when a zombie crop is harvested, to grow an owned zombie at its plot.
     private onZombieHarvest: (key: string, oc: number, or: number) => void = () => {},
     // Quest event bus: plow/plant/harvest post notifications that advance quests.
-    private quest: QuestBus = new QuestBus()
+    private quest: QuestBus = new QuestBus(),
+    // Fired after a veggie crop is planted, to let Garden zombies roll to fertilize
+    // it. Returns the fertilizing zombie's name (for a toast) or null.
+    private onCropPlanted: (oc: number, or: number, cfg: CropConfig) => string | null = () => null
   ) {}
 
   private key(kind: JobKind, oc: number, or: number) {
@@ -252,6 +255,15 @@ export class JobSystem {
           this.float(job.cx, job.cy, `-${cfg.cost}${cfg.brainsNeeded ? "b" : "g"}`);
         }
         this.quest.post(QuestEvent.CropPlanted, cfg.name);
+        // Garden zombies fertilize a freshly-planted VEGGIE crop (zombie crops sell
+        // for nothing, so they're never fertilized). A hit doubles the harvest.
+        if (!cfg.isZombie) {
+          const by = this.onCropPlanted(job.oc, job.or, cfg);
+          if (by) {
+            this.float(job.cx, job.cy - 18, `Fertilized by ${by}!`);
+            this.sfx("place");
+          }
+        }
       }
     } else {
       const r = this.field.harvestAt(job.oc, job.or);
@@ -262,7 +274,7 @@ export class JobSystem {
         // A stale (past-fresh) crop sells for half; flag it in the popup.
         const msg = r.zombieKey
           ? `+${r.xp}xp`
-          : `+${r.sell}g${r.stale ? " ½" : ""}  +${r.xp}xp`;
+          : `+${r.sell}g${r.fertilized ? " ×2" : ""}${r.stale ? " ½" : ""}  +${r.xp}xp`;
         this.float(job.cx, job.cy, msg);
         // A harvested zombie "resurrects"; a plain crop gives the reward chime.
         this.sfx(r.isZombie ? "harvestZombie" : "xp");

@@ -47,6 +47,11 @@ const SMASH_GROW = 0.4;
 const SMASH_SLAM_S = 0.18;
 const INTRO_MS = 700; // zombies slide in
 const END_PAUSE_MS = 650; // beat after the last blow before we move on
+// On a win, survivors stroll off to the right at a normal walking pace (not the old
+// victory sprint), and the results/loot panel holds off for this long before sliding
+// in — so the army has a moment to walk away first.
+const OUTRO_WALK_SPEED = 230; // sim px/s — a normal march (cf. enemy EMERGE_SPEED 210)
+const OUTRO_RESULT_DELAY_MS = 1500; // beat before the loot panel comes in from the right
 const DEATH_FADE = 0.45; // seconds for a fallen unit to poof + fade out
 const PLAYER_COLOR = 0x8bc34a;
 const ENEMY_COLOR = 0xef5350;
@@ -218,6 +223,7 @@ export class RaidScene {
   private particles = new ParticleField(); // melee-impact dust + victory confetti
   private bashCfg: ParticleConfig | null = null;
   private confettiCfg: ParticleConfig | null = null;
+  private smokeCfg: ParticleConfig | null = null; // enemy death poof (source: playDeathEffect → smoke.plist)
   private confettiFired = false;
 
   // team bars
@@ -355,9 +361,10 @@ export class RaidScene {
     this.container.addChild(this.projLayer);
     this.container.addChild(this.fxLayer); // death poofs draw above everything
     this.container.addChild(this.particles.container); // impact dust / confetti on top
-    [this.bashCfg, this.confettiCfg] = await Promise.all([
+    [this.bashCfg, this.confettiCfg, this.smokeCfg] = await Promise.all([
       loadParticle("bash"),
       loadParticle("confetti"),
+      loadParticle("smoke"),
     ]);
     for (const opt of this.bossThrow?.options ?? []) {
       if (this.projTex.has(opt.sprite)) continue;
@@ -863,8 +870,16 @@ export class RaidScene {
         // (was a lingering 18%-alpha ghost).
         if (tok.deathAnim < 0) {
           tok.deathAnim = 0;
-          const color = u.team === "player" ? 0xbfe39a : 0xe6d6b0;
-          this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, color);
+          const midY = sy + tok.topY * 0.5 * szs;
+          if (u.team === "enemy" && this.smokeCfg) {
+            // Enemy death: the source game's own poof — CivilianActorFight
+            // playDeathEffect fetches the "smoke" particle (swirlCloudFX) at the
+            // actor's position, so a slain enemy vanishes in a rising smoke burst.
+            this.particles.burst(this.smokeCfg, sx, midY, 1);
+          } else {
+            // Zombie death (or if the smoke config failed to load): the dust puff.
+            this.spawnPoof(sx, midY, u.team === "player" ? 0xbfe39a : 0xe6d6b0);
+          }
           tok.actor?.markDead(); // zombie: pop the head off, tumbling backward
         }
         tok.deathAnim += dtSec;
@@ -1160,11 +1175,13 @@ export class RaidScene {
         break;
       }
       case "outro": {
-        // Survivors march off to the right; the results panel slides in meanwhile.
-        this.fireResult();
+        // Survivors stroll off to the right at a normal walking pace (was a 600px/s
+        // sprint). After a short beat the results/loot panel slides in from the
+        // right — giving the army a moment to walk away before it appears.
         for (const u of this.sim.units) {
-          if (u.team === "player" && u.alive) u.x += (600 * dtMs) / 1000;
+          if (u.team === "player" && u.alive) u.x += (OUTRO_WALK_SPEED * dtMs) / 1000;
         }
+        if (this.phaseT >= OUTRO_RESULT_DELAY_MS) this.fireResult();
         break;
       }
       case "defeat":

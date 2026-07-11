@@ -64,7 +64,6 @@ export class SaveManager {
       storage: {
         itemCap: this.state.storageItemCap,
         items: this.state.storedItems,
-        pets: this.state.storedPets,
         received: this.state.received,
       },
       boosts: this.state.boostInv,
@@ -135,7 +134,6 @@ export class SaveManager {
     if (data.storage) {
       this.state.storageItemCap = data.storage.itemCap ?? 8;
       this.state.storedItems = data.storage.items ?? [];
-      this.state.storedPets = data.storage.pets ?? [];
       this.state.received = data.storage.received ?? [];
     }
     this.state.boostInv = data.boosts ?? [];

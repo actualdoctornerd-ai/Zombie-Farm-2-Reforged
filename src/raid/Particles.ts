@@ -46,12 +46,43 @@ function softDotTexture(): Texture {
   return Texture.from(c);
 }
 
+/** A small soft leaf silhouette (a pointed ellipse with a midrib), drawn once and
+ *  reused. Reproduces the source's `leafFX.png` for the fertilize effect; tinted
+ *  per-particle to the yellow-green fertilize colour. */
+export function leafTexture(): Texture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 32;
+  const g = c.getContext("2d")!;
+  // Pointed-oval leaf (tip up, base down) with soft edges.
+  g.translate(16, 16);
+  g.fillStyle = "rgba(255,255,255,0.95)";
+  g.beginPath();
+  g.moveTo(0, -14);
+  g.quadraticCurveTo(11, -3, 0, 14);
+  g.quadraticCurveTo(-11, -3, 0, -14);
+  g.fill();
+  // Midrib: a faint darker line so it reads as a leaf, not a blob.
+  g.strokeStyle = "rgba(0,0,0,0.25)";
+  g.lineWidth = 1.2;
+  g.beginPath();
+  g.moveTo(0, -12);
+  g.lineTo(0, 12);
+  g.stroke();
+  return Texture.from(c);
+}
+
 const rand = (v: number) => (Math.random() * 2 - 1) * v;
 
 export class ParticleField {
   readonly container = new Container();
-  private tex = softDotTexture();
+  private tex: Texture;
   private pool: P[] = [];
+
+  /** `texture` overrides the default soft radial dot (e.g. a leaf for the farm's
+   *  fertilize effect). It is still tinted per-particle by the config's colour. */
+  constructor(texture?: Texture) {
+    this.tex = texture ?? softDotTexture();
+  }
 
   /** Emit a one-shot burst of `cfg` at (x,y). `scale` trims the count (per-hit dust
    *  wants far fewer than the source's maxParticles); `rainbow` recolours per

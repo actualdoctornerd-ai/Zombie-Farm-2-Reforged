@@ -153,6 +153,8 @@ export interface CropSave {
    *  sessions. (Currently scaled to 8-45s for playtesting; real times live in
    *  the source data.) */
   growMs: number;
+  /** A Garden zombie fertilized this crop (on plant) → 2x harvest + leaf FX. */
+  fertilized?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,8 +232,9 @@ export interface StorageSave {
   itemCap: number;
   /** Stored placeable-object keys + counts (from the Items tab). */
   items: { key: string; count: number }[];
-  /** Stored pet keys (max 4). */
-  pets: string[];
+  /** Legacy: stored pet keys. Pets are out of scope for this rebuild (see
+   *  docs/mechanics/PET_SYSTEM.md); retained optional only so older saves parse. */
+  pets?: string[];
   /** Raid-looted placeables (unlimited; the Received tab). */
   received: string[];
 }

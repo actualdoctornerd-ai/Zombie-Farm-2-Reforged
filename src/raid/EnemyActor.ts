@@ -48,6 +48,12 @@ const ARM_COCK = 0.35; // arm wind-up back-swing (× ARM_THRUST)
 // at its side and only lifts it to jab; a weapon-holder keeps its tool up. The droop
 // rotates the front arm about the shoulder; it eases back to 0 (extended) at the jab peak.
 const ARM_PUNCH_DROOP = -1.3; // rad the front arm hangs down at rest (negative = swings DOWN)
+// A SLAMMER (model.slam — pirate boss) raises BOTH arms overhead during the wind-up,
+// then slams them down through rest at the hit. Negative = up/back overhead; positive
+// follow-through past rest. Both arms rotate by the same angle about their own anchors.
+const SLAM_RAISE = 2.5; // rad both arms rotate UP overhead at the top of the wind-up
+const SLAM_FOLLOW = 0.7; // rad past rest at the bottom of the slam (follow-through)
+const SLAM_RAISE_FRAC = 0.55; // fraction of the pre-hit window spent raising (rest slams down)
 
 /** Smoothstep 0..1. */
 const smooth = (t: number) => {
@@ -69,6 +75,7 @@ export class EnemyActor {
    *  the top-most (min py) front arm part's anchor. Null if the rig has no front arm. */
   private shoulder: { x: number; y: number } | null = null;
   private punch = false; // bare-fisted: rest arms at the sides, extend only to jab
+  private slam = false; // two-handed overhead slam instead of a one-arm jab
   /** Art faces LEFT; enemies attack leftward (toward the zombies), so no flip by default. */
   private facing = 1;
   private tiltPhase = 0;
@@ -80,6 +87,7 @@ export class EnemyActor {
     this.root.sortableChildren = true;
     this.neck = model.neck;
     this.punch = !!model.punch;
+    this.slam = !!model.slam;
     for (const p of model.parts) {
       const tex = new Texture({
         source: strip.source,
@@ -99,13 +107,18 @@ export class EnemyActor {
       else if (p.group === "wheel") this.wheels.push(sp);
     }
     this.hasLegs = this.legs.length > 0;
-    // Shoulder = the highest (min py) FRONT arm part's anchor. The whole front-arm
-    // assembly (upper arm + held tool) swings about this shared point so the weapon
-    // thrusts WITH the arm instead of spinning about its own centre.
-    const front = this.arms.filter((a) => !a.back);
-    if (front.length) {
-      const top = front.reduce((a, b) => (b.baseY < a.baseY ? b : a));
-      this.shoulder = { x: top.baseX, y: top.baseY };
+    // Shoulder the front-arm assembly (upper arm + held tool) swings about, so the
+    // weapon thrusts WITH the arm instead of spinning about its own centre. The rig
+    // gives it explicitly for weapon-holders (the arm bone, not the raised blade tip);
+    // otherwise fall back to the top-most (min py) front arm part.
+    if (model.shoulder) {
+      this.shoulder = { x: model.shoulder.x, y: model.shoulder.y };
+    } else {
+      const front = this.arms.filter((a) => !a.back);
+      if (front.length) {
+        const top = front.reduce((a, b) => (b.baseY < a.baseY ? b : a));
+        this.shoulder = { x: top.baseX, y: top.baseY };
+      }
     }
   }
 
@@ -128,6 +141,7 @@ export class EnemyActor {
     // peaks at the attack's damageTiming so the reach lands with the sim's hit.
     let thrust = 0; // 0=rest, 1=full forward reach (at the connect)
     let cock = 0; // brief backward wind-up, 0..1
+    let slamAngle = 0; // slammers only: arms raise overhead (-) then slam down (+) to the hit
     if (attack) {
       // The swing occupies the tail SWING_FRAC of the cooldown; rest before it.
       const u = (attack.atkProg - (1 - SWING_FRAC)) / SWING_FRAC;
@@ -135,6 +149,15 @@ export class EnemyActor {
         const c = Math.min(0.95, Math.max(0.05, attack.damageTiming)); // connect fraction
         thrust = u < c ? smooth(u / c) : 1 - smooth((u - c) / (1 - c));
         cock = Math.sin(Math.PI * Math.min(u / c, 1)); // wind-up bump, peaks mid-approach
+        if (this.slam) {
+          // Raise overhead over the first SLAM_RAISE_FRAC of the approach, whip down to
+          // the hit at the connect (c), then ease the follow-through back to rest.
+          const rf = c * SLAM_RAISE_FRAC;
+          if (u < rf) slamAngle = -SLAM_RAISE * smooth(u / rf);
+          else if (u < c)
+            slamAngle = -SLAM_RAISE + (SLAM_RAISE + SLAM_FOLLOW) * smooth((u - rf) / (c - rf));
+          else slamAngle = SLAM_FOLLOW * (1 - smooth((u - c) / (1 - c)));
+        }
       }
     }
     // Lunge the whole rig toward the target (screen-forward = the way it faces); this
@@ -194,7 +217,12 @@ export class EnemyActor {
     const sway = (a: { back: boolean }) =>
       this.hasLegs ? 0 : Math.sin(this.t * ARM_FREQ + (a.back ? Math.PI : 0)) * (moving ? ARM_SWAY_MOVE : ARM_SWAY_IDLE);
     for (const a of this.arms) {
-      if (!a.back && this.shoulder && (droop > 0 || attack)) {
+      if (this.slam && attack) {
+        // Overhead slam: BOTH arms rotate together by the slam angle about their own
+        // (top-center) anchors — up over the head, then down through rest at the hit.
+        a.sp.position.set(a.baseX, a.baseY);
+        a.sp.rotation = a.baseRot + slamAngle;
+      } else if (!a.back && this.shoulder && (droop > 0 || attack)) {
         // Front arm rotates about the shared shoulder: rest at the droop, lift to jab.
         const theta = droop * (1 - thrust) + swing;
         const cos = Math.cos(theta), sin = Math.sin(theta);

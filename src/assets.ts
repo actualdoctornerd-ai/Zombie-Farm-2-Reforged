@@ -84,6 +84,13 @@ export interface EnemyModel {
   /** True for a bare-fisted actor (lawyer / office boss): arms rest at the sides and
    *  only extend to jab. A weapon-holder keeps its tool up. */
   punch?: boolean;
+  /** Explicit shoulder pivot (strip space) the front arm + held weapon swing about.
+   *  Set for weapon-holders so the swing pivots at the arm bone, not the blade tip;
+   *  when absent EnemyActor falls back to the top-most front-arm part. */
+  shoulder?: { x: number; y: number };
+  /** True for a two-handed OVERHEAD SLAM attacker (pirate boss): both arms raise above
+   *  the head and slam down at the hit, instead of the default one-arm forward jab. */
+  slam?: boolean;
 }
 
 // Market catalog entries (from Market.plist), used by the plant/zombie picker.

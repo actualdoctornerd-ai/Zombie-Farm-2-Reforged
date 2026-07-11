@@ -164,6 +164,9 @@ async function main() {
   // depth-sorts correctly in front of / behind trees.
   world.addChild(field.entityLayer);
 
+  // Fertilize leaf FX draw above crops/actors (below night so they dim at dusk).
+  world.addChild(field.fxLayer);
+
   // Decorative foliage on the grass AROUND the farm — never on a farm tile. It's
   // added to the depth-sorted entity layer (zIndex = grid depth) so trees south of
   // the farm draw in front of it and northern ones behind, matching placed trees.
@@ -378,7 +381,8 @@ async function main() {
   const jobs = new JobSystem(
     field, actor, walk, state, floatText, (name) => audio.play(name),
     (key, oc, or) => zombies.spawn(key, oc + 1, or + 1),
-    questBus
+    questBus,
+    (oc, or) => zombies.tryFertilize(oc, or)
   );
 
   // The data-driven quest engine (all 96 quests from quests.json). Rewards route to
@@ -863,6 +867,7 @@ async function main() {
     raidActive = true;
     world.visible = false;
     hud.setRaiding(true); // battle scene takes over the screen
+    audio.enterRaid(setup.raid.music); // swap farm bed for this stage's battle BGM
     RaidScene.create(app, {
       raid: setup.raid,
       assets,
@@ -888,6 +893,7 @@ async function main() {
           raidActive = false;
           world.visible = true;
           hud.setRaiding(false);
+          audio.exitRaid(); // battle over — hand the farm bed back
         });
       },
     }).then((scene) => {

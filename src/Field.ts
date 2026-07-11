@@ -6,12 +6,36 @@ import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import {
   DIRT_FILE, GameAssets, HOLE_FILE, PlaceableDef, PLOWED_FILE, SEED_FILE,
 } from "./assets";
-import { gridToScreen, HH, HW, TILE_H, TILE_W } from "./iso";
+import { gridToScreen, HH, HW, TILE_H, TILE_W, tileCenter } from "./iso";
 import { setFootprint, sortLayer } from "./depthSort";
 import { makeLight, OBJECT_GLOWS } from "./lighting";
+import { leafTexture, ParticleConfig, ParticleField } from "./raid/Particles";
 import type { PlacedObjectSave, PlotSave } from "./save/schema";
 
 export const PLOT = 4; // tiles per plot side
+
+// Fertilize leaves: the CONTINUOUS effect a fertilized crop shows the whole time it
+// stays fertilized. GROUND TRUTH (`-[Tile applyFarmParticles]`): a cocos2d
+// `CCParticleFlower` emitter textured with leafFX.png, ~3 leaves, ~0.75/sec, life ~4s,
+// additive, yellow-green tint (0.6,0.7,0.2), sitting above the crop and following it.
+// Reproduced here by emitting one leaf every FERT_EMIT_MS through the shared gravity-
+// mode ParticleField (a procedural leaf texture, not the soft dot). The gentle swirl
+// (source radial/tangential accel) is approximated with a slow rise + settle + spin.
+const FERTILIZE_FX: ParticleConfig = {
+  maxParticles: 1, // emitted one at a time on a cadence (see FERT_EMIT_MS)
+  angle: 90, angleVariance: 60, // drift upward, fanning out
+  speed: 26, speedVariance: 12,
+  gravityx: 0, gravityy: -18, // cocos y-up: negative → the leaf settles back down on screen
+  particleLifespan: 1.7, particleLifespanVariance: 0.5,
+  startParticleSize: 16, finishParticleSize: 11,
+  sourcePositionVariancex: 20, sourcePositionVariancey: 10,
+  startColorRed: 0.6, startColorGreen: 0.7, startColorBlue: 0.2, startColorAlpha: 1, // leafFX yellow-green
+  finishColorAlpha: 0,
+  rotatePerSecond: 45, // leaves tumble as they drift
+  blendFuncDestination: 1, // additive, as in the source
+};
+const FERT_EMIT_MS = 900; // one leaf ≈ every 0.9s per fertilized crop (source ~0.75/s)
+const FERT_CANOPY_DY = 52; // leaves emit this far above the crop's ground contact
 
 // Freshness: a ripe crop stays fresh (full sell price) for this many growth
 // periods, then keeps forever (no wither) but sells for half. Staleness begins at
@@ -54,6 +78,8 @@ interface Planting {
   ageMs: number;
   sprite: Sprite; // the whole crop, depth-sorted in the entity layer (like objects)
   baseY: number;
+  fertilized?: boolean; // a Garden zombie fertilized it → 2x harvest + leaf FX
+  fertEmitMs?: number; // countdown to the next leaf emit (fertilized crops only)
 }
 interface Plot {
   oc: number; // origin tile (north corner of the 4x4)
@@ -98,6 +124,10 @@ export class Field {
   // zombie), so the farmer correctly walks in front of / behind trees. main adds
   // the actor + zombie containers here and adds this layer to the world.
   readonly entityLayer = new Container();
+  // Farm particle FX (fertilize leaves). main parents this ABOVE entityLayer so the
+  // leaves draw over crops/actors. The leaves are tinted per the fertilize colour.
+  readonly fxLayer = new Container();
+  private fx = new ParticleField(leafTexture());
   // Night lights for glowing objects. main parents this into the NightLayer, which
   // erases them out of the darkness so a glow reveals the scene around it at night.
   readonly objectLights = new Container();
@@ -135,6 +165,7 @@ export class Field {
     this.container.addChild(
       this.groundLayer, this.plotLayer, this.cropSeedLayer, this.groundObjectLayer, this.highlightLayer
     );
+    this.fxLayer.addChild(this.fx.container);
   }
 
   private fit(sp: Sprite, tex: Texture, col: number, row: number, tiles: number) {
@@ -535,18 +566,40 @@ export class Field {
   // Harvest a ripe plot: crop -> dirt square, zombie -> hole. Returns {sell,xp,name};
   // for a zombie crop, `zombieKey` names the unit type to spawn as an owned zombie.
   // `name` is the crop/zombie display name (for quest-progress matching).
-  harvestAt(oc: number, or: number): { sell: number; xp: number; name: string; isZombie: boolean; stale: boolean; zombieKey?: string } | null {
+  harvestAt(oc: number, or: number): { sell: number; xp: number; name: string; isZombie: boolean; stale: boolean; fertilized: boolean; zombieKey?: string } | null {
     const p = this.plots.get(this.key(oc, or));
     if (!p || !p.crop || p.crop.ageMs < p.crop.cfg.growMs) return null;
     const { cfg } = p.crop;
     // Freshness: a crop past its fresh window sells for half (never withers).
     const stale = p.crop.ageMs >= staleAgeMs(cfg.growMs);
-    const sell = stale ? Math.floor(cfg.sell / 2) : cfg.sell;
+    // Fertilized (by a Garden zombie): the harvest is worth DOUBLE — ground truth
+    // (`isFertilized` yields 6 crop drops instead of 3). Stacks with staleness.
+    const fertilized = !!p.crop.fertilized;
+    const base = stale ? Math.floor(cfg.sell / 2) : cfg.sell;
+    const sell = fertilized ? base * 2 : base;
     p.crop.sprite.destroy();
     p.crop = undefined;
     p.state = cfg.isZombie ? "hole" : "dirt";
     this.fit(p.soil, this.assets.soil[cfg.isZombie ? HOLE_FILE : DIRT_FILE], oc, or, PLOT);
-    return { sell, xp: cfg.xp, name: cfg.name, isZombie: !!cfg.isZombie, stale, zombieKey: cfg.isZombie ? cfg.key : undefined };
+    return { sell, xp: cfg.xp, name: cfg.name, isZombie: !!cfg.isZombie, stale, fertilized, zombieKey: cfg.isZombie ? cfg.key : undefined };
+  }
+
+  /** Mark the growing crop at plot (oc,or) as fertilized (a Garden zombie fertilized
+   *  it on plant): doubles its harvest and starts the leaf FX. No-op / false if the
+   *  plot has no crop or it's already fertilized. Veggie crops only (zombie crops
+   *  sell for nothing, so the game never fertilizes them). */
+  markFertilized(oc: number, or: number): boolean {
+    const c = this.plots.get(this.key(oc, or))?.crop;
+    if (!c || c.cfg.isZombie || c.fertilized) return false;
+    c.fertilized = true;
+    c.fertEmitMs = 0; // first leaf next frame
+    return true;
+  }
+
+  /** World-space feet position at the FRONT (south, viewer-nearest) corner of a plot
+   *  — where a Garden zombie teleports to when it fertilizes the crop there. */
+  plotFrontSpot(oc: number, or: number): { x: number; y: number } {
+    return tileCenter(oc + PLOT - 1, or + PLOT - 1);
   }
 
   /** Freshness state of the crop under (col,row): "growing" | "fresh" | "stale".
@@ -578,7 +631,17 @@ export class Field {
       const tex = this.assets.crop[c.cfg.stages[stage]];
       // On a stage change, re-layout both the ground crop and its protruding topper.
       if (c.sprite.texture !== tex) this.layoutCrop(c, tex, p.oc, p.or);
+      // Fertilized crops emit a slow trickle of leaves above their canopy the whole
+      // time they exist (source: an infinite CCParticleFlower on the tile).
+      if (c.fertilized) {
+        c.fertEmitMs = (c.fertEmitMs ?? 0) - dt * 1000;
+        if (c.fertEmitMs <= 0) {
+          this.fx.burst(FERTILIZE_FX, c.sprite.x, c.baseY - FERT_CANOPY_DY, 1);
+          c.fertEmitMs = FERT_EMIT_MS * (0.75 + Math.random() * 0.5);
+        }
+      }
     }
+    this.fx.update(dt);
     // Ripen fruit trees: when the timer elapses, swap to the fruit-bearing sprite.
     const now = Date.now();
     for (const o of this.objects.values()) {
@@ -945,6 +1008,7 @@ export class Field {
           isZombie: !!p.crop.cfg.isZombie,
           plantedAt: now - p.crop.ageMs,
           growMs: p.crop.cfg.growMs,
+          fertilized: p.crop.fertilized,
         };
       }
       out.push(ps);
@@ -994,7 +1058,7 @@ export class Field {
           // Clamp to the stale threshold (not just growMs) so a crop that ripened
           // and sat while the game was closed correctly loses freshness offline.
           const ageMs = Math.max(0, Math.min(staleAgeMs(cfg.growMs), now - ps.crop.plantedAt));
-          const crop: Planting = { cfg, ageMs, sprite: new Sprite(), baseY: 0 };
+          const crop: Planting = { cfg, ageMs, sprite: new Sprite(), baseY: 0, fertilized: ps.crop.fertilized };
           // layoutCrop parents by stage; the update(0) below then re-layers it to
           // match its restored age (seed -> ground layer, grown -> entity layer).
           crop.baseY = this.layoutCrop(crop, this.assets.crop[cfg.stages[0]], oc, or);

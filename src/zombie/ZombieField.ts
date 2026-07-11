@@ -14,6 +14,12 @@ import { ZombiePot } from "./ZombiePot";
 /** Mausoleum storage-slot capacity (default; upgradeable later). */
 export const MAUSOLEUM_CAP = 15;
 
+/** Per-combat-tier fertilize chance for Garden zombies. GROUND TRUTH: the exact
+ *  `fertilizeChance` values in UnitStats.json map 1:1 to a Garden unit's tier
+ *  (t1 .04, t2 .06, t3/t4 .08, t5 .12), so we key off the tier the catalog already
+ *  carries instead of re-baking the stat. Non-garden / tier-0 units never fertilize. */
+const FERTILIZE_BY_TIER: Record<number, number> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12 };
+
 export class ZombieField {
   private units: ZombieUnit[] = []; // deployed: wandering on the farm
   private stored: OwnedZombie[] = []; // stored: off the farm, still owned
@@ -53,6 +59,25 @@ export class ZombieField {
    *  limits DEPLOYED units only; stored zombies (Mausoleum) are uncapped. */
   canAdd(): boolean {
     return this.units.length < this.state.zombieMax;
+  }
+
+  /** A crop was just planted at plot (oc,or): each DEPLOYED Garden zombie rolls its
+   *  tier's `fertilizeChance` (first success wins), matching the source's per-actor
+   *  roll. On success the crop is flagged for a 2x harvest, the winning zombie
+   *  teleports to the plot (with its leaf FX starting on the crop), and its name is
+   *  returned for the "Fertilized by <name>!" toast. Null = not fertilized. */
+  tryFertilize(oc: number, or: number): string | null {
+    const gardens = this.units.filter((u) => u.group === "Garden");
+    if (!gardens.length) return null;
+    let winner: (typeof gardens)[number] | null = null;
+    for (const u of gardens) {
+      const chance = FERTILIZE_BY_TIER[this.resolve(u.typeKey)?.tier ?? 0] ?? 0;
+      if (Math.random() < chance) { winner = u; break; }
+    }
+    if (!winner || !this.field.markFertilized(oc, or)) return null;
+    const spot = this.field.plotFrontSpot(oc, or);
+    winner.teleportTo(spot.x, spot.y);
+    return winner.displayName;
   }
 
   private syncCount() {

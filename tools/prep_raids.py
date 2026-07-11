@@ -10,11 +10,14 @@ Reads the source invasion catalog + combat stats and emits a runtime bundle:
                                          for every attack those enemies use
   public/assets/raids/images/...         boss portraits + stage backgrounds
 
-Only Old McDonnell (ID 1) ships a full multi-stage ladder in the source data, and
-Lawyers/Tree World/Valentine's ship one source stage. Every OTHER invasion has its
-enemy/boss STATS in UnitStats.json (keyed by a family prefix) but was never wired
-into Enemies.json stageSettings — so we SYNTHESIZE one boss wave for them (see
-synth_stage) from the family's minions + boss, making all 11 invasions playable.
+Only Old McDonnell (ID 1) ships a full multi-stage difficulty LADDER in the source
+data (7 stages selected by player level — see fightStage); Lawyers/Tree World/
+Valentine's ship a single source stage, and the other 7 invasions ship none. The
+game is a difficulty ladder (verified in the binary: `stageSettings[playerLevel −
+recommendedLevel]`, one stage per invasion, no in-fight wave advancement), so to
+give EVERY raid the same per-level scaling McDonnell has, we extrapolate McDonnell's
+canonical ladder SHAPE (build_ladder) onto each raid using its own minions/boss/
+population from UnitStats.json. McDonnell keeps its authored stages verbatim.
 
 The boss's own bossActions bring its throw projectiles (parrot/anchor/kunai/…),
 which get copied into images/. Stage backgrounds (levelAssets) are copied for all
@@ -64,12 +67,12 @@ WIKI_GOLD = {
 }
 
 
-# Most invasions ship their stage actors' STATS in UnitStats.json (keyed by a
-# family prefix) but were never wired into Enemies.json stageSettings — only
-# McDonnell (and the three single-stage events) have source stages. We synthesize
-# one boss wave for the rest so every invasion is playable like McDonnell: a mix of
-# the family's minions plus its boss (which brings its own throw projectiles).
+# Each invasion's stage actors live in UnitStats.json under a family prefix. We use
+# this to resolve every raid's minions + boss so the ladder builder can extrapolate
+# McDonnell's shape onto raids the source left without (or with only one) stage.
 STAGE_FAMILY = {
+    1: "FarmStageActor",
+    2: "CityStageActor",
     3: "PirateStageActor",
     4: "NinjaStageActor",
     5: "RobotStageActor",
@@ -77,29 +80,115 @@ STAGE_FAMILY = {
     7: "BeachStageActor",
     8: "CircusStageActor",
     9: "VideoGameStage",
+    10: "TreeWorldStage",
+    11: "ValentinesDayStageActor",
 }
+# Battle BGM per raid. The binary ships exactly FIVE themed stage tracks —
+# farm/pirate/ninja/robot/alien StageBGM (confirmed by the only *StageBGM strings in
+# ZF2R.app/ZF2R) — played by ZFFightMan's playFightMusic when the matching stage
+# loads. Every other invasion (Lawyers/City, Summer/Beach, Circus, Video Games,
+# Tree World, Valentine's) has no themed track and falls back to the generic
+# fightBGM, exactly as the original game does. Filenames resolve under assets/audio/.
+RAID_MUSIC = {
+    1: "farmStageBGM.mp3",     # Old McDonnell's Farm
+    3: "pirateStageBGM.mp3",   # Zombies vs Pirates
+    4: "ninjaStageBGM.mp3",    # Zombies vs Ninjas
+    5: "robotStageBGM.mp3",    # Zombies vs Robots
+    6: "alienStageBGM.mp3",    # Zombies vs Aliens
+}
+DEFAULT_RAID_MUSIC = "fightBGM.mp3"
+
 # When a family has several boss-flagged units (Robots: BrainBot/BroBot/JunkBot are
 # all boss-capable — "any can be the boss"), pick THE boss; the rest become minions.
 BOSS_PREF = {5: "RobotStageActorBrainBot"}
-SYNTH_MINIONS = 6  # minion slots in a synthesized boss wave (McDonnell fields ~5-6)
+# McDonnell's authored ladder: bossIdx 3, population base 7. Every extrapolated raid
+# reuses this so fightStage (bossIdx + level − recommendedLevel) paces identically.
+LADDER_POP_BASE = 7
 
 
-def synth_stage(rid, unit_stats):
-    """Build one boss wave for a raid the source left without stageSettings."""
+def family_parts(rid, unit_stats):
+    """Resolve a raid's (primary, secondary, boss, all_minions) from UnitStats.
+
+    primary  = the weakest grunt (str+con) — the numerous common enemy, like the
+               single Farmhand McDonnell opens with. secondary = the toughest grunt
+               (the McDonnell Lumberjack that rounds out a full wave). all_minions is
+               weak→strong for the population pool. Returns (None, None, None, []) if
+               the family can't be resolved."""
     pfx = STAGE_FAMILY.get(rid)
     if not pfx:
-        return []
+        return None, None, None, []
     members = sorted(k for k in unit_stats if k.startswith(pfx))
     if not members:
-        return []
+        return None, None, None, []
     bosses = [k for k in members if unit_stats[k].get("bossActions")]
     boss = BOSS_PREF.get(rid) or (bosses[0] if bosses else None)
     minions = [k for k in members if k != boss] or members
-    wave = [minions[i % len(minions)] for i in range(SYNTH_MINIONS)]
-    stage = {"enemyKeys": wave, "wave": 1, "throwSpeed": 2, "synthesized": True}
-    if boss:
-        stage["bossKey"] = boss
-    return [stage]
+    minions.sort(key=lambda k: fnum(unit_stats[k].get("str")) + fnum(unit_stats[k].get("con")))
+    primary = minions[0]
+    secondary = minions[-1] if len(minions) > 1 else minions[0]
+    return primary, secondary, boss, minions
+
+
+def population_pool(minions):
+    """Weighted spawn table for a population wave: weaker minions are more common
+    (McDonnell's endless waves are Farmhand-heavy with the odd Lumberjack). minions
+    arrive weak→strong, so give descending weights."""
+    if len(minions) == 1:
+        return [{"enemy": minions[0], "frequency": 100}]
+    weights = list(range(len(minions), 0, -1))  # weakest gets the highest weight
+    total = sum(weights)
+    return [
+        {"enemy": m, "frequency": round(100 * w / total)}
+        for m, w in zip(minions, weights)
+    ]
+
+
+def build_ladder(rid, unit_stats, base_pop):
+    """Extrapolate McDonnell's 7-stage difficulty ladder onto a raid, using its own
+    minions/boss. Stage indices mirror McDonnell exactly (bossIdx 3): the pre-boss
+    stages grow the grunt count, then the boss appears at recommendedLevel, then two
+    endless population waves. Unlike McDonnell — whose first boss stage disables
+    throwing — every OTHER boss throws from its first appearance (stage 3). Returns []
+    if the family can't be resolved (raid then falls back to any source stages)."""
+    primary, secondary, boss, minions = family_parts(rid, unit_stats)
+    if not primary or not boss:
+        return []
+    full = [primary, primary, primary, primary, secondary]
+    pool = population_pool(minions)
+    defs = [
+        {"enemyKeys": [primary]},                                            # 0
+        {"enemyKeys": [primary, primary, primary]},                          # 1
+        {"enemyKeys": list(full)},                                           # 2
+        {"enemyKeys": list(full), "bossKey": boss},                          # 3 boss + throws
+        {"enemyKeys": list(full), "bossKey": boss},                          # 4 boss + throws
+        {"bossKey": boss, "population": base_pop, "weighted": pool},          # 5 endless
+        {"bossKey": boss, "population": base_pop + 3, "weighted": pool},      # 6 endless+
+    ]
+    for i, s in enumerate(defs):
+        s["wave"] = i + 1
+        s["synthesized"] = True
+    return defs
+
+
+def stages_for(rid, e, unit_stats):
+    """Final per-level stage ladder for a raid.
+
+    McDonnell (a full authored ladder) is kept verbatim, except its population-only
+    stages get a weighted minion pool attached — buildEnemyUnits spawns nothing from a
+    bare `population` field, so without this those late stages would be boss-only.
+    Every other raid gets McDonnell's ladder shape extrapolated onto its own family,
+    seeded with the raid's real source population where the source authored one stage."""
+    real = [norm_stage(s) for s in e.get("stageSettings", []) or []]
+    primary, secondary, boss, minions = family_parts(rid, unit_stats)
+    src_pop = next((s["population"] for s in real if s.get("population")), None)
+    if len(real) >= 3:  # a genuine authored ladder (McDonnell) — keep it
+        if minions:
+            for s in real:
+                if s.get("population") and not s.get("enemyKeys") and not s.get("weighted"):
+                    s["weighted"] = population_pool(minions)
+        return real
+    ladder = build_ladder(rid, unit_stats, src_pop or LADDER_POP_BASE)
+    return ladder or real
 
 
 def load(name):
@@ -109,6 +198,14 @@ def load(name):
 def as_int(v, default=0):
     try:
         return int(str(v).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def fnum(v, default=0.0):
+    """Float parse that tolerates the source's fractional stats (e.g. str "1.5")."""
+    try:
+        return float(str(v).strip())
     except (TypeError, ValueError):
         return default
 
@@ -167,9 +264,7 @@ def main():
                 "anchor": a.get("anchor", "{0,0}"),
                 "z": a.get("z", 0),
             })
-        stages = [norm_stage(s) for s in e.get("stageSettings", []) or []]
-        if not stages:  # no source stages — synthesize a boss wave so it's playable
-            stages = synth_stage(rid, unit_stats)
+        stages = stages_for(rid, e, unit_stats)
         for s in stages:
             used_units.update(s.get("enemyKeys", []))
             if s.get("bossKey"):
@@ -193,6 +288,10 @@ def main():
             "goldReward": WIKI_GOLD.get(rid, (0, 0))[0],
             "bonusGold": WIKI_GOLD.get(rid, (0, 0))[1],
             "throwSpeed": e.get("throwSpeed", 0),
+            # Looping battle BGM (see RAID_MUSIC): themed track for the 5 stages that
+            # ship one, generic fightBGM for the rest. Swapped in for the farm's
+            # dayFarmBGM while the raid scene is up, then restored on exit.
+            "music": RAID_MUSIC.get(rid, DEFAULT_RAID_MUSIC),
             "seasonal": rid in SEASONAL_IDS,
             "playable": len(stages) > 0,
             "levelAssets": level_assets,

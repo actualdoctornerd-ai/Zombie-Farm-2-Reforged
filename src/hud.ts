@@ -2,7 +2,7 @@
 // player name across the top, an ACTIVE-QUESTS column on the left (toggled by the
 // bottom-left button), menu buttons on the right, and a farming-tool bar at the
 // bottom-center. Resize-safe (fixed positioning).
-import { GameState, PET_CAP } from "./GameState";
+import { GameState } from "./GameState";
 import { CropConfig } from "./Field";
 import { zombieSellValue } from "./economy";
 import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon } from "./assets";
@@ -756,8 +756,6 @@ const STYLE = `
   background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center; }
 #hud .st-slot img { max-width: 42px; max-height: 42px; object-fit: contain; }
-#hud .st-petslot { width: 82px; height: 82px;
-  background-image: url(${BASE}assets/ui/storage/petstorage_frame.png); }
 #hud .st-empty { text-align: center; color: #6e4a1e; font-style: italic; padding: 34px 12px; font-size: 15px; }
 /* boost inventory rows (Storage -> Boosts) */
 #hud .st-boostlist { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
@@ -1845,9 +1843,10 @@ export class Hud {
   }
 
   // The tool-shed Storage menu: parchment/wood panel, a red STORAGE banner with
-  // grass/flower flanks, and tabs Items / Pets / Received. Item capacity comes
-  // from the placed shed's tier (8 per tier); pets cap at PET_CAP; received is
-  // unlimited (raid loot). Opened by clicking the shed or the Storage button.
+  // grass/flower flanks, and tabs Items / Boosts / Received. Item capacity comes
+  // from the placed shed's tier (8 per tier); received is unlimited (raid loot).
+  // Opened by clicking the shed or the Storage button. (Pets are out of scope for
+  // this rebuild — see docs/mechanics/PET_SYSTEM.md.)
   openStorage(initialTab: string = "Items") {
     document.querySelector("#hud .st-bg")?.remove();
     const bg = document.createElement("div");
@@ -1885,7 +1884,7 @@ export class Hud {
     const portraitOf = (key: string) =>
       this.objectCards.find((c) => c.def.key === key)?.portrait;
 
-    let tab = ["Items", "Pets", "Boosts", "Received"].includes(initialTab) ? initialTab : "Items";
+    let tab = ["Items", "Boosts", "Received"].includes(initialTab) ? initialTab : "Items";
     const render = () => {
       body.innerHTML = "";
       body.scrollTop = 0;
@@ -1920,16 +1919,6 @@ export class Hud {
               this.onRetrieveItem?.(key);
             };
           }
-          grid.appendChild(slot);
-        }
-        body.appendChild(grid);
-      } else if (tab === "Pets") {
-        count.textContent = `${this.state.storedPets.length} / ${PET_CAP} pets`;
-        const grid = document.createElement("div");
-        grid.className = "st-grid";
-        for (let i = 0; i < PET_CAP; i++) {
-          const slot = document.createElement("div");
-          slot.className = "st-slot st-petslot";
           grid.appendChild(slot);
         }
         body.appendChild(grid);
@@ -1999,7 +1988,7 @@ export class Hud {
     };
 
     const tabBtns: Record<string, HTMLButtonElement> = {};
-    for (const name of ["Items", "Pets", "Boosts", "Received"]) {
+    for (const name of ["Items", "Boosts", "Received"]) {
       const b = document.createElement("button");
       b.className = "st-tab" + (name === tab ? " sel" : "");
       b.textContent = name;

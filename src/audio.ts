@@ -79,6 +79,11 @@ export class AudioManager {
   private ambBed: HTMLAudioElement;
   private ambTimer: ReturnType<typeof setTimeout> | null = null;
   private armed = false; // whether a user-gesture resume listener is pending
+  // While a raid is up, its looping stage BGM replaces the farm bgm. `raidBgm`
+  // holds the active raid track (and `raidFile` its filename); the farm bgm is
+  // paused for the raid's duration.
+  private raidBgm: HTMLAudioElement | null = null;
+  private raidFile = "";
 
   constructor() {
     this.bgm = new Audio(A("dayFarmBGM.mp3"));
@@ -129,18 +134,53 @@ export class AudioManager {
     const resume = () => {
       this.armed = false;
       window.removeEventListener("pointerdown", resume);
-      if (this.musicOn) void this.bgm.play().catch(() => {});
+      if (this.musicOn) void this.activeBgm().play().catch(() => {});
       if (this.ambienceOn && this.ambBed.paused) void this.ambBed.play().catch(() => {});
     };
     window.addEventListener("pointerdown", resume, { once: true });
   }
 
   // --- music ---------------------------------------------------------------
+  // The looping track that should be playing right now: the raid stage BGM while
+  // a raid is up, otherwise the farm bgm.
+  private activeBgm(): HTMLAudioElement {
+    return this.raidBgm ?? this.bgm;
+  }
+
   setMusic(on: boolean) {
     this.musicOn = on;
-    if (on) void this.bgm.play().catch(() => this.arm());
-    else this.bgm.pause();
+    if (on) void this.activeBgm().play().catch(() => this.arm());
+    else this.activeBgm().pause();
     this.persist();
+  }
+
+  // Enter a raid: swap the farm bgm for the raid's looping stage BGM (`file` is a
+  // filename under assets/audio/). Safe to call regardless of the music toggle —
+  // it only actually plays when music is on. No-op if the same track is already up.
+  enterRaid(file: string) {
+    if (!file) return;
+    if (this.raidFile !== file) {
+      this.exitRaid(true); // tear down any prior raid track without resuming farm
+      this.bgm.pause();     // farm bed steps aside for the whole raid
+      const a = new Audio(A(file));
+      a.loop = true;
+      a.volume = 0.4;
+      this.raidBgm = a;
+      this.raidFile = file;
+    }
+    if (this.musicOn) void this.raidBgm!.play().catch(() => this.arm());
+  }
+
+  // Leave a raid: stop the raid track and hand the farm bgm back. `keepFarmPaused`
+  // is used internally when immediately swapping to another raid track.
+  exitRaid(keepFarmPaused = false) {
+    if (this.raidBgm) {
+      this.raidBgm.pause();
+      this.raidBgm.src = "";
+      this.raidBgm = null;
+      this.raidFile = "";
+    }
+    if (!keepFarmPaused && this.musicOn) void this.bgm.play().catch(() => this.arm());
   }
 
   // --- sfx -----------------------------------------------------------------
