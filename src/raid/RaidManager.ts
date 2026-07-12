@@ -15,6 +15,7 @@ import {
   CONCENTRATION_KEY,
   DICE_KEY,
   MIN_ARMY,
+  minArmyFor,
   RAID_COOLDOWN_MS,
   VOUCHER_KEY,
   winGold,
@@ -74,6 +75,7 @@ export interface RaidCardView {
   seasonal: boolean;
   unlocked: boolean; // level met AND playable
   lockReason: string; // "" when unlocked
+  minArmy: number; // zombies needed to launch (eased for the first McDonnell clears)
 }
 
 export interface RaidPartyZombie {
@@ -216,6 +218,7 @@ export class RaidManager {
         seasonal: r.seasonal,
         unlocked: isUnlocked(r, level),
         lockReason: lockReason(r, level),
+        minArmy: minArmyFor(r, this.state.raidWins(String(r.id))),
       }))
       .sort(
         (a, b) =>
@@ -272,7 +275,8 @@ export class RaidManager {
     const byId = new Map(this.deployed().map((z) => [z.id, z]));
     const party = partyIds.map((id) => byId.get(id)).filter(Boolean) as OwnedZombie[];
 
-    if (!stage || party.length < MIN_ARMY) return null;
+    const minArmy = minArmyFor(raid, this.state.raidWins(String(raid.id)));
+    if (!stage || party.length < minArmy) return null;
 
     // Cooldown gate: either wait it out, or spend a voucher to skip it.
     if (this.onCooldown()) {

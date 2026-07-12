@@ -14,6 +14,7 @@ import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts } from
 import type { ProfileIndex } from "./save/profiles";
 import type { Friend } from "./social/friends";
 import { isMobile } from "./platform";
+import { getSpriteSet, setSpriteSet, getEdition, setEdition } from "./prefs";
 import { fmtCooldown } from "./raid/RaidCatalog";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
   ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
@@ -152,6 +153,10 @@ const STYLE = `
 #hud .nameplate { border-style: solid; border-width: 9px 16px;
   border-image: url(${BASE}assets/ui/button_bg.png) 14 fill / 9px 16px stretch;
   color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000; }
+/* invisible developer hotspot: a transparent hit-target just left of the nameplate */
+#hud .devhot { width: 34px; height: 34px; padding: 0; margin: 0; border: none;
+  background: transparent; cursor: default; pointer-events: auto; -webkit-appearance: none;
+  appearance: none; flex: 0 0 auto; }
 
 /* left: active quests (dark recessed slots) */
 #hud .questcol { position: fixed; left: 8px; top: 66px; display: flex;
@@ -223,6 +228,11 @@ const STYLE = `
 #hud .fr-who { flex: 1 1 auto; font-size: 13px; color: #e9ffd8; display: flex; align-items: center; gap: 8px; }
 #hud .fr-code { font: 800 12px ui-monospace, monospace; letter-spacing: .5px; color: #16110a;
   background: #4fd0b8; padding: 2px 8px; border-radius: 8px; text-shadow: none; }
+/* click-to-copy code (re-enables selection, which #hud disables globally) */
+#hud .copyable { cursor: pointer; user-select: all; -webkit-user-select: all;
+  transition: filter .1s, box-shadow .1s; }
+#hud .copyable:hover { filter: brightness(1.08); box-shadow: 0 0 0 2px rgba(255,255,255,.35); }
+#hud .copyable:active { filter: brightness(.92); }
 #hud .fr-gsi { flex: 0 0 auto; }
 #hud .fr-inbox-h { margin-top: 12px; margin-bottom: 4px; font-weight: 800; font-size: 13px; color: #ffd98a; }
 #hud .fr-inbox-row { background: rgba(255,193,60,.12); box-shadow: inset 0 0 0 1px rgba(255,193,60,.3); }
@@ -308,7 +318,10 @@ const STYLE = `
   margin: 6px 0 4px; padding: 10px 12px; border-radius: 10px; background: rgba(47,156,138,.16);
   box-shadow: inset 0 0 0 1px rgba(79,208,184,.35); }
 #hud .set-acct-who { font-size: 14px; color: #eaffd8; }
-#hud .set-acct-code { margin-top: 2px; font: 700 11px ui-monospace, monospace; color: #9ad3c4; }
+#hud .set-acct-code { margin-top: 4px; font: 700 11px ui-monospace, monospace; color: #9ad3c4;
+  display: flex; align-items: center; gap: 6px; }
+#hud .set-acct-code-val { font: 800 12px ui-monospace, monospace; color: #16110a;
+  background: #4fd0b8; padding: 1px 8px; border-radius: 7px; }
 #hud .set-signout { flex: 0 0 auto; border: 2px solid #14240a; border-radius: 8px; padding: 7px 14px;
   cursor: pointer; color: #fff; font: 800 13px system-ui, sans-serif; text-shadow: 0 1px 1px #000;
   background: linear-gradient(#c0553f, #9c3320); }
@@ -316,6 +329,7 @@ const STYLE = `
 #hud .set-row { display: flex; align-items: center; justify-content: space-between;
   gap: 24px; min-width: 240px; padding: 8px 2px; font-size: 15px; font-weight: 700; }
 #hud .set-row + .set-row { border-top: 1px solid rgba(255,255,255,.15); }
+#hud .set-note { margin: 2px 2px 4px; font-size: 12px; color: #cbe6a0; opacity: .85; }
 #hud .toggle { width: 62px; height: 28px; border-radius: 15px; border: 2px solid #1e1207;
   background: #5a3a1a; cursor: pointer; position: relative; padding: 0;
   font: 700 11px system-ui, sans-serif; color: #fff; }
@@ -924,6 +938,7 @@ export class Hud {
   private zombiesEl!: HTMLElement;
   private levelEl!: HTMLElement;
   private xpFill!: HTMLElement;
+  private nameEl!: HTMLElement;
   private questCol!: HTMLElement;
   private questViews: QuestView[] = [];
   private questsShown = true;
@@ -1047,11 +1062,19 @@ export class Hud {
 
     const spacer = document.createElement("div");
     spacer.className = "spacer";
+    // Invisible developer hotspot: a transparent button tucked just to the left of
+    // the nameplate. Clicking it opens the (otherwise hidden) Developer menu.
+    const devHot = document.createElement("button");
+    devHot.className = "devhot";
+    devHot.title = ""; // stays invisible / unlabelled
+    devHot.onclick = () => this.openDevMenu();
     const name = document.createElement("div");
     name.className = "nameplate";
     name.textContent = "Zombie Farmer";
-    bar.append(gear, chips, spacer, name);
+    this.nameEl = name;
+    bar.append(gear, chips, spacer, devHot, name);
     this.el.appendChild(bar);
+    this.refreshName();
   }
 
   private buildQuests() {
@@ -1206,6 +1229,30 @@ export class Hud {
       t.classList.remove("show");
       window.setTimeout(() => t.remove(), 400);
     }, 2600);
+  }
+
+  // Turn `el` (holding a friend code) into a click-to-copy control. Clicking
+  // highlights the text (the HUD disables selection globally, so the `copyable`
+  // class re-enables it here) and copies it to the clipboard, with a brief toast.
+  // Falls back to just highlighting if the clipboard API is unavailable/blocked.
+  private makeCopyable(el: HTMLElement, text: string) {
+    el.classList.add("copyable");
+    el.title = "Click to copy";
+    el.onclick = async () => {
+      const sel = window.getSelection();
+      if (sel) {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        this.showToast("Friend code copied! 📋");
+      } catch {
+        this.showToast("Highlighted — press Ctrl+C to copy");
+      }
+    };
   }
 
   // Each button is a colored frame around a grey glossy button (dark label).
@@ -1536,6 +1583,11 @@ export class Hud {
   getFastMode: (() => boolean) | null = null;
   /** Toggle Fast Mode: persist the choice, flush the game, and reload. */
   onSetFastMode: ((on: boolean) => void) | null = null;
+
+  /** Current night-lighting state (set by main; null = feature absent). */
+  getNight: (() => boolean) | null = null;
+  /** Toggle the night lighting layer (dev-only). */
+  onSetNight: ((on: boolean) => void) | null = null;
 
   /** Hide/show the farm chrome (top bar, tools, menus) so the live battle scene
    *  can take over the screen. Raid panels stay visible. */
@@ -2237,8 +2289,27 @@ export class Hud {
     return card;
   }
 
-  // Settings modal: Music + Sound Effects toggles, profile manager, and a
-  // Developer section (Fast Mode toggle, level/gold/brains overrides, raid unlocks).
+  // Reusable label + on/off toggle row (shared by Settings and the Developer menu).
+  private settingRow(label: string, on: boolean, set: (v: boolean) => void) {
+    const r = document.createElement("div");
+    r.className = "set-row";
+    const lbl = document.createElement("span");
+    lbl.textContent = label;
+    const t = document.createElement("button");
+    t.className = "toggle" + (on ? " on" : "");
+    t.innerHTML = `<span class="txt l">ON</span><span class="txt r">OFF</span><span class="knob"></span>`;
+    t.onclick = () => {
+      const now = !t.classList.contains("on");
+      t.classList.toggle("on", now);
+      set(now);
+    };
+    r.append(lbl, t);
+    return r;
+  }
+
+  // Settings modal: Music / Sound Effects / Ambience toggles plus the account
+  // block. The Developer section now lives in its own menu (openDevMenu), reached
+  // via the invisible hotspot beside the nameplate.
   private openSettings() {
     const bg = document.createElement("div");
     bg.className = "panelbg";
@@ -2253,22 +2324,95 @@ export class Hud {
     const h = document.createElement("h2");
     h.textContent = "Settings";
 
-    const row = (label: string, on: boolean, set: (v: boolean) => void) => {
-      const r = document.createElement("div");
-      r.className = "set-row";
-      const lbl = document.createElement("span");
-      lbl.textContent = label;
-      const t = document.createElement("button");
-      t.className = "toggle" + (on ? " on" : "");
-      t.innerHTML = `<span class="txt l">ON</span><span class="txt r">OFF</span><span class="knob"></span>`;
-      t.onclick = () => {
-        const now = !t.classList.contains("on");
-        t.classList.toggle("on", now);
-        set(now);
-      };
-      r.append(lbl, t);
-      return r;
+    const row = (label: string, on: boolean, set: (v: boolean) => void) =>
+      this.settingRow(label, on, set);
+
+    // Account: who you're signed in as + a Sign out button. Only when signed in
+    // (an offline build has no account). Sign out flushes the save and returns to
+    // the sign-in gate (see hud.onSignOut / main.ts).
+    const acct = this.myAccount?.();
+    let acctBlock: HTMLElement | null = null;
+    if (this.socialOnline?.() && acct) {
+      acctBlock = document.createElement("div");
+      acctBlock.className = "set-acct";
+      const info = document.createElement("div");
+      info.className = "set-acct-info";
+      const who = document.createElement("div");
+      who.className = "set-acct-who";
+      who.innerHTML = `Signed in as <b>${acct.name}</b>`;
+      const codeRow = document.createElement("div");
+      codeRow.className = "set-acct-code";
+      codeRow.append("Friend code ");
+      const codeVal = document.createElement("span");
+      codeVal.className = "set-acct-code-val";
+      codeVal.textContent = acct.friendCode;
+      this.makeCopyable(codeVal, acct.friendCode);
+      codeRow.appendChild(codeVal);
+      info.append(who, codeRow);
+      const out = document.createElement("button");
+      out.className = "set-signout";
+      out.textContent = "Sign out";
+      out.onclick = () => this.onSignOut?.();
+      acctBlock.append(info, out);
+    }
+
+    // A toggle row followed by a small explanatory note underneath it.
+    const noteEl = (text: string) => {
+      const n = document.createElement("div");
+      n.className = "set-note";
+      n.textContent = text;
+      return n;
     };
+
+    // Sprite set: original Zombie Farm (ZF1) vs the sequel's art (ZF2). Persisted
+    // only — nothing swaps art on it yet (see prefs.ts / README "Current Gaps").
+    // ON = ZF2 (the pack wired today), OFF = ZF1.
+    const spriteRow = row("ZF2 Sprites", getSpriteSet() === "zf2", (v) =>
+      setSpriteSet(v ? "zf2" : "zf1")
+    );
+    const spriteNote = noteEl("Original (ZF1) vs sequel (ZF2) art. Art swapping isn't wired yet.");
+
+    // Edition: Reforged (all modern additions — online account, brain gifting) vs
+    // Traditional (the OG single-player experience). Persisted only for now — the
+    // feature gates it will drive aren't wired yet (see prefs.isReforged).
+    const editionRow = row("Reforged", getEdition() === "reforged", (v) =>
+      setEdition(v ? "reforged" : "traditional")
+    );
+    const editionNote = noteEl("Reforged adds brain gifting & online features; Traditional is the OG experience. (Gating not wired yet.)");
+
+    panel.append(
+      x, h,
+      ...(acctBlock ? [acctBlock] : []),
+      row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
+      row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
+      row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
+      spriteRow, spriteNote,
+      editionRow, editionNote
+    );
+    bg.appendChild(panel);
+    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    this.el.appendChild(bg);
+  }
+
+  // Developer menu: hidden from normal play, opened only via the invisible hotspot
+  // beside the nameplate. Holds the Fast Mode toggle, the Night-lighting toggle,
+  // level/gold/brains overrides, and the per-tier raid ability unlocks.
+  private openDevMenu() {
+    const bg = document.createElement("div");
+    bg.className = "panelbg";
+    const panel = document.createElement("div");
+    panel.className = "panel";
+    const x = document.createElement("button");
+    x.className = "panelclose";
+    const xi = document.createElement("img");
+    xi.src = UI("button_close.png");
+    x.appendChild(xi);
+    x.onclick = () => bg.remove();
+    const h = document.createElement("h2");
+    h.textContent = "Developer";
+
+    const row = (label: string, on: boolean, set: (v: boolean) => void) =>
+      this.settingRow(label, on, set);
 
     // Developer number field: label + numeric input applied on change.
     const numRow = (label: string, value: number, apply: (n: number) => void) => {
@@ -2290,9 +2434,20 @@ export class Hud {
       r.append(lbl, inp);
       return r;
     };
-    const devHead = document.createElement("div");
-    devHead.className = "dev-head";
-    devHead.textContent = "Developer";
+
+    // Fast Mode: compresses all wait clocks (grow times, pot combine, raid
+    // cooldown) to seconds for testing. Toggling flushes + reloads the game.
+    const fastRow = row("Fast Mode", this.getFastMode?.() ?? true, (v) =>
+      this.onSetFastMode?.(v)
+    );
+    const fastNote = document.createElement("div");
+    fastNote.className = "dev-status";
+    fastNote.textContent = "Speeds up grow times & cooldowns for testing (reloads).";
+
+    // Night lighting: toggles the dark overlay + carved lights (was the N key).
+    const nightRow = row("Night", this.getNight?.() ?? false, (v) =>
+      this.onSetNight?.(v)
+    );
 
     // Dev: mark a tier boss beaten so its abilities unlock across the roster
     // (each colour class shows its group's ability for that tier).
@@ -2317,49 +2472,11 @@ export class Hud {
     }
     raidWrap.append(raidStatus, raidBtns);
 
-    // Profile UI is hidden: the game is one-save-per-account now. The underlying
-    // per-profile save key still resolves to a single active slot (see profiles.ts),
-    // which is the seam an account id will replace once sign-in lands. The profile
-    // manager (openProfiles) and its hooks are kept but no longer reachable here.
-
-    // Fast Mode: compresses all wait clocks (grow times, pot combine, raid
-    // cooldown) to seconds for testing. Toggling flushes + reloads the game.
-    const fastRow = row("Fast Mode", this.getFastMode?.() ?? true, (v) =>
-      this.onSetFastMode?.(v)
-    );
-    const fastNote = document.createElement("div");
-    fastNote.className = "dev-status";
-    fastNote.textContent = "Speeds up grow times & cooldowns for testing (reloads).";
-
-    // Account: who you're signed in as + a Sign out button. Only when signed in
-    // (an offline build has no account). Sign out flushes the save and returns to
-    // the sign-in gate (see hud.onSignOut / main.ts).
-    const acct = this.myAccount?.();
-    let acctBlock: HTMLElement | null = null;
-    if (this.socialOnline?.() && acct) {
-      acctBlock = document.createElement("div");
-      acctBlock.className = "set-acct";
-      const info = document.createElement("div");
-      info.className = "set-acct-info";
-      info.innerHTML =
-        `<div class="set-acct-who">Signed in as <b>${acct.name}</b></div>` +
-        `<div class="set-acct-code">Friend code ${acct.friendCode}</div>`;
-      const out = document.createElement("button");
-      out.className = "set-signout";
-      out.textContent = "Sign out";
-      out.onclick = () => this.onSignOut?.();
-      acctBlock.append(info, out);
-    }
-
     panel.append(
       x, h,
-      ...(acctBlock ? [acctBlock] : []),
-      row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
-      row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
-      row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
-      devHead,
       fastRow,
       fastNote,
+      nightRow,
       numRow("Level", this.state.level, (n) => this.state.setLevel(n)),
       numRow("Gold", this.state.gold, (n) => this.state.setGold(n)),
       numRow("Brains", this.state.brains, (n) => this.state.setBrains(n)),
@@ -2526,7 +2643,7 @@ export class Hud {
         const code = document.createElement("span");
         code.className = "fr-code";
         code.textContent = acct?.friendCode ?? "";
-        code.title = "Your friend code — share it so friends can add you";
+        this.makeCopyable(code, acct?.friendCode ?? "");
         who.appendChild(code);
         const out = document.createElement("button");
         out.className = "prof-btn del";
@@ -3428,7 +3545,6 @@ export class Hud {
     const cards = this.getRaidCards ? this.getRaidCards() : [];
     const party = this.getRaidParty ? this.getRaidParty() : null;
     const haveN = party ? party.eligible.length : 0;
-    const minN = party ? party.min : 8;
 
     const bg = document.createElement("div");
     bg.className = "panelbg raid-bg";
@@ -3473,6 +3589,7 @@ export class Hud {
       por.className = "rd-portrait";
       if (c.portrait) por.style.backgroundImage = `url(${c.portrait})`;
       const info = document.createElement("div");
+      const minN = c.minArmy; // per-raid: eased for the first McDonnell clears
       const canFight = c.unlocked && haveN >= minN;
       info.innerHTML =
         `<div class="rd-title">${c.name}</div>` +
@@ -3605,7 +3722,7 @@ export class Hud {
     panel.appendChild(wrap);
 
     const cap = party.cap;
-    const min = party.min;
+    const min = raid.minArmy; // per-raid: eased for the first McDonnell clears
     // Ordered selection: index in the array = attack position (first attacks
     // first). Seeded from the saved order (empty on a first-ever raid). Clicking a
     // card appends it; clicking a picked card removes it and renumbers the rest.
@@ -3959,5 +4076,14 @@ export class Hud {
     this.levelEl.textContent = String(this.state.level);
     this.xpFill.style.width = `${Math.round(this.state.levelProgress * 100)}%`;
     this.refreshBoostBadge(); // keep the equipped-boost uses badge in sync
+    this.refreshName();
+  }
+
+  // The top-right nameplate shows the signed-in account name (falling back to the
+  // default "Zombie Farmer" when offline / signed out).
+  private refreshName() {
+    if (!this.nameEl) return;
+    const acct = this.myAccount?.();
+    this.nameEl.textContent = acct?.name || "Zombie Farmer";
   }
 }

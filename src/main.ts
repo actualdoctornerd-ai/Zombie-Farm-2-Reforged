@@ -234,8 +234,8 @@ async function main() {
 
   // Night lighting layer: a dark mask with the lights erased out of it (revealing
   // the daytime scene under each light — never a glare), above the farm/entities
-  // but below the job labels & cursor (UI stays readable). Toggled with the N key
-  // for now (a real day/night cycle comes later).
+  // but below the job labels & cursor (UI stays readable). Toggled from the HUD's
+  // Developer menu for now (a real day/night cycle comes later).
   const night = new NightLayer();
   night.lights.addChild(field.objectLights); // glowing objects' lights
   // Farmer lantern: two point lights (ZF2 addPlayerLight: radius 200 & 350, white).
@@ -254,9 +254,8 @@ async function main() {
     // screen, so it darkens this filler by the SAME amount as the hills; they read
     // as one continuous surface instead of the hills floating over a near-black void.
   };
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "n" || e.key === "N") setNight(!isNight);
-  });
+  // The night toggle now lives in the Developer menu (HUD hotspot) instead of the
+  // N key. Hooks are wired below once the HUD exists.
 
   // Job labels ("Plow/Plant/Harvest" pills) and the plot cursor render above the
   // field + entities so they're never hidden behind the farmer/zombie.
@@ -932,6 +931,10 @@ async function main() {
     setFastMode(on);
     location.reload();
   };
+
+  // Night lighting toggle (Developer menu). Was the N key; now driven from the HUD.
+  hud.getNight = () => isNight;
+  hud.onSetNight = (on) => setNight(on);
 
   hud.getRaidBoosts = (raidId) => ({
     concentration: raids.concentrationCount(),

@@ -208,6 +208,10 @@ export class GameState {
   hasClearedRaid(id: string): boolean {
     return (this.raidsCompleted[id] ?? 0) > 0;
   }
+  /** Lifetime win count for a raid (drives the eased first-clear army minimums). */
+  raidWins(id: string): number {
+    return this.raidsCompleted[id] ?? 0;
+  }
 
   // ---- zombie abilities ----
   // Abilities unlock by TIER: beating a tier's invasion boss (winning raid id 1..4

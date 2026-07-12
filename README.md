@@ -42,7 +42,8 @@ there so future agents do not work from stale assumptions.
 - Raid select, army select, quick resolve, live battle scene, result panel, cooldown, voucher, loot, XP/gold/brain rewards, and ability tier unlocks.
 - Side-view enemy actor art for all 11 raids: procedurally-animated rigs for 10 (idle/walk/attack-lunge) plus Video Games' real frame-atlas sprites. Ninja/Pirate/City rigs are decoded from the iOS binary (`tools/re/extract_stage_rigs.py`). Raid particle FX (impact dust, victory confetti, heal).
 - One responsive build for phone and desktop: capability autodetection (`src/platform.ts`), a compact touch HUD, and pinch-to-zoom/pan.
-- Audio toggles for farm BGM and a small SFX set; developer controls for testing.
+- Audio toggles for farm BGM and a small SFX set; developer controls (a separate menu opened by an invisible hotspot beside the nameplate) for testing.
+- Settings toggles for **ZF2 Sprites** (original ZF1 art vs the sequel's ZF2 art) and **Reforged** edition (modern additions like online accounts and brain gifting, vs a Traditional/OG experience). Both are persisted preferences (`src/prefs.ts`); their behavior is **not yet wired** — the sprite toggle doesn't swap art, and the edition toggle doesn't gate features yet.
 
 `window.ZF` exposes debug handles including app, world, field, farmer, zombies, state, HUD,
 jobs, audio, save manager, quests, quest bus, raids, and helper functions.
@@ -55,6 +56,7 @@ jobs, audio, save manager, quests, quest bus, raids, and helper functions.
 - **Pets:** extracted pet data/art exists, but gameplay is missing and the Pets storage tab is a placeholder.
 - **Quests:** raid, epic, photo, social, loot, and some combiner quest events remain dormant until their events are added to `LIVE_EVENTS` and emitted consistently.
 - **QoL/UI:** market pagination/search, Received item cards/reveal/use flow, boost raid frontend for Concentration/Golden Dice, save reset/export/import, and fuller settings/help menus are missing. (Zombie selling now routes through a confirmation window.)
+- **Settings toggles (Sprites & Edition):** the **ZF2 Sprites** and **Reforged/Traditional** switches in Settings persist a preference (`src/prefs.ts`) but do nothing yet. Sprites still needs a ZF1 art pack and a runtime swap keyed off `getSpriteSet()`. Traditional edition still needs the feature gates — brain gifting and the online/friends surfaces should read `isReforged()` and hide when it is off, so Traditional plays as the original single-player game.
 - **Assets:** raid particle FX (impact/confetti/heal) are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage/pet assets are extracted but not wired into runtime systems.
 - **Docs/tests:** docs must be kept current manually; build passes, but there is no automated test script.
 

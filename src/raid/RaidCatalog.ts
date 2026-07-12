@@ -8,6 +8,21 @@ export const MIN_ARMY = 8;
 /** Best/most an invasion is fought with (source rule). Also the selection cap. */
 export const ARMY_CAP = 16;
 
+/** The raid id of Old McDonnell's Farm — the tutorial invasion. */
+export const MCDONNELL_ID = 1;
+
+/** How many zombies an invasion needs to launch. Normally MIN_ARMY (8), but the
+ *  first two clears of Old McDonnell's Farm are eased (2, then 4) so new players
+ *  can start raiding without a full army — while still gating out a party too
+ *  small to have a chance. `priorWins` is that raid's lifetime win count. */
+export function minArmyFor(raid: RaidDef, priorWins: number): number {
+  if (raid.id === MCDONNELL_ID) {
+    if (priorWins <= 0) return 2;
+    if (priorWins === 1) return 4;
+  }
+  return MIN_ARMY;
+}
+
 /** Real between-invasions cooldown (Help.json: "wait two hours between invasions,
  *  unless you purchase an Invasion Voucher"). Playtest-scaled in main.ts. */
 export const RAID_COOLDOWN_MS = 2 * 60 * 60 * 1000;
