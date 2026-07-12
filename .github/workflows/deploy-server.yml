@@ -1,0 +1,32 @@
+name: Deploy server (Cloudflare Worker)
+
+# Deploys the API Worker. Manual-only for now (Run workflow button). To enable
+# auto-deploy on every server/ change, add a repo secret CLOUDFLARE_API_TOKEN
+# (Workers + D1 edit permission) and uncomment the `push:` trigger below.
+# Until then, deploy the Worker locally with `npx wrangler deploy` from server/.
+# The Worker's own secrets (SESSION_SECRET) are set via `wrangler secret put`.
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "server/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: server

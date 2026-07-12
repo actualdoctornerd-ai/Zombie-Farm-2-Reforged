@@ -1,0 +1,7 @@
+# Copy to `.dev.vars` (git-ignored) for `wrangler dev`. These mirror the Worker's
+# secrets/vars locally.
+SESSION_SECRET="dev-only-secret-change-me"
+# DEV_AUTH=1 enables the no-Google sign-in bypass (POST /auth {devSub}). Local only.
+DEV_AUTH="1"
+ALLOWED_ORIGIN="http://localhost:5173"
+GOOGLE_CLIENT_ID="dev.apps.googleusercontent.com"

@@ -12,6 +12,7 @@ import { mutationLabel, mutationBonus } from "./zombie/mutations";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
+import type { Friend } from "./social/friends";
 import { isMobile } from "./platform";
 import { fmtCooldown } from "./raid/RaidCatalog";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
@@ -211,6 +212,20 @@ const STYLE = `
 #hud .prof-btn:disabled { opacity: .4; cursor: not-allowed; filter: none; }
 #hud .prof-input { flex: 1 1 auto; min-width: 0; padding: 6px 9px; border-radius: 7px; border: 2px solid #1e1207;
   background: #2a1c0c; color: #ffe9a8; font: 700 14px system-ui, sans-serif; }
+/* friends panel */
+#hud .fr-note { margin-top: 6px; font-size: 12px; line-height: 1.4; color: #c9b98f; }
+#hud .fr-empty { padding: 10px 4px; font-size: 13px; color: #b6a986; font-style: italic; }
+#hud .prof-badge.fr-gifts { background: #7a4bc9; color: #f0e8ff; }
+#hud .prof-btn.fr-gift { background: linear-gradient(#4fd0b8, #2f9c8a); }
+#hud .fr-acct { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 11px; border-radius: 10px; background: rgba(47,156,138,.16);
+  box-shadow: inset 0 0 0 1px rgba(79,208,184,.35); min-height: 20px; }
+#hud .fr-who { flex: 1 1 auto; font-size: 13px; color: #e9ffd8; display: flex; align-items: center; gap: 8px; }
+#hud .fr-code { font: 800 12px ui-monospace, monospace; letter-spacing: .5px; color: #16110a;
+  background: #4fd0b8; padding: 2px 8px; border-radius: 8px; text-shadow: none; }
+#hud .fr-gsi { flex: 0 0 auto; }
+#hud .fr-inbox-h { margin-top: 12px; margin-bottom: 4px; font-weight: 800; font-size: 13px; color: #ffd98a; }
+#hud .fr-inbox-row { background: rgba(255,193,60,.12); box-shadow: inset 0 0 0 1px rgba(255,193,60,.3); }
 /* quest-complete toast */
 #hud .qtoast { position: fixed; top: 72px; left: 50%; transform: translate(-50%, -12px);
   pointer-events: none; background: linear-gradient(#3c5a10, #2a3f0b);
@@ -1192,6 +1207,7 @@ export class Hud {
       { label: "Boosts", fill: "#7a4bc9", light: "#9c74e0", dark: "#432379" },
       { label: "Storage", fill: "#2f74bb", light: "#4f9bd8", dark: "#143f66" },
       { label: "Market", fill: "#c9992e", light: "#e3bb52", dark: "#8a6512" },
+      { label: "Friends", fill: "#2f9c8a", light: "#4fd0b8", dark: "#12564b" },
     ];
     const col = document.createElement("div");
     col.className = "menucol";
@@ -1222,7 +1238,9 @@ export class Hud {
                 ? this.openZombieList()
                 : m.label === "Invade"
                   ? this.openRaids()
-                  : this.openPanel(m.label, "Coming soon.");
+                  : m.label === "Friends"
+                    ? this.openFriends()
+                    : this.openPanel(m.label, "Coming soon.");
       col.appendChild(btn);
     }
     this.el.appendChild(col);
@@ -1470,6 +1488,41 @@ export class Hud {
   onRenameProfile: ((id: string, name: string) => void) | null = null;
   /** Delete a non-active profile and its save (no reload). */
   onDeleteProfile: ((id: string) => void) | null = null;
+  // ---- friends (offline stub; set by main) ----
+  /** The current friends list. */
+  getFriends: (() => Friend[]) | null = null;
+  /** Add a local friend by name (no reload). */
+  onAddFriend: ((name: string) => void) | null = null;
+  /** Remove a friend by id (no reload). */
+  onRemoveFriend: ((id: string) => void) | null = null;
+  /** Gift one brain to a friend. Returns true if the gift was sent (false if
+   *  gated — e.g. once the daily limit lands). */
+  onGiftBrain: ((id: string) => boolean) | null = null;
+
+  // ---- online social layer (set by main; all null = offline-only) ----
+  /** Whether a game server is configured at all (enables the sign-in UI). */
+  onlineAvailable: (() => boolean) | null = null;
+  /** Whether the player is signed in to the server (online friends + gifts). */
+  socialOnline: (() => boolean) | null = null;
+  /** The signed-in player's name + shareable friend code (null when signed out). */
+  myAccount: (() => { name: string; friendCode: string } | null) | null = null;
+  /** Render Google's sign-in button into the given element. */
+  renderAuthButton: ((el: HTMLElement) => void) | null = null;
+  /** Sign out (flushes + reloads into offline mode). */
+  onSignOut: (() => void) | null = null;
+  /** Pull the latest friends list from the server into the cache. */
+  refreshFriends: (() => Promise<void>) | null = null;
+  /** Add a friend by their shared code. Resolves to an error code, or null on success. */
+  onAddFriendCode: ((code: string) => Promise<string | null>) | null = null;
+  /** Send a brain via the server. Resolves to an error code, or null on success. */
+  onGiftBrainOnline: ((friendId: string) => Promise<string | null>) | null = null;
+  /** Pull the gift inbox from the server into the cache. */
+  refreshInbox: (() => Promise<void>) | null = null;
+  /** Cached unclaimed gifts addressed to me. */
+  getInbox: (() => { id: string; fromName: string }[]) | null = null;
+  /** Claim a gift (credits a brain server-side). */
+  onClaimGift: ((id: string) => Promise<void>) | null = null;
+
   /** Current Fast Mode state (compressed wait clocks); defaults to ON. */
   getFastMode: (() => boolean) | null = null;
   /** Toggle Fast Mode: persist the choice, flush the game, and reload. */
@@ -2379,6 +2432,222 @@ export class Hud {
       list.appendChild(newRow);
     };
     render();
+
+    bg.appendChild(panel);
+    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    this.el.appendChild(bg);
+  }
+
+  // Friends panel. Two modes, chosen at open time:
+  //   • Offline (no server configured, or signed out): the local friends stub —
+  //     add by NAME, gift locally, remove. Same as before online landed.
+  //   • Online (signed in): server-backed — your shareable code up top, a gift
+  //     inbox to claim, friends synced from the server, add by CODE, gift via the
+  //     server (which owns the once-per-day limit).
+  // Reuses the prof-* / fr-* styles.
+  private openFriends() {
+    document.querySelector("#hud .fr-bg")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "panelbg fr-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel profiles";
+    const x = document.createElement("button");
+    x.className = "panelclose";
+    const xi = document.createElement("img");
+    xi.src = UI("button_close.png");
+    x.appendChild(xi);
+    x.onclick = () => bg.remove();
+    const h = document.createElement("h2");
+    h.textContent = "Friends";
+    const note = document.createElement("div");
+    note.className = "fr-note";
+    const acctBar = document.createElement("div");
+    acctBar.className = "fr-acct";
+    const inboxWrap = document.createElement("div");
+    const list = document.createElement("div");
+    list.className = "prof-list";
+    panel.append(x, h, note, acctBar, inboxWrap, list);
+
+    const canOnline = this.onlineAvailable?.() ?? false;
+    const online = () => this.socialOnline?.() ?? false;
+
+    const giftErr = (e: string | null): string | null =>
+      e === null ? null
+        : e === "already_gifted_today" ? "You already gifted them today."
+        : e === "not_friends" ? "You're not friends yet."
+        : /offline|not_configured|no_session/.test(e) ? "You're offline right now."
+        : "Couldn't send the gift.";
+    const addErr = (e: string | null): string | null =>
+      e === null ? null
+        : e === "not_found" ? "No player has that code."
+        : e === "cannot_add_self" ? "That's your own code!"
+        : e === "bad_code" ? "Enter a code like ZF-ABCD."
+        : /offline|not_configured|no_session/.test(e) ? "You're offline right now."
+        : "Couldn't add that friend.";
+
+    const renderAcct = () => {
+      acctBar.innerHTML = "";
+      if (!canOnline) return; // no server → no account UI at all
+      if (online()) {
+        const acct = this.myAccount?.();
+        const who = document.createElement("div");
+        who.className = "fr-who";
+        who.innerHTML = `Signed in as <b>${acct?.name ?? "Player"}</b>`;
+        const code = document.createElement("span");
+        code.className = "fr-code";
+        code.textContent = acct?.friendCode ?? "";
+        code.title = "Your friend code — share it so friends can add you";
+        who.appendChild(code);
+        const out = document.createElement("button");
+        out.className = "prof-btn del";
+        out.textContent = "Sign out";
+        out.onclick = () => this.onSignOut?.();
+        acctBar.append(who, out);
+      } else {
+        const prompt = document.createElement("div");
+        prompt.className = "fr-who";
+        prompt.textContent = "Sign in to add friends and send brains online:";
+        const mount = document.createElement("div");
+        mount.className = "fr-gsi";
+        acctBar.append(prompt, mount);
+        this.renderAuthButton?.(mount);
+      }
+    };
+
+    const renderInbox = () => {
+      inboxWrap.innerHTML = "";
+      if (!online()) return;
+      const gifts = this.getInbox?.() ?? [];
+      if (!gifts.length) return;
+      const hd = document.createElement("div");
+      hd.className = "fr-inbox-h";
+      hd.textContent = `🎁 Gifts for you (${gifts.length})`;
+      inboxWrap.appendChild(hd);
+      for (const g of gifts) {
+        const row = document.createElement("div");
+        row.className = "prof-row fr-inbox-row";
+        const nm = document.createElement("div");
+        nm.className = "prof-name";
+        nm.innerHTML = `🧠 Brain from <b>${g.fromName}</b>`;
+        const claim = document.createElement("button");
+        claim.className = "prof-btn play";
+        claim.textContent = "Claim";
+        claim.onclick = async () => {
+          claim.disabled = true;
+          await this.onClaimGift?.(g.id);
+          this.showToast(`Claimed a brain from ${g.fromName}! 🧠`);
+          await refresh();
+        };
+        row.append(nm, claim);
+        inboxWrap.appendChild(row);
+      }
+    };
+
+    const renderList = () => {
+      const friends = this.getFriends?.() ?? [];
+      list.innerHTML = "";
+      if (!friends.length) {
+        const empty = document.createElement("div");
+        empty.className = "fr-empty";
+        empty.textContent = online()
+          ? "No friends yet. Add one by their code below."
+          : "No friends yet. Add one below to get started.";
+        list.appendChild(empty);
+      }
+      for (const f of friends) {
+        const row = document.createElement("div");
+        row.className = "prof-row";
+        const nm = document.createElement("div");
+        nm.className = "prof-name";
+        nm.textContent = f.name;
+        if (!online() && f.giftsSent > 0) {
+          const b = document.createElement("span");
+          b.className = "prof-badge fr-gifts";
+          b.textContent = `🧠 ${f.giftsSent}`;
+          b.title = `${f.giftsSent} brain${f.giftsSent === 1 ? "" : "s"} gifted`;
+          nm.appendChild(b);
+        }
+        const acts = document.createElement("div");
+        acts.className = "prof-actions";
+        const gift = document.createElement("button");
+        gift.className = "prof-btn play fr-gift";
+        gift.textContent = "Gift 🧠";
+        gift.title = "Send this friend a brain";
+        gift.onclick = async () => {
+          if (online()) {
+            gift.disabled = true;
+            const err = giftErr(await (this.onGiftBrainOnline?.(f.id) ?? Promise.resolve("offline")));
+            if (err) { this.showToast(err); gift.disabled = false; }
+            else this.showToast(`Sent a brain to ${f.name}! 🧠`);
+          } else {
+            if (this.onGiftBrain?.(f.id)) {
+              this.showToast(`Sent a brain to ${f.name}! 🧠`);
+              renderList();
+            }
+          }
+        };
+        acts.appendChild(gift);
+        if (!online()) {
+          const del = document.createElement("button");
+          del.className = "prof-btn del";
+          del.textContent = "Remove";
+          del.onclick = () => { this.onRemoveFriend?.(f.id); renderList(); };
+          acts.appendChild(del);
+        }
+        row.append(nm, acts);
+        list.appendChild(row);
+      }
+      // Add-friend row: by code online, by name offline.
+      const newRow = document.createElement("div");
+      newRow.className = "prof-row prof-new";
+      const inp = document.createElement("input");
+      inp.className = "prof-input";
+      inp.placeholder = online() ? "Friend code (ZF-XXXX)" : "Friend name";
+      inp.maxLength = 24;
+      const add = document.createElement("button");
+      add.className = "prof-btn play";
+      add.textContent = "Add";
+      const commit = async () => {
+        const v = inp.value.trim();
+        if (!v) return;
+        if (online()) {
+          add.disabled = true;
+          const err = addErr(await (this.onAddFriendCode?.(v) ?? Promise.resolve("offline")));
+          if (err) { this.showToast(err); add.disabled = false; return; }
+          this.showToast("Friend added!");
+          await refresh();
+        } else {
+          this.onAddFriend?.(v);
+          renderList();
+        }
+      };
+      add.onclick = commit;
+      inp.onkeydown = (e) => { if (e.key === "Enter") void commit(); };
+      newRow.append(inp, add);
+      list.appendChild(newRow);
+    };
+
+    const renderNote = () => {
+      note.textContent = !canOnline
+        ? "Send a friend a brain each day. (Local list — sign-in isn't set up on this build.)"
+        : online()
+          ? "Share your code so friends can add you, then send each friend a brain a day."
+          : "Sign in to connect with friends online. You can still keep a local list below.";
+    };
+
+    const renderAll = () => { renderNote(); renderAcct(); renderInbox(); renderList(); };
+    const refresh = async () => {
+      if (online()) {
+        try {
+          await this.refreshFriends?.();
+          await this.refreshInbox?.();
+        } catch { /* stay on cached data */ }
+      }
+      renderAll();
+    };
+
+    renderAll();      // paint immediately from cache
+    void refresh();   // then pull fresh server data (online only)
 
     bg.appendChild(panel);
     bg.onclick = (e) => { if (e.target === bg) bg.remove(); };

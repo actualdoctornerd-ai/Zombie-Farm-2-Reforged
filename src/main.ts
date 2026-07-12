@@ -11,6 +11,8 @@ import { JobSystem } from "./JobSystem";
 import { AudioManager } from "./audio";
 import { SaveManager } from "./save/SaveManager";
 import * as profiles from "./save/profiles";
+import * as api from "./net/api";
+import * as auth from "./net/auth";
 import { QuestBus, QuestEvent } from "./quest/events";
 import { QuestSystem } from "./quest/QuestSystem";
 import { RaidManager, RaidResultView } from "./raid/RaidManager";
@@ -836,6 +838,88 @@ async function main() {
   };
   hud.onRenameProfile = (id, name) => profiles.renameProfile(id, name);
   hud.onDeleteProfile = (id) => profiles.deleteProfile(id);
+
+  // ---- friends: OFFLINE path (local stub, autosaved via GameState.onChange).
+  // Used when no server is configured or the player is signed out. ----
+  hud.getFriends = () => state.friends;
+  hud.onAddFriend = (name) => state.addFriend(name);
+  hud.onRemoveFriend = (id) => state.removeFriend(id);
+  hud.onGiftBrain = (id) => state.giftBrain(id);
+
+  // ---- friends: ONLINE path (server ground truth via net/api + net/auth).
+  // The whole block is inert when no server is configured; every hook falls back
+  // to the offline path above. state.friends doubles as the display cache. ----
+  const errCode = (e: unknown) => (e instanceof api.ApiError ? e.code : "error");
+  let inboxCache: { id: string; fromName: string }[] = [];
+
+  hud.onlineAvailable = () => auth.isOnlineAvailable();
+  hud.socialOnline = () => auth.isSignedIn();
+  hud.myAccount = () => {
+    const s = api.getSession();
+    return s ? { name: s.name, friendCode: s.friendCode } : null;
+  };
+  hud.renderAuthButton = (el) => void auth.renderSignInButton(el);
+  hud.onSignOut = () => {
+    saveManager.save(); // flush latest to the server before dropping to local
+    saveManager.suspend();
+    auth.signOut(); // fires onAuthChange → reload into offline mode
+  };
+  hud.refreshFriends = async () => {
+    const list = await api.getFriends();
+    state.friends = list.map(api.toFriend); // server list becomes the cache
+  };
+  hud.onAddFriendCode = async (code) => {
+    try {
+      await api.addFriend(code);
+      await hud.refreshFriends?.();
+      return null;
+    } catch (e) {
+      return errCode(e);
+    }
+  };
+  hud.onGiftBrainOnline = async (friendId) => {
+    try {
+      await api.sendGift(friendId);
+      return null;
+    } catch (e) {
+      return errCode(e);
+    }
+  };
+  hud.refreshInbox = async () => {
+    const gifts = await api.getInbox();
+    inboxCache = gifts.map((g) => ({ id: g.id, fromName: g.fromName }));
+  };
+  hud.getInbox = () => inboxCache;
+  hud.onClaimGift = async (id) => {
+    try {
+      const r = await api.claimGift(id);
+      // Server credited the brain into the save (bumping rev). Reflect it locally
+      // and adopt the new rev so our next autosave isn't rejected as stale.
+      if (!r.alreadyClaimed && r.save) {
+        saveManager.syncRev(r.rev);
+        state.addBrains(1);
+      }
+      await hud.refreshInbox?.();
+    } catch (e) {
+      hud.showToast("Couldn't claim that gift.");
+      console.warn("[gift] claim failed", errCode(e));
+    }
+  };
+
+  // Signing in/out changes which save is authoritative, so reload to re-run the
+  // load path cleanly (same flush-then-reload pattern as switching profiles).
+  auth.onAuthChange(() => {
+    saveManager.suspend();
+    location.reload();
+  });
+
+  // On boot, if signed in, surface any waiting gifts with a gentle toast.
+  if (auth.isSignedIn()) {
+    void hud.refreshInbox?.().then(() => {
+      const n = hud.getInbox?.().length ?? 0;
+      if (n) hud.showToast(`You have ${n} gift${n === 1 ? "" : "s"} waiting! 🎁`);
+    });
+  }
 
   // Fast Mode toggle (Settings → Developer). Grow times / cooldowns are baked in
   // at load, so flush the current game and reload to apply the new timescale —

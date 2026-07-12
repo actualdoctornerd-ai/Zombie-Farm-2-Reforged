@@ -28,6 +28,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+      # Online-layer config (VITE_API_URL / VITE_GOOGLE_CLIENT_ID) comes from the
+      # committed .env.production — both values are public. Nothing to inject here.
       - run: npm run build
       - name: Publish dist/ to gh-pages
         run: |

@@ -1,0 +1,29 @@
+name = "zombiefarm-server"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ---- D1 (SQLite) binding -------------------------------------------------
+# Create the DB once with:  wrangler d1 create zombiefarm
+# then paste the printed database_id below (local dev works without it).
+[[d1_databases]]
+binding = "DB"
+database_name = "zombiefarm"
+database_id = "bf1b288f-7419-41d5-8ee6-0f022c17fd20"
+
+# ---- Public-ish config (not secret) --------------------------------------
+# GOOGLE_CLIENT_ID is your OAuth 2.0 Web client id (safe to expose).
+# ALLOWED_ORIGIN is the site allowed to call this API (your Pages origin).
+# DEV_AUTH=1 enables the no-Google dev sign-in path — MUST stay unset/0 in prod.
+[vars]
+GOOGLE_CLIENT_ID = "249211577622-cmqa6so9re0hgh2lti4mpe40nlcm3l4k.apps.googleusercontent.com"
+ALLOWED_ORIGIN = "https://actualdoctornerd-ai.github.io"
+DEV_AUTH = "0"
+
+# ---- Secrets (set out-of-band, never committed) --------------------------
+# wrangler secret put SESSION_SECRET      # signs our own session JWTs
+#
+# For local dev, put the same in a git-ignored .dev.vars file:
+#   SESSION_SECRET="dev-only-change-me"
+#   DEV_AUTH="1"
+#   ALLOWED_ORIGIN="http://localhost:5173"

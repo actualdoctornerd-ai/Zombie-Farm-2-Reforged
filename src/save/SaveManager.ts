@@ -1,21 +1,36 @@
-// Serializes the live game (GameState + Field + farmer position) into a SaveGame
-// blob in localStorage, and restores it on load. Single-slot, no server.
+// Serializes the live game (GameState + Field + farmer position) and persists it.
 //
-// Autosave is driven off GameState.onChange (debounced): every farm mutation
-// (plow/plant/harvest) also moves a currency or XP, so a state change reliably
-// follows any change worth persisting. A beforeunload flush captures the final
-// state (including the farmer's resting tile). The JobSystem queue is NOT saved
-// — in-flight actions are cheap to redo and messy to restore mid-hoe.
+// Two tiers, and the online tier is PURELY ADDITIVE:
+//   • Local (always): a debounced write to localStorage — the offline cache and
+//     the sole store when signed out or no server is configured. Same behavior as
+//     the original no-server game.
+//   • Server (when signed in + VITE_API_URL set): the Cloudflare Worker is the
+//     ground truth. load() pulls it; save() also pushes it (rev-guarded). On a
+//     409 (another device wrote) local autosave-to-server pauses until a reload
+//     reconciles; on a network error the write is retried (outbox) on reconnect.
+//
+// Autosave is driven off GameState.onChange (debounced). The JobSystem queue is
+// NOT saved — in-flight actions are cheap to redo and messy to restore mid-hoe.
 import { GameState } from "../GameState";
 import { CropConfig, Field } from "../Field";
 import { PlaceableDef } from "../assets";
 import { WalkController } from "../WalkController";
 import { ZombieField } from "../zombie/ZombieField";
 import { QuestSystem } from "../quest/QuestSystem";
-import { SaveGame, SAVE_VERSION } from "./schema";
+import { SaveGame, SAVE_VERSION, SAVE_KEY } from "./schema";
 import { activeSaveKey } from "./profiles";
+import * as api from "../net/api";
 
 export class SaveManager {
+  /** Server rev of the last save we loaded/wrote (0 = none). Drives 409 guarding. */
+  private rev = 0;
+  private pushing = false;
+  private pendingBlob: SaveGame | null = null;
+  /** A newer server save exists (another device); pause server autosave til reload. */
+  private conflicted = false;
+  /** A server push failed offline; retry on the next change / reconnect. */
+  private dirty = false;
+
   constructor(
     private state: GameState,
     private field: Field,
@@ -28,9 +43,21 @@ export class SaveManager {
     private preload: (sprite: string) => Promise<unknown>
   ) {}
 
+  /** Signed in AND a server configured → the server tier is active. */
+  private isOnline(): boolean {
+    return api.isConfigured() && !!api.getSession();
+  }
+
+  /** Where the local cache lives: per-account when signed in (so two Google
+   *  accounts on one device don't collide), else the local profile slot. */
+  private cacheKey(): string {
+    const s = api.getSession();
+    return s ? `${SAVE_KEY}::acct::${s.accountId}` : activeSaveKey();
+  }
+
   hasSave(): boolean {
     try {
-      return localStorage.getItem(activeSaveKey()) !== null;
+      return localStorage.getItem(this.cacheKey()) !== null;
     } catch {
       return false;
     }
@@ -73,14 +100,14 @@ export class SaveManager {
         lastRaidAt: this.state.lastRaidAt,
         attackOrder: this.state.raidAttackOrder,
       },
+      social: { friends: this.state.friends },
     };
   }
 
-  // When suspended, save() is a no-op. Used when switching profiles: after the
-  // current game is flushed and the ACTIVE profile pointer is moved, this page
-  // must not write again (its in-memory game belongs to the OLD profile) — else
-  // the debounced autosave or the beforeunload flush would clobber the profile
-  // we're switching INTO with the outgoing game's state.
+  // When suspended, save() is a no-op. Used when switching profiles / signing out:
+  // after the current game is flushed and the active pointer is moved, this page
+  // must not write again (its in-memory game belongs to the OLD identity) — else
+  // the debounced autosave or beforeunload flush would clobber the one we switch to.
   private suspended = false;
   suspend() {
     this.suspended = true;
@@ -88,39 +115,130 @@ export class SaveManager {
 
   save() {
     if (this.suspended) return;
+    const blob = this.serialize();
+    this.writeLocal(blob);
+    if (this.isOnline()) void this.push(blob);
+  }
+
+  /** Adopt a server rev after an out-of-band server-side write (e.g. a gift claim
+   *  credited the save server-side). The next push then bases off this rev, so it
+   *  isn't rejected as stale. Clears any prior conflict since we're now in sync. */
+  syncRev(rev: number) {
+    this.rev = rev;
+    this.conflicted = false;
+  }
+
+  private writeLocal(blob: SaveGame) {
     try {
-      localStorage.setItem(activeSaveKey(), JSON.stringify(this.serialize()));
+      localStorage.setItem(this.cacheKey(), JSON.stringify(blob));
     } catch (e) {
-      console.warn("[save] write failed", e);
+      console.warn("[save] local write failed", e);
+    }
+  }
+
+  // Push the blob to the server, guarded by rev. Serializes concurrent pushes
+  // (keeps only the latest pending) and handles conflict / offline outcomes.
+  private async push(blob: SaveGame) {
+    if (this.conflicted) return;
+    if (this.pushing) {
+      this.pendingBlob = blob;
+      return;
+    }
+    this.pushing = true;
+    try {
+      const { rev } = await api.putSave(blob, this.rev);
+      this.rev = rev;
+      this.dirty = false;
+    } catch (e) {
+      if (e instanceof api.ApiError && e.status === 409) {
+        this.conflicted = true;
+        console.warn(
+          "[save] a newer save exists on the server (another device). " +
+            "Server autosave paused; reload to sync."
+        );
+      } else if (e instanceof api.ApiError && e.status === 401) {
+        // Session went away; api already cleared it. Drop to local-only silently.
+      } else {
+        this.dirty = true; // offline/other → retry on next change or reconnect
+      }
+    } finally {
+      this.pushing = false;
+      const next = this.pendingBlob;
+      this.pendingBlob = null;
+      if (next && !this.conflicted) void this.push(next);
     }
   }
 
   // Load and apply a save. Returns true if a valid save was restored, false if
   // there was none (or it was corrupt / a version we don't handle → fresh start).
   async load(): Promise<boolean> {
-    let raw: string | null;
-    try {
-      raw = localStorage.getItem(activeSaveKey());
-    } catch {
-      return false;
+    // Online: the server is ground truth.
+    if (this.isOnline()) {
+      try {
+        const res = await api.getSave();
+        const data = res.save && this.validate(res.save);
+        if (data) {
+          this.rev = res.rev;
+          await this.applySave(data);
+          this.writeLocal(data);
+          return true;
+        }
+        // Account has no server save yet: adopt a local farm if one exists (e.g.
+        // played offline, then signed in) so the next save() pushes it up.
+        this.rev = 0;
+        return await this.loadLocal(true);
+      } catch (e) {
+        if (!(e instanceof api.ApiError) || e.status !== 0) {
+          console.warn("[save] server load failed; falling back to local", e);
+        }
+        // fall through to the local cache
+      }
     }
-    if (!raw) return false;
+    // Offline / signed-out: local only (original behavior).
+    return this.loadLocal(false);
+  }
 
-    let data: SaveGame;
+  private async loadLocal(adoptProfile: boolean): Promise<boolean> {
+    let raw = this.readLocal(this.cacheKey());
+    // On first sign-in, adopt the offline profile save so the farm carries over.
+    if (!raw && adoptProfile) raw = this.readLocal(activeSaveKey());
+    if (!raw) return false;
+    let parsed: unknown;
     try {
-      data = JSON.parse(raw) as SaveGame;
+      parsed = JSON.parse(raw);
     } catch {
       console.warn("[save] corrupt JSON; starting fresh");
       return false;
     }
-    if (data.version !== SAVE_VERSION) {
-      // No prior versions exist yet; add migrations here when the schema grows.
-      console.warn(
-        `[save] version ${data.version} != ${SAVE_VERSION}; starting fresh`
-      );
-      return false;
-    }
+    const data = this.validate(parsed);
+    if (!data) return false;
+    await this.applySave(data);
+    return true;
+  }
 
+  private readLocal(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Accept only a SaveGame at the current schema version. */
+  private validate(data: unknown): SaveGame | null {
+    const d = data as SaveGame | null;
+    if (!d || typeof d !== "object") return null;
+    if (d.version !== SAVE_VERSION) {
+      // No prior versions exist yet; add migrations here when the schema grows.
+      console.warn(`[save] version ${d.version} != ${SAVE_VERSION}; starting fresh`);
+      return null;
+    }
+    return d;
+  }
+
+  // Hydrate the whole game from a validated SaveGame. Shared by the local and
+  // server load paths.
+  private async applySave(data: SaveGame): Promise<void> {
     const p = data.player;
     this.state.apply({
       name: p.name,
@@ -140,6 +258,11 @@ export class SaveManager {
     this.state.raidsCompleted = data.raids?.completed ?? {};
     this.state.lastRaidAt = data.raids?.lastRaidAt ?? 0;
     this.state.raidAttackOrder = data.raids?.attackOrder ?? [];
+    // Friends: default gift counters for forward-compat with pre-social saves.
+    this.state.friends = (data.social?.friends ?? []).map((f) => ({
+      ...f,
+      giftsSent: f.giftsSent ?? 0,
+    }));
     // Grow the field to the saved size BEFORE restoring plots/objects, so plots on
     // land added by a Farm Size upgrade validate against the expanded bounds
     // (otherwise Field.restore would drop them as out-of-range). Never shrinks.
@@ -167,12 +290,11 @@ export class SaveManager {
     // so activation checks see the correct level/context.
     this.quests.restore(data.quests);
     if (p.farmer) this.walk.teleport(p.farmer.col, p.farmer.row);
-    return true;
   }
 
   clear() {
     try {
-      localStorage.removeItem(activeSaveKey());
+      localStorage.removeItem(this.cacheKey());
     } catch {
       /* ignore */
     }
@@ -188,5 +310,9 @@ export class SaveManager {
     };
     this.state.onChange(schedule);
     window.addEventListener("beforeunload", () => this.save());
+    // Outbox: when the network returns, flush any change that failed to push.
+    window.addEventListener("online", () => {
+      if (this.dirty && this.isOnline() && !this.conflicted) void this.push(this.serialize());
+    });
   }
 }

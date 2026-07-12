@@ -24,6 +24,8 @@
 //   - Camera pan/zoom (a view preference, not game state).
 // ---------------------------------------------------------------------------
 
+import type { Friend } from "../social/friends";
+
 /** Bump when the shape changes in a way that needs a migration. */
 export const SAVE_VERSION = 1;
 
@@ -61,6 +63,14 @@ export interface SaveGame {
   quests?: QuestSave;
   /** Phase 5: raid/invasion progress (lifetime win count per raid id). */
   raids?: RaidProgressSave;
+  /** Offline friends list + gifting state (the seam for a future online friend
+   *  system). Absent = no friends yet. */
+  social?: SocialSave;
+}
+
+/** Offline social state: the local friends list. */
+export interface SocialSave {
+  friends: Friend[];
 }
 
 /** Phase 5: invasion progress. */

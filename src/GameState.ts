@@ -1,5 +1,7 @@
 // Minimal local game state (no server). Levels/XP curve is build-verified from
 // PlayerLevels.plist. Filler starting values for now.
+import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
+
 export const XP_THRESHOLDS = [
   0, 25, 75, 150, 250, 375, 550, 800, 1300, 1800, 2300, 2800, 3300, 3900, 4500,
   5500, 6500, 7500, 8500, 9500, 11500, 13500, 15500, 17500, 20500, 25000, 30000,
@@ -37,6 +39,9 @@ export class GameState {
   // The player's chosen attack order (deployed zombie ids, first attacks first).
   // Persisted so the Army screen reopens with the same ordering after a raid.
   raidAttackOrder: string[] = [];
+  // ---- friends (offline stub; the seam for a future online friend system) ----
+  // A local list of "friends"; gifting a brain is recorded here. See social/friends.ts.
+  friends: Friend[] = [];
   private listeners: Listener[] = [];
 
   onChange(fn: Listener) {
@@ -211,6 +216,50 @@ export class GameState {
   // by its group (see traits.GROUP_ABILITIES), not random.
   abilityTierUnlocked(tier: number): boolean {
     return this.hasClearedRaid(String(tier));
+  }
+
+  // ---- friends (offline stub) ----
+  /** Add a local friend by name. Returns the new Friend, or null if the name is
+   *  blank. No dedupe: two people can share a display name (ids differ). */
+  addFriend(name: string): Friend | null {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const f: Friend = {
+      id: nextFriendId(this.friends.map((x) => x.id)),
+      name: trimmed,
+      addedAt: Date.now(),
+      giftsSent: 0,
+    };
+    this.friends.push(f);
+    this.emit();
+    return f;
+  }
+  /** Remove a friend by id. */
+  removeFriend(id: string): boolean {
+    const idx = this.friends.findIndex((f) => f.id === id);
+    if (idx < 0) return false;
+    this.friends.splice(idx, 1);
+    this.emit();
+    return true;
+  }
+  /** Whether a brain can be gifted to this friend right now. The once-per-day
+   *  limit is deferred (see social/friends.ts), so this is currently always true
+   *  for a real friend. */
+  canGiftBrain(id: string): boolean {
+    const f = this.friends.find((x) => x.id === id);
+    return !!f && canGiftBrain(f, Date.now());
+  }
+  /** Gift one brain to a friend. Free to the player (a social faucet) — offline
+   *  there is no recipient account, so the gift is only recorded on the friend.
+   *  This is where a future online build POSTs the gift to credit the friend.
+   *  Returns false if the friend is unknown or (later) already gifted today. */
+  giftBrain(id: string): boolean {
+    const f = this.friends.find((x) => x.id === id);
+    if (!f || !canGiftBrain(f, Date.now())) return false;
+    f.lastGiftAt = Date.now();
+    f.giftsSent = (f.giftsSent ?? 0) + 1;
+    this.emit();
+    return true;
   }
 
   // ---- developer overrides (Settings dev tools) ----
