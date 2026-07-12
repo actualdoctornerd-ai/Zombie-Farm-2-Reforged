@@ -75,6 +75,13 @@ type PlotState = "plowed" | "planted" | "dirt" | "hole";
 
 interface Planting {
   cfg: CropConfig;
+  // Absolute epoch (ms) this crop was planted — the SOURCE OF TRUTH for growth.
+  // Age is derived every frame as clamp(now - plantedAt, 0, staleAge), so growth
+  // tracks real wall-clock time and cannot stall when the tab is backgrounded (the
+  // render loop's dt is throttled/clamped there) or while the game is fully closed.
+  plantedAt: number;
+  // Per-frame cache of the derived age (now - plantedAt), refreshed in update(). Read
+  // by ripeness/freshness/harvest checks; never the authority — plantedAt is.
   ageMs: number;
   sprite: Sprite; // the whole crop, depth-sorted in the entity layer (like objects)
   baseY: number;
@@ -411,7 +418,7 @@ export class Field {
       const at = this.plotOriginAt(priority.col, priority.row);
       const c = at ? this.plots.get(this.key(at.oc, at.or))!.crop : undefined;
       if (c && c.ageMs < c.cfg.growMs && done < n) {
-        c.ageMs = c.cfg.growMs; // now ripe; the loop below skips it (age >= growMs)
+        this.ripenNow(c); // now ripe; the loop below skips it (age >= growMs)
         done++;
       }
     }
@@ -419,7 +426,7 @@ export class Field {
       if (done >= n) break;
       const c = p.crop;
       if (c && c.ageMs < c.cfg.growMs) {
-        c.ageMs = c.cfg.growMs;
+        this.ripenNow(c);
         done++;
       }
     }
@@ -436,9 +443,18 @@ export class Field {
     if (!at) return false;
     const c = this.plots.get(this.key(at.oc, at.or))?.crop;
     if (!c || c.ageMs >= c.cfg.growMs) return false;
-    c.ageMs = c.cfg.growMs; // now ripe
+    this.ripenNow(c); // now ripe
     this.update(0); // refresh the growth-stage texture to the ripe frame now
     return true;
+  }
+
+  /** Ripen a crop immediately by back-dating its plantedAt so it reads as just-ripened.
+   *  Sets both plantedAt (the persisted truth — so it stays ripe after the next frame
+   *  re-derives age and across save/reload) and the ageMs cache (so same-tick logic
+   *  that reads ageMs before the next update() sees the ripe value). */
+  private ripenNow(c: Planting) {
+    c.plantedAt = Date.now() - c.cfg.growMs;
+    c.ageMs = c.cfg.growMs;
   }
 
   /** Origins of every ripe plot (Insta-Harvest harvests each via harvestAt).
@@ -460,7 +476,7 @@ export class Field {
     for (const p of this.plots.values()) {
       const c = p.crop;
       if (c && !c.cfg.isZombie && c.ageMs > c.cfg.growMs) {
-        c.ageMs = c.cfg.growMs; // freshness window restarts from ripeness
+        this.ripenNow(c); // freshness window restarts from ripeness
         done++;
       }
     }
@@ -523,7 +539,7 @@ export class Field {
     const useCfg = cfg.isMutant && cfg.growMs > 0 && this.hasMutantMonolith()
       ? { ...cfg, growMs: Math.round(cfg.growMs * 0.5) }
       : cfg;
-    const crop: Planting = { cfg: useCfg, ageMs: 0, sprite: new Sprite(), baseY: 0 };
+    const crop: Planting = { cfg: useCfg, plantedAt: Date.now(), ageMs: 0, sprite: new Sprite(), baseY: 0 };
     crop.baseY = this.layoutCrop(crop, tex, oc, or); // layoutCrop parents by stage
     p.crop = crop;
     p.state = "planted";
@@ -614,12 +630,17 @@ export class Field {
   }
 
   update(dt: number) {
+    const now = Date.now();
     for (const p of this.plots.values()) {
       const c = p.crop;
       if (!c) continue;
+      // Age is derived from real wall-clock time (now - plantedAt), NOT accumulated
+      // from the render-loop dt. That keeps growth advancing correctly no matter how
+      // long the tab was backgrounded (where rAF is throttled and dt is clamped) or
+      // fully closed — this recomputes to the true elapsed time on the next frame.
       // Age keeps advancing past ripeness (up to the stale threshold) so freshness
       // can lapse; capped there so it doesn't grow unbounded.
-      c.ageMs = Math.min(c.ageMs + dt * 1000, staleAgeMs(c.cfg.growMs));
+      c.ageMs = Math.min(Math.max(0, now - c.plantedAt), staleAgeMs(c.cfg.growMs));
       const ripe = c.ageMs >= c.cfg.growMs;
       // The LAST frame is the finished/harvestable look, shown only when ripe; the
       // earlier frames spread across the whole growing period. This keeps "looks
@@ -643,7 +664,6 @@ export class Field {
     }
     this.fx.update(dt);
     // Ripen fruit trees: when the timer elapses, swap to the fruit-bearing sprite.
-    const now = Date.now();
     for (const o of this.objects.values()) {
       if (!o.def.harvestValue || o.ready || now < o.readyAt) continue;
       o.ready = true;
@@ -995,10 +1015,10 @@ export class Field {
 
   // ---- persistence ----------------------------------------------------------
 
-  // Snapshot every plot for saving. Crop timers are stored as an absolute
-  // plantedAt epoch (= now - ageMs) so growth continues while the game is closed.
+  // Snapshot every plot for saving. Crop timers are stored as the absolute plantedAt
+  // epoch (the live source of truth) so growth keeps advancing while the game is
+  // closed and is recomputed exactly on reload — no drift from the frozen render loop.
   serialize(): PlotSave[] {
-    const now = Date.now();
     const out: PlotSave[] = [];
     for (const p of this.plots.values()) {
       const ps: PlotSave = { oc: p.oc, or: p.or, state: p.state };
@@ -1006,7 +1026,7 @@ export class Field {
         ps.crop = {
           key: p.crop.cfg.key,
           isZombie: !!p.crop.cfg.isZombie,
-          plantedAt: now - p.crop.ageMs,
+          plantedAt: p.crop.plantedAt,
           growMs: p.crop.cfg.growMs,
           fertilized: p.crop.fertilized,
         };
@@ -1055,10 +1075,12 @@ export class Field {
             growMs: ps.crop.growMs,
             isZombie: ps.crop.isZombie,
           };
-          // Clamp to the stale threshold (not just growMs) so a crop that ripened
-          // and sat while the game was closed correctly loses freshness offline.
+          // plantedAt is the persisted absolute truth; the ageMs cache is derived from
+          // it here (and re-derived every frame in update()). Clamp the cache to the
+          // stale threshold (not just growMs) so a crop that ripened and sat while the
+          // game was closed correctly loses freshness offline.
           const ageMs = Math.max(0, Math.min(staleAgeMs(cfg.growMs), now - ps.crop.plantedAt));
-          const crop: Planting = { cfg, ageMs, sprite: new Sprite(), baseY: 0, fertilized: ps.crop.fertilized };
+          const crop: Planting = { cfg, plantedAt: ps.crop.plantedAt, ageMs, sprite: new Sprite(), baseY: 0, fertilized: ps.crop.fertilized };
           // layoutCrop parents by stage; the update(0) below then re-layers it to
           // match its restored age (seed -> ground layer, grown -> entity layer).
           crop.baseY = this.layoutCrop(crop, this.assets.crop[cfg.stages[0]], oc, or);

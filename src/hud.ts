@@ -112,6 +112,20 @@ export interface LevelUpView {
   unlocks: LevelUpUnlock[];
 }
 
+/** One reward line in the quest-complete popup (icon + label, e.g. "+30 Gold"). */
+export interface QuestReward {
+  icon: string;
+  label: string;
+}
+/** A completed quest to celebrate, mirroring the level-up popup. Built by main
+ *  (which owns the asset/icon lookups) and shown via openQuestComplete. */
+export interface QuestCompleteView {
+  icon: string; // the quest's own sprite
+  title: string;
+  message: string; // the quest's completion message
+  rewards: QuestReward[];
+}
+
 /** One entry in the Received tab (raid loot / quest item rewards). Resolved by
  *  main from the raw received-key list. `index` is its position in that list, so
  *  claiming/placing can address duplicates safely. */
@@ -684,6 +698,28 @@ const STYLE = `
   background: linear-gradient(#8ec74f, #5c9a2e); color: #fff; font-weight: 900; font-size: 16px;
   cursor: pointer; text-shadow: 0 1px 1px rgba(0,0,0,.4); }
 #hud .lvl-go:hover { filter: brightness(1.08); }
+
+/* ---- Quest-complete popup (mirrors the level-up celebration) ---- */
+#hud .qc-bg { z-index: 24; }
+#hud .questdone { width: min(420px, 90vw); display: flex; flex-direction: column; align-items: center;
+  gap: 8px; text-align: center; }
+#hud .qc-icon { width: 72px; height: 72px;
+  background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  transform: scale(.6); opacity: 0; transition: transform .32s cubic-bezier(.2,1.5,.4,1), opacity .32s ease; }
+#hud .questdone.in .qc-icon { transform: scale(1); opacity: 1; }
+#hud .qc-icon img { max-width: 54px; max-height: 54px; object-fit: contain; }
+#hud .qc-burst { font-size: 26px; font-weight: 900; letter-spacing: 1px; color: #b6f36a;
+  text-shadow: 0 2px 0 #2d5a12, 0 0 12px rgba(120,220,90,.55); }
+#hud .qc-title { font-size: 18px; font-weight: 800; color: #eafff0; margin-top: -2px; }
+#hud .qc-msg { font-size: 14px; font-weight: 600; color: #d8ecc6; opacity: .9; max-width: 340px; }
+#hud .qc-sub { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: #ffd98a; margin-top: 4px; opacity: .95; }
+#hud .qc-rewards { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 2px; }
+#hud .qc-reward { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800;
+  color: #ffe9a8; border: 2px solid #1e1207; border-radius: 10px; padding: 6px 12px;
+  background: rgba(0,0,0,.25); }
+#hud .qc-reward img { width: 24px; height: 24px; object-fit: contain; }
 
 /* ---- Market panel (authentic parchment + wood sprites) ---- */
 #hud .mkt-bg { position: fixed; inset: 0; pointer-events: auto; z-index: 21;
@@ -3941,6 +3977,49 @@ export class Hud {
     this.el.appendChild(bg);
     requestAnimationFrame(() => panel.classList.add("in"));
   }
+
+  /** Celebratory "QUEST COMPLETE" popup showing the finished quest + its reward,
+   *  styled like the level-up popup. Fired from the QuestSystem via main.ts. Only
+   *  one shows at a time; a queued list (main.ts) feeds them in one after another. */
+  openQuestComplete(view: QuestCompleteView) {
+    document.querySelector("#hud .qc-bg")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "panelbg qc-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel questdone";
+
+    const rewardHtml = view.rewards.length
+      ? `<div class="qc-sub">Reward</div><div class="qc-rewards">${view.rewards
+          .map(
+            (r) =>
+              `<span class="qc-reward"><img src="${r.icon}" onerror="this.style.visibility='hidden'">` +
+              `${r.label}</span>`
+          )
+          .join("")}</div>`
+      : "";
+
+    panel.innerHTML =
+      `<div class="qc-icon"><img src="${UI(view.icon)}" onerror="this.style.visibility='hidden'"></div>` +
+      `<div class="qc-burst">QUEST COMPLETE!</div>` +
+      `<div class="qc-title">${view.title}</div>` +
+      (view.message ? `<div class="qc-msg">${view.message}</div>` : "") +
+      rewardHtml;
+
+    const done = document.createElement("button");
+    done.className = "lvl-go";
+    done.textContent = "Continue";
+    const close = () => { bg.remove(); this.onQuestCompleteClosed?.(); };
+    done.onclick = close;
+    panel.appendChild(done);
+    bg.appendChild(panel);
+    bg.onclick = (e) => { if (e.target === bg) close(); };
+    this.el.appendChild(bg);
+    requestAnimationFrame(() => panel.classList.add("in"));
+  }
+
+  /** Called when a quest-complete popup is dismissed, so main can show the next
+   *  queued one (quests can complete in bursts — e.g. several on a raid return). */
+  onQuestCompleteClosed: (() => void) | null = null;
 
   // A compact Move / Store / Sell action popup for a placed farm object, shown
   // when it's tapped in Select mode.

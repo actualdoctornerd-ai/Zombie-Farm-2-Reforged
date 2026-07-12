@@ -6,7 +6,7 @@ import { WalkController } from "./WalkController";
 import { ZombieField } from "./zombie/ZombieField";
 import { POT_DURATION_MS } from "./zombie/ZombiePot";
 import { GameState } from "./GameState";
-import { Hud, graveNeededFor, LevelUpUnlock, ReceivedView } from "./hud";
+import { Hud, graveNeededFor, LevelUpUnlock, ReceivedView, QuestCompleteView, QuestReward } from "./hud";
 import { JobSystem } from "./JobSystem";
 import { AudioManager } from "./audio";
 import { SaveManager } from "./save/SaveManager";
@@ -16,6 +16,7 @@ import * as auth from "./net/auth";
 import { requireAuth } from "./net/gate";
 import { QuestBus, QuestEvent } from "./quest/events";
 import { QuestSystem } from "./quest/QuestSystem";
+import { QuestDef, RewardType } from "./quest/types";
 import { RaidManager, RaidResultView } from "./raid/RaidManager";
 import { RaidScene } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS } from "./raid/RaidCatalog";
@@ -391,14 +392,55 @@ async function main() {
     (oc, or) => zombies.tryFertilize(oc, or)
   );
 
+  // Quest-complete celebration, styled like the level-up popup. Quests can finish in
+  // bursts (several at once on a raid return), so completions QUEUE and show one at a
+  // time; the HUD calls onQuestCompleteClosed when each is dismissed to feed the next.
+  const uiIcon = (name: string) => `${BASE}assets/ui/${name}`;
+  const questRewards = (def: QuestDef): QuestReward[] => {
+    switch (def.rewardType) {
+      case RewardType.Gold:
+        return def.rewardValue ? [{ icon: uiIcon("topbar_money_icon.png"), label: `+${def.rewardValue} Gold` }] : [];
+      case RewardType.Xp:
+        return def.rewardValue ? [{ icon: uiIcon("topbar_level_icon.png"), label: `+${def.rewardValue} XP` }] : [];
+      case RewardType.Brains:
+        return def.rewardValue
+          ? [{ icon: uiIcon("topbar_brain_icon.png"), label: `+${def.rewardValue} ${def.rewardValue === 1 ? "Brain" : "Brains"}` }]
+          : [];
+      case RewardType.Item:
+      case RewardType.Zombie:
+        // A named item/zombie reward — show its name; the quest sprite doubles as its icon.
+        return def.rewardItem ? [{ icon: uiIcon(def.sprite), label: def.rewardItem }] : [];
+      default:
+        return [];
+    }
+  };
+  const questCompleteQueue: QuestCompleteView[] = [];
+  let questCompleteShowing = false;
+  const showNextQuestComplete = () => {
+    const next = questCompleteQueue.shift();
+    if (!next) { questCompleteShowing = false; return; }
+    questCompleteShowing = true;
+    hud.openQuestComplete(next);
+  };
+  hud.onQuestCompleteClosed = showNextQuestComplete;
+  const celebrateQuest = (def: QuestDef) => {
+    questCompleteQueue.push({
+      icon: def.sprite,
+      title: def.title,
+      message: def.messageComplete,
+      rewards: questRewards(def),
+    });
+    if (!questCompleteShowing) showNextQuestComplete();
+  };
+
   // The data-driven quest engine (all 96 quests from quests.json). Rewards route to
-  // GameState / the roster; the HUD rail and completion toast come from `hud`.
+  // GameState / the roster; the HUD rail and the completion popup come from `hud`.
   const quests = new QuestSystem(
     new Map(Object.entries(assets.quests)), state, questBus,
     {
       grantItem: (key) => state.receiveItem(key),
       grantZombie: (key) => zombies.spawn(key, walk.tile.col, walk.tile.row),
-      toast: (msg) => hud.showToast(msg),
+      completed: (def) => celebrateQuest(def),
       render: (views) => hud.setQuests(views),
     }
   );
@@ -971,7 +1013,6 @@ async function main() {
         // Apply rewards and show the results panel NOW — the scene keeps rendering
         // (zombies marching off) behind it. The panel's finish button tears down.
         const view = raids.finishRaid(setup.raid, setup.party, outcome, setup.dice);
-        postRaidWinQuests(view, setup.raid.name);
         hud.openRaidResult(view, () => {
           if (raidScene) {
             app.stage.removeChild(raidScene.container);
@@ -982,6 +1023,9 @@ async function main() {
           world.visible = true;
           hud.setRaiding(false);
           audio.exitRaid(); // battle over — hand the farm bed back
+          // Advance raid quests only now that we're back on the farm, so their
+          // completion popups appear over the farm rather than the battle result.
+          postRaidWinQuests(view, setup.raid.name);
         });
       },
     }).then((scene) => {
@@ -1477,6 +1521,17 @@ async function main() {
         floats.splice(i, 1);
       }
     }
+  });
+
+  // When the tab returns to the foreground after being backgrounded, the render loop
+  // has been throttled/paused so on-screen crop growth is stale until the next frame.
+  // Growth itself is wall-clock based (Field derives crop age from plantedAt), so a
+  // single update(0) snaps every crop to its true current stage right away instead of
+  // waiting on the first (possibly delayed) rAF tick, then we persist the fresh state.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    field.update(0);
+    saveManager.save();
   });
 
   (window as any).ZF = { app, world, field, actor, walk, zombies, state, hud, jobs, audio, save: saveManager, quests, questBus, raids, screenToGrid, CARROT,

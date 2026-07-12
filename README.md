@@ -38,7 +38,7 @@ there so future agents do not work from stale assumptions.
   combined zombies, same-type alternate results, and field rendering.
 - Market with Crops, Items, Upgrade (Farm Size), Boosts, and Brains tabs.
 - Storage UI with Items, Pets placeholder, Boosts, and Received tabs.
-- Quest engine loading all 96 source quests, with active farm/item quest events and dormant unsupported quest classes.
+- Quest engine loading all 96 source quests, with active farm/item quest events and dormant unsupported quest classes. Completing a quest shows a celebratory "QUEST COMPLETE!" popup (quest icon + reward), styled like the level-up popup; multiple completions queue and show one at a time. Raid-driven quest completions are held until the player returns to the farm, so they never pop over the battle result screen.
 - Raid select, army select, quick resolve, live battle scene, result panel, cooldown, voucher, loot, XP/gold/brain rewards, and ability tier unlocks.
 - Side-view enemy actor art for all 11 raids: procedurally-animated rigs for 10 (idle/walk/attack-lunge) plus Video Games' real frame-atlas sprites. Ninja/Pirate/City rigs are decoded from the iOS binary (`tools/re/extract_stage_rigs.py`). Raid particle FX (impact dust, victory confetti, heal).
 - One responsive build for phone and desktop: capability autodetection (`src/platform.ts`), a compact touch HUD, and pinch-to-zoom/pan.

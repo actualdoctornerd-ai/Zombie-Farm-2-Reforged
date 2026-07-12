@@ -38,8 +38,9 @@ export interface QuestHooks {
   grantItem: (key: string) => void;
   /** Grant a reward zombie unit (rewardType 5). */
   grantZombie: (key: string) => void;
-  /** Show the quest's completion message. */
-  toast: (msg: string) => void;
+  /** A quest just completed (reward already dispatched): celebrate it with the
+   *  completion popup. main owns the icon/label lookups off the def. */
+  completed: (def: QuestDef) => void;
   /** Push the current active-quest views to the HUD rail. */
   render: (views: QuestView[]) => void;
 }
@@ -121,7 +122,7 @@ export class QuestSystem {
     this.active.delete(id);
     this.completed.add(id);
     this.dispatchReward(def);
-    if (def.messageComplete) this.hooks.toast(def.messageComplete);
+    this.hooks.completed(def); // celebrate with the completion popup
     this.tryActivate(); // a completed prerequisite may unlock the next quest(s)
   }
 
