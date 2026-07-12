@@ -294,6 +294,14 @@ export class SaveManager {
     if (p.farmer) this.walk.teleport(p.farmer.col, p.farmer.row);
   }
 
+  /** Hydrate the live singletons from a save for READ-ONLY viewing (visiting a
+   *  friend's farm). Reuses the normal restore path, but the caller must NOT
+   *  enableAutosave() in this mode: this never writes locally or to the server and
+   *  never touches `rev`, so a visit cannot persist anything. */
+  async hydrateReadOnly(save: SaveGame): Promise<void> {
+    await this.applySave(save);
+  }
+
   clear() {
     try {
       localStorage.removeItem(this.cacheKey());

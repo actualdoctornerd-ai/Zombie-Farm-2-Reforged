@@ -153,6 +153,21 @@ export class ZombieField {
     return this.takeOwned(id);
   }
 
+  /** Permanently remove raid casualties (dead units, by id) from the roster.
+   *  GROUND TRUTH: a downed zombie is a permanent loss — raids cull the fallen
+   *  (IMPLEMENTATION_RAIDS_PLAN Phase 6). Called by RaidManager.finishRaid with
+   *  outcome.losses. Reuses takeOwned, so each deployed casualty's sprite is
+   *  destroyed, its army slot freed, and the selection cleared. Returns the
+   *  removed unit data. */
+  removeCasualties(ids: string[]): OwnedZombie[] {
+    const removed: OwnedZombie[] = [];
+    for (const id of ids) {
+      const data = this.takeOwned(id);
+      if (data) removed.push(data);
+    }
+    return removed;
+  }
+
   // ---- Zombie Pot: combine two owned zombies into one ----
   /** The combine job (busy/ready/remainingMs), for the HUD. */
   get combinePot(): ZombiePot {

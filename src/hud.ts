@@ -14,7 +14,8 @@ import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts } from
 import type { ProfileIndex } from "./save/profiles";
 import type { Friend } from "./social/friends";
 import { isMobile } from "./platform";
-import { getSpriteSet, setSpriteSet, getEdition, setEdition } from "./prefs";
+import { getSpriteSet, setSpriteSet, getEdition, setEdition,
+  FarmBackground, FARM_BACKGROUNDS } from "./prefs";
 import { fmtCooldown } from "./raid/RaidCatalog";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
   ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
@@ -282,6 +283,22 @@ const STYLE = `
    keep raid panels (.panelbg) visible. */
 #hud.raiding .topbar, #hud.raiding .tools, #hud.raiding .menucol,
 #hud.raiding .questcol, #hud.raiding .fab { display: none !important; }
+/* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
+   surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
+   camera, zombie inspect, and the visit banner remain. */
+#hud.visiting .topbar, #hud.visiting .tools, #hud.visiting .menucol,
+#hud.visiting .questcol, #hud.visiting .qtoggle, #hud.visiting .fab { display: none !important; }
+#hud .visit-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  pointer-events: auto; display: flex; align-items: center; gap: 12px;
+  background: rgba(30,45,20,.82); color: #fff; padding: 8px 12px 8px 16px;
+  border-radius: 14px; box-shadow: 0 3px 8px rgba(0,0,0,.5);
+  font-weight: 700; font-size: 15px; text-shadow: 0 1px 2px #000; max-width: 92vw; }
+#hud .visit-banner .vb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#hud .visit-banner .vb-eye { opacity: .85; font-weight: 400; font-size: 13px; }
+#hud .visit-banner .vb-exit { border: none; cursor: pointer; color: #fff; font-weight: 700;
+  font-size: 14px; padding: 6px 14px; border-radius: 10px;
+  background: linear-gradient(#c0432f,#8f2a1c); box-shadow: 0 2px 0 #5c1a12; }
+#hud .visit-banner .vb-exit:active { transform: translateY(1px); box-shadow: 0 1px 0 #5c1a12; }
 #hud .tool { width: 48px; height: 48px; border: none; background: transparent;
   cursor: pointer; padding: 0; position: relative;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
@@ -353,6 +370,13 @@ const STYLE = `
 #hud .toggle.on .knob { left: 36px; }
 #hud .toggle .txt { position: absolute; top: 6px; width: 26px; text-align: center; text-shadow: 0 1px 1px #000; }
 #hud .toggle .txt.l { left: 4px; } #hud .toggle .txt.r { right: 4px; }
+#hud .set-row-choice { flex-wrap: wrap; gap: 10px 24px; }
+#hud .set-choice { display: flex; gap: 6px; }
+#hud .choice { padding: 6px 12px; border-radius: 13px; border: 2px solid #1e1207;
+  background: #5a3a1a; color: #f2ead0; cursor: pointer; font: 700 12px system-ui, sans-serif;
+  text-shadow: 0 1px 1px #000; }
+#hud .choice:hover { filter: brightness(1.12); }
+#hud .choice.on { background: #4f9b2f; color: #fff; }
 #hud .dev-head { margin: 12px 0 2px; font-weight: 700; color: #d8b45e;
   border-top: 1px solid #5b4a2a; padding-top: 10px; }
 #hud .dev-input { width: 96px; padding: 5px 8px; border-radius: 6px; border: 2px solid #1e1207;
@@ -725,7 +749,7 @@ const STYLE = `
 #hud .mkt-bg { position: fixed; inset: 0; pointer-events: auto; z-index: 21;
   background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; }
 #hud .mkt { position: relative; box-sizing: border-box;
-  width: min(770px, 94vw); height: min(440px, 88vh);
+  width: min(770px, 94vw); height: min(500px, 90vh);
   border-style: solid; border-width: 32px 11px 12px 11px;
   border-image: url(${BASE}assets/ui/market/paper_market.png) 32 11 12 11 fill / 32px 11px 12px 11px stretch;
   padding: 4px 16px 8px; font-family: Georgia, "Times New Roman", serif;
@@ -756,14 +780,39 @@ const STYLE = `
   text-shadow: 0 1px 1px rgba(0,0,0,.4); }
 #hud .mkt-subtab.sel { border-image-source: url(${BASE}assets/ui/market/subtab_sel.png);
   color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
-#hud .mkt-arrow { position: absolute; right: 4px; top: 82px; width: 30px; height: 40px;
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-  background: linear-gradient(#8a5a2a, #6e4420); border: 2px solid #4a2c12;
-  border-radius: 8px 0 0 8px; border-right: none; }
-#hud .mkt-arrow img { width: 12px; height: 18px; filter: brightness(0) invert(1) opacity(.85); }
+/* Search box: filters the current tab's cards by name. */
+#hud .mkt-search-row { display: flex; justify-content: center; margin-bottom: 8px; flex: 0 0 auto; }
+#hud .mkt-search { width: min(280px, 70%); box-sizing: border-box;
+  padding: 5px 12px; font-family: inherit; font-size: 13px; font-weight: 700;
+  color: #48300f; background: rgba(255,248,230,.72);
+  border: 2px solid #b98b4a; border-radius: 14px; outline: none;
+  box-shadow: inset 0 1px 3px rgba(90,52,19,.25); }
+#hud .mkt-search::placeholder { color: #9a7a4a; font-weight: 400; font-style: italic; }
+#hud .mkt-search:focus { border-color: #8a5a2a; background: rgba(255,250,238,.92); }
+/* Pager: prev / "page x / y" / next, reusing the market's own arrow art. */
+#hud .mkt-pager { display: flex; align-items: center; justify-content: center; gap: 14px;
+  margin-top: 7px; flex: 0 0 auto; }
+#hud .mkt-pageinfo { font-weight: 700; font-size: 14px; color: #48300f;
+  min-width: 52px; text-align: center; text-shadow: 0 1px 0 rgba(255,255,255,.4); }
+#hud .mkt-page-arrow { width: 34px; height: 30px; padding: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(#8a5a2a, #6e4420); border: 2px solid #4a2c12; border-radius: 8px;
+  box-shadow: 0 1px 0 #3c2410; }
+#hud .mkt-page-arrow img { width: 11px; height: 16px; filter: brightness(0) invert(1) opacity(.9); }
+#hud .mkt-page-arrow.left img { transform: scaleX(-1); }
+#hud .mkt-page-arrow:disabled { opacity: .4; cursor: default; box-shadow: none; }
+#hud .mkt-page-arrow:not(:disabled):hover { background: linear-gradient(#9a6a34, #7a4d22); }
 #hud .mkt-grid { flex: 1 1 auto; display: grid; grid-template-columns: repeat(5, 1fr);
-  grid-auto-rows: 122px; gap: 9px 10px; padding: 0 2px 2px; overflow: auto; min-height: 0;
-  align-content: start; }
+  grid-auto-rows: 122px; gap: 9px 10px; padding: 0 2px 2px; overflow-y: auto; overflow-x: hidden;
+  min-height: 0; align-content: start;
+  /* Slim, parchment-toned scrollbar so a paged grid that still overflows on small
+     screens matches the wood/paper chrome instead of the stark OS default. */
+  scrollbar-width: thin; scrollbar-color: #a5763c transparent; }
+#hud .mkt-grid::-webkit-scrollbar { width: 8px; }
+#hud .mkt-grid::-webkit-scrollbar-track { background: transparent; margin: 2px 0; }
+#hud .mkt-grid::-webkit-scrollbar-thumb { background: linear-gradient(#a5763c, #6e4420);
+  border-radius: 6px; border: 1px solid #4f2f13; }
+#hud .mkt-grid::-webkit-scrollbar-thumb:hover { background: linear-gradient(#b98b4a, #7a4d22); }
 #hud .mkt-card { border-radius: 8px; overflow: hidden; background: #efe4bf; cursor: pointer;
   border: 2px solid #b98b4a; box-shadow: inset 0 -3px 0 rgba(90,52,19,.12);
   display: flex; flex-direction: column; }
@@ -786,10 +835,11 @@ const STYLE = `
 #hud .mkt-card.locked:hover { background: #efe4bf; }
 #hud .mkt-empty { grid-column: 1 / -1; text-align: center; color: #6e4a1e; font-style: italic;
   padding: 30px 0; font-size: 15px; }
-/* Upgrade tab: a full-width status banner + Farm Size tier cards laid out as
-   2 columns (each row = one tier: gold card | brains card). */
-#hud .mkt-grid.mkt-grid--upgrade { grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: 138px; max-width: 440px; margin: 0 auto; }
+/* Upgrade tab: a full-width status banner above the single next-buyable Farm Size
+   tier, shown as two centered payment cards (gold | brains) at the same card size
+   as every other tab. */
+#hud .mkt-grid.mkt-grid--upgrade { grid-template-columns: repeat(2, 150px);
+  grid-auto-rows: 122px; justify-content: center; }
 #hud .mkt-upgrade-status { grid-column: 1 / -1; text-align: center; color: #4f2f13;
   font-size: 14px; padding: 4px 0 8px; }
 #hud .mkt-upgrade-status b { color: #2f7a1e; font-size: 16px; }
@@ -1608,6 +1658,8 @@ export class Hud {
   onAddFriendCode: ((code: string) => Promise<string | null>) | null = null;
   /** Send a brain via the server. Resolves to an error code, or null on success. */
   onGiftBrainOnline: ((friendId: string) => Promise<string | null>) | null = null;
+  /** Open a read-only view of this friend's farm (by account id + display name). */
+  onVisitFriend: ((friendId: string, name: string) => void) | null = null;
   /** Pull the gift inbox from the server into the cache. */
   refreshInbox: (() => Promise<void>) | null = null;
   /** Cached unclaimed gifts addressed to me. */
@@ -1625,10 +1677,38 @@ export class Hud {
   /** Toggle the night lighting layer (dev-only). */
   onSetNight: ((on: boolean) => void) | null = null;
 
+  /** Current farm-background (foliage density) choice. */
+  getFarmBackground: (() => FarmBackground) | null = null;
+  /** Change the farm background — rebuilds the foliage ring live. */
+  onSetFarmBackground: ((bg: FarmBackground) => void) | null = null;
+
   /** Hide/show the farm chrome (top bar, tools, menus) so the live battle scene
    *  can take over the screen. Raid panels stay visible. */
   setRaiding(on: boolean) {
     this.el.classList.toggle("raiding", on);
+  }
+
+  // Enter/leave the read-only "visiting a friend's farm" view. Hides all
+  // farm-editing chrome (via the .visiting class) and shows a banner naming whose
+  // farm this is with an Exit button (onExit returns to the player's own farm).
+  setVisiting(on: boolean, name?: string, onExit?: () => void) {
+    this.el.classList.toggle("visiting", on);
+    this.el.querySelector(".visit-banner")?.remove();
+    if (!on) return;
+    const banner = document.createElement("div");
+    banner.className = "visit-banner";
+    const eye = document.createElement("span");
+    eye.className = "vb-eye";
+    eye.textContent = "👁 Visiting";
+    const who = document.createElement("span");
+    who.className = "vb-name";
+    who.textContent = name ? `${name}'s farm` : "a friend's farm";
+    const exit = document.createElement("button");
+    exit.className = "vb-exit";
+    exit.textContent = "Exit";
+    exit.onclick = () => onExit?.();
+    banner.append(eye, who, exit);
+    this.el.appendChild(banner);
   }
 
   // The Market: authentic parchment panel with category tabs + real cards.
@@ -1662,8 +1742,36 @@ export class Hud {
     tabsEl.className = "mkt-tabs";
     const subsEl = document.createElement("div");
     subsEl.className = "mkt-subtabs";
+
+    // Search row: filters the current tab/sub's cards by name (esp. the big decor
+    // list). Hidden on tabs with a bespoke layout (Upgrade) or no cards (Brains).
+    const searchRow = document.createElement("div");
+    searchRow.className = "mkt-search-row";
+    const searchInput = document.createElement("input");
+    searchInput.className = "mkt-search";
+    searchInput.type = "search";
+    searchInput.placeholder = "Search…";
+    searchInput.setAttribute("aria-label", "Search the market");
+    searchRow.appendChild(searchInput);
+
     const grid = document.createElement("div");
     grid.className = "mkt-grid";
+
+    // Pager: pages the grid so a category never needs a long scroll. Reuses the
+    // market's own arrow art (the right arrow is mirrored for "previous").
+    let search = "";
+    let page = 0;
+    const pager = document.createElement("div");
+    pager.className = "mkt-pager";
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "mkt-page-arrow left";
+    prevBtn.innerHTML = `<img src="${UI("market/arrow_right.png")}" alt="Previous">`;
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "mkt-page-arrow";
+    nextBtn.innerHTML = `<img src="${UI("market/arrow_right.png")}" alt="Next">`;
+    const pageInfo = document.createElement("span");
+    pageInfo.className = "mkt-pageinfo";
+    pager.append(prevBtn, pageInfo, nextBtn);
 
     const SUBTABS: Record<string, string[]> = {
       Crops: ["Plants", "Zombies"],
@@ -1736,30 +1844,87 @@ export class Hud {
         `<span><img src="${UI("topbar_brain_icon.png")}">${this.state.brains}</span>`;
     };
 
+    // Search + pagination apply only to the card-list tabs; Upgrade has a bespoke
+    // layout and Brains is an info message.
+    const searchable = () => tab !== "Upgrade" && tab !== "Brains";
+
+    // How many cards a page holds. Read from the laid-out grid so it tracks the
+    // responsive column count + row height. Roomy layouts (desktop/tablet, ≥3
+    // columns) page to exactly the rows that fit, so the grid never scrolls. Narrow
+    // phone layouts (1–2 columns) fit too few per row, so they instead get a small
+    // touch-scrollable minimum rather than exploding into dozens of near-empty pages
+    // — natural on touch, and the themed thin scrollbar keeps it tidy.
+    const pageSize = (): number => {
+      const cs = getComputedStyle(grid);
+      const cols = Math.max(1, cs.gridTemplateColumns.split(" ").filter(Boolean).length);
+      const rowH = parseFloat(cs.gridAutoRows) || 122;
+      const gap = parseFloat(cs.rowGap || "9") || 9;
+      const avail = grid.clientHeight;
+      if (avail < rowH) return 10; // not laid out yet (or absurdly short) → sane default
+      const rows = Math.max(1, Math.floor((avail + gap) / (rowH + gap)));
+      const fit = cols * rows;
+      return cols >= 3 ? fit : Math.max(fit, 8);
+    };
+
     const renderGrid = () => {
       grid.innerHTML = "";
       grid.scrollTop = 0;
       // Farm Size lays out as 2 columns so each row is one tier (gold | brains);
       // Ground uses the normal card grid.
       grid.classList.toggle("mkt-grid--upgrade", tab === "Upgrade" && sub === "Farm Size");
+      // Search + pager only ride the card-list tabs.
+      const canSearch = searchable();
+      searchRow.style.display = canSearch ? "flex" : "none";
       if (tab === "Upgrade") {
+        pager.style.display = "none";
         if (sub === "Ground") this.renderGroundGrid(grid, refreshCur, renderGrid);
         else this.renderUpgradeGrid(grid, refreshCur, renderGrid);
         return;
       }
-      const entries = entriesFor();
+      const all = entriesFor();
+      const q = search.trim().toLowerCase();
+      const entries = q ? all.filter((en) => en.name.toLowerCase().includes(q)) : all;
+
+      // Size each page to exactly the rows that fit the visible grid, so the grid
+      // itself never has to scroll (the whole point of paginating). Measured from the
+      // laid-out grid: column count + fixed row height come from the responsive CSS,
+      // so this adapts to desktop/tablet/phone breakpoints automatically. Falls back
+      // to a full 2-desktop-rows page if the grid isn't measurable yet.
+      const perPage = pageSize();
+      const pages = Math.max(1, Math.ceil(entries.length / perPage));
+      if (page >= pages) page = pages - 1;
+      if (page < 0) page = 0;
+      const shown = entries.slice(page * perPage, page * perPage + perPage);
+
       if (!entries.length) {
         const e = document.createElement("div");
         e.className = "mkt-empty";
-        // Brains are never sold for real money — earned through play only.
-        e.textContent = tab === "Brains"
-          ? "Brains can't be bought. Earn them from quests and invasions!"
-          : "Coming soon.";
+        // Distinguish "no search hits" from a genuinely empty tab.
+        e.textContent = q
+          ? `No items match “${search.trim()}”.`
+          : tab === "Brains"
+            // Brains are never sold for real money — earned through play only.
+            ? "Brains can't be bought. Earn them from quests and invasions!"
+            : "Coming soon.";
         grid.appendChild(e);
-        return;
+      } else {
+        for (const en of shown) grid.appendChild(this.buildMarketCard(en));
       }
-      for (const en of entries) grid.appendChild(this.buildMarketCard(en));
+
+      // Pager: only when this tab is paged AND there's more than one page.
+      const showPager = canSearch && pages > 1;
+      pager.style.display = showPager ? "flex" : "none";
+      if (showPager) {
+        pageInfo.textContent = `${page + 1} / ${pages}`;
+        prevBtn.disabled = page <= 0;
+        nextBtn.disabled = page >= pages - 1;
+      }
     };
+
+    prevBtn.onclick = () => { if (page > 0) { page--; this.audio.play("menuClick"); renderGrid(); } };
+    nextBtn.onclick = () => { page++; this.audio.play("menuClick"); renderGrid(); };
+    // Live-filter as the player types; every keystroke returns to the first page.
+    searchInput.oninput = () => { search = searchInput.value; page = 0; renderGrid(); };
 
     const renderSubs = () => {
       subsEl.innerHTML = "";
@@ -1769,7 +1934,7 @@ export class Hud {
         const b = document.createElement("button");
         b.className = "mkt-subtab" + (s === sub ? " sel" : "");
         b.textContent = s;
-        b.onclick = () => { this.audio.play("menuClick"); sub = s; renderSubs(); renderGrid(); };
+        b.onclick = () => { this.audio.play("menuClick"); sub = s; page = 0; renderSubs(); renderGrid(); };
         subsEl.appendChild(b);
       }
     };
@@ -1782,6 +1947,10 @@ export class Hud {
         this.audio.play("menuClick");
         tab = name;
         sub = SUBTABS[name][0] ?? "";
+        page = 0;
+        // A new category starts a fresh search.
+        search = "";
+        searchInput.value = "";
         tabsEl.querySelectorAll(".mkt-tab").forEach((e) => e.classList.remove("sel"));
         b.classList.add("sel");
         renderSubs();
@@ -1790,13 +1959,7 @@ export class Hud {
       tabsEl.appendChild(b);
     }
 
-    const arrow = document.createElement("div");
-    arrow.className = "mkt-arrow";
-    const ai = document.createElement("img");
-    ai.src = UI("market/arrow_right.png");
-    arrow.appendChild(ai);
-
-    mkt.append(title, close, cur, tabsEl, subsEl, arrow, grid);
+    mkt.append(title, close, cur, tabsEl, subsEl, searchRow, grid, pager);
     bg.appendChild(mkt);
     bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
     this.el.appendChild(bg);
@@ -1864,10 +2027,12 @@ export class Hud {
     // Next buyable tier = smallest size still larger than the current farm.
     const next = this.farmUpgrades.filter((u) => u.size > current)
       .sort((a, b) => a.size - b.size)[0];
-    // Each tier gets a gold card then a brains card, side by side.
-    for (const u of this.farmUpgrades)
+    // Show ONLY that next tier, as a gold card + a brains card side by side.
+    // Already-owned smaller farms and not-yet-reachable larger tiers are omitted
+    // (when maxed, `next` is undefined and just the status banner shows).
+    if (next)
       for (const currency of ["gold", "brains"] as const)
-        grid.appendChild(this.buildUpgradeCard(u, currency, current, next, refreshCur, rerender));
+        grid.appendChild(this.buildUpgradeCard(next, currency, current, next, refreshCur, rerender));
   }
 
   private buildUpgradeCard(
@@ -2343,6 +2508,36 @@ export class Hud {
     return r;
   }
 
+  // Reusable label + segmented multi-choice row (a small pill button per option).
+  private settingChoiceRow<T extends string>(
+    label: string,
+    options: { id: T; label: string }[],
+    current: T,
+    set: (v: T) => void
+  ) {
+    const r = document.createElement("div");
+    r.className = "set-row set-row-choice";
+    const lbl = document.createElement("span");
+    lbl.textContent = label;
+    const seg = document.createElement("div");
+    seg.className = "set-choice";
+    const btns = options.map((o) => {
+      const b = document.createElement("button");
+      b.className = "choice" + (o.id === current ? " on" : "");
+      b.textContent = o.label;
+      b.onclick = () => {
+        if (b.classList.contains("on")) return;
+        for (const other of btns) other.classList.remove("on");
+        b.classList.add("on");
+        set(o.id);
+      };
+      return b;
+    });
+    seg.append(...btns);
+    r.append(lbl, seg);
+    return r;
+  }
+
   // Settings modal: Music / Sound Effects / Ambience toggles plus the account
   // block. The Developer section now lives in its own menu (openDevMenu), reached
   // via the invisible hotspot beside the nameplate.
@@ -2416,12 +2611,24 @@ export class Hud {
     );
     const editionNote = noteEl("Reforged adds brain gifting & online features; Traditional is the OG experience. (Gating not wired yet.)");
 
+    // Farm background: how lush the trees ringing the farm are. All three fill the
+    // view to the zoom-out edge; they differ in density (Deep Forest → Light Meadow).
+    const bgBlock: HTMLElement[] = [];
+    if (this.getFarmBackground && this.onSetFarmBackground) {
+      bgBlock.push(
+        this.settingChoiceRow("Farm Background", FARM_BACKGROUNDS, this.getFarmBackground(),
+          (v) => this.onSetFarmBackground?.(v)),
+        noteEl("How many trees surround your farm.")
+      );
+    }
+
     panel.append(
       x, h,
       ...(acctBlock ? [acctBlock] : []),
       row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
       row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
       row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
+      ...bgBlock,
       spriteRow, spriteNote,
       editionRow, editionNote
     );
@@ -2770,6 +2977,16 @@ export class Hud {
           }
         };
         acts.appendChild(gift);
+        // Visit (online only): open a read-only view of this friend's farm. f.id
+        // is the friend's account id server-side, which the visit fetch needs.
+        if (online()) {
+          const visit = document.createElement("button");
+          visit.className = "prof-btn play fr-visit";
+          visit.textContent = "Visit 👁";
+          visit.title = `Look around ${f.name}'s farm (read-only)`;
+          visit.onclick = () => this.onVisitFriend?.(f.id, f.name);
+          acts.appendChild(visit);
+        }
         if (!online()) {
           const del = document.createElement("button");
           del.className = "prof-btn del";

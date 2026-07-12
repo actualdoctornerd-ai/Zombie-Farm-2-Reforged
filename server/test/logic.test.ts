@@ -7,7 +7,9 @@ import {
   isStaleWrite,
   normalizeFriendCode,
   normalizeUsername,
+  projectFriendSave,
 } from "../src/logic";
+import type { SaveGame } from "../src/env";
 
 describe("friendCodeFromBytes", () => {
   it("produces a ZF- prefixed code of the requested length", () => {
@@ -71,6 +73,70 @@ describe("normalizeUsername — non-unique display name", () => {
   it("rejects disallowed characters", () => {
     expect(normalizeUsername("bad<name>")).toBeNull();
     expect(normalizeUsername("no@symbols")).toBeNull();
+  });
+});
+
+describe("projectFriendSave — read-only visitor projection", () => {
+  // A save carrying every private field a visitor must NOT receive.
+  const full = {
+    version: 1,
+    savedAt: 123,
+    player: {
+      name: "Neighbor",
+      gold: 99999,
+      brains: 42,
+      xp: 7777,
+      zombieMax: 12,
+      zombieCount: 5,
+      farmer: { col: 3, row: 4 },
+      unlockedAbilities: ["boom"],
+    },
+    farm: { fieldId: "default", w: 20, h: 20, climate: "grass", plots: [] },
+    objects: [{ id: "o1", key: "tree", oc: 1, or: 1 }],
+    ownedZombies: [{ id: "z1", key: "regular" }],
+    zombiePot: {
+      keyA: "a",
+      keyB: "b",
+      maskA: 0,
+      maskB: 0,
+      startedAt: 1,
+      finishAt: 2,
+    },
+    storage: { itemCap: 8, items: [], received: [] },
+    boosts: [{ key: "fert", count: 3 }],
+    quests: { active: [], completed: ["q1"] },
+    raids: { completed: { "1": 3 } },
+    social: { friends: [{ id: "f1", name: "Secret", addedAt: 0, giftsSent: 0 }] },
+  } as unknown as SaveGame;
+
+  it("keeps the renderable farm + zombies", () => {
+    const p = projectFriendSave(full);
+    expect(p.farm).toEqual(full.farm);
+    expect(p.objects).toEqual(full.objects);
+    expect(p.ownedZombies).toEqual(full.ownedZombies);
+    expect(p.zombiePot).toEqual(full.zombiePot);
+    expect(p.savedAt).toBe(123); // drives offline-growth math
+    expect(p.player.name).toBe("Neighbor");
+    expect(p.player.zombieMax).toBe(12);
+  });
+
+  it("zeroes private balances/progression", () => {
+    const p = projectFriendSave(full);
+    expect(p.player.gold).toBe(0);
+    expect(p.player.brains).toBe(0);
+    expect(p.player.xp).toBe(0);
+    expect(p.player.unlockedAbilities).toBeUndefined();
+  });
+
+  it("drops storage, boosts, quests, raids, and the social block entirely", () => {
+    const p = projectFriendSave(full);
+    expect(p.storage).toBeUndefined();
+    expect(p.boosts).toBeUndefined();
+    expect(p.quests).toBeUndefined();
+    expect(p.raids).toBeUndefined();
+    expect(p.social).toBeUndefined();
+    // Nothing in the serialized projection leaks the friends list.
+    expect(JSON.stringify(p)).not.toContain("Secret");
   });
 });
 

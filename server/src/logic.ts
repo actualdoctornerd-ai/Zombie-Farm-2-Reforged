@@ -1,5 +1,6 @@
 // Pure, framework-free logic — no D1, no Hono, no crypto side effects. Everything
 // here is unit-tested (test/logic.test.ts) and reused by the route handlers.
+import type { SaveGame } from "./env";
 
 /** Milliseconds in a day — the gift cooldown window. Server owns this clock. */
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,6 +35,41 @@ export function canSendGift(lastSentAt: number | null, now: number): boolean {
  *  matches the stored rev (another device wrote in between). */
 export function isStaleWrite(baseRev: number, currentRev: number): boolean {
   return baseRev !== currentRev;
+}
+
+/** Project a friend's save down to the read-only slice a visitor is allowed to
+ *  see: the farm layout (terrain, plots, crops), placed objects, and the owned
+ *  zombies (so they can be walked up to and inspected). This is defense-in-depth
+ *  for the "visit a friend's farm" feature — even a tampered client only ever
+ *  receives what this ALLOWLIST returns, so private balances and progression
+ *  never leave the server.
+ *
+ *  Allowlist (not denylist) on purpose: any field added to SaveGame later is
+ *  excluded by default until someone deliberately opts it in here.
+ *
+ *  Kept: version/savedAt (savedAt drives the visitor's offline-growth math so
+ *  crops render at the right stage), farm, objects, ownedZombies, zombiePot, and
+ *  a sanitized player (name + zombie capacity only — currency/xp zeroed).
+ *  Dropped: gold/brains/xp balances, unlockedAbilities, storage, boosts, quests,
+ *  raids, and the entire social block (their friends list). */
+export function projectFriendSave(save: SaveGame): SaveGame {
+  return {
+    version: save.version,
+    savedAt: save.savedAt,
+    player: {
+      name: save.player?.name ?? "Zombie Farmer",
+      // Capacity is shown as context on the roster; balances/xp are private.
+      zombieMax: save.player?.zombieMax ?? 0,
+      zombieCount: save.player?.zombieCount ?? 0,
+      gold: 0,
+      brains: 0,
+      xp: 0,
+    },
+    farm: save.farm,
+    objects: save.objects,
+    ownedZombies: save.ownedZombies,
+    zombiePot: save.zombiePot,
+  };
 }
 
 /** Min/max length for a chosen username (display name — not unique). */

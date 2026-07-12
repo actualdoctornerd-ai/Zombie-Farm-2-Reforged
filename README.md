@@ -36,10 +36,10 @@ there so future agents do not work from stale assumptions.
 - Tapping a still-growing crop or zombie opens an info popup with its type, a live countdown to harvest, and an Insta-Grow button that spends one boost use to ripen it on the spot.
 - Mutation/combination system with bitmask inheritance, slot restrictions, timers, mixed-color
   combined zombies, same-type alternate results, and field rendering.
-- Market with Crops, Items, Upgrade (Farm Size), Boosts, and Brains tabs.
+- Market with Crops, Items, Upgrade (Farm Size), Boosts, and Brains tabs, plus a name-search box and a themed pager on the card lists (pages fit the visible grid so it doesn't scroll on desktop/tablet).
 - Storage UI with Items, Pets placeholder, Boosts, and Received tabs.
 - Quest engine loading all 96 source quests, with active farm/item quest events and dormant unsupported quest classes. Completing a quest shows a celebratory "QUEST COMPLETE!" popup (quest icon + reward), styled like the level-up popup; multiple completions queue and show one at a time. Raid-driven quest completions are held until the player returns to the farm, so they never pop over the battle result screen.
-- Raid select, army select, quick resolve, live battle scene, result panel, cooldown, voucher, loot, XP/gold/brain rewards, and ability tier unlocks.
+- Raid select, army select, quick resolve, live battle scene, result panel, cooldown, voucher, loot, XP/gold/brain rewards, and ability tier unlocks. Zombies that die in an invasion are permanently lost (culled from the roster + save).
 - Side-view enemy actor art for all 11 raids: procedurally-animated rigs for 10 (idle/walk/attack-lunge) plus Video Games' real frame-atlas sprites. Ninja/Pirate/City rigs are decoded from the iOS binary (`tools/re/extract_stage_rigs.py`). Raid particle FX (impact dust, victory confetti, heal).
 - One responsive build for phone and desktop: capability autodetection (`src/platform.ts`), a compact touch HUD, and pinch-to-zoom/pan.
 - Audio toggles for farm BGM and a small SFX set; developer controls (a separate menu opened by an invisible hotspot beside the nameplate) for testing.
@@ -50,12 +50,12 @@ jobs, audio, save manager, quests, quest bus, raids, and helper functions.
 
 ## Current Gaps
 
-- **Raids:** all 11 invasions now scale by player level through a full 7-stage difficulty ladder (McDonnell's authored ladder, extrapolated onto every other raid from its own minions/boss — the source only authored McDonnell's, and the game is a difficulty ladder, one stage per invasion, not sequential waves). Combat still needs better side-view actors, permanent casualties, status/focus polish, and per-raid balance tuning. (Enemies still emerge one at a time by design.)
+- **Raids:** all 11 invasions now scale by player level through a full 7-stage difficulty ladder (McDonnell's authored ladder, extrapolated onto every other raid from its own minions/boss — the source only authored McDonnell's, and the game is a difficulty ladder, one stage per invasion, not sequential waves). Permanent casualties now ship (a downed zombie is culled from the roster for good). Combat still needs better side-view actors, status/focus polish, and per-raid balance tuning. (Enemies still emerge one at a time by design.)
 - **Market/upgrades:** Farm Size expansion works (40/50/60 tiers grow the field + adjust the
   backdrop/foliage/camera). Ground climate/terrain skins and authored TMX map loading are not implemented.
 - **Pets:** extracted pet data/art exists, but gameplay is missing and the Pets storage tab is a placeholder.
 - **Quests:** raid, epic, photo, social, loot, and some combiner quest events remain dormant until their events are added to `LIVE_EVENTS` and emitted consistently.
-- **QoL/UI:** market pagination/search, Received item cards/reveal/use flow, boost raid frontend for Concentration/Golden Dice, save reset/export/import, and fuller settings/help menus are missing. (Zombie selling now routes through a confirmation window.)
+- **QoL/UI:** Received item cards/reveal/use flow, boost raid frontend for Concentration/Golden Dice, save reset/export/import, and fuller settings/help menus are missing. (Market pagination/search now ships; zombie selling now routes through a confirmation window.)
 - **Settings toggles (Sprites & Edition):** the **ZF2 Sprites** and **Reforged/Traditional** switches in Settings persist a preference (`src/prefs.ts`) but do nothing yet. Sprites still needs a ZF1 art pack and a runtime swap keyed off `getSpriteSet()`. Traditional edition still needs the feature gates — brain gifting and the online/friends surfaces should read `isReforged()` and hide when it is off, so Traditional plays as the original single-player game.
 - **Assets:** raid particle FX (impact/confetti/heal) are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage/pet assets are extracted but not wired into runtime systems.
 - **Docs/tests:** docs must be kept current manually; build passes, but there is no automated test script.

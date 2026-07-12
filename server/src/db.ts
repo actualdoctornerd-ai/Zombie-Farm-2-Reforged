@@ -145,7 +145,7 @@ export async function listFriends(
       `SELECT a.* FROM accounts a
        JOIN friendships f ON f.b_id = a.id
        WHERE f.a_id = ?
-       ORDER BY a.name COLLATE NOCASE`
+       ORDER BY a.username COLLATE NOCASE`
     )
     .bind(accountId)
     .all<Account>();

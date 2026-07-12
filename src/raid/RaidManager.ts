@@ -446,6 +446,13 @@ export class RaidManager {
     // nothing; a total loss credits no one.
     this.zombies.recordInvasion(outcome.survivors);
 
+    // Permanent casualties (GROUND TRUTH — raids cull the fallen; see
+    // IMPLEMENTATION_RAIDS_PLAN Phase 6): every downed zombie leaves the roster for
+    // good, on wins and losses alike. outcome.losses is exactly the units that died
+    // (fled-but-alive zombies on a retreat are survivors, not losses). The reduced
+    // roster persists via hooks.save() below.
+    this.zombies.removeCasualties(outcome.losses);
+
     this.state.lastRaidAt = this.now();
 
     let gold = 0;

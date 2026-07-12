@@ -157,6 +157,13 @@ export const putSave = (save: SaveGame, baseRev: number) =>
 
 export const getFriends = () => req<FriendView[]>("GET", "/friends");
 
+/** Fetch a friend's farm as a READ-ONLY projection (server strips currency,
+ *  progression, and their social block — see projectFriendSave). Powers the
+ *  "visit a friend's farm" view. Throws ApiError(403, "not_friends") if the
+ *  friendship no longer exists, or (404, "no_save") if they've never saved. */
+export const getFriendSave = (accountId: string) =>
+  req<{ save: SaveGame }>("GET", `/friends/${encodeURIComponent(accountId)}/save`);
+
 export const addFriend = (code: string) =>
   req<{ friend: FriendView }>("POST", "/friends/add", { code });
 

@@ -14,7 +14,13 @@ import {
   type GoogleIdentity,
 } from "./auth";
 import * as db from "./db";
-import { canSendGift, isStaleWrite, normalizeFriendCode, normalizeUsername } from "./logic";
+import {
+  canSendGift,
+  isStaleWrite,
+  normalizeFriendCode,
+  normalizeUsername,
+  projectFriendSave,
+} from "./logic";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 
@@ -148,6 +154,24 @@ app.get("/friends", async (c) => {
       friendCode: f.friend_code,
     }))
   );
+});
+
+// ---- GET /friends/:id/save: read-only peek at a friend's farm -----------
+// Powers "visit a friend's farm". Only a confirmed friend may read, and only a
+// stripped projection is returned (projectFriendSave) — never the caller's own
+// route, never a writable path. The visitor client renders this in a throwaway
+// context with no autosave, so there is no way for a visit to mutate anything.
+app.get("/friends/:id/save", async (c) => {
+  const me = c.get("accountId");
+  const target = c.req.param("id");
+  if (!target || target === me) return c.json({ error: "bad_request" }, 400);
+  if (!(await db.areFriends(c.env.DB, me, target))) {
+    return c.json({ error: "not_friends" }, 403);
+  }
+  const row = await db.getSave(c.env.DB, target);
+  if (!row) return c.json({ error: "no_save" }, 404);
+  const save = projectFriendSave(JSON.parse(row.blob) as SaveGame);
+  return c.json({ save });
 });
 
 // ---- POST /friends/add: connect by friend code --------------------------

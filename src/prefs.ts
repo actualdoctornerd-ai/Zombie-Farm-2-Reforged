@@ -17,9 +17,13 @@
 
 export type SpriteSet = "zf1" | "zf2";
 export type Edition = "traditional" | "reforged";
+// How lush the decorative foliage ringing the farm is. All three fill the whole
+// camera view out to the max zoom-out edge; they differ only in tree density.
+export type FarmBackground = "deep-forest" | "woodland" | "light-meadow";
 
 const SPRITE_KEY = "zf2r.spriteSet";
 const EDITION_KEY = "zf2r.edition";
+const FARM_BG_KEY = "zf2r.farmBackground";
 
 /** Which sprite pack to render with. Defaults to ZF2 (the only pack wired today). */
 export function getSpriteSet(): SpriteSet {
@@ -37,6 +41,33 @@ export function getEdition(): Edition {
 
 export function setEdition(edition: Edition): void {
   localStorage.setItem(EDITION_KEY, edition);
+}
+
+// Foliage density per background, as a fraction of the base (Deep Forest) tree
+// count. Light Meadow is ~1/10 as dense. Because the three share the same seeded
+// layout, the sets nest (meadow ⊂ woodland ⊂ deep forest) — switching thins or
+// thickens the same forest rather than reshuffling it.
+export const FARM_BG_DENSITY: Record<FarmBackground, number> = {
+  "deep-forest": 1,
+  woodland: 0.45,
+  "light-meadow": 0.1,
+};
+
+// Ordered options + display labels for the Settings picker.
+export const FARM_BACKGROUNDS: { id: FarmBackground; label: string }[] = [
+  { id: "deep-forest", label: "Deep Forest" },
+  { id: "woodland", label: "Woodland" },
+  { id: "light-meadow", label: "Light Meadow" },
+];
+
+/** How lush the farm's foliage ring is. Defaults to Woodland (the medium density). */
+export function getFarmBackground(): FarmBackground {
+  const v = localStorage.getItem(FARM_BG_KEY);
+  return v === "deep-forest" || v === "light-meadow" ? v : "woodland";
+}
+
+export function setFarmBackground(bg: FarmBackground): void {
+  localStorage.setItem(FARM_BG_KEY, bg);
 }
 
 /** Convenience gate for the modern additions (brain gifting, online, …). The

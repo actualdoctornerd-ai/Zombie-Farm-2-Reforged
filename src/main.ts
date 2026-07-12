@@ -14,6 +14,7 @@ import * as profiles from "./save/profiles";
 import * as api from "./net/api";
 import * as auth from "./net/auth";
 import { requireAuth } from "./net/gate";
+import { getVisitTarget, enterVisit, exitVisit, clearVisitTarget } from "./net/visit";
 import { QuestBus, QuestEvent } from "./quest/events";
 import { QuestSystem } from "./quest/QuestSystem";
 import { QuestDef, RewardType } from "./quest/types";
@@ -25,6 +26,7 @@ import { setFootprint } from "./depthSort";
 import { NightLayer, makeLight } from "./lighting";
 import { buyXp, sellBack, zombieSellValue } from "./economy";
 import { isFastMode, setFastMode } from "./devSettings";
+import { getFarmBackground, setFarmBackground, FARM_BG_DENSITY } from "./prefs";
 import { BASE } from "./base";
 import { initPlatform } from "./platform";
 
@@ -195,27 +197,46 @@ async function main() {
     const distOutside = (c: number, r: number) =>
       Math.max(0, Math.max(-c, c - (field.w - 1)), Math.max(-r, r - (field.h - 1)));
     const MARGIN = 2.5; // clear grass between the farm edge and the nearest foliage
-    const BAND = 10; // foliage only within this many tiles of the farm
-    for (let c = -11; c <= field.w + 10; c += 3) {
-      for (let r = -11; r <= field.h + 10; r += 3) {
-        const jc = c + (rnd() - 0.5) * 1.8; // jitter off the lattice
-        const jr = r + (rnd() - 0.5) * 1.8;
-        const d = distOutside(jc, jr);
-        const inBand = d >= MARGIN && d <= BAND;
-        const sparse = rnd(); // consume RNG evenly so accepted set is stable
-        const density = d < 5 ? 0.24 : 0.36;
-        // Close to the farm: low shrubs only; farther out: allow full-height trees.
-        const isTree = d >= 4.5 && rnd() < (d >= 7 ? 0.5 : 0.32);
-        const tex = isTree ? assets.scenery[0] : assets.scenery[1 + Math.floor(rnd() * 3)];
-        const s = objScale * (isTree ? 0.7 + rnd() * 0.25 : 0.55 + rnd() * 0.3);
-        if (!inBand || sparse > density) continue;
+
+    // Fill the WORLD-SPACE rectangle the camera can reveal at max zoom-out
+    // ([boundL..boundR] x [treeTop..boundB]) instead of a grid-space diamond ring —
+    // that ring is why the far screen corners used to sit on bare grass when fully
+    // zoomed out. We sweep the rotated (u,v) lattice (u = col-row, v = col+row),
+    // which maps straight onto that rect:  worldX = u*HW,  worldY = v*HH + HH.
+    const treeTop = background.position.y + 6; // grass just below the hill bases
+    const uMin = Math.floor(boundL / HW) - 2, uMax = Math.ceil(boundR / HW) + 2;
+    const vMin = Math.floor((treeTop - HH) / HH) - 2;
+    const vMax = Math.ceil((boundB - HH) / HH) + 2;
+    const STEP = 2;
+    // Farm Background setting scales the tree count: Deep Forest = full, Woodland
+    // ~half, Light Meadow ~a tenth. Same seed, so the sparser sets are subsets of
+    // the denser ones and switching just thins/thickens the same forest.
+    const accept = 0.34 * FARM_BG_DENSITY[getFarmBackground()];
+    for (let v = vMin; v <= vMax; v += STEP) {
+      for (let u = uMin; u <= uMax; u += STEP) {
+        const ju = u + (rnd() - 0.5) * STEP * 1.3; // jitter off the lattice
+        const jv = v + (rnd() - 0.5) * STEP * 1.3;
+        const wx = ju * HW, wy = jv * HH + HH;
+        const col = (ju + jv) / 2, row = (jv - ju) / 2;
+        const d = distOutside(col, row);
+        const r1 = rnd(), r2 = rnd(), r3 = rnd(); // consume RNG evenly (stable layout)
+        // Gate: inside the reachable rect (slight overshoot so edges fully cover) and
+        // off the farm + its clearing margin.
+        if (wx < boundL - HW || wx > boundR + HW || wy < treeTop || wy > boundB + HH) continue;
+        if (d < MARGIN) continue;
+        // Even woodland fill: half trees / half shrubs (shrubs only near the clearing
+        // edge; full-height trees farther out). `accept` sets how much of the lattice
+        // is populated per the Farm Background setting.
+        if (r1 >= accept) continue;
+        const isTree = d >= 4.5 && r2 < 0.5;
+        const tex = isTree ? assets.scenery[0] : assets.scenery[1 + Math.floor(r3 * 3)];
+        const s = objScale * (isTree ? 0.7 + r3 * 0.28 : 0.55 + r3 * 0.3);
         const sp = new Sprite(tex);
         sp.anchor.set(0.5, 1);
         sp.scale.set(s);
-        const p = tileCenter(jc, jr);
-        sp.position.set(p.x, p.y);
+        sp.position.set(wx, wy);
         // Point footprint on its tile so it depth-sorts with trees/actors.
-        const fc = Math.round(jc), fr = Math.round(jr);
+        const fc = Math.round(col), fr = Math.round(row);
         setFootprint(sp, fc, fr, fc, fr);
         field.entityLayer.addChild(sp);
         foliage.push(sp);
@@ -303,8 +324,8 @@ async function main() {
   // Farm Size upgrade grows the field.
   const syncWorldToFarm = () => {
     fitBackground();
+    computeBounds(); // foliage now fills the world-space camera rect, so bounds first
     buildFoliage();
-    computeBounds();
   };
   syncWorldToFarm();
 
@@ -562,20 +583,59 @@ async function main() {
   const saveManager = new SaveManager(state, field, walk, zombies, quests, catalog, placeCatalog, (sprite) =>
     ensureObjectTexture(assets, sprite)
   );
-  const restored = await saveManager.load();
-  if (!restored) quests.restore(); // fresh farm: activate the opening quests
-  saveManager.enableAutosave();
-  console.log(restored ? "[save] restored existing farm" : "[save] fresh farm");
-  // A restored farm may be a larger (upgraded) size than the 30x30 default the
-  // world was first built for: re-fit the backdrop/foliage/bounds and re-clamp.
+
+  // Visit mode: if a friend farm was requested (via enterVisit → reload), hydrate
+  // THEIR read-only save into these fresh singletons and — crucially — never call
+  // enableAutosave(). The player's own save is never loaded in this mode, so a
+  // visit cannot read, write, or corrupt it. On any fetch failure we clear the
+  // target and fall through to a normal load, so the player always lands on their
+  // own farm.
+  const visitTarget = getVisitTarget();
+  let visiting = false;
+  let visitError = "";
+  let restored = false;
+  if (visitTarget) {
+    try {
+      const { save } = await api.getFriendSave(visitTarget.id);
+      await saveManager.hydrateReadOnly(save);
+      visiting = true;
+      console.log(`[visit] viewing ${visitTarget.name}'s farm (read-only)`);
+    } catch (e) {
+      clearVisitTarget();
+      visitError = e instanceof api.ApiError ? e.code : "error";
+      console.warn("[visit] could not open friend's farm:", visitError);
+    }
+  }
+  if (!visiting) {
+    restored = await saveManager.load();
+    if (!restored) quests.restore(); // fresh farm: activate the opening quests
+    saveManager.enableAutosave();
+    console.log(restored ? "[save] restored existing farm" : "[save] fresh farm");
+  }
+  // A restored (or visited) farm may be a larger (upgraded) size than the 30x30
+  // default the world was first built for: re-fit backdrop/foliage/bounds + re-clamp.
   syncWorldToFarm();
   clampCamera();
 
   // A brand-new farm starts with one owned zombie (matching the default count) so
   // the player has a unit to see and inspect right away; restored farms rebuild
-  // their roster from the save instead.
-  if (!restored && zombies.count === 0) {
+  // their roster from the save instead. A visited farm shows the friend's exact
+  // roster (even if empty) — never inject a unit into it.
+  if (!visiting && !restored && zombies.count === 0) {
     zombies.spawn("ZombieActorRegularTier1", start.col - 4, start.row - 2);
+  }
+
+  // Visit mode UI: hide the farm-editing chrome, show a "Visiting X — Exit" banner.
+  // Autosave was never enabled above, so nothing here can persist.
+  if (visiting && visitTarget) {
+    hud.setMode("walk"); // no tool is ever active while visiting
+    hud.setVisiting(true, visitTarget.name, () => exitVisit());
+  } else if (visitError) {
+    hud.showToast(
+      visitError === "not_friends" ? "You're no longer friends with that player."
+        : visitError === "no_save" ? "That player hasn't started a farm yet."
+        : "Couldn't open that farm right now."
+    );
   }
 
   app.stage.eventMode = "static";
@@ -932,6 +992,9 @@ async function main() {
       return errCode(e);
     }
   };
+  // Visit a friend's farm: stash the target and reload into read-only visit mode
+  // (see net/visit.ts + the visit branch at load time above).
+  hud.onVisitFriend = (friendId, name) => enterVisit({ id: friendId, name });
   hud.refreshInbox = async () => {
     const gifts = await api.getInbox();
     inboxCache = gifts.map((g) => ({ id: g.id, fromName: g.fromName }));
@@ -977,6 +1040,11 @@ async function main() {
   // Night lighting toggle (Developer menu). Was the N key; now driven from the HUD.
   hud.getNight = () => isNight;
   hud.onSetNight = (on) => setNight(on);
+
+  // Farm Background picker (Settings): re-seed & rebuild the foliage ring live at
+  // the new density — no reload, same spirit as the night toggle.
+  hud.getFarmBackground = () => getFarmBackground();
+  hud.onSetFarmBackground = (bg) => { setFarmBackground(bg); buildFoliage(); };
 
   hud.getRaidBoosts = (raidId) => ({
     concentration: raids.concentrationCount(),
@@ -1236,6 +1304,15 @@ async function main() {
   app.stage.on("pointerdown", (e: FederatedPointerEvent) => {
     if (raidActive) return; // farm input is inert during a live raid
     if (touchPinch) return; // a pinch is in progress; ignore extra finger-downs
+    if (visiting) {
+      // Read-only visit: no tools, no editing. Only start a camera pan; a tap
+      // (pan that doesn't move) resolves to walk / inspect in endDrag below.
+      if (e.button === 2) return;
+      dragging = true;
+      moved = false;
+      last.copyFrom(e.global);
+      return;
+    }
     if (e.button === 2) { // right-click -> back to the select tool
       cancelCarry();
       hud.setMode("walk");
@@ -1284,6 +1361,19 @@ async function main() {
   app.stage.on("pointermove", (e: FederatedPointerEvent) => {
     if (raidActive) return;
     if (touchPinch) return; // pinch owns the gesture; skip pan/cursor updates
+    if (visiting) {
+      // Read-only visit: drag pans the camera; no tool cursors are ever shown.
+      if (dragging) {
+        const dx = e.global.x - last.x;
+        const dy = e.global.y - last.y;
+        if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+        world.position.x += dx;
+        world.position.y += dy;
+        clampCamera();
+        last.copyFrom(e.global);
+      }
+      return;
+    }
     const { col, row, wx, wy } = tileAt(e);
     if (hud.mode === "place" && hud.placing) {
       field.setObjectCursor(hud.placing, col, row); // ghost follows the cursor
@@ -1348,13 +1438,23 @@ async function main() {
             str: d.str, dex: d.dex, con: d.con, focus: d.focus, mutation: d.mutation,
             invasions: d.invasions,
             portrait: zombiePortrait(d.key), // per-type composited portrait
-            id: d.id, stored: false,
+            // Visiting a friend: inspect only — omit the id so openZombieInfo
+            // renders no Deploy/Store/Sell/Locate actions on their unit.
+            id: visiting ? undefined : d.id, stored: false,
           });
           dragging = false;
           lastPlot = "";
           return;
         }
         zombies.clearSelection();
+        if (visiting) {
+          // Read-only visit: a tap on non-zombie ground just free-roams the
+          // visitor's avatar. No harvest/plant/store/object actions on their farm.
+          if (!jobs.busy) walk.goToPoint(wx, wy);
+          dragging = false;
+          lastPlot = "";
+          return;
+        }
         const objId = field.objectAtPoint(wx, wy);
         const objDef = objId ? field.objectDefOf(objId) : null;
         // Signature decor (Liberty Bell, Gnome King, …) plays its own tap sound.
