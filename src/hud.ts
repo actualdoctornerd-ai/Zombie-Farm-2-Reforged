@@ -304,6 +304,15 @@ const STYLE = `
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
 #hud .panelclose img { width: 100%; height: 100%; }
 /* settings rows: label + on/off toggle */
+#hud .set-acct { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin: 6px 0 4px; padding: 10px 12px; border-radius: 10px; background: rgba(47,156,138,.16);
+  box-shadow: inset 0 0 0 1px rgba(79,208,184,.35); }
+#hud .set-acct-who { font-size: 14px; color: #eaffd8; }
+#hud .set-acct-code { margin-top: 2px; font: 700 11px ui-monospace, monospace; color: #9ad3c4; }
+#hud .set-signout { flex: 0 0 auto; border: 2px solid #14240a; border-radius: 8px; padding: 7px 14px;
+  cursor: pointer; color: #fff; font: 800 13px system-ui, sans-serif; text-shadow: 0 1px 1px #000;
+  background: linear-gradient(#c0553f, #9c3320); }
+#hud .set-signout:hover { filter: brightness(1.1); }
 #hud .set-row { display: flex; align-items: center; justify-content: space-between;
   gap: 24px; min-width: 240px; padding: 8px 2px; font-size: 15px; font-weight: 700; }
 #hud .set-row + .set-row { border-top: 1px solid rgba(255,255,255,.15); }
@@ -2322,8 +2331,29 @@ export class Hud {
     fastNote.className = "dev-status";
     fastNote.textContent = "Speeds up grow times & cooldowns for testing (reloads).";
 
+    // Account: who you're signed in as + a Sign out button. Only when signed in
+    // (an offline build has no account). Sign out flushes the save and returns to
+    // the sign-in gate (see hud.onSignOut / main.ts).
+    const acct = this.myAccount?.();
+    let acctBlock: HTMLElement | null = null;
+    if (this.socialOnline?.() && acct) {
+      acctBlock = document.createElement("div");
+      acctBlock.className = "set-acct";
+      const info = document.createElement("div");
+      info.className = "set-acct-info";
+      info.innerHTML =
+        `<div class="set-acct-who">Signed in as <b>${acct.name}</b></div>` +
+        `<div class="set-acct-code">Friend code ${acct.friendCode}</div>`;
+      const out = document.createElement("button");
+      out.className = "set-signout";
+      out.textContent = "Sign out";
+      out.onclick = () => this.onSignOut?.();
+      acctBlock.append(info, out);
+    }
+
     panel.append(
       x, h,
+      ...(acctBlock ? [acctBlock] : []),
       row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
       row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
       row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
