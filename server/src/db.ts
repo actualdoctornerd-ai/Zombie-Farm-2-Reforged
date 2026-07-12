@@ -6,9 +6,8 @@ import type { GoogleIdentity } from "./auth";
 export interface Account {
   id: string;
   google_sub: string;
-  email: string | null;
-  name: string;
-  /** Player-chosen display name; NULL until picked on first sign-in. */
+  /** Player-chosen display name; NULL until picked on first sign-in. The ONLY
+   *  human-facing name in the system — chosen by the user, not from Google. */
   username: string | null;
   friend_code: string;
   created_at: number;
@@ -68,32 +67,20 @@ export async function upsertAccount(
   now: number
 ): Promise<Account> {
   const existing = await accountByGoogleSub(db, who.sub);
-  if (existing) {
-    // Keep the display name fresh if it changed at Google.
-    if (existing.name !== who.name) {
-      await db
-        .prepare("UPDATE accounts SET name = ? WHERE id = ?")
-        .bind(who.name, existing.id)
-        .run();
-      existing.name = who.name;
-    }
-    return existing;
-  }
+  if (existing) return existing;
   const id = idFromBytes(rand(16));
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = friendCodeFromBytes(rand(6));
     try {
       await db
         .prepare(
-          "INSERT INTO accounts (id, google_sub, email, name, friend_code, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+          "INSERT INTO accounts (id, google_sub, friend_code, created_at) VALUES (?, ?, ?, ?)"
         )
-        .bind(id, who.sub, who.email ?? null, who.name, code, now)
+        .bind(id, who.sub, code, now)
         .run();
       return {
         id,
         google_sub: who.sub,
-        email: who.email ?? null,
-        name: who.name,
         username: null,
         friend_code: code,
         created_at: now,
@@ -241,7 +228,7 @@ export async function inbox(
 ): Promise<InboxGift[]> {
   const res = await db
     .prepare(
-      `SELECT g.id, g.type, g.created_at, COALESCE(a.username, a.name) AS fromName
+      `SELECT g.id, g.type, g.created_at, COALESCE(a.username, 'Player') AS fromName
        FROM gifts g JOIN accounts a ON a.id = g.from_id
        WHERE g.to_id = ? AND g.claimed_at IS NULL
        ORDER BY g.created_at ASC`

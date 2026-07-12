@@ -42,7 +42,7 @@ app.post("/auth", async (c) => {
   let who: GoogleIdentity;
   if (c.env.DEV_AUTH === "1" && body.devSub) {
     // Local/dev only: skip Google so the flow can be automated end-to-end.
-    who = { sub: `dev:${body.devSub}`, name: body.devName || body.devSub };
+    who = { sub: `dev:${body.devSub}` };
   } else if (body.idToken) {
     try {
       who = await verifyGoogleIdToken(body.idToken, c.env.GOOGLE_CLIENT_ID);
@@ -60,9 +60,8 @@ app.post("/auth", async (c) => {
     token,
     accountId: acct.id,
     // `username` is null until the player picks one (client shows the picker then).
-    // `googleName` seeds the picker's default suggestion.
+    // No name/email is ever returned — the system stores no personal data.
     username: acct.username,
-    googleName: acct.name,
     friendCode: acct.friend_code,
   });
 });
@@ -95,8 +94,7 @@ app.get("/me", async (c) => {
   return c.json({
     accountId: acct.id,
     username: acct.username,
-    googleName: acct.name,
-    name: acct.username ?? acct.name, // effective display name
+    name: acct.username ?? "Player", // effective display name (never from Google)
     friendCode: acct.friend_code,
   });
 });
@@ -146,7 +144,7 @@ app.get("/friends", async (c) => {
   return c.json(
     friends.map((f) => ({
       accountId: f.id,
-      name: f.username ?? f.name, // chosen display name, Google name as fallback
+      name: f.username ?? "Player", // chosen display name only (no PII)
       friendCode: f.friend_code,
     }))
   );
@@ -165,7 +163,7 @@ app.post("/friends/add", async (c) => {
   return c.json({
     friend: {
       accountId: other.id,
-      name: other.username ?? other.name,
+      name: other.username ?? "Player",
       friendCode: other.friend_code,
     },
   });

@@ -11,14 +11,17 @@ const GOOGLE_JWKS = createRemoteJWKSet(
 const GOOGLE_ISSUERS = ["accounts.google.com", "https://accounts.google.com"];
 
 export interface GoogleIdentity {
-  sub: string; // stable Google user id
-  email?: string;
-  name: string;
+  sub: string; // stable Google user id (pseudonymous; never exposed by the API)
 }
 
 /** Verify a Google ID token: signature (against Google's JWKS), issuer, and that
  *  the audience is OUR client id (prevents replaying a token minted for another
- *  app). Throws if invalid. */
+ *  app). Throws if invalid.
+ *
+ *  PII policy: the token also carries the user's email + display name, but we
+ *  deliberately read ONLY `sub` and discard the rest — no personal data is ever
+ *  stored or returned. The `sub` is an opaque per-user id used solely to match a
+ *  returning login to their account; it's never sent to any client. */
 export async function verifyGoogleIdToken(
   idToken: string,
   clientId: string
@@ -29,11 +32,7 @@ export async function verifyGoogleIdToken(
   });
   const sub = payload.sub;
   if (!sub) throw new Error("google token missing sub");
-  const name =
-    (payload.name as string) ||
-    (payload.email as string) ||
-    "Zombie Farmer";
-  return { sub, email: payload.email as string | undefined, name };
+  return { sub };
 }
 
 const SESSION_TTL = "30d";

@@ -82,24 +82,21 @@ export function requireAuth(): Promise<void> {
     };
 
     const showUsername = () => {
-      const s = api.getSession();
-      const suggestion = (s?.googleName ?? "").slice(0, 20);
       root.innerHTML =
         `<div class="zf-gate-card">` +
         `<h1 class="zf-gate-title">Pick a name</h1>` +
         `<p class="zf-gate-sub">This is how friends will see you. You can use letters, ` +
         `numbers and spaces.</p>` +
         `<label class="zf-gate-label" for="zf-uname">Username</label>` +
-        `<input class="zf-gate-input" id="zf-uname" maxlength="20" autocomplete="off" />` +
+        `<input class="zf-gate-input" id="zf-uname" maxlength="20" autocomplete="off" ` +
+        `placeholder="e.g. CaptainZombie" />` +
         `<div class="zf-gate-err"></div>` +
         `<button class="zf-gate-start">Start playing</button>` +
         `</div>`;
       const input = root.querySelector(".zf-gate-input") as HTMLInputElement;
       const btn = root.querySelector(".zf-gate-start") as HTMLButtonElement;
       const err = root.querySelector(".zf-gate-err") as HTMLElement;
-      input.value = suggestion;
       input.focus();
-      input.select();
       const submit = async () => {
         const v = input.value.trim();
         if (!v) return;

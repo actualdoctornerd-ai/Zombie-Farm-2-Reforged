@@ -16,14 +16,13 @@ export interface Session {
   accountId: string;
   /** Player-chosen display name; null until picked on first sign-in. */
   username: string | null;
-  /** Google display name — the default suggestion for the username picker. */
-  googleName: string;
   friendCode: string;
 }
 
-/** The name to show for this account: chosen username, else the Google name. */
+/** The name to show for this account: the chosen username (no personal data is
+ *  stored, so there's no real-name fallback). */
 export function displayName(s: Session): string {
-  return s.username ?? s.googleName;
+  return s.username ?? "Player";
 }
 
 /** A typed transport error. `status` 0 = network/offline (fall back to local). */
