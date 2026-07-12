@@ -167,7 +167,9 @@ const STYLE = `
 #hud .spacer { flex: 1 1 auto; }
 #hud .nameplate { border-style: solid; border-width: 9px 16px;
   border-image: url(${BASE}assets/ui/button_bg.png) 14 fill / 9px 16px stretch;
-  color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000; }
+  color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000;
+  cursor: pointer; user-select: none; }
+#hud .nameplate:hover { filter: brightness(1.12); }
 /* invisible developer hotspot: a transparent hit-target just left of the nameplate */
 #hud .devhot { width: 34px; height: 34px; padding: 0; margin: 0; border: none;
   background: transparent; cursor: default; pointer-events: auto; -webkit-appearance: none;
@@ -1157,6 +1159,10 @@ export class Hud {
     const name = document.createElement("div");
     name.className = "nameplate";
     name.textContent = "Zombie Farmer";
+    name.title = "Profile & account";
+    name.setAttribute("role", "button");
+    // Clicking your name opens the Profile menu (save profiles + account / sign out).
+    name.onclick = () => this.openProfiles();
     this.nameEl = name;
     bar.append(gear, chips, spacer, devHot, name);
     this.el.appendChild(bar);
@@ -2558,34 +2564,8 @@ export class Hud {
     const row = (label: string, on: boolean, set: (v: boolean) => void) =>
       this.settingRow(label, on, set);
 
-    // Account: who you're signed in as + a Sign out button. Only when signed in
-    // (an offline build has no account). Sign out flushes the save and returns to
-    // the sign-in gate (see hud.onSignOut / main.ts).
-    const acct = this.myAccount?.();
-    let acctBlock: HTMLElement | null = null;
-    if (this.socialOnline?.() && acct) {
-      acctBlock = document.createElement("div");
-      acctBlock.className = "set-acct";
-      const info = document.createElement("div");
-      info.className = "set-acct-info";
-      const who = document.createElement("div");
-      who.className = "set-acct-who";
-      who.innerHTML = `Signed in as <b>${acct.name}</b>`;
-      const codeRow = document.createElement("div");
-      codeRow.className = "set-acct-code";
-      codeRow.append("Friend code ");
-      const codeVal = document.createElement("span");
-      codeVal.className = "set-acct-code-val";
-      codeVal.textContent = acct.friendCode;
-      this.makeCopyable(codeVal, acct.friendCode);
-      codeRow.appendChild(codeVal);
-      info.append(who, codeRow);
-      const out = document.createElement("button");
-      out.className = "set-signout";
-      out.textContent = "Sign out";
-      out.onclick = () => this.onSignOut?.();
-      acctBlock.append(info, out);
-    }
+    // (Account + Sign out moved to the Profile menu — opened by the top-right
+    // nameplate. See openProfiles / buildAccountBlock.)
 
     // A toggle row followed by a small explanatory note underneath it.
     const noteEl = (text: string) => {
@@ -2624,7 +2604,6 @@ export class Hud {
 
     panel.append(
       x, h,
-      ...(acctBlock ? [acctBlock] : []),
       row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
       row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
       row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
@@ -2730,9 +2709,41 @@ export class Hud {
     this.el.appendChild(bg);
   }
 
-  // Profile manager: list every save profile, switch to one (flushes + reloads),
-  // create a fresh-game profile, or rename/delete profiles in place. Each profile
-  // is a fully independent game.
+  /** Account block for the Profile menu: who you're signed in as, the friend code,
+   *  and a Sign out button. Returns null when there's no online account (offline
+   *  build or signed out) so the caller can omit it. Sign out flushes the save and
+   *  returns to the sign-in gate (see hud.onSignOut / main.ts). */
+  private buildAccountBlock(): HTMLElement | null {
+    const acct = this.myAccount?.();
+    if (!this.socialOnline?.() || !acct) return null;
+    const block = document.createElement("div");
+    block.className = "set-acct";
+    const info = document.createElement("div");
+    info.className = "set-acct-info";
+    const who = document.createElement("div");
+    who.className = "set-acct-who";
+    who.innerHTML = `Signed in as <b>${acct.name}</b>`;
+    const codeRow = document.createElement("div");
+    codeRow.className = "set-acct-code";
+    codeRow.append("Friend code ");
+    const codeVal = document.createElement("span");
+    codeVal.className = "set-acct-code-val";
+    codeVal.textContent = acct.friendCode;
+    this.makeCopyable(codeVal, acct.friendCode);
+    codeRow.appendChild(codeVal);
+    info.append(who, codeRow);
+    const out = document.createElement("button");
+    out.className = "set-signout";
+    out.textContent = "Sign out";
+    out.onclick = () => this.onSignOut?.();
+    block.append(info, out);
+    return block;
+  }
+
+  // Profile manager: the account block (name / friend code / sign out) plus every
+  // save profile — switch to one (flushes + reloads), create a fresh-game profile,
+  // or rename/delete profiles in place. Each profile is a fully independent game.
+  // Opened by clicking the top-right nameplate.
   openProfiles() {
     document.querySelector("#hud .prof-bg")?.remove();
     const bg = document.createElement("div");
@@ -2746,10 +2757,15 @@ export class Hud {
     x.appendChild(xi);
     x.onclick = () => bg.remove();
     const h = document.createElement("h2");
-    h.textContent = "Profiles";
+    h.textContent = "Profile";
     const list = document.createElement("div");
     list.className = "prof-list";
-    panel.append(x, h, list);
+    panel.append(x, h);
+    // Account (name / friend code / Sign out) sits above the save-profile list —
+    // only when signed in online; an offline build shows just the profiles.
+    const acctBlock = this.buildAccountBlock();
+    if (acctBlock) panel.append(acctBlock);
+    panel.append(list);
 
     const render = () => {
       const idx = this.getProfiles?.();
@@ -4372,6 +4388,15 @@ export class Hud {
     this.levelEl.textContent = String(this.state.level);
     this.xpFill.style.width = `${Math.round(this.state.levelProgress * 100)}%`;
     this.refreshBoostBadge(); // keep the equipped-boost uses badge in sync
+    this.refreshName();
+  }
+
+  /** Re-read the signed-in account name into the nameplate. Called by main once the
+   *  account wiring (myAccount) is in place, since the nameplate is otherwise only
+   *  refreshed on the next HUD update tick — so right after sign-in it would briefly
+   *  show the default name. The nameplate is the entry point to the Profile menu, so
+   *  it should show the real name immediately. */
+  refreshAccount() {
     this.refreshName();
   }
 

@@ -964,6 +964,7 @@ async function main() {
     const s = api.getSession();
     return s ? { name: api.displayName(s), friendCode: s.friendCode } : null;
   };
+  hud.refreshAccount(); // now that myAccount is wired, show the real name in the nameplate
   hud.renderAuthButton = (el) => void auth.renderSignInButton(el);
   hud.onSignOut = () => {
     saveManager.save(); // flush latest to the server first
