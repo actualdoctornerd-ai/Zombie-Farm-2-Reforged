@@ -14,7 +14,7 @@ import {
   type GoogleIdentity,
 } from "./auth";
 import * as db from "./db";
-import { canSendGift, isStaleWrite, normalizeFriendCode } from "./logic";
+import { canSendGift, isStaleWrite, normalizeFriendCode, normalizeUsername } from "./logic";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 
@@ -59,7 +59,10 @@ app.post("/auth", async (c) => {
   return c.json({
     token,
     accountId: acct.id,
-    name: acct.name,
+    // `username` is null until the player picks one (client shows the picker then).
+    // `googleName` seeds the picker's default suggestion.
+    username: acct.username,
+    googleName: acct.name,
     friendCode: acct.friend_code,
   });
 });
@@ -78,6 +81,7 @@ const requireAuth: MiddlewareHandler<{ Bindings: Bindings; Variables: Vars }> = 
 };
 
 app.use("/me", requireAuth);
+app.use("/username", requireAuth);
 app.use("/save", requireAuth);
 app.use("/friends", requireAuth);
 app.use("/friends/*", requireAuth);
@@ -90,9 +94,22 @@ app.get("/me", async (c) => {
   if (!acct) return c.json({ error: "not_found" }, 404);
   return c.json({
     accountId: acct.id,
-    name: acct.name,
+    username: acct.username,
+    googleName: acct.name,
+    name: acct.username ?? acct.name, // effective display name
     friendCode: acct.friend_code,
   });
+});
+
+// ---- POST /username: set the player-chosen display name -----------------
+app.post("/username", async (c) => {
+  const { username } = await c.req
+    .json<{ username: string }>()
+    .catch(() => ({ username: "" }));
+  const name = normalizeUsername(username ?? "");
+  if (!name) return c.json({ error: "bad_username" }, 400);
+  await db.setUsername(c.env.DB, c.get("accountId"), name);
+  return c.json({ username: name });
 });
 
 // ---- GET /save ----------------------------------------------------------
@@ -129,7 +146,7 @@ app.get("/friends", async (c) => {
   return c.json(
     friends.map((f) => ({
       accountId: f.id,
-      name: f.name,
+      name: f.username ?? f.name, // chosen display name, Google name as fallback
       friendCode: f.friend_code,
     }))
   );
@@ -146,7 +163,11 @@ app.post("/friends/add", async (c) => {
   if (other.id === me) return c.json({ error: "cannot_add_self" }, 400);
   await db.addFriendship(c.env.DB, me, other.id, Date.now());
   return c.json({
-    friend: { accountId: other.id, name: other.name, friendCode: other.friend_code },
+    friend: {
+      accountId: other.id,
+      name: other.username ?? other.name,
+      friendCode: other.friend_code,
+    },
   });
 });
 

@@ -36,6 +36,21 @@ export function isStaleWrite(baseRev: number, currentRev: number): boolean {
   return baseRev !== currentRev;
 }
 
+/** Min/max length for a chosen username (display name — not unique). */
+export const USERNAME_MIN = 2;
+export const USERNAME_MAX = 20;
+
+/** Normalize + validate a chosen username: trim, collapse internal runs of
+ *  whitespace to single spaces, and require 2–20 chars of letters/numbers/spaces
+ *  or `_ - . '`. Returns the cleaned name, or null if it doesn't qualify. Not
+ *  unique — two players may share one. */
+export function normalizeUsername(raw: string): string | null {
+  const cleaned = raw.trim().replace(/\s+/g, " ");
+  if (cleaned.length < USERNAME_MIN || cleaned.length > USERNAME_MAX) return null;
+  if (!/^[\p{L}\p{N} _.'-]+$/u.test(cleaned)) return null;
+  return cleaned;
+}
+
 /** Normalize/validate a friend code typed by a user (trim, upper, tolerate a
  *  missing "ZF-" prefix and stray spaces). Returns null if it can't be a code. */
 export function normalizeFriendCode(raw: string): string | null {

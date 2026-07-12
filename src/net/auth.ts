@@ -45,6 +45,11 @@ export const isOnlineAvailable = () => api.isConfigured();
 export const canSignIn = () => api.isConfigured() && !!CLIENT_ID;
 export const isSignedIn = () => !!api.getSession();
 export const session = () => api.getSession();
+/** Signed in, but hasn't chosen a username yet (new account → show the picker). */
+export const needsUsername = () => {
+  const s = api.getSession();
+  return !!s && s.username == null;
+};
 
 // Load the GIS script once.
 let gisPromise: Promise<void> | null = null;
@@ -63,12 +68,12 @@ function loadGis(): Promise<void> {
   return gisPromise;
 }
 
-/** Render Google's sign-in button into `container`. No-op if sign-in isn't
- *  available. On success, stores our session and notifies listeners. */
-export async function renderSignInButton(container: HTMLElement): Promise<void> {
-  if (!canSignIn()) return;
-  await loadGis();
-  const g = window.google!;
+// GIS must be initialized exactly once per page; renderButton can then run as many
+// times as needed. Calling initialize() on every render triggers a GSI warning and
+// only the last instance would be used.
+let gisInitialized = false;
+function ensureGisInitialized(g: GoogleId) {
+  if (gisInitialized) return;
   g.accounts.id.initialize({
     client_id: CLIENT_ID!,
     callback: async (resp) => {
@@ -80,6 +85,16 @@ export async function renderSignInButton(container: HTMLElement): Promise<void> 
       }
     },
   });
+  gisInitialized = true;
+}
+
+/** Render Google's sign-in button into `container`. No-op if sign-in isn't
+ *  available. On success, stores our session and notifies listeners. */
+export async function renderSignInButton(container: HTMLElement): Promise<void> {
+  if (!canSignIn()) return;
+  await loadGis();
+  const g = window.google!;
+  ensureGisInitialized(g);
   g.accounts.id.renderButton(container, {
     theme: "filled_blue",
     size: "large",

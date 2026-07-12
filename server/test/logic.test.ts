@@ -6,6 +6,7 @@ import {
   canSendGift,
   isStaleWrite,
   normalizeFriendCode,
+  normalizeUsername,
 } from "../src/logic";
 
 describe("friendCodeFromBytes", () => {
@@ -48,6 +49,29 @@ describe("canSendGift — once per rolling 24h", () => {
 describe("isStaleWrite", () => {
   it("accepts a matching base rev", () => expect(isStaleWrite(3, 3)).toBe(false));
   it("rejects a stale base rev", () => expect(isStaleWrite(2, 3)).toBe(true));
+});
+
+describe("normalizeUsername — non-unique display name", () => {
+  it("trims and collapses internal whitespace", () => {
+    expect(normalizeUsername("  Zombie   Zoe  ")).toBe("Zombie Zoe");
+  });
+  it("accepts letters, numbers, and _ - . '", () => {
+    expect(normalizeUsername("O'Brien_92-x.y")).toBe("O'Brien_92-x.y");
+  });
+  it("accepts unicode letters", () => {
+    expect(normalizeUsername("Zoë")).toBe("Zoë");
+  });
+  it("rejects too short / too long", () => {
+    expect(normalizeUsername("a")).toBeNull();
+    expect(normalizeUsername("x".repeat(21))).toBeNull();
+  });
+  it("rejects empty / whitespace-only", () => {
+    expect(normalizeUsername("   ")).toBeNull();
+  });
+  it("rejects disallowed characters", () => {
+    expect(normalizeUsername("bad<name>")).toBeNull();
+    expect(normalizeUsername("no@symbols")).toBeNull();
+  });
 });
 
 describe("normalizeFriendCode", () => {

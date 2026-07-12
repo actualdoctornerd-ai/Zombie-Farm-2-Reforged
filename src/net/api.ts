@@ -14,8 +14,16 @@ const SESSION_KEY = "zf2r.session.v1";
 export interface Session {
   token: string;
   accountId: string;
-  name: string;
+  /** Player-chosen display name; null until picked on first sign-in. */
+  username: string | null;
+  /** Google display name — the default suggestion for the username picker. */
+  googleName: string;
   friendCode: string;
+}
+
+/** The name to show for this account: chosen username, else the Google name. */
+export function displayName(s: Session): string {
+  return s.username ?? s.googleName;
 }
 
 /** A typed transport error. `status` 0 = network/offline (fall back to local). */
@@ -128,7 +136,18 @@ export interface InboxGift {
 }
 
 export const me = () =>
-  req<{ accountId: string; name: string; friendCode: string }>("GET", "/me");
+  req<{ accountId: string; name: string; username: string | null; friendCode: string }>(
+    "GET",
+    "/me"
+  );
+
+/** Set this account's chosen display name. Updates the stored session, returns the
+ *  normalized value. Throws ApiError(400, "bad_username") if it doesn't validate. */
+export async function setUsername(name: string): Promise<string> {
+  const r = await req<{ username: string }>("POST", "/username", { username: name });
+  if (session) setSession({ ...session, username: r.username });
+  return r.username;
+}
 
 export const getSave = () => req<SavePayload>("GET", "/save");
 

@@ -3,14 +3,21 @@
 
 -- One row per signed-in player. `id` is our internal account id (also the save
 -- key); `google_sub` is Google's stable per-user id (the verified identity).
+-- `name` is the Google display name (a default suggestion); `username` is the
+-- player-chosen display name, NULL until they pick one on first sign-in.
 CREATE TABLE IF NOT EXISTS accounts (
   id           TEXT PRIMARY KEY,
   google_sub   TEXT UNIQUE NOT NULL,
   email        TEXT,
   name         TEXT NOT NULL,
+  username     TEXT,
   friend_code  TEXT UNIQUE NOT NULL,
   created_at   INTEGER NOT NULL
 );
+
+-- Migration for DBs created before `username` existed (no-op on fresh DBs where
+-- the column is already present; the error on duplicate column is safe to ignore).
+-- Run once:  ALTER TABLE accounts ADD COLUMN username TEXT;
 
 -- Ground-truth save blob, one per account. `rev` drives optimistic concurrency:
 -- a PUT is accepted only if its baseRev matches the stored rev.

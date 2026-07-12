@@ -13,6 +13,7 @@ import { SaveManager } from "./save/SaveManager";
 import * as profiles from "./save/profiles";
 import * as api from "./net/api";
 import * as auth from "./net/auth";
+import { requireAuth } from "./net/gate";
 import { QuestBus, QuestEvent } from "./quest/events";
 import { QuestSystem } from "./quest/QuestSystem";
 import { RaidManager, RaidResultView } from "./raid/RaidManager";
@@ -30,6 +31,10 @@ async function main() {
   // Detect device up front so <html data-platform> is set before the HUD's CSS
   // renders (drives the compact/desktop layout; re-evaluates on resize/rotate).
   initPlatform();
+  // The game is locked behind Google sign-in: block here until the player is
+  // signed in and has chosen a username (no-op on an offline build). Only then do
+  // we load assets and build the game, so nothing runs for a signed-out visitor.
+  await requireAuth();
   const app = new Application();
   await app.init({
     background: "#67bb4e", // grass green around the farm, matching the backdrop hills
@@ -856,13 +861,14 @@ async function main() {
   hud.socialOnline = () => auth.isSignedIn();
   hud.myAccount = () => {
     const s = api.getSession();
-    return s ? { name: s.name, friendCode: s.friendCode } : null;
+    return s ? { name: api.displayName(s), friendCode: s.friendCode } : null;
   };
   hud.renderAuthButton = (el) => void auth.renderSignInButton(el);
   hud.onSignOut = () => {
-    saveManager.save(); // flush latest to the server before dropping to local
+    saveManager.save(); // flush latest to the server first
     saveManager.suspend();
-    auth.signOut(); // fires onAuthChange → reload into offline mode
+    auth.signOut();
+    location.reload(); // back to the sign-in gate
   };
   hud.refreshFriends = async () => {
     const list = await api.getFriends();
@@ -906,12 +912,7 @@ async function main() {
     }
   };
 
-  // Signing in/out changes which save is authoritative, so reload to re-run the
-  // load path cleanly (same flush-then-reload pattern as switching profiles).
-  auth.onAuthChange(() => {
-    saveManager.suspend();
-    location.reload();
-  });
+  // (Sign-in is handled by the pre-game gate; sign-out reloads via onSignOut.)
 
   // On boot, if signed in, surface any waiting gifts with a gentle toast.
   if (auth.isSignedIn()) {

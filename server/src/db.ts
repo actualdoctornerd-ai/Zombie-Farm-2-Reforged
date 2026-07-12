@@ -8,6 +8,8 @@ export interface Account {
   google_sub: string;
   email: string | null;
   name: string;
+  /** Player-chosen display name; NULL until picked on first sign-in. */
+  username: string | null;
   friend_code: string;
   created_at: number;
 }
@@ -92,6 +94,7 @@ export async function upsertAccount(
         google_sub: who.sub,
         email: who.email ?? null,
         name: who.name,
+        username: null,
         friend_code: code,
         created_at: now,
       };
@@ -104,6 +107,18 @@ export async function upsertAccount(
     }
   }
   throw new Error("could not allocate friend code");
+}
+
+/** Set the player-chosen display name. Non-unique by design. */
+export async function setUsername(
+  db: D1Database,
+  accountId: string,
+  username: string
+): Promise<void> {
+  await db
+    .prepare("UPDATE accounts SET username = ? WHERE id = ?")
+    .bind(username, accountId)
+    .run();
 }
 
 export async function getSave(
@@ -226,7 +241,7 @@ export async function inbox(
 ): Promise<InboxGift[]> {
   const res = await db
     .prepare(
-      `SELECT g.id, g.type, g.created_at, a.name AS fromName
+      `SELECT g.id, g.type, g.created_at, COALESCE(a.username, a.name) AS fromName
        FROM gifts g JOIN accounts a ON a.id = g.from_id
        WHERE g.to_id = ? AND g.claimed_at IS NULL
        ORDER BY g.created_at ASC`
