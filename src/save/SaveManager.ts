@@ -183,10 +183,11 @@ export class SaveManager {
           this.writeLocal(data);
           return true;
         }
-        // Account has no server save yet: adopt a local farm if one exists (e.g.
-        // played offline, then signed in) so the next save() pushes it up.
+        // Account has no server save yet → a genuinely fresh account. Start clean
+        // from its own (empty) cache; do NOT adopt the device's offline farm — that
+        // would bleed one player's farm into another account on a shared browser.
         this.rev = 0;
-        return await this.loadLocal(true);
+        return await this.loadLocal();
       } catch (e) {
         if (!(e instanceof api.ApiError) || e.status !== 0) {
           console.warn("[save] server load failed; falling back to local", e);
@@ -195,13 +196,14 @@ export class SaveManager {
       }
     }
     // Offline / signed-out: local only (original behavior).
-    return this.loadLocal(false);
+    return this.loadLocal();
   }
 
-  private async loadLocal(adoptProfile: boolean): Promise<boolean> {
-    let raw = this.readLocal(this.cacheKey());
-    // On first sign-in, adopt the offline profile save so the farm carries over.
-    if (!raw && adoptProfile) raw = this.readLocal(activeSaveKey());
+  // Load from THIS identity's own cache key only (account cache when signed in, the
+  // local profile slot when not). Never reads another key, so accounts can't share
+  // a farm on a shared device.
+  private async loadLocal(): Promise<boolean> {
+    const raw = this.readLocal(this.cacheKey());
     if (!raw) return false;
     let parsed: unknown;
     try {
