@@ -66,6 +66,12 @@ const BOSS_COLOR = 0xffc107;
 const ZOMBIE_H = 91;
 const ENEMY_H = 130;
 const BOSS_H = 195;
+// Per-boss height multipliers (by enemy source key) for bosses that read wrong at the
+// shared BOSS_H. Old McDonnell is a chunky sprite that looms too large on his silo —
+// scaled down 20% to sit better on the structure.
+const BOSS_H_SCALE: Record<string, number> = {
+  FarmStageActorBoss: 0.8, // Old McDonnell — 20% smaller
+};
 // The contain-fit scale at which the *_H heights above render 1:1. Raise this to make
 // all units smaller across the board, lower it to make them bigger.
 const SIZE_REF_SCALE = 1.6;
@@ -85,6 +91,11 @@ const PERCH_FY = 0.2;
 // structure height), so it stands behind the roof/silo with its legs occluded by the
 // structure — the boss renders in a layer BEHIND the perch art (see bossBackLayer).
 const PERCH_SINK_F = 0.14;
+// Where a perched boss's THROWS leave from — its hand, in unit-space offsets from the
+// boss token origin (feet at the perch). Without this the projectile spawned at the
+// raw sim origin (mapped separately from the boss token) appeared down-left of him.
+const BOSS_HAND_DX = -4; // slightly toward the zombies (screen-left) of centre
+const BOSS_HAND_FY = 0.58; // up the boss sprite (fraction of its rendered height)
 // Where along the perch structure (fraction from its LEFT edge) the boss stands.
 // 0.5 = dead centre (a big boss then clips the screen's right edge); lower = farther
 // left, over the building.
@@ -217,6 +228,10 @@ export class RaidScene {
   private projLayer = new Container();
   private projTex = new Map<string, Texture | null>();
   private projSprites = new Map<string, Sprite>();
+  // Screen position of the perched boss's throwing hand (updated in layout), so
+  // projectiles visually leave his hand rather than a separately-mapped sim origin.
+  private bossHandX = 0;
+  private bossHandY = 0;
   private dotTex: Texture | null = null; // round placeholder for sprite-less hazards
   private fxLayer = new Container(); // transient effects (death poofs) above the field
   private fx: { g: Graphics; t: number; life: number; color: number }[] = [];
@@ -536,7 +551,7 @@ export class RaidScene {
       actorBaseScale = s;
       actorBaseY = actor.container.y;
     } else {
-      const targetH = u.isBoss ? BOSS_H : ENEMY_H;
+      const targetH = (u.isBoss ? BOSS_H : ENEMY_H) * (u.isBoss ? BOSS_H_SCALE[u.sourceKey] ?? 1 : 1);
       const strip = this.enemyStrip.get(u.sourceKey) ?? null;
       const model = this.assets.enemyModels[u.sourceKey];
       const tex = this.enemyTex.get(u.sourceKey) ?? null;
@@ -855,6 +870,13 @@ export class RaidScene {
       tok.root.position.set(sx, sy);
       tok.root.zIndex = u.isBoss ? 3 : u.alive ? 2 : 1;
 
+      // Track the perched boss's throwing hand so projectiles leave from it (his upper
+      // body), not the raw sim origin mapped independently (which read down-left of him).
+      if (u.isBoss && u.state === "structure") {
+        this.bossHandX = sx + BOSS_HAND_DX * szs;
+        this.bossHandY = sy + tok.topY * BOSS_HAND_FY * szs;
+      }
+
       // Spawn puff the first time a unit reaches the field mid-fight (queued enemies
       // emerging, summoned minions) — the intro roster slides in and doesn't puff.
       if (!tok.emerged) {
@@ -942,11 +964,16 @@ export class RaidScene {
         if (Math.abs(simDx) > 0.3) tok.enemyActor.setFacingFromDelta(simDx);
         const enemyFighting = u.state === "fight" && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - u.timerMs / Math.max(1, u.cooldownMs)));
-        tok.enemyActor.update(
-          dtSec,
-          u.alive && simMoved > 0.3,
-          enemyFighting ? { atkProg, damageTiming: u.attackDamageTiming } : null
-        );
+        let attack = enemyFighting ? { atkProg, damageTiming: u.attackDamageTiming } : null;
+        // Perched boss: a simple throw swing — the arm cocks and swings forward as the
+        // throw winds up, releasing (peak reach) as the projectile launches. Map the
+        // sim's 0..1 wind-up onto the attack envelope's active window (past its rest
+        // lead-in) so the arm animates over the whole wind-up.
+        if (u.isBoss && u.state === "structure") {
+          const sw = this.sim.bossThrowSwing();
+          attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
+        }
+        tok.enemyActor.update(dtSec, u.alive && simMoved > 0.3, attack);
       }
       tok.lastSimX = u.x;
       tok.lastSimY = u.y;
@@ -1104,11 +1131,24 @@ export class RaidScene {
         this.projLayer.addChild(sp);
         this.projSprites.set(pr.id, sp);
       }
-      const size = Math.max(10, pr.spriteSize * s * 1.2);
+      // Rendered ~2× the old size (the collision radius in BattleSim is unchanged —
+      // this is a visual-legibility bump so thrown items read clearly).
+      const size = Math.max(20, pr.spriteSize * s * 2.4);
       sp.width = size;
       sp.height = size;
       sp.rotation = pr.rot;
-      sp.position.set(this.mapX(pr.x), this.mapProjY(pr.y));
+      let px = this.mapX(pr.x);
+      let py = this.mapProjY(pr.y);
+      if (!pr.hazard && !pr.crossing) {
+        // Boss throw/laser: re-anchor the ORIGIN to the boss's hand, fading the shift
+        // to zero as the projectile nears the ground so the LANDING still tracks the
+        // target zombie. (The raw sim origin maps to a point down-left of the boss.)
+        const t = Math.max(0, Math.min(1, (pr.y - BOSS_STRUCT_Y) / (CENTER_Y - BOSS_STRUCT_Y)));
+        const fade = 1 - t;
+        px += (this.bossHandX - this.mapX(BOSS_STRUCT_X)) * fade;
+        py += (this.bossHandY - this.mapProjY(BOSS_STRUCT_Y)) * fade;
+      }
+      sp.position.set(px, py);
     }
     // Drop sprites whose projectile has landed.
     for (const [id, sp] of this.projSprites) {

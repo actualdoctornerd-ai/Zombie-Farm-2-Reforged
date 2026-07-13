@@ -27,7 +27,7 @@ there so future agents do not work from stale assumptions.
 
 - 30x30 isometric farm rendered from generated field data with camera pan/zoom.
 - Modular farmer, walk/work animation, click-to-walk, pathing around placed objects.
-- Free-placed 4x4 plots with plow, plant, harvest, zombie-hole, freshness, and offline timers.
+- Free-placed 4x4 plots with plow, plant, harvest, zombie-hole, and offline timers.
 - Source-derived crop and zombie catalogs with level/currency/grave gates.
 - Local gold, brains, XP, level curve, item economy, and level-up unlock popup.
 - Versioned localStorage save/load for farm, objects, zombies, boosts, quests, raids, and Zombie Pot jobs.

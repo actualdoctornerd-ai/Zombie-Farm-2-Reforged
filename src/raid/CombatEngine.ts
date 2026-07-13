@@ -128,7 +128,7 @@ export function focusFactor(focus: number, concentration: boolean): number {
  *   1. Veterancy — +5%/rank from survived invasions (all stats).
  *   2. Its own unlocked ABILITIES (abilities.ts) — self buffs to damage / HP /
  *      speed / all-stats, gated exactly like the detail card (tier ≤ class rank
- *      AND the tier's boss beaten). Pass `tierUnlocked` so combat matches the UI;
+ *      AND that ability unlocked). Pass `abilityUnlocked` so combat matches the UI;
  *      omit it (tests) to run with abilities off.
  *   3. Army-wide sustain — heals / protection / revive / enemy-stun from any unit
  *      in the party lift every unit's effective HP (stacked, capped).
@@ -139,22 +139,22 @@ export function buildPlayerUnits(
   party: OwnedZombie[],
   opts: {
     concentration?: boolean;
-    tierUnlocked?: (tier: number) => boolean;
+    abilityUnlocked?: (key: string) => boolean;
     /** Current player level. When given, str/con/dex are level-scaled per the
      *  binary's `modifyStatWithLevelScale:` (a zombie doesn't fight at full stats
      *  until level 25). Omit to fight at full base stats (tests / no-scale). */
     playerLevel?: number;
   } = {}
 ): CombatUnit[] {
-  // Abilities are off unless the caller supplies the tier-unlock gate.
-  const tierUnlocked = opts.tierUnlocked ?? (() => false);
+  // Abilities are off unless the caller supplies the per-ability unlock gate.
+  const abilityUnlocked = opts.abilityUnlocked ?? (() => false);
   const conc = !!opts.concentration;
   const lvl = opts.playerLevel;
 
   // Resolve each unit's ability set once, and aggregate the army-wide sustain
   // across the whole party before building any unit.
   const rows = party.map((z) => {
-    const keys = activeAbilities(z, tierUnlocked);
+    const keys = activeAbilities(z, abilityUnlocked);
     return { z, keys, eff: combatEffect(keys) };
   });
   const armyHpMult = Math.min(

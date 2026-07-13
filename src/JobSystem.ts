@@ -271,10 +271,9 @@ export class JobSystem {
         if (r.sell) this.state.addGold(r.sell);
         this.state.addXp(r.xp);
         // Zombie crops pay no gold — they yield an owned zombie unit instead.
-        // A stale (past-fresh) crop sells for half; flag it in the popup.
         const msg = r.zombieKey
           ? `+${r.xp}xp`
-          : `+${r.sell}g${r.fertilized ? " ×2" : ""}${r.stale ? " ½" : ""}  +${r.xp}xp`;
+          : `+${r.sell}g${r.fertilized ? " ×2" : ""}  +${r.xp}xp`;
         this.float(job.cx, job.cy, msg);
         // A harvested zombie "resurrects"; a plain crop gives the reward chime.
         this.sfx(r.isZombie ? "harvestZombie" : "xp");

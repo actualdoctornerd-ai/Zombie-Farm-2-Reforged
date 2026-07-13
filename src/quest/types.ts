@@ -18,10 +18,16 @@ export interface QuestRequirement {
   sprite: string;
 }
 
-/** How a completed quest pays out. */
+/** How a completed quest pays out.
+ *
+ * GROUND TRUTH (disassembled `-[GameState grantReward:withToolTip:withDelay:]` →
+ * `addResource:amount:`, confirmed by `getRewardDescription:` display strings): the
+ * rewardType selects a resource-array index — 0→XP (index 2), 1→Gold (index 0),
+ * 2→Brains (index 1). XP is the DEFAULT quest reward (62 of ~96 quests are type 0).
+ * An earlier build had 0/1 swapped (Gold=0, Xp=1); that was wrong. */
 export const enum RewardType {
-  Gold = 0,
-  Xp = 1,
+  Xp = 0,
+  Gold = 1,
   Brains = 2,
   Item = 3, // grants rewardItemKey into storage (received)
   Zombie = 5, // spawns rewardItemKey as an owned zombie

@@ -34,20 +34,33 @@ const WING_FREQ = 6.0;
 const WHEEL_SPIN = 7.0; // rad/s while rolling (bear unicycle)
 // ---- attack swing (ZF2 fightAttack: — data-driven per Attacks.json) ----
 // The enemy has no per-frame attack art, so the strike is procedural (as in the
-// source, which animates stage actors via code, not baked keyframes): the whole rig
-// LUNGES toward the target — which carries the held tool (pitchfork/axe/fist) with the
-// body coherently, no reparenting needed — and the front arm adds a thrust. Both peak
-// at the attack's damageTiming (Farmhand poke 0.33, Lumberjack slice 0.75), so the
-// forward extension lands with the hit, then recovers to rest by the cycle's end.
+// source, which animates stage actors via code, not baked keyframes). Like the player
+// ZOMBIES, a weapon-holder does NOT jab its arm forward off the shoulder — instead the
+// front arm stays ROOTED at the shoulder and CHOPS: it raises the held tool
+// (pitchfork/axe) UP over the wind-up, then swings it DOWN through rest to strike. The
+// downstroke peaks at the attack's damageTiming (Farmhand poke 0.33, Lumberjack slice
+// 0.75) so the hit lands on the chop, then it recovers to rest by the cycle's end. A
+// small whole-body step adds weight without sliding the arm off the shoulder.
 const SWING_FRAC = 0.72; // fraction of the attack cooldown the swing occupies (rest before)
-const LUNGE_PX = 13; // how far forward (toward the target) the rig jabs at the peak
-const LUNGE_COCK = 0.28; // small backward wind-up before the jab (× LUNGE_PX)
-const ARM_THRUST = 0.5; // front-arm rotation added at the peak (rad; +ve reads as a forward jab)
+const LUNGE_PX = 5; // small forward body step at the strike (kept low: the reach is the chop, not a lunge)
+const LUNGE_COCK = 0.35; // backward wind-up before the step (× LUNGE_PX)
+// Chop envelope for weapon-holders — rotation of the front arm ABOUT THE SHOULDER.
+// Positive lifts the tool's business end UP (wind-up); the downstroke swings it back
+// DOWN past rest to the hit.
+const CHOP_RAISE = 0.85; // rad the arm lifts the tool UP during the wind-up
+const CHOP_STRIKE = 0.4; // rad past rest on the downstroke at the hit
+const CHOP_RAISE_FRAC = 0.6; // fraction of the pre-hit window spent raising (rest chops down)
+// A PUNCHER's forward jab keeps a small arm thrust (it has no tool to chop with).
+const ARM_THRUST = 0.5; // puncher front-arm rotation added at the peak (rad; +ve reads as a forward jab)
 const ARM_COCK = 0.35; // arm wind-up back-swing (× ARM_THRUST)
 // A PUNCHER (bare-fisted lawyer / office boss — model.punch) rests its front arm DOWN
 // at its side and only lifts it to jab; a weapon-holder keeps its tool up. The droop
 // rotates the front arm about the shoulder; it eases back to 0 (extended) at the jab peak.
 const ARM_PUNCH_DROOP = -1.3; // rad the front arm hangs down at rest (negative = swings DOWN)
+// A legged attacker's REAR arm counter-swings with the strike (the body torques into
+// the punch) instead of hanging frozen — e.g. McDonnell's back arm pumps as he jabs.
+// It mirrors the front jab's envelope at a smaller amplitude, rotated the opposite way.
+const BACK_ARM_SWING = 0.5; // rad the rear arm swings back at the jab peak
 // A SLAMMER (model.slam — pirate boss) raises BOTH arms overhead during the wind-up,
 // then slams them down through rest at the hit. Negative = up/back overhead; positive
 // follow-through past rest. Both arms rotate by the same angle about their own anchors.
@@ -76,6 +89,7 @@ export class EnemyActor {
   private shoulder: { x: number; y: number } | null = null;
   private punch = false; // bare-fisted: rest arms at the sides, extend only to jab
   private slam = false; // two-handed overhead slam instead of a one-arm jab
+  private chopSign = 1; // sign of the weapon-chop rotation (−1 for a cross-body swing)
   /** Art faces LEFT; enemies attack leftward (toward the zombies), so no flip by default. */
   private facing = 1;
   private tiltPhase = 0;
@@ -88,6 +102,7 @@ export class EnemyActor {
     this.neck = model.neck;
     this.punch = !!model.punch;
     this.slam = !!model.slam;
+    if (model.chopSign) this.chopSign = model.chopSign < 0 ? -1 : 1;
     for (const p of model.parts) {
       const tex = new Texture({
         source: strip.source,
@@ -141,6 +156,7 @@ export class EnemyActor {
     // peaks at the attack's damageTiming so the reach lands with the sim's hit.
     let thrust = 0; // 0=rest, 1=full forward reach (at the connect)
     let cock = 0; // brief backward wind-up, 0..1
+    let chop = 0; // weapon-holders: front-arm rotation about the shoulder (- up, + downstroke)
     let slamAngle = 0; // slammers only: arms raise overhead (-) then slam down (+) to the hit
     if (attack) {
       // The swing occupies the tail SWING_FRAC of the cooldown; rest before it.
@@ -149,6 +165,13 @@ export class EnemyActor {
         const c = Math.min(0.95, Math.max(0.05, attack.damageTiming)); // connect fraction
         thrust = u < c ? smooth(u / c) : 1 - smooth((u - c) / (1 - c));
         cock = Math.sin(Math.PI * Math.min(u / c, 1)); // wind-up bump, peaks mid-approach
+        // Chop: raise the tool UP over the first CHOP_RAISE_FRAC of the approach, whip it
+        // DOWN through rest to the hit at the connect (c), then ease back up to rest.
+        const cf = c * CHOP_RAISE_FRAC;
+        if (u < cf) chop = CHOP_RAISE * smooth(u / cf);
+        else if (u < c) chop = CHOP_RAISE - (CHOP_RAISE + CHOP_STRIKE) * smooth((u - cf) / (c - cf));
+        else chop = -CHOP_STRIKE * (1 - smooth((u - c) / (1 - c)));
+        chop *= this.chopSign; // flip for cross-body swingers so the raise still lifts UP
         if (this.slam) {
           // Raise overhead over the first SLAM_RAISE_FRAC of the approach, whip down to
           // the hit at the connect (c), then ease the follow-through back to rest.
@@ -212,8 +235,11 @@ export class EnemyActor {
     // the weapon travel WITH the arm instead of spinning in place.
     const swing = attack ? ARM_THRUST * thrust - ARM_THRUST * ARM_COCK * cock : 0;
     // A puncher's front arm hangs at its side (droop) and eases up to extended (0) at the
-    // jab's peak; a weapon-holder has no droop and just thrusts.
+    // jab's peak (it has no tool, so it jabs); a weapon-holder chops instead (see `chop`).
     const droop = this.punch ? ARM_PUNCH_DROOP : 0;
+    // Front-arm rotation about the shoulder: a puncher jabs (droop→extended + thrust);
+    // a weapon-holder chops the tool up then down. Both stay ROOTED at the shoulder.
+    const frontAngle = this.punch ? droop * (1 - thrust) + swing : chop;
     const sway = (a: { back: boolean }) =>
       this.hasLegs ? 0 : Math.sin(this.t * ARM_FREQ + (a.back ? Math.PI : 0)) * (moving ? ARM_SWAY_MOVE : ARM_SWAY_IDLE);
     for (const a of this.arms) {
@@ -222,13 +248,19 @@ export class EnemyActor {
         // (top-center) anchors — up over the head, then down through rest at the hit.
         a.sp.position.set(a.baseX, a.baseY);
         a.sp.rotation = a.baseRot + slamAngle;
-      } else if (!a.back && this.shoulder && (droop > 0 || attack)) {
-        // Front arm rotates about the shared shoulder: rest at the droop, lift to jab.
-        const theta = droop * (1 - thrust) + swing;
+      } else if (!a.back && this.shoulder && (this.punch || attack)) {
+        // Front arm rotates about the shared shoulder: puncher jab or weapon chop.
+        const theta = frontAngle;
         const cos = Math.cos(theta), sin = Math.sin(theta);
         const dx = a.baseX - this.shoulder.x, dy = a.baseY - this.shoulder.y;
         a.sp.position.set(this.shoulder.x + dx * cos - dy * sin, this.shoulder.y + dx * sin + dy * cos);
         a.sp.rotation = a.baseRot + theta;
+      } else if (a.back && attack && this.hasLegs) {
+        // Rear arm on a legged attacker: counter-swing with the strike (opposite the
+        // front jab, smaller reach) so the back arm pumps along instead of freezing.
+        const back = -BACK_ARM_SWING * thrust + BACK_ARM_SWING * ARM_COCK * cock;
+        a.sp.position.set(a.baseX, a.baseY);
+        a.sp.rotation = a.baseRot + back;
       } else {
         a.sp.position.set(a.baseX, a.baseY);
         a.sp.rotation = a.baseRot + sway(a);

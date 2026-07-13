@@ -28,6 +28,7 @@ import {
   rewardPreview,
 } from "./RaidCatalog";
 import { BASE } from "../base";
+import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
 import { rollLootTier } from "./LootTable";
 
@@ -69,7 +70,10 @@ export interface RaidCardView {
   portrait: string; // full image url
   recommendedLevel: number;
   unlockLevel: number;
-  xp: number;
+  xp: number; // the enemy's XP value (informational)
+  /** XP actually on offer from this card: the enemy's `xp` if never cleared, else 0
+   *  — XP is a one-time first-clear bonus (`firstTimeBeatingEnemy`). */
+  firstClearXp: number;
   rewardPreview: string[];
   introText: string;
   seasonal: boolean;
@@ -114,6 +118,7 @@ export interface RaidResultView {
   zombiesLost: number;
   gold: number; // gold plundered
   brains: number; // brains plundered
+  xp: number; // XP earned — the enemy's `xp`, granted only on the FIRST clear (0 otherwise)
   loot: LootDrop[]; // item drops (with pictures)
   abilityUnlock: string; // "" unless a tier unlocked on this clear
 }
@@ -213,6 +218,7 @@ export class RaidManager {
         recommendedLevel: r.recommendedLevel,
         unlockLevel: r.unlockLevel,
         xp: r.xp,
+        firstClearXp: this.state.hasClearedRaid(String(r.id)) ? 0 : r.xp,
         rewardPreview: rewardPreview(r),
         introText: r.introText.replace(/\\n/g, "\n"),
         seasonal: r.seasonal,
@@ -304,9 +310,9 @@ export class RaidManager {
       party,
       playerUnits: buildPlayerUnits(party, {
         concentration,
-        // Gate abilities exactly like the detail card: a tier applies only once
-        // its invasion boss is beaten.
-        tierUnlocked: (t) => this.state.abilityTierUnlocked(t),
+        // Gate abilities exactly like the detail card: an ability applies only once
+        // it has been unlocked (its tier's boss beaten enough times to reach it).
+        abilityUnlocked: (k) => this.state.abilityUnlocked(k),
         // Level-scale str/con/dex: zombies don't fight at full stats until L25
         // (binary modifyStatWithLevelScale:).
         playerLevel: this.state.level,
@@ -457,11 +463,19 @@ export class RaidManager {
 
     let gold = 0;
     let brains = 0;
+    let xp = 0;
     const loot: LootDrop[] = [];
     let abilityUnlock = "";
     if (outcome.win) {
       const wins = this.state.completeRaid(String(raid.id));
-      // Raids don't grant XP for now (deliberately).
+      // XP (GROUND TRUTH — disassembled `firstTimeBeatingEnemy` gate + "You earned
+      // %ixp for beating this enemy for the first time."): the enemy's `xp` is granted
+      // only on the FIRST clear of this raid; repeat wins pay gold/brains but no XP.
+      // One boss enemy per raid, so first-ever win (wins === 1) IS first-time-beaten.
+      if (wins === 1 && raid.xp > 0) {
+        xp = raid.xp;
+        this.state.addXp(xp);
+      }
       const survivalFrac = party.length ? outcome.survivors.length / party.length : 0;
       gold = winGold(raid, survivalFrac);
       this.state.addGold(gold);
@@ -485,9 +499,17 @@ export class RaidManager {
       // Brains drop occasionally, IN ADDITION to loot (source brain-drop table).
       brains = this.rollBrainDrop(raid);
       if (brains > 0) this.state.addBrains(brains);
-      // First clear of a tier boss unlocks that tier's abilities across the roster.
+      // Beating a tier boss unlocks ONE still-locked ability of that tier (the next
+      // in canonical order) across the roster — so `wins` maps to the wins-th pool
+      // entry. Once every ability in the tier is unlocked, further wins add none.
       const tier = raidTier(raid);
-      if (tier > 0 && wins === 1) abilityUnlock = `Tier ${tier} abilities unlocked!`;
+      if (tier > 0) {
+        const pool = ABILITY_TIER[tier] ?? [];
+        if (wins >= 1 && wins <= pool.length) {
+          const label = ABILITY_POOL[pool[wins - 1]]?.label ?? pool[wins - 1];
+          abilityUnlock = `Ability unlocked: ${label}!`;
+        }
+      }
     }
 
     this.hooks.save();
@@ -499,6 +521,7 @@ export class RaidManager {
       zombiesLost: outcome.losses.length,
       gold,
       brains,
+      xp,
       loot,
       abilityUnlock,
     };

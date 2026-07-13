@@ -48,6 +48,20 @@ function behind(a: Footprint, b: Footprint): boolean {
 
 const key = (f: Footprint) => f.c0 + f.r0 + f.bias;
 
+// Deterministic paint order among entities the topo-sort leaves ambiguous
+// (overlapping or perpendicular footprints, and any cycle leftovers). We load them
+// back-to-front by depth key, then TOP-TO-BOTTOM (north row first) and LEFT-TO-RIGHT
+// (west column first). This is the reading order of the grid, so a crop patch and a
+// placed object on the same diagonal always stack the same way frame to frame — no
+// popping when a plot relays or an object is added. `a` sorts before `b` here means
+// `a` is painted first (further back / lower zIndex).
+function before(a: Footprint, b: Footprint): boolean {
+  const ka = key(a), kb = key(b);
+  if (ka !== kb) return ka < kb;   // back-to-front depth (the isometric anti-diagonal)
+  if (a.r0 !== b.r0) return a.r0 < b.r0; // top-to-bottom: north row loads first
+  return a.c0 < b.c0;                    // left-to-right: west column loads first
+}
+
 /** Assign zIndex to every footprint-registered child of `layer` so painter's order
  *  respects isometric footprints (multi-tile objects and moving actors alike).
  *  Children without a footprint are ignored (they keep whatever zIndex they had). */
@@ -72,10 +86,11 @@ export function sortLayer(layer: Container) {
     }
   }
 
-  // Kahn's algorithm; among the currently-drawable set pick the smallest depth key
-  // (then original index) so overlapping/perpendicular ties resolve back-to-front.
-  // If a cycle remains (interlocking footprints — rare on a farm) we break it by
-  // picking the smallest key among all leftovers.
+  // Kahn's algorithm; among the currently-drawable set pick the one that loads first
+  // by `before` (depth key, then top-to-bottom, then left-to-right) so overlapping/
+  // perpendicular ties resolve deterministically back-to-front. If a cycle remains
+  // (interlocking footprints — rare on a farm) we break it by the same order among
+  // all leftovers.
   const done = new Array<boolean>(n).fill(false);
   let placed = 0;
   let z = 0;
@@ -84,9 +99,9 @@ export function sortLayer(layer: Container) {
     let cycleFallback = -1;
     for (let i = 0; i < n; i++) {
       if (done[i]) continue;
-      if (cycleFallback === -1 || key(fps[i]) < key(fps[cycleFallback])) cycleFallback = i;
+      if (cycleFallback === -1 || before(fps[i], fps[cycleFallback])) cycleFallback = i;
       if (indeg[i] !== 0) continue;
-      if (pick === -1 || key(fps[i]) < key(fps[pick])) pick = i;
+      if (pick === -1 || before(fps[i], fps[pick])) pick = i;
     }
     if (pick === -1) pick = cycleFallback; // cycle: force-place the most-behind leftover
     done[pick] = true;

@@ -18,11 +18,11 @@ import { getSpriteSet, setSpriteSet, getEdition, setEdition,
   FarmBackground, FARM_BACKGROUNDS } from "./prefs";
 import { fmtCooldown } from "./raid/RaidCatalog";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
-  ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
+  ABILITY_POOL, ABILITY_TIER, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
 import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
 
-export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow";
+export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow" | "rotate";
 
 // A card in the object buy menu (tree / decor / functional).
 export interface ObjCard {
@@ -97,6 +97,7 @@ export interface ObjectActions {
   sellRefund: number;
   sellBrains: boolean;
   onMove: () => void;
+  onRotate: () => void; // flip the object on the vertical axis (Rotate)
   onStore: () => void;
   onSell: () => void;
 }
@@ -113,7 +114,7 @@ export interface LevelUpView {
   unlocks: LevelUpUnlock[];
 }
 
-/** One reward line in the quest-complete popup (icon + label, e.g. "+30 Gold"). */
+/** One reward line in the quest-complete popup (icon + label, e.g. "+30 XP"). */
 export interface QuestReward {
   icon: string;
   label: string;
@@ -168,8 +169,15 @@ const STYLE = `
 #hud .nameplate { border-style: solid; border-width: 9px 16px;
   border-image: url(${BASE}assets/ui/button_bg.png) 14 fill / 9px 16px stretch;
   color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000;
-  cursor: pointer; user-select: none; }
+  pointer-events: auto; cursor: pointer; user-select: none; }
 #hud .nameplate:hover { filter: brightness(1.12); }
+/* profile button: a person icon just right of the nameplate; opens the Profile menu.
+   Stays visible on mobile (where the nameplate is hidden) so the menu is reachable. */
+#hud .profbtn { pointer-events: auto; flex: 0 0 auto; width: 36px; height: 36px; padding: 3px;
+  border: none; background: none; cursor: pointer;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+#hud .profbtn img { width: 100%; height: 100%; object-fit: contain; }
+#hud .profbtn:hover { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)) brightness(1.1); }
 /* invisible developer hotspot: a transparent hit-target just left of the nameplate */
 #hud .devhot { width: 34px; height: 34px; padding: 0; margin: 0; border: none;
   background: transparent; cursor: default; pointer-events: auto; -webkit-appearance: none;
@@ -1020,6 +1028,9 @@ const STYLE = `
 export class Hud {
   mode: Mode = "walk";
   onModeChange: (() => void) | null = null;
+  // Rotate tool tap: main handles it contextually (flip the placement ghost / the
+  // carried object / enter the standalone rotate mode). Null falls back to setMode.
+  onRotateTool: (() => void) | null = null;
   private el: HTMLElement;
   private goldEl!: HTMLElement;
   private brainsEl!: HTMLElement;
@@ -1159,12 +1170,27 @@ export class Hud {
     const name = document.createElement("div");
     name.className = "nameplate";
     name.textContent = "Zombie Farmer";
-    name.title = "Profile & account";
+    name.title = "Account";
     name.setAttribute("role", "button");
-    // Clicking your name opens the Profile menu (save profiles + account / sign out).
+    // Clicking your name opens the Account menu (who you're signed in as + Sign
+    // out). Profile SWITCHING is intentionally not exposed here for now (see
+    // openProfiles) — the friend code / add / gift / visit all live in Friends.
     name.onclick = () => this.openProfiles();
     this.nameEl = name;
-    bar.append(gear, chips, spacer, devHot, name);
+
+    // Account button: a person icon just right of the nameplate. Opens the same
+    // Account menu; stays visible on mobile (where the nameplate is hidden), so
+    // Sign out is reachable on every platform.
+    const prof = document.createElement("button");
+    prof.className = "profbtn";
+    prof.title = "Account";
+    prof.setAttribute("aria-label", "Account");
+    const profImg = document.createElement("img");
+    profImg.src = UI("Icon_Quest_Social.png");
+    prof.appendChild(profImg);
+    prof.onclick = () => this.openProfiles();
+
+    bar.append(gear, chips, spacer, devHot, name, prof);
     this.el.appendChild(bar);
     this.refreshName();
   }
@@ -1415,6 +1441,8 @@ export class Hud {
     bar.append(
       this.toolBtn("select", "button_multitool.png", "Select", () => this.setMode("walk")),
       this.toolBtn("move", "button_move.png", "Move", () => this.setMode("move")),
+      this.toolBtn("rotate", "button_rotate.png", "Rotate", () =>
+        this.onRotateTool ? this.onRotateTool() : this.setMode("rotate")),
       this.toolBtn("till", "button_plow.png", "Plow", () => this.setMode("till")),
       this.toolBtn("remove", "button_sell.png", "Remove", () => this.setMode("remove"))
     );
@@ -1447,6 +1475,7 @@ export class Hud {
     return m === "till" ? "button_plow.png"
       : m === "plant" ? "button_plant.png"
       : m === "remove" ? "button_sell.png"
+      : m === "rotate" ? "button_rotate.png"
       : m === "move" || m === "place" ? "button_move.png"
       : "button_multitool.png";
   }
@@ -2671,12 +2700,12 @@ export class Hud {
       this.onSetNight?.(v)
     );
 
-    // Dev: mark a tier boss beaten so its abilities unlock across the roster
-    // (each colour class shows its group's ability for that tier).
+    // Dev: beat a tier boss once — each win unlocks the NEXT still-locked ability of
+    // that tier across the roster (not the whole tier at once).
     const raidWrap = document.createElement("div");
     const raidStatus = document.createElement("div");
     raidStatus.className = "dev-status";
-    raidStatus.textContent = "Beat a tier boss to unlock its abilities:";
+    raidStatus.textContent = "Beat a tier boss to unlock its next ability:";
     const raidBtns = document.createElement("div");
     raidBtns.className = "dev-raid-btns";
     for (let t = 1; t <= 4; t++) {
@@ -2684,11 +2713,17 @@ export class Hud {
       b.className = "dev-btn";
       b.textContent = `Win T${t} — ${TIER_BOSS[t]}`;
       b.onclick = () => {
-        const already = this.state.abilityTierUnlocked(t);
+        const pool = ABILITY_TIER[t] ?? [];
+        const before = this.state.tierAbilitiesUnlocked(t);
         this.state.completeRaid(String(t));
-        raidStatus.textContent = already
-          ? `Tier ${t} was already unlocked.`
-          : `Unlocked Tier ${t} abilities (beat ${TIER_BOSS[t]}).`;
+        const after = this.state.tierAbilitiesUnlocked(t);
+        if (after > before) {
+          const label = ABILITY_POOL[pool[after - 1]]?.label ?? pool[after - 1];
+          raidStatus.textContent =
+            `Unlocked ${label} — Tier ${t} ${after}/${pool.length} (beat ${TIER_BOSS[t]}).`;
+        } else {
+          raidStatus.textContent = `All Tier ${t} abilities already unlocked.`;
+        }
       };
       raidBtns.appendChild(b);
     }
@@ -2709,10 +2744,11 @@ export class Hud {
     this.el.appendChild(bg);
   }
 
-  /** Account block for the Profile menu: who you're signed in as, the friend code,
-   *  and a Sign out button. Returns null when there's no online account (offline
-   *  build or signed out) so the caller can omit it. Sign out flushes the save and
-   *  returns to the sign-in gate (see hud.onSignOut / main.ts). */
+  /** Account block for the Account menu: who you're signed in as and a Sign out
+   *  button — this is the ONE place Sign out lives. Returns null when there's no
+   *  online account (offline build or signed out) so the caller can omit it. The
+   *  friend code lives in the Friends panel now, not here. Sign out flushes the
+   *  save and returns to the sign-in gate (see hud.onSignOut / main.ts). */
   private buildAccountBlock(): HTMLElement | null {
     const acct = this.myAccount?.();
     if (!this.socialOnline?.() || !acct) return null;
@@ -2723,15 +2759,7 @@ export class Hud {
     const who = document.createElement("div");
     who.className = "set-acct-who";
     who.innerHTML = `Signed in as <b>${acct.name}</b>`;
-    const codeRow = document.createElement("div");
-    codeRow.className = "set-acct-code";
-    codeRow.append("Friend code ");
-    const codeVal = document.createElement("span");
-    codeVal.className = "set-acct-code-val";
-    codeVal.textContent = acct.friendCode;
-    this.makeCopyable(codeVal, acct.friendCode);
-    codeRow.appendChild(codeVal);
-    info.append(who, codeRow);
+    info.append(who);
     const out = document.createElement("button");
     out.className = "set-signout";
     out.textContent = "Sign out";
@@ -2740,10 +2768,13 @@ export class Hud {
     return block;
   }
 
-  // Profile manager: the account block (name / friend code / sign out) plus every
-  // save profile — switch to one (flushes + reloads), create a fresh-game profile,
-  // or rename/delete profiles in place. Each profile is a fully independent game.
-  // Opened by clicking the top-right nameplate.
+  // Account menu: who you're signed in as + Sign out — and Sign out lives ONLY
+  // here. Profile SWITCHING (multiple independent save slots — Play / New Game /
+  // Rename / Delete) is intentionally not exposed for now; that UX needs a rework.
+  // The hooks (onSwitchProfile/onCreateProfile/onRenameProfile/onDeleteProfile)
+  // and save/profiles.ts are kept intact so it can be re-added here later. The
+  // friend code, adding friends, and gifting/visiting all live in the Friends panel.
+  // Opened by clicking the top-right nameplate / person icon.
   openProfiles() {
     document.querySelector("#hud .prof-bg")?.remove();
     const bg = document.createElement("div");
@@ -2757,87 +2788,19 @@ export class Hud {
     x.appendChild(xi);
     x.onclick = () => bg.remove();
     const h = document.createElement("h2");
-    h.textContent = "Profile";
-    const list = document.createElement("div");
-    list.className = "prof-list";
+    h.textContent = "Account";
     panel.append(x, h);
-    // Account (name / friend code / Sign out) sits above the save-profile list —
-    // only when signed in online; an offline build shows just the profiles.
+
     const acctBlock = this.buildAccountBlock();
-    if (acctBlock) panel.append(acctBlock);
-    panel.append(list);
-
-    const render = () => {
-      const idx = this.getProfiles?.();
-      list.innerHTML = "";
-      if (!idx) return;
-      for (const p of idx.profiles) {
-        const isActive = p.id === idx.activeId;
-        const row = document.createElement("div");
-        row.className = "prof-row" + (isActive ? " active" : "");
-
-        const nm = document.createElement("div");
-        nm.className = "prof-name";
-        nm.textContent = p.name;
-        if (isActive) {
-          const b = document.createElement("span");
-          b.className = "prof-badge";
-          b.textContent = "Playing";
-          nm.appendChild(b);
-        }
-
-        const acts = document.createElement("div");
-        acts.className = "prof-actions";
-        if (!isActive) {
-          const play = document.createElement("button");
-          play.className = "prof-btn play";
-          play.textContent = "Play";
-          play.onclick = () => this.onSwitchProfile?.(p.id); // reloads
-          acts.appendChild(play);
-        }
-        const ren = document.createElement("button");
-        ren.className = "prof-btn";
-        ren.textContent = "Rename";
-        ren.onclick = () => {
-          nm.textContent = "";
-          const inp = document.createElement("input");
-          inp.className = "prof-input";
-          inp.value = p.name;
-          inp.maxLength = 24;
-          const commit = () => { this.onRenameProfile?.(p.id, inp.value); render(); };
-          inp.onkeydown = (e) => { if (e.key === "Enter") commit(); };
-          inp.onblur = commit;
-          nm.appendChild(inp);
-          inp.focus();
-          inp.select();
-        };
-        acts.appendChild(ren);
-        const del = document.createElement("button");
-        del.className = "prof-btn del";
-        del.textContent = "Delete";
-        del.disabled = isActive || idx.profiles.length <= 1;
-        del.title = isActive ? "Switch to another profile first" : "Delete this profile";
-        del.onclick = () => { this.onDeleteProfile?.(p.id); render(); };
-        acts.appendChild(del);
-
-        row.append(nm, acts);
-        list.appendChild(row);
-      }
-      // "New profile" row.
-      const newRow = document.createElement("div");
-      newRow.className = "prof-row prof-new";
-      const inp = document.createElement("input");
-      inp.className = "prof-input";
-      inp.placeholder = "New profile name";
-      inp.maxLength = 24;
-      const create = document.createElement("button");
-      create.className = "prof-btn play";
-      create.textContent = "New Game";
-      create.onclick = () => this.onCreateProfile?.(inp.value); // reloads into a fresh farm
-      newRow.append(inp, create);
-      list.appendChild(newRow);
-    };
-    render();
+    if (acctBlock) {
+      panel.append(acctBlock);
+    } else {
+      // Offline build or signed out: nothing to manage here.
+      const note = document.createElement("div");
+      note.className = "fr-empty";
+      note.textContent = "Playing offline.";
+      panel.append(note);
+    }
 
     bg.appendChild(panel);
     bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
@@ -2904,11 +2867,9 @@ export class Hud {
         code.textContent = acct?.friendCode ?? "";
         this.makeCopyable(code, acct?.friendCode ?? "");
         who.appendChild(code);
-        const out = document.createElement("button");
-        out.className = "prof-btn del";
-        out.textContent = "Sign out";
-        out.onclick = () => this.onSignOut?.();
-        acctBar.append(who, out);
+        // Sign out lives in the Profile menu now (top-right profile icon); the
+        // friend code stays here for the friends flow.
+        acctBar.append(who);
       } else {
         const prompt = document.createElement("div");
         prompt.className = "fr-who";
@@ -3159,9 +3120,9 @@ export class Hud {
     abilRow.className = "zrow zabils";
     // A zombie shows its GROUP's one ability per tier, for tiers 1..(colour-class
     // rank): Green=t1, Blue=t1-2, Red=t1-3, Silver+ = t1-4 (so never more than 4).
-    // A tier whose invasion boss is beaten shows the real icon; still-locked tiers
-    // show a padlock naming the boss. Some groups (Small) have no ability at low
-    // tiers, so their abilities only appear on higher-class units.
+    // An ability that's been unlocked shows the real icon; still-locked ones show a
+    // padlock naming the boss. Some groups (Small) have no ability at low tiers, so
+    // their abilities only appear on higher-class units.
     const rank = Math.min(MAX_ABILITY_TIER, classTierRank(info.className));
     for (let t = 1; t <= rank; t++) {
       const key = unitAbilityAt(info.key, info.group, t);
@@ -3170,7 +3131,7 @@ export class Hud {
       if (!meta) continue;
       const cell = document.createElement("button");
       cell.style.backgroundImage = `url(${ABILITY_FRAME})`;
-      if (this.state.abilityTierUnlocked(t)) {
+      if (this.state.abilityUnlocked(key)) {
         cell.className = "zabil";
         cell.innerHTML = `<img src="${meta.icon}" alt="">`;
         cell.onclick = (e) => {
@@ -3863,7 +3824,9 @@ export class Hud {
       info.innerHTML =
         `<div class="rd-title">${c.name}</div>` +
         (c.bossName ? `<div class="rd-boss">${c.bossName}</div>` : "") +
-        `<div class="rd-meta">Recommended level ${c.recommendedLevel} · Reward ${c.xp} XP</div>`;
+        `<div class="rd-meta">Recommended level ${c.recommendedLevel}` +
+        (c.firstClearXp > 0 ? ` · First clear: ${c.firstClearXp} XP` : "") +
+        `</div>`;
       hero.append(por, info);
 
       const intro = document.createElement("p");
@@ -3992,10 +3955,12 @@ export class Hud {
 
     const cap = party.cap;
     const min = raid.minArmy; // per-raid: eased for the first McDonnell clears
-    // Ordered selection: index in the array = attack position (first attacks
-    // first). Seeded from the saved order (empty on a first-ever raid). Clicking a
-    // card appends it; clicking a picked card removes it and renumbers the rest.
-    const order: string[] = [...party.orderedSelectedIds];
+    // Ordered selection: index in the array = attack position (first attacks first).
+    // Starts EMPTY so any cards the player clicks land at the FRONT of the order — e.g.
+    // click two new headless zombies to lead, then "Pick for me" fills the rest from
+    // last raid's order. Clicking a card appends it; clicking a picked card removes it
+    // and renumbers the rest.
+    const order: string[] = [];
 
     // Battle consumables for this raid: Concentration (skip the focus minigame) +
     // Golden Dice (each raises the loot to a rarer tier, capped by the raid's tier depth).
@@ -4092,16 +4057,18 @@ export class Hud {
     }
     if (boostRow.childElementCount) wrap.insertBefore(boostRow, foot);
 
-    // "Pick for me": clear the order, then select cards in reading order
-    // (left-to-right, top-to-bottom — the grid's visual order) up to the cap.
+    // "Pick for me": KEEP whatever the player has already selected (in the order they
+    // chose), then fill the remaining slots — first by their saved attack order from
+    // last raid, then any other eligible zombies — up to the cap. So leading with a few
+    // hand-picked zombies and then tapping this preserves those picks at the front and
+    // reproduces the previous order behind them, instead of wiping the selection.
     const pick = document.createElement("button");
     pick.className = "raid-quick";
     pick.textContent = "Pick for me";
     pick.onclick = () => {
-      order.length = 0;
-      for (const z of party.eligible) {
+      for (const id of [...party.orderedSelectedIds, ...party.eligible.map((z) => z.id)]) {
         if (order.length >= cap) break;
-        order.push(z.id);
+        if (!order.includes(id)) order.push(id);
       }
       refresh();
     };
@@ -4135,6 +4102,9 @@ export class Hud {
       ["Gold Plundered", String(view.gold), GOLD_ICON],
       ["Brains Plundered", String(view.brains), BRAIN_ICON],
     ];
+    // First-time XP bonus ("You earned Nxp for beating this enemy for the first
+    // time.") — only shown when it was actually granted (first clear of this raid).
+    if (view.xp > 0) rows.push(["First-Time XP", String(view.xp), ""]);
     const rowHtml = rows
       .map(
         ([label, val, icon]) =>
@@ -4286,6 +4256,7 @@ export class Hud {
     };
     btns.append(
       mk("Move", "locate", true, o.onMove),
+      mk("Rotate", "locate", true, o.onRotate),
       mk(o.canStore ? "Store" : "Storage full", "store", o.canStore, o.onStore),
       mk(`Sell +${o.sellRefund}${o.sellBrains ? "b" : "g"}`, "sell", true, o.onSell)
     );

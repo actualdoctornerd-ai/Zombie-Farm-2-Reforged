@@ -1,6 +1,7 @@
 // Minimal local game state (no server). Levels/XP curve is build-verified from
 // PlayerLevels.plist. Filler starting values for now.
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
+import { ABILITY_TIER, abilityTierOf } from "./zombie/traits";
 
 export const XP_THRESHOLDS = [
   0, 25, 75, 150, 250, 375, 550, 800, 1300, 1800, 2300, 2800, 3300, 3900, 4500,
@@ -29,8 +30,8 @@ export class GameState {
   // ---- consumable boosts (bought from the Market Boosts tab) ----
   boostInv: { key: string; count: number }[] = [];
   // ---- zombie abilities ----
-  // DEPRECATED: ability unlocking is now derived per-tier from raidsCompleted (see
-  // abilityTierUnlocked). Kept as an optional persisted field for save compatibility.
+  // DEPRECATED: ability unlocking is now derived from raidsCompleted (see
+  // abilityUnlocked). Kept as an optional persisted field for save compatibility.
   unlockedAbilities: string[] = [];
   // ---- raids: lifetime win count per raid id (drives "first clear" + stats) ----
   raidsCompleted: Record<string, number> = {};
@@ -214,12 +215,30 @@ export class GameState {
   }
 
   // ---- zombie abilities ----
-  // Abilities unlock by TIER: beating a tier's invasion boss (winning raid id 1..4
-  // for tiers 1..4 — McDonnell/Lawyers/Pirates/Ninjas) unlocks that whole tier for
-  // every zombie whose colour class reaches it. Which ability a unit gets is fixed
-  // by its group (see traits.GROUP_ABILITIES), not random.
-  abilityTierUnlocked(tier: number): boolean {
-    return this.hasClearedRaid(String(tier));
+  // Abilities unlock ONE AT A TIME by beating a tier's invasion boss. Each win of a
+  // tier's boss (raid id 1..4 for tiers 1..4 — McDonnell/Lawyers/Pirates/Ninjas)
+  // unlocks the next still-locked ability of that tier, in canonical ABILITY_TIER
+  // order, across every zombie whose colour class reaches that tier. So `w` wins of
+  // tier T's boss unlock the first `w` of that tier's abilities; the rest stay
+  // padlocked until the boss is beaten again. Which ability a unit gets at a tier is
+  // fixed by its group (see traits.GROUP_ABILITIES), not random.
+
+  /** How many of tier `t`'s abilities are unlocked — one per win of that tier's
+   *  invasion boss, capped at the tier's pool size. */
+  tierAbilitiesUnlocked(tier: number): number {
+    const pool = ABILITY_TIER[tier];
+    if (!pool) return 0;
+    return Math.min(pool.length, this.raidWins(String(tier)));
+  }
+
+  /** Whether a specific ability KEY is unlocked yet. An ability unlocks once its
+   *  tier's boss has been beaten enough times to reach it — i.e. it sits within the
+   *  first `tierAbilitiesUnlocked(tier)` entries of its tier's canonical pool. */
+  abilityUnlocked(key: string): boolean {
+    const tier = abilityTierOf(key);
+    if (tier <= 0) return false;
+    const idx = ABILITY_TIER[tier].indexOf(key);
+    return idx >= 0 && idx < this.tierAbilitiesUnlocked(tier);
   }
 
   // ---- friends (offline stub) ----

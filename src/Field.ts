@@ -37,13 +37,6 @@ const FERTILIZE_FX: ParticleConfig = {
 const FERT_EMIT_MS = 900; // one leaf ≈ every 0.9s per fertilized crop (source ~0.75/s)
 const FERT_CANOPY_DY = 52; // leaves emit this far above the crop's ground contact
 
-// Freshness: a ripe crop stays fresh (full sell price) for this many growth
-// periods, then keeps forever (no wither) but sells for half. Staleness begins at
-// ripeness, so the total age at which a crop goes stale is (1 + FRESH_PERIODS) x
-// growMs. Zombie crops have no sell value, so freshness doesn't affect them.
-export const FRESH_PERIODS = 3;
-const staleAgeMs = (growMs: number) => growMs * (1 + FRESH_PERIODS);
-
 export interface CropConfig {
   key: string;
   name: string;
@@ -81,7 +74,7 @@ interface Planting {
   // render loop's dt is throttled/clamped there) or while the game is fully closed.
   plantedAt: number;
   // Per-frame cache of the derived age (now - plantedAt), refreshed in update(). Read
-  // by ripeness/freshness/harvest checks; never the authority — plantedAt is.
+  // by ripeness/harvest checks; never the authority — plantedAt is.
   ageMs: number;
   sprite: Sprite; // the whole crop, depth-sorted in the entity layer (like objects)
   baseY: number;
@@ -113,6 +106,11 @@ interface FarmObject {
   // Fruit trees only: readyAt = epoch ms the fruit ripens; ready = fruit present.
   readyAt: number;
   ready: boolean;
+  // Rotated by the Rotate tool: a horizontal mirror (flip on the vertical axis), so
+  // a directional decor (fences!) can face either diagonal. The footprint is a
+  // rectangle centered under the sprite, so mirroring never moves which tiles it
+  // occupies — collision/depth are unaffected; only the art flips.
+  flipped: boolean;
 }
 
 export class Field {
@@ -143,6 +141,7 @@ export class Field {
   private cursorRed = new Graphics();
   private cursorLabel!: Text;
   private objGhost = new Sprite(); // placement/move preview
+  private ghostFlipped = false; // current horizontal-flip of the placement ghost
   // Field dimensions in tiles. Mutable: the Farm Size upgrade grows them at
   // runtime (origin stays at tile 0,0, so all existing plots/objects keep their
   // coordinates — the farm only gains land on its south/east edges).
@@ -157,7 +156,11 @@ export class Field {
   private tilePlot = new Map<string, string>(); // tile "col,row" -> plot key
   private reserved = new Set<string>(); // tiles reserved by queued (not-yet-done) tills
   private objects = new Map<string, FarmObject>(); // id -> object
-  private tileObject = new Map<string, string>(); // tile "col,row" -> object id
+  private tileObject = new Map<string, string>(); // tile "col,row" -> object id (placement occupancy)
+  // Extra MOVEMENT-only blocks beyond an object's placement footprint (fence panels
+  // that overhang into a neighbour tile). Keyed tile -> set of object ids blocking it,
+  // so overlapping overhangs (two fences meeting) and removal stay correct.
+  private fenceBlock = new Map<string, Set<string>>();
   private nextObjId = 1;
   private highlightedObj: string | null = null;
 
@@ -279,9 +282,14 @@ export class Field {
   // walkable. Used by pathfinding (farmer + wandering zombies).
   isPassable(col: number, row: number): boolean {
     if (!this.inBounds(col, row)) return false;
-    const id = this.tileObject.get(`${col},${row}`);
-    if (!id) return true;
-    return !!this.objects.get(id)?.def.zombiePatch;
+    const k = `${col},${row}`;
+    // A solid object on the tile blocks it (the walkable Zombie Patch is the exception).
+    const id = this.tileObject.get(k);
+    if (id && !this.objects.get(id)?.def.zombiePatch) return false;
+    // A fence panel overhanging from a neighbour tile blocks it for movement too, even
+    // though nothing "owns" this tile for placement.
+    if (this.fenceBlock.get(k)?.size) return false;
+    return true;
   }
 
   private key(oc: number, or: number) {
@@ -467,22 +475,6 @@ export class Field {
     return out;
   }
 
-  /** Refresher: reset every ripe crop's age back to just-ripened so it is fully
-   *  fresh again (sells for max gold). Only crops that had aged past ripeness (i.e.
-   *  are fresh-but-aging or already stale) count as "refreshed". Zombie crops sell
-   *  for nothing, so they're skipped. Returns the count actually made fresher. */
-  refreshCrops(): number {
-    let done = 0;
-    for (const p of this.plots.values()) {
-      const c = p.crop;
-      if (c && !c.cfg.isZombie && c.ageMs > c.cfg.growMs) {
-        this.ripenNow(c); // freshness window restarts from ripeness
-        done++;
-      }
-    }
-    return done;
-  }
-
   /** Insta-Plow: re-plow every harvested (dirt/hole) plot. Returns the count. */
   replowSpent(): number {
     let done = 0;
@@ -569,10 +561,17 @@ export class Field {
     c.sprite.scale.set(scale);
     c.sprite.position.set(p.x, baseY);
     if (tex === this.assets.crop[c.cfg.stages[0]]) {
-      // Seed stage: treat like tilled land — ground layer, no footprint depth-sort.
+      // Seed stage: KEEP IT ON THE GROUND. A just-seeded plot reads like tilled land,
+      // so it lives in cropSeedLayer (above soil, below the entity layer) with NO
+      // footprint — it never depth-sorts, so the farmer always walks over it just like
+      // he does over the plowed dirt beneath it.
       this.cropSeedLayer.addChild(c.sprite);
     } else {
-      // Past seed: a real depth-sorted entity keyed to the whole 4x4 plot footprint.
+      // Past seed: the plant patch is a real depth-sorted entity, handled EXACTLY like
+      // a placed object — same entityLayer, same full-footprint setFootprint call (the
+      // patch fills all 16 tiles of its 4x4 plot, so its footprint is the whole plot,
+      // just as a 4x4 object's footprint is its whole base). It then loads back-to-
+      // front, top-to-bottom, left-to-right with every other object (see depthSort).
       this.entityLayer.addChild(c.sprite);
       setFootprint(c.sprite, oc, or, oc + PLOT - 1, or + PLOT - 1);
     }
@@ -582,22 +581,19 @@ export class Field {
   // Harvest a ripe plot: crop -> dirt square, zombie -> hole. Returns {sell,xp,name};
   // for a zombie crop, `zombieKey` names the unit type to spawn as an owned zombie.
   // `name` is the crop/zombie display name (for quest-progress matching).
-  harvestAt(oc: number, or: number): { sell: number; xp: number; name: string; isZombie: boolean; stale: boolean; fertilized: boolean; zombieKey?: string } | null {
+  harvestAt(oc: number, or: number): { sell: number; xp: number; name: string; isZombie: boolean; fertilized: boolean; zombieKey?: string } | null {
     const p = this.plots.get(this.key(oc, or));
     if (!p || !p.crop || p.crop.ageMs < p.crop.cfg.growMs) return null;
     const { cfg } = p.crop;
-    // Freshness: a crop past its fresh window sells for half (never withers).
-    const stale = p.crop.ageMs >= staleAgeMs(cfg.growMs);
     // Fertilized (by a Garden zombie): the harvest is worth DOUBLE — ground truth
-    // (`isFertilized` yields 6 crop drops instead of 3). Stacks with staleness.
+    // (`isFertilized` yields 6 crop drops instead of 3).
     const fertilized = !!p.crop.fertilized;
-    const base = stale ? Math.floor(cfg.sell / 2) : cfg.sell;
-    const sell = fertilized ? base * 2 : base;
+    const sell = fertilized ? cfg.sell * 2 : cfg.sell;
     p.crop.sprite.destroy();
     p.crop = undefined;
     p.state = cfg.isZombie ? "hole" : "dirt";
     this.fit(p.soil, this.assets.soil[cfg.isZombie ? HOLE_FILE : DIRT_FILE], oc, or, PLOT);
-    return { sell, xp: cfg.xp, name: cfg.name, isZombie: !!cfg.isZombie, stale, fertilized, zombieKey: cfg.isZombie ? cfg.key : undefined };
+    return { sell, xp: cfg.xp, name: cfg.name, isZombie: !!cfg.isZombie, fertilized, zombieKey: cfg.isZombie ? cfg.key : undefined };
   }
 
   /** Mark the growing crop at plot (oc,or) as fertilized (a Garden zombie fertilized
@@ -618,17 +614,6 @@ export class Field {
     return tileCenter(oc + PLOT - 1, or + PLOT - 1);
   }
 
-  /** Freshness state of the crop under (col,row): "growing" | "fresh" | "stale".
-   *  Used for UI cues; stale crops sell for half. */
-  freshnessAt(col: number, row: number): "growing" | "fresh" | "stale" | null {
-    const at = this.plotOriginAt(col, row);
-    if (!at) return null;
-    const c = this.plots.get(this.key(at.oc, at.or))!.crop;
-    if (!c) return null;
-    if (c.ageMs < c.cfg.growMs) return "growing";
-    return c.ageMs >= staleAgeMs(c.cfg.growMs) ? "stale" : "fresh";
-  }
-
   update(dt: number) {
     const now = Date.now();
     for (const p of this.plots.values()) {
@@ -638,9 +623,9 @@ export class Field {
       // from the render-loop dt. That keeps growth advancing correctly no matter how
       // long the tab was backgrounded (where rAF is throttled and dt is clamped) or
       // fully closed — this recomputes to the true elapsed time on the next frame.
-      // Age keeps advancing past ripeness (up to the stale threshold) so freshness
-      // can lapse; capped there so it doesn't grow unbounded.
-      c.ageMs = Math.min(Math.max(0, now - c.plantedAt), staleAgeMs(c.cfg.growMs));
+      // A ripe crop stays ripe forever (no wither); age is capped at growMs so it
+      // doesn't grow unbounded.
+      c.ageMs = Math.min(Math.max(0, now - c.plantedAt), c.cfg.growMs);
       const ripe = c.ageMs >= c.cfg.growMs;
       // The LAST frame is the finished/harvestable look, shown only when ripe; the
       // earlier frames spread across the whole growing period. This keeps "looks
@@ -667,7 +652,7 @@ export class Field {
     for (const o of this.objects.values()) {
       if (!o.def.harvestValue || o.ready || now < o.readyAt) continue;
       o.ready = true;
-      this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, true);
+      this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, true, o.flipped);
     }
     // Runs LAST in the frame (after the farmer + zombies have moved), so the
     // footprint depth-sort sees final positions. Ground objects (roads/patch) share
@@ -722,6 +707,32 @@ export class Field {
     for (let r = or; r < or + h; r++)
       for (let c = oc; c < oc + w; c++) fn(`${c},${r}`);
   }
+  // In-bounds tiles an object blocks for MOVEMENT beyond its placement footprint (its
+  // collideExtend overhangs). A horizontal flip mirrors the art, which in iso reflects
+  // col<->row, so a flipped object's overhang offsets swap dc<->dr.
+  private extensionTiles(def: PlaceableDef, oc: number, or: number, flipped: boolean): string[] {
+    const ext = def.collideExtend;
+    if (!ext?.length) return [];
+    const out: string[] = [];
+    for (const e of ext) {
+      const c = oc + (flipped ? e.dr : e.dc);
+      const r = or + (flipped ? e.dc : e.dr);
+      if (c >= 0 && r >= 0 && c < this.w && r < this.h) out.push(`${c},${r}`);
+    }
+    return out;
+  }
+  private setExtensionBlocks(id: string, def: PlaceableDef, oc: number, or: number, flipped: boolean, add: boolean) {
+    for (const t of this.extensionTiles(def, oc, or, flipped)) {
+      let set = this.fenceBlock.get(t);
+      if (add) {
+        if (!set) this.fenceBlock.set(t, (set = new Set()));
+        set.add(id);
+      } else if (set) {
+        set.delete(id);
+        if (set.size === 0) this.fenceBlock.delete(t);
+      }
+    }
+  }
   private footprintFits(oc: number, or: number, w: number, h: number): boolean {
     return oc >= 0 && or >= 0 && oc + w - 1 < this.w && or + h - 1 < this.h;
   }
@@ -751,11 +762,14 @@ export class Field {
   private isGroundObject(def: PlaceableDef): boolean {
     return def.zombiePatch || /road/i.test(def.key);
   }
-  private fitObjectSprite(sp: Sprite, def: PlaceableDef, oc: number, or: number, ready = true) {
+  private fitObjectSprite(sp: Sprite, def: PlaceableDef, oc: number, or: number, ready = true, flipped = false) {
     const name = this.objectSpriteName(def, ready);
     sp.texture = this.assets.objects[name] ?? this.assets.objects[def.sprite] ?? Texture.EMPTY;
     sp.anchor.set(0.5, 1);
-    sp.scale.set(this.objectScale());
+    const s = this.objectScale();
+    // Flip = mirror horizontally (about the sprite's bottom-center anchor), so the
+    // art faces the other way while sitting in the exact same footprint tiles.
+    sp.scale.set(flipped ? -s : s, s);
     const a = this.footprintAnchor(oc, or, def.tileW, def.tileH);
     sp.position.set(a.x, a.y);
     // Depth-sorts by the object's full footprint (see depthSort): an actor on the
@@ -804,19 +818,20 @@ export class Field {
   // trees, `readyAt` sets when fruit ripens (defaults to now + growMs for a fresh
   // placement); a past readyAt means it's already ripe (offline growth). Returns
   // the object id, or null if the footprint isn't valid.
-  placeObject(def: PlaceableDef, oc: number, or: number, id?: string, readyAt?: number): string | null {
+  placeObject(def: PlaceableDef, oc: number, or: number, id?: string, readyAt?: number, flipped = false): string | null {
     if (!this.canPlaceObject(oc, or, def, id)) return null;
     const now = Date.now();
     const ra = def.growMs ? readyAt ?? now + def.growMs : 0;
     const ready = def.growMs ? now >= ra : false;
     const sprite = new Sprite();
-    this.fitObjectSprite(sprite, def, oc, or, ready);
+    this.fitObjectSprite(sprite, def, oc, or, ready, flipped);
     (this.isGroundObject(def) ? this.groundObjectLayer : this.entityLayer).addChild(sprite);
     const oid = id ?? `o${this.nextObjId++}`;
-    const obj: FarmObject = { id: oid, def, oc, or, sprite, readyAt: ra, ready };
+    const obj: FarmObject = { id: oid, def, oc, or, sprite, readyAt: ra, ready, flipped };
     this.objects.set(oid, obj);
     this.attachObjectLight(obj);
     this.forEachFootprint(oc, or, def.tileW, def.tileH, (t) => this.tileObject.set(t, oid));
+    this.setExtensionBlocks(oid, def, oc, or, flipped, true);
     return oid;
   }
   // The placed storage shed's id (there is at most one), or null. A shed is any
@@ -900,23 +915,30 @@ export class Field {
       this.forEachFootprint(o.oc, o.or, o.def.tileW, o.def.tileH, (t) => this.tileObject.set(t, id));
       return false;
     }
+    this.setExtensionBlocks(id, o.def, o.oc, o.or, o.flipped, false);
     o.def = def;
     o.ready = def.growMs ? o.ready : false;
-    this.fitObjectSprite(o.sprite, def, o.oc, o.or, true);
+    this.fitObjectSprite(o.sprite, def, o.oc, o.or, true, o.flipped);
     this.forEachFootprint(o.oc, o.or, def.tileW, def.tileH, (t) => this.tileObject.set(t, id));
+    this.setExtensionBlocks(id, def, o.oc, o.or, o.flipped, true);
     return true;
   }
 
   // Relocate an existing object; false if the destination footprint is invalid.
-  moveObject(id: string, oc: number, or: number): boolean {
+  // `flipped`, when given, also commits a new orientation (the Move tool lets you
+  // rotate while carrying); omitted keeps the object's current flip.
+  moveObject(id: string, oc: number, or: number, flipped?: boolean): boolean {
     const obj = this.objects.get(id);
     if (!obj || !this.canPlaceObject(oc, or, obj.def, id)) return false;
     this.forEachFootprint(obj.oc, obj.or, obj.def.tileW, obj.def.tileH, (t) => this.tileObject.delete(t));
+    this.setExtensionBlocks(id, obj.def, obj.oc, obj.or, obj.flipped, false);
     obj.oc = oc;
     obj.or = or;
-    this.fitObjectSprite(obj.sprite, obj.def, oc, or, obj.ready);
+    if (flipped !== undefined) obj.flipped = flipped;
+    this.fitObjectSprite(obj.sprite, obj.def, oc, or, obj.ready, obj.flipped);
     this.positionObjectLight(obj);
     this.forEachFootprint(oc, or, obj.def.tileW, obj.def.tileH, (t) => this.tileObject.set(t, id));
+    this.setExtensionBlocks(id, obj.def, oc, or, obj.flipped, true);
     return true;
   }
 
@@ -932,7 +954,7 @@ export class Field {
     if (!o || !o.def.harvestValue || !o.ready) return null;
     o.ready = false;
     o.readyAt = Date.now() + (o.def.growMs ?? 0);
-    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, false);
+    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, false, o.flipped);
     return o.def.harvestValue;
   }
   removeObject(id: string): PlaceableDef | null {
@@ -940,6 +962,7 @@ export class Field {
     if (!obj) return null;
     if (this.highlightedObj === id) this.highlightedObj = null;
     this.forEachFootprint(obj.oc, obj.or, obj.def.tileW, obj.def.tileH, (t) => this.tileObject.delete(t));
+    this.setExtensionBlocks(id, obj.def, obj.oc, obj.or, obj.flipped, false);
     obj.sprite.parent?.removeChild(obj.sprite);
     obj.sprite.destroy();
     this.destroyObjectLight(obj);
@@ -963,6 +986,19 @@ export class Field {
   objectOriginOf(id: string): { oc: number; or: number } | null {
     const o = this.objects.get(id);
     return o ? { oc: o.oc, or: o.or } : null;
+  }
+  // Current horizontal-flip of a placed object (for the Move tool to carry it over).
+  objectFlipOf(id: string): boolean {
+    return !!this.objects.get(id)?.flipped;
+  }
+  // Rotate tool: mirror a placed object on the vertical axis. Footprint is unchanged
+  // (see FarmObject.flipped), so only the art flips. Returns the new flip state.
+  flipObject(id: string): boolean {
+    const o = this.objects.get(id);
+    if (!o) return false;
+    o.flipped = !o.flipped;
+    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, o.ready, o.flipped);
+    return o.flipped;
   }
   // World point the farmer walks to in order to harvest this object (its base).
   objectWorkPoint(id: string): { x: number; y: number } | null {
@@ -992,7 +1028,7 @@ export class Field {
 
   // Placement/move preview: a tinted ghost of the object at the snapped origin
   // (green tint if placeable, red if blocked). `ignoreId` = the object being moved.
-  setObjectCursor(def: PlaceableDef, col: number, row: number, ignoreId?: string): { oc: number; or: number; valid: boolean } {
+  setObjectCursor(def: PlaceableDef, col: number, row: number, ignoreId?: string, flipped = false): { oc: number; or: number; valid: boolean } {
     const { oc, or } = this.resolveObjectOrigin(def, col, row);
     const valid = this.canPlaceObject(oc, or, def, ignoreId);
     this.cursorGreen.visible = false;
@@ -1000,7 +1036,9 @@ export class Field {
     this.cursorLabel.visible = false;
     this.cursor.position.set(0, 0); // ghost positions are world-space
     this.objGhost.texture = this.assets.objects[def.sprite] ?? Texture.EMPTY;
-    this.objGhost.scale.set(this.objectScale());
+    this.ghostFlipped = flipped;
+    const s = this.objectScale();
+    this.objGhost.scale.set(flipped ? -s : s, s); // preview the chosen orientation
     const a = this.footprintAnchor(oc, or, def.tileW, def.tileH);
     this.objGhost.position.set(a.x, a.y);
     this.objGhost.alpha = 0.6;
@@ -1008,6 +1046,16 @@ export class Field {
     this.objGhost.visible = true;
     this.cursor.visible = true;
     return { oc, or, valid };
+  }
+  // Flip the placement ghost in place (no reposition) — the Rotate control uses this
+  // to spin the current preview without waiting for a pointer move.
+  setGhostFlip(flipped: boolean) {
+    this.ghostFlipped = flipped;
+    const s = this.objectScale();
+    this.objGhost.scale.x = flipped ? -s : s;
+  }
+  get ghostFlip(): boolean {
+    return this.ghostFlipped;
   }
   hideObjectCursor() {
     this.objGhost.visible = false;
@@ -1076,10 +1124,9 @@ export class Field {
             isZombie: ps.crop.isZombie,
           };
           // plantedAt is the persisted absolute truth; the ageMs cache is derived from
-          // it here (and re-derived every frame in update()). Clamp the cache to the
-          // stale threshold (not just growMs) so a crop that ripened and sat while the
-          // game was closed correctly loses freshness offline.
-          const ageMs = Math.max(0, Math.min(staleAgeMs(cfg.growMs), now - ps.crop.plantedAt));
+          // it here (and re-derived every frame in update()). Clamp the cache to growMs
+          // so a crop that finished growing while the game was closed reads as ripe.
+          const ageMs = Math.max(0, Math.min(cfg.growMs, now - ps.crop.plantedAt));
           const crop: Planting = { cfg, plantedAt: ps.crop.plantedAt, ageMs, sprite: new Sprite(), baseY: 0, fertilized: ps.crop.fertilized };
           // layoutCrop parents by stage; the update(0) below then re-layers it to
           // match its restored age (seed -> ground layer, grown -> entity layer).
@@ -1100,6 +1147,7 @@ export class Field {
     for (const o of this.objects.values()) {
       const s: PlacedObjectSave = { id: o.id, key: o.def.key, oc: o.oc, or: o.or };
       if (o.def.harvestValue) s.readyAt = o.readyAt; // fruit-tree ripen timer
+      if (o.flipped) s.rotation = 1; // horizontally mirrored by the Rotate tool
       out.push(s);
     }
     return out;
@@ -1114,11 +1162,12 @@ export class Field {
     }
     this.objects.clear();
     this.tileObject.clear();
+    this.fenceBlock.clear();
     let maxN = 0;
     for (const s of saves) {
       const def = resolve(s.key);
       if (!def || !this.footprintFits(s.oc, s.or, def.tileW, def.tileH)) continue;
-      this.placeObject(def, s.oc, s.or, s.id, s.readyAt);
+      this.placeObject(def, s.oc, s.or, s.id, s.readyAt, !!s.rotation);
       const m = /^o(\d+)$/.exec(s.id);
       if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
     }

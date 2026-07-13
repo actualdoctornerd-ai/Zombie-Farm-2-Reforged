@@ -91,6 +91,10 @@ export interface EnemyModel {
   /** True for a two-handed OVERHEAD SLAM attacker (pirate boss): both arms raise above
    *  the head and slam down at the hit, instead of the default one-arm forward jab. */
   slam?: boolean;
+  /** Sign of the weapon CHOP rotation about the shoulder (+1 default). A weapon-holder
+   *  whose tool-arm sits on the far/right side of the shoulder (e.g. a cross-body axe
+   *  swing) sets -1 so the raise still lifts the blade UP rather than dropping it. */
+  chopSign?: number;
 }
 
 // Market catalog entries (from Market.plist), used by the plant/zombie picker.
@@ -134,7 +138,7 @@ export interface BoostDef {
   cost: number;
   brainsNeeded: boolean;
   level: number;
-  effect: "grow" | "harvest" | "plow" | "gift" | "refresh" | "concentration" | "dice" | "other";
+  effect: "grow" | "harvest" | "plow" | "gift" | "concentration" | "dice" | "other";
   amount: number; // grow: how many crops to ripen
   perPurchase: number; // quantity added to inventory per purchase
   giftZombieKey: string; // gift: the zombie unit key to spawn
@@ -155,6 +159,13 @@ export interface PlaceableDef {
   brainsNeeded?: boolean;
   tileW: number; // footprint width in tiles
   tileH: number; // footprint height in tiles
+  // Movement collision can be WIDER than the placement footprint. A fence occupies a
+  // single tile for placement (so runs pack tight), but its rail panel bridges into a
+  // neighbouring tile — walkers must be blocked there too or they clip through it.
+  // Extra blocked tiles are listed as (dc,dr) offsets from the origin in BASE
+  // (unflipped) orientation; a horizontal flip mirrors the panel, which in iso swaps
+  // the two diagonal axes, so the offsets swap dc<->dr when the object is flipped.
+  collideExtend?: { dc: number; dr: number }[];
   movable: boolean;
   rotations: number;
   tapSound?: string; // signature audio played when this decor is tapped (e.g. belltoll.mp3)
@@ -304,9 +315,23 @@ export async function loadAssets(): Promise<GameAssets> {
   ]);
   setZombieNames(zombieNames); // seed the random-name picker before any zombie is built
 
+  // Fence panels are 1 tile for placement but their rail bridges into a neighbour, so
+  // movement collision extends one tile. A spaced fence wall only SEALS if the overhang
+  // points into the gap between panels — which way depends on how the run is laid/flipped.
+  // ┌── TOGGLE for testing: base (unflipped) overhang offset. A horizontal flip swaps
+  // │   dc<->dr at runtime, so this one value covers both flip states of a run.
+  // │   Candidates (only these two seal anything; negatives point the wrong way):
+  // │     [{ dc: 1, dr: 0 }]  — seals col-walls unflipped / row-walls flipped
+  // │     [{ dc: 0, dr: 1 }]  — seals col-walls flipped   / row-walls unflipped
+  // │   Or block BOTH neighbours to seal EVERY orientation: [{ dc: 1, dr: 0 }, { dc: 0, dr: 1 }]
+  // └── (null disables the overhang entirely).
+  const FENCE_OVERHANG: { dc: number; dr: number }[] | null = [{ dc: 0, dr: 1 }];
+  const FENCE_KEYS = new Set(["pen_01", "barbWireFence_01", "cemeteryFence_01", "hazardFence"]);
+
   // Flag functional items by key. (TODO: bake these into prep_placeables.py so
   // they're source-driven rather than derived here.)
   for (const p of placeables) {
+    if (FENCE_OVERHANG && FENCE_KEYS.has(p.key)) p.collideExtend = FENCE_OVERHANG;
     // Footprints are whole tiles in the base game (`-[Tile dimensions]` reads
     // tileWidth/tileHeight via integerValue, truncating). Coerce any authored
     // fractional size (e.g. coolerLarge 1.5) to an integer so occupancy and the

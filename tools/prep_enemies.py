@@ -236,6 +236,55 @@ def is_weapon(name):
 # then slam down at the hit) instead of the default forward jab — EnemyActor `slam`.
 SLAM_KEYS = {"PirateStageActorBoss"}
 
+# A weapon-holder CHOPS the tool up then down about the shoulder (EnemyActor `chop`).
+# The default raise lifts the tool UP for a tool-arm on the near/left side of the
+# shoulder. Rigs whose tool-arm sits on the FAR/right side (a cross-body swing — the
+# lumberjack's axe, McDonnell's throw arm) need the sign flipped so the raise still
+# lifts UP rather than dropping the blade. Keep in sync with models.json `chopSign`.
+CHOP_SIGN_OVERRIDES = {
+    "FarmStageActorLumberjack": -1,
+    "FarmStageActorBoss": -1,
+}
+
+# Explicit shoulder-pivot overrides (strip space) for rigs whose auto-picked pivot
+# reads wrong (see emit_rig). Keep in sync with the value baked into models.json.
+SHOULDER_OVERRIDES = {
+    "FarmStageActorLumberjack": {"x": 72.0, "y": 50.0},
+}
+
+# Per-part tweaks (strip space) applied after layout. Match by packed size (rw,rh) and
+# optionally `back`; then `dpx/dpy` nudge position, `z` overrides draw order, `drot`
+# tilts, and `ax/ay` re-seat the anchor/pivot (position is compensated so the REST pose
+# is unchanged — only the rotation pivot moves). Keep in sync with models.json.
+PART_POS_OVERRIDES = {
+    # Farmhand grips the pitchfork by the HANDLE, not the tines: the fork sprite
+    # (rw39×rh148, held horizontal) defaults with the hand at the tine/head end and the
+    # whole shaft jutting out behind. Slide it forward (dpx) so the hand lands on the
+    # wooden handle and the tines project ahead as the business end (verified via harness).
+    "FarmStageActorFarmhand": [
+        {"rw": 39, "rh": 148, "dpx": -72.0},
+    ],
+    # Lumberjack's near arm is TWO nearly-duplicate sprites: lumberjackArmF (plaid upper
+    # arm + flesh forearm + empty hand) and lumberjackFistF (flesh forearm + hand + axe).
+    # By default FistF sits offset from ArmF, so the axe arm reads as a misplaced/doubled
+    # second limb. Slide FistF over so its forearm/hand LANDS ON ArmF's (they share the
+    # shoulder pivot, so aligned-at-rest stays aligned through the swing) and draw it in
+    # FRONT — now it reads as one arm holding an axe. Separately, drop the rear arm
+    # (lumberjackArmB) to a lower, more natural hang.
+    "FarmStageActorLumberjack": [
+        {"rw": 44, "rh": 88, "dpx": 56.0, "dpy": -18.0, "z": 9},   # FistF onto ArmF's hand, in front
+        {"rw": 62, "rh": 41, "back": True, "drot": -0.45},          # ArmB — lower angle
+    ],
+    # McDonnell's plaid arms: drop them a touch (drot) so they don't leave a shoulder/
+    # torso gap, and move each anchor to the SHOULDER end (the body-side end) so the arm
+    # pivots from the shoulder instead of spinning about its middle. Back arm's shoulder
+    # is its right end (ax=1), the front arm's is its left end (ax=0).
+    "FarmStageActorBoss": [
+        {"rw": 64, "rh": 30, "back": True, "drot": 0.2, "ax": 1.0, "ay": 0.5},
+        {"rw": 64, "rh": 30, "back": False, "drot": 0.2, "ax": 0.0, "ay": 0.5},
+    ],
+}
+
 
 # --- runtime rig (animation) --------------------------------------------------
 # Classify a part into an animation group by its name. `back` marks the rear of a
@@ -353,6 +402,39 @@ def emit_rig(key, placed):
     if arm_bones and weapons:
         a = arm_bones[0]
         shoulder = {"x": round(a["axc"] - minx, 1), "y": round(a["ayc"] - miny, 1)}
+    # Explicit strip-space override where the auto-pick reads wrong. The lumberjack's
+    # axe hand isn't a recognised WEAPON name (so the arm-bone/weapon split above
+    # doesn't fire) and its plaid bicep is camouflaged against the shirt — the fallback
+    # then pivots the swing from the far-back shoulder anchor, so the axe winds up over
+    # the face and the visible forearm reads as hinging at the pelvis. This pins the
+    # pivot forward at the upper torso so the strike is a clean forward slice toward the
+    # target (verified via tools/dev-enemy harness).
+    if key in SHOULDER_OVERRIDES:
+        shoulder = dict(SHOULDER_OVERRIDES[key])
+    # Nudge specific parts (matched by packed size) to close art seams — see
+    # PART_POS_OVERRIDES (e.g. the lumberjack forearm/upper-arm elbow gap).
+    for ov in PART_POS_OVERRIDES.get(key, []):
+        for pj in parts_json:
+            if pj["rw"] != ov["rw"] or pj["rh"] != ov["rh"]:
+                continue
+            if "back" in ov and pj["back"] != ov["back"]:
+                continue
+            # ax/ay re-seat the anchor (pivot); compensate position so the rest pose is
+            # unchanged (naive shift, matching the dev-enemy harness).
+            if "ax" in ov:
+                pj["px"] = round(pj["px"] + (ov["ax"] - pj["ax"]) * pj["rw"], 1)
+                pj["ax"] = ov["ax"]
+            if "ay" in ov:
+                pj["py"] = round(pj["py"] + (ov["ay"] - pj["ay"]) * pj["rh"], 1)
+                pj["ay"] = ov["ay"]
+            if "dpx" in ov:
+                pj["px"] = round(pj["px"] + ov["dpx"], 1)
+            if "dpy" in ov:
+                pj["py"] = round(pj["py"] + ov["dpy"], 1)
+            if "z" in ov:
+                pj["z"] = ov["z"]
+            if "drot" in ov:
+                pj["rot"] = round(pj["rot"] + ov["drot"], 4)
     os.makedirs(OUT_PARTS, exist_ok=True)
     strip.save(os.path.join(OUT_PARTS, f"{key}.png"))
     # A PUNCHER (allowlisted bare-fisted suit) rests its arms at its sides and only
@@ -362,6 +444,8 @@ def emit_rig(key, placed):
         MODELS[key]["shoulder"] = shoulder
     if key in SLAM_KEYS:
         MODELS[key]["slam"] = True
+    if key in CHOP_SIGN_OVERRIDES:
+        MODELS[key]["chopSign"] = CHOP_SIGN_OVERRIDES[key]
 
 
 def skeletal_placed(parts, atlas, frames):

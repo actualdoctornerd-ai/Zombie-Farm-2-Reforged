@@ -13,8 +13,9 @@
 //
 // A zombie's ACTIVE abilities are gated exactly like the detail card (see hud.ts
 // buildZombieDetail): for each tier 1..(its colour-class rank), the tier's ability
-// applies only if that tier's invasion boss has been beaten. So combat power tracks
-// what the player sees on the card — no hidden bonuses.
+// applies only once THAT ability has been unlocked (its tier's invasion boss beaten
+// enough times to reach it). So combat power tracks what the player sees on the
+// card — no hidden bonuses.
 
 import { MAX_ABILITY_TIER, unitAbilityAt, abilityTierOf } from "./traits";
 import { classTierRank } from "./taxonomy";
@@ -134,17 +135,17 @@ export const ARMY_HP_MULT_CAP = 1.6;
 
 /** The gated, currently-active ability keys for one owned zombie — the SAME set
  *  the detail card shows: for each tier up to its class rank, the tier's ability
- *  applies only if that tier's invasion boss has been beaten. */
+ *  applies only if that specific ability has been unlocked (its tier's invasion
+ *  boss beaten enough times to reach it — see GameState.abilityUnlocked). */
 export function activeAbilities(
   z: Pick<OwnedZombie, "key" | "group" | "className">,
-  tierUnlocked: (tier: number) => boolean
+  abilityUnlocked: (key: string) => boolean
 ): string[] {
   const rank = Math.min(MAX_ABILITY_TIER, classTierRank(z.className));
   const out: string[] = [];
   for (let t = 1; t <= rank; t++) {
-    if (!tierUnlocked(t)) continue;
     const key = unitAbilityAt(z.key, z.group, t);
-    if (key) out.push(key);
+    if (key && abilityUnlocked(key)) out.push(key);
   }
   return out;
 }

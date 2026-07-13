@@ -12,11 +12,13 @@ Effect classification (from the entry's boolean flags):
   instaHarvest -> "harvest"       harvest every ripe plot
   instaPlow    -> "plow"          re-plow all harvested (spent) plots
   treatAsGift  -> "gift"          grant a specific zombie (giftZombieKey)
-  refresher    -> "refresh"       reset ripe crops back to fully fresh (max sell)
   instaHunger  -> "concentration" invasion boost -> spent on the Invade screen
   goldenDice   -> "dice"          invasion boost -> spent on the Invade screen
 
-Farm-usable effects (grow/harvest/plow/gift/refresh) set usableOnFarm=true; the
+Refresher boosts are skipped entirely — the game has no crop-freshness system, so
+crops stay at full sell value once ripe and there is nothing to refresh.
+
+Farm-usable effects (grow/harvest/plow/gift) set usableOnFarm=true; the
 invasion boosts (concentration/dice) are spent from the Invade screen instead.
 
 Run:  python tools/prep_boosts.py
@@ -42,13 +44,12 @@ def effect_of(e):
     if e.get("instaHarvest"): return "harvest"
     if e.get("instaPlow"): return "plow"
     if e.get("treatAsGift"): return "gift"
-    if e.get("refresher"): return "refresh"
     if e.get("instaHunger"): return "concentration"
     if e.get("goldenDice"): return "dice"
     return "other"
 
 
-FARM_USABLE = {"grow", "harvest", "plow", "gift", "refresh"}
+FARM_USABLE = {"grow", "harvest", "plow", "gift"}
 
 
 def main():
@@ -83,6 +84,9 @@ def main():
             continue
         # Skip mystery/event fragments with no price (Rusty Key/Fragment etc.).
         if e.get("cost") is None:
+            continue
+        # Skip Refresher boosts: there is no crop-freshness system to refresh.
+        if e.get("refresher"):
             continue
         eff = effect_of(e)
         key = e.get("tile") or slug(e["name"])

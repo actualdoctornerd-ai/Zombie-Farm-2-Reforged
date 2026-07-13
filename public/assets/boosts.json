@@ -45,21 +45,6 @@
   "icon": "insta_plow.png"
  },
  {
-  "key": "refresher",
-  "name": "Refresher",
-  "cost": "10",
-  "brainsNeeded": true,
-  "level": 0,
-  "effect": "refresh",
-  "amount": 0,
-  "perPurchase": 2,
-  "giftZombieKey": "",
-  "usableOnFarm": true,
-  "info": "Makes all  crops fresh!",
-  "flavorText": "Instantly makes all crops fresh so they sell for maximum gold.",
-  "icon": "refresher.png"
- },
- {
   "key": "crazy_zombie_voucher",
   "name": "Crazy Zombie Voucher",
   "cost": "100",

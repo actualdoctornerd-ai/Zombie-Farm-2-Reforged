@@ -70,6 +70,17 @@ const GRAVITY = 820; // sim px/s^2 pulling projectiles down
 const GROUND_Y = BAND_BOT + 24; // a throw that reaches here has missed (fizzles)
 const ZOMBIE_HIT_R = 30; // zombie collision radius in sim units
 const PROJ_HIT_FACTOR = 0.4; // projectile radius = spriteSize * this
+// Predictive lead: throws aim where the target WILL be after the flight time, but the
+// lead speed is CAPPED here — a target moving faster than this is led only as much as a
+// "lowish speed" zombie would be, so the throw lands behind it and a fast zombie outruns
+// the shot. Normal/slow zombies (≤ cap) are led accurately and get hit. Chosen against
+// advanceSpeed(dex) (90–260): ~dex 1–4 (≤178) are led enough to connect; dex 5+ (≥200)
+// under-lead into a miss on the longer lobs to the back of the lane.
+const PREDICT_SPEED_CAP = 150; // sim px/s — never lead a target faster than this
+// Above this per-step displacement, a unit was teleported (knockback re-slot, boss
+// perch↔ground) rather than walking — its measured velocity is discarded (max real
+// step is moveSpeed≤260 × dt≤0.05s ≈ 13 px).
+const TELEPORT_PX = 40;
 // Raw bossActions throw damage (6/12/18) has no melee-comparable scale in the data, so
 // it's a tuned chip value. Scaled to sit alongside the ground-truth melee/HP numbers
 // (a basic zombie is now ~14 dmg/hit vs con×100 HP): raw 6/12/18 × 1.75 = ~10/21/32,
@@ -171,6 +182,10 @@ export interface SimUnit {
   distractSeed: number; // per-unit seed for the deterministic distraction roll
   bubbleMs: number; // ms until the current bubble auto-resolves
   struckThisTick: boolean;
+  vx: number; // measured velocity over the last step (sim px/s) — drives throw lead
+  vy: number;
+  prevX: number; // position at the start of the current step (velocity bookkeeping)
+  prevY: number;
   damage: number;
   cooldownMs: number;
   timerMs: number;
@@ -245,6 +260,10 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     distractSeed: i,
     bubbleMs: 0,
     struckThisTick: false,
+    vx: 0,
+    vy: 0,
+    prevX: home.x,
+    prevY: home.y,
     // Ground-truth per-swing damage: finalPower(str×10) × attackMult × K(0.7).
     damage: Math.max(1, Math.round(deriveHitDamage(u.str * POWER_PER_STR, mult))),
     cooldownMs: u.attackCooldownMs,
@@ -437,28 +456,52 @@ export class BattleSim {
     return best;
   }
 
-  /** Nearest player within striking range of an enemy. */
+  /** The FRONT-MOST player within an enemy's striking range — the single zombie
+   *  nearest the enemy down the lane, NOT the whole front row. Enemies commit all
+   *  their damage to this one target (a big/slow hit knocks it back or drops it
+   *  rather than chipping the entire line), so losses are more focused. Among the
+   *  front column (zombies sharing the lead x) the tiebreak picks the one closest to
+   *  the enemy's own row. */
   private playerInRange(e: SimUnit): SimUnit | null {
     let best: SimUnit | null = null;
-    let bestD = ENGAGE + 0.001;
     for (const p of this.players) {
       if (!p.alive) continue;
-      const d = Math.abs(p.x - e.x);
-      if (d <= bestD) {
-        bestD = d;
+      if (Math.abs(p.x - e.x) > ENGAGE) continue; // out of melee lane range
+      if (
+        !best ||
+        p.x > best.x + 0.5 || // more forward (nearer the enemy) wins
+        (Math.abs(p.x - best.x) <= 0.5 && Math.abs(p.y - e.y) < Math.abs(best.y - e.y))
+      ) {
         best = p;
       }
     }
     return best;
   }
 
-  /** Whom the boss aims at: prefer Garden zombies; else the most-forward zombie. */
+  /** Whom the boss aims at: the FARTHEST-BACK deployed zombie (min x), so lobbed
+   *  throws arc over the frontline tanks and land on the support/healers massed
+   *  behind them. "Deployed" = released from the focus bar (brain popped) and now
+   *  advancing/fighting on the lane; zombies still waiting or charging are off-limits.
+   *  Returns null when nothing is deployed — so the boss doesn't throw at an empty
+   *  lane. The lead (see leadVelocity) is applied at launch. */
   private throwTarget(): SimUnit | null {
-    const alive = this.players.filter((p) => p.alive);
-    if (!alive.length) return null;
-    const gardens = alive.filter((p) => p.isGarden);
-    const pool = gardens.length ? gardens : alive;
-    return pool.reduce((a, b) => (b.x > a.x ? b : a));
+    const deployed = this.players.filter(
+      (p) => p.alive && (p.state === "advance" || p.state === "fight")
+    );
+    if (!deployed.length) return null;
+    return deployed.reduce((a, b) => (b.x < a.x ? b : a));
+  }
+
+  /** The velocity a throw leads a target by: its MEASURED velocity (how it actually
+   *  moved last step), CLAMPED to PREDICT_SPEED_CAP. So a slow/normal zombie is led by
+   *  its true speed (and gets hit), while a fast one is led only as if it were "lowish
+   *  speed" — the shot lands behind it and it outruns the throw. Zero when it's not
+   *  moving (parked at its slot, fighting), so a stationary target is aimed at directly. */
+  private leadVelocity(u: SimUnit): { vx: number; vy: number } {
+    const spd = Math.hypot(u.vx, u.vy);
+    if (spd < 1) return { vx: 0, vy: 0 };
+    const k = Math.min(1, PREDICT_SPEED_CAP / spd);
+    return { vx: u.vx * k, vy: u.vy * k };
   }
 
   private anyAlive(side: SimUnit[]): boolean {
@@ -634,7 +677,11 @@ export class BattleSim {
   step(dtMs: number): boolean {
     if (this.finished) return false;
     this.elapsed += dtMs;
-    for (const u of this.units) u.struckThisTick = false;
+    for (const u of this.units) {
+      u.struckThisTick = false;
+      u.prevX = u.x; // snapshot for this step's velocity measurement (see below)
+      u.prevY = u.y;
+    }
 
     this.promote(dtMs);
     this.stepEnrage(dtMs);
@@ -794,10 +841,41 @@ export class BattleSim {
       }
     }
 
+    // Measure each unit's velocity from this step's movement (for boss-throw lead).
+    // A big jump is a teleport (knockback re-slot, boss perch↔ground) not real motion —
+    // zero it so a throw doesn't lead a phantom high-speed vector.
+    const dtSec = dtMs / 1000;
+    if (dtSec > 0) {
+      for (const u of this.units) {
+        const ddx = u.x - u.prevX;
+        const ddy = u.y - u.prevY;
+        if (Math.hypot(ddx, ddy) > TELEPORT_PX) {
+          u.vx = 0;
+          u.vy = 0;
+        } else {
+          u.vx = ddx / dtSec;
+          u.vy = ddy / dtSec;
+        }
+      }
+    }
+
     if (!this.anyAlive(this.players) || !this.anyAlive(this.enemies) || this.elapsed >= MAX_SIM_MS) {
       this.finished = true;
     }
     return !this.finished;
+  }
+
+  /** Throw wind-up for the renderer's perched-boss throw animation: 0..1 filling over
+   *  the last `windowMs` before the next throw releases (the arm cocks and swings), or
+   *  null when the boss isn't perched-and-throwing / has no target. The projectile
+   *  launches as this reaches 1, so the renderer can time the arm to the release. */
+  bossThrowSwing(windowMs = 550): number | null {
+    if (!this.bossThrow || !this.boss || !this.boss.alive || this.boss.state !== "structure") {
+      return null;
+    }
+    if (!this.throwTarget()) return null; // empty lane → arm rests
+    if (this.throwTimer > windowMs) return 0;
+    return clamp(1 - this.throwTimer / windowMs, 0, 1);
   }
 
   /** Whether the boss is "active" (able to throw / cast specials): alive and either
@@ -968,7 +1046,7 @@ export class BattleSim {
     this.spawnObstacle();
   }
 
-  /** Launch a ballistic throw aimed at the target zombie's current position. */
+  /** Launch a ballistic throw at the target zombie, leading its (capped) motion. */
   private launchThrow(target: SimUnit) {
     const opts = this.bossThrow!.options;
     const opt = opts[this.throwCount % opts.length]; // deterministic round-robin
@@ -981,8 +1059,9 @@ export class BattleSim {
     );
   }
 
-  /** Launch a projectile at a target. Ballistic by default (a lobbed throw); pass
-   *  `straight` for a fast flat bolt (alien laser). */
+  /** Launch a projectile at a target, LEADING its (capped) motion so it connects with
+   *  advancing zombies. Ballistic by default (a lobbed throw); pass `straight` for a
+   *  fast flat bolt (alien laser). */
   private launchProjectile(
     target: SimUnit,
     damage: number,
@@ -992,20 +1071,26 @@ export class BattleSim {
   ) {
     const x0 = BOSS_STRUCT_X;
     const y0 = BOSS_STRUCT_Y;
+    const grav = opts.straight ? 0 : GRAVITY;
+    // Flight time: a straight bolt is range/speed; a ballistic lob scales with range.
+    const T = opts.straight
+      ? (Math.hypot(target.x - x0, target.y - y0) || 1) / LASER_SPEED
+      : clamp(Math.abs(target.x - x0) / 520 + 0.7, 0.85, 1.7);
+    // Aim where the target will be after T, using its speed-capped lead velocity.
+    const { vx: lvx, vy: lvy } = this.leadVelocity(target);
+    const tx = target.x + lvx * T;
+    const ty = target.y + lvy * T;
     let vx: number;
     let vy: number;
-    const grav = opts.straight ? 0 : GRAVITY;
     if (opts.straight) {
-      const dx = target.x - x0;
-      const dy = target.y - y0;
+      const dx = tx - x0;
+      const dy = ty - y0;
       const d = Math.hypot(dx, dy) || 1;
       vx = (dx / d) * LASER_SPEED;
       vy = (dy / d) * LASER_SPEED;
     } else {
-      const dxAbs = Math.abs(target.x - x0);
-      const T = clamp(dxAbs / 520 + 0.7, 0.85, 1.7); // flight time → a nice lob
-      vx = (target.x - x0) / T;
-      vy = (target.y - y0) / T - 0.5 * GRAVITY * T; // ballistic solve
+      vx = (tx - x0) / T;
+      vy = (ty - y0) / T - 0.5 * GRAVITY * T; // ballistic solve to the lead point
     }
     this.projectiles.push({
       id: `proj${this.projSeq++}`,

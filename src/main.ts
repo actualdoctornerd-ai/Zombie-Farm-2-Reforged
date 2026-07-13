@@ -566,12 +566,6 @@ async function main() {
       floatText(c.x, c.y, `Got ${def.name}!`);
       return true;
     }
-    if (def.effect === "refresh") {
-      // Reset every stale/aging ripe crop back to fully fresh (max sell value).
-      const n = field.refreshCrops();
-      if (n) floatText(c.x, c.y, `Freshened ${n}!`);
-      return n > 0;
-    }
     // concentration / dice are spent on the Invade screens, not on the farm.
     floatText(c.x, c.y, "Used during invasions");
     return false;
@@ -1174,12 +1168,34 @@ async function main() {
     receiving = index; // arm after setPlacing so onModeChange doesn't clear it
   };
 
-  // The object currently being relocated by the Move tool (null = none).
-  let carrying: { id: string; def: PlaceableDef } | null = null;
+  // The object currently being relocated by the Move tool (null = none). `flipped`
+  // tracks its orientation so rotating mid-carry survives the drop.
+  let carrying: { id: string; def: PlaceableDef; flipped: boolean } | null = null;
   const cancelCarry = () => {
     carrying = null;
     field.hideObjectCursor();
   };
+
+  // Orientation for the placement ghost (Rotate tool flips it on the vertical axis),
+  // remembered across taps so a whole fence run can be laid facing the same way.
+  let placeFlipped = false;
+
+  // The Rotate tool is context-sensitive: while placing it spins the ghost, while
+  // carrying (Move) it spins the carried object, and otherwise it toggles a
+  // standalone rotate mode (tap any placed object to flip it). This keeps a single
+  // button meaning "rotate whatever I'm working with" in every situation.
+  const rotateCurrent = () => {
+    if (hud.mode === "place" && hud.placing) {
+      placeFlipped = !placeFlipped;
+      field.setGhostFlip(placeFlipped);
+    } else if (hud.mode === "move" && carrying) {
+      carrying.flipped = !carrying.flipped;
+      field.setGhostFlip(carrying.flipped);
+    } else {
+      hud.setMode("rotate");
+    }
+  };
+  hud.onRotateTool = rotateCurrent;
 
   // Place the selected object at the pointer tile if the footprint is valid,
   // unlocked, and affordable. Stays in placement mode to place several.
@@ -1198,7 +1214,7 @@ async function main() {
     if (!field.canPlaceObject(oc, or, def)) return;
     // Retrieving a stored item: already owned, so it's free and places just one.
     if (retrieving) {
-      field.placeObject(def, oc, or);
+      field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
       audio.play("place");
       if (def.armyMax) state.addZombieMax(def.armyMax); // re-apply functional effect
       state.retrieveItem(retrieving);
@@ -1208,7 +1224,7 @@ async function main() {
     }
     // Placing a Received reward: also free, consumed from the Received bucket.
     if (receiving !== null) {
-      field.placeObject(def, oc, or);
+      field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
       audio.play("place");
       if (def.armyMax) state.addZombieMax(def.armyMax);
       state.takeReceivedAt(receiving);
@@ -1223,7 +1239,7 @@ async function main() {
     const useBrains = def.zombiePot ? potOwned : def.brainsNeeded;
     const paid = useBrains ? state.spendBrains(cost) : state.spendGold(cost);
     if (!paid) return;
-    field.placeObject(def, oc, or);
+    field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
     audio.play("place");
     const xp = buyXp(cost, def.xp); // buying always rewards XP (economy.ts)
     state.addXp(xp);
@@ -1239,13 +1255,13 @@ async function main() {
   const handleMoveTap = (col: number, row: number, wx: number, wy: number) => {
     if (carrying) {
       const { oc, or } = field.resolveObjectOrigin(carrying.def, col, row);
-      if (field.moveObject(carrying.id, oc, or)) cancelCarry();
+      if (field.moveObject(carrying.id, oc, or, carrying.flipped)) cancelCarry();
     } else {
       const id = field.objectAtPoint(wx, wy);
       const def = id ? field.objectDefOf(id) : null;
       if (id && def) {
-        carrying = { id, def };
-        field.setObjectCursor(def, col, row, id);
+        carrying = { id, def, flipped: field.objectFlipOf(id) };
+        field.setObjectCursor(def, col, row, id, carrying.flipped);
       }
     }
   };
@@ -1342,6 +1358,13 @@ async function main() {
       dragging = false;
       return;
     }
+    if (hud.mode === "rotate") {
+      // Rotate tool: tap any placed object to flip it on the vertical axis.
+      const id = field.objectAtPoint(wx, wy);
+      if (id) { field.flipObject(id); audio.play("place"); saveManager.save(); }
+      dragging = false;
+      return;
+    }
     if (jobs.cancelAtTile(col, row)) { // tapped a queued action -> un-queue it
       dragging = false;
       return;
@@ -1377,11 +1400,11 @@ async function main() {
     }
     const { col, row, wx, wy } = tileAt(e);
     if (hud.mode === "place" && hud.placing) {
-      field.setObjectCursor(hud.placing, col, row); // ghost follows the cursor
+      field.setObjectCursor(hud.placing, col, row, undefined, placeFlipped); // ghost follows the cursor
       return;
     }
     if (hud.mode === "move") {
-      if (carrying) field.setObjectCursor(carrying.def, col, row, carrying.id);
+      if (carrying) field.setObjectCursor(carrying.def, col, row, carrying.id, carrying.flipped);
       return;
     }
     if (hud.mode === "remove") {
@@ -1485,11 +1508,12 @@ async function main() {
             sellBrains: !!def.brainsNeeded,
             onMove: () => {
               hud.setMode("move"); // fires onModeChange (clears carry) FIRST...
-              carrying = { id: oid, def }; // ...then pick up this object
+              carrying = { id: oid, def, flipped: field.objectFlipOf(oid) }; // ...then pick up this object
               const o = field.objectOriginOf(oid);
               if (o) field.setObjectCursor(def, o.oc + Math.floor((def.tileW - 1) / 2),
-                o.or + Math.floor((def.tileH - 1) / 2), oid);
+                o.or + Math.floor((def.tileH - 1) / 2), oid, carrying.flipped);
             },
+            onRotate: () => { field.flipObject(oid); saveManager.save(); },
             onStore: () => storeObject(oid),
             onSell: () => sellObject(oid),
           });
@@ -1546,6 +1570,7 @@ async function main() {
     cancelCarry();
     if (hud.mode !== "place") retrieving = null; // leaving placement drops a pending retrieve
     if (hud.mode !== "place") receiving = null; // ...and a pending Received placement
+    if (hud.mode !== "place") placeFlipped = false; // and reset the ghost orientation
   };
 
   window.addEventListener("resize", recenter);

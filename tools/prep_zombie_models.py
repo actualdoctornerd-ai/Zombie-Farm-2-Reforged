@@ -220,6 +220,13 @@ def scale_of(key):
         return 1.10
     if key.startswith("ZombieActorHeadlessTier5"):  # Skull head — scaled down
         return 0.80
+    # Zcarecrow (Large2*) and Zanta (Large3*) are their OWN seasonal subclasses,
+    # NOT the barbarian ZombieActorLarge family — they don't inherit its 1.15
+    # scale-up. Like every other seasonal reskin (Jacko/Reindeer/Teddy), they're
+    # regular-sized. group_of() lumps any "Large*" key into Large, so special-case
+    # them back to the base scale here.
+    if re.match(r"^ZombieActorLarge[2-9]", key):
+        return 0.90
     g = group_of(key)
     return {
         "Regular": 0.90,
