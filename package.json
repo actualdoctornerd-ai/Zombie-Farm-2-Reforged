@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "ZF2R reimplementation - Milestone 1: walkable isometric field",
+  "description": "Zombie Farm 2 Reforged - browser reimplementation with optional online mode",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

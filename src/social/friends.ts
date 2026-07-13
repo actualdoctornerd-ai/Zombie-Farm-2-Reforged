@@ -1,12 +1,13 @@
 // ---------------------------------------------------------------------------
 // Friends (offline stub)
 // ---------------------------------------------------------------------------
-// A local, no-server "friends" list. Every friend here is a purely local entry —
-// there is no real connection, invite, or account behind it yet. This is the seam
-// the future online friend system slots into: when sign-in + accounts land, a
-// Friend's `id` becomes a real account id and `sendGift` becomes a network call
-// that credits the friend's account. Until then, adding a friend is just a name,
-// and gifting is recorded locally.
+// A local, no-server "friends" list — the OFFLINE-BUILD fallback. Every friend
+// here is a purely local entry with no real account behind it. The online friend
+// system (sign-in + accounts) has landed and lives server-side (net/api.ts +
+// server/): there, a friend is a real account, adds go through friend codes, and
+// a gift is a network call that credits the friend's account. This local list is
+// what remains when no server is configured; adding a friend is just a name, and
+// gifting is recorded locally.
 //
 // Gifting: each friend can be sent a gift of one brain. Sending is FREE to the
 // player (a social faucet, matching the classic daily-gift mechanic) — the brain

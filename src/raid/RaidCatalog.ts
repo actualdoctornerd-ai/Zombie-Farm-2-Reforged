@@ -1,6 +1,7 @@
-// Pure helpers over the raid catalog: unlock/lock state, which wave to fight in
-// the instant-resolve MVP, army-selection rules, and reward derivation. No side
-// effects — RaidManager applies these.
+// Pure helpers over the raid catalog: unlock/lock state, stage/difficulty
+// selection, army-selection rules, and reward derivation. Player-facing raids run
+// the live combat sim (BattleSim); instant resolution (CombatEngine) is retained
+// only as a test/dev utility. No side effects — RaidManager applies these.
 import { RaidDef, RaidStage } from "./types";
 
 /** Minimum army to launch an invasion (Help.json: "at least 8, best with 16"). */

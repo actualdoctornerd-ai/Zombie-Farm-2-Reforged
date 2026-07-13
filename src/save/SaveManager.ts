@@ -1,6 +1,8 @@
 // Serializes the live game (GameState + Field + farmer position) and persists it.
 //
-// Two tiers, and the online tier is PURELY ADDITIVE:
+// Two tiers. As a build capability the online tier is optional (omit VITE_API_URL
+// to ship an offline-only game); but the hosted production deployment configures
+// and requires it (sign-in is gated in net/gate.ts):
 //   • Local (always): a debounced write to localStorage — the offline cache and
 //     the sole store when signed out or no server is configured. Same behavior as
 //     the original no-server game.

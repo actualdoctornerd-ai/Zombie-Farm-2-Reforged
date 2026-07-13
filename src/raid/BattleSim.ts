@@ -16,7 +16,12 @@
 //   circle collision — a fast/small zombie can be missed. Once the minions are
 //   cleared the boss descends and fights as a ground unit.
 //
-// Deferred: focus-bar distractions (Phase 4), ability effects (Phase 5).
+// Now implemented: focus-bar distractions (butterfly/brain bubbles, with
+// Concentration bypass), activated abilities (windup/cooldown/stun/knockback),
+// boss specials, and ballistic projectiles. Still deferred/disabled: boss
+// summon/wall spawning (templates are built but the scheduler doesn't spawn them
+// yet) and ground-crossing environmental hazards (RaidManager.hazardOf returns
+// null pending better visual integration).
 //
 // Combat numbers are the GROUND-TRUTH fight-data model (combatStats.ts, recovered from
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)

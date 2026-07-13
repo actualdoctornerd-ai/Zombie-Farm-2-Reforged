@@ -1,5 +1,6 @@
-// Minimal local game state (no server). Levels/XP curve is build-verified from
-// PlayerLevels.plist. Filler starting values for now.
+// Client-side live game state. Persistence may be local-only (localStorage) or
+// synchronized through the online save service (see save/SaveManager). Levels/XP
+// curve is build-verified from PlayerLevels.plist. Filler starting values for now.
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
 import { ABILITY_TIER, abilityTierOf } from "./zombie/traits";
 
@@ -40,8 +41,11 @@ export class GameState {
   // The player's chosen attack order (deployed zombie ids, first attacks first).
   // Persisted so the Army screen reopens with the same ordering after a raid.
   raidAttackOrder: string[] = [];
-  // ---- friends (offline stub; the seam for a future online friend system) ----
-  // A local list of "friends"; gifting a brain is recorded here. See social/friends.ts.
+  // ---- friends (local offline-fallback list) ----
+  // The online friend system is server-backed (net/api.ts + HUD): friend codes,
+  // server friend lists, and daily brain gifting live on the Worker. This local
+  // list is the offline-build fallback; gifting a brain is recorded here. See
+  // social/friends.ts.
   friends: Friend[] = [];
   private listeners: Listener[] = [];
 
@@ -274,8 +278,9 @@ export class GameState {
   }
   /** Gift one brain to a friend. Free to the player (a social faucet) — offline
    *  there is no recipient account, so the gift is only recorded on the friend.
-   *  This is where a future online build POSTs the gift to credit the friend.
-   *  Returns false if the friend is unknown or (later) already gifted today. */
+   *  The online build credits the recipient's account server-side instead
+   *  (net/api.ts → POST /gifts). Returns false if the friend is unknown or
+   *  (later) already gifted today. */
   giftBrain(id: string): boolean {
     const f = this.friends.find((x) => x.id === id);
     if (!f || !canGiftBrain(f, Date.now())) return false;

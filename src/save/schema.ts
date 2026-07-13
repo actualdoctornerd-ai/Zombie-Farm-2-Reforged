@@ -63,8 +63,9 @@ export interface SaveGame {
   quests?: QuestSave;
   /** Phase 5: raid/invasion progress (lifetime win count per raid id). */
   raids?: RaidProgressSave;
-  /** Offline friends list + gifting state (the seam for a future online friend
-   *  system). Absent = no friends yet. */
+  /** Local offline-fallback friends list + gifting state. The online friend system
+   *  is server-backed (net/api.ts + server/), not stored here. Absent = no local
+   *  friends. */
   social?: SocialSave;
 }
 

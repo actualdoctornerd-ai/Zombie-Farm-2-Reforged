@@ -3,19 +3,22 @@
 // requirement dispatches the quest's reward and unlocks any quest gated behind it.
 //
 // Quests activate when their prerequisite is complete AND the player meets the level
-// gate. All 96 quests load; ones whose trigger events have no emitter yet (raids,
-// social, mutations, seasonal) simply never advance — dormant, not broken.
+// gate. All 96 quests load; the farm loop, raids/invasions (loot/perfect/success),
+// and the Zombie Pot combiner have live emitters (see LIVE_EVENTS below). Quests
+// gated on still-unsupported categories (social, photo/camera, Epic Boss) simply
+// never advance — dormant, not broken.
 import { GameState } from "../GameState";
 import { QuestBus, QuestEvent } from "./events";
 import { QuestDef, QuestView, RewardType } from "./types";
 import { QuestSave } from "../save/schema";
 
 // Notification IDs that have live emitters. A quest only auto-activates once one of
-// its requirements listens to a live event, so quests whose systems don't exist in
-// this offline build stay off the rail. Covered: the farm loop, raids/invasions
-// (RaidManager wins → loot / perfect-game / success), and the Zombie Pot combiner.
-// Intentionally NOT covered: social (kSocialManager* — no multiplayer offline) and
-// camera/photo (kPhotoTaken — excluded), plus the Epic Boss system (unbuilt).
+// its requirements listens to a live event, so quests whose trigger events aren't
+// emitted stay off the rail. Covered: the farm loop, raids/invasions (RaidManager
+// wins → loot / perfect-game / success), and the Zombie Pot combiner.
+// Intentionally NOT covered: social quests (kSocialManager* — the online friends
+// system exists, but these quest events aren't wired to it yet), camera/photo
+// (kPhotoTaken — excluded), and the Epic Boss system (unbuilt).
 const LIVE_EVENTS = new Set<string>([
   // farm loop
   QuestEvent.SoilPlowed, QuestEvent.NewSoilPlowed, QuestEvent.CropPlanted,
