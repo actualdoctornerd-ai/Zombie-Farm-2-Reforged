@@ -1,5 +1,6 @@
 // Loads the prepped data (JSON) and textures produced by tools/prep_assets.py.
 import { Assets, Rectangle, Texture } from "pixi.js";
+import { makeCropTopTexture } from "./cropTop";
 import { QuestDef } from "./quest/types";
 import { RaidDef, EnemyStat, AttackDef } from "./raid/types";
 import { setZombieNames } from "./zombie/names";
@@ -199,6 +200,7 @@ export interface GameAssets {
   player: Record<string, Texture>; // part filename -> texture
   soil: Record<string, Texture>; // plot filename -> texture
   crop: Record<string, Texture>; // crop-stage filename -> texture
+  cropTop: Record<string, Texture>; // crop-stage filename -> plants-only texture (soil keyed out)
   zombieModels: Record<string, ZombieModel>; // unitKey -> per-type model
   enemyModels: Record<string, EnemyModel>; // raid-enemy key -> animated rig
   zombiePartTex: Record<string, Texture>; // ZombieSheet part name -> sub-texture
@@ -389,6 +391,14 @@ export async function loadAssets(): Promise<GameAssets> {
   );
   crop[SEED_FILE] = soil[SEED_FILE]; // seed stage = seeded-soil texture
 
+  // Plants-only companions: the same crop art with its baked soil keyed out, so
+  // the plant can be depth-sorted in the entity layer while the dirt renders in
+  // a ground layer that never clips a neighbour (see cropTop.ts / Field). The
+  // flat seed stage keeps its full texture (it IS just soil).
+  const cropTop: Record<string, Texture> = {};
+  for (const [f, tex] of Object.entries(crop))
+    cropTop[f] = f === SEED_FILE ? tex : makeCropTopTexture(tex);
+
   // Per-type zombie models: one shared atlas (ZombieSheet.png) sliced into part
   // sub-textures via frames.json, plus models.json (composition per unit type).
   const [zombieModels, zombieFrames, mutationParts, sheet, enemyModels] = await Promise.all([
@@ -425,7 +435,7 @@ export async function loadAssets(): Promise<GameAssets> {
   );
 
   return {
-    field, groundIndex, rig, ground, player, soil, crop,
+    field, groundIndex, rig, ground, player, soil, crop, cropTop,
     zombieModels, enemyModels, zombiePartTex, mutationParts, plants, zombies, placeables, boosts, quests,
     raids, enemyStats, raidAttacks, drops, objects, background, scenery, upgrades,
   };

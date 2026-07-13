@@ -67,6 +67,8 @@ export interface SaveGame {
    *  is server-backed (net/api.ts + server/), not stored here. Absent = no local
    *  friends. */
   social?: SocialSave;
+  /** First-run Tim Buckwheat guided tutorial progress. Absent = never started. */
+  tutorial?: TutorialSave;
 }
 
 /** Offline social state: the local friends list. */
@@ -255,6 +257,15 @@ export interface QuestSave {
    *  requirements array). */
   active: { id: string; counts: number[] }[];
   completed: string[];
+}
+
+/** First-run guided tutorial (Tim Buckwheat) progress. Absent = never started.
+ *  Only the coarse position persists; the transient target (which plot/arrow) is
+ *  re-derived on restore. `step` is a numeric TutStep. */
+export interface TutorialSave {
+  done: boolean;
+  step: number;
+  skipped?: boolean;
 }
 
 // ---------------------------------------------------------------------------

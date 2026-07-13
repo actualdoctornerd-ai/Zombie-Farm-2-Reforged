@@ -3,6 +3,7 @@
 // curve is build-verified from PlayerLevels.plist. Filler starting values for now.
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
 import { ABILITY_TIER, abilityTierOf } from "./zombie/traits";
+import { TutorialSave } from "./save/schema";
 
 export const XP_THRESHOLDS = [
   0, 25, 75, 150, 250, 375, 550, 800, 1300, 1800, 2300, 2800, 3300, 3900, 4500,
@@ -16,7 +17,7 @@ type Listener = () => void;
 export class GameState {
   name = "Zombie Farmer";
   gold = 200;
-  brains = 5;
+  brains = 15; // enough to buy the tutorial's Insta-Grow (10 brains) with headroom
   xp = 0;
   zombieCount = 1;
   zombieMax = 16;
@@ -47,6 +48,12 @@ export class GameState {
   // list is the offline-build fallback; gifting a brain is recorded here. See
   // social/friends.ts.
   friends: Friend[] = [];
+  // ---- first-run guided tutorial (Tim Buckwheat) ----
+  // Coarse progress {done, step, skipped}; undefined = never started. The
+  // TutorialController reads/writes this via setTutorial() so autosave (which
+  // listens to onChange) captures every step advance. Transient targeting
+  // (which plot/arrow) is not stored — it's re-derived on restore.
+  tutorial: TutorialSave | undefined = undefined;
   private listeners: Listener[] = [];
 
   onChange(fn: Listener) {
@@ -54,6 +61,12 @@ export class GameState {
   }
   private emit() {
     for (const fn of this.listeners) fn();
+  }
+
+  /** Persist tutorial progress and notify listeners (triggers autosave). */
+  setTutorial(t: TutorialSave | undefined) {
+    this.tutorial = t;
+    this.emit();
   }
 
   // ---- ground/climate skins ----

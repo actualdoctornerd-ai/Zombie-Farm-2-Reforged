@@ -1023,6 +1023,62 @@ const STYLE = `
 @media (max-width: 430px) {
   #hud .mkt-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---- Tim Buckwheat guided tutorial ---- */
+/* The layer that hosts Tim, the arrow, the blocker and the skip button. Sits
+   above every panel (level-up/quest-complete are z-index 24). It is itself
+   pointer-events:none; children opt in. */
+#hud .tut-layer { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+/* Full-screen tap blocker: only present while a step gates input. It swallows
+   every DOM tap so nothing but the highlighted element is reachable. */
+#hud.tutorial .tut-blocker { position: fixed; inset: 0; pointer-events: auto;
+  background: transparent; }
+/* The single element a gating step allows through: raised above the blocker with
+   its own stacking context + a pulsing glow ring. */
+#hud .tut-highlight { position: relative; z-index: 41 !important; pointer-events: auto !important;
+  border-radius: 12px; box-shadow: 0 0 0 3px #ffe27a, 0 0 16px 4px rgba(255,210,80,.9);
+  animation: tutGlow 1s ease-in-out infinite; }
+@keyframes tutGlow { 0%,100% { box-shadow: 0 0 0 3px #ffe27a, 0 0 12px 3px rgba(255,210,80,.7); }
+  50% { box-shadow: 0 0 0 4px #fff0a8, 0 0 22px 7px rgba(255,210,80,1); } }
+/* Tim's slide-up popup: sprite + speech bubble, anchored to the bottom edge. */
+#hud .tut-tim { position: fixed; left: 50%; bottom: 0; pointer-events: auto;
+  display: flex; align-items: flex-end; gap: 10px; transform: translate(-50%, 110%);
+  transition: transform .45s cubic-bezier(.2,.9,.25,1.1); max-width: 96vw; z-index: 42; }
+#hud .tut-tim.in { transform: translate(-50%, 0); }
+#hud .tut-tim-sprite { width: 150px; height: auto; flex: 0 0 auto;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.5)); pointer-events: none;
+  transform: translateY(6px); }
+#hud .tut-bubble { position: relative; margin-bottom: 40px; background: #fffdf3;
+  color: #3a2410; border: 3px solid #7a4a1e; border-radius: 14px; padding: 14px 18px;
+  font-weight: 700; font-size: 16px; line-height: 1.35; white-space: pre-line;
+  box-shadow: 0 4px 12px rgba(0,0,0,.45); max-width: min(420px, 70vw); cursor: pointer; }
+/* Little tail pointing at Tim. */
+#hud .tut-bubble::after { content: ""; position: absolute; left: -14px; bottom: 22px;
+  border: 8px solid transparent; border-right-color: #7a4a1e; }
+#hud .tut-hint { display: block; margin-top: 8px; font-size: 12px; font-weight: 700;
+  color: #9a7038; opacity: .85; }
+/* Two-button choice bubble (Zombie Pot beat). */
+#hud .tut-choice { display: flex; gap: 10px; margin-top: 12px; }
+#hud .tut-choice button { border: none; cursor: pointer; color: #fff; font-weight: 700;
+  font-size: 14px; padding: 8px 16px; border-radius: 10px; text-shadow: 0 1px 1px #000; }
+#hud .tut-choice .tc-yes { background: linear-gradient(#4f9d3a,#357026); box-shadow: 0 2px 0 #24491a; }
+#hud .tut-choice .tc-no { background: linear-gradient(#b06a34,#8a4f22); box-shadow: 0 2px 0 #5c3315; }
+#hud .tut-choice button:active { transform: translateY(1px); }
+/* Pulsing arrow that points at the current target. */
+#hud .tut-arrow { position: fixed; width: 54px; height: 54px; pointer-events: none;
+  z-index: 41; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5));
+  animation: tutBob 0.9s ease-in-out infinite; transform-origin: center; }
+@keyframes tutBob { 0%,100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+/* Persistent skip button, bottom-right. */
+#hud .tut-skip { position: fixed; right: 14px; bottom: 14px; pointer-events: auto;
+  border: none; cursor: pointer; color: #fff; font-weight: 700; font-size: 13px;
+  padding: 8px 16px; border-radius: 12px; z-index: 43;
+  background: rgba(30,45,20,.82); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+#hud .tut-skip:active { transform: translateY(1px); }
+@media (pointer: coarse), (max-width: 760px) {
+  #hud .tut-tim-sprite { width: 104px; }
+  #hud .tut-bubble { font-size: 14px; padding: 11px 14px; max-width: 66vw; }
+}
 `;
 
 export class Hud {
@@ -1389,6 +1445,7 @@ export class Hud {
     for (const m of items) {
       const btn = document.createElement("button");
       btn.className = "mbtn";
+      btn.dataset.menu = m.label; // stable anchor for the tutorial arrow (menuButton())
       btn.style.background = `linear-gradient(${m.light}, ${m.fill})`;
       btn.style.borderColor = m.dark;
       if (m.ready) {
@@ -1721,6 +1778,25 @@ export class Hud {
    *  can take over the screen. Raid panels stay visible. */
   setRaiding(on: boolean) {
     this.el.classList.toggle("raiding", on);
+  }
+
+  // ---- Tim Buckwheat guided tutorial seams (used by TutorialController) ----
+  /** Mount the tutorial's DOM layer into the HUD (above all panels). */
+  mountTutorial(el: HTMLElement) {
+    this.el.appendChild(el);
+  }
+  /** Toggle the input-gating `.tutorial` class on #hud (enables the tap blocker). */
+  setTutorialGating(on: boolean) {
+    this.el.classList.toggle("tutorial", on);
+  }
+  /** Resolve a right-menu button by its label (Invade/Zombies/Boosts/Storage/
+   *  Market/Friends) so the tutorial arrow can anchor to it. */
+  menuButton(label: string): HTMLElement | null {
+    return this.menuCol?.querySelector<HTMLElement>(`[data-menu="${label}"]`) ?? null;
+  }
+  /** Whether the mobile FAB currently hides the menu column (arrow needs expand). */
+  get isCollapsed(): boolean {
+    return this.collapsed;
   }
 
   // Enter/leave the read-only "visiting a friend's farm" view. Hides all
@@ -2399,12 +2475,16 @@ export class Hud {
   // Slide-in picker from the left (opened by the select tool on tilled ground).
   // Two screens (Plants / Zombies); the Zombies screen has NORMAL/SPECIAL/MUTANT
   // tabs. Picking a card calls onPick(cfg) and closes the menu.
-  openPlantMenu(onPick: (cfg: CropConfig) => void) {
+  openPlantMenu(onPick: (cfg: CropConfig) => void, opts?: { onlyKey?: string }) {
     document.querySelector("#hud .pm-bg")?.remove(); // only one at a time
     const bg = document.createElement("div");
     bg.className = "pm-bg";
     const pm = document.createElement("div");
     pm.className = "pm";
+    // Guided-tutorial mode: constrain the menu to a single plantable (the base
+    // Zombie) — the screen/subtab toggles are hidden and every other card is
+    // locked, so the player can only pick the tutorial's target.
+    const onlyKey = opts?.onlyKey;
 
     const close = document.createElement("button");
     close.className = "pm-close";
@@ -2412,6 +2492,7 @@ export class Hud {
     ci.src = UI("button_close.png");
     close.appendChild(ci);
     close.onclick = () => bg.remove();
+    if (onlyKey) close.style.display = "none"; // no bailing out of the tutorial pick
 
     // Plants / Zombies screen toggle.
     const screens = document.createElement("div");
@@ -2430,7 +2511,9 @@ export class Hud {
     const renderList = (cards: MenuCard[]) => {
       list.innerHTML = "";
       list.scrollTop = 0;
-      for (const c of cards) list.appendChild(this.buildCard(c, pick));
+      // In tutorial mode, lock every card except the target so only it is tappable.
+      for (const c of cards)
+        list.appendChild(this.buildCard(c, pick, !!onlyKey && c.cfg.key !== onlyKey));
     };
     const showZombieTabs = (on: boolean) => (subtabs.style.display = on ? "flex" : "none");
 
@@ -2473,20 +2556,31 @@ export class Hud {
 
     pm.append(close, screens, subtabs, list);
     bg.appendChild(pm);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    // In tutorial mode the backdrop tap must NOT dismiss (there's no other way
+    // to reopen the constrained menu); otherwise tapping outside closes it.
+    if (!onlyKey) bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
     this.el.appendChild(bg);
 
+    if (onlyKey) {
+      // Tutorial: skip the Plants/Zombies chrome — show only the Zombies list
+      // (with everything but the target locked) and hide the toggles/subtabs.
+      screens.style.display = "none";
+      zcat = "normal";
+      showZombies();
+      subtabs.style.display = "none";
+      return;
+    }
     // Open on the Plants screen.
     screenBtns["Plants"].classList.add("sel");
     showPlants();
   }
 
-  private buildCard(c: MenuCard, onPick: (c: MenuCard) => void): HTMLElement {
+  private buildCard(c: MenuCard, onPick: (c: MenuCard) => void, forceLock = false): HTMLElement {
     const levelLocked = this.state.level < c.level;
     // Colored-grave gate for zombie crops (Blue/Red/Silver need the grave placed).
     const graveLock = !levelLocked && !!c.cfg.unlockGrave && !!this.hasGrave &&
       !this.hasGrave(c.cfg.unlockGrave);
-    const locked = levelLocked || graveLock;
+    const locked = levelLocked || graveLock || forceLock;
     const card = document.createElement("div");
     card.className = locked ? "pm-card locked" : "pm-card";
 

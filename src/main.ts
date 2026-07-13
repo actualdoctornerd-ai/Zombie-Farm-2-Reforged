@@ -28,6 +28,8 @@ import { buyXp, sellBack, zombieSellValue } from "./economy";
 import { isFastMode, setFastMode } from "./devSettings";
 import { getFarmBackground, setFarmBackground, FARM_BG_DENSITY } from "./prefs";
 import { BASE } from "./base";
+import { TutorialController } from "./tutorial/TutorialController";
+import { TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform } from "./platform";
 
 async function main() {
@@ -611,12 +613,11 @@ async function main() {
   syncWorldToFarm();
   clampCamera();
 
-  // A brand-new farm starts with one owned zombie (matching the default count) so
-  // the player has a unit to see and inspect right away; restored farms rebuild
-  // their roster from the save instead. A visited farm shows the friend's exact
-  // roster (even if empty) — never inject a unit into it.
-  if (!visiting && !restored && zombies.count === 0) {
-    zombies.spawn("ZombieActorRegularTier1", start.col - 4, start.row - 2);
+  // A brand-new farm starts EMPTY: the guided tutorial's whole first step is to
+  // grow the player's very first zombie, so we no longer inject a starter unit.
+  // (Restored farms rebuild their own roster; a visited farm shows the friend's.)
+  if (!visiting && !restored) {
+    state.setZombieCount(0); // no starter; sync the HUD count off the default 1
   }
 
   // Visit mode UI: hide the farm-editing chrome, show a "Visiting X — Exit" banner.
@@ -917,6 +918,62 @@ async function main() {
     for (const drop of view.loot) questBus.post(QuestEvent.LootItemWon, drop.name, 1);
   };
 
+  // ---- Tim Buckwheat guided tutorial (first-run, skippable) ----
+  // A DOM overlay layer that leads the player through the core farm loop. It
+  // coexists with the quest rail (subscribes to the same questBus, polls live
+  // state) and mutates no gameplay systems. See src/tutorial/.
+  // `raidActive` is declared here (ahead of the raid block below) so the tutorial's
+  // isRaidActive() closure reads an already-initialised binding; the raid launch
+  // handler assigns it.
+  let raidActive = false;
+  const tutorial = new TutorialController({
+    hud, state, field, zombies, questBus,
+    // Screen-pixel center of a plot origin (world → global for the arrow).
+    plotScreenPos: (col, row) => {
+      const c = field.plotCenterOf(col, row);
+      const g = world.toGlobal(new Point(c.x, c.y));
+      return { x: g.x, y: g.y };
+    },
+    // Pre-plow a plot near the farmer so the very first beat can plant on tap
+    // (a fresh farm has no plowed plots — planting needs plowed soil). The plot
+    // under the farmer isn't free (they occupy it), so scan a few nearby anchors
+    // and plow the first 4x4 that fits and is unoccupied.
+    plowTutorialPlot: () => {
+      const anchors: [number, number][] = [
+        [start.col + 4, start.row + 1], [start.col + 4, start.row - 3],
+        [start.col - 5, start.row + 1], [start.col + 1, start.row + 5],
+        [start.col + 1, start.row - 5], [start.col - 5, start.row - 3],
+      ];
+      for (const [c, r] of anchors) {
+        const t = field.resolveTill(c, r);
+        if (t.valid) { field.tillAt(t.oc, t.or); return { col: t.oc, row: t.or }; }
+      }
+      return null;
+    },
+    isRaidActive: () => raidActive,
+    // Gift a free Zombie Pot near the farmer (async texture load; fire-and-forget
+    // so completion never blocks on it). Scans a few nearby tiles for a free spot.
+    grantZombiePot: () => {
+      if (field.hasZombiePot()) return;
+      const def = placeCatalog.get("zombieCombiner");
+      if (!def) return;
+      void ensureObjectTexture(assets, def.sprite).then(() => {
+        const spots: [number, number][] = [
+          [start.col + 3, start.row + 3], [start.col - 3, start.row + 3],
+          [start.col + 3, start.row - 3], [start.col + 5, start.row],
+          [start.col, start.row + 5],
+        ];
+        for (const [c, r] of spots) if (field.placeObject(def, c, r)) { saveManager.save(); break; }
+      });
+    },
+  });
+  // Kick off on a brand-new farm (never while visiting a friend); restore mid-run
+  // otherwise. The fresh-farm detection (restored/visiting) happened at load above.
+  if (!visiting) {
+    if (!restored) tutorial.start();
+    else tutorial.restore(state.tutorial);
+  }
+
   // ---- save profiles: switch/create flush + reload so the whole game reloads
   // cleanly from the target profile; rename/delete just update the index. ----
   hud.getProfiles = () => profiles.listProfiles();
@@ -1052,7 +1109,6 @@ async function main() {
   // `raidActive` gates farm input synchronously (the scene loads its textures async);
   // `raidScene` is the running scene once ready.
   let raidScene: RaidScene | null = null;
-  let raidActive = false;
   hud.onLaunchRaid = (raidId, partyIds, opts) => {
     if (raidActive) return false;
     const setup = raids.beginRaid(raidId, partyIds, opts);
@@ -1089,6 +1145,7 @@ async function main() {
           // Advance raid quests only now that we're back on the farm, so their
           // completion popups appear over the farm rather than the battle result.
           postRaidWinQuests(view, setup.raid.name);
+          tutorial.onRaidResolved(); // advance the tutorial's veteran beat post-win
         });
       },
     }).then((scene) => {
@@ -1336,8 +1393,12 @@ async function main() {
       dragging = false;
       return;
     }
-    hud.collapse(); // any tap on the field collapses the bars into the corner fab
     const { col, row, wx, wy } = tileAt(e);
+    // Tutorial world gate: while the guided tutorial is active, freeze every farm
+    // tap except the current beat's target plot (so nothing collapses the menu or
+    // acts out of turn). Menu/narrative beats freeze the farm entirely.
+    if (tutorial.active && !tutorial.allowsTile(col, row)) return;
+    hud.collapse(); // any tap on the field collapses the bars into the corner fab
     if (hud.mode === "place") {
       tryPlaceObject(col, row);
       dragging = false;
@@ -1531,10 +1592,14 @@ async function main() {
           // to equip the Insta-Grow tool (or buy it when none are owned).
           hud.openCropInfo(() => field.cropInfoAt(col, row));
         } else if (field.canPlant(col, row)) {
-          hud.openPlantMenu((cfg) => {
+          const onPick = (cfg: CropConfig) => {
             hud.setPlanting(cfg); // keep planting this crop on further taps
             jobs.enqueue("plant", col, row, cfg);
-          });
+          };
+          // During the tutorial's plant beat, constrain the menu to the base Zombie.
+          if (tutorial.wantsLockedPlant(col, row))
+            hud.openPlantMenu(onPick, { onlyKey: TUTORIAL_ZOMBIE_KEY });
+          else hud.openPlantMenu(onPick);
         } else if (field.isSpent(col, row)) {
           jobs.enqueue("till", col, row); // re-till a harvested dirt/hole plot
         } else if (!jobs.busy) {
@@ -1700,7 +1765,16 @@ async function main() {
       ready: zombies.combineReady,
       remainingMs: zombies.combinePot.remainingMs(),
       pending: zombies.combinePot.pending,
-    }) };
+    }),
+    // Guided tutorial: the controller + dev controls.
+    tutorial,
+    tut: {
+      start: () => tutorial.restart(),
+      skip: () => tutorial.skip(),
+      goto: (n: number) => tutorial.jumpTo(n as TutStep),
+      reset: () => tutorial.clearPersisted(),
+      steps: TutStep,
+    } };
   // eslint-disable-next-line no-console
   console.log(`field ${field.w}x${field.h} ready`);
 }

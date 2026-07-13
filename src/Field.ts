@@ -76,10 +76,20 @@ interface Planting {
   // Per-frame cache of the derived age (now - plantedAt), refreshed in update(). Read
   // by ripeness/harvest checks; never the authority — plantedAt is.
   ageMs: number;
-  sprite: Sprite; // the whole crop, depth-sorted in the entity layer (like objects)
+  sprite: Sprite; // plants-only, depth-sorted in the entity layer (like objects)
+  // The soil half, drawn in cropGroundLayer beneath every entity. Only present
+  // once the crop has grown past the flat seed stage. Pixel-aligned with sprite.
+  groundSprite?: Sprite;
+  stageFile?: string; // current stage texture filename (guards re-layout)
   baseY: number;
   fertilized?: boolean; // a Garden zombie fertilized it → 2x harvest + leaf FX
   fertEmitMs?: number; // countdown to the next leaf emit (fertilized crops only)
+}
+// Destroy both halves of a crop (the entity-layer plants sprite and the optional
+// ground-layer soil copy). Both auto-remove from their parent on destroy.
+function destroyCrop(c: Planting) {
+  c.sprite.destroy();
+  c.groundSprite?.destroy();
 }
 interface Plot {
   oc: number; // origin tile (north corner of the 4x4)
@@ -122,6 +132,12 @@ export class Field {
   // it). Once a crop grows past the seed stage it graduates to the entity layer and
   // depth-sorts by its footprint like any object. See layoutCrop.
   readonly cropSeedLayer = new Container();
+  // The soil half of every GROWN crop. A crop renders as two pixel-aligned
+  // sprites: its untouched art here (below the entity layer, so its baked dirt
+  // can never draw over anything) and a soil-keyed plants-only copy up in the
+  // entity layer. This is what stops a plot's dirt from clipping the tall
+  // crop/zombie on the plot behind it. See layoutCrop and cropTop.ts.
+  readonly cropGroundLayer = new Container();
   readonly groundObjectLayer = new Container();
   readonly highlightLayer = new Container();
   readonly labelLayer = new Container();
@@ -172,8 +188,10 @@ export class Field {
     this.objGhost.anchor.set(0.5, 1);
     this.objGhost.visible = false;
     this.cursor.addChild(this.objGhost);
+    this.cropGroundLayer.sortableChildren = true;
     this.container.addChild(
-      this.groundLayer, this.plotLayer, this.cropSeedLayer, this.groundObjectLayer, this.highlightLayer
+      this.groundLayer, this.plotLayer, this.cropSeedLayer, this.cropGroundLayer,
+      this.groundObjectLayer, this.highlightLayer
     );
     this.fxLayer.addChild(this.fx.container);
   }
@@ -398,7 +416,7 @@ export class Field {
     const k = this.key(at.oc, at.or);
     const p = this.plots.get(k);
     if (!p) return false;
-    if (p.crop) p.crop.sprite.destroy(); // whole crop (entityLayer); auto-removes from parent
+    if (p.crop) destroyCrop(p.crop); // both crop halves; auto-remove from parents
     this.plotLayer.removeChild(p.soil);
     p.soil.destroy();
     this.forEachTile(at.oc, at.or, (t) => this.tilePlot.delete(t));
@@ -524,7 +542,6 @@ export class Field {
     const p = this.plots.get(this.key(oc, or));
     if (!p || p.state !== "plowed" || p.crop) return false;
     this.fit(p.soil, this.assets.soil[SEED_FILE], oc, or, PLOT); // seeded soil
-    const tex = this.assets.crop[cfg.stages[0]];
     // Mutant Monolith: a mutant-zombie crop planted while the monolith is placed
     // grows in half the time. Bake it into this planting's own config (persists via
     // the per-crop growMs) so it stays consistent across save/reload.
@@ -532,48 +549,68 @@ export class Field {
       ? { ...cfg, growMs: Math.round(cfg.growMs * 0.5) }
       : cfg;
     const crop: Planting = { cfg: useCfg, plantedAt: Date.now(), ageMs: 0, sprite: new Sprite(), baseY: 0 };
-    crop.baseY = this.layoutCrop(crop, tex, oc, or); // layoutCrop parents by stage
+    crop.baseY = this.layoutCrop(crop, useCfg.stages[0], oc, or); // layoutCrop parents by stage
     p.crop = crop;
     p.state = "planted";
     return true;
   }
 
-  /** Lay out a crop's single sprite for stage `tex`, and put it in the right layer.
+  /** Lay out a crop for stage file `stageFile`, and put its sprite(s) in the right
+   *  layer(s). `stageFile` keys both the full art (assets.crop) and its plants-only
+   *  companion (assets.cropTop). Returns the ground-contact baseY.
    *
-   *  At the SEED stage (stages[0]) the crop layers like plain tilled soil: it lives
-   *  in cropSeedLayer (above the soil, below the entity layer) so actors always draw
-   *  OVER it and never get hidden behind a flat seeded plot.
+   *  At the SEED stage (stages[0]) the crop layers like plain tilled soil: one flat
+   *  sprite in cropSeedLayer (above the soil, below the entity layer) so actors
+   *  always draw OVER it and never get hidden behind a flat seeded plot.
    *
-   *  Once it grows PAST the seed stage the whole crop graduates to the depth-sorted
-   *  entityLayer and sorts by its 4x4 plot footprint, exactly like a placed object:
-   *  an actor standing anywhere on the plot (or south of it) draws in front, one
-   *  standing north (behind) is covered. Simple painter's order — no per-crop
-   *  splitting — so nothing "splits" when someone stands on the plot. */
-  private layoutCrop(c: Planting, tex: Texture, oc: number, or: number): number {
+   *  Once it grows PAST the seed stage the crop renders as TWO pixel-aligned sprites:
+   *    - the untouched art in cropGroundLayer (below the entity layer), which carries
+   *      the baked soil — because it sits under every entity its dirt can never draw
+   *      over a neighbouring plot's crop, and
+   *    - a plants-only copy (soil keyed out, assets.cropTop) in the depth-sorted
+   *      entityLayer, footprinted on the whole 4x4 plot like a placed object.
+   *  So the plant still sorts correctly against actors and other crops, but a plot's
+   *  dirt no longer clips the tall crop/zombie growing on the plot behind it. */
+  private layoutCrop(c: Planting, stageFile: string, oc: number, or: number): number {
+    const full = this.assets.crop[stageFile];
+    const top = this.assets.cropTop[stageFile] ?? full;
     const soil = this.assets.soil[PLOWED_FILE];
-    const scale = (PLOT * TILE_W) / tex.width;
+    const scale = (PLOT * TILE_W) / full.width;
     const soilH = soil.height * ((PLOT * TILE_W) / soil.width);
     const p = gridToScreen(oc, or);
     const baseY = p.y + (PLOT * TILE_H + soilH) / 2;
+    c.stageFile = stageFile;
 
     c.sprite.anchor.set(0.5, 1); // bottom-center = the crop's ground contact point
-    c.sprite.texture = tex;
     c.sprite.scale.set(scale);
     c.sprite.position.set(p.x, baseY);
-    if (tex === this.assets.crop[c.cfg.stages[0]]) {
-      // Seed stage: KEEP IT ON THE GROUND. A just-seeded plot reads like tilled land,
-      // so it lives in cropSeedLayer (above soil, below the entity layer) with NO
-      // footprint — it never depth-sorts, so the farmer always walks over it just like
-      // he does over the plowed dirt beneath it.
+    if (stageFile === SEED_FILE) {
+      // Flat seed stage: KEEP IT ON THE GROUND. This is the shared tilled-soil seed
+      // (planted_dirt) used by veg crops — it reads like plain land, so it lives in
+      // cropSeedLayer (above soil, below the entity layer) with NO footprint. It
+      // never depth-sorts, so the farmer always walks over it just like the plowed
+      // dirt beneath it. No soil companion is needed (it IS soil); drop any leftover
+      // ground sprite from an earlier growth stage. Zombie crops have no flat seed —
+      // their first stage is already a standing wooden cross, so it falls through to
+      // the split path below and its overhang is protected like every other stage.
+      c.sprite.texture = full;
       this.cropSeedLayer.addChild(c.sprite);
+      if (c.groundSprite) { c.groundSprite.parent?.removeChild(c.groundSprite); c.groundSprite.visible = false; }
     } else {
-      // Past seed: the plant patch is a real depth-sorted entity, handled EXACTLY like
-      // a placed object — same entityLayer, same full-footprint setFootprint call (the
-      // patch fills all 16 tiles of its 4x4 plot, so its footprint is the whole plot,
-      // just as a 4x4 object's footprint is its whole base). It then loads back-to-
-      // front, top-to-bottom, left-to-right with every other object (see depthSort).
+      // Past seed: plants-only copy is the depth-sorted entity (footprinted on the
+      // whole 4x4 plot, exactly like a 4x4 object), and the full art (with soil)
+      // renders beneath in cropGroundLayer, keyed to the plot's front-corner depth.
+      c.sprite.texture = top;
       this.entityLayer.addChild(c.sprite);
       setFootprint(c.sprite, oc, or, oc + PLOT - 1, or + PLOT - 1);
+      const g = (c.groundSprite ??= new Sprite());
+      g.anchor.set(0.5, 1);
+      g.texture = full;
+      g.scale.set(scale);
+      g.position.set(p.x, baseY);
+      g.visible = true;
+      g.zIndex = (oc + PLOT - 1) + (or + PLOT - 1); // front-corner depth
+      this.cropGroundLayer.addChild(g);
     }
     return baseY;
   }
@@ -589,7 +626,7 @@ export class Field {
     // (`isFertilized` yields 6 crop drops instead of 3).
     const fertilized = !!p.crop.fertilized;
     const sell = fertilized ? cfg.sell * 2 : cfg.sell;
-    p.crop.sprite.destroy();
+    destroyCrop(p.crop);
     p.crop = undefined;
     p.state = cfg.isZombie ? "hole" : "dirt";
     this.fit(p.soil, this.assets.soil[cfg.isZombie ? HOLE_FILE : DIRT_FILE], oc, or, PLOT);
@@ -634,9 +671,9 @@ export class Field {
       const stage = ripe
         ? n - 1
         : Math.min(n - 2, Math.floor((c.ageMs / c.cfg.growMs) * (n - 1)));
-      const tex = this.assets.crop[c.cfg.stages[stage]];
-      // On a stage change, re-layout both the ground crop and its protruding topper.
-      if (c.sprite.texture !== tex) this.layoutCrop(c, tex, p.oc, p.or);
+      const stageFile = c.cfg.stages[stage];
+      // On a stage change, re-lay out both halves (plants + ground soil copy).
+      if (c.stageFile !== stageFile) this.layoutCrop(c, stageFile, p.oc, p.or);
       // Fertilized crops emit a slow trickle of leaves above their canopy the whole
       // time they exist (source: an infinite CCParticleFlower on the tile).
       if (c.fertilized) {
@@ -659,6 +696,14 @@ export class Field {
     // their own layer and only need ordering among themselves.
     sortLayer(this.entityLayer);
     sortLayer(this.groundObjectLayer);
+    // Mirror the depth order the entity sort just resolved onto the ground soil
+    // copies, so a plot's dirt stacks EXACTLY like its plant does. sortLayer gives
+    // every plant a unique zIndex, so this leaves no ties for cropGroundLayer to
+    // break by child order — otherwise a plot re-laid-out on a stage change would
+    // jump to the top of its depth tie and its dirt would draw over a plot in
+    // front of it (whichever grew most recently "won").
+    for (const p of this.plots.values())
+      if (p.crop?.groundSprite) p.crop.groundSprite.zIndex = p.crop.sprite.zIndex;
   }
 
   // Position the cursor. "till" resolves free placement (green valid / red invalid);
@@ -1090,7 +1135,7 @@ export class Field {
     // Tear down any existing plots/crops (fresh field at startup = no-op).
     for (const p of this.plots.values()) {
       p.soil.destroy();
-      p.crop?.sprite.destroy();
+      if (p.crop) destroyCrop(p.crop);
     }
     this.plots.clear();
     this.tilePlot.clear();
@@ -1130,7 +1175,7 @@ export class Field {
           const crop: Planting = { cfg, plantedAt: ps.crop.plantedAt, ageMs, sprite: new Sprite(), baseY: 0, fertilized: ps.crop.fertilized };
           // layoutCrop parents by stage; the update(0) below then re-layers it to
           // match its restored age (seed -> ground layer, grown -> entity layer).
-          crop.baseY = this.layoutCrop(crop, this.assets.crop[cfg.stages[0]], oc, or);
+          crop.baseY = this.layoutCrop(crop, cfg.stages[0], oc, or);
           plot.crop = crop;
         } else {
           // Unknown crop key: leave a plowed plot rather than a broken one.

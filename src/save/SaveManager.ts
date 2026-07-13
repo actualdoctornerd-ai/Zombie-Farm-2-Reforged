@@ -103,6 +103,7 @@ export class SaveManager {
         attackOrder: this.state.raidAttackOrder,
       },
       social: { friends: this.state.friends },
+      tutorial: this.state.tutorial,
     };
   }
 
@@ -267,6 +268,8 @@ export class SaveManager {
       ...f,
       giftsSent: f.giftsSent ?? 0,
     }));
+    // First-run tutorial progress (absent on pre-tutorial saves = never started).
+    this.state.tutorial = data.tutorial;
     // Grow the field to the saved size BEFORE restoring plots/objects, so plots on
     // land added by a Farm Size upgrade validate against the expanded bounds
     // (otherwise Field.restore would drop them as out-of-range). Never shrinks.
