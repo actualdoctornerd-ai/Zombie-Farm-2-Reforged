@@ -17,13 +17,13 @@ export type Sfx =
 // authored as *.wav) resolve to the shipped file without editing that data.
 const A = (n: string) => `${BASE}assets/audio/${n.replace(/\.wav$/i, ".mp3")}`;
 
-// Which clip each SFX plays. Plowing/planting reuse the hoe sound; harvest has
-// its own pluck; a harvested zombie "resurrects" instead of the plain chime.
+// Which clip each SFX plays. Plowing/planting reuse the hoe sound; crops harvest
+// with their own pluck; a harvested zombie uses the plain harvest chime.
 const SFX_FILE: Record<Sfx, string> = {
   till: "plowing.mp3",
   plant: "plowing.mp3",
   harvest: "harvestPlant.mp3",
-  harvestZombie: "resurrect.mp3",
+  harvestZombie: "harvest.mp3",
   xp: "earn.mp3",
   buy: "buy.mp3",
   sell: "delete.mp3",

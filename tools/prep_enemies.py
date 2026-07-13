@@ -718,6 +718,61 @@ def composite(key, parts, atlas, frames):
     return out.crop(box) if box else None
 
 
+# The neck/shoulder pivots and a few per-part limb nudges are HAND-TUNED in the
+# sprite assembler tool (tools/sprite_assembler.html) and exported straight into
+# models.json — they need human judgement the auto-layout can't supply. The strip
+# packing here is fully deterministic (identical rects every run), so we can safely
+# regenerate the parts while PRESERVING that hand-tuned pivot layer: for every part
+# whose packed rect still matches, we carry the artist's px/py/rot/ax/ay/z back over,
+# and we keep the model's tuned neck/shoulder. Behaviour flags (punch/slam/chopSign)
+# stay code-authored via the tables above. Set PREP_ENEMIES_FRESH=1 to skip this and
+# rebuild purely from auto-layout + the override tables (drops all GUI tuning).
+def preserve_manual_pivots():
+    if os.environ.get("PREP_ENEMIES_FRESH"):
+        print("PREP_ENEMIES_FRESH set — rebuilding from tables, DROPPING GUI pivot tuning")
+        return
+    path = os.path.join(OUT_DIR, "models.json")
+    if not os.path.exists(path):
+        return
+    try:
+        prior = json.load(open(path, encoding="utf-8"))
+    except Exception as e:
+        print(f"  (could not read existing models.json to preserve pivots: {e})")
+        return
+    rectkey = lambda p: (p["rx"], p["ry"], p["rw"], p["rh"])
+    npart = nneck = nshoulder = npivots = 0
+    for key, m in MODELS.items():
+        pm = prior.get(key)
+        if not pm:
+            continue
+        # model-level pivots: the on-disk (human) values are the source of truth,
+        # including a deliberately-removed shoulder or a null neck.
+        if "neck" in pm and json.dumps(pm["neck"]) != json.dumps(m.get("neck")):
+            m["neck"] = pm["neck"]; nneck += 1
+        if pm.get("shoulder") is not None:
+            if json.dumps(pm["shoulder"]) != json.dumps(m.get("shoulder")):
+                m["shoulder"] = pm["shoulder"]; nshoulder += 1
+        elif "shoulder" in m:
+            del m["shoulder"]; nshoulder += 1  # human removed it
+        # named-pivot annotations (elbow / back-shoulder / wing, etc.) — labelled in
+        # the tool as a spec for future animation work; not read by EnemyActor yet.
+        if pm.get("pivots"):
+            m["pivots"] = pm["pivots"]; npivots += 1
+        # per-part geometry: match by packed rect (a queue handles duplicate rects)
+        buckets = {}
+        for pp in pm.get("parts", []):
+            buckets.setdefault(rectkey(pp), []).append(pp)
+        for part in m["parts"]:
+            q = buckets.get(rectkey(part))
+            if not q:
+                continue
+            pp = q.pop(0)
+            for f in ("px", "py", "rot", "ax", "ay", "z"):
+                if f in pp and pp[f] != part.get(f):
+                    part[f] = pp[f]; npart += 1
+    print(f"preserved GUI tuning: {nneck} necks, {nshoulder} shoulders, {npart} part fields, {npivots} pivot sets")
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     for sheet, actors in SHEETS.items():
@@ -743,6 +798,7 @@ def main():
     build_bare_actors()
     print("videogame actors (idle frame):")
     build_videogame_actors()
+    preserve_manual_pivots()
     with open(os.path.join(OUT_DIR, "models.json"), "w", encoding="utf-8") as f:
         json.dump(MODELS, f, separators=(",", ":"))
     print(f"models.json: {len(MODELS)} enemy rigs")

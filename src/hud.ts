@@ -45,7 +45,34 @@ interface MktEntry {
   sell?: number; // harvest value (plants only)
   graveNeeded?: "Blue" | "Red" | "Silver"; // locked until this colored grave is owned
   ownedLimit?: boolean; // "1 per farm" limit reached (gift vouchers) — can't buy
+  description?: string; // "what does it do" blurb shown by the card's magnifier
   onPick: () => void;
+}
+
+/** Player-facing "what does it do" blurb for a functional Market item, shown when the
+ *  card's magnifier is tapped. Keyed off the effect flags assets.ts derives from the
+ *  item key, so it always matches the item's real behaviour. */
+function functionalDescription(def: PlaceableDef): string | undefined {
+  if (def.category !== "functional") return undefined;
+  if (def.armyMax)
+    return `Raises your zombie army limit by ${def.armyMax}, so you can send more zombies on each invasion.`;
+  if (def.plowFree) return "Plowing soil costs no gold while this stands on your farm.";
+  if (def.fastWork)
+    return "Farming is instant — plow, plant, water and harvest finish with no waiting.";
+  if (def.mutantMonolith) return "Halves the grow time of mutant zombies.";
+  if (def.combineFast)
+    return "Speeds up the Zombie Pot: combining finishes in 15 minutes instead of an hour.";
+  if (def.zombiePot)
+    return "Combine two of your zombies into a brand-new one. Only one is needed; the first costs gold, later Pots cost brains.";
+  if (def.zombieStorage)
+    return "Stores your spare zombies off the field with no limit, freeing up graves to plant more.";
+  if (def.zombiePatch) return "A cosy spot where your idle zombies gather to relax and nap.";
+  if (def.graveColor)
+    return `Unlocks planting ${def.graveColor}-class zombies — you must own this grave before you can grow them.`;
+  if (def.storageSlots)
+    return `A shed for objects you've packed away — holds up to ${def.storageSlots} items. Buy a bigger shed to store more.`;
+  if (def.key === "cameraNormal") return "A decorative camera to show off your farm.";
+  return undefined;
 }
 
 /** Colored grave a zombie class needs before it can be planted (null = none). */
@@ -823,10 +850,17 @@ const STYLE = `
 #hud .mkt-grid::-webkit-scrollbar-thumb { background: linear-gradient(#a5763c, #6e4420);
   border-radius: 6px; border: 1px solid #4f2f13; }
 #hud .mkt-grid::-webkit-scrollbar-thumb:hover { background: linear-gradient(#b98b4a, #7a4d22); }
-#hud .mkt-card { border-radius: 8px; overflow: hidden; background: #efe4bf; cursor: pointer;
-  border: 2px solid #b98b4a; box-shadow: inset 0 -3px 0 rgba(90,52,19,.12);
+#hud .mkt-card { position: relative; border-radius: 8px; overflow: hidden; background: #efe4bf;
+  cursor: pointer; border: 2px solid #b98b4a; box-shadow: inset 0 -3px 0 rgba(90,52,19,.12);
   display: flex; flex-direction: column; }
 #hud .mkt-card:hover { background: #f7efcd; }
+/* Magnifier "what does it do?" button, tucked into the card's top-right corner. */
+#hud .mkt-info { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 0;
+  display: flex; align-items: center; justify-content: center; z-index: 2; cursor: pointer;
+  border: 1px solid #4f2f13; border-radius: 50%; color: #4f2f13;
+  background: linear-gradient(#f0e0af, #d0b678); box-shadow: 0 1px 1px rgba(0,0,0,.35); }
+#hud .mkt-info:hover { background: linear-gradient(#fbf1cd, #e0c98a); }
+#hud .mkt-info svg { display: block; }
 #hud .mkt-card .hd { height: 22px; background: linear-gradient(#956733, #6e4420);
   border-bottom: 2px solid #4f2f13; color: #f4e6c2; font-size: 11px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; padding: 0 4px;
@@ -857,6 +891,22 @@ const STYLE = `
 #hud .mkt-card.owned { background: #dcecc4; border-color: #7fa957; cursor: default; }
 #hud .mkt-card.owned:hover { background: #dcecc4; }
 #hud .mkt-card.owned .mkt-cost { color: #2f7a1e; }
+
+/* ---- Item info popup (opened by a Market card's magnifier) ---- */
+#hud .info-bg { position: fixed; inset: 0; pointer-events: auto; z-index: 24;
+  background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
+#hud .info-box { position: relative; box-sizing: border-box; width: min(330px, 86vw);
+  border-style: solid; border-width: 32px 11px 12px 11px;
+  border-image: url(${BASE}assets/ui/market/paper_market.png) 32 11 12 11 fill / 32px 11px 12px 11px stretch;
+  padding: 4px 18px 16px; font-family: Georgia, "Times New Roman", serif; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#hud .info-close { position: absolute; top: -16px; right: -16px; width: 40px; height: 40px;
+  border: none; background: none; cursor: pointer; padding: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+#hud .info-close img { width: 100%; height: 100%; }
+#hud .info-img { max-height: 80px; max-width: 58%; object-fit: contain; margin-top: 2px; }
+#hud .info-name { font-weight: 700; font-size: 18px; color: #4f2f13;
+  text-shadow: 0 1px 0 rgba(255,255,255,.4); }
+#hud .info-desc { font-size: 14px; line-height: 1.42; color: #48300f; }
 
 /* ---- Storage menu (the tool shed) ---- */
 #hud .st-bg { position: fixed; inset: 0; pointer-events: auto; z-index: 21;
@@ -1923,10 +1973,18 @@ export class Hud {
             .sort((a, b) => (a.def.storageSlots ?? 0) - (b.def.storageSlots ?? 0))[0];
           cards = next ? [next, ...others] : others;
         }
-        return cards.map((c) => ({
-          name: c.name, portrait: c.portrait, cost: c.cost, level: c.level, brains: c.brainsNeeded,
-          onPick: () => { if (this.onBuy) this.onBuy(c.def); bg.remove(); },
-        }));
+        return cards.map((c) => {
+          // The Zombie Pot flips to a flat 30 brains once the player has owned one
+          // (see GameState.zombiePotBought); the market price must mirror the charge.
+          const potPriced = !!c.def.zombiePot && this.state.zombiePotBought;
+          return {
+            name: c.name, portrait: c.portrait,
+            cost: potPriced ? 30 : c.cost, level: c.level,
+            brains: potPriced ? true : c.brainsNeeded,
+            description: functionalDescription(c.def),
+            onPick: () => { if (this.onBuy) this.onBuy(c.def); bg.remove(); },
+          };
+        });
       }
       if (tab === "Boosts") {
         // Buying stays in the panel (buy several); the count owned shows in the name.
@@ -2119,8 +2177,52 @@ export class Hud {
     body.appendChild(cost);
 
     card.append(hd, body);
+    // Magnifier: a small "what does it do?" button that pops the item's description.
+    // Present even on locked cards so players can learn about items before they unlock.
+    if (en.description) {
+      const info = document.createElement("button");
+      info.className = "mkt-info";
+      info.type = "button";
+      info.title = "What does this do?";
+      info.setAttribute("aria-label", `What does ${en.name} do?`);
+      info.innerHTML =
+        `<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" ` +
+        `stroke-width="2" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="4.3"/>` +
+        `<line x1="9.7" y1="9.7" x2="14" y2="14"/></svg>`;
+      info.onclick = (e) => { e.stopPropagation(); this.showItemInfo(en); };
+      card.appendChild(info);
+    }
     if (!locked && !poor && !graveLock && !limitLock) card.onclick = en.onPick;
     return card;
+  }
+
+  // Small parchment popup describing a Market item, opened from a card's magnifier.
+  private showItemInfo(en: MktEntry) {
+    document.querySelector("#hud .info-bg")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "info-bg";
+    const box = document.createElement("div");
+    box.className = "info-box";
+    const close = document.createElement("button");
+    close.className = "info-close";
+    const ci = document.createElement("img");
+    ci.src = UI("button_close.png");
+    close.appendChild(ci);
+    close.onclick = () => bg.remove();
+    const img = document.createElement("img");
+    img.className = "info-img";
+    img.src = en.portrait;
+    const name = document.createElement("div");
+    name.className = "info-name";
+    name.textContent = en.name;
+    const desc = document.createElement("div");
+    desc.className = "info-desc";
+    desc.textContent = en.description ?? "";
+    box.append(close, img, name, desc);
+    bg.appendChild(box);
+    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    this.el.appendChild(bg);
+    this.audio.play("menuClick");
   }
 
   // The Market Upgrade tab: a current-size banner plus, for each Farm Size tier, a

@@ -176,6 +176,11 @@ async function main() {
   // depth-sorts correctly in front of / behind trees.
   world.addChild(field.entityLayer);
 
+  // Job highlight diamonds (queued plow/plant/harvest markers) draw ABOVE the
+  // entity layer so a ripe crop's tall sprite can't clip the top of the harvest
+  // highlight. Kept below fxLayer/night so leaves and dusk still layer over it.
+  world.addChild(field.highlightLayer);
+
   // Fertilize leaf FX draw above crops/actors (below night so they dim at dusk).
   world.addChild(field.fxLayer);
 
@@ -963,7 +968,11 @@ async function main() {
           [start.col + 3, start.row - 3], [start.col + 5, start.row],
           [start.col, start.row + 5],
         ];
-        for (const [c, r] of spots) if (field.placeObject(def, c, r)) { saveManager.save(); break; }
+        for (const [c, r] of spots) if (field.placeObject(def, c, r)) {
+          state.markZombiePotBought(); // owning one (even gifted) locks in 30-brain refills
+          saveManager.save();
+          break;
+        }
       });
     },
   });
@@ -1290,12 +1299,14 @@ async function main() {
       return;
     }
     if (state.level < def.level) return;
-    // The Zombie Pot costs 500 GOLD for the first, then 30 BRAINS for each extra.
-    const potOwned = !!def.zombiePot && field.hasZombiePot();
-    const cost = def.zombiePot ? (potOwned ? 30 : 500) : def.cost;
-    const useBrains = def.zombiePot ? potOwned : def.brainsNeeded;
+    // The Zombie Pot costs 500 GOLD for the first, then a flat 30 BRAINS for every
+    // one after — permanently, even if the player sells it (see zombiePotBought).
+    const potBought = !!def.zombiePot && state.zombiePotBought;
+    const cost = def.zombiePot ? (potBought ? 30 : 500) : def.cost;
+    const useBrains = def.zombiePot ? potBought : def.brainsNeeded;
     const paid = useBrains ? state.spendBrains(cost) : state.spendGold(cost);
     if (!paid) return;
+    if (def.zombiePot) state.markZombiePotBought(); // next pot is 30 brains forever
     field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
     audio.play("place");
     const xp = buyXp(cost, def.xp); // buying always rewards XP (economy.ts)

@@ -107,6 +107,9 @@ export interface PlayerSave {
   /** Phase 4: ability-pool keys unlocked globally by winning tiered raids.
    *  Absent = none unlocked yet. */
   unlockedAbilities?: string[];
+  /** Whether the player has ever acquired a Zombie Pot. Once true, extra pots cost
+   *  a flat 30 brains forever (see GameState.zombiePotBought). Absent = never had one. */
+  zombiePotBought?: boolean;
 }
 
 // ---------------------------------------------------------------------------

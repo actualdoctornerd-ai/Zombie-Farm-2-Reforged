@@ -35,6 +35,12 @@ export class GameState {
   // DEPRECATED: ability unlocking is now derived from raidsCompleted (see
   // abilityUnlocked). Kept as an optional persisted field for save compatibility.
   unlockedAbilities: string[] = [];
+  // ---- Zombie Pot pricing ----
+  // The Zombie Pot's first acquisition costs 500 GOLD; every one after that costs
+  // a flat 30 BRAINS, permanently. This is sticky: once the player has ever owned a
+  // pot (bought OR gifted by the tutorial), it stays at 30 brains even if they sell
+  // it, so it must persist rather than be derived from whether a pot is on the farm.
+  zombiePotBought = false;
   // ---- raids: lifetime win count per raid id (drives "first clear" + stats) ----
   raidsCompleted: Record<string, number> = {};
   // Epoch ms of the last completed invasion (drives the between-raids cooldown).
@@ -67,6 +73,15 @@ export class GameState {
   setTutorial(t: TutorialSave | undefined) {
     this.tutorial = t;
     this.emit();
+  }
+
+  /** Record that the player has acquired a Zombie Pot (bought or gifted). Once set,
+   *  the pot's price is a flat 30 brains forever (see zombiePotBought). */
+  markZombiePotBought() {
+    if (!this.zombiePotBought) {
+      this.zombiePotBought = true;
+      this.emit();
+    }
   }
 
   // ---- ground/climate skins ----

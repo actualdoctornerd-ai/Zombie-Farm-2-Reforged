@@ -189,9 +189,13 @@ export class Field {
     this.objGhost.visible = false;
     this.cursor.addChild(this.objGhost);
     this.cropGroundLayer.sortableChildren = true;
+    // NOTE: highlightLayer is intentionally NOT parented here. It must draw ABOVE
+    // the entity layer so the green job diamond is not occluded by a ripe crop's
+    // tall sprite (which graduates into entityLayer) — otherwise the top of the
+    // harvest highlight gets clipped by the crop. main parents it above entityLayer.
     this.container.addChild(
       this.groundLayer, this.plotLayer, this.cropSeedLayer, this.cropGroundLayer,
-      this.groundObjectLayer, this.highlightLayer
+      this.groundObjectLayer
     );
     this.fxLayer.addChild(this.fx.container);
   }

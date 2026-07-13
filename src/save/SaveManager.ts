@@ -78,6 +78,7 @@ export class SaveManager {
         zombieCount: this.state.zombieCount,
         farmer: this.walk.tile,
         unlockedAbilities: this.state.unlockedAbilities,
+        zombiePotBought: this.state.zombiePotBought,
       },
       farm: {
         fieldId: "default",
@@ -254,6 +255,7 @@ export class SaveManager {
       zombieMax: p.zombieMax,
     });
     this.state.unlockedAbilities = p.unlockedAbilities ?? [];
+    this.state.zombiePotBought = p.zombiePotBought ?? false;
     if (data.storage) {
       this.state.storageItemCap = data.storage.itemCap ?? 8;
       this.state.storedItems = data.storage.items ?? [];
