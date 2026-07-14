@@ -32,6 +32,13 @@ import { TutorialController } from "./tutorial/TutorialController";
 import { TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform } from "./platform";
 
+// The boot / start screen lives in index.html and paints on the first frame (no
+// empty-farm flash). We report load milestones to it and, once the game is fully
+// built, tell it to finish — it then shows "Click to Start" and a tap dismisses it.
+const boot = (window as unknown as {
+  __ZFBoot?: { progress(p: number): void; ready(): void; fail(): void };
+}).__ZFBoot;
+
 async function main() {
   // Detect device up front so <html data-platform> is set before the HUD's CSS
   // renders (drives the compact/desktop layout; re-evaluates on resize/rotate).
@@ -40,6 +47,7 @@ async function main() {
   // signed in and has chosen a username (no-op on an offline build). Only then do
   // we load assets and build the game, so nothing runs for a signed-out visitor.
   await requireAuth();
+  boot?.progress(0.35); // signed in — start filling the plate bar
   const app = new Application();
   await app.init({
     background: "#67bb4e", // grass green around the farm, matching the backdrop hills
@@ -51,6 +59,7 @@ async function main() {
   document.getElementById("app")!.appendChild(app.canvas);
 
   const assets = await loadAssets();
+  boot?.progress(0.8); // heaviest step done — art is in
   const state = new GameState();
   const audio = new AudioManager(); // music/SFX default off (toggled in Settings)
   const hud = new Hud(state, audio);
@@ -1788,10 +1797,15 @@ async function main() {
     } };
   // eslint-disable-next-line no-console
   console.log(`field ${field.w}x${field.h} ready`);
+
+  // Game is fully built behind the boot overlay — fill the bar and flip it to
+  // "Click to Start". The player's tap dismisses the overlay to reveal the farm.
+  boot?.ready();
 }
 
 main().catch((err) => {
   console.error(err);
+  boot?.fail(); // drop the start screen so the error below is visible
   const hud = document.getElementById("hud");
   if (hud) hud.innerHTML = `<b style="color:#ffb0b0">Error:</b> ${err}`;
 });

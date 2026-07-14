@@ -23,6 +23,52 @@
         text-shadow: 0 1px 2px rgba(0,0,0,.6); pointer-events: none;
         user-select: none;
       }
+
+      /* ---- Boot / start screen ----------------------------------------------
+         Static markup so it paints on the very first frame (no empty-farm flash
+         while the bundle + assets load). It sits above the canvas/HUD but BELOW
+         the sign-in gate (z 100000). The "Reforged" plate doubles as the load
+         bar: an orange fill sweeps across it as loading progresses; when full,
+         the status line becomes "Click to Start" and a tap dismisses it. Art is
+         the game's own shipped title illustration + logo. -------------------- */
+      #boot {
+        position: fixed; inset: 0; z-index: 9000; overflow: hidden;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: #6db3e6 center/cover no-repeat;
+        background-image: url(assets/title/titlescreen.jpg);
+        transition: opacity .55s ease; -webkit-tap-highlight-color: transparent;
+        font-family: "Trebuchet MS", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      #boot::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(180deg, rgba(10,20,35,.12) 0%, transparent 30%,
+          transparent 55%, rgba(8,16,10,.8) 100%); }
+      #boot.hidden { opacity: 0; pointer-events: none; }
+      .boot-stack { position: relative; z-index: 2; display: flex; flex-direction: column;
+        align-items: center; width: 100%; max-width: 560px; padding: 0 24px;
+        transform: translateY(8vh); }
+      .boot-logo { width: min(82vw, 430px); height: auto;
+        filter: drop-shadow(0 12px 20px rgba(0,0,0,.45)); }
+      .boot-plate { position: relative; overflow: hidden; isolation: isolate; margin-top: -1.5%;
+        font: 900 clamp(16px, 5vw, 26px)/1 "Arial Black", "Trebuchet MS", sans-serif;
+        letter-spacing: .34em; text-transform: uppercase; color: #f3ecd2; text-indent: .34em;
+        background: linear-gradient(#2a1c12, #160e08); padding: .55em 1.3em; border-radius: 8px;
+        border: 2px solid rgba(243,236,210,.85);
+        box-shadow: 0 6px 0 rgba(0,0,0,.3), 0 10px 18px rgba(0,0,0,.35); }
+      .boot-plate .pfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; z-index: 0;
+        border-radius: 6px; background: linear-gradient(90deg, #c9550a, #f07a1e);
+        box-shadow: 0 0 14px 2px rgba(240,122,30,.55); transition: width .12s linear; }
+      .boot-plate span { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+      .boot-status { position: relative; z-index: 2; margin-top: 20px;
+        font: 700 clamp(13px, 3.4vw, 16px)/1 "Trebuchet MS", system-ui, sans-serif;
+        letter-spacing: .06em; color: #f3ecd2; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
+      .boot-status.ready { letter-spacing: .14em; cursor: pointer;
+        animation: bootpulse 1.15s ease-in-out infinite; }
+      @keyframes bootpulse { 0%,100% { opacity: .6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.05); } }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-status.ready { animation: none; opacity: 1; }
+        #boot { transition: none; }
+      }
     </style>
   </head>
   <body>
@@ -31,6 +77,76 @@
       <b>Zombie Farm 2 Reforged</b><br />
       Click a tile to walk there · drag to pan
     </div>
+
+    <div id="boot">
+      <div class="boot-stack">
+        <img class="boot-logo" src="assets/title/logo.png" alt="Zombie Farm 2" />
+        <div class="boot-plate"><div class="pfill" id="bootFill"></div><span>Reforged</span></div>
+        <div class="boot-status" id="bootStatus">Gathering Zombies…</div>
+      </div>
+    </div>
+
+    <!-- Classic (non-module) script: runs at parse time so the bar animates and
+         the status text cycles even before the app bundle finishes loading. It
+         exposes window.__ZFBoot for main.ts to report progress / signal ready. -->
+    <script>
+      (function () {
+        var fill = document.getElementById("bootFill");
+        var statusEl = document.getElementById("bootStatus");
+        var boot = document.getElementById("boot");
+        // The original game's five loading lines (LoadingScreenText.plist).
+        var LINES = ["Gathering Zombies…", "Zombies Taking a Bath…",
+          "Zombies Getting Dressed…", "Zombies Marching…", "Zombies Going to Work…"];
+        var li = 0, cur = 0, tgt = 0.12, phase = "load", auto = true;
+
+        // Cycle the status line while loading.
+        var cycle = setInterval(function () {
+          if (phase === "load" || phase === "readywait") {
+            li = (li + 1) % LINES.length; statusEl.textContent = LINES[li];
+          }
+        }, 1500);
+        // Creep the bar forward on its own until main.ts starts reporting real
+        // milestones — keeps it alive during the bundle download.
+        var creep = setInterval(function () {
+          if (auto && tgt < 0.62) tgt += 0.05;
+        }, 340);
+
+        function frame() {
+          cur += (tgt - cur) * 0.09;
+          if (cur > 0.999) cur = 1;
+          fill.style.width = (cur * 100).toFixed(1) + "%";
+          if (phase === "readywait" && cur >= 0.985) enterReady();
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+
+        function enterReady() {
+          phase = "ready";
+          clearInterval(cycle);
+          statusEl.textContent = "Click to Start";
+          statusEl.classList.add("ready");
+        }
+        function dismiss() {
+          if (phase !== "ready") return;
+          phase = "done";
+          boot.classList.add("hidden");
+          setTimeout(function () { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 650);
+        }
+        boot.addEventListener("click", dismiss);
+
+        window.__ZFBoot = {
+          // Report a real load milestone (0..1); stops the auto-creep.
+          progress: function (p) { auto = false; clearInterval(creep); if (p > tgt) tgt = p; },
+          // Boot finished building the game: fill to 100%, then flip to "Click to Start".
+          ready: function () { auto = false; clearInterval(creep); tgt = 1;
+            if (phase === "load") phase = "readywait"; },
+          // Bail out (fatal error): tear the overlay down so the error is visible.
+          fail: function () { clearInterval(cycle); clearInterval(creep);
+            if (boot.parentNode) boot.parentNode.removeChild(boot); }
+        };
+      })();
+    </script>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
