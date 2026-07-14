@@ -5,3 +5,6 @@ SESSION_SECRET="dev-only-secret-change-me"
 DEV_AUTH="1"
 ALLOWED_ORIGIN="http://localhost:5173"
 GOOGLE_CLIENT_ID="dev.apps.googleusercontent.com"
+# Server-owned raid cooldown (ms). Default is 2h; use a short value locally so
+# testing raids isn't gated. Match the client's fast-mode 60s if desired.
+RAID_COOLDOWN_MS="60000"

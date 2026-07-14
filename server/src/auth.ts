@@ -35,31 +35,48 @@ export async function verifyGoogleIdToken(
   return { sub };
 }
 
-const SESSION_TTL = "30d";
+// Shorter than the old 30d. The access token is now backed by a server-side
+// session row (sessions table): sign-out, "log out everywhere", or a leaked token
+// can be revoked immediately, and a live session is renewed via /session/refresh.
+// TTL bounds the damage of a token whose session revocation somehow can't be
+// reached; the DB check is the real control.
+const SESSION_TTL = "7d";
 
-/** Mint a session JWT carrying our account id (HS256, signed with SESSION_SECRET). */
+/** Identity carried by our access token: the account and the revocable session it
+ *  belongs to. The middleware still checks `sid` against the sessions table so a
+ *  revoked session's token stops working before it expires. */
+export interface SessionClaims {
+  accountId: string;
+  sessionId: string;
+}
+
+/** Mint an access-token JWT carrying our account id (sub) and session id (sid),
+ *  HS256-signed with SESSION_SECRET. */
 export async function mintSession(
   accountId: string,
+  sessionId: string,
   secret: string
 ): Promise<string> {
-  return new SignJWT({ sub: accountId })
+  return new SignJWT({ sub: accountId, sid: sessionId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(SESSION_TTL)
     .sign(new TextEncoder().encode(secret));
 }
 
-/** Verify a session JWT and return its account id, or null if invalid/expired. */
+/** Verify an access token's signature/expiry and return its claims, or null. This
+ *  is only the cryptographic check — the caller must still confirm the session is
+ *  not revoked (db.sessionAccount). */
 export async function verifySession(
   token: string,
   secret: string
-): Promise<string | null> {
+): Promise<SessionClaims | null> {
   try {
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(secret)
-    );
-    return (payload.sub as string) ?? null;
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    const accountId = payload.sub as string | undefined;
+    const sessionId = payload.sid as string | undefined;
+    if (!accountId || !sessionId) return null;
+    return { accountId, sessionId };
   } catch {
     return null;
   }

@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   DAY_MS,
+  FRIEND_CODE_LEN,
   friendCodeFromBytes,
+  dayBucket,
   idFromBytes,
   canSendGift,
   isStaleWrite,
+  deviceLabel,
   normalizeFriendCode,
   normalizeUsername,
   projectFriendSave,
@@ -12,9 +15,16 @@ import {
 import type { SaveGame } from "../src/env";
 
 describe("friendCodeFromBytes", () => {
-  it("produces a ZF- prefixed code of the requested length", () => {
-    const code = friendCodeFromBytes(new Uint8Array([0, 1, 2, 3]));
+  it("produces a ZF- prefixed code of the default (long) length", () => {
+    const code = friendCodeFromBytes(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
+    expect(code).toMatch(new RegExp(`^ZF-[0-9A-Z]{${FRIEND_CODE_LEN}}$`));
+  });
+  it("honours an explicit length", () => {
+    const code = friendCodeFromBytes(new Uint8Array([0, 1, 2, 3]), 4);
     expect(code).toMatch(/^ZF-[0-9A-Z]{4}$/);
+  });
+  it("defaults to a hard-to-enumerate length (>= 10)", () => {
+    expect(FRIEND_CODE_LEN).toBeGreaterThanOrEqual(10);
   });
   it("is deterministic in its bytes", () => {
     const bytes = new Uint8Array([10, 20, 30, 40]);
@@ -51,6 +61,16 @@ describe("canSendGift — once per rolling 24h", () => {
 describe("isStaleWrite", () => {
   it("accepts a matching base rev", () => expect(isStaleWrite(3, 3)).toBe(false));
   it("rejects a stale base rev", () => expect(isStaleWrite(2, 3)).toBe(true));
+});
+
+describe("dayBucket — once/day gift window key", () => {
+  const start = 12000 * DAY_MS; // a day-aligned instant
+  it("is stable within a day", () => {
+    expect(dayBucket(start)).toBe(dayBucket(start + DAY_MS - 1));
+  });
+  it("advances across a day boundary", () => {
+    expect(dayBucket(start + DAY_MS)).toBe(dayBucket(start) + 1);
+  });
 });
 
 describe("normalizeUsername — non-unique display name", () => {
@@ -152,5 +172,37 @@ describe("normalizeFriendCode", () => {
     expect(normalizeFriendCode("")).toBeNull();
     expect(normalizeFriendCode("!!")).toBeNull();
     expect(normalizeFriendCode("zf-")).toBeNull();
+  });
+});
+
+describe("deviceLabel — coarse UA → device string", () => {
+  it("classifies common browser/OS pairs", () => {
+    expect(deviceLabel(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    )).toBe("Chrome on Windows");
+    expect(deviceLabel(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    )).toBe("Safari on iPhone");
+    expect(deviceLabel(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36 Edg/120.0"
+    )).toBe("Edge on macOS");
+    expect(deviceLabel(
+      "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
+    )).toBe("Chrome on Android");
+  });
+  it("disambiguates Chrome-impersonators (Edge) and iPad Safari", () => {
+    // Edge/Opera advertise Chrome in their UA — must be matched first.
+    expect(deviceLabel(
+      "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120 Safari/537.36 OPR/106"
+    )).toBe("Opera on Windows");
+    // iPadOS reports "Macintosh" — the iPad token must win the OS classification.
+    expect(deviceLabel(
+      "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Safari/604.1"
+    )).toBe("Safari on iPad");
+  });
+  it("returns null for a missing/blank UA (shown as Unknown device)", () => {
+    expect(deviceLabel(undefined)).toBeNull();
+    expect(deviceLabel(null)).toBeNull();
+    expect(deviceLabel("   ")).toBeNull();
   });
 });

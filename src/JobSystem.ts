@@ -249,27 +249,48 @@ export class JobSystem {
       // crop's xp is its harvest reward.
       const funds = cfg.brainsNeeded ? this.state.brains : this.state.gold;
       if (funds >= cfg.cost && this.field.plantAt(job.oc, job.or, cfg)) {
-        if (cfg.cost > 0) {
-          if (cfg.brainsNeeded) this.state.spendBrains(cfg.cost);
-          else this.state.spendGold(cfg.cost);
-          this.float(job.cx, job.cy, `-${cfg.cost}${cfg.brainsNeeded ? "b" : "g"}`);
-        }
-        this.quest.post(QuestEvent.CropPlanted, cfg.name);
+        const online = !!this.state.onFarm && !cfg.isZombie;
         // Garden zombies fertilize a freshly-planted VEGGIE crop (zombie crops sell
         // for nothing, so they're never fertilized). A hit doubles the harvest.
-        if (!cfg.isZombie) {
+        // OFFLINE: the client owns the roll + its visual. ONLINE: the SERVER owns the
+        // fertilize roll (a client can't force it); the crop's fertilized visual is
+        // applied when the plant flushes and the server reports its decision (main.ts
+        // wires economy.onCropFertilized → field.markFertilized).
+        if (!cfg.isZombie && !online) {
           const by = this.onCropPlanted(job.oc, job.or, cfg);
           if (by) {
             this.float(job.cx, job.cy - 18, `Fertilized by ${by}!`);
             this.sfx("place");
           }
         }
+        // ONLINE veggie crop: the server prices the seed cost exactly (net/economy →
+        // /farm/actions) and decides fertilization. Otherwise (offline, or a brains-cost
+        // zombie crop the server doesn't model) charge locally as before.
+        if (online) {
+          this.state.onFarm!(
+            { type: "plant", oc: job.oc, or: job.or, cropKey: cfg.key },
+            { gold: -cfg.cost }
+          );
+          if (cfg.cost > 0) this.float(job.cx, job.cy, `-${cfg.cost}g`);
+        } else if (cfg.cost > 0) {
+          if (cfg.brainsNeeded) this.state.spendBrains(cfg.cost);
+          else this.state.spendGold(cfg.cost);
+          this.float(job.cx, job.cy, `-${cfg.cost}${cfg.brainsNeeded ? "b" : "g"}`);
+        }
+        this.quest.post(QuestEvent.CropPlanted, cfg.name);
       }
     } else {
       const r = this.field.harvestAt(job.oc, job.or);
       if (r) {
-        if (r.sell) this.state.addGold(r.sell);
-        this.state.addXp(r.xp);
+        // ONLINE veggie crop: the server credits the EXACT sell + xp and gated the
+        // harvest by server grow time. Zombie crops (yield a unit, no gold) and the
+        // offline path stay local.
+        if (this.state.onFarm && !r.isZombie && !r.zombieKey) {
+          this.state.onFarm({ type: "harvest", oc: job.oc, or: job.or }, { gold: r.sell, xp: r.xp });
+        } else {
+          if (r.sell) this.state.addGold(r.sell);
+          this.state.addXp(r.xp);
+        }
         // Zombie crops pay no gold — they yield an owned zombie unit instead.
         const msg = r.zombieKey
           ? `+${r.xp}xp`

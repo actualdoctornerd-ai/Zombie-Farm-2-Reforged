@@ -108,6 +108,18 @@ export class SaveManager {
     };
   }
 
+  /** Set by enableAutosave: force an immediate coalesced save, cancelling any
+   *  pending debounce. Null until autosave is wired (e.g. read-only visit mode). */
+  private autoFlush: (() => void) | null = null;
+
+  /** Force an immediate save at a critical boundary — a server-confirmed gift
+   *  claim, raid completion, purchase, reward grant, or sign-out — so a durable
+   *  change isn't left sitting behind the debounce. No-op while suspended. */
+  flush() {
+    if (this.autoFlush) this.autoFlush();
+    else this.save();
+  }
+
   // When suspended, save() is a no-op. Used when switching profiles / signing out:
   // after the current game is flushed and the active pointer is moved, this page
   // must not write again (its in-memory game belongs to the OLD identity) — else
@@ -318,15 +330,49 @@ export class SaveManager {
   }
 
   // Wire up autosave. Call AFTER load() so hydration doesn't trigger a redundant
-  // write. Debounces bursts (e.g. drag-planting a row) into one write.
-  enableAutosave(delayMs = 800) {
-    let timer = 0;
+  // write.
+  //
+  // Two SEPARATE cadences (see SECURITY.md "Method for reducing server load"):
+  //   • LOCAL (localStorage): a short `localMs` debounce, so a browser crash loses
+  //     at most a fraction of a second of progress — crash resilience must NOT
+  //     depend on a network push. Cheap (no quota concern).
+  //   • REMOTE (D1 via the Worker): a longer `remoteMs` trailing debounce with a
+  //     `maxDirtyMs` ceiling, coalescing bursts into few uploads to spare the
+  //     free-tier D1 write allowance (the real bottleneck), while the ceiling stops
+  //     a plain debounce postponing an upload forever during continuous play.
+  enableAutosave(localMs = 250, remoteMs = 5000, maxDirtyMs = 30000) {
+    let localTimer = 0;
+    let remoteTimer = 0;
+    let dirtySince = 0; // epoch ms of the first un-uploaded change in the current burst
+    const flushLocal = () => this.writeLocal(this.serialize());
+    const fireRemote = () => {
+      dirtySince = 0;
+      this.save(); // writes local + pushes remote
+    };
     const schedule = () => {
-      clearTimeout(timer);
-      timer = window.setTimeout(() => this.save(), delayMs);
+      // Local: keep the on-disk cache within `localMs` of the live game.
+      clearTimeout(localTimer);
+      localTimer = window.setTimeout(flushLocal, localMs);
+      // Remote: trailing debounce, but never wait past the max-dirty ceiling.
+      const now = Date.now();
+      if (!dirtySince) dirtySince = now;
+      const untilMax = Math.max(0, maxDirtyMs - (now - dirtySince));
+      clearTimeout(remoteTimer);
+      remoteTimer = window.setTimeout(fireRemote, Math.min(remoteMs, untilMax));
+    };
+    this.autoFlush = () => {
+      clearTimeout(localTimer);
+      clearTimeout(remoteTimer);
+      dirtySince = 0;
+      this.save();
     };
     this.state.onChange(schedule);
+    // Critical-boundary / durability flushes. `visibilitychange → hidden` is the
+    // reliable mobile "app backgrounded" signal; `beforeunload` is best-effort.
     window.addEventListener("beforeunload", () => this.save());
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") this.autoFlush?.();
+    });
     // Outbox: when the network returns, flush any change that failed to push.
     window.addEventListener("online", () => {
       if (this.dirty && this.isOnline() && !this.conflicted) void this.push(this.serialize());

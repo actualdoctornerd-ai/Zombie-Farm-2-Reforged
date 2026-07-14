@@ -69,6 +69,59 @@ export class GameState {
     for (const fn of this.listeners) fn();
   }
 
+  /** ONLINE: notified of every gold/brains/xp change so the EconomyClient can mirror
+   *  it to the server's authoritative ledger (net/economy.ts). Null offline, where
+   *  currency stays purely local (original behaviour). Set by main.ts after load. */
+  onMoney: ((currency: "gold" | "brains" | "xp", delta: number, reason: string) => void) | null = null;
+
+  /** ONLINE (veggie crops only): submit a plant/harvest to the server's EXACT
+   *  economics engine (/farm/actions) instead of mutating gold/xp locally. The
+   *  balance client applies the optimistic effect and reconciles to server truth.
+   *  Null offline / for zombie crops, where the crop loop stays purely local. */
+  onFarm:
+    | ((
+        action: { type: "plant" | "harvest"; oc: number; or: number; cropKey?: string; fertilized?: boolean },
+        optimistic: { gold?: number; xp?: number }
+      ) => void)
+    | null = null;
+
+  /** Adopt the server's authoritative balance (economy reconcile). Sets the values
+   *  and re-renders WITHOUT emitting an onMoney event — this is server truth being
+   *  mirrored down, not a player action to report back up. */
+  syncBalance(gold: number, brains: number, xp: number) {
+    this.gold = gold;
+    this.brains = brains;
+    this.xp = xp;
+    this.emit();
+  }
+
+  /** ONLINE: submit a boost buy/use/grant to the server's owned inventory instead of
+   *  mutating boostInv locally. The balance client applies the optimistic effect and
+   *  reconciles to server truth (see syncInventory). Null offline, where boosts stay
+   *  purely local. */
+  onInventory:
+    | ((
+        action: { type: "buy" | "use" | "grant"; key: string; qty?: number },
+        optimistic: { count: number; gold?: number; brains?: number }
+      ) => void)
+    | null = null;
+
+  /** ONLINE: sell a zombie through the server-owned roster — the server prices +
+   *  credits it (and rejects a unit it doesn't own, so a fabricated zombie can't be
+   *  cashed out). `value` is the client's optimistic estimate, reconciled to server
+   *  truth. Null offline, where the sell credits gold locally. */
+  onRosterSell: ((unitId: string, value: number) => void) | null = null;
+
+  /** Adopt the server's authoritative boost counts (inventory reconcile). Replaces the
+   *  local boost list wholesale — the server owns the counts, so the blob's list is an
+   *  ignored cache. Emits WITHOUT firing onInventory (server truth mirrored down). */
+  syncInventory(counts: Record<string, number>) {
+    this.boostInv = Object.entries(counts)
+      .filter(([, n]) => n > 0)
+      .map(([key, count]) => ({ key, count }));
+    this.emit();
+  }
+
   /** Persist tutorial progress and notify listeners (triggers autosave). */
   setTutorial(t: TutorialSave | undefined) {
     this.tutorial = t;
@@ -111,19 +164,22 @@ export class GameState {
     return (this.xp - cur) / (next - cur);
   }
 
-  addGold(n: number) {
+  addGold(n: number, reason = "misc") {
     this.gold += n;
+    this.onMoney?.("gold", n, reason);
     this.emit();
   }
-  spendGold(n: number): boolean {
+  spendGold(n: number, reason = "purchase"): boolean {
     if (this.gold < n) return false;
     this.gold -= n;
+    this.onMoney?.("gold", -n, reason);
     this.emit();
     return true;
   }
-  spendBrains(n: number): boolean {
+  spendBrains(n: number, reason = "purchase"): boolean {
     if (this.brains < n) return false;
     this.brains -= n;
+    this.onMoney?.("brains", -n, reason);
     this.emit();
     return true;
   }
@@ -131,9 +187,10 @@ export class GameState {
    *  level. Wired in main.ts to show the "level up" popup. */
   onLevelUpCb: ((from: number, to: number) => void) | null = null;
 
-  addXp(n: number) {
+  addXp(n: number, reason = "quest") {
     const before = this.level;
     this.xp += n;
+    this.onMoney?.("xp", n, reason);
     const after = this.level;
     if (after > before) this.onLevelUp(before, after);
     this.emit();
@@ -144,12 +201,15 @@ export class GameState {
    *  show the unlock popup. The real game also refills zombie hunger — that belongs
    *  with the (later) hunger phase; wire the reset in here when it lands. */
   private onLevelUp(from: number, to: number) {
-    this.brains += to - from; // +1 brain per level gained
+    const grant = to - from; // +1 brain per level gained
+    this.brains += grant;
+    this.onMoney?.("brains", grant, "levelup");
     this.lastRaidAt = 0; // raid timer resets on level up
     this.onLevelUpCb?.(from, to);
   }
-  addBrains(n: number) {
+  addBrains(n: number, reason = "misc") {
     this.brains += n;
+    this.onMoney?.("brains", n, reason);
     this.emit();
   }
   addZombieMax(n: number) {

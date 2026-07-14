@@ -121,6 +121,12 @@ export interface RaidResultView {
   xp: number; // XP earned — the enemy's `xp`, granted only on the FIRST clear (0 otherwise)
   loot: LootDrop[]; // item drops (with pictures)
   abilityUnlock: string; // "" unless a tier unlocked on this clear
+  /** ONLINE only: the base win gold + first-clear XP the SERVER must credit — NOT
+   *  applied locally (main.ts submits it to /raid/finish, which prices it from the
+   *  server catalog; the balance client reconciles). Absent offline, where the base
+   *  reward was credited locally like before. Bonus gold / brains / loot are always
+   *  credited locally (bounded economy + inventory). */
+  serverReward?: { gold: number; xp: number; survivalFrac: number };
 }
 
 /** Battle consumables chosen on the Invade screens. All optional; each is spent
@@ -132,6 +138,12 @@ export interface RaidLaunchOpts {
   concentration?: boolean;
   /** How many Golden Dice to spend (each climbs the loot one tier rarer). */
   dice?: number;
+  /** ONLINE: the server (POST /raid/start) already authorized this launch, so
+   *  beginRaid must NOT re-run the client cooldown gate. The server owns the clock. */
+  serverAuthorized?: boolean;
+  /** ONLINE: the server skipped an active cooldown for this launch (a voucher use),
+   *  so beginRaid consumes one Invasion Voucher to keep inventory in sync. */
+  bypassed?: boolean;
 }
 
 /** A committed raid ready to be played out (by the live scene or the instant
@@ -284,8 +296,19 @@ export class RaidManager {
     const minArmy = minArmyFor(raid, this.state.raidWins(String(raid.id)));
     if (!stage || party.length < minArmy) return null;
 
-    // Cooldown gate: either wait it out, or spend a voucher to skip it.
-    if (this.onCooldown()) {
+    // ONLINE: boost COUNTS are server-owned (state.onInventory present). Consumption
+    // goes through the server (optimistic decrement + reconcile) instead of mutating
+    // the local list, else the next inventory sync would restore a "spent" boost.
+    const online = !!this.state.onInventory;
+
+    // Cooldown gate. ONLINE (serverAuthorized): the server already decided via
+    // /raid/start — it owns the clock — and it ALSO consumed the voucher there if it
+    // bypassed a cooldown, so there's nothing to spend here (main.ts refreshes the
+    // inventory). OFFLINE: the client is authoritative — wait it out, or spend a
+    // voucher to skip.
+    if (opts.serverAuthorized) {
+      if (opts.bypassed && !online) this.state.useBoost(VOUCHER_KEY);
+    } else if (this.onCooldown()) {
       if (!opts.useVoucher || !this.state.useBoost(VOUCHER_KEY)) return null;
     }
 
@@ -293,12 +316,21 @@ export class RaidManager {
     // (fight at full focus) needs at most one; Golden Dice stack for loot luck,
     // capped by both the player's stock and the raid's rare-tier depth.
     let concentration = false;
-    if (opts.concentration && this.state.useBoost(CONCENTRATION_KEY)) concentration = true;
+    if (opts.concentration && this.state.boostCount(CONCENTRATION_KEY) > 0) {
+      concentration = true;
+      if (online) this.state.onInventory!({ type: "use", key: CONCENTRATION_KEY }, { count: -1 });
+      else this.state.useBoost(CONCENTRATION_KEY);
+    }
 
     let dice = 0;
     const wantDice = Math.max(0, Math.floor(opts.dice ?? 0));
     const diceCap = Math.min(wantDice, this.diceCount(), maxLuckTiers(raid));
-    for (let i = 0; i < diceCap && this.state.useBoost(DICE_KEY); i++) dice++;
+    if (online) {
+      dice = diceCap;
+      if (dice > 0) this.state.onInventory!({ type: "use", key: DICE_KEY, qty: dice }, { count: -dice });
+    } else {
+      for (let i = 0; i < diceCap && this.state.useBoost(DICE_KEY); i++) dice++;
+    }
 
     // Remember the chosen attack order so the Army screen reopens with it after
     // the raid. `party` is already in launch order and filtered to live zombies.
@@ -446,7 +478,13 @@ export class RaidManager {
   /** Apply the result of a played-out raid: veterancy credit, win rewards, the
    *  between-invasions cooldown, and a save. Returns the result view for the HUD.
    *  Works for both the live scene and the instant resolver. */
-  finishRaid(raid: RaidDef, party: OwnedZombie[], outcome: RaidOutcome, dice = 0): RaidResultView {
+  finishRaid(
+    raid: RaidDef,
+    party: OwnedZombie[],
+    outcome: RaidOutcome,
+    dice = 0,
+    serverRewards = false
+  ): RaidResultView {
     // Veterancy is earned by SURVIVING a battle — credit only the units still
     // standing (drives rank-up). A unit knocked out mid-fight, even in a win, gets
     // nothing; a total loss credits no one.
@@ -466,19 +504,25 @@ export class RaidManager {
     let xp = 0;
     const loot: LootDrop[] = [];
     let abilityUnlock = "";
+    let serverReward: RaidResultView["serverReward"];
     if (outcome.win) {
       const wins = this.state.completeRaid(String(raid.id));
       // XP (GROUND TRUTH — disassembled `firstTimeBeatingEnemy` gate + "You earned
       // %ixp for beating this enemy for the first time."): the enemy's `xp` is granted
       // only on the FIRST clear of this raid; repeat wins pay gold/brains but no XP.
       // One boss enemy per raid, so first-ever win (wins === 1) IS first-time-beaten.
-      if (wins === 1 && raid.xp > 0) {
-        xp = raid.xp;
-        this.state.addXp(xp);
-      }
+      if (wins === 1 && raid.xp > 0) xp = raid.xp;
       const survivalFrac = party.length ? outcome.survivors.length / party.length : 0;
       gold = winGold(raid, survivalFrac);
-      this.state.addGold(gold);
+      // ONLINE: the base win gold + first-clear XP are SERVER-authoritative — hand
+      // them off (main.ts → /raid/finish) instead of crediting locally, so the server
+      // prices them and can't be out-fabricated. OFFLINE: credit locally as before.
+      if (serverRewards) {
+        serverReward = { gold, xp, survivalFrac };
+      } else {
+        if (xp > 0) this.state.addXp(xp);
+        this.state.addGold(gold);
+      }
       // Loot: ONE weighted drop (source `rollForDrop:`). The rarity tier is chosen
       // by rollLootTier() from the luck bracket (Golden Dice spent), then one
       // eligible alternative in that tier is picked uniformly. A "Bonus Gold" pick
@@ -492,8 +536,12 @@ export class RaidManager {
         // A boost drop stacks straight into the player's boost inventory (bumping
         // that boost's count) rather than sitting in Storage/Received to be claimed.
         const boost = this.assets.boosts.find((b) => b.name === drop);
-        if (boost) this.state.addBoost(boost.key);
-        else this.state.receiveItem(drop);
+        // ONLINE: grant the loot boost into the SERVER-owned inventory (else the next
+        // sync would drop it); OFFLINE: add to the local list as before.
+        if (boost) {
+          if (this.state.onInventory) this.state.onInventory({ type: "grant", key: boost.key }, { count: 1 });
+          else this.state.addBoost(boost.key);
+        } else this.state.receiveItem(drop);
         loot.push({ name: drop, icon: this.lootIcon(drop) });
       }
       // Brains drop occasionally, IN ADDITION to loot (source brain-drop table).
@@ -524,6 +572,7 @@ export class RaidManager {
       xp,
       loot,
       abilityUnlock,
+      serverReward,
     };
   }
 

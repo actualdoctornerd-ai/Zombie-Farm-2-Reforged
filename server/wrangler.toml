@@ -10,6 +10,10 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "zombiefarm"
 database_id = "bf1b288f-7419-41d5-8ee6-0f022c17fd20"
+# Versioned migrations live here (0001…). Apply with `wrangler d1 migrations apply
+# zombiefarm [--local|--remote]`. See migrations/README.md for the fresh-vs-upgrade
+# paths and the non-idempotent ALTER caveats.
+migrations_dir = "migrations"
 
 # ---- Public-ish config (not secret) --------------------------------------
 # GOOGLE_CLIENT_ID is your OAuth 2.0 Web client id (safe to expose).
@@ -19,6 +23,9 @@ database_id = "bf1b288f-7419-41d5-8ee6-0f022c17fd20"
 GOOGLE_CLIENT_ID = "249211577622-cmqa6so9re0hgh2lti4mpe40nlcm3l4k.apps.googleusercontent.com"
 ALLOWED_ORIGIN = "https://actualdoctornerd-ai.github.io"
 DEV_AUTH = "0"
+# Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
+# raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
+# RAID_COOLDOWN_MS = "7200000"
 
 # ---- Secrets (set out-of-band, never committed) --------------------------
 # wrangler secret put SESSION_SECRET      # signs our own session JWTs
@@ -27,3 +34,37 @@ DEV_AUTH = "0"
 #   SESSION_SECRET="dev-only-change-me"
 #   DEV_AUTH="1"
 #   ALLOWED_ORIGIN="http://localhost:5173"
+
+# ---- Rate Limiting bindings ----------------------------------------------
+# Cloudflare's native per-key limiter. Throttling only — the D1 constraints
+# (gift uniqueness, grants, save CAS) remain the real correctness controls. These
+# do NOT write to D1, so they don't consume the free-tier D1 write allowance.
+# `period` must be 10 or 60 (seconds). If these bindings are removed the server
+# falls back to a D1 counter automatically (see src/index.ts rateLimit()).
+[[unsafe.bindings]]
+name = "RL_AUTH"                       # sign-in (per IP): tight, but NAT-tolerant
+type = "ratelimit"
+namespace_id = "1001"
+# 60/min/IP: still stops sign-in brute-force / token-verification cost amplification,
+# but tolerates a shared NAT/CGNAT egress (offices, schools, mobile carriers) where
+# many legitimate users share one IP. Google-token verification is the real gate.
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_WRITE"                      # mutations (per account): moderate
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 120, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_READ"                       # reads / polling (per account): loose
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 300, period = 60 }
+
+# ---- Scheduled cleanup ----------------------------------------------------
+# Daily sweep (03:17 UTC) of expired/revoked sessions, stale rate-limit buckets,
+# and old pending friend requests — keeps D1 small on the free tier. Handler:
+# the `scheduled` export in src/index.ts.
+[triggers]
+crons = ["17 3 * * *"]

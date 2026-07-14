@@ -1,9 +1,12 @@
 import { defineConfig } from "vitest/config";
 
-// Pure-logic tests only (logic.ts) — no Worker runtime needed, so the default
-// node environment is fine. Route handlers are exercised end-to-end via wrangler.
+// Pure-logic unit tests (logic.ts / economy.ts / validate.ts) — default node
+// environment, fast. The Worker-runtime INTEGRATION tests live under
+// test/integration and run in a separate config (vitest.integration.config.ts)
+// because they need the Cloudflare Workers pool (workerd + real D1).
 export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
+    exclude: ["test/integration/**", "node_modules/**"],
   },
 });

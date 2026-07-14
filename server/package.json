@@ -10,6 +10,7 @@
     "db:apply:local": "wrangler d1 execute zombiefarm --local --file=./schema.sql",
     "db:apply:remote": "wrangler d1 execute zombiefarm --remote --file=./schema.sql",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

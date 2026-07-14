@@ -14,5 +14,7 @@
     "verbatimModuleSyntax": true,
     "noEmit": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "// integration specs use the cloudflare:test module (Workers pool); they're type-checked/run by vitest, not this tsc pass": "",
+  "exclude": ["test/integration"]
 }

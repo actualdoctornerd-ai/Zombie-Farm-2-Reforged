@@ -27,6 +27,35 @@ export class ZombieField {
   private nextId = 1;
   private pot = new ZombiePot(); // the single Zombie Pot combine job (if any)
 
+  // ---- server-owned roster hooks (P12) ----
+  // ONLINE only. Fire when a unit is CREATED (onGrant) or REMOVED as a casualty /
+  // combined parent (onCasualty), so the server roster shadow stays accurate. Gated by
+  // `rosterLive` so restoring the save (which re-spawns every unit) doesn't re-emit —
+  // those are seeded via /roster/sync instead. A SELL is reported at its own call site
+  // (it credits gold), so it deliberately does NOT go through onCasualty.
+  onGrant: ((u: { id: string; key: string; mutation: number; invasions: number }) => void) | null = null;
+  onCasualty: ((ids: string[]) => void) | null = null;
+  // Combine goes through its own server ops so the result can be validated against the
+  // two parents: onCombineStart consumes the parents; onCombineCollect grants the
+  // result (server checks its key is one of the parents'). Fall back to casualty/grant
+  // if these aren't wired.
+  onCombineStart: ((parentAId: string, parentBId: string) => void) | null = null;
+  onCombineCollect: ((unitId: string, key: string, mutation: number) => void) | null = null;
+  private rosterLive = false;
+  private combining = false; // suppresses addUnit's generic onGrant during a collect
+
+  /** Start emitting roster hooks (call once the save is restored + the server roster
+   *  seeded, so only genuine post-load changes are reported). */
+  setRosterLive() {
+    this.rosterLive = true;
+  }
+
+  /** All owned units (deployed + stored) as server roster seed records. */
+  seedData(): { id: string; key: string; mutation: number; invasions: number }[] {
+    const of = (d: OwnedZombie) => ({ id: d.id, key: d.key, mutation: d.mutation, invasions: d.invasions });
+    return [...this.units.map((u) => of(u.getData())), ...this.stored.map(of)];
+  }
+
   constructor(
     private assets: GameAssets,
     private field: Field,
@@ -88,6 +117,9 @@ export class ZombieField {
     const unit = new ZombieUnit(this.assets, this.field, data);
     this.field.entityLayer.addChild(unit.container);
     this.units.push(unit);
+    if (this.rosterLive && !this.combining) {
+      this.onGrant?.({ id: data.id, key: data.key, mutation: data.mutation, invasions: data.invasions });
+    }
     return unit;
   }
 
@@ -165,6 +197,8 @@ export class ZombieField {
       const data = this.takeOwned(id);
       if (data) removed.push(data);
     }
+    // Drop the dead from the server shadow too, so they can't be sold after dying.
+    if (this.rosterLive && removed.length) this.onCasualty?.(removed.map((r) => r.id));
     return removed;
   }
 
@@ -216,6 +250,13 @@ export class ZombieField {
     if (!hasA || !hasB) return false;
     const a = this.takeOwned(idA)!;
     const b = this.takeOwned(idB)!;
+    // Both parents are consumed. ONLINE: the server records them as a combine job
+    // (onCombineStart) so it can validate the result at collect; fall back to a plain
+    // casualty removal if the combine hooks aren't wired.
+    if (this.rosterLive) {
+      if (this.onCombineStart) this.onCombineStart(idA, idB);
+      else this.onCasualty?.([idA, idB]);
+    }
     return this.pot.start(
       { key: a.key, mutation: a.mutation, color: this.colorOf(a), ...this.speciesTraits(a) },
       { key: b.key, mutation: b.mutation, color: this.colorOf(b), ...this.speciesTraits(b) },
@@ -253,11 +294,19 @@ export class ZombieField {
     if (!def) return null;
     const mutation = def.mutation ? addMutation(result.mutation, def.mutation) : result.mutation;
     const data = makeOwned(`z${this.nextId++}`, def, col, row, 0, mutation, result.color);
+    // A combine result is granted via onCombineCollect (server validates it against the
+    // two parents), NOT the generic onGrant — so suppress the latter while adding.
+    this.combining = true;
     if (this.canAdd()) {
       this.addUnit(data);
       this.syncCount();
     } else {
       this.stored.push(data); // no free army slot -> goes to the Mausoleum
+    }
+    this.combining = false;
+    if (this.rosterLive) {
+      if (this.onCombineCollect) this.onCombineCollect(data.id, data.key, data.mutation);
+      else this.onGrant?.({ id: data.id, key: data.key, mutation: data.mutation, invasions: data.invasions });
     }
     return data;
   }

@@ -109,8 +109,24 @@ export function signOut() {
   } catch {
     /* ignore */
   }
-  api.clearSession();
+  // Revoke the session server-side (best-effort), not just locally — a stolen copy
+  // of the token stops working once the session row is revoked. clearSession()
+  // still runs inside api.logout() so the UI signs out immediately regardless.
+  void api.logout();
   emit();
+}
+
+/** Renew our access token if we're signed in (fresh token for a long-lived tab).
+ *  Best-effort: a revoked/expired session surfaces as 401 and clears the session,
+ *  which the caller's re-render turns into the sign-in gate. */
+export async function refreshIfSignedIn(): Promise<void> {
+  if (!api.getSession()) return;
+  try {
+    await api.refreshSession();
+  } catch {
+    /* 401 already cleared the session; onAuthChange listeners re-render the gate */
+    emit();
+  }
 }
 
 // Dev-only sign-in: bypasses the Google popup so the flow can be automated

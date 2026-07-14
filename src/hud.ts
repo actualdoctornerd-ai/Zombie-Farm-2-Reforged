@@ -394,6 +394,20 @@ const STYLE = `
   cursor: pointer; color: #fff; font: 800 13px system-ui, sans-serif; text-shadow: 0 1px 1px #000;
   background: linear-gradient(#c0553f, #9c3320); }
 #hud .set-signout:hover { filter: brightness(1.1); }
+#hud .set-devices { margin: 10px 0 2px; }
+#hud .set-devices h3 { margin: 0 0 6px; font: 800 13px system-ui, sans-serif; color: #cbe6a0;
+  text-transform: uppercase; letter-spacing: .04em; }
+#hud .set-dev-list { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #b6a986; }
+#hud .set-dev-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 10px; border-radius: 9px; background: rgba(47,156,138,.10);
+  box-shadow: inset 0 0 0 1px rgba(79,208,184,.22); }
+#hud .set-dev-name { font-size: 14px; font-weight: 700; color: #eaffd8; }
+#hud .set-dev-when { font-size: 12px; color: #9ad3c4; margin-top: 2px; }
+#hud .set-dev-revoke { flex: 0 0 auto; border: 2px solid #14240a; border-radius: 8px; padding: 5px 12px;
+  cursor: pointer; color: #fff; font: 800 12px system-ui, sans-serif; text-shadow: 0 1px 1px #000;
+  background: linear-gradient(#c0553f, #9c3320); }
+#hud .set-dev-revoke:hover { filter: brightness(1.1); }
+#hud .set-dev-revoke:disabled { opacity: .5; cursor: default; }
 #hud .set-row { display: flex; align-items: center; justify-content: space-between;
   gap: 24px; min-width: 240px; padding: 8px 2px; font-size: 15px; font-weight: 700; }
 #hud .set-row + .set-row { border-top: 1px solid rgba(255,255,255,.15); }
@@ -1269,10 +1283,16 @@ export class Hud {
     spacer.className = "spacer";
     // Invisible developer hotspot: a transparent button tucked just to the left of
     // the nameplate. Clicking it opens the (otherwise hidden) Developer menu.
-    const devHot = document.createElement("button");
-    devHot.className = "devhot";
-    devHot.title = ""; // stays invisible / unlabelled
-    devHot.onclick = () => this.openDevMenu();
+    // DEV BUILDS ONLY: `import.meta.env.DEV` is statically false in production, so
+    // Vite tree-shakes this branch (and the openDevMenu it references) out of the
+    // shipped bundle. The dev menu is a convenience, never a security boundary —
+    // gameplay authority is being moved server-side — but it must not ship.
+    const devHot = import.meta.env.DEV ? document.createElement("button") : null;
+    if (devHot) {
+      devHot.className = "devhot";
+      devHot.title = ""; // stays invisible / unlabelled
+      devHot.onclick = () => this.openDevMenu();
+    }
     const name = document.createElement("div");
     name.className = "nameplate";
     name.textContent = "Zombie Farmer";
@@ -1296,7 +1316,7 @@ export class Hud {
     prof.appendChild(profImg);
     prof.onclick = () => this.openProfiles();
 
-    bar.append(gear, chips, spacer, devHot, name, prof);
+    bar.append(gear, chips, spacer, ...(devHot ? [devHot] : []), name, prof);
     this.el.appendChild(bar);
     this.refreshName();
   }
@@ -1759,7 +1779,7 @@ export class Hud {
    *  (it will show the result itself on finish); false means it declined (cooldown /
    *  a raid already running). There is no instant/auto-resolve fallback. `opts` carries
    *  the voucher/concentration/dice choices. */
-  onLaunchRaid: ((raidId: number, partyIds: string[], opts: RaidLaunchOpts) => boolean) | null = null;
+  onLaunchRaid: ((raidId: number, partyIds: string[], opts: RaidLaunchOpts) => boolean | Promise<boolean>) | null = null;
 
   // ---- save profiles (set by main) ----
   /** Current profile index (active id + all profiles). */
@@ -1808,6 +1828,24 @@ export class Hud {
   getInbox: (() => { id: string; fromName: string }[]) | null = null;
   /** Claim a gift (credits a brain server-side). */
   onClaimGift: ((id: string) => Promise<void>) | null = null;
+  /** Pull pending incoming friend requests into the cache. */
+  refreshRequests: (() => Promise<void>) | null = null;
+  /** Cached pending incoming friend requests (people asking to befriend me). */
+  getRequests: (() => { fromAccountId: string; name: string }[]) | null = null;
+  /** Accept a pending request. Resolves to an error code, or null on success. */
+  onAcceptRequest: ((fromAccountId: string) => Promise<string | null>) | null = null;
+  /** Reject / withdraw a pending request. */
+  onRejectRequest: ((accountId: string) => Promise<void>) | null = null;
+  /** Block an account (tears down any edge + request). */
+  onBlockFriend: ((accountId: string) => Promise<void>) | null = null;
+  /** Rotate my friend code. Resolves to the new code, or null on failure. */
+  onRotateCode: (() => Promise<string | null>) | null = null;
+  /** List this account's live devices/sessions for the Account menu. */
+  onListSessions:
+    | (() => Promise<{ id: string; label: string | null; lastUsedAt: number; current: boolean }[]>)
+    | null = null;
+  /** Revoke one other device by id. Resolves true on success. */
+  onRevokeSession: ((id: string) => Promise<boolean>) | null = null;
 
   /** Current Fast Mode state (compressed wait clocks); defaults to ON. */
   getFastMode: (() => boolean) | null = null;
@@ -2964,6 +3002,75 @@ export class Hud {
     return block;
   }
 
+  /** Short "active N ago" for the device list. Coarse on purpose. */
+  private static relTime(ts: number): string {
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 90) return "just now";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 48) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  /** Devices block for the Account menu: this account's live sessions, each with a
+   *  device label + last-active time, and a Revoke button for every device EXCEPT
+   *  the current one (that's what Sign out is for). Loads asynchronously — returns
+   *  the container immediately and fills it in. Null when there's no online account. */
+  private buildDevicesBlock(): HTMLElement | null {
+    if (!this.socialOnline?.() || !this.onListSessions) return null;
+    const block = document.createElement("div");
+    block.className = "set-devices";
+    const h = document.createElement("h3");
+    h.textContent = "Devices";
+    const list = document.createElement("div");
+    list.className = "set-dev-list";
+    list.textContent = "Loading…";
+    block.append(h, list);
+
+    const render = async () => {
+      let rows: { id: string; label: string | null; lastUsedAt: number; current: boolean }[];
+      try {
+        rows = await this.onListSessions!();
+      } catch {
+        list.textContent = "Couldn't load your devices.";
+        return;
+      }
+      list.innerHTML = "";
+      if (!rows.length) { list.textContent = "No active devices."; return; }
+      for (const r of rows) {
+        const row = document.createElement("div");
+        row.className = "set-dev-row";
+        const meta = document.createElement("div");
+        meta.className = "set-dev-meta";
+        const name = document.createElement("div");
+        name.className = "set-dev-name";
+        // textContent — the label is server-derived, but never build markup from it.
+        name.textContent = r.label ?? "Unknown device";
+        const when = document.createElement("div");
+        when.className = "set-dev-when";
+        when.textContent = r.current ? "This device" : `Active ${Hud.relTime(r.lastUsedAt)}`;
+        meta.append(name, when);
+        row.append(meta);
+        if (!r.current) {
+          const rev = document.createElement("button");
+          rev.className = "set-dev-revoke";
+          rev.textContent = "Sign out";
+          rev.onclick = async () => {
+            rev.disabled = true;
+            const ok = await this.onRevokeSession?.(r.id).catch(() => false);
+            if (ok) row.remove();
+            else { rev.disabled = false; this.showToast("Couldn't sign that device out."); }
+          };
+          row.append(rev);
+        }
+        list.append(row);
+      }
+    };
+    void render();
+    return block;
+  }
+
   // Account menu: who you're signed in as + Sign out — and Sign out lives ONLY
   // here. Profile SWITCHING (multiple independent save slots — Play / New Game /
   // Rename / Delete) is intentionally not exposed for now; that UX needs a rework.
@@ -2990,6 +3097,8 @@ export class Hud {
     const acctBlock = this.buildAccountBlock();
     if (acctBlock) {
       panel.append(acctBlock);
+      const devices = this.buildDevicesBlock();
+      if (devices) panel.append(devices);
     } else {
       // Offline build or signed out: nothing to manage here.
       const note = document.createElement("div");
@@ -3028,10 +3137,11 @@ export class Hud {
     note.className = "fr-note";
     const acctBar = document.createElement("div");
     acctBar.className = "fr-acct";
+    const requestsWrap = document.createElement("div");
     const inboxWrap = document.createElement("div");
     const list = document.createElement("div");
     list.className = "prof-list";
-    panel.append(x, h, note, acctBar, inboxWrap, list);
+    panel.append(x, h, note, acctBar, requestsWrap, inboxWrap, list);
 
     const canOnline = this.onlineAvailable?.() ?? false;
     const online = () => this.socialOnline?.() ?? false;
@@ -3040,15 +3150,19 @@ export class Hud {
       e === null ? null
         : e === "already_gifted_today" ? "You already gifted them today."
         : e === "not_friends" ? "You're not friends yet."
+        : e === "recipient_inbox_full" ? "Their gift inbox is full right now."
+        : e === "rate_limited" ? "Slow down a moment, then try again."
         : /offline|not_configured|no_session/.test(e) ? "You're offline right now."
         : "Couldn't send the gift.";
+    // Add-by-code is consent-based and non-oracle: a well-formed call always
+    // succeeds ("request sent") whether or not the code exists, so there's no
+    // "no such player" message to leak. Only local/transport problems surface.
     const addErr = (e: string | null): string | null =>
       e === null ? null
-        : e === "not_found" ? "No player has that code."
-        : e === "cannot_add_self" ? "That's your own code!"
-        : e === "bad_code" ? "Enter a code like ZF-ABCD."
+        : e === "bad_code" ? "Enter a code like ZF-ABCDEFGHIJ."
+        : e === "rate_limited" ? "Slow down a moment, then try again."
         : /offline|not_configured|no_session/.test(e) ? "You're offline right now."
-        : "Couldn't add that friend.";
+        : "Couldn't send that request.";
 
     const renderAcct = () => {
       acctBar.innerHTML = "";
@@ -3057,12 +3171,32 @@ export class Hud {
         const acct = this.myAccount?.();
         const who = document.createElement("div");
         who.className = "fr-who";
-        who.innerHTML = `Signed in as <b>${acct?.name ?? "Player"}</b>`;
+        // textContent (not innerHTML) for the display name: never build markup from
+        // account-controlled strings, even though usernames are server-validated to
+        // exclude markup chars. Defense in depth (see SECURITY.md A9).
+        who.append("Signed in as ");
+        const b = document.createElement("b");
+        b.textContent = acct?.name ?? "Player";
+        who.appendChild(b);
         const code = document.createElement("span");
         code.className = "fr-code";
         code.textContent = acct?.friendCode ?? "";
         this.makeCopyable(code, acct?.friendCode ?? "");
         who.appendChild(code);
+        // Rotate the friend code (invalidate an over-shared/leaked one).
+        if (this.onRotateCode) {
+          const rot = document.createElement("button");
+          rot.className = "prof-btn fr-rotate";
+          rot.textContent = "New code";
+          rot.title = "Get a fresh friend code (your old one stops working)";
+          rot.onclick = async () => {
+            rot.disabled = true;
+            const nc = await this.onRotateCode?.();
+            if (nc) { this.showToast("New friend code generated."); renderAcct(); }
+            else { this.showToast("Couldn't rotate your code."); rot.disabled = false; }
+          };
+          who.appendChild(rot);
+        }
         // Sign out lives in the Profile menu now (top-right profile icon); the
         // friend code stays here for the friends flow.
         acctBar.append(who);
@@ -3091,7 +3225,10 @@ export class Hud {
         row.className = "prof-row fr-inbox-row";
         const nm = document.createElement("div");
         nm.className = "prof-name";
-        nm.innerHTML = `🧠 Brain from <b>${g.fromName}</b>`;
+        nm.append("🧠 Brain from ");
+        const bfrom = document.createElement("b");
+        bfrom.textContent = g.fromName; // textContent: no markup from account strings
+        nm.appendChild(bfrom);
         const claim = document.createElement("button");
         claim.className = "prof-btn play";
         claim.textContent = "Claim";
@@ -3103,6 +3240,46 @@ export class Hud {
         };
         row.append(nm, claim);
         inboxWrap.appendChild(row);
+      }
+    };
+
+    const renderRequests = () => {
+      requestsWrap.innerHTML = "";
+      if (!online()) return;
+      const reqs = this.getRequests?.() ?? [];
+      if (!reqs.length) return;
+      const hd = document.createElement("div");
+      hd.className = "fr-inbox-h";
+      hd.textContent = `👋 Friend requests (${reqs.length})`;
+      requestsWrap.appendChild(hd);
+      for (const r of reqs) {
+        const row = document.createElement("div");
+        row.className = "prof-row fr-req-row";
+        const nm = document.createElement("div");
+        nm.className = "prof-name";
+        nm.textContent = r.name; // account-controlled → textContent, never innerHTML
+        const acts = document.createElement("div");
+        acts.className = "prof-actions";
+        const accept = document.createElement("button");
+        accept.className = "prof-btn play";
+        accept.textContent = "Accept";
+        accept.onclick = async () => {
+          accept.disabled = true;
+          const err = await (this.onAcceptRequest?.(r.fromAccountId) ?? Promise.resolve("offline"));
+          if (err) { this.showToast("Couldn't accept that request."); accept.disabled = false; }
+          else { this.showToast(`You and ${r.name} are now friends! 🧟`); await refresh(); }
+        };
+        const reject = document.createElement("button");
+        reject.className = "prof-btn del";
+        reject.textContent = "Ignore";
+        reject.onclick = async () => {
+          reject.disabled = true;
+          await this.onRejectRequest?.(r.fromAccountId);
+          await refresh();
+        };
+        acts.append(accept, reject);
+        row.append(nm, acts);
+        requestsWrap.appendChild(row);
       }
     };
 
@@ -3159,6 +3336,27 @@ export class Hud {
           visit.title = `Look around ${f.name}'s farm (read-only)`;
           visit.onclick = () => this.onVisitFriend?.(f.id, f.name);
           acts.appendChild(visit);
+          // Unfriend / block (online). Remove tears down the edge; Block also
+          // prevents re-adding and future gifts.
+          const del = document.createElement("button");
+          del.className = "prof-btn del";
+          del.textContent = "Remove";
+          del.onclick = async () => {
+            del.disabled = true;
+            await this.onRemoveFriend?.(f.id);
+            await refresh();
+          };
+          const block = document.createElement("button");
+          block.className = "prof-btn del fr-block";
+          block.textContent = "Block";
+          block.title = `Block ${f.name} (removes them and stops future requests/gifts)`;
+          block.onclick = async () => {
+            block.disabled = true;
+            await this.onBlockFriend?.(f.id);
+            this.showToast(`Blocked ${f.name}.`);
+            await refresh();
+          };
+          acts.append(del, block);
         }
         if (!online()) {
           const del = document.createElement("button");
@@ -3187,7 +3385,11 @@ export class Hud {
           add.disabled = true;
           const err = addErr(await (this.onAddFriendCode?.(v) ?? Promise.resolve("offline")));
           if (err) { this.showToast(err); add.disabled = false; return; }
-          this.showToast("Friend added!");
+          // Consent-based: this sends a request they must accept (or, if they'd
+          // already requested you, you become friends immediately).
+          this.showToast("Friend request sent!");
+          inp.value = "";
+          add.disabled = false;
           await refresh();
         } else {
           this.onAddFriend?.(v);
@@ -3208,11 +3410,12 @@ export class Hud {
           : "Sign in to connect with friends online. You can still keep a local list below.";
     };
 
-    const renderAll = () => { renderNote(); renderAcct(); renderInbox(); renderList(); };
+    const renderAll = () => { renderNote(); renderAcct(); renderRequests(); renderInbox(); renderList(); };
     const refresh = async () => {
       if (online()) {
         try {
           await this.refreshFriends?.();
+          await this.refreshRequests?.();
           await this.refreshInbox?.();
         } catch { /* stay on cached data */ }
       }
@@ -4269,12 +4472,17 @@ export class Hud {
       refresh();
     };
 
-    start.onclick = () => {
+    start.onclick = async () => {
       if (order.length < min) return;
-      // Always play the live battle scene — there is no instant/auto-resolve. If the
-      // scene declines (cooldown, or a raid already running), leave this screen up so
-      // the player can retry rather than closing into nothing.
-      if (this.onLaunchRaid && this.onLaunchRaid(raid.id, [...order], launchOpts())) bg.remove();
+      // Always play the live battle scene — there is no instant/auto-resolve. Launch
+      // may be async (an online server cooldown gate). Guard against a double-tap
+      // while the gate is in flight. If it declines (cooldown, or a raid already
+      // running), leave this screen up so the player can retry.
+      if (!this.onLaunchRaid || start.disabled) return;
+      start.disabled = true;
+      const launched = await this.onLaunchRaid(raid.id, [...order], launchOpts());
+      if (launched) bg.remove();
+      else start.disabled = false;
     };
     foot.append(pick, start);
     refresh();

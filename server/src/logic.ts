@@ -8,14 +8,27 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 /** Friend-code alphabet: no 0/O/1/I/L to stay unambiguous when read aloud/typed. */
 const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
-/** Format N random bytes into a "ZF-XXXX" friend code. Deterministic in `bytes`,
- *  so it's unit-testable; the caller supplies crypto-random bytes at runtime. */
-export function friendCodeFromBytes(bytes: Uint8Array, len = 4): string {
+/** Default friend-code body length. 10 chars over a 31-char alphabet ≈ 8.2×10^14
+ *  codes — far beyond feasible enumeration, unlike the old 4-char (923,521) space.
+ *  Combined with rate limiting and a non-oracle /friends/add, codes are no longer
+ *  a practical way to discover or force a relationship with arbitrary accounts. */
+export const FRIEND_CODE_LEN = 10;
+
+/** Format N random bytes into a "ZF-XXXXXXXXXX" friend code. Deterministic in
+ *  `bytes`, so it's unit-testable; the caller supplies crypto-random bytes at
+ *  runtime. Needs at least `len` bytes of entropy for a full-strength code. */
+export function friendCodeFromBytes(bytes: Uint8Array, len = FRIEND_CODE_LEN): string {
   let s = "";
   for (let i = 0; i < len; i++) {
     s += CODE_ALPHABET[bytes[i % bytes.length] % CODE_ALPHABET.length];
   }
   return `ZF-${s}`;
+}
+
+/** UTC day bucket for a timestamp — the once-a-day gift window key. Two sends to
+ *  the same recipient in the same bucket collide on the gifts UNIQUE index. */
+export function dayBucket(now: number): number {
+  return Math.floor(now / DAY_MS);
 }
 
 /** Format random bytes into a lowercase hex id of `len` chars (account/gift ids). */
@@ -97,6 +110,32 @@ export function normalizeFriendCode(raw: string): string | null {
     : cleaned.startsWith("ZF")
       ? cleaned.slice(2)
       : cleaned;
-  if (!/^[0-9A-Z]{3,8}$/.test(body)) return null;
+  // 3–12 chars tolerates both legacy 4-char codes and current 10-char codes.
+  if (!/^[0-9A-Z]{3,12}$/.test(body)) return null;
   return `ZF-${body}`;
+}
+
+/** Derive a short, human device label ("Chrome on Windows") from a User-Agent, for
+ *  the Account menu's device list. Coarse on purpose — enough to tell your phone
+ *  from your laptop, never a fingerprint. Returns null for a missing/blank UA (shown
+ *  as "Unknown device"). Order matters: Edge/Opera advertise "Chrome" too, so they're
+ *  matched first; iPadOS Safari reports "Macintosh", so tablet/phone tokens win. */
+export function deviceLabel(ua: string | null | undefined): string | null {
+  if (!ua || !ua.trim()) return null;
+  const s = ua.slice(0, 400); // bound the scan; UA can be attacker-influenced
+  const os = /iPhone/.test(s) ? "iPhone"
+    : /iPad/.test(s) ? "iPad"
+    : /Android/.test(s) ? "Android"
+    : /Windows/.test(s) ? "Windows"
+    : /Mac OS X|Macintosh/.test(s) ? "macOS"
+    : /CrOS/.test(s) ? "ChromeOS"
+    : /Linux/.test(s) ? "Linux"
+    : "device";
+  const br = /Edg(?:e|A|iOS)?\//.test(s) ? "Edge"
+    : /OPR\/|Opera/.test(s) ? "Opera"
+    : /Firefox\/|FxiOS\//.test(s) ? "Firefox"
+    : /Chrome\/|CriOS\//.test(s) ? "Chrome"
+    : /Safari\//.test(s) ? "Safari"
+    : "Browser";
+  return `${br} on ${os}`;
 }
