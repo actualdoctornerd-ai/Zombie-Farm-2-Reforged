@@ -1,4 +1,9 @@
 import { Application, Container, FederatedPointerEvent, Graphics, Point, Sprite, Text } from "pixi.js";
+// Patch Pixi's renderer to use no-eval polyfills for its shader/UBO/uniform/particle
+// codegen (it otherwise uses `new Function`, which the production CSP's script-src
+// blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
+// pixi.js lists ./lib/unsafe-eval/init.* under "sideEffects", so it survives bundling.
+import "pixi.js/unsafe-eval";
 import { loadAssets, ensureObjectTexture, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, lootImage } from "./assets";
 import { Field, CARROT, CropConfig } from "./Field";
 import { Actor } from "./Actor";
