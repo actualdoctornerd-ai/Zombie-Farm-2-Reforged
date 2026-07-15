@@ -10,18 +10,33 @@ export const TUTORIAL_ZOMBIE_KEY = "ZombieActorRegularTier1";
 
 /** Ordered tutorial beats. Numeric so it persists compactly in the save. */
 export enum TutStep {
-  Welcome,      // slide-up intro
-  PlantZombie,  // arrow -> pre-plowed plot; locked plant menu -> plant the Zombie
-  BuyInstaGrow, // arrow -> Market; buy an Insta-Grow from the Boosts tab
-  RipenCrop,    // auto-equip Insta-Grow; tap the growing zombie to ripen it
-  Harvest,      // tap the ripe zombie to harvest it
-  Invade,       // arrow -> Invade; win Old McDonnell's Farm
-  Veteran,      // "promoted to Veteran" popup (veteran sprite)
-  ZombiePot,    // choice: buy a Zombie Pot combiner?
-  Done,         // completion + 200 gold
+  Welcome = 0,
+  PlantZombie = 1,
+  BuyInstaGrow = 2,
+  RipenCrop = 3,
+  Harvest = 4,
+  Invade = 5,
+  Done = 8, // 6/7 were legacy post-raid beats
+  Plow = 9,
 }
 
-export type StepKind = "narrative" | "plot" | "menu" | "choice";
+export const TUTORIAL_SEQUENCE: readonly TutStep[] = [
+  TutStep.Welcome,
+  TutStep.Plow,
+  TutStep.PlantZombie,
+  TutStep.BuyInstaGrow,
+  TutStep.RipenCrop,
+  TutStep.Harvest,
+  TutStep.Invade,
+  TutStep.Done,
+];
+
+export function nextTutorialStep(step: TutStep): TutStep | null {
+  const i = TUTORIAL_SEQUENCE.indexOf(step);
+  return i >= 0 && i + 1 < TUTORIAL_SEQUENCE.length ? TUTORIAL_SEQUENCE[i + 1] : null;
+}
+
+export type StepKind = "narrative" | "plot" | "menu";
 
 export interface StepDef {
   step: TutStep;
@@ -30,12 +45,8 @@ export interface StepDef {
   say: string;
   /** Small hint line under the bubble (e.g. "Tap to continue"). */
   hint?: string;
-  /** Which sprite rises: Tim (farmer) by default, or the veteran sprite. */
-  art?: "farmer" | "veteran";
   /** For kind:"menu" — the right-menu button label to point the arrow at. */
   menuLabel?: string;
-  /** For kind:"choice" — the two button labels (yes first). */
-  choices?: [string, string];
 }
 
 export const STEPS: Record<TutStep, StepDef> = {
@@ -45,10 +56,15 @@ export const STEPS: Record<TutStep, StepDef> = {
     say: "Welcome!\nI'm Tim Buckwheat, I'll be teachin' ya some Zombie Farming.",
     hint: "Tap to continue",
   },
+  [TutStep.Plow]: {
+    step: TutStep.Plow,
+    kind: "plot",
+    say: "First, let's prepare the soil.\nPlow the glowing patch of ground.",
+  },
   [TutStep.PlantZombie]: {
     step: TutStep.PlantZombie,
     kind: "plot",
-    say: "Let's grow your first zombie!\nTap the glowing soil, then pick the Zombie.",
+    say: "Now let's grow your first zombie!\nTap the glowing soil, then pick the Zombie.",
   },
   [TutStep.BuyInstaGrow]: {
     step: TutStep.BuyInstaGrow,
@@ -71,19 +87,6 @@ export const STEPS: Record<TutStep, StepDef> = {
     kind: "menu",
     menuLabel: "Invade",
     say: "Now that you've got a zombie, it's time to start a\nZOMBIE INVASION! Tap Invade and send it into Old McDonnell's Farm.",
-  },
-  [TutStep.Veteran]: {
-    step: TutStep.Veteran,
-    kind: "narrative",
-    art: "veteran",
-    say: "Zombies get stronger with each invasion.\nAll your zombies have been promoted to \"Veteran\"!",
-    hint: "Tap to continue",
-  },
-  [TutStep.ZombiePot]: {
-    step: TutStep.ZombiePot,
-    kind: "choice",
-    choices: ["Yes!", "Not now"],
-    say: "Use a Zombie Pot to combine zombies into stronger ones.\nWould you like to buy one now?",
   },
   [TutStep.Done]: {
     step: TutStep.Done,

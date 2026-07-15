@@ -263,11 +263,12 @@ export interface QuestSave {
 }
 
 /** First-run guided tutorial (Tim Buckwheat) progress. Absent = never started.
- *  Only the coarse position persists; the transient target (which plot/arrow) is
- *  re-derived on restore. `step` is a numeric TutStep. */
+ *  `step` is a numeric TutStep; `target` keeps the 4x4 action plot stable. */
 export interface TutorialSave {
   done: boolean;
   step: number;
+  /** Origin of the tutorial's 4x4 plot. Persisted across reloads. */
+  target?: TileRef;
 }
 
 // ---------------------------------------------------------------------------

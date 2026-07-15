@@ -1,6 +1,6 @@
 // The Tim Buckwheat guided tutorial — a first-run presentation layer
-// that leads the player through the core farm loop (plant → speed up → harvest →
-// invade → veteran → combiner). It COEXISTS with the quest engine: it subscribes
+// that leads the player through the core farm loop (plow → plant → speed up →
+// harvest → invade). It COEXISTS with the quest engine: it subscribes
 // to the same QuestBus and polls live state, and never mutates gameplay systems.
 //
 // Faithful to the original iOS binary's TutorialManager (a gflags state machine
@@ -12,9 +12,8 @@ import { Field } from "../Field";
 import { ZombieField } from "../zombie/ZombieField";
 import { Hud } from "../hud";
 import { QuestBus, QuestEvent } from "../quest/events";
-import { veterancyLevel } from "../zombie/traits";
 import { TutorialSave } from "../save/schema";
-import { STEPS, StepDef, TutStep } from "./steps";
+import { nextTutorialStep, STEPS, StepDef, TutStep } from "./steps";
 
 /** The Insta-Grow boost key (mirrors GROW_BOOST_KEY in main.ts). */
 const GROW_BOOST_KEY = "insta_grow";
@@ -27,20 +26,17 @@ export interface TutorialDeps {
   questBus: QuestBus;
   /** Screen-pixel center of a plot origin (world → global projection). */
   plotScreenPos: (col: number, row: number) => { x: number; y: number };
-  /** Pre-plow the tutorial's target plot near the farmer; returns its origin. */
-  plowTutorialPlot: () => { col: number; row: number } | null;
+  /** Find a suitable tutorial plot without mutating the field. */
+  findTutorialPlot: (preferExisting?: boolean) => { col: number; row: number } | null;
   /** Whether a live raid currently owns the screen (hide the overlay then). */
   isRaidActive: () => boolean;
-  /** Gift a free Zombie Pot (the combiner is 500g + level 3, unattainable in a
-   *  fresh run, so the tutorial's "Yes" choice gives one as a reward). */
-  grantZombiePot: () => void;
 }
 
 export class TutorialController {
   private d: TutorialDeps;
   active = false;
   private current: TutStep = TutStep.Welcome;
-  /** The pre-plowed plot the plant/ripen/harvest beats target (plot origin). */
+  /** The plot targeted by the plow/plant/ripen/harvest beats (plot origin). */
   private plotTarget: { col: number; row: number } | null = null;
   private unsubBus: (() => void) | null = null;
   private raf = 0;
@@ -63,7 +59,7 @@ export class TutorialController {
   /** Begin the tutorial on a brand-new farm. */
   start() {
     if (this.active) return;
-    this.plotTarget = this.d.plowTutorialPlot();
+    this.plotTarget = this.d.findTutorialPlot();
     // Persist immediately so the tutorial survives a reload mid-Welcome: once a
     // save exists, load() reports restored=true, and only a saved {done:false}
     // record (not an absent one) tells restore() to resume vs. stay inert.
@@ -74,9 +70,26 @@ export class TutorialController {
   /** Restore from a save: stay inert if done, else re-enter the saved beat. */
   restore(save: TutorialSave | undefined) {
     if (!save || save.done) return; // never started or finished
-    // Re-establish the target plot for the mid-tutorial plant/ripen/harvest beats.
-    this.plotTarget = this.d.plowTutorialPlot();
-    this.begin(save.step as TutStep);
+    this.plotTarget = save.target ?? this.d.findTutorialPlot(
+      save.step !== TutStep.Welcome && save.step !== TutStep.Plow
+    );
+    // Saves from the previous tutorial used 6/7 for post-raid narrative beats.
+    // Resume those at the final message. Older saves did not persist a target; if
+    // their client-only starter soil vanished during server reconciliation, restart
+    // at the real plow step rather than leaving the player stuck on bare ground.
+    let step = save.step === 6 || save.step === 7 ? TutStep.Done : save.step as TutStep;
+    if (step === TutStep.PlantZombie && this.plotTarget &&
+        !this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)) {
+      step = TutStep.Plow;
+    } else if (
+      (step === TutStep.BuyInstaGrow || step === TutStep.RipenCrop || step === TutStep.Harvest) &&
+      this.plotTarget && !this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row)
+    ) {
+      step = this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)
+        ? TutStep.PlantZombie : TutStep.Plow;
+    }
+    this.persist(step, false);
+    this.begin(step);
   }
 
   private begin(step: TutStep) {
@@ -109,7 +122,7 @@ export class TutorialController {
   }
 
   private persist(step: TutStep, done: boolean) {
-    this.d.state.setTutorial({ done, step });
+    this.d.state.setTutorial({ done, step, target: this.plotTarget ?? undefined });
   }
 
   // ---- dev hooks (window.ZF.tut) ----
@@ -122,7 +135,7 @@ export class TutorialController {
   }
   /** Jump the overlay to a given beat (loose — doesn't force game preconditions). */
   jumpTo(step: TutStep) {
-    if (!this.active) { this.plotTarget = this.d.plowTutorialPlot(); this.begin(step); return; }
+    if (!this.active) { this.plotTarget = this.d.findTutorialPlot(); this.begin(step); return; }
     this.advanceTo(step);
   }
   /** Wipe persisted tutorial progress (so a reload replays it). */
@@ -140,6 +153,10 @@ export class TutorialController {
     if (!this.active || !this.plotTarget) return false;
     const def = STEPS[this.current];
     if (def.kind !== "plot") return false;
+    if (this.current === TutStep.Plow) {
+      const at = this.d.field.resolveTill(col, row);
+      return at.valid && at.oc === this.plotTarget.col && at.or === this.plotTarget.row;
+    }
     const at = this.d.field.plotOriginAt(col, row);
     return !!at && at.oc === this.plotTarget.col && at.or === this.plotTarget.row;
   }
@@ -149,12 +166,11 @@ export class TutorialController {
     return this.active && this.current === TutStep.PlantZombie && this.allowsTile(col, row);
   }
 
-  /** Called by main right after a raid resolves back on the farm — the Invade beat
-   *  advances on the InvasionSuccessful event, but this is a belt-and-braces nudge
-   *  in case the roster confirms veterancy without the event matching. */
+  /** Called by main right after a raid resolves back on the farm. */
   onRaidResolved() {
-    if (this.active && this.current === TutStep.Invade && this.anyVeteran()) {
-      this.advanceTo(TutStep.Veteran);
+    if (this.active && this.current === TutStep.Invade &&
+        this.d.zombies.roster().some((z) => z.invasions >= 1)) {
+      this.advance();
     }
   }
 
@@ -167,16 +183,16 @@ export class TutorialController {
 
     // Menu beats need the (mobile) menu column visible to anchor the arrow.
     if (def.kind === "menu" && this.d.hud.isCollapsed) this.d.hud.expand();
-    // The harvest beat needs the plain select tool so a tap harvests the crop;
-    // the ripen beat equips the Insta-Grow tool so a tap ripens it.
+    // Each plot beat equips the tool its target expects.
+    if (step === TutStep.Plow && this.d.hud.mode !== "till") this.d.hud.setMode("till");
+    if (step === TutStep.PlantZombie && this.d.hud.mode !== "walk") this.d.hud.setMode("walk");
     if (step === TutStep.RipenCrop) this.equipInstaGrow();
     if (step === TutStep.Harvest) this.d.hud.setMode("walk");
 
     this.showBubble(def);
     this.arrow.style.display = def.kind === "plot" || def.kind === "menu" ? "block" : "none";
 
-    // Narrative + choice beats gate everything behind a tap blocker.
-    if (def.kind === "narrative" || def.kind === "choice") this.addBlocker(def);
+    if (def.kind === "narrative") this.addBlocker(def);
   }
 
   private advanceTo(step: TutStep) {
@@ -185,9 +201,8 @@ export class TutorialController {
   }
 
   private advance() {
-    const next = (this.current + 1) as TutStep;
-    if (next > TutStep.Done) { this.finish(); return; }
-    if (this.current === TutStep.Done) { this.finish(); return; }
+    const next = nextTutorialStep(this.current);
+    if (next === null) { this.finish(); return; }
     this.advanceTo(next);
   }
 
@@ -201,6 +216,9 @@ export class TutorialController {
   private onEvent(nid: string, object: string) {
     if (!this.active) return;
     switch (this.current) {
+      case TutStep.Plow:
+        if (nid === QuestEvent.SoilPlowed) this.advance();
+        break;
       case TutStep.PlantZombie:
         if (nid === QuestEvent.CropPlanted && object.toLowerCase() === "zombie") this.advance();
         break;
@@ -208,7 +226,7 @@ export class TutorialController {
         if (nid === QuestEvent.ZombieHarvested) this.advance();
         break;
       case TutStep.Invade:
-        if (nid === QuestEvent.InvasionSuccessful) this.advanceTo(TutStep.Veteran);
+        if (nid === QuestEvent.InvasionSuccessful) this.advance();
         break;
       default:
         break;
@@ -223,6 +241,22 @@ export class TutorialController {
     // Hide the whole overlay while a live raid owns the screen.
     if (this.d.isRaidActive()) { this.layer.style.display = "none"; return; }
     if (this.layer.style.display === "none") this.layer.style.display = "block";
+
+    // If an old client-only tutorial plot disappears when authoritative farm state
+    // arrives, rewind to the earliest real action the surviving state supports.
+    if (this.plotTarget && this.current === TutStep.PlantZombie &&
+        !this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)) {
+      this.advanceTo(TutStep.Plow);
+      return;
+    }
+    if (this.plotTarget &&
+        (this.current === TutStep.BuyInstaGrow || this.current === TutStep.RipenCrop ||
+         this.current === TutStep.Harvest) &&
+        !this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row)) {
+      this.advanceTo(this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)
+        ? TutStep.PlantZombie : TutStep.Plow);
+      return;
+    }
 
     // Poll the beats that have no game event to listen to.
     switch (this.current) {
@@ -297,26 +331,13 @@ export class TutorialController {
   }
 
   private showBubble(def: StepDef) {
-    this.timSprite.src = `${BASE}assets/tutorial/${def.art === "veteran" ? "veteran" : "farmer"}.png`;
+    this.timSprite.src = `${BASE}assets/tutorial/farmer.png`;
     this.bubble.innerHTML = "";
     const text = document.createElement("span");
     text.textContent = def.say;
     this.bubble.appendChild(text);
 
-    if (def.kind === "choice" && def.choices) {
-      const row = document.createElement("div");
-      row.className = "tut-choice";
-      const yes = document.createElement("button");
-      yes.className = "tc-yes";
-      yes.textContent = def.choices[0];
-      yes.onclick = (e) => { e.stopPropagation(); this.onChoosePot(true); };
-      const no = document.createElement("button");
-      no.className = "tc-no";
-      no.textContent = def.choices[1];
-      no.onclick = (e) => { e.stopPropagation(); this.onChoosePot(false); };
-      row.append(yes, no);
-      this.bubble.appendChild(row);
-    } else if (def.hint) {
+    if (def.hint) {
       const hint = document.createElement("span");
       hint.className = "tut-hint";
       hint.textContent = def.hint;
@@ -330,21 +351,13 @@ export class TutorialController {
     requestAnimationFrame(() => this.tim.classList.add("in"));
   }
 
-  private onChoosePot(yes: boolean) {
-    // "Yes" gifts a free Zombie Pot (it's 500g + level 3 — unattainable in a
-    // fresh run, so we reward it rather than gate completion on a purchase).
-    // Either choice then finishes the tutorial.
-    if (yes) this.d.grantZombiePot();
-    this.advance(); // -> Done
-  }
-
-  // ---- input blocker (narrative/choice beats) ----
+  // ---- input blocker (narrative beats) ----
 
   private addBlocker(def: StepDef) {
     this.removeBlocker();
     const b = document.createElement("div");
     b.className = "tut-blocker";
-    // Narrative beats advance on any tap; choice beats wait for a button.
+    // Narrative beats advance on any tap.
     if (def.kind === "narrative") b.onclick = () => this.advance();
     // Insert the blocker BELOW Tim so the bubble/buttons stay clickable.
     this.layer.insertBefore(b, this.tim);
@@ -358,11 +371,5 @@ export class TutorialController {
     this.blocker?.remove();
     this.blocker = null;
     this.bubble.onclick = null;
-  }
-
-  // ---- helpers ----
-
-  private anyVeteran(): boolean {
-    return this.d.zombies.roster().some((z) => veterancyLevel(z.invasions) >= 1);
   }
 }

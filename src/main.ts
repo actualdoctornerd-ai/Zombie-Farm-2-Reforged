@@ -1146,11 +1146,16 @@ async function main() {
       const g = world.toGlobal(new Point(c.x, c.y));
       return { x: g.x, y: g.y };
     },
-    // Pre-plow a plot near the farmer so the very first beat can plant on tap
-    // (a fresh farm has no plowed plots — planting needs plowed soil). The plot
-    // under the farmer isn't free (they occupy it), so scan a few nearby anchors
-    // and plow the first 4x4 that fits and is unoccupied.
-    plowTutorialPlot: () => {
+    // Reuse the tutorial zombie's plot when restoring an older in-progress save;
+    // otherwise find empty ground near the farmer. This only selects a target —
+    // the tutorial's Plow step creates the soil through the real job/backend path.
+    findTutorialPlot: (preferExisting = false) => {
+      const plots = field.serialize();
+      if (preferExisting) {
+        const existing = plots.find((p) => p.crop?.key === TUTORIAL_ZOMBIE_KEY)
+          ?? plots.find((p) => p.state === "plowed" && !p.crop);
+        if (existing) return { col: existing.oc, row: existing.or };
+      }
       const anchors: [number, number][] = [
         [start.col + 4, start.row + 1], [start.col + 4, start.row - 3],
         [start.col - 5, start.row + 1], [start.col + 1, start.row + 5],
@@ -1158,30 +1163,11 @@ async function main() {
       ];
       for (const [c, r] of anchors) {
         const t = field.resolveTill(c, r);
-        if (t.valid) { field.tillAt(t.oc, t.or); return { col: t.oc, row: t.or }; }
+        if (t.valid) return { col: t.oc, row: t.or };
       }
       return null;
     },
     isRaidActive: () => raidActive,
-    // Gift a free Zombie Pot near the farmer (async texture load; fire-and-forget
-    // so completion never blocks on it). Scans a few nearby tiles for a free spot.
-    grantZombiePot: () => {
-      if (field.hasZombiePot()) return;
-      const def = placeCatalog.get("zombieCombiner");
-      if (!def) return;
-      void ensureObjectTexture(assets, def.sprite).then(() => {
-        const spots: [number, number][] = [
-          [start.col + 3, start.row + 3], [start.col - 3, start.row + 3],
-          [start.col + 3, start.row - 3], [start.col + 5, start.row],
-          [start.col, start.row + 5],
-        ];
-        for (const [c, r] of spots) if (field.placeObject(def, c, r)) {
-          state.markZombiePotBought(); // owning one (even gifted) locks in 30-brain refills
-          saveManager.save();
-          break;
-        }
-      });
-    },
   });
   // Kick off on a brand-new farm (never while visiting a friend); restore mid-run
   // otherwise. The fresh-farm detection (restored/visiting) happened at load above.
@@ -1491,7 +1477,7 @@ async function main() {
           // Advance raid quests only now that we're back on the farm, so their
           // completion popups appear over the farm rather than the battle result.
           postRaidWinQuests(view, setup.raid.name);
-          tutorial.onRaidResolved(); // advance the tutorial's veteran beat post-win
+          tutorial.onRaidResolved(); // finish post-win if the quest event did not
         });
       },
     }).then((scene) => {

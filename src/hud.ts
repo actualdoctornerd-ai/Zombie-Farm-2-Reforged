@@ -1121,13 +1121,6 @@ const STYLE = `
   border: 8px solid transparent; border-right-color: #7a4a1e; }
 #hud .tut-hint { display: block; margin-top: 8px; font-size: 12px; font-weight: 700;
   color: #9a7038; opacity: .85; }
-/* Two-button choice bubble (Zombie Pot beat). */
-#hud .tut-choice { display: flex; gap: 10px; margin-top: 12px; }
-#hud .tut-choice button { border: none; cursor: pointer; color: #fff; font-weight: 700;
-  font-size: 14px; padding: 8px 16px; border-radius: 10px; text-shadow: 0 1px 1px #000; }
-#hud .tut-choice .tc-yes { background: linear-gradient(#4f9d3a,#357026); box-shadow: 0 2px 0 #24491a; }
-#hud .tut-choice .tc-no { background: linear-gradient(#b06a34,#8a4f22); box-shadow: 0 2px 0 #5c3315; }
-#hud .tut-choice button:active { transform: translateY(1px); }
 /* Pulsing arrow that points at the current target. */
 #hud .tut-arrow { position: fixed; width: 54px; height: 54px; pointer-events: none;
   z-index: 41; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5));
