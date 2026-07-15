@@ -1130,7 +1130,7 @@ async function main() {
     for (const drop of view.loot) questBus.post(QuestEvent.LootItemWon, drop.name, 1);
   };
 
-  // ---- Tim Buckwheat guided tutorial (first-run, skippable) ----
+  // ---- Tim Buckwheat guided tutorial (first-run) ----
   // A DOM overlay layer that leads the player through the core farm loop. It
   // coexists with the quest rail (subscribes to the same questBus, polls live
   // state) and mutates no gameplay systems. See src/tutorial/.
@@ -2154,7 +2154,6 @@ async function main() {
     tutorial,
     tut: {
       start: () => tutorial.restart(),
-      skip: () => tutorial.skip(),
       goto: (n: number) => tutorial.jumpTo(n as TutStep),
       reset: () => tutorial.clearPersisted(),
       steps: TutStep,

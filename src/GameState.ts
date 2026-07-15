@@ -55,7 +55,7 @@ export class GameState {
   // social/friends.ts.
   friends: Friend[] = [];
   // ---- first-run guided tutorial (Tim Buckwheat) ----
-  // Coarse progress {done, step, skipped}; undefined = never started. The
+  // Coarse progress {done, step}; undefined = never started. The
   // TutorialController reads/writes this via setTutorial() so autosave (which
   // listens to onChange) captures every step advance. Transient targeting
   // (which plot/arrow) is not stored — it's re-derived on restore.

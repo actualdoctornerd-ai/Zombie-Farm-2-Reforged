@@ -268,7 +268,6 @@ export interface QuestSave {
 export interface TutorialSave {
   done: boolean;
   step: number;
-  skipped?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +282,7 @@ export interface TileRef {
 /** Device settings — persisted separately from game progress (SETTINGS_KEY).
  * Managed by AudioManager, which reads/writes this key directly. */
 export interface Settings {
-  music: boolean;    // farm BGM loop — defaults off
-  sfx: boolean;      // action + menu one-shots — defaults off
-  ambience: boolean; // ambient farm bed (birds/rooster) — defaults off
+  music: boolean;    // farm BGM loop — defaults on
+  sfx: boolean;      // action + menu one-shots — defaults on
+  ambience: boolean; // ambient farm bed (birds/rooster) — defaults on
 }

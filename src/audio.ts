@@ -72,9 +72,9 @@ interface StoredSettings {
 }
 
 export class AudioManager {
-  musicOn = false;
-  sfxOn = false;
-  ambienceOn = false;
+  musicOn = true;
+  sfxOn = true;
+  ambienceOn = true;
   private bgm: HTMLAudioElement;
   private ambBed: HTMLAudioElement;
   private ambTimer: ReturnType<typeof setTimeout> | null = null;
@@ -100,9 +100,9 @@ export class AudioManager {
     // interacts, so arm a one-shot gesture listener to (re)start any looping
     // channel that couldn't begin immediately.
     const s = this.read();
-    this.musicOn = !!s.music;
-    this.sfxOn = !!s.sfx;
-    this.ambienceOn = !!s.ambience;
+    this.musicOn = s.music ?? true;
+    this.sfxOn = s.sfx ?? true;
+    this.ambienceOn = s.ambience ?? true;
     if (this.musicOn) void this.bgm.play().catch(() => this.arm());
     if (this.ambienceOn) this.startAmbience();
   }

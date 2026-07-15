@@ -1,4 +1,4 @@
-// The Tim Buckwheat guided tutorial — a first-run, skippable presentation layer
+// The Tim Buckwheat guided tutorial — a first-run presentation layer
 // that leads the player through the core farm loop (plant → speed up → harvest →
 // invade → veteran → combiner). It COEXISTS with the quest engine: it subscribes
 // to the same QuestBus and polls live state, and never mutates gameplay systems.
@@ -67,13 +67,13 @@ export class TutorialController {
     // Persist immediately so the tutorial survives a reload mid-Welcome: once a
     // save exists, load() reports restored=true, and only a saved {done:false}
     // record (not an absent one) tells restore() to resume vs. stay inert.
-    this.persist(TutStep.Welcome, false, false);
+    this.persist(TutStep.Welcome, false);
     this.begin(TutStep.Welcome);
   }
 
   /** Restore from a save: stay inert if done, else re-enter the saved beat. */
   restore(save: TutorialSave | undefined) {
-    if (!save || save.done) return; // never started, finished, or skipped
+    if (!save || save.done) return; // never started or finished
     // Re-establish the target plot for the mid-tutorial plant/ripen/harvest beats.
     this.plotTarget = this.d.plowTutorialPlot();
     this.begin(save.step as TutStep);
@@ -90,17 +90,10 @@ export class TutorialController {
     this.tick(); // start the reposition/poll loop
   }
 
-  /** Skip: tear down cleanly, mark done. No gold on skip. */
-  skip() {
-    if (!this.active) return;
-    this.persist(TutStep.Done, true, true);
-    this.dispose();
-  }
-
   /** Grant the completion bonus and finish. */
   private finish() {
     this.d.state.addGold(200);
-    this.persist(TutStep.Done, true, false);
+    this.persist(TutStep.Done, true);
     this.dispose();
   }
 
@@ -115,8 +108,8 @@ export class TutorialController {
     this.layer.remove();
   }
 
-  private persist(step: TutStep, done: boolean, skipped: boolean) {
-    this.d.state.setTutorial({ done, step, skipped });
+  private persist(step: TutStep, done: boolean) {
+    this.d.state.setTutorial({ done, step });
   }
 
   // ---- dev hooks (window.ZF.tut) ----
@@ -187,7 +180,7 @@ export class TutorialController {
   }
 
   private advanceTo(step: TutStep) {
-    this.persist(step, false, false);
+    this.persist(step, false);
     this.enterStep(step);
   }
 
@@ -295,12 +288,7 @@ export class TutorialController {
     arrow.src = `${BASE}assets/ui/market/arrow_right.png`;
     arrow.style.display = "none";
 
-    const skip = document.createElement("button");
-    skip.className = "tut-skip";
-    skip.textContent = "Skip Tutorial ✕";
-    skip.onclick = () => this.skip();
-
-    layer.append(tim, arrow, skip);
+    layer.append(tim, arrow);
     this.layer = layer;
     this.tim = tim;
     this.timSprite = sprite;

@@ -77,7 +77,7 @@ future agents do not work from stale assumptions.
 
 ### Platform and interface
 - One responsive build for phone and desktop: capability autodetection (`src/platform.ts`), a compact touch HUD, and pinch-to-zoom/pan.
-- Audio toggles for farm BGM and a small SFX set; developer controls (a separate menu opened by an invisible hotspot beside the nameplate) for testing.
+- Music, sound effects, and farm ambience are enabled by default and can be toggled independently in Settings; the first-run guided tutorial must be completed. Developer controls (a separate menu opened by an invisible hotspot beside the nameplate) support testing.
 - **Farm background** setting: foliage density choices (Deep Forest / Woodland / Light Meadow) persisted in `src/prefs.ts`. This changes the density of decorative surrounding foliage — distinct from ground/climate skins, which change the farm's tile terrain.
 - Settings toggles for **ZF2 Sprites** and **Reforged** edition, both persisted preferences (`src/prefs.ts`). Their behavior is **not yet wired** — the sprite toggle doesn't swap art, and the edition toggle doesn't gate features yet.
 

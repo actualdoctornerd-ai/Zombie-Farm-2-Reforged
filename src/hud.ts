@@ -1133,12 +1133,6 @@ const STYLE = `
   z-index: 41; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5));
   animation: tutBob 0.9s ease-in-out infinite; transform-origin: center; }
 @keyframes tutBob { 0%,100% { translate: 0 0; } 50% { translate: 0 -10px; } }
-/* Persistent skip button, bottom-right. */
-#hud .tut-skip { position: fixed; right: 14px; bottom: 14px; pointer-events: auto;
-  border: none; cursor: pointer; color: #fff; font-weight: 700; font-size: 13px;
-  padding: 8px 16px; border-radius: 12px; z-index: 43;
-  background: rgba(30,45,20,.82); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
-#hud .tut-skip:active { transform: translateY(1px); }
 @media (pointer: coarse), (max-width: 760px) {
   #hud .tut-tim-sprite { width: 104px; }
   #hud .tut-bubble { font-size: 14px; padding: 11px 14px; max-width: 66vw; }
