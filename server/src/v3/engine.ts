@@ -64,8 +64,23 @@ export interface QuestEvent { type: string; subject: string }
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const plotKey = (oc: number, or: number): string => `${oc}:${or}`;
+// Client plots are free-placed 4x4 footprints; their origin is not grid-snapped to a
+// multiple of four. Only integer coordinates and containment within the farm matter.
 const validCoord = (n: number, size: number): boolean =>
-  Number.isInteger(n) && n >= 0 && n % PLOT_SIZE === 0 && n + PLOT_SIZE <= size;
+  Number.isInteger(n) && n >= 0 && n + PLOT_SIZE <= size;
+
+function overlapsExistingPlot(
+  plots: Record<string, FarmPlotProjection>,
+  oc: number,
+  or: number
+): boolean {
+  return Object.keys(plots).some((key) => {
+    const [otherC, otherR] = key.split(":").map(Number);
+    if (otherC === oc && otherR === or) return false;
+    return oc < otherC + PLOT_SIZE && oc + PLOT_SIZE > otherC &&
+      or < otherR + PLOT_SIZE && or + PLOT_SIZE > otherR;
+  });
+}
 
 function isRipe(plot: Extract<FarmPlotProjection, { state: "planted" }>, now: number): boolean {
   return now - plot.plantedAt >= Math.max(0, plot.growMs - GROW_GRACE_MS_V3);
@@ -175,6 +190,9 @@ function applyOne(
       const key = plotKey(command.oc, command.or);
       if (state.farm.plots[key]?.state === "planted") return reject(sequence, "plot_occupied");
       if (state.farm.plots[key]?.state === "plowed") return reject(sequence, "already_plowed");
+      if (!state.farm.plots[key] && overlapsExistingPlot(state.farm.plots, command.oc, command.or)) {
+        return reject(sequence, "plot_overlap");
+      }
       const free = state.objects.objects.some((o) => o.status === "placed" && o.catalogKey === "monolithPlowing");
       const cost = free ? 0 : PLOW_COST_V3;
       if (state.balance.gold < cost) return reject(sequence, "insufficient");

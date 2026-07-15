@@ -6,6 +6,27 @@ const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] 
   values.map((command, index) => ({ sequence: index + 1, command }));
 
 describe("protocol v3 command engine", () => {
+  it("accepts the freely placed, non-grid-aligned plot used by the tutorial", () => {
+    const state = freshGameplayState();
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.plow", oc: 15, or: 12 },
+      { type: "farm.plant", oc: 15, or: 12, cropKey: "ZombieActorRegularTier1" },
+      { type: "power.buy", key: "insta_grow" },
+    ), { now: 1_000 });
+    expect(result.results.map((entry) => entry.status)).toEqual(["applied", "applied", "applied"]);
+    expect(result.state.farm.plots["15:12"]).toMatchObject({
+      state: "planted", cropKey: "ZombieActorRegularTier1", zombie: true,
+    });
+    expect(result.state.balance).toMatchObject({ gold: 155, brains: 5 });
+  });
+
+  it("rejects a new free-placed plot whose footprint overlaps another plot", () => {
+    const state = freshGameplayState();
+    state.farm.plots["5:5"] = { state: "spent" };
+    const result = applyCommandBatch(state, commands({ type: "farm.plow", oc: 7, or: 7 }), { now: 1 });
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "plot_overlap" });
+  });
+
   it("applies a causally ordered mixed farm batch with server timestamps", () => {
     const state = freshGameplayState();
     const now = 1_000_000;
