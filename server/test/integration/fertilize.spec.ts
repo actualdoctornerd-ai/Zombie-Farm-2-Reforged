@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { call, signIn, uniqueSub, seedPlowed, type Session } from "./helpers";
+import { call, grantRoster, signIn, uniqueSub, seedPlowed, type Session } from "./helpers";
 
 // P13 — the Garden-zombie fertilize roll is SERVER-owned. On each /farm plant the
 // server rolls `Math.random() < fertilizeProbability(owned Garden keys)` and stamps the
@@ -53,12 +53,10 @@ describe("fertilize — server-owned Garden roll", () => {
   it("NEVER fertilizes when the roster has zero Garden units (deterministic)", async () => {
     const s = await player(1000);
     // Only combat units → fertilizeProbability is exactly 0.
-    await call("POST", "/roster/sync", s.token, {
-      units: [
+    await grantRoster(s, [
         { id: "c1", key: "ZombieActorRegularTier1" },
         { id: "c2", key: "ZombieActorLargeTier4" },
-      ],
-    });
+    ]);
     const r = await plantOnSoil(s, 40);
     const applied = r.body.results.filter((x) => x.status === "applied");
     expect(applied).toHaveLength(40);
@@ -79,7 +77,7 @@ describe("fertilize — server-owned Garden roll", () => {
     // 15 tier-5 Garden units → per-plant p = 1 - 0.88^15 ≈ 0.85. Over 30 plants the
     // chance of ZERO fertilized is ≈ 0.147^30 ≈ 1e-25 — this test does not flake.
     const units = Array.from({ length: 15 }, (_, i) => ({ id: `g${i}`, key: "ZombieActorGardenTier5" }));
-    await call("POST", "/roster/sync", s.token, { units });
+    await grantRoster(s, units);
     const r = await plantOnSoil(s, 30);
     const applied = r.body.results.filter((x) => x.status === "applied");
     expect(applied).toHaveLength(30);
@@ -91,7 +89,7 @@ describe("fertilize — server-owned Garden roll", () => {
 
   it("the fertilized flag is decided server-side — a client 'fertilized:true' hint is ignored at p=0", async () => {
     const s = await player(500);
-    await call("POST", "/roster/sync", s.token, { units: [{ id: "c", key: "ZombieActorRegularTier1" }] });
+    await grantRoster(s, [{ id: "c", key: "ZombieActorRegularTier1" }]);
     await seedPlowed(s, [{ oc: 3, or: 3 }]);
     // Client tries to assert fertilization directly on the action; server has no Garden
     // units so it must come up false regardless of the client's claim.

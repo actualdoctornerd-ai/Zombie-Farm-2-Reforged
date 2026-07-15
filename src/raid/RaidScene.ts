@@ -1209,7 +1209,12 @@ export class RaidScene {
         if (this.onCheckpoint && !this.sim.finished && this.simTick - this.lastCheckpointTick >= 300) {
           if (!this.checkpointing && performance.now() >= this.checkpointRetryAt) {
             this.checkpointing = true;
-            const tick = this.simTick;
+            // Checkpoints are transport work, not a simulation gate.  Pausing here
+            // made a slow/failed request freeze combat at the 15-second boundary
+            // while Pixi, particles, and music continued to animate.  Keep each
+            // segment pinned to exactly 300 ticks so a retry remains valid even
+            // though the local simulation has continued past the boundary.
+            const tick = this.lastCheckpointTick + 300;
             const segment = this.replayInputs.filter((input) => input.tick > this.lastCheckpointTick && input.tick <= tick);
             void this.onCheckpoint(tick, segment).then(() => {
               this.lastCheckpointTick = tick;
@@ -1218,7 +1223,6 @@ export class RaidScene {
               this.checkpointRetryAt = performance.now() + 1000;
             }).finally(() => { this.checkpointing = false; });
           }
-          break;
         }
         this.simAccumulatorMs += dtMs;
         // Combat advances only in fixed ticks. Rendering remains free to interpolate

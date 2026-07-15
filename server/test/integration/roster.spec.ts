@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { call, signIn, type Session } from "./helpers";
+import { call, grantRoster, signIn, type Session } from "./helpers";
 
 // Server-owned roster (P12): the server keeps a money+validation shadow of the units.
 // A SELL is priced + credited server-side (a unit the server doesn't own can't be
@@ -31,15 +31,12 @@ describe("roster — server-owned units", () => {
     expect(reseed.body.count).toBe(0);
   });
 
-  it("seeds units from the save and sells one for the exact catalog value", async () => {
+  it("sells an owned unit for the exact catalog value", async () => {
     const s = await player(0);
-    const count = await call<{ count: number }>("POST", "/roster/sync", s.token, {
-      units: [
+    await grantRoster(s, [
         { id: "z1", key: "ZombieActorRegularTier1", invasions: 0 }, // cost 35 → sell 17
         { id: "z2", key: "ZombieActorGardenTier4" }, // cost 300 → sell 150
-      ],
-    });
-    expect(count.body.count).toBe(2);
+    ]);
     const sell = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [{ id: aid("sell"), type: "sell", unitId: "z1" }],
     });
@@ -73,13 +70,9 @@ describe("roster — server-owned units", () => {
     expect(sell.body.balance.gold).toBe(0);
   });
 
-  it("seed-once: a later /roster/sync can't inject more units (no re-injection→sell)", async () => {
+  it("a closed /roster/sync can't inject units into an authoritative roster", async () => {
     const s = await player(0);
-    const first = await call<{ count: number }>("POST", "/roster/sync", s.token, {
-      units: [{ id: "z1", key: "ZombieActorRegularTier1" }],
-    });
-    expect(first.body.count).toBe(1);
-    // Roster is now non-empty → a second sync with a fresh id is ignored entirely.
+    await grantRoster(s, [{ id: "z1", key: "ZombieActorRegularTier1" }]);
     const second = await call<{ count: number }>("POST", "/roster/sync", s.token, {
       units: [{ id: "zInjected", key: "ZombieActorGardenTier4" }], // would sell for 150
     });
@@ -93,7 +86,7 @@ describe("roster — server-owned units", () => {
 
   it("is idempotent: replaying a sell doesn't double-credit", async () => {
     const s = await player(0);
-    await call("POST", "/roster/sync", s.token, { units: [{ id: "zA", key: "ZombieActorRegularTier1" }] });
+    await grantRoster(s, [{ id: "zA", key: "ZombieActorRegularTier1" }]);
     const id = aid("sell");
     const first = await call<RosterRes>("POST", "/roster/actions", s.token, { actions: [{ id, type: "sell", unitId: "zA" }] });
     expect(first.body.balance.gold).toBe(17);
@@ -104,12 +97,10 @@ describe("roster — server-owned units", () => {
 
   it("rejects client-authored casualty claims", async () => {
     const s = await player(0);
-    await call("POST", "/roster/sync", s.token, {
-      units: [
+    await grantRoster(s, [
         { id: "p1", key: "ZombieActorRegularTier1" },
         { id: "p2", key: "ZombieActorGardenTier2" }, // cost 190 → sell 95
-      ],
-    });
+    ]);
     const forged = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [{ id: aid("cas"), type: "casualty", unitIds: ["p1"] }],
     });

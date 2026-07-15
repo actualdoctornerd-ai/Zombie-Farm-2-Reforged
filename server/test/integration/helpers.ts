@@ -51,6 +51,17 @@ export async function signIn(devSub = uniqueSub()): Promise<Session> {
   return r.body;
 }
 
+/** Establish trusted roster state through the DEV_AUTH-only fixture route. */
+export async function grantRoster(
+  s: Session,
+  units: { id: string; key: string; mutation?: number; invasions?: number }[]
+): Promise<void> {
+  const r = await call<{ count: number }>("POST", "/dev/fixture/roster", s.token, { units });
+  if (r.status !== 200 || r.body.count < units.length) {
+    throw new Error(`roster fixture failed: ${r.status}`);
+  }
+}
+
 /** A minimal valid save blob (passes validateSave) with the given currency. */
 export function makeSave(gold = 200, brains = 15, xp = 0) {
   return {

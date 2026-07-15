@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { call, signIn, xpForLevel, type Session } from "./helpers";
+import { call, grantRoster, signIn, xpForLevel, type Session } from "./helpers";
 
 // Server-owned boost inventory (P11): buy debits the exact catalog price + grants,
 // use decrements, seed/sync is one-time, and the invasion voucher is consumed
@@ -73,19 +73,17 @@ describe("inventory — server-owned boosts", () => {
     expect(replay.body.inventory.concentration).toBe(2); // not 4
   });
 
-  it("seeds boost counts once from the save; a later sync won't clobber server truth", async () => {
+  it("rejects client-authored boost imports without clobbering server truth", async () => {
     const s = await player();
     const seed1 = await call<{ inventory: Record<string, number> }>("POST", "/inventory/sync", s.token, {
       counts: { golden_dice: 7, insta_grow: 3 },
     });
-    expect(seed1.body.inventory.golden_dice).toBe(7);
-    // Consume one server-side, then re-sync with the OLD (higher) save count: the
-    // server count wins (INSERT OR IGNORE), so it stays at 6, not reset to 7.
-    await call("POST", "/inventory/actions", s.token, { actions: [{ id: aid("use"), type: "use", key: "golden_dice" }] });
+    expect(seed1.body.inventory.golden_dice).toBe(0);
+    await call("POST", "/inventory/actions", s.token, { actions: [{ id: aid("buy"), type: "buy", key: "golden_dice" }] });
     const seed2 = await call<{ inventory: Record<string, number> }>("POST", "/inventory/sync", s.token, {
       counts: { golden_dice: 7 },
     });
-    expect(seed2.body.inventory.golden_dice).toBe(6);
+    expect(seed2.body.inventory.golden_dice).toBe(1);
   });
 
   it("rejects a public grant action, so a client can't mint a free boost/voucher", async () => {
@@ -183,7 +181,7 @@ describe("inventory — server-owned boosts", () => {
 
   it("consumes an invasion voucher server-side to bypass the raid cooldown; refuses without one", async () => {
     const s = await player();
-    await call("POST", "/roster/sync", s.token, { units: [{ id: "raid-z1", key: "ZombieActorRegularTier1" }] });
+    await grantRoster(s, [{ id: "raid-z1", key: "ZombieActorRegularTier1" }]);
     const raid = { raidId: 1, orderedUnitIds: ["raid-z1"], rulesetVersion: 2 };
     // Raid + finish to arm the cooldown.
     const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, raid);

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { call, signIn } from "./helpers";
+import { call, grantRoster, signIn } from "./helpers";
 
 describe("raid finish — replay-derived and idempotent", () => {
   it("never accepts client outcome or reward claims", async () => {
     const s = await signIn();
     await call("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
-    await call("POST", "/roster/sync", s.token, { units: [{ id: "z1", key: "ZombieActorRegularTier1" }] });
+    await grantRoster(s, [{ id: "z1", key: "ZombieActorRegularTier1" }]);
     const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, {
       raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: 2,
     });
@@ -21,7 +21,7 @@ describe("raid finish — replay-derived and idempotent", () => {
   it("stores a verified retreat result and returns it unchanged on retry", async () => {
     const s = await signIn();
     await call("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
-    await call("POST", "/roster/sync", s.token, { units: [{ id: "z1", key: "ZombieActorRegularTier1" }] });
+    await grantRoster(s, [{ id: "z1", key: "ZombieActorRegularTier1" }]);
     const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, {
       raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: 2,
     });

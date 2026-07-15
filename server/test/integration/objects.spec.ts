@@ -159,17 +159,16 @@ describe("objects — server-owned buy + refund", () => {
     expect(r.body.balance.gold).toBe(60); // 100 - 50 + 10, a real loss
   });
 
-  it("seeds object counts once from the save; a later sync won't clobber server truth", async () => {
+  it("rejects client-authored object imports without clobbering server truth", async () => {
     const s = await player();
     const seed1 = await call<{ objects: Record<string, number> }>("POST", "/object/sync", s.token, {
       counts: { daisy: 3, skeletonCouple: 1 },
     });
-    expect(seed1.body.objects.daisy).toBe(3);
-    // Refund one server-side, then re-sync the OLD higher count: server truth wins.
-    await call("POST", "/object/actions", s.token, { actions: [{ id: aid("refund"), type: "refund", key: "daisy" }] });
+    expect(seed1.body.objects.daisy ?? 0).toBe(0);
+    await call("POST", "/object/actions", s.token, { actions: [{ id: aid("buy"), type: "buy", key: "daisy" }] });
     const seed2 = await call<{ objects: Record<string, number> }>("POST", "/object/sync", s.token, {
       counts: { daisy: 3 },
     });
-    expect(seed2.body.objects.daisy).toBe(2);
+    expect(seed2.body.objects.daisy).toBe(1);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { call, signIn, uniqueSub, type Session } from "./helpers";
+import { call, grantRoster, signIn, uniqueSub, type Session } from "./helpers";
 
 // P14 — server-authoritative Zombie Pot combine. A combine is a two-step job:
 //   combineStart  — must own both distinct parents; consumes them, records their keys.
@@ -24,12 +24,10 @@ async function player(gold = 0): Promise<Session> {
 const aid = (p: string) => `${p}-${uniqueSub()}`;
 
 async function seedParents(s: Session, keyA = "ZombieActorRegularTier1", keyB = "ZombieActorRegularTier1") {
-  await call("POST", "/roster/sync", s.token, {
-    units: [
-      { id: "pa", key: keyA },
-      { id: "pb", key: keyB },
-    ],
-  });
+  await grantRoster(s, [
+    { id: "pa", key: keyA },
+    { id: "pb", key: keyB },
+  ]);
 }
 
 describe("combine — server-authoritative pot", () => {
@@ -105,14 +103,12 @@ describe("combine — server-authoritative pot", () => {
 
   it("refuses to start a second combine while one is already running (single pot)", async () => {
     const s = await player();
-    await call("POST", "/roster/sync", s.token, {
-      units: [
-        { id: "pa", key: "ZombieActorRegularTier1" },
-        { id: "pb", key: "ZombieActorRegularTier1" },
-        { id: "pc", key: "ZombieActorRegularTier1" },
-        { id: "pd", key: "ZombieActorRegularTier1" },
-      ],
-    });
+    await grantRoster(s, [
+      { id: "pa", key: "ZombieActorRegularTier1" },
+      { id: "pb", key: "ZombieActorRegularTier1" },
+      { id: "pc", key: "ZombieActorRegularTier1" },
+      { id: "pd", key: "ZombieActorRegularTier1" },
+    ]);
     const first = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [{ id: aid("start"), type: "combineStart", parentAId: "pa", parentBId: "pb" }],
     });
@@ -130,7 +126,7 @@ describe("combine — server-authoritative pot", () => {
 
   it("rejects start with a missing parent or the same unit used twice", async () => {
     const s = await player();
-    await call("POST", "/roster/sync", s.token, { units: [{ id: "solo", key: "ZombieActorRegularTier1" }] });
+    await grantRoster(s, [{ id: "solo", key: "ZombieActorRegularTier1" }]);
     const missing = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [{ id: aid("start"), type: "combineStart", parentAId: "solo", parentBId: "ghost" }],
     });

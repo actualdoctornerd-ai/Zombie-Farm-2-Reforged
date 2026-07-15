@@ -373,6 +373,16 @@ app.use("/object/*", requireAuth);
 app.use("/roster/*", requireAuth);
 app.use("/shop/*", requireAuth);
 
+// Local integration fixture. This route is inert in production (DEV_AUTH=0) and
+// exists so tests can establish trusted authoritative state without reopening the
+// permanently-closed client import endpoints.
+app.post("/dev/fixture/roster", requireAuth, async (c) => {
+  if (c.env.DEV_AUTH !== "1") return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<{ units?: unknown }>().catch(() => ({ units: [] }));
+  const count = await db.grantRosterFixture(c.env.DB, c.get("accountId"), body.units);
+  return c.json({ count });
+});
+
 app.use("*", async (c, next) => {
   const enforceAt = Number(c.env.INTEGRITY_V2_ENFORCE_AFTER_MS);
   const mutation = c.req.method !== "GET" && !c.req.path.startsWith("/session/") && c.req.path !== "/logout";

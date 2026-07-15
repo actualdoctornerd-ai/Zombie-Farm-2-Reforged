@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { call, signIn, uniqueSub, type Session } from "./helpers";
 
 // P16 — server-owned farm SIZE (sequential scalar) + CLIMATE skins (owned set).
-// /shop/state seeds both once from the save; /shop/size buys the immediate next tier
+// /shop/state reads authoritative state; /shop/size buys the immediate next tier
 // for the exact price; /shop/climate buys an unowned skin for its exact gold price.
 // Closes save-blob fabrication of farm size / owned climates.
 
@@ -45,21 +45,21 @@ describe("shop — server-owned size + climates", () => {
     expect(st.body.climates).toEqual([]);
   });
 
-  it("seeds size + climates ONCE from the save, ignoring unknown/grass terrains", async () => {
+  it("rejects client-authored size and climate imports", async () => {
     const s = await player();
     const st = await call<ShopState>("POST", "/shop/state", s.token, {
       size: 50,
       climates: ["snow", "grass", "lava", "sand"], // grass free + lava fake are dropped
     });
-    expect(st.body.size).toBe(50);
-    expect(st.body.climates.sort()).toEqual(["sand", "snow"]);
-    // Seeding is idempotent-ish: a later state call with a BIGGER forged size can't grow it.
+    expect(st.body.size).toBe(30);
+    expect(st.body.climates).toEqual([]);
+    // A later state call with a bigger forged size still cannot grow it.
     const again = await call<ShopState>("POST", "/shop/state", s.token, { size: 60, climates: ["water"] });
-    expect(again.body.size).toBe(50); // unchanged — seed only applies to a fresh row
-    expect(again.body.climates.sort()).toEqual(["sand", "snow"]); // water NOT added by re-seed
+    expect(again.body.size).toBe(30);
+    expect(again.body.climates).toEqual([]);
   });
 
-  it("clamps an invalid seed size to base (no off-ladder farm from a forged save)", async () => {
+  it("ignores an invalid claimed size (no off-ladder farm from a forged save)", async () => {
     const s = await player();
     const st = await call<ShopState>("POST", "/shop/state", s.token, { size: 45, climates: [] });
     expect(st.body.size).toBe(30); // 45 isn't a real tier → base

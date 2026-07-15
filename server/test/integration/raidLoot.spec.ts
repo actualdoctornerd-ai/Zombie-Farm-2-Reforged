@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { call, signIn } from "./helpers";
+import { call, grantRoster, signIn } from "./helpers";
 
 async function startedRaid() {
   const s = await signIn();
   await call("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
-  await call("POST", "/roster/sync", s.token, { units: [{ id: "z1", key: "ZombieActorRegularTier1" }] });
+  await grantRoster(s, [{ id: "z1", key: "ZombieActorRegularTier1" }]);
   const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, {
     raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: 2,
   });

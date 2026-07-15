@@ -2001,6 +2001,30 @@ export async function seedRoster(
   return count();
 }
 
+/** Integration-test fixture: insert catalog-valid units as authoritative roster
+ *  state. The only caller is the DEV_AUTH-gated /dev/fixture/roster route; normal
+ *  clients must earn units through trusted gameplay actions. */
+export async function grantRosterFixture(
+  db: D1Database,
+  accountId: string,
+  units: unknown
+): Promise<number> {
+  const list = Array.isArray(units) ? units : [];
+  const stmts: D1PreparedStatement[] = [];
+  for (const u of list) {
+    const row = u as RosterRow;
+    const g = validateUnit(row?.id, row?.key, row?.mutation, row?.invasions);
+    if (!g.ok) continue;
+    stmts.push(db.prepare(
+      "INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions) VALUES (?, ?, ?, ?, ?)"
+    ).bind(accountId, g.unitId, g.key, g.mutation, g.invasions));
+  }
+  if (stmts.length) await db.batch(stmts);
+  const count = await db.prepare("SELECT COUNT(*) AS n FROM roster WHERE account_id = ?")
+    .bind(accountId).first<{ n: number }>();
+  return count?.n ?? 0;
+}
+
 /** Whether a roster action id was already applied (idempotency). */
 async function rosterActionSeen(db: D1Database, id: string): Promise<boolean> {
   const row = await db.prepare("SELECT 1 AS x FROM roster_actions WHERE id = ?").bind(id).first<{ x: number }>();
@@ -2234,6 +2258,11 @@ export async function getOrSeedShopState(
          )`
       )
       .bind(accountId, size, accountId, token),
+    // Permanently closed imports never receive the token above, but a new account
+    // still needs a real authoritative row before it can buy its first size upgrade.
+    db
+      .prepare("INSERT OR IGNORE INTO farm_state (account_id, size) VALUES (?, ?)")
+      .bind(accountId, BASE_FARM_SIZE),
   ];
   if (Array.isArray(seedClimates)) {
     for (const t of seedClimates) {
