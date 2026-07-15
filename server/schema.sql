@@ -249,6 +249,13 @@ CREATE TABLE IF NOT EXISTS item_storage (
   PRIMARY KEY (account_id, bucket, item_key)
 );
 
+-- Idempotency ledger for storage moves (claim / store / retrieve), migration 0018.
+CREATE TABLE IF NOT EXISTS storage_actions (
+  id         TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id),
+  created_at INTEGER NOT NULL
+);
+
 -- Idempotency ledger for farm actions (uuid per action). A retried plant/harvest
 -- is a no-op instead of double-charging or double-crediting.
 CREATE TABLE IF NOT EXISTS farm_actions (

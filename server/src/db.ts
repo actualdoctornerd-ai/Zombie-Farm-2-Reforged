@@ -13,6 +13,8 @@ import {
 import { zombieCropEcon } from "./zombieCropCatalog";
 import { raidEcon, winGold, MAX_RAID_WINS } from "./raidCatalog";
 import { boostEcon, BOOST_KEYS, VOUCHER_KEY, DICE_KEY, MAX_STACK } from "./boostCatalog";
+import { planClaim, planStore, planRetrieve, type StorageAction } from "./storage";
+import { SHED_SLOTS, BASE_SHED_SLOTS } from "./objectCatalog";
 import { raidLoot, dropEcon, MAX_SEED_ITEMS } from "./raidLootCatalog";
 import { rollLoot, resolveLoot, type LootGrant } from "./loot";
 import { planBuy, planUse, planGiftRedeem, type InventoryAction } from "./inventory";
@@ -2137,6 +2139,160 @@ export async function seedStorage(
     await db.batch(stmts);
   }
   return readStorage(db, accountId);
+}
+
+/** The account's shed capacity, DERIVED from the shed it owns (never stored, so an
+ *  edited save can't declare it). Every farm starts with the free Shabby Shed, which is
+ *  never server-tracked, so the base capacity is the floor. */
+export async function shedCapacity(db: D1Database, accountId: string): Promise<number> {
+  const res = await db
+    .prepare("SELECT object_key FROM object_counts WHERE account_id = ? AND count > 0")
+    .bind(accountId)
+    .all<{ object_key: string }>();
+  let cap = BASE_SHED_SLOTS;
+  for (const r of res.results ?? []) cap = Math.max(cap, SHED_SLOTS[r.object_key] ?? 0);
+  return cap;
+}
+
+export interface StorageResult {
+  id: string;
+  status: "applied" | "duplicate" | "rejected";
+  error?: string;
+}
+
+async function storageActionSeen(db: D1Database, id: string): Promise<boolean> {
+  const row = await db.prepare("SELECT 1 AS x FROM storage_actions WHERE id = ?").bind(id).first<{ x: number }>();
+  return !!row;
+}
+
+/** Apply storage MOVES: claim a Received item into what it represents, or pack an owned
+ *  object into the shed / take it back out. None of these create value — they move
+ *  something the server already recorded you owning, so there is no `grant` here either.
+ *  Idempotent by action id; each move is a guarded decrement + an add. */
+export async function applyStorageActions(
+  db: D1Database,
+  accountId: string,
+  actions: StorageAction[],
+  now: number
+): Promise<{ storage: StorageState; inventory: Record<string, number>; objects: Record<string, number>; results: StorageResult[] }> {
+  const results: StorageResult[] = [];
+  for (const a of actions) {
+    if (!a || typeof a.id !== "string" || !a.id || typeof a.name !== "string") {
+      results.push({ id: a?.id ?? "", status: "rejected", error: "bad_id" });
+      continue;
+    }
+    if (await storageActionSeen(db, a.id)) {
+      results.push({ id: a.id, status: "duplicate" });
+      continue;
+    }
+    const seen = db.prepare("INSERT OR IGNORE INTO storage_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now);
+
+    if (a.type === "claim") {
+      const have = await bucketCount(db, accountId, "received", a.name);
+      const plan = planClaim(a.name, have);
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      // Guarded: only the caller that actually removes the Received entry grants anything.
+      if (!(await takeFrom(db, accountId, "received", a.name))) {
+        results.push({ id: a.id, status: "rejected", error: "none_owned" });
+        continue;
+      }
+      await db.batch([
+        seen,
+        plan.kind === "boost"
+          ? db
+              .prepare(
+                `INSERT INTO inventory (account_id, item_key, count) VALUES (?, ?, 1)
+                 ON CONFLICT(account_id, item_key) DO UPDATE SET count = count + 1`
+              )
+              .bind(accountId, plan.boostKey)
+          : db
+              .prepare(
+                `INSERT INTO object_counts (account_id, object_key, count) VALUES (?, ?, 1)
+                 ON CONFLICT(account_id, object_key) DO UPDATE SET count = count + 1`
+              )
+              .bind(accountId, plan.objectKey),
+      ]);
+      results.push({ id: a.id, status: "applied" });
+    } else if (a.type === "store" || a.type === "retrieve") {
+      const storing = a.type === "store";
+      const objKey = dropEcon(a.name)?.tile ?? "";
+      const haveObj = objKey ? await objectCount(db, accountId, objKey) : 0;
+      const haveStored = await bucketCount(db, accountId, "stored", a.name);
+      const used = await bucketTotal(db, accountId, "stored");
+      const plan = storing
+        ? planStore(a.name, haveObj, used, await shedCapacity(db, accountId))
+        : planRetrieve(a.name, haveStored);
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      const key = plan.kind === "object" ? plan.objectKey : "";
+      const took = storing
+        ? await takeObject(db, accountId, key)
+        : await takeFrom(db, accountId, "stored", a.name);
+      if (!took) {
+        results.push({ id: a.id, status: "rejected", error: "none_owned" });
+        continue;
+      }
+      await db.batch([
+        seen,
+        storing
+          ? addStorageStmt(db, accountId, "stored", a.name, 1)
+          : db
+              .prepare(
+                `INSERT INTO object_counts (account_id, object_key, count) VALUES (?, ?, 1)
+                 ON CONFLICT(account_id, object_key) DO UPDATE SET count = count + 1`
+              )
+              .bind(accountId, key),
+      ]);
+      results.push({ id: a.id, status: "applied" });
+    } else {
+      results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });
+    }
+  }
+  return {
+    storage: await readStorage(db, accountId),
+    inventory: await readInventory(db, accountId),
+    objects: await readObjects(db, accountId),
+    results,
+  };
+}
+
+async function bucketCount(db: D1Database, accountId: string, bucket: StorageBucket, name: string): Promise<number> {
+  const row = await db
+    .prepare("SELECT count FROM item_storage WHERE account_id = ? AND bucket = ? AND item_key = ?")
+    .bind(accountId, bucket, name)
+    .first<{ count: number }>();
+  return Math.max(0, row?.count ?? 0);
+}
+
+async function bucketTotal(db: D1Database, accountId: string, bucket: StorageBucket): Promise<number> {
+  const row = await db
+    .prepare("SELECT COALESCE(SUM(count), 0) AS n FROM item_storage WHERE account_id = ? AND bucket = ?")
+    .bind(accountId, bucket)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/** Guarded remove-one from a bucket; false if there was none to take. */
+async function takeFrom(db: D1Database, accountId: string, bucket: StorageBucket, name: string): Promise<boolean> {
+  const res = await db
+    .prepare("UPDATE item_storage SET count = count - 1 WHERE account_id = ? AND bucket = ? AND item_key = ? AND count >= 1")
+    .bind(accountId, bucket, name)
+    .run();
+  return (res.meta.changes ?? 0) === 1;
+}
+
+/** Guarded remove-one from owned objects; false if there was none to take. */
+async function takeObject(db: D1Database, accountId: string, key: string): Promise<boolean> {
+  const res = await db
+    .prepare("UPDATE object_counts SET count = count - 1 WHERE account_id = ? AND object_key = ? AND count >= 1")
+    .bind(accountId, key)
+    .run();
+  return (res.meta.changes ?? 0) === 1;
 }
 
 /** Lifetime wins per raid id — the account's server-owned raid progress. Drives ability

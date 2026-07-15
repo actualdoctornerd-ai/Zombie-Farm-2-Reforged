@@ -74,13 +74,58 @@ client's own check. A migrating save's already-plowed soil imports ONCE via `POS
 `farm_state.soil_seeded` rather than seed-once-if-empty — an empty soil set is a legitimate steady state,
 so an if-empty guard would let a client re-import free soil (plow cost + 1 xp each) forever.
 
-The remaining security weakness is the rest of gameplay authority. The browser still authors
-progression the server does not yet own — quest requirement proof, tutorial rewards, raid win/loss
-(bounded to the raid's real catalog reward), and unit combat state (veterancy/casualties/mutation — a
-raid outcome) — and uploads a save blob those systems still read. A modified client can still manipulate
-those within the structural bounds the server accepts; it just can no longer directly mint currency,
-items, units by ANY route (bought, combined, grown, or redeemed), a starting balance, level-up brains,
-object refunds, a free object upgrade, free soil, land it never bought, or content above its level.
+**Raids T1 — the gates that don't need replay.** `/raid/start` now enforces the raid's UNLOCK LEVEL
+against server-owned xp (`raidUnlocked` mirrors `RaidCatalog.isUnlocked`). This was the worst remaining
+hole: a level-1 account could invade raid 9 (5000+1200 gold AND 5500 first-clear XP) and, since XP pays
+level-up brains, convert a fabricated win into premium currency. It also reserves ONE open raid per
+account atomically (the cooldown only advances at finish, so a client could otherwise bank session ids),
+reaping expired sessions first so an abandoned raid can't lock the account out; enforces session expiry
+INSIDE the finish CAS (`expires_at` was previously written but only read by the cron purge); and refunds
+a bypass voucher if the reserve loses. Raid PROGRESS is server-owned (`raid_clears.wins`, imported once
+via `/raid/sync`): without the import a migrating veteran looked like they'd cleared nothing and could
+re-earn every first-clear XP award (~21k XP), and wins drive zombie ability unlocks, so they must not
+live in the editable save.
+
+**Raids T2 — server-rolled loot.** A drop is real value, so the SERVER rolls it (`loot.ts`), pinning the
+Golden Dice at `/raid/start` so the luck bracket isn't a client claim. `loot.ts` IMPORTS `rollLootTier`
+from the client source rather than copying it, so the thresholds recovered from the binary have exactly
+one definition. `item_storage` (0018) makes the Received bucket + the shed real server state — loot needs
+somewhere to land, and the roll's unique/limit filters need to answer "do you already own one?".
+Claim/store/retrieve are server MOVES (`/storage/actions`), which also fixes a live bug: claiming a
+Received boost used to route through the removed inventory `grant`, so online it deleted the item and
+granted nothing. The BRAIN drop stays DEFERRED and documented (not silently omitted) — `win` is still
+client-asserted and buying a ticket to raid again is intended play, so raids are deliberately not
+rate-capped; a server-rolled brain drop would therefore make premium currency unlimited. It returns when
+a win is verifiable. It didn't work online before either, so this is no regression.
+
+The remaining security weakness is the rest of gameplay authority. The browser still authors progression
+the server does not yet own — quest requirement proof, tutorial rewards, raid win/loss (bounded to the
+raid's real catalog reward), and unit combat state (veterancy/casualties/mutation — a raid outcome) — and
+uploads a save blob those systems still read. A modified client can still manipulate those within the
+structural bounds the server accepts; it just can no longer directly mint currency, items, units by ANY
+route (bought, combined, grown, or redeemed), a starting balance, level-up brains, object refunds, a free
+object upgrade, free soil, land it never bought, content above its level, raid loot, or raid progress.
+
+### Phase F (save split) — NOT done, and why
+
+`PUT /save` still stores the client's authoritative fields verbatim. That is a parallel, writable source
+of truth: harmless only while nothing reads it back. Making the blob cosmetic is the last structural
+step, and it is NOT a matter of deleting fields on write. Three concrete hazards, found while attempting
+it, are why it is staged rather than shipped:
+
+1. **`GET /save` seeds the balance FROM the stored blob** (`balanceSeed(env, id, save?.player)`), and
+   `/raid/sync` seeds wins from what the client restored out of it. Stripping those fields before an
+   account has been seeded makes a migrating player seed to STARTER_BALANCE and lose their raid wins.
+   Any strip must therefore be ordered against the per-account `*_seeded` flags, not applied blindly.
+2. **Layout lives only in the blob.** `objects`, `ownedZombies`, and `farm.plots` carry POSITIONS; the
+   server owns only counts/identity. Stripping them wipes the farm. The client needs a merge (server
+   truth + blob layout) on restore before those fields can go.
+3. **Some fields are half-owned.** `quests` holds both the completed set (server-owned) and live
+   per-requirement counters (client). It can't be dropped wholesale.
+
+What IS done: every field Phase F would strip now has server-owned state behind it, and the two that a
+client actively re-reads on load (raid progress, item storage) are already adopted from the server. The
+rest of Phase F is client-side work — the restore merge — plus the seeding order in (1).
 
 Known pre-existing gap (NOT introduced by Phase E): planted crops themselves have no seed path, so a
 crop planted before the farm became server-owned lives only in the blob and its harvest is rejected as

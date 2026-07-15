@@ -298,3 +298,22 @@ export function objectBuyXp(cost: number, sourceXp: number): number {
 
 /** Per-key ownership ceiling — a plausibility bound (matches the save object cap). */
 export const MAX_OBJECT_COUNT = 8192;
+
+/** Item capacity of each storage shed (placeables.json `storageSlots`). The shed the
+ *  account OWNS decides how many items its shed holds, so the cap is derived from
+ *  object_counts rather than stored — an editable save can't declare it.
+ *  KEEP IN SYNC with placeables.json. */
+export const SHED_SLOTS: Readonly<Record<string, number>> = {
+  storage01: 8,
+  storage02: 16,
+  storage03: 24,
+  storage04: 32,
+  storage05: 40,
+  storage06: 48,
+  storage07: 56,
+  storage08: 64,
+};
+
+/** The starter shed's capacity — what an account holds before buying a bigger one. Every
+ *  farm starts with a Shabby Shed (free, so never server-tracked; see planObjectUpgrade). */
+export const BASE_SHED_SLOTS = 8;

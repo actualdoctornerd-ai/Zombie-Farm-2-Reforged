@@ -36,6 +36,7 @@ import { validateSave, MAX_SAVE_BYTES } from "./validate";
 import type { EconomyEvent } from "./economy";
 import type { FarmAction } from "./farm";
 import { raidEcon, raidUnlocked } from "./raidCatalog";
+import type { StorageAction } from "./storage";
 import { levelForXp } from "./levels";
 import type { InventoryAction } from "./inventory";
 import type { ObjectAction } from "./objects";
@@ -292,6 +293,7 @@ app.use("/farm/actions", rateLimit("RL_WRITE", "farm_actions", 120, 60_000));
 app.use("/farm/sync", rateLimit("RL_READ", "farm_sync", 300, 60_000));
 app.use("/raid/sync", rateLimit("RL_READ", "raid_sync", 300, 60_000));
 app.use("/storage/sync", rateLimit("RL_READ", "storage_sync", 300, 60_000));
+app.use("/storage/actions", rateLimit("RL_WRITE", "storage_actions", 120, 60_000));
 app.use("/inventory/actions", rateLimit("RL_WRITE", "inventory_actions", 120, 60_000));
 app.use("/inventory/sync", rateLimit("RL_READ", "inventory_sync", 300, 60_000));
 app.use("/object/actions", rateLimit("RL_WRITE", "object_actions", 120, 60_000));
@@ -797,6 +799,19 @@ app.post("/storage/sync", async (c) => {
     allow ? body.stored : []
   );
   return c.json(storage);
+});
+
+// POST /storage/actions — MOVES, never grants: claim a Received item into the boost or
+// placeable it represents, or pack an owned object into the shed / take it back out.
+// Every action spends something the server already recorded you owning.
+app.post("/storage/actions", async (c) => {
+  const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
+  const raw = Array.isArray(body.actions) ? body.actions : [];
+  if (raw.length > 256) return c.json({ error: "too_many_actions" }, 413);
+  const r = await db.applyStorageActions(c.env.DB, c.get("accountId"), raw as StorageAction[], Date.now());
+  const rejected = r.results.filter((x) => x.status === "rejected").length;
+  if (rejected) slog("storage_rejected", { account: c.get("accountId"), rejected });
+  return c.json(r);
 });
 
 // ---- economy: server-authoritative balances (gold/brains/xp) ------------

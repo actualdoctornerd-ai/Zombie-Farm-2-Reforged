@@ -36,3 +36,11 @@ ALTER TABLE farm_state ADD COLUMN storage_seeded INTEGER NOT NULL DEFAULT 0;
 -- consumes them from the boost inventory). The loot roll's luck bracket reads this, so
 -- the client can't declare its own luck at finish. Pre-T2 sessions have 0 = no luck.
 ALTER TABLE raid_sessions ADD COLUMN dice INTEGER NOT NULL DEFAULT 0;
+
+-- Idempotency ledger for storage moves (claim / store / retrieve). A retried claim must
+-- not grant the boost twice.
+CREATE TABLE IF NOT EXISTS storage_actions (
+  id         TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id),
+  created_at INTEGER NOT NULL
+);

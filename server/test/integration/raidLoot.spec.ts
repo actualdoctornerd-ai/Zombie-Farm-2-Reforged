@@ -184,3 +184,96 @@ describe("item storage — server-owned Received + shed", () => {
     expect(stg.body.received.Windmill).toBe(1); // still exactly the one imported
   });
 });
+
+describe("storage actions — claiming Received loot", () => {
+  it("claims a Received BOOST into the inventory instead of destroying it", async () => {
+    // The bug this fixes: claiming used to send an inventory `grant` (removed in Phase 0),
+    // so online the server rejected it, the client removed the entry anyway, and the loot
+    // was silently lost. Now it's a server-side MOVE.
+    const s = await player();
+    await call("POST", "/storage/sync", s.token, { received: ["Insta-Plow"] });
+    const r = await call<{
+      storage: { received: Record<string, number> };
+      inventory: Record<string, number>;
+      results: { status: string; error?: string }[];
+    }>("POST", "/storage/actions", s.token, { actions: [{ id: aid("c"), type: "claim", name: "Insta-Plow" }] });
+    expect(r.body.results[0].status).toBe("applied");
+    expect(r.body.inventory.insta_plow).toBe(1); // really granted...
+    expect(r.body.storage.received["Insta-Plow"] ?? 0).toBe(0); // ...and consumed
+  });
+
+  it("claims a Received DECORATION into an owned placeable", async () => {
+    const s = await player();
+    await call("POST", "/storage/sync", s.token, { received: ["Windmill"] });
+    const r = await call<{
+      storage: { received: Record<string, number> };
+      objects: Record<string, number>;
+      results: { status: string }[];
+    }>("POST", "/storage/actions", s.token, { actions: [{ id: aid("c"), type: "claim", name: "Windmill" }] });
+    expect(r.body.results[0].status).toBe("applied");
+    expect(r.body.objects.windmill).toBe(1);
+    expect(r.body.storage.received.Windmill ?? 0).toBe(0);
+  });
+
+  it("won't claim an item it doesn't have — no grant from nothing", async () => {
+    const s = await player();
+    const r = await call<{ inventory: Record<string, number>; results: { status: string; error?: string }[] }>(
+      "POST",
+      "/storage/actions",
+      s.token,
+      { actions: [{ id: aid("c"), type: "claim", name: "Insta-Plow" }] }
+    );
+    expect(r.body.results[0]).toMatchObject({ status: "rejected", error: "none_owned" });
+    expect(r.body.inventory.insta_plow ?? 0).toBe(0);
+  });
+
+  it("is idempotent — a retried claim grants once", async () => {
+    const s = await player();
+    await call("POST", "/storage/sync", s.token, { received: ["Insta-Plow", "Insta-Plow"] });
+    const id = aid("c");
+    const body = { actions: [{ id, type: "claim", name: "Insta-Plow" }] };
+    await call("POST", "/storage/actions", s.token, body);
+    const replay = await call<{ inventory: Record<string, number>; results: { status: string }[] }>(
+      "POST",
+      "/storage/actions",
+      s.token,
+      body
+    );
+    expect(replay.body.results[0].status).toBe("duplicate");
+    expect(replay.body.inventory.insta_plow).toBe(1); // not 2
+  });
+
+  it("round-trips an object through the shed", async () => {
+    const s = await player();
+    await call("POST", "/storage/sync", s.token, { received: ["Windmill"] });
+    await call("POST", "/storage/actions", s.token, { actions: [{ id: aid("c"), type: "claim", name: "Windmill" }] });
+    const stored = await call<{ storage: { stored: Record<string, number> }; objects: Record<string, number> }>(
+      "POST",
+      "/storage/actions",
+      s.token,
+      { actions: [{ id: aid("s"), type: "store", name: "Windmill" }] }
+    );
+    expect(stored.body.storage.stored.Windmill).toBe(1);
+    expect(stored.body.objects.windmill ?? 0).toBe(0); // packed away
+    const back = await call<{ storage: { stored: Record<string, number> }; objects: Record<string, number> }>(
+      "POST",
+      "/storage/actions",
+      s.token,
+      { actions: [{ id: aid("r"), type: "retrieve", name: "Windmill" }] }
+    );
+    expect(back.body.objects.windmill).toBe(1);
+    expect(back.body.storage.stored.Windmill ?? 0).toBe(0);
+  });
+
+  it("refuses to claim a BRAIN entry from an edited save", async () => {
+    const s = await player();
+    await call("POST", "/storage/sync", s.token, { received: ["10 Brains"] });
+    const r = await call<{ balance?: unknown; results: { status: string; error?: string }[] }>(
+      "POST",
+      "/storage/actions",
+      s.token,
+      { actions: [{ id: aid("c"), type: "claim", name: "10 Brains" }] }
+    );
+    expect(r.body.results[0]).toMatchObject({ status: "rejected", error: "brains_deferred" });
+  });
+});
