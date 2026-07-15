@@ -34,9 +34,17 @@ interface ObjectRule {
 }
 
 interface NamedRule { name: string }
+interface ZombieRule extends NamedRule { key: string; mutation?: number }
 
 const plantNames = new Map((plantRows as (NamedRule & { key: string })[]).map((r) => [r.key, r.name]));
-const zombieNames = new Map((zombieRows as (NamedRule & { key: string })[]).map((r) => [r.key, r.name]));
+const zombieRules = zombieRows as ZombieRule[];
+const zombieNames = new Map(zombieRules.map((r) => [r.key, r.name]));
+const zombieMutations = new Map(zombieRules.map((r) => [r.key, r.mutation ?? 0]));
+
+/** Catalog mutation guaranteed by a market-mutant species (0 for ordinary units). */
+export function zombieDefaultMutation(key: string): number {
+  return zombieMutations.get(key) ?? 0;
+}
 const objectRules = new Map(
   (objectRows as (ObjectRule & { key: string })[]).map((r) => [r.key, r])
 );
@@ -103,7 +111,13 @@ function addZombie(state: MutableGameplayState, key: string, id: string): boolea
   const active = state.roster.filter((u) => !u.stored).length;
   const stored = state.roster.filter((u) => u.stored).length;
   if (active >= cap.army && stored >= cap.storage) return false;
-  state.roster.push({ id, key, mutation: 0, invasions: 0, stored: active >= cap.army });
+  state.roster.push({
+    id,
+    key,
+    mutation: zombieDefaultMutation(key),
+    invasions: 0,
+    stored: active >= cap.army,
+  });
   return true;
 }
 
@@ -143,7 +157,11 @@ export function applyQuestEvents(
     const counts = progress.get(id) ?? def.requirements.map(() => 0);
     for (const event of events) {
       def.requirements.forEach((req, index) => {
-        if (req.notificationID !== event.type || req.notificationObject !== event.subject) return;
+        if (req.notificationID !== event.type) return;
+        // An empty object is the quest format's wildcard (for example, "plant any
+        // crop"). Match named subjects case-insensitively, like the client engine.
+        if (req.notificationObject &&
+            req.notificationObject.toLowerCase() !== event.subject.toLowerCase()) return;
         const next = Math.min(req.countTotal, (counts[index] ?? 0) + 1);
         if (next !== counts[index]) {
           counts[index] = next;

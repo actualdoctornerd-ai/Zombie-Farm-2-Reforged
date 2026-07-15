@@ -137,6 +137,8 @@ export interface CombatAttack {
 export interface CombatUnit {
   id: string;
   sourceKey: string;
+  /** Owned mutation mask. Player actors use it for raid rendering; enemies omit it. */
+  mutation?: number;
   team: "player" | "enemy";
   name: string;
   str: number;

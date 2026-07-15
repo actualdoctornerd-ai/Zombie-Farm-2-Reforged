@@ -4,6 +4,7 @@
 // The scene positions it and tells it whether it's moving each frame.
 import { Container, Sprite } from "pixi.js";
 import { GameAssets, ZombieModel } from "../assets";
+import { bitsOf, slotOf } from "../zombie/mutations";
 
 const MODEL_BASE = 0.95;
 const TILT_AMP_MOVE = 0.1;
@@ -38,6 +39,8 @@ const DEATH_HEAD_VX = 92; // local px/s, backward (away from the enemy)
 const DEATH_HEAD_VY = -255; // local px/s, up
 const DEATH_HEAD_G = 820; // gravity pulling the head back down
 const DEATH_HEAD_SPIN = 13; // rad/s tumble
+const MUT_HEAD_REPLACE_Z = 4.5;
+const MUT_FACE_OVERLAY_Z = 20;
 
 export class RaidActor {
   readonly container = new Container();
@@ -58,12 +61,12 @@ export class RaidActor {
   private stepPhase = 0;
   private deathT = -1; // ≥0 once dead: seconds into the head-pop animation
 
-  constructor(assets: GameAssets, key: string) {
+  constructor(assets: GameAssets, key: string, mutation = 0) {
     this.container.addChild(this.root);
-    this.build(assets, key);
+    this.build(assets, key, mutation);
   }
 
-  private build(assets: GameAssets, key: string) {
+  private build(assets: GameAssets, key: string, mutation: number) {
     const m: ZombieModel =
       assets.zombieModels[key] ?? assets.zombieModels["ZombieActorRegularTier1"];
     const [r, g, b] = m.color;
@@ -87,6 +90,28 @@ export class RaidActor {
       else if (p.group === "footB") { this.footB = sp; this.footBBaseY = p.py; }
       // Arms live in the "root" group; grab them by filename for the wind-up.
       else if (/Arm[FB]/i.test(p.file)) this.arms.push(sp);
+    }
+    // Raid zombies use the same mutation overlays as their farm actors. The mask is
+    // owned-unit state, not something that can be inferred from the species key after
+    // combining, so it must travel with the combat unit.
+    for (const bit of bitsOf(mutation)) {
+      const partKey = m.mutationOverrides?.[String(bit)] ?? String(bit);
+      const mp = assets.mutationParts[partKey];
+      if (!mp) continue;
+      const tex = assets.zombiePartTex[mp.file];
+      if (!tex) continue;
+      const sp = new Sprite(tex);
+      sp.anchor.set(mp.ax, mp.ay);
+      const px = mp.ox + (mp.headRel ? m.neck.x : 0);
+      const py = -mp.oy + (mp.headRel ? m.neck.y : 0);
+      sp.position.set(px, py);
+      if (mp.group === "head") {
+        sp.zIndex = slotOf(bit) === "hair_eye" ? MUT_FACE_OVERLAY_Z : MUT_HEAD_REPLACE_Z;
+        this.headParts.push({ sp, bx: px, by: py });
+      } else {
+        sp.zIndex = mp.z;
+      }
+      this.root.addChild(sp);
     }
     // Headless models have no feet — guard the walk animation.
     if (!this.footF) { this.footF = new Sprite(); this.root.addChild(this.footF); }

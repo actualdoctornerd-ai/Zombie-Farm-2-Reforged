@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { SequencedCommand } from "../../src/net/protocol";
-import { applyCommandBatch, freshGameplayState } from "../src/v3/engine";
+import plantRows from "../../public/assets/plants.json";
+import {
+  applyCommandBatch,
+  applyQuestEvents,
+  freshGameplayState,
+  zombieDefaultMutation,
+} from "../src/v3/engine";
 
 const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] =>
   values.map((command, index) => ({ sequence: index + 1, command }));
@@ -46,6 +52,63 @@ describe("protocol v3 command engine", () => {
       growMs: 900_000,
       sell: 16,
     });
+  });
+
+  it("accepts every seasonal crop shipped in the client catalog", () => {
+    for (const crop of plantRows.filter((entry) => entry.seasonal)) {
+      const state = freshGameplayState();
+      state.balance.gold = 1_000_000;
+      state.balance.xp = 1_000_000;
+      state.farm.plots["0:0"] = { state: "plowed" };
+      const result = applyCommandBatch(
+        state,
+        commands({ type: "farm.plant", oc: 0, or: 0, cropKey: crop.key }),
+        { now: 1 }
+      );
+      expect(result.results[0], crop.key).toMatchObject({ status: "applied" });
+    }
+  });
+
+  it("treats an empty quest subject as a wildcard and completes it only once", () => {
+    const state = freshGameplayState();
+    state.quests.completed = ["70"];
+    const first = applyQuestEvents(state.balance, state.quests, [
+      { type: "kCropPlantedNotification", subject: "Carrot" },
+    ]);
+    expect(first).toContainEqual(expect.objectContaining({ questId: "71", completed: true }));
+    expect(state.quests.completed.filter((id) => id === "71")).toHaveLength(1);
+
+    const repeated = applyQuestEvents(state.balance, state.quests, [
+      { type: "kCropPlantedNotification", subject: "Tomato" },
+    ]);
+    expect(repeated.some((change) => change.questId === "71")).toBe(false);
+    expect(state.quests.completed.filter((id) => id === "71")).toHaveLength(1);
+  });
+
+  it("grants a harvested market mutant with its catalog mutation", () => {
+    const state = freshGameplayState();
+    state.farm.plots["0:0"] = {
+      state: "planted",
+      cropKey: "ZombieActorRegularTier1Carrots",
+      plantedAt: 0,
+      growMs: 1,
+      sell: 0,
+      xp: 1,
+      fertilized: false,
+      zombie: true,
+    };
+    const result = applyCommandBatch(
+      state,
+      commands({ type: "farm.harvest", oc: 0, or: 0 }),
+      { now: 1_000, id: () => "carrot-zombie" }
+    );
+    expect(result.state.roster).toContainEqual(expect.objectContaining({
+      id: "carrot-zombie",
+      key: "ZombieActorRegularTier1Carrots",
+      mutation: 4,
+    }));
+    expect(zombieDefaultMutation("ZombieActorRegularTier1Tomatoes")).toBe(1);
+    expect(zombieDefaultMutation("ZombieActorRegularTier1")).toBe(0);
   });
 
   it("marks same-resource followers dependency_failed while independent commands continue", () => {

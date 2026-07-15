@@ -182,6 +182,7 @@ export type UnitState =
 export interface SimUnit {
   id: string;
   sourceKey: string;
+  mutation: number;
   team: "player" | "enemy";
   name: string;
   isBoss: boolean;
@@ -290,6 +291,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
   return {
     id: u.id,
     sourceKey: u.sourceKey,
+    mutation: u.mutation ?? 0,
     team: u.team,
     name: u.name,
     isBoss: u.isBoss,

@@ -183,6 +183,7 @@ export function buildPlayerUnits(
       mult, false,
       z.group === "Garden", z.group === "Headless"
     );
+    u.mutation = z.mutation;
     u.maxHp = Math.max(1, Math.round(u.maxHp * armyHpMult));
     u.hp = u.maxHp;
     u.abilities = keys; // carried into the live scene (strip + activated moves)

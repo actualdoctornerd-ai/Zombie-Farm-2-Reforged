@@ -8,7 +8,7 @@ import type {
 } from "../../../src/net/protocol";
 import { GAMEPLAY_PROTOCOL } from "../../../src/net/protocol";
 import * as legacyDb from "../db";
-import { applyCommandBatch, freshGameplayState } from "./engine";
+import { applyCommandBatch, freshGameplayState, zombieDefaultMutation } from "./engine";
 import { levelForXp } from "../levels";
 
 interface RuntimeRow {
@@ -135,7 +135,10 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     roster: rows.roster.map((u) => ({
       id: u.unit_id,
       key: u.zombie_key,
-      mutation: u.mutation,
+      // Older v3 harvests persisted every new zombie with mutation 0. Market-mutant
+      // species have a guaranteed catalog bit, so repair those legacy rows in the
+      // authoritative projection. Explicit inherited masks remain untouched.
+      mutation: u.mutation || zombieDefaultMutation(u.zombie_key),
       invasions: u.invasions,
       stored: !!u.stored,
       ...(u.locked_by_raid ? { lockedByRaid: u.locked_by_raid } : {}),

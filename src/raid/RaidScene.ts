@@ -563,7 +563,7 @@ export class RaidScene {
       // applied to every player zombie (not a per-unit fit-to-height), so the
       // authentic per-group sizes carry through — a Large brute towers over a Small
       // gnome instead of all zombies rendering at one height.
-      actor = new RaidActor(this.assets, u.sourceKey);
+      actor = new RaidActor(this.assets, u.sourceKey, u.mutation);
       const b = actor.container.getLocalBounds();
       const s = this.refPlayerScale();
       actor.container.scale.set(s);

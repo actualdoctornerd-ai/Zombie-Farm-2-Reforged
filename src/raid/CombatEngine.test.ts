@@ -129,4 +129,11 @@ describe("buildPlayerUnits — level-scaling is applied", () => {
     const lo = buildPlayerUnits(headless(), { playerLevel: 8 })[0];
     expect(lo.focus).toBe(100); // unchanged despite low level
   });
+
+  it("carries the owned mutation mask into the raid combat unit", () => {
+    const mutated = headless()[0];
+    mutated.group = "Regular";
+    mutated.mutation = 4 | 64;
+    expect(buildPlayerUnits([mutated])[0].mutation).toBe(4 | 64);
+  });
 });

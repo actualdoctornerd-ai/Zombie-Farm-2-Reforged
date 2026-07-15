@@ -23,6 +23,15 @@ function unit(over: Partial<CombatUnit> & Pick<CombatUnit, "id" | "sourceKey" | 
 }
 
 describe("Mini Buddy", () => {
+  it("preserves mutation state for the raid renderer", () => {
+    const player = unit({
+      id: "mutant", sourceKey: "ZombieActorRegularTier1", team: "player", mutation: 1 | 8,
+    });
+    const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy" });
+    const sim = new BattleSim([player], [enemy], null, true);
+    expect(sim.units.find((candidate) => candidate.id === "mutant")?.mutation).toBe(1 | 8);
+  });
+
   it("mounts before deployment, doubles the carrier run, then deploys both with a stun", () => {
     const brute = unit({
       id: "brute", sourceKey: "ZombieActorLargeTier2", team: "player",
