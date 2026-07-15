@@ -3,4 +3,4 @@
 // deploy, so the same bundle works whether it's served from a domain root or a
 // GitHub Pages project subpath (username.github.io/repo/). Every runtime asset
 // URL is built from this so nothing is hardcoded to the site root.
-export const BASE = import.meta.env.BASE_URL;
+export const BASE = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "./";

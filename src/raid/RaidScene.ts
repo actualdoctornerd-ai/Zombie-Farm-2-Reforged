@@ -17,6 +17,12 @@ import { EnemyActor } from "./EnemyActor";
 import { ParticleField, ParticleConfig } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
 import { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
+import { RAID_TICK_MS, type RaidReplayInput } from "./replay";
+
+type RaidInputDraft =
+  | { type: "bubble"; unitId: string }
+  | { type: "ability"; abilityKey: string }
+  | { type: "retreat" };
 import { BASE } from "../base";
 
 export interface RaidSceneParams {
@@ -35,7 +41,8 @@ export interface RaidSceneParams {
   wallTemplate?: CombatUnit | null;
   /** Concentration boost spent — skip the focus-bubble minigame this fight. */
   concentration?: boolean;
-  onFinish: (outcome: RaidOutcome) => void;
+  onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
+  onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
 }
 
 // Smash (bash / bashV2) tell: while charging, the zombie GROWS to 1+SMASH_GROW as it
@@ -198,7 +205,11 @@ export class RaidScene {
   readonly container = new Container();
   private sim: BattleSim;
   private raid: RaidDef;
-  private onFinish: (o: RaidOutcome) => void;
+  private onFinish: (o: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
+  private onCheckpoint: ((finalTick: number, inputs: RaidReplayInput[]) => Promise<void>) | null;
+  private lastCheckpointTick = 0;
+  private checkpointing = false;
+  private checkpointRetryAt = 0;
 
   private assets: GameAssets;
   private backdrop = new Graphics(); // sky/grass fill behind the (letterboxed) stage
@@ -254,6 +265,14 @@ export class RaidScene {
   private retreatBtn = new Container();
   private retreatRequested = false;
   private retreated = false;
+  private simAccumulatorMs = 0;
+  private simTick = 0;
+  private inputSeq = 0;
+  private replayInputs: RaidReplayInput[] = [];
+
+  private recordInput(input: RaidInputDraft): void {
+    this.replayInputs.push({ ...input, seq: ++this.inputSeq, tick: this.simTick } as RaidReplayInput);
+  }
 
   // Top-left ability strip: tappable activated moves (Bash/Smash/Explode/Mini) with
   // ready-count badges, plus static team-passive icons (Heal/Protect/Chivalry/…).
@@ -277,6 +296,7 @@ export class RaidScene {
     this.raid = params.raid;
     this.assets = params.assets;
     this.onFinish = params.onFinish;
+    this.onCheckpoint = params.onCheckpoint ?? null;
     this.bossThrow = params.bossThrow;
     this.hazardSprite = params.hazard?.sprite ?? "";
     this.wallTemplate = params.wallTemplate ?? null;
@@ -427,6 +447,7 @@ export class RaidScene {
     this.bubble.cursor = "pointer";
     this.bubble.on("pointertap", () => {
       if (this.bubbleUnitId && this.sim.popBubble(this.bubbleUnitId)) {
+        this.recordInput({ type: "bubble", unitId: this.bubbleUnitId });
         this.bubble.scale.set(0.8); // tap feedback, eased back in layout
       }
     });
@@ -485,7 +506,10 @@ export class RaidScene {
       cell.eventMode = "static";
       cell.cursor = "pointer";
       cell.on("pointertap", () => {
-        if (this.sim.activate(key)) cell.scale.set(0.86); // tap feedback (eased back in layout)
+        if (this.sim.activate(key)) {
+          this.recordInput({ type: "ability", abilityKey: key });
+          cell.scale.set(0.86); // tap feedback (eased back in layout)
+        }
       });
     }
     return { cell, badge };
@@ -680,6 +704,7 @@ export class RaidScene {
     this.retreatBtn.eventMode = "static";
     this.retreatBtn.cursor = "pointer";
     this.retreatBtn.on("pointertap", () => {
+      if (!this.retreatRequested && !this.resultFired) this.recordInput({ type: "retreat" });
       this.retreatRequested = true; // handled on the next update (safe teardown)
     });
     this.container.addChild(this.retreatBtn);
@@ -1168,7 +1193,7 @@ export class RaidScene {
 
   /** Drive the scene forward. Called from the app ticker with seconds. */
   update(dtSec: number) {
-    const dtMs = Math.min(dtSec * 1000, 50);
+    const dtMs = Math.min(dtSec * 1000, 250);
     this.phaseT += dtMs;
     for (const t of this.tokens.values()) t.pulse = Math.max(0, t.pulse - dtSec * 6);
     this.stepFx(dtSec);
@@ -1187,7 +1212,29 @@ export class RaidScene {
         if (this.phaseT >= INTRO_MS) this.setPhase("fight");
         break;
       case "fight": {
-        this.sim.step(dtMs);
+        if (this.onCheckpoint && !this.sim.finished && this.simTick - this.lastCheckpointTick >= 300) {
+          if (!this.checkpointing && performance.now() >= this.checkpointRetryAt) {
+            this.checkpointing = true;
+            const tick = this.simTick;
+            const segment = this.replayInputs.filter((input) => input.tick > this.lastCheckpointTick && input.tick <= tick);
+            void this.onCheckpoint(tick, segment).then(() => {
+              this.lastCheckpointTick = tick;
+              this.replayInputs = this.replayInputs.filter((input) => input.tick > tick);
+            }).catch(() => {
+              this.checkpointRetryAt = performance.now() + 1000;
+            }).finally(() => { this.checkpointing = false; });
+          }
+          break;
+        }
+        this.simAccumulatorMs += dtMs;
+        // Combat advances only in fixed ticks. Rendering remains free to interpolate
+        // at the display cadence, but it can no longer change the outcome.
+        let catchup = 0;
+        while (this.simAccumulatorMs >= RAID_TICK_MS && !this.sim.finished && catchup++ < 5) {
+          this.sim.step(RAID_TICK_MS);
+          this.simAccumulatorMs -= RAID_TICK_MS;
+          this.simTick++;
+        }
         for (const u of this.sim.units) {
           if (u.struckThisTick) {
             const t = this.tokens.get(u.id);
@@ -1251,7 +1298,7 @@ export class RaidScene {
     // A retreat is a clean flee: survivors aren't credited (no veterancy), but the
     // tally still reflects what happened up to the retreat.
     const outcome = this.retreated ? { ...o, win: false, survivors: [] } : o;
-    this.onFinish(outcome);
+    this.onFinish(outcome, this.simTick, this.replayInputs.slice());
   }
 
   destroy() {

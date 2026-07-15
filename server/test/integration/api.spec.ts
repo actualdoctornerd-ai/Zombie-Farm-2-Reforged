@@ -177,24 +177,27 @@ describe("raids — server cooldown + idempotent finish", () => {
   it("gates on the server cooldown and consumes the session once", async () => {
     const s = await signIn();
     await call("POST", "/economy/sync", s.token, { seed: { gold: 5000, brains: 0, xp: 0 } }); // fund a voucher later
+    await call("POST", "/roster/sync", s.token, { units: [{ id: "raid-z1", key: "ZombieActorRegularTier1" }] });
+    const startBody = { raidId: 1, orderedUnitIds: ["raid-z1"], rulesetVersion: 2 };
     expect((await call<{ cooldownRemaining: number }>("GET", "/raid/state", s.token)).body.cooldownRemaining).toBe(0);
-    const start = await call<{ ok: boolean; sessionId: string }>("POST", "/raid/start", s.token, { raidId: 1 });
+    const start = await call<{ ok: boolean; sessionId: string }>("POST", "/raid/start", s.token, startBody);
     expect(start.body.ok).toBe(true);
     const sid = start.body.sessionId;
-    const fin1 = await call<{ lastRaidAt: number }>("POST", "/raid/finish", s.token, { sessionId: sid, win: false });
+    const finishBody = { sessionId: sid, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }] };
+    const fin1 = await call<{ lastRaidAt: number }>("POST", "/raid/finish", s.token, finishBody);
     expect(fin1.body.lastRaidAt).toBeGreaterThan(0);
     // Now on cooldown: a plain start is refused.
-    expect((await call<{ ok: boolean }>("POST", "/raid/start", s.token, { raidId: 1 })).body.ok).toBe(false);
+    expect((await call<{ ok: boolean }>("POST", "/raid/start", s.token, startBody)).body.ok).toBe(false);
     // Without a voucher, a bypass is also refused (voucher is server-owned now).
-    expect((await call<{ ok: boolean; error?: string }>("POST", "/raid/start", s.token, { bypass: true, raidId: 1 })).body.error).toBe("no_voucher");
+    expect((await call<{ ok: boolean; error?: string }>("POST", "/raid/start", s.token, { ...startBody, useVoucher: true })).body.error).toBe("no_consumable_or_raid_in_progress");
     // Arm a voucher (gold was seeded at the top), then the bypass is allowed.
     await call("POST", "/inventory/actions", s.token, { actions: [{ id: "vch-" + sid, type: "buy", key: "invasion_voucher" }] });
-    expect((await call<{ ok: boolean; bypassed: boolean }>("POST", "/raid/start", s.token, { bypass: true, raidId: 1 })).body.bypassed).toBe(true);
+    expect((await call<{ ok: boolean; bypassed: boolean }>("POST", "/raid/start", s.token, { ...startBody, useVoucher: true })).body.bypassed).toBe(true);
     // Finishing the SAME session again doesn't move the cooldown (idempotent).
-    const fin2 = await call<{ lastRaidAt: number }>("POST", "/raid/finish", s.token, { sessionId: sid, win: false });
+    const fin2 = await call<{ lastRaidAt: number }>("POST", "/raid/finish", s.token, finishBody);
     expect(fin2.body.lastRaidAt).toBe(fin1.body.lastRaidAt);
     // An unknown raid id is rejected up front.
-    expect((await call<{ ok: boolean }>("POST", "/raid/start", s.token, { raidId: 999 })).status).toBe(400);
+    expect((await call<{ ok: boolean }>("POST", "/raid/start", s.token, { ...startBody, raidId: 999 })).status).toBe(400);
   });
 });
 

@@ -23,6 +23,9 @@ migrations_dir = "migrations"
 GOOGLE_CLIENT_ID = "249211577622-cmqa6so9re0hgh2lti4mpe40nlcm3l4k.apps.googleusercontent.com"
 ALLOWED_ORIGIN = "https://actualdoctornerd-ai.github.io"
 DEV_AUTH = "0"
+MIGRATION_CUTOFF_MS = "0"
+# Old mutation clients are intentionally cut off immediately. The current client sends v2.
+INTEGRITY_V2_ENFORCE_AFTER_MS = "1"
 # Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
 # raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
 # RAID_COOLDOWN_MS = "7200000"
@@ -31,7 +34,8 @@ DEV_AUTH = "0"
 # defaults and can't self-declare a starting balance. Set to the rollout/migration-
 # window end when you migrate existing players; leave unset (= 0, imports closed) to
 # refuse all client-declared seeds. See SECURITY.md own-account plan.
-# MIGRATION_CUTOFF_MS = "1760000000000"
+# To run a deliberately time-boxed import in a separate recovery deployment, replace
+# the zero above with its absolute end timestamp. Production should remain zero.
 
 # ---- Secrets (set out-of-band, never committed) --------------------------
 # wrangler secret put SESSION_SECRET      # signs our own session JWTs

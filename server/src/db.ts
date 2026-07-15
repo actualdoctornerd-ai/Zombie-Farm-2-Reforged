@@ -12,19 +12,21 @@ import {
 } from "./farm";
 import { zombieCropEcon } from "./zombieCropCatalog";
 import { raidEcon, winGold, MAX_RAID_WINS } from "./raidCatalog";
-import { boostEcon, BOOST_KEYS, VOUCHER_KEY, DICE_KEY, MAX_STACK } from "./boostCatalog";
+import { boostEcon, boostKeyForName, BOOST_KEYS, VOUCHER_KEY, DICE_KEY, CONCENTRATION_KEY, MAX_STACK } from "./boostCatalog";
 import { planClaim, planStore, planRetrieve, type StorageAction } from "./storage";
 import { SHED_SLOTS, BASE_SHED_SLOTS } from "./objectCatalog";
 import { raidLoot, dropEcon, MAX_SEED_ITEMS } from "./raidLootCatalog";
 import { rollLoot, resolveLoot, type LootGrant } from "./loot";
 import { planBuy, planUse, planGiftRedeem, type InventoryAction } from "./inventory";
 import { zombieSell, fertilizeProbability, isKnownZombie, MAX_MUTATION } from "./rosterCatalog";
-import { validateUnit, cleanIds, type RosterAction } from "./roster";
+import { validateUnit, type RosterAction } from "./roster";
 import { BASE_FARM_SIZE, sizeTier, nextSize, climateCost } from "./shopCatalog";
 import { levelForXp } from "./levels";
-import { questReward, QUEST_REWARD } from "./questCatalog";
+import { QUEST_DEFINITIONS, questReward, QUEST_REWARD } from "./questCatalog";
 import { objectEcon } from "./objectCatalog";
 import { planObjectBuy, planObjectRefund, planObjectUpgrade, type ObjectAction } from "./objects";
+import plantCatalogData from "../../public/assets/plants.json";
+import zombieCatalogData from "../../public/assets/zombies.json";
 
 export interface Account {
   id: string;
@@ -689,12 +691,19 @@ export async function getOrSeedBalance(
   // Initialize claimed_level to the seed's level so a brand-new/migrated account only
   // ever pays out level-ups earned AFTER creation (not a retroactive windfall). Rows
   // that predate the column keep the DEFAULT 0 sentinel, handled by creditLevelUps.
-  await db
-    .prepare(
-      "INSERT OR IGNORE INTO balances (account_id, gold, brains, xp, claimed_level) VALUES (?, ?, ?, ?, ?)"
-    )
-    .bind(accountId, s.gold, s.brains, s.xp, levelForXp(s.xp))
-    .run();
+  await db.batch([
+    db
+      .prepare(
+        "INSERT OR IGNORE INTO balances (account_id, gold, brains, xp, claimed_level) VALUES (?, ?, ?, ?, ?)"
+      )
+      .bind(accountId, s.gold, s.brains, s.xp, levelForXp(s.xp)),
+    db
+      .prepare(
+        `INSERT INTO account_import_state (account_id, balance_seeded)
+         VALUES (?, 1) ON CONFLICT(account_id) DO UPDATE SET balance_seeded = 1`
+      )
+      .bind(accountId),
+  ]);
   const row = await db
     .prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?")
     .bind(accountId)
@@ -802,8 +811,28 @@ export async function completeQuest(
   }
 
   if (!isCurrency) {
-    // Recorded-only: nothing credited yet (Phase D grants the item/zombie).
-    return { status: "applied", balance: bal, granted: zero, deferred: true };
+    // Supported item rewards now enter authoritative inventory/storage. Zombie reward
+    // keys intentionally remain no-grant because they do not resolve to catalog units.
+    if (reward.rewardType === QUEST_REWARD.Item && reward.rewardItemKey) {
+      const boost = boostKeyForName(reward.rewardItemKey);
+      if (boost) {
+        await db
+          .prepare(
+            `INSERT INTO inventory (account_id, item_key, count) VALUES (?, ?, 1)
+             ON CONFLICT(account_id, item_key) DO UPDATE SET count = count + 1`
+          )
+          .bind(accountId, boost)
+          .run();
+      } else if (dropEcon(reward.rewardItemKey)) {
+        await addStorageStmt(db, accountId, "received", reward.rewardItemKey, 1).run();
+      }
+    }
+    return {
+      status: "applied",
+      balance: bal,
+      granted: zero,
+      deferred: reward.rewardType === QUEST_REWARD.Zombie,
+    };
   }
 
   const granted = { gold: 0, brains: 0, xp: 0 };
@@ -829,6 +858,212 @@ export async function completeQuest(
     granted.brains += lvlBrains;
   }
   return { status: "applied", balance: bal, granted, deferred: false };
+}
+
+const TRUSTED_QUEST_EVENTS = new Set([
+  "kSoilPlowedNotification",
+  "kNewSoilPlowedNotification",
+  "kCropPlantedNotification",
+  "kCropHarvestedNotification",
+  "kCropHarvestedZombieNotification",
+  "kItemBoughtNotification",
+  "kCombinerCombinedNotification",
+  "kCombinerHarvestedNotification",
+  "kInvasionSuccessfulNotification",
+  "kInvasionPerfectGameNotification",
+  "kLootItemWonNotification",
+]);
+
+export interface TrustedGameEvent {
+  id: string;
+  type: string;
+  subject?: string;
+  amount?: number;
+}
+
+export interface QuestState {
+  completed: string[];
+  progress: { questId: string; counts: number[] }[];
+}
+
+export interface QuestChange {
+  questId: string;
+  counts: number[];
+  completed: boolean;
+}
+
+/** Persist events produced by accepted server commands. Event ids are derived from the
+ * command/action id, making retries harmless. No public route accepts this shape. */
+export async function recordTrustedGameEvents(
+  db: D1Database,
+  accountId: string,
+  events: TrustedGameEvent[],
+  now: number
+): Promise<void> {
+  const valid = events.filter(
+    (e) => e && typeof e.id === "string" && e.id.length > 0 && e.id.length <= 160 && TRUSTED_QUEST_EVENTS.has(e.type)
+  );
+  if (!valid.length) return;
+  await db.batch(
+    valid.map((e) =>
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO game_events
+             (id, account_id, event_type, subject, amount, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          e.id,
+          accountId,
+          e.type,
+          typeof e.subject === "string" ? e.subject.slice(0, 160) : "",
+          Number.isInteger(e.amount) ? Math.max(1, Math.min(10_000, e.amount!)) : 1,
+          now
+        )
+    )
+  );
+}
+
+/** Import only legacy completed ids. Active counters are deliberately ignored and the
+ * imported rows carry reward_value=0, so migration never re-pays old rewards. Empty is
+ * still a permanent import decision. */
+export async function seedLegacyQuestCompletions(
+  db: D1Database,
+  accountId: string,
+  completed: unknown,
+  now: number
+): Promise<void> {
+  const token = crypto.randomUUID();
+  const ids = Array.isArray(completed)
+    ? [...new Set(completed.filter((x): x is string => typeof x === "string" && !!QUEST_DEFINITIONS[x]))].slice(0, 256)
+    : [];
+  const stmts: D1PreparedStatement[] = [
+    db.prepare("INSERT OR IGNORE INTO account_import_state (account_id) VALUES (?)").bind(accountId),
+    db
+      .prepare(
+        "UPDATE account_import_state SET quests_seeded = 1, quests_token = ? WHERE account_id = ? AND quests_seeded = 0"
+      )
+      .bind(token, accountId),
+  ];
+  for (const id of ids) {
+    const q = QUEST_DEFINITIONS[id];
+    stmts.push(
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO quest_completions
+             (account_id, quest_id, reward_type, reward_value, completed_at)
+           SELECT ?, ?, ?, 0, ? WHERE EXISTS (
+             SELECT 1 FROM account_import_state
+             WHERE account_id = ? AND quests_seeded = 1 AND quests_token = ?
+           )`
+        )
+        .bind(accountId, id, q.rewardType, now, accountId, token)
+    );
+  }
+  await db.batch(stmts);
+}
+
+export async function readQuestState(db: D1Database, accountId: string): Promise<QuestState> {
+  const done = await db
+    .prepare("SELECT quest_id FROM quest_completions WHERE account_id = ? ORDER BY CAST(quest_id AS INTEGER), quest_id")
+    .bind(accountId)
+    .all<{ quest_id: string }>();
+  const rows = await db
+    .prepare(
+      "SELECT quest_id, requirement_index, count FROM quest_progress WHERE account_id = ? ORDER BY quest_id, requirement_index"
+    )
+    .bind(accountId)
+    .all<{ quest_id: string; requirement_index: number; count: number }>();
+  const byQuest = new Map<string, number[]>();
+  for (const row of rows.results ?? []) {
+    const q = QUEST_DEFINITIONS[row.quest_id];
+    if (!q || row.requirement_index < 0 || row.requirement_index >= q.requirements.length) continue;
+    const counts = byQuest.get(row.quest_id) ?? new Array(q.requirements.length).fill(0);
+    counts[row.requirement_index] = Math.max(0, Math.min(q.requirements[row.requirement_index].countTotal, row.count));
+    byQuest.set(row.quest_id, counts);
+  }
+  return {
+    completed: (done.results ?? []).map((r) => r.quest_id),
+    progress: [...byQuest].map(([questId, counts]) => ({ questId, counts })),
+  };
+}
+
+/** Apply pending trusted events exactly once. Eligibility is snapshotted before each
+ * event, so an event completing a prerequisite cannot count for its newly unlocked
+ * successor. Application rows and processed_at make interruption safely resumable. */
+export async function processQuestEvents(
+  db: D1Database,
+  accountId: string,
+  now: number
+): Promise<QuestChange[]> {
+  const pending = await db
+    .prepare(
+      `SELECT id, event_type, subject, amount FROM game_events
+       WHERE account_id = ? AND processed_at IS NULL ORDER BY created_at, id LIMIT 256`
+    )
+    .bind(accountId)
+    .all<{ id: string; event_type: string; subject: string; amount: number }>();
+  const changes = new Map<string, QuestChange>();
+  for (const event of pending.results ?? []) {
+    const before = await readQuestState(db, accountId);
+    const completed = new Set(before.completed);
+    const level = levelForXp((await getOrSeedBalance(db, accountId, { gold: 0, brains: 0, xp: 0 })).xp);
+    for (const [questId, q] of Object.entries(QUEST_DEFINITIONS)) {
+      if (q.seasonal || q.epicEvent || completed.has(questId)) continue;
+      if (q.prerequisiteQuest >= 0 && !completed.has(String(q.prerequisiteQuest))) continue;
+      if (q.levelRequired >= 0 && level < q.levelRequired) continue;
+      let touched = false;
+      for (let i = 0; i < q.requirements.length; i++) {
+        const req = q.requirements[i];
+        if (!TRUSTED_QUEST_EVENTS.has(req.notificationID) || req.notificationID !== event.event_type) continue;
+        if (req.notificationObject && req.notificationObject.toLowerCase() !== event.subject.toLowerCase()) continue;
+        const token = crypto.randomUUID();
+        await db.batch([
+          db
+            .prepare(
+              `INSERT OR IGNORE INTO quest_event_applications
+                 (account_id, event_id, quest_id, requirement_index, applied_at, attempt_token)
+               VALUES (?, ?, ?, ?, ?, ?)`
+            )
+            .bind(accountId, event.id, questId, i, now, token),
+          db
+            .prepare(
+              `INSERT INTO quest_progress (account_id, quest_id, requirement_index, count, updated_at)
+               SELECT ?, ?, ?, ?, ? WHERE EXISTS (
+                 SELECT 1 FROM quest_event_applications
+                 WHERE account_id = ? AND event_id = ? AND quest_id = ? AND requirement_index = ? AND attempt_token = ?
+               )
+               ON CONFLICT(account_id, quest_id, requirement_index) DO UPDATE SET
+                 count = MIN(?, quest_progress.count + excluded.count), updated_at = excluded.updated_at`
+            )
+            .bind(accountId, questId, i, Math.min(req.countTotal, event.amount), now,
+              accountId, event.id, questId, i, token, req.countTotal),
+        ]);
+        const applied = await db
+          .prepare(
+            `SELECT 1 AS x FROM quest_event_applications
+             WHERE account_id = ? AND event_id = ? AND quest_id = ? AND requirement_index = ? AND attempt_token = ?`
+          )
+          .bind(accountId, event.id, questId, i, token)
+          .first<{ x: number }>();
+        if (!applied) continue;
+        touched = true;
+      }
+      if (!touched) continue;
+      const state = await readQuestState(db, accountId);
+      const counts = state.progress.find((p) => p.questId === questId)?.counts ?? new Array(q.requirements.length).fill(0);
+      let didComplete = false;
+      if (q.requirements.every((r, i) => (counts[i] ?? 0) >= r.countTotal)) {
+        didComplete = (await completeQuest(db, accountId, questId, now)).status === "applied";
+      }
+      changes.set(questId, { questId, counts, completed: didComplete || state.completed.includes(questId) });
+    }
+    await db
+      .prepare("UPDATE game_events SET processed_at = ? WHERE id = ? AND account_id = ? AND processed_at IS NULL")
+      .bind(now, event.id, accountId)
+      .run();
+  }
+  return [...changes.values()];
 }
 
 /** Apply a batch of economy events atomically & idempotently. Validates each
@@ -943,6 +1178,17 @@ export interface FarmResult {
   gold?: number;
   xp?: number;
   fertilized?: boolean; // plant only: whether the SERVER rolled the crop fertilized
+  /** Authoritative catalog subject for quest events emitted after a harvest. */
+  subject?: string;
+  zombie?: boolean;
+}
+
+function namedCatalogKey(rows: unknown, key: string): string {
+  if (!Array.isArray(rows)) return "";
+  const row = rows.find((x) => x && typeof x === "object" && (x as { key?: unknown }).key === key) as
+    | { name?: unknown }
+    | undefined;
+  return typeof row?.name === "string" ? row.name : "";
 }
 
 /** Import an existing player's already-PLOWED soil, exactly once (Phase E). Their client
@@ -1150,7 +1396,13 @@ export async function applyFarmActions(
             .bind(`${a.id}#x`, accountId, plan.xpDelta, now),
         ]);
         bal.xp += plan.xpDelta;
-        results.push({ id: a.id, status: "applied", xp: plan.xpDelta });
+        results.push({
+          id: a.id,
+          status: "applied",
+          xp: plan.xpDelta,
+          subject: namedCatalogKey(zombieCatalogData, plan.unitKey),
+          zombie: true,
+        });
         continue;
       }
       const plan = planHarvest(a, plot, now);
@@ -1171,7 +1423,14 @@ export async function applyFarmActions(
       ]);
       bal.gold += plan.goldDelta;
       bal.xp += plan.xpDelta;
-      results.push({ id: a.id, status: "applied", gold: plan.goldDelta, xp: plan.xpDelta });
+      results.push({
+        id: a.id,
+        status: "applied",
+        gold: plan.goldDelta,
+        xp: plan.xpDelta,
+        subject: namedCatalogKey(plantCatalogData, plot?.crop_key ?? ""),
+        zombie: false,
+      });
     } else {
       results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });
     }
@@ -1226,26 +1485,31 @@ export async function seedInventory(
   accountId: string,
   counts: Record<string, unknown>
 ): Promise<Record<string, number>> {
-  // Seed-once: if any inventory row exists, ignore the import and just read back.
-  const existing = await db
-    .prepare("SELECT 1 AS x FROM inventory WHERE account_id = ? LIMIT 1")
-    .bind(accountId)
-    .first<{ x: number }>();
-  if (existing) return readInventory(db, accountId);
-
-  const stmts: D1PreparedStatement[] = [];
+  const token = crypto.randomUUID();
+  const stmts: D1PreparedStatement[] = [
+    db.prepare("INSERT OR IGNORE INTO account_import_state (account_id) VALUES (?)").bind(accountId),
+    db
+      .prepare("UPDATE account_import_state SET inventory_seeded = 1, inventory_token = ? WHERE account_id = ? AND inventory_seeded = 0")
+      .bind(token, accountId),
+  ];
   for (const key of BOOST_KEYS) {
     const raw = counts?.[key];
     const n = Number.isInteger(raw) ? Math.max(0, Math.min(MAX_STACK, raw as number)) : 0;
     if (n > 0) {
       stmts.push(
         db
-          .prepare("INSERT OR IGNORE INTO inventory (account_id, item_key, count) VALUES (?, ?, ?)")
-          .bind(accountId, key, n)
+          .prepare(
+            `INSERT OR IGNORE INTO inventory (account_id, item_key, count)
+             SELECT ?, ?, ? WHERE EXISTS (
+               SELECT 1 FROM account_import_state
+               WHERE account_id = ? AND inventory_seeded = 1 AND inventory_token = ?
+             )`
+          )
+          .bind(accountId, key, n, accountId, token)
       );
     }
   }
-  if (stmts.length) await db.batch(stmts);
+  await db.batch(stmts);
   return readInventory(db, accountId);
 }
 
@@ -1435,21 +1699,27 @@ export async function seedObjects(
   accountId: string,
   counts: Record<string, unknown>
 ): Promise<Record<string, number>> {
-  const existing = await db
-    .prepare("SELECT 1 AS x FROM object_counts WHERE account_id = ? LIMIT 1")
-    .bind(accountId)
-    .first<{ x: number }>();
-  if (existing) return readObjects(db, accountId);
-
-  const stmts: D1PreparedStatement[] = [];
+  const token = crypto.randomUUID();
+  const stmts: D1PreparedStatement[] = [
+    db.prepare("INSERT OR IGNORE INTO account_import_state (account_id) VALUES (?)").bind(accountId),
+    db
+      .prepare("UPDATE account_import_state SET objects_seeded = 1, objects_token = ? WHERE account_id = ? AND objects_seeded = 0")
+      .bind(token, accountId),
+  ];
   for (const [key, raw] of Object.entries(counts ?? {})) {
     if (!objectEcon(key)) continue; // only real catalog objects
     const n = Number.isInteger(raw) ? Math.max(0, Math.min(8192, raw as number)) : 0;
     if (n > 0) {
       stmts.push(
         db
-          .prepare("INSERT OR IGNORE INTO object_counts (account_id, object_key, count) VALUES (?, ?, ?)")
-          .bind(accountId, key, n)
+          .prepare(
+            `INSERT OR IGNORE INTO object_counts (account_id, object_key, count)
+             SELECT ?, ?, ? WHERE EXISTS (
+               SELECT 1 FROM account_import_state
+               WHERE account_id = ? AND objects_seeded = 1 AND objects_token = ?
+             )`
+          )
+          .bind(accountId, key, n, accountId, token)
       );
     }
   }
@@ -1620,6 +1890,31 @@ interface RosterRow {
   invasions: number;
 }
 
+export async function readRosterState(db: D1Database, accountId: string): Promise<RosterRow[]> {
+  const rows = await db
+    .prepare("SELECT id, key, mutation, invasions FROM roster WHERE account_id = ? ORDER BY id")
+    .bind(accountId)
+    .all<RosterRow>();
+  return rows.results ?? [];
+}
+
+export async function readFarmPlots(
+  db: D1Database,
+  accountId: string
+): Promise<{
+  plowed: { oc: number; pr: number }[];
+  crops: CropPlotRow[];
+}> {
+  const plowed = await readPlowedSoil(db, accountId);
+  const crops = await db
+    .prepare(
+      "SELECT oc, pr, crop_key, planted_at, grow_ms, sell, xp, fertilized FROM crop_plots WHERE account_id = ? ORDER BY oc, pr"
+    )
+    .bind(accountId)
+    .all<CropPlotRow>();
+  return { plowed, crops: crops.results ?? [] };
+}
+
 /** Seed a player's roster from their save's owned zombies during the one-time save
  *  migration. Only imports when the roster is currently EMPTY — this makes it truly
  *  seed-once and closes the re-injection hole where repeated /roster/sync with fresh
@@ -1639,21 +1934,30 @@ export async function seedRoster(
       .first<{ n: number }>();
     return row?.n ?? 0;
   };
-  // Seed-once: if the account already has any unit, ignore the import entirely.
-  if ((await count()) > 0) return count();
-
+  const token = crypto.randomUUID();
   const list = Array.isArray(units) ? units : [];
-  const stmts: D1PreparedStatement[] = [];
+  const stmts: D1PreparedStatement[] = [
+    db.prepare("INSERT OR IGNORE INTO account_import_state (account_id) VALUES (?)").bind(accountId),
+    db
+      .prepare("UPDATE account_import_state SET roster_seeded = 1, roster_token = ? WHERE account_id = ? AND roster_seeded = 0")
+      .bind(token, accountId),
+  ];
   for (const u of list) {
     const g = validateUnit((u as RosterRow)?.id, (u as RosterRow)?.key, (u as RosterRow)?.mutation, (u as RosterRow)?.invasions);
     if (!g.ok) continue;
     stmts.push(
       db
-        .prepare("INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions) VALUES (?, ?, ?, ?, ?)")
-        .bind(accountId, g.unitId, g.key, g.mutation, g.invasions)
+        .prepare(
+          `INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions)
+           SELECT ?, ?, ?, ?, ? WHERE EXISTS (
+             SELECT 1 FROM account_import_state
+             WHERE account_id = ? AND roster_seeded = 1 AND roster_token = ?
+           )`
+        )
+        .bind(accountId, g.unitId, g.key, g.mutation, g.invasions, accountId, token)
     );
   }
-  if (stmts.length) await db.batch(stmts);
+  await db.batch(stmts);
   return count();
 }
 
@@ -1668,6 +1972,7 @@ export interface RosterResult {
   status: "applied" | "duplicate" | "rejected";
   error?: string;
   gold?: number; // sell payout
+  subject?: string;
 }
 
 /** Apply a batch of roster actions with server authority:
@@ -1711,8 +2016,12 @@ export async function applyRosterActions(
       // Guarded delete: only the caller that actually removes the row credits gold, so
       // concurrent sells of one unit can't double-pay.
       const del = await db
-        .prepare("DELETE FROM roster WHERE account_id = ? AND id = ?")
-        .bind(accountId, a.unitId)
+        .prepare(
+          `DELETE FROM roster WHERE account_id = ? AND id = ? AND NOT EXISTS (
+             SELECT 1 FROM raid_roster_locks WHERE account_id = ? AND unit_id = ?
+           )`
+        )
+        .bind(accountId, a.unitId, accountId, a.unitId)
         .run();
       if ((del.meta.changes ?? 0) !== 1) {
         results.push({ id: a.id, status: "rejected", error: "no_unit" });
@@ -1729,20 +2038,7 @@ export async function applyRosterActions(
       bal.gold += gold;
       results.push({ id: a.id, status: "applied", gold });
     } else if (a.type === "veteran" || a.type === "casualty") {
-      const ids = cleanIds((a as { unitIds: string[] }).unitIds);
-      const stmts: D1PreparedStatement[] = [
-        db.prepare("INSERT INTO roster_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
-      ];
-      if (ids.length) {
-        const ph = ids.map(() => "?").join(",");
-        stmts.push(
-          a.type === "veteran"
-            ? db.prepare(`UPDATE roster SET invasions = invasions + 1 WHERE account_id = ? AND id IN (${ph})`).bind(accountId, ...ids)
-            : db.prepare(`DELETE FROM roster WHERE account_id = ? AND id IN (${ph})`).bind(accountId, ...ids)
-        );
-      }
-      await db.batch(stmts);
-      results.push({ id: a.id, status: "applied" });
+      results.push({ id: a.id, status: "rejected", error: "server_only_raid_result" });
     } else if (a.type === "combineStart") {
       // Consume both parents (must own both, and not already be combining), recording
       // their keys so the result can be validated at collect.
@@ -1751,8 +2047,22 @@ export async function applyRosterActions(
         results.push({ id: a.id, status: "rejected", error: "busy" });
         continue;
       }
-      const pa = await db.prepare("SELECT key FROM roster WHERE account_id = ? AND id = ?").bind(accountId, a.parentAId).first<{ key: string }>();
-      const pb = await db.prepare("SELECT key FROM roster WHERE account_id = ? AND id = ?").bind(accountId, a.parentBId).first<{ key: string }>();
+      const pa = await db
+        .prepare(
+          `SELECT key FROM roster WHERE account_id = ? AND id = ? AND NOT EXISTS (
+             SELECT 1 FROM raid_roster_locks WHERE account_id = ? AND unit_id = ?
+           )`
+        )
+        .bind(accountId, a.parentAId, accountId, a.parentAId)
+        .first<{ key: string }>();
+      const pb = await db
+        .prepare(
+          `SELECT key FROM roster WHERE account_id = ? AND id = ? AND NOT EXISTS (
+             SELECT 1 FROM raid_roster_locks WHERE account_id = ? AND unit_id = ?
+           )`
+        )
+        .bind(accountId, a.parentBId, accountId, a.parentBId)
+        .first<{ key: string }>();
       if (!pa || !pb || a.parentAId === a.parentBId) {
         results.push({ id: a.id, status: "rejected", error: "bad_parent" });
         continue;
@@ -1762,7 +2072,14 @@ export async function applyRosterActions(
         db.prepare("DELETE FROM roster WHERE account_id = ? AND id IN (?, ?)").bind(accountId, a.parentAId, a.parentBId),
         db.prepare("INSERT INTO combine_jobs (account_id, key_a, key_b, started_at) VALUES (?, ?, ?, ?)").bind(accountId, pa.key, pb.key, now),
       ]);
-      results.push({ id: a.id, status: "applied" });
+      results.push({
+        id: a.id,
+        status: "applied",
+        subject: [namedCatalogKey(zombieCatalogData, pa.key), namedCatalogKey(zombieCatalogData, pb.key)]
+          .filter(Boolean)
+          .sort()
+          .join(" "),
+      });
     } else if (a.type === "combineCollect") {
       const job = await db
         .prepare("SELECT key_a, key_b FROM combine_jobs WHERE account_id = ?")
@@ -1789,7 +2106,12 @@ export async function applyRosterActions(
         );
       }
       await db.batch(stmts);
-      results.push({ id: a.id, status: validKey ? "applied" : "rejected", error: validKey ? undefined : "bad_result" });
+      results.push({
+        id: a.id,
+        status: validKey ? "applied" : "rejected",
+        error: validKey ? undefined : "bad_result",
+        subject: validKey ? namedCatalogKey(zombieCatalogData, a.key) : undefined,
+      });
     } else {
       results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });
     }
@@ -1801,6 +2123,26 @@ export async function applyRosterActions(
  *  `roster` rows are live state and are NOT purged. */
 export async function purgeOldRosterActions(db: D1Database, before: number): Promise<number> {
   const res = await db.prepare("DELETE FROM roster_actions WHERE created_at < ?").bind(before).run();
+  return res.meta.changes ?? 0;
+}
+
+/** Command idempotency survives longer than the maximum client outbox lifetime. */
+export async function purgeOldCommandReceipts(db: D1Database, before: number): Promise<number> {
+  const res = await db.prepare("DELETE FROM command_receipts WHERE created_at < ?").bind(before).run();
+  return res.meta.changes ?? 0;
+}
+
+/** Trusted events are retained for investigation, then removed after their application
+ * rows so foreign-key enforcement cannot strand old processed events. */
+export async function purgeOldGameEvents(db: D1Database, before: number): Promise<number> {
+  await db
+    .prepare("DELETE FROM quest_event_applications WHERE event_id IN (SELECT id FROM game_events WHERE processed_at IS NOT NULL AND processed_at < ?)")
+    .bind(before)
+    .run();
+  const res = await db
+    .prepare("DELETE FROM game_events WHERE processed_at IS NOT NULL AND processed_at < ?")
+    .bind(before)
+    .run();
   return res.meta.changes ?? 0;
 }
 
@@ -1836,21 +2178,41 @@ export async function getOrSeedShopState(
   seedSize: number,
   seedClimates: unknown
 ): Promise<ShopState> {
-  const existing = await db.prepare("SELECT 1 AS x FROM farm_state WHERE account_id = ?").bind(accountId).first<{ x: number }>();
-  if (!existing) {
-    const size = Number.isInteger(seedSize) && (sizeTier(seedSize) || seedSize === BASE_FARM_SIZE) ? seedSize : BASE_FARM_SIZE;
-    const stmts: D1PreparedStatement[] = [
-      db.prepare("INSERT OR IGNORE INTO farm_state (account_id, size) VALUES (?, ?)").bind(accountId, size),
-    ];
-    if (Array.isArray(seedClimates)) {
-      for (const t of seedClimates) {
-        if (typeof t === "string" && t !== "grass" && climateCost(t) !== undefined) {
-          stmts.push(db.prepare("INSERT OR IGNORE INTO owned_climates (account_id, terrain) VALUES (?, ?)").bind(accountId, t));
-        }
+  const token = crypto.randomUUID();
+  const size = Number.isInteger(seedSize) && (sizeTier(seedSize) || seedSize === BASE_FARM_SIZE) ? seedSize : BASE_FARM_SIZE;
+  const stmts: D1PreparedStatement[] = [
+    db.prepare("INSERT OR IGNORE INTO account_import_state (account_id) VALUES (?)").bind(accountId),
+    db
+      .prepare("UPDATE account_import_state SET shop_seeded = 1, shop_token = ? WHERE account_id = ? AND shop_seeded = 0")
+      .bind(token, accountId),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO farm_state (account_id, size)
+         SELECT ?, ? WHERE EXISTS (
+           SELECT 1 FROM account_import_state
+           WHERE account_id = ? AND shop_seeded = 1 AND shop_token = ?
+         )`
+      )
+      .bind(accountId, size, accountId, token),
+  ];
+  if (Array.isArray(seedClimates)) {
+    for (const t of seedClimates) {
+      if (typeof t === "string" && t !== "grass" && climateCost(t) !== undefined) {
+        stmts.push(
+          db
+            .prepare(
+              `INSERT OR IGNORE INTO owned_climates (account_id, terrain)
+               SELECT ?, ? WHERE EXISTS (
+                 SELECT 1 FROM account_import_state
+                 WHERE account_id = ? AND shop_seeded = 1 AND shop_token = ?
+               )`
+            )
+            .bind(accountId, t, accountId, token)
+        );
       }
     }
-    await db.batch(stmts);
   }
+  await db.batch(stmts);
   return readShopState(db, accountId);
 }
 
@@ -1875,6 +2237,7 @@ export interface ShopResult {
 export async function buySize(
   db: D1Database,
   accountId: string,
+  actionId: string,
   targetSize: number,
   currency: "gold" | "brains",
   now: number
@@ -1889,18 +2252,58 @@ export async function buySize(
   const cost = currency === "brains" ? tier.brains : tier.gold;
   if (bal[currency] < cost) return fail("insufficient");
 
+  const token = crypto.randomUUID();
+  const kind = "shop_size";
   await db.batch([
-    db.prepare(`UPDATE balances SET ${currency} = ${currency} - ? WHERE account_id = ?`).bind(cost, accountId),
-    db.prepare("INSERT INTO farm_state (account_id, size) VALUES (?, ?) ON CONFLICT(account_id) DO UPDATE SET size = excluded.size").bind(accountId, targetSize),
-    db.prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, ?, ?, 'upgrade', ?)").bind(`size:${accountId}:${targetSize}`, accountId, currency, -cost, now),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO command_receipts
+           (account_id, command_kind, action_id, attempt_token, created_at)
+         SELECT ?, ?, ?, ?, ? WHERE EXISTS (
+           SELECT 1 FROM farm_state f JOIN balances b ON b.account_id = f.account_id
+           WHERE f.account_id = ? AND f.size = ? AND b.${currency} >= ?
+         )`
+      )
+      .bind(accountId, kind, actionId, token, now, accountId, state.size, cost),
+    db
+      .prepare(
+        `UPDATE balances SET ${currency} = ${currency} - ? WHERE account_id = ? AND EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(cost, accountId, accountId, kind, actionId, token),
+    db
+      .prepare(
+        `UPDATE farm_state SET size = ? WHERE account_id = ? AND EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(targetSize, accountId, accountId, kind, actionId, token),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at)
+         SELECT ?, ?, ?, ?, 'upgrade', ? WHERE EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(`size:${accountId}:${actionId}`, accountId, currency, -cost, now, accountId, kind, actionId, token),
   ]);
-  bal[currency] -= cost;
-  return { ok: true, balance: bal, size: targetSize, climates: state.climates };
+  const applied = await db
+    .prepare(
+      "SELECT 1 AS x FROM command_receipts WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?"
+    )
+    .bind(accountId, kind, actionId, token)
+    .first<{ x: number }>();
+  const fresh = await readShopState(db, accountId);
+  return { ok: !!applied, error: applied ? undefined : "duplicate_or_conflict", balance: await getOrSeedBalance(db, accountId, bal), ...fresh };
 }
 
 /** Buy a ground/climate skin for its exact price (gold). Naturally idempotent: a retry
  *  after it's already owned fails the "not owned" check and just echoes state. */
-export async function buyClimate(db: D1Database, accountId: string, terrain: string, now: number): Promise<ShopResult> {
+export async function buyClimate(db: D1Database, accountId: string, actionId: string, terrain: string, now: number): Promise<ShopResult> {
   const state = await readShopState(db, accountId);
   const bal = await getOrSeedBalance(db, accountId, { gold: 0, brains: 0, xp: 0 });
   const fail = (error: string): ShopResult => ({ ok: false, error, balance: bal, size: state.size, climates: state.climates });
@@ -1910,13 +2313,55 @@ export async function buyClimate(db: D1Database, accountId: string, terrain: str
   if (state.climates.includes(terrain)) return fail("owned");
   if (bal.gold < cost) return fail("insufficient");
 
+  const token = crypto.randomUUID();
+  const kind = "shop_climate";
   await db.batch([
-    db.prepare("UPDATE balances SET gold = gold - ? WHERE account_id = ?").bind(cost, accountId),
-    db.prepare("INSERT OR IGNORE INTO owned_climates (account_id, terrain) VALUES (?, ?)").bind(accountId, terrain),
-    db.prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'gold', ?, 'upgrade', ?)").bind(`clim:${accountId}:${terrain}`, accountId, -cost, now),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO command_receipts
+           (account_id, command_kind, action_id, attempt_token, created_at)
+         SELECT ?, ?, ?, ?, ? WHERE EXISTS (
+           SELECT 1 FROM balances WHERE account_id = ? AND gold >= ?
+         ) AND NOT EXISTS (
+           SELECT 1 FROM owned_climates WHERE account_id = ? AND terrain = ?
+         )`
+      )
+      .bind(accountId, kind, actionId, token, now, accountId, cost, accountId, terrain),
+    db
+      .prepare(
+        `UPDATE balances SET gold = gold - ? WHERE account_id = ? AND EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(cost, accountId, accountId, kind, actionId, token),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO owned_climates (account_id, terrain)
+         SELECT ?, ? WHERE EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(accountId, terrain, accountId, kind, actionId, token),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at)
+         SELECT ?, ?, 'gold', ?, 'upgrade', ? WHERE EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(`clim:${accountId}:${actionId}`, accountId, -cost, now, accountId, kind, actionId, token),
   ]);
-  bal.gold -= cost;
-  return { ok: true, balance: bal, size: state.size, climates: [...state.climates, terrain] };
+  const applied = await db
+    .prepare(
+      "SELECT 1 AS x FROM command_receipts WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?"
+    )
+    .bind(accountId, kind, actionId, token)
+    .first<{ x: number }>();
+  const fresh = await readShopState(db, accountId);
+  return { ok: !!applied, error: applied ? undefined : "duplicate_or_conflict", balance: await getOrSeedBalance(db, accountId, bal), ...fresh };
 }
 
 // ---- raids (server-owned cooldown + one-use sessions) -------------------
@@ -1998,6 +2443,184 @@ export async function openRaidSessionOnce(
     // The partial unique index rejected a concurrent reserve.
     return false;
   }
+}
+
+/** Atomically reserve a verified v2 raid, consume every requested consumable, and
+ * lock the pinned roster. The session insert is the nonce all side effects depend on. */
+export async function openVerifiedRaidSession(
+  db: D1Database,
+  args: {
+    id: string;
+    accountId: string;
+    raidId: number;
+    rosterIds: string[];
+    configJson: string;
+    rulesetVersion: number;
+    rngSeed: string;
+    useVoucher: boolean;
+    concentration: boolean;
+    dice: number;
+    startedAt: number;
+    expiresAt: number;
+  }
+): Promise<boolean> {
+  await db.batch([
+    db
+      .prepare(
+        `DELETE FROM raid_roster_locks WHERE account_id = ? AND session_id IN (
+           SELECT id FROM raid_sessions WHERE account_id = ? AND finished_at IS NULL AND expires_at <= ?
+         )`
+      )
+      .bind(args.accountId, args.accountId, args.startedAt),
+    db
+      .prepare(
+        "UPDATE raid_sessions SET finished_at = expires_at, invalid_reason = 'expired' WHERE account_id = ? AND finished_at IS NULL AND expires_at <= ?"
+      )
+      .bind(args.accountId, args.startedAt),
+  ]);
+  const dice = Number.isInteger(args.dice) ? Math.max(0, Math.min(MAX_STACK, args.dice)) : 0;
+  const ids = [...new Set(args.rosterIds)];
+  if (!ids.length || ids.length !== args.rosterIds.length) return false;
+  const ph = ids.map(() => "?").join(",");
+  const prereq = `
+    NOT EXISTS (SELECT 1 FROM raid_sessions WHERE account_id = ? AND finished_at IS NULL)
+    AND (SELECT COUNT(*) FROM roster WHERE account_id = ? AND id IN (${ph})) = ?
+    AND NOT EXISTS (SELECT 1 FROM raid_roster_locks WHERE account_id = ? AND unit_id IN (${ph}))
+    AND (? = 0 OR COALESCE((SELECT count FROM inventory WHERE account_id = ? AND item_key = ?), 0) >= 1)
+    AND (? = 0 OR COALESCE((SELECT count FROM inventory WHERE account_id = ? AND item_key = ?), 0) >= 1)
+    AND (? = 0 OR COALESCE((SELECT count FROM inventory WHERE account_id = ? AND item_key = ?), 0) >= ?)`;
+  const prereqBindings = [
+    args.accountId,
+    args.accountId,
+    ...ids,
+    ids.length,
+    args.accountId,
+    ...ids,
+    args.useVoucher ? 1 : 0,
+    args.accountId,
+    VOUCHER_KEY,
+    args.concentration ? 1 : 0,
+    args.accountId,
+    CONCENTRATION_KEY,
+    dice,
+    args.accountId,
+    DICE_KEY,
+    dice,
+  ];
+  const sessionExists = "EXISTS (SELECT 1 FROM raid_sessions WHERE id = ? AND account_id = ? AND finished_at IS NULL)";
+  const statements: D1PreparedStatement[] = [
+    db
+      .prepare(
+        `INSERT INTO raid_sessions
+           (id, account_id, raid_id, started_at, expires_at, dice, ruleset_version, rng_seed, config_json)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${prereq}`
+      )
+      .bind(
+        args.id,
+        args.accountId,
+        args.raidId,
+        args.startedAt,
+        args.expiresAt,
+        dice,
+        args.rulesetVersion,
+        args.rngSeed,
+        args.configJson,
+        ...prereqBindings
+      ),
+  ];
+  if (args.useVoucher) {
+    statements.push(
+      db
+        .prepare(`UPDATE inventory SET count = count - 1 WHERE account_id = ? AND item_key = ? AND ${sessionExists}`)
+        .bind(args.accountId, VOUCHER_KEY, args.id, args.accountId)
+    );
+  }
+  if (args.concentration) {
+    statements.push(
+      db
+        .prepare(`UPDATE inventory SET count = count - 1 WHERE account_id = ? AND item_key = ? AND ${sessionExists}`)
+        .bind(args.accountId, CONCENTRATION_KEY, args.id, args.accountId)
+    );
+  }
+  if (dice > 0) {
+    statements.push(
+      db
+        .prepare(`UPDATE inventory SET count = count - ? WHERE account_id = ? AND item_key = ? AND ${sessionExists}`)
+        .bind(dice, args.accountId, DICE_KEY, args.id, args.accountId)
+    );
+  }
+  for (let position = 0; position < ids.length; position++) {
+    const unitId = ids[position];
+    statements.push(
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO raid_roster_locks
+             (account_id, unit_id, session_id, position, snapshot)
+           SELECT ?, ?, ?, ?, ? WHERE ${sessionExists}`
+        )
+        .bind(args.accountId, unitId, args.id, position, args.configJson, args.id, args.accountId)
+    );
+  }
+  try {
+    await db.batch(statements);
+  } catch {
+    return false;
+  }
+  const row = await db
+    .prepare("SELECT 1 AS x FROM raid_sessions WHERE id = ? AND account_id = ? AND finished_at IS NULL")
+    .bind(args.id, args.accountId)
+    .first<{ x: number }>();
+  return !!row;
+}
+
+export interface RaidCheckpointRow {
+  last_seq: number;
+  last_tick: number;
+  input_bytes: number;
+  state_json: string;
+}
+
+export async function readRaidCheckpoint(db: D1Database, sessionId: string, accountId: string): Promise<RaidCheckpointRow | null> {
+  return db
+    .prepare("SELECT last_seq, last_tick, input_bytes, state_json FROM raid_checkpoints WHERE session_id = ? AND account_id = ?")
+    .bind(sessionId, accountId)
+    .first<RaidCheckpointRow>();
+}
+
+/** CAS the verifier snapshot so duplicate/concurrent checkpoint submissions cannot
+ * move the authoritative replay cursor twice. */
+export async function storeRaidCheckpoint(
+  db: D1Database,
+  sessionId: string,
+  accountId: string,
+  expectedTick: number,
+  lastTick: number,
+  lastSeq: number,
+  inputBytes: number,
+  stateJson: string,
+  now: number
+): Promise<boolean> {
+  if (expectedTick === 0) {
+    const res = await db
+      .prepare(
+        `INSERT OR IGNORE INTO raid_checkpoints
+           (session_id, account_id, last_seq, last_tick, input_bytes, state_json, updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (
+           SELECT 1 FROM raid_sessions WHERE id = ? AND account_id = ? AND finished_at IS NULL
+         )`
+      )
+      .bind(sessionId, accountId, lastSeq, lastTick, inputBytes, stateJson, now, sessionId, accountId)
+      .run();
+    return (res.meta.changes ?? 0) === 1;
+  }
+  const res = await db
+    .prepare(
+      `UPDATE raid_checkpoints SET last_seq = ?, last_tick = ?, input_bytes = ?, state_json = ?, updated_at = ?
+       WHERE session_id = ? AND account_id = ? AND last_tick = ?`
+    )
+    .bind(lastSeq, lastTick, inputBytes, stateJson, now, sessionId, accountId, expectedTick)
+    .run();
+  return (res.meta.changes ?? 0) === 1;
 }
 
 /** Consume up to `want` Golden Dice for a raid's loot luck, returning how many were
@@ -2372,6 +2995,163 @@ export interface RaidSettleResult {
   loot?: { name: string; kind: LootGrant["kind"] } | null;
 }
 
+export interface VerifiedRaidSessionRow {
+  raid_id: number;
+  started_at: number;
+  finished_at: number | null;
+  expires_at: number;
+  ruleset_version: number;
+  config_json: string;
+  result_json: string | null;
+  rng_seed: string;
+}
+
+export async function verifiedRaidSession(
+  db: D1Database,
+  sessionId: string,
+  accountId: string
+): Promise<VerifiedRaidSessionRow | null> {
+  return db
+    .prepare(
+      `SELECT raid_id, started_at, finished_at, expires_at, ruleset_version, config_json, result_json, rng_seed
+       FROM raid_sessions WHERE id = ? AND account_id = ?`
+    )
+    .bind(sessionId, accountId)
+    .first<VerifiedRaidSessionRow>();
+}
+
+function seededUnit(seed: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 0x1_0000_0000;
+}
+
+/** Server-only premium-currency drop, enabled now that the win is replay-proven. */
+export async function grantVerifiedRaidBrains(
+  db: D1Database,
+  accountId: string,
+  sessionId: string,
+  recommendedLevel: number,
+  rngSeed: string,
+  now: number
+): Promise<number> {
+  const frac = Math.max(0, Math.min(1, recommendedLevel / 20));
+  const tiers = [
+    { amount: 50, chance: 0.005 + (0.01 - 0.005) * frac },
+    { amount: 30, chance: 0.01 + (0.02 - 0.01) * frac },
+    { amount: 10, chance: 0.025 + (0.05 - 0.025) * frac },
+  ];
+  let amount = 0;
+  for (let i = 0; i < tiers.length; i++) {
+    if (seededUnit(rngSeed, i + 17) < tiers[i].chance) {
+      amount = tiers[i].amount;
+      break;
+    }
+  }
+  if (!amount) return 0;
+  const token = crypto.randomUUID();
+  const kind = "raid_brain_drop";
+  await db.batch([
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO command_receipts
+           (account_id, command_kind, action_id, attempt_token, created_at)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .bind(accountId, kind, sessionId, token, now),
+    db
+      .prepare(
+        `UPDATE balances SET brains = brains + ? WHERE account_id = ? AND EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(amount, accountId, accountId, kind, sessionId, token),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at)
+         SELECT ?, ?, 'brains', ?, 'raid_loot', ? WHERE EXISTS (
+           SELECT 1 FROM command_receipts
+           WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?
+         )`
+      )
+      .bind(`raid:${sessionId}#brain`, accountId, amount, now, accountId, kind, sessionId, token),
+  ]);
+  const applied = await db
+    .prepare(
+      "SELECT 1 AS x FROM command_receipts WHERE account_id = ? AND command_kind = ? AND action_id = ? AND attempt_token = ?"
+    )
+    .bind(accountId, kind, sessionId, token)
+    .first<{ x: number }>();
+  return applied ? amount : 0;
+}
+
+export async function closeInvalidRaidSession(
+  db: D1Database,
+  sessionId: string,
+  accountId: string,
+  reason: string,
+  now: number
+): Promise<void> {
+  await db.batch([
+    db
+      .prepare(
+        `UPDATE raid_sessions SET finished_at = COALESCE(finished_at, ?), invalid_reason = ?
+         WHERE id = ? AND account_id = ?`
+      )
+      .bind(now, reason.slice(0, 80), sessionId, accountId),
+    db.prepare("DELETE FROM raid_roster_locks WHERE session_id = ? AND account_id = ?").bind(sessionId, accountId),
+  ]);
+}
+
+export async function commitVerifiedRaidRoster(
+  db: D1Database,
+  sessionId: string,
+  accountId: string,
+  survivors: string[],
+  losses: string[],
+  resultJson: string
+): Promise<void> {
+  const statements: D1PreparedStatement[] = [];
+  if (survivors.length) {
+    const ph = survivors.map(() => "?").join(",");
+    statements.push(
+      db
+        .prepare(
+          `UPDATE roster SET invasions = invasions + 1
+           WHERE account_id = ? AND id IN (${ph}) AND EXISTS (
+             SELECT 1 FROM raid_roster_locks l
+             WHERE l.account_id = roster.account_id AND l.unit_id = roster.id AND l.session_id = ?
+           )`
+        )
+        .bind(accountId, ...survivors, sessionId)
+    );
+  }
+  if (losses.length) {
+    const ph = losses.map(() => "?").join(",");
+    statements.push(
+      db
+        .prepare(
+          `DELETE FROM roster WHERE account_id = ? AND id IN (${ph}) AND EXISTS (
+             SELECT 1 FROM raid_roster_locks l
+             WHERE l.account_id = roster.account_id AND l.unit_id = roster.id AND l.session_id = ?
+           )`
+        )
+        .bind(accountId, ...losses, sessionId)
+    );
+  }
+  statements.push(
+    db.prepare("DELETE FROM raid_roster_locks WHERE session_id = ? AND account_id = ?").bind(sessionId, accountId),
+    db
+      .prepare("UPDATE raid_sessions SET result_json = ? WHERE id = ? AND account_id = ? AND result_json IS NULL")
+      .bind(resultJson, sessionId, accountId)
+  );
+  await db.batch(statements);
+}
+
 /** Finish a raid exactly once and credit the SERVER-COMPUTED reward. The server owns
  *  the number: base win gold is computed from the session's pinned raid + the (clamped)
  *  survival fraction, and first-clear XP is granted at most once per (account, raid)
@@ -2400,9 +3180,9 @@ export async function settleRaid(
   });
 
   const row = await db
-    .prepare("SELECT raid_id, finished_at, expires_at, dice FROM raid_sessions WHERE id = ? AND account_id = ?")
+    .prepare("SELECT raid_id, finished_at, expires_at, dice, rng_seed FROM raid_sessions WHERE id = ? AND account_id = ?")
     .bind(sessionId, accountId)
-    .first<{ raid_id: number | null; finished_at: number | null; expires_at: number; dice: number | null }>();
+    .first<{ raid_id: number | null; finished_at: number | null; expires_at: number; dice: number | null; rng_seed: string | null }>();
   if (!row) return echo(); // unknown / foreign session
 
   // Elect the single finisher, and REFUSE AN EXPIRED SESSION in the same write. A raid
@@ -2488,7 +3268,7 @@ export async function settleRaid(
     // PINNED on the session at /raid/start (and consumed there), never from this request.
     // Eligibility reads server-owned ownership, so a unique can't be farmed.
     const dice = row.dice ?? 0;
-    const name = await rollServerLoot(db, accountId, row.raid_id!, dice);
+    const name = await rollServerLoot(db, accountId, row.raid_id!, dice, row.rng_seed ?? sessionId);
     const grant = resolveLoot(name, econ.recLevel);
     if (grant.kind === "gold") {
       gold += grant.gold;
@@ -2540,7 +3320,8 @@ async function rollServerLoot(
   db: D1Database,
   accountId: string,
   raidId: number,
-  dice: number
+  dice: number,
+  seed: string
 ): Promise<string | null> {
   const table = raidLoot(raidId);
   if (!table) return null;
@@ -2548,17 +3329,17 @@ async function rollServerLoot(
   const names = [...new Set(table.flat())];
   const owned = new Map<string, number>();
   for (const n of names) owned.set(n, await ownedLootCount(db, accountId, n));
-  return rollLoot(raidId, dice, (n) => owned.get(n) ?? 0, Math.random(), Math.random());
+  return rollLoot(raidId, dice, (n) => owned.get(n) ?? 0, seededUnit(seed, 31), seededUnit(seed, 47));
 }
 
 /** Delete finished/expired raid sessions older than `before` (cron cleanup). */
 export async function purgeOldRaidSessions(db: D1Database, before: number): Promise<number> {
-  const res = await db
-    .prepare(
-      "DELETE FROM raid_sessions WHERE (finished_at IS NOT NULL AND finished_at < ?) OR expires_at < ?"
-    )
-    .bind(before, before)
-    .run();
+  const old = "SELECT id FROM raid_sessions WHERE (finished_at IS NOT NULL AND finished_at < ?) OR expires_at < ?";
+  const [, , res] = await db.batch([
+    db.prepare(`DELETE FROM raid_checkpoints WHERE session_id IN (${old})`).bind(before, before),
+    db.prepare(`DELETE FROM raid_roster_locks WHERE session_id IN (${old})`).bind(before, before),
+    db.prepare("DELETE FROM raid_sessions WHERE (finished_at IS NOT NULL AND finished_at < ?) OR expires_at < ?").bind(before, before),
+  ]);
   return res.meta.changes ?? 0;
 }
 
@@ -2619,4 +3400,28 @@ export async function bumpRateLimit(
     .bind(bucketKey, windowStart)
     .first<{ count: number }>();
   return res?.count ?? 1;
+}
+
+/** Account-wide value-command volume, shared across routes. Stored in the existing
+ * fixed-window table so it works even when native per-route limiting is configured. */
+export async function bumpCommandVolume(
+  db: D1Database,
+  accountId: string,
+  window: "hour" | "day",
+  windowStart: number,
+  amount: number
+): Promise<number> {
+  const n = Math.max(0, Math.min(64, Math.trunc(amount)));
+  const row = await db
+    .prepare(
+      `INSERT INTO rate_limits (bucket_key, window_start, count) VALUES (?, ?, ?)
+       ON CONFLICT (bucket_key) DO UPDATE SET
+         count = CASE WHEN rate_limits.window_start = excluded.window_start
+                      THEN rate_limits.count + excluded.count ELSE excluded.count END,
+         window_start = excluded.window_start
+       RETURNING count`
+    )
+    .bind(`cmd:${window}:${accountId}`, windowStart, n)
+    .first<{ count: number }>();
+  return row?.count ?? n;
 }

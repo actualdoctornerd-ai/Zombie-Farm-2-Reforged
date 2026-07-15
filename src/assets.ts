@@ -1,8 +1,8 @@
 // Loads the prepped data (JSON) and textures produced by tools/prep_assets.py.
 import { Assets, Rectangle, Texture } from "pixi.js";
 import { makeCropTopTexture } from "./cropTop";
-import { QuestDef } from "./quest/types";
-import { RaidDef, EnemyStat, AttackDef } from "./raid/types";
+import type { QuestDef } from "./quest/types";
+import type { RaidDef, EnemyStat, AttackDef } from "./raid/types";
 import { setZombieNames } from "./zombie/names";
 import { BASE } from "./base";
 

@@ -35,6 +35,8 @@ export interface Bindings {
    *  set far-future in .dev.vars so local/integration accounts can seed. Default 0 =
    *  no imports (most secure). See SECURITY.md own-account plan, item 2/5. */
   MIGRATION_CUTOFF_MS?: string;
+  /** Epoch ms after which mutation clients must send X-Integrity-Version: 2. */
+  INTEGRITY_V2_ENFORCE_AFTER_MS?: string;
   /** Rate-limit tiers (optional; see wrangler.toml). Tight for sign-in, moderate
    *  for writes, loose for reads. When unset the middleware uses the D1 fallback. */
   RL_AUTH?: RateLimiter;

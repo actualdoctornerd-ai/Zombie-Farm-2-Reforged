@@ -1,3 +1,5 @@
+import questData from "../../public/assets/quests.json";
+
 // Server mirror of public/assets/quests.json reward payouts. GENERATED from that
 // file (96 quests) — KEEP IN SYNC. Only the fields that decide VALUE are mirrored:
 // the reward type + amount/item. The server grants a completed quest its reward from
@@ -20,6 +22,49 @@ export interface QuestReward {
   rewardType: number;
   rewardValue: number;
   rewardItemKey: string;
+}
+
+export interface QuestRequirement {
+  notificationID: string;
+  notificationObject: string;
+  countTotal: number;
+  type: number;
+}
+
+export interface QuestDefinition extends QuestReward {
+  id: string;
+  levelRequired: number;
+  prerequisiteQuest: number;
+  requirements: QuestRequirement[];
+  tutorialQuest: boolean;
+  epicEvent: boolean;
+  seasonal: boolean;
+}
+
+const RAW_QUESTS = questData as Record<string, Omit<QuestDefinition, "rewardItemKey"> & { rewardItemKey?: string }>;
+
+/** Full server-owned quest rules. Content categories without a trusted event producer
+ * remain dormant even though their definitions are present. */
+export const QUEST_DEFINITIONS: Readonly<Record<string, QuestDefinition>> = Object.fromEntries(
+  Object.entries(RAW_QUESTS).map(([id, q]) => [
+    id,
+    {
+      id,
+      levelRequired: q.levelRequired,
+      prerequisiteQuest: q.prerequisiteQuest,
+      requirements: q.requirements,
+      rewardType: q.rewardType,
+      rewardValue: q.rewardValue,
+      rewardItemKey: q.rewardItemKey ?? "",
+      tutorialQuest: q.tutorialQuest,
+      epicEvent: q.epicEvent,
+      seasonal: q.seasonal,
+    },
+  ])
+);
+
+export function questDefinition(id: string): QuestDefinition | undefined {
+  return Object.prototype.hasOwnProperty.call(QUEST_DEFINITIONS, id) ? QUEST_DEFINITIONS[id] : undefined;
 }
 
 export const QUEST_REWARDS: Readonly<Record<string, QuestReward>> = {

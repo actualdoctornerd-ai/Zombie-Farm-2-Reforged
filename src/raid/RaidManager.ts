@@ -498,16 +498,16 @@ export class RaidManager {
     // Veterancy is earned by SURVIVING a battle — credit only the units still
     // standing (drives rank-up). A unit knocked out mid-fight, even in a win, gets
     // nothing; a total loss credits no one.
-    this.zombies.recordInvasion(outcome.survivors);
+    if (!serverRewards) this.zombies.recordInvasion(outcome.survivors);
 
     // Permanent casualties (GROUND TRUTH — raids cull the fallen; see
     // IMPLEMENTATION_RAIDS_PLAN Phase 6): every downed zombie leaves the roster for
     // good, on wins and losses alike. outcome.losses is exactly the units that died
     // (fled-but-alive zombies on a retreat are survivors, not losses). The reduced
     // roster persists via hooks.save() below.
-    this.zombies.removeCasualties(outcome.losses);
+    if (!serverRewards) this.zombies.removeCasualties(outcome.losses);
 
-    this.state.lastRaidAt = this.now();
+    if (!serverRewards) this.state.lastRaidAt = this.now();
 
     let gold = 0;
     let brains = 0;
@@ -516,7 +516,9 @@ export class RaidManager {
     let abilityUnlock = "";
     let serverReward: RaidResultView["serverReward"];
     if (outcome.win) {
-      const wins = this.state.completeRaid(String(raid.id));
+      const wins = serverRewards
+        ? this.state.raidWins(String(raid.id)) + 1
+        : this.state.completeRaid(String(raid.id));
       // XP (GROUND TRUTH — disassembled `firstTimeBeatingEnemy` gate + "You earned
       // %ixp for beating this enemy for the first time."): the enemy's `xp` is granted
       // only on the FIRST clear of this raid; repeat wins pay gold/brains but no XP.

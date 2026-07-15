@@ -1,7 +1,7 @@
 // An owned zombie unit grown from a harvested zombie crop (Phase 3). Only `id`,
 // `key`, and its farm tile are source-of-truth (persisted); the taxonomy + stats
 // are derived from the zombie catalog (zombies.json) by key at spawn/restore.
-import { ZombieDef } from "../assets";
+import type { ZombieDef } from "../assets";
 import { classify } from "./taxonomy";
 import { applyHeadlessRestriction, mutationBonus } from "./mutations";
 import { randomZombieName } from "./names";

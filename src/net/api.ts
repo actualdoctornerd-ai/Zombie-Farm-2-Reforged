@@ -7,6 +7,9 @@
 // there's no cycle.
 import type { SaveGame } from "../save/schema";
 import type { Friend } from "../social/friends";
+import { RAID_RULESET_VERSION, type RaidReplayInput } from "../raid/replay";
+import type { RaidOutcome } from "../raid/types";
+export type { RaidReplayInput } from "../raid/replay";
 
 const API = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
 const SESSION_KEY = "zf2r.session.v1";
@@ -82,6 +85,7 @@ async function req<T>(
 ): Promise<T> {
   if (!API) throw new ApiError(0, "not_configured");
   const headers: Record<string, string> = {};
+  headers["X-Integrity-Version"] = "2";
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (auth) {
     if (!session) throw new ApiError(401, "no_session");
@@ -273,6 +277,7 @@ export interface EconomyEvent {
   currency: Currency;
   delta: number;
   reason: string;
+  queuedAt?: number;
 }
 export interface EconomyResult {
   id: string;
@@ -302,6 +307,37 @@ export interface QuestCompleteResult {
   deferred: boolean;
 }
 
+export interface AuthoritativeState {
+  integrityVersion: 2;
+  balance: Balance;
+  level: number;
+  inventory: Record<string, number>;
+  objectCounts: Record<string, number>;
+  objects: NonNullable<SaveGame["objects"]>;
+  roster: NonNullable<SaveGame["ownedZombies"]>;
+  farm: { size: number; plots: SaveGame["farm"]["plots"] };
+  shop: ShopState;
+  storage: { received: Record<string, number>; stored: Record<string, number> };
+  raids: { progress: Record<string, number>; lastRaidAt: number };
+  quests: QuestStateResult;
+}
+
+export const getState = () => req<AuthoritativeState>("GET", "/state");
+
+export interface QuestChange {
+  questId: string;
+  counts: number[];
+  completed: boolean;
+}
+
+export interface QuestStateResult {
+  completed: string[];
+  progress: { questId: string; counts: number[] }[];
+  questChanges: QuestChange[];
+}
+
+export const questState = () => req<QuestStateResult>("GET", "/quest/state");
+
 /** Complete a quest server-side: grants its SERVER-catalog reward (currency + any
  *  level-up it triggers) at most once per quest. Idempotent by (account, quest) — a
  *  retry returns status "duplicate" and credits nothing. */
@@ -329,7 +365,7 @@ export interface FarmResult {
 /** Submit farm actions (plow/plant/harvest). The server computes exact economics and
  *  gates harvest by server time; returns the new authoritative balance + verdicts. */
 export const applyFarm = (actions: FarmAction[]) =>
-  req<{ balance: Balance; results: FarmResult[] }>("POST", "/farm/actions", { actions });
+  req<{ balance: Balance; results: FarmResult[]; questChanges: QuestChange[] }>("POST", "/farm/actions", { actions });
 
 /** One-time import of a migrating save's already-PLOWED soil, so plants there aren't
  *  rejected as `not_plowed`. Ignored (and merely read back) once the account is seeded
@@ -357,7 +393,7 @@ export const syncInventory = (counts: Record<string, number>) =>
 
 /** Apply boost buy/use/grant actions; returns the resulting balance + full inventory. */
 export const applyInventory = (actions: InventoryAction[]) =>
-  req<{ balance: Balance; inventory: Record<string, number>; results: InventoryResult[] }>(
+  req<{ balance: Balance; inventory: Record<string, number>; results: InventoryResult[]; questChanges: QuestChange[] }>(
     "POST",
     "/inventory/actions",
     { actions }
@@ -382,7 +418,7 @@ export const syncObjects = (counts: Record<string, number>) =>
 
 /** Apply object buy/refund actions; returns the resulting balance + object counts. */
 export const applyObjects = (actions: ObjectAction[]) =>
-  req<{ balance: Balance; objects: Record<string, number>; results: ObjectResult[] }>(
+  req<{ balance: Balance; objects: Record<string, number>; results: ObjectResult[]; questChanges: QuestChange[] }>(
     "POST",
     "/object/actions",
     { actions }
@@ -417,7 +453,7 @@ export const syncRoster = (units: RosterSeedUnit[]) =>
 
 /** Apply roster sell/grant/veteran/casualty actions; returns the resulting balance. */
 export const applyRoster = (actions: RosterAction[]) =>
-  req<{ balance: Balance; results: RosterResult[] }>("POST", "/roster/actions", { actions });
+  req<{ balance: Balance; results: RosterResult[]; questChanges: QuestChange[] }>("POST", "/roster/actions", { actions });
 
 // ---- shop (server-owned farm size + climate skins) ----------------------
 export interface ShopState {
@@ -435,12 +471,12 @@ export const shopState = (size: number, climates: string[]) =>
   req<ShopState>("POST", "/shop/state", { size, climates });
 
 /** Buy the next farm-size tier for the exact price. Returns the authoritative state. */
-export const shopSize = (size: number, currency: "gold" | "brains") =>
-  req<ShopResult>("POST", "/shop/size", { size, currency });
+export const shopSize = (actionId: string, size: number, currency: "gold" | "brains") =>
+  req<ShopResult>("POST", "/shop/size", { actionId, size, currency });
 
 /** Buy a ground/climate skin for its exact price. Returns the authoritative state. */
-export const shopClimate = (terrain: string) =>
-  req<ShopResult>("POST", "/shop/climate", { terrain });
+export const shopClimate = (actionId: string, terrain: string) =>
+  req<ShopResult>("POST", "/shop/climate", { actionId, terrain });
 
 // ---- raids (server-owned cooldown + progress) ----------------------------
 /** Authoritative raid cooldown clock + progress (lifetime wins per raid id, which drive
@@ -476,7 +512,13 @@ export const storageSync = (received: string[], stored: { key: string; count: nu
  *  `bypassed:true` means a cooldown was skipped via `bypass` (the server consumed the
  *  voucher). `sessionId` pairs with raidFinish and pins the raid the reward is priced
  *  from. */
-export const raidStart = (bypass: boolean, raidId: number, dice = 0) =>
+export const raidStart = (
+  useVoucher: boolean,
+  raidId: number,
+  orderedUnitIds: string[],
+  concentration = false,
+  dice = 0
+) =>
   req<{
     ok: boolean;
     sessionId?: string;
@@ -487,7 +529,14 @@ export const raidStart = (bypass: boolean, raidId: number, dice = 0) =>
     /** Golden Dice the server actually consumed + pinned to the session (may be fewer
      *  than asked if the stock ran short). Its loot roll uses this number. */
     dice?: number;
-  }>("POST", "/raid/start", { bypass, raidId, dice });
+  }>("POST", "/raid/start", {
+    useVoucher,
+    raidId,
+    orderedUnitIds,
+    concentration,
+    dice,
+    rulesetVersion: RAID_RULESET_VERSION,
+  });
 
 /** The server's authoritative raid-finish result: the cooldown clock, the resulting
  *  balance, and the amounts CREDITED this call (0 on a loss / idempotent replay). */
@@ -503,14 +552,24 @@ export interface RaidFinishResult {
    *  the drop's name + what it became. Null when nothing dropped, on a loss, or on a
    *  replayed finish. */
   loot?: { name: string; kind: "gold" | "boost" | "item" } | null;
+  outcome?: RaidOutcome;
+  questChanges?: QuestChange[];
+  rulesetVersion?: number;
 }
 
 /** Report a finished raid. The server starts the cooldown (idempotent) AND credits
  *  the server-computed base win gold + first-clear XP for the session's pinned raid,
  *  returning the authoritative balance to reconcile. `win`/`survivalFrac` are the
  *  client's outcome assertion; the server owns the reward number. */
-export const raidFinish = (sessionId: string, win: boolean, survivalFrac: number) =>
-  req<RaidFinishResult>("POST", "/raid/finish", { sessionId, win, survivalFrac });
+export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[]) =>
+  req<RaidFinishResult>("POST", "/raid/finish", { sessionId, finalTick, inputs });
+
+export const raidCheckpoint = (sessionId: string, finalTick: number, inputs: RaidReplayInput[]) =>
+  req<{ ok: boolean; finalTick: number; lastSeq: number; finished: boolean; replayCpuMs: number }>(
+    "POST",
+    "/raid/checkpoint",
+    { sessionId, finalTick, inputs }
+  );
 
 // A server friend rendered into the client's Friend shape (for the HUD cache).
 export function toFriend(f: FriendView): Friend {

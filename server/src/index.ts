@@ -41,6 +41,18 @@ import { levelForXp } from "./levels";
 import type { InventoryAction } from "./inventory";
 import type { ObjectAction } from "./objects";
 import type { RosterAction } from "./roster";
+import {
+  buildPinnedRaid,
+  verifyRaidSegment,
+  RAID_RULESET_VERSION,
+  type PinnedRaidConfig,
+  type RaidReplayInput,
+} from "./raidVerifier";
+import type { BattleSimSnapshot } from "../../src/raid/BattleSim";
+import plantCatalog from "../../public/assets/plants.json";
+import zombieCatalog from "../../public/assets/zombies.json";
+import boostCatalog from "../../public/assets/boosts.json";
+import objectCatalog from "../../public/assets/placeables.json";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 
@@ -57,6 +69,83 @@ const MAX_INBOX = 200; // unclaimed gifts we'll hold / return
 // the base (empty) via their own tables.
 const STARTER_BALANCE = { gold: 200, brains: 15, xp: 0 } as const;
 const DEFAULT_FARM_SIZE = 30; // BASE_FARM_SIZE (shopCatalog)
+
+function presentationOnlySave(save: SaveGame): SaveGame {
+  return {
+    version: save.version,
+    savedAt: save.savedAt,
+    player: {
+      name: save.player?.name ?? "Zombie Farmer",
+      gold: 0,
+      brains: 0,
+      xp: 0,
+      zombieMax: 0,
+      zombieCount: 0,
+      farmer: save.player?.farmer,
+    },
+    farm: {
+      fieldId: save.farm?.fieldId ?? "default",
+      w: save.farm?.w ?? DEFAULT_FARM_SIZE,
+      h: save.farm?.h ?? DEFAULT_FARM_SIZE,
+      climate: save.farm?.climate ?? "grass",
+      plots: (save.farm?.plots ?? []).filter((p) => p.state === "dirt" || p.state === "hole").map((p) => ({
+        oc: p.oc,
+        or: p.or,
+        state: p.state,
+      })),
+    },
+    // Identity/key entries are retained only as layout hints. GET /state and visitor
+    // projection intersect them with authoritative ownership before returning them.
+    objects: save.objects ?? [],
+    ownedZombies: (save.ownedZombies ?? []).map((z) => ({
+      id: z.id,
+      key: z.key,
+      pos: z.pos,
+      stored: z.stored,
+      color: z.color,
+    })),
+    raids: { completed: {}, attackOrder: save.raids?.attackOrder ?? [] },
+    tutorial: save.tutorial,
+  };
+}
+
+const catalogName = (rows: unknown, key: string): string => {
+  if (!Array.isArray(rows)) return "";
+  const row = rows.find((x) => x && typeof x === "object" && (x as { key?: unknown }).key === key) as
+    | { name?: unknown }
+    | undefined;
+  return typeof row?.name === "string" ? row.name : "";
+};
+
+const farmQuestEvents = (actions: FarmAction[], results: db.FarmResult[]): db.TrustedGameEvent[] => {
+  const byId = new Map(actions.map((a) => [a?.id, a]));
+  const out: db.TrustedGameEvent[] = [];
+  for (const result of results) {
+    if (result.status !== "applied") continue;
+    const a = byId.get(result.id);
+    if (!a) continue;
+    if (a.type === "plow") {
+      out.push(
+        { id: `farm:${a.id}:plow`, type: "kSoilPlowedNotification", subject: "Plow" },
+        { id: `farm:${a.id}:new-plow`, type: "kNewSoilPlowedNotification", subject: "Plow" }
+      );
+    } else if (a.type === "plant") {
+      const subject = catalogName(zombieCatalog, a.cropKey) || catalogName(plantCatalog, a.cropKey);
+      out.push({ id: `farm:${a.id}:plant`, type: "kCropPlantedNotification", subject });
+    } else if (a.type === "harvest") {
+      // The action does not carry the planted key. applyFarmActions returns the
+      // authoritative catalog subject for this exact reason.
+      if (result.subject) {
+        out.push({
+          id: `farm:${a.id}:harvest`,
+          type: result.zombie ? "kCropHarvestedZombieNotification" : "kCropHarvestedNotification",
+          subject: result.subject,
+        });
+      }
+    }
+  }
+  return out;
+};
 
 /** The save-import cutoff (epoch ms), or 0 when unset/invalid (imports closed). */
 function migrationCutoffMs(env: Bindings): number {
@@ -107,6 +196,20 @@ function slog(event: string, detail: Record<string, unknown> = {}, lvl: SecLvl =
   console.log(JSON.stringify({ sec: event, lvl, ...detail }));
 }
 
+async function commandVolumeAllowed(env: Bindings, accountId: string, amount: number, now: number): Promise<boolean> {
+  if (amount <= 0) return true;
+  const hourStart = Math.floor(now / 3_600_000) * 3_600_000;
+  const dayStart = Math.floor(now / 86_400_000) * 86_400_000;
+  const hourly = await db.bumpCommandVolume(env.DB, accountId, "hour", hourStart, amount);
+  const daily = await db.bumpCommandVolume(env.DB, accountId, "day", dayStart, amount);
+  if (hourly >= 1_000 && hourly - amount < 1_000) {
+    slog("account_command_volume", { account: accountId, hourly, daily }, "warn");
+  }
+  const allowed = hourly <= 2_000 && daily <= 10_000;
+  if (!allowed) slog("account_command_rejected", { account: accountId, hourly, daily }, "alert");
+  return allowed;
+}
+
 // ---- CORS ---------------------------------------------------------------
 // Bearer-token auth (no cookies), so a simple origin allowlist is enough. NOTE:
 // CORS is a browser-origin policy, NOT an anti-cheat or anti-bot control — a custom
@@ -116,7 +219,7 @@ app.use("*", (c, next) =>
   cors({
     origin: [c.env.ALLOWED_ORIGIN, "http://localhost:5173", "http://localhost:4173"],
     allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type"],
+    allowHeaders: ["Authorization", "Content-Type", "X-Integrity-Version"],
     maxAge: 86400,
   })(c, next)
 );
@@ -252,6 +355,7 @@ const requireAuth: MiddlewareHandler<{ Bindings: Bindings; Variables: Vars }> = 
 app.use("/me", requireAuth);
 app.use("/username", requireAuth);
 app.use("/save", requireAuth);
+app.use("/state", requireAuth);
 app.use("/session/*", requireAuth);
 app.use("/logout", requireAuth);
 app.use("/friends", requireAuth);
@@ -267,6 +371,21 @@ app.use("/inventory/*", requireAuth);
 app.use("/object/*", requireAuth);
 app.use("/roster/*", requireAuth);
 app.use("/shop/*", requireAuth);
+
+app.use("*", async (c, next) => {
+  const enforceAt = Number(c.env.INTEGRITY_V2_ENFORCE_AFTER_MS);
+  const mutation = c.req.method !== "GET" && !c.req.path.startsWith("/session/") && c.req.path !== "/logout";
+  if (
+    mutation &&
+    Number.isFinite(enforceAt) &&
+    enforceAt > 0 &&
+    Date.now() >= enforceAt &&
+    c.req.header("X-Integrity-Version") !== "2"
+  ) {
+    return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 426);
+  }
+  await next();
+});
 
 // Per-account rate limits (run after requireAuth so they key on the account).
 // Writes → RL_WRITE tier; reads/polling → RL_READ tier (looser). Coverage now
@@ -284,11 +403,13 @@ app.use("/friends/code/rotate", rateLimit("RL_WRITE", "code_rotate", 5, 60_000))
 app.use("/gifts", rateLimit("RL_WRITE", "gift_send", 60, 60_000));
 app.use("/gifts/claim", rateLimit("RL_WRITE", "gift_claim", 120, 60_000));
 app.use("/raid/start", rateLimit("RL_WRITE", "raid_start", 60, 60_000));
+app.use("/raid/checkpoint", rateLimit("RL_WRITE", "raid_checkpoint", 30, 60_000));
 app.use("/raid/finish", rateLimit("RL_WRITE", "raid_finish", 60, 60_000));
 app.use("/raid/state", rateLimit("RL_READ", "raid_state", 300, 60_000));
 app.use("/economy/apply", rateLimit("RL_WRITE", "economy_apply", 120, 60_000));
 app.use("/economy/sync", rateLimit("RL_READ", "economy_sync", 300, 60_000));
 app.use("/quest/complete", rateLimit("RL_WRITE", "quest_complete", 120, 60_000));
+app.use("/quest/state", rateLimit("RL_READ", "quest_state", 300, 60_000));
 app.use("/farm/actions", rateLimit("RL_WRITE", "farm_actions", 120, 60_000));
 app.use("/farm/sync", rateLimit("RL_READ", "farm_sync", 300, 60_000));
 app.use("/raid/sync", rateLimit("RL_READ", "raid_sync", 300, 60_000));
@@ -310,6 +431,7 @@ app.use("/session/list", rateLimit("RL_READ", "session_list", 120, 60_000));
 // Reads + refresh (RL_READ): /me, GET /save shares the /save write limiter above,
 // friend lists, a friend's farm, requests, inbox, token refresh.
 app.use("/me", rateLimit("RL_READ", "me", 300, 60_000));
+app.use("/state", rateLimit("RL_READ", "state", 300, 60_000));
 app.use("/friends", rateLimit("RL_READ", "friends_list", 300, 60_000));
 app.use("/friends/requests", rateLimit("RL_READ", "friends_reqs", 300, 60_000));
 app.use("/friends/:id/save", rateLimit("RL_READ", "friend_farm", 120, 60_000));
@@ -403,7 +525,7 @@ app.get("/save", async (c) => {
   const applied = await db.reconcilePendingGrants(c.env.DB, accountId, Date.now(), seed);
   if (applied) slog("grants_reconciled", { account: accountId, applied }, "info");
   if (!save) return c.json({ save: null, rev: 0 });
-  return c.json({ save, rev: row!.rev });
+  return c.json({ save: (await seedAllowed(c.env, accountId)) ? save : presentationOnlySave(save), rev: row!.rev });
 });
 
 // ---- PUT /save: validated, atomic optimistic-concurrency write ----------
@@ -434,7 +556,8 @@ app.put("/save", async (c) => {
 
   const accountId = c.get("accountId");
   const now = Date.now();
-  const newRev = await db.casWriteSave(c.env.DB, accountId, JSON.stringify(save), baseRev, now);
+  const stored = (await seedAllowed(c.env, accountId)) ? (save as SaveGame) : presentationOnlySave(save as SaveGame);
+  const newRev = await db.casWriteSave(c.env.DB, accountId, JSON.stringify(stored), baseRev, now);
   if (newRev === null) {
     // Rev mismatch (another device wrote in between): hand back the server copy.
     const cur = await db.getSave(c.env.DB, accountId);
@@ -445,6 +568,86 @@ app.put("/save", async (c) => {
     );
   }
   return c.json({ rev: newRev });
+});
+
+// ---- GET /state: all persistent online value in one projection ----------
+app.get("/state", async (c) => {
+  const accountId = c.get("accountId");
+  const now = Date.now();
+  const row = await db.getSave(c.env.DB, accountId);
+  const layout = row ? presentationOnlySave(JSON.parse(row.blob) as SaveGame) : null;
+  const balance = await db.getOrSeedBalance(c.env.DB, accountId, await balanceSeed(c.env, accountId, null));
+  balance.brains += await db.creditLevelUps(c.env.DB, accountId, now);
+  const inventory = await db.readInventory(c.env.DB, accountId);
+  const objectCounts = await db.readObjects(c.env.DB, accountId);
+  const rosterRows = await db.readRosterState(c.env.DB, accountId);
+  const rosterLayout = new Map((layout?.ownedZombies ?? []).map((z) => [z.id, z]));
+  const roster = rosterRows.map((r) => {
+    const hint = rosterLayout.get(r.id);
+    return {
+      id: r.id,
+      key: r.key,
+      mutation: r.mutation,
+      invasions: r.invasions,
+      pos: hint?.pos,
+      stored: hint?.stored,
+      color: hint?.color,
+    };
+  });
+  const remaining = { ...objectCounts };
+  const objects = (layout?.objects ?? []).filter((o) => {
+    const n = remaining[o.key] ?? 0;
+    if (n <= 0) return false;
+    remaining[o.key] = n - 1;
+    return true;
+  });
+  const farm = await db.readFarmPlots(c.env.DB, accountId);
+  const authoritativePlotKeys = new Set([
+    ...farm.plowed.map((p) => `${p.oc}:${p.pr}`),
+    ...farm.crops.map((p) => `${p.oc}:${p.pr}`),
+  ]);
+  const presentationPlots = (layout?.farm.plots ?? []).filter(
+    (p) => (p.state === "dirt" || p.state === "hole") && !authoritativePlotKeys.has(`${p.oc}:${p.or}`)
+  );
+  const plots: SaveGame["farm"]["plots"] = [
+    ...presentationPlots,
+    ...farm.plowed.map((p) => ({ oc: p.oc, or: p.pr, state: "plowed" as const })),
+    ...farm.crops.map((p) => ({
+      oc: p.oc,
+      or: p.pr,
+      state: "planted" as const,
+      crop: {
+        key: p.crop_key,
+        isZombie: !!catalogName(zombieCatalog, p.crop_key),
+        plantedAt: p.planted_at,
+        growMs: p.grow_ms,
+        fertilized: !!p.fertilized,
+      },
+    })),
+  ];
+  const storage = await db.readStorage(c.env.DB, accountId);
+  const shop = await db.readShopState(c.env.DB, accountId);
+  const raids = await db.readRaidProgress(c.env.DB, accountId);
+  const lastRaidAt = await db.raidLastAt(c.env.DB, accountId);
+  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
+  const quests = await db.readQuestState(c.env.DB, accountId);
+  const currentBalance = questChanges.some((change) => change.completed)
+    ? await db.getOrSeedBalance(c.env.DB, accountId, balance)
+    : balance;
+  return c.json({
+    integrityVersion: 2,
+    balance: currentBalance,
+    level: levelForXp(currentBalance.xp),
+    inventory,
+    objectCounts,
+    objects,
+    roster,
+    farm: { size: shop.size, plots },
+    shop,
+    storage,
+    raids: { progress: raids, lastRaidAt },
+    quests: { ...quests, questChanges },
+  });
 });
 
 // ---- GET /friends -------------------------------------------------------
@@ -479,7 +682,40 @@ app.get("/friends/:id/save", async (c) => {
   }
   const row = await db.getSave(c.env.DB, target);
   if (!row) return c.json({ error: "no_save" }, 404);
-  const save = projectFriendSave(JSON.parse(row.blob) as SaveGame);
+  const save = projectFriendSave(presentationOnlySave(JSON.parse(row.blob) as SaveGame));
+  const targetAccount = await db.accountById(c.env.DB, target);
+  save.player.name = targetAccount?.username ?? "Player";
+  const roster = await db.readRosterState(c.env.DB, target);
+  const rosterHints = new Map((save.ownedZombies ?? []).map((z) => [z.id, z]));
+  save.ownedZombies = roster.map((r) => {
+    const hint = rosterHints.get(r.id);
+    return { id: r.id, key: r.key, mutation: r.mutation, invasions: r.invasions, pos: hint?.pos, stored: hint?.stored, color: hint?.color };
+  });
+  const counts = await db.readObjects(c.env.DB, target);
+  save.objects = (save.objects ?? []).filter((o) => {
+    if ((counts[o.key] ?? 0) <= 0) return false;
+    counts[o.key]--;
+    return true;
+  });
+  const shop = await db.readShopState(c.env.DB, target);
+  const farm = await db.readFarmPlots(c.env.DB, target);
+  save.farm.w = shop.size;
+  save.farm.h = shop.size;
+  save.farm.plots = [
+    ...farm.plowed.map((p) => ({ oc: p.oc, or: p.pr, state: "plowed" as const })),
+    ...farm.crops.map((p) => ({
+      oc: p.oc,
+      or: p.pr,
+      state: "planted" as const,
+      crop: {
+        key: p.crop_key,
+        isZombie: !!catalogName(zombieCatalog, p.crop_key),
+        plantedAt: p.planted_at,
+        growMs: p.grow_ms,
+        fertilized: !!p.fertilized,
+      },
+    })),
+  ];
   return c.json({ save });
 });
 
@@ -702,11 +938,132 @@ app.post("/raid/sync", async (c) => {
 // `bypassed` tells the client whether a cooldown was actually skipped (the voucher is
 // consumed server-side).
 app.post("/raid/start", async (c) => {
+  const body: {
+    raidId?: number;
+    orderedUnitIds?: unknown;
+    useVoucher?: boolean;
+    bypass?: boolean;
+    concentration?: boolean;
+    dice?: number;
+    rulesetVersion?: number;
+  } = await c.req
+    .json<{
+      raidId?: number;
+      orderedUnitIds?: unknown;
+      useVoucher?: boolean;
+      bypass?: boolean;
+      concentration?: boolean;
+      dice?: number;
+      rulesetVersion?: number;
+    }>()
+    .catch(() => ({}));
+  if (body.rulesetVersion !== RAID_RULESET_VERSION) {
+    return c.json({ ok: false, error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION }, 426);
+  }
+  const raidId = body.raidId;
+  const econ = typeof raidId === "number" ? raidEcon(raidId as number) : undefined;
+  if (!econ) return c.json({ ok: false, error: "bad_raid" }, 400);
+  const accountId = c.get("accountId");
+  const now = Date.now();
+  const balance = await db.getOrSeedBalance(c.env.DB, accountId, await balanceSeed(c.env, accountId, null));
+  const level = levelForXp(balance.xp);
+  if (!raidUnlocked(econ!, level)) {
+    return c.json({ ok: false, error: "locked", unlockLevel: econ!.unlockLevel, level }, 403);
+  }
+  const cooldownMs = raidCooldownMs(c.env);
+  const lastRaidAt = await db.raidLastAt(c.env.DB, accountId);
+  const remaining = Math.max(0, cooldownMs - (now - lastRaidAt));
+  const onCooldown = remaining > 0;
+  if (onCooldown && !(body.useVoucher ?? body.bypass)) {
+    return c.json({ ok: false, cooldownRemaining: remaining });
+  }
+  const pinned = await buildPinnedRaid(c.env.DB, accountId, raidId!, body.orderedUnitIds, !!body.concentration);
+  if (!pinned.ok) return c.json({ ok: false, error: pinned.error }, 422);
+  const dice = Number.isInteger(body.dice) ? Math.max(0, body.dice as number) : 0;
+  const sessionId = crypto.randomUUID();
+  const opened = await db.openVerifiedRaidSession(c.env.DB, {
+    id: sessionId,
+    accountId,
+    raidId: raidId!,
+    rosterIds: pinned.config.rosterIds,
+    configJson: JSON.stringify(pinned.config),
+    rulesetVersion: RAID_RULESET_VERSION,
+    rngSeed: crypto.randomUUID(),
+    useVoucher: onCooldown,
+    concentration: !!body.concentration,
+    dice,
+    startedAt: now,
+    expiresAt: now + raidSessionTtlMs(c.env),
+  });
+  if (!opened) {
+    return c.json({ ok: false, error: onCooldown ? "no_consumable_or_raid_in_progress" : "raid_in_progress" }, 409);
+  }
+  return c.json({
+    ok: true,
+    sessionId,
+    bypassed: onCooldown,
+    concentration: !!body.concentration,
+    dice,
+    rulesetVersion: RAID_RULESET_VERSION,
+  });
+});
+
+// The benchmark-selected verifier mode: at most 15 seconds of fixed-tick combat is
+// replayed per request, then a JSON-safe pure-sim snapshot is CAS-persisted.
+app.post("/raid/checkpoint", async (c) => {
+  const raw = await c.req.text();
+  if (raw.length > 32 * 1024) return c.json({ error: "transcript_too_large" }, 413);
+  let body: { sessionId?: string; finalTick?: number; inputs?: RaidReplayInput[] };
+  try { body = JSON.parse(raw) as typeof body; } catch { return c.json({ error: "bad_request" }, 400); }
+  const accountId = c.get("accountId");
+  if (typeof body.sessionId !== "string") return c.json({ error: "bad_request" }, 400);
+  const session = await db.verifiedRaidSession(c.env.DB, body.sessionId, accountId);
+  if (!session || session.finished_at != null || session.expires_at <= Date.now()) return c.json({ error: "expired_or_closed" }, 409);
+  if (session.ruleset_version !== RAID_RULESET_VERSION) return c.json({ error: "stale_ruleset" }, 409);
+  const prior = await db.readRaidCheckpoint(c.env.DB, body.sessionId, accountId);
+  const startTick = prior?.last_tick ?? 0;
+  const finalTick = body.finalTick as number;
+  const inputBytes = JSON.stringify(body.inputs ?? []).length;
+  const cumulativeInputBytes = (prior?.input_bytes ?? 0) + inputBytes;
+  if (cumulativeInputBytes > 32 * 1024) return c.json({ error: "transcript_too_large" }, 413);
+  if (!Number.isInteger(finalTick) || finalTick <= startTick || finalTick - startTick > 300) {
+    return c.json({ error: "bad_checkpoint_tick" }, 422);
+  }
+  // A small latency allowance permits the request to arrive just ahead of wall time,
+  // while preventing a bot from precomputing/banking an entire raid instantly.
+  const pacedTick = Math.floor((Date.now() - session.started_at) / 50) + 40;
+  if (finalTick > pacedTick) return c.json({ error: "future_checkpoint" }, 422);
+  let config: PinnedRaidConfig;
+  let snapshot: BattleSimSnapshot | null = null;
+  try {
+    config = JSON.parse(session.config_json) as PinnedRaidConfig;
+    snapshot = prior ? JSON.parse(prior.state_json) as BattleSimSnapshot : null;
+  } catch { return c.json({ error: "bad_session_config" }, 500); }
+  const cpuStart = performance.now();
+  const verified = verifyRaidSegment(config, snapshot, startTick, finalTick, prior?.last_seq ?? 0, body.inputs ?? [], false);
+  const replayCpuMs = performance.now() - cpuStart;
+  slog("raid_replay", { account: accountId, sessionId: body.sessionId, checkpoint: true, replayCpuMs, transcriptSize: raw.length }, "info");
+  if (!verified.ok) {
+    slog("invalid_raid_input", { account: accountId, sessionId: body.sessionId, error: verified.error }, "alert");
+    await db.closeInvalidRaidSession(c.env.DB, body.sessionId, accountId, verified.error, Date.now());
+    return c.json({ error: verified.error }, 422);
+  }
+  const stored = await db.storeRaidCheckpoint(
+    c.env.DB, body.sessionId, accountId, startTick, finalTick, verified.lastSeq,
+    cumulativeInputBytes, JSON.stringify(verified.snapshot), Date.now()
+  );
+  if (!stored) return c.json({ error: "checkpoint_conflict" }, 409);
+  return c.json({ ok: true, finalTick, lastSeq: verified.lastSeq, finished: verified.finished, replayCpuMs });
+});
+
+app.post("/raid/start-legacy-disabled", async (c) => {
+  return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 410);
+  /* c8 ignore start -- retained temporarily only to make historical diff reviewable */
   const { bypass, raidId, dice } = await c.req
     .json<{ bypass?: boolean; raidId?: number; dice?: number }>()
     .catch(() => ({ bypass: false, raidId: undefined, dice: 0 }));
   // Pin a KNOWN raid so finish can price it; reject an unknown id up front.
-  const econ = typeof raidId === "number" ? raidEcon(raidId) : undefined;
+  const econ = typeof raidId === "number" ? raidEcon(raidId as number) : undefined;
   if (!econ) return c.json({ ok: false, error: "bad_raid" }, 400);
   const me = c.get("accountId");
   const now = Date.now();
@@ -715,8 +1072,8 @@ app.post("/raid/start", async (c) => {
   // level-up brains — turn a forged win into premium currency.
   const bal = await db.getOrSeedBalance(c.env.DB, me, await balanceSeed(c.env, me, null));
   const level = levelForXp(bal.xp);
-  if (!raidUnlocked(econ, level)) {
-    return c.json({ ok: false, error: "locked", unlockLevel: econ.unlockLevel, level }, 403);
+  if (!raidUnlocked(econ!, level)) {
+    return c.json({ ok: false, error: "locked", unlockLevel: econ!.unlockLevel, level }, 403);
   }
   const cooldownMs = raidCooldownMs(c.env);
   const lastRaidAt = await db.raidLastAt(c.env.DB, me);
@@ -759,6 +1116,136 @@ app.post("/raid/start", async (c) => {
 // replay), but the server owns the reward number, so a fabricated win can't exceed that
 // raid's real payout.
 app.post("/raid/finish", async (c) => {
+  const raw = await c.req.text();
+  if (raw.length > 32 * 1024) return c.json({ error: "transcript_too_large" }, 413);
+  let body: { sessionId?: string; finalTick?: number; inputs?: RaidReplayInput[] };
+  try {
+    body = JSON.parse(raw) as typeof body;
+  } catch {
+    return c.json({ error: "bad_request" }, 400);
+  }
+  const accountId = c.get("accountId");
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+  if (!sessionId) return c.json({ error: "bad_request" }, 400);
+  const session = await db.verifiedRaidSession(c.env.DB, sessionId, accountId);
+  if (!session) return c.json({ error: "unknown_session" }, 404);
+  if (session.result_json) return c.json(JSON.parse(session.result_json));
+  const now = Date.now();
+  if (session.finished_at != null || session.expires_at <= now) {
+    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "expired_or_closed", now);
+    return c.json({ error: "expired_or_closed", expired: session.expires_at <= now }, 409);
+  }
+  if (session.ruleset_version !== RAID_RULESET_VERSION) {
+    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "stale_ruleset", now);
+    return c.json({ error: "stale_ruleset" }, 409);
+  }
+  let config: PinnedRaidConfig;
+  try {
+    config = JSON.parse(session.config_json) as PinnedRaidConfig;
+  } catch {
+    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "bad_session_config", now);
+    return c.json({ error: "bad_session_config" }, 500);
+  }
+  const checkpoint = await db.readRaidCheckpoint(c.env.DB, sessionId, accountId);
+  if ((checkpoint?.input_bytes ?? 0) + JSON.stringify(body.inputs ?? []).length > 32 * 1024) {
+    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "transcript_too_large", now);
+    return c.json({ error: "transcript_too_large" }, 413);
+  }
+  let checkpointSnapshot: BattleSimSnapshot | null = null;
+  try { checkpointSnapshot = checkpoint ? JSON.parse(checkpoint.state_json) as BattleSimSnapshot : null; }
+  catch { return c.json({ error: "bad_checkpoint" }, 500); }
+  const cpuStart = performance.now();
+  const verified = verifyRaidSegment(
+    config,
+    checkpointSnapshot,
+    checkpoint?.last_tick ?? 0,
+    body.finalTick as number,
+    checkpoint?.last_seq ?? 0,
+    body.inputs as RaidReplayInput[],
+    true
+  );
+  const replayCpuMs = performance.now() - cpuStart;
+  const transcriptSize = raw.length;
+  slog("raid_replay", { account: accountId, sessionId, replayCpuMs, transcriptSize }, "info");
+  if (!verified.ok) {
+    slog("invalid_raid_input", { account: accountId, sessionId, error: verified.error, replayCpuMs, transcriptSize }, "alert");
+    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, verified.error, now);
+    return c.json({ error: verified.error }, 422);
+  }
+  if (!verified.finished || !verified.outcome) {
+    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "truncated_transcript", now);
+    return c.json({ error: "truncated_transcript" }, 422);
+  }
+  const survivalFrac = config.rosterIds.length
+    ? verified.outcome.survivors.length / config.rosterIds.length
+    : 0;
+  const settled = await db.settleRaid(
+    c.env.DB,
+    sessionId,
+    accountId,
+    verified.outcome.win,
+    survivalFrac,
+    now
+  );
+  const brains = verified.outcome.win
+    ? await db.grantVerifiedRaidBrains(
+        c.env.DB,
+        accountId,
+        sessionId,
+        raidEcon(config.raidId)?.recLevel ?? 0,
+        session.rng_seed,
+        now
+      )
+    : 0;
+  if (brains > 0) {
+    settled.balance = await db.getOrSeedBalance(c.env.DB, accountId, settled.balance);
+  }
+  const questEvents: db.TrustedGameEvent[] = [];
+  if (verified.outcome.win) {
+    questEvents.push({
+      id: `raid:${sessionId}:success`,
+      type: "kInvasionSuccessfulNotification",
+      subject: config.raidName,
+    });
+    if (verified.outcome.losses.length === 0) {
+      questEvents.push({
+        id: `raid:${sessionId}:perfect`,
+        type: "kInvasionPerfectGameNotification",
+        subject: config.raidName,
+      });
+    }
+    if (settled.loot?.name) {
+      questEvents.push({
+        id: `raid:${sessionId}:loot`,
+        type: "kLootItemWonNotification",
+        subject: settled.loot.name,
+      });
+    }
+  }
+  await db.recordTrustedGameEvents(c.env.DB, accountId, questEvents, now);
+  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
+  const result = {
+    ...settled,
+    brains,
+    outcome: verified.outcome,
+    replayCpuMs,
+    questChanges,
+    rulesetVersion: RAID_RULESET_VERSION,
+  };
+  await db.commitVerifiedRaidRoster(
+    c.env.DB,
+    sessionId,
+    accountId,
+    verified.outcome.survivors,
+    verified.outcome.losses,
+    JSON.stringify(result)
+  );
+  return c.json(result);
+});
+
+app.post("/raid/finish-legacy-disabled", async (c) => {
+  return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 410);
+  /* c8 ignore start -- retained temporarily only to make historical diff reviewable */
   const { sessionId, win, survivalFrac } = await c.req
     .json<{ sessionId: string; win?: boolean; survivalFrac?: number }>()
     .catch(() => ({ sessionId: "", win: false, survivalFrac: 0 }));
@@ -769,7 +1256,7 @@ app.post("/raid/finish", async (c) => {
     sessionId,
     me,
     !!win,
-    typeof survivalFrac === "number" ? survivalFrac : 0,
+    typeof survivalFrac === "number" ? (survivalFrac as number) : 0,
     Date.now()
   );
   return c.json({
@@ -850,7 +1337,10 @@ app.post("/economy/apply", async (c) => {
     .json<{ events?: unknown }>()
     .catch(() => ({ events: [] }));
   const raw = Array.isArray(body.events) ? body.events : [];
-  if (raw.length > 256) return c.json({ error: "too_many_events" }, 413);
+  if (raw.length > 32) return c.json({ error: "too_many_events" }, 413);
+  if (!(await commandVolumeAllowed(c.env, c.get("accountId"), raw.length, Date.now()))) {
+    return c.json({ error: "command_volume_exceeded" }, 429);
+  }
   // Coerce to the event shape; economy.validateEvent rejects anything malformed.
   const events = raw as EconomyEvent[];
   const { balance, results } = await db.applyEvents(c.env.DB, c.get("accountId"), events);
@@ -865,14 +1355,23 @@ app.post("/economy/apply", async (c) => {
 // owed level-up); item/zombie rewards are recorded but deferred to Phase D. The client
 // still decides WHEN a quest completes (requirement proof is deferred), so the reward is
 // bounded-once, not yet proven-earned — a claimed quest yields at most its real payout.
+app.get("/quest/state", async (c) => {
+  const accountId = c.get("accountId");
+  const now = Date.now();
+  if (await seedAllowed(c.env, accountId)) {
+    const row = await db.getSave(c.env.DB, accountId);
+    const save = row ? (JSON.parse(row.blob) as SaveGame) : null;
+    await db.seedLegacyQuestCompletions(c.env.DB, accountId, save?.quests?.completed ?? [], now);
+  } else {
+    await db.seedLegacyQuestCompletions(c.env.DB, accountId, [], now);
+  }
+  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
+  return c.json({ ...(await db.readQuestState(c.env.DB, accountId)), questChanges });
+});
+
 app.post("/quest/complete", async (c) => {
-  const { questId } = await c.req
-    .json<{ questId: string }>()
-    .catch(() => ({ questId: "" }));
-  if (typeof questId !== "string" || !questId) return c.json({ error: "bad_request" }, 400);
-  const r = await db.completeQuest(c.env.DB, c.get("accountId"), questId, Date.now());
-  if (r.status === "rejected") slog("quest_rejected", { account: c.get("accountId"), questId, error: r.error });
-  return c.json(r);
+  slog("forged_quest_completion", { account: c.get("accountId") }, "alert");
+  return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 410);
 });
 
 // ---- farm: exact per-action economics -----------------------------------
@@ -884,12 +1383,22 @@ app.post("/quest/complete", async (c) => {
 app.post("/farm/actions", async (c) => {
   const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
   const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 256) return c.json({ error: "too_many_actions" }, 413);
+  if (raw.length > 64) return c.json({ error: "too_many_actions" }, 413);
   const actions = raw as FarmAction[];
-  const { balance, results } = await db.applyFarmActions(c.env.DB, c.get("accountId"), actions, Date.now());
+  const now = Date.now();
+  const accountId = c.get("accountId");
+  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
+    return c.json({ error: "command_volume_exceeded" }, 429);
+  }
+  const { balance, results } = await db.applyFarmActions(c.env.DB, accountId, actions, now);
+  await db.recordTrustedGameEvents(c.env.DB, accountId, farmQuestEvents(actions, results), now);
+  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
   const rejected = results.filter((r) => r.status === "rejected").length;
   if (rejected) slog("farm_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, results });
+  const authoritativeBalance = questChanges.some((change) => change.completed)
+    ? await db.getOrSeedBalance(c.env.DB, accountId, balance)
+    : balance;
+  return c.json({ balance: authoritativeBalance, results, questChanges });
 });
 
 // ---- POST /farm/sync: one-time import of already-plowed soil -------------
@@ -930,17 +1439,39 @@ app.post("/inventory/sync", async (c) => {
 app.post("/inventory/actions", async (c) => {
   const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
   const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 256) return c.json({ error: "too_many_actions" }, 413);
+  if (raw.length > 32) return c.json({ error: "too_many_actions" }, 413);
   const actions = raw as InventoryAction[];
+  const now = Date.now();
+  const accountId = c.get("accountId");
+  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
+    return c.json({ error: "command_volume_exceeded" }, 429);
+  }
   const { balance, inventory, results } = await db.applyInventoryActions(
     c.env.DB,
-    c.get("accountId"),
+    accountId,
     actions,
-    Date.now()
+    now
   );
+  const byId = new Map(actions.map((a) => [a?.id, a]));
+  await db.recordTrustedGameEvents(
+    c.env.DB,
+    accountId,
+    results
+      .filter((r) => r.status === "applied" && byId.get(r.id)?.type === "buy")
+      .map((r) => {
+        const a = byId.get(r.id)!;
+        return {
+          id: `inventory:${r.id}:buy`,
+          type: "kItemBoughtNotification",
+          subject: catalogName(boostCatalog, a.key),
+        };
+      }),
+    now
+  );
+  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
   const rejected = results.filter((r) => r.status === "rejected").length;
   if (rejected) slog("inventory_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, inventory, results });
+  return c.json({ balance, inventory, results, questChanges });
 });
 
 // ---- objects: server-owned placeable ownership (counts) -----------------
@@ -962,17 +1493,37 @@ app.post("/object/sync", async (c) => {
 app.post("/object/actions", async (c) => {
   const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
   const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 256) return c.json({ error: "too_many_actions" }, 413);
+  if (raw.length > 32) return c.json({ error: "too_many_actions" }, 413);
   const actions = raw as ObjectAction[];
+  const now = Date.now();
+  const accountId = c.get("accountId");
+  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
+    return c.json({ error: "command_volume_exceeded" }, 429);
+  }
   const { balance, objects, results } = await db.applyObjectActions(
     c.env.DB,
-    c.get("accountId"),
+    accountId,
     actions,
-    Date.now()
+    now
   );
+  const byId = new Map(actions.map((a) => [a?.id, a]));
+  await db.recordTrustedGameEvents(
+    c.env.DB,
+    accountId,
+    results
+      .filter((r) => r.status === "applied")
+      .flatMap((r) => {
+        const a = byId.get(r.id);
+        if (!a || (a.type !== "buy" && a.type !== "upgrade")) return [];
+        const key = a.type === "buy" ? a.key : a.toKey;
+        return [{ id: `object:${r.id}:buy`, type: "kItemBoughtNotification", subject: catalogName(objectCatalog, key) }];
+      }),
+    now
+  );
+  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
   const rejected = results.filter((r) => r.status === "rejected").length;
   if (rejected) slog("object_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, objects, results });
+  return c.json({ balance, objects, results, questChanges });
 });
 
 // ---- shop: server-owned farm size + climate skins -----------------------
@@ -998,18 +1549,18 @@ app.post("/shop/state", async (c) => {
 });
 
 app.post("/shop/size", async (c) => {
-  const body = await c.req.json<{ size?: number; currency?: string }>().catch(() => ({ size: undefined, currency: "gold" }));
+  const body = await c.req.json<{ actionId?: string; size?: number; currency?: string }>().catch(() => ({ actionId: "", size: undefined, currency: "gold" }));
   const currency = body.currency === "brains" ? "brains" : "gold";
-  if (typeof body.size !== "number") return c.json({ error: "bad_size" }, 400);
-  const r = await db.buySize(c.env.DB, c.get("accountId"), body.size, currency, Date.now());
+  if (typeof body.actionId !== "string" || !body.actionId || typeof body.size !== "number") return c.json({ error: "bad_request" }, 400);
+  const r = await db.buySize(c.env.DB, c.get("accountId"), body.actionId, body.size, currency, Date.now());
   if (!r.ok) slog("shop_rejected", { account: c.get("accountId"), kind: "size", error: r.error });
   return c.json(r);
 });
 
 app.post("/shop/climate", async (c) => {
-  const body = await c.req.json<{ terrain?: string }>().catch(() => ({ terrain: "" }));
-  if (typeof body.terrain !== "string" || !body.terrain) return c.json({ error: "bad_climate" }, 400);
-  const r = await db.buyClimate(c.env.DB, c.get("accountId"), body.terrain, Date.now());
+  const body = await c.req.json<{ actionId?: string; terrain?: string }>().catch(() => ({ actionId: "", terrain: "" }));
+  if (typeof body.actionId !== "string" || !body.actionId || typeof body.terrain !== "string" || !body.terrain) return c.json({ error: "bad_request" }, 400);
+  const r = await db.buyClimate(c.env.DB, c.get("accountId"), body.actionId, body.terrain, Date.now());
   if (!r.ok) slog("shop_rejected", { account: c.get("accountId"), kind: "climate", error: r.error });
   return c.json(r);
 });
@@ -1034,12 +1585,37 @@ app.post("/roster/sync", async (c) => {
 app.post("/roster/actions", async (c) => {
   const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
   const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 256) return c.json({ error: "too_many_actions" }, 413);
+  if (raw.length > 32) return c.json({ error: "too_many_actions" }, 413);
   const actions = raw as RosterAction[];
-  const { balance, results } = await db.applyRosterActions(c.env.DB, c.get("accountId"), actions, Date.now());
+  const now = Date.now();
+  const accountId = c.get("accountId");
+  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
+    return c.json({ error: "command_volume_exceeded" }, 429);
+  }
+  const { balance, results } = await db.applyRosterActions(c.env.DB, accountId, actions, now);
+  const byId = new Map(actions.map((a) => [a?.id, a]));
+  await db.recordTrustedGameEvents(
+    c.env.DB,
+    accountId,
+    results
+      .filter((r) => r.status === "applied" && !!r.subject)
+      .flatMap((r) => {
+        const a = byId.get(r.id);
+        if (!a) return [];
+        if (a.type === "combineStart") {
+          return [{ id: `roster:${r.id}:combine`, type: "kCombinerCombinedNotification", subject: r.subject }];
+        }
+        if (a.type === "combineCollect") {
+          return [{ id: `roster:${r.id}:collect`, type: "kCombinerHarvestedNotification", subject: r.subject }];
+        }
+        return [];
+      }),
+    now
+  );
+  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
   const rejected = results.filter((r) => r.status === "rejected").length;
   if (rejected) slog("roster_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, results });
+  return c.json({ balance, results, questChanges });
 });
 
 // ---- scheduled cleanup (cron; see wrangler.toml [triggers]) -------------
@@ -1050,12 +1626,14 @@ async function runCleanup(env: Bindings, now: number): Promise<void> {
   const requests = await db.purgeOldFriendRequests(env.DB, now - 30 * DAY);
   const raidSessions = await db.purgeOldRaidSessions(env.DB, now - DAY);
   const ledger = await db.purgeOldLedger(env.DB, now - 30 * DAY);
-  const farmActions = await db.purgeOldFarmActions(env.DB, now - 7 * DAY);
-  const invActions = await db.purgeOldInventoryActions(env.DB, now - 7 * DAY);
-  const objActions = await db.purgeOldObjectActions(env.DB, now - 7 * DAY);
-  const rosterActions = await db.purgeOldRosterActions(env.DB, now - 7 * DAY);
+  const farmActions = await db.purgeOldFarmActions(env.DB, now - 45 * DAY);
+  const invActions = await db.purgeOldInventoryActions(env.DB, now - 45 * DAY);
+  const objActions = await db.purgeOldObjectActions(env.DB, now - 45 * DAY);
+  const rosterActions = await db.purgeOldRosterActions(env.DB, now - 45 * DAY);
   const combineJobs = await db.purgeOldCombineJobs(env.DB, now - 30 * DAY);
-  slog("cleanup", { sessions, buckets, requests, raidSessions, ledger, farmActions, invActions, objActions, rosterActions, combineJobs }, "info");
+  const commandReceipts = await db.purgeOldCommandReceipts(env.DB, now - 45 * DAY);
+  const gameEvents = await db.purgeOldGameEvents(env.DB, now - 45 * DAY);
+  slog("cleanup", { sessions, buckets, requests, raidSessions, ledger, farmActions, invActions, objActions, rosterActions, combineJobs, commandReceipts, gameEvents }, "info");
 }
 
 // Export both the HTTP handler and the cron handler. Cloudflare calls `scheduled`

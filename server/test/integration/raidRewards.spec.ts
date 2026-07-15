@@ -1,108 +1,35 @@
-import { describe, it, expect } from "vitest";
-import { call, signIn, type Session } from "./helpers";
+import { describe, expect, it } from "vitest";
+import { call, signIn } from "./helpers";
 
-// Server-authoritative raid rewards (P10): /raid/finish credits the server-computed
-// base win gold + first-clear XP for the session's pinned raid, idempotently, capped
-// at that raid's real ceiling. Whether the player "won" is client-asserted here, which
-// is exactly the deferred gap — the point is that the CREDIT can't be fabricated.
-//
-// Since T2 the server also ROLLS this win's loot, and raid 1's commonest drop is
-// "Bonus Gold" (+recLevel*100 = 500). That's random, so these tests derive the expected
-// total from the drop the server actually reported rather than assuming a bare base —
-// otherwise they'd flake whenever the roll landed on gold. See raidLoot.spec for the
-// loot behaviour itself.
-
-interface FinishRes {
-  lastRaidAt: number;
-  balance: { gold: number; xp: number };
-  gold: number;
-  xp: number;
-  firstClear: boolean;
-  loot: { name: string; kind: string } | null;
-}
-
-/** McDonnell's base win gold (1200 + 400 bonus at full survival) plus this win's loot, if
- *  the loot happened to be the +500 Bonus Gold drop. */
-const BASE_WIN_GOLD = 1600;
-const BONUS_GOLD = 500; // raid 1 recommendedLevel 5 x 100
-const expectedGold = (r: FinishRes, base = BASE_WIN_GOLD) =>
-  base + (r.loot?.kind === "gold" ? BONUS_GOLD : 0);
-
-async function player(gold = 0): Promise<Session> {
-  const s = await signIn();
-  // Seed a (mostly) zeroed server balance so reward deltas are easy to read. `gold`
-  // lets a test that needs to bypass the cooldown afford an invasion voucher.
-  await call("POST", "/economy/sync", s.token, { seed: { gold, brains: 0, xp: 0 } });
-  return s;
-}
-
-/** Buy one invasion voucher (server-owned; needed to bypass the cooldown). */
-async function buyVoucher(s: Session): Promise<void> {
-  await call("POST", "/inventory/actions", s.token, {
-    actions: [{ id: `v-${Math.floor(Date.now() % 1e6)}-${Math.random()}`, type: "buy", key: "invasion_voucher" }],
-  });
-}
-
-async function startRaid(s: Session, raidId = 1, bypass = false): Promise<string> {
-  const r = await call<{ ok: boolean; sessionId: string }>("POST", "/raid/start", s.token, { raidId, bypass });
-  if (!r.body.ok) throw new Error("raid start refused");
-  return r.body.sessionId;
-}
-
-describe("raid rewards — server-authoritative", () => {
-  it("credits base win gold + first-clear XP for a win (McDonnell = 1600/100)", async () => {
-    const s = await player();
-    const sid = await startRaid(s, 1);
-    const fin = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 1 });
-    expect(fin.body).toMatchObject({ xp: 100, firstClear: true });
-    expect(fin.body.gold).toBe(expectedGold(fin.body));
-    expect(fin.body.balance).toMatchObject({ gold: expectedGold(fin.body), xp: 100 });
-  });
-
-  it("clamps a fabricated survival fraction to the raid ceiling", async () => {
-    const s = await player();
-    const sid = await startRaid(s, 1);
-    // survivalFrac 99 → clamped to 1 → the raid's real max, not more.
-    const fin = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 99 });
-    expect(fin.body.gold).toBe(expectedGold(fin.body));
-  });
-
-  it("grants first-clear XP only once; a repeat win pays gold but no XP", async () => {
-    const s = await player(5000); // gold to afford a voucher for the second raid
-    const first = await call<FinishRes>("POST", "/raid/finish", s.token, {
-      sessionId: await startRaid(s, 1),
-      win: true,
-      survivalFrac: 1,
+describe("raid finish — replay-derived and idempotent", () => {
+  it("never accepts client outcome or reward claims", async () => {
+    const s = await signIn();
+    await call("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
+    await call("POST", "/roster/sync", s.token, { units: [{ id: "z1", key: "ZombieActorRegularTier1" }] });
+    const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, {
+      raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: 2,
     });
-    expect(first.body).toMatchObject({ xp: 100, firstClear: true });
-    // Second clear of the SAME raid (bypass the cooldown with a voucher): gold again, XP 0.
-    await buyVoucher(s);
-    const second = await call<FinishRes>("POST", "/raid/finish", s.token, {
-      sessionId: await startRaid(s, 1, true),
-      win: true,
-      survivalFrac: 1,
+    const forged = await call<{ error: string }>("POST", "/raid/finish", s.token, {
+      sessionId: start.body.sessionId, win: true, gold: 999999, xp: 999999,
     });
-    expect(second.body).toMatchObject({ xp: 0, firstClear: false });
-    expect(second.body.gold).toBe(expectedGold(second.body));
-    expect(second.body.balance.xp).toBe(100); // still just the one grant
+    expect(forged.status).toBe(422);
+    expect(forged.body.error).toBe("bad_final_tick");
+    const balance = await call<{ gold: number; xp: number }>("POST", "/economy/sync", s.token, { seed: {} });
+    expect(balance.body).toMatchObject({ gold: 0, xp: 0 });
   });
 
-  it("credits nothing for a loss", async () => {
-    const s = await player();
-    const sid = await startRaid(s, 1);
-    const fin = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: false, survivalFrac: 1 });
-    expect(fin.body).toMatchObject({ gold: 0, xp: 0 });
-    expect(fin.body.balance).toMatchObject({ gold: 0, xp: 0 });
-  });
-
-  it("is idempotent — replaying a finish credits nothing more", async () => {
-    const s = await player();
-    const sid = await startRaid(s, 1);
-    const a = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 1 });
-    const settled = expectedGold(a.body); // base + this win's loot, whatever it rolled
-    expect(a.body.balance.gold).toBe(settled);
-    const b = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 1 });
-    expect(b.body).toMatchObject({ gold: 0, xp: 0, loot: null }); // nothing credited this call
-    expect(b.body.balance.gold).toBe(settled); // balance unchanged — no second loot roll
+  it("stores a verified retreat result and returns it unchanged on retry", async () => {
+    const s = await signIn();
+    await call("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
+    await call("POST", "/roster/sync", s.token, { units: [{ id: "z1", key: "ZombieActorRegularTier1" }] });
+    const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, {
+      raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: 2,
+    });
+    const body = { sessionId: start.body.sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }] };
+    const first = await call<Record<string, unknown>>("POST", "/raid/finish", s.token, body);
+    const retry = await call<Record<string, unknown>>("POST", "/raid/finish", s.token, body);
+    expect(first.status).toBe(200);
+    expect(first.body).toMatchObject({ outcome: { win: false }, gold: 0, xp: 0 });
+    expect(retry.body).toEqual(first.body);
   });
 });

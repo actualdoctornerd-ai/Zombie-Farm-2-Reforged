@@ -334,6 +334,18 @@ export class ZombieField {
     for (const d of this.stored) if (set.has(d.id)) d.invasions++;
   }
 
+  /** Mirror a server-verified raid result without re-submitting roster mutations. */
+  applyServerRaidOutcome(survivors: string[], losses: string[]): void {
+    const live = this.rosterLive;
+    this.rosterLive = false;
+    try {
+      this.recordInvasion(survivors);
+      this.removeCasualties(losses);
+    } finally {
+      this.rosterLive = live;
+    }
+  }
+
   // Select a deployed unit by id (from the roster) and report where it is on the
   // farm so the caller can center the camera on it. Null if not deployed.
   selectById(id: string): { x: number; y: number } | null {

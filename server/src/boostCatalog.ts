@@ -44,6 +44,7 @@ export const VOUCHER_KEY = "invasion_voucher";
 /** The loot-luck boost spent before a raid (Golden Dice), consumed server-side on
  *  /raid/start and pinned to the session so the server's loot roll uses the real count. */
 export const DICE_KEY = "golden_dice";
+export const CONCENTRATION_KEY = "concentration";
 
 /** DISPLAY NAME -> boost key. Raid loot tables name their entries the way the UI does
  *  ("Insta-Plow"), so a loot drop that is really a boost has to be resolved by name —

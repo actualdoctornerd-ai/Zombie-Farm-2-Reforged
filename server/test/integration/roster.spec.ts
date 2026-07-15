@@ -22,6 +22,15 @@ let n = 0;
 const aid = (p: string) => `${p}-${n++}`;
 
 describe("roster — server-owned units", () => {
+  it("permanently closes an empty roster import", async () => {
+    const s = await player(0);
+    expect((await call<{ count: number }>("POST", "/roster/sync", s.token, { units: [] })).body.count).toBe(0);
+    const reseed = await call<{ count: number }>("POST", "/roster/sync", s.token, {
+      units: [{ id: "late", key: "ZombieActorGardenTier4" }],
+    });
+    expect(reseed.body.count).toBe(0);
+  });
+
   it("seeds units from the save and sells one for the exact catalog value", async () => {
     const s = await player(0);
     const count = await call<{ count: number }>("POST", "/roster/sync", s.token, {
@@ -93,7 +102,7 @@ describe("roster — server-owned units", () => {
     expect(replay.body.balance.gold).toBe(17); // not 34
   });
 
-  it("casualty removes units — a dead unit can no longer be sold", async () => {
+  it("rejects client-authored casualty claims", async () => {
     const s = await player(0);
     await call("POST", "/roster/sync", s.token, {
       units: [
@@ -101,17 +110,18 @@ describe("roster — server-owned units", () => {
         { id: "p2", key: "ZombieActorGardenTier2" }, // cost 190 → sell 95
       ],
     });
-    await call("POST", "/roster/actions", s.token, {
+    const forged = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [{ id: aid("cas"), type: "casualty", unitIds: ["p1"] }],
     });
-    // p1 died → not sellable; p2 survived → sellable for its exact value.
+    expect(forged.body.results[0]).toMatchObject({ status: "rejected", error: "server_only_raid_result" });
+    // The forged casualty changed nothing, so both units remain sellable.
     const sell = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [
         { id: aid("sell"), type: "sell", unitId: "p1" },
         { id: aid("sell"), type: "sell", unitId: "p2" },
       ],
     });
-    expect(sell.body.results[0]).toMatchObject({ status: "rejected", error: "no_unit" });
+    expect(sell.body.results[0]).toMatchObject({ status: "applied", gold: 17 });
     expect(sell.body.results[1]).toMatchObject({ status: "applied", gold: 95 });
   });
 });

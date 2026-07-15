@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { call, signIn, type Session } from "./helpers";
+import { call, signIn, uniqueSub, type Session } from "./helpers";
 
 // P16 — server-owned farm SIZE (sequential scalar) + CLIMATE skins (owned set).
 // /shop/state seeds both once from the save; /shop/size buys the immediate next tier
@@ -25,8 +25,19 @@ async function player(gold = 0, brains = 0): Promise<Session> {
 }
 const readBal = async (s: Session) =>
   (await call<{ gold: number; brains: number }>("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } })).body;
+const command = <T extends object>(body: T) => ({ actionId: `shop-${uniqueSub()}`, ...body });
 
 describe("shop — server-owned size + climates", () => {
+  it("allows exactly one of 50 racing upgrades against a barely sufficient balance", async () => {
+    const s = await player(10_000);
+    await call("POST", "/shop/state", s.token, {});
+    await Promise.all(Array.from({ length: 50 }, (_, n) =>
+      call("POST", "/shop/size", s.token, { actionId: `race-${n}`, size: 40, currency: "gold" })
+    ));
+    expect((await call<ShopState>("POST", "/shop/state", s.token, {})).body.size).toBe(40);
+    expect((await readBal(s)).gold).toBe(0);
+  });
+
   it("seeds base size + no climates for a fresh account", async () => {
     const s = await player();
     const st = await call<ShopState>("POST", "/shop/state", s.token, {});
@@ -73,7 +84,7 @@ describe("shop — server-owned size + climates", () => {
   it("buys the next size tier for the exact gold price and advances the scalar", async () => {
     const s = await player(10_000);
     await call("POST", "/shop/state", s.token, {}); // seed base
-    const r = await call<ShopResult>("POST", "/shop/size", s.token, { size: 40, currency: "gold" });
+    const r = await call<ShopResult>("POST", "/shop/size", s.token, command({ size: 40, currency: "gold" }));
     expect(r.body.ok).toBe(true);
     expect(r.body.size).toBe(40);
     expect(r.body.balance.gold).toBe(0); // 10000 - 10000
@@ -83,7 +94,7 @@ describe("shop — server-owned size + climates", () => {
   it("buys a size tier with brains when asked", async () => {
     const s = await player(0, 60);
     await call("POST", "/shop/state", s.token, {});
-    const r = await call<ShopResult>("POST", "/shop/size", s.token, { size: 40, currency: "brains" });
+    const r = await call<ShopResult>("POST", "/shop/size", s.token, command({ size: 40, currency: "brains" }));
     expect(r.body.ok).toBe(true);
     expect(r.body.balance.brains).toBe(0); // 60 - 60
     expect((await readBal(s)).gold).toBe(0); // gold untouched
@@ -92,7 +103,7 @@ describe("shop — server-owned size + climates", () => {
   it("rejects a non-sequential size jump (30 → 60 skip)", async () => {
     const s = await player(1_000_000);
     await call("POST", "/shop/state", s.token, {});
-    const r = await call<ShopResult>("POST", "/shop/size", s.token, { size: 60, currency: "gold" });
+    const r = await call<ShopResult>("POST", "/shop/size", s.token, command({ size: 60, currency: "gold" }));
     expect(r.body.ok).toBe(false);
     expect(r.body.error).toBe("bad_size");
     expect(r.body.size).toBe(30); // unchanged
@@ -102,14 +113,14 @@ describe("shop — server-owned size + climates", () => {
   it("rejects an off-ladder target size", async () => {
     const s = await player(1_000_000);
     await call("POST", "/shop/state", s.token, {});
-    const r = await call<ShopResult>("POST", "/shop/size", s.token, { size: 45, currency: "gold" });
+    const r = await call<ShopResult>("POST", "/shop/size", s.token, command({ size: 45, currency: "gold" }));
     expect(r.body).toMatchObject({ ok: false, error: "bad_size" });
   });
 
   it("rejects an unaffordable size upgrade, charging nothing", async () => {
     const s = await player(9_999); // one short of 10000
     await call("POST", "/shop/state", s.token, {});
-    const r = await call<ShopResult>("POST", "/shop/size", s.token, { size: 40, currency: "gold" });
+    const r = await call<ShopResult>("POST", "/shop/size", s.token, command({ size: 40, currency: "gold" }));
     expect(r.body).toMatchObject({ ok: false, error: "insufficient" });
     expect((await readBal(s)).gold).toBe(9_999);
   });
@@ -117,12 +128,13 @@ describe("shop — server-owned size + climates", () => {
   it("is naturally idempotent: re-buying the same tier after it advanced is a no-op reject", async () => {
     const s = await player(20_000);
     await call("POST", "/shop/state", s.token, {});
-    const first = await call<ShopResult>("POST", "/shop/size", s.token, { size: 40, currency: "gold" });
+    const action = command({ size: 40, currency: "gold" });
+    const first = await call<ShopResult>("POST", "/shop/size", s.token, action);
     expect(first.body.ok).toBe(true);
     expect((await readBal(s)).gold).toBe(10_000); // charged once
     // A retry of size:40 now fails the "is it the next tier?" check (next is 50).
-    const retry = await call<ShopResult>("POST", "/shop/size", s.token, { size: 40, currency: "gold" });
-    expect(retry.body).toMatchObject({ ok: false, error: "bad_size" });
+    const retry = await call<ShopResult>("POST", "/shop/size", s.token, action);
+    expect(retry.body).toMatchObject({ ok: false, error: "bad_size", size: 40 });
     expect((await readBal(s)).gold).toBe(10_000); // NOT double-charged
   });
 
@@ -130,20 +142,20 @@ describe("shop — server-owned size + climates", () => {
     const s = await player(1_000_000);
     await call("POST", "/shop/state", s.token, {});
     for (const size of [40, 50, 60]) {
-      const r = await call<ShopResult>("POST", "/shop/size", s.token, { size, currency: "gold" });
+      const r = await call<ShopResult>("POST", "/shop/size", s.token, command({ size, currency: "gold" }));
       expect(r.body.ok, `buy ${size}`).toBe(true);
       expect(r.body.size).toBe(size);
     }
     expect((await readBal(s)).gold).toBe(1_000_000 - 10_000 - 50_000 - 250_000);
     // Nothing above 60.
-    const over = await call<ShopResult>("POST", "/shop/size", s.token, { size: 70, currency: "gold" });
+    const over = await call<ShopResult>("POST", "/shop/size", s.token, command({ size: 70, currency: "gold" }));
     expect(over.body).toMatchObject({ ok: false, error: "bad_size" });
   });
 
   it("buys a climate skin for exact gold and adds it to the owned set", async () => {
     const s = await player(10_000);
     await call("POST", "/shop/state", s.token, {});
-    const r = await call<ShopResult>("POST", "/shop/climate", s.token, { terrain: "water" }); // 10000
+    const r = await call<ShopResult>("POST", "/shop/climate", s.token, command({ terrain: "water" })); // 10000
     expect(r.body.ok).toBe(true);
     expect(r.body.climates).toContain("water");
     expect(r.body.balance.gold).toBe(0);
@@ -154,8 +166,9 @@ describe("shop — server-owned size + climates", () => {
   it("rejects re-buying an owned climate (no double charge)", async () => {
     const s = await player(10_000);
     await call("POST", "/shop/state", s.token, {});
-    await call("POST", "/shop/climate", s.token, { terrain: "stone" }); // 1000
-    const retry = await call<ShopResult>("POST", "/shop/climate", s.token, { terrain: "stone" });
+    const action = command({ terrain: "stone" });
+    await call("POST", "/shop/climate", s.token, action); // 1000
+    const retry = await call<ShopResult>("POST", "/shop/climate", s.token, action);
     expect(retry.body).toMatchObject({ ok: false, error: "owned" });
     expect((await readBal(s)).gold).toBe(9_000); // charged once
   });
@@ -163,9 +176,9 @@ describe("shop — server-owned size + climates", () => {
   it("rejects a fabricated terrain and buying grass", async () => {
     const s = await player(10_000);
     await call("POST", "/shop/state", s.token, {});
-    const fake = await call<ShopResult>("POST", "/shop/climate", s.token, { terrain: "lava" });
+    const fake = await call<ShopResult>("POST", "/shop/climate", s.token, command({ terrain: "lava" }));
     expect(fake.body).toMatchObject({ ok: false, error: "bad_climate" });
-    const grass = await call<ShopResult>("POST", "/shop/climate", s.token, { terrain: "grass" });
+    const grass = await call<ShopResult>("POST", "/shop/climate", s.token, command({ terrain: "grass" }));
     expect(grass.body).toMatchObject({ ok: false, error: "bad_climate" });
     expect((await readBal(s)).gold).toBe(10_000);
   });
@@ -173,7 +186,7 @@ describe("shop — server-owned size + climates", () => {
   it("rejects an unaffordable climate, charging nothing", async () => {
     const s = await player(999); // stone is 1000
     await call("POST", "/shop/state", s.token, {});
-    const r = await call<ShopResult>("POST", "/shop/climate", s.token, { terrain: "stone" });
+    const r = await call<ShopResult>("POST", "/shop/climate", s.token, command({ terrain: "stone" }));
     expect(r.body).toMatchObject({ ok: false, error: "insufficient" });
     expect((await readBal(s)).gold).toBe(999);
   });

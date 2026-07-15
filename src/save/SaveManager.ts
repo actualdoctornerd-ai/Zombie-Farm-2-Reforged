@@ -196,6 +196,7 @@ export class SaveManager {
         if (data) {
           this.rev = res.rev;
           await this.applySave(data);
+          await this.applyAuthoritativeState(await api.getState());
           this.writeLocal(data);
           return true;
         }
@@ -203,7 +204,9 @@ export class SaveManager {
         // from its own (empty) cache; do NOT adopt the device's offline farm — that
         // would bleed one player's farm into another account on a shared browser.
         this.rev = 0;
-        return await this.loadLocal();
+        const local = await this.loadLocal();
+        await this.applyAuthoritativeState(await api.getState());
+        return local;
       } catch (e) {
         if (!(e instanceof api.ApiError) || e.status !== 0) {
           console.warn("[save] server load failed; falling back to local", e);
@@ -311,6 +314,34 @@ export class SaveManager {
     // so activation checks see the correct level/context.
     this.quests.restore(data.quests);
     if (p.farmer) this.walk.teleport(p.farmer.col, p.farmer.row);
+  }
+
+  private async applyAuthoritativeState(server: api.AuthoritativeState): Promise<void> {
+    this.state.syncBalance(server.balance.gold, server.balance.brains, server.balance.xp);
+    this.state.boostInv = Object.entries(server.inventory)
+      .filter(([, count]) => count > 0)
+      .map(([key, count]) => ({ key, count }));
+    this.state.storedItems = Object.entries(server.storage.stored).map(([key, count]) => ({ key, count }));
+    this.state.received = Object.entries(server.storage.received).flatMap(([key, count]) => Array(count).fill(key));
+    this.state.syncRaidProgress(server.raids.progress);
+    this.state.lastRaidAt = server.raids.lastRaidAt;
+    this.state.ownedClimates = ["grass", ...server.shop.climates.filter((t) => t !== "grass")];
+
+    this.field.resizeAuthoritative(server.farm.size, server.farm.size);
+    if (!this.state.ownedClimates.includes(this.field.climate)) this.field.setClimate("grass");
+    this.field.restore(server.farm.plots, (key) => this.catalog.get(key));
+    await Promise.all(
+      server.objects.flatMap((o) => {
+        const def = this.placeCatalog.get(o.key);
+        if (!def) return [];
+        const loads = [this.preload(def.sprite)];
+        if (def.growingSprite) loads.push(this.preload(def.growingSprite));
+        return loads;
+      })
+    );
+    this.field.restoreObjects(server.objects, (key) => this.placeCatalog.get(key));
+    this.zombies.restore(server.roster);
+    this.quests.restoreAuthoritative(server.quests);
   }
 
   /** Hydrate the live singletons from a save for READ-ONLY viewing (visiting a

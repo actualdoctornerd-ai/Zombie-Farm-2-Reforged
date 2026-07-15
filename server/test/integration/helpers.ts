@@ -27,7 +27,7 @@ export async function call<T = unknown>(
   token?: string,
   body?: unknown
 ): Promise<ApiResponse<T>> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const headers: Record<string, string> = { "content-type": "application/json", "x-integrity-version": "2" };
   if (token) headers["authorization"] = `Bearer ${token}`;
   const res = await fetch(`${BASE}${path}`, {
     method,

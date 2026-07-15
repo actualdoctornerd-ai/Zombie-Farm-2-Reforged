@@ -238,6 +238,30 @@ export interface SimProjectile {
   grab: boolean; // grab hazard (car/trapeze): seizes the zombie instead of damaging it
 }
 
+/** Compact, JSON-safe verifier state used by the server's 15-second replay checkpoints. */
+export interface BattleSimSnapshot {
+  units: SimUnit[];
+  projectiles: SimProjectile[];
+  bossId: string | null;
+  throwTimer: number;
+  throwCount: number;
+  releaseSeq: number;
+  projSeq: number;
+  elapsed: number;
+  emergeCooldown: number;
+  attacksLanded: number;
+  playerDamage: number;
+  roundLeft: number;
+  enraged: boolean;
+  specialCd: number;
+  specialCast: number;
+  pendingSpecial: BossSpecial | null;
+  obstacleTimer: number;
+  summonsLeft: number;
+  spawnSeq: number;
+  activatedKeys: string[];
+}
+
 function toSim(u: CombatUnit, i: number): SimUnit {
   const mult = u.attacks[0]?.mult ?? 1;
   const isPlayer = u.team === "player";
@@ -376,6 +400,56 @@ export class BattleSim {
       ...new Set(this.players.map((p) => p.activatedKey).filter((k): k is string => !!k)),
     ];
     this.teamKeys = [...new Set(this.players.flatMap((p) => teamAbilitiesIn(p.abilities)))];
+  }
+
+  snapshot(): BattleSimSnapshot {
+    return {
+      units: this.units.map((u) => ({ ...u, abilities: [...u.abilities] })),
+      projectiles: this.projectiles.map((p) => ({ ...p })),
+      bossId: this.boss?.id ?? null,
+      throwTimer: this.throwTimer,
+      throwCount: this.throwCount,
+      releaseSeq: this.releaseSeq,
+      projSeq: this.projSeq,
+      elapsed: this.elapsed,
+      emergeCooldown: this.emergeCooldown,
+      attacksLanded: this.attacksLanded,
+      playerDamage: this.playerDamage,
+      roundLeft: this.roundLeft,
+      enraged: this._enraged,
+      specialCd: this.specialCd,
+      specialCast: this.specialCast,
+      pendingSpecial: this.pendingSpecial ? { ...this.pendingSpecial } : null,
+      obstacleTimer: this.obstacleTimer,
+      summonsLeft: this.summonsLeft,
+      spawnSeq: this.spawnSeq,
+      activatedKeys: [...this.activatedKeys],
+    };
+  }
+
+  restore(snapshot: BattleSimSnapshot): void {
+    this.units.splice(0, this.units.length, ...snapshot.units.map((u) => ({ ...u, abilities: [...u.abilities] })));
+    this.players = this.units.filter((u) => u.team === "player");
+    this.enemies = this.units.filter((u) => u.team === "enemy");
+    this.boss = snapshot.bossId ? this.units.find((u) => u.id === snapshot.bossId) ?? null : null;
+    this.projectiles.splice(0, this.projectiles.length, ...snapshot.projectiles.map((p) => ({ ...p })));
+    this.throwTimer = snapshot.throwTimer;
+    this.throwCount = snapshot.throwCount;
+    this.releaseSeq = snapshot.releaseSeq;
+    this.projSeq = snapshot.projSeq;
+    this.elapsed = snapshot.elapsed;
+    this.emergeCooldown = snapshot.emergeCooldown;
+    this.attacksLanded = snapshot.attacksLanded;
+    this.playerDamage = snapshot.playerDamage;
+    this.roundLeft = snapshot.roundLeft;
+    this._enraged = snapshot.enraged;
+    this.specialCd = snapshot.specialCd;
+    this.specialCast = snapshot.specialCast;
+    this.pendingSpecial = snapshot.pendingSpecial ? { ...snapshot.pendingSpecial } : null;
+    this.obstacleTimer = snapshot.obstacleTimer;
+    this.summonsLeft = snapshot.summonsLeft;
+    this.spawnSeq = snapshot.spawnSeq;
+    this.activatedKeys.splice(0, this.activatedKeys.length, ...snapshot.activatedKeys);
   }
 
   // ---- activated abilities (player-triggered from the battle strip) ----

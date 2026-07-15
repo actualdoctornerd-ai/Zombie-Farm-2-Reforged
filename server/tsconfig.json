@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "types": ["@cloudflare/workers-types"],
     "strict": true,
     "noUnusedLocals": true,
@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
     "noEmit": true
   },
   "include": ["src", "test"],

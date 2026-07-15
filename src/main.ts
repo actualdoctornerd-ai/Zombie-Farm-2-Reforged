@@ -481,6 +481,7 @@ async function main() {
   const quests = new QuestSystem(
     new Map(Object.entries(assets.quests)), state, questBus,
     {
+      authoritative: auth.isSignedIn(),
       // Online: the server grants the quest's currency reward (and any level-up brains)
       // authoritatively and idempotently; return true so QuestSystem skips the local add
       // (which the spend-only economy endpoint would reject anyway). Offline: `economy`
@@ -742,6 +743,8 @@ async function main() {
       }
       state.ownedClimates = ["grass", ...climates.filter((t) => t !== "grass")];
     };
+    economy.onQuestState = (serverState) => quests.restoreAuthoritative(serverState);
+    economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
     void economy.start();
     // Seed the shop state from the save, then adopt server truth (once, after load).
     void economy.syncShop(field.w, state.ownedClimates);
@@ -1365,7 +1368,13 @@ async function main() {
       try {
         // Golden Dice are consumed SERVER-side here (the loot roll's luck is pinned to
         // the session), so send how many the player asked for and adopt what it charged.
-        const gate = await api.raidStart(!!opts.useVoucher, raidId, Math.max(0, Math.floor(opts.dice ?? 0)));
+        const gate = await api.raidStart(
+          !!opts.useVoucher,
+          raidId,
+          partyIds,
+          !!opts.concentration,
+          Math.max(0, Math.floor(opts.dice ?? 0))
+        );
         if (!gate.ok) {
           // Distinguish the server's refusals: the client already hides locked raids and
           // blocks a second launch, so `locked` / `raid_in_progress` mean the client and
@@ -1409,7 +1418,14 @@ async function main() {
       summonTemplate: setup.summonTemplate,
       wallTemplate: setup.wallTemplate,
       concentration: setup.concentration,
-      onFinish: (outcome) => {
+      onCheckpoint: auth.isSignedIn() && raidSessionId
+        ? async (finalTick, inputs) => {
+            const sid = raidSessionId;
+            if (!sid) throw new Error("raid session closed");
+            await api.raidCheckpoint(sid, finalTick, inputs);
+          }
+        : undefined,
+      onFinish: (outcome, finalTick, inputs) => {
         // ONLINE: the server prices the base win gold + first-clear XP AND rolls the
         // loot. finishRaid() credits none of it locally — it hands the reward back as
         // `serverReward`, which we submit through the balance client (POST /raid/finish).
@@ -1425,11 +1441,13 @@ async function main() {
           // when it lands (the panel shows an empty Loot row until then).
           economy!.onRaidSettled = (res) => {
             economy!.onRaidSettled = null;
+            if (res.outcome) zombies.applyServerRaidOutcome(res.outcome.survivors, res.outcome.losses);
+            void api.raidState().then((r) => state.syncRaidProgress(r.progress ?? {})).catch(() => {});
             const drops = res.loot ? [{ name: res.loot.name, icon: raids.lootIconFor(res.loot.name) }] : [];
             hud.setRaidResultLoot(drops, res.gold);
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
-          economy!.submitRaid(sid, outcome.win, sr?.survivalFrac ?? 0, {
+          economy!.submitRaid(sid, finalTick, inputs, {
             gold: sr?.gold ?? 0,
             xp: sr?.xp ?? 0,
           });
@@ -1439,7 +1457,7 @@ async function main() {
           const sid = raidSessionId;
           raidSessionId = null;
           void api
-            .raidFinish(sid, outcome.win, view.serverReward?.survivalFrac ?? 0)
+            .raidFinish(sid, finalTick, inputs)
             .then((r) => { state.lastRaidAt = r.lastRaidAt; })
             .catch(() => {});
         }

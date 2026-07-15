@@ -32,6 +32,7 @@ const SHOP_OUTBOX_KEY = "zf2r.shop.outbox.v1";
  *  rejected harvest can fall back to the bounds path without losing the reward).
  *  `brains` covers a zombie-crop plant (which can cost brains, not gold). */
 interface PendingFarm {
+  queuedAt: number;
   action: api.FarmAction;
   gold: number;
   brains: number;
@@ -42,9 +43,10 @@ interface PendingFarm {
  *  inputs (so a crash-interrupted finish can be retried — the server is idempotent)
  *  plus the optimistic reward shown meanwhile. */
 interface PendingRaid {
+  queuedAt: number;
   sessionId: string;
-  win: boolean;
-  survivalFrac: number;
+  finalTick: number;
+  inputs: api.RaidReplayInput[];
   gold: number;
   xp: number;
 }
@@ -52,6 +54,7 @@ interface PendingRaid {
 /** A pending inventory action plus the optimistic effect it applied (a boost count
  *  delta on `key`, and — for a buy — the currency it debits). */
 interface PendingInv {
+  queuedAt: number;
   action: api.InventoryAction;
   key: string;
   count: number;
@@ -72,6 +75,7 @@ export interface InventoryInput {
 /** A pending roster action plus its optimistic currency effect (a sell credits gold;
  *  grant/veteran/casualty are pure server bookkeeping with no display effect). */
 interface PendingRoster {
+  queuedAt: number;
   action: api.RosterAction;
   gold: number;
 }
@@ -80,6 +84,7 @@ interface PendingRoster {
  *  ownership counts are server-side only (for refund eligibility), so nothing but the
  *  balance is reconciled here. */
 interface PendingObject {
+  queuedAt: number;
   action: api.ObjectAction;
   gold: number;
   brains: number;
@@ -89,6 +94,8 @@ interface PendingObject {
 /** A pending shop purchase (farm-size tier or climate skin) + its optimistic currency
  *  debit. The server owns the resulting size/climate set; flushShop adopts it. */
 interface PendingShop {
+  queuedAt: number;
+  actionId: string;
   buy: { kind: "size"; size: number; currency: "gold" | "brains" } | { kind: "climate"; terrain: string };
   gold: number;
   brains: number;
@@ -143,6 +150,9 @@ export class EconomyClient {
   /** Called after a shop flush with the server's authoritative farm size + climate set,
    *  so the client adopts them (reverting a rejected optimistic change). Wired in main.ts. */
   onShopState: ((size: number, climates: string[]) => void) | null = null;
+  /** Server quest projection/deltas. Wired to QuestSystem by main.ts. */
+  onQuestState: ((state: api.QuestStateResult) => void) | null = null;
+  onQuestChanges: ((changes: api.QuestChange[]) => void) | null = null;
   /** Last server-confirmed balance; display = base + pending overlays. */
   private base: api.Balance | null = null;
   /** Last server-confirmed boost inventory; display = serverInv + pending count deltas. */
@@ -162,12 +172,16 @@ export class EconomyClient {
   ) {
     this.pending = this.readOutbox(ECON_OUTBOX_KEY) as api.EconomyEvent[];
     this.farmPending = this.readOutbox(FARM_OUTBOX_KEY) as PendingFarm[];
-    this.raidPending = this.readOutbox(RAID_OUTBOX_KEY) as PendingRaid[];
+    this.raidPending = (this.readOutbox(RAID_OUTBOX_KEY) as PendingRaid[]).filter(
+      (r) => Number.isInteger(r?.finalTick) && Array.isArray(r?.inputs)
+    );
     this.questPending = this.readOutbox(QUEST_OUTBOX_KEY) as string[];
     this.invPending = this.readOutbox(INV_OUTBOX_KEY) as PendingInv[];
     this.rosterPending = this.readOutbox(ROSTER_OUTBOX_KEY) as PendingRoster[];
     this.objectPending = this.readOutbox(OBJECT_OUTBOX_KEY) as PendingObject[];
-    this.shopPending = this.readOutbox(SHOP_OUTBOX_KEY) as PendingShop[];
+    this.shopPending = (this.readOutbox(SHOP_OUTBOX_KEY) as Partial<PendingShop>[])
+      .filter((p): p is Partial<PendingShop> & Pick<PendingShop, "buy"> => !!p.buy)
+      .map((p) => ({ ...p, queuedAt: p.queuedAt ?? Date.now(), actionId: p.actionId || uuid(), gold: p.gold ?? 0, brains: p.brains ?? 0 }));
   }
 
   private key(base: string): string {
@@ -177,7 +191,14 @@ export class EconomyClient {
     try {
       const raw = localStorage.getItem(this.key(base));
       const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
+      if (!Array.isArray(arr)) return [];
+      const now = Date.now();
+      const cutoff = now - 30 * 24 * 60 * 60 * 1000;
+      return arr
+        .filter((item) => typeof item !== "object" || item === null || !("queuedAt" in item) || Number(item.queuedAt) >= cutoff)
+        .map((item) =>
+          typeof item === "object" && item !== null && !("queuedAt" in item) ? { ...item, queuedAt: now } : item
+        );
     } catch {
       return [];
     }
@@ -256,6 +277,12 @@ export class EconomyClient {
       for (const b of this.state.boostInv) seed[b.key] = b.count;
       const inv = await api.syncInventory(seed);
       this.serverInv = inv.inventory;
+      const quests = await api.questState();
+      this.onQuestState?.(quests);
+      // Version-1 quest completions were client claims. Never replay them against the
+      // retired endpoint; trusted command events now drive completion.
+      this.questPending = [];
+      this.writeQuestOutbox();
       this.reconcile();
     } catch {
       /* offline — keep showing the blob values until the server is reachable */
@@ -290,7 +317,7 @@ export class EconomyClient {
    *  the caller). Server bounds-validates it. */
   record(currency: api.Currency, delta: number, reason: string): void {
     if (!Number.isFinite(delta) || delta === 0) return;
-    this.pending.push({ id: uuid(), currency, delta: Math.trunc(delta), reason });
+    this.pending.push({ id: uuid(), currency, delta: Math.trunc(delta), reason, queuedAt: Date.now() });
     this.writeEconOutbox();
     this.schedule();
   }
@@ -306,7 +333,7 @@ export class EconomyClient {
         : input.type === "plow"
           ? { id, type: "plow", oc: input.oc, or: input.or }
           : { id, type: "harvest", oc: input.oc, or: input.or, unitId: input.unitId };
-    this.farmPending.push({ action, gold: optimistic.gold ?? 0, brains: optimistic.brains ?? 0, xp: optimistic.xp ?? 0 });
+    this.farmPending.push({ queuedAt: Date.now(), action, gold: optimistic.gold ?? 0, brains: optimistic.brains ?? 0, xp: optimistic.xp ?? 0 });
     this.writeFarmOutbox();
     this.reconcile();
     this.schedule();
@@ -319,14 +346,15 @@ export class EconomyClient {
    *  server cooldown now, not on the next debounce. */
   submitRaid(
     sessionId: string,
-    win: boolean,
-    survivalFrac: number,
+    finalTick: number,
+    inputs: api.RaidReplayInput[],
     optimistic: { gold?: number; xp?: number }
   ): void {
     this.raidPending.push({
+      queuedAt: Date.now(),
       sessionId,
-      win,
-      survivalFrac,
+      finalTick,
+      inputs,
       gold: optimistic.gold ?? 0,
       xp: optimistic.xp ?? 0,
     });
@@ -341,10 +369,7 @@ export class EconomyClient {
    *  the sub-second delay is fine). Idempotent by quest id server-side + a local outbox, so
    *  a crash mid-flush just retries. Flushes right away so the reward lands promptly. */
   submitQuest(questId: string): void {
-    if (this.questPending.includes(questId)) return; // already queued (dedup)
-    this.questPending.push(questId);
-    this.writeQuestOutbox();
-    void this.flush();
+    void questId;
   }
 
   /** Submit a boost buy/use/grant to the server's owned inventory. `optimistic` is the
@@ -361,6 +386,7 @@ export class EconomyClient {
           ? { id, type: "use", key: input.key, qty: input.qty, unitId: input.unitId }
           : { id, type: input.type, key: input.key, qty: input.qty };
     this.invPending.push({
+      queuedAt: Date.now(),
       action,
       key: input.key,
       count: optimistic.count,
@@ -387,7 +413,7 @@ export class EconomyClient {
    *  bookkeeping. Flushes right away so a sell lands promptly. */
   submitRoster(input: RosterInput, optimistic: { gold?: number } = {}): void {
     const action = { id: uuid(), ...input } as api.RosterAction;
-    this.rosterPending.push({ action, gold: optimistic.gold ?? 0 });
+    this.rosterPending.push({ queuedAt: Date.now(), action, gold: optimistic.gold ?? 0 });
     this.writeRosterOutbox();
     this.reconcile();
     void this.flush();
@@ -427,6 +453,7 @@ export class EconomyClient {
   ): void {
     const action = { id: uuid(), ...input } as api.ObjectAction;
     this.objectPending.push({
+      queuedAt: Date.now(),
       action,
       gold: optimistic.gold ?? 0,
       brains: optimistic.brains ?? 0,
@@ -452,6 +479,8 @@ export class EconomyClient {
    *  server prices it exactly and returns the authoritative size, adopted on flush. */
   submitShopSize(size: number, currency: "gold" | "brains", cost: number): void {
     this.shopPending.push({
+      queuedAt: Date.now(),
+      actionId: uuid(),
       buy: { kind: "size", size, currency },
       gold: currency === "gold" ? -cost : 0,
       brains: currency === "brains" ? -cost : 0,
@@ -463,7 +492,7 @@ export class EconomyClient {
 
   /** Buy a climate skin (gold). Optimistic `cost` shown; server is authoritative. */
   submitShopClimate(terrain: string, cost: number): void {
-    this.shopPending.push({ buy: { kind: "climate", terrain }, gold: -cost, brains: 0 });
+    this.shopPending.push({ queuedAt: Date.now(), actionId: uuid(), buy: { kind: "climate", terrain }, gold: -cost, brains: 0 });
     this.writeShopOutbox();
     this.reconcile();
     void this.flush();
@@ -479,7 +508,9 @@ export class EconomyClient {
 
   /** Max items per POST — stays under the server's per-request cap so a long offline
    *  session drains instead of being rejected wholesale and stranded. */
-  private static readonly CHUNK = 200;
+  private static readonly FARM_CHUNK = 64;
+  private static readonly VALUE_CHUNK = 32;
+  private static readonly ECON_CHUNK = 64;
 
   /** Send pending economy events + farm actions and adopt the server balance. Safe
    *  to call anytime (single in-flight); a boundary (raid finish, sign-out) forces
@@ -505,7 +536,6 @@ export class EconomyClient {
       await this.flushEconomy();
       await this.flushFarm();
       await this.flushRaid();
-      await this.flushQuest();
       await this.flushInv();
       await this.flushRoster();
       await this.flushObject();
@@ -530,7 +560,7 @@ export class EconomyClient {
 
   private async flushEconomy(): Promise<void> {
     while (this.pending.length) {
-      const batch = this.pending.slice(0, EconomyClient.CHUNK);
+      const batch = this.pending.slice(0, EconomyClient.ECON_CHUNK);
       const { balance } = await api.applyEconomy(batch);
       const sent = new Set(batch.map((e) => e.id));
       this.pending = this.pending.filter((e) => !sent.has(e.id));
@@ -541,8 +571,9 @@ export class EconomyClient {
 
   private async flushFarm(): Promise<void> {
     while (this.farmPending.length) {
-      const batch = this.farmPending.slice(0, EconomyClient.CHUNK);
-      const { balance, results } = await api.applyFarm(batch.map((f) => f.action));
+      const batch = this.farmPending.slice(0, EconomyClient.FARM_CHUNK);
+      const { balance, results, questChanges } = await api.applyFarm(batch.map((f) => f.action));
+      this.onQuestChanges?.(questChanges ?? []);
       const byId = new Map(batch.map((f) => [f.action.id, f]));
       for (const res of results) {
         // A plant the server rolled fertilized: apply the 2x visual to that crop.
@@ -576,11 +607,12 @@ export class EconomyClient {
     // outbox for retry; the server is idempotent, so re-sending a finish is safe.
     while (this.raidPending.length) {
       const r = this.raidPending[0];
-      const res = await api.raidFinish(r.sessionId, r.win, r.survivalFrac);
+      const res = await api.raidFinish(r.sessionId, r.finalTick, r.inputs);
       this.state.lastRaidAt = res.lastRaidAt; // adopt the authoritative cooldown clock
       this.raidPending.shift();
       this.writeRaidOutbox();
       this.base = res.balance; // server truth already includes this raid's credit
+      this.onQuestChanges?.(res.questChanges ?? []);
       // The SERVER rolled this win's loot; hand it up so the result panel can show the
       // real drop (the client no longer rolls its own online). Fires after the panel has
       // already opened — the drop arrives a beat later, like the reward reconcile does.
@@ -592,23 +624,11 @@ export class EconomyClient {
    *  (including the server-rolled loot). Null = nobody's listening. */
   onRaidSettled: ((res: api.RaidFinishResult) => void) | null = null;
 
-  private async flushQuest(): Promise<void> {
-    // One at a time; each completion is idempotent server-side (keyed by quest id), so a
-    // re-sent completion credits nothing. The returned balance already includes the quest
-    // reward AND any level-up brains it triggered, so we just adopt it as truth.
-    while (this.questPending.length) {
-      const questId = this.questPending[0];
-      const res = await api.completeQuest(questId);
-      this.questPending.shift();
-      this.writeQuestOutbox();
-      this.base = res.balance;
-    }
-  }
-
   private async flushInv(): Promise<void> {
     while (this.invPending.length) {
-      const batch = this.invPending.slice(0, EconomyClient.CHUNK);
-      const { balance, inventory } = await api.applyInventory(batch.map((f) => f.action));
+      const batch = this.invPending.slice(0, EconomyClient.VALUE_CHUNK);
+      const { balance, inventory, questChanges } = await api.applyInventory(batch.map((f) => f.action));
+      this.onQuestChanges?.(questChanges ?? []);
       // A rejected action (e.g. can't afford, none owned) simply has its optimistic
       // effect dropped on reconcile — the server's balance + inventory are truth.
       const sent = new Set(batch.map((f) => f.action.id));
@@ -621,8 +641,9 @@ export class EconomyClient {
 
   private async flushRoster(): Promise<void> {
     while (this.rosterPending.length) {
-      const batch = this.rosterPending.slice(0, EconomyClient.CHUNK);
-      const { balance } = await api.applyRoster(batch.map((f) => f.action));
+      const batch = this.rosterPending.slice(0, EconomyClient.VALUE_CHUNK);
+      const { balance, questChanges } = await api.applyRoster(batch.map((f) => f.action));
+      this.onQuestChanges?.(questChanges ?? []);
       // A rejected sell (unit the server doesn't own) just drops its optimistic gold
       // on reconcile — no credit, which is the anti-fabrication behaviour.
       const sent = new Set(batch.map((f) => f.action.id));
@@ -634,8 +655,9 @@ export class EconomyClient {
 
   private async flushObject(): Promise<void> {
     while (this.objectPending.length) {
-      const batch = this.objectPending.slice(0, EconomyClient.CHUNK);
-      const { balance } = await api.applyObjects(batch.map((f) => f.action));
+      const batch = this.objectPending.slice(0, EconomyClient.VALUE_CHUNK);
+      const { balance, questChanges } = await api.applyObjects(batch.map((f) => f.action));
+      this.onQuestChanges?.(questChanges ?? []);
       // A rejected buy (can't afford) / refund (not owned) simply drops its optimistic
       // effect on reconcile — the server balance is truth.
       const sent = new Set(batch.map((f) => f.action.id));
@@ -653,8 +675,8 @@ export class EconomyClient {
       const p = this.shopPending[0];
       const res =
         p.buy.kind === "size"
-          ? await api.shopSize(p.buy.size, p.buy.currency)
-          : await api.shopClimate(p.buy.terrain);
+          ? await api.shopSize(p.actionId, p.buy.size, p.buy.currency)
+          : await api.shopClimate(p.actionId, p.buy.terrain);
       this.shopPending.shift();
       this.writeShopOutbox();
       this.base = res.balance;

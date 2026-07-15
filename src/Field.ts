@@ -270,6 +270,29 @@ export class Field {
     this.h = nh;
   }
 
+  /** Set the server-owned farm boundary exactly. Used only during online state
+   * overlay; ordinary gameplay still uses grow-only resize(). */
+  resizeAuthoritative(nw: number, nh: number) {
+    nw = Math.max(1, Math.round(nw));
+    nh = Math.max(1, Math.round(nh));
+    if (nw >= this.w && nh >= this.h) {
+      this.resize(nw, nh);
+      return;
+    }
+    for (let row = 0; row < this.ground.length; row++) {
+      const line = this.ground[row];
+      if (!line) continue;
+      for (let col = 0; col < line.length; col++) {
+        if (row < nh && col < nw) continue;
+        line[col]?.destroy();
+      }
+      line.length = Math.min(line.length, nw);
+    }
+    this.ground.length = Math.min(this.ground.length, nh);
+    this.w = nw;
+    this.h = nh;
+  }
+
   // Plot cursor: a PLOT-sized diamond. Green when the action is valid, red when not,
   // with a tool label. (No plain hover cursor — the select tool shows nothing.)
   private buildCursor() {

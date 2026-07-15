@@ -2,7 +2,7 @@
 // selection, army-selection rules, and reward derivation. Player-facing raids run
 // the live combat sim (BattleSim); instant resolution (CombatEngine) is retained
 // only as a test/dev utility. No side effects — RaidManager applies these.
-import { RaidDef, RaidStage } from "./types";
+import type { RaidDef, RaidStage } from "./types";
 
 /** Minimum army to launch an invasion (Help.json: "at least 8, best with 16"). */
 export const MIN_ARMY = 8;

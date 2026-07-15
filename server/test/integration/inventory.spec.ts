@@ -183,15 +183,17 @@ describe("inventory — server-owned boosts", () => {
 
   it("consumes an invasion voucher server-side to bypass the raid cooldown; refuses without one", async () => {
     const s = await player();
+    await call("POST", "/roster/sync", s.token, { units: [{ id: "raid-z1", key: "ZombieActorRegularTier1" }] });
+    const raid = { raidId: 1, orderedUnitIds: ["raid-z1"], rulesetVersion: 2 };
     // Raid + finish to arm the cooldown.
-    const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, { raidId: 1 });
-    await call("POST", "/raid/finish", s.token, { sessionId: start.body.sessionId, win: false });
+    const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, raid);
+    await call("POST", "/raid/finish", s.token, { sessionId: start.body.sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }] });
     // On cooldown, no voucher held → bypass refused.
-    const noVoucher = await call<{ ok: boolean; error?: string }>("POST", "/raid/start", s.token, { raidId: 1, bypass: true });
-    expect(noVoucher.body).toMatchObject({ ok: false, error: "no_voucher" });
+    const noVoucher = await call<{ ok: boolean; error?: string }>("POST", "/raid/start", s.token, { ...raid, useVoucher: true });
+    expect(noVoucher.body).toMatchObject({ ok: false, error: "no_consumable_or_raid_in_progress" });
     // Buy a voucher, then the bypass succeeds AND the voucher is consumed.
     await call("POST", "/inventory/actions", s.token, { actions: [{ id: aid("buy"), type: "buy", key: "invasion_voucher" }] });
-    const bypass = await call<{ ok: boolean; bypassed: boolean }>("POST", "/raid/start", s.token, { raidId: 1, bypass: true });
+    const bypass = await call<{ ok: boolean; bypassed: boolean }>("POST", "/raid/start", s.token, { ...raid, useVoucher: true });
     expect(bypass.body).toMatchObject({ ok: true, bypassed: true });
     const inv = await call<{ inventory: Record<string, number> }>("POST", "/inventory/sync", s.token, { counts: {} });
     expect(inv.body.inventory.invasion_voucher).toBe(0); // consumed

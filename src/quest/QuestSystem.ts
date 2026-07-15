@@ -37,6 +37,9 @@ const LIVE_EVENTS = new Set<string>([
 // the quest log — the display limit is a HUD concern, not an activation cap.
 
 export interface QuestHooks {
+  /** Online mode: local notifications are presentation-only; server command events
+   * are the sole source of progress and rewards. */
+  authoritative?: boolean;
   /** Claim a completed quest's reward EXTERNALLY (online: the server grants the
    *  currency authoritatively + any level-up it triggers). Return true if handled —
    *  the local currency add is then skipped so it isn't double-counted / rejected by
@@ -102,6 +105,7 @@ export class QuestSystem {
   }
 
   private onEvent(nid: string, object: string, n: number) {
+    if (this.hooks.authoritative) return;
     let dirty = false;
     const finished: string[] = [];
     for (const [id, counts] of this.active) {
@@ -220,6 +224,51 @@ export class QuestSystem {
             ? a.counts.slice()
             : new Array(def.requirements.length).fill(0);
         this.active.set(a.id, counts);
+      }
+    }
+    this.tryActivate();
+    this.hooks.render(this.views());
+  }
+
+  /** Replace writable-save quest data with the server projection. Counts are aligned
+   * to the catalog requirements; unknown ids and malformed counters are ignored. */
+  restoreAuthoritative(state: {
+    completed: string[];
+    progress: { questId: string; counts: number[] }[];
+  }): void {
+    this.completed = new Set(state.completed.filter((id) => this.defs.has(id)));
+    this.active = new Map();
+    const supplied = new Map(state.progress.map((p) => [p.questId, p.counts]));
+    for (const [id, def] of this.defs) {
+      if (!this.eligible(id)) continue;
+      const raw = supplied.get(id) ?? [];
+      this.active.set(
+        id,
+        def.requirements.map((r, i) => {
+          const n = Number.isInteger(raw[i]) ? raw[i] : 0;
+          return Math.max(0, Math.min(r.countTotal, n));
+        })
+      );
+    }
+    this.tryActivate();
+    this.hooks.render(this.views());
+  }
+
+  /** Apply the progress delta returned with the trusted command that caused it. */
+  applyAuthoritativeChanges(changes: { questId: string; counts: number[]; completed: boolean }[]): void {
+    for (const change of changes) {
+      const def = this.defs.get(change.questId);
+      if (!def) continue;
+      const wasCompleted = this.completed.has(change.questId);
+      if (change.completed) {
+        this.active.delete(change.questId);
+        this.completed.add(change.questId);
+        if (!wasCompleted) this.hooks.completed(def);
+      } else if (!this.completed.has(change.questId)) {
+        this.active.set(
+          change.questId,
+          def.requirements.map((r, i) => Math.max(0, Math.min(r.countTotal, change.counts[i] ?? 0)))
+        );
       }
     }
     this.tryActivate();
