@@ -69,6 +69,20 @@ const MAX_SIM_MS = 4 * 60 * 1000; // hard safety cap (min-damage 1 avoids stalls
 const MAX_ROWS = 4;
 const ROW_GAP = 46; // vertical spacing between rows
 const COL_GAP = 52; // depth spacing between columns
+const FRONT_X = ENEMY_HOLD_X - ENGAGE;
+const SUPPORT_X = CHARGE_X + (FRONT_X - CHARGE_X) * 0.5;
+
+// Mini Buddy: a waiting Small zombie mounts a Large zombie, rides to the line at
+// double speed, then dismounts as both join combat and the arrival stuns the enemy.
+const MINI_MOUNT_MS = 500;
+const MINI_ARRIVAL_STUN_MS = 1000;
+
+// Garden support cadence. These values are deliberately modest: support gives up
+// its normal frontline attacks while it stands back and heals.
+const HEAL_SINGLE_MS = 4000;
+const HEAL_AOE_MS = 7000;
+const HEAL_SINGLE_FRAC = 0.12;
+const HEAL_AOE_FRAC = 0.08;
 
 // Ballistic throws.
 const GRAVITY = 820; // sim px/s^2 pulling projectiles down
@@ -156,6 +170,7 @@ export type UnitState =
   | "charging" // zombie stepping out + focusing
   | "advance" // released, moving to the front line
   | "fight" // trading blows
+  | "carried" // Small zombie riding a Large zombie via Mini Buddy
   | "queued" // enemy off-screen, not yet emerged
   | "descending" // boss coming down off the structure + exiting out the back
   | "emerging" // enemy walking to its holding spot (or boss re-entering)
@@ -208,6 +223,11 @@ export interface SimUnit {
   windupMs: number; // ms left in the current wind-up
   windupTotal: number; // full wind-up duration (for the charge bar)
   abilityCdMs: number; // cooldown before this unit can be activated again
+  buddyId: string | null; // Small zombie currently carried by this Large zombie
+  buddyCarrierId: string | null; // Large zombie carrying this Small zombie
+  buddyMountMs: number; // jump-to-carrier animation time remaining
+  healTimerMs: number; // Garden support heal cadence
+  healFxSeq: number; // increments when this unit receives a heal (renderer trigger)
   stunMs: number; // ms of stun left — can't act while > 0 (enemies AND zombies)
   // ---- enemy attack effects inflicted on a struck zombie ----
   knockBack: boolean; // this enemy's attack shoves the zombie back down the lane
@@ -310,6 +330,11 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     windupMs: 0,
     windupTotal: 0,
     abilityCdMs: 0,
+    buddyId: null,
+    buddyCarrierId: null,
+    buddyMountMs: 0,
+    healTimerMs: 0,
+    healFxSeq: 0,
     stunMs: 0,
     knockBack: !isPlayer && !!u.knockBack,
     stunInflictMs: isPlayer ? 0 : u.stunMs ?? 0,
@@ -396,8 +421,10 @@ export class BattleSim {
     // drops its first obstacle immediately.
     if (hazard?.initial) this.spawnObstacle();
 
+    // Keep every activated move represented. In particular, Mini Buddy remains
+    // available on a veteran Large zombie even when it also owns Bash/Smash.
     this.activatedKeys = [
-      ...new Set(this.players.map((p) => p.activatedKey).filter((k): k is string => !!k)),
+      ...new Set(this.players.flatMap((p) => p.abilities.filter((k) => !!ACTIVATED_ABILITY[k]))),
     ];
     this.teamKeys = [...new Set(this.players.flatMap((p) => teamAbilitiesIn(p.abilities)))];
   }
@@ -454,13 +481,38 @@ export class BattleSim {
 
   // ---- activated abilities (player-triggered from the battle strip) ----
 
+  private isLarge(p: SimUnit): boolean {
+    return /^ZombieActorLarge/i.test(p.sourceKey);
+  }
+
+  private isSmall(p: SimUnit): boolean {
+    return /^ZombieActorSmall/i.test(p.sourceKey);
+  }
+
+  private isHealer(p: SimUnit): boolean {
+    return p.isGarden && (p.abilities.includes("heal") || p.abilities.includes("healAOE"));
+  }
+
+  private availableMini(): SimUnit | null {
+    return this.players.find(
+      (p) => p.alive && this.isSmall(p) && !p.buddyCarrierId &&
+        (p.state === "waiting" || p.state === "charging")
+    ) ?? null;
+  }
+
   /** A player unit is READY for an activated move when it's alive, in the thick of
    *  the fight, off cooldown, and not already charging one. */
   private readyToActivate(p: SimUnit, key: string): boolean {
+    if (key === "attachMini") {
+      return (
+        p.alive && this.isLarge(p) && p.abilities.includes(key) && !p.buddyId &&
+        (p.state === "waiting" || p.state === "charging") && !!this.availableMini()
+      );
+    }
     return (
       p.alive &&
       p.team === "player" &&
-      p.activatedKey === key &&
+      p.abilities.includes(key) &&
       p.state === "fight" &&
       !p.windupKey &&
       p.abilityCdMs <= 0
@@ -486,6 +538,17 @@ export class BattleSim {
       if (!pick || p.x > pick.x) pick = p; // front-most (nearest the enemy)
     }
     if (!pick) return false;
+    if (key === "attachMini") {
+      const mini = this.availableMini();
+      if (!mini) return false;
+      pick.buddyId = mini.id;
+      mini.buddyCarrierId = pick.id;
+      mini.buddyMountMs = MINI_MOUNT_MS;
+      mini.state = "carried";
+      mini.distracted = false;
+      mini.awaitRelease = false;
+      return true;
+    }
     pick.windupKey = key;
     pick.windupMs = ab.windupMs;
     pick.windupTotal = ab.windupMs;
@@ -520,6 +583,58 @@ export class BattleSim {
     p.timerMs = p.cooldownMs; // resume normal attacks after a beat
   }
 
+  /** Dismount a Mini Buddy at the line. Both units remain alive and committed;
+   *  the arrival briefly stuns the current enemy before normal attacks resume. */
+  private deployMiniBuddy(carrier: SimUnit, foe: SimUnit | null) {
+    if (!carrier.buddyId) return;
+    const mini = this.players.find((p) => p.id === carrier.buddyId);
+    carrier.buddyId = null;
+    carrier.abilityCdMs = ACTIVATED_ABILITY.attachMini.cooldownMs;
+    if (foe) foe.stunMs = Math.max(foe.stunMs, MINI_ARRIVAL_STUN_MS);
+    if (!mini || !mini.alive) return;
+    mini.buddyCarrierId = null;
+    mini.buddyMountMs = 0;
+    mini.x = carrier.x - 10;
+    mini.y = carrier.y;
+    mini.prevX = mini.x;
+    mini.prevY = mini.y;
+    mini.charge = 1;
+    mini.formOrder = carrier.formOrder + 0.25;
+    mini.state = "advance";
+    mini.timerMs = mini.cooldownMs;
+  }
+
+  /** Garden support heals from its rear position. Heal targets the most injured
+   *  deployed ally; Heal All restores every damaged deployed ally. */
+  private stepHealing(dtMs: number) {
+    const deployed = this.players.filter(
+      (p) => p.alive && (p.state === "advance" || p.state === "fight")
+    );
+    for (const healer of deployed) {
+      if (!this.isHealer(healer)) continue;
+      healer.healTimerMs -= dtMs;
+      if (healer.healTimerMs > 0) continue;
+
+      const aoe = healer.abilities.includes("healAOE");
+      const damaged = deployed.filter((p) => p.hp < p.maxHp && (aoe || p.id !== healer.id));
+      if (!damaged.length) {
+        healer.healTimerMs = 250; // check again soon without banking many instant heals
+        continue;
+      }
+
+      const targets = aoe
+        ? damaged
+        : [damaged.reduce((a, b) => b.hp / b.maxHp < a.hp / a.maxHp ? b : a)];
+      const frac = aoe ? HEAL_AOE_FRAC : HEAL_SINGLE_FRAC;
+      for (const target of targets) {
+        const amount = Math.max(1, Math.round(target.maxHp * frac));
+        target.hp = Math.min(target.maxHp, target.hp + amount);
+        target.healFxSeq++;
+      }
+      healer.healTimerMs = aoe ? HEAL_AOE_MS : HEAL_SINGLE_MS;
+    }
+  }
+
   /** Nearest enemy a zombie can reach (on the ground, not queued/perched). */
   private targetEnemy(u: SimUnit): SimUnit | null {
     let best: SimUnit | null = null;
@@ -539,8 +654,8 @@ export class BattleSim {
    *  nearest the enemy down the lane, NOT the whole front row. Enemies commit all
    *  their damage to this one target (a big/slow hit knocks it back or drops it
    *  rather than chipping the entire line), so losses are more focused. Among the
-   *  front column (zombies sharing the lead x) the tiebreak picks the one closest to
-   *  the enemy's own row. */
+    *  front column (zombies sharing the lead x) the tiebreak picks the visually
+    *  front-most unit (largest y), matching the renderer's depth order. */
   private playerInRange(e: SimUnit): SimUnit | null {
     let best: SimUnit | null = null;
     for (const p of this.players) {
@@ -549,7 +664,7 @@ export class BattleSim {
       if (
         !best ||
         p.x > best.x + 0.5 || // more forward (nearer the enemy) wins
-        (Math.abs(p.x - best.x) <= 0.5 && Math.abs(p.y - e.y) < Math.abs(best.y - e.y))
+        (Math.abs(p.x - best.x) <= 0.5 && p.y > best.y)
       ) {
         best = p;
       }
@@ -623,6 +738,12 @@ export class BattleSim {
     foe.hp = 0;
     foe.alive = false;
     foe.state = "dead";
+    if (foe.buddyId) this.deployMiniBuddy(foe, null);
+    if (foe.buddyCarrierId) {
+      const carrier = this.players.find((p) => p.id === foe.buddyCarrierId);
+      if (carrier) carrier.buddyId = null;
+      foe.buddyCarrierId = null;
+    }
     // A downed enemy opens the gate for the next to emerge after a beat.
     if (fromPlayer && foe.team === "enemy") this.emergeCooldown = ENEMY_EMERGE_GAP_MS;
   }
@@ -730,26 +851,36 @@ export class BattleSim {
     }
   }
 
-  /** Assign formation slots to the committed (released) zombies: up to MAX_ROWS
-   *  rows, then filling into depth columns behind. Headless zombies take priority
-   *  for the front, then oldest-released first. Only the front column reaches the
-   *  enemy, so at most MAX_ROWS zombies fight at once. */
+  /** Assign formation slots back-to-front within each depth column. The first
+   *  combat-priority unit occupies the visually front-most (largest-y) row, and the
+   *  enemy uses that same ordering when choosing a target. Garden healers hold at
+   *  SUPPORT_X while any non-healer remains to maintain the frontline. */
   private assignFormation() {
     const committed = this.players.filter(
       (p) => p.alive && (p.state === "advance" || p.state === "fight")
     );
-    committed.sort(
+    const front = committed.filter((p) => !this.isHealer(p));
+    const support = committed.filter((p) => this.isHealer(p));
+    const frontline = front.length ? front : committed;
+    const rear = front.length ? support : [];
+
+    frontline.sort(
       (a, b) => Number(b.isHeadless) - Number(a.isHeadless) || a.formOrder - b.formOrder
     );
-    const frontX = ENEMY_HOLD_X - ENGAGE;
-    // Center on the number of rows actually used so columns align into shared rows.
-    const rowsUsed = Math.min(MAX_ROWS, committed.length);
-    committed.forEach((p, i) => {
-      const col = Math.floor(i / MAX_ROWS);
-      const rowInCol = i % MAX_ROWS;
-      p.slotX = frontX - col * COL_GAP;
-      p.slotY = CENTER_Y + (rowInCol - (rowsUsed - 1) / 2) * ROW_GAP;
-    });
+    rear.sort((a, b) => a.formOrder - b.formOrder);
+
+    const place = (units: SimUnit[], baseX: number) => {
+      const rowsUsed = Math.min(MAX_ROWS, units.length);
+      units.forEach((p, i) => {
+        const col = Math.floor(i / MAX_ROWS);
+        const rowInCol = i % MAX_ROWS;
+        const frontToBackRow = rowsUsed - 1 - rowInCol;
+        p.slotX = baseX - col * COL_GAP;
+        p.slotY = CENTER_Y + (frontToBackRow - (rowsUsed - 1) / 2) * ROW_GAP;
+      });
+    };
+    place(frontline, FRONT_X);
+    place(rear, SUPPORT_X);
   }
 
   /** Advance the sim by `dtMs`. Returns false once the battle is over. */
@@ -783,7 +914,8 @@ export class BattleSim {
     this.stepProjectiles(dtMs);
 
     this.assignFormation();
-    const frontX = ENEMY_HOLD_X - ENGAGE;
+    this.stepHealing(dtMs);
+    const frontX = FRONT_X;
 
     // Zombies.
     for (const p of this.players) {
@@ -832,6 +964,11 @@ export class BattleSim {
           }
           break;
         }
+        case "carried": {
+          p.buddyMountMs = Math.max(0, p.buddyMountMs - dtMs);
+          p.timerMs = p.cooldownMs;
+          break;
+        }
         default: {
           // Stunned by an enemy hit — can't move or attack until it wears off.
           if (p.stunMs > 0) {
@@ -843,7 +980,7 @@ export class BattleSim {
           const mdx = p.slotX - p.x;
           const mdy = p.slotY - p.y;
           const md = Math.hypot(mdx, mdy);
-          const stepd = (p.moveSpeed * dtMs) / 1000;
+          const stepd = (p.moveSpeed * (p.buddyId ? 2 : 1) * dtMs) / 1000;
           if (md > stepd) {
             p.x += (mdx / md) * stepd;
             p.y += (mdy / md) * stepd;
@@ -858,6 +995,8 @@ export class BattleSim {
           const foe = this.targetEnemy(p);
           const enemyArrived = !!foe && (foe.state === "hold" || foe.state === "fight");
           const inCombatZone = p.x >= frontX - MAX_ROWS * COL_GAP - 12;
+          const atSlot = Math.hypot(p.slotX - p.x, p.slotY - p.y) <= 2;
+          if (p.buddyId && enemyArrived && atSlot) this.deployMiniBuddy(p, foe);
           if (foe && enemyArrived && inCombatZone) {
             p.state = "fight";
             // A charging zombie makes no normal attacks — it's winding up the big
@@ -1084,7 +1223,7 @@ export class BattleSim {
     let best: SimUnit | null = null;
     for (const p of this.players) {
       if (!p.alive || (p.state !== "fight" && p.state !== "advance")) continue;
-      if (!best || p.x > best.x) best = p;
+      if (!best || p.x > best.x + 0.5 || (Math.abs(p.x - best.x) <= 0.5 && p.y > best.y)) best = p;
     }
     return best;
   }

@@ -1,8 +1,17 @@
 # Zombie Farm — Security & Capacity Runbook
 
-Operational companion to [`../SECURITY.md`](../SECURITY.md) item 10. Covers what the
-Worker logs, what to alert on, and how to respond. Kept practical: every response
-step is a command you can paste.
+Operational companion to [`../SECURITY.md`](../SECURITY.md). Covers what the Worker
+logs, what to alert on, and how to respond.
+
+> **Protocol-v3 notice (2026-07-15):** much of the detailed event catalog below was
+> created for the retired v2 save/action/replay routes. Protocol v3 emits request
+> metrics and selected successful-command audit rows, but individual semantic command
+> rejections inside an HTTP-200 batch are not yet emitted through `slog()`. Do not
+> assume the absence of v2 rejection events proves that v3 traffic is clean.
+>
+> For an active gameplay-integrity incident, set `MUTATIONS_DISABLED=1` and deploy.
+> Raising `MIN_PROTOCOL_VERSION` currently stops stale `/commands` clients only; it
+> does not stop `/raid/start`, `/raid/finish`, or `/presentation`.
 
 The Worker is a Cloudflare Worker (`src/index.ts`) backed by one D1 database named
 `zombiefarm` (see `wrangler.toml`). Logs go to stdout; view them live with

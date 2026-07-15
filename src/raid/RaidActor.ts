@@ -34,7 +34,7 @@ const ARM_WALK_SWAY = 0.09;
 // under gravity while it spins. Worked in the rig's LOCAL space (a POSITIVE x is always
 // "backward" because root.scale.x carries the facing sign), so it flies the right way
 // whichever direction the zombie faced.
-const DEATH_HEAD_VX = 62; // local px/s, backward (away from the enemy)
+const DEATH_HEAD_VX = 92; // local px/s, backward (away from the enemy)
 const DEATH_HEAD_VY = -255; // local px/s, up
 const DEATH_HEAD_G = 820; // gravity pulling the head back down
 const DEATH_HEAD_SPIN = 13; // rad/s tumble

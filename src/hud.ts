@@ -2852,6 +2852,9 @@ export class Hud {
       row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
       row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
       row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
+      row("Mute When Unfocused", this.audio.muteWhenUnfocused,
+        (v) => this.audio.setMuteWhenUnfocused(v)),
+      noteEl("Silence the game while its tab or window is in the background."),
       ...bgBlock,
       spriteRow, spriteNote,
       editionRow, editionNote

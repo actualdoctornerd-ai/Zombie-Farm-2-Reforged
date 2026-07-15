@@ -286,4 +286,5 @@ export interface Settings {
   music: boolean;    // farm BGM loop — defaults on
   sfx: boolean;      // action + menu one-shots — defaults on
   ambience: boolean; // ambient farm bed (birds/rooster) — defaults on
+  muteWhenUnfocused: boolean; // pause all audio while the game lacks focus
 }

@@ -71,8 +71,9 @@ export const ACTIVATED_ABILITY: Record<string, ActivatedAbility> = {
   //  Explode: shorter charge, hits the whole enemy line and stuns it.
   explode: { windupMs: 2500, damageFactor: 5, aoe: true, stunMs: 1500, cooldownMs: 7000 },
   explodeV2: { windupMs: 2500, damageFactor: 8, aoe: true, stunMs: 2500, cooldownMs: 7000 },
-  //  Mini Buddy: carry a mini zombie and ram — a quick, strong single hit.
-  attachMini: { windupMs: 1500, damageFactor: 4, cooldownMs: 5000 },
+  // Mini Buddy is state-driven in BattleSim: mount before deployment, 2× run,
+  // arrival stun, then deploy both units. These generic hit fields are unused.
+  attachMini: { windupMs: 0, damageFactor: 0, cooldownMs: 5000 },
 };
 
 /** How one ability modifies its owner (and, for sustain/support, the whole army).
@@ -103,7 +104,7 @@ export const ABILITY_COMBAT: Record<string, AbilityCombatEffect> = {
   attackSpeedBuff: { selfSpeedMult: 1.1 }, // CONFIRMED +10% speed
   powerBuff: { selfDamageMult: 1.1 }, // CONFIRMED +10% power
   hitPointsBuff: { selfHpMult: 1.1 }, // CONFIRMED +10% life
-  heal: { armyHpMult: 1.05 }, // EYEBALLED "heal other zombies" — mild army sustain
+  heal: {}, // live BattleSim performs actual targeted healing
 
   // ---- Tier 2 ----
   chivalry: { allStatsMult: 1.03 }, // EYEBALLED — no in-game description exists
@@ -126,7 +127,7 @@ export const ABILITY_COMBAT: Record<string, AbilityCombatEffect> = {
   explodeV2: { selfDamageMult: 1.25 }, // ACTIVATED (live) — modest instant-resolve EV
   bashV2: { selfDamageMult: 1.25 }, // ACTIVATED (live) — modest instant-resolve EV
   block: { selfHpMult: 1.15 }, // EYEBALLED EV of a small block chance
-  healAOE: { armyHpMult: 1.12 }, // EYEBALLED periodic heal-all — bigger sustain
+  healAOE: {}, // live BattleSim performs actual periodic heal-all
 };
 
 // Army-wide sustain stacks multiplicatively across the party (two healers help

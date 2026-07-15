@@ -204,8 +204,50 @@ def make_composites():
 
 
 def slice_crops():
-    n = slice_named("Crops1.plist", "Crops1.png",
-                    ["carrot_stage1.png", "carrot_stage2.png"], "crops")
+    # Core + event crop frames that live in the two packed crop atlases.
+    n = slice_named("Crops1.plist", "Crops1.png", [
+        "carrot_stage1.png", "carrot_stage2.png",
+        "candycorn_stage1.png", "candycorn_stage2.png",
+    ], "crops")
+    n += slice_named("Crops2.plist", "Crops2.png",
+                     ["corn_stage1.png", "corn_stage2.png"], "crops")
+    n += slice_named("starFruitCrop.plist", "starFruitCrop.png",
+                     ["starfruit1_stage1.png", "starfruit1_stage2.png"], "crops")
+
+    crop_out = os.path.join(OUT, "crops")
+
+    def loose(src_name, out_name):
+        nonlocal n
+        Image.open(os.path.join(APP, src_name)).convert("RGBA").save(
+            os.path.join(crop_out, out_name))
+        n += 1
+
+    # Event crops distributed as loose stage images rather than atlas frames.
+    for src, dst in [
+        ("holly_crop_stage1.png", "holly_stage1.png"),
+        ("holly_crop_stage2.png", "holly_stage2.png"),
+        ("FireCracker_Crop_baby.png", "firecracker_stage1.png"),
+        ("FireCracker_Crop_bloom.png", "firecracker_stage2.png"),
+        ("KELP_CROP_1.png", "kelp_stage1.png"),
+        ("KELP_CROP_2.png", "kelp_stage2.png"),
+        ("WATER_LILLY_CROP_1.png", "water_lily_stage1.png"),
+        ("WATER_LILLY_CROP_2.png", "water_lily_stage2.png"),
+        ("Dia_DeLos_Muerte_MarigoldSeed.png", "marigold_stage1.png"),
+        ("Dia_DeLos_Muerte_MarigoldHarvestable.png", "marigold_stage2.png"),
+    ]:
+        loose(src, dst)
+
+    # These three event crops keep both growth frames in one loose sheet.
+    sheets = [
+        ("tex2005.png", ((1, 1, 190, 92), (1, 94, 189, 332)), "cupcakes"),
+        ("eggplant.png", ((0, 0, 192, 128), (0, 128, 192, 256)), "eggplant"),
+        ("rainbowCrop.png", ((0, 139, 189, 229), (0, 0, 189, 135)), "rainbow"),
+    ]
+    for src_name, boxes, stem in sheets:
+        sheet = Image.open(os.path.join(APP, src_name)).convert("RGBA")
+        for stage, box in enumerate(boxes, 1):
+            sheet.crop(box).save(os.path.join(crop_out, f"{stem}_stage{stage}.png"))
+            n += 1
     print(f"crops: sliced {n} crop-stage sprites")
 
 

@@ -69,15 +69,18 @@ interface StoredSettings {
   music?: boolean;
   sfx?: boolean;
   ambience?: boolean;
+  muteWhenUnfocused?: boolean;
 }
 
 export class AudioManager {
   musicOn = true;
   sfxOn = true;
   ambienceOn = true;
+  muteWhenUnfocused = false;
   private bgm: HTMLAudioElement;
   private ambBed: HTMLAudioElement;
   private ambTimer: ReturnType<typeof setTimeout> | null = null;
+  private oneShots = new Set<HTMLAudioElement>();
   private armed = false; // whether a user-gesture resume listener is pending
   // While a raid is up, its looping stage BGM replaces the farm bgm. `raidBgm`
   // holds the active raid track (and `raidFile` its filename); the farm bgm is
@@ -103,8 +106,16 @@ export class AudioManager {
     this.musicOn = s.music ?? true;
     this.sfxOn = s.sfx ?? true;
     this.ambienceOn = s.ambience ?? true;
-    if (this.musicOn) void this.bgm.play().catch(() => this.arm());
-    if (this.ambienceOn) this.startAmbience();
+    this.muteWhenUnfocused = s.muteWhenUnfocused ?? false;
+
+    // `visibilitychange` covers background tabs/minimized windows while the
+    // focus events also cover switching to another desktop window.
+    window.addEventListener("focus", this.syncFocusAudio);
+    window.addEventListener("blur", this.syncFocusAudio);
+    document.addEventListener("visibilitychange", this.syncFocusAudio);
+
+    if (this.musicOn && this.canPlay()) void this.bgm.play().catch(() => this.arm());
+    if (this.ambienceOn && this.canPlay()) this.startAmbience();
   }
 
   // --- persistence ---------------------------------------------------------
@@ -118,6 +129,7 @@ export class AudioManager {
   private persist() {
     const data: StoredSettings = {
       music: this.musicOn, sfx: this.sfxOn, ambience: this.ambienceOn,
+      muteWhenUnfocused: this.muteWhenUnfocused,
     };
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
@@ -129,11 +141,12 @@ export class AudioManager {
   // Some browsers block audio until the first user gesture. Arm a one-time
   // listener that resumes any looping channel the user has enabled.
   private arm() {
-    if (this.armed) return;
+    if (this.armed || !this.canPlay()) return;
     this.armed = true;
     const resume = () => {
       this.armed = false;
       window.removeEventListener("pointerdown", resume);
+      if (!this.canPlay()) return;
       if (this.musicOn) void this.activeBgm().play().catch(() => {});
       if (this.ambienceOn && this.ambBed.paused) void this.ambBed.play().catch(() => {});
     };
@@ -147,9 +160,31 @@ export class AudioManager {
     return this.raidBgm ?? this.bgm;
   }
 
+  private canPlay(): boolean {
+    return !this.muteWhenUnfocused || (!document.hidden && document.hasFocus());
+  }
+
+  private syncFocusAudio = () => {
+    if (!this.canPlay()) {
+      this.activeBgm().pause();
+      this.stopAmbience();
+      for (const audio of this.oneShots) audio.pause();
+      this.oneShots.clear();
+      return;
+    }
+    if (this.musicOn) void this.activeBgm().play().catch(() => this.arm());
+    if (this.ambienceOn) this.startAmbience();
+  };
+
+  setMuteWhenUnfocused(on: boolean) {
+    this.muteWhenUnfocused = on;
+    this.syncFocusAudio();
+    this.persist();
+  }
+
   setMusic(on: boolean) {
     this.musicOn = on;
-    if (on) void this.activeBgm().play().catch(() => this.arm());
+    if (on && this.canPlay()) void this.activeBgm().play().catch(() => this.arm());
     else this.activeBgm().pause();
     this.persist();
   }
@@ -168,7 +203,7 @@ export class AudioManager {
       this.raidBgm = a;
       this.raidFile = file;
     }
-    if (this.musicOn) void this.raidBgm!.play().catch(() => this.arm());
+    if (this.musicOn && this.canPlay()) void this.raidBgm!.play().catch(() => this.arm());
   }
 
   // Leave a raid: stop the raid track and hand the farm bgm back. `keepFarmPaused`
@@ -180,7 +215,7 @@ export class AudioManager {
       this.raidBgm = null;
       this.raidFile = "";
     }
-    if (!keepFarmPaused && this.musicOn) void this.bgm.play().catch(() => this.arm());
+    if (!keepFarmPaused && this.musicOn && this.canPlay()) void this.bgm.play().catch(() => this.arm());
   }
 
   // --- sfx -----------------------------------------------------------------
@@ -191,33 +226,37 @@ export class AudioManager {
 
   // Fire-and-forget one-shot (new element each time so overlaps don't cut off).
   play(name: Sfx) {
-    if (!this.sfxOn) return;
-    const a = new Audio(A(SFX_FILE[name]));
-    a.volume = SFX_VOL[name] ?? DEFAULT_VOL;
-    void a.play().catch(() => {});
+    if (!this.sfxOn || !this.canPlay()) return;
+    this.playOneShot(SFX_FILE[name], SFX_VOL[name] ?? DEFAULT_VOL);
   }
 
   // A zombie's "Brains…" bark when it's tapped on the farm, chosen by its group.
   brain(group: string, key: string) {
-    if (!this.sfxOn) return;
-    const a = new Audio(A(brainFile(group, key)));
-    a.volume = 0.7;
-    void a.play().catch(() => {});
+    if (!this.sfxOn || !this.canPlay()) return;
+    this.playOneShot(brainFile(group, key), 0.7);
   }
 
   // A placed decoration's signature tap sound (TileProperties tapSoundEffect /
   // soundID — e.g. the Liberty Bell toll, Gnome King laugh). Gated on SFX.
   tap(file: string) {
-    if (!this.sfxOn || !file) return;
+    if (!this.sfxOn || !file || !this.canPlay()) return;
+    this.playOneShot(file, 0.7);
+  }
+
+  private playOneShot(file: string, volume: number) {
     const a = new Audio(A(file));
-    a.volume = 0.7;
-    void a.play().catch(() => {});
+    a.volume = volume;
+    this.oneShots.add(a);
+    const done = () => this.oneShots.delete(a);
+    a.addEventListener("ended", done, { once: true });
+    a.addEventListener("error", done, { once: true });
+    void a.play().catch(done);
   }
 
   // --- ambience ------------------------------------------------------------
   setAmbience(on: boolean) {
     this.ambienceOn = on;
-    if (on) this.startAmbience();
+    if (on && this.canPlay()) this.startAmbience();
     else this.stopAmbience();
     this.persist();
   }
@@ -239,11 +278,9 @@ export class AudioManager {
     if (this.ambTimer !== null) clearTimeout(this.ambTimer);
     const delay = AMBIENCE_MIN_MS + Math.random() * (AMBIENCE_MAX_MS - AMBIENCE_MIN_MS);
     this.ambTimer = setTimeout(() => {
-      if (this.ambienceOn) {
+      if (this.ambienceOn && this.canPlay()) {
         const file = AMBIENCE_ONESHOTS[Math.floor(Math.random() * AMBIENCE_ONESHOTS.length)];
-        const a = new Audio(A(file));
-        a.volume = 0.3;
-        void a.play().catch(() => {});
+        this.playOneShot(file, 0.3);
         this.scheduleAmbienceOneShot();
       }
     }, delay);

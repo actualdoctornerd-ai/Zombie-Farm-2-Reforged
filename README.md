@@ -7,7 +7,7 @@ codebase:
 - **Offline/local build** — fully client-side, saves to `localStorage`, no server
   or account needed. This is what you get when the online config is left blank.
 - **Hosted online build** — the deployed production site requires **Google
-  sign-in** and a player-chosen username, and stores the authoritative save in a
+  sign-in** and a player-chosen username, and stores protocol-v3 gameplay state in a
   Cloudflare Worker + D1 backend. It adds cloud saves, friends, brain gifting, and
   read-only visits to friends' farms.
 
@@ -71,13 +71,13 @@ future agents do not work from stale assumptions.
 ### Online and social (Reforged)
 - **Google account authentication** — the hosted build gates the whole game behind Sign in with Google (`src/net/gate.ts`); an offline build (no config) has no lock.
 - **Player-chosen usernames** picked on first login.
-- **Cloud saves** across devices: the Cloudflare Worker is the authoritative store, with revision-guarded writes, 409 conflict handling, an offline retry outbox, and a local per-account cache.
+- **Online state** across devices: the Cloudflare Worker owns ordinary protocol-v3 gameplay state, with account-version conflict handling, an offline command outbox, and a local per-account cache. Raid outcome verification and cross-route raid serialization remain known security gaps; see `SECURITY.md`.
 - **Friends**: friend codes, server-backed friend lists, **daily brain gifting**, and a **gift inbox** with claiming.
 - **Read-only friend-farm visits**: the client reloads into visit mode and the server returns an allowlisted projection of the friend's save (farm, objects, zombies, Zombie Pot only — currencies zeroed; progression, quests, raids, storage, and social data omitted). Autosave is disabled and editing controls are hidden while visiting.
 
 ### Platform and interface
 - One responsive build for phone and desktop: capability autodetection (`src/platform.ts`), a compact touch HUD, and pinch-to-zoom/pan.
-- Music, sound effects, and farm ambience are enabled by default and can be toggled independently in Settings. The mandatory first-run tutorial uses real farm actions: plow, plant a zombie, buy and use Insta-Grow, harvest, then raid. Developer controls (a separate menu opened by an invisible hotspot beside the nameplate) support testing.
+- Music, sound effects, and farm ambience are enabled by default and can be toggled independently in Settings. An optional **Mute When Unfocused** setting silences all channels while the game tab or window is in the background. The mandatory first-run tutorial uses real farm actions: plow, plant a zombie, buy and use Insta-Grow, harvest, then raid. Developer controls (a separate menu opened by an invisible hotspot beside the nameplate) support testing.
 - **Farm background** setting: foliage density choices (Deep Forest / Woodland / Light Meadow) persisted in `src/prefs.ts`. This changes the density of decorative surrounding foliage — distinct from ground/climate skins, which change the farm's tile terrain.
 - Settings toggles for **ZF2 Sprites** and **Reforged** edition, both persisted preferences (`src/prefs.ts`). Their behavior is **not yet wired** — the sprite toggle doesn't swap art, and the edition toggle doesn't gate features yet.
 

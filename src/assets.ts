@@ -109,6 +109,7 @@ export interface PlantDef {
   xp: number; // xp granted on harvest
   stage1: string;
   stage2: string;
+  seasonal?: boolean;
 }
 export interface ZombieDef {
   key: string;

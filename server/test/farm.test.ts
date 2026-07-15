@@ -12,8 +12,8 @@ const NOW = 1_700_000_000_000;
 const ctx = (over: Partial<PlantContext> = {}): PlantContext => ({ size: 30, level: 99, plowed: true, ...over });
 
 describe("catalog", () => {
-  it("has the 12 veggie crops with positive economics", () => {
-    expect(Object.keys(CROPS)).toHaveLength(12);
+  it("has the core and seasonal veggie crops with positive economics", () => {
+    expect(Object.keys(CROPS)).toHaveLength(22);
     for (const [k, c] of Object.entries(CROPS)) {
       expect(c.cost, k).toBeGreaterThan(0);
       expect(c.sell, k).toBeGreaterThan(0);

@@ -180,6 +180,7 @@ interface Token {
   wasSmashWindup: number;
   actorBaseScale: number; // the zombie rig's normal container scale (for the feet-anchored grow)
   actorBaseY: number; // and its normal container y (feet at the token origin)
+  healFxSeq: number; // last heal event rendered for this unit
 }
 
 async function loadTex(url: string): Promise<Texture | null> {
@@ -248,6 +249,7 @@ export class RaidScene {
   private bashCfg: ParticleConfig | null = null;
   private confettiCfg: ParticleConfig | null = null;
   private smokeCfg: ParticleConfig | null = null; // enemy death poof (source: playDeathEffect → smoke.plist)
+  private healCfg: ParticleConfig | null = null;
   private confettiFired = false;
 
   // team bars
@@ -394,10 +396,11 @@ export class RaidScene {
     this.container.addChild(this.projLayer);
     this.container.addChild(this.fxLayer); // death poofs draw above everything
     this.container.addChild(this.particles.container); // impact dust / confetti on top
-    [this.bashCfg, this.confettiCfg, this.smokeCfg] = await Promise.all([
+    [this.bashCfg, this.confettiCfg, this.smokeCfg, this.healCfg] = await Promise.all([
       loadParticle("bash"),
       loadParticle("confetti"),
       loadParticle("smoke"),
+      loadParticle("healSingle"),
     ]);
     for (const opt of this.bossThrow?.options ?? []) {
       if (this.projTex.has(opt.sprite)) continue;
@@ -633,6 +636,9 @@ export class RaidScene {
       root.addChild(front); // in front of the pilot, below the bars added next
     }
 
+    // Weapon reach should not dictate health-bar width. Enemy bars use compact,
+    // role-based caps while player bars retain their body-relative sizing.
+    if (u.team === "enemy") base = Math.min(base, u.isBoss ? 55 : 42);
     // Health bar sits ABOVE the head (enemies red, players green — set in layout).
     const hp = new Graphics();
     hp.y = topY - 8;
@@ -651,6 +657,7 @@ export class RaidScene {
       root, actor, enemyActor, hp, charge, base, topY, pulse: 0, atkCount: 0,
       deathAnim: -1, emerged: false,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
+      healFxSeq: 0,
     };
   }
 
@@ -889,9 +896,22 @@ export class RaidScene {
       const szs = this.sizeScale();
       const slide = u.team === "player" ? -introSlide : 0;
       const drop = u.team === "player" ? PLAYER_NUDGE * szs : 0; // zombies sit lower
-      const [sx, sy] = u.isBoss ? bossPos(u) : [toX(u.x) + slide, toY(u.y) + drop];
+      let [sx, sy] = u.isBoss ? bossPos(u) : [toX(u.x) + slide, toY(u.y) + drop];
+      // Mini Buddy jumps from its waiting spot onto the Large zombie, then rides
+      // near the carrier's shoulder until the pair reaches the frontline.
+      if (u.state === "carried" && u.buddyCarrierId) {
+        const carrier = this.sim.units.find((p) => p.id === u.buddyCarrierId);
+        const carrierTok = carrier ? this.tokens.get(carrier.id) : undefined;
+        if (carrier && carrierTok) {
+          const tx = toX(carrier.x) - 8 * szs;
+          const ty = toY(carrier.y) + PLAYER_NUDGE * szs + carrierTok.topY * 0.58 * szs;
+          const t = Math.max(0, Math.min(1, 1 - u.buddyMountMs / 500));
+          sx += (tx - sx) * t;
+          sy += (ty - sy) * t - Math.sin(Math.PI * t) * 30 * szs;
+        }
+      }
       tok.root.position.set(sx, sy);
-      tok.root.zIndex = u.isBoss ? 3 : u.alive ? 2 : 1;
+      tok.root.zIndex = u.isBoss ? 100000 : u.alive ? Math.round(sy * 10) : 0;
 
       // Track the perched boss's throwing hand so projectiles leave from it (his upper
       // body), not the raw sim origin mapped independently (which read down-left of him).
@@ -908,7 +928,10 @@ export class RaidScene {
       }
 
       if (u.alive) {
-        tok.root.scale.set((1 + 0.16 * tok.pulse) * szs);
+        // Normal zombies stay at a stable size; only enemies retain the compact hit
+        // pulse. Smash still scales the actor rig itself below as part of the move.
+        const pulseScale = u.team === "enemy" ? 1 + 0.16 * tok.pulse : 1;
+        tok.root.scale.set(pulseScale * szs);
         tok.root.alpha = 1;
       } else {
         // On death: puff a dust cloud once, then fade + settle out over DEATH_FADE
@@ -929,9 +952,15 @@ export class RaidScene {
         }
         tok.deathAnim += dtSec;
         const k = Math.min(1, tok.deathAnim / DEATH_FADE);
-        tok.root.scale.set((1 + 0.16 * tok.pulse) * (1 - 0.28 * k) * szs);
+        const pulseScale = u.team === "enemy" ? 1 + 0.16 * tok.pulse : 1;
+        tok.root.scale.set(pulseScale * (1 - 0.28 * k) * szs);
         tok.root.alpha = 1 - k;
         tok.root.y = sy + k * 7 * szs; // slight settle downward
+      }
+
+      if (u.healFxSeq > tok.healFxSeq) {
+        tok.healFxSeq = u.healFxSeq;
+        if (this.healCfg) this.particles.burst(this.healCfg, sx, sy + tok.topY * 0.45 * szs, 0.55);
       }
 
       // Zombie rig: play the walk animation whenever it's actually moving, and
@@ -999,7 +1028,7 @@ export class RaidScene {
 
       const frac = Math.max(0, u.hp / u.maxHp);
       tok.hp.clear();
-      if (u.alive) {
+      if (u.alive && u.state !== "carried") {
         const w = tok.base * 2;
         const fill = u.team === "enemy" ? ENEMY_COLOR : PLAYER_COLOR; // enemies red
         tok.hp
@@ -1180,7 +1209,10 @@ export class RaidScene {
 
   private drawTeamBar(bar: Graphics, fill: Graphics, w: number, h: number, frac: number, color: number) {
     const f = Math.max(0, Math.min(1, frac));
-    bar.clear().roundRect(0, 0, w, h, 4).fill({ color: 0x000000, alpha: 0.5 });
+    bar.clear()
+      .roundRect(-5, -5, w + 10, h + 10, 7).fill({ color: 0x11130f, alpha: 0.94 })
+      .roundRect(0, 0, w, h, 4).fill({ color: 0x050505, alpha: 0.82 })
+      .roundRect(-5, -5, w + 10, h + 10, 7).stroke({ width: 2, color: 0xd9e2c4, alpha: 0.8 });
     fill.clear();
     if (f > 0) fill.roundRect(0, 0, w * f, h, 4).fill(color);
   }

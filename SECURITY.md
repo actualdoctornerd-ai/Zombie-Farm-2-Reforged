@@ -1,211 +1,194 @@
 # Security and Anti-Cheat Status
 
-Last reviewed: 2026-07-14
+Last reviewed: 2026-07-15
 
-## Scope and deployment assumption
+## Scope and status
 
-This document covers the browser client, cloud saves, Cloudflare Worker/D1 backend,
-authentication and sessions, social features, economy, farms, quests, raids, abuse controls,
-and expected free-tier load.
+This document describes the current source tree at protocol v3. It covers authentication,
+sessions, social features, gameplay commands, persistence, economy, farms, quests, raids,
+rate limiting, and operational controls.
 
-The status below describes the current source tree assuming migration `0019_integrity_v2.sql`,
-the Worker, and the client are deployed together. Until the remote migration and Worker version
-are confirmed, this is the release-candidate posture rather than a claim about production.
+The configured public Worker responds to health checks and rejects unauthenticated protected
+requests, but its deployed commit and database migration state are not exposed publicly. Treat
+the production posture as unconfirmed until the rollout checks in
+`docs/PROTOCOL_V3_ROLLOUT.md` are performed against the live environment.
 
 ## Current conclusion
 
-Integrity v2 changes significant online value from server-bounded client claims to server-proven
-transitions. Editing a cloud save, replaying a request, racing purchases, fabricating a roster
-casualty, or submitting a claimed raid outcome should not create persistent value. Quests are the
-deliberate low-stakes exception: completion timing is client-asserted, while rewards remain
-server-priced and payable only once per account and quest.
+Protocol v3 is a strong server-authoritative base for ordinary farm, shop, inventory, object,
+storage, roster, and social operations. It is **not currently safe for paid currency,
+competitive rankings, trading, PvP, or other rewards whose integrity has real-world value**.
 
-The remaining work is operational: apply the migration, deploy the Worker/client, run production
-smoke tests, confirm replay CPU in the Workers runtime, and connect the documented security events
-to alerts. Paid currency, trading, leaderboards, and PvP should remain disabled until those release
-gates pass.
+Three known anti-cheat gaps block that use:
 
-Cross-account authorization remains the strongest part of the system and was not redesigned:
-the authenticated account determines ownership, friendship requires consent, blocks are honored,
-gifts are unique/idempotent, visitor data is projected, and sessions are revocable.
+1. Raid finish trusts client-asserted victory and casualty data after a minimum elapsed time.
+2. Raid mutations do not participate in the account command compare-and-swap boundary, leaving
+   cross-route race and stale-write opportunities.
+3. A placed Plowing Monolith makes plowing free, while removing and re-plowing soil repeatedly
+   awards XP without a gameplay-time gate.
 
-## Controls implemented
+Until those gaps are fixed, raid rewards and competitive progression must be treated as
+fun-only. Use `MUTATIONS_DISABLED=1` if active exploitation is observed.
 
-### 1. Migration closure and atomic value bounds
+## Controls currently implemented
 
-- `account_import_state` permanently records inventory, object, roster, quest, balance, and shop
-  import decisions. Migration 0020 closes every category for all existing accounts and an
-  account-creation trigger starts future accounts closed too.
-- Production config now sets `MIGRATION_CUTOFF_MS="0"`. Online value imports are closed
-  immediately; preserving legacy online value is intentionally not a release requirement.
-- Legacy completed quest IDs can only be imported during an explicitly enabled recovery window,
-  and import pays no reward. Active quest counters are never imported.
-- Balance, inventory, object-count, and storage nonnegative constraints are enforced by D1
-  triggers as well as application validation.
-- Farm, inventory, object, roster, storage, economy, and shop mutations use durable action IDs.
-  Shop size/climate commands use account-scoped command receipts and per-attempt nonces. Existing
-  action receipts and new command receipts are retained for 45 days; client outbox entries expire
-  after 30 days.
-- Debits, guarded decrements/deletes, grants, ownership changes, and ledgers are tied to accepted
-  server commands. Database constraints prevent distinct racing actions from over-drawing counts
-  or balances.
-- Level rewards remain recoverable through the server-owned `claimed_level` compare-and-swap.
+### Authentication and account isolation
 
-### 2. Client-paced, bounded-once quests
+- Google ID tokens are verified for signature, issuer, audience, expiry, and subject.
+- Access tokens are signed JWTs backed by revocable D1 session rows.
+- Protected operations derive the account from the authenticated session rather than accepting
+  a target account ID from the client.
+- Logout, logout-all, individual session revocation, session listing, and idle expiry are
+  supported.
+- The `DEV_AUTH` bypass is gated server-side and production configuration sets it to `0`.
 
-- Quest counters, prerequisites, and completion timing run locally for immediate presentation and
-  persist with the local save. They are intentionally not treated as proof of gameplay.
-- Normal farm, purchase, combiner, and raid commands no longer write or replay quest gameplay
-  events, reducing D1 work and removing autosave/command-flush latency from the quest rail.
-- `POST /quest/complete` accepts a catalog quest ID. The client cannot provide a reward type or
-  amount; the Worker selects the reward from its catalog.
-- The `quest_completions` primary key on `(account_id, quest_id)` elects one payout. Concurrent,
-  repeated, or crash-retried claims for the same quest cannot pay twice.
-- Currency, XP, brains, supported boost/item rewards, and level rewards grant from the server
-  catalog. Unsupported zombie reward keys remain no-grant.
-- `GET /quest/state` is the server's paid-completion ledger. Older server progress rows may move
-  local presentation forward, but cannot roll newer local progress backward.
-- This policy knowingly allows a player to claim each catalog quest without performing its
-  objectives. The accepted maximum exposure is the finite sum of one reward per catalog quest.
+### Protocol-v3 authoritative state
 
-### 3. Deterministic raid verification
+- `/bootstrap` returns the server gameplay projection, presentation projection, writer state,
+  social summary, and resumable raid metadata.
+- `/commands` accepts an allowlisted semantic command union. It rejects arbitrary balance/state
+  setters and validates catalog keys, ownership, affordability, level gates, capacity, crop
+  timing, and coordinates on the server.
+- Farm timestamps, random IDs, fertilization, combine output, prices, refunds, XP, level rewards,
+  inventory counts, object ownership, storage counts, and roster changes are computed from
+  server-held state.
+- Command batches use account versions, a single writer device/generation, sequential command
+  numbers, a batch ID, and a D1 transaction guard. A retry of the latest committed batch returns
+  its stored result rather than applying it twice.
+- Presentation state is stored separately, versioned independently, allowlisted by top-level
+  key, and capped at 128 KiB. Presentation data is not used as gameplay authority.
+- Historical v2 save/sync/action/checkpoint routes return `410 update_required` after
+  authentication.
 
-- Browser and Worker use the same pure TypeScript `BattleSim`/raid catalogs at a fixed 50 ms tick.
-- Every session pins ruleset version 2, raid definition, server RNG seed, ordered server-owned
-  roster snapshot, derived stats/mutations/veterancy/abilities, enemy configuration, and consumed
-  voucher/Concentration/Golden Dice.
-- Start verifies ownership, uniqueness, raid/level/army gates, current locks, and consumables.
-  Participating units are locked against sale, combination, or another raid.
-- The client records only focus-bubble taps, ability activations, and retreat, each with monotonic
-  sequence and simulation tick. Finish accepts only `sessionId`, `finalTick`, and inputs.
-- Sequence, tick, ability, bubble, finish-state, session ownership/expiry, 512-input, and 32 KiB
-  transcript constraints are enforced. Invalid finishes close the session, pay nothing, and
-  release locks. Duplicate valid finishes return the stored result.
-- Outcomes, survivors, casualties, veterancy, cooldown, wins, gold, XP, loot, brain drops, quest
-  events, and unlocks are derived server-side. Loot/brain randomness is derived from the pinned
-  session seed, never from a finish claim.
-- A full synthetic three-minute 16v16 replay measured above the 8 ms CPU target locally, so the
-  predetermined checkpoint fallback is enabled. Every 15 simulated seconds the client pauses,
-  sends only the new input segment, and the Worker CAS-stores a JSON-safe verifier snapshot while
-  enforcing real-time tick pacing. Finish replays only the final segment. The dedicated,
-  non-contended checkpoint benchmark passes the 8 ms p95 gate locally; production Workers must
-  confirm it before release.
-- The historical raid start/finish implementations are not fallbacks: their routes return
-  `410 client_upgrade_required` and cannot accept outcome claims.
+### Social and abuse controls
 
-### 4. Authoritative state separated from cloud saves
+- Friendships require consent; blocks are checked in both directions.
+- Brain gifts require friendship, are limited by a database uniqueness constraint, and use a
+  unique grant record to prevent duplicate claims.
+- All routes have a global body ceiling. Presentation and command batches have tighter semantic
+  limits.
+- Cloudflare rate-limit bindings protect authentication, read, and write tiers before gameplay
+  handlers. Protocol v3 additionally limits accepted semantic commands to 120 per account per
+  minute.
+- `MUTATIONS_DISABLED=1` stops `/commands`, `/presentation`, `/raid/start`, and `/raid/finish`
+  while retaining authenticated read/bootstrap access.
 
-- `GET /state` returns authoritative balance/level, inventory, object ownership, roster, farm
-  soil/crops, shop ownership, raids, storage, and quests.
-- After import closure, cloud saves retain presentation only: layout/positions, camera/UI state,
-  tutorial presentation, and other nonvaluable data. Authoritative submitted fields are sanitized
-  before storage and cannot become future seeds.
-- Load restores presentation first, then overlays `/state`; server values always win. Conflicting
-  presentation dirt/hole entries are removed where authoritative soil/crops exist.
-- Visitor farms combine server-owned identities/counts with bounded presentation layout, so
-  fabricated objects or zombies cannot appear or mutate value.
-- Offline play remains local. With imports closed, offline-earned value cannot be promoted to an
-  online account.
+## Known vulnerabilities and limitations
 
-### 5. Abuse controls and observability
+### Critical: client-asserted raid outcomes
 
-- Farm batches are capped at 64 actions; other value routes are capped at 32. Client outboxes use
-  matching chunk sizes.
-- Native rate limiting runs before D1. Account command volume warns at 1,000 accepted commands per
-  hour and rejects at 2,000/hour or 10,000/day.
-- Integrity v2 is advertised by the client and production sets immediate enforcement. Old mutation
-  clients receive `426 client_upgrade_required`.
-- Structured, PII-free events cover auth failures, rate limits, rejected prerequisites, command
-  volume, save conflicts, rejected quest IDs, invalid raid input, transcript size, replay CPU,
-  and cleanup. Aggregate Worker requests/CPU and D1 reads/writes/storage must also be monitored.
-- Cleanup retains idempotency longer than client outboxes and removes processed gameplay events,
-  verifier checkpoints/locks, expired raid sessions, old ledgers, sessions, and rate buckets.
+Protocol-v3 `/raid/finish` accepts `win`, `survivors`, and `losses` from the client. The server
+checks that survivors and losses form a partition of the roster pinned at start and enforces a
+15-second earliest finish, but it does not replay combat or prove the result. A modified client
+can therefore submit a flawless victory and receive the catalog-bounded gold, first-clear XP,
+loot, quest events, and progress for that raid.
 
-## Adversarial coverage
+The deterministic protocol-v2 verifier remains in the repository but is not used by the active
+v3 raid endpoints. Documentation or tests for that verifier must not be interpreted as a v3
+security guarantee.
 
-The automated suite now covers:
+Required fix: derive victory, casualties, veterancy, and rewards from a server simulation or a
+server-verified deterministic input transcript. Until then, disable valuable raid rewards or
+treat them as noncompetitive.
 
-- duplicate and distinct action IDs, including a 50-way barely-affordable shop race;
-- empty import permanence and roster reseed rejection;
-- nonnegative balances/counts and server-priced farm/inventory/object/roster commands;
-- catalog-priced quest claims, unknown-ID rejection, immediate client progress, and duplicate
-  payout prevention;
-- stale raid rulesets, foreign/duplicate rosters, roster locks, claimed outcomes, future/reordered
-  transcript inputs, invalid-session closure, stored-result retries, checkpoint CAS, and snapshot
-  equivalence with uninterrupted replay;
-- presentation/authoritative state overlay and existing authentication, consent, gift, block,
-  visitor, revocation, and cross-account isolation behavior.
+### High: raids are outside the account mutation transaction
 
-Required release commands:
+`/commands` serializes state changes through `account_runtime_v3.account_version` and
+`active_batch_id`. Raid start and finish instead read and directly overwrite balances, gameplay
+JSON, quests, raid state, and roster rows without acquiring that boundary or incrementing the
+account version.
+
+Concurrent command and raid requests can therefore produce stale writes, restore or double-use a
+consumable, lose a reward, or race a roster lock against sell/combine. Raid start also does not
+verify that every conditional roster-lock update changed exactly one row.
+
+Required fix: settle raid start and finish through the same per-account transaction/CAS model as
+command batches, including guarded reads, version advancement, and checked lock-update counts.
+
+### High: free-plow XP loop
+
+A placed `monolithPlowing` object reduces plow cost to zero. Every successful plow grants one XP,
+and `farm.remove` can delete plowed soil. Alternating remove and plow therefore generates XP with
+no currency or time cost. The per-minute command ceiling limits speed but does not make the
+transition legitimate.
+
+Required fix: do not award repeatable XP for recreating previously owned soil, charge/remove the
+appropriate resource, retain an authoritative tile history, or disallow removal of plowed soil
+when it would reopen the reward.
+
+### Medium: minimum protocol version does not revoke raid clients
+
+`MIN_PROTOCOL_VERSION` is currently enforced by `/commands`. `/raid/start`, `/raid/finish`, and
+`/presentation` do not carry or validate a protocol version. Raising the minimum version blocks
+command batches but does not disable a compromised client from calling the raid endpoints.
+
+Use `MUTATIONS_DISABLED=1` as the reliable current incident stop. A future fix should apply a
+shared protocol/build gate to every gameplay mutation route.
+
+### Medium: v3 rejection telemetry is incomplete
+
+The v3 audit ledger records selected successful durable commands and zombie creation. Individual
+semantic command rejections inside an otherwise successful HTTP batch are returned to the client
+but are not emitted as structured security events. The request metric records the batch as HTTP
+200, so repeated prerequisite/timing probes may not be distinguishable from routine traffic.
+
+Required fix: aggregate rejection counts and reason codes per batch/account hash, log repeated or
+high-signal failures, and alert on raid forgery attempts, command-rate violations, writer
+takeovers, and cross-route conflicts without logging raw account identifiers.
+
+### Other residual risk
+
+- A compromised active session can act as its account until the session is revoked.
+- A custom client can automate legitimate commands up to server limits. Server authority prevents
+  arbitrary values but does not by itself enforce a bot policy.
+- Random server rolls currently use runtime randomness rather than a durable deterministic seed;
+  this is not client-controlled, but it complicates replay and incident reconstruction.
+- D1/Worker interruption can withhold or overwrite value at uncoordinated mutation boundaries.
+  Idempotency reduces duplicate application but does not repair every partial or stale-write case.
+- Local/offline presentation and gameplay can be modified. Protocol v3 does not import that local
+  value into a reset online account, but offline play is not cheat-resistant by design.
+
+## Verification status
+
+On 2026-07-15 the following local checks passed:
 
 ```text
-npm test
-npm run build
-npm run test:replay-benchmark
-cd server
-npm run typecheck
-npm test
-npm run test:integration
+npm test                              # client: 126 passed, 1 skipped
+cd server && npm run typecheck        # passed
+cd server && npm test                 # server: 189 passed
+cd server && npm run test:integration # passed
 ```
 
-## Remaining work and release gates
+Passing tests do not close the known vulnerabilities above. The current suites do not establish
+deterministic v3 raid outcomes or cross-route raid/command serialization, and they do not reject
+the free-plow XP sequence.
 
-1. Apply all remote migrations, especially `0019_integrity_v2.sql`, before deploying the Worker.
-2. Deploy the compatible Worker, then the v2 client. Do not deploy either half alone.
-3. Confirm the live Worker version and `integrityVersion: 2`; verify old mutation requests receive
-   426 and legacy raid claims receive 410.
-4. Smoke-test `/state`, farm commands, purchases, immediate quest completion plus duplicate claim,
-   raid start/checkpoint/finish, duplicate finish, invalid transcript lock release,
-   logout/revocation, gifts, friendship, blocks, and visitor projection against remote D1.
-5. Run the worst-case replay benchmark in the Workers test runtime and inspect production
-   `raid_replay` p95. Keep checkpoint mode enabled unless p95 is demonstrably below 8 ms.
-6. Wire alert rules/paging for repeated account integrity failures and aggregate D1 writes, Worker
-   requests/errors, and replay CPU. Exercise session revoke and route-disable response procedures.
-7. Keep paid currency, trading, competitive rankings, and PvP disabled until all prior gates pass.
+## Required release gates
 
-## Residual risk
+Before enabling valuable or competitive features:
 
-- A player can automate legitimate commands, but cannot exceed server affordability, ownership,
-  timing, catalog, raid, and volume rules. Quest objectives are not server-verified; a player can
-  claim every quest once, but cannot choose reward values or repeat a payout. Automation may still
-  create gameplay advantage within those rules and should be handled through telemetry and account
-  policy.
-- A compromised active session can act as its account until revoked. It cannot select another
-  account for ownership mutation. Protect `SESSION_SECRET`, monitor token failures, and retain
-  logout-all/revocation response capability.
-- Client presentation can still be modified locally. This can change appearance/UI but is not
-  accepted as online value.
-- D1/Worker interruption can delay or, in a narrow multi-step recovery edge, withhold a reward;
-  durable IDs and reconciliation prevent retrying that interruption from minting duplicate value.
-  Continue fault-injection testing before introducing money-like assets.
+1. Replace client-asserted raid outcomes with server-proven outcomes and add forged perfect-win,
+   future-finish, malformed-transcript, and duplicate-settlement tests.
+2. Put raid start/finish inside the account version/CAS transaction and add adversarial races
+   against boost use, purchase, roster sell/combine, gift credit, and command settlement.
+3. Close the free-plow XP loop and add a regression test covering repeated remove/plow batches.
+4. Enforce protocol/build revocation on every mutation route and verify it against a stale client.
+5. Add structured v3 semantic-rejection telemetry and connect alert thresholds.
+6. Apply `0020_protocol_v3_reset.sql`, rotate `SESSION_SECRET`, deploy the matching Worker/client,
+   and perform the destructive-rollout smoke checks in order.
+7. Confirm the live Worker commit/configuration and verify the remote D1 schema rather than
+   inferring production state from source control.
+8. Keep paid currency, trading, competitive rankings, and PvP disabled until all prior gates pass.
 
-## Method for reducing server load
+## Incident response
 
-Use this policy to remain compatible with Cloudflare's free tier while preserving integrity:
+If exploitation is suspected:
 
-1. Save locally immediately after meaningful presentation changes.
-2. Use a trailing five-second debounce for remote presentation saves so work bursts coalesce.
-3. While dirty, force one coalesced upload at least every 30 seconds; a pure debounce can postpone
-   forever during continuous play.
-4. Flush critical server-command outboxes immediately after purchases, gift claims, raid results,
-   rewards, logout, and app backgrounding. Treat `beforeunload` as best effort.
-5. Keep at most one save upload and one value-batch flush in flight. If state changes during either,
-   mark dirty and send one newer snapshot/batch afterward.
-6. Send compact action batches (64 farm, 32 other) rather than one request per tap. Retry with the
-   same action IDs; never generate new IDs for a transport retry.
-7. Keep ordinary raids to start plus one checkpoint per 15 simulated seconds plus finish. A full
-   three-minute raid therefore has at most 12 checkpoint requests/writes, but most raids end sooner.
-8. Persist session `last_used_at` only every 10–30 minutes and use native rate limiting for ordinary
-   throttles; reserve D1 writes for authoritative state and uniqueness.
-9. Retain the 1,000/hour warning and 2,000/hour/10,000-day rejection thresholds, and lower them if
-   measured normal play is substantially below those values.
-10. Track requests, replay CPU, D1 rows read/written, DB size, accepted commands per player-hour,
-    checkpoint count per raid, and remote saves per player-hour. Capacity estimates are not a
-    substitute for telemetry.
-
-At 100 daily players each playing one continuous hour, a continuously dirty 30-second maximum is
-about 12,000 presentation saves/day before critical-boundary saves. Authoritative commands add
-their own writes; a three-minute raid adds up to roughly 14 Worker requests (start, 12 checkpoints,
-finish). Five-second debounce normally reduces save traffic well below the maximum. A single bot
-still must be rejected before D1 to avoid exhausting shared free-tier quotas, which is why native
-limits and account command ceilings remain mandatory even after cheat routes are closed.
+1. Set `MUTATIONS_DISABLED=1` and deploy the Worker. Confirm all four v3 mutation endpoints reject
+   writes.
+2. Preserve D1 and Worker-log snapshots before corrective edits.
+3. Revoke affected sessions or rotate `SESSION_SECRET` if session compromise is possible.
+4. Inspect raid start/finish audit records, account-version history, command metrics, gift grants,
+   and inventory/roster inconsistencies.
+5. Repair related gameplay documents, balance, quest state, roster, and raid state together; do
+   not restore one JSON document in isolation.
