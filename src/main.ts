@@ -1391,6 +1391,9 @@ async function main() {
     if (auth.isSignedIn()) {
       try {
         await economy?.settleBeforeDependency();
+        // Raid selection can contain the optimistic id captured before the harvest
+        // batch settled. Submit and use the server-created roster id instead.
+        if (economy) partyIds = partyIds.map((id) => economy!.authoritativeUnitId(id));
         // Golden Dice are consumed SERVER-side here (the loot roll's luck is pinned to
         // the session), so send how many the player asked for and adopt what it charged.
         const gate = await api.raidStart(
@@ -1789,6 +1792,7 @@ async function main() {
       return;
     }
     if (e.button === 2) { // right-click -> back to the select tool
+      if (tutorial.active) return;
       cancelCarry();
       hud.setMode("walk");
       dragging = false;
@@ -2024,6 +2028,7 @@ async function main() {
   // Right-click anywhere returns to the select tool (and suppress the browser menu).
   app.canvas.addEventListener("contextmenu", (e) => {
     e.preventDefault();
+    if (tutorial.active) return;
     hud.setMode("walk");
   });
 

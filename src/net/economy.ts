@@ -47,6 +47,7 @@ export class EconomyClient {
   private base: api.Balance | null = null;
   private serverInv: Record<string, number> = {};
   private optimistic = new Map<number, OptimisticDelta>();
+  private authoritativeUnitIds = new Map<string, string>();
   private combineParents: { parentAId: string; parentBId: string } | null = null;
 
   onShopState: ((size: number, climates: string[]) => void) | null = null;
@@ -232,6 +233,11 @@ export class EconomyClient {
     this.reconcile();
   }
 
+  /** Translate an optimistic harvest id after its command has settled. */
+  authoritativeUnitId(id: string): string {
+    return this.authoritativeUnitIds.get(id) ?? id;
+  }
+
   async refreshInventory(): Promise<void> {
     const bootstrap = await api.bootstrap(true);
     this.queue.adoptBootstrap(bootstrap);
@@ -250,10 +256,16 @@ export class EconomyClient {
     const aliases: Record<string, string> = {};
     for (const result of response.results) {
       const pending = this.optimistic.get(result.sequence);
-      if (pending?.localUnitId && result.createdIds?.[0]) aliases[result.createdIds[0]] = pending.localUnitId;
+      if (pending?.localUnitId && result.createdIds?.[0]) {
+        aliases[result.createdIds[0]] = pending.localUnitId;
+        this.authoritativeUnitIds.set(pending.localUnitId, result.createdIds[0]);
+      }
       result.createdIds?.forEach((id, index) => {
         const local = pending?.localUnitIds?.[index];
-        if (local) aliases[id] = local;
+        if (local) {
+          aliases[id] = local;
+          this.authoritativeUnitIds.set(local, id);
+        }
       });
       this.optimistic.delete(result.sequence);
     }
