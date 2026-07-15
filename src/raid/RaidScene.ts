@@ -172,8 +172,6 @@ interface Token {
   topY: number; // y of the sprite top (negative), for the hp bar
   pulse: number; // hit lunge, decays to 0
   atkCount: number; // basic hits landed (parity drives the arm-wave switch)
-  lastSimX: number; // previous SIM pos (for the moving/facing flags — resize-safe)
-  lastSimY: number;
   deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
   emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
   // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
@@ -651,7 +649,7 @@ export class RaidScene {
     layer.addChild(root);
     return {
       root, actor, enemyActor, hp, charge, base, topY, pulse: 0, atkCount: 0,
-      lastSimX: u.x, lastSimY: u.y, deathAnim: -1, emerged: false,
+      deathAnim: -1, emerged: false,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
     };
   }
@@ -939,17 +937,15 @@ export class RaidScene {
       // Zombie rig: play the walk animation whenever it's actually moving, and
       // turn to face the way it's pacing (so waiting zombies mill back and forth).
       const windup = u.windupKey ? 1 - u.windupMs / Math.max(1, u.windupTotal) : 0;
-      // Drive the walk anim + facing from SIM-space movement (u.x/u.y), NOT screen
-      // position: a viewport RESIZE shifts every screen pos at once, which used to
-      // read as a giant step — spuriously flipping facing (backwards bosses on the
-      // first frame, when lastX was 0) and firing the walk cycle on resize. Sim
-      // positions are resolution-independent, so a resize is a no-op here.
-      const simDx = u.x - tok.lastSimX;
-      const simMoved = Math.hypot(simDx, u.y - tok.lastSimY);
+      // The simulation advances at a fixed 50 ms cadence while rendering can run
+      // faster. Use the velocity retained by the last simulation tick, rather than
+      // comparing positions each render frame: the latter alternated moving/stopped
+      // between ticks and made walking rigs twitch rapidly.
+      const simMoving = Math.hypot(u.vx, u.vy) > 6;
       const introMarch = this.phase === "intro"; // zombies slide in during the intro
       if (tok.actor) {
-        if (Math.abs(simDx) > 0.3) tok.actor.setFacingFromDelta(simDx);
-        const moving = u.alive && (simMoved > 0.3 || introMarch);
+        if (Math.abs(u.vx) > 6) tok.actor.setFacingFromDelta(u.vx);
+        const moving = u.alive && (simMoving || introMarch);
         tok.actor.update(dtSec, moving);
 
         // Smash (bash family): grow to 1+SMASH_GROW while charging (tracks the arm
@@ -986,7 +982,7 @@ export class RaidScene {
       // forward strike lunge while trading blows — the lunge peaks at the attack's
       // damageTiming so its reach lands with the sim's hit (see EnemyActor).
       if (tok.enemyActor) {
-        if (Math.abs(simDx) > 0.3) tok.enemyActor.setFacingFromDelta(simDx);
+        if (Math.abs(u.vx) > 6) tok.enemyActor.setFacingFromDelta(u.vx);
         const enemyFighting = u.state === "fight" && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - u.timerMs / Math.max(1, u.cooldownMs)));
         let attack = enemyFighting ? { atkProg, damageTiming: u.attackDamageTiming } : null;
@@ -998,10 +994,8 @@ export class RaidScene {
           const sw = this.sim.bossThrowSwing();
           attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
         }
-        tok.enemyActor.update(dtSec, u.alive && simMoved > 0.3, attack);
+        tok.enemyActor.update(dtSec, u.alive && simMoving, attack);
       }
-      tok.lastSimX = u.x;
-      tok.lastSimY = u.y;
 
       const frac = Math.max(0, u.hp / u.maxHp);
       tok.hp.clear();
