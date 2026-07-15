@@ -19,8 +19,14 @@ export interface Bindings {
   /** "1" enables the no-Google dev sign-in path. MUST be unset/"0" in prod. */
   DEV_AUTH?: string;
   /** Server-owned between-raids cooldown in ms (string var). Defaults to 2h when
-   *  unset. Set small in .dev.vars (e.g. "60000") so local play isn't gated. */
+   *  unset. Set small in .dev.vars (e.g. "60000") so local play isn't gated.
+   *  NOTE: skipping this with an Invasion Voucher is intended play, so it is NOT a rate
+   *  limit and must never be used as one. */
   RAID_COOLDOWN_MS?: string;
+  /** How long a raid session stays settleable, in ms (string var). Defaults to 30 min.
+   *  A finish after this is refused, so a session can't be banked and cashed in later.
+   *  Set short in .dev.vars so the integration suite can actually observe an expiry. */
+  RAID_SESSION_TTL_MS?: string;
   /** Save-import cutoff (epoch ms, string var). An account may import its pre-existing
    *  save (currency/roster/boosts/farm) into server-owned state ONLY if it was created
    *  before this instant, and only once per subsystem. Accounts created at/after it —

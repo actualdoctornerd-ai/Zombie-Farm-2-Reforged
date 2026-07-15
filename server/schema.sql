@@ -130,12 +130,14 @@ CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions (account_id, revoked
 
 -- Server-owned raid cooldown clock, one row per account. The between-raids
 -- cooldown is now decided by THIS `last_raid_at` (set on /raid/finish), not by the
--- client-authored save — so editing the save can't reset it. `raids_completed` is
--- reserved for when raid WINS become server-adjudicated (needs replay); today wins
--- still live in the save.
+-- client-authored save — so editing the save can't reset it. (Skipping the cooldown with
+-- an Invasion Voucher is intended play; the voucher is consumed server-side.)
 CREATE TABLE IF NOT EXISTS raid_state (
-  account_id     TEXT PRIMARY KEY REFERENCES accounts(id),
-  last_raid_at   INTEGER NOT NULL DEFAULT 0
+  account_id      TEXT PRIMARY KEY REFERENCES accounts(id),
+  last_raid_at    INTEGER NOT NULL DEFAULT 0,
+  -- Once-guard for the raid_clears import (migration 0017). Zero clears is a legitimate
+  -- state, so seed-once-if-empty can't guard it; this flag can.
+  progress_seeded INTEGER NOT NULL DEFAULT 0
 );
 
 -- One-use, expiring raid sessions. /raid/start opens one after the server cooldown
@@ -152,14 +154,23 @@ CREATE TABLE IF NOT EXISTS raid_sessions (
   raid_id     INTEGER  -- which raid this session is for (server prices the reward)
 );
 CREATE INDEX IF NOT EXISTS idx_raid_sessions_acct ON raid_sessions (account_id, finished_at);
+-- One LIVE (unfinished) raid session per account — the backstop for openRaidSessionOnce's
+-- atomic reserve (migration 0016). Partial, so finished sessions accumulate freely.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_raid_sessions_live
+  ON raid_sessions (account_id)
+  WHERE finished_at IS NULL;
 
--- First-clear ledger: the FIRST win of a raid grants XP (repeat wins pay gold only).
--- One row per (account, raid); INSERT OR IGNORE makes "first clear" atomic + idempotent
--- so the XP can't be farmed by replaying finishes.
+-- Server-owned raid progress + first-clear ledger. The FIRST win of a raid grants XP
+-- (repeat wins pay gold only); one row per (account, raid), and INSERT OR IGNORE makes
+-- "first clear" atomic + idempotent so the XP can't be farmed by replaying finishes.
+-- `wins` is the LIFETIME win count (migration 0017), which drives zombie ability unlocks
+-- (tier N's abilities unlock one per win of raid N) — so it must not live in the editable
+-- save. Imported once from a migrating save, guarded by raid_state.progress_seeded.
 CREATE TABLE IF NOT EXISTS raid_clears (
   account_id TEXT NOT NULL REFERENCES accounts(id),
   raid_id    INTEGER NOT NULL,
   cleared_at INTEGER NOT NULL,
+  wins       INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (account_id, raid_id)
 );
 

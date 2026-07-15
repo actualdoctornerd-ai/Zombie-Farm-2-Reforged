@@ -12,3 +12,6 @@ RAID_COOLDOWN_MS="60000"
 # save into server-owned state, once per subsystem; newer accounts get fixed server
 # defaults. Far-future locally so dev accounts can seed. Unset/0 = imports closed.
 MIGRATION_CUTOFF_MS="4102444800000"
+
+# Raid session TTL (ms). Default 30min; short here so tests can observe an expiry.
+RAID_SESSION_TTL_MS="3000"

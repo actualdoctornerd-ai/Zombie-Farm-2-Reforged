@@ -35,7 +35,8 @@ import {
 import { validateSave, MAX_SAVE_BYTES } from "./validate";
 import type { EconomyEvent } from "./economy";
 import type { FarmAction } from "./farm";
-import { raidEcon } from "./raidCatalog";
+import { raidEcon, raidUnlocked } from "./raidCatalog";
+import { levelForXp } from "./levels";
 import type { InventoryAction } from "./inventory";
 import type { ObjectAction } from "./objects";
 import type { RosterAction } from "./roster";
@@ -288,6 +289,7 @@ app.use("/economy/sync", rateLimit("RL_READ", "economy_sync", 300, 60_000));
 app.use("/quest/complete", rateLimit("RL_WRITE", "quest_complete", 120, 60_000));
 app.use("/farm/actions", rateLimit("RL_WRITE", "farm_actions", 120, 60_000));
 app.use("/farm/sync", rateLimit("RL_READ", "farm_sync", 300, 60_000));
+app.use("/raid/sync", rateLimit("RL_READ", "raid_sync", 300, 60_000));
 app.use("/inventory/actions", rateLimit("RL_WRITE", "inventory_actions", 120, 60_000));
 app.use("/inventory/sync", rateLimit("RL_READ", "inventory_sync", 300, 60_000));
 app.use("/object/actions", rateLimit("RL_WRITE", "object_actions", 120, 60_000));
@@ -639,48 +641,86 @@ app.post("/gifts/claim", async (c) => {
 
 // ---- raids: server-owned cooldown + one-use sessions --------------------
 // The between-raids cooldown is decided HERE, not by the client-authored save, so
-// editing the save can't reset it. Rewards/wins are still client-adjudicated (real
-// server authority needs deterministic replay — a later phase); the session opened
-// here is the seam that replay will hang on.
+// editing the save can't reset it. Whether the player WON is still client-adjudicated
+// (real authority needs deterministic replay — a later phase); the session opened here
+// is the seam that replay will hang on. What the server DOES own: which raids you may
+// invade (level), that only one raid is open at a time, that a session can't be settled
+// after it expires, and the reward number itself.
+//
+// NOTE on the cooldown: skipping it with an Invasion Voucher is a REAL game mechanic
+// (earn gold -> buy a ticket -> raid again), so the cooldown is deliberately NOT a hard
+// rate limit and must never be turned into one. It bounds nothing on its own; the reward
+// ceiling + the unlock gate are what bound a raid's value.
 const RAID_COOLDOWN_DEFAULT_MS = 2 * 60 * 60 * 1000; // 2h
-const RAID_SESSION_TTL_MS = 30 * 60 * 1000; // a raid must finish within 30 min
+const RAID_SESSION_TTL_DEFAULT_MS = 30 * 60 * 1000; // a raid must be settled within 30 min
 function raidCooldownMs(env: Bindings): number {
   const n = Number(env.RAID_COOLDOWN_MS);
   return Number.isFinite(n) && n >= 0 ? n : RAID_COOLDOWN_DEFAULT_MS;
 }
+/** How long a session stays settleable. Env-overridable so tests can observe an expiry;
+ *  a non-positive/garbage value falls back to the default rather than disabling the TTL. */
+function raidSessionTtlMs(env: Bindings): number {
+  const n = Number(env.RAID_SESSION_TTL_MS);
+  return Number.isFinite(n) && n > 0 ? n : RAID_SESSION_TTL_DEFAULT_MS;
+}
 
-// GET /raid/state — the client syncs its cooldown display from this authoritative
-// clock (on load and after a raid).
+// GET /raid/state — the client syncs its cooldown display AND its raid progress (lifetime
+// wins per raid, which drive ability unlocks) from this authoritative state, on load and
+// after a raid.
 app.get("/raid/state", async (c) => {
-  const lastRaidAt = await db.raidLastAt(c.env.DB, c.get("accountId"));
+  const me = c.get("accountId");
+  const lastRaidAt = await db.raidLastAt(c.env.DB, me);
   const cooldownMs = raidCooldownMs(c.env);
   const remaining = Math.max(0, cooldownMs - (Date.now() - lastRaidAt));
-  return c.json({ lastRaidAt, cooldownMs, cooldownRemaining: remaining });
+  const progress = await db.readRaidProgress(c.env.DB, me);
+  return c.json({ lastRaidAt, cooldownMs, cooldownRemaining: remaining, progress });
 });
 
-// POST /raid/start — gate on the server cooldown, then open a one-use session that
-// PINS the raid being fought (raidId), so /raid/finish can price the reward from the
-// server catalog. `bypass` (a voucher use) is trusted for now because voucher
-// inventory still lives in the client save; it becomes server-validated when
-// inventory moves server-side. `bypassed` tells the client whether a cooldown was
-// actually skipped (so it should consume the voucher).
+// POST /raid/sync — one-time import of a migrating save's lifetime raid wins. Without it
+// the server would treat a veteran account as having cleared nothing and re-grant every
+// first-clear XP award. Cutoff-gated, then guarded by raid_state.progress_seeded; a
+// post-cutoff account imports nothing and just reads its authoritative progress.
+app.post("/raid/sync", async (c) => {
+  const body = await c.req.json<{ completed?: unknown }>().catch(() => ({ completed: {} }));
+  const allow = await seedAllowed(c.env, c.get("accountId"));
+  const progress = await db.seedRaidProgress(
+    c.env.DB,
+    c.get("accountId"),
+    allow ? body.completed : {},
+    Date.now()
+  );
+  return c.json({ progress });
+});
+
+// POST /raid/start — gate on the raid's UNLOCK LEVEL and the server cooldown, reserve
+// the account's single open raid, then open a one-use session that PINS the raid being
+// fought (raidId) so /raid/finish can price the reward from the server catalog.
+// `bypassed` tells the client whether a cooldown was actually skipped (the voucher is
+// consumed server-side).
 app.post("/raid/start", async (c) => {
   const { bypass, raidId } = await c.req
     .json<{ bypass?: boolean; raidId?: number }>()
     .catch(() => ({ bypass: false, raidId: undefined }));
   // Pin a KNOWN raid so finish can price it; reject an unknown id up front.
-  if (typeof raidId !== "number" || !raidEcon(raidId)) {
-    return c.json({ ok: false, error: "bad_raid" }, 400);
-  }
+  const econ = typeof raidId === "number" ? raidEcon(raidId) : undefined;
+  if (!econ) return c.json({ ok: false, error: "bad_raid" }, 400);
   const me = c.get("accountId");
   const now = Date.now();
+  // Unlock gate from SERVER-owned xp. Without this any account could invade the richest
+  // raid at level 1 and — since a fabricated win still pays first-clear XP, and XP buys
+  // level-up brains — turn a forged win into premium currency.
+  const bal = await db.getOrSeedBalance(c.env.DB, me, await balanceSeed(c.env, me, null));
+  const level = levelForXp(bal.xp);
+  if (!raidUnlocked(econ, level)) {
+    return c.json({ ok: false, error: "locked", unlockLevel: econ.unlockLevel, level }, 403);
+  }
   const cooldownMs = raidCooldownMs(c.env);
   const lastRaidAt = await db.raidLastAt(c.env.DB, me);
   const remaining = Math.max(0, cooldownMs - (now - lastRaidAt));
   const onCooldown = remaining > 0;
   // On cooldown: only a voucher gets through, and it's consumed SERVER-SIDE (the count
   // is server-owned now), so a modified client can't bypass for free. No voucher held
-  // → treated as still on cooldown.
+  // → treated as still on cooldown. Buying a voucher to raid again is intended play.
   let bypassed = false;
   if (onCooldown) {
     if (!bypass) return c.json({ ok: false, cooldownRemaining: remaining });
@@ -688,16 +728,26 @@ app.post("/raid/start", async (c) => {
     if (!consumed) return c.json({ ok: false, cooldownRemaining: remaining, error: "no_voucher" });
     bypassed = true;
   }
+  // One open raid per account, reserved ATOMICALLY. The cooldown only starts at finish,
+  // so without this a client could bank many session ids in the pre-first-finish window
+  // and settle them later for repeated rewards. A voucher was already consumed above if
+  // we bypassed, so refund it rather than swallow it when the reserve loses.
   const sessionId = crypto.randomUUID();
-  await db.openRaidSession(c.env.DB, sessionId, me, raidId, now, now + RAID_SESSION_TTL_MS);
+  const opened = await db.openRaidSessionOnce(c.env.DB, sessionId, me, raidId as number, now, now + raidSessionTtlMs(c.env));
+  if (!opened) {
+    if (bypassed) await db.refundVoucher(c.env.DB, me);
+    return c.json({ ok: false, error: "raid_in_progress" }, 409);
+  }
   return c.json({ ok: true, sessionId, bypassed });
 });
 
 // POST /raid/finish — consume the session once, start the cooldown, and credit the
 // SERVER-COMPUTED reward for the session's pinned raid (base win gold + first-clear
-// XP). Idempotent: a retry credits nothing and echoes the current balance/cooldown.
-// `win`/`survivalFrac` are client-asserted (deferred: input replay), but the server
-// owns the reward number, so a fabricated win can't exceed that raid's real payout.
+// XP + the server-rolled loot). Idempotent: a retry credits nothing and echoes the
+// current balance/cooldown. An EXPIRED session is refused (`expired: true`) — a raid must
+// be settled within its TTL. `win`/`survivalFrac` are client-asserted (deferred: input
+// replay), but the server owns the reward number, so a fabricated win can't exceed that
+// raid's real payout.
 app.post("/raid/finish", async (c) => {
   const { sessionId, win, survivalFrac } = await c.req
     .json<{ sessionId: string; win?: boolean; survivalFrac?: number }>()
@@ -718,6 +768,7 @@ app.post("/raid/finish", async (c) => {
     gold: r.gold,
     xp: r.xp,
     firstClear: r.firstClear,
+    expired: !!r.expired,
   });
 });
 

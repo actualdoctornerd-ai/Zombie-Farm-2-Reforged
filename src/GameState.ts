@@ -298,6 +298,14 @@ export class GameState {
     this.emit();
     return n;
   }
+
+  /** Adopt the server's authoritative raid progress (lifetime wins per raid). ONLINE the
+   *  server owns wins — they drive ability unlocks, so an edited save must not decide
+   *  them. Server truth mirrored down, like syncBalance. */
+  syncRaidProgress(progress: Record<string, number>) {
+    this.raidsCompleted = { ...progress };
+    this.emit();
+  }
   /** Whether the player has ever cleared a raid (drives first-clear rewards). */
   hasClearedRaid(id: string): boolean {
     return (this.raidsCompleted[id] ?? 0) > 0;

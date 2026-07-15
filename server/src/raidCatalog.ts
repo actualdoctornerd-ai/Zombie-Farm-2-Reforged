@@ -22,24 +22,43 @@ export interface RaidEcon {
   /** Recommended/stage level — only used by the no-data fallback (unused for the 11
    *  catalog raids, which all have gold data; kept for formula parity). */
   recLevel: number;
+  /** Player level required to invade. Mirrors raids.json `unlockLevel` and the client's
+   *  `isUnlocked` (RaidCatalog.ts): unlocked iff `playable && level >= unlockLevel`. */
+  unlockLevel: number;
+  /** Whether the raid is playable at all (raids.json `playable`). */
+  playable: boolean;
 }
 
 export const RAIDS: Readonly<Record<number, RaidEcon>> = {
-  1: { gold: 1200, bonus: 400, xp: 100, recLevel: 5 }, // Old McDonnell's Farm
-  2: { gold: 1500, bonus: 750, xp: 800, recLevel: 16 }, // Zombies vs Lawyers
-  3: { gold: 2000, bonus: 750, xp: 1500, recLevel: 21 }, // Zombies vs Pirates
-  4: { gold: 2500, bonus: 1250, xp: 2500, recLevel: 26 }, // Zombies vs Ninjas
-  5: { gold: 3000, bonus: 1500, xp: 3500, recLevel: 31 }, // Zombies vs Robots
-  6: { gold: 4000, bonus: 2000, xp: 4500, recLevel: 36 }, // Zombies vs Aliens
-  7: { gold: 1200, bonus: 600, xp: 500, recLevel: 8 }, // Summer Break
-  8: { gold: 1200, bonus: 600, xp: 500, recLevel: 12 }, // Zombies vs Circus
-  9: { gold: 5000, bonus: 1200, xp: 5500, recLevel: 43 }, // Zombies vs Video Games
-  10: { gold: 1200, bonus: 600, xp: 500, recLevel: 8 }, // Tree World
-  11: { gold: 1200, bonus: 600, xp: 500, recLevel: 8 }, // Valentine's Day
+  1: { gold: 1200, bonus: 400, xp: 100, recLevel: 5, unlockLevel: 0, playable: true }, // Old McDonnell's Farm
+  2: { gold: 1500, bonus: 750, xp: 800, recLevel: 16, unlockLevel: 16, playable: true }, // Zombies vs Lawyers
+  3: { gold: 2000, bonus: 750, xp: 1500, recLevel: 21, unlockLevel: 21, playable: true }, // Zombies vs Pirates
+  4: { gold: 2500, bonus: 1250, xp: 2500, recLevel: 26, unlockLevel: 26, playable: true }, // Zombies vs Ninjas
+  5: { gold: 3000, bonus: 1500, xp: 3500, recLevel: 31, unlockLevel: 31, playable: true }, // Zombies vs Robots
+  6: { gold: 4000, bonus: 2000, xp: 4500, recLevel: 36, unlockLevel: 36, playable: true }, // Zombies vs Aliens
+  7: { gold: 1200, bonus: 600, xp: 500, recLevel: 8, unlockLevel: 8, playable: true }, // Summer Break
+  8: { gold: 1200, bonus: 600, xp: 500, recLevel: 12, unlockLevel: 12, playable: true }, // Zombies vs Circus
+  9: { gold: 5000, bonus: 1200, xp: 5500, recLevel: 43, unlockLevel: 43, playable: true }, // Zombies vs Video Games
+  10: { gold: 1200, bonus: 600, xp: 500, recLevel: 8, unlockLevel: 8, playable: true }, // Tree World
+  11: { gold: 1200, bonus: 600, xp: 500, recLevel: 8, unlockLevel: 8, playable: true }, // Valentine's Day
 };
 
 export function raidEcon(id: number): RaidEcon | undefined {
   return Object.prototype.hasOwnProperty.call(RAIDS, id) ? RAIDS[id] : undefined;
+}
+
+/** Plausibility ceiling on an imported lifetime win count. Only bounds the migration
+ *  seed — real wins accrue one at a time through settleRaid. Generous vs. legit play
+ *  (a 2h cooldown caps organic wins far below this); it exists so a save can't declare
+ *  an absurd count, not to model anything. Ability unlocks cap out in single digits. */
+export const MAX_RAID_WINS = 100_000;
+
+/** Is this raid invadable at `level`? Mirrors RaidCatalog.isUnlocked exactly. `level` is
+ *  derived from server-owned xp, never client-sent — without this a level-1 account could
+ *  invade raid 9 (5000 gold + 1200 bonus + 5500 first-clear XP, unlock level 43) and,
+ *  since XP drives level-up brains, convert a fabricated win into premium currency. */
+export function raidUnlocked(r: RaidEcon, level: number): boolean {
+  return r.playable && level >= r.unlockLevel;
 }
 
 function clamp01(n: number): number {

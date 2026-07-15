@@ -1288,9 +1288,21 @@ async function main() {
   // requests with a gentle toast.
   if (auth.isSignedIn()) {
     void auth.refreshIfSignedIn();
-    // Adopt the server-owned raid cooldown so the display + client gate match the
-    // authoritative clock (editing the local save can't shorten it).
-    void api.raidState().then((r) => { state.lastRaidAt = r.lastRaidAt; }).catch(() => {});
+    // Import this save's lifetime raid wins ONCE (a migrating veteran must not look like
+    // they've cleared nothing — that would re-grant every first-clear XP award and drop
+    // their ability unlocks), THEN adopt the server's authoritative cooldown + progress.
+    // Sequenced: the import has to land before the read, or the read returns empty and
+    // the client would show a veteran as having zero unlocks until the next reload.
+    void api
+      .raidSync(state.raidsCompleted)
+      .catch(() => {}) // offline — retried on the next load
+      .then(() => api.raidState())
+      .then((r) => {
+        state.lastRaidAt = r.lastRaidAt;
+        // Server owns wins (they unlock abilities), so adopt rather than merge.
+        state.syncRaidProgress(r.progress ?? {});
+      })
+      .catch(() => {});
     void hud.refreshInbox?.().then(() => {
       const n = hud.getInbox?.().length ?? 0;
       if (n) hud.showToast(`You have ${n} gift${n === 1 ? "" : "s"} waiting! 🎁`);
@@ -1346,8 +1358,19 @@ async function main() {
       try {
         const gate = await api.raidStart(!!opts.useVoucher, raidId);
         if (!gate.ok) {
-          const mins = Math.ceil((gate.cooldownRemaining ?? 0) / 60000);
-          hud.showToast(`Invasion on cooldown — about ${mins} min left.`);
+          // Distinguish the server's refusals: the client already hides locked raids and
+          // blocks a second launch, so `locked` / `raid_in_progress` mean the client and
+          // server disagree — say so plainly rather than blaming the cooldown.
+          if (gate.error === "locked") {
+            hud.showToast(`That invasion unlocks at level ${gate.unlockLevel ?? "?"}.`);
+          } else if (gate.error === "raid_in_progress") {
+            hud.showToast("Another invasion is already in progress.");
+          } else if (gate.error === "no_voucher") {
+            hud.showToast("No Invasion Voucher to skip the cooldown.");
+          } else {
+            const mins = Math.ceil((gate.cooldownRemaining ?? 0) / 60000);
+            hud.showToast(`Invasion on cooldown — about ${mins} min left.`);
+          }
           return false;
         }
         raidSessionId = gate.sessionId ?? null;

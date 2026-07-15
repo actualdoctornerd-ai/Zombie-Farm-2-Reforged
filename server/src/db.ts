@@ -11,7 +11,7 @@ import {
   type FarmAction, type PlantContext, type PlotRecord,
 } from "./farm";
 import { zombieCropEcon } from "./zombieCropCatalog";
-import { raidEcon, winGold } from "./raidCatalog";
+import { raidEcon, winGold, MAX_RAID_WINS } from "./raidCatalog";
 import { boostEcon, BOOST_KEYS, VOUCHER_KEY, MAX_STACK } from "./boostCatalog";
 import { planBuy, planUse, planGiftRedeem, type InventoryAction } from "./inventory";
 import { zombieSell, fertilizeProbability, isKnownZombie, MAX_MUTATION } from "./rosterCatalog";
@@ -1944,6 +1944,129 @@ export async function openRaidSession(
     .run();
 }
 
+/** Open a raid session ONLY IF the account has no live one — one open raid at a time.
+ *  Returns false if a raid is already in progress.
+ *
+ *  Needed because the cooldown clock only advances at FINISH: without a reserve, a client
+ *  could open many sessions in the pre-first-finish window and bank the ids to settle
+ *  later. (The cooldown itself is not a bound — skipping it with a voucher is intended
+ *  play — so this reserve is what makes "one raid at a time" true.)
+ *
+ *  Two steps, in this order:
+ *
+ *  1. REAP. An abandoned session (browser closed mid-raid) is never finished, so it would
+ *     hold the account's only slot until the cron purge — a lockout of up to a day. Once
+ *     past its TTL it can never be settled (settleRaid refuses it), so it is closed out
+ *     here, stamped with the moment it actually expired rather than `now`.
+ *  2. RESERVE. `INSERT ... WHERE NOT EXISTS` is a single statement, so the check and the
+ *     write can't be split by a concurrent start. `idx_raid_sessions_live` (partial
+ *     UNIQUE on unfinished sessions) is the backstop; the reap above is what keeps that
+ *     invariant — "at most one UNFINISHED session" — true rather than merely aspirational. */
+export async function openRaidSessionOnce(
+  db: D1Database,
+  id: string,
+  accountId: string,
+  raidId: number,
+  startedAt: number,
+  expiresAt: number
+): Promise<boolean> {
+  await db
+    .prepare(
+      `UPDATE raid_sessions SET finished_at = expires_at
+       WHERE account_id = ? AND finished_at IS NULL AND expires_at <= ?`
+    )
+    .bind(accountId, startedAt)
+    .run();
+  try {
+    const res = await db
+      .prepare(
+        `INSERT INTO raid_sessions (id, account_id, raid_id, started_at, expires_at)
+         SELECT ?, ?, ?, ?, ?
+         WHERE NOT EXISTS (
+           SELECT 1 FROM raid_sessions WHERE account_id = ? AND finished_at IS NULL
+         )`
+      )
+      .bind(id, accountId, raidId, startedAt, expiresAt, accountId)
+      .run();
+    return (res.meta.changes ?? 0) === 1;
+  } catch {
+    // The partial unique index rejected a concurrent reserve.
+    return false;
+  }
+}
+
+/** Give back a voucher consumed for a bypass that then failed to open a session, so a
+ *  lost race can't silently eat a 2000-gold ticket. Not a public action — only the
+ *  start handler calls it, immediately after its own consumeVoucher. */
+export async function refundVoucher(db: D1Database, accountId: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO inventory (account_id, item_key, count) VALUES (?, ?, 1)
+       ON CONFLICT(account_id, item_key) DO UPDATE SET count = count + 1`
+    )
+    .bind(accountId, VOUCHER_KEY)
+    .run();
+}
+
+/** Lifetime wins per raid id — the account's server-owned raid progress. Drives ability
+ *  unlocks on the client (tier N's abilities unlock one per win of raid N). */
+export async function readRaidProgress(db: D1Database, accountId: string): Promise<Record<string, number>> {
+  const res = await db
+    .prepare("SELECT raid_id, wins FROM raid_clears WHERE account_id = ?")
+    .bind(accountId)
+    .all<{ raid_id: number; wins: number }>();
+  const out: Record<string, number> = {};
+  for (const r of res.results ?? []) out[String(r.raid_id)] = r.wins;
+  return out;
+}
+
+/** Import a migrating save's lifetime raid wins, exactly once. Without it the server sees
+ *  a veteran account as having cleared nothing, so it would re-grant first-clear XP for
+ *  every raid (~21,000 XP across the catalog → ~24 free level-up brains), and the client
+ *  would lose every ability unlock those wins had earned.
+ *
+ *  Guarded by `raid_state.progress_seeded`, NOT by "no rows yet": zero clears is a
+ *  legitimate state, so an if-empty guard would let a client re-import wins whenever it
+ *  had none — and wins buy ability unlocks. Callers gate on MIGRATION_CUTOFF_MS.
+ *
+ *  Only real catalog raids are imported, wins are clamped to a sane ceiling, and NO xp or
+ *  gold is credited — these wins were already paid for pre-migration. */
+export async function seedRaidProgress(
+  db: D1Database,
+  accountId: string,
+  completed: unknown,
+  now: number
+): Promise<Record<string, number>> {
+  const row = await db
+    .prepare("SELECT progress_seeded FROM raid_state WHERE account_id = ?")
+    .bind(accountId)
+    .first<{ progress_seeded: number }>();
+  if (!row?.progress_seeded) {
+    const stmts: D1PreparedStatement[] = [
+      db
+        .prepare(
+          `INSERT INTO raid_state (account_id, last_raid_at, progress_seeded) VALUES (?, 0, 1)
+           ON CONFLICT(account_id) DO UPDATE SET progress_seeded = 1`
+        )
+        .bind(accountId),
+    ];
+    const src = completed && typeof completed === "object" ? (completed as Record<string, unknown>) : {};
+    for (const [key, raw] of Object.entries(src)) {
+      const id = Number(key);
+      if (!Number.isInteger(id) || !raidEcon(id)) continue; // only real catalog raids
+      const wins = Number.isInteger(raw) ? Math.max(0, Math.min(MAX_RAID_WINS, raw as number)) : 0;
+      if (wins <= 0) continue;
+      stmts.push(
+        db
+          .prepare("INSERT OR IGNORE INTO raid_clears (account_id, raid_id, cleared_at, wins) VALUES (?, ?, ?, ?)")
+          .bind(accountId, id, now, wins)
+      );
+    }
+    await db.batch(stmts);
+  }
+  return readRaidProgress(db, accountId);
+}
+
 /** The outcome of settling a raid finish: the (possibly-unchanged) cooldown clock,
  *  the resulting balance, and the amounts CREDITED THIS CALL (0 on a replay or loss)
  *  so the client can reconcile its optimistic reward to server truth. */
@@ -1953,6 +2076,9 @@ export interface RaidSettleResult {
   gold: number;
   xp: number;
   firstClear: boolean;
+  /** True when the finish was refused because the session had already expired (the raid
+   *  wasn't settled within its TTL). Nothing is credited; distinct from a plain replay. */
+  expired?: boolean;
 }
 
 /** Finish a raid exactly once and credit the SERVER-COMPUTED reward. The server owns
@@ -1983,19 +2109,36 @@ export async function settleRaid(
   });
 
   const row = await db
-    .prepare("SELECT raid_id, finished_at FROM raid_sessions WHERE id = ? AND account_id = ?")
+    .prepare("SELECT raid_id, finished_at, expires_at FROM raid_sessions WHERE id = ? AND account_id = ?")
     .bind(sessionId, accountId)
-    .first<{ raid_id: number | null; finished_at: number | null }>();
+    .first<{ raid_id: number | null; finished_at: number | null; expires_at: number }>();
   if (!row) return echo(); // unknown / foreign session
 
-  // Elect the single finisher.
+  // Elect the single finisher, and REFUSE AN EXPIRED SESSION in the same write. A raid
+  // must be settled within its TTL: previously expires_at was only read by the cron
+  // purge, so a stale session could be banked and cashed in much later (and, before the
+  // one-open-session reserve, banked in bulk). Doing the expiry check inside the CAS
+  // rather than as a prior read means a session can't expire between the check and the
+  // write. An expired session is closed out (finished_at set) so it can't be retried.
   const won = await db
     .prepare(
-      "UPDATE raid_sessions SET finished_at = ? WHERE id = ? AND account_id = ? AND finished_at IS NULL"
+      `UPDATE raid_sessions SET finished_at = ?
+       WHERE id = ? AND account_id = ? AND finished_at IS NULL AND expires_at > ?`
     )
-    .bind(now, sessionId, accountId)
+    .bind(now, sessionId, accountId, now)
     .run();
-  if ((won.meta.changes ?? 0) !== 1) return echo(); // replay — already settled
+  if ((won.meta.changes ?? 0) !== 1) {
+    // Either a replay (already settled) or expired. Close an expired-but-open session so
+    // it stops being live for the one-open-session reserve, then credit nothing.
+    if (row.finished_at == null && row.expires_at <= now) {
+      await db
+        .prepare("UPDATE raid_sessions SET finished_at = ? WHERE id = ? AND finished_at IS NULL")
+        .bind(now, sessionId)
+        .run();
+      return { ...(await echo()), expired: true };
+    }
+    return echo(); // replay — already settled
+  }
 
   // First finish (win OR loss) starts the between-raids cooldown.
   await db
@@ -2015,11 +2158,19 @@ export async function settleRaid(
     // First-clear XP: atomic + idempotent. `changes === 1` means the row was newly
     // inserted, i.e. this is the first time this account has cleared this raid.
     const ins = await db
-      .prepare("INSERT OR IGNORE INTO raid_clears (account_id, raid_id, cleared_at) VALUES (?, ?, ?)")
+      .prepare("INSERT OR IGNORE INTO raid_clears (account_id, raid_id, cleared_at, wins) VALUES (?, ?, ?, 1)")
       .bind(accountId, row.raid_id, now)
       .run();
     firstClear = (ins.meta.changes ?? 0) === 1;
     if (firstClear) xp = econ.xp;
+    // A repeat win bumps the lifetime count (the insert above already counted the first).
+    // Wins drive ability unlocks, so this is authoritative progress, not a statistic.
+    else {
+      await db
+        .prepare("UPDATE raid_clears SET wins = wins + 1 WHERE account_id = ? AND raid_id = ?")
+        .bind(accountId, row.raid_id)
+        .run();
+    }
 
     const stmts: D1PreparedStatement[] = [];
     if (gold > 0) {

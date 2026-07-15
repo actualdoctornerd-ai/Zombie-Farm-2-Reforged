@@ -442,21 +442,39 @@ export const shopSize = (size: number, currency: "gold" | "brains") =>
 export const shopClimate = (terrain: string) =>
   req<ShopResult>("POST", "/shop/climate", { terrain });
 
-// ---- raids (server-owned cooldown) --------------------------------------
-/** Authoritative raid cooldown clock. The client seeds its display from this. */
+// ---- raids (server-owned cooldown + progress) ----------------------------
+/** Authoritative raid cooldown clock + progress (lifetime wins per raid id, which drive
+ *  ability unlocks). The client seeds its display and its unlocks from this. */
 export const raidState = () =>
-  req<{ lastRaidAt: number; cooldownMs: number; cooldownRemaining: number }>("GET", "/raid/state");
+  req<{
+    lastRaidAt: number;
+    cooldownMs: number;
+    cooldownRemaining: number;
+    progress: Record<string, number>;
+  }>("GET", "/raid/state");
+
+/** One-time import of this save's lifetime raid wins, so a migrating veteran isn't seen
+ *  as having cleared nothing (which would re-grant every first-clear XP award and drop
+ *  their ability unlocks). Ignored once seeded or past the migration cutoff. */
+export const raidSync = (completed: Record<string, number>) =>
+  req<{ progress: Record<string, number> }>("POST", "/raid/sync", { completed });
 
 /** Ask the server to authorize a raid on `raidId`. `ok:false` with `cooldownRemaining`
  *  means the server cooldown is still active (and no voucher bypass was requested).
- *  `bypassed:true` means a cooldown was skipped via `bypass` (consume the voucher).
- *  `sessionId` pairs with raidFinish and pins the raid the reward is priced from. */
+ *  `error:"locked"` means the account's server-derived level hasn't unlocked this raid;
+ *  `error:"raid_in_progress"` means another raid is already open (one at a time).
+ *  `bypassed:true` means a cooldown was skipped via `bypass` (the server consumed the
+ *  voucher). `sessionId` pairs with raidFinish and pins the raid the reward is priced
+ *  from. */
 export const raidStart = (bypass: boolean, raidId: number) =>
-  req<{ ok: boolean; sessionId?: string; bypassed?: boolean; cooldownRemaining?: number }>(
-    "POST",
-    "/raid/start",
-    { bypass, raidId }
-  );
+  req<{
+    ok: boolean;
+    sessionId?: string;
+    bypassed?: boolean;
+    cooldownRemaining?: number;
+    error?: string;
+    unlockLevel?: number;
+  }>("POST", "/raid/start", { bypass, raidId });
 
 /** The server's authoritative raid-finish result: the cooldown clock, the resulting
  *  balance, and the amounts CREDITED this call (0 on a loss / idempotent replay). */
@@ -466,6 +484,8 @@ export interface RaidFinishResult {
   gold: number;
   xp: number;
   firstClear: boolean;
+  /** The session had already expired (not settled within its TTL) — nothing credited. */
+  expired?: boolean;
 }
 
 /** Report a finished raid. The server starts the cooldown (idempotent) AND credits
