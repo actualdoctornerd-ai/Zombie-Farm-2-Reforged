@@ -1,0 +1,16 @@
+Enemies at mcdonalds farm float a bit above the ground
+
+Mcdonald is slightly too large
+
+Lawyer boss is a bit too high
+
+Missing various crops (eg - seasonal crops)
+
+Mini-buddy ability does not work
+
+Enemy health bars are too wide
+
+The top bars in raids can blend in with the background. They need a backbar
+
+
+

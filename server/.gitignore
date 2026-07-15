@@ -3,3 +3,9 @@ node_modules/
 .dev.vars
 dist/
 *.log
+
+# D1 dumps / exports: these contain real account ids and gift rows. Never commit.
+*-backup.json
+*-dump.json
+*.d1.json
+d1-export*.sql
