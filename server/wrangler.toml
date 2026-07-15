@@ -26,6 +26,12 @@ DEV_AUTH = "0"
 # Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
 # raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
 # RAID_COOLDOWN_MS = "7200000"
+# Save-import cutoff (epoch ms). Accounts created before this may import their existing
+# save into server-owned state (once per subsystem); everyone else gets fixed server
+# defaults and can't self-declare a starting balance. Set to the rollout/migration-
+# window end when you migrate existing players; leave unset (= 0, imports closed) to
+# refuse all client-declared seeds. See SECURITY.md own-account plan.
+# MIGRATION_CUTOFF_MS = "1760000000000"
 
 # ---- Secrets (set out-of-band, never committed) --------------------------
 # wrangler secret put SESSION_SECRET      # signs our own session JWTs

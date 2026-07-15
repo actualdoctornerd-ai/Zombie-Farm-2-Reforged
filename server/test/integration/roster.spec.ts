@@ -3,7 +3,9 @@ import { call, signIn, type Session } from "./helpers";
 
 // Server-owned roster (P12): the server keeps a money+validation shadow of the units.
 // A SELL is priced + credited server-side (a unit the server doesn't own can't be
-// sold for gold); grant/veteran/casualty keep the shadow accurate.
+// sold for gold); veteran/casualty keep the shadow accurate. There is NO public grant
+// (it would let a client mint any zombie then sell it) — units enter only via the
+// one-time save-migration seed or the server-validated combine (see combine.spec).
 
 interface RosterRes {
   balance: { gold: number };
@@ -45,25 +47,39 @@ describe("roster — server-owned units", () => {
     expect(sell.body.balance.gold).toBe(0);
   });
 
-  it("grants a real unit (then it's sellable) and rejects a fabricated key", async () => {
+  it("rejects a public grant action, so a client can't mint then sell a unit", async () => {
     const s = await player(0);
+    // The `grant` action was removed: it's an unknown type now → rejected, nothing recorded.
     const grant = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [
-        { id: aid("grant"), type: "grant", unitId: "z10", key: "ZombieActorLargeTier4" }, // cost 160 → sell 80
-        { id: aid("grant"), type: "grant", unitId: "z11", key: "ZombieActorSuperCheat" },
+        { id: aid("grant"), type: "grant", unitId: "z10", key: "ZombieActorLargeTier4" } as never, // cost 160 — must NOT mint
       ],
     });
-    expect(grant.body.results[0].status).toBe("applied");
-    expect(grant.body.results[1]).toMatchObject({ status: "rejected", error: "bad_key" });
-    // The granted unit can be sold; the rejected one can't (never recorded).
+    expect(grant.body.results[0]).toMatchObject({ status: "rejected", error: "bad_type" });
+    // No unit was recorded, so it can't be sold for gold.
     const sell = await call<RosterRes>("POST", "/roster/actions", s.token, {
-      actions: [
-        { id: aid("sell"), type: "sell", unitId: "z10" },
-        { id: aid("sell"), type: "sell", unitId: "z11" },
-      ],
+      actions: [{ id: aid("sell"), type: "sell", unitId: "z10" }],
     });
-    expect(sell.body.results[0]).toMatchObject({ status: "applied", gold: 80 });
-    expect(sell.body.results[1]).toMatchObject({ status: "rejected", error: "no_unit" });
+    expect(sell.body.results[0]).toMatchObject({ status: "rejected", error: "no_unit" });
+    expect(sell.body.balance.gold).toBe(0);
+  });
+
+  it("seed-once: a later /roster/sync can't inject more units (no re-injection→sell)", async () => {
+    const s = await player(0);
+    const first = await call<{ count: number }>("POST", "/roster/sync", s.token, {
+      units: [{ id: "z1", key: "ZombieActorRegularTier1" }],
+    });
+    expect(first.body.count).toBe(1);
+    // Roster is now non-empty → a second sync with a fresh id is ignored entirely.
+    const second = await call<{ count: number }>("POST", "/roster/sync", s.token, {
+      units: [{ id: "zInjected", key: "ZombieActorGardenTier4" }], // would sell for 150
+    });
+    expect(second.body.count).toBe(1); // NOT 2 — injection refused
+    const sell = await call<RosterRes>("POST", "/roster/actions", s.token, {
+      actions: [{ id: aid("sell"), type: "sell", unitId: "zInjected" }],
+    });
+    expect(sell.body.results[0]).toMatchObject({ status: "rejected", error: "no_unit" });
+    expect(sell.body.balance.gold).toBe(0);
   });
 
   it("is idempotent: replaying a sell doesn't double-credit", async () => {
@@ -77,25 +93,22 @@ describe("roster — server-owned units", () => {
     expect(replay.body.balance.gold).toBe(17); // not 34
   });
 
-  it("combine = casualty(parents) + grant(result); a parent can't then be sold", async () => {
+  it("casualty removes units — a dead unit can no longer be sold", async () => {
     const s = await player(0);
     await call("POST", "/roster/sync", s.token, {
       units: [
         { id: "p1", key: "ZombieActorRegularTier1" },
-        { id: "p2", key: "ZombieActorRegularTier1" },
+        { id: "p2", key: "ZombieActorGardenTier2" }, // cost 190 → sell 95
       ],
     });
     await call("POST", "/roster/actions", s.token, {
-      actions: [
-        { id: aid("cas"), type: "casualty", unitIds: ["p1", "p2"] },
-        { id: aid("grant"), type: "grant", unitId: "r1", key: "ZombieActorGardenTier2" }, // cost 190 → sell 95
-      ],
+      actions: [{ id: aid("cas"), type: "casualty", unitIds: ["p1"] }],
     });
-    // A consumed parent is gone; the result is sellable.
+    // p1 died → not sellable; p2 survived → sellable for its exact value.
     const sell = await call<RosterRes>("POST", "/roster/actions", s.token, {
       actions: [
         { id: aid("sell"), type: "sell", unitId: "p1" },
-        { id: aid("sell"), type: "sell", unitId: "r1" },
+        { id: aid("sell"), type: "sell", unitId: "p2" },
       ],
     });
     expect(sell.body.results[0]).toMatchObject({ status: "rejected", error: "no_unit" });

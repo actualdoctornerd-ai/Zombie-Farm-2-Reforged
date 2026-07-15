@@ -8,3 +8,7 @@ GOOGLE_CLIENT_ID="dev.apps.googleusercontent.com"
 # Server-owned raid cooldown (ms). Default is 2h; use a short value locally so
 # testing raids isn't gated. Match the client's fast-mode 60s if desired.
 RAID_COOLDOWN_MS="60000"
+# Save-import cutoff (epoch ms). Accounts created BEFORE this may import their existing
+# save into server-owned state, once per subsystem; newer accounts get fixed server
+# defaults. Far-future locally so dev accounts can seed. Unset/0 = imports closed.
+MIGRATION_CUTOFF_MS="4102444800000"

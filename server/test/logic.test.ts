@@ -7,12 +7,35 @@ import {
   idFromBytes,
   canSendGift,
   isStaleWrite,
+  importEligible,
   deviceLabel,
   normalizeFriendCode,
   normalizeUsername,
   projectFriendSave,
 } from "../src/logic";
 import type { SaveGame } from "../src/env";
+
+describe("importEligible — save-import cutoff gate", () => {
+  const CUT = 1_000_000;
+  it("allows an account created strictly before a positive cutoff", () => {
+    expect(importEligible(CUT - 1, CUT)).toBe(true);
+    expect(importEligible(0, CUT)).toBe(true);
+  });
+  it("refuses an account created at or after the cutoff (new accounts get defaults)", () => {
+    expect(importEligible(CUT, CUT)).toBe(false);
+    expect(importEligible(CUT + 1, CUT)).toBe(false);
+  });
+  it("refuses everyone when the cutoff is unset/0/negative (imports closed)", () => {
+    expect(importEligible(0, 0)).toBe(false);
+    expect(importEligible(-1, 0)).toBe(false);
+    expect(importEligible(100, -5)).toBe(false);
+  });
+  it("refuses non-finite inputs (cutoff must be a real instant)", () => {
+    expect(importEligible(NaN, CUT)).toBe(false);
+    expect(importEligible(CUT - 1, NaN)).toBe(false);
+    expect(importEligible(CUT - 1, Infinity)).toBe(false); // non-finite cutoff rejected
+  });
+});
 
 describe("friendCodeFromBytes", () => {
   it("produces a ZF- prefixed code of the default (long) length", () => {

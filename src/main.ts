@@ -430,7 +430,7 @@ async function main() {
   // Harvesting a zombie crop grows an owned zombie at the plot's center tile.
   const jobs = new JobSystem(
     field, actor, walk, state, floatText, (name) => audio.play(name),
-    (key, oc, or) => zombies.spawn(key, oc + 1, or + 1),
+    (key, oc, or) => zombies.spawnVerified(key, oc + 1, or + 1)?.id ?? null,
     questBus,
     (oc, or) => zombies.tryFertilize(oc, or)
   );
@@ -481,6 +481,15 @@ async function main() {
   const quests = new QuestSystem(
     new Map(Object.entries(assets.quests)), state, questBus,
     {
+      // Online: the server grants the quest's currency reward (and any level-up brains)
+      // authoritatively and idempotently; return true so QuestSystem skips the local add
+      // (which the spend-only economy endpoint would reject anyway). Offline: `economy`
+      // is null → return false → currency is granted locally as before.
+      grantReward: (def) => {
+        if (!economy) return false;
+        economy.submitQuest(def.id);
+        return true;
+      },
       grantItem: (key) => state.receiveItem(key),
       grantZombie: (key) => zombies.spawn(key, walk.tile.col, walk.tile.row),
       completed: (def) => celebrateQuest(def),
@@ -529,10 +538,16 @@ async function main() {
   };
   hud.onUseBoost = (def) => {
     if (state.boostCount(def.key) <= 0) return;
+    giftUnitId = null;
     if (!applyBoost(def)) return; // only consume if it did something
     // ONLINE: the server owns the count — decrement there (optimistic + reconcile).
-    if (state.onInventory) state.onInventory({ type: "use", key: def.key }, { count: -1 });
-    else state.useBoost(def.key);
+    // A gift voucher redeems into a zombie, so it also carries the spawned unit's id:
+    // the server consumes the voucher and files that unit in the roster atomically.
+    if (state.onInventory) {
+      const action = giftUnitId ? { type: "use" as const, key: def.key, unitId: giftUnitId } : { type: "use" as const, key: def.key };
+      state.onInventory(action, { count: -1 });
+    } else state.useBoost(def.key);
+    giftUnitId = null;
   };
 
   // The speed-grow (Insta-Grow) boost, exposed so the HUD can render the equippable
@@ -562,6 +577,11 @@ async function main() {
     floatText(c.x, c.y, "Grew!");
     if (state.boostCount(def.key) <= 0) hud.setMode("walk"); // used up -> unequip
   };
+
+  // Set by applyBoost when a GIFT voucher spawns its zombie: the new unit's id, which
+  // onUseBoost sends with the voucher `use` so the server can grant that same unit.
+  // Null for every other boost effect.
+  let giftUnitId: string | null = null;
 
   // Apply a farm-usable boost's effect. Returns true if it actually did anything
   // (so a no-op — e.g. Insta-Harvest with nothing ripe — doesn't waste the boost).
@@ -601,7 +621,12 @@ async function main() {
       // 1 per farm: don't spawn a duplicate of a gift zombie you already own.
       if (ownsGiftZombie(def.giftZombieKey)) { floatText(c.x, c.y, `Already have ${def.name}!`); return false; }
       if (!zombies.canAdd()) { floatText(c.x, c.y, "Army full!"); return false; }
-      zombies.spawn(def.giftZombieKey, walk.tile.col, walk.tile.row);
+      // ONLINE, the voucher `use` grants this unit server-side, so spawn it verified
+      // (no onGrant) and hand its id to onUseBoost to send. The server re-checks the
+      // catalog key, the voucher count, and the 1-per-farm rule.
+      const unit = zombies.spawnVerified(def.giftZombieKey, walk.tile.col, walk.tile.row);
+      if (!unit) return false;
+      giftUnitId = unit.id;
       floatText(c.x, c.y, `Got ${def.name}!`);
       return true;
     }
@@ -692,6 +717,14 @@ async function main() {
     zombies.onCombineCollect = (unitId, key, mutation) => economy!.submitRoster({ type: "combineCollect", unitId, key, mutation });
     zombies.setRosterLive();
     state.onRosterSell = (unitId, value) => economy!.submitRoster({ type: "sell", unitId }, { gold: value });
+    // Server-owned placeable objects: seed the ownership counts from the currently-placed
+    // objects (one-time, so already-placed placeables stay refundable), then buy/refund
+    // route through the server at their call sites (object buy + sellObject).
+    void economy.syncObjects(field.objectKeyCounts());
+    // Server-owned soil: import this save's already-plowed plots (one-time). Without it
+    // the server would reject planting on soil this client shows as tilled — and won't
+    // let the player re-till, since re-tilling only applies to harvested dirt/holes.
+    void economy.syncFarm(field.plowedPlotOrigins());
     // Server-owned farm size + climate skins: adopt the authoritative values (a resize
     // reverts a rejected purchase; a save-edited larger farm shrinks to the server's).
     economy.onShopState = (size, climates) => {
@@ -906,13 +939,28 @@ async function main() {
     const id = field.shedId();
     if (!id) return;
     if (state.level < def.level) return;
-    const paid = def.brainsNeeded ? state.spendBrains(def.cost) : state.spendGold(def.cost);
-    if (!paid) return;
+    const xp = buyXp(def.cost, def.xp); // buying/upgrading always rewards XP
+    // Server-owned upgrade (online, priced): the server charges the new shed's full
+    // price, swaps the ownership record, and grants the xp. The old shed is given up
+    // with no refund — same as the local path. A legacy shed the server doesn't know
+    // is rejected, and the optimistic debit reconciles away.
+    const from = field.objectDefOf(id);
+    const serverObject = !!economy && !!from && def.cost > 0;
+    if (serverObject) {
+      const have = def.brainsNeeded ? state.brains : state.gold;
+      if (have < def.cost) return; // optimistic affordability; server re-checks
+      economy!.submitObject(
+        { type: "upgrade", fromKey: from!.key, toKey: def.key },
+        def.brainsNeeded ? { brains: -def.cost, xp } : { gold: -def.cost, xp }
+      );
+    } else {
+      const paid = def.brainsNeeded ? state.spendBrains(def.cost) : state.spendGold(def.cost);
+      if (!paid) return;
+      state.addXp(xp);
+    }
     audio.play("buy");
     field.replaceObjectDef(id, def);
     if (def.storageSlots) state.upgradeStorage(def.storageSlots);
-    const xp = buyXp(def.cost, def.xp); // buying/upgrading always rewards XP
-    state.addXp(xp);
     const o = field.objectOriginOf(id);
     if (o) {
       const c = tileCenter(o.oc, o.or);
@@ -1526,13 +1574,26 @@ async function main() {
     const potBought = !!def.zombiePot && state.zombiePotBought;
     const cost = def.zombiePot ? (potBought ? 30 : 500) : def.cost;
     const useBrains = def.zombiePot ? potBought : def.brainsNeeded;
-    const paid = useBrains ? state.spendBrains(cost) : state.spendGold(cost);
-    if (!paid) return;
+    const xp = buyXp(cost, def.xp); // buying always rewards XP (economy.ts)
+    // Server-owned object buy (online, non-Pot, priced): the server debits the cost +
+    // grants xp + records ownership so the object is later refundable. The Zombie Pot
+    // (dynamic 500/30 pricing) and free/promo objects stay on the local path.
+    const serverObject = !!economy && !def.zombiePot && cost > 0;
+    if (serverObject) {
+      const have = useBrains ? state.brains : state.gold;
+      if (have < cost) return; // optimistic affordability; server re-checks
+      economy!.submitObject(
+        { type: "buy", key: def.key },
+        useBrains ? { brains: -cost, xp } : { gold: -cost, xp }
+      );
+    } else {
+      const paid = useBrains ? state.spendBrains(cost) : state.spendGold(cost);
+      if (!paid) return;
+      state.addXp(xp);
+    }
     if (def.zombiePot) state.markZombiePotBought(); // next pot is 30 brains forever
     field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
     audio.play("place");
-    const xp = buyXp(cost, def.xp); // buying always rewards XP (economy.ts)
-    state.addXp(xp);
     if (def.armyMax) state.addZombieMax(def.armyMax); // functional effect
     if (def.storageSlots) state.upgradeStorage(def.storageSlots); // shed capacity
     const c = tileCenter(col, row);
@@ -1569,8 +1630,18 @@ async function main() {
     audio.play("sell");
     if (def.armyMax) state.addZombieMax(-def.armyMax); // reverse functional effect
     const refund = sellRefund(def);
-    if (def.brainsNeeded) state.addBrains(refund);
-    else state.addGold(refund);
+    // Server-owned object refund (online, non-Pot, priced): the server credits the
+    // refund only for an object it recorded you owning. The optimistic credit matches
+    // (both = floor(cost*0.2)), so it reconciles cleanly; a legacy object the server
+    // doesn't know is rejected and the optimistic credit is dropped.
+    const serverObject = !!economy && !def.zombiePot && def.cost > 0;
+    if (serverObject) {
+      economy!.submitObject({ type: "refund", key: def.key }, def.brainsNeeded ? { brains: refund } : { gold: refund });
+    } else if (def.brainsNeeded) {
+      state.addBrains(refund);
+    } else {
+      state.addGold(refund);
+    }
     const c = tileCenter(o.oc, o.or);
     floatText(c.x, c.y, `+${refund}${def.brainsNeeded ? "b" : "g"}`);
   };

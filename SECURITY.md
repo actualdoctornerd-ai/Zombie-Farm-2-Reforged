@@ -1,6 +1,6 @@
 # Security and Anti-Cheat Status
 
-Last reviewed: 2026-07-13
+Last reviewed: 2026-07-14
 
 ## Scope and deployment assumption
 
@@ -19,10 +19,72 @@ the authenticated account, sessions can be revoked, friendships require consent,
 are longer and rotatable, gifts have database uniqueness and idempotency controls, save writes
 use an atomic revision compare-and-swap, and uploaded saves are structurally bounded.
 
-The primary remaining security weakness is gameplay authority. The browser still authors most
-progression and uploads the resulting snapshot. A modified client can therefore manipulate its
-own gold, brains, XP, inventory, zombies, crops, timers, unlocks, raid history, cooldowns, and
-rewards within the generous structural bounds accepted by the server.
+**Update (own-account containment shipped — Phase 0 — plus Phase C level/quest authority; raids
+excluded).** The trivial value-minting paths are closed and covered by tests: `/economy/apply` is
+spend-only (positive deltas rejected `earn_forbidden`); the public `grant` actions were removed
+from both `/inventory/actions` and `/roster/actions` (no free boost/voucher, no mint-a-zombie-to-
+sell); and **every** client-declared seed — the `*/sync` endpoints AND the gift-claim/grant balance
+seed — is gated by a creation-time cutoff (`MIGRATION_CUTOFF_MS`) and made once-per-empty-subsystem,
+so a new account can no longer self-declare a starting balance/roster/farm and receives fixed server
+defaults. (The gift-claim seed path was a residual of the first pass, now closed via `balanceSeed`.)
+
+**Phase C (partial) is now in too:** level-up rewards are fully server-authoritative — level is
+derived from server-owned `balances.xp` (`levels.ts`) and the +1-brain-per-level reward is granted
+exactly once per level via `claimed_level`, needing no client input. Quest rewards have a bounded-
+once server home: `POST /quest/complete` grants the quest's reward from a server catalog
+(`questCatalog.ts`) at most once per `(account, quest)`, credits currency + any level-up it triggers,
+and the client now routes completion through it. Quest *item/zombie* rewards are recorded-only, which
+turns out to match the client: type-5's zombie key (`ZombieActorRegularData`) isn't a zombies.json key
+at all, so the client's spawn already resolves to nothing (missing content, not a missing grant), and
+type-3 items land in the save's `received` list whose claim path goes through the inventory `grant`
+the server rejects — so both are fail-closed today. Quest requirement *proof* is still client-asserted
+(bounded-once, not proven-earned — same posture as raid wins).
+
+**Phase D — placeable objects AND the zombie field are now server-owned.** (1) Object OWNERSHIP is
+a server-authoritative count per key (`objectCatalog.ts` mirrors placeables.json): `POST
+/object/actions` prices a `buy` (debit exact cost + grant buyXp) and a `refund` (credit
+floor(cost*0.2)) — the refund only fires for an object the server records you owning, so a client
+can't fabricate a placeable or refund one it never bought. Free/promo (cost 0) objects and the
+dynamic-priced Zombie Pot stay on the client path. (2) The ZOMBIE FIELD is server-owned: a zombie is
+grown from a zombie crop, and `/farm/actions` now prices the plant (gold OR brains, `zombieCropCatalog.ts`),
+gates the harvest by real server grow time, and grants the resulting VERIFIED unit into the roster —
+so a client can no longer fast-grow zombies or spawn an unearned (then sellable) unit. Both seed once
+(cutoff-gated) and are wired through the client (object buy/sellObject; zombie-crop plant/harvest with
+a suppressed local grant). Placement/position stays cosmetic client-side layout. (3) GIFT VOUCHERS
+redeem server-side: a `use` of a gift boost consumes the voucher and grants the zombie the catalog
+(not the client) names, in one atomic action, enforcing "1 per farm" — previously the client spawned
+that zombie locally and the server never saw it, so it was an unsellable phantom. (4) OBJECT UPGRADES
+(the in-place shed upgrade) go through `/object/actions` `upgrade`: it charges the new object's full
+catalog price and consumes the old one with no refund, so it's strictly worse than refund-then-buy and
+can't launder value whatever key pair a client names. A free `from` (the starter Shabby Shed, cost 0)
+needs no count — free objects are deliberately never server-tracked.
+
+**Phase E — the farm's geometry, soil, and level gates are now server-owned.** (1) PLOWED SOIL is real
+server state (`plowed_soil`, migration 0015): a `plow` farm action debits the server's plow cost (0 only
+while the account's server-owned object counts include a Plowing Monolith) + grants 1 xp and records the
+soil, and a plant now REQUIRES it. Previously `plow` was only a ledger reason — the till was a local
+spend, so online it cost nothing and a plant never checked for soil at all. The plant consumes the soil,
+so the two tables stay disjoint and re-planting needs a fresh till; re-plowing plowed soil is rejected,
+so a till can't be farmed for xp. (2) The OWNED FARM bounds plant/plow: `plotWithin` mirrors
+`Field.fits()` against `farm_state.size`, replacing a flat 128-coord structural cap that let a client
+farm land it never bought. (3) LEVEL GATES are enforced from server-owned xp (`levelForXp`) on crop
+plants, zombie-crop plants, boost buys, and object buys/upgrades — a level-1 client can no longer buy a
+level-25 gift voucher. Catalog level `-1` means "no requirement" (59 seasonal placeables), matching the
+client's own check. A migrating save's already-plowed soil imports ONCE via `POST /farm/sync`, guarded by
+`farm_state.soil_seeded` rather than seed-once-if-empty — an empty soil set is a legitimate steady state,
+so an if-empty guard would let a client re-import free soil (plow cost + 1 xp each) forever.
+
+The remaining security weakness is the rest of gameplay authority. The browser still authors
+progression the server does not yet own — quest requirement proof, tutorial rewards, raid win/loss
+(bounded to the raid's real catalog reward), and unit combat state (veterancy/casualties/mutation — a
+raid outcome) — and uploads a save blob those systems still read. A modified client can still manipulate
+those within the structural bounds the server accepts; it just can no longer directly mint currency,
+items, units by ANY route (bought, combined, grown, or redeemed), a starting balance, level-up brains,
+object refunds, a free object upgrade, free soil, land it never bought, or content above its level.
+
+Known pre-existing gap (NOT introduced by Phase E): planted crops themselves have no seed path, so a
+crop planted before the farm became server-owned lives only in the blob and its harvest is rejected as
+`nothing_planted`. Fail-closed (no mint), and folded into the Phase F save split.
 
 Current practical conclusions:
 
@@ -32,12 +94,14 @@ Current practical conclusions:
   rotation, and rate limiting.
 - Malformed farms are less capable of hanging visitors because saves and dimensions are bounded
   at both the API and visitor hydration boundary.
-- Gift races and duplicate claims are materially better controlled, but brains are not yet a
-  fully server-owned balance and deferred grant reconciliation remains necessary.
+- Gift races and duplicate claims are materially better controlled, and gift brains settle into
+  the server-owned balance. The remaining problem is that other public grant paths do not prove
+  where a reward came from.
 - Cheating on one's own progression and raid outcomes remains easy because those systems are
   still client-authoritative.
-- A valid abusive client can still consume free-tier capacity, particularly because session
-  activity and D1-backed rate counters amplify writes.
+- A valid abusive client can still consume free-tier capacity through large action batches and
+  distributed traffic, although session touches are throttled and production request counters no
+  longer write to D1.
 
 The current model is acceptable for an honor-system, noncompetitive preview. It is not yet a
 safe foundation for paid currency, trading, leaderboards, PvP, or any feature where illegitimate
@@ -74,20 +138,240 @@ that a structurally valid progression snapshot was legitimately earned.
 
 | Scenario | Current likelihood | Impact |
 | --- | --- | --- |
-| Change own currency, XP, inventory, zombies, or farm | Certain with a modified client | High |
-| Forge raid results, loot, casualties, or cooldowns | Certain with a modified client | High |
-| Upload a fabricated but structurally bounded farm | High | High |
+| Mint currency via a public positive `/economy/apply` delta | **Closed — endpoint is spend-only (earn_forbidden)** | High |
+| Fabricate boosts/vouchers via public inventory `grant` | **Closed — `grant` removed; boosts enter only via priced buy** | High |
+| Launder gold via roster `grant` → `sell` | **Closed — `grant` removed; only owned (seeded/combined) units sell** | High |
+| Self-seed a new account's balance/roster/boosts/farm | **Closed — new/post-cutoff accounts get fixed server defaults** | High |
+| Re-inject units via repeated `/roster/sync` | **Closed — seeding is once-per-empty-subsystem, cutoff-gated** | High |
+| Change own XP/level/quest/tutorial rewards in the save | High (server has no quest/level authority yet; rewards just don't persist online) | Medium |
+| Plant beyond owned farm size / on un-plowed soil | High (coord only bounded to 128; plot/soil ownership not yet server-checked) | Low-medium |
+| Forge raid win (bounded to the raid's real catalog reward) | Certain with a modified client (deferred — raid replay) | Medium |
+| Upload a fabricated but structurally bounded farm | High (progression not yet split from the presentation save) | Medium |
 | Directly write another account's save | Low without session theft | Critical |
 | Force friendship without consent | Low after full deployment | Medium |
 | Enumerate accounts through friend codes | Low after full deployment | Medium |
 | Duplicate a daily gift through concurrent sends | Low after full deployment | Medium |
 | Double-claim one gift | Low; unique grant is the serialization point | Medium-high |
-| Lose/defer a gift credit during extreme save churn | Plausible until reconciliation exists | Medium |
 | Hang a visitor with extreme farm data | Low after validation; requires adversarial testing | Medium-high |
 | Use a stolen live session | Low-medium; revocable but still a bearer credential | Critical |
 | Exhaust free-tier capacity with a valid abusive client | Plausible | High availability impact |
 
-## Remaining work: priority order
+## Own-account manipulation prevention plan
+
+### Security objective
+
+The client may report **intent and player input**, but it must never be allowed to author value.
+Every valuable state transition must be derived by the server from canonical prior state, a
+server catalog, server time, and a unique trusted source event.
+
+The target rule is:
+
+> No public request may directly specify a positive currency delta, reward amount, unrestricted
+> grant, owned item, owned zombie, completed raid, completed quest, or authoritative timer result.
+
+Client prediction is still desirable for responsive play. It is only a temporary display layer;
+the server response is the committed result.
+
+### Current concerns and danger points
+
+| # | Danger point | What a modified client can do now | Required correction |
+| --- | --- | --- | --- |
+| 1 | Raw economy earns | Repeatedly submit positive `/economy/apply` events with fresh IDs. Per-event caps do not prevent unlimited accumulation. | Remove public positive deltas. Replace them with explicit server-priced commands and internal-only credit functions. |
+| 2 | First-use seeding | Initialize a new balance, boost inventory, roster, farm size, or climate set from an already-edited client state. | New accounts receive server defaults. Existing-account import must be a one-time, cutoff-gated migration from a server-captured snapshot. |
+| 3 | Inventory grants | Submit `inventory grant` for arbitrary known boosts, including raid vouchers. | Remove `grant` from the public inventory action union. Only trusted server subsystems may issue inventory grants with a unique source ID. |
+| 4 | Roster grants and sync | Add arbitrary catalog zombies with new unit IDs, then sell them for server-authoritative gold. Repeated roster sync is effectively another grant path. | Remove public roster grants and make roster initialization truly one-time. Zombie creation must name a verified source such as crop harvest, quest reward, purchase, or combine job. |
+| 5 | Client-asserted raid outcome | Report `win=true` and maximum survival without proving the fight, roster, unlock, or legal inputs. | Verify the interactive input transcript or advance an authoritative raid state machine. The server derives outcome, casualties, loot, and reward. |
+| 6 | Raid-session lifecycle | Open many sessions before any finish starts the cooldown; settle expired sessions because expiry is not checked at finish. | Atomically reserve one active raid per account, enforce expiry in the finish write, and make start/finish/cooldown one consistent state machine. |
+| 7 | Partial farm authority | Plant anywhere inside the global 128-coordinate cap without proving that the coordinate is within the owned farm, plowed, or otherwise usable. | Maintain server plot/soil state and validate coordinates against server-owned farm size and legal plot transitions. |
+| 8 | Client quest, loot, object, and refund sources | Complete or fabricate local quest/raid history, received items, placed objects, unlocks, and object refunds, then route some value through generic economy/grant paths. | Give each system an explicit server command and server-owned source record. No generic fallback may award value. |
+| 9 | Opaque cloud save | Upload a structurally valid snapshot containing fabricated progression. Even when a newer server table overrides some fields, other systems may still read the blob. | Split authoritative progression from cosmetic/layout persistence. Ignore or reject authoritative fields on `PUT /save`; compose them from server tables on read. |
+| 10 | Read-check-write races | Concurrent requests can both pass an affordability, idempotency, or cooldown read before either commits. Some paths update a balance even when an `INSERT OR IGNORE` did not win. | Use conditional writes/transactions whose changed-row count decides whether value moves. Add database constraints and adversarial concurrency tests. |
+| 11 | Batch and quota amplification | One allowed request can contain up to 256 value-changing actions; distributed clients can exceed location-scoped throttles. | Set smaller per-command batch limits, per-account daily mutation budgets, and global load-shedding thresholds in addition to request-rate limits. |
+
+### Phase 0: contain the currently trivial paths
+
+Ship these changes first because they remove the browser-Network-tab exploits without waiting for
+the full farm or raid rebuild.
+
+**Status: shipped (raids excluded), tested (server unit + integration suites green).** Items 1–5
+are done; the remainder are as noted.
+
+1. **DONE.** `/economy/apply` is spend-only — any positive delta is rejected `earn_forbidden`
+   (`server/src/economy.ts`), regardless of reason or size; earn reasons removed.
+2. **DONE.** Public `grant` removed from `/inventory/actions` and `/roster/actions`
+   (`server/src/inventory.ts`, `server/src/roster.ts`, and the `db.ts` handlers). Boosts enter
+   only via a priced `buy`; units only via the migration seed or the validated combine.
+3. **DONE.** `/roster/sync` (and inventory/shop/economy sync) seed once-per-empty-subsystem and
+   only for a migration-eligible account — repeated sync can no longer inject additional units.
+4. **DONE.** New accounts (and any account once import is closed) receive fixed server defaults
+   (`STARTER_BALANCE`, base farm, empty roster/boosts). A client cannot self-declare a start state.
+5. **DONE (config-based, no per-account record).** A creation-time cutoff `MIGRATION_CUTOFF_MS`
+   gates import: only accounts created before it may import, once per subsystem (enforced by the
+   subsystem being empty). This was chosen over an `eligible_at`/`completed_at` table because
+   "row/collection already exists" is a sufficient once-guard and needs no new schema. If a
+   per-account audit trail of *what* was imported is later required, add the record then.
+6. **Not done.** Audit already-seeded accounts for impossible balances/inventory/roster/farm.
+   (Legacy accounts seeded before this change keep their values; their rows are preserved.)
+7–8. **Deferred (raids, out of current scope).** One-open-session, expiry-at-finish, and the
+   win-verification ceiling remain as written.
+9. **Not done (deferred).** Batch cap stays at 256 and there is no per-account daily budget yet.
+   Lower priority now that positive deltas and public grants — the amplified vectors — are gone;
+   this is a DoS/capacity control, not a cheat control.
+10. **Partial.** `economy_rejected` / `inventory_rejected` / `roster_rejected` / `farm_rejected`
+    are logged (rejected earns and stripped-grant attempts land in these). Dedicated counters for
+    seeding attempts and alert wiring are still open.
+
+### Phase 1: replace generic value changes with trusted commands
+
+Create one internal value-issuance layer. Route handlers must not update balances, inventory, or
+roster rows directly.
+
+Each internal credit or grant must include:
+
+- account ID;
+- source type, such as `crop_harvest`, `quest_completion`, `raid_finish`, `gift_claim`,
+  `purchase_refund`, or `combine_collect`;
+- immutable source ID;
+- server-computed amount or catalog key;
+- ruleset/catalog version;
+- creation time;
+- a uniqueness constraint over the source so it can apply only once.
+
+Replace generic client events with explicit commands:
+
+- `plant`, `harvest`, `plow`, and plot expansion;
+- item purchase, placement, movement, storage, removal, and refund;
+- zombie planting, harvest, sale, casualty, veterancy, storage, and deployment;
+- boost purchase and consumption;
+- combine start and collect;
+- quest progress and completion;
+- farm-size and climate purchase;
+- gift claim;
+- raid start, input, and finish.
+
+For each command, the server loads canonical state, checks prerequisites and ownership, computes
+the exact result from its catalog, commits the state and its ledger/grant event atomically, and
+returns the new authoritative projection.
+
+There must be no `misc`, `tutorial`, `quest`, `gift`, `refund`, `raid_loot`, or similar public
+catch-all capable of producing value. Those names may exist only as internal source types attached
+to a source record the server has independently validated.
+
+### Phase 2: finish farm, inventory, roster, and progression authority
+
+1. Store soil/plot state against the server-owned farm dimensions. Validate bare -> plowed ->
+   planted -> ripe -> harvested transitions.
+2. Use server timestamps for planting, growing, combining, construction, cooldowns, and other
+   delayed jobs. The client may display countdowns but cannot complete a job early.
+3. Represent placeable ownership as item instances or counts separate from placement. Placement
+   consumes or references an owned instance; removal can refund only a recorded purchased instance.
+4. Make zombie creation source-specific. Crop harvest must reference a ripe server crop; combine
+   collect must reference a completed server job; rewards must reference a unique server grant.
+5. Derive level and unlocks from server XP. Validate every level-gated crop, zombie, shop upgrade,
+   quest, and raid against that server-derived level.
+6. Track quest state server-side for any quest that awards currency, items, zombies, XP, or unlocks.
+   Cosmetic-only local quests may remain client-side if they cannot feed a valuable path.
+7. Roll random loot and rare rewards on the server from a pinned source event and server RNG.
+
+### Phase 3: implement interactive raid verification
+
+1. `POST /raid/start` atomically verifies cooldown, unlock, server roster, deployment order, owned
+   boosts, and vouchers. It reserves the account's single active raid.
+2. Store raid ID, ruleset version, roster snapshot, loadout, server RNG seed, start time, expiry,
+   and any consumed resources.
+3. Record every outcome-relevant player input with a simulation tick: target selection, ability
+   activation, concentration interaction, retreat, and future direct-control actions.
+4. `POST /raid/finish` accepts the session ID and input transcript, never `win`, casualties,
+   survival fraction, loot, or reward totals as authoritative fields.
+5. Replay the deterministic combat rules and reject impossible, late, duplicated, reordered, or
+   resource-invalid actions. Rendering and animation are not part of replay.
+6. Atomically close the raid session, start the cooldown, apply casualties/veterancy, roll loot,
+   record first clear, and issue rewards through unique internal source events.
+7. Benchmark worst-case replay against the Worker CPU limit. If deterministic replay cannot meet
+   it, use an authoritative coarse action state machine rather than trusting the final result.
+
+### Phase 4: separate cloud presentation saves from authoritative state
+
+Change `PUT /save` into a presentation/layout endpoint. It may persist bounded cosmetic state such
+as camera-independent placement, selected appearance, tutorial presentation, and client settings.
+
+It must ignore or reject:
+
+- gold, brains, XP, level, and unlocks;
+- inventory and received rewards;
+- zombie ownership, permanent mutation state, casualties, and veterancy;
+- crop readiness and authoritative job timestamps;
+- farm size and purchased terrain ownership;
+- quest completion with rewards;
+- raid wins, cooldowns, loot, and first clears.
+
+`GET /save` or a replacement bootstrap endpoint should compose the response from authoritative
+server tables plus the bounded presentation snapshot. Editing local storage or replaying an old
+snapshot must therefore have no valuable effect.
+
+Offline play requires an explicit product decision:
+
+- **Untrusted offline mode:** progression remains local and cannot enter online competitive or
+  paid systems.
+- **Online authoritative mode:** commands queue locally while disconnected, but the server may
+  reject them on reconnect if prerequisites, order, or timing cannot be proven.
+
+Do not silently merge arbitrary offline snapshots into authoritative online progression.
+
+### Phase 5: make concurrency and idempotency part of every invariant
+
+- Scope idempotency keys to the account and command type, and store the committed response.
+- Apply value only when insertion of the unique source/command row succeeds.
+- Use guarded debits such as `UPDATE ... WHERE balance >= cost` and require exactly one changed row.
+- Make raid start a conditional transition from `idle` to `active`; make finish a conditional
+  transition from the same active session to `finished` while unexpired.
+- Add nonnegative balance/count constraints and legal-state constraints where D1 supports them.
+- Never perform a security decision in a read followed later by an unconditional write.
+- Retain idempotency records for at least the maximum retry/offline window; purging them after seven
+  days is unsafe if an old client outbox can retry later than seven days.
+
+Required concurrency tests include duplicate event IDs in parallel requests, overlapping purchases,
+simultaneous inventory use, repeated roster sale, multiple raid starts, finish versus expiry,
+finish retries, gift claim versus autosave, block versus friend acceptance, and stale/offline command
+replay.
+
+### Phase 6: rollout without corrupting legitimate accounts
+
+1. Add schema and server code before enabling the new client.
+2. Run new validation in shadow mode and record disagreements without rejecting legitimate traffic.
+3. Measure the real ranges of balances, roster sizes, action rates, raid lengths, and offline retry
+   delays before fixing final caps.
+4. Migrate existing state once, record exactly what was imported, and close the migration endpoint.
+5. Deploy the client only after the Worker and migrations are confirmed live.
+6. Gradually disable legacy raw-event and snapshot paths with a server-side feature flag and a
+   forced minimum client version.
+7. Provide administrative tools to inspect source events, reconcile a player, reverse a bad grant,
+   revoke sessions, and quarantine suspicious progression without deleting the account.
+8. Monitor rejected commands, source uniqueness conflicts, negative-state attempts, raid replay
+   failures, initialization attempts, and accepted commands per account/day.
+
+### Definition of done
+
+Own-account manipulation is materially controlled when all of the following are true:
+
+- No public route accepts a positive currency delta or unrestricted inventory/roster grant.
+- A newly created account always starts from server defaults.
+- Every positive ledger, inventory, roster, loot, and unlock change references one unique trusted
+  server source.
+- Editing or replacing the cloud/local save cannot change authoritative progression.
+- Farm actions are constrained by owned dimensions, plot state, catalog, cost, level, and server
+  time.
+- Only one unexpired raid can be active, and rewards require a server-verified outcome.
+- Concurrent and repeated requests cannot double-credit, overdraft, reopen, or bypass cooldowns.
+- Per-account budgets and global load shedding prevent a valid client from turning batching into a
+  denial of service.
+- Adversarial integration tests cover every value-producing command and its concurrency behavior.
+
+## Broader remaining work: priority order
+
+The own-account manipulation plan above supersedes the older implementation notes under items 1-4.
+Those items are not complete merely because a value is stored in a server table; the server must
+also prove the provenance of every value-producing input.
 
 ### 1. Make valuable balances and progression server-owned
 
@@ -99,19 +383,12 @@ not be able to commit arbitrary balances.
 Do this before adding paid currency, trading, competitive rankings, or rewards that influence
 other accounts.
 
-**Progress:** gold/brains/XP (P4), crop economics (P6/P7), raid rewards + cooldown + voucher (P10/P11),
-consumable boosts (P11), **zombie ownership + selling** (P12), the **Garden-zombie fertilize roll**
-(P13 — server-owned, so a client can't force the 2× harvest), and the **Zombie Pot combine result**
-(P14 — the server validates the result is one of the two consumed parents, closing the fabricate-an-
-expensive-result path) are now server-owned. **farm size** and **ground/climate skins**
-(P16 — server-owned scalar + owned-set, exact-price, seeded from the save **once at first
-initialization** and reconciled thereafter — re-posting owned state can't re-grant it) are now
-server-owned too. **Remaining under this item:** veterancy in the shadow (cosmetic — sell value is
-key-based), the combine TIMER (instant-combine has no gold value), **placeable objects** (their
-ownership is farm-layout placement, which can't reconcile like a scalar/set — a one-time, largely
-cosmetic gap; functional monoliths are QoL/time, not gold), and received (non-boost) loot items are
-still client-authored; and the roster shadow isn't yet used to validate raid deployments (that pairs
-with item 3's input replay).
+**Progress with an important qualification:** balances, boost counts, roster rows, crop records,
+farm size, climate ownership, raid cooldown, and server-priced rewards now have server-side storage.
+Exact crop economics, gift settlement, catalog pricing, fertilization rolls, and parts of combining
+are meaningful improvements. However, public raw earns, inventory grants, roster grants/sync,
+first-use seeding, and client-asserted raid wins mean storage authority is not yet reward authority.
+Treat this item as incomplete until the provenance requirements in the plan above are satisfied.
 
 ### 2. Replace arbitrary farm snapshots with validated action batches
 
@@ -168,16 +445,12 @@ gold, and brain drops also stay on the bounded economy/inventory path pending se
 server-owned boost inventory below), so a modified client can no longer bypass the cooldown for
 free — the trusted-`bypass` residual is closed.
 
-### 4. Finish the server-owned gift and grant ledger
+### 4. Generalize the trusted grant ledger
 
-The unique grant prevents double-credit, but a gift still ultimately changes `player.brains` inside
-the client-shaped save. Make the ledger or a server balance row authoritative. Add a reconciliation
-job or read-time repair path for grants that were recorded but could not be projected into the save
-after repeated revision conflicts. Ensure a claim cannot be reported as complete while its durable
-balance effect remains indefinitely unapplied.
-
-All future purchases, refunds, promotions, and administrative grants should use unique ledger
-events and idempotency keys.
+Gift brains now settle into the server-owned balance through a unique grant. Apply that same model
+to every other value source. Inventory, roster, quest, loot, tutorial, refund, raid, promotion, and
+administrative grants must originate from server-validated source records and unique idempotency
+keys. Public clients must not be able to construct grant events directly.
 
 ### 5. Remove production mutation and debugging surfaces
 
@@ -279,10 +552,11 @@ assets do not consume Worker requests. The daily limits reset at 00:00 UTC. See
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
 [Pages Functions pricing](https://developers.cloudflare.com/pages/functions/pricing/).
 
-The present backend amplifies writes: every authenticated call updates session activity, and a
-rate-limited save also writes its rate counter before writing the save. A typical remote save can
-therefore cost approximately one Worker request and three D1 row writes. D1 writes are likely to
-be the first free-tier constraint.
+The current production backend throttles session activity updates to approximately once every 15
+minutes and uses Cloudflare Rate Limiting bindings, so most authenticated requests no longer create
+session or rate-counter writes. A normal remote snapshot is therefore approximately one Worker
+request and one primary save-row write, plus reads and occasional session maintenance. Value-command
+batches can write several rows per accepted command and are now the larger capacity and abuse risk.
 
 Use the following save policy:
 
@@ -311,10 +585,10 @@ Use the following save policy:
 
 For 100 daily players each playing one continuous hour, a 30-second maximum produces at most about
 120 periodic remote saves per player, or 12,000 saves per day, before critical-boundary saves. With
-the current approximately three-write save path, that is about 36,000 D1 writes plus login, social,
-and other overhead--roughly 40,000-50,000 writes on a busy day. With session writes throttled and
-request counters removed from D1, the same periodic saves are closer to 12,000 save-row writes plus
-modest overhead.
+the current session throttling and native request counters, those periodic snapshots are roughly
+12,000 save-row writes plus modest authentication and social overhead. Server-authoritative action
+commands add their own ledger and state writes, so accepted commands per player-hour must be tracked
+separately from snapshot frequency.
 
 Real use should normally be lower because the five-second debounce coalesces bursts and the maximum
 timer runs only while state is dirty. Measure actual remote saves per player-hour and D1 query

@@ -291,10 +291,32 @@ export const syncEconomy = (seed: Balance) =>
 export const applyEconomy = (events: EconomyEvent[]) =>
   req<{ balance: Balance; results: EconomyResult[] }>("POST", "/economy/apply", { events });
 
+// ---- quests (server-authoritative, bounded-once rewards) ----------------
+export interface QuestCompleteResult {
+  status: "applied" | "duplicate" | "rejected";
+  error?: string;
+  balance: Balance;
+  /** What was actually credited this call (0s on duplicate; item/zombie deferred). */
+  granted: { gold: number; brains: number; xp: number };
+  /** True when the reward is an item/zombie the server records but can't grant yet. */
+  deferred: boolean;
+}
+
+/** Complete a quest server-side: grants its SERVER-catalog reward (currency + any
+ *  level-up it triggers) at most once per quest. Idempotent by (account, quest) — a
+ *  retry returns status "duplicate" and credits nothing. */
+export const completeQuest = (questId: string) =>
+  req<QuestCompleteResult>("POST", "/quest/complete", { questId });
+
 // ---- farm actions (exact per-action economics) --------------------------
 export type FarmAction =
   | { id: string; type: "plant"; oc: number; or: number; cropKey: string; fertilized?: boolean }
-  | { id: string; type: "harvest"; oc: number; or: number };
+  // `unitId` is sent only when harvesting a ZOMBIE crop: the owned unit id the harvest
+  // yields, which the server records as a verified roster unit.
+  | { id: string; type: "harvest"; oc: number; or: number; unitId?: string }
+  // Till a plot. The server owns the plow cost (free with a Plowing Monolith) and
+  // records the soil, which a later plant requires.
+  | { id: string; type: "plow"; oc: number; or: number };
 export interface FarmResult {
   id: string;
   status: "applied" | "duplicate" | "rejected";
@@ -304,15 +326,22 @@ export interface FarmResult {
   fertilized?: boolean; // plant only: the SERVER's fertilize decision
 }
 
-/** Submit farm actions (plant/harvest). The server computes exact economics and
+/** Submit farm actions (plow/plant/harvest). The server computes exact economics and
  *  gates harvest by server time; returns the new authoritative balance + verdicts. */
 export const applyFarm = (actions: FarmAction[]) =>
   req<{ balance: Balance; results: FarmResult[] }>("POST", "/farm/actions", { actions });
 
+/** One-time import of a migrating save's already-PLOWED soil, so plants there aren't
+ *  rejected as `not_plowed`. Ignored (and merely read back) once the account is seeded
+ *  or past the migration cutoff. Returns the authoritative plowed set. */
+export const syncFarm = (plowed: { oc: number; or: number }[]) =>
+  req<{ plowed: { oc: number; pr: number }[] }>("POST", "/farm/sync", { plowed });
+
 // ---- inventory (server-owned consumable boosts) -------------------------
 export type InventoryAction =
   | { id: string; type: "buy"; key: string }
-  | { id: string; type: "use"; key: string; qty?: number }
+  // `unitId`: gift vouchers only — the zombie the redeem grants is filed under this id.
+  | { id: string; type: "use"; key: string; qty?: number; unitId?: string }
   | { id: string; type: "grant"; key: string; qty?: number };
 
 export interface InventoryResult {
@@ -331,6 +360,31 @@ export const applyInventory = (actions: InventoryAction[]) =>
   req<{ balance: Balance; inventory: Record<string, number>; results: InventoryResult[] }>(
     "POST",
     "/inventory/actions",
+    { actions }
+  );
+
+// ---- objects (server-owned placeable ownership) -------------------------
+export type ObjectAction =
+  | { id: string; type: "buy"; key: string }
+  | { id: string; type: "refund"; key: string }
+  // In-place swap at the new object's full price (the shed upgrade).
+  | { id: string; type: "upgrade"; fromKey: string; toKey: string };
+
+export interface ObjectResult {
+  id: string;
+  status: "applied" | "duplicate" | "rejected";
+  error?: string;
+}
+
+/** Seed the server object counts from the save (one-time) and read them back. */
+export const syncObjects = (counts: Record<string, number>) =>
+  req<{ objects: Record<string, number> }>("POST", "/object/sync", { counts });
+
+/** Apply object buy/refund actions; returns the resulting balance + object counts. */
+export const applyObjects = (actions: ObjectAction[]) =>
+  req<{ balance: Balance; objects: Record<string, number>; results: ObjectResult[] }>(
+    "POST",
+    "/object/actions",
     { actions }
   );
 

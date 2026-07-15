@@ -137,37 +137,38 @@ describe("economy — validation + idempotency", () => {
     expect(bal.body.brains).toBe(20);
   });
 
-  it("applies earns/spends and rejects overdraw + over-cap", async () => {
+  it("is SPEND-ONLY: applies a spend, rejects overdraw AND any positive (earn) delta", async () => {
     const s = await seeded(100, 0);
     const r = await call<{ balance: { gold: number }; results: { status: string; error?: string }[] }>(
       "POST", "/economy/apply", s.token,
       { events: [
-        { id: "a1", currency: "gold", delta: 50, reason: "harvest" },
+        { id: "a1", currency: "gold", delta: -30, reason: "purchase" }, // spend → applied
         { id: "a2", currency: "gold", delta: -200, reason: "purchase" }, // overdraw
-        { id: "a3", currency: "gold", delta: 9_999_999, reason: "harvest" }, // over cap
+        { id: "a3", currency: "gold", delta: 9_999_999, reason: "misc" }, // earn → forbidden
       ] }
     );
-    expect(r.body.balance.gold).toBe(150); // only the +50 applied
+    expect(r.body.balance.gold).toBe(70); // only the -30 applied
     expect(r.body.results.map((x) => x.status)).toEqual(["applied", "rejected", "rejected"]);
+    expect(r.body.results[2].error).toBe("earn_forbidden");
   });
 
   it("is idempotent by event id across a retry", async () => {
     const s = await seeded(100, 0);
-    const ev = { events: [{ id: "dup-1", currency: "gold", delta: 25, reason: "harvest" }] };
+    const ev = { events: [{ id: "dup-1", currency: "gold", delta: -25, reason: "purchase" }] };
     await call("POST", "/economy/apply", s.token, ev);
     await call("POST", "/economy/apply", s.token, ev); // retry same id
     const bal = await call<{ gold: number }>("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
-    expect(bal.body.gold).toBe(125); // credited once, not twice
+    expect(bal.body.gold).toBe(75); // debited once, not twice
   });
 
-  it("lands both of two concurrent applies of DIFFERENT events", async () => {
+  it("lands both of two concurrent applies of DIFFERENT spends", async () => {
     const s = await seeded(100, 0);
     await Promise.all([
-      call("POST", "/economy/apply", s.token, { events: [{ id: "c-a", currency: "gold", delta: 10, reason: "harvest" }] }),
-      call("POST", "/economy/apply", s.token, { events: [{ id: "c-b", currency: "gold", delta: 20, reason: "harvest" }] }),
+      call("POST", "/economy/apply", s.token, { events: [{ id: "c-a", currency: "gold", delta: -10, reason: "purchase" }] }),
+      call("POST", "/economy/apply", s.token, { events: [{ id: "c-b", currency: "gold", delta: -20, reason: "purchase" }] }),
     ]);
     const bal = await call<{ gold: number }>("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
-    expect(bal.body.gold).toBe(130); // both increments landed (atomic add)
+    expect(bal.body.gold).toBe(70); // both debits landed (atomic add)
   });
 });
 

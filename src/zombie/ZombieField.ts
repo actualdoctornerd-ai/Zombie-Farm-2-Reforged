@@ -43,6 +43,7 @@ export class ZombieField {
   onCombineCollect: ((unitId: string, key: string, mutation: number) => void) | null = null;
   private rosterLive = false;
   private combining = false; // suppresses addUnit's generic onGrant during a collect
+  private harvesting = false; // suppresses onGrant while spawning a server-harvested crop
 
   /** Start emitting roster hooks (call once the save is restored + the server roster
    *  seeded, so only genuine post-load changes are reported). */
@@ -117,7 +118,7 @@ export class ZombieField {
     const unit = new ZombieUnit(this.assets, this.field, data);
     this.field.entityLayer.addChild(unit.container);
     this.units.push(unit);
-    if (this.rosterLive && !this.combining) {
+    if (this.rosterLive && !this.combining && !this.harvesting) {
       this.onGrant?.({ id: data.id, key: data.key, mutation: data.mutation, invasions: data.invasions });
     }
     return unit;
@@ -139,6 +140,20 @@ export class ZombieField {
     const unit = this.addUnit(data);
     this.syncCount();
     return unit;
+  }
+
+  /** Spawn an owned zombie whose provenance the SERVER records as part of some other
+   *  action — a harvested zombie crop, or a redeemed gift voucher — suppressing the
+   *  generic onGrant. That action carries this exact unit id, so firing onGrant too would
+   *  be a redundant, rejected roster grant. Returns the new unit (whose `.id` the caller
+   *  sends to the server), or null if the army is at capacity / the key is unknown. */
+  spawnVerified(key: string, col: number, row: number, mutation?: number): ZombieUnit | null {
+    this.harvesting = true;
+    try {
+      return this.spawn(key, col, row, mutation);
+    } finally {
+      this.harvesting = false;
+    }
   }
 
   // ---- roster / storage ----

@@ -21,6 +21,14 @@ export interface Bindings {
   /** Server-owned between-raids cooldown in ms (string var). Defaults to 2h when
    *  unset. Set small in .dev.vars (e.g. "60000") so local play isn't gated. */
   RAID_COOLDOWN_MS?: string;
+  /** Save-import cutoff (epoch ms, string var). An account may import its pre-existing
+   *  save (currency/roster/boosts/farm) into server-owned state ONLY if it was created
+   *  before this instant, and only once per subsystem. Accounts created at/after it —
+   *  and every account when this is unset/0 — get fixed SERVER DEFAULTS instead and can
+   *  never self-declare a starting balance. Set to the migration-window end in prod;
+   *  set far-future in .dev.vars so local/integration accounts can seed. Default 0 =
+   *  no imports (most secure). See SECURITY.md own-account plan, item 2/5. */
+  MIGRATION_CUTOFF_MS?: string;
   /** Rate-limit tiers (optional; see wrangler.toml). Tight for sign-in, moderate
    *  for writes, loose for reads. When unset the middleware uses the D1 fallback. */
   RL_AUTH?: RateLimiter;

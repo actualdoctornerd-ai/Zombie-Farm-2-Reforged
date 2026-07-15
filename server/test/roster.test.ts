@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ZOMBIE_COST, isKnownZombie, zombieSell } from "../src/rosterCatalog";
-import { planGrant, cleanIds } from "../src/roster";
+import { validateUnit, cleanIds } from "../src/roster";
 
 describe("rosterCatalog", () => {
   it("mirrors 55 keyed costs and prices sell as max(1, floor(cost/2))", () => {
@@ -8,7 +8,7 @@ describe("rosterCatalog", () => {
     expect(zombieSell("ZombieActorRegularTier1")).toBe(17); // floor(35/2)
     expect(zombieSell("ZombieActorGardenTier4")).toBe(150); // floor(300/2)
     expect(zombieSell("ZombieActorGardenCupidPink")).toBe(1); // cost 0 → floor 0, min 1
-    expect(zombieSell("nope")).toBe(1); // unknown → 0 → min 1 (grant rejects unknowns anyway)
+    expect(zombieSell("nope")).toBe(1); // unknown → 0 → min 1 (only owned units sell anyway)
   });
   it("knows real keys and rejects unknown", () => {
     expect(isKnownZombie("ZombieActorLargeTier4")).toBe(true);
@@ -16,21 +16,21 @@ describe("rosterCatalog", () => {
   });
 });
 
-describe("planGrant — validate a granted unit", () => {
-  const grant = (over = {}) => ({ id: "g1", type: "grant" as const, unitId: "z9", key: "ZombieActorRegularTier1", ...over });
+// validateUnit backs the one-time save-migration seed (there is no public grant).
+describe("validateUnit — validate a seeded unit", () => {
   it("accepts a real catalog unit and clamps mutation/invasions", () => {
-    expect(planGrant(grant({ mutation: 7, invasions: 3 }))).toEqual({
+    expect(validateUnit("z9", "ZombieActorRegularTier1", 7, 3)).toEqual({
       ok: true, unitId: "z9", key: "ZombieActorRegularTier1", mutation: 7, invasions: 3,
     });
     // Absent / negative → 0.
-    expect(planGrant(grant())).toMatchObject({ ok: true, mutation: 0, invasions: 0 });
-    expect(planGrant(grant({ invasions: -5 }))).toMatchObject({ ok: true, invasions: 0 });
+    expect(validateUnit("z9", "ZombieActorRegularTier1")).toMatchObject({ ok: true, mutation: 0, invasions: 0 });
+    expect(validateUnit("z9", "ZombieActorRegularTier1", 0, -5)).toMatchObject({ ok: true, invasions: 0 });
     // Absurd values are clamped, not rejected.
-    expect(planGrant(grant({ invasions: 1e12 })).ok).toBe(true);
+    expect(validateUnit("z9", "ZombieActorRegularTier1", 0, 1e12).ok).toBe(true);
   });
   it("rejects a fabricated key or a missing unit id", () => {
-    expect(planGrant(grant({ key: "ZombieActorSuperCheat" }))).toMatchObject({ ok: false, error: "bad_key" });
-    expect(planGrant(grant({ unitId: "" }))).toMatchObject({ ok: false, error: "bad_unit" });
+    expect(validateUnit("z9", "ZombieActorSuperCheat")).toMatchObject({ ok: false, error: "bad_key" });
+    expect(validateUnit("", "ZombieActorRegularTier1")).toMatchObject({ ok: false, error: "bad_unit" });
   });
 });
 

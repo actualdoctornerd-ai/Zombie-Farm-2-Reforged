@@ -2,16 +2,25 @@
 // (those are in logic.ts / the routes) — just typed queries.
 import { friendCodeFromBytes, idFromBytes } from "./logic";
 import type { GoogleIdentity } from "./auth";
-import type { Balance, EconomyEvent } from "./economy";
+import type { Balance, Currency, EconomyEvent } from "./economy";
 import { applyBatch, clampSeed } from "./economy";
 import { cropEcon } from "./catalog";
-import { planPlant, planHarvest, type FarmAction, type PlotRecord } from "./farm";
+import {
+  planPlant, planHarvest, planZombiePlant, planZombieHarvest, planPlow, plotWithin,
+  PLOW_COST, PLOW_FREE_OBJECT, MAX_SEED_PLOTS,
+  type FarmAction, type PlantContext, type PlotRecord,
+} from "./farm";
+import { zombieCropEcon } from "./zombieCropCatalog";
 import { raidEcon, winGold } from "./raidCatalog";
 import { boostEcon, BOOST_KEYS, VOUCHER_KEY, MAX_STACK } from "./boostCatalog";
-import { planBuy, planUse, planGrant, type InventoryAction } from "./inventory";
+import { planBuy, planUse, planGiftRedeem, type InventoryAction } from "./inventory";
 import { zombieSell, fertilizeProbability, isKnownZombie, MAX_MUTATION } from "./rosterCatalog";
-import { planGrant as planRosterGrant, cleanIds, type RosterAction } from "./roster";
+import { validateUnit, cleanIds, type RosterAction } from "./roster";
 import { BASE_FARM_SIZE, sizeTier, nextSize, climateCost } from "./shopCatalog";
+import { levelForXp } from "./levels";
+import { questReward, QUEST_REWARD } from "./questCatalog";
+import { objectEcon } from "./objectCatalog";
+import { planObjectBuy, planObjectRefund, planObjectUpgrade, type ObjectAction } from "./objects";
 
 export interface Account {
   id: string;
@@ -673,17 +682,149 @@ export async function getOrSeedBalance(
   seed: Balance
 ): Promise<Balance> {
   const s = clampSeed(seed);
+  // Initialize claimed_level to the seed's level so a brand-new/migrated account only
+  // ever pays out level-ups earned AFTER creation (not a retroactive windfall). Rows
+  // that predate the column keep the DEFAULT 0 sentinel, handled by creditLevelUps.
   await db
     .prepare(
-      "INSERT OR IGNORE INTO balances (account_id, gold, brains, xp) VALUES (?, ?, ?, ?)"
+      "INSERT OR IGNORE INTO balances (account_id, gold, brains, xp, claimed_level) VALUES (?, ?, ?, ?, ?)"
     )
-    .bind(accountId, s.gold, s.brains, s.xp)
+    .bind(accountId, s.gold, s.brains, s.xp, levelForXp(s.xp))
     .run();
   const row = await db
     .prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?")
     .bind(accountId)
     .first<Balance>();
   return row ?? { gold: 0, brains: 0, xp: 0 };
+}
+
+/** Credit the +1-brain-per-level reward for any levels the account has reached but not
+ *  yet been paid for, deriving the level from server-owned `balances.xp`. Returns the
+ *  number of brains granted (0 if none / on the initial sentinel adoption). Idempotent
+ *  and race-safe: the grant is a conditional UPDATE on the exact prior claimed_level
+ *  (a CAS), so concurrent callers can't double-pay; the ledger row is keyed by target
+ *  level. Call after any operation that raises xp (harvest, raid, quest) and on sync.
+ *
+ *  claimed_level == 0 is the "uninitialized" sentinel (a row created before this
+ *  feature): we adopt the current level without paying, so pre-server progress isn't a
+ *  retroactive windfall. Rows created by getOrSeedBalance already start at their level. */
+export async function creditLevelUps(
+  db: D1Database,
+  accountId: string,
+  now: number
+): Promise<number> {
+  const row = await db
+    .prepare("SELECT xp, claimed_level FROM balances WHERE account_id = ?")
+    .bind(accountId)
+    .first<{ xp: number; claimed_level: number }>();
+  if (!row) return 0;
+  const level = levelForXp(row.xp);
+  if (row.claimed_level === 0) {
+    // Adopt current level, grant nothing (guarded so a concurrent real grant wins).
+    await db
+      .prepare("UPDATE balances SET claimed_level = ? WHERE account_id = ? AND claimed_level = 0")
+      .bind(level, accountId)
+      .run();
+    return 0;
+  }
+  if (level <= row.claimed_level) return 0;
+  const brains = level - row.claimed_level;
+  const upd = await db
+    .prepare(
+      "UPDATE balances SET brains = brains + ?, claimed_level = ? WHERE account_id = ? AND claimed_level = ?"
+    )
+    .bind(brains, level, accountId, row.claimed_level)
+    .run();
+  if ((upd.meta.changes ?? 0) !== 1) return 0; // lost the CAS race; the winner paid
+  await db
+    .prepare(
+      "INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'brains', ?, 'levelup', ?)"
+    )
+    .bind(`lvl:${accountId}:${level}`, accountId, brains, now)
+    .run();
+  return brains;
+}
+
+export interface QuestResult {
+  status: "applied" | "duplicate" | "rejected";
+  error?: string;
+  balance: Balance;
+  /** What was actually credited to the balance this call (0s on duplicate/item/zombie). */
+  granted: { gold: number; brains: number; xp: number };
+  /** True when the quest's reward is an item/zombie: the completion is recorded (so it
+   *  can't be re-run) but nothing was credited — and the client grants nothing for it
+   *  either, so the two agree. See questCatalog's header for why. */
+  deferred: boolean;
+}
+
+/** Complete a quest and grant its SERVER-CATALOG reward exactly once. The amount comes
+ *  from questCatalog (never the client), and the (account, quest) PRIMARY KEY is the
+ *  once-guard: the INSERT elects a single winner that credits the reward; a duplicate
+ *  credits nothing. Currency rewards (Xp/Gold/Brains) hit the balance ledger and, for
+ *  xp, trigger any owed level-up; Item/Zombie rewards are recorded-only — the client
+ *  grants nothing for them either (see questCatalog's header), so there's nothing to
+ *  mirror. Requirement proof is still client-side (bounded-once, not proven-earned). */
+export async function completeQuest(
+  db: D1Database,
+  accountId: string,
+  questId: string,
+  now: number
+): Promise<QuestResult> {
+  const bal = await getOrSeedBalance(db, accountId, { gold: 0, brains: 0, xp: 0 });
+  const zero = { gold: 0, brains: 0, xp: 0 };
+  const reward = questReward(questId);
+  if (!reward) {
+    return { status: "rejected", error: "bad_quest", balance: bal, granted: zero, deferred: false };
+  }
+
+  const isCurrency =
+    reward.rewardType === QUEST_REWARD.Xp ||
+    reward.rewardType === QUEST_REWARD.Gold ||
+    reward.rewardType === QUEST_REWARD.Brains;
+  // Item/Zombie rewards can't be granted until storage/roster creation is server-owned
+  // (Phase D); record them with reward_value 0 so re-completion is still blocked.
+  const creditValue = isCurrency ? reward.rewardValue : 0;
+
+  // Elect the single completer. ON CONFLICT DO NOTHING → a duplicate changes 0 rows.
+  const ins = await db
+    .prepare(
+      `INSERT INTO quest_completions (account_id, quest_id, reward_type, reward_value, completed_at)
+       VALUES (?, ?, ?, ?, ?) ON CONFLICT(account_id, quest_id) DO NOTHING`
+    )
+    .bind(accountId, questId, reward.rewardType, creditValue, now)
+    .run();
+  if ((ins.meta.changes ?? 0) !== 1) {
+    return { status: "duplicate", balance: bal, granted: zero, deferred: false };
+  }
+
+  if (!isCurrency) {
+    // Recorded-only: nothing credited yet (Phase D grants the item/zombie).
+    return { status: "applied", balance: bal, granted: zero, deferred: true };
+  }
+
+  const granted = { gold: 0, brains: 0, xp: 0 };
+  const currency: Currency =
+    reward.rewardType === QUEST_REWARD.Gold ? "gold" : reward.rewardType === QUEST_REWARD.Brains ? "brains" : "xp";
+  granted[currency] = reward.rewardValue;
+  await db.batch([
+    db
+      .prepare(`UPDATE balances SET ${currency} = ${currency} + ? WHERE account_id = ?`)
+      .bind(reward.rewardValue, accountId),
+    db
+      .prepare(
+        "INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, ?, ?, 'quest', ?)"
+      )
+      .bind(`quest:${accountId}:${questId}`, accountId, currency, reward.rewardValue, now),
+  ]);
+  bal[currency] += reward.rewardValue;
+
+  // A quest xp reward may have crossed a level threshold — pay owed level-up brains.
+  if (currency === "xp") {
+    const lvlBrains = await creditLevelUps(db, accountId, now);
+    bal.brains += lvlBrains;
+    granted.brains += lvlBrains;
+  }
+  return { status: "applied", balance: bal, granted, deferred: false };
 }
 
 /** Apply a batch of economy events atomically & idempotently. Validates each
@@ -766,6 +907,31 @@ async function farmActionSeen(db: D1Database, id: string): Promise<boolean> {
   return !!row;
 }
 
+/** Whether a plot's soil is recorded PLOWED-and-empty (Phase E) — what a plant needs. */
+async function isPlowed(db: D1Database, accountId: string, oc: number, pr: number): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT 1 AS x FROM plowed_soil WHERE account_id = ? AND oc = ? AND pr = ?")
+    .bind(accountId, oc, pr)
+    .first<{ x: number }>();
+  return !!row;
+}
+
+/** The account's OWNED farm size (side length in tiles). Falls back to the base size
+ *  rather than seeding, so a plant can't create farm state as a side effect. */
+export async function farmSize(db: D1Database, accountId: string): Promise<number> {
+  const row = await db
+    .prepare("SELECT size FROM farm_state WHERE account_id = ?")
+    .bind(accountId)
+    .first<{ size: number }>();
+  return row?.size ?? BASE_FARM_SIZE;
+}
+
+/** The account's plow cost: free while it owns a Plowing Monolith. Read from
+ *  server-owned object counts, never a client claim. */
+async function plowCost(db: D1Database, accountId: string): Promise<number> {
+  return (await objectCount(db, accountId, PLOW_FREE_OBJECT)) > 0 ? 0 : PLOW_COST;
+}
+
 export interface FarmResult {
   id: string;
   status: "applied" | "duplicate" | "rejected";
@@ -775,11 +941,71 @@ export interface FarmResult {
   fertilized?: boolean; // plant only: whether the SERVER rolled the crop fertilized
 }
 
-/** Apply a batch of farm actions with EXACT, server-computed economics: plant
- *  debits the catalog seed cost and records the crop with server plant time;
- *  harvest is gated by grow time against that plant time and credits the exact
- *  sell (x2 if fertilized) + xp. Idempotent by action id, atomic per action, and
- *  the balance is an atomic increment. Returns the resulting balance + verdicts. */
+/** Import an existing player's already-PLOWED soil, exactly once (Phase E). Their client
+ *  shows that soil as tilled and so refuses to re-till it; without this import the server
+ *  would reject every plant there as `not_plowed` and the account would soft-lock.
+ *
+ *  Guarded by `farm_state.soil_seeded`, NOT by "no rows yet": an empty plowed_soil set is
+ *  a legitimate steady state, so seed-once-if-empty would let a client re-import free
+ *  soil (worth the plow cost + 1 xp each) any time it had none. Callers gate this on
+ *  MIGRATION_CUTOFF_MS, like every other seed-from-save. Returns the authoritative set.
+ *
+ *  No xp/gold is granted for imported soil — it was already paid for pre-migration. */
+export async function seedPlowedSoil(
+  db: D1Database,
+  accountId: string,
+  plots: unknown,
+  now: number
+): Promise<{ oc: number; pr: number }[]> {
+  const size = await farmSize(db, accountId);
+  const row = await db
+    .prepare("SELECT soil_seeded FROM farm_state WHERE account_id = ?")
+    .bind(accountId)
+    .first<{ soil_seeded: number }>();
+  // No farm_state row yet => the account hasn't initialized its shop state; treat as
+  // un-seeded but still mark it, creating the row so the import can't run twice.
+  if (!row?.soil_seeded) {
+    const list = Array.isArray(plots) ? plots.slice(0, MAX_SEED_PLOTS) : [];
+    const stmts: D1PreparedStatement[] = [
+      db
+        .prepare(
+          "INSERT INTO farm_state (account_id, size, soil_seeded) VALUES (?, ?, 1) ON CONFLICT(account_id) DO UPDATE SET soil_seeded = 1"
+        )
+        .bind(accountId, size),
+    ];
+    for (const p of list) {
+      const oc = (p as { oc?: unknown })?.oc;
+      const pr = (p as { or?: unknown; pr?: unknown })?.or ?? (p as { pr?: unknown })?.pr;
+      // Same bound a real plow gets: inside the OWNED farm, on the plot lattice.
+      if (!Number.isInteger(oc) || !Number.isInteger(pr)) continue;
+      if (!plotWithin(oc as number, pr as number, size)) continue;
+      stmts.push(
+        db
+          .prepare("INSERT OR IGNORE INTO plowed_soil (account_id, oc, pr, plowed_at) VALUES (?, ?, ?, ?)")
+          .bind(accountId, oc, pr, now)
+      );
+    }
+    await db.batch(stmts);
+  }
+  return readPlowedSoil(db, accountId);
+}
+
+/** Every plot the account has recorded as plowed-and-empty. */
+export async function readPlowedSoil(db: D1Database, accountId: string): Promise<{ oc: number; pr: number }[]> {
+  const res = await db
+    .prepare("SELECT oc, pr FROM plowed_soil WHERE account_id = ? ORDER BY oc, pr")
+    .bind(accountId)
+    .all<{ oc: number; pr: number }>();
+  return res.results ?? [];
+}
+
+/** Apply a batch of farm actions with EXACT, server-computed economics: plow debits the
+ *  server's plow cost and records the soil; plant requires that soil, debits the catalog
+ *  seed cost and records the crop with server plant time; harvest is gated by grow time
+ *  against that plant time and credits the exact sell (x2 if fertilized) + xp. Plant/plow
+ *  are also bounded to the OWNED farm size and the account's level. Idempotent by action
+ *  id, atomic per action, and the balance is an atomic increment. Returns the resulting
+ *  balance + verdicts. */
 export async function applyFarmActions(
   db: D1Database,
   accountId: string,
@@ -800,6 +1026,12 @@ export async function applyFarmActions(
     fertP = fertilizeProbability((gk.results ?? []).map((r) => r.key));
   }
 
+  // Server-owned facts every plant/plow is judged against. Read once per batch: neither
+  // can change within it (a plant can't buy land, and the level-up a plant's xp might
+  // trigger is credited after — it can't unlock a crop earlier in the same batch).
+  const size = await farmSize(db, accountId);
+  const level = levelForXp(bal.xp);
+
   for (const a of actions) {
     if (!a || typeof a.id !== "string" || !a.id) {
       results.push({ id: a?.id ?? "", status: "rejected", error: "bad_id" });
@@ -810,16 +1042,75 @@ export async function applyFarmActions(
       continue;
     }
 
-    if (a.type === "plant") {
+    if (a.type === "plow") {
+      // Till a plot: debit the SERVER's plow cost (0 while a Plowing Monolith is owned)
+      // + grant 1 xp, and record the soil so a plant can find it. Consuming the plow
+      // cost server-side closes the free-plow gap: the old till spent gold locally, which
+      // online just reconciled away.
+      const plowed = await isPlowed(db, accountId, a.oc, a.or);
       const occupied = !!(await getCropPlot(db, accountId, a.oc, a.or));
-      const fertilized = Math.random() < fertP; // SERVER-owned fertilize roll
-      const plan = planPlant(a, cropEcon(a.cropKey), occupied, bal, now, fertilized);
+      const plan = planPlow(a, bal, size, await plowCost(db, accountId), plowed, occupied);
       if (!plan.ok) {
         results.push({ id: a.id, status: "rejected", error: plan.error });
         continue;
       }
       await db.batch([
         db.prepare("INSERT INTO farm_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+        db
+          .prepare("INSERT OR IGNORE INTO plowed_soil (account_id, oc, pr, plowed_at) VALUES (?, ?, ?, ?)")
+          .bind(accountId, a.oc, a.or, now),
+        db.prepare("UPDATE balances SET gold = gold - ?, xp = xp + ? WHERE account_id = ?").bind(plan.cost, plan.xp, accountId),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'gold', ?, 'plow', ?)")
+          .bind(a.id, accountId, -plan.cost, now),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'xp', ?, 'plow', ?)")
+          .bind(`${a.id}#x`, accountId, plan.xp, now),
+      ]);
+      bal.gold -= plan.cost;
+      bal.xp += plan.xp;
+      bal.brains += await creditLevelUps(db, accountId, now); // plow xp may cross a level
+      results.push({ id: a.id, status: "applied", gold: -plan.cost, xp: plan.xp });
+    } else if (a.type === "plant" && zombieCropEcon(a.cropKey)) {
+      // Zombie crop: debit the plant cost (gold OR brains) and record a plot that yields
+      // a UNIT (not gold) at harvest. Provenance for the future unit is locked in here.
+      const occupied = !!(await getCropPlot(db, accountId, a.oc, a.or));
+      const ctx: PlantContext = { size, level, plowed: await isPlowed(db, accountId, a.oc, a.or) };
+      const plan = planZombiePlant(a, zombieCropEcon(a.cropKey), occupied, bal, now, ctx);
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      await db.batch([
+        db.prepare("INSERT INTO farm_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+        // The plant CONSUMES the plowed soil: the crop_plots row now represents it, so
+        // the two tables stay disjoint and re-planting needs a fresh till.
+        db.prepare("DELETE FROM plowed_soil WHERE account_id = ? AND oc = ? AND pr = ?").bind(accountId, a.oc, a.or),
+        db
+          .prepare(
+            "INSERT INTO crop_plots (account_id, oc, pr, crop_key, planted_at, grow_ms, sell, xp, fertilized) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          )
+          .bind(accountId, a.oc, a.or, plan.plot.crop_key, plan.plot.planted_at, plan.plot.grow_ms, plan.plot.sell, plan.plot.xp, plan.plot.fertilized),
+        db.prepare(`UPDATE balances SET ${plan.currency} = ${plan.currency} - ? WHERE account_id = ?`).bind(plan.cost, accountId),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, ?, ?, 'plant', ?)")
+          .bind(`${a.id}#z`, accountId, plan.currency, -plan.cost, now),
+      ]);
+      bal[plan.currency] -= plan.cost;
+      results.push({ id: a.id, status: "applied", gold: plan.currency === "gold" ? -plan.cost : 0 });
+    } else if (a.type === "plant") {
+      const occupied = !!(await getCropPlot(db, accountId, a.oc, a.or));
+      const fertilized = Math.random() < fertP; // SERVER-owned fertilize roll
+      const ctx: PlantContext = { size, level, plowed: await isPlowed(db, accountId, a.oc, a.or) };
+      const plan = planPlant(a, cropEcon(a.cropKey), occupied, bal, now, fertilized, ctx);
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      await db.batch([
+        db.prepare("INSERT INTO farm_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+        // The plant CONSUMES the plowed soil (see the zombie-crop branch above).
+        db.prepare("DELETE FROM plowed_soil WHERE account_id = ? AND oc = ? AND pr = ?").bind(accountId, a.oc, a.or),
         db
           .prepare(
             "INSERT INTO crop_plots (account_id, oc, pr, crop_key, planted_at, grow_ms, sell, xp, fertilized) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -834,6 +1125,30 @@ export async function applyFarmActions(
       results.push({ id: a.id, status: "applied", gold: plan.goldDelta, fertilized: !!plan.plot.fertilized });
     } else if (a.type === "harvest") {
       const plot = (await getCropPlot(db, accountId, a.oc, a.or)) ?? undefined;
+      if (plot && zombieCropEcon(plot.crop_key)) {
+        // Zombie crop harvest: grow-gated by SERVER time; yields a VERIFIED owned unit
+        // (its key was validated at plant, so it's trusted here) + xp, NO gold. The unit
+        // enters the roster so it's legitimately sellable and can't be fast-grown.
+        const plan = planZombieHarvest(a, plot, now);
+        if (!plan.ok) {
+          results.push({ id: a.id, status: "rejected", error: plan.error });
+          continue;
+        }
+        await db.batch([
+          db.prepare("INSERT INTO farm_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+          db.prepare("DELETE FROM crop_plots WHERE account_id = ? AND oc = ? AND pr = ?").bind(accountId, a.oc, a.or),
+          db
+            .prepare("INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions) VALUES (?, ?, ?, 0, 0)")
+            .bind(accountId, a.unitId, plan.unitKey),
+          db.prepare("UPDATE balances SET xp = xp + ? WHERE account_id = ?").bind(plan.xpDelta, accountId),
+          db
+            .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'xp', ?, 'harvest', ?)")
+            .bind(`${a.id}#x`, accountId, plan.xpDelta, now),
+        ]);
+        bal.xp += plan.xpDelta;
+        results.push({ id: a.id, status: "applied", xp: plan.xpDelta });
+        continue;
+      }
       const plan = planHarvest(a, plot, now);
       if (!plan.ok) {
         results.push({ id: a.id, status: "rejected", error: plan.error });
@@ -857,6 +1172,8 @@ export async function applyFarmActions(
       results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });
     }
   }
+  // Harvest xp may have crossed a level threshold — pay any owed level-up brains.
+  bal.brains += await creditLevelUps(db, accountId, now);
   return { balance: bal, results };
 }
 
@@ -894,14 +1211,24 @@ export async function readInventory(
   return map;
 }
 
-/** Seed a player's boost counts ONCE from their save (INSERT OR IGNORE per key, so an
- *  existing server count is never clobbered). Only catalog boost keys are seeded, each
- *  clamped to the stack ceiling. Returns the resulting authoritative inventory. */
+/** Seed a player's boost counts from their save during the one-time save migration.
+ *  Only imports when the account has NO inventory rows yet — truly seed-once, so a
+ *  later sync can't inject a new boost key (e.g. a free voucher). Only catalog boost
+ *  keys are seeded, each clamped to the stack ceiling. Returns the resulting
+ *  authoritative inventory. The caller only reaches this for a migration-eligible
+ *  account; everyone else never seeds. */
 export async function seedInventory(
   db: D1Database,
   accountId: string,
   counts: Record<string, unknown>
 ): Promise<Record<string, number>> {
+  // Seed-once: if any inventory row exists, ignore the import and just read back.
+  const existing = await db
+    .prepare("SELECT 1 AS x FROM inventory WHERE account_id = ? LIMIT 1")
+    .bind(accountId)
+    .first<{ x: number }>();
+  if (existing) return readInventory(db, accountId);
+
   const stmts: D1PreparedStatement[] = [];
   for (const key of BOOST_KEYS) {
     const raw = counts?.[key];
@@ -935,6 +1262,8 @@ export interface InventoryResult {
   id: string;
   status: "applied" | "duplicate" | "rejected";
   error?: string;
+  /** Gift-voucher redeem only: the zombie key the server granted. */
+  unitKey?: string;
 }
 
 /** Whether an inventory action id was already applied (idempotency). */
@@ -943,11 +1272,22 @@ async function invActionSeen(db: D1Database, id: string): Promise<boolean> {
   return !!row;
 }
 
+/** Whether the roster already holds any unit of `key` — the gift voucher's "1 per farm". */
+async function rosterHasKey(db: D1Database, accountId: string, key: string): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT 1 AS x FROM roster WHERE account_id = ? AND key = ? LIMIT 1")
+    .bind(accountId, key)
+    .first<{ x: number }>();
+  return !!row;
+}
+
 /** Apply a batch of inventory actions with server-authoritative rules: `buy` debits
  *  the EXACT catalog price from the balance and grants perPurchase; `use` decrements
- *  (guarded so it can't go negative); `grant` (loot) increments. Idempotent by action
- *  id, atomic per action. Returns the resulting balance + full boost inventory. Reads
- *  current state per action then applies via atomic add/guarded update — same
+ *  (guarded so it can't go negative), and for a GIFT voucher also grants the zombie the
+ *  catalog says it redeems into. There is no public `grant` — boosts enter only through
+ *  a priced buy, so a client can't mint a free boost/voucher. Idempotent by
+ *  action id, atomic per action. Returns the resulting balance + full boost inventory.
+ *  Reads current state per action then applies via atomic add/guarded update — same
  *  read-validate + atomic-write shape as applyEvents/applyFarmActions. */
 export async function applyInventoryActions(
   db: D1Database,
@@ -972,7 +1312,7 @@ export async function applyInventoryActions(
 
     if (a.type === "buy") {
       const econ = boostEcon(a.key);
-      const plan = planBuy(a, econ, bal, have);
+      const plan = planBuy(a, econ, bal, have, levelForXp(bal.xp));
       if (!plan.ok) {
         results.push({ id: a.id, status: "rejected", error: plan.error });
         continue;
@@ -994,6 +1334,35 @@ export async function applyInventoryActions(
       bal[plan.currency] -= plan.cost;
       inv[a.key] = have + plan.grant;
       results.push({ id: a.id, status: "applied" });
+    } else if (a.type === "use" && boostEcon(a.key)?.gift) {
+      // Gift-voucher redeem: consume one voucher and grant the zombie it names, in one
+      // batch. The unit is a VERIFIED grant (its key comes from the catalog, and the
+      // voucher was bought at full price), so it's legitimately sellable — unlike the
+      // old client-only spawn, which the server never saw.
+      const econ = boostEcon(a.key);
+      const plan = planGiftRedeem(a, econ, have, await rosterHasKey(db, accountId, econ!.gift!));
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      // Guarded decrement first: it elects a single winner, so a concurrent double-redeem
+      // can't spend one voucher for two zombies.
+      const upd = await db
+        .prepare("UPDATE inventory SET count = count - 1 WHERE account_id = ? AND item_key = ? AND count >= 1")
+        .bind(accountId, a.key)
+        .run();
+      if ((upd.meta.changes ?? 0) !== 1) {
+        results.push({ id: a.id, status: "rejected", error: "none_owned" });
+        continue;
+      }
+      await db.batch([
+        db.prepare("INSERT OR IGNORE INTO inventory_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+        db
+          .prepare("INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions) VALUES (?, ?, ?, 0, 0)")
+          .bind(accountId, plan.unitId, plan.unitKey),
+      ]);
+      inv[a.key] = have - 1;
+      results.push({ id: a.id, status: "applied", unitKey: plan.unitKey });
     } else if (a.type === "use") {
       const plan = planUse(a, have);
       if (!plan.ok) {
@@ -1013,23 +1382,10 @@ export async function applyInventoryActions(
       await db.prepare("INSERT OR IGNORE INTO inventory_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now).run();
       inv[a.key] = have + plan.delta;
       results.push({ id: a.id, status: "applied" });
-    } else if (a.type === "grant") {
-      const plan = planGrant(a, boostEcon(a.key), have);
-      if (!plan.ok) {
-        results.push({ id: a.id, status: "rejected", error: plan.error });
-        continue;
-      }
-      await db.batch([
-        db.prepare("INSERT INTO inventory_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
-        db
-          .prepare(
-            "INSERT INTO inventory (account_id, item_key, count) VALUES (?, ?, ?) ON CONFLICT(account_id, item_key) DO UPDATE SET count = count + excluded.count"
-          )
-          .bind(accountId, a.key, plan.delta),
-      ]);
-      inv[a.key] = have + plan.delta;
-      results.push({ id: a.id, status: "applied" });
     } else {
+      // No public `grant`: a loot/reward increment must come from a trusted server
+      // subsystem, never a client action. Unknown types (incl. a stripped `grant`)
+      // are rejected.
       results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });
     }
   }
@@ -1043,6 +1399,215 @@ export async function purgeOldInventoryActions(db: D1Database, before: number): 
   return res.meta.changes ?? 0;
 }
 
+// ---- objects: server-owned placeable ownership (counts) -----------------
+/** The owned count for one object key (0 if no row). */
+async function objectCount(db: D1Database, accountId: string, key: string): Promise<number> {
+  const row = await db
+    .prepare("SELECT count FROM object_counts WHERE account_id = ? AND object_key = ?")
+    .bind(accountId, key)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
+/** Every owned object count for an account (keys with a positive count only) — the
+ *  authoritative object ownership the client reconciles against for refund eligibility. */
+export async function readObjects(db: D1Database, accountId: string): Promise<Record<string, number>> {
+  const res = await db
+    .prepare("SELECT object_key, count FROM object_counts WHERE account_id = ? AND count > 0")
+    .bind(accountId)
+    .all<{ object_key: string; count: number }>();
+  const map: Record<string, number> = {};
+  for (const r of res.results ?? []) map[r.object_key] = r.count;
+  return map;
+}
+
+/** Seed a player's object counts from their save during the one-time migration. Only
+ *  imports when the account has NO object rows yet (seed-once). `counts` is the client's
+ *  owned-object tally (placed + stored) per key; only real catalog keys are seeded, each
+ *  clamped to a plausibility bound. The caller only reaches this for a migration-eligible
+ *  account. Returns the resulting authoritative object counts. */
+export async function seedObjects(
+  db: D1Database,
+  accountId: string,
+  counts: Record<string, unknown>
+): Promise<Record<string, number>> {
+  const existing = await db
+    .prepare("SELECT 1 AS x FROM object_counts WHERE account_id = ? LIMIT 1")
+    .bind(accountId)
+    .first<{ x: number }>();
+  if (existing) return readObjects(db, accountId);
+
+  const stmts: D1PreparedStatement[] = [];
+  for (const [key, raw] of Object.entries(counts ?? {})) {
+    if (!objectEcon(key)) continue; // only real catalog objects
+    const n = Number.isInteger(raw) ? Math.max(0, Math.min(8192, raw as number)) : 0;
+    if (n > 0) {
+      stmts.push(
+        db
+          .prepare("INSERT OR IGNORE INTO object_counts (account_id, object_key, count) VALUES (?, ?, ?)")
+          .bind(accountId, key, n)
+      );
+    }
+  }
+  if (stmts.length) await db.batch(stmts);
+  return readObjects(db, accountId);
+}
+
+export interface ObjectResult {
+  id: string;
+  status: "applied" | "duplicate" | "rejected";
+  error?: string;
+}
+
+async function objectActionSeen(db: D1Database, id: string): Promise<boolean> {
+  const row = await db.prepare("SELECT 1 AS x FROM object_actions WHERE id = ?").bind(id).first<{ x: number }>();
+  return !!row;
+}
+
+/** Apply a batch of object actions with server authority: `buy` debits the EXACT catalog
+ *  cost + grants buyXp (which may trigger a level-up) + count++; `refund` credits
+ *  floor(cost*0.2) in the buy currency + guarded count-- (can't refund what you don't own).
+ *  Idempotent by action id, atomic per action. Returns the resulting balance + object
+ *  counts + per-action verdicts. */
+export async function applyObjectActions(
+  db: D1Database,
+  accountId: string,
+  actions: ObjectAction[],
+  now: number
+): Promise<{ balance: Balance; objects: Record<string, number>; results: ObjectResult[] }> {
+  const bal = await getOrSeedBalance(db, accountId, { gold: 0, brains: 0, xp: 0 });
+  const results: ObjectResult[] = [];
+
+  for (const a of actions) {
+    if (!a || typeof a.id !== "string" || !a.id) {
+      results.push({ id: a?.id ?? "", status: "rejected", error: "bad_id" });
+      continue;
+    }
+    if (await objectActionSeen(db, a.id)) {
+      results.push({ id: a.id, status: "duplicate" });
+      continue;
+    }
+    if (a.type === "upgrade") {
+      // In-place swap (the shed upgrade): pay the new object's full price and give up
+      // the old one. Done as one guarded decrement + one batch so a client can't get the
+      // new object without losing the old one, or vice versa.
+      const plan = planObjectUpgrade(
+        objectEcon(a.fromKey),
+        objectEcon(a.toKey),
+        bal,
+        await objectCount(db, accountId, a.fromKey),
+        await objectCount(db, accountId, a.toKey),
+        levelForXp(bal.xp)
+      );
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      // Only a PRICED `from` has a server count to spend; a free one (the starter shed)
+      // was never tracked, so there's nothing to decrement — see planObjectUpgrade.
+      if (plan.consumesFrom) {
+        const upd = await db
+          .prepare("UPDATE object_counts SET count = count - 1 WHERE account_id = ? AND object_key = ? AND count >= 1")
+          .bind(accountId, a.fromKey)
+          .run();
+        if ((upd.meta.changes ?? 0) !== 1) {
+          results.push({ id: a.id, status: "rejected", error: "none_owned" });
+          continue;
+        }
+      }
+      await db.batch([
+        db.prepare("INSERT OR IGNORE INTO object_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+        db
+          .prepare(
+            "INSERT INTO object_counts (account_id, object_key, count) VALUES (?, ?, 1) ON CONFLICT(account_id, object_key) DO UPDATE SET count = count + 1"
+          )
+          .bind(accountId, a.toKey),
+        db
+          .prepare(`UPDATE balances SET ${plan.currency} = ${plan.currency} - ?, xp = xp + ? WHERE account_id = ?`)
+          .bind(plan.cost, plan.xp, accountId),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, ?, ?, 'upgrade', ?)")
+          .bind(`obj:${a.id}`, accountId, plan.currency, -plan.cost, now),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'xp', ?, 'upgrade', ?)")
+          .bind(`obj:${a.id}#x`, accountId, plan.xp, now),
+      ]);
+      bal[plan.currency] -= plan.cost;
+      bal.xp += plan.xp;
+      bal.brains += await creditLevelUps(db, accountId, now); // upgrade xp may cross a level
+      results.push({ id: a.id, status: "applied" });
+      continue;
+    }
+
+    const econ = objectEcon(a.key);
+    const have = await objectCount(db, accountId, a.key);
+
+    if (a.type === "buy") {
+      const plan = planObjectBuy(econ, bal, have, levelForXp(bal.xp));
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      await db.batch([
+        db.prepare("INSERT INTO object_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+        db
+          .prepare(
+            "INSERT INTO object_counts (account_id, object_key, count) VALUES (?, ?, 1) ON CONFLICT(account_id, object_key) DO UPDATE SET count = count + 1"
+          )
+          .bind(accountId, a.key),
+        db
+          .prepare(`UPDATE balances SET ${plan.currency} = ${plan.currency} - ?, xp = xp + ? WHERE account_id = ?`)
+          .bind(plan.cost, plan.xp, accountId),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, ?, ?, 'purchase', ?)")
+          .bind(`obj:${a.id}`, accountId, plan.currency, -plan.cost, now),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'xp', ?, 'purchase', ?)")
+          .bind(`obj:${a.id}#x`, accountId, plan.xp, now),
+      ]);
+      bal[plan.currency] -= plan.cost;
+      bal.xp += plan.xp;
+      bal.brains += await creditLevelUps(db, accountId, now); // buy xp may cross a level
+      results.push({ id: a.id, status: "applied" });
+    } else if (a.type === "refund") {
+      const plan = planObjectRefund(econ, have);
+      if (!plan.ok) {
+        results.push({ id: a.id, status: "rejected", error: plan.error });
+        continue;
+      }
+      // Guarded decrement: only the caller that actually removes a unit credits the
+      // refund, so concurrent refunds of the last one can't double-pay.
+      const upd = await db
+        .prepare("UPDATE object_counts SET count = count - 1 WHERE account_id = ? AND object_key = ? AND count >= 1")
+        .bind(accountId, a.key)
+        .run();
+      if ((upd.meta.changes ?? 0) !== 1) {
+        results.push({ id: a.id, status: "rejected", error: "none_owned" });
+        continue;
+      }
+      await db.batch([
+        db.prepare("INSERT OR IGNORE INTO object_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+        db.prepare(`UPDATE balances SET ${plan.currency} = ${plan.currency} + ? WHERE account_id = ?`).bind(plan.refund, accountId),
+        db
+          .prepare("INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, ?, ?, 'refund', ?)")
+          .bind(`obj:${a.id}`, accountId, plan.currency, plan.refund, now),
+      ]);
+      bal[plan.currency] += plan.refund;
+      results.push({ id: a.id, status: "applied" });
+    } else {
+      results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });
+    }
+  }
+  return { balance: bal, objects: await readObjects(db, accountId), results };
+}
+
+/** Delete object-action idempotency records older than `before` (cron cleanup). The
+ *  `object_counts` are live state and are NOT purged. */
+export async function purgeOldObjectActions(db: D1Database, before: number): Promise<number> {
+  const res = await db.prepare("DELETE FROM object_actions WHERE created_at < ?").bind(before).run();
+  return res.meta.changes ?? 0;
+}
+
 // ---- roster: server-owned zombie units (validation + money shadow) ------
 interface RosterRow {
   id: string;
@@ -1051,19 +1616,32 @@ interface RosterRow {
   invasions: number;
 }
 
-/** Seed a player's roster ONCE from their save's owned zombies (INSERT OR IGNORE per
- *  unit id, so an existing server record is never clobbered). Only real catalog units
- *  with a non-empty id are seeded, with bounded mutation/invasions. Returns the count
- *  of rows the account has afterward. */
+/** Seed a player's roster from their save's owned zombies during the one-time save
+ *  migration. Only imports when the roster is currently EMPTY — this makes it truly
+ *  seed-once and closes the re-injection hole where repeated /roster/sync with fresh
+ *  unit ids kept adding (then sell-able) units. Only real catalog units with a
+ *  non-empty id are imported, with bounded mutation/invasions. Returns the account's
+ *  row count afterward. The caller (the /roster/sync handler) only reaches this for a
+ *  migration-eligible account; everyone else never seeds. */
 export async function seedRoster(
   db: D1Database,
   accountId: string,
   units: unknown
 ): Promise<number> {
+  const count = async (): Promise<number> => {
+    const row = await db
+      .prepare("SELECT COUNT(*) AS n FROM roster WHERE account_id = ?")
+      .bind(accountId)
+      .first<{ n: number }>();
+    return row?.n ?? 0;
+  };
+  // Seed-once: if the account already has any unit, ignore the import entirely.
+  if ((await count()) > 0) return count();
+
   const list = Array.isArray(units) ? units : [];
   const stmts: D1PreparedStatement[] = [];
   for (const u of list) {
-    const g = planRosterGrant({ id: "seed", type: "grant", unitId: (u as RosterRow)?.id, key: (u as RosterRow)?.key, mutation: (u as RosterRow)?.mutation, invasions: (u as RosterRow)?.invasions });
+    const g = validateUnit((u as RosterRow)?.id, (u as RosterRow)?.key, (u as RosterRow)?.mutation, (u as RosterRow)?.invasions);
     if (!g.ok) continue;
     stmts.push(
       db
@@ -1072,11 +1650,7 @@ export async function seedRoster(
     );
   }
   if (stmts.length) await db.batch(stmts);
-  const row = await db
-    .prepare("SELECT COUNT(*) AS n FROM roster WHERE account_id = ?")
-    .bind(accountId)
-    .first<{ n: number }>();
-  return row?.n ?? 0;
+  return count();
 }
 
 /** Whether a roster action id was already applied (idempotency). */
@@ -1094,12 +1668,14 @@ export interface RosterResult {
 
 /** Apply a batch of roster actions with server authority:
  *   • sell     — price floor(cost/2) from the catalog, remove the unit, credit gold
- *                (a fabricated unit the server doesn't own is rejected → no gold);
- *   • grant    — record a real catalog unit (crop harvest, gift redeem, combine result);
+ *                (a unit the server doesn't own — e.g. one never granted by a trusted
+ *                source — is rejected → no gold, which kills grant→sell laundering);
  *   • veteran  — bump invasions for surviving units;
- *   • casualty — remove dead units.
- *  Idempotent by action id, atomic per action. A combine is a casualty(parents) +
- *  grant(result). Returns the resulting balance + per-action verdicts. */
+ *   • casualty — remove dead units;
+ *   • combineStart/combineCollect — the Zombie Pot, the one server-validated way to
+ *                create a unit (result must be one of the two consumed parent keys).
+ *  There is no public `grant`. Idempotent by action id, atomic per action. Returns the
+ *  resulting balance + per-action verdicts. */
 export async function applyRosterActions(
   db: D1Database,
   accountId: string,
@@ -1148,19 +1724,6 @@ export async function applyRosterActions(
       ]);
       bal.gold += gold;
       results.push({ id: a.id, status: "applied", gold });
-    } else if (a.type === "grant") {
-      const plan = planRosterGrant(a);
-      if (!plan.ok) {
-        results.push({ id: a.id, status: "rejected", error: plan.error });
-        continue;
-      }
-      await db.batch([
-        db.prepare("INSERT INTO roster_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
-        db
-          .prepare("INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions) VALUES (?, ?, ?, ?, ?)")
-          .bind(accountId, plan.unitId, plan.key, plan.mutation, plan.invasions),
-      ]);
-      results.push({ id: a.id, status: "applied" });
     } else if (a.type === "veteran" || a.type === "casualty") {
       const ids = cleanIds((a as { unitIds: string[] }).unitIds);
       const stmts: D1PreparedStatement[] = [
@@ -1486,6 +2049,8 @@ export async function settleRaid(
       await db.batch(stmts);
       bal.gold += gold;
       bal.xp += xp;
+      // First-clear xp may have crossed a level threshold — pay owed level-up brains.
+      bal.brains += await creditLevelUps(db, accountId, now);
     }
   }
   return { lastRaidAt: now, balance: bal, gold, xp, firstClear };

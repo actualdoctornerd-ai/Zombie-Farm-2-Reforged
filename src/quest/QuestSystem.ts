@@ -37,6 +37,13 @@ const LIVE_EVENTS = new Set<string>([
 // the quest log — the display limit is a HUD concern, not an activation cap.
 
 export interface QuestHooks {
+  /** Claim a completed quest's reward EXTERNALLY (online: the server grants the
+   *  currency authoritatively + any level-up it triggers). Return true if handled —
+   *  the local currency add is then skipped so it isn't double-counted / rejected by
+   *  the spend-only economy endpoint. Item/zombie rewards are still granted locally
+   *  regardless (the server records but defers them). Absent / returns false → grant
+   *  currency locally as before (offline / local-only play). */
+  grantReward?: (def: QuestDef) => boolean;
   /** Grant a reward item (rewardType 3) — e.g. into storage/received. */
   grantItem: (key: string) => void;
   /** Grant a reward zombie unit (rewardType 5). */
@@ -130,15 +137,19 @@ export class QuestSystem {
   }
 
   private dispatchReward(def: QuestDef) {
+    // Online, the server grants the currency (and any level-up) authoritatively; the
+    // local add is then skipped so it isn't double-counted or bounced by the spend-only
+    // economy endpoint. Item/zombie rewards are always granted locally (server defers).
+    const handled = this.hooks.grantReward?.(def) ?? false;
     switch (def.rewardType) {
       case RewardType.Gold:
-        if (def.rewardValue) this.state.addGold(def.rewardValue);
+        if (!handled && def.rewardValue) this.state.addGold(def.rewardValue);
         break;
       case RewardType.Xp:
-        if (def.rewardValue) this.state.addXp(def.rewardValue);
+        if (!handled && def.rewardValue) this.state.addXp(def.rewardValue);
         break;
       case RewardType.Brains:
-        if (def.rewardValue) this.state.addBrains(def.rewardValue);
+        if (!handled && def.rewardValue) this.state.addBrains(def.rewardValue);
         break;
       case RewardType.Item:
         if (def.rewardItemKey) this.hooks.grantItem(def.rewardItemKey);

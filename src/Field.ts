@@ -939,6 +939,23 @@ export class Field {
     for (const o of this.objects.values()) if (o.def.zombiePot) return true;
     return false;
   }
+  /** Count of currently-placed objects by catalog key — used to seed the server-owned
+   *  object ownership (Phase D) so already-placed placeables stay refundable. */
+  objectKeyCounts(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const o of this.objects.values()) counts[o.def.key] = (counts[o.def.key] ?? 0) + 1;
+    return counts;
+  }
+  /** Origins of every PLOWED-and-empty plot — the soil a plant can go into. Used once
+   *  on load to import a migrating save's tilled soil into the server-owned soil state
+   *  (a planted plot is excluded: its crop already represents that soil). */
+  plowedPlotOrigins(): { oc: number; or: number }[] {
+    const out: { oc: number; or: number }[] = [];
+    for (const p of this.plots.values()) {
+      if (p.state === "plowed" && !p.crop) out.push({ oc: p.oc, or: p.or });
+    }
+    return out;
+  }
   // The footprint tiles of the placed Zombie Patch, for zombies to gather onto.
   patchRestTiles(): { col: number; row: number }[] | null {
     for (const o of this.objects.values()) {

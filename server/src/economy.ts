@@ -2,14 +2,18 @@
 // /economy route handlers and db.applyEvents.
 //
 // The server owns the balance; each currency change is a validated, idempotent
-// ledger EVENT. What's enforced today:
+// ledger EVENT. This endpoint is now SPEND-ONLY: a public request may only ever
+// DEBIT the balance. What's enforced:
+//   • no client-authored EARN — any delta > 0 is rejected (earn_forbidden);
 //   • spends can never overdraw the balance;
-//   • earns are bounded by a per-currency cap (a plausibility ceiling);
-//   • the reason must be a known one; xp can only ever be earned.
-// What's NOT yet enforced (the transitional gap): the EXACT amount of an earn is
-// still client-computed — the server bounds it but doesn't yet recompute "this
-// carrot is worth N" from its own farm/roster state. Closing that is the next
-// layer (server-owned farm simulation); see SECURITY.md items 1-2.
+//   • the reason must be a known spend reason.
+// Rationale (SECURITY.md "own-account manipulation"): a positive delta let a
+// modified client mint currency at will (reason "misc"/"sell"/… up to a cap, with
+// fresh ids, unbounded batches). Earns must instead be derived by the server from
+// a trusted source — crop harvest (/farm/actions), roster sell (/roster/actions),
+// shop refunds, gift claim, and (later) server-owned quest/level/raid grants. Until
+// those cover every source, an un-migrated earn simply doesn't persist; that's the
+// intended transitional behaviour, not a hole.
 
 export type Currency = "gold" | "brains" | "xp";
 export const CURRENCIES: readonly Currency[] = ["gold", "brains", "xp"] as const;
@@ -29,24 +33,13 @@ export interface EconomyEvent {
   reason: string;
 }
 
-/** Per-event earn ceiling per currency — a plausibility bound, generous enough for
- *  the biggest legitimate single credit (a high raid payout, a valuable sell) yet
- *  finite so a modified client can't mint an arbitrary balance. Spends have no cap
- *  beyond "can't overdraw". */
-export const EARN_CAP: Record<Currency, number> = {
-  gold: 500_000,
-  brains: 1_000,
-  xp: 500_000,
-};
-
-/** Reasons we accept on a ledger event. An unknown reason is rejected outright so a
- *  client can't smuggle an unmodelled credit through. */
+/** Reasons we accept on a (spend-only) ledger event. Every one is a DEBIT reason;
+ *  earn reasons were removed with the earn path. An unknown reason is rejected
+ *  outright so a client can't smuggle an unmodelled change through. */
 export const REASONS: ReadonlySet<string> = new Set([
-  // earns
-  "harvest", "sell", "raid_loot", "quest", "levelup", "gift", "refund", "tutorial",
-  // spends
+  // spends only
   "purchase", "upgrade", "plow", "plant", "pot", "combine",
-  // catch-alls (still bounded/overdraw-checked)
+  // catch-all (still a debit; overdraw-checked)
   "misc",
 ]);
 
@@ -86,12 +79,12 @@ export function validateEvent(
   if (!isInt(ev.delta)) return { ok: false, error: "bad_delta" };
   if (!REASONS.has(ev.reason)) return { ok: false, error: "bad_reason" };
   if (ev.delta === 0) return { ok: false, error: "zero_delta" };
-  if (ev.currency === "xp" && ev.delta < 0) return { ok: false, error: "xp_no_spend" };
-  if (ev.delta > 0) {
-    if (ev.delta > EARN_CAP[ev.currency]) return { ok: false, error: "earn_over_cap" };
-  } else {
-    if (bal[ev.currency] + ev.delta < 0) return { ok: false, error: "insufficient" };
-  }
+  // SPEND-ONLY: no public request may author a positive currency delta. Earns must
+  // be derived by the server from a trusted source, never asserted by the client.
+  if (ev.delta > 0) return { ok: false, error: "earn_forbidden" };
+  // xp is never spent (and never earned here) — reject any xp event outright.
+  if (ev.currency === "xp") return { ok: false, error: "xp_no_spend" };
+  if (bal[ev.currency] + ev.delta < 0) return { ok: false, error: "insufficient" };
   return { ok: true };
 }
 

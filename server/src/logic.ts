@@ -50,6 +50,21 @@ export function isStaleWrite(baseRev: number, currentRev: number): boolean {
   return baseRev !== currentRev;
 }
 
+/** Whether an account may import its pre-existing save into server-owned state: it
+ *  must have been created strictly before the migration cutoff, and the cutoff must be
+ *  a positive instant (0 / unset = imports closed → everyone gets server defaults).
+ *  This is the single security decision behind every seed-from-client path (the sync
+ *  endpoints AND the gift-claim/grant balance seed), so it lives here as a pure,
+ *  unit-tested function rather than inline in the handler. */
+export function importEligible(createdAt: number, cutoffMs: number): boolean {
+  return (
+    Number.isFinite(cutoffMs) &&
+    cutoffMs > 0 &&
+    Number.isFinite(createdAt) &&
+    createdAt < cutoffMs
+  );
+}
+
 /** Project a friend's save down to the read-only slice a visitor is allowed to
  *  see: the farm layout (terrain, plots, crops), placed objects, and the owned
  *  zombies (so they can be walked up to and inspected). This is defense-in-depth

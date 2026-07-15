@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { call, signIn, uniqueSub, type Session } from "./helpers";
+import { call, signIn, uniqueSub, seedPlowed, type Session } from "./helpers";
 
 // P13 — the Garden-zombie fertilize roll is SERVER-owned. On each /farm plant the
 // server rolls `Math.random() < fertilizeProbability(owned Garden keys)` and stamps the
@@ -19,17 +19,34 @@ async function player(gold: number): Promise<Session> {
   return s;
 }
 
-// N carrot plants on distinct, in-bounds plots, all in one batch (the batch rolls the
-// fertilize probability once, then each plant rolls independently against it). Action
-// ids are salted with uniqueSub() because idempotency dedups by id GLOBALLY, so reusing
-// "f-0" across tests would spuriously come back "duplicate".
+// N carrot plants on distinct plots INSIDE the base 30x30 farm, all in one batch (the
+// batch rolls the fertilize probability once, then each plant rolls independently against
+// it). Action ids are salted with uniqueSub() because idempotency dedups by id GLOBALLY,
+// so reusing "f-0" across tests would spuriously come back "duplicate".
+//
+// Coords stay in 0..26: Phase E bounds a plant to the OWNED farm, and a 4-tile plot only
+// fits up to origin 26 on a 30-wide farm. Returns the plots too, so the caller can import
+// them as plowed soil — a plant now needs tilled ground.
+const SPAN = 27; // origins 0..26
+
 function plants(n: number) {
   const salt = uniqueSub();
   const actions = [];
+  const plots = [];
   for (let i = 0; i < n; i++) {
-    actions.push({ id: `${salt}-${i}`, type: "plant" as const, oc: i % 100, or: Math.floor(i / 100) + 1, cropKey: "carrot" });
+    const oc = i % SPAN;
+    const or = Math.floor(i / SPAN);
+    plots.push({ oc, or });
+    actions.push({ id: `${salt}-${i}`, type: "plant" as const, oc, or, cropKey: "carrot" });
   }
-  return { actions };
+  return { actions, plots };
+}
+
+/** Plant n carrots on freshly-imported plowed soil. */
+async function plantOnSoil(s: Session, n: number) {
+  const { actions, plots } = plants(n);
+  await seedPlowed(s, plots);
+  return call<FarmRes>("POST", "/farm/actions", s.token, { actions });
 }
 
 describe("fertilize — server-owned Garden roll", () => {
@@ -42,7 +59,7 @@ describe("fertilize — server-owned Garden roll", () => {
         { id: "c2", key: "ZombieActorLargeTier4" },
       ],
     });
-    const r = await call<FarmRes>("POST", "/farm/actions", s.token, plants(40));
+    const r = await plantOnSoil(s, 40);
     const applied = r.body.results.filter((x) => x.status === "applied");
     expect(applied).toHaveLength(40);
     // The load-bearing assertion: not a single fertilized plot is possible at p=0.
@@ -51,7 +68,7 @@ describe("fertilize — server-owned Garden roll", () => {
 
   it("NEVER fertilizes with an empty roster", async () => {
     const s = await player(500);
-    const r = await call<FarmRes>("POST", "/farm/actions", s.token, plants(30));
+    const r = await plantOnSoil(s, 30);
     const applied = r.body.results.filter((x) => x.status === "applied");
     expect(applied).toHaveLength(30);
     expect(applied.every((x) => x.fertilized === false)).toBe(true);
@@ -63,7 +80,7 @@ describe("fertilize — server-owned Garden roll", () => {
     // chance of ZERO fertilized is ≈ 0.147^30 ≈ 1e-25 — this test does not flake.
     const units = Array.from({ length: 15 }, (_, i) => ({ id: `g${i}`, key: "ZombieActorGardenTier5" }));
     await call("POST", "/roster/sync", s.token, { units });
-    const r = await call<FarmRes>("POST", "/farm/actions", s.token, plants(30));
+    const r = await plantOnSoil(s, 30);
     const applied = r.body.results.filter((x) => x.status === "applied");
     expect(applied).toHaveLength(30);
     const fertCount = applied.filter((x) => x.fertilized === true).length;
@@ -75,6 +92,7 @@ describe("fertilize — server-owned Garden roll", () => {
   it("the fertilized flag is decided server-side — a client 'fertilized:true' hint is ignored at p=0", async () => {
     const s = await player(500);
     await call("POST", "/roster/sync", s.token, { units: [{ id: "c", key: "ZombieActorRegularTier1" }] });
+    await seedPlowed(s, [{ oc: 3, or: 3 }]);
     // Client tries to assert fertilization directly on the action; server has no Garden
     // units so it must come up false regardless of the client's claim.
     const r = await call<FarmRes>("POST", "/farm/actions", s.token, {

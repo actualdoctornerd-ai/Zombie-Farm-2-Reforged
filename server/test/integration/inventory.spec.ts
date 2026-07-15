@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { call, signIn, type Session } from "./helpers";
+import { call, signIn, xpForLevel, type Session } from "./helpers";
 
 // Server-owned boost inventory (P11): buy debits the exact catalog price + grants,
 // use decrements, seed/sync is one-time, and the invasion voucher is consumed
@@ -11,9 +11,13 @@ interface InvRes {
   results: { id: string; status: string; error?: string }[];
 }
 
-async function player(gold = 10000, brains = 500): Promise<Session> {
+// `level` seeds the account's xp, since Phase E gates a boost buy on the catalog's level
+// requirement (the gift vouchers are level 25). Default 45 (max) — these tests are about
+// pricing/redeem, not unlocks; the level gate has its own test below. Seeding xp at
+// creation stamps claimed_level, so it pays no level-up brains and balances stay exact.
+async function player(gold = 10000, brains = 500, level = 45): Promise<Session> {
   const s = await signIn();
-  await call("POST", "/economy/sync", s.token, { seed: { gold, brains, xp: 0 } });
+  await call("POST", "/economy/sync", s.token, { seed: { gold, brains, xp: xpForLevel(level) } });
   return s;
 }
 
@@ -82,6 +86,99 @@ describe("inventory — server-owned boosts", () => {
       counts: { golden_dice: 7 },
     });
     expect(seed2.body.inventory.golden_dice).toBe(6);
+  });
+
+  it("rejects a public grant action, so a client can't mint a free boost/voucher", async () => {
+    const s = await player(0, 0);
+    // `grant` was removed from the inventory action union — unknown type → rejected,
+    // nothing added. A modified client can no longer conjure a free invasion voucher.
+    const r = await call<InvRes>("POST", "/inventory/actions", s.token, {
+      actions: [{ id: aid("grant"), type: "grant", key: "invasion_voucher", qty: 99 } as never],
+    });
+    expect(r.body.results[0]).toMatchObject({ status: "rejected", error: "bad_type" });
+    expect(r.body.inventory.invasion_voucher).toBe(0);
+  });
+
+  it("refuses a boost the account's LEVEL hasn't unlocked (Phase E)", async () => {
+    const s = await player(0, 999, 24); // gift vouchers unlock at 25
+    const r = await call<InvRes>("POST", "/inventory/actions", s.token, {
+      actions: [{ id: aid("buy"), type: "buy", key: "valentine_gift" }],
+    });
+    expect(r.body.results[0]).toMatchObject({ status: "rejected", error: "locked" });
+    expect(r.body.balance.brains).toBe(999); // not charged
+    // The level comes from server-owned xp, so a client can't claim its way past this.
+    const ok = await player(0, 999, 25);
+    const r2 = await call<InvRes>("POST", "/inventory/actions", ok.token, {
+      actions: [{ id: aid("buy"), type: "buy", key: "valentine_gift" }],
+    });
+    expect(r2.body.results[0].status).toBe("applied");
+  });
+
+  it("redeems a gift voucher into a REAL roster zombie, atomically with the consume", async () => {
+    const s = await player(0, 100);
+    await call("POST", "/inventory/actions", s.token, { actions: [{ id: aid("buy"), type: "buy", key: "valentine_gift" }] });
+    const r = await call<InvRes>("POST", "/inventory/actions", s.token, {
+      actions: [{ id: aid("redeem"), type: "use", key: "valentine_gift", unitId: "gift-unit-1" }],
+    });
+    expect(r.body.results[0]).toMatchObject({ status: "applied", unitKey: "ZombieActorGardenCupid" });
+    expect(r.body.inventory.valentine_gift).toBe(0); // voucher consumed
+    // The granted unit is REAL server state, under the id the client asked for and
+    // priced as the catalog Cupid (cost 100 → sell 50). Before this path existed the
+    // client spawned it locally and the server never saw it, so the sell bounced.
+    const sell = await call<{ results: { status: string; gold?: number }[] }>("POST", "/roster/actions", s.token, {
+      actions: [{ id: aid("gsell"), type: "sell", unitId: "gift-unit-1" }],
+    });
+    expect(sell.body.results[0]).toMatchObject({ status: "applied", gold: 50 });
+  });
+
+  it("won't redeem a voucher it doesn't own — no voucher, no zombie", async () => {
+    const s = await player(0, 0);
+    const r = await call<InvRes>("POST", "/inventory/actions", s.token, {
+      actions: [{ id: aid("redeem"), type: "use", key: "crazy_zombie_voucher", unitId: "ghost-1" }],
+    });
+    expect(r.body.results[0]).toMatchObject({ status: "rejected", error: "none_owned" });
+    // No unit was filed: selling the id the redeem asked for finds nothing.
+    const sell = await call<{ results: { status: string; error?: string }[] }>("POST", "/roster/actions", s.token, {
+      actions: [{ id: aid("gsell"), type: "sell", unitId: "ghost-1" }],
+    });
+    expect(sell.body.results[0]).toMatchObject({ status: "rejected" });
+  });
+
+  it("enforces 1-per-farm: a second voucher for a zombie you own won't redeem", async () => {
+    const s = await player(0, 300);
+    // Two Valentine vouchers (the 2012 one grants the SAME Cupid zombie).
+    await call("POST", "/inventory/actions", s.token, {
+      actions: [
+        { id: aid("buy"), type: "buy", key: "valentine_gift" },
+        { id: aid("buy"), type: "buy", key: "valentine_gift_2012" },
+      ],
+    });
+    const first = await call<InvRes>("POST", "/inventory/actions", s.token, {
+      actions: [{ id: aid("redeem"), type: "use", key: "valentine_gift", unitId: "cupid-a" }],
+    });
+    expect(first.body.results[0].status).toBe("applied");
+    // Already own Cupid → the other voucher is refused AND stays in the inventory
+    // (rejected before the consume), so nothing is silently burned.
+    const second = await call<InvRes>("POST", "/inventory/actions", s.token, {
+      actions: [{ id: aid("redeem"), type: "use", key: "valentine_gift_2012", unitId: "cupid-b" }],
+    });
+    expect(second.body.results[0]).toMatchObject({ status: "rejected", error: "already_owned" });
+    expect(second.body.inventory.valentine_gift_2012).toBe(1);
+  });
+
+  it("is idempotent: replaying a redeem grants one zombie, not two", async () => {
+    const s = await player(0, 100);
+    await call("POST", "/inventory/actions", s.token, { actions: [{ id: aid("buy"), type: "buy", key: "crazy_zombie_voucher" }] });
+    const id = aid("redeem");
+    const body = { actions: [{ id, type: "use", key: "crazy_zombie_voucher", unitId: "crazy-1" }] };
+    const first = await call<InvRes>("POST", "/inventory/actions", s.token, body);
+    expect(first.body.results[0].status).toBe("applied");
+    const replay = await call<InvRes>("POST", "/inventory/actions", s.token, body);
+    expect(replay.body.results[0].status).toBe("duplicate");
+    expect(replay.body.inventory.crazy_zombie_voucher).toBe(0); // not driven to -1
+    // Exactly one zombie exists (the roster is non-empty, so this sync is a pure read).
+    const sync = await call<{ count: number }>("POST", "/roster/sync", s.token, { units: [] });
+    expect(sync.body.count).toBe(1); // one zombie, not two
   });
 
   it("consumes an invasion voucher server-side to bypass the raid cooldown; refuses without one", async () => {

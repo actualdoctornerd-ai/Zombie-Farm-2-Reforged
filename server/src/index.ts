@@ -27,6 +27,7 @@ import * as db from "./db";
 import {
   dayBucket,
   deviceLabel,
+  importEligible,
   normalizeFriendCode,
   normalizeUsername,
   projectFriendSave,
@@ -36,6 +37,7 @@ import type { EconomyEvent } from "./economy";
 import type { FarmAction } from "./farm";
 import { raidEcon } from "./raidCatalog";
 import type { InventoryAction } from "./inventory";
+import type { ObjectAction } from "./objects";
 import type { RosterAction } from "./roster";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
@@ -44,6 +46,50 @@ const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 const MAX_FRIENDS = 1000; // graph size cap per account
 const MAX_PENDING_REQUESTS = 200; // incoming requests we'll hold for a recipient
 const MAX_INBOX = 200; // unclaimed gifts we'll hold / return
+
+// ---- new-account server defaults ----------------------------------------
+// The fixed starting state a NEW account (or any account when save-import is closed)
+// receives. A client can never declare its own starting balance — that was the
+// self-seed exploit. Mirrors the client's fresh-game values (GameState defaults) so a
+// legitimately new player starts identically; farm size / roster / boosts default to
+// the base (empty) via their own tables.
+const STARTER_BALANCE = { gold: 200, brains: 15, xp: 0 } as const;
+const DEFAULT_FARM_SIZE = 30; // BASE_FARM_SIZE (shopCatalog)
+
+/** The save-import cutoff (epoch ms), or 0 when unset/invalid (imports closed). */
+function migrationCutoffMs(env: Bindings): number {
+  const n = Number(env.MIGRATION_CUTOFF_MS);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Whether `accountId` may still import its pre-existing save into server-owned state:
+ *  the account must have been created before the migration cutoff. When the cutoff is
+ *  unset/0, or the account is newer than it, NO client-supplied seed is honored and the
+ *  account gets fixed server defaults instead. This is what stops a fresh account from
+ *  self-declaring 100M gold / a full roster (SECURITY.md own-account plan, item 2/5). */
+async function seedAllowed(env: Bindings, accountId: string): Promise<boolean> {
+  const cut = migrationCutoffMs(env);
+  if (!cut) return false; // fast path: imports closed → skip the account read
+  const acct = await db.accountById(env.DB, accountId);
+  return !!acct && importEligible(acct.created_at, cut);
+}
+
+/** The currency seed to use when a NON-sync path must lazily create the balances row
+ *  (gift claim, grant reconcile). Uses the SAME cutoff rule as the sync endpoints: a
+ *  migration-eligible account may seed from its declared save currency, everyone else
+ *  gets fixed server defaults. Without this, a gift claim would create the balances row
+ *  straight from the (editable) save blob, letting a fresh account self-seed an inflated
+ *  balance past the cutoff — the gate the sync endpoints already close. */
+async function balanceSeed(
+  env: Bindings,
+  accountId: string,
+  player: { gold?: number; brains?: number; xp?: number } | null | undefined
+): Promise<{ gold: number; brains: number; xp: number }> {
+  if (await seedAllowed(env, accountId)) {
+    return { gold: player?.gold ?? 0, brains: player?.brains ?? 0, xp: player?.xp ?? 0 };
+  }
+  return { ...STARTER_BALANCE };
+}
 
 /** Severity for a security log line, so an alerting rule can filter cheaply on the
  *  `lvl` field. info = routine/operational; warn = a rejected/abnormal request worth
@@ -212,8 +258,10 @@ app.use("/gifts", requireAuth);
 app.use("/gifts/*", requireAuth);
 app.use("/raid/*", requireAuth);
 app.use("/economy/*", requireAuth);
+app.use("/quest/*", requireAuth);
 app.use("/farm/*", requireAuth);
 app.use("/inventory/*", requireAuth);
+app.use("/object/*", requireAuth);
 app.use("/roster/*", requireAuth);
 app.use("/shop/*", requireAuth);
 
@@ -237,9 +285,13 @@ app.use("/raid/finish", rateLimit("RL_WRITE", "raid_finish", 60, 60_000));
 app.use("/raid/state", rateLimit("RL_READ", "raid_state", 300, 60_000));
 app.use("/economy/apply", rateLimit("RL_WRITE", "economy_apply", 120, 60_000));
 app.use("/economy/sync", rateLimit("RL_READ", "economy_sync", 300, 60_000));
+app.use("/quest/complete", rateLimit("RL_WRITE", "quest_complete", 120, 60_000));
 app.use("/farm/actions", rateLimit("RL_WRITE", "farm_actions", 120, 60_000));
+app.use("/farm/sync", rateLimit("RL_READ", "farm_sync", 300, 60_000));
 app.use("/inventory/actions", rateLimit("RL_WRITE", "inventory_actions", 120, 60_000));
 app.use("/inventory/sync", rateLimit("RL_READ", "inventory_sync", 300, 60_000));
+app.use("/object/actions", rateLimit("RL_WRITE", "object_actions", 120, 60_000));
+app.use("/object/sync", rateLimit("RL_READ", "object_sync", 300, 60_000));
 app.use("/roster/actions", rateLimit("RL_WRITE", "roster_actions", 120, 60_000));
 app.use("/roster/sync", rateLimit("RL_READ", "roster_sync", 300, 60_000));
 app.use("/shop/size", rateLimit("RL_WRITE", "shop_size", 30, 60_000));
@@ -338,13 +390,10 @@ app.get("/save", async (c) => {
   const row = await db.getSave(c.env.DB, accountId);
   const save = row ? (JSON.parse(row.blob) as SaveGame) : null;
   // Credit any owed-but-deferred gift brains (crash-window recovery) into the
-  // server balance. `seed` lazily creates the balance row from the save's currency
-  // if it doesn't exist yet. No-op / one cheap indexed read when nothing is pending.
-  const seed = {
-    gold: save?.player?.gold ?? 0,
-    brains: save?.player?.brains ?? 0,
-    xp: save?.player?.xp ?? 0,
-  };
+  // server balance. `seed` lazily creates the balance row if it doesn't exist yet —
+  // gated by the migration cutoff (NOT trusted straight from the blob), so this path
+  // can't be used to self-seed an inflated balance. No-op when nothing is pending.
+  const seed = await balanceSeed(c.env, accountId, save?.player);
   const applied = await db.reconcilePendingGrants(c.env.DB, accountId, Date.now(), seed);
   if (applied) slog("grants_reconciled", { account: accountId, applied }, "info");
   if (!save) return c.json({ save: null, rev: 0 });
@@ -571,7 +620,8 @@ app.post("/gifts/claim", async (c) => {
     return c.json({ error: "save_first" }, 409);
   }
   const p = (JSON.parse(cur.blob) as SaveGame).player;
-  const seed = { gold: p?.gold ?? 0, brains: p?.brains ?? 0, xp: p?.xp ?? 0 };
+  // Cutoff-gated (not trusted from the blob) — see balanceSeed / GET /save above.
+  const seed = await balanceSeed(c.env, c.get("accountId"), p);
 
   // Record the grant (idempotent on gift id). If we didn't win it, someone already
   // credited this gift.
@@ -687,9 +737,18 @@ app.post("/economy/sync", async (c) => {
   const body = await c.req
     .json<{ seed?: { gold?: number; brains?: number; xp?: number } }>()
     .catch(() => ({ seed: undefined }));
+  // Only a migration-eligible account may seed from its declared currency; everyone
+  // else (new accounts, post-window) gets fixed starter defaults. getOrSeedBalance
+  // is INSERT-OR-IGNORE, so an already-seeded balance is preserved either way.
+  const allow = await seedAllowed(c.env, c.get("accountId"));
   const s = body.seed ?? {};
-  const seed = { gold: s.gold ?? 0, brains: s.brains ?? 0, xp: s.xp ?? 0 };
+  const seed = allow
+    ? { gold: s.gold ?? 0, brains: s.brains ?? 0, xp: s.xp ?? 0 }
+    : { ...STARTER_BALANCE };
   const balance = await db.getOrSeedBalance(c.env.DB, c.get("accountId"), seed);
+  // Catch up any owed level-up brains (and initialize the sentinel for legacy rows) —
+  // level is derived from server xp, so this is authoritative and needs no client input.
+  balance.brains += await db.creditLevelUps(c.env.DB, c.get("accountId"), Date.now());
   return c.json(balance);
 });
 
@@ -705,6 +764,22 @@ app.post("/economy/apply", async (c) => {
   const rejected = results.filter((r) => r.status === "rejected").length;
   if (rejected) slog("economy_rejected", { account: c.get("accountId"), rejected });
   return c.json({ balance, results });
+});
+
+// ---- quests: server-authoritative, bounded-once rewards -----------------
+// A completed quest grants its reward from the SERVER catalog (never a client amount),
+// at most once per (account, quest). Currency rewards hit the balance (and trigger any
+// owed level-up); item/zombie rewards are recorded but deferred to Phase D. The client
+// still decides WHEN a quest completes (requirement proof is deferred), so the reward is
+// bounded-once, not yet proven-earned — a claimed quest yields at most its real payout.
+app.post("/quest/complete", async (c) => {
+  const { questId } = await c.req
+    .json<{ questId: string }>()
+    .catch(() => ({ questId: "" }));
+  if (typeof questId !== "string" || !questId) return c.json({ error: "bad_request" }, 400);
+  const r = await db.completeQuest(c.env.DB, c.get("accountId"), questId, Date.now());
+  if (r.status === "rejected") slog("quest_rejected", { account: c.get("accountId"), questId, error: r.error });
+  return c.json(r);
 });
 
 // ---- farm: exact per-action economics -----------------------------------
@@ -724,6 +799,23 @@ app.post("/farm/actions", async (c) => {
   return c.json({ balance, results });
 });
 
+// ---- POST /farm/sync: one-time import of already-plowed soil -------------
+// A migrating player's tilled-but-unplanted soil exists only in their save. Import it
+// once (cutoff-gated, then guarded by farm_state.soil_seeded) so plants there aren't
+// rejected as `not_plowed` on soil their client won't let them re-till. A post-cutoff
+// account imports nothing and simply reads its authoritative set.
+app.post("/farm/sync", async (c) => {
+  const body = await c.req.json<{ plowed?: unknown }>().catch(() => ({ plowed: [] }));
+  const allow = await seedAllowed(c.env, c.get("accountId"));
+  const plowed = await db.seedPlowedSoil(
+    c.env.DB,
+    c.get("accountId"),
+    allow ? body.plowed : [],
+    Date.now()
+  );
+  return c.json({ plowed });
+});
+
 // ---- inventory: server-owned consumable boosts --------------------------
 // Boost COUNTS are server-authoritative. Seed once from the save, then buy/use/grant
 // go through the server: a buy debits the EXACT catalog price + grants, so a client
@@ -735,7 +827,10 @@ app.post("/inventory/sync", async (c) => {
     .catch(() => ({ counts: {} }));
   const counts: Record<string, unknown> =
     body.counts && typeof body.counts === "object" ? (body.counts as Record<string, unknown>) : {};
-  const inventory = await db.seedInventory(c.env.DB, c.get("accountId"), counts);
+  // Import boost counts only for a migration-eligible account; otherwise ignore the
+  // declared counts (seedInventory is itself seed-once-if-empty as defense in depth).
+  const allow = await seedAllowed(c.env, c.get("accountId"));
+  const inventory = await db.seedInventory(c.env.DB, c.get("accountId"), allow ? counts : {});
   return c.json({ inventory });
 });
 
@@ -755,6 +850,38 @@ app.post("/inventory/actions", async (c) => {
   return c.json({ balance, inventory, results });
 });
 
+// ---- objects: server-owned placeable ownership (counts) -----------------
+// Object OWNERSHIP is server-authoritative (a count per key); placement/position stays
+// client-side layout. A buy debits the exact catalog cost + grants buyXp; a refund
+// credits floor(cost*0.2) only for an object you actually own — so a client can't
+// fabricate a placeable or refund one it never bought. Seed once from the save.
+app.post("/object/sync", async (c) => {
+  const body = await c.req
+    .json<{ counts?: Record<string, unknown> }>()
+    .catch(() => ({ counts: {} }));
+  const counts: Record<string, unknown> =
+    body.counts && typeof body.counts === "object" ? (body.counts as Record<string, unknown>) : {};
+  const allow = await seedAllowed(c.env, c.get("accountId"));
+  const objects = await db.seedObjects(c.env.DB, c.get("accountId"), allow ? counts : {});
+  return c.json({ objects });
+});
+
+app.post("/object/actions", async (c) => {
+  const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
+  const raw = Array.isArray(body.actions) ? body.actions : [];
+  if (raw.length > 256) return c.json({ error: "too_many_actions" }, 413);
+  const actions = raw as ObjectAction[];
+  const { balance, objects, results } = await db.applyObjectActions(
+    c.env.DB,
+    c.get("accountId"),
+    actions,
+    Date.now()
+  );
+  const rejected = results.filter((r) => r.status === "rejected").length;
+  if (rejected) slog("object_rejected", { account: c.get("accountId"), rejected });
+  return c.json({ balance, objects, results });
+});
+
 // ---- shop: server-owned farm size + climate skins -----------------------
 // Non-boost purchases the server now owns. Size upgrades are sequential (only the
 // immediate next tier is buyable) and priced exactly; climate skins are an owned set.
@@ -765,11 +892,14 @@ app.post("/shop/state", async (c) => {
   const body = await c.req
     .json<{ size?: number; climates?: unknown }>()
     .catch(() => ({ size: undefined, climates: undefined }));
+  // Seed farm size + climates from the save only for a migration-eligible account;
+  // otherwise seed base size + no skins (getOrSeedShopState only seeds on first init).
+  const allow = await seedAllowed(c.env, c.get("accountId"));
   const state = await db.getOrSeedShopState(
     c.env.DB,
     c.get("accountId"),
-    typeof body.size === "number" ? body.size : 30,
-    body.climates
+    allow && typeof body.size === "number" ? body.size : DEFAULT_FARM_SIZE,
+    allow ? body.climates : []
   );
   return c.json(state);
 });
@@ -800,7 +930,11 @@ app.post("/shop/climate", async (c) => {
 // now, bounded to a real catalog key.
 app.post("/roster/sync", async (c) => {
   const body = await c.req.json<{ units?: unknown }>().catch(() => ({ units: [] }));
-  const count = await db.seedRoster(c.env.DB, c.get("accountId"), body.units);
+  // Import save units only for a migration-eligible account; otherwise ignore them
+  // (seedRoster is itself seed-once-if-empty as defense in depth). This closes the
+  // repeat-sync re-injection door — units can't be added then sold for gold.
+  const allow = await seedAllowed(c.env, c.get("accountId"));
+  const count = await db.seedRoster(c.env.DB, c.get("accountId"), allow ? body.units : []);
   return c.json({ count });
 });
 
@@ -825,9 +959,10 @@ async function runCleanup(env: Bindings, now: number): Promise<void> {
   const ledger = await db.purgeOldLedger(env.DB, now - 30 * DAY);
   const farmActions = await db.purgeOldFarmActions(env.DB, now - 7 * DAY);
   const invActions = await db.purgeOldInventoryActions(env.DB, now - 7 * DAY);
+  const objActions = await db.purgeOldObjectActions(env.DB, now - 7 * DAY);
   const rosterActions = await db.purgeOldRosterActions(env.DB, now - 7 * DAY);
   const combineJobs = await db.purgeOldCombineJobs(env.DB, now - 30 * DAY);
-  slog("cleanup", { sessions, buckets, requests, raidSessions, ledger, farmActions, invActions, rosterActions, combineJobs }, "info");
+  slog("cleanup", { sessions, buckets, requests, raidSessions, ledger, farmActions, invActions, objActions, rosterActions, combineJobs }, "info");
 }
 
 // Export both the HTTP handler and the cron handler. Cloudflare calls `scheduled`

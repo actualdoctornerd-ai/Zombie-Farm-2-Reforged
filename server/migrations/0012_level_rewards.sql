@@ -1,0 +1,14 @@
+-- Phase C-A: server-authoritative level-up rewards.
+--
+-- `balances.xp` is already server-owned, so the player level and the +1-brain-per-level
+-- reward are derived on the server (levels.ts). `claimed_level` records the highest
+-- level we've already paid the reward for, so brains are granted exactly once per level.
+--
+-- Sentinel: DEFAULT 0 = "uninitialized". The first creditLevelUps() for a row still at 0
+-- adopts the account's CURRENT level WITHOUT granting — so an existing/migrated account
+-- (whose xp already reflects levels earned in the pre-server-authoritative world) doesn't
+-- receive a retroactive windfall. Rows created by getOrSeedBalance after this migration
+-- set claimed_level to their seed level directly, so only NEW level-ups pay out.
+--
+-- Additive column; safe to run against a live DB.
+ALTER TABLE balances ADD COLUMN claimed_level INTEGER NOT NULL DEFAULT 0;

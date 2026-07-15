@@ -66,3 +66,35 @@ export async function befriend(a: Session, b: Session): Promise<void> {
   await call("POST", "/friends/add", a.token, { code: b.friendCode });
   await call("POST", "/friends/accept", b.token, { fromAccountId: a.accountId });
 }
+
+/** Gold a single plow costs (mirrors farm.ts PLOW_COST) — the tests' balance math. */
+export const PLOW = 10;
+
+/** XP that puts an account at `level`, for seeding past Phase E's level gates. Mirrors
+ *  levels.ts XP_THRESHOLDS; level 45 is the cap. Seeding xp at account creation does NOT
+ *  pay level-up brains: getOrSeedBalance stamps claimed_level from the seeded xp, which is
+ *  the sentinel that stops a migrating account collecting a retroactive windfall. */
+export function xpForLevel(level: number): number {
+  const T = [
+    0, 25, 75, 150, 250, 375, 550, 800, 1300, 1800, 2300, 2800, 3300, 3900, 4500,
+    5500, 6500, 7500, 8500, 9500, 11500, 13500, 15500, 17500, 20500, 25000, 30000,
+    35000, 40000, 46000, 53000, 61000, 69000, 78000, 87000, 97000, 107000, 117000,
+    127000, 137000, 151000, 165000, 179000, 193000, 218000,
+  ];
+  return T[Math.min(Math.max(level, 1), T.length) - 1];
+}
+
+/** Import plots as already-PLOWED via the one-time /farm/sync migration path, so a test
+ *  can plant without paying (and doing the bookkeeping for) a plow first. This is the
+ *  seed-from-save door, so it only works ONCE per account and only pre-cutoff — which is
+ *  exactly what the integration env is. Use `plowPaid` when the plow itself is under test. */
+export async function seedPlowed(s: Session, plots: { oc: number; or: number }[]): Promise<void> {
+  await call("POST", "/farm/sync", s.token, { plowed: plots });
+}
+
+/** Plow a plot for real, through the server (costs PLOW gold, grants 1 xp). */
+export async function plowPaid(s: Session, oc: number, or: number): Promise<void> {
+  await call("POST", "/farm/actions", s.token, {
+    actions: [{ id: `plow-${uniqueSub()}`, type: "plow", oc, or }],
+  });
+}

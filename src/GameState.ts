@@ -74,14 +74,15 @@ export class GameState {
    *  currency stays purely local (original behaviour). Set by main.ts after load. */
   onMoney: ((currency: "gold" | "brains" | "xp", delta: number, reason: string) => void) | null = null;
 
-  /** ONLINE (veggie crops only): submit a plant/harvest to the server's EXACT
-   *  economics engine (/farm/actions) instead of mutating gold/xp locally. The
-   *  balance client applies the optimistic effect and reconciles to server truth.
-   *  Null offline / for zombie crops, where the crop loop stays purely local. */
+  /** ONLINE: submit a plant/harvest to the server's EXACT economics engine
+   *  (/farm/actions) instead of mutating currency locally. Covers veggie crops (cost +
+   *  sell in gold) AND zombie crops (cost in gold OR brains; harvest yields a verified
+   *  unit named by `unitId`, no gold). The balance client applies the optimistic effect
+   *  and reconciles to server truth. Null offline, where the crop loop stays local. */
   onFarm:
     | ((
-        action: { type: "plant" | "harvest"; oc: number; or: number; cropKey?: string; fertilized?: boolean },
-        optimistic: { gold?: number; xp?: number }
+        action: { type: "plant" | "harvest" | "plow"; oc: number; or: number; cropKey?: string; fertilized?: boolean; unitId?: string },
+        optimistic: { gold?: number; brains?: number; xp?: number }
       ) => void)
     | null = null;
 
@@ -101,7 +102,7 @@ export class GameState {
    *  purely local. */
   onInventory:
     | ((
-        action: { type: "buy" | "use" | "grant"; key: string; qty?: number },
+        action: { type: "buy" | "use" | "grant"; key: string; qty?: number; unitId?: string },
         optimistic: { count: number; gold?: number; brains?: number }
       ) => void)
     | null = null;

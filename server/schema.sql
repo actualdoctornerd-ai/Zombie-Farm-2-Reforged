@@ -169,10 +169,15 @@ CREATE TABLE IF NOT EXISTS raid_clears (
 -- authoritative: the client syncs from it on load and reconciles to it, so a
 -- save-edited currency value is corrected rather than trusted.
 CREATE TABLE IF NOT EXISTS balances (
-  account_id  TEXT PRIMARY KEY REFERENCES accounts(id),
-  gold        INTEGER NOT NULL DEFAULT 0,
-  brains      INTEGER NOT NULL DEFAULT 0,
-  xp          INTEGER NOT NULL DEFAULT 0
+  account_id    TEXT PRIMARY KEY REFERENCES accounts(id),
+  gold          INTEGER NOT NULL DEFAULT 0,
+  brains        INTEGER NOT NULL DEFAULT 0,
+  xp            INTEGER NOT NULL DEFAULT 0,
+  -- Highest level the +1-brain-per-level reward has already been paid for. Server
+  -- derives level from `xp` (levels.ts) and grants brains for each new level exactly
+  -- once. DEFAULT 0 is the "uninitialized" sentinel: the first reconcile adopts the
+  -- current level without granting, so migrated progress isn't a retroactive windfall.
+  claimed_level INTEGER NOT NULL DEFAULT 0
 );
 
 -- Append-only economy ledger. Every currency change is an event with a
@@ -206,6 +211,17 @@ CREATE TABLE IF NOT EXISTS crop_plots (
   sell        INTEGER NOT NULL,   -- base gold value (pre-fertilize)
   xp          INTEGER NOT NULL,
   fertilized  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id, oc, pr)
+);
+
+-- Plowed-and-empty soil (Phase E, migration 0015). A plant requires a row here; the
+-- row is consumed by the plant and re-created by re-tilling the harvested plot, so
+-- plowed_soil and crop_plots are disjoint: a plot is bare, plowed, or planted.
+CREATE TABLE IF NOT EXISTS plowed_soil (
+  account_id TEXT NOT NULL REFERENCES accounts(id),
+  oc         INTEGER NOT NULL,   -- plot origin column
+  pr         INTEGER NOT NULL,   -- plot origin row
+  plowed_at  INTEGER NOT NULL,
   PRIMARY KEY (account_id, oc, pr)
 );
 
@@ -263,8 +279,11 @@ CREATE TABLE IF NOT EXISTS roster_actions (
 -- from the save; thereafter the server owns it (a `sizeUpgrade` debits the exact tier
 -- price + bumps it), so an edited save can't fabricate a bigger farm.
 CREATE TABLE IF NOT EXISTS farm_state (
-  account_id TEXT PRIMARY KEY REFERENCES accounts(id),
-  size       INTEGER NOT NULL DEFAULT 30
+  account_id  TEXT PRIMARY KEY REFERENCES accounts(id),
+  size        INTEGER NOT NULL DEFAULT 30,
+  -- Once-guard for the plowed_soil import (migration 0015). Empty plowed_soil is a
+  -- legitimate state, so seed-once-if-empty can't guard it; this flag can.
+  soil_seeded INTEGER NOT NULL DEFAULT 0
 );
 
 -- Server-owned ground/climate skins owned by an account (an owned set). Seeded once
@@ -286,6 +305,41 @@ CREATE TABLE IF NOT EXISTS combine_jobs (
   key_a      TEXT NOT NULL,
   key_b      TEXT NOT NULL,
   started_at INTEGER NOT NULL
+);
+
+-- Server-owned placeable objects (Phase D). Ownership is a COUNT per object key
+-- (placement/position stays client-side layout). A server-priced `buy` debits the exact
+-- catalog cost + grants buyXp; a `refund` credits floor(cost * 0.2) and decrements the
+-- count (guarded so you can't refund an object you don't own). Seeded once from the save.
+CREATE TABLE IF NOT EXISTS object_counts (
+  account_id TEXT NOT NULL REFERENCES accounts(id),
+  object_key TEXT NOT NULL,
+  count      INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id, object_key)
+);
+
+-- Idempotency ledger for object actions (uuid per action). A retried buy/refund is a
+-- no-op instead of double-charging or double-crediting.
+CREATE TABLE IF NOT EXISTS object_actions (
+  id         TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id),
+  created_at INTEGER NOT NULL
+);
+
+-- Server-authoritative quest rewards. A completed quest grants its reward from the
+-- SERVER catalog (questCatalog.ts, mirrored from quests.json) — never a client-sent
+-- amount — at most ONCE per (account, quest); the PRIMARY KEY is the once-guard.
+-- Currency rewards (Xp/Gold/Brains) are credited to `balances`; Item/Zombie rewards are
+-- recorded here but granted later (Phase D — they need server-owned storage/roster).
+-- Requirement PROOF is still deferred (client-asserted completion), so a reward is
+-- bounded-once, not yet proven-earned.
+CREATE TABLE IF NOT EXISTS quest_completions (
+  account_id   TEXT NOT NULL REFERENCES accounts(id),
+  quest_id     TEXT NOT NULL,
+  reward_type  INTEGER NOT NULL,
+  reward_value INTEGER NOT NULL,
+  completed_at INTEGER NOT NULL,
+  PRIMARY KEY (account_id, quest_id)
 );
 
 -- Fixed-window rate-limit counters (per-key). The key encodes route + caller
