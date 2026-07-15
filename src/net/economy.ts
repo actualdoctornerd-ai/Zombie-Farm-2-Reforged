@@ -168,6 +168,9 @@ export class EconomyClient {
   onCropFertilized: ((oc: number, or: number) => void) | null = null;
   /** Reconcile speculative plots after a farm command or farm-affecting boost. */
   onFarmState: ((farm: api.FarmState) => void) | null = null;
+  /** Latest farm projection returned while value queues are draining. Applying an
+   *  intermediate projection would briefly undo newer optimistic actions. */
+  private farmSnapshot: api.FarmState | null = null;
 
   constructor(
     private state: GameState,
@@ -544,6 +547,13 @@ export class EconomyClient {
       await this.flushEconomy();
       await this.flushInv();
       await this.flushFarm();
+      // Inventory (notably Insta-Grow) and farm commands can be queued while an
+      // earlier request is in flight. Only render the newest projection after both
+      // queues have drained, otherwise crops visibly bounce through old states.
+      if (!this.invPending.length && !this.farmPending.length && this.farmSnapshot) {
+        this.onFarmState?.(this.farmSnapshot);
+        this.farmSnapshot = null;
+      }
       await this.flushRaid();
       await this.flushQuest();
       await this.flushRoster();
@@ -621,7 +631,7 @@ export class EconomyClient {
       this.farmPending = this.farmPending.filter((f) => !sent.has(f.action.id));
       this.writeFarmOutbox();
       this.base = balance;
-      this.onFarmState?.(farm);
+      this.farmSnapshot = farm;
     }
   }
 
@@ -660,7 +670,7 @@ export class EconomyClient {
       this.writeInvOutbox();
       this.base = balance;
       this.serverInv = inventory;
-      this.onFarmState?.(farm);
+      this.farmSnapshot = farm;
     }
   }
 

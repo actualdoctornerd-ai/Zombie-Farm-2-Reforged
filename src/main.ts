@@ -734,7 +734,7 @@ async function main() {
       const presentation = field.serialize().filter(
         (p) => (p.state === "dirt" || p.state === "hole") && !occupied.has(`${p.oc}:${p.or}`)
       );
-      field.restore([...presentation, ...authoritative], (key) => catalog.get(key));
+      field.reconcilePlots([...presentation, ...authoritative], (key) => catalog.get(key));
     };
     // Server-owned roster: seed the shadow from the current units, then report every
     // post-load create (grant) / casualty + combined parent (casualty), and route a

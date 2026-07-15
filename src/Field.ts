@@ -1231,6 +1231,52 @@ export class Field {
     this.update(0); // set correct growth-stage textures immediately (no flash)
   }
 
+  /** Adopt authoritative timers/fertilization without tearing down plots whose
+   *  identity and soil state already agree. A structural disagreement still uses
+   *  the full restore path so rejected optimistic actions are visibly corrected. */
+  reconcilePlots(plots: PlotSave[], resolve: (key: string) => CropConfig | undefined) {
+    const wanted = new Map(plots.map((p) => [this.key(p.oc, p.or), p]));
+    let sameStructure = wanted.size === plots.length && wanted.size === this.plots.size;
+    if (sameStructure) {
+      for (const [key, current] of this.plots) {
+        const next = wanted.get(key);
+        if (
+          !next ||
+          current.state !== next.state ||
+          (current.state === "planted" &&
+            (!current.crop || !next.crop || current.crop.cfg.key !== next.crop.key))
+        ) {
+          sameStructure = false;
+          break;
+        }
+      }
+    }
+    if (!sameStructure) {
+      this.restore(plots, resolve);
+      return;
+    }
+
+    const now = Date.now();
+    for (const [key, current] of this.plots) {
+      if (current.state !== "planted" || !current.crop) continue;
+      const saved = wanted.get(key)!.crop!;
+      const base = resolve(saved.key);
+      if (!base) {
+        this.restore(plots, resolve);
+        return;
+      }
+      current.crop.cfg = {
+        ...base,
+        growMs: saved.growMs,
+        isZombie: saved.isZombie,
+      };
+      current.crop.plantedAt = saved.plantedAt;
+      current.crop.ageMs = Math.max(0, Math.min(saved.growMs, now - saved.plantedAt));
+      current.crop.fertilized = saved.fertilized;
+    }
+    this.update(0);
+  }
+
   serializeObjects(): PlacedObjectSave[] {
     const out: PlacedObjectSave[] = [];
     for (const o of this.objects.values()) {
