@@ -258,6 +258,7 @@ app.use("/friends/*", requireAuth);
 app.use("/gifts", requireAuth);
 app.use("/gifts/*", requireAuth);
 app.use("/raid/*", requireAuth);
+app.use("/storage/*", requireAuth);
 app.use("/economy/*", requireAuth);
 app.use("/quest/*", requireAuth);
 app.use("/farm/*", requireAuth);
@@ -290,6 +291,7 @@ app.use("/quest/complete", rateLimit("RL_WRITE", "quest_complete", 120, 60_000))
 app.use("/farm/actions", rateLimit("RL_WRITE", "farm_actions", 120, 60_000));
 app.use("/farm/sync", rateLimit("RL_READ", "farm_sync", 300, 60_000));
 app.use("/raid/sync", rateLimit("RL_READ", "raid_sync", 300, 60_000));
+app.use("/storage/sync", rateLimit("RL_READ", "storage_sync", 300, 60_000));
 app.use("/inventory/actions", rateLimit("RL_WRITE", "inventory_actions", 120, 60_000));
 app.use("/inventory/sync", rateLimit("RL_READ", "inventory_sync", 300, 60_000));
 app.use("/object/actions", rateLimit("RL_WRITE", "object_actions", 120, 60_000));
@@ -698,9 +700,9 @@ app.post("/raid/sync", async (c) => {
 // `bypassed` tells the client whether a cooldown was actually skipped (the voucher is
 // consumed server-side).
 app.post("/raid/start", async (c) => {
-  const { bypass, raidId } = await c.req
-    .json<{ bypass?: boolean; raidId?: number }>()
-    .catch(() => ({ bypass: false, raidId: undefined }));
+  const { bypass, raidId, dice } = await c.req
+    .json<{ bypass?: boolean; raidId?: number; dice?: number }>()
+    .catch(() => ({ bypass: false, raidId: undefined, dice: 0 }));
   // Pin a KNOWN raid so finish can price it; reject an unknown id up front.
   const econ = typeof raidId === "number" ? raidEcon(raidId) : undefined;
   if (!econ) return c.json({ ok: false, error: "bad_raid" }, 400);
@@ -738,7 +740,13 @@ app.post("/raid/start", async (c) => {
     if (bypassed) await db.refundVoucher(c.env.DB, me);
     return c.json({ ok: false, error: "raid_in_progress" }, 409);
   }
-  return c.json({ ok: true, sessionId, bypassed });
+  // Golden Dice (loot luck) are consumed HERE and pinned to the session, so the server's
+  // loot roll at finish uses the real number rather than a client claim. Done after the
+  // reserve so a lost race doesn't eat the dice. Spending fewer than asked is fine — the
+  // session records what was actually spent.
+  const spent = await db.consumeDice(c.env.DB, me, Number(dice) || 0);
+  if (spent > 0) await db.setSessionDice(c.env.DB, sessionId, spent);
+  return c.json({ ok: true, sessionId, bypassed, dice: spent });
 });
 
 // POST /raid/finish — consume the session once, start the cooldown, and credit the
@@ -769,7 +777,26 @@ app.post("/raid/finish", async (c) => {
     xp: r.xp,
     firstClear: r.firstClear,
     expired: !!r.expired,
+    loot: r.loot ?? null,
   });
+});
+
+// ---- item storage: the Received bucket + the shed ------------------------
+// POST /storage/sync — one-time import of a migrating save's Received + shed items.
+// Cutoff-gated, then guarded by farm_state.storage_seeded. Raid loot lands in `received`
+// server-side now, and the loot roll reads these to answer "do you already own one?".
+app.post("/storage/sync", async (c) => {
+  const body = await c.req
+    .json<{ received?: unknown; stored?: unknown }>()
+    .catch(() => ({ received: [], stored: [] }));
+  const allow = await seedAllowed(c.env, c.get("accountId"));
+  const storage = await db.seedStorage(
+    c.env.DB,
+    c.get("accountId"),
+    allow ? body.received : [],
+    allow ? body.stored : []
+  );
+  return c.json(storage);
 });
 
 // ---- economy: server-authoritative balances (gold/brains/xp) ------------

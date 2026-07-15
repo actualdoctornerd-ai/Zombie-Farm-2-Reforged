@@ -5,6 +5,12 @@ import { call, signIn, type Session } from "./helpers";
 // base win gold + first-clear XP for the session's pinned raid, idempotently, capped
 // at that raid's real ceiling. Whether the player "won" is client-asserted here, which
 // is exactly the deferred gap — the point is that the CREDIT can't be fabricated.
+//
+// Since T2 the server also ROLLS this win's loot, and raid 1's commonest drop is
+// "Bonus Gold" (+recLevel*100 = 500). That's random, so these tests derive the expected
+// total from the drop the server actually reported rather than assuming a bare base —
+// otherwise they'd flake whenever the roll landed on gold. See raidLoot.spec for the
+// loot behaviour itself.
 
 interface FinishRes {
   lastRaidAt: number;
@@ -12,7 +18,15 @@ interface FinishRes {
   gold: number;
   xp: number;
   firstClear: boolean;
+  loot: { name: string; kind: string } | null;
 }
+
+/** McDonnell's base win gold (1200 + 400 bonus at full survival) plus this win's loot, if
+ *  the loot happened to be the +500 Bonus Gold drop. */
+const BASE_WIN_GOLD = 1600;
+const BONUS_GOLD = 500; // raid 1 recommendedLevel 5 x 100
+const expectedGold = (r: FinishRes, base = BASE_WIN_GOLD) =>
+  base + (r.loot?.kind === "gold" ? BONUS_GOLD : 0);
 
 async function player(gold = 0): Promise<Session> {
   const s = await signIn();
@@ -40,8 +54,9 @@ describe("raid rewards — server-authoritative", () => {
     const s = await player();
     const sid = await startRaid(s, 1);
     const fin = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 1 });
-    expect(fin.body).toMatchObject({ gold: 1600, xp: 100, firstClear: true });
-    expect(fin.body.balance).toMatchObject({ gold: 1600, xp: 100 });
+    expect(fin.body).toMatchObject({ xp: 100, firstClear: true });
+    expect(fin.body.gold).toBe(expectedGold(fin.body));
+    expect(fin.body.balance).toMatchObject({ gold: expectedGold(fin.body), xp: 100 });
   });
 
   it("clamps a fabricated survival fraction to the raid ceiling", async () => {
@@ -49,7 +64,7 @@ describe("raid rewards — server-authoritative", () => {
     const sid = await startRaid(s, 1);
     // survivalFrac 99 → clamped to 1 → the raid's real max, not more.
     const fin = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 99 });
-    expect(fin.body.gold).toBe(1600);
+    expect(fin.body.gold).toBe(expectedGold(fin.body));
   });
 
   it("grants first-clear XP only once; a repeat win pays gold but no XP", async () => {
@@ -67,7 +82,8 @@ describe("raid rewards — server-authoritative", () => {
       win: true,
       survivalFrac: 1,
     });
-    expect(second.body).toMatchObject({ gold: 1600, xp: 0, firstClear: false });
+    expect(second.body).toMatchObject({ xp: 0, firstClear: false });
+    expect(second.body.gold).toBe(expectedGold(second.body));
     expect(second.body.balance.xp).toBe(100); // still just the one grant
   });
 
@@ -83,9 +99,10 @@ describe("raid rewards — server-authoritative", () => {
     const s = await player();
     const sid = await startRaid(s, 1);
     const a = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 1 });
-    expect(a.body.balance.gold).toBe(1600);
+    const settled = expectedGold(a.body); // base + this win's loot, whatever it rolled
+    expect(a.body.balance.gold).toBe(settled);
     const b = await call<FinishRes>("POST", "/raid/finish", s.token, { sessionId: sid, win: true, survivalFrac: 1 });
-    expect(b.body).toMatchObject({ gold: 0, xp: 0 }); // nothing credited this call
-    expect(b.body.balance.gold).toBe(1600); // balance unchanged
+    expect(b.body).toMatchObject({ gold: 0, xp: 0, loot: null }); // nothing credited this call
+    expect(b.body.balance.gold).toBe(settled); // balance unchanged — no second loot roll
   });
 });

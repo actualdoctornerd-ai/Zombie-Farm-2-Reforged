@@ -261,6 +261,19 @@ export class GameState {
     this.emit();
   }
 
+  /** Adopt the server's authoritative item storage (Received bucket + shed). ONLINE the
+   *  server owns both: raid loot is rolled and granted there, and the roll reads them to
+   *  decide whether a unique may still drop — so an edited save must not decide them.
+   *  Counts are expanded back into the client's list shapes. */
+  syncStorage(received: Record<string, number>, stored: Record<string, number>) {
+    this.received = [];
+    for (const [key, n] of Object.entries(received)) {
+      for (let i = 0; i < n; i++) this.received.push(key);
+    }
+    this.storedItems = Object.entries(stored).map(([key, count]) => ({ key, count }));
+    this.emit();
+  }
+
   /** Remove and return the Received entry at `index` (claimed or placed). Returns
    *  null if the index is out of range. Index-based so duplicate names are safe. */
   takeReceivedAt(index: number): string | null {

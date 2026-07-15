@@ -12,7 +12,9 @@ import {
 } from "./farm";
 import { zombieCropEcon } from "./zombieCropCatalog";
 import { raidEcon, winGold, MAX_RAID_WINS } from "./raidCatalog";
-import { boostEcon, BOOST_KEYS, VOUCHER_KEY, MAX_STACK } from "./boostCatalog";
+import { boostEcon, BOOST_KEYS, VOUCHER_KEY, DICE_KEY, MAX_STACK } from "./boostCatalog";
+import { raidLoot, dropEcon, MAX_SEED_ITEMS } from "./raidLootCatalog";
+import { rollLoot, resolveLoot, type LootGrant } from "./loot";
 import { planBuy, planUse, planGiftRedeem, type InventoryAction } from "./inventory";
 import { zombieSell, fertilizeProbability, isKnownZombie, MAX_MUTATION } from "./rosterCatalog";
 import { validateUnit, cleanIds, type RosterAction } from "./roster";
@@ -1968,7 +1970,8 @@ export async function openRaidSessionOnce(
   accountId: string,
   raidId: number,
   startedAt: number,
-  expiresAt: number
+  expiresAt: number,
+  dice = 0
 ): Promise<boolean> {
   await db
     .prepare(
@@ -1980,19 +1983,50 @@ export async function openRaidSessionOnce(
   try {
     const res = await db
       .prepare(
-        `INSERT INTO raid_sessions (id, account_id, raid_id, started_at, expires_at)
-         SELECT ?, ?, ?, ?, ?
+        `INSERT INTO raid_sessions (id, account_id, raid_id, started_at, expires_at, dice)
+         SELECT ?, ?, ?, ?, ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM raid_sessions WHERE account_id = ? AND finished_at IS NULL
          )`
       )
-      .bind(id, accountId, raidId, startedAt, expiresAt, accountId)
+      .bind(id, accountId, raidId, startedAt, expiresAt, dice, accountId)
       .run();
     return (res.meta.changes ?? 0) === 1;
   } catch {
     // The partial unique index rejected a concurrent reserve.
     return false;
   }
+}
+
+/** Consume up to `want` Golden Dice for a raid's loot luck, returning how many were
+ *  actually spent. Guarded so it can't drive the count negative, and capped by what's
+ *  held — a client asking for more dice than it owns simply gets fewer, and the SESSION
+ *  records the real number, so the loot roll's luck can't be inflated. */
+export async function consumeDice(db: D1Database, accountId: string, want: number): Promise<number> {
+  const n = Number.isInteger(want) ? Math.max(0, Math.min(MAX_STACK, want)) : 0;
+  if (n <= 0) return 0;
+  const res = await db
+    .prepare("UPDATE inventory SET count = count - ? WHERE account_id = ? AND item_key = ? AND count >= ?")
+    .bind(n, accountId, DICE_KEY, n)
+    .run();
+  if ((res.meta.changes ?? 0) === 1) return n;
+  // Not enough for the full ask — spend everything held instead of failing the launch.
+  const row = await db
+    .prepare("SELECT count FROM inventory WHERE account_id = ? AND item_key = ?")
+    .bind(accountId, DICE_KEY)
+    .first<{ count: number }>();
+  const have = Math.max(0, row?.count ?? 0);
+  if (have <= 0) return 0;
+  const upd = await db
+    .prepare("UPDATE inventory SET count = count - ? WHERE account_id = ? AND item_key = ? AND count >= ?")
+    .bind(have, accountId, DICE_KEY, have)
+    .run();
+  return (upd.meta.changes ?? 0) === 1 ? have : 0;
+}
+
+/** Pin the dice actually spent onto an open session (see consumeDice). */
+export async function setSessionDice(db: D1Database, sessionId: string, dice: number): Promise<void> {
+  await db.prepare("UPDATE raid_sessions SET dice = ? WHERE id = ?").bind(dice, sessionId).run();
 }
 
 /** Give back a voucher consumed for a bypass that then failed to open a session, so a
@@ -2006,6 +2040,103 @@ export async function refundVoucher(db: D1Database, accountId: string): Promise<
     )
     .bind(accountId, VOUCHER_KEY)
     .run();
+}
+
+// ---- item storage: the Received bucket + the shed -----------------------
+export type StorageBucket = "received" | "stored";
+export interface StorageState {
+  received: Record<string, number>;
+  stored: Record<string, number>;
+}
+
+/** The account's server-owned item collections. */
+export async function readStorage(db: D1Database, accountId: string): Promise<StorageState> {
+  const res = await db
+    .prepare("SELECT bucket, item_key, count FROM item_storage WHERE account_id = ? AND count > 0")
+    .bind(accountId)
+    .all<{ bucket: string; item_key: string; count: number }>();
+  const out: StorageState = { received: {}, stored: {} };
+  for (const r of res.results ?? []) {
+    if (r.bucket === "received") out.received[r.item_key] = r.count;
+    else if (r.bucket === "stored") out.stored[r.item_key] = r.count;
+  }
+  return out;
+}
+
+/** How many of a loot item the account owns, for the roll's unique/limit filters.
+ *
+ *  Counts unclaimed loot + the shed, mirroring the client's ownedCount. It ALSO counts a
+ *  placed copy via the item's linked placeable (drops.json `tile`) in the server-owned
+ *  object counts — which the client can't do, and whose absence it calls out as "a minor
+ *  divergence from the source's full ownership check". So a unique you've already placed
+ *  won't drop again: closer to the original than the client is. The server owns the roll,
+ *  so the two can't disagree in a way the player sees. */
+export async function ownedLootCount(db: D1Database, accountId: string, name: string): Promise<number> {
+  const row = await db
+    .prepare("SELECT COALESCE(SUM(count), 0) AS n FROM item_storage WHERE account_id = ? AND item_key = ?")
+    .bind(accountId, name)
+    .first<{ n: number }>();
+  let n = row?.n ?? 0;
+  const tile = dropEcon(name)?.tile;
+  if (tile) n += await objectCount(db, accountId, tile);
+  return n;
+}
+
+/** Add `n` of an item to a bucket (n may be negative; the count floors at 0 via the
+ *  guarded update in takeStored/claimReceived, so this is only ever called to ADD). */
+function addStorageStmt(db: D1Database, accountId: string, bucket: StorageBucket, name: string, n: number) {
+  return db
+    .prepare(
+      `INSERT INTO item_storage (account_id, bucket, item_key, count) VALUES (?, ?, ?, ?)
+       ON CONFLICT(account_id, bucket, item_key) DO UPDATE SET count = count + excluded.count`
+    )
+    .bind(accountId, bucket, name, n);
+}
+
+/** Import a migrating save's Received + shed items, exactly once. Guarded by
+ *  farm_state.storage_seeded rather than "no rows yet": empty storage is a legitimate
+ *  state, so an if-empty guard would let a client re-import items forever. Callers gate on
+ *  MIGRATION_CUTOFF_MS. Only real drops.json entries are imported. */
+export async function seedStorage(
+  db: D1Database,
+  accountId: string,
+  received: unknown,
+  stored: unknown
+): Promise<StorageState> {
+  const row = await db
+    .prepare("SELECT storage_seeded FROM farm_state WHERE account_id = ?")
+    .bind(accountId)
+    .first<{ storage_seeded: number }>();
+  if (!row?.storage_seeded) {
+    const size = await farmSize(db, accountId);
+    const stmts: D1PreparedStatement[] = [
+      db
+        .prepare(
+          `INSERT INTO farm_state (account_id, size, storage_seeded) VALUES (?, ?, 1)
+           ON CONFLICT(account_id) DO UPDATE SET storage_seeded = 1`
+        )
+        .bind(accountId, size),
+    ];
+    // `received` is a LIST of names (duplicates allowed); `stored` is [{key,count}].
+    const tally: Record<string, number> = {};
+    if (Array.isArray(received)) {
+      for (const nm of received.slice(0, MAX_SEED_ITEMS)) {
+        if (typeof nm === "string" && dropEcon(nm)) tally[nm] = (tally[nm] ?? 0) + 1;
+      }
+    }
+    for (const [k, n] of Object.entries(tally)) stmts.push(addStorageStmt(db, accountId, "received", k, n));
+    if (Array.isArray(stored)) {
+      for (const it of stored.slice(0, MAX_SEED_ITEMS)) {
+        const key = (it as { key?: unknown })?.key;
+        const raw = (it as { count?: unknown })?.count;
+        if (typeof key !== "string" || !dropEcon(key)) continue;
+        const n = Number.isInteger(raw) ? Math.max(0, Math.min(MAX_STACK, raw as number)) : 0;
+        if (n > 0) stmts.push(addStorageStmt(db, accountId, "stored", key, n));
+      }
+    }
+    await db.batch(stmts);
+  }
+  return readStorage(db, accountId);
 }
 
 /** Lifetime wins per raid id — the account's server-owned raid progress. Drives ability
@@ -2079,6 +2210,10 @@ export interface RaidSettleResult {
   /** True when the finish was refused because the session had already expired (the raid
    *  wasn't settled within its TTL). Nothing is credited; distinct from a plain replay. */
   expired?: boolean;
+  /** The SERVER's loot roll for this win: the drop's display name + what it became, or
+   *  null if nothing dropped / this wasn't a fresh win. The client renders this rather
+   *  than rolling its own — the drop is real value. */
+  loot?: { name: string; kind: LootGrant["kind"] } | null;
 }
 
 /** Finish a raid exactly once and credit the SERVER-COMPUTED reward. The server owns
@@ -2109,9 +2244,9 @@ export async function settleRaid(
   });
 
   const row = await db
-    .prepare("SELECT raid_id, finished_at, expires_at FROM raid_sessions WHERE id = ? AND account_id = ?")
+    .prepare("SELECT raid_id, finished_at, expires_at, dice FROM raid_sessions WHERE id = ? AND account_id = ?")
     .bind(sessionId, accountId)
-    .first<{ raid_id: number | null; finished_at: number | null; expires_at: number }>();
+    .first<{ raid_id: number | null; finished_at: number | null; expires_at: number; dice: number | null }>();
   if (!row) return echo(); // unknown / foreign session
 
   // Elect the single finisher, and REFUSE AN EXPIRED SESSION in the same write. A raid
@@ -2152,6 +2287,7 @@ export async function settleRaid(
   let gold = 0;
   let xp = 0;
   let firstClear = false;
+  let loot: RaidSettleResult["loot"] = null;
   const econ = row.raid_id != null ? raidEcon(row.raid_id) : undefined;
   if (win && econ) {
     gold = winGold(econ, survivalFrac);
@@ -2191,12 +2327,47 @@ export async function settleRaid(
           .bind(`raid:${sessionId}#x`, accountId, "xp", xp, "raid_loot", now)
       );
     }
+    // SERVER-rolled loot (T2). The drop is real value — a boost, bonus gold, or a
+    // placeable — so it can't be a client assertion. The luck bracket comes from the dice
+    // PINNED on the session at /raid/start (and consumed there), never from this request.
+    // Eligibility reads server-owned ownership, so a unique can't be farmed.
+    const dice = row.dice ?? 0;
+    const name = await rollServerLoot(db, accountId, row.raid_id!, dice);
+    const grant = resolveLoot(name, econ.recLevel);
+    if (grant.kind === "gold") {
+      gold += grant.gold;
+      stmts.push(
+        db
+          .prepare(
+            "INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+          )
+          .bind(`raid:${sessionId}#b`, accountId, "gold", grant.gold, "raid_loot", now)
+      );
+    } else if (grant.kind === "boost") {
+      // Stacks straight into the server-owned boost inventory, exactly as the client did
+      // locally — except the client's version went through the removed `grant` action and
+      // was rejected, so this loot silently evaporated online.
+      stmts.push(
+        db
+          .prepare(
+            `INSERT INTO inventory (account_id, item_key, count) VALUES (?, ?, 1)
+             ON CONFLICT(account_id, item_key) DO UPDATE SET count = count + 1`
+          )
+          .bind(accountId, grant.key)
+      );
+    } else if (grant.kind === "item") {
+      stmts.push(addStorageStmt(db, accountId, "received", grant.name, 1));
+    }
+    loot = grant.kind === "none" ? null : { name: grant.name, kind: grant.kind };
+
     if (gold > 0 || xp > 0) {
       stmts.push(
         db
           .prepare("UPDATE balances SET gold = gold + ?, xp = xp + ? WHERE account_id = ?")
           .bind(gold, xp, accountId)
       );
+    }
+    if (stmts.length) {
       await db.batch(stmts);
       bal.gold += gold;
       bal.xp += xp;
@@ -2204,7 +2375,24 @@ export async function settleRaid(
       bal.brains += await creditLevelUps(db, accountId, now);
     }
   }
-  return { lastRaidAt: now, balance: bal, gold, xp, firstClear };
+  return { lastRaidAt: now, balance: bal, gold, xp, firstClear, loot };
+}
+
+/** Roll this win's loot with the SERVER's RNG against server-owned ownership. Separate
+ *  from settleRaid only to keep the async owned-count lookups out of its flow. */
+async function rollServerLoot(
+  db: D1Database,
+  accountId: string,
+  raidId: number,
+  dice: number
+): Promise<string | null> {
+  const table = raidLoot(raidId);
+  if (!table) return null;
+  // Pre-read the counts for every entry this raid can drop, so the pure roll stays sync.
+  const names = [...new Set(table.flat())];
+  const owned = new Map<string, number>();
+  for (const n of names) owned.set(n, await ownedLootCount(db, accountId, n));
+  return rollLoot(raidId, dice, (n) => owned.get(n) ?? 0, Math.random(), Math.random());
 }
 
 /** Delete finished/expired raid sessions older than `before` (cron cleanup). */

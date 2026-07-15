@@ -21,8 +21,18 @@ interface FinishRes {
   xp: number;
   firstClear: boolean;
   expired?: boolean;
+  loot: { name: string; kind: string } | null;
   balance: { gold: number; xp: number };
 }
+
+// A win's gold is the base + this win's LOOT if the roll landed on "Bonus Gold"
+// (recommendedLevel x 100). The roll is random, so derive the expectation from the drop
+// the server reported rather than assuming a bare base — see raidLoot.spec for the loot
+// behaviour itself.
+const BASE_GOLD: Record<number, number> = { 1: 1600, 9: 6200 }; // gold + bonus at full survival
+const BONUS_GOLD: Record<number, number> = { 1: 500, 9: 4300 }; // recLevel 5 / 43 x 100
+const expectedGold = (r: FinishRes, raidId: number) =>
+  BASE_GOLD[raidId] + (r.loot?.kind === "gold" ? BONUS_GOLD[raidId] : 0);
 
 const aid = (p: string) => `${p}-${uniqueSub()}`;
 
@@ -68,7 +78,8 @@ describe("raid gates — unlock level", () => {
     const r = await start(s, 9);
     expect(r.body.ok).toBe(true);
     const f = await finish(s, r.body.sessionId!);
-    expect(f.body).toMatchObject({ gold: 6200, xp: 5500, firstClear: true }); // 5000 + 1200
+    expect(f.body).toMatchObject({ xp: 5500, firstClear: true });
+    expect(f.body.gold).toBe(expectedGold(f.body, 9)); // 5000 + 1200 base, + loot if it rolled gold
   });
 
   it("gates on SERVER xp, not on anything the client says", async () => {
@@ -111,34 +122,34 @@ describe("raid gates — one open session", () => {
     expect(await voucherCount(s)).toBe(1); // refunded, not eaten
   });
 
-  it("lets an ABANDONED session age out instead of locking the account out forever", async () => {
-    // Browser closed mid-raid: the session is never finished. Once it passes its TTL it
-    // stops being "live", so a new raid can start. (TTL is 3s in .dev.vars.)
+  // Both TTL behaviours in ONE test so the suite waits out the TTL once rather than
+  // twice. (TTL is 8s here via RAID_SESSION_TTL_MS — comfortably longer than any
+  // start->finish sequence under parallel load, so it can't expire other tests' raids,
+  // and short enough to actually observe.)
+  it("expires an abandoned session: the finish is refused AND the slot is freed", async () => {
     const s = await player(1);
     const a = await start(s, 1);
     expect(a.body.ok).toBe(true);
     expect((await start(s, 1)).body.error).toBe("raid_in_progress"); // still live
-    await new Promise((r) => setTimeout(r, 3300));
-    const b = await start(s, 1);
-    expect(b.body.ok).toBe(true); // aged out -> allowed
-    await finish(s, b.body.sessionId!);
-  });
-});
 
-describe("raid gates — session expiry at finish", () => {
-  it("refuses to settle a session that outlived its TTL, crediting nothing", async () => {
-    // expires_at used to be written but only ever read by the cron purge, so a stale
-    // session could be banked and cashed in much later. (TTL is 3s in .dev.vars.)
-    const s = await player(1);
-    const r = await start(s, 1);
-    await new Promise((res) => setTimeout(res, 3300));
-    const f = await finish(s, r.body.sessionId!, true, 1);
+    await new Promise((r) => setTimeout(r, 8300));
+
+    // 1. Settling it is REFUSED. expires_at used to be written but only ever read by the
+    //    cron purge, so a stale session could be banked and cashed in much later.
+    const f = await finish(s, a.body.sessionId!, true, 1);
     expect(f.body.expired).toBe(true);
     expect(f.body).toMatchObject({ gold: 0, xp: 0 });
     expect(f.body.balance).toMatchObject({ gold: 0, xp: 0 }); // nothing credited
-    // And it can't be retried into a payout.
-    const again = await finish(s, r.body.sessionId!, true, 1);
-    expect(again.body).toMatchObject({ gold: 0, xp: 0 });
+    // ...and it can't be retried into a payout.
+    expect((await finish(s, a.body.sessionId!, true, 1)).body).toMatchObject({ gold: 0, xp: 0 });
+
+    // 2. The account is NOT locked out. An abandoned raid (browser closed mid-fight) is
+    //    reaped, so the one-open-session slot frees up rather than being held until the
+    //    cron purge sweeps it a day later.
+    const b = await start(s, 1);
+    expect(b.body.ok).toBe(true);
+    const paid = await finish(s, b.body.sessionId!);
+    expect(paid.body.gold).toBe(expectedGold(paid.body, 1)); // a real raid still pays
   });
 });
 
@@ -152,7 +163,8 @@ describe("raid progress — server-owned lifetime wins", () => {
     expect(sync.body.progress).toMatchObject({ "1": 3, "9": 1 });
     // Re-clearing raid 9 now pays gold but NOT its 5500 first-clear XP.
     const f = await finish(s, (await start(s, 9)).body.sessionId!);
-    expect(f.body).toMatchObject({ gold: 6200, xp: 0, firstClear: false });
+    expect(f.body).toMatchObject({ xp: 0, firstClear: false }); // no re-earned first-clear XP
+    expect(f.body.gold).toBe(expectedGold(f.body, 9));
     expect(f.body.balance.xp).toBe(xpForLevel(43)); // unchanged by the raid
   });
 

@@ -725,6 +725,13 @@ async function main() {
     // the server would reject planting on soil this client shows as tilled — and won't
     // let the player re-till, since re-tilling only applies to harvested dirt/holes.
     void economy.syncFarm(field.plowedPlotOrigins());
+    // Server-owned item storage: import this save's Received + shed items ONCE, then
+    // adopt server truth. Raid loot is rolled + granted server-side now, and the roll
+    // reads these to decide whether a unique may still drop.
+    void api
+      .storageSync(state.received, state.storedItems)
+      .then((st) => state.syncStorage(st.received ?? {}, st.stored ?? {}))
+      .catch(() => {}); // offline — retried on the next load
     // Server-owned farm size + climate skins: adopt the authoritative values (a resize
     // reverts a rejected purchase; a save-edited larger farm shrinks to the server's).
     economy.onShopState = (size, climates) => {
@@ -1356,7 +1363,9 @@ async function main() {
     // re-gate the (now server-owned) cooldown.
     if (auth.isSignedIn()) {
       try {
-        const gate = await api.raidStart(!!opts.useVoucher, raidId);
+        // Golden Dice are consumed SERVER-side here (the loot roll's luck is pinned to
+        // the session), so send how many the player asked for and adopt what it charged.
+        const gate = await api.raidStart(!!opts.useVoucher, raidId, Math.max(0, Math.floor(opts.dice ?? 0)));
         if (!gate.ok) {
           // Distinguish the server's refusals: the client already hides locked raids and
           // blocks a second launch, so `locked` / `raid_in_progress` mean the client and
@@ -1374,7 +1383,7 @@ async function main() {
           return false;
         }
         raidSessionId = gate.sessionId ?? null;
-        opts = { ...opts, serverAuthorized: true, bypassed: !!gate.bypassed };
+        opts = { ...opts, serverAuthorized: true, bypassed: !!gate.bypassed, serverDice: gate.dice ?? 0 };
         // The server consumed the invasion voucher on its side when bypassing the
         // cooldown; refresh the inventory so the local voucher count reflects it.
         if (gate.bypassed) void economy?.refreshInventory();
@@ -1401,18 +1410,24 @@ async function main() {
       wallTemplate: setup.wallTemplate,
       concentration: setup.concentration,
       onFinish: (outcome) => {
-        // ONLINE: the server prices the base win gold + first-clear XP. finishRaid()
-        // then does NOT credit those locally — it hands them back as `serverReward`,
-        // which we submit through the balance client (POST /raid/finish). That call
-        // also starts the server-owned cooldown and returns the authoritative balance
-        // + lastRaidAt, which the client reconciles. Bonus gold / brains / loot are
-        // still credited locally (bounded economy + inventory).
+        // ONLINE: the server prices the base win gold + first-clear XP AND rolls the
+        // loot. finishRaid() credits none of it locally — it hands the reward back as
+        // `serverReward`, which we submit through the balance client (POST /raid/finish).
+        // That call also starts the server-owned cooldown and returns the authoritative
+        // balance + lastRaidAt + the rolled drop, which the client reconciles.
         const online = auth.isSignedIn() && !!raidSessionId && !!economy;
         const view = raids.finishRaid(setup.raid, setup.party, outcome, setup.dice, online);
         if (online) {
           const sid = raidSessionId!;
           raidSessionId = null;
           const sr = view.serverReward;
+          // The server's drop arrives after the result panel has opened, so patch it in
+          // when it lands (the panel shows an empty Loot row until then).
+          economy!.onRaidSettled = (res) => {
+            economy!.onRaidSettled = null;
+            const drops = res.loot ? [{ name: res.loot.name, icon: raids.lootIconFor(res.loot.name) }] : [];
+            hud.setRaidResultLoot(drops, res.gold);
+          };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
           economy!.submitRaid(sid, outcome.win, sr?.survivalFrac ?? 0, {
             gold: sr?.gold ?? 0,

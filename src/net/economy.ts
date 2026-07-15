@@ -581,8 +581,16 @@ export class EconomyClient {
       this.raidPending.shift();
       this.writeRaidOutbox();
       this.base = res.balance; // server truth already includes this raid's credit
+      // The SERVER rolled this win's loot; hand it up so the result panel can show the
+      // real drop (the client no longer rolls its own online). Fires after the panel has
+      // already opened — the drop arrives a beat later, like the reward reconcile does.
+      this.onRaidSettled?.(res);
     }
   }
+
+  /** Fired when a raid finish is confirmed by the server, with its authoritative result
+   *  (including the server-rolled loot). Null = nobody's listening. */
+  onRaidSettled: ((res: api.RaidFinishResult) => void) | null = null;
 
   private async flushQuest(): Promise<void> {
     // One at a time; each completion is idempotent server-side (keyed by quest id), so a

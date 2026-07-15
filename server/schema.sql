@@ -151,7 +151,8 @@ CREATE TABLE IF NOT EXISTS raid_sessions (
   started_at  INTEGER NOT NULL,
   expires_at  INTEGER NOT NULL,
   finished_at INTEGER,
-  raid_id     INTEGER  -- which raid this session is for (server prices the reward)
+  raid_id     INTEGER,             -- which raid this session is for (server prices the reward)
+  dice        INTEGER NOT NULL DEFAULT 0  -- Golden Dice spent (loot luck), consumed at start
 );
 CREATE INDEX IF NOT EXISTS idx_raid_sessions_acct ON raid_sessions (account_id, finished_at);
 -- One LIVE (unfinished) raid session per account — the backstop for openRaidSessionOnce's
@@ -236,6 +237,18 @@ CREATE TABLE IF NOT EXISTS plowed_soil (
   PRIMARY KEY (account_id, oc, pr)
 );
 
+-- Server-owned item storage (migration 0018): the Received bucket (raid loot awaiting
+-- claim) and the shed. Same shape, split by `bucket`. The shed's item CAP is derived from
+-- the shed in object_counts, not stored. Raid loot lands here, and the loot roll's
+-- unique/limit filters read it to answer "do you already own one?".
+CREATE TABLE IF NOT EXISTS item_storage (
+  account_id TEXT NOT NULL REFERENCES accounts(id),
+  bucket     TEXT NOT NULL,  -- 'received' | 'stored'
+  item_key   TEXT NOT NULL,  -- loot item NAME (drops.json key)
+  count      INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id, bucket, item_key)
+);
+
 -- Idempotency ledger for farm actions (uuid per action). A retried plant/harvest
 -- is a no-op instead of double-charging or double-crediting.
 CREATE TABLE IF NOT EXISTS farm_actions (
@@ -289,12 +302,14 @@ CREATE TABLE IF NOT EXISTS roster_actions (
 -- Server-owned farm size (a scalar, upgraded 30→40→50→60 in sequence). Seeded once
 -- from the save; thereafter the server owns it (a `sizeUpgrade` debits the exact tier
 -- price + bumps it), so an edited save can't fabricate a bigger farm.
+-- Per-account farm state — and, by history, the account's import-flag row (the *_seeded
+-- columns are NOT farm-specific). Each flag guards a one-time seed-from-save whose
+-- subsystem can legitimately be EMPTY, so "no rows yet" can't serve as the once-guard.
 CREATE TABLE IF NOT EXISTS farm_state (
-  account_id  TEXT PRIMARY KEY REFERENCES accounts(id),
-  size        INTEGER NOT NULL DEFAULT 30,
-  -- Once-guard for the plowed_soil import (migration 0015). Empty plowed_soil is a
-  -- legitimate state, so seed-once-if-empty can't guard it; this flag can.
-  soil_seeded INTEGER NOT NULL DEFAULT 0
+  account_id     TEXT PRIMARY KEY REFERENCES accounts(id),
+  size           INTEGER NOT NULL DEFAULT 30,
+  soil_seeded    INTEGER NOT NULL DEFAULT 0, -- plowed_soil import (0015)
+  storage_seeded INTEGER NOT NULL DEFAULT 0  -- item_storage import (0018)
 );
 
 -- Server-owned ground/climate skins owned by an account (an owned set). Seeded once

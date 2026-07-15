@@ -144,6 +144,10 @@ export interface RaidLaunchOpts {
   /** ONLINE: the server skipped an active cooldown for this launch (a voucher use),
    *  so beginRaid consumes one Invasion Voucher to keep inventory in sync. */
   bypassed?: boolean;
+  /** ONLINE: how many Golden Dice the server ACTUALLY consumed at /raid/start and pinned
+   *  to the session. Its loot roll uses this, so the client must adopt it rather than
+   *  spend its own (it may be fewer than `dice` asked for, if the stock ran short). */
+  serverDice?: number;
 }
 
 /** A committed raid ready to be played out (by the live scene or the instant
@@ -322,12 +326,18 @@ export class RaidManager {
       else this.state.useBoost(CONCENTRATION_KEY);
     }
 
+    // Golden Dice: ONLINE the server already consumed them at /raid/start and PINNED the
+    // real count to the session (its loot roll reads that, not a client claim), so take
+    // its number and don't spend again — `opts.serverDice` is what it actually charged.
+    // OFFLINE: spend locally as before.
     let dice = 0;
     const wantDice = Math.max(0, Math.floor(opts.dice ?? 0));
     const diceCap = Math.min(wantDice, this.diceCount(), maxLuckTiers(raid));
-    if (online) {
-      dice = diceCap;
-      if (dice > 0) this.state.onInventory!({ type: "use", key: DICE_KEY, qty: dice }, { count: -dice });
+    if (opts.serverAuthorized) {
+      dice = Math.max(0, Math.floor(opts.serverDice ?? 0));
+      // Mirror the spend locally so the HUD's count is right until the next sync; the
+      // server's inventory is the truth either way.
+      for (let i = 0; i < dice; i++) this.state.useBoost(DICE_KEY);
     } else {
       for (let i = 0; i < diceCap && this.state.useBoost(DICE_KEY); i++) dice++;
     }
@@ -527,26 +537,34 @@ export class RaidManager {
       // by rollLootTier() from the luck bracket (Golden Dice spent), then one
       // eligible alternative in that tier is picked uniformly. A "Bonus Gold" pick
       // pays extra gold (level*100) instead of an item.
-      const drop = this.rollLoot(raid, dice);
-      if (drop === "Bonus Gold") {
-        const bonusGold = raid.recommendedLevel * 100; // getBonusGoldLootForStageLevel:
-        gold += bonusGold;
-        this.state.addGold(bonusGold);
-      } else if (drop) {
-        // A boost drop stacks straight into the player's boost inventory (bumping
-        // that boost's count) rather than sitting in Storage/Received to be claimed.
-        const boost = this.assets.boosts.find((b) => b.name === drop);
-        // ONLINE: grant the loot boost into the SERVER-owned inventory (else the next
-        // sync would drop it); OFFLINE: add to the local list as before.
-        if (boost) {
-          if (this.state.onInventory) this.state.onInventory({ type: "grant", key: boost.key }, { count: 1 });
-          else this.state.addBoost(boost.key);
-        } else this.state.receiveItem(drop);
-        loot.push({ name: drop, icon: this.lootIcon(drop) });
+      // ONLINE the SERVER rolls the drop and grants it (main.ts fills in the result from
+      // /raid/finish), because a drop is real value and a client naming its own prize is a
+      // mint. It was also just broken online: these local grants went through the
+      // spend-only economy and the removed inventory `grant`, so loot evaporated.
+      // OFFLINE: roll and grant locally, exactly as before.
+      if (!serverRewards) {
+        const drop = this.rollLoot(raid, dice);
+        if (drop === "Bonus Gold") {
+          const bonusGold = raid.recommendedLevel * 100; // getBonusGoldLootForStageLevel:
+          gold += bonusGold;
+          this.state.addGold(bonusGold);
+        } else if (drop) {
+          // A boost drop stacks straight into the player's boost inventory (bumping
+          // that boost's count) rather than sitting in Storage/Received to be claimed.
+          const boost = this.assets.boosts.find((b) => b.name === drop);
+          if (boost) this.state.addBoost(boost.key);
+          else this.state.receiveItem(drop);
+          loot.push({ name: drop, icon: this.lootIcon(drop) });
+        }
+        // Brains drop occasionally, IN ADDITION to loot (source brain-drop table).
+        // ONLINE this is DEFERRED, not omitted: `win` is still client-asserted, and since
+        // buying a ticket to raid again is intended play there's no bound on raid count —
+        // so a server-rolled brain drop would make premium currency unlimited. It returns
+        // when a win is verifiable (deterministic replay). Offline it can't be farmed for
+        // anything a server would honour, so it stays faithful here.
+        brains = this.rollBrainDrop(raid);
+        if (brains > 0) this.state.addBrains(brains);
       }
-      // Brains drop occasionally, IN ADDITION to loot (source brain-drop table).
-      brains = this.rollBrainDrop(raid);
-      if (brains > 0) this.state.addBrains(brains);
       // Beating a tier boss unlocks ONE still-locked ability of that tier (the next
       // in canonical order) across the roster — so `wins` maps to the wins-th pool
       // entry. Once every ability in the tier is unlocked, further wins add none.
@@ -624,6 +642,12 @@ export class RaidManager {
   /** Resolve a loot item's picture URL ("" when there's no art). Boost loot
    *  (Insta-Plow, Concentration, …) has no drop art, so fall back to the boost
    *  catalog sprite. */
+  /** Loot art for a drop the SERVER rolled (the client no longer rolls its own online,
+   *  but still has to render the result). */
+  lootIconFor(name: string): string {
+    return this.lootIcon(name);
+  }
+
   private lootIcon(name: string): string {
     const d = this.assets.drops[name];
     if (d && d.icon) return lootImage(d.icon);

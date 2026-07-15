@@ -10,7 +10,7 @@ import { AudioManager } from "./audio";
 import { RosterEntry } from "./zombie/types";
 import { mutationLabel, mutationBonus } from "./zombie/mutations";
 import { QuestView } from "./quest/types";
-import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts } from "./raid/RaidManager";
+import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
 import type { Friend } from "./social/friends";
 import { isMobile } from "./platform";
@@ -4542,6 +4542,37 @@ export class Hud {
     this.el.appendChild(bg);
     // Trigger the slide-in on the next frame.
     requestAnimationFrame(() => panel.classList.add("in"));
+  }
+
+  /** Fill in the loot row of an ALREADY-OPEN result panel. ONLINE the server rolls the
+   *  drop (it's real value), so it lands a beat after the panel opens — the same shape as
+   *  the reward reconcile. Also bumps the gold row, since a "Bonus Gold" drop pays gold
+   *  rather than an item. No-op if the panel is gone (player already hit Finish). */
+  setRaidResultLoot(loot: LootDrop[], gold: number) {
+    const panel = this.el.querySelector(".raid-res-panel");
+    if (!panel) return;
+    const goldRow = panel.querySelectorAll(".rr-row")[2]?.querySelector(".rr-v");
+    if (goldRow) {
+      goldRow.innerHTML =
+        `${gold}<img class="rr-i" src="${UI("topbar_money_icon.png")}">`;
+    }
+    const items = panel.querySelector(".rr-loot-items");
+    const none = panel.querySelector(".rr-loot-none");
+    if (!loot.length) return;
+    const html = loot
+      .map((l) =>
+        l.icon
+          ? `<span class="rr-loot-i" title="${l.name}"><img src="${l.icon}"><span>${l.name}</span></span>`
+          : `<span class="rr-loot-i rr-loot-noimg">${l.name}</span>`
+      )
+      .join("");
+    if (items) items.innerHTML = html;
+    else if (none) {
+      const div = document.createElement("div");
+      div.className = "rr-loot-items";
+      div.innerHTML = html;
+      none.replaceWith(div);
+    }
   }
 
   /** Celebratory "LEVEL UP" popup listing what the new level unlocked (invasions,

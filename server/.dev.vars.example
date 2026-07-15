@@ -14,4 +14,4 @@ RAID_COOLDOWN_MS="60000"
 MIGRATION_CUTOFF_MS="4102444800000"
 
 # Raid session TTL (ms). Default 30min; short here so tests can observe an expiry.
-RAID_SESSION_TTL_MS="3000"
+RAID_SESSION_TTL_MS="8000"

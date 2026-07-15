@@ -37,8 +37,37 @@ export const BOOSTS: Readonly<Record<string, BoostEcon>> = {
   invasion_voucher: { cost: 2000, brains: false, perPurchase: 1, level: 0 },
 };
 
-/** The boost that bypasses the raid cooldown — consumed server-side on /raid/start. */
+/** The boost that bypasses the raid cooldown — consumed server-side on /raid/start.
+ *  Buying one to raid again is intended play, not an exploit. */
 export const VOUCHER_KEY = "invasion_voucher";
+
+/** The loot-luck boost spent before a raid (Golden Dice), consumed server-side on
+ *  /raid/start and pinned to the session so the server's loot roll uses the real count. */
+export const DICE_KEY = "golden_dice";
+
+/** DISPLAY NAME -> boost key. Raid loot tables name their entries the way the UI does
+ *  ("Insta-Plow"), so a loot drop that is really a boost has to be resolved by name —
+ *  mirroring the client's `assets.boosts.find(b => b.name === drop)`. Six boosts appear
+ *  in loot tables (Insta-Grow/Harvest/Plow, Concentration, Golden Dice, Invasion
+ *  Voucher); the rest are listed for completeness.
+ *  KEEP IN SYNC with boosts.json `name`. */
+export const BOOST_BY_NAME: Readonly<Record<string, string>> = {
+  "Insta-Grow": "insta_grow",
+  "Insta-Harvest": "insta_harvest",
+  "Insta-Plow": "insta_plow",
+  "Crazy Zombie Voucher": "crazy_zombie_voucher",
+  "Valentine Gift": "valentine_gift",
+  "Valentine Gift 2012": "valentine_gift_2012",
+  "Flower Zombie Pot": "flower_zombie_pot",
+  Concentration: "concentration",
+  "Golden Dice": "golden_dice",
+  "Invasion Voucher": "invasion_voucher",
+};
+
+/** The boost a loot entry grants, or undefined if the entry isn't a boost. */
+export function boostKeyForName(name: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(BOOST_BY_NAME, name) ? BOOST_BY_NAME[name] : undefined;
+}
 
 /** Every server-owned boost key (the set the inventory table tracks / seeds). */
 export const BOOST_KEYS: readonly string[] = Object.keys(BOOSTS);

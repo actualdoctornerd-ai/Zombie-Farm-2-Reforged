@@ -459,6 +459,16 @@ export const raidState = () =>
 export const raidSync = (completed: Record<string, number>) =>
   req<{ progress: Record<string, number> }>("POST", "/raid/sync", { completed });
 
+/** Server-owned item storage: the Received bucket (raid loot awaiting claim) and the
+ *  shed. Imports this save's items ONCE (cutoff-gated), then just reads them back. Raid
+ *  loot lands in `received` server-side, and the loot roll reads these to decide whether
+ *  a unique may still drop. */
+export const storageSync = (received: string[], stored: { key: string; count: number }[]) =>
+  req<{ received: Record<string, number>; stored: Record<string, number> }>("POST", "/storage/sync", {
+    received,
+    stored,
+  });
+
 /** Ask the server to authorize a raid on `raidId`. `ok:false` with `cooldownRemaining`
  *  means the server cooldown is still active (and no voucher bypass was requested).
  *  `error:"locked"` means the account's server-derived level hasn't unlocked this raid;
@@ -466,7 +476,7 @@ export const raidSync = (completed: Record<string, number>) =>
  *  `bypassed:true` means a cooldown was skipped via `bypass` (the server consumed the
  *  voucher). `sessionId` pairs with raidFinish and pins the raid the reward is priced
  *  from. */
-export const raidStart = (bypass: boolean, raidId: number) =>
+export const raidStart = (bypass: boolean, raidId: number, dice = 0) =>
   req<{
     ok: boolean;
     sessionId?: string;
@@ -474,7 +484,10 @@ export const raidStart = (bypass: boolean, raidId: number) =>
     cooldownRemaining?: number;
     error?: string;
     unlockLevel?: number;
-  }>("POST", "/raid/start", { bypass, raidId });
+    /** Golden Dice the server actually consumed + pinned to the session (may be fewer
+     *  than asked if the stock ran short). Its loot roll uses this number. */
+    dice?: number;
+  }>("POST", "/raid/start", { bypass, raidId, dice });
 
 /** The server's authoritative raid-finish result: the cooldown clock, the resulting
  *  balance, and the amounts CREDITED this call (0 on a loss / idempotent replay). */
@@ -486,6 +499,10 @@ export interface RaidFinishResult {
   firstClear: boolean;
   /** The session had already expired (not settled within its TTL) — nothing credited. */
   expired?: boolean;
+  /** The SERVER's loot roll for this win (the client no longer rolls its own online):
+   *  the drop's name + what it became. Null when nothing dropped, on a loss, or on a
+   *  replayed finish. */
+  loot?: { name: string; kind: "gold" | "boost" | "item" } | null;
 }
 
 /** Report a finished raid. The server starts the cooldown (idempotent) AND credits
