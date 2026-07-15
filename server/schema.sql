@@ -407,6 +407,13 @@ CREATE TABLE IF NOT EXISTS account_import_state (
   shop_token       TEXT,
   completed_at     INTEGER
 );
+CREATE TRIGGER IF NOT EXISTS trg_accounts_close_legacy_imports
+AFTER INSERT ON accounts
+BEGIN
+  INSERT OR IGNORE INTO account_import_state
+    (account_id, balance_seeded, inventory_seeded, objects_seeded, roster_seeded, quests_seeded, shop_seeded)
+  VALUES (NEW.id, 1, 1, 1, 1, 1, 1);
+END;
 CREATE TABLE IF NOT EXISTS command_receipts (
   account_id TEXT NOT NULL REFERENCES accounts(id), command_kind TEXT NOT NULL,
   action_id TEXT NOT NULL, attempt_token TEXT NOT NULL, created_at INTEGER NOT NULL,

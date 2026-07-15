@@ -33,7 +33,8 @@ gifts are unique/idempotent, visitor data is projected, and sessions are revocab
 ### 1. Migration closure and atomic value bounds
 
 - `account_import_state` permanently records inventory, object, roster, quest, balance, and shop
-  import decisions. Empty imports close their category too.
+  import decisions. Migration 0020 closes every category for all existing accounts and an
+  account-creation trigger starts future accounts closed too.
 - Production config now sets `MIGRATION_CUTOFF_MS="0"`. Online value imports are closed
   immediately; preserving legacy online value is intentionally not a release requirement.
 - Legacy completed quest IDs can only be imported during an explicitly enabled recovery window,
