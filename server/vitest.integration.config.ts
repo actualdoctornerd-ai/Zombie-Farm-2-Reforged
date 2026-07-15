@@ -10,7 +10,8 @@ import { defineConfig } from "vitest/config";
 // one Worker/DB (tests isolate via unique account ids, not separate databases).
 export default defineConfig({
   test: {
-    include: ["test/integration/**/*.spec.ts"],
+    // Protocol v2 route specs are intentionally retired with their 410 surface.
+    include: ["test/integration/v3.spec.ts"],
     globalSetup: ["./test/integration/globalSetup.ts"],
     testTimeout: 20000,
     hookTimeout: 20000,

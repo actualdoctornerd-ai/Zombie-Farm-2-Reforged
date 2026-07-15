@@ -37,6 +37,11 @@ export interface Bindings {
   MIGRATION_CUTOFF_MS?: string;
   /** Epoch ms after which mutation clients must send X-Integrity-Version: 2. */
   INTEGRITY_V2_ENFORCE_AFTER_MS?: string;
+  /** Protocol-v3 operational controls. Raising the minimum rejects old builds;
+   * setting MUTATIONS_DISABLED=1 leaves bootstrap/read paths available while
+   * stopping all economy mutations during an incident or maintenance window. */
+  MIN_PROTOCOL_VERSION?: string;
+  MUTATIONS_DISABLED?: string;
   /** Rate-limit tiers (optional; see wrangler.toml). Tight for sign-in, moderate
    *  for writes, loose for reads. When unset the middleware uses the D1 fallback. */
   RL_AUTH?: RateLimiter;

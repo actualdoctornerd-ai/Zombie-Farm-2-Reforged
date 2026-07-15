@@ -228,7 +228,8 @@ export class JobSystem {
     if (job.kind === "harvestTree") {
       const gold = job.objId ? this.field.harvestObject(job.objId) : null;
       if (gold) {
-        this.state.addGold(gold);
+        if (this.state.onTreeHarvest && job.objId) this.state.onTreeHarvest(job.objId, gold);
+        else this.state.addGold(gold);
         this.float(job.cx, job.cy, `+${gold}g`);
         this.sfx("xp");
       }

@@ -508,7 +508,12 @@ async function main() {
   };
   hud.giftLimitReached = giftLimitReached;
 
+  function onlineGameplayBlocked(): boolean {
+    return auth.isSignedIn() && !!economy && !economy.available;
+  }
+
   hud.onBuyBoost = (def) => {
+    if (onlineGameplayBlocked()) return false;
     if (def.effect === "gift" && giftLimitReached(def.key)) return false; // 1 per farm
     if (state.onInventory) {
       // ONLINE: the server prices the boost (exact catalog cost), debits currency, and
@@ -530,6 +535,7 @@ async function main() {
     return true;
   };
   hud.onUseBoost = (def) => {
+    if (onlineGameplayBlocked()) return;
     if (state.boostCount(def.key) <= 0) return;
     giftUnitId = null;
     if (!applyBoost(def)) return; // only consume if it did something
@@ -539,12 +545,15 @@ async function main() {
     if (state.onInventory) {
       const action = giftUnitId
         ? { type: "use" as const, key: def.key, unitId: giftUnitId }
+        : powerUnitIds.length
+          ? { type: "use" as const, key: def.key, localUnitIds: powerUnitIds }
         : growTarget
           ? { type: "use" as const, key: def.key, oc: growTarget.oc, or: growTarget.or }
           : { type: "use" as const, key: def.key };
       state.onInventory(action, { count: -1 });
     } else state.useBoost(def.key);
     giftUnitId = null;
+    powerUnitIds = [];
     growTarget = null;
   };
 
@@ -581,6 +590,7 @@ async function main() {
   // onUseBoost sends with the voucher `use` so the server can grant that same unit.
   // Null for every other boost effect.
   let giftUnitId: string | null = null;
+  let powerUnitIds: string[] = [];
   let growTarget: { oc: number; or: number } | null = null;
 
   // Apply a farm-usable boost's effect. Returns true if it actually did anything
@@ -603,10 +613,10 @@ async function main() {
           if (r.zombieKey) {
             const unit = zombies.spawnVerified(r.zombieKey, pl.oc + 1, pl.or + 1);
             if (!unit) continue;
-            state.onFarm({ type: "harvest", oc: pl.oc, or: pl.or, unitId: unit.id }, { xp: r.xp });
-          } else {
-            state.onFarm({ type: "harvest", oc: pl.oc, or: pl.or }, { gold: r.sell, xp: r.xp });
+            powerUnitIds.push(unit.id);
           }
+          // The server receives one semantic power command from onUseBoost below;
+          // individual optimistic harvests must not become commands.
         } else {
           if (r.sell) state.addGold(r.sell);
           state.addXp(r.xp);
@@ -695,6 +705,7 @@ async function main() {
   // the authoritative balance (server wins over the just-loaded blob). Offline or
   // while visiting, `economy` stays null and currency is purely local as before.
   let economy: EconomyClient | null = null;
+  const storedObjectIds = new Map<string, string[]>();
   if (!visiting && auth.isSignedIn()) {
     const acct = api.getSession()?.accountId ?? "anon";
     economy = new EconomyClient(state, acct);
@@ -706,6 +717,7 @@ async function main() {
     // hook is what tells the game "boosts are server-owned"); counts reconcile like
     // currency, so the blob's boost list becomes an ignored cache.
     state.onInventory = (action, optimistic) => economy!.submitInventory(action, optimistic);
+    state.onTreeHarvest = (instanceId, gold) => economy!.submitTreeHarvest([instanceId], gold);
     // The server owns the Garden-zombie fertilize roll; when a freshly-planted crop
     // comes back fertilized, apply the 2x visual (leaf FX) to that plot.
     economy.onCropFertilized = (oc, or) => {
@@ -736,6 +748,17 @@ async function main() {
       );
       field.reconcilePlots([...presentation, ...authoritative], (key) => catalog.get(key));
     };
+    economy.onObjectState = (objects) => {
+      storedObjectIds.clear();
+      for (const object of objects) {
+        if (object.status !== "stored") continue;
+        const ids = storedObjectIds.get(object.catalogKey) ?? [];
+        ids.push(object.instanceId);
+        storedObjectIds.set(object.catalogKey, ids);
+      }
+      state.syncObjectStorage(Object.fromEntries([...storedObjectIds].map(([key, ids]) => [key, ids.length])));
+    };
+    economy.onRosterState = (roster, aliases) => zombies.reconcileServerRoster(roster, aliases);
     // Server-owned roster: seed the shadow from the current units, then report every
     // post-load create (grant) / casualty + combined parent (casualty), and route a
     // SELL through the server (it prices + credits it, rejecting a unit it doesn't own
@@ -758,13 +781,6 @@ async function main() {
     // the server would reject planting on soil this client shows as tilled — and won't
     // let the player re-till, since re-tilling only applies to harvested dirt/holes.
     void economy.syncFarm(field.plowedPlotOrigins());
-    // Server-owned item storage: import this save's Received + shed items ONCE, then
-    // adopt server truth. Raid loot is rolled + granted server-side now, and the roll
-    // reads these to decide whether a unique may still drop.
-    void api
-      .storageSync(state.received, state.storedItems)
-      .then((st) => state.syncStorage(st.received ?? {}, st.stored ?? {}))
-      .catch(() => {}); // offline — retried on the next load
     // Server-owned farm size + climate skins: adopt the authoritative values (a resize
     // reverts a rejected purchase; a save-edited larger farm shrinks to the server's).
     economy.onShopState = (size, climates) => {
@@ -777,6 +793,8 @@ async function main() {
     };
     economy.onQuestState = (serverState) => quests.restoreAuthoritative(serverState);
     economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
+    economy.onGameplayUnavailable = () => hud.showToast("Gameplay paused — reconnect to continue.");
+    economy.onWriterReplaced = () => hud.showToast("This farm is active on another device. This tab is read-only.");
     void economy.start();
     // Seed the shop state from the save, then adopt server truth (once, after load).
     void economy.syncShop(field.w, state.ownedClimates);
@@ -916,6 +934,7 @@ async function main() {
   hud.setUpgrades(assets.upgrades.mapSize);
   hud.getMapSize = () => field.w;
   hud.onBuyUpgrade = (size, currency) => {
+    if (onlineGameplayBlocked()) return false;
     const up = assets.upgrades.mapSize.find((u) => u.size === size);
     if (!up || size <= field.w || state.level < up.level) return false;
     // Enforce sequential purchase: only the immediate next tier is buyable.
@@ -950,6 +969,7 @@ async function main() {
   hud.getClimate = () => field.climate;
   hud.ownsClimate = (terrain) => state.ownsClimate(terrain);
   hud.onBuyClimate = (c) => {
+    if (onlineGameplayBlocked()) return false;
     if (state.ownsClimate(c.terrain) || c.terrain === "grass") return false;
     if (state.level < c.level) return false;
     // ONLINE: the server owns the climate set — it prices + debits the skin (and can
@@ -978,6 +998,7 @@ async function main() {
   // Upgrade the already-placed shed to a bigger one IN PLACE (no re-placement):
   // charge, swap its type/sprite, and raise the storage capacity.
   const upgradeShed = (def: PlaceableDef) => {
+    if (onlineGameplayBlocked()) return;
     const id = field.shedId();
     if (!id) return;
     if (state.level < def.level) return;
@@ -992,7 +1013,7 @@ async function main() {
       const have = def.brainsNeeded ? state.brains : state.gold;
       if (have < def.cost) return; // optimistic affordability; server re-checks
       economy!.submitObject(
-        { type: "upgrade", fromKey: from!.key, toKey: def.key },
+        { type: "upgrade", fromKey: from!.key, toKey: def.key, instanceId: id },
         def.brainsNeeded ? { brains: -def.cost, xp } : { gold: -def.cost, xp }
       );
     } else {
@@ -1015,6 +1036,7 @@ async function main() {
   // already placed UPGRADES it in place; otherwise enter placement. Fruit trees
   // have a second (growing) frame to preload.
   hud.onBuy = async (def) => {
+    if (onlineGameplayBlocked()) return;
     await ensureObjectTexture(assets, def.sprite);
     if (def.growingSprite) await ensureObjectTexture(assets, def.growingSprite);
     if (def.storageSlots && field.shedId()) upgradeShed(def); // upgrade, don't place
@@ -1038,14 +1060,21 @@ async function main() {
   hud.mausoleumCap = zombies.mausoleumCap;
   hud.canStoreZombies = () => !!field.mausoleumId() && !zombies.mausoleumFull;
   hud.canDeployZombie = () => zombies.canAdd();
-  hud.onZombieStore = (id) => { if (field.mausoleumId() && !zombies.mausoleumFull) zombies.store(id); };
-  hud.onZombieDeploy = (id) => zombies.deploy(id);
+  hud.onZombieStore = (id) => {
+    if (onlineGameplayBlocked()) return;
+    if (field.mausoleumId() && !zombies.mausoleumFull && zombies.store(id)) economy?.submitRosterStatus(id, true);
+  };
+  hud.onZombieDeploy = (id) => {
+    if (onlineGameplayBlocked()) return;
+    if (zombies.deploy(id)) economy?.submitRosterStatus(id, false);
+  };
   hud.onZombieLocate = (id) => {
     const p = zombies.selectById(id);
     if (p) centerOn(p.x, p.y);
   };
   hud.zombieBaseCost = (key) => zombieDefs.get(key)?.cost ?? 0;
   hud.onZombieSell = (id) => {
+    if (onlineGameplayBlocked()) return;
     const z = zombies.roster().find((r) => r.id === id);
     if (!z) return;
     const value = zombieSellValue(zombieDefs.get(z.key)?.cost ?? 0);
@@ -1083,6 +1112,7 @@ async function main() {
     [zombieTypeName(idA), zombieTypeName(idB)].sort().join(" ");
 
   hud.onCombine = (idA, idB) => {
+    if (onlineGameplayBlocked()) return false;
     const object = combineObject(idA, idB); // read parents BEFORE they're consumed
     const ok = zombies.combine(idA, idB, potBaseMs());
     if (ok) {
@@ -1092,6 +1122,7 @@ async function main() {
     return ok;
   };
   hud.onCollectCombine = () => {
+    if (onlineGameplayBlocked()) return null;
     const z = zombies.collectCombine(walk.tile.col, walk.tile.row);
     if (z) {
       questBus.post(QuestEvent.CombinerHarvested, z.typeName);
@@ -1168,6 +1199,10 @@ async function main() {
       return null;
     },
     isRaidActive: () => raidActive,
+    grantCompletionBonus: () => {
+      state.addGold(200);
+      economy?.submitTutorialCompletion();
+    },
   });
   // Kick off on a brand-new farm (never while visiting a friend); restore mid-run
   // otherwise. The fresh-farm detection (restored/visiting) happened at load above.
@@ -1297,7 +1332,7 @@ async function main() {
       // The brain was credited to the server-owned BALANCE (not the save blob), so
       // refresh the economy to reflect it. If the economy layer isn't active
       // (shouldn't happen when signed in), no brain is shown until the next sync.
-      void economy?.start();
+      void economy?.refreshAuthoritative();
       await hud.refreshInbox?.();
     } catch (e) {
       hud.showToast("Couldn't claim that gift.");
@@ -1311,22 +1346,8 @@ async function main() {
   // against the shorter session TTL) and surface any waiting gifts / friend
   // requests with a gentle toast.
   if (auth.isSignedIn()) {
-    void auth.refreshIfSignedIn();
-    // Import this save's lifetime raid wins ONCE (a migrating veteran must not look like
-    // they've cleared nothing — that would re-grant every first-clear XP award and drop
-    // their ability unlocks), THEN adopt the server's authoritative cooldown + progress.
-    // Sequenced: the import has to land before the read, or the read returns empty and
-    // the client would show a veteran as having zero unlocks until the next reload.
-    void api
-      .raidSync(state.raidsCompleted)
-      .catch(() => {}) // offline — retried on the next load
-      .then(() => api.raidState())
-      .then((r) => {
-        state.lastRaidAt = r.lastRaidAt;
-        // Server owns wins (they unlock abilities), so adopt rather than merge.
-        state.syncRaidProgress(r.progress ?? {});
-      })
-      .catch(() => {});
+    // Bootstrap already supplied session gameplay/social summaries. Full friend
+    // and inbox data remains on-demand when those menus open.
     void hud.refreshInbox?.().then(() => {
       const n = hud.getInbox?.().length ?? 0;
       if (n) hud.showToast(`You have ${n} gift${n === 1 ? "" : "s"} waiting! 🎁`);
@@ -1369,6 +1390,7 @@ async function main() {
     // re-gate the (now server-owned) cooldown.
     if (auth.isSignedIn()) {
       try {
+        await economy?.settleBeforeDependency();
         // Golden Dice are consumed SERVER-side here (the loot roll's luck is pinned to
         // the session), so send how many the player asked for and adopt what it charged.
         const gate = await api.raidStart(
@@ -1395,13 +1417,19 @@ async function main() {
           return false;
         }
         raidSessionId = gate.sessionId ?? null;
+        if (gate.inventory) economy?.adoptRaidStartInventory(gate.inventory);
         opts = { ...opts, serverAuthorized: true, bypassed: !!gate.bypassed, serverDice: gate.dice ?? 0 };
-        // The server consumed the invasion voucher on its side when bypassing the
-        // cooldown; refresh the inventory so the local voucher count reflects it.
-        if (gate.bypassed) void economy?.refreshInventory();
-      } catch {
-        // Server unreachable — fall back to the client-authoritative cooldown gate
-        // (offline behaviour) rather than blocking play.
+      } catch (error) {
+        if (error instanceof api.ApiError) {
+          const body = (error.body ?? {}) as { cooldownRemaining?: number; unlockLevel?: number };
+          if (error.code === "cooldown") {
+            hud.showToast(`Invasion on cooldown — about ${Math.ceil((body.cooldownRemaining ?? 0) / 60000)} min left.`);
+          } else if (error.code === "locked") hud.showToast(`That invasion unlocks at level ${body.unlockLevel ?? "?"}.`);
+          else if (error.code === "raid_in_progress") hud.showToast("Another invasion is already in progress.");
+          else if (error.code === "no_voucher") hud.showToast("No Invasion Voucher to skip the cooldown.");
+          else hud.showToast("The server could not start that invasion.");
+        } else hud.showToast("Gameplay is paused until the server reconnects.");
+        return false;
       }
     }
     const setup = raids.beginRaid(raidId, partyIds, opts);
@@ -1421,13 +1449,7 @@ async function main() {
       summonTemplate: setup.summonTemplate,
       wallTemplate: setup.wallTemplate,
       concentration: setup.concentration,
-      onCheckpoint: auth.isSignedIn() && raidSessionId
-        ? async (finalTick, inputs) => {
-            const sid = raidSessionId;
-            if (!sid) throw new Error("raid session closed");
-            await api.raidCheckpoint(sid, finalTick, inputs);
-          }
-        : undefined,
+      onCheckpoint: undefined,
       onFinish: (outcome, finalTick, inputs) => {
         // ONLINE: the server prices the base win gold + first-clear XP AND rolls the
         // loot. finishRaid() credits none of it locally — it hands the reward back as
@@ -1445,12 +1467,11 @@ async function main() {
           economy!.onRaidSettled = (res) => {
             economy!.onRaidSettled = null;
             if (res.outcome) zombies.applyServerRaidOutcome(res.outcome.survivors, res.outcome.losses);
-            void api.raidState().then((r) => state.syncRaidProgress(r.progress ?? {})).catch(() => {});
             const drops = res.loot ? [{ name: res.loot.name, icon: raids.lootIconFor(res.loot.name) }] : [];
             hud.setRaidResultLoot(drops, res.gold);
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
-          economy!.submitRaid(sid, finalTick, inputs, {
+          economy!.submitRaid(sid, finalTick, inputs, outcome, {
             gold: sr?.gold ?? 0,
             xp: sr?.xp ?? 0,
           });
@@ -1460,7 +1481,7 @@ async function main() {
           const sid = raidSessionId;
           raidSessionId = null;
           void api
-            .raidFinish(sid, finalTick, inputs)
+            .raidFinish(sid, finalTick, inputs, outcome)
             .then((r) => { state.lastRaidAt = r.lastRaidAt; })
             .catch(() => {});
         }
@@ -1496,14 +1517,17 @@ async function main() {
   // ---- item storage: retrieve a stored decoration back to a free placement ----
   // `retrieving` holds the stored item key being re-placed; while set, the next
   // valid placement consumes it (free) and exits placement mode.
-  let retrieving: string | null = null;
+  let retrieving: { key: string; instanceId: string } | null = null;
   hud.onRetrieveItem = async (key) => {
+    if (onlineGameplayBlocked()) return;
     const def = placeCatalog.get(key);
     if (!def) return;
     await ensureObjectTexture(assets, def.sprite);
     if (def.growingSprite) await ensureObjectTexture(assets, def.growingSprite);
     hud.setPlacing(def); // enter placement mode (fires onModeChange first)
-    retrieving = key; // ...then arm retrieval so onModeChange doesn't clear it
+    const instanceId = storedObjectIds.get(key)?.[0];
+    if (!instanceId) { hud.setPlacing(null); return; }
+    retrieving = { key, instanceId }; // ...then arm retrieval so onModeChange doesn't clear it
   };
 
   // ---- Received rewards: resolve the raw key list into displayable cards ----
@@ -1532,6 +1556,7 @@ async function main() {
 
   // Claim a boost/currency reward: apply its effect, then remove it from Received.
   hud.onClaimReceived = (index) => {
+    if (onlineGameplayBlocked()) return;
     const entry = state.received[index];
     if (entry == null) return;
     const boost = assets.boosts.find((b) => b.name === entry);
@@ -1554,6 +1579,7 @@ async function main() {
   // it from Received once dropped on a valid tile. Mirrors the storage-retrieve arm.
   let receiving: number | null = null;
   hud.onPlaceReceived = async (index) => {
+    if (onlineGameplayBlocked()) return;
     const entry = state.received[index];
     const def = entry ? receivedDef(entry) : undefined;
     if (!def) return;
@@ -1609,10 +1635,13 @@ async function main() {
     if (!field.canPlaceObject(oc, or, def)) return;
     // Retrieving a stored item: already owned, so it's free and places just one.
     if (retrieving) {
-      field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
+      field.placeObject(def, oc, or, retrieving.instanceId, undefined, placeFlipped);
       audio.play("place");
       if (def.armyMax) state.addZombieMax(def.armyMax); // re-apply functional effect
-      state.retrieveItem(retrieving);
+      state.retrieveItem(retrieving.key);
+      economy?.submitObjectStatus(retrieving.instanceId, "placed");
+      const ids = storedObjectIds.get(retrieving.key) ?? [];
+      storedObjectIds.set(retrieving.key, ids.filter((id) => id !== retrieving!.instanceId));
       retrieving = null;
       hud.setPlacing(null); // one at a time
       return;
@@ -1641,17 +1670,19 @@ async function main() {
     if (serverObject) {
       const have = useBrains ? state.brains : state.gold;
       if (have < cost) return; // optimistic affordability; server re-checks
-      economy!.submitObject(
-        { type: "buy", key: def.key },
-        useBrains ? { brains: -cost, xp } : { gold: -cost, xp }
-      );
     } else {
       const paid = useBrains ? state.spendBrains(cost) : state.spendGold(cost);
       if (!paid) return;
       state.addXp(xp);
     }
     if (def.zombiePot) state.markZombiePotBought(); // next pot is 30 brains forever
-    field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
+    const placedId = field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
+    if (serverObject && placedId) {
+      economy!.submitObject(
+        { type: "buy", key: def.key, instanceId: placedId },
+        useBrains ? { brains: -cost, xp } : { gold: -cost, xp }
+      );
+    }
     audio.play("place");
     if (def.armyMax) state.addZombieMax(def.armyMax); // functional effect
     if (def.storageSlots) state.upgradeStorage(def.storageSlots); // shed capacity
@@ -1695,7 +1726,7 @@ async function main() {
     // doesn't know is rejected and the optimistic credit is dropped.
     const serverObject = !!economy && !def.zombiePot && def.cost > 0;
     if (serverObject) {
-      economy!.submitObject({ type: "refund", key: def.key }, def.brainsNeeded ? { brains: refund } : { gold: refund });
+      economy!.submitObject({ type: "refund", key: def.key, instanceId: id }, def.brainsNeeded ? { brains: refund } : { gold: refund });
     } else if (def.brainsNeeded) {
       state.addBrains(refund);
     } else {
@@ -1713,6 +1744,10 @@ async function main() {
     if (!state.storeItem(def.key)) return; // shed full
     if (def.armyMax) state.addZombieMax(-def.armyMax); // reverse functional effect
     field.removeObject(id);
+    const storedIds = storedObjectIds.get(def.key) ?? [];
+    storedIds.push(id);
+    storedObjectIds.set(def.key, storedIds);
+    economy?.submitObjectStatus(id, "stored");
   };
 
   // Can this object be stored in the shed? Storage buildings can't; the shed
@@ -1733,13 +1768,16 @@ async function main() {
       return;
     }
     if (field.plotOriginAt(col, row) && !field.hasCrop(col, row)) {
+      const origin = field.plotOriginAt(col, row);
       jobs.cancelAtTile(col, row); // drop any queued job on this plot first
       field.removePlot(col, row); // plowed/harvested plot -> bare ground, no refund
+      if (origin && state.onFarm) state.onFarm({ type: "remove", oc: origin.oc, or: origin.or }, {});
     }
   };
 
   app.stage.on("pointerdown", (e: FederatedPointerEvent) => {
     if (raidActive) return; // farm input is inert during a live raid
+    if (economy && !economy.available) { hud.showToast("Gameplay paused — reconnect to continue."); return; }
     if (touchPinch) return; // a pinch is in progress; ignore extra finger-downs
     if (visiting) {
       // Read-only visit: no tools, no editing. Only start a camera pan; a tap

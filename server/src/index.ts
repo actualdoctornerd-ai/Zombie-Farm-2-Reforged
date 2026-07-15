@@ -30,7 +30,6 @@ import {
   importEligible,
   normalizeFriendCode,
   normalizeUsername,
-  projectFriendSave,
 } from "./logic";
 import { validateSave, MAX_SAVE_BYTES } from "./validate";
 import type { EconomyEvent } from "./economy";
@@ -53,6 +52,9 @@ import plantCatalog from "../../public/assets/plants.json";
 import zombieCatalog from "../../public/assets/zombies.json";
 import boostCatalog from "../../public/assets/boosts.json";
 import objectCatalog from "../../public/assets/placeables.json";
+import { COMMAND_BATCH_LIMIT, GAMEPLAY_PROTOCOL, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
+import * as v3 from "./v3/db";
+import * as v3Raid from "./v3/raid";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 
@@ -220,7 +222,7 @@ app.use("*", (c, next) =>
   cors({
     origin: [c.env.ALLOWED_ORIGIN, "http://localhost:5173", "http://localhost:4173"],
     allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type", "X-Integrity-Version"],
+    allowHeaders: ["Authorization", "Content-Type", "X-Integrity-Version", "X-Client-Build"],
     maxAge: 86400,
   })(c, next)
 );
@@ -372,6 +374,9 @@ app.use("/inventory/*", requireAuth);
 app.use("/object/*", requireAuth);
 app.use("/roster/*", requireAuth);
 app.use("/shop/*", requireAuth);
+app.use("/bootstrap", requireAuth);
+app.use("/commands", requireAuth);
+app.use("/presentation", requireAuth);
 
 // Local integration fixture. This route is inert in production (DEV_AUTH=0) and
 // exists so tests can establish trusted authoritative state without reopening the
@@ -391,7 +396,7 @@ app.use("*", async (c, next) => {
     Number.isFinite(enforceAt) &&
     enforceAt > 0 &&
     Date.now() >= enforceAt &&
-    c.req.header("X-Integrity-Version") !== "2"
+    !["2", "3"].includes(c.req.header("X-Integrity-Version") ?? "")
   ) {
     return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 426);
   }
@@ -439,6 +444,9 @@ app.use("/logout", rateLimit("RL_WRITE", "logout", 30, 60_000));
 app.use("/session/logout-all", rateLimit("RL_WRITE", "logout_all", 10, 60_000));
 app.use("/session/revoke", rateLimit("RL_WRITE", "session_revoke", 30, 60_000));
 app.use("/session/list", rateLimit("RL_READ", "session_list", 120, 60_000));
+app.use("/bootstrap", rateLimit("RL_READ", "bootstrap_v3", 30, 60_000));
+app.use("/commands", rateLimit("RL_WRITE", "commands_v3", 30, 60_000));
+app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 4, 60_000));
 // Reads + refresh (RL_READ): /me, GET /save shares the /save write limiter above,
 // friend lists, a friend's farm, requests, inbox, token refresh.
 app.use("/me", rateLimit("RL_READ", "me", 300, 60_000));
@@ -448,6 +456,197 @@ app.use("/friends/requests", rateLimit("RL_READ", "friends_reqs", 300, 60_000));
 app.use("/friends/:id/save", rateLimit("RL_READ", "friend_farm", 120, 60_000));
 app.use("/gifts/inbox", rateLimit("RL_READ", "inbox", 300, 60_000));
 app.use("/session/refresh", rateLimit("RL_READ", "refresh", 60, 60_000));
+
+const minProtocolVersion = (env: Bindings): number => {
+  const value = Number(env.MIN_PROTOCOL_VERSION ?? GAMEPLAY_PROTOCOL);
+  return Number.isInteger(value) && value > 0 ? value : GAMEPLAY_PROTOCOL;
+};
+
+const accountHash = (value: string): string => {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
+
+const metric = (route: string, accountId: string, started: number, detail: Record<string, unknown> = {}): void => {
+  // Successful routine metrics can be sampled by the log pipeline; errors retain
+  // their full security lines through slog(). No raw account id is emitted.
+  console.log(JSON.stringify({
+    metric: "gameplay_request",
+    route,
+    calls: 1,
+    build: "v3",
+    accountHash: accountHash(accountId),
+    cpuMs: Math.max(0, performance.now() - started),
+    ...detail,
+  }));
+};
+
+const commandString = (value: unknown, max = 128): value is string =>
+  typeof value === "string" && value.length > 0 && value.length <= max;
+const commandInt = (value: unknown): value is number => Number.isSafeInteger(value);
+const validGameplayCommand = (value: unknown): value is GameplayCommand => {
+  if (!value || typeof value !== "object") return false;
+  const command = value as Record<string, unknown>;
+  switch (command.type) {
+    case "farm.plow": case "farm.harvest": case "farm.remove":
+      return commandInt(command.oc) && commandInt(command.or);
+    case "farm.plant":
+      return commandInt(command.oc) && commandInt(command.or) && commandString(command.cropKey);
+    case "power.buy": return commandString(command.key);
+    case "power.use":
+      return commandString(command.key) && (command.oc === undefined || commandInt(command.oc)) &&
+        (command.or === undefined || commandInt(command.or));
+    case "object.buy":
+      return commandString(command.catalogKey) &&
+        (command.clientInstanceId === undefined || commandString(command.clientInstanceId));
+    case "object.refund": return commandString(command.instanceId);
+    case "object.upgrade": return commandString(command.instanceId) && commandString(command.catalogKey);
+    case "object.status":
+      return commandString(command.instanceId) && (command.status === "placed" || command.status === "stored");
+    case "object.harvest_trees":
+      return Array.isArray(command.instanceIds) && command.instanceIds.length <= 225 &&
+        command.instanceIds.every((id) => commandString(id));
+    case "storage.move":
+      return commandString(command.itemKey) && (command.direction === "store" || command.direction === "take") &&
+        commandInt(command.quantity);
+    case "roster.sell": return commandString(command.unitId);
+    case "roster.status": return commandString(command.unitId) && typeof command.stored === "boolean";
+    case "roster.combine": return commandString(command.parentAId) && commandString(command.parentBId);
+    case "shop.size": return commandInt(command.size) && (command.currency === "gold" || command.currency === "brains");
+    case "shop.climate": return commandString(command.terrain);
+    case "tutorial.complete": return true;
+    default: return false;
+  }
+};
+
+const validCommandBatch = (body: unknown): body is CommandBatchRequest => {
+  if (!body || typeof body !== "object") return false;
+  const b = body as Partial<CommandBatchRequest>;
+  if (b.protocolVersion !== GAMEPLAY_PROTOCOL || typeof b.deviceId !== "string" || b.deviceId.length < 8 || b.deviceId.length > 128) return false;
+  if (typeof b.batchId !== "string" || b.batchId.length < 8 || b.batchId.length > 128) return false;
+  if (!Number.isSafeInteger(b.firstSequence) || !Number.isSafeInteger(b.expectedAccountVersion) || !Number.isSafeInteger(b.writerGeneration)) return false;
+  if (!Array.isArray(b.commands) || b.commands.length < 1 || b.commands.length > COMMAND_BATCH_LIMIT) return false;
+  return b.commands.every((entry, index) =>
+    !!entry && typeof entry === "object" && entry.sequence === (b.firstSequence as number) + index &&
+    validGameplayCommand(entry.command)
+  );
+};
+
+// One read after authentication initializes and returns every projection needed by
+// gameplay. It never takes writer ownership.
+app.post("/bootstrap", async (c) => {
+  const started = performance.now();
+  const accountId = c.get("accountId");
+  const response = await v3.bootstrap(
+    c.env.DB,
+    accountId,
+    Date.now(),
+    c.env.MUTATIONS_DISABLED !== "1",
+    minProtocolVersion(c.env)
+  );
+  metric("bootstrap", accountId, started, { payloadBytes: JSON.stringify(response).length });
+  return c.json(response);
+});
+
+app.post("/commands", async (c) => {
+  const started = performance.now();
+  const accountId = c.get("accountId");
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<unknown>().catch(() => null);
+  if (!validCommandBatch(body)) return c.json({ error: "bad_command_batch" }, 400);
+  if (body.protocolVersion < minProtocolVersion(c.env)) {
+    return c.json({ error: "update_required", minimumProtocolVersion: minProtocolVersion(c.env) }, 426);
+  }
+  const result = await v3.applyBatch(c.env.DB, accountId, body, Date.now());
+  metric("commands", accountId, started, {
+    build: c.req.header("X-Client-Build") ?? "unknown",
+    commands: body.commands.length,
+    commandsPerBatch: body.commands.length,
+    affectedPlots: new Set(body.commands.flatMap((entry) =>
+      "oc" in entry.command && "or" in entry.command ? [`${entry.command.oc}:${entry.command.or}`] : [])).size,
+    affectedTrees: body.commands.reduce((count, entry) =>
+      count + (entry.command.type === "object.harvest_trees" ? new Set(entry.command.instanceIds).size : 0), 0),
+    d1RowsRead: 9,
+    d1RowsWritten: result.status === 200 ? 5 : 0,
+    payloadBytes: Number(c.req.header("content-length") ?? 0),
+    status: result.status,
+    rejection: result.status === 200 ? undefined : result.error,
+  });
+  if (result.status === 200) return c.json(result.response);
+  if (result.status === 429 && result.body?.retryAfterMs) c.header("Retry-After", String(Math.ceil(Number(result.body.retryAfterMs) / 1000)));
+  return c.json({ error: result.error, ...result.body }, result.status);
+});
+
+app.put("/presentation", async (c) => {
+  const started = performance.now();
+  const accountId = c.get("accountId");
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<PresentationRequest>().catch(() => null);
+  if (!body || body.protocolVersion !== GAMEPLAY_PROTOCOL || !Number.isSafeInteger(body.expectedVersion) ||
+      !body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
+    return c.json({ error: "bad_presentation" }, 400);
+  }
+  const presentationKeys = new Set(["player", "farm", "objectLayout", "rosterLayout", "tutorial", "ui", "settings", "camera", "selections"]);
+  if (!Object.keys(body.data).every((key) => presentationKeys.has(key)) ||
+      (Array.isArray(body.data.objectLayout) && body.data.objectLayout.length > 512) ||
+      (Array.isArray(body.data.rosterLayout) && body.data.rosterLayout.length > 512)) {
+    return c.json({ error: "bad_presentation" }, 400);
+  }
+  const encoded = JSON.stringify(body.data);
+  if (encoded.length > 128 * 1024) return c.json({ error: "too_large" }, 413);
+  const saved = await v3.writePresentation(c.env.DB, accountId, body.expectedVersion, body.data, Date.now());
+  if (!saved) return c.json({ error: "presentation_conflict" }, 409);
+  metric("presentation", accountId, started, { payloadBytes: encoded.length });
+  return c.json(saved);
+});
+
+app.post("/raid/start", async (c) => {
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const configured = Number(c.env.RAID_COOLDOWN_MS);
+  const result = await v3Raid.startRaid(
+    c.env.DB,
+    c.get("accountId"),
+    body,
+    Date.now(),
+    Number.isFinite(configured) && configured >= 0 ? configured : undefined
+  );
+  if (result.status === 200) return c.json(result.body);
+  if (result.status === 400) return c.json(result.body, 400);
+  if (result.status === 403) return c.json(result.body, 403);
+  if (result.status === 429) return c.json(result.body, 429);
+  return c.json(result.body, 409);
+});
+
+app.post("/raid/finish", async (c) => {
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const result = await v3Raid.finishRaid(c.env.DB, c.get("accountId"), body, Date.now());
+  if (result.status === 200) return c.json(result.body);
+  if (result.status === 400) return c.json(result.body, 400);
+  if (result.status === 404) return c.json(result.body, 404);
+  if (result.status === 425) {
+    const retryAfterMs = Number(result.body.retryAfterMs ?? 0);
+    c.header("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
+    return c.json(result.body, 425);
+  }
+  return c.json(result.body, 409);
+});
+
+// Protocol v2's mutation/read-sync surface is deliberately retired. Keeping the
+// explicit response makes stale clients fail closed instead of silently diverging.
+const retiredV2 = new Set([
+  "/save", "/state", "/economy/sync", "/economy/apply", "/quest/state", "/quest/complete",
+  "/farm/actions", "/farm/sync", "/inventory/sync", "/inventory/actions",
+  "/object/sync", "/object/actions", "/roster/sync", "/roster/actions",
+  "/shop/state", "/shop/size", "/shop/climate", "/storage/sync", "/storage/actions",
+  "/raid/state", "/raid/sync", "/raid/checkpoint",
+]);
+app.use("*", async (c, next) => {
+  if (retiredV2.has(c.req.path)) return c.json({ error: "update_required", protocolVersion: GAMEPLAY_PROTOCOL }, 410);
+  await next();
+});
 
 // ---- GET /me ------------------------------------------------------------
 app.get("/me", async (c) => {
@@ -686,9 +885,8 @@ app.get("/friends/requests", async (c) => {
 
 // ---- GET /friends/:id/save: read-only peek at a friend's farm -----------
 // Powers "visit a friend's farm". Only a confirmed friend may read, and only a
-// stripped projection is returned (projectFriendSave). The stored save was
-// bounds-validated on write, so the projection can't carry an allocation bomb; the
-// visitor client re-checks dimensions before hydrating as defense in depth.
+// stripped v3 projection is returned. Economy, inventory, quest, and social data are
+// not exposed; only the read-only world needed by visit mode is materialized.
 app.get("/friends/:id/save", async (c) => {
   const me = c.get("accountId");
   const target = c.req.param("id");
@@ -696,42 +894,44 @@ app.get("/friends/:id/save", async (c) => {
   if (!(await db.areFriends(c.env.DB, me, target))) {
     return c.json({ error: "not_friends" }, 403);
   }
-  const row = await db.getSave(c.env.DB, target);
-  if (!row) return c.json({ error: "no_save" }, 404);
-  const save = projectFriendSave(presentationOnlySave(JSON.parse(row.blob) as SaveGame));
+  const boot = await v3.bootstrap(c.env.DB, target, Date.now(), false, minProtocolVersion(c.env));
   const targetAccount = await db.accountById(c.env.DB, target);
-  save.player.name = targetAccount?.username ?? "Player";
-  const roster = await db.readRosterState(c.env.DB, target);
-  const rosterHints = new Map((save.ownedZombies ?? []).map((z) => [z.id, z]));
-  save.ownedZombies = roster.map((r) => {
-    const hint = rosterHints.get(r.id);
-    return { id: r.id, key: r.key, mutation: r.mutation, invasions: r.invasions, pos: hint?.pos, stored: hint?.stored, color: hint?.color };
-  });
-  const counts = await db.readObjects(c.env.DB, target);
-  save.objects = (save.objects ?? []).filter((o) => {
-    if ((counts[o.key] ?? 0) <= 0) return false;
-    counts[o.key]--;
-    return true;
-  });
-  const shop = await db.readShopState(c.env.DB, target);
-  const farm = await db.readFarmPlots(c.env.DB, target);
-  save.farm.w = shop.size;
-  save.farm.h = shop.size;
-  save.farm.plots = [
-    ...farm.plowed.map((p) => ({ oc: p.oc, or: p.pr, state: "plowed" as const })),
-    ...farm.crops.map((p) => ({
-      oc: p.oc,
-      or: p.pr,
-      state: "planted" as const,
-      crop: {
-        key: p.crop_key,
-        isZombie: !!catalogName(zombieCatalog, p.crop_key),
-        plantedAt: p.planted_at,
-        growMs: p.grow_ms,
-        fertilized: !!p.fertilized,
-      },
-    })),
-  ];
+  const p = boot.presentation.data as {
+    farm?: { climate?: string };
+    objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
+    rosterLayout?: { id: string; pos?: { col: number; row: number }; color?: [number, number, number] }[];
+  };
+  const objectLayout = new Map((p.objectLayout ?? []).map((o) => [o.id, o]));
+  const rosterLayout = new Map((p.rosterLayout ?? []).map((u) => [u.id, u]));
+  const save: SaveGame = {
+    version: 1,
+    savedAt: boot.serverTime,
+    player: { name: targetAccount?.username ?? "Player", gold: 0, brains: 0, xp: 0,
+      zombieMax: boot.gameplay.zombieMax, zombieCount: boot.gameplay.roster.filter((u) => !u.stored).length },
+    farm: {
+      fieldId: "default", w: boot.gameplay.farmSize, h: boot.gameplay.farmSize,
+      climate: p.farm?.climate ?? "grass",
+      plots: Object.entries(boot.gameplay.farm.plots).map(([key, plot]) => {
+        const [oc, or] = key.split(":").map(Number);
+        if (plot.state === "plowed") return { oc, or, state: "plowed" as const };
+        if (plot.state === "spent") return { oc, or, state: plot.zombie ? "hole" as const : "dirt" as const };
+        return { oc, or, state: "planted" as const, crop: { key: plot.cropKey, isZombie: plot.zombie,
+          plantedAt: plot.plantedAt, growMs: plot.growMs, fertilized: plot.fertilized } };
+      }),
+    },
+    objects: boot.gameplay.objects.objects.flatMap((obj) => {
+      if (obj.status !== "placed") return [];
+      const layout = objectLayout.get(obj.instanceId);
+      return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout?.oc ?? 0, or: layout?.or ?? 0,
+        rotation: layout?.rotation, readyAt: obj.readyAt }];
+    }),
+    ownedZombies: boot.gameplay.roster.map((unit) => {
+      const layout = rosterLayout.get(unit.id);
+      return { id: unit.id, key: unit.key, mutation: unit.mutation, invasions: unit.invasions,
+        stored: unit.stored, pos: layout?.pos, color: layout?.color };
+    }),
+    raids: { completed: boot.gameplay.raids.progress, lastRaidAt: boot.gameplay.raids.lastRaidAt, attackOrder: [] },
+  };
   return c.json({ save });
 });
 
@@ -861,25 +1061,16 @@ app.post("/gifts/claim", async (c) => {
 
   const gift = await db.claimableGift(c.env.DB, giftId, me);
   const respond = async (alreadyClaimed: boolean, credited: boolean) => {
-    const cur = await db.getSave(c.env.DB, me);
+    const balance = await db.getOrSeedBalance(c.env.DB, me, { ...STARTER_BALANCE });
     return c.json({
-      save: cur ? (JSON.parse(cur.blob) as SaveGame) : null,
-      rev: cur?.rev ?? 0,
+      save: null,
+      rev: 0,
       alreadyClaimed,
       credited,
+      balance,
     });
   };
   if (!gift) return respond(true, false); // already claimed / not mine / unknown
-
-  const cur = await db.getSave(c.env.DB, me);
-  if (!cur) {
-    // No save to credit into yet (brand-new account). Ask the client to save first;
-    // leave the gift unclaimed so no brain is lost.
-    return c.json({ error: "save_first" }, 409);
-  }
-  const p = (JSON.parse(cur.blob) as SaveGame).player;
-  // Cutoff-gated (not trusted from the blob) — see balanceSeed / GET /save above.
-  const seed = await balanceSeed(c.env, c.get("accountId"), p);
 
   // Record the grant (idempotent on gift id). If we didn't win it, someone already
   // credited this gift.
@@ -890,7 +1081,7 @@ app.post("/gifts/claim", async (c) => {
 
   // Credit the brain into the server BALANCE (atomic increment — no save churn). The
   // client picks it up on its next economy sync; `credited` is just for the toast.
-  const settled = await db.settleGrant(c.env.DB, grantId, 1, me, now, seed);
+  const settled = await db.settleGrant(c.env.DB, grantId, 1, me, now, { ...STARTER_BALANCE });
   if (!settled) slog("gift_credit_deferred", { account: me, gift: gift.id });
   return respond(false, settled);
 });
@@ -1649,16 +1840,12 @@ async function runCleanup(env: Bindings, now: number): Promise<void> {
   const sessions = await db.purgeDeadSessions(env.DB, now - DAY, now - 8 * DAY);
   const buckets = await db.purgeOldRateBuckets(env.DB, now - 60 * 60 * 1000);
   const requests = await db.purgeOldFriendRequests(env.DB, now - 30 * DAY);
-  const raidSessions = await db.purgeOldRaidSessions(env.DB, now - DAY);
-  const ledger = await db.purgeOldLedger(env.DB, now - 30 * DAY);
-  const farmActions = await db.purgeOldFarmActions(env.DB, now - 45 * DAY);
-  const invActions = await db.purgeOldInventoryActions(env.DB, now - 45 * DAY);
-  const objActions = await db.purgeOldObjectActions(env.DB, now - 45 * DAY);
-  const rosterActions = await db.purgeOldRosterActions(env.DB, now - 45 * DAY);
-  const combineJobs = await db.purgeOldCombineJobs(env.DB, now - 30 * DAY);
-  const commandReceipts = await db.purgeOldCommandReceipts(env.DB, now - 45 * DAY);
-  const gameEvents = await db.purgeOldGameEvents(env.DB, now - 45 * DAY);
-  slog("cleanup", { sessions, buckets, requests, raidSessions, ledger, farmActions, invActions, objActions, rosterActions, combineJobs, commandReceipts, gameEvents }, "info");
+  const raidSessions = await env.DB.prepare(
+    "DELETE FROM raid_sessions_v3 WHERE finished_at IS NOT NULL AND finished_at < ?"
+  ).bind(now - 30 * DAY).run();
+  // v3 intentionally keeps premium, purchase/refund, zombie-lifecycle, and raid audit
+  // events durable. Routine crop receipts no longer exist and therefore need no purge.
+  slog("cleanup", { sessions, buckets, requests, raidSessions: raidSessions.meta.changes ?? 0 }, "info");
 }
 
 // Export both the HTTP handler and the cron handler. Cloudflare calls `scheduled`

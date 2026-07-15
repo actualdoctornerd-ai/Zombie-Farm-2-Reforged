@@ -463,3 +463,88 @@ CREATE TRIGGER IF NOT EXISTS trg_storage_nonnegative_insert BEFORE INSERT ON ite
 WHEN NEW.count < 0 BEGIN SELECT RAISE(ABORT, 'negative_storage'); END;
 CREATE TRIGGER IF NOT EXISTS trg_storage_nonnegative_update BEFORE UPDATE OF count ON item_storage
 WHEN NEW.count < 0 BEGIN SELECT RAISE(ABORT, 'negative_storage'); END;
+
+-- Protocol v3 stores frequently-changing low-row-count gameplay as versioned JSON
+-- documents. Relational rows remain only where identity/lifecycle auditing matters.
+CREATE TABLE IF NOT EXISTS account_runtime_v3 (
+  account_id            TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  account_version       INTEGER NOT NULL DEFAULT 0,
+  writer_device_id      TEXT,
+  writer_generation     INTEGER NOT NULL DEFAULT 0,
+  active_batch_id       TEXT,
+  last_batch_id         TEXT,
+  last_first_sequence   INTEGER,
+  last_result_json      TEXT,
+  command_window_start  INTEGER NOT NULL DEFAULT 0,
+  command_window_count  INTEGER NOT NULL DEFAULT 0,
+  updated_at            INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS farm_documents_v3 (
+  account_id        TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  version           INTEGER NOT NULL DEFAULT 0,
+  current_json      TEXT NOT NULL DEFAULT '{}',
+  previous_version  INTEGER,
+  previous_json     TEXT,
+  updated_at        INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS object_documents_v3 (
+  account_id    TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  version       INTEGER NOT NULL DEFAULT 0,
+  current_json  TEXT NOT NULL DEFAULT '[]',
+  updated_at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS quest_documents_v3 (
+  account_id    TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  version       INTEGER NOT NULL DEFAULT 0,
+  current_json  TEXT NOT NULL DEFAULT '{"completed":[],"progress":[]}',
+  updated_at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gameplay_documents_v3 (
+  account_id    TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  current_json  TEXT NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS presentations_v3 (
+  account_id    TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  version       INTEGER NOT NULL DEFAULT 0,
+  current_json  TEXT NOT NULL DEFAULT '{}',
+  updated_at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS roster_v3 (
+  account_id       TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  unit_id          TEXT NOT NULL,
+  zombie_key       TEXT NOT NULL,
+  mutation         INTEGER NOT NULL DEFAULT 0,
+  invasions        INTEGER NOT NULL DEFAULT 0,
+  stored           INTEGER NOT NULL DEFAULT 0,
+  locked_by_raid   TEXT,
+  created_at       INTEGER NOT NULL,
+  PRIMARY KEY (account_id, unit_id)
+);
+CREATE TABLE IF NOT EXISTS raid_sessions_v3 (
+  id                  TEXT PRIMARY KEY,
+  account_id          TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  raid_id             TEXT NOT NULL,
+  roster_json         TEXT NOT NULL,
+  boosts_json         TEXT NOT NULL DEFAULT '{}',
+  started_at          INTEGER NOT NULL,
+  earliest_finish_at  INTEGER NOT NULL,
+  expires_at          INTEGER NOT NULL,
+  finished_at         INTEGER,
+  result_json         TEXT
+);
+CREATE TABLE IF NOT EXISTS raid_state_v3 (
+  account_id       TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  last_started_at  INTEGER NOT NULL DEFAULT 0,
+  progress_json    TEXT NOT NULL DEFAULT '{}'
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_raid_v3_live
+  ON raid_sessions_v3(account_id) WHERE finished_at IS NULL;
+CREATE TABLE IF NOT EXISTS audit_events_v3 (
+  id          TEXT PRIMARY KEY,
+  account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,
+  detail_json TEXT NOT NULL,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_v3_account ON audit_events_v3(account_id, created_at);

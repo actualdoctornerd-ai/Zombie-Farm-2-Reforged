@@ -24,6 +24,11 @@ export function tileCenter(col: number, row: number): { x: number; y: number } {
   return { x: p.x, y: p.y + HH };
 }
 
+/** Origin of an even-sized square footprint visually centered on a picked tile. */
+export function footprintOrigin(col: number, row: number, size: number): { oc: number; or: number } {
+  return { oc: col - size / 2, or: row - size / 2 };
+}
+
 // World-space pixel -> fractional grid coords. Invert gridToScreen, accounting
 // for the tile-center offset (we pick against tile centers, not top points).
 export function screenToGrid(x: number, y: number): { col: number; row: number } {

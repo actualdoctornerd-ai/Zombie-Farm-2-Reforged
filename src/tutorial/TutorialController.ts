@@ -30,6 +30,8 @@ export interface TutorialDeps {
   findTutorialPlot: (preferExisting?: boolean) => { col: number; row: number } | null;
   /** Whether a live raid currently owns the screen (hide the overlay then). */
   isRaidActive: () => boolean;
+  /** Apply the visible bonus and, online, enqueue its one-time semantic grant. */
+  grantCompletionBonus?: () => void;
 }
 
 export class TutorialController {
@@ -105,7 +107,8 @@ export class TutorialController {
 
   /** Grant the completion bonus and finish. */
   private finish() {
-    this.d.state.addGold(200);
+    if (this.d.grantCompletionBonus) this.d.grantCompletionBonus();
+    else this.d.state.addGold(200);
     this.persist(TutStep.Done, true);
     this.dispose();
   }

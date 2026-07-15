@@ -8,6 +8,8 @@ Missing various crops (eg - seasonal crops)
 
 Mini-buddy ability does not work
 
+Healing ability not triggering
+
 Enemy health bars are too wide
 
 The top bars in raids can blend in with the background. They need a backbar

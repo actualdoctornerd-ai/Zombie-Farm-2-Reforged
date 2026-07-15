@@ -6,7 +6,7 @@ import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import {
   DIRT_FILE, GameAssets, HOLE_FILE, PlaceableDef, PLOWED_FILE, SEED_FILE,
 } from "./assets";
-import { gridToScreen, HH, HW, TILE_H, TILE_W, tileCenter } from "./iso";
+import { footprintOrigin, gridToScreen, HH, HW, TILE_H, TILE_W, tileCenter } from "./iso";
 import { setFootprint, sortLayer } from "./depthSort";
 import { makeLight, OBJECT_GLOWS } from "./lighting";
 import { leafTexture, ParticleConfig, ParticleField } from "./raid/Particles";
@@ -360,9 +360,12 @@ export class Field {
     return true;
   }
   // Where a freshly-placed plot would be anchored for a pointer at (col,row):
-  // roughly centered on the pointer.
+  // centered on the pointer. A 4x4 diamond's visual center picks as origin + 2
+  // (screenToGrid rounds the half-tile center up), so subtract half the footprint.
+  // Keeping this inverse of plotCenterOf is especially important for the tutorial:
+  // its arrow points at that center and its input gate expects the same origin.
   private originFor(col: number, row: number) {
-    return { oc: col - 1, or: row - 1 };
+    return footprintOrigin(col, row, PLOT);
   }
   private forEachTile(oc: number, or: number, fn: (k: string) => void) {
     for (let r = or; r < or + PLOT; r++)

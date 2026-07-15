@@ -26,6 +26,8 @@ DEV_AUTH = "0"
 MIGRATION_CUTOFF_MS = "0"
 # Old mutation clients are intentionally cut off immediately. The current client sends v2.
 INTEGRITY_V2_ENFORCE_AFTER_MS = "1"
+MIN_PROTOCOL_VERSION = "3"
+MUTATIONS_DISABLED = "0"
 # Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
 # raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
 # RAID_COOLDOWN_MS = "7200000"

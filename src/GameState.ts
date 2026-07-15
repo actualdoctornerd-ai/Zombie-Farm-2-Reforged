@@ -81,7 +81,7 @@ export class GameState {
    *  and reconciles to server truth. Null offline, where the crop loop stays local. */
   onFarm:
     | ((
-        action: { type: "plant" | "harvest" | "plow"; oc: number; or: number; cropKey?: string; fertilized?: boolean; unitId?: string },
+        action: { type: "plant" | "harvest" | "plow" | "remove"; oc: number; or: number; cropKey?: string; fertilized?: boolean; unitId?: string },
         optimistic: { gold?: number; brains?: number; xp?: number }
       ) => void)
     | null = null;
@@ -102,7 +102,7 @@ export class GameState {
    *  purely local. */
   onInventory:
     | ((
-        action: { type: "buy" | "use" | "grant"; key: string; qty?: number; unitId?: string; oc?: number; or?: number },
+        action: { type: "buy" | "use" | "grant"; key: string; qty?: number; unitId?: string; localUnitIds?: string[]; oc?: number; or?: number },
         optimistic: { count: number; gold?: number; brains?: number }
       ) => void)
     | null = null;
@@ -112,6 +112,9 @@ export class GameState {
    *  cashed out). `value` is the client's optimistic estimate, reconciled to server
    *  truth. Null offline, where the sell credits gold locally. */
   onRosterSell: ((unitId: string, value: number) => void) | null = null;
+  /** ONLINE fruit-tree harvests are semantic object commands; the local animation
+   * remains immediate while the server validates ownership/readiness. */
+  onTreeHarvest: ((instanceId: string, optimisticGold: number) => void) | null = null;
 
   /** Adopt the server's authoritative boost counts (inventory reconcile). Replaces the
    *  local boost list wholesale — the server owns the counts, so the blob's list is an
@@ -270,6 +273,10 @@ export class GameState {
     for (const [key, n] of Object.entries(received)) {
       for (let i = 0; i < n; i++) this.received.push(key);
     }
+    this.storedItems = Object.entries(stored).map(([key, count]) => ({ key, count }));
+    this.emit();
+  }
+  syncObjectStorage(stored: Record<string, number>) {
     this.storedItems = Object.entries(stored).map(([key, count]) => ({ key, count }));
     this.emit();
   }

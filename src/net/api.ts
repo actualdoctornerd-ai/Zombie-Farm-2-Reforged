@@ -9,10 +9,44 @@ import type { SaveGame } from "../save/schema";
 import type { Friend } from "../social/friends";
 import { RAID_RULESET_VERSION, type RaidReplayInput } from "../raid/replay";
 import type { RaidOutcome } from "../raid/types";
+import {
+  GAMEPLAY_PROTOCOL,
+  type BootstrapResponse,
+  type CommandBatchRequest,
+  type CommandBatchResponse,
+  type PresentationProjection,
+  type PresentationRequest,
+} from "./protocol";
 export type { RaidReplayInput } from "../raid/replay";
 
 const API = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
-const SESSION_KEY = "zf2r.session.v1";
+const SESSION_KEY = "zf2r.v3.session";
+const DEVICE_KEY = "zf2r.v3.device";
+
+// v3 is an intentional clean break. Never replay a v1/v2 save or outbox into a
+// newly-created authoritative account.
+try {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith("zf2r.") || key.startsWith("zombiefarm.")) && !key.startsWith("zf2r.v3.")) {
+      localStorage.removeItem(key);
+    }
+  }
+} catch {
+  /* storage may be unavailable in privacy mode */
+}
+
+export function deviceId(): string {
+  try {
+    const current = localStorage.getItem(DEVICE_KEY);
+    if (current) return current;
+    const created = crypto.randomUUID();
+    localStorage.setItem(DEVICE_KEY, created);
+    return created;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
 
 export interface Session {
   token: string;
@@ -85,7 +119,8 @@ async function req<T>(
 ): Promise<T> {
   if (!API) throw new ApiError(0, "not_configured");
   const headers: Record<string, string> = {};
-  headers["X-Integrity-Version"] = "2";
+  headers["X-Integrity-Version"] = String(GAMEPLAY_PROTOCOL);
+  headers["X-Client-Build"] = import.meta.env.VITE_BUILD_ID ?? "dev";
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (auth) {
     if (!session) throw new ApiError(401, "no_session");
@@ -143,6 +178,26 @@ export const me = () =>
     "GET",
     "/me"
   );
+
+// ---- protocol v3 -------------------------------------------------------
+let bootstrapPromise: Promise<BootstrapResponse> | null = null;
+export const bootstrap = (force = false) => {
+  if (force) bootstrapPromise = null;
+  bootstrapPromise ??= req<BootstrapResponse>("POST", "/bootstrap", {
+    protocolVersion: GAMEPLAY_PROTOCOL,
+    deviceId: deviceId(),
+  }).catch((error) => {
+    bootstrapPromise = null;
+    throw error;
+  });
+  return bootstrapPromise;
+};
+
+export const sendCommandBatch = (batch: CommandBatchRequest) =>
+  req<CommandBatchResponse>("POST", "/commands", batch);
+
+export const putPresentationV3 = (payload: PresentationRequest) =>
+  req<PresentationProjection>("PUT", "/presentation", payload);
 
 /** Set this account's chosen display name. Updates the stored session, returns the
  *  normalized value. Throws ApiError(400, "bad_username") if it doesn't validate. */
@@ -542,6 +597,8 @@ export const raidStart = (
     /** Golden Dice the server actually consumed + pinned to the session (may be fewer
      *  than asked if the stock ran short). Its loot roll uses this number. */
     dice?: number;
+    concentration?: boolean;
+    inventory?: Record<string, number>;
   }>("POST", "/raid/start", {
     useVoucher,
     raidId,
@@ -567,6 +624,9 @@ export interface RaidFinishResult {
   loot?: { name: string; kind: "gold" | "boost" | "item" } | null;
   outcome?: RaidOutcome;
   questChanges?: QuestChange[];
+  inventory?: Record<string, number>;
+  storage?: { received: Record<string, number>; stored: Record<string, number> };
+  raidProgress?: Record<string, number>;
   rulesetVersion?: number;
 }
 
@@ -574,8 +634,16 @@ export interface RaidFinishResult {
  *  the server-computed base win gold + first-clear XP for the session's pinned raid,
  *  returning the authoritative balance to reconcile. `win`/`survivalFrac` are the
  *  client's outcome assertion; the server owns the reward number. */
-export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[]) =>
-  req<RaidFinishResult>("POST", "/raid/finish", { sessionId, finalTick, inputs });
+export const raidFinish = (sessionId: string, finalTick: number, _inputs: RaidReplayInput[], outcome?: RaidOutcome) =>
+  req<RaidFinishResult>("POST", "/raid/finish", {
+    sessionId,
+    finalTick,
+    // v3 trusts combat quality/casualty claims, but the server validates this as a
+    // partition of the roster locked at start and prices every reward itself.
+    win: outcome?.win ?? false,
+    survivors: outcome?.survivors ?? [],
+    losses: outcome?.losses ?? [],
+  });
 
 export const raidCheckpoint = (sessionId: string, finalTick: number, inputs: RaidReplayInput[]) =>
   req<{ ok: boolean; finalTick: number; lastSeq: number; finished: boolean; replayCpuMs: number }>(

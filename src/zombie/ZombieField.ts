@@ -450,4 +450,38 @@ export class ZombieField {
     this.nextId = maxN + 1;
     this.syncCount();
   }
+
+  /** Reconcile a server roster without rebuilding unchanged actors. `aliases` maps
+   * a new server id to the optimistic local id spawned at harvest time, preserving
+   * its position while replacing its identity. */
+  reconcileServerRoster(
+    saves: { id: string; key: string; mutation: number; invasions: number; stored: boolean }[],
+    aliases: Record<string, string> = {}
+  ) {
+    const desiredIds = new Set(saves.map((save) => save.id));
+    const aliasIds = new Set(Object.values(aliases));
+    const current = new Map(this.roster().map((unit) => [unit.id, unit]));
+    this.harvesting = true;
+    try {
+      for (const unit of current.values()) {
+        if (!desiredIds.has(unit.id) && !aliasIds.has(unit.id)) this.takeOwned(unit.id);
+      }
+      for (const save of saves) {
+        const direct = current.get(save.id);
+        const hinted = current.get(aliases[save.id] ?? "");
+        const source = direct ?? hinted;
+        if (direct && direct.key === save.key && direct.mutation === save.mutation &&
+            direct.invasions === save.invasions && direct.stored === save.stored) continue;
+        if (source) this.takeOwned(source.id);
+        const def = this.resolve(save.key);
+        if (!def) continue;
+        const data = makeOwned(save.id, def, source?.col ?? 0, source?.row ?? 0, save.invasions, save.mutation, source?.color);
+        if (save.stored) this.stored.push(data);
+        else this.addUnit(data);
+      }
+    } finally {
+      this.harvesting = false;
+    }
+    this.syncCount();
+  }
 }

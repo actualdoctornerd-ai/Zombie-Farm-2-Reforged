@@ -30,10 +30,10 @@ import type { Friend } from "../social/friends";
 export const SAVE_VERSION = 1;
 
 /** localStorage key for the single active save slot. */
-export const SAVE_KEY = "zf2r.save.v1";
+export const SAVE_KEY = "zf2r.v3.presentation-cache";
 
 /** localStorage key for device settings (kept separate from game progress). */
-export const SETTINGS_KEY = "zf2r.settings.v1";
+export const SETTINGS_KEY = "zf2r.v3.settings";
 
 // ---------------------------------------------------------------------------
 // Root

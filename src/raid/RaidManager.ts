@@ -320,7 +320,8 @@ export class RaidManager {
     // (fight at full focus) needs at most one; Golden Dice stack for loot luck,
     // capped by both the player's stock and the raid's rare-tier depth.
     let concentration = false;
-    if (opts.concentration && this.state.boostCount(CONCENTRATION_KEY) > 0) {
+    if (opts.serverAuthorized) concentration = !!opts.concentration;
+    else if (opts.concentration && this.state.boostCount(CONCENTRATION_KEY) > 0) {
       concentration = true;
       if (online) this.state.onInventory!({ type: "use", key: CONCENTRATION_KEY }, { count: -1 });
       else this.state.useBoost(CONCENTRATION_KEY);
@@ -335,9 +336,6 @@ export class RaidManager {
     const diceCap = Math.min(wantDice, this.diceCount(), maxLuckTiers(raid));
     if (opts.serverAuthorized) {
       dice = Math.max(0, Math.floor(opts.serverDice ?? 0));
-      // Mirror the spend locally so the HUD's count is right until the next sync; the
-      // server's inventory is the truth either way.
-      for (let i = 0; i < dice; i++) this.state.useBoost(DICE_KEY);
     } else {
       for (let i = 0; i < diceCap && this.state.useBoost(DICE_KEY); i++) dice++;
     }

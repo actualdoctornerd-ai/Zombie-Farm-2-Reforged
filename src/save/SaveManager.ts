@@ -1,18 +1,3 @@
-// Serializes the live game (GameState + Field + farmer position) and persists it.
-//
-// Two tiers. As a build capability the online tier is optional (omit VITE_API_URL
-// to ship an offline-only game); but the hosted production deployment configures
-// and requires it (sign-in is gated in net/gate.ts):
-//   • Local (always): a debounced write to localStorage — the offline cache and
-//     the sole store when signed out or no server is configured. Same behavior as
-//     the original no-server game.
-//   • Server (when signed in + VITE_API_URL set): the Cloudflare Worker is the
-//     ground truth. load() pulls it; save() also pushes it (rev-guarded). On a
-//     409 (another device wrote) local autosave-to-server pauses until a reload
-//     reconciles; on a network error the write is retried (outbox) on reconnect.
-//
-// Autosave is driven off GameState.onChange (debounced). The JobSystem queue is
-// NOT saved — in-flight actions are cheap to redo and messy to restore mid-hoe.
 import { GameState } from "../GameState";
 import { CropConfig, Field } from "../Field";
 import { PlaceableDef } from "../assets";
@@ -23,15 +8,27 @@ import { SaveGame, SAVE_VERSION, SAVE_KEY } from "./schema";
 import { activeSaveKey } from "./profiles";
 import * as api from "../net/api";
 
+type PresentationData = {
+  player?: { name?: string; farmer?: { col: number; row: number } };
+  farm?: { climate?: string };
+  objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
+  rosterLayout?: { id: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
+  tutorial?: SaveGame["tutorial"];
+  ui?: { attackOrder?: string[] };
+};
+
+/** Offline builds retain a local full save. Signed-in v3 builds persist only visual
+ * presentation; authoritative gameplay is hydrated from the shared bootstrap call. */
 export class SaveManager {
-  /** Server rev of the last save we loaded/wrote (0 = none). Drives 409 guarding. */
-  private rev = 0;
+  private presentationVersion = 0;
+  private lastPresentation = "";
+  private presentationDirty = false;
   private pushing = false;
-  private pendingBlob: SaveGame | null = null;
-  /** A newer server save exists (another device); pause server autosave til reload. */
-  private conflicted = false;
-  /** A server push failed offline; retry on the next change / reconnect. */
-  private dirty = false;
+  private pendingPresentation: Record<string, unknown> | null = null;
+  private autoFlush: (() => void) | null = null;
+  private scheduleSave: (() => void) | null = null;
+  private lastPresentationCallAt = 0;
+  private suspended = false;
 
   constructor(
     private state: GameState,
@@ -41,28 +38,17 @@ export class SaveManager {
     private quests: QuestSystem,
     private catalog: Map<string, CropConfig>,
     private placeCatalog: Map<string, PlaceableDef>,
-    // Lazily loads a placed object's texture before it's rendered on restore.
     private preload: (sprite: string) => Promise<unknown>
   ) {}
 
-  /** Signed in AND a server configured → the server tier is active. */
-  private isOnline(): boolean {
-    return api.isConfigured() && !!api.getSession();
-  }
-
-  /** Where the local cache lives: per-account when signed in (so two Google
-   *  accounts on one device don't collide), else the local profile slot. */
+  private isOnline(): boolean { return api.isConfigured() && !!api.getSession(); }
   private cacheKey(): string {
-    const s = api.getSession();
-    return s ? `${SAVE_KEY}::acct::${s.accountId}` : activeSaveKey();
+    const session = api.getSession();
+    return session ? `${SAVE_KEY}::${session.accountId}` : activeSaveKey();
   }
 
   hasSave(): boolean {
-    try {
-      return localStorage.getItem(this.cacheKey()) !== null;
-    } catch {
-      return false;
-    }
+    try { return localStorage.getItem(this.cacheKey()) !== null; } catch { return false; }
   }
 
   serialize(): SaveGame {
@@ -91,186 +77,169 @@ export class SaveManager {
       objects: this.field.serializeObjects(),
       ownedZombies: this.zombies.serialize(),
       zombiePot: this.zombies.serializePot(),
-      storage: {
-        itemCap: this.state.storageItemCap,
-        items: this.state.storedItems,
-        received: this.state.received,
-      },
+      storage: { itemCap: this.state.storageItemCap, items: this.state.storedItems, received: this.state.received },
       boosts: this.state.boostInv,
       quests: this.quests.serialize(),
-      raids: {
-        completed: this.state.raidsCompleted,
-        lastRaidAt: this.state.lastRaidAt,
-        attackOrder: this.state.raidAttackOrder,
-      },
+      raids: { completed: this.state.raidsCompleted, lastRaidAt: this.state.lastRaidAt, attackOrder: this.state.raidAttackOrder },
       social: { friends: this.state.friends },
       tutorial: this.state.tutorial,
     };
   }
 
-  /** Set by enableAutosave: force an immediate coalesced save, cancelling any
-   *  pending debounce. Null until autosave is wired (e.g. read-only visit mode). */
-  private autoFlush: (() => void) | null = null;
-
-  /** Force an immediate save at a critical boundary — a server-confirmed gift
-   *  claim, raid completion, purchase, reward grant, or sign-out — so a durable
-   *  change isn't left sitting behind the debounce. No-op while suspended. */
-  flush() {
-    if (this.autoFlush) this.autoFlush();
-    else this.save();
+  private presentation(blob = this.serialize()): Record<string, unknown> {
+    return {
+      player: { name: blob.player.name, farmer: blob.player.farmer },
+      farm: { climate: blob.farm.climate },
+      objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id, oc: o.oc, or: o.or, rotation: o.rotation })),
+      rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, pos: u.pos, stored: u.stored, color: u.color })),
+      tutorial: blob.tutorial,
+      ui: { attackOrder: blob.raids?.attackOrder ?? [] },
+    };
   }
 
-  // When suspended, save() is a no-op. Used when switching profiles / signing out:
-  // after the current game is flushed and the active pointer is moved, this page
-  // must not write again (its in-memory game belongs to the OLD identity) — else
-  // the debounced autosave or beforeunload flush would clobber the one we switch to.
-  private suspended = false;
-  suspend() {
-    this.suspended = true;
-  }
+  flush(): void { this.autoFlush ? this.autoFlush() : this.save(); }
+  suspend(): void { this.suspended = true; }
+  syncRev(_rev: number): void {}
 
-  save() {
+  save(): void {
     if (this.suspended) return;
     const blob = this.serialize();
-    this.writeLocal(blob);
-    if (this.isOnline()) void this.push(blob);
-  }
-
-  /** Adopt a server rev after an out-of-band server-side write (e.g. a gift claim
-   *  credited the save server-side). The next push then bases off this rev, so it
-   *  isn't rejected as stale. Clears any prior conflict since we're now in sync. */
-  syncRev(rev: number) {
-    this.rev = rev;
-    this.conflicted = false;
-  }
-
-  private writeLocal(blob: SaveGame) {
-    try {
-      localStorage.setItem(this.cacheKey(), JSON.stringify(blob));
-    } catch (e) {
-      console.warn("[save] local write failed", e);
-    }
-  }
-
-  // Push the blob to the server, guarded by rev. Serializes concurrent pushes
-  // (keeps only the latest pending) and handles conflict / offline outcomes.
-  private async push(blob: SaveGame) {
-    if (this.conflicted) return;
-    if (this.pushing) {
-      this.pendingBlob = blob;
+    if (!this.isOnline()) {
+      this.writeLocal(blob);
       return;
     }
+    // Gameplay code calls save() at many semantic boundaries. In v3 those calls only
+    // mark presentation dirty; they must not bypass the fixed one-minute deadline.
+    if (this.scheduleSave) {
+      this.scheduleSave();
+      return;
+    }
+    this.commitPresentation(blob);
+  }
+
+  private commitPresentation(blob = this.serialize()): void {
+    if (this.suspended || !this.isOnline()) return;
+    const data = this.presentation(blob);
+    const encoded = JSON.stringify(data);
+    if (encoded === this.lastPresentation && !this.presentationDirty) return;
+    this.presentationDirty = true;
+    try { localStorage.setItem(this.cacheKey(), encoded); } catch { /* ignore */ }
+    void this.push(data);
+  }
+
+  private writeLocal(blob: SaveGame): void {
+    try { localStorage.setItem(this.cacheKey(), JSON.stringify(blob)); } catch (error) { console.warn("[save] local write failed", error); }
+  }
+
+  private async push(data: Record<string, unknown>): Promise<void> {
+    if (this.pushing) { this.pendingPresentation = data; return; }
     this.pushing = true;
+    this.lastPresentationCallAt = Date.now();
     try {
-      const { rev } = await api.putSave(blob, this.rev);
-      this.rev = rev;
-      this.dirty = false;
-    } catch (e) {
-      if (e instanceof api.ApiError && e.status === 409) {
-        this.conflicted = true;
-        console.warn(
-          "[save] a newer save exists on the server (another device). " +
-            "Server autosave paused; reload to sync."
-        );
-      } else if (e instanceof api.ApiError && e.status === 401) {
-        // Session went away; api already cleared it. Drop to local-only silently.
-      } else {
-        this.dirty = true; // offline/other → retry on next change or reconnect
-      }
+      const saved = await api.putPresentationV3({ protocolVersion: 3, expectedVersion: this.presentationVersion, data });
+      this.presentationVersion = saved.version;
+      this.lastPresentation = JSON.stringify(data);
+      this.presentationDirty = false;
+    } catch (error) {
+      this.presentationDirty = true;
+      if (error instanceof api.ApiError && error.status === 409) console.warn("[presentation] conflict; reload required");
     } finally {
       this.pushing = false;
-      const next = this.pendingBlob;
-      this.pendingBlob = null;
-      if (next && !this.conflicted) void this.push(next);
+      const next = this.pendingPresentation;
+      this.pendingPresentation = null;
+      if (next) {
+        this.presentationDirty = true;
+        this.scheduleSave?.();
+      }
     }
   }
 
-  // Load and apply a save. Returns true if a valid save was restored, false if
-  // there was none (or it was corrupt / a version we don't handle → fresh start).
   async load(): Promise<boolean> {
-    // Online: the server is ground truth.
     if (this.isOnline()) {
       try {
-        const res = await api.getSave();
-        const data = res.save && this.validate(res.save);
-        if (data) {
-          this.rev = res.rev;
-          await this.applySave(data);
-          await this.applyAuthoritativeState(await api.getState());
-          this.writeLocal(data);
-          return true;
-        }
-        // Account has no server save yet → a genuinely fresh account. Start clean
-        // from its own (empty) cache; do NOT adopt the device's offline farm — that
-        // would bleed one player's farm into another account on a shared browser.
-        this.rev = 0;
-        const local = await this.loadLocal();
-        await this.applyAuthoritativeState(await api.getState());
-        return local;
-      } catch (e) {
-        if (!(e instanceof api.ApiError) || e.status !== 0) {
-          console.warn("[save] server load failed; falling back to local", e);
-        }
-        // fall through to the local cache
+        const boot = await api.bootstrap();
+        this.presentationVersion = boot.presentation.version;
+        this.lastPresentation = JSON.stringify(boot.presentation.data);
+        await this.applySave(this.fromBootstrap(boot));
+        try { localStorage.setItem(this.cacheKey(), this.lastPresentation); } catch { /* ignore */ }
+        return Object.keys(boot.gameplay.farm.plots).length > 0 || boot.gameplay.objects.objects.length > 0 || boot.gameplay.roster.length > 0;
+      } catch (error) {
+        console.warn("[bootstrap] authoritative load failed; gameplay remains unavailable", error);
+        return false;
       }
     }
-    // Offline / signed-out: local only (original behavior).
     return this.loadLocal();
   }
 
-  // Load from THIS identity's own cache key only (account cache when signed in, the
-  // local profile slot when not). Never reads another key, so accounts can't share
-  // a farm on a shared device.
-  private async loadLocal(): Promise<boolean> {
-    const raw = this.readLocal(this.cacheKey());
-    if (!raw) return false;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      console.warn("[save] corrupt JSON; starting fresh");
-      return false;
-    }
-    const data = this.validate(parsed);
-    if (!data) return false;
-    await this.applySave(data);
-    return true;
-  }
-
-  private readLocal(key: string): string | null {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  }
-
-  /** Accept only a SaveGame at the current schema version. */
-  private validate(data: unknown): SaveGame | null {
-    const d = data as SaveGame | null;
-    if (!d || typeof d !== "object") return null;
-    if (d.version !== SAVE_VERSION) {
-      // No prior versions exist yet; add migrations here when the schema grows.
-      console.warn(`[save] version ${d.version} != ${SAVE_VERSION}; starting fresh`);
-      return null;
-    }
-    return d;
-  }
-
-  // Hydrate the whole game from a validated SaveGame. Shared by the local and
-  // server load paths.
-  private async applySave(data: SaveGame): Promise<void> {
-    const p = data.player;
-    this.state.apply({
-      name: p.name,
-      gold: p.gold,
-      brains: p.brains,
-      xp: p.xp,
-      zombieCount: p.zombieCount,
-      zombieMax: Math.max(16, p.zombieMax || 16),
+  private fromBootstrap(boot: Awaited<ReturnType<typeof api.bootstrap>>): SaveGame {
+    const p = boot.presentation.data as PresentationData;
+    const objectLayout = new Map((p.objectLayout ?? []).map((o) => [o.id, o]));
+    const rosterLayout = new Map((p.rosterLayout ?? []).map((u) => [u.id, u]));
+    const plots = Object.entries(boot.gameplay.farm.plots).map(([key, plot]) => {
+      const [oc, or] = key.split(":").map(Number);
+      if (plot.state === "plowed") return { oc, or, state: "plowed" as const };
+      if (plot.state === "spent") return { oc, or, state: plot.zombie ? "hole" as const : "dirt" as const };
+      return { oc, or, state: "planted" as const, crop: {
+        key: plot.cropKey, isZombie: plot.zombie, plantedAt: plot.plantedAt,
+        growMs: plot.growMs, fertilized: plot.fertilized,
+      } };
     });
-    this.state.unlockedAbilities = p.unlockedAbilities ?? [];
-    this.state.zombiePotBought = p.zombiePotBought ?? false;
+    const objects = boot.gameplay.objects.objects.flatMap((obj) => {
+      if (obj.status !== "placed") return [];
+      const layout = objectLayout.get(obj.instanceId);
+      return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout?.oc ?? 0, or: layout?.or ?? 0,
+        rotation: layout?.rotation, readyAt: obj.readyAt }];
+    });
+    const roster = boot.gameplay.roster.map((unit) => {
+      const layout = rosterLayout.get(unit.id);
+      return { id: unit.id, key: unit.key, mutation: unit.mutation, invasions: unit.invasions,
+        stored: unit.stored, pos: layout?.pos, color: layout?.color };
+    });
+    return {
+      version: SAVE_VERSION,
+      savedAt: boot.serverTime,
+      player: {
+        name: p.player?.name ?? "Zombie Farmer",
+        ...boot.gameplay.balance,
+        zombieMax: boot.gameplay.zombieMax,
+        zombieCount: roster.filter((u) => !u.stored).length,
+        farmer: p.player?.farmer,
+      },
+      farm: { fieldId: "default", w: boot.gameplay.farmSize, h: boot.gameplay.farmSize,
+        climate: p.farm?.climate ?? "grass", ownedClimates: boot.gameplay.climates, plots },
+      objects,
+      ownedZombies: roster,
+      storage: {
+        itemCap: 8,
+        items: Object.entries(boot.gameplay.storage.stored).map(([key, count]) => ({ key, count })),
+        received: Object.entries(boot.gameplay.storage.received).flatMap(([key, count]) => Array(count).fill(key)),
+      },
+      boosts: Object.entries(boot.gameplay.inventory).map(([key, count]) => ({ key, count })),
+      quests: { active: boot.gameplay.quests.progress.map((q) => ({ id: q.questId, counts: q.counts })), completed: boot.gameplay.quests.completed },
+      raids: { completed: boot.gameplay.raids.progress, lastRaidAt: boot.gameplay.raids.lastRaidAt, attackOrder: p.ui?.attackOrder ?? [] },
+      social: { friends: boot.social.friends.map((friend) => ({ id: friend.accountId, name: friend.name, addedAt: boot.serverTime, giftsSent: 0 })) },
+      tutorial: p.tutorial,
+    };
+  }
+
+  private async loadLocal(): Promise<boolean> {
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(this.cacheKey()); } catch { return false; }
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw) as SaveGame;
+      if (data.version !== SAVE_VERSION) return false;
+      await this.applySave(data);
+      return true;
+    } catch { return false; }
+  }
+
+  private async applySave(data: SaveGame): Promise<void> {
+    const player = data.player;
+    this.state.apply({ name: player.name, gold: player.gold, brains: player.brains, xp: player.xp,
+      zombieCount: player.zombieCount, zombieMax: Math.max(16, player.zombieMax || 16) });
+    this.state.unlockedAbilities = player.unlockedAbilities ?? [];
+    this.state.zombiePotBought = player.zombiePotBought ?? false;
     if (data.storage) {
       this.state.storageItemCap = data.storage.itemCap ?? 8;
       this.state.storedItems = data.storage.items ?? [];
@@ -280,134 +249,70 @@ export class SaveManager {
     this.state.raidsCompleted = data.raids?.completed ?? {};
     this.state.lastRaidAt = data.raids?.lastRaidAt ?? 0;
     this.state.raidAttackOrder = data.raids?.attackOrder ?? [];
-    // Friends: default gift counters for forward-compat with pre-social saves.
-    this.state.friends = (data.social?.friends ?? []).map((f) => ({
-      ...f,
-      giftsSent: f.giftsSent ?? 0,
-    }));
-    // First-run tutorial progress (absent on pre-tutorial saves = never started).
+    this.state.friends = (data.social?.friends ?? []).map((friend) => ({ ...friend, giftsSent: friend.giftsSent ?? 0 }));
     this.state.tutorial = data.tutorial;
-    // Grow the field to the saved size BEFORE restoring plots/objects, so plots on
-    // land added by a Farm Size upgrade validate against the expanded bounds
-    // (otherwise Field.restore would drop them as out-of-range). Never shrinks.
     if (data.farm.w && data.farm.h) this.field.resize(data.farm.w, data.farm.h);
-    // Ground/climate skin: owned set + the currently-applied terrain.
     this.state.ownedClimates = data.farm.ownedClimates ?? ["grass"];
     if (!this.state.ownedClimates.includes("grass")) this.state.ownedClimates.unshift("grass");
     this.field.setClimate(data.farm.climate ?? "grass");
     this.field.restore(data.farm.plots, (key) => this.catalog.get(key));
-    // Preload the saved objects' textures (lazy) before rebuilding them.
-    const objs = data.objects ?? [];
-    await Promise.all(
-      objs.flatMap((o) => {
-        const def = this.placeCatalog.get(o.key);
-        if (!def) return [];
-        const loads = [this.preload(def.sprite)];
-        if (def.growingSprite) loads.push(this.preload(def.growingSprite));
-        return loads;
-      })
-    );
-    this.field.restoreObjects(objs, (key) => this.placeCatalog.get(key));
+    const objects = data.objects ?? [];
+    await Promise.all(objects.flatMap((object) => {
+      const def = this.placeCatalog.get(object.key);
+      if (!def) return [];
+      return [this.preload(def.sprite), ...(def.growingSprite ? [this.preload(def.growingSprite)] : [])];
+    }));
+    this.field.restoreObjects(objects, (key) => this.placeCatalog.get(key));
     this.zombies.restore(data.ownedZombies ?? []);
     this.zombies.restorePot(data.zombiePot);
-    // Restore quest progress AFTER state (level gates) and the roster are applied,
-    // so activation checks see the correct level/context.
     this.quests.restore(data.quests);
-    if (p.farmer) this.walk.teleport(p.farmer.col, p.farmer.row);
+    if (player.farmer) this.walk.teleport(player.farmer.col, player.farmer.row);
   }
 
-  private async applyAuthoritativeState(server: api.AuthoritativeState): Promise<void> {
-    this.state.syncBalance(server.balance.gold, server.balance.brains, server.balance.xp);
-    this.state.addZombieMax(Math.max(16, server.zombieMax ?? 16) - this.state.zombieMax);
-    this.state.boostInv = Object.entries(server.inventory)
-      .filter(([, count]) => count > 0)
-      .map(([key, count]) => ({ key, count }));
-    this.state.storedItems = Object.entries(server.storage.stored).map(([key, count]) => ({ key, count }));
-    this.state.received = Object.entries(server.storage.received).flatMap(([key, count]) => Array(count).fill(key));
-    this.state.syncRaidProgress(server.raids.progress);
-    this.state.lastRaidAt = server.raids.lastRaidAt;
-    this.state.ownedClimates = ["grass", ...server.shop.climates.filter((t) => t !== "grass")];
+  async hydrateReadOnly(save: SaveGame): Promise<void> { await this.applySave(save); }
+  clear(): void { try { localStorage.removeItem(this.cacheKey()); } catch { /* ignore */ } }
 
-    this.field.resizeAuthoritative(server.farm.size, server.farm.size);
-    if (!this.state.ownedClimates.includes(this.field.climate)) this.field.setClimate("grass");
-    this.field.restore(server.farm.plots, (key) => this.catalog.get(key));
-    await Promise.all(
-      server.objects.flatMap((o) => {
-        const def = this.placeCatalog.get(o.key);
-        if (!def) return [];
-        const loads = [this.preload(def.sprite)];
-        if (def.growingSprite) loads.push(this.preload(def.growingSprite));
-        return loads;
-      })
-    );
-    this.field.restoreObjects(server.objects, (key) => this.placeCatalog.get(key));
-    this.zombies.restore(server.roster);
-    this.quests.restoreAuthoritative(server.quests);
-  }
-
-  /** Hydrate the live singletons from a save for READ-ONLY viewing (visiting a
-   *  friend's farm). Reuses the normal restore path, but the caller must NOT
-   *  enableAutosave() in this mode: this never writes locally or to the server and
-   *  never touches `rev`, so a visit cannot persist anything. */
-  async hydrateReadOnly(save: SaveGame): Promise<void> {
-    await this.applySave(save);
-  }
-
-  clear() {
-    try {
-      localStorage.removeItem(this.cacheKey());
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // Wire up autosave. Call AFTER load() so hydration doesn't trigger a redundant
-  // write.
-  //
-  // Two SEPARATE cadences (see SECURITY.md "Method for reducing server load"):
-  //   • LOCAL (localStorage): a short `localMs` debounce, so a browser crash loses
-  //     at most a fraction of a second of progress — crash resilience must NOT
-  //     depend on a network push. Cheap (no quota concern).
-  //   • REMOTE (D1 via the Worker): a longer `remoteMs` trailing debounce with a
-  //     `maxDirtyMs` ceiling, coalescing bursts into few uploads to spare the
-  //     free-tier D1 write allowance (the real bottleneck), while the ceiling stops
-  //     a plain debounce postponing an upload forever during continuous play.
-  enableAutosave(localMs = 250, remoteMs = 5000, maxDirtyMs = 30000) {
+  enableAutosave(localMs = 250, remoteMs = 60_000): void {
     let localTimer = 0;
     let remoteTimer = 0;
-    let dirtySince = 0; // epoch ms of the first un-uploaded change in the current burst
-    const flushLocal = () => this.writeLocal(this.serialize());
-    const fireRemote = () => {
-      dirtySince = 0;
-      this.save(); // writes local + pushes remote
+    let dirtySince = 0;
+    const flushLocal = () => {
+      if (this.isOnline()) {
+        try { localStorage.setItem(this.cacheKey(), JSON.stringify(this.presentation())); } catch { /* ignore */ }
+      } else this.writeLocal(this.serialize());
     };
+    const fireRemote = () => { remoteTimer = 0; dirtySince = 0; this.commitPresentation(); };
     const schedule = () => {
-      // Local: keep the on-disk cache within `localMs` of the live game.
+      const encoded = JSON.stringify(this.presentation());
+      if (this.isOnline() && encoded === this.lastPresentation) return;
       clearTimeout(localTimer);
       localTimer = window.setTimeout(flushLocal, localMs);
-      // Remote: trailing debounce, but never wait past the max-dirty ceiling.
-      const now = Date.now();
-      if (!dirtySince) dirtySince = now;
-      const untilMax = Math.max(0, maxDirtyMs - (now - dirtySince));
-      clearTimeout(remoteTimer);
-      remoteTimer = window.setTimeout(fireRemote, Math.min(remoteMs, untilMax));
+      if (!this.isOnline()) return;
+      if (!dirtySince) dirtySince = Date.now();
+      if (!remoteTimer) {
+        const sinceDirty = remoteMs - (Date.now() - dirtySince);
+        const sinceCall = remoteMs - (Date.now() - this.lastPresentationCallAt);
+        remoteTimer = window.setTimeout(fireRemote, Math.max(0, sinceDirty, sinceCall));
+      }
     };
+    this.scheduleSave = schedule;
     this.autoFlush = () => {
       clearTimeout(localTimer);
       clearTimeout(remoteTimer);
-      dirtySince = 0;
-      this.save();
+      remoteTimer = 0;
+      flushLocal();
+      const remaining = remoteMs - (Date.now() - this.lastPresentationCallAt);
+      if (remaining <= 0) {
+        dirtySince = 0;
+        this.commitPresentation();
+      } else {
+        if (!dirtySince) dirtySince = Date.now();
+        remoteTimer = window.setTimeout(fireRemote, remaining);
+      }
     };
     this.state.onChange(schedule);
-    // Critical-boundary / durability flushes. `visibilitychange → hidden` is the
-    // reliable mobile "app backgrounded" signal; `beforeunload` is best-effort.
-    window.addEventListener("beforeunload", () => this.save());
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") this.autoFlush?.();
-    });
-    // Outbox: when the network returns, flush any change that failed to push.
-    window.addEventListener("online", () => {
-      if (this.dirty && this.isOnline() && !this.conflicted) void this.push(this.serialize());
-    });
+    window.addEventListener("beforeunload", () => this.autoFlush?.());
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") this.autoFlush?.(); });
+    window.addEventListener("online", () => { if (this.presentationDirty) void this.push(this.presentation()); });
   }
 }
