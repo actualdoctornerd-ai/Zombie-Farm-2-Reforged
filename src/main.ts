@@ -1424,6 +1424,7 @@ async function main() {
         }
         raidSessionId = gate.sessionId ?? null;
         if (gate.inventory) economy?.adoptRaidStartInventory(gate.inventory);
+        if (gate.lastRaidAt != null) state.syncRaidCooldown(gate.lastRaidAt);
         opts = { ...opts, serverAuthorized: true, bypassed: !!gate.bypassed, serverDice: gate.dice ?? 0 };
       } catch (error) {
         if (error instanceof api.ApiError) {
@@ -1488,7 +1489,7 @@ async function main() {
           raidSessionId = null;
           void api
             .raidFinish(sid, finalTick, inputs, outcome)
-            .then((r) => { state.lastRaidAt = r.lastRaidAt; })
+            .then((r) => { state.syncRaidCooldown(r.lastRaidAt); })
             .catch(() => {});
         }
         hud.openRaidResult(view, () => {

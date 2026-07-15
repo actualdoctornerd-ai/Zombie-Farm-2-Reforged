@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameState } from "../GameState";
 import { EconomyClient } from "./economy";
 import type { CommandBatchResponse } from "./protocol";
+import * as api from "./api";
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("v3 raid dependency ids", () => {
   it("translates a selected optimistic harvest id after the batch settles", () => {
@@ -35,5 +38,29 @@ describe("v3 raid dependency ids", () => {
     (economy as any).adoptCommandResponse(response);
     expect(economy.authoritativeUnitId("z1")).toBe("server-zombie");
     expect(economy.authoritativeUnitId("already-server-owned")).toBe("already-server-owned");
+  });
+
+  it("adopts the authoritative cooldown immediately after raid finish", async () => {
+    const state = new GameState();
+    const economy = new EconomyClient(state, "cooldown-test-account");
+    vi.spyOn(api, "raidFinish").mockResolvedValue({
+      lastRaidAt: 123_456,
+      balance: { gold: 200, brains: 15, xp: 0 },
+      gold: 0,
+      xp: 0,
+      firstClear: false,
+      raidProgress: {},
+    });
+
+    await economy.submitRaid("raid-session", 100, [], {
+      win: false,
+      rounds: 1,
+      survivors: [],
+      losses: [],
+      enemiesBeaten: 0,
+      playerDamage: 0,
+    }, {});
+
+    expect(state.lastRaidAt).toBe(123_456);
   });
 });

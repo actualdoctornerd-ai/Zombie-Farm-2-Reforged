@@ -220,6 +220,7 @@ export class EconomyClient {
     if (result.inventory) this.serverInv = { ...result.inventory };
     if (result.storage) this.state.syncStorage(result.storage.received, result.storage.stored);
     if (result.raidProgress) this.state.syncRaidProgress(result.raidProgress);
+    this.state.syncRaidCooldown(result.lastRaidAt);
     this.onQuestChanges?.(result.questChanges ?? []);
     this.reconcile();
     this.onRaidSettled?.(result);

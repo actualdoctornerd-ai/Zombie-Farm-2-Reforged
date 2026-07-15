@@ -108,7 +108,7 @@ export async function startRaid(
   );
   await db.batch(statements);
   return { status: 200, body: { ok: true, sessionId, bypassed: remaining > 0, dice,
-    concentration, inventory: core.inventory, expiresAt, earliestFinishAt } };
+    concentration, inventory: core.inventory, lastRaidAt: now, expiresAt, earliestFinishAt } };
 }
 
 export async function finishRaid(

@@ -599,6 +599,8 @@ export const raidStart = (
     dice?: number;
     concentration?: boolean;
     inventory?: Record<string, number>;
+    /** Authoritative time at which this accepted invasion started its cooldown. */
+    lastRaidAt?: number;
   }>("POST", "/raid/start", {
     useVoucher,
     raidId,

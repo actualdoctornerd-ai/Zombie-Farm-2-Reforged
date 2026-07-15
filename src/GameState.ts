@@ -326,6 +326,11 @@ export class GameState {
     this.raidsCompleted = { ...progress };
     this.emit();
   }
+  /** Adopt the server's authoritative start time as soon as an invasion is accepted. */
+  syncRaidCooldown(lastRaidAt: number) {
+    this.lastRaidAt = Math.max(0, lastRaidAt);
+    this.emit();
+  }
   /** Whether the player has ever cleared a raid (drives first-clear rewards). */
   hasClearedRaid(id: string): boolean {
     return (this.raidsCompleted[id] ?? 0) > 0;
