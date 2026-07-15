@@ -31,6 +31,7 @@ interface ObjectRule {
   storageSlots: number;
   growMs: number;
   harvestValue: number;
+  zombiePot?: boolean;
 }
 
 interface NamedRule { name: string }
@@ -46,7 +47,10 @@ export function zombieDefaultMutation(key: string): number {
   return zombieMutations.get(key) ?? 0;
 }
 const objectRules = new Map(
-  (objectRows as (ObjectRule & { key: string })[]).map((r) => [r.key, r])
+  (objectRows as (ObjectRule & { key: string })[]).map((r) => [r.key, {
+    ...r,
+    zombiePot: r.key === "zombieCombiner",
+  }])
 );
 
 export interface MutableGameplayState extends GameplayProjection {}
@@ -311,11 +315,17 @@ function applyOne(
           events.push(harvest.event);
         }
       } else if (command.key === "insta_grow") {
-        const key = plotKey(command.oc ?? -1, command.or ?? -1);
-        const plot = state.farm.plots[key];
-        if (plot?.state === "planted" && !isRipe(plot, options.now)) {
-          plot.plantedAt = options.now - plot.growMs;
-          effects = 1;
+        if (command.target === "zombie_pot") {
+          effects = state.objects.objects.some((object) =>
+            object.status === "placed" && !!objectRules.get(object.catalogKey)?.zombiePot
+          ) ? 1 : 0;
+        } else {
+          const key = plotKey(command.oc ?? -1, command.or ?? -1);
+          const plot = state.farm.plots[key];
+          if (plot?.state === "planted" && !isRipe(plot, options.now)) {
+            plot.plantedAt = options.now - plot.growMs;
+            effects = 1;
+          }
         }
       } else {
         // Raid-only powers are consumed at raid start, not through ordinary commands.
@@ -384,6 +394,7 @@ function applyOne(
         state.balance.gold += rule.harvestValue;
         obj.readyAt = options.now + rule.growMs;
         harvested++;
+        events.push({ type: "kCropHarvestedNotification", subject: rule.name });
       }
       return harvested ? { sequence, status: "applied" } : reject(sequence, "no_effect");
     }
@@ -416,6 +427,11 @@ function applyOne(
       state.roster = state.roster.filter((u) => u.id !== a.id && u.id !== b.id);
       state.roster.push({ id, key: resultKey, mutation, invasions: 0, stored: false });
       created.push(id);
+      events.push({
+        type: "kCombinerCombinedNotification",
+        subject: [zombieNames.get(a.key) ?? a.key, zombieNames.get(b.key) ?? b.key].sort().join(" "),
+      });
+      events.push({ type: "kCombinerHarvestedNotification", subject: zombieNames.get(resultKey) ?? resultKey });
       return { sequence, status: "applied", createdIds: [id] };
     }
     case "shop.size": {

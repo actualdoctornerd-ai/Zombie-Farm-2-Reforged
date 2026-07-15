@@ -11,13 +11,14 @@
 // portraits, not side-view stage actors.
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
-import { BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, ENEMY_SPAWN_X, FIELD_H, FIELD_W, SimUnit } from "./BattleSim";
+import { BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, ENEMY_SPAWN_X, FIELD_H, FIELD_W, SimUnit, TELEPORT_PX } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
 import { EnemyActor } from "./EnemyActor";
 import { ParticleField, ParticleConfig } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
 import { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
 import { RAID_TICK_MS, type RaidReplayInput } from "./replay";
+import { extrapolatePosition, interpolatePosition, visualCountdown } from "./renderInterpolation";
 
 type RaidInputDraft =
   | { type: "bubble"; unitId: string }
@@ -60,6 +61,7 @@ const END_PAUSE_MS = 650; // beat after the last blow before we move on
 const OUTRO_WALK_SPEED = 230; // sim px/s — a normal march (cf. enemy EMERGE_SPEED 210)
 const OUTRO_RESULT_DELAY_MS = 1500; // beat before the loot panel comes in from the right
 const DEATH_FADE = 0.45; // seconds for a fallen unit to poof + fade out
+const HEAL_POSE_S = 0.7; // Garden healer raises, holds, then lowers both arms
 const PLAYER_COLOR = 0x8bc34a;
 const ENEMY_COLOR = 0xef5350;
 const BOSS_COLOR = 0xffc107;
@@ -86,10 +88,10 @@ const SIZE_REF_SCALE = 1.6;
 // the ground line the characters stand on sits GROUND_FY down the image, and the
 // boss perches on the silo at PERCH_F*. Letterbox areas fill with sky/grass.
 const GROUND_FY = 0.9;
-// Units sit a touch below the bg's ground line (they were reading a bit high) —
-// about 20% of a zombie's on-screen height. Zombies sit a little lower still.
+// Units sit below the bg's painted ground line. The second offset is shared by all
+// ground combatants so enemy feet use the same baseline as zombie feet.
 const GROUND_NUDGE = ZOMBIE_H * 0.2;
-const PLAYER_NUDGE = ZOMBIE_H * 0.22;
+const UNIT_GROUND_NUDGE = ZOMBIE_H * 0.22;
 // Default boss perch (fraction of the stage rect) for raids with no right-side
 // structure — the boss hovers up-right like a UFO (Aliens) rather than standing.
 const PERCH_FX = 0.82;
@@ -181,6 +183,8 @@ interface Token {
   actorBaseScale: number; // the zombie rig's normal container scale (for the feet-anchored grow)
   actorBaseY: number; // and its normal container y (feet at the token origin)
   healFxSeq: number; // last heal event rendered for this unit
+  healCastSeq: number; // last heal cast rendered for this Garden zombie
+  healPose: number; // seconds remaining in the arms-overhead healing pose
 }
 
 async function loadTex(url: string): Promise<Texture | null> {
@@ -657,7 +661,7 @@ export class RaidScene {
       root, actor, enemyActor, hp, charge, base, topY, pulse: 0, atkCount: 0,
       deathAnim: -1, emerged: false,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
-      healFxSeq: 0,
+      healFxSeq: 0, healCastSeq: 0, healPose: 0,
     };
   }
 
@@ -799,7 +803,7 @@ export class RaidScene {
   private mapProjY(sy: number): number {
     const r = this.bgRect();
     const perchY = r.top + this.perchFY * r.h;
-    const groundLineY = r.groundY + GROUND_NUDGE * this.sizeScale();
+    const groundLineY = r.groundY + (GROUND_NUDGE + UNIT_GROUND_NUDGE) * this.sizeScale();
     const t = (sy - BOSS_STRUCT_Y) / (CENTER_Y - BOSS_STRUCT_Y);
     return perchY + t * (groundLineY - perchY);
   }
@@ -834,19 +838,29 @@ export class RaidScene {
 
     const toX = (sx: number) => this.mapX(sx);
     const toY = (sy: number) => this.mapY(sy);
+    const renderPos = (u: SimUnit) => this.phase === "fight"
+      ? interpolatePosition(
+          { x: u.prevX, y: u.prevY },
+          { x: u.x, y: u.y },
+          this.simAccumulatorMs,
+          RAID_TICK_MS,
+          TELEPORT_PX
+        )
+      : { x: u.x, y: u.y };
+    const visualLeadMs = this.phase === "fight" ? Math.min(this.simAccumulatorMs, RAID_TICK_MS) : 0;
     // Boss perch on the structure (computed), and its descent lerp back to the ground.
     const perchX = r.left + this.perchFX * r.w;
     const perchY = r.top + this.perchFY * r.h;
-    const bossPos = (u: SimUnit): [number, number] => {
+    const bossPos = (u: SimUnit, x: number, y: number): [number, number] => {
       // Perched: on the structure. Descending: slide right off-screen at perch height
       // (behind the structure — reads as exiting through the entrance). Emerging/hold/
       // fight: a normal ground unit, walking in from the right to the attack spot.
       if (u.state === "structure") return [perchX, perchY];
       if (u.state === "descending") {
-        const t = Math.max(0, Math.min(1, (u.x - BOSS_STRUCT_X) / (ENEMY_SPAWN_X - BOSS_STRUCT_X)));
+        const t = Math.max(0, Math.min(1, (x - BOSS_STRUCT_X) / (ENEMY_SPAWN_X - BOSS_STRUCT_X)));
         return [perchX + t * (r.left + r.w + 140 - perchX), perchY];
       }
-      return [toX(u.x), toY(u.y)];
+      return [toX(x), toY(y)];
     };
 
     const introSlide = this.phase === "intro" ? (1 - this.phaseT / INTRO_MS) * (r.w * 0.28) : 0;
@@ -895,17 +909,23 @@ export class RaidScene {
       // fixed-pixel giants. szs also scales unit-space offsets (drop, poof, settle).
       const szs = this.sizeScale();
       const slide = u.team === "player" ? -introSlide : 0;
-      const drop = u.team === "player" ? PLAYER_NUDGE * szs : 0; // zombies sit lower
-      let [sx, sy] = u.isBoss ? bossPos(u) : [toX(u.x) + slide, toY(u.y) + drop];
+      const groundDrop = UNIT_GROUND_NUDGE * szs;
+      const pos = renderPos(u);
+      let [sx, sy] = u.isBoss ? bossPos(u, pos.x, pos.y) : [toX(pos.x) + slide, toY(pos.y) + groundDrop];
+      // Perched/exiting bosses use their structure baseline; after re-entering the
+      // lane they stand on the same lowered ground baseline as every other unit.
+      if (u.isBoss && u.state !== "structure" && u.state !== "descending") sy += groundDrop;
       // Mini Buddy jumps from its waiting spot onto the Large zombie, then rides
       // near the carrier's shoulder until the pair reaches the frontline.
       if (u.state === "carried" && u.buddyCarrierId) {
         const carrier = this.sim.units.find((p) => p.id === u.buddyCarrierId);
         const carrierTok = carrier ? this.tokens.get(carrier.id) : undefined;
         if (carrier && carrierTok) {
-          const tx = toX(carrier.x) - 8 * szs;
-          const ty = toY(carrier.y) + PLAYER_NUDGE * szs + carrierTok.topY * 0.58 * szs;
-          const t = Math.max(0, Math.min(1, 1 - u.buddyMountMs / 500));
+          const carrierPos = renderPos(carrier);
+          const tx = toX(carrierPos.x) - 8 * szs;
+          const ty = toY(carrierPos.y) + UNIT_GROUND_NUDGE * szs + carrierTok.topY * 0.58 * szs;
+          const mountMs = visualCountdown(u.buddyMountMs, visualLeadMs, RAID_TICK_MS);
+          const t = Math.max(0, Math.min(1, 1 - mountMs / 500));
           sx += (tx - sx) * t;
           sy += (ty - sy) * t - Math.sin(Math.PI * t) * 30 * szs;
         }
@@ -962,10 +982,17 @@ export class RaidScene {
         tok.healFxSeq = u.healFxSeq;
         if (this.healCfg) this.particles.burst(this.healCfg, sx, sy + tok.topY * 0.45 * szs, 0.55);
       }
+      if (u.healCastSeq > tok.healCastSeq) {
+        tok.healCastSeq = u.healCastSeq;
+        tok.healPose = HEAL_POSE_S;
+      }
+      if (tok.healPose > 0) tok.healPose = Math.max(0, tok.healPose - dtSec);
 
       // Zombie rig: play the walk animation whenever it's actually moving, and
       // turn to face the way it's pacing (so waiting zombies mill back and forth).
-      const windup = u.windupKey ? 1 - u.windupMs / Math.max(1, u.windupTotal) : 0;
+      const visualWindupMs = visualCountdown(u.windupMs, visualLeadMs, RAID_TICK_MS);
+      const visualAttackMs = visualCountdown(u.timerMs, visualLeadMs, RAID_TICK_MS);
+      const windup = u.windupKey ? 1 - visualWindupMs / Math.max(1, u.windupTotal) : 0;
       // The simulation advances at a fixed 50 ms cadence while rendering can run
       // faster. Use the velocity retained by the last simulation tick, rather than
       // comparing positions each render frame: the latter alternated moving/stopped
@@ -976,6 +1003,14 @@ export class RaidScene {
         if (Math.abs(u.vx) > 6) tok.actor.setFacingFromDelta(u.vx);
         const moving = u.alive && (simMoving || introMarch);
         tok.actor.update(dtSec, moving);
+
+        // Garden heal: lift both arms overhead, hold through the healing burst, then
+        // lower them. This pose is visual only; healing remains simulation-owned.
+        const healElapsed = HEAL_POSE_S - tok.healPose;
+        const healRaise = tok.healPose <= 0 ? 0
+          : healElapsed < 0.14 ? healElapsed / 0.14
+          : tok.healPose < 0.16 ? tok.healPose / 0.16
+          : 1;
 
         // Smash (bash family): grow to 1+SMASH_GROW while charging (tracks the arm
         // raise), then a rapid slam+shrink on release. Detect release by the smash
@@ -1004,8 +1039,8 @@ export class RaidScene {
         // (forward) > waiting (sides). The attack wave is locked to the sim's attack
         // clock — a full switch per cooldown — kept continuous per hit by atkCount.
         const fighting = u.state === "fight" && !u.windupKey && u.alive;
-        const atkProg = Math.max(0, Math.min(1, 1 - u.timerMs / Math.max(1, u.cooldownMs)));
-        tok.actor.poseArms(windup, fighting, moving, atkProg, tok.atkCount, slamProg);
+        const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
+        tok.actor.poseArms(Math.max(windup, healRaise), fighting, moving, atkProg, tok.atkCount, slamProg);
       }
       // Enemy rig: idle bob when holding position, walk cycle while advancing, and a
       // forward strike lunge while trading blows — the lunge peaks at the attack's
@@ -1013,14 +1048,14 @@ export class RaidScene {
       if (tok.enemyActor) {
         if (Math.abs(u.vx) > 6) tok.enemyActor.setFacingFromDelta(u.vx);
         const enemyFighting = u.state === "fight" && u.alive;
-        const atkProg = Math.max(0, Math.min(1, 1 - u.timerMs / Math.max(1, u.cooldownMs)));
+        const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
         let attack = enemyFighting ? { atkProg, damageTiming: u.attackDamageTiming } : null;
         // Perched boss: a simple throw swing — the arm cocks and swings forward as the
         // throw winds up, releasing (peak reach) as the projectile launches. Map the
         // sim's 0..1 wind-up onto the attack envelope's active window (past its rest
         // lead-in) so the arm animates over the whole wind-up.
         if (u.isBoss && u.state === "structure") {
-          const sw = this.sim.bossThrowSwing();
+          const sw = this.sim.bossThrowSwing(550, visualLeadMs);
           attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
         }
         tok.enemyActor.update(dtSec, u.alive && simMoving, attack);
@@ -1185,13 +1220,14 @@ export class RaidScene {
       sp.width = size;
       sp.height = size;
       sp.rotation = pr.rot;
-      let px = this.mapX(pr.x);
-      let py = this.mapProjY(pr.y);
+      const visual = extrapolatePosition(pr.x, pr.y, pr.vx, pr.vy, this.simAccumulatorMs, RAID_TICK_MS);
+      let px = this.mapX(visual.x);
+      let py = this.mapProjY(visual.y);
       if (!pr.hazard && !pr.crossing) {
         // Boss throw/laser: re-anchor the ORIGIN to the boss's hand, fading the shift
         // to zero as the projectile nears the ground so the LANDING still tracks the
         // target zombie. (The raw sim origin maps to a point down-left of the boss.)
-        const t = Math.max(0, Math.min(1, (pr.y - BOSS_STRUCT_Y) / (CENTER_Y - BOSS_STRUCT_Y)));
+        const t = Math.max(0, Math.min(1, (visual.y - BOSS_STRUCT_Y) / (CENTER_Y - BOSS_STRUCT_Y)));
         const fade = 1 - t;
         px += (this.bossHandX - this.mapX(BOSS_STRUCT_X)) * fade;
         py += (this.bossHandY - this.mapProjY(BOSS_STRUCT_Y)) * fade;
@@ -1260,20 +1296,28 @@ export class RaidScene {
         // Combat advances only in fixed ticks. Rendering remains free to interpolate
         // at the display cadence, but it can no longer change the outcome.
         let catchup = 0;
+        let stepped = false;
         while (this.simAccumulatorMs >= RAID_TICK_MS && !this.sim.finished && catchup++ < 5) {
           this.sim.step(RAID_TICK_MS);
           this.simAccumulatorMs -= RAID_TICK_MS;
           this.simTick++;
+          stepped = true;
         }
-        for (const u of this.sim.units) {
-          if (u.struckThisTick) {
-            const t = this.tokens.get(u.id);
-            if (t) {
-              t.pulse = 1;
-              t.atkCount++; // completes an arm-wave switch (the attacker just hit)
-              // A small dust burst at the point of impact (victim's mid-body).
-              if (this.bashCfg && u.alive) {
-                this.particles.burst(this.bashCfg, t.root.x, t.root.y + t.topY * 0.5, 0.28);
+        // `struckThisTick` remains set until the NEXT simulation step resets it. Only
+        // consume it on a frame that actually advanced the sim; otherwise a 60/120 Hz
+        // renderer would replay one strike several times, resetting the pulse and
+        // flipping the attack-arm parity every display frame.
+        if (stepped) {
+          for (const u of this.sim.units) {
+            if (u.struckThisTick) {
+              const t = this.tokens.get(u.id);
+              if (t) {
+                t.pulse = 1;
+                t.atkCount++; // completes an arm-wave switch (the attacker just hit)
+                // A small dust burst at the point of impact (victim's mid-body).
+                if (this.bashCfg && u.alive) {
+                  this.particles.burst(this.bashCfg, t.root.x, t.root.y + t.topY * 0.5, 0.28);
+                }
               }
             }
           }

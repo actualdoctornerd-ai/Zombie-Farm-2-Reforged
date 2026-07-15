@@ -6,7 +6,7 @@ async function startedRaid() {
   await call("POST", "/economy/sync", s.token, { seed: { gold: 0, brains: 0, xp: 0 } });
   await grantRoster(s, [{ id: "z1", key: "ZombieActorRegularTier1" }]);
   const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, {
-    raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: 2,
+    raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: 3,
   });
   return { s, sessionId: start.body.sessionId };
 }

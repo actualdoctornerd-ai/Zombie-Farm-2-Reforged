@@ -30,6 +30,7 @@ import type {
   RaidOutcome,
   RaidStage,
 } from "./types";
+import { ENEMY_DAMAGE_MULT } from "./balance";
 
 const STEP_MS = 100; // simulation tick
 const MAX_SIM_MS = 20 * 60 * 1000; // safety cap (min-damage 1 prevents true stalls)
@@ -107,7 +108,8 @@ function unit(
  *  Min 1 so the sim can't stall. */
 function hitDamage(u: CombatUnit): number {
   const power = u.str * POWER_PER_STR;
-  return Math.max(1, Math.round(deriveHitDamage(power, u.attacks[0]?.mult ?? 1)));
+  const base = deriveHitDamage(power, u.attacks[0]?.mult ?? 1);
+  return Math.max(1, Math.round(base * (u.team === "enemy" ? ENEMY_DAMAGE_MULT : 1)));
 }
 
 // Distraction model: during an invasion the enemy distracts your zombies, costing

@@ -1093,6 +1093,12 @@ const STYLE = `
    above every panel (level-up/quest-complete are z-index 24). It is itself
    pointer-events:none; children opt in. */
 #hud .tut-layer { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+/* Tutorial tools use the same compact selected-tool button as the normal collapsed
+   HUD. Keep the active Multi/Plow/Insta-Grow icon at bottom-right without showing
+   the full bottom bar; refreshTools() already keeps this icon and boost count live. */
+#hud.tutorial .tools { display: none !important; }
+#hud.tutorial .fab { display: block !important; }
+#hud.tutorial .qtoggle { display: none !important; }
 /* Full-screen tap blocker: only present while a step gates input. It swallows
    every DOM tap so nothing but the highlighted element is reachable. */
 #hud.tutorial .tut-blocker { position: fixed; inset: 0; pointer-events: auto;
@@ -1104,25 +1110,28 @@ const STYLE = `
   animation: tutGlow 1s ease-in-out infinite; }
 @keyframes tutGlow { 0%,100% { box-shadow: 0 0 0 3px #ffe27a, 0 0 12px 3px rgba(255,210,80,.7); }
   50% { box-shadow: 0 0 0 4px #fff0a8, 0 0 22px 7px rgba(255,210,80,1); } }
-/* Tim's slide-up popup: sprite + speech bubble, anchored to the bottom edge. */
-#hud .tut-tim { position: fixed; left: 50%; bottom: 0; pointer-events: auto;
-  display: flex; align-items: flex-end; gap: 10px; transform: translate(-50%, 110%);
-  transition: transform .45s cubic-bezier(.2,.9,.25,1.1); max-width: 96vw; z-index: 42; }
-#hud .tut-tim.in { transform: translate(-50%, 0); }
+/* Tim's slide-up popup: anchored at bottom-left. The right-side width reserve keeps
+   even a wrapped speech bubble clear of the selected-tool button. */
+#hud .tut-tim { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: 0;
+  pointer-events: auto; display: flex; align-items: flex-end; gap: 10px;
+  transform: translateY(110%); transition: transform .45s cubic-bezier(.2,.9,.25,1.1);
+  max-width: calc(100vw - 100px); z-index: 42; }
+#hud .tut-tim.in { transform: translateY(0); }
 #hud .tut-tim-sprite { width: 150px; height: auto; flex: 0 0 auto;
   filter: drop-shadow(0 3px 6px rgba(0,0,0,.5)); pointer-events: none;
   transform: translateY(6px); }
 #hud .tut-bubble { position: relative; margin-bottom: 40px; background: #fffdf3;
   color: #3a2410; border: 3px solid #7a4a1e; border-radius: 14px; padding: 14px 18px;
   font-weight: 700; font-size: 16px; line-height: 1.35; white-space: pre-line;
-  box-shadow: 0 4px 12px rgba(0,0,0,.45); max-width: min(420px, 70vw); cursor: pointer; }
+  box-shadow: 0 4px 12px rgba(0,0,0,.45); max-width: min(420px, 70vw); min-width: 0;
+  cursor: pointer; }
 /* Little tail pointing at Tim. */
 #hud .tut-bubble::after { content: ""; position: absolute; left: -14px; bottom: 22px;
   border: 8px solid transparent; border-right-color: #7a4a1e; }
 #hud .tut-hint { display: block; margin-top: 8px; font-size: 12px; font-weight: 700;
   color: #9a7038; opacity: .85; }
 /* Pulsing arrow that points at the current target. */
-#hud .tut-arrow { position: fixed; width: 54px; height: 54px; pointer-events: none;
+#hud .tut-arrow { position: fixed; width: 27px; height: 27px; pointer-events: none;
   z-index: 41; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5));
   animation: tutBob 0.9s ease-in-out infinite; transform-origin: center; }
 @keyframes tutBob { 0%,100% { translate: 0 0; } 50% { translate: 0 -10px; } }
@@ -4619,12 +4628,14 @@ export class Hud {
 
     const done = document.createElement("button");
     done.className = "lvl-go";
-    done.textContent = "Continue";
+    done.textContent = "OK";
     const close = () => { bg.remove(); this.onQuestCompleteClosed?.(); };
     done.onclick = close;
     panel.appendChild(done);
     bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) close(); };
+    // Quest completions may appear while the player is mid-action. Keep the modal
+    // open through stray/backdrop taps so its explicit OK button is the only way to
+    // acknowledge it (and advance to the next queued completion).
     this.el.appendChild(bg);
     requestAnimationFrame(() => panel.classList.add("in"));
   }

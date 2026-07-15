@@ -110,6 +110,17 @@ export class ZombieField {
     return winner.displayName;
   }
 
+  /** Play a server-confirmed fertilization. The server owns the aggregate chance
+   *  but does not name the actor, so an eligible deployed Garden zombie performs it. */
+  animateFertilize(oc: number, or: number): string | null {
+    const gardens = this.units.filter((u) => u.group === "Garden");
+    if (!gardens.length) return null;
+    const winner = gardens[Math.floor(Math.random() * gardens.length)];
+    const spot = this.field.plotFrontSpot(oc, or);
+    winner.teleportTo(spot.x, spot.y);
+    return winner.displayName;
+  }
+
   private syncCount() {
     this.state.setZombieCount(this.units.length);
   }
@@ -292,6 +303,11 @@ export class ZombieField {
   /** Is the running combine finished and ready to collect? */
   get combineReady(): boolean {
     return this.pot.ready;
+  }
+
+  /** Apply Insta-Grow to the running Zombie Pot job. */
+  finishCombineNow(): boolean {
+    return this.pot.finishNow();
   }
 
   /**

@@ -79,6 +79,28 @@ describe("Garden healing and formation depth", () => {
     expect(h.slotX).toBeLessThan(f.slotX - 200);
     expect(f.hp).toBeGreaterThan(2000);
     expect(f.healFxSeq).toBe(1);
+    expect(h.healCastSeq).toBe(1);
+  });
+
+  it("doubles enemy melee damage in the live simulation", () => {
+    const player = unit({ id: "player", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy" });
+    const sim = new BattleSim([player], [enemy], null, true);
+    expect(sim.units.find((u) => u.id === "player")!.damage).toBe(35);
+    expect(sim.units.find((u) => u.id === "enemy")!.damage).toBe(70);
+  });
+
+  it("doubles boss projectile damage", () => {
+    const player = unit({ id: "player", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const wall = unit({ id: "wall", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 300 });
+    const boss = unit({ id: "boss", sourceKey: "FarmStageActorBoss", team: "enemy", isBoss: true, con: 300 });
+    const sim = new BattleSim([player], [wall, boss], {
+      intervalMs: 50,
+      options: [{ damage: 6, weight: 1, sprite: "throw.png", spriteSize: 32 }],
+    }, true);
+    sim.units.find((u) => u.id === "player")!.state = "advance";
+    sim.step(50);
+    expect(sim.projectiles[0]?.damage).toBe(22); // round(6 × 1.75) × 2
   });
 
   it("places combat priority from visual front to back within a column", () => {

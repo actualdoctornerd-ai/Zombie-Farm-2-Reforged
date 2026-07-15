@@ -37,6 +37,10 @@ const TILT_BACK_FRAC = 0.6;
 const STEP_SPEED = 4.5;
 const STEP_LIFT = 2.5;
 const STEP_ANGLE = 0.18;
+const FERTILIZE_CAST_MS = 1100;
+const FERTILIZE_RAISE_MS = 220;
+const FERTILIZE_LOWER_MS = 220;
+const ARM_RAISE_ANGLE = -2.5;
 
 export class ZombieUnit {
   readonly container = new Container();
@@ -56,6 +60,7 @@ export class ZombieUnit {
   private footB!: Sprite;
   private footFBaseY = 0;
   private footBBaseY = 0;
+  private arms: { sp: Sprite; baseRotation: number }[] = [];
   private renderScale = MODEL_BASE; // MODEL_BASE * model group-scale
 
   private wx = 0;
@@ -69,6 +74,7 @@ export class ZombieUnit {
   // Half the sprite's rendered footprint, for click hit-testing.
   private hitHalfW = 24;
   private hitH = 60;
+  private fertilizeCastMs = 0;
 
   constructor(assets: GameAssets, field: Field, data: OwnedZombie) {
     this.field = field;
@@ -110,7 +116,8 @@ export class ZombieUnit {
     this.wy = wy;
     this.path = [];
     this.sleeping = false;
-    this.pauseMs = 1600; // linger by the crop before wandering off
+    this.pauseMs = 100;
+    this.fertilizeCastMs = FERTILIZE_CAST_MS;
     this.sync();
   }
 
@@ -151,6 +158,7 @@ export class ZombieUnit {
         this.headParts.push({ sp, bx: p.px, by: p.py }); // tilts with the head-nod
       } else if (p.group === "footF") { this.footF = sp; this.footFBaseY = p.py; }
       else if (p.group === "footB") { this.footB = sp; this.footBBaseY = p.py; }
+      else if (/Arm[FB]/i.test(p.file)) this.arms.push({ sp, baseRotation: sp.rotation });
     }
     // Attach crop-mutation parts from the unit's mask (onion head, celery arm, …).
     // Independent of species: a combined zombie shows exactly the mutations it
@@ -294,7 +302,21 @@ export class ZombieUnit {
 
   update(dt: number) {
     let moving = false;
-    if (this.path.length) {
+    if (this.fertilizeCastMs > 0) {
+      this.fertilizeCastMs = Math.max(0, this.fertilizeCastMs - dt * 1000);
+      const elapsed = FERTILIZE_CAST_MS - this.fertilizeCastMs;
+      const raise = elapsed < FERTILIZE_RAISE_MS
+        ? elapsed / FERTILIZE_RAISE_MS
+        : this.fertilizeCastMs < FERTILIZE_LOWER_MS
+          ? this.fertilizeCastMs / FERTILIZE_LOWER_MS
+          : 1;
+      for (const arm of this.arms) {
+        arm.sp.rotation = arm.baseRotation + ARM_RAISE_ANGLE * Math.max(0, Math.min(1, raise));
+      }
+      if (this.fertilizeCastMs <= 0) {
+        for (const arm of this.arms) arm.sp.rotation = arm.baseRotation;
+      }
+    } else if (this.path.length) {
       const t = this.path[0];
       const dx = t.x - this.wx;
       const dy = t.y - this.wy;

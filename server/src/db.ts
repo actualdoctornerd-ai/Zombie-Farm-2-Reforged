@@ -2037,6 +2037,7 @@ export interface RosterResult {
   error?: string;
   gold?: number; // sell payout
   subject?: string;
+  combinedSubject?: string;
 }
 
 /** Apply a batch of roster actions with server authority:
@@ -2175,6 +2176,10 @@ export async function applyRosterActions(
         status: validKey ? "applied" : "rejected",
         error: validKey ? undefined : "bad_result",
         subject: validKey ? namedCatalogKey(zombieCatalogData, a.key) : undefined,
+        combinedSubject: validKey
+          ? [namedCatalogKey(zombieCatalogData, job.key_a), namedCatalogKey(zombieCatalogData, job.key_b)]
+            .filter(Boolean).sort().join(" ")
+          : undefined,
       });
     } else {
       results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });

@@ -105,6 +105,13 @@ export class ZombiePot {
     return total > 0 ? Math.min(1, (this.totalMs() - this.remainingMs()) / total) : 0;
   }
 
+  /** Finish an active timer immediately. Returns false when idle or already ready. */
+  finishNow(): boolean {
+    if (!this.job || this.ready) return false;
+    this.job.finishAt = this.now();
+    return true;
+  }
+
   /** The running job (read-only), or null. */
   get pending(): Readonly<ZombiePotSave> | null {
     return this.job;

@@ -42,6 +42,15 @@ describe("combine timer", () => {
     expect(pot.start(snap("A"), snap("B"), false)).toBe(true);
     expect(pot.start(snap("C"), snap("D"), false)).toBe(false);
   });
+
+  it("Insta-Grow finishes an active timer without collecting it", () => {
+    const { pot } = makePot();
+    pot.start(snap("A"), snap("B"), false);
+    expect(pot.finishNow()).toBe(true);
+    expect(pot.ready).toBe(true);
+    expect(pot.busy).toBe(true);
+    expect(pot.finishNow()).toBe(false);
+  });
 });
 
 describe("offline completion", () => {

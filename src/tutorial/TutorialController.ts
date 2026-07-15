@@ -15,6 +15,10 @@ import { QuestBus, QuestEvent } from "../quest/events";
 import { TutorialSave } from "../save/schema";
 import { nextTutorialStep, STEPS, StepDef, TutStep, TUTORIAL_GROW_BOOST_KEY, tutorialBoostPurchaseAllowed } from "./steps";
 
+const ARROW_SIZE = 27;
+const ARROW_MENU_GAP = 6;
+const ARROW_PLOT_GAP = 24;
+
 /** The Insta-Grow boost key (mirrors GROW_BOOST_KEY in main.ts). */
 const GROW_BOOST_KEY = TUTORIAL_GROW_BOOST_KEY;
 
@@ -306,14 +310,14 @@ export class TutorialController {
       if (!btn) { this.arrow.style.display = "none"; return; }
       const r = btn.getBoundingClientRect();
       // Sit just left of the button, pointing right (arrow_right.png is 0°).
-      this.arrow.style.left = `${r.left - 60}px`;
-      this.arrow.style.top = `${r.top + r.height / 2 - 27}px`;
+      this.arrow.style.left = `${r.left - ARROW_SIZE - ARROW_MENU_GAP}px`;
+      this.arrow.style.top = `${r.top + r.height / 2 - ARROW_SIZE / 2}px`;
       this.arrow.style.transform = "rotate(0deg)";
     } else if (def.kind === "plot" && this.plotTarget) {
       const p = this.d.plotScreenPos(this.plotTarget.col, this.plotTarget.row);
       // Sit above the plot, pointing down (rotate the right-arrow 90°).
-      this.arrow.style.left = `${p.x - 27}px`;
-      this.arrow.style.top = `${p.y - 78}px`;
+      this.arrow.style.left = `${p.x - ARROW_SIZE / 2}px`;
+      this.arrow.style.top = `${p.y - ARROW_SIZE - ARROW_PLOT_GAP}px`;
       this.arrow.style.transform = "rotate(90deg)";
     }
   }

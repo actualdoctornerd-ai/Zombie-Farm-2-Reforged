@@ -11,6 +11,7 @@ export interface InventoryInput {
   localUnitIds?: string[];
   oc?: number;
   or?: number;
+  target?: "zombie_pot";
 }
 
 export type RosterInput =
@@ -132,7 +133,7 @@ export class EconomyClient {
     if (input.type === "grant") return; // grants are emitted only by server subsystems
     const command: GameplayCommand = input.type === "buy"
       ? { type: "power.buy", key: input.key }
-      : { type: "power.use", key: input.key, oc: input.oc, or: input.or };
+      : { type: "power.use", key: input.key, oc: input.oc, or: input.or, target: input.target };
     this.enqueue(command, {
       gold: optimistic.gold,
       brains: optimistic.brains,

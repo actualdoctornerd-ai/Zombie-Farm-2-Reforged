@@ -228,10 +228,12 @@ export class JobSystem {
   private apply(job: Job) {
     if (job.kind === "walk") return;
     if (job.kind === "harvestTree") {
+      const treeName = job.objId ? this.field.objectDefOf(job.objId)?.name : undefined;
       const gold = job.objId ? this.field.harvestObject(job.objId) : null;
       if (gold) {
         if (this.state.onTreeHarvest && job.objId) this.state.onTreeHarvest(job.objId, gold);
         else this.state.addGold(gold);
+        if (treeName) this.quest.post(QuestEvent.CropHarvested, treeName);
         this.float(job.cx, job.cy, `+${gold}g`);
         this.sfx("xp");
       }

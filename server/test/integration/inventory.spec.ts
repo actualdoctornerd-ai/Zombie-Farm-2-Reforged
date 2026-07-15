@@ -182,7 +182,7 @@ describe("inventory — server-owned boosts", () => {
   it("consumes an invasion voucher server-side to bypass the raid cooldown; refuses without one", async () => {
     const s = await player();
     await grantRoster(s, [{ id: "raid-z1", key: "ZombieActorRegularTier1" }]);
-    const raid = { raidId: 1, orderedUnitIds: ["raid-z1"], rulesetVersion: 2 };
+    const raid = { raidId: 1, orderedUnitIds: ["raid-z1"], rulesetVersion: 3 };
     // Raid + finish to arm the cooldown.
     const start = await call<{ sessionId: string }>("POST", "/raid/start", s.token, raid);
     await call("POST", "/raid/finish", s.token, { sessionId: start.body.sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }] });

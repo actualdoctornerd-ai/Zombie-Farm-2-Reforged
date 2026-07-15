@@ -173,6 +173,17 @@ describe("protocol v3 command engine", () => {
     expect(result.state.farm.plots["0:0"].state).toBe("planted");
   });
 
+  it("consumes Insta-Grow when targeting a placed Zombie Pot", () => {
+    const state = freshGameplayState();
+    state.inventory.insta_grow = 1;
+    state.objects.objects.push({ instanceId: "pot", catalogKey: "zombieCombiner", status: "placed" });
+    const result = applyCommandBatch(state, commands(
+      { type: "power.use", key: "insta_grow", target: "zombie_pot" }
+    ), { now: 1 });
+    expect(result.results[0].status).toBe("applied");
+    expect(result.state.inventory.insta_grow).toBe(0);
+  });
+
   it("Plow power changes spent plots only and is not consumed on no-op", () => {
     const state = freshGameplayState();
     state.inventory.insta_plow = 2;
@@ -200,6 +211,26 @@ describe("protocol v3 command engine", () => {
     expect(result.state.objects.objects[0].readyAt).toBeGreaterThan(100);
   });
 
+  it("advances the Apple Harvest quest for a harvested Apple Tree", () => {
+    const state = freshGameplayState();
+    state.quests.completed = ["62"];
+    state.objects.objects.push({
+      instanceId: "apple-tree",
+      catalogKey: "fruitTreeApple",
+      status: "placed",
+      readyAt: 100,
+    });
+    const result = applyCommandBatch(state, commands(
+      { type: "object.harvest_trees", instanceIds: ["apple-tree"] }
+    ), { now: 100 });
+    expect(result.results[0].status).toBe("applied");
+    expect(result.questChanges).toContainEqual(expect.objectContaining({
+      questId: "63",
+      counts: [1],
+      completed: false,
+    }));
+  });
+
   it("derives combine output and id from server-held parents", () => {
     const state = freshGameplayState();
     state.roster = [
@@ -215,6 +246,20 @@ describe("protocol v3 command engine", () => {
     expect(result.state.roster).toEqual([
       { id: "server-child", key: "ZombieActorGirlTier1", mutation: 3, invasions: 0, stored: false },
     ]);
+  });
+
+  it("advances the parent-pair combine quest when the result is collected", () => {
+    const state = freshGameplayState();
+    state.quests.completed = ["55"];
+    state.roster = [
+      { id: "carrot", key: "ZombieActorRegularTier1Carrots", mutation: 4, invasions: 0, stored: false },
+      { id: "tomato", key: "ZombieActorRegularTier1Tomatoes", mutation: 1, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId: "carrot", parentBId: "tomato" }
+    ), { now: 1, id: () => "combined-zombie" });
+    expect(result.results[0].status).toBe("applied");
+    expect(result.questChanges).toContainEqual(expect.objectContaining({ questId: "56", completed: true }));
   });
 
   it("grants the tutorial completion bonus exactly once", () => {

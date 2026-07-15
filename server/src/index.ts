@@ -496,7 +496,8 @@ const validGameplayCommand = (value: unknown): value is GameplayCommand => {
     case "power.buy": return commandString(command.key);
     case "power.use":
       return commandString(command.key) && (command.oc === undefined || commandInt(command.oc)) &&
-        (command.or === undefined || commandInt(command.or));
+        (command.or === undefined || commandInt(command.or)) &&
+        (command.target === undefined || command.target === "zombie_pot");
     case "object.buy":
       return commandString(command.catalogKey) &&
         (command.clientInstanceId === undefined || commandString(command.clientInstanceId));
@@ -1818,11 +1819,11 @@ app.post("/roster/actions", async (c) => {
       .flatMap((r) => {
         const a = byId.get(r.id);
         if (!a) return [];
-        if (a.type === "combineStart") {
-          return [{ id: `roster:${r.id}:combine`, type: "kCombinerCombinedNotification", subject: r.subject }];
-        }
         if (a.type === "combineCollect") {
-          return [{ id: `roster:${r.id}:collect`, type: "kCombinerHarvestedNotification", subject: r.subject }];
+          return [
+            { id: `roster:${r.id}:combine`, type: "kCombinerCombinedNotification", subject: r.combinedSubject ?? "" },
+            { id: `roster:${r.id}:collect`, type: "kCombinerHarvestedNotification", subject: r.subject },
+          ];
         }
         return [];
       }),

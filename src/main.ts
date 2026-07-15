@@ -572,13 +572,25 @@ async function main() {
     return { name: def.name, icon: `${BASE}assets/boosts/${def.icon}`, count: () => state.boostCount(def.key) };
   };
 
-  // The Insta-Grow tool (mode "instagrow") ripens exactly the tapped crop and
-  // spends one use. A stray tap on empty/ripe ground is ignored (no wasted use).
+  // The Insta-Grow tool (mode "instagrow") ripens exactly the tapped crop or an
+  // active Zombie Pot and spends one use. A stray tap is ignored (no wasted use).
   // When the last use is spent the tool auto-unequips back to the select tool.
-  const tryInstaGrow = (col: number, row: number) => {
+  const tryInstaGrow = (col: number, row: number, wx: number, wy: number) => {
     const def = growBoostDef();
     if (!def) return;
     if (state.boostCount(def.key) <= 0) { hud.setMode("walk"); return; }
+    const objectId = field.objectAtPoint(wx, wy);
+    const objectDef = objectId ? field.objectDefOf(objectId) : null;
+    if (objectDef?.zombiePot && zombies.finishCombineNow()) {
+      if (state.onInventory) state.onInventory({ type: "use", key: def.key, target: "zombie_pot" }, { count: -1 });
+      else state.useBoost(def.key);
+      audio.play("instaGrow");
+      const p = field.objectWorkPoint(objectId!);
+      if (p) floatText(p.x, p.y - 48, "Ready!");
+      saveManager.save();
+      if (state.boostCount(def.key) <= 0) hud.setMode("walk");
+      return;
+    }
     const grown = field.growCropAt(col, row);
     if (!grown) return; // not a growing crop -> keep tool equipped
     if (state.onInventory) state.onInventory({ type: "use", key: def.key, oc: grown.oc, or: grown.or }, { count: -1 });
@@ -725,6 +737,7 @@ async function main() {
     // comes back fertilized, apply the 2x visual (leaf FX) to that plot.
     economy.onCropFertilized = (oc, or) => {
       if (field.markFertilized(oc, or)) {
+        zombies.animateFertilize(oc, or);
         const c = tileCenter(oc, or);
         floatText(c.x, c.y - 18, "Fertilized!");
       }
@@ -1106,28 +1119,23 @@ async function main() {
         : null,
     };
   };
-  // The combiner quests key off the parents' / result's TYPE names (species, e.g.
-  // "Carrot Zombie"), not a unit's individual name. `combineObject` joins the two
-  // parents alphabetically so the event object is order-independent (matches quest
-  // data like "Carrot Zombie Tomato Zombie" regardless of which slot each was in).
-  const zombieTypeName = (id: string) => zombies.roster().find((z) => z.id === id)?.typeName ?? "";
-  const combineObject = (idA: string, idB: string) =>
-    [zombieTypeName(idA), zombieTypeName(idB)].sort().join(" ");
-
   hud.onCombine = (idA, idB) => {
     if (onlineGameplayBlocked()) return false;
-    const object = combineObject(idA, idB); // read parents BEFORE they're consumed
     const ok = zombies.combine(idA, idB, potBaseMs());
     if (ok) {
-      questBus.post(QuestEvent.CombinerCombined, object);
       saveManager.save();
     }
     return ok;
   };
   hud.onCollectCombine = () => {
     if (onlineGameplayBlocked()) return null;
+    const pending = zombies.combinePot.pending;
+    const object = pending
+      ? [zombieDefs.get(pending.keyA)?.name ?? "", zombieDefs.get(pending.keyB)?.name ?? ""].filter(Boolean).sort().join(" ")
+      : "";
     const z = zombies.collectCombine(walk.tile.col, walk.tile.row);
     if (z) {
+      if (object) questBus.post(QuestEvent.CombinerCombined, object);
       questBus.post(QuestEvent.CombinerHarvested, z.typeName);
       const c = tileCenter(z.col, z.row);
       floatText(c.x, c.y, z.mutation ? `${z.name}!` : z.name);
@@ -1824,7 +1832,7 @@ async function main() {
       return;
     }
     if (hud.mode === "instagrow") {
-      tryInstaGrow(col, row); // ripen the tapped crop, spend one use
+      tryInstaGrow(col, row, wx, wy); // ripen the tapped crop or Zombie Pot
       dragging = false;
       return;
     }
@@ -1886,6 +1894,13 @@ async function main() {
       return;
     }
     if (hud.mode === "instagrow") {
+      const id = field.objectAtPoint(wx, wy);
+      const isActivePot = !!id && !!field.objectDefOf(id)?.zombiePot && zombies.combinePot.busy && !zombies.combineReady;
+      field.setObjectHighlight(isActivePot ? id : null);
+      if (isActivePot) {
+        field.hideCursor();
+        return;
+      }
       field.setCursor(col, row, "grow"); // green over a growing crop, red otherwise
       return;
     }
@@ -2165,15 +2180,19 @@ async function main() {
     // Zombie Pot: start combining two owned zombies by id (needs a placed Zombie
     // Pot). e.g. ZF.combine("z1","z2"). Returns whether it started.
     combine: (idA: string, idB: string) => {
-      const object = combineObject(idA, idB);
-      const ok = zombies.combine(idA, idB);
-      if (ok) questBus.post(QuestEvent.CombinerCombined, object);
-      return ok;
+      return zombies.combine(idA, idB);
     },
     // Collect a finished combine onto the farmer's tile (or storage if capped).
     collectCombine: () => {
+      const pending = zombies.combinePot.pending;
+      const object = pending
+        ? [zombieDefs.get(pending.keyA)?.name ?? "", zombieDefs.get(pending.keyB)?.name ?? ""].filter(Boolean).sort().join(" ")
+        : "";
       const z = zombies.collectCombine(walk.tile.col, walk.tile.row);
-      if (z) questBus.post(QuestEvent.CombinerHarvested, z.typeName);
+      if (z) {
+        if (object) questBus.post(QuestEvent.CombinerCombined, object);
+        questBus.post(QuestEvent.CombinerHarvested, z.typeName);
+      }
       return z;
     },
     // Inspect the running combine: { busy, ready, remainingMs, pending }.

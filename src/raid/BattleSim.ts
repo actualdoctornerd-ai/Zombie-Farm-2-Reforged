@@ -29,6 +29,7 @@
 import type { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidOutcome } from "./types";
 import { ACTIVATED_ABILITY, activatedKeyFor, teamAbilitiesIn } from "../zombie/abilities";
 import { deriveHitDamage, POWER_PER_STR } from "./combatStats";
+import { ENEMY_DAMAGE_MULT, PROJECTILE_DAMAGE_MULT } from "./balance";
 
 /** Logical field the sim runs in; RaidScene scales this to the viewport. */
 export const FIELD_W = 1000;
@@ -99,7 +100,7 @@ const PREDICT_SPEED_CAP = 150; // sim px/s — never lead a target faster than t
 // Above this per-step displacement, a unit was teleported (knockback re-slot, boss
 // perch↔ground) rather than walking — its measured velocity is discarded (max real
 // step is moveSpeed≤260 × dt≤0.05s ≈ 13 px).
-const TELEPORT_PX = 40;
+export const TELEPORT_PX = 40;
 // Raw bossActions throw damage (6/12/18) has no melee-comparable scale in the data, so
 // it's a tuned chip value. Scaled to sit alongside the ground-truth melee/HP numbers
 // (a basic zombie is now ~14 dmg/hit vs con×100 HP): raw 6/12/18 × 1.75 = ~10/21/32,
@@ -229,6 +230,7 @@ export interface SimUnit {
   buddyMountMs: number; // jump-to-carrier animation time remaining
   healTimerMs: number; // Garden support heal cadence
   healFxSeq: number; // increments when this unit receives a heal (renderer trigger)
+  healCastSeq: number; // increments when this Garden zombie performs a heal
   stunMs: number; // ms of stun left — can't act while > 0 (enemies AND zombies)
   // ---- enemy attack effects inflicted on a struck zombie ----
   knockBack: boolean; // this enemy's attack shoves the zombie back down the lane
@@ -316,7 +318,9 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     prevX: home.x,
     prevY: home.y,
     // Ground-truth per-swing damage: finalPower(str×10) × attackMult × K(0.7).
-    damage: Math.max(1, Math.round(deriveHitDamage(u.str * POWER_PER_STR, mult))),
+    damage: Math.max(1, Math.round(
+      deriveHitDamage(u.str * POWER_PER_STR, mult) * (isPlayer ? 1 : ENEMY_DAMAGE_MULT)
+    )),
     cooldownMs: u.attackCooldownMs,
     timerMs: u.attackCooldownMs,
     moveSpeed: isPlayer ? advanceSpeed(u.dex) : EMERGE_SPEED,
@@ -337,6 +341,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     buddyMountMs: 0,
     healTimerMs: 0,
     healFxSeq: 0,
+    healCastSeq: 0,
     stunMs: 0,
     knockBack: !isPlayer && !!u.knockBack,
     stunInflictMs: isPlayer ? 0 : u.stunMs ?? 0,
@@ -457,7 +462,11 @@ export class BattleSim {
   }
 
   restore(snapshot: BattleSimSnapshot): void {
-    this.units.splice(0, this.units.length, ...snapshot.units.map((u) => ({ ...u, abilities: [...u.abilities] })));
+    this.units.splice(0, this.units.length, ...snapshot.units.map((u) => ({
+      ...u,
+      abilities: [...u.abilities],
+      healCastSeq: u.healCastSeq ?? 0,
+    })));
     this.players = this.units.filter((u) => u.team === "player");
     this.enemies = this.units.filter((u) => u.team === "enemy");
     this.boss = snapshot.bossId ? this.units.find((u) => u.id === snapshot.bossId) ?? null : null;
@@ -633,6 +642,7 @@ export class BattleSim {
         target.hp = Math.min(target.maxHp, target.hp + amount);
         target.healFxSeq++;
       }
+      healer.healCastSeq++;
       healer.healTimerMs = aoe ? HEAL_AOE_MS : HEAL_SINGLE_MS;
     }
   }
@@ -1089,13 +1099,14 @@ export class BattleSim {
    *  the last `windowMs` before the next throw releases (the arm cocks and swings), or
    *  null when the boss isn't perched-and-throwing / has no target. The projectile
    *  launches as this reaches 1, so the renderer can time the arm to the release. */
-  bossThrowSwing(windowMs = 550): number | null {
+  bossThrowSwing(windowMs = 550, visualLeadMs = 0): number | null {
     if (!this.bossThrow || !this.boss || !this.boss.alive || this.boss.state !== "structure") {
       return null;
     }
     if (!this.throwTarget()) return null; // empty lane → arm rests
-    if (this.throwTimer > windowMs) return 0;
-    return clamp(1 - this.throwTimer / windowMs, 0, 1);
+    const visualTimer = Math.max(0, this.throwTimer - visualLeadMs);
+    if (visualTimer > windowMs) return 0;
+    return clamp(1 - visualTimer / windowMs, 0, 1);
   }
 
   /** Whether the boss is "active" (able to throw / cast specials): alive and either
@@ -1160,7 +1171,7 @@ export class BattleSim {
         // AoE burst: chip every zombie that has moved out to fight.
         for (const p of this.players) {
           if (p.alive && (p.state === "advance" || p.state === "fight")) {
-            this.dealDamage(p, dmg, false);
+            this.dealDamage(p, dmg * ENEMY_DAMAGE_MULT, false);
             p.struckThisTick = true;
           }
         }
@@ -1179,7 +1190,7 @@ export class BattleSim {
         // A heavy single-target lift+slam.
         const victim = this.frontFighter() ?? this.throwTarget();
         if (victim) {
-          this.dealDamage(victim, dmg * 2, false);
+          this.dealDamage(victim, dmg * 2 * ENEMY_DAMAGE_MULT, false);
           victim.struckThisTick = true;
         }
         break;
@@ -1246,7 +1257,9 @@ export class BattleSim {
       vy: 0,
       rot: 0,
       rotSpeed: -4,
-      damage: this.hazard.damage,
+      damage: this.hazard.damage
+        ? Math.max(1, Math.round(this.hazard.damage * PROJECTILE_DAMAGE_MULT))
+        : 0,
       sprite: this.hazard.sprite,
       spriteSize: 40,
       done: false,
@@ -1320,7 +1333,7 @@ export class BattleSim {
       vy,
       rot: 0,
       rotSpeed: (vx < 0 ? -1 : 1) * 7,
-      damage,
+      damage: Math.max(1, Math.round(damage * PROJECTILE_DAMAGE_MULT)),
       sprite,
       spriteSize,
       done: false,

@@ -20,7 +20,7 @@ export type GameplayCommand =
   | { type: "farm.harvest"; oc: number; or: number }
   | { type: "farm.remove"; oc: number; or: number }
   | { type: "power.buy"; key: string }
-  | { type: "power.use"; key: string; oc?: number; or?: number }
+  | { type: "power.use"; key: string; oc?: number; or?: number; target?: "zombie_pot" }
   | { type: "object.buy"; catalogKey: string; clientInstanceId?: string }
   | { type: "object.refund"; instanceId: string }
   | { type: "object.upgrade"; instanceId: string; catalogKey: string }
