@@ -874,6 +874,11 @@ const TRUSTED_QUEST_EVENTS = new Set([
   "kLootItemWonNotification",
 ]);
 
+// Quest rewards are deliberately low-stakes. Keep the event machinery available for
+// a future opt-in, but do not put normal gameplay behind asynchronous D1 processing.
+// The client advances quests immediately; completeQuest() retains the exactly-once gate.
+const SERVER_EVENT_DRIVEN_QUESTS = false;
+
 export interface TrustedGameEvent {
   id: string;
   type: string;
@@ -900,6 +905,7 @@ export async function recordTrustedGameEvents(
   events: TrustedGameEvent[],
   now: number
 ): Promise<void> {
+  if (!SERVER_EVENT_DRIVEN_QUESTS) return;
   const valid = events.filter(
     (e) => e && typeof e.id === "string" && e.id.length > 0 && e.id.length <= 160 && TRUSTED_QUEST_EVENTS.has(e.type)
   );
@@ -996,6 +1002,7 @@ export async function processQuestEvents(
   accountId: string,
   now: number
 ): Promise<QuestChange[]> {
+  if (!SERVER_EVENT_DRIVEN_QUESTS) return [];
   const pending = await db
     .prepare(
       `SELECT id, event_type, subject, amount FROM game_events

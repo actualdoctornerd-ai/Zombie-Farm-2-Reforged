@@ -481,7 +481,9 @@ async function main() {
   const quests = new QuestSystem(
     new Map(Object.entries(assets.quests)), state, questBus,
     {
-      authoritative: auth.isSignedIn(),
+      // Keep low-stakes quest progress responsive while signed in. The server still
+      // prices rewards and guarantees at most one payout per account + quest.
+      authoritative: false,
       // Online: the server grants the quest's currency reward (and any level-up brains)
       // authoritatively and idempotently; return true so QuestSystem skips the local add
       // (which the spend-only economy endpoint would reject anyway). Offline: `economy`

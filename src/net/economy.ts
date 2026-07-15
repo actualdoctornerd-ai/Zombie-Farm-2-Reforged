@@ -279,10 +279,6 @@ export class EconomyClient {
       this.serverInv = inv.inventory;
       const quests = await api.questState();
       this.onQuestState?.(quests);
-      // Version-1 quest completions were client claims. Never replay them against the
-      // retired endpoint; trusted command events now drive completion.
-      this.questPending = [];
-      this.writeQuestOutbox();
       this.reconcile();
     } catch {
       /* offline — keep showing the blob values until the server is reachable */
@@ -369,7 +365,10 @@ export class EconomyClient {
    *  the sub-second delay is fine). Idempotent by quest id server-side + a local outbox, so
    *  a crash mid-flush just retries. Flushes right away so the reward lands promptly. */
   submitQuest(questId: string): void {
-    void questId;
+    if (this.questPending.includes(questId)) return;
+    this.questPending.push(questId);
+    this.writeQuestOutbox();
+    void this.flush();
   }
 
   /** Submit a boost buy/use/grant to the server's owned inventory. `optimistic` is the
@@ -536,6 +535,7 @@ export class EconomyClient {
       await this.flushEconomy();
       await this.flushFarm();
       await this.flushRaid();
+      await this.flushQuest();
       await this.flushInv();
       await this.flushRoster();
       await this.flushObject();
@@ -545,7 +545,11 @@ export class EconomyClient {
       /* offline / transient — keep the outboxes and retry on the next change/start() */
     } finally {
       this.flushing = false;
-      if (
+      if (this.questPending.length) {
+        // A quest can complete while an existing flush is already past flushQuest().
+        // Retry immediately instead of waiting for the normal save debounce.
+        void this.flush();
+      } else if (
         this.pending.length ||
         this.farmPending.length ||
         this.raidPending.length ||
@@ -555,6 +559,16 @@ export class EconomyClient {
       ) {
         this.schedule();
       }
+    }
+  }
+
+  private async flushQuest(): Promise<void> {
+    while (this.questPending.length) {
+      const questId = this.questPending[0];
+      const res = await api.completeQuest(questId);
+      this.questPending.shift();
+      this.writeQuestOutbox();
+      this.base = res.balance;
     }
   }
 

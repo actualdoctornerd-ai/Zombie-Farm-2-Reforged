@@ -230,22 +230,31 @@ export class QuestSystem {
     this.hooks.render(this.views());
   }
 
-  /** Replace writable-save quest data with the server projection. Counts are aligned
-   * to the catalog requirements; unknown ids and malformed counters are ignored. */
+  /** Merge the server's paid-completion ledger into local quest presentation. Local
+   * progress stays responsive and survives reloads; older server counts can only move
+   * a requirement forward, never backward. */
   restoreAuthoritative(state: {
     completed: string[];
     progress: { questId: string; counts: number[] }[];
   }): void {
-    this.completed = new Set(state.completed.filter((id) => this.defs.has(id)));
+    const localCompleted = new Set(this.completed);
+    const localActive = new Map([...this.active].map(([id, counts]) => [id, counts.slice()]));
+    this.completed = new Set([
+      ...[...localCompleted].filter((id) => this.defs.has(id)),
+      ...state.completed.filter((id) => this.defs.has(id)),
+    ]);
     this.active = new Map();
     const supplied = new Map(state.progress.map((p) => [p.questId, p.counts]));
     for (const [id, def] of this.defs) {
       if (!this.eligible(id)) continue;
-      const raw = supplied.get(id) ?? [];
+      const remote = supplied.get(id) ?? [];
+      const local = localActive.get(id) ?? [];
       this.active.set(
         id,
         def.requirements.map((r, i) => {
-          const n = Number.isInteger(raw[i]) ? raw[i] : 0;
+          const remoteCount = Number.isInteger(remote[i]) ? remote[i] : 0;
+          const localCount = Number.isInteger(local[i]) ? local[i] : 0;
+          const n = Math.max(remoteCount, localCount);
           return Math.max(0, Math.min(r.countTotal, n));
         })
       );

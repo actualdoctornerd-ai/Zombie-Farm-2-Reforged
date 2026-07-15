@@ -1365,13 +1365,21 @@ app.get("/quest/state", async (c) => {
   } else {
     await db.seedLegacyQuestCompletions(c.env.DB, accountId, [], now);
   }
-  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
-  return c.json({ ...(await db.readQuestState(c.env.DB, accountId)), questChanges });
+  return c.json({ ...(await db.readQuestState(c.env.DB, accountId)), questChanges: [] });
 });
 
 app.post("/quest/complete", async (c) => {
-  slog("forged_quest_completion", { account: c.get("accountId") }, "alert");
-  return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 410);
+  const { questId } = await c.req
+    .json<{ questId: string }>()
+    .catch(() => ({ questId: "" }));
+  if (typeof questId !== "string" || !questId || questId.length > 32) {
+    return c.json({ error: "bad_request" }, 400);
+  }
+  const result = await db.completeQuest(c.env.DB, c.get("accountId"), questId, Date.now());
+  if (result.status === "rejected") {
+    slog("quest_rejected", { account: c.get("accountId"), questId, error: result.error });
+  }
+  return c.json(result);
 });
 
 // ---- farm: exact per-action economics -----------------------------------

@@ -14,10 +14,11 @@ are confirmed, this is the release-candidate posture rather than a claim about p
 
 ## Current conclusion
 
-Integrity v2 changes online play from server-bounded client claims to server-proven value
-transitions. Editing a cloud save, replaying a request, calling a reward endpoint directly,
-racing purchases, fabricating a roster casualty, or submitting a claimed raid outcome should not
-create persistent value.
+Integrity v2 changes significant online value from server-bounded client claims to server-proven
+transitions. Editing a cloud save, replaying a request, racing purchases, fabricating a roster
+casualty, or submitting a claimed raid outcome should not create persistent value. Quests are the
+deliberate low-stakes exception: completion timing is client-asserted, while rewards remain
+server-priced and payable only once per account and quest.
 
 The remaining work is operational: apply the migration, deploy the Worker/client, run production
 smoke tests, confirm replay CPU in the Workers runtime, and connect the documented security events
@@ -50,21 +51,22 @@ gifts are unique/idempotent, visitor data is projected, and sessions are revocab
   or balances.
 - Level rewards remain recoverable through the server-owned `claimed_level` compare-and-swap.
 
-### 2. Server-owned quest progression
+### 2. Client-paced, bounded-once quests
 
-- The Worker loads the full quest catalog: prerequisites, level gates, requirements, subjects,
-  targets, and rewards.
-- Accepted farm, purchase, combiner, and verified raid commands write trusted gameplay events.
-  No public route accepts gameplay events.
-- `game_events`, `quest_progress`, and nonce-bearing `quest_event_applications` make application
-  idempotent and resumable. Eligibility is evaluated from server state at event time; earlier
-  events do not count toward quests that were not yet eligible.
-- Subject matching is exact and case-insensitive. Concurrent/retried events cannot double-count.
+- Quest counters, prerequisites, and completion timing run locally for immediate presentation and
+  persist with the local save. They are intentionally not treated as proof of gameplay.
+- Normal farm, purchase, combiner, and raid commands no longer write or replay quest gameplay
+  events, reducing D1 work and removing autosave/command-flush latency from the quest rail.
+- `POST /quest/complete` accepts a catalog quest ID. The client cannot provide a reward type or
+  amount; the Worker selects the reward from its catalog.
+- The `quest_completions` primary key on `(account_id, quest_id)` elects one payout. Concurrent,
+  repeated, or crash-retried claims for the same quest cannot pay twice.
 - Currency, XP, brains, supported boost/item rewards, and level rewards grant from the server
-  catalog exactly once. Unsupported zombie reward keys remain no-grant.
-- Social, photo, stage-actor, seasonal/epic, and other unsupported event categories are dormant.
-- `POST /quest/complete` returns `410 client_upgrade_required`; direct completion claims cannot
-  pay. `GET /quest/state` and ordinary command responses return authoritative progress changes.
+  catalog. Unsupported zombie reward keys remain no-grant.
+- `GET /quest/state` is the server's paid-completion ledger. Older server progress rows may move
+  local presentation forward, but cannot roll newer local progress backward.
+- This policy knowingly allows a player to claim each catalog quest without performing its
+  objectives. The accepted maximum exposure is the finite sum of one reward per catalog quest.
 
 ### 3. Deterministic raid verification
 
@@ -114,7 +116,7 @@ gifts are unique/idempotent, visitor data is projected, and sessions are revocab
 - Integrity v2 is advertised by the client and production sets immediate enforcement. Old mutation
   clients receive `426 client_upgrade_required`.
 - Structured, PII-free events cover auth failures, rate limits, rejected prerequisites, command
-  volume, save conflicts, forged quest completion, invalid raid input, transcript size, replay CPU,
+  volume, save conflicts, rejected quest IDs, invalid raid input, transcript size, replay CPU,
   and cleanup. Aggregate Worker requests/CPU and D1 reads/writes/storage must also be monitored.
 - Cleanup retains idempotency longer than client outboxes and removes processed gameplay events,
   verifier checkpoints/locks, expired raid sessions, old ledgers, sessions, and rate buckets.
@@ -126,7 +128,8 @@ The automated suite now covers:
 - duplicate and distinct action IDs, including a 50-way barely-affordable shop race;
 - empty import permanence and roster reseed rejection;
 - nonnegative balances/counts and server-priced farm/inventory/object/roster commands;
-- direct quest-completion rejection, trusted-event progression, and retry deduplication;
+- catalog-priced quest claims, unknown-ID rejection, immediate client progress, and duplicate
+  payout prevention;
 - stale raid rulesets, foreign/duplicate rosters, roster locks, claimed outcomes, future/reordered
   transcript inputs, invalid-session closure, stored-result retries, checkpoint CAS, and snapshot
   equivalence with uninterrupted replay;
@@ -150,10 +153,10 @@ npm run test:integration
 1. Apply all remote migrations, especially `0019_integrity_v2.sql`, before deploying the Worker.
 2. Deploy the compatible Worker, then the v2 client. Do not deploy either half alone.
 3. Confirm the live Worker version and `integrityVersion: 2`; verify old mutation requests receive
-   426 and direct quest/legacy raid claims receive 410.
-4. Smoke-test `/state`, farm commands, purchases, quest event completion, raid start/checkpoint/
-   finish, duplicate finish, invalid transcript lock release, logout/revocation, gifts, friendship,
-   blocks, and visitor projection against remote D1.
+   426 and legacy raid claims receive 410.
+4. Smoke-test `/state`, farm commands, purchases, immediate quest completion plus duplicate claim,
+   raid start/checkpoint/finish, duplicate finish, invalid transcript lock release,
+   logout/revocation, gifts, friendship, blocks, and visitor projection against remote D1.
 5. Run the worst-case replay benchmark in the Workers test runtime and inspect production
    `raid_replay` p95. Keep checkpoint mode enabled unless p95 is demonstrably below 8 ms.
 6. Wire alert rules/paging for repeated account integrity failures and aggregate D1 writes, Worker
@@ -163,8 +166,10 @@ npm run test:integration
 ## Residual risk
 
 - A player can automate legitimate commands, but cannot exceed server affordability, ownership,
-  timing, catalog, quest, raid, and volume rules. Automation may still create gameplay advantage
-  within those rules and should be handled through telemetry and account policy.
+  timing, catalog, raid, and volume rules. Quest objectives are not server-verified; a player can
+  claim every quest once, but cannot choose reward values or repeat a payout. Automation may still
+  create gameplay advantage within those rules and should be handled through telemetry and account
+  policy.
 - A compromised active session can act as its account until revoked. It cannot select another
   account for ownership mutation. Protect `SESSION_SECRET`, monitor token failures, and retain
   logout-all/revocation response capability.
