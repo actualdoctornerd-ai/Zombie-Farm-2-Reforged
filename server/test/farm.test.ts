@@ -5,6 +5,7 @@ import {
 } from "../src/farm";
 import { cropEcon, CROPS } from "../src/catalog";
 import { zombieCropEcon } from "../src/zombieCropCatalog";
+import plants from "../../public/assets/plants.json";
 
 const bal = (gold = 1000, brains = 0, xp = 0) => ({ gold, brains, xp });
 const NOW = 1_700_000_000_000;
@@ -12,8 +13,12 @@ const NOW = 1_700_000_000_000;
 const ctx = (over: Partial<PlantContext> = {}): PlantContext => ({ size: 30, level: 99, plowed: true, ...over });
 
 describe("catalog", () => {
-  it("has the core and seasonal veggie crops with positive economics", () => {
-    expect(Object.keys(CROPS)).toHaveLength(22);
+  it("exactly mirrors every frontend veggie crop and its verified economics", () => {
+    const frontend = Object.fromEntries(plants.map((p) => [p.key, {
+      cost: p.cost, sell: p.sell, xp: p.xp, growMs: p.growMs, level: p.level,
+    }]));
+    expect(CROPS).toEqual(frontend);
+    expect(Object.keys(CROPS)).toHaveLength(35);
     for (const [k, c] of Object.entries(CROPS)) {
       expect(c.cost, k).toBeGreaterThan(0);
       expect(c.sell, k).toBeGreaterThan(0);

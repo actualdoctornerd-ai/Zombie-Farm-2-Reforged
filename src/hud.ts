@@ -1650,8 +1650,11 @@ export class Hud {
 
   // Catalog for the plant/zombie picker (built by main from the market data).
   setCatalog(plants: MenuCard[], zombies: MenuCard[]) {
-    this.plantCards = plants;
-    this.zombieCards = zombies;
+    // The market progression is an unlock ladder. Keep the source order for
+    // entries tied at the same level; cost, name, category, and seasonality must
+    // not influence the order.
+    this.plantCards = [...plants].sort((a, b) => a.level - b.level);
+    this.zombieCards = [...zombies].sort((a, b) => a.level - b.level);
   }
 
   // Catalog for the object buy menu (trees / decor).

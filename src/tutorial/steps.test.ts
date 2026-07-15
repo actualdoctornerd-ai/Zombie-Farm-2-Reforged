@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { nextTutorialStep, TUTORIAL_SEQUENCE, TutStep, tutorialBoostPurchaseAllowed } from "./steps";
+import {
+  nextTutorialStep, recoverTutorialCropStep, TUTORIAL_SEQUENCE, TutStep,
+  tutorialBoostPurchaseAllowed,
+} from "./steps";
 
 describe("tutorial sequence", () => {
   it("requires real plowing before planting and ends after the raid", () => {
@@ -27,5 +30,15 @@ describe("tutorial sequence", () => {
     expect(tutorialBoostPurchaseAllowed(true, TutStep.BuyInstaGrow, "insta_harvest")).toBe(false);
     expect(tutorialBoostPurchaseAllowed(true, TutStep.Plow, "insta_grow")).toBe(false);
     expect(tutorialBoostPurchaseAllowed(false, TutStep.Done, "insta_harvest")).toBe(true);
+  });
+
+  it("returns a reconciled unripe Harvest crop to the Insta-Grow step", () => {
+    expect(recoverTutorialCropStep(TutStep.Harvest, true, false, false)).toBe(TutStep.RipenCrop);
+    expect(recoverTutorialCropStep(TutStep.Harvest, true, false, true)).toBe(TutStep.Harvest);
+  });
+
+  it("rewinds missing tutorial crops to the earliest valid recovery action", () => {
+    expect(recoverTutorialCropStep(TutStep.RipenCrop, false, true, false)).toBe(TutStep.PlantZombie);
+    expect(recoverTutorialCropStep(TutStep.Harvest, false, false, false)).toBe(TutStep.Plow);
   });
 });

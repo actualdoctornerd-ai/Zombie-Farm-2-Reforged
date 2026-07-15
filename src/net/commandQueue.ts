@@ -119,7 +119,16 @@ export class CommandQueue {
   /** A causal boundary: callers await this before a raid or before spending an
    * unconfirmed result. */
   async settle(): Promise<void> {
-    await this.flush();
+    // A command may be enqueued while an older batch is already in flight. A
+    // single flush() would only await that batch and leave the dependent command
+    // parked in its next fixed window. Drain until both lanes are empty so callers
+    // really do receive a causal boundary.
+    while (!this.paused && this.size > 0) {
+      if (this.timer) clearTimeout(this.timer);
+      this.timer = null;
+      if (this.pending.length) this.queuedAt = this.now() - this.windowMs;
+      await this.flush();
+    }
     if (this.paused) throw new Error("gameplay_unavailable");
   }
 

@@ -73,6 +73,29 @@ describe("protocol v3 command queue", () => {
     expect(sent[0].commands.map((entry: any) => entry.sequence)).toEqual(Array.from({ length: 64 }, (_, i) => i + 1));
   });
 
+  it("settles commands queued behind an already in-flight batch", async () => {
+    let releaseFirst!: () => void;
+    const firstReleased = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const sent: any[] = [];
+    vi.spyOn(api, "sendCommandBatch").mockImplementation(async (batch) => {
+      sent.push(batch);
+      if (sent.length === 1) await firstReleased;
+      return responseFor(batch);
+    });
+    const queue = new CommandQueue("causal-settle-test");
+    queue.adoptBootstrap(bootstrap);
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    const firstFlush = queue.flush();
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    queue.enqueue({ type: "farm.plant", oc: 0, or: 0, cropKey: "carrot" });
+    const settled = queue.settle();
+    releaseFirst();
+    await firstFlush;
+    await settled;
+    expect(sent).toHaveLength(2);
+    expect(sent.flatMap((batch) => batch.commands.map((entry: any) => entry.sequence))).toEqual([1, 2]);
+  });
+
   it("retries an identical 429 batch and never retries validation 4xx", async () => {
     vi.useFakeTimers();
     const seen: any[] = [];

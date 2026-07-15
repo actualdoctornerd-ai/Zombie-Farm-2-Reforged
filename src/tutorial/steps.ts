@@ -42,6 +42,23 @@ export function tutorialBoostPurchaseAllowed(active: boolean, step: TutStep, key
   return !active || (step === TutStep.BuyInstaGrow && key === TUTORIAL_GROW_BOOST_KEY);
 }
 
+/** Recover an in-progress crop beat from authoritative farm state. In particular,
+ * an optimistic Insta-Grow can briefly look ripe before server reconciliation;
+ * Harvest must return to RipenCrop instead of trapping the grow tool on a crop the
+ * server still considers unripe. */
+export function recoverTutorialCropStep(
+  step: TutStep,
+  hasCrop: boolean,
+  canPlant: boolean,
+  isRipe: boolean
+): TutStep {
+  if (step !== TutStep.BuyInstaGrow && step !== TutStep.RipenCrop && step !== TutStep.Harvest)
+    return step;
+  if (!hasCrop) return canPlant ? TutStep.PlantZombie : TutStep.Plow;
+  if (step === TutStep.Harvest && !isRipe) return TutStep.RipenCrop;
+  return step;
+}
+
 export type StepKind = "narrative" | "plot" | "menu";
 
 export interface StepDef {

@@ -206,11 +206,35 @@ def make_composites():
 def slice_crops():
     # Core + event crop frames that live in the two packed crop atlases.
     n = slice_named("Crops1.plist", "Crops1.png", [
+        "Bloodberry_stage1.png", "Bloodberry_stage2.png",
+        "Pumpking_stage1.png", "Pumpking_stage2.png",
+        "Skellyberry_stage1.png", "Skellyberry_stage2.png",
+        "Spineapple_stage1.png", "Spineapple_stage2.png",
+        "Sun_Glower_stage1.png", "Sun_Glower_stage2.png",
+        "breadfruit_stage1.png", "breadfruit_stage2.png",
+        "broccoli_stage1.png", "broccoli_stage2.png",
         "carrot_stage1.png", "carrot_stage2.png",
         "candycorn_stage1.png", "candycorn_stage2.png",
+        "cauliflower_stage1.png", "cauliflower_stage2.png",
+        "celerey_stage1.png", "celerey_stage2.png",
+        "coffee_stage1.png", "coffee_stage2.png",
+        "corpseflower_stage1.png", "corpseflower_stage2.png",
+        "dragonfruit_stage1.png", "dragonfruit_stage2.png",
+        "garlic_stage1.png", "garlic_stage2.png",
+        "limabean_stage1.png", "limabean_stage2.png",
+        "meatflower_stage1.png", "meatflower_stage2.png",
+        "onion_stage1.png", "onion_stage2.png",
+        "potato_stage1.png", "potato_stage2.png",
+        "sampaguita_stage1.png", "sampaguita_stage2.png",
     ], "crops")
-    n += slice_named("Crops2.plist", "Crops2.png",
-                     ["corn_stage1.png", "corn_stage2.png"], "crops")
+    n += slice_named("Crops2.plist", "Crops2.png", [
+        "Tomato_stage1.png", "Tomato_stage2.png",
+        "corn_stage1.png", "corn_stage2.png",
+        "eyebiscus_stage1.png", "eyebiscus_stage2.png",
+        "heartichoke_stage1.png", "heartichoke_stage2.png",
+        "turnip_stage1.png", "turnip_stage2.png",
+        "venusflytrap_stage1.png", "venusflytrap_stage2.png",
+    ], "crops")
     n += slice_named("starFruitCrop.plist", "starFruitCrop.png",
                      ["starfruit1_stage1.png", "starfruit1_stage2.png"], "crops")
 

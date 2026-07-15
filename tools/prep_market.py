@@ -140,9 +140,10 @@ def main():
         # the runtime derives the group aura from the taxonomy (see traits.ts).
         z.pop("abilities", None)
 
-    # Keep unlock-ordered so early crops surface first in the picker.
-    plants.sort(key=lambda p: (p.get("level", 1), p.get("cost", 0)))
-    zombies.sort(key=lambda z: (z.get("level", 1), z.get("cost", 0)))
+    # Keep the market unlock-ordered. Python's sort is stable, so entries tied at
+    # a level retain their authored order; do not introduce a cost/name tiebreaker.
+    plants.sort(key=lambda p: p.get("level", 1))
+    zombies.sort(key=lambda z: z.get("level", 1))
 
     with open(PLANTS, "w", encoding="utf-8") as f:
         json.dump(plants, f, indent=1)

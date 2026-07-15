@@ -1210,6 +1210,10 @@ async function main() {
       return null;
     },
     isRaidActive: () => raidActive,
+    // Plant and Insta-Grow are causally dependent server mutations. Confirm the
+    // tutorial crop before the boost beat so an older plant projection cannot
+    // overwrite the optimistic ripe timestamp from the first power use.
+    settlePlant: () => economy?.settleBeforeDependency() ?? Promise.resolve(),
     grantCompletionBonus: () => {
       state.addGold(200);
       economy?.submitTutorialCompletion();

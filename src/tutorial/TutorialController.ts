@@ -13,7 +13,10 @@ import { ZombieField } from "../zombie/ZombieField";
 import { Hud } from "../hud";
 import { QuestBus, QuestEvent } from "../quest/events";
 import { TutorialSave } from "../save/schema";
-import { nextTutorialStep, STEPS, StepDef, TutStep, TUTORIAL_GROW_BOOST_KEY, tutorialBoostPurchaseAllowed } from "./steps";
+import {
+  nextTutorialStep, recoverTutorialCropStep, STEPS, StepDef, TutStep,
+  TUTORIAL_GROW_BOOST_KEY, tutorialBoostPurchaseAllowed,
+} from "./steps";
 
 const ARROW_SIZE = 27;
 const ARROW_MENU_GAP = 6;
@@ -36,6 +39,8 @@ export interface TutorialDeps {
   isRaidActive: () => boolean;
   /** Apply the visible bonus and, online, enqueue its one-time semantic grant. */
   grantCompletionBonus?: () => void;
+  /** Confirm the planted tutorial zombie before exposing a dependent power use. */
+  settlePlant?: () => Promise<void>;
 }
 
 export class TutorialController {
@@ -46,6 +51,7 @@ export class TutorialController {
   private plotTarget: { col: number; row: number } | null = null;
   private unsubBus: (() => void) | null = null;
   private raf = 0;
+  private settlingPlant = false;
 
   // DOM
   private layer!: HTMLDivElement;
@@ -87,12 +93,13 @@ export class TutorialController {
     if (step === TutStep.PlantZombie && this.plotTarget &&
         !this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)) {
       step = TutStep.Plow;
-    } else if (
-      (step === TutStep.BuyInstaGrow || step === TutStep.RipenCrop || step === TutStep.Harvest) &&
-      this.plotTarget && !this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row)
-    ) {
-      step = this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)
-        ? TutStep.PlantZombie : TutStep.Plow;
+    } else if (this.plotTarget) {
+      step = recoverTutorialCropStep(
+        step,
+        this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row),
+        this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row),
+        this.d.field.isRipe(this.plotTarget.col, this.plotTarget.row)
+      );
     }
     this.persist(step, false);
     this.begin(step);
@@ -239,7 +246,8 @@ export class TutorialController {
         // chosen coordinates needed by the following planting step.
         break;
       case TutStep.PlantZombie:
-        if (nid === QuestEvent.CropPlanted && object.toLowerCase() === "zombie") this.advance();
+        if (nid === QuestEvent.CropPlanted && object.toLowerCase() === "zombie")
+          this.confirmPlantThenAdvance();
         break;
       case TutStep.Harvest:
         if (nid === QuestEvent.ZombieHarvested) this.advance();
@@ -250,6 +258,22 @@ export class TutorialController {
       default:
         break;
     }
+  }
+
+  /** A power use depends on the planted crop already existing server-side. Await
+   * the shared ordered command lane before letting the tutorial buy/use the power,
+   * otherwise an earlier plant projection can overwrite the optimistic ripening. */
+  private confirmPlantThenAdvance() {
+    if (this.settlingPlant) return;
+    const settle = this.d.settlePlant;
+    if (!settle) { this.advance(); return; }
+    this.settlingPlant = true;
+    void settle()
+      .then(() => {
+        if (this.active && this.current === TutStep.PlantZombie) this.advance();
+      })
+      .catch(() => { /* the economy client surfaces its own unavailable state */ })
+      .finally(() => { this.settlingPlant = false; });
   }
 
   // ---- poll-driven advancement + arrow reposition (rAF loop) ----
@@ -263,18 +287,19 @@ export class TutorialController {
 
     // If an old client-only tutorial plot disappears when authoritative farm state
     // arrives, rewind to the earliest real action the surviving state supports.
-    if (this.plotTarget && this.current === TutStep.PlantZombie &&
+    if (!this.settlingPlant && this.plotTarget && this.current === TutStep.PlantZombie &&
         !this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)) {
       this.advanceTo(TutStep.Plow);
       return;
     }
-    if (this.plotTarget &&
-        (this.current === TutStep.BuyInstaGrow || this.current === TutStep.RipenCrop ||
-         this.current === TutStep.Harvest) &&
-        !this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row)) {
-      this.advanceTo(this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)
-        ? TutStep.PlantZombie : TutStep.Plow);
-      return;
+    if (this.plotTarget) {
+      const recovered = recoverTutorialCropStep(
+        this.current,
+        this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row),
+        this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row),
+        this.d.field.isRipe(this.plotTarget.col, this.plotTarget.row)
+      );
+      if (recovered !== this.current) { this.advanceTo(recovered); return; }
     }
 
     // Poll the beats that have no game event to listen to.
