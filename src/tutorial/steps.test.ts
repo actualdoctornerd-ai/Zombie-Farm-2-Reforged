@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextTutorialStep, TUTORIAL_SEQUENCE, TutStep } from "./steps";
+import { nextTutorialStep, TUTORIAL_SEQUENCE, TutStep, tutorialBoostPurchaseAllowed } from "./steps";
 
 describe("tutorial sequence", () => {
   it("requires real plowing before planting and ends after the raid", () => {
@@ -20,5 +20,12 @@ describe("tutorial sequence", () => {
     expect(nextTutorialStep(TutStep.Plow)).toBe(TutStep.PlantZombie);
     expect(nextTutorialStep(TutStep.Invade)).toBe(TutStep.Done);
     expect(nextTutorialStep(TutStep.Done)).toBeNull();
+  });
+
+  it("allows only Insta-Grow to be purchased during the guided boost beat", () => {
+    expect(tutorialBoostPurchaseAllowed(true, TutStep.BuyInstaGrow, "insta_grow")).toBe(true);
+    expect(tutorialBoostPurchaseAllowed(true, TutStep.BuyInstaGrow, "insta_harvest")).toBe(false);
+    expect(tutorialBoostPurchaseAllowed(true, TutStep.Plow, "insta_grow")).toBe(false);
+    expect(tutorialBoostPurchaseAllowed(false, TutStep.Done, "insta_harvest")).toBe(true);
   });
 });

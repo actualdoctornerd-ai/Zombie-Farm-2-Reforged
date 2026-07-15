@@ -7,6 +7,7 @@
 
 /** The key of the base "Zombie" unit — the only plantable the tutorial allows. */
 export const TUTORIAL_ZOMBIE_KEY = "ZombieActorRegularTier1";
+export const TUTORIAL_GROW_BOOST_KEY = "insta_grow";
 
 /** Ordered tutorial beats. Numeric so it persists compactly in the save. */
 export enum TutStep {
@@ -36,6 +37,11 @@ export function nextTutorialStep(step: TutStep): TutStep | null {
   return i >= 0 && i + 1 < TUTORIAL_SEQUENCE.length ? TUTORIAL_SEQUENCE[i + 1] : null;
 }
 
+/** During the guided boost purchase, only the required item may spend currency. */
+export function tutorialBoostPurchaseAllowed(active: boolean, step: TutStep, key: string): boolean {
+  return !active || (step === TutStep.BuyInstaGrow && key === TUTORIAL_GROW_BOOST_KEY);
+}
+
 export type StepKind = "narrative" | "plot" | "menu";
 
 export interface StepDef {
@@ -59,7 +65,7 @@ export const STEPS: Record<TutStep, StepDef> = {
   [TutStep.Plow]: {
     step: TutStep.Plow,
     kind: "plot",
-    say: "First, let's prepare the soil.\nPlow the glowing patch of ground.",
+    say: "First, let's prepare the soil.\nPlow any open patch of ground.",
   },
   [TutStep.PlantZombie]: {
     step: TutStep.PlantZombie,

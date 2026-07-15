@@ -65,7 +65,9 @@ export class JobSystem {
     private quest: QuestBus = new QuestBus(),
     // Fired after a veggie crop is planted, to let Garden zombies roll to fertilize
     // it. Returns the fertilizing zombie's name (for a toast) or null.
-    private onCropPlanted: (oc: number, or: number, cfg: CropConfig) => string | null = () => null
+    private onCropPlanted: (oc: number, or: number, cfg: CropConfig) => string | null = () => null,
+    // Carries the exact free-placement origin into the tutorial's next beat.
+    private onPlotPlowed: (oc: number, or: number) => void = () => {}
   ) {}
 
   private key(kind: JobKind, oc: number, or: number) {
@@ -249,6 +251,7 @@ export class JobSystem {
         }
         this.float(job.cx, job.cy, cost > 0 ? `-${cost}g  +1xp` : `+1xp`);
         this.sfx("xp");
+        this.onPlotPlowed(job.oc, job.or);
         this.quest.post(QuestEvent.SoilPlowed, "Plow");
         this.quest.post(QuestEvent.NewSoilPlowed, "Plow");
       }

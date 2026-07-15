@@ -414,6 +414,7 @@ async function main() {
   // Quest event bus: plow/plant/harvest/buy post notifications that the QuestSystem
   // turns into quest progress. Created before the JobSystem so farm actions can post.
   const questBus = new QuestBus();
+  let tutorial: TutorialController | null = null;
 
   // The farmer's job queue (till / plant / harvest / walk). He walks to each target,
   // hoes, then the action applies; queued plots stay highlighted green until done.
@@ -422,7 +423,8 @@ async function main() {
     field, actor, walk, state, floatText, (name) => audio.play(name),
     (key, oc, or) => zombies.spawnVerified(key, oc + 1, or + 1)?.id ?? null,
     questBus,
-    (oc, or) => zombies.tryFertilize(oc, or)
+    (oc, or) => zombies.tryFertilize(oc, or),
+    (oc, or) => tutorial?.onPlotPlowed(oc, or)
   );
 
   // Quest-complete celebration, styled like the level-up popup. Quests can finish in
@@ -514,6 +516,7 @@ async function main() {
 
   hud.onBuyBoost = (def) => {
     if (onlineGameplayBlocked()) return false;
+    if (tutorial && !tutorial.allowsBoostPurchase(def.key)) return false;
     if (def.effect === "gift" && giftLimitReached(def.key)) return false; // 1 per farm
     if (state.onInventory) {
       // ONLINE: the server prices the boost (exact catalog cost), debits currency, and
@@ -1169,7 +1172,7 @@ async function main() {
   // isRaidActive() closure reads an already-initialised binding; the raid launch
   // handler assigns it.
   let raidActive = false;
-  const tutorial = new TutorialController({
+  tutorial = new TutorialController({
     hud, state, field, zombies, questBus,
     // Screen-pixel center of a plot origin (world → global for the arrow).
     plotScreenPos: (col, row) => {

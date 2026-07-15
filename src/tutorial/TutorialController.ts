@@ -13,10 +13,10 @@ import { ZombieField } from "../zombie/ZombieField";
 import { Hud } from "../hud";
 import { QuestBus, QuestEvent } from "../quest/events";
 import { TutorialSave } from "../save/schema";
-import { nextTutorialStep, STEPS, StepDef, TutStep } from "./steps";
+import { nextTutorialStep, STEPS, StepDef, TutStep, TUTORIAL_GROW_BOOST_KEY, tutorialBoostPurchaseAllowed } from "./steps";
 
 /** The Insta-Grow boost key (mirrors GROW_BOOST_KEY in main.ts). */
-const GROW_BOOST_KEY = "insta_grow";
+const GROW_BOOST_KEY = TUTORIAL_GROW_BOOST_KEY;
 
 export interface TutorialDeps {
   hud: Hud;
@@ -153,13 +153,13 @@ export class TutorialController {
    *  target plot is tappable; every other farm tap (and all taps during menu /
    *  narrative beats) is frozen. */
   allowsTile(col: number, row: number): boolean {
-    if (!this.active || !this.plotTarget) return false;
+    if (!this.active) return false;
     const def = STEPS[this.current];
     if (def.kind !== "plot") return false;
     if (this.current === TutStep.Plow) {
-      const at = this.d.field.resolveTill(col, row);
-      return at.valid && at.oc === this.plotTarget.col && at.or === this.plotTarget.row;
+      return this.d.field.resolveTill(col, row).valid;
     }
+    if (!this.plotTarget) return false;
     const at = this.d.field.plotOriginAt(col, row);
     return !!at && at.oc === this.plotTarget.col && at.or === this.plotTarget.row;
   }
@@ -167,6 +167,17 @@ export class TutorialController {
   /** True when a plant tap here should open the Zombie-locked plant menu. */
   wantsLockedPlant(col: number, row: number): boolean {
     return this.active && this.current === TutStep.PlantZombie && this.allowsTile(col, row);
+  }
+
+  /** The JobSystem supplies the exact freely chosen origin after a successful plow. */
+  onPlotPlowed(oc: number, or: number) {
+    if (!this.active || this.current !== TutStep.Plow) return;
+    this.plotTarget = { col: oc, row: or };
+    this.advance();
+  }
+
+  allowsBoostPurchase(key: string): boolean {
+    return tutorialBoostPurchaseAllowed(this.active, this.current, key);
   }
 
   /** Called by main right after a raid resolves back on the farm. */
@@ -193,7 +204,7 @@ export class TutorialController {
     if (step === TutStep.Harvest) this.d.hud.setMode("walk");
 
     this.showBubble(def);
-    this.arrow.style.display = def.kind === "plot" || def.kind === "menu" ? "block" : "none";
+    this.arrow.style.display = (def.kind === "plot" && step !== TutStep.Plow) || def.kind === "menu" ? "block" : "none";
 
     if (def.kind === "narrative") this.addBlocker(def);
   }
@@ -220,7 +231,8 @@ export class TutorialController {
     if (!this.active) return;
     switch (this.current) {
       case TutStep.Plow:
-        if (nid === QuestEvent.SoilPlowed) this.advance();
+        // JobSystem.onPlotPlowed owns this transition because it carries the freely
+        // chosen coordinates needed by the following planting step.
         break;
       case TutStep.PlantZombie:
         if (nid === QuestEvent.CropPlanted && object.toLowerCase() === "zombie") this.advance();
@@ -279,6 +291,7 @@ export class TutorialController {
 
   private positionArrow() {
     const def = STEPS[this.current];
+    if (this.current === TutStep.Plow) { this.arrow.style.display = "none"; return; }
     const menuLabel = def.kind === "menu" ? def.menuLabel : undefined;
     if (def.kind !== "plot" && !menuLabel) { this.arrow.style.display = "none"; return; }
     // A large panel (market/storage/plant/raid) is open: the arrow's target is
