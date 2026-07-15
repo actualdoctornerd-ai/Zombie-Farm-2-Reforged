@@ -465,40 +465,40 @@ export class Field {
    *  ripened (fewer if the farm has fewer growing crops). When `priority` names a
    *  plot with a growing crop, that crop is ripened FIRST (so activating the boost
    *  from a crop's own info window always grows the crop the player tapped). */
-  growSomeCrops(n: number, priority?: { col: number; row: number }): number {
-    let done = 0;
+  growSomeCrops(n: number, priority?: { col: number; row: number }): { oc: number; or: number }[] {
+    const grown: { oc: number; or: number }[] = [];
     if (priority) {
       const at = this.plotOriginAt(priority.col, priority.row);
       const c = at ? this.plots.get(this.key(at.oc, at.or))!.crop : undefined;
-      if (c && c.ageMs < c.cfg.growMs && done < n) {
+      if (c && c.ageMs < c.cfg.growMs && grown.length < n) {
         this.ripenNow(c); // now ripe; the loop below skips it (age >= growMs)
-        done++;
+        grown.push({ oc: at!.oc, or: at!.or });
       }
     }
     for (const p of this.plots.values()) {
-      if (done >= n) break;
+      if (grown.length >= n) break;
       const c = p.crop;
       if (c && c.ageMs < c.cfg.growMs) {
         this.ripenNow(c);
-        done++;
+        grown.push({ oc: p.oc, or: p.or });
       }
     }
-    if (done) this.update(0); // refresh growth-stage textures to the ripe frame now
-    return done;
+    if (grown.length) this.update(0); // refresh growth-stage textures to the ripe frame now
+    return grown;
   }
 
   /** Ripen exactly the crop at (col,row) if it is still growing — the manual
-   *  Insta-Grow tool targets one plot per tap. Returns true only when a growing
-   *  crop was actually ripened (false for empty/ripe/out-of-bounds plots, so a
-   *  stray tap never wastes a use or ripens some other plot). */
-  growCropAt(col: number, row: number): boolean {
+   *  Insta-Grow tool targets one plot per tap. Returns its authoritative plot
+   *  origin, or null for empty/ripe/out-of-bounds plots so a stray tap never
+   *  wastes a use or ripens some other plot. */
+  growCropAt(col: number, row: number): { oc: number; or: number } | null {
     const at = this.plotOriginAt(col, row);
-    if (!at) return false;
+    if (!at) return null;
     const c = this.plots.get(this.key(at.oc, at.or))?.crop;
-    if (!c || c.ageMs >= c.cfg.growMs) return false;
+    if (!c || c.ageMs >= c.cfg.growMs) return null;
     this.ripenNow(c); // now ripe
     this.update(0); // refresh the growth-stage texture to the ripe frame now
-    return true;
+    return at;
   }
 
   /** Ripen a crop immediately by back-dating its plantedAt so it reads as just-ripened.

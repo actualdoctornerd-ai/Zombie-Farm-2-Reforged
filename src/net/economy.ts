@@ -70,6 +70,9 @@ export interface InventoryInput {
   /** Gift-voucher `use` only: the id of the zombie the redeem spawned, which the server
    *  grants into the roster as it consumes the voucher. */
   unitId?: string;
+  /** Insta-Grow only: authoritative plot origin to ripen. */
+  oc?: number;
+  or?: number;
 }
 
 /** A pending roster action plus its optimistic currency effect (a sell credits gold;
@@ -163,6 +166,8 @@ export class EconomyClient {
   /** Called when the server reports a freshly-planted crop was fertilized, so the
    *  client can apply the 2x visual (leaf FX). Wired in main.ts. */
   onCropFertilized: ((oc: number, or: number) => void) | null = null;
+  /** Reconcile speculative plots after a farm command or farm-affecting boost. */
+  onFarmState: ((farm: api.FarmState) => void) | null = null;
 
   constructor(
     private state: GameState,
@@ -332,7 +337,11 @@ export class EconomyClient {
     this.farmPending.push({ queuedAt: Date.now(), action, gold: optimistic.gold ?? 0, brains: optimistic.brains ?? 0, xp: optimistic.xp ?? 0 });
     this.writeFarmOutbox();
     this.reconcile();
-    this.schedule();
+    // A harvest creates spendable value. Start its server confirmation immediately:
+    // later purchases then remain queued behind this in-flight flush instead of being
+    // rejected for trying to spend optimistic gold the server has not credited yet.
+    if (input.type === "harvest") void this.flush();
+    else this.schedule();
   }
 
   /** Submit a finished raid for its server-authoritative reward. The server owns the
@@ -382,7 +391,7 @@ export class EconomyClient {
       input.type === "buy"
         ? { id, type: "buy", key: input.key }
         : input.type === "use"
-          ? { id, type: "use", key: input.key, qty: input.qty, unitId: input.unitId }
+          ? { id, type: "use", key: input.key, qty: input.qty, unitId: input.unitId, oc: input.oc, or: input.or }
           : { id, type: input.type, key: input.key, qty: input.qty };
     this.invPending.push({
       queuedAt: Date.now(),
@@ -533,10 +542,10 @@ export class EconomyClient {
     this.flushing = true;
     try {
       await this.flushEconomy();
+      await this.flushInv();
       await this.flushFarm();
       await this.flushRaid();
       await this.flushQuest();
-      await this.flushInv();
       await this.flushRoster();
       await this.flushObject();
       await this.flushShop();
@@ -586,7 +595,7 @@ export class EconomyClient {
   private async flushFarm(): Promise<void> {
     while (this.farmPending.length) {
       const batch = this.farmPending.slice(0, EconomyClient.FARM_CHUNK);
-      const { balance, results, questChanges } = await api.applyFarm(batch.map((f) => f.action));
+      const { balance, results, farm, questChanges } = await api.applyFarm(batch.map((f) => f.action));
       this.onQuestChanges?.(questChanges ?? []);
       const byId = new Map(batch.map((f) => [f.action.id, f]));
       for (const res of results) {
@@ -612,6 +621,7 @@ export class EconomyClient {
       this.farmPending = this.farmPending.filter((f) => !sent.has(f.action.id));
       this.writeFarmOutbox();
       this.base = balance;
+      this.onFarmState?.(farm);
     }
   }
 
@@ -641,7 +651,7 @@ export class EconomyClient {
   private async flushInv(): Promise<void> {
     while (this.invPending.length) {
       const batch = this.invPending.slice(0, EconomyClient.VALUE_CHUNK);
-      const { balance, inventory, questChanges } = await api.applyInventory(batch.map((f) => f.action));
+      const { balance, inventory, farm, questChanges } = await api.applyInventory(batch.map((f) => f.action));
       this.onQuestChanges?.(questChanges ?? []);
       // A rejected action (e.g. can't afford, none owned) simply has its optimistic
       // effect dropped on reconcile — the server's balance + inventory are truth.
@@ -650,6 +660,7 @@ export class EconomyClient {
       this.writeInvOutbox();
       this.base = balance;
       this.serverInv = inventory;
+      this.onFarmState?.(farm);
     }
   }
 

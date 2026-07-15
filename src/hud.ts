@@ -1847,11 +1847,6 @@ export class Hud {
   /** Revoke one other device by id. Resolves true on success. */
   onRevokeSession: ((id: string) => Promise<boolean>) | null = null;
 
-  /** Current Fast Mode state (compressed wait clocks); defaults to ON. */
-  getFastMode: (() => boolean) | null = null;
-  /** Toggle Fast Mode: persist the choice, flush the game, and reload. */
-  onSetFastMode: ((on: boolean) => void) | null = null;
-
   /** Current night-lighting state (set by main; null = feature absent). */
   getNight: (() => boolean) | null = null;
   /** Toggle the night lighting layer (dev-only). */
@@ -2880,7 +2875,7 @@ export class Hud {
   }
 
   // Developer menu: hidden from normal play, opened only via the invisible hotspot
-  // beside the nameplate. Holds the Fast Mode toggle, the Night-lighting toggle,
+  // beside the nameplate. Holds the Night-lighting toggle,
   // level/gold/brains overrides, and the per-tier raid ability unlocks.
   private openDevMenu() {
     const bg = document.createElement("div");
@@ -2920,15 +2915,6 @@ export class Hud {
       return r;
     };
 
-    // Fast Mode: compresses all wait clocks (grow times, pot combine, raid
-    // cooldown) to seconds for testing. Toggling flushes + reloads the game.
-    const fastRow = row("Fast Mode", this.getFastMode?.() ?? true, (v) =>
-      this.onSetFastMode?.(v)
-    );
-    const fastNote = document.createElement("div");
-    fastNote.className = "dev-status";
-    fastNote.textContent = "Speeds up grow times & cooldowns for testing (reloads).";
-
     // Night lighting: toggles the dark overlay + carved lights (was the N key).
     const nightRow = row("Night", this.getNight?.() ?? false, (v) =>
       this.onSetNight?.(v)
@@ -2965,8 +2951,6 @@ export class Hud {
 
     panel.append(
       x, h,
-      fastRow,
-      fastNote,
       nightRow,
       numRow("Level", this.state.level, (n) => this.state.setLevel(n)),
       numRow("Gold", this.state.gold, (n) => this.state.setGold(n)),

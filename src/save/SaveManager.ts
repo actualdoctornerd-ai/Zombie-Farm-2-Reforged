@@ -267,7 +267,7 @@ export class SaveManager {
       brains: p.brains,
       xp: p.xp,
       zombieCount: p.zombieCount,
-      zombieMax: p.zombieMax,
+      zombieMax: Math.max(16, p.zombieMax || 16),
     });
     this.state.unlockedAbilities = p.unlockedAbilities ?? [];
     this.state.zombiePotBought = p.zombiePotBought ?? false;
@@ -318,6 +318,7 @@ export class SaveManager {
 
   private async applyAuthoritativeState(server: api.AuthoritativeState): Promise<void> {
     this.state.syncBalance(server.balance.gold, server.balance.brains, server.balance.xp);
+    this.state.addZombieMax(Math.max(16, server.zombieMax ?? 16) - this.state.zombieMax);
     this.state.boostInv = Object.entries(server.inventory)
       .filter(([, count]) => count > 0)
       .map(([key, count]) => ({ key, count }));

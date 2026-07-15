@@ -311,6 +311,7 @@ export interface AuthoritativeState {
   integrityVersion: 2;
   balance: Balance;
   level: number;
+  zombieMax: number;
   inventory: Record<string, number>;
   objectCounts: Record<string, number>;
   objects: NonNullable<SaveGame["objects"]>;
@@ -362,10 +363,22 @@ export interface FarmResult {
   fertilized?: boolean; // plant only: the SERVER's fertilize decision
 }
 
+export interface FarmState {
+  plowed: { oc: number; pr: number }[];
+  crops: {
+    oc: number;
+    pr: number;
+    crop_key: string;
+    planted_at: number;
+    grow_ms: number;
+    fertilized: number;
+  }[];
+}
+
 /** Submit farm actions (plow/plant/harvest). The server computes exact economics and
  *  gates harvest by server time; returns the new authoritative balance + verdicts. */
 export const applyFarm = (actions: FarmAction[]) =>
-  req<{ balance: Balance; results: FarmResult[]; questChanges: QuestChange[] }>("POST", "/farm/actions", { actions });
+  req<{ balance: Balance; results: FarmResult[]; farm: FarmState; questChanges: QuestChange[] }>("POST", "/farm/actions", { actions });
 
 /** One-time import of a migrating save's already-PLOWED soil, so plants there aren't
  *  rejected as `not_plowed`. Ignored (and merely read back) once the account is seeded
@@ -377,7 +390,7 @@ export const syncFarm = (plowed: { oc: number; or: number }[]) =>
 export type InventoryAction =
   | { id: string; type: "buy"; key: string }
   // `unitId`: gift vouchers only — the zombie the redeem grants is filed under this id.
-  | { id: string; type: "use"; key: string; qty?: number; unitId?: string }
+  | { id: string; type: "use"; key: string; qty?: number; unitId?: string; oc?: number; or?: number }
   | { id: string; type: "grant"; key: string; qty?: number };
 
 export interface InventoryResult {
@@ -393,7 +406,7 @@ export const syncInventory = (counts: Record<string, number>) =>
 
 /** Apply boost buy/use/grant actions; returns the resulting balance + full inventory. */
 export const applyInventory = (actions: InventoryAction[]) =>
-  req<{ balance: Balance; inventory: Record<string, number>; results: InventoryResult[]; questChanges: QuestChange[] }>(
+  req<{ balance: Balance; inventory: Record<string, number>; results: InventoryResult[]; farm: FarmState; questChanges: QuestChange[] }>(
     "POST",
     "/inventory/actions",
     { actions }

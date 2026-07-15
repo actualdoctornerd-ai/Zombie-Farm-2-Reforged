@@ -31,7 +31,6 @@ import { screenToGrid, tileCenter, TILE_H, TILE_W, HW, HH } from "./iso";
 import { setFootprint } from "./depthSort";
 import { NightLayer, makeLight } from "./lighting";
 import { buyXp, sellBack, zombieSellValue } from "./economy";
-import { isFastMode, setFastMode } from "./devSettings";
 import { getFarmBackground, setFarmBackground, FARM_BG_DENSITY } from "./prefs";
 import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
@@ -78,14 +77,6 @@ async function main() {
     if (s < 86400) return `${Math.round(s / 3600)}h`;
     return `${Math.round(s / 86400)}d`;
   };
-  // Runtime grow time. Source grow times are hours/days; for playtesting we scale
-  // them down to 8-45s. Fast Mode (Settings → Developer) drives this; it's ON by
-  // default and can be turned off for real times. See devSettings.ts.
-  // Cards always display the REAL time (fmtTime on the source growMs) either way.
-  const FAST_GROW = isFastMode();
-  const scaleGrow = (ms: number) =>
-    FAST_GROW ? Math.max(8000, Math.min(45000, ms / 60)) : ms;
-
   // Catalog: crop key -> config, shared by the picker (hud) and save/load (to
   // rebuild planted crops from their saved key). Seed it with the quick-plant CARROT.
   const catalog = new Map<string, CropConfig>();
@@ -93,7 +84,7 @@ async function main() {
   const plantCards = assets.plants.map((p) => {
     const cfg: CropConfig = {
       key: p.key, name: p.name, stages: [SEED_FILE, p.stage1, p.stage2],
-      growMs: scaleGrow(p.growMs), cost: p.cost, sell: p.sell, xp: p.xp,
+      growMs: p.growMs, cost: p.cost, sell: p.sell, xp: p.xp,
       unlockLevel: p.level,
     };
     catalog.set(cfg.key, cfg);
@@ -111,7 +102,7 @@ async function main() {
       key: z.key, name: z.name,
       // Zombie crop growth: wooden cross -> hand -> clawing up -> risen (thumb up).
       stages: ZOMBIE_STAGES,
-      growMs: scaleGrow(z.growMs), cost: z.cost, brainsNeeded: z.brainsNeeded, sell: 0, xp: z.xp,
+      growMs: z.growMs, cost: z.cost, brainsNeeded: z.brainsNeeded, sell: 0, xp: z.xp,
       unlockLevel: z.level, isZombie: true, isMutant: z.category === "mutant",
       unlockGrave: graveNeededFor(z.className) ?? undefined, // Blue/Red/Silver graves gate planting
     };
@@ -130,7 +121,6 @@ async function main() {
   const placeCatalog = new Map<string, PlaceableDef>();
   const placeByName = new Map<string, PlaceableDef>();
   for (const o of assets.placeables) {
-    if (o.growMs) o.growMs = scaleGrow(o.growMs);
     placeCatalog.set(o.key, o);
     placeByName.set(o.name, o); // loot/quest rewards are keyed by display name
   }
@@ -547,10 +537,15 @@ async function main() {
     // A gift voucher redeems into a zombie, so it also carries the spawned unit's id:
     // the server consumes the voucher and files that unit in the roster atomically.
     if (state.onInventory) {
-      const action = giftUnitId ? { type: "use" as const, key: def.key, unitId: giftUnitId } : { type: "use" as const, key: def.key };
+      const action = giftUnitId
+        ? { type: "use" as const, key: def.key, unitId: giftUnitId }
+        : growTarget
+          ? { type: "use" as const, key: def.key, oc: growTarget.oc, or: growTarget.or }
+          : { type: "use" as const, key: def.key };
       state.onInventory(action, { count: -1 });
     } else state.useBoost(def.key);
     giftUnitId = null;
+    growTarget = null;
   };
 
   // The speed-grow (Insta-Grow) boost, exposed so the HUD can render the equippable
@@ -572,8 +567,9 @@ async function main() {
     const def = growBoostDef();
     if (!def) return;
     if (state.boostCount(def.key) <= 0) { hud.setMode("walk"); return; }
-    if (!field.growCropAt(col, row)) return; // not a growing crop -> keep tool equipped
-    if (state.onInventory) state.onInventory({ type: "use", key: def.key }, { count: -1 });
+    const grown = field.growCropAt(col, row);
+    if (!grown) return; // not a growing crop -> keep tool equipped
+    if (state.onInventory) state.onInventory({ type: "use", key: def.key, oc: grown.oc, or: grown.or }, { count: -1 });
     else state.useBoost(def.key);
     audio.play("instaGrow");
     const c = tileCenter(col, row);
@@ -585,15 +581,17 @@ async function main() {
   // onUseBoost sends with the voucher `use` so the server can grant that same unit.
   // Null for every other boost effect.
   let giftUnitId: string | null = null;
+  let growTarget: { oc: number; or: number } | null = null;
 
   // Apply a farm-usable boost's effect. Returns true if it actually did anything
   // (so a no-op — e.g. Insta-Harvest with nothing ripe — doesn't waste the boost).
   const applyBoost = (def: BoostDef): boolean => {
     const c = tileCenter(walk.tile.col, walk.tile.row); // float near the farmer
     if (def.effect === "grow") {
-      const n = field.growSomeCrops(def.amount || 1); // single-use: grows one crop
-      if (n) { audio.play("instaGrow"); floatText(c.x, c.y, `Grew ${n}!`); }
-      return n > 0;
+      const grown = field.growSomeCrops(def.amount || 1); // single-use: grows one crop
+      growTarget = grown[0] ?? null;
+      if (grown.length) { audio.play("instaGrow"); floatText(c.x, c.y, `Grew ${grown.length}!`); }
+      return grown.length > 0;
     }
     if (def.effect === "harvest") {
       let harvested = 0;
@@ -601,9 +599,19 @@ async function main() {
         if (pl.isZombie && !zombies.canAdd()) continue; // respect the army cap
         const r = field.harvestAt(pl.oc, pl.or);
         if (!r) continue;
-        if (r.sell) state.addGold(r.sell);
-        state.addXp(r.xp);
-        if (r.zombieKey) zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1);
+        if (state.onFarm) {
+          if (r.zombieKey) {
+            const unit = zombies.spawnVerified(r.zombieKey, pl.oc + 1, pl.or + 1);
+            if (!unit) continue;
+            state.onFarm({ type: "harvest", oc: pl.oc, or: pl.or, unitId: unit.id }, { xp: r.xp });
+          } else {
+            state.onFarm({ type: "harvest", oc: pl.oc, or: pl.or }, { gold: r.sell, xp: r.xp });
+          }
+        } else {
+          if (r.sell) state.addGold(r.sell);
+          state.addXp(r.xp);
+          if (r.zombieKey) zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1);
+        }
         questBus.post(r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested, r.name);
         harvested++;
       }
@@ -705,6 +713,28 @@ async function main() {
         const c = tileCenter(oc, or);
         floatText(c.x, c.y - 18, "Fertilized!");
       }
+    };
+    economy.onFarmState = (farmState) => {
+      const authoritative = [
+        ...farmState.plowed.map((p) => ({ oc: p.oc, or: p.pr, state: "plowed" as const })),
+        ...farmState.crops.map((p) => ({
+          oc: p.oc,
+          or: p.pr,
+          state: "planted" as const,
+          crop: {
+            key: p.crop_key,
+            isZombie: zombieDefs.has(p.crop_key),
+            plantedAt: p.planted_at,
+            growMs: p.grow_ms,
+            fertilized: !!p.fertilized,
+          },
+        })),
+      ];
+      const occupied = new Set(authoritative.map((p) => `${p.oc}:${p.or}`));
+      const presentation = field.serialize().filter(
+        (p) => (p.state === "dirt" || p.state === "hole") && !occupied.has(`${p.oc}:${p.or}`)
+      );
+      field.restore([...presentation, ...authoritative], (key) => catalog.get(key));
     };
     // Server-owned roster: seed the shadow from the current units, then report every
     // post-load create (grant) / casualty + combined parent (casualty), and route a
@@ -1030,9 +1060,7 @@ async function main() {
   };
 
   // ---- Zombie Pot (combiner) ----
-  // Base combine time follows the same debug grow-scaling as crops so a combine
-  // finishes while playtesting; real time is 1h (scaleGrow is a no-op in real mode).
-  const potBaseMs = () => scaleGrow(POT_DURATION_MS);
+  const potBaseMs = () => POT_DURATION_MS;
   hud.getPotStatus = () => {
     const pot = zombies.combinePot;
     return {
@@ -1075,9 +1103,7 @@ async function main() {
   };
 
   // ---- raids / invasions ----
-  // The real between-invasions cooldown is 2h (Help.json); scale it down for
-  // playtesting alongside the crop grow-time scaling (real times when realGrow=1).
-  const raidCooldownMs = FAST_GROW ? 60_000 : RAID_COOLDOWN_MS;
+  const raidCooldownMs = RAID_COOLDOWN_MS;
   // Raid completion is a critical boundary (rewards/casualties/cooldown): flush()
   // persists the save immediately, and flush the economy so the raid's gold/brains/xp
   // ledger events land now rather than behind the debounce.
@@ -1324,17 +1350,6 @@ async function main() {
       if (n) hud.showToast(`You have ${n} friend request${n === 1 ? "" : "s"}! 👋`);
     });
   }
-
-  // Fast Mode toggle (Settings → Developer). Grow times / cooldowns are baked in
-  // at load, so flush the current game and reload to apply the new timescale —
-  // same flush-then-reload dance as switching profiles above.
-  hud.getFastMode = () => isFastMode();
-  hud.onSetFastMode = (on) => {
-    saveManager.save();
-    saveManager.suspend();
-    setFastMode(on);
-    location.reload();
-  };
 
   // Night lighting toggle (Developer menu). Was the N key; now driven from the HUD.
   hud.getNight = () => isNight;

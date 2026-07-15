@@ -14,7 +14,7 @@ export type InventoryAction =
   // consume. For a GIFT voucher (econ.gift set) a use is a redeem: it consumes exactly
   // one voucher and grants that zombie, so `unitId` (the client's id for the new unit)
   // is required and `qty` is ignored.
-  | { id: string; type: "use"; key: string; qty?: number; unitId?: string };
+  | { id: string; type: "use"; key: string; qty?: number; unitId?: string; oc?: number; or?: number };
 
 /** Currency a buy debits, plus the count it grants. */
 export type BuyPlan =

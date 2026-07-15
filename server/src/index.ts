@@ -69,6 +69,7 @@ const MAX_INBOX = 200; // unclaimed gifts we'll hold / return
 // the base (empty) via their own tables.
 const STARTER_BALANCE = { gold: 200, brains: 15, xp: 0 } as const;
 const DEFAULT_FARM_SIZE = 30; // BASE_FARM_SIZE (shopCatalog)
+const DEFAULT_ARMY_SIZE = 16;
 
 function presentationOnlySave(save: SaveGame): SaveGame {
   return {
@@ -79,7 +80,7 @@ function presentationOnlySave(save: SaveGame): SaveGame {
       gold: 0,
       brains: 0,
       xp: 0,
-      zombieMax: 0,
+      zombieMax: DEFAULT_ARMY_SIZE,
       zombieCount: 0,
       farmer: save.player?.farmer,
     },
@@ -601,6 +602,10 @@ app.get("/state", async (c) => {
     remaining[o.key] = n - 1;
     return true;
   });
+  const zombieMax = DEFAULT_ARMY_SIZE + objects.reduce((sum, object) => {
+    const def = objectCatalog.find((candidate) => candidate.key === object.key);
+    return sum + Math.max(0, def?.armyMax ?? 0);
+  }, 0);
   const farm = await db.readFarmPlots(c.env.DB, accountId);
   const authoritativePlotKeys = new Set([
     ...farm.plowed.map((p) => `${p.oc}:${p.pr}`),
@@ -638,6 +643,7 @@ app.get("/state", async (c) => {
     integrityVersion: 2,
     balance: currentBalance,
     level: levelForXp(currentBalance.xp),
+    zombieMax,
     inventory,
     objectCounts,
     objects,
@@ -1399,6 +1405,7 @@ app.post("/farm/actions", async (c) => {
     return c.json({ error: "command_volume_exceeded" }, 429);
   }
   const { balance, results } = await db.applyFarmActions(c.env.DB, accountId, actions, now);
+  const farm = await db.readFarmPlots(c.env.DB, accountId);
   await db.recordTrustedGameEvents(c.env.DB, accountId, farmQuestEvents(actions, results), now);
   const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
   const rejected = results.filter((r) => r.status === "rejected").length;
@@ -1406,7 +1413,7 @@ app.post("/farm/actions", async (c) => {
   const authoritativeBalance = questChanges.some((change) => change.completed)
     ? await db.getOrSeedBalance(c.env.DB, accountId, balance)
     : balance;
-  return c.json({ balance: authoritativeBalance, results, questChanges });
+  return c.json({ balance: authoritativeBalance, results, farm, questChanges });
 });
 
 // ---- POST /farm/sync: one-time import of already-plowed soil -------------
@@ -1454,7 +1461,7 @@ app.post("/inventory/actions", async (c) => {
   if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
     return c.json({ error: "command_volume_exceeded" }, 429);
   }
-  const { balance, inventory, results } = await db.applyInventoryActions(
+  const { balance, inventory, results, farm } = await db.applyInventoryActions(
     c.env.DB,
     accountId,
     actions,
@@ -1479,7 +1486,7 @@ app.post("/inventory/actions", async (c) => {
   const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
   const rejected = results.filter((r) => r.status === "rejected").length;
   if (rejected) slog("inventory_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, inventory, results, questChanges });
+  return c.json({ balance, inventory, results, farm, questChanges });
 });
 
 // ---- objects: server-owned placeable ownership (counts) -----------------

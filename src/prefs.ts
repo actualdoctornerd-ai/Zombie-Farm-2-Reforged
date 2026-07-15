@@ -1,4 +1,4 @@
-// Player-facing preferences (as opposed to the developer flags in devSettings.ts).
+// Player-facing preferences persisted in local storage.
 // These are persisted to localStorage and read at the points that care about them.
 //
 // Two toggles live here today, both surfaced in Settings:

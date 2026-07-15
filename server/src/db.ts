@@ -1569,7 +1569,12 @@ export async function applyInventoryActions(
   accountId: string,
   actions: InventoryAction[],
   now: number
-): Promise<{ balance: Balance; inventory: Record<string, number>; results: InventoryResult[] }> {
+): Promise<{
+  balance: Balance;
+  inventory: Record<string, number>;
+  results: InventoryResult[];
+  farm: Awaited<ReturnType<typeof readFarmPlots>>;
+}> {
   const bal = await getOrSeedBalance(db, accountId, { gold: 0, brains: 0, xp: 0 });
   const inv = await readInventory(db, accountId);
   const results: InventoryResult[] = [];
@@ -1644,6 +1649,22 @@ export async function applyInventoryActions(
         results.push({ id: a.id, status: "rejected", error: plan.error });
         continue;
       }
+      if (a.key === "insta_grow") {
+        if (!Number.isInteger(a.oc) || !Number.isInteger(a.or)) {
+          results.push({ id: a.id, status: "rejected", error: "bad_coord" });
+          continue;
+        }
+        const crop = await db
+          .prepare(
+            "SELECT planted_at, grow_ms FROM crop_plots WHERE account_id = ? AND oc = ? AND pr = ?"
+          )
+          .bind(accountId, a.oc, a.or)
+          .first<{ planted_at: number; grow_ms: number }>();
+        if (!crop || crop.planted_at + crop.grow_ms <= now) {
+          results.push({ id: a.id, status: "rejected", error: "nothing_growing" });
+          continue;
+        }
+      }
       // Guarded decrement: only applies while the count still covers it, so concurrent
       // uses can't drive the count negative even though `have` was read above.
       const upd = await db
@@ -1654,7 +1675,19 @@ export async function applyInventoryActions(
         results.push({ id: a.id, status: "rejected", error: "none_owned" });
         continue;
       }
-      await db.prepare("INSERT OR IGNORE INTO inventory_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now).run();
+      const applied: D1PreparedStatement[] = [
+        db.prepare("INSERT OR IGNORE INTO inventory_actions (id, account_id, created_at) VALUES (?, ?, ?)").bind(a.id, accountId, now),
+      ];
+      if (a.key === "insta_grow") {
+        applied.push(
+          db
+            .prepare(
+              "UPDATE crop_plots SET planted_at = ? - grow_ms WHERE account_id = ? AND oc = ? AND pr = ?"
+            )
+            .bind(now, accountId, a.oc, a.or)
+        );
+      }
+      await db.batch(applied);
       inv[a.key] = have + plan.delta;
       results.push({ id: a.id, status: "applied" });
     } else {
@@ -1664,7 +1697,7 @@ export async function applyInventoryActions(
       results.push({ id: (a as { id: string }).id, status: "rejected", error: "bad_type" });
     }
   }
-  return { balance: bal, inventory: inv, results };
+  return { balance: bal, inventory: inv, results, farm: await readFarmPlots(db, accountId) };
 }
 
 /** Delete inventory-action idempotency records older than `before` (cron cleanup).
