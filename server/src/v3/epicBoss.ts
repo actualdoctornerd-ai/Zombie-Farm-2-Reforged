@@ -1,5 +1,6 @@
 import type { EpicBossProjection, QuestProjection } from "../../../src/net/protocol";
-import { DR_GROUNDHOG, epicBossHp, epicBossRetrySkipCost } from "../../../src/epicBoss/catalog";
+import { epicBossById, epicBossHp, epicBossRetrySkipCost } from "../../../src/epicBoss/catalog";
+import type { EpicBossDef } from "../../../src/epicBoss/types";
 import { DICE_KEY, VOUCHER_KEY } from "../boostCatalog";
 import { QUEST_REWARD, questDefinition } from "../questCatalog";
 import { applyQuestEvents } from "./engine";
@@ -25,7 +26,8 @@ interface SessionRow {
 }
 interface EpicCombatConfig { playerUnits: CombatUnit[]; enemyUnits: CombatUnit[] }
 const zombies = new Map((zombieRows as Array<{key:string}>).map((z) => [z.key, z]));
-const GROUNDHOG_QUESTS = new Set(["1000", "1001", "1002", "1003", "1010", "1011"]);
+const defFor = (bossId: string): EpicBossDef | null => epicBossById(bossId);
+const DEFAULT_DEF = epicBossById("dr-groundhog")!;
 interface CoreState {
   inventory: Record<string, number>;
   storage: { received: Record<string, number>; stored: Record<string, number> };
@@ -52,8 +54,10 @@ export async function readRun(db: D1Database, accountId: string): Promise<EpicBo
 }
 
 export async function activate(
-  db: D1Database, accountId: string, activationId: string, now: number
+  db: D1Database, accountId: string, activationId: string, bossId: unknown, now: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
+  const def = bossId === undefined ? DEFAULT_DEF : typeof bossId === "string" ? defFor(bossId) : null;
+  if (!def) return { status: 400, body: { error: "unknown_boss" } };
   const [balance, current] = await Promise.all([
     db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId)
       .first<{ gold: number; brains: number; xp: number }>(),
@@ -64,9 +68,9 @@ export async function activate(
   if (current && !current.completed_at && current.expires_at > now) {
     return { status: 409, body: { error: "event_active", event: projectRun(current) } };
   }
-  if (balance.brains < DR_GROUNDHOG.costBrains) return { status: 409, body: { error: "insufficient_brains", balance } };
-  const hp = epicBossHp(DR_GROUNDHOG, 1);
-  const expiresAt = now + DR_GROUNDHOG.durationMs;
+  if (balance.brains < def.costBrains) return { status: 409, body: { error: "insufficient_brains", balance } };
+  const hp = epicBossHp(def, 1);
+  const expiresAt = now + def.durationMs;
   const statements = await db.batch([
     db.prepare(`INSERT INTO epic_boss_runs_v3
       (account_id,run_id,boss_id,activated_at,expires_at,level,max_hp,current_hp)
@@ -76,17 +80,17 @@ export async function activate(
       current_hp=excluded.current_hp,encounter_started_at=0,retry_ready_at=0,
       completed_at=0,attack_order_json='[]'
       WHERE epic_boss_runs_v3.completed_at != 0 OR epic_boss_runs_v3.expires_at <= ?`)
-      .bind(accountId, activationId, DR_GROUNDHOG.id, now, expiresAt, 1, hp, hp, now),
+      .bind(accountId, activationId, def.id, now, expiresAt, 1, hp, hp, now),
     db.prepare(`UPDATE balances SET brains = brains - ? WHERE account_id = ? AND brains >= ?
       AND EXISTS(SELECT 1 FROM epic_boss_runs_v3 WHERE account_id=? AND run_id=?)`)
-      .bind(DR_GROUNDHOG.costBrains, accountId, DR_GROUNDHOG.costBrains, accountId, activationId),
+      .bind(def.costBrains, accountId, def.costBrains, accountId, activationId),
   ]);
   if ((statements[0]?.meta.changes ?? 0) !== 1 || (statements[1]?.meta.changes ?? 0) !== 1) {
     return { status: 409, body: { error: "activation_conflict" } };
   }
   return { status: 200, body: {
     event: await readRun(db, accountId),
-    balance: { ...balance, brains: balance.brains - DR_GROUNDHOG.costBrains },
+    balance: { ...balance, brains: balance.brains - def.costBrains },
   } };
 }
 
@@ -165,13 +169,17 @@ export async function skipRetry(
 }
 
 export async function expireLiveEpicBoss(db: D1Database, accountId: string, now: number): Promise<void> {
-  const live = await db.prepare(`SELECT id,run_id FROM epic_boss_sessions_v3
-    WHERE account_id=? AND finished_at IS NULL AND expires_at <= ?`).bind(accountId, now).first<{ id: string; run_id: string }>();
+  const live = await db.prepare(`SELECT s.id,s.run_id,r.boss_id FROM epic_boss_sessions_v3 s
+    JOIN epic_boss_runs_v3 r ON r.account_id=s.account_id AND r.run_id=s.run_id
+    WHERE s.account_id=? AND s.finished_at IS NULL AND s.expires_at <= ?`).bind(accountId, now)
+    .first<{ id: string; run_id: string; boss_id: string }>();
   if (!live) return;
+  // Old/incomplete test fixtures and pre-catalog rows implicitly mean Groundhog.
+  const def = defFor(live.boss_id) ?? DEFAULT_DEF;
   await db.batch([
     db.prepare("UPDATE epic_boss_sessions_v3 SET finished_at=? WHERE id=? AND finished_at IS NULL").bind(now, live.id),
     db.prepare("UPDATE epic_boss_runs_v3 SET retry_ready_at=? WHERE account_id=? AND run_id=? AND completed_at=0")
-      .bind(now + DR_GROUNDHOG.retryMs, accountId, live.run_id),
+      .bind(now + def.retryMs, accountId, live.run_id),
     db.prepare("UPDATE roster_v3 SET locked_by_raid=NULL WHERE account_id=? AND locked_by_raid=?").bind(accountId, live.id),
   ]);
 }
@@ -195,6 +203,8 @@ export async function start(
     db.prepare("SELECT progress_json FROM raid_state_v3 WHERE account_id=?").bind(accountId).first<{progress_json:string}>(),
   ]);
   if (!row || row.completed_at || row.expires_at <= now) return { status: 409, body: { error: "inactive" } };
+  const def = defFor(row.boss_id);
+  if (!def) return { status: 409, body: { error: "unknown_boss" } };
   if (epic) {
     const pinned = parse<string[]>(epic.roster_json, []);
     if (pinned.length === ids.length && pinned.every((id, index) => id === ids[index])) {
@@ -205,14 +215,14 @@ export async function start(
   }
   if (raid) return { status: 409, body: { error: "battle_in_progress" } };
   if ((roster.results ?? []).length !== ids.length) return { status: 409, body: { error: "bad_roster" } };
-  if (row.encounter_started_at && now >= row.encounter_started_at + DR_GROUNDHOG.encounterMs) {
-    row.max_hp = epicBossHp(DR_GROUNDHOG, row.level); row.current_hp = row.max_hp;
+  if (row.encounter_started_at && now >= row.encounter_started_at + def.encounterMs) {
+    row.max_hp = epicBossHp(def, row.level); row.current_hp = row.max_hp;
     row.encounter_started_at = 0; row.retry_ready_at = 0;
   }
   if (row.retry_ready_at > now) return { status: 429, body: { error: "cooldown", retryAfterMs: row.retry_ready_at - now } };
   const sessionId = crypto.randomUUID();
   const encounterStartedAt = row.encounter_started_at || now;
-  const expiresAt = Math.min(row.expires_at + DR_GROUNDHOG.fightMs, now + 2 * 60_000);
+  const expiresAt = Math.min(row.expires_at + def.fightMs, now + 2 * 60_000);
   if (!balance || !coreRow || !raidState) return { status: 409, body: { error: "state_conflict" } };
   const byId = new Map((roster.results ?? []).map((unit) => [unit.unit_id, unit]));
   const core = parse<CoreState>(coreRow.current_json, { inventory:{},storage:{received:{},stored:{}},ownedPets:[],zombieMax:16 });
@@ -232,10 +242,10 @@ export async function start(
     farmerLifeMult: farmerMultiplier(Number(core.farmerHeadId ?? 1), "zombieLife"),
   });
   const boss: CombatUnit = {
-    id:`epic:${row.run_id}:${row.level}`,sourceKey:"DrGroundhogEpicBoss",team:"enemy",name:DR_GROUNDHOG.name,
-    str:2,dex:2,con:20,focus:0,hp:row.current_hp,maxHp:row.max_hp,
-    attackCooldownMs:deriveAttackIntervalMs(2,"enemy")*2,
-    attacks:[{name:"EpicBossAttack",frequency:100,mult:1}],isBoss:true,alive:true,isGarden:false,isHeadless:false,
+    id:`epic:${row.run_id}:${row.level}`,sourceKey:`EpicBoss:${def.id}`,team:"enemy",name:def.name,
+    str:def.unitStats.str,dex:def.unitStats.dex,con:def.unitStats.con,focus:0,hp:row.current_hp,maxHp:row.max_hp,
+    attackCooldownMs:deriveAttackIntervalMs(def.unitStats.dex,"enemy")*2,
+    attacks:def.unitStats.attacks.map((attack) => ({...attack,mult:attack.mult ?? 1})),isBoss:true,alive:true,isGarden:false,isHeadless:false,
     abilities:[],attackDamageTiming:0.88,
   };
   const config: EpicCombatConfig = { playerUnits, enemyUnits:[boss] };
@@ -266,13 +276,17 @@ export async function finish(
   if (!session) return { status: 404, body: { error: "bad_session" } };
   if (session.result_json) return { status: 200, body: parse(session.result_json, {}) };
   if (session.finished_at) return { status: 409, body: { error: "already_finished" } };
+  const pinnedRun = await db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=? AND run_id=?")
+    .bind(accountId, session.run_id).first<RunRow>();
+  const def = pinnedRun ? defFor(pinnedRun.boss_id) : null;
+  if (!def) return { status: 409, body: { error: "unknown_boss" } };
   const locked = parse<string[]>(session.roster_json, []);
   const pacedTick = Math.floor((now - session.started_at) / 50) + 40;
   if (Number(body.finalTick) > pacedTick) return { status: 422, body: { error: "future_finish" } };
   const config = parse<EpicCombatConfig | null>(session.config_json, null);
   if (!config || !Number.isInteger(body.finalTick) || !Array.isArray(body.inputs)) return { status: 400, body: { error: "bad_replay" } };
   const verified = replayRaid(new BattleSim(
-    config.playerUnits, config.enemyUnits, null, false, [], null, DR_GROUNDHOG.fightMs,
+    config.playerUnits, config.enemyUnits, null, false, [], null, def.fightMs,
     null, null, true, true, true, 150
   ), body.finalTick as number, body.inputs as RaidReplayInput[]);
   if (!verified.ok) return { status: 422, body: { error: verified.error } };
@@ -298,12 +312,12 @@ export async function finish(
   const defeated = verified.outcome.win && damage >= session.starting_hp;
   const defeatedLevel = defeated ? run.level : null;
   if (defeated) {
-    if (run.level >= DR_GROUNDHOG.maxLevel) { run.current_hp = 0; run.completed_at = now; }
-    else { run.level++; run.max_hp = epicBossHp(DR_GROUNDHOG, run.level); run.current_hp = run.max_hp; }
+    if (run.level >= def.maxLevel) { run.current_hp = 0; run.completed_at = now; }
+    else { run.level++; run.max_hp = epicBossHp(def, run.level); run.current_hp = run.max_hp; }
     run.encounter_started_at = 0; run.retry_ready_at = 0;
   } else {
     run.current_hp = Math.max(1, session.starting_hp - damage);
-    run.retry_ready_at = now + DR_GROUNDHOG.retryMs;
+    run.retry_ready_at = now + def.retryMs;
   }
   const core = parse<CoreState>(coreRow.current_json, { inventory: {}, storage: { received: {}, stored: {} }, ownedPets: [], zombieMax: 16 });
   const questData = parse<{completed:string[];progress:QuestProjection["progress"]}>(questRow.current_json, { completed: [], progress: [] });
@@ -311,7 +325,7 @@ export async function finish(
   const beforeCompleted = new Set(quests.completed);
   let loot: { name: string; tile?: string; stageActor?: string; sprite: string } | null = null;
   if (defeatedLevel !== null && random() < 0.35) {
-    let eligible = DR_GROUNDHOG.loot.filter((x) => x.level <= defeatedLevel && (!x.stageActor || !core.ownedPets.includes(x.stageActor)));
+    let eligible = def.loot.filter((x) => x.level <= defeatedLevel && (!x.stageActor || !core.ownedPets.includes(x.stageActor)));
     const uncollected = eligible.filter((x) => x.stageActor ? !core.ownedPets.includes(x.stageActor) : !(core.storage.received[x.name] > 0));
     if (uncollected.length) eligible = uncollected;
     if (eligible.length) loot = eligible[Math.floor(random() * eligible.length)] ?? null;
@@ -322,7 +336,7 @@ export async function finish(
     { type: "kEpicStageEnemyDefeatedNotification", subject: String(defeatedLevel) },
     ...(loot ? [{ type: "kEpicBossEpicItemWonNotification", subject: loot.name }] : []),
   ];
-  const questChanges = applyQuestEvents(balance, quests, events, { includeEpic: true, epicQuestIds: GROUNDHOG_QUESTS });
+  const questChanges = applyQuestEvents(balance, quests, events, { includeEpic: true, epicQuestIds: new Set(def.questIds) });
   const newlyCompleted = quests.completed.filter((id) => !beforeCompleted.has(id));
   const newZombies: { id: string; key: string }[] = [];
   for (const id of newlyCompleted) {

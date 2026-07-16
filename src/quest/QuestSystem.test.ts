@@ -98,4 +98,22 @@ describe("QuestSystem client-paced progress", () => {
     restored.setEpicBossActive(true);
     expect(restored.views()[0].objectives[0].count).toBe(1);
   });
+
+  it("only surfaces and advances quests for the selected Epic Boss", () => {
+    const bus = new QuestBus();
+    const groundhog = { ...quest(), id: "1000", epicEvent: true, requirements: [{
+      ...quest().requirements[0], notificationID: QuestEvent.EpicStageEnemyDefeated,
+      notificationObject: "5",
+    }] };
+    const locust = { ...groundhog, id: "2000", title: "Loco Locust" };
+    const system = new QuestSystem(new Map([[groundhog.id, groundhog], [locust.id, locust]]), new GameState(), bus, {
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed: vi.fn(), render: vi.fn(),
+    });
+    system.restore({ active: [{ id: "1000", counts: [0] }, { id: "2000", counts: [0] }], completed: [] });
+    system.setEpicBossActive(true, ["2000"]);
+    expect(system.views().map((view) => view.id)).toEqual(["2000"]);
+    bus.post(QuestEvent.EpicStageEnemyDefeated, "5");
+    const saved = system.serialize();
+    expect(saved.active.find((active) => active.id === "1000")?.counts).toEqual([0]);
+  });
 });

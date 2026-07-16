@@ -39,6 +39,21 @@ CTRL = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 # (Apple/Olive/Lemon/Orange) are `subCategory:"decor"` but `categoryID:16`; the
 # `subCategory:"tree"` entries (Cypress/Oak/...) are DECORATIVE trees -> Decors.
 FRUIT_TREE_CATID = 16
+EPIC_REWARD_TILES = {
+    "drgroundhogEvilDevice", "drgroundhogTricycle", "drgroundhogNutStash",
+    "drgroundhogLabShelves", "drgroundhogLabTable", "drgroundhogEvilLab",
+    "drgroundhogBurrow", "drgroundhogDistillery",
+    "cactusTarget", "saddle", "rockingHorse", "boots", "banjo", "saloon", "hideout", "gunRack",
+    "lilyJukebox", "mossyCouch", "toadStool", "muddyPool", "carnivorousPlants",
+    "fireflies", "swamp_Cabin", "squirmyWorms",
+    "snowFarmhand", "snowLumberjack", "snowOlMcDonnell", "snowZombie", "snowOwl",
+    "antiHolidayIncinerator", "evilCarriage", "antiHolidayVault",
+    "bedazzledGravestone", "fancyFountain", "crystalGazebo", "diamondCar",
+    "evilMirror", "fashionableScarecrow", "jewelHome", "perfumeVat",
+    "rockyRhinosBanner", "rockyRhinosCave", "rockyRhinosGong", "rockyRhinosSculpture",
+    "generalLarvaelusBanner", "generalLarvaelusTeleporterA", "generalLarvaelusTeleporterB", "teleporter",
+    "mysticalMambaBanner", "mysticalMambasWishMachineLeft", "mysticalMambasWishMachineRight",
+}
 
 
 def classify(e):
@@ -199,19 +214,19 @@ def main():
 
     catalog = []
     seen = set()  # tile keys already emitted (dedupe color variants)
-    counts = {"tree": 0, "decor": 0, "functional": 0}
+    counts = {"tree": 0, "decor": 0, "functional": 0, "reward": 0}
     skipped = 0
 
     # Sort so the cheapest/earliest variant of a shared tile wins.
-    items = [e for e in market if e.get("category") == "item" and classify(e)
-             and not e.get("dontShowInMarket")]
+    items = [e for e in market if ((e.get("category") == "item" and classify(e)) or e.get("tile") in EPIC_REWARD_TILES)
+             and (not e.get("dontShowInMarket") or e.get("tile") in EPIC_REWARD_TILES)]
     items.sort(key=lambda e: (e.get("level", 1), e.get("cost", 0)))
 
     for e in items:
         tile = e.get("tile")
         if not tile or tile in seen:
             continue
-        category = classify(e)
+        category = "reward" if tile in EPIC_REWARD_TILES else classify(e)
         tp = tileprops.get(tile, {})
 
         sprite_img = None
@@ -227,7 +242,7 @@ def main():
                 sprite_img = extract_from_atlas(fl, ready_fn)  # main sprite = ripe
             if fl and growing_fn and growing_fn != ready_fn:
                 growing_img = extract_from_atlas(fl, growing_fn)
-        elif category == "decor":
+        elif category in ("decor", "reward"):
             if tp.get("multiplePieces"):
                 # frameName is only one fragment; assemble every piece.
                 sprite_img = extract_multiplepieces(tp)
@@ -239,6 +254,12 @@ def main():
                 fl, fn = tp.get("frameList"), tp.get("frameName")
                 if fl and fn:
                     sprite_img = extract_from_atlas(fl, fn)
+            # Epic reward objects frequently use a loose in-world PNG while still
+            # being categorized as decor (or omit their Market category entirely).
+            if category == "reward" and sprite_img is None and tp.get("spriteSheet"):
+                loose = image(tp["spriteSheet"])
+                if loose is not None:
+                    sprite_img = loose.copy()
         else:  # functional: prefer the full-size in-world sprite from
             # TileProperties (a standalone tex10xx.png); the market icon is tiny
             # and would look pixelated placed on the farm.

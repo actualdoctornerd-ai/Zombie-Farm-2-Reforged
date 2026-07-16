@@ -107,10 +107,14 @@ export interface MenuCard {
 }
 
 export interface EpicBossMarketView {
+  id: string;
   name: string;
   portrait: string;
   questIcon: string;
   costBrains: number;
+  maxLevel: number;
+  reconstructed: boolean;
+  blocked: boolean;
   run: EpicBossRun | null;
   active: boolean;
   expired: boolean;
@@ -1898,8 +1902,8 @@ export class Hud {
    *  the voucher/concentration/dice choices. */
   onLaunchRaid: ((raidId: number, partyIds: string[], opts: RaidLaunchOpts) => boolean | Promise<boolean>) | null = null;
   // ---- limited Epic Boss hooks ----
-  getEpicBossView: (() => EpicBossMarketView) | null = null;
-  onActivateEpicBoss: (() => boolean | Promise<boolean>) | null = null;
+  getEpicBossView: (() => EpicBossMarketView[]) | null = null;
+  onActivateEpicBoss: ((bossId: string) => boolean | Promise<boolean>) | null = null;
   onSkipEpicBossRetry: (() => boolean | Promise<boolean>) | null = null;
   onLaunchEpicBoss: ((partyIds: string[]) => boolean | Promise<boolean>) | null = null;
 
@@ -2355,26 +2359,29 @@ export class Hud {
   }
 
   private renderEpicBossGrid(grid: HTMLElement, refreshCur: () => void, rerender: () => void) {
-    const view = this.getEpicBossView?.();
-    if (!view) { grid.innerHTML = `<div class="mkt-empty">Coming soon.</div>`; return; }
-    const run = view.run;
+    const views = this.getEpicBossView?.() ?? [];
+    if (!views.length) { grid.innerHTML = `<div class="mkt-empty">Coming soon.</div>`; return; }
     const fmt = (ms: number) => {
       const total = Math.max(0, Math.ceil(ms / 1000));
       const days = Math.floor(total / 86400), hours = Math.floor(total % 86400 / 3600);
       const mins = Math.floor(total % 3600 / 60), secs = total % 60;
       return days ? `${days}d ${hours}h` : hours ? `${hours}h ${mins}m` : `${mins}:${String(secs).padStart(2, "0")}`;
     };
+    for (const view of views) {
+    const run = view.run;
     const card = document.createElement("div");
     card.className = "epic-market-card";
     card.innerHTML = `<img class="epic-market-portrait" src="${view.portrait}" alt="">` +
-      `<div class="epic-market-copy"><h2>${view.name}</h2>` +
+      `<div class="epic-market-copy"><h2><img src="${view.questIcon}" alt=""> ${view.name}</h2>` +
       (view.active && run
-        ? `<b>Level ${run.level}/20</b><div>Event: ${fmt(view.eventRemainingMs)}</div>` +
+        ? `<b>Level ${run.level}/${view.maxLevel}</b><div>Event: ${fmt(view.eventRemainingMs)}</div>` +
           `<div class="epic-hp"><span style="width:${Math.max(0, Math.min(100, run.currentHp / Math.max(1, run.maxHp) * 100))}%"></span></div>` +
           `<div>${run.currentHp.toLocaleString()} / ${run.maxHp.toLocaleString()} life</div>` +
           (view.retryRemainingMs ? `<div class="epic-wait">Returns in ${fmt(view.retryRemainingMs)}</div>` :
             view.encounterRemainingMs ? `<div>HP resets in ${fmt(view.encounterRemainingMs)}</div>` : "")
-        : `<p>Start a 14-day, 20-level Epic Boss event.</p>${view.completed ? "<p>Previous run completed!</p>" : view.expired ? "<p>Previous run expired.</p>" : ""}`) +
+        : `<p>Start a 14-day, ${view.maxLevel}-level Epic Boss event.</p>` +
+          (view.reconstructed ? `<p class="epic-wait">Recovered static battle art.</p>` : "") +
+          (view.completed ? "<p>Previous run completed!</p>" : view.expired ? "<p>Previous run expired.</p>" : "")) +
       `<details><summary>Possible rewards</summary><div>${view.rewards.join("<br>")}</div></details></div>`;
     const action = document.createElement("button");
     action.className = "raid-go epic-market-action";
@@ -2384,30 +2391,32 @@ export class Hud {
         action.disabled = this.state.brains < view.retrySkipCost;
         action.onclick = async () => {
           if (!await this.confirmInGame(
-            "Call Dr. Groundhog back?",
+            `Call ${view.name} back?`,
             `Spend ${view.retrySkipCost} brain${view.retrySkipCost === 1 ? "" : "s"} to skip the remaining ${fmt(view.retryRemainingMs)}?`,
             "Skip Wait"
           )) return;
           if (await this.onSkipEpicBossRetry?.()) { refreshCur(); rerender(); }
         };
       } else {
-        action.textContent = "Fight Dr. Groundhog";
+        action.textContent = `Fight ${view.name}`;
         action.onclick = () => this.openEpicBossArmy();
       }
     } else {
-      action.innerHTML = `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
-      action.disabled = this.state.brains < view.costBrains;
+      action.innerHTML = view.blocked ? "Another boss event is active" :
+        `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
+      action.disabled = view.blocked || this.state.brains < view.costBrains;
       action.onclick = async () => {
         if (!await this.confirmInGame(
-          "Start Epic Boss?",
-          `Spend ${view.costBrains} brains to start Dr. Groundhog for 14 days?`,
+          `Start ${view.name}?`,
+          `Spend ${view.costBrains} brains to start ${view.name} for 14 days?`,
           "Start Event"
         )) return;
-        if (await this.onActivateEpicBoss?.()) { refreshCur(); rerender(); }
+        if (await this.onActivateEpicBoss?.(view.id)) { refreshCur(); rerender(); }
       };
     }
     card.appendChild(action);
     grid.appendChild(card);
+    }
   }
 
   private openEpicBossArmy() {
@@ -2426,7 +2435,8 @@ export class Hud {
     const foot = document.createElement("div"); foot.className = "army-foot";
     const start = document.createElement("button"); start.className = "raid-go";
     const refresh = () => {
-      head.innerHTML = `<h2>Send your army — Dr. Groundhog</h2><span class="army-count">${order.length}/${party.cap} · min 1</span>`;
+      const bossName = this.getEpicBossView?.().find((view) => view.active)?.name ?? "Epic Boss";
+      head.innerHTML = `<h2>Send your army — ${bossName}</h2><span class="army-count">${order.length}/${party.cap} · min 1</span>`;
       start.textContent = order.length ? `Fight with ${order.length}` : "Choose a zombie"; start.disabled = !order.length;
       cards.querySelectorAll<HTMLElement>(".army-card").forEach((el) => { const at = order.indexOf(el.dataset.id!); el.classList.toggle("sel", at >= 0); const tick = el.querySelector<HTMLElement>(".tick"); if (tick) tick.textContent = at >= 0 ? String(at + 1) : ""; });
     };
@@ -2437,7 +2447,7 @@ export class Hud {
       cards.appendChild(card);
     }
     const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
-    pick.onclick = () => { for (const id of [...(this.getEpicBossView?.().run?.attackOrder ?? []), ...party.eligible.map((z) => z.id)]) if (order.length < party.cap && !order.includes(id)) order.push(id); refresh(); };
+    pick.onclick = () => { for (const id of [...(this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? []), ...party.eligible.map((z) => z.id)]) if (order.length < party.cap && !order.includes(id)) order.push(id); refresh(); };
     start.onclick = async () => { if (!order.length || !this.onLaunchEpicBoss) return; start.disabled = true; if (await this.onLaunchEpicBoss([...order])) bg.remove(); else start.disabled = false; };
     foot.append(pick, start); wrap.append(head, cards, foot); panel.appendChild(wrap); refresh();
   }

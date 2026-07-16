@@ -2,12 +2,15 @@
 
 ## Implemented coverage
 
-Dr. Groundhog is the first and currently only playable Epic Boss. Market â†’ Epic Boss
-spends 10 brains to start a 14-day wall-clock run. A run can be purchased again after
-level 20 is completed or the event expires; purchasing never extends an active run.
+Market â†’ Epic Boss offers all eight recovered bosses. Starting one spends 10 brains
+and creates a 14-day wall-clock run; only one boss event can be active at a time. A run
+can be purchased again after its final level is completed or the event expires, and
+purchasing never extends an active run.
 
-The run has 20 levels. Maximum HP is `round(2000 * LevelMultiplier[level - 1])`, using
-`EpicBossHP.json` (2,000 at level 1 and 214,000 at level 20). Each fight has a hard
+Groundhog uses 20 levels. The other seven bosses use their recovered level-40 reward
+tracks. Maximum HP is `round(2000 * LevelMultiplier[level - 1])`, using
+`EpicBossHP.json`. Because the shipped HP table ends at level 21, its final multiplier
+is held constant for reconstructed levels 22-40. Each fight has a hard
 30-second escape deadline. Zombies use manual brain-bubble release without butterfly
 distractions or consuming Concentration. The normal army cap and permanent invasion
 casualty rules apply, and Epic Boss attack order is stored separately.
@@ -45,13 +48,15 @@ each other.
 
 ## Asset provenance and future work
 
-`tools/prep_epic_bosses.py` generates the Groundhog catalog and namespaced assets from
-`EpicEventEnemy.json`, `EpicBossHP.json`, gameplay parameters, and the extracted app
-bundle. It recovered 15 authored background layers, intro/portrait/loot/quest art,
-enter/idle/attack/defeat/escape/fly strips, BGM, and combat SFX. Dr. Zombie and Omega
-Dr. Zombie use their source stats and dedicated sheet art.
+`tools/prep_all_epic_bosses.py` generates eight namespaced catalogs from the source
+gameplay files and extracted app bundle. The first five bosses use their authored
+enter/idle/attack/defeat/escape/fly strips. EPB 8-10 use static revealed art because
+their frame metadata was not present; their full source sheets are retained for future
+reconstruction. `tools/prep_placeables.py` exposes 50 boss decorations as reward-only
+farm objects, and `tools/prep_quests.py` recovers Bully Frog's three unambiguous embedded
+quest records.
 
-Crop-harvest discovery tokens and brain-paid retry skipping are deferred. Every other
-Epic Boss remains future work. The inventory does not prove missing assets are absent:
-a deeper dive through other raw files, atlases, plists, binary references, and generic
-resources may reveal the rest.
+Crop-harvest discovery tokens are deferred. The remaining fidelity gaps are the missing
+EPB 8-10 animation/gameplay metadata and corrupt or absent late quest data. See
+`docs/EPIC_BOSS_ASSET_AUDIT.md` for the exact actor, UI, reward, pet, effect, and audio
+mappings and the metadata that is genuinely still missing.

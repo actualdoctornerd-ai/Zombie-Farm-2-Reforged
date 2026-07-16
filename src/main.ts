@@ -41,7 +41,7 @@ import { TutorialController } from "./tutorial/TutorialController";
 import { TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform } from "./platform";
 import { mutationDescription } from "./zombie/mutations";
-import { DR_GROUNDHOG } from "./epicBoss/catalog";
+import { DR_GROUNDHOG, EPIC_BOSSES, epicBossById } from "./epicBoss/catalog";
 import { EpicBossManager } from "./epicBoss/EpicBossManager";
 import { buildEpicBossSetup, rollEpicBossLoot } from "./epicBoss/combat";
 
@@ -74,7 +74,7 @@ async function main() {
   const assets = await loadAssets();
   boot?.progress(0.8); // heaviest step done — art is in
   const state = new GameState();
-  const epicBoss = new EpicBossManager(DR_GROUNDHOG);
+  let epicBoss = new EpicBossManager(DR_GROUNDHOG);
   state.seedFarmerCatalog(assets.farmer);
   const audio = new AudioManager(); // music/SFX default off (toggled in Settings)
   const hud = new Hud(state, audio);
@@ -1277,33 +1277,45 @@ async function main() {
     cooldownMs: raids.cooldownRemaining(),
     voucherCount: raids.voucherCount(),
   });
-  const epicAsset = (file: string) => `${BASE}assets/epic-bosses/${DR_GROUNDHOG.id}/${file}`;
-  const epicRun = () => epicBoss.normalize(state.epicBossRun);
+  const selectEpicBoss = (bossId: string | null | undefined) => {
+    const def = epicBossById(bossId) ?? DR_GROUNDHOG;
+    if (epicBoss.def.id !== def.id) epicBoss = new EpicBossManager(def);
+    return def;
+  };
+  const epicAsset = (def: typeof DR_GROUNDHOG, file: string) => `${BASE}assets/epic-bosses/${def.id}/${file}`;
+  const epicRun = () => {
+    selectEpicBoss(state.epicBossRun?.bossId);
+    return epicBoss.normalize(state.epicBossRun);
+  };
   hud.getEpicBossView = () => {
     const run = epicRun();
     const now = Date.now();
     const active = epicBoss.isActive(run);
-    return {
-      name: DR_GROUNDHOG.name,
-      portrait: epicAsset(DR_GROUNDHOG.portrait),
-      questIcon: epicAsset(DR_GROUNDHOG.questIcon),
-      costBrains: DR_GROUNDHOG.costBrains,
-      run,
-      active,
-      expired: !!run && !run.completedAt && now >= run.expiresAt,
-      completed: !!run?.completedAt,
-      eventRemainingMs: active && run ? Math.max(0, run.expiresAt - now) : 0,
-      retryRemainingMs: active && run ? Math.max(0, run.retryReadyAt - now) : 0,
-      retrySkipCost: active && run ? epicBoss.retrySkipCost(run) : 0,
-      encounterRemainingMs: active && run?.encounterStartedAt
-        ? Math.max(0, run.encounterStartedAt + DR_GROUNDHOG.encounterMs - now) : 0,
-      rewards: DR_GROUNDHOG.loot.map((loot) => loot.name),
-    };
+    return EPIC_BOSSES.map((def) => {
+      const ownRun = run?.bossId === def.id ? run : null;
+      const ownActive = active && ownRun !== null;
+      const manager = def.id === epicBoss.def.id ? epicBoss : new EpicBossManager(def);
+      return {
+        id: def.id, name: def.name,
+        portrait: epicAsset(def, def.portrait), questIcon: epicAsset(def, def.questIcon),
+        costBrains: def.costBrains, maxLevel: def.maxLevel,
+        reconstructed: !!def.reconstructed, blocked: active && !ownActive,
+        run: ownRun, active: ownActive,
+        expired: !!ownRun && !ownRun.completedAt && now >= ownRun.expiresAt,
+        completed: !!ownRun?.completedAt,
+        eventRemainingMs: ownActive && ownRun ? Math.max(0, ownRun.expiresAt - now) : 0,
+        retryRemainingMs: ownActive && ownRun ? Math.max(0, ownRun.retryReadyAt - now) : 0,
+        retrySkipCost: ownActive && ownRun ? manager.retrySkipCost(ownRun) : 0,
+        encounterRemainingMs: ownActive && ownRun?.encounterStartedAt
+          ? Math.max(0, ownRun.encounterStartedAt + def.encounterMs - now) : 0,
+        rewards: def.loot.map((loot) => loot.name),
+      };
+    });
   };
   const syncEpicBossUi = () => {
     const run = epicRun();
     const active = epicBoss.isActive(run);
-    quests.setEpicBossActive(active);
+    quests.setEpicBossActive(active, active ? epicBoss.def.questIds : []);
     const days = active && run ? Math.max(1, Math.ceil((run.expiresAt - Date.now()) / 86_400_000)) : 0;
     hud.setBossShortcut(active, days ? `Boss · ${days}d` : "Boss");
   };
@@ -1311,12 +1323,13 @@ async function main() {
     state.setEpicBossRun(run ?? null);
     syncEpicBossUi();
   };
-  hud.onActivateEpicBoss = async () => {
+  hud.onActivateEpicBoss = async (bossId) => {
     if (epicBoss.isActive(state.epicBossRun)) return false;
+    const def = selectEpicBoss(bossId);
     if (auth.isSignedIn()) {
       try {
         await economy?.settleBeforeDependency();
-        const activated = await api.epicBossActivate(crypto.randomUUID());
+        const activated = await api.epicBossActivate(crypto.randomUUID(), def.id);
         economy?.adoptEpicBossActivation(activated.event, activated.balance);
         state.setEpicBossRun(activated.event);
         syncEpicBossUi();
@@ -1331,7 +1344,7 @@ async function main() {
         return false;
       }
     }
-    if (!state.spendBrains(DR_GROUNDHOG.costBrains, "epic_boss_activate")) return false;
+    if (!state.spendBrains(def.costBrains, "epic_boss_activate")) return false;
     state.setEpicBossRun(epicBoss.activate(crypto.randomUUID()));
     syncEpicBossUi();
     saveManager.flush();
@@ -1619,9 +1632,10 @@ async function main() {
   let raidScene: RaidScene | null = null;
   hud.onLaunchEpicBoss = async (partyIds) => {
     if (raidActive) return false;
+    const def = selectEpicBoss(state.epicBossRun?.bossId);
     const gate = epicBoss.start(state.epicBossRun, partyIds);
     if (!gate.ok) {
-      if (gate.error === "cooldown") hud.showToast(`Dr. Groundhog returns in ${Math.ceil((gate.remainingMs ?? 0) / 60_000)} min.`);
+      if (gate.error === "cooldown") hud.showToast(`${def.name} returns in ${Math.ceil((gate.remainingMs ?? 0) / 60_000)} min.`);
       else hud.showToast("That Epic Boss event is no longer active.");
       syncEpicBossUi();
       return false;
@@ -1640,13 +1654,13 @@ async function main() {
         state.setEpicBossRun(opened.event);
       } catch (error) {
         const code = errCode(error);
-        hud.showToast(code === "cooldown" ? "Dr. Groundhog has not returned yet." : "Another battle is already in progress.");
+        hud.showToast(code === "cooldown" ? `${def.name} has not returned yet.` : "Another battle is already in progress.");
         return false;
       }
     } else {
       state.setEpicBossRun(gate.run);
     }
-    const setup = buildEpicBossSetup(DR_GROUNDHOG, gate.run, party, assets, state);
+    const setup = buildEpicBossSetup(def, gate.run, party, assets, state);
     raidActive = true;
     world.visible = false;
     hud.setRaiding(true);
@@ -1657,17 +1671,17 @@ async function main() {
       playerUnits: setup.playerUnits,
       enemyUnits: setup.enemyUnits,
       bossThrow: null,
-      roundMs: DR_GROUNDHOG.fightMs,
+      roundMs: def.fightMs,
       escapeOnRoundEnd: true,
       noDistractions: true,
-      imageBase: epicAsset(""),
-      bossTexture: epicAsset("boss.png"),
-      bossAnimations: DR_GROUNDHOG.animations,
+      imageBase: epicAsset(def, ""),
+      bossTexture: epicAsset(def, def.bossTexture),
+      bossAnimations: def.animations,
       bossEntersFromRight: true,
       bossEngageDistance: 150,
       bossGroundOffset: { x: 32, y: 24 },
       confirmRetreat: () => hud.confirmInGame(
-        "Retreat from battle?", "This attempt will end and Dr. Groundhog will escape.", "Retreat"
+        "Retreat from battle?", `This attempt will end and ${def.name} will escape.`, "Retreat"
       ),
       onFinish: (outcome, finalTick, inputs) => {
         const presentResult = (result: ReturnType<EpicBossManager["finish"]>, drops: { name: string; icon: string }[]) => {
@@ -1675,13 +1689,13 @@ async function main() {
         if (result.defeatedLevel !== null && !auth.isSignedIn()) {
           questBus.post(QuestEvent.EpicStageEnemyDefeated, String(result.defeatedLevel), 1);
           const collected = new Set([...state.received, ...state.ownedPets.map((key) =>
-            DR_GROUNDHOG.loot.find((loot) => loot.stageActor === key)?.name ?? key)]);
-          const loot = rollEpicBossLoot(DR_GROUNDHOG, result.defeatedLevel, collected);
+            def.loot.find((loot) => loot.stageActor === key)?.name ?? key)]);
+          const loot = rollEpicBossLoot(def, result.defeatedLevel, collected);
           if (loot) {
             if (loot.stageActor) state.unlockPet(loot.stageActor);
             else state.receiveItem(loot.name);
             questBus.post(QuestEvent.EpicBossEpicItemWon, loot.name, 1);
-            drops.push({ name: loot.name, icon: epicAsset(DR_GROUNDHOG.lootIcon) });
+            drops.push({ name: loot.name, icon: epicAsset(def, def.lootIcon) });
           }
         }
         saveManager.flush();
@@ -1715,7 +1729,7 @@ async function main() {
               completed: !!server.event.completedAt,
               escaped: server.escaped,
             };
-            presentResult(result, server.loot ? [{ name: server.loot.name, icon: epicAsset(DR_GROUNDHOG.lootIcon) }] : []);
+            presentResult(result, server.loot ? [{ name: server.loot.name, icon: epicAsset(def, def.lootIcon) }] : []);
           }).catch(() => {
             hud.showToast("The fight result could not be verified. Reconnecting will recover it.");
             if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }

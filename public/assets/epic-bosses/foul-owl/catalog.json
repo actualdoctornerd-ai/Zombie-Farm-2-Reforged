@@ -1,0 +1,378 @@
+{
+  "id": "foul-owl",
+  "sourceId": 4,
+  "name": "Foul Owl",
+  "costBrains": 10,
+  "durationMs": 1209600000,
+  "fightMs": 30000,
+  "retryMs": 1200000,
+  "encounterMs": 7200000,
+  "baseHp": 2000,
+  "multipliers": [
+    1,
+    1.4,
+    2.2,
+    3.6,
+    6.8,
+    7.4,
+    8.1,
+    9.4,
+    14,
+    23,
+    25,
+    27.4,
+    31.7,
+    40,
+    53,
+    58,
+    64,
+    74,
+    88,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107
+  ],
+  "maxLevel": 40,
+  "music": "music.wav",
+  "punchSfx": "punch.wav",
+  "introText": "Foul Owl is here",
+  "successText": "You Beat Foul Owl.  He'll be back stronger than before!",
+  "failedText": "Foul Owl beat you",
+  "unitStats": {
+    "attacks": [
+      {
+        "frequency": 100,
+        "name": "EpicBossAttack"
+      }
+    ],
+    "con": 20,
+    "dex": 2,
+    "str": 2
+  },
+  "animations": {
+    "idle": {
+      "file": "idle.png",
+      "cellWidth": 375,
+      "cellHeight": 275,
+      "frameCount": 8,
+      "frameSeconds": 0.08333333333333333
+    },
+    "enter": {
+      "file": "enter.png",
+      "cellWidth": 375,
+      "cellHeight": 275,
+      "frameCount": 13,
+      "frameSeconds": 0.08333333333333333
+    },
+    "attack": {
+      "file": "attack.png",
+      "cellWidth": 375,
+      "cellHeight": 275,
+      "frameCount": 10,
+      "frameSeconds": 0.08333333333333333
+    },
+    "defeat": {
+      "file": "defeat.png",
+      "cellWidth": 375,
+      "cellHeight": 275,
+      "frameCount": 4,
+      "frameSeconds": 0.08333333333333333
+    },
+    "escape": {
+      "file": "escape.png",
+      "cellWidth": 375,
+      "cellHeight": 275,
+      "frameCount": 4,
+      "frameSeconds": 0.08333333333333333
+    },
+    "fly": {
+      "file": "fly.png",
+      "cellWidth": 375,
+      "cellHeight": 275,
+      "frameCount": 1,
+      "frameSeconds": 0.08333333333333333
+    }
+  },
+  "levelAssets": [
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-01.png",
+      "z": -11
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "speed": "20",
+      "sprite": "background-02.png",
+      "z": -10
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{480,0}",
+      "speed": "20",
+      "sprite": "background-03.png",
+      "z": -10
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "speed": "30",
+      "sprite": "background-04.png",
+      "z": -9
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{479,0}",
+      "speed": "30",
+      "sprite": "background-05.png",
+      "z": -9
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "speed": "60",
+      "sprite": "background-06.png",
+      "z": -8
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{959,0}",
+      "speed": "60",
+      "sprite": "background-07.png",
+      "z": -8
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{230,308}",
+        "{230,303}"
+      ],
+      "position": "{230,308}",
+      "speed": "200",
+      "sprite": "background-08.png",
+      "z": -7
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{290,315}",
+        "{290,308}"
+      ],
+      "position": "{290,315}",
+      "speed": "275",
+      "sprite": "background-09.png",
+      "z": -6
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{292,188}",
+        "{292,185}"
+      ],
+      "position": "{292,188}",
+      "speed": "450",
+      "sprite": "background-10.png",
+      "z": -5
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{3,250}",
+        "{6,251}",
+        "{8,247}",
+        "{5,247}"
+      ],
+      "position": "{3,250}",
+      "speed": "400",
+      "sprite": "background-11.png",
+      "z": -4
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{15,280}",
+        "{18,277}",
+        "{22,284}",
+        "{18,284}"
+      ],
+      "position": "{15,284}",
+      "speed": "300",
+      "sprite": "background-12.png",
+      "z": -3
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{34,176}",
+        "{39,179}",
+        "{40,183}",
+        "{35,178}"
+      ],
+      "position": "{34,176}",
+      "speed": "275",
+      "sprite": "background-13.png",
+      "z": -2
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{67,93}",
+        "{67,97}"
+      ],
+      "position": "{67,93}",
+      "speed": "200",
+      "sprite": "background-14.png",
+      "z": -1
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-15.png",
+      "z": 0
+    }
+  ],
+  "loot": [
+    {
+      "level": 5,
+      "name": "Farmhand Snowman",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Snowman_FarmHand.png",
+      "tile": "snowFarmhand",
+      "unique": false
+    },
+    {
+      "level": 10,
+      "name": "Lumberjack Snowman",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Snowman_Lumberjack.png",
+      "tile": "snowLumberjack",
+      "unique": false
+    },
+    {
+      "level": 15,
+      "name": "Boss Farmer Snowman",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Snowman_McDonnell.png",
+      "tile": "snowOlMcDonnell",
+      "unique": false
+    },
+    {
+      "level": 20,
+      "name": "Zombie Snowman",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Snowman_Zombie.png",
+      "tile": "snowZombie",
+      "unique": false
+    },
+    {
+      "level": 25,
+      "name": "Foul Owl's Colossal Snowman",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Snowman_FoulOwl.png",
+      "tile": "snowOwl",
+      "unique": false
+    },
+    {
+      "level": 30,
+      "name": "Foul Owl's Gift Incinerator",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Anti_HolidayIncinerator.png",
+      "tile": "antiHolidayIncinerator",
+      "unique": false
+    },
+    {
+      "level": 35,
+      "name": "Foul Owl's Evil Carriage",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Evil_carriage.png",
+      "tile": "evilCarriage",
+      "unique": false
+    },
+    {
+      "level": 37,
+      "name": "Foul Owl's Gift Vault",
+      "scale": 0.35,
+      "sprite": "Icon_Market_Anti_HolidayVault.png",
+      "tile": "antiHolidayVault",
+      "unique": false
+    },
+    {
+      "level": 39,
+      "name": "Tame Foul Owl",
+      "scale": 0.35,
+      "sprite": "foulowlpet.png",
+      "stageActor": "foulowlpetActor"
+    }
+  ],
+  "questIds": [
+    "4000",
+    "4001",
+    "4002",
+    "4003",
+    "4004",
+    "4005",
+    "4006",
+    "4010",
+    "4011"
+  ],
+  "portrait": "portrait.png",
+  "lootIcon": "loot-icon.png",
+  "questIcon": "quest-icon.png",
+  "bossTexture": "boss.png",
+  "reconstructed": false,
+  "copied": [
+    "Icon_Market_Anti_HolidayIncinerator.png",
+    "Icon_Market_Anti_HolidayVault.png",
+    "Icon_Market_Evil_carriage.png",
+    "Icon_Market_Snowman_FarmHand.png",
+    "Icon_Market_Snowman_FoulOwl.png",
+    "Icon_Market_Snowman_Lumberjack.png",
+    "Icon_Market_Snowman_McDonnell.png",
+    "Icon_Market_Snowman_Zombie.png",
+    "foulowlpet.plist",
+    "foulowlpet.png",
+    "intro-1.png",
+    "intro-2.png",
+    "intro-3.png",
+    "intro.caf",
+    "loot-icon.png",
+    "music.wav",
+    "portrait.png",
+    "punch.wav",
+    "quest-icon.png",
+    "source-sheet.plist",
+    "source-sheet.png"
+  ]
+}

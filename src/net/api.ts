@@ -672,10 +672,10 @@ export interface EpicBossFinishResult {
   newZombies: { id: string; key: string }[];
 }
 
-export const epicBossActivate = (activationId: string) => req<{
+export const epicBossActivate = (activationId: string, bossId: string) => req<{
   event: import("./protocol").EpicBossProjection;
   balance: Balance;
-}>("POST", "/epic-boss/activate", { activationId });
+}>("POST", "/epic-boss/activate", { activationId, bossId });
 
 export const epicBossSkipRetry = (runId: string, retryReadyAt: number) => req<{
   event: import("./protocol").EpicBossProjection;

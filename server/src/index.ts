@@ -652,9 +652,10 @@ app.post("/raid/finish", async (c) => {
 
 app.post("/epic-boss/activate", async (c) => {
   if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
-  const body: { activationId?: unknown } = await c.req.json<{ activationId?: unknown }>().catch(() => ({}));
+  const body: { activationId?: unknown; bossId?: unknown } =
+    await c.req.json<{ activationId?: unknown; bossId?: unknown }>().catch(() => ({}));
   const activationId = typeof body.activationId === "string" && body.activationId ? body.activationId : crypto.randomUUID();
-  const result = await v3EpicBoss.activate(c.env.DB, c.get("accountId"), activationId, Date.now());
+  const result = await v3EpicBoss.activate(c.env.DB, c.get("accountId"), activationId, body.bossId, Date.now());
   return result.status === 200 ? c.json(result.body) : c.json(result.body, 409);
 });
 

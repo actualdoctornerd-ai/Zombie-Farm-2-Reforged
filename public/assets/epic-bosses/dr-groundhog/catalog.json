@@ -31,6 +31,8 @@
     107
   ],
   "maxLevel": 20,
+  "music": "music.wav",
+  "punchSfx": "punch.wav",
   "introText": "Dr. Groundhog is here",
   "successText": "You Beat Dr. Groundhog.  He'll be back stronger than before!",
   "failedText": "Dr. Groundhog beat you",
@@ -321,27 +323,33 @@
     }
   ],
   "questIds": [
-    1000,
-    1001,
-    1002,
-    1003,
-    1010,
-    1011
+    "1000",
+    "1001",
+    "1002",
+    "1003",
+    "1010",
+    "1011"
   ],
   "portrait": "portrait.png",
   "lootIcon": "loot-icon.png",
   "questIcon": "quest-icon.png",
-  "music": "music.wav",
-  "punchSfx": "punch.wav",
+  "bossTexture": "boss.png",
+  "reconstructed": false,
   "copied": [
-    "portrait.png",
-    "loot-icon.png",
-    "quest-icon.png",
+    "drgroundhog_decors01.png",
+    "drgroundhog_decors02.png",
+    "drgroundhogpet.plist",
+    "drgroundhogpet.png",
     "intro-1.png",
     "intro-2.png",
     "intro-3.png",
+    "intro.caf",
+    "loot-icon.png",
     "music.wav",
+    "portrait.png",
     "punch.wav",
-    "intro.caf"
+    "quest-icon.png",
+    "source-sheet.plist",
+    "source-sheet.png"
   ]
 }

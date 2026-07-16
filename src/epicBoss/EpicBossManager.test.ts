@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { DR_GROUNDHOG, epicBossHp, epicBossRetrySkipCost } from "./catalog";
+import { DR_GROUNDHOG, EPIC_BOSSES, epicBossById, epicBossHp, epicBossRetrySkipCost } from "./catalog";
 import { EpicBossManager } from "./EpicBossManager";
 
 describe("Dr. Groundhog event", () => {
+  it("registers all eight recovered bosses with usable combat presentation", () => {
+    expect(EPIC_BOSSES).toHaveLength(8);
+    expect(new Set(EPIC_BOSSES.map((boss) => boss.id)).size).toBe(8);
+    expect(EPIC_BOSSES.slice(0, 5).every((boss) => Object.keys(boss.animations).length === 6)).toBe(true);
+    expect(EPIC_BOSSES.slice(5).every((boss) => boss.reconstructed && boss.bossTexture)).toBe(true);
+    for (const boss of EPIC_BOSSES) {
+      expect(epicBossById(boss.id)).toBe(boss);
+      expect(new EpicBossManager(boss, () => 1_000).activate("run").bossId).toBe(boss.id);
+      expect(epicBossHp(boss, boss.maxLevel)).toBeGreaterThan(0);
+    }
+  });
   it("uses the recovered 20-level HP curve", () => {
     expect(epicBossHp(DR_GROUNDHOG, 1)).toBe(2_000);
     expect(epicBossHp(DR_GROUNDHOG, 2)).toBe(2_800);

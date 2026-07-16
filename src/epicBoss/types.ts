@@ -29,15 +29,24 @@ export interface EpicBossDef {
   introText: string;
   successText: string;
   failedText: string;
+  unitStats: {
+    str: number;
+    dex: number;
+    con: number;
+    attacks: { name: string; frequency: number; mult?: number }[];
+  };
   animations: Record<string, EpicBossAnimation>;
   levelAssets: { anchor: string; position: string; sprite: string; z: number }[];
   loot: EpicBossLoot[];
-  questIds: number[];
+  questIds: string[];
   portrait: string;
   lootIcon: string;
   questIcon: string;
+  bossTexture: string;
   music: string;
   punchSfx: string;
+  /** True when shipped art survived without the original gameplay/atlas metadata. */
+  reconstructed?: boolean;
 }
 
 import type { EpicBossProjection } from "../net/protocol";

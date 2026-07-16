@@ -38,7 +38,7 @@ def main():
     # default the sparse optional flags so the TS side has a stable shape.
     out = {}
     icons = set()
-    for k, q in quests.items():
+    def add_quest(k, q):
         reqs = []
         for r in q.get("requirements", []):
             reqs.append({
@@ -52,7 +52,8 @@ def main():
         sprite = q.get("sprite", "")
         if sprite:
             icons.add(sprite)
-        out[str(int(q.get("questID", int(k))))] = {
+        qid = str(int(q.get("questID", int(k))))
+        out[qid] = {
             "id": str(int(q.get("questID", int(k)))),
             "title": q.get("title", ""),
             "messageComplete": q.get("messageComplete", ""),
@@ -72,6 +73,22 @@ def main():
             "removeQuest": bool(q.get("removeQuest", False)),
             "ignoreCheckQuest": bool(q.get("ignoreCheckQuest", False)),
         }
+
+    for k, q in quests.items():
+        add_quest(k, q)
+
+    # Bully Frog's only surviving quest definitions are embedded in its
+    # EpicEventEnemy row rather than Quests.plist. Import the unambiguous 3xxx
+    # records; several middle milestones incorrectly reuse Groundhog's 1xxx IDs
+    # in the shipped data and must not overwrite those quests.
+    epic_enemies = load_plist(os.path.join(APP, "EpicEventEnemy.plist"))
+    for enemy in epic_enemies:
+        if int(enemy.get("epicBossID", -1)) != 3:
+            continue
+        for q in enemy.get("Quests", []):
+            qid = int(q.get("questID", -1))
+            if 3000 <= qid < 4000:
+                add_quest(str(qid), q)
 
     with open(os.path.join(OUT, "quests.json"), "w") as f:
         json.dump(out, f, indent=1)

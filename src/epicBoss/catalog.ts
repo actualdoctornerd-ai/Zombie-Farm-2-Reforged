@@ -1,8 +1,30 @@
-import raw from "../../public/assets/epic-bosses/dr-groundhog/catalog.json";
+import groundhogRaw from "../../public/assets/epic-bosses/dr-groundhog/catalog.json";
+import locustRaw from "../../public/assets/epic-bosses/loco-locust/catalog.json";
+import frogRaw from "../../public/assets/epic-bosses/bully-frog/catalog.json";
+import owlRaw from "../../public/assets/epic-bosses/foul-owl/catalog.json";
+import skunkRaw from "../../public/assets/epic-bosses/skunkarella/catalog.json";
+import rhinoRaw from "../../public/assets/epic-bosses/rocky-rhino/catalog.json";
+import larvaRaw from "../../public/assets/epic-bosses/general-larvaelus/catalog.json";
+import mambaRaw from "../../public/assets/epic-bosses/mystical-mamba/catalog.json";
 import type { EpicBossDef } from "./types";
 
-export const DR_GROUNDHOG = raw as EpicBossDef;
-export const EPIC_BOSSES = [DR_GROUNDHOG] as const;
+export const DR_GROUNDHOG = groundhogRaw as EpicBossDef;
+export const LOCO_LOCUST = locustRaw as EpicBossDef;
+export const BULLY_FROG = frogRaw as EpicBossDef;
+export const FOUL_OWL = owlRaw as EpicBossDef;
+export const SKUNKARELLA = skunkRaw as EpicBossDef;
+export const ROCKY_RHINO = rhinoRaw as EpicBossDef;
+export const GENERAL_LARVAELUS = larvaRaw as EpicBossDef;
+export const MYSTICAL_MAMBA = mambaRaw as EpicBossDef;
+export const EPIC_BOSSES: readonly EpicBossDef[] = [
+  DR_GROUNDHOG, LOCO_LOCUST, BULLY_FROG, FOUL_OWL, SKUNKARELLA,
+  ROCKY_RHINO, GENERAL_LARVAELUS, MYSTICAL_MAMBA,
+];
+const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
+
+export function epicBossById(id: string | null | undefined): EpicBossDef | null {
+  return id ? BY_ID.get(id) ?? null : null;
+}
 export const EPIC_BOSS_SKIP_MS_PER_BRAIN = 2 * 60_000;
 
 /** Cooldown skipping bills started two-minute blocks, so a partial block costs one brain. */

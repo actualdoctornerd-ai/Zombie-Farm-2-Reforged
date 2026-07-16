@@ -42,11 +42,12 @@ describe("protocol v3 API", () => {
     const brainsBeforeActivation = grown.body.gameplay.balance.brains;
     const activated = await call<any>("POST", "/epic-boss/activate", session.token, {
       activationId: "activation-authenticated",
+      bossId: "loco-locust",
     });
     expect(activated.status, JSON.stringify(activated.body)).toBe(200);
     expect(activated.body.event).toMatchObject({
       runId: "activation-authenticated",
-      bossId: "dr-groundhog",
+      bossId: "loco-locust",
       level: 1,
     });
     expect(activated.body.balance.brains).toBe(brainsBeforeActivation - 10);
