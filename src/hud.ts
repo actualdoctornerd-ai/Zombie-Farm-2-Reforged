@@ -2058,7 +2058,7 @@ export class Hud {
     subsEl.className = "mkt-subtabs";
 
     // Search row: filters the current tab/sub's cards by name (esp. the big decor
-    // list). Hidden on tabs with a bespoke layout (Upgrade) or no cards (Brains).
+    // list). Hidden on tabs with a bespoke layout.
     const searchRow = document.createElement("div");
     searchRow.className = "mkt-search-row";
     const searchInput = document.createElement("input");
@@ -2095,7 +2095,6 @@ export class Hud {
       Farmer: ["Heads", "Bodies"],
       Pets: [],
       "Epic Boss": [],
-      Brains: [],
     };
     const ITEM_CAT: Record<string, ObjCard["category"]> = {
       Functional: "functional", Decors: "decor", "Fruit Trees": "tree",
@@ -2225,9 +2224,9 @@ export class Hud {
         `<span><img src="${UI("topbar_brain_icon.png")}">${this.state.brains}</span>`;
     };
 
-    // Search + pagination apply only to the card-list tabs; Upgrade has a bespoke
-    // layout and Brains is an info message.
-    const searchable = () => tab !== "Upgrade" && tab !== "Brains" && tab !== "Epic Boss";
+    // Search + pagination apply only to the card-list tabs; Upgrade and Epic Boss
+    // have bespoke layouts.
+    const searchable = () => tab !== "Upgrade" && tab !== "Epic Boss";
 
     // How many cards a page holds. Read from the laid-out grid so it tracks the
     // responsive column count + row height. Roomy layouts (desktop/tablet, ≥3
@@ -2289,10 +2288,7 @@ export class Hud {
         // Distinguish "no search hits" from a genuinely empty tab.
         e.textContent = q
           ? `No items match “${search.trim()}”.`
-          : tab === "Brains"
-            // Brains are never sold for real money — earned through play only.
-            ? "Brains can't be bought. Earn them from quests and invasions!"
-            : "Coming soon.";
+          : "Coming soon.";
         grid.appendChild(e);
       } else {
         for (const en of shown) grid.appendChild(this.buildMarketCard(en));
@@ -2326,7 +2322,7 @@ export class Hud {
       }
     };
 
-    for (const name of ["Crops", "Items", "Upgrade", "Boosts", "Farmer", "Pets", "Epic Boss", "Brains"]) {
+    for (const name of ["Crops", "Items", "Upgrade", "Boosts", "Farmer", "Pets", "Epic Boss"]) {
       const b = document.createElement("button");
       b.className = "mkt-tab" + (name === tab ? " sel" : "");
       b.textContent = name;
