@@ -21,6 +21,7 @@ Core routes:
 - `PUT /presentation`
 - `POST /raid/start`
 - `POST /raid/finish`
+- `POST /raid/revive`
 - account/session, friend, visit, and gift routes in `src/index.ts`
 
 `/commands` applies allowlisted semantic gameplay commands against server-held state

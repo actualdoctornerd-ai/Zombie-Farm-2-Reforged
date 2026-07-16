@@ -2,11 +2,11 @@
 // happens on PLOTS — 4x4 tile blocks that can be placed FREELY anywhere a 4x4 area
 // is available (not on a fixed lattice). A plot cycles through soil states:
 //   plowed -> planted -> (grows) -> harvest -> dirt (crop) / hole (zombie) -> re-till.
-import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
+import { Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import {
   DIRT_FILE, GameAssets, HOLE_FILE, PlaceableDef, PLOWED_FILE, SEED_FILE,
 } from "./assets";
-import { footprintOrigin, gridToScreen, HH, HW, TILE_H, TILE_W, tileCenter } from "./iso";
+import { footprintOrigin, gridToScreen, HH, HW, screenToGrid, TILE_H, TILE_W, tileCenter } from "./iso";
 import { setFootprint, sortLayer } from "./depthSort";
 import { makeLight, OBJECT_GLOWS } from "./lighting";
 import { leafTexture, ParticleConfig, ParticleField } from "./raid/Particles";
@@ -112,6 +112,7 @@ interface FarmObject {
   oc: number; // footprint origin (north tile)
   or: number;
   sprite: Sprite;
+  frontSprite?: Sprite; // Pet Pen foreground rails, depth-sorted above its occupants
   light?: Sprite; // additive night glow (glowing objects only), lives in the night layer
   // Fruit trees only: readyAt = epoch ms the fruit ripens; ready = fruit present.
   readyAt: number;
@@ -179,6 +180,7 @@ export class Field {
   private fenceBlock = new Map<string, Set<string>>();
   private nextObjId = 1;
   private highlightedObj: string | null = null;
+  private petPenTextures = new WeakMap<Sprite, Texture[]>();
 
   constructor(private assets: GameAssets) {
     this.groundObjectLayer.sortableChildren = true;
@@ -719,7 +721,7 @@ export class Field {
     for (const o of this.objects.values()) {
       if (!o.def.harvestValue || o.ready || now < o.readyAt) continue;
       o.ready = true;
-      this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, true, o.flipped);
+      this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, true, o.flipped, o.frontSprite);
     }
     // Runs LAST in the frame (after the farmer + zombies have moved), so the
     // footprint depth-sort sees final positions. Ground objects (roads/patch) share
@@ -837,19 +839,58 @@ export class Field {
   private isGroundObject(def: PlaceableDef): boolean {
     return def.zombiePatch || /road/i.test(def.key);
   }
-  private fitObjectSprite(sp: Sprite, def: PlaceableDef, oc: number, or: number, ready = true, flipped = false) {
+  private fitObjectSprite(
+    sp: Sprite, def: PlaceableDef, oc: number, or: number, ready = true, flipped = false,
+    front?: Sprite,
+  ) {
     const name = this.objectSpriteName(def, ready);
-    sp.texture = this.assets.objects[name] ?? this.assets.objects[def.sprite] ?? Texture.EMPTY;
+    const texture = this.assets.objects[name] ?? this.assets.objects[def.sprite] ?? Texture.EMPTY;
     sp.anchor.set(0.5, 1);
     const s = this.objectScale();
     // Flip = mirror horizontally (about the sprite's bottom-center anchor), so the
     // art faces the other way while sitting in the exact same footprint tiles.
-    sp.scale.set(flipped ? -s : s, s);
     const a = this.footprintAnchor(oc, or, def.tileW, def.tileH);
+    const scaleX = flipped ? -s : s;
+    if (def.petPen && front && texture !== Texture.EMPTY) {
+      for (const old of this.petPenTextures.get(sp) ?? []) old.destroy(false);
+      const f = texture.frame;
+      // The cut crosses the transparent interior: rear rails remain in the upper
+      // crop while the screen-facing rails live in the lower foreground crop.
+      const split = Math.max(1, Math.min(f.height - 1, Math.round(f.height * 0.47)));
+      const rearTexture = new Texture({ source: texture.source,
+        frame: new Rectangle(f.x, f.y, f.width, split) });
+      const frontTexture = new Texture({ source: texture.source,
+        frame: new Rectangle(f.x, f.y + split, f.width, f.height - split) });
+      this.petPenTextures.set(sp, [rearTexture, frontTexture]);
+
+      sp.texture = rearTexture;
+      sp.anchor.set(0.5, 0);
+      sp.scale.set(scaleX, s);
+      sp.position.set(a.x, a.y - f.height * s);
+      front.texture = frontTexture;
+      front.anchor.set(0.5, 1);
+      front.scale.set(scaleX, s);
+      front.position.set(a.x, a.y);
+      setFootprint(sp, oc, or, oc + def.tileW - 1, or + def.tileH - 1, -200);
+      setFootprint(front, oc, or, oc + def.tileW - 1, or + def.tileH - 1, 200);
+      return;
+    }
+    sp.texture = texture;
+    sp.scale.set(scaleX, s);
     sp.position.set(a.x, a.y);
     // Depth-sorts by the object's full footprint (see depthSort): an actor on the
     // object's own tiles or south of it draws in front, one behind it is covered.
     setFootprint(sp, oc, or, oc + def.tileW - 1, or + def.tileH - 1);
+  }
+
+  private destroyObjectSprites(obj: FarmObject) {
+    const split = this.petPenTextures.get(obj.sprite) ?? [];
+    obj.sprite.removeFromParent();
+    obj.frontSprite?.removeFromParent();
+    obj.sprite.destroy();
+    obj.frontSprite?.destroy();
+    for (const texture of split) texture.destroy(false);
+    this.petPenTextures.delete(obj.sprite);
   }
 
   // Glowing objects (candle altar, sparklers, glow-flora, ...) emit an additive
@@ -899,10 +940,13 @@ export class Field {
     const ra = def.growMs ? readyAt ?? now + def.growMs : 0;
     const ready = def.growMs ? now >= ra : false;
     const sprite = new Sprite();
-    this.fitObjectSprite(sprite, def, oc, or, ready, flipped);
-    (this.isGroundObject(def) ? this.groundObjectLayer : this.entityLayer).addChild(sprite);
+    const frontSprite = def.petPen ? new Sprite() : undefined;
+    this.fitObjectSprite(sprite, def, oc, or, ready, flipped, frontSprite);
+    const layer = this.isGroundObject(def) ? this.groundObjectLayer : this.entityLayer;
+    layer.addChild(sprite);
+    if (frontSprite) layer.addChild(frontSprite);
     const oid = id ?? `o${this.nextObjId++}`;
-    const obj: FarmObject = { id: oid, def, oc, or, sprite, readyAt: ra, ready, flipped };
+    const obj: FarmObject = { id: oid, def, oc, or, sprite, frontSprite, readyAt: ra, ready, flipped };
     this.objects.set(oid, obj);
     this.attachObjectLight(obj);
     this.forEachFootprint(oc, or, def.tileW, def.tileH, (t) => this.tileObject.set(t, oid));
@@ -1019,7 +1063,7 @@ export class Field {
     this.setExtensionBlocks(id, o.def, o.oc, o.or, o.flipped, false);
     o.def = def;
     o.ready = def.growMs ? o.ready : false;
-    this.fitObjectSprite(o.sprite, def, o.oc, o.or, true, o.flipped);
+    this.fitObjectSprite(o.sprite, def, o.oc, o.or, true, o.flipped, o.frontSprite);
     this.forEachFootprint(o.oc, o.or, def.tileW, def.tileH, (t) => this.tileObject.set(t, id));
     this.setExtensionBlocks(id, def, o.oc, o.or, o.flipped, true);
     return true;
@@ -1036,7 +1080,7 @@ export class Field {
     obj.oc = oc;
     obj.or = or;
     if (flipped !== undefined) obj.flipped = flipped;
-    this.fitObjectSprite(obj.sprite, obj.def, oc, or, obj.ready, obj.flipped);
+    this.fitObjectSprite(obj.sprite, obj.def, oc, or, obj.ready, obj.flipped, obj.frontSprite);
     this.positionObjectLight(obj);
     this.forEachFootprint(oc, or, obj.def.tileW, obj.def.tileH, (t) => this.tileObject.set(t, id));
     this.setExtensionBlocks(id, obj.def, oc, or, obj.flipped, true);
@@ -1055,7 +1099,7 @@ export class Field {
     if (!o || !o.def.harvestValue || !o.ready) return null;
     o.ready = false;
     o.readyAt = Date.now() + (o.def.growMs ?? 0);
-    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, false, o.flipped);
+    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, false, o.flipped, o.frontSprite);
     return o.def.harvestValue;
   }
   removeObject(id: string): PlaceableDef | null {
@@ -1064,8 +1108,7 @@ export class Field {
     if (this.highlightedObj === id) this.highlightedObj = null;
     this.forEachFootprint(obj.oc, obj.or, obj.def.tileW, obj.def.tileH, (t) => this.tileObject.delete(t));
     this.setExtensionBlocks(id, obj.def, obj.oc, obj.or, obj.flipped, false);
-    obj.sprite.parent?.removeChild(obj.sprite);
-    obj.sprite.destroy();
+    this.destroyObjectSprites(obj);
     this.destroyObjectLight(obj);
     this.objects.delete(id);
     return obj.def;
@@ -1076,10 +1119,16 @@ export class Field {
   setObjectHighlight(id: string | null) {
     if (id === this.highlightedObj) return;
     const prev = this.highlightedObj ? this.objects.get(this.highlightedObj) : null;
-    if (prev) prev.sprite.tint = 0xffffff;
+    if (prev) {
+      prev.sprite.tint = 0xffffff;
+      if (prev.frontSprite) prev.frontSprite.tint = 0xffffff;
+    }
     this.highlightedObj = id;
     const next = id ? this.objects.get(id) : null;
-    if (next) next.sprite.tint = 0xff7a6a; // reddish "will remove" wash
+    if (next) {
+      next.sprite.tint = 0xff7a6a; // reddish "will remove" wash
+      if (next.frontSprite) next.frontSprite.tint = 0xff7a6a;
+    }
   }
   objectDefOf(id: string): PlaceableDef | null {
     return this.objects.get(id)?.def ?? null;
@@ -1098,7 +1147,7 @@ export class Field {
     const o = this.objects.get(id);
     if (!o) return false;
     o.flipped = !o.flipped;
-    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, o.ready, o.flipped);
+    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, o.ready, o.flipped, o.frontSprite);
     return o.flipped;
   }
   // World point the farmer walks to in order to harvest this object (its base).
@@ -1120,7 +1169,17 @@ export class Field {
     let best: FarmObject | null = null;
     for (const o of this.objects.values()) {
       const s = o.sprite;
-      if (wx >= s.x - s.width * 0.5 && wx <= s.x + s.width * 0.5 && wy >= s.y - s.height && wy <= s.y) {
+      let hit: boolean;
+      if (o.def.petPen) {
+        // The pen texture fills a rectangle but its actual fence is an isometric
+        // diamond. Reject the large transparent corner triangles so clicks beside
+        // the pen continue to target the ground instead of opening pet management.
+        const grid = screenToGrid(wx, wy);
+        hit = grid.col >= o.oc - 0.5 && grid.col <= o.oc + o.def.tileW - 0.5 &&
+          grid.row >= o.or - 0.5 && grid.row <= o.or + o.def.tileH - 0.5;
+      } else hit = wx >= s.x - s.width * 0.5 && wx <= s.x + s.width * 0.5 &&
+        wy >= s.y - s.height && wy <= s.y;
+      if (hit) {
         if (!best || o.oc + o.or > best.oc + best.or) best = o;
       }
     }
@@ -1303,8 +1362,7 @@ export class Field {
   // Rebuild placed objects from a save. `resolve` maps a def key to its config.
   restoreObjects(saves: PlacedObjectSave[], resolve: (key: string) => PlaceableDef | undefined) {
     for (const o of this.objects.values()) {
-      o.sprite.parent?.removeChild(o.sprite);
-      o.sprite.destroy();
+      this.destroyObjectSprites(o);
       this.destroyObjectLight(o);
     }
     this.objects.clear();

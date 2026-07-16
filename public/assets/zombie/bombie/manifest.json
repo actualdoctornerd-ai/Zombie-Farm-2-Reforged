@@ -4,6 +4,12 @@
   "x": 12,
   "y": -58
  },
+ "color": [
+  117,
+  255,
+  95
+ ],
+ "floatingHead": true,
  "parts": [
   {
    "file": "Head.png",
@@ -12,7 +18,8 @@
    "py": -58,
    "ax": 0.73,
    "ay": 0.7,
-   "z": 4
+   "z": 4,
+   "scale": 1
   }
  ]
 }

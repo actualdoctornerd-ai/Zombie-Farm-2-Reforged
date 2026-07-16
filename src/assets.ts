@@ -40,6 +40,9 @@ export interface ZombieModelPart {
   ay: number;
   z: number;
   tint: boolean;
+  /** Per-attachment scale from the source actor. Named specials sometimes resize
+   *  a replacement part (Skittles' candy body is 0.8x). */
+  scale?: number;
 }
 // A full per-type zombie model (from tools/prep_zombie_models.py). Reverse-
 // engineered part composition + authentic per-unit colour + group scale.
@@ -110,6 +113,53 @@ export interface PlantDef {
   stage1: string;
   stage2: string;
   seasonal?: boolean;
+}
+
+interface SpecialZombieManifest {
+  name: string;
+  neck: { x: number; y: number };
+  color?: [number, number, number];
+  floatingHead?: boolean;
+  parts: Array<Omit<ZombieModelPart, "tint"> & { file: string }>;
+}
+
+const SPECIAL_GROUP_SCALE: Record<string, number> = {
+  Regular: 0.9, Female: 0.8, Girl: 0.8, Small: 0.6,
+  Large: 1.15, Headless: 0.9, Garden: 0.7,
+};
+
+/** Merge a named actor's replacement attachments over the ordinary skeleton.
+ *  The source special-zombie plists are deltas, not complete actors: for example,
+ *  Skittles supplies only a Body attachment and inherits its head, limbs and face. */
+export function mergeSpecialZombieModel(
+  base: ZombieModel,
+  def: ZombieDef,
+  manifest: SpecialZombieManifest,
+  textureKey: (file: string) => string
+): ZombieModel {
+  const slot = (file: string) => file.replace(/^default/, "").replace(/\.png$/i, "");
+  const replaced = new Set(manifest.parts.map((part) => slot(part.file)));
+  const headDx = replaced.has("Head") ? manifest.neck.x - base.neck.x : 0;
+  const headDy = replaced.has("Head") ? manifest.neck.y - base.neck.y : 0;
+  const inherited = manifest.floatingHead
+    ? []
+    : base.parts.filter((part) => !replaced.has(slot(part.file))).map((part) => ({
+      ...part,
+      px: part.px + (part.group === "head" ? headDx : 0),
+      py: part.py + (part.group === "head" ? headDy : 0),
+    }));
+  const dedicated = manifest.parts.map((part) => ({
+    ...part,
+    file: textureKey(part.file),
+    tint: false,
+  }));
+  return {
+    name: def.name,
+    neck: replaced.has("Head") ? manifest.neck : base.neck,
+    scale: SPECIAL_GROUP_SCALE[def.group] ?? base.scale,
+    color: manifest.color ?? base.color,
+    parts: [...inherited, ...dedicated].sort((a, b) => a.z - b.z),
+  };
 }
 export interface ZombieDef {
   key: string;
@@ -214,7 +264,6 @@ export interface GameAssets {
   zombieModels: Record<string, ZombieModel>; // unitKey -> per-type model
   enemyModels: Record<string, EnemyModel>; // raid-enemy key -> animated rig
   zombiePartTex: Record<string, Texture>; // ZombieSheet part name -> sub-texture
-  specialZombieTex: Record<string, Texture>; // named quest zombie key -> composite
   mutationParts: Record<string, MutationPart>; // mutation bit (as string) -> body part
   plants: PlantDef[];
   zombies: ZombieDef[];
@@ -461,7 +510,8 @@ export async function loadAssets(): Promise<GameAssets> {
 
   // Per-type zombie models: one shared atlas (ZombieSheet.png) sliced into part
   // sub-textures via frames.json, plus models.json (composition per unit type).
-  const [zombieModels, zombieFrames, mutationParts, sheet, enemyModels] = await Promise.all([
+  const [zombieModels, zombieFrames, mutationParts, sheet, enemyModels,
+    specialModels, specialFrames, specialSheet] = await Promise.all([
     json<Record<string, ZombieModel>>(BASE + "assets/zombie/models.json"),
     json<Record<string, { x: number; y: number; w: number; h: number }>>(
       BASE + "assets/zombie/frames.json"
@@ -469,6 +519,11 @@ export async function loadAssets(): Promise<GameAssets> {
     json<Record<string, MutationPart>>(BASE + "assets/zombie/mutations.json"),
     Assets.load(BASE + "assets/zombie/ZombieSheet.png") as Promise<Texture>,
     json<Record<string, EnemyModel>>(BASE + "assets/raids/enemies/models.json").catch(() => ({})),
+    json<Record<string, SpecialZombieManifest>>(BASE + "assets/zombie/special_models.json"),
+    json<Record<string, { x: number; y: number; w: number; h: number }>>(
+      BASE + "assets/zombie/special_frames.json"
+    ),
+    Assets.load(BASE + "assets/zombie/SpecialZombieSheet.png") as Promise<Texture>,
   ]);
   const zombiePartTex: Record<string, Texture> = {};
   for (const [name, f] of Object.entries(zombieFrames)) {
@@ -477,10 +532,25 @@ export async function loadAssets(): Promise<GameAssets> {
       frame: new Rectangle(f.x, f.y, f.w, f.h),
     });
   }
-  const specialZombieTex: Record<string, Texture> = {};
-  await Promise.all(zombies.filter((z) => z.specialSprite).map(async (z) => {
-    specialZombieTex[z.key] = await Assets.load(`${BASE}assets/zombie/${z.specialSprite}`);
-  }));
+  // A named special's plist contains only the attachments it replaces. Load those
+  // dedicated parts, then merge them over a plain skeleton so partial actors do not
+  // collapse to a lone prop/body (Skittles was previously just one candy).
+  const plain = zombieModels["ZombieActorRegularTier1"];
+  for (const z of zombies.filter((row) => row.specialSprite)) {
+    const manifest = specialModels[z.key];
+    if (!manifest) continue;
+    for (const file of new Set(manifest.parts.map((part) => part.file))) {
+      const f = specialFrames[`${z.key}:${file}`];
+      if (!f) continue;
+      zombiePartTex[`special:${z.key}:${file}`] = new Texture({
+        source: specialSheet.source,
+        frame: new Rectangle(f.x, f.y, f.w, f.h),
+      });
+    }
+    zombieModels[z.key] = mergeSpecialZombieModel(
+      plain, z, manifest, (file) => `special:${z.key}:${file}`
+    );
+  }
 
   // Object sprites (197 of them) are loaded lazily — only when an object is
   // actually placed or restored — via ensureObjectTexture(). Market cards use
@@ -500,7 +570,7 @@ export async function loadAssets(): Promise<GameAssets> {
 
   return {
     field, groundIndex, rig, ground, player, farmer, pets, soil, crop, cropTop,
-    zombieModels, enemyModels, zombiePartTex, specialZombieTex, mutationParts, plants, zombies, placeables, boosts, quests,
+    zombieModels, enemyModels, zombiePartTex, mutationParts, plants, zombies, placeables, boosts, quests,
     raids, enemyStats, raidAttacks, drops, objects, background, scenery, upgrades,
   };
 }

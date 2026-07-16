@@ -133,19 +133,6 @@ export class ZombieUnit {
   }
 
   private build(assets: GameAssets) {
-    const special = assets.specialZombieTex[this.data.key];
-    if (special) {
-      const sp = new Sprite(special);
-      sp.anchor.set(0.5, 0.825);
-      sp.scale.set(0.5);
-      this.root.addChild(sp);
-      this.parts.push(sp);
-      this.footF = new Sprite(); this.footB = new Sprite();
-      this.root.addChild(this.footF, this.footB);
-      this.hitHalfW = 45;
-      this.hitH = 100;
-      return;
-    }
     // Resolve this unit's model by key (fall back to the base Regular zombie).
     const m: ZombieModel =
       assets.zombieModels[this.data.key] ??
@@ -163,6 +150,7 @@ export class ZombieUnit {
       const sp = new Sprite(tex);
       sp.anchor.set(p.ax, p.ay);
       sp.position.set(p.px, p.py);
+      sp.scale.set(p.scale ?? 1);
       sp.zIndex = p.z;
       if (p.tint) sp.tint = tint; // only the grey skeleton is unit-coloured
       this.parts.push(sp);
@@ -171,7 +159,7 @@ export class ZombieUnit {
         this.headParts.push({ sp, bx: p.px, by: p.py }); // tilts with the head-nod
       } else if (p.group === "footF") { this.footF = sp; this.footFBaseY = p.py; }
       else if (p.group === "footB") { this.footB = sp; this.footBBaseY = p.py; }
-      else if (/Arm[FB]/i.test(p.file)) this.arms.push({ sp, baseRotation: sp.rotation });
+      else if (/Arm[FB](?:\.png)?$/i.test(p.file)) this.arms.push({ sp, baseRotation: sp.rotation });
     }
     // Attach crop-mutation parts from the unit's mask (onion head, celery arm, …).
     // Independent of species: a combined zombie shows exactly the mutations it

@@ -91,6 +91,7 @@ export class RaidActor {
       const sp = new Sprite(tex);
       sp.anchor.set(p.ax, p.ay);
       sp.position.set(p.px, p.py);
+      sp.scale.set(p.scale ?? 1);
       sp.zIndex = p.z;
       if (p.tint) sp.tint = tint;
       this.root.addChild(sp);
@@ -99,7 +100,7 @@ export class RaidActor {
       } else if (p.group === "footF") { this.footF = sp; this.footFBaseY = p.py; }
       else if (p.group === "footB") { this.footB = sp; this.footBBaseY = p.py; }
       // Arms live in the "root" group; grab them by filename for the wind-up.
-      else if (/Arm[FB]/i.test(p.file)) this.arms.push(sp);
+      else if (/Arm[FB](?:\.png)?$/i.test(p.file)) this.arms.push(sp);
     }
     // Raid zombies use the same mutation overlays as their farm actors. The mask is
     // owned-unit state, not something that can be inferred from the species key after

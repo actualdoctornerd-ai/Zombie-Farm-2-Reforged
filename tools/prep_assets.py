@@ -300,8 +300,20 @@ def slice_storage():
 # `inheritColor` parts are grey base art tinted by the unit's marketInfo.color.
 FACE_SLOTS = {
     "EyeL", "EyeR", "Jaw", "JawFeature", "UpperTeeth", "LowerTeeth",
-    "Scar", "Features", "Features2",
+    "Scar", "Features", "Features2", "Features3", "Hat",
 }
+
+
+def inherited_head_offset():
+    """The named plists omit Head when they inherit the ordinary zombie skull.
+
+    Their facial attachment offsets remain head-local, so use the base model's
+    authored neck instead of incorrectly parenting those parts to actor origin.
+    Returned in the source rig's Y-up coordinates.
+    """
+    models = json.load(open(os.path.join(OUT, "zombie", "models.json")))
+    neck = models["ZombieActorRegularTier1"]["neck"]
+    return neck["x"], -neck["y"]
 
 
 def _tint(im, rgb):
@@ -370,7 +382,11 @@ def export_zombie_parts(entry_name, name):
     rig = load_plist(os.path.join(APP, z["frameListFile"]))
     atlas = Image.open(os.path.join(APP, z["spriteSheetFile"])).convert("RGBA")
     color = z["marketInfo"].get("color", [255, 255, 255])
-    assets = [a for a in z["assets"] if a.get("assetKey") and a.get("attachmentID")]
+    # rightOnly is the authored mirror-facing alternate for the same attachment;
+    # the runtime mirrors the assembled actor, so exporting both would stack two
+    # bodies (most visibly, both Skittles candies) into one pose.
+    assets = [a for a in z["assets"] if a.get("assetKey") and a.get("attachmentID")
+              and not a.get("rightOnly")]
     slot = {a["assetKey"]: a["attachmentID"].replace("kActorPartTag", "") for a in assets}
     inherit = {a["assetKey"]: a.get("inheritColor", False) for a in assets}
 
@@ -378,7 +394,7 @@ def export_zombie_parts(entry_name, name):
         fn = k if k.endswith(".png") else k + ".png"
         return rig.get(fn) or rig.get(k)
 
-    head = (0, 0)
+    head = inherited_head_offset()
     for k in slot:
         if slot[k] == "Head":
             L = lay(k)
@@ -410,8 +426,15 @@ def export_zombie_parts(entry_name, name):
             "file": fname, "group": group,
             "px": ox, "py": -oy,  # placement in root coords (Y-down)
             "ax": L["pivotX"], "ay": 1 - L["pivotY"], "z": L.get("z", 0),
+            "scale": a.get("scale", 1),
         })
-    manifest = {"name": name, "neck": {"x": head[0], "y": -head[1]}, "parts": parts}
+    manifest = {
+        "name": name,
+        "neck": {"x": head[0], "y": -head[1]},
+        "color": color,
+        "floatingHead": bool(z.get("floatingHead", False)),
+        "parts": parts,
+    }
     json.dump(manifest, open(os.path.join(outdir, "manifest.json"), "w"), indent=1)
     print(f"zombie parts: {len(parts)} parts for {entry_name} -> zombie/{name}/")
 
@@ -421,7 +444,8 @@ def composite_zombie(entry_name, out_name):
     rig = load_plist(os.path.join(APP, z["frameListFile"]))
     atlas = Image.open(os.path.join(APP, z["spriteSheetFile"])).convert("RGBA")
     color = z["marketInfo"].get("color", [255, 255, 255])
-    assets = [a for a in z["assets"] if a.get("assetKey") and a.get("attachmentID")]
+    assets = [a for a in z["assets"] if a.get("assetKey") and a.get("attachmentID")
+              and not a.get("rightOnly")]
     slot = {a["assetKey"]: a["attachmentID"].replace("kActorPartTag", "") for a in assets}
     inherit = {a["assetKey"]: a.get("inheritColor", False) for a in assets}
 
@@ -429,14 +453,37 @@ def composite_zombie(entry_name, out_name):
         fn = k if k.endswith(".png") else k + ".png"
         return rig.get(fn) or rig.get(k)
 
-    head = (0, 0)
+    head = inherited_head_offset()
     for k in slot:
         if slot[k] == "Head":
             L = lay(k)
             if L:
                 head = (L["offsetX"], L["offsetY"])
 
+    # Named actor definitions are attachment DELTAS over the ordinary skeleton,
+    # not complete bodies. Seed the composition with the plain Tier-1 model and
+    # remove only the slots replaced by this actor. Bombie explicitly opts into a
+    # floating head, so it is the one actor that does not inherit the body.
+    models = json.load(open(os.path.join(OUT, "zombie", "models.json")))
+    frames = json.load(open(os.path.join(OUT, "zombie", "frames.json")))
+    base_sheet = Image.open(os.path.join(OUT, "zombie", "ZombieSheet.png")).convert("RGBA")
+    base = models["ZombieActorRegularTier1"]
+    base_head = inherited_head_offset()
+    head_dx, head_dy = head[0] - base_head[0], head[1] - base_head[1]
+    replaced = set(slot.values())
     items = []
+    if not z.get("floatingHead", False):
+        for p in base["parts"]:
+            base_slot = p["file"].removeprefix("default")
+            if base_slot in replaced:
+                continue
+            f = frames[p["file"]]
+            part = base_sheet.crop((f["x"], f["y"], f["x"] + f["w"], f["y"] + f["h"]))
+            if p.get("tint"):
+                part = _tint(part, color)
+            px = p["px"] + (head_dx if p["group"] == "head" and "Head" in replaced else 0)
+            py = -p["py"] + (head_dy if p["group"] == "head" and "Head" in replaced else 0)
+            items.append((p["z"], part, px, py, p["ax"], 1 - p["ay"], 1))
     for a in assets:
         k = a["assetKey"]
         L = lay(k)
@@ -446,24 +493,68 @@ def composite_zombie(entry_name, out_name):
         if slot[k] in FACE_SLOTS and slot[k] != "Head":
             ox += head[0]
             oy += head[1]  # parent face parts to the head
-        items.append((L.get("z", 0), k, L, ox, oy))
-    items.sort(key=lambda t: t[0])
-
-    W, H, cx, cy = 180, 200, 90, 165  # origin (feet) at (cx, cy)
-    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    for _, k, L, ox, oy in items:
         x, y, w, h = L["x"], L["y"], L["width"], L["height"]
         part = atlas.crop((x, y, x + w, y + h))
         if inherit.get(k):
             part = _tint(part, color)
+        items.append((L.get("z", 0), part, ox, oy, L["pivotX"], L["pivotY"], a.get("scale", 1)))
+    items.sort(key=lambda t: t[0])
+
+    W, H, cx, cy = 180, 200, 90, 165  # origin (feet) at (cx, cy)
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    for _, part, ox, oy, pivot_x, pivot_y, scale in items:
+        if scale != 1:
+            part = part.resize((max(1, round(part.width * scale)),
+                                max(1, round(part.height * scale))), Image.Resampling.LANCZOS)
+        w, h = part.size
         canvas.alpha_composite(
-            part, (round(cx + ox - L["pivotX"] * w), round(cy - oy - (1 - L["pivotY"]) * h))
+            part, (round(cx + ox - pivot_x * w), round(cy - oy - (1 - pivot_y) * h))
         )
     os.makedirs(os.path.join(OUT, "zombie"), exist_ok=True)
     canvas.save(os.path.join(OUT, "zombie", out_name))
     json.dump({"anchorX": cx / W, "anchorY": cy / H, "w": W, "h": H},
               open(os.path.join(OUT, "zombie", out_name + ".json"), "w"))
     print(f"zombie: composited {entry_name} -> {out_name}")
+
+
+def pack_special_zombies():
+    """Pack all named-special attachments into one runtime atlas.
+
+    Keeping the source manifests/PNGs split by actor is useful for inspection, but
+    loading them directly would turn one startup fetch into hundreds. The runtime
+    consumes this atlas plus the two compact JSON files instead.
+    """
+    atlas_w = 2048
+    padding = 2
+    x = y = padding
+    row_h = 0
+    frames = {}
+    manifests = {}
+    images = []
+    for _, stem, catalog_key in NAMED_SPECIAL_ZOMBIES:
+        folder = os.path.join(OUT, "zombie", stem)
+        manifest = json.load(open(os.path.join(folder, "manifest.json")))
+        manifests[catalog_key] = manifest
+        for file in dict.fromkeys(p["file"] for p in manifest["parts"]):
+            part = Image.open(os.path.join(folder, file)).convert("RGBA")
+            if x + part.width + padding > atlas_w:
+                x = padding
+                y += row_h + padding
+                row_h = 0
+            key = f"{catalog_key}:{file}"
+            frames[key] = {"x": x, "y": y, "w": part.width, "h": part.height}
+            images.append((part, x, y))
+            x += part.width + padding
+            row_h = max(row_h, part.height)
+    atlas_h = y + row_h + padding
+    atlas = Image.new("RGBA", (atlas_w, atlas_h), (0, 0, 0, 0))
+    for part, px, py in images:
+        atlas.alpha_composite(part, (px, py))
+    folder = os.path.join(OUT, "zombie")
+    atlas.save(os.path.join(folder, "SpecialZombieSheet.png"), optimize=True)
+    json.dump(frames, open(os.path.join(folder, "special_frames.json"), "w"), separators=(",", ":"))
+    json.dump(manifests, open(os.path.join(folder, "special_models.json"), "w"), separators=(",", ":"))
+    print(f"special zombies: packed {len(images)} parts into {atlas_w}x{atlas_h} atlas")
 
 
 # ------------------------------------------------------------------- rig layout
@@ -528,6 +619,7 @@ if __name__ == "__main__":
         composite_zombie(source_name, file_stem + ".png")
         shutil.copy2(os.path.join(OUT, "zombie", file_stem + ".png"),
                      os.path.join(portrait_dir, catalog_key + ".png"))
+    pack_special_zombies()
     export_rig()
     make_field(idx)
     print("done ->", OUT)

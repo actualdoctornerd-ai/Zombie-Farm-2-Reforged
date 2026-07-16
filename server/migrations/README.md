@@ -56,7 +56,7 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
  ('0016_raid_session_reserve.sql'),('0017_raid_progress.sql'),('0018_item_storage.sql'),
  ('0019_integrity_v2.sql'),('0020_permanent_import_closure.sql'),
  ('0020_protocol_v3_reset.sql'),('0021_epic_boss.sql'),
- ('0022_epic_boss_retry_skip.sql');"
+ ('0022_epic_boss_retry_skip.sql'),('0023_raid_revives.sql');"
 ```
 
 From then on, only migrations added after this baseline apply via `migrations apply`.
@@ -97,6 +97,8 @@ wrangler d1 execute zombiefarm --remote --command \
 - Smoke-check with `scripts/smoke.sh` (see `../RUNBOOK.md`).
 - For Epic Boss support, verify both `epic_boss_runs_v3` and
   `epic_boss_retry_skips_v3` exist after migrations `0021` and `0022`.
+- For post-raid revival support, verify `raid_revivals_v3` and its
+  `idx_raid_revivals_pending` index exist after migration `0023`.
 
 ## Going forward
 
