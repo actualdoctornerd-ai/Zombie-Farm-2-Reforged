@@ -4,12 +4,13 @@ import { Application, Container, FederatedPointerEvent, Graphics, Point, Sprite,
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
 // pixi.js lists ./lib/unsafe-eval/init.* under "sideEffects", so it survives bundling.
 import "pixi.js/unsafe-eval";
-import { loadAssets, ensureObjectTexture, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, lootImage } from "./assets";
+import { loadAssets, ensureObjectTexture, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, lootImage, purchasableZombies } from "./assets";
 import { Field, CARROT, CropConfig } from "./Field";
 import { Actor } from "./Actor";
 import { PetActor } from "./PetActor";
 import { WalkController } from "./WalkController";
 import { ZombieField } from "./zombie/ZombieField";
+import { makeOwned } from "./zombie/types";
 import { POT_DURATION_MS } from "./zombie/ZombiePot";
 import { GameState } from "./GameState";
 import { Hud, graveNeededFor, LevelUpUnlock, ReceivedView, QuestCompleteView, QuestReward } from "./hud";
@@ -110,7 +111,7 @@ async function main() {
   // def (stats + taxonomy) to spawn the matching owned unit.
   const zombieDefs = new Map<string, ZombieDef>();
   for (const z of assets.zombies) zombieDefs.set(z.key, z);
-  const zombieCards = assets.zombies.map((z) => {
+  const zombieCards = purchasableZombies(assets.zombies).map((z) => {
     const cfg: CropConfig = {
       key: z.key, name: z.name,
       // Zombie crop growth: wooden cross -> hand -> clawing up -> risen (thumb up).
@@ -313,6 +314,31 @@ async function main() {
   };
   state.onChange(applyActivePet);
   applyActivePet();
+
+  let penPetActors: PetActor[] = [];
+  let appliedPenPets = "";
+  let penPetLoadGeneration = 0;
+  const applyPenPets = () => {
+    const signature = state.penPets.join("\0");
+    if (signature === appliedPenPets) return;
+    appliedPenPets = signature;
+    const generation = ++penPetLoadGeneration;
+    penPetActors.forEach((pet) => pet.destroy());
+    penPetActors = [];
+    void Promise.all(state.penPets.flatMap((key) => {
+      const def = assets.pets.pets.find((pet) => pet.key === key);
+      return def ? [PetActor.load(def)] : [];
+    })).then((loaded) => {
+      if (generation !== penPetLoadGeneration || state.penPets.join("\0") !== signature) {
+        loaded.forEach((pet) => pet.destroy());
+        return;
+      }
+      penPetActors = loaded;
+      for (const pet of loaded) field.entityLayer.addChild(pet.container);
+    }).catch((error) => console.warn("[pet-pen] failed to load occupants", error));
+  };
+  state.onChange(applyPenPets);
+  applyPenPets();
 
   const start = assets.field.start;
   const walk = new WalkController(actor, field, start.col, start.row);
@@ -554,8 +580,8 @@ async function main() {
   // ---- consumable boosts: buy (into inventory) + use (apply farm effect) ----
   // Gift vouchers are "1 per farm": you can't buy/use one once you already own
   // that zombie OR already hold an (unused) voucher granting it. The check is keyed
-  // by the RESULTING zombie, so the two Cupid vouchers (Valentine / Valentine 2012)
-  // share one limit.
+  // by the RESULTING zombie, so ordinary and pink Cupid use independent one-copy
+  // limits while duplicate vouchers for the same exact actor still share a limit.
   const ownsGiftZombie = (giftKey: string) =>
     !!giftKey && zombies.roster().some((z) => z.key === giftKey);
   const holdsGiftVoucher = (giftKey: string) =>
@@ -822,6 +848,11 @@ async function main() {
     if (economy && !economy.submitPetEquip(key)) return;
     state.equipPet(key);
   };
+  hud.onSetPenPets = (pets) => {
+    const keys = pets.map((pet) => pet.key);
+    if (economy && !economy.submitPenPets(keys)) return;
+    state.setPenPets(keys);
+  };
   hud.onBuyPet = (pet) => {
     if (visiting || state.level < pet.level || !pet.brains || state.brains < pet.cost) return false;
     if (economy) {
@@ -887,6 +918,35 @@ async function main() {
       state.syncObjectStorage(Object.fromEntries([...storedObjectIds].map(([key, ids]) => [key, ids.length])));
     };
     economy.onRosterState = (roster, aliases) => zombies.reconcileServerRoster(roster, aliases);
+    economy.onRaidRevival = (offer, brains) => {
+      const current = new Map(zombies.roster().map((zombie) => [zombie.id, zombie]));
+      const casualties = offer.zombies.flatMap((snapshot) => {
+        const cached = current.get(snapshot.id);
+        if (cached) return [{ ...cached }];
+        const def = zombieDefs.get(snapshot.key);
+        return def ? [makeOwned(
+          snapshot.id,
+          def,
+          walk.tile.col,
+          walk.tile.row,
+          snapshot.invasions,
+          snapshot.mutation
+        )] : [];
+      });
+      const views = casualties.map((zombie) => ({
+        id: zombie.id,
+        name: zombie.name,
+        typeName: zombie.typeName,
+        portrait: zombiePortrait(zombie.key),
+      }));
+      hud.openZombieRevival(views, brains, async (reviveIds) => {
+        const revived = await economy!.resolveRaidRevival(offer.sessionId, reviveIds);
+        const accepted = new Set(revived.revivedIds);
+        zombies.reviveCasualties(casualties.filter((zombie) => accepted.has(zombie.id)));
+        saveManager.save();
+        return true;
+      });
+    };
     // Server-owned roster: seed the shadow from the current units, then report every
     // post-load create (grant) / casualty + combined parent (casualty), and route a
     // SELL through the server (it prices + credits it, rejecting a unit it doesn't own
@@ -921,7 +981,7 @@ async function main() {
     };
     economy.onFarmerState = (headIds, equippedHeadId) =>
       state.syncFarmerOwnership(headIds, assets.farmer, equippedHeadId);
-    economy.onPetState = (ownedPets, activePet) => state.syncPetOwnership(ownedPets, activePet);
+    economy.onPetState = (ownedPets, activePet, penPets) => state.syncPetOwnership(ownedPets, activePet, penPets);
     economy.onQuestState = (serverState) => quests.restoreAuthoritative(serverState);
     economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
     economy.onGameplayUnavailable = () => hud.showToast("Gameplay paused — reconnect to continue.");
@@ -1234,6 +1294,7 @@ async function main() {
         : null,
     };
   };
+  hud.canCombineZombie = (key) => !zombieDefs.get(key)?.rewardOnly;
   hud.onCombine = (idA, idB) => {
     if (onlineGameplayBlocked()) return false;
     const ok = zombies.combine(idA, idB, potBaseMs());
@@ -1380,6 +1441,29 @@ async function main() {
     syncEpicBossUi();
     saveManager.flush();
     audio.play("buy");
+    return true;
+  };
+  hud.onEndEpicBoss = async () => {
+    const run = epicRun();
+    if (!run || !epicBoss.isActive(run)) return false;
+    if (auth.isSignedIn()) {
+      try {
+        await economy?.settleBeforeDependency();
+        const ended = await api.epicBossEnd(run.runId);
+        state.setEpicBossRun(ended.event);
+      } catch (error) {
+        const code = errCode(error);
+        hud.showToast(code === "inactive" ? "That Epic Boss event has already ended."
+          : "The Epic Boss event could not be ended.");
+        return false;
+      }
+    } else {
+      const ended = epicBoss.end(run);
+      if (!ended) return false;
+      state.setEpicBossRun(ended);
+    }
+    syncEpicBossUi();
+    saveManager.flush();
     return true;
   };
   syncEpicBossUi();
@@ -1739,7 +1823,10 @@ async function main() {
           void finishEpicBossOnline(epicSessionId, finalTick, inputs).then((server) => {
             zombies.recordInvasion(server.survivors);
             zombies.removeCasualties(server.losses);
-            for (const unit of server.newZombies) zombies.grantReward(unit.key, walk.tile.col, walk.tile.row, unit.id);
+            for (const unit of server.newZombies) {
+              zombies.grantReward(unit.key, walk.tile.col, walk.tile.row, unit.id, unit.stored);
+              hud.showToast(`${zombieDefs.get(unit.key)?.name ?? "Epic reward zombie"} joined your ${unit.stored ? "Mausoleum" : "farm"}!`);
+            }
             economy?.adoptEpicBossResult(server);
             void economy?.refreshAuthoritative();
             state.setEpicBossRun(server.event);
@@ -1856,6 +1943,8 @@ async function main() {
         // balance + lastRaidAt + the rolled drop, which the client reconciles.
         const online = auth.isSignedIn() && !!raidSessionId && !!economy;
         const view = raids.finishRaid(setup.raid, setup.party, outcome, setup.dice, online);
+        const casualtyParty = setup.party.filter((zombie) => outcome.losses.includes(zombie.id));
+        let settlementPromise: Promise<api.RaidFinishResult> | null = null;
         if (online) {
           const sid = raidSessionId!;
           raidSessionId = null;
@@ -1869,7 +1958,7 @@ async function main() {
             hud.setRaidResultLoot(drops, res.gold);
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
-          economy!.submitRaid(sid, finalTick, inputs, outcome, {
+          settlementPromise = economy!.submitRaid(sid, finalTick, inputs, outcome, {
             gold: sr?.gold ?? 0,
             xp: sr?.xp ?? 0,
           });
@@ -1897,6 +1986,37 @@ async function main() {
           // completion popups appear over the farm rather than the battle result.
           postRaidWinQuests(view, setup.raid.name);
           tutorial.onRaidResolved(); // finish post-win if the quest event did not
+
+          if (!casualtyParty.length) return;
+          const revivalViews = casualtyParty.map((zombie) => ({
+            id: zombie.id,
+            name: zombie.name,
+            typeName: zombie.typeName,
+            portrait: zombiePortrait(zombie.key),
+          }));
+          if (settlementPromise && economy) {
+            // The battle is gone and the farm is visible before this event opens.
+            // Settlement captured each casualty server-side, so resolving the offer
+            // remains safe even if the finish response arrived after the player tapped.
+            void settlementPromise.then((settled) => {
+              if (!settled.revival) return;
+              hud.openZombieRevival(revivalViews, settled.balance.brains, async (reviveIds) => {
+                const revived = await economy!.resolveRaidRevival(settled.revival!.sessionId, reviveIds);
+                const accepted = new Set(revived.revivedIds);
+                zombies.reviveCasualties(casualtyParty.filter((zombie) => accepted.has(zombie.id)));
+                saveManager.save();
+                return true;
+              });
+            }).catch(() => hud.showToast("The server could not settle that invasion."));
+          } else if (!auth.isSignedIn()) {
+            hud.openZombieRevival(revivalViews, state.brains, (reviveIds) => {
+              if (!state.spendBrains(reviveIds.length, "zombie_revive")) return false;
+              const accepted = new Set(reviveIds);
+              zombies.reviveCasualties(casualtyParty.filter((zombie) => accepted.has(zombie.id)));
+              saveManager.save();
+              return true;
+            });
+          }
         });
       },
     }).then((scene) => {
@@ -2357,7 +2477,7 @@ async function main() {
         } else if (objId && objDef && objDef.petPen) {
           // The pen is an in-world shortcut to the same authoritative collection
           // used by the Pets market tab; it never grants or imports ownership.
-          hud.openStorage("Pets");
+          hud.openStorage("Pets", true);
         } else if (objId && objDef && objDef.zombieStorage) {
           hud.openMausoleum(); // the Mausoleum's storage slots
         } else if (objId && objDef && objDef.zombiePatch) {
@@ -2486,6 +2606,11 @@ async function main() {
     jobs.update(dt); // may start a walk-to-plot / hoe cycle for the farmer
     walk.update(dt);
     petActor?.update(dt, actor.container.x, actor.container.y);
+    const penBounds = field.petPenBounds();
+    for (const pet of penPetActors) {
+      pet.container.visible = !!penBounds;
+      if (penBounds) pet.updateInPen(dt, penBounds);
+    }
     zombies.update(dt);
     field.update(dt);
     // Farmer's lantern follows him (raised onto his body), lit only at night.

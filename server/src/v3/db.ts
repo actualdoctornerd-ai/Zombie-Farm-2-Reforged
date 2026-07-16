@@ -75,6 +75,7 @@ const coreFrom = (state: GameplayProjection) => ({
   farmerHeadId: state.farmerHeadId,
   ownedPets: state.ownedPets,
   activePet: state.activePet,
+  penPets: state.penPets,
   zombieMax: state.zombieMax,
   tutorialRewarded: state.tutorialRewarded,
 });
@@ -108,7 +109,7 @@ async function ensureV3(db: D1Database, accountId: string, now: number): Promise
 
 async function loadRows(db: D1Database, accountId: string, now: number) {
   await ensureV3(db, accountId, now);
-  const [runtime, balance, farm, objects, quests, core, presentation, roster, raid, raidState, epicBoss] = await Promise.all([
+  const [runtime, balance, farm, objects, quests, core, presentation, roster, raid, raidState, raidRevival, epicBoss] = await Promise.all([
     db.prepare("SELECT * FROM account_runtime_v3 WHERE account_id = ?").bind(accountId).first<RuntimeRow>(),
     db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId).first<BalanceRow>(),
     db.prepare("SELECT * FROM farm_documents_v3 WHERE account_id = ?").bind(accountId).first<DocumentRow>(),
@@ -123,11 +124,14 @@ async function loadRows(db: D1Database, accountId: string, now: number) {
       .bind(accountId).first<RaidRow>(),
     db.prepare("SELECT last_started_at, progress_json FROM raid_state_v3 WHERE account_id = ?")
       .bind(accountId).first<RaidStateRow>(),
+    db.prepare(`SELECT session_id, casualties_json FROM raid_revivals_v3
+      WHERE account_id = ? AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1`)
+      .bind(accountId).first<{ session_id: string; casualties_json: string }>(),
     db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id = ?")
       .bind(accountId).first<EpicRunRow>(),
   ]);
   if (!runtime || !balance || !farm || !objects || !quests || !core || !presentation || !raidState) throw new Error("v3_state_init_failed");
-  return { runtime, balance, farm, objects, quests, core, presentation, roster: roster.results ?? [], raid, raidState, epicBoss };
+  return { runtime, balance, farm, objects, quests, core, presentation, roster: roster.results ?? [], raid, raidState, raidRevival, epicBoss };
 }
 
 function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection {
@@ -146,6 +150,7 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     farmerHeadId: core.farmerHeadId ?? base.farmerHeadId,
     ownedPets: core.ownedPets ?? [],
     activePet: core.activePet ?? null,
+    penPets: core.penPets ?? [],
     zombieMax: core.zombieMax ?? 16,
     tutorialRewarded: core.tutorialRewarded ?? false,
     roster: rows.roster.map((u) => ({
@@ -160,6 +165,11 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
       ...(u.locked_by_raid ? { lockedByRaid: u.locked_by_raid } : {}),
     })),
     raids: { progress: parse(rows.raidState.progress_json, {}), lastRaidAt: rows.raidState.last_started_at },
+    raidRevival: rows.raidRevival ? {
+      sessionId: rows.raidRevival.session_id,
+      zombies: parse(rows.raidRevival.casualties_json, []),
+      costPerZombie: 1,
+    } : null,
     epicBoss: projectRun(rows.epicBoss),
   };
 }

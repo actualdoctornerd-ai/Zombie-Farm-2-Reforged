@@ -3,7 +3,7 @@
 //
 // A `combine` is expressed as a `casualty` (the two parents) plus a `grant` (the
 // result), so there's no separate combine type here.
-import { isKnownZombie, MAX_MUTATION, MAX_INVASIONS } from "./rosterCatalog";
+import { isKnownZombie, isRewardOnlyZombie, MAX_MUTATION, MAX_INVASIONS } from "./rosterCatalog";
 
 // NOTE: there is deliberately no public `grant`. A grant would let a modified client
 // add any catalog zombie and then SELL it for server gold (money laundering). Units
@@ -44,6 +44,7 @@ export function validateUnit(
 ): UnitPlan {
   if (typeof unitId !== "string" || !unitId) return { ok: false, error: "bad_unit" };
   if (typeof key !== "string" || !isKnownZombie(key)) return { ok: false, error: "bad_key" };
+  if (isRewardOnlyZombie(key)) return { ok: false, error: "reward_only" };
   return {
     ok: true,
     unitId,

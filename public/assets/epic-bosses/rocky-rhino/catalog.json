@@ -174,7 +174,7 @@
       "stageActor": "rockyRhinoPetActor"
     }
   ],
-  "questIds": [],
+  "questIds": ["8000"],
   "portrait": "portrait.png",
   "lootIcon": "loot-icon.png",
   "questIcon": "quest-icon.png",

@@ -99,7 +99,7 @@ def main():
         boosts.append({
             "key": key,
             "name": e["name"],
-            "cost": e.get("cost", 0),
+            "cost": int(e.get("cost", 0)),
             "brainsNeeded": bool(e.get("brainsNeeded", False)),
             "level": max(0, e.get("level", 0)),  # source uses negatives as "always"
             "effect": eff,
@@ -112,7 +112,11 @@ def main():
                 if eff == "grow"
                 else e.get("amountGivenPerPurchase", 1)
             ),
-            "giftZombieKey": gift_key(e) if eff == "gift" else "",
+            "giftZombieKey": (
+                "ZombieActorGardenCupidPink"
+                if key == "valentine_gift_2012"
+                else gift_key(e) if eff == "gift" else ""
+            ),
             "usableOnFarm": eff in FARM_USABLE,
             # Insta-Grow is single-use now, so its source "grows 10" copy is wrong.
             "info": (

@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { ZOMBIE_COST, isKnownZombie, zombieSell } from "../src/rosterCatalog";
 import { validateUnit, cleanIds } from "../src/roster";
+import zombieRows from "../../public/assets/zombies.json";
 
 describe("rosterCatalog", () => {
-  it("mirrors 55 keyed costs and prices sell as max(1, floor(cost/2))", () => {
-    expect(Object.keys(ZOMBIE_COST).length).toBe(55);
+  it("mirrors every keyed zombie and prices sell as max(1, floor(cost/2))", () => {
+    expect(Object.keys(ZOMBIE_COST)).toHaveLength(new Set(zombieRows.map((row) => row.key)).size);
     expect(zombieSell("ZombieActorRegularTier1")).toBe(17); // floor(35/2)
     expect(zombieSell("ZombieActorGardenTier4")).toBe(150); // floor(300/2)
     expect(zombieSell("ZombieActorGardenCupidPink")).toBe(1); // cost 0 → floor 0, min 1
@@ -30,6 +31,7 @@ describe("validateUnit — validate a seeded unit", () => {
   });
   it("rejects a fabricated key or a missing unit id", () => {
     expect(validateUnit("z9", "ZombieActorSuperCheat")).toMatchObject({ ok: false, error: "bad_key" });
+    expect(validateUnit("z9", "ZombieActorBandido")).toMatchObject({ ok: false, error: "reward_only" });
     expect(validateUnit("", "ZombieActorRegularTier1")).toMatchObject({ ok: false, error: "bad_unit" });
   });
 });

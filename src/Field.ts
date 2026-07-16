@@ -940,6 +940,15 @@ export class Field {
     return null;
   }
 
+  /** The first placed pen's tile bounds. Normal actors still see its full object
+   * footprint as solid; only cosmetic pen pets use this interior. */
+  petPenBounds(): { oc: number; or: number; tileW: number; tileH: number } | null {
+    for (const o of this.objects.values()) {
+      if (o.def.petPen) return { oc: o.oc, or: o.or, tileW: o.def.tileW, tileH: o.def.tileH };
+    }
+    return null;
+  }
+
   // Plowing Monolith placed → plowing costs no gold.
   hasPlowFree(): boolean {
     for (const o of this.objects.values()) if (o.def.plowFree) return true;

@@ -40,4 +40,26 @@ describe("cosmetic pet catalog and client ownership", () => {
     expect(state.equipPet(null)).toBe(true);
     expect(state.activePet).toBeNull();
   });
+
+  it("deploys up to four owned pets in the pen separately from the follower", () => {
+    const state = new GameState();
+    state.syncPetOwnership(["a", "b", "c", "d", "e"], "a");
+
+    expect(state.setPenPets(["b", "c", "d", "e"])).toBe(true);
+    expect(state.penPets).toEqual(["b", "c", "d", "e"]);
+    expect(state.activePet).toBe("a");
+    expect(state.setPenPets(["a", "b", "c", "d", "e"])).toBe(false);
+    expect(state.setPenPets(["missing"])).toBe(false);
+
+    expect(state.setPenPets(["a", "b"])).toBe(true);
+    expect(state.activePet).toBeNull();
+    expect(state.equipPet("b")).toBe(true);
+    expect(state.penPets).toEqual(["a"]);
+  });
+
+  it("sanitizes persisted pen selections against ownership and the four-pet cap", () => {
+    const state = new GameState();
+    state.syncPetOwnership(["a", "b", "c", "d", "e"], "a", ["a", "b", "b", "c", "d", "e", "missing"]);
+    expect(state.penPets).toEqual(["b", "c", "d", "e"]);
+  });
 });

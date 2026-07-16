@@ -174,7 +174,7 @@
       "stageActor": "generalLarvaelusPetActor"
     }
   ],
-  "questIds": [],
+  "questIds": ["9000", "9011"],
   "portrait": "portrait.png",
   "lootIcon": "loot-icon.png",
   "questIcon": "quest-icon.png",

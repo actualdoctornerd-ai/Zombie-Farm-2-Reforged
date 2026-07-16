@@ -274,6 +274,9 @@ export class ZombieField {
     const hasA = this.units.some((u) => u.id === idA) || this.stored.some((d) => d.id === idA);
     const hasB = this.units.some((u) => u.id === idB) || this.stored.some((d) => d.id === idB);
     if (!hasA || !hasB) return false;
+    const peekA = this.roster().find((zombie) => zombie.id === idA)!;
+    const peekB = this.roster().find((zombie) => zombie.id === idB)!;
+    if (this.resolve(peekA.key)?.rewardOnly || this.resolve(peekB.key)?.rewardOnly) return false;
     const a = this.takeOwned(idA)!;
     const b = this.takeOwned(idB)!;
     // Both parents are consumed. ONLINE: the server records them as a combine job
@@ -306,13 +309,18 @@ export class ZombieField {
   }
 
   /** Quest/server reward: never lose the unit when the deployed army is full. */
-  grantReward(key: string, col: number, row: number, serverId?: string): OwnedZombie | null {
+  grantReward(
+    key: string, col: number, row: number, serverId?: string, serverStored?: boolean
+  ): OwnedZombie | null {
     const def = this.resolve(key);
     if (!def) return null;
     const data = makeOwned(serverId ?? `z${this.nextId++}`, def, col, row, 0, def.mutation);
     this.harvesting = true;
     try {
-      if (this.canAdd()) { this.addUnit(data); this.syncCount(); }
+      // Online, the Worker decides the location from the authoritative roster. An
+      // undefined location is the offline path: use the farm while it has room, then
+      // preserve the earned zombie in the Mausoleum instead of dropping the reward.
+      if (serverStored !== true && this.canAdd()) { this.addUnit(data); this.syncCount(); }
       else this.stored.push(data);
     } finally { this.harvesting = false; }
     return data;
@@ -478,6 +486,27 @@ export class ZombieField {
     }
     this.nextId = maxN + 1;
     this.syncCount();
+  }
+
+  /** Restore selected casualties after the one-time post-raid brain purchase. The
+   * caller supplies the pre-battle snapshots, so names, mutations, veterancy and
+   * farm positions survive exactly. Server hooks are suppressed because online
+   * revival has already been committed authoritatively. */
+  reviveCasualties(casualties: OwnedZombie[]): void {
+    const owned = new Set(this.roster().map((z) => z.id));
+    const live = this.rosterLive;
+    this.rosterLive = false;
+    try {
+      for (const zombie of casualties) {
+        if (owned.has(zombie.id)) continue;
+        if (this.canAdd()) this.addUnit({ ...zombie });
+        else this.stored.push({ ...zombie });
+        owned.add(zombie.id);
+      }
+      this.syncCount();
+    } finally {
+      this.rosterLive = live;
+    }
   }
 
   /** Reconcile a server roster without rebuilding unchanged actors. `aliases` maps

@@ -33,6 +33,21 @@ interface SessionRow {
   result_json: string | null;
 }
 
+interface CasualtySnapshot {
+  id: string;
+  key: string;
+  mutation: number;
+  invasions: number;
+  stored: boolean;
+  createdAt: number;
+}
+
+export interface RaidRevivalOffer {
+  sessionId: string;
+  zombies: CasualtySnapshot[];
+  costPerZombie: 1;
+}
+
 const parse = <T>(value: string, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
@@ -165,11 +180,17 @@ export async function finishRaid(
   const raidId = Number(session.raid_id);
   const econ = raidEcon(raidId);
   if (!econ) return { status: 409, body: { error: "bad_raid" } };
-  const [balance, coreRow, raidState, questRow] = await Promise.all([
+  const [balance, coreRow, raidState, questRow, casualtyRows] = await Promise.all([
     db.prepare("SELECT gold, brains, xp, claimed_level FROM balances WHERE account_id = ?").bind(accountId).first<{ gold: number; brains: number; xp: number; claimed_level: number }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id = ?").bind(accountId).first<{ current_json: string }>(),
     db.prepare("SELECT last_started_at, progress_json FROM raid_state_v3 WHERE account_id = ?").bind(accountId).first<RaidStateRow>(),
     db.prepare("SELECT version, current_json FROM quest_documents_v3 WHERE account_id = ?").bind(accountId).first<QuestRow>(),
+    losses.length
+      ? db.prepare(`SELECT unit_id, zombie_key, mutation, invasions, stored, created_at FROM roster_v3
+          WHERE account_id = ? AND locked_by_raid = ? AND unit_id IN (${losses.map(() => "?").join(",")})`)
+        .bind(accountId, session.id, ...losses)
+        .all<{ unit_id: string; zombie_key: string; mutation: number; invasions: number; stored: number; created_at: number }>()
+      : Promise.resolve({ results: [] }),
   ]);
   if (!balance || !coreRow || !raidState || !questRow) return { status: 409, body: { error: "state_conflict" } };
   const core = parse<CoreState>(coreRow.current_json, { inventory: {}, storage: { received: {}, stored: {} } });
@@ -201,10 +222,21 @@ export async function finishRaid(
   const questChanges = applyQuestEvents(nextBalance, quests, questEvents);
   nextBalance.brains += levelUpBrains(levelForXp(balance.xp), levelForXp(nextBalance.xp));
   const outcome = { win, rounds: 0, survivors, losses, enemiesBeaten: 0, playerDamage: 0 };
+  const casualties: CasualtySnapshot[] = (casualtyRows.results ?? []).map((row) => ({
+    id: row.unit_id,
+    key: row.zombie_key,
+    mutation: row.mutation,
+    invasions: row.invasions,
+    stored: !!row.stored,
+    createdAt: row.created_at,
+  }));
+  const revival: RaidRevivalOffer | null = casualties.length
+    ? { sessionId: session.id, zombies: casualties, costPerZombie: 1 }
+    : null;
   const settlementId = crypto.randomUUID();
   const result = { settlementId, lastRaidAt: raidState.last_started_at, balance: nextBalance, gold: baseGold + lootGold,
     xp: nextBalance.xp - balance.xp, firstClear, loot, outcome, questChanges,
-    inventory: core.inventory, storage: core.storage, raidProgress: progress };
+    inventory: core.inventory, storage: core.storage, raidProgress: progress, revival };
   const resultJson = JSON.stringify(result);
   const guard = "EXISTS (SELECT 1 FROM raid_sessions_v3 s WHERE s.id = ? AND s.result_json = ?)";
   const statements: D1PreparedStatement[] = [
@@ -226,6 +258,9 @@ export async function finishRaid(
       .bind(settlementId, accountId, JSON.stringify({ sessionId: session.id, raidId, win, survivors, losses, gold: baseGold + lootGold, xp }), now,
         session.id, resultJson),
   ];
+  if (revival) statements.push(db.prepare(`INSERT OR IGNORE INTO raid_revivals_v3
+    (session_id, account_id, casualties_json, created_at) VALUES (?, ?, ?, ?)`)
+    .bind(session.id, accountId, JSON.stringify(casualties), now));
   for (const id of losses) statements.push(db.prepare(`DELETE FROM roster_v3
     WHERE account_id = ? AND unit_id = ? AND locked_by_raid = ? AND ${guard}`)
     .bind(accountId, id, session.id, session.id, resultJson));
@@ -241,4 +276,67 @@ export async function finishRaid(
     return raced?.result_json ? { status: 200, body: parse(raced.result_json, {}) } : { status: 409, body: { error: "state_conflict" } };
   }
   return { status: 200, body: result };
+}
+
+/** Resolve the single post-battle revival offer. The first accepted request is final:
+ * omitted casualties remain deleted, while each selected zombie costs one brain and
+ * is restored from the server-owned snapshot captured during raid settlement. */
+export async function resolveRevival(
+  db: D1Database,
+  accountId: string,
+  body: { sessionId?: unknown; reviveIds?: unknown },
+  now: number
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (typeof body.sessionId !== "string" || !body.sessionId) return { status: 400, body: { error: "bad_session" } };
+  const row = await db.prepare(`SELECT casualties_json, revived_json, resolved_at FROM raid_revivals_v3
+    WHERE session_id = ? AND account_id = ?`).bind(body.sessionId, accountId)
+    .first<{ casualties_json: string; revived_json: string | null; resolved_at: number | null }>();
+  if (!row) return { status: 404, body: { error: "bad_session" } };
+  const casualties = parse<CasualtySnapshot[]>(row.casualties_json, []);
+  const requested = Array.isArray(body.reviveIds)
+    ? [...new Set(body.reviveIds.filter((id): id is string => typeof id === "string"))]
+    : [];
+  const allowed = new Set(casualties.map((z) => z.id));
+  if (requested.some((id) => !allowed.has(id))) return { status: 400, body: { error: "bad_revive_ids" } };
+
+  if (row.resolved_at != null) {
+    const balance = await db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?")
+      .bind(accountId).first<{ gold: number; brains: number; xp: number }>();
+    return { status: 200, body: { ok: true, revivedIds: parse<string[]>(row.revived_json ?? "[]", []), balance } };
+  }
+  const balance = await db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?")
+    .bind(accountId).first<{ gold: number; brains: number; xp: number }>();
+  if (!balance) return { status: 409, body: { error: "state_conflict" } };
+  const cost = requested.length;
+  if (balance.brains < cost) return { status: 409, body: { error: "insufficient_brains", balance } };
+  const revived = casualties.filter((z) => requested.includes(z.id));
+  const resolutionId = crypto.randomUUID();
+  const guard = `EXISTS (SELECT 1 FROM raid_revivals_v3 r
+    WHERE r.session_id = ? AND r.account_id = ? AND r.resolution_id = ?)`;
+  const statements: D1PreparedStatement[] = [
+    db.prepare(`UPDATE raid_revivals_v3 SET revived_json = ?, resolution_id = ?, resolved_at = ?
+      WHERE session_id = ? AND account_id = ? AND resolved_at IS NULL
+        AND EXISTS (SELECT 1 FROM balances WHERE account_id = ? AND brains >= ?)`)
+      .bind(JSON.stringify(requested), resolutionId, now, body.sessionId, accountId, accountId, cost),
+    db.prepare(`UPDATE balances SET brains = brains - ? WHERE account_id = ? AND brains >= ? AND ${guard}`)
+      .bind(cost, accountId, cost, body.sessionId, accountId, resolutionId),
+  ];
+  for (const zombie of revived) statements.push(
+    db.prepare(`INSERT INTO roster_v3
+      (account_id, unit_id, zombie_key, mutation, invasions, stored, locked_by_raid, created_at)
+      SELECT ?, ?, ?, ?, ?, ?, NULL, ? WHERE ${guard}`)
+      .bind(accountId, zombie.id, zombie.key, zombie.mutation, zombie.invasions,
+        zombie.stored ? 1 : 0, zombie.createdAt, body.sessionId, accountId, resolutionId)
+  );
+  statements.push(db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
+    SELECT ?, ?, 'raid_revive', ?, ? WHERE ${guard}`)
+    .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId: body.sessionId, revivedIds: requested, cost }), now,
+      body.sessionId, accountId, resolutionId));
+  const committed = await db.batch(statements);
+  if ((committed[0]?.meta.changes ?? 0) !== 1) return resolveRevival(db, accountId, body, now);
+  return { status: 200, body: {
+    ok: true,
+    revivedIds: requested,
+    balance: { ...balance, brains: balance.brains - cost },
+  } };
 }

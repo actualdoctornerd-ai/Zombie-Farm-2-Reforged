@@ -1,5 +1,215 @@
 [
  {
+  "key": "ZombieActorZomBetty",
+  "name": "ZomBetty",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -6,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 8,
+  "dex": 4,
+  "con": 13,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zombetty.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZomBloke",
+  "name": "ZomBloke",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -6,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 14,
+  "dex": 2,
+  "con": 12,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zombloke.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorGeorgeWashington",
+  "name": "George Washington",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -5,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 30,
+  "dex": 2,
+  "con": 12,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "george_washington.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorJohnHancock",
+  "name": "John Hancock",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -5,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 14,
+  "dex": 2,
+  "con": 10,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "john_hancock.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorMummy",
+  "name": "Mummy Zombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -3,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 14,
+  "dex": 2,
+  "con": 12,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "mummy_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZomHelga",
+  "name": "ZomHelga",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -1,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 6,
+  "dex": 5.67,
+  "con": 12,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zomhelga.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZombeachBum",
+  "name": "Zombeach Bum",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -1,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 28,
+  "dex": 1,
+  "con": 15,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zombeach_bum.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZulaGirl",
+  "name": "Zula Girl",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": -1,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 14,
+  "dex": 2,
+  "con": 12,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zula_girl.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorSkittles",
+  "name": "Skittles Zombie",
+  "cost": 10,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 0,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 2,
+  "dex": 2,
+  "con": 2,
+  "focus": 50,
+  "mutation": 0,
+  "tier": 1,
+  "specialSprite": "skittles_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZwampThing",
+  "name": "Zwamp Thing",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 0,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 11,
+  "dex": 3,
+  "con": 14,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zwamp_thing.png",
+  "rewardOnly": false
+ },
+ {
   "key": "ZombieActorRegularTier1",
   "name": "Zombie",
   "cost": 35,
@@ -16,7 +226,8 @@
   "con": 2.0,
   "focus": 50.0,
   "mutation": 0,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGardenTier3GreenFlower",
@@ -35,7 +246,8 @@
   "con": 4.0,
   "focus": 60.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorGardenTier5",
@@ -54,7 +266,8 @@
   "con": 6.05,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorLarge2Tier5",
@@ -73,7 +286,8 @@
   "con": 16.5,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorLarge3Tier5",
@@ -92,7 +306,8 @@
   "con": 16.5,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorSmallTier5",
@@ -111,7 +326,8 @@
   "con": 8.8,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGirlTier5",
@@ -130,7 +346,8 @@
   "con": 14.3,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorHeadlessTier5",
@@ -149,7 +366,8 @@
   "con": 29.7,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorHeadless2Tier5",
@@ -168,7 +386,8 @@
   "con": 29.7,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegular2Tier5",
@@ -187,7 +406,8 @@
   "con": 19.8,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegular3Tier5",
@@ -206,7 +426,8 @@
   "con": 19.8,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegular4Tier5",
@@ -225,7 +446,29 @@
   "con": 19.8,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
+ },
+ {
+  "key": "ZombieActorBombie",
+  "name": "Bombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 1,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Headless",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 11,
+  "dex": 1,
+  "con": 29.7,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "bombie.png",
+  "rewardOnly": false
  },
  {
   "key": "ZombieActorHeadlessTier1",
@@ -244,7 +487,8 @@
   "con": 4.5,
   "focus": 50.0,
   "mutation": 0,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGirlTier1",
@@ -263,7 +507,8 @@
   "con": 1.5,
   "focus": 55.0,
   "mutation": 0,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier1Carrots",
@@ -272,7 +517,7 @@
   "growMs": 21600000,
   "category": "mutant",
   "level": 3,
-  "xp": 900,
+  "xp": 1,
   "brainsNeeded": false,
   "group": "Regular",
   "className": "Green",
@@ -282,7 +527,8 @@
   "con": 2.0,
   "focus": 50.0,
   "mutation": 4,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier1Tomatoes",
@@ -301,7 +547,8 @@
   "con": 2.0,
   "focus": 50.0,
   "mutation": 1,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier1Onions",
@@ -320,7 +567,8 @@
   "con": 2.0,
   "focus": 50.0,
   "mutation": 2,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier1Turnips",
@@ -339,7 +587,8 @@
   "con": 2.0,
   "focus": 50.0,
   "mutation": 8,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorSmallTier1",
@@ -358,7 +607,8 @@
   "con": 1.0,
   "focus": 60.0,
   "mutation": 0,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorLargeTier1",
@@ -377,7 +627,92 @@
   "con": 2.6,
   "focus": 45.0,
   "mutation": 0,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
+ },
+ {
+  "key": "ZombieActorDapper",
+  "name": "Dapper Zombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 5,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Large",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 23.32,
+  "dex": 1.3,
+  "con": 16.5,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "dapper_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorForest",
+  "name": "Forest Zombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 5,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 8.71,
+  "dex": 3.67,
+  "con": 14.3,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "forest_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorGranny",
+  "name": "Granny Zombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 5,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 8.71,
+  "dex": 3.67,
+  "con": 14.3,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "granny_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorMedusa",
+  "name": "Medusa Zombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 5,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 8.71,
+  "dex": 3.67,
+  "con": 14.3,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "medusa_zombie.png",
+  "rewardOnly": false
  },
  {
   "key": "ZombieActorRegularTier1Potatoes",
@@ -396,7 +731,8 @@
   "con": 2.0,
   "focus": 50.0,
   "mutation": 16,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGardenTier1",
@@ -415,7 +751,8 @@
   "con": 1.0,
   "focus": 40.0,
   "mutation": 0,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorSmallTier2",
@@ -434,7 +771,8 @@
   "con": 2.75,
   "focus": 70.0,
   "mutation": 0,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGirlTier2",
@@ -453,7 +791,8 @@
   "con": 3.5,
   "focus": 65.0,
   "mutation": 0,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier1Coffee",
@@ -472,7 +811,8 @@
   "con": 2.0,
   "focus": 50.0,
   "mutation": 32,
-  "tier": 1
+  "tier": 1,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier2",
@@ -491,7 +831,71 @@
   "con": 5.0,
   "focus": 60.0,
   "mutation": 0,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
+ },
+ {
+  "key": "ZombieActorBrockColey",
+  "name": "Brock Coley",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 10,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 40,
+  "dex": 3,
+  "con": 7,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "brock_coley.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorOldMcZombie",
+  "name": "Old McZombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 10,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 8.71,
+  "dex": 3.67,
+  "con": 14.3,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "old_mczombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZastronaut",
+  "name": "Zastronaut",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 10,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 8.71,
+  "dex": 3.67,
+  "con": 14.3,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zastronaut.png",
+  "rewardOnly": false
  },
  {
   "key": "ZombieActorHeadlessTier2",
@@ -510,7 +914,8 @@
   "con": 11.0,
   "focus": 80.0,
   "mutation": 0,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorLargeTier2",
@@ -529,7 +934,8 @@
   "con": 6.5,
   "focus": 55.0,
   "mutation": 0,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier2Celery",
@@ -548,7 +954,8 @@
   "con": 5.0,
   "focus": 60.0,
   "mutation": 64,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGardenTier2",
@@ -567,7 +974,8 @@
   "con": 2.5,
   "focus": 50.0,
   "mutation": 0,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier5",
@@ -586,7 +994,8 @@
   "con": 19.8,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorSmallTier3",
@@ -605,7 +1014,8 @@
   "con": 4.5,
   "focus": 80.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier2Broccoli",
@@ -624,7 +1034,8 @@
   "con": 5.0,
   "focus": 60.0,
   "mutation": 128,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGirlTier3",
@@ -643,7 +1054,8 @@
   "con": 7.5,
   "focus": 75.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier2Garlic",
@@ -662,7 +1074,8 @@
   "con": 5.0,
   "focus": 60.0,
   "mutation": 256,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorHeadlessTier3",
@@ -681,7 +1094,8 @@
   "con": 16.0,
   "focus": 85.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier3",
@@ -700,7 +1114,8 @@
   "con": 10.0,
   "focus": 70.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier2Cauliflower",
@@ -719,7 +1134,8 @@
   "con": 5.0,
   "focus": 60.0,
   "mutation": 512,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorLargeTier3",
@@ -738,7 +1154,8 @@
   "con": 12.1,
   "focus": 65.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorLargeTier5",
@@ -757,7 +1174,8 @@
   "con": 16.5,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGardenCupid",
@@ -776,7 +1194,8 @@
   "con": 15.0,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorRegularCrazy",
@@ -795,7 +1214,8 @@
   "con": 28.0,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 0
+  "tier": 0,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorRegularTier2LimaBeans",
@@ -814,7 +1234,8 @@
   "con": 5.0,
   "focus": 60.0,
   "mutation": 1024,
-  "tier": 2
+  "tier": 2,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGardenTier3",
@@ -833,7 +1254,8 @@
   "con": 4.0,
   "focus": 60.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGardenTier3",
@@ -852,7 +1274,8 @@
   "con": 4.0,
   "focus": 60.0,
   "mutation": 0,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier3VenusFlytrap",
@@ -871,7 +1294,8 @@
   "con": 10.0,
   "focus": 70.0,
   "mutation": 2048,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier3DragonFruit",
@@ -890,14 +1314,15 @@
   "con": 10.0,
   "focus": 70.0,
   "mutation": 4096,
-  "tier": 3
+  "tier": 3,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGardenCupidPink",
-  "name": "Cupid Zombie",
+  "name": "Pink Cupid Zombie",
   "cost": 0,
   "growMs": 86400000,
-  "category": "normal",
+  "category": "special",
   "level": 25,
   "xp": 2,
   "brainsNeeded": false,
@@ -909,7 +1334,8 @@
   "con": 15.0,
   "focus": 100.0,
   "mutation": 0,
-  "tier": 5
+  "tier": 5,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorGardenTier4",
@@ -928,7 +1354,8 @@
   "con": 5.5,
   "focus": 70.0,
   "mutation": 0,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorDrZombie",
@@ -948,7 +1375,8 @@
   "focus": 100,
   "mutation": 0,
   "tier": 5,
-  "specialSprite": "dr_zombie.png"
+  "specialSprite": "dr_zombie.png",
+  "rewardOnly": true
  },
  {
   "key": "ZombieActorOmegaDrZombie",
@@ -968,7 +1396,428 @@
   "focus": 100,
   "mutation": 0,
   "tier": 5,
-  "specialSprite": "omega_dr_zombie.png"
+  "specialSprite": "omega_dr_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorBandido",
+  "name": "Bandido Zombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 24,
+  "dex": 7,
+  "con": 23,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "bandido_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorVagabond",
+  "name": "Vagabond Zombie",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 25,
+  "dex": 8,
+  "con": 27,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "vagabond_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorCaptain",
+  "name": "Captain Zombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 21,
+  "dex": 2.65,
+  "con": 38.5,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "captain_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorAdmiral",
+  "name": "Admiral Zombie",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 21,
+  "dex": 2,
+  "con": 38.5,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "admiral_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorChristmasGhost",
+  "name": "Christmas Ghost Zombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 13,
+  "dex": 8,
+  "con": 32,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "christmas_ghost_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorScrooge",
+  "name": "Scrooge Zombie",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 13,
+  "dex": 8,
+  "con": 42,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "scrooge_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorDiva",
+  "name": "Diva Zombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 20,
+  "dex": 6,
+  "con": 18,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "diva_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorDeputy",
+  "name": "Deputy Zombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 21,
+  "dex": 2.65,
+  "con": 38.5,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "deputy_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorMadame",
+  "name": "Madame Zombie",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 21,
+  "dex": 8,
+  "con": 22,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "madame_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorMasterNinjombie",
+  "name": "Master Ninjombie",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 20,
+  "dex": 4,
+  "con": 10,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "master_ninjombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorMerZombie",
+  "name": "MerZombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 18,
+  "dex": 5,
+  "con": 16,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "merzombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorNinjombie",
+  "name": "Ninjombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 20,
+  "dex": 4.5,
+  "con": 10,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "ninjombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorOmegaZombieBot",
+  "name": "Omega Zombie Bot",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 28,
+  "dex": 5,
+  "con": 30,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "omega_zombie_bot.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorPoseidon",
+  "name": "Poseidon Zombie",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 20,
+  "dex": 6,
+  "con": 17,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "poseidon_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorProto",
+  "name": "Proto Zombie",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 14,
+  "dex": 6.0,
+  "con": 10,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "proto_zombie.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorSheriff",
+  "name": "Sheriff Zombie",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 21,
+  "dex": 2.65,
+  "con": 38.5,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "sheriff_zombie.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZombieBot",
+  "name": "Zombie Bot",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 24,
+  "dex": 5,
+  "con": 25,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zombie_bot.png",
+  "rewardOnly": false
+ },
+ {
+  "key": "ZombieActorZombug",
+  "name": "Zombug",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 15,
+  "dex": 7,
+  "con": 15,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zombug.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorZomdini",
+  "name": "Zomdini",
+  "cost": 200,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 15,
+  "dex": 7,
+  "con": 12,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zomdini.png",
+  "rewardOnly": true
+ },
+ {
+  "key": "ZombieActorZomtar",
+  "name": "Zomtar",
+  "cost": 400,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 20,
+  "dex": 6,
+  "con": 15,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zomtar.png",
+  "rewardOnly": true
  },
  {
   "key": "ZombieActorLargeTier4",
@@ -987,7 +1836,8 @@
   "con": 15.0,
   "focus": 75.0,
   "mutation": 0,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorSmallTier4",
@@ -1006,7 +1856,8 @@
   "con": 8.0,
   "focus": 90.0,
   "mutation": 0,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorGirlTier4",
@@ -1025,7 +1876,8 @@
   "con": 13.0,
   "focus": 85.0,
   "mutation": 0,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorHeadlessTier4",
@@ -1044,7 +1896,8 @@
   "con": 27.0,
   "focus": 90.0,
   "mutation": 0,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier4",
@@ -1063,7 +1916,8 @@
   "con": 18.0,
   "focus": 80.0,
   "mutation": 0,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier4Eyebiscus",
@@ -1082,7 +1936,8 @@
   "con": 18.0,
   "focus": 80.0,
   "mutation": 4,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  },
  {
   "key": "ZombieActorRegularTier4Heartichoke",
@@ -1101,6 +1956,7 @@
   "con": 18.0,
   "focus": 80.0,
   "mutation": 512,
-  "tier": 4
+  "tier": 4,
+  "marketHidden": false
  }
 ]

@@ -1,12 +1,15 @@
+import { EPIC_QUEST_ZOMBIE_REWARDS } from "../../src/epicBoss/rewards";
+import zombieRows from "../../public/assets/zombies.json";
+
 // Server-side zombie catalog. Mirrors the `cost` of each unit in
 // public/assets/zombies.json so the server can price a SELL exactly (sell = the
 // client's zombieSellValue = max(1, floor(cost/2))) and validate that a granted unit
 // is a real catalog zombie. A unit's stats aren't needed here — the roster records
 // only id/key/mutation/invasions, and stats derive from the key on the client.
 //
-// KEEP IN SYNC with zombies.json (55 keyed costs).
+// KEEP IN SYNC with zombies.json (plantable crops plus reward-only roster units).
 
-export const ZOMBIE_COST: Readonly<Record<string, number>> = {
+const LEGACY_ZOMBIE_COST: Readonly<Record<string, number>> = {
   ZombieActorRegularTier1: 35,
   ZombieActorGardenTier3GreenFlower: 50,
   ZombieActorGardenTier5: 50,
@@ -62,11 +65,33 @@ export const ZOMBIE_COST: Readonly<Record<string, number>> = {
   ZombieActorRegularTier4: 70,
   ZombieActorRegularTier4Eyebiscus: 200,
   ZombieActorRegularTier4Heartichoke: 250,
+  // Epic-event quest rewards retain their source sell values but are deliberately
+  // absent from ZOMBIE_CROPS, so no purchase/plant command can create them.
+  ZombieActorDrZombie: 200,
+  ZombieActorOmegaDrZombie: 400,
+  ZombieActorBandido: 200,
+  ZombieActorVagabond: 400,
+  ZombieActorCaptain: 200,
+  ZombieActorAdmiral: 400,
+  ZombieActorChristmasGhost: 200,
+  ZombieActorScrooge: 400,
+  ZombieActorDiva: 200,
 };
+
+export const ZOMBIE_COST: Readonly<Record<string, number>> = Object.fromEntries(
+  (zombieRows as Array<{ key: string; cost: number }>).map((zombie) => [zombie.key, zombie.cost])
+);
+void LEGACY_ZOMBIE_COST;
 
 /** Whether `key` is a real catalog zombie (a granted unit must be one). */
 export function isKnownZombie(key: string): boolean {
   return Object.prototype.hasOwnProperty.call(ZOMBIE_COST, key);
+}
+
+const REWARD_ONLY_ZOMBIES = new Set(Object.values(EPIC_QUEST_ZOMBIE_REWARDS));
+
+export function isRewardOnlyZombie(key: string): boolean {
+  return REWARD_ONLY_ZOMBIES.has(key);
 }
 
 // ---- Garden-zombie fertilization (server-owned roll) --------------------

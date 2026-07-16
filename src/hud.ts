@@ -60,7 +60,7 @@ interface MktEntry {
  *  item key, so it always matches the item's real behaviour. */
 function functionalDescription(def: PlaceableDef): string | undefined {
   if (def.petPen)
-    return "A home for cosmetic pets. Tap the Pet Pen on your farm to choose or hide your active companion.";
+    return "A home for up to four cosmetic pets. Tap the Pet Pen on your farm to choose its occupants.";
   if (def.category !== "functional") return undefined;
   if (def.armyMax)
     return `Raises your zombie army limit by ${def.armyMax}, so you can send more zombies on each invasion.`;
@@ -789,6 +789,32 @@ const STYLE = `
   background: linear-gradient(#8ec74f, #5c9a2e); color: #fff; font-weight: 900; font-size: 16px;
   cursor: pointer; text-shadow: 0 1px 1px rgba(0,0,0,.4); }
 #hud .rr-go:hover { filter: brightness(1.08); }
+#hud .revive-bg { position: fixed; inset: 0; z-index: 28; pointer-events: auto;
+  background: rgba(20,8,4,.76); display: grid; place-items: center; padding: 18px; }
+#hud .revive-panel { width: min(520px, 94vw); max-height: min(680px, 90vh); overflow: hidden;
+  display: flex; flex-direction: column; border: 4px solid #2b170b; border-radius: 18px;
+  background: linear-gradient(#f5e5b8, #d6b873); color: #28170c; box-shadow: 0 12px 40px #000b; }
+#hud .revive-title { padding: 14px 18px; text-align: center; color: #fff; font-size: 25px;
+  font-weight: 900; background: linear-gradient(#6b2631, #42141c); text-shadow: 0 2px 2px #000; }
+#hud .revive-warning { margin: 12px 16px 7px; padding: 9px 11px; border: 2px solid #913a31;
+  border-radius: 9px; background: #fff1d0; color: #74251f; font-size: 13px; font-weight: 900; text-align: center; }
+#hud .revive-balance { text-align: center; font-size: 14px; font-weight: 800; }
+#hud .revive-balance img, #hud .revive-cost img { width: 20px; height: 20px; object-fit: contain; vertical-align: middle; }
+#hud .revive-list { overflow-y: auto; display: grid; gap: 8px; padding: 10px 16px; }
+#hud .revive-zombie { display: grid; grid-template-columns: 58px 1fr auto; align-items: center; gap: 10px;
+  min-height: 66px; padding: 6px 9px; border: 2px solid #69451f; border-radius: 10px; background: #f9edca; }
+#hud .revive-zombie.selected { border-color: #367436; background: #e1f0c4; }
+#hud .revive-zombie img { width: 56px; height: 56px; object-fit: contain; }
+#hud .revive-name { font-size: 15px; font-weight: 900; }
+#hud .revive-type { font-size: 11px; opacity: .72; }
+#hud .revive-pick { min-width: 100px; padding: 8px; border: 2px solid #2b170b; border-radius: 8px;
+  background: linear-gradient(#79b44a,#4d852d); color: #fff; font-weight: 900; }
+#hud .revive-pick.selected { background: linear-gradient(#b56b54,#843f32); }
+#hud .revive-pick:disabled { filter: grayscale(1); opacity: .48; }
+#hud .revive-foot { padding: 8px 16px 15px; }
+#hud .revive-confirm { width: 100%; padding: 12px; border: 2px solid #241307; border-radius: 10px;
+  background: linear-gradient(#f2b341,#c87a18); color: #301b08; font-size: 16px; font-weight: 900; }
+#hud .revive-error { min-height: 18px; color: #8b211b; text-align: center; font-size: 12px; font-weight: 800; }
 
 /* ---- Level-up popup ---- */
 #hud .lvl-bg { z-index: 24; }
@@ -963,7 +989,9 @@ const STYLE = `
 #hud .epic-hp { height: 18px; margin: 8px 0 3px; border: 2px solid #4d271d; border-radius: 9px; overflow: hidden; background: #441d22; }
 #hud .epic-hp span { display: block; height: 100%; background: linear-gradient(#ec4b55,#a41526); }
 #hud .epic-wait { color: #9a2c25; font-weight: 800; }
-#hud .epic-market-action { grid-column: 1 / -1; justify-self: center; min-width: 210px; }
+#hud .epic-market-actions { grid-column: 1 / -1; display: flex; justify-content: center;
+  align-items: center; flex-wrap: wrap; gap: 8px; }
+#hud .epic-market-action { min-width: 210px; }
 #hud .epic-market-action img { width: 20px; height: 20px; vertical-align: middle; }
 
 /* ---- Item info popup (opened by a Market card's magnifier) ---- */
@@ -1808,6 +1836,7 @@ export class Hud {
   onEquipFarmerBody: ((body: FarmerBodyDef) => void) | null = null;
   onBuyPet: ((pet: PetDef) => boolean) | null = null;
   onEquipPet: ((pet: PetDef | null) => void) | null = null;
+  onSetPenPets: ((pets: PetDef[]) => void) | null = null;
   // Buy a boost into inventory (returns true if paid); use one from inventory.
   onBuyBoost: ((def: BoostDef) => boolean) | null = null;
   onUseBoost: ((def: BoostDef) => void) | null = null;
@@ -1883,6 +1912,8 @@ export class Hud {
     | null = null;
   /** Start combining two owned zombies by id. */
   onCombine: ((idA: string, idB: string) => boolean) | null = null;
+  /** Reward-only actors cannot be consumed or cloned by the Zombie Pot. */
+  canCombineZombie: ((key: string) => boolean) | null = null;
   /** Collect a finished combine; returns the new zombie's name (or null). */
   onCollectCombine: (() => string | null) | null = null;
 
@@ -1905,6 +1936,7 @@ export class Hud {
   getEpicBossView: (() => EpicBossMarketView[]) | null = null;
   onActivateEpicBoss: ((bossId: string) => boolean | Promise<boolean>) | null = null;
   onSkipEpicBossRetry: (() => boolean | Promise<boolean>) | null = null;
+  onEndEpicBoss: (() => boolean | Promise<boolean>) | null = null;
   onLaunchEpicBoss: ((partyIds: string[]) => boolean | Promise<boolean>) | null = null;
 
   // ---- save profiles (set by main) ----
@@ -2418,7 +2450,27 @@ export class Hud {
         if (await this.onActivateEpicBoss?.(view.id)) { refreshCur(); rerender(); }
       };
     }
-    card.appendChild(action);
+    const actions = document.createElement("div");
+    actions.className = "epic-market-actions";
+    actions.appendChild(action);
+    if (view.active) {
+      const end = document.createElement("button");
+      end.className = "raid-quick";
+      end.textContent = "End Event";
+      end.onclick = async () => {
+        if (!await this.confirmInGame(
+          `End ${view.name}?`,
+          "This ends the event immediately. Current boss progress will be lost and the activation cost will not be refunded.",
+          "End Event"
+        )) return;
+        action.disabled = true;
+        end.disabled = true;
+        if (await this.onEndEpicBoss?.()) { refreshCur(); rerender(); }
+        else { action.disabled = false; end.disabled = false; }
+      };
+      actions.appendChild(end);
+    }
+    card.appendChild(actions);
     grid.appendChild(card);
     }
   }
@@ -2706,7 +2758,7 @@ export class Hud {
   // grass/flower flanks, and tabs Items / Pets / Boosts / Received. Item capacity
   // comes from the placed shed's tier; pets and received are unlimited.
   // Opened by clicking the shed, Pet Pen, or the Storage button.
-  openStorage(initialTab: string = "Items") {
+  openStorage(initialTab: string = "Items", managePen = false) {
     document.querySelector("#hud .st-bg")?.remove();
     const bg = document.createElement("div");
     bg.className = "st-bg";
@@ -2782,14 +2834,18 @@ export class Hud {
         }
         body.appendChild(grid);
       } else if (tab === "Pets") {
-        count.textContent = `${this.state.ownedPets.length} pet${this.state.ownedPets.length === 1 ? "" : "s"}`;
+        count.textContent = managePen
+          ? `${this.state.penPets.length} / 4 in pen`
+          : `${this.state.ownedPets.length} pet${this.state.ownedPets.length === 1 ? "" : "s"}`;
         const hint = document.createElement("div");
         hint.className = "st-hint";
         hint.textContent = this.state.ownedPets.length
-          ? "Tap a pet to make it your active companion."
+          ? managePen
+            ? "Choose up to four pets to wander inside this pen."
+            : "Tap a pet to make it your active companion."
           : "Adopt pets from the Market's Pets tab.";
         body.appendChild(hint);
-        if (this.state.activePet) {
+        if (!managePen && this.state.activePet) {
           const hide = document.createElement("button");
           hide.className = "st-use";
           hide.textContent = "Hide Active Pet";
@@ -2802,13 +2858,28 @@ export class Hud {
           const pet = this.pets.pets.find((candidate) => candidate.key === key);
           if (!pet) continue;
           const slot = document.createElement("button");
-          slot.className = "st-slot st-petslot" + (this.state.activePet === key ? " filled" : "");
-          slot.title = this.state.activePet === key ? `${pet.name} (active)` : `Activate ${pet.name}`;
+          const selected = managePen ? this.state.penPets.includes(key) : this.state.activePet === key;
+          slot.className = "st-slot st-petslot" + (selected ? " filled" : "");
+          slot.title = managePen
+            ? selected ? `Remove ${pet.name} from pen` : `Deploy ${pet.name} in pen`
+            : selected ? `${pet.name} (active)` : `Activate ${pet.name}`;
           const img = document.createElement("img");
           img.src = `${BASE}assets/pets/${pet.portrait}`;
           img.alt = pet.name;
           slot.appendChild(img);
-          slot.onclick = () => { this.onEquipPet?.(pet); render(); };
+          slot.onclick = () => {
+            if (managePen) {
+              const next = selected
+                ? this.state.penPets.filter((candidate) => candidate !== key)
+                : this.state.penPets.length < 4 ? [...this.state.penPets, key] : null;
+              if (!next) return;
+              this.onSetPenPets?.(next.flatMap((petKey) => {
+                const found = this.pets.pets.find((candidate) => candidate.key === petKey);
+                return found ? [found] : [];
+              }));
+            } else this.onEquipPet?.(pet);
+            render();
+          };
           grid.appendChild(slot);
         }
         body.appendChild(grid);
@@ -4257,19 +4328,23 @@ export class Hud {
     bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
     this.el.appendChild(bg);
 
-    // Only zombies deployed on the farm — stored ones live in the Mausoleum menu.
-    const roster = (this.getRoster ? this.getRoster() : []).filter((r) => !r.stored);
+    // Show the complete owned roster here as a safety net for earned zombies. A boss
+    // reward sent to storage remains visible and deployable even before the player
+    // opens (or has room in) the physical Mausoleum panel.
+    const roster = this.getRoster ? this.getRoster() : [];
+    const onFarm = roster.filter((r) => !r.stored).length;
+    const stored = roster.length - onFarm;
     const title = document.createElement("h2");
     title.textContent = "Your Zombies";
     const cnt = document.createElement("span");
     cnt.className = "zr-total";
-    cnt.textContent = `${roster.length} on farm`;
+    cnt.textContent = `${onFarm} on farm${stored ? ` · ${stored} stored` : ""}`;
     head.append(title, cnt);
 
     if (!roster.length) {
       const e = document.createElement("div");
       e.className = "zr-empty";
-      e.textContent = "No zombies on the farm — grow one, or deploy from the Mausoleum.";
+      e.textContent = "You do not own any zombies yet.";
       list.appendChild(e);
       return;
     }
@@ -4322,7 +4397,9 @@ export class Hud {
       head.append(title, cnt);
 
       grid.innerHTML = "";
-      for (let i = 0; i < cap; i++) {
+      // Reward grants are never discarded. If a full Mausoleum receives an Epic
+      // reward, expose the protected overflow slot instead of hiding the zombie.
+      for (let i = 0; i < Math.max(cap, stored.length); i++) {
         const z = stored[i];
         if (z) {
           grid.appendChild(this.buildRosterCard(z, () => this.openZombieInfo(this.rosterInfo(z), render)));
@@ -4493,7 +4570,9 @@ export class Hud {
       const st = this.getPotStatus?.();
       if (st?.busy) { renderBusy(); return; }
       wrap.innerHTML = "";
-      const roster = this.getRoster?.() ?? [];
+      const roster = (this.getRoster?.() ?? []).filter((zombie) =>
+        this.canCombineZombie?.(zombie.key) ?? true
+      );
       const head = document.createElement("div");
       head.className = "cmb-head";
       head.innerHTML = `<h2>Zombie Pot</h2>`;
@@ -5060,6 +5139,92 @@ export class Hud {
     this.el.appendChild(bg);
     // Trigger the slide-in on the next frame.
     requestAnimationFrame(() => panel.classList.add("in"));
+  }
+
+  /** One-time farm-return casualty event. The modal cannot be dismissed without
+   * resolving it because every unselected zombie is permanently lost. */
+  openZombieRevival(
+    zombies: { id: string; name: string; typeName: string; portrait: string }[],
+    brains: number,
+    onResolve: (reviveIds: string[]) => Promise<boolean> | boolean
+  ) {
+    if (!zombies.length) return;
+    this.el.querySelector(".revive-bg")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "revive-bg";
+    const panel = document.createElement("div");
+    panel.className = "revive-panel";
+    panel.innerHTML =
+      `<div class="revive-title">Revive Your Zombies</div>` +
+      `<div class="revive-warning">Warning: zombies you do not revive will be permanently lost.</div>` +
+      `<div class="revive-balance">Available: ${brains} <img src="${UI("topbar_brain_icon.png")}" alt="brains"> · Each revival costs 1 brain.</div>`;
+    const selected = new Set<string>();
+    const list = document.createElement("div");
+    list.className = "revive-list";
+    const buttons = new Map<string, HTMLButtonElement>();
+    const rows = new Map<string, HTMLElement>();
+    const refresh = () => {
+      for (const zombie of zombies) {
+        const chosen = selected.has(zombie.id);
+        rows.get(zombie.id)?.classList.toggle("selected", chosen);
+        const button = buttons.get(zombie.id)!;
+        button.classList.toggle("selected", chosen);
+        button.textContent = chosen ? "Undo" : "Revive · 1";
+        button.disabled = !chosen && selected.size >= brains;
+      }
+      confirm.textContent = selected.size
+        ? `Revive ${selected.size} · Spend ${selected.size} Brain${selected.size === 1 ? "" : "s"}`
+        : `Leave All ${zombies.length} Behind`;
+    };
+    for (const zombie of zombies) {
+      const row = document.createElement("div");
+      row.className = "revive-zombie";
+      const portrait = document.createElement("img");
+      portrait.src = zombie.portrait;
+      portrait.alt = "";
+      const label = document.createElement("div");
+      const name = document.createElement("div");
+      name.className = "revive-name";
+      name.textContent = zombie.name;
+      const type = document.createElement("div");
+      type.className = "revive-type";
+      type.textContent = zombie.typeName;
+      label.append(name, type);
+      const pick = document.createElement("button");
+      pick.className = "revive-pick";
+      pick.onclick = () => {
+        if (selected.has(zombie.id)) selected.delete(zombie.id);
+        else if (selected.size < brains) selected.add(zombie.id);
+        refresh();
+      };
+      rows.set(zombie.id, row);
+      buttons.set(zombie.id, pick);
+      row.append(portrait, label, pick);
+      list.appendChild(row);
+    }
+    const foot = document.createElement("div");
+    foot.className = "revive-foot";
+    const error = document.createElement("div");
+    error.className = "revive-error";
+    const confirm = document.createElement("button");
+    confirm.className = "revive-confirm";
+    confirm.onclick = async () => {
+      confirm.disabled = true;
+      error.textContent = "";
+      try {
+        if (await onResolve([...selected])) bg.remove();
+        else error.textContent = "The revival could not be completed. Please try again.";
+      } catch {
+        error.textContent = "The revival could not be completed. Please try again.";
+      } finally {
+        confirm.disabled = false;
+      }
+    };
+    foot.append(error, confirm);
+    panel.append(list, foot);
+    bg.appendChild(panel);
+    this.el.appendChild(bg);
+    refresh();
   }
 
   /** Fill in the loot row of an ALREADY-OPEN result panel. ONLINE the server rolls the

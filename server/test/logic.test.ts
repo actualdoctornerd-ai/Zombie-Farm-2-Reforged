@@ -133,6 +133,11 @@ describe("projectFriendSave — read-only visitor projection", () => {
       zombieCount: 5,
       farmer: { col: 3, row: 4 },
       unlockedAbilities: ["boom"],
+      petCollection: {
+        owned: ["follower", "pen-a", "pen-b", "hidden"],
+        active: "follower",
+        pen: ["pen-a", "pen-b"],
+      },
     },
     farm: { fieldId: "default", w: 20, h: 20, climate: "snow", background: "deep-forest", plots: [] },
     objects: [{ id: "o1", key: "tree", oc: 1, or: 1 }],
@@ -163,6 +168,12 @@ describe("projectFriendSave — read-only visitor projection", () => {
     expect(p.savedAt).toBe(123); // drives offline-growth math
     expect(p.player.name).toBe("Neighbor");
     expect(p.player.zombieMax).toBe(12);
+    expect(p.player.petCollection).toEqual({
+      owned: ["follower", "pen-a", "pen-b"],
+      active: "follower",
+      pen: ["pen-a", "pen-b"],
+    });
+    expect(JSON.stringify(p)).not.toContain("hidden");
   });
 
   it("zeroes private balances/progression", () => {

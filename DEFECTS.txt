@@ -6,7 +6,9 @@ Raid difficulty needs to be tuned
 
 Clipping between characters and crop sprites
 
-Features
+Rethought Epic boss - how to start/continue/stop it
+
+Missing Features
 - Raid Hazards (trapeze, turnip wall)
 - Trading
 - Black Market

@@ -1,0 +1,135 @@
+{
+ "name": "scrooge_zombie",
+ "neck": {
+  "x": 7,
+  "y": -43
+ },
+ "parts": [
+  {
+   "file": "Features2.png",
+   "group": "head",
+   "px": -1,
+   "py": -75,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 8
+  },
+  {
+   "file": "Features.png",
+   "group": "head",
+   "px": -34,
+   "py": -57,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 4
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 4,
+   "py": -16,
+   "ax": 0.5146774053573608,
+   "ay": 0.6188709437847137,
+   "z": 3
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 10,
+   "py": -6,
+   "ax": 0.4642857313156128,
+   "ay": 0.004761874675750732,
+   "z": 2
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -7,
+   "py": -6,
+   "ax": 0.5669999718666077,
+   "ay": 0.1119047999382019,
+   "z": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 14,
+   "py": -31,
+   "ax": 0.689180850982666,
+   "ay": 0.334816038608551,
+   "z": 8
+  },
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": -6,
+   "py": -30,
+   "ax": 0.8999999761581421,
+   "ay": 0.25378793478012085,
+   "z": 0
+  },
+  {
+   "file": "UpperTeeth.png",
+   "group": "head",
+   "px": -9,
+   "py": -39,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 4
+  },
+  {
+   "file": "LowerTeeth.png",
+   "group": "head",
+   "px": -11,
+   "py": -36,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 6
+  },
+  {
+   "file": "Scar.png",
+   "group": "head",
+   "px": 14,
+   "py": -69,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5
+  },
+  {
+   "file": "Jaw.png",
+   "group": "head",
+   "px": 7,
+   "py": -42,
+   "ax": 0.8,
+   "ay": 0.050000000000000044,
+   "z": 5
+  },
+  {
+   "file": "Head.png",
+   "group": "head",
+   "px": 7,
+   "py": -43,
+   "ax": 0.72,
+   "ay": 0.8200000000000001,
+   "z": 4
+  },
+  {
+   "file": "EyeR.png",
+   "group": "head",
+   "px": 2,
+   "py": -59,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5
+  },
+  {
+   "file": "EyeL.png",
+   "group": "head",
+   "px": -24,
+   "py": -58,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5
+  }
+ ]
+}

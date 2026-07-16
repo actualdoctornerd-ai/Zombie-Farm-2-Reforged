@@ -631,6 +631,11 @@ export interface RaidFinishResult {
   storage?: { received: Record<string, number>; stored: Record<string, number> };
   raidProgress?: Record<string, number>;
   rulesetVersion?: number;
+  revival?: {
+    sessionId: string;
+    zombies: { id: string; key: string; mutation: number; invasions: number; stored: boolean }[];
+    costPerZombie: 1;
+  } | null;
 }
 
 /** Report a finished raid. The server starts the cooldown (idempotent) AND credits
@@ -648,6 +653,17 @@ export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidRep
     survivors: outcome?.survivors ?? [],
     losses: outcome?.losses ?? [],
   });
+
+export interface RaidReviveResult {
+  ok: true;
+  revivedIds: string[];
+  balance: Balance;
+}
+
+/** Resolve a raid's one-time casualty offer. Any casualty omitted from reviveIds is
+ * permanently abandoned; each accepted id costs one brain. */
+export const raidRevive = (sessionId: string, reviveIds: string[]) =>
+  req<RaidReviveResult>("POST", "/raid/revive", { sessionId, reviveIds });
 
 export const raidCheckpoint = (sessionId: string, finalTick: number, inputs: RaidReplayInput[]) =>
   req<{ ok: boolean; finalTick: number; lastSeq: number; finished: boolean; replayCpuMs: number }>(
@@ -669,7 +685,7 @@ export interface EpicBossFinishResult {
   losses: string[];
   quests: import("./protocol").QuestProjection;
   questChanges: QuestChange[];
-  newZombies: { id: string; key: string }[];
+  newZombies: { id: string; key: string; stored: boolean }[];
 }
 
 export const epicBossActivate = (activationId: string, bossId: string) => req<{
@@ -682,6 +698,10 @@ export const epicBossSkipRetry = (runId: string, retryReadyAt: number) => req<{
   balance: Balance;
   costBrains: number;
 }>("POST", "/epic-boss/skip-retry", { runId, retryReadyAt });
+
+export const epicBossEnd = (runId: string) => req<{
+  event: import("./protocol").EpicBossProjection;
+}>("POST", "/epic-boss/end", { runId });
 
 export const epicBossStart = (orderedUnitIds: string[]) => req<{
   ok: true;

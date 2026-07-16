@@ -81,6 +81,9 @@ export function importEligible(createdAt: number, cutoffMs: number): boolean {
  *  Dropped: gold/brains/xp balances, unlockedAbilities, storage, boosts, quests,
  *  raids, and the entire social block (their friends list). */
 export function projectFriendSave(save: SaveGame): SaveGame {
+  const active = save.player?.petCollection?.active ?? null;
+  const pen = [...new Set(save.player?.petCollection?.pen ?? [])].slice(0, 4);
+  const visiblePets = [...new Set([...(active ? [active] : []), ...pen])];
   return {
     version: save.version,
     savedAt: save.savedAt,
@@ -92,6 +95,7 @@ export function projectFriendSave(save: SaveGame): SaveGame {
       gold: 0,
       brains: 0,
       xp: 0,
+      petCollection: { owned: visiblePets, active, pen },
     },
     farm: save.farm,
     objects: save.objects,

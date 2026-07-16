@@ -28,6 +28,14 @@ retry, and encounter timers, level/HP, rewards, activation, and Fight state.
 Each boss uses its own recovered quest milestones, decor pool, and tame pet. Groundhog's
 chain grants Dr. Zombie (5), an Invasion Voucher (10), one brain (15), and Golden Dice
 plus Omega Dr. Zombie (20); the level-40 events continue through their recovered chains.
+Loco Locust grants Bandido Zombie (5) and Vagabond Zombie (40), Bully Frog grants
+Captain Zombie (5) and Admiral Zombie (40), Foul Owl grants Christmas Ghost Zombie (5)
+and Scrooge Zombie (40), and Skunkarella's four-card quest grants Diva Zombie. These
+nine named zombies are reward-only catalog units: they never appear as purchasable
+zombie crops and cannot be consumed or cloned through the Zombie Pot. A reward joins
+the farm when an army slot is open, otherwise it is kept
+in the Mausoleum; protected reward overflow remains visible in the complete Zombies
+roster so a full storage building can never destroy an earned unit.
 Until exact binary loot selection is recovered, each victory makes one 35% roll,
 preferring unlocked uncollected drops. Decor duplicates become possible after eligible
 decor is collected, and a pet leaves its boss's pool once owned. Ambiguous source

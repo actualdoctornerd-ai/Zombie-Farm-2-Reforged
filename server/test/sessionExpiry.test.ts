@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { expireLiveRaid } from "../src/v3/raid";
-import { expireLiveEpicBoss } from "../src/v3/epicBoss";
+import { end as endEpicBoss, expireLiveEpicBoss } from "../src/v3/epicBoss";
 
 class Statement {
   args: unknown[] = [];
@@ -37,6 +37,22 @@ describe("abandoned battle cleanup", () => {
       expect.stringContaining("UPDATE epic_boss_sessions_v3 SET finished_at"),
       expect.stringContaining("UPDATE epic_boss_runs_v3 SET retry_ready_at"),
       expect.stringContaining("UPDATE roster_v3 SET locked_by_raid=NULL"),
+    ]));
+  });
+
+  it("ending an Epic event closes a live attempt and releases its roster locks", async () => {
+    const { db, batched } = fakeDb({
+      run_id: "run", boss_id: "dr-groundhog", activated_at: 1, expires_at: 20_000,
+      level: 1, max_hp: 2_000, current_hp: 2_000, encounter_started_at: 1,
+      retry_ready_at: 0, completed_at: 0, attack_order_json: "[]",
+    });
+    const result = await endEpicBoss(db, "account", "run", 10_000);
+    expect(result.status).toBe(200);
+    expect(batched).toHaveLength(1);
+    expect(batched[0].map((s) => s.sql)).toEqual(expect.arrayContaining([
+      expect.stringContaining("UPDATE epic_boss_sessions_v3 SET finished_at"),
+      expect.stringContaining("UPDATE roster_v3 SET locked_by_raid=NULL"),
+      expect.stringContaining("UPDATE epic_boss_runs_v3 SET expires_at"),
     ]));
   });
 });

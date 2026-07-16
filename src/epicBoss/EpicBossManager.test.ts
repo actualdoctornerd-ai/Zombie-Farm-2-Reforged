@@ -61,6 +61,18 @@ describe("Dr. Groundhog event", () => {
     expect(manager.start(run, [])).toEqual({ ok: false, error: "expired" });
   });
 
+  it("can end an active event early without completing it", () => {
+    let now = 1_000;
+    const manager = new EpicBossManager(DR_GROUNDHOG, () => now);
+    const run = manager.activate("run");
+    now += 5_000;
+    const ended = manager.end(run)!;
+    expect(ended.expiresAt).toBe(now);
+    expect(ended.completedAt).toBe(0);
+    expect(manager.isActive(ended)).toBe(false);
+    expect(manager.end(ended)).toBeNull();
+  });
+
   it("prices retry skipping at one brain per started two-minute block", () => {
     expect(epicBossRetrySkipCost(0)).toBe(0);
     expect(epicBossRetrySkipCost(1)).toBe(1);

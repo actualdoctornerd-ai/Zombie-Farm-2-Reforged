@@ -80,6 +80,8 @@ describe("gift vouchers", () => {
     // The action carries no key for the zombie — only the roster id to file it under.
     const r = planGiftRedeem(redeem("valentine_gift"), boostEcon("valentine_gift"), 1, false);
     expect(r).toEqual({ ok: true, delta: -1, unitId: "z9", unitKey: "ZombieActorGardenCupid" });
+    const pink = planGiftRedeem(redeem("valentine_gift_2012"), boostEcon("valentine_gift_2012"), 1, false);
+    expect(pink).toEqual({ ok: true, delta: -1, unitId: "z9", unitKey: "ZombieActorGardenCupidPink" });
   });
 
   it("consumes exactly one voucher, ignoring a qty that would redeem several", () => {

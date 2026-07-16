@@ -90,6 +90,59 @@ def main():
             if 3000 <= qid < 4000:
                 add_quest(str(qid), q)
 
+    # Bosses 8-10 shipped after the last complete quest table. Their art catalogs
+    # and named prize rigs survived, so restore the unambiguous milestone rewards.
+    # Skunkarella likewise names Madame Zombie as its epic prize even though only
+    # the earlier Diva collection quest survived in Quests.plist.
+    recovered_epic_rewards = [
+        (5011, 40, "Madame Zombie", "ZombieActorMadame", "questicon_skunkarella.png"),
+        (8000, 10, "Brock Coley", "ZombieActorBrockColey", "questicon_rockyrhino.png"),
+        (9000, 5, "Proto Zombie", "ZombieActorProto", "questicon_generallarvaelus.png"),
+        (9011, 40, "Zombug", "ZombieActorZombug", "questicon_generallarvaelus.png"),
+        (10000, 5, "Zomdini", "ZombieActorZomdini", "questicon_mysticalmamba.png"),
+        (10011, 40, "Zomtar", "ZombieActorZomtar", "questicon_mysticalmamba.png"),
+    ]
+    for qid, level, name, key, sprite in recovered_epic_rewards:
+        add_quest(str(qid), {
+            "questID": qid, "title": name,
+            "messageComplete": f"You earned {name}!",
+            "tip": f"Defeat the Epic Boss at level {level}.", "sprite": sprite,
+            "levelRequired": -1, "prerequisiteQuest": -1,
+            "requirements": [{
+                "notificationID": "kEpicStageEnemyDefeatedNotification",
+                "notificationObject": str(level), "countTotal": 1,
+                "text": f"Epic Boss Level {level} Defeated", "type": 3,
+                "sprite": "stex1003.png",
+            }],
+            "rewardType": 5, "rewardValue": 0, "rewardItem": name,
+            "rewardItemKey": key, "epicEvent": True, "ignoreCheckQuest": True,
+        })
+
+    # Shipped Epic quests point their named prizes at generic actor classes.
+    # Restore dedicated roster identities for every implemented event reward.
+    epic_reward_keys = {
+        "1000": "ZombieActorDrZombie", "1011": "ZombieActorOmegaDrZombie",
+        "2000": "ZombieActorBandido", "2011": "ZombieActorVagabond",
+        "3000": "ZombieActorCaptain", "3011": "ZombieActorAdmiral",
+        "4000": "ZombieActorChristmasGhost", "4011": "ZombieActorScrooge",
+        "5000": "ZombieActorDiva", "5011": "ZombieActorMadame",
+        "8000": "ZombieActorBrockColey", "9000": "ZombieActorProto",
+        "9011": "ZombieActorZombug", "10000": "ZombieActorZomdini",
+        "10011": "ZombieActorZomtar",
+    }
+    for qid, key in epic_reward_keys.items():
+        out[qid]["rewardItemKey"] = key
+
+    for boss_dir, icon in [
+        ("skunkarella", "questicon_skunkarella.png"),
+        ("rocky-rhino", "questicon_rockyrhino.png"),
+        ("general-larvaelus", "questicon_generallarvaelus.png"),
+        ("mystical-mamba", "questicon_mysticalmamba.png"),
+    ]:
+        src = os.path.join(OUT, "epic-bosses", boss_dir, "quest-icon.png")
+        if os.path.exists(src):
+            shutil.copy(src, os.path.join(UI, icon))
+
     with open(os.path.join(OUT, "quests.json"), "w") as f:
         json.dump(out, f, indent=1)
 
@@ -99,7 +152,7 @@ def main():
         if os.path.exists(src):
             shutil.copy(src, os.path.join(UI, s))
             copied += 1
-        else:
+        elif not os.path.exists(os.path.join(UI, s)):
             print(f"  WARN missing quest icon: {s}")
 
     print(f"quests: wrote {len(out)} quests + copied {copied}/{len(icons)} rail icons")

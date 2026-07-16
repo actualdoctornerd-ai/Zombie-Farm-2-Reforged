@@ -38,12 +38,13 @@ interface ObjectRule {
 }
 
 interface NamedRule { name: string }
-interface ZombieRule extends NamedRule { key: string; mutation?: number }
+interface ZombieRule extends NamedRule { key: string; mutation?: number; rewardOnly?: boolean }
 
 const plantNames = new Map((plantRows as (NamedRule & { key: string })[]).map((r) => [r.key, r.name]));
 const zombieRules = zombieRows as ZombieRule[];
 const zombieNames = new Map(zombieRules.map((r) => [r.key, r.name]));
 const zombieMutations = new Map(zombieRules.map((r) => [r.key, r.mutation ?? 0]));
+const rewardOnlyZombies = new Set(zombieRules.filter((r) => r.rewardOnly).map((r) => r.key));
 
 /** Catalog mutation guaranteed by a market-mutant species (0 for ordinary units). */
 export function zombieDefaultMutation(key: string): number {
@@ -431,6 +432,7 @@ function applyOne(
       const a = state.roster.find((u) => u.id === command.parentAId && !u.lockedByRaid);
       const b = state.roster.find((u) => u.id === command.parentBId && !u.lockedByRaid);
       if (!a || !b) return reject(sequence, "not_owned");
+      if (rewardOnlyZombies.has(a.key) || rewardOnlyZombies.has(b.key)) return reject(sequence, "reward_only");
       const resultKey = (ZOMBIE_COST[a.key] ?? 0) >= (ZOMBIE_COST[b.key] ?? 0) ? a.key : b.key;
       const id = options.id();
       const mutation = Math.min(0xffff, a.mutation | b.mutation | (1 << Math.floor(options.random() * 8)));
@@ -494,6 +496,15 @@ function applyOne(
         return reject(sequence, "not_owned");
       }
       state.activePet = command.petKey;
+      if (command.petKey !== null) state.penPets = state.penPets.filter((key) => key !== command.petKey);
+      return { sequence, status: "applied" };
+    }
+    case "pet.pen": {
+      const unique = [...new Set(command.petKeys)];
+      if (unique.length !== command.petKeys.length || unique.length > 4) return reject(sequence, "bad_selection");
+      if (unique.some((key) => !state.ownedPets.includes(key))) return reject(sequence, "not_owned");
+      state.penPets = unique;
+      if (state.activePet && unique.includes(state.activePet)) state.activePet = null;
       return { sequence, status: "applied" };
     }
     case "storage.move": {
@@ -541,6 +552,7 @@ export function applyCommandBatch(
     if (command.type === "roster.combine") return [`unit:${command.parentAId}`, `unit:${command.parentBId}`];
     if (command.type === "storage.move") return [`storage:${command.itemKey}`];
     if (command.type === "pet.buy" || command.type === "pet.equip") return [`pet:${command.petKey ?? "active"}`];
+    if (command.type === "pet.pen") return ["pet:pen"];
     return [];
   };
   const results: CommandResult[] = [];
@@ -585,6 +597,7 @@ export function freshGameplayState(): MutableGameplayState {
     farmerHeadId: 1,
     ownedPets: [],
     activePet: null,
+    penPets: [],
     zombieMax: 16,
     tutorialRewarded: false,
     raids: { progress: {}, lastRaidAt: 0 },

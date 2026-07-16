@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { QUEST_REWARDS, questReward, QUEST_REWARD } from "../src/questCatalog";
+import questRows from "../../public/assets/quests.json";
 
 describe("questCatalog — mirror of quests.json rewards", () => {
-  it("has all 96 quests with sane, bounded reward values", () => {
+  it("has every source quest with sane, bounded reward values", () => {
     const ids = Object.keys(QUEST_REWARDS);
-    expect(ids.length).toBe(96);
+    expect(ids).toHaveLength(Object.keys(questRows).length);
     for (const [id, r] of Object.entries(QUEST_REWARDS)) {
       expect(Number.isInteger(r.rewardValue), id).toBe(true);
       expect(r.rewardValue, id).toBeGreaterThanOrEqual(0);

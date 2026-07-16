@@ -320,7 +320,8 @@
     }
   ],
   "questIds": [
-    "5000"
+    "5000",
+    "5011"
   ],
   "portrait": "portrait.png",
   "lootIcon": "loot-icon.png",

@@ -1,0 +1,126 @@
+{
+ "name": "admiral_zombie",
+ "neck": {
+  "x": 7,
+  "y": -43
+ },
+ "parts": [
+  {
+   "file": "Features.png",
+   "group": "head",
+   "px": 7,
+   "py": -88,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 7
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 4,
+   "py": -16,
+   "ax": 0.339677393436432,
+   "ay": 0.643870949745178,
+   "z": 3
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 10,
+   "py": -6,
+   "ax": 0.464285731315613,
+   "ay": 0.0047618746757509545,
+   "z": 2
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -7,
+   "py": -6,
+   "ax": 0.566999971866608,
+   "ay": 0.11190479993820202,
+   "z": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 14,
+   "py": -31,
+   "ax": 0.667441725730896,
+   "ay": 0.443511664867401,
+   "z": 8
+  },
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": -6,
+   "py": -30,
+   "ax": 0.899999976158142,
+   "ay": 0.374999940395355,
+   "z": 0
+  },
+  {
+   "file": "UpperTeeth.png",
+   "group": "head",
+   "px": -9,
+   "py": -39,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5
+  },
+  {
+   "file": "LowerTeeth.png",
+   "group": "head",
+   "px": -11,
+   "py": -36,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 6
+  },
+  {
+   "file": "Scar.png",
+   "group": "head",
+   "px": 14,
+   "py": -69,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5
+  },
+  {
+   "file": "Jaw.png",
+   "group": "head",
+   "px": 7,
+   "py": -42,
+   "ax": 0.8,
+   "ay": 0.050000000000000044,
+   "z": 5
+  },
+  {
+   "file": "Head.png",
+   "group": "head",
+   "px": 7,
+   "py": -43,
+   "ax": 0.72,
+   "ay": 0.8200000000000001,
+   "z": 4
+  },
+  {
+   "file": "EyeR.png",
+   "group": "head",
+   "px": 2,
+   "py": -59,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5
+  },
+  {
+   "file": "EyeL.png",
+   "group": "head",
+   "px": -24,
+   "py": -58,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5
+  }
+ ]
+}

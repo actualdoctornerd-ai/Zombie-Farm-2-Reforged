@@ -85,6 +85,19 @@ describe("protocol v3 API", () => {
     });
     expect(retried.status).toBe(200);
     expect(retried.body.balance.brains).toBe(brainsBeforeActivation - 20);
+
+    const ended = await call<any>("POST", "/epic-boss/end", session.token, {
+      runId: "activation-authenticated",
+    });
+    expect(ended.status, JSON.stringify(ended.body)).toBe(200);
+    expect(ended.body.event.completedAt).toBe(0);
+    expect(ended.body.event.expiresAt).toBeLessThanOrEqual(Date.now());
+
+    const reactivated = await call<any>("POST", "/epic-boss/activate", session.token, {
+      activationId: "activation-after-early-end",
+      bossId: "dr-groundhog",
+    });
+    expect(reactivated.status, JSON.stringify(reactivated.body)).toBe(200);
   });
 
   it("persists pet ownership, makes retries idempotent, and ignores presentation forgeries", async () => {
@@ -108,14 +121,32 @@ describe("protocol v3 API", () => {
     });
     expect(forged.status).toBe(200);
 
+    const displayed = await call<any>("POST", "/commands", owner.token,
+      commandBody(bought.body, "batch-pet-display", 2, [
+        { type: "pet.buy", petKey: "alienActor" },
+        { type: "pet.pen", petKeys: ["catActor"] },
+        { type: "object.buy", catalogKey: "pettingZoo", clientInstanceId: "visit-pet-pen" },
+      ]));
+    expect(displayed.status).toBe(200);
+    expect(displayed.body.gameplay).toMatchObject({
+      ownedPets: ["catActor", "alienActor"], activePet: "alienActor", penPets: ["catActor"],
+    });
+
     const reloaded = (await call<any>("POST", "/bootstrap", owner.token, {})).body;
-    expect(reloaded.gameplay).toMatchObject({ ownedPets: ["catActor"], activePet: "catActor" });
+    expect(reloaded.gameplay).toMatchObject({
+      ownedPets: ["catActor", "alienActor"], activePet: "alienActor", penPets: ["catActor"],
+    });
     const isolated = (await call<any>("POST", "/bootstrap", other.token, {})).body;
     expect(isolated.gameplay).toMatchObject({ ownedPets: [], activePet: null });
     await befriend(owner, other);
     const visit = await call<any>("GET", `/friends/${owner.accountId}/save`, other.token);
     expect(visit.status).toBe(200);
-    expect(visit.body.save.player.petCollection).toEqual({ owned: ["catActor"], active: "catActor" });
+    expect(visit.body.save.player.petCollection).toEqual({
+      owned: ["alienActor", "catActor"], active: "alienActor", pen: ["catActor"],
+    });
+    expect(visit.body.save.objects).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "visit-pet-pen", key: "pettingZoo" }),
+    ]));
   });
 
   it("bootstraps once and applies a mixed ordered batch", async () => {

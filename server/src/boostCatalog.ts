@@ -30,7 +30,7 @@ export const BOOSTS: Readonly<Record<string, BoostEcon>> = {
   insta_plow: { cost: 10, brains: true, perPurchase: 4, level: 0 },
   crazy_zombie_voucher: { cost: 100, brains: true, perPurchase: 1, level: 25, gift: "ZombieActorRegularCrazy" },
   valentine_gift: { cost: 100, brains: true, perPurchase: 1, level: 25, gift: "ZombieActorGardenCupid" },
-  valentine_gift_2012: { cost: 100, brains: true, perPurchase: 1, level: 25, gift: "ZombieActorGardenCupid" },
+  valentine_gift_2012: { cost: 100, brains: true, perPurchase: 1, level: 25, gift: "ZombieActorGardenCupidPink" },
   flower_zombie_pot: { cost: 50, brains: true, perPurchase: 1, level: 0, gift: "ZombieActorGardenTier3GreenFlower" },
   concentration: { cost: 10, brains: true, perPurchase: 2, level: 0 },
   golden_dice: { cost: 10, brains: true, perPurchase: 1, level: 0 },

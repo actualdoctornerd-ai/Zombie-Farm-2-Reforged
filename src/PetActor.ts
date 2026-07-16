@@ -2,7 +2,9 @@ import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import type { PetAnimationDef, PetDef } from "./assets";
 import { BASE } from "./base";
 import { setFootprint } from "./depthSort";
-import { screenToGrid } from "./iso";
+import { screenToGrid, tileCenter } from "./iso";
+
+export interface PetPenBounds { oc: number; or: number; tileW: number; tileH: number }
 
 /** Cosmetic-only farm companion. It follows world coordinates and never enters
  * collision, pathfinding, combat, quest, or economy systems. */
@@ -19,6 +21,8 @@ export class PetActor {
   private lastFarmerY = 0;
   private trailX = -1;
   private trailY = 0;
+  private penTarget: { col: number; row: number } | null = null;
+  private penPause = 0;
 
   private constructor(readonly def: PetDef, strip: Texture) {
     this.frames = Array.from({ length: def.sheet.frameCount }, (_, index) => new Texture({
@@ -110,6 +114,72 @@ export class PetActor {
     const grid = screenToGrid(this.container.x, this.container.y);
     const col = Math.round(grid.col), row = Math.round(grid.row);
     setFootprint(this.container, col, row, col, row, 0.4);
+  }
+
+  /** Cosmetic pen movement. Targets stay one tile inside the fence and are joined
+   * by straight lines inside the pen's convex isometric footprint. */
+  updateInPen(dt: number, bounds: PetPenBounds) {
+    const minCol = bounds.oc + 1, maxCol = bounds.oc + bounds.tileW - 2;
+    const minRow = bounds.or + 1, maxRow = bounds.or + bounds.tileH - 2;
+    const current = screenToGrid(this.container.x, this.container.y);
+    const outside = !this.initialized || current.col < minCol - 0.5 || current.col > maxCol + 0.5 ||
+      current.row < minRow - 0.5 || current.row > maxRow + 0.5;
+    if (outside) {
+      const col = minCol + Math.random() * Math.max(0, maxCol - minCol);
+      const row = minRow + Math.random() * Math.max(0, maxRow - minRow);
+      const start = tileCenter(col, row);
+      this.container.position.set(start.x, start.y);
+      this.initialized = true;
+      this.penTarget = null;
+      this.penPause = 0.5 + Math.random() * 2;
+    }
+
+    if (this.penPause > 0) {
+      this.penPause -= dt;
+      this.setState(false);
+    } else {
+      if (!this.penTarget) {
+        this.penTarget = {
+          col: minCol + Math.random() * Math.max(0, maxCol - minCol),
+          row: minRow + Math.random() * Math.max(0, maxRow - minRow),
+        };
+      }
+      const target = tileCenter(this.penTarget.col, this.penTarget.row);
+      const dx = target.x - this.container.x, dy = target.y - this.container.y;
+      const remaining = Math.hypot(dx, dy);
+      if (remaining < 2) {
+        this.penTarget = null;
+        this.penPause = 1.5 + Math.random() * 4;
+        this.setState(false);
+      } else {
+        this.setState(true);
+        const step = Math.min(remaining, Math.max(35, this.def.walkingSpeed * 45) * dt);
+        this.container.x += dx / remaining * step;
+        this.container.y += dy / remaining * step;
+        if (Math.abs(dx) > 0.1) this.sprite.scale.x = Math.abs(this.def.scale) * (dx > 0 ? -1 : 1);
+      }
+    }
+
+    this.advanceAnimation(dt);
+    const grid = screenToGrid(this.container.x, this.container.y);
+    // The pen is one transparent-center sprite. Sort occupants behind it so the
+    // near rails naturally occlude their feet while they remain visible inside.
+    setFootprint(this.container, Math.round(grid.col), Math.round(grid.row),
+      Math.round(grid.col), Math.round(grid.row), -100);
+  }
+
+  private advanceAnimation(dt: number) {
+    this.frameTime += dt;
+    const seconds = Math.max(0.025, this.animation.frameSeconds);
+    while (this.frameTime >= seconds) {
+      this.frameTime -= seconds;
+      this.frame++;
+      if (this.frame >= this.animation.frames.length) {
+        this.animation = this.pick(this.moving ? "move" : "idle");
+        this.frame = 0;
+      }
+    }
+    this.sprite.texture = this.frames[this.animation.frames[this.frame] ?? 0];
   }
 
   destroy() {

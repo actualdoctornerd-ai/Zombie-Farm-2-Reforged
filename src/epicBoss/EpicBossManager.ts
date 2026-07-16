@@ -52,6 +52,16 @@ export class EpicBossManager {
     return run;
   }
 
+  /** End an active event early without treating it as a completed run. */
+  end(value: EpicBossRun | null | undefined): EpicBossRun | null {
+    const run = this.normalize(value);
+    if (!run || run.completedAt || this.now() >= run.expiresAt) return null;
+    run.expiresAt = this.now();
+    run.encounterStartedAt = 0;
+    run.retryReadyAt = 0;
+    return run;
+  }
+
   start(value: EpicBossRun | null | undefined, attackOrder: string[]): EpicBossGate {
     const run = this.normalize(value);
     if (!run) return { ok: false, error: "inactive" };

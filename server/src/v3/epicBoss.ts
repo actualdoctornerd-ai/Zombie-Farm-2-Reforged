@@ -14,6 +14,8 @@ import { makeOwned } from "../../../src/zombie/types";
 import { ABILITY_TIER, abilityTierOf } from "../../../src/zombie/traits";
 import { farmerMultiplier } from "../../../src/farmer";
 import { levelForXp } from "../levels";
+import { epicQuestZombieReward, shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
+import objectRows from "../../../public/assets/placeables.json";
 
 export interface RunRow {
   run_id: string; boss_id: string; activated_at: number; expires_at: number;
@@ -26,6 +28,7 @@ interface SessionRow {
 }
 interface EpicCombatConfig { playerUnits: CombatUnit[]; enemyUnits: CombatUnit[] }
 const zombies = new Map((zombieRows as Array<{key:string}>).map((z) => [z.key, z]));
+const objectArmyCapacity = new Map((objectRows as Array<{key:string;armyMax?:number}>).map((o) => [o.key, o.armyMax ?? 0]));
 const defFor = (bossId: string): EpicBossDef | null => epicBossById(bossId);
 const DEFAULT_DEF = epicBossById("dr-groundhog")!;
 interface CoreState {
@@ -168,6 +171,30 @@ export async function skipRetry(
   return { status: 200, body: { event, balance: nextBalance, costBrains: operation.cost_brains } };
 }
 
+export async function end(
+  db: D1Database, accountId: string, runId: unknown, now: number
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (typeof runId !== "string" || !runId) return { status: 400, body: { error: "bad_request" } };
+  const run = await db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=?")
+    .bind(accountId).first<RunRow>();
+  if (!run || run.run_id !== runId) return { status: 409, body: { error: "inactive" } };
+  // Repeating a successfully-ended request is harmless and returns the same run.
+  if (run.completed_at || run.expires_at <= now) {
+    return { status: 200, body: { event: projectRun(run) } };
+  }
+  await db.batch([
+    db.prepare(`UPDATE epic_boss_sessions_v3 SET finished_at=?
+      WHERE account_id=? AND run_id=? AND finished_at IS NULL`).bind(now, accountId, runId),
+    db.prepare(`UPDATE roster_v3 SET locked_by_raid=NULL WHERE account_id=? AND locked_by_raid IN
+      (SELECT id FROM epic_boss_sessions_v3 WHERE account_id=? AND run_id=?)`)
+      .bind(accountId, accountId, runId),
+    db.prepare(`UPDATE epic_boss_runs_v3 SET expires_at=?,encounter_started_at=0,
+      retry_ready_at=0,attack_order_json='[]' WHERE account_id=? AND run_id=?
+      AND completed_at=0 AND expires_at>?`).bind(now, accountId, runId, now),
+  ]);
+  return { status: 200, body: { event: await readRun(db, accountId) } };
+}
+
 export async function expireLiveEpicBoss(db: D1Database, accountId: string, now: number): Promise<void> {
   const live = await db.prepare(`SELECT s.id,s.run_id,r.boss_id FROM epic_boss_sessions_v3 s
     JOIN epic_boss_runs_v3 r ON r.account_id=s.account_id AND r.run_id=s.run_id
@@ -301,13 +328,16 @@ export async function finish(
   // omits them from survivors. Keep them separate so their server locks still clear.
   const escapedRoster = verified.retreated
     ? locked.filter((id) => !losses.includes(id) && !survivors.includes(id)) : [];
-  const [run, balance, coreRow, questRow] = await Promise.all([
+  const [run, balance, coreRow, questRow, objectRow, rosterCounts] = await Promise.all([
     db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=? AND run_id=?").bind(accountId, session.run_id).first<RunRow>(),
     db.prepare("SELECT gold,brains,xp,claimed_level FROM balances WHERE account_id=?").bind(accountId).first<{gold:number;brains:number;xp:number;claimed_level:number}>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").bind(accountId).first<{current_json:string}>(),
     db.prepare("SELECT version,current_json FROM quest_documents_v3 WHERE account_id=?").bind(accountId).first<{version:number;current_json:string}>(),
+    db.prepare("SELECT current_json FROM object_documents_v3 WHERE account_id=?").bind(accountId).first<{current_json:string}>(),
+    db.prepare(`SELECT stored,COUNT(*) AS count FROM roster_v3 WHERE account_id=? GROUP BY stored`)
+      .bind(accountId).all<{stored:number;count:number}>(),
   ]);
-  if (!run || !balance || !coreRow || !questRow || run.level !== session.level) return { status: 409, body: { error: "stale_session" } };
+  if (!run || !balance || !coreRow || !questRow || !objectRow || run.level !== session.level) return { status: 409, body: { error: "stale_session" } };
   const damage = Math.max(0, Math.min(session.starting_hp, Math.round(verified.outcome.playerDamage)));
   const defeated = verified.outcome.win && damage >= session.starting_hp;
   const defeatedLevel = defeated ? run.level : null;
@@ -338,14 +368,26 @@ export async function finish(
   ];
   const questChanges = applyQuestEvents(balance, quests, events, { includeEpic: true, epicQuestIds: new Set(def.questIds) });
   const newlyCompleted = quests.completed.filter((id) => !beforeCompleted.has(id));
-  const newZombies: { id: string; key: string }[] = [];
+  const objects = parse<Array<{catalogKey:string;status:string}>>(objectRow.current_json, []);
+  const armyCapacity = core.zombieMax + objects.reduce((total, object) =>
+    total + (object.status === "placed" ? objectArmyCapacity.get(object.catalogKey) ?? 0 : 0), 0);
+  // Casualties are still present in roster_v3 until this transaction commits, so
+  // remove them when deciding whether a reward lands on the farm or in storage.
+  let activeCount = Math.max(0,
+    (rosterCounts.results.find((row) => !row.stored)?.count ?? 0) - losses.length
+  );
+  const newZombies: { id: string; key: string; stored: boolean }[] = [];
   for (const id of newlyCompleted) {
     const reward = questDefinition(id);
     if (!reward) continue;
     if (reward.rewardType === QUEST_REWARD.Item && reward.rewardItemKey === "Invasion Voucher") core.inventory[VOUCHER_KEY] = (core.inventory[VOUCHER_KEY] ?? 0) + 1;
     if (reward.rewardType === QUEST_REWARD.Item && reward.rewardItemKey === "Golden Dice") core.inventory[DICE_KEY] = (core.inventory[DICE_KEY] ?? 0) + 1;
-    const key = id === "1000" ? "ZombieActorDrZombie" : id === "1011" ? "ZombieActorOmegaDrZombie" : "";
-    if (key) newZombies.push({ id: crypto.randomUUID(), key });
+    const key = epicQuestZombieReward(id);
+    if (key) {
+      const stored = shouldStoreEpicReward(activeCount, armyCapacity);
+      newZombies.push({ id: crypto.randomUUID(), key, stored });
+      if (!stored) activeCount++;
+    }
   }
   const result = { event: {
     ...projectRun(run)!, level: run.level, maxHp: run.max_hp, currentHp: run.current_hp,
@@ -374,7 +416,7 @@ export async function finish(
   escapedRoster.forEach((id) => statements.push(db.prepare(`UPDATE roster_v3 SET locked_by_raid=NULL
     WHERE account_id=? AND unit_id=? AND locked_by_raid=? AND ${guard}`).bind(accountId,id,session.id,session.id,resultJson)));
   newZombies.forEach((z) => statements.push(db.prepare(`INSERT INTO roster_v3(account_id,unit_id,zombie_key,stored,created_at)
-    SELECT ?,?,?,1,? WHERE ${guard}`).bind(accountId,z.id,z.key,now,session.id,resultJson)));
+    SELECT ?,?,?,?,? WHERE ${guard}`).bind(accountId,z.id,z.key,z.stored ? 1 : 0,now,session.id,resultJson)));
   await db.batch(statements);
   return { status: 200, body: result };
 }

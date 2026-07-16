@@ -27,7 +27,7 @@ describe("v3 raid dependency ids", () => {
         inventory: {}, storage: { received: {}, stored: {} },
         roster: [{ id: "server-zombie", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false }],
         farmSize: 30, climates: ["grass"], farmerHeads: [0, 1, 4, 5, 10, 11], farmerHeadId: 1,
-        ownedPets: [], activePet: null,
+        ownedPets: [], activePet: null, penPets: [],
         zombieMax: 16, tutorialRewarded: false,
         raids: { progress: {}, lastRaidAt: 0 },
       },
@@ -64,5 +64,21 @@ describe("v3 raid dependency ids", () => {
     }, {});
 
     expect(state.lastRaidAt).toBe(123_456);
+  });
+
+  it("charges the authoritative brain balance when a casualty is revived", async () => {
+    const state = new GameState();
+    const economy = new EconomyClient(state, "revive-test-account");
+    vi.spyOn(api, "raidRevive").mockResolvedValue({
+      ok: true,
+      revivedIds: ["z-dead"],
+      balance: { gold: 200, brains: 14, xp: 0 },
+    });
+
+    const result = await economy.resolveRaidRevival("raid-session", ["z-dead"]);
+
+    expect(result.revivedIds).toEqual(["z-dead"]);
+    expect(state.brains).toBe(14);
+    expect(api.raidRevive).toHaveBeenCalledWith("raid-session", ["z-dead"]);
   });
 });

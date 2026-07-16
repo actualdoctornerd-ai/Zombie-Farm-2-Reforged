@@ -106,9 +106,51 @@ def main():
     # ---- zombies: join by unitKey (== catalog key) ----
     zombies = load(ZOMBIES)
     named = load(SPECIAL_ZOMBIES)["Entries"]
-    for source_name, key, sprite in [
-        ("Dr. Zombie", "ZombieActorDrZombie", "dr_zombie.png"),
-        ("Omega Dr. Zombie", "ZombieActorOmegaDrZombie", "omega_dr_zombie.png"),
+    # Named specials use dedicated rigs rather than the shared ZombieSheet model.
+    # `reward_only` is deliberately narrower than the source's market visibility:
+    # Epic-event prizes are earned, while the other named premium specials retain
+    # their authored Market route.
+    for source_name, key, sprite, group, reward_only in [
+        ("Bombie", "ZombieActorBombie", "bombie.png", "Headless", False),
+        ("Brock Coley", "ZombieActorBrockColey", "brock_coley.png", "Regular", True),
+        ("Dapper Zombie", "ZombieActorDapper", "dapper_zombie.png", "Large", False),
+        ("Deputy Zombie", "ZombieActorDeputy", "deputy_zombie.png", "Regular", False),
+        ("Forest Zombie", "ZombieActorForest", "forest_zombie.png", "Female", False),
+        ("George Washington", "ZombieActorGeorgeWashington", "george_washington.png", "Regular", False),
+        ("Granny Zombie", "ZombieActorGranny", "granny_zombie.png", "Female", False),
+        ("John Hancock", "ZombieActorJohnHancock", "john_hancock.png", "Regular", False),
+        ("Madame Zombie", "ZombieActorMadame", "madame_zombie.png", "Female", True),
+        ("Master Ninjombie", "ZombieActorMasterNinjombie", "master_ninjombie.png", "Regular", False),
+        ("Medusa Zombie", "ZombieActorMedusa", "medusa_zombie.png", "Female", False),
+        ("MerZombie", "ZombieActorMerZombie", "merzombie.png", "Regular", False),
+        ("Mummy Zombie", "ZombieActorMummy", "mummy_zombie.png", "Regular", False),
+        ("Ninjombie", "ZombieActorNinjombie", "ninjombie.png", "Regular", False),
+        ("Old McZombie", "ZombieActorOldMcZombie", "old_mczombie.png", "Regular", False),
+        ("Omega Dr. Zombie", "ZombieActorOmegaDrZombie", "omega_dr_zombie.png", "Regular", True),
+        ("Omega Zombie Bot", "ZombieActorOmegaZombieBot", "omega_zombie_bot.png", "Regular", False),
+        ("Poseidon Zombie", "ZombieActorPoseidon", "poseidon_zombie.png", "Regular", False),
+        ("Proto Zombie", "ZombieActorProto", "proto_zombie.png", "Regular", True),
+        ("Sheriff Zombie", "ZombieActorSheriff", "sheriff_zombie.png", "Regular", False),
+        ("Skittles Zombie", "ZombieActorSkittles", "skittles_zombie.png", "Regular", False),
+        ("Zastronaut", "ZombieActorZastronaut", "zastronaut.png", "Regular", False),
+        ("ZomBetty", "ZombieActorZomBetty", "zombetty.png", "Female", False),
+        ("ZomBloke", "ZombieActorZomBloke", "zombloke.png", "Regular", False),
+        ("ZomHelga", "ZombieActorZomHelga", "zomhelga.png", "Female", False),
+        ("Zombeach Bum", "ZombieActorZombeachBum", "zombeach_bum.png", "Regular", False),
+        ("Zombie Bot", "ZombieActorZombieBot", "zombie_bot.png", "Regular", False),
+        ("Zombug", "ZombieActorZombug", "zombug.png", "Regular", True),
+        ("Zomdini", "ZombieActorZomdini", "zomdini.png", "Regular", True),
+        ("Zomtar", "ZombieActorZomtar", "zomtar.png", "Regular", True),
+        ("Zula Girl", "ZombieActorZulaGirl", "zula_girl.png", "Female", False),
+        ("Zwamp Thing", "ZombieActorZwampThing", "zwamp_thing.png", "Regular", False),
+        ("Dr. Zombie", "ZombieActorDrZombie", "dr_zombie.png", "Regular", True),
+        ("Bandido Zombie", "ZombieActorBandido", "bandido_zombie.png", "Regular", True),
+        ("Vagabond Zombie", "ZombieActorVagabond", "vagabond_zombie.png", "Regular", True),
+        ("Captain Zombie", "ZombieActorCaptain", "captain_zombie.png", "Regular", True),
+        ("Admiral Zombie", "ZombieActorAdmiral", "admiral_zombie.png", "Regular", True),
+        ("Christmas Ghost Zombie", "ZombieActorChristmasGhost", "christmas_ghost_zombie.png", "Regular", True),
+        ("Scrooge Zombie", "ZombieActorScrooge", "scrooge_zombie.png", "Regular", True),
+        ("Diva Zombie", "ZombieActorDiva", "diva_zombie.png", "Female", True),
     ]:
         source = named[source_name]
         info, stats = source["marketInfo"], source["unitStats"]
@@ -116,10 +158,11 @@ def main():
         data = {
             "key": key, "name": source_name, "cost": info["cost"], "growMs": 86_400_000,
             "category": "special", "level": info["level"], "xp": info["xp"],
-            "brainsNeeded": bool(info["brainsNeeded"]), "group": "Regular",
+            "brainsNeeded": bool(info["brainsNeeded"]), "group": group,
             "className": "Special", "classColor": "#c077ff", "str": stats["str"],
             "dex": stats["dex"], "con": stats["con"], "focus": stats["focus"],
             "mutation": 0, "tier": stats["tier"], "specialSprite": sprite,
+            "rewardOnly": reward_only,
         }
         if row: row.update(data)
         else: zombies.append(data)
@@ -133,9 +176,13 @@ def main():
         z["cost"] = s.get("cost", z.get("cost", 0))
         z["growMs"] = (s.get("growTime") or 86400) * 1000
         z["level"] = s.get("level", 1)
-        z["xp"] = s.get("xp", 2)
+        # Some mutant rows reuse crop-scale XP values (hundreds). Harvesting a
+        # zombie unit awards 1-2 XP throughout the playable zombie catalog.
+        raw_xp = int(s.get("xp", 2) or 1)
+        z["xp"] = raw_xp if raw_xp in (1, 2) else 1
         z["brainsNeeded"] = bool(s.get("brainsNeeded", False))
         z["category"] = CATMAP.get(s.get("subCategory"), z.get("category", "normal"))
+        z["marketHidden"] = bool(s.get("dontShowInMarket", False))
         # Market mutant zombies carry a mutation BITMASK (power of two) in the
         # source `mutation` field (e.g. Carrot=4, Tomato=1). Bake it so a grown
         # market mutant gets its mutation guaranteed. Non-mutants have no bit (0).
@@ -160,6 +207,14 @@ def main():
         # getRandomAbilityToUnlock veterancy unlocks), not by the asset data, so
         # the runtime derives the group aura from the taxonomy (see traits.ts).
         z.pop("abilities", None)
+
+    # The pink Cupid variant has a dedicated actor model but no standalone Market
+    # crop row; it is exclusively granted by the 2012 Valentine Gift voucher.
+    for z in zombies:
+        if z["key"] == "ZombieActorGardenCupidPink":
+            z["name"] = "Pink Cupid Zombie"
+            z["category"] = "special"
+            z["marketHidden"] = True
 
     # Permanent crops first, then holiday/seasonal crops; unlock level orders each
     # group. Python's stable sort retains authored order for complete ties.

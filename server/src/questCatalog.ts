@@ -5,18 +5,9 @@ import questData from "../../public/assets/quests.json";
 // the reward type + amount/item. The server grants a completed quest its reward from
 // THIS table (never a client-sent amount), at most once per (account, quest).
 //
-// rewardType: 0=Xp, 1=Gold, 2=Brains (currency — granted now); 3=Item, 5=Zombie
-// (recorded-only: the completion is stored so it can't be re-claimed, but nothing is
-// granted). Neither is a hole to plug — in both cases the CLIENT grants nothing either:
-//   • type 5 (7 quests) names its zombie `ZombieActorRegularData`/`ZombieActorGirlData`
-//     — base actor-data classes, not zombies.json keys. Nothing resolves them, so
-//     ZombieField.spawn() returns null. These named quest zombies ("Dr. Zombie",
-//     "Diva Zombie", …) have no catalog entry at all: missing CONTENT, not a missing
-//     grant. Wiring a server grant would mean inventing a zombie the game doesn't have.
-//   • type 3 (16 quests) pushes a display name onto the save's `received` list, whose
-//     claim path goes through the inventory `grant` action the server rejects. So a
-//     blob-injected item claims into nothing — fail-closed. Making `received` real is
-//     Phase F (save split), shared with raid loot.
+// rewardType: 0=Xp, 1=Gold, 2=Brains, 3=Item, 5=Zombie. Epic type-5 rewards
+// resolve through src/epicBoss/rewards.ts to dedicated reward-only catalog keys
+// and are inserted into the authoritative roster exactly once.
 
 export interface QuestReward {
   rewardType: number;
@@ -145,7 +136,7 @@ export const QUEST_REWARDS: Readonly<Record<string, QuestReward>> = {
   "1003": { rewardType: 3, rewardValue: 0, rewardItemKey: "Golden Dice" },
   "1010": { rewardType: 2, rewardValue: 5, rewardItemKey: "" },
   "1011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorOmegaDrZombie" },
-  "2000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorRegularData" },
+  "2000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorBandido" },
   "2001": { rewardType: 3, rewardValue: 0, rewardItemKey: "Invasion Voucher" },
   "2002": { rewardType: 2, rewardValue: 1, rewardItemKey: "" },
   "2003": { rewardType: 3, rewardValue: 0, rewardItemKey: "Golden Dice" },
@@ -153,8 +144,11 @@ export const QUEST_REWARDS: Readonly<Record<string, QuestReward>> = {
   "2005": { rewardType: 3, rewardValue: 0, rewardItemKey: "Golden Dice" },
   "2006": { rewardType: 2, rewardValue: 5, rewardItemKey: "" },
   "2010": { rewardType: 2, rewardValue: 5, rewardItemKey: "" },
-  "2011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorRegularData" },
-  "4000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorRegularData" },
+  "2011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorVagabond" },
+  "3000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorCaptain" },
+  "3010": { rewardType: 3, rewardValue: 0, rewardItemKey: "Invasion Voucher" },
+  "3011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorAdmiral" },
+  "4000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorChristmasGhost" },
   "4001": { rewardType: 3, rewardValue: 0, rewardItemKey: "Invasion Voucher" },
   "4002": { rewardType: 2, rewardValue: 1, rewardItemKey: "" },
   "4003": { rewardType: 3, rewardValue: 0, rewardItemKey: "Golden Dice" },
@@ -162,8 +156,14 @@ export const QUEST_REWARDS: Readonly<Record<string, QuestReward>> = {
   "4005": { rewardType: 3, rewardValue: 0, rewardItemKey: "Golden Dice" },
   "4006": { rewardType: 2, rewardValue: 5, rewardItemKey: "" },
   "4010": { rewardType: 2, rewardValue: 5, rewardItemKey: "" },
-  "4011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorRegularData" },
-  "5000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorGirlData" },
+  "4011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorScrooge" },
+  "5000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorDiva" },
+  "5011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorMadame" },
+  "8000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorBrockColey" },
+  "9000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorProto" },
+  "9011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorZombug" },
+  "10000": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorZomdini" },
+  "10011": { rewardType: 5, rewardValue: 0, rewardItemKey: "ZombieActorZomtar" },
 };
 
 /** The reward for a quest id, or undefined if the id is not a real catalog quest. */

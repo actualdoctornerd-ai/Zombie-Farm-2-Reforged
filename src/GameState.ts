@@ -41,6 +41,7 @@ export class GameState {
   // ---- cosmetic pets (server authoritative while signed in) ----
   ownedPets: string[] = [];
   activePet: string | null = null;
+  penPets: string[] = [];
   // ---- consumable boosts (bought from the Market Boosts tab) ----
   boostInv: { key: string; count: number }[] = [];
   // ---- zombie abilities ----
@@ -342,9 +343,12 @@ export class GameState {
     return true;
   }
 
-  syncPetOwnership(keys: string[], active: string | null) {
+  syncPetOwnership(keys: string[], active: string | null, pen: string[] = this.penPets) {
     this.ownedPets = [...new Set(keys.filter((key) => typeof key === "string" && key.length > 0))];
     this.activePet = active !== null && this.ownedPets.includes(active) ? active : null;
+    this.penPets = [...new Set(pen)].filter((key) =>
+      this.ownedPets.includes(key) && key !== this.activePet
+    ).slice(0, 4);
     this.emit();
   }
 
@@ -357,6 +361,16 @@ export class GameState {
   equipPet(key: string | null): boolean {
     if (key !== null && !this.ownedPets.includes(key)) return false;
     this.activePet = key;
+    if (key !== null) this.penPets = this.penPets.filter((pet) => pet !== key);
+    this.emit();
+    return true;
+  }
+
+  setPenPets(keys: string[]): boolean {
+    const pets = [...new Set(keys)];
+    if (pets.length > 4 || pets.some((key) => !this.ownedPets.includes(key))) return false;
+    this.penPets = pets;
+    if (this.activePet && pets.includes(this.activePet)) this.activePet = null;
     this.emit();
     return true;
   }

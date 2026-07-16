@@ -48,6 +48,23 @@ describe("protocol v3 command engine", () => {
     expect(switched.state.activePet).toBe("catActor");
   });
 
+  it("authoritatively limits pen deployment to four owned pets", () => {
+    const state = freshGameplayState();
+    state.ownedPets = ["catActor", "alienActor", "dogActor", "pinkBunny"];
+    state.activePet = "catActor";
+    const deployed = applyCommandBatch(state, commands({
+      type: "pet.pen", petKeys: ["catActor", "alienActor", "dogActor", "pinkBunny"],
+    }), { now: 1 });
+    expect(deployed.results[0]).toMatchObject({ status: "applied" });
+    expect(deployed.state.penPets).toEqual(["catActor", "alienActor", "dogActor", "pinkBunny"]);
+    expect(deployed.state.activePet).toBeNull();
+
+    const invalid = applyCommandBatch(state, commands({ type: "pet.pen", petKeys: ["catActor", "missing"] }), { now: 2 });
+    expect(invalid.results[0]).toMatchObject({ status: "rejected", error: "not_owned" });
+    const duplicate = applyCommandBatch(state, commands({ type: "pet.pen", petKeys: ["catActor", "catActor"] }), { now: 3 });
+    expect(duplicate.results[0]).toMatchObject({ status: "rejected", error: "bad_selection" });
+  });
+
   it("rejects invalid, locked, and unaffordable pet purchases", () => {
     const state = freshGameplayState();
     state.balance.brains = 49;
@@ -348,6 +365,19 @@ describe("protocol v3 command engine", () => {
     expect(result.state.roster).toEqual([
       { id: "server-child", key: "ZombieActorGirlTier1", mutation: 3, invasions: 0, stored: false },
     ]);
+  });
+
+  it("does not let the Zombie Pot clone an Epic reward zombie", () => {
+    const state = freshGameplayState();
+    state.roster = [
+      { id: "epic", key: "ZombieActorBandido", mutation: 0, invasions: 0, stored: false },
+      { id: "base", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId: "epic", parentBId: "base" }
+    ), { now: 1 });
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "reward_only" });
+    expect(result.state.roster).toHaveLength(2);
   });
 
   it("advances the parent-pair combine quest when the result is collected", () => {

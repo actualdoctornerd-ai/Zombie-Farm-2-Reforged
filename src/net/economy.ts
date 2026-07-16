@@ -55,7 +55,7 @@ export class EconomyClient {
 
   onShopState: ((size: number, climates: string[]) => void) | null = null;
   onFarmerState: ((headIds: number[], equippedHeadId: number) => void) | null = null;
-  onPetState: ((ownedPets: string[], activePet: string | null) => void) | null = null;
+  onPetState: ((ownedPets: string[], activePet: string | null, penPets: string[]) => void) | null = null;
   onQuestState: ((state: api.QuestStateResult) => void) | null = null;
   onQuestChanges: ((changes: api.QuestChange[]) => void) | null = null;
   onCropFertilized: ((oc: number, or: number) => void) | null = null;
@@ -63,6 +63,7 @@ export class EconomyClient {
   onObjectState: ((objects: BootstrapResponse["gameplay"]["objects"]["objects"]) => void) | null = null;
   onRosterState: ((roster: BootstrapResponse["gameplay"]["roster"], aliases: Record<string, string>) => void) | null = null;
   onRaidSettled: ((res: api.RaidFinishResult) => void) | null = null;
+  onRaidRevival: ((offer: NonNullable<BootstrapResponse["gameplay"]["raidRevival"]>, brains: number) => void) | null = null;
   onEpicBossState: ((event: BootstrapResponse["gameplay"]["epicBoss"]) => void) | null = null;
   onGameplayUnavailable: ((reason: string) => void) | null = null;
   onWriterReplaced: (() => void) | null = null;
@@ -241,6 +242,10 @@ export class EconomyClient {
     return this.enqueue({ type: "pet.equip", petKey }) !== null;
   }
 
+  submitPenPets(petKeys: string[]): boolean {
+    return this.enqueue({ type: "pet.pen", petKeys }) !== null;
+  }
+
   submitShopClimate(terrain: string, cost: number): void {
     this.enqueue({ type: "shop.climate", terrain }, { gold: -cost });
   }
@@ -259,7 +264,7 @@ export class EconomyClient {
     inputs: api.RaidReplayInput[],
     outcome: import("../raid/types").RaidOutcome,
     _optimistic: { gold?: number; xp?: number }
-  ): Promise<void> {
+  ): Promise<api.RaidFinishResult> {
     let result: api.RaidFinishResult;
     try {
       result = await api.raidFinish(sessionId, finalTick, inputs, outcome);
@@ -277,6 +282,14 @@ export class EconomyClient {
     this.onQuestChanges?.(result.questChanges ?? []);
     this.reconcile();
     this.onRaidSettled?.(result);
+    return result;
+  }
+
+  async resolveRaidRevival(sessionId: string, reviveIds: string[]): Promise<api.RaidReviveResult> {
+    const result = await api.raidRevive(sessionId, reviveIds);
+    this.base = result.balance;
+    this.reconcile();
+    return result;
   }
 
   async flush(): Promise<void> { await this.queue.flush(); }
@@ -291,7 +304,7 @@ export class EconomyClient {
     this.base = result.balance;
     this.serverInv = { ...result.inventory };
     this.state.syncStorage(result.storage.received, result.storage.stored);
-    this.onPetState?.(result.ownedPets, this.state.activePet);
+    this.onPetState?.(result.ownedPets, this.state.activePet, this.state.penPets);
     this.onQuestState?.({ completed: result.quests.completed, progress: result.quests.progress, questChanges: result.questChanges });
     this.onQuestChanges?.(result.questChanges);
     this.onEpicBossState?.(result.event);
@@ -349,7 +362,7 @@ export class EconomyClient {
     this.serverInv = gameplay.inventory;
     this.onShopState?.(gameplay.farmSize, gameplay.climates);
     this.onFarmerState?.(gameplay.farmerHeads, gameplay.farmerHeadId);
-    this.onPetState?.(gameplay.ownedPets, gameplay.activePet);
+    this.onPetState?.(gameplay.ownedPets, gameplay.activePet, gameplay.penPets);
     this.onQuestState?.({
       completed: gameplay.quests.completed,
       progress: gameplay.quests.progress,
@@ -374,6 +387,9 @@ export class EconomyClient {
     }
     this.onFarmState?.({ plowed, crops });
     this.onObjectState?.(gameplay.objects.objects);
+    // Capture/display a pending revival before roster reconciliation removes the
+    // casualties from the local presentation cache. The offer remains server-owned.
+    if (gameplay.raidRevival) this.onRaidRevival?.(gameplay.raidRevival, gameplay.balance.brains);
     this.onRosterState?.(gameplay.roster, aliases);
     this.onEpicBossState?.(gameplay.epicBoss ?? null);
     this.reconcile();

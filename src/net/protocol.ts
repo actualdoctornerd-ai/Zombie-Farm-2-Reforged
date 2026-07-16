@@ -36,6 +36,7 @@ export type GameplayCommand =
   | { type: "farmer.equip"; headId: number }
   | { type: "pet.buy"; petKey: string }
   | { type: "pet.equip"; petKey: string | null }
+  | { type: "pet.pen"; petKeys: string[] }
   | { type: "tutorial.complete" };
 
 export interface SequencedCommand {
@@ -134,9 +135,15 @@ export interface GameplayProjection {
   farmerHeadId: number;
   ownedPets: string[];
   activePet: string | null;
+  penPets: string[];
   zombieMax: number;
   tutorialRewarded: boolean;
   raids: { progress: Record<string, number>; lastRaidAt: number };
+  raidRevival?: {
+    sessionId: string;
+    zombies: { id: string; key: string; mutation: number; invasions: number; stored: boolean }[];
+    costPerZombie: 1;
+  } | null;
   epicBoss?: EpicBossProjection | null;
 }
 

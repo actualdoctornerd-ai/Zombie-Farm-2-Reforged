@@ -73,7 +73,7 @@ export class SaveManager {
           headId: this.state.farmerHeadId,
           bodyId: this.state.farmerBodyId,
         },
-        petCollection: { owned: this.state.ownedPets, active: this.state.activePet },
+        petCollection: { owned: this.state.ownedPets, active: this.state.activePet, pen: this.state.penPets },
       },
       farm: {
         fieldId: "default",
@@ -227,7 +227,7 @@ export class SaveManager {
           ownedHeads: boot.gameplay.farmerHeads,
           headId: boot.gameplay.farmerHeadId,
         },
-        petCollection: { owned: boot.gameplay.ownedPets, active: boot.gameplay.activePet },
+        petCollection: { owned: boot.gameplay.ownedPets, active: boot.gameplay.activePet, pen: boot.gameplay.penPets },
       },
       farm: { fieldId: "default", w: boot.gameplay.farmSize, h: boot.gameplay.farmSize,
         climate: p.farm?.climate ?? "grass", background: p.farm?.background,
@@ -271,9 +271,11 @@ export class SaveManager {
     this.state.farmerHeadId = player.farmerAppearance?.headId ?? 1;
     this.state.farmerBodyId = player.farmerAppearance?.bodyId ?? 0;
     const legacyPets = data.storage?.pets ?? [];
-    this.state.ownedPets = player.petCollection?.owned ?? legacyPets;
-    this.state.activePet = player.petCollection?.active ?? legacyPets[0] ?? null;
-    if (this.state.activePet && !this.state.ownedPets.includes(this.state.activePet)) this.state.activePet = null;
+    this.state.syncPetOwnership(
+      player.petCollection?.owned ?? legacyPets,
+      player.petCollection?.active ?? legacyPets[0] ?? null,
+      player.petCollection?.pen ?? [],
+    );
     if (data.storage) {
       this.state.storageItemCap = data.storage.itemCap ?? 8;
       this.state.storedItems = data.storage.items ?? [];

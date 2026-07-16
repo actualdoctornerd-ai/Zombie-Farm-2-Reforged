@@ -131,7 +131,12 @@ export interface ZombieDef {
   focus: number;
   tier?: number; // 0..5 combat tier; drives Zombie Pot species selection (higher wins)
   specialSprite?: string; // named source zombie rendered from its dedicated sheet
+  rewardOnly?: boolean; // earned from an event/quest; never shown as a plantable Market crop
+  marketHidden?: boolean; // obtained through a voucher/gift rather than planted directly
 }
+
+export const purchasableZombies = (zombies: readonly ZombieDef[]): ZombieDef[] =>
+  zombies.filter((zombie) => !zombie.rewardOnly && !zombie.marketHidden);
 
 // A consumable boost from the Market (tools/prep_boosts.py). Farm-usable effects
 // (grow/harvest/plow/gift) apply immediately; the rest wait for their system.
@@ -179,7 +184,7 @@ export interface PlaceableDef {
   pivotY: number;
   armyMax?: number; // functional: increases zombie army cap by this on placement
   storageSlots?: number; // functional: storage shed item capacity (8..64)
-  petPen?: boolean; // Pet Pen: opens the server-authoritative pet collection
+  petPen?: boolean; // Pet Pen: manages up to four displayed pets
   zombieStorage?: boolean; // functional: the Mausoleum — stores owned zombies (uncapped)
   graveColor?: "Blue" | "Red" | "Silver"; // colored grave: unlocks planting that zombie class
   zombiePatch?: boolean; // functional: the Zombie Patch — gathers zombies to nap on it

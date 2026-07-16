@@ -12,7 +12,7 @@ zombiefarm/public/assets/ :
 
 Run:  python tools/prep_assets.py
 """
-import os, re, io, json, plistlib, random
+import os, re, io, json, plistlib, random, shutil
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -298,7 +298,10 @@ def slice_storage():
 #  2. Face parts (eyes/jaw/teeth/scar/features) are CHILDREN of the Head slot, so
 #     their offsets are relative to the head — add the head's offset.
 # `inheritColor` parts are grey base art tinted by the unit's marketInfo.color.
-FACE_SLOTS = {"EyeL", "EyeR", "Jaw", "UpperTeeth", "LowerTeeth", "Scar", "Features"}
+FACE_SLOTS = {
+    "EyeL", "EyeR", "Jaw", "JawFeature", "UpperTeeth", "LowerTeeth",
+    "Scar", "Features", "Features2",
+}
 
 
 def _tint(im, rgb):
@@ -314,7 +317,50 @@ def _tint(im, rgb):
 
 # Slots that belong to the head (tilt together). Face parts (all but Head) are
 # positioned relative to the head, so their offsets get the head's offset added.
-HEAD_SLOTS = {"Head", "EyeL", "EyeR", "Jaw", "UpperTeeth", "LowerTeeth", "Scar", "Features"}
+HEAD_SLOTS = {"Head", *FACE_SLOTS}
+
+NAMED_SPECIAL_ZOMBIES = [
+    ("Bombie", "bombie", "ZombieActorBombie"),
+    ("Brock Coley", "brock_coley", "ZombieActorBrockColey"),
+    ("Dapper Zombie", "dapper_zombie", "ZombieActorDapper"),
+    ("Deputy Zombie", "deputy_zombie", "ZombieActorDeputy"),
+    ("Dr. Zombie", "dr_zombie", "ZombieActorDrZombie"),
+    ("Forest Zombie", "forest_zombie", "ZombieActorForest"),
+    ("George Washington", "george_washington", "ZombieActorGeorgeWashington"),
+    ("Granny Zombie", "granny_zombie", "ZombieActorGranny"),
+    ("John Hancock", "john_hancock", "ZombieActorJohnHancock"),
+    ("Madame Zombie", "madame_zombie", "ZombieActorMadame"),
+    ("Master Ninjombie", "master_ninjombie", "ZombieActorMasterNinjombie"),
+    ("Medusa Zombie", "medusa_zombie", "ZombieActorMedusa"),
+    ("MerZombie", "merzombie", "ZombieActorMerZombie"),
+    ("Mummy Zombie", "mummy_zombie", "ZombieActorMummy"),
+    ("Ninjombie", "ninjombie", "ZombieActorNinjombie"),
+    ("Old McZombie", "old_mczombie", "ZombieActorOldMcZombie"),
+    ("Omega Dr. Zombie", "omega_dr_zombie", "ZombieActorOmegaDrZombie"),
+    ("Omega Zombie Bot", "omega_zombie_bot", "ZombieActorOmegaZombieBot"),
+    ("Poseidon Zombie", "poseidon_zombie", "ZombieActorPoseidon"),
+    ("Proto Zombie", "proto_zombie", "ZombieActorProto"),
+    ("Sheriff Zombie", "sheriff_zombie", "ZombieActorSheriff"),
+    ("Skittles Zombie", "skittles_zombie", "ZombieActorSkittles"),
+    ("Zastronaut", "zastronaut", "ZombieActorZastronaut"),
+    ("ZomBetty", "zombetty", "ZombieActorZomBetty"),
+    ("ZomBloke", "zombloke", "ZombieActorZomBloke"),
+    ("ZomHelga", "zomhelga", "ZombieActorZomHelga"),
+    ("Zombeach Bum", "zombeach_bum", "ZombieActorZombeachBum"),
+    ("Zombie Bot", "zombie_bot", "ZombieActorZombieBot"),
+    ("Zombug", "zombug", "ZombieActorZombug"),
+    ("Zomdini", "zomdini", "ZombieActorZomdini"),
+    ("Zomtar", "zomtar", "ZombieActorZomtar"),
+    ("Zula Girl", "zula_girl", "ZombieActorZulaGirl"),
+    ("Zwamp Thing", "zwamp_thing", "ZombieActorZwampThing"),
+    ("Bandido Zombie", "bandido_zombie", "ZombieActorBandido"),
+    ("Vagabond Zombie", "vagabond_zombie", "ZombieActorVagabond"),
+    ("Captain Zombie", "captain_zombie", "ZombieActorCaptain"),
+    ("Admiral Zombie", "admiral_zombie", "ZombieActorAdmiral"),
+    ("Christmas Ghost Zombie", "christmas_ghost_zombie", "ZombieActorChristmasGhost"),
+    ("Scrooge Zombie", "scrooge_zombie", "ZombieActorScrooge"),
+    ("Diva Zombie", "diva_zombie", "ZombieActorDiva"),
+]
 
 
 def export_zombie_parts(entry_name, name):
@@ -324,8 +370,9 @@ def export_zombie_parts(entry_name, name):
     rig = load_plist(os.path.join(APP, z["frameListFile"]))
     atlas = Image.open(os.path.join(APP, z["spriteSheetFile"])).convert("RGBA")
     color = z["marketInfo"].get("color", [255, 255, 255])
-    slot = {a["assetKey"]: a["attachmentID"].replace("kActorPartTag", "") for a in z["assets"]}
-    inherit = {a["assetKey"]: a.get("inheritColor", False) for a in z["assets"]}
+    assets = [a for a in z["assets"] if a.get("assetKey") and a.get("attachmentID")]
+    slot = {a["assetKey"]: a["attachmentID"].replace("kActorPartTag", "") for a in assets}
+    inherit = {a["assetKey"]: a.get("inheritColor", False) for a in assets}
 
     def lay(k):
         fn = k if k.endswith(".png") else k + ".png"
@@ -341,7 +388,7 @@ def export_zombie_parts(entry_name, name):
     outdir = os.path.join(OUT, "zombie", name)
     os.makedirs(outdir, exist_ok=True)
     parts = []
-    for a in z["assets"]:
+    for a in assets:
         k = a["assetKey"]
         L = lay(k)
         if not L:
@@ -374,8 +421,9 @@ def composite_zombie(entry_name, out_name):
     rig = load_plist(os.path.join(APP, z["frameListFile"]))
     atlas = Image.open(os.path.join(APP, z["spriteSheetFile"])).convert("RGBA")
     color = z["marketInfo"].get("color", [255, 255, 255])
-    slot = {a["assetKey"]: a["attachmentID"].replace("kActorPartTag", "") for a in z["assets"]}
-    inherit = {a["assetKey"]: a.get("inheritColor", False) for a in z["assets"]}
+    assets = [a for a in z["assets"] if a.get("assetKey") and a.get("attachmentID")]
+    slot = {a["assetKey"]: a["attachmentID"].replace("kActorPartTag", "") for a in assets}
+    inherit = {a["assetKey"]: a.get("inheritColor", False) for a in assets}
 
     def lay(k):
         fn = k if k.endswith(".png") else k + ".png"
@@ -389,7 +437,7 @@ def composite_zombie(entry_name, out_name):
                 head = (L["offsetX"], L["offsetY"])
 
     items = []
-    for a in z["assets"]:
+    for a in assets:
         k = a["assetKey"]
         L = lay(k)
         if not L:
@@ -473,16 +521,13 @@ if __name__ == "__main__":
     make_composites()
     slice_crops()
     slice_storage()
-    export_zombie_parts("Dr. Zombie", "dr_zombie")
-    export_zombie_parts("Omega Dr. Zombie", "omega_dr_zombie")
-    composite_zombie("Dr. Zombie", "dr_zombie.png")
-    composite_zombie("Omega Dr. Zombie", "omega_dr_zombie.png")
     portrait_dir = os.path.join(OUT, "zombie", "portrait")
     os.makedirs(portrait_dir, exist_ok=True)
-    shutil.copy2(os.path.join(OUT, "zombie", "dr_zombie.png"),
-                 os.path.join(portrait_dir, "ZombieActorDrZombie.png"))
-    shutil.copy2(os.path.join(OUT, "zombie", "omega_dr_zombie.png"),
-                 os.path.join(portrait_dir, "ZombieActorOmegaDrZombie.png"))
+    for source_name, file_stem, catalog_key in NAMED_SPECIAL_ZOMBIES:
+        export_zombie_parts(source_name, file_stem)
+        composite_zombie(source_name, file_stem + ".png")
+        shutil.copy2(os.path.join(OUT, "zombie", file_stem + ".png"),
+                     os.path.join(portrait_dir, catalog_key + ".png"))
     export_rig()
     make_field(idx)
     print("done ->", OUT)

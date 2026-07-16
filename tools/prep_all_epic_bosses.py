@@ -48,7 +48,7 @@ QUEST_IDS = {
     # milestones. Keep only its unambiguous, boss-prefixed quest records.
     3: ["3000", "3010", "3011"],
     4: ["4000", "4001", "4002", "4003", "4004", "4005", "4006", "4010", "4011"],
-    5: ["5000"],
+    5: ["5000", "5011"],
 }
 SKUNK_LOOT = [
     {"level": 5, "name": "Skunkarella's Perfume", "tile": "perfumeVat", "sprite": "Perfume_Vat.png"},
@@ -65,6 +65,7 @@ SKUNK_LOOT = [
 LATE_BOSSES = [
     {
         "id": "rocky-rhino", "sourceId": 8, "name": "Rocky Rhino",
+        "questIds": ["8000"],
         "sheet": "rockyRhino_default.png", "portrait": "epb8_portrait_intro.png",
         "lootIcon": "epb8_loot_icon.png", "questIcon": "epb8_quest_icon.png",
         "intros": ["epb8_INTRO1.png", "epb8_INTRO2.png", "epb8_INTRO3.png"],
@@ -83,6 +84,7 @@ LATE_BOSSES = [
     },
     {
         "id": "general-larvaelus", "sourceId": 9, "name": "General Larvaelus",
+        "questIds": ["9000", "9011"],
         "sheet": "generalLarvaelus_default.png", "portrait": "EpicBoss9_PORTRAIT_INTRO.png",
         "lootIcon": "EpicBoss9_LOOT_ICON.png", "questIcon": "EpicBoss9_QUEST_ICON.png",
         "intros": ["EpicBoss9_INTRO1.png", "EpicBoss9_INTRO2.png", "EpicBoss9_INTRO3.png"],
@@ -101,6 +103,7 @@ LATE_BOSSES = [
     },
     {
         "id": "mystical-mamba", "sourceId": 10, "name": "Mystical Mamba",
+        "questIds": ["10000", "10011"],
         "sheet": "mysticalMamba_default.png", "portrait": "EPB_10_portrait_intro.png",
         "lootIcon": "EPB_10_loot_Icon.png", "questIcon": "EPB_10_Quest_Icon.png",
         "intros": ["EPB_10_INTRO_1.png", "EPB_10_INTRO_2.png", "EPB_10_INTRO_3.png"],
@@ -273,7 +276,7 @@ def prepare_late(boss: dict, hp: dict, params: dict) -> None:
         "failedText": f"{boss['name']} beat you",
         "unitStats": {"str": 2, "dex": 2, "con": 20,
                       "attacks": [{"name": "EpicBossAttack", "frequency": 100}]},
-        "animations": {}, "levelAssets": layers, "loot": loot, "questIds": [],
+        "animations": {}, "levelAssets": layers, "loot": loot, "questIds": boss["questIds"],
         "portrait": "portrait.png", "lootIcon": "loot-icon.png", "questIcon": "quest-icon.png",
         "bossTexture": "boss.png", "reconstructed": True, "copied": sorted(set(copied)),
     })

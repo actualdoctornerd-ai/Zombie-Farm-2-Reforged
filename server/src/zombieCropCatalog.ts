@@ -17,7 +17,9 @@ export interface ZombieCropEcon {
   level: number;   // player level required (informational)
 }
 
-export const ZOMBIE_CROPS: Readonly<Record<string, ZombieCropEcon>> = {
+import zombieRows from "../../public/assets/zombies.json";
+
+const LEGACY_ZOMBIE_CROPS: Readonly<Record<string, ZombieCropEcon>> = {
   "ZombieActorGardenCupid": { cost: 100, brains: true, growMs: 86400000, xp: 2, level: 20 },
   "ZombieActorGardenCupidPink": { cost: 0, brains: false, growMs: 86400000, xp: 2, level: 25 },
   "ZombieActorGardenTier1": { cost: 150, brains: false, growMs: 86400000, xp: 2, level: 6 },
@@ -74,6 +76,24 @@ export const ZOMBIE_CROPS: Readonly<Record<string, ZombieCropEcon>> = {
   "ZombieActorSmallTier4": { cost: 110, brains: false, growMs: 600000, xp: 1, level: 27 },
   "ZombieActorSmallTier5": { cost: 50, brains: true, growMs: 600000, xp: 1, level: 1 },
 };
+
+/** Generated at module load from the shared catalog so hidden voucher zombies and
+ * event rewards can never drift back into the server's plantable crop surface. */
+export const ZOMBIE_CROPS: Readonly<Record<string, ZombieCropEcon>> = Object.fromEntries(
+  (zombieRows as Array<{
+    key: string; cost: number; brainsNeeded?: boolean; growMs: number; xp: number;
+    level: number; rewardOnly?: boolean; marketHidden?: boolean;
+  }>)
+    .filter((zombie) => !zombie.rewardOnly && !zombie.marketHidden)
+    .map((zombie) => [zombie.key, {
+      cost: zombie.cost, brains: !!zombie.brainsNeeded, growMs: zombie.growMs,
+      xp: zombie.xp, level: zombie.level,
+    }])
+);
+
+// Keep the old literal checked by TypeScript while transitioning generated data;
+// it also documents the original core economy in source review.
+void LEGACY_ZOMBIE_CROPS;
 
 export function zombieCropEcon(key: string): ZombieCropEcon | undefined {
   return Object.prototype.hasOwnProperty.call(ZOMBIE_CROPS, key) ? ZOMBIE_CROPS[key] : undefined;

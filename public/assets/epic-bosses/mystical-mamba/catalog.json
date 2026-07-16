@@ -162,7 +162,7 @@
       "stageActor": "tameMamba"
     }
   ],
-  "questIds": [],
+  "questIds": ["10000", "10011"],
   "portrait": "portrait.png",
   "lootIcon": "loot-icon.png",
   "questIcon": "quest-icon.png",

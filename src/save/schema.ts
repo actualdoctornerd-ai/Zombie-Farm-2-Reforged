@@ -130,6 +130,7 @@ export interface FarmerAppearanceSave {
 export interface PetCollectionSave {
   owned: string[];
   active?: string | null;
+  pen?: string[];
 }
 
 // ---------------------------------------------------------------------------

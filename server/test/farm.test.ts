@@ -161,7 +161,7 @@ describe("planHarvest — server-time grow gate + exact reward", () => {
 
 // ---- zombie crops (plant a seed -> grow -> harvest an owned unit) --------
 const GOLD_Z = "ZombieActorRegularTier1"; // 35 gold, grow 600000, xp 1
-const BRAINS_Z = "ZombieActorGardenTier3GreenFlower"; // 50 brains, grow 86400000, xp 2
+const BRAINS_Z = "ZombieActorGardenTier5"; // Zombutterfly: 50 brains, grow 86400000, xp 2
 
 describe("planZombiePlant — cost in gold OR brains, yields a unit", () => {
   const plant = (over = {}) => ({ id: "zp", type: "plant" as const, oc: 4, or: 4, cropKey: GOLD_Z, ...over });
@@ -211,6 +211,14 @@ describe("planZombieHarvest — grow gate + verified unit yield", () => {
   it("yields the plot's unit key + xp once grown", () => {
     const r = planZombieHarvest(harvest(), plot(), NOW + 600000);
     expect(r).toMatchObject({ ok: true, unitKey: GOLD_Z, xpDelta: 1 });
+  });
+
+  it("does not expose gift or Epic reward zombies as plantable crops", () => {
+    expect(zombieCropEcon("ZombieActorGardenTier3GreenFlower")).toBeUndefined();
+    expect(zombieCropEcon("ZombieActorGardenCupid")).toBeUndefined();
+    expect(zombieCropEcon("ZombieActorGardenCupidPink")).toBeUndefined();
+    expect(zombieCropEcon("ZombieActorRegularCrazy")).toBeUndefined();
+    expect(zombieCropEcon("ZombieActorZomtar")).toBeUndefined();
   });
 
   it("uses current catalog XP for a zombie planted with the old bad reward", () => {
