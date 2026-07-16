@@ -2036,8 +2036,12 @@ export class Hud {
   // The Market: authentic parchment panel with category tabs + real cards.
   // Picking a crop/zombie enters planting mode; picking an object enters
   // placement mode. Cards show cost, sell value, level locks, and affordability.
-  openMarket(initialTab: string = "Crops") {
+  closeMarket() {
     document.querySelector("#hud .mkt-bg")?.remove();
+  }
+
+  openMarket(initialTab: string = "Crops") {
+    this.closeMarket();
     const bg = document.createElement("div");
     bg.className = "mkt-bg";
     const mkt = document.createElement("div");
@@ -2448,7 +2452,14 @@ export class Hud {
     }
     const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
     pick.onclick = () => { for (const id of [...(this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? []), ...party.eligible.map((z) => z.id)]) if (order.length < party.cap && !order.includes(id)) order.push(id); refresh(); };
-    start.onclick = async () => { if (!order.length || !this.onLaunchEpicBoss) return; start.disabled = true; if (await this.onLaunchEpicBoss([...order])) bg.remove(); else start.disabled = false; };
+    start.onclick = async () => {
+      if (!order.length || !this.onLaunchEpicBoss) return;
+      start.disabled = true;
+      if (await this.onLaunchEpicBoss([...order])) {
+        bg.remove();
+        this.closeMarket();
+      } else start.disabled = false;
+    };
     foot.append(pick, start); wrap.append(head, cards, foot); panel.appendChild(wrap); refresh();
   }
 

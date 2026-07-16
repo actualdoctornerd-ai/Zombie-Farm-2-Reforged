@@ -69,6 +69,15 @@ export class RaidActor {
   private build(assets: GameAssets, key: string, mutation: number) {
     const m: ZombieModel =
       assets.zombieModels[key] ?? assets.zombieModels["ZombieActorRegularTier1"];
+    const mutationParts = bitsOf(mutation).flatMap((bit) => {
+      const partKey = m.mutationOverrides?.[String(bit)] ?? String(bit);
+      const part = assets.mutationParts[partKey];
+      const texture = part ? assets.zombiePartTex[part.file] : undefined;
+      return part && texture ? [{ bit, part, texture }] : [];
+    });
+    // Crop arms occupy the authored ArmF slot. Only suppress the base front arm
+    // after its replacement has resolved, so incomplete assets cannot remove it.
+    const replacesFrontArm = mutationParts.some(({ bit }) => slotOf(bit) === "arm");
     const [r, g, b] = m.color;
     const tint = (r << 16) | (g << 8) | b;
     this.renderScale = MODEL_BASE * (m.scale ?? 1);
@@ -76,6 +85,7 @@ export class RaidActor {
     this.neck = { x: m.neck.x, y: m.neck.y };
 
     for (const p of m.parts) {
+      if (replacesFrontArm && /ArmF$/i.test(p.file)) continue;
       const tex = assets.zombiePartTex[p.file];
       if (!tex) continue;
       const sp = new Sprite(tex);
@@ -94,12 +104,7 @@ export class RaidActor {
     // Raid zombies use the same mutation overlays as their farm actors. The mask is
     // owned-unit state, not something that can be inferred from the species key after
     // combining, so it must travel with the combat unit.
-    for (const bit of bitsOf(mutation)) {
-      const partKey = m.mutationOverrides?.[String(bit)] ?? String(bit);
-      const mp = assets.mutationParts[partKey];
-      if (!mp) continue;
-      const tex = assets.zombiePartTex[mp.file];
-      if (!tex) continue;
+    for (const { bit, part: mp, texture: tex } of mutationParts) {
       const sp = new Sprite(tex);
       sp.anchor.set(mp.ax, mp.ay);
       const px = mp.ox + (mp.headRel ? m.neck.x : 0);
@@ -110,6 +115,7 @@ export class RaidActor {
         this.headParts.push({ sp, bx: px, by: py });
       } else {
         sp.zIndex = mp.z;
+        if (slotOf(bit) === "arm") this.arms.push(sp);
       }
       this.root.addChild(sp);
     }

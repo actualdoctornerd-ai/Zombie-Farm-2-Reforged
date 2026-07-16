@@ -1482,6 +1482,23 @@ async function main() {
   // to the offline path above. state.friends doubles as the display cache. ----
   const errCode = (e: unknown) => e instanceof api.ApiError ? e.code
     : e instanceof Error && e.message ? e.message : "error";
+  const finishEpicBossOnline = async (sessionId: string, finalTick: number, inputs: api.RaidReplayInput[]) => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await api.epicBossFinish(sessionId, finalTick, inputs);
+      } catch (error) {
+        lastError = error;
+        // Deterministic validation/client errors will not improve on retry. Network
+        // failures and 5xx responses may have committed server-side but lost the
+        // response; finish is idempotent, so retrying safely recovers that result and
+        // prevents a live session from looking like "another battle" afterward.
+        if (error instanceof api.ApiError && error.status > 0 && error.status < 500) throw error;
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      }
+    }
+    throw lastError;
+  };
   let inboxCache: { id: string; fromName: string }[] = [];
   let requestsCache: { fromAccountId: string; name: string }[] = [];
 
@@ -1654,7 +1671,10 @@ async function main() {
         state.setEpicBossRun(opened.event);
       } catch (error) {
         const code = errCode(error);
-        hud.showToast(code === "cooldown" ? `${def.name} has not returned yet.` : "Another battle is already in progress.");
+        if (code === "cooldown") hud.showToast(`${def.name} has not returned yet.`);
+        else if (code === "battle_in_progress") hud.showToast("Another battle is already in progress.");
+        else if (code === "bad_roster") hud.showToast("One of those zombies is unavailable. Please choose your army again.");
+        else hud.showToast("The Epic Boss fight could not be started. Please reconnect and try again.");
         return false;
       }
     } else {
@@ -1677,7 +1697,7 @@ async function main() {
       imageBase: epicAsset(def, ""),
       bossTexture: epicAsset(def, def.bossTexture),
       bossAnimations: def.animations,
-      bossEntersFromRight: true,
+      bossFallsFromSky: true,
       bossEngageDistance: 150,
       bossGroundOffset: { x: 32, y: 24 },
       confirmRetreat: () => hud.confirmInGame(
@@ -1716,7 +1736,7 @@ async function main() {
         });
         };
         if (auth.isSignedIn() && epicSessionId) {
-          void api.epicBossFinish(epicSessionId, finalTick, inputs).then((server) => {
+          void finishEpicBossOnline(epicSessionId, finalTick, inputs).then((server) => {
             zombies.recordInvasion(server.survivors);
             zombies.removeCasualties(server.losses);
             for (const unit of server.newZombies) zombies.grantReward(unit.key, walk.tile.col, walk.tile.row, unit.id);

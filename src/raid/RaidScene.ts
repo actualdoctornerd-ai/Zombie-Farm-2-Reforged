@@ -48,7 +48,7 @@ export interface RaidSceneParams {
   imageBase?: string;
   bossTexture?: string;
   bossAnimations?: Record<string, { file: string; cellWidth: number; cellHeight: number; frameCount: number; frameSeconds: number }>;
-  bossEntersFromRight?: boolean;
+  bossFallsFromSky?: boolean;
   bossEngageDistance?: number;
   bossGroundOffset?: { x: number; y: number };
   confirmRetreat?: () => Promise<boolean>;
@@ -342,7 +342,7 @@ export class RaidScene {
       params.wallTemplate ?? null,
       !!params.noDistractions,
       !!params.escapeOnRoundEnd,
-      !!params.bossEntersFromRight,
+      !!params.bossFallsFromSky,
       params.bossEngageDistance
     );
     this.maxPlayerHp = Math.max(1, sumMax(params.playerUnits));
@@ -604,6 +604,7 @@ export class RaidScene {
     let actor: RaidActor | undefined;
     let enemyActor: EnemyActor | undefined;
     let epicActor: AnimatedSprite | undefined;
+    let epicAnim: string | undefined;
     let base = 22;
     let topY = -60;
     let actorBaseScale = 1;
@@ -628,15 +629,16 @@ export class RaidScene {
       actorBaseY = actor.container.y;
     } else {
       const targetH = (u.isBoss ? BOSS_H : ENEMY_H) * (u.isBoss ? BOSS_H_SCALE[u.sourceKey] ?? 1 : 1);
-      const epicFrames = u.isBoss ? this.bossFrames.get("enter") ?? this.bossFrames.get("idle") : undefined;
+      const initialEpicAnim = u.state === "falling" && this.bossFrames.has("fly") ? "fly" : "enter";
+      epicAnim = initialEpicAnim;
+      const epicFrames = u.isBoss ? this.bossFrames.get(initialEpicAnim) ?? this.bossFrames.get("idle") : undefined;
       if (epicFrames?.length) {
         const sp = new AnimatedSprite(epicFrames);
-        const def = this.bossAnimationDefs?.enter ?? this.bossAnimationDefs?.idle;
+        const def = this.bossAnimationDefs?.[initialEpicAnim] ?? this.bossAnimationDefs?.idle;
         sp.anchor.set(0.5, 1);
         sp.scale.set(targetH / Math.max(1, epicFrames[0].height));
         sp.animationSpeed = def ? 1 / (60 * def.frameSeconds) : 0.2;
-        sp.loop = false;
-        sp.onComplete = () => this.playEpic(sp, "idle", true);
+        sp.loop = initialEpicAnim === "fly";
         sp.play();
         root.addChild(sp);
         base = Math.max(16, epicFrames[0].width * sp.scale.x / 2);
@@ -721,7 +723,7 @@ export class RaidScene {
     const layer = u.isBoss && this.perchLayer ? this.bossBackLayer : this.tokenLayer;
     layer.addChild(root);
     return {
-      root, actor, enemyActor, epicActor, epicAnim: epicActor ? "enter" : undefined,
+      root, actor, enemyActor, epicActor, epicAnim: epicActor ? epicAnim : undefined,
       hp, charge, base, topY, pulse: 0, atkCount: 0,
       deathAnim: -1, emerged: false,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
@@ -1082,11 +1084,11 @@ export class RaidScene {
       // between ticks and made walking rigs twitch rapidly.
       const simMoving = Math.hypot(u.vx, u.vy) > 6;
       const introMarch = this.phase === "intro"; // zombies slide in during the intro
-      const retreatMarch = this.phase === "retreat" && u.team === "player" && u.alive;
+      const exitMarch = (this.phase === "retreat" || this.phase === "outro") && u.team === "player" && u.alive;
       if (tok.actor) {
-        if (retreatMarch) tok.actor.setFacingFromDelta(-1);
+        if (exitMarch) tok.actor.setFacingFromDelta(this.phase === "retreat" ? -1 : 1);
         else if (Math.abs(u.vx) > 6) tok.actor.setFacingFromDelta(u.vx);
-        const moving = u.alive && (simMoving || introMarch || retreatMarch);
+        const moving = u.alive && (simMoving || introMarch || exitMarch);
         tok.actor.update(dtSec, moving);
 
         // Garden heal: lift both arms overhead, hold through the healing burst, then
@@ -1146,15 +1148,22 @@ export class RaidScene {
         tok.enemyActor.update(dtSec, u.alive && simMoving, attack);
       }
       if (tok.epicActor) {
+        const attackDef = this.bossAnimationDefs?.attack;
+        const attackLeadMs = attackDef
+          ? attackDef.frameCount * attackDef.frameSeconds * 1000 * u.attackDamageTiming
+          : 0;
+        const attackStarting = u.state === "fight" && attackLeadMs > 0 && visualAttackMs <= attackLeadMs;
+        // One-shot strips must be allowed to finish. The old struckThisTick switch
+        // selected attack for one render frame, then reset to idle; on a killing hit
+        // the frozen flag made the attack appear only after combat had ended.
+        const attackPlaying = tok.epicAnim === "attack" && tok.epicActor.playing;
         const wanted = !u.alive ? "defeat" : this.sim.escaped ? "escape"
-          : u.struckThisTick ? "attack" : u.state === "emerging" ? "enter" : "";
-        const wantedLoop = wanted === "enter";
+          : u.state === "falling" ? "fly" : u.state === "landing" ? "enter"
+          : attackPlaying || attackStarting ? "attack" : "idle";
+        const wantedLoop = wanted === "fly" || wanted === "idle";
         if (wanted && (tok.epicAnim !== wanted || tok.epicActor.loop !== wantedLoop)) {
           tok.epicAnim = wanted;
           this.playEpic(tok.epicActor, wanted, wantedLoop);
-        } else if (!wanted && tok.epicAnim !== "idle") {
-          tok.epicAnim = "idle";
-          this.playEpic(tok.epicActor, "idle", true);
         }
       }
 

@@ -45,6 +45,10 @@ export const BOSS_STRUCT_X = 848;
 /** Boss perch height in sim space (negative = up); RaidScene reads it to place
  *  the boss on the barn and lerp its descent. */
 export const BOSS_STRUCT_Y = -150;
+/** Epic Boss entry starts well above the visible stage, then falls to ground. */
+export const EPIC_BOSS_FALL_Y = -4_000;
+const EPIC_BOSS_FALL_SPEED = 4_800;
+const EPIC_BOSS_LAND_MS = 500;
 const BAND_TOP = 90;
 const BAND_BOT = FIELD_H - 70;
 const CENTER_Y = FIELD_H / 2;
@@ -173,6 +177,8 @@ export type UnitState =
   | "queued" // enemy off-screen, not yet emerged
   | "descending" // boss coming down off the structure + exiting out the back
   | "emerging" // enemy walking to its holding spot (or boss re-entering)
+  | "falling" // Epic Boss dropping vertically from above the stage
+  | "landing" // Epic Boss playing its authored landing/enter beat
   | "structure" // boss perched on its structure, throwing
   | "hold" // enemy standing, no target in range
   | "dead";
@@ -409,9 +415,9 @@ export class BattleSim {
     private noDistractions = false,
     /** Epic Boss: reaching zero ends the attempt instead of triggering enrage. */
     private escapeOnRoundEnd = false,
-    /** Epic Boss presentation: start the boss offscreen at ground level and let it
-     *  emerge from the right instead of placing it on the normal raid perch. */
-    private bossEntersFromRight = false,
+    /** Epic Boss presentation: fall from above and land on the combat line instead
+     *  of walking in from the right or occupying the normal raid perch. */
+    private bossFallsFromSky = false,
     /** Larger bosses need a wider melee line so their art does not swallow zombies. */
     engageDistance = ENGAGE
   ) {
@@ -426,10 +432,10 @@ export class BattleSim {
 
     this.boss = this.enemies.find((e) => e.isBoss) ?? null;
     if (this.boss) {
-      if (this.bossEntersFromRight) {
-        this.boss.state = "emerging";
-        this.boss.x = ENEMY_SPAWN_X;
-        this.boss.y = CENTER_Y;
+      if (this.bossFallsFromSky) {
+        this.boss.state = "falling";
+        this.boss.x = ENEMY_HOLD_X;
+        this.boss.y = EPIC_BOSS_FALL_Y;
       } else {
         this.boss.state = "structure";
         this.boss.x = BOSS_STRUCT_X;
@@ -672,7 +678,8 @@ export class BattleSim {
     let best: SimUnit | null = null;
     let bestD = Infinity;
     for (const e of this.enemies) {
-      if (!e.alive || e.state === "queued" || e.state === "structure" || e.state === "descending") continue;
+      if (!e.alive || e.state === "queued" || e.state === "structure" || e.state === "descending" ||
+          e.state === "falling" || e.state === "landing") continue;
       const d = Math.abs(e.x - u.x);
       if (d < bestD) {
         bestD = d;
@@ -1056,6 +1063,24 @@ export class BattleSim {
     // Enemies (emerge / boss descends, then stand and strike; never move otherwise).
     for (const e of this.enemies) {
       if (!e.alive || e.state === "queued" || e.state === "structure") continue;
+      if (e.state === "falling") {
+        e.y = Math.min(CENTER_Y, e.y + (EPIC_BOSS_FALL_SPEED * dtMs) / 1000);
+        e.timerMs = e.cooldownMs;
+        if (e.y >= CENTER_Y) {
+          e.y = CENTER_Y;
+          e.state = "landing";
+          e.timerMs = EPIC_BOSS_LAND_MS;
+        }
+        continue;
+      }
+      if (e.state === "landing") {
+        e.timerMs -= dtMs;
+        if (e.timerMs <= 0) {
+          e.state = "hold";
+          e.timerMs = e.cooldownMs;
+        }
+        continue;
+      }
       if (e.state === "descending") {
         // Leave the perch by heading OUT THE RIGHT SIDE (through the entrance),
         // staying up at structure height; the renderer slides it off-screen behind

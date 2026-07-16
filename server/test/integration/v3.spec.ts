@@ -65,6 +65,11 @@ describe("protocol v3 API", () => {
     expect(escaped.body).toMatchObject({ escaped: true, event: { level: 1 } });
     const retryReadyAt = escaped.body.event.retryReadyAt;
     expect(retryReadyAt).toBeGreaterThan(Date.now());
+    const cooldown = await call<any>("POST", "/epic-boss/start", session.token, {
+      orderedUnitIds: [epicZombieId],
+    });
+    expect(cooldown.status, JSON.stringify(cooldown.body)).toBe(429);
+    expect(cooldown.body.error).toBe("cooldown");
 
     const skipped = await call<any>("POST", "/epic-boss/skip-retry", session.token, {
       runId: "activation-authenticated",
