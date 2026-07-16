@@ -527,7 +527,8 @@ export function applyCommandBatch(
 
 export function freshGameplayState(): MutableGameplayState {
   return {
-    balance: { gold: 200, brains: 15, xp: 0 },
+    // Temporary debugging economy; restore the release values before shipping.
+    balance: { gold: 1_000_000, brains: 10_000, xp: 0 },
     farm: { version: 0, plots: {} },
     objects: { version: 0, objects: [] },
     quests: { version: 0, completed: [], progress: [] } satisfies QuestProjection,

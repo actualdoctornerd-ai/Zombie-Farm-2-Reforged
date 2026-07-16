@@ -16,8 +16,9 @@ type Listener = () => void;
 
 export class GameState {
   name = "Zombie Farmer";
-  gold = 200;
-  brains = 15; // enough to buy the tutorial's Insta-Grow (10 brains) with headroom
+  // Temporary debugging economy; restore the release values before shipping.
+  gold = 1_000_000;
+  brains = 10_000;
   xp = 0;
   zombieCount = 1;
   zombieMax = 16;
@@ -90,9 +91,14 @@ export class GameState {
    *  and re-renders WITHOUT emitting an onMoney event — this is server truth being
    *  mirrored down, not a player action to report back up. */
   syncBalance(gold: number, brains: number, xp: number) {
+    const before = this.level;
     this.gold = gold;
     this.brains = brains;
     this.xp = xp;
+    const after = this.level;
+    // The server has already granted level-up brains and updated authoritative state;
+    // reconciliation only needs to restore the missed presentation notification.
+    if (after > before) this.onLevelUpCb?.(before, after);
     this.emit();
   }
 

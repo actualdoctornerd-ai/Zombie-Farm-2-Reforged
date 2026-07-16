@@ -17,7 +17,7 @@ import { canGiftBrain, type Friend } from "./social/friends";
 import { isMobile } from "./platform";
 import { getSpriteSet, setSpriteSet, getEdition, setEdition,
   FarmBackground, FARM_BACKGROUNDS } from "./prefs";
-import { fmtCooldown } from "./raid/RaidCatalog";
+import { fmtCooldown, VOUCHER_KEY } from "./raid/RaidCatalog";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
   ABILITY_POOL, ABILITY_TIER, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
 import { classTierRank } from "./zombie/taxonomy";
@@ -4394,6 +4394,7 @@ export class Hud {
 
       // Button state: lock reason > cooldown (with optional voucher bypass) > ready.
       let useVoucher = false;
+      let buyVoucher = false;
       if (!c.unlocked) {
         go.textContent = c.lockReason || "Locked";
         go.disabled = true;
@@ -4404,16 +4405,32 @@ export class Hud {
           useVoucher = true;
           army.textContent = `${st.voucherCount} voucher${st.voucherCount > 1 ? "s" : ""} · skips the ${fmtCooldown(cd)} wait`;
         } else {
-          go.textContent = `Ready in ${fmtCooldown(cd)}`;
-          go.disabled = true;
+          go.textContent = "Invade";
+          go.disabled = !canFight;
+          buyVoucher = true;
           army.className = "rd-army short";
-          army.textContent = "On cooldown — an Invasion Voucher skips the wait";
+          army.textContent = `Ready in ${fmtCooldown(cd)} · raid ticket: 2,000 gold`;
         }
       } else {
         go.textContent = "Invade";
         go.disabled = !canFight;
       }
-      go.onclick = () => { close(); this.openRaidArmy(c, useVoucher); };
+      go.onclick = () => {
+        if (buyVoucher) {
+          const voucher = this.boosts.find((boost) => boost.key === VOUCHER_KEY);
+          const price = voucher?.cost ?? 2_000;
+          if (!globalThis.confirm(
+            `This invasion is still on cooldown. Buy an Invasion Voucher for ${price.toLocaleString()} gold to skip the wait?`
+          )) return;
+          if (!voucher || !this.onBuyBoost?.(voucher)) {
+            this.showToast(`You need ${price.toLocaleString()} gold for an Invasion Voucher.`);
+            return;
+          }
+          useVoucher = true;
+        }
+        close();
+        this.openRaidArmy(c, useVoucher);
+      };
       foot.append(army, go);
 
       detail.append(hero, intro, rewards, foot);

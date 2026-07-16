@@ -60,6 +60,7 @@ const END_PAUSE_MS = 650; // beat after the last blow before we move on
 // in — so the army has a moment to walk away first.
 const OUTRO_WALK_SPEED = 230; // sim px/s — a normal march (cf. enemy EMERGE_SPEED 210)
 const OUTRO_RESULT_DELAY_MS = 1500; // beat before the loot panel comes in from the right
+const RETREAT_RESULT_DELAY_MS = 1500; // let survivors walk off left before the loss panel
 const DEATH_FADE = 0.45; // seconds for a fallen unit to poof + fade out
 const HEAL_POSE_S = 0.7; // Garden healer raises, holds, then lowers both arms
 const PLAYER_COLOR = 0x8bc34a;
@@ -162,7 +163,7 @@ const BUBBLE_BRAIN = BASE + "assets/ui/thoughtBubbleBrains.png";
 const BUBBLE_SCALE = 0.91; // the source art is 64x62 (1.3 enlarged, then scaled ~30% down)
 const BUBBLE_DX = 74; // shift the (mirrored) bubble right of the charging zombie (~one bubble width: 16 + 64*0.91)
 
-type Phase = "intro" | "fight" | "outro" | "defeat" | "done";
+type Phase = "intro" | "fight" | "outro" | "retreat" | "defeat" | "done";
 
 interface Token {
   root: Container;
@@ -702,7 +703,7 @@ export class RaidScene {
     this.buildRetreatButton();
   }
 
-  /** A "Retreat" button (top-left under the health bar) that ends the raid as a
+  /** A "Retreat" button (bottom-left) that ends the raid as a
    *  loss — the army flees, so no rewards and no veterancy credit. */
   private buildRetreatButton() {
     const label = new Text({
@@ -718,8 +719,10 @@ export class RaidScene {
     this.retreatBtn.eventMode = "static";
     this.retreatBtn.cursor = "pointer";
     this.retreatBtn.on("pointertap", () => {
-      if (!this.retreatRequested && !this.resultFired) this.recordInput({ type: "retreat" });
-      this.retreatRequested = true; // handled on the next update (safe teardown)
+      if (this.retreatRequested || this.resultFired || this.sim.finished) return;
+      if (!globalThis.confirm("Retreat from this raid? This will count as a loss.")) return;
+      this.recordInput({ type: "retreat" });
+      this.retreatRequested = true; // handled on the next update (safe phase change)
     });
     this.container.addChild(this.retreatBtn);
   }
@@ -1004,9 +1007,11 @@ export class RaidScene {
       // between ticks and made walking rigs twitch rapidly.
       const simMoving = Math.hypot(u.vx, u.vy) > 6;
       const introMarch = this.phase === "intro"; // zombies slide in during the intro
+      const retreatMarch = this.phase === "retreat" && u.team === "player" && u.alive;
       if (tok.actor) {
-        if (Math.abs(u.vx) > 6) tok.actor.setFacingFromDelta(u.vx);
-        const moving = u.alive && (simMoving || introMarch);
+        if (retreatMarch) tok.actor.setFacingFromDelta(-1);
+        else if (Math.abs(u.vx) > 6) tok.actor.setFacingFromDelta(u.vx);
+        const moving = u.alive && (simMoving || introMarch || retreatMarch);
         tok.actor.update(dtSec, moving);
 
         // Garden heal: lift both arms overhead, hold through the healing burst, then
@@ -1043,7 +1048,7 @@ export class RaidScene {
         // Arms: smash slam > wind-up (activated) > attack (forward + wave) > walking
         // (forward) > waiting (sides). The attack wave is locked to the sim's attack
         // clock — a full switch per cooldown — kept continuous per hit by atkCount.
-        const fighting = u.state === "fight" && !u.windupKey && u.alive;
+        const fighting = this.phase === "fight" && u.state === "fight" && !u.windupKey && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
         tok.actor.poseArms(Math.max(windup, healRaise), fighting, moving, atkProg, tok.atkCount, slamProg);
       }
@@ -1152,10 +1157,12 @@ export class RaidScene {
     }
     this.roundLabel.position.set(W / 2, H * 0.05);
 
-    // Retreat button, top-left under the zombie health bar.
-    this.retreatBtn.position.set(mx, H * 0.05 + barH + 10);
+    // Retreat stays out of the combat HUD at the bottom-left of the viewport.
+    this.retreatBtn.visible = (this.phase === "intro" || this.phase === "fight")
+      && !this.sim.finished && !this.retreatRequested;
+    this.retreatBtn.position.set(mx, H - this.retreatBtn.height - 18);
 
-    // Ability strip, stacked under the retreat button. Activated badges show how
+    // Ability strip remains below the top-left health bar. Activated badges show how
     // many zombies are ready right now; dim a move when none can perform it.
     const CELL = 52;
     this.abilityStrip.position.set(mx + 24, H * 0.05 + barH + 54 + 24);
@@ -1276,8 +1283,11 @@ export class RaidScene {
     // event-dispatch on the button that triggered it.
     if (this.retreatRequested && !this.resultFired) {
       this.retreated = true;
-      this.fireResult();
-      this.phase = "done";
+      this.retreatRequested = false;
+      this.retreatBtn.visible = false;
+      this.abilityStrip.interactiveChildren = false;
+      this.bubble.visible = false;
+      this.setPhase("retreat");
     }
 
     switch (this.phase) {
@@ -1354,6 +1364,18 @@ export class RaidScene {
           if (u.team === "player" && u.alive) u.x += (OUTRO_WALK_SPEED * dtMs) / 1000;
         }
         if (this.phaseT >= OUTRO_RESULT_DELAY_MS) this.fireResult();
+        break;
+      }
+      case "retreat": {
+        // Living zombies turn around and walk off the left edge. Combat is frozen;
+        // after the same kind of visual beat used by victory, show the loss panel.
+        for (const u of this.sim.units) {
+          if (u.team === "player" && u.alive) u.x -= (OUTRO_WALK_SPEED * dtMs) / 1000;
+        }
+        if (this.phaseT >= RETREAT_RESULT_DELAY_MS) {
+          this.fireResult();
+          this.phase = "done";
+        }
         break;
       }
       case "defeat":
