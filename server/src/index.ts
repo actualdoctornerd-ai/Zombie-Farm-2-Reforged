@@ -369,6 +369,7 @@ app.use("/friends/*", requireAuth);
 app.use("/gifts", requireAuth);
 app.use("/gifts/*", requireAuth);
 app.use("/raid/*", requireAuth);
+app.use("/epic-boss/*", requireAuth);
 app.use("/storage/*", requireAuth);
 app.use("/economy/*", requireAuth);
 app.use("/quest/*", requireAuth);

@@ -344,7 +344,7 @@ const STYLE = `
 /* During a live raid the battle scene owns the screen: hide the farm chrome but
    keep raid panels (.panelbg) visible. */
 #hud.raiding .topbar, #hud.raiding .tools, #hud.raiding .menucol,
-#hud.raiding .questcol, #hud.raiding .fab { display: none !important; }
+#hud.raiding .questcol, #hud.raiding .qtoggle, #hud.raiding .fab { display: none !important; }
 /* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
    surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
    camera, zombie inspect, and the visit banner remain. */
@@ -396,6 +396,7 @@ const STYLE = `
 /* modal panel with an X close in the top-right (used by all closeable menus) */
 #hud .panelbg { position: fixed; inset: 0; pointer-events: auto; z-index: 20;
   background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; }
+#hud .game-confirm-bg { z-index: 25; }
 #hud .panel { position: relative; min-width: 260px; max-width: 80vw; padding: 20px 24px;
   background: linear-gradient(#6e4425, #492b16); border: 3px solid #2f1d0d;
   border-radius: 18px; box-shadow: 0 6px 22px rgba(0,0,0,.6); color: #fff;

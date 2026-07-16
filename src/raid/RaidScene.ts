@@ -767,7 +767,7 @@ export class RaidScene {
     this.buildRetreatButton();
   }
 
-  /** A "Retreat" button (bottom-left) that ends the raid as a
+  /** A "Retreat" button (bottom-right) that ends the raid as a
    *  loss — the army flees, so no rewards and no veterancy credit. */
   private buildRetreatButton() {
     const label = new Text({
@@ -1231,10 +1231,11 @@ export class RaidScene {
     }
     this.roundLabel.position.set(W / 2, H * 0.05);
 
-    // Retreat stays out of the combat HUD at the bottom-left of the viewport.
+    // Retreat occupies the bottom-right action slot used by the farm quest control,
+    // which is hidden while a battle owns the screen.
     this.retreatBtn.visible = (this.phase === "intro" || this.phase === "fight")
       && !this.sim.finished && !this.retreatRequested;
-    this.retreatBtn.position.set(mx, H - this.retreatBtn.height - 18);
+    this.retreatBtn.position.set(W - mx - this.retreatBtn.width, H - this.retreatBtn.height - 18);
 
     // Ability strip remains below the top-left health bar. Activated badges show how
     // many zombies are ready right now; dim a move when none can perform it.

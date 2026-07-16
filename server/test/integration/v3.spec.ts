@@ -21,6 +21,26 @@ const commandBody = (
 });
 
 describe("protocol v3 API", () => {
+  it("authenticates and activates an Epic Boss event", async () => {
+    const unauthenticated = await call<any>("POST", "/epic-boss/activate", undefined, {
+      activationId: "activation-unauthenticated",
+    });
+    expect(unauthenticated.status).toBe(401);
+
+    const session = await signIn();
+    await call("POST", "/bootstrap", session.token, {});
+    const activated = await call<any>("POST", "/epic-boss/activate", session.token, {
+      activationId: "activation-authenticated",
+    });
+    expect(activated.status, JSON.stringify(activated.body)).toBe(200);
+    expect(activated.body.event).toMatchObject({
+      runId: "activation-authenticated",
+      bossId: "dr-groundhog",
+      level: 1,
+    });
+    expect(activated.body.balance.brains).toBe(9_990);
+  });
+
   it("persists pet ownership, makes retries idempotent, and ignores presentation forgeries", async () => {
     const owner = await signIn();
     const other = await signIn();
