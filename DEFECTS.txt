@@ -5,6 +5,7 @@ occasional delay between recieving currency/exp and visual update
 Raid difficulty needs to be tuned
 
 Clipping between characters and crop sprites
+Pet pen gate clipping
 
 Rethought Epic boss - how to start/continue/stop it
 
