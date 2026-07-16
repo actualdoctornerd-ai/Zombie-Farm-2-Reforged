@@ -1290,6 +1290,15 @@ async function main() {
     auth.signOut();
     location.reload(); // back to the sign-in gate
   };
+  hud.onSetUsername = async (name) => {
+    try {
+      await api.setUsername(name);
+      hud.refreshAccount();
+      return null;
+    } catch (e) {
+      return errCode(e);
+    }
+  };
   hud.refreshFriends = async () => {
     const list = await api.getFriends();
     state.friends = list.map(api.toFriend); // server list becomes the cache

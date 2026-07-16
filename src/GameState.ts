@@ -391,9 +391,7 @@ export class GameState {
     this.emit();
     return true;
   }
-  /** Whether a brain can be gifted to this friend right now. The once-per-day
-   *  limit is deferred (see social/friends.ts), so this is currently always true
-   *  for a real friend. */
+  /** Whether a brain can be gifted to this friend right now. */
   canGiftBrain(id: string): boolean {
     const f = this.friends.find((x) => x.id === id);
     return !!f && canGiftBrain(f, Date.now());
@@ -401,8 +399,8 @@ export class GameState {
   /** Gift one brain to a friend. Free to the player (a social faucet) — offline
    *  there is no recipient account, so the gift is only recorded on the friend.
    *  The online build credits the recipient's account server-side instead
-   *  (net/api.ts → POST /gifts). Returns false if the friend is unknown or
-   *  (later) already gifted today. */
+   *  (net/api.ts → POST /gifts). Returns false if the friend is unknown or was
+   *  already gifted during the current cooldown. */
   giftBrain(id: string): boolean {
     const f = this.friends.find((x) => x.id === id);
     if (!f || !canGiftBrain(f, Date.now())) return false;

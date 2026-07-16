@@ -12,7 +12,8 @@ import { mutationLabel, mutationBonus } from "./zombie/mutations";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
-import type { Friend } from "./social/friends";
+import { APP_VERSION } from "./version";
+import { canGiftBrain, type Friend } from "./social/friends";
 import { isMobile } from "./platform";
 import { getSpriteSet, setSpriteSet, getEdition, setEdition,
   FarmBackground, FARM_BACKGROUNDS } from "./prefs";
@@ -414,6 +415,20 @@ const STYLE = `
   gap: 24px; min-width: 240px; padding: 8px 2px; font-size: 15px; font-weight: 700; }
 #hud .set-row + .set-row { border-top: 1px solid rgba(255,255,255,.15); }
 #hud .set-note { margin: 2px 2px 4px; font-size: 12px; color: #cbe6a0; opacity: .85; }
+#hud .set-username { margin: 4px 0 8px; }
+#hud .set-username-controls { display: flex; gap: 7px; }
+#hud .set-username-input { width: 150px; box-sizing: border-box; padding: 6px 8px;
+  border: 2px solid #1e1207; border-radius: 7px; background: #2a1c0c; color: #ffe9a8;
+  font: 700 14px system-ui, sans-serif; outline: none; }
+#hud .set-username-input:focus { border-color: #86b94b; }
+#hud .set-username-save { padding: 6px 12px; border: 2px solid #14240a; border-radius: 8px;
+  cursor: pointer; color: #fff; font: 800 12px system-ui, sans-serif; text-shadow: 0 1px 1px #000;
+  background: linear-gradient(#7ea63a, #55972a); }
+#hud .set-username-save:disabled { opacity: .5; cursor: default; }
+#hud .set-username-status { min-height: 15px; margin: 3px 2px 0; font-size: 12px; color: #cbe6a0; }
+#hud .set-username-status.error { color: #ffb09f; }
+#hud .set-version { margin-top: 12px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.15);
+  color: #b6a986; font: 700 11px system-ui, sans-serif; text-align: center; text-shadow: none; }
 #hud .toggle { width: 62px; height: 28px; border-radius: 15px; border: 2px solid #1e1207;
   background: #5a3a1a; cursor: pointer; position: relative; padding: 0;
   font: 700 11px system-ui, sans-serif; color: #fff; }
@@ -1814,6 +1829,8 @@ export class Hud {
   renderAuthButton: ((el: HTMLElement) => void) | null = null;
   /** Sign out (flushes + reloads into offline mode). */
   onSignOut: (() => void) | null = null;
+  /** Change the signed-in player's display name. Resolves to an error code, or null. */
+  onSetUsername: ((name: string) => Promise<string | null>) | null = null;
   /** Pull the latest friends list from the server into the cache. */
   refreshFriends: (() => Promise<void>) | null = null;
   /** Add a friend by their shared code. Resolves to an error code, or null on success. */
@@ -2849,6 +2866,59 @@ export class Hud {
     );
     const editionNote = noteEl("Reforged adds brain gifting & online features; Traditional is the OG experience. (Gating not wired yet.)");
 
+    // Signed-in players can change the same display name they chose on first login.
+    // The server remains the source of truth for normalization and validation.
+    const accountBlock: HTMLElement[] = [];
+    const acct = this.myAccount?.();
+    if (this.socialOnline?.() && acct && this.onSetUsername) {
+      const wrap = document.createElement("div");
+      wrap.className = "set-username";
+      const r = document.createElement("div");
+      r.className = "set-row";
+      const label = document.createElement("span");
+      label.textContent = "Username";
+      const controls = document.createElement("div");
+      controls.className = "set-username-controls";
+      const input = document.createElement("input");
+      input.className = "set-username-input";
+      input.type = "text";
+      input.maxLength = 20;
+      input.autocomplete = "off";
+      input.value = acct.name;
+      input.setAttribute("aria-label", "Username");
+      const save = document.createElement("button");
+      save.className = "set-username-save";
+      save.textContent = "Save";
+      const status = document.createElement("div");
+      status.className = "set-username-status";
+      const submit = async () => {
+        const name = input.value.trim();
+        if (!name || save.disabled) return;
+        save.disabled = true;
+        input.disabled = true;
+        status.classList.remove("error");
+        status.textContent = "Saving…";
+        const error = await this.onSetUsername!(name).catch(() => "error");
+        save.disabled = false;
+        input.disabled = false;
+        if (error) {
+          status.classList.add("error");
+          status.textContent = error === "bad_username"
+            ? "Use 2–20 letters, numbers, spaces or _ - . '"
+            : "Couldn't save that. Try again.";
+          return;
+        }
+        input.value = this.myAccount?.()?.name ?? name;
+        status.textContent = "Username updated.";
+      };
+      save.onclick = () => void submit();
+      input.onkeydown = (e) => { if (e.key === "Enter") void submit(); };
+      controls.append(input, save);
+      r.append(label, controls);
+      wrap.append(r, status);
+      accountBlock.push(wrap);
+    }
+
     // Farm background: how lush the trees ringing the farm are. All three fill the
     // view to the zoom-out edge; they differ in density (Deep Forest → Light Meadow).
     const bgBlock: HTMLElement[] = [];
@@ -2868,10 +2938,15 @@ export class Hud {
       row("Mute When Unfocused", this.audio.muteWhenUnfocused,
         (v) => this.audio.setMuteWhenUnfocused(v)),
       noteEl("Silence the game while its tab or window is in the background."),
+      ...accountBlock,
       ...bgBlock,
       spriteRow, spriteNote,
       editionRow, editionNote
     );
+    const version = document.createElement("div");
+    version.className = "set-version";
+    version.textContent = `Version ${APP_VERSION}`;
+    panel.append(version);
     bg.appendChild(panel);
     bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
     this.el.appendChild(bg);
@@ -3358,14 +3433,24 @@ export class Hud {
         acts.className = "prof-actions";
         const gift = document.createElement("button");
         gift.className = "prof-btn play fr-gift";
-        gift.textContent = "Gift 🧠";
-        gift.title = "Send this friend a brain";
+        const giftCoolingDown = online()
+          ? !!f.giftOnCooldown
+          : !canGiftBrain(f, Date.now());
+        gift.disabled = giftCoolingDown;
+        gift.textContent = giftCoolingDown ? "Gifted 🧠" : "Gift 🧠";
+        gift.title = giftCoolingDown
+          ? "You already gifted this friend during the current cooldown."
+          : "Send this friend a brain";
         gift.onclick = async () => {
           if (online()) {
             gift.disabled = true;
             const err = giftErr(await (this.onGiftBrainOnline?.(f.id) ?? Promise.resolve("offline")));
             if (err) { this.showToast(err); gift.disabled = false; }
-            else this.showToast(`Sent a brain to ${f.name}! 🧠`);
+            else {
+              f.giftOnCooldown = true;
+              this.showToast(`Sent a brain to ${f.name}! 🧠`);
+              renderList();
+            }
           } else {
             if (this.onGiftBrain?.(f.id)) {
               this.showToast(`Sent a brain to ${f.name}! 🧠`);

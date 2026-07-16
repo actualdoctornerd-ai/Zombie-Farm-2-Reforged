@@ -14,9 +14,7 @@
 // is created for the recipient, not deducted from the sender. Offline there is no
 // recipient to deliver to, so the gift is only recorded on the friend.
 //
-// The once-per-day limit is modelled here (lastGiftAt + GIFT_COOLDOWN_MS) but NOT
-// yet enforced: canGiftBrain defaults enforceDaily=false so a brain can always be
-// gifted for now. Flip that default (or pass true) when the daily gate lands.
+// The once-per-day limit is modelled here with lastGiftAt + GIFT_COOLDOWN_MS.
 // ---------------------------------------------------------------------------
 
 export interface Friend {
@@ -27,28 +25,24 @@ export interface Friend {
   /** Epoch ms this friend was added. */
   addedAt: number;
   /** Epoch ms of the last brain we gifted this friend. Absent = never gifted.
-   *  Drives the (future) once-per-day gift gate. */
+   *  Drives the offline once-per-day gift gate. */
   lastGiftAt?: number;
   /** Lifetime brains gifted to this friend. */
   giftsSent: number;
   /** The friend's shareable code (online friends only). */
   friendCode?: string;
+  /** Authoritative online status for the server's current daily gift window. */
+  giftOnCooldown?: boolean;
 }
 
-/** Milliseconds in a day — the gift cooldown window (not yet enforced). */
+/** Milliseconds in a day — the offline gift cooldown window. */
 export const GIFT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
-/** Whether a brain can be gifted to `f` right now.
- *
- *  The once-per-day rule is DEFERRED: with the default `enforceDaily=false` this
- *  always returns true. When the daily limit lands, enforce it here (or pass
- *  `true`) and this becomes the single gate every caller shares. */
+/** Whether an offline brain can be gifted to `f` right now. */
 export function canGiftBrain(
   f: Friend,
-  now: number,
-  enforceDaily = false
+  now: number
 ): boolean {
-  if (!enforceDaily) return true;
   return f.lastGiftAt === undefined || now - f.lastGiftAt >= GIFT_COOLDOWN_MS;
 }
 

@@ -9,7 +9,7 @@
 // at plant time, honoured but capped at a 2x multiplier — making it exact needs the
 // player's Garden-zombie roster server-side, a later layer.)
 import type { CropEcon } from "./catalog";
-import type { ZombieCropEcon } from "./zombieCropCatalog";
+import { zombieCropEcon, type ZombieCropEcon } from "./zombieCropCatalog";
 
 export interface Balance {
   gold: number;
@@ -246,5 +246,7 @@ export function planZombieHarvest(
   if (!plot) return { ok: false, error: "nothing_planted" };
   if (typeof a.unitId !== "string" || !a.unitId) return { ok: false, error: "bad_unit" };
   if (now - plot.planted_at < plot.grow_ms - GROW_GRACE_MS) return { ok: false, error: "not_grown" };
-  return { ok: true, unitKey: plot.crop_key, xpDelta: plot.xp };
+  const econ = zombieCropEcon(plot.crop_key);
+  if (!econ) return { ok: false, error: "bad_crop" };
+  return { ok: true, unitKey: plot.crop_key, xpDelta: econ.xp };
 }

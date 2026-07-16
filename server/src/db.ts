@@ -196,6 +196,19 @@ export async function listFriends(
   return res.results ?? [];
 }
 
+/** Account ids this sender has already gifted in a server-owned day bucket. */
+export async function giftedRecipientIds(
+  db: D1Database,
+  accountId: string,
+  giftDayBucket: number
+): Promise<Set<string>> {
+  const res = await db
+    .prepare("SELECT to_id FROM gifts WHERE from_id = ? AND day_bucket = ?")
+    .bind(accountId, giftDayBucket)
+    .all<{ to_id: string }>();
+  return new Set((res.results ?? []).map((row) => row.to_id));
+}
+
 export async function areFriends(
   db: D1Database,
   a: string,

@@ -272,7 +272,7 @@
   "growMs": 21600000,
   "category": "mutant",
   "level": 3,
-  "xp": 900,
+  "xp": 1,
   "brainsNeeded": false,
   "group": "Regular",
   "className": "Green",

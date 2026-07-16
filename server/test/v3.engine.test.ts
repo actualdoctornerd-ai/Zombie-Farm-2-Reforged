@@ -161,6 +161,19 @@ describe("protocol v3 command engine", () => {
     expect(result.state.farm.plots["0:0"]).toMatchObject({ state: "spent", zombie: false });
   });
 
+  it("uses current catalog XP when harvesting a zombie plot with the old bad reward", () => {
+    const state = freshGameplayState();
+    state.farm.plots["0:0"] = {
+      state: "planted", cropKey: "ZombieActorRegularTier1Carrots", plantedAt: 0,
+      growMs: 1, sell: 0, xp: 900, fertilized: false, zombie: true,
+    };
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.harvest", oc: 0, or: 0 },
+    ), { now: 1_000, id: () => "carrot-zombie" });
+    expect(result.results[0].status).toBe("applied");
+    expect(result.state.balance.xp).toBe(1);
+  });
+
   it("does not consume Harvest power when capacity blocks its only ripe zombie", () => {
     const state = freshGameplayState();
     state.inventory.insta_harvest = 1;

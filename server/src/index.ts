@@ -869,12 +869,17 @@ app.get("/state", async (c) => {
 
 // ---- GET /friends -------------------------------------------------------
 app.get("/friends", async (c) => {
-  const friends = await db.listFriends(c.env.DB, c.get("accountId"));
+  const accountId = c.get("accountId");
+  const [friends, gifted] = await Promise.all([
+    db.listFriends(c.env.DB, accountId),
+    db.giftedRecipientIds(c.env.DB, accountId, dayBucket(Date.now())),
+  ]);
   return c.json(
     friends.map((f) => ({
       accountId: f.id,
       name: f.username ?? "Player", // chosen display name only (no PII)
       friendCode: f.friend_code,
+      giftOnCooldown: gifted.has(f.id),
     }))
   );
 });

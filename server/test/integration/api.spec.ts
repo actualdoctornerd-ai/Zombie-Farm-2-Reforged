@@ -99,7 +99,11 @@ describe("gifts — daily limit + idempotent claim", () => {
 
   it("enforces once-per-day per recipient", async () => {
     const [a, b] = await friendsWithSaves();
+    const before = await call<{ accountId: string; giftOnCooldown: boolean }[]>("GET", "/friends", a.token);
+    expect(before.body.find((f) => f.accountId === b.accountId)?.giftOnCooldown).toBe(false);
     expect((await call("POST", "/gifts", a.token, { toAccountId: b.accountId })).status).toBe(200);
+    const after = await call<{ accountId: string; giftOnCooldown: boolean }[]>("GET", "/friends", a.token);
+    expect(after.body.find((f) => f.accountId === b.accountId)?.giftOnCooldown).toBe(true);
     expect((await call("POST", "/gifts", a.token, { toAccountId: b.accountId })).status).toBe(429);
   });
 

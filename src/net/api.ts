@@ -165,6 +165,7 @@ export interface FriendView {
   accountId: string;
   name: string;
   friendCode: string;
+  giftOnCooldown?: boolean;
 }
 export interface InboxGift {
   id: string;
@@ -656,5 +657,12 @@ export const raidCheckpoint = (sessionId: string, finalTick: number, inputs: Rai
 
 // A server friend rendered into the client's Friend shape (for the HUD cache).
 export function toFriend(f: FriendView): Friend {
-  return { id: f.accountId, name: f.name, addedAt: 0, giftsSent: 0, friendCode: f.friendCode };
+  return {
+    id: f.accountId,
+    name: f.name,
+    addedAt: 0,
+    giftsSent: 0,
+    friendCode: f.friendCode,
+    giftOnCooldown: f.giftOnCooldown ?? false,
+  };
 }

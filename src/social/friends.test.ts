@@ -9,20 +9,17 @@ describe("nextFriendId — lowest free fN", () => {
     expect(nextFriendId(["f1", "f3"])).toBe("f2"));
 });
 
-describe("canGiftBrain — daily gate is deferred", () => {
+describe("canGiftBrain — daily cooldown", () => {
   const now = 1_000_000;
   const base: Friend = { id: "f1", name: "Al", addedAt: 0, giftsSent: 0 };
-  it("always allows a gift while enforcement is off (default)", () => {
-    expect(canGiftBrain({ ...base, lastGiftAt: now }, now)).toBe(true);
+  it("blocks another gift during the cooldown", () => {
+    expect(canGiftBrain({ ...base, lastGiftAt: now }, now)).toBe(false);
   });
-  it("blocks a same-day gift once enforcement is on", () => {
-    expect(canGiftBrain({ ...base, lastGiftAt: now }, now, true)).toBe(false);
+  it("allows a gift after the cooldown", () => {
+    expect(canGiftBrain({ ...base, lastGiftAt: now }, now + GIFT_COOLDOWN_MS)).toBe(true);
   });
-  it("allows a gift after the cooldown when enforced", () => {
-    expect(canGiftBrain({ ...base, lastGiftAt: now }, now + GIFT_COOLDOWN_MS, true)).toBe(true);
-  });
-  it("allows the first-ever gift when enforced (no lastGiftAt)", () => {
-    expect(canGiftBrain(base, now, true)).toBe(true);
+  it("allows the first-ever gift", () => {
+    expect(canGiftBrain(base, now)).toBe(true);
   });
 });
 
@@ -50,6 +47,7 @@ describe("GameState friends + gifting", () => {
     expect(f.giftsSent).toBe(1);
     expect(f.lastGiftAt).toBeGreaterThan(0);
     expect(s.brains).toBe(before); // gifting is free to the sender
+    expect(s.giftBrain(f.id)).toBe(false);
   });
 
   it("gifting an unknown friend fails", () => {

@@ -136,7 +136,7 @@ function rewardHarvest(
     const id = makeId();
     if (!addZombie(state, key, id)) return { ok: false, error: "capacity_full" };
     created.push(id);
-    state.balance.xp += plot.xp;
+    state.balance.xp += zombieCropEcon(key)?.xp ?? 0;
     return { ok: true, event: { type: "kCropHarvestedZombieNotification", subject: zombieNames.get(key) ?? key } };
   }
   state.balance.gold += plot.sell * (plot.fertilized ? 2 : 1);

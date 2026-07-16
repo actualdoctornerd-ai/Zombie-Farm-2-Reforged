@@ -256,7 +256,9 @@ export class RaidScene {
   private healCfg: ParticleConfig | null = null;
   private confettiFired = false;
 
-  // team bars
+  // Top HUD backing + team bars. The backing visually separates the health/stats
+  // row from busy raid backgrounds while remaining translucent over the scene.
+  private topHudBack = new Graphics();
   private pFill = new Graphics();
   private eFill = new Graphics();
   private pLabel!: Text;
@@ -666,6 +668,9 @@ export class RaidScene {
   }
 
   private buildTeamBars() {
+    // Added after the battlefield layers but before every top-HUD child, keeping it
+    // behind the bars, portraits, counts, timer, retreat button, and abilities.
+    this.container.addChild(this.topHudBack);
     const mk = (fill: Graphics) => {
       const wrap = new Container();
       const bar = new Graphics();
@@ -1114,6 +1119,12 @@ export class RaidScene {
     // Team bars, top corners.
     const barW = Math.min(W * 0.34, 380);
     const barH = 20;
+    const topHudH = Math.max(72, H * 0.05 + barH + 34);
+    this.topHudBack.clear()
+      .rect(0, 0, W, topHudH).fill({ color: 0x15130f, alpha: 0.78 })
+      .rect(0, topHudH - 4, W, 4).fill({ color: 0x090a08, alpha: 0.5 })
+      .moveTo(0, topHudH - 1).lineTo(W, topHudH - 1)
+      .stroke({ width: 2, color: 0xc7b78b, alpha: 0.48 });
     this.pWrap.position.set(mx, H * 0.05);
     this.eWrap.position.set(W - mx - barW, H * 0.05);
     // Face badges just outside each bar (clamped on-screen): zombie left, enemy right.

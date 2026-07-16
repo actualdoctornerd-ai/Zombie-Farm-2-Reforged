@@ -4,7 +4,7 @@ import {
   PLOT, PLOW_COST, type PlantContext, type PlotRecord,
 } from "../src/farm";
 import { cropEcon, CROPS } from "../src/catalog";
-import { zombieCropEcon } from "../src/zombieCropCatalog";
+import { zombieCropEcon, ZOMBIE_CROPS } from "../src/zombieCropCatalog";
 import plants from "../../public/assets/plants.json";
 
 const bal = (gold = 1000, brains = 0, xp = 0) => ({ gold, brains, xp });
@@ -23,6 +23,13 @@ describe("catalog", () => {
       expect(c.cost, k).toBeGreaterThan(0);
       expect(c.sell, k).toBeGreaterThan(0);
       expect(c.growMs, k).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps zombie harvest XP in the intended 1-2 XP range", () => {
+    for (const [key, zombie] of Object.entries(ZOMBIE_CROPS)) {
+      expect(zombie.xp, key).toBeGreaterThanOrEqual(1);
+      expect(zombie.xp, key).toBeLessThanOrEqual(2);
     }
   });
 });
@@ -204,6 +211,12 @@ describe("planZombieHarvest — grow gate + verified unit yield", () => {
   it("yields the plot's unit key + xp once grown", () => {
     const r = planZombieHarvest(harvest(), plot(), NOW + 600000);
     expect(r).toMatchObject({ ok: true, unitKey: GOLD_Z, xpDelta: 1 });
+  });
+
+  it("uses current catalog XP for a zombie planted with the old bad reward", () => {
+    const carrotZombie = "ZombieActorRegularTier1Carrots";
+    const r = planZombieHarvest(harvest(), plot({ crop_key: carrotZombie, xp: 900 }), NOW + 600000);
+    expect(r).toMatchObject({ ok: true, unitKey: carrotZombie, xpDelta: 1 });
   });
 
   it("rejects before it has grown, an empty plot, and a missing unit id", () => {

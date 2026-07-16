@@ -49,7 +49,7 @@ export const ZOMBIE_CROPS: Readonly<Record<string, ZombieCropEcon>> = {
   "ZombieActorRegular4Tier5": { cost: 50, brains: true, growMs: 14400000, xp: 2, level: 1 },
   "ZombieActorRegularCrazy": { cost: 100, brains: true, growMs: 86400000, xp: 2, level: 20 },
   "ZombieActorRegularTier1": { cost: 35, brains: false, growMs: 600000, xp: 1, level: 1 },
-  "ZombieActorRegularTier1Carrots": { cost: 55, brains: false, growMs: 21600000, xp: 900, level: 3 },
+  "ZombieActorRegularTier1Carrots": { cost: 55, brains: false, growMs: 21600000, xp: 1, level: 3 },
   "ZombieActorRegularTier1Coffee": { cost: 70, brains: false, growMs: 28800000, xp: 1, level: 9 },
   "ZombieActorRegularTier1Onions": { cost: 70, brains: false, growMs: 21600000, xp: 1, level: 3 },
   "ZombieActorRegularTier1Potatoes": { cost: 90, brains: false, growMs: 28800000, xp: 1, level: 6 },

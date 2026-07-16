@@ -4,9 +4,11 @@ Enemy health bars too far to the left
 
 Often times delay between recieving currency/exp and visual update
 
-No indicator of when gifts can next be sent
-
 Raid difficulty needs to be tuned
+
+Clipping between characters and crop sprites
+
+
 
 
 
