@@ -60,7 +60,7 @@ export class GameState {
   // The player's chosen attack order (deployed zombie ids, first attacks first).
   // Persisted so the Army screen reopens with the same ordering after a raid.
   raidAttackOrder: string[] = [];
-  // ---- limited Epic Boss run (Dr. Groundhog first) ----
+  // ---- limited Epic Boss run ----
   epicBossRun: EpicBossRun | null = null;
   // ---- friends (local offline-fallback list) ----
   // The online friend system is server-backed (net/api.ts + HUD): friend codes,

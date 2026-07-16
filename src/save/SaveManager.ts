@@ -8,6 +8,7 @@ import { SaveGame, SAVE_VERSION, SAVE_KEY } from "./schema";
 import { activeSaveKey } from "./profiles";
 import * as api from "../net/api";
 import { getFarmBackground } from "../prefs";
+import { epicBossById } from "../epicBoss/catalog";
 
 type PresentationData = {
   player?: { name?: string; farmer?: { col: number; row: number }; farmerAppearance?: SaveGame["player"]["farmerAppearance"] };
@@ -299,7 +300,10 @@ export class SaveManager {
     this.field.restoreObjects(objects, (key) => this.placeCatalog.get(key));
     this.zombies.restore(data.ownedZombies ?? []);
     this.zombies.restorePot(data.zombiePot);
-    this.quests.setEpicBossActive(!!this.state.epicBossRun && !this.state.epicBossRun.completedAt && Date.now() < this.state.epicBossRun.expiresAt);
+    const epicRun = this.state.epicBossRun;
+    const epicDef = epicBossById(epicRun?.bossId);
+    const epicActive = !!epicRun && !epicRun.completedAt && Date.now() < epicRun.expiresAt;
+    this.quests.setEpicBossActive(epicActive, epicActive ? epicDef?.questIds ?? [] : []);
     this.quests.restore(data.quests);
     if (player.farmer) this.walk.teleport(player.farmer.col, player.farmer.row);
   }

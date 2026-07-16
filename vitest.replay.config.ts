@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     include: ["src/raid/replay.test.ts"],
     fileParallelism: false,
-    poolOptions: { threads: { singleThread: true } },
+    maxWorkers: 1,
     env: { REPLAY_BENCH: "1" },
   },
 });

@@ -51,10 +51,17 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
  ('0001_trackA_upgrade.sql'),('0002_grant_settlement.sql'),('0003_raid_cooldown.sql'),
  ('0004_economy_ledger.sql'),('0005_farm_economy.sql'),('0006_session_labels.sql'),
  ('0007_raid_rewards.sql'),('0008_boost_inventory.sql'),('0009_roster.sql'),
- ('0010_combine_jobs.sql');"
+ ('0010_combine_jobs.sql'),('0011_shop_state.sql'),('0012_level_rewards.sql'),
+ ('0013_quest_completions.sql'),('0014_object_ownership.sql'),('0015_plowed_soil.sql'),
+ ('0016_raid_session_reserve.sql'),('0017_raid_progress.sql'),('0018_item_storage.sql'),
+ ('0019_integrity_v2.sql'),('0020_permanent_import_closure.sql'),
+ ('0020_protocol_v3_reset.sql'),('0021_epic_boss.sql'),
+ ('0022_epic_boss_retry_skip.sql');"
 ```
 
-From then on, new migrations (0011+) apply cleanly via `migrations apply`.
+From then on, only migrations added after this baseline apply via `migrations apply`.
+Whenever `schema.sql` gains a table, add its migration filename to this fresh-database
+baseline in the same change.
 
 ## Existing/older database (upgrade)
 
@@ -70,7 +77,9 @@ manual `schema.sql` touched the table):
 | `0006_session_labels` | `ALTER TABLE sessions ADD COLUMN label` | Fails if `label` exists. |
 | `0007_raid_rewards` | `ALTER TABLE raid_sessions ADD COLUMN raid_id` | Fails if `raid_id` exists. |
 
-`0003`–`0005` and `0008`–`0010` are all `CREATE … IF NOT EXISTS` and safe to re-run.
+The remaining current migrations use repeatable deletes or `CREATE … IF NOT EXISTS`.
+Read destructive reset migrations before applying them; repeatable does not mean safe
+for data retention.
 
 If an `ALTER` migration errors because its column already exists, mark just that one as
 applied and continue:
@@ -82,10 +91,12 @@ wrangler d1 execute zombiefarm --remote --command \
 
 ## After any upgrade
 
-- The session model invalidates existing access tokens (no `sid` claim) → every
-  signed-in user re-logs in once. Communicate this.
+- If the applied set includes a session/reset migration, communicate the resulting
+  re-login or data-reset requirement before maintenance begins.
 - Confirm `DEV_AUTH = "0"` in the deployed `[vars]` (it is in `wrangler.toml`).
 - Smoke-check with `scripts/smoke.sh` (see `../RUNBOOK.md`).
+- For Epic Boss support, verify both `epic_boss_runs_v3` and
+  `epic_boss_retry_skips_v3` exist after migrations `0021` and `0022`.
 
 ## Going forward
 

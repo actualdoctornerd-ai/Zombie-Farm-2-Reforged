@@ -5,8 +5,8 @@
 // Quests activate when their prerequisite is complete AND the player meets the level
 // gate. All 96 quests load; the farm loop, raids/invasions (loot/perfect/success),
 // and the Zombie Pot combiner have live emitters (see LIVE_EVENTS below). Quests
-// gated on still-unsupported categories (social, photo/camera, Epic Boss) simply
-// never advance — dormant, not broken.
+// gated on still-unsupported categories (social and photo/camera) simply never
+// advance — dormant, not broken. Epic quests are selected per active boss event.
 import { GameState } from "../GameState";
 import { QuestBus, QuestEvent } from "./events";
 import { QuestDef, QuestView, RewardType } from "./types";
@@ -18,7 +18,7 @@ import { QuestSave } from "../save/schema";
 // wins → loot / perfect-game / success), and the Zombie Pot combiner.
 // Intentionally NOT covered: social quests (kSocialManager* — the online friends
 // system exists, but these quest events aren't wired to it yet), camera/photo
-// (kPhotoTaken — excluded), and the Epic Boss system (unbuilt).
+// (kPhotoTaken — excluded).
 const LIVE_EVENTS = new Set<string>([
   // farm loop
   QuestEvent.SoilPlowed, QuestEvent.NewSoilPlowed, QuestEvent.CropPlanted,

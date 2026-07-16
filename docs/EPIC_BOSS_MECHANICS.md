@@ -25,15 +25,18 @@ retry, and encounter timers, level/HP, rewards, activation, and Fight state.
 
 ## Rewards
 
-Milestones are Dr. Zombie (5), Invasion Voucher (10), one brain (15), and Golden Dice
-plus Omega Dr. Zombie (20). The event also supports eight recovered decor items and the
-tame Groundhog. Until exact binary loot selection is recovered, each victory makes one
-35% roll, preferring unlocked uncollected drops; decor duplicates become possible after
-eligible decor is collected and the pet leaves the pool once owned. The ambiguous source
+Each boss uses its own recovered quest milestones, decor pool, and tame pet. Groundhog's
+chain grants Dr. Zombie (5), an Invasion Voucher (10), one brain (15), and Golden Dice
+plus Omega Dr. Zombie (20); the level-40 events continue through their recovered chains.
+Until exact binary loot selection is recovered, each victory makes one 35% roll,
+preferring unlocked uncollected drops. Decor duplicates become possible after eligible
+decor is collected, and a pet leaves its boss's pool once owned. Ambiguous source
 `reward: 5000` and `xp: 5500` fields are not granted.
 
-Epic quest progress is lifetime progress: it is hidden while no Groundhog event is
-active and restored on a later run. Earned rewards and completed quests are permanent.
+Epic quest progress is lifetime progress: only the active boss's recovered quest family
+is surfaced, and it is hidden between events without being discarded. Earned rewards
+and completed quests are permanent. Bosses whose shipped quest data is missing still
+retain combat, loot, pet, and completion progression.
 
 ## Authority and persistence
 

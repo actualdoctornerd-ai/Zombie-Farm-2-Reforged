@@ -1,22 +1,29 @@
 // Boots a real `wrangler dev` Worker + local D1 once for the integration suite,
 // then tears it down. Reads DEV_AUTH=1 etc. from .dev.vars (so dev sign-in works).
-import { spawn, execSync, type ChildProcess } from "node:child_process";
+import { spawn, execFileSync, execSync, type ChildProcess } from "node:child_process";
 import { rmSync } from "node:fs";
 
 const PORT = 8799;
 const BASE = `http://127.0.0.1:${PORT}`;
 let child: ChildProcess | undefined;
 
-function killStrayWorkerd() {
+function stopWorker() {
+  if (!child?.pid) return;
   try {
-    execSync("taskkill /F /IM workerd.exe", { stdio: "ignore" });
+    if (process.platform === "win32") {
+      // child.kill() only stops the intermediate npx/cmd process on Windows. Kill
+      // its process tree so Wrangler and workerd cannot leak into later test runs.
+      execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    } else {
+      process.kill(-child.pid, "SIGTERM");
+    }
   } catch {
-    /* none running */
+    /* already stopped */
   }
+  child = undefined;
 }
 
 export async function setup() {
-  killStrayWorkerd();
   // Fresh, empty D1 so every run starts from a known-clean database.
   try {
     rmSync(".wrangler/state", { recursive: true, force: true });
@@ -27,9 +34,13 @@ export async function setup() {
     stdio: "ignore",
   });
 
-  child = spawn("npx", ["wrangler", "dev", "--port", String(PORT), "--local"], {
+  const command = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "npx";
+  const args = process.platform === "win32"
+    ? ["/d", "/s", "/c", `npx wrangler dev --port ${PORT} --local`]
+    : ["wrangler", "dev", "--port", String(PORT), "--local"];
+  child = spawn(command, args, {
     stdio: "ignore",
-    shell: true,
+    detached: process.platform !== "win32",
   });
 
   // Poll until the Worker answers.
@@ -47,14 +58,10 @@ export async function setup() {
     }
     await new Promise((r) => setTimeout(r, 500));
   }
+  stopWorker();
   throw new Error("wrangler dev did not become ready within 45s");
 }
 
 export async function teardown() {
-  try {
-    child?.kill();
-  } catch {
-    /* ignore */
-  }
-  killStrayWorkerd();
+  stopWorker();
 }

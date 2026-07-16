@@ -17,6 +17,6 @@ export default defineConfig({
     hookTimeout: 20000,
     fileParallelism: false,
     pool: "threads",
-    poolOptions: { threads: { singleThread: true } },
+    maxWorkers: 1,
   },
 });

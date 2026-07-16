@@ -24,7 +24,8 @@ GOOGLE_CLIENT_ID = "249211577622-cmqa6so9re0hgh2lti4mpe40nlcm3l4k.apps.googleuse
 ALLOWED_ORIGIN = "https://actualdoctornerd-ai.github.io"
 DEV_AUTH = "0"
 MIGRATION_CUTOFF_MS = "0"
-# Old mutation clients are intentionally cut off immediately. The current client sends v2.
+# Old mutation clients are intentionally cut off immediately. The current client uses
+# gameplay protocol v3; the INTEGRITY_V2 setting above names the request-signing scheme.
 INTEGRITY_V2_ENFORCE_AFTER_MS = "1"
 MIN_PROTOCOL_VERSION = "3"
 MUTATIONS_DISABLED = "0"
