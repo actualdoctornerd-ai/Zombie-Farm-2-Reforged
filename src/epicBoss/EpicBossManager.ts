@@ -1,4 +1,4 @@
-import { epicBossHp } from "./catalog";
+import { epicBossHp, epicBossRetrySkipCost } from "./catalog";
 import type { EpicBossAttemptResult, EpicBossDef, EpicBossRun } from "./types";
 
 export type EpicBossGate =
@@ -37,6 +37,19 @@ export class EpicBossManager {
   isActive(value: EpicBossRun | null | undefined): boolean {
     const run = this.normalize(value);
     return !!run && !run.completedAt && this.now() < run.expiresAt;
+  }
+
+  retrySkipCost(value: EpicBossRun | null | undefined): number {
+    const run = this.normalize(value);
+    return run ? epicBossRetrySkipCost(run.retryReadyAt - this.now()) : 0;
+  }
+
+  /** Clear a live retry cooldown without touching currency; the caller owns payment. */
+  skipRetry(value: EpicBossRun | null | undefined): EpicBossRun | null {
+    const run = this.normalize(value);
+    if (!run || run.completedAt || this.now() >= run.expiresAt || this.retrySkipCost(run) <= 0) return null;
+    run.retryReadyAt = 0;
+    return run;
   }
 
   start(value: EpicBossRun | null | undefined, attackOrder: string[]): EpicBossGate {

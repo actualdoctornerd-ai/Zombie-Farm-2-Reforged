@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DR_GROUNDHOG, epicBossHp } from "./catalog";
+import { DR_GROUNDHOG, epicBossHp, epicBossRetrySkipCost } from "./catalog";
 import { EpicBossManager } from "./EpicBossManager";
 
 describe("Dr. Groundhog event", () => {
@@ -48,5 +48,20 @@ describe("Dr. Groundhog event", () => {
     const run = manager.activate("run");
     now = run.expiresAt;
     expect(manager.start(run, [])).toEqual({ ok: false, error: "expired" });
+  });
+
+  it("prices retry skipping at one brain per started two-minute block", () => {
+    expect(epicBossRetrySkipCost(0)).toBe(0);
+    expect(epicBossRetrySkipCost(1)).toBe(1);
+    expect(epicBossRetrySkipCost(8 * 60_000)).toBe(4);
+    expect(epicBossRetrySkipCost(8 * 60_000 + 1)).toBe(5);
+
+    let now = 1_000;
+    const manager = new EpicBossManager(DR_GROUNDHOG, () => now);
+    const active = manager.activate("run");
+    const escaped = manager.finish(active, 1, false).run;
+    now += 12 * 60_000;
+    expect(manager.retrySkipCost(escaped)).toBe(4);
+    expect(manager.skipRetry(escaped)?.retryReadyAt).toBe(0);
   });
 });

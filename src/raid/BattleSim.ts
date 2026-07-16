@@ -70,8 +70,6 @@ const MAX_SIM_MS = 4 * 60 * 1000; // hard safety cap (min-damage 1 avoids stalls
 const MAX_ROWS = 4;
 const ROW_GAP = 46; // vertical spacing between rows
 const COL_GAP = 52; // depth spacing between columns
-const FRONT_X = ENEMY_HOLD_X - ENGAGE;
-const SUPPORT_X = CHARGE_X + (FRONT_X - CHARGE_X) * 0.5;
 
 // Mini Buddy: a waiting Small zombie mounts a Large zombie, rides to the line at
 // double speed, then dismounts as both join combat and the arrival stuns the enemy.
@@ -382,6 +380,9 @@ export class BattleSim {
   private wallTemplate: CombatUnit | null;
   private summonsLeft: number;
   private spawnSeq = 0;
+  private engageDistance: number;
+  private frontX: number;
+  private supportX: number;
   /** Distinct ACTIVATED moves present in the army (fixed) — the tappable strip. */
   readonly activatedKeys: string[];
   /** Distinct TEAM-passive abilities present (fixed) — the strip's info icons. */
@@ -407,8 +408,16 @@ export class BattleSim {
     /** Epic Boss: no butterflies, but the full brain bubble still gates release. */
     private noDistractions = false,
     /** Epic Boss: reaching zero ends the attempt instead of triggering enrage. */
-    private escapeOnRoundEnd = false
+    private escapeOnRoundEnd = false,
+    /** Epic Boss presentation: start the boss offscreen at ground level and let it
+     *  emerge from the right instead of placing it on the normal raid perch. */
+    private bossEntersFromRight = false,
+    /** Larger bosses need a wider melee line so their art does not swallow zombies. */
+    engageDistance = ENGAGE
   ) {
+    this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
+    this.frontX = ENEMY_HOLD_X - this.engageDistance;
+    this.supportX = CHARGE_X + (this.frontX - CHARGE_X) * 0.5;
     // Boss always resolves last, after the normal enemies.
     const ordered = [...enemyUnits].sort((a, b) => Number(a.isBoss) - Number(b.isBoss));
     this.players = playerUnits.map((u, i) => toSim(u, i));
@@ -417,9 +426,15 @@ export class BattleSim {
 
     this.boss = this.enemies.find((e) => e.isBoss) ?? null;
     if (this.boss) {
-      this.boss.state = "structure";
-      this.boss.x = BOSS_STRUCT_X;
-      this.boss.y = BOSS_STRUCT_Y;
+      if (this.bossEntersFromRight) {
+        this.boss.state = "emerging";
+        this.boss.x = ENEMY_SPAWN_X;
+        this.boss.y = CENTER_Y;
+      } else {
+        this.boss.state = "structure";
+        this.boss.x = BOSS_STRUCT_X;
+        this.boss.y = BOSS_STRUCT_Y;
+      }
     }
     this.bossThrow = bossThrow;
     this.throwTimer = bossThrow?.intervalMs ?? 0;
@@ -677,7 +692,7 @@ export class BattleSim {
     let best: SimUnit | null = null;
     for (const p of this.players) {
       if (!p.alive) continue;
-      if (Math.abs(p.x - e.x) > ENGAGE) continue; // out of melee lane range
+      if (Math.abs(p.x - e.x) > this.engageDistance) continue; // out of melee lane range
       if (
         !best ||
         p.x > best.x + 0.5 || // more forward (nearer the enemy) wins
@@ -906,8 +921,8 @@ export class BattleSim {
         p.slotY = CENTER_Y + (frontToBackRow - (rowsUsed - 1) / 2) * ROW_GAP;
       });
     };
-    place(frontline, FRONT_X);
-    place(rear, SUPPORT_X);
+    place(frontline, this.frontX);
+    place(rear, this.supportX);
   }
 
   /** Advance the sim by `dtMs`. Returns false once the battle is over. */
@@ -942,7 +957,7 @@ export class BattleSim {
 
     this.assignFormation();
     this.stepHealing(dtMs);
-    const frontX = FRONT_X;
+    const frontX = this.frontX;
 
     // Zombies.
     for (const p of this.players) {

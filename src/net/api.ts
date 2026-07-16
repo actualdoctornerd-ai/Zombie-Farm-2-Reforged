@@ -677,6 +677,12 @@ export const epicBossActivate = (activationId: string) => req<{
   balance: Balance;
 }>("POST", "/epic-boss/activate", { activationId });
 
+export const epicBossSkipRetry = (runId: string, retryReadyAt: number) => req<{
+  event: import("./protocol").EpicBossProjection;
+  balance: Balance;
+  costBrains: number;
+}>("POST", "/epic-boss/skip-retry", { runId, retryReadyAt });
+
 export const epicBossStart = (orderedUnitIds: string[]) => req<{
   ok: true;
   sessionId: string;

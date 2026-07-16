@@ -25,4 +25,19 @@ describe("Epic Boss BattleSim mode", () => {
     expect(charging?.kind).toBe("brain");
     expect(sim.popBubble("p")).toBe(true);
   });
+
+  it("starts an Epic Boss offscreen on the right and walks it onto the ground", () => {
+    const sim = new BattleSim(
+      [unit("p", "player")], [unit("boss", "enemy", true)], null, false, [], null,
+      60_000, null, null, true, true, true, 150
+    );
+    const before = sim.snapshot().units.find((u) => u.id === "boss")!;
+    expect(before.state).toBe("emerging");
+    expect(before.x).toBeGreaterThan(1_000);
+    sim.step(500);
+    const after = sim.snapshot().units.find((u) => u.id === "boss")!;
+    expect(after.state).toBe("emerging");
+    expect(after.x).toBeLessThan(before.x);
+    expect(after.y).toBe(280);
+  });
 });

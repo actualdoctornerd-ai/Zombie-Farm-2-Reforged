@@ -1294,6 +1294,7 @@ async function main() {
       completed: !!run?.completedAt,
       eventRemainingMs: active && run ? Math.max(0, run.expiresAt - now) : 0,
       retryRemainingMs: active && run ? Math.max(0, run.retryReadyAt - now) : 0,
+      retrySkipCost: active && run ? epicBoss.retrySkipCost(run) : 0,
       encounterRemainingMs: active && run?.encounterStartedAt
         ? Math.max(0, run.encounterStartedAt + DR_GROUNDHOG.encounterMs - now) : 0,
       rewards: DR_GROUNDHOG.loot.map((loot) => loot.name),
@@ -1332,6 +1333,37 @@ async function main() {
     }
     if (!state.spendBrains(DR_GROUNDHOG.costBrains, "epic_boss_activate")) return false;
     state.setEpicBossRun(epicBoss.activate(crypto.randomUUID()));
+    syncEpicBossUi();
+    saveManager.flush();
+    audio.play("buy");
+    return true;
+  };
+  hud.onSkipEpicBossRetry = async () => {
+    const run = epicRun();
+    if (!run) return false;
+    const quotedCost = epicBoss.retrySkipCost(run);
+    if (!quotedCost) return true;
+    if (auth.isSignedIn()) {
+      try {
+        await economy?.settleBeforeDependency();
+        const skipped = await api.epicBossSkipRetry(run.runId, run.retryReadyAt);
+        economy?.adoptEpicBossActivation(skipped.event, skipped.balance);
+        state.setEpicBossRun(skipped.event);
+        syncEpicBossUi();
+        saveManager.flush();
+        audio.play("buy");
+        return true;
+      } catch (error) {
+        const code = errCode(error);
+        hud.showToast(code === "insufficient_brains" ? "You do not have enough brains."
+          : code === "cooldown_changed" ? "The return timer changed. Please try again."
+          : "The Epic Boss timer could not be skipped.");
+        return false;
+      }
+    }
+    const skipped = epicBoss.skipRetry(run);
+    if (!skipped || !state.spendBrains(quotedCost, "epic_boss_skip_retry")) return false;
+    state.setEpicBossRun(skipped);
     syncEpicBossUi();
     saveManager.flush();
     audio.play("buy");
@@ -1631,6 +1663,9 @@ async function main() {
       imageBase: epicAsset(""),
       bossTexture: epicAsset("boss.png"),
       bossAnimations: DR_GROUNDHOG.animations,
+      bossEntersFromRight: true,
+      bossEngageDistance: 150,
+      bossGroundOffset: { x: 32, y: 24 },
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from battle?", "This attempt will end and Dr. Groundhog will escape.", "Retreat"
       ),

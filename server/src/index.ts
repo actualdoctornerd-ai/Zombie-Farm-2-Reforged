@@ -658,6 +658,18 @@ app.post("/epic-boss/activate", async (c) => {
   return result.status === 200 ? c.json(result.body) : c.json(result.body, 409);
 });
 
+app.post("/epic-boss/skip-retry", async (c) => {
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body: { runId?: unknown; retryReadyAt?: unknown } =
+    await c.req.json<{ runId?: unknown; retryReadyAt?: unknown }>().catch(() => ({}));
+  const result = await v3EpicBoss.skipRetry(
+    c.env.DB, c.get("accountId"), body.runId, body.retryReadyAt, Date.now()
+  );
+  if (result.status === 200) return c.json(result.body);
+  if (result.status === 400) return c.json(result.body, 400);
+  return c.json(result.body, 409);
+});
+
 app.post("/epic-boss/start", async (c) => {
   if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
   const body: { orderedUnitIds?: unknown } = await c.req.json<{ orderedUnitIds?: unknown }>().catch(() => ({}));

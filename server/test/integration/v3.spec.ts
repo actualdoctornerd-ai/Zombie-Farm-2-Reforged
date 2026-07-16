@@ -28,7 +28,18 @@ describe("protocol v3 API", () => {
     expect(unauthenticated.status).toBe(401);
 
     const session = await signIn();
-    await call("POST", "/bootstrap", session.token, {});
+    const boot = (await call<any>("POST", "/bootstrap", session.token, {})).body;
+    const grown = await call<any>("POST", "/commands", session.token,
+      commandBody(boot, "batch-epic-zombie", 1, [
+        { type: "farm.plow", oc: 0, or: 0 },
+        { type: "farm.plant", oc: 0, or: 0, cropKey: "ZombieActorRegularTier1" },
+        { type: "power.buy", key: "insta_grow" },
+        { type: "power.use", key: "insta_grow", oc: 0, or: 0 },
+        { type: "farm.harvest", oc: 0, or: 0 },
+      ]));
+    expect(grown.status).toBe(200);
+    const epicZombieId = grown.body.createdZombieIds[0];
+    const brainsBeforeActivation = grown.body.gameplay.balance.brains;
     const activated = await call<any>("POST", "/epic-boss/activate", session.token, {
       activationId: "activation-authenticated",
     });
@@ -38,7 +49,36 @@ describe("protocol v3 API", () => {
       bossId: "dr-groundhog",
       level: 1,
     });
-    expect(activated.body.balance.brains).toBe(9_990);
+    expect(activated.body.balance.brains).toBe(brainsBeforeActivation - 10);
+
+    const started = await call<any>("POST", "/epic-boss/start", session.token, {
+      orderedUnitIds: [epicZombieId],
+    });
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+    const escaped = await call<any>("POST", "/epic-boss/finish", session.token, {
+      sessionId: started.body.sessionId,
+      finalTick: 0,
+      inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+    });
+    expect(escaped.status, JSON.stringify(escaped.body)).toBe(200);
+    expect(escaped.body).toMatchObject({ escaped: true, event: { level: 1 } });
+    const retryReadyAt = escaped.body.event.retryReadyAt;
+    expect(retryReadyAt).toBeGreaterThan(Date.now());
+
+    const skipped = await call<any>("POST", "/epic-boss/skip-retry", session.token, {
+      runId: "activation-authenticated",
+      retryReadyAt,
+    });
+    expect(skipped.status, JSON.stringify(skipped.body)).toBe(200);
+    expect(skipped.body).toMatchObject({ costBrains: 10, event: { retryReadyAt: 0 } });
+    expect(skipped.body.balance.brains).toBe(brainsBeforeActivation - 20);
+
+    const retried = await call<any>("POST", "/epic-boss/skip-retry", session.token, {
+      runId: "activation-authenticated",
+      retryReadyAt,
+    });
+    expect(retried.status).toBe(200);
+    expect(retried.body.balance.brains).toBe(brainsBeforeActivation - 20);
   });
 
   it("persists pet ownership, makes retries idempotent, and ignores presentation forgeries", async () => {

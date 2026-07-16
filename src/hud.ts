@@ -117,6 +117,7 @@ export interface EpicBossMarketView {
   completed: boolean;
   eventRemainingMs: number;
   retryRemainingMs: number;
+  retrySkipCost: number;
   encounterRemainingMs: number;
   rewards: string[];
 }
@@ -1898,6 +1899,7 @@ export class Hud {
   // ---- limited Epic Boss hooks ----
   getEpicBossView: (() => EpicBossMarketView) | null = null;
   onActivateEpicBoss: (() => boolean | Promise<boolean>) | null = null;
+  onSkipEpicBossRetry: (() => boolean | Promise<boolean>) | null = null;
   onLaunchEpicBoss: ((partyIds: string[]) => boolean | Promise<boolean>) | null = null;
 
   // ---- save profiles (set by main) ----
@@ -2376,9 +2378,21 @@ export class Hud {
     const action = document.createElement("button");
     action.className = "raid-go epic-market-action";
     if (view.active) {
-      action.textContent = view.retryRemainingMs ? `Wait ${fmt(view.retryRemainingMs)}` : "Fight Dr. Groundhog";
-      action.disabled = view.retryRemainingMs > 0;
-      action.onclick = () => this.openEpicBossArmy();
+      if (view.retryRemainingMs) {
+        action.innerHTML = `Skip ${fmt(view.retryRemainingMs)} · ${view.retrySkipCost} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
+        action.disabled = this.state.brains < view.retrySkipCost;
+        action.onclick = async () => {
+          if (!await this.confirmInGame(
+            "Call Dr. Groundhog back?",
+            `Spend ${view.retrySkipCost} brain${view.retrySkipCost === 1 ? "" : "s"} to skip the remaining ${fmt(view.retryRemainingMs)}?`,
+            "Skip Wait"
+          )) return;
+          if (await this.onSkipEpicBossRetry?.()) { refreshCur(); rerender(); }
+        };
+      } else {
+        action.textContent = "Fight Dr. Groundhog";
+        action.onclick = () => this.openEpicBossArmy();
+      }
     } else {
       action.innerHTML = `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
       action.disabled = this.state.brains < view.costBrains;
@@ -4733,8 +4747,12 @@ export class Hud {
           useVoucher = true;
           army.textContent = `${st.voucherCount} voucher${st.voucherCount > 1 ? "s" : ""} · skips the ${fmtCooldown(cd)} wait`;
         } else {
-          go.textContent = "Invade";
-          go.disabled = !canFight;
+          // Buying a voucher is available from every unlocked invasion. Do not gate
+          // the purchase on army size: McDonnell's eased minimum (1/4 zombies) made
+          // this look tutorial-only while every other invasion normally needs 8.
+          // The Army screen still enforces the selected raid's real launch minimum.
+          go.textContent = "Buy Ticket & Invade";
+          go.disabled = false;
           buyVoucher = true;
           army.className = "rd-army short";
           army.textContent = `Ready in ${fmtCooldown(cd)} · raid ticket: 2,000 gold`;

@@ -1,5 +1,5 @@
 import type { EpicBossProjection, QuestProjection } from "../../../src/net/protocol";
-import { DR_GROUNDHOG, epicBossHp } from "../../../src/epicBoss/catalog";
+import { DR_GROUNDHOG, epicBossHp, epicBossRetrySkipCost } from "../../../src/epicBoss/catalog";
 import { DICE_KEY, VOUCHER_KEY } from "../boostCatalog";
 import { QUEST_REWARD, questDefinition } from "../questCatalog";
 import { applyQuestEvents } from "./engine";
@@ -88,6 +88,80 @@ export async function activate(
     event: await readRun(db, accountId),
     balance: { ...balance, brains: balance.brains - DR_GROUNDHOG.costBrains },
   } };
+}
+
+export async function skipRetry(
+  db: D1Database, accountId: string, runId: unknown, expectedRetryReadyAt: unknown, now: number
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (typeof runId !== "string" || !runId || !Number.isSafeInteger(expectedRetryReadyAt)) {
+    return { status: 400, body: { error: "bad_request" } };
+  }
+  const [run, balance] = await Promise.all([
+    db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=?").bind(accountId).first<RunRow>(),
+    db.prepare("SELECT gold,brains,xp FROM balances WHERE account_id=?").bind(accountId)
+      .first<{ gold: number; brains: number; xp: number }>(),
+  ]);
+  if (!run || !balance || run.run_id !== runId || run.completed_at || run.expires_at <= now) {
+    return { status: 409, body: { error: "inactive" } };
+  }
+  if (run.retry_ready_at !== expectedRetryReadyAt) {
+    const prior = await db.prepare(`SELECT cost_brains,applied FROM epic_boss_retry_skips_v3
+      WHERE account_id=? AND run_id=? AND retry_ready_at=?`).bind(accountId, runId, expectedRetryReadyAt)
+      .first<{ cost_brains: number; applied: number }>();
+    if (prior?.applied) {
+      return { status: 200, body: { event: projectRun(run), balance, costBrains: prior.cost_brains } };
+    }
+    return { status: 409, body: { error: "cooldown_changed", event: projectRun(run), balance } };
+  }
+  const cost = epicBossRetrySkipCost(run.retry_ready_at - now);
+  if (!cost) {
+    await db.prepare("UPDATE epic_boss_runs_v3 SET retry_ready_at=0 WHERE account_id=? AND run_id=? AND retry_ready_at=?")
+      .bind(accountId, runId, run.retry_ready_at).run();
+    return { status: 200, body: { event: await readRun(db, accountId), balance, costBrains: 0 } };
+  }
+  if (balance.brains < cost) {
+    return { status: 409, body: { error: "insufficient_brains", costBrains: cost, balance } };
+  }
+
+  // The unique (account, run, cooldown) operation makes retries and concurrent taps
+  // idempotent. Only the request that inserts a pending operation can debit it; the
+  // following changes() guard marks it applied only when that debit succeeded.
+  await db.batch([
+    db.prepare(`INSERT OR IGNORE INTO epic_boss_retry_skips_v3
+      (account_id,run_id,retry_ready_at,cost_brains,applied,created_at)
+      SELECT ?,?,?,?,?,? WHERE EXISTS(
+        SELECT 1 FROM epic_boss_runs_v3 WHERE account_id=? AND run_id=? AND retry_ready_at=?
+          AND completed_at=0 AND expires_at>?
+      )`).bind(accountId, runId, run.retry_ready_at, cost, 0, now,
+        accountId, runId, run.retry_ready_at, now),
+    db.prepare(`UPDATE balances SET brains=brains-? WHERE account_id=? AND brains>=?
+      AND EXISTS(SELECT 1 FROM epic_boss_retry_skips_v3
+        WHERE account_id=? AND run_id=? AND retry_ready_at=? AND applied=0)
+      AND EXISTS(SELECT 1 FROM epic_boss_runs_v3
+        WHERE account_id=? AND run_id=? AND retry_ready_at=?)`)
+      .bind(cost, accountId, cost, accountId, runId, run.retry_ready_at,
+        accountId, runId, run.retry_ready_at),
+    db.prepare(`UPDATE epic_boss_retry_skips_v3 SET applied=1
+      WHERE account_id=? AND run_id=? AND retry_ready_at=? AND applied=0 AND changes()=1`)
+      .bind(accountId, runId, run.retry_ready_at),
+    db.prepare(`UPDATE epic_boss_runs_v3 SET retry_ready_at=0
+      WHERE account_id=? AND run_id=? AND retry_ready_at=?
+      AND EXISTS(SELECT 1 FROM epic_boss_retry_skips_v3
+        WHERE account_id=? AND run_id=? AND retry_ready_at=? AND applied=1)`)
+      .bind(accountId, runId, run.retry_ready_at, accountId, runId, run.retry_ready_at),
+  ]);
+  const [operation, event, nextBalance] = await Promise.all([
+    db.prepare(`SELECT cost_brains,applied FROM epic_boss_retry_skips_v3
+      WHERE account_id=? AND run_id=? AND retry_ready_at=?`).bind(accountId, runId, run.retry_ready_at)
+      .first<{ cost_brains: number; applied: number }>(),
+    readRun(db, accountId),
+    db.prepare("SELECT gold,brains,xp FROM balances WHERE account_id=?").bind(accountId)
+      .first<{ gold: number; brains: number; xp: number }>(),
+  ]);
+  if (!operation?.applied || !event || event.retryReadyAt !== 0 || !nextBalance) {
+    return { status: 409, body: { error: "skip_conflict" } };
+  }
+  return { status: 200, body: { event, balance: nextBalance, costBrains: operation.cost_brains } };
 }
 
 export async function expireLiveEpicBoss(db: D1Database, accountId: string, now: number): Promise<void> {
@@ -199,11 +273,20 @@ export async function finish(
   if (!config || !Number.isInteger(body.finalTick) || !Array.isArray(body.inputs)) return { status: 400, body: { error: "bad_replay" } };
   const verified = replayRaid(new BattleSim(
     config.playerUnits, config.enemyUnits, null, false, [], null, DR_GROUNDHOG.fightMs,
-    null, null, true, true
+    null, null, true, true, true, 150
   ), body.finalTick as number, body.inputs as RaidReplayInput[]);
   if (!verified.ok) return { status: 422, body: { error: verified.error } };
   const { survivors, losses } = verified.outcome;
-  if (new Set([...survivors, ...losses]).size !== locked.length) return { status: 422, body: { error: "replay_roster_mismatch" } };
+  const lockedSet = new Set(locked);
+  const accounted = new Set([...survivors, ...losses]);
+  if ([...accounted].some((id) => !lockedSet.has(id)) ||
+      (!verified.retreated && accounted.size !== locked.length)) {
+    return { status: 422, body: { error: "replay_roster_mismatch" } };
+  }
+  // Retreating zombies survive but earn no veterancy, so the replay intentionally
+  // omits them from survivors. Keep them separate so their server locks still clear.
+  const escapedRoster = verified.retreated
+    ? locked.filter((id) => !losses.includes(id) && !survivors.includes(id)) : [];
   const [run, balance, coreRow, questRow] = await Promise.all([
     db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=? AND run_id=?").bind(accountId, session.run_id).first<RunRow>(),
     db.prepare("SELECT gold,brains,xp,claimed_level FROM balances WHERE account_id=?").bind(accountId).first<{gold:number;brains:number;xp:number;claimed_level:number}>(),
@@ -273,6 +356,8 @@ export async function finish(
   losses.forEach((id) => statements.push(db.prepare(`DELETE FROM roster_v3 WHERE account_id=? AND unit_id=? AND locked_by_raid=? AND ${guard}`)
     .bind(accountId,id,session.id,session.id,resultJson)));
   survivors.forEach((id) => statements.push(db.prepare(`UPDATE roster_v3 SET invasions=invasions+1,locked_by_raid=NULL
+    WHERE account_id=? AND unit_id=? AND locked_by_raid=? AND ${guard}`).bind(accountId,id,session.id,session.id,resultJson)));
+  escapedRoster.forEach((id) => statements.push(db.prepare(`UPDATE roster_v3 SET locked_by_raid=NULL
     WHERE account_id=? AND unit_id=? AND locked_by_raid=? AND ${guard}`).bind(accountId,id,session.id,session.id,resultJson)));
   newZombies.forEach((z) => statements.push(db.prepare(`INSERT INTO roster_v3(account_id,unit_id,zombie_key,stored,created_at)
     SELECT ?,?,?,1,? WHERE ${guard}`).bind(accountId,z.id,z.key,now,session.id,resultJson)));

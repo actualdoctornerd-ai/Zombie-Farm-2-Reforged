@@ -48,6 +48,9 @@ export interface RaidSceneParams {
   imageBase?: string;
   bossTexture?: string;
   bossAnimations?: Record<string, { file: string; cellWidth: number; cellHeight: number; frameCount: number; frameSeconds: number }>;
+  bossEntersFromRight?: boolean;
+  bossEngageDistance?: number;
+  bossGroundOffset?: { x: number; y: number };
   confirmRetreat?: () => Promise<boolean>;
   onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
@@ -252,6 +255,7 @@ export class RaidScene {
   private imageBase: string | null;
   private bossTexture: string;
   private bossAnimationDefs: RaidSceneParams["bossAnimations"];
+  private bossGroundOffset: { x: number; y: number };
   private bossFrames = new Map<string, Texture[]>();
   private projLayer = new Container();
   private projTex = new Map<string, Texture | null>();
@@ -324,6 +328,7 @@ export class RaidScene {
     this.imageBase = params.imageBase ?? null;
     this.bossTexture = params.bossTexture ?? "";
     this.bossAnimationDefs = params.bossAnimations;
+    this.bossGroundOffset = params.bossGroundOffset ?? { x: 0, y: 0 };
     this.confirmRetreat = params.confirmRetreat ?? (() => Promise.resolve(true));
     this.sim = new BattleSim(
       params.playerUnits,
@@ -336,7 +341,9 @@ export class RaidScene {
       params.summonTemplate ?? null,
       params.wallTemplate ?? null,
       !!params.noDistractions,
-      !!params.escapeOnRoundEnd
+      !!params.escapeOnRoundEnd,
+      !!params.bossEntersFromRight,
+      params.bossEngageDistance
     );
     this.maxPlayerHp = Math.max(1, sumMax(params.playerUnits));
     this.maxEnemyHp = Math.max(1, sumMax(params.enemyUnits));
@@ -987,7 +994,10 @@ export class RaidScene {
       let [sx, sy] = u.isBoss ? bossPos(u, pos.x, pos.y) : [toX(pos.x) + slide, toY(pos.y) + groundDrop];
       // Perched/exiting bosses use their structure baseline; after re-entering the
       // lane they stand on the same lowered ground baseline as every other unit.
-      if (u.isBoss && u.state !== "structure" && u.state !== "descending") sy += groundDrop;
+      if (u.isBoss && u.state !== "structure" && u.state !== "descending") {
+        sx += this.bossGroundOffset.x * szs;
+        sy += groundDrop + this.bossGroundOffset.y * szs;
+      }
       // Mini Buddy jumps from its waiting spot onto the Large zombie, then rides
       // near the carrier's shoulder until the pair reaches the frontline.
       if (u.state === "carried" && u.buddyCarrierId) {
@@ -1136,12 +1146,15 @@ export class RaidScene {
         tok.enemyActor.update(dtSec, u.alive && simMoving, attack);
       }
       if (tok.epicActor) {
-        const wanted = !u.alive ? "defeat" : this.sim.escaped ? "escape" : u.struckThisTick ? "attack" : "";
-        if (wanted && tok.epicAnim !== wanted) {
+        const wanted = !u.alive ? "defeat" : this.sim.escaped ? "escape"
+          : u.struckThisTick ? "attack" : u.state === "emerging" ? "enter" : "";
+        const wantedLoop = wanted === "enter";
+        if (wanted && (tok.epicAnim !== wanted || tok.epicActor.loop !== wantedLoop)) {
           tok.epicAnim = wanted;
-          this.playEpic(tok.epicActor, wanted, false);
-        } else if (!wanted && tok.epicAnim !== "idle" && tok.epicActor.loop) {
+          this.playEpic(tok.epicActor, wanted, wantedLoop);
+        } else if (!wanted && tok.epicAnim !== "idle") {
           tok.epicAnim = "idle";
+          this.playEpic(tok.epicActor, "idle", true);
         }
       }
 
