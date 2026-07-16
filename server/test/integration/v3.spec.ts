@@ -39,7 +39,7 @@ describe("protocol v3 API", () => {
     expect(applied.body.results.map((r: any) => [r.status, r.error])).toEqual([
       ["applied", undefined], ["applied", undefined], ["rejected", "not_grown"],
     ]);
-    expect(applied.body.gameplay.balance.gold).toBe(185);
+    expect(applied.body.gameplay.balance.gold).toBe(999_985);
     expect(applied.body.gameplay.farm.plots["0:0"].plantedAt).toBeTypeOf("number");
 
     const duplicate = await call<any>("POST", "/commands", session.token, body);
@@ -70,14 +70,20 @@ describe("protocol v3 API", () => {
 
     const takeover = await call<any>("POST", "/commands", session.token,
       commandBody({ accountVersion: first.body.accountVersion, writerGeneration: first.body.writerGeneration },
-        "batch-writer-b", 2, [{ type: "farm.plow", oc: 4, or: 0 }], "device-bbbbbbbb", true));
+        "batch-writer-b", 1, [{ type: "farm.plow", oc: 4, or: 0 }], "device-bbbbbbbb", true));
     expect(takeover.status).toBe(409);
     expect(takeover.body.error).toBe("writer_taken");
 
     const refreshed = (await call<any>("POST", "/bootstrap", session.token, {})).body;
     expect(refreshed.writerDeviceId).toBe("device-bbbbbbbb");
+    const newDevice = await call<any>("POST", "/commands", session.token,
+      commandBody(refreshed, "batch-writer-b", 1,
+        [{ type: "farm.plow", oc: 4, or: 0 }], "device-bbbbbbbb", false));
+    expect(newDevice.status).toBe(200);
+    expect(newDevice.body.gameplay.farm.plots["4:0"]).toMatchObject({ state: "plowed" });
+
     const oldDevice = await call<any>("POST", "/commands", session.token,
-      commandBody(refreshed, "batch-old-device", 2, [{ type: "farm.plow", oc: 4, or: 0 }], deviceA, false));
+      commandBody(newDevice.body, "batch-old-device", 2, [{ type: "farm.plow", oc: 8, or: 0 }], deviceA, false));
     expect(oldDevice.status).toBe(423);
     expect(oldDevice.body.error).toBe("writer_replaced");
   });

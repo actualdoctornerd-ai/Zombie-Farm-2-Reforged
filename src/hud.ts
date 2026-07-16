@@ -4299,6 +4299,57 @@ export class Hud {
   }
 
   // ---- Raids / Invasions ----
+  /** In-game confirmation for purchasing the cooldown-bypass ticket. The purchase
+   *  remains a normal catalog buy; `onBought` advances to army ordering only after
+   *  the optimistic/server-backed purchase was accepted. */
+  private openRaidTicketPrompt(cooldownMs: number, voucher: BoostDef, onBought: () => void) {
+    document.querySelector("#hud .raid-ticket-bg")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "panelbg raid-ticket-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel confirm-panel";
+
+    const x = document.createElement("button");
+    x.className = "panelclose";
+    const xi = document.createElement("img");
+    xi.src = UI("button_close.png");
+    x.appendChild(xi);
+    x.onclick = () => bg.remove();
+
+    const h = document.createElement("h2");
+    h.textContent = "Skip the invasion wait?";
+    const msg = document.createElement("p");
+    msg.className = "confirm-msg";
+    msg.textContent = `This invasion is ready in ${fmtCooldown(cooldownMs)}.`;
+    const warning = document.createElement("span");
+    warning.className = "confirm-warn";
+    warning.textContent = `Buy an Invasion Voucher for ${voucher.cost.toLocaleString()} gold to invade now?`;
+    msg.append(document.createElement("br"), warning);
+
+    const btns = document.createElement("div");
+    btns.className = "zbtns";
+    const cancel = document.createElement("button");
+    cancel.className = "zbtn locate";
+    cancel.textContent = "Cancel";
+    cancel.onclick = () => bg.remove();
+    const buy = document.createElement("button");
+    buy.className = "zbtn sell";
+    buy.textContent = `Buy Ticket · ${voucher.cost.toLocaleString()} Gold`;
+    buy.onclick = () => {
+      if (!this.onBuyBoost?.(voucher)) {
+        this.showToast(`You need ${voucher.cost.toLocaleString()} gold for an Invasion Voucher.`);
+        return;
+      }
+      bg.remove();
+      onBought();
+    };
+    btns.append(cancel, buy);
+    panel.append(x, h, msg, btns);
+    bg.appendChild(panel);
+    bg.onclick = (event) => { if (event.target === bg) bg.remove(); };
+    this.el.appendChild(bg);
+  }
+
   // Raid select: a list of invasions (left) + the selected raid's detail (right).
   // Only playable + level-met raids can be invaded; the rest show as locked cards
   // so the ladder reads as a real (mostly future) catalog.
@@ -4418,15 +4469,15 @@ export class Hud {
       go.onclick = () => {
         if (buyVoucher) {
           const voucher = this.boosts.find((boost) => boost.key === VOUCHER_KEY);
-          const price = voucher?.cost ?? 2_000;
-          if (!globalThis.confirm(
-            `This invasion is still on cooldown. Buy an Invasion Voucher for ${price.toLocaleString()} gold to skip the wait?`
-          )) return;
-          if (!voucher || !this.onBuyBoost?.(voucher)) {
-            this.showToast(`You need ${price.toLocaleString()} gold for an Invasion Voucher.`);
+          if (!voucher) {
+            this.showToast("Invasion Vouchers are unavailable right now.");
             return;
           }
-          useVoucher = true;
+          this.openRaidTicketPrompt(cd, voucher, () => {
+            close();
+            this.openRaidArmy(c, true);
+          });
+          return;
         }
         close();
         this.openRaidArmy(c, useVoucher);

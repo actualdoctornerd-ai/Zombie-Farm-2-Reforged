@@ -227,9 +227,10 @@ export async function applyBatch(
     return { status: 423, error: "writer_replaced", body: { writerGeneration: runtime.writer_generation } };
   }
   const lastSequence = body.firstSequence + body.commands.length - 1;
-  if (runtime.last_first_sequence !== null && body.firstSequence <= runtime.last_first_sequence) {
-    return { status: 409, error: "stale_sequence" };
-  }
+  // Sequence numbers belong to a device-local outbox and may restart when a
+  // different device takes writer ownership (or local storage is rebuilt).
+  // Account versioning serializes batches, while batchId provides idempotency;
+  // comparing sequences across writers would permanently reject a valid retry.
   const farmCommands = body.commands.length;
   const windowStart = now - runtime.command_window_start >= 60_000 ? now : runtime.command_window_start;
   const windowCount = now - runtime.command_window_start >= 60_000 ? farmCommands : runtime.command_window_count + farmCommands;
