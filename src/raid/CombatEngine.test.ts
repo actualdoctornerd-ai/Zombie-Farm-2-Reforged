@@ -130,6 +130,16 @@ describe("buildPlayerUnits — level-scaling is applied", () => {
     expect(lo.focus).toBe(100); // unchanged despite low level
   });
 
+  it("applies equipped farmer head strength and life bonuses", () => {
+    const base = buildPlayerUnits(headless())[0];
+    const buffed = buildPlayerUnits(headless(), {
+      farmerStrengthMult: 1.1,
+      farmerLifeMult: 1.1,
+    })[0];
+    expect(buffed.str).toBeCloseTo(base.str * 1.1);
+    expect(buffed.maxHp).toBeCloseTo(base.maxHp * 1.1);
+  });
+
   it("carries the owned mutation mask into the raid combat unit", () => {
     const mutated = headless()[0];
     mutated.group = "Regular";

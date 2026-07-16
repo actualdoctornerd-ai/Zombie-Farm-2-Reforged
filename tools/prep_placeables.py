@@ -154,6 +154,42 @@ def extract_multiplepieces(tp):
     return canvas
 
 
+def extract_layered_loose_sprites(tp):
+    """Composite a loose base sprite with its authored child-node layers.
+
+    Most decor lives in a TexturePacker atlas, but a few large objects use full
+    standalone canvases. The Pet Pen is the important case: its back wall is a
+    child node and its foreground fence is the base sprite. Both images share an
+    authored canvas, so drawing children first and the base last preserves the
+    source front/back composition.
+    """
+    base_name = tp.get("spriteSheet")
+    children = tp.get("childNodes", [])
+    if not base_name or not children:
+        return None
+
+    layers = []
+    for child in children:
+        child_name = child.get("spriteSheet")
+        child_image = image(child_name) if child_name else None
+        if child_image is None:
+            return None
+        layers.append(child_image)
+    base = image(base_name)
+    if base is None:
+        return None
+    layers.append(base)
+
+    from PIL import Image
+
+    width = max(layer.width for layer in layers)
+    height = max(layer.height for layer in layers)
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    for layer in layers:
+        canvas.alpha_composite(layer, (0, 0))
+    return canvas
+
+
 def main():
     from PIL import Image
 
@@ -195,6 +231,10 @@ def main():
             if tp.get("multiplePieces"):
                 # frameName is only one fragment; assemble every piece.
                 sprite_img = extract_multiplepieces(tp)
+            elif tp.get("childNodes") and tp.get("spriteSheet"):
+                # Large loose art can be split into back/front layers. The Pet
+                # Pen uses this path (pettingzoo_back + pettingzoo_front).
+                sprite_img = extract_layered_loose_sprites(tp)
             else:
                 fl, fn = tp.get("frameList"), tp.get("frameName")
                 if fl and fn:
@@ -248,8 +288,6 @@ def main():
             "tileH": max(1, int(tp.get("tileHeight", 1))),
             "movable": bool(tp.get("movable", True)),
             "rotations": tp.get("rotations", 1),
-            # signature audio played when this decor is tapped on the farm
-            "tapSound": tp.get("tapSoundEffect") or tp.get("soundID") or "",
             "sprite": out_name,
             "nativeW": sprite_img.width,
             "nativeH": sprite_img.height,
@@ -258,10 +296,16 @@ def main():
             # simple functional effects the game can apply on placement
             "armyMax": e.get("increaseArmyMaxBy", 0),
             "storageSlots": slots,  # >0 for storage sheds (item capacity)
+            # Pet Pen: tapping it opens the authoritative cosmetic collection.
+            **({"petPen": True} if tile == "pettingZoo" else {}),
             # fruit trees: repeatable harvest (regrows fruit for gold)
             "growMs": (e.get("growTime", 0) or 0) * 1000 if category == "tree" else 0,
             "harvestValue": e.get("price", 0) if category == "tree" else 0,
             "growingSprite": growing_name,
+            # Signature audio played when this decor is tapped on the farm. Omit
+            # empty values so the generated catalog stays compact.
+            **({"tapSound": tp.get("tapSoundEffect") or tp.get("soundID")}
+               if tp.get("tapSoundEffect") or tp.get("soundID") else {}),
         })
 
     # ---- Raid-reward decorations (Phase 6) ----------------------------------
@@ -323,7 +367,6 @@ def main():
             "tileH": max(1, int(tp.get("tileHeight", 1))),
             "movable": bool(tp.get("movable", True)),
             "rotations": tp.get("rotations", 1),
-            "tapSound": tp.get("tapSoundEffect") or tp.get("soundID") or "",
             "sprite": out_name,
             "nativeW": sprite_img.width,
             "nativeH": sprite_img.height,
@@ -334,6 +377,8 @@ def main():
             "growMs": 0,
             "harvestValue": 0,
             "growingSprite": "",
+            **({"tapSound": tp.get("tapSoundEffect") or tp.get("soundID")}
+               if tp.get("tapSoundEffect") or tp.get("soundID") else {}),
         })
 
     # Design override (not in the source data): the Zombie Pot's FIRST purchase is

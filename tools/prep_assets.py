@@ -474,6 +474,15 @@ if __name__ == "__main__":
     slice_crops()
     slice_storage()
     export_zombie_parts("Dr. Zombie", "dr_zombie")
+    export_zombie_parts("Omega Dr. Zombie", "omega_dr_zombie")
+    composite_zombie("Dr. Zombie", "dr_zombie.png")
+    composite_zombie("Omega Dr. Zombie", "omega_dr_zombie.png")
+    portrait_dir = os.path.join(OUT, "zombie", "portrait")
+    os.makedirs(portrait_dir, exist_ok=True)
+    shutil.copy2(os.path.join(OUT, "zombie", "dr_zombie.png"),
+                 os.path.join(portrait_dir, "ZombieActorDrZombie.png"))
+    shutil.copy2(os.path.join(OUT, "zombie", "omega_dr_zombie.png"),
+                 os.path.join(portrait_dir, "ZombieActorOmegaDrZombie.png"))
     export_rig()
     make_field(idx)
     print("done ->", OUT)

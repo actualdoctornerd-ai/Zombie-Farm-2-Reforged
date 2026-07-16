@@ -9,7 +9,7 @@
 // projectiles, phase-2 re-entry, charge bars, distractions, and ability effects
 // are later phases (see IMPLEMENTATION_RAIDS_PLAN.md). Tokens are placeholder
 // portraits, not side-view stage actors.
-import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
+import { AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
 import { BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, ENEMY_SPAWN_X, FIELD_H, FIELD_W, SimUnit, TELEPORT_PX } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
@@ -42,6 +42,12 @@ export interface RaidSceneParams {
   wallTemplate?: CombatUnit | null;
   /** Concentration boost spent — skip the focus-bubble minigame this fight. */
   concentration?: boolean;
+  roundMs?: number;
+  escapeOnRoundEnd?: boolean;
+  noDistractions?: boolean;
+  imageBase?: string;
+  bossTexture?: string;
+  bossAnimations?: Record<string, { file: string; cellWidth: number; cellHeight: number; frameCount: number; frameSeconds: number }>;
   onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
 }
@@ -169,6 +175,8 @@ interface Token {
   root: Container;
   actor?: RaidActor; // player zombie rig (walk animation)
   enemyActor?: EnemyActor; // enemy rig (idle bob / walk / limb animation)
+  epicActor?: AnimatedSprite;
+  epicAnim?: string;
   hp: Graphics;
   charge: Graphics; // focus bar (zombies, while charging)
   base: number; // half-width for the bars
@@ -240,6 +248,10 @@ export class RaidScene {
   private bossThrow: BossThrowConfig | null;
   private hazardSprite = ""; // this raid's obstacle/grab art, preloaded for syncProjectiles
   private wallTemplate: CombatUnit | null; // preloaded so a spawned wall renders as a sprite
+  private imageBase: string | null;
+  private bossTexture: string;
+  private bossAnimationDefs: RaidSceneParams["bossAnimations"];
+  private bossFrames = new Map<string, Texture[]>();
   private projLayer = new Container();
   private projTex = new Map<string, Texture | null>();
   private projSprites = new Map<string, Sprite>();
@@ -307,6 +319,9 @@ export class RaidScene {
     this.bossThrow = params.bossThrow;
     this.hazardSprite = params.hazard?.sprite ?? "";
     this.wallTemplate = params.wallTemplate ?? null;
+    this.imageBase = params.imageBase ?? null;
+    this.bossTexture = params.bossTexture ?? "";
+    this.bossAnimationDefs = params.bossAnimations;
     this.sim = new BattleSim(
       params.playerUnits,
       params.enemyUnits,
@@ -314,9 +329,11 @@ export class RaidScene {
       !!params.concentration,
       params.bossSpecials ?? [],
       params.hazard ?? null,
-      undefined, // roundMs → default 3:00
+      params.roundMs,
       params.summonTemplate ?? null,
-      params.wallTemplate ?? null
+      params.wallTemplate ?? null,
+      !!params.noDistractions,
+      !!params.escapeOnRoundEnd
     );
     this.maxPlayerHp = Math.max(1, sumMax(params.playerUnits));
     this.maxEnemyHp = Math.max(1, sumMax(params.enemyUnits));
@@ -337,7 +354,7 @@ export class RaidScene {
     this.stageLayer.sortableChildren = true;
     this.container.addChild(this.backdrop, this.stageLayer);
     for (const asset of this.raid.levelAssets) {
-      const tex = await loadTex(raidImage(asset.sprite));
+      const tex = await loadTex(this.imageUrl(asset.sprite));
       if (!tex) continue;
       const sp = new Sprite(tex);
       sp.zIndex = asset.z;
@@ -370,7 +387,7 @@ export class RaidScene {
       })
     );
     const enemyUrl = this.raid.enemyIcon ? raidImage(this.raid.enemyIcon) : "";
-    const bossUrl = this.raid.bossPortrait ? raidImage(this.raid.bossPortrait) : "";
+    const bossUrl = this.bossTexture || (this.raid.bossPortrait ? raidImage(this.raid.bossPortrait) : "");
     const fallbackUrls = new Map<string, string>();
     for (const u of this.sim.units) {
       if (u.team !== "enemy") continue;
@@ -381,6 +398,18 @@ export class RaidScene {
     const texCache = new Map<string, Texture | null>();
     await Promise.all(uniq.map(async (url) => texCache.set(url, await loadTex(url))));
     for (const [id, url] of fallbackUrls) this.texByUnit.set(id, texCache.get(url) ?? null);
+    if (this.bossAnimationDefs && this.imageBase) {
+      await Promise.all(Object.entries(this.bossAnimationDefs).map(async ([name, def]) => {
+        const sheet = await loadTex(this.imageUrl(def.file));
+        if (!sheet) return;
+        const frames: Texture[] = [];
+        for (let i = 0; i < def.frameCount; i++) frames.push(new Texture({
+          source: sheet.source,
+          frame: new Rectangle(i * def.cellWidth, 0, def.cellWidth, def.cellHeight),
+        }));
+        this.bossFrames.set(name, frames);
+      }));
+    }
 
     // A spawned wall (Ninja carrotWall) uses its own bossAction sprite. Preload it
     // under its source key so the lazily-built token draws it, not a fallback circle.
@@ -439,6 +468,10 @@ export class RaidScene {
     ]);
     this.buildBubble();
     this.layout();
+  }
+
+  private imageUrl(file: string): string {
+    return this.imageBase ? `${this.imageBase}${file}` : raidImage(file);
   }
 
   /** The focus bubble (one, reused): the source game's thought-bubble sprite,
@@ -560,6 +593,7 @@ export class RaidScene {
     const root = new Container();
     let actor: RaidActor | undefined;
     let enemyActor: EnemyActor | undefined;
+    let epicActor: AnimatedSprite | undefined;
     let base = 22;
     let topY = -60;
     let actorBaseScale = 1;
@@ -584,6 +618,21 @@ export class RaidScene {
       actorBaseY = actor.container.y;
     } else {
       const targetH = (u.isBoss ? BOSS_H : ENEMY_H) * (u.isBoss ? BOSS_H_SCALE[u.sourceKey] ?? 1 : 1);
+      const epicFrames = u.isBoss ? this.bossFrames.get("enter") ?? this.bossFrames.get("idle") : undefined;
+      if (epicFrames?.length) {
+        const sp = new AnimatedSprite(epicFrames);
+        const def = this.bossAnimationDefs?.enter ?? this.bossAnimationDefs?.idle;
+        sp.anchor.set(0.5, 1);
+        sp.scale.set(targetH / Math.max(1, epicFrames[0].height));
+        sp.animationSpeed = def ? 1 / (60 * def.frameSeconds) : 0.2;
+        sp.loop = false;
+        sp.onComplete = () => this.playEpic(sp, "idle", true);
+        sp.play();
+        root.addChild(sp);
+        base = Math.max(16, epicFrames[0].width * sp.scale.x / 2);
+        topY = -targetH;
+        epicActor = sp;
+      } else {
       const strip = this.enemyStrip.get(u.sourceKey) ?? null;
       const model = this.assets.enemyModels[u.sourceKey];
       const tex = this.enemyTex.get(u.sourceKey) ?? null;
@@ -624,6 +673,7 @@ export class RaidScene {
         base = R;
         topY = -(R + 9);
       }
+      }
     }
 
     // Alien boss rides a UFO: the small back dome BEHIND the pilot, the saucer + glass
@@ -661,11 +711,22 @@ export class RaidScene {
     const layer = u.isBoss && this.perchLayer ? this.bossBackLayer : this.tokenLayer;
     layer.addChild(root);
     return {
-      root, actor, enemyActor, hp, charge, base, topY, pulse: 0, atkCount: 0,
+      root, actor, enemyActor, epicActor, epicAnim: epicActor ? "enter" : undefined,
+      hp, charge, base, topY, pulse: 0, atkCount: 0,
       deathAnim: -1, emerged: false,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
       healFxSeq: 0, healCastSeq: 0, healPose: 0,
     };
+  }
+
+  private playEpic(sprite: AnimatedSprite, name: string, loop: boolean): void {
+    const frames = this.bossFrames.get(name);
+    const def = this.bossAnimationDefs?.[name];
+    if (!frames?.length || !def) return;
+    sprite.textures = frames;
+    sprite.animationSpeed = 1 / (60 * def.frameSeconds);
+    sprite.loop = loop;
+    sprite.gotoAndPlay(0);
   }
 
   private buildTeamBars() {
@@ -1069,6 +1130,15 @@ export class RaidScene {
           attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
         }
         tok.enemyActor.update(dtSec, u.alive && simMoving, attack);
+      }
+      if (tok.epicActor) {
+        const wanted = !u.alive ? "defeat" : this.sim.escaped ? "escape" : u.struckThisTick ? "attack" : "";
+        if (wanted && tok.epicAnim !== wanted) {
+          tok.epicAnim = wanted;
+          this.playEpic(tok.epicActor, wanted, false);
+        } else if (!wanted && tok.epicAnim !== "idle" && tok.epicActor.loop) {
+          tok.epicAnim = "idle";
+        }
       }
 
       const frac = Math.max(0, u.hp / u.maxHp);

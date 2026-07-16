@@ -5,6 +5,7 @@ import { raidEcon, raidUnlocked, winGold } from "../raidCatalog";
 import { applyQuestEvents } from "./engine";
 import type { QuestProjection } from "../../../src/net/protocol";
 import raidRows from "../../../public/assets/raids/raids.json";
+import { farmerCooldownMs } from "../../../src/farmer";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const RAID_TTL_MS = 15 * 60 * 1000;
@@ -13,6 +14,7 @@ const EARLIEST_FINISH_MS = 15_000;
 interface CoreState {
   inventory: Record<string, number>;
   storage: { received: Record<string, number>; stored: Record<string, number> };
+  farmerHeadId?: number;
   [key: string]: unknown;
 }
 
@@ -63,20 +65,22 @@ export async function startRaid(
   if (!econ) return { status: 400, body: { ok: false, error: "bad_raid" } };
   if (!requested.length) return { status: 400, body: { ok: false, error: "bad_roster" } };
   await db.prepare("INSERT OR IGNORE INTO raid_state_v3(account_id) VALUES (?)").bind(accountId).run();
-  const [balance, coreRow, raidState, live, roster] = await Promise.all([
+  const [balance, coreRow, raidState, live, liveEpic, roster] = await Promise.all([
     db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId).first<{ gold: number; brains: number; xp: number }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id = ?").bind(accountId).first<{ current_json: string }>(),
     db.prepare("SELECT last_started_at, progress_json FROM raid_state_v3 WHERE account_id = ?").bind(accountId).first<RaidStateRow>(),
     db.prepare("SELECT id FROM raid_sessions_v3 WHERE account_id = ? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
+    db.prepare("SELECT id FROM epic_boss_sessions_v3 WHERE account_id = ? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     db.prepare(`SELECT unit_id FROM roster_v3 WHERE account_id = ? AND locked_by_raid IS NULL AND stored = 0
       AND unit_id IN (${requested.map(() => "?").join(",")})`).bind(accountId, ...requested).all<UnitRow>(),
   ]);
   if (!balance || !coreRow || !raidState) return { status: 409, body: { ok: false, error: "state_conflict" } };
-  if (live) return { status: 409, body: { ok: false, error: "raid_in_progress" } };
+  if (live || liveEpic) return { status: 409, body: { ok: false, error: "raid_in_progress" } };
   if (!raidUnlocked(econ, levelForXp(balance.xp))) return { status: 403, body: { ok: false, error: "locked", unlockLevel: econ.unlockLevel } };
   if ((roster.results ?? []).length !== requested.length) return { status: 409, body: { ok: false, error: "bad_roster" } };
   const core = parse<CoreState>(coreRow.current_json, { inventory: {}, storage: { received: {}, stored: {} } });
-  const remaining = Math.max(0, raidState.last_started_at + cooldownMs - now);
+  const activeCooldownMs = farmerCooldownMs(cooldownMs, core.farmerHeadId ?? 1);
+  const remaining = Math.max(0, raidState.last_started_at + activeCooldownMs - now);
   const useVoucher = body.useVoucher === true;
   if (remaining && !useVoucher) return { status: 429, body: { ok: false, error: "cooldown", cooldownRemaining: remaining } };
   if (remaining && (core.inventory[VOUCHER_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_voucher" } };
@@ -114,7 +118,7 @@ export async function startRaid(
 export async function finishRaid(
   db: D1Database,
   accountId: string,
-  body: { sessionId?: unknown; win?: unknown; survivors?: unknown; losses?: unknown },
+  body: { sessionId?: unknown; win?: unknown; survivors?: unknown; losses?: unknown; retreated?: unknown },
   now: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (typeof body.sessionId !== "string" || !body.sessionId) return { status: 400, body: { error: "bad_session" } };
@@ -123,7 +127,6 @@ export async function finishRaid(
   if (!session) return { status: 404, body: { error: "bad_session" } };
   if (session.result_json) return { status: 200, body: parse(session.result_json, {}) };
   if (session.finished_at) return { status: 409, body: { error: "already_finished" } };
-  if (now < session.earliest_finish_at) return { status: 425, body: { error: "too_early", retryAfterMs: session.earliest_finish_at - now } };
   const locked = parse<string[]>(session.roster_json, []);
   if (now >= session.expires_at) {
     const result = { expired: true, gold: 0, xp: 0, firstClear: false, loot: null };
@@ -137,12 +140,28 @@ export async function finishRaid(
   const clean = (value: unknown) => Array.isArray(value)
     ? [...new Set(value.filter((id): id is string => typeof id === "string" && locked.includes(id)))]
     : [];
-  const survivors = clean(body.survivors);
+  const claimedSurvivors = clean(body.survivors);
   const losses = clean(body.losses);
-  if (new Set([...survivors, ...losses]).size !== locked.length || survivors.some((id) => losses.includes(id))) {
+  // Older v3 clients did not send the explicit flag. Their retreat outcome has no
+  // survivors and fewer casualties than the locked roster, which is unambiguously
+  // a flee rather than a total defeat.
+  const retreated = body.retreated === true
+    || (body.win !== true && claimedSurvivors.length === 0 && losses.length < locked.length);
+  // A retreat grants no value, so it can be settled immediately. Requiring the
+  // normal anti-speedhack delay made the client leave an open session behind while
+  // it waited in the background to submit the loss.
+  if (!retreated && now < session.earliest_finish_at) {
+    return { status: 425, body: { error: "too_early", retryAfterMs: session.earliest_finish_at - now } };
+  }
+  // Fled-but-living zombies are intentionally not claimed as survivors because a
+  // retreat earns no veterancy. Derive that escaped set from the locked roster so
+  // every unit can still be unlocked and the session can be closed cleanly.
+  const survivors = retreated ? [] : claimedSurvivors;
+  const escaped = retreated ? locked.filter((id) => !losses.includes(id)) : survivors;
+  if (new Set([...escaped, ...losses]).size !== locked.length || escaped.some((id) => losses.includes(id))) {
     return { status: 400, body: { error: "bad_roster_partition" } };
   }
-  const win = body.win === true;
+  const win = !retreated && body.win === true;
   const raidId = Number(session.raid_id);
   const econ = raidEcon(raidId);
   if (!econ) return { status: 409, body: { error: "bad_raid" } };

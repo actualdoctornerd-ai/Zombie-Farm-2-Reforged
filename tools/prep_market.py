@@ -24,6 +24,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GAMEPLAY = os.path.join(ROOT, "ZF2R_extracted", "data", "json", "gameplay", "Market.json")
 UNITSTATS = os.path.join(ROOT, "ZF2R_extracted", "data", "json", "gameplay", "UnitStats.json")
+SPECIAL_ZOMBIES = os.path.join(ROOT, "ZF2R_extracted", "data", "json", "gameplay", "Zombies.json")
 ASSETS = os.path.join(ROOT, "zombiefarm", "public", "assets")
 PLANTS = os.path.join(ASSETS, "plants.json")
 ZOMBIES = os.path.join(ASSETS, "zombies.json")
@@ -104,7 +105,27 @@ def main():
 
     # ---- zombies: join by unitKey (== catalog key) ----
     zombies = load(ZOMBIES)
+    named = load(SPECIAL_ZOMBIES)["Entries"]
+    for source_name, key, sprite in [
+        ("Dr. Zombie", "ZombieActorDrZombie", "dr_zombie.png"),
+        ("Omega Dr. Zombie", "ZombieActorOmegaDrZombie", "omega_dr_zombie.png"),
+    ]:
+        source = named[source_name]
+        info, stats = source["marketInfo"], source["unitStats"]
+        row = next((z for z in zombies if z["key"] == key), None)
+        data = {
+            "key": key, "name": source_name, "cost": info["cost"], "growMs": 86_400_000,
+            "category": "special", "level": info["level"], "xp": info["xp"],
+            "brainsNeeded": bool(info["brainsNeeded"]), "group": "Regular",
+            "className": "Special", "classColor": "#c077ff", "str": stats["str"],
+            "dex": stats["dex"], "con": stats["con"], "focus": stats["focus"],
+            "mutation": 0, "tier": stats["tier"], "specialSprite": sprite,
+        }
+        if row: row.update(data)
+        else: zombies.append(data)
     for z in zombies:
+        if z.get("specialSprite"):
+            continue
         s = zombie_src.get(z["key"])
         if not s:
             missing.append(f"zombie {z['key']} ({z['name']})")

@@ -305,6 +305,19 @@ export class ZombieField {
     return this.pot.ready;
   }
 
+  /** Quest/server reward: never lose the unit when the deployed army is full. */
+  grantReward(key: string, col: number, row: number, serverId?: string): OwnedZombie | null {
+    const def = this.resolve(key);
+    if (!def) return null;
+    const data = makeOwned(serverId ?? `z${this.nextId++}`, def, col, row, 0, def.mutation);
+    this.harvesting = true;
+    try {
+      if (this.canAdd()) { this.addUnit(data); this.syncCount(); }
+      else this.stored.push(data);
+    } finally { this.harvesting = false; }
+    return data;
+  }
+
   /** Apply Insta-Grow to the running Zombie Pot job. */
   finishCombineNow(): boolean {
     return this.pot.finishNow();

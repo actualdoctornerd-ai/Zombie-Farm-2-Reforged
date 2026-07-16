@@ -141,6 +141,15 @@ export function mutationLabel(mask: number): string {
     .join(", ");
 }
 
+/** Market-facing summary for a pre-mutated zombie's guaranteed combat bonus. */
+export function mutationDescription(mask: number): string | undefined {
+  const labels: Record<Stat, string> = { str: "strength", con: "life", dex: "speed" };
+  const effects = mutationsOf(mask).map((m) => `${m.name} (+${m.amount} ${labels[m.stat]})`);
+  return effects.length
+    ? `Starts with a guaranteed mutation: ${effects.join(", ")}. Mutations carry into Zombie Pot combinations.`
+    : undefined;
+}
+
 /** Summed stat bonuses from all mutations in a mask. */
 export function mutationBonus(mask: number): { str: number; con: number; dex: number } {
   const b = { str: 0, con: 0, dex: 0 };

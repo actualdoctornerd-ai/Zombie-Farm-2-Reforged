@@ -637,10 +637,11 @@ export interface RaidFinishResult {
  *  the server-computed base win gold + first-clear XP for the session's pinned raid,
  *  returning the authoritative balance to reconcile. `win`/`survivalFrac` are the
  *  client's outcome assertion; the server owns the reward number. */
-export const raidFinish = (sessionId: string, finalTick: number, _inputs: RaidReplayInput[], outcome?: RaidOutcome) =>
+export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[], outcome?: RaidOutcome) =>
   req<RaidFinishResult>("POST", "/raid/finish", {
     sessionId,
     finalTick,
+    retreated: inputs.some((input) => input.type === "retreat"),
     // v3 trusts combat quality/casualty claims, but the server validates this as a
     // partition of the roster locked at start and prices every reward itself.
     win: outcome?.win ?? false,
@@ -654,6 +655,44 @@ export const raidCheckpoint = (sessionId: string, finalTick: number, inputs: Rai
     "/raid/checkpoint",
     { sessionId, finalTick, inputs }
   );
+
+export interface EpicBossFinishResult {
+  event: import("./protocol").EpicBossProjection;
+  defeatedLevel: number | null;
+  escaped: boolean;
+  loot: { name: string; tile?: string; stageActor?: string; sprite: string } | null;
+  balance: Balance;
+  inventory: Record<string, number>;
+  storage: { received: Record<string, number>; stored: Record<string, number> };
+  ownedPets: string[];
+  survivors: string[];
+  losses: string[];
+  quests: import("./protocol").QuestProjection;
+  questChanges: QuestChange[];
+  newZombies: { id: string; key: string }[];
+}
+
+export const epicBossActivate = (activationId: string) => req<{
+  event: import("./protocol").EpicBossProjection;
+  balance: Balance;
+}>("POST", "/epic-boss/activate", { activationId });
+
+export const epicBossStart = (orderedUnitIds: string[]) => req<{
+  ok: true;
+  sessionId: string;
+  event: import("./protocol").EpicBossProjection;
+  expiresAt: number;
+}>("POST", "/epic-boss/start", { orderedUnitIds });
+
+export const epicBossFinish = (
+  sessionId: string,
+  finalTick: number,
+  inputs: RaidReplayInput[],
+) => req<EpicBossFinishResult>("POST", "/epic-boss/finish", {
+  sessionId,
+  finalTick,
+  inputs,
+});
 
 // A server friend rendered into the client's Friend shape (for the HUD cache).
 export function toFriend(f: FriendView): Friend {

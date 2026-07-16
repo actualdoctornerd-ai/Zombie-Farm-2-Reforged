@@ -73,4 +73,29 @@ describe("QuestSystem client-paced progress", () => {
 
     expect(system.views()[0].objectives[0].count).toBe(1);
   });
+
+  it("hides inactive Epic quests without discarding lifetime progress", () => {
+    const bus = new QuestBus();
+    const epic = { ...quest(), id: "1000", epicEvent: true, requirements: [{
+      ...quest().requirements[0], notificationID: QuestEvent.EpicStageEnemyDefeated,
+      notificationObject: "5",
+    }] };
+    const system = new QuestSystem(new Map([[epic.id, epic]]), new GameState(), bus, {
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed: vi.fn(), render: vi.fn(),
+    });
+    system.setEpicBossActive(true);
+    bus.post(QuestEvent.EpicStageEnemyDefeated, "5");
+    const save = system.serialize();
+    expect(save.active[0].counts[0]).toBe(1);
+    system.setEpicBossActive(false);
+    expect(system.views()).toEqual([]);
+
+    const restored = new QuestSystem(new Map([[epic.id, epic]]), new GameState(), new QuestBus(), {
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed: vi.fn(), render: vi.fn(),
+    });
+    restored.restore(save);
+    expect(restored.views()).toEqual([]);
+    restored.setEpicBossActive(true);
+    expect(restored.views()[0].objectives[0].count).toBe(1);
+  });
 });

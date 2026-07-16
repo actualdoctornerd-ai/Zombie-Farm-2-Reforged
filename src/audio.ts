@@ -15,7 +15,9 @@ export type Sfx =
 // All clips are shipped as compressed .mp3 (universal browser support). The
 // .wav->.mp3 coercion lets data-driven filenames (e.g. decor tapSound values
 // authored as *.wav) resolve to the shipped file without editing that data.
-const A = (n: string) => `${BASE}assets/audio/${n.replace(/\.wav$/i, ".mp3")}`;
+const A = (n: string) => n.includes("/")
+  ? `${BASE}assets/${n}`
+  : `${BASE}assets/audio/${n.replace(/\.wav$/i, ".mp3")}`;
 
 // Which clip each SFX plays. Plowing/planting reuse the hoe sound; crops harvest
 // with their own pluck; a harvested zombie uses the plain harvest chime.

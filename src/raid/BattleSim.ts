@@ -368,6 +368,7 @@ export class BattleSim {
   // ---- round timer + enrage ----
   private roundLeft: number;
   private _enraged = false;
+  escaped = false;
   // ---- boss special actions ----
   private specials: BossSpecial[];
   private specialCd = 0; // recovery until the next special can start
@@ -402,7 +403,11 @@ export class BattleSim {
     /** Unit the boss's `summonBoss` action spawns (null = don't summon). */
     summonTemplate: CombatUnit | null = null,
     /** Blocker the boss's `wall` action spawns (null = don't). */
-    wallTemplate: CombatUnit | null = null
+    wallTemplate: CombatUnit | null = null,
+    /** Epic Boss: no butterflies, but the full brain bubble still gates release. */
+    private noDistractions = false,
+    /** Epic Boss: reaching zero ends the attempt instead of triggering enrage. */
+    private escapeOnRoundEnd = false
   ) {
     // Boss always resolves last, after the normal enemies.
     const ordered = [...enemyUnits].sort((a, b) => Number(a.isBoss) - Number(b.isBoss));
@@ -769,6 +774,16 @@ export class BattleSim {
       if (p.charge >= 1) this.releaseCharger(p);
       return;
     }
+    if (this.noDistractions) {
+      if (p.awaitRelease) {
+        p.bubbleMs -= dtMs;
+        if (p.bubbleMs <= 0) this.releaseCharger(p);
+        return;
+      }
+      p.charge = Math.min(1, p.charge + dtMs / CHARGE_MS);
+      if (p.charge >= 1) { p.awaitRelease = true; p.bubbleMs = BRAIN_AUTO_MS; }
+      return;
+    }
     if (p.distracted) {
       p.bubbleMs -= dtMs;
       if (p.bubbleMs <= 0) p.distracted = false; // auto-refocus
@@ -1122,6 +1137,12 @@ export class BattleSim {
     if (this._enraged || !this.boss || !this.boss.alive) return;
     this.roundLeft -= dtMs;
     if (this.roundLeft > 0) return;
+    if (this.escapeOnRoundEnd) {
+      this.roundLeft = 0;
+      this.escaped = true;
+      this.finished = true;
+      return;
+    }
     this._enraged = true;
     if (this.bossThrow) this.bossThrow.intervalMs *= ENRAGE_THROW_MULT;
     this.boss.damage = Math.max(1, Math.round(this.boss.damage * ENRAGE_DMG_MULT));
@@ -1415,6 +1436,7 @@ export class BattleSim {
       losses: this.players.filter((u) => !u.alive).map((u) => u.id),
       enemiesBeaten: this.enemies.filter((e) => !e.alive).length,
       playerDamage: this.playerDamage,
+      escaped: this.escaped,
     };
   }
 }

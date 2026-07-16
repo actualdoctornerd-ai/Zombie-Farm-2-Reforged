@@ -9,6 +9,8 @@ import type {
 } from "../../../src/net/protocol";
 import plantRows from "../../../public/assets/plants.json";
 import zombieRows from "../../../public/assets/zombies.json";
+import farmerRows from "../../../public/assets/farmer.json";
+import petRows from "../../../public/assets/pets/catalog.json";
 import objectRows from "../../../public/assets/placeables.json";
 import { boostEcon, MAX_STACK } from "../boostCatalog";
 import { cropEcon } from "../catalog";
@@ -18,6 +20,7 @@ import { QUEST_DEFINITIONS, QUEST_REWARD } from "../questCatalog";
 import { fertilizeProbability, zombieSell, ZOMBIE_COST } from "../rosterCatalog";
 import { climateCost, nextSize, sizeTier } from "../shopCatalog";
 import { zombieCropEcon } from "../zombieCropCatalog";
+import { farmerGold, farmerZombieGrowMs } from "../../../src/farmer";
 
 export const MAX_FARM_PLOTS = 225;
 export const MAX_FUNCTIONAL_OBJECTS = 512;
@@ -52,6 +55,9 @@ const objectRules = new Map(
     zombiePot: r.key === "zombieCombiner",
   }])
 );
+const farmerHeads = new Map(farmerRows.heads.map((head) => [head.id, head]));
+const freeFarmerHeads = farmerRows.heads.filter((head) => !head.cost).map((head) => head.id);
+const pets = new Map(petRows.pets.map((pet) => [pet.key, pet]));
 
 export interface MutableGameplayState extends GameplayProjection {}
 
@@ -139,7 +145,7 @@ function rewardHarvest(
     state.balance.xp += zombieCropEcon(key)?.xp ?? 0;
     return { ok: true, event: { type: "kCropHarvestedZombieNotification", subject: zombieNames.get(key) ?? key } };
   }
-  state.balance.gold += plot.sell * (plot.fertilized ? 2 : 1);
+  state.balance.gold += farmerGold(plot.sell * (plot.fertilized ? 2 : 1), state.farmerHeadId);
   state.balance.xp += plot.xp;
   return { ok: true, event: { type: "kCropHarvestedNotification", subject: plantNames.get(key) ?? key } };
 }
@@ -147,7 +153,8 @@ function rewardHarvest(
 export function applyQuestEvents(
   balance: BalanceProjection,
   quests: QuestProjection,
-  events: QuestEvent[]
+  events: QuestEvent[],
+  options: { includeEpic?: boolean; epicQuestIds?: ReadonlySet<string> } = {}
 ): { questId: string; counts: number[]; completed: boolean }[] {
   if (!events.length) return [];
   const completed = new Set(quests.completed);
@@ -155,7 +162,8 @@ export function applyQuestEvents(
   const changed = new Set<string>();
 
   for (const [id, def] of Object.entries(QUEST_DEFINITIONS)) {
-    if (completed.has(id) || def.seasonal || def.epicEvent) continue;
+    if (completed.has(id) || def.seasonal ||
+        (def.epicEvent && (!options.includeEpic || (options.epicQuestIds && !options.epicQuestIds.has(id))))) continue;
     if (def.levelRequired > levelForXp(balance.xp)) continue;
     if (def.prerequisiteQuest >= 0 && !completed.has(String(def.prerequisiteQuest))) continue;
     const counts = progress.get(id) ?? def.requirements.map(() => 0);
@@ -243,7 +251,9 @@ function applyOne(
         state: "planted",
         cropKey: command.cropKey,
         plantedAt: options.now,
-        growMs: veg?.growMs ?? zombie?.growMs ?? 0,
+        growMs: zombie
+          ? farmerZombieGrowMs(zombie.growMs, state.farmerHeadId)
+          : veg?.growMs ?? 0,
         sell: veg?.sell ?? 0,
         xp: veg?.xp ?? zombie?.xp ?? 0,
         fertilized,
@@ -391,7 +401,7 @@ function applyOne(
         const obj = state.objects.objects.find((o) => o.instanceId === id && o.status === "placed");
         const rule = obj ? objectRules.get(obj.catalogKey) : undefined;
         if (!obj || !rule?.growMs || !rule.harvestValue || (obj.readyAt ?? 0) > options.now) continue;
-        state.balance.gold += rule.harvestValue;
+        state.balance.gold += farmerGold(rule.harvestValue, state.farmerHeadId);
         obj.readyAt = options.now + rule.growMs;
         harvested++;
         events.push({ type: "kCropHarvestedNotification", subject: rule.name });
@@ -453,6 +463,39 @@ function applyOne(
       state.climates.push(command.terrain);
       return { sequence, status: "applied" };
     }
+    case "farmer.buy": {
+      const head = farmerHeads.get(command.headId);
+      if (!head || !head.cost) return reject(sequence, "bad_item");
+      if (state.farmerHeads.includes(head.id)) return reject(sequence, "already_owned");
+      const currency = head.brains ? "brains" : "gold";
+      if (state.balance[currency] < head.cost) return reject(sequence, "insufficient");
+      state.balance[currency] -= head.cost;
+      state.farmerHeads.push(head.id);
+      return { sequence, status: "applied" };
+    }
+    case "farmer.equip": {
+      if (!state.farmerHeads.includes(command.headId)) return reject(sequence, "not_owned");
+      state.farmerHeadId = command.headId;
+      return { sequence, status: "applied" };
+    }
+    case "pet.buy": {
+      const pet = pets.get(command.petKey);
+      if (!pet || pet.hidden || !pet.brains || pet.cost <= 0) return reject(sequence, "bad_item");
+      if (state.ownedPets.includes(pet.key)) return reject(sequence, "already_owned");
+      if (levelForXp(state.balance.xp) < pet.level) return reject(sequence, "locked");
+      if (state.balance.brains < pet.cost) return reject(sequence, "insufficient");
+      state.balance.brains -= pet.cost;
+      state.ownedPets.push(pet.key);
+      state.activePet = pet.key;
+      return { sequence, status: "applied" };
+    }
+    case "pet.equip": {
+      if (command.petKey !== null && !state.ownedPets.includes(command.petKey)) {
+        return reject(sequence, "not_owned");
+      }
+      state.activePet = command.petKey;
+      return { sequence, status: "applied" };
+    }
     case "storage.move": {
       if (!Number.isInteger(command.quantity) || command.quantity <= 0 || command.quantity > 225) return reject(sequence, "bad_quantity");
       const from = command.direction === "store" ? state.storage.received : state.storage.stored;
@@ -497,6 +540,7 @@ export function applyCommandBatch(
     if (command.type === "roster.sell" || command.type === "roster.status") return [`unit:${command.unitId}`];
     if (command.type === "roster.combine") return [`unit:${command.parentAId}`, `unit:${command.parentBId}`];
     if (command.type === "storage.move") return [`storage:${command.itemKey}`];
+    if (command.type === "pet.buy" || command.type === "pet.equip") return [`pet:${command.petKey ?? "active"}`];
     return [];
   };
   const results: CommandResult[] = [];
@@ -537,8 +581,13 @@ export function freshGameplayState(): MutableGameplayState {
     roster: [] satisfies RosterUnitProjection[],
     farmSize: 30,
     climates: ["grass"],
+    farmerHeads: [...freeFarmerHeads],
+    farmerHeadId: 1,
+    ownedPets: [],
+    activePet: null,
     zombieMax: 16,
     tutorialRewarded: false,
     raids: { progress: {}, lastRaidAt: 0 },
+    epicBoss: null,
   };
 }

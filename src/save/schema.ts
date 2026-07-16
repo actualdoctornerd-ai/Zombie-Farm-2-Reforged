@@ -26,6 +26,7 @@
 
 import type { Friend } from "../social/friends";
 import type { FarmBackground } from "../prefs";
+import type { EpicBossRun } from "../epicBoss/types";
 
 /** Bump when the shape changes in a way that needs a migration. */
 export const SAVE_VERSION = 1;
@@ -64,6 +65,8 @@ export interface SaveGame {
   quests?: QuestSave;
   /** Phase 5: raid/invasion progress (lifetime win count per raid id). */
   raids?: RaidProgressSave;
+  /** Active/completed limited Epic Boss run. Absent in saves created before the feature. */
+  epicBoss?: EpicBossRun;
   /** Local offline-fallback friends list + gifting state. The online friend system
    *  is server-backed (net/api.ts + server/), not stored here. Absent = no local
    *  friends. */
@@ -111,6 +114,22 @@ export interface PlayerSave {
   /** Whether the player has ever acquired a Zombie Pot. Once true, extra pots cost
    *  a flat 30 brains forever (see GameState.zombiePotBought). Absent = never had one. */
   zombiePotBought?: boolean;
+  /** Owned modular Farmer parts and the currently equipped mix. */
+  farmerAppearance?: FarmerAppearanceSave;
+  /** Cosmetic pet collection. Authoritative only for signed-out local saves. */
+  petCollection?: PetCollectionSave;
+}
+
+export interface FarmerAppearanceSave {
+  ownedHeads?: number[];
+  ownedBodies?: number[];
+  headId?: number;
+  bodyId?: number;
+}
+
+export interface PetCollectionSave {
+  owned: string[];
+  active?: string | null;
 }
 
 // ---------------------------------------------------------------------------

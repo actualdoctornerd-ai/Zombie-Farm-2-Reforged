@@ -55,6 +55,7 @@ import objectCatalog from "../../public/assets/placeables.json";
 import { COMMAND_BATCH_LIMIT, GAMEPLAY_PROTOCOL, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
 import * as v3 from "./v3/db";
 import * as v3Raid from "./v3/raid";
+import * as v3EpicBoss from "./v3/epicBoss";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 
@@ -518,6 +519,10 @@ const validGameplayCommand = (value: unknown): value is GameplayCommand => {
     case "roster.combine": return commandString(command.parentAId) && commandString(command.parentBId);
     case "shop.size": return commandInt(command.size) && (command.currency === "gold" || command.currency === "brains");
     case "shop.climate": return commandString(command.terrain);
+    case "farmer.buy": return commandInt(command.headId);
+    case "farmer.equip": return commandInt(command.headId);
+    case "pet.buy": return commandString(command.petKey);
+    case "pet.equip": return command.petKey === null || commandString(command.petKey);
     case "tutorial.complete": return true;
     default: return false;
   }
@@ -634,6 +639,35 @@ app.post("/raid/finish", async (c) => {
     c.header("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
     return c.json(result.body, 425);
   }
+  return c.json(result.body, 409);
+});
+
+app.post("/epic-boss/activate", async (c) => {
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body: { activationId?: unknown } = await c.req.json<{ activationId?: unknown }>().catch(() => ({}));
+  const activationId = typeof body.activationId === "string" && body.activationId ? body.activationId : crypto.randomUUID();
+  const result = await v3EpicBoss.activate(c.env.DB, c.get("accountId"), activationId, Date.now());
+  return result.status === 200 ? c.json(result.body) : c.json(result.body, 409);
+});
+
+app.post("/epic-boss/start", async (c) => {
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body: { orderedUnitIds?: unknown } = await c.req.json<{ orderedUnitIds?: unknown }>().catch(() => ({}));
+  const result = await v3EpicBoss.start(c.env.DB, c.get("accountId"), body.orderedUnitIds, Date.now());
+  if (result.status === 200) return c.json(result.body);
+  if (result.status === 400) return c.json(result.body, 400);
+  if (result.status === 429) return c.json(result.body, 429);
+  return c.json(result.body, 409);
+});
+
+app.post("/epic-boss/finish", async (c) => {
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const result = await v3EpicBoss.finish(c.env.DB, c.get("accountId"), body, Date.now());
+  if (result.status === 200) return c.json(result.body);
+  if (result.status === 400) return c.json(result.body, 400);
+  if (result.status === 404) return c.json(result.body, 404);
+  if (result.status === 422) return c.json(result.body, 422);
   return c.json(result.body, 409);
 });
 
@@ -919,7 +953,8 @@ app.get("/friends/:id/save", async (c) => {
     version: 1,
     savedAt: boot.serverTime,
     player: { name: targetAccount?.username ?? "Player", gold: 0, brains: 0, xp: 0,
-      zombieMax: boot.gameplay.zombieMax, zombieCount: boot.gameplay.roster.filter((u) => !u.stored).length },
+      zombieMax: boot.gameplay.zombieMax, zombieCount: boot.gameplay.roster.filter((u) => !u.stored).length,
+      petCollection: { owned: boot.gameplay.ownedPets, active: boot.gameplay.activePet } },
     farm: {
       fieldId: "default", w: boot.gameplay.farmSize, h: boot.gameplay.farmSize,
       climate: p.farm?.climate ?? "grass",

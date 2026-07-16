@@ -188,7 +188,7 @@ export class RaidManager {
 
   /** Ms left on the between-invasions cooldown (0 = ready). */
   cooldownRemaining(): number {
-    return Math.max(0, this.cooldownMs - (this.now() - this.state.lastRaidAt));
+    return Math.max(0, this.state.farmerInvasionCooldownMs(this.cooldownMs) - (this.now() - this.state.lastRaidAt));
   }
   /** Whether a cooldown is currently blocking new invasions. */
   onCooldown(): boolean {
@@ -356,6 +356,8 @@ export class RaidManager {
         // Level-scale str/con/dex: zombies don't fight at full stats until L25
         // (binary modifyStatWithLevelScale:).
         playerLevel: this.state.level,
+        farmerStrengthMult: this.state.farmerZombieStrengthMult(),
+        farmerLifeMult: this.state.farmerZombieLifeMult(),
       }),
       enemyUnits,
       bossThrow: this.bossThrowOf(raid, stage),

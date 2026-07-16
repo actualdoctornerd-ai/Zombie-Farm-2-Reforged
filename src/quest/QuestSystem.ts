@@ -27,7 +27,10 @@ const LIVE_EVENTS = new Set<string>([
   QuestEvent.InvasionSuccessful, QuestEvent.InvasionPerfectGame, QuestEvent.LootItemWon,
   // mutation combiner (Zombie Pot)
   QuestEvent.CombinerCombined, QuestEvent.CombinerHarvested,
+  // Epic Boss events are additionally gated by setEpicBossActive().
+  QuestEvent.EpicStageEnemyDefeated, QuestEvent.EpicBossEpicItemWon,
 ]);
+const DR_GROUNDHOG_QUESTS = new Set(["1000", "1001", "1002", "1003", "1010", "1011"]);
 
 // There is NO cap on how many quests are active: every quest whose prerequisite is
 // complete, level gate is met, and trigger event is live becomes active at once.
@@ -61,6 +64,7 @@ export interface QuestHooks {
 export class QuestSystem {
   private active = new Map<string, number[]>(); // quest id -> count per requirement
   private completed = new Set<string>();
+  private epicBossActive = false;
 
   constructor(
     private defs: Map<string, QuestDef>,
@@ -81,7 +85,7 @@ export class QuestSystem {
     if (!def || this.completed.has(id) || this.active.has(id)) return false;
     // Seasonal (date-gated) and epic-event quests are driven by their own systems,
     // not the normal progression rail.
-    if (def.seasonal || def.epicEvent) return false;
+    if (def.seasonal || (def.epicEvent && (!this.epicBossActive || !DR_GROUNDHOG_QUESTS.has(id)))) return false;
     // Prerequisite must be finished, and the level gate met.
     if (def.prerequisiteQuest >= 0 && !this.completed.has(String(def.prerequisiteQuest))) return false;
     if (def.levelRequired >= 0 && this.state.level < def.levelRequired) return false;
@@ -111,6 +115,7 @@ export class QuestSystem {
     for (const [id, counts] of this.active) {
       const def = this.defs.get(id);
       if (!def) continue;
+      if (def.epicEvent && !this.epicBossActive) continue;
       let advanced = false;
       def.requirements.forEach((r, i) => {
         if (counts[i] >= r.countTotal) return;
@@ -176,6 +181,7 @@ export class QuestSystem {
     for (const [id, counts] of this.active) {
       const def = this.defs.get(id);
       if (!def) continue;
+      if (def.epicEvent && !this.epicBossActive) continue;
       out.push({
         id,
         title: def.title,
@@ -200,6 +206,14 @@ export class QuestSystem {
     return this.completed.size;
   }
 
+  /** Surface/pause Epic Boss quests without discarding their lifetime progress. */
+  setEpicBossActive(active: boolean) {
+    if (this.epicBossActive === active) return;
+    this.epicBossActive = active;
+    if (active) this.tryActivate();
+    this.hooks.render(this.views());
+  }
+
   // ---- persistence ----
   serialize(): QuestSave {
     return {
@@ -213,10 +227,18 @@ export class QuestSystem {
     if (save) {
       this.completed = new Set(save.completed);
       this.active = new Map();
-      // Keep every saved active that is still valid under the current rules
-      // (drops quests an older save may have activated before they were gated out,
-      // e.g. seasonal/epic/non-actionable), preserving in-progress counts.
+      // Epic quests remain stored while an event is inactive so lifetime progress
+      // survives expiration and later paid activations; views/events hide them until
+      // setEpicBossActive(true).
       for (const a of save.active) {
+        const savedDef = this.defs.get(a.id);
+        if (savedDef?.epicEvent && DR_GROUNDHOG_QUESTS.has(a.id) && !this.completed.has(a.id)) {
+          const counts = a.counts.length === savedDef.requirements.length
+            ? a.counts.slice()
+            : new Array(savedDef.requirements.length).fill(0);
+          this.active.set(a.id, counts);
+          continue;
+        }
         if (!this.eligible(a.id)) continue; // active is empty here, so eligible() is valid
         const def = this.defs.get(a.id)!;
         const counts =
@@ -246,9 +268,10 @@ export class QuestSystem {
     this.active = new Map();
     const supplied = new Map(state.progress.map((p) => [p.questId, p.counts]));
     for (const [id, def] of this.defs) {
-      if (!this.eligible(id)) continue;
       const remote = supplied.get(id) ?? [];
       const local = localActive.get(id) ?? [];
+      const pausedEpic = def.epicEvent && DR_GROUNDHOG_QUESTS.has(id) && !this.completed.has(id) && (remote.length > 0 || local.length > 0);
+      if (!pausedEpic && !this.eligible(id)) continue;
       this.active.set(
         id,
         def.requirements.map((r, i) => {

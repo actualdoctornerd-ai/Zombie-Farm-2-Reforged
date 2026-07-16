@@ -8,7 +8,7 @@
 // The container origin (0,0) is the character's ground point; we place that on a
 // tile center. sortableChildren + zIndex reproduce the game's part layering.
 import { Container, Sprite } from "pixi.js";
-import { GameAssets } from "./assets";
+import { FarmerBodyDef, GameAssets } from "./assets";
 
 const STEP_PERIOD = 0.26; // seconds per arm-swing half-cycle while walking
 const ARM_SWING = 0.5; // radians the arms rock fore/aft while walking
@@ -24,6 +24,7 @@ export class Actor {
   private bootBack!: Sprite;
   private bootFront!: Sprite;
   private plough!: Sprite;
+  private bodyDef!: FarmerBodyDef;
 
   private bodyBaseY = 0;
   private headBaseY = 0;
@@ -62,6 +63,9 @@ export class Actor {
     this.bootFrontBaseY = this.bootFront.y;
     this.ploughBaseX = this.plough.x;
     this.ploughBaseY = this.plough.y;
+    const defaultHead = this.assets.farmer.heads.find((head) => head.part === "malehead1.png") ?? this.assets.farmer.heads[0];
+    const defaultBody = this.assets.farmer.bodies.find((body) => body.id === defaultHead.bodyId) ?? this.assets.farmer.bodies[0];
+    this.setAppearance(defaultHead.part, defaultBody.id);
   }
 
   private part(file: string): Sprite {
@@ -72,6 +76,28 @@ export class Actor {
     sp.zIndex = layout.z;
     this.container.addChild(sp);
     return sp;
+  }
+
+  private setPart(sp: Sprite, file: string) {
+    const layout = this.assets.rig[file];
+    sp.texture = this.assets.player[file];
+    sp.anchor.set(layout.pivotX, 1 - layout.pivotY);
+    sp.position.set(layout.offsetX, -layout.offsetY);
+    sp.zIndex = layout.z;
+  }
+
+  /** Swap the modular head and body/arm set without disturbing movement state. */
+  setAppearance(headPart: string, bodyId: number) {
+    const body = this.assets.farmer.bodies.find((candidate) => candidate.id === bodyId);
+    if (!body || !this.assets.player[headPart]) return;
+    this.bodyDef = body;
+    this.setPart(this.head, headPart);
+    this.setPart(this.body, body.body);
+    this.setPart(this.backArm, body.arm1);
+    this.setPart(this.frontArm, body.arm2);
+    this.bodyBaseY = this.body.y;
+    this.headBaseY = this.head.y;
+    this.resetPose();
   }
 
   setMoving(m: boolean) {
@@ -101,8 +127,8 @@ export class Actor {
   }
 
   private resetPose() {
-    this.backArm.texture = this.assets.player["male_arm1.png"];
-    this.frontArm.texture = this.assets.player["male_arm2.png"];
+    this.backArm.texture = this.assets.player[this.bodyDef.arm1];
+    this.frontArm.texture = this.assets.player[this.bodyDef.arm2];
     this.body.y = this.bodyBaseY;
     this.body.rotation = 0;
     this.head.y = this.headBaseY;
@@ -127,9 +153,9 @@ export class Actor {
     // Arm pose A/B swap on each half-cycle for a bit of shape change...
     const poseB = Math.floor(this.phase / STEP_PERIOD) % 2 === 1;
     this.backArm.texture =
-      this.assets.player[poseB ? "male_arm3.png" : "male_arm1.png"];
+      this.assets.player[poseB ? this.bodyDef.arm3 : this.bodyDef.arm1];
     this.frontArm.texture =
-      this.assets.player[poseB ? "male_arm4.png" : "male_arm2.png"];
+      this.assets.player[poseB ? this.bodyDef.arm4 : this.bodyDef.arm2];
     // ...plus a continuous fore/aft swing on arms and legs (the "rotaty" motion).
     const t = (this.phase / STEP_PERIOD) * Math.PI;
     const swing = Math.sin(t);
@@ -150,8 +176,8 @@ export class Actor {
   // hands and only bobs a little. Same cycle for till / plant / harvest.
   private workAnim(dt: number) {
     this.workPhase += dt;
-    this.frontArm.texture = this.assets.player["male_arm4.png"];
-    this.backArm.texture = this.assets.player["male_arm3.png"];
+    this.frontArm.texture = this.assets.player[this.bodyDef.arm4];
+    this.backArm.texture = this.assets.player[this.bodyDef.arm3];
     const chop = Math.sin(this.workPhase * WORK_SPEED * this.workSpeed); // -1..1
     // Head leans forward (toward the facing/work direction; negative = toward the
     // art's front, which the container scale mirrors correctly) with a slight nod.

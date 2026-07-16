@@ -32,6 +32,10 @@ export type GameplayCommand =
   | { type: "roster.combine"; parentAId: string; parentBId: string }
   | { type: "shop.size"; size: number; currency: "gold" | "brains" }
   | { type: "shop.climate"; terrain: string }
+  | { type: "farmer.buy"; headId: number }
+  | { type: "farmer.equip"; headId: number }
+  | { type: "pet.buy"; petKey: string }
+  | { type: "pet.equip"; petKey: string | null }
   | { type: "tutorial.complete" };
 
 export interface SequencedCommand {
@@ -93,6 +97,20 @@ export interface QuestProjection {
   progress: { questId: string; counts: number[] }[];
 }
 
+export interface EpicBossProjection {
+  runId: string;
+  bossId: string;
+  activatedAt: number;
+  expiresAt: number;
+  level: number;
+  maxHp: number;
+  currentHp: number;
+  encounterStartedAt: number;
+  retryReadyAt: number;
+  completedAt: number;
+  attackOrder: string[];
+}
+
 export interface RosterUnitProjection {
   id: string;
   key: string;
@@ -112,9 +130,14 @@ export interface GameplayProjection {
   roster: RosterUnitProjection[];
   farmSize: number;
   climates: string[];
+  farmerHeads: number[];
+  farmerHeadId: number;
+  ownedPets: string[];
+  activePet: string | null;
   zombieMax: number;
   tutorialRewarded: boolean;
   raids: { progress: Record<string, number>; lastRaidAt: number };
+  epicBoss?: EpicBossProjection | null;
 }
 
 export interface PresentationProjection {

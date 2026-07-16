@@ -1,0 +1,3295 @@
+{
+  "version": 0,
+  "pets": [
+    {
+      "key": "alienActor",
+      "actorKey": "alienActor",
+      "name": "Alien",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Cute, cuddly, and we're almost positive it doesn't want to take over the planet.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -10,
+        40
+      ],
+      "portrait": "portraits/alienActor.png",
+      "sheet": {
+        "file": "alienActor.png",
+        "cellWidth": 42,
+        "cellHeight": 86,
+        "frameCount": 17
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            2,
+            1,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            4,
+            5,
+            6,
+            5,
+            4,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            0,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 10
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 90
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "baldEagle",
+      "actorKey": "baldEagle",
+      "name": "Bald Eagle",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Nothing says freedom like a pet Eagle!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -30,
+        15
+      ],
+      "portrait": "portraits/baldEagle.png",
+      "sheet": {
+        "file": "baldEagle.png",
+        "cellWidth": 123,
+        "cellHeight": 98,
+        "frameCount": 16
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "cerberusActor",
+      "actorKey": "cerberusActor",
+      "name": "Cerberus",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Three times the heads means three times the cute! Also, bonus barking.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -20,
+        20
+      ],
+      "portrait": "portraits/cerberusActor.png",
+      "sheet": {
+        "file": "cerberusActor.png",
+        "cellWidth": 105,
+        "cellHeight": 116,
+        "frameCount": 18
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "dogCorgiActor",
+      "actorKey": "dogCorgiActor",
+      "name": "Corgi",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A breed specially designed for office shenanigans.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -20,
+        20
+      ],
+      "portrait": "portraits/dogCorgiActor.png",
+      "sheet": {
+        "file": "dogCorgiActor.png",
+        "cellWidth": 82,
+        "cellHeight": 68,
+        "frameCount": 11
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            3,
+            2,
+            1,
+            0
+          ],
+          "frameSeconds": 0.05
+        },
+        "moveAnimation": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "duckActor",
+      "actorKey": "duckActor",
+      "name": "Dapper Duck",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Farnsworth P. Duckington comes from an established line of aristocratic water fowl. Tally ho!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -10,
+        20
+      ],
+      "portrait": "portraits/duckActor.png",
+      "sheet": {
+        "file": "duckActor.png",
+        "cellWidth": 44,
+        "cellHeight": 64,
+        "frameCount": 12
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "direwolf_brown",
+      "actorKey": "direwolf_brown",
+      "name": "Dire Wolf Brown",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "The brown dire wolf craves prey found amidst the forest.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -26,
+        4
+      ],
+      "portrait": "portraits/direwolf_brown.png",
+      "sheet": {
+        "file": "direwolf_brown.png",
+        "cellWidth": 129,
+        "cellHeight": 103,
+        "frameCount": 15
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "direwolf_grey",
+      "actorKey": "direwolf_grey",
+      "name": "Dire Wolf Grey",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Especially adapted for flat ground, the grey wolf is master of the plains.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -26,
+        4
+      ],
+      "portrait": "portraits/direwolf_grey.png",
+      "sheet": {
+        "file": "direwolf_grey.png",
+        "cellWidth": 131,
+        "cellHeight": 108,
+        "frameCount": 23
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            18,
+            19,
+            20,
+            21,
+            22
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "direwolf_white",
+      "actorKey": "direwolf_white",
+      "name": "Dire Wolf White",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Built for snow and ice, the white Dire Wolf thrives in cold climates.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -26,
+        4
+      ],
+      "portrait": "portraits/direwolf_white.png",
+      "sheet": {
+        "file": "direwolf_white.png",
+        "cellWidth": 132,
+        "cellHeight": 106,
+        "frameCount": 22
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            17,
+            18,
+            19,
+            20,
+            21
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "dragonActor",
+      "actorKey": "dragonActor",
+      "name": "Dragon Pet",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Symbolizes power, luck, and looking snazzy in green.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 2.0,
+      "randomDelay": false,
+      "playerOffset": [
+        -30,
+        0
+      ],
+      "portrait": "portraits/dragonActor.png",
+      "sheet": {
+        "file": "dragonActor.png",
+        "cellWidth": 101,
+        "cellHeight": 72,
+        "frameCount": 15
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            3,
+            2,
+            1,
+            0
+          ],
+          "frameSeconds": 0.2
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            4,
+            5,
+            6,
+            6,
+            5,
+            4,
+            0
+          ],
+          "frameSeconds": 0.2
+        },
+        "moveAnimation": {
+          "frames": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "frameSeconds": 0.07
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 40
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 60
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "flyingPig",
+      "actorKey": "flyingPig",
+      "name": "Flying Pig",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A rare breed of pig often found giving rides to zombies. Play Zombie Farm Escape to see it in action.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -30,
+        -20
+      ],
+      "portrait": "portraits/flyingPig.png",
+      "sheet": {
+        "file": "flyingPig.png",
+        "cellWidth": 128,
+        "cellHeight": 154,
+        "frameCount": 26
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            20,
+            21,
+            22,
+            23,
+            24,
+            25
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "ghostActor",
+      "actorKey": "ghostActor",
+      "name": "Ghost",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Theres no telling what sort of creature this was when it was living. It sure is friendly though.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 2.0,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        15
+      ],
+      "portrait": "portraits/ghostActor.png",
+      "sheet": {
+        "file": "ghostActor.png",
+        "cellWidth": 60,
+        "cellHeight": 80,
+        "frameCount": 15
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.1
+        },
+        "idleAnimation1": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "frameSeconds": 0.1
+        },
+        "moveAnimation": {
+          "frames": [
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "frameSeconds": 0.07
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 50
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 50
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "gingerbreadPetActor",
+      "actorKey": "gingerbreadPetActor",
+      "name": "Gingerbread Man",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Run, run as fast as you can. You'll never lose me, I'm your pet Gingerbread Man.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -16,
+        10
+      ],
+      "portrait": "portraits/gingerbreadPetActor.png",
+      "sheet": {
+        "file": "gingerbreadPetActor.png",
+        "cellWidth": 50,
+        "cellHeight": 75,
+        "frameCount": 30
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29
+          ],
+          "frameSeconds": 0.1
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "happyDragonActor",
+      "actorKey": "happyDragonActor",
+      "name": "Happy Dragon",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "He floats upon tiny wings and pure happiness.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 2.0,
+      "randomDelay": false,
+      "playerOffset": [
+        -30,
+        15
+      ],
+      "portrait": "portraits/happyDragonActor.png",
+      "sheet": {
+        "file": "happyDragonActor.png",
+        "cellWidth": 118,
+        "cellHeight": 109,
+        "frameCount": 15
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            3,
+            2,
+            1,
+            0
+          ],
+          "frameSeconds": 0.1
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            5,
+            6,
+            7,
+            8,
+            7,
+            6,
+            5,
+            0
+          ],
+          "frameSeconds": 0.1
+        },
+        "moveAnimation": {
+          "frames": [
+            0,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "frameSeconds": 0.07
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 40
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 60
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "mau",
+      "actorKey": "mau",
+      "name": "Mau",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Pet cat of Zombses II",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -5,
+        -5
+      ],
+      "portrait": "portraits/mau.png",
+      "sheet": {
+        "file": "mau.png",
+        "cellWidth": 105,
+        "cellHeight": 86,
+        "frameCount": 17
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "monkey",
+      "actorKey": "monkey",
+      "name": "Monkey",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "This monkey is as curious as ever!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -30,
+        15
+      ],
+      "portrait": "portraits/monkey.png",
+      "sheet": {
+        "file": "monkey.png",
+        "cellWidth": 66,
+        "cellHeight": 54,
+        "frameCount": 21
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "morpActor",
+      "actorKey": "morpActor",
+      "name": "Morp",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A hungry, curious Morp from Eat Eat Hooray!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 2.0,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        15
+      ],
+      "portrait": "portraits/morpActor.png",
+      "sheet": {
+        "file": "morpActor.png",
+        "cellWidth": 45,
+        "cellHeight": 45,
+        "frameCount": 13
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.1
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.1
+        },
+        "moveAnimation": {
+          "frames": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "frameSeconds": 0.07
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 50
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 50
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "mrWigglesActor",
+      "actorKey": "mrWigglesActor",
+      "name": "Mr. Wiggles",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A streetwise worm from the big city. Play Zombie Life today!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -20,
+        15
+      ],
+      "portrait": "portraits/mrWigglesActor.png",
+      "sheet": {
+        "file": "mrWigglesActor.png",
+        "cellWidth": 54,
+        "cellHeight": 46,
+        "frameCount": 10
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            2,
+            3,
+            4,
+            3,
+            2,
+            5,
+            6,
+            5,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation2": {
+          "frames": [
+            0,
+            1
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            7,
+            8,
+            9
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 50
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          },
+          {
+            "animation": "idleAnimation2",
+            "probability": 20
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "otterActor",
+      "actorKey": "otterActor",
+      "name": "Otter",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Your one and only significant Otter. You two will be Otterly inseparable!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -20,
+        0
+      ],
+      "portrait": "portraits/otterActor.png",
+      "sheet": {
+        "file": "otterActor.png",
+        "cellWidth": 79,
+        "cellHeight": 48,
+        "frameCount": 18
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "penguinActor",
+      "actorKey": "penguinActor",
+      "name": "Penguin Pet",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "What's more adorable than a waddling penguin? Absolutely nothing.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -15,
+        -15
+      ],
+      "portrait": "portraits/penguinActor.png",
+      "sheet": {
+        "file": "penguinActor.png",
+        "cellWidth": 55,
+        "cellHeight": 58,
+        "frameCount": 6
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.5
+        },
+        "moveAnimation": {
+          "frames": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 40
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 60
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "catActor",
+      "actorKey": "catActor",
+      "name": "Persian Cat",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A fancy, fluffy cat that excels at shedding all over nice clothes.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -20,
+        20
+      ],
+      "portrait": "portraits/catActor.png",
+      "sheet": {
+        "file": "catActor.png",
+        "cellWidth": 48,
+        "cellHeight": 61,
+        "frameCount": 11
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            2,
+            1,
+            0
+          ],
+          "frameSeconds": 0.05
+        },
+        "moveAnimation": {
+          "frames": [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "pinkBunny",
+      "actorKey": "bunnyActor",
+      "name": "Pink Bunny",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A cute bunny, your friend forever.",
+      "color": [
+        255,
+        190,
+        190
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        15
+      ],
+      "portrait": "portraits/pinkBunny.png",
+      "sheet": {
+        "file": "bunnyActor.png",
+        "cellWidth": 41,
+        "cellHeight": 56,
+        "frameCount": 2
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            1
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "polarbearActor",
+      "actorKey": "polarbearActor",
+      "name": "Polar Bear Pet",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Even its sharp, pointy teeth are cute and cuddly.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -15,
+        -15
+      ],
+      "portrait": "portraits/polarbearActor.png",
+      "sheet": {
+        "file": "polarbearActor.png",
+        "cellWidth": 66,
+        "cellHeight": 63,
+        "frameCount": 11
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.5
+        },
+        "moveAnimation": {
+          "frames": [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "frameSeconds": 0.06
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 40
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 60
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "ponyActor",
+      "actorKey": "ponyActor",
+      "name": "Pony Pet",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A pleasantly pretty, pink, and prancing pony to perfect your farm!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        -15
+      ],
+      "portrait": "portraits/ponyActor.png",
+      "sheet": {
+        "file": "ponyActor.png",
+        "cellWidth": 76,
+        "cellHeight": 68,
+        "frameCount": 15
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            0,
+            1,
+            2,
+            3
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            4,
+            5,
+            6,
+            5,
+            4,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation2": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.25
+        },
+        "moveAnimation": {
+          "frames": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 25
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 50
+          },
+          {
+            "animation": "idleAnimation2",
+            "probability": 25
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "poppyActor",
+      "actorKey": "poppyActor",
+      "name": "Poppy",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "The benevolent forest fairy from Tree World is visiting your farm!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        0
+      ],
+      "portrait": "portraits/poppyActor.png",
+      "sheet": {
+        "file": "poppyActor.png",
+        "cellWidth": 78,
+        "cellHeight": 120,
+        "frameCount": 16
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            0,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 10
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 90
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "possum",
+      "actorKey": "possum",
+      "name": "Possum",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "This possum likes to play dead, hoping it will blend in with your zombies.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -18,
+        -20
+      ],
+      "portrait": "portraits/possum.png",
+      "sheet": {
+        "file": "possum.png",
+        "cellWidth": 141,
+        "cellHeight": 119,
+        "frameCount": 13
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            0
+          ],
+          "frameSeconds": 2.0
+        },
+        "idleAnimation1": {
+          "frames": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "pterodactylActor",
+      "actorKey": "pterodactylActor",
+      "name": "Pterodactyl",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Flapping its way into your heart.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        10
+      ],
+      "portrait": "portraits/pterodactylActor.png",
+      "sheet": {
+        "file": "pterodactylActor.png",
+        "cellWidth": 110,
+        "cellHeight": 75,
+        "frameCount": 21
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            0,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 10
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 90
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "sealActor",
+      "actorKey": "sealActor",
+      "name": "Seal Pup",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "Seal pups are made of 10% flippers, 30% blubber, and 600% love.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        -30
+      ],
+      "portrait": "portraits/sealActor.png",
+      "sheet": {
+        "file": "sealActor.png",
+        "cellWidth": 90,
+        "cellHeight": 88,
+        "frameCount": 15
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            3,
+            2,
+            1,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation2": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.5
+        },
+        "moveAnimation": {
+          "frames": [
+            0,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 25
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 50
+          },
+          {
+            "animation": "idleAnimation2",
+            "probability": 25
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "easterPetActor2013",
+      "actorKey": "easterPetActor2013",
+      "name": "Spring Chick Pet",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "This little chick is almost ready to take on the world, starting with your farm!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -6,
+        12
+      ],
+      "portrait": "portraits/easterPetActor2013.png",
+      "sheet": {
+        "file": "easterPetActor2013.png",
+        "cellWidth": 80,
+        "cellHeight": 85,
+        "frameCount": 49
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            43,
+            44,
+            45,
+            46,
+            47,
+            48
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "turkeyActor",
+      "actorKey": "turkeyActor",
+      "name": "Turkey Pet",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A fashionable fowl that answers to Fred.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        -15
+      ],
+      "portrait": "portraits/turkeyActor.png",
+      "sheet": {
+        "file": "turkeyActor.png",
+        "cellWidth": 63,
+        "cellHeight": 75,
+        "frameCount": 6
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.5
+        },
+        "moveAnimation": {
+          "frames": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 40
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 60
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "whiteBunny",
+      "actorKey": "bunnyActor",
+      "name": "White Bunny",
+      "cost": 50,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "A cute bunny, your friend forever.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        15
+      ],
+      "portrait": "portraits/whiteBunny.png",
+      "sheet": {
+        "file": "bunnyActor.png",
+        "cellWidth": 41,
+        "cellHeight": 56,
+        "frameCount": 2
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            1
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "trexActor",
+      "actorKey": "trexActor",
+      "name": "T-Rex",
+      "cost": 250,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "With teeny-tiny flailing arms and a giant head filled with teeth, it can only be a T-Rex.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -50,
+        10
+      ],
+      "portrait": "portraits/trexActor.png",
+      "sheet": {
+        "file": "trexActor.png",
+        "cellWidth": 120,
+        "cellHeight": 106,
+        "frameCount": 19
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            2,
+            1,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            0,
+            4,
+            5,
+            6,
+            5,
+            4,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation2": {
+          "frames": [
+            0,
+            7,
+            8,
+            9,
+            10,
+            10,
+            10,
+            10,
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 10
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 80
+          },
+          {
+            "animation": "idleAnimation2",
+            "probability": 10
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "brainActor",
+      "actorKey": "brainActor",
+      "name": "Pet Brain",
+      "cost": 500,
+      "brains": true,
+      "level": 0,
+      "hidden": false,
+      "description": "An exclusive Pet Brain for the low price of 1,000 brains! It seems to like you!",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -20,
+        15
+      ],
+      "portrait": "portraits/brainActor.png",
+      "sheet": {
+        "file": "brainActor.png",
+        "cellWidth": 32,
+        "cellHeight": 24,
+        "frameCount": 1
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            0
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "bullyfrogpetActor",
+      "actorKey": "bullyfrogpetActor",
+      "name": "Tame Bull Frog",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame bull frog that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 2.0,
+      "randomDelay": true,
+      "playerOffset": [
+        -50,
+        20
+      ],
+      "portrait": "portraits/bullyfrogpetActor.png",
+      "sheet": {
+        "file": "bullyfrogpetActor.png",
+        "cellWidth": 110,
+        "cellHeight": 93,
+        "frameCount": 28
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            22,
+            23,
+            24,
+            25,
+            26,
+            27
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "foulowlpetActor",
+      "actorKey": "foulowlpetActor",
+      "name": "Tame Foul Owl",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame foul owl that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 2.0,
+      "randomDelay": true,
+      "playerOffset": [
+        -50,
+        20
+      ],
+      "portrait": "portraits/foulowlpetActor.png",
+      "sheet": {
+        "file": "foulowlpetActor.png",
+        "cellWidth": 67,
+        "cellHeight": 73,
+        "frameCount": 17
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "drgroundhogpetActor",
+      "actorKey": "drgroundhogpetActor",
+      "name": "Tame Groundhog",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame groundhog that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -20,
+        20
+      ],
+      "portrait": "portraits/drgroundhogpetActor.png",
+      "sheet": {
+        "file": "drgroundhogpetActor.png",
+        "cellWidth": 50,
+        "cellHeight": 64,
+        "frameCount": 13
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "generalLarvaelusPetActor",
+      "actorKey": "generalLarvaelusPetActor",
+      "name": "Tame Larva",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame larva that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -3,
+        4
+      ],
+      "portrait": "portraits/generalLarvaelusPetActor.png",
+      "sheet": {
+        "file": "generalLarvaelusPetActor.png",
+        "cellWidth": 65,
+        "cellHeight": 80,
+        "frameCount": 31
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            27,
+            28,
+            29,
+            30
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "locolocustpetActor",
+      "actorKey": "locolocustpetActor",
+      "name": "Tame Locust",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame locust that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -20,
+        20
+      ],
+      "portrait": "portraits/locolocustpetActor.png",
+      "sheet": {
+        "file": "locolocustpetActor.png",
+        "cellWidth": 118,
+        "cellHeight": 158,
+        "frameCount": 15
+      },
+      "animations": {
+        "idleAnimation": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "frameSeconds": 0.15
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation",
+            "probability": 100
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "tameMamba",
+      "actorKey": "tameMamba",
+      "name": "Tame Mamba",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame mamba that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": false,
+      "playerOffset": [
+        -30,
+        15
+      ],
+      "portrait": "portraits/tameMamba.png",
+      "sheet": {
+        "file": "tameMamba.png",
+        "cellWidth": 75,
+        "cellHeight": 75,
+        "frameCount": 20
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.1
+        },
+        "idleAnimation1": {
+          "frames": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "frameSeconds": 0.1
+        },
+        "moveAnimation": {
+          "frames": [
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19
+          ],
+          "frameSeconds": 0.1
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "rockyRhinoPetActor",
+      "actorKey": "rockyRhinoPetActor",
+      "name": "Tame Rhino",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame rhino that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -18,
+        -14
+      ],
+      "portrait": "portraits/rockyRhinoPetActor.png",
+      "sheet": {
+        "file": "rockyRhinoPetActor.png",
+        "cellWidth": 80,
+        "cellHeight": 60,
+        "frameCount": 16
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frameSeconds": 0.083
+        },
+        "idleAnimation1": {
+          "frames": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "frameSeconds": 0.083
+        },
+        "moveAnimation": {
+          "frames": [
+            12,
+            13,
+            14,
+            15
+          ],
+          "frameSeconds": 0.083
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    },
+    {
+      "key": "skunkPetActor",
+      "actorKey": "skunkPetActor",
+      "name": "Tame Skunk",
+      "cost": 100,
+      "brains": true,
+      "level": 25,
+      "hidden": false,
+      "description": "A tame skunk that was once evil.",
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "scale": 1.0,
+      "walkingSpeed": 1.5,
+      "randomDelay": true,
+      "playerOffset": [
+        -16,
+        10
+      ],
+      "portrait": "portraits/skunkPetActor.png",
+      "sheet": {
+        "file": "skunkPetActor.png",
+        "cellWidth": 67,
+        "cellHeight": 58,
+        "frameCount": 21
+      },
+      "animations": {
+        "idleAnimation0": {
+          "frames": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "frameSeconds": 0.15
+        },
+        "idleAnimation1": {
+          "frames": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "frameSeconds": 0.15
+        },
+        "moveAnimation": {
+          "frames": [
+            16,
+            17,
+            18,
+            19,
+            20
+          ],
+          "frameSeconds": 0.1
+        }
+      },
+      "states": {
+        "idle": [
+          {
+            "animation": "idleAnimation0",
+            "probability": 70
+          },
+          {
+            "animation": "idleAnimation1",
+            "probability": 30
+          }
+        ],
+        "move": [
+          {
+            "animation": "moveAnimation",
+            "probability": 100
+          }
+        ]
+      }
+    }
+  ]
+}

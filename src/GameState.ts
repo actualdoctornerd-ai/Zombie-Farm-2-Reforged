@@ -4,6 +4,9 @@
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
 import { ABILITY_TIER, abilityTierOf } from "./zombie/traits";
 import { TutorialSave } from "./save/schema";
+import type { FarmerCatalog } from "./assets";
+import { farmerCooldownMs, farmerGold, farmerMultiplier, farmerZombieGrowMs } from "./farmer";
+import type { EpicBossRun } from "./epicBoss/types";
 
 export const XP_THRESHOLDS = [
   0, 25, 75, 150, 250, 375, 550, 800, 1300, 1800, 2300, 2800, 3300, 3900, 4500,
@@ -30,6 +33,14 @@ export class GameState {
   // "grass" is the free default; buying a skin adds its terrain key here so it can
   // be re-applied for free later. The current applied skin lives on Field.climate.
   ownedClimates: string[] = ["grass"];
+  // ---- modular farmer appearance ----
+  ownedFarmerHeads: number[] = [];
+  ownedFarmerBodies: number[] = [];
+  farmerHeadId = 1;
+  farmerBodyId = 0;
+  // ---- cosmetic pets (server authoritative while signed in) ----
+  ownedPets: string[] = [];
+  activePet: string | null = null;
   // ---- consumable boosts (bought from the Market Boosts tab) ----
   boostInv: { key: string; count: number }[] = [];
   // ---- zombie abilities ----
@@ -49,6 +60,8 @@ export class GameState {
   // The player's chosen attack order (deployed zombie ids, first attacks first).
   // Persisted so the Army screen reopens with the same ordering after a raid.
   raidAttackOrder: string[] = [];
+  // ---- limited Epic Boss run (Dr. Groundhog first) ----
+  epicBossRun: EpicBossRun | null = null;
   // ---- friends (local offline-fallback list) ----
   // The online friend system is server-backed (net/api.ts + HUD): friend codes,
   // server friend lists, and daily brain gifting live on the Worker. This local
@@ -282,6 +295,77 @@ export class GameState {
     this.storedItems = Object.entries(stored).map(([key, count]) => ({ key, count }));
     this.emit();
   }
+
+  /** Add all source entries with no positive price to a player's wardrobe. */
+  seedFarmerCatalog(catalog: FarmerCatalog) {
+    const heads = catalog.heads.filter((part) => !part.cost).map((part) => part.id);
+    const bodies = catalog.bodies.filter((part) => !part.cost).map((part) => part.id);
+    this.ownedFarmerHeads = [...new Set([...this.ownedFarmerHeads, ...heads])];
+    this.ownedFarmerBodies = [...new Set([...this.ownedFarmerBodies, ...bodies])];
+    if (!this.ownedFarmerHeads.includes(this.farmerHeadId)) this.farmerHeadId = this.ownedFarmerHeads[0] ?? 1;
+    if (!this.ownedFarmerBodies.includes(this.farmerBodyId)) this.farmerBodyId = this.ownedFarmerBodies[0] ?? 0;
+  }
+
+  /** Adopt authoritative online head ownership while retaining source-free parts. */
+  syncFarmerOwnership(headIds: number[], catalog: FarmerCatalog, equippedHeadId?: number) {
+    this.ownedFarmerHeads = [...new Set(headIds.filter(Number.isInteger))];
+    this.ownedFarmerBodies = [];
+    this.seedFarmerCatalog(catalog);
+    for (const head of catalog.heads) {
+      if (this.ownedFarmerHeads.includes(head.id) && !this.ownedFarmerBodies.includes(head.bodyId)) {
+        this.ownedFarmerBodies.push(head.bodyId);
+      }
+    }
+    if (equippedHeadId !== undefined && this.ownedFarmerHeads.includes(equippedHeadId)) {
+      this.farmerHeadId = equippedHeadId;
+    }
+    this.emit();
+  }
+
+  unlockFarmerHead(id: number, bodyId: number) {
+    if (!this.ownedFarmerHeads.includes(id)) this.ownedFarmerHeads.push(id);
+    if (!this.ownedFarmerBodies.includes(bodyId)) this.ownedFarmerBodies.push(bodyId);
+    this.emit();
+  }
+
+  equipFarmerHead(id: number): boolean {
+    if (!this.ownedFarmerHeads.includes(id)) return false;
+    this.farmerHeadId = id;
+    this.emit();
+    return true;
+  }
+
+  equipFarmerBody(id: number): boolean {
+    if (!this.ownedFarmerBodies.includes(id)) return false;
+    this.farmerBodyId = id;
+    this.emit();
+    return true;
+  }
+
+  syncPetOwnership(keys: string[], active: string | null) {
+    this.ownedPets = [...new Set(keys.filter((key) => typeof key === "string" && key.length > 0))];
+    this.activePet = active !== null && this.ownedPets.includes(active) ? active : null;
+    this.emit();
+  }
+
+  unlockPet(key: string) {
+    if (!this.ownedPets.includes(key)) this.ownedPets.push(key);
+    this.activePet = key;
+    this.emit();
+  }
+
+  equipPet(key: string | null): boolean {
+    if (key !== null && !this.ownedPets.includes(key)) return false;
+    this.activePet = key;
+    this.emit();
+    return true;
+  }
+
+  farmerHarvestGold(value: number): number { return farmerGold(value, this.farmerHeadId); }
+  farmerZombieGrowMs(value: number): number { return farmerZombieGrowMs(value, this.farmerHeadId); }
+  farmerZombieStrengthMult(): number { return farmerMultiplier(this.farmerHeadId, "zombieStrength"); }
+  farmerZombieLifeMult(): number { return farmerMultiplier(this.farmerHeadId, "zombieLife"); }
+  farmerInvasionCooldownMs(value: number): number { return farmerCooldownMs(value, this.farmerHeadId); }
   syncObjectStorage(stored: Record<string, number>) {
     this.storedItems = Object.entries(stored).map(([key, count]) => ({ key, count }));
     this.emit();
@@ -335,6 +419,11 @@ export class GameState {
   /** Adopt the server's authoritative start time as soon as an invasion is accepted. */
   syncRaidCooldown(lastRaidAt: number) {
     this.lastRaidAt = Math.max(0, lastRaidAt);
+    this.emit();
+  }
+
+  setEpicBossRun(run: EpicBossRun | null) {
+    this.epicBossRun = run ? { ...run, attackOrder: [...run.attackOrder] } : null;
     this.emit();
   }
   /** Whether the player has ever cleared a raid (drives first-clear rewards). */

@@ -46,10 +46,10 @@ future agents do not work from stale assumptions.
 - Source-derived crop and zombie catalogs with level/currency/grave gates.
 - Local gold, brains, XP, level curve, item economy, and level-up unlock popup.
 - Persistent placeable objects, fruit trees, storage sheds, Mausoleum, graves, monoliths, Zombie Patch, and Zombie Pot.
-- Market with Crops, Items, Upgrade, Boosts, and Brains tabs, plus a name-search box and a themed pager on the card lists (pages fit the visible grid so it doesn't scroll on desktop/tablet).
+- Market with Crops, Items, Upgrade, Boosts, Farmer, Pets, and Brains tabs, plus a name-search box and a themed pager on the card lists (pages fit the visible grid so it doesn't scroll on desktop/tablet).
 - Farm Size upgrades (40/50/60 tiers grow the field + adjust backdrop/foliage/camera).
 - Whole-farm ground/climate skins: owned terrains are stored in `GameState`, purchased in the Market Upgrade tab, repaint every tile via `Field.setClimate`, and can be re-applied for free later. The current climate is saved.
-- Storage UI with Items, Pets placeholder, Boosts, and Received tabs.
+- Storage UI with Items, the owned-pet collection, Boosts, and Received tabs.
 
 ### Zombies and mutation
 - Owned zombies with per-type models/portraits, wandering, roster, detail cards, storage/deploy, selling (with confirmation), veterancy, mutations, and ability display.
@@ -76,13 +76,15 @@ future agents do not work from stale assumptions.
 - **Read-only friend-farm visits**: the client reloads into visit mode and the server returns an allowlisted projection of the friend's save (farm, objects, zombies, Zombie Pot only — currencies zeroed; progression, quests, raids, storage, and social data omitted). Autosave is disabled and editing controls are hidden while visiting.
 
 ### Platform and interface
+- The Market's **Farmer** section supports independently equipping every owned source head and body. Unpriced parts start unlocked; priced heads use authoritative online purchases, and their listed harvesting, zombie growth/stat, and invasion-cooldown effects apply while equipped.
+- The source-derived **Pets** catalog includes all 40 market variants with their original prices and animations. Pet purchase/selection is server-authoritative online; one selected cosmetic companion follows the farmer and has no gameplay effects.
 - One responsive build for phone and desktop: capability autodetection (`src/platform.ts`), a compact touch HUD, and pinch-to-zoom/pan.
 - Music, sound effects, and farm ambience are enabled by default and can be toggled independently in Settings. An optional **Mute When Unfocused** setting silences all channels while the game tab or window is in the background. The mandatory first-run tutorial uses real farm actions: plow, plant a zombie, buy and use Insta-Grow, harvest, then raid. Developer controls (a separate menu opened by an invisible hotspot beside the nameplate) support testing.
 - **Farm background** setting: foliage density choices (Deep Forest / Woodland / Light Meadow) persisted in `src/prefs.ts`. This changes the density of decorative surrounding foliage — distinct from ground/climate skins, which change the farm's tile terrain.
 - Settings toggles for **ZF2 Sprites** and **Reforged** edition, both persisted preferences (`src/prefs.ts`). Their behavior is **not yet wired** — the sprite toggle doesn't swap art, and the edition toggle doesn't gate features yet.
 
 ### Saving and testing
-- Versioned save (local, or synchronized to the server when online) for farm, objects, zombies, boosts, quests, raids, climate, and Zombie Pot jobs.
+- Versioned save (local, or synchronized to the server when online) for farm, objects, zombies, boosts, quests, raids, Epic Boss runs, climate, and Zombie Pot jobs.
 - Automated Vitest suites exist for both client (`npm test`) and server (economy, loot, combat stats/prediction, mutations, Zombie Pot, ability unlocking, raid catalog/ordering, friend logic, and the server-side friend-visit save projection). Coverage is incomplete and the deploy workflow does not currently run the tests.
 
 `window.ZF` exposes debug handles including app, world, field, farmer, zombies, state, HUD,
@@ -94,12 +96,11 @@ Qualifiers: *implemented*, *partially implemented*, *placeholder*, *disabled*, *
 
 - **Raids (partially implemented / fidelity approximation):** the ladder, live combat, boosts, and permanent casualties ship, but combat still needs better side-view actors, status/focus polish, and per-raid balance tuning. Boss **summon/wall** specials are deferred (templates are built but not spawned), and ground-crossing **environmental hazards are disabled** (`RaidManager.hazardOf` returns `null`) pending better visual integration.
 - **Market/upgrades (partially implemented):** Farm Size and ground/climate skins work; authored **TMX map loading is missing**.
-- **Pets (missing):** extracted pet data/art exists, but gameplay is missing and the Pets storage tab is a **placeholder**.
-- **Quests (partially implemented):** the farm loop, raids/invasions, and the Zombie Pot combiner emit live events. Social, photo/camera, and Epic Boss quest classes remain **dormant** until their events are wired into `LIVE_EVENTS` and emitted.
-- **Epic Bosses (unbuilt; preliminary asset audit):** the source quest data and runtime-ready assets currently provide clear coverage for Dr. Groundhog, Loco Locust, Foul Owl, and Skunkarella. Dr. Groundhog has an icon, a partial level-quest chain, and reward objects; Loco Locust and Foul Owl each have an icon and quests spanning the level-5 through level-40 reward milestones; Skunkarella has the generic `questIcon_EP_Boss7.png` icon and a Prize Card quest. Bully Frog is represented by two named reward objects, and Rocky Rhino by an audio file. No definitive runtime-ready matches have yet been identified for General Larvaelus, Mystical Mamba, or Rambo Raccoon. This is an initial filename and prepared-data inventory, **not an exhaustive source-asset audit**: deeper inspection of the extracted app bundle, texture atlases, plist data, binary references, and generically named files may reveal additional boss actors, icons, rewards, pets, audio, or event UI.
+- **Quests (partially implemented):** the farm loop, raids/invasions, Zombie Pot, and Dr. Groundhog Epic Boss emit live events. Social, photo/camera, seasonal, and other bosses' quest classes remain dormant.
+- **Epic Bosses (Dr. Groundhog implemented):** Market â†’ Epic Boss activates a repeatable 14-day run for 10 brains. Dr. Groundhog has 20 source-scaled HP levels, 30-second manual-focus fights, permanent casualties, retained damage, a 20-minute retry, a two-hour HP reset window, the timed farm Boss shortcut, source milestone rewards, eight decor drops, and the tame Groundhog. Online activation/combat/rewards use one-use D1 sessions and deterministic combat replay; offline play mirrors the same timing rules. Crop discovery tokens and paid cooldown skips are deferred. Other bosses remain future work. The asset inventory is still not exhaustive: deeper inspection of the other extracted files may reveal additional actors, rewards, pets, audio, or UI for them. See `docs/EPIC_BOSS_MECHANICS.md`.
 - **Settings toggles — Sprites & Edition (placeholder):** the **ZF2 Sprites** and **Reforged/Traditional** switches persist a preference (`src/prefs.ts`) but do nothing yet. Sprites needs a ZF1 art pack and a runtime swap keyed off `getSpriteSet()`; Traditional needs feature gates so the online/friends surfaces read `isReforged()` and hide when it is off.
 - **QoL/UI (missing):** Received item cards/reveal/use flow, save reset/export/import, and fuller settings/help menus are missing.
-- **Assets (partially wired):** raid particle FX are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage/pet assets are extracted but not wired into runtime systems.
+- **Assets (partially wired):** raid particle FX are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage assets are extracted but not wired into runtime systems.
 - **Tests/CI (partially implemented):** Vitest suites exist for client and server, but coverage is incomplete and the deploy workflow does not run them.
 
 ## Run It Locally
@@ -193,6 +194,7 @@ Common prep scripts:
 
 ```bash
 python tools/prep_assets.py
+python tools/prep_farmer.py
 python tools/prep_market.py
 python tools/prep_placeables.py
 python tools/prep_zombie_models.py

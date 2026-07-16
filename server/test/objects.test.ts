@@ -5,8 +5,8 @@ import { planObjectBuy, planObjectRefund, planObjectUpgrade } from "../src/objec
 const bal = (gold = 1000, brains = 1000, xp = 0) => ({ gold, brains, xp });
 
 describe("objectCatalog — mirror of placeables.json", () => {
-  it("has all 256 placeables", () => {
-    expect(Object.keys(OBJECTS).length).toBe(256);
+  it("has all 257 placeables", () => {
+    expect(Object.keys(OBJECTS).length).toBe(257);
   });
   it("prices refund at floor(cost*0.2), and NOTHING for a free object", () => {
     expect(objectRefund(10)).toBe(2);
@@ -21,6 +21,7 @@ describe("objectCatalog — mirror of placeables.json", () => {
   it("resolves known keys and rejects unknown", () => {
     expect(objectEcon("daisy")).toMatchObject({ cost: 10, brains: false });
     expect(objectEcon("skeletonCouple")).toMatchObject({ cost: 30, brains: true });
+    expect(objectEcon("pettingZoo")).toMatchObject({ cost: 200, brains: false, level: -1 });
     expect(objectEcon("nope")).toBeUndefined();
   });
 });

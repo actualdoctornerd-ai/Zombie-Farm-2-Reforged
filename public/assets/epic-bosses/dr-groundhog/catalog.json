@@ -1,0 +1,347 @@
+{
+  "id": "dr-groundhog",
+  "sourceId": 1,
+  "name": "Dr. Groundhog",
+  "costBrains": 10,
+  "durationMs": 1209600000,
+  "fightMs": 30000,
+  "retryMs": 1200000,
+  "encounterMs": 7200000,
+  "baseHp": 2000,
+  "multipliers": [
+    1,
+    1.4,
+    2.2,
+    3.6,
+    6.8,
+    7.4,
+    8.1,
+    9.4,
+    14,
+    23,
+    25,
+    27.4,
+    31.7,
+    40,
+    53,
+    58,
+    64,
+    74,
+    88,
+    107
+  ],
+  "maxLevel": 20,
+  "introText": "Dr. Groundhog is here",
+  "successText": "You Beat Dr. Groundhog.  He'll be back stronger than before!",
+  "failedText": "Dr. Groundhog beat you",
+  "unitStats": {
+    "attacks": [
+      {
+        "frequency": 100,
+        "name": "VideoGameZombieBite"
+      }
+    ],
+    "con": 20,
+    "dex": 2,
+    "str": 2
+  },
+  "animations": {
+    "idle": {
+      "file": "idle.png",
+      "cellWidth": 338,
+      "cellHeight": 166,
+      "frameCount": 7,
+      "frameSeconds": 0.08333333333333333
+    },
+    "enter": {
+      "file": "enter.png",
+      "cellWidth": 338,
+      "cellHeight": 166,
+      "frameCount": 6,
+      "frameSeconds": 0.08333333333333333
+    },
+    "attack": {
+      "file": "attack.png",
+      "cellWidth": 338,
+      "cellHeight": 166,
+      "frameCount": 12,
+      "frameSeconds": 0.08333333333333333
+    },
+    "defeat": {
+      "file": "defeat.png",
+      "cellWidth": 338,
+      "cellHeight": 166,
+      "frameCount": 5,
+      "frameSeconds": 0.08333333333333333
+    },
+    "escape": {
+      "file": "escape.png",
+      "cellWidth": 338,
+      "cellHeight": 166,
+      "frameCount": 7,
+      "frameSeconds": 0.08333333333333333
+    },
+    "fly": {
+      "file": "fly.png",
+      "cellWidth": 338,
+      "cellHeight": 166,
+      "frameCount": 3,
+      "frameSeconds": 0.08333333333333333
+    }
+  },
+  "levelAssets": [
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-01.png",
+      "z": -11
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "scrollToEnd": true,
+      "speed": "20",
+      "sprite": "background-02.png",
+      "z": -10
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{480,0}",
+      "scrollToEnd": true,
+      "speed": "20",
+      "sprite": "background-03.png",
+      "z": -10
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "scrollToEnd": true,
+      "speed": "30",
+      "sprite": "background-04.png",
+      "z": -9
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{479,0}",
+      "scrollToEnd": true,
+      "speed": "30",
+      "sprite": "background-05.png",
+      "z": -9
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "scrollToEnd": true,
+      "speed": "60",
+      "sprite": "background-06.png",
+      "z": -8
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{959,0}",
+      "scrollToEnd": true,
+      "speed": "60",
+      "sprite": "background-07.png",
+      "z": -8
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{230,308}",
+        "{230,303}"
+      ],
+      "position": "{230,308}",
+      "speed": "200",
+      "sprite": "background-08.png",
+      "z": -7
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{290,315}",
+        "{290,308}"
+      ],
+      "position": "{290,315}",
+      "speed": "275",
+      "sprite": "background-09.png",
+      "z": -6
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{292,188}",
+        "{292,185}"
+      ],
+      "position": "{292,188}",
+      "speed": "450",
+      "sprite": "background-10.png",
+      "z": -5
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{3,250}",
+        "{6,251}",
+        "{8,247}",
+        "{5,247}"
+      ],
+      "position": "{3,250}",
+      "speed": "400",
+      "sprite": "background-11.png",
+      "z": -4
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{15,280}",
+        "{18,277}",
+        "{22,284}",
+        "{18,284}"
+      ],
+      "position": "{15,284}",
+      "speed": "300",
+      "sprite": "background-12.png",
+      "z": -3
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{34,176}",
+        "{39,179}",
+        "{40,183}",
+        "{35,178}"
+      ],
+      "position": "{34,176}",
+      "speed": "275",
+      "sprite": "background-13.png",
+      "z": -2
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{67,93}",
+        "{67,97}"
+      ],
+      "position": "{67,93}",
+      "speed": "200",
+      "sprite": "background-14.png",
+      "z": -1
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-15.png",
+      "z": 0
+    }
+  ],
+  "loot": [
+    {
+      "level": 2,
+      "name": "Dr. Groundhog's Evil Device",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors01.png",
+      "tile": "drgroundhogEvilDevice",
+      "unique": false
+    },
+    {
+      "level": 4,
+      "name": "Dr. Groundhog's Tricycle",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors01.png",
+      "tile": "drgroundhogTricycle",
+      "unique": false
+    },
+    {
+      "level": 6,
+      "name": "Dr. Groundhog's Nut Stash",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors01.png",
+      "tile": "drgroundhogNutStash",
+      "unique": false
+    },
+    {
+      "level": 8,
+      "name": "Dr. Groundhog's Lab Shelves",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors02.png",
+      "tile": "drgroundhogLabShelves",
+      "unique": false
+    },
+    {
+      "level": 10,
+      "name": "Dr. Groundhog's Lab Table",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors02.png",
+      "tile": "drgroundhogLabTable",
+      "unique": false
+    },
+    {
+      "level": 12,
+      "name": "Dr. Groundhog's Lab",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors01.png",
+      "tile": "drgroundhogEvilLab",
+      "unique": false
+    },
+    {
+      "level": 14,
+      "name": "Dr. Groundhog's Burrow",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors01.png",
+      "tile": "drgroundhogBurrow",
+      "unique": false
+    },
+    {
+      "level": 16,
+      "name": "Dr. Groundhog's Distillery",
+      "scale": 0.35,
+      "sprite": "drgroundhog_decors02.png",
+      "tile": "drgroundhogDistillery",
+      "unique": false
+    },
+    {
+      "level": 18,
+      "name": "Tame Groundhog",
+      "scale": 0.35,
+      "sprite": "drgroundhogpet.png",
+      "stageActor": "drgroundhogpetActor"
+    }
+  ],
+  "questIds": [
+    1000,
+    1001,
+    1002,
+    1003,
+    1010,
+    1011
+  ],
+  "portrait": "portrait.png",
+  "lootIcon": "loot-icon.png",
+  "questIcon": "quest-icon.png",
+  "music": "music.wav",
+  "punchSfx": "punch.wav",
+  "copied": [
+    "portrait.png",
+    "loot-icon.png",
+    "quest-icon.png",
+    "intro-1.png",
+    "intro-2.png",
+    "intro-3.png",
+    "music.wav",
+    "punch.wav",
+    "intro.caf"
+  ]
+}

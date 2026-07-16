@@ -12,6 +12,95 @@ const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] 
   values.map((command, index) => ({ sequence: index + 1, command }));
 
 describe("protocol v3 command engine", () => {
+  it("authoritatively buys, equips, and hides cosmetic pets", () => {
+    const state = freshGameplayState();
+    expect(state.ownedPets).toEqual([]);
+    expect(state.activePet).toBeNull();
+
+    const bought = applyCommandBatch(state, commands({ type: "pet.buy", petKey: "catActor" }), { now: 1 });
+    expect(bought.results[0]).toMatchObject({ status: "applied" });
+    expect(bought.state.balance.brains).toBe(state.balance.brains - 50);
+    expect(bought.state.ownedPets).toEqual(["catActor"]);
+    expect(bought.state.activePet).toBe("catActor");
+
+    const duplicate = applyCommandBatch(bought.state, commands({ type: "pet.buy", petKey: "catActor" }), { now: 2 });
+    expect(duplicate.results[0]).toMatchObject({ status: "rejected", error: "already_owned" });
+    const unowned = applyCommandBatch(bought.state, commands({ type: "pet.equip", petKey: "alienActor" }), { now: 3 });
+    expect(unowned.results[0]).toMatchObject({ status: "rejected", error: "not_owned" });
+    const hidden = applyCommandBatch(bought.state, commands({ type: "pet.equip", petKey: null }), { now: 4 });
+    expect(hidden.results[0]).toMatchObject({ status: "applied" });
+    expect(hidden.state.activePet).toBeNull();
+  });
+
+  it("authoritatively replaces the selected follower instead of activating two", () => {
+    const bought = applyCommandBatch(freshGameplayState(), commands(
+      { type: "pet.buy", petKey: "catActor" },
+      { type: "pet.buy", petKey: "alienActor" },
+    ), { now: 1 });
+    expect(bought.state.ownedPets).toEqual(["catActor", "alienActor"]);
+    expect(bought.state.activePet).toBe("alienActor");
+
+    const switched = applyCommandBatch(bought.state, commands(
+      { type: "pet.equip", petKey: "catActor" },
+    ), { now: 2 });
+    expect(switched.results[0]).toMatchObject({ status: "applied" });
+    expect(switched.state.ownedPets).toEqual(["catActor", "alienActor"]);
+    expect(switched.state.activePet).toBe("catActor");
+  });
+
+  it("rejects invalid, locked, and unaffordable pet purchases", () => {
+    const state = freshGameplayState();
+    state.balance.brains = 49;
+    expect(applyCommandBatch(state, commands({ type: "pet.buy", petKey: "catActor" }), { now: 1 }).results[0])
+      .toMatchObject({ status: "rejected", error: "insufficient" });
+    expect(applyCommandBatch(freshGameplayState(), commands({ type: "pet.buy", petKey: "not-a-pet" }), { now: 1 }).results[0])
+      .toMatchObject({ status: "rejected", error: "bad_item" });
+    expect(applyCommandBatch(freshGameplayState(), commands({ type: "pet.buy", petKey: "bullyfrogpetActor" }), { now: 1 }).results[0])
+      .toMatchObject({ status: "rejected", error: "locked" });
+  });
+
+  it("starts with free Farmer heads and authoritatively buys a priced head once", () => {
+    const state = freshGameplayState();
+    expect(state.farmerHeads).toEqual(expect.arrayContaining([0, 1, 4, 5, 10, 11]));
+    expect(state.farmerHeads).not.toContain(12);
+
+    const bought = applyCommandBatch(state, commands({ type: "farmer.buy", headId: 12 }), { now: 1 });
+    expect(bought.results[0]).toMatchObject({ status: "applied" });
+    expect(bought.state.farmerHeads).toContain(12);
+    expect(bought.state.balance.brains).toBe(state.balance.brains - 15);
+
+    const equipped = applyCommandBatch(bought.state, commands({ type: "farmer.equip", headId: 12 }), { now: 2 });
+    expect(equipped.results[0]).toMatchObject({ status: "applied" });
+    expect(equipped.state.farmerHeadId).toBe(12);
+
+    const duplicate = applyCommandBatch(equipped.state, commands({ type: "farmer.buy", headId: 12 }), { now: 3 });
+    expect(duplicate.results[0]).toMatchObject({ status: "rejected", error: "already_owned" });
+  });
+
+  it("applies equipped Farmer effects to authoritative harvests and zombie growth", () => {
+    const harvestState = freshGameplayState();
+    harvestState.farmerHeads.push(12);
+    harvestState.farmerHeadId = 12;
+    harvestState.farm.plots["0:0"] = {
+      state: "planted", cropKey: "carrot", plantedAt: 0, growMs: 1,
+      sell: 100, xp: 1, fertilized: false, zombie: false,
+    };
+    const harvested = applyCommandBatch(harvestState, commands({ type: "farm.harvest", oc: 0, or: 0 }), { now: 1_000 });
+    expect(harvested.state.balance.gold - harvestState.balance.gold).toBe(110);
+
+    const growState = freshGameplayState();
+    growState.farmerHeads.push(13);
+    growState.farmerHeadId = 13;
+    growState.farm.plots["0:0"] = { state: "plowed" };
+    const planted = applyCommandBatch(
+      growState,
+      commands({ type: "farm.plant", oc: 0, or: 0, cropKey: "ZombieActorRegularTier1" }),
+      { now: 1 }
+    );
+    const plot = planted.state.farm.plots["0:0"];
+    expect(plot.state === "planted" ? plot.growMs : 0).toBe(450_000);
+  });
+
   it("accepts the freely placed, non-grid-aligned plot used by the tutorial", () => {
     const state = freshGameplayState();
     const result = applyCommandBatch(state, commands(
@@ -284,5 +373,28 @@ describe("protocol v3 command engine", () => {
     const repeated = applyCommandBatch(first.state, commands({ type: "tutorial.complete" }), { now: 2 });
     expect(repeated.results[0]).toMatchObject({ status: "rejected", error: "already_claimed" });
     expect(repeated.state.balance.gold).toBe(1_000_200);
+  });
+
+  it("advances the complete Dr. Groundhog milestone chain only when Epic processing is enabled", () => {
+    const state = freshGameplayState();
+    const groundhog = new Set(["1000", "1001", "1002", "1003", "1010", "1011"]);
+    const event = (level: number) => [{
+      type: "kEpicStageEnemyDefeatedNotification",
+      subject: String(level),
+    }];
+    expect(applyQuestEvents(state.balance, state.quests, event(5))).toEqual([]);
+    expect(applyQuestEvents(state.balance, state.quests, event(5), { includeEpic: true, epicQuestIds: groundhog }))
+      .toContainEqual(expect.objectContaining({ questId: "1000", completed: true }));
+    expect(applyQuestEvents(state.balance, state.quests, event(10), { includeEpic: true, epicQuestIds: groundhog }))
+      .toContainEqual(expect.objectContaining({ questId: "1001", completed: true }));
+    const brains = state.balance.brains;
+    expect(applyQuestEvents(state.balance, state.quests, event(15), { includeEpic: true, epicQuestIds: groundhog }))
+      .toContainEqual(expect.objectContaining({ questId: "1002", completed: true }));
+    expect(state.balance.brains).toBe(brains + 1);
+    const final = applyQuestEvents(state.balance, state.quests, event(20), { includeEpic: true, epicQuestIds: groundhog });
+    expect(final).toEqual(expect.arrayContaining([
+      expect.objectContaining({ questId: "1003", completed: true }),
+      expect.objectContaining({ questId: "1011", completed: true }),
+    ]));
   });
 });

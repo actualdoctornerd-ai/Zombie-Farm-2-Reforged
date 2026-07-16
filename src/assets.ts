@@ -130,6 +130,7 @@ export interface ZombieDef {
   con: number;
   focus: number;
   tier?: number; // 0..5 combat tier; drives Zombie Pot species selection (higher wins)
+  specialSprite?: string; // named source zombie rendered from its dedicated sheet
 }
 
 // A consumable boost from the Market (tools/prep_boosts.py). Farm-usable effects
@@ -178,6 +179,7 @@ export interface PlaceableDef {
   pivotY: number;
   armyMax?: number; // functional: increases zombie army cap by this on placement
   storageSlots?: number; // functional: storage shed item capacity (8..64)
+  petPen?: boolean; // Pet Pen: opens the server-authoritative pet collection
   zombieStorage?: boolean; // functional: the Mausoleum — stores owned zombies (uncapped)
   graveColor?: "Blue" | "Red" | "Silver"; // colored grave: unlocks planting that zombie class
   zombiePatch?: boolean; // functional: the Zombie Patch — gathers zombies to nap on it
@@ -199,12 +201,15 @@ export interface GameAssets {
   rig: Rig;
   ground: Record<string, Texture>; // filename -> texture
   player: Record<string, Texture>; // part filename -> texture
+  farmer: FarmerCatalog; // source Farmer market heads + independently equipable bodies
+  pets: PetCatalog; // source pet market + animation-strip metadata
   soil: Record<string, Texture>; // plot filename -> texture
   crop: Record<string, Texture>; // crop-stage filename -> texture
   cropTop: Record<string, Texture>; // crop-stage filename -> plants-only texture (soil keyed out)
   zombieModels: Record<string, ZombieModel>; // unitKey -> per-type model
   enemyModels: Record<string, EnemyModel>; // raid-enemy key -> animated rig
   zombiePartTex: Record<string, Texture>; // ZombieSheet part name -> sub-texture
+  specialZombieTex: Record<string, Texture>; // named quest zombie key -> composite
   mutationParts: Record<string, MutationPart>; // mutation bit (as string) -> body part
   plants: PlantDef[];
   zombies: ZombieDef[];
@@ -220,6 +225,64 @@ export interface GameAssets {
   scenery: Texture[]; // decorative foliage [tree, shrub, shrub, bush] for the grass
   upgrades: UpgradeData; // Market "Upgrade" tab: farm-size expansions + ground skins
 }
+
+export interface FarmerHeadDef {
+  id: number;
+  name: string;
+  part: string;
+  bodyId: number;
+  sort: number;
+  /** Missing or zero means the part is unlocked by default. */
+  cost?: number;
+  brains?: boolean;
+  description?: string;
+  effect?: { key: import("./farmer").FarmerEffectKey; amount: number };
+}
+
+export interface FarmerBodyDef {
+  id: number;
+  name: string;
+  body: string;
+  arm1: string;
+  arm2: string;
+  arm3: string;
+  arm4: string;
+  /** Bodies currently have no independent source price and start unlocked. */
+  cost?: number;
+  brains?: boolean;
+}
+
+export interface FarmerCatalog {
+  heads: FarmerHeadDef[];
+  bodies: FarmerBodyDef[];
+}
+
+export interface PetAnimationDef {
+  frames: number[];
+  frameSeconds: number;
+}
+
+export interface PetDef {
+  key: string;
+  actorKey: string;
+  name: string;
+  cost: number;
+  brains: boolean;
+  level: number;
+  hidden: boolean;
+  description: string;
+  color: [number, number, number];
+  scale: number;
+  walkingSpeed: number;
+  randomDelay: boolean;
+  playerOffset: [number, number];
+  portrait: string;
+  sheet: { file: string; cellWidth: number; cellHeight: number; frameCount: number };
+  animations: Record<string, PetAnimationDef>;
+  states: Record<string, { animation: string; probability: number }[]>;
+}
+
+export interface PetCatalog { version: number; pets: PetDef[] }
 
 // Farming-plot soil textures (from Soil.png): plowed (ready), planted (seeded),
 // unplowed (post-harvest dirt), hole (post-zombie-harvest).
@@ -285,22 +348,10 @@ async function json<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// The default male farmer's parts (a subset of the full rig).
-export const FARMER_PARTS = [
-  "male_arm1.png",
-  "male_arm3.png",
-  "malebody1.png",
-  "boot_back.png",
-  "boot_front.png",
-  "male_arm2.png",
-  "male_arm4.png",
-  "malehead1.png",
-  "plough.png", // the hoe, shown only while working a plot
-];
-
+// Load the complete modular Farmer rig so every market head/body can be equipped.
 export async function loadAssets(): Promise<GameAssets> {
   const [field, groundIndex, rig, plants, zombies, placeables, boosts, quests,
-    raids, enemyStats, raidAttacks, zombieNames, drops, upgrades] = await Promise.all([
+    raids, enemyStats, raidAttacks, zombieNames, drops, upgrades, farmer, pets] = await Promise.all([
     json<FieldData>(BASE + "assets/field_default.json"),
     json<GroundIndex>(BASE + "assets/ground_index.json"),
     json<Rig>(BASE + "assets/rig_player.json"),
@@ -315,6 +366,8 @@ export async function loadAssets(): Promise<GameAssets> {
     json<Record<string, string[]>>(BASE + "assets/zombie_names.json"),
     json<Record<string, DropDef>>(BASE + "assets/raids/drops.json"),
     json<UpgradeData>(BASE + "assets/upgrades.json"),
+    json<FarmerCatalog>(BASE + "assets/farmer.json"),
+    json<PetCatalog>(BASE + "assets/pets/catalog.json"),
   ]);
   setZombieNames(zombieNames); // seed the random-name picker before any zombie is built
 
@@ -350,6 +403,7 @@ export async function loadAssets(): Promise<GameAssets> {
     if (p.key === "monolithMutation") p.mutantMonolith = true;
     if (p.key === "monolithCombine") p.combineFast = true; // Clay Monolith
     if (p.key === "zombieCombiner") p.zombiePot = true;
+    if (p.key === "pettingZoo") p.petPen = true;
   }
 
   // Load every ground-tile variant texture.
@@ -364,7 +418,7 @@ export async function loadAssets(): Promise<GameAssets> {
   // Load the farmer's part textures.
   const player: Record<string, Texture> = {};
   await Promise.all(
-    FARMER_PARTS.map(async (f) => {
+    Object.keys(rig).map(async (f) => {
       player[f] = await Assets.load(`${BASE}assets/player/${f}`);
     })
   );
@@ -418,6 +472,10 @@ export async function loadAssets(): Promise<GameAssets> {
       frame: new Rectangle(f.x, f.y, f.w, f.h),
     });
   }
+  const specialZombieTex: Record<string, Texture> = {};
+  await Promise.all(zombies.filter((z) => z.specialSprite).map(async (z) => {
+    specialZombieTex[z.key] = await Assets.load(`${BASE}assets/zombie/${z.specialSprite}`);
+  }));
 
   // Object sprites (197 of them) are loaded lazily — only when an object is
   // actually placed or restored — via ensureObjectTexture(). Market cards use
@@ -436,8 +494,8 @@ export async function loadAssets(): Promise<GameAssets> {
   );
 
   return {
-    field, groundIndex, rig, ground, player, soil, crop, cropTop,
-    zombieModels, enemyModels, zombiePartTex, mutationParts, plants, zombies, placeables, boosts, quests,
+    field, groundIndex, rig, ground, player, farmer, pets, soil, crop, cropTop,
+    zombieModels, enemyModels, zombiePartTex, specialZombieTex, mutationParts, plants, zombies, placeables, boosts, quests,
     raids, enemyStats, raidAttacks, drops, objects, background, scenery, upgrades,
   };
 }

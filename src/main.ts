@@ -7,6 +7,7 @@ import "pixi.js/unsafe-eval";
 import { loadAssets, ensureObjectTexture, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, lootImage } from "./assets";
 import { Field, CARROT, CropConfig } from "./Field";
 import { Actor } from "./Actor";
+import { PetActor } from "./PetActor";
 import { WalkController } from "./WalkController";
 import { ZombieField } from "./zombie/ZombieField";
 import { POT_DURATION_MS } from "./zombie/ZombiePot";
@@ -39,6 +40,10 @@ import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
 import { TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform } from "./platform";
+import { mutationDescription } from "./zombie/mutations";
+import { DR_GROUNDHOG } from "./epicBoss/catalog";
+import { EpicBossManager } from "./epicBoss/EpicBossManager";
+import { buildEpicBossSetup, rollEpicBossLoot } from "./epicBoss/combat";
 
 // The boot / start screen lives in index.html and paints on the first frame (no
 // empty-farm flash). We report load milestones to it and, once the game is fully
@@ -69,8 +74,12 @@ async function main() {
   const assets = await loadAssets();
   boot?.progress(0.8); // heaviest step done — art is in
   const state = new GameState();
+  const epicBoss = new EpicBossManager(DR_GROUNDHOG);
+  state.seedFarmerCatalog(assets.farmer);
   const audio = new AudioManager(); // music/SFX default off (toggled in Settings)
   const hud = new Hud(state, audio);
+  hud.setFarmerCatalog(assets.farmer);
+  hud.setPetCatalog(assets.pets);
 
   // Build the plant/zombie picker catalog from the market data. Cards show the
   // real grow time, but actual growth is scaled down so crops finish while playing.
@@ -114,6 +123,7 @@ async function main() {
     return {
       name: z.name, cost: z.cost, brains: z.brainsNeeded, timeLabel: fmtTime(z.growMs), level: z.level,
       category: z.category,
+      description: mutationDescription(z.mutation ?? 0),
       portrait: zombiePortrait(z.key), // per-type composited portrait
       cfg,
     };
@@ -265,6 +275,44 @@ async function main() {
 
   const actor = new Actor(assets);
   field.entityLayer.addChild(actor.container);
+  let appliedHead = -1;
+  let appliedBody = -1;
+  const applyFarmerAppearance = () => {
+    if (appliedHead === state.farmerHeadId && appliedBody === state.farmerBodyId) return;
+    const head = assets.farmer.heads.find((part) => part.id === state.farmerHeadId);
+    const body = assets.farmer.bodies.find((part) => part.id === state.farmerBodyId);
+    if (!head || !body) return;
+    actor.setAppearance(head.part, body.id);
+    appliedHead = head.id;
+    appliedBody = body.id;
+  };
+  state.onChange(applyFarmerAppearance);
+  applyFarmerAppearance();
+
+  let petActor: PetActor | null = null;
+  let appliedPet: string | null | undefined;
+  let petLoadGeneration = 0;
+  const applyActivePet = () => {
+    if (appliedPet === state.activePet) return;
+    appliedPet = state.activePet;
+    const generation = ++petLoadGeneration;
+    petActor?.destroy();
+    petActor = null;
+    if (!state.activePet) return;
+    const def = assets.pets.pets.find((pet) => pet.key === state.activePet);
+    if (!def) return;
+    void PetActor.load(def).then((loaded) => {
+      if (generation !== petLoadGeneration || state.activePet !== def.key) {
+        loaded.destroy();
+        return;
+      }
+      petActor = loaded;
+      field.entityLayer.addChild(loaded.container);
+      loaded.update(0, actor.container.x, actor.container.y);
+    }).catch((error) => console.warn(`[pet] failed to load ${def.key}`, error));
+  };
+  state.onChange(applyActivePet);
+  applyActivePet();
 
   const start = assets.field.start;
   const walk = new WalkController(actor, field, start.col, start.row);
@@ -492,8 +540,12 @@ async function main() {
         economy.submitQuest(def.id);
         return true;
       },
-      grantItem: (key) => state.receiveItem(key),
-      grantZombie: (key) => zombies.spawn(key, walk.tile.col, walk.tile.row),
+      grantItem: (key) => {
+        if (key === "Invasion Voucher") state.addBoost("invasion_voucher");
+        else if (key === "Golden Dice") state.addBoost("golden_dice");
+        else state.receiveItem(key);
+      },
+      grantZombie: (key) => { zombies.grantReward(key, walk.tile.col, walk.tile.row); },
       completed: (def) => celebrateQuest(def),
       render: (views) => hud.setQuests(views),
     }
@@ -640,7 +692,7 @@ async function main() {
           // The server receives one semantic power command from onUseBoost below;
           // individual optimistic harvests must not become commands.
         } else {
-          if (r.sell) state.addGold(r.sell);
+          if (r.sell) state.addGold(state.farmerHarvestGold(r.sell));
           state.addXp(r.xp);
           if (r.zombieKey) zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1);
         }
@@ -711,6 +763,8 @@ async function main() {
         ? save.farm.background
         : DEFAULT_FARM_BACKGROUND;
       await saveManager.hydrateReadOnly(save);
+      state.seedFarmerCatalog(assets.farmer);
+      applyFarmerAppearance();
       visiting = true;
       console.log(`[visit] viewing ${visitTarget.name}'s farm (read-only)`);
     } catch (e) {
@@ -721,6 +775,8 @@ async function main() {
   }
   if (!visiting) {
     restored = await saveManager.load();
+    state.seedFarmerCatalog(assets.farmer);
+    applyFarmerAppearance();
     if (!restored) quests.restore(); // fresh farm: activate the opening quests
     saveManager.enableAutosave();
     // Backfill newly-added presentation fields (such as woodland density) even
@@ -733,6 +789,49 @@ async function main() {
   // the authoritative balance (server wins over the just-loaded blob). Offline or
   // while visiting, `economy` stays null and currency is purely local as before.
   let economy: EconomyClient | null = null;
+  hud.onEquipFarmerHead = (head) => {
+    if (economy && !economy.submitFarmerEquip(head.id)) return;
+    state.equipFarmerHead(head.id);
+  };
+  hud.onEquipFarmerBody = (body) => { state.equipFarmerBody(body.id); };
+  hud.onBuyFarmerHead = (head) => {
+    const cost = head.cost ?? 0;
+    if (!cost) {
+      state.unlockFarmerHead(head.id, head.bodyId);
+      state.equipFarmerHead(head.id);
+      return true;
+    }
+    const currency = head.brains ? "brains" : "gold";
+    if ((currency === "brains" ? state.brains : state.gold) < cost) return false;
+    if (economy) {
+      if (!economy.submitFarmerBuy(head.id, currency, cost)) return false;
+    } else {
+      const paid = currency === "brains"
+        ? state.spendBrains(cost, "purchase")
+        : state.spendGold(cost, "purchase");
+      if (!paid) return false;
+    }
+    state.unlockFarmerHead(head.id, head.bodyId);
+    state.equipFarmerHead(head.id);
+    economy?.submitFarmerEquip(head.id);
+    return true;
+  };
+  hud.onEquipPet = (pet) => {
+    const key = pet?.key ?? null;
+    if (visiting) return;
+    if (economy && !economy.submitPetEquip(key)) return;
+    state.equipPet(key);
+  };
+  hud.onBuyPet = (pet) => {
+    if (visiting || state.level < pet.level || !pet.brains || state.brains < pet.cost) return false;
+    if (economy) {
+      if (!economy.submitPetBuy(pet.key, pet.cost)) return false;
+    } else if (!state.spendBrains(pet.cost, "purchase")) {
+      return false;
+    }
+    state.unlockPet(pet.key);
+    return true;
+  };
   const storedObjectIds = new Map<string, string[]>();
   if (!visiting && auth.isSignedIn()) {
     const acct = api.getSession()?.accountId ?? "anon";
@@ -820,6 +919,9 @@ async function main() {
       }
       state.ownedClimates = ["grass", ...climates.filter((t) => t !== "grass")];
     };
+    economy.onFarmerState = (headIds, equippedHeadId) =>
+      state.syncFarmerOwnership(headIds, assets.farmer, equippedHeadId);
+    economy.onPetState = (ownedPets, activePet) => state.syncPetOwnership(ownedPets, activePet);
     economy.onQuestState = (serverState) => quests.restoreAuthoritative(serverState);
     economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
     economy.onGameplayUnavailable = () => hud.showToast("Gameplay paused — reconnect to continue.");
@@ -1175,6 +1277,65 @@ async function main() {
     cooldownMs: raids.cooldownRemaining(),
     voucherCount: raids.voucherCount(),
   });
+  const epicAsset = (file: string) => `${BASE}assets/epic-bosses/${DR_GROUNDHOG.id}/${file}`;
+  const epicRun = () => epicBoss.normalize(state.epicBossRun);
+  hud.getEpicBossView = () => {
+    const run = epicRun();
+    const now = Date.now();
+    const active = epicBoss.isActive(run);
+    return {
+      name: DR_GROUNDHOG.name,
+      portrait: epicAsset(DR_GROUNDHOG.portrait),
+      questIcon: epicAsset(DR_GROUNDHOG.questIcon),
+      costBrains: DR_GROUNDHOG.costBrains,
+      run,
+      active,
+      expired: !!run && !run.completedAt && now >= run.expiresAt,
+      completed: !!run?.completedAt,
+      eventRemainingMs: active && run ? Math.max(0, run.expiresAt - now) : 0,
+      retryRemainingMs: active && run ? Math.max(0, run.retryReadyAt - now) : 0,
+      encounterRemainingMs: active && run?.encounterStartedAt
+        ? Math.max(0, run.encounterStartedAt + DR_GROUNDHOG.encounterMs - now) : 0,
+      rewards: DR_GROUNDHOG.loot.map((loot) => loot.name),
+    };
+  };
+  const syncEpicBossUi = () => {
+    const run = epicRun();
+    const active = epicBoss.isActive(run);
+    quests.setEpicBossActive(active);
+    const days = active && run ? Math.max(1, Math.ceil((run.expiresAt - Date.now()) / 86_400_000)) : 0;
+    hud.setBossShortcut(active, days ? `Boss · ${days}d` : "Boss");
+  };
+  if (economy) economy.onEpicBossState = (run) => {
+    state.setEpicBossRun(run ?? null);
+    syncEpicBossUi();
+  };
+  hud.onActivateEpicBoss = async () => {
+    if (epicBoss.isActive(state.epicBossRun)) return false;
+    if (auth.isSignedIn()) {
+      try {
+        await economy?.settleBeforeDependency();
+        const activated = await api.epicBossActivate(crypto.randomUUID());
+        economy?.adoptEpicBossActivation(activated.event, activated.balance);
+        state.setEpicBossRun(activated.event);
+        syncEpicBossUi();
+        saveManager.flush();
+        audio.play("buy");
+        return true;
+      } catch (error) {
+        hud.showToast(errCode(error) === "insufficient_brains" ? "You need 10 brains." : "The Epic Boss event could not be started.");
+        return false;
+      }
+    }
+    if (!state.spendBrains(DR_GROUNDHOG.costBrains, "epic_boss_activate")) return false;
+    state.setEpicBossRun(epicBoss.activate(crypto.randomUUID()));
+    syncEpicBossUi();
+    saveManager.flush();
+    audio.play("buy");
+    return true;
+  };
+  syncEpicBossUi();
+  window.setInterval(syncEpicBossUi, 60_000);
   // Emit the quest events a raid WIN produces: the invasion itself, each looted
   // item, and a "perfect game" when nobody fell. Object names match the quest data
   // (raid name / loot item name), so invasion/loot quests advance.
@@ -1420,6 +1581,118 @@ async function main() {
   // `raidActive` gates farm input synchronously (the scene loads its textures async);
   // `raidScene` is the running scene once ready.
   let raidScene: RaidScene | null = null;
+  hud.onLaunchEpicBoss = async (partyIds) => {
+    if (raidActive) return false;
+    const gate = epicBoss.start(state.epicBossRun, partyIds);
+    if (!gate.ok) {
+      if (gate.error === "cooldown") hud.showToast(`Dr. Groundhog returns in ${Math.ceil((gate.remainingMs ?? 0) / 60_000)} min.`);
+      else hud.showToast("That Epic Boss event is no longer active.");
+      syncEpicBossUi();
+      return false;
+    }
+    const cap = raids.partyView().cap;
+    const byId = new Map(zombies.roster().filter((z) => !z.stored).map((z) => [z.id, z]));
+    const party = partyIds.slice(0, cap).map((id) => byId.get(id)).filter((z): z is NonNullable<typeof z> => !!z);
+    if (!party.length) return false;
+    let epicSessionId: string | null = null;
+    if (auth.isSignedIn()) {
+      try {
+        await economy?.settleBeforeDependency();
+        if (economy) partyIds = partyIds.map((id) => economy!.authoritativeUnitId(id));
+        const opened = await api.epicBossStart(partyIds);
+        epicSessionId = opened.sessionId;
+        state.setEpicBossRun(opened.event);
+      } catch (error) {
+        const code = errCode(error);
+        hud.showToast(code === "cooldown" ? "Dr. Groundhog has not returned yet." : "Another battle is already in progress.");
+        return false;
+      }
+    } else {
+      state.setEpicBossRun(gate.run);
+    }
+    const setup = buildEpicBossSetup(DR_GROUNDHOG, gate.run, party, assets, state);
+    raidActive = true;
+    world.visible = false;
+    hud.setRaiding(true);
+    audio.enterRaid(setup.raid.music);
+    RaidScene.create(app, {
+      raid: setup.raid,
+      assets,
+      playerUnits: setup.playerUnits,
+      enemyUnits: setup.enemyUnits,
+      bossThrow: null,
+      roundMs: DR_GROUNDHOG.fightMs,
+      escapeOnRoundEnd: true,
+      noDistractions: true,
+      imageBase: epicAsset(""),
+      bossTexture: epicAsset("boss.png"),
+      bossAnimations: DR_GROUNDHOG.animations,
+      onFinish: (outcome, finalTick, inputs) => {
+        const presentResult = (result: ReturnType<EpicBossManager["finish"]>, drops: { name: string; icon: string }[]) => {
+        state.setEpicBossRun(result.run);
+        if (result.defeatedLevel !== null && !auth.isSignedIn()) {
+          questBus.post(QuestEvent.EpicStageEnemyDefeated, String(result.defeatedLevel), 1);
+          const collected = new Set([...state.received, ...state.ownedPets.map((key) =>
+            DR_GROUNDHOG.loot.find((loot) => loot.stageActor === key)?.name ?? key)]);
+          const loot = rollEpicBossLoot(DR_GROUNDHOG, result.defeatedLevel, collected);
+          if (loot) {
+            if (loot.stageActor) state.unlockPet(loot.stageActor);
+            else state.receiveItem(loot.name);
+            questBus.post(QuestEvent.EpicBossEpicItemWon, loot.name, 1);
+            drops.push({ name: loot.name, icon: epicAsset(DR_GROUNDHOG.lootIcon) });
+          }
+        }
+        saveManager.flush();
+        syncEpicBossUi();
+        const view: RaidResultView = {
+          win: result.defeatedLevel !== null,
+          title: result.completed ? "EPIC BOSS DEFEATED" : result.defeatedLevel !== null ? "LEVEL CLEARED" : "BOSS ESCAPED",
+          enemiesBeaten: result.defeatedLevel !== null ? 1 : 0,
+          zombiesLost: outcome.losses.length,
+          gold: 0, brains: 0, xp: 0, loot: drops, abilityUnlock: "",
+        };
+        hud.openRaidResult(view, () => {
+          if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
+          raidActive = false;
+          world.visible = true;
+          hud.setRaiding(false);
+          audio.exitRaid();
+        });
+        };
+        if (auth.isSignedIn() && epicSessionId) {
+          void api.epicBossFinish(epicSessionId, finalTick, inputs).then((server) => {
+            zombies.recordInvasion(server.survivors);
+            zombies.removeCasualties(server.losses);
+            for (const unit of server.newZombies) zombies.grantReward(unit.key, walk.tile.col, walk.tile.row, unit.id);
+            economy?.adoptEpicBossResult(server);
+            void economy?.refreshAuthoritative();
+            state.setEpicBossRun(server.event);
+            const result = {
+              run: server.event,
+              defeatedLevel: server.defeatedLevel,
+              completed: !!server.event.completedAt,
+              escaped: server.escaped,
+            };
+            presentResult(result, server.loot ? [{ name: server.loot.name, icon: epicAsset(DR_GROUNDHOG.lootIcon) }] : []);
+          }).catch(() => {
+            hud.showToast("The fight result could not be verified. Reconnecting will recover it.");
+            if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
+            raidActive = false; world.visible = true; hud.setRaiding(false); audio.exitRaid();
+          });
+          return;
+        }
+        zombies.recordInvasion(outcome.survivors);
+        zombies.removeCasualties(outcome.losses);
+        const result = epicBoss.finish(gate.run, outcome.playerDamage, outcome.win);
+        presentResult(result, []);
+      },
+    }).then((scene) => {
+      if (!raidActive) return scene.destroy();
+      raidScene = scene;
+      app.stage.addChild(scene.container);
+    });
+    return true;
+  };
   // Server-owned raid cooldown: the session id from /raid/start, carried to
   // /raid/finish so the server starts the cooldown once the raid is done.
   let raidSessionId: string | null = null;
@@ -1975,7 +2248,8 @@ async function main() {
           hud.openZombieInfo({
             name: d.name, typeName: d.typeName, key: d.key, group: d.group,
             className: d.className, classColor: d.classColor,
-            str: d.str, dex: d.dex, con: d.con, focus: d.focus, mutation: d.mutation,
+            str: d.str * state.farmerZombieStrengthMult(), dex: d.dex,
+            con: d.con * state.farmerZombieLifeMult(), focus: d.focus, mutation: d.mutation,
             invasions: d.invasions,
             portrait: zombiePortrait(d.key), // per-type composited portrait
             // Visiting a friend: inspect only — omit the id so openZombieInfo
@@ -2001,6 +2275,10 @@ async function main() {
         if (objDef?.tapSound) audio.tap(objDef.tapSound);
         if (objId && objDef && objDef.storageSlots) {
           hud.openStorage();
+        } else if (objId && objDef && objDef.petPen) {
+          // The pen is an in-world shortcut to the same authoritative collection
+          // used by the Pets market tab; it never grants or imports ownership.
+          hud.openStorage("Pets");
         } else if (objId && objDef && objDef.zombieStorage) {
           hud.openMausoleum(); // the Mausoleum's storage slots
         } else if (objId && objDef && objDef.zombiePatch) {
@@ -2128,6 +2406,7 @@ async function main() {
     if (raidScene) raidScene.update(dt); // live battle drives itself; farm still ticks behind
     jobs.update(dt); // may start a walk-to-plot / hoe cycle for the farmer
     walk.update(dt);
+    petActor?.update(dt, actor.container.x, actor.container.y);
     zombies.update(dt);
     field.update(dt);
     // Farmer's lantern follows him (raised onto his body), lit only at night.

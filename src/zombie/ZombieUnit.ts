@@ -133,6 +133,19 @@ export class ZombieUnit {
   }
 
   private build(assets: GameAssets) {
+    const special = assets.specialZombieTex[this.data.key];
+    if (special) {
+      const sp = new Sprite(special);
+      sp.anchor.set(0.5, 0.825);
+      sp.scale.set(0.5);
+      this.root.addChild(sp);
+      this.parts.push(sp);
+      this.footF = new Sprite(); this.footB = new Sprite();
+      this.root.addChild(this.footF, this.footB);
+      this.hitHalfW = 45;
+      this.hitH = 100;
+      return;
+    }
     // Resolve this unit's model by key (fall back to the base Regular zombie).
     const m: ZombieModel =
       assets.zombieModels[this.data.key] ??

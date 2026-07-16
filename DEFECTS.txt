@@ -1,14 +1,14 @@
-Lawyer boss is a bit too high
+enemy placement/animations are a bit off
 
-Enemy health bars too far to the left
-
-Often times delay between recieving currency/exp and visual update
+occasional delay between recieving currency/exp and visual update
 
 Raid difficulty needs to be tuned
 
 Clipping between characters and crop sprites
 
-
-
-
+Features
+- Epic bosses (how to start them?)
+- Raid Hazards (trapeze, turnip wall)
+- Trading
+- Black Market
 

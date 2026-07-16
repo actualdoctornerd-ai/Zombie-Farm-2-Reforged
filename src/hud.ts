@@ -6,6 +6,8 @@ import { GameState } from "./GameState";
 import { CropConfig } from "./Field";
 import { zombieSellValue } from "./economy";
 import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon } from "./assets";
+import type { FarmerBodyDef, FarmerCatalog, FarmerHeadDef, PetCatalog, PetDef } from "./assets";
+import type { EpicBossRun } from "./epicBoss/types";
 import { AudioManager } from "./audio";
 import { RosterEntry } from "./zombie/types";
 import { mutationLabel, mutationBonus } from "./zombie/mutations";
@@ -47,6 +49,8 @@ interface MktEntry {
   sell?: number; // harvest value (plants only)
   graveNeeded?: "Blue" | "Red" | "Silver"; // locked until this colored grave is owned
   ownedLimit?: boolean; // "1 per farm" limit reached (gift vouchers) — can't buy
+  owned?: boolean;
+  equipped?: boolean;
   description?: string; // "what does it do" blurb shown by the card's magnifier
   onPick: () => void;
 }
@@ -55,6 +59,8 @@ interface MktEntry {
  *  card's magnifier is tapped. Keyed off the effect flags assets.ts derives from the
  *  item key, so it always matches the item's real behaviour. */
 function functionalDescription(def: PlaceableDef): string | undefined {
+  if (def.petPen)
+    return "A home for cosmetic pets. Tap the Pet Pen on your farm to choose or hide your active companion.";
   if (def.category !== "functional") return undefined;
   if (def.armyMax)
     return `Raises your zombie army limit by ${def.armyMax}, so you can send more zombies on each invasion.`;
@@ -96,7 +102,23 @@ export interface MenuCard {
   seasonal?: boolean; // holiday crops are grouped after the permanent catalog
   portrait: string; // full image url
   category?: "normal" | "special" | "mutant"; // zombies only
+  description?: string; // optional Market magnifier copy
   cfg: CropConfig;
+}
+
+export interface EpicBossMarketView {
+  name: string;
+  portrait: string;
+  questIcon: string;
+  costBrains: number;
+  run: EpicBossRun | null;
+  active: boolean;
+  expired: boolean;
+  completed: boolean;
+  eventRemainingMs: number;
+  retryRemainingMs: number;
+  encounterRemainingMs: number;
+  rewards: string[];
 }
 
 // An owned zombie's inspectable info (shown by openZombieInfo).
@@ -922,6 +944,20 @@ const STYLE = `
 #hud .mkt-card.owned { background: #dcecc4; border-color: #7fa957; cursor: default; }
 #hud .mkt-card.owned:hover { background: #dcecc4; }
 #hud .mkt-card.owned .mkt-cost { color: #2f7a1e; }
+#hud .mkt-card.owned:not(.equipped) { cursor: pointer; }
+#hud .mkt-card.owned:not(.equipped):hover { filter: brightness(1.05); }
+#hud .mkt-card.equipped { box-shadow: inset 0 0 0 3px #75a947; }
+#hud .mkt-grid--epic { display: block; overflow: auto; }
+#hud .epic-market-card { min-height: 280px; display: grid; grid-template-columns: minmax(120px, 34%) 1fr;
+  gap: 14px; padding: 14px; border: 3px solid #63377d; border-radius: 14px; background: rgba(238,221,177,.94); color: #3d2516; }
+#hud .epic-market-portrait { width: 100%; max-height: 210px; object-fit: contain; align-self: center; image-rendering: pixelated; }
+#hud .epic-market-copy h2 { margin: 0 0 6px; color: #5c286e; }
+#hud .epic-market-copy details { margin-top: 10px; }
+#hud .epic-hp { height: 18px; margin: 8px 0 3px; border: 2px solid #4d271d; border-radius: 9px; overflow: hidden; background: #441d22; }
+#hud .epic-hp span { display: block; height: 100%; background: linear-gradient(#ec4b55,#a41526); }
+#hud .epic-wait { color: #9a2c25; font-weight: 800; }
+#hud .epic-market-action { grid-column: 1 / -1; justify-self: center; min-width: 210px; }
+#hud .epic-market-action img { width: 20px; height: 20px; vertical-align: middle; }
 
 /* ---- Item info popup (opened by a Market card's magnifier) ---- */
 #hud .info-bg { position: fixed; inset: 0; pointer-events: auto; z-index: 24;
@@ -1185,6 +1221,9 @@ export class Hud {
   private zombieCards: MenuCard[] = [];
   private objectCards: ObjCard[] = [];
   private farmUpgrades: FarmSizeUpgrade[] = []; // Market Upgrade tab (Farm Size)
+  private farmer: FarmerCatalog = { heads: [], bodies: [] };
+  private pets: PetCatalog = { version: 0, pets: [] };
+  private bossMenu: HTMLButtonElement | null = null;
   private plantingCrop: CropConfig | null = null;
   private placingObj: PlaceableDef | null = null;
   private plantLabel!: HTMLElement;
@@ -1516,6 +1555,7 @@ export class Hud {
   private buildMenu() {
     const items = [
       { label: "Invade", fill: "#9c2135", light: "#c04155", dark: "#5a0f1c", ready: true },
+      { label: "Boss", fill: "#6c318f", light: "#9c58bc", dark: "#3e1659" },
       { label: "Zombies", fill: "#55972a", light: "#79c247", dark: "#2f5f10" },
       { label: "Boosts", fill: "#7a4bc9", light: "#9c74e0", dark: "#432379" },
       { label: "Storage", fill: "#2f74bb", light: "#4f9bd8", dark: "#143f66" },
@@ -1529,6 +1569,7 @@ export class Hud {
       const btn = document.createElement("button");
       btn.className = "mbtn";
       btn.dataset.menu = m.label; // stable anchor for the tutorial arrow (menuButton())
+      if (m.label === "Boss") { btn.style.display = "none"; this.bossMenu = btn; }
       btn.style.background = `linear-gradient(${m.light}, ${m.fill})`;
       btn.style.borderColor = m.dark;
       if (m.ready) {
@@ -1552,12 +1593,21 @@ export class Hud {
                 ? this.openZombieList()
                 : m.label === "Invade"
                   ? this.openRaids()
+                  : m.label === "Boss"
+                    ? this.openMarket("Epic Boss")
                   : m.label === "Friends"
                     ? this.openFriends()
                     : this.openPanel(m.label, "Coming soon.");
       col.appendChild(btn);
     }
     this.el.appendChild(col);
+  }
+
+  setBossShortcut(active: boolean, label = "Boss") {
+    if (!this.bossMenu) return;
+    this.bossMenu.style.display = active ? "" : "none";
+    const text = this.bossMenu.querySelector<HTMLElement>(".gbtn");
+    if (text) text.textContent = label;
   }
 
   private toolBtn(id: string, icon: string, label: string, onClick: () => void) {
@@ -1702,6 +1752,13 @@ export class Hud {
   setBoosts(boosts: BoostDef[]) {
     this.boosts = boosts;
   }
+  setFarmerCatalog(catalog: FarmerCatalog) { this.farmer = catalog; }
+  setPetCatalog(catalog: PetCatalog) { this.pets = catalog; }
+  onBuyFarmerHead: ((head: FarmerHeadDef) => boolean) | null = null;
+  onEquipFarmerHead: ((head: FarmerHeadDef) => void) | null = null;
+  onEquipFarmerBody: ((body: FarmerBodyDef) => void) | null = null;
+  onBuyPet: ((pet: PetDef) => boolean) | null = null;
+  onEquipPet: ((pet: PetDef | null) => void) | null = null;
   // Buy a boost into inventory (returns true if paid); use one from inventory.
   onBuyBoost: ((def: BoostDef) => boolean) | null = null;
   onUseBoost: ((def: BoostDef) => void) | null = null;
@@ -1795,6 +1852,10 @@ export class Hud {
    *  a raid already running). There is no instant/auto-resolve fallback. `opts` carries
    *  the voucher/concentration/dice choices. */
   onLaunchRaid: ((raidId: number, partyIds: string[], opts: RaidLaunchOpts) => boolean | Promise<boolean>) | null = null;
+  // ---- limited Epic Boss hooks ----
+  getEpicBossView: (() => EpicBossMarketView) | null = null;
+  onActivateEpicBoss: (() => boolean | Promise<boolean>) | null = null;
+  onLaunchEpicBoss: ((partyIds: string[]) => boolean | Promise<boolean>) | null = null;
 
   // ---- save profiles (set by main) ----
   /** Current profile index (active id + all profiles). */
@@ -1989,6 +2050,9 @@ export class Hud {
       Items: ["Functional", "Decors", "Fruit Trees"],
       Upgrade: ["Farm Size", "Ground"],
       Boosts: [],
+      Farmer: ["Heads", "Bodies"],
+      Pets: [],
+      "Epic Boss": [],
       Brains: [],
     };
     const ITEM_CAT: Record<string, ObjCard["category"]> = {
@@ -2007,6 +2071,7 @@ export class Hud {
         return this.zombieCards.map((c) => ({
           name: c.name, portrait: c.portrait, cost: c.cost, level: c.level, brains: c.brains,
           graveNeeded: c.cfg.unlockGrave,
+          description: c.description,
           onPick: () => { this.setPlanting(c.cfg); bg.remove(); },
         }));
       if (tab === "Items") {
@@ -2046,9 +2111,64 @@ export class Hud {
           return {
             name: owned ? `${b.name} (x${owned})` : b.name,
             portrait: `${BASE}assets/boosts/${b.icon}`, cost: b.cost, level: b.level, brains: b.brainsNeeded,
+            description: [b.info, b.flavorText].filter(Boolean).join(" ") || undefined,
             ownedLimit,
             onPick: () => {
               if (this.onBuyBoost && this.onBuyBoost(b)) { refreshCur(); renderGrid(); }
+            },
+          };
+        });
+      }
+      if (tab === "Farmer" && sub === "Heads") {
+        return this.farmer.heads.map((head) => {
+          const owned = this.state.ownedFarmerHeads.includes(head.id) || !head.cost;
+          return {
+            name: head.name,
+            portrait: `${BASE}assets/player/${head.part}`,
+            cost: head.cost ?? 0,
+            level: 1,
+            brains: head.brains,
+            description: head.description,
+            owned,
+            equipped: this.state.farmerHeadId === head.id,
+            onPick: () => {
+              if (owned) this.onEquipFarmerHead?.(head);
+              else if (!this.onBuyFarmerHead || !this.onBuyFarmerHead(head)) return;
+              refreshCur();
+              renderGrid();
+            },
+          };
+        });
+      }
+      if (tab === "Farmer" && sub === "Bodies") {
+        return this.farmer.bodies.map((body) => ({
+          name: body.name,
+          portrait: `${BASE}assets/player/${body.body}`,
+          cost: body.cost ?? 0,
+          level: 1,
+          brains: body.brains,
+          owned: this.state.ownedFarmerBodies.includes(body.id) || !body.cost,
+          equipped: this.state.farmerBodyId === body.id,
+          onPick: () => { this.onEquipFarmerBody?.(body); renderGrid(); },
+        }));
+      }
+      if (tab === "Pets") {
+        return this.pets.pets.filter((pet) => !pet.hidden).map((pet) => {
+          const owned = this.state.ownedPets.includes(pet.key);
+          return {
+            name: pet.name,
+            portrait: `${BASE}assets/pets/${pet.portrait}`,
+            cost: pet.cost,
+            level: pet.level,
+            brains: pet.brains,
+            description: pet.description,
+            owned,
+            equipped: this.state.activePet === pet.key,
+            onPick: () => {
+              if (owned) this.onEquipPet?.(pet);
+              else if (!this.onBuyPet || !this.onBuyPet(pet)) return;
+              refreshCur();
+              renderGrid();
             },
           };
         });
@@ -2065,7 +2185,7 @@ export class Hud {
 
     // Search + pagination apply only to the card-list tabs; Upgrade has a bespoke
     // layout and Brains is an info message.
-    const searchable = () => tab !== "Upgrade" && tab !== "Brains";
+    const searchable = () => tab !== "Upgrade" && tab !== "Brains" && tab !== "Epic Boss";
 
     // How many cards a page holds. Read from the laid-out grid so it tracks the
     // responsive column count + row height. Roomy layouts (desktop/tablet, ≥3
@@ -2091,6 +2211,7 @@ export class Hud {
       // Farm Size lays out as 2 columns so each row is one tier (gold | brains);
       // Ground uses the normal card grid.
       grid.classList.toggle("mkt-grid--upgrade", tab === "Upgrade" && sub === "Farm Size");
+      grid.classList.toggle("mkt-grid--epic", tab === "Epic Boss");
       // Search + pager only ride the card-list tabs.
       const canSearch = searchable();
       searchRow.style.display = canSearch ? "flex" : "none";
@@ -2098,6 +2219,11 @@ export class Hud {
         pager.style.display = "none";
         if (sub === "Ground") this.renderGroundGrid(grid, refreshCur, renderGrid);
         else this.renderUpgradeGrid(grid, refreshCur, renderGrid);
+        return;
+      }
+      if (tab === "Epic Boss") {
+        pager.style.display = "none";
+        this.renderEpicBossGrid(grid, refreshCur, renderGrid);
         return;
       }
       const all = entriesFor();
@@ -2158,7 +2284,7 @@ export class Hud {
       }
     };
 
-    for (const name of ["Crops", "Items", "Upgrade", "Boosts", "Brains"]) {
+    for (const name of ["Crops", "Items", "Upgrade", "Boosts", "Farmer", "Pets", "Epic Boss", "Brains"]) {
       const b = document.createElement("button");
       b.className = "mkt-tab" + (name === tab ? " sel" : "");
       b.textContent = name;
@@ -2186,6 +2312,78 @@ export class Hud {
     renderGrid();
   }
 
+  private renderEpicBossGrid(grid: HTMLElement, refreshCur: () => void, rerender: () => void) {
+    const view = this.getEpicBossView?.();
+    if (!view) { grid.innerHTML = `<div class="mkt-empty">Coming soon.</div>`; return; }
+    const run = view.run;
+    const fmt = (ms: number) => {
+      const total = Math.max(0, Math.ceil(ms / 1000));
+      const days = Math.floor(total / 86400), hours = Math.floor(total % 86400 / 3600);
+      const mins = Math.floor(total % 3600 / 60), secs = total % 60;
+      return days ? `${days}d ${hours}h` : hours ? `${hours}h ${mins}m` : `${mins}:${String(secs).padStart(2, "0")}`;
+    };
+    const card = document.createElement("div");
+    card.className = "epic-market-card";
+    card.innerHTML = `<img class="epic-market-portrait" src="${view.portrait}" alt="">` +
+      `<div class="epic-market-copy"><h2>${view.name}</h2>` +
+      (view.active && run
+        ? `<b>Level ${run.level}/20</b><div>Event: ${fmt(view.eventRemainingMs)}</div>` +
+          `<div class="epic-hp"><span style="width:${Math.max(0, Math.min(100, run.currentHp / Math.max(1, run.maxHp) * 100))}%"></span></div>` +
+          `<div>${run.currentHp.toLocaleString()} / ${run.maxHp.toLocaleString()} life</div>` +
+          (view.retryRemainingMs ? `<div class="epic-wait">Returns in ${fmt(view.retryRemainingMs)}</div>` :
+            view.encounterRemainingMs ? `<div>HP resets in ${fmt(view.encounterRemainingMs)}</div>` : "")
+        : `<p>Start a 14-day, 20-level Epic Boss event.</p>${view.completed ? "<p>Previous run completed!</p>" : view.expired ? "<p>Previous run expired.</p>" : ""}`) +
+      `<details><summary>Possible rewards</summary><div>${view.rewards.join("<br>")}</div></details></div>`;
+    const action = document.createElement("button");
+    action.className = "raid-go epic-market-action";
+    if (view.active) {
+      action.textContent = view.retryRemainingMs ? `Wait ${fmt(view.retryRemainingMs)}` : "Fight Dr. Groundhog";
+      action.disabled = view.retryRemainingMs > 0;
+      action.onclick = () => this.openEpicBossArmy();
+    } else {
+      action.innerHTML = `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
+      action.disabled = this.state.brains < view.costBrains;
+      action.onclick = async () => {
+        if (!confirm(`Spend ${view.costBrains} brains to start Dr. Groundhog for 14 days?`)) return;
+        if (await this.onActivateEpicBoss?.()) { refreshCur(); rerender(); }
+      };
+    }
+    card.appendChild(action);
+    grid.appendChild(card);
+  }
+
+  private openEpicBossArmy() {
+    document.querySelector("#hud .army-bg")?.remove();
+    const party = this.getRaidParty?.();
+    const bg = document.createElement("div"); bg.className = "panelbg army-bg";
+    const panel = document.createElement("div"); panel.className = "panel";
+    const close = document.createElement("button"); close.className = "panelclose";
+    close.innerHTML = `<img src="${UI("button_close.png")}">`; close.onclick = () => bg.remove();
+    panel.appendChild(close); bg.appendChild(panel); this.el.appendChild(bg);
+    if (!party?.eligible.length) { panel.insertAdjacentHTML("beforeend", `<h2>Choose your army</h2><p>You have no deployed zombies.</p>`); return; }
+    const order: string[] = [];
+    const wrap = document.createElement("div"); wrap.className = "army-wrap";
+    const head = document.createElement("div"); head.className = "army-head";
+    const cards = document.createElement("div"); cards.className = "army-grid";
+    const foot = document.createElement("div"); foot.className = "army-foot";
+    const start = document.createElement("button"); start.className = "raid-go";
+    const refresh = () => {
+      head.innerHTML = `<h2>Send your army — Dr. Groundhog</h2><span class="army-count">${order.length}/${party.cap} · min 1</span>`;
+      start.textContent = order.length ? `Fight with ${order.length}` : "Choose a zombie"; start.disabled = !order.length;
+      cards.querySelectorAll<HTMLElement>(".army-card").forEach((el) => { const at = order.indexOf(el.dataset.id!); el.classList.toggle("sel", at >= 0); const tick = el.querySelector<HTMLElement>(".tick"); if (tick) tick.textContent = at >= 0 ? String(at + 1) : ""; });
+    };
+    for (const z of party.eligible) {
+      const card = document.createElement("div"); card.className = "army-card"; card.dataset.id = z.id;
+      card.innerHTML = `<span class="tick"></span><div class="army-por" style="background-image:url(${z.portrait})"></div><div class="army-nm">${z.name}</div><div class="army-ty">${z.typeName}</div>`;
+      card.onclick = () => { const at = order.indexOf(z.id); if (at >= 0) order.splice(at, 1); else if (order.length < party.cap) order.push(z.id); refresh(); };
+      cards.appendChild(card);
+    }
+    const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
+    pick.onclick = () => { for (const id of [...(this.getEpicBossView?.().run?.attackOrder ?? []), ...party.eligible.map((z) => z.id)]) if (order.length < party.cap && !order.includes(id)) order.push(id); refresh(); };
+    start.onclick = async () => { if (!order.length || !this.onLaunchEpicBoss) return; start.disabled = true; if (await this.onLaunchEpicBoss([...order])) bg.remove(); else start.disabled = false; };
+    foot.append(pick, start); wrap.append(head, cards, foot); panel.appendChild(wrap); refresh();
+  }
+
   private buildMarketCard(en: MktEntry): HTMLElement {
     const locked = this.state.level < en.level;
     // Colored-grave gate: this zombie class can't be planted until you own it.
@@ -2193,9 +2391,10 @@ export class Hud {
     // "1 per farm" gift-voucher limit: already own that zombie (or hold the voucher).
     const limitLock = !locked && !graveLock && !!en.ownedLimit;
     const curAmt = en.brains ? this.state.brains : this.state.gold;
-    const poor = !locked && !graveLock && !limitLock && curAmt < en.cost;
+    const poor = !en.owned && !locked && !graveLock && !limitLock && curAmt < en.cost;
     const card = document.createElement("div");
-    card.className = "mkt-card" + (locked || poor || graveLock || limitLock ? " locked" : "");
+    card.className = "mkt-card" + (en.owned ? " owned" : "") + (en.equipped ? " equipped" : "") +
+      (locked || poor || graveLock || limitLock ? " locked" : "");
 
     const hd = document.createElement("div");
     hd.className = "hd";
@@ -2217,7 +2416,11 @@ export class Hud {
     const cost = document.createElement("div");
     cost.className = "mkt-cost";
     const coin = en.brains ? "topbar_brain_icon.png" : "topbar_money_icon.png";
-    cost.innerHTML = locked
+    cost.innerHTML = en.equipped
+      ? `✓ Equipped`
+      : en.owned
+        ? `Equip`
+      : locked
       ? `🔒 Lvl ${en.level}`
       : graveLock
         ? `🔒 ${en.graveNeeded} Grave`
@@ -2242,7 +2445,7 @@ export class Hud {
       info.onclick = (e) => { e.stopPropagation(); this.showItemInfo(en); };
       card.appendChild(info);
     }
-    if (!locked && !poor && !graveLock && !limitLock) card.onclick = en.onPick;
+    if (!en.equipped && !locked && !poor && !graveLock && !limitLock) card.onclick = en.onPick;
     return card;
   }
 
@@ -2421,10 +2624,9 @@ export class Hud {
   }
 
   // The tool-shed Storage menu: parchment/wood panel, a red STORAGE banner with
-  // grass/flower flanks, and tabs Items / Boosts / Received. Item capacity comes
-  // from the placed shed's tier (8 per tier); received is unlimited (raid loot).
-  // Opened by clicking the shed or the Storage button. (Pets are out of scope for
-  // this rebuild — see docs/mechanics/PET_SYSTEM.md.)
+  // grass/flower flanks, and tabs Items / Pets / Boosts / Received. Item capacity
+  // comes from the placed shed's tier; pets and received are unlimited.
+  // Opened by clicking the shed, Pet Pen, or the Storage button.
   openStorage(initialTab: string = "Items") {
     document.querySelector("#hud .st-bg")?.remove();
     const bg = document.createElement("div");
@@ -2462,7 +2664,7 @@ export class Hud {
     const portraitOf = (key: string) =>
       this.objectCards.find((c) => c.def.key === key)?.portrait;
 
-    let tab = ["Items", "Boosts", "Received"].includes(initialTab) ? initialTab : "Items";
+    let tab = ["Items", "Pets", "Boosts", "Received"].includes(initialTab) ? initialTab : "Items";
     const render = () => {
       body.innerHTML = "";
       body.scrollTop = 0;
@@ -2497,6 +2699,37 @@ export class Hud {
               this.onRetrieveItem?.(key);
             };
           }
+          grid.appendChild(slot);
+        }
+        body.appendChild(grid);
+      } else if (tab === "Pets") {
+        count.textContent = `${this.state.ownedPets.length} pet${this.state.ownedPets.length === 1 ? "" : "s"}`;
+        const hint = document.createElement("div");
+        hint.className = "st-hint";
+        hint.textContent = this.state.ownedPets.length
+          ? "Tap a pet to make it your active companion."
+          : "Adopt pets from the Market's Pets tab.";
+        body.appendChild(hint);
+        if (this.state.activePet) {
+          const hide = document.createElement("button");
+          hide.className = "st-use";
+          hide.textContent = "Hide Active Pet";
+          hide.onclick = () => { this.onEquipPet?.(null); render(); };
+          body.appendChild(hide);
+        }
+        const grid = document.createElement("div");
+        grid.className = "st-grid";
+        for (const key of this.state.ownedPets) {
+          const pet = this.pets.pets.find((candidate) => candidate.key === key);
+          if (!pet) continue;
+          const slot = document.createElement("button");
+          slot.className = "st-slot st-petslot" + (this.state.activePet === key ? " filled" : "");
+          slot.title = this.state.activePet === key ? `${pet.name} (active)` : `Activate ${pet.name}`;
+          const img = document.createElement("img");
+          img.src = `${BASE}assets/pets/${pet.portrait}`;
+          img.alt = pet.name;
+          slot.appendChild(img);
+          slot.onclick = () => { this.onEquipPet?.(pet); render(); };
           grid.appendChild(slot);
         }
         body.appendChild(grid);
@@ -2566,7 +2799,7 @@ export class Hud {
     };
 
     const tabBtns: Record<string, HTMLButtonElement> = {};
-    for (const name of ["Items", "Boosts", "Received"]) {
+    for (const name of ["Items", "Pets", "Boosts", "Received"]) {
       const b = document.createElement("button");
       b.className = "st-tab" + (name === tab ? " sel" : "");
       b.textContent = name;
@@ -3913,7 +4146,8 @@ export class Hud {
     return {
       name: z.name, typeName: z.typeName, key: z.key, group: z.group,
       className: z.className, classColor: z.classColor,
-      str: z.str, dex: z.dex, con: z.con, focus: z.focus, mutation: z.mutation,
+      str: z.str * this.state.farmerZombieStrengthMult(), dex: z.dex,
+      con: z.con * this.state.farmerZombieLifeMult(), focus: z.focus, mutation: z.mutation,
       invasions: z.invasions,
       portrait: this.zombiePortraitOf ? this.zombiePortraitOf(z.key) : "",
       id: z.id, stored: z.stored,

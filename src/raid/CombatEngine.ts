@@ -146,6 +146,8 @@ export function buildPlayerUnits(
      *  binary's `modifyStatWithLevelScale:` (a zombie doesn't fight at full stats
      *  until level 25). Omit to fight at full base stats (tests / no-scale). */
     playerLevel?: number;
+    farmerStrengthMult?: number;
+    farmerLifeMult?: number;
   } = {}
 ): CombatUnit[] {
   // Abilities are off unless the caller supplies the per-ability unlock gate.
@@ -172,9 +174,9 @@ export function buildPlayerUnits(
     const bStr = lvl == null ? z.str : levelScaleStat(z.group, "str", z.str, lvl);
     const bDex = lvl == null ? z.dex : levelScaleStat(z.group, "dex", z.dex, lvl);
     const bCon = lvl == null ? z.con : levelScaleStat(z.group, "con", z.con, lvl);
-    const str = bStr * v * eff.allStatsMult;
+    const str = bStr * v * eff.allStatsMult * (opts.farmerStrengthMult ?? 1);
     const dex = bDex * v * eff.allStatsMult * eff.selfSpeedMult;
-    const con = bCon * v * eff.allStatsMult * eff.selfHpMult;
+    const con = bCon * v * eff.allStatsMult * eff.selfHpMult * (opts.farmerLifeMult ?? 1);
     const focus = base * v * eff.allStatsMult;
     // Distraction resistance keys off the unit's real focus stat; self-damage
     // abilities and army-wide effects fold into the per-hit multiplier / HP.

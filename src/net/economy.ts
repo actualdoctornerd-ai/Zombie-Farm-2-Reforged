@@ -52,6 +52,8 @@ export class EconomyClient {
   private combineParents: { parentAId: string; parentBId: string } | null = null;
 
   onShopState: ((size: number, climates: string[]) => void) | null = null;
+  onFarmerState: ((headIds: number[], equippedHeadId: number) => void) | null = null;
+  onPetState: ((ownedPets: string[], activePet: string | null) => void) | null = null;
   onQuestState: ((state: api.QuestStateResult) => void) | null = null;
   onQuestChanges: ((changes: api.QuestChange[]) => void) | null = null;
   onCropFertilized: ((oc: number, or: number) => void) | null = null;
@@ -59,6 +61,7 @@ export class EconomyClient {
   onObjectState: ((objects: BootstrapResponse["gameplay"]["objects"]["objects"]) => void) | null = null;
   onRosterState: ((roster: BootstrapResponse["gameplay"]["roster"], aliases: Record<string, string>) => void) | null = null;
   onRaidSettled: ((res: api.RaidFinishResult) => void) | null = null;
+  onEpicBossState: ((event: BootstrapResponse["gameplay"]["epicBoss"]) => void) | null = null;
   onGameplayUnavailable: ((reason: string) => void) | null = null;
   onWriterReplaced: (() => void) | null = null;
 
@@ -189,6 +192,25 @@ export class EconomyClient {
     this.enqueue({ type: "shop.size", size, currency }, currency === "gold" ? { gold: -cost } : { brains: -cost });
   }
 
+  submitFarmerBuy(headId: number, currency: "gold" | "brains", cost: number): boolean {
+    return this.enqueue(
+      { type: "farmer.buy", headId },
+      currency === "gold" ? { gold: -cost } : { brains: -cost }
+    ) !== null;
+  }
+
+  submitFarmerEquip(headId: number): boolean {
+    return this.enqueue({ type: "farmer.equip", headId }) !== null;
+  }
+
+  submitPetBuy(petKey: string, cost: number): boolean {
+    return this.enqueue({ type: "pet.buy", petKey }, { brains: -cost }) !== null;
+  }
+
+  submitPetEquip(petKey: string | null): boolean {
+    return this.enqueue({ type: "pet.equip", petKey }) !== null;
+  }
+
   submitShopClimate(terrain: string, cost: number): void {
     this.enqueue({ type: "shop.climate", terrain }, { gold: -cost });
   }
@@ -232,6 +254,23 @@ export class EconomyClient {
 
   adoptRaidStartInventory(inventory: Record<string, number>): void {
     this.serverInv = { ...inventory };
+    this.reconcile();
+  }
+
+  adoptEpicBossResult(result: api.EpicBossFinishResult): void {
+    this.base = result.balance;
+    this.serverInv = { ...result.inventory };
+    this.state.syncStorage(result.storage.received, result.storage.stored);
+    this.onPetState?.(result.ownedPets, this.state.activePet);
+    this.onQuestState?.({ completed: result.quests.completed, progress: result.quests.progress, questChanges: result.questChanges });
+    this.onQuestChanges?.(result.questChanges);
+    this.onEpicBossState?.(result.event);
+    this.reconcile();
+  }
+
+  adoptEpicBossActivation(event: NonNullable<BootstrapResponse["gameplay"]["epicBoss"]>, balance: api.Balance): void {
+    this.base = balance;
+    this.onEpicBossState?.(event);
     this.reconcile();
   }
 
@@ -279,6 +318,8 @@ export class EconomyClient {
     this.base = gameplay.balance;
     this.serverInv = gameplay.inventory;
     this.onShopState?.(gameplay.farmSize, gameplay.climates);
+    this.onFarmerState?.(gameplay.farmerHeads, gameplay.farmerHeadId);
+    this.onPetState?.(gameplay.ownedPets, gameplay.activePet);
     this.onQuestState?.({
       completed: gameplay.quests.completed,
       progress: gameplay.quests.progress,
@@ -304,6 +345,7 @@ export class EconomyClient {
     this.onFarmState?.({ plowed, crops });
     this.onObjectState?.(gameplay.objects.objects);
     this.onRosterState?.(gameplay.roster, aliases);
+    this.onEpicBossState?.(gameplay.epicBoss ?? null);
     this.reconcile();
   }
 

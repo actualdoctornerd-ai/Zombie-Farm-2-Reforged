@@ -10,7 +10,7 @@ import * as api from "../net/api";
 import { getFarmBackground } from "../prefs";
 
 type PresentationData = {
-  player?: { name?: string; farmer?: { col: number; row: number } };
+  player?: { name?: string; farmer?: { col: number; row: number }; farmerAppearance?: SaveGame["player"]["farmerAppearance"] };
   farm?: { climate?: string; background?: SaveGame["farm"]["background"] };
   objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
   rosterLayout?: { id: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
@@ -66,6 +66,13 @@ export class SaveManager {
         farmer: this.walk.tile,
         unlockedAbilities: this.state.unlockedAbilities,
         zombiePotBought: this.state.zombiePotBought,
+        farmerAppearance: {
+          ownedHeads: this.state.ownedFarmerHeads,
+          ownedBodies: this.state.ownedFarmerBodies,
+          headId: this.state.farmerHeadId,
+          bodyId: this.state.farmerBodyId,
+        },
+        petCollection: { owned: this.state.ownedPets, active: this.state.activePet },
       },
       farm: {
         fieldId: "default",
@@ -83,6 +90,7 @@ export class SaveManager {
       boosts: this.state.boostInv,
       quests: this.quests.serialize(),
       raids: { completed: this.state.raidsCompleted, lastRaidAt: this.state.lastRaidAt, attackOrder: this.state.raidAttackOrder },
+      epicBoss: this.state.epicBossRun ?? undefined,
       social: { friends: this.state.friends },
       tutorial: this.state.tutorial,
     };
@@ -90,7 +98,14 @@ export class SaveManager {
 
   private presentation(blob = this.serialize()): Record<string, unknown> {
     return {
-      player: { name: blob.player.name, farmer: blob.player.farmer },
+      player: {
+        name: blob.player.name,
+        farmer: blob.player.farmer,
+        farmerAppearance: {
+          headId: blob.player.farmerAppearance?.headId,
+          bodyId: blob.player.farmerAppearance?.bodyId,
+        },
+      },
       farm: { climate: blob.farm.climate, background: blob.farm.background },
       objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id, oc: o.oc, or: o.or, rotation: o.rotation })),
       rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, pos: u.pos, stored: u.stored, color: u.color })),
@@ -206,6 +221,12 @@ export class SaveManager {
         zombieMax: boot.gameplay.zombieMax,
         zombieCount: roster.filter((u) => !u.stored).length,
         farmer: p.player?.farmer,
+        farmerAppearance: {
+          ...p.player?.farmerAppearance,
+          ownedHeads: boot.gameplay.farmerHeads,
+          headId: boot.gameplay.farmerHeadId,
+        },
+        petCollection: { owned: boot.gameplay.ownedPets, active: boot.gameplay.activePet },
       },
       farm: { fieldId: "default", w: boot.gameplay.farmSize, h: boot.gameplay.farmSize,
         climate: p.farm?.climate ?? "grass", background: p.farm?.background,
@@ -220,6 +241,7 @@ export class SaveManager {
       boosts: Object.entries(boot.gameplay.inventory).map(([key, count]) => ({ key, count })),
       quests: { active: boot.gameplay.quests.progress.map((q) => ({ id: q.questId, counts: q.counts })), completed: boot.gameplay.quests.completed },
       raids: { completed: boot.gameplay.raids.progress, lastRaidAt: boot.gameplay.raids.lastRaidAt, attackOrder: p.ui?.attackOrder ?? [] },
+      epicBoss: boot.gameplay.epicBoss ?? undefined,
       social: { friends: boot.social.friends.map((friend) => ({ id: friend.accountId, name: friend.name, addedAt: boot.serverTime, giftsSent: 0 })) },
       tutorial: p.tutorial,
     };
@@ -243,6 +265,14 @@ export class SaveManager {
       zombieCount: player.zombieCount, zombieMax: Math.max(16, player.zombieMax || 16) });
     this.state.unlockedAbilities = player.unlockedAbilities ?? [];
     this.state.zombiePotBought = player.zombiePotBought ?? false;
+    this.state.ownedFarmerHeads = player.farmerAppearance?.ownedHeads ?? [];
+    this.state.ownedFarmerBodies = player.farmerAppearance?.ownedBodies ?? [];
+    this.state.farmerHeadId = player.farmerAppearance?.headId ?? 1;
+    this.state.farmerBodyId = player.farmerAppearance?.bodyId ?? 0;
+    const legacyPets = data.storage?.pets ?? [];
+    this.state.ownedPets = player.petCollection?.owned ?? legacyPets;
+    this.state.activePet = player.petCollection?.active ?? legacyPets[0] ?? null;
+    if (this.state.activePet && !this.state.ownedPets.includes(this.state.activePet)) this.state.activePet = null;
     if (data.storage) {
       this.state.storageItemCap = data.storage.itemCap ?? 8;
       this.state.storedItems = data.storage.items ?? [];
@@ -252,6 +282,7 @@ export class SaveManager {
     this.state.raidsCompleted = data.raids?.completed ?? {};
     this.state.lastRaidAt = data.raids?.lastRaidAt ?? 0;
     this.state.raidAttackOrder = data.raids?.attackOrder ?? [];
+    this.state.epicBossRun = data.epicBoss ? { ...data.epicBoss, attackOrder: [...data.epicBoss.attackOrder] } : null;
     this.state.friends = (data.social?.friends ?? []).map((friend) => ({ ...friend, giftsSent: friend.giftsSent ?? 0 }));
     this.state.tutorial = data.tutorial;
     if (data.farm.w && data.farm.h) this.field.resize(data.farm.w, data.farm.h);
@@ -268,6 +299,7 @@ export class SaveManager {
     this.field.restoreObjects(objects, (key) => this.placeCatalog.get(key));
     this.zombies.restore(data.ownedZombies ?? []);
     this.zombies.restorePot(data.zombiePot);
+    this.quests.setEpicBossActive(!!this.state.epicBossRun && !this.state.epicBossRun.completedAt && Date.now() < this.state.epicBossRun.expiresAt);
     this.quests.restore(data.quests);
     if (player.farmer) this.walk.teleport(player.farmer.col, player.farmer.row);
   }

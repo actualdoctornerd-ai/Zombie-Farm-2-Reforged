@@ -10,6 +10,7 @@ import { GAMEPLAY_PROTOCOL } from "../../../src/net/protocol";
 import * as legacyDb from "../db";
 import { applyCommandBatch, freshGameplayState, zombieDefaultMutation } from "./engine";
 import { levelForXp } from "../levels";
+import { projectRun } from "./epicBoss";
 
 interface RuntimeRow {
   account_version: number;
@@ -50,6 +51,11 @@ interface RaidRow {
   expires_at: number;
 }
 interface RaidStateRow { last_started_at: number; progress_json: string }
+interface EpicRunRow {
+  run_id: string; boss_id: string; activated_at: number; expires_at: number; level: number;
+  max_hp: number; current_hp: number; encounter_started_at: number; retry_ready_at: number;
+  completed_at: number; attack_order_json: string;
+}
 
 export type BatchFailure =
   | { status: 400 | 409 | 423 | 429; error: string; body?: Record<string, unknown> }
@@ -65,6 +71,10 @@ const coreFrom = (state: GameplayProjection) => ({
   storage: state.storage,
   farmSize: state.farmSize,
   climates: state.climates,
+  farmerHeads: state.farmerHeads,
+  farmerHeadId: state.farmerHeadId,
+  ownedPets: state.ownedPets,
+  activePet: state.activePet,
   zombieMax: state.zombieMax,
   tutorialRewarded: state.tutorialRewarded,
 });
@@ -98,7 +108,7 @@ async function ensureV3(db: D1Database, accountId: string, now: number): Promise
 
 async function loadRows(db: D1Database, accountId: string, now: number) {
   await ensureV3(db, accountId, now);
-  const [runtime, balance, farm, objects, quests, core, presentation, roster, raid, raidState] = await Promise.all([
+  const [runtime, balance, farm, objects, quests, core, presentation, roster, raid, raidState, epicBoss] = await Promise.all([
     db.prepare("SELECT * FROM account_runtime_v3 WHERE account_id = ?").bind(accountId).first<RuntimeRow>(),
     db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId).first<BalanceRow>(),
     db.prepare("SELECT * FROM farm_documents_v3 WHERE account_id = ?").bind(accountId).first<DocumentRow>(),
@@ -113,9 +123,11 @@ async function loadRows(db: D1Database, accountId: string, now: number) {
       .bind(accountId).first<RaidRow>(),
     db.prepare("SELECT last_started_at, progress_json FROM raid_state_v3 WHERE account_id = ?")
       .bind(accountId).first<RaidStateRow>(),
+    db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id = ?")
+      .bind(accountId).first<EpicRunRow>(),
   ]);
   if (!runtime || !balance || !farm || !objects || !quests || !core || !presentation || !raidState) throw new Error("v3_state_init_failed");
-  return { runtime, balance, farm, objects, quests, core, presentation, roster: roster.results ?? [], raid, raidState };
+  return { runtime, balance, farm, objects, quests, core, presentation, roster: roster.results ?? [], raid, raidState, epicBoss };
 }
 
 function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection {
@@ -130,6 +142,10 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     storage: core.storage ?? { received: {}, stored: {} },
     farmSize: core.farmSize ?? 30,
     climates: core.climates ?? ["grass"],
+    farmerHeads: core.farmerHeads ?? base.farmerHeads,
+    farmerHeadId: core.farmerHeadId ?? base.farmerHeadId,
+    ownedPets: core.ownedPets ?? [],
+    activePet: core.activePet ?? null,
     zombieMax: core.zombieMax ?? 16,
     tutorialRewarded: core.tutorialRewarded ?? false,
     roster: rows.roster.map((u) => ({
@@ -144,6 +160,7 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
       ...(u.locked_by_raid ? { lockedByRaid: u.locked_by_raid } : {}),
     })),
     raids: { progress: parse(rows.raidState.progress_json, {}), lastRaidAt: rows.raidState.last_started_at },
+    epicBoss: projectRun(rows.epicBoss),
   };
 }
 
@@ -309,7 +326,7 @@ export async function applyBatch(
       .bind(accountId, unit.id, unit.key, unit.mutation, unit.invasions, unit.stored ? 1 : 0,
         unit.lockedByRaid ?? null, now, accountId, body.batchId));
   }
-  const durableKinds = new Set(["power.buy", "object.buy", "object.refund", "object.upgrade", "roster.sell", "roster.combine"]);
+  const durableKinds = new Set(["power.buy", "object.buy", "object.refund", "object.upgrade", "roster.sell", "roster.combine", "farmer.buy", "pet.buy"]);
   body.commands.forEach((entry, index) => {
     const result = engine.results[index];
     if (result?.status !== "applied" || !durableKinds.has(entry.command.type)) return;

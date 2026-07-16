@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { call, signIn } from "./helpers";
+import { befriend, call, signIn } from "./helpers";
 
 const deviceA = "device-aaaaaaaa";
 const commandBody = (
@@ -21,6 +21,37 @@ const commandBody = (
 });
 
 describe("protocol v3 API", () => {
+  it("persists pet ownership, makes retries idempotent, and ignores presentation forgeries", async () => {
+    const owner = await signIn();
+    const other = await signIn();
+    const boot = (await call<any>("POST", "/bootstrap", owner.token, {})).body;
+    expect(boot.gameplay).toMatchObject({ ownedPets: [], activePet: null });
+
+    const body = commandBody(boot, "batch-pet-purchase", 1, [{ type: "pet.buy", petKey: "catActor" }]);
+    const bought = await call<any>("POST", "/commands", owner.token, body);
+    expect(bought.status).toBe(200);
+    expect(bought.body.gameplay).toMatchObject({ ownedPets: ["catActor"], activePet: "catActor" });
+    expect(bought.body.gameplay.balance.brains).toBe(boot.gameplay.balance.brains - 50);
+
+    const retried = await call<any>("POST", "/commands", owner.token, body);
+    expect(retried.body).toEqual(bought.body);
+    const forged = await call<any>("PUT", "/presentation", owner.token, {
+      protocolVersion: 3,
+      expectedVersion: 0,
+      data: { player: { ownedPets: ["alienActor"], activePet: "alienActor" } },
+    });
+    expect(forged.status).toBe(200);
+
+    const reloaded = (await call<any>("POST", "/bootstrap", owner.token, {})).body;
+    expect(reloaded.gameplay).toMatchObject({ ownedPets: ["catActor"], activePet: "catActor" });
+    const isolated = (await call<any>("POST", "/bootstrap", other.token, {})).body;
+    expect(isolated.gameplay).toMatchObject({ ownedPets: [], activePet: null });
+    await befriend(owner, other);
+    const visit = await call<any>("GET", `/friends/${owner.accountId}/save`, other.token);
+    expect(visit.status).toBe(200);
+    expect(visit.body.save.player.petCollection).toEqual({ owned: ["catActor"], active: "catActor" });
+  });
+
   it("bootstraps once and applies a mixed ordered batch", async () => {
     const session = await signIn();
     const boot = await call<any>("POST", "/bootstrap", session.token, { protocolVersion: 3, deviceId: deviceA });
@@ -86,6 +117,46 @@ describe("protocol v3 API", () => {
       commandBody(newDevice.body, "batch-old-device", 2, [{ type: "farm.plow", oc: 8, or: 0 }], deviceA, false));
     expect(oldDevice.status).toBe(423);
     expect(oldDevice.body.error).toBe("writer_replaced");
+  });
+
+  it("settles a retreat immediately without survivor veterancy or a stuck session", async () => {
+    const session = await signIn();
+    const boot = (await call<any>("POST", "/bootstrap", session.token, {
+      protocolVersion: 3,
+      deviceId: deviceA,
+    })).body;
+    const grown = await call<any>("POST", "/commands", session.token,
+      commandBody(boot, "batch-retreat-zombie", 1, [
+        { type: "farm.plow", oc: 0, or: 0 },
+        { type: "farm.plant", oc: 0, or: 0, cropKey: "ZombieActorRegularTier1" },
+        { type: "power.buy", key: "insta_grow" },
+        { type: "power.use", key: "insta_grow", oc: 0, or: 0 },
+        { type: "farm.harvest", oc: 0, or: 0 },
+      ]));
+    expect(grown.status).toBe(200);
+    const unitId = grown.body.createdZombieIds[0];
+    expect(unitId).toBeTypeOf("string");
+    const started = await call<any>("POST", "/raid/start", session.token, {
+      raidId: 1,
+      orderedUnitIds: [unitId],
+    });
+    expect(started.status).toBe(200);
+
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId: started.body.sessionId,
+      win: false,
+      survivors: [],
+      losses: [],
+    });
+    expect(finished.status).toBe(200);
+    expect(finished.body).toMatchObject({ gold: 0, xp: 0, outcome: { win: false, survivors: [], losses: [] } });
+
+    const next = await call<any>("POST", "/raid/start", session.token, {
+      raidId: 1,
+      orderedUnitIds: [unitId],
+    });
+    expect(next.status).toBe(429);
+    expect(next.body.error).toBe("cooldown");
   });
 
   it("versions presentation independently and retires v2 mutations", async () => {

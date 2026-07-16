@@ -229,8 +229,9 @@ export class JobSystem {
     if (job.kind === "walk") return;
     if (job.kind === "harvestTree") {
       const treeName = job.objId ? this.field.objectDefOf(job.objId)?.name : undefined;
-      const gold = job.objId ? this.field.harvestObject(job.objId) : null;
-      if (gold) {
+      const baseGold = job.objId ? this.field.harvestObject(job.objId) : null;
+      if (baseGold) {
+        const gold = this.state.farmerHarvestGold(baseGold);
         if (this.state.onTreeHarvest && job.objId) this.state.onTreeHarvest(job.objId, gold);
         else this.state.addGold(gold);
         if (treeName) this.quest.post(QuestEvent.CropHarvested, treeName);
@@ -258,7 +259,10 @@ export class JobSystem {
         this.quest.post(QuestEvent.NewSoilPlowed, "Plow");
       }
     } else if (job.kind === "plant") {
-      const cfg = job.cfg ?? CARROT;
+      const baseCfg = job.cfg ?? CARROT;
+      const cfg = baseCfg.isZombie
+        ? { ...baseCfg, growMs: this.state.farmerZombieGrowMs(baseCfg.growMs) }
+        : baseCfg;
       // Planting costs gold — or brains for special zombies (brainsNeeded); XP (and
       // sell value) are awarded on harvest, matching the source economy where the
       // crop's xp is its harvest reward.
@@ -301,6 +305,7 @@ export class JobSystem {
     } else {
       const r = this.field.harvestAt(job.oc, job.or);
       if (r) {
+        if (!r.zombieKey) r.sell = this.state.farmerHarvestGold(r.sell);
         const online = !!this.state.onFarm;
         // Spawn the harvested zombie FIRST (if any) so an online harvest can hand the
         // server the exact verified unit id it should record. spawnVerified suppresses

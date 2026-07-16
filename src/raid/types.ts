@@ -222,4 +222,6 @@ export interface RaidOutcome {
   enemiesBeaten: number;
   /** Total damage dealt by the player army (for the summary line). */
   playerDamage: number;
+  /** Epic Boss only: the hard attempt clock elapsed while the boss still lived. */
+  escaped?: boolean;
 }
