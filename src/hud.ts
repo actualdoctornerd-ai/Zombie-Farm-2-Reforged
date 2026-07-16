@@ -21,6 +21,7 @@ import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END
   ABILITY_POOL, ABILITY_TIER, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
 import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
+import { compareCropMarketOrder } from "./marketOrder";
 
 export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow" | "rotate";
 
@@ -91,6 +92,7 @@ export interface MenuCard {
   sell?: number; // plants only (harvest value)
   timeLabel: string; // "15m", "4h", "1d"
   level: number; // player level required to unlock
+  seasonal?: boolean; // holiday crops are grouped after the permanent catalog
   portrait: string; // full image url
   category?: "normal" | "special" | "mutant"; // zombies only
   cfg: CropConfig;
@@ -1650,10 +1652,9 @@ export class Hud {
 
   // Catalog for the plant/zombie picker (built by main from the market data).
   setCatalog(plants: MenuCard[], zombies: MenuCard[]) {
-    // The market progression is an unlock ladder. Keep the source order for
-    // entries tied at the same level; cost, name, category, and seasonality must
-    // not influence the order.
-    this.plantCards = [...plants].sort((a, b) => a.level - b.level);
+    // Permanent crops form the first unlock ladder; holiday crops form a second
+    // ladder at the end. Stable ties retain authored order.
+    this.plantCards = [...plants].sort(compareCropMarketOrder);
     this.zombieCards = [...zombies].sort((a, b) => a.level - b.level);
   }
 
@@ -1797,7 +1798,7 @@ export class Hud {
   /** Add a local friend by name (no reload). */
   onAddFriend: ((name: string) => void) | null = null;
   /** Remove a friend by id (no reload). */
-  onRemoveFriend: ((id: string) => void) | null = null;
+  onRemoveFriend: ((id: string) => void | Promise<void>) | null = null;
   /** Gift one brain to a friend. Returns true if the gift was sent (false if
    *  gated — e.g. once the daily limit lands). */
   onGiftBrain: ((id: string) => boolean) | null = null;
@@ -3098,6 +3099,66 @@ export class Hud {
     this.el.appendChild(bg);
   }
 
+  /** Confirm a destructive social action before touching local or server state. */
+  private confirmFriendAction(
+    friend: Friend,
+    action: "remove" | "block",
+    onConfirm: () => void | Promise<void>
+  ) {
+    document.querySelector("#hud .fr-confirm-bg")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "panelbg fr-confirm-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel confirm-panel";
+    const x = document.createElement("button");
+    x.className = "panelclose";
+    const xi = document.createElement("img");
+    xi.src = UI("button_close.png");
+    x.appendChild(xi);
+    x.onclick = () => bg.remove();
+
+    const h = document.createElement("h2");
+    h.textContent = action === "block" ? "Block this friend?" : "Remove this friend?";
+    const msg = document.createElement("p");
+    msg.className = "confirm-msg";
+    const name = document.createElement("b");
+    name.textContent = friend.name;
+    msg.append(action === "block" ? "Block " : "Remove ", name, "?");
+    const warning = document.createElement("span");
+    warning.className = "confirm-warn";
+    warning.textContent = action === "block"
+      ? "They will be removed and prevented from sending future friend requests or gifts."
+      : "They will be removed from your friends list.";
+    msg.append(document.createElement("br"), warning);
+
+    const btns = document.createElement("div");
+    btns.className = "zbtns";
+    const cancel = document.createElement("button");
+    cancel.className = "zbtn locate";
+    cancel.textContent = "Cancel";
+    cancel.onclick = () => bg.remove();
+    const confirm = document.createElement("button");
+    confirm.className = "zbtn sell";
+    confirm.textContent = action === "block" ? "Block" : "Remove";
+    confirm.onclick = async () => {
+      confirm.disabled = true;
+      cancel.disabled = true;
+      try {
+        await onConfirm();
+        bg.remove();
+      } catch {
+        confirm.disabled = false;
+        cancel.disabled = false;
+        this.showToast(action === "block" ? "Couldn't block that friend." : "Couldn't remove that friend.");
+      }
+    };
+    btns.append(cancel, confirm);
+    panel.append(x, h, msg, btns);
+    bg.appendChild(panel);
+    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    this.el.appendChild(bg);
+  }
+
   // Friends panel. Two modes, chosen at open time:
   //   • Offline (no server configured, or signed out): the local friends stub —
   //     add by NAME, gift locally, remove. Same as before online landed.
@@ -3327,28 +3388,29 @@ export class Hud {
           const del = document.createElement("button");
           del.className = "prof-btn del";
           del.textContent = "Remove";
-          del.onclick = async () => {
-            del.disabled = true;
+          del.onclick = () => this.confirmFriendAction(f, "remove", async () => {
             await this.onRemoveFriend?.(f.id);
             await refresh();
-          };
+          });
           const block = document.createElement("button");
           block.className = "prof-btn del fr-block";
           block.textContent = "Block";
           block.title = `Block ${f.name} (removes them and stops future requests/gifts)`;
-          block.onclick = async () => {
-            block.disabled = true;
+          block.onclick = () => this.confirmFriendAction(f, "block", async () => {
             await this.onBlockFriend?.(f.id);
             this.showToast(`Blocked ${f.name}.`);
             await refresh();
-          };
+          });
           acts.append(del, block);
         }
         if (!online()) {
           const del = document.createElement("button");
           del.className = "prof-btn del";
           del.textContent = "Remove";
-          del.onclick = () => { this.onRemoveFriend?.(f.id); renderList(); };
+          del.onclick = () => this.confirmFriendAction(f, "remove", async () => {
+            await this.onRemoveFriend?.(f.id);
+            renderList();
+          });
           acts.appendChild(del);
         }
         row.append(nm, acts);

@@ -27,6 +27,11 @@ describe("validateSave — accepts legitimate saves", () => {
     ];
     expect(validateSave(s).ok).toBe(true);
   });
+  it("accepts a selected farm background", () => {
+    const s = goodSave();
+    (s.farm as any).background = "light-meadow";
+    expect(validateSave(s).ok).toBe(true);
+  });
   it("tolerates unknown forward-compat fields", () => {
     const s = goodSave();
     (s as any).futureThing = { anything: [1, 2, 3] };
@@ -93,6 +98,13 @@ describe("validateSave — rejects malformed / abusive saves", () => {
     const s = goodSave();
     (s.player as any).name = "x".repeat(LIMITS.nameLen + 1);
     expect(validateSave(s).ok).toBe(false);
+  });
+  it("rejects an unknown farm background", () => {
+    const s = goodSave();
+    (s.farm as any).background = "empty-void";
+    const r = validateSave(s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("bad_farm_background");
   });
 });
 

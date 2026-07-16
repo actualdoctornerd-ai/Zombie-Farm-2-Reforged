@@ -20,6 +20,11 @@ export type Edition = "traditional" | "reforged";
 // How lush the decorative foliage ringing the farm is. All three fill the whole
 // camera view out to the max zoom-out edge; they differ only in tree density.
 export type FarmBackground = "deep-forest" | "woodland" | "light-meadow";
+export const DEFAULT_FARM_BACKGROUND: FarmBackground = "woodland";
+
+export function isFarmBackground(value: unknown): value is FarmBackground {
+  return value === "deep-forest" || value === "woodland" || value === "light-meadow";
+}
 
 const SPRITE_KEY = "zf2r.spriteSet";
 const EDITION_KEY = "zf2r.edition";
@@ -63,7 +68,7 @@ export const FARM_BACKGROUNDS: { id: FarmBackground; label: string }[] = [
 /** How lush the farm's foliage ring is. Defaults to Woodland (the medium density). */
 export function getFarmBackground(): FarmBackground {
   const v = localStorage.getItem(FARM_BG_KEY);
-  return v === "deep-forest" || v === "light-meadow" ? v : "woodland";
+  return isFarmBackground(v) ? v : DEFAULT_FARM_BACKGROUND;
 }
 
 export function setFarmBackground(bg: FarmBackground): void {

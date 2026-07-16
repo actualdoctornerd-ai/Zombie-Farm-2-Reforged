@@ -91,6 +91,7 @@ function presentationOnlySave(save: SaveGame): SaveGame {
       w: save.farm?.w ?? DEFAULT_FARM_SIZE,
       h: save.farm?.h ?? DEFAULT_FARM_SIZE,
       climate: save.farm?.climate ?? "grass",
+      background: save.farm?.background,
       plots: (save.farm?.plots ?? []).filter((p) => p.state === "dirt" || p.state === "hole").map((p) => ({
         oc: p.oc,
         or: p.or,
@@ -898,12 +899,16 @@ app.get("/friends/:id/save", async (c) => {
   const boot = await v3.bootstrap(c.env.DB, target, Date.now(), false, minProtocolVersion(c.env));
   const targetAccount = await db.accountById(c.env.DB, target);
   const p = boot.presentation.data as {
-    farm?: { climate?: string };
+    farm?: { climate?: string; background?: string };
     objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
     rosterLayout?: { id: string; pos?: { col: number; row: number }; color?: [number, number, number] }[];
   };
   const objectLayout = new Map((p.objectLayout ?? []).map((o) => [o.id, o]));
   const rosterLayout = new Map((p.rosterLayout ?? []).map((u) => [u.id, u]));
+  const background = p.farm?.background;
+  const safeBackground = background === "deep-forest" || background === "woodland" || background === "light-meadow"
+    ? background
+    : "woodland";
   const save: SaveGame = {
     version: 1,
     savedAt: boot.serverTime,
@@ -912,6 +917,7 @@ app.get("/friends/:id/save", async (c) => {
     farm: {
       fieldId: "default", w: boot.gameplay.farmSize, h: boot.gameplay.farmSize,
       climate: p.farm?.climate ?? "grass",
+      background: safeBackground,
       plots: Object.entries(boot.gameplay.farm.plots).map(([key, plot]) => {
         const [oc, or] = key.split(":").map(Number);
         if (plot.state === "plowed") return { oc, or, state: "plowed" as const };

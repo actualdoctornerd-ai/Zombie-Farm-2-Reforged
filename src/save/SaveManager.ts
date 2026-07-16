@@ -7,10 +7,11 @@ import { QuestSystem } from "../quest/QuestSystem";
 import { SaveGame, SAVE_VERSION, SAVE_KEY } from "./schema";
 import { activeSaveKey } from "./profiles";
 import * as api from "../net/api";
+import { getFarmBackground } from "../prefs";
 
 type PresentationData = {
   player?: { name?: string; farmer?: { col: number; row: number } };
-  farm?: { climate?: string };
+  farm?: { climate?: string; background?: SaveGame["farm"]["background"] };
   objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
   rosterLayout?: { id: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
   tutorial?: SaveGame["tutorial"];
@@ -71,6 +72,7 @@ export class SaveManager {
         w: this.field.w,
         h: this.field.h,
         climate: this.field.climate,
+        background: getFarmBackground(),
         ownedClimates: this.state.ownedClimates,
         plots: this.field.serialize(),
       },
@@ -89,7 +91,7 @@ export class SaveManager {
   private presentation(blob = this.serialize()): Record<string, unknown> {
     return {
       player: { name: blob.player.name, farmer: blob.player.farmer },
-      farm: { climate: blob.farm.climate },
+      farm: { climate: blob.farm.climate, background: blob.farm.background },
       objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id, oc: o.oc, or: o.or, rotation: o.rotation })),
       rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, pos: u.pos, stored: u.stored, color: u.color })),
       tutorial: blob.tutorial,
@@ -206,7 +208,8 @@ export class SaveManager {
         farmer: p.player?.farmer,
       },
       farm: { fieldId: "default", w: boot.gameplay.farmSize, h: boot.gameplay.farmSize,
-        climate: p.farm?.climate ?? "grass", ownedClimates: boot.gameplay.climates, plots },
+        climate: p.farm?.climate ?? "grass", background: p.farm?.background,
+        ownedClimates: boot.gameplay.climates, plots },
       objects,
       ownedZombies: roster,
       storage: {

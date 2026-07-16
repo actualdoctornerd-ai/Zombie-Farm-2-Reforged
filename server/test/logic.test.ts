@@ -134,7 +134,7 @@ describe("projectFriendSave — read-only visitor projection", () => {
       farmer: { col: 3, row: 4 },
       unlockedAbilities: ["boom"],
     },
-    farm: { fieldId: "default", w: 20, h: 20, climate: "grass", plots: [] },
+    farm: { fieldId: "default", w: 20, h: 20, climate: "snow", background: "deep-forest", plots: [] },
     objects: [{ id: "o1", key: "tree", oc: 1, or: 1 }],
     ownedZombies: [{ id: "z1", key: "regular" }],
     zombiePot: {
@@ -155,6 +155,8 @@ describe("projectFriendSave — read-only visitor projection", () => {
   it("keeps the renderable farm + zombies", () => {
     const p = projectFriendSave(full);
     expect(p.farm).toEqual(full.farm);
+    expect(p.farm.climate).toBe("snow");
+    expect(p.farm.background).toBe("deep-forest");
     expect(p.objects).toEqual(full.objects);
     expect(p.ownedZombies).toEqual(full.ownedZombies);
     expect(p.zombiePot).toEqual(full.zombiePot);

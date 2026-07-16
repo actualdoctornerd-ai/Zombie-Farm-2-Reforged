@@ -25,6 +25,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Friend } from "../social/friends";
+import type { FarmBackground } from "../prefs";
 
 /** Bump when the shape changes in a way that needs a migration. */
 export const SAVE_VERSION = 1;
@@ -128,6 +129,8 @@ export interface FarmSave {
   terrainOverrides?: TerrainOverride[];
   /** Current ground/climate skin (a ground_index terrain key). Absent = "grass". */
   climate?: string;
+  /** Density of the decorative foliage surrounding the farm. */
+  background?: FarmBackground;
   /** Ground/climate skins purchased (switchable for free once owned). Always
    *  includes the free "grass" default. Absent = grass only. */
   ownedClimates?: string[];

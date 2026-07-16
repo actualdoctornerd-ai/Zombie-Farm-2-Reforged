@@ -140,9 +140,9 @@ def main():
         # the runtime derives the group aura from the taxonomy (see traits.ts).
         z.pop("abilities", None)
 
-    # Keep the market unlock-ordered. Python's sort is stable, so entries tied at
-    # a level retain their authored order; do not introduce a cost/name tiebreaker.
-    plants.sort(key=lambda p: p.get("level", 1))
+    # Permanent crops first, then holiday/seasonal crops; unlock level orders each
+    # group. Python's stable sort retains authored order for complete ties.
+    plants.sort(key=lambda p: (bool(p.get("seasonal", False)), p.get("level", 1)))
     zombies.sort(key=lambda z: z.get("level", 1))
 
     with open(PLANTS, "w", encoding="utf-8") as f:

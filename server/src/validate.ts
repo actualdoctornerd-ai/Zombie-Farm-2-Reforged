@@ -104,6 +104,9 @@ export function validateSave(save: unknown): Result {
     return bad("too_many_terrain_overrides");
   if (farm.ownedClimates !== undefined && !arrayWithin(farm.ownedClimates, LIMITS.ownedClimates))
     return bad("too_many_climates");
+  if (farm.background !== undefined &&
+      farm.background !== "deep-forest" && farm.background !== "woodland" && farm.background !== "light-meadow")
+    return bad("bad_farm_background");
 
   // Optional later-phase collections: bound their sizes and id uniqueness.
   if (save.objects !== undefined) {

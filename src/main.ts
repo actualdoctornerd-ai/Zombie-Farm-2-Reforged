@@ -31,7 +31,10 @@ import { screenToGrid, tileCenter, TILE_H, TILE_W, HW, HH } from "./iso";
 import { setFootprint } from "./depthSort";
 import { NightLayer, makeLight } from "./lighting";
 import { buyXp, sellBack, zombieSellValue } from "./economy";
-import { getFarmBackground, setFarmBackground, FARM_BG_DENSITY } from "./prefs";
+import {
+  DEFAULT_FARM_BACKGROUND, getFarmBackground, isFarmBackground, setFarmBackground,
+  FARM_BG_DENSITY, type FarmBackground,
+} from "./prefs";
 import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
 import { TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
@@ -90,7 +93,8 @@ async function main() {
     catalog.set(cfg.key, cfg);
     return {
       name: p.name, cost: p.cost, sell: p.sell, timeLabel: fmtTime(p.growMs),
-      level: p.level, portrait: `${BASE}assets/crops/${p.stage2}`, cfg,
+      level: p.level, seasonal: p.seasonal,
+      portrait: `${BASE}assets/crops/${p.stage2}`, cfg,
     };
   });
   // Zombie type catalog by key, so a harvested zombie crop can look up its full
@@ -199,6 +203,9 @@ async function main() {
   // track the sprites and regenerate them against the current bounds. The RNG is
   // seeded per field size so a given farm size always yields the same stable layout.
   let foliage: Sprite[] = [];
+  // A visit may display the friend's selection, but must never overwrite this
+  // device's own preference in localStorage.
+  let displayedFarmBackground: FarmBackground = getFarmBackground();
   const buildFoliage = () => {
     for (const s of foliage) { s.parent?.removeChild(s); s.destroy(); }
     foliage = [];
@@ -223,7 +230,7 @@ async function main() {
     // Farm Background setting scales the tree count: Deep Forest = full, Woodland
     // ~half, Light Meadow ~a tenth. Same seed, so the sparser sets are subsets of
     // the denser ones and switching just thins/thickens the same forest.
-    const accept = 0.34 * FARM_BG_DENSITY[getFarmBackground()];
+    const accept = 0.34 * FARM_BG_DENSITY[displayedFarmBackground];
     for (let v = vMin; v <= vMax; v += STEP) {
       for (let u = uMin; u <= uMax; u += STEP) {
         const ju = u + (rnd() - 0.5) * STEP * 1.3; // jitter off the lattice
@@ -700,6 +707,9 @@ async function main() {
       const okDim = (n: unknown) =>
         typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= MAX_VISIT_DIM;
       if (!okDim(w) || !okDim(h)) throw new api.ApiError(422, "bad_farm");
+      displayedFarmBackground = isFarmBackground(save.farm.background)
+        ? save.farm.background
+        : DEFAULT_FARM_BACKGROUND;
       await saveManager.hydrateReadOnly(save);
       visiting = true;
       console.log(`[visit] viewing ${visitTarget.name}'s farm (read-only)`);
@@ -713,6 +723,9 @@ async function main() {
     restored = await saveManager.load();
     if (!restored) quests.restore(); // fresh farm: activate the opening quests
     saveManager.enableAutosave();
+    // Backfill newly-added presentation fields (such as woodland density) even
+    // when an existing player does not immediately change another farm value.
+    saveManager.save();
     console.log(restored ? "[save] restored existing farm" : "[save] fresh farm");
   }
   // Server-authoritative currency (online, own-farm only). Wire the money hook so
@@ -1252,7 +1265,7 @@ async function main() {
   // Used when no server is configured or the player is signed out. ----
   hud.getFriends = () => state.friends;
   hud.onAddFriend = (name) => state.addFriend(name);
-  hud.onRemoveFriend = (id) => state.removeFriend(id);
+  hud.onRemoveFriend = (id) => { state.removeFriend(id); };
   hud.onGiftBrain = (id) => state.giftBrain(id);
 
   // ---- friends: ONLINE path (server ground truth via net/api + net/auth).
@@ -1316,13 +1329,13 @@ async function main() {
   hud.onRejectRequest = async (accountId) => {
     try { await api.rejectFriend(accountId); } catch { /* best-effort */ }
   };
-  hud.onRemoveFriend = (id) => {
+  hud.onRemoveFriend = async (id) => {
     // Online: unfriend server-side then refresh. Offline path handled above.
-    if (auth.isSignedIn()) void api.removeFriendOnline(id).catch(() => {});
+    if (auth.isSignedIn()) await api.removeFriendOnline(id);
     else state.removeFriend(id);
   };
   hud.onBlockFriend = async (accountId) => {
-    try { await api.blockFriend(accountId); await hud.refreshFriends?.(); } catch { /* best-effort */ }
+    await api.blockFriend(accountId);
   };
   hud.onRotateCode = async () => {
     try { return await api.rotateFriendCode(); } catch { return null; }
@@ -1379,8 +1392,13 @@ async function main() {
 
   // Farm Background picker (Settings): re-seed & rebuild the foliage ring live at
   // the new density — no reload, same spirit as the night toggle.
-  hud.getFarmBackground = () => getFarmBackground();
-  hud.onSetFarmBackground = (bg) => { setFarmBackground(bg); buildFoliage(); };
+  hud.getFarmBackground = () => displayedFarmBackground;
+  hud.onSetFarmBackground = (bg) => {
+    displayedFarmBackground = bg;
+    setFarmBackground(bg);
+    buildFoliage();
+    saveManager.save();
+  };
 
   hud.getRaidBoosts = (raidId) => ({
     concentration: raids.concentrationCount(),
