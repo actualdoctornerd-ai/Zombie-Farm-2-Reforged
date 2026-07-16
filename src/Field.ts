@@ -115,6 +115,10 @@ interface FarmObject {
   rearSprite?: Sprite; // Pet Pen: second rear-rail crop
   frontSprite?: Sprite; // Pet Pen: screen-facing rail crop
   gateSprite?: Sprite; // Pet Pen: entire gate/top metalwork foreground crop
+  rearOverlay?: Container; // rear rails, masked to outside-character silhouettes
+  frontOverlay?: Container; // front rails, masked to inside-pet silhouettes
+  rearMask?: Graphics;
+  frontMask?: Graphics;
   light?: Sprite; // additive night glow (glowing objects only), lives in the night layer
   // Fruit trees only: readyAt = epoch ms the fruit ripens; ready = fruit present.
   readyAt: number;
@@ -724,7 +728,7 @@ export class Field {
       if (!o.def.harvestValue || o.ready || now < o.readyAt) continue;
       o.ready = true;
       this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, true, o.flipped,
-        o.frontSprite, o.rearSprite, o.gateSprite);
+        o.frontSprite, o.rearSprite, o.gateSprite, o.rearOverlay, o.frontOverlay);
     }
     // Runs LAST in the frame (after the farmer + zombies have moved), so the
     // footprint depth-sort sees final positions. Ground objects (roads/patch) share
@@ -845,6 +849,7 @@ export class Field {
   private fitObjectSprite(
     sp: Sprite, def: PlaceableDef, oc: number, or: number, ready = true, flipped = false,
     front?: Sprite, rear?: Sprite, gate?: Sprite,
+    rearOverlay?: Container, frontOverlay?: Container,
   ) {
     const name = this.objectSpriteName(def, ready);
     const texture = this.assets.objects[name] ?? this.assets.objects[def.sprite] ?? Texture.EMPTY;
@@ -886,14 +891,31 @@ export class Field {
       layoutCrop(gate, gateTexture, gateX0, 0);
       layoutCrop(front, frontTexture, 0, split);
 
-      // Real grid anchors, rather than forced biases, let nearby outside actors
-      // naturally pass behind the rear rails or in front of the near rails while
-      // interior pets remain sandwiched between the two sides.
-      setFootprint(sp, oc, or, oc, or);
-      setFootprint(rear, oc, or, oc, or);
-      const fc = oc + def.tileW - 1, fr = or + def.tileH - 1;
-      setFootprint(gate, fc, fr, fc, fr);
-      setFootprint(front, fc, fr, fc, fr);
+      // Both rail halves have a low/base copy. Character-specific high copies are
+      // masked over only the silhouettes that each half must occlude; this avoids
+      // the impossible global ordering cycle created by simultaneous inside and
+      // outside characters.
+      for (const base of [sp, rear, gate, front]) base.zIndex = -1000;
+      const rebuildOverlay = (container: Container | undefined, parts: Array<{
+        texture: Texture; x: number; y: number;
+      }>) => {
+        if (!container) return;
+        for (const child of container.removeChildren()) child.destroy();
+        for (const part of parts) {
+          const copy = new Sprite();
+          layoutCrop(copy, part.texture, part.x, part.y);
+          container.addChild(copy);
+        }
+        container.zIndex = 100000;
+      };
+      rebuildOverlay(rearOverlay, [
+        { texture: rearLeftTexture, x: 0, y: 0 },
+        { texture: rearRightTexture, x: gateX1, y: 0 },
+      ]);
+      rebuildOverlay(frontOverlay, [
+        { texture: gateTexture, x: gateX0, y: 0 },
+        { texture: frontTexture, x: 0, y: split },
+      ]);
       return;
     }
     sp.texture = texture;
@@ -910,10 +932,18 @@ export class Field {
     obj.rearSprite?.removeFromParent();
     obj.frontSprite?.removeFromParent();
     obj.gateSprite?.removeFromParent();
+    obj.rearOverlay?.removeFromParent();
+    obj.frontOverlay?.removeFromParent();
+    obj.rearMask?.removeFromParent();
+    obj.frontMask?.removeFromParent();
     obj.sprite.destroy();
     obj.rearSprite?.destroy();
     obj.frontSprite?.destroy();
     obj.gateSprite?.destroy();
+    obj.rearOverlay?.destroy({ children: true });
+    obj.frontOverlay?.destroy({ children: true });
+    obj.rearMask?.destroy();
+    obj.frontMask?.destroy();
     for (const texture of split) texture.destroy(false);
     this.petPenTextures.delete(obj.sprite);
   }
@@ -968,15 +998,26 @@ export class Field {
     const rearSprite = def.petPen ? new Sprite() : undefined;
     const frontSprite = def.petPen ? new Sprite() : undefined;
     const gateSprite = def.petPen ? new Sprite() : undefined;
-    this.fitObjectSprite(sprite, def, oc, or, ready, flipped, frontSprite, rearSprite, gateSprite);
+    const rearOverlay = def.petPen ? new Container() : undefined;
+    const frontOverlay = def.petPen ? new Container() : undefined;
+    const rearMask = def.petPen ? new Graphics() : undefined;
+    const frontMask = def.petPen ? new Graphics() : undefined;
+    if (rearOverlay && rearMask) rearOverlay.mask = rearMask;
+    if (frontOverlay && frontMask) frontOverlay.mask = frontMask;
+    this.fitObjectSprite(sprite, def, oc, or, ready, flipped, frontSprite, rearSprite, gateSprite,
+      rearOverlay, frontOverlay);
     const layer = this.isGroundObject(def) ? this.groundObjectLayer : this.entityLayer;
     layer.addChild(sprite);
     if (rearSprite) layer.addChild(rearSprite);
     if (frontSprite) layer.addChild(frontSprite);
     if (gateSprite) layer.addChild(gateSprite);
+    if (rearOverlay) layer.addChild(rearOverlay);
+    if (frontOverlay) layer.addChild(frontOverlay);
+    if (rearMask) layer.addChild(rearMask);
+    if (frontMask) layer.addChild(frontMask);
     const oid = id ?? `o${this.nextObjId++}`;
     const obj: FarmObject = { id: oid, def, oc, or, sprite, rearSprite, frontSprite, gateSprite,
-      readyAt: ra, ready, flipped };
+      rearOverlay, frontOverlay, rearMask, frontMask, readyAt: ra, ready, flipped };
     this.objects.set(oid, obj);
     this.attachObjectLight(obj);
     this.forEachFootprint(oc, or, def.tileW, def.tileH, (t) => this.tileObject.set(t, oid));
@@ -1021,6 +1062,30 @@ export class Field {
       if (o.def.petPen) return { oc: o.oc, or: o.or, tileW: o.def.tileW, tileH: o.def.tileH };
     }
     return null;
+  }
+
+  /** Rebuild the Pet Pen's character-specific rail masks. A rectangle is enough:
+   * transparent pixels in each rail crop remain transparent, while every rail
+   * pixel intersecting a character receives the requested foreground treatment. */
+  updatePetPenOcclusion(inside: Container[], outside: Container[]) {
+    const draw = (mask: Graphics | undefined, actors: Container[]) => {
+      if (!mask) return;
+      mask.clear();
+      let any = false;
+      for (const actor of actors) {
+        if (!actor.visible || !actor.renderable) continue;
+        const b = actor.getLocalBounds();
+        if (!(b.width > 0 && b.height > 0)) continue;
+        mask.rect(actor.x + b.x, actor.y + b.y, b.width, b.height);
+        any = true;
+      }
+      if (any) mask.fill(0xffffff);
+    };
+    for (const o of this.objects.values()) {
+      if (!o.def.petPen) continue;
+      draw(o.frontMask, inside);
+      draw(o.rearMask, outside);
+    }
   }
 
   // Plowing Monolith placed → plowing costs no gold.
@@ -1094,7 +1159,7 @@ export class Field {
     o.def = def;
     o.ready = def.growMs ? o.ready : false;
     this.fitObjectSprite(o.sprite, def, o.oc, o.or, true, o.flipped,
-      o.frontSprite, o.rearSprite, o.gateSprite);
+      o.frontSprite, o.rearSprite, o.gateSprite, o.rearOverlay, o.frontOverlay);
     this.forEachFootprint(o.oc, o.or, def.tileW, def.tileH, (t) => this.tileObject.set(t, id));
     this.setExtensionBlocks(id, def, o.oc, o.or, o.flipped, true);
     return true;
@@ -1112,7 +1177,7 @@ export class Field {
     obj.or = or;
     if (flipped !== undefined) obj.flipped = flipped;
     this.fitObjectSprite(obj.sprite, obj.def, oc, or, obj.ready, obj.flipped,
-      obj.frontSprite, obj.rearSprite, obj.gateSprite);
+      obj.frontSprite, obj.rearSprite, obj.gateSprite, obj.rearOverlay, obj.frontOverlay);
     this.positionObjectLight(obj);
     this.forEachFootprint(oc, or, obj.def.tileW, obj.def.tileH, (t) => this.tileObject.set(t, id));
     this.setExtensionBlocks(id, obj.def, oc, or, obj.flipped, true);
@@ -1132,7 +1197,7 @@ export class Field {
     o.ready = false;
     o.readyAt = Date.now() + (o.def.growMs ?? 0);
     this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, false, o.flipped,
-      o.frontSprite, o.rearSprite, o.gateSprite);
+      o.frontSprite, o.rearSprite, o.gateSprite, o.rearOverlay, o.frontOverlay);
     return o.def.harvestValue;
   }
   removeObject(id: string): PlaceableDef | null {
@@ -1151,12 +1216,17 @@ export class Field {
   // removed; pass null to clear. No-op if it's already the highlighted object.
   setObjectHighlight(id: string | null) {
     if (id === this.highlightedObj) return;
+    const tintOverlay = (container: Container | undefined, tint: number) => {
+      for (const child of container?.children ?? []) if (child instanceof Sprite) child.tint = tint;
+    };
     const prev = this.highlightedObj ? this.objects.get(this.highlightedObj) : null;
     if (prev) {
       prev.sprite.tint = 0xffffff;
       if (prev.rearSprite) prev.rearSprite.tint = 0xffffff;
       if (prev.frontSprite) prev.frontSprite.tint = 0xffffff;
       if (prev.gateSprite) prev.gateSprite.tint = 0xffffff;
+      tintOverlay(prev.rearOverlay, 0xffffff);
+      tintOverlay(prev.frontOverlay, 0xffffff);
     }
     this.highlightedObj = id;
     const next = id ? this.objects.get(id) : null;
@@ -1165,6 +1235,8 @@ export class Field {
       if (next.rearSprite) next.rearSprite.tint = 0xff7a6a;
       if (next.frontSprite) next.frontSprite.tint = 0xff7a6a;
       if (next.gateSprite) next.gateSprite.tint = 0xff7a6a;
+      tintOverlay(next.rearOverlay, 0xff7a6a);
+      tintOverlay(next.frontOverlay, 0xff7a6a);
     }
   }
   objectDefOf(id: string): PlaceableDef | null {
@@ -1185,7 +1257,7 @@ export class Field {
     if (!o) return false;
     o.flipped = !o.flipped;
     this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, o.ready, o.flipped,
-      o.frontSprite, o.rearSprite, o.gateSprite);
+      o.frontSprite, o.rearSprite, o.gateSprite, o.rearOverlay, o.frontOverlay);
     return o.flipped;
   }
   // World point the farmer walks to in order to harvest this object (its base).

@@ -100,7 +100,7 @@ describe("Garden healing and formation depth", () => {
     }, true);
     sim.units.find((u) => u.id === "player")!.state = "advance";
     sim.step(50);
-    expect(sim.projectiles[0]?.damage).toBe(22); // round(6 × 1.75) × 2
+    expect(sim.projectiles[0]?.damage).toBe(120); // raw 6 × power scale 10 × projectile multiplier 2
   });
 
   it("places combat priority from visual front to back within a column", () => {

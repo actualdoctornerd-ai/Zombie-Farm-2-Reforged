@@ -2,6 +2,7 @@
 // zombie crops, wandering/rendering them, click-selection, and save/restore.
 // Owned units share Field.entityLayer with the farmer + objects so they depth-
 // sort correctly. The live roster count is mirrored into GameState.zombieCount.
+import type { Container } from "pixi.js";
 import { GameAssets, ZombieDef } from "../assets";
 import { Field } from "../Field";
 import { GameState } from "../GameState";
@@ -108,6 +109,11 @@ export class ZombieField {
     const spot = this.field.plotFrontSpot(oc, or);
     winner.teleportTo(spot.x, spot.y);
     return winner.displayName;
+  }
+
+  /** Live on-farm character containers used by Pet Pen silhouette occlusion. */
+  characterContainers(): Container[] {
+    return this.units.map((unit) => unit.container);
   }
 
   /** Play a server-confirmed fertilization. The server owns the aggregate chance

@@ -68,6 +68,7 @@ describe("boss throws are predictive, with a speed cap", () => {
   it("leads a moving zombie AHEAD of its current position (not a stale aim)", () => {
     const { snap, pr } = cruisingThrow(3);
     const { leadX } = leadOf(snap, pr, snap.x);
+    expect(pr.damage).toBe(120); // raw 6 x power scale 10 x projectile multiplier 2
     expect(leadX).toBeGreaterThan(20); // a no-lead throw would aim at leadX ≈ 0
   });
 

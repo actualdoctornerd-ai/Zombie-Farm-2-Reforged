@@ -92,6 +92,8 @@ export interface EnemyModel {
    *  Set for weapon-holders so the swing pivots at the arm bone, not the blade tip;
    *  when absent EnemyActor falls back to the top-most front-arm part. */
   shoulder?: { x: number; y: number };
+  /** Additional labelled animation pivots authored in the sprite assembler. */
+  pivots?: { name: string; x: number; y: number }[];
   /** True for a two-handed OVERHEAD SLAM attacker (pirate boss): both arms raise above
    *  the head and slam down at the hit, instead of the default one-arm forward jab. */
   slam?: boolean;

@@ -46,4 +46,22 @@ describe("Epic Boss BattleSim mode", () => {
     sim.step(500);
     expect(sim.snapshot().units.find((u) => u.id === "boss")?.state).toBe("hold");
   });
+
+  it("jumps the Circus Ringmaster directly from its perch to the ground", () => {
+    const boss = unit("boss", "enemy", true);
+    boss.sourceKey = "CircusStageActorBoss";
+    const sim = new BattleSim([unit("p", "player")], [boss]);
+
+    sim.step(50);
+    const jumping = sim.snapshot().units.find((u) => u.id === "boss")!;
+    expect(jumping.state).toBe("descending");
+    expect(jumping.x).toBeLessThan(915);
+    expect(jumping.y).toBeGreaterThan(-150);
+
+    for (let i = 0; i < 12; i++) sim.step(50);
+    const landed = sim.snapshot().units.find((u) => u.id === "boss")!;
+    expect(landed.state).toBe("hold");
+    expect(landed.x).toBe(915);
+    expect(landed.y).toBe(280);
+  });
 });

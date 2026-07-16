@@ -36,7 +36,7 @@ export const FIELD_W = 1000;
 export const FIELD_H = 560;
 
 const CHARGE_X = 220; // staging slot the front zombie steps into to focus
-const ENEMY_HOLD_X = 915; // enemies hold in the structure's doorway (not the far edge),
+export const ENEMY_HOLD_X = 915; // enemies hold in the structure's doorway (not the far edge),
 // ~2/3 of a sprite forward of the entrance so they stand IN the open door
 export const ENEMY_SPAWN_X = 1120; // off the right edge (hidden) before emerging
 // Boss perch field-x. Chosen so RaidScene.mapX() lands it on the silo perch
@@ -64,6 +64,8 @@ const BUTTERFLY_AUTO_MS = 4200; // distraction auto-refocuses if not popped
 const BRAIN_AUTO_MS = 3200; // full bar auto-advances if not popped
 const STEP_SPEED = 260; // zombie stepping out to its lane (px/s)
 const EMERGE_SPEED = 210; // enemy walking in from the right (px/s)
+const CIRCUS_BOSS_KEY = "CircusStageActorBoss";
+const BOSS_JUMP_MS = 650; // Circus Ringmaster drops directly from the car to the lane
 const ENEMY_EMERGE_GAP_MS = 450; // beat before the next enemy emerges
 const MAX_ACTIVE_ENEMIES = 1; // enemies fight one at a time (raise for a line)
 const MAX_SIM_MS = 4 * 60 * 1000; // hard safety cap (min-damage 1 avoids stalls)
@@ -103,12 +105,11 @@ const PREDICT_SPEED_CAP = 150; // sim px/s — never lead a target faster than t
 // perch↔ground) rather than walking — its measured velocity is discarded (max real
 // step is moveSpeed≤260 × dt≤0.05s ≈ 13 px).
 export const TELEPORT_PX = 40;
-// Raw bossActions throw damage (6/12/18) has no melee-comparable scale in the data, so
-// it's a tuned chip value. Scaled to sit alongside the ground-truth melee/HP numbers
-// (a basic zombie is now ~14 dmg/hit vs con×100 HP): raw 6/12/18 × 1.75 = ~10/21/32,
-// i.e. a throw ≈ a couple of melee hits. (Kept proportional to the ×7 melee-damage
-// increase from the fight-data correction; NOT ground truth — tune with playtesting.)
-const PROJ_DMG_SCALE = 1.75;
+// Boss-action damage is authored in the same compact stat scale as unit strength.
+// Combat HP is con×100 and melee first converts strength to power with ×10, so throws
+// need that same conversion before the projectile difficulty multiplier. Pirate raw
+// 12.5/25/50 therefore becomes 250/500/1000 after the current ×2 setting.
+const PROJ_DMG_SCALE = POWER_PER_STR;
 
 // ---- Round timer + enrage (ZFFightMan updateTimer:/showEnrageTimer) ----
 // The fight is a countdown; when it expires the boss ENRAGES. The reference build
@@ -1082,6 +1083,23 @@ export class BattleSim {
         continue;
       }
       if (e.state === "descending") {
+        if (e.sourceKey === CIRCUS_BOSS_KEY) {
+          // The Ringmaster jumps straight down from the circus car instead of using
+          // the generic boss route (walk out behind the structure, then re-enter).
+          // Keep progress in the existing x/y fields so snapshots and replays need
+          // no raid-specific animation state.
+          const dy = CENTER_Y - BOSS_STRUCT_Y;
+          e.y = Math.min(CENTER_Y, e.y + (dy * dtMs) / BOSS_JUMP_MS);
+          const t = clamp((e.y - BOSS_STRUCT_Y) / dy, 0, 1);
+          e.x = BOSS_STRUCT_X + (ENEMY_HOLD_X - BOSS_STRUCT_X) * t;
+          e.timerMs = e.cooldownMs;
+          if (e.y >= CENTER_Y) {
+            e.x = ENEMY_HOLD_X;
+            e.y = CENTER_Y;
+            e.state = "hold";
+          }
+          continue;
+        }
         // Leave the perch by heading OUT THE RIGHT SIDE (through the entrance),
         // staying up at structure height; the renderer slides it off-screen behind
         // the structure. Only once fully off-screen does it drop to the ground and

@@ -2612,6 +2612,10 @@ async function main() {
       if (penBounds) pet.updateInPen(dt, penBounds);
     }
     zombies.update(dt);
+    field.updatePetPenOcclusion(
+      penPetActors.map((pet) => pet.container),
+      [actor.container, ...zombies.characterContainers(), ...(petActor ? [petActor.container] : [])],
+    );
     field.update(dt);
     // Farmer's lantern follows him (raised onto his body), lit only at night.
     if (isNight) {

@@ -11,7 +11,7 @@
 // portraits, not side-view stage actors.
 import { AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
-import { BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, ENEMY_SPAWN_X, FIELD_H, FIELD_W, SimUnit, TELEPORT_PX } from "./BattleSim";
+import { BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, ENEMY_HOLD_X, ENEMY_SPAWN_X, FIELD_H, FIELD_W, SimUnit, TELEPORT_PX } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
 import { EnemyActor } from "./EnemyActor";
 import { ParticleField, ParticleConfig } from "./Particles";
@@ -136,6 +136,7 @@ const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
 // dome sit IN FRONT of the alien (its transparent centre shows the pilot), the small back
 // dome behind. Sizes/offsets in unit-px (scaled with the boss token). Eyeballed.
 const ALIEN_BOSS_KEY = "AlienStageActorBoss";
+const CIRCUS_BOSS_KEY = "CircusStageActorBoss";
 const UFO_FRONT_H = 156; // saucer rendered height (unit px)
 const UFO_FRONT_DY = -8; // saucer base ~at the boss's feet, so its legs sit inside
 const UFO_BACK_H = 30; // back dome height
@@ -184,6 +185,7 @@ interface Token {
   hp: Graphics;
   charge: Graphics; // focus bar (zombies, while charging)
   base: number; // half-width for the bars
+  hpCenterX: number; // visual center of the actor in token-local coordinates
   topY: number; // y of the sprite top (negative), for the hp bar
   pulse: number; // hit lunge, decays to 0
   atkCount: number; // basic hits landed (parity drives the arm-wave switch)
@@ -268,6 +270,9 @@ export class RaidScene {
   private fxLayer = new Container(); // transient effects (death poofs) above the field
   private fx: { g: Graphics; t: number; life: number; color: number }[] = [];
   private particles = new ParticleField(); // melee-impact dust + victory confetti
+  // Foreground letterbox matte: battlefield art stays inside the stage image even
+  // while units/projectiles are entering from beyond its left and right edges.
+  private sideBarMatte = new Graphics();
   private bashCfg: ParticleConfig | null = null;
   private confettiCfg: ParticleConfig | null = null;
   private smokeCfg: ParticleConfig | null = null; // enemy death poof (source: playDeathEffect → smoke.plist)
@@ -442,6 +447,7 @@ export class RaidScene {
     this.container.addChild(this.projLayer);
     this.container.addChild(this.fxLayer); // death poofs draw above everything
     this.container.addChild(this.particles.container); // impact dust / confetti on top
+    this.container.addChild(this.sideBarMatte); // side bars occlude all battlefield layers
     [this.bashCfg, this.confettiCfg, this.smokeCfg, this.healCfg] = await Promise.all([
       loadParticle("bash"),
       loadParticle("confetti"),
@@ -606,6 +612,7 @@ export class RaidScene {
     let epicActor: AnimatedSprite | undefined;
     let epicAnim: string | undefined;
     let base = 22;
+    let hpCenterX = 0;
     let topY = -60;
     let actorBaseScale = 1;
     let actorBaseY = 0;
@@ -650,13 +657,17 @@ export class RaidScene {
       const tex = this.enemyTex.get(u.sourceKey) ?? null;
       if (strip && model) {
         // Animated rig: assemble from the part strip and fit to the role height.
-        const ea = new EnemyActor(strip, model);
+        const ea = new EnemyActor(strip, model, u.sourceKey);
         const b = ea.container.getLocalBounds();
         const s = targetH / Math.max(1, b.height);
         ea.container.scale.set(s);
         ea.container.y = -(b.y + b.height) * s; // stand its feet at the origin
         root.addChild(ea.container);
         base = Math.max(16, (b.width * s) / 2);
+        // Enemy rig parts are authored in positive model-space coordinates. Their
+        // feet/sim origin remains at x=0, so center the HP bar on the rendered rig
+        // bounds rather than on that origin (which put nearly every bar to the left).
+        hpCenterX = (b.x + b.width / 2) * s;
         topY = -(b.height * s);
         enemyActor = ea;
       } else if (tex) {
@@ -710,6 +721,7 @@ export class RaidScene {
     if (u.team === "enemy") base = Math.min(base, u.isBoss ? 55 : 42);
     // Health bar sits ABOVE the head (enemies red, players green — set in layout).
     const hp = new Graphics();
+    hp.x = hpCenterX;
     hp.y = topY - 8;
     root.addChild(hp);
 
@@ -724,7 +736,7 @@ export class RaidScene {
     layer.addChild(root);
     return {
       root, actor, enemyActor, epicActor, epicAnim: epicActor ? epicAnim : undefined,
-      hp, charge, base, topY, pulse: 0, atkCount: 0,
+      hp, charge, base, hpCenterX, topY, pulse: 0, atkCount: 0,
       deathAnim: -1, emerged: false,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
       healFxSeq: 0, healCastSeq: 0, healPose: 0,
@@ -917,6 +929,21 @@ export class RaidScene {
       .clear()
       .rect(0, 0, W, r.groundY).fill(LETTERBOX_TOP)
       .rect(0, r.groundY, W, Math.max(0, H - r.groundY)).fill(LETTERBOX_BOT);
+    // Repeat the backdrop colors in front of the battlefield layers. This makes the
+    // left/right letterbox areas behave as an aperture: entering characters can
+    // move there, but no model parts leak outside the authored stage image.
+    const right = r.left + r.w;
+    this.sideBarMatte.clear();
+    if (r.left > 0) {
+      this.sideBarMatte
+        .rect(0, 0, r.left, r.groundY).fill(LETTERBOX_TOP)
+        .rect(0, r.groundY, r.left, Math.max(0, H - r.groundY)).fill(LETTERBOX_BOT);
+    }
+    if (right < W) {
+      this.sideBarMatte
+        .rect(right, 0, W - right, r.groundY).fill(LETTERBOX_TOP)
+        .rect(right, r.groundY, W - right, Math.max(0, H - r.groundY)).fill(LETTERBOX_BOT);
+    }
 
     const toX = (sx: number) => this.mapX(sx);
     const toY = (sy: number) => this.mapY(sy);
@@ -939,6 +966,18 @@ export class RaidScene {
       // fight: a normal ground unit, walking in from the right to the attack spot.
       if (u.state === "structure") return [perchX, perchY];
       if (u.state === "descending") {
+        if (u.sourceKey === CIRCUS_BOSS_KEY) {
+          const t = Math.max(0, Math.min(1, (y - BOSS_STRUCT_Y) / (CENTER_Y - BOSS_STRUCT_Y)));
+          const groundX = toX(ENEMY_HOLD_X) + this.bossGroundOffset.x * this.sizeScale();
+          const groundY = toY(CENTER_Y) +
+            (UNIT_GROUND_NUDGE + this.bossGroundOffset.y) * this.sizeScale();
+          // A small upward arc makes the direct descent read as a jump rather than
+          // a linear float. The simulation supplies the deterministic progress.
+          return [
+            perchX + (groundX - perchX) * t,
+            perchY + (groundY - perchY) * t - Math.sin(Math.PI * t) * 30 * this.sizeScale(),
+          ];
+        }
         const t = Math.max(0, Math.min(1, (x - BOSS_STRUCT_X) / (ENEMY_SPAWN_X - BOSS_STRUCT_X)));
         return [perchX + t * (r.left + r.w + 140 - perchX), perchY];
       }
@@ -982,7 +1021,10 @@ export class RaidScene {
       // normal front-layer token that walks in front of the building.
       if (u.isBoss && this.perchLayer) {
         const wantLayer =
-          u.state === "structure" || u.state === "descending" ? this.bossBackLayer : this.tokenLayer;
+          u.state === "structure" ||
+          (u.state === "descending" && u.sourceKey !== CIRCUS_BOSS_KEY)
+            ? this.bossBackLayer
+            : this.tokenLayer;
         if (tok.root.parent !== wantLayer) wantLayer.addChild(tok.root);
       }
 
@@ -1145,7 +1187,8 @@ export class RaidScene {
           const sw = this.sim.bossThrowSwing(550, visualLeadMs);
           attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
         }
-        tok.enemyActor.update(dtSec, u.alive && simMoving, attack);
+        const jumpingFromPerch = u.state === "descending" && u.sourceKey === CIRCUS_BOSS_KEY;
+        tok.enemyActor.update(dtSec, u.alive && simMoving && !jumpingFromPerch, attack);
       }
       if (tok.epicActor) {
         const attackDef = this.bossAnimationDefs?.attack;

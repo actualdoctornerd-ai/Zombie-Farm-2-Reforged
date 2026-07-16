@@ -50,6 +50,11 @@ const LUNGE_COCK = 0.35; // backward wind-up before the step (× LUNGE_PX)
 const CHOP_RAISE = 0.85; // rad the arm lifts the tool UP during the wind-up
 const CHOP_STRIKE = 0.4; // rad past rest on the downstroke at the hit
 const CHOP_RAISE_FRAC = 0.6; // fraction of the pre-hit window spent raising (rest chops down)
+// The Scallywag's club uses a longer, higher wind-up and a shorter downstroke.
+const HEAVY_CHOP_KEY = "PirateStageActorScallywag";
+const HEAVY_CHOP_RAISE = 1.45;
+const HEAVY_CHOP_STRIKE = 0.55;
+const HEAVY_CHOP_RAISE_FRAC = 0.72;
 // A PUNCHER's forward jab keeps a small arm thrust (it has no tool to chop with).
 const ARM_THRUST = 0.5; // puncher front-arm rotation added at the peak (rad; +ve reads as a forward jab)
 const ARM_COCK = 0.35; // arm wind-up back-swing (× ARM_THRUST)
@@ -63,7 +68,7 @@ const ARM_PUNCH_DROOP = -1.3; // rad the front arm hangs down at rest (negative 
 const BACK_ARM_SWING = 0.5; // rad the rear arm swings back at the jab peak
 // A SLAMMER (model.slam — pirate boss) raises BOTH arms overhead during the wind-up,
 // then slams them down through rest at the hit. Negative = up/back overhead; positive
-// follow-through past rest. Both arms rotate by the same angle about their own anchors.
+// follow-through past rest. Both arms rotate about their authored shoulder pivots.
 const SLAM_RAISE = 2.5; // rad both arms rotate UP overhead at the top of the wind-up
 const SLAM_FOLLOW = 0.7; // rad past rest at the bottom of the slam (follow-through)
 const SLAM_RAISE_FRAC = 0.55; // fraction of the pre-hit window spent raising (rest slams down)
@@ -87,8 +92,10 @@ export class EnemyActor {
   /** Shared shoulder pivot the front arm(s) + held tool swing about during an attack —
    *  the top-most (min py) front arm part's anchor. Null if the rig has no front arm. */
   private shoulder: { x: number; y: number } | null = null;
+  private backShoulder: { x: number; y: number } | null = null;
   private punch = false; // bare-fisted: rest arms at the sides, extend only to jab
   private slam = false; // two-handed overhead slam instead of a one-arm jab
+  private heavyChop = false; // Scallywag's slower primary-hand club slam
   private chopSign = 1; // sign of the weapon-chop rotation (−1 for a cross-body swing)
   /** Art faces LEFT; enemies attack leftward (toward the zombies), so no flip by default. */
   private facing = 1;
@@ -96,12 +103,15 @@ export class EnemyActor {
   private stepPhase = 0;
   private t = 0;
 
-  constructor(strip: Texture, model: EnemyModel) {
+  constructor(strip: Texture, model: EnemyModel, sourceKey = "") {
     this.container.addChild(this.root);
     this.root.sortableChildren = true;
     this.neck = model.neck;
     this.punch = !!model.punch;
     this.slam = !!model.slam;
+    this.heavyChop = sourceKey === HEAVY_CHOP_KEY;
+    const backShoulder = model.pivots?.find((p) => p.name === "back-shoulder");
+    if (backShoulder) this.backShoulder = { x: backShoulder.x, y: backShoulder.y };
     if (model.chopSign) this.chopSign = model.chopSign < 0 ? -1 : 1;
     for (const p of model.parts) {
       const tex = new Texture({
@@ -167,10 +177,13 @@ export class EnemyActor {
         cock = Math.sin(Math.PI * Math.min(u / c, 1)); // wind-up bump, peaks mid-approach
         // Chop: raise the tool UP over the first CHOP_RAISE_FRAC of the approach, whip it
         // DOWN through rest to the hit at the connect (c), then ease back up to rest.
-        const cf = c * CHOP_RAISE_FRAC;
-        if (u < cf) chop = CHOP_RAISE * smooth(u / cf);
-        else if (u < c) chop = CHOP_RAISE - (CHOP_RAISE + CHOP_STRIKE) * smooth((u - cf) / (c - cf));
-        else chop = -CHOP_STRIKE * (1 - smooth((u - c) / (1 - c)));
+        const chopRaise = this.heavyChop ? HEAVY_CHOP_RAISE : CHOP_RAISE;
+        const chopStrike = this.heavyChop ? HEAVY_CHOP_STRIKE : CHOP_STRIKE;
+        const chopRaiseFrac = this.heavyChop ? HEAVY_CHOP_RAISE_FRAC : CHOP_RAISE_FRAC;
+        const cf = c * chopRaiseFrac;
+        if (u < cf) chop = chopRaise * smooth(u / cf);
+        else if (u < c) chop = chopRaise - (chopRaise + chopStrike) * smooth((u - cf) / (c - cf));
+        else chop = -chopStrike * (1 - smooth((u - c) / (1 - c)));
         chop *= this.chopSign; // flip for cross-body swingers so the raise still lifts UP
         if (this.slam) {
           // Raise overhead over the first SLAM_RAISE_FRAC of the approach, whip down to
@@ -244,9 +257,19 @@ export class EnemyActor {
       this.hasLegs ? 0 : Math.sin(this.t * ARM_FREQ + (a.back ? Math.PI : 0)) * (moving ? ARM_SWAY_MOVE : ARM_SWAY_IDLE);
     for (const a of this.arms) {
       if (this.slam && attack) {
-        // Overhead slam: BOTH arms rotate together by the slam angle about their own
-        // (top-center) anchors — up over the head, then down through rest at the hit.
-        a.sp.position.set(a.baseX, a.baseY);
+        // Overhead slam: BOTH arm assemblies rotate about their authored shoulders.
+        // Rotating at the sprite anchors made the Pirate Boss's arms detach and orbit.
+        const pivot = a.back ? this.backShoulder : this.shoulder;
+        if (pivot) {
+          const cos = Math.cos(slamAngle), sin = Math.sin(slamAngle);
+          const dx = a.baseX - pivot.x, dy = a.baseY - pivot.y;
+          a.sp.position.set(
+            pivot.x + dx * cos - dy * sin,
+            pivot.y + dx * sin + dy * cos
+          );
+        } else {
+          a.sp.position.set(a.baseX, a.baseY);
+        }
         a.sp.rotation = a.baseRot + slamAngle;
       } else if (!a.back && this.shoulder && (this.punch || attack)) {
         // Front arm rotates about the shared shoulder: puncher jab or weapon chop.
