@@ -50,6 +50,8 @@ export class EconomyClient {
   private optimistic = new Map<number, OptimisticDelta>();
   private authoritativeUnitIds = new Map<string, string>();
   private combineParents: { parentAId: string; parentBId: string } | null = null;
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private recoveryAttempt = 0;
 
   onShopState: ((size: number, climates: string[]) => void) | null = null;
   onFarmerState: ((headIds: number[], equippedHeadId: number) => void) | null = null;
@@ -68,7 +70,10 @@ export class EconomyClient {
   constructor(private state: GameState, accountId: string) {
     this.queue = new CommandQueue(accountId);
     this.queue.onProjection = (response) => this.adoptCommandResponse(response);
-    this.queue.onUnavailable = (reason) => this.onGameplayUnavailable?.(reason);
+    this.queue.onUnavailable = (reason) => {
+      this.onGameplayUnavailable?.(reason);
+      this.scheduleRecovery();
+    };
     this.queue.onWriterReplaced = () => this.onWriterReplaced?.();
     this.queue.onStateConflict = () => { void this.reloadAfterConflict(); };
   }
@@ -80,10 +85,35 @@ export class EconomyClient {
       this.adoptGameplay(bootstrap.gameplay);
     } catch {
       this.queue.disable("bootstrap_failed");
+      this.scheduleRecovery();
     }
   }
 
   get available(): boolean { return this.queue.available; }
+
+  private scheduleRecovery(): void {
+    if (this.recoveryTimer || typeof window === "undefined") return;
+    const delays = [2_000, 5_000, 10_000, 30_000, 60_000];
+    const delay = delays[Math.min(this.recoveryAttempt, delays.length - 1)];
+    this.recoveryTimer = setTimeout(() => {
+      this.recoveryTimer = null;
+      void this.recover();
+    }, delay);
+  }
+
+  private async recover(): Promise<void> {
+    try {
+      const bootstrap = await api.bootstrap(true);
+      this.queue.adoptBootstrap(bootstrap);
+      this.adoptGameplay(bootstrap.gameplay);
+      if (!this.queue.available) return; // another device owns the writer intentionally
+      this.recoveryAttempt = 0;
+      await this.queue.retry();
+    } catch {
+      this.recoveryAttempt++;
+      this.scheduleRecovery();
+    }
+  }
 
   private async reloadAfterConflict(): Promise<void> {
     try {

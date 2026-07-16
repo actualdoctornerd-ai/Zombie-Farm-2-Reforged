@@ -1323,7 +1323,10 @@ async function main() {
         audio.play("buy");
         return true;
       } catch (error) {
-        hud.showToast(errCode(error) === "insufficient_brains" ? "You need 10 brains." : "The Epic Boss event could not be started.");
+        const code = errCode(error);
+        hud.showToast(code === "insufficient_brains" ? "You need 10 brains."
+          : code === "gameplay_unavailable" || code === "offline" ? "Reconnecting to the farm serverâ€¦"
+          : "The Epic Boss event could not be started.");
         return false;
       }
     }
@@ -1432,7 +1435,8 @@ async function main() {
   // ---- friends: ONLINE path (server ground truth via net/api + net/auth).
   // The whole block is inert when no server is configured; every hook falls back
   // to the offline path above. state.friends doubles as the display cache. ----
-  const errCode = (e: unknown) => (e instanceof api.ApiError ? e.code : "error");
+  const errCode = (e: unknown) => e instanceof api.ApiError ? e.code
+    : e instanceof Error && e.message ? e.message : "error";
   let inboxCache: { id: string; fromName: string }[] = [];
   let requestsCache: { fromAccountId: string; name: string }[] = [];
 
@@ -1627,6 +1631,9 @@ async function main() {
       imageBase: epicAsset(""),
       bossTexture: epicAsset("boss.png"),
       bossAnimations: DR_GROUNDHOG.animations,
+      confirmRetreat: () => hud.confirmInGame(
+        "Retreat from battle?", "This attempt will end and Dr. Groundhog will escape.", "Retreat"
+      ),
       onFinish: (outcome, finalTick, inputs) => {
         const presentResult = (result: ReturnType<EpicBossManager["finish"]>, drops: { name: string; icon: string }[]) => {
         state.setEpicBossRun(result.run);
@@ -1768,6 +1775,9 @@ async function main() {
       summonTemplate: setup.summonTemplate,
       wallTemplate: setup.wallTemplate,
       concentration: setup.concentration,
+      confirmRetreat: () => hud.confirmInGame(
+        "Retreat from invasion?", "This invasion will count as a loss.", "Retreat"
+      ),
       onCheckpoint: undefined,
       onFinish: (outcome, finalTick, inputs) => {
         // ONLINE: the server prices the base win gold + first-clear XP AND rolls the

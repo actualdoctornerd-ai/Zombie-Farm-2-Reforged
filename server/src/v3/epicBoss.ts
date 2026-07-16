@@ -90,7 +90,7 @@ export async function activate(
   } };
 }
 
-async function expireSession(db: D1Database, accountId: string, now: number): Promise<void> {
+export async function expireLiveEpicBoss(db: D1Database, accountId: string, now: number): Promise<void> {
   const live = await db.prepare(`SELECT id,run_id FROM epic_boss_sessions_v3
     WHERE account_id=? AND finished_at IS NULL AND expires_at <= ?`).bind(accountId, now).first<{ id: string; run_id: string }>();
   if (!live) return;
@@ -105,7 +105,7 @@ async function expireSession(db: D1Database, accountId: string, now: number): Pr
 export async function start(
   db: D1Database, accountId: string, orderedUnitIds: unknown, now: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  await expireSession(db, accountId, now);
+  await expireLiveEpicBoss(db, accountId, now);
   const ids = Array.isArray(orderedUnitIds)
     ? [...new Set(orderedUnitIds.filter((id): id is string => typeof id === "string" && !!id))].slice(0, 64) : [];
   if (!ids.length) return { status: 400, body: { error: "bad_roster" } };

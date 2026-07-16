@@ -48,6 +48,7 @@ export interface RaidSceneParams {
   imageBase?: string;
   bossTexture?: string;
   bossAnimations?: Record<string, { file: string; cellWidth: number; cellHeight: number; frameCount: number; frameSeconds: number }>;
+  confirmRetreat?: () => Promise<boolean>;
   onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
 }
@@ -310,6 +311,7 @@ export class RaidScene {
   private phase: Phase = "intro";
   private phaseT = 0;
   private resultFired = false;
+  private confirmRetreat: () => Promise<boolean>;
 
   private constructor(private app: Application, params: RaidSceneParams) {
     this.raid = params.raid;
@@ -322,6 +324,7 @@ export class RaidScene {
     this.imageBase = params.imageBase ?? null;
     this.bossTexture = params.bossTexture ?? "";
     this.bossAnimationDefs = params.bossAnimations;
+    this.confirmRetreat = params.confirmRetreat ?? (() => Promise.resolve(true));
     this.sim = new BattleSim(
       params.playerUnits,
       params.enemyUnits,
@@ -779,9 +782,10 @@ export class RaidScene {
     this.retreatBtn.addChild(bg, label);
     this.retreatBtn.eventMode = "static";
     this.retreatBtn.cursor = "pointer";
-    this.retreatBtn.on("pointertap", () => {
+    this.retreatBtn.on("pointertap", async () => {
       if (this.retreatRequested || this.resultFired || this.sim.finished) return;
-      if (!globalThis.confirm("Retreat from this raid? This will count as a loss.")) return;
+      if (!await this.confirmRetreat()) return;
+      if (this.retreatRequested || this.resultFired || this.sim.finished) return;
       this.recordInput({ type: "retreat" });
       this.retreatRequested = true; // handled on the next update (safe phase change)
     });

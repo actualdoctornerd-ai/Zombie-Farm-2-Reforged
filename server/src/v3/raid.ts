@@ -38,7 +38,7 @@ const parse = <T>(value: string, fallback: T): T => {
 };
 const raidNames = new Map((raidRows as { id: number; name: string }[]).map((r) => [r.id, r.name]));
 
-async function expireLive(db: D1Database, accountId: string, now: number): Promise<void> {
+export async function expireLiveRaid(db: D1Database, accountId: string, now: number): Promise<void> {
   const expired = await db.prepare(`SELECT id FROM raid_sessions_v3
     WHERE account_id = ? AND finished_at IS NULL AND expires_at <= ?`)
     .bind(accountId, now).first<{ id: string }>();
@@ -56,7 +56,7 @@ export async function startRaid(
   now: number,
   cooldownMs = DEFAULT_COOLDOWN_MS
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  await expireLive(db, accountId, now);
+  await expireLiveRaid(db, accountId, now);
   const raidId = Number(body.raidId);
   const econ = raidEcon(raidId);
   const requested = Array.isArray(body.orderedUnitIds)

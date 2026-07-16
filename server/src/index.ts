@@ -546,10 +546,16 @@ const validCommandBatch = (body: unknown): body is CommandBatchRequest => {
 app.post("/bootstrap", async (c) => {
   const started = performance.now();
   const accountId = c.get("accountId");
+  const now = Date.now();
+  // Session expiry is a read-time invariant, not something that waits for the
+  // player to start the same activity again. This prevents abandoned fights from
+  // leaving a roster locked or blocking the other battle mode indefinitely.
+  await v3Raid.expireLiveRaid(c.env.DB, accountId, now);
+  await v3EpicBoss.expireLiveEpicBoss(c.env.DB, accountId, now);
   const response = await v3.bootstrap(
     c.env.DB,
     accountId,
-    Date.now(),
+    now,
     c.env.MUTATIONS_DISABLED !== "1",
     minProtocolVersion(c.env)
   );
@@ -612,6 +618,7 @@ app.put("/presentation", async (c) => {
 app.post("/raid/start", async (c) => {
   if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
   const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  await v3EpicBoss.expireLiveEpicBoss(c.env.DB, c.get("accountId"), Date.now());
   const configured = Number(c.env.RAID_COOLDOWN_MS);
   const result = await v3Raid.startRaid(
     c.env.DB,
@@ -653,6 +660,7 @@ app.post("/epic-boss/activate", async (c) => {
 app.post("/epic-boss/start", async (c) => {
   if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
   const body: { orderedUnitIds?: unknown } = await c.req.json<{ orderedUnitIds?: unknown }>().catch(() => ({}));
+  await v3Raid.expireLiveRaid(c.env.DB, c.get("accountId"), Date.now());
   const result = await v3EpicBoss.start(c.env.DB, c.get("accountId"), body.orderedUnitIds, Date.now());
   if (result.status === 200) return c.json(result.body);
   if (result.status === 400) return c.json(result.body, 400);

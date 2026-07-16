@@ -1603,6 +1603,48 @@ export class Hud {
     this.el.appendChild(col);
   }
 
+  /** Game-styled confirmation. Native browser confirm/prompt dialogs are never used. */
+  confirmInGame(title: string, message: string, confirmLabel = "Confirm"): Promise<boolean> {
+    document.querySelector("#hud .game-confirm-bg")?.remove();
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        bg.remove();
+        resolve(value);
+      };
+      const bg = document.createElement("div");
+      bg.className = "panelbg game-confirm-bg";
+      const panel = document.createElement("div");
+      panel.className = "panel confirm-panel";
+      const close = document.createElement("button");
+      close.className = "panelclose";
+      close.innerHTML = `<img src="${UI("button_close.png")}">`;
+      close.onclick = () => finish(false);
+      const heading = document.createElement("h2");
+      heading.textContent = title;
+      const copy = document.createElement("p");
+      copy.className = "confirm-msg";
+      copy.textContent = message;
+      const buttons = document.createElement("div");
+      buttons.className = "zbtns";
+      const cancel = document.createElement("button");
+      cancel.className = "zbtn locate";
+      cancel.textContent = "Cancel";
+      cancel.onclick = () => finish(false);
+      const accept = document.createElement("button");
+      accept.className = "zbtn sell";
+      accept.textContent = confirmLabel;
+      accept.onclick = () => finish(true);
+      buttons.append(cancel, accept);
+      panel.append(close, heading, copy, buttons);
+      bg.appendChild(panel);
+      bg.onclick = (event) => { if (event.target === bg) finish(false); };
+      this.el.appendChild(bg);
+    });
+  }
+
   setBossShortcut(active: boolean, label = "Boss") {
     if (!this.bossMenu) return;
     this.bossMenu.style.display = active ? "" : "none";
@@ -2344,7 +2386,11 @@ export class Hud {
       action.innerHTML = `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
       action.disabled = this.state.brains < view.costBrains;
       action.onclick = async () => {
-        if (!confirm(`Spend ${view.costBrains} brains to start Dr. Groundhog for 14 days?`)) return;
+        if (!await this.confirmInGame(
+          "Start Epic Boss?",
+          `Spend ${view.costBrains} brains to start Dr. Groundhog for 14 days?`,
+          "Start Event"
+        )) return;
         if (await this.onActivateEpicBoss?.()) { refreshCur(); rerender(); }
       };
     }
