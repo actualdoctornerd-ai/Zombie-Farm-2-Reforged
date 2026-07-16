@@ -1067,7 +1067,7 @@ export class Field {
   /** Rebuild the Pet Pen's character-specific rail masks. A rectangle is enough:
    * transparent pixels in each rail crop remain transparent, while every rail
    * pixel intersecting a character receives the requested foreground treatment. */
-  updatePetPenOcclusion(inside: Container[], outside: Container[]) {
+  updatePetPenOcclusion(inside: Container[], _outside: Container[]) {
     const draw = (mask: Graphics | undefined, actors: Container[]) => {
       if (!mask) return;
       mask.clear();
@@ -1084,7 +1084,10 @@ export class Field {
     for (const o of this.objects.values()) {
       if (!o.def.petPen) continue;
       draw(o.frontMask, inside);
-      draw(o.rearMask, outside);
+      // The upper ^ rails must always stay behind deployed pets. Do not give the
+      // rear crop any foreground silhouette, even when another nearby character's
+      // bounds overlap the pen on screen.
+      draw(o.rearMask, []);
     }
   }
 
