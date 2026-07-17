@@ -137,6 +137,22 @@ async function loadRows(db: D1Database, accountId: string, now: number) {
 function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection {
   const base = freshGameplayState();
   const core = parse<ReturnType<typeof coreFrom>>(rows.core.current_json, coreFrom(base));
+  const roster = rows.roster.map((u) => ({
+    id: u.unit_id,
+    key: u.zombie_key,
+    // Older v3 harvests persisted every new zombie with mutation 0. Market-mutant
+    // species have a guaranteed catalog bit, so repair those legacy rows in the
+    // authoritative projection. Explicit inherited masks remain untouched.
+    mutation: u.mutation || zombieDefaultMutation(u.zombie_key),
+    invasions: u.invasions,
+    stored: !!u.stored,
+    ...(u.locked_by_raid ? { lockedByRaid: u.locked_by_raid } : {}),
+  }));
+  const epicBoss = projectRun(rows.epicBoss);
+  if (epicBoss) {
+    const owned = new Set(roster.map((unit) => unit.id));
+    epicBoss.attackOrder = epicBoss.attackOrder.filter((id) => owned.has(id));
+  }
   return {
     balance: { ...rows.balance },
     farm: { version: rows.farm.version, plots: parse(rows.farm.current_json, {}) },
@@ -153,24 +169,14 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     penPets: core.penPets ?? [],
     zombieMax: core.zombieMax ?? 16,
     tutorialRewarded: core.tutorialRewarded ?? false,
-    roster: rows.roster.map((u) => ({
-      id: u.unit_id,
-      key: u.zombie_key,
-      // Older v3 harvests persisted every new zombie with mutation 0. Market-mutant
-      // species have a guaranteed catalog bit, so repair those legacy rows in the
-      // authoritative projection. Explicit inherited masks remain untouched.
-      mutation: u.mutation || zombieDefaultMutation(u.zombie_key),
-      invasions: u.invasions,
-      stored: !!u.stored,
-      ...(u.locked_by_raid ? { lockedByRaid: u.locked_by_raid } : {}),
-    })),
+    roster,
     raids: { progress: parse(rows.raidState.progress_json, {}), lastRaidAt: rows.raidState.last_started_at },
     raidRevival: rows.raidRevival ? {
       sessionId: rows.raidRevival.session_id,
       zombies: parse(rows.raidRevival.casualties_json, []),
       costPerZombie: 1,
     } : null,
-    epicBoss: projectRun(rows.epicBoss),
+    epicBoss,
   };
 }
 
@@ -342,7 +348,7 @@ export async function applyBatch(
       .bind(accountId, unit.id, unit.key, unit.mutation, unit.invasions, unit.stored ? 1 : 0,
         unit.lockedByRaid ?? null, now, accountId, body.batchId));
   }
-  const durableKinds = new Set(["power.buy", "object.buy", "object.refund", "object.upgrade", "roster.sell", "roster.combine", "farmer.buy", "pet.buy"]);
+  const durableKinds = new Set(["power.buy", "object.buy", "object.refund", "object.upgrade", "storage.claim", "roster.sell", "roster.combine", "farmer.buy", "pet.buy"]);
   body.commands.forEach((entry, index) => {
     const result = engine.results[index];
     if (result?.status !== "applied" || !durableKinds.has(entry.command.type)) return;
@@ -352,6 +358,18 @@ export async function applyBatch(
         JSON.stringify({ command: entry.command, createdIds: result.createdIds ?? [] }), now,
         accountId, body.batchId));
   });
+  const rejectedCommands = engine.results.flatMap((result, index) =>
+    result.status === "rejected" || result.status === "dependency_failed"
+      ? [{ sequence: result.sequence, type: body.commands[index]?.command.type ?? "unknown",
+          status: result.status, error: result.error ?? "unknown" }]
+      : []
+  );
+  if (rejectedCommands.length) {
+    statements.push(db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
+      SELECT ?, ?, 'command_rejected', ?, ? WHERE ${guard}`)
+      .bind(`${body.batchId}:rejected`, accountId, JSON.stringify({ commands: rejectedCommands }), now,
+        accountId, body.batchId));
+  }
   if (engine.createdZombieIds.length) {
     statements.push(db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, 'zombie_created', ?, ? WHERE ${guard}`)

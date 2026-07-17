@@ -33,6 +33,19 @@ const quest = (): QuestDef => ({
 });
 
 describe("QuestSystem client-paced progress", () => {
+  it("ignores optimistic gameplay notifications in authoritative mode", () => {
+    const bus = new QuestBus();
+    const system = new QuestSystem(new Map([["1", quest()]]), new GameState(), bus, {
+      authoritative: true,
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed: vi.fn(), render: vi.fn(),
+    });
+    system.restore();
+    bus.post(QuestEvent.SoilPlowed);
+    expect(system.views()[0].objectives[0].count).toBe(0);
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [1], completed: false }]);
+    expect(system.views()[0].objectives[0].count).toBe(1);
+  });
+
   it("updates immediately and submits completion once", () => {
     const bus = new QuestBus();
     const grantReward = vi.fn(() => true);

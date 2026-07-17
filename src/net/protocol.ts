@@ -18,6 +18,7 @@ export interface CommandResult {
 }
 
 export type GameplayCommand =
+  | { type: "writer.claim" }
   | { type: "farm.plow"; oc: number; or: number }
   | { type: "farm.plant"; oc: number; or: number; cropKey: string }
   | { type: "farm.harvest"; oc: number; or: number }
@@ -29,6 +30,7 @@ export type GameplayCommand =
   | { type: "object.upgrade"; instanceId: string; catalogKey: string }
   | { type: "object.status"; instanceId: string; status: "placed" | "stored" }
   | { type: "object.harvest_trees"; instanceIds: string[] }
+  | { type: "storage.claim"; itemName: string; clientInstanceId?: string }
   | { type: "storage.move"; itemKey: string; direction: "store" | "take"; quantity: number }
   | { type: "roster.sell"; unitId: string }
   | { type: "roster.status"; unitId: string; stored: boolean }

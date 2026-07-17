@@ -1192,6 +1192,17 @@ export class Field {
     const o = this.objects.get(id);
     return !!o && !!o.def.harvestValue && o.ready;
   }
+  // Reconcile a fruit tree's ripen timer with the authoritative server state.
+  // This also restores the ripe presentation when a local harvest is rejected.
+  syncObjectReadyAt(id: string, readyAt: number): boolean {
+    const o = this.objects.get(id);
+    if (!o || !o.def.harvestValue) return false;
+    o.readyAt = readyAt;
+    o.ready = Date.now() >= readyAt;
+    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, o.ready, o.flipped,
+      o.frontSprite, o.rearSprite, o.gateSprite, o.rearOverlay, o.frontOverlay);
+    return true;
+  }
   // Harvest a ripe fruit tree: award its value, reset it to growing. Returns the
   // gold value, or null if it wasn't a ripe fruit tree.
   harvestObject(id: string): number | null {

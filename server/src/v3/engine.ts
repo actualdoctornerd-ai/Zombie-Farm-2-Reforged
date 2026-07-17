@@ -16,6 +16,7 @@ import { boostEcon, MAX_STACK } from "../boostCatalog";
 import { cropEcon } from "../catalog";
 import { levelForXp, levelUpBrains } from "../levels";
 import { objectBuyXp, objectEcon, objectRefund } from "../objectCatalog";
+import { planClaim } from "../storage";
 import { QUEST_DEFINITIONS, QUEST_REWARD } from "../questCatalog";
 import { fertilizeProbability, zombieSell, ZOMBIE_COST } from "../rosterCatalog";
 import { climateCost, nextSize, sizeTier } from "../shopCatalog";
@@ -225,6 +226,8 @@ function applyOne(
   const { sequence, command } = item;
   const level = levelForXp(state.balance.xp);
   switch (command.type) {
+    case "writer.claim":
+      return { sequence, status: "applied" };
     case "farm.plow": {
       if (!validCoord(command.oc, state.farmSize) || !validCoord(command.or, state.farmSize)) return reject(sequence, "bad_coord");
       const key = plotKey(command.oc, command.or);
@@ -527,6 +530,29 @@ function applyOne(
       if (state.activePet && unique.includes(state.activePet)) state.activePet = null;
       return { sequence, status: "applied" };
     }
+    case "storage.claim": {
+      const have = state.storage.received[command.itemName] ?? 0;
+      const plan = planClaim(command.itemName, have);
+      if (!plan.ok) return reject(sequence, plan.error);
+      if (plan.kind === "boost") {
+        const count = state.inventory[plan.boostKey] ?? 0;
+        if (count >= MAX_STACK) return reject(sequence, "stack_full");
+        state.storage.received[command.itemName] = have - 1;
+        state.inventory[plan.boostKey] = count + 1;
+        return { sequence, status: "applied" };
+      }
+      if (state.objects.objects.length >= MAX_FUNCTIONAL_OBJECTS) return reject(sequence, "object_limit");
+      const requested = command.clientInstanceId;
+      const instanceId = requested && /^[A-Za-z0-9_-]{1,80}$/.test(requested) &&
+        !state.objects.objects.some((object) => object.instanceId === requested) ? requested : options.id();
+      state.storage.received[command.itemName] = have - 1;
+      const rule = objectRules.get(plan.objectKey);
+      state.objects.objects.push({
+        instanceId, catalogKey: plan.objectKey, status: "placed",
+        ...(rule?.growMs ? { readyAt: options.now + rule.growMs } : {}),
+      });
+      return { sequence, status: "applied", createdIds: [instanceId] };
+    }
     case "storage.move": {
       if (!Number.isInteger(command.quantity) || command.quantity <= 0 || command.quantity > 225) return reject(sequence, "bad_quantity");
       const from = command.direction === "store" ? state.storage.received : state.storage.stored;
@@ -570,6 +596,7 @@ export function applyCommandBatch(
     if (command.type === "object.harvest_trees") return command.instanceIds.map((id) => `object:${id}`);
     if (command.type === "roster.sell" || command.type === "roster.status") return [`unit:${command.unitId}`];
     if (command.type === "roster.combine") return [`unit:${command.parentAId}`, `unit:${command.parentBId}`];
+    if (command.type === "storage.claim") return [`storage:${command.itemName}`];
     if (command.type === "storage.move") return [`storage:${command.itemKey}`];
     if (command.type === "pet.buy" || command.type === "pet.equip") return [`pet:${command.petKey ?? "active"}`];
     if (command.type === "pet.pen") return ["pet:pen"];

@@ -568,9 +568,10 @@ async function main() {
   const quests = new QuestSystem(
     new Map(Object.entries(assets.quests)), state, questBus,
     {
-      // Keep low-stakes quest progress responsive while signed in. The server still
-      // prices rewards and guarantees at most one payout per account + quest.
-      authoritative: false,
+      // Signed-in quest progress follows accepted server commands. Advancing from
+      // local notifications would permanently complete quests for actions the
+      // server later rejected or rolled back.
+      authoritative: auth.isSignedIn(),
       // Online: the server grants the quest's currency reward (and any level-up brains)
       // authoritatively and idempotently; return true so QuestSystem skips the local add
       // (which the spend-only economy endpoint would reject anyway). Offline: `economy`
@@ -884,6 +885,7 @@ async function main() {
   if (!visiting && auth.isSignedIn()) {
     const acct = api.getSession()?.accountId ?? "anon";
     economy = new EconomyClient(state, acct);
+    state.canMutateOnline = () => economy!.available;
     state.onMoney = (currency, delta, reason) => economy!.record(currency, delta, reason);
     // Veggie plant/harvest go through the server's EXACT economics engine instead of
     // mutating gold/xp locally (JobSystem checks state.onFarm).
@@ -924,7 +926,9 @@ async function main() {
       );
       field.reconcilePlots([...presentation, ...authoritative], (key) => catalog.get(key));
     };
+    let objectReconcileGeneration = 0;
     economy.onObjectState = async (objects, aliases, baseZombieMax, rejectedLocalIds) => {
+      const generation = ++objectReconcileGeneration;
       const current = new Map(field.serializeObjects().map((object) => [object.id, object]));
       for (const id of rejectedLocalIds) field.removeObject(id);
 
@@ -936,14 +940,21 @@ async function main() {
           if (localId && current.has(localId)) field.removeObject(localId);
           continue;
         }
-        if (current.has(object.instanceId)) continue;
+        const direct = current.get(object.instanceId);
+        if (direct?.key === object.catalogKey) {
+          if (object.readyAt !== undefined) field.syncObjectReadyAt(object.instanceId, object.readyAt);
+          continue;
+        }
         const def = placeCatalog.get(object.catalogKey);
         if (!def || !source) continue;
-        if (localId) field.removeObject(localId);
         await ensureObjectTexture(assets, def.sprite);
         if (def.growingSprite) await ensureObjectTexture(assets, def.growingSprite);
+        if (generation !== objectReconcileGeneration) return;
+        field.removeObject(source.id);
         field.placeObject(def, source.oc, source.or, object.instanceId, object.readyAt, !!source.rotation);
       }
+
+      if (generation !== objectReconcileGeneration) return;
 
       storedObjectIds.clear();
       for (const object of objects) {
@@ -1022,7 +1033,7 @@ async function main() {
     // reverts a rejected purchase; a save-edited larger farm shrinks to the server's).
     economy.onShopState = (size, climates) => {
       if (size !== field.w) {
-        field.resize(size, size);
+        field.resizeAuthoritative(size, size);
         syncWorldToFarm();
         clampCamera();
       }
@@ -1038,10 +1049,12 @@ async function main() {
     economy.onCommandRejected = (command, error) => {
       const subject = command?.type.startsWith("roster.") ? "Zombie action"
         : command?.type.startsWith("object.") ? "Object action"
+        : command?.type.startsWith("storage.") ? "Reward action"
         : command?.type.startsWith("farm.") ? "Farm action"
         : command?.type.startsWith("power.") ? "Boost action" : "Action";
       const reason: Record<string, string> = {
         not_owned: "the item is no longer available", capacity_full: "capacity is full",
+        none_owned: "the reward is no longer available", stack_full: "the inventory stack is full",
         army_full: "the farm is full", storage_full: "storage is full",
         not_grown: "the crop is not ready", nothing_planted: "the crop changed",
         not_plowed: "the soil is no longer plowed", plot_occupied: "the plot already contains a crop",
@@ -1188,7 +1201,7 @@ async function main() {
   // buying either grows the farm, so the other currency's card then reads as owned.
   hud.setUpgrades(assets.upgrades.mapSize);
   hud.getMapSize = () => field.w;
-  hud.onBuyUpgrade = (size, currency) => {
+  hud.onBuyUpgrade = async (size, currency) => {
     if (onlineGameplayBlocked()) return false;
     const up = assets.upgrades.mapSize.find((u) => u.size === size);
     if (!up || size <= field.w || state.level < up.level) return false;
@@ -1199,18 +1212,21 @@ async function main() {
     if (size !== nextSize) return false;
     const cost = currency === "brains" ? up.brains : up.gold;
     // ONLINE: the server owns the farm size — it prices + debits the upgrade (and can
-    // reject it, which the reconcile reverts). Apply the resize optimistically.
+    // reject it). Wait for settlement before changing the playable boundary.
     if (economy) {
       const funds = currency === "brains" ? state.brains : state.gold;
       if (funds < cost) return false;
-      economy.submitShopSize(size, currency, cost);
+      if (!economy.submitShopSize(size, currency, cost)) return false;
+      try { await economy.settleBeforeDependency(); } catch { return false; }
+      if (field.w !== size) return false;
     } else if (!(currency === "brains" ? state.spendBrains(up.brains) : state.spendGold(up.gold))) {
       return false; // offline: insufficient funds in the chosen currency
+    } else {
+      field.resize(size, size);
+      syncWorldToFarm();
+      clampCamera();
     }
     audio.play("buy");
-    field.resize(size, size);
-    syncWorldToFarm();
-    clampCamera();
     saveManager.save(); // persist the new size (server owns it; blob is an offline cache)
     hud.showToast(`Farm expanded to ${size}×${size}!`);
     questBus.post(QuestEvent.ItemBought, up.name);
@@ -1223,19 +1239,22 @@ async function main() {
   hud.setClimates(assets.upgrades.climate);
   hud.getClimate = () => field.climate;
   hud.ownsClimate = (terrain) => state.ownsClimate(terrain);
-  hud.onBuyClimate = (c) => {
+  hud.onBuyClimate = async (c) => {
     if (onlineGameplayBlocked()) return false;
     if (state.ownsClimate(c.terrain) || c.terrain === "grass") return false;
     if (state.level < c.level) return false;
     // ONLINE: the server owns the climate set — it prices + debits the skin (and can
-    // reject it, which the reconcile corrects). Apply it optimistically.
+    // reject it). Wait for settlement before applying or saving the presentation.
     if (economy) {
       if (state.gold < c.gold) return false;
-      economy.submitShopClimate(c.terrain, c.gold);
+      if (!economy.submitShopClimate(c.terrain, c.gold)) return false;
+      try { await economy.settleBeforeDependency(); } catch { return false; }
+      if (!state.ownsClimate(c.terrain)) return false;
     } else if (!state.spendGold(c.gold)) {
       return false;
+    } else {
+      state.addOwnedClimate(c.terrain);
     }
-    state.addOwnedClimate(c.terrain);
     field.setClimate(c.terrain);
     saveManager.save();
     hud.showToast(`${c.name} applied!`);
@@ -1721,13 +1740,14 @@ async function main() {
   hud.getInbox = () => inboxCache;
   hud.onClaimGift = async (id) => {
     try {
+      await economy?.settleBeforeDependency();
       const r = await api.claimGift(id);
       // Adopt the server's current rev so our next autosave isn't rejected as stale.
       saveManager.syncRev(r.rev);
       // The brain was credited to the server-owned BALANCE (not the save blob), so
       // refresh the economy to reflect it. If the economy layer isn't active
       // (shouldn't happen when signed in), no brain is shown until the next sync.
-      void economy?.refreshAuthoritative();
+      await economy?.refreshAuthoritative();
       await hud.refreshInbox?.();
     } catch (e) {
       hud.showToast("Couldn't claim that gift.");
@@ -2176,16 +2196,21 @@ async function main() {
     if (entry == null) return;
     const boost = assets.boosts.find((b) => b.name === entry);
     if (boost) {
-      // ONLINE: grant into the server-owned inventory; OFFLINE: local list.
-      if (state.onInventory) state.onInventory({ type: "grant", key: boost.key }, { count: 1 });
-      else state.addBoost(boost.key);
+      // ONLINE: atomically consume Received into the server-owned boost inventory.
+      // OFFLINE: the local save owns both buckets.
+      if (economy) {
+        if (!economy.submitStorageClaim(entry, { inventoryKey: boost.key })) return;
+      } else state.addBoost(boost.key);
       state.takeReceivedAt(index);
       return;
     }
     const drop = assets.drops[entry];
     if (drop?.brains) {
       const amt = parseInt(entry, 10);
-      if (amt > 0) state.addBrains(amt);
+      if (economy) {
+        // The v3 server deliberately refuses legacy premium-currency entries.
+        if (!economy.submitStorageClaim(entry, {})) return;
+      } else if (amt > 0) state.addBrains(amt);
       state.takeReceivedAt(index);
     }
   };
@@ -2263,10 +2288,17 @@ async function main() {
     }
     // Placing a Received reward: also free, consumed from the Received bucket.
     if (receiving !== null) {
-      field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
+      const receivedIndex = receiving;
+      const itemName = state.received[receivedIndex];
+      const placedId = field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
+      if (!placedId || !itemName) return;
+      if (economy && !economy.submitStorageClaim(itemName, { localObjectId: placedId })) {
+        field.removeObject(placedId);
+        return;
+      }
       audio.play("place");
       if (def.armyMax) state.addZombieMax(def.armyMax);
-      state.takeReceivedAt(receiving);
+      state.takeReceivedAt(receivedIndex);
       receiving = null;
       hud.setPlacing(null); // one at a time
       return;
@@ -2328,6 +2360,7 @@ async function main() {
 
   // Sell a placed object for a refund (used by the Remove tool + object popup).
   const sellObject = (id: string) => {
+    if (onlineGameplayBlocked()) return;
     const def = field.objectDefOf(id);
     const o = field.objectOriginOf(id);
     field.removeObject(id);
@@ -2354,6 +2387,7 @@ async function main() {
   // Store a placed object in the shed (returns it to inventory for free re-placing
   // later). Reverses any functional effect; the shed must have a free slot.
   const storeObject = (id: string) => {
+    if (onlineGameplayBlocked()) return;
     const def = field.objectDefOf(id);
     if (!def) return;
     if (!state.storeItem(def.key)) return; // shed full

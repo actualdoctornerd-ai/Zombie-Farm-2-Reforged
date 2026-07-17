@@ -102,6 +102,7 @@ export class CommandQueue {
 
   get available(): boolean { return !this.paused; }
   get size(): number { return this.pending.length + (this.inFlight?.commands.length ?? 0); }
+  get needsWriterClaim(): boolean { return this.takeWriter; }
 
   enqueue(command: GameplayCommand): number {
     if (this.paused) throw new Error("gameplay_unavailable");

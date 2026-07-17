@@ -494,6 +494,7 @@ const validGameplayCommand = (value: unknown): value is GameplayCommand => {
   if (!value || typeof value !== "object") return false;
   const command = value as Record<string, unknown>;
   switch (command.type) {
+    case "writer.claim": return true;
     case "farm.plow": case "farm.harvest": case "farm.remove":
       return commandInt(command.oc) && commandInt(command.or);
     case "farm.plant":
@@ -513,6 +514,9 @@ const validGameplayCommand = (value: unknown): value is GameplayCommand => {
     case "object.harvest_trees":
       return Array.isArray(command.instanceIds) && command.instanceIds.length <= 225 &&
         command.instanceIds.every((id) => commandString(id));
+    case "storage.claim":
+      return commandString(command.itemName) &&
+        (command.clientInstanceId === undefined || commandString(command.clientInstanceId));
     case "storage.move":
       return commandString(command.itemKey) && (command.direction === "store" || command.direction === "take") &&
         commandInt(command.quantity);
@@ -588,6 +592,9 @@ app.post("/commands", async (c) => {
       count + (entry.command.type === "object.harvest_trees" ? new Set(entry.command.instanceIds).size : 0), 0),
     d1RowsRead: 9,
     d1RowsWritten: result.status === 200 ? 5 : 0,
+    commandRejections: result.status === 200
+      ? result.response.results.filter((entry) => entry.status === "rejected" || entry.status === "dependency_failed").length
+      : 0,
     payloadBytes: Number(c.req.header("content-length") ?? 0),
     status: result.status,
     rejection: result.status === 200 ? undefined : result.error,

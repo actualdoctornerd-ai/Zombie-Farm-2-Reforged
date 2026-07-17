@@ -170,6 +170,65 @@ describe("v3 raid dependency ids", () => {
     expect(rosterCalls).toEqual([{ "server-a": "local-a", "server-b": "local-b" }]);
   });
 
+  it("defers every structural projection while any newer command is pending", () => {
+    const state = new GameState();
+    const economy = new EconomyClient(state, "pending-structure-account");
+    (economy as any).commandsBySequence.set(2, { type: "farmer.equip", headId: 9 });
+    (economy as any).optimistic.set(2, { gold: 0, brains: 0, xp: 0 });
+    const calls: string[] = [];
+    economy.onShopState = () => calls.push("shop");
+    economy.onFarmerState = () => calls.push("farmer");
+    economy.onPetState = () => calls.push("pet");
+    economy.onQuestState = () => calls.push("quest");
+    economy.onFarmState = () => calls.push("farm");
+    economy.onObjectState = () => calls.push("objects");
+    economy.onRosterState = () => calls.push("roster");
+    economy.onEpicBossState = () => calls.push("epic");
+    const gameplay = {
+      balance: { gold: 200, brains: 15, xp: 0 }, farm: { version: 0, plots: {} },
+      objects: { version: 0, objects: [] }, quests: { version: 0, completed: [], progress: [] },
+      inventory: {}, storage: { received: { Windmill: 1 }, stored: {} }, roster: [], farmSize: 30,
+      climates: ["grass"], farmerHeads: [1], farmerHeadId: 1, ownedPets: [], activePet: null,
+      penPets: [], zombieMax: 16, tutorialRewarded: false, raids: { progress: {}, lastRaidAt: 0 },
+    };
+    const response = (sequence: number): CommandBatchResponse => ({
+      protocolVersion: 3, batchId: `structure-${sequence}`, accountVersion: sequence,
+      writerGeneration: 1, serverTime: sequence, results: [{ sequence, status: "applied" }],
+      gameplay, farmVersionBefore: 0, farmVersionAfter: 0,
+      netDelta: { gold: 0, brains: 0, xp: 0 }, questChanges: [], createdZombieIds: [],
+    });
+
+    (economy as any).adoptCommandResponse(response(1));
+    expect(calls).toEqual([]);
+    expect(state.received).toEqual([]);
+    (economy as any).adoptCommandResponse(response(2));
+    expect(calls).toEqual(["shop", "farmer", "pet", "quest", "farm", "objects", "roster", "epic"]);
+    expect(state.received).toEqual(["Windmill"]);
+  });
+
+  it("submits Received claims through the authoritative command queue", () => {
+    const economy = new EconomyClient(new GameState(), "storage-claim-account");
+    const enqueue = vi.spyOn((economy as any).queue, "enqueue").mockReturnValueOnce(1).mockReturnValueOnce(2);
+    expect(economy.submitStorageClaim("Insta-Plow", { inventoryKey: "insta_plow" })).toBe(true);
+    expect(economy.submitStorageClaim("Windmill", { localObjectId: "local-windmill" })).toBe(true);
+    expect(enqueue).toHaveBeenNthCalledWith(1, {
+      type: "storage.claim", itemName: "Insta-Plow", clientInstanceId: undefined,
+    });
+    expect(enqueue).toHaveBeenNthCalledWith(2, {
+      type: "storage.claim", itemName: "Windmill", clientInstanceId: "local-windmill",
+    });
+  });
+
+  it("claims writer ownership before an out-of-band dependency with an empty queue", async () => {
+    const economy = new EconomyClient(new GameState(), "writer-claim-account");
+    (economy as any).queue.takeWriter = true;
+    const enqueue = vi.spyOn((economy as any).queue, "enqueue").mockReturnValue(1);
+    const settle = vi.spyOn((economy as any).queue, "settle").mockResolvedValue(undefined);
+    await economy.settleBeforeDependency();
+    expect(enqueue).toHaveBeenCalledWith({ type: "writer.claim" });
+    expect(settle).toHaveBeenCalledOnce();
+  });
+
   it("reports rejected commands and identifies rejected optimistic objects", () => {
     const economy = new EconomyClient(new GameState(), "reject-account");
     const command = { type: "object.buy" as const, catalogKey: "mausoleum3", clientInstanceId: "o7" };

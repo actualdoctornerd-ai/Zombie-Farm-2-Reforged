@@ -1821,7 +1821,7 @@ export class Hud {
   /** Whether a ground skin (by terrain key) has already been purchased. */
   ownsClimate: ((terrain: string) => boolean) | null = null;
   /** Buy a ground skin (charges gold, applies it). Returns true if it went through. */
-  onBuyClimate: ((c: ClimateUpgrade) => boolean) | null = null;
+  onBuyClimate: ((c: ClimateUpgrade) => boolean | Promise<boolean>) | null = null;
   /** Re-apply an already-owned ground skin for free. */
   onApplyClimate: ((c: ClimateUpgrade) => void) | null = null;
 
@@ -1861,7 +1861,7 @@ export class Hud {
    *  true if the purchase went through (charged + field grown); false if gated
    *  (level/funds/out of order). Buying either currency's card grows the farm, which
    *  makes BOTH currency cards for that tier read as owned. */
-  onBuyUpgrade: ((size: number, currency: "gold" | "brains") => boolean) | null = null;
+  onBuyUpgrade: ((size: number, currency: "gold" | "brains") => boolean | Promise<boolean>) | null = null;
 
   // ---- zombie management + storage hooks (set by main) ----
   /** The current owned-zombie roster (deployed + stored). */
@@ -2693,11 +2693,12 @@ export class Hud {
 
     card.append(hd, body);
     if (buyable)
-      card.onclick = () => {
-        if (this.onBuyUpgrade && this.onBuyUpgrade(u.size, currency)) {
+      card.onclick = async () => {
+        card.style.pointerEvents = "none";
+        if (this.onBuyUpgrade && await this.onBuyUpgrade(u.size, currency)) {
           refreshCur();
           rerender();
-        }
+        } else card.style.pointerEvents = "";
       };
     return card;
   }
@@ -2762,8 +2763,10 @@ export class Hud {
     } else if (owned) {
       card.onclick = () => { this.onApplyClimate?.(c); refreshCur(); rerender(); };
     } else if (buyable) {
-      card.onclick = () => {
-        if (this.onBuyClimate && this.onBuyClimate(c)) { refreshCur(); rerender(); }
+      card.onclick = async () => {
+        card.style.pointerEvents = "none";
+        if (this.onBuyClimate && await this.onBuyClimate(c)) { refreshCur(); rerender(); }
+        else card.style.pointerEvents = "";
       };
     }
     return card;

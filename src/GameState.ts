@@ -100,6 +100,9 @@ export class GameState {
         optimistic: { gold?: number; brains?: number; xp?: number }
       ) => void)
     | null = null;
+  /** Re-check online writer availability when a delayed farm job actually executes.
+   * A job may have spent several seconds queued after the original pointer tap. */
+  canMutateOnline: (() => boolean) | null = null;
 
   /** Adopt the server's authoritative balance (economy reconcile). Sets the values
    *  and re-renders WITHOUT emitting an onMoney event — this is server truth being

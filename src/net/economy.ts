@@ -248,8 +248,24 @@ export class EconomyClient {
     if (instanceIds.length) this.enqueue({ type: "object.harvest_trees", instanceIds }, { gold: optimisticGold });
   }
 
-  submitShopSize(size: number, currency: "gold" | "brains", cost: number): void {
-    this.enqueue({ type: "shop.size", size, currency }, currency === "gold" ? { gold: -cost } : { brains: -cost });
+  submitStorageClaim(
+    itemName: string,
+    optimistic: { inventoryKey?: string; localObjectId?: string }
+  ): boolean {
+    return this.enqueue(
+      { type: "storage.claim", itemName, clientInstanceId: optimistic.localObjectId },
+      {
+        inventoryKey: optimistic.inventoryKey,
+        inventoryCount: optimistic.inventoryKey ? 1 : undefined,
+        localObjectId: optimistic.localObjectId,
+      }
+    ) !== null;
+  }
+
+  submitShopSize(size: number, currency: "gold" | "brains", cost: number): boolean {
+    return this.enqueue(
+      { type: "shop.size", size, currency }, currency === "gold" ? { gold: -cost } : { brains: -cost }
+    ) !== null;
   }
 
   submitFarmerBuy(headId: number, currency: "gold" | "brains", cost: number): boolean {
@@ -275,8 +291,8 @@ export class EconomyClient {
     return this.enqueue({ type: "pet.pen", petKeys }) !== null;
   }
 
-  submitShopClimate(terrain: string, cost: number): void {
-    this.enqueue({ type: "shop.climate", terrain }, { gold: -cost });
+  submitShopClimate(terrain: string, cost: number): boolean {
+    return this.enqueue({ type: "shop.climate", terrain }, { gold: -cost }) !== null;
   }
 
   submitTutorialCompletion(): void {
@@ -322,7 +338,12 @@ export class EconomyClient {
   }
 
   async flush(): Promise<void> { await this.queue.flush(); }
-  async settleBeforeDependency(): Promise<void> { await this.queue.settle(); }
+  async settleBeforeDependency(): Promise<void> {
+    // Raid, Epic, and social-value endpoints live outside /commands. An empty queue
+    // must still establish this device as the account's writer before using them.
+    if (this.queue.needsWriterClaim) this.enqueue({ type: "writer.claim" });
+    await this.queue.settle();
+  }
 
   adoptRaidStartInventory(inventory: Record<string, number>): void {
     this.serverInv = { ...inventory };
@@ -406,26 +427,6 @@ export class EconomyClient {
     this.adoptGameplay(response.gameplay, aliases, objectAliases, rejectedObjectIds);
   }
 
-  /** A response describes the server immediately after its own batch. Commands the
-   * player issued while that batch was in flight are newer than the response and
-   * must stay visible until their own batch settles. */
-  private hasPendingProjection(domain: "farm" | "objects" | "roster"): boolean {
-    for (const [sequence, command] of this.commandsBySequence) {
-      const optimistic = this.optimistic.get(sequence);
-      if (domain === "farm") {
-        if (command.type.startsWith("farm.")) return true;
-        if (command.type === "power.use" &&
-            ["insta_grow", "insta_harvest", "insta_plow"].includes(command.key)) return true;
-      } else if (domain === "objects") {
-        if (command.type.startsWith("object.")) return true;
-      } else if (command.type.startsWith("roster.") || optimistic?.localUnitId ||
-                 optimistic?.localZombieHarvests?.length) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   private adoptGameplay(
     gameplay: BootstrapResponse["gameplay"],
     aliases: Record<string, string> = {},
@@ -434,14 +435,7 @@ export class EconomyClient {
   ): void {
     this.base = gameplay.balance;
     this.serverInv = gameplay.inventory;
-    this.onShopState?.(gameplay.farmSize, gameplay.climates);
-    this.onFarmerState?.(gameplay.farmerHeads, gameplay.farmerHeadId);
-    this.onPetState?.(gameplay.ownedPets, gameplay.activePet, gameplay.penPets);
-    this.onQuestState?.({
-      completed: gameplay.quests.completed,
-      progress: gameplay.quests.progress,
-      questChanges: [],
-    });
+    const deferStructural = this.commandsBySequence.size > 0;
     const plowed: api.FarmState["plowed"] = [];
     const crops: api.FarmState["crops"] = [];
     for (const [key, plot] of Object.entries(gameplay.farm.plots)) {
@@ -456,11 +450,20 @@ export class EconomyClient {
           grow_ms: plot.growMs,
           fertilized: plot.fertilized ? 1 : 0,
         });
-        if (plot.fertilized) this.onCropFertilized?.(oc, pr);
       }
     }
-    if (!this.hasPendingProjection("farm")) this.onFarmState?.({ plowed, crops });
-    if (!this.hasPendingProjection("objects")) {
+    if (!deferStructural) {
+      this.onShopState?.(gameplay.farmSize, gameplay.climates);
+      this.onFarmerState?.(gameplay.farmerHeads, gameplay.farmerHeadId);
+      this.onPetState?.(gameplay.ownedPets, gameplay.activePet, gameplay.penPets);
+      this.onQuestState?.({
+        completed: gameplay.quests.completed,
+        progress: gameplay.quests.progress,
+        questChanges: [],
+      });
+      this.state.syncStorage(gameplay.storage.received, gameplay.storage.stored);
+      for (const crop of crops) if (crop.fertilized) this.onCropFertilized?.(crop.oc, crop.pr);
+      this.onFarmState?.({ plowed, crops });
       this.onObjectState?.(
         gameplay.objects.objects,
         { ...this.deferredObjectAliases, ...objectAliases },
@@ -469,15 +472,13 @@ export class EconomyClient {
       );
       this.deferredObjectAliases = {};
       this.deferredRejectedObjectIds.clear();
-    }
-    // Capture/display a pending revival before roster reconciliation removes the
-    // casualties from the local presentation cache. The offer remains server-owned.
-    if (gameplay.raidRevival) this.onRaidRevival?.(gameplay.raidRevival, gameplay.balance.brains);
-    if (!this.hasPendingProjection("roster")) {
+      // Capture/display a pending revival before roster reconciliation removes the
+      // casualties from the local presentation cache. The offer remains server-owned.
+      if (gameplay.raidRevival) this.onRaidRevival?.(gameplay.raidRevival, gameplay.balance.brains);
       this.onRosterState?.(gameplay.roster, { ...this.deferredRosterAliases, ...aliases });
       this.deferredRosterAliases = {};
+      this.onEpicBossState?.(gameplay.epicBoss ?? null);
     }
-    this.onEpicBossState?.(gameplay.epicBoss ?? null);
     this.reconcile();
   }
 

@@ -230,6 +230,8 @@ export class JobSystem {
 
   private apply(job: Job) {
     if (job.kind === "walk") return;
+    const serverOwned = job.kind === "harvestTree" ? !!this.state.onTreeHarvest : !!this.state.onFarm;
+    if (serverOwned && this.state.canMutateOnline && !this.state.canMutateOnline()) return;
     if (job.kind === "harvestTree") {
       const treeName = job.objId ? this.field.objectDefOf(job.objId)?.name : undefined;
       const baseGold = job.objId ? this.field.harvestObject(job.objId) : null;

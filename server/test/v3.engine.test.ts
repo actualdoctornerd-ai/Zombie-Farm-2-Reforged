@@ -12,6 +12,13 @@ const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] 
   values.map((command, index) => ({ sequence: index + 1, command }));
 
 describe("protocol v3 command engine", () => {
+  it("can claim the ordered writer lane without changing gameplay state", () => {
+    const state = freshGameplayState();
+    const result = applyCommandBatch(state, commands({ type: "writer.claim" }), { now: 1 });
+    expect(result.results).toEqual([{ sequence: 1, status: "applied" }]);
+    expect(result.state).toEqual(state);
+  });
+
   it("authoritatively buys, equips, and hides cosmetic pets", () => {
     const state = freshGameplayState();
     expect(state.ownedPets).toEqual([]);
@@ -443,6 +450,36 @@ describe("protocol v3 command engine", () => {
     const repeated = applyCommandBatch(first.state, commands({ type: "tutorial.complete" }), { now: 2 });
     expect(repeated.results[0]).toMatchObject({ status: "rejected", error: "already_claimed" });
     expect(repeated.state.balance.gold).toBe(1_000_200);
+  });
+
+  it("atomically claims Received rewards into inventory or owned objects", () => {
+    const state = freshGameplayState();
+    state.storage.received = { "Insta-Plow": 1, Windmill: 1 };
+    const result = applyCommandBatch(state, commands(
+      { type: "storage.claim", itemName: "Insta-Plow" },
+      { type: "storage.claim", itemName: "Windmill", clientInstanceId: "reward-windmill" },
+    ), { now: 10, id: () => "unused" });
+    expect(result.results).toEqual([
+      { sequence: 1, status: "applied" },
+      { sequence: 2, status: "applied", createdIds: ["reward-windmill"] },
+    ]);
+    expect(result.state.storage.received).toEqual({ "Insta-Plow": 0, Windmill: 0 });
+    expect(result.state.inventory.insta_plow).toBe(1);
+    expect(result.state.objects.objects).toContainEqual(expect.objectContaining({
+      instanceId: "reward-windmill", catalogKey: "windmill", status: "placed",
+    }));
+  });
+
+  it("cannot claim a Received reward twice", () => {
+    const state = freshGameplayState();
+    state.storage.received = { "Insta-Plow": 1 };
+    const result = applyCommandBatch(state, commands(
+      { type: "storage.claim", itemName: "Insta-Plow" },
+      { type: "storage.claim", itemName: "Insta-Plow" },
+    ), { now: 10 });
+    expect(result.results[0].status).toBe("applied");
+    expect(result.results[1]).toMatchObject({ status: "rejected", error: "none_owned" });
+    expect(result.state.inventory.insta_plow).toBe(1);
   });
 
   it("advances the complete Dr. Groundhog milestone chain only when Epic processing is enabled", () => {
