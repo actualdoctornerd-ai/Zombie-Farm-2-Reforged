@@ -4,7 +4,10 @@ import { EconomyClient } from "./economy";
 import type { CommandBatchResponse } from "./protocol";
 import * as api from "./api";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe("v3 raid dependency ids", () => {
   it("translates a selected optimistic harvest id after the batch settles", () => {
@@ -64,6 +67,73 @@ describe("v3 raid dependency ids", () => {
     }, {});
 
     expect(state.lastRaidAt).toBe(123_456);
+  });
+
+  it("keeps retrying a fast tutorial invasion until the minimum duration passes", async () => {
+    vi.useFakeTimers();
+    const economy = new EconomyClient(new GameState(), "tutorial-raid-account");
+    const finish = vi.spyOn(api, "raidFinish")
+      .mockRejectedValueOnce(new api.ApiError(425, "too_early", { retryAfterMs: 10 }))
+      .mockRejectedValueOnce(new api.ApiError(425, "too_early", { retryAfterMs: 1 }))
+      .mockResolvedValue({
+        lastRaidAt: 123_456,
+        balance: { gold: 200, brains: 15, xp: 0 },
+        gold: 0,
+        xp: 0,
+        firstClear: false,
+        raidProgress: {},
+      });
+
+    const settled = economy.submitRaid("tutorial-session", 20, [], {
+      win: true,
+      rounds: 1,
+      survivors: ["tutorial-zombie"],
+      losses: [],
+      enemiesBeaten: 1,
+      playerDamage: 100,
+    }, {});
+    await vi.runAllTimersAsync();
+    await settled;
+
+    expect(finish).toHaveBeenCalledTimes(3);
+  });
+
+  it("abandons a raid session left open by a previous page load", async () => {
+    const gameplay = {
+      balance: { gold: 200, brains: 15, xp: 0 },
+      farm: { version: 0, plots: {} }, objects: { version: 0, objects: [] },
+      quests: { version: 0, completed: [], progress: [] }, inventory: {},
+      storage: { received: {}, stored: {} }, roster: [], farmSize: 30,
+      climates: ["grass"], farmerHeads: [1], farmerHeadId: 1, ownedPets: [],
+      activePet: null, penPets: [], zombieMax: 16, tutorialRewarded: false,
+      raids: { progress: {}, lastRaidAt: 0 }, raidRevival: null, epicBoss: null,
+    };
+    const stale = {
+      protocolVersion: 3, serverTime: 1, minimumProtocolVersion: 3,
+      mutationsEnabled: true, accountVersion: 1, writerGeneration: 1,
+      writerDeviceId: "this-device",
+      writer: { status: "mine", generation: 1, lastActivityAt: 1 },
+      gameplay, presentation: { version: 0 },
+      social: { friends: [], incomingRequestCount: 0, inboxCount: 0 },
+      resumableRaid: {
+        sessionId: "abandoned-tutorial", raidId: "1", startedAt: 1,
+        earliestFinishAt: 16_000, expiresAt: 900_000, rosterIds: ["zombie-1"],
+      },
+    } as any;
+    const bootstrap = vi.spyOn(api, "bootstrap")
+      .mockResolvedValueOnce(stale)
+      .mockResolvedValueOnce({ ...stale, resumableRaid: null });
+    const finish = vi.spyOn(api, "raidFinish").mockResolvedValue({
+      lastRaidAt: 1, balance: gameplay.balance, gold: 0, xp: 0,
+      firstClear: false, raidProgress: {},
+    });
+
+    await new EconomyClient(new GameState(), "recovery-account").start();
+
+    expect(finish).toHaveBeenCalledWith("abandoned-tutorial", 0, [
+      { seq: 1, tick: 0, type: "retreat" },
+    ]);
+    expect(bootstrap).toHaveBeenCalledTimes(2);
   });
 
   it("matches bulk-harvest aliases by plot rather than array order", () => {

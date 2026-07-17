@@ -210,6 +210,18 @@ export interface HazardConfig {
   grab: boolean; // grab hazard (Lawyers car / Circus trapeze) — seizes instead of damages
 }
 
+/** Carried-grab hazard config (Circus Trapeze Artist). Ground truth: the actor sweeps
+ *  in from the left, grabs the rear-most deployed zombie, then rises to carry it off; the
+ *  player taps it (`damageSelf_100`) to whittle its HP — killing it drops (frees) the
+ *  zombie back into the fight, but if it escapes with the zombie, that zombie dies.
+ *  See docs/mechanics/RAID_TIMING_AND_HAZARDS.md (Trapeze Artist lifecycle). */
+export interface GrabberConfig {
+  sprite: string; // hazard art (e.g. hazard_trapeze_girl.png)
+  hp: number; // trapeze HP (genericStageActor con 10 → 1000)
+  tapDamage: number; // damage per tap (damageSelf_100 → 100)
+  spawnDelayMs: number; // initial wait + respawn cadence (spawnState wait_4)
+}
+
 /** The outcome of a resolved raid (fed to the Result panel + reward pipeline). */
 export interface RaidOutcome {
   win: boolean;

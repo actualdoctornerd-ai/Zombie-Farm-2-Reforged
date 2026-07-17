@@ -434,16 +434,29 @@ function applyOne(
       return { sequence, status: "applied" };
     }
     case "object.upgrade": {
-      const obj = state.objects.objects.find((candidate) => candidate.instanceId === command.instanceId);
+      let obj = state.objects.objects.find((candidate) => candidate.instanceId === command.instanceId);
       const econ = objectEcon(command.catalogKey);
-      if (!obj) return reject(sequence, "not_owned");
+      // The free starter shed (storage01) is presentation-only and is deliberately
+      // never inserted into the server-owned object document. Its first paid upgrade
+      // therefore has no source instance to mutate. Adopt that existing client id as
+      // a placed storage02 while still charging the full catalog price; every later
+      // shed tier must continue to upgrade an owned server object.
+      const adoptsFreeStarterShed = !obj && command.catalogKey === "storage02";
+      if (!obj && !adoptsFreeStarterShed) return reject(sequence, "not_owned");
+      if (adoptsFreeStarterShed && state.objects.objects.length >= MAX_FUNCTIONAL_OBJECTS) {
+        return reject(sequence, "object_limit");
+      }
       if (!econ || econ.cost <= 0) return reject(sequence, "bad_item");
       if (level < econ.level) return reject(sequence, "locked");
       const currency = econ.brains ? "brains" : "gold";
       if (state.balance[currency] < econ.cost) return reject(sequence, "insufficient");
       state.balance[currency] -= econ.cost;
       state.balance.xp += objectBuyXp(econ.cost, econ.xp);
-      obj.catalogKey = command.catalogKey;
+      if (obj) obj.catalogKey = command.catalogKey;
+      else {
+        obj = { instanceId: command.instanceId, catalogKey: command.catalogKey, status: "placed" };
+        state.objects.objects.push(obj);
+      }
       const rule = objectRules.get(command.catalogKey);
       obj.readyAt = rule?.growMs ? options.now + rule.growMs : undefined;
       events.push({ type: "kItemBoughtNotification", subject: rule?.name ?? command.catalogKey });
@@ -676,8 +689,7 @@ export function applyCommandBatch(
 
 export function freshGameplayState(): MutableGameplayState {
   return {
-    // Temporary debugging economy; restore the release values before shipping.
-    balance: { gold: 1_000_000, brains: 10_000, xp: 0 },
+    balance: { gold: 400, brains: 20, xp: 0 },
     farm: { version: 0, plots: {} },
     objects: { version: 0, objects: [] },
     quests: { version: 0, completed: [], progress: [] } satisfies QuestProjection,

@@ -16,7 +16,7 @@ import { RaidActor } from "./RaidActor";
 import { EnemyActor } from "./EnemyActor";
 import { ParticleField, ParticleConfig } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
-import { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
+import { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
 import { RAID_TICK_MS, type RaidReplayInput } from "./replay";
 import { extrapolatePosition, interpolatePosition, visualCountdown } from "./renderInterpolation";
 
@@ -40,6 +40,8 @@ export interface RaidSceneParams {
   summonTemplate?: CombatUnit | null;
   /** Blocker the boss's wall action spawns (null/omitted = none). */
   wallTemplate?: CombatUnit | null;
+  /** Carried-grab hazard (Circus Trapeze Artist) for this raid (null/omitted = none). */
+  grabber?: GrabberConfig | null;
   /** Concentration boost spent — skip the focus-bubble minigame this fight. */
   concentration?: boolean;
   roundMs?: number;
@@ -255,6 +257,10 @@ export class RaidScene {
   private bossThrow: BossThrowConfig | null;
   private hazardSprite = ""; // this raid's obstacle/grab art, preloaded for syncProjectiles
   private wallTemplate: CombatUnit | null; // preloaded so a spawned wall renders as a sprite
+  private grabberSprite = ""; // Trapeze Artist art (preloaded), "" if this raid has none
+  private grabTex: Texture | null = null; // trapeze texture
+  private grabLayer = new Container(); // trapeze sprites (above the field, tappable)
+  private grabSprites = new Map<string, { root: Container; body: Sprite; bar: Graphics }>();
   private imageBase: string | null;
   private bossTexture: string;
   private bossAnimationDefs: RaidSceneParams["bossAnimations"];
@@ -333,6 +339,7 @@ export class RaidScene {
     this.bossThrow = params.bossThrow;
     this.hazardSprite = params.hazard?.sprite ?? "";
     this.wallTemplate = params.wallTemplate ?? null;
+    this.grabberSprite = params.grabber?.sprite ?? "";
     this.imageBase = params.imageBase ?? null;
     this.bossTexture = params.bossTexture ?? "";
     this.bossAnimationDefs = params.bossAnimations;
@@ -352,7 +359,8 @@ export class RaidScene {
       !!params.noDistractions,
       !!params.escapeOnRoundEnd,
       !!params.bossFallsFromSky,
-      params.bossEngageDistance
+      params.bossEngageDistance,
+      params.grabber ?? null
     );
     this.maxPlayerHp = Math.max(1, sumMax(params.playerUnits));
     this.maxEnemyHp = Math.max(1, sumMax(params.enemyUnits));
@@ -430,10 +438,14 @@ export class RaidScene {
       }));
     }
 
-    // A spawned wall (Ninja carrotWall) uses its own bossAction sprite. Preload it
-    // under its source key so the lazily-built token draws it, not a fallback circle.
+    // A spawned wall (Ninja carrotWall / Robot junkWall) uses its own bossAction sprite.
+    // Preload it under its source key so the lazily-built token draws it, not a fallback
+    // circle. sourceKey is the sprite name minus ".png" (see RaidManager wall template).
     if (this.wallTemplate) {
-      this.enemyTex.set(this.wallTemplate.sourceKey, await loadTex(raidImage("carrotWall.png")));
+      this.enemyTex.set(
+        this.wallTemplate.sourceKey,
+        await loadTex(raidImage(`${this.wallTemplate.sourceKey}.png`))
+      );
     }
 
     // Alien boss rides a UFO — preload its two ship sprites so makeToken can build it.
@@ -465,6 +477,11 @@ export class RaidScene {
     // Environmental hazard art (falling obstacle / grab), so it isn't a warning dot.
     if (this.hazardSprite && !this.projTex.has(this.hazardSprite)) {
       this.projTex.set(this.hazardSprite, await loadTex(raidImage(this.hazardSprite)));
+    }
+    // Trapeze Artist art + layer (above the field so it's tappable while carrying).
+    if (this.grabberSprite) {
+      this.grabTex = await loadTex(raidImage(this.grabberSprite));
+      this.container.addChild(this.grabLayer);
     }
 
     // Team-bar face badges: a representative party zombie on the left, the raid's
@@ -738,6 +755,13 @@ export class RaidScene {
     // everyone else, including a boss with no structure (sky-perch UFO), is in front.
     const layer = u.isBoss && this.perchLayer ? this.bossBackLayer : this.tokenLayer;
     layer.addChild(root);
+    // A summoned wall (carrotWall / junkWall) is tappable to chip it (ZFFightWall touch),
+    // in addition to the zombies attacking it.
+    if (u.isWall) {
+      root.eventMode = "static";
+      root.cursor = "pointer";
+      root.on("pointertap", () => this.sim.tapWall(u.id));
+    }
     return {
       root, actor, enemyActor, epicActor, epicAnim: epicActor ? epicAnim : undefined,
       hp, charge, base, hpCenterX, topY, pulse: 0, atkCount: 0,
@@ -1070,8 +1094,17 @@ export class RaidScene {
           sy += (ty - sy) * t - Math.sin(Math.PI * t) * 30 * szs;
         }
       }
+      // Seized by the Trapeze Artist: ride at the trapeze's screen position, rising with
+      // it (mapProjY spans the full lift, unlike mapY's shallow ground band).
+      if (u.state === "grabbed") {
+        const g = this.sim.grabbers.find((gr) => gr.grabbedId === u.id);
+        if (g) {
+          sx = this.mapX(g.x);
+          sy = this.mapProjY(g.y + 42);
+        }
+      }
       tok.root.position.set(sx, sy);
-      tok.root.zIndex = u.isBoss ? 100000 : u.alive ? Math.round(sy * 10) : 0;
+      tok.root.zIndex = u.isBoss ? 100000 : u.state === "grabbed" ? 90000 : u.alive ? Math.round(sy * 10) : 0;
 
       // Track the perched boss's throwing hand so projectiles leave from it (his upper
       // body), not the raw sim origin mapped independently (which read down-left of him).
@@ -1091,7 +1124,10 @@ export class RaidScene {
         // Normal zombies stay at a stable size; only enemies retain the compact hit
         // pulse. Smash still scales the actor rig itself below as part of the move.
         const pulseScale = u.team === "enemy" ? 1 + 0.16 * tok.pulse : 1;
-        tok.root.scale.set(pulseScale * szs);
+        // A wall shrinks as it's whittled down (ground truth ZFFightWall.damage: setScale),
+        // to a 0.5 floor at 0 HP — a clear "keep hitting it" cue.
+        const wallShrink = u.isWall ? 0.5 + 0.5 * Math.max(0, u.hp / u.maxHp) : 1;
+        tok.root.scale.set(pulseScale * szs * wallShrink);
         tok.root.alpha = 1;
       } else {
         // On death: puff a dust cloud once, then fade + settle out over DEATH_FADE
@@ -1331,6 +1367,56 @@ export class RaidScene {
     });
 
     this.syncProjectiles();
+    this.syncGrabbers();
+  }
+
+  /** Mirror the Trapeze Artist grab hazards into tappable sprites (with an HP bar while
+   *  they carry a zombie). Tapping one calls sim.tapGrabber to whittle it down. */
+  private syncGrabbers() {
+    if (!this.grabTex) return;
+    const live = new Set<string>();
+    const s = this.scaleX();
+    for (const g of this.sim.grabbers) {
+      if (g.state === "gone") continue;
+      live.add(g.id);
+      let entry = this.grabSprites.get(g.id);
+      if (!entry) {
+        const root = new Container();
+        const body = new Sprite(this.grabTex);
+        body.anchor.set(0.5, 0.12); // pivot near the bar it hangs from
+        const bar = new Graphics();
+        root.addChild(body);
+        root.addChild(bar);
+        root.eventMode = "static";
+        root.cursor = "pointer";
+        root.on("pointertap", () => this.sim.tapGrabber(g.id));
+        this.grabLayer.addChild(root);
+        entry = { root, body, bar };
+        this.grabSprites.set(g.id, entry);
+      }
+      const { root, body, bar } = entry;
+      root.position.set(this.mapX(g.x), this.mapProjY(g.y));
+      const size = Math.max(56, 128 * s * 1.4);
+      body.width = size;
+      body.height = size;
+      body.rotation = (g.rot * Math.PI) / 180;
+      body.tint = g.struckThisTick ? 0xff9a9a : 0xffffff; // flash on a landed tap
+      // Health bar (shown once it has taken a tap), so the player sees rescue progress.
+      bar.clear();
+      if (g.hp < g.maxHp) {
+        const w = size * 0.66;
+        const frac = Math.max(0, g.hp / g.maxHp);
+        const by = -size * 0.5;
+        bar.roundRect(-w / 2, by, w, 6, 3).fill({ color: 0x000000, alpha: 0.55 });
+        bar.roundRect(-w / 2, by, w * frac, 6, 3).fill({ color: 0xff5252 });
+      }
+    }
+    for (const [id, entry] of this.grabSprites) {
+      if (!live.has(id)) {
+        entry.root.destroy({ children: true });
+        this.grabSprites.delete(id);
+      }
+    }
   }
 
   /** Mirror the sim's live projectiles into pooled sprites. */

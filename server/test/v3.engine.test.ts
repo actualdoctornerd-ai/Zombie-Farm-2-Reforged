@@ -402,6 +402,31 @@ describe("protocol v3 command engine", () => {
     expect(result.state.objects.objects[0].readyAt).toBeGreaterThan(100);
   });
 
+  it("adopts the untracked free starter shed on its first paid upgrade", () => {
+    const state = freshGameplayState();
+    state.balance.gold = 20_000;
+    const upgraded = applyCommandBatch(state, commands({
+      type: "object.upgrade",
+      instanceId: "starter-shed",
+      catalogKey: "storage02",
+    }), { now: 100 });
+
+    expect(upgraded.results[0].status).toBe("applied");
+    expect(upgraded.state.balance.gold).toBe(5_000);
+    expect(upgraded.state.objects.objects).toContainEqual({
+      instanceId: "starter-shed",
+      catalogKey: "storage02",
+      status: "placed",
+    });
+
+    const invalidMissingSource = applyCommandBatch(upgraded.state, commands({
+      type: "object.upgrade",
+      instanceId: "not-owned",
+      catalogKey: "storage03",
+    }), { now: 101 });
+    expect(invalidMissingSource.results[0]).toMatchObject({ status: "rejected", error: "not_owned" });
+  });
+
   it("advances the Apple Harvest quest for a harvested Apple Tree", () => {
     const state = freshGameplayState();
     state.quests.completed = ["62"];

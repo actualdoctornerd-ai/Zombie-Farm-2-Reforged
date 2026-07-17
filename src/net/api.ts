@@ -689,6 +689,8 @@ export const raidStart = (
     inventory?: Record<string, number>;
     /** Authoritative time at which this accepted invasion started its cooldown. */
     lastRaidAt?: number;
+    /** Earliest server time at which a non-retreat result may be settled. */
+    earliestFinishAt?: number;
   }>("POST", "/raid/start", {
     useVoucher,
     raidId,

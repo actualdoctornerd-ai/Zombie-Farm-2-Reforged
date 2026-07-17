@@ -26,10 +26,10 @@
 // Combat numbers are the GROUND-TRUTH fight-data model (combatStats.ts, recovered from
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
 // arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult * 0.7.
-import type { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidOutcome } from "./types";
+import type { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidOutcome } from "./types";
 import { ACTIVATED_ABILITY, activatedKeyFor, teamAbilitiesIn } from "../zombie/abilities";
-import { deriveHitDamage, POWER_PER_STR } from "./combatStats";
-import { ENEMY_DAMAGE_MULT, PROJECTILE_DAMAGE_MULT } from "./balance";
+import { deriveHitDamage, lineupDamageBand, POWER_PER_STR } from "./combatStats";
+import { BOSS_SPECIAL_DAMAGE_MULT, PROJECTILE_DAMAGE_MULT } from "./balance";
 
 /** Logical field the sim runs in; RaidScene scales this to the viewport. */
 export const FIELD_W = 1000;
@@ -80,6 +80,14 @@ const MAX_SIM_MS = 4 * 60 * 1000; // hard safety cap (min-damage 1 avoids stalls
 const MAX_ROWS = 4;
 const ROW_GAP = 46; // vertical spacing between rows
 const COL_GAP = 52; // depth spacing between columns
+
+// Anti-one-shot safeguard (INFERRED from `-[Actor damage:]` 0x3a064). A single ENEMY melee
+// blow can't take a player zombie from above the floor straight to death or below 10% of max
+// HP — its HP snaps to exactly 1 instead, so it survives to act once more. Once already at the
+// 1-HP floor the next hit kills it (this models the in-binary state bit 0x10 that eventually
+// permits the killing blow, which we can't fully pin). Scoped to enemy MELEE only — boss
+// throws/specials (heuristic hazards) and the turnZombie instakill deliberately bypass it.
+const ONE_SHOT_FLOOR = 0.1; // hit is capped if it would leave HP fraction below this
 
 // Mini Buddy: a waiting Small zombie mounts a Large zombie, rides to the line at
 // double speed, then dismounts as both join combat and the arrival stuns the enemy.
@@ -139,13 +147,26 @@ const SPECIAL_DMG_SCALE = 1.75; // same chip-scaling as thrown projectiles (see 
 // down the lane and re-slotted last, so it must charge to the front again.
 const KNOCKBACK_PX = 150; // how far back the zombie is shoved (sim units)
 
-// ---- Grab hazards (Lawyers cars / Circus trapeze `grabZombie`) ----
-// A grab seizes the zombie and drops it at the back — modeled as a long stun plus a
-// knockback to the rear of the line.
-const GRAB_STUN_MS = 2500;
+// ---- Carried-grab hazard (Circus Trapeze Artist `grabZombie`) ----
+// GROUND TRUTH (Enemies.json Trapeze Artist + StageActor doActionsForString:): the actor
+// sweeps in from the LEFT across the combat band, grabs the rear-most deployed zombie
+// (collidedAction grabZombie → the zombie goes inactive), pauses ~1s, then RISES to carry
+// it off (changeSpeed_0.5 : setRotationTo_90). The player taps it (touchedAction
+// damageSelf_100, tapDelay 0.25) to whittle its HP; killed → dyingAction dropZombie frees
+// the zombie back into the fight; if it reaches its exit still carrying, that zombie DIES.
+const GRABBER_CROSS_SPEED = 190; // swoop-in speed (sim px/s), left → right
+const GRABBER_RISE_SPEED = 92; // carry-off rise speed (sim px/s), the slow 0.5 speed
+const GRABBER_CARRY_PAUSE_MS = 1000; // changeStateWithDelay_run_1: hold 1s before rising
+const GRABBER_TAP_CD_MS = 250; // tapDelay 0.25 — min gap between registered taps
+const GRABBER_ESCAPE_Y = BAND_TOP - 140; // risen past here (off the top) → the zombie is lost
+const GRABBER_SPAWN_MS = 7000; // respawn cadence after one leaves (initial from config)
+const GRABBER_HIT_R = 34; // overlap radius for the swoop to seize a zombie (sim units)
 
 // ---- Boss summon / wall specials ----
 const SUMMON_CAP = 3; // most extra minions a boss can summon in one fight
+// Per-tap chip on a boss wall (ground truth ZFFightWall ccTouchEnded → damage: = const/20,
+// const ≈ the wall's HP 1500 → 75). Zombies do the bulk; tapping is an assist.
+const WALL_TAP_DAMAGE = 75;
 
 // ---- Environmental obstacle hazards (spawnObstacle:) ----
 const OBSTACLE_SPEED = 190; // obstacle crossing speed (sim px/s), right→left
@@ -179,6 +200,7 @@ export type UnitState =
   | "advance" // released, moving to the front line
   | "fight" // trading blows
   | "carried" // Small zombie riding a Large zombie via Mini Buddy
+  | "grabbed" // seized by the Trapeze Artist — inactive, being carried off (rescue by tapping)
   | "queued" // enemy off-screen, not yet emerged
   | "descending" // boss coming down off the structure + exiting out the back
   | "emerging" // enemy walking to its holding spot (or boss re-entering)
@@ -225,6 +247,7 @@ export interface SimUnit {
   homeY: number;
   mill: number; // per-unit wander phase
   formOrder: number; // release order (formation priority tiebreak)
+  lineupIndex: number; // front-to-back rank among committed zombies (0 = front) → damage band
   slotX: number; // assigned formation position
   slotY: number;
   // ---- abilities ----
@@ -245,6 +268,25 @@ export interface SimUnit {
   knockBack: boolean; // this enemy's attack shoves the zombie back down the lane
   stunInflictMs: number; // stun this enemy applies to a zombie on hit (ms)
   attackDamageTiming: number; // 0..1 fraction of the swing when it connects (enemy anim)
+  isWall: boolean; // boss-summoned blocker (carrotWall / junkWall) — tappable, no attacks
+}
+
+/** A Trapeze Artist grab hazard, consumed by the renderer. Sweeps in, seizes a zombie,
+ *  then carries it off unless the player taps it to death. */
+export interface SimGrabber {
+  id: string;
+  x: number;
+  y: number;
+  state: "swoop" | "carry" | "gone";
+  hp: number;
+  maxHp: number;
+  tapDamage: number;
+  grabbedId: string | null; // the zombie being carried (null while still swooping)
+  pauseMs: number; // hold time left before it starts rising (post-grab)
+  tapCdMs: number; // min gap enforcement between registered taps
+  sprite: string;
+  rot: number; // visual rotation (renderer)
+  struckThisTick: boolean; // a tap landed this step (renderer feedback)
 }
 
 /** A boss projectile in flight, consumed by the renderer. Ballistic throws use the
@@ -292,6 +334,9 @@ export interface BattleSimSnapshot {
   summonsLeft: number;
   spawnSeq: number;
   activatedKeys: string[];
+  grabbers: SimGrabber[];
+  grabberTimer: number;
+  grabSeq: number;
 }
 
 function toSim(u: CombatUnit, i: number): SimUnit {
@@ -329,10 +374,10 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     vy: 0,
     prevX: home.x,
     prevY: home.y,
-    // Ground-truth per-swing damage: finalPower(str×10) × attackMult × K(0.7).
-    damage: Math.max(1, Math.round(
-      deriveHitDamage(u.str * POWER_PER_STR, mult) * (isPlayer ? 1 : ENEMY_DAMAGE_MULT)
-    )),
+    // Ground-truth per-swing damage BEFORE the lineup band: finalPower(str×10) × attackMult.
+    // Enemies use this as-is (band always 1.0); a player zombie's normal swing multiplies it by
+    // lineupDamageBand(lineupIndex) at hit time (activated specials use the unbanded value).
+    damage: Math.max(1, Math.round(deriveHitDamage(u.str * POWER_PER_STR, mult))),
     cooldownMs: u.attackCooldownMs,
     timerMs: u.attackCooldownMs,
     moveSpeed: isPlayer ? advanceSpeed(u.dex) : EMERGE_SPEED,
@@ -340,6 +385,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     homeY: home.y,
     mill: hash(i * 3 + 2) * Math.PI * 2,
     formOrder: 0,
+    lineupIndex: 0,
     slotX: home.x,
     slotY: home.y,
     abilities,
@@ -358,6 +404,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     knockBack: !isPlayer && !!u.knockBack,
     stunInflictMs: isPlayer ? 0 : u.stunMs ?? 0,
     attackDamageTiming: u.attackDamageTiming ?? 0.5,
+    isWall: false,
   };
 }
 
@@ -389,6 +436,11 @@ export class BattleSim {
   // ---- environmental obstacle hazards ----
   private hazard: HazardConfig | null;
   private obstacleTimer = 0;
+  // ---- carried-grab hazard (Trapeze Artist) ----
+  readonly grabbers: SimGrabber[] = [];
+  private grabberCfg: GrabberConfig | null;
+  private grabberTimer: number; // ms until the next trapeze sweeps in
+  private grabSeq = 0;
   // ---- summon / wall specials ----
   private summonTemplate: CombatUnit | null;
   private wallTemplate: CombatUnit | null;
@@ -427,9 +479,13 @@ export class BattleSim {
      *  of walking in from the right or occupying the normal raid perch. */
     private bossFallsFromSky = false,
     /** Larger bosses need a wider melee line so their art does not swallow zombies. */
-    engageDistance = ENGAGE
+    engageDistance = ENGAGE,
+    /** Carried-grab hazard (Circus Trapeze Artist) for this raid (null = none). */
+    grabber: GrabberConfig | null = null
   ) {
     this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
+    this.grabberCfg = grabber;
+    this.grabberTimer = grabber?.spawnDelayMs ?? Infinity;
     const enemyHoldX = this.bossFallsFromSky ? EPIC_BOSS_HOLD_X : ENEMY_HOLD_X;
     this.frontX = enemyHoldX - this.engageDistance;
     this.supportX = CHARGE_X + (this.frontX - CHARGE_X) * 0.5;
@@ -493,6 +549,9 @@ export class BattleSim {
       summonsLeft: this.summonsLeft,
       spawnSeq: this.spawnSeq,
       activatedKeys: [...this.activatedKeys],
+      grabbers: this.grabbers.map((g) => ({ ...g })),
+      grabberTimer: this.grabberTimer,
+      grabSeq: this.grabSeq,
     };
   }
 
@@ -523,6 +582,13 @@ export class BattleSim {
     this.summonsLeft = snapshot.summonsLeft;
     this.spawnSeq = snapshot.spawnSeq;
     this.activatedKeys.splice(0, this.activatedKeys.length, ...snapshot.activatedKeys);
+    this.grabbers.splice(
+      0,
+      this.grabbers.length,
+      ...(snapshot.grabbers ?? []).map((g) => ({ ...g }))
+    );
+    this.grabberTimer = snapshot.grabberTimer ?? this.grabberTimer;
+    this.grabSeq = snapshot.grabSeq ?? this.grabSeq;
   }
 
   // ---- activated abilities (player-triggered from the battle strip) ----
@@ -707,7 +773,7 @@ export class BattleSim {
   private playerInRange(e: SimUnit): SimUnit | null {
     let best: SimUnit | null = null;
     for (const p of this.players) {
-      if (!p.alive) continue;
+      if (!p.alive || p.state === "grabbed") continue; // seized zombies are off the lane
       if (Math.abs(p.x - e.x) > this.engageDistance) continue; // out of melee lane range
       if (
         !best ||
@@ -756,11 +822,28 @@ export class BattleSim {
     u.timerMs -= dtMs;
     if (u.timerMs > 0) return;
     u.timerMs += u.cooldownMs;
-    this.dealDamage(foe, u.damage, u.team === "player");
+    // Player normal swings take the lineup-depth band (front five full, then 0.85/0.7/0.55);
+    // enemies always hit at band 1.0. See combatStats.lineupDamageBand (ground truth).
+    const dmg =
+      u.team === "player"
+        ? Math.max(1, Math.round(u.damage * lineupDamageBand(u.lineupIndex)))
+        : u.damage;
+    if (
+      u.team === "enemy" &&
+      foe.team === "player" &&
+      foe.alive &&
+      foe.hp > 1 &&
+      (foe.hp - dmg) / foe.maxHp < ONE_SHOT_FLOOR
+    ) {
+      // Anti-one-shot: an enemy melee blow can't drop it below the floor in one hit — snap to 1.
+      foe.hp = 1;
+    } else {
+      this.dealDamage(foe, dmg, u.team === "player");
+    }
     u.struckThisTick = true;
     this.attacksLanded++;
     if (u.team === "player") {
-      this.playerDamage += u.damage;
+      this.playerDamage += dmg;
     } else if (foe.alive && foe.team === "player") {
       // Enemy attack effects on the struck zombie.
       if (u.stunInflictMs > 0) foe.stunMs = Math.max(foe.stunMs, u.stunInflictMs);
@@ -927,6 +1010,13 @@ export class BattleSim {
     );
     rear.sort((a, b) => a.formOrder - b.formOrder);
 
+    // Lineup index = front-to-back rank across the committed army (front-most = 0), driving
+    // the depth-damage band. Mirrors `[fightMan zombies] indexOfObject:` — knockback bumps a
+    // zombie's formOrder to the back (setZombieToLastIndex), so it re-sorts to a deeper band.
+    [...frontline, ...rear].forEach((p, i) => {
+      p.lineupIndex = i;
+    });
+
     const place = (units: SimUnit[], baseX: number) => {
       const rowsUsed = Math.min(MAX_ROWS, units.length);
       units.forEach((p, i) => {
@@ -950,6 +1040,7 @@ export class BattleSim {
       u.prevX = u.x; // snapshot for this step's velocity measurement (see below)
       u.prevY = u.y;
     }
+    for (const g of this.grabbers) g.struckThisTick = false;
 
     this.promote(dtMs);
     this.stepEnrage(dtMs);
@@ -969,6 +1060,7 @@ export class BattleSim {
     }
     this.stepBossSpecials(dtMs);
     this.stepObstacles(dtMs);
+    this.stepGrabbers(dtMs);
     this.stepProjectiles(dtMs);
 
     this.assignFormation();
@@ -978,6 +1070,7 @@ export class BattleSim {
     // Zombies.
     for (const p of this.players) {
       if (!p.alive) continue;
+      if (p.state === "grabbed") continue; // seized by the trapeze — position driven by stepGrabbers
       if (p.abilityCdMs > 0) p.abilityCdMs -= dtMs; // activated-move recharge
       switch (p.state) {
         case "waiting": {
@@ -1258,7 +1351,7 @@ export class BattleSim {
         // AoE burst: chip every zombie that has moved out to fight.
         for (const p of this.players) {
           if (p.alive && (p.state === "advance" || p.state === "fight")) {
-            this.dealDamage(p, dmg * ENEMY_DAMAGE_MULT, false);
+            this.dealDamage(p, dmg * BOSS_SPECIAL_DAMAGE_MULT, false);
             p.struckThisTick = true;
           }
         }
@@ -1277,7 +1370,7 @@ export class BattleSim {
         // A heavy single-target lift+slam.
         const victim = this.frontFighter() ?? this.throwTarget();
         if (victim) {
-          this.dealDamage(victim, dmg * 2 * ENEMY_DAMAGE_MULT, false);
+          this.dealDamage(victim, dmg * 2 * BOSS_SPECIAL_DAMAGE_MULT, false);
           victim.struckThisTick = true;
         }
         break;
@@ -1292,10 +1385,10 @@ export class BattleSim {
         break;
       }
       case "wall": {
-        // A high-HP blocker in the lane — spawn one only if none is standing.
+        // A high-HP blocker in the lane — spawn one only if none is standing. Tappable.
         const wt = this.wallTemplate;
         if (wt && !this.enemies.some((e) => e.alive && e.sourceKey === wt.sourceKey)) {
-          this.spawnEnemy(wt);
+          this.spawnEnemy(wt).isWall = true;
         }
         break;
       }
@@ -1364,6 +1457,140 @@ export class BattleSim {
     if (this.obstacleTimer > 0) return;
     this.obstacleTimer = this.hazard.spawnMs;
     this.spawnObstacle();
+  }
+
+  /** Deployed zombies (released from the focus bar and out on the lane). */
+  private deployed(): SimUnit[] {
+    return this.players.filter(
+      (p) => p.alive && (p.state === "advance" || p.state === "fight")
+    );
+  }
+
+  /** Advance the Trapeze Artist grab hazard. Spawns one at a time on a cadence; it sweeps
+   *  in from the left and seizes the first (rear-most) deployed zombie it overlaps, holds
+   *  ~1s, then rises to carry it off. Tapping (tapGrabber) whittles its HP — killed → the
+   *  zombie DROPS back into the fight; escaped off the top → the carried zombie DIES. */
+  private stepGrabbers(dtMs: number) {
+    if (!this.grabberCfg) return;
+    // Spawn one at a time on a cadence, only while there's a deployed zombie to threaten.
+    const active = this.grabbers.some((g) => g.state !== "gone");
+    if (!active && this.anyAlive(this.players)) {
+      this.grabberTimer -= dtMs;
+      if (this.grabberTimer <= 0 && this.deployed().length > 0) {
+        this.spawnGrabber();
+        this.grabberTimer = GRABBER_SPAWN_MS;
+      }
+    }
+    for (const g of this.grabbers) {
+      if (g.state === "gone") continue;
+      if (g.tapCdMs > 0) g.tapCdMs -= dtMs;
+      if (g.state === "swoop") {
+        g.x += (GRABBER_CROSS_SPEED * dtMs) / 1000;
+        // Coming from the left, the first deployed zombie it overlaps is the rear-most.
+        const victim = this.deployed().find(
+          (p) => p.state !== "grabbed" && Math.hypot(p.x - g.x, p.y - g.y) <= GRABBER_HIT_R
+        );
+        if (victim) {
+          g.grabbedId = victim.id;
+          g.state = "carry";
+          g.pauseMs = GRABBER_CARRY_PAUSE_MS;
+          victim.state = "grabbed";
+          victim.windupKey = null;
+          victim.windupMs = 0;
+          victim.stunMs = 0;
+        } else if (g.x > FIELD_W + 80) {
+          g.state = "gone"; // swept clear across without a catch
+        }
+      } else if (g.state === "carry") {
+        const z = g.grabbedId ? this.players.find((p) => p.id === g.grabbedId) : null;
+        if (!z || !z.alive) {
+          g.grabbedId = null;
+          g.state = "gone";
+          continue;
+        }
+        if (g.pauseMs > 0) {
+          g.pauseMs -= dtMs;
+        } else {
+          g.y -= (GRABBER_RISE_SPEED * dtMs) / 1000;
+          g.rot = 90;
+        }
+        z.x = g.x; // the seized zombie rides along, just below the trapeze
+        z.y = g.y + 42;
+        z.prevX = z.x;
+        z.prevY = z.y;
+        if (g.y <= GRABBER_ESCAPE_Y) {
+          z.hp = 0; // carried off — the zombie is lost
+          z.alive = false;
+          z.state = "dead";
+          g.grabbedId = null;
+          g.state = "gone";
+        }
+      }
+    }
+    // Drop inert grabbers so the array (and snapshots) stay small.
+    for (let i = this.grabbers.length - 1; i >= 0; i--) {
+      if (this.grabbers[i].state === "gone") this.grabbers.splice(i, 1);
+    }
+  }
+
+  private spawnGrabber() {
+    const cfg = this.grabberCfg!;
+    this.grabbers.push({
+      id: `grab${this.grabSeq++}`,
+      x: -80,
+      y: CENTER_Y,
+      state: "swoop",
+      hp: cfg.hp,
+      maxHp: cfg.hp,
+      tapDamage: cfg.tapDamage,
+      grabbedId: null,
+      pauseMs: 0,
+      tapCdMs: 0,
+      sprite: cfg.sprite,
+      rot: 0,
+      struckThisTick: false,
+    });
+  }
+
+  /** Player tapped a Trapeze Artist: deal one tap of damage (rate-limited by tapDelay).
+   *  Killing it frees (drops) the zombie it carried back onto the lane. Returns true if a
+   *  tap registered (drives tap feedback). */
+  tapGrabber(id: string): boolean {
+    const g = this.grabbers.find((x) => x.id === id && x.state !== "gone");
+    if (!g || g.tapCdMs > 0) return false;
+    g.tapCdMs = GRABBER_TAP_CD_MS;
+    g.hp -= g.tapDamage;
+    g.struckThisTick = true;
+    if (g.hp <= 0) {
+      g.hp = 0;
+      const z = g.grabbedId ? this.players.find((p) => p.id === g.grabbedId) : null;
+      if (z && z.alive) {
+        // Dropped: it just falls back to the lane and resumes advancing/fighting.
+        z.state = "advance";
+        z.y = CENTER_Y;
+        z.timerMs = z.cooldownMs;
+        z.stunMs = 0;
+        z.formOrder = this.releaseSeq++; // re-enters at the back of the formation
+      }
+      g.grabbedId = null;
+      g.state = "gone";
+    }
+    return true;
+  }
+
+  /** The live Trapeze Artist currently carrying a zombie (renderer taps it), or null. */
+  activeGrabber(): SimGrabber | null {
+    return this.grabbers.find((g) => g.state === "carry") ?? null;
+  }
+
+  /** Player tapped a boss-summoned wall: chip it (ground truth ZFFightWall ccTouchEnded →
+   *  damage: ≈ maxHp/20). Returns true if a wall took the tap. */
+  tapWall(id: string): boolean {
+    const w = this.enemies.find((e) => e.id === id && e.isWall && e.alive);
+    if (!w) return false;
+    this.dealDamage(w, WALL_TAP_DAMAGE, true);
+    w.struckThisTick = true;
+    return true;
   }
 
   /** Launch a ballistic throw at the target zombie, leading its (capped) motion. */
@@ -1449,13 +1676,9 @@ export class BattleSim {
         const dx = p.x - pr.x;
         const dy = p.y - pr.y;
         if (dx * dx + dy * dy <= hitR * hitR) {
-          if (pr.grab) {
-            // Seized (car/trapeze): held out of the fight and dropped at the back.
-            p.stunMs = Math.max(p.stunMs, GRAB_STUN_MS);
-            this.knockBackZombie(p);
-          } else {
-            this.dealDamage(p, pr.damage, false);
-          }
+          // Carried grabs are the Trapeze Artist (stepGrabbers), not projectiles; a
+          // crossing hazard here just deals its damage.
+          this.dealDamage(p, pr.damage, false);
           p.struckThisTick = true;
           pr.done = true;
           break;

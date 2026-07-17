@@ -82,12 +82,14 @@ describe("Garden healing and formation depth", () => {
     expect(h.healCastSeq).toBe(1);
   });
 
-  it("doubles enemy melee damage in the live simulation", () => {
+  it("carries the faithful unbanded base damage on both sides (enemies NOT doubled)", () => {
+    // Ground truth: base per-hit = finalPower(str×10) × mult, no flat scalar, no enemy ×2.
+    // str 5, mult 1 → 50 on both sides. The player's lineup-depth band is applied at hit time.
     const player = unit({ id: "player", sourceKey: "ZombieActorRegularTier1", team: "player" });
     const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy" });
     const sim = new BattleSim([player], [enemy], null, true);
-    expect(sim.units.find((u) => u.id === "player")!.damage).toBe(35);
-    expect(sim.units.find((u) => u.id === "enemy")!.damage).toBe(70);
+    expect(sim.units.find((u) => u.id === "player")!.damage).toBe(50);
+    expect(sim.units.find((u) => u.id === "enemy")!.damage).toBe(50);
   });
 
   it("doubles boss projectile damage", () => {

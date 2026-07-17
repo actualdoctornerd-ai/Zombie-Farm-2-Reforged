@@ -116,9 +116,12 @@ export function levelScaleStat(
 //   attackInterval  = C / dex seconds,  C = 2.0 for zombies, 1.0 for enemies
 // The dex asymmetry is real: at equal dex an enemy attacks TWICE as often as a zombie.
 // Per-swing melee damage (`Actor damageIn:`, deterministic — the only arc4random there is
-// knockback force): damage = finalPower × attackDamageMultiplier × K, K = 0.7 (a second
-// branch uses 0.55 under an un-pinned condition; we use 0.7). The target then applies it via
-// `applyDamage` (armor then damage-reduction). See docs/mechanics/COMBAT_STATS_RECOVERED.md.
+// knockback force): damage = finalPower × attackDamageMultiplier × band, where `band` is the
+// PLAYER-ZOMBIE LINEUP-DEPTH FALLOFF (see lineupDamageBand below). `damageMultiplier` defaults
+// to 1.0 when the attack omits it (confirmed in-binary: `vmov d8,#1.0 ; cbz`), so the many
+// enemy attacks that carry no multiplier still hit for finalPower×1×band. The target then
+// applies the result via `applyDamage` (armor then damage-reduction). See
+// docs/mechanics/COMBAT_STATS_RECOVERED.md.
 //
 // NOTE: these make the combat INPUTS faithful. The battle-sim loop (targeting, timing,
 // scheduling, hazards) is still the reimpl's approximation — tune from here once the real
@@ -127,8 +130,33 @@ export const POWER_PER_STR = 10; // power = str × 10
 export const HP_PER_CON = 100; // hitPointsTotal = con × 100
 /** Attack interval numerator (seconds): interval = ATTACK_INTERVAL_SEC[side] / dex. */
 export const ATTACK_INTERVAL_SEC = { player: 2.0, enemy: 1.0 } as const;
-/** Main-branch per-swing damage scalar (0.55 conditional branch not pinned). */
-export const DAMAGE_SCALAR_K = 0.7;
+
+// ---------------------------------------------------------------------------
+// Lineup-depth damage falloff — GROUND TRUTH (`-[Actor damageIn:]` 0x372bc–0x37348, pinned
+// 2026-07-17). A player zombie's per-swing damage is scaled by its INDEX in the army lineup
+// (`[fightMan zombies] indexOfObject: self`), in groups of 5: only the front five hit at full
+// strength; deeper zombies do progressively less. This is the damage-side twin of the
+// "front rows fight" formation cap — a big army isn't a wall of full-power attackers.
+//
+//   band = LINEUP_DAMAGE_BANDS[min(floor(index / 5), 3)]     // 1.0 / 0.85 / 0.7 / 0.55
+//
+// Gated in-binary by THREE conditions; if any fails the band is 1.0 (full damage):
+//   1. self isKindOfClass <player-zombie class> — ENEMIES fail this (they live in a separate
+//      array, never in fightMan.zombies), so enemies ALWAYS deal ×1.0, never depth-penalized.
+//   2. self.state ∉ {0x1f, 0x20} — two states bypass the penalty (the special-attack states,
+//      e.g. Bash/Explode); pass `bypass=true` for an activated/special hit to skip the falloff.
+//   3. floor(index/5) != 0 — the front band of five is full damage.
+export const LINEUP_DAMAGE_BANDS = [1.0, 0.85, 0.7, 0.55] as const;
+
+/** Player-zombie lineup-depth damage band for a zombie at `index` in the army lineup
+ *  (front = 0). Returns 1.0 for the front five, then 0.85 / 0.7 / 0.55 per group of five.
+ *  `bypass` (special-attack states) or a negative/absent index → 1.0 (no penalty). ENEMIES
+ *  never pass through here — they always fight at 1.0. GROUND TRUTH, see above. */
+export function lineupDamageBand(index: number, bypass = false): number {
+  if (bypass || !(index >= 0)) return 1;
+  const band = Math.floor(index / 5);
+  return LINEUP_DAMAGE_BANDS[Math.min(band, LINEUP_DAMAGE_BANDS.length - 1)];
+}
 
 /** Max HP from constitution (binary: hitPointsTotal = con × 100). Floored at 1. */
 export function deriveMaxHp(con: number): number {
@@ -141,11 +169,13 @@ export function deriveAttackIntervalMs(dex: number, side: "player" | "enemy"): n
   return (ATTACK_INTERVAL_SEC[side] / Math.max(0.1, dex)) * 1000;
 }
 
-/** Per-swing melee damage (binary: finalPower × attackDamageMultiplier × K). `power` is
- *  the unit's finalPower (= effective str × 10); `multiplier` is the chosen attack's
- *  damageMultiplier. Pre-armor/DR — the target applies those via `applyDamage`. */
-export function deriveHitDamage(power: number, multiplier = 1, k = DAMAGE_SCALAR_K): number {
-  return power * multiplier * k;
+/** Per-swing melee damage BEFORE the lineup-depth band (binary: finalPower ×
+ *  attackDamageMultiplier). `power` is the unit's finalPower (= effective str × 10);
+ *  `multiplier` is the chosen attack's damageMultiplier (default 1). Multiply the result by
+ *  `lineupDamageBand(index)` for a player zombie's normal swing (enemies/specials use band 1).
+ *  Pre-armor/DR — the target applies those via `applyDamage`. */
+export function deriveHitDamage(power: number, multiplier = 1): number {
+  return power * multiplier;
 }
 
 /** Weighted random selection — the binary's universal picker

@@ -1,6 +1,6 @@
 // Client-side live game state. Persistence may be local-only (localStorage) or
 // synchronized through the online save service (see save/SaveManager). Levels/XP
-// curve is build-verified from PlayerLevels.plist. Filler starting values for now.
+// curve is build-verified from PlayerLevels.plist.
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
 import { ABILITY_TIER, abilityTierOf } from "./zombie/traits";
 import { TutorialSave } from "./save/schema";
@@ -19,9 +19,8 @@ type Listener = () => void;
 
 export class GameState {
   name = "Zombie Farmer";
-  // Temporary debugging economy; restore the release values before shipping.
-  gold = 1_000_000;
-  brains = 10_000;
+  gold = 400;
+  brains = 20;
   xp = 0;
   zombieCount = 1;
   zombieMax = 16;

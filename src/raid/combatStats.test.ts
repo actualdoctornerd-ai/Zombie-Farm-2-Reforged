@@ -14,9 +14,10 @@ import {
   deriveMaxHp,
   deriveAttackIntervalMs,
   deriveHitDamage,
+  lineupDamageBand,
+  LINEUP_DAMAGE_BANDS,
   POWER_PER_STR,
   HP_PER_CON,
-  DAMAGE_SCALAR_K,
 } from "./combatStats";
 
 // Ground truth: Actor calculateFinal* / Actor damage: / rollAgainstFrequencyInArray:
@@ -146,12 +147,32 @@ describe("stat -> fight-data conversion (initFightDataAfterLoad)", () => {
     expect(Number.isFinite(deriveAttackIntervalMs(0, "player"))).toBe(true);
   });
 
-  it("per-swing damage = finalPower × attackMult × K (K=0.7)", () => {
-    expect(DAMAGE_SCALAR_K).toBe(0.7);
-    // basic zombie: power = str2×10 = 20; ZombieBite mult 1 -> 20 × 1 × 0.7 = 14
-    expect(deriveHitDamage(20, 1)).toBeCloseTo(14);
+  it("per-swing base damage = finalPower × attackMult (no flat scalar; band applied later)", () => {
+    // basic zombie: power = str2×10 = 20; ZombieBite mult 1 -> 20 × 1 = 20
+    expect(deriveHitDamage(20, 1)).toBeCloseTo(20);
     // a 2× attack multiplier doubles it
-    expect(deriveHitDamage(20, 2)).toBeCloseTo(28);
+    expect(deriveHitDamage(20, 2)).toBeCloseTo(40);
+    // default multiplier is 1 (matches the binary's damageMultiplier default for mult-less attacks)
+    expect(deriveHitDamage(20)).toBeCloseTo(20);
+  });
+});
+
+describe("lineupDamageBand — player-zombie depth falloff (Actor damageIn: ground truth)", () => {
+  it("front band of five is full damage (1.0)", () => {
+    expect(LINEUP_DAMAGE_BANDS[0]).toBe(1);
+    for (let i = 0; i < 5; i++) expect(lineupDamageBand(i)).toBe(1);
+  });
+  it("falls off in groups of five: 0.85 / 0.7 / 0.55", () => {
+    expect(lineupDamageBand(5)).toBe(0.85);
+    expect(lineupDamageBand(9)).toBe(0.85);
+    expect(lineupDamageBand(10)).toBe(0.7);
+    expect(lineupDamageBand(14)).toBe(0.7);
+    expect(lineupDamageBand(15)).toBe(0.55);
+    expect(lineupDamageBand(999)).toBe(0.55); // clamps to the rearmost band
+  });
+  it("bypass (special-attack states) and invalid index → full 1.0", () => {
+    expect(lineupDamageBand(12, true)).toBe(1); // Bash/Explode ignore depth
+    expect(lineupDamageBand(-1)).toBe(1);
   });
 });
 

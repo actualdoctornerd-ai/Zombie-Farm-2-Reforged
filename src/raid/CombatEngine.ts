@@ -21,6 +21,7 @@ import {
   deriveMaxHp,
   deriveAttackIntervalMs,
   deriveHitDamage,
+  lineupDamageBand,
   POWER_PER_STR,
 } from "./combatStats";
 import type {
@@ -30,19 +31,10 @@ import type {
   RaidOutcome,
   RaidStage,
 } from "./types";
-import { ENEMY_DAMAGE_MULT } from "./balance";
+import { ENEMY_ATTACK_PACE } from "./balance";
 
 const STEP_MS = 100; // simulation tick
 const MAX_SIM_MS = 20 * 60 * 1000; // safety cap (min-damage 1 prevents true stalls)
-
-// Enemy attack-pace correction. The disassembled fight-data interval is C/dex with
-// C=1.0 for enemies (combatStats.ts, ground truth). But in the live scene enemies then
-// re-attack the instant their clock expires — the reimpl sim doesn't model the per-swing
-// attack-ANIMATION time that gates the real game's next strike, so enemies come out ~2×
-// too fast. Eyeballed against the real game: a Pirate brute (dex 0.5) attacks ~every 4s
-// and the boss (dex 0.4) ~every 5-6s — i.e. 2/dex, not 1/dex. So we scale enemy cooldowns
-// by this. (Kept OUT of combatStats.ts so its disassembly ground truth + tests stay intact.)
-const ENEMY_ATTACK_PACE = 2;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -103,13 +95,16 @@ function unit(
 }
 
 /** Effective per-hit damage of a combat unit. Ground truth (`Actor damageIn:`):
- *  finalPower × attackDamageMultiplier × K, where finalPower = effective str × 10 and the
- *  per-hit `mult` carries the attack's damageMultiplier plus focus/ability modifiers.
- *  Min 1 so the sim can't stall. */
-function hitDamage(u: CombatUnit): number {
+ *  finalPower × attackDamageMultiplier × band, where finalPower = effective str × 10, the
+ *  per-hit `mult` carries the attack's damageMultiplier plus focus/ability modifiers, and
+ *  `band` is the player-zombie lineup-depth falloff (1.0 for the front five, then 0.85/0.7/
+ *  0.55) — enemies always fight at band 1.0. `lineupIndex` is the attacker's slot in the
+ *  player army (front = 0); ignored for enemies. Min 1 so the sim can't stall. */
+function hitDamage(u: CombatUnit, lineupIndex = 0): number {
   const power = u.str * POWER_PER_STR;
   const base = deriveHitDamage(power, u.attacks[0]?.mult ?? 1);
-  return Math.max(1, Math.round(base * (u.team === "enemy" ? ENEMY_DAMAGE_MULT : 1)));
+  const band = u.team === "player" ? lineupDamageBand(lineupIndex) : 1;
+  return Math.max(1, Math.round(base * band));
 }
 
 // Distraction model: during an invasion the enemy distracts your zombies, costing
@@ -296,6 +291,9 @@ export function resolveRaid(
   const e = enemy.map((u) => ({ ...u, hp: u.maxHp, alive: true }));
   const cd = new Map<string, number>(); // unit id -> ms until next attack
   for (const u of [...p, ...e]) cd.set(u.id, u.attackCooldownMs);
+  // Lineup index per player (front = 0) for the depth-damage band. This simple resolver
+  // doesn't re-slot on knockback, so the static party order is the lineup.
+  const lineup = new Map<string, number>(p.map((u, i) => [u.id, i]));
 
   const firstAlive = (arr: CombatUnit[]) => arr.find((u) => u.alive) ?? null;
   let rounds = 0;
@@ -319,7 +317,11 @@ export function resolveRaid(
       const target = firstAlive(foes);
       if (!target) continue;
       // Binary `Actor damage:`: flat armor subtracts first, then % reduction.
-      const dmg = applyDamage(hitDamage(u), target.armor ?? 0, target.damageReduction ?? 0);
+      const dmg = applyDamage(
+        hitDamage(u, lineup.get(u.id) ?? 0),
+        target.armor ?? 0,
+        target.damageReduction ?? 0
+      );
       target.hp -= dmg;
       rounds++;
       if (u.team === "player") playerDamage += dmg;

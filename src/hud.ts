@@ -21,7 +21,7 @@ import { isMobile } from "./platform";
 import { getSpriteSet, setSpriteSet, getEdition, setEdition,
   FarmBackground, FARM_BACKGROUNDS } from "./prefs";
 import { fmtCooldown, VOUCHER_KEY } from "./raid/RaidCatalog";
-import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
+import { STATS, displayStat, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
   ABILITY_POOL, ABILITY_TIER, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
 import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
@@ -4199,16 +4199,25 @@ export class Hud {
     statsHdr.textContent = "Stats";
     const statsRow = document.createElement("div");
     statsRow.className = "zrow zstats";
-    // Stats are always shown as whole numbers (species base stats can be fractional).
+    // Stats show as 0–100 bars normalized against the strongest base tier-5 zombie
+    // (traits.displayStat); info.str/con/dex already bake in the mutation bonus, so
+    // the shown value is the boosted total. Focus is already 0–100.
+    const rawVal: Record<string, number> = {
+      str: info.str, dex: info.dex, con: info.con, focus: info.focus,
+    };
     const statVal: Record<string, number> = {
-      str: Math.round(info.str), dex: Math.round(info.dex),
-      con: Math.round(info.con), focus: Math.round(info.focus),
+      str: displayStat("str", info.str), dex: displayStat("dex", info.dex),
+      con: displayStat("con", info.con), focus: displayStat("focus", info.focus),
     };
     // Which stats a mutation is boosting — those numbers render green.
     const mutBonus = mutationBonus(info.mutation);
     for (const s of STATS) {
       // authentic layout: white glyph on the purple tile + value in the black box
-      const boosted = (mutBonus as Record<string, number>)[s.key] > 0;
+      const rawBonus = (mutBonus as Record<string, number>)[s.key] ?? 0;
+      const boosted = rawBonus > 0;
+      // The mutation's contribution in DISPLAY units: total bar minus the bar the
+      // unit would show without the bonus (so "+13", not the raw stat delta).
+      const dispBonus = boosted ? statVal[s.key] - displayStat(s.key, rawVal[s.key] - rawBonus) : 0;
       const cell = document.createElement("button");
       cell.className = "zstat";
       cell.innerHTML =
@@ -4218,7 +4227,7 @@ export class Hud {
         `${statVal[s.key]}</span>`;
       cell.onclick = (e) => {
         e.stopPropagation();
-        const body = boosted ? `${s.desc}<br><span class="zeff">Boosted by mutation (+${mutBonus[s.key as "str" | "con" | "dex"]}).</span>` : s.desc;
+        const body = boosted ? `${s.desc}<br><span class="zeff">Boosted by mutation (+${dispBonus}).</span>` : s.desc;
         showTip(cell, s.label, body);
       };
       statsRow.appendChild(cell);
@@ -5206,7 +5215,8 @@ export class Hud {
       ty.textContent = z.typeName;
       const st = document.createElement("div");
       st.className = "army-st";
-      st.textContent = `S${Math.round(z.str)} D${Math.round(z.dex)} C${Math.round(z.con)}`;
+      // Normalized 0–100 bars: P(ower)/S(peed)/L(ife), matching the detail card.
+      st.textContent = `P${displayStat("str", z.str)} S${displayStat("dex", z.dex)} L${displayStat("con", z.con)}`;
       const tick = document.createElement("span");
       tick.className = "tick"; // order number, filled in by refresh()
       card.append(tick, por, nm, ty, st);

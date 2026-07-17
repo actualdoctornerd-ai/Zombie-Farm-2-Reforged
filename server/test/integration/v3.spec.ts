@@ -212,7 +212,7 @@ describe("protocol v3 API", () => {
     const boot = await call<any>("POST", "/bootstrap", session.token, { protocolVersion: 3, deviceId: deviceA });
     expect(boot.status).toBe(200);
     expect(boot.body.protocolVersion).toBe(3);
-    expect(boot.body.gameplay.balance).toEqual({ gold: 1_000_000, brains: 10_000, xp: 0 });
+    expect(boot.body.gameplay.balance).toEqual({ gold: 400, brains: 20, xp: 0 });
     expect(boot.body.social).toMatchObject({ friends: [], incomingRequestCount: 0, inboxCount: 0 });
 
     const body = commandBody(boot.body, "batch-aaaaaaaa", 1, [

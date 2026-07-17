@@ -103,6 +103,17 @@ export class EconomyClient {
         catch { /* another client may have acquired it between bootstrap and claim */ }
         bootstrap = await api.bootstrap(true);
       }
+      // A page reload cannot resume the rendered battle scene. If bootstrap finds a
+      // session left open by the previous page (for example, a short tutorial fight
+      // whose delayed finish request was interrupted), settle it as a retreat before
+      // exposing the farm. Otherwise both normal invasions and Epic Boss attempts stay
+      // blocked until the session's 15-minute TTL expires.
+      if (bootstrap.writer.status === "mine" && bootstrap.resumableRaid) {
+        await api.raidFinish(bootstrap.resumableRaid.sessionId, 0, [
+          { seq: 1, tick: 0, type: "retreat" },
+        ]);
+        bootstrap = await api.bootstrap(true);
+      }
       this.queue.adoptBootstrap(bootstrap);
       this.ready = true;
       this.adoptGameplay(bootstrap.gameplay);
@@ -377,15 +388,22 @@ export class EconomyClient {
     outcome: import("../raid/types").RaidOutcome,
     _optimistic: { gold?: number; xp?: number }
   ): Promise<api.RaidFinishResult> {
-    let result: api.RaidFinishResult;
-    try {
-      result = await api.raidFinish(sessionId, finalTick, inputs, outcome);
-    } catch (error) {
-      if (!(error instanceof api.ApiError) || error.status !== 425) throw error;
-      const retryAfterMs = Number((error.body as { retryAfterMs?: unknown } | undefined)?.retryAfterMs);
-      await new Promise<void>((resolve) => setTimeout(resolve, Number.isFinite(retryAfterMs) ? retryAfterMs : 1_000));
-      result = await api.raidFinish(sessionId, finalTick, inputs, outcome); // exactly one scheduled retry; no polling
+    let result: api.RaidFinishResult | null = null;
+    // Tutorial invasions can resolve before the server's minimum fight duration.
+    // Retry-After is calculated on another clock, so waiting exactly that duration
+    // can still arrive a few milliseconds early. Allow repeated 425s and include a
+    // small scheduling margin so the session is always closed after a fast fight.
+    for (let attempt = 0; attempt < 4 && !result; attempt++) {
+      try {
+        result = await api.raidFinish(sessionId, finalTick, inputs, outcome);
+      } catch (error) {
+        if (!(error instanceof api.ApiError) || error.status !== 425 || attempt === 3) throw error;
+        const retryAfterMs = Number((error.body as { retryAfterMs?: unknown } | undefined)?.retryAfterMs);
+        const delay = Number.isFinite(retryAfterMs) ? Math.max(0, retryAfterMs) + 250 : 1_250;
+        await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      }
     }
+    if (!result) throw new Error("raid_settlement_failed");
     this.base = result.balance;
     if (result.inventory) this.serverInv = { ...result.inventory };
     if (result.storage) this.state.syncStorage(result.storage.received, result.storage.stored);

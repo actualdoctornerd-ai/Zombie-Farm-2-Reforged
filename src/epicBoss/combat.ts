@@ -1,5 +1,6 @@
 import type { GameAssets } from "../assets";
 import { deriveAttackIntervalMs } from "../raid/combatStats";
+import { ENEMY_ATTACK_PACE } from "../raid/balance";
 import { buildPlayerUnits } from "../raid/CombatEngine";
 import type { CombatUnit, RaidDef } from "../raid/types";
 import type { GameState } from "../GameState";
@@ -38,7 +39,7 @@ export function buildEpicBossSetup(
     focus: 0,
     hp: run.currentHp,
     maxHp: run.maxHp,
-    attackCooldownMs: deriveAttackIntervalMs(def.unitStats.dex, "enemy") * 2,
+    attackCooldownMs: deriveAttackIntervalMs(def.unitStats.dex, "enemy") * ENEMY_ATTACK_PACE,
     attacks: def.unitStats.attacks.map((attack) => ({ ...attack, mult: attack.mult ?? 1 })),
     isBoss: true,
     alive: true,

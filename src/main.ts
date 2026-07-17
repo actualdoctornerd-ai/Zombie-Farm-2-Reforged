@@ -1,4 +1,4 @@
-import { Application, Container, FederatedPointerEvent, Graphics, Point, Sprite, Text } from "pixi.js";
+import { Application, Assets, Container, FederatedPointerEvent, Graphics, Point, Sprite, Text, Texture } from "pixi.js";
 // Patch Pixi's renderer to use no-eval polyfills for its shader/UBO/uniform/particle
 // codegen (it otherwise uses `new Function`, which the production CSP's script-src
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
@@ -515,17 +515,46 @@ async function main() {
     floats.push({ t, ttl: 1.1 });
   };
 
+  // Boss Tokens use the active boss's transparent face portrait. At 52px they are
+  // effectively the same size as the farmer's 53x55 head art. They emerge from the
+  // harvested plot with a small overshoot, then hover briefly over a soft gold glow.
+  const bossTokenFx: { view: Container; glow: Graphics; age: number; x: number; y: number }[] = [];
+  const popBossToken = (x: number, y: number, bossId: string, portrait: string) => {
+    const url = `${BASE}assets/epic-bosses/${bossId}/${portrait}`;
+    void Assets.load<Texture>(url).then((texture) => {
+      const view = new Container();
+      const glow = new Graphics()
+        .circle(0, 0, 29)
+        .fill({ color: 0xffdc55, alpha: 0.22 })
+        .stroke({ color: 0xffef91, width: 2, alpha: 0.48 });
+      const face = new Sprite(texture);
+      face.anchor.set(0.5);
+      face.width = 52;
+      face.height = 52;
+      view.addChild(glow, face);
+      view.position.set(x, y + 10);
+      view.scale.set(0.16);
+      field.labelLayer.addChild(view);
+      bossTokenFx.push({ view, glow, age: 0, x, y });
+    }).catch(() => { /* a missing portrait should never interrupt harvesting */ });
+  };
+
   // Quest event bus: plow/plant/harvest/buy post notifications that the QuestSystem
   // turns into quest progress. Created before the JobSystem so farm actions can post.
   const questBus = new QuestBus();
   let tutorial: TutorialController | null = null;
 
-  const awardOfflineEpicBossToken = (growMs: number, value: number): boolean => {
-    if (state.onFarm) return false;
+  let latestBossTokenHarvest: { x: number; y: number } | null = null;
+  const awardOfflineEpicBossToken = (growMs: number, value: number, x: number, y: number): boolean => {
+    if (state.onFarm) {
+      latestBossTokenHarvest = { x, y };
+      return false;
+    }
     const run = state.epicBossRun;
     const def = epicBossById(run?.bossId);
     if (!run || !def || !new EpicBossManager(def).isActive(run) || !dropsEpicBossToken(growMs, value)) return false;
     state.setEpicBossRun({ ...run, tokenCount: (run.tokenCount ?? 0) + 1 });
+    popBossToken(x, y, def.id, def.portrait);
     return true;
   };
 
@@ -757,7 +786,8 @@ async function main() {
           if (r.zombieKey) zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1);
         }
         questBus.post(r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested, r.name);
-        if (!r.isZombie && !state.onFarm && awardOfflineEpicBossToken(r.growMs, r.sell)) {
+        const cropCenter = field.plotCenterOf(pl.oc, pl.or);
+        if (!r.isZombie && awardOfflineEpicBossToken(r.growMs, r.sell, cropCenter.x, cropCenter.y)) {
           floatText(c.x, c.y - 28, "+1 Boss Token!");
         }
         harvested++;
@@ -1341,6 +1371,7 @@ async function main() {
     audio.play("buy");
     field.replaceObjectDef(id, def);
     if (def.storageSlots) state.upgradeStorage(def.storageSlots);
+    saveManager.save();
     const o = field.objectOriginOf(id);
     if (o) {
       const c = tileCenter(o.oc, o.or);
@@ -1522,6 +1553,10 @@ async function main() {
     const previous = state.epicBossRun;
     state.setEpicBossRun(run ?? null);
     if (run && previous?.runId === run.runId && run.tokenCount > (previous.tokenCount ?? 0)) {
+      const def = epicBossById(run.bossId);
+      const spot = latestBossTokenHarvest ?? { x: actor.container.x, y: actor.container.y };
+      if (def) popBossToken(spot.x, spot.y, def.id, def.portrait);
+      latestBossTokenHarvest = null;
       hud.showToast("You found a Boss Token!");
       audio.play("xp");
     }
@@ -1598,6 +1633,10 @@ async function main() {
   // isRaidActive() closure reads an already-initialised binding; the raid launch
   // handler assigns it.
   let raidActive = false;
+  // Quietly absorb rapid relaunch taps during the server's minimum invasion window.
+  // This mainly covers an immediate retreat to correct the selected army order while
+  // the result request is still releasing the shared raid/Epic-Boss session lock.
+  let raidLaunchLockedUntil = 0;
   tutorial = new TutorialController({
     hud, state, field, zombies, questBus,
     // Screen-pixel center of a plot origin (world → global for the arrow).
@@ -1845,7 +1884,7 @@ async function main() {
   // `raidScene` is the running scene once ready.
   let raidScene: RaidScene | null = null;
   hud.onLaunchEpicBoss = async (partyIds, payment) => {
-    if (raidActive) return false;
+    if (raidActive || Date.now() < raidLaunchLockedUntil) return false;
     const def = selectEpicBoss(state.epicBossRun?.bossId);
     const gate = epicBoss.start(state.epicBossRun, partyIds);
     if (!gate.ok) {
@@ -2013,7 +2052,7 @@ async function main() {
   // /raid/finish so the server starts the cooldown once the raid is done.
   let raidSessionId: string | null = null;
   hud.onLaunchRaid = async (raidId, partyIds, opts) => {
-    if (raidActive) return false;
+    if (raidActive || Date.now() < raidLaunchLockedUntil) return false;
     raidSessionId = null;
     // ONLINE: the server owns the between-raids cooldown. Ask it to authorize the
     // launch; if it's still on cooldown (and no voucher bypass), decline so the army
@@ -2061,6 +2100,10 @@ async function main() {
           return false;
         }
         raidSessionId = gate.sessionId ?? null;
+        raidLaunchLockedUntil = Math.max(
+          raidLaunchLockedUntil,
+          gate.earliestFinishAt ?? Date.now() + 15_000
+        );
         if (gate.inventory) economy?.adoptRaidStartInventory(gate.inventory);
         if (gate.lastRaidAt != null) state.syncRaidCooldown(gate.lastRaidAt);
         opts = { ...opts, serverAuthorized: true, bypassed: !!gate.bypassed, serverDice: gate.dice ?? 0 };
@@ -2078,6 +2121,8 @@ async function main() {
       }
     }
     const setup = raids.beginRaid(raidId, partyIds, opts);
+    // Offline play has no server timestamp, but uses the same gentle relaunch delay.
+    if (setup && !auth.isSignedIn()) raidLaunchLockedUntil = Date.now() + 15_000;
     if (!setup) return false; // gated (cooldown/army) — the army screen stays up
     raidActive = true;
     world.visible = false;
@@ -2841,6 +2886,26 @@ async function main() {
 
   app.ticker.add((ticker) => {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05);
+    for (let i = bossTokenFx.length - 1; i >= 0; i--) {
+      const fx = bossTokenFx[i];
+      fx.age += dt;
+      const rise = Math.min(1, fx.age / 0.42);
+      const easedRise = 1 - Math.pow(1 - rise, 3);
+      // Back-ease scale supplies the slight "harvested zombie" pop/settle.
+      const back = 1.70158;
+      const scale = rise < 1
+        ? 1 + (back + 1) * Math.pow(rise - 1, 3) + back * Math.pow(rise - 1, 2)
+        : 1;
+      fx.view.scale.set(Math.max(0.16, scale));
+      fx.view.position.set(fx.x, fx.y + 10 - 62 * easedRise - (rise === 1 ? Math.sin((fx.age - 0.42) * 7) * 2 : 0));
+      const pulse = 1 + Math.sin(fx.age * 10) * 0.06;
+      fx.glow.scale.set(pulse);
+      fx.glow.alpha = 0.82 + Math.sin(fx.age * 10) * 0.12;
+      if (fx.age > 1.25) fx.view.alpha = Math.max(0, 1 - (fx.age - 1.25) / 0.4);
+      if (fx.age < 1.65) continue;
+      fx.view.destroy({ children: true });
+      bossTokenFx.splice(i, 1);
+    }
     if (raidScene) raidScene.update(dt); // live battle drives itself; farm still ticks behind
     jobs.update(dt); // may start a walk-to-plot / hoe cycle for the farmer
     walk.update(dt);

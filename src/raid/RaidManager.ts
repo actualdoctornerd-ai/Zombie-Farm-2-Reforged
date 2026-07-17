@@ -29,7 +29,7 @@ import {
 } from "./RaidCatalog";
 import { BASE } from "../base";
 import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
-import { BossSpecial, BossThrowConfig, CombatUnit, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
+import { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
 import { rollLootTier } from "./LootTable";
 
 // Brain drop table (gameplayParameters `brainDropRateInvasion`, recovered from
@@ -168,6 +168,8 @@ export interface RaidSetup {
   summonTemplate: CombatUnit | null;
   /** Blocker the boss's wall action spawns (null if it has no wall). */
   wallTemplate: CombatUnit | null;
+  /** Carried-grab hazard (Circus Trapeze Artist) for the live scene (null if none). */
+  grabber: GrabberConfig | null;
   /** Golden Dice spent on this fight — carried into finishRaid() for loot luck. */
   dice: number;
   /** Concentration boost spent — the live scene skips the focus-bubble minigame. */
@@ -363,15 +365,47 @@ export class RaidManager {
       bossThrow: this.bossThrowOf(raid, stage),
       bossSpecials: this.bossSpecialsOf(stage),
       hazard: this.hazardOf(raid),
+      grabber: this.grabberOf(raid),
       ...this.summonWallTemplatesOf(stage, enemyUnits),
       dice,
       concentration,
     };
   }
 
+  /** Carried-grab hazard config for raids that field one (the Circus Trapeze Artist).
+   *  Ground truth (Enemies.json Trapeze Artist): HP from genericStageActor (con 10 → 1000),
+   *  100 damage per tap, first sweep after ~4s (spawnState wait_4). Returns null for raids
+   *  with no trapeze. (The Lawyers cars also `grabZombie` but ship no sprite / different
+   *  motion — not wired here.) */
+  private grabberOf(raid: RaidDef): GrabberConfig | null {
+    const sprite = GRAB_SPRITE[raid.id];
+    if (!raid.hasGrab || !sprite) return null;
+    return { sprite, hp: 1000, tapDamage: 100, spawnDelayMs: 4000 };
+  }
+
+  /** Every enemy key in a stage (boss + fixed + weighted minions), so a stage-wide scan
+   *  can find actions that live on a minion rather than the designated boss. */
+  private stageRosterKeys(stage: RaidStage): string[] {
+    return [
+      stage.bossKey ?? "",
+      ...(stage.enemyKeys ?? []),
+      ...(stage.weighted ?? []).map((w) => w.enemy),
+    ].filter(Boolean);
+  }
+
+  /** Find a named bossAction anywhere in the stage roster (the Robot `junkWall` lives on
+   *  the JunkBot minion, not the BrainBot boss), returning the first match. */
+  private findStageAction(stage: RaidStage, name: string) {
+    for (const k of this.stageRosterKeys(stage)) {
+      const a = this.assets.enemyStats[k]?.bossActions?.find((x) => x.name === name);
+      if (a) return a;
+    }
+    return undefined;
+  }
+
   /** Build the templates the boss can spawn: `summonBoss` reinforces with a copy of
    *  the wave's minion; `wall` drops a high-HP blocker sized from the action's `hp`.
-   *  Each is null unless the boss actually has that action. */
+   *  Each is null unless the stage actually fields that action. */
   private summonWallTemplatesOf(
     stage: RaidStage,
     enemyUnits: CombatUnit[]
@@ -384,12 +418,16 @@ export class RaidManager {
         const minion = enemyUnits.find((u) => !u.isBoss);
         if (minion) summonTemplate = { ...minion };
       }
-      const wall = actions.find((a) => a.name === "wall");
+      // Scan the whole roster — the junkWall action is on the JunkBot minion, not the boss.
+      const wall = this.findStageAction(stage, "wall");
       if (wall) {
         const hp = Math.max(1, Math.round(wall.hp ?? 1500));
+        // Use the action's own wall art (Ninja carrotWall.png / Robot junkWall.png); the
+        // sourceKey strips ".png" so the renderer keys its preloaded texture by it.
+        const sourceKey = (wall.sprite ?? "carrotWall.png").replace(/\.png$/i, "");
         wallTemplate = {
           id: "wall",
-          sourceKey: "carrotWall",
+          sourceKey,
           team: "enemy",
           name: "Wall",
           str: 0,
@@ -417,7 +455,13 @@ export class RaidManager {
    *  where a special has no cooldown the cast doubles as the recovery. */
   private bossSpecialsOf(stage: RaidStage): BossSpecial[] {
     if (!stage.bossKey || stage.throwingDisabled) return [];
-    const actions = this.assets.enemyStats[stage.bossKey]?.bossActions ?? [];
+    const actions = [...(this.assets.enemyStats[stage.bossKey]?.bossActions ?? [])];
+    // The Robot junkWall lives on the JunkBot minion, not the BrainBot boss — pull it into
+    // the boss's schedule so the wall still gets cast (the designated boss drops it).
+    if (!actions.some((a) => a.name === "wall")) {
+      const wall = this.findStageAction(stage, "wall");
+      if (wall) actions.push(wall);
+    }
     return actions
       .filter((a) => a.name !== "throw")
       .map((a) => {

@@ -70,7 +70,7 @@ export class JobSystem {
     private onPlotPlowed: (oc: number, or: number) => void = () => {},
     // Offline Epic Boss token roll. Online harvests are rolled authoritatively by
     // the server and arrive through the reconciled Epic Boss projection.
-    private onCropHarvested: (growMs: number, value: number) => boolean = () => false
+    private onCropHarvested: (growMs: number, value: number, x: number, y: number) => boolean = () => false
   ) {}
 
   private key(kind: JobKind, oc: number, or: number) {
@@ -332,7 +332,10 @@ export class JobSystem {
           if (r.sell) this.state.addGold(r.sell);
           this.state.addXp(r.xp);
         }
-        const bossToken = !r.isZombie && !online && this.onCropHarvested(r.growMs, r.sell);
+        // Always report veggie harvests. Offline this performs the token roll now;
+        // online it remembers the plot so the later server-confirmed token can pop
+        // out of the crop that produced it.
+        const bossToken = !r.isZombie && this.onCropHarvested(r.growMs, r.sell, job.cx, job.cy);
         // Zombie crops pay no gold — they yield an owned zombie unit instead.
         const msg = r.zombieKey
           ? `+${r.xp}xp`

@@ -38,6 +38,44 @@ export const STATS: StatMeta[] = [
   { key: "focus", label: "Focus", desc: "How distracted the zombie is.", icon: `${ZD}stat_focus.png` },
 ];
 
+// ---------------------------------------------------------------------------
+// Stat DISPLAY normalization — GROUND TRUTH (user-verified 2026-07-17).
+// ---------------------------------------------------------------------------
+// The detail card never shows a zombie's raw str/con/dex. Each is rendered as a
+// 0–100 bar = raw / (the strongest BASE tier-5 zombie's value for that stat) × 100,
+// rounded. The three denominators are exactly the per-stat maxima across the six
+// standard group tier-5s (Large wins Damage/Power, Headless wins Life, Small wins
+// Speed). Verified to reproduce the game's shown Power/Speed/Life for Zombarian,
+// Zombee, Zombielocks, Zombelly Dancer and the Flytrap zombie — all 20 values exact.
+// Focus is already a 0–100 stat, so it is shown as-is.
+//
+// IMPORTANT: these are FIXED CONSTANTS, deliberately NOT derived from the live
+// roster. A future over-powered zombie must never rescale everyone else's bars — it
+// simply reads 100 (displayStat clamps). So adding an OP unit later cannot change
+// what any existing zombie displays.
+export const STAT_DISPLAY_MAX: Record<"str" | "con" | "dex", number> = {
+  str: 23.32, // Large tier-5 (Zomviking) base str — the Damage/Power ceiling
+  con: 29.7, //  Headless tier-5 (Bombie) base con — the Life ceiling
+  dex: 4.4, //   Small tier-5 (Zombricaun) base dex — the Speed ceiling
+};
+
+/** The stat cap a full 100-bar represents, or null for focus (already 0–100). */
+export function statDisplayMax(key: StatMeta["key"]): number | null {
+  return key === "focus" ? null : STAT_DISPLAY_MAX[key];
+}
+
+/** Convert a raw combat stat to the whole-number 0–100 value shown on the card.
+ *  str/con/dex are normalized against STAT_DISPLAY_MAX and clamped to 100 so an
+ *  above-ceiling special (e.g. Brock Coley) can't overflow the value box; focus is
+ *  already 0–100 and only gets rounded. Species base stats can be fractional, hence
+ *  the round. Pass the FULLY-RESOLVED stat (mutation/veterancy already folded in) —
+ *  the normalization is linear so the bar reflects those bonuses automatically. */
+export function displayStat(key: StatMeta["key"], raw: number): number {
+  const max = statDisplayMax(key);
+  if (max === null) return Math.round(raw);
+  return Math.min(100, Math.round((raw / max) * 100));
+}
+
 export interface AbilityMeta {
   label: string;
   effect: string; // concise magnitude/effect tag (see EYEBALLED note below)
