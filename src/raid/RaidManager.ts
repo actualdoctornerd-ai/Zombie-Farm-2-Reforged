@@ -29,6 +29,7 @@ import {
 } from "./RaidCatalog";
 import { BASE } from "../base";
 import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
+import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
 import { rollLootTier } from "./LootTable";
 
@@ -92,6 +93,10 @@ export interface RaidPartyZombie {
   con: number;
   focus: number;
   power: number;
+  // Displayed 0–100 bars (all always-on bonuses folded in — see statDisplay.displayTotals).
+  dispPower: number;
+  dispSpeed: number;
+  dispLife: number;
 }
 
 export interface RaidPartyView {
@@ -255,18 +260,25 @@ export class RaidManager {
   /** Eligible army + default selection for a raid's Army screen. */
   partyView(): RaidPartyView {
     const cap = Math.min(ARMY_CAP, this.state.zombieMax);
+    const abilityUnlocked = (k: string) => this.state.abilityUnlocked(k);
     const eligible: RaidPartyZombie[] = this.deployed()
-      .map((z) => ({
-        id: z.id,
-        name: z.name,
-        typeName: z.typeName,
-        portrait: zombiePortrait(z.key),
-        str: z.str,
-        dex: z.dex,
-        con: z.con,
-        focus: z.focus,
-        power: power(z),
-      }))
+      .map((z) => {
+        const disp = displayTotals(z, abilityUnlocked);
+        return {
+          id: z.id,
+          name: z.name,
+          typeName: z.typeName,
+          portrait: zombiePortrait(z.key),
+          str: z.str,
+          dex: z.dex,
+          con: z.con,
+          focus: z.focus,
+          power: power(z),
+          dispPower: disp.str,
+          dispSpeed: disp.dex,
+          dispLife: disp.con,
+        };
+      })
       .sort((a, b) => b.power - a.power);
     // Restore the saved attack order, dropping any zombie that's no longer
     // deployed (sold, stored, died on a raid) and clamping to the current cap.

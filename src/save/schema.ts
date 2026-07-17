@@ -223,6 +223,8 @@ export interface OwnedZombieSave {
   id: string;
   /** Type/source key -> base stats from UnitStats/Zombies data. */
   key: string;
+  /** Player-chosen individual name. Absent uses the deterministic default name. */
+  name?: string;
   /** Rank/level if the unit ranks up; base stats derived from key otherwise. */
   level?: number;
   /** Lifetime invasions fought (drives veterancy). Absent = 0. */

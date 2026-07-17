@@ -8,7 +8,7 @@ import { Field } from "../Field";
 import { GameState } from "../GameState";
 import { OwnedZombieSave, ZombiePotSave } from "../save/schema";
 import { addMutation } from "./mutations";
-import { makeOwned, OwnedZombie, RosterEntry } from "./types";
+import { makeOwned, normalizeZombieName, OwnedZombie, RosterEntry } from "./types";
 import { ZombieUnit } from "./ZombieUnit";
 import { ZombiePot } from "./ZombiePot";
 
@@ -216,6 +216,21 @@ export class ZombieField {
   // army slot when a deployed unit is sold.
   sell(id: string): OwnedZombie | null {
     return this.takeOwned(id);
+  }
+
+  /** Rename an owned deployed or stored zombie. Returns the normalized saved name. */
+  rename(id: string, requested: string): string | null {
+    const name = normalizeZombieName(requested);
+    if (!name) return null;
+    const live = this.units.find((unit) => unit.id === id);
+    if (live) {
+      live.getData().name = name;
+      return name;
+    }
+    const kept = this.stored.find((unit) => unit.id === id);
+    if (!kept) return null;
+    kept.name = name;
+    return name;
   }
 
   /** Permanently remove raid casualties (dead units, by id) from the roster.
@@ -483,10 +498,10 @@ export class ZombieField {
   serialize(): OwnedZombieSave[] {
     const live = this.units.map((u) => {
       const d = u.getData();
-      return { id: d.id, key: d.key, invasions: d.invasions, mutation: d.mutation, color: d.color, pos: { col: d.col, row: d.row } };
+      return { id: d.id, key: d.key, name: d.name, invasions: d.invasions, mutation: d.mutation, color: d.color, pos: { col: d.col, row: d.row } };
     });
     const kept = this.stored.map((d) => ({
-      id: d.id, key: d.key, invasions: d.invasions, mutation: d.mutation, color: d.color, pos: { col: d.col, row: d.row }, stored: true,
+      id: d.id, key: d.key, name: d.name, invasions: d.invasions, mutation: d.mutation, color: d.color, pos: { col: d.col, row: d.row }, stored: true,
     }));
     return [...live, ...kept];
   }
@@ -560,7 +575,7 @@ export class ZombieField {
       const row = s.pos?.row ?? 0;
       // Pass s.mutation (may be undefined) so an old save without the field falls
       // back to the species' default bit; an explicit 0 stays unmutated.
-      const data = makeOwned(s.id, def, col, row, s.invasions ?? 0, s.mutation, s.color);
+      const data = makeOwned(s.id, def, col, row, s.invasions ?? 0, s.mutation, s.color, s.name);
       if (s.stored) this.stored.push(data);
       else this.addUnit(data);
       const m = /^z(\d+)$/.exec(s.id);
@@ -615,7 +630,7 @@ export class ZombieField {
         if (source) this.takeOwned(source.id);
         const def = this.resolve(save.key);
         if (!def) continue;
-        const data = makeOwned(save.id, def, source?.col ?? 0, source?.row ?? 0, save.invasions, save.mutation, source?.color);
+        const data = makeOwned(save.id, def, source?.col ?? 0, source?.row ?? 0, save.invasions, save.mutation, source?.color, source?.name);
         if (save.stored) this.stored.push(data);
         else this.addUnit(data);
       }

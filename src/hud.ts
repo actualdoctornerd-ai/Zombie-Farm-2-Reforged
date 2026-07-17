@@ -10,7 +10,7 @@ import type { FarmerBodyDef, FarmerCatalog, FarmerHeadDef, PetCatalog, PetDef } 
 import type { EpicBossRun } from "./epicBoss/types";
 import { EPIC_BOSS_FIGHT_BRAIN_COST, type EpicBossPayment } from "./epicBoss/tokens";
 import { AudioManager } from "./audio";
-import { RosterEntry } from "./zombie/types";
+import { MAX_ZOMBIE_NAME_LENGTH, RosterEntry } from "./zombie/types";
 import { mutationLabel, mutationBonus } from "./zombie/mutations";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
@@ -21,8 +21,9 @@ import { isMobile } from "./platform";
 import { getSpriteSet, setSpriteSet, getEdition, setEdition,
   FarmBackground, FARM_BACKGROUNDS } from "./prefs";
 import { fmtCooldown, VOUCHER_KEY } from "./raid/RaidCatalog";
-import { STATS, displayStat, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
+import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
   ABILITY_POOL, ABILITY_TIER, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
+import { statBreakdown } from "./zombie/statDisplay";
 import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
 import { compareCropMarketOrder } from "./marketOrder";
@@ -473,6 +474,11 @@ const STYLE = `
 #hud .set-row { display: flex; align-items: center; justify-content: space-between;
   gap: 24px; min-width: 240px; padding: 8px 2px; font-size: 15px; font-weight: 700; }
 #hud .set-row + .set-row { border-top: 1px solid rgba(255,255,255,.15); }
+#hud .set-action { min-width: 112px; padding: 6px 12px; border: 2px solid #14240a;
+  border-radius: 8px; cursor: pointer; color: #fff; font: 800 12px system-ui, sans-serif;
+  text-shadow: 0 1px 1px #000; background: linear-gradient(#7ea63a, #55972a); }
+#hud .set-action:hover { filter: brightness(1.1); }
+#hud .set-action:disabled { opacity: .5; cursor: default; filter: none; }
 #hud .set-note { margin: 2px 2px 4px; font-size: 12px; color: #cbe6a0; opacity: .85; }
 #hud .set-username { margin: 4px 0 8px; }
 #hud .set-username-controls { display: flex; gap: 7px; }
@@ -532,6 +538,12 @@ const STYLE = `
   background: url(${BASE}assets/ui/market/title_board.png) center/100% 100% no-repeat;
   color: #f4e6c2; font-weight: 800; font-size: 14px; text-shadow: 0 2px 2px #000;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; box-sizing: border-box; }
+#hud .zcard-board.renameable { cursor: text; }
+#hud .zcard-board.renameable:hover { filter: brightness(1.12); }
+#hud .zcard-name-input { display: block; margin: 0 auto 10px; width: 132px; height: 34px;
+  box-sizing: border-box; border: 2px solid #d8b45e; border-radius: 5px; padding: 0 6px;
+  background: #2a1c0c; color: #f4e6c2; font: 800 14px system-ui, sans-serif;
+  text-align: center; outline: none; }
 /* the lighter portrait rectangle (~10% wider than tall) */
 #hud .zcard-port { width: 132px; height: 120px; margin: 0 auto 10px; border-radius: 8px;
   border: 2px solid #5e381f; background: #efe4bf center/contain no-repeat;
@@ -582,6 +594,15 @@ const STYLE = `
 #hud .ztip b { display: block; font-size: 13px; color: #ffe08a; margin-bottom: 2px; }
 #hud .ztip span { display: block; font-size: 12px; line-height: 1.3; opacity: .95; }
 #hud .ztip .zeff { display: inline; color: #eaffd8; font-weight: 800; }
+/* stat breakdown (Base → modifiers → Total) inside a stat tooltip */
+#hud .ztip { max-width: 230px; }
+#hud .ztip .zbd { display: block; margin-top: 6px; border-top: 1px solid rgba(216,180,94,.35); padding-top: 4px; }
+#hud .ztip .zbd-row { display: flex; justify-content: space-between; gap: 14px; font-size: 11.5px; line-height: 1.5; }
+#hud .ztip .zbd-row > span { display: inline; opacity: 1; }
+#hud .ztip .zbd-row > span:last-child { font-weight: 700; color: #eaffd8; white-space: nowrap; }
+#hud .ztip .zbd-zero { opacity: .45; }
+#hud .ztip .zbd-total { margin-top: 3px; padding-top: 3px; border-top: 1px dashed rgba(216,180,94,.3); }
+#hud .ztip .zbd-total > span { color: #ffe08a; font-weight: 800; }
 /* action buttons (zombie panel + object popup) */
 #hud .zbtns { display: flex; gap: 8px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
 #hud .zbtn { border: 2px solid #1e1207; border-radius: 9px; padding: 7px 14px; cursor: pointer;
@@ -2078,6 +2099,8 @@ export class Hud {
   zombieMutationPortraitOf: ((key: string, mutation: number, color?: [number, number, number]) => Promise<string>) | null = null;
   /** Take a deployed zombie off the farm (into the Mausoleum). */
   onZombieStore: ((id: string) => void | Promise<void>) | null = null;
+  /** Change an owned zombie's individual display name. */
+  onZombieRename: ((id: string, name: string) => string | null) | null = null;
   /** Put a stored zombie back on the farm. */
   onZombieDeploy: ((id: string) => void | Promise<void>) | null = null;
   /** Whether a Mausoleum exists to store zombies in (gates the Store action). */
@@ -2710,7 +2733,12 @@ export class Hud {
     };
     for (const z of party.eligible) {
       const card = document.createElement("div"); card.className = "army-card"; card.dataset.id = z.id;
-      card.innerHTML = `<span class="tick"></span><div class="army-por" style="background-image:url(${z.portrait})"></div><div class="army-nm">${z.name}</div><div class="army-ty">${z.typeName}</div>`;
+      const tick = document.createElement("span"); tick.className = "tick";
+      const portrait = document.createElement("div"); portrait.className = "army-por";
+      portrait.style.backgroundImage = `url(${z.portrait})`;
+      const name = document.createElement("div"); name.className = "army-nm"; name.textContent = z.name;
+      const type = document.createElement("div"); type.className = "army-ty"; type.textContent = z.typeName;
+      card.append(tick, portrait, name, type);
       card.onclick = () => { const at = order.indexOf(z.id); if (at >= 0) order.splice(at, 1); else if (order.length < party.cap) order.push(z.id); refresh(); };
       cards.appendChild(card);
     }
@@ -3442,7 +3470,11 @@ export class Hud {
     const xi = document.createElement("img");
     xi.src = UI("button_close.png");
     x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    const close = () => {
+      document.removeEventListener("fullscreenchange", refreshFullscreen);
+      bg.remove();
+    };
+    x.onclick = close;
     const h = document.createElement("h2");
     h.textContent = "Settings";
 
@@ -3459,6 +3491,39 @@ export class Hud {
       n.textContent = text;
       return n;
     };
+
+    // Fullscreen must be entered from a user gesture, so expose it as a Settings
+    // action instead of trying to force it during boot. Pixi already resizes to the
+    // window and will automatically pick up the fullscreen viewport dimensions.
+    const fullscreenRow = document.createElement("div");
+    fullscreenRow.className = "set-row";
+    const fullscreenLabel = document.createElement("span");
+    fullscreenLabel.textContent = "Fullscreen";
+    const fullscreenButton = document.createElement("button");
+    fullscreenButton.className = "set-action";
+    const canFullscreen = document.fullscreenEnabled &&
+      typeof document.documentElement.requestFullscreen === "function";
+    const refreshFullscreen = () => {
+      const active = document.fullscreenElement !== null;
+      fullscreenButton.textContent = active ? "Exit Fullscreen" :
+        canFullscreen ? "Enter Fullscreen" : "Unavailable";
+      fullscreenButton.disabled = !canFullscreen;
+    };
+    fullscreenButton.onclick = async () => {
+      fullscreenButton.disabled = true;
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+      } catch {
+        fullscreenButton.textContent = "Couldn't Open";
+      } finally {
+        if (fullscreenButton.textContent !== "Couldn't Open") refreshFullscreen();
+        else fullscreenButton.disabled = false;
+      }
+    };
+    fullscreenRow.append(fullscreenLabel, fullscreenButton);
+    refreshFullscreen();
+    document.addEventListener("fullscreenchange", refreshFullscreen);
 
     // Sprite set: original Zombie Farm (ZF1) vs the sequel's art (ZF2). Persisted
     // only — nothing swaps art on it yet (see prefs.ts / README "Current Gaps").
@@ -3548,6 +3613,10 @@ export class Hud {
       row("Mute When Unfocused", this.audio.muteWhenUnfocused,
         (v) => this.audio.setMuteWhenUnfocused(v)),
       noteEl("Silence the game while its tab or window is in the background."),
+      fullscreenRow,
+      noteEl(canFullscreen
+        ? "Use Escape or this button to leave fullscreen."
+        : "This browser doesn't support app-controlled fullscreen."),
       ...accountBlock,
       ...bgBlock,
       spriteRow, spriteNote,
@@ -3558,7 +3627,7 @@ export class Hud {
     version.textContent = `Version ${APP_VERSION}`;
     panel.append(version);
     bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    bg.onclick = (e) => { if (e.target === bg) close(); };
     this.el.appendChild(bg);
   }
 
@@ -4204,9 +4273,52 @@ export class Hud {
     // ---- LEFT: the card ----
     const card = document.createElement("div");
     card.className = "zcard";
-    card.innerHTML =
-      `<span class="zcard-nail tl"></span><span class="zcard-nail tr"></span>` +
-      `<div class="zcard-board">${info.name}</div>`;
+    const nailL = document.createElement("span");
+    nailL.className = "zcard-nail tl";
+    const nailR = document.createElement("span");
+    nailR.className = "zcard-nail tr";
+    const board = document.createElement("div");
+    board.className = "zcard-board";
+    board.textContent = info.name;
+    card.append(nailL, nailR, board);
+    if (info.id && this.onZombieRename) {
+      board.classList.add("renameable");
+      board.title = "Click to rename";
+      board.tabIndex = 0;
+      const edit = () => {
+        if (!board.isConnected) return;
+        const input = document.createElement("input");
+        input.className = "zcard-name-input";
+        input.value = info.name;
+        input.maxLength = MAX_ZOMBIE_NAME_LENGTH;
+        board.replaceWith(input);
+        let active = true;
+        const cancel = () => {
+          if (!active) return;
+          active = false;
+          input.replaceWith(board);
+        };
+        const commit = () => {
+          if (!active) return;
+          active = false;
+          const renamed = this.onZombieRename?.(info.id!, input.value);
+          if (renamed) info.name = renamed;
+          board.textContent = info.name;
+          input.replaceWith(board);
+        };
+        input.onkeydown = (event) => {
+          if (event.key === "Enter") { event.preventDefault(); commit(); }
+          else if (event.key === "Escape") { event.preventDefault(); cancel(); }
+        };
+        input.onblur = commit;
+        input.focus();
+        input.select();
+      };
+      board.onclick = edit;
+      board.onkeydown = (event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); edit(); }
+      };
+    }
     const port = document.createElement("div");
     port.className = "zcard-port";
     port.style.backgroundImage = `url(${info.portrait})`;
@@ -4239,36 +4351,35 @@ export class Hud {
     statsHdr.textContent = "Stats";
     const statsRow = document.createElement("div");
     statsRow.className = "zrow zstats";
-    // Stats show as 0–100 bars normalized against the strongest base tier-5 zombie
-    // (traits.displayStat); info.str/con/dex already bake in the mutation bonus, so
-    // the shown value is the boosted total. Focus is already 0–100.
-    const rawVal: Record<string, number> = {
-      str: info.str, dex: info.dex, con: info.con, focus: info.focus,
-    };
-    const statVal: Record<string, number> = {
-      str: displayStat("str", info.str), dex: displayStat("dex", info.dex),
-      con: displayStat("con", info.con), focus: displayStat("focus", info.focus),
-    };
-    // Which stats a mutation is boosting — those numbers render green.
+    // Each tile shows the stat's 0–100 bar with EVERY always-on bonus folded in
+    // (mutation + veterancy + the zombie's own passive stat abilities); hovering opens
+    // the per-modifier breakdown. See zombie/statDisplay.statBreakdown.
+    const abilityUnlocked = (k: string) => this.state.abilityUnlocked(k);
+    // Which stats a mutation is boosting — those tiles render green (permanent species bonus).
     const mutBonus = mutationBonus(info.mutation);
     for (const s of STATS) {
-      // authentic layout: white glyph on the purple tile + value in the black box
-      const rawBonus = (mutBonus as Record<string, number>)[s.key] ?? 0;
-      const boosted = rawBonus > 0;
-      // The mutation's contribution in DISPLAY units: total bar minus the bar the
-      // unit would show without the bonus (so "+13", not the raw stat delta).
-      const dispBonus = boosted ? statVal[s.key] - displayStat(s.key, rawVal[s.key] - rawBonus) : 0;
+      const bd = statBreakdown(info, s.key, abilityUnlocked);
+      const boosted = ((mutBonus as Record<string, number>)[s.key] ?? 0) > 0;
       const cell = document.createElement("button");
       cell.className = "zstat";
       cell.innerHTML =
         `<span class="zstat-tile" style="background-image:url(${STAT_TILE})">` +
         `<img src="${s.icon}" alt=""></span>` +
         `<span class="zstat-val${boosted ? " boosted" : ""}" style="background-image:url(${VALUE_END}),url(${VALUE_FILL})">` +
-        `${statVal[s.key]}</span>`;
+        `${bd.total}</span>`;
       cell.onclick = (e) => {
         e.stopPropagation();
-        const body = boosted ? `${s.desc}<br><span class="zeff">Boosted by mutation (+${dispBonus}).</span>` : s.desc;
-        showTip(cell, s.label, body);
+        // desc, then Base → each modifier (dim if +0) → Total, as aligned rows.
+        const rows = [`<span class="zbd-row"><span>Base</span><span>${bd.base}</span></span>`]
+          .concat(
+            bd.lines.map(
+              (l) =>
+                `<span class="zbd-row${l.zero ? " zbd-zero" : ""}"><span>${l.label}</span><span>${l.amount}</span></span>`
+            )
+          )
+          .concat(`<span class="zbd-row zbd-total"><span>Total</span><span>${bd.total}</span></span>`)
+          .join("");
+        showTip(cell, s.label, `${s.desc}<span class="zbd">${rows}</span>`);
       };
       statsRow.appendChild(cell);
     }
@@ -4409,9 +4520,14 @@ export class Hud {
     if (info.portrait) por.style.backgroundImage = `url(${info.portrait})`;
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
-    msg.innerHTML =
-      `Sell <b>${info.name}</b> (${info.typeName}) for <b>+${value}g</b>?` +
-      `<br><span class="confirm-warn">This is permanent — the zombie is gone for good.</span>`;
+    msg.append("Sell ");
+    const zombieName = document.createElement("b"); zombieName.textContent = info.name;
+    const valueText = document.createElement("b"); valueText.textContent = `+${value}g`;
+    msg.append(zombieName, ` (${info.typeName}) for `, valueText, "?", document.createElement("br"));
+    const warning = document.createElement("span");
+    warning.className = "confirm-warn";
+    warning.textContent = "This is permanent — the zombie is gone for good.";
+    msg.appendChild(warning);
 
     const btns = document.createElement("div");
     btns.className = "zbtns";
@@ -5256,8 +5372,9 @@ export class Hud {
       ty.textContent = z.typeName;
       const st = document.createElement("div");
       st.className = "army-st";
-      // Normalized 0–100 bars: P(ower)/S(peed)/L(ife), matching the detail card.
-      st.textContent = `P${displayStat("str", z.str)} S${displayStat("dex", z.dex)} L${displayStat("con", z.con)}`;
+      // Normalized 0–100 bars with all bonuses folded in: P(ower)/S(peed)/L(ife),
+      // matching the detail card's tiles (see statDisplay.displayTotals).
+      st.textContent = `P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
       const tick = document.createElement("span");
       tick.className = "tick"; // order number, filled in by refresh()
       card.append(tick, por, nm, ty, st);

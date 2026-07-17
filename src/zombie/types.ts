@@ -6,6 +6,15 @@ import { classify } from "./taxonomy";
 import { applyHeadlessRestriction, mutationBonus } from "./mutations";
 import { randomZombieName } from "./names";
 
+export const MAX_ZOMBIE_NAME_LENGTH = 24;
+
+/** Normalize a player-authored zombie name for display and persistence. */
+export function normalizeZombieName(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim();
+  return cleaned ? [...cleaned].slice(0, MAX_ZOMBIE_NAME_LENGTH).join("") : null;
+}
+
 // A roster listing entry: an owned zombie plus whether it is stored (off the
 // farm) or deployed (wandering). Used by the Zombies menu.
 export type RosterEntry = OwnedZombie & { stored: boolean };
@@ -50,7 +59,8 @@ export function makeOwned(
   row: number,
   invasions = 0,
   mutation?: number,
-  color?: [number, number, number]
+  color?: [number, number, number],
+  customName?: string,
 ): OwnedZombie {
   const tax = classify(def.key);
   const group = def.group ?? tax.group;
@@ -60,7 +70,7 @@ export function makeOwned(
   return {
     id,
     key: def.key,
-    name: randomZombieName(group, id) || def.name, // individual name (falls back to type)
+    name: (normalizeZombieName(customName) ?? randomZombieName(group, id)) || def.name,
     typeName: def.name,
     group,
     className: def.className ?? tax.className,

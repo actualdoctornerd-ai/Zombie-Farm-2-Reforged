@@ -1416,6 +1416,11 @@ async function main() {
   hud.mausoleumCap = zombies.mausoleumCap;
   hud.canStoreZombies = () => !!field.mausoleumId() && !zombies.mausoleumFull;
   hud.canDeployZombie = () => zombies.canAdd();
+  hud.onZombieRename = (id, requested) => {
+    const name = zombies.rename(id, requested);
+    if (name) saveManager.flushCritical();
+    return name;
+  };
   hud.onZombieStore = async (id) => {
     if (onlineGameplayBlocked()) return;
     try { if (economy) [id] = await economy.settleUnitIds([id]); }

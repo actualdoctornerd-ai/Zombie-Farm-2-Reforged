@@ -106,6 +106,7 @@ function presentationOnlySave(save: SaveGame): SaveGame {
     ownedZombies: (save.ownedZombies ?? []).map((z) => ({
       id: z.id,
       key: z.key,
+      name: z.name,
       pos: z.pos,
       stored: z.stored,
       color: z.color,
@@ -717,9 +718,18 @@ app.put("/presentation", async (c) => {
       typeof job.keyA === "string" && typeof job.keyB === "string" &&
       Number.isFinite(job.startedAt) && Number.isFinite(job.finishAt)
     ));
+  const rosterLayout = body.data.rosterLayout as unknown;
+  const validRosterLayout = rosterLayout === undefined || (Array.isArray(rosterLayout) &&
+    rosterLayout.length <= 512 && rosterLayout.every((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+      const row = entry as { id?: unknown; name?: unknown };
+      if (typeof row.id !== "string" || !/^[A-Za-z0-9_-]{1,80}$/.test(row.id)) return false;
+      return row.name === undefined || (typeof row.name === "string" &&
+        [...row.name].length <= 24 && !/[\u0000-\u001f\u007f]/.test(row.name));
+    }));
   if (!Object.keys(body.data).every((key) => presentationKeys.has(key)) ||
       (Array.isArray(body.data.objectLayout) && body.data.objectLayout.length > 512) ||
-      (Array.isArray(body.data.rosterLayout) && body.data.rosterLayout.length > 512) || !validPot || !validPots) {
+      !validRosterLayout || !validPot || !validPots) {
     return c.json({ error: "bad_presentation" }, 400);
   }
   const encoded = JSON.stringify(body.data);
@@ -1085,7 +1095,7 @@ app.get("/friends/:id/save", async (c) => {
   const p = boot.presentation.data as {
     farm?: { climate?: string; background?: string };
     objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
-    rosterLayout?: { id: string; pos?: { col: number; row: number }; color?: [number, number, number] }[];
+    rosterLayout?: { id: string; name?: string; pos?: { col: number, row: number }; color?: [number, number, number] }[];
   };
   const objectLayout = new Map((p.objectLayout ?? []).map((o) => [o.id, o]));
   const rosterLayout = new Map((p.rosterLayout ?? []).map((u) => [u.id, u]));
@@ -1122,7 +1132,7 @@ app.get("/friends/:id/save", async (c) => {
     }),
     ownedZombies: boot.gameplay.roster.map((unit) => {
       const layout = rosterLayout.get(unit.id);
-      return { id: unit.id, key: unit.key, mutation: unit.mutation, invasions: unit.invasions,
+      return { id: unit.id, key: unit.key, name: layout?.name, mutation: unit.mutation, invasions: unit.invasions,
         stored: unit.stored, pos: layout?.pos, color: layout?.color };
     }),
     raids: { completed: boot.gameplay.raids.progress, lastRaidAt: boot.gameplay.raids.lastRaidAt, attackOrder: [] },

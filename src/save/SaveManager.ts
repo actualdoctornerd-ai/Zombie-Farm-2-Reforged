@@ -16,7 +16,7 @@ type PresentationData = {
   player?: { name?: string; farmer?: { col: number; row: number }; farmerAppearance?: SaveGame["player"]["farmerAppearance"] };
   farm?: { climate?: string; background?: SaveGame["farm"]["background"] };
   objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
-  rosterLayout?: { id: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
+  rosterLayout?: { id: string; name?: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
   zombiePot?: SaveGame["zombiePot"];
   zombiePots?: SaveGame["zombiePots"];
   tutorial?: SaveGame["tutorial"];
@@ -115,7 +115,7 @@ export class SaveManager {
       },
       farm: { climate: blob.farm.climate, background: blob.farm.background },
       objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id, oc: o.oc, or: o.or, rotation: o.rotation })),
-      rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, pos: u.pos, stored: u.stored, color: u.color })),
+      rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, name: u.name, pos: u.pos, stored: u.stored, color: u.color })),
       zombiePots: blob.zombiePots,
       tutorial: blob.tutorial,
       ui: { attackOrder: blob.raids?.attackOrder ?? [] },
@@ -247,7 +247,7 @@ export class SaveManager {
     );
     const roster = boot.gameplay.roster.filter((unit) => !hiddenPotParents.has(unit.id)).map((unit) => {
       const layout = rosterLayout.get(unit.id);
-      return { id: unit.id, key: unit.key, mutation: unit.mutation, invasions: unit.invasions,
+      return { id: unit.id, key: unit.key, name: layout?.name, mutation: unit.mutation, invasions: unit.invasions,
         stored: unit.stored, pos: layout?.pos, color: layout?.color };
     });
     return {

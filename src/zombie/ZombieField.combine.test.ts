@@ -46,4 +46,20 @@ describe("ZombieField combine save migration", () => {
       playerLevel: 25,
     });
   });
+
+  it("renames stored zombies and persists the normalized custom name", () => {
+    const state = new GameState();
+    const def = {
+      key: "ordinary", name: "Regular Zombie", group: "Regular",
+      className: "Green", classColor: "#00ff00", str: 1, dex: 1, con: 1, focus: 1,
+    } as ZombieDef;
+    const field = { zombiePotId: () => "pot" } as unknown as Field;
+    const zombies = new ZombieField({} as GameAssets, field, state, (key) => key === def.key ? def : undefined);
+    zombies.restore([{ id: "z1", key: def.key, stored: true, name: "Original" }]);
+
+    expect(zombies.rename("z1", "  Sir   Rottington  ")).toBe("Sir Rottington");
+    expect(zombies.serialize()[0]).toMatchObject({ id: "z1", name: "Sir Rottington", stored: true });
+    expect(zombies.rename("z1", "   ")).toBeNull();
+    expect(zombies.serialize()[0].name).toBe("Sir Rottington");
+  });
 });
