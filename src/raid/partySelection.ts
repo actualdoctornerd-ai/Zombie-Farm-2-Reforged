@@ -1,0 +1,30 @@
+/**
+ * Resolve a selection captured by the army picker against the roster that exists
+ * after pending server commands have settled. Optimistic harvests can exchange a
+ * local id for a server id; rejected commands can remove the optimistic unit.
+ */
+export function reconcilePartySelection<T extends { id: string }>(
+  selectedIds: string[],
+  current: T[],
+  authoritativeId: (id: string) => string,
+  cap: number
+): { ids: string[]; party: T[]; missingIds: string[] } {
+  const selected = [...new Set(selectedIds)].slice(0, Math.max(0, cap));
+  const byId = new Map(current.map((unit) => [unit.id, unit]));
+  const ids: string[] = [];
+  const party: T[] = [];
+  const missingIds: string[] = [];
+
+  for (const originalId of selected) {
+    const id = authoritativeId(originalId);
+    const unit = byId.get(id);
+    if (!unit) {
+      missingIds.push(originalId);
+      continue;
+    }
+    ids.push(id);
+    party.push(unit);
+  }
+
+  return { ids, party, missingIds };
+}

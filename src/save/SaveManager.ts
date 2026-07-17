@@ -15,6 +15,7 @@ type PresentationData = {
   farm?: { climate?: string; background?: SaveGame["farm"]["background"] };
   objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
   rosterLayout?: { id: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
+  zombiePot?: SaveGame["zombiePot"];
   tutorial?: SaveGame["tutorial"];
   ui?: { attackOrder?: string[] };
 };
@@ -27,6 +28,7 @@ export class SaveManager {
   private presentationDirty = false;
   private pushing = false;
   private pendingPresentation: Record<string, unknown> | null = null;
+  private pendingPresentationImmediate = false;
   private autoFlush: (() => void) | null = null;
   private scheduleSave: (() => void) | null = null;
   private lastPresentationCallAt = 0;
@@ -110,12 +112,22 @@ export class SaveManager {
       farm: { climate: blob.farm.climate, background: blob.farm.background },
       objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id, oc: o.oc, or: o.or, rotation: o.rotation })),
       rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, pos: u.pos, stored: u.stored, color: u.color })),
+      zombiePot: blob.zombiePot,
       tutorial: blob.tutorial,
       ui: { attackOrder: blob.raids?.attackOrder ?? [] },
     };
   }
 
   flush(): void { this.autoFlush ? this.autoFlush() : this.save(); }
+  /** Persist state that must survive an immediate reload (currently Zombie Pot jobs). */
+  flushCritical(): void {
+    const blob = this.serialize();
+    if (!this.isOnline()) { this.writeLocal(blob); return; }
+    const data = this.presentation(blob);
+    try { localStorage.setItem(this.cacheKey(), JSON.stringify(data)); } catch { /* ignore */ }
+    if (this.pushing) this.pendingPresentationImmediate = true;
+    void this.push(data);
+  }
   suspend(): void { this.suspended = true; }
   syncRev(_rev: number): void {}
 
@@ -167,7 +179,10 @@ export class SaveManager {
       this.pendingPresentation = null;
       if (next) {
         this.presentationDirty = true;
-        this.scheduleSave?.();
+        if (this.pendingPresentationImmediate) {
+          this.pendingPresentationImmediate = false;
+          void this.push(next);
+        } else this.scheduleSave?.();
       }
     }
   }
@@ -208,7 +223,11 @@ export class SaveManager {
       return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout?.oc ?? 0, or: layout?.or ?? 0,
         rotation: layout?.rotation, readyAt: obj.readyAt }];
     });
-    const roster = boot.gameplay.roster.map((unit) => {
+    const pot = p.zombiePot?.parentAId && p.zombiePot.parentBId ? p.zombiePot : undefined;
+    const hiddenPotParents = new Set(
+      pot?.parentAId && pot?.parentBId ? [pot.parentAId, pot.parentBId] : []
+    );
+    const roster = boot.gameplay.roster.filter((unit) => !hiddenPotParents.has(unit.id)).map((unit) => {
       const layout = rosterLayout.get(unit.id);
       return { id: unit.id, key: unit.key, mutation: unit.mutation, invasions: unit.invasions,
         stored: unit.stored, pos: layout?.pos, color: layout?.color };
@@ -234,6 +253,7 @@ export class SaveManager {
         ownedClimates: boot.gameplay.climates, plots },
       objects,
       ownedZombies: roster,
+      zombiePot: pot,
       storage: {
         itemCap: 8,
         items: Object.entries(boot.gameplay.storage.stored).map(([key, count]) => ({ key, count })),

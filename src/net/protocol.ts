@@ -12,6 +12,9 @@ export interface CommandResult {
   status: CommandStatus;
   error?: string;
   createdIds?: string[];
+  /** Source plots for zombies created by a farm/power command. This avoids pairing
+   * bulk-harvest identities by two different iteration orders. */
+  createdZombieSources?: { id: string; oc: number; or: number }[];
 }
 
 export type GameplayCommand =

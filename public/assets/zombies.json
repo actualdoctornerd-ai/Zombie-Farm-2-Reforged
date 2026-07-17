@@ -18,7 +18,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zombetty.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZomBloke",
@@ -39,7 +40,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zombloke.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorGeorgeWashington",
@@ -60,7 +62,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "george_washington.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorJohnHancock",
@@ -81,7 +84,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "john_hancock.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorMummy",
@@ -102,7 +106,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "mummy_zombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZomHelga",
@@ -123,7 +128,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zomhelga.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZombeachBum",
@@ -144,7 +150,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zombeach_bum.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZulaGirl",
@@ -165,7 +172,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zula_girl.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorSkittles",
@@ -186,7 +194,8 @@
   "mutation": 0,
   "tier": 1,
   "specialSprite": "skittles_zombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZwampThing",
@@ -207,7 +216,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zwamp_thing.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorRegularTier1",
@@ -267,7 +277,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorLarge2Tier5",
@@ -287,7 +297,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorLarge3Tier5",
@@ -307,7 +317,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorSmallTier5",
@@ -327,7 +337,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorGirlTier5",
@@ -347,7 +357,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorHeadlessTier5",
@@ -367,7 +377,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorHeadless2Tier5",
@@ -387,7 +397,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorRegular2Tier5",
@@ -407,7 +417,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorRegular3Tier5",
@@ -427,7 +437,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorRegular4Tier5",
@@ -447,28 +457,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
- },
- {
-  "key": "ZombieActorBombie",
-  "name": "Bombie",
-  "cost": 50,
-  "growMs": 86400000,
-  "category": "special",
-  "level": 1,
-  "xp": 1,
-  "brainsNeeded": true,
-  "group": "Headless",
-  "className": "Special",
-  "classColor": "#c077ff",
-  "str": 11,
-  "dex": 1,
-  "con": 29.7,
-  "focus": 100,
-  "mutation": 0,
-  "tier": 5,
-  "specialSprite": "bombie.png",
-  "rewardOnly": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorHeadlessTier1",
@@ -631,27 +620,6 @@
   "marketHidden": false
  },
  {
-  "key": "ZombieActorDapper",
-  "name": "Dapper Zombie",
-  "cost": 50,
-  "growMs": 86400000,
-  "category": "special",
-  "level": 5,
-  "xp": 1,
-  "brainsNeeded": true,
-  "group": "Large",
-  "className": "Special",
-  "classColor": "#c077ff",
-  "str": 23.32,
-  "dex": 1.3,
-  "con": 16.5,
-  "focus": 100,
-  "mutation": 0,
-  "tier": 5,
-  "specialSprite": "dapper_zombie.png",
-  "rewardOnly": false
- },
- {
   "key": "ZombieActorForest",
   "name": "Forest Zombie",
   "cost": 50,
@@ -670,28 +638,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "forest_zombie.png",
-  "rewardOnly": false
- },
- {
-  "key": "ZombieActorGranny",
-  "name": "Granny Zombie",
-  "cost": 50,
-  "growMs": 86400000,
-  "category": "special",
-  "level": 5,
-  "xp": 1,
-  "brainsNeeded": true,
-  "group": "Female",
-  "className": "Special",
-  "classColor": "#c077ff",
-  "str": 8.71,
-  "dex": 3.67,
-  "con": 14.3,
-  "focus": 100,
-  "mutation": 0,
-  "tier": 5,
-  "specialSprite": "granny_zombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorMedusa",
@@ -712,7 +660,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "medusa_zombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorRegularTier1Potatoes",
@@ -853,7 +802,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "brock_coley.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorOldMcZombie",
@@ -874,7 +824,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "old_mczombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZastronaut",
@@ -895,7 +846,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zastronaut.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorHeadlessTier2",
@@ -995,7 +947,7 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorSmallTier3",
@@ -1158,6 +1110,72 @@
   "marketHidden": false
  },
  {
+  "key": "ZombieActorBombie",
+  "name": "Bombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 20,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Headless",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 11,
+  "dex": 1,
+  "con": 29.7,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "bombie.png",
+  "rewardOnly": false,
+  "marketHidden": false
+ },
+ {
+  "key": "ZombieActorDapper",
+  "name": "Dapper Zombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 20,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Large",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 23.32,
+  "dex": 1.3,
+  "con": 16.5,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "dapper_zombie.png",
+  "rewardOnly": false,
+  "marketHidden": false
+ },
+ {
+  "key": "ZombieActorGranny",
+  "name": "Granny Zombie",
+  "cost": 50,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 20,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Female",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 8.71,
+  "dex": 3.67,
+  "con": 14.3,
+  "focus": 100,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "granny_zombie.png",
+  "rewardOnly": false,
+  "marketHidden": false
+ },
+ {
   "key": "ZombieActorLargeTier5",
   "name": "Zomviking",
   "cost": 50,
@@ -1175,12 +1193,12 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorGardenCupid",
   "name": "Cupid Zombie",
-  "cost": 100,
+  "cost": 50,
   "growMs": 86400000,
   "category": "special",
   "level": 20,
@@ -1195,12 +1213,13 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 5,
-  "marketHidden": true
+  "marketHidden": false,
+  "rewardOnly": false
  },
  {
   "key": "ZombieActorRegularCrazy",
   "name": "Crazy Zombie",
-  "cost": 100,
+  "cost": 50,
   "growMs": 86400000,
   "category": "special",
   "level": 20,
@@ -1215,7 +1234,8 @@
   "focus": 100.0,
   "mutation": 0,
   "tier": 0,
-  "marketHidden": true
+  "marketHidden": false,
+  "rewardOnly": false
  },
  {
   "key": "ZombieActorRegularTier2LimaBeans",
@@ -1376,7 +1396,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "dr_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorOmegaDrZombie",
@@ -1397,7 +1418,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "omega_dr_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorBandido",
@@ -1418,7 +1440,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "bandido_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorVagabond",
@@ -1439,7 +1462,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "vagabond_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorCaptain",
@@ -1460,7 +1484,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "captain_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorAdmiral",
@@ -1481,7 +1506,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "admiral_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorChristmasGhost",
@@ -1502,7 +1528,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "christmas_ghost_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorScrooge",
@@ -1523,7 +1550,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "scrooge_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorDiva",
@@ -1544,7 +1572,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "diva_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorDeputy",
@@ -1565,7 +1594,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "deputy_zombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorMadame",
@@ -1586,7 +1616,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "madame_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorMasterNinjombie",
@@ -1607,7 +1638,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "master_ninjombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorMerZombie",
@@ -1628,7 +1660,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "merzombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorNinjombie",
@@ -1649,7 +1682,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "ninjombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorOmegaZombieBot",
@@ -1670,7 +1704,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "omega_zombie_bot.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorPoseidon",
@@ -1691,7 +1726,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "poseidon_zombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorProto",
@@ -1712,7 +1748,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "proto_zombie.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorSheriff",
@@ -1733,7 +1770,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "sheriff_zombie.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZombieBot",
@@ -1754,7 +1792,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zombie_bot.png",
-  "rewardOnly": false
+  "rewardOnly": false,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZombug",
@@ -1775,7 +1814,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zombug.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZomdini",
@@ -1796,7 +1836,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zomdini.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZomtar",
@@ -1817,7 +1858,8 @@
   "mutation": 0,
   "tier": 5,
   "specialSprite": "zomtar.png",
-  "rewardOnly": true
+  "rewardOnly": true,
+  "marketHidden": true
  },
  {
   "key": "ZombieActorLargeTier4",

@@ -8,7 +8,7 @@ export interface InventoryInput {
   key: string;
   qty?: number;
   unitId?: string;
-  localUnitIds?: string[];
+  localZombieHarvests?: { id: string; oc: number; or: number }[];
   oc?: number;
   or?: number;
   target?: "zombie_pot";
@@ -38,7 +38,8 @@ interface OptimisticDelta {
   inventoryKey?: string;
   inventoryCount?: number;
   localUnitId?: string;
-  localUnitIds?: string[];
+  localZombieHarvests?: { id: string; oc: number; or: number }[];
+  localObjectId?: string;
 }
 
 /** Compatibility facade used by the current gameplay code. Every non-raid method
@@ -50,6 +51,8 @@ export class EconomyClient {
   private optimistic = new Map<number, OptimisticDelta>();
   private authoritativeUnitIds = new Map<string, string>();
   private combineParents: { parentAId: string; parentBId: string } | null = null;
+  private commandsBySequence = new Map<number, GameplayCommand>();
+  private ready = false;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private recoveryAttempt = 0;
 
@@ -60,13 +63,14 @@ export class EconomyClient {
   onQuestChanges: ((changes: api.QuestChange[]) => void) | null = null;
   onCropFertilized: ((oc: number, or: number) => void) | null = null;
   onFarmState: ((farm: api.FarmState) => void) | null = null;
-  onObjectState: ((objects: BootstrapResponse["gameplay"]["objects"]["objects"]) => void) | null = null;
+  onObjectState: ((objects: BootstrapResponse["gameplay"]["objects"]["objects"], aliases: Record<string, string>, baseZombieMax: number, rejectedLocalIds: string[]) => void) | null = null;
   onRosterState: ((roster: BootstrapResponse["gameplay"]["roster"], aliases: Record<string, string>) => void) | null = null;
   onRaidSettled: ((res: api.RaidFinishResult) => void) | null = null;
   onRaidRevival: ((offer: NonNullable<BootstrapResponse["gameplay"]["raidRevival"]>, brains: number) => void) | null = null;
   onEpicBossState: ((event: BootstrapResponse["gameplay"]["epicBoss"]) => void) | null = null;
   onGameplayUnavailable: ((reason: string) => void) | null = null;
   onWriterReplaced: (() => void) | null = null;
+  onCommandRejected: ((command: GameplayCommand | undefined, error: string) => void) | null = null;
 
   constructor(private state: GameState, accountId: string) {
     this.queue = new CommandQueue(accountId);
@@ -83,14 +87,16 @@ export class EconomyClient {
     try {
       const bootstrap = await api.bootstrap();
       this.queue.adoptBootstrap(bootstrap);
+      this.ready = true;
       this.adoptGameplay(bootstrap.gameplay);
     } catch {
+      this.ready = false;
       this.queue.disable("bootstrap_failed");
       this.scheduleRecovery();
     }
   }
 
-  get available(): boolean { return this.queue.available; }
+  get available(): boolean { return this.ready && this.queue.available; }
 
   private scheduleRecovery(): void {
     if (this.recoveryTimer || typeof window === "undefined") return;
@@ -106,6 +112,7 @@ export class EconomyClient {
     try {
       const bootstrap = await api.bootstrap(true);
       this.queue.adoptBootstrap(bootstrap);
+      this.ready = true;
       this.adoptGameplay(bootstrap.gameplay);
       if (!this.queue.available) return; // another device owns the writer intentionally
       this.recoveryAttempt = 0;
@@ -120,6 +127,7 @@ export class EconomyClient {
     try {
       const bootstrap = await api.bootstrap(true);
       this.queue.rebaseAfterConflict(bootstrap);
+      this.ready = true;
       this.optimistic.clear();
       this.adoptGameplay(bootstrap.gameplay);
       await this.queue.retry();
@@ -131,6 +139,7 @@ export class EconomyClient {
   private enqueue(command: GameplayCommand, delta: Partial<OptimisticDelta> = {}): number | null {
     try {
       const sequence = this.queue.enqueue(command);
+      this.commandsBySequence.set(sequence, command);
       this.optimistic.set(sequence, {
         gold: delta.gold ?? 0,
         brains: delta.brains ?? 0,
@@ -138,7 +147,8 @@ export class EconomyClient {
         inventoryKey: delta.inventoryKey,
         inventoryCount: delta.inventoryCount,
         localUnitId: delta.localUnitId,
-        localUnitIds: delta.localUnitIds,
+        localZombieHarvests: delta.localZombieHarvests,
+        localObjectId: delta.localObjectId,
       });
       this.reconcile();
       return sequence;
@@ -174,7 +184,7 @@ export class EconomyClient {
       inventoryKey: input.key,
       inventoryCount: optimistic.count,
       localUnitId: input.unitId,
-      localUnitIds: input.localUnitIds,
+      localZombieHarvests: input.localZombieHarvests,
     });
   }
 
@@ -188,15 +198,28 @@ export class EconomyClient {
       return;
     }
     if (input.type === "combineCollect" && this.combineParents) {
-      this.enqueue({ type: "roster.combine", ...this.combineParents });
+      this.enqueue({
+        type: "roster.combine",
+        parentAId: this.authoritativeUnitId(this.combineParents.parentAId),
+        parentBId: this.authoritativeUnitId(this.combineParents.parentBId),
+      }, { localUnitId: input.unitId });
       this.combineParents = null;
       return;
     }
-    if (input.type === "sell") this.enqueue({ type: "roster.sell", unitId: input.unitId }, optimistic);
+    if (input.type === "sell") this.enqueue({ type: "roster.sell", unitId: this.authoritativeUnitId(input.unitId) }, optimistic);
     // Grants, casualties, and veterancy come from farm/raid results in v3.
   }
   submitRosterStatus(unitId: string, stored: boolean): void {
-    this.enqueue({ type: "roster.status", unitId, stored });
+    this.enqueue({ type: "roster.status", unitId: this.authoritativeUnitId(unitId), stored });
+  }
+
+  restoreCombineParents(parentAId: string, parentBId: string): void {
+    this.combineParents = { parentAId, parentBId };
+  }
+
+  async settleUnitIds(ids: string[]): Promise<string[]> {
+    await this.settleBeforeDependency();
+    return ids.map((id) => this.authoritativeUnitId(id));
   }
 
   submitObject(
@@ -204,7 +227,10 @@ export class EconomyClient {
       { type: "upgrade"; fromKey: string; toKey: string; instanceId?: string },
     optimistic: { gold?: number; brains?: number; xp?: number }
   ): void {
-    if (input.type === "buy") this.enqueue({ type: "object.buy", catalogKey: input.key, clientInstanceId: input.instanceId }, optimistic);
+    if (input.type === "buy") this.enqueue(
+      { type: "object.buy", catalogKey: input.key, clientInstanceId: input.instanceId },
+      { ...optimistic, localObjectId: input.instanceId }
+    );
     else if (input.type === "refund" && input.instanceId) this.enqueue({ type: "object.refund", instanceId: input.instanceId }, optimistic);
     else if (input.type === "upgrade") {
       if (input.instanceId) this.enqueue({ type: "object.upgrade", instanceId: input.instanceId, catalogKey: input.toKey }, optimistic);
@@ -325,6 +351,7 @@ export class EconomyClient {
   async refreshInventory(): Promise<void> {
     const bootstrap = await api.bootstrap(true);
     this.queue.adoptBootstrap(bootstrap);
+    this.ready = true;
     this.adoptGameplay(bootstrap.gameplay);
   }
   async refreshAuthoritative(): Promise<void> { await this.refreshInventory(); }
@@ -338,26 +365,47 @@ export class EconomyClient {
 
   private adoptCommandResponse(response: CommandBatchResponse): void {
     const aliases: Record<string, string> = {};
+    const objectAliases: Record<string, string> = {};
+    const rejectedObjectIds: string[] = [];
     for (const result of response.results) {
       const pending = this.optimistic.get(result.sequence);
-      if (pending?.localUnitId && result.createdIds?.[0]) {
+      const command = this.commandsBySequence.get(result.sequence);
+      if ((result.status === "rejected" || result.status === "dependency_failed") && result.error) {
+        this.onCommandRejected?.(command, result.error);
+      }
+      if (pending?.localUnitId && result.status === "applied" && result.createdIds?.[0]) {
         aliases[result.createdIds[0]] = pending.localUnitId;
         this.authoritativeUnitIds.set(pending.localUnitId, result.createdIds[0]);
       }
-      result.createdIds?.forEach((id, index) => {
-        const local = pending?.localUnitIds?.[index];
-        if (local) {
-          aliases[id] = local;
-          this.authoritativeUnitIds.set(local, id);
+      if (pending?.localZombieHarvests?.length && result.createdZombieSources?.length) {
+        const localByPlot = new Map(pending.localZombieHarvests.map((item) => [`${item.oc}:${item.or}`, item.id]));
+        for (const created of result.createdZombieSources) {
+          const local = localByPlot.get(`${created.oc}:${created.or}`);
+          if (!local) continue;
+          aliases[created.id] = local;
+          this.authoritativeUnitIds.set(local, created.id);
         }
-      });
+      }
+      if (pending?.localObjectId && result.status === "applied" && result.createdIds?.[0] &&
+          result.createdIds[0] !== pending.localObjectId) {
+        objectAliases[result.createdIds[0]] = pending.localObjectId;
+      }
+      if (pending?.localObjectId && (result.status === "rejected" || result.status === "dependency_failed")) {
+        rejectedObjectIds.push(pending.localObjectId);
+      }
       this.optimistic.delete(result.sequence);
+      this.commandsBySequence.delete(result.sequence);
     }
     this.onQuestChanges?.(response.questChanges);
-    this.adoptGameplay(response.gameplay, aliases);
+    this.adoptGameplay(response.gameplay, aliases, objectAliases, rejectedObjectIds);
   }
 
-  private adoptGameplay(gameplay: BootstrapResponse["gameplay"], aliases: Record<string, string> = {}): void {
+  private adoptGameplay(
+    gameplay: BootstrapResponse["gameplay"],
+    aliases: Record<string, string> = {},
+    objectAliases: Record<string, string> = {},
+    rejectedObjectIds: string[] = []
+  ): void {
     this.base = gameplay.balance;
     this.serverInv = gameplay.inventory;
     this.onShopState?.(gameplay.farmSize, gameplay.climates);
@@ -386,7 +434,7 @@ export class EconomyClient {
       }
     }
     this.onFarmState?.({ plowed, crops });
-    this.onObjectState?.(gameplay.objects.objects);
+    this.onObjectState?.(gameplay.objects.objects, objectAliases, gameplay.zombieMax, rejectedObjectIds);
     // Capture/display a pending revival before roster reconciliation removes the
     // casualties from the local presentation cache. The offer remains server-owned.
     if (gameplay.raidRevival) this.onRaidRevival?.(gameplay.raidRevival, gameplay.balance.brains);

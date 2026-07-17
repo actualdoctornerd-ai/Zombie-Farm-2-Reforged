@@ -161,7 +161,7 @@ describe("planHarvest — server-time grow gate + exact reward", () => {
 
 // ---- zombie crops (plant a seed -> grow -> harvest an owned unit) --------
 const GOLD_Z = "ZombieActorRegularTier1"; // 35 gold, grow 600000, xp 1
-const BRAINS_Z = "ZombieActorGardenTier5"; // Zombutterfly: 50 brains, grow 86400000, xp 2
+const BRAINS_Z = "ZombieActorBombie"; // permanent special: 50 brains, level 20
 
 describe("planZombiePlant — cost in gold OR brains, yields a unit", () => {
   const plant = (over = {}) => ({ id: "zp", type: "plant" as const, oc: 4, or: 4, cropKey: GOLD_Z, ...over });
@@ -213,11 +213,12 @@ describe("planZombieHarvest — grow gate + verified unit yield", () => {
     expect(r).toMatchObject({ ok: true, unitKey: GOLD_Z, xpDelta: 1 });
   });
 
-  it("does not expose gift or Epic reward zombies as plantable crops", () => {
+  it("exposes dual-route specials but keeps gift-only and Epic rewards unplantable", () => {
+    expect(zombieCropEcon("ZombieActorGardenCupid")).toMatchObject({ cost: 50, brains: true, level: 20 });
+    expect(zombieCropEcon("ZombieActorRegularCrazy")).toMatchObject({ cost: 50, brains: true, level: 20 });
     expect(zombieCropEcon("ZombieActorGardenTier3GreenFlower")).toBeUndefined();
-    expect(zombieCropEcon("ZombieActorGardenCupid")).toBeUndefined();
     expect(zombieCropEcon("ZombieActorGardenCupidPink")).toBeUndefined();
-    expect(zombieCropEcon("ZombieActorRegularCrazy")).toBeUndefined();
+    expect(zombieCropEcon("ZombieActorGardenTier5")).toBeUndefined();
     expect(zombieCropEcon("ZombieActorZomtar")).toBeUndefined();
   });
 

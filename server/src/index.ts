@@ -606,10 +606,16 @@ app.put("/presentation", async (c) => {
       !body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
     return c.json({ error: "bad_presentation" }, 400);
   }
-  const presentationKeys = new Set(["player", "farm", "objectLayout", "rosterLayout", "tutorial", "ui", "settings", "camera", "selections"]);
+  const presentationKeys = new Set(["player", "farm", "objectLayout", "rosterLayout", "zombiePot", "tutorial", "ui", "settings", "camera", "selections"]);
+  const pot = body.data.zombiePot as Record<string, unknown> | undefined;
+  const validPot = pot === undefined || (!!pot && typeof pot === "object" && !Array.isArray(pot) &&
+    typeof pot.parentAId === "string" && pot.parentAId.length <= 80 &&
+    typeof pot.parentBId === "string" && pot.parentBId.length <= 80 &&
+    typeof pot.keyA === "string" && typeof pot.keyB === "string" &&
+    Number.isFinite(pot.startedAt) && Number.isFinite(pot.finishAt));
   if (!Object.keys(body.data).every((key) => presentationKeys.has(key)) ||
       (Array.isArray(body.data.objectLayout) && body.data.objectLayout.length > 512) ||
-      (Array.isArray(body.data.rosterLayout) && body.data.rosterLayout.length > 512)) {
+      (Array.isArray(body.data.rosterLayout) && body.data.rosterLayout.length > 512) || !validPot) {
     return c.json({ error: "bad_presentation" }, 400);
   }
   const encoded = JSON.stringify(body.data);

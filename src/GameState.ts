@@ -122,7 +122,7 @@ export class GameState {
    *  purely local. */
   onInventory:
     | ((
-        action: { type: "buy" | "use" | "grant"; key: string; qty?: number; unitId?: string; localUnitIds?: string[]; oc?: number; or?: number; target?: "zombie_pot" },
+        action: { type: "buy" | "use" | "grant"; key: string; qty?: number; unitId?: string; localZombieHarvests?: { id: string; oc: number; or: number }[]; oc?: number; or?: number; target?: "zombie_pot" },
         optimistic: { count: number; gold?: number; brains?: number }
       ) => void)
     | null = null;
@@ -238,6 +238,12 @@ export class GameState {
   }
   addZombieMax(n: number) {
     this.zombieMax = Math.max(1, this.zombieMax + n);
+    this.emit();
+  }
+  /** Adopt server base capacity plus authoritative placed-object effects. */
+  syncCapacities(zombieMax: number, itemCap: number) {
+    this.zombieMax = Math.max(1, zombieMax);
+    this.storageItemCap = Math.max(0, itemCap);
     this.emit();
   }
   // Set the live owned-zombie count (driven by the ZombieField roster).

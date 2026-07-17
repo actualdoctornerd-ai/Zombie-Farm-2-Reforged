@@ -293,8 +293,8 @@ export class ZombieField {
       else this.onCasualty?.([idA, idB]);
     }
     return this.pot.start(
-      { key: a.key, mutation: a.mutation, color: this.colorOf(a), ...this.speciesTraits(a) },
-      { key: b.key, mutation: b.mutation, color: this.colorOf(b), ...this.speciesTraits(b) },
+      { id: a.id, key: a.key, mutation: a.mutation, color: this.colorOf(a), ...this.speciesTraits(a) },
+      { id: b.id, key: b.key, mutation: b.mutation, color: this.colorOf(b), ...this.speciesTraits(b) },
       this.field.hasCombineMonolith(), // Clay Monolith → 15-min combine
       baseDurationMs
     );

@@ -29,6 +29,7 @@ import { QuestDef, RewardType } from "./quest/types";
 import { RaidManager, RaidResultView } from "./raid/RaidManager";
 import { RaidScene } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS } from "./raid/RaidCatalog";
+import { reconcilePartySelection } from "./raid/partySelection";
 import { screenToGrid, tileCenter, TILE_H, TILE_W, HW, HH } from "./iso";
 import { setFootprint } from "./depthSort";
 import { NightLayer, makeLight } from "./lighting";
@@ -647,7 +648,7 @@ async function main() {
       const action = giftUnitId
         ? { type: "use" as const, key: def.key, unitId: giftUnitId }
         : powerUnitIds.length
-          ? { type: "use" as const, key: def.key, localUnitIds: powerUnitIds }
+          ? { type: "use" as const, key: def.key, localZombieHarvests: powerUnitIds }
         : growTarget
           ? { type: "use" as const, key: def.key, oc: growTarget.oc, or: growTarget.or }
           : { type: "use" as const, key: def.key };
@@ -703,7 +704,7 @@ async function main() {
   // onUseBoost sends with the voucher `use` so the server can grant that same unit.
   // Null for every other boost effect.
   let giftUnitId: string | null = null;
-  let powerUnitIds: string[] = [];
+  let powerUnitIds: { id: string; oc: number; or: number }[] = [];
   let growTarget: { oc: number; or: number } | null = null;
 
   // Apply a farm-usable boost's effect. Returns true if it actually did anything
@@ -726,7 +727,7 @@ async function main() {
           if (r.zombieKey) {
             const unit = zombies.spawnVerified(r.zombieKey, pl.oc + 1, pl.or + 1);
             if (!unit) continue;
-            powerUnitIds.push(unit.id);
+            powerUnitIds.push({ id: unit.id, oc: pl.oc, or: pl.or });
           }
           // The server receives one semantic power command from onUseBoost below;
           // individual optimistic harvests must not become commands.
@@ -923,7 +924,27 @@ async function main() {
       );
       field.reconcilePlots([...presentation, ...authoritative], (key) => catalog.get(key));
     };
-    economy.onObjectState = (objects) => {
+    economy.onObjectState = async (objects, aliases, baseZombieMax, rejectedLocalIds) => {
+      const current = new Map(field.serializeObjects().map((object) => [object.id, object]));
+      for (const id of rejectedLocalIds) field.removeObject(id);
+
+      for (const object of objects) {
+        const localId = aliases[object.instanceId];
+        const source = current.get(object.instanceId) ?? (localId ? current.get(localId) : undefined);
+        if (object.status !== "placed") {
+          if (current.has(object.instanceId)) field.removeObject(object.instanceId);
+          if (localId && current.has(localId)) field.removeObject(localId);
+          continue;
+        }
+        if (current.has(object.instanceId)) continue;
+        const def = placeCatalog.get(object.catalogKey);
+        if (!def || !source) continue;
+        if (localId) field.removeObject(localId);
+        await ensureObjectTexture(assets, def.sprite);
+        if (def.growingSprite) await ensureObjectTexture(assets, def.growingSprite);
+        field.placeObject(def, source.oc, source.or, object.instanceId, object.readyAt, !!source.rotation);
+      }
+
       storedObjectIds.clear();
       for (const object of objects) {
         if (object.status !== "stored") continue;
@@ -932,8 +953,16 @@ async function main() {
         storedObjectIds.set(object.catalogKey, ids);
       }
       state.syncObjectStorage(Object.fromEntries([...storedObjectIds].map(([key, ids]) => [key, ids.length])));
+      const placed = field.serializeObjects();
+      const armyBonus = placed.reduce((sum, object) => sum + (placeCatalog.get(object.key)?.armyMax ?? 0), 0);
+      const itemCap = placed.reduce((cap, object) => Math.max(cap, placeCatalog.get(object.key)?.storageSlots ?? 0), 8);
+      state.syncCapacities(baseZombieMax + armyBonus, itemCap);
     };
-    economy.onRosterState = (roster, aliases) => zombies.reconcileServerRoster(roster, aliases);
+    economy.onRosterState = (roster, aliases) => {
+      const pot = zombies.combinePot.pending;
+      const hidden = new Set(pot?.parentAId && pot.parentBId ? [pot.parentAId, pot.parentBId] : []);
+      zombies.reconcileServerRoster(roster.filter((unit) => !hidden.has(unit.id)), aliases);
+    };
     economy.onRaidRevival = (offer, brains) => {
       const current = new Map(zombies.roster().map((zombie) => [zombie.id, zombie]));
       const casualties = offer.zombies.flatMap((snapshot) => {
@@ -975,6 +1004,10 @@ async function main() {
     // parents (a combine can't fabricate an arbitrary expensive result).
     zombies.onCombineStart = (parentAId, parentBId) => economy!.submitRoster({ type: "combineStart", parentAId, parentBId });
     zombies.onCombineCollect = (unitId, key, mutation) => economy!.submitRoster({ type: "combineCollect", unitId, key, mutation });
+    const restoredPot = zombies.combinePot.pending;
+    if (restoredPot?.parentAId && restoredPot.parentBId) {
+      economy.restoreCombineParents(restoredPot.parentAId, restoredPot.parentBId);
+    }
     zombies.setRosterLive();
     state.onRosterSell = (unitId, value) => economy!.submitRoster({ type: "sell", unitId }, { gold: value });
     // Server-owned placeable objects: seed the ownership counts from the currently-placed
@@ -1002,6 +1035,20 @@ async function main() {
     economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
     economy.onGameplayUnavailable = () => hud.showToast("Gameplay paused — reconnect to continue.");
     economy.onWriterReplaced = () => hud.showToast("This farm is active on another device. This tab is read-only.");
+    economy.onCommandRejected = (command, error) => {
+      const subject = command?.type.startsWith("roster.") ? "Zombie action"
+        : command?.type.startsWith("object.") ? "Object action"
+        : command?.type.startsWith("farm.") ? "Farm action"
+        : command?.type.startsWith("power.") ? "Boost action" : "Action";
+      const reason: Record<string, string> = {
+        not_owned: "the item is no longer available", capacity_full: "capacity is full",
+        army_full: "the farm is full", storage_full: "storage is full",
+        not_grown: "the crop is not ready", nothing_planted: "the crop changed",
+        insufficient: "there are not enough funds", no_effect: "the game state changed",
+        prior_command_failed: "an earlier related action failed",
+      };
+      hud.showToast(`${subject} was rolled back: ${reason[error] ?? error.replace(/_/g, " ")}.`);
+    };
     void economy.start();
     // Seed the shop state from the save, then adopt server truth (once, after load).
     void economy.syncShop(field.w, state.ownedClimates);
@@ -1267,12 +1314,16 @@ async function main() {
   hud.mausoleumCap = zombies.mausoleumCap;
   hud.canStoreZombies = () => !!field.mausoleumId() && !zombies.mausoleumFull;
   hud.canDeployZombie = () => zombies.canAdd();
-  hud.onZombieStore = (id) => {
+  hud.onZombieStore = async (id) => {
     if (onlineGameplayBlocked()) return;
+    try { if (economy) [id] = await economy.settleUnitIds([id]); }
+    catch { hud.showToast("Could not confirm that zombie. Please reconnect."); return; }
     if (field.mausoleumId() && !zombies.mausoleumFull && zombies.store(id)) economy?.submitRosterStatus(id, true);
   };
-  hud.onZombieDeploy = (id) => {
+  hud.onZombieDeploy = async (id) => {
     if (onlineGameplayBlocked()) return;
+    try { if (economy) [id] = await economy.settleUnitIds([id]); }
+    catch { hud.showToast("Could not confirm that zombie. Please reconnect."); return; }
     if (zombies.deploy(id)) economy?.submitRosterStatus(id, false);
   };
   hud.onZombieLocate = (id) => {
@@ -1280,10 +1331,12 @@ async function main() {
     if (p) centerOn(p.x, p.y);
   };
   hud.zombieBaseCost = (key) => zombieDefs.get(key)?.cost ?? 0;
-  hud.onZombieSell = (id) => {
+  hud.onZombieSell = async (id) => {
     if (onlineGameplayBlocked()) return;
+    try { if (economy) [id] = await economy.settleUnitIds([id]); }
+    catch { hud.showToast("Could not confirm that zombie. Please reconnect."); return; }
     const z = zombies.roster().find((r) => r.id === id);
-    if (!z) return;
+    if (!z) { hud.showToast("That zombie is no longer available."); return; }
     const value = zombieSellValue(zombieDefs.get(z.key)?.cost ?? 0);
     const p = zombies.selectById(id); // deployed unit's world pos (null if stored)
     if (!zombies.sell(id)) return; // gone already; don't credit gold
@@ -1311,15 +1364,17 @@ async function main() {
     };
   };
   hud.canCombineZombie = (key) => !zombieDefs.get(key)?.rewardOnly;
-  hud.onCombine = (idA, idB) => {
+  hud.onCombine = async (idA, idB) => {
     if (onlineGameplayBlocked()) return false;
+    try { if (economy) [idA, idB] = await economy.settleUnitIds([idA, idB]); }
+    catch { hud.showToast("Could not confirm those zombies. Please reconnect."); return false; }
     const ok = zombies.combine(idA, idB, potBaseMs());
     if (ok) {
-      saveManager.save();
+      saveManager.flushCritical();
     }
     return ok;
   };
-  hud.onCollectCombine = () => {
+  hud.onCollectCombine = async () => {
     if (onlineGameplayBlocked()) return null;
     const pending = zombies.combinePot.pending;
     const object = pending
@@ -1331,7 +1386,9 @@ async function main() {
       questBus.post(QuestEvent.CombinerHarvested, z.typeName);
       const c = tileCenter(z.col, z.row);
       floatText(c.x, c.y, z.mutation ? `${z.name}!` : z.name);
-      saveManager.save();
+      try { await economy?.settleBeforeDependency(); }
+      catch { hud.showToast("The combine result is waiting for the server to reconnect."); }
+      saveManager.flushCritical();
     }
     return z ? z.name : null;
   };
@@ -1730,14 +1787,30 @@ async function main() {
       return false;
     }
     const cap = raids.partyView().cap;
-    const byId = new Map(zombies.roster().filter((z) => !z.stored).map((z) => [z.id, z]));
-    const party = partyIds.slice(0, cap).map((id) => byId.get(id)).filter((z): z is NonNullable<typeof z> => !!z);
-    if (!party.length) return false;
+    const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
+    let party: ReturnType<typeof zombies.roster> = [];
     let epicSessionId: string | null = null;
     if (auth.isSignedIn()) {
       try {
         await economy?.settleBeforeDependency();
-        if (economy) partyIds = partyIds.map((id) => economy!.authoritativeUnitId(id));
+        // Settlement may replace an optimistic harvest id, or remove that unit if
+        // the server rejected its creation. Rebuild from the reconciled roster so a
+        // stale army card can never reach the server as an opaque `bad_roster`.
+        const settled = reconcilePartySelection(
+          partyIds,
+          zombies.roster().filter((z) => !z.stored),
+          (id) => economy?.authoritativeUnitId(id) ?? id,
+          cap
+        );
+        if (settled.missingIds.length) {
+          const names = settled.missingIds.map((id) => selectedNames.get(id) ?? "A selected zombie");
+          hud.showToast(`${names.join(", ")} ${names.length === 1 ? "is" : "are"} no longer available. Your army was refreshed.`);
+          hud.refreshEpicBossArmy();
+          return false;
+        }
+        partyIds = settled.ids;
+        party = settled.party;
+        if (!party.length) return false;
         const opened = await api.epicBossStart(partyIds, payment);
         epicSessionId = opened.sessionId;
         economy?.adoptEpicBossActivation(opened.event, opened.balance);
@@ -1752,6 +1825,12 @@ async function main() {
         return false;
       }
     } else {
+      const settled = reconcilePartySelection(
+        partyIds, zombies.roster().filter((z) => !z.stored), (id) => id, cap
+      );
+      partyIds = settled.ids;
+      party = settled.party;
+      if (!party.length) return false;
       if (payment === "token") {
         if ((gate.run.tokenCount ?? 0) < 1) { hud.showToast("You need a Boss Token."); return false; }
         state.setEpicBossRun({ ...gate.run, tokenCount: gate.run.tokenCount - 1 });
@@ -1875,10 +1954,20 @@ async function main() {
     // re-gate the (now server-owned) cooldown.
     if (auth.isSignedIn()) {
       try {
+        const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
         await economy?.settleBeforeDependency();
-        // Raid selection can contain the optimistic id captured before the harvest
-        // batch settled. Submit and use the server-created roster id instead.
-        if (economy) partyIds = partyIds.map((id) => economy!.authoritativeUnitId(id));
+        const settled = reconcilePartySelection(
+          partyIds,
+          zombies.roster().filter((z) => !z.stored),
+          (id) => economy?.authoritativeUnitId(id) ?? id,
+          raids.partyView().cap
+        );
+        if (settled.missingIds.length) {
+          const names = settled.missingIds.map((id) => selectedNames.get(id) ?? "A selected zombie");
+          hud.showToast(`${names.join(", ")} ${names.length === 1 ? "is" : "are"} no longer available. Please choose your army again.`);
+          return false;
+        }
+        partyIds = settled.ids;
         // Golden Dice are consumed SERVER-side here (the loot roll's luck is pinned to
         // the session), so send how many the player asked for and adopt what it charged.
         const gate = await api.raidStart(

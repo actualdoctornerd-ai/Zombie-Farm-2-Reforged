@@ -30,15 +30,22 @@ describe("complete special-zombie roster", () => {
     }
   });
 
-  it("keeps all Epic rewards and voucher gifts out of the plantable Market", () => {
+  it("exposes exactly the five permanent plantable specials", () => {
+    const plantableSpecials = purchasableZombies(zombies)
+      .filter((zombie) => zombie.category === "special");
+    expect(plantableSpecials.map((zombie) => zombie.name).sort()).toEqual([
+      "Bombie", "Crazy Zombie", "Cupid Zombie", "Dapper Zombie", "Granny Zombie",
+    ]);
+    expect(plantableSpecials.every((zombie) =>
+      zombie.cost === 50 && zombie.level === 20 && zombie.brainsNeeded === true
+    )).toBe(true);
+  });
+
+  it("keeps all Epic rewards out of the plantable Market", () => {
     const market = new Set(purchasableZombies(zombies).map((zombie) => zombie.key));
     const rewards = zombies.filter((zombie) => zombie.rewardOnly);
-    const gifts = zombies.filter((zombie) => zombie.marketHidden);
     expect(rewards).toHaveLength(15);
-    expect(gifts.map((zombie) => zombie.name).sort()).toEqual([
-      "Crazy Zombie", "Cupid Zombie", "Green Flower Zombie", "Pink Cupid Zombie",
-    ]);
-    expect([...rewards, ...gifts].every((zombie) => !market.has(zombie.key))).toBe(true);
+    expect(rewards.every((zombie) => !market.has(zombie.key))).toBe(true);
   });
 
   it("routes every hidden gift to a distinct real catalog zombie", () => {

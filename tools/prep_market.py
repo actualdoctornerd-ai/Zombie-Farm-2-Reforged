@@ -31,6 +31,17 @@ ZOMBIES = os.path.join(ASSETS, "zombies.json")
 
 CATMAP = {"zombie": "normal", "special": "special", "mutation": "mutant"}
 
+# The reforged Market deliberately exposes only this small permanent set of
+# plantable named specials. Other Special-category zombies retain their quest,
+# event, voucher, or collection routes but do not appear as zombie crops.
+MARKET_SPECIALS = {
+    "Bombie",
+    "Crazy Zombie",
+    "Cupid Zombie",
+    "Dapper Zombie",
+    "Granny Zombie",
+}
+
 # ---- Zombie taxonomy (Phase 3) ---------------------------------------------
 # Keys look like ZombieActor<Group><Tier?><Suffix?>. The GROUP token (with a
 # trailing seasonal-variant digit stripped) maps to a display family; the Tier
@@ -215,6 +226,20 @@ def main():
             z["name"] = "Pink Cupid Zombie"
             z["category"] = "special"
             z["marketHidden"] = True
+
+    # Normalize the permanent Special tab: exactly five plantable zombies, all
+    # unlocked at level 20 for 50 brains. rewardOnly remains the stronger flag
+    # for Epic Boss prizes because it also prevents Zombie Pot duplication.
+    for z in zombies:
+        if z.get("category") != "special":
+            continue
+        is_market_special = z["name"] in MARKET_SPECIALS
+        z["marketHidden"] = not is_market_special
+        if is_market_special:
+            z["cost"] = 50
+            z["level"] = 20
+            z["brainsNeeded"] = True
+            z["rewardOnly"] = False
 
     # Permanent crops first, then holiday/seasonal crops; unlock level orders each
     # group. Python's stable sort retains authored order for complete ties.

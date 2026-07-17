@@ -1868,9 +1868,9 @@ export class Hud {
   /** Portrait image URL for a zombie type key (per-type composite). */
   zombiePortraitOf: ((key: string) => string) | null = null;
   /** Take a deployed zombie off the farm (into the Mausoleum). */
-  onZombieStore: ((id: string) => void) | null = null;
+  onZombieStore: ((id: string) => void | Promise<void>) | null = null;
   /** Put a stored zombie back on the farm. */
-  onZombieDeploy: ((id: string) => void) | null = null;
+  onZombieDeploy: ((id: string) => void | Promise<void>) | null = null;
   /** Whether a Mausoleum exists to store zombies in (gates the Store action). */
   canStoreZombies: (() => boolean) | null = null;
   /** Mausoleum storage-slot capacity (shown as fixed slots; default 15). */
@@ -1880,7 +1880,7 @@ export class Hud {
   /** Select a deployed zombie and center the camera on it. */
   onZombieLocate: ((id: string) => void) | null = null;
   /** Permanently sell an owned zombie for gold (after confirmation). */
-  onZombieSell: ((id: string) => void) | null = null;
+  onZombieSell: ((id: string) => void | Promise<void>) | null = null;
   /** Base market cost of a zombie type by key — drives the sell payout shown on
    *  the detail card (sell = floor(baseCost/2), binary ground truth). */
   zombieBaseCost: ((key: string) => number) | null = null;
@@ -1911,11 +1911,11 @@ export class Hud {
       })
     | null = null;
   /** Start combining two owned zombies by id. */
-  onCombine: ((idA: string, idB: string) => boolean) | null = null;
+  onCombine: ((idA: string, idB: string) => boolean | Promise<boolean>) | null = null;
   /** Reward-only actors cannot be consumed or cloned by the Zombie Pot. */
   canCombineZombie: ((key: string) => boolean) | null = null;
   /** Collect a finished combine; returns the new zombie's name (or null). */
-  onCollectCombine: (() => string | null) | null = null;
+  onCollectCombine: (() => string | null | Promise<string | null>) | null = null;
 
   // ---- raid hooks (set by main) ----
   /** All invasions as cards (unlock/lock state resolved against player level). */
@@ -2516,6 +2516,11 @@ export class Hud {
       } else start.disabled = false;
     };
     foot.append(pick, pay, start); wrap.append(head, cards, foot); panel.appendChild(wrap); refresh();
+  }
+
+  /** Rebuild an open Epic Boss picker after authoritative roster settlement. */
+  refreshEpicBossArmy() {
+    if (document.querySelector("#hud .army-bg")) this.openEpicBossArmy();
   }
 
   private buildMarketCard(en: MktEntry): HTMLElement {
@@ -4102,14 +4107,15 @@ export class Hud {
     if (info.id) {
       const btns = document.createElement("div");
       btns.className = "zbtns";
-      const mk = (label: string, cls: string, enabled: boolean, fn: () => void) => {
+      const mk = (label: string, cls: string, enabled: boolean, fn: () => void | Promise<void>) => {
         const b = document.createElement("button");
         b.className = `zbtn ${cls}`;
         b.textContent = label;
         b.disabled = !enabled;
-        b.onclick = () => {
+        b.onclick = async () => {
+          b.disabled = true;
           bg.remove();
-          fn();
+          await fn();
           refresh?.();
         };
         return b;
@@ -4179,9 +4185,10 @@ export class Hud {
     const confirm = document.createElement("button");
     confirm.className = "zbtn sell";
     confirm.textContent = `Sell +${value}g`;
-    confirm.onclick = () => {
+    confirm.onclick = async () => {
+      confirm.disabled = true;
       bg.remove();
-      this.onZombieSell?.(info.id!);
+      await this.onZombieSell?.(info.id!);
       refresh?.();
     };
     btns.append(cancel, confirm);
@@ -4459,8 +4466,8 @@ export class Hud {
     }
     for (const z of onFarm) {
       grid.appendChild(
-        this.buildRosterCard(z, () => {
-          this.onZombieStore?.(z.id);
+        this.buildRosterCard(z, async () => {
+          await this.onZombieStore?.(z.id);
           bg.remove();
           afterStore();
         })
@@ -4545,8 +4552,9 @@ export class Hud {
       const go = document.createElement("button");
       go.className = "cmb-go";
       go.textContent = "Collect";
-      go.onclick = () => {
-        const name = this.onCollectCombine?.();
+      go.onclick = async () => {
+        go.disabled = true;
+        const name = await this.onCollectCombine?.();
         if (name) { stop(); renderIdle(); }
       };
       wrap.append(head, slots, bar, note, go);
@@ -4658,10 +4666,12 @@ export class Hud {
       go.className = "cmb-go";
       go.textContent = "Combine";
       go.disabled = !(pickA && pickB);
-      go.onclick = () => {
+      go.onclick = async () => {
         if (!pickA || !pickB) return;
-        const ok = this.onCombine?.(pickA, pickB);
+        go.disabled = true;
+        const ok = await this.onCombine?.(pickA, pickB);
         if (ok) { pickA = pickB = null; renderBusy(); }
+        else renderIdle();
       };
       wrap.append(head, slots, list, go);
     };

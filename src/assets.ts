@@ -538,6 +538,7 @@ export async function loadAssets(): Promise<GameAssets> {
   // dedicated parts, then merge them over a plain skeleton so partial actors do not
   // collapse to a lone prop/body (Skittles was previously just one candy).
   const plain = zombieModels["ZombieActorRegularTier1"];
+  const headless = zombieModels["ZombieActorHeadlessTier1"];
   for (const z of zombies.filter((row) => row.specialSprite)) {
     const manifest = specialModels[z.key];
     if (!manifest) continue;
@@ -549,8 +550,14 @@ export async function loadAssets(): Promise<GameAssets> {
         frame: new Rectangle(f.x, f.y, f.w, f.h),
       });
     }
+    // Bombie is authored as a floating head, but its plantable incarnation uses
+    // the ordinary headless-zombie body beneath its dedicated bomb attachments.
+    const base = z.key === "ZombieActorBombie" ? headless : plain;
+    const assembledManifest = z.key === "ZombieActorBombie"
+      ? { ...manifest, floatingHead: false }
+      : manifest;
     zombieModels[z.key] = mergeSpecialZombieModel(
-      plain, z, manifest, (file) => `special:${z.key}:${file}`
+      base, z, assembledManifest, (file) => `special:${z.key}:${file}`
     );
   }
 

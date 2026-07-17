@@ -10,6 +10,13 @@ const unit = (id: string, team: "player" | "enemy", boss = false): CombatUnit =>
 });
 
 describe("Epic Boss BattleSim mode", () => {
+  it("preserves an injured boss's starting health", () => {
+    const boss = unit("boss", "enemy", true);
+    boss.hp = 3_250;
+    const sim = new BattleSim([unit("p", "player")], [boss], null, false, [], null, 60_000, null, null, true, true);
+    expect(sim.snapshot().units.find((u) => u.id === "boss")?.hp).toBe(3_250);
+  });
+
   it("ends with an escape at the hard 30-second-style deadline", () => {
     const sim = new BattleSim([unit("p", "player")], [unit("boss", "enemy", true)], null, false, [], null, 1_000, null, null, true, true);
     for (let i = 0; i < 25 && !sim.finished; i++) sim.step(50);

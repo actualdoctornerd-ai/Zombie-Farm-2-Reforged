@@ -23,6 +23,16 @@ const snap = (key: string, extra: Partial<{ mutation: number; tier: number; isBa
 });
 
 describe("combine timer", () => {
+  it("persists parent identities for an online reload", () => {
+    const { pot } = makePot();
+    pot.start({ ...snap("A"), id: "server-a" }, { ...snap("B"), id: "server-b" }, false);
+    expect(pot.serialize()).toMatchObject({ parentAId: "server-a", parentBId: "server-b" });
+
+    const restored = new ZombiePot(() => 0, () => 0);
+    restored.restore(pot.serialize());
+    expect(restored.pending).toMatchObject({ parentAId: "server-a", parentBId: "server-b" });
+  });
+
   it("defaults to 1 hour", () => {
     const { pot } = makePot();
     pot.start(snap("A"), snap("B"), false);

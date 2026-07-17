@@ -44,6 +44,7 @@ export interface PotResult {
 }
 
 type ZombieSnapshot = Pick<OwnedZombieSave, "key"> & {
+  id?: string;
   mutation: number;
   color?: [number, number, number];
   /** Combat tier (0..5). Used to pick the winner when both parents are non-veggie. */
@@ -133,6 +134,7 @@ export class ZombiePot {
     const startedAt = this.now();
     const duration = baseDurationMs * (hasMonolith ? MONOLITH_MULT : 1);
     this.job = {
+      ...(a.id && b.id ? { parentAId: a.id, parentBId: b.id } : {}),
       keyA: a.key,
       keyB: b.key,
       maskA: a.mutation,

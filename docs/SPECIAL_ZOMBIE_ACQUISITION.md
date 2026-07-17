@@ -28,22 +28,16 @@ These are granted directly to the deployed farm roster when there is room, or to
 zombie storage when the deployed army is full. They cannot be bought, planted,
 seeded by migration, or used to duplicate themselves in the Zombie Pot.
 
-## Market: Special zombie crops (37)
+## Market: Special zombie crops (5)
 
-The following are bought directly from the zombie Market and grown normally:
+These five permanent specials unlock at level 20 and cost 50 brains to plant:
 
-- Bombie, Dapper Zombie, Deputy Zombie, Forest Zombie, George Washington,
-  Granny Zombie, John Hancock, Master Ninjombie, Medusa Zombie, MerZombie,
-  Mummy Zombie, Ninjombie, Old McZombie, Omega Zombie Bot, Poseidon Zombie,
-  Sheriff Zombie, Skittles Zombie, Zastronaut, ZomBetty, ZomBloke, ZomHelga,
-  Zombeach Bum, Zombie Bot, Zula Girl, and Zwamp Thing.
-- Diver Zombie, JackoZombie, Reindeer Zombie, Skull Head, Teddy Zombie,
-  Zanta Clause, Zcarecrow, Zombelly Dancer, Zombotron, Zombutterfly,
-  Zombricaun, and Zomviking.
+- Bombie, Crazy Zombie, Cupid Zombie, Dapper Zombie, and Granny Zombie.
 
 ## Market vouchers (4)
 
-These are obtained by buying and using a boost rather than planting the zombie:
+These can also be obtained by buying and using a boost rather than planting the
+zombie (Crazy and Cupid retain both routes):
 
 | Market item | Zombie |
 |---|---|

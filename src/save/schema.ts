@@ -240,6 +240,10 @@ export interface OwnedZombieSave {
 /** A pending Zombie Pot combine job. Both parents are consumed on start; the
  *  result is produced when `finishAt` passes (offline-safe: absolute epoch). */
 export interface ZombiePotSave {
+  /** Authoritative identities of the consumed parents. Persisted for signed-in
+   * games so an in-progress job can be reconstructed after a reload. */
+  parentAId?: string;
+  parentBId?: string;
   /** Species key of parent A (a candidate for the result species). */
   keyA: string;
   /** Species key of parent B. */

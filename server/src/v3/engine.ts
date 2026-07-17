@@ -282,7 +282,9 @@ function applyOne(
       if (!harvest.ok) return reject(sequence, harvest.error);
       state.farm.plots[key] = { state: "spent", zombie: plot.zombie };
       events.push(harvest.event);
-      return { sequence, status: "applied", createdIds: created.slice(createdBefore) };
+      const createdIds = created.slice(createdBefore);
+      return { sequence, status: "applied", createdIds,
+        createdZombieSources: createdIds.map((id) => ({ id, oc: command.oc, or: command.or })) };
     }
     case "farm.remove": {
       const key = plotKey(command.oc, command.or);
@@ -316,6 +318,7 @@ function applyOne(
       }
       let effects = 0;
       const createdBefore = created.length;
+      const createdZombieSources: { id: string; oc: number; or: number }[] = [];
       if (command.key === "insta_plow") {
         for (const [key, plot] of Object.entries(state.farm.plots)) {
           if (plot.state !== "spent") continue;
@@ -328,8 +331,13 @@ function applyOne(
           .filter((entry): entry is [string, Extract<FarmPlotProjection, { state: "planted" }>] => entry[1].state === "planted" && isRipe(entry[1], options.now))
           .sort((a, b) => a[1].plantedAt - b[1].plantedAt || a[0].localeCompare(b[0]));
         for (const [key, plot] of ripe) {
+          const createdAt = created.length;
           const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created, options.now, options.random);
           if (!harvest.ok) continue; // capacity-full zombie crops remain planted
+          if (created.length > createdAt) {
+            const [oc, or] = key.split(":").map(Number);
+            createdZombieSources.push({ id: created[created.length - 1], oc, or });
+          }
           state.farm.plots[key] = { state: "spent", zombie: plot.zombie };
           effects++;
           events.push(harvest.event);
@@ -353,7 +361,9 @@ function applyOne(
       }
       if (!effects) return reject(sequence, "no_effect");
       state.inventory[command.key] = have - 1;
-      return { sequence, status: "applied", createdIds: created.slice(createdBefore) };
+      const createdIds = created.slice(createdBefore);
+      return { sequence, status: "applied", createdIds,
+        ...(command.key === "insta_harvest" ? { createdZombieSources } : {}) };
     }
     case "object.buy": {
       const econ = objectEcon(command.catalogKey);

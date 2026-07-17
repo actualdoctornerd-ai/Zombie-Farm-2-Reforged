@@ -39,15 +39,17 @@ describe("named special-zombie model assembly", () => {
     expect(model.color).toEqual([120, 240, 80]);
   });
 
-  it("keeps an explicitly floating-head actor free of inherited body parts", () => {
+  it("can place Bombie's dedicated head over a headless body", () => {
     const model = mergeSpecialZombieModel(base, { ...skittles, group: "Headless" }, {
       name: "bombie",
       neck: { x: 2, y: -4 },
-      floatingHead: true,
+      floatingHead: false,
       parts: [{ file: "Head.png", group: "head", px: 2, py: -4, ax: 0.5, ay: 0.5, z: 4 }],
     }, (file) => `special:${file}`);
 
-    expect(model.parts.map((part) => part.file)).toEqual(["special:Head.png"]);
+    expect(model.parts.map((part) => part.file)).toEqual([
+      "defaultArmB", "defaultBody", "special:Head.png", "defaultArmF",
+    ]);
     expect(model.neck).toEqual({ x: 2, y: -4 });
   });
 

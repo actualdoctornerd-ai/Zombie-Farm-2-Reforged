@@ -432,7 +432,10 @@ def export_zombie_parts(entry_name, name):
         "name": name,
         "neck": {"x": head[0], "y": -head[1]},
         "color": color,
-        "floatingHead": bool(z.get("floatingHead", False)),
+        # The source flags Bombie as a floating head, but the playable crop uses
+        # that bomb head on the standard headless-zombie body.
+        "floatingHead": False if entry_name == "Bombie"
+                        else bool(z.get("floatingHead", False)),
         "parts": parts,
     }
     json.dump(manifest, open(os.path.join(outdir, "manifest.json"), "w"), indent=1)
@@ -460,19 +463,19 @@ def composite_zombie(entry_name, out_name):
             if L:
                 head = (L["offsetX"], L["offsetY"])
 
-    # Named actor definitions are attachment DELTAS over the ordinary skeleton,
-    # not complete bodies. Seed the composition with the plain Tier-1 model and
-    # remove only the slots replaced by this actor. Bombie explicitly opts into a
-    # floating head, so it is the one actor that does not inherit the body.
+    # Named actor definitions are attachment DELTAS over an ordinary skeleton,
+    # not complete bodies. Bombie uses the headless Tier-1 body; other specials
+    # use the regular Tier-1 body. Remove only the slots replaced by this actor.
     models = json.load(open(os.path.join(OUT, "zombie", "models.json")))
     frames = json.load(open(os.path.join(OUT, "zombie", "frames.json")))
     base_sheet = Image.open(os.path.join(OUT, "zombie", "ZombieSheet.png")).convert("RGBA")
-    base = models["ZombieActorRegularTier1"]
-    base_head = inherited_head_offset()
+    base = models["ZombieActorHeadlessTier1" if entry_name == "Bombie"
+                  else "ZombieActorRegularTier1"]
+    base_head = (base["neck"]["x"], -base["neck"]["y"])
     head_dx, head_dy = head[0] - base_head[0], head[1] - base_head[1]
     replaced = set(slot.values())
     items = []
-    if not z.get("floatingHead", False):
+    if entry_name == "Bombie" or not z.get("floatingHead", False):
         for p in base["parts"]:
             base_slot = p["file"].removeprefix("default")
             if base_slot in replaced:

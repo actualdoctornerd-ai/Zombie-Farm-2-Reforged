@@ -285,6 +285,7 @@ describe("protocol v3 command engine", () => {
     });
     expect(result.results).toHaveLength(1);
     expect(result.results[0].status).toBe("applied");
+    expect(result.results[0].createdZombieSources).toEqual([{ id: "server-z1", oc: 4, or: 0 }]);
     expect(result.state.inventory.insta_harvest).toBe(0);
     expect(result.state.roster.find((unit) => unit.id === "server-z1")).toMatchObject({ key: "ZombieActorRegularTier1", stored: false });
     expect(result.state.farm.plots["4:0"]).toMatchObject({ state: "spent", zombie: true });

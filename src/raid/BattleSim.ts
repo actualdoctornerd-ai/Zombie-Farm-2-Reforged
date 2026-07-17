@@ -310,7 +310,10 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     isHeadless: u.isHeadless,
     x: home.x,
     y: home.y,
-    hp: u.maxHp,
+    // Epic Boss attempts can begin with damage retained from an earlier escape.
+    // Preserve the supplied combat HP instead of silently healing every unit to
+    // max while translating it into simulation state.
+    hp: Math.max(0, Math.min(u.maxHp, u.hp)),
     maxHp: u.maxHp,
     alive: true,
     state: isPlayer ? "waiting" : "queued",

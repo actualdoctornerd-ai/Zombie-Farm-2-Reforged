@@ -71,6 +71,7 @@ const END_PAUSE_MS = 650; // beat after the last blow before we move on
 const OUTRO_WALK_SPEED = 230; // sim px/s — a normal march (cf. enemy EMERGE_SPEED 210)
 const OUTRO_RESULT_DELAY_MS = 1500; // beat before the loot panel comes in from the right
 const RETREAT_RESULT_DELAY_MS = 1500; // let survivors walk off left before the loss panel
+const EPIC_BOSS_EXIT_MS = 800; // reverse the sky entry before the result panel appears
 const DEATH_FADE = 0.45; // seconds for a fallen unit to poof + fade out
 const HEAL_POSE_S = 0.7; // Garden healer raises, holds, then lowers both arms
 const PLAYER_COLOR = 0x8bc34a;
@@ -258,6 +259,8 @@ export class RaidScene {
   private bossTexture: string;
   private bossAnimationDefs: RaidSceneParams["bossAnimations"];
   private bossGroundOffset: { x: number; y: number };
+  private bossFallsFromSky = false;
+  private bossExitMs = 0;
   private bossFrames = new Map<string, Texture[]>();
   private projLayer = new Container();
   private projTex = new Map<string, Texture | null>();
@@ -334,6 +337,7 @@ export class RaidScene {
     this.bossTexture = params.bossTexture ?? "";
     this.bossAnimationDefs = params.bossAnimations;
     this.bossGroundOffset = params.bossGroundOffset ?? { x: 0, y: 0 };
+    this.bossFallsFromSky = !!params.bossFallsFromSky;
     this.confirmRetreat = params.confirmRetreat ?? (() => Promise.resolve(true));
     this.sim = new BattleSim(
       params.playerUnits,
@@ -1042,6 +1046,15 @@ export class RaidScene {
         sx += this.bossGroundOffset.x * szs;
         sy += groundDrop + this.bossGroundOffset.y * szs;
       }
+      // Epic Bosses leave through the same sky edge they entered from. This is
+      // presentation-only: the deterministic fight has already ended, while the
+      // authored escape strip plays during the upward launch.
+      const bossLeaving = this.bossFallsFromSky && u.isBoss && u.alive &&
+        (this.sim.escaped || this.phase === "retreat");
+      if (bossLeaving) {
+        const t = Math.min(1, this.bossExitMs / EPIC_BOSS_EXIT_MS);
+        sy -= t * t * (this.app.screen.height + 400);
+      }
       // Mini Buddy jumps from its waiting spot onto the Large zombie, then rides
       // near the carrier's shoulder until the pair reaches the frontline.
       if (u.state === "carried" && u.buddyCarrierId) {
@@ -1200,7 +1213,7 @@ export class RaidScene {
         // selected attack for one render frame, then reset to idle; on a killing hit
         // the frozen flag made the attack appear only after combat had ended.
         const attackPlaying = tok.epicAnim === "attack" && tok.epicActor.playing;
-        const wanted = !u.alive ? "defeat" : this.sim.escaped ? "escape"
+        const wanted = !u.alive ? "defeat" : bossLeaving ? "escape"
           : u.state === "falling" ? "fly" : u.state === "landing" ? "enter"
           : attackPlaying || attackStarting ? "attack" : "idle";
         const wantedLoop = wanted === "fly" || wanted === "idle";
@@ -1428,6 +1441,10 @@ export class RaidScene {
       this.abilityStrip.interactiveChildren = false;
       this.bubble.visible = false;
       this.setPhase("retreat");
+    }
+
+    if (this.bossFallsFromSky && (this.sim.escaped || this.phase === "retreat")) {
+      this.bossExitMs += dtMs;
     }
 
     switch (this.phase) {
