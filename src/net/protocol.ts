@@ -35,7 +35,7 @@ export type GameplayCommand =
   | { type: "storage.move"; itemKey: string; direction: "store" | "take"; quantity: number }
   | { type: "roster.sell"; unitId: string }
   | { type: "roster.status"; unitId: string; stored: boolean }
-  | { type: "roster.combine"; parentAId: string; parentBId: string }
+  | { type: "roster.combine"; parentAId: string; parentBId: string; playerLevel?: number }
   | { type: "shop.size"; size: number; currency: "gold" | "brains" }
   | { type: "shop.climate"; terrain: string }
   | { type: "farmer.buy"; headId: number }

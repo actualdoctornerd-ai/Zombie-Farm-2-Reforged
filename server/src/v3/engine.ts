@@ -18,11 +18,13 @@ import { levelForXp, levelUpBrains } from "../levels";
 import { objectBuyXp, objectEcon, objectRefund } from "../objectCatalog";
 import { planClaim } from "../storage";
 import { QUEST_DEFINITIONS, QUEST_REWARD } from "../questCatalog";
-import { fertilizeProbability, zombieSell, ZOMBIE_COST } from "../rosterCatalog";
+import { fertilizeProbability, zombieSell } from "../rosterCatalog";
 import { climateCost, nextSize, sizeTier } from "../shopCatalog";
 import { zombieCropEcon } from "../zombieCropCatalog";
 import { farmerGold, farmerZombieGrowMs } from "../../../src/farmer";
 import { dropsEpicBossToken } from "../../../src/epicBoss/tokens";
+import { combineMasks } from "../../../src/zombie/mutations";
+import { createCombineRandom, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
 
 export const MAX_FARM_PLOTS = 225;
 export const MAX_FUNCTIONAL_OBJECTS = 512;
@@ -40,13 +42,44 @@ interface ObjectRule {
 }
 
 interface NamedRule { name: string }
-interface ZombieRule extends NamedRule { key: string; mutation?: number; rewardOnly?: boolean }
+interface ZombieRule extends NamedRule {
+  key: string;
+  mutation?: number;
+  rewardOnly?: boolean;
+  tier?: number;
+  category?: string;
+  group?: string;
+}
 
 const plantNames = new Map((plantRows as (NamedRule & { key: string })[]).map((r) => [r.key, r.name]));
 const zombieRules = zombieRows as ZombieRule[];
 const zombieNames = new Map(zombieRules.map((r) => [r.key, r.name]));
 const zombieMutations = new Map(zombieRules.map((r) => [r.key, r.mutation ?? 0]));
 const rewardOnlyZombies = new Set(zombieRules.filter((r) => r.rewardOnly).map((r) => r.key));
+const zombieRuleByKey = new Map(zombieRules.map((r) => [r.key, r]));
+
+/** Use the same special override, rare promotion, mutant-donor, and tier rules as
+ * the timed client Zombie Pot. */
+function combinedSpecies(
+  a: RosterUnitProjection,
+  b: RosterUnitProjection,
+  playerLevel: number
+): string | null {
+  const ar = zombieRuleByKey.get(a.key);
+  const br = zombieRuleByKey.get(b.key);
+  return selectCombineSpecies(
+    {
+      key: a.key, tier: ar?.tier, group: ar?.group,
+      isMutant: ar?.category === "mutant", isSpecial: ar?.category === "special",
+    },
+    {
+      key: b.key, tier: br?.tier, group: br?.group,
+      isMutant: br?.category === "mutant", isSpecial: br?.category === "special",
+    },
+    playerLevel,
+    createCombineRandom(a.id, b.id)
+  );
+}
 
 /** Catalog mutation guaranteed by a market-mutant species (0 for ordinary units). */
 export function zombieDefaultMutation(key: string): number {
@@ -354,7 +387,11 @@ function applyOne(
         } else {
           const key = plotKey(command.oc ?? -1, command.or ?? -1);
           const plot = state.farm.plots[key];
-          if (plot?.state === "planted" && !isRipe(plot, options.now)) {
+          // The client uses the exact grow timer while ordinary harvests allow a
+          // small latency grace. Accept a targeted planted crop even if it has just
+          // entered that grace window; otherwise a legitimate boost followed by a
+          // harvest reports a misleading `no_effect` state-change rollback.
+          if (plot?.state === "planted") {
             plot.plantedAt = options.now - plot.growMs;
             effects = 1;
           }
@@ -456,9 +493,18 @@ function applyOne(
       const b = state.roster.find((u) => u.id === command.parentBId && !u.lockedByRaid);
       if (!a || !b) return reject(sequence, "not_owned");
       if (rewardOnlyZombies.has(a.key) || rewardOnlyZombies.has(b.key)) return reject(sequence, "reward_only");
-      const resultKey = (ZOMBIE_COST[a.key] ?? 0) >= (ZOMBIE_COST[b.key] ?? 0) ? a.key : b.key;
+      // Older clients omit the start level and retain collection-time behavior.
+      // New clients send the persisted start level; capping it at the authoritative
+      // current level prevents a forged value from unlocking the rare roll early.
+      const requestedLevel = Number.isInteger(command.playerLevel) && command.playerLevel! >= 1
+        ? command.playerLevel!
+        : level;
+      const resultKey = combinedSpecies(a, b, Math.min(requestedLevel, level));
+      if (!resultKey) return reject(sequence, "special_pair");
       const id = options.id();
-      const mutation = Math.min(0xffff, a.mutation | b.mutation | (1 << Math.floor(options.random() * 8)));
+      // Mutation inheritance never invents a new bit. It carries one mutation per
+      // anatomical slot and deterministically resolves a same-slot conflict.
+      const mutation = combineMasks(a.mutation, b.mutation);
       state.roster = state.roster.filter((u) => u.id !== a.id && u.id !== b.id);
       state.roster.push({ id, key: resultKey, mutation, invasions: 0, stored: false });
       created.push(id);

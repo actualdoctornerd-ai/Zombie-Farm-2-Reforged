@@ -17,6 +17,7 @@ type PresentationData = {
   objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
   rosterLayout?: { id: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
   zombiePot?: SaveGame["zombiePot"];
+  zombiePots?: SaveGame["zombiePots"];
   tutorial?: SaveGame["tutorial"];
   ui?: { attackOrder?: string[] };
 };
@@ -90,7 +91,7 @@ export class SaveManager {
       },
       objects: this.field.serializeObjects(),
       ownedZombies: this.zombies.serialize(),
-      zombiePot: this.zombies.serializePot(),
+      zombiePots: this.zombies.serializePots(),
       storage: { itemCap: this.state.storageItemCap, items: this.state.storedItems, received: this.state.received },
       boosts: this.state.boostInv,
       quests: this.quests.serialize(),
@@ -114,7 +115,7 @@ export class SaveManager {
       farm: { climate: blob.farm.climate, background: blob.farm.background },
       objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id, oc: o.oc, or: o.or, rotation: o.rotation })),
       rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, pos: u.pos, stored: u.stored, color: u.color })),
-      zombiePot: blob.zombiePot,
+      zombiePots: blob.zombiePots,
       tutorial: blob.tutorial,
       ui: { attackOrder: blob.raids?.attackOrder ?? [] },
     };
@@ -234,9 +235,14 @@ export class SaveManager {
       return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout?.oc ?? 0, or: layout?.or ?? 0,
         rotation: layout?.rotation, readyAt: obj.readyAt }];
     });
+    const pots = Object.fromEntries(Object.entries(p.zombiePots ?? {}).filter(([, pot]) =>
+      !!pot?.parentAId && !!pot.parentBId
+    ));
     const pot = p.zombiePot?.parentAId && p.zombiePot.parentBId ? p.zombiePot : undefined;
     const hiddenPotParents = new Set(
-      pot?.parentAId && pot?.parentBId ? [pot.parentAId, pot.parentBId] : []
+      [...Object.values(pots), ...(pot ? [pot] : [])].flatMap((job) =>
+        job.parentAId && job.parentBId ? [job.parentAId, job.parentBId] : []
+      )
     );
     const roster = boot.gameplay.roster.filter((unit) => !hiddenPotParents.has(unit.id)).map((unit) => {
       const layout = rosterLayout.get(unit.id);
@@ -264,7 +270,8 @@ export class SaveManager {
         ownedClimates: boot.gameplay.climates, plots },
       objects,
       ownedZombies: roster,
-      zombiePot: pot,
+      zombiePots: Object.keys(pots).length ? pots : undefined,
+      zombiePot: Object.keys(pots).length ? undefined : pot,
       storage: {
         itemCap: 8,
         items: Object.entries(boot.gameplay.storage.stored).map(([key, count]) => ({ key, count })),
@@ -332,7 +339,7 @@ export class SaveManager {
     }));
     this.field.restoreObjects(objects, (key) => this.placeCatalog.get(key));
     this.zombies.restore(data.ownedZombies ?? []);
-    this.zombies.restorePot(data.zombiePot);
+    this.zombies.restorePots(data.zombiePots, data.zombiePot);
     const epicRun = this.state.epicBossRun;
     const epicDef = epicBossById(epicRun?.bossId);
     const epicActive = !!epicRun && !epicRun.completedAt && Date.now() < epicRun.expiresAt;

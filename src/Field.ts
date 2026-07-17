@@ -1042,6 +1042,18 @@ export class Field {
     return null;
   }
 
+  /** Every placed Zombie Pot id. Jobs are keyed to these ids so each physical pot
+   * opens and advances its own combine. */
+  zombiePotIds(): string[] {
+    const ids: string[] = [];
+    for (const o of this.objects.values()) if (o.def.zombiePot) ids.push(o.id);
+    return ids;
+  }
+
+  zombiePotCount(): number {
+    return this.zombiePotIds().length;
+  }
+
   // Does the player own a colored grave of this class? Colored graves gate
   // planting the matching zombie class (Blue/Red/Silver); Green needs none.
   hasGrave(color: "Blue" | "Red" | "Silver"): boolean {

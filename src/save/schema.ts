@@ -57,6 +57,8 @@ export interface SaveGame {
   ownedZombies?: OwnedZombieSave[];
   /** A pending Zombie Pot combine job, if one is running. */
   zombiePot?: ZombiePotSave;
+  /** Independent pending jobs keyed by placed Zombie Pot object id. */
+  zombiePots?: Record<string, ZombiePotSave>;
   /** Phase 4: item + zombie storage. */
   storage?: StorageSave;
   /** Consumable boost inventory (Market Boosts tab). */
@@ -244,7 +246,7 @@ export interface ZombiePotSave {
    * games so an in-progress job can be reconstructed after a reload. */
   parentAId?: string;
   parentBId?: string;
-  /** Species key of parent A (a candidate for the result species). */
+  /** Species key of parent A. */
   keyA: string;
   /** Species key of parent B. */
   keyB: string;
@@ -263,6 +265,14 @@ export interface ZombiePotSave {
    *  species picker treats these as mutation donors (see ZombiePot). */
   baseA?: boolean;
   baseB?: boolean;
+  /** Parent body types and Special-category flags used by the level-25 rare
+   * combining-special roll and the one-special species override. */
+  groupA?: string;
+  groupB?: string;
+  specialA?: boolean;
+  specialB?: boolean;
+  /** Player level captured when the combine began. Optional for old saves. */
+  playerLevel?: number;
   /** Epoch ms the combine started. */
   startedAt: number;
   /** Epoch ms the result is ready (start + duration, Monolith already applied). */

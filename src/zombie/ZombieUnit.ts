@@ -14,6 +14,7 @@ import { setFootprint } from "../depthSort";
 import { findPath } from "../pathfind";
 import { OwnedZombie } from "./types";
 import { bitsOf, slotOf } from "./mutations";
+import { matchesMutationReplacement, type MutationReplacement } from "./mutationVisual";
 
 // Head replacements draw over the base skull but under facial parts, so eyes stay
 // visible on Onion/Tomato/etc. Hair/eye mutations draw above the face.
@@ -143,6 +144,7 @@ export class ZombieUnit {
     this.renderScale = scale;
     this.root.sortableChildren = true;
     this.neck = { x: m.neck.x, y: m.neck.y };
+    const replaceable: Record<MutationReplacement, Sprite[]> = { body: [], armF: [] };
 
     for (const p of m.parts) {
       const tex = assets.zombiePartTex[p.file];
@@ -155,6 +157,8 @@ export class ZombieUnit {
       if (p.tint) sp.tint = tint; // only the grey skeleton is unit-coloured
       this.parts.push(sp);
       this.root.addChild(sp);
+      if (matchesMutationReplacement(p.file, "body")) replaceable.body.push(sp);
+      if (matchesMutationReplacement(p.file, "armF")) replaceable.armF.push(sp);
       if (p.group === "head") {
         this.headParts.push({ sp, bx: p.px, by: p.py }); // tilts with the head-nod
       } else if (p.group === "footF") { this.footF = sp; this.footFBaseY = p.py; }
@@ -164,7 +168,7 @@ export class ZombieUnit {
     // Attach crop-mutation parts from the unit's mask (onion head, celery arm, …).
     // Independent of species: a combined zombie shows exactly the mutations it
     // carries. Head parts join headParts (tilt with the head-nod); the rest sit flat.
-    this.addMutations(assets, m, tint);
+    this.addMutations(assets, m, replaceable);
     // Some models (Headless) have no feet parts; guard the walk animation.
     if (!this.footF) { this.footF = new Sprite(); this.root.addChild(this.footF); }
     if (!this.footB) { this.footB = new Sprite(); this.root.addChild(this.footB); }
@@ -180,7 +184,11 @@ export class ZombieUnit {
   // mutation lands correctly on any species' body. A model may remap a bit to an
   // alternate part (Tier-4 variants: bit 512 -> heartichokeBody, bit 4 -> eyebiscusHat)
   // so the shared stat bit still shows the variant's own hair on the field.
-  private addMutations(assets: GameAssets, model: ZombieModel, _tint: number) {
+  private addMutations(
+    assets: GameAssets,
+    model: ZombieModel,
+    replaceable: Record<MutationReplacement, Sprite[]>,
+  ) {
     const neck = model.neck;
     for (const bit of bitsOf(this.data.mutation)) {
       const partKey = model.mutationOverrides?.[String(bit)] ?? String(bit);
@@ -193,12 +201,18 @@ export class ZombieUnit {
       const px = mp.ox + (mp.headRel ? neck.x : 0);
       const py = -mp.oy + (mp.headRel ? neck.y : 0);
       sp.position.set(px, py);
+      if (mp.replaces) {
+        for (const basePart of replaceable[mp.replaces]) basePart.visible = false;
+      }
       this.root.addChild(sp);
       if (mp.group === "head") {
         sp.zIndex = slotOf(bit) === "hair_eye" ? MUT_FACE_OVERLAY_Z : MUT_HEAD_REPLACE_Z;
         this.headParts.push({ sp, bx: px, by: py }); // tilts with the head-nod
       } else {
         sp.zIndex = mp.z; // arms/body/collar keep their authored layering
+        if (mp.replaces === "armF") {
+          this.arms.push({ sp, baseRotation: sp.rotation });
+        }
       }
       this.parts.push(sp);
     }

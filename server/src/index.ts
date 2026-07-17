@@ -600,7 +600,9 @@ const validGameplayCommand = (value: unknown): value is GameplayCommand => {
         commandInt(command.quantity);
     case "roster.sell": return commandString(command.unitId);
     case "roster.status": return commandString(command.unitId) && typeof command.stored === "boolean";
-    case "roster.combine": return commandString(command.parentAId) && commandString(command.parentBId);
+    case "roster.combine":
+      return commandString(command.parentAId) && commandString(command.parentBId) &&
+        (command.playerLevel === undefined || (commandInt(command.playerLevel) && command.playerLevel >= 1));
     case "shop.size": return commandInt(command.size) && (command.currency === "gold" || command.currency === "brains");
     case "shop.climate": return commandString(command.terrain);
     case "farmer.buy": return commandInt(command.headId);
@@ -700,16 +702,25 @@ app.put("/presentation", async (c) => {
       !body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
     return c.json({ error: "bad_presentation" }, 400);
   }
-  const presentationKeys = new Set(["player", "farm", "objectLayout", "rosterLayout", "zombiePot", "tutorial", "ui", "settings", "camera", "selections"]);
+  const presentationKeys = new Set(["player", "farm", "objectLayout", "rosterLayout", "zombiePot", "zombiePots", "tutorial", "ui", "settings", "camera", "selections"]);
   const pot = body.data.zombiePot as Record<string, unknown> | undefined;
   const validPot = pot === undefined || (!!pot && typeof pot === "object" && !Array.isArray(pot) &&
     typeof pot.parentAId === "string" && pot.parentAId.length <= 80 &&
     typeof pot.parentBId === "string" && pot.parentBId.length <= 80 &&
     typeof pot.keyA === "string" && typeof pot.keyB === "string" &&
     Number.isFinite(pot.startedAt) && Number.isFinite(pot.finishAt));
+  const pots = body.data.zombiePots as Record<string, Record<string, unknown>> | undefined;
+  const validPots = pots === undefined || (!!pots && typeof pots === "object" && !Array.isArray(pots) &&
+    Object.keys(pots).length <= 3 && Object.entries(pots).every(([id, job]) =>
+      /^[A-Za-z0-9_-]{1,80}$/.test(id) && !!job && typeof job === "object" && !Array.isArray(job) &&
+      typeof job.parentAId === "string" && job.parentAId.length <= 80 &&
+      typeof job.parentBId === "string" && job.parentBId.length <= 80 &&
+      typeof job.keyA === "string" && typeof job.keyB === "string" &&
+      Number.isFinite(job.startedAt) && Number.isFinite(job.finishAt)
+    ));
   if (!Object.keys(body.data).every((key) => presentationKeys.has(key)) ||
       (Array.isArray(body.data.objectLayout) && body.data.objectLayout.length > 512) ||
-      (Array.isArray(body.data.rosterLayout) && body.data.rosterLayout.length > 512) || !validPot) {
+      (Array.isArray(body.data.rosterLayout) && body.data.rosterLayout.length > 512) || !validPot || !validPots) {
     return c.json({ error: "bad_presentation" }, 400);
   }
   const encoded = JSON.stringify(body.data);

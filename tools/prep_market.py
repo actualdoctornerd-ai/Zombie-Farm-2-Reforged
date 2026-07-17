@@ -213,6 +213,10 @@ def main():
         # parents are combined, the higher-tier one wins (see determineBaseClass,
         # recovered from the binary — docs/mechanics/BINARY_RE_METHODOLOGY.md).
         z["tier"] = int(us.get("tier", 0))
+        # Crazy Zombie is functionally a tier-5 Special. Its source UnitStats tier
+        # value is an erroneous 0, so keep the corrected gameplay classification.
+        if z["key"] == "ZombieActorRegularCrazy":
+            z["tier"] = 5
         # NOTE: abilities are NOT baked here. In ZF2 a zombie's abilities are
         # assigned by compiled logic (initActorSpecificAbilities group aura +
         # getRandomAbilityToUnlock veterancy unlocks), not by the asset data, so

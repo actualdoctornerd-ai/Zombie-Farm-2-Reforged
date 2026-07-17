@@ -274,6 +274,32 @@ describe("v3 raid dependency ids", () => {
     });
   });
 
+  it("keeps concurrent Zombie Pot parent pairs independent", () => {
+    const economy = new EconomyClient(new GameState(), "multi-pot-account");
+    const enqueue = vi.spyOn((economy as any).queue, "enqueue")
+      .mockReturnValueOnce(1).mockReturnValueOnce(2);
+    economy.restoreCombineParents("pot-a", "a1", "a2");
+    economy.restoreCombineParents("pot-b", "b1", "b2");
+
+    economy.submitRoster({ type: "combineCollect", potId: "pot-b", unitId: "child-b", key: "ignored" });
+    economy.submitRoster({ type: "combineCollect", potId: "pot-a", unitId: "child-a", key: "ignored" });
+
+    expect(enqueue).toHaveBeenNthCalledWith(1, { type: "roster.combine", parentAId: "b1", parentBId: "b2" });
+    expect(enqueue).toHaveBeenNthCalledWith(2, { type: "roster.combine", parentAId: "a1", parentBId: "a2" });
+  });
+
+  it("carries the persisted combine-start level into collection", () => {
+    const economy = new EconomyClient(new GameState(), "combine-level-account");
+    const enqueue = vi.spyOn((economy as any).queue, "enqueue").mockReturnValueOnce(1);
+    economy.restoreCombineParents("pot", "a", "b", 24);
+
+    economy.submitRoster({ type: "combineCollect", potId: "pot", unitId: "child", key: "ignored" });
+
+    expect(enqueue).toHaveBeenCalledWith({
+      type: "roster.combine", parentAId: "a", parentBId: "b", playerLevel: 24,
+    });
+  });
+
   it("charges the authoritative brain balance when a casualty is revived", async () => {
     const state = new GameState();
     const economy = new EconomyClient(state, "revive-test-account");

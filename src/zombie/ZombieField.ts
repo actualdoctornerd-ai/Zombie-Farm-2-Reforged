@@ -26,7 +26,7 @@ export class ZombieField {
   private stored: OwnedZombie[] = []; // stored: off the farm, still owned
   private selected: ZombieUnit | null = null;
   private nextId = 1;
-  private pot = new ZombiePot(); // the single Zombie Pot combine job (if any)
+  private pots = new Map<string, ZombiePot>(); // one independent job per placed pot
 
   // ---- server-owned roster hooks (P12) ----
   // ONLINE only. Fire when a unit is CREATED (onGrant) or REMOVED as a casualty /
@@ -38,10 +38,10 @@ export class ZombieField {
   onCasualty: ((ids: string[]) => void) | null = null;
   // Combine goes through its own server ops so the result can be validated against the
   // two parents: onCombineStart consumes the parents; onCombineCollect grants the
-  // result (server checks its key is one of the parents'). Fall back to casualty/grant
-  // if these aren't wired.
-  onCombineStart: ((parentAId: string, parentBId: string) => void) | null = null;
-  onCombineCollect: ((unitId: string, key: string, mutation: number) => void) | null = null;
+  // result (the v3 server derives its species from the authoritative parents). Fall
+  // back to casualty/grant if these aren't wired.
+  onCombineStart: ((potId: string, parentAId: string, parentBId: string) => void) | null = null;
+  onCombineCollect: ((potId: string, unitId: string, key: string, mutation: number) => void) | null = null;
   private rosterLive = false;
   private combining = false; // suppresses addUnit's generic onGrant during a collect
   private harvesting = false; // suppresses onGrant while spawning a server-harvested crop
@@ -237,12 +237,20 @@ export class ZombieField {
   // ---- Zombie Pot: combine two owned zombies into one ----
   /** The combine job (busy/ready/remainingMs), for the HUD. */
   get combinePot(): ZombiePot {
-    return this.pot;
+    const firstBusy = [...this.pots.values()].find((pot) => pot.busy);
+    return firstBusy ?? this.potFor(this.field.zombiePotId() ?? "legacy");
+  }
+
+  potFor(potId: string): ZombiePot {
+    let pot = this.pots.get(potId);
+    if (!pot) { pot = new ZombiePot(); this.pots.set(potId, pot); }
+    return pot;
   }
   /** Can a new combine be started right now? Needs a placed Zombie Pot, no combine
    *  already running, and two DISTINCT owned zombies to feed it. */
-  canCombine(): boolean {
-    return this.field.hasZombiePot() && !this.pot.busy && this.total >= 2;
+  canCombine(potId?: string): boolean {
+    const id = potId ?? this.field.zombiePotId();
+    return !!id && !!this.field.objectDefOf(id)?.zombiePot && !this.potFor(id).busy && this.total >= 2;
   }
 
   // Remove an owned zombie (deployed or stored) by id and return its data, or
@@ -273,30 +281,37 @@ export class ZombieField {
    * available, a combine is already running, the ids are the same, or either id
    * isn't owned.
    */
-  combine(idA: string, idB: string, baseDurationMs?: number): boolean {
+  combine(idA: string, idB: string, baseDurationMs?: number, potId?: string): boolean {
+    const targetPotId = potId ?? this.field.zombiePotId();
+    if (!targetPotId || !this.field.objectDefOf(targetPotId)?.zombiePot) return false;
+    const pot = this.potFor(targetPotId);
     if (idA === idB) return false;
-    if (!this.field.hasZombiePot() || this.pot.busy) return false;
+    if (pot.busy) return false;
     // Both must exist BEFORE we remove anything (no partial consumption).
     const hasA = this.units.some((u) => u.id === idA) || this.stored.some((d) => d.id === idA);
     const hasB = this.units.some((u) => u.id === idB) || this.stored.some((d) => d.id === idB);
     if (!hasA || !hasB) return false;
     const peekA = this.roster().find((zombie) => zombie.id === idA)!;
     const peekB = this.roster().find((zombie) => zombie.id === idB)!;
-    if (this.resolve(peekA.key)?.rewardOnly || this.resolve(peekB.key)?.rewardOnly) return false;
+    const defA = this.resolve(peekA.key);
+    const defB = this.resolve(peekB.key);
+    if (defA?.rewardOnly || defB?.rewardOnly) return false;
+    if (defA?.category === "special" && defB?.category === "special") return false;
     const a = this.takeOwned(idA)!;
     const b = this.takeOwned(idB)!;
     // Both parents are consumed. ONLINE: the server records them as a combine job
     // (onCombineStart) so it can validate the result at collect; fall back to a plain
     // casualty removal if the combine hooks aren't wired.
     if (this.rosterLive) {
-      if (this.onCombineStart) this.onCombineStart(idA, idB);
+      if (this.onCombineStart) this.onCombineStart(targetPotId, idA, idB);
       else this.onCasualty?.([idA, idB]);
     }
-    return this.pot.start(
+    return pot.start(
       { id: a.id, key: a.key, mutation: a.mutation, color: this.colorOf(a), ...this.speciesTraits(a) },
       { id: b.id, key: b.key, mutation: b.mutation, color: this.colorOf(b), ...this.speciesTraits(b) },
       this.field.hasCombineMonolith(), // Clay Monolith → 15-min combine
-      baseDurationMs
+      baseDurationMs,
+      this.state.level
     );
   }
 
@@ -304,14 +319,25 @@ export class ZombieField {
    *  whether it's a veggie/mutant-tier "mutation base class" (category "mutant").
    *  See ZombiePot.pickSpecies (determineBaseClass). Falls back gracefully when
    *  the catalog lacks the unit (tier 0, non-veggie). */
-  private speciesTraits(z: OwnedZombie): { tier: number; isBaseClass: boolean } {
+  private speciesTraits(z: OwnedZombie): {
+    tier: number; isBaseClass: boolean; group?: string; isSpecial: boolean;
+  } {
     const def = this.resolve(z.key);
-    return { tier: def?.tier ?? 0, isBaseClass: def?.category === "mutant" };
+    return {
+      tier: def?.tier ?? 0,
+      isBaseClass: def?.category === "mutant",
+      group: def?.group,
+      isSpecial: def?.category === "special",
+    };
   }
 
   /** Is the running combine finished and ready to collect? */
   get combineReady(): boolean {
-    return this.pot.ready;
+    return this.combinePot.ready;
+  }
+
+  combineReadyFor(potId: string): boolean {
+    return this.potFor(potId).ready;
   }
 
   /** Quest/server reward: never lose the unit when the deployed army is full. */
@@ -333,8 +359,9 @@ export class ZombieField {
   }
 
   /** Apply Insta-Grow to the running Zombie Pot job. */
-  finishCombineNow(): boolean {
-    return this.pot.finishNow();
+  finishCombineNow(potId?: string): boolean {
+    const id = potId ?? this.field.zombiePotId();
+    return id ? this.potFor(id).finishNow() : false;
   }
 
   /**
@@ -345,8 +372,10 @@ export class ZombieField {
    * re-derived from the catalog by key; an unknown key aborts and returns null
    * (job already cleared).
    */
-  collectCombine(col: number, row: number): OwnedZombie | null {
-    const result = this.pot.collect();
+  collectCombine(col: number, row: number, potId?: string): OwnedZombie | null {
+    const targetPotId = potId ?? this.field.zombiePotId();
+    if (!targetPotId) return null;
+    const result = this.potFor(targetPotId).collect();
     if (!result) return null;
     const def = this.resolve(result.key);
     if (!def) return null;
@@ -363,7 +392,7 @@ export class ZombieField {
     }
     this.combining = false;
     if (this.rosterLive) {
-      if (this.onCombineCollect) this.onCombineCollect(data.id, data.key, data.mutation);
+      if (this.onCombineCollect) this.onCombineCollect(targetPotId, data.id, data.key, data.mutation);
       else this.onGrant?.({ id: data.id, key: data.key, mutation: data.mutation, invasions: data.invasions });
     }
     return data;
@@ -462,11 +491,56 @@ export class ZombieField {
 
   /** The pending combine job to persist (undefined when the pot is idle). */
   serializePot(): ZombiePotSave | undefined {
-    return this.pot.serialize();
+    return this.combinePot.serialize();
+  }
+  serializePots(): Record<string, ZombiePotSave> | undefined {
+    const entries = [...this.pots.entries()].flatMap(([id, pot]) => {
+      const save = pot.serialize();
+      return save ? [[id, save] as const] : [];
+    });
+    return entries.length ? Object.fromEntries(entries) : undefined;
   }
   /** Restore a persisted combine job (offline-safe: it finishes on its epoch). */
   restorePot(save?: ZombiePotSave) {
-    this.pot.restore(save);
+    this.pots.clear();
+    if (save) this.potFor(this.field.zombiePotId() ?? "legacy").restore(this.hydratePotSave(save));
+  }
+  restorePots(saves?: Record<string, ZombiePotSave>, legacy?: ZombiePotSave) {
+    this.pots.clear();
+    const entries = Object.entries(saves ?? {});
+    for (const [id, save] of entries) this.potFor(id).restore(this.hydratePotSave(save));
+    if (!entries.length && legacy) {
+      this.potFor(this.field.zombiePotId() ?? "legacy").restore(this.hydratePotSave(legacy));
+    }
+  }
+  /** Fill fields absent from pre-special-rule saves from the authoritative catalog.
+   * The current level is safe as the legacy start-level fallback because levels do
+   * not decrease, and the server caps it at its authoritative current level. */
+  private hydratePotSave(save: ZombiePotSave): ZombiePotSave {
+    const a = this.resolve(save.keyA);
+    const b = this.resolve(save.keyB);
+    return {
+      ...save,
+      tierA: save.tierA ?? a?.tier ?? 0,
+      tierB: save.tierB ?? b?.tier ?? 0,
+      baseA: save.baseA ?? (a?.category === "mutant"),
+      baseB: save.baseB ?? (b?.category === "mutant"),
+      groupA: save.groupA ?? a?.group,
+      groupB: save.groupB ?? b?.group,
+      specialA: save.specialA ?? (a?.category === "special"),
+      specialB: save.specialB ?? (b?.category === "special"),
+      playerLevel: save.playerLevel ?? this.state.level,
+    };
+  }
+  pendingPotParents(): {
+    potId: string; parentAId: string; parentBId: string; playerLevel?: number;
+  }[] {
+    return [...this.pots.entries()].flatMap(([potId, pot]) => {
+      const p = pot.pending;
+      return p?.parentAId && p.parentBId
+        ? [{ potId, parentAId: p.parentAId, parentBId: p.parentBId, playerLevel: p.playerLevel }]
+        : [];
+    });
   }
 
   // Rebuild the roster from a save. Stats/taxonomy are re-derived from the key +

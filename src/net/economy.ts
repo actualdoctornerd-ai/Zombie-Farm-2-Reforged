@@ -19,8 +19,8 @@ export type RosterInput =
   | { type: "grant"; unitId: string; key: string; mutation?: number; invasions?: number }
   | { type: "veteran"; unitIds: string[] }
   | { type: "casualty"; unitIds: string[] }
-  | { type: "combineStart"; parentAId: string; parentBId: string }
-  | { type: "combineCollect"; unitId: string; key: string; mutation?: number };
+  | { type: "combineStart"; potId?: string; parentAId: string; parentBId: string; playerLevel?: number }
+  | { type: "combineCollect"; potId?: string; unitId: string; key: string; mutation?: number };
 
 export interface FarmActionInput {
   type: "plant" | "harvest" | "plow" | "remove";
@@ -53,7 +53,9 @@ export class EconomyClient {
   private deferredRosterAliases: Record<string, string> = {};
   private deferredObjectAliases: Record<string, string> = {};
   private deferredRejectedObjectIds = new Set<string>();
-  private combineParents: { parentAId: string; parentBId: string } | null = null;
+  private combineParents = new Map<string, {
+    parentAId: string; parentBId: string; playerLevel?: number;
+  }>();
   private commandsBySequence = new Map<number, GameplayCommand>();
   private ready = false;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -252,16 +254,23 @@ export class EconomyClient {
 
   submitRoster(input: RosterInput, optimistic: { gold?: number } = {}): void {
     if (input.type === "combineStart") {
-      this.combineParents = { parentAId: input.parentAId, parentBId: input.parentBId };
+      this.combineParents.set(input.potId ?? "legacy", {
+        parentAId: input.parentAId,
+        parentBId: input.parentBId,
+        playerLevel: input.playerLevel,
+      });
       return;
     }
-    if (input.type === "combineCollect" && this.combineParents) {
+    const potId = input.type === "combineCollect" ? input.potId ?? "legacy" : "legacy";
+    const parents = input.type === "combineCollect" ? this.combineParents.get(potId) : undefined;
+    if (input.type === "combineCollect" && parents) {
       this.enqueue({
         type: "roster.combine",
-        parentAId: this.authoritativeUnitId(this.combineParents.parentAId),
-        parentBId: this.authoritativeUnitId(this.combineParents.parentBId),
+        parentAId: this.authoritativeUnitId(parents.parentAId),
+        parentBId: this.authoritativeUnitId(parents.parentBId),
+        ...(parents.playerLevel === undefined ? {} : { playerLevel: parents.playerLevel }),
       }, { localUnitId: input.unitId });
-      this.combineParents = null;
+      this.combineParents.delete(potId);
       return;
     }
     if (input.type === "sell") this.enqueue({ type: "roster.sell", unitId: this.authoritativeUnitId(input.unitId) }, optimistic);
@@ -271,8 +280,11 @@ export class EconomyClient {
     this.enqueue({ type: "roster.status", unitId: this.authoritativeUnitId(unitId), stored });
   }
 
-  restoreCombineParents(parentAId: string, parentBId: string): void {
-    this.combineParents = { parentAId, parentBId };
+  restoreCombineParents(parentAId: string, parentBId: string): void;
+  restoreCombineParents(potId: string, parentAId: string, parentBId: string, playerLevel?: number): void;
+  restoreCombineParents(a: string, b: string, c?: string, playerLevel?: number): void {
+    const [potId, parentAId, parentBId] = c === undefined ? ["legacy", a, b] : [a, b, c];
+    this.combineParents.set(potId, { parentAId, parentBId, playerLevel });
   }
 
   async settleUnitIds(ids: string[]): Promise<string[]> {

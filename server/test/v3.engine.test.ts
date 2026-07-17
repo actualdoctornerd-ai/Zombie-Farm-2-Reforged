@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SequencedCommand } from "../../src/net/protocol";
+import { createCombineRandom } from "../../src/zombie/combineSpecies";
 import plantRows from "../../public/assets/plants.json";
 import {
   applyCommandBatch,
@@ -10,6 +11,14 @@ import {
 
 const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] =>
   values.map((command, index) => ({ sequence: index + 1, command }));
+
+const rareCombinePairIds = (): [string, string] => {
+  for (let index = 0; index < 10_000; index++) {
+    const ids: [string, string] = [`rare-a-${index}`, `rare-b-${index}`];
+    if (createCombineRandom(...ids)() < 0.10) return ids;
+  }
+  throw new Error("could not find deterministic rare-combine test pair");
+};
 
 describe("protocol v3 command engine", () => {
   it("can claim the ordered writer lane without changing gameplay state", () => {
@@ -350,6 +359,22 @@ describe("protocol v3 command engine", () => {
     expect(result.state.inventory.insta_grow).toBe(0);
   });
 
+  it("accepts Insta-Grow in the harvest latency-grace window", () => {
+    const state = freshGameplayState();
+    state.inventory.insta_grow = 1;
+    state.farm.plots["0:0"] = {
+      state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 0,
+      growMs: 60_000, sell: 0, xp: 1, fertilized: false, zombie: true,
+    };
+    // Harvest considers this ripe because of its 15-second network grace, while
+    // the client still correctly displays five seconds of growth remaining.
+    const result = applyCommandBatch(state, commands(
+      { type: "power.use", key: "insta_grow", oc: 0, or: 0 }
+    ), { now: 55_000 });
+    expect(result.results[0].status).toBe("applied");
+    expect(result.state.inventory.insta_grow).toBe(0);
+  });
+
   it("Plow power changes spent plots only and is not consumed on no-op", () => {
     const state = freshGameplayState();
     state.inventory.insta_plow = 2;
@@ -410,7 +435,21 @@ describe("protocol v3 command engine", () => {
     });
     expect(result.results[0]).toMatchObject({ status: "applied", createdIds: ["server-child"] });
     expect(result.state.roster).toEqual([
-      { id: "server-child", key: "ZombieActorGirlTier1", mutation: 3, invasions: 0, stored: false },
+      { id: "server-child", key: "ZombieActorRegularTier1", mutation: 2, invasions: 0, stored: false },
+    ]);
+  });
+
+  it("uses a mutant only as the mutation donor and never invents mutations", () => {
+    const state = freshGameplayState();
+    state.roster = [
+      { id: "crazy", key: "ZombieActorRegularCrazy", mutation: 0, invasions: 0, stored: false },
+      { id: "tomato", key: "ZombieActorRegularTier1Tomatoes", mutation: 1, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId: "crazy", parentBId: "tomato" }
+    ), { now: 1, random: () => 0.99, id: () => "child" });
+    expect(result.state.roster).toEqual([
+      { id: "child", key: "ZombieActorRegularCrazy", mutation: 1, invasions: 0, stored: false },
     ]);
   });
 
@@ -425,6 +464,59 @@ describe("protocol v3 command engine", () => {
     ), { now: 1 });
     expect(result.results[0]).toMatchObject({ status: "rejected", error: "reward_only" });
     expect(result.state.roster).toHaveLength(2);
+  });
+
+  it("rejects a pair of otherwise-combinable specials", () => {
+    const state = freshGameplayState();
+    state.roster = [
+      { id: "crazy", key: "ZombieActorRegularCrazy", mutation: 0, invasions: 0, stored: false },
+      { id: "bombie", key: "ZombieActorBombie", mutation: 0, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId: "crazy", parentBId: "bombie" }
+    ), { now: 1 });
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "special_pair" });
+    expect(result.state.roster).toHaveLength(2);
+  });
+
+  it("makes one combinable special the guaranteed output species", () => {
+    const state = freshGameplayState();
+    state.roster = [
+      { id: "crazy", key: "ZombieActorRegularCrazy", mutation: 0, invasions: 0, stored: false },
+      { id: "silver", key: "ZombieActorLargeTier4", mutation: 0, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId: "crazy", parentBId: "silver" }
+    ), { now: 1, random: () => 0.99, id: () => "child" });
+    expect(result.state.roster[0].key).toBe("ZombieActorRegularCrazy");
+  });
+
+  it("awards the matching combining special on a successful level-25 roll", () => {
+    const state = freshGameplayState();
+    state.balance.xp = 20_500;
+    const [parentAId, parentBId] = rareCombinePairIds();
+    state.roster = [
+      { id: parentAId, key: "ZombieActorHeadlessTier1", mutation: 0, invasions: 0, stored: false },
+      { id: parentBId, key: "ZombieActorHeadlessTier3", mutation: 0, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId, parentBId, playerLevel: 25 }
+    ), { now: 1, id: () => "child" });
+    expect(result.state.roster[0].key).toBe("ZombieActorHeadlessTier5");
+  });
+
+  it("does not unlock the rare roll when the combine started below level 25", () => {
+    const state = freshGameplayState();
+    state.balance.xp = 20_500;
+    const [parentAId, parentBId] = rareCombinePairIds();
+    state.roster = [
+      { id: parentAId, key: "ZombieActorHeadlessTier1", mutation: 0, invasions: 0, stored: false },
+      { id: parentBId, key: "ZombieActorHeadlessTier3", mutation: 0, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId, parentBId, playerLevel: 24 }
+    ), { now: 1, id: () => "child" });
+    expect(result.state.roster[0].key).toBe("ZombieActorHeadlessTier3");
   });
 
   it("advances the parent-pair combine quest when the result is collected", () => {

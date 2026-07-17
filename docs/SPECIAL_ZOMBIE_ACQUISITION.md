@@ -51,11 +51,13 @@ the distinct pink Cupid actor, not the ordinary Cupid actor.
 
 ## Combining
 
-The six combined species are Zombee, Zombarian, Imp Zombie, Zombielocks, Party
-Zombie, and Robo Zombie. They are also ordinary gold Market unlocks at levels
-25-30. The recovered binary's `determineBaseClass` rule does not invent a species
-that neither parent already has: the higher-tier non-veggie parent wins (equal
-tier is a coin flip), while mutations and colour are inherited. Consequently the
-Zombie Pot can make another copy/variant after a species has been acquired, but it
-is not a first-acquisition route for a new species. Epic reward zombies are blocked
-from the pot so their event-only provenance remains intact.
+At player level 25 and above, combining two non-special zombies has a 10% chance
+to create the hidden tier-5 special for one input body type: Garden produces
+Zombutterfly, Large produces Zomviking, Small produces Zombricaun, Female produces
+Zombelly Dancer, Regular produces Zombotron, and Headless produces Skull Head.
+Same-type parents select that type; mixed-type parents choose either input type
+with equal probability. On a failed roll, the ordinary mutant-donor and tier rules
+apply.
+
+A single combinable special forces its own species as the output. Two specials
+cannot be combined, and Epic/event `rewardOnly` zombies cannot enter the pot at all.

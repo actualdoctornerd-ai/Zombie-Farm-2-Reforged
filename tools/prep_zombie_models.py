@@ -372,6 +372,10 @@ def main():
             "ox": L["offsetX"], "oy": L["offsetY"],
             "ax": L["pivotX"], "ay": 1 - L["pivotY"], "z": L.get("z", 0),
         }
+        if part in {"turnipArm", "celeryArm", "dragonArm"}:
+            mutations[target]["replaces"] = "armF"
+        elif part in {"limaBeanBody", "heartichokeBody"}:
+            mutations[target]["replaces"] = "body"
 
     # frames.json for only the used parts (name -> pixel rect).
     used_frames = {}

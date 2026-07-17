@@ -700,7 +700,7 @@ async function main() {
     if (state.boostCount(def.key) <= 0) { hud.setMode("walk"); return; }
     const objectId = field.objectAtPoint(wx, wy);
     const objectDef = objectId ? field.objectDefOf(objectId) : null;
-    if (objectDef?.zombiePot && zombies.finishCombineNow()) {
+    if (objectDef?.zombiePot && objectId && zombies.finishCombineNow(objectId)) {
       if (state.onInventory) state.onInventory({ type: "use", key: def.key, target: "zombie_pot" }, { count: -1 });
       else state.useBoost(def.key);
       audio.play("instaGrow");
@@ -989,8 +989,7 @@ async function main() {
       state.syncCapacities(baseZombieMax + armyBonus, itemCap);
     };
     economy.onRosterState = (roster, aliases) => {
-      const pot = zombies.combinePot.pending;
-      const hidden = new Set(pot?.parentAId && pot.parentBId ? [pot.parentAId, pot.parentBId] : []);
+      const hidden = new Set(zombies.pendingPotParents().flatMap((pot) => [pot.parentAId, pot.parentBId]));
       zombies.reconcileServerRoster(roster.filter((unit) => !hidden.has(unit.id)), aliases);
     };
     economy.onRaidRevival = (offer, brains) => {
@@ -1032,11 +1031,12 @@ async function main() {
     zombies.onCasualty = (ids) => economy!.submitRoster({ type: "casualty", unitIds: ids });
     // Combine goes through its own server ops so the result is validated against the two
     // parents (a combine can't fabricate an arbitrary expensive result).
-    zombies.onCombineStart = (parentAId, parentBId) => economy!.submitRoster({ type: "combineStart", parentAId, parentBId });
-    zombies.onCombineCollect = (unitId, key, mutation) => economy!.submitRoster({ type: "combineCollect", unitId, key, mutation });
-    const restoredPot = zombies.combinePot.pending;
-    if (restoredPot?.parentAId && restoredPot.parentBId) {
-      economy.restoreCombineParents(restoredPot.parentAId, restoredPot.parentBId);
+    zombies.onCombineStart = (potId, parentAId, parentBId) =>
+      economy!.submitRoster({ type: "combineStart", potId, parentAId, parentBId, playerLevel: state.level });
+    zombies.onCombineCollect = (potId, unitId, key, mutation) =>
+      economy!.submitRoster({ type: "combineCollect", potId, unitId, key, mutation });
+    for (const pot of zombies.pendingPotParents()) {
+      economy.restoreCombineParents(pot.potId, pot.parentAId, pot.parentBId, pot.playerLevel);
     }
     zombies.setRosterLive();
     state.onRosterSell = (unitId, value) => economy!.submitRoster({ type: "sell", unitId }, { gold: value });
@@ -1413,11 +1413,12 @@ async function main() {
 
   // ---- Zombie Pot (combiner) ----
   const potBaseMs = () => POT_DURATION_MS;
+  let activePotId: string | null = null;
   hud.getPotStatus = () => {
-    const pot = zombies.combinePot;
+    const pot = activePotId ? zombies.potFor(activePotId) : zombies.combinePot;
     return {
       busy: pot.busy,
-      ready: zombies.combineReady,
+      ready: pot.ready,
       remainingMs: pot.remainingMs(),
       totalMs: pot.totalMs(),
       monolith: field.hasCombineMonolith(), // Clay Monolith speeds the pot timer
@@ -1429,9 +1430,10 @@ async function main() {
   hud.canCombineZombie = (key) => !zombieDefs.get(key)?.rewardOnly;
   hud.onCombine = async (idA, idB) => {
     if (onlineGameplayBlocked()) return false;
+    if (!activePotId) return false;
     try { if (economy) [idA, idB] = await economy.settleUnitIds([idA, idB]); }
     catch { hud.showToast("Could not confirm those zombies. Please reconnect."); return false; }
-    const ok = zombies.combine(idA, idB, potBaseMs());
+    const ok = zombies.combine(idA, idB, potBaseMs(), activePotId);
     if (ok) {
       saveManager.flushCritical();
     }
@@ -1439,11 +1441,12 @@ async function main() {
   };
   hud.onCollectCombine = async () => {
     if (onlineGameplayBlocked()) return null;
-    const pending = zombies.combinePot.pending;
+    if (!activePotId) return null;
+    const pending = zombies.potFor(activePotId).pending;
     const object = pending
       ? [zombieDefs.get(pending.keyA)?.name ?? "", zombieDefs.get(pending.keyB)?.name ?? ""].filter(Boolean).sort().join(" ")
       : "";
-    const z = zombies.collectCombine(walk.tile.col, walk.tile.row);
+    const z = zombies.collectCombine(walk.tile.col, walk.tile.row, activePotId);
     if (z) {
       if (object) questBus.post(QuestEvent.CombinerCombined, object);
       questBus.post(QuestEvent.CombinerHarvested, z.typeName);
@@ -2314,6 +2317,10 @@ async function main() {
     if (def.fastWork && field.hasFastWork()) return; // only one Speed Monolith
     if (def.mutantMonolith && field.hasMutantMonolith()) return; // only one Mutant Monolith
     if (def.combineFast && field.hasCombineMonolith()) return; // only one Clay Monolith
+    if (def.zombiePot && field.zombiePotCount() >= 3) {
+      hud.showToast("You can place at most 3 Zombie Pots.");
+      return;
+    }
     const { oc, or } = field.resolveObjectOrigin(def, col, row);
     if (!field.canPlaceObject(oc, or, def)) return;
     // Retrieving a stored item: already owned, so it's free and places just one.
@@ -2583,7 +2590,8 @@ async function main() {
     }
     if (hud.mode === "instagrow") {
       const id = field.objectAtPoint(wx, wy);
-      const isActivePot = !!id && !!field.objectDefOf(id)?.zombiePot && zombies.combinePot.busy && !zombies.combineReady;
+      const selectedPot = id && field.objectDefOf(id)?.zombiePot ? zombies.potFor(id) : null;
+      const isActivePot = !!selectedPot?.busy && !selectedPot.ready;
       field.setObjectHighlight(isActivePot ? id : null);
       if (isActivePot) {
         field.hideCursor();
@@ -2701,6 +2709,7 @@ async function main() {
           const wp = field.objectWorkPoint(objId);
           if (wp) floatText(wp.x, wp.y - 24, napping ? "Zzz…" : "Awake!");
         } else if (objId && objDef && objDef.zombiePot) {
+          activePotId = objId;
           hud.openCombiner(); // pick two zombies to combine, or collect a finished one
         } else if (objId && field.isObjectReady(objId)) {
           const wp = field.objectWorkPoint(objId); // farmer walks over and hoes (fast)
@@ -2803,29 +2812,32 @@ async function main() {
   // ---- game loop ----
   // Persistent combine-timer bar that floats over the placed Zombie Pot while a
   // combine runs (offline-safe: it reflects the pot's absolute finish time).
-  const potBar = new Container();
-  potBar.visible = false;
-  const potFill = new Graphics();
-  const potLabel = new Text({
-    text: "",
-    style: {
-      fontFamily: "system-ui, sans-serif", fontSize: 12, fontWeight: "700",
-      fill: 0xffffff, stroke: { color: 0x0a1406, width: 3 },
-    },
-  });
-  {
+  type PotBarView = { bar: Container; fill: Graphics; label: Text };
+  const potBars = new Map<string, PotBarView>();
+  const makePotBar = (): PotBarView => {
+    const bar = new Container();
+    bar.visible = false;
+    const fill = new Graphics();
+    const label = new Text({
+      text: "",
+      style: {
+        fontFamily: "system-ui, sans-serif", fontSize: 12, fontWeight: "700",
+        fill: 0xffffff, stroke: { color: 0x0a1406, width: 3 },
+      },
+    });
     const W = 88, H = 16, PAD = 2;
     const bg = new Graphics();
     bg.roundRect(-W / 2, -H / 2, W, H, 4)
       .fill({ color: 0x1a1a24, alpha: 0.9 })
       .stroke({ width: 2, color: 0x05050a });
-    potFill.roundRect(0, 0, W - 2 * PAD, H - 2 * PAD, 3).fill({ color: 0x8ad14a });
-    potFill.position.set(-W / 2 + PAD, -H / 2 + PAD);
-    potFill.scale.x = 0;
-    potLabel.anchor.set(0.5, 0.5);
-    potBar.addChild(bg, potFill, potLabel);
-    field.labelLayer.addChild(potBar);
-  }
+    fill.roundRect(0, 0, W - 2 * PAD, H - 2 * PAD, 3).fill({ color: 0x8ad14a });
+    fill.position.set(-W / 2 + PAD, -H / 2 + PAD);
+    fill.scale.x = 0;
+    label.anchor.set(0.5, 0.5);
+    bar.addChild(bg, fill, label);
+    field.labelLayer.addChild(bar);
+    return { bar, fill, label };
+  };
 
   app.ticker.add((ticker) => {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05);
@@ -2854,21 +2866,25 @@ async function main() {
       // so the map the display sprite shows is this frame's.
       night.update(app.renderer, world);
     }
-    // Zombie Pot combine bar: show over the building while combining.
-    const potId = field.zombiePotId();
-    const pot = zombies.combinePot;
-    if (potId && pot.busy) {
+    // Each physical Zombie Pot owns its own job and progress bar.
+    const placedPotIds = new Set(field.zombiePotIds());
+    for (const [id, view] of potBars) {
+      if (placedPotIds.has(id)) continue;
+      field.labelLayer.removeChild(view.bar);
+      view.bar.destroy({ children: true });
+      potBars.delete(id);
+    }
+    for (const potId of placedPotIds) {
+      const pot = zombies.potFor(potId);
+      let view = potBars.get(potId);
+      if (!view) { view = makePotBar(); potBars.set(potId, view); }
       const wp = field.objectWorkPoint(potId);
-      if (wp) {
-        potBar.visible = true;
-        potBar.position.set(wp.x, wp.y - 92);
-        const ready = zombies.combineReady;
-        potFill.scale.x = ready ? 1 : pot.progress();
-        const secs = Math.ceil(pot.remainingMs() / 1000);
-        potLabel.text = ready ? "Ready!" : secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m`;
-      }
-    } else if (potBar.visible) {
-      potBar.visible = false;
+      view.bar.visible = !!wp && pot.busy;
+      if (!wp || !pot.busy) continue;
+      view.bar.position.set(wp.x, wp.y - 92);
+      view.fill.scale.x = pot.ready ? 1 : pot.progress();
+      const secs = Math.ceil(pot.remainingMs() / 1000);
+      view.label.text = pot.ready ? "Ready!" : secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m`;
     }
     // animate floating popups (rise + fade)
     for (let i = floats.length - 1; i >= 0; i--) {

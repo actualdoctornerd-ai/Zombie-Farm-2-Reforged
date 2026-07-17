@@ -9,14 +9,10 @@
 //     (getCombineTime checks purchase flag 28; flag 28 = Clay Monolith, whose in-game
 //     tooltip is literally "Zombie Pots combine in 15 minutes". The Mutant Monolith
 //     (flag 15) is a SEPARATE item that halves mutant-zombie GROW times, not this.)
-//   * Result SPECIES (determineBaseClass), given each parent's "is a veggie/mutant-tier
-//     zombie" flag (`isMutationBaseClass` = class name contains a veggie keyword):
-//       - one veggie + one non-veggie -> the NON-veggie wins (the veggie is a mutation
-//         donor; its type is discarded, only its mutation carries via the mask combine).
-//       - both non-veggie -> the HIGHER combat tier wins; equal tier -> 50/50 (the ONLY
-//         random branch in the whole system, via arc4random % 100 > 50).
-//       - both veggie -> a base-class zombie (game builds it from the shared superclass;
-//         we approximate with a 50/50 pick between the two veggie parents).
+//   * Result SPECIES extends determineBaseClass with the recovered combining-special
+//     rules: one Special wins, two Specials are refused, and level-25+ non-special
+//     pairs have a 10% chance to become the tier-5 Special for an input body type.
+//     Otherwise mutant donors and combat-tier comparison work as before.
 //   * The result's color is the mixed parent color; identical colors lighten.
 //   * Mutations inherit per-slot (combineMasks): non-conflicting slots carry over; a
 //     same-slot conflict keeps the HIGHER-tier bit — DETERMINISTIC, no RNG.
@@ -29,6 +25,7 @@
 // holds at most one job, mirroring the single in-game Zombie Pot building.
 import { OwnedZombieSave, ZombiePotSave } from "../save/schema";
 import { combineMasks } from "./mutations";
+import { createCombineRandom, selectCombineSpecies } from "./combineSpecies";
 
 /** Default combine duration: 1 hour, in ms (binary: getCombineTime = 3600.0 s). */
 export const POT_DURATION_MS = 60 * 60 * 1000;
@@ -52,6 +49,10 @@ type ZombieSnapshot = Pick<OwnedZombieSave, "key"> & {
   /** True if this is a veggie/mutant-tier zombie (a "mutation base class"). Such a
    *  parent loses its type in a mixed combine and only donates its mutation. */
   isBaseClass?: boolean;
+  /** Body type and Special-category status used by the rare tier-5 promotion and
+   * special-species override rules. */
+  group?: string;
+  isSpecial?: boolean;
 };
 
 const mixColors = (
@@ -120,7 +121,7 @@ export class ZombiePot {
 
   /**
    * Start combining two parent snapshots. Refused (returns false) if a combine is
-   * already running. `hasMonolith` halves the timer. The parents' keys+masks are
+   * already running. `hasMonolith` quarters the timer. The parents' keys+masks are
    * captured here; the caller is responsible for removing the parent units from
    * the roster once this returns true.
    */
@@ -128,9 +129,10 @@ export class ZombiePot {
     a: ZombieSnapshot,
     b: ZombieSnapshot,
     hasMonolith: boolean,
-    baseDurationMs: number = POT_DURATION_MS
+    baseDurationMs: number = POT_DURATION_MS,
+    playerLevel = 1
   ): boolean {
-    if (this.job) return false;
+    if (this.job || (a.isSpecial && b.isSpecial)) return false;
     const startedAt = this.now();
     const duration = baseDurationMs * (hasMonolith ? MONOLITH_MULT : 1);
     this.job = {
@@ -145,6 +147,11 @@ export class ZombiePot {
       tierB: b.tier,
       baseA: a.isBaseClass,
       baseB: b.isBaseClass,
+      groupA: a.group,
+      groupB: b.group,
+      specialA: a.isSpecial,
+      specialB: b.isSpecial,
+      playerLevel,
       startedAt,
       finishAt: startedAt + duration,
     };
@@ -163,28 +170,30 @@ export class ZombiePot {
     const key = this.pickSpecies(j);
     const color = mixColors(j.colorA, j.colorB);
     this.job = null;
+    if (!key) return null;
     return { key, mutation, color };
   }
 
   /**
-   * Result species (`determineBaseClass`, recovered from the binary). `baseA/baseB`
-   * mark a veggie/mutant-tier "mutation base class" parent.
-   *   - mixed (one veggie, one not): the NON-veggie wins (veggie only donates its
-   *     mutation, which is already merged into the mask).
-   *   - both non-veggie: higher combat tier wins; equal tier -> 50/50.
-   *   - both veggie: a base-class zombie (approximated by a 50/50 parent pick).
+   * Result species from the shared client/server selector. Older saves without the
+   * Special/group/level fields safely fall back to the original mutant/tier rules.
    */
-  private pickSpecies(j: ZombiePotSave): string {
-    const b1 = !!j.baseA;
-    const b2 = !!j.baseB;
-    if (b1 !== b2) return b1 ? j.keyB : j.keyA; // non-veggie wins
-    if (!b1 && !b2) {
-      const ta = j.tierA ?? 0;
-      const tb = j.tierB ?? 0;
-      if (ta !== tb) return ta > tb ? j.keyA : j.keyB; // higher tier wins
-      return this.rng() < 0.5 ? j.keyA : j.keyB; // equal tier -> coin flip
-    }
-    return this.rng() < 0.5 ? j.keyA : j.keyB; // both veggie -> base-class approx
+  private pickSpecies(j: ZombiePotSave): string | null {
+    const random = j.parentAId && j.parentBId
+      ? createCombineRandom(j.parentAId, j.parentBId)
+      : this.rng;
+    return selectCombineSpecies(
+      {
+        key: j.keyA, tier: j.tierA, group: j.groupA,
+        isMutant: j.baseA, isSpecial: j.specialA,
+      },
+      {
+        key: j.keyB, tier: j.tierB, group: j.groupB,
+        isMutant: j.baseB, isSpecial: j.specialB,
+      },
+      j.playerLevel ?? 1,
+      random
+    );
   }
 
   /** Abandon a running combine (the parents are already gone — no refund). */

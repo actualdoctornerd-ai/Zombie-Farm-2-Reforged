@@ -15,11 +15,15 @@ function makePot(rng = 0) {
   return { pot, tick: (ms: number) => (t += ms), finish: (dur: number) => (t += dur) };
 }
 
-const snap = (key: string, extra: Partial<{ mutation: number; tier: number; isBaseClass: boolean }> = {}) => ({
+const snap = (key: string, extra: Partial<{
+  mutation: number; tier: number; isBaseClass: boolean; group: string; isSpecial: boolean;
+}> = {}) => ({
   key,
   mutation: extra.mutation ?? 0,
   tier: extra.tier,
   isBaseClass: extra.isBaseClass,
+  group: extra.group,
+  isSpecial: extra.isSpecial,
 });
 
 describe("combine timer", () => {
@@ -100,6 +104,40 @@ describe("species selection (determineBaseClass)", () => {
     const b = snap("B", { isBaseClass: false, tier: 2 });
     expect(collectKey(a, b, 0.4)).toBe("A"); // rng < 0.5 -> A
     expect(collectKey(a, b, 0.6)).toBe("B"); // rng >= 0.5 -> B
+  });
+
+  it("refuses to start with two special parents", () => {
+    const { pot } = makePot();
+    expect(pot.start(
+      snap("A", { isSpecial: true }),
+      snap("B", { isSpecial: true }),
+      false
+    )).toBe(false);
+    expect(pot.busy).toBe(false);
+  });
+
+  it("persists the level and type needed for the rare-special roll", () => {
+    const { pot } = makePot(0.05);
+    pot.start(
+      snap("A", { group: "Headless" }),
+      snap("B", { group: "Headless" }),
+      false,
+      POT_DURATION_MS,
+      25
+    );
+    expect(pot.pending).toMatchObject({
+      groupA: "Headless", groupB: "Headless", playerLevel: 25,
+    });
+  });
+
+  it("derives persisted parent rolls independently of the local Math.random source", () => {
+    const first = makePot(0).pot;
+    const second = makePot(0.999).pot;
+    const a = { ...snap("A", { group: "Regular", tier: 2 }), id: "parent-a" };
+    const b = { ...snap("B", { group: "Large", tier: 2 }), id: "parent-b" };
+    first.start(a, b, false, 0, 25);
+    second.start(b, a, false, 0, 25);
+    expect(first.collect()?.key).toBe(second.collect()?.key);
   });
 });
 
