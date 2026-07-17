@@ -246,6 +246,7 @@ function applyOne(
     case "farm.plant": {
       if (!validCoord(command.oc, state.farmSize) || !validCoord(command.or, state.farmSize)) return reject(sequence, "bad_coord");
       const key = plotKey(command.oc, command.or);
+      if (state.farm.plots[key]?.state === "planted") return reject(sequence, "plot_occupied");
       if (state.farm.plots[key]?.state !== "plowed") return reject(sequence, "not_plowed");
       const veg = cropEcon(command.cropKey);
       const zombie = zombieCropEcon(command.cropKey);

@@ -98,6 +98,78 @@ describe("v3 raid dependency ids", () => {
     expect(aliases).toEqual({ "server-a": "local-a", "server-b": "local-b" });
   });
 
+  it("does not let an older batch overwrite a newer pending farm projection", () => {
+    const economy = new EconomyClient(new GameState(), "pending-farm-account");
+    (economy as any).commandsBySequence.set(2, {
+      type: "farm.plant", oc: 4, or: 6, cropKey: "carrot",
+    });
+    (economy as any).optimistic.set(2, { gold: -10, brains: 0, xp: 0 });
+    const projections: api.FarmState[] = [];
+    economy.onFarmState = (farm) => projections.push(farm);
+    const gameplay = {
+      balance: { gold: 200, brains: 15, xp: 0 }, farm: { version: 0, plots: {} },
+      objects: { version: 0, objects: [] }, quests: { version: 0, completed: [], progress: [] },
+      inventory: {}, storage: { received: {}, stored: {} }, roster: [], farmSize: 30,
+      climates: ["grass"], farmerHeads: [], farmerHeadId: 1, ownedPets: [], activePet: null,
+      penPets: [], zombieMax: 16, tutorialRewarded: false, raids: { progress: {}, lastRaidAt: 0 },
+    };
+
+    (economy as any).adoptCommandResponse({
+      protocolVersion: 3, batchId: "older", accountVersion: 1, writerGeneration: 1, serverTime: 1,
+      results: [{ sequence: 1, status: "applied" }], gameplay,
+      farmVersionBefore: 0, farmVersionAfter: 0, netDelta: { gold: 0, brains: 0, xp: 0 },
+      questChanges: [], createdZombieIds: [],
+    } satisfies CommandBatchResponse);
+    expect(projections).toEqual([]);
+
+    (economy as any).adoptCommandResponse({
+      protocolVersion: 3, batchId: "newer", accountVersion: 2, writerGeneration: 1, serverTime: 2,
+      results: [{ sequence: 2, status: "applied" }],
+      gameplay: { ...gameplay, farm: { version: 1, plots: {
+        "4:6": { state: "planted" as const, cropKey: "carrot", plantedAt: 2, growMs: 100,
+          sell: 1, xp: 1, fertilized: false, zombie: false },
+      } } },
+      farmVersionBefore: 0, farmVersionAfter: 1, netDelta: { gold: -10, brains: 0, xp: 0 },
+      questChanges: [], createdZombieIds: [],
+    } satisfies CommandBatchResponse);
+    expect(projections).toHaveLength(1);
+    expect(projections[0].crops.map((crop) => [crop.oc, crop.pr])).toEqual([[4, 6]]);
+  });
+
+  it("carries harvest id aliases across a deferred roster projection", () => {
+    const economy = new EconomyClient(new GameState(), "pending-roster-account");
+    (economy as any).commandsBySequence.set(1, { type: "farm.harvest", oc: 1, or: 1 });
+    (economy as any).optimistic.set(1, { gold: 0, brains: 0, xp: 1, localUnitId: "local-a" });
+    (economy as any).commandsBySequence.set(2, { type: "farm.harvest", oc: 2, or: 2 });
+    (economy as any).optimistic.set(2, { gold: 0, brains: 0, xp: 1, localUnitId: "local-b" });
+    const rosterCalls: Record<string, string>[] = [];
+    economy.onRosterState = (_roster, aliases) => rosterCalls.push(aliases);
+    const baseGameplay = {
+      balance: { gold: 0, brains: 0, xp: 0 }, farm: { version: 0, plots: {} },
+      objects: { version: 0, objects: [] }, quests: { version: 0, completed: [], progress: [] },
+      inventory: {}, storage: { received: {}, stored: {} }, farmSize: 30, climates: ["grass"],
+      farmerHeads: [], farmerHeadId: 1, ownedPets: [], activePet: null, penPets: [], zombieMax: 16,
+      tutorialRewarded: false, raids: { progress: {}, lastRaidAt: 0 }, roster: [],
+    };
+    const response = (sequence: number, id: string, roster: any[]): CommandBatchResponse => ({
+      protocolVersion: 3, batchId: `batch-${sequence}`, accountVersion: sequence,
+      writerGeneration: 1, serverTime: sequence,
+      results: [{ sequence, status: "applied", createdIds: [id] }],
+      gameplay: { ...baseGameplay, roster }, farmVersionBefore: 0, farmVersionAfter: 0,
+      netDelta: { gold: 0, brains: 0, xp: 1 }, questChanges: [], createdZombieIds: [id],
+    });
+
+    (economy as any).adoptCommandResponse(response(1, "server-a", [
+      { id: "server-a", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false },
+    ]));
+    expect(rosterCalls).toEqual([]);
+    (economy as any).adoptCommandResponse(response(2, "server-b", [
+      { id: "server-a", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false },
+      { id: "server-b", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false },
+    ]));
+    expect(rosterCalls).toEqual([{ "server-a": "local-a", "server-b": "local-b" }]);
+  });
+
   it("reports rejected commands and identifies rejected optimistic objects", () => {
     const economy = new EconomyClient(new GameState(), "reject-account");
     const command = { type: "object.buy" as const, catalogKey: "mausoleum3", clientInstanceId: "o7" };

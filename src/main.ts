@@ -1044,6 +1044,7 @@ async function main() {
         not_owned: "the item is no longer available", capacity_full: "capacity is full",
         army_full: "the farm is full", storage_full: "storage is full",
         not_grown: "the crop is not ready", nothing_planted: "the crop changed",
+        not_plowed: "the soil is no longer plowed", plot_occupied: "the plot already contains a crop",
         insufficient: "there are not enough funds", no_effect: "the game state changed",
         prior_command_failed: "an earlier related action failed",
       };

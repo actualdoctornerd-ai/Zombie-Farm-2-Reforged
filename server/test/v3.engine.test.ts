@@ -257,6 +257,20 @@ describe("protocol v3 command engine", () => {
     ]);
   });
 
+  it("reports a duplicate plant as occupied instead of claiming the soil is unplowed", () => {
+    const state = freshGameplayState();
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.plow", oc: 0, or: 0 },
+      { type: "farm.plant", oc: 0, or: 0, cropKey: "carrot" },
+      { type: "farm.plant", oc: 0, or: 0, cropKey: "carrot" },
+    ), { now: 1, random: () => 1 });
+    expect(result.results).toEqual([
+      { sequence: 1, status: "applied" },
+      { sequence: 2, status: "applied" },
+      { sequence: 3, status: "rejected", error: "plot_occupied" },
+    ]);
+  });
+
   it("removing a visual plot deletes its paid soil and crop without refund", () => {
     const state = freshGameplayState();
     const result = applyCommandBatch(state, commands(

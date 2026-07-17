@@ -50,6 +50,9 @@ export class EconomyClient {
   private serverInv: Record<string, number> = {};
   private optimistic = new Map<number, OptimisticDelta>();
   private authoritativeUnitIds = new Map<string, string>();
+  private deferredRosterAliases: Record<string, string> = {};
+  private deferredObjectAliases: Record<string, string> = {};
+  private deferredRejectedObjectIds = new Set<string>();
   private combineParents: { parentAId: string; parentBId: string } | null = null;
   private commandsBySequence = new Map<number, GameplayCommand>();
   private ready = false;
@@ -396,8 +399,31 @@ export class EconomyClient {
       this.optimistic.delete(result.sequence);
       this.commandsBySequence.delete(result.sequence);
     }
+    Object.assign(this.deferredRosterAliases, aliases);
+    Object.assign(this.deferredObjectAliases, objectAliases);
+    rejectedObjectIds.forEach((id) => this.deferredRejectedObjectIds.add(id));
     this.onQuestChanges?.(response.questChanges);
     this.adoptGameplay(response.gameplay, aliases, objectAliases, rejectedObjectIds);
+  }
+
+  /** A response describes the server immediately after its own batch. Commands the
+   * player issued while that batch was in flight are newer than the response and
+   * must stay visible until their own batch settles. */
+  private hasPendingProjection(domain: "farm" | "objects" | "roster"): boolean {
+    for (const [sequence, command] of this.commandsBySequence) {
+      const optimistic = this.optimistic.get(sequence);
+      if (domain === "farm") {
+        if (command.type.startsWith("farm.")) return true;
+        if (command.type === "power.use" &&
+            ["insta_grow", "insta_harvest", "insta_plow"].includes(command.key)) return true;
+      } else if (domain === "objects") {
+        if (command.type.startsWith("object.")) return true;
+      } else if (command.type.startsWith("roster.") || optimistic?.localUnitId ||
+                 optimistic?.localZombieHarvests?.length) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private adoptGameplay(
@@ -433,12 +459,24 @@ export class EconomyClient {
         if (plot.fertilized) this.onCropFertilized?.(oc, pr);
       }
     }
-    this.onFarmState?.({ plowed, crops });
-    this.onObjectState?.(gameplay.objects.objects, objectAliases, gameplay.zombieMax, rejectedObjectIds);
+    if (!this.hasPendingProjection("farm")) this.onFarmState?.({ plowed, crops });
+    if (!this.hasPendingProjection("objects")) {
+      this.onObjectState?.(
+        gameplay.objects.objects,
+        { ...this.deferredObjectAliases, ...objectAliases },
+        gameplay.zombieMax,
+        [...new Set([...this.deferredRejectedObjectIds, ...rejectedObjectIds])]
+      );
+      this.deferredObjectAliases = {};
+      this.deferredRejectedObjectIds.clear();
+    }
     // Capture/display a pending revival before roster reconciliation removes the
     // casualties from the local presentation cache. The offer remains server-owned.
     if (gameplay.raidRevival) this.onRaidRevival?.(gameplay.raidRevival, gameplay.balance.brains);
-    this.onRosterState?.(gameplay.roster, aliases);
+    if (!this.hasPendingProjection("roster")) {
+      this.onRosterState?.(gameplay.roster, { ...this.deferredRosterAliases, ...aliases });
+      this.deferredRosterAliases = {};
+    }
     this.onEpicBossState?.(gameplay.epicBoss ?? null);
     this.reconcile();
   }

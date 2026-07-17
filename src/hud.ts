@@ -26,6 +26,7 @@ import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END
 import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
 import { compareCropMarketOrder } from "./marketOrder";
+import { fillPartySelection } from "./raid/partySelection";
 
 export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow" | "rotate";
 
@@ -2506,7 +2507,13 @@ export class Hud {
     }
     const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
     pay.onchange = () => { payment = pay.value as EpicBossPayment; refresh(); };
-    pick.onclick = () => { for (const id of [...(this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? []), ...party.eligible.map((z) => z.id)]) if (order.length < party.cap && !order.includes(id)) order.push(id); refresh(); };
+    pick.onclick = () => {
+      const preferred = this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? [];
+      order.splice(0, order.length, ...fillPartySelection(
+        order, preferred, party.eligible.map((z) => z.id), party.cap
+      ));
+      refresh();
+    };
     start.onclick = async () => {
       if (!order.length || !this.onLaunchEpicBoss) return;
       start.disabled = true;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconcilePartySelection } from "./partySelection";
+import { fillPartySelection, reconcilePartySelection } from "./partySelection";
 
 describe("reconcilePartySelection", () => {
   it("replaces an optimistic id with its authoritative id", () => {
@@ -36,5 +36,25 @@ describe("reconcilePartySelection", () => {
     );
 
     expect(result.ids).toEqual(["a", "b"]);
+  });
+});
+
+describe("fillPartySelection", () => {
+  it("does not let sold zombies in a remembered order consume selection slots", () => {
+    expect(fillPartySelection(
+      [],
+      ["old-sold-a", "kept", "old-sold-b"],
+      ["kept", "new-crazy", "new-dapper"],
+      3
+    )).toEqual(["kept", "new-crazy", "new-dapper"]);
+  });
+
+  it("preserves valid manual choices before filling", () => {
+    expect(fillPartySelection(
+      ["new-dapper"],
+      ["kept", "new-dapper"],
+      ["kept", "new-crazy", "new-dapper"],
+      2
+    )).toEqual(["new-dapper", "kept"]);
   });
 });
