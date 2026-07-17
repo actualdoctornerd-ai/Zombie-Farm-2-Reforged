@@ -4,6 +4,7 @@
 //
 // Dialogue is the decoded English source, lightly adapted where the reimpl merges
 // two binary beats into one (e.g. "Tap on the Soil" + "Select the Zombie").
+import type { TutorialSave } from "../save/schema";
 
 /** The key of the base "Zombie" unit — the only plantable the tutorial allows. */
 export const TUTORIAL_ZOMBIE_KEY = "ZombieActorRegularTier1";
@@ -35,6 +36,18 @@ export const TUTORIAL_SEQUENCE: readonly TutStep[] = [
 export function nextTutorialStep(step: TutStep): TutStep | null {
   const i = TUTORIAL_SEQUENCE.indexOf(step);
   return i >= 0 && i + 1 < TUTORIAL_SEQUENCE.length ? TUTORIAL_SEQUENCE[i + 1] : null;
+}
+
+/** Server truth wins over a stale presentation checkpoint. Tutorial completion and
+ * its 200-gold reward share one authoritative command, while the Tim overlay is saved
+ * separately as presentation data; an immediate reload can therefore see the old
+ * Invade step alongside an already-applied reward. */
+export function reconcileTutorialCompletion(
+  save: TutorialSave | undefined,
+  rewarded: boolean
+): TutorialSave | undefined {
+  if (!rewarded) return save;
+  return { done: true, step: TutStep.Done, target: save?.target };
 }
 
 /** During the guided boost purchase, only the required item may spend currency. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   nextTutorialStep, recoverTutorialCropStep, TUTORIAL_SEQUENCE, TutStep,
-  tutorialBoostPurchaseAllowed,
+  reconcileTutorialCompletion, tutorialBoostPurchaseAllowed,
 } from "./steps";
 
 describe("tutorial sequence", () => {
@@ -40,5 +40,20 @@ describe("tutorial sequence", () => {
   it("rewinds missing tutorial crops to the earliest valid recovery action", () => {
     expect(recoverTutorialCropStep(TutStep.RipenCrop, false, true, false)).toBe(TutStep.PlantZombie);
     expect(recoverTutorialCropStep(TutStep.Harvest, false, false, false)).toBe(TutStep.Plow);
+  });
+
+  it("lets the authoritative completion reward override a stale Invade checkpoint", () => {
+    const stale = { done: false, step: TutStep.Invade, target: { col: 4, row: 8 } };
+    expect(reconcileTutorialCompletion(stale, true)).toEqual({
+      done: true,
+      step: TutStep.Done,
+      target: { col: 4, row: 8 },
+    });
+    expect(reconcileTutorialCompletion(stale, false)).toBe(stale);
+    expect(reconcileTutorialCompletion(undefined, true)).toEqual({
+      done: true,
+      step: TutStep.Done,
+      target: undefined,
+    });
   });
 });

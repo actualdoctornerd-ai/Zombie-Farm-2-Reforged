@@ -73,6 +73,7 @@ export class EconomyClient {
   onRaidSettled: ((res: api.RaidFinishResult) => void) | null = null;
   onRaidRevival: ((offer: NonNullable<BootstrapResponse["gameplay"]["raidRevival"]>, brains: number) => void) | null = null;
   onEpicBossState: ((event: BootstrapResponse["gameplay"]["epicBoss"]) => void) | null = null;
+  onTutorialState: ((rewarded: boolean) => void) | null = null;
   onGameplayUnavailable: ((reason: string) => void) | null = null;
   onWriterReplaced: (() => void) | null = null;
   onWriterAvailable: (() => void) | null = null;
@@ -560,6 +561,7 @@ export class EconomyClient {
       this.onRosterState?.(gameplay.roster, { ...this.deferredRosterAliases, ...aliases });
       this.deferredRosterAliases = {};
       this.onEpicBossState?.(gameplay.epicBoss ?? null);
+      this.onTutorialState?.(gameplay.tutorialRewarded);
     }
     this.reconcile();
   }

@@ -10,6 +10,7 @@ import * as api from "../net/api";
 import { getFarmBackground } from "../prefs";
 import { epicBossById } from "../epicBoss/catalog";
 import { GAMEPLAY_PROTOCOL } from "../net/protocol";
+import { reconcileTutorialCompletion } from "../tutorial/steps";
 
 type PresentationData = {
   player?: { name?: string; farmer?: { col: number; row: number }; farmerAppearance?: SaveGame["player"]["farmerAppearance"] };
@@ -282,7 +283,7 @@ export class SaveManager {
       raids: { completed: boot.gameplay.raids.progress, lastRaidAt: boot.gameplay.raids.lastRaidAt, attackOrder: p.ui?.attackOrder ?? [] },
       epicBoss: boot.gameplay.epicBoss ?? undefined,
       social: { friends: boot.social.friends.map((friend) => ({ id: friend.accountId, name: friend.name, addedAt: boot.serverTime, giftsSent: 0 })) },
-      tutorial: p.tutorial,
+      tutorial: reconcileTutorialCompletion(p.tutorial, boot.gameplay.tutorialRewarded),
     };
   }
 

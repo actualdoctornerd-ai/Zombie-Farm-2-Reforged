@@ -40,7 +40,7 @@ import {
 } from "./prefs";
 import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
-import { TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
+import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform, isMobile } from "./platform";
 import { gestureMoved, isDeferredTouchMode, isTouchPointer } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
@@ -1093,6 +1093,11 @@ async function main() {
     economy.onPetState = (ownedPets, activePet, penPets) => state.syncPetOwnership(ownedPets, activePet, penPets);
     economy.onQuestState = (serverState) => quests.restoreAuthoritative(serverState);
     economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
+    economy.onTutorialState = (rewarded) => {
+      if (!rewarded) return;
+      state.setTutorial(reconcileTutorialCompletion(state.tutorial, true));
+      tutorial?.completeFromAuthority();
+    };
     economy.onGameplayUnavailable = () => hud.showToast("Gameplay paused — reconnect to continue.");
     const showWriterLock = () => {
       saveManager.setOnlineWritable(false);

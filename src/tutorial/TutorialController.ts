@@ -124,6 +124,13 @@ export class TutorialController {
     this.dispose();
   }
 
+  /** Reconcile an already-rewarded tutorial without granting the bonus again. This
+   * can arrive after restore when a pre-reload completion command finishes. */
+  completeFromAuthority() {
+    this.persist(TutStep.Done, true);
+    if (this.active) this.dispose();
+  }
+
   private dispose() {
     this.active = false;
     if (this.raf) cancelAnimationFrame(this.raf);
