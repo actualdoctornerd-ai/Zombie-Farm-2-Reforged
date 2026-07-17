@@ -25,8 +25,10 @@ excluded from the plantable zombie Market.
 | Mystical Mamba | 40 | Zomtar |
 
 These are granted directly to the deployed farm roster when there is room, or to
-zombie storage when the deployed army is full. They cannot be bought, planted,
-seeded by migration, or used to duplicate themselves in the Zombie Pot.
+zombie storage when the deployed army is full. Earned rewards may overflow the
+storage limit; only manually storing a deployed zombie is blocked when storage is
+full. They cannot be bought, planted, seeded by migration, or used to duplicate
+themselves in the Zombie Pot.
 
 ## Market: Special zombie crops (5)
 

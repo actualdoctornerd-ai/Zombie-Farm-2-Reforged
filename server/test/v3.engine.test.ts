@@ -339,6 +339,51 @@ describe("protocol v3 command engine", () => {
     expect(result.state.balance.xp).toBe(1);
   });
 
+  it("keeps a ripe zombie planted when the active army is full, even with storage room", () => {
+    const state = freshGameplayState();
+    state.zombieMax = 1;
+    state.objects.objects.push({ instanceId: "mausoleum", catalogKey: "mausoleum3", status: "placed" });
+    state.roster.push({ id: "active", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false });
+    state.farm.plots["0:0"] = {
+      state: "planted", cropKey: "ZombieActorGirlTier1", plantedAt: 0,
+      growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true,
+    };
+
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.harvest", oc: 0, or: 0 },
+    ), { now: 1_000, id: () => "should-not-be-used" });
+
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "capacity_full" });
+    expect(result.state.farm.plots["0:0"]).toMatchObject({ state: "planted", cropKey: "ZombieActorGirlTier1" });
+    expect(result.state.roster).toHaveLength(1);
+  });
+
+  it("overflows an awarded gift zombie into full storage while manual storage stays capped", () => {
+    const state = freshGameplayState();
+    state.zombieMax = 1;
+    state.inventory.flower_zombie_pot = 1;
+    state.objects.objects.push({ instanceId: "mausoleum", catalogKey: "mausoleum3", status: "placed" });
+    state.roster.push({ id: "active", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false });
+    for (let index = 0; index < 15; index++) {
+      state.roster.push({ id: `stored-${index}`, key: "ZombieActorGirlTier1", mutation: 0, invasions: 0, stored: true });
+    }
+
+    const manual = applyCommandBatch(state, commands(
+      { type: "roster.status", unitId: "active", stored: true },
+    ), { now: 1 });
+    expect(manual.results[0]).toMatchObject({ status: "rejected", error: "storage_full" });
+
+    const awarded = applyCommandBatch(state, commands(
+      { type: "power.use", key: "flower_zombie_pot" },
+    ), { now: 2, id: () => "overflow-award" });
+    expect(awarded.results[0]).toMatchObject({ status: "applied", createdIds: ["overflow-award"] });
+    expect(awarded.state.roster.find((unit) => unit.id === "overflow-award")).toMatchObject({
+      key: "ZombieActorGardenTier3GreenFlower",
+      stored: true,
+    });
+    expect(awarded.state.roster.filter((unit) => unit.stored)).toHaveLength(16);
+  });
+
   it("does not consume Harvest power when capacity blocks its only ripe zombie", () => {
     const state = freshGameplayState();
     state.inventory.insta_harvest = 1;
@@ -360,6 +405,29 @@ describe("protocol v3 command engine", () => {
     ), { now: 1 });
     expect(result.results[0].status).toBe("applied");
     expect(result.state.inventory.insta_grow).toBe(0);
+  });
+
+  it("accepts a restored Pot boost before collecting a rare special result", () => {
+    const state = freshGameplayState();
+    state.inventory.insta_grow = 1;
+    state.balance.xp = 20_500;
+    const [parentAId, parentBId] = rareCombinePairIds();
+    state.roster = [
+      { id: parentAId, key: "ZombieActorHeadlessTier1", mutation: 0, invasions: 0, stored: false },
+      { id: parentBId, key: "ZombieActorHeadlessTier3", mutation: 0, invasions: 0, stored: false },
+    ];
+
+    const result = applyCommandBatch(state, commands(
+      { type: "power.use", key: "insta_grow", target: "zombie_pot" },
+      { type: "roster.combine", parentAId, parentBId, playerLevel: 25 },
+    ), { now: 1, id: () => "special-child" });
+
+    expect(result.results.map((entry) => entry.status)).toEqual(["applied", "applied"]);
+    expect(result.state.inventory.insta_grow).toBe(0);
+    expect(result.state.roster).toContainEqual(expect.objectContaining({
+      id: "special-child",
+      key: "ZombieActorHeadlessTier5",
+    }));
   });
 
   it("accepts Insta-Grow in the harvest latency-grace window", () => {
@@ -465,6 +533,22 @@ describe("protocol v3 command engine", () => {
     expect(result.state.roster).toEqual([
       { id: "server-child", key: "ZombieActorRegularTier1", mutation: 2, invasions: 0, stored: false },
     ]);
+  });
+
+  it("stores a combine award when stored parents do not free an active slot", () => {
+    const state = freshGameplayState();
+    state.zombieMax = 1;
+    state.roster = [
+      { id: "active", key: "ZombieActorHeadlessTier1", mutation: 0, invasions: 0, stored: false },
+      { id: "a", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: true },
+      { id: "b", key: "ZombieActorGirlTier1", mutation: 0, invasions: 0, stored: true },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", parentAId: "a", parentBId: "b" },
+    ), { now: 1, id: () => "stored-child" });
+
+    expect(result.results[0]).toMatchObject({ status: "applied", createdIds: ["stored-child"] });
+    expect(result.state.roster.find((unit) => unit.id === "stored-child")).toMatchObject({ stored: true });
   });
 
   it("uses a mutant only as the mutation donor and never invents mutations", () => {

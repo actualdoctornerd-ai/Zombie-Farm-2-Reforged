@@ -141,6 +141,7 @@ export interface ZombieInfo {
   focus: number;
   mutation: number; // mutation bitmask — stats it boosts render green
   portrait: string;
+  color?: [number, number, number]; // individual tint used by the generated portrait
   invasions: number; // lifetime invasions (drives veterancy)
   // Present when the panel should offer roster actions (store/deploy/locate).
   id?: string;
@@ -2073,6 +2074,8 @@ export class Hud {
   getRoster: (() => RosterEntry[]) | null = null;
   /** Portrait image URL for a zombie type key (per-type composite). */
   zombiePortraitOf: ((key: string) => string) | null = null;
+  /** Render one owned zombie with its complete individual mutation mask. */
+  zombieMutationPortraitOf: ((key: string, mutation: number, color?: [number, number, number]) => Promise<string>) | null = null;
   /** Take a deployed zombie off the farm (into the Mausoleum). */
   onZombieStore: ((id: string) => void | Promise<void>) | null = null;
   /** Put a stored zombie back on the farm. */
@@ -4207,6 +4210,15 @@ export class Hud {
     const port = document.createElement("div");
     port.className = "zcard-port";
     port.style.backgroundImage = `url(${info.portrait})`;
+    // Use the static catalog portrait immediately, then replace it with the cached
+    // individual rig once its mutation-aware render is available.
+    if (this.zombieMutationPortraitOf) {
+      void this.zombieMutationPortraitOf(info.key, info.mutation, info.color)
+        .then((portrait) => {
+          if (port.isConnected) port.style.backgroundImage = `url(${portrait})`;
+        })
+        .catch(() => { /* retain the static species portrait if extraction fails */ });
+    }
     const meta = document.createElement("div");
     meta.className = "zcard-meta";
     const vetPct = Math.round((veterancyMultiplier(info.invasions) - 1) * 100);
@@ -4535,6 +4547,7 @@ export class Hud {
       con: z.con * this.state.farmerZombieLifeMult(), focus: z.focus, mutation: z.mutation,
       invasions: z.invasions,
       portrait: this.zombiePortraitOf ? this.zombiePortraitOf(z.key) : "",
+      color: z.color,
       id: z.id, stored: z.stored,
     };
   }

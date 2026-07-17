@@ -49,31 +49,33 @@ export const STATS: StatMeta[] = [
 // Zombee, Zombielocks, Zombelly Dancer and the Flytrap zombie — all 20 values exact.
 // Focus is already a 0–100 stat, so it is shown as-is.
 //
-// IMPORTANT: these are FIXED CONSTANTS, deliberately NOT derived from the live
-// roster. A future over-powered zombie must never rescale everyone else's bars — it
-// simply reads 100 (displayStat clamps). So adding an OP unit later cannot change
-// what any existing zombie displays.
+// IMPORTANT: these are FIXED REFERENCE CONSTANTS, deliberately NOT derived from the
+// live roster. Adding a stronger zombie later must NOT rescale everyone else's shown
+// numbers — the reference stays put, so existing zombies always display the same
+// value. A unit stronger than the reference simply reads ABOVE 100 (NOT clamped);
+// e.g. George Washington (str 30) shows 129 Power. The reference is a stable "100 =
+// this specific base zombie", not a hard cap.
 export const STAT_DISPLAY_MAX: Record<"str" | "con" | "dex", number> = {
-  str: 23.32, // Large tier-5 (Zomviking) base str — the Damage/Power ceiling
-  con: 29.7, //  Headless tier-5 (Bombie) base con — the Life ceiling
-  dex: 4.4, //   Small tier-5 (Zombricaun) base dex — the Speed ceiling
+  str: 23.32, // Large tier-5 (Zomviking) base str — the Damage/Power reference
+  con: 29.7, //  Headless tier-5 (Bombie) base con — the Life reference
+  dex: 4.4, //   Small tier-5 (Zombricaun) base dex — the Speed reference
 };
 
-/** The stat cap a full 100-bar represents, or null for focus (already 0–100). */
+/** The reference stat a value of 100 represents, or null for focus (already 0–100). */
 export function statDisplayMax(key: StatMeta["key"]): number | null {
   return key === "focus" ? null : STAT_DISPLAY_MAX[key];
 }
 
-/** Convert a raw combat stat to the whole-number 0–100 value shown on the card.
- *  str/con/dex are normalized against STAT_DISPLAY_MAX and clamped to 100 so an
- *  above-ceiling special (e.g. Brock Coley) can't overflow the value box; focus is
- *  already 0–100 and only gets rounded. Species base stats can be fractional, hence
- *  the round. Pass the FULLY-RESOLVED stat (mutation/veterancy already folded in) —
- *  the normalization is linear so the bar reflects those bonuses automatically. */
+/** Convert a raw combat stat to the whole-number value shown on the card. str/con/dex
+ *  are normalized against STAT_DISPLAY_MAX (100 = the reference base zombie) and can
+ *  exceed 100 for above-reference units — NOT clamped. Focus is already 0–100 and only
+ *  gets rounded. Species base stats can be fractional, hence the round. Pass the
+ *  FULLY-RESOLVED stat (mutation/veterancy already folded in) — normalization is linear
+ *  so the shown value reflects those bonuses automatically. */
 export function displayStat(key: StatMeta["key"], raw: number): number {
   const max = statDisplayMax(key);
   if (max === null) return Math.round(raw);
-  return Math.min(100, Math.round((raw / max) * 100));
+  return Math.round((raw / max) * 100);
 }
 
 export interface AbilityMeta {

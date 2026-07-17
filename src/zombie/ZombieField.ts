@@ -87,7 +87,8 @@ export class ZombieField {
     return this.units.length + this.stored.length;
   }
   /** Is there a free on-farm slot to grow/deploy another zombie? The army cap
-   *  limits DEPLOYED units only; stored zombies (Mausoleum) are uncapped. */
+   *  limits DEPLOYED units only. Manual storage is capped, but earned rewards may
+   *  overflow the Mausoleum so a full roster can never destroy an award. */
   canAdd(): boolean {
     return this.units.length < this.state.zombieMax;
   }
@@ -340,7 +341,8 @@ export class ZombieField {
     return this.potFor(potId).ready;
   }
 
-  /** Quest/server reward: never lose the unit when the deployed army is full. */
+  /** Quest/server reward: never lose the unit when the deployed army is full.
+   *  Reward overflow deliberately ignores the manual Mausoleum capacity. */
   grantReward(
     key: string, col: number, row: number, serverId?: string, serverStored?: boolean
   ): OwnedZombie | null {

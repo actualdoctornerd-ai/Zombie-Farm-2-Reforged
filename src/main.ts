@@ -44,6 +44,7 @@ import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tut
 import { initPlatform, isMobile } from "./platform";
 import { gestureMoved, isDeferredTouchMode, isTouchPointer } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
+import { MutationPortraits } from "./zombie/mutationPortrait";
 import { DR_GROUNDHOG, EPIC_BOSSES, epicBossById } from "./epicBoss/catalog";
 import { EpicBossManager } from "./epicBoss/EpicBossManager";
 import { buildEpicBossSetup, rollEpicBossLoot } from "./epicBoss/combat";
@@ -84,6 +85,8 @@ async function main() {
   state.seedFarmerCatalog(assets.farmer);
   const audio = new AudioManager(); // music/SFX default off (toggled in Settings)
   const hud = new Hud(state, audio);
+  const mutationPortraits = new MutationPortraits(app.renderer, assets);
+  hud.zombieMutationPortraitOf = (key, mutation, color) => mutationPortraits.get(key, mutation, color);
   hud.setFarmerCatalog(assets.farmer);
   hud.setPetCatalog(assets.pets);
   // Give Android/browser Back an in-app dismissal layer. One guard entry keeps the
@@ -808,11 +811,11 @@ async function main() {
       if (!def.giftZombieKey) return false;
       // 1 per farm: don't spawn a duplicate of a gift zombie you already own.
       if (ownsGiftZombie(def.giftZombieKey)) { floatText(c.x, c.y, `Already have ${def.name}!`); return false; }
-      if (!zombies.canAdd()) { floatText(c.x, c.y, "Army full!"); return false; }
       // ONLINE, the voucher `use` grants this unit server-side, so spawn it verified
-      // (no onGrant) and hand its id to onUseBoost to send. The server re-checks the
-      // catalog key, the voucher count, and the 1-per-farm rule.
-      const unit = zombies.spawnVerified(def.giftZombieKey, walk.tile.col, walk.tile.row);
+      // (no onGrant) and hand its id to onUseBoost to send. Awarded zombies overflow
+      // into storage when the army is full, even if storage is already above its cap.
+      // The server re-checks the catalog key, voucher count, and 1-per-farm rule.
+      const unit = zombies.grantReward(def.giftZombieKey, walk.tile.col, walk.tile.row);
       if (!unit) return false;
       giftUnitId = unit.id;
       floatText(c.x, c.y, `Got ${def.name}!`);
@@ -2724,6 +2727,7 @@ async function main() {
             con: d.con * state.farmerZombieLifeMult(), focus: d.focus, mutation: d.mutation,
             invasions: d.invasions,
             portrait: zombiePortrait(d.key), // per-type composited portrait
+            color: d.color,
             // Visiting a friend: inspect only — omit the id so openZombieInfo
             // renders no Deploy/Store/Sell/Locate actions on their unit.
             id: visiting ? undefined : d.id, stored: false,

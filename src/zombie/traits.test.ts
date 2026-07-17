@@ -63,10 +63,15 @@ describe("stat display normalization", () => {
     expect(displayStat("focus", 75 * veterancyMultiplier(5))).toBe(94);
   });
 
-  it("clamps an over-ceiling special to 100 so an OP zombie can't overflow or rescale others", () => {
-    expect(displayStat("str", 40)).toBe(100); // Brock Coley str 40 → 171% → clamped
-    expect(displayStat("str", 30)).toBe(100); // George Washington str 30 → 129% → clamped
-    // A hypothetical future OP unit still just reads 100 — existing bars are unchanged.
-    expect(displayStat("con", 999)).toBe(100);
+  it("lets above-reference specials read past 100 (NOT clamped)", () => {
+    expect(displayStat("str", 30)).toBe(129); // George Washington str 30 → 30/23.32×100
+    expect(displayStat("str", 40)).toBe(172); // Brock Coley str 40 → 40/23.32×100
+  });
+
+  it("keeps the reference fixed — a new strongest zombie does not rescale existing ones", () => {
+    // Adding an OP unit (whatever its stats) never changes the reference denominators,
+    // so a Zombarian still reads 91 Power regardless of what else is in the roster.
+    expect(displayStat("str", 21.2)).toBe(91);
+    expect(displayStat("str", 999)).toBe(4284); // the OP unit itself just reads high
   });
 });

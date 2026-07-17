@@ -152,11 +152,12 @@ function placedCapacity(state: MutableGameplayState): { army: number; storage: n
   return { army, storage };
 }
 
-function addZombie(state: MutableGameplayState, key: string, id: string): boolean {
+/** Place a zombie awarded by a non-harvest system. Awards are never lost: once the
+ * active army is full they overflow into storage, even beyond its displayed cap.
+ * The storage cap remains enforced by the explicit roster.status command. */
+function addAwardedZombie(state: MutableGameplayState, key: string, id: string): void {
   const cap = placedCapacity(state);
   const active = state.roster.filter((u) => !u.stored).length;
-  const stored = state.roster.filter((u) => u.stored).length;
-  if (active >= cap.army && stored >= cap.storage) return false;
   state.roster.push({
     id,
     key,
@@ -164,7 +165,6 @@ function addZombie(state: MutableGameplayState, key: string, id: string): boolea
     invasions: 0,
     stored: active >= cap.army,
   });
-  return true;
 }
 
 function rewardHarvest(
@@ -177,8 +177,14 @@ function rewardHarvest(
   random: () => number
 ): { ok: true; event: QuestEvent } | { ok: false; error: string } {
   if (plot.zombie) {
+    // Growing a zombie is different from receiving an award: a ripe zombie crop
+    // stays planted until there is room in the active army.
+    const cap = placedCapacity(state);
+    if (state.roster.filter((unit) => !unit.stored).length >= cap.army) {
+      return { ok: false, error: "capacity_full" };
+    }
     const id = makeId();
-    if (!addZombie(state, key, id)) return { ok: false, error: "capacity_full" };
+    addAwardedZombie(state, key, id);
     created.push(id);
     state.balance.xp += zombieCropEcon(key)?.xp ?? 0;
     return { ok: true, event: { type: "kCropHarvestedZombieNotification", subject: zombieNames.get(key) ?? key } };
@@ -348,7 +354,7 @@ function applyOne(
       if (boost?.gift) {
         if (state.roster.some((unit) => unit.key === boost.gift)) return reject(sequence, "already_owned");
         const id = options.id();
-        if (!addZombie(state, boost.gift, id)) return reject(sequence, "capacity_full");
+        addAwardedZombie(state, boost.gift, id);
         state.inventory[command.key] = have - 1;
         created.push(id);
         return { sequence, status: "applied", createdIds: [id] };
@@ -381,9 +387,13 @@ function applyOne(
         }
       } else if (command.key === "insta_grow") {
         if (command.target === "zombie_pot") {
-          effects = state.objects.objects.some((object) =>
-            object.status === "placed" && !!objectRules.get(object.catalogKey)?.zombiePot
-          ) ? 1 : 0;
+          // Zombie Pot timers/jobs are presentation state until collection. The
+          // client emits this command only after finishCombineNow succeeds, while
+          // roster.combine separately validates both authoritative parents and
+          // derives the result. Requiring a Pot in the functional-object projection
+          // here falsely rolls back boosts used on legacy/restored Pots even though
+          // the subsequent (including rare-special) collection is valid.
+          effects = 1;
         } else {
           const key = plotKey(command.oc ?? -1, command.or ?? -1);
           const plot = state.farm.plots[key];
@@ -519,7 +529,9 @@ function applyOne(
       // anatomical slot and deterministically resolves a same-slot conflict.
       const mutation = combineMasks(a.mutation, b.mutation);
       state.roster = state.roster.filter((u) => u.id !== a.id && u.id !== b.id);
-      state.roster.push({ id, key: resultKey, mutation, invasions: 0, stored: false });
+      const capacity = placedCapacity(state);
+      const stored = state.roster.filter((unit) => !unit.stored).length >= capacity.army;
+      state.roster.push({ id, key: resultKey, mutation, invasions: 0, stored });
       created.push(id);
       events.push({
         type: "kCombinerCombinedNotification",
