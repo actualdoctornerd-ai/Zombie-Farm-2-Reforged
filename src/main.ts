@@ -13,7 +13,7 @@ import { ZombieField } from "./zombie/ZombieField";
 import { makeOwned } from "./zombie/types";
 import { POT_DURATION_MS } from "./zombie/ZombiePot";
 import { GameState } from "./GameState";
-import { Hud, graveNeededFor, LevelUpUnlock, ReceivedView, QuestCompleteView, QuestReward } from "./hud";
+import { Hud, graveNeededFor, LevelUpUnlock, ReceivedView, QuestCompleteView, QuestReward, type Mode } from "./hud";
 import { JobSystem } from "./JobSystem";
 import { AudioManager } from "./audio";
 import { SaveManager } from "./save/SaveManager";
@@ -41,7 +41,8 @@ import {
 import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
 import { TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
-import { initPlatform } from "./platform";
+import { initPlatform, isMobile } from "./platform";
+import { gestureMoved, isDeferredTouchMode, isTouchPointer } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
 import { DR_GROUNDHOG, EPIC_BOSSES, epicBossById } from "./epicBoss/catalog";
 import { EpicBossManager } from "./epicBoss/EpicBossManager";
@@ -85,6 +86,24 @@ async function main() {
   const hud = new Hud(state, audio);
   hud.setFarmerCatalog(assets.farmer);
   hud.setPetCatalog(assets.pets);
+  // Give Android/browser Back an in-app dismissal layer. One guard entry keeps the
+  // URL unchanged; if the HUD has nothing to close, the second back continues to
+  // the page that preceded the game instead of trapping the player here.
+  if (isMobile()) {
+    const armMobileBack = () => history.pushState(
+      { ...(history.state ?? {}), zfMobileBackGuard: true }, "", location.href
+    );
+    let leavingViaBack = false;
+    armMobileBack();
+    window.addEventListener("popstate", () => {
+      if (leavingViaBack) return;
+      if (hud.handleMobileBack()) armMobileBack();
+      else {
+        leavingViaBack = true;
+        history.back();
+      }
+    });
+  }
 
   // Build the plant/zombie picker catalog from the market data. Cards show the
   // real grow time, but actual growth is scaled down so crops finish while playing.
@@ -1111,6 +1130,12 @@ async function main() {
   let moved = false;
   let lastPlot = "";
   const last = new Point();
+  const pressStart = new Point();
+  let pressPointerType = "mouse";
+  let pressPointerId = -1;
+  // Plow/plant tiles painted by the current finger gesture. They are queued only
+  // on finger-up, so a second finger can safely convert the gesture into a pinch.
+  const touchGestureTiles: { col: number; row: number }[] = [];
 
   // ---- multi-touch pinch-to-zoom (mobile) ----
   // Handled with native touch events (not Pixi pointers): e.touches reliably
@@ -1124,6 +1149,17 @@ async function main() {
   let touchPinch = false;
   let pinchDist = 0;
   const pinchMid = new Point();
+  const cancelPointerGesture = () => {
+    dragging = false;
+    moved = false;
+    lastPlot = "";
+    pressPointerId = -1;
+    touchGestureTiles.length = 0;
+    touchPinch = false;
+    pinchDist = 0;
+    field.hideCursor();
+    field.setObjectHighlight(null);
+  };
   // Canvas-relative CSS pixels (same space wheel/zoomAt use).
   const canvasXY = (clientX: number, clientY: number) => {
     const r = app.canvas.getBoundingClientRect();
@@ -1134,25 +1170,15 @@ async function main() {
     const b = canvasXY(t[1].clientX, t[1].clientY);
     return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
   };
-  const tileAtScreen = (sx: number, sy: number) => {
-    const w = world.toLocal(new Point(sx, sy));
-    const g = screenToGrid(w.x, w.y);
-    return { col: Math.round(g.col), row: Math.round(g.row) };
-  };
-
   {
     app.canvas.addEventListener("touchstart", (e: TouchEvent) => {
       if (e.touches.length !== 2 || raidActive) return;
       e.preventDefault();
       touchPinch = true;
       dragging = false; // abandon any in-progress single-finger pan
-      // Each finger's pointerdown may have queued a tool action before the second
-      // finger arrived; undo both so a pinch never plows/plants.
-      for (let i = 0; i < 2; i++) {
-        const p = canvasXY(e.touches[i].clientX, e.touches[i].clientY);
-        const { col, row } = tileAtScreen(p.x, p.y);
-        jobs.cancelAtTile(col, row);
-      }
+      // Nothing has committed yet: discard the pending paint stroke and let the
+      // two fingers control the camera instead.
+      touchGestureTiles.length = 0;
       lastPlot = "";
       field.hideCursor();
       const g = pinchInfo(e.touches);
@@ -1173,6 +1199,10 @@ async function main() {
     }, { passive: false });
 
     const endPinch = (e: TouchEvent) => {
+      if (e.type === "touchcancel") {
+        cancelPointerGesture();
+        return;
+      }
       // Once fewer than two fingers remain the pinch is over. Stay out of pan mode
       // so the last finger doesn't jump the camera.
       if (e.touches.length < 2) { touchPinch = false; dragging = false; }
@@ -1190,10 +1220,11 @@ async function main() {
 
   // Queue the active tool on a plot: Plow places/re-tills a 4x4; Plant sows the
   // currently-selected crop. No-op for select/sell.
-  const enqueueTool = (col: number, row: number) => {
-    if (hud.mode === "till") jobs.enqueue("till", col, row);
-    else if (hud.mode === "plant" && hud.planting)
-      jobs.enqueue("plant", col, row, hud.planting);
+  const enqueueTool = (col: number, row: number): boolean => {
+    if (hud.mode === "till") return jobs.enqueue("till", col, row);
+    if (hud.mode === "plant" && hud.planting)
+      return jobs.enqueue("plant", col, row, hud.planting);
+    return false;
   };
 
   // ---- object buy / place / move ----
@@ -2436,10 +2467,29 @@ async function main() {
     }
   };
 
+  // These edit actions are immediate for a mouse, but touch calls this only after
+  // finger-up confirms the gesture was a tap (rather than the start of a pinch).
+  const performEditTap = (mode: Mode, col: number, row: number, wx: number, wy: number) => {
+    if (mode === "place") tryPlaceObject(col, row);
+    else if (mode === "move") handleMoveTap(col, row, wx, wy);
+    else if (mode === "remove") tryRemove(col, row, wx, wy);
+    else if (mode === "instagrow") tryInstaGrow(col, row, wx, wy);
+    else if (mode === "rotate") {
+      const id = field.objectAtPoint(wx, wy);
+      if (id) { field.flipObject(id); audio.play("place"); saveManager.save(); }
+    }
+  };
+
   app.stage.on("pointerdown", (e: FederatedPointerEvent) => {
     if (raidActive) return; // farm input is inert during a live raid
     if (economy && !economy.available) { hud.showToast("Gameplay paused — reconnect to continue."); return; }
     if (touchPinch) return; // a pinch is in progress; ignore extra finger-downs
+    if (isTouchPointer(e.pointerType) && !e.isPrimary) return;
+    const touch = isTouchPointer(e.pointerType);
+    pressPointerType = e.pointerType;
+    pressPointerId = e.pointerId;
+    pressStart.copyFrom(e.global);
+    touchGestureTiles.length = 0;
     if (visiting) {
       // Read-only visit: no tools, no editing. Only start a camera pan; a tap
       // (pan that doesn't move) resolves to walk / inspect in endDrag below.
@@ -2462,39 +2512,25 @@ async function main() {
     // acts out of turn). Menu/narrative beats freeze the farm entirely.
     if (tutorial.active && !tutorial.allowsTile(col, row)) return;
     hud.collapse(); // any tap on the field collapses the bars into the corner fab
-    if (hud.mode === "place") {
-      tryPlaceObject(col, row);
-      dragging = false;
+    if (isDeferredTouchMode(hud.mode)) {
+      if (touch) {
+        // Wait for pointer-up. A second finger may still convert this tap into a
+        // pinch, and none of these actions are safely reversible.
+        dragging = true;
+        moved = false;
+        last.copyFrom(e.global);
+      } else {
+        performEditTap(hud.mode, col, row, wx, wy);
+        dragging = false;
+      }
       return;
     }
-    if (hud.mode === "move") {
-      handleMoveTap(col, row, wx, wy);
-      dragging = false;
-      return;
-    }
-    if (hud.mode === "remove") {
-      tryRemove(col, row, wx, wy);
-      dragging = false;
-      return;
-    }
-    if (hud.mode === "instagrow") {
-      tryInstaGrow(col, row, wx, wy); // ripen the tapped crop or Zombie Pot
-      dragging = false;
-      return;
-    }
-    if (hud.mode === "rotate") {
-      // Rotate tool: tap any placed object to flip it on the vertical axis.
-      const id = field.objectAtPoint(wx, wy);
-      if (id) { field.flipObject(id); audio.play("place"); saveManager.save(); }
-      dragging = false;
-      return;
-    }
-    if (jobs.cancelAtTile(col, row)) { // tapped a queued action -> un-queue it
+    if (!touch && jobs.cancelAtTile(col, row)) { // tapped a queued action -> un-queue it
       dragging = false;
       return;
     }
     const queuedObjId = field.objectAtPoint(wx, wy);
-    if (queuedObjId && jobs.cancelObject(queuedObjId)) {
+    if (!touch && queuedObjId && jobs.cancelObject(queuedObjId)) {
       dragging = false;
       return;
     }
@@ -2502,22 +2538,28 @@ async function main() {
     moved = false;
     last.copyFrom(e.global);
     if (hud.mode !== "walk") {
-      enqueueTool(col, row); // tap queues a plow/plant job for this plot
-      lastPlot = tileKey(col, row);
+      // Mouse preserves immediate click/drag painting. Touch waits for either a
+      // confirmed tap or movement beyond its larger finger-jitter threshold.
+      if (!touch) enqueueTool(col, row);
+      lastPlot = touch ? "" : tileKey(col, row);
     }
   });
   app.stage.on("pointermove", (e: FederatedPointerEvent) => {
     if (raidActive) return;
     if (touchPinch) return; // pinch owns the gesture; skip pan/cursor updates
+    if (dragging && e.pointerId === pressPointerId && !moved) {
+      moved = gestureMoved(pressStart.x, pressStart.y, e.global.x, e.global.y, pressPointerType);
+    }
     if (visiting) {
       // Read-only visit: drag pans the camera; no tool cursors are ever shown.
       if (dragging) {
         const dx = e.global.x - last.x;
         const dy = e.global.y - last.y;
-        if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
-        world.position.x += dx;
-        world.position.y += dy;
-        clampCamera();
+        if (moved) {
+          world.position.x += dx;
+          world.position.y += dy;
+          clampCamera();
+        }
         last.copyFrom(e.global);
       }
       return;
@@ -2554,16 +2596,19 @@ async function main() {
       if (hud.mode === "walk") {
         const dx = e.global.x - last.x;
         const dy = e.global.y - last.y;
-        if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
-        world.position.x += dx;
-        world.position.y += dy;
-        clampCamera(); // block panning above the sky
+        if (moved) {
+          world.position.x += dx;
+          world.position.y += dy;
+          clampCamera(); // block panning above the sky
+        }
         last.copyFrom(e.global);
-      } else {
-        // drag to queue plow/plant across the field (new tile under the cursor)
+      } else if (moved) {
+        // Drag-paint plow/plant across the field. Touch records the stroke and
+        // commits on finger-up; mouse queues each new tile immediately.
         const tk = tileKey(col, row);
         if (tk !== lastPlot) {
-          enqueueTool(col, row);
+          if (isTouchPointer(pressPointerType)) touchGestureTiles.push({ col, row });
+          else enqueueTool(col, row);
           lastPlot = tk;
         }
       }
@@ -2574,6 +2619,33 @@ async function main() {
   const endDrag = (e: FederatedPointerEvent) => {
     if (dragging && !moved) {
       const { col, row, wx, wy } = tileAt(e);
+      if (isTouchPointer(pressPointerType)) {
+        // Match desktop's queued-action toggle, but only after this is known to be
+        // a tap so the first finger of a pinch cannot cancel unrelated work.
+        if (jobs.cancelAtTile(col, row)) {
+          dragging = false;
+          lastPlot = "";
+          return;
+        }
+        const queuedObjId = field.objectAtPoint(wx, wy);
+        if (queuedObjId && jobs.cancelObject(queuedObjId)) {
+          dragging = false;
+          lastPlot = "";
+          return;
+        }
+        if (isDeferredTouchMode(hud.mode)) {
+          performEditTap(hud.mode, col, row, wx, wy);
+          dragging = false;
+          lastPlot = "";
+          return;
+        }
+        if (hud.mode === "till" || hud.mode === "plant") {
+          enqueueTool(col, row);
+          dragging = false;
+          lastPlot = "";
+          return;
+        }
+      }
       if (hud.mode === "walk") {
         // Select tool: clicking an owned zombie inspects it; the storage shed opens
         // Storage; a ripe fruit tree harvests for gold; else it's tile-based (same
@@ -2690,10 +2762,22 @@ async function main() {
   const onPointerUp = (e: FederatedPointerEvent) => {
     // During/after a pinch, dragging was cleared so endDrag fires no stray tap.
     if (touchPinch) return;
+    if (pressPointerId !== -1 && e.pointerId !== pressPointerId) return;
+    if (dragging && moved && isTouchPointer(pressPointerType) &&
+        (hud.mode === "till" || hud.mode === "plant")) {
+      for (const tile of touchGestureTiles) enqueueTool(tile.col, tile.row);
+    }
     endDrag(e);
+    pressPointerId = -1;
+    touchGestureTiles.length = 0;
   };
   app.stage.on("pointerup", onPointerUp);
   app.stage.on("pointerupoutside", onPointerUp);
+  app.stage.on("pointercancel", cancelPointerGesture);
+  window.addEventListener("blur", cancelPointerGesture);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) cancelPointerGesture();
+  });
 
   // Right-click anywhere returns to the select tool (and suppress the browser menu).
   app.canvas.addEventListener("contextmenu", (e) => {

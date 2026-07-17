@@ -350,12 +350,14 @@ const STYLE = `
 /* During a live raid the battle scene owns the screen: hide the farm chrome but
    keep raid panels (.panelbg) visible. */
 #hud.raiding .topbar, #hud.raiding .tools, #hud.raiding .menucol,
-#hud.raiding .questcol, #hud.raiding .qtoggle, #hud.raiding .fab { display: none !important; }
+#hud.raiding .questcol, #hud.raiding .qtoggle, #hud.raiding .fab,
+#hud.raiding .touch-cancel, #hud.raiding .quick-plow { display: none !important; }
 /* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
    surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
    camera, zombie inspect, and the visit banner remain. */
 #hud.visiting .topbar, #hud.visiting .tools, #hud.visiting .menucol,
-#hud.visiting .questcol, #hud.visiting .qtoggle, #hud.visiting .fab { display: none !important; }
+#hud.visiting .questcol, #hud.visiting .qtoggle, #hud.visiting .fab,
+#hud.visiting .touch-cancel, #hud.visiting .quick-plow { display: none !important; }
 #hud .visit-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
   pointer-events: auto; display: flex; align-items: center; gap: 12px;
   background: rgba(30,45,20,.82); color: #fff; padding: 8px 12px 8px 16px;
@@ -388,6 +390,20 @@ const STYLE = `
   border-radius: 50%; background: rgba(30,45,20,.6); box-shadow: 0 3px 7px rgba(0,0,0,.5); }
 #hud .fab img { width: 100%; height: 100%; object-fit: contain;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+/* Touch-only escape hatch for an equipped/carrying tool. Desktop already has
+   right-click; phones need an explicit, persistent way back to the Multi-tool. */
+#hud .touch-cancel { position: fixed; right: 88px; bottom: 17px; width: 52px; height: 52px;
+  pointer-events: auto; cursor: pointer; padding: 0; border: 2px solid #2b170b; display: none;
+  border-radius: 50%; color: #fff; background: linear-gradient(#c84e38,#8d291e);
+  box-shadow: 0 3px 7px rgba(0,0,0,.5); font: 900 25px/1 system-ui,sans-serif;
+  text-shadow: 0 1px 2px #000; }
+#hud .touch-cancel:active { transform: translateY(1px); }
+#hud .quick-plow { position: fixed; right: 148px; bottom: 19px; width: 48px; height: 48px;
+  pointer-events: auto; cursor: pointer; padding: 3px; border: 2px solid #273516; display: none;
+  border-radius: 14px; background: rgba(30,45,20,.78); box-shadow: 0 3px 7px rgba(0,0,0,.5); }
+#hud .quick-plow img { width: 100%; height: 100%; object-fit: contain; }
+#hud .quick-plow:active { transform: translateY(1px); }
+#hud .touch-cancel:not(.active) + .quick-plow.active { right: 88px; }
 /* remaining-uses badge on the collapsed fab while the Insta-Grow tool is equipped */
 #hud .fab .fab-ct { position: absolute; top: -2px; right: -2px; min-width: 22px; height: 22px;
   padding: 0 5px; box-sizing: border-box; border-radius: 11px; display: none; align-items: center;
@@ -1146,6 +1162,12 @@ const STYLE = `
   #hud .tools { bottom: calc(10px + env(safe-area-inset-bottom)); }
   #hud .fab { bottom: calc(12px + env(safe-area-inset-bottom));
     right: calc(14px + env(safe-area-inset-right)); }
+  #hud .touch-cancel { bottom: calc(17px + env(safe-area-inset-bottom));
+    right: calc(88px + env(safe-area-inset-right)); }
+  #hud .quick-plow { bottom: calc(19px + env(safe-area-inset-bottom));
+    right: calc(148px + env(safe-area-inset-right)); }
+  #hud .touch-cancel:not(.active) + .quick-plow.active {
+    right: calc(88px + env(safe-area-inset-right)); }
   #hud .qtoggle { bottom: calc(10px + env(safe-area-inset-bottom));
     left: calc(10px + env(safe-area-inset-left)); }
 }
@@ -1161,6 +1183,8 @@ const STYLE = `
   #hud .chip .xpbar { width: 42px; }
   #hud .nameplate { display: none; }
   #hud .gear { width: 40px; height: 40px; }
+  #hud .touch-cancel.active { display: block; }
+  #hud .quick-plow.active { display: block; }
 
   /* right menu column: narrower pills. */
   #hud .menucol { gap: 6px; }
@@ -1247,6 +1271,7 @@ export class Hud {
   private writerLock: HTMLElement | null = null;
   private writerBanner: HTMLElement | null = null;
   private writerTakeover: (() => Promise<boolean>) | null = null;
+  private visitExit: (() => void) | null = null;
   private goldEl!: HTMLElement;
   private brainsEl!: HTMLElement;
   private zombiesEl!: HTMLElement;
@@ -1262,6 +1287,8 @@ export class Hud {
   private fab!: HTMLButtonElement;
   private fabImg!: HTMLImageElement;
   private fabCt?: HTMLElement; // count badge on the fab (Insta-Grow uses left)
+  private touchCancel!: HTMLButtonElement;
+  private quickPlow!: HTMLButtonElement;
   private collapsed = false;
   private plantCards: MenuCard[] = [];
   private zombieCards: MenuCard[] = [];
@@ -1292,6 +1319,8 @@ export class Hud {
     this.buildMenu();
     this.buildTools();
     this.buildFab();
+    this.buildTouchCancel();
+    this.buildQuickPlow();
     this.buildPlantLabel();
     this.buildQuestToggle();
     this.wireMenuSounds();
@@ -1799,7 +1828,15 @@ export class Hud {
       btn.classList.toggle("sel", active);
     }
     if (this.fabImg) this.fabImg.src = this.fabIconSrc();
+    this.refreshTouchCancel();
     this.refreshBoostBadge();
+  }
+
+  private refreshTouchCancel() {
+    if (this.touchCancel)
+      this.touchCancel.classList.toggle("active", this.collapsed && this.mode !== "walk");
+    if (this.quickPlow)
+      this.quickPlow.classList.toggle("active", this.collapsed && this.mode !== "till");
   }
 
   // Icon that represents the currently-active tool (shown on the collapsed fab).
@@ -1838,6 +1875,38 @@ export class Hud {
     this.el.appendChild(b);
   }
 
+  /** Phones have no right-click, so expose an always-reachable way to abandon any
+   * edit/carry mode and return to the Multi-tool. CSS keeps it off desktop. */
+  private buildTouchCancel() {
+    const b = document.createElement("button");
+    b.className = "touch-cancel";
+    b.type = "button";
+    b.setAttribute("aria-label", "Cancel current tool and select the Multi-tool");
+    b.title = "Cancel tool";
+    b.textContent = "×";
+    b.onclick = () => { this.audio.play("menuClick"); this.setMode("walk"); };
+    this.touchCancel = b;
+    this.el.appendChild(b);
+    this.refreshTools();
+  }
+
+  /** One-tap access to the other half of the core mobile farm loop: the red
+   * cancel button returns to Multi-tool, while this shortcut equips Plow. */
+  private buildQuickPlow() {
+    const b = document.createElement("button");
+    b.className = "quick-plow";
+    b.type = "button";
+    b.setAttribute("aria-label", "Equip Plow tool");
+    b.title = "Plow";
+    const img = document.createElement("img");
+    img.src = UI("button_plow.png");
+    b.appendChild(img);
+    b.onclick = () => { this.audio.play("menuClick"); this.setMode("till"); };
+    this.quickPlow = b;
+    this.el.appendChild(b);
+    this.refreshTouchCancel();
+  }
+
   // Hide the right menu + bottom tools into the single bottom-right fab.
   collapse() {
     if (this.collapsed) return;
@@ -1847,6 +1916,7 @@ export class Hud {
     this.fabImg.src = this.fabIconSrc();
     this.refreshBoostBadge(); // sync the fab's uses badge for the current mode
     this.fab.style.display = "block";
+    this.refreshTouchCancel();
   }
 
   expand() {
@@ -1855,6 +1925,49 @@ export class Hud {
     this.menuCol.style.display = "flex";
     this.toolsBar.style.display = "flex";
     this.fab.style.display = "none";
+    this.refreshTouchCancel();
+  }
+
+  /** Consume one mobile Back action. The topmost closeable overlay wins, followed
+   * by the expanded chrome and then the active farm tool. Returns false only when
+   * the browser should perform its normal navigation. */
+  handleMobileBack(): boolean {
+    if (this.el.classList.contains("visiting") && this.visitExit) {
+      this.visitExit();
+      return true;
+    }
+    const overlays = Array.from(this.el.querySelectorAll<HTMLElement>(
+      ".panelbg, .mkt-bg, .info-bg, .st-bg, .pm-bg, .raid-res-bg, .revive-bg"
+    )).filter((el) => el.isConnected && getComputedStyle(el).display !== "none");
+    if (overlays.length) {
+      const top = overlays.reduce((best, el) => {
+        const z = Number.parseInt(getComputedStyle(el).zIndex, 10) || 0;
+        const bz = Number.parseInt(getComputedStyle(best).zIndex, 10) || 0;
+        return z > bz || (z === bz && (best.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
+          ? el : best;
+      });
+      const close = top.querySelector<HTMLElement>(
+        ".panelclose, .mkt-close, .info-close, .st-close, .pm-close"
+      );
+      if (!close) return true; // mandatory result/writer-lock screens stay mandatory
+      close.click();
+      return true;
+    }
+    if (this.el.classList.contains("raiding")) return true;
+    if (!this.collapsed) {
+      this.collapse();
+      return true;
+    }
+    if (this.mode !== "walk") {
+      this.setMode("walk");
+      return true;
+    }
+    if (this.questsShown) {
+      this.questsShown = false;
+      this.questCol.style.display = "none";
+      return true;
+    }
+    return false;
   }
 
   // Catalog for the plant/zombie picker (built by main from the market data).
@@ -2111,6 +2224,7 @@ export class Hud {
   // farm this is with an Exit button (onExit returns to the player's own farm).
   setVisiting(on: boolean, name?: string, onExit?: () => void) {
     this.el.classList.toggle("visiting", on);
+    this.visitExit = on ? (onExit ?? null) : null;
     this.el.querySelector(".visit-banner")?.remove();
     if (!on) return;
     const banner = document.createElement("div");
