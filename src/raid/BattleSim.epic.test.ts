@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BattleSim } from "./BattleSim";
+import { BattleSim, EPIC_BOSS_HOLD_X } from "./BattleSim";
 import type { CombatUnit } from "./types";
 
 const unit = (id: string, team: "player" | "enemy", boss = false): CombatUnit => ({
@@ -33,7 +33,9 @@ describe("Epic Boss BattleSim mode", () => {
     );
     const before = sim.snapshot().units.find((u) => u.id === "boss")!;
     expect(before.state).toBe("falling");
-    expect(before.x).toBe(915);
+    expect(before.x).toBe(EPIC_BOSS_HOLD_X);
+    expect(before.x).toBeGreaterThan(500);
+    expect(before.x).toBeLessThan(700);
     expect(before.y).toBeLessThan(-3_000);
     sim.step(500);
     const falling = sim.snapshot().units.find((u) => u.id === "boss")!;

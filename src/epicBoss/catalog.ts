@@ -25,13 +25,6 @@ const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
 export function epicBossById(id: string | null | undefined): EpicBossDef | null {
   return id ? BY_ID.get(id) ?? null : null;
 }
-export const EPIC_BOSS_SKIP_MS_PER_BRAIN = 2 * 60_000;
-
-/** Cooldown skipping bills started two-minute blocks, so a partial block costs one brain. */
-export function epicBossRetrySkipCost(remainingMs: number): number {
-  return Math.max(0, Math.ceil(Math.max(0, remainingMs) / EPIC_BOSS_SKIP_MS_PER_BRAIN));
-}
-
 export function epicBossHp(def: EpicBossDef, level: number): number {
   const index = Math.max(0, Math.min(def.maxLevel - 1, Math.floor(level) - 1));
   return Math.round(def.baseHp * (def.multipliers[index] ?? 1));

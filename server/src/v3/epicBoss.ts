@@ -1,5 +1,5 @@
 import type { EpicBossProjection, QuestProjection } from "../../../src/net/protocol";
-import { epicBossById, epicBossHp, epicBossRetrySkipCost } from "../../../src/epicBoss/catalog";
+import { epicBossById, epicBossHp } from "../../../src/epicBoss/catalog";
 import type { EpicBossDef } from "../../../src/epicBoss/types";
 import { DICE_KEY, VOUCHER_KEY } from "../boostCatalog";
 import { QUEST_REWARD, questDefinition } from "../questCatalog";
@@ -14,13 +14,14 @@ import { makeOwned } from "../../../src/zombie/types";
 import { ABILITY_TIER, abilityTierOf } from "../../../src/zombie/traits";
 import { farmerMultiplier } from "../../../src/farmer";
 import { levelForXp } from "../levels";
-import { epicQuestZombieReward, shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
+import { epicBossCurrencyReward, epicQuestZombieReward, shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import objectRows from "../../../public/assets/placeables.json";
+import { EPIC_BOSS_FIGHT_BRAIN_COST } from "../../../src/epicBoss/tokens";
 
 export interface RunRow {
   run_id: string; boss_id: string; activated_at: number; expires_at: number;
   level: number; max_hp: number; current_hp: number; encounter_started_at: number;
-  retry_ready_at: number; completed_at: number; attack_order_json: string;
+  retry_ready_at: number; token_count: number; completed_at: number; attack_order_json: string;
 }
 interface SessionRow {
   id: string; run_id: string; level: number; starting_hp: number; roster_json: string;
@@ -47,7 +48,9 @@ export const projectRun = (row: RunRow | null): EpicBossProjection | null => row
   runId: row.run_id, bossId: row.boss_id, activatedAt: row.activated_at,
   expiresAt: row.expires_at, level: row.level, maxHp: row.max_hp,
   currentHp: row.current_hp, encounterStartedAt: row.encounter_started_at,
-  retryReadyAt: row.retry_ready_at, completedAt: row.completed_at,
+  retryReadyAt: 0,
+  tokenCount: row.completed_at || row.expires_at <= Date.now() ? 0 : Math.max(0, row.token_count ?? 0),
+  completedAt: row.completed_at,
   attackOrder: parse<string[]>(row.attack_order_json, []),
 }) : null;
 
@@ -81,7 +84,7 @@ export async function activate(
       run_id=excluded.run_id,boss_id=excluded.boss_id,activated_at=excluded.activated_at,
       expires_at=excluded.expires_at,level=excluded.level,max_hp=excluded.max_hp,
       current_hp=excluded.current_hp,encounter_started_at=0,retry_ready_at=0,
-      completed_at=0,attack_order_json='[]'
+      token_count=0,completed_at=0,attack_order_json='[]'
       WHERE epic_boss_runs_v3.completed_at != 0 OR epic_boss_runs_v3.expires_at <= ?`)
       .bind(accountId, activationId, def.id, now, expiresAt, 1, hp, hp, now),
     db.prepare(`UPDATE balances SET brains = brains - ? WHERE account_id = ? AND brains >= ?
@@ -95,80 +98,6 @@ export async function activate(
     event: await readRun(db, accountId),
     balance: { ...balance, brains: balance.brains - def.costBrains },
   } };
-}
-
-export async function skipRetry(
-  db: D1Database, accountId: string, runId: unknown, expectedRetryReadyAt: unknown, now: number
-): Promise<{ status: number; body: Record<string, unknown> }> {
-  if (typeof runId !== "string" || !runId || !Number.isSafeInteger(expectedRetryReadyAt)) {
-    return { status: 400, body: { error: "bad_request" } };
-  }
-  const [run, balance] = await Promise.all([
-    db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=?").bind(accountId).first<RunRow>(),
-    db.prepare("SELECT gold,brains,xp FROM balances WHERE account_id=?").bind(accountId)
-      .first<{ gold: number; brains: number; xp: number }>(),
-  ]);
-  if (!run || !balance || run.run_id !== runId || run.completed_at || run.expires_at <= now) {
-    return { status: 409, body: { error: "inactive" } };
-  }
-  if (run.retry_ready_at !== expectedRetryReadyAt) {
-    const prior = await db.prepare(`SELECT cost_brains,applied FROM epic_boss_retry_skips_v3
-      WHERE account_id=? AND run_id=? AND retry_ready_at=?`).bind(accountId, runId, expectedRetryReadyAt)
-      .first<{ cost_brains: number; applied: number }>();
-    if (prior?.applied) {
-      return { status: 200, body: { event: projectRun(run), balance, costBrains: prior.cost_brains } };
-    }
-    return { status: 409, body: { error: "cooldown_changed", event: projectRun(run), balance } };
-  }
-  const cost = epicBossRetrySkipCost(run.retry_ready_at - now);
-  if (!cost) {
-    await db.prepare("UPDATE epic_boss_runs_v3 SET retry_ready_at=0 WHERE account_id=? AND run_id=? AND retry_ready_at=?")
-      .bind(accountId, runId, run.retry_ready_at).run();
-    return { status: 200, body: { event: await readRun(db, accountId), balance, costBrains: 0 } };
-  }
-  if (balance.brains < cost) {
-    return { status: 409, body: { error: "insufficient_brains", costBrains: cost, balance } };
-  }
-
-  // The unique (account, run, cooldown) operation makes retries and concurrent taps
-  // idempotent. Only the request that inserts a pending operation can debit it; the
-  // following changes() guard marks it applied only when that debit succeeded.
-  await db.batch([
-    db.prepare(`INSERT OR IGNORE INTO epic_boss_retry_skips_v3
-      (account_id,run_id,retry_ready_at,cost_brains,applied,created_at)
-      SELECT ?,?,?,?,?,? WHERE EXISTS(
-        SELECT 1 FROM epic_boss_runs_v3 WHERE account_id=? AND run_id=? AND retry_ready_at=?
-          AND completed_at=0 AND expires_at>?
-      )`).bind(accountId, runId, run.retry_ready_at, cost, 0, now,
-        accountId, runId, run.retry_ready_at, now),
-    db.prepare(`UPDATE balances SET brains=brains-? WHERE account_id=? AND brains>=?
-      AND EXISTS(SELECT 1 FROM epic_boss_retry_skips_v3
-        WHERE account_id=? AND run_id=? AND retry_ready_at=? AND applied=0)
-      AND EXISTS(SELECT 1 FROM epic_boss_runs_v3
-        WHERE account_id=? AND run_id=? AND retry_ready_at=?)`)
-      .bind(cost, accountId, cost, accountId, runId, run.retry_ready_at,
-        accountId, runId, run.retry_ready_at),
-    db.prepare(`UPDATE epic_boss_retry_skips_v3 SET applied=1
-      WHERE account_id=? AND run_id=? AND retry_ready_at=? AND applied=0 AND changes()=1`)
-      .bind(accountId, runId, run.retry_ready_at),
-    db.prepare(`UPDATE epic_boss_runs_v3 SET retry_ready_at=0
-      WHERE account_id=? AND run_id=? AND retry_ready_at=?
-      AND EXISTS(SELECT 1 FROM epic_boss_retry_skips_v3
-        WHERE account_id=? AND run_id=? AND retry_ready_at=? AND applied=1)`)
-      .bind(accountId, runId, run.retry_ready_at, accountId, runId, run.retry_ready_at),
-  ]);
-  const [operation, event, nextBalance] = await Promise.all([
-    db.prepare(`SELECT cost_brains,applied FROM epic_boss_retry_skips_v3
-      WHERE account_id=? AND run_id=? AND retry_ready_at=?`).bind(accountId, runId, run.retry_ready_at)
-      .first<{ cost_brains: number; applied: number }>(),
-    readRun(db, accountId),
-    db.prepare("SELECT gold,brains,xp FROM balances WHERE account_id=?").bind(accountId)
-      .first<{ gold: number; brains: number; xp: number }>(),
-  ]);
-  if (!operation?.applied || !event || event.retryReadyAt !== 0 || !nextBalance) {
-    return { status: 409, body: { error: "skip_conflict" } };
-  }
-  return { status: 200, body: { event, balance: nextBalance, costBrains: operation.cost_brains } };
 }
 
 export async function end(
@@ -189,7 +118,7 @@ export async function end(
       (SELECT id FROM epic_boss_sessions_v3 WHERE account_id=? AND run_id=?)`)
       .bind(accountId, accountId, runId),
     db.prepare(`UPDATE epic_boss_runs_v3 SET expires_at=?,encounter_started_at=0,
-      retry_ready_at=0,attack_order_json='[]' WHERE account_id=? AND run_id=?
+      retry_ready_at=0,token_count=0,attack_order_json='[]' WHERE account_id=? AND run_id=?
       AND completed_at=0 AND expires_at>?`).bind(now, accountId, runId, now),
   ]);
   return { status: 200, body: { event: await readRun(db, accountId) } };
@@ -201,18 +130,16 @@ export async function expireLiveEpicBoss(db: D1Database, accountId: string, now:
     WHERE s.account_id=? AND s.finished_at IS NULL AND s.expires_at <= ?`).bind(accountId, now)
     .first<{ id: string; run_id: string; boss_id: string }>();
   if (!live) return;
-  // Old/incomplete test fixtures and pre-catalog rows implicitly mean Groundhog.
-  const def = defFor(live.boss_id) ?? DEFAULT_DEF;
   await db.batch([
     db.prepare("UPDATE epic_boss_sessions_v3 SET finished_at=? WHERE id=? AND finished_at IS NULL").bind(now, live.id),
-    db.prepare("UPDATE epic_boss_runs_v3 SET retry_ready_at=? WHERE account_id=? AND run_id=? AND completed_at=0")
-      .bind(now + def.retryMs, accountId, live.run_id),
+    db.prepare("UPDATE epic_boss_runs_v3 SET retry_ready_at=0 WHERE account_id=? AND run_id=? AND completed_at=0")
+      .bind(accountId, live.run_id),
     db.prepare("UPDATE roster_v3 SET locked_by_raid=NULL WHERE account_id=? AND locked_by_raid=?").bind(accountId, live.id),
   ]);
 }
 
 export async function start(
-  db: D1Database, accountId: string, orderedUnitIds: unknown, now: number
+  db: D1Database, accountId: string, orderedUnitIds: unknown, payment: unknown, now: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   await expireLiveEpicBoss(db, accountId, now);
   const ids = Array.isArray(orderedUnitIds)
@@ -225,7 +152,7 @@ export async function start(
     db.prepare(`SELECT unit_id,zombie_key,mutation,invasions FROM roster_v3 WHERE account_id=? AND stored=0 AND locked_by_raid IS NULL
       AND unit_id IN (${ids.map(() => "?").join(",")})`).bind(accountId, ...ids)
       .all<{ unit_id: string; zombie_key: string; mutation: number; invasions: number }>(),
-    db.prepare("SELECT xp FROM balances WHERE account_id=?").bind(accountId).first<{xp:number}>(),
+    db.prepare("SELECT gold,brains,xp FROM balances WHERE account_id=?").bind(accountId).first<{gold:number;brains:number;xp:number}>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").bind(accountId).first<{current_json:string}>(),
     db.prepare("SELECT progress_json FROM raid_state_v3 WHERE account_id=?").bind(accountId).first<{progress_json:string}>(),
   ]);
@@ -236,7 +163,7 @@ export async function start(
     const pinned = parse<string[]>(epic.roster_json, []);
     if (pinned.length === ids.length && pinned.every((id, index) => id === ids[index])) {
       return { status: 200, body: { ok: true, resumed: true, sessionId: epic.id,
-        event: projectRun(row), expiresAt: epic.expires_at } };
+        event: projectRun(row), balance, expiresAt: epic.expires_at } };
     }
     return { status: 409, body: { error: "battle_in_progress" } };
   }
@@ -246,7 +173,11 @@ export async function start(
     row.max_hp = epicBossHp(def, row.level); row.current_hp = row.max_hp;
     row.encounter_started_at = 0; row.retry_ready_at = 0;
   }
-  if (row.retry_ready_at > now) return { status: 429, body: { error: "cooldown", retryAfterMs: row.retry_ready_at - now } };
+  if (payment !== "token" && payment !== "brains") return { status: 400, body: { error: "bad_payment" } };
+  if (payment === "token" && row.token_count < 1) return { status: 409, body: { error: "insufficient_tokens" } };
+  if (payment === "brains" && balance && balance.brains < EPIC_BOSS_FIGHT_BRAIN_COST) {
+    return { status: 409, body: { error: "insufficient_brains", balance } };
+  }
   const sessionId = crypto.randomUUID();
   const encounterStartedAt = row.encounter_started_at || now;
   const expiresAt = Math.min(row.expires_at + def.fightMs, now + 2 * 60_000);
@@ -284,12 +215,21 @@ export async function start(
       attack_order_json=?,max_hp=?,current_hp=? WHERE account_id=? AND run_id=?`)
       .bind(encounterStartedAt, JSON.stringify(ids), row.max_hp, row.current_hp, accountId, row.run_id),
   ];
+  if (payment === "token") {
+    statements.push(db.prepare(`UPDATE epic_boss_runs_v3 SET token_count=token_count-1
+      WHERE account_id=? AND run_id=? AND token_count>0`).bind(accountId, row.run_id));
+  } else {
+    statements.push(db.prepare("UPDATE balances SET brains=brains-? WHERE account_id=? AND brains>=?")
+      .bind(EPIC_BOSS_FIGHT_BRAIN_COST, accountId, EPIC_BOSS_FIGHT_BRAIN_COST));
+  }
   ids.forEach((id) => statements.push(db.prepare(`UPDATE roster_v3 SET locked_by_raid=?
     WHERE account_id=? AND unit_id=? AND locked_by_raid IS NULL`).bind(sessionId, accountId, id)));
   await db.batch(statements);
+  if (payment === "token") row.token_count--;
+  else balance.brains -= EPIC_BOSS_FIGHT_BRAIN_COST;
   return { status: 200, body: { ok: true, sessionId, event: {
     ...projectRun(row)!, encounterStartedAt, retryReadyAt: 0, attackOrder: ids,
-  }, expiresAt } };
+  }, balance, expiresAt } };
 }
 
 export async function finish(
@@ -341,13 +281,18 @@ export async function finish(
   const damage = Math.max(0, Math.min(session.starting_hp, Math.round(verified.outcome.playerDamage)));
   const defeated = verified.outcome.win && damage >= session.starting_hp;
   const defeatedLevel = defeated ? run.level : null;
+  if (defeatedLevel !== null) {
+    const currency = epicBossCurrencyReward(defeatedLevel);
+    balance.brains += currency.brains;
+    balance.gold += currency.gold;
+  }
   if (defeated) {
-    if (run.level >= def.maxLevel) { run.current_hp = 0; run.completed_at = now; }
+    if (run.level >= def.maxLevel) { run.current_hp = 0; run.completed_at = now; run.token_count = 0; }
     else { run.level++; run.max_hp = epicBossHp(def, run.level); run.current_hp = run.max_hp; }
     run.encounter_started_at = 0; run.retry_ready_at = 0;
   } else {
     run.current_hp = Math.max(1, session.starting_hp - damage);
-    run.retry_ready_at = now + def.retryMs;
+    run.retry_ready_at = 0;
   }
   const core = parse<CoreState>(coreRow.current_json, { inventory: {}, storage: { received: {}, stored: {} }, ownedPets: [], zombieMax: 16 });
   const questData = parse<{completed:string[];progress:QuestProjection["progress"]}>(questRow.current_json, { completed: [], progress: [] });
@@ -400,8 +345,8 @@ export async function finish(
     db.prepare("UPDATE epic_boss_sessions_v3 SET finished_at=?,result_json=? WHERE id=? AND finished_at IS NULL")
       .bind(now, resultJson, session.id),
     db.prepare(`UPDATE epic_boss_runs_v3 SET level=?,max_hp=?,current_hp=?,encounter_started_at=?,
-      retry_ready_at=?,completed_at=? WHERE account_id=? AND run_id=? AND ${guard}`)
-      .bind(run.level,run.max_hp,run.current_hp,run.encounter_started_at,run.retry_ready_at,run.completed_at,accountId,run.run_id,session.id,resultJson),
+      retry_ready_at=?,token_count=?,completed_at=? WHERE account_id=? AND run_id=? AND ${guard}`)
+      .bind(run.level,run.max_hp,run.current_hp,run.encounter_started_at,run.retry_ready_at,run.token_count,run.completed_at,accountId,run.run_id,session.id,resultJson),
     db.prepare(`UPDATE balances SET gold=?,brains=?,xp=? WHERE account_id=? AND ${guard}`)
       .bind(balance.gold,balance.brains,balance.xp,accountId,session.id,resultJson),
     db.prepare(`UPDATE gameplay_documents_v3 SET current_json=?,updated_at=? WHERE account_id=? AND ${guard}`)

@@ -693,22 +693,17 @@ export const epicBossActivate = (activationId: string, bossId: string) => req<{
   balance: Balance;
 }>("POST", "/epic-boss/activate", { activationId, bossId });
 
-export const epicBossSkipRetry = (runId: string, retryReadyAt: number) => req<{
-  event: import("./protocol").EpicBossProjection;
-  balance: Balance;
-  costBrains: number;
-}>("POST", "/epic-boss/skip-retry", { runId, retryReadyAt });
-
 export const epicBossEnd = (runId: string) => req<{
   event: import("./protocol").EpicBossProjection;
 }>("POST", "/epic-boss/end", { runId });
 
-export const epicBossStart = (orderedUnitIds: string[]) => req<{
+export const epicBossStart = (orderedUnitIds: string[], payment: import("../epicBoss/tokens").EpicBossPayment) => req<{
   ok: true;
   sessionId: string;
   event: import("./protocol").EpicBossProjection;
+  balance: Balance;
   expiresAt: number;
-}>("POST", "/epic-boss/start", { orderedUnitIds });
+}>("POST", "/epic-boss/start", { orderedUnitIds, payment });
 
 export const epicBossFinish = (
   sessionId: string,

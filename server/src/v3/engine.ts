@@ -21,6 +21,7 @@ import { fertilizeProbability, zombieSell, ZOMBIE_COST } from "../rosterCatalog"
 import { climateCost, nextSize, sizeTier } from "../shopCatalog";
 import { zombieCropEcon } from "../zombieCropCatalog";
 import { farmerGold, farmerZombieGrowMs } from "../../../src/farmer";
+import { dropsEpicBossToken } from "../../../src/epicBoss/tokens";
 
 export const MAX_FARM_PLOTS = 225;
 export const MAX_FUNCTIONAL_OBJECTS = 512;
@@ -137,7 +138,9 @@ function rewardHarvest(
   key: string,
   plot: Extract<FarmPlotProjection, { state: "planted" }>,
   makeId: () => string,
-  created: string[]
+  created: string[],
+  now: number,
+  random: () => number
 ): { ok: true; event: QuestEvent } | { ok: false; error: string } {
   if (plot.zombie) {
     const id = makeId();
@@ -146,8 +149,14 @@ function rewardHarvest(
     state.balance.xp += zombieCropEcon(key)?.xp ?? 0;
     return { ok: true, event: { type: "kCropHarvestedZombieNotification", subject: zombieNames.get(key) ?? key } };
   }
-  state.balance.gold += farmerGold(plot.sell * (plot.fertilized ? 2 : 1), state.farmerHeadId);
+  const harvestValue = plot.sell * (plot.fertilized ? 2 : 1);
+  state.balance.gold += farmerGold(harvestValue, state.farmerHeadId);
   state.balance.xp += plot.xp;
+  const run = state.epicBoss;
+  if (run && !run.completedAt && run.expiresAt > now &&
+      dropsEpicBossToken(plot.growMs, harvestValue, random)) {
+    run.tokenCount = (run.tokenCount ?? 0) + 1;
+  }
   return { ok: true, event: { type: "kCropHarvestedNotification", subject: plantNames.get(key) ?? key } };
 }
 
@@ -269,7 +278,7 @@ function applyOne(
       if (!plot || plot.state !== "planted") return reject(sequence, "nothing_planted");
       if (!isRipe(plot, options.now)) return reject(sequence, "not_grown");
       const createdBefore = created.length;
-      const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created);
+      const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created, options.now, options.random);
       if (!harvest.ok) return reject(sequence, harvest.error);
       state.farm.plots[key] = { state: "spent", zombie: plot.zombie };
       events.push(harvest.event);
@@ -319,7 +328,7 @@ function applyOne(
           .filter((entry): entry is [string, Extract<FarmPlotProjection, { state: "planted" }>] => entry[1].state === "planted" && isRipe(entry[1], options.now))
           .sort((a, b) => a[1].plantedAt - b[1].plantedAt || a[0].localeCompare(b[0]));
         for (const [key, plot] of ripe) {
-          const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created);
+          const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created, options.now, options.random);
           if (!harvest.ok) continue; // capacity-full zombie crops remain planted
           state.farm.plots[key] = { state: "spent", zombie: plot.zombie };
           effects++;

@@ -45,6 +45,9 @@ import { mutationDescription } from "./zombie/mutations";
 import { DR_GROUNDHOG, EPIC_BOSSES, epicBossById } from "./epicBoss/catalog";
 import { EpicBossManager } from "./epicBoss/EpicBossManager";
 import { buildEpicBossSetup, rollEpicBossLoot } from "./epicBoss/combat";
+import { epicBossCurrencyReward } from "./epicBoss/rewards";
+import { epicZombieRewardNotes, visibleEpicBosses } from "./epicBoss/market";
+import { dropsEpicBossToken, EPIC_BOSS_FIGHT_BRAIN_COST } from "./epicBoss/tokens";
 
 // The boot / start screen lives in index.html and paints on the first frame (no
 // empty-farm flash). We report load milestones to it and, once the game is fully
@@ -497,6 +500,15 @@ async function main() {
   const questBus = new QuestBus();
   let tutorial: TutorialController | null = null;
 
+  const awardOfflineEpicBossToken = (growMs: number, value: number): boolean => {
+    if (state.onFarm) return false;
+    const run = state.epicBossRun;
+    const def = epicBossById(run?.bossId);
+    if (!run || !def || !new EpicBossManager(def).isActive(run) || !dropsEpicBossToken(growMs, value)) return false;
+    state.setEpicBossRun({ ...run, tokenCount: (run.tokenCount ?? 0) + 1 });
+    return true;
+  };
+
   // The farmer's job queue (till / plant / harvest / walk). He walks to each target,
   // hoes, then the action applies; queued plots stay highlighted green until done.
   // Harvesting a zombie crop grows an owned zombie at the plot's center tile.
@@ -505,7 +517,8 @@ async function main() {
     (key, oc, or) => zombies.spawnVerified(key, oc + 1, or + 1)?.id ?? null,
     questBus,
     (oc, or) => zombies.tryFertilize(oc, or),
-    (oc, or) => tutorial?.onPlotPlowed(oc, or)
+    (oc, or) => tutorial?.onPlotPlowed(oc, or),
+    awardOfflineEpicBossToken
   );
 
   // Quest-complete celebration, styled like the level-up popup. Quests can finish in
@@ -723,6 +736,9 @@ async function main() {
           if (r.zombieKey) zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1);
         }
         questBus.post(r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested, r.name);
+        if (!r.isZombie && !state.onFarm && awardOfflineEpicBossToken(r.growMs, r.sell)) {
+          floatText(c.x, c.y - 28, "+1 Boss Token!");
+        }
         harvested++;
       }
       if (harvested) floatText(c.x, c.y, `Harvested ${harvested}!`);
@@ -1352,10 +1368,10 @@ async function main() {
     const run = epicRun();
     const now = Date.now();
     const active = epicBoss.isActive(run);
-    return EPIC_BOSSES.map((def) => {
+    const shownBosses = visibleEpicBosses(EPIC_BOSSES, active && run ? run.bossId : null);
+    return shownBosses.map((def) => {
       const ownRun = run?.bossId === def.id ? run : null;
       const ownActive = active && ownRun !== null;
-      const manager = def.id === epicBoss.def.id ? epicBoss : new EpicBossManager(def);
       return {
         id: def.id, name: def.name,
         portrait: epicAsset(def, def.portrait), questIcon: epicAsset(def, def.questIcon),
@@ -1365,11 +1381,10 @@ async function main() {
         expired: !!ownRun && !ownRun.completedAt && now >= ownRun.expiresAt,
         completed: !!ownRun?.completedAt,
         eventRemainingMs: ownActive && ownRun ? Math.max(0, ownRun.expiresAt - now) : 0,
-        retryRemainingMs: ownActive && ownRun ? Math.max(0, ownRun.retryReadyAt - now) : 0,
-        retrySkipCost: ownActive && ownRun ? manager.retrySkipCost(ownRun) : 0,
         encounterRemainingMs: ownActive && ownRun?.encounterStartedAt
           ? Math.max(0, ownRun.encounterStartedAt + def.encounterMs - now) : 0,
         rewards: def.loot.map((loot) => loot.name),
+        zombieRewards: epicZombieRewardNotes(def, assets.quests),
       };
     });
   };
@@ -1381,7 +1396,12 @@ async function main() {
     hud.setBossShortcut(active, days ? `Boss · ${days}d` : "Boss");
   };
   if (economy) economy.onEpicBossState = (run) => {
+    const previous = state.epicBossRun;
     state.setEpicBossRun(run ?? null);
+    if (run && previous?.runId === run.runId && run.tokenCount > (previous.tokenCount ?? 0)) {
+      hud.showToast("You found a Boss Token!");
+      audio.play("xp");
+    }
     syncEpicBossUi();
   };
   hud.onActivateEpicBoss = async (bossId) => {
@@ -1399,7 +1419,7 @@ async function main() {
         return true;
       } catch (error) {
         const code = errCode(error);
-        hud.showToast(code === "insufficient_brains" ? "You need 10 brains."
+        hud.showToast(code === "insufficient_brains" ? `You need ${def.costBrains} brains.`
           : code === "gameplay_unavailable" || code === "offline" ? "Reconnecting to the farm serverâ€¦"
           : "The Epic Boss event could not be started.");
         return false;
@@ -1407,37 +1427,6 @@ async function main() {
     }
     if (!state.spendBrains(def.costBrains, "epic_boss_activate")) return false;
     state.setEpicBossRun(epicBoss.activate(crypto.randomUUID()));
-    syncEpicBossUi();
-    saveManager.flush();
-    audio.play("buy");
-    return true;
-  };
-  hud.onSkipEpicBossRetry = async () => {
-    const run = epicRun();
-    if (!run) return false;
-    const quotedCost = epicBoss.retrySkipCost(run);
-    if (!quotedCost) return true;
-    if (auth.isSignedIn()) {
-      try {
-        await economy?.settleBeforeDependency();
-        const skipped = await api.epicBossSkipRetry(run.runId, run.retryReadyAt);
-        economy?.adoptEpicBossActivation(skipped.event, skipped.balance);
-        state.setEpicBossRun(skipped.event);
-        syncEpicBossUi();
-        saveManager.flush();
-        audio.play("buy");
-        return true;
-      } catch (error) {
-        const code = errCode(error);
-        hud.showToast(code === "insufficient_brains" ? "You do not have enough brains."
-          : code === "cooldown_changed" ? "The return timer changed. Please try again."
-          : "The Epic Boss timer could not be skipped.");
-        return false;
-      }
-    }
-    const skipped = epicBoss.skipRetry(run);
-    if (!skipped || !state.spendBrains(quotedCost, "epic_boss_skip_retry")) return false;
-    state.setEpicBossRun(skipped);
     syncEpicBossUi();
     saveManager.flush();
     audio.play("buy");
@@ -1731,13 +1720,12 @@ async function main() {
   // `raidActive` gates farm input synchronously (the scene loads its textures async);
   // `raidScene` is the running scene once ready.
   let raidScene: RaidScene | null = null;
-  hud.onLaunchEpicBoss = async (partyIds) => {
+  hud.onLaunchEpicBoss = async (partyIds, payment) => {
     if (raidActive) return false;
     const def = selectEpicBoss(state.epicBossRun?.bossId);
     const gate = epicBoss.start(state.epicBossRun, partyIds);
     if (!gate.ok) {
-      if (gate.error === "cooldown") hud.showToast(`${def.name} returns in ${Math.ceil((gate.remainingMs ?? 0) / 60_000)} min.`);
-      else hud.showToast("That Epic Boss event is no longer active.");
+      hud.showToast("That Epic Boss event is no longer active.");
       syncEpicBossUi();
       return false;
     }
@@ -1750,21 +1738,33 @@ async function main() {
       try {
         await economy?.settleBeforeDependency();
         if (economy) partyIds = partyIds.map((id) => economy!.authoritativeUnitId(id));
-        const opened = await api.epicBossStart(partyIds);
+        const opened = await api.epicBossStart(partyIds, payment);
         epicSessionId = opened.sessionId;
+        economy?.adoptEpicBossActivation(opened.event, opened.balance);
         state.setEpicBossRun(opened.event);
       } catch (error) {
         const code = errCode(error);
-        if (code === "cooldown") hud.showToast(`${def.name} has not returned yet.`);
+        if (code === "insufficient_tokens") hud.showToast("You need a Boss Token.");
+        else if (code === "insufficient_brains") hud.showToast(`You need ${EPIC_BOSS_FIGHT_BRAIN_COST} brains.`);
         else if (code === "battle_in_progress") hud.showToast("Another battle is already in progress.");
         else if (code === "bad_roster") hud.showToast("One of those zombies is unavailable. Please choose your army again.");
         else hud.showToast("The Epic Boss fight could not be started. Please reconnect and try again.");
         return false;
       }
     } else {
-      state.setEpicBossRun(gate.run);
+      if (payment === "token") {
+        if ((gate.run.tokenCount ?? 0) < 1) { hud.showToast("You need a Boss Token."); return false; }
+        state.setEpicBossRun({ ...gate.run, tokenCount: gate.run.tokenCount - 1 });
+      } else {
+        if (!state.spendBrains(EPIC_BOSS_FIGHT_BRAIN_COST, "epic_boss_fight")) {
+          hud.showToast(`You need ${EPIC_BOSS_FIGHT_BRAIN_COST} brains.`);
+          return false;
+        }
+        state.setEpicBossRun(gate.run);
+      }
     }
-    const setup = buildEpicBossSetup(def, gate.run, party, assets, state);
+    const paidRun = state.epicBossRun ?? gate.run;
+    const setup = buildEpicBossSetup(def, paidRun, party, assets, state);
     raidActive = true;
     world.visible = false;
     hud.setRaiding(true);
@@ -1783,14 +1783,21 @@ async function main() {
       bossAnimations: def.animations,
       bossFallsFromSky: true,
       bossEngageDistance: 150,
-      bossGroundOffset: { x: 32, y: 24 },
+      // Loco Locust sits low inside his generously padded animation cells. Lift his
+      // whole token slightly so the visible character shares the other bosses' line.
+      bossGroundOffset: { x: 32, y: def.id === "loco-locust" ? 8 : 24 },
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from battle?", `This attempt will end and ${def.name} will escape.`, "Retreat"
       ),
       onFinish: (outcome, finalTick, inputs) => {
         const presentResult = (result: ReturnType<EpicBossManager["finish"]>, drops: { name: string; icon: string }[]) => {
         state.setEpicBossRun(result.run);
+        const currency = result.defeatedLevel === null
+          ? { brains: 0, gold: 0 }
+          : epicBossCurrencyReward(result.defeatedLevel);
         if (result.defeatedLevel !== null && !auth.isSignedIn()) {
+          state.addBrains(currency.brains, "epic_boss_victory");
+          state.addGold(currency.gold, "epic_boss_victory");
           questBus.post(QuestEvent.EpicStageEnemyDefeated, String(result.defeatedLevel), 1);
           const collected = new Set([...state.received, ...state.ownedPets.map((key) =>
             def.loot.find((loot) => loot.stageActor === key)?.name ?? key)]);
@@ -1809,7 +1816,7 @@ async function main() {
           title: result.completed ? "EPIC BOSS DEFEATED" : result.defeatedLevel !== null ? "LEVEL CLEARED" : "BOSS ESCAPED",
           enemiesBeaten: result.defeatedLevel !== null ? 1 : 0,
           zombiesLost: outcome.losses.length,
-          gold: 0, brains: 0, xp: 0, loot: drops, abilityUnlock: "",
+          gold: currency.gold, brains: currency.brains, xp: 0, loot: drops, abilityUnlock: "",
         };
         hud.openRaidResult(view, () => {
           if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
@@ -1846,7 +1853,7 @@ async function main() {
         }
         zombies.recordInvasion(outcome.survivors);
         zombies.removeCasualties(outcome.losses);
-        const result = epicBoss.finish(gate.run, outcome.playerDamage, outcome.win);
+        const result = epicBoss.finish(paidRun, outcome.playerDamage, outcome.win);
         presentResult(result, []);
       },
     }).then((scene) => {

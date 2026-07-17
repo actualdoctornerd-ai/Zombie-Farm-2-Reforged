@@ -108,6 +108,8 @@ export interface EpicBossProjection {
   currentHp: number;
   encounterStartedAt: number;
   retryReadyAt: number;
+  /** Harvested attempts for this run. Cleared when the event ends or is replaced. */
+  tokenCount: number;
   completedAt: number;
   attackOrder: string[];
 }

@@ -54,7 +54,7 @@ interface RaidStateRow { last_started_at: number; progress_json: string }
 interface EpicRunRow {
   run_id: string; boss_id: string; activated_at: number; expires_at: number; level: number;
   max_hp: number; current_hp: number; encounter_started_at: number; retry_ready_at: number;
-  completed_at: number; attack_order_json: string;
+  token_count: number; completed_at: number; attack_order_json: string;
 }
 
 export type BatchFailure =
@@ -316,6 +316,12 @@ export async function applyBatch(
   if (engine.questChanged) statements.push(db.prepare(`UPDATE quest_documents_v3 SET
       version = version + 1, current_json = ?, updated_at = ? WHERE account_id = ? AND ${guard}`)
     .bind(JSON.stringify({ completed: engine.state.quests.completed, progress: engine.state.quests.progress }), now, accountId, accountId, body.batchId));
+  if (before.epicBoss && engine.state.epicBoss && before.epicBoss.runId === engine.state.epicBoss.runId &&
+      before.epicBoss.tokenCount !== engine.state.epicBoss.tokenCount) {
+    statements.push(db.prepare(`UPDATE epic_boss_runs_v3 SET token_count=?
+      WHERE account_id=? AND run_id=? AND ${guard}`)
+      .bind(engine.state.epicBoss.tokenCount, accountId, engine.state.epicBoss.runId, accountId, body.batchId));
+  }
 
   const oldRoster = new Map(before.roster.map((u) => [u.id, u]));
   const newRoster = new Map(engine.state.roster.map((u) => [u.id, u]));

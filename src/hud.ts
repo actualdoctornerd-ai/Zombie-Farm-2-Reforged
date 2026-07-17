@@ -8,6 +8,7 @@ import { zombieSellValue } from "./economy";
 import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon } from "./assets";
 import type { FarmerBodyDef, FarmerCatalog, FarmerHeadDef, PetCatalog, PetDef } from "./assets";
 import type { EpicBossRun } from "./epicBoss/types";
+import { EPIC_BOSS_FIGHT_BRAIN_COST, type EpicBossPayment } from "./epicBoss/tokens";
 import { AudioManager } from "./audio";
 import { RosterEntry } from "./zombie/types";
 import { mutationLabel, mutationBonus } from "./zombie/mutations";
@@ -120,10 +121,9 @@ export interface EpicBossMarketView {
   expired: boolean;
   completed: boolean;
   eventRemainingMs: number;
-  retryRemainingMs: number;
-  retrySkipCost: number;
   encounterRemainingMs: number;
   rewards: string[];
+  zombieRewards: string[];
 }
 
 // An owned zombie's inspectable info (shown by openZombieInfo).
@@ -1935,9 +1935,8 @@ export class Hud {
   // ---- limited Epic Boss hooks ----
   getEpicBossView: (() => EpicBossMarketView[]) | null = null;
   onActivateEpicBoss: ((bossId: string) => boolean | Promise<boolean>) | null = null;
-  onSkipEpicBossRetry: (() => boolean | Promise<boolean>) | null = null;
   onEndEpicBoss: (() => boolean | Promise<boolean>) | null = null;
-  onLaunchEpicBoss: ((partyIds: string[]) => boolean | Promise<boolean>) | null = null;
+  onLaunchEpicBoss: ((partyIds: string[], payment: EpicBossPayment) => boolean | Promise<boolean>) | null = null;
 
   // ---- save profiles (set by main) ----
   /** Current profile index (active id + all profiles). */
@@ -2413,30 +2412,22 @@ export class Hud {
         ? `<b>Level ${run.level}/${view.maxLevel}</b><div>Event: ${fmt(view.eventRemainingMs)}</div>` +
           `<div class="epic-hp"><span style="width:${Math.max(0, Math.min(100, run.currentHp / Math.max(1, run.maxHp) * 100))}%"></span></div>` +
           `<div>${run.currentHp.toLocaleString()} / ${run.maxHp.toLocaleString()} life</div>` +
-          (view.retryRemainingMs ? `<div class="epic-wait">Returns in ${fmt(view.retryRemainingMs)}</div>` :
-            view.encounterRemainingMs ? `<div>HP resets in ${fmt(view.encounterRemainingMs)}</div>` : "")
+          `<div><b>${run.tokenCount}</b> Boss Token${run.tokenCount === 1 ? "" : "s"}</div>` +
+          (view.encounterRemainingMs ? `<div>HP resets in ${fmt(view.encounterRemainingMs)}</div>` : "")
         : `<p>Start a 14-day, ${view.maxLevel}-level Epic Boss event.</p>` +
           (view.reconstructed ? `<p class="epic-wait">Recovered static battle art.</p>` : "") +
           (view.completed ? "<p>Previous run completed!</p>" : view.expired ? "<p>Previous run expired.</p>" : "")) +
-      `<details><summary>Possible rewards</summary><div>${view.rewards.join("<br>")}</div></details></div>`;
+      `<details><summary>Possible rewards</summary><div>${view.rewards.join("<br>")}</div>` +
+        (view.zombieRewards.length
+          ? `<p class="epic-zombie-rewards"><b>Special zombie milestones</b><br>${view.zombieRewards.join("<br>")}</p>`
+          : "") +
+      `</details></div>`;
     const action = document.createElement("button");
     action.className = "raid-go epic-market-action";
     if (view.active) {
-      if (view.retryRemainingMs) {
-        action.innerHTML = `Skip ${fmt(view.retryRemainingMs)} · ${view.retrySkipCost} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
-        action.disabled = this.state.brains < view.retrySkipCost;
-        action.onclick = async () => {
-          if (!await this.confirmInGame(
-            `Call ${view.name} back?`,
-            `Spend ${view.retrySkipCost} brain${view.retrySkipCost === 1 ? "" : "s"} to skip the remaining ${fmt(view.retryRemainingMs)}?`,
-            "Skip Wait"
-          )) return;
-          if (await this.onSkipEpicBossRetry?.()) { refreshCur(); rerender(); }
-        };
-      } else {
-        action.textContent = `Fight ${view.name}`;
-        action.onclick = () => this.openEpicBossArmy();
-      }
+      action.textContent = `Fight · 1 Token or ${EPIC_BOSS_FIGHT_BRAIN_COST} Brains`;
+      action.disabled = !(run?.tokenCount) && this.state.brains < EPIC_BOSS_FIGHT_BRAIN_COST;
+      action.onclick = () => this.openEpicBossArmy();
     } else {
       action.innerHTML = view.blocked ? "Another boss event is active" :
         `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
@@ -2490,10 +2481,21 @@ export class Hud {
     const cards = document.createElement("div"); cards.className = "army-grid";
     const foot = document.createElement("div"); foot.className = "army-foot";
     const start = document.createElement("button"); start.className = "raid-go";
+    const pay = document.createElement("select"); pay.className = "raid-quick";
+    let payment: EpicBossPayment = (this.getEpicBossView?.().find((view) => view.active)?.run?.tokenCount ?? 0) > 0
+      ? "token" : "brains";
     const refresh = () => {
       const bossName = this.getEpicBossView?.().find((view) => view.active)?.name ?? "Epic Boss";
+      const tokens = this.getEpicBossView?.().find((view) => view.active)?.run?.tokenCount ?? 0;
+      pay.innerHTML = `<option value="token"${tokens < 1 ? " disabled" : ""}>Use Boss Token (${tokens})</option>` +
+        `<option value="brains"${this.state.brains < EPIC_BOSS_FIGHT_BRAIN_COST ? " disabled" : ""}>Use ${EPIC_BOSS_FIGHT_BRAIN_COST} Brains (${this.state.brains})</option>`;
+      if (payment === "token" && tokens < 1) payment = "brains";
+      if (payment === "brains" && this.state.brains < EPIC_BOSS_FIGHT_BRAIN_COST && tokens > 0) payment = "token";
+      pay.value = payment;
+      const canPay = payment === "token" ? tokens > 0 : this.state.brains >= EPIC_BOSS_FIGHT_BRAIN_COST;
       head.innerHTML = `<h2>Send your army — ${bossName}</h2><span class="army-count">${order.length}/${party.cap} · min 1</span>`;
-      start.textContent = order.length ? `Fight with ${order.length}` : "Choose a zombie"; start.disabled = !order.length;
+      start.textContent = order.length ? `Fight with ${order.length}` : "Choose a zombie";
+      start.disabled = !order.length || !canPay;
       cards.querySelectorAll<HTMLElement>(".army-card").forEach((el) => { const at = order.indexOf(el.dataset.id!); el.classList.toggle("sel", at >= 0); const tick = el.querySelector<HTMLElement>(".tick"); if (tick) tick.textContent = at >= 0 ? String(at + 1) : ""; });
     };
     for (const z of party.eligible) {
@@ -2503,16 +2505,17 @@ export class Hud {
       cards.appendChild(card);
     }
     const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
+    pay.onchange = () => { payment = pay.value as EpicBossPayment; refresh(); };
     pick.onclick = () => { for (const id of [...(this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? []), ...party.eligible.map((z) => z.id)]) if (order.length < party.cap && !order.includes(id)) order.push(id); refresh(); };
     start.onclick = async () => {
       if (!order.length || !this.onLaunchEpicBoss) return;
       start.disabled = true;
-      if (await this.onLaunchEpicBoss([...order])) {
+      if (await this.onLaunchEpicBoss([...order], payment)) {
         bg.remove();
         this.closeMarket();
       } else start.disabled = false;
     };
-    foot.append(pick, start); wrap.append(head, cards, foot); panel.appendChild(wrap); refresh();
+    foot.append(pick, pay, start); wrap.append(head, cards, foot); panel.appendChild(wrap); refresh();
   }
 
   private buildMarketCard(en: MktEntry): HTMLElement {

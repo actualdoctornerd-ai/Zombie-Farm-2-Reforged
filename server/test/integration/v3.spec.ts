@@ -50,10 +50,11 @@ describe("protocol v3 API", () => {
       bossId: "loco-locust",
       level: 1,
     });
-    expect(activated.body.balance.brains).toBe(brainsBeforeActivation - 10);
+    expect(activated.body.balance.brains).toBe(brainsBeforeActivation - 100);
 
     const started = await call<any>("POST", "/epic-boss/start", session.token, {
       orderedUnitIds: [epicZombieId],
+      payment: "brains",
     });
     expect(started.status, JSON.stringify(started.body)).toBe(200);
     const escaped = await call<any>("POST", "/epic-boss/finish", session.token, {
@@ -63,28 +64,13 @@ describe("protocol v3 API", () => {
     });
     expect(escaped.status, JSON.stringify(escaped.body)).toBe(200);
     expect(escaped.body).toMatchObject({ escaped: true, event: { level: 1 } });
-    const retryReadyAt = escaped.body.event.retryReadyAt;
-    expect(retryReadyAt).toBeGreaterThan(Date.now());
-    const cooldown = await call<any>("POST", "/epic-boss/start", session.token, {
+    expect(escaped.body.event.retryReadyAt).toBe(0);
+    const retried = await call<any>("POST", "/epic-boss/start", session.token, {
       orderedUnitIds: [epicZombieId],
+      payment: "brains",
     });
-    expect(cooldown.status, JSON.stringify(cooldown.body)).toBe(429);
-    expect(cooldown.body.error).toBe("cooldown");
-
-    const skipped = await call<any>("POST", "/epic-boss/skip-retry", session.token, {
-      runId: "activation-authenticated",
-      retryReadyAt,
-    });
-    expect(skipped.status, JSON.stringify(skipped.body)).toBe(200);
-    expect(skipped.body).toMatchObject({ costBrains: 10, event: { retryReadyAt: 0 } });
-    expect(skipped.body.balance.brains).toBe(brainsBeforeActivation - 20);
-
-    const retried = await call<any>("POST", "/epic-boss/skip-retry", session.token, {
-      runId: "activation-authenticated",
-      retryReadyAt,
-    });
-    expect(retried.status).toBe(200);
-    expect(retried.body.balance.brains).toBe(brainsBeforeActivation - 20);
+    expect(retried.status, JSON.stringify(retried.body)).toBe(200);
+    expect(retried.body.balance.brains).toBe(brainsBeforeActivation - 120);
 
     const ended = await call<any>("POST", "/epic-boss/end", session.token, {
       runId: "activation-authenticated",

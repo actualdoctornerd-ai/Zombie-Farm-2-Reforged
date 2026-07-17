@@ -2,7 +2,7 @@
 
 ## Implemented coverage
 
-Market â†’ Epic Boss offers all eight recovered bosses. Starting one spends 10 brains
+Market â†’ Epic Boss offers all eight recovered bosses. Starting one spends 100 brains
 and creates a 14-day wall-clock run; only one boss event can be active at a time. A run
 can be purchased again after its final level is completed or the event expires, and
 purchasing never extends an active run.
@@ -15,15 +15,23 @@ is held constant for reconstructed levels 22-40. Each fight has a hard
 distractions or consuming Concentration. The normal army cap and permanent invasion
 casualty rules apply, and Epic Boss attack order is stored separately.
 
-Damage survives an escape. The next attempt unlocks after 20 minutes; if two hours
-elapse from the first attempt at the current level, that level returns to full HP.
-Winning advances immediately to the next full-health level. A fight begun before an
-event or encounter boundary may finish normally.
+Every attempt costs either one Boss Token or 10 brains; there is no retry timer. While
+an event is active, harvesting a vegetable crop can yield a Boss Token. The chance uses
+the recovered 35% starter-loot rate as a ceiling and scales with both grow time and
+harvest value, so longer and more valuable crops are more efficient. Tokens can be
+hoarded during the run, but expire when that boss event ends. Damage survives an escape.
+If two hours elapse from the first attempt at the current level, that level returns to
+full HP. Winning advances immediately to the next full-health level. A fight begun
+before an event or encounter boundary may finish normally.
 
-The farm Boss shortcut appears only for an active run. The Market card shows event,
-retry, and encounter timers, level/HP, rewards, activation, and Fight state.
+The farm Boss shortcut appears only for an active run. The Market card shows the event
+and encounter timers, token stockpile, level/HP, rewards, activation, and Fight state.
 
 ## Rewards
+
+Every cleared level awards `max(1, round(level / 4))` brains and 100 times that
+amount in gold, in addition to the existing loot roll and quest rewards. This scales
+from 1 brain and 100 gold at the early levels to 10 brains and 1,000 gold at level 40.
 
 Each boss uses its own recovered quest milestones, decor pool, and tame pet. Groundhog's
 chain grants Dr. Zombie (5), an Invasion Voucher (10), one brain (15), and Golden Dice
@@ -67,7 +75,7 @@ reconstruction. `tools/prep_placeables.py` exposes 50 boss decorations as reward
 farm objects, and `tools/prep_quests.py` recovers Bully Frog's three unambiguous embedded
 quest records.
 
-Crop-harvest discovery tokens are deferred. The remaining fidelity gaps are the missing
-EPB 8-10 animation/gameplay metadata and corrupt or absent late quest data. See
+The remaining fidelity gaps are the missing EPB 8-10 animation/gameplay metadata and
+corrupt or absent late quest data. See
 `docs/EPIC_BOSS_ASSET_AUDIT.md` for the exact actor, UI, reward, pet, effect, and audio
 mappings and the metadata that is genuinely still missing.

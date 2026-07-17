@@ -39,6 +39,10 @@ const CHARGE_X = 220; // staging slot the front zombie steps into to focus
 export const ENEMY_HOLD_X = 915; // enemies hold in the structure's doorway (not the far edge),
 // ~2/3 of a sprite forward of the entrance so they stand IN the open door
 export const ENEMY_SPAWN_X = 1120; // off the right edge (hidden) before emerging
+// Epic Bosses enter from above instead of through the stage doorway. Land them just
+// right of the field's midpoint so zombies spend more of the short attempt fighting
+// and less of it crossing an otherwise empty lane.
+export const EPIC_BOSS_HOLD_X = 600;
 // Boss perch field-x. Chosen so RaidScene.mapX() lands it on the silo perch
 // (PERCH_FX), which is also where thrown projectiles originate.
 export const BOSS_STRUCT_X = 848;
@@ -423,7 +427,8 @@ export class BattleSim {
     engageDistance = ENGAGE
   ) {
     this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
-    this.frontX = ENEMY_HOLD_X - this.engageDistance;
+    const enemyHoldX = this.bossFallsFromSky ? EPIC_BOSS_HOLD_X : ENEMY_HOLD_X;
+    this.frontX = enemyHoldX - this.engageDistance;
     this.supportX = CHARGE_X + (this.frontX - CHARGE_X) * 0.5;
     // Boss always resolves last, after the normal enemies.
     const ordered = [...enemyUnits].sort((a, b) => Number(a.isBoss) - Number(b.isBoss));
@@ -435,7 +440,7 @@ export class BattleSim {
     if (this.boss) {
       if (this.bossFallsFromSky) {
         this.boss.state = "falling";
-        this.boss.x = ENEMY_HOLD_X;
+        this.boss.x = EPIC_BOSS_HOLD_X;
         this.boss.y = EPIC_BOSS_FALL_Y;
       } else {
         this.boss.state = "structure";

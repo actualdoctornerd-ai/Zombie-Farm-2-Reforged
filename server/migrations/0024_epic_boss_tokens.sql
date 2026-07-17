@@ -1,0 +1,1 @@
+ALTER TABLE epic_boss_runs_v3 ADD COLUMN token_count INTEGER NOT NULL DEFAULT 0;

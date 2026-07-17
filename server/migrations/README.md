@@ -56,7 +56,8 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
  ('0016_raid_session_reserve.sql'),('0017_raid_progress.sql'),('0018_item_storage.sql'),
  ('0019_integrity_v2.sql'),('0020_permanent_import_closure.sql'),
  ('0020_protocol_v3_reset.sql'),('0021_epic_boss.sql'),
- ('0022_epic_boss_retry_skip.sql'),('0023_raid_revives.sql');"
+ ('0022_epic_boss_retry_skip.sql'),('0023_raid_revives.sql'),
+ ('0024_epic_boss_tokens.sql');"
 ```
 
 From then on, only migrations added after this baseline apply via `migrations apply`.
@@ -76,6 +77,7 @@ manual `schema.sql` touched the table):
 | `0002_grant_settlement` | `ALTER TABLE grants ADD COLUMN settled_at` + backfill | Fails if `settled_at` exists. |
 | `0006_session_labels` | `ALTER TABLE sessions ADD COLUMN label` | Fails if `label` exists. |
 | `0007_raid_rewards` | `ALTER TABLE raid_sessions ADD COLUMN raid_id` | Fails if `raid_id` exists. |
+| `0024_epic_boss_tokens` | `ALTER TABLE epic_boss_runs_v3 ADD COLUMN token_count` | Fails if `token_count` exists. |
 
 The remaining current migrations use repeatable deletes or `CREATE … IF NOT EXISTS`.
 Read destructive reset migrations before applying them; repeatable does not mean safe
@@ -95,8 +97,8 @@ wrangler d1 execute zombiefarm --remote --command \
   re-login or data-reset requirement before maintenance begins.
 - Confirm `DEV_AUTH = "0"` in the deployed `[vars]` (it is in `wrangler.toml`).
 - Smoke-check with `scripts/smoke.sh` (see `../RUNBOOK.md`).
-- For Epic Boss support, verify both `epic_boss_runs_v3` and
-  `epic_boss_retry_skips_v3` exist after migrations `0021` and `0022`.
+- For Epic Boss support, verify `epic_boss_runs_v3.token_count` exists after
+  migrations `0021` and `0024`. The `0022` retry-skip table is legacy and unused.
 - For post-raid revival support, verify `raid_revivals_v3` and its
   `idx_raid_revivals_pending` index exist after migration `0023`.
 

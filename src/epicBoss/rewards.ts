@@ -27,3 +27,14 @@ export const epicQuestZombieReward = (questId: string): string | null =>
  * unit in zombie storage. Storage overflow remains protected and visible. */
 export const shouldStoreEpicReward = (activeCount: number, activeCapacity: number): boolean =>
   activeCount >= Math.max(0, activeCapacity);
+
+export interface EpicBossCurrencyReward {
+  brains: number;
+  gold: number;
+}
+
+/** Every cleared level grants currency in addition to its existing loot roll. */
+export const epicBossCurrencyReward = (level: number): EpicBossCurrencyReward => {
+  const brains = Math.max(1, Math.round(level / 4));
+  return { brains, gold: brains * 100 };
+};

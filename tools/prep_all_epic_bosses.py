@@ -172,7 +172,7 @@ def common_catalog(source_id: int, slug: str, name: str, max_level: int,
                    hp: dict, params: dict) -> dict:
     return {
         "id": slug, "sourceId": source_id, "name": name,
-        "costBrains": 10, "durationMs": 14 * 24 * 60 * 60 * 1000,
+        "costBrains": 100, "durationMs": 14 * 24 * 60 * 60 * 1000,
         "fightMs": int(params["epicBossFightTimeBeforeFleeing"]) * 1000,
         "retryMs": int(params["epicBossEscapeTime"]) * 60 * 1000,
         "encounterMs": int(params["epicBossAvailabilityTime"]) * 60 * 1000,

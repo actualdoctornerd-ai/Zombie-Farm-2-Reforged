@@ -656,7 +656,7 @@ export class Field {
   // Harvest a ripe plot: crop -> dirt square, zombie -> hole. Returns {sell,xp,name};
   // for a zombie crop, `zombieKey` names the unit type to spawn as an owned zombie.
   // `name` is the crop/zombie display name (for quest-progress matching).
-  harvestAt(oc: number, or: number): { sell: number; xp: number; name: string; isZombie: boolean; fertilized: boolean; zombieKey?: string } | null {
+  harvestAt(oc: number, or: number): { sell: number; xp: number; growMs: number; name: string; isZombie: boolean; fertilized: boolean; zombieKey?: string } | null {
     const p = this.plots.get(this.key(oc, or));
     if (!p || !p.crop || p.crop.ageMs < p.crop.cfg.growMs) return null;
     const { cfg } = p.crop;
@@ -668,7 +668,7 @@ export class Field {
     p.crop = undefined;
     p.state = cfg.isZombie ? "hole" : "dirt";
     this.fit(p.soil, this.assets.soil[cfg.isZombie ? HOLE_FILE : DIRT_FILE], oc, or, PLOT);
-    return { sell, xp: cfg.xp, name: cfg.name, isZombie: !!cfg.isZombie, fertilized, zombieKey: cfg.isZombie ? cfg.key : undefined };
+    return { sell, xp: cfg.xp, growMs: cfg.growMs, name: cfg.name, isZombie: !!cfg.isZombie, fertilized, zombieKey: cfg.isZombie ? cfg.key : undefined };
   }
 
   /** Mark the growing crop at plot (oc,or) as fertilized (a Garden zombie fertilized

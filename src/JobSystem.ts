@@ -67,7 +67,10 @@ export class JobSystem {
     // it. Returns the fertilizing zombie's name (for a toast) or null.
     private onCropPlanted: (oc: number, or: number, cfg: CropConfig) => string | null = () => null,
     // Carries the exact free-placement origin into the tutorial's next beat.
-    private onPlotPlowed: (oc: number, or: number) => void = () => {}
+    private onPlotPlowed: (oc: number, or: number) => void = () => {},
+    // Offline Epic Boss token roll. Online harvests are rolled authoritatively by
+    // the server and arrive through the reconciled Epic Boss projection.
+    private onCropHarvested: (growMs: number, value: number) => boolean = () => false
   ) {}
 
   private key(kind: JobKind, oc: number, or: number) {
@@ -327,11 +330,12 @@ export class JobSystem {
           if (r.sell) this.state.addGold(r.sell);
           this.state.addXp(r.xp);
         }
+        const bossToken = !r.isZombie && !online && this.onCropHarvested(r.growMs, r.sell);
         // Zombie crops pay no gold — they yield an owned zombie unit instead.
         const msg = r.zombieKey
           ? `+${r.xp}xp`
           : `+${r.sell}g${r.fertilized ? " ×2" : ""}  +${r.xp}xp`;
-        this.float(job.cx, job.cy, msg);
+        this.float(job.cx, job.cy, bossToken ? `${msg}  +1 Boss Token!` : msg);
         // A harvested zombie "resurrects"; a plain crop gives the reward chime.
         this.sfx(r.isZombie ? "harvestZombie" : "xp");
         this.quest.post(
