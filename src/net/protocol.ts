@@ -1,6 +1,7 @@
 /** Wire contract for the authoritative gameplay protocol. Keep this module free of
  * browser and Worker dependencies so both sides compile against the same shapes. */
 export const GAMEPLAY_PROTOCOL = 3 as const;
+export const CLIENT_INTEGRITY_VERSION = 4 as const;
 export const COMMAND_BATCH_LIMIT = 64;
 export const COMMAND_BATCH_WINDOW_MS = 10_000;
 export const PRESENTATION_WINDOW_MS = 60_000;
@@ -182,6 +183,11 @@ export interface BootstrapResponse {
   accountVersion: number;
   writerGeneration: number;
   writerDeviceId: string | null;
+  writer: {
+    status: "free" | "mine" | "other";
+    generation: number;
+    lastActivityAt: number;
+  };
   gameplay: GameplayProjection;
   presentation: PresentationProjection;
   social: SocialBootstrap;

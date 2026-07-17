@@ -73,6 +73,7 @@ export class EconomyClient {
   onEpicBossState: ((event: BootstrapResponse["gameplay"]["epicBoss"]) => void) | null = null;
   onGameplayUnavailable: ((reason: string) => void) | null = null;
   onWriterReplaced: (() => void) | null = null;
+  onWriterAvailable: (() => void) | null = null;
   onCommandRejected: ((command: GameplayCommand | undefined, error: string) => void) | null = null;
 
   constructor(private state: GameState, accountId: string) {
@@ -84,14 +85,27 @@ export class EconomyClient {
     };
     this.queue.onWriterReplaced = () => this.onWriterReplaced?.();
     this.queue.onStateConflict = () => { void this.reloadAfterConflict(); };
+    api.setWriterRejectedHandler(() => this.handleWriterLost());
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") void this.checkOwnership();
+      });
+    }
   }
 
   async start(): Promise<void> {
     try {
-      const bootstrap = await api.bootstrap();
+      let bootstrap = await api.bootstrap();
+      if (bootstrap.writer.status === "free") {
+        try { await api.acquireWriter(bootstrap.writer.generation, false); }
+        catch { /* another client may have acquired it between bootstrap and claim */ }
+        bootstrap = await api.bootstrap(true);
+      }
       this.queue.adoptBootstrap(bootstrap);
       this.ready = true;
       this.adoptGameplay(bootstrap.gameplay);
+      if (bootstrap.writer.status === "mine") this.onWriterAvailable?.();
+      else this.onWriterReplaced?.();
     } catch {
       this.ready = false;
       this.queue.disable("bootstrap_failed");
@@ -100,6 +114,44 @@ export class EconomyClient {
   }
 
   get available(): boolean { return this.ready && this.queue.available; }
+
+  async takeOver(): Promise<boolean> {
+    try {
+      const current = await api.bootstrap(true);
+      await api.acquireWriter(current.writer.generation, true);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private handleWriterLost(): void {
+    api.clearWriterCredential();
+    this.queue.markWriterLost();
+    this.optimistic.clear();
+    this.commandsBySequence.clear();
+    this.onWriterReplaced?.();
+    void this.refreshReadOnly();
+  }
+
+  private async refreshReadOnly(): Promise<void> {
+    try {
+      const bootstrap = await api.bootstrap(true);
+      this.queue.adoptBootstrap(bootstrap);
+      this.ready = true;
+      this.adoptGameplay(bootstrap.gameplay);
+    } catch { /* the blocking state remains until a later focus/reconnect */ }
+  }
+
+  private async checkOwnership(): Promise<void> {
+    if (!this.ready || !api.getSession()) return;
+    try {
+      const bootstrap = await api.bootstrap(true);
+      if (bootstrap.writer.status !== "mine") {
+        this.handleWriterLost();
+      }
+    } catch { /* ordinary recovery owns network failure handling */ }
+  }
 
   private scheduleRecovery(): void {
     if (this.recoveryTimer || typeof window === "undefined") return;
@@ -117,7 +169,10 @@ export class EconomyClient {
       this.queue.adoptBootstrap(bootstrap);
       this.ready = true;
       this.adoptGameplay(bootstrap.gameplay);
-      if (!this.queue.available) return; // another device owns the writer intentionally
+      if (!this.queue.available) {
+        if (bootstrap.writer.status === "other") this.onWriterReplaced?.();
+        return;
+      }
       this.recoveryAttempt = 0;
       await this.queue.retry();
     } catch {
@@ -339,9 +394,6 @@ export class EconomyClient {
 
   async flush(): Promise<void> { await this.queue.flush(); }
   async settleBeforeDependency(): Promise<void> {
-    // Raid, Epic, and social-value endpoints live outside /commands. An empty queue
-    // must still establish this device as the account's writer before using them.
-    if (this.queue.needsWriterClaim) this.enqueue({ type: "writer.claim" });
     await this.queue.settle();
   }
 

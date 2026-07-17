@@ -404,6 +404,13 @@ const STYLE = `
   background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; }
 #hud .army-bg { z-index: 25; }
 #hud .game-confirm-bg { z-index: 26; }
+#hud .writer-lock-bg { z-index: 60; }
+#hud .writer-lock-panel { max-width: 420px; text-align: center; }
+#hud .writer-lock-panel .zbtns { margin-top: 18px; justify-content: center; }
+#hud .writer-lock-banner { position: fixed; z-index: 60; top: 8px; left: 50%; transform: translateX(-50%);
+  pointer-events: auto; border: 2px solid #2f1d0d; border-radius: 12px; padding: 8px 14px;
+  color: #fff; background: linear-gradient(#9c4c31,#71301f); font: 800 13px system-ui,sans-serif;
+  box-shadow: 0 3px 10px rgba(0,0,0,.5); cursor: pointer; }
 #hud .panel { position: relative; min-width: 260px; max-width: 80vw; padding: 20px 24px;
   background: linear-gradient(#6e4425, #492b16); border: 3px solid #2f1d0d;
   border-radius: 18px; box-shadow: 0 6px 22px rgba(0,0,0,.6); color: #fff;
@@ -1237,6 +1244,9 @@ export class Hud {
   // carried object / enter the standalone rotate mode). Null falls back to setMode.
   onRotateTool: (() => void) | null = null;
   private el: HTMLElement;
+  private writerLock: HTMLElement | null = null;
+  private writerBanner: HTMLElement | null = null;
+  private writerTakeover: (() => Promise<boolean>) | null = null;
   private goldEl!: HTMLElement;
   private brainsEl!: HTMLElement;
   private zombiesEl!: HTMLElement;
@@ -1679,6 +1689,60 @@ export class Hud {
       bg.onclick = (event) => { if (event.target === bg) finish(false); };
       this.el.appendChild(bg);
     });
+  }
+
+  showWriterLock(onTakeover: () => Promise<boolean>): void {
+    this.writerTakeover = onTakeover;
+    this.writerLock?.remove();
+    this.writerBanner?.remove();
+    const bg = document.createElement("div");
+    bg.className = "panelbg writer-lock-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel writer-lock-panel";
+    const heading = document.createElement("h2");
+    heading.textContent = "Farm active elsewhere";
+    const copy = document.createElement("p");
+    copy.textContent = "This farm is controlled by another browser or device. You can view it here, or take over and make this the active game.";
+    const buttons = document.createElement("div");
+    buttons.className = "zbtns";
+    const view = document.createElement("button");
+    view.className = "zbtn locate";
+    view.textContent = "View only";
+    view.onclick = () => {
+      bg.remove();
+      this.writerLock = null;
+      const banner = document.createElement("button");
+      banner.className = "writer-lock-banner";
+      banner.textContent = "Read-only — tap to take control";
+      banner.onclick = () => this.writerTakeover && this.showWriterLock(this.writerTakeover);
+      this.el.appendChild(banner);
+      this.writerBanner = banner;
+    };
+    const take = document.createElement("button");
+    take.className = "zbtn sell";
+    take.textContent = "Take over here";
+    take.onclick = async () => {
+      take.disabled = true;
+      take.textContent = "Taking over…";
+      const ok = await onTakeover();
+      if (!ok) {
+        take.disabled = false;
+        take.textContent = "Try again";
+      }
+    };
+    buttons.append(view, take);
+    panel.append(heading, copy, buttons);
+    bg.appendChild(panel);
+    this.el.appendChild(bg);
+    this.writerLock = bg;
+  }
+
+  hideWriterLock(): void {
+    this.writerLock?.remove();
+    this.writerBanner?.remove();
+    this.writerLock = null;
+    this.writerBanner = null;
+    this.writerTakeover = null;
   }
 
   setBossShortcut(active: boolean, label = "Boss") {

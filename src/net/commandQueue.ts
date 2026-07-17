@@ -71,10 +71,13 @@ export class CommandQueue {
     const localGeneration = this.writerGeneration;
     this.accountVersion = value.accountVersion;
     this.writerGeneration = value.writerGeneration;
-    const mine = value.writerDeviceId === api.deviceId();
-    this.takeWriter = value.writerDeviceId === null || (!mine && !this.writerLost && localGeneration === 0);
-    this.paused = !value.mutationsEnabled || value.minimumProtocolVersion > GAMEPLAY_PROTOCOL ||
-      (!!value.writerDeviceId && !mine && !this.takeWriter);
+    const mine = value.writer ? value.writer.status === "mine" :
+      value.writerDeviceId === null || value.writerDeviceId === api.deviceId();
+    if (value.writer && mine && this.size > 0 && localGeneration !== value.writerGeneration) this.discardPending();
+    this.takeWriter = value.writer ? false : value.writerDeviceId === null || (!mine && !this.writerLost && localGeneration === 0);
+    this.paused = !value.mutationsEnabled || value.minimumProtocolVersion > GAMEPLAY_PROTOCOL || !mine;
+    if (value.writer && !mine) this.discardPending();
+    if (mine) this.writerLost = false;
     this.persist();
     this.scheduleFromFirstCommand();
   }
@@ -88,12 +91,14 @@ export class CommandQueue {
     this.pending = [...uncommitted, ...this.pending];
     this.accountVersion = value.accountVersion;
     this.writerGeneration = value.writerGeneration;
-    const mine = value.writerDeviceId === api.deviceId();
-    this.takeWriter = value.writerDeviceId === null;
+    const mine = value.writer ? value.writer.status === "mine" :
+      value.writerDeviceId === null || value.writerDeviceId === api.deviceId();
+    this.takeWriter = value.writer ? false : value.writerDeviceId === null;
     this.paused = !value.mutationsEnabled || value.minimumProtocolVersion > GAMEPLAY_PROTOCOL ||
-      (!!value.writerDeviceId && !mine);
-    if (value.writerDeviceId && !mine) {
+      !mine;
+    if (!mine) {
       this.writerLost = true;
+      this.discardPending();
       this.onWriterReplaced?.();
     }
     this.queuedAt = this.pending.length ? this.now() - this.windowMs : 0;
@@ -103,6 +108,13 @@ export class CommandQueue {
   get available(): boolean { return !this.paused; }
   get size(): number { return this.pending.length + (this.inFlight?.commands.length ?? 0); }
   get needsWriterClaim(): boolean { return this.takeWriter; }
+
+  markWriterLost(): void {
+    this.writerLost = true;
+    this.paused = true;
+    this.discardPending();
+    this.persist();
+  }
 
   enqueue(command: GameplayCommand): number {
     if (this.paused) throw new Error("gameplay_unavailable");
@@ -155,7 +167,7 @@ export class CommandQueue {
         const commands = this.pending.splice(0, COMMAND_BATCH_LIMIT);
         this.inFlight = {
           protocolVersion: GAMEPLAY_PROTOCOL,
-          deviceId: api.deviceId(),
+          deviceId: api.writerClientId(),
           batchId: uuid(),
           firstSequence: commands[0].sequence,
           expectedAccountVersion: this.accountVersion,
@@ -168,6 +180,11 @@ export class CommandQueue {
       }
       const response = await this.sendIdenticalWithRetry(this.inFlight);
       if (!response) return;
+      if (this.paused && this.writerLost) {
+        this.inFlight = null;
+        this.persist();
+        return;
+      }
       this.accountVersion = response.accountVersion;
       this.writerGeneration = response.writerGeneration;
       this.writerLost = false;
@@ -215,6 +232,14 @@ export class CommandQueue {
     this.paused = true;
     this.onUnavailable?.(reason);
     return null;
+  }
+
+  private discardPending(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending = [];
+    this.inFlight = null;
+    this.queuedAt = 0;
   }
 
   private scheduleFromFirstCommand(): void {

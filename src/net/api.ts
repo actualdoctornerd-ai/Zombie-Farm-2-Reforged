@@ -10,6 +10,7 @@ import type { Friend } from "../social/friends";
 import { RAID_RULESET_VERSION, type RaidReplayInput } from "../raid/replay";
 import type { RaidOutcome } from "../raid/types";
 import {
+  CLIENT_INTEGRITY_VERSION,
   GAMEPLAY_PROTOCOL,
   type BootstrapResponse,
   type CommandBatchRequest,
@@ -22,6 +23,8 @@ export type { RaidReplayInput } from "../raid/replay";
 const API = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
 const SESSION_KEY = "zf2r.v3.session";
 const DEVICE_KEY = "zf2r.v3.device";
+const CLIENT_KEY = "zf2r.v4.writer-client";
+const WRITER_KEY = "zf2r.v4.writer";
 
 // v3 is an intentional clean break. Never replay a v1/v2 save or outbox into a
 // newly-created authoritative account.
@@ -46,6 +49,61 @@ export function deviceId(): string {
   } catch {
     return crypto.randomUUID();
   }
+}
+
+export function writerClientId(): string {
+  try {
+    const current = sessionStorage.getItem(CLIENT_KEY);
+    if (current) return current;
+    const created = crypto.randomUUID();
+    sessionStorage.setItem(CLIENT_KEY, created);
+    return created;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+interface WriterCredential {
+  accountId: string;
+  clientId: string;
+  generation: number;
+  token: string;
+}
+
+let writerCredential: WriterCredential | null = (() => {
+  try { return JSON.parse(sessionStorage.getItem(WRITER_KEY) ?? "null") as WriterCredential | null; }
+  catch { return null; }
+})();
+let writerRejectedHandler: (() => void) | null = null;
+const writerRuntimeNonce = crypto.randomUUID();
+
+const persistWriter = (value: WriterCredential | null): void => {
+  writerCredential = value;
+  try {
+    if (value) sessionStorage.setItem(WRITER_KEY, JSON.stringify(value));
+    else sessionStorage.removeItem(WRITER_KEY);
+  } catch { /* storage is optional */ }
+};
+
+export const hasWriterCredential = (): boolean => !!writerCredential && writerCredential.accountId === session?.accountId;
+export const clearWriterCredential = (): void => persistWriter(null);
+export const setWriterRejectedHandler = (handler: (() => void) | null): void => { writerRejectedHandler = handler; };
+
+// Duplicated tabs can inherit sessionStorage, including the same writer token.
+// Elect one local document deterministically; the server remains authoritative
+// across browsers/devices, while this closes the same-browser clone loophole.
+if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+  const channel = new BroadcastChannel("zf2r.v4.writer");
+  channel.onmessage = (event) => {
+    const value = event.data as { clientId?: unknown; nonce?: unknown; type?: unknown };
+    if (value?.clientId !== writerClientId() || typeof value.nonce !== "string" || value.nonce === writerRuntimeNonce) return;
+    if (writerRuntimeNonce < value.nonce && hasWriterCredential()) {
+      clearWriterCredential();
+      writerRejectedHandler?.();
+    }
+    if (value.type === "hello") channel.postMessage({ type: "ack", clientId: writerClientId(), nonce: writerRuntimeNonce });
+  };
+  channel.postMessage({ type: "hello", clientId: writerClientId(), nonce: writerRuntimeNonce });
 }
 
 export interface Session {
@@ -103,6 +161,7 @@ function setSession(s: Session) {
 }
 export function clearSession() {
   session = null;
+  clearWriterCredential();
   try {
     localStorage.removeItem(SESSION_KEY);
   } catch {
@@ -119,12 +178,17 @@ async function req<T>(
 ): Promise<T> {
   if (!API) throw new ApiError(0, "not_configured");
   const headers: Record<string, string> = {};
-  headers["X-Integrity-Version"] = String(GAMEPLAY_PROTOCOL);
+  headers["X-Integrity-Version"] = String(CLIENT_INTEGRITY_VERSION);
   headers["X-Client-Build"] = import.meta.env.VITE_BUILD_ID ?? "dev";
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (auth) {
     if (!session) throw new ApiError(401, "no_session");
     headers["Authorization"] = `Bearer ${session.token}`;
+    if (writerCredential?.accountId === session.accountId) {
+      headers["X-Writer-Client"] = writerCredential.clientId;
+      headers["X-Writer-Generation"] = String(writerCredential.generation);
+      headers["X-Writer-Token"] = writerCredential.token;
+    }
   }
   let res: Response;
   try {
@@ -141,6 +205,10 @@ async function req<T>(
   if (!res.ok) {
     const code = (data as { error?: string })?.error ?? `http_${res.status}`;
     if (res.status === 401) clearSession(); // stale/invalid token → sign out
+    if (res.status === 423 && code === "writer_replaced") {
+      clearWriterCredential();
+      writerRejectedHandler?.();
+    }
     throw new ApiError(res.status, code, data);
   }
   return data as T;
@@ -187,12 +255,30 @@ export const bootstrap = (force = false) => {
   bootstrapPromise ??= req<BootstrapResponse>("POST", "/bootstrap", {
     protocolVersion: GAMEPLAY_PROTOCOL,
     deviceId: deviceId(),
+    clientId: writerClientId(),
   }).catch((error) => {
     bootstrapPromise = null;
     throw error;
   });
   return bootstrapPromise;
 };
+
+export async function acquireWriter(observedGeneration: number, takeover: boolean): Promise<void> {
+  if (!session) throw new ApiError(401, "no_session");
+  const clientId = writerClientId();
+  const token = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+  const result = await req<{ ok: true; writerGeneration: number; accountVersion: number }>(
+    "POST", "/writer/acquire", { clientId, token, observedGeneration, takeover }
+  );
+  persistWriter({ accountId: session.accountId, clientId, generation: result.writerGeneration, token });
+  bootstrapPromise = null;
+}
+
+export async function releaseWriter(): Promise<void> {
+  if (!hasWriterCredential()) return;
+  try { await req<{ ok: true }>("POST", "/writer/release"); }
+  finally { clearWriterCredential(); }
+}
 
 export const sendCommandBatch = (batch: CommandBatchRequest) =>
   req<CommandBatchResponse>("POST", "/commands", batch);
@@ -227,6 +313,7 @@ export async function refreshSession(): Promise<void> {
 /** Revoke this device's session server-side, then drop the local copy. */
 export async function logout(): Promise<void> {
   try {
+    await releaseWriter();
     await req<{ ok: true }>("POST", "/logout");
   } catch {
     /* even if the server call fails, clear locally below */

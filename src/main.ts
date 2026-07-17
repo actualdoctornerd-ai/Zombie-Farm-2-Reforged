@@ -1045,7 +1045,19 @@ async function main() {
     economy.onQuestState = (serverState) => quests.restoreAuthoritative(serverState);
     economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
     economy.onGameplayUnavailable = () => hud.showToast("Gameplay paused — reconnect to continue.");
-    economy.onWriterReplaced = () => hud.showToast("This farm is active on another device. This tab is read-only.");
+    const showWriterLock = () => {
+      saveManager.setOnlineWritable(false);
+      hud.showWriterLock(async () => {
+        if (!await economy!.takeOver()) return false;
+        window.location.reload();
+        return true;
+      });
+    };
+    economy.onWriterReplaced = showWriterLock;
+    economy.onWriterAvailable = () => {
+      saveManager.setOnlineWritable(true);
+      hud.hideWriterLock();
+    };
     economy.onCommandRejected = (command, error) => {
       const subject = command?.type.startsWith("roster.") ? "Zombie action"
         : command?.type.startsWith("object.") ? "Object action"

@@ -57,7 +57,7 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
  ('0019_integrity_v2.sql'),('0020_permanent_import_closure.sql'),
  ('0020_protocol_v3_reset.sql'),('0021_epic_boss.sql'),
  ('0022_epic_boss_retry_skip.sql'),('0023_raid_revives.sql'),
- ('0024_epic_boss_tokens.sql');"
+ ('0024_epic_boss_tokens.sql'),('0025_writer_lease.sql');"
 ```
 
 From then on, only migrations added after this baseline apply via `migrations apply`.
@@ -78,6 +78,7 @@ manual `schema.sql` touched the table):
 | `0006_session_labels` | `ALTER TABLE sessions ADD COLUMN label` | Fails if `label` exists. |
 | `0007_raid_rewards` | `ALTER TABLE raid_sessions ADD COLUMN raid_id` | Fails if `raid_id` exists. |
 | `0024_epic_boss_tokens` | `ALTER TABLE epic_boss_runs_v3 ADD COLUMN token_count` | Fails if `token_count` exists. |
+| `0025_writer_lease` | Four `ALTER TABLE account_runtime_v3 ADD COLUMN` statements | Fails if a writer-lease column was added manually. |
 
 The remaining current migrations use repeatable deletes or `CREATE … IF NOT EXISTS`.
 Read destructive reset migrations before applying them; repeatable does not mean safe

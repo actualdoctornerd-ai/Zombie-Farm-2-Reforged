@@ -7,6 +7,7 @@ import type {
   ResumableRaidProjection,
 } from "../../../src/net/protocol";
 import { GAMEPLAY_PROTOCOL } from "../../../src/net/protocol";
+import type { WriterProjection } from "./writer";
 import * as legacyDb from "../db";
 import { applyCommandBatch, freshGameplayState, zombieDefaultMutation } from "./engine";
 import { levelForXp } from "../levels";
@@ -16,6 +17,8 @@ interface RuntimeRow {
   account_version: number;
   writer_device_id: string | null;
   writer_generation: number;
+  writer_last_activity_at: number;
+  active_batch_expires_at: number;
   active_batch_id: string | null;
   last_batch_id: string | null;
   last_first_sequence: number | null;
@@ -197,7 +200,8 @@ export async function bootstrap(
   accountId: string,
   now: number,
   mutationsEnabled: boolean,
-  minimumProtocolVersion: number
+  minimumProtocolVersion: number,
+  writer?: WriterProjection
 ): Promise<BootstrapResponse> {
   const rows = await loadRows(db, accountId, now);
   const [friends, incomingRequestCount, inboxCount] = await Promise.all([
@@ -213,6 +217,11 @@ export async function bootstrap(
     accountVersion: rows.runtime.account_version,
     writerGeneration: rows.runtime.writer_generation,
     writerDeviceId: rows.runtime.writer_device_id,
+    writer: writer ?? {
+      status: rows.runtime.writer_device_id ? "other" : "free",
+      generation: rows.runtime.writer_generation,
+      lastActivityAt: rows.runtime.writer_last_activity_at ?? 0,
+    },
     gameplay: project(rows),
     presentation: {
       version: rows.presentation.version,
@@ -298,13 +307,13 @@ export async function applyBatch(
     WHERE r.account_id = ? AND r.active_batch_id = ?)`;
   const statements: D1PreparedStatement[] = [];
   statements.push(db.prepare(`UPDATE account_runtime_v3 SET
-      active_batch_id = ?, account_version = account_version + 1,
+      active_batch_id = ?, active_batch_expires_at = ?, account_version = account_version + 1,
       writer_device_id = COALESCE(writer_device_id, ?),
       writer_generation = CASE WHEN writer_device_id IS NULL THEN writer_generation + 1 ELSE writer_generation END,
       command_window_start = ?, command_window_count = ?, updated_at = ?
     WHERE account_id = ? AND account_version = ? AND active_batch_id IS NULL
       AND (writer_device_id IS NULL OR writer_device_id = ?)`)
-    .bind(body.batchId, body.deviceId, windowStart, windowCount, now, accountId, runtime.account_version, body.deviceId));
+    .bind(body.batchId, now + 120_000, body.deviceId, windowStart, windowCount, now, accountId, runtime.account_version, body.deviceId));
   statements.push(db.prepare(`UPDATE balances SET gold = ?, brains = ?, xp = ?, claimed_level = ?
     WHERE account_id = ? AND ${guard}`)
     .bind(engine.state.balance.gold, engine.state.balance.brains, engine.state.balance.xp,
@@ -376,7 +385,7 @@ export async function applyBatch(
       .bind(`${body.batchId}:zombies`, accountId, JSON.stringify({ ids: engine.createdZombieIds }), now,
         accountId, body.batchId));
   }
-  statements.push(db.prepare(`UPDATE account_runtime_v3 SET active_batch_id = NULL,
+  statements.push(db.prepare(`UPDATE account_runtime_v3 SET active_batch_id = NULL, active_batch_expires_at = 0,
       last_batch_id = ?, last_first_sequence = ?, last_result_json = ?, updated_at = ?
     WHERE account_id = ? AND active_batch_id = ?`)
     .bind(body.batchId, lastSequence, resultJson, now, accountId, body.batchId));

@@ -38,6 +38,19 @@ afterEach(() => {
 });
 
 describe("protocol v3 command queue", () => {
+  it("abandons stale outbox work when another client takes ownership", () => {
+    const queue = new CommandQueue("writer-loss-test");
+    queue.adoptBootstrap({ ...bootstrap, writer: {
+      status: "mine", generation: 1, lastActivityAt: 1,
+    }, writerGeneration: 1 });
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    expect(queue.size).toBe(1);
+    queue.markWriterLost();
+    expect(queue.size).toBe(0);
+    expect(queue.available).toBe(false);
+    expect(() => queue.enqueue({ type: "farm.plow", oc: 4, or: 0 })).toThrow("gameplay_unavailable");
+  });
+
   it("uses a fixed ten-second deadline that later commands do not extend", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);

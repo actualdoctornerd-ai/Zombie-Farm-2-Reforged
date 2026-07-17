@@ -9,6 +9,7 @@ import { activeSaveKey } from "./profiles";
 import * as api from "../net/api";
 import { getFarmBackground } from "../prefs";
 import { epicBossById } from "../epicBoss/catalog";
+import { GAMEPLAY_PROTOCOL } from "../net/protocol";
 
 type PresentationData = {
   player?: { name?: string; farmer?: { col: number; row: number }; farmerAppearance?: SaveGame["player"]["farmerAppearance"] };
@@ -33,6 +34,7 @@ export class SaveManager {
   private scheduleSave: (() => void) | null = null;
   private lastPresentationCallAt = 0;
   private suspended = false;
+  private onlineWritable = false;
 
   constructor(
     private state: GameState,
@@ -129,6 +131,10 @@ export class SaveManager {
     void this.push(data);
   }
   suspend(): void { this.suspended = true; }
+  setOnlineWritable(value: boolean): void {
+    this.onlineWritable = value;
+    if (value && this.presentationDirty) void this.push(this.presentation());
+  }
   syncRev(_rev: number): void {}
 
   save(): void {
@@ -162,11 +168,16 @@ export class SaveManager {
   }
 
   private async push(data: Record<string, unknown>): Promise<void> {
+    if (this.isOnline() && !this.onlineWritable) {
+      this.presentationDirty = true;
+      this.pendingPresentation = data;
+      return;
+    }
     if (this.pushing) { this.pendingPresentation = data; return; }
     this.pushing = true;
     this.lastPresentationCallAt = Date.now();
     try {
-      const saved = await api.putPresentationV3({ protocolVersion: 3, expectedVersion: this.presentationVersion, data });
+      const saved = await api.putPresentationV3({ protocolVersion: GAMEPLAY_PROTOCOL, expectedVersion: this.presentationVersion, data });
       this.presentationVersion = saved.version;
       this.lastPresentation = JSON.stringify(data);
       this.presentationDirty = false;

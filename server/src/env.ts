@@ -42,6 +42,9 @@ export interface Bindings {
    * stopping all economy mutations during an incident or maintenance window. */
   MIN_PROTOCOL_VERSION?: string;
   MUTATIONS_DISABLED?: string;
+  /** Exclusive-writer rollout: observe accepts legacy clients; enforce requires the
+   * authenticated writer credential on every gameplay mutation. */
+  WRITER_LEASE_MODE?: "observe" | "enforce";
   /** Rate-limit tiers (optional; see wrangler.toml). Tight for sign-in, moderate
    *  for writes, loose for reads. When unset the middleware uses the D1 fallback. */
   RL_AUTH?: RateLimiter;

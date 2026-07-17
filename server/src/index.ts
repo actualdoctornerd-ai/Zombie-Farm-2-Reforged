@@ -52,10 +52,11 @@ import plantCatalog from "../../public/assets/plants.json";
 import zombieCatalog from "../../public/assets/zombies.json";
 import boostCatalog from "../../public/assets/boosts.json";
 import objectCatalog from "../../public/assets/placeables.json";
-import { COMMAND_BATCH_LIMIT, GAMEPLAY_PROTOCOL, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
+import { CLIENT_INTEGRITY_VERSION, COMMAND_BATCH_LIMIT, GAMEPLAY_PROTOCOL, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
 import * as v3 from "./v3/db";
 import * as v3Raid from "./v3/raid";
 import * as v3EpicBoss from "./v3/epicBoss";
+import * as writer from "./v3/writer";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 
@@ -225,7 +226,8 @@ app.use("*", (c, next) =>
   cors({
     origin: [c.env.ALLOWED_ORIGIN, "http://localhost:5173", "http://localhost:4173"],
     allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type", "X-Integrity-Version", "X-Client-Build"],
+    allowHeaders: ["Authorization", "Content-Type", "X-Integrity-Version", "X-Client-Build",
+      "X-Writer-Client", "X-Writer-Generation", "X-Writer-Token"],
     maxAge: 86400,
   })(c, next)
 );
@@ -381,6 +383,7 @@ app.use("/shop/*", requireAuth);
 app.use("/bootstrap", requireAuth);
 app.use("/commands", requireAuth);
 app.use("/presentation", requireAuth);
+app.use("/writer/*", requireAuth);
 
 // Local integration fixture. This route is inert in production (DEV_AUTH=0) and
 // exists so tests can establish trusted authoritative state without reopening the
@@ -400,7 +403,7 @@ app.use("*", async (c, next) => {
     Number.isFinite(enforceAt) &&
     enforceAt > 0 &&
     Date.now() >= enforceAt &&
-    !["2", "3"].includes(c.req.header("X-Integrity-Version") ?? "")
+    !["2", "3", String(CLIENT_INTEGRITY_VERSION)].includes(c.req.header("X-Integrity-Version") ?? "")
   ) {
     return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 426);
   }
@@ -452,6 +455,7 @@ app.use("/session/list", rateLimit("RL_READ", "session_list", 120, 60_000));
 app.use("/bootstrap", rateLimit("RL_READ", "bootstrap_v3", 30, 60_000));
 app.use("/commands", rateLimit("RL_WRITE", "commands_v3", 30, 60_000));
 app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 4, 60_000));
+app.use("/writer/*", rateLimit("RL_WRITE", "writer_v3", 20, 60_000));
 // Reads + refresh (RL_READ): /me, GET /save shares the /save write limiter above,
 // friend lists, a friend's farm, requests, inbox, token refresh.
 app.use("/me", rateLimit("RL_READ", "me", 300, 60_000));
@@ -466,6 +470,80 @@ const minProtocolVersion = (env: Bindings): number => {
   const value = Number(env.MIN_PROTOCOL_VERSION ?? GAMEPLAY_PROTOCOL);
   return Number.isInteger(value) && value > 0 ? value : GAMEPLAY_PROTOCOL;
 };
+
+const writerCredential = (c: Parameters<MiddlewareHandler<{ Bindings: Bindings; Variables: Vars }>>[0]): writer.WriterCredential | null => {
+  const clientId = c.req.header("X-Writer-Client") ?? "";
+  const token = c.req.header("X-Writer-Token") ?? "";
+  const generation = Number(c.req.header("X-Writer-Generation"));
+  return clientId.length >= 8 && clientId.length <= 128 && token.length >= 32 && token.length <= 256 &&
+    Number.isSafeInteger(generation) && generation >= 0 ? { clientId, token, generation } : null;
+};
+
+app.post("/writer/acquire", async (c) => {
+  const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  if (typeof body.clientId !== "string" || body.clientId.length < 8 || body.clientId.length > 128 ||
+      typeof body.token !== "string" || body.token.length < 32 || body.token.length > 256 ||
+      !Number.isSafeInteger(body.observedGeneration) || typeof body.takeover !== "boolean") {
+    return c.json({ error: "bad_writer_request" }, 400);
+  }
+  const result = await writer.acquire(c.env.DB, c.get("accountId"), c.get("sessionId"), {
+    clientId: body.clientId,
+    token: body.token,
+    observedGeneration: Number(body.observedGeneration),
+    takeover: body.takeover,
+  }, Date.now());
+  if (result.status !== 200) return c.json({ error: result.error, writerGeneration: result.generation }, result.status);
+  return c.json({ ok: true, writerGeneration: result.generation, accountVersion: result.accountVersion });
+});
+
+app.post("/writer/release", async (c) => {
+  const released = await writer.release(
+    c.env.DB, c.get("accountId"), c.get("sessionId"), writerCredential(c), Date.now()
+  );
+  return c.json({ ok: true, released });
+});
+
+app.get("/writer/status", async (c) => c.json(await writer.projection(
+  c.env.DB, c.get("accountId"), c.get("sessionId"), writerCredential(c), Date.now()
+)));
+
+const writerProtectedMutation = (method: string, path: string): boolean => {
+  if (method === "PUT" && (path === "/presentation" || path === "/save")) return true;
+  if (method !== "POST") return false;
+  return path === "/commands" || path === "/gifts" || path === "/gifts/claim" ||
+    path.startsWith("/raid/") || path.startsWith("/epic-boss/");
+};
+
+// Activity-triggered exclusive writer fencing. Legacy clients remain usable only
+// during the short observe rollout; upgraded clients are always fenced.
+app.use("*", async (c, next) => {
+  if (!writerProtectedMutation(c.req.method, c.req.path)) return next();
+  const upgraded = c.req.header("X-Integrity-Version") === String(CLIENT_INTEGRITY_VERSION);
+  if (!upgraded) {
+    if (c.env.WRITER_LEASE_MODE === "enforce") {
+      return c.json({ error: "client_upgrade_required", integrityVersion: CLIENT_INTEGRITY_VERSION }, 426);
+    }
+    return next();
+  }
+  const credential = writerCredential(c);
+  if (c.req.path === "/commands") {
+    if (!await writer.validate(c.env.DB, c.get("accountId"), c.get("sessionId"), credential, Date.now())) {
+      return c.json({ error: "writer_replaced" }, 423);
+    }
+    return next();
+  }
+  const operationId = crypto.randomUUID();
+  const began = await writer.beginOperation(
+    c.env.DB, c.get("accountId"), c.get("sessionId"), credential, operationId, Date.now()
+  );
+  if (began === "writer_replaced") return c.json({ error: "writer_replaced" }, 423);
+  if (began === "operation_in_progress") return c.json({ error: "operation_in_progress" }, 409);
+  try {
+    await next();
+  } finally {
+    await writer.endOperation(c.env.DB, c.get("accountId"), operationId, Date.now());
+  }
+});
 
 const accountHash = (value: string): string => {
   let hash = 2166136261;
@@ -561,12 +639,16 @@ app.post("/bootstrap", async (c) => {
   // leaving a roster locked or blocking the other battle mode indefinitely.
   await v3Raid.expireLiveRaid(c.env.DB, accountId, now);
   await v3EpicBoss.expireLiveEpicBoss(c.env.DB, accountId, now);
+  const writerState = await writer.projection(
+    c.env.DB, accountId, c.get("sessionId"), writerCredential(c), now
+  );
   const response = await v3.bootstrap(
     c.env.DB,
     accountId,
     now,
     c.env.MUTATIONS_DISABLED !== "1",
-    minProtocolVersion(c.env)
+    minProtocolVersion(c.env),
+    writerState
   );
   metric("bootstrap", accountId, started, { payloadBytes: JSON.stringify(response).length });
   return c.json(response);

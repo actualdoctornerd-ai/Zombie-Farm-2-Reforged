@@ -219,13 +219,12 @@ describe("v3 raid dependency ids", () => {
     });
   });
 
-  it("claims writer ownership before an out-of-band dependency with an empty queue", async () => {
+  it("settles the ordered lane before an out-of-band dependency", async () => {
     const economy = new EconomyClient(new GameState(), "writer-claim-account");
-    (economy as any).queue.takeWriter = true;
     const enqueue = vi.spyOn((economy as any).queue, "enqueue").mockReturnValue(1);
     const settle = vi.spyOn((economy as any).queue, "settle").mockResolvedValue(undefined);
     await economy.settleBeforeDependency();
-    expect(enqueue).toHaveBeenCalledWith({ type: "writer.claim" });
+    expect(enqueue).not.toHaveBeenCalled();
     expect(settle).toHaveBeenCalledOnce();
   });
 

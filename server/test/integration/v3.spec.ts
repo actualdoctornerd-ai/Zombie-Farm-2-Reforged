@@ -21,6 +21,69 @@ const commandBody = (
 });
 
 describe("protocol v3 API", () => {
+  it("fences activity to one explicit writer and transfers control atomically", async () => {
+    const session = await signIn();
+    const clientA = "writer-client-aaaaaaaa";
+    const clientB = "writer-client-bbbbbbbb";
+    const tokenA = "a".repeat(64);
+    const tokenB = "b".repeat(64);
+    const v4 = { "x-integrity-version": "4" };
+    const credential = (clientId: string, generation: number, token: string) => ({
+      ...v4,
+      "x-writer-client": clientId,
+      "x-writer-generation": String(generation),
+      "x-writer-token": token,
+    });
+
+    const initial = await call<any>("POST", "/bootstrap", session.token, {}, v4);
+    expect(initial.status, JSON.stringify(initial.body)).toBe(200);
+    expect(initial.body.writer).toMatchObject({ status: "free", generation: 0 });
+    const acquired = await call<any>("POST", "/writer/acquire", session.token, {
+      clientId: clientA, token: tokenA, observedGeneration: 0, takeover: false,
+    }, v4);
+    expect(acquired.status).toBe(200);
+    const aHeaders = credential(clientA, acquired.body.writerGeneration, tokenA);
+    const ownedA = await call<any>("POST", "/bootstrap", session.token, {}, aHeaders);
+    expect(ownedA.body.writer.status).toBe("mine");
+
+    const first = await call<any>("POST", "/commands", session.token,
+      commandBody(ownedA.body, "writer-fenced-a", 1, [{ type: "farm.plow", oc: 0, or: 0 }], clientA, false), aHeaders);
+    expect(first.status).toBe(200);
+
+    const observedB = await call<any>("POST", "/bootstrap", session.token, {}, v4);
+    expect(observedB.body.writer.status).toBe("other");
+    const refused = await call<any>("POST", "/writer/acquire", session.token, {
+      clientId: clientB, token: tokenB, observedGeneration: observedB.body.writer.generation, takeover: false,
+    }, v4);
+    expect(refused.status).toBe(423);
+    const takeover = await call<any>("POST", "/writer/acquire", session.token, {
+      clientId: clientB, token: tokenB, observedGeneration: observedB.body.writer.generation, takeover: true,
+    }, v4);
+    expect(takeover.status).toBe(200);
+    const bHeaders = credential(clientB, takeover.body.writerGeneration, tokenB);
+
+    const stale = await call<any>("POST", "/commands", session.token,
+      commandBody(first.body, "writer-stale-a", 2, [{ type: "farm.plow", oc: 4, or: 0 }], clientA, false), aHeaders);
+    expect(stale.status).toBe(423);
+    expect(stale.body.error).toBe("writer_replaced");
+
+    const ownedB = await call<any>("POST", "/bootstrap", session.token, {}, bHeaders);
+    expect(ownedB.body.writer.status).toBe("mine");
+    const second = await call<any>("POST", "/commands", session.token,
+      commandBody(ownedB.body, "writer-fenced-b", 1, [{ type: "farm.plow", oc: 4, or: 0 }], clientB, false), bHeaders);
+    expect(second.status).toBe(200);
+    expect(second.body.gameplay.farm.plots["4:0"]).toMatchObject({ state: "plowed" });
+
+    const stalePresentation = await call<any>("PUT", "/presentation", session.token, {
+      protocolVersion: 3, expectedVersion: 0, data: { camera: { x: 1 } },
+    }, aHeaders);
+    expect(stalePresentation.status).toBe(423);
+    const currentPresentation = await call<any>("PUT", "/presentation", session.token, {
+      protocolVersion: 3, expectedVersion: 0, data: { camera: { x: 2 } },
+    }, bHeaders);
+    expect(currentPresentation.status).toBe(200);
+  });
+
   it("authenticates and activates an Epic Boss event", async () => {
     const unauthenticated = await call<any>("POST", "/epic-boss/activate", undefined, {
       activationId: "activation-unauthenticated",
