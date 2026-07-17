@@ -660,6 +660,11 @@ app.post("/commands", async (c) => {
   if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
   const body = await c.req.json<unknown>().catch(() => null);
   if (!validCommandBatch(body)) return c.json({ error: "bad_command_batch" }, 400);
+  const credential = writerCredential(c);
+  if (c.req.header("X-Integrity-Version") === String(CLIENT_INTEGRITY_VERSION) &&
+      (!credential || body.deviceId !== credential.clientId || body.takeWriter)) {
+    return c.json({ error: "bad_writer_command" }, 400);
+  }
   if (body.protocolVersion < minProtocolVersion(c.env)) {
     return c.json({ error: "update_required", minimumProtocolVersion: minProtocolVersion(c.env) }, 426);
   }

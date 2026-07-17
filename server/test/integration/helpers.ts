@@ -2,6 +2,7 @@
 // (booted by globalSetup) over HTTP. Tests isolate by using UNIQUE account ids —
 // the database is shared across the run, so never reuse a devSub between tests.
 const BASE = process.env.IT_BASE ?? "http://127.0.0.1:8799";
+const writerByToken = new Map<string, { clientId: string; generation: number; token: string }>();
 
 let counter = 0;
 /** A unique devSub so each signed-in account is isolated from other tests. */
@@ -28,10 +29,17 @@ export async function call<T = unknown>(
   body?: unknown,
   extraHeaders: Record<string, string> = {}
 ): Promise<ApiResponse<T>> {
-  const headers: Record<string, string> = {
-    "content-type": "application/json", "x-integrity-version": "3", ...extraHeaders,
-  };
-  if (token) headers["authorization"] = `Bearer ${token}`;
+  const headers: Record<string, string> = { "content-type": "application/json", "x-integrity-version": "4" };
+  if (token) {
+    headers["authorization"] = `Bearer ${token}`;
+    const writer = writerByToken.get(token);
+    if (writer) {
+      headers["x-writer-client"] = writer.clientId;
+      headers["x-writer-generation"] = String(writer.generation);
+      headers["x-writer-token"] = writer.token;
+    }
+  }
+  Object.assign(headers, extraHeaders);
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
@@ -48,9 +56,19 @@ export async function call<T = unknown>(
 }
 
 /** Dev sign-in (DEV_AUTH=1 in .dev.vars): a fresh isolated account. */
-export async function signIn(devSub = uniqueSub()): Promise<Session> {
+export async function signIn(devSub = uniqueSub(), acquireWriter = true): Promise<Session> {
   const r = await call<Session>("POST", "/auth", undefined, { devSub });
   if (r.status !== 200) throw new Error(`auth failed: ${r.status}`);
+  if (acquireWriter) {
+    const boot = await call<any>("POST", "/bootstrap", r.body.token, {});
+    const clientId = "device-aaaaaaaa";
+    const token = `${uniqueSub("writer")}-${"x".repeat(40)}`;
+    const acquired = await call<any>("POST", "/writer/acquire", r.body.token, {
+      clientId, token, observedGeneration: boot.body.writer.generation, takeover: false,
+    });
+    if (acquired.status !== 200) throw new Error(`writer acquire failed: ${acquired.status}`);
+    writerByToken.set(r.body.token, { clientId, token, generation: acquired.body.writerGeneration });
+  }
   return r.body;
 }
 

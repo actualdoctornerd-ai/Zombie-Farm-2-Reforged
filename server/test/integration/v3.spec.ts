@@ -8,7 +8,7 @@ const commandBody = (
   firstSequence: number,
   commands: unknown[],
   deviceId = deviceA,
-  takeWriter = true
+  takeWriter = false
 ) => ({
   protocolVersion: 3,
   deviceId,
@@ -22,7 +22,7 @@ const commandBody = (
 
 describe("protocol v3 API", () => {
   it("fences activity to one explicit writer and transfers control atomically", async () => {
-    const session = await signIn();
+    const session = await signIn(undefined, false);
     const clientA = "writer-client-aaaaaaaa";
     const clientB = "writer-client-bbbbbbbb";
     const tokenA = "a".repeat(64);
@@ -49,6 +49,15 @@ describe("protocol v3 API", () => {
     const first = await call<any>("POST", "/commands", session.token,
       commandBody(ownedA.body, "writer-fenced-a", 1, [{ type: "farm.plow", oc: 0, or: 0 }], clientA, false), aHeaders);
     expect(first.status).toBe(200);
+
+    const spoofedClient = await call<any>("POST", "/commands", session.token,
+      commandBody(first.body, "writer-spoofed-client", 2, [{ type: "farm.plow", oc: 4, or: 0 }], clientB, false), aHeaders);
+    expect(spoofedClient.status).toBe(400);
+    expect(spoofedClient.body.error).toBe("bad_writer_command");
+    const legacyTakeover = await call<any>("POST", "/commands", session.token,
+      commandBody(first.body, "writer-legacy-takeover", 2, [{ type: "farm.plow", oc: 4, or: 0 }], clientA, true), aHeaders);
+    expect(legacyTakeover.status).toBe(400);
+    expect(legacyTakeover.body.error).toBe("bad_writer_command");
 
     const observedB = await call<any>("POST", "/bootstrap", session.token, {}, v4);
     expect(observedB.body.writer.status).toBe("other");
@@ -236,33 +245,6 @@ describe("protocol v3 API", () => {
     expect(zombie.body.results.every((result: any) => result.status === "applied")).toBe(true);
     expect(zombie.body.createdZombieIds).toHaveLength(1);
     expect(zombie.body.gameplay.roster[0].id).toBe(zombie.body.createdZombieIds[0]);
-  });
-
-  it("takes writer ownership with a conflict and makes the old device read-only", async () => {
-    const session = await signIn();
-    const boot = (await call<any>("POST", "/bootstrap", session.token, {})).body;
-    const first = await call<any>("POST", "/commands", session.token,
-      commandBody(boot, "batch-writer-a", 1, [{ type: "farm.plow", oc: 0, or: 0 }]));
-    expect(first.status).toBe(200);
-
-    const takeover = await call<any>("POST", "/commands", session.token,
-      commandBody({ accountVersion: first.body.accountVersion, writerGeneration: first.body.writerGeneration },
-        "batch-writer-b", 1, [{ type: "farm.plow", oc: 4, or: 0 }], "device-bbbbbbbb", true));
-    expect(takeover.status).toBe(409);
-    expect(takeover.body.error).toBe("writer_taken");
-
-    const refreshed = (await call<any>("POST", "/bootstrap", session.token, {})).body;
-    expect(refreshed.writerDeviceId).toBe("device-bbbbbbbb");
-    const newDevice = await call<any>("POST", "/commands", session.token,
-      commandBody(refreshed, "batch-writer-b", 1,
-        [{ type: "farm.plow", oc: 4, or: 0 }], "device-bbbbbbbb", false));
-    expect(newDevice.status).toBe(200);
-    expect(newDevice.body.gameplay.farm.plots["4:0"]).toMatchObject({ state: "plowed" });
-
-    const oldDevice = await call<any>("POST", "/commands", session.token,
-      commandBody(newDevice.body, "batch-old-device", 2, [{ type: "farm.plow", oc: 8, or: 0 }], deviceA, false));
-    expect(oldDevice.status).toBe(423);
-    expect(oldDevice.body.error).toBe("writer_replaced");
   });
 
   it("settles a retreat immediately without survivor veterancy or a stuck session", async () => {
