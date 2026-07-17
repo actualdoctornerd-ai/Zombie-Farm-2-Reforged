@@ -352,6 +352,11 @@ const STYLE = `
 #hud.raiding .topbar, #hud.raiding .tools, #hud.raiding .menucol,
 #hud.raiding .questcol, #hud.raiding .qtoggle, #hud.raiding .fab,
 #hud.raiding .touch-cancel, #hud.raiding .quick-plow { display: none !important; }
+/* "u" key: hide all farm chrome for a clean, unobstructed view of the farm. */
+#hud.ui-hidden .topbar, #hud.ui-hidden .tools, #hud.ui-hidden .menucol,
+#hud.ui-hidden .questcol, #hud.ui-hidden .qtoggle, #hud.ui-hidden .fab,
+#hud.ui-hidden .touch-cancel, #hud.ui-hidden .quick-plow,
+#hud.ui-hidden .plantlabel { display: none !important; }
 /* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
    surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
    camera, zombie inspect, and the visit banner remain. */
@@ -1324,6 +1329,7 @@ export class Hud {
     this.buildPlantLabel();
     this.buildQuestToggle();
     this.wireMenuSounds();
+    this.wireUiToggle();
     state.onChange(() => this.update());
     this.update();
     // Mobile (esp. landscape) has little room: start with the menu + tools tucked
@@ -1361,6 +1367,28 @@ export class Hud {
       // X button (or its inner <img>), or a click on the backdrop itself.
       if (t.closest(CLOSE) || [...t.classList].some((c) => BACKDROP.has(c)))
         this.audio.play("menuClose");
+    });
+  }
+
+  // "u" (when not typing) hides all farm chrome for a clean look at the farm; press
+  // again to bring it back. Ignored while a panel/overlay is open, during a raid, or
+  // when a friend's farm is being visited (that chrome is already managed elsewhere).
+  private wireUiToggle() {
+    window.addEventListener("keydown", (e) => {
+      if (e.key !== "u" && e.key !== "U") return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.isContentEditable ||
+          t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT")
+      )
+        return;
+      if (this.el.classList.contains("raiding")) return;
+      e.preventDefault();
+      this.el.classList.toggle("ui-hidden");
     });
   }
 

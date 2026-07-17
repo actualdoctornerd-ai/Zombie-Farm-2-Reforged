@@ -30,6 +30,7 @@ describe("protocol v3 command engine", () => {
 
   it("authoritatively buys, equips, and hides cosmetic pets", () => {
     const state = freshGameplayState();
+    state.balance.brains = 10_000;
     expect(state.ownedPets).toEqual([]);
     expect(state.activePet).toBeNull();
 
@@ -49,7 +50,9 @@ describe("protocol v3 command engine", () => {
   });
 
   it("authoritatively replaces the selected follower instead of activating two", () => {
-    const bought = applyCommandBatch(freshGameplayState(), commands(
+    const state = freshGameplayState();
+    state.balance.brains = 10_000;
+    const bought = applyCommandBatch(state, commands(
       { type: "pet.buy", petKey: "catActor" },
       { type: "pet.buy", petKey: "alienActor" },
     ), { now: 1 });
@@ -170,7 +173,7 @@ describe("protocol v3 command engine", () => {
     expect(result.state.farm.plots["15:12"]).toMatchObject({
       state: "planted", cropKey: "ZombieActorRegularTier1", zombie: true,
     });
-    expect(result.state.balance).toMatchObject({ gold: 999_955, brains: 9_990 });
+    expect(result.state.balance).toMatchObject({ gold: 355, brains: 10 });
   });
 
   it("rejects a new free-placed plot whose footprint overlaps another plot", () => {
@@ -191,7 +194,7 @@ describe("protocol v3 command engine", () => {
 
     expect(planted.results.map((result) => result.status)).toEqual(["applied", "applied", "rejected"]);
     expect(planted.results[2].error).toBe("not_grown");
-    expect(planted.state.balance.gold).toBe(999_985);
+    expect(planted.state.balance.gold).toBe(385);
     expect(planted.state.farm.plots["0:0"]).toMatchObject({
       state: "planted",
       cropKey: "carrot",
@@ -296,7 +299,7 @@ describe("protocol v3 command engine", () => {
     ), { now: 10_000, random: () => 1 });
     expect(result.results.every((entry) => entry.status === "applied")).toBe(true);
     expect(result.state.farm.plots["0:0"]).toBeUndefined();
-    expect(result.state.balance.gold).toBe(999_985);
+    expect(result.state.balance.gold).toBe(385);
   });
 
   it("Harvest power is one atomic command, orders zombies oldest-first, and leaves excess planted", () => {
@@ -562,11 +565,11 @@ describe("protocol v3 command engine", () => {
     const state = freshGameplayState();
     const first = applyCommandBatch(state, commands({ type: "tutorial.complete" }), { now: 1 });
     expect(first.results[0].status).toBe("applied");
-    expect(first.state.balance.gold).toBe(1_000_200);
+    expect(first.state.balance.gold).toBe(600);
     expect(first.state.tutorialRewarded).toBe(true);
     const repeated = applyCommandBatch(first.state, commands({ type: "tutorial.complete" }), { now: 2 });
     expect(repeated.results[0]).toMatchObject({ status: "rejected", error: "already_claimed" });
-    expect(repeated.state.balance.gold).toBe(1_000_200);
+    expect(repeated.state.balance.gold).toBe(600);
   });
 
   it("atomically claims Received rewards into inventory or owned objects", () => {
