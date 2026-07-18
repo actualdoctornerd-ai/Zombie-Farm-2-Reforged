@@ -1941,6 +1941,8 @@ interface RosterRow {
   key: string;
   mutation: number;
   invasions: number;
+  /** DEV_AUTH fixture hint; legacy roster reads do not populate this field. */
+  stored?: boolean;
 }
 
 export async function readRosterState(db: D1Database, accountId: string): Promise<RosterRow[]> {
@@ -2033,7 +2035,8 @@ export async function grantRosterFixture(
     ).bind(accountId, g.unitId, g.key, g.mutation, g.invasions));
     stmts.push(db.prepare(`INSERT OR IGNORE INTO roster_v3
       (account_id,unit_id,zombie_key,mutation,invasions,stored,created_at)
-      VALUES(?,?,?,?,?,1,?)`).bind(accountId, g.unitId, g.key, g.mutation, g.invasions, Date.now()));
+      VALUES(?,?,?,?,?,?,?)`).bind(accountId, g.unitId, g.key, g.mutation, g.invasions,
+        row.stored === false ? 0 : 1, Date.now()));
   }
   if (stmts.length) await db.batch(stmts);
   const count = await db.prepare("SELECT COUNT(*) AS n FROM roster_v3 WHERE account_id = ?")

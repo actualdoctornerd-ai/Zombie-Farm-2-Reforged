@@ -1397,6 +1397,7 @@ export class Hud {
     this.buildQuestToggle();
     this.wireMenuSounds();
     this.wireUiToggle();
+    this.wireFullscreenToggle();
     state.onChange(() => this.update());
     this.update();
     // Mobile (esp. landscape) has little room: start with the menu + tools tucked
@@ -1457,6 +1458,39 @@ export class Hud {
       e.preventDefault();
       this.el.classList.toggle("ui-hidden");
     });
+  }
+
+  // "f" toggles fullscreen from anywhere in the game. Leave Escape alone so the
+  // browser's native fullscreen exit continues to work, and ignore the shortcut
+  // while the player is typing into a form field.
+  private wireFullscreenToggle() {
+    window.addEventListener("keydown", (e) => {
+      if (e.key !== "f" && e.key !== "F") return;
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.isContentEditable ||
+          t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT")
+      )
+        return;
+      if (
+        !document.fullscreenEnabled ||
+        typeof document.documentElement.requestFullscreen !== "function"
+      )
+        return;
+      e.preventDefault();
+      void this.toggleFullscreen().catch(() => {
+        // Some browsers can still reject fullscreen despite advertising support.
+      });
+    });
+  }
+
+  private async toggleFullscreen() {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
   }
 
   private chip(icon: string): [HTMLElement, HTMLElement] {
@@ -2267,8 +2301,8 @@ export class Hud {
   refreshInbox: (() => Promise<void>) | null = null;
   /** Cached unclaimed gifts addressed to me. */
   getInbox: (() => { id: string; fromName: string }[]) | null = null;
-  /** Claim a gift (credits a brain server-side). */
-  onClaimGift: ((id: string) => Promise<void>) | null = null;
+  /** Claim a gift (credits a brain server-side). Returns whether it was credited. */
+  onClaimGift: ((id: string) => Promise<boolean>) | null = null;
   /** Pull pending incoming friend requests into the cache. */
   refreshRequests: (() => Promise<void>) | null = null;
   /** Cached pending incoming friend requests (people asking to befriend me). */
@@ -3562,8 +3596,7 @@ export class Hud {
     fullscreenButton.onclick = async () => {
       fullscreenButton.disabled = true;
       try {
-        if (document.fullscreenElement) await document.exitFullscreen();
-        else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+        await this.toggleFullscreen();
       } catch {
         fullscreenButton.textContent = "Couldn't Open";
       } finally {
@@ -3665,7 +3698,7 @@ export class Hud {
       noteEl("Silence the game while its tab or window is in the background."),
       fullscreenRow,
       noteEl(canFullscreen
-        ? "Use Escape or this button to leave fullscreen."
+        ? "Press F to toggle fullscreen. Escape also exits."
         : "This browser doesn't support app-controlled fullscreen."),
       ...accountBlock,
       ...bgBlock,
@@ -4201,7 +4234,20 @@ export class Hud {
           : { kind: "BUY_ZOMBIE", zombieKey: asset.value, mutated: requestedMutation.value === "true", priceBrains });
         kind = selling ? "SELL_ZOMBIE" : "BUY_ZOMBIE";
         setTabs(); updateCompose(); refreshBalance(); price.value = ""; await renderOrders();
-      } catch { this.showToast("Could not create that post. Check your limits and assets."); }
+      } catch (error) {
+        const code = error instanceof Error ? error.message : "";
+        if (code.startsWith("zombie_not_tradable"))
+          this.showToast("That reward-only zombie cannot be traded.");
+        else if (code.startsWith("zombie_unavailable"))
+          this.showToast("That zombie is no longer available or is busy.");
+        else if (code.startsWith("active_post_limit"))
+          this.showToast("You already have two active Black Market posts.");
+        else if (code.startsWith("daily_post_limit"))
+          this.showToast("You have reached today's 10-post limit.");
+        else if (code.startsWith("insufficient_brains"))
+          this.showToast("You do not have enough brains for that request.");
+        else this.showToast("Could not create that post. Refresh and try again.");
+      }
       finally { submit.disabled = false; }
     };
 
@@ -4334,9 +4380,14 @@ export class Hud {
         claim.textContent = "Claim";
         claim.onclick = async () => {
           claim.disabled = true;
-          await this.onClaimGift?.(g.id);
-          this.showToast(`Claimed a brain from ${g.fromName}! 🧠`);
-          await refresh();
+          const credited = await (this.onClaimGift?.(g.id) ?? Promise.resolve(false));
+          if (credited) {
+            this.showToast(`Claimed a brain from ${g.fromName}! 🧠`);
+            await refresh();
+          } else {
+            this.showToast("Couldn't claim that gift.");
+            claim.disabled = false;
+          }
         };
         row.append(nm, claim);
         inboxWrap.appendChild(row);

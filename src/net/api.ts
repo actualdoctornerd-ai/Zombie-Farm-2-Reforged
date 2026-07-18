@@ -74,12 +74,41 @@ interface WriterCredential {
   token: string;
 }
 
-let writerCredential: WriterCredential | null = (() => {
+const readWriterCredential = (): WriterCredential | null => {
   try { return JSON.parse(sessionStorage.getItem(WRITER_KEY) ?? "null") as WriterCredential | null; }
   catch { return null; }
-})();
+};
+
+let writerCredential: WriterCredential | null = readWriterCredential();
 let writerRejectedHandler: (() => void) | null = null;
-const writerRuntimeNonce = crypto.randomUUID();
+
+// A server credential belongs to one live document at a time. Web Locks are scoped
+// to the origin and released automatically when a document unloads, which makes a
+// reload a clean handoff while still fencing a duplicated tab that inherited this
+// tab's sessionStorage. A losing document never deletes the persisted credential.
+const supportsWriterLocks = typeof navigator !== "undefined" && !!navigator.locks;
+let localWriterLockHeld = !supportsWriterLocks;
+let resolveWriterLock: ((held: boolean) => void) | null = null;
+const writerLockAcquired = new Promise<boolean>((resolve) => { resolveWriterLock = resolve; });
+
+if (supportsWriterLocks) {
+  void navigator.locks.request(`zf2r.v4.writer:${writerClientId()}`, async () => {
+    localWriterLockHeld = true;
+    // A contending document suppresses its in-memory copy while it waits. Restore
+    // that copy only after the browser grants this document exclusive ownership.
+    writerCredential ??= readWriterCredential();
+    resolveWriterLock?.(true);
+    resolveWriterLock = null;
+    await new Promise<void>(() => { /* held for this document's lifetime */ });
+  }).catch(() => {
+    // Web Locks are an availability guard, not the server security boundary. If a
+    // browser advertises the API but it fails, preserve the existing server fence.
+    localWriterLockHeld = true;
+    writerCredential ??= readWriterCredential();
+    resolveWriterLock?.(true);
+    resolveWriterLock = null;
+  });
+}
 
 const persistWriter = (value: WriterCredential | null): void => {
   writerCredential = value;
@@ -89,26 +118,21 @@ const persistWriter = (value: WriterCredential | null): void => {
   } catch { /* storage is optional */ }
 };
 
-export const hasWriterCredential = (): boolean => !!writerCredential && writerCredential.accountId === session?.accountId;
+export async function prepareWriterAccess(waitMs = 1_500): Promise<boolean> {
+  if (localWriterLockHeld) return true;
+  const acquired = await Promise.race([
+    writerLockAcquired,
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), waitMs)),
+  ]);
+  if (!acquired) writerCredential = null; // suppress locally; never erase sessionStorage
+  return acquired;
+}
+
+export const hasLocalWriterLock = (): boolean => localWriterLockHeld;
+export const hasWriterCredential = (): boolean => localWriterLockHeld &&
+  !!writerCredential && writerCredential.accountId === session?.accountId;
 export const clearWriterCredential = (): void => persistWriter(null);
 export const setWriterRejectedHandler = (handler: (() => void) | null): void => { writerRejectedHandler = handler; };
-
-// Duplicated tabs can inherit sessionStorage, including the same writer token.
-// Elect one local document deterministically; the server remains authoritative
-// across browsers/devices, while this closes the same-browser clone loophole.
-if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
-  const channel = new BroadcastChannel("zf2r.v4.writer");
-  channel.onmessage = (event) => {
-    const value = event.data as { clientId?: unknown; nonce?: unknown; type?: unknown };
-    if (value?.clientId !== writerClientId() || typeof value.nonce !== "string" || value.nonce === writerRuntimeNonce) return;
-    if (writerRuntimeNonce < value.nonce && hasWriterCredential()) {
-      clearWriterCredential();
-      writerRejectedHandler?.();
-    }
-    if (value.type === "hello") channel.postMessage({ type: "ack", clientId: writerClientId(), nonce: writerRuntimeNonce });
-  };
-  channel.postMessage({ type: "hello", clientId: writerClientId(), nonce: writerRuntimeNonce });
-}
 
 export interface Session {
   token: string;
@@ -188,7 +212,7 @@ async function req<T>(
   if (auth) {
     if (!session) throw new ApiError(401, "no_session");
     headers["Authorization"] = `Bearer ${session.token}`;
-    if (writerCredential?.accountId === session.accountId) {
+    if (localWriterLockHeld && writerCredential?.accountId === session.accountId) {
       headers["X-Writer-Client"] = writerCredential.clientId;
       headers["X-Writer-Generation"] = String(writerCredential.generation);
       headers["X-Writer-Token"] = writerCredential.token;
@@ -437,11 +461,10 @@ export const sendGift = (toAccountId: string) =>
 
 export const getInbox = () => req<InboxGift[]>("GET", "/gifts/inbox");
 
-/** Claim a gift. `credited` is true only when the +1 brain is reflected server-side
- *  right now (so the client may mirror it in memory); a deferred credit lands on the
- *  next GET /save reconcile instead. `rev` is the server's current save revision. */
+/** Claim a gift. The response includes the authoritative balance after settlement so
+ *  the client can display the brain immediately without a second bootstrap round trip. */
 export const claimGift = (giftId: string) =>
-  req<{ save: SaveGame | null; rev: number; alreadyClaimed?: boolean; credited?: boolean }>(
+  req<{ balance: Balance; alreadyClaimed: boolean; credited: boolean }>(
     "POST",
     "/gifts/claim",
     { giftId }

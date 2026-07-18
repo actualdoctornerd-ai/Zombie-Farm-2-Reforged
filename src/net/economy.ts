@@ -99,7 +99,10 @@ export class EconomyClient {
   async start(): Promise<void> {
     try {
       let bootstrap = await api.bootstrap();
-      if (bootstrap.writer.status === "free") {
+      // A missing token can be recovered without a takeover when this document
+      // owns the browser-local lock and the server lease belongs to the same
+      // session/client. A genuinely different browser still receives writer_active.
+      if (bootstrap.writer.status !== "mine" && api.hasLocalWriterLock()) {
         try { await api.acquireWriter(bootstrap.writer.generation, false); }
         catch { /* another client may have acquired it between bootstrap and claim */ }
         bootstrap = await api.bootstrap(true);
@@ -474,6 +477,13 @@ export class EconomyClient {
     this.adoptGameplay(bootstrap.gameplay);
   }
   async refreshAuthoritative(): Promise<void> { await this.refreshInventory(); }
+
+  /** Adopt a balance returned by a trusted server-side mutation such as claiming a
+   * social gift. Pending optimistic gameplay deltas remain layered on top. */
+  adoptExternalBalance(balance: api.Balance): void {
+    this.base = { ...balance };
+    this.reconcile();
+  }
 
   // Reset means there is no client seed/import path. These remain as no-ops until
   // their call sites are removed from the presentation hydration code.

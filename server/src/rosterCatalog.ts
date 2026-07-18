@@ -95,13 +95,13 @@ export function isRewardOnlyZombie(key: string): boolean {
 }
 
 const TRADABLE_ZOMBIES = new Set(
-  (zombieRows as Array<{ key: string; rewardOnly?: boolean; marketHidden?: boolean }>)
-    .filter((zombie) => !zombie.rewardOnly && !zombie.marketHidden)
+  (zombieRows as Array<{ key: string; rewardOnly?: boolean }>)
+    .filter((zombie) => !zombie.rewardOnly)
     .map((zombie) => zombie.key)
 );
 
-/** Server-owned Black Market allowlist. Special acquisition routes stay excluded
- * until they are deliberately reviewed for cross-account trade. */
+/** Server-owned Black Market allowlist. `marketHidden` controls visibility in the
+ * ordinary crop market; it must not prevent an already-owned special from trading. */
 export function isTradableZombie(key: string): boolean {
   return TRADABLE_ZOMBIES.has(key) && !isRewardOnlyZombie(key);
 }

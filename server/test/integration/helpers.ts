@@ -75,7 +75,7 @@ export async function signIn(devSub = uniqueSub(), acquireWriter = true): Promis
 /** Establish trusted roster state through the DEV_AUTH-only fixture route. */
 export async function grantRoster(
   s: Session,
-  units: { id: string; key: string; mutation?: number; invasions?: number }[]
+  units: { id: string; key: string; mutation?: number; invasions?: number; stored?: boolean }[]
 ): Promise<void> {
   const r = await call<{ count: number }>("POST", "/dev/fixture/roster", s.token, { units });
   if (r.status !== 200 || r.body.count < units.length) {

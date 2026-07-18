@@ -93,6 +93,41 @@ describe("protocol v3 API", () => {
     expect(currentPresentation.status).toBe(200);
   });
 
+  it("recovers a lost writer token for the same session and client without takeover", async () => {
+    const session = await signIn(undefined, false);
+    const clientId = "writer-client-recovery";
+    const originalToken = "r".repeat(64);
+    const replacementToken = "s".repeat(64);
+    const headers = (token: string, generation: number) => ({
+      "x-integrity-version": "4",
+      "x-writer-client": clientId,
+      "x-writer-generation": String(generation),
+      "x-writer-token": token,
+    });
+
+    const initial = await call<any>("POST", "/bootstrap", session.token, {});
+    const acquired = await call<any>("POST", "/writer/acquire", session.token, {
+      clientId, token: originalToken,
+      observedGeneration: initial.body.writer.generation, takeover: false,
+    });
+    expect(acquired.status).toBe(200);
+
+    const recovered = await call<any>("POST", "/writer/acquire", session.token, {
+      clientId, token: replacementToken,
+      observedGeneration: acquired.body.writerGeneration, takeover: false,
+    });
+    expect(recovered.status).toBe(200);
+    expect(recovered.body.writerGeneration).toBe(acquired.body.writerGeneration);
+    expect(recovered.body.accountVersion).toBe(acquired.body.accountVersion);
+
+    const stale = await call<any>("POST", "/bootstrap", session.token, {},
+      headers(originalToken, acquired.body.writerGeneration));
+    expect(stale.body.writer.status).toBe("other");
+    const current = await call<any>("POST", "/bootstrap", session.token, {},
+      headers(replacementToken, acquired.body.writerGeneration));
+    expect(current.body.writer.status).toBe("mine");
+  });
+
   it("authenticates and activates an Epic Boss event", async () => {
     const unauthenticated = await call<any>("POST", "/epic-boss/activate", undefined, {
       activationId: "activation-unauthenticated",

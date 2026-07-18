@@ -79,6 +79,29 @@ export async function acquire(
       row.writer_token_hash === hash) {
     return { status: 200, generation: row.writer_generation, accountVersion: row.account_version };
   }
+  // Recovery after a reload may present the same session/client with a freshly
+  // generated token. Rotate it without a takeover or generation bump. The CAS and
+  // active-operation guard prevent recovery from cutting through an in-flight write.
+  if (row.writer_device_id === body.clientId && row.writer_session_id === sessionId) {
+    if (body.observedGeneration !== row.writer_generation) {
+      return { status: 409, error: "writer_changed", generation: row.writer_generation };
+    }
+    if (row.active_batch_id && row.active_batch_expires_at > now) {
+      return { status: 409, error: "operation_in_progress", generation: row.writer_generation };
+    }
+    const recovered = await db.prepare(`UPDATE account_runtime_v3 SET
+        writer_token_hash=?,writer_last_activity_at=?,updated_at=?
+      WHERE account_id=? AND writer_device_id=? AND writer_session_id=?
+        AND writer_generation=? AND writer_token_hash=?
+        AND (active_batch_id IS NULL OR active_batch_expires_at<=?)`)
+      .bind(hash, now, now, accountId, body.clientId, sessionId,
+        row.writer_generation, row.writer_token_hash, now).run();
+    if ((recovered.meta.changes ?? 0) !== 1) {
+      const current = await readRuntime(db, accountId, now);
+      return { status: 409, error: "writer_changed", generation: current.writer_generation };
+    }
+    return { status: 200, generation: row.writer_generation, accountVersion: row.account_version };
+  }
   const free = !row.writer_device_id || !row.writer_token_hash || !row.writer_session_id;
   if (!free && !body.takeover) return { status: 423, error: "writer_active", generation: row.writer_generation };
   if (body.observedGeneration !== row.writer_generation) {

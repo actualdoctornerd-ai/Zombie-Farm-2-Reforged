@@ -66,7 +66,9 @@ async function main() {
   // The game is locked behind Google sign-in: block here until the player is
   // signed in and has chosen a username (no-op on an offline build). Only then do
   // we load assets and build the game, so nothing runs for a signed-out visitor.
+  await auth.refreshIfSignedIn();
   await requireAuth();
+  await api.prepareWriterAccess();
   boot?.progress(0.35); // signed in — start filling the plate bar
   const app = new Application();
   await app.init({
@@ -1876,16 +1878,15 @@ async function main() {
     try {
       await economy?.settleBeforeDependency();
       const r = await api.claimGift(id);
-      // Adopt the server's current rev so our next autosave isn't rejected as stale.
-      saveManager.syncRev(r.rev);
-      // The brain was credited to the server-owned BALANCE (not the save blob), so
-      // refresh the economy to reflect it. If the economy layer isn't active
-      // (shouldn't happen when signed in), no brain is shown until the next sync.
-      await economy?.refreshAuthoritative();
+      if (!r.credited) return false;
+      // Gift settlement returns the server-owned balance. Adopt it immediately so
+      // the HUD reflects the brain without relying on a follow-up bootstrap.
+      economy?.adoptExternalBalance(r.balance);
       await hud.refreshInbox?.();
+      return true;
     } catch (e) {
-      hud.showToast("Couldn't claim that gift.");
       console.warn("[gift] claim failed", errCode(e));
+      return false;
     }
   };
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ZOMBIE_COST, isKnownZombie, zombieSell } from "../src/rosterCatalog";
+import { ZOMBIE_COST, isKnownZombie, isTradableZombie, zombieSell } from "../src/rosterCatalog";
 import { validateUnit, cleanIds } from "../src/roster";
 import zombieRows from "../../public/assets/zombies.json";
 
@@ -14,6 +14,12 @@ describe("rosterCatalog", () => {
   it("knows real keys and rejects unknown", () => {
     expect(isKnownZombie("ZombieActorLargeTier4")).toBe(true);
     expect(isKnownZombie("ZombieActorMadeUp")).toBe(false);
+  });
+  it("allows owned named specials to trade but excludes reward-only zombies", () => {
+    expect(isTradableZombie("ZombieActorZomBetty")).toBe(true);
+    expect(isTradableZombie("ZombieActorBombie")).toBe(true);
+    expect(isTradableZombie("ZombieActorBandido")).toBe(false);
+    expect(isTradableZombie("ZombieActorMadeUp")).toBe(false);
   });
 });
 

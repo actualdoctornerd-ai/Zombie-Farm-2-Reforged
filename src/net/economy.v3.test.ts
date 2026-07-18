@@ -10,6 +10,17 @@ afterEach(() => {
 });
 
 describe("v3 raid dependency ids", () => {
+  it("adopts a gift claim balance while preserving pending optimistic deltas", () => {
+    const state = new GameState();
+    const economy = new EconomyClient(state, "gift-balance-account");
+    (economy as any).optimistic.set(1, { gold: -10, brains: 0, xp: 0 });
+
+    economy.adoptExternalBalance({ gold: 200, brains: 16, xp: 0 });
+
+    expect(state.gold).toBe(190);
+    expect(state.brains).toBe(16);
+  });
+
   it("translates a selected optimistic harvest id after the batch settles", () => {
     const economy = new EconomyClient(new GameState(), "alias-test-account");
     (economy as any).optimistic.set(1, {

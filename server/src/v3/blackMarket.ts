@@ -5,12 +5,31 @@ import type {
   BlackMarketOrderView,
   BlackMarketSummary,
 } from "../../../src/net/protocol";
+import objectRows from "../../../public/assets/placeables.json";
 import { isTradableZombie } from "../rosterCatalog";
 
 const ACTIVE_LIMIT = 2 as const;
 const DAILY_LIMIT = 10 as const;
 const MAX_PRICE = 1_000_000;
 const PAGE_SIZE = 30;
+
+const objectArmyCapacityCases = (objectRows as Array<{ key: string; armyMax?: number }>)
+  .filter((object) => Number.isSafeInteger(object.armyMax) && (object.armyMax ?? 0) > 0)
+  .map((object) => `WHEN '${object.key.replaceAll("'", "''")}' THEN ${object.armyMax}`)
+  .join(" ");
+
+/** SQL expression used while inserting a traded zombie. Keeping this decision inside
+ * the fulfillment batch makes two simultaneous deliveries observe authoritative roster
+ * occupancy in transaction order instead of both claiming the final active slot. */
+const recipientStoredSql = `CASE WHEN
+  (SELECT COUNT(*) FROM roster_v3 WHERE account_id=? AND stored=0) >=
+  (COALESCE((SELECT CAST(json_extract(current_json,'$.zombieMax') AS INTEGER)
+    FROM gameplay_documents_v3 WHERE account_id=?),16) +
+   COALESCE((SELECT SUM(CASE json_extract(entry.value,'$.catalogKey')
+     ${objectArmyCapacityCases} ELSE 0 END)
+    FROM object_documents_v3 documents, json_each(documents.current_json) entry
+    WHERE documents.account_id=? AND json_extract(entry.value,'$.status')='placed'),0))
+  THEN 1 ELSE 0 END`;
 
 interface OrderRow {
   id: string;
@@ -244,8 +263,9 @@ export async function cancel(
   const statements: D1PreparedStatement[] = [claim];
   if (row.kind === "SELL_ZOMBIE") statements.push(db.prepare(`INSERT INTO roster_v3
     (account_id,unit_id,zombie_key,mutation,invasions,stored,created_at)
-    SELECT ?,?,?,?,?,1,? WHERE ${guard}`).bind(accountId, restoredId, row.zombie_key,
-      row.escrow_mutation ?? 0, row.escrow_invasions ?? 0, now, orderId, operationId));
+    SELECT ?,?,?,?,?,${recipientStoredSql},? WHERE ${guard}`).bind(accountId, restoredId, row.zombie_key,
+      row.escrow_mutation ?? 0, row.escrow_invasions ?? 0,
+      accountId, accountId, accountId, now, orderId, operationId));
   else statements.push(db.prepare(`UPDATE balances SET brains=brains+? WHERE account_id=? AND ${guard}`)
     .bind(row.price_brains, accountId, orderId, operationId));
   statements.push(
@@ -324,8 +344,9 @@ export async function fulfill(
       db.prepare(`UPDATE balances SET brains=brains+? WHERE account_id=? AND ${guard}`)
         .bind(row.price_brains, row.creator_account_id, orderId, operationId),
       db.prepare(`INSERT INTO roster_v3(account_id,unit_id,zombie_key,mutation,invasions,stored,created_at)
-        SELECT ?,?,?,?,?,1,? WHERE ${guard}`).bind(accountId, recipientUnitId, row.zombie_key,
-          row.escrow_mutation ?? 0, row.escrow_invasions ?? 0, now, orderId, operationId)
+        SELECT ?,?,?,?,?,${recipientStoredSql},? WHERE ${guard}`).bind(accountId, recipientUnitId, row.zombie_key,
+          row.escrow_mutation ?? 0, row.escrow_invasions ?? 0,
+          accountId, accountId, accountId, now, orderId, operationId)
     );
   } else {
     statements.push(
@@ -334,8 +355,10 @@ export async function fulfill(
       db.prepare(`UPDATE balances SET brains=brains+? WHERE account_id=? AND ${guard}`)
         .bind(row.price_brains, accountId, orderId, operationId),
       db.prepare(`INSERT INTO roster_v3(account_id,unit_id,zombie_key,mutation,invasions,stored,created_at)
-        SELECT ?,?,?,?,?,1,? WHERE ${guard}`).bind(row.creator_account_id, recipientUnitId,
-          row.zombie_key, offered!.mutation, offered!.invasions, now, orderId, operationId)
+        SELECT ?,?,?,?,?,${recipientStoredSql},? WHERE ${guard}`).bind(row.creator_account_id, recipientUnitId,
+          row.zombie_key, offered!.mutation, offered!.invasions,
+          row.creator_account_id, row.creator_account_id, row.creator_account_id,
+          now, orderId, operationId)
     );
   }
   statements.push(

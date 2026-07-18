@@ -10,6 +10,21 @@ const bootstrap = async (session: Awaited<ReturnType<typeof signIn>>) => {
 const operation = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
 describe("Black Market", () => {
+  it("allows a non-reward named special zombie to be posted for sale", async () => {
+    const seller = await signIn(uniqueSub("market-special-seller"));
+    const unitId = `market-special-${crypto.randomUUID()}`;
+    await grantRoster(seller, [{ id: unitId, key: "ZombieActorZomBetty" }]);
+    const before = await bootstrap(seller);
+
+    const created = await call<any>("POST", "/black-market/orders", seller.token, {
+      operationId: operation("special-create"), expectedAccountVersion: before.accountVersion,
+      kind: "SELL_ZOMBIE", unitId, priceBrains: 4,
+    });
+
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+    expect(created.body.order).toMatchObject({ kind: "SELL_ZOMBIE", zombieKey: "ZombieActorZomBetty" });
+  });
+
   it("escrows and atomically fulfills a zombie sale", async () => {
     const seller = await signIn(uniqueSub("market-seller"));
     const buyer = await signIn(uniqueSub("market-buyer"));
@@ -36,8 +51,40 @@ describe("Black Market", () => {
     expect(sellerAfter.gameplay.balance.brains).toBe(sellerBefore.gameplay.balance.brains + 5);
     expect(buyerAfter.gameplay.balance.brains).toBe(buyerBefore.gameplay.balance.brains - 5);
     expect(buyerAfter.gameplay.roster).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: "ZombieActorRegularTier1", mutation: 4, invasions: 3, stored: true }),
+      expect.objectContaining({ key: "ZombieActorRegularTier1", mutation: 4, invasions: 3, stored: false }),
     ]));
+  });
+
+  it("puts a purchased zombie in storage when the active farm is full", async () => {
+    const seller = await signIn(uniqueSub("market-full-seller"));
+    const buyer = await signIn(uniqueSub("market-full-buyer"));
+    const saleUnitId = `market-sale-${crypto.randomUUID()}`;
+    await grantRoster(seller, [{ id: saleUnitId, key: "ZombieActorRegularTier1" }]);
+    await grantRoster(buyer, Array.from({ length: 16 }, (_, index) => ({
+      id: `market-active-${index}-${crypto.randomUUID()}`,
+      key: "ZombieActorGirlTier1",
+      stored: false,
+    })));
+
+    const sellerBefore = await bootstrap(seller);
+    const created = await call<any>("POST", "/black-market/orders", seller.token, {
+      operationId: operation("full-create"), expectedAccountVersion: sellerBefore.accountVersion,
+      kind: "SELL_ZOMBIE", unitId: saleUnitId, priceBrains: 1,
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+
+    const buyerBefore = await bootstrap(buyer);
+    expect(buyerBefore.gameplay.roster.filter((unit: any) => !unit.stored)).toHaveLength(16);
+    const fulfilled = await call<any>("POST", `/black-market/orders/${created.body.order.id}/fulfill`, buyer.token, {
+      operationId: operation("full-fulfill"), expectedAccountVersion: buyerBefore.accountVersion,
+    });
+    expect(fulfilled.status, JSON.stringify(fulfilled.body)).toBe(200);
+
+    const buyerAfter = await bootstrap(buyer);
+    expect(buyerAfter.gameplay.roster).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "ZombieActorRegularTier1", stored: true }),
+    ]));
+    expect(buyerAfter.gameplay.roster.filter((unit: any) => !unit.stored)).toHaveLength(16);
   });
 
   it("refunds a cancelled brain request and does not refund the daily post count", async () => {
@@ -59,6 +106,43 @@ describe("Black Market", () => {
     const after = await bootstrap(requester);
     expect(after.gameplay.balance.brains).toBe(before.gameplay.balance.brains);
     expect(cancelled.body.summary).toMatchObject({ activePosts: 0, postsToday: 1 });
+  });
+
+  it("returns a cancelled sale to the farm unless the active farm is full", async () => {
+    const cancelSale = async (prefix: string, activeCount: number, expectedStored: boolean) => {
+      const seller = await signIn(uniqueSub(prefix));
+      const saleUnitId = `${prefix}-sale-${crypto.randomUUID()}`;
+      await grantRoster(seller, [
+        { id: saleUnitId, key: "ZombieActorRegularTier1", mutation: 2, invasions: 4 },
+        ...Array.from({ length: activeCount }, (_, index) => ({
+          id: `${prefix}-active-${index}-${crypto.randomUUID()}`,
+          key: "ZombieActorGirlTier1",
+          stored: false,
+        })),
+      ]);
+      const before = await bootstrap(seller);
+      const created = await call<any>("POST", "/black-market/orders", seller.token, {
+        operationId: operation(`${prefix}-create`), expectedAccountVersion: before.accountVersion,
+        kind: "SELL_ZOMBIE", unitId: saleUnitId, priceBrains: 2,
+      });
+      expect(created.status, JSON.stringify(created.body)).toBe(200);
+
+      const escrowed = await bootstrap(seller);
+      const cancelled = await call<any>("POST", `/black-market/orders/${created.body.order.id}/cancel`, seller.token, {
+        operationId: operation(`${prefix}-cancel`), expectedAccountVersion: escrowed.accountVersion,
+      });
+      expect(cancelled.status, JSON.stringify(cancelled.body)).toBe(200);
+
+      const after = await bootstrap(seller);
+      expect(after.gameplay.roster).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          key: "ZombieActorRegularTier1", mutation: 2, invasions: 4, stored: expectedStored,
+        }),
+      ]));
+    };
+
+    await cancelSale("market-cancel-room", 0, false);
+    await cancelSale("market-cancel-full", 16, true);
   });
 
   it("allows exactly one winner when buyers race for a sale", async () => {
