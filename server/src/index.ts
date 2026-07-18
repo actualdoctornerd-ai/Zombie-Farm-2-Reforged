@@ -253,7 +253,7 @@ type RLTier = "RL_AUTH" | "RL_WRITE" | "RL_READ";
  *
  *  NOTE: rate limiting is a throttle, never a correctness control — security
  *  invariants (gift uniqueness, grants, save CAS) stay enforced by D1 constraints. */
-function rateLimit(
+export function rateLimit(
   tier: RLTier,
   name: string,
   fallbackMax: number,
@@ -271,16 +271,19 @@ function rateLimit(
     const override = c.env[`${tier}_MAX` as keyof typeof c.env] as string | undefined;
     const binding = override ? undefined : (c.env[tier] as RateLimiter | undefined);
     let ok: boolean;
+    let retryAfterMs = windowMs;
     if (binding) {
       ok = (await binding.limit({ key })).success;
     } else {
       const windowStart = Math.floor(Date.now() / windowMs) * windowMs;
       const max = override ? Number(override) : fallbackMax;
       ok = (await db.bumpRateLimit(c.env.DB, key, windowStart)) <= max;
+      retryAfterMs = Math.max(1, windowStart + windowMs - Date.now());
     }
     if (!ok) {
       slog("rate_limited", { route: name, who });
-      return c.json({ error: "rate_limited" }, 429);
+      c.header("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
+      return c.json({ error: "rate_limited", retryAfterMs }, 429);
     }
     await next();
   };
@@ -445,6 +448,7 @@ app.use("/raid/start", rateLimit("RL_WRITE", "raid_start", 60, 60_000));
 app.use("/raid/checkpoint", rateLimit("RL_WRITE", "raid_checkpoint", 30, 60_000));
 app.use("/raid/finish", rateLimit("RL_WRITE", "raid_finish", 60, 60_000));
 app.use("/raid/revive", rateLimit("RL_WRITE", "raid_revive", 60, 60_000));
+app.use("/epic-boss/*", rateLimit("RL_WRITE", "epic_boss", 60, 60_000));
 app.use("/raid/state", rateLimit("RL_READ", "raid_state", 300, 60_000));
 app.use("/economy/apply", rateLimit("RL_WRITE", "economy_apply", 120, 60_000));
 app.use("/economy/sync", rateLimit("RL_READ", "economy_sync", 300, 60_000));
@@ -747,9 +751,18 @@ app.put("/presentation", async (c) => {
       return row.name === undefined || (typeof row.name === "string" &&
         [...row.name].length <= 24 && !/[\u0000-\u001f\u007f]/.test(row.name));
     }));
+  const objectLayout = body.data.objectLayout as unknown;
+  const validObjectLayout = objectLayout === undefined || (Array.isArray(objectLayout) &&
+    objectLayout.length <= 512 && objectLayout.every((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+      const row = entry as { id?: unknown; oc?: unknown; or?: unknown; rotation?: unknown };
+      return typeof row.id === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(row.id) &&
+        Number.isSafeInteger(row.oc) && Number(row.oc) >= 0 && Number(row.oc) < 128 &&
+        Number.isSafeInteger(row.or) && Number(row.or) >= 0 && Number(row.or) < 128 &&
+        (row.rotation === undefined || row.rotation === 0 || row.rotation === 1);
+    }));
   if (!Object.keys(body.data).every((key) => presentationKeys.has(key)) ||
-      (Array.isArray(body.data.objectLayout) && body.data.objectLayout.length > 512) ||
-      !validRosterLayout || !validPot || !validPots) {
+      !validObjectLayout || !validRosterLayout || !validPot || !validPots) {
     return c.json({ error: "bad_presentation" }, 400);
   }
   const encoded = JSON.stringify(body.data);
@@ -1325,13 +1338,18 @@ app.post("/gifts/claim", async (c) => {
 
   const gift = await db.claimableGift(c.env.DB, giftId, me);
   const respond = async (alreadyClaimed: boolean, credited: boolean) => {
-    const balance = await db.getOrSeedBalance(c.env.DB, me, { ...STARTER_BALANCE });
+    const [balance, runtime] = await Promise.all([
+      db.getOrSeedBalance(c.env.DB, me, { ...STARTER_BALANCE }),
+      c.env.DB.prepare("SELECT account_version FROM account_runtime_v3 WHERE account_id = ?")
+        .bind(me).first<{ account_version: number }>(),
+    ]);
     return c.json({
       save: null,
       rev: 0,
       alreadyClaimed,
       credited,
       balance,
+      accountVersion: runtime?.account_version ?? 0,
     });
   };
   if (!gift) return respond(true, false); // already claimed / not mine / unknown

@@ -37,9 +37,17 @@ describe("protocol v3 API", () => {
     ]);
     expect(claims.map((claim) => claim.status)).toEqual([200, 200]);
     expect(claims.filter((claim) => claim.body.credited)).toHaveLength(1);
+    expect(claims.every((claim) => claim.body.accountVersion === before.body.accountVersion + 1)).toBe(true);
+    const followup = await call<any>("POST", "/commands", recipient.token,
+      commandBody(
+        { accountVersion: claims[0].body.accountVersion, writerGeneration: before.body.writerGeneration },
+        "gift-followup-batch", 1, [{ type: "farm.plow", oc: 0, or: 0 }]
+      ));
+    expect(followup.status).toBe(200);
     expect((await call<unknown[]>("GET", "/gifts/inbox", recipient.token)).body).toEqual([]);
     const after = await call<any>("POST", "/bootstrap", recipient.token, {});
     expect(after.body.gameplay.balance.brains).toBe(before.body.gameplay.balance.brains + 1);
+    expect(after.body.accountVersion).toBe(before.body.accountVersion + 2);
   });
 
   it("fences activity to one explicit writer and transfers control atomically", async () => {
@@ -348,6 +356,12 @@ describe("protocol v3 API", () => {
 
   it("versions presentation independently and retires v2 mutations", async () => {
     const session = await signIn();
+    for (const objectLayout of [{}, [null], [{ id: "o1", oc: "0", or: 0 }]]) {
+      const malformed = await call("PUT", "/presentation", session.token, {
+        protocolVersion: 3, expectedVersion: 0, data: { objectLayout },
+      });
+      expect(malformed.status).toBe(400);
+    }
     const presentation = await call<any>("PUT", "/presentation", session.token, {
       protocolVersion: 3,
       expectedVersion: 0,

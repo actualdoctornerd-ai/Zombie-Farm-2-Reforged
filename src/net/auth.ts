@@ -103,16 +103,16 @@ export async function renderSignInButton(container: HTMLElement): Promise<void> 
   });
 }
 
-export function signOut() {
+export async function signOut(): Promise<void> {
   try {
     window.google?.accounts.id.disableAutoSelect();
   } catch {
     /* ignore */
   }
   // Revoke the session server-side (best-effort), not just locally — a stolen copy
-  // of the token stops working once the session row is revoked. clearSession()
-  // still runs inside api.logout() so the UI signs out immediately regardless.
-  void api.logout();
+  // of the token stops working once the session row is revoked. api.logout() always
+  // clears the local session before this resolves, even when the network call fails.
+  await api.logout();
   emit();
 }
 

@@ -15,10 +15,11 @@ describe("v3 raid dependency ids", () => {
     const economy = new EconomyClient(state, "gift-balance-account");
     (economy as any).optimistic.set(1, { gold: -10, brains: 0, xp: 0 });
 
-    economy.adoptExternalBalance({ gold: 200, brains: 16, xp: 0 });
+    economy.adoptExternalBalance({ gold: 200, brains: 16, xp: 0 }, 7);
 
     expect(state.gold).toBe(190);
     expect(state.brains).toBe(16);
+    expect((economy as any).queue.accountVersion).toBe(7);
   });
 
   it("translates a selected optimistic harvest id after the batch settles", () => {

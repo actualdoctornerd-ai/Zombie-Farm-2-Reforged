@@ -178,14 +178,35 @@ export class SaveManager {
     if (this.pushing) { this.pendingPresentation = data; return; }
     this.pushing = true;
     this.lastPresentationCallAt = Date.now();
+    const encoded = JSON.stringify(data);
     try {
       const saved = await api.putPresentationV3({ protocolVersion: GAMEPLAY_PROTOCOL, expectedVersion: this.presentationVersion, data });
       this.presentationVersion = saved.version;
-      this.lastPresentation = JSON.stringify(data);
+      this.lastPresentation = encoded;
       this.presentationDirty = false;
     } catch (error) {
       this.presentationDirty = true;
-      if (error instanceof api.ApiError && error.status === 409) console.warn("[presentation] conflict; reload required");
+      if (error instanceof api.ApiError && error.status === 409) {
+        console.warn("[presentation] conflict; reconciling with server");
+        try {
+          const boot = await api.bootstrap(true);
+          this.presentationVersion = boot.presentation.version;
+          const authoritative = JSON.stringify(boot.presentation.data);
+          if (authoritative === encoded) {
+            // The original PUT committed but its response was lost. Adopt the version
+            // returned by bootstrap instead of retrying the already-saved projection.
+            this.lastPresentation = encoded;
+            this.presentationDirty = false;
+          } else {
+            // A genuinely newer projection won the CAS. Rebase this write onto its
+            // version; preserve any newer local presentation queued while we fetched.
+            this.pendingPresentation ??= data;
+            this.pendingPresentationImmediate = true;
+          }
+        } catch (recoveryError) {
+          console.warn("[presentation] conflict recovery failed", recoveryError);
+        }
+      }
     } finally {
       this.pushing = false;
       const next = this.pendingPresentation;

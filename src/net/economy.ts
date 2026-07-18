@@ -480,8 +480,9 @@ export class EconomyClient {
 
   /** Adopt a balance returned by a trusted server-side mutation such as claiming a
    * social gift. Pending optimistic gameplay deltas remain layered on top. */
-  adoptExternalBalance(balance: api.Balance): void {
+  adoptExternalBalance(balance: api.Balance, accountVersion?: number): void {
     this.base = { ...balance };
+    if (accountVersion !== undefined) this.queue.adoptAccountVersion(accountVersion);
     this.reconcile();
   }
 

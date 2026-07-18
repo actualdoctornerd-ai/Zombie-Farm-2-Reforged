@@ -33,6 +33,9 @@ export async function setup() {
   execSync("npx wrangler d1 execute zombiefarm --local --file=./schema.sql", {
     stdio: "ignore",
   });
+  execSync("npx wrangler d1 execute zombiefarm --local --file=./scripts/baseline-migrations.sql", {
+    stdio: "ignore",
+  });
 
   const command = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "npx";
   const args = process.platform === "win32"

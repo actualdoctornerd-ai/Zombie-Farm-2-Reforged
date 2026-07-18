@@ -25,6 +25,10 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      - name: Verify migrations
+        run: npm run migrations:check
+      - name: Test and typecheck
+        run: npm test && npm run typecheck
       - name: Deploy with Wrangler
         uses: cloudflare/wrangler-action@v3
         with:

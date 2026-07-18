@@ -13,6 +13,13 @@ Wrangler records applied migrations in a `d1_migrations` table and runs only the
 pending ones, in filename order. **Testing note:** the upgrade-from-a-prod-snapshot
 dry run is part of the deployment testing pass and is not covered here.
 
+Migration filenames are deployed identities, not cosmetic labels. The two historical
+`0020_*` files are an immutable naming collision: renaming either would make an existing
+D1 database see the renamed destructive migration as pending. `npm run migrations:check`
+allows only that exact legacy pair, rejects future duplicate/gapped numbers, and verifies
+that this document's fresh-database baseline contains every migration filename. New
+migrations must therefore continue at `0027` and use one unique number per file.
+
 ---
 
 ## The schema.sql ⇄ migrations relationship (read this first)
@@ -42,27 +49,18 @@ wrangler d1 execute zombiefarm --remote --file=./schema.sql
 
 Then **baseline** the migration tracker so a later `migrations apply` doesn't try to
 re-run migrations whose effect is already present. Wrangler has no native baseline
-command; insert the rows directly (names must match the filenames exactly):
+command, so the repository keeps the exact immutable filename ledger in one checked
+SQL file:
 
 ```sh
-wrangler d1 execute zombiefarm --remote --command "
-CREATE TABLE IF NOT EXISTS d1_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TEXT DEFAULT (CURRENT_TIMESTAMP));
-INSERT OR IGNORE INTO d1_migrations (name) VALUES
- ('0001_trackA_upgrade.sql'),('0002_grant_settlement.sql'),('0003_raid_cooldown.sql'),
- ('0004_economy_ledger.sql'),('0005_farm_economy.sql'),('0006_session_labels.sql'),
- ('0007_raid_rewards.sql'),('0008_boost_inventory.sql'),('0009_roster.sql'),
- ('0010_combine_jobs.sql'),('0011_shop_state.sql'),('0012_level_rewards.sql'),
- ('0013_quest_completions.sql'),('0014_object_ownership.sql'),('0015_plowed_soil.sql'),
- ('0016_raid_session_reserve.sql'),('0017_raid_progress.sql'),('0018_item_storage.sql'),
- ('0019_integrity_v2.sql'),('0020_permanent_import_closure.sql'),
- ('0020_protocol_v3_reset.sql'),('0021_epic_boss.sql'),
- ('0022_epic_boss_retry_skip.sql'),('0023_raid_revives.sql'),
- ('0024_epic_boss_tokens.sql'),('0025_writer_lease.sql'),('0026_black_market.sql');"
+wrangler d1 execute zombiefarm --remote --file=./scripts/baseline-migrations.sql
 ```
 
 From then on, only migrations added after this baseline apply via `migrations apply`.
-Whenever `schema.sql` gains a table, add its migration filename to this fresh-database
-baseline in the same change.
+Whenever `schema.sql` gains a table, add its migration filename to
+`scripts/baseline-migrations.sql` in the same change. `npm run migrations:check`
+enforces that ledger automatically. For a fresh local database, `npm run db:init:local`
+runs both initialization steps.
 
 ## Existing/older database (upgrade)
 

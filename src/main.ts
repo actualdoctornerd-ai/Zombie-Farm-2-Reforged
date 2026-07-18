@@ -1770,11 +1770,11 @@ async function main() {
   };
   hud.refreshAccount(); // now that myAccount is wired, show the real name in the nameplate
   hud.renderAuthButton = (el) => void auth.renderSignInButton(el);
-  hud.onSignOut = () => {
+  hud.onSignOut = async () => {
     saveManager.save(); // flush latest to the server first
-    void economy?.flush(); // and any pending currency events (outbox survives anyway)
+    try { await economy?.flush(); } catch { /* the durable outbox will retry next sign-in */ }
     saveManager.suspend();
-    auth.signOut();
+    await auth.signOut();
     location.reload(); // back to the sign-in gate
   };
   hud.onSetUsername = async (name) => {
@@ -1883,7 +1883,7 @@ async function main() {
       const r = await api.claimGift(id);
       // Gift settlement returns the server-owned balance. Adopt it immediately so
       // the HUD reflects the brain without relying on a follow-up bootstrap.
-      economy?.adoptExternalBalance(r.balance);
+      economy?.adoptExternalBalance(r.balance, r.accountVersion);
       try { await hud.refreshInbox?.(); }
       catch (refreshError) { console.warn("[gift] inbox refresh failed", errCode(refreshError)); }
       return true;

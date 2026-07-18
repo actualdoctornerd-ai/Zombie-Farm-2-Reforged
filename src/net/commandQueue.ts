@@ -109,6 +109,15 @@ export class CommandQueue {
   get size(): number { return this.pending.length + (this.inFlight?.commands.length ?? 0); }
   get needsWriterClaim(): boolean { return this.takeWriter; }
 
+  /** Adopt the CAS version returned by a direct server mutation outside this queue.
+   * Pending commands have not built their envelope yet and will use this boundary;
+   * an already in-flight batch remains immutable and will conflict/rebase if needed. */
+  adoptAccountVersion(value: number): void {
+    if (!Number.isSafeInteger(value) || value < this.accountVersion) return;
+    this.accountVersion = value;
+    this.persist();
+  }
+
   markWriterLost(): void {
     this.writerLost = true;
     this.paused = true;

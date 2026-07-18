@@ -464,7 +464,7 @@ export const getInbox = () => req<InboxGift[]>("GET", "/gifts/inbox");
 /** Claim a gift. The response includes the authoritative balance after settlement so
  *  the client can display the brain immediately without a second bootstrap round trip. */
 export const claimGift = (giftId: string) =>
-  req<{ balance: Balance; alreadyClaimed: boolean; credited: boolean }>(
+  req<{ balance: Balance; accountVersion: number; alreadyClaimed: boolean; credited: boolean }>(
     "POST",
     "/gifts/claim",
     { giftId }
