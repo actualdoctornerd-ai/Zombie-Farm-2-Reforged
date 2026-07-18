@@ -496,18 +496,25 @@ export async function claimGiftBrain(
   await getOrSeedBalance(db, accountId, seed);
   const guard = "EXISTS(SELECT 1 FROM grants WHERE id=? AND source_gift_id=? AND account_id=?)";
   const result = await db.batch([
+    db.prepare(`UPDATE account_runtime_v3 SET active_batch_id=?,active_batch_expires_at=?,
+      account_version=account_version+1,updated_at=? WHERE account_id=?
+      AND (active_batch_id IS NULL OR active_batch_expires_at<=?)`)
+      .bind(grantId, now + 120_000, now, accountId, now),
     db.prepare(`INSERT OR IGNORE INTO grants
       (id,account_id,kind,amount,source_gift_id,created_at,settled_at)
       SELECT ?,?,'brain',1,id,?,? FROM gifts
-      WHERE id=? AND to_id=? AND claimed_at IS NULL`)
-      .bind(grantId, accountId, now, now, giftId, accountId),
+      WHERE id=? AND to_id=? AND claimed_at IS NULL
+      AND EXISTS(SELECT 1 FROM account_runtime_v3 WHERE account_id=? AND active_batch_id=?)`)
+      .bind(grantId, accountId, now, now, giftId, accountId, accountId, grantId),
     db.prepare(`UPDATE balances SET brains=brains+1 WHERE account_id=? AND ${guard}`)
       .bind(accountId, grantId, giftId, accountId),
     db.prepare(`UPDATE gifts SET claimed_at=? WHERE id=? AND to_id=? AND claimed_at IS NULL AND ${guard}`)
       .bind(now, giftId, accountId, grantId, giftId, accountId),
+    db.prepare(`UPDATE account_runtime_v3 SET active_batch_id=NULL,active_batch_expires_at=0,updated_at=?
+      WHERE account_id=? AND active_batch_id=?`).bind(now, accountId, grantId),
   ]);
-  return (result[0]?.meta.changes ?? 0) === 1 &&
-    (result[1]?.meta.changes ?? 0) === 1 && (result[2]?.meta.changes ?? 0) === 1;
+  return (result[0]?.meta.changes ?? 0) === 1 && (result[1]?.meta.changes ?? 0) === 1 &&
+    (result[2]?.meta.changes ?? 0) === 1 && (result[3]?.meta.changes ?? 0) === 1;
 }
 
 /** Record a PENDING grant (settled_at NULL) keyed by its source gift id, IF one

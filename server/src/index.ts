@@ -530,7 +530,7 @@ app.get("/writer/status", async (c) => c.json(await writer.projection(
 const writerProtectedMutation = (method: string, path: string): boolean => {
   if (method === "PUT" && (path === "/presentation" || path === "/save")) return true;
   if (method !== "POST") return false;
-  return path === "/commands" || path === "/gifts" || path === "/gifts/claim" ||
+  return path === "/commands" || path === "/gifts" ||
     path.startsWith("/raid/") || path.startsWith("/epic-boss/") || path.startsWith("/black-market/");
 };
 
