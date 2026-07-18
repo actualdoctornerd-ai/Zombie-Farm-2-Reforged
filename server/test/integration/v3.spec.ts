@@ -21,6 +21,27 @@ const commandBody = (
 });
 
 describe("protocol v3 API", () => {
+  it("claims a gift atomically and credits exactly once across concurrent attempts", async () => {
+    const sender = await signIn(uniqueSub("gift-sender"));
+    const recipient = await signIn(uniqueSub("gift-recipient"));
+    await befriend(sender, recipient);
+    const before = await call<any>("POST", "/bootstrap", recipient.token, {});
+    expect(before.status).toBe(200);
+    expect((await call("POST", "/gifts", sender.token, { toAccountId: recipient.accountId })).status).toBe(200);
+    const inbox = await call<Array<{ id: string }>>("GET", "/gifts/inbox", recipient.token);
+    expect(inbox.body).toHaveLength(1);
+
+    const claims = await Promise.all([
+      call<any>("POST", "/gifts/claim", recipient.token, { giftId: inbox.body[0].id }),
+      call<any>("POST", "/gifts/claim", recipient.token, { giftId: inbox.body[0].id }),
+    ]);
+    expect(claims.map((claim) => claim.status)).toEqual([200, 200]);
+    expect(claims.filter((claim) => claim.body.credited)).toHaveLength(1);
+    expect((await call<unknown[]>("GET", "/gifts/inbox", recipient.token)).body).toEqual([]);
+    const after = await call<any>("POST", "/bootstrap", recipient.token, {});
+    expect(after.body.gameplay.balance.brains).toBe(before.body.gameplay.balance.brains + 1);
+  });
+
   it("fences activity to one explicit writer and transfers control atomically", async () => {
     const session = await signIn(undefined, false);
     const clientA = "writer-client-aaaaaaaa";

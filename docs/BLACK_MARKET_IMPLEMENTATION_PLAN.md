@@ -191,17 +191,18 @@ Initially allow:
 - Ordinary plantable zombies.
 - Standard mutant zombies.
 - Already-owned named special zombies, including types hidden from the ordinary crop market.
+- Authoritatively earned reward-only boss and event zombies.
 - Combined zombies whose resulting catalog type is otherwise tradable.
 
 Initially reject:
 
 - A unit locked by a raid or Epic Boss session.
 - A unit reserved by a Zombie Pot job or another market order.
-- Reward-only boss/event zombies.
 - Unknown/deprecated catalog keys.
 
-`marketHidden` is only a visibility rule for the ordinary crop market and does not make
-an already-owned zombie ineligible for Black Market trading.
+`marketHidden` is only a visibility rule for the ordinary crop market, and `rewardOnly`
+only restricts acquisition. Neither makes an authoritatively owned zombie ineligible
+for Black Market trading.
 
 ## Server data model
 

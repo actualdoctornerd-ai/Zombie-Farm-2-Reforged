@@ -15,10 +15,11 @@ describe("rosterCatalog", () => {
     expect(isKnownZombie("ZombieActorLargeTier4")).toBe(true);
     expect(isKnownZombie("ZombieActorMadeUp")).toBe(false);
   });
-  it("allows owned named specials to trade but excludes reward-only zombies", () => {
+  it("allows every known zombie type to trade, including reward-only specials", () => {
     expect(isTradableZombie("ZombieActorZomBetty")).toBe(true);
     expect(isTradableZombie("ZombieActorBombie")).toBe(true);
-    expect(isTradableZombie("ZombieActorBandido")).toBe(false);
+    expect(isTradableZombie("ZombieActorZombug")).toBe(true);
+    expect(isTradableZombie("ZombieActorBandido")).toBe(true);
     expect(isTradableZombie("ZombieActorMadeUp")).toBe(false);
   });
 });

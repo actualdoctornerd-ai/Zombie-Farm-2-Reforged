@@ -120,6 +120,8 @@ describe("gifts — daily limit + idempotent claim", () => {
     ]);
     const credited = [c1.body.credited, c2.body.credited].filter(Boolean);
     expect(credited).toHaveLength(1); // exactly one claim credited
+    expect([c1.status, c2.status]).toEqual([200, 200]);
+    expect((await call<unknown[]>("GET", "/gifts/inbox", b.token)).body).toEqual([]);
     const bal = await call<{ brains: number }>("POST", "/economy/sync", b.token, { seed: { gold: 0, brains: 0, xp: 0 } });
     expect(bal.body.brains).toBe(16); // 15 + one gift, never two
   });

@@ -139,7 +139,7 @@ async function main() {
   // def (stats + taxonomy) to spawn the matching owned unit.
   const zombieDefs = new Map<string, ZombieDef>();
   for (const z of assets.zombies) zombieDefs.set(z.key, z);
-  const zombieCards = purchasableZombies(assets.zombies).map((z) => {
+  const allZombieCards = assets.zombies.map((z) => {
     const cfg: CropConfig = {
       key: z.key, name: z.name,
       // Zombie crop growth: wooden cross -> hand -> clawing up -> risen (thumb up).
@@ -157,7 +157,10 @@ async function main() {
       cfg,
     };
   });
+  const purchasableZombieKeys = new Set(purchasableZombies(assets.zombies).map((zombie) => zombie.key));
+  const zombieCards = allZombieCards.filter((card) => purchasableZombieKeys.has(card.cfg.key));
   hud.setCatalog(plantCards, zombieCards);
+  hud.setBlackMarketCatalog(allZombieCards);
 
   // Placeable-object catalog: key -> def, for the buy menu and save/load. Apply
   // the same debug grow-scaling to fruit-tree regrow timers as crops use.
@@ -1878,11 +1881,11 @@ async function main() {
     try {
       await economy?.settleBeforeDependency();
       const r = await api.claimGift(id);
-      if (!r.credited) return false;
       // Gift settlement returns the server-owned balance. Adopt it immediately so
       // the HUD reflects the brain without relying on a follow-up bootstrap.
       economy?.adoptExternalBalance(r.balance);
-      await hud.refreshInbox?.();
+      try { await hud.refreshInbox?.(); }
+      catch (refreshError) { console.warn("[gift] inbox refresh failed", errCode(refreshError)); }
       return true;
     } catch (e) {
       console.warn("[gift] claim failed", errCode(e));

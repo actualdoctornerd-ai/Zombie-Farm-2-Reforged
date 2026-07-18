@@ -1314,16 +1314,10 @@ app.get("/gifts/inbox", async (c) => {
   return c.json(gifts);
 });
 
-// ---- POST /gifts/claim: credit one brain into my save (idempotent) ------
-// The grant (UNIQUE on source_gift_id) is the serialization point: exactly one
-// caller inserts it and is responsible for the +1 credit, so concurrent or retried
-// claims can never double-credit. settleGrant applies the +1 via a rev CAS.
+// ---- POST /gifts/claim: atomically credit one brain (idempotent) ---------
+// Grant creation, balance credit, and inbox removal commit in one D1 batch. The
+// UNIQUE source_gift_id constraint gives concurrent claims exactly one winner.
 //
-// `credited` tells the client whether the +1 is reflected server-side RIGHT NOW.
-// It optimistically mirrors the brain in memory ONLY when credited === true. If the
-// apply was deferred by save churn (credited === false, alreadyClaimed === false),
-// the grant stays pending and the GET /save reconciler lands it on the next load —
-// the client must NOT also add it, or the two paths would double-credit.
 app.post("/gifts/claim", async (c) => {
   const { giftId } = await c.req.json<{ giftId: string }>().catch(() => ({ giftId: "" }));
   const me = c.get("accountId");
@@ -1342,18 +1336,11 @@ app.post("/gifts/claim", async (c) => {
   };
   if (!gift) return respond(true, false); // already claimed / not mine / unknown
 
-  // Record the grant (idempotent on gift id). If we didn't win it, someone already
-  // credited this gift.
   const grantId = crypto.randomUUID();
-  const won = await db.insertGrantIfAbsent(c.env.DB, grantId, me, "brain", 1, gift.id, now);
+  const won = await db.claimGiftBrain(c.env.DB, gift.id, me, grantId, now, { ...STARTER_BALANCE });
   if (!won) return respond(true, false);
-  await db.markGiftClaimed(c.env.DB, gift.id, now);
 
-  // Credit the brain into the server BALANCE (atomic increment — no save churn). The
-  // client picks it up on its next economy sync; `credited` is just for the toast.
-  const settled = await db.settleGrant(c.env.DB, grantId, 1, me, now, { ...STARTER_BALANCE });
-  if (!settled) slog("gift_credit_deferred", { account: me, gift: gift.id });
-  return respond(false, settled);
+  return respond(false, true);
 });
 
 // ---- raids: server-owned cooldown + one-use sessions --------------------

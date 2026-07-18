@@ -1364,6 +1364,7 @@ export class Hud {
   private collapsed = false;
   private plantCards: MenuCard[] = [];
   private zombieCards: MenuCard[] = [];
+  private blackMarketZombieCards: MenuCard[] = [];
   private objectCards: ObjCard[] = [];
   private farmUpgrades: FarmSizeUpgrade[] = []; // Market Upgrade tab (Farm Size)
   private farmer: FarmerCatalog = { heads: [], bodies: [] };
@@ -2100,6 +2101,12 @@ export class Hud {
     // ladder at the end. Stable ties retain authored order.
     this.plantCards = [...plants].sort(compareCropMarketOrder);
     this.zombieCards = [...zombies].sort((a, b) => a.level - b.level);
+  }
+
+  /** Full zombie type catalog for player-to-player trading. Unlike the ordinary
+   * crop market, this includes hidden and reward-only types. */
+  setBlackMarketCatalog(zombies: MenuCard[]) {
+    this.blackMarketZombieCards = [...zombies].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Catalog for the object buy menu (trees / decor).
@@ -4065,7 +4072,7 @@ export class Hud {
     const typeFilter = document.createElement("select");
     typeFilter.setAttribute("aria-label", "Zombie type filter");
     typeFilter.append(new Option("All zombie types", ""));
-    const catalog = [...new Map(this.zombieCards.map((card) => [card.cfg.key, card])).values()]
+    const catalog = [...new Map(this.blackMarketZombieCards.map((card) => [card.cfg.key, card])).values()]
       .sort((a, b) => a.name.localeCompare(b.name));
     for (const card of catalog) typeFilter.append(new Option(card.name, card.cfg.key));
     const mutationFilter = document.createElement("select");
@@ -4237,7 +4244,7 @@ export class Hud {
       } catch (error) {
         const code = error instanceof Error ? error.message : "";
         if (code.startsWith("zombie_not_tradable"))
-          this.showToast("That reward-only zombie cannot be traded.");
+          this.showToast("That zombie type cannot be traded.");
         else if (code.startsWith("zombie_unavailable"))
           this.showToast("That zombie is no longer available or is busy.");
         else if (code.startsWith("active_post_limit"))

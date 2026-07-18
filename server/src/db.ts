@@ -482,6 +482,34 @@ export async function markGiftClaimed(
     .run();
 }
 
+/** Atomically consume an addressed gift, record its idempotency grant, and credit one
+ * brain. Every side effect is guarded by this attempt's grant id, so concurrent claims
+ * have one winner and a failed batch cannot hide a gift without its brain. */
+export async function claimGiftBrain(
+  db: D1Database,
+  giftId: string,
+  accountId: string,
+  grantId: string,
+  now: number,
+  seed: Balance
+): Promise<boolean> {
+  await getOrSeedBalance(db, accountId, seed);
+  const guard = "EXISTS(SELECT 1 FROM grants WHERE id=? AND source_gift_id=? AND account_id=?)";
+  const result = await db.batch([
+    db.prepare(`INSERT OR IGNORE INTO grants
+      (id,account_id,kind,amount,source_gift_id,created_at,settled_at)
+      SELECT ?,?,'brain',1,id,?,? FROM gifts
+      WHERE id=? AND to_id=? AND claimed_at IS NULL`)
+      .bind(grantId, accountId, now, now, giftId, accountId),
+    db.prepare(`UPDATE balances SET brains=brains+1 WHERE account_id=? AND ${guard}`)
+      .bind(accountId, grantId, giftId, accountId),
+    db.prepare(`UPDATE gifts SET claimed_at=? WHERE id=? AND to_id=? AND claimed_at IS NULL AND ${guard}`)
+      .bind(now, giftId, accountId, grantId, giftId, accountId),
+  ]);
+  return (result[0]?.meta.changes ?? 0) === 1 &&
+    (result[1]?.meta.changes ?? 0) === 1 && (result[2]?.meta.changes ?? 0) === 1;
+}
+
 /** Record a PENDING grant (settled_at NULL) keyed by its source gift id, IF one
  *  doesn't already exist. `id` is caller-supplied so the caller can then settle it.
  *  Returns true if THIS call inserted it (this caller "won" the claim), false if a

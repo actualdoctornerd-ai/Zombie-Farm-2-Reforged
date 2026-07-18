@@ -95,15 +95,14 @@ export function isRewardOnlyZombie(key: string): boolean {
 }
 
 const TRADABLE_ZOMBIES = new Set(
-  (zombieRows as Array<{ key: string; rewardOnly?: boolean }>)
-    .filter((zombie) => !zombie.rewardOnly)
-    .map((zombie) => zombie.key)
+  (zombieRows as Array<{ key: string }>).map((zombie) => zombie.key)
 );
 
 /** Server-owned Black Market allowlist. `marketHidden` controls visibility in the
- * ordinary crop market; it must not prevent an already-owned special from trading. */
+ * ordinary crop market, while `rewardOnly` controls acquisition. Neither prevents
+ * an authoritatively owned zombie from trading. */
 export function isTradableZombie(key: string): boolean {
-  return TRADABLE_ZOMBIES.has(key) && !isRewardOnlyZombie(key);
+  return TRADABLE_ZOMBIES.has(key);
 }
 
 // ---- Garden-zombie fertilization (server-owned roll) --------------------
