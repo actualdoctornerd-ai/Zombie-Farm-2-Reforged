@@ -25,7 +25,8 @@
 //
 // Combat numbers are the GROUND-TRUTH fight-data model (combatStats.ts, recovered from
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
-// arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult * 0.7.
+// arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult, then the player
+// lineup-depth band (1.0/0.85/0.7/0.55; enemies ×1.0). See combatStats.lineupDamageBand.
 import type { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidOutcome } from "./types";
 import { ACTIVATED_ABILITY, activatedKeyFor, teamAbilitiesIn } from "../zombie/abilities";
 import { deriveHitDamage, lineupDamageBand, POWER_PER_STR } from "./combatStats";

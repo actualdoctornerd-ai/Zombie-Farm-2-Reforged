@@ -57,6 +57,7 @@ import * as v3 from "./v3/db";
 import * as v3Raid from "./v3/raid";
 import * as v3EpicBoss from "./v3/epicBoss";
 import * as writer from "./v3/writer";
+import * as blackMarket from "./v3/blackMarket";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Vars }>();
 
@@ -384,6 +385,8 @@ app.use("/bootstrap", requireAuth);
 app.use("/commands", requireAuth);
 app.use("/presentation", requireAuth);
 app.use("/writer/*", requireAuth);
+app.use("/black-market", requireAuth);
+app.use("/black-market/*", requireAuth);
 
 // Local integration fixture. This route is inert in production (DEV_AUTH=0) and
 // exists so tests can establish trusted authoritative state without reopening the
@@ -456,6 +459,10 @@ app.use("/bootstrap", rateLimit("RL_READ", "bootstrap_v3", 30, 60_000));
 app.use("/commands", rateLimit("RL_WRITE", "commands_v3", 30, 60_000));
 app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 4, 60_000));
 app.use("/writer/*", rateLimit("RL_WRITE", "writer_v3", 20, 60_000));
+const blackMarketReadLimit = rateLimit("RL_READ", "black_market_read", 180, 60_000);
+const blackMarketWriteLimit = rateLimit("RL_WRITE", "black_market_write", 60, 60_000);
+app.use("/black-market/*", (c, next) =>
+  (c.req.method === "GET" ? blackMarketReadLimit : blackMarketWriteLimit)(c, next));
 // Reads + refresh (RL_READ): /me, GET /save shares the /save write limiter above,
 // friend lists, a friend's farm, requests, inbox, token refresh.
 app.use("/me", rateLimit("RL_READ", "me", 300, 60_000));
@@ -511,7 +518,7 @@ const writerProtectedMutation = (method: string, path: string): boolean => {
   if (method === "PUT" && (path === "/presentation" || path === "/save")) return true;
   if (method !== "POST") return false;
   return path === "/commands" || path === "/gifts" || path === "/gifts/claim" ||
-    path.startsWith("/raid/") || path.startsWith("/epic-boss/");
+    path.startsWith("/raid/") || path.startsWith("/epic-boss/") || path.startsWith("/black-market/");
 };
 
 // Activity-triggered exclusive writer fencing. Legacy clients remain usable only
@@ -738,6 +745,51 @@ app.put("/presentation", async (c) => {
   if (!saved) return c.json({ error: "presentation_conflict" }, 409);
   metric("presentation", accountId, started, { payloadBytes: encoded.length });
   return c.json(saved);
+});
+
+const marketEnabled = (env: Bindings): boolean => env.BLACK_MARKET_ENABLED === "1";
+
+app.get("/black-market/orders", async (c) => {
+  if (!marketEnabled(c.env)) return c.json({ error: "black_market_disabled" }, 503);
+  return c.json(await blackMarket.list(c.env.DB, c.get("accountId"), c.req.query(), Date.now()));
+});
+
+app.get("/black-market/summary", async (c) => {
+  if (!marketEnabled(c.env)) return c.json({ error: "black_market_disabled" }, 503);
+  return c.json(await blackMarket.summary(c.env.DB, c.get("accountId"), Date.now()));
+});
+
+app.post("/black-market/orders", async (c) => {
+  if (!marketEnabled(c.env)) return c.json({ error: "black_market_disabled" }, 503);
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const started = performance.now();
+  const result = await blackMarket.create(c.env.DB, c.get("accountId"),
+    await c.req.json<Record<string, unknown>>().catch(() => ({})), Date.now());
+  if (!("ok" in result)) return c.json({ error: result.error }, result.status);
+  metric("black_market_create", c.get("accountId"), started, { kind: result.order.kind });
+  return c.json(result);
+});
+
+app.post("/black-market/orders/:id/cancel", async (c) => {
+  if (!marketEnabled(c.env)) return c.json({ error: "black_market_disabled" }, 503);
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const started = performance.now();
+  const result = await blackMarket.cancel(c.env.DB, c.get("accountId"), c.req.param("id"),
+    await c.req.json<Record<string, unknown>>().catch(() => ({})), Date.now());
+  if (!("ok" in result)) return c.json({ error: result.error }, result.status);
+  metric("black_market_cancel", c.get("accountId"), started);
+  return c.json(result);
+});
+
+app.post("/black-market/orders/:id/fulfill", async (c) => {
+  if (!marketEnabled(c.env)) return c.json({ error: "black_market_disabled" }, 503);
+  if (c.env.MUTATIONS_DISABLED === "1") return c.json({ error: "mutations_disabled" }, 503);
+  const started = performance.now();
+  const result = await blackMarket.fulfill(c.env.DB, c.get("accountId"), c.req.param("id"),
+    await c.req.json<Record<string, unknown>>().catch(() => ({})), Date.now());
+  if (!("ok" in result)) return c.json({ error: result.error }, result.status);
+  metric("black_market_fulfill", c.get("accountId"), started, { kind: result.order.kind });
+  return c.json(result);
 });
 
 app.post("/raid/start", async (c) => {

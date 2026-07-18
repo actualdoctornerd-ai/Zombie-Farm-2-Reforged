@@ -2,7 +2,7 @@
 
 ## Implemented coverage
 
-Market â†’ Epic Boss offers all eight recovered bosses. Starting one spends 100 brains
+Market → Epic Boss offers all eight recovered bosses. Starting one spends 100 brains
 and creates a 14-day wall-clock run; only one boss event can be active at a time. A run
 can be purchased again after its final level is completed or the event expires, and
 purchasing never extends an active run.

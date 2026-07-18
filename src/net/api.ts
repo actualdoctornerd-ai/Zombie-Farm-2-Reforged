@@ -15,6 +15,10 @@ import {
   type BootstrapResponse,
   type CommandBatchRequest,
   type CommandBatchResponse,
+  type BlackMarketListResponse,
+  type BlackMarketMutationResponse,
+  type BlackMarketOrderKind,
+  type BlackMarketSummary,
   type PresentationProjection,
   type PresentationRequest,
 } from "./protocol";
@@ -285,6 +289,41 @@ export const sendCommandBatch = (batch: CommandBatchRequest) =>
 
 export const putPresentationV3 = (payload: PresentationRequest) =>
   req<PresentationProjection>("PUT", "/presentation", payload);
+
+export const blackMarketOrders = (query: {
+  kind: BlackMarketOrderKind;
+  zombieKey?: string;
+  mutated?: boolean;
+  sort?: "newest" | "price_asc" | "price_desc";
+  mine?: boolean;
+  cursor?: string;
+}) => {
+  const params = new URLSearchParams({ kind: query.kind });
+  if (query.zombieKey) params.set("zombieKey", query.zombieKey);
+  if (query.mutated !== undefined) params.set("mutated", String(query.mutated));
+  if (query.sort) params.set("sort", query.sort);
+  if (query.mine) params.set("mine", "true");
+  if (query.cursor) params.set("cursor", query.cursor);
+  return req<BlackMarketListResponse>("GET", `/black-market/orders?${params}`);
+};
+
+export const blackMarketSummary = () => req<BlackMarketSummary>("GET", "/black-market/summary");
+
+export const createBlackMarketOrder = (body:
+  | { operationId: string; expectedAccountVersion: number; kind: "SELL_ZOMBIE"; unitId: string; priceBrains: number }
+  | { operationId: string; expectedAccountVersion: number; kind: "BUY_ZOMBIE"; zombieKey: string; mutated: boolean; priceBrains: number }
+) => req<BlackMarketMutationResponse>("POST", "/black-market/orders", body);
+
+export const cancelBlackMarketOrder = (id: string, operationId: string, expectedAccountVersion: number) =>
+  req<BlackMarketMutationResponse>("POST", `/black-market/orders/${encodeURIComponent(id)}/cancel`, {
+    operationId, expectedAccountVersion,
+  });
+
+export const fulfillBlackMarketOrder = (
+  id: string, operationId: string, expectedAccountVersion: number, unitId?: string
+) => req<BlackMarketMutationResponse>("POST", `/black-market/orders/${encodeURIComponent(id)}/fulfill`, {
+  operationId, expectedAccountVersion, ...(unitId ? { unitId } : {}),
+});
 
 /** Set this account's chosen display name. Updates the stored session, returns the
  *  normalized value. Throws ApiError(400, "bad_username") if it doesn't validate. */

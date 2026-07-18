@@ -11,7 +11,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     // Protocol v2 route specs are intentionally retired with their 410 surface.
-    include: ["test/integration/v3.spec.ts"],
+    include: ["test/integration/v3.spec.ts", "test/integration/blackMarket.spec.ts"],
     globalSetup: ["./test/integration/globalSetup.ts"],
     testTimeout: 20000,
     hookTimeout: 20000,

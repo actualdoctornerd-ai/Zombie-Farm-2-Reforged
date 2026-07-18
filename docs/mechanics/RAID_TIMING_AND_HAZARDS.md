@@ -124,22 +124,25 @@ the reimpl's old flat 5% / 10-brains.
 Gold: `getStandardGoldLootForStageLevel:` + `goldDistributionLevelCoefficient` = 2.3
 (win gold scales with level); wiki figures still used where exact source gold is unmapped.
 
-## Missing stage sprite sheets (Pirate / Ninja / City-Lawyers)
+## Stage sprite sheets (Pirate / Ninja / City-Lawyers) — RECOVERED
 
-Those three raids fall back to flat portrait tokens because their enemy art can't be sliced.
-Findings (`tools/re` + the source ipas):
+**Resolved.** All three raids now render decoded side-view rigs instead of flat portrait
+tokens. The parts ship as `public/assets/raids/enemies/parts/{Pirate,Ninja,City}StageActor*.png`
+and the bone/anchor rig lives in `public/assets/raids/enemies/models.json` (keys
+`PirateStageActorBoss/Scallywag/Swashbuckler`, `NinjaStageActorBoss/Boy/Girl`,
+`CityStageActorBoss/CrazedWorker/Lawyer`), driven by `EnemyActor`.
 
-- The atlas **PNGs exist** — `assets/spritesheets/stages/{Pirate,Ninja,City}Stage.png` (all 256×256).
-- Their **TexturePacker frame plist is genuinely absent** — not an extraction miss. Both the
+Historical context (why a custom recovery was needed):
+
+- The atlas **PNGs existed** — `assets/spritesheets/stages/{Pirate,Ninja,City}Stage.png` (all 256×256).
+- Their **TexturePacker frame plist was genuinely absent** — not an extraction miss. Both the
   1.0 *and* 0.60 ipas ship the `.png` with **no `.plist`** (every other stage — Circus, Beach,
-  Alien, Robot, … — ships `.png` + `.plist`/rig). So the name→rect mapping is lost from the build.
-- The **frame names survive in the binary** (`scallywagBat`, `swashbucklerSword`, the
-  `*StageActor*` classes), so the parts are known by name — just not their positions.
-- **Recovery path (viable):** TexturePacker leaves transparent gutters, so the atlases
-  **auto-slice by alpha-island detection** — Pirate → 12 islands, Ninja → 20, City → **9**
-  (its 3 large islands ≈ the Boss / Lawyer / CrazedWorker whole bodies). A slicer that cuts
-  the islands and matches them to actors by size/count (plus the binary's frame names) would
-  restore usable enemy sprites without the plist. Not yet built.
+  Alien, Robot, … — ships `.png` + `.plist`/rig). So the name→rect mapping was lost from the build.
+- The **frame names survived in the binary** (`scallywagBat`, `swashbucklerSword`, the
+  `*StageActor*` classes), so the parts were known by name — just not their positions.
+- **Recovery path used:** the binary's `initSpriteDictionary` bone layout was decoded to place
+  each named part, producing the rigs now in `models.json`. (The earlier alpha-island auto-slice
+  idea — Pirate ≈ 12 islands, Ninja ≈ 20, City ≈ 9 — was superseded by the binary rig decode.)
 
 ## Implementation status (zombiefarm)
 
@@ -204,5 +207,6 @@ configs and threads them to the scene.
   `junkWall.png`). The Beach/Tree World/Valentine crossing OBSTACLES stay disabled (`hazardOf`
   returns null) pending a non-fabricated model + atlas frames; the Lawyers cars aren't wired.
 - Round length is the observational 3:00 default; not sourced from a named data field.
-- Stage art for **Pirate / Ninja / City (Lawyers)** enemies is missing from the bundle at
-  the expected path — see below.
+
+(Pirate / Ninja / City (Lawyers) stage art is no longer a gap — the rigs were recovered and
+now ship; see "Stage sprite sheets … RECOVERED" above.)

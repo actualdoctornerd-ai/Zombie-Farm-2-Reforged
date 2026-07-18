@@ -94,6 +94,18 @@ export function isRewardOnlyZombie(key: string): boolean {
   return REWARD_ONLY_ZOMBIES.has(key);
 }
 
+const TRADABLE_ZOMBIES = new Set(
+  (zombieRows as Array<{ key: string; rewardOnly?: boolean; marketHidden?: boolean }>)
+    .filter((zombie) => !zombie.rewardOnly && !zombie.marketHidden)
+    .map((zombie) => zombie.key)
+);
+
+/** Server-owned Black Market allowlist. Special acquisition routes stay excluded
+ * until they are deliberately reviewed for cross-account trade. */
+export function isTradableZombie(key: string): boolean {
+  return TRADABLE_ZOMBIES.has(key) && !isRewardOnlyZombie(key);
+}
+
 // ---- Garden-zombie fertilization (server-owned roll) --------------------
 // A deployed Garden zombie has a per-tier chance to fertilize a freshly-planted veggie
 // crop (2x harvest). GROUND TRUTH: fertilizeChance by combat tier — t1 .04, t2 .06,

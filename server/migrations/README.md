@@ -57,7 +57,7 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
  ('0019_integrity_v2.sql'),('0020_permanent_import_closure.sql'),
  ('0020_protocol_v3_reset.sql'),('0021_epic_boss.sql'),
  ('0022_epic_boss_retry_skip.sql'),('0023_raid_revives.sql'),
- ('0024_epic_boss_tokens.sql'),('0025_writer_lease.sql');"
+ ('0024_epic_boss_tokens.sql'),('0025_writer_lease.sql'),('0026_black_market.sql');"
 ```
 
 From then on, only migrations added after this baseline apply via `migrations apply`.

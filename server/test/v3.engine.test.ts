@@ -498,6 +498,35 @@ describe("protocol v3 command engine", () => {
     expect(invalidMissingSource.results[0]).toMatchObject({ status: "rejected", error: "not_owned" });
   });
 
+  it("persists Zombie Pot ownership and charges the permanent repeat price", () => {
+    const state = freshGameplayState();
+    state.balance.gold = 1_000;
+    state.balance.brains = 100;
+    state.balance.xp = 75; // level 3 unlocks the Zombie Pot
+
+    const bought = applyCommandBatch(state, commands(
+      { type: "object.buy", catalogKey: "zombieCombiner", clientInstanceId: "pot-1" },
+      { type: "object.buy", catalogKey: "zombieCombiner", clientInstanceId: "pot-2" },
+    ), { now: 100 });
+
+    expect(bought.results.map((entry) => entry.status)).toEqual(["applied", "applied"]);
+    expect(bought.state.zombiePotBought).toBe(true);
+    expect(bought.state.balance.gold).toBe(500);
+    expect(bought.state.balance.brains).toBe(75); // 30 spent, +5 brains from levels gained
+    expect(bought.state.objects.objects).toEqual(expect.arrayContaining([
+      expect.objectContaining({ instanceId: "pot-1", catalogKey: "zombieCombiner", purchaseCost: 500, purchaseCurrency: "gold" }),
+      expect.objectContaining({ instanceId: "pot-2", catalogKey: "zombieCombiner", purchaseCost: 30, purchaseCurrency: "brains" }),
+    ]));
+
+    const sold = applyCommandBatch(bought.state, commands(
+      { type: "object.refund", instanceId: "pot-1" },
+      { type: "object.refund", instanceId: "pot-2" },
+    ), { now: 101 });
+    expect(sold.state.balance.gold).toBe(600);
+    expect(sold.state.balance.brains).toBe(81);
+    expect(sold.state.zombiePotBought).toBe(true);
+  });
+
   it("advances the Apple Harvest quest for a harvested Apple Tree", () => {
     const state = freshGameplayState();
     state.quests.completed = ["62"];

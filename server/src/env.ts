@@ -42,6 +42,8 @@ export interface Bindings {
    * stopping all economy mutations during an incident or maintenance window. */
   MIN_PROTOCOL_VERSION?: string;
   MUTATIONS_DISABLED?: string;
+  /** Cross-account trading remains opt-in until the protocol-v3 security gates are met. */
+  BLACK_MARKET_ENABLED?: string;
   /** Exclusive-writer rollout: observe accepts legacy clients; enforce requires the
    * authenticated writer credential on every gameplay mutation. */
   WRITER_LEASE_MODE?: "observe" | "enforce";

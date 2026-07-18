@@ -132,6 +132,16 @@ const SPECIAL_GROUP_SCALE: Record<string, number> = {
   Large: 1.15, Headless: 0.9, Garden: 0.7,
 };
 
+// These actors paint their complete face into their dedicated head attachments.
+// Keeping the ordinary facial details produces a second face over the authored one.
+const COMPLETE_SPECIAL_FACES = new Set([
+  "ZombieActorZombug",
+  "ZombieActorZwampThing",
+]);
+const DEFAULT_FACE_SLOTS = new Set([
+  "EyeL", "EyeR", "UpperTeeth", "LowerTeeth", "Scar",
+]);
+
 /** Merge a named actor's replacement attachments over the ordinary skeleton.
  *  The source special-zombie plists are deltas, not complete actors: for example,
  *  Skittles supplies only a Body attachment and inherits its head, limbs and face. */
@@ -143,11 +153,16 @@ export function mergeSpecialZombieModel(
 ): ZombieModel {
   const slot = (file: string) => file.replace(/^default/, "").replace(/\.png$/i, "");
   const replaced = new Set(manifest.parts.map((part) => slot(part.file)));
+  const hasCompleteSpecialFace = COMPLETE_SPECIAL_FACES.has(def.key);
   const headDx = replaced.has("Head") ? manifest.neck.x - base.neck.x : 0;
   const headDy = replaced.has("Head") ? manifest.neck.y - base.neck.y : 0;
   const inherited = manifest.floatingHead
     ? []
-    : base.parts.filter((part) => !replaced.has(slot(part.file))).map((part) => ({
+    : base.parts.filter((part) => {
+      const partSlot = slot(part.file);
+      return !replaced.has(partSlot)
+        && !(hasCompleteSpecialFace && DEFAULT_FACE_SLOTS.has(partSlot));
+    }).map((part) => ({
       ...part,
       px: part.px + (part.group === "head" ? headDx : 0),
       py: part.py + (part.group === "head" ? headDy : 0),

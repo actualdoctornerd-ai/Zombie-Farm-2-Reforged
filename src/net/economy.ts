@@ -428,6 +428,18 @@ export class EconomyClient {
     await this.queue.settle();
   }
 
+  /** Establish a fresh CAS boundary for a direct cross-account mutation. Market
+   * actions deliberately do not auto-replay after this version is observed. */
+  async prepareExternalMutation(): Promise<number> {
+    await this.queue.settle();
+    const bootstrap = await api.bootstrap(true);
+    this.queue.adoptBootstrap(bootstrap);
+    this.ready = true;
+    this.adoptGameplay(bootstrap.gameplay);
+    if (bootstrap.writer.status !== "mine") throw new Error("writer_replaced");
+    return bootstrap.accountVersion;
+  }
+
   adoptRaidStartInventory(inventory: Record<string, number>): void {
     this.serverInv = { ...inventory };
     this.reconcile();
@@ -518,6 +530,7 @@ export class EconomyClient {
   ): void {
     this.base = gameplay.balance;
     this.serverInv = gameplay.inventory;
+    this.state.zombiePotBought = gameplay.zombiePotBought ?? false;
     const deferStructural = this.commandsBySequence.size > 0;
     const plowed: api.FarmState["plowed"] = [];
     const crops: api.FarmState["crops"] = [];

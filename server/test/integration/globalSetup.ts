@@ -36,8 +36,8 @@ export async function setup() {
 
   const command = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "npx";
   const args = process.platform === "win32"
-    ? ["/d", "/s", "/c", `npx wrangler dev --port ${PORT} --local`]
-    : ["wrangler", "dev", "--port", String(PORT), "--local"];
+    ? ["/d", "/s", "/c", `npx wrangler dev --port ${PORT} --local --var BLACK_MARKET_ENABLED:1`]
+    : ["wrangler", "dev", "--port", String(PORT), "--local", "--var", "BLACK_MARKET_ENABLED:1"];
   child = spawn(command, args, {
     stdio: "ignore",
     detached: process.platform !== "win32",

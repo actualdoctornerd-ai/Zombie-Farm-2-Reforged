@@ -28,6 +28,10 @@ import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
 import { compareCropMarketOrder } from "./marketOrder";
 import { fillPartySelection } from "./raid/partySelection";
+import type {
+  BlackMarketListResponse, BlackMarketMutationResponse, BlackMarketOrderKind,
+  BlackMarketOrderView,
+} from "./net/protocol";
 
 export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow" | "rotate";
 
@@ -1045,6 +1049,47 @@ const STYLE = `
 #hud .epic-market-action { min-width: 210px; }
 #hud .epic-market-action img { width: 20px; height: 20px; vertical-align: middle; }
 
+/* ---- Social hub + asynchronous Black Market ---- */
+#hud .social-hub { width: min(470px, 90vw); text-align: center; }
+#hud .social-choices { display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 16px; padding: 18px; }
+#hud .social-choice { min-height: 120px; border: 3px solid #6d4b24; border-radius: 14px;
+  background: linear-gradient(#f3e5bd,#d7bc7d); color: #4a3014; font: 700 20px Georgia,serif; cursor: pointer; }
+#hud .social-choice span { display: block; margin-top: 8px; font: 400 13px Georgia,serif; }
+#hud .bm { width: min(900px, 96vw); height: min(610px, 94vh); }
+#hud .bm-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; }
+#hud .bm-toolbar select, #hud .bm-compose select, #hud .bm-compose input {
+  border: 2px solid #a8793e; border-radius: 7px; background: #fff8e6; color: #4a3014;
+  padding: 5px 7px; font: 700 12px Georgia,serif; }
+#hud .bm-toolbar label { font-size: 12px; color: #4a3014; font-weight: 700; }
+#hud .bm-summary { margin-left: auto; font-size: 12px; font-weight: 700; color: #5d3d17; }
+#hud .bm-content { min-height: 0; flex: 1; display: grid; grid-template-columns: 1fr 245px; gap: 12px; }
+#hud .bm-list { overflow: auto; display: grid; grid-template-columns: repeat(3,minmax(135px,1fr));
+  grid-auto-rows: min-content; gap: 9px; align-content: start; padding: 2px; }
+#hud .bm-card { border: 2px solid #b98b4a; border-radius: 9px; background: #efe4bf; padding: 7px;
+  display: grid; grid-template-columns: 54px 1fr; gap: 6px; color: #49300f; position: relative; }
+#hud .bm-card.mine { border-color: #3f8a68; background: #e0edc9; }
+#hud .bm-card > img { width: 52px; height: 58px; object-fit: contain; }
+#hud .bm-name { font-weight: 800; font-size: 13px; }
+#hud .bm-meta { font-size: 11px; line-height: 1.35; }
+#hud .bm-price { font-weight: 800; display: flex; align-items: center; gap: 3px; }
+#hud .bm-price img { width: 15px; height: 15px; }
+#hud .bm-card button, #hud .bm-compose button { grid-column: 1/-1; border: 2px solid #4f2f13;
+  border-radius: 7px; padding: 5px; background: linear-gradient(#79b94b,#438326); color: white;
+  font-weight: 800; cursor: pointer; }
+#hud .bm-card button.cancel { background: linear-gradient(#c66b59,#913b31); }
+#hud .bm-card button:disabled, #hud .bm-compose button:disabled { opacity: .5; cursor: default; }
+#hud .bm-compose { border: 2px solid #aa7a3d; border-radius: 10px; background: rgba(239,228,191,.8);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow: auto; color: #49300f; }
+#hud .bm-compose h3 { margin: 0; text-align: center; }
+#hud .bm-compose label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 700; }
+#hud .bm-empty { grid-column: 1/-1; text-align: center; padding: 30px 8px; color: #6e4a1e; font-style: italic; }
+@media (max-width: 700px) {
+  #hud .bm-content { grid-template-columns: 1fr; }
+  #hud .bm-list { grid-template-columns: repeat(2,minmax(130px,1fr)); }
+  #hud .bm-compose { max-height: 210px; }
+  #hud .bm-summary { width: 100%; margin-left: 0; }
+}
+
 /* ---- Item info popup (opened by a Market card's magnifier) ---- */
 #hud .info-bg { position: fixed; inset: 0; pointer-events: auto; z-index: 24;
   background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
@@ -1323,7 +1368,7 @@ export class Hud {
   private farmUpgrades: FarmSizeUpgrade[] = []; // Market Upgrade tab (Farm Size)
   private farmer: FarmerCatalog = { heads: [], bodies: [] };
   private pets: PetCatalog = { version: 0, pets: [] };
-  private bossMenu: HTMLButtonElement | null = null;
+  private bossActive = false;
   private plantingCrop: CropConfig | null = null;
   private placingObj: PlaceableDef | null = null;
   private plantLabel!: HTMLElement;
@@ -1680,12 +1725,11 @@ export class Hud {
   private buildMenu() {
     const items = [
       { label: "Invade", fill: "#9c2135", light: "#c04155", dark: "#5a0f1c", ready: true },
-      { label: "Boss", fill: "#6c318f", light: "#9c58bc", dark: "#3e1659" },
       { label: "Zombies", fill: "#55972a", light: "#79c247", dark: "#2f5f10" },
       { label: "Boosts", fill: "#7a4bc9", light: "#9c74e0", dark: "#432379" },
       { label: "Storage", fill: "#2f74bb", light: "#4f9bd8", dark: "#143f66" },
       { label: "Market", fill: "#c9992e", light: "#e3bb52", dark: "#8a6512" },
-      { label: "Friends", fill: "#2f9c8a", light: "#4fd0b8", dark: "#12564b" },
+      { label: "Social", fill: "#2f9c8a", light: "#4fd0b8", dark: "#12564b" },
     ];
     const col = document.createElement("div");
     col.className = "menucol";
@@ -1694,7 +1738,6 @@ export class Hud {
       const btn = document.createElement("button");
       btn.className = "mbtn";
       btn.dataset.menu = m.label; // stable anchor for the tutorial arrow (menuButton())
-      if (m.label === "Boss") { btn.style.display = "none"; this.bossMenu = btn; }
       btn.style.background = `linear-gradient(${m.light}, ${m.fill})`;
       btn.style.borderColor = m.dark;
       if (m.ready) {
@@ -1718,10 +1761,8 @@ export class Hud {
                 ? this.openZombieList()
                 : m.label === "Invade"
                   ? this.openRaids()
-                  : m.label === "Boss"
-                    ? this.openMarket("Epic Boss")
-                  : m.label === "Friends"
-                    ? this.openFriends()
+                  : m.label === "Social"
+                    ? this.openSocial()
                     : this.openPanel(m.label, "Coming soon.");
       col.appendChild(btn);
     }
@@ -1825,10 +1866,9 @@ export class Hud {
   }
 
   setBossShortcut(active: boolean, label = "Boss") {
-    if (!this.bossMenu) return;
-    this.bossMenu.style.display = active ? "" : "none";
-    const text = this.bossMenu.querySelector<HTMLElement>(".gbtn");
-    if (text) text.textContent = label;
+    this.bossActive = active;
+    const invade = this.menuCol?.querySelector<HTMLButtonElement>('[data-menu="Invade"]');
+    if (invade) invade.title = active ? `${label} active — open raids for details` : "";
   }
 
   private toolBtn(id: string, icon: string, label: string, onClick: () => void) {
@@ -2116,6 +2156,16 @@ export class Hud {
   /** Base market cost of a zombie type by key — drives the sell payout shown on
    *  the detail card (sell = floor(baseCost/2), binary ground truth). */
   zombieBaseCost: ((key: string) => number) | null = null;
+  getBlackMarketOrders: ((query: {
+    kind: BlackMarketOrderKind; zombieKey?: string; mutated?: boolean;
+    sort?: "newest" | "price_asc" | "price_desc"; mine?: boolean;
+  }) => Promise<BlackMarketListResponse>) | null = null;
+  onCreateBlackMarketOrder: ((input:
+    | { kind: "SELL_ZOMBIE"; unitId: string; priceBrains: number }
+    | { kind: "BUY_ZOMBIE"; zombieKey: string; mutated: boolean; priceBrains: number }
+  ) => Promise<BlackMarketMutationResponse>) | null = null;
+  onCancelBlackMarketOrder: ((orderId: string) => Promise<BlackMarketMutationResponse>) | null = null;
+  onFulfillBlackMarketOrder: ((order: BlackMarketOrderView, unitId?: string) => Promise<BlackMarketMutationResponse>) | null = null;
   /** The speed-grow (Insta-Grow) boost + a live owned-count getter, for the
    *  growing-crop info window. Null when no grow boost exists in the catalog. */
   getSpeedGrowBoost: (() => { name: string; icon: string; count: () => number } | null) | null = null;
@@ -3913,6 +3963,255 @@ export class Hud {
     this.el.appendChild(bg);
   }
 
+  private openSocial() {
+    document.querySelector("#hud .social-bg")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "panelbg social-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel social-hub";
+    const close = document.createElement("button");
+    close.className = "panelclose";
+    close.innerHTML = `<img src="${UI("button_close.png")}">`;
+    close.onclick = () => bg.remove();
+    const title = document.createElement("h2");
+    title.textContent = "Social";
+    const choices = document.createElement("div");
+    choices.className = "social-choices";
+    const friends = document.createElement("button");
+    friends.className = "social-choice";
+    friends.append("Friends");
+    const friendsNote = document.createElement("span");
+    friendsNote.textContent = "Connect, gift brains, and visit farms";
+    friends.appendChild(friendsNote);
+    friends.onclick = () => { bg.remove(); this.openFriends(); };
+    const market = document.createElement("button");
+    market.className = "social-choice";
+    market.append("Black Market");
+    const marketNote = document.createElement("span");
+    marketNote.textContent = "Post zombie sales and requests";
+    market.appendChild(marketNote);
+    market.onclick = () => { bg.remove(); this.openBlackMarket(); };
+    choices.append(friends, market);
+    panel.append(close, title, choices);
+    bg.appendChild(panel);
+    bg.onclick = (event) => { if (event.target === bg) bg.remove(); };
+    this.el.appendChild(bg);
+  }
+
+  private openBlackMarket(initialKind: BlackMarketOrderKind = "BUY_ZOMBIE") {
+    this.closeMarket();
+    const bg = document.createElement("div");
+    bg.className = "mkt-bg bm-bg";
+    const panel = document.createElement("div");
+    panel.className = "mkt bm";
+    const title = document.createElement("div");
+    title.className = "mkt-title";
+    title.textContent = "Black Market";
+    const close = document.createElement("button");
+    close.className = "mkt-close";
+    close.innerHTML = `<img src="${UI("button_close.png")}">`;
+    close.onclick = () => bg.remove();
+    const balance = document.createElement("div");
+    balance.className = "mkt-cur";
+    const refreshBalance = () => {
+      balance.innerHTML = `<span><img src="${UI("topbar_brain_icon.png")}">${this.state.brains}</span>`;
+    };
+    refreshBalance();
+
+    const tabs = document.createElement("div");
+    tabs.className = "mkt-tabs";
+    const requestTab = document.createElement("button");
+    const salesTab = document.createElement("button");
+    requestTab.className = salesTab.className = "mkt-tab";
+    requestTab.textContent = "Requests";
+    salesTab.textContent = "Zombie Sales";
+    tabs.append(requestTab, salesTab);
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "bm-toolbar";
+    const typeFilter = document.createElement("select");
+    typeFilter.setAttribute("aria-label", "Zombie type filter");
+    typeFilter.append(new Option("All zombie types", ""));
+    const catalog = [...new Map(this.zombieCards.map((card) => [card.cfg.key, card])).values()]
+      .sort((a, b) => a.name.localeCompare(b.name));
+    for (const card of catalog) typeFilter.append(new Option(card.name, card.cfg.key));
+    const mutationFilter = document.createElement("select");
+    mutationFilter.setAttribute("aria-label", "Mutation filter");
+    mutationFilter.append(new Option("Any mutations", ""), new Option("Mutated: Yes", "true"),
+      new Option("Mutated: No", "false"));
+    const sort = document.createElement("select");
+    sort.setAttribute("aria-label", "Sort orders");
+    sort.append(new Option("Newest", "newest"), new Option("Lowest price", "price_asc"),
+      new Option("Highest price", "price_desc"));
+    const mineLabel = document.createElement("label");
+    const mine = document.createElement("input");
+    mine.type = "checkbox";
+    mineLabel.append(mine, " My Posts");
+    const refresh = document.createElement("button");
+    refresh.className = "prof-btn play";
+    refresh.textContent = "Refresh";
+    const summary = document.createElement("div");
+    summary.className = "bm-summary";
+    toolbar.append(typeFilter, mutationFilter, sort, mineLabel, refresh, summary);
+
+    const content = document.createElement("div");
+    content.className = "bm-content";
+    const list = document.createElement("div");
+    list.className = "bm-list";
+    const compose = document.createElement("div");
+    compose.className = "bm-compose";
+    const composeTitle = document.createElement("h3");
+    composeTitle.textContent = "Create Post";
+    const composeKind = document.createElement("select");
+    composeKind.append(new Option("Request a Zombie", "BUY_ZOMBIE"), new Option("Sell a Zombie", "SELL_ZOMBIE"));
+    const assetLabel = document.createElement("label");
+    const assetCaption = document.createElement("span");
+    const asset = document.createElement("select");
+    assetLabel.append(assetCaption, asset);
+    const mutationLabelEl = document.createElement("label");
+    mutationLabelEl.append("Mutation requirement");
+    const requestedMutation = document.createElement("select");
+    requestedMutation.append(new Option("Mutated: No", "false"), new Option("Mutated: Yes", "true"));
+    mutationLabelEl.appendChild(requestedMutation);
+    const priceLabel = document.createElement("label");
+    priceLabel.append("Price in brains");
+    const price = document.createElement("input");
+    price.type = "number"; price.min = "1"; price.max = "1000000"; price.step = "1";
+    priceLabel.appendChild(price);
+    const escrowNote = document.createElement("div");
+    escrowNote.className = "bm-meta";
+    const submit = document.createElement("button");
+    submit.textContent = "Post Request";
+    compose.append(composeTitle, composeKind, assetLabel, mutationLabelEl, priceLabel, escrowNote, submit);
+    content.append(list, compose);
+
+    let kind = initialKind;
+    let renderGeneration = 0;
+    const cardFor = (key: string) => catalog.find((entry) => entry.cfg.key === key);
+    const updateCompose = () => {
+      const selling = composeKind.value === "SELL_ZOMBIE";
+      asset.replaceChildren();
+      assetCaption.textContent = selling ? "Owned zombie" : "Zombie type";
+      if (selling) {
+        for (const zombie of this.getRoster?.() ?? []) {
+          const option = new Option(`${zombie.name} — ${zombie.typeName}${zombie.mutation ? " (Mutated)" : ""}`, zombie.id);
+          asset.appendChild(option);
+        }
+      } else {
+        for (const card of catalog) asset.append(new Option(card.name, card.cfg.key));
+      }
+      mutationLabelEl.style.display = selling ? "none" : "flex";
+      submit.textContent = selling ? "Post Zombie Sale" : "Post Request";
+      escrowNote.textContent = selling
+        ? "This zombie leaves your roster while the post is open."
+        : "The full brain offer is removed while the request is open.";
+      submit.disabled = !asset.options.length || !this.socialOnline?.();
+    };
+
+    const setTabs = () => {
+      requestTab.classList.toggle("sel", kind === "BUY_ZOMBIE");
+      salesTab.classList.toggle("sel", kind === "SELL_ZOMBIE");
+    };
+    const renderOrders = async () => {
+      const generation = ++renderGeneration;
+      list.innerHTML = `<div class="bm-empty">Refreshing market…</div>`;
+      if (!this.socialOnline?.() || !this.getBlackMarketOrders) {
+        list.innerHTML = `<div class="bm-empty">Sign in to use the Black Market.</div>`;
+        return;
+      }
+      try {
+        const result = await this.getBlackMarketOrders({
+          kind, zombieKey: typeFilter.value || undefined,
+          mutated: mutationFilter.value ? mutationFilter.value === "true" : undefined,
+          sort: sort.value as "newest" | "price_asc" | "price_desc", mine: mine.checked,
+        });
+        if (generation !== renderGeneration || !bg.isConnected) return;
+        summary.textContent = `Active ${result.summary.activePosts}/2 · Today ${result.summary.postsToday}/10`;
+        list.replaceChildren();
+        if (!result.orders.length) {
+          const empty = document.createElement("div"); empty.className = "bm-empty";
+          empty.textContent = "No matching posts yet."; list.appendChild(empty); return;
+        }
+        for (const order of result.orders) {
+          const marketCard = document.createElement("div");
+          marketCard.className = `bm-card${order.mine ? " mine" : ""}`;
+          const portrait = document.createElement("img");
+          portrait.src = this.zombiePortraitOf?.(order.zombieKey) ?? cardFor(order.zombieKey)?.portrait ?? "";
+          const body = document.createElement("div");
+          const name = document.createElement("div"); name.className = "bm-name";
+          name.textContent = cardFor(order.zombieKey)?.name ?? order.zombieKey;
+          const meta = document.createElement("div"); meta.className = "bm-meta";
+          const mutationText = order.mutated
+            ? `Yes${order.mutation ? ` — ${mutationLabel(order.mutation)}` : ""}` : "No";
+          meta.textContent = `Mutated: ${mutationText}${order.invasions ? ` · ${veterancy(order.invasions)}` : ""}\n${order.mine ? "Your post" : order.creatorName}`;
+          const cost = document.createElement("div"); cost.className = "bm-price";
+          cost.append(String(order.priceBrains));
+          const brain = document.createElement("img"); brain.src = UI("topbar_brain_icon.png"); cost.appendChild(brain);
+          body.append(name, meta, cost); marketCard.append(portrait, body);
+          const action = document.createElement("button");
+          if (order.mine) {
+            action.className = "cancel"; action.textContent = "Cancel Post";
+            action.onclick = async () => {
+              if (!await this.confirmInGame("Cancel this post?", "The escrowed zombie or brains will be returned.", "Cancel Post")) return;
+              action.disabled = true;
+              try { await this.onCancelBlackMarketOrder?.(order.id); refreshBalance(); await renderOrders(); }
+              catch { this.showToast("Could not cancel that post. Refresh and try again."); action.disabled = false; }
+            };
+          } else {
+            action.textContent = order.kind === "SELL_ZOMBIE" ? "Buy Zombie" : "Sell Matching Zombie";
+            action.onclick = async () => {
+              let unitId: string | undefined;
+              let detail = `Spend ${order.priceBrains} brains for this zombie?`;
+              if (order.kind === "BUY_ZOMBIE") {
+                const match = (this.getRoster?.() ?? []).find((zombie) => zombie.key === order.zombieKey &&
+                  (zombie.mutation !== 0) === order.mutated);
+                if (!match) { this.showToast("You do not own a matching available zombie."); return; }
+                unitId = match.id; detail = `Trade ${match.name} for ${order.priceBrains} brains?`;
+              }
+              if (!await this.confirmInGame("Complete this trade?", detail, "Trade")) return;
+              action.disabled = true;
+              try { await this.onFulfillBlackMarketOrder?.(order, unitId); refreshBalance(); await renderOrders(); }
+              catch { this.showToast("That trade is no longer available. Market refreshed."); await renderOrders(); }
+            };
+          }
+          marketCard.appendChild(action); list.appendChild(marketCard);
+        }
+      } catch {
+        if (generation === renderGeneration) list.innerHTML = `<div class="bm-empty">Black Market is unavailable right now.</div>`;
+      }
+    };
+
+    requestTab.onclick = () => { kind = "BUY_ZOMBIE"; setTabs(); void renderOrders(); };
+    salesTab.onclick = () => { kind = "SELL_ZOMBIE"; setTabs(); void renderOrders(); };
+    for (const control of [typeFilter, mutationFilter, sort, mine]) control.onchange = () => void renderOrders();
+    refresh.onclick = () => void renderOrders();
+    composeKind.onchange = updateCompose;
+    submit.onclick = async () => {
+      const priceBrains = Number(price.value);
+      if (!Number.isSafeInteger(priceBrains) || priceBrains < 1 || priceBrains > 1_000_000) {
+        this.showToast("Enter a whole brain price between 1 and 1,000,000."); return;
+      }
+      const selling = composeKind.value === "SELL_ZOMBIE";
+      const warning = selling ? "The selected zombie will be held in escrow." : `${priceBrains} brains will be held in escrow.`;
+      if (!await this.confirmInGame("Create Black Market post?", warning, "Create Post")) return;
+      submit.disabled = true;
+      try {
+        await this.onCreateBlackMarketOrder?.(selling
+          ? { kind: "SELL_ZOMBIE", unitId: asset.value, priceBrains }
+          : { kind: "BUY_ZOMBIE", zombieKey: asset.value, mutated: requestedMutation.value === "true", priceBrains });
+        kind = selling ? "SELL_ZOMBIE" : "BUY_ZOMBIE";
+        setTabs(); updateCompose(); refreshBalance(); price.value = ""; await renderOrders();
+      } catch { this.showToast("Could not create that post. Check your limits and assets."); }
+      finally { submit.disabled = false; }
+    };
+
+    setTabs(); updateCompose();
+    panel.append(title, close, balance, tabs, toolbar, content);
+    bg.appendChild(panel);
+    this.el.appendChild(bg);
+    void renderOrders();
+  }
+
   // Friends panel. Two modes, chosen at open time:
   //   • Offline (no server configured, or signed out): the local friends stub —
   //     add by NAME, gift locally, remove. Same as before online landed.
@@ -5270,6 +5569,22 @@ export class Hud {
       };
       if (c.id === selId) card.classList.add("sel");
       list.appendChild(card);
+    }
+    if (this.bossActive) {
+      const epic = this.getEpicBossView?.().find((view) => view.active);
+      if (epic) {
+        const card = document.createElement("button");
+        card.className = "rd-card";
+        const thumb = document.createElement("div");
+        thumb.className = "rd-thumb";
+        thumb.style.backgroundImage = `url(${epic.portrait})`;
+        const txt = document.createElement("div");
+        const name = document.createElement("div"); name.className = "rd-cn"; name.textContent = epic.name;
+        const sub = document.createElement("div"); sub.className = "rd-cl"; sub.textContent = "Epic Boss Active";
+        txt.append(name, sub); card.append(thumb, txt);
+        card.onclick = () => { close(); this.openMarket("Epic Boss"); };
+        list.prepend(card);
+      }
     }
     renderDetail();
     // Live-update the countdown only if a cooldown is currently active.

@@ -2,6 +2,7 @@
   "name": "zombiefarm",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "description": "Zombie Farm 2 Reforged - browser reimplementation with optional online mode",
   "scripts": {

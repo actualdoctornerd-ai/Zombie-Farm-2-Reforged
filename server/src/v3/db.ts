@@ -80,6 +80,7 @@ const coreFrom = (state: GameplayProjection) => ({
   activePet: state.activePet,
   penPets: state.penPets,
   zombieMax: state.zombieMax,
+  zombiePotBought: state.zombiePotBought,
   tutorialRewarded: state.tutorialRewarded,
 });
 
@@ -171,6 +172,7 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     activePet: core.activePet ?? null,
     penPets: core.penPets ?? [],
     zombieMax: core.zombieMax ?? 16,
+    zombiePotBought: core.zombiePotBought ?? false,
     tutorialRewarded: core.tutorialRewarded ?? false,
     roster,
     raids: { progress: parse(rows.raidState.progress_json, {}), lastRaidAt: rows.raidState.last_started_at },
@@ -363,7 +365,7 @@ export async function applyBatch(
     if (result?.status !== "applied" || !durableKinds.has(entry.command.type)) return;
     statements.push(db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, ?, ?, ? WHERE ${guard}`)
-      .bind(`${body.batchId}:${entry.sequence}`, accountId, entry.command.type,
+      .bind(`${accountId}:${body.batchId}:${entry.sequence}`, accountId, entry.command.type,
         JSON.stringify({ command: entry.command, createdIds: result.createdIds ?? [] }), now,
         accountId, body.batchId));
   });
@@ -376,13 +378,13 @@ export async function applyBatch(
   if (rejectedCommands.length) {
     statements.push(db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, 'command_rejected', ?, ? WHERE ${guard}`)
-      .bind(`${body.batchId}:rejected`, accountId, JSON.stringify({ commands: rejectedCommands }), now,
+      .bind(`${accountId}:${body.batchId}:rejected`, accountId, JSON.stringify({ commands: rejectedCommands }), now,
         accountId, body.batchId));
   }
   if (engine.createdZombieIds.length) {
     statements.push(db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, 'zombie_created', ?, ? WHERE ${guard}`)
-      .bind(`${body.batchId}:zombies`, accountId, JSON.stringify({ ids: engine.createdZombieIds }), now,
+      .bind(`${accountId}:${body.batchId}:zombies`, accountId, JSON.stringify({ ids: engine.createdZombieIds }), now,
         accountId, body.batchId));
   }
   statements.push(db.prepare(`UPDATE account_runtime_v3 SET active_batch_id = NULL, active_batch_expires_at = 0,

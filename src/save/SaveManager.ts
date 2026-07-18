@@ -258,6 +258,7 @@ export class SaveManager {
         ...boot.gameplay.balance,
         zombieMax: boot.gameplay.zombieMax,
         zombieCount: roster.filter((u) => !u.stored).length,
+        zombiePotBought: boot.gameplay.zombiePotBought,
         farmer: p.player?.farmer,
         farmerAppearance: {
           ...p.player?.farmerAppearance,

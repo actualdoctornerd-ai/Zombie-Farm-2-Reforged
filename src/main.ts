@@ -934,6 +934,7 @@ async function main() {
     return true;
   };
   const storedObjectIds = new Map<string, string[]>();
+  const objectPurchases = new Map<string, { cost: number; currency: "gold" | "brains" }>();
   if (!visiting && auth.isSignedIn()) {
     const acct = api.getSession()?.accountId ?? "anon";
     economy = new EconomyClient(state, acct);
@@ -1007,6 +1008,12 @@ async function main() {
       }
 
       if (generation !== objectReconcileGeneration) return;
+
+      objectPurchases.clear();
+      for (const object of objects) {
+        if (object.purchaseCost === undefined || object.purchaseCurrency === undefined) continue;
+        objectPurchases.set(object.instanceId, { cost: object.purchaseCost, currency: object.purchaseCurrency });
+      }
 
       storedObjectIds.clear();
       for (const object of objects) {
@@ -1774,6 +1781,35 @@ async function main() {
       return errCode(e);
     }
   };
+  hud.getBlackMarketOrders = (query) => api.blackMarketOrders(query);
+  hud.onCreateBlackMarketOrder = async (input) => {
+    if (!economy) throw new Error("online_gameplay_unavailable");
+    const expectedAccountVersion = await economy.prepareExternalMutation();
+    const operationId = crypto.randomUUID();
+    const result = input.kind === "SELL_ZOMBIE"
+      ? await api.createBlackMarketOrder({ ...input, unitId: economy.authoritativeUnitId(input.unitId), operationId, expectedAccountVersion })
+      : await api.createBlackMarketOrder({ ...input, operationId, expectedAccountVersion });
+    await economy.refreshAuthoritative();
+    saveManager.flushCritical();
+    return result;
+  };
+  hud.onCancelBlackMarketOrder = async (orderId) => {
+    if (!economy) throw new Error("online_gameplay_unavailable");
+    const expectedAccountVersion = await economy.prepareExternalMutation();
+    const result = await api.cancelBlackMarketOrder(orderId, crypto.randomUUID(), expectedAccountVersion);
+    await economy.refreshAuthoritative();
+    saveManager.flushCritical();
+    return result;
+  };
+  hud.onFulfillBlackMarketOrder = async (order, unitId) => {
+    if (!economy) throw new Error("online_gameplay_unavailable");
+    const expectedAccountVersion = await economy.prepareExternalMutation();
+    const result = await api.fulfillBlackMarketOrder(order.id, crypto.randomUUID(), expectedAccountVersion,
+      unitId ? economy.authoritativeUnitId(unitId) : undefined);
+    await economy.refreshAuthoritative();
+    saveManager.flushCritical();
+    return result;
+  };
   hud.refreshFriends = async () => {
     const list = await api.getFriends();
     state.friends = list.map(api.toFriend); // server list becomes the cache
@@ -2418,10 +2454,9 @@ async function main() {
     const cost = def.zombiePot ? (potBought ? 30 : 500) : def.cost;
     const useBrains = def.zombiePot ? potBought : def.brainsNeeded;
     const xp = buyXp(cost, def.xp); // buying always rewards XP (economy.ts)
-    // Server-owned object buy (online, non-Pot, priced): the server debits the cost +
-    // grants xp + records ownership so the object is later refundable. The Zombie Pot
-    // (dynamic 500/30 pricing) and free/promo objects stay on the local path.
-    const serverObject = !!economy && !def.zombiePot && cost > 0;
+    // Server-owned object buy: the server debits the exact price, records ownership,
+    // and persists the dynamic first/subsequent Zombie Pot pricing flag.
+    const serverObject = !!economy && cost > 0;
     if (serverObject) {
       const have = useBrains ? state.brains : state.gold;
       if (have < cost) return; // optimistic affordability; server re-checks
@@ -2432,11 +2467,18 @@ async function main() {
     }
     if (def.zombiePot) state.markZombiePotBought(); // next pot is 30 brains forever
     const placedId = field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
+    if (def.zombiePot && placedId) {
+      objectPurchases.set(placedId, { cost, currency: useBrains ? "brains" : "gold" });
+    }
     if (serverObject && placedId) {
       economy!.submitObject(
         { type: "buy", key: def.key, instanceId: placedId },
         useBrains ? { brains: -cost, xp } : { gold: -cost, xp }
       );
+      // Persist its layout immediately and promptly settle ownership so a reload
+      // cannot strand a newly placed functional object between the two projections.
+      saveManager.flushCritical();
+      void economy!.settleBeforeDependency().then(() => saveManager.flushCritical()).catch(() => {});
     }
     audio.play("place");
     if (def.armyMax) state.addZombieMax(def.armyMax); // functional effect
@@ -2475,21 +2517,22 @@ async function main() {
     if (!def || !o) return;
     audio.play("sell");
     if (def.armyMax) state.addZombieMax(-def.armyMax); // reverse functional effect
-    const refund = sellRefund(def);
-    // Server-owned object refund (online, non-Pot, priced): the server credits the
-    // refund only for an object it recorded you owning. The optimistic credit matches
-    // (both = floor(cost*0.2)), so it reconciles cleanly; a legacy object the server
-    // doesn't know is rejected and the optimistic credit is dropped.
-    const serverObject = !!economy && !def.zombiePot && def.cost > 0;
+    const purchase = objectPurchases.get(id);
+    const refund = purchase ? sellBack(purchase.cost) : sellRefund(def);
+    const refundBrains = purchase ? purchase.currency === "brains" : def.brainsNeeded;
+    // Server-owned object refunds use the recorded purchase currency/cost. A legacy
+    // object the server doesn't know is rejected and the optimistic credit is dropped.
+    const serverObject = !!economy && def.cost > 0;
     if (serverObject) {
-      economy!.submitObject({ type: "refund", key: def.key, instanceId: id }, def.brainsNeeded ? { brains: refund } : { gold: refund });
-    } else if (def.brainsNeeded) {
+      economy!.submitObject({ type: "refund", key: def.key, instanceId: id }, refundBrains ? { brains: refund } : { gold: refund });
+    } else if (refundBrains) {
       state.addBrains(refund);
     } else {
       state.addGold(refund);
     }
     const c = tileCenter(o.oc, o.or);
-    floatText(c.x, c.y, `+${refund}${def.brainsNeeded ? "b" : "g"}`);
+    objectPurchases.delete(id);
+    floatText(c.x, c.y, `+${refund}${refundBrains ? "b" : "g"}`);
   };
 
   // Store a placed object in the shed (returns it to inventory for free re-placing

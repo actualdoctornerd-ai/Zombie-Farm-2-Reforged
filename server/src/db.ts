@@ -2031,9 +2031,12 @@ export async function grantRosterFixture(
     stmts.push(db.prepare(
       "INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions) VALUES (?, ?, ?, ?, ?)"
     ).bind(accountId, g.unitId, g.key, g.mutation, g.invasions));
+    stmts.push(db.prepare(`INSERT OR IGNORE INTO roster_v3
+      (account_id,unit_id,zombie_key,mutation,invasions,stored,created_at)
+      VALUES(?,?,?,?,?,1,?)`).bind(accountId, g.unitId, g.key, g.mutation, g.invasions, Date.now()));
   }
   if (stmts.length) await db.batch(stmts);
-  const count = await db.prepare("SELECT COUNT(*) AS n FROM roster WHERE account_id = ?")
+  const count = await db.prepare("SELECT COUNT(*) AS n FROM roster_v3 WHERE account_id = ?")
     .bind(accountId).first<{ n: number }>();
   return count?.n ?? 0;
 }

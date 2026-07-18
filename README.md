@@ -14,6 +14,13 @@ codebase:
 The project blends original-game fidelity work (recovered mechanics, art, and
 combat numbers) with new "Reforged" additions (the online/social layer).
 
+## License
+
+The original source code and documentation in this repository are available
+under the [MIT License](LICENSE). The third-party game assets described under
+[Asset Provenance](#asset-provenance) are excluded and remain subject to their
+owners' rights.
+
 ## Status
 
 A broad playable prototype: farming, placed objects, storage, owned zombies,
@@ -66,7 +73,7 @@ future agents do not work from stale assumptions.
 - Army-selection boost frontend: a **Concentration** toggle (bypasses the focus minigame) and a **Golden Dice** stepper (raises loot tier), both inventory-aware, consumed at raid start.
 - Zombies that die in an invasion are permanently lost (culled from the roster + save).
 - All 11 invasions scale by player level through a full 7-stage difficulty ladder (McDonnell's authored ladder, extrapolated onto every other raid — one stage per invasion, not sequential waves; enemies emerge one at a time by design).
-- Side-view enemy actor art for all 11 raids: procedurally-animated rigs for 10 (idle/walk/attack-lunge) plus Video Games' real frame-atlas sprites. Ninja/Pirate/City rigs are decoded from the iOS binary (`tools/re/extract_stage_rigs.py`). Raid particle FX (impact dust, victory confetti, heal).
+- Side-view enemy actor art for all 11 raids: procedurally-animated rigs for 10 (idle/walk/attack-lunge) plus Video Games' real frame-atlas sprites. Ninja/Pirate/City rigs are decoded from the iOS binary (their bone layout ships in `public/assets/raids/enemies/models.json`; the atlases have no TexturePacker plist — see `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`). Raid particle FX (impact dust, victory confetti, heal).
 
 ### Online and social (Reforged)
 - **Google account authentication** — the hosted build gates the whole game behind Sign in with Google (`src/net/gate.ts`); an offline build (no config) has no lock.
@@ -94,10 +101,10 @@ jobs, audio, save manager, quests, quest bus, raids, and helper functions (e.g. 
 
 Qualifiers: *implemented*, *partially implemented*, *placeholder*, *disabled*, *missing*, *Reforged-only*, *fidelity approximation*.
 
-- **Raids (partially implemented / fidelity approximation):** the ladder, live combat, boosts, and permanent casualties ship, but combat still needs better side-view actors, status/focus polish, and per-raid balance tuning. Boss **summon/wall** specials are deferred (templates are built but not spawned), and ground-crossing **environmental hazards are disabled** (`RaidManager.hazardOf` returns `null`) pending better visual integration.
+- **Raids (partially implemented / fidelity approximation):** the ladder, live combat, boosts, and permanent casualties ship, but combat still needs better side-view actors, status/focus polish, and per-raid balance tuning. Boss **summon** reinforcements, the faithful **carrotWall/junkWall** blockers, and the Circus **trapeze carried-grab** are wired; only the ground-crossing crossing-obstacle hazards (Beach crab, Tree World turtle, Lawyers cars) stay **disabled** (`RaidManager.hazardOf` returns `null`) pending better visual integration.
 - **Market/upgrades (partially implemented):** Farm Size and ground/climate skins work; authored **TMX map loading is missing**.
 - **Quests (partially implemented):** the farm loop, raids/invasions, Zombie Pot, and every Epic Boss emit live events. Recovered Epic quest chains are selected for the active boss; some late bosses have incomplete or missing shipped quest data. Social, photo/camera, and seasonal quest classes remain dormant.
-- **Epic Bosses (eight recovered bosses):** Market â†’ Epic Boss offers Dr. Groundhog, Loco Locust, Bully Frog, Foul Owl, Skunkarella, Rocky Rhino, General Larvaelus, and Mystical Mamba as repeatable 14-day runs for 100 brains. All use 30-second manual-focus fights, permanent casualties, retained damage, crop-harvested fight tokens (or 10 brains per attempt), scaling brain/gold victory rewards, namespaced loot, pets, and deterministic online replay. The first five use exact authored combat strips; EPB 8-10 use static recovered art until their missing atlas metadata can be reconstructed. See `docs/EPIC_BOSS_MECHANICS.md`.
+- **Epic Bosses (eight recovered bosses):** Market → Epic Boss offers Dr. Groundhog, Loco Locust, Bully Frog, Foul Owl, Skunkarella, Rocky Rhino, General Larvaelus, and Mystical Mamba as repeatable 14-day runs for 100 brains. All use 30-second manual-focus fights, permanent casualties, retained damage, crop-harvested fight tokens (or 10 brains per attempt), scaling brain/gold victory rewards, namespaced loot, pets, and deterministic online replay. The first five use exact authored combat strips; EPB 8-10 use static recovered art until their missing atlas metadata can be reconstructed. See `docs/EPIC_BOSS_MECHANICS.md`.
 - **Settings toggles — Sprites & Edition (placeholder):** the **ZF2 Sprites** and **Reforged/Traditional** switches persist a preference (`src/prefs.ts`) but do nothing yet. Sprites needs a ZF1 art pack and a runtime swap keyed off `getSpriteSet()`; Traditional needs feature gates so the online/friends surfaces read `isReforged()` and hide when it is off.
 - **QoL/UI (missing):** Received item cards/reveal/use flow, save reset/export/import, and fuller settings/help menus are missing.
 - **Assets (partially wired):** raid particle FX are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage assets are extracted but not wired into runtime systems.

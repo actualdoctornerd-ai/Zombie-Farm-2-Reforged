@@ -421,15 +421,26 @@ function applyOne(
       if (!econ || econ.cost <= 0) return reject(sequence, "bad_item");
       if (state.objects.objects.length >= MAX_FUNCTIONAL_OBJECTS) return reject(sequence, "object_limit");
       if (level < econ.level) return reject(sequence, "locked");
-      const currency = econ.brains ? "brains" : "gold";
-      if (state.balance[currency] < econ.cost) return reject(sequence, "insufficient");
+      const isZombiePot = command.catalogKey === "zombieCombiner";
+      if (isZombiePot && state.objects.objects.filter((object) =>
+        object.catalogKey === "zombieCombiner" && object.status === "placed").length >= 3) {
+        return reject(sequence, "object_limit");
+      }
+      const cost = isZombiePot ? (state.zombiePotBought ? 30 : 500) : econ.cost;
+      const currency = isZombiePot
+        ? (state.zombiePotBought ? "brains" : "gold")
+        : (econ.brains ? "brains" : "gold");
+      if (state.balance[currency] < cost) return reject(sequence, "insufficient");
       const requested = command.clientInstanceId;
       const instanceId = requested && /^[A-Za-z0-9_-]{1,80}$/.test(requested) &&
         !state.objects.objects.some((o) => o.instanceId === requested) ? requested : options.id();
-      state.balance[currency] -= econ.cost;
-      state.balance.xp += objectBuyXp(econ.cost, econ.xp);
+      state.balance[currency] -= cost;
+      state.balance.xp += objectBuyXp(cost, econ.xp);
+      if (isZombiePot) state.zombiePotBought = true;
       const rule = objectRules.get(command.catalogKey);
-      state.objects.objects.push({ instanceId, catalogKey: command.catalogKey, status: "placed", ...(rule?.growMs ? { readyAt: options.now + rule.growMs } : {}) });
+      state.objects.objects.push({ instanceId, catalogKey: command.catalogKey, status: "placed",
+        ...(isZombiePot ? { purchaseCost: cost, purchaseCurrency: currency } : {}),
+        ...(rule?.growMs ? { readyAt: options.now + rule.growMs } : {}) });
       events.push({ type: "kItemBoughtNotification", subject: rule?.name ?? command.catalogKey });
       return { sequence, status: "applied", createdIds: [instanceId] };
     }
@@ -440,7 +451,8 @@ function applyOne(
       const econ = objectEcon(obj.catalogKey);
       if (!econ) return reject(sequence, "bad_item");
       state.objects.objects.splice(index, 1);
-      state.balance[econ.brains ? "brains" : "gold"] += objectRefund(econ.cost);
+      const currency = obj.purchaseCurrency ?? (econ.brains ? "brains" : "gold");
+      state.balance[currency] += objectRefund(obj.purchaseCost ?? econ.cost);
       return { sequence, status: "applied" };
     }
     case "object.upgrade": {
@@ -716,6 +728,7 @@ export function freshGameplayState(): MutableGameplayState {
     activePet: null,
     penPets: [],
     zombieMax: 16,
+    zombiePotBought: false,
     tutorialRewarded: false,
     raids: { progress: {}, lastRaidAt: 0 },
     epicBoss: null,

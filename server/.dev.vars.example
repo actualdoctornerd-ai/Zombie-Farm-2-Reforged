@@ -13,5 +13,8 @@ RAID_COOLDOWN_MS="60000"
 # defaults. Far-future locally so dev accounts can seed. Unset/0 = imports closed.
 MIGRATION_CUTOFF_MS="4102444800000"
 
+# Explicitly opt into cross-account trading in local development only.
+BLACK_MARKET_ENABLED="1"
+
 # Raid session TTL (ms). Default 30min; short here so tests can observe an expiry.
 RAID_SESSION_TTL_MS="8000"

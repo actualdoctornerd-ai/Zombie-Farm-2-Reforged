@@ -60,16 +60,16 @@ target: hitPoints -= max(0, damage − armor) × (1 − finalDamageReduction)   
 - Other branches (wall / special-attack, with `÷10` and `−20` terms) are separate and not fully
   transcribed.
 
-**⚠ Reimpl divergence (as of 2026-07-17 — NOT yet fixed):** `combatStats.ts deriveHitDamage`
-applies a FLAT `K=0.7` to BOTH sides, and `balance.ts` then multiplies enemy per-hit by
-`ENEMY_DAMAGE_MULT=2` and `CombatEngine` multiplies enemy cooldowns by `ENEMY_ATTACK_PACE=2`.
-Versus ground truth: (a) enemies should be band ×1.0, not ×0.7×2 = ×1.4 per hit; (b) enemy cadence
-should be 1/dex, not 2/dex; (c) player zombies should use the 1.0/0.85/0.7/0.55 depth band, not a
-flat ×0.7 — so the reimpl under-powers a strong front line by ~30% and over-bursts enemies while
-halving their swing rate. The two enemy fudges roughly cancel on average DPS (1.4× per hit ÷ 2×
-interval ≈ 0.7× real DPS) but make hits swingy/one-shotty, compounded by the un-implemented
-anti-one-shot 1-HP floor. These fudges were bolted on because the flat-0.7 model made even fights
-into blowouts — the real fix is the depth band + full-strength ×1.0 enemies at 1/dex.
+**✓ Reimpl status (2026-07-17, "Faithful combat + stats"):** the melee model is now faithful.
+`combatStats.ts deriveHitDamage` returns `finalPower × mult` with **no `K`**; player zombies apply
+the recovered **1.0/0.85/0.7/0.55 lineup-depth band** (`lineupDamageBand`, used in
+`CombatEngine.hitDamage` + `BattleSim`) and enemies always hit at **band ×1.0**. The old
+`ENEMY_DAMAGE_MULT=2` per-hit enemy inflation is **gone**, and the anti-one-shot 1-HP floor is now
+implemented (`BattleSim.ONE_SHOT_FLOOR`). The **only** remaining deliberate knob is
+`ENEMY_ATTACK_PACE=2` in `balance.ts`: the disassembled enemy clock is `1/dex`, but because the sim
+doesn't model attack-animation time, enemy cadence is kept at `2/dex` to match reference footage
+(a Pirate brute at dex 0.5 hitting ~every 4 s). Per-hit enemy damage is faithful (×1.0); only the
+tempo is fudged.
 
 **Still NOT recovered (the large stateful sim — decompiler territory):** the battle loop itself —
 target selection, melee-range/lineup/priority, attack scheduling/timing, boss-action scheduling,
@@ -78,7 +78,8 @@ behavior; matching real raid *outcomes* needs the sim reversed (Ghidra), not thi
 
 **Reimpl status:** the faithful INPUTS are now wired into `CombatEngine` via
 `combatStats.ts` (`deriveMaxHp` = con×100, `deriveAttackIntervalMs` = 2000/dex zombie ÷
-1000/dex enemy, `deriveHitDamage` = finalPower(str×10) × mult × K=0.7). Regression-tested.
+1000/dex enemy, `deriveHitDamage` = finalPower(str×10) × mult, then the player lineup-depth band
+(1.0/0.85/0.7/0.55) at hit time, enemies at band 1.0). Regression-tested.
 
 **Engagement model (fixed):** `resolveRaid` now brings enemies out **one at a time** (matching
 the live scene) — only the front enemy attacks and is targeted; the player's whole army
@@ -99,8 +100,9 @@ Resolve" button, the Start-button instant fallback, and the `onStartRaid` hook a
 so the earlier "quick-resolve is more player-favorable" divergence no longer affects gameplay.
 
 **BattleSim damage corrected:** the live sim reused the OLD melee model (`str × mult`) while its
-HP came from the CombatUnit (`con × 100`) — an HP-inflated, ~10× too-slow fight. It now uses the
-ground-truth `deriveHitDamage(str×10, mult) × 0.7`, matching `resolveRaid`. Boss throw / special /
+HP came from the CombatUnit (`con × 100`) — an HP-inflated, ~10× too-slow fight. It was first moved
+to `deriveHitDamage(str×10, mult) × 0.7` (matching `resolveRaid`); the flat `× 0.7` was then
+replaced by the faithful lineup-depth band (players 1.0/0.85/0.7/0.55, enemies ×1.0). Boss throw / special /
 hazard chip damage (heuristic, no source value) was scaled ×7 to stay proportional to the
 corrected melee/HP scale (`PROJ_DMG_SCALE`/`SPECIAL_DMG_SCALE` 0.25→1.75, `HAZARD_DAMAGE` 4→28).
 Verified headlessly: a 5v5 even fight resolves in ~38 s (player wins 4/5) instead of stalling.
@@ -344,10 +346,13 @@ currency + unlock popup) is structurally correct; don't hard-code magnitudes fro
   (`combatStats.ts levelScaleStat` + wired into `CombatEngine.buildPlayerUnits`, fed `playerLevel`
   from `RaidManager`). Regression-tested.
 - **Stat→fight-data conversion (power=str×10, HP=con×100, interval=2/dex zombie · 1/dex enemy)
-  + per-swing damage (finalPower × mult × 0.7)** — DONE (`combatStats.ts deriveMaxHp /
-  deriveAttackIntervalMs / deriveHitDamage`, wired into `CombatEngine.unit()` + `hitDamage()`).
+  + per-swing damage (finalPower × mult, then the player lineup-depth band 1.0/0.85/0.7/0.55;
+  enemies ×1.0)** — DONE (`combatStats.ts deriveMaxHp / deriveAttackIntervalMs / deriveHitDamage /
+  lineupDamageBand`, wired into `CombatEngine.unit()` + `hitDamage()`).
   Faithful inputs; sim loop still approximate. Regression-tested.
 - **All of the above locked in by `npm test`** (Vitest, `src/**/*.test.ts`).
+- **Anti-one-shot 1-HP floor** — IMPLEMENTED as an inferred heuristic (`BattleSim.ONE_SHOT_FLOOR`);
+  the exact in-binary state-bit (`0x10`) semantics stay inferred, so verify against play.
 - **Deferred / partial:** drop-rarity tier labels + which ladder is the Golden-Dice bonus set,
-  the `ivar_0x1ec` gold divisor, level-up currency magnitudes, and the anti-one-shot 1-HP flag —
+  the `ivar_0x1ec` gold divisor, and level-up currency magnitudes —
   left as-is pending a decompiler / in-game verification.

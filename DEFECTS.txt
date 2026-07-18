@@ -10,7 +10,8 @@ Raid difficulty needs to be tuned
 Clipping between characters and crop sprites
 
 Missing Features
-- Raid Hazards (trapeze, turnip wall)
+- Ground-crossing obstacle hazards (Beach crab, Tree World turtle, Lawyers cars) still disabled
+  (RaidManager.hazardOf returns null). Trapeze grab + carrot/junk walls are now implemented.
 
 Future Features
 - Trading

@@ -16,10 +16,13 @@ usable by the v3 application.
    `/presentation`, and both raid mutation routes reject writes.
 2. Disable or hide sign-in at the client edge so a user cannot create an account while
    the database is being replaced.
-3. Apply the pending migrations through `server/migrations/0024_epic_boss_tokens.sql`
+3. Apply the pending migrations through `server/migrations/0025_writer_lease.sql`
    to the production D1 database. `0020_protocol_v3_reset.sql` is intentionally
    repeatable and recreates the protocol-v3 baseline; `0021` adds Epic Boss runs and
-   sessions, while `0024` adds run-scoped fight tokens. Confirm Wrangler reports no pending
+   sessions, `0024` adds run-scoped fight tokens, and `0025` adds the authenticated
+   writer-lease columns (`writer_session_id` / `writer_token_hash` / `writer_last_activity_at`
+   / `active_batch_expires_at`) and clears prior unauthenticated writer ids so the first
+   upgraded client must re-acquire control. Confirm Wrangler reports no pending
    migrations afterward.
 4. Rotate `SESSION_SECRET` with `wrangler secret put SESSION_SECRET`. Never reuse the
    historical value. This invalidates any token copied before the database reset even if

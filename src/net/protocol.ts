@@ -91,6 +91,8 @@ export interface FunctionalObjectProjection {
   catalogKey: string;
   status: "placed" | "stored";
   readyAt?: number;
+  purchaseCost?: number;
+  purchaseCurrency?: "gold" | "brains";
 }
 
 export interface ObjectDocumentProjection {
@@ -145,6 +147,8 @@ export interface GameplayProjection {
   activePet: string | null;
   penPets: string[];
   zombieMax: number;
+  /** Permanent dynamic-pricing flag: first Zombie Pot is gold, later Pots are brains. */
+  zombiePotBought?: boolean;
   tutorialRewarded: boolean;
   raids: { progress: Record<string, number>; lastRaidAt: number };
   raidRevival?: {
@@ -213,4 +217,41 @@ export interface PresentationRequest {
   protocolVersion: typeof GAMEPLAY_PROTOCOL;
   expectedVersion: number;
   data: Record<string, unknown>;
+}
+
+export type BlackMarketOrderKind = "BUY_ZOMBIE" | "SELL_ZOMBIE";
+export type BlackMarketOrderStatus = "OPEN" | "FULFILLED" | "CANCELLED";
+
+export interface BlackMarketOrderView {
+  id: string;
+  kind: BlackMarketOrderKind;
+  zombieKey: string;
+  mutated: boolean;
+  mutation?: number;
+  invasions?: number;
+  priceBrains: number;
+  status: BlackMarketOrderStatus;
+  createdAt: number;
+  creatorName: string;
+  mine: boolean;
+}
+
+export interface BlackMarketSummary {
+  activePosts: number;
+  postsToday: number;
+  activeLimit: 2;
+  dailyLimit: 10;
+  serverTime: number;
+}
+
+export interface BlackMarketListResponse {
+  orders: BlackMarketOrderView[];
+  nextCursor: string | null;
+  summary: BlackMarketSummary;
+}
+
+export interface BlackMarketMutationResponse {
+  ok: true;
+  order: BlackMarketOrderView;
+  summary: BlackMarketSummary;
 }

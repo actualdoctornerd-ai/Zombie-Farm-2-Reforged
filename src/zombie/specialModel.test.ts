@@ -77,4 +77,33 @@ describe("named special-zombie model assembly", () => {
     }, (file) => `special:${file}`);
     expect(withFace.parts.find((part) => part.file === "defaultEyeL")).toMatchObject({ px: -16, py: -57 });
   });
+
+  it.each(["ZombieActorZombug", "ZombieActorZwampThing"])(
+    "does not layer the default face over %s's complete authored face",
+    (key) => {
+      const faceBase: ZombieModel = {
+        ...base,
+        parts: [
+          ...base.parts,
+          { file: "defaultEyeL", group: "head", px: -19, py: -49, ax: 0.5, ay: 0.5, z: 5, tint: true },
+          { file: "defaultEyeR", group: "head", px: 2, py: -50, ax: 0.5, ay: 0.5, z: 5, tint: true },
+          { file: "defaultUpperTeeth", group: "head", px: -7, py: -33, ax: 0.5, ay: 0.5, z: 5, tint: true },
+          { file: "defaultScar", group: "head", px: 13, py: -59, ax: 0.5, ay: 0.5, z: 5, tint: true },
+          { file: "defaultLowerTeeth", group: "head", px: -9, py: -30, ax: 0.5, ay: 0.5, z: 7, tint: true },
+        ],
+      };
+      const model = mergeSpecialZombieModel(faceBase, { ...skittles, key }, {
+        name: key,
+        neck: { x: 7, y: -43 },
+        parts: [
+          { file: "Head.png", group: "head", px: 7, py: -43, ax: 0.5, ay: 0.5, z: 4 },
+          { file: "Jaw.png", group: "head", px: 7, py: -42, ax: 0.5, ay: 0.5, z: 6 },
+        ],
+      }, (file) => `special:${file}`);
+
+      expect(model.parts.map((part) => part.file)).toEqual([
+        "defaultArmB", "defaultBody", "special:Head.png", "special:Jaw.png", "defaultArmF",
+      ]);
+    },
+  );
 });
