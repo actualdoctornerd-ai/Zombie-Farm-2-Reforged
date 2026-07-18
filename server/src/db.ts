@@ -17,6 +17,7 @@ import { planClaim, planStore, planRetrieve, type StorageAction } from "./storag
 import { SHED_SLOTS, BASE_SHED_SLOTS } from "./objectCatalog";
 import { raidLoot, dropEcon, MAX_SEED_ITEMS } from "./raidLootCatalog";
 import { rollLoot, resolveLoot, type LootGrant } from "./loot";
+import { rollBrainDrop } from "../../src/raid/brainDrops";
 import { planBuy, planUse, planGiftRedeem, type InventoryAction } from "./inventory";
 import { zombieSell, fertilizeProbability, isKnownZombie, MAX_MUTATION } from "./rosterCatalog";
 import { validateUnit, type RosterAction } from "./roster";
@@ -3166,19 +3167,8 @@ export async function grantVerifiedRaidBrains(
   rngSeed: string,
   now: number
 ): Promise<number> {
-  const frac = Math.max(0, Math.min(1, recommendedLevel / 20));
-  const tiers = [
-    { amount: 50, chance: 0.005 + (0.01 - 0.005) * frac },
-    { amount: 30, chance: 0.01 + (0.02 - 0.01) * frac },
-    { amount: 10, chance: 0.025 + (0.05 - 0.025) * frac },
-  ];
-  let amount = 0;
-  for (let i = 0; i < tiers.length; i++) {
-    if (seededUnit(rngSeed, i + 17) < tiers[i].chance) {
-      amount = tiers[i].amount;
-      break;
-    }
-  }
+  let salt = 17;
+  const amount = rollBrainDrop(recommendedLevel, () => seededUnit(rngSeed, salt++));
   if (!amount) return 0;
   const token = crypto.randomUUID();
   const kind = "raid_brain_drop";

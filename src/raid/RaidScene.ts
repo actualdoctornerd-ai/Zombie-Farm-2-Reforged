@@ -44,6 +44,8 @@ export interface RaidSceneParams {
   grabber?: GrabberConfig | null;
   /** Concentration boost spent — skip the focus-bubble minigame this fight. */
   concentration?: boolean;
+  /** Precommitted 10/30/50 brain award. Each visible brain represents a stack of 5. */
+  brainDrop?: number;
   roundMs?: number;
   escapeOnRoundEnd?: boolean;
   noDistractions?: boolean;
@@ -174,6 +176,7 @@ const enemyStripUrl = (key: string) => `${BASE}assets/raids/enemies/parts/${key}
 // charging zombie. Butterfly = distracted; brain = fully focused / ready.
 const BUBBLE_BUTTERFLY = BASE + "assets/ui/thoughtBubbleButterfly.png";
 const BUBBLE_BRAIN = BASE + "assets/ui/thoughtBubbleBrains.png";
+const DROP_BRAIN = BASE + "assets/ui/topbar_brain_icon.png";
 const BUBBLE_SCALE = 0.91; // the source art is 64x62 (1.3 enlarged, then scaled ~30% down)
 const BUBBLE_DX = 74; // shift the (mirrored) bubble right of the charging zombie (~one bubble width: 16 + 64*0.91)
 
@@ -278,6 +281,13 @@ export class RaidScene {
   private dotTex: Texture | null = null; // round placeholder for sprite-less hazards
   private fxLayer = new Container(); // transient effects (death poofs) above the field
   private fx: { g: Graphics; t: number; life: number; color: number }[] = [];
+  private brainLayer = new Container();
+  private brainTex: Texture | null = null;
+  private brainDrop = 0;
+  private brainDropFired = false;
+  private brainSprites: {
+    root: Container; t: number; delay: number; startX: number; startY: number; endX: number; endY: number;
+  }[] = [];
   private particles = new ParticleField(); // melee-impact dust + victory confetti
   // Foreground letterbox matte: battlefield art stays inside the stage image even
   // while units/projectiles are entering from beyond its left and right edges.
@@ -346,6 +356,7 @@ export class RaidScene {
     this.bossGroundOffset = params.bossGroundOffset ?? { x: 0, y: 0 };
     this.bossFallsFromSky = !!params.bossFallsFromSky;
     this.confirmRetreat = params.confirmRetreat ?? (() => Promise.resolve(true));
+    this.brainDrop = Math.max(0, Math.floor(params.brainDrop ?? 0));
     this.sim = new BattleSim(
       params.playerUnits,
       params.enemyUnits,
@@ -463,6 +474,7 @@ export class RaidScene {
     this.container.addChild(this.projLayer);
     this.container.addChild(this.fxLayer); // death poofs draw above everything
     this.container.addChild(this.particles.container); // impact dust / confetti on top
+    this.container.addChild(this.brainLayer); // boss loot arcs above combat particles
     this.container.addChild(this.sideBarMatte); // side bars occlude all battlefield layers
     [this.bashCfg, this.confettiCfg, this.smokeCfg, this.healCfg] = await Promise.all([
       loadParticle("bash"),
@@ -499,9 +511,10 @@ export class RaidScene {
     this.fillFaceBadge(this.pFace, zFace, 0x8bc34a);
     this.fillFaceBadge(this.eFace, eFace, 0xef5350);
     await this.buildAbilityStrip();
-    [this.bubbleTexButterfly, this.bubbleTexBrain] = await Promise.all([
+    [this.bubbleTexButterfly, this.bubbleTexBrain, this.brainTex] = await Promise.all([
       loadTex(BUBBLE_BUTTERFLY),
       loadTex(BUBBLE_BRAIN),
+      loadTex(DROP_BRAIN),
     ]);
     this.buildBubble();
     this.layout();
@@ -1445,6 +1458,60 @@ export class RaidScene {
     }
   }
 
+  /** Yeet one visible brain per five awarded brains from the defeated boss into
+   * midfield. The +5 badge makes the stack value explicit while keeping a 50-brain
+   * jackpot to ten readable sprites rather than fifty tiny particles. */
+  private spawnBrainDrop() {
+    if (this.brainDropFired || !this.brainDrop || !this.brainTex) return;
+    const boss = this.sim.units.find((unit) => unit.isBoss);
+    const token = boss ? this.tokens.get(boss.id) : null;
+    if (!boss || !token) return;
+    this.brainDropFired = true;
+    const count = Math.floor(this.brainDrop / 5);
+    const targetX = this.mapX(FIELD_W * 0.52);
+    const targetY = this.mapY(CENTER_Y) - 12 * this.sizeScale();
+    for (let i = 0; i < count; i++) {
+      const root = new Container();
+      const icon = new Sprite(this.brainTex);
+      icon.anchor.set(0.5);
+      icon.width = icon.height = 30 * this.sizeScale();
+      const badge = new Text({ text: "+5", style: { fill: 0xffffff, fontSize: 12, fontWeight: "bold", stroke: { color: 0x35134a, width: 3 } } });
+      badge.anchor.set(0.5, 0);
+      badge.position.set(0, 13 * this.sizeScale());
+      root.addChild(icon, badge);
+      root.position.copyFrom(token.root.position);
+      this.brainLayer.addChild(root);
+      const lane = i - (count - 1) / 2;
+      this.brainSprites.push({
+        root,
+        t: 0,
+        delay: i * 0.055,
+        startX: token.root.x,
+        startY: token.root.y + token.topY * 0.45,
+        endX: targetX + lane * 25 * this.sizeScale(),
+        endY: targetY + (Math.abs(i * 37) % 3) * 7 * this.sizeScale(),
+      });
+    }
+  }
+
+  private stepBrainDrops(dtSec: number) {
+    const flight = 0.82;
+    for (const brain of this.brainSprites) {
+      brain.t += dtSec;
+      const raw = brain.t - brain.delay;
+      if (raw < 0) { brain.root.visible = false; continue; }
+      brain.root.visible = true;
+      const k = Math.min(1, raw / flight);
+      brain.root.x = brain.startX + (brain.endX - brain.startX) * k;
+      brain.root.y = brain.startY + (brain.endY - brain.startY) * k - Math.sin(Math.PI * k) * 115 * this.sizeScale();
+      brain.root.rotation = k < 1 ? k * Math.PI * 3 : 0;
+      const age = raw - flight - 0.75;
+      brain.root.alpha = age > 0 ? Math.max(0, 1 - age / 0.45) : 1;
+    }
+    for (const brain of this.brainSprites.filter((entry) => entry.root.alpha <= 0)) brain.root.destroy({ children: true });
+    this.brainSprites = this.brainSprites.filter((entry) => !entry.root.destroyed);
+  }
+
   /** A round white texture (tinted at use) for hazards that ship no projectile art. */
   private hazardDotTex(): Texture {
     if (!this.dotTex) {
@@ -1516,6 +1583,7 @@ export class RaidScene {
     this.phaseT += dtMs;
     for (const t of this.tokens.values()) t.pulse = Math.max(0, t.pulse - dtSec * 6);
     this.stepFx(dtSec);
+    this.stepBrainDrops(dtSec);
     this.particles.update(dtSec);
 
     // Retreat is handled here (not in the tap handler) so nothing runs mid
@@ -1592,6 +1660,7 @@ export class RaidScene {
           const r = this.bgRect();
           this.particles.burst(this.confettiCfg, r.left + r.w / 2, r.top + r.h * 0.12, 1.4, true);
         }
+        if (this.sim.finished && this.sim.playerWon) this.spawnBrainDrop();
         if (this.sim.finished && this.phaseT >= END_PAUSE_MS) {
           this.setPhase(this.sim.playerWon ? "outro" : "defeat");
         } else if (!this.sim.finished) {

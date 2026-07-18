@@ -33,17 +33,63 @@ const quest = (): QuestDef => ({
 });
 
 describe("QuestSystem client-paced progress", () => {
-  it("ignores optimistic gameplay notifications in authoritative mode", () => {
+  it("displays optimistic progress without making it durable", () => {
+    const bus = new QuestBus();
+    const grantReward = vi.fn();
+    const system = new QuestSystem(new Map([["1", quest()]]), new GameState(), bus, {
+      authoritative: true,
+      grantReward,
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed: vi.fn(), render: vi.fn(),
+    });
+    system.restore();
+    bus.post(QuestEvent.SoilPlowed);
+    expect(system.views()[0].objectives[0].count).toBe(1);
+    expect(system.serialize().active[0].counts[0]).toBe(0);
+    expect(grantReward).not.toHaveBeenCalled();
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [1], completed: false }]);
+    expect(system.views()[0].objectives[0].count).toBe(1);
+  });
+
+  it("requests prompt server confirmation when local events predict completion", () => {
+    const bus = new QuestBus();
+    const requestAuthoritativeCompletionCheck = vi.fn();
+    const completed = vi.fn();
+    const system = new QuestSystem(new Map([["1", quest()]]), new GameState(), bus, {
+      authoritative: true,
+      requestAuthoritativeCompletionCheck,
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed, render: vi.fn(),
+    });
+    system.restoreAuthoritative({ completed: [], progress: [{ questId: "1", counts: [0] }] });
+
+    bus.post(QuestEvent.SoilPlowed);
+    expect(requestAuthoritativeCompletionCheck).not.toHaveBeenCalled();
+    expect(system.views()[0].objectives[0].count).toBe(1);
+
+    bus.post(QuestEvent.SoilPlowed);
+    bus.post(QuestEvent.SoilPlowed);
+    expect(requestAuthoritativeCompletionCheck).toHaveBeenCalledTimes(1);
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(system.views()[0].objectives[0].count).toBe(2);
+    expect(system.completedCount).toBe(0);
+
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [2], completed: true }]);
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(system.completedCount).toBe(1);
+  });
+
+  it("rolls optimistic progress back to the authoritative projection", () => {
     const bus = new QuestBus();
     const system = new QuestSystem(new Map([["1", quest()]]), new GameState(), bus, {
       authoritative: true,
       grantItem: vi.fn(), grantZombie: vi.fn(), completed: vi.fn(), render: vi.fn(),
     });
-    system.restore();
+    system.restoreAuthoritative({ completed: [], progress: [{ questId: "1", counts: [0] }] });
+
     bus.post(QuestEvent.SoilPlowed);
-    expect(system.views()[0].objectives[0].count).toBe(0);
-    system.applyAuthoritativeChanges([{ questId: "1", counts: [1], completed: false }]);
     expect(system.views()[0].objectives[0].count).toBe(1);
+
+    system.restoreAuthoritative({ completed: [], progress: [{ questId: "1", counts: [0] }] });
+    expect(system.views()[0].objectives[0].count).toBe(0);
   });
 
   it("updates immediately and submits completion once", () => {

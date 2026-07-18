@@ -32,18 +32,8 @@ import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
 import { rollLootTier } from "./LootTable";
+import { rollBrainDrop } from "./brainDrops";
 
-// Brain drop table (gameplayParameters `brainDropRateInvasion`, recovered from
-// buildStandardBossLootTable): a win can drop 10/30/50 brains at rising rarity. The
-// chance scales with the raid's level from the LOWER limit up to the UPPER limit,
-// reaching the upper ("optimal") chances at recommendedLevel >= 20. Rarest first, so
-// a win yields at most one brain drop.
-const BRAIN_DROP_TABLE = [
-  { amount: 10, lower: 0.025, upper: 0.05 },
-  { amount: 30, lower: 0.01, upper: 0.02 },
-  { amount: 50, lower: 0.005, upper: 0.01 },
-];
-const BRAIN_OPTIMAL_LEVEL = 20; // gameplayParameters `epicBossLootLevelWithOptimalChances`
 /** Contact damage an environmental obstacle deals (source carries no value; a tuned
  *  chip value kept proportional to the ground-truth melee/HP scale — see BattleSim). */
 const HAZARD_DAMAGE = 28;
@@ -153,6 +143,9 @@ export interface RaidLaunchOpts {
    *  to the session. Its loot roll uses this, so the client must adopt it rather than
    *  spend its own (it may be fewer than `dice` asked for, if the stock ran short). */
   serverDice?: number;
+  /** ONLINE: server-pinned brain award, revealed at start for the boss-death visual
+   * but credited only after the deterministic replay verifies the win. */
+  serverBrainDrop?: number;
 }
 
 /** A committed raid ready to be played out (by the live scene or the instant
@@ -179,6 +172,8 @@ export interface RaidSetup {
   dice: number;
   /** Concentration boost spent — the live scene skips the focus-bubble minigame. */
   concentration: boolean;
+  /** Pre-rolled award used by both the boss-death visual and final settlement. */
+  brainDrop: number;
 }
 
 export class RaidManager {
@@ -359,6 +354,12 @@ export class RaidManager {
     this.state.raidAttackOrder = party.map((z) => z.id);
 
     const enemyUnits = buildEnemyUnits(stage, this.assets.enemyStats, this.assets.raidAttacks);
+    const hasBoss = enemyUnits.some((unit) => unit.isBoss);
+    const brainDrop = hasBoss
+      ? opts.serverAuthorized
+        ? Math.max(0, Math.floor(opts.serverBrainDrop ?? 0))
+        : rollBrainDrop(raid.recommendedLevel)
+      : 0;
     return {
       raid,
       party,
@@ -381,6 +382,7 @@ export class RaidManager {
       ...this.summonWallTemplatesOf(stage, enemyUnits),
       dice,
       concentration,
+      brainDrop,
     };
   }
 
@@ -549,7 +551,8 @@ export class RaidManager {
     party: OwnedZombie[],
     outcome: RaidOutcome,
     dice = 0,
-    serverRewards = false
+    serverRewards = false,
+    brainDrop = 0
   ): RaidResultView {
     // Veterancy is earned by SURVIVING a battle — credit only the units still
     // standing (drives rank-up). A unit knocked out mid-fight, even in a win, gets
@@ -614,13 +617,9 @@ export class RaidManager {
           else this.state.receiveItem(drop);
           loot.push({ name: drop, icon: this.lootIcon(drop) });
         }
-        // Brains drop occasionally, IN ADDITION to loot (source brain-drop table).
-        // ONLINE this is DEFERRED, not omitted: `win` is still client-asserted, and since
-        // buying a ticket to raid again is intended play there's no bound on raid count —
-        // so a server-rolled brain drop would make premium currency unlimited. It returns
-        // when a win is verifiable (deterministic replay). Offline it can't be farmed for
-        // anything a server would honour, so it stays faithful here.
-        brains = this.rollBrainDrop(raid);
+        // Brains drop in addition to loot. Offline credit is local; online credit is
+        // applied by the server only after deterministic replay verifies the boss win.
+        brains = brainDrop;
         if (brains > 0) this.state.addBrains(brains);
       }
       // Beating a tier boss unlocks ONE still-locked ability of that tier (the next
@@ -650,19 +649,6 @@ export class RaidManager {
       abilityUnlock,
       serverReward,
     };
-  }
-
-  /** Roll the source brain-drop table for a win. Chance rises with the raid's level
-   *  toward the optimal (upper-limit) chances at level 20+. Rarest amount first, so a
-   *  win awards at most one drop (0 = none). */
-  private rollBrainDrop(raid: RaidDef): number {
-    const frac = Math.max(0, Math.min(1, raid.recommendedLevel / BRAIN_OPTIMAL_LEVEL));
-    for (let i = BRAIN_DROP_TABLE.length - 1; i >= 0; i--) {
-      const t = BRAIN_DROP_TABLE[i];
-      const chance = t.lower + (t.upper - t.lower) * frac;
-      if (Math.random() < chance) return t.amount;
-    }
-    return 0;
   }
 
   /** Roll a single item drop for a win (source `rollForDrop:` + `lootTableFromCategory:`).
@@ -722,6 +708,6 @@ export class RaidManager {
     const setup = this.beginRaid(raidId, partyIds, opts);
     if (!setup) return null;
     const outcome = resolveRaid(setup.playerUnits, setup.enemyUnits);
-    return this.finishRaid(setup.raid, setup.party, outcome, setup.dice);
+    return this.finishRaid(setup.raid, setup.party, outcome, setup.dice, false, setup.brainDrop);
   }
 }

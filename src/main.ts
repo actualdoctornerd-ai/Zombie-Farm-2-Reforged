@@ -644,6 +644,12 @@ async function main() {
       },
       grantZombie: (key) => { zombies.grantReward(key, walk.tile.col, walk.tile.row); },
       completed: (def) => celebrateQuest(def),
+      requestAuthoritativeCompletionCheck: () => {
+        // Some effects post their quest notification just before enqueueing their
+        // semantic command. The microtask lets that stack finish, then drains both
+        // pending and in-flight command lanes without treating the preview as truth.
+        queueMicrotask(() => { void economy?.settleBeforeDependency().catch(() => {}); });
+      },
       render: (views) => hud.setQuests(views),
     }
   );
@@ -2159,7 +2165,13 @@ async function main() {
         );
         if (gate.inventory) economy?.adoptRaidStartInventory(gate.inventory);
         if (gate.lastRaidAt != null) state.syncRaidCooldown(gate.lastRaidAt);
-        opts = { ...opts, serverAuthorized: true, bypassed: !!gate.bypassed, serverDice: gate.dice ?? 0 };
+        opts = {
+          ...opts,
+          serverAuthorized: true,
+          bypassed: !!gate.bypassed,
+          serverDice: gate.dice ?? 0,
+          serverBrainDrop: gate.brainDrop ?? 0,
+        };
       } catch (error) {
         if (error instanceof api.ApiError) {
           const body = (error.body ?? {}) as { cooldownRemaining?: number; unlockLevel?: number };
@@ -2191,6 +2203,7 @@ async function main() {
       hazard: setup.hazard,
       summonTemplate: setup.summonTemplate,
       wallTemplate: setup.wallTemplate,
+      brainDrop: setup.brainDrop,
       concentration: setup.concentration,
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from invasion?", "This invasion will count as a loss.", "Retreat"
@@ -2203,7 +2216,7 @@ async function main() {
         // That call also starts the server-owned cooldown and returns the authoritative
         // balance + lastRaidAt + the rolled drop, which the client reconciles.
         const online = auth.isSignedIn() && !!raidSessionId && !!economy;
-        const view = raids.finishRaid(setup.raid, setup.party, outcome, setup.dice, online);
+        const view = raids.finishRaid(setup.raid, setup.party, outcome, setup.dice, online, setup.brainDrop);
         const casualtyParty = setup.party.filter((zombie) => outcome.losses.includes(zombie.id));
         let settlementPromise: Promise<api.RaidFinishResult> | null = null;
         if (online) {
@@ -2217,6 +2230,7 @@ async function main() {
             if (res.outcome) zombies.applyServerRaidOutcome(res.outcome.survivors, res.outcome.losses);
             const drops = res.loot ? [{ name: res.loot.name, icon: raids.lootIconFor(res.loot.name) }] : [];
             hud.setRaidResultLoot(drops, res.gold);
+            hud.setRaidResultBrains(res.brains ?? 0);
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
           settlementPromise = economy!.submitRaid(sid, finalTick, inputs, outcome, {

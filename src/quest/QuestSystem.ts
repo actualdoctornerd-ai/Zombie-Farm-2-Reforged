@@ -39,8 +39,8 @@ const LIVE_EVENTS = new Set<string>([
 // the quest log — the display limit is a HUD concern, not an activation cap.
 
 export interface QuestHooks {
-  /** Online mode: local notifications are presentation-only; server command events
-   * are the sole source of progress and rewards. */
+  /** Online mode: local notifications update an optimistic presentation layer;
+   * server command events remain the sole durable source of progress and rewards. */
   authoritative?: boolean;
   /** Claim a completed quest's reward EXTERNALLY (online: the server grants the
    *  currency authoritatively + any level-up it triggers). Return true if handled —
@@ -53,9 +53,13 @@ export interface QuestHooks {
   grantItem: (key: string) => void;
   /** Grant a reward zombie unit (rewardType 5). */
   grantZombie: (key: string) => void;
-  /** A quest just completed (reward already dispatched): celebrate it with the
-   *  completion popup. main owns the icon/label lookups off the def. */
+  /** Celebrate a displayed completion. Offline rewards have already been dispatched;
+   * online presentation is optimistic and the server grants the durable reward. */
   completed: (def: QuestDef) => void;
+  /** Online mode: a local event predicts that an objective may now be complete.
+   * Flush the authoritative command lane promptly so its optimistic celebration is
+   * confirmed (or rolled back) without waiting for the normal batch window. */
+  requestAuthoritativeCompletionCheck?: () => void;
   /** Push the current active-quest views to the HUD rail. */
   render: (views: QuestView[]) => void;
 }
@@ -65,6 +69,9 @@ export class QuestSystem {
   private completed = new Set<string>();
   private epicBossActive = false;
   private epicBossQuestIds = new Set<string>();
+  private authoritativePreview = new Map<string, number[]>();
+  private optimisticallyCelebrated = new Set<string>();
+  private authoritativeCompletionRequested = new Set<string>();
 
   constructor(
     private defs: Map<string, QuestDef>,
@@ -109,7 +116,12 @@ export class QuestSystem {
   }
 
   private onEvent(nid: string, object: string, n: number) {
-    if (this.hooks.authoritative) return;
+    if (this.hooks.authoritative) {
+      const { advanced, completed } = this.previewAuthoritativeEvent(nid, object, n);
+      if (advanced) this.hooks.render(this.views());
+      if (completed) this.hooks.requestAuthoritativeCompletionCheck?.();
+      return;
+    }
     let dirty = false;
     const finished: string[] = [];
     for (const [id, counts] of this.active) {
@@ -182,6 +194,9 @@ export class QuestSystem {
       const def = this.defs.get(id);
       if (!def) continue;
       if (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id))) continue;
+      const displayCounts = this.hooks.authoritative
+        ? this.authoritativePreview.get(id) ?? counts
+        : counts;
       out.push({
         id,
         title: def.title,
@@ -189,9 +204,9 @@ export class QuestSystem {
         tip: def.tip,
         objectives: def.requirements.map((r, i) => ({
           text: r.text,
-          count: counts[i],
+          count: displayCounts[i],
           total: r.countTotal,
-          done: counts[i] >= r.countTotal,
+          done: displayCounts[i] >= r.countTotal,
         })),
       });
     }
@@ -204,6 +219,50 @@ export class QuestSystem {
 
   get completedCount(): number {
     return this.completed.size;
+  }
+
+  /** Apply unconfirmed events to display state only. The authoritative maps and
+   * serialized save remain untouched until the server accepts the command. */
+  private previewAuthoritativeEvent(
+    nid: string,
+    object: string,
+    n: number
+  ): { advanced: boolean; completed: boolean } {
+    let anyAdvanced = false;
+    let anyCompleted = false;
+    for (const [id, authoritativeCounts] of this.active) {
+      const def = this.defs.get(id);
+      if (!def) continue;
+      if (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id))) continue;
+      const counts = this.authoritativePreview.get(id) ?? authoritativeCounts.slice();
+      let advanced = false;
+      def.requirements.forEach((requirement, index) => {
+        if (counts[index] >= requirement.countTotal || requirement.notificationID !== nid) return;
+        if (requirement.notificationObject &&
+            requirement.notificationObject.toLowerCase() !== object.toLowerCase()) return;
+        counts[index] = Math.min(requirement.countTotal, counts[index] + n);
+        advanced = true;
+      });
+      if (!advanced) continue;
+      anyAdvanced = true;
+      this.authoritativePreview.set(id, counts);
+      if (def.requirements.every((requirement, index) => counts[index] >= requirement.countTotal) &&
+          !this.optimisticallyCelebrated.has(id)) {
+        this.optimisticallyCelebrated.add(id);
+        this.hooks.completed(def);
+      }
+      if (this.optimisticallyCelebrated.has(id) && !this.authoritativeCompletionRequested.has(id)) {
+        this.authoritativeCompletionRequested.add(id);
+        anyCompleted = true;
+      }
+    }
+    return { advanced: anyAdvanced, completed: anyCompleted };
+  }
+
+  private resetAuthoritativePreview(): void {
+    this.authoritativePreview.clear();
+    this.optimisticallyCelebrated.clear();
+    this.authoritativeCompletionRequested.clear();
   }
 
   /** Surface/pause Epic Boss quests without discarding their lifetime progress. */
@@ -228,6 +287,7 @@ export class QuestSystem {
 
   /** Restore from a save (or start fresh), then activate eligible quests + render. */
   restore(save?: QuestSave) {
+    this.resetAuthoritativePreview();
     if (save) {
       this.completed = new Set(save.completed);
       this.active = new Map();
@@ -256,19 +316,22 @@ export class QuestSystem {
     this.hooks.render(this.views());
   }
 
-  /** Merge the server's paid-completion ledger into local quest presentation. Local
-   * progress stays responsive and survives reloads; older server counts can only move
-   * a requirement forward, never backward. */
+  /** Reconcile quest presentation with the server. In online mode this replaces the
+   * optimistic layer (and therefore rolls rejected events back); offline imports keep
+   * the historical forward-only merge behavior. */
   restoreAuthoritative(state: {
     completed: string[];
     progress: { questId: string; counts: number[] }[];
   }): void {
+    this.resetAuthoritativePreview();
     const localCompleted = new Set(this.completed);
     const localActive = new Map([...this.active].map(([id, counts]) => [id, counts.slice()]));
-    this.completed = new Set([
-      ...[...localCompleted].filter((id) => this.defs.has(id)),
-      ...state.completed.filter((id) => this.defs.has(id)),
-    ]);
+    this.completed = this.hooks.authoritative
+      ? new Set(state.completed.filter((id) => this.defs.has(id)))
+      : new Set([
+          ...[...localCompleted].filter((id) => this.defs.has(id)),
+          ...state.completed.filter((id) => this.defs.has(id)),
+        ]);
     this.active = new Map();
     const supplied = new Map(state.progress.map((p) => [p.questId, p.counts]));
     for (const [id, def] of this.defs) {
@@ -281,7 +344,7 @@ export class QuestSystem {
         def.requirements.map((r, i) => {
           const remoteCount = Number.isInteger(remote[i]) ? remote[i] : 0;
           const localCount = Number.isInteger(local[i]) ? local[i] : 0;
-          const n = Math.max(remoteCount, localCount);
+          const n = this.hooks.authoritative ? remoteCount : Math.max(remoteCount, localCount);
           return Math.max(0, Math.min(r.countTotal, n));
         })
       );
@@ -296,10 +359,14 @@ export class QuestSystem {
       const def = this.defs.get(change.questId);
       if (!def) continue;
       const wasCompleted = this.completed.has(change.questId);
+      const wasOptimisticallyCelebrated = this.optimisticallyCelebrated.has(change.questId);
       if (change.completed) {
         this.active.delete(change.questId);
         this.completed.add(change.questId);
-        if (!wasCompleted) this.hooks.completed(def);
+        this.authoritativePreview.delete(change.questId);
+        this.optimisticallyCelebrated.delete(change.questId);
+        this.authoritativeCompletionRequested.delete(change.questId);
+        if (!wasCompleted && !wasOptimisticallyCelebrated) this.hooks.completed(def);
       } else if (!this.completed.has(change.questId)) {
         this.active.set(
           change.questId,

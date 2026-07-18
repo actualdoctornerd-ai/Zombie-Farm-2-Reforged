@@ -104,7 +104,7 @@ describe("resolveLoot — what a drop becomes", () => {
     expect(resolveLoot(null, 5)).toEqual({ kind: "none" });
   });
 
-  it("never pays brains — the brain drop is deferred while `win` is client-asserted", () => {
+  it("never pays brains through item loot — verified invasion brains use a separate table", () => {
     // No raid loot table contains a brain entry (the brain drop is a separate roll), so
     // this is belt-and-braces: if one were ever added, it must not mint premium currency
     // off a forged win.

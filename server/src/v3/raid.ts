@@ -7,6 +7,7 @@ import type { QuestProjection } from "../../../src/net/protocol";
 import raidRows from "../../../public/assets/raids/raids.json";
 import { farmerCooldownMs } from "../../../src/farmer";
 import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
+import { rollBrainDrop } from "../../../src/raid/brainDrops";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const RAID_TTL_MS = 15 * 60 * 1000;
@@ -55,6 +56,21 @@ const parse = <T>(value: string, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 const raidNames = new Map((raidRows as { id: number; name: string }[]).map((r) => [r.id, r.name]));
+
+function seededUnit(seed: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 0x1_0000_0000;
+}
+
+function pinnedBrainDrop(sessionId: string, recommendedLevel: number, hasBoss: boolean): number {
+  if (!hasBoss) return 0;
+  let salt = 17;
+  return rollBrainDrop(recommendedLevel, () => seededUnit(sessionId, salt++));
+}
 
 export async function expireLiveRaid(db: D1Database, accountId: string, now: number): Promise<void> {
   const expired = await db.prepare(`SELECT id FROM raid_sessions_v3
@@ -118,6 +134,7 @@ export async function startRaid(
   if (dice) core.inventory[DICE_KEY] -= dice;
   if (concentration) core.inventory[CONCENTRATION_KEY]--;
   const sessionId = crypto.randomUUID();
+  const brainDrop = pinnedBrainDrop(sessionId, econ.recLevel, pinned.config.enemyUnits.some((unit) => unit.isBoss));
   const expiresAt = now + RAID_TTL_MS;
   const earliestFinishAt = now + EARLIEST_FINISH_MS;
   const statements: D1PreparedStatement[] = [
@@ -139,7 +156,7 @@ export async function startRaid(
   );
   await db.batch(statements);
   return { status: 200, body: { ok: true, sessionId, bypassed: remaining > 0, dice,
-    concentration, inventory: core.inventory, lastRaidAt: now, expiresAt, earliestFinishAt,
+    concentration, brainDrop, inventory: core.inventory, lastRaidAt: now, expiresAt, earliestFinishAt,
     rulesetVersion: RAID_RULESET_VERSION } };
 }
 
@@ -229,6 +246,9 @@ export async function finishRaid(
   const firstClear = win && !(progress[String(raidId)] > 0);
   const baseGold = win ? winGold(econ, survivors.length / locked.length) : 0;
   const xp = firstClear ? econ.xp : 0;
+  const brains = win
+    ? pinnedBrainDrop(session.id, econ.recLevel, config.enemyUnits.some((unit) => unit.isBoss))
+    : 0;
   let loot: { name: string; kind: "gold" | "boost" | "item" } | null = null;
   let lootGold = 0;
   if (win) {
@@ -240,7 +260,7 @@ export async function finishRaid(
     else if (grant.kind === "boost") { core.inventory[grant.key] = (core.inventory[grant.key] ?? 0) + 1; loot = { name: grant.name, kind: "boost" }; }
     else if (grant.kind === "item") { core.storage.received[grant.name] = (core.storage.received[grant.name] ?? 0) + 1; loot = { name: grant.name, kind: "item" }; }
   }
-  const nextBalance = { gold: balance.gold + baseGold + lootGold, brains: balance.brains, xp: balance.xp + xp };
+  const nextBalance = { gold: balance.gold + baseGold + lootGold, brains: balance.brains + brains, xp: balance.xp + xp };
   const questData = parse<{ completed: string[]; progress: QuestProjection["progress"] }>(
     questRow.current_json, { completed: [], progress: [] }
   );
@@ -266,7 +286,7 @@ export async function finishRaid(
     : null;
   const settlementId = crypto.randomUUID();
   const result = { settlementId, lastRaidAt: raidState.last_started_at, balance: nextBalance, gold: baseGold + lootGold,
-    xp: nextBalance.xp - balance.xp, firstClear, loot, outcome, questChanges,
+    brains, xp: nextBalance.xp - balance.xp, firstClear, loot, outcome, questChanges,
     inventory: core.inventory, storage: core.storage, raidProgress: progress, revival,
     rulesetVersion: RAID_RULESET_VERSION };
   const resultJson = JSON.stringify(result);
@@ -287,7 +307,7 @@ export async function finishRaid(
       .bind(JSON.stringify({ completed: quests.completed, progress: quests.progress }), now, accountId, session.id, resultJson),
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, 'raid_finish', ?, ? WHERE ${guard}`)
-      .bind(settlementId, accountId, JSON.stringify({ sessionId: session.id, raidId, win, survivors, losses, gold: baseGold + lootGold, xp }), now,
+      .bind(settlementId, accountId, JSON.stringify({ sessionId: session.id, raidId, win, survivors, losses, gold: baseGold + lootGold, brains, xp }), now,
         session.id, resultJson),
   ];
   if (revival) statements.push(db.prepare(`INSERT OR IGNORE INTO raid_revivals_v3

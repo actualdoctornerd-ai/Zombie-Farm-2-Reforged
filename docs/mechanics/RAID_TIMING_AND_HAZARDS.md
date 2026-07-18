@@ -113,13 +113,15 @@ items — see below.)
 
 | Amount | Chance (lower → upper) |
 |---|---|
-| 10 brains | 2.5% → **5%** |
-| 30 brains | 1.0% → **2%** |
-| 50 brains | 0.5% → **1%** |
+| 10 brains | 5% → **10%** |
+| 30 brains | 2% → **4%** |
+| 50 brains | 1% → **2%** |
 
 The chance scales with the raid's level from the lower limit up to the upper ("optimal")
-limit, reaching it at `epicBossLootLevelWithOptimalChances` = **level 20**. This replaces
-the reimpl's old flat 5% / 10-brains.
+limit, reaching it at `epicBossLootLevelWithOptimalChances` = **level 20**. These are the
+recovered base rates with the live game's 2× invasion-brain multiplier applied; amounts
+remain 10/30/50. Online rolls are pinned at start and credited only after replay verifies
+that the boss was defeated.
 
 Gold: `getStandardGoldLootForStageLevel:` + `goldDistributionLevelCoefficient` = 2.3
 (win gold scales with level); wiki figures still used where exact source gold is unmapped.

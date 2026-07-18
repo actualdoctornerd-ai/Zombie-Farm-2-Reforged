@@ -78,9 +78,8 @@ export function rollLoot(
  *  "Bonus Gold" pays gold; anything whose NAME matches a boost stacks into the boost
  *  inventory; everything else is an item for the Received bucket.
  *
- *  A BRAIN-paying drop would be refused here, but no raid loot table contains one — the
- *  brain drop is a separate roll (RaidManager.rollBrainDrop) that stays deferred while
- *  `win` is client-asserted, since brains are premium and a forged win would mint them. */
+ *  A BRAIN-paying item drop is refused here because invasion brains use their own
+ *  server-pinned table and are credited only after deterministic replay verifies a win. */
 export function resolveLoot(name: string | null, recLevel: number): LootGrant {
   if (!name) return { kind: "none" };
   if (name === BONUS_GOLD) return { kind: "gold", name, gold: bonusGoldFor(recLevel) };

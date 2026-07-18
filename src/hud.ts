@@ -6000,6 +6000,17 @@ export class Hud {
     }
   }
 
+  /** Patch the server-authoritative brain award into an already-open victory panel. */
+  setRaidResultBrains(brains: number) {
+    const panel = this.el.querySelector(".raid-res-panel");
+    if (!panel) return;
+    const brainRow = panel.querySelectorAll(".rr-row")[3]?.querySelector(".rr-v");
+    if (brainRow) {
+      brainRow.innerHTML =
+        `${brains}<img class="rr-i" src="${UI("topbar_brain_icon.png")}">`;
+    }
+  }
+
   /** Celebratory "LEVEL UP" popup listing what the new level unlocked (invasions,
    *  market items, boosts). Fired from GameState.onLevelUpCb via main.ts. */
   openLevelUp(view: LevelUpView) {
