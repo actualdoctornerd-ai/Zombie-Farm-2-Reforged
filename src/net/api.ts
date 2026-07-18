@@ -81,6 +81,7 @@ const readWriterCredential = (): WriterCredential | null => {
 
 let writerCredential: WriterCredential | null = readWriterCredential();
 let writerRejectedHandler: (() => void) | null = null;
+let sessionRejectedHandler: (() => void) | null = null;
 
 // A server credential belongs to one live document at a time. Web Locks are scoped
 // to the origin and released automatically when a document unloads, which makes a
@@ -133,6 +134,7 @@ export const hasWriterCredential = (): boolean => localWriterLockHeld &&
   !!writerCredential && writerCredential.accountId === session?.accountId;
 export const clearWriterCredential = (): void => persistWriter(null);
 export const setWriterRejectedHandler = (handler: (() => void) | null): void => { writerRejectedHandler = handler; };
+export const setSessionRejectedHandler = (handler: (() => void) | null): void => { sessionRejectedHandler = handler; };
 
 export interface Session {
   token: string;
@@ -232,7 +234,11 @@ async function req<T>(
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     const code = (data as { error?: string })?.error ?? `http_${res.status}`;
-    if (res.status === 401) clearSession(); // stale/invalid token → sign out
+    if (res.status === 401) {
+      const wasSignedIn = !!session;
+      clearSession(); // stale/invalid/revoked token → sign out
+      if (wasSignedIn) sessionRejectedHandler?.();
+    }
     if (res.status === 423 && code === "writer_replaced") {
       clearWriterCredential();
       writerRejectedHandler?.();
@@ -307,6 +313,11 @@ export async function releaseWriter(): Promise<void> {
   try { await req<{ ok: true }>("POST", "/writer/release"); }
   finally { clearWriterCredential(); }
 }
+
+export const writerStatus = () =>
+  req<{ status: "free" | "mine" | "other"; generation: number; lastActivityAt: number }>(
+    "GET", "/writer/status"
+  );
 
 export const sendCommandBatch = (batch: CommandBatchRequest) =>
   req<CommandBatchResponse>("POST", "/commands", batch);

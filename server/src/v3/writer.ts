@@ -110,14 +110,29 @@ export async function acquire(
   if (row.active_batch_id && row.active_batch_expires_at > now) {
     return { status: 409, error: "operation_in_progress", generation: row.writer_generation };
   }
-  const updated = await db.prepare(`UPDATE account_runtime_v3 SET
+  const updateWriter = db.prepare(`UPDATE account_runtime_v3 SET
       writer_device_id=?,writer_session_id=?,writer_token_hash=?,
       writer_generation=writer_generation+1,writer_last_activity_at=?,
       account_version=account_version+1,active_batch_id=NULL,active_batch_expires_at=0,updated_at=?
     WHERE account_id=? AND writer_generation=? AND account_version=?
       AND (active_batch_id IS NULL OR active_batch_expires_at<=?)`)
     .bind(body.clientId, sessionId, hash, now, now, accountId, row.writer_generation,
-      row.account_version, now).run();
+      row.account_version, now);
+  const replacedSessionId = !free && body.takeover && row.writer_session_id !== sessionId
+    ? row.writer_session_id
+    : null;
+  // A takeover is also a session handoff: revoke the displaced login in the same
+  // transaction as the writer CAS. The EXISTS guard means a failed/stale CAS can
+  // never sign out the old session by itself.
+  const statements = [updateWriter];
+  if (replacedSessionId) {
+    statements.push(db.prepare(`UPDATE sessions SET revoked_at=?
+      WHERE id=? AND account_id=? AND revoked_at IS NULL
+        AND EXISTS (SELECT 1 FROM account_runtime_v3
+          WHERE account_id=? AND writer_session_id=? AND writer_generation=?)`)
+      .bind(now, replacedSessionId, accountId, accountId, sessionId, row.writer_generation + 1));
+  }
+  const [updated] = await db.batch(statements);
   if ((updated.meta.changes ?? 0) !== 1) {
     const current = await readRuntime(db, accountId, now);
     return { status: 409, error: "writer_changed", generation: current.writer_generation };

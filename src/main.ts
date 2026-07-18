@@ -68,6 +68,11 @@ async function main() {
   // we load assets and build the game, so nothing runs for a signed-out visitor.
   await auth.refreshIfSignedIn();
   await requireAuth();
+  // Remote revocation (including another device taking over) is surfaced by the
+  // API auth bridge. Reloading re-enters requireAuth before any game state is built.
+  auth.onAuthChange(() => {
+    if (!auth.isSignedIn()) location.reload();
+  });
   await api.prepareWriterAccess();
   boot?.progress(0.35); // signed in — start filling the plate bar
   const app = new Application();

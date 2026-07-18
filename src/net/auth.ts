@@ -39,6 +39,10 @@ function emit() {
   for (const fn of listeners) fn();
 }
 
+// api.ts owns transport-level 401 handling. Bridge it into the auth surface so a
+// remotely revoked session follows the same UI path as an explicit sign-out.
+api.setSessionRejectedHandler(emit);
+
 /** Whether online play is even possible (a server URL is configured). */
 export const isOnlineAvailable = () => api.isConfigured();
 /** Whether Google sign-in can be offered (server + client id present). */

@@ -93,6 +93,12 @@ export class EconomyClient {
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") void this.checkOwnership();
       });
+      // A different device cannot push a takeover notification into this page.
+      // Poll the cheap writer projection so an idle displaced session discovers
+      // its server-side revocation and returns to auth without waiting for input.
+      setInterval(() => {
+        if (document.visibilityState === "visible") void this.checkOwnership();
+      }, 5_000);
     }
   }
 
@@ -163,8 +169,8 @@ export class EconomyClient {
   private async checkOwnership(): Promise<void> {
     if (!this.ready || !api.getSession()) return;
     try {
-      const bootstrap = await api.bootstrap(true);
-      if (bootstrap.writer.status !== "mine") {
+      const writer = await api.writerStatus();
+      if (writer.status !== "mine") {
         this.handleWriterLost();
       }
     } catch { /* ordinary recovery owns network failure handling */ }

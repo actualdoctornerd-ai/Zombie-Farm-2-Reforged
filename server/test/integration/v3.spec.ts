@@ -157,6 +157,32 @@ describe("protocol v3 API", () => {
     expect(current.body.writer.status).toBe("mine");
   });
 
+  it("revokes the displaced session when another session takes over", async () => {
+    const sub = uniqueSub("writer-session-takeover");
+    const displaced = await signIn(sub, false);
+    const replacement = await signIn(sub, false);
+    const clientA = "writer-session-client-a";
+    const clientB = "writer-session-client-b";
+
+    const initial = await call<any>("POST", "/bootstrap", displaced.token, {});
+    const acquired = await call<any>("POST", "/writer/acquire", displaced.token, {
+      clientId: clientA, token: "a".repeat(64),
+      observedGeneration: initial.body.writer.generation, takeover: false,
+    });
+    expect(acquired.status).toBe(200);
+
+    const observed = await call<any>("POST", "/bootstrap", replacement.token, {});
+    expect(observed.body.writer.status).toBe("other");
+    const takeover = await call<any>("POST", "/writer/acquire", replacement.token, {
+      clientId: clientB, token: "b".repeat(64),
+      observedGeneration: observed.body.writer.generation, takeover: true,
+    });
+    expect(takeover.status).toBe(200);
+
+    expect((await call("POST", "/bootstrap", displaced.token, {})).status).toBe(401);
+    expect((await call("POST", "/bootstrap", replacement.token, {})).status).toBe(200);
+  });
+
   it("authenticates and activates an Epic Boss event", async () => {
     const unauthenticated = await call<any>("POST", "/epic-boss/activate", undefined, {
       activationId: "activation-unauthenticated",

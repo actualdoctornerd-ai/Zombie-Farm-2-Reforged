@@ -473,6 +473,7 @@ app.use("/session/logout-all", rateLimit("RL_WRITE", "logout_all", 10, 60_000));
 app.use("/session/revoke", rateLimit("RL_WRITE", "session_revoke", 30, 60_000));
 app.use("/session/list", rateLimit("RL_READ", "session_list", 120, 60_000));
 app.use("/bootstrap", rateLimit("RL_READ", "bootstrap_v3", 30, 60_000));
+app.use("/writer/status", rateLimit("RL_READ", "writer_status", 60, 60_000));
 app.use("/commands", rateLimit("RL_WRITE", "commands_v3", 30, 60_000));
 app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 4, 60_000));
 app.use("/writer/*", rateLimit("RL_WRITE", "writer_v3", 20, 60_000));
