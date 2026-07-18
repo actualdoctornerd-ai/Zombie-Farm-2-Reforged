@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { expireLiveRaid } from "../src/v3/raid";
-import { end as endEpicBoss, expireLiveEpicBoss } from "../src/v3/epicBoss";
+import { end as endEpicBoss, expireLiveEpicBoss, finish as finishEpicBoss } from "../src/v3/epicBoss";
 
 class Statement {
   args: unknown[] = [];
@@ -36,6 +36,22 @@ describe("abandoned battle cleanup", () => {
     expect(batched[0].map((s) => s.sql)).toEqual(expect.arrayContaining([
       expect.stringContaining("UPDATE epic_boss_sessions_v3 SET finished_at"),
       expect.stringContaining("UPDATE epic_boss_runs_v3 SET retry_ready_at"),
+      expect.stringContaining("UPDATE roster_v3 SET locked_by_raid=NULL"),
+    ]));
+  });
+
+  it("refuses to settle an Epic attempt after its session deadline", async () => {
+    const { db, batched } = fakeDb({
+      id: "epic-old", run_id: "run", boss_id: "dr-groundhog", expires_at: 9_000,
+      result_json: null, finished_at: null,
+    });
+    const result = await finishEpicBoss(db, "account", {
+      sessionId: "epic-old", finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+    }, 10_000);
+    expect(result).toMatchObject({ status: 409, body: { error: "expired" } });
+    expect(batched).toHaveLength(1);
+    expect(batched[0].map((statement) => statement.sql)).toEqual(expect.arrayContaining([
+      expect.stringContaining("UPDATE epic_boss_sessions_v3 SET finished_at"),
       expect.stringContaining("UPDATE roster_v3 SET locked_by_raid=NULL"),
     ]));
   });

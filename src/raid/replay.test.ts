@@ -44,6 +44,9 @@ describe("deterministic raid replay", () => {
   });
 
   it.skipIf(!RUN_BENCHMARK)("keeps benchmark-selected 15-second checkpoint segments below the 8 ms p95 target", () => {
+    // Measure steady-state verifier cost. Workerd keeps isolates warm between requests;
+    // including V8's first compilation passes made this test primarily measure JIT.
+    for (let i = 0; i < 4; i++) replayRaid(worstCaseSim(), 15 * 1000 / 50, []);
     const samples: number[] = [];
     for (let i = 0; i < 24; i++) {
       const start = performance.now();

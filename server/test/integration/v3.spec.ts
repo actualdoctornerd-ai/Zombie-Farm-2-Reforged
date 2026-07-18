@@ -331,16 +331,24 @@ describe("protocol v3 API", () => {
     expect(grown.status).toBe(200);
     const unitId = grown.body.createdZombieIds[0];
     expect(unitId).toBeTypeOf("string");
+    const stale = await call<any>("POST", "/raid/start", session.token, {
+      raidId: 1, orderedUnitIds: [unitId], rulesetVersion: 2,
+    });
+    expect(stale).toMatchObject({ status: 426, body: { error: "stale_ruleset", rulesetVersion: 3 } });
     const started = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1,
       orderedUnitIds: [unitId],
+      rulesetVersion: 3,
     });
-    expect(started.status).toBe(200);
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
 
     const finished = await call<any>("POST", "/raid/finish", session.token, {
       sessionId: started.body.sessionId,
-      win: false,
-      survivors: [],
+      finalTick: 0,
+      inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+      // Settlement must ignore a forged client outcome and derive the retreat.
+      win: true,
+      survivors: [unitId],
       losses: [],
     });
     expect(finished.status).toBe(200);
@@ -349,6 +357,7 @@ describe("protocol v3 API", () => {
     const next = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1,
       orderedUnitIds: [unitId],
+      rulesetVersion: 3,
     });
     expect(next.status).toBe(429);
     expect(next.body.error).toBe("cooldown");

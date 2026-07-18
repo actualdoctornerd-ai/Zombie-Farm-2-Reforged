@@ -6,6 +6,7 @@ import { applyQuestEvents } from "./engine";
 import type { QuestProjection } from "../../../src/net/protocol";
 import raidRows from "../../../public/assets/raids/raids.json";
 import { farmerCooldownMs } from "../../../src/farmer";
+import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const RAID_TTL_MS = 15 * 60 * 1000;
@@ -26,6 +27,8 @@ interface SessionRow {
   raid_id: string;
   roster_json: string;
   boosts_json: string;
+  config_json: string;
+  ruleset_version: number;
   started_at: number;
   earliest_finish_at: number;
   expires_at: number;
@@ -67,7 +70,7 @@ export async function expireLiveRaid(db: D1Database, accountId: string, now: num
 export async function startRaid(
   db: D1Database,
   accountId: string,
-  body: { raidId?: unknown; orderedUnitIds?: unknown; useVoucher?: unknown; concentration?: unknown; dice?: unknown },
+  body: { raidId?: unknown; orderedUnitIds?: unknown; useVoucher?: unknown; concentration?: unknown; dice?: unknown; rulesetVersion?: unknown },
   now: number,
   cooldownMs = DEFAULT_COOLDOWN_MS
 ): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -75,11 +78,20 @@ export async function startRaid(
   const raidId = Number(body.raidId);
   const econ = raidEcon(raidId);
   const requested = Array.isArray(body.orderedUnitIds)
-    ? [...new Set(body.orderedUnitIds.filter((id): id is string => typeof id === "string" && !!id))].slice(0, 64)
+    ? body.orderedUnitIds.filter((id): id is string => typeof id === "string" && !!id)
     : [];
   if (!econ) return { status: 400, body: { ok: false, error: "bad_raid" } };
   if (!requested.length) return { status: 400, body: { ok: false, error: "bad_roster" } };
+  if (body.rulesetVersion !== RAID_RULESET_VERSION) {
+    return { status: 426, body: { ok: false, error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
+  }
   await db.prepare("INSERT OR IGNORE INTO raid_state_v3(account_id) VALUES (?)").bind(accountId).run();
+  const concentration = body.concentration === true;
+  const pinned = await buildPinnedV3Raid(db, accountId, raidId, body.orderedUnitIds, concentration);
+  if (!pinned.ok) {
+    const status = pinned.error === "locked" ? 403 : pinned.error === "bad_raid" || pinned.error === "bad_roster" ? 400 : 409;
+    return { status, body: { ok: false, error: pinned.error } };
+  }
   const [balance, coreRow, raidState, live, liveEpic, roster] = await Promise.all([
     db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId).first<{ gold: number; brains: number; xp: number }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id = ?").bind(accountId).first<{ current_json: string }>(),
@@ -101,7 +113,6 @@ export async function startRaid(
   if (remaining && (core.inventory[VOUCHER_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_voucher" } };
   const dice = Math.max(0, Math.min(10, Math.trunc(Number(body.dice) || 0)));
   if ((core.inventory[DICE_KEY] ?? 0) < dice) return { status: 409, body: { ok: false, error: "insufficient_dice" } };
-  const concentration = body.concentration === true;
   if (concentration && (core.inventory[CONCENTRATION_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_concentration" } };
   if (remaining) core.inventory[VOUCHER_KEY]--;
   if (dice) core.inventory[DICE_KEY] -= dice;
@@ -111,9 +122,10 @@ export async function startRaid(
   const earliestFinishAt = now + EARLIEST_FINISH_MS;
   const statements: D1PreparedStatement[] = [
     db.prepare(`INSERT INTO raid_sessions_v3
-      (id, account_id, raid_id, roster_json, boosts_json, started_at, earliest_finish_at, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(sessionId, accountId, String(raidId), JSON.stringify(requested), JSON.stringify({ dice, concentration }), now, earliestFinishAt, expiresAt),
+      (id, account_id, raid_id, roster_json, boosts_json, config_json, ruleset_version, started_at, earliest_finish_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(sessionId, accountId, String(raidId), JSON.stringify(requested), JSON.stringify({ dice, concentration }),
+        JSON.stringify(pinned.config), RAID_RULESET_VERSION, now, earliestFinishAt, expiresAt),
     db.prepare("UPDATE raid_state_v3 SET last_started_at = ? WHERE account_id = ?").bind(now, accountId),
     db.prepare("UPDATE gameplay_documents_v3 SET current_json = ?, updated_at = ? WHERE account_id = ?")
       .bind(JSON.stringify(core), now, accountId),
@@ -127,13 +139,23 @@ export async function startRaid(
   );
   await db.batch(statements);
   return { status: 200, body: { ok: true, sessionId, bypassed: remaining > 0, dice,
-    concentration, inventory: core.inventory, lastRaidAt: now, expiresAt, earliestFinishAt } };
+    concentration, inventory: core.inventory, lastRaidAt: now, expiresAt, earliestFinishAt,
+    rulesetVersion: RAID_RULESET_VERSION } };
+}
+
+async function closeInvalidRaid(db: D1Database, accountId: string, sessionId: string, now: number): Promise<void> {
+  await db.batch([
+    db.prepare("UPDATE raid_sessions_v3 SET finished_at=? WHERE id=? AND account_id=? AND finished_at IS NULL")
+      .bind(now, sessionId, accountId),
+    db.prepare("UPDATE roster_v3 SET locked_by_raid=NULL WHERE account_id=? AND locked_by_raid=?")
+      .bind(accountId, sessionId),
+  ]);
 }
 
 export async function finishRaid(
   db: D1Database,
   accountId: string,
-  body: { sessionId?: unknown; win?: unknown; survivors?: unknown; losses?: unknown; retreated?: unknown },
+  body: { sessionId?: unknown; finalTick?: unknown; inputs?: unknown },
   now: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (typeof body.sessionId !== "string" || !body.sessionId) return { status: 400, body: { error: "bad_session" } };
@@ -152,31 +174,40 @@ export async function finishRaid(
     ]);
     return { status: 200, body: result };
   }
-  const clean = (value: unknown) => Array.isArray(value)
-    ? [...new Set(value.filter((id): id is string => typeof id === "string" && locked.includes(id)))]
-    : [];
-  const claimedSurvivors = clean(body.survivors);
-  const losses = clean(body.losses);
-  // Older v3 clients did not send the explicit flag. Their retreat outcome has no
-  // survivors and fewer casualties than the locked roster, which is unambiguously
-  // a flee rather than a total defeat.
-  const retreated = body.retreated === true
-    || (body.win !== true && claimedSurvivors.length === 0 && losses.length < locked.length);
-  // A retreat grants no value, so it can be settled immediately. Requiring the
-  // normal anti-speedhack delay made the client leave an open session behind while
-  // it waited in the background to submit the loss.
-  if (!retreated && now < session.earliest_finish_at) {
-    return { status: 425, body: { error: "too_early", retryAfterMs: session.earliest_finish_at - now } };
+  if (session.ruleset_version !== RAID_RULESET_VERSION) {
+    await closeInvalidRaid(db, accountId, session.id, now);
+    return { status: 409, body: { error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
   }
-  // Fled-but-living zombies are intentionally not claimed as survivors because a
-  // retreat earns no veterancy. Derive that escaped set from the locked roster so
-  // every unit can still be unlocked and the session can be closed cleanly.
-  const survivors = retreated ? [] : claimedSurvivors;
+  const pacedTick = Math.floor((now - session.started_at) / 50) + 40;
+  if (Number(body.finalTick) > pacedTick) return { status: 422, body: { error: "future_finish" } };
+  let config: PinnedRaidConfig;
+  try { config = JSON.parse(session.config_json) as PinnedRaidConfig; }
+  catch {
+    await closeInvalidRaid(db, accountId, session.id, now);
+    return { status: 409, body: { error: "bad_session_config" } };
+  }
+  if (!Array.isArray(config.playerUnits) || !Array.isArray(config.enemyUnits) ||
+      !Array.isArray(config.rosterIds) || config.rosterIds.length !== locked.length) {
+    await closeInvalidRaid(db, accountId, session.id, now);
+    return { status: 409, body: { error: "bad_session_config" } };
+  }
+  const verified = verifyRaid(config, body.finalTick as number, body.inputs as RaidReplayInput[]);
+  if (!verified.ok) {
+    await closeInvalidRaid(db, accountId, session.id, now);
+    return { status: 422, body: { error: verified.error } };
+  }
+  const { survivors, losses } = verified.outcome;
+  const retreated = verified.retreated;
+  const accounted = new Set([...survivors, ...losses]);
+  if ([...accounted].some((id) => !locked.includes(id)) || (!retreated && accounted.size !== locked.length)) {
+    await closeInvalidRaid(db, accountId, session.id, now);
+    return { status: 422, body: { error: "replay_roster_mismatch" } };
+  }
   const escaped = retreated ? locked.filter((id) => !losses.includes(id)) : survivors;
   if (new Set([...escaped, ...losses]).size !== locked.length || escaped.some((id) => losses.includes(id))) {
     return { status: 400, body: { error: "bad_roster_partition" } };
   }
-  const win = !retreated && body.win === true;
+  const win = !retreated && verified.outcome.win;
   const raidId = Number(session.raid_id);
   const econ = raidEcon(raidId);
   if (!econ) return { status: 409, body: { error: "bad_raid" } };
@@ -221,7 +252,7 @@ export async function finishRaid(
   ] : [];
   const questChanges = applyQuestEvents(nextBalance, quests, questEvents);
   nextBalance.brains += levelUpBrains(levelForXp(balance.xp), levelForXp(nextBalance.xp));
-  const outcome = { win, rounds: 0, survivors, losses, enemiesBeaten: 0, playerDamage: 0 };
+  const outcome = verified.outcome;
   const casualties: CasualtySnapshot[] = (casualtyRows.results ?? []).map((row) => ({
     id: row.unit_id,
     key: row.zombie_key,
@@ -236,7 +267,8 @@ export async function finishRaid(
   const settlementId = crypto.randomUUID();
   const result = { settlementId, lastRaidAt: raidState.last_started_at, balance: nextBalance, gold: baseGold + lootGold,
     xp: nextBalance.xp - balance.xp, firstClear, loot, outcome, questChanges,
-    inventory: core.inventory, storage: core.storage, raidProgress: progress, revival };
+    inventory: core.inventory, storage: core.storage, raidProgress: progress, revival,
+    rulesetVersion: RAID_RULESET_VERSION };
   const resultJson = JSON.stringify(result);
   const guard = "EXISTS (SELECT 1 FROM raid_sessions_v3 s WHERE s.id = ? AND s.result_json = ?)";
   const statements: D1PreparedStatement[] = [

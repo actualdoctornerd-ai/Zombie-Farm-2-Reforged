@@ -789,20 +789,13 @@ export interface RaidFinishResult {
   } | null;
 }
 
-/** Report a finished raid. The server starts the cooldown (idempotent) AND credits
- *  the server-computed base win gold + first-clear XP for the session's pinned raid,
- *  returning the authoritative balance to reconcile. `win`/`survivalFrac` are the
- *  client's outcome assertion; the server owns the reward number. */
-export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[], outcome?: RaidOutcome) =>
+/** Report a finished raid. The server deterministically replays the pinned combat,
+ * starts the cooldown idempotently, and returns its authoritative outcome/reward. */
+export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[], _outcome?: RaidOutcome) =>
   req<RaidFinishResult>("POST", "/raid/finish", {
     sessionId,
     finalTick,
-    retreated: inputs.some((input) => input.type === "retreat"),
-    // v3 trusts combat quality/casualty claims, but the server validates this as a
-    // partition of the roster locked at start and prices every reward itself.
-    win: outcome?.win ?? false,
-    survivors: outcome?.survivors ?? [],
-    losses: outcome?.losses ?? [],
+    inputs,
   });
 
 export interface RaidReviveResult {

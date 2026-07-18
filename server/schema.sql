@@ -531,6 +531,8 @@ CREATE TABLE IF NOT EXISTS raid_sessions_v3 (
   raid_id             TEXT NOT NULL,
   roster_json         TEXT NOT NULL,
   boosts_json         TEXT NOT NULL DEFAULT '{}',
+  config_json         TEXT NOT NULL,
+  ruleset_version     INTEGER NOT NULL,
   started_at          INTEGER NOT NULL,
   earliest_finish_at  INTEGER NOT NULL,
   expires_at          INTEGER NOT NULL,

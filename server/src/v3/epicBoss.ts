@@ -17,6 +17,8 @@ import { levelForXp } from "../levels";
 import { epicBossCurrencyReward, epicQuestZombieReward, shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import objectRows from "../../../public/assets/placeables.json";
 import { EPIC_BOSS_FIGHT_BRAIN_COST } from "../../../src/epicBoss/tokens";
+import { ARMY_CAP } from "../../../src/raid/RaidCatalog";
+import { RAID_RULESET_VERSION } from "../../../src/raid/replay";
 
 export interface RunRow {
   run_id: string; boss_id: string; activated_at: number; expires_at: number;
@@ -27,7 +29,7 @@ interface SessionRow {
   id: string; run_id: string; level: number; starting_hp: number; roster_json: string;
   config_json: string; started_at: number; expires_at: number; finished_at: number | null; result_json: string | null;
 }
-interface EpicCombatConfig { playerUnits: CombatUnit[]; enemyUnits: CombatUnit[] }
+interface EpicCombatConfig { rulesetVersion: number; playerUnits: CombatUnit[]; enemyUnits: CombatUnit[] }
 const zombies = new Map((zombieRows as Array<{key:string}>).map((z) => [z.key, z]));
 const objectArmyCapacity = new Map((objectRows as Array<{key:string;armyMax?:number}>).map((o) => [o.key, o.armyMax ?? 0]));
 const defFor = (bossId: string): EpicBossDef | null => epicBossById(bossId);
@@ -143,8 +145,9 @@ export async function start(
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   await expireLiveEpicBoss(db, accountId, now);
   const ids = Array.isArray(orderedUnitIds)
-    ? [...new Set(orderedUnitIds.filter((id): id is string => typeof id === "string" && !!id))].slice(0, 64) : [];
-  if (!ids.length) return { status: 400, body: { error: "bad_roster" } };
+    ? orderedUnitIds.filter((id): id is string => typeof id === "string" && !!id) : [];
+  if (!ids.length || ids.length > ARMY_CAP || ids.length !== (orderedUnitIds as unknown[]).length ||
+      new Set(ids).size !== ids.length) return { status: 400, body: { error: "bad_roster" } };
   const [row, raid, epic, roster, balance, coreRow, raidState] = await Promise.all([
     db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=?").bind(accountId).first<RunRow>(),
     db.prepare("SELECT id FROM raid_sessions_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
@@ -206,7 +209,7 @@ export async function start(
     attacks:def.unitStats.attacks.map((attack) => ({...attack,mult:attack.mult ?? 1})),isBoss:true,alive:true,isGarden:false,isHeadless:false,
     abilities:[],attackDamageTiming:0.88,
   };
-  const config: EpicCombatConfig = { playerUnits, enemyUnits:[boss] };
+  const config: EpicCombatConfig = { rulesetVersion: RAID_RULESET_VERSION, playerUnits, enemyUnits:[boss] };
   const statements: D1PreparedStatement[] = [
     db.prepare(`INSERT INTO epic_boss_sessions_v3
       (id,account_id,run_id,level,starting_hp,roster_json,config_json,started_at,expires_at)
@@ -243,6 +246,10 @@ export async function finish(
   if (!session) return { status: 404, body: { error: "bad_session" } };
   if (session.result_json) return { status: 200, body: parse(session.result_json, {}) };
   if (session.finished_at) return { status: 409, body: { error: "already_finished" } };
+  if (now >= session.expires_at) {
+    await expireLiveEpicBoss(db, accountId, now);
+    return { status: 409, body: { error: "expired" } };
+  }
   const pinnedRun = await db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=? AND run_id=?")
     .bind(accountId, session.run_id).first<RunRow>();
   const def = pinnedRun ? defFor(pinnedRun.boss_id) : null;
@@ -251,7 +258,17 @@ export async function finish(
   const pacedTick = Math.floor((now - session.started_at) / 50) + 40;
   if (Number(body.finalTick) > pacedTick) return { status: 422, body: { error: "future_finish" } };
   const config = parse<EpicCombatConfig | null>(session.config_json, null);
-  if (!config || !Number.isInteger(body.finalTick) || !Array.isArray(body.inputs)) return { status: 400, body: { error: "bad_replay" } };
+  if (!config || !Array.isArray(config.playerUnits) || !Array.isArray(config.enemyUnits) ||
+      !Number.isInteger(body.finalTick) || !Array.isArray(body.inputs)) {
+    return { status: 400, body: { error: "bad_replay" } };
+  }
+  if (config.rulesetVersion !== RAID_RULESET_VERSION) {
+    await db.batch([
+      db.prepare("UPDATE epic_boss_sessions_v3 SET finished_at=? WHERE id=? AND finished_at IS NULL").bind(now, session.id),
+      db.prepare("UPDATE roster_v3 SET locked_by_raid=NULL WHERE account_id=? AND locked_by_raid=?").bind(accountId, session.id),
+    ]);
+    return { status: 409, body: { error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
+  }
   const verified = replayRaid(new BattleSim(
     config.playerUnits, config.enemyUnits, null, false, [], null, def.fightMs,
     null, null, true, true, true, 150
@@ -362,6 +379,13 @@ export async function finish(
     WHERE account_id=? AND unit_id=? AND locked_by_raid=? AND ${guard}`).bind(accountId,id,session.id,session.id,resultJson)));
   newZombies.forEach((z) => statements.push(db.prepare(`INSERT INTO roster_v3(account_id,unit_id,zombie_key,stored,created_at)
     SELECT ?,?,?,?,? WHERE ${guard}`).bind(accountId,z.id,z.key,z.stored ? 1 : 0,now,session.id,resultJson)));
-  await db.batch(statements);
+  const committed = await db.batch(statements);
+  if ((committed[0]?.meta.changes ?? 0) !== 1) {
+    const raced = await db.prepare("SELECT result_json FROM epic_boss_sessions_v3 WHERE id=? AND account_id=?")
+      .bind(session.id, accountId).first<{ result_json: string | null }>();
+    return raced?.result_json
+      ? { status: 200, body: parse(raced.result_json, {}) }
+      : { status: 409, body: { error: "state_conflict" } };
+  }
   return { status: 200, body: result };
 }

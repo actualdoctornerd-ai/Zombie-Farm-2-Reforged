@@ -5,6 +5,7 @@ import { rmSync } from "node:fs";
 
 const PORT = 8799;
 const BASE = `http://127.0.0.1:${PORT}`;
+const TEST_STATE = ".wrangler/test-state";
 let child: ChildProcess | undefined;
 
 function stopWorker() {
@@ -24,23 +25,23 @@ function stopWorker() {
 }
 
 export async function setup() {
-  // Fresh, empty D1 so every run starts from a known-clean database.
+  // Fresh, isolated D1 so tests neither reuse nor delete a developer's local state.
   try {
-    rmSync(".wrangler/state", { recursive: true, force: true });
+    rmSync(TEST_STATE, { recursive: true, force: true });
   } catch {
-    /* first run / busy — schema is idempotent anyway */
+    throw new Error(`could not clear isolated integration state: ${TEST_STATE}`);
   }
-  execSync("npx wrangler d1 execute zombiefarm --local --file=./schema.sql", {
+  execSync(`npx wrangler d1 execute zombiefarm --local --persist-to=${TEST_STATE} --file=./schema.sql`, {
     stdio: "ignore",
   });
-  execSync("npx wrangler d1 execute zombiefarm --local --file=./scripts/baseline-migrations.sql", {
+  execSync(`npx wrangler d1 execute zombiefarm --local --persist-to=${TEST_STATE} --file=./scripts/baseline-migrations.sql`, {
     stdio: "ignore",
   });
 
   const command = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "npx";
   const args = process.platform === "win32"
-    ? ["/d", "/s", "/c", `npx wrangler dev --port ${PORT} --local --var BLACK_MARKET_ENABLED:1`]
-    : ["wrangler", "dev", "--port", String(PORT), "--local", "--var", "BLACK_MARKET_ENABLED:1"];
+    ? ["/d", "/s", "/c", `npx wrangler dev --port ${PORT} --local --persist-to=${TEST_STATE} --var BLACK_MARKET_ENABLED:1`]
+    : ["wrangler", "dev", "--port", String(PORT), "--local", `--persist-to=${TEST_STATE}`, "--var", "BLACK_MARKET_ENABLED:1"];
   child = spawn(command, args, {
     stdio: "ignore",
     detached: process.platform !== "win32",

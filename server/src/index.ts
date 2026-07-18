@@ -833,6 +833,7 @@ app.post("/raid/start", async (c) => {
   if (result.status === 200) return c.json(result.body);
   if (result.status === 400) return c.json(result.body, 400);
   if (result.status === 403) return c.json(result.body, 403);
+  if (result.status === 426) return c.json(result.body, 426);
   if (result.status === 429) return c.json(result.body, 429);
   return c.json(result.body, 409);
 });
@@ -844,6 +845,7 @@ app.post("/raid/finish", async (c) => {
   if (result.status === 200) return c.json(result.body);
   if (result.status === 400) return c.json(result.body, 400);
   if (result.status === 404) return c.json(result.body, 404);
+  if (result.status === 422) return c.json(result.body, 422);
   if (result.status === 425) {
     const retryAfterMs = Number(result.body.retryAfterMs ?? 0);
     c.header("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
@@ -910,7 +912,7 @@ const retiredV2 = new Set([
   "/farm/actions", "/farm/sync", "/inventory/sync", "/inventory/actions",
   "/object/sync", "/object/actions", "/roster/sync", "/roster/actions",
   "/shop/state", "/shop/size", "/shop/climate", "/storage/sync", "/storage/actions",
-  "/raid/state", "/raid/sync", "/raid/checkpoint",
+  "/raid/state", "/raid/sync", "/raid/checkpoint", "/raid/start-v2-replay-disabled", "/raid/finish-v2-replay-disabled",
 ]);
 app.use("*", async (c, next) => {
   if (retiredV2.has(c.req.path)) return c.json({ error: "update_required", protocolVersion: GAMEPLAY_PROTOCOL }, 410);
@@ -1356,7 +1358,14 @@ app.post("/gifts/claim", async (c) => {
 
   const grantId = crypto.randomUUID();
   const won = await db.claimGiftBrain(c.env.DB, gift.id, me, grantId, now, { ...STARTER_BALANCE });
-  if (!won) return respond(true, false);
+  if (!won) {
+    // A raid/epic/command settlement may temporarily own the account fence. Do not
+    // report the gift as claimed when it is still waiting in the inbox.
+    if (await db.claimableGift(c.env.DB, gift.id, me)) {
+      return c.json({ error: "operation_in_progress" }, 409);
+    }
+    return respond(true, false);
+  }
 
   return respond(false, true);
 });
@@ -1419,7 +1428,7 @@ app.post("/raid/sync", async (c) => {
 // fought (raidId) so /raid/finish can price the reward from the server catalog.
 // `bypassed` tells the client whether a cooldown was actually skipped (the voucher is
 // consumed server-side).
-app.post("/raid/start", async (c) => {
+app.post("/raid/start-v2-replay-disabled", async (c) => {
   const body: {
     raidId?: number;
     orderedUnitIds?: unknown;
@@ -1597,7 +1606,7 @@ app.post("/raid/start-legacy-disabled", async (c) => {
 // be settled within its TTL. `win`/`survivalFrac` are client-asserted (deferred: input
 // replay), but the server owns the reward number, so a fabricated win can't exceed that
 // raid's real payout.
-app.post("/raid/finish", async (c) => {
+app.post("/raid/finish-v2-replay-disabled", async (c) => {
   const raw = await c.req.text();
   if (raw.length > 32 * 1024) return c.json({ error: "transcript_too_large" }, 413);
   let body: { sessionId?: string; finalTick?: number; inputs?: RaidReplayInput[] };
