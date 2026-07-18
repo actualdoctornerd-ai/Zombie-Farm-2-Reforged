@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { befriend, call, signIn } from "./helpers";
+import { befriend, call, grantBalance, signIn, uniqueSub } from "./helpers";
 
 const deviceA = "device-aaaaaaaa";
 const commandBody = (
@@ -135,6 +135,7 @@ describe("protocol v3 API", () => {
     expect(unauthenticated.status).toBe(401);
 
     const session = await signIn();
+    await grantBalance(session, { gold: 400, brains: 1_000, xp: 0 });
     const boot = (await call<any>("POST", "/bootstrap", session.token, {})).body;
     const grown = await call<any>("POST", "/commands", session.token,
       commandBody(boot, "batch-epic-zombie", 1, [
@@ -147,13 +148,14 @@ describe("protocol v3 API", () => {
     expect(grown.status).toBe(200);
     const epicZombieId = grown.body.createdZombieIds[0];
     const brainsBeforeActivation = grown.body.gameplay.balance.brains;
+    const activationId = uniqueSub("activation-authenticated");
     const activated = await call<any>("POST", "/epic-boss/activate", session.token, {
-      activationId: "activation-authenticated",
+      activationId,
       bossId: "loco-locust",
     });
     expect(activated.status, JSON.stringify(activated.body)).toBe(200);
     expect(activated.body.event).toMatchObject({
-      runId: "activation-authenticated",
+      runId: activationId,
       bossId: "loco-locust",
       level: 1,
     });
@@ -180,14 +182,14 @@ describe("protocol v3 API", () => {
     expect(retried.body.balance.brains).toBe(brainsBeforeActivation - 120);
 
     const ended = await call<any>("POST", "/epic-boss/end", session.token, {
-      runId: "activation-authenticated",
+      runId: activationId,
     });
     expect(ended.status, JSON.stringify(ended.body)).toBe(200);
     expect(ended.body.event.completedAt).toBe(0);
     expect(ended.body.event.expiresAt).toBeLessThanOrEqual(Date.now());
 
     const reactivated = await call<any>("POST", "/epic-boss/activate", session.token, {
-      activationId: "activation-after-early-end",
+      activationId: uniqueSub("activation-after-early-end"),
       bossId: "dr-groundhog",
     });
     expect(reactivated.status, JSON.stringify(reactivated.body)).toBe(200);
@@ -196,6 +198,7 @@ describe("protocol v3 API", () => {
   it("persists pet ownership, makes retries idempotent, and ignores presentation forgeries", async () => {
     const owner = await signIn();
     const other = await signIn();
+    await grantBalance(owner, { gold: 100_000, brains: 1_000, xp: 0 });
     const boot = (await call<any>("POST", "/bootstrap", owner.token, {})).body;
     expect(boot.gameplay).toMatchObject({ ownedPets: [], activePet: null });
 
@@ -260,7 +263,7 @@ describe("protocol v3 API", () => {
     expect(applied.body.results.map((r: any) => [r.status, r.error])).toEqual([
       ["applied", undefined], ["applied", undefined], ["rejected", "not_grown"],
     ]);
-    expect(applied.body.gameplay.balance.gold).toBe(999_985);
+    expect(applied.body.gameplay.balance.gold).toBe(385);
     expect(applied.body.gameplay.farm.plots["0:0"].plantedAt).toBeTypeOf("number");
 
     const duplicate = await call<any>("POST", "/commands", session.token, body);

@@ -83,6 +83,15 @@ export async function grantRoster(
   }
 }
 
+/** Establish an explicit economy balance for a scenario that tests paid actions. */
+export async function grantBalance(
+  s: Session,
+  balance: { gold?: number; brains?: number; xp?: number }
+): Promise<void> {
+  const r = await call("POST", "/dev/fixture/balance", s.token, balance);
+  if (r.status !== 200) throw new Error(`balance fixture failed: ${r.status}`);
+}
+
 /** A minimal valid save blob (passes validateSave) with the given currency. */
 export function makeSave(gold = 200, brains = 15, xp = 0) {
   return {

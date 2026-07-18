@@ -398,6 +398,19 @@ app.post("/dev/fixture/roster", requireAuth, async (c) => {
   return c.json({ count });
 });
 
+app.post("/dev/fixture/balance", requireAuth, async (c) => {
+  if (c.env.DEV_AUTH !== "1") return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<{ gold?: number; brains?: number; xp?: number }>()
+    .catch((): { gold?: number; brains?: number; xp?: number } => ({}));
+  const gold = Math.max(0, Math.min(100_000_000, Math.floor(Number(body.gold ?? 400))));
+  const brains = Math.max(0, Math.min(10_000_000, Math.floor(Number(body.brains ?? 20))));
+  const xp = Math.max(0, Math.min(10_000_000, Math.floor(Number(body.xp ?? 0))));
+  if (![gold, brains, xp].every(Number.isSafeInteger)) return c.json({ error: "bad_fixture_balance" }, 400);
+  await c.env.DB.prepare(`UPDATE balances SET gold=?, brains=?, xp=?, claimed_level=? WHERE account_id=?`)
+    .bind(gold, brains, xp, levelForXp(xp), c.get("accountId")).run();
+  return c.json({ gold, brains, xp });
+});
+
 app.use("*", async (c, next) => {
   const enforceAt = Number(c.env.INTEGRITY_V2_ENFORCE_AFTER_MS);
   const mutation = c.req.method !== "GET" && !c.req.path.startsWith("/session/") && c.req.path !== "/logout";
