@@ -15,6 +15,7 @@ import { findPath } from "../pathfind";
 import { OwnedZombie } from "./types";
 import { bitsOf, slotOf } from "./mutations";
 import { matchesMutationReplacement, type MutationReplacement } from "./mutationVisual";
+import { zombiePartTint } from "./appearance";
 
 // Head replacements draw over the base skull but under facial parts, so eyes stay
 // visible on Onion/Tomato/etc. Hair/eye mutations draw above the face.
@@ -154,7 +155,7 @@ export class ZombieUnit {
       sp.position.set(p.px, p.py);
       sp.scale.set(p.scale ?? 1);
       sp.zIndex = p.z;
-      if (p.tint) sp.tint = tint; // only the grey skeleton is unit-coloured
+      if (p.tint) sp.tint = zombiePartTint(p.file, tint);
       this.parts.push(sp);
       this.root.addChild(sp);
       if (matchesMutationReplacement(p.file, "body")) replaceable.body.push(sp);

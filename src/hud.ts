@@ -357,18 +357,18 @@ const STYLE = `
    keep raid panels (.panelbg) visible. */
 #hud.raiding .topbar, #hud.raiding .tools, #hud.raiding .menucol,
 #hud.raiding .questcol, #hud.raiding .qtoggle, #hud.raiding .fab,
-#hud.raiding .touch-cancel, #hud.raiding .quick-plow { display: none !important; }
+#hud.raiding .touch-cancel { display: none !important; }
 /* "u" key: hide all farm chrome for a clean, unobstructed view of the farm. */
 #hud.ui-hidden .topbar, #hud.ui-hidden .tools, #hud.ui-hidden .menucol,
 #hud.ui-hidden .questcol, #hud.ui-hidden .qtoggle, #hud.ui-hidden .fab,
-#hud.ui-hidden .touch-cancel, #hud.ui-hidden .quick-plow,
+#hud.ui-hidden .touch-cancel,
 #hud.ui-hidden .plantlabel { display: none !important; }
 /* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
    surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
    camera, zombie inspect, and the visit banner remain. */
 #hud.visiting .topbar, #hud.visiting .tools, #hud.visiting .menucol,
 #hud.visiting .questcol, #hud.visiting .qtoggle, #hud.visiting .fab,
-#hud.visiting .touch-cancel, #hud.visiting .quick-plow { display: none !important; }
+#hud.visiting .touch-cancel { display: none !important; }
 #hud .visit-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
   pointer-events: auto; display: flex; align-items: center; gap: 12px;
   background: rgba(30,45,20,.82); color: #fff; padding: 8px 12px 8px 16px;
@@ -409,12 +409,6 @@ const STYLE = `
   box-shadow: 0 3px 7px rgba(0,0,0,.5); font: 900 25px/1 system-ui,sans-serif;
   text-shadow: 0 1px 2px #000; }
 #hud .touch-cancel:active { transform: translateY(1px); }
-#hud .quick-plow { position: fixed; right: 148px; bottom: 19px; width: 48px; height: 48px;
-  pointer-events: auto; cursor: pointer; padding: 3px; border: 2px solid #273516; display: none;
-  border-radius: 14px; background: rgba(30,45,20,.78); box-shadow: 0 3px 7px rgba(0,0,0,.5); }
-#hud .quick-plow img { width: 100%; height: 100%; object-fit: contain; }
-#hud .quick-plow:active { transform: translateY(1px); }
-#hud .touch-cancel:not(.active) + .quick-plow.active { right: 88px; }
 /* remaining-uses badge on the collapsed fab while the Insta-Grow tool is equipped */
 #hud .fab .fab-ct { position: absolute; top: -2px; right: -2px; min-width: 22px; height: 22px;
   padding: 0 5px; box-sizing: border-box; border-radius: 11px; display: none; align-items: center;
@@ -769,6 +763,17 @@ const STYLE = `
 #hud .raid-quick { border: 2px solid #1e1207; border-radius: 9px; padding: 8px 14px; cursor: pointer;
   background: #3a2612; color: #e8d5b0; font-weight: 700; font-size: 12.5px; }
 #hud .raid-quick:hover { filter: brightness(1.15); }
+
+/* Keep raid selection inside the visible browser viewport. Mobile browser chrome
+   makes 100vh taller than the actually-visible page, so use the dynamic viewport
+   and let the detail column scroll instead of clipping the title or Invade button. */
+#hud .raid-bg { box-sizing: border-box; padding: max(12px, env(safe-area-inset-top))
+  max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+  max(12px, env(safe-area-inset-left)); }
+#hud .raid-bg > .panel { box-sizing: border-box; max-height: calc(100dvh - 24px);
+  overflow: hidden; }
+#hud .raid-bg .raidsel { max-height: calc(100dvh - 70px); min-height: 0; }
+#hud .raid-bg .rd-detail { overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
 /* army select */
 #hud .army-wrap { display: flex; flex-direction: column; gap: 10px; width: min(600px, 90vw); }
 #hud .army-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
@@ -1236,10 +1241,6 @@ const STYLE = `
     right: calc(14px + env(safe-area-inset-right)); }
   #hud .touch-cancel { bottom: calc(17px + env(safe-area-inset-bottom));
     right: calc(88px + env(safe-area-inset-right)); }
-  #hud .quick-plow { bottom: calc(19px + env(safe-area-inset-bottom));
-    right: calc(148px + env(safe-area-inset-right)); }
-  #hud .touch-cancel:not(.active) + .quick-plow.active {
-    right: calc(88px + env(safe-area-inset-right)); }
   #hud .qtoggle { bottom: calc(10px + env(safe-area-inset-bottom));
     left: calc(10px + env(safe-area-inset-left)); }
 }
@@ -1256,7 +1257,6 @@ const STYLE = `
   #hud .nameplate { display: none; }
   #hud .gear { width: 40px; height: 40px; }
   #hud .touch-cancel.active { display: block; }
-  #hud .quick-plow.active { display: block; }
 
   /* right menu column: narrower pills. */
   #hud .menucol { gap: 6px; }
@@ -1278,6 +1278,21 @@ const STYLE = `
 /* Narrow portrait phones: market down to 2 columns. */
 @media (max-width: 430px) {
   #hud .mkt-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* On portrait phones the fixed 210px raid list left too little room for the raid
+   description. Turn it into a horizontal chooser so details get the full width. */
+@media (max-width: 560px) {
+  #hud .raid-bg { align-items: stretch; }
+  #hud .raid-bg > .panel { width: 100%; max-width: none; min-width: 0;
+    padding: 16px 14px 14px; }
+  #hud .raid-bg .raidsel { width: 100%; height: 100%; flex-direction: column; gap: 10px; }
+  #hud .raid-bg .raid-list { width: 100%; max-height: none; flex: 0 0 auto;
+    flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  #hud .raid-bg .rd-card { flex: 0 0 148px; }
+  #hud .raid-bg .rd-portrait { width: 76px; height: 76px; }
+  #hud .raid-bg .rd-intro { max-height: none; font-size: 13px; line-height: 1.45; }
+  #hud .raid-bg .rd-foot { padding-bottom: max(2px, env(safe-area-inset-bottom)); }
 }
 
 /* ---- Tim Buckwheat guided tutorial ---- */
@@ -1360,7 +1375,6 @@ export class Hud {
   private fabImg!: HTMLImageElement;
   private fabCt?: HTMLElement; // count badge on the fab (Insta-Grow uses left)
   private touchCancel!: HTMLButtonElement;
-  private quickPlow!: HTMLButtonElement;
   private collapsed = false;
   private plantCards: MenuCard[] = [];
   private zombieCards: MenuCard[] = [];
@@ -1393,7 +1407,6 @@ export class Hud {
     this.buildTools();
     this.buildFab();
     this.buildTouchCancel();
-    this.buildQuickPlow();
     this.buildPlantLabel();
     this.buildQuestToggle();
     this.wireMenuSounds();
@@ -1780,6 +1793,14 @@ export class Hud {
         r.className = "ready";
         r.textContent = "Ready";
         btn.appendChild(r);
+        // The cooldown advances on wall-clock time and does not emit GameState
+        // changes, so keep this badge synchronized independently.
+        const refreshReady = () => {
+          const status = this.getRaidStatus?.();
+          r.style.display = !status || status.cooldownMs <= 0 ? "" : "none";
+        };
+        refreshReady();
+        window.setInterval(refreshReady, 1000);
       }
       const g = document.createElement("span");
       g.className = "gbtn";
@@ -1960,8 +1981,6 @@ export class Hud {
   private refreshTouchCancel() {
     if (this.touchCancel)
       this.touchCancel.classList.toggle("active", this.collapsed && this.mode !== "walk");
-    if (this.quickPlow)
-      this.quickPlow.classList.toggle("active", this.collapsed && this.mode !== "till");
   }
 
   // Icon that represents the currently-active tool (shown on the collapsed fab).
@@ -2013,23 +2032,6 @@ export class Hud {
     this.touchCancel = b;
     this.el.appendChild(b);
     this.refreshTools();
-  }
-
-  /** One-tap access to the other half of the core mobile farm loop: the red
-   * cancel button returns to Multi-tool, while this shortcut equips Plow. */
-  private buildQuickPlow() {
-    const b = document.createElement("button");
-    b.className = "quick-plow";
-    b.type = "button";
-    b.setAttribute("aria-label", "Equip Plow tool");
-    b.title = "Plow";
-    const img = document.createElement("img");
-    img.src = UI("button_plow.png");
-    b.appendChild(img);
-    b.onclick = () => { this.audio.play("menuClick"); this.setMode("till"); };
-    this.quickPlow = b;
-    this.el.appendChild(b);
-    this.refreshTouchCancel();
   }
 
   // Hide the right menu + bottom tools into the single bottom-right fab.
@@ -2230,7 +2232,10 @@ export class Hud {
         remainingMs: number;
         totalMs: number;
         monolith: boolean;
-        pending: { keyA: string; keyB: string; maskA: number; maskB: number } | null;
+        pending: {
+          keyA: string; keyB: string; maskA: number; maskB: number;
+          colorA?: [number, number, number]; colorB?: [number, number, number];
+        } | null;
       })
     | null = null;
   /** Start combining two owned zombies by id. */
@@ -4211,7 +4216,15 @@ export class Hud {
               if (!await this.confirmInGame("Complete this trade?", detail, "Trade")) return;
               action.disabled = true;
               try { await this.onFulfillBlackMarketOrder?.(order, unitId); refreshBalance(); await renderOrders(); }
-              catch { this.showToast("That trade is no longer available. Market refreshed."); await renderOrders(); }
+              catch (error) {
+                const code = error instanceof Error ? error.message : "";
+                if (code.startsWith("insufficient_brains"))
+                  this.showToast(`You need ${order.priceBrains} brains to buy this zombie.`);
+                else if (code.startsWith("counterparty_busy"))
+                  this.showToast("The seller is syncing. Try the trade again in a moment.");
+                else this.showToast("That trade is no longer available. Market refreshed.");
+                await renderOrders();
+              }
             };
           }
           marketCard.appendChild(action); list.appendChild(marketCard);
@@ -5207,6 +5220,21 @@ export class Hud {
     this.el.appendChild(bg);
 
     const portraitOf = (key: string) => this.zombiePortraitOf?.(key) ?? "";
+    const showPortrait = (
+      el: HTMLElement,
+      key: string,
+      mutation: number,
+      color?: [number, number, number],
+    ) => {
+      const fallback = portraitOf(key);
+      if (fallback) el.style.backgroundImage = `url(${fallback})`;
+      if (!this.zombieMutationPortraitOf) return;
+      void this.zombieMutationPortraitOf(key, mutation, color)
+        .then((portrait) => {
+          if (el.isConnected) el.style.backgroundImage = `url(${portrait})`;
+        })
+        .catch(() => { /* retain the static species portrait */ });
+    };
     const fmt = (ms: number) => {
       const s = Math.ceil(ms / 1000);
       if (s < 60) return `${s}s`;
@@ -5235,12 +5263,12 @@ export class Hud {
       // Show the two parents going in (from the pending job's keys + masks).
       const slots = document.createElement("div");
       slots.className = "cmb-slots";
-      const parent = (key: string, mask: number) => {
+      const parent = (key: string, mask: number, color?: [number, number, number]) => {
         const d = document.createElement("div");
         d.className = "cmb-slot filled";
         const p = document.createElement("div");
         p.className = "cmb-por";
-        p.style.backgroundImage = `url(${portraitOf(key)})`;
+        showPortrait(p, key, mask, color);
         const mut = document.createElement("div");
         mut.className = "cmb-sm";
         mut.textContent = mutationLabel(mask) || "no mutations";
@@ -5250,8 +5278,8 @@ export class Hud {
       const plus = document.createElement("div");
       plus.className = "cmb-plus";
       plus.textContent = "+";
-      slots.append(parent(st.pending!.keyA, st.pending!.maskA), plus,
-        parent(st.pending!.keyB, st.pending!.maskB));
+      slots.append(parent(st.pending!.keyA, st.pending!.maskA, st.pending!.colorA), plus,
+        parent(st.pending!.keyB, st.pending!.maskB, st.pending!.colorB));
 
       const bar = document.createElement("div");
       bar.className = "cmb-prog";
@@ -5313,7 +5341,7 @@ export class Hud {
         if (z) {
           const p = document.createElement("div");
           p.className = "cmb-por";
-          p.style.backgroundImage = `url(${portraitOf(z.key)})`;
+          showPortrait(p, z.key, z.mutation, z.color);
           const n = document.createElement("div");
           n.className = "cmb-sn";
           n.textContent = z.name;
@@ -5350,7 +5378,7 @@ export class Hud {
           c.className = "cmb-z" + (chosen ? " chosen" : "");
           const p = document.createElement("div");
           p.className = "cmb-zpor";
-          p.style.backgroundImage = `url(${portraitOf(z.key)})`;
+          showPortrait(p, z.key, z.mutation, z.color);
           const n = document.createElement("div");
           n.className = "cmb-zn";
           n.textContent = z.name;

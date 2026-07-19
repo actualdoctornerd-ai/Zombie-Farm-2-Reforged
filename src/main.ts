@@ -887,6 +887,14 @@ async function main() {
   }
   if (!visiting) {
     restored = await saveManager.load();
+    // The foliage was initially built before the signed-in presentation arrived.
+    // Reapply its saved density to both the live scene and device preference.
+    const restoredBackground = saveManager.loadedFarmBackground;
+    if (isFarmBackground(restoredBackground)) {
+      displayedFarmBackground = restoredBackground;
+      setFarmBackground(restoredBackground);
+      buildFoliage();
+    }
     state.seedFarmerCatalog(assets.farmer);
     applyFarmerAppearance();
     if (!restored) quests.restore(); // fresh farm: activate the opening quests
@@ -1492,7 +1500,11 @@ async function main() {
       totalMs: pot.totalMs(),
       monolith: field.hasCombineMonolith(), // Clay Monolith speeds the pot timer
       pending: pot.pending
-        ? { keyA: pot.pending.keyA, keyB: pot.pending.keyB, maskA: pot.pending.maskA, maskB: pot.pending.maskB }
+        ? {
+            keyA: pot.pending.keyA, keyB: pot.pending.keyB,
+            maskA: pot.pending.maskA, maskB: pot.pending.maskB,
+            colorA: pot.pending.colorA, colorB: pot.pending.colorB,
+          }
         : null,
     };
   };
@@ -1822,8 +1834,22 @@ async function main() {
   hud.onFulfillBlackMarketOrder = async (order, unitId) => {
     if (!economy) throw new Error("online_gameplay_unavailable");
     const expectedAccountVersion = await economy.prepareExternalMutation();
-    const result = await api.fulfillBlackMarketOrder(order.id, crypto.randomUUID(), expectedAccountVersion,
-      unitId ? economy.authoritativeUnitId(unitId) : undefined);
+    const operationId = crypto.randomUUID();
+    let result: Awaited<ReturnType<typeof api.fulfillBlackMarketOrder>> | undefined;
+    // The seller may be completing a command batch at the exact instant the buyer
+    // accepts the listing. That lock is transient; retry the same idempotent market
+    // operation instead of making an affordable listing look unpurchasable.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await api.fulfillBlackMarketOrder(order.id, operationId, expectedAccountVersion,
+          unitId ? economy.authoritativeUnitId(unitId) : undefined);
+        break;
+      } catch (error) {
+        if (!(error instanceof api.ApiError) || error.code !== "counterparty_busy" || attempt === 2) throw error;
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 150 * (attempt + 1)));
+      }
+    }
+    if (!result) throw new Error("market_fulfillment_failed");
     await economy.refreshAuthoritative();
     saveManager.flushCritical();
     return result;
@@ -2037,6 +2063,7 @@ async function main() {
       // Loco Locust sits low inside his generously padded animation cells. Lift his
       // whole token slightly so the visible character shares the other bosses' line.
       bossGroundOffset: { x: 32, y: def.id === "loco-locust" ? 8 : 24 },
+      onStrike: () => audio.play("attack"),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from battle?", `This attempt will end and ${def.name} will escape.`, "Retreat"
       ),
@@ -2212,6 +2239,7 @@ async function main() {
       wallTemplate: setup.wallTemplate,
       brainDrop: setup.brainDrop,
       concentration: setup.concentration,
+      onStrike: () => audio.play("attack"),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from invasion?", "This invasion will count as a loss.", "Retreat"
       ),
@@ -2581,9 +2609,8 @@ async function main() {
     !def.storageSlots && !def.zombieStorage &&
     state.storedItemTotal() < state.storageItemCap;
 
-  // Remove tool: a placed OBJECT sells back for a 50% refund; a plowed/harvested
-  // (crop-free) plot is cleared to bare ground for no money. Growing crops are
-  // left alone — harvest them instead.
+  // Remove tool: a placed OBJECT sells back for a 50% refund; any plot is cleared
+  // to bare ground for no money. A planted crop forfeits its cost and reward.
   const tryRemove = (col: number, row: number, wx: number, wy: number) => {
     const id = field.objectAtPoint(wx, wy);
     if (id) {
@@ -2592,11 +2619,13 @@ async function main() {
       sellObject(id);
       return;
     }
-    if (field.plotOriginAt(col, row) && !field.hasCrop(col, row)) {
+    if (field.plotOriginAt(col, row)) {
       const origin = field.plotOriginAt(col, row);
       jobs.cancelAtTile(col, row); // drop any queued job on this plot first
-      field.removePlot(col, row); // plowed/harvested plot -> bare ground, no refund
+      field.removePlot(col, row); // plot (and any crop) -> bare ground, no refund
       if (origin && state.onFarm) state.onFarm({ type: "remove", oc: origin.oc, or: origin.or }, {});
+      audio.play("sell");
+      saveManager.save();
     }
   };
 
@@ -2774,10 +2803,22 @@ async function main() {
           return;
         }
         if (hud.mode === "till" || hud.mode === "plant") {
-          enqueueTool(col, row);
-          dragging = false;
-          lastPlot = "";
-          return;
+          const mode = hud.mode;
+          if (enqueueTool(col, row)) {
+            dragging = false;
+            lastPlot = "";
+            return;
+          }
+          // A finger tap on already-plowed soil used to disappear while Plow was
+          // equipped (especially noticeable immediately after the tutorial). A
+          // failed Plow tap on plantable soil is selection intent: return to the
+          // Multi-tool and fall through to the normal crop picker below.
+          if (mode === "till" && field.canPlant(col, row)) hud.setMode("walk");
+          else {
+            dragging = false;
+            lastPlot = "";
+            return;
+          }
         }
       }
       if (hud.mode === "walk") {

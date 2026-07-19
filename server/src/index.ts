@@ -756,8 +756,9 @@ app.put("/presentation", async (c) => {
   const validObjectLayout = objectLayout === undefined || (Array.isArray(objectLayout) &&
     objectLayout.length <= 512 && objectLayout.every((entry) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
-      const row = entry as { id?: unknown; oc?: unknown; or?: unknown; rotation?: unknown };
+      const row = entry as { id?: unknown; key?: unknown; oc?: unknown; or?: unknown; rotation?: unknown };
       return typeof row.id === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(row.id) &&
+        (row.key === undefined || row.key === "storage01") &&
         Number.isSafeInteger(row.oc) && Number(row.oc) >= 0 && Number(row.oc) < 128 &&
         Number.isSafeInteger(row.or) && Number(row.or) >= 0 && Number(row.or) < 128 &&
         (row.rotation === undefined || row.rotation === 0 || row.rotation === 1);
@@ -1175,7 +1176,7 @@ app.get("/friends/:id/save", async (c) => {
   const targetAccount = await db.accountById(c.env.DB, target);
   const p = boot.presentation.data as {
     farm?: { climate?: string; background?: string };
-    objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
+    objectLayout?: { id: string; key?: string; oc: number; or: number; rotation?: number }[];
     rosterLayout?: { id: string; name?: string; pos?: { col: number, row: number }; color?: [number, number, number] }[];
   };
   const objectLayout = new Map((p.objectLayout ?? []).map((o) => [o.id, o]));
@@ -1210,7 +1211,11 @@ app.get("/friends/:id/save", async (c) => {
       const layout = objectLayout.get(obj.instanceId);
       return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout?.oc ?? 0, or: layout?.or ?? 0,
         rotation: layout?.rotation, readyAt: obj.readyAt }];
-    }),
+    }).concat([...objectLayout.values()].flatMap((layout) =>
+      layout.key === "storage01" && !boot.gameplay.objects.objects.some((obj) => obj.instanceId === layout.id)
+        ? [{ id: layout.id, key: layout.key, oc: layout.oc, or: layout.or,
+          rotation: layout.rotation, readyAt: undefined }]
+        : [])),
     ownedZombies: boot.gameplay.roster.map((unit) => {
       const layout = rosterLayout.get(unit.id);
       return { id: unit.id, key: unit.key, name: layout?.name, mutation: unit.mutation, invasions: unit.invasions,

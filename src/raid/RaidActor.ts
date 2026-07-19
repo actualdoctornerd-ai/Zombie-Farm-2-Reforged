@@ -5,6 +5,7 @@
 import { Container, Sprite } from "pixi.js";
 import { GameAssets, ZombieModel } from "../assets";
 import { bitsOf, slotOf } from "../zombie/mutations";
+import { zombiePartTint } from "../zombie/appearance";
 
 const MODEL_BASE = 0.95;
 const TILT_AMP_MOVE = 0.1;
@@ -93,7 +94,7 @@ export class RaidActor {
       sp.position.set(p.px, p.py);
       sp.scale.set(p.scale ?? 1);
       sp.zIndex = p.z;
-      if (p.tint) sp.tint = tint;
+      if (p.tint) sp.tint = zombiePartTint(p.file, tint);
       this.root.addChild(sp);
       if (p.group === "head") {
         this.headParts.push({ sp, bx: p.px, by: p.py });

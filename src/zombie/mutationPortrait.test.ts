@@ -8,6 +8,7 @@ const model: ZombieModel = {
   parts: [
     { file: "baseBody", group: "root", px: 0, py: -20, ax: 0.5, ay: 0.5, z: 3, tint: true },
     { file: "baseArmF", group: "root", px: 8, py: -25, ax: 1, ay: 0.5, z: 7, tint: true },
+    { file: "defaultEyeL", group: "head", px: 0, py: -32, ax: 0.5, ay: 0.5, z: 9, tint: true },
     { file: "face", group: "head", px: 2, py: -30, ax: 0.5, ay: 0.5, z: 10, tint: false },
   ],
 };
@@ -15,7 +16,7 @@ const model: ZombieModel = {
 const assets = {
   zombieModels: { test: model, ZombieActorRegularTier1: model },
   zombiePartTex: {
-    baseBody: Texture.EMPTY, baseArmF: Texture.EMPTY, face: Texture.EMPTY,
+    baseBody: Texture.EMPTY, baseArmF: Texture.EMPTY, defaultEyeL: Texture.EMPTY, face: Texture.EMPTY,
     tomato: Texture.EMPTY, turnip: Texture.EMPTY, lima: Texture.EMPTY,
   },
   mutationParts: {
@@ -28,12 +29,13 @@ const assets = {
 describe("mutation-aware zombie portraits", () => {
   it("renders every mutation and hides the base parts they replace", () => {
     const rig = buildZombiePortraitRig(assets, "test", 1 | 8 | 1024);
-    const children = rig.children as unknown as { label: string; visible: boolean }[];
+    const children = rig.children as unknown as { label: string; visible: boolean; tint: number }[];
 
     expect(children.map((child) => child.label)).toEqual([
-      "baseBody", "baseArmF", "face", "tomato", "turnip", "lima",
+      "baseBody", "baseArmF", "defaultEyeL", "face", "tomato", "turnip", "lima",
     ]);
     expect(children.find((child) => child.label === "baseBody")?.visible).toBe(false);
     expect(children.find((child) => child.label === "baseArmF")?.visible).toBe(false);
+    expect(children.find((child) => child.label === "defaultEyeL")?.tint).toBe(0xffffff);
   });
 });

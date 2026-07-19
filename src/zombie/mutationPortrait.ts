@@ -2,6 +2,7 @@ import { Container, Rectangle, Sprite, type Renderer } from "pixi.js";
 import type { GameAssets, ZombieModel } from "../assets";
 import { bitsOf, slotOf } from "./mutations";
 import { matchesMutationReplacement, type MutationReplacement } from "./mutationVisual";
+import { zombiePartTint } from "./appearance";
 
 const MUT_HEAD_REPLACE_Z = 4.5;
 const MUT_FACE_OVERLAY_Z = 20;
@@ -31,7 +32,7 @@ export function buildZombiePortraitRig(
     sprite.position.set(part.px, part.py);
     sprite.scale.set(part.scale ?? 1);
     sprite.zIndex = part.z;
-    if (part.tint) sprite.tint = tint;
+    if (part.tint) sprite.tint = zombiePartTint(part.file, tint);
     root.addChild(sprite);
     if (matchesMutationReplacement(part.file, "body")) replaceable.body.push(sprite);
     if (matchesMutationReplacement(part.file, "armF")) replaceable.armF.push(sprite);

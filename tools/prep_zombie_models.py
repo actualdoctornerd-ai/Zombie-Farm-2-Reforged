@@ -427,7 +427,10 @@ def _portraits(frames, models):
             w, h = int(round(L["width"])), int(round(L["height"]))
             part = atlas.crop((x, y, x + w, y + h))
             if mp["tint"]:
-                part = tint(part, m["color"])
+                # Default eyeballs are a soft light yellow in every species; the
+                # rest of the grey skeleton inherits the zombie's body color.
+                part = tint(part, (255, 255, 255) if mp["file"] in {"defaultEyeL", "defaultEyeR"}
+                            else m["color"])
             ox, oy = L["offsetX"], L["offsetY"]
             if mp["group"] == "head" and mp["file"] != "defaultHead" and SLOT.get(mp["file"]) != "Head":
                 ox += head[0]

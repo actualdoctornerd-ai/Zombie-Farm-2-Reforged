@@ -10,7 +10,7 @@ import { BASE } from "./base";
 export type Sfx =
   | "till" | "plant" | "harvest" | "harvestZombie" | "xp"
   | "buy" | "sell" | "place" | "instaGrow"
-  | "menuOpen" | "menuClose" | "menuClick" | "levelUp";
+  | "menuOpen" | "menuClose" | "menuClick" | "levelUp" | "attack";
 
 // All clips are shipped as compressed .mp3 (universal browser support). The
 // .wav->.mp3 coercion lets data-driven filenames (e.g. decor tapSound values
@@ -35,6 +35,7 @@ const SFX_FILE: Record<Sfx, string> = {
   menuClose: "menuClose.mp3",
   menuClick: "menuClick.mp3",
   levelUp: "winner.mp3",
+  attack: "block.mp3",
 };
 
 // Per-SFX volume. Menu whooshes/clicks sit under action feedback; anything
@@ -44,6 +45,7 @@ const SFX_VOL: Partial<Record<Sfx, number>> = {
   menuOpen: 0.4, menuClose: 0.4, menuClick: 0.28,
   buy: 0.55, sell: 0.55, place: 0.5, instaGrow: 0.6,
   levelUp: 0.75, harvestZombie: 0.7,
+  attack: 0.32,
 };
 
 // Ambient farm life: a quiet continuous bed, plus an occasional rooster/crow so

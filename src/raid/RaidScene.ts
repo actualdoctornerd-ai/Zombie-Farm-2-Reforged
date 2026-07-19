@@ -57,6 +57,8 @@ export interface RaidSceneParams {
   bossGroundOffset?: { x: number; y: number };
   confirmRetreat?: () => Promise<boolean>;
   onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
+  /** Presentation-only impact cue; combat remains deterministic without it. */
+  onStrike?: () => void;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
 }
 
@@ -231,6 +233,7 @@ export class RaidScene {
   private raid: RaidDef;
   private onFinish: (o: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
   private onCheckpoint: ((finalTick: number, inputs: RaidReplayInput[]) => Promise<void>) | null;
+  private onStrike: (() => void) | null;
   private lastCheckpointTick = 0;
   private checkpointing = false;
   private checkpointRetryAt = 0;
@@ -346,6 +349,7 @@ export class RaidScene {
     this.assets = params.assets;
     this.onFinish = params.onFinish;
     this.onCheckpoint = params.onCheckpoint ?? null;
+    this.onStrike = params.onStrike ?? null;
     this.bossThrow = params.bossThrow;
     this.hazardSprite = params.hazard?.sprite ?? "";
     this.wallTemplate = params.wallTemplate ?? null;
@@ -1640,8 +1644,10 @@ export class RaidScene {
         // renderer would replay one strike several times, resetting the pulse and
         // flipping the attack-arm parity every display frame.
         if (stepped) {
+          let struck = false;
           for (const u of this.sim.units) {
             if (u.struckThisTick) {
+              struck = true;
               const t = this.tokens.get(u.id);
               if (t) {
                 t.pulse = 1;
@@ -1653,6 +1659,9 @@ export class RaidScene {
               }
             }
           }
+          // Collapse simultaneous hits to one cue so a large army does not stack
+          // a painfully loud group of identical one-shots.
+          if (struck) this.onStrike?.();
         }
         // Confetti pops the moment the players win (across the top of the field).
         if (this.sim.finished && this.sim.playerWon && !this.confettiFired && this.confettiCfg) {

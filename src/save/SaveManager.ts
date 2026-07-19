@@ -15,7 +15,7 @@ import { reconcileTutorialCompletion } from "../tutorial/steps";
 type PresentationData = {
   player?: { name?: string; farmer?: { col: number; row: number }; farmerAppearance?: SaveGame["player"]["farmerAppearance"] };
   farm?: { climate?: string; background?: SaveGame["farm"]["background"] };
-  objectLayout?: { id: string; oc: number; or: number; rotation?: number }[];
+  objectLayout?: { id: string; key?: string; oc: number; or: number; rotation?: number }[];
   rosterLayout?: { id: string; name?: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
   zombiePot?: SaveGame["zombiePot"];
   zombiePots?: SaveGame["zombiePots"];
@@ -26,6 +26,9 @@ type PresentationData = {
 /** Offline builds retain a local full save. Signed-in v3 builds persist only visual
  * presentation; authoritative gameplay is hydrated from the shared bootstrap call. */
 export class SaveManager {
+  /** Background from the latest hydrated save. Main applies this only for the
+   * player's own farm, so visiting never overwrites device preferences. */
+  loadedFarmBackground: SaveGame["farm"]["background"];
   private presentationVersion = 0;
   private lastPresentation = "";
   private presentationDirty = false;
@@ -114,7 +117,11 @@ export class SaveManager {
         },
       },
       farm: { climate: blob.farm.climate, background: blob.farm.background },
-      objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id, oc: o.oc, or: o.or, rotation: o.rotation })),
+      // The free starter shed is presentation-only, so its key must travel with
+      // its layout or it cannot be reconstructed after a signed-in refresh.
+      objectLayout: (blob.objects ?? []).map((o) => ({ id: o.id,
+        ...(o.key === "storage01" ? { key: o.key } : {}),
+        oc: o.oc, or: o.or, rotation: o.rotation })),
       rosterLayout: (blob.ownedZombies ?? []).map((u) => ({ id: u.id, name: u.name, pos: u.pos, stored: u.stored, color: u.color })),
       zombiePots: blob.zombiePots,
       tutorial: blob.tutorial,
@@ -257,6 +264,12 @@ export class SaveManager {
       return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout?.oc ?? 0, or: layout?.or ?? 0,
         rotation: layout?.rotation, readyAt: obj.readyAt }];
     });
+    for (const layout of objectLayout.values()) {
+      if (layout.key === "storage01" && !objects.some((object) => object.id === layout.id)) {
+        objects.push({ id: layout.id, key: layout.key, oc: layout.oc, or: layout.or,
+          rotation: layout.rotation, readyAt: undefined });
+      }
+    }
     const pots = Object.fromEntries(Object.entries(p.zombiePots ?? {}).filter(([, pot]) =>
       !!pot?.parentAId && !!pot.parentBId
     ));
@@ -322,6 +335,7 @@ export class SaveManager {
   }
 
   private async applySave(data: SaveGame): Promise<void> {
+    this.loadedFarmBackground = data.farm.background;
     const player = data.player;
     this.state.apply({ name: player.name, gold: player.gold, brains: player.brains, xp: player.xp,
       zombieCount: player.zombieCount, zombieMax: Math.max(16, player.zombieMax || 16) });
