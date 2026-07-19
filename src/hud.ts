@@ -14,14 +14,12 @@ import { mutationLabel, mutationBonus } from "./zombie/mutations";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
-import { APP_VERSION } from "./version";
 import { canGiftBrain, type Friend } from "./social/friends";
 import { isMobile } from "./platform";
-import { getSpriteSet, setSpriteSet, getEdition, setEdition,
-  FarmBackground, FARM_BACKGROUNDS } from "./prefs";
+import { type FarmBackground } from "./prefs";
 import { fmtCooldown, VOUCHER_KEY } from "./raid/RaidCatalog";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
-  ABILITY_POOL, ABILITY_TIER, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
+  ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
 import { statBreakdown } from "./zombie/statDisplay";
 import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
@@ -36,6 +34,10 @@ import type {
 import "./ui/hud.css";
 import { openModal } from "./ui/Modal";
 import { renderLevelUp, renderQuestComplete, renderObjectActions, renderInfoPanel } from "./ui/panels/dialogs";
+import {
+  openSettings as openSettingsPanel, openDevMenu as openDevMenuPanel,
+  buildAccountBlock, buildDevicesBlock,
+} from "./ui/panels/settings";
 // View-model types + the grave classifier live in hudTypes so panel modules can
 // import them without depending on the whole Hud class. Re-exported below for the
 // existing `from "./hud"` importers (main.ts).
@@ -103,7 +105,9 @@ export class Hud {
   // Rotate tool tap: main handles it contextually (flip the placement ghost / the
   // carried object / enter the standalone rotate mode). Null falls back to setMode.
   onRotateTool: (() => void) | null = null;
-  private el: HTMLElement;
+  // Public (not private) so the extracted panel modules in ui/panels/* can render
+  // into the HUD root and read shared services. Treat as internal to the HUD.
+  readonly el: HTMLElement;
   private writerLock: HTMLElement | null = null;
   private writerBanner: HTMLElement | null = null;
   private writerTakeover: (() => Promise<boolean>) | null = null;
@@ -144,7 +148,7 @@ export class Hud {
     return this.placingObj;
   }
 
-  constructor(private state: GameState, private audio: AudioManager) {
+  constructor(readonly state: GameState, readonly audio: AudioManager) {
     // Styles are injected by the `import "./ui/hud.css"` at the top of this module.
     this.el = document.getElementById("hud")!;
     this.el.innerHTML = "";
@@ -249,7 +253,7 @@ export class Hud {
     });
   }
 
-  private async toggleFullscreen() {
+  async toggleFullscreen() {
     if (document.fullscreenElement) await document.exitFullscreen();
     else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
   }
@@ -2217,378 +2221,10 @@ export class Hud {
     return card;
   }
 
-  // Reusable label + on/off toggle row (shared by Settings and the Developer menu).
-  private settingRow(label: string, on: boolean, set: (v: boolean) => void) {
-    const r = document.createElement("div");
-    r.className = "set-row";
-    const lbl = document.createElement("span");
-    lbl.textContent = label;
-    const t = document.createElement("button");
-    t.className = "toggle" + (on ? " on" : "");
-    t.innerHTML = `<span class="txt l">ON</span><span class="txt r">OFF</span><span class="knob"></span>`;
-    t.onclick = () => {
-      const now = !t.classList.contains("on");
-      t.classList.toggle("on", now);
-      set(now);
-    };
-    r.append(lbl, t);
-    return r;
-  }
-
-  // Reusable label + segmented multi-choice row (a small pill button per option).
-  private settingChoiceRow<T extends string>(
-    label: string,
-    options: { id: T; label: string }[],
-    current: T,
-    set: (v: T) => void
-  ) {
-    const r = document.createElement("div");
-    r.className = "set-row set-row-choice";
-    const lbl = document.createElement("span");
-    lbl.textContent = label;
-    const seg = document.createElement("div");
-    seg.className = "set-choice";
-    const btns = options.map((o) => {
-      const b = document.createElement("button");
-      b.className = "choice" + (o.id === current ? " on" : "");
-      b.textContent = o.label;
-      b.onclick = () => {
-        if (b.classList.contains("on")) return;
-        for (const other of btns) other.classList.remove("on");
-        b.classList.add("on");
-        set(o.id);
-      };
-      return b;
-    });
-    seg.append(...btns);
-    r.append(lbl, seg);
-    return r;
-  }
-
-  // Settings modal: Music / Sound Effects / Ambience toggles plus the account
-  // block. The Developer section now lives in its own menu (openDevMenu), reached
-  // via the invisible hotspot beside the nameplate.
-  private openSettings() {
-    // The fullscreen listener is torn down via onClose so it detaches whether the
-    // panel is dismissed by the close button or a backdrop click.
-    const { panel } = openModal({
-      host: this.el, title: "Settings",
-      onClose: () => document.removeEventListener("fullscreenchange", refreshFullscreen),
-    });
-
-    const row = (label: string, on: boolean, set: (v: boolean) => void) =>
-      this.settingRow(label, on, set);
-
-    // (Account + Sign out moved to the Profile menu — opened by the top-right
-    // nameplate. See openProfiles / buildAccountBlock.)
-
-    // A toggle row followed by a small explanatory note underneath it.
-    const noteEl = (text: string) => {
-      const n = document.createElement("div");
-      n.className = "set-note";
-      n.textContent = text;
-      return n;
-    };
-
-    // Fullscreen must be entered from a user gesture, so expose it as a Settings
-    // action instead of trying to force it during boot. Pixi already resizes to the
-    // window and will automatically pick up the fullscreen viewport dimensions.
-    const fullscreenRow = document.createElement("div");
-    fullscreenRow.className = "set-row";
-    const fullscreenLabel = document.createElement("span");
-    fullscreenLabel.textContent = "Fullscreen";
-    const fullscreenButton = document.createElement("button");
-    fullscreenButton.className = "set-action";
-    const canFullscreen = document.fullscreenEnabled &&
-      typeof document.documentElement.requestFullscreen === "function";
-    const refreshFullscreen = () => {
-      const active = document.fullscreenElement !== null;
-      fullscreenButton.textContent = active ? "Exit Fullscreen" :
-        canFullscreen ? "Enter Fullscreen" : "Unavailable";
-      fullscreenButton.disabled = !canFullscreen;
-    };
-    fullscreenButton.onclick = async () => {
-      fullscreenButton.disabled = true;
-      try {
-        await this.toggleFullscreen();
-      } catch {
-        fullscreenButton.textContent = "Couldn't Open";
-      } finally {
-        if (fullscreenButton.textContent !== "Couldn't Open") refreshFullscreen();
-        else fullscreenButton.disabled = false;
-      }
-    };
-    fullscreenRow.append(fullscreenLabel, fullscreenButton);
-    refreshFullscreen();
-    document.addEventListener("fullscreenchange", refreshFullscreen);
-
-    // Sprite set: original Zombie Farm (ZF1) vs the sequel's art (ZF2). Persisted
-    // only — nothing swaps art on it yet (see prefs.ts / README "Current Gaps").
-    // ON = ZF2 (the pack wired today), OFF = ZF1.
-    const spriteRow = row("ZF2 Sprites", getSpriteSet() === "zf2", (v) =>
-      setSpriteSet(v ? "zf2" : "zf1")
-    );
-    const spriteNote = noteEl("Original (ZF1) vs sequel (ZF2) art. Art swapping isn't wired yet.");
-
-    // Edition: Reforged (all modern additions — online account, brain gifting) vs
-    // Traditional (the OG single-player experience). Persisted only for now — the
-    // feature gates it will drive aren't wired yet (see prefs.isReforged).
-    const editionRow = row("Reforged", getEdition() === "reforged", (v) =>
-      setEdition(v ? "reforged" : "traditional")
-    );
-    const editionNote = noteEl("Reforged adds brain gifting & online features; Traditional is the OG experience. (Gating not wired yet.)");
-
-    // Signed-in players can change the same display name they chose on first login.
-    // The server remains the source of truth for normalization and validation.
-    const accountBlock: HTMLElement[] = [];
-    const acct = this.myAccount?.();
-    if (this.socialOnline?.() && acct && this.onSetUsername) {
-      const wrap = document.createElement("div");
-      wrap.className = "set-username";
-      const r = document.createElement("div");
-      r.className = "set-row";
-      const label = document.createElement("span");
-      label.textContent = "Username";
-      const controls = document.createElement("div");
-      controls.className = "set-username-controls";
-      const input = document.createElement("input");
-      input.className = "set-username-input";
-      input.type = "text";
-      input.maxLength = 20;
-      input.autocomplete = "off";
-      input.value = acct.name;
-      input.setAttribute("aria-label", "Username");
-      const save = document.createElement("button");
-      save.className = "set-username-save";
-      save.textContent = "Save";
-      const status = document.createElement("div");
-      status.className = "set-username-status";
-      const submit = async () => {
-        const name = input.value.trim();
-        if (!name || save.disabled) return;
-        save.disabled = true;
-        input.disabled = true;
-        status.classList.remove("error");
-        status.textContent = "Saving…";
-        const error = await this.onSetUsername!(name).catch(() => "error");
-        save.disabled = false;
-        input.disabled = false;
-        if (error) {
-          status.classList.add("error");
-          status.textContent = error === "bad_username"
-            ? "Use 2–20 letters, numbers, spaces or _ - . '"
-            : "Couldn't save that. Try again.";
-          return;
-        }
-        input.value = this.myAccount?.()?.name ?? name;
-        status.textContent = "Username updated.";
-      };
-      save.onclick = () => void submit();
-      input.onkeydown = (e) => { if (e.key === "Enter") void submit(); };
-      controls.append(input, save);
-      r.append(label, controls);
-      wrap.append(r, status);
-      accountBlock.push(wrap);
-    }
-
-    // Farm background: how lush the trees ringing the farm are. All three fill the
-    // view to the zoom-out edge; they differ in density (Deep Forest → Light Meadow).
-    const bgBlock: HTMLElement[] = [];
-    if (this.getFarmBackground && this.onSetFarmBackground) {
-      bgBlock.push(
-        this.settingChoiceRow("Farm Background", FARM_BACKGROUNDS, this.getFarmBackground(),
-          (v) => this.onSetFarmBackground?.(v)),
-        noteEl("How many trees surround your farm.")
-      );
-    }
-
-    panel.append(
-      row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
-      row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
-      row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
-      row("Mute When Unfocused", this.audio.muteWhenUnfocused,
-        (v) => this.audio.setMuteWhenUnfocused(v)),
-      noteEl("Silence the game while its tab or window is in the background."),
-      fullscreenRow,
-      noteEl(canFullscreen
-        ? "Press F to toggle fullscreen. Escape also exits."
-        : "This browser doesn't support app-controlled fullscreen."),
-      ...accountBlock,
-      ...bgBlock,
-      spriteRow, spriteNote,
-      editionRow, editionNote
-    );
-    const version = document.createElement("div");
-    version.className = "set-version";
-    version.textContent = `Version ${APP_VERSION}`;
-    panel.append(version);
-  }
-
-  // Developer menu: hidden from normal play, opened only via the invisible hotspot
-  // beside the nameplate. Holds the Night-lighting toggle,
-  // level/gold/brains overrides, and the per-tier raid ability unlocks.
-  private openDevMenu() {
-    const { panel } = openModal({ host: this.el, title: "Developer" });
-
-    const row = (label: string, on: boolean, set: (v: boolean) => void) =>
-      this.settingRow(label, on, set);
-
-    // Developer number field: label + numeric input applied on change.
-    const numRow = (label: string, value: number, apply: (n: number) => void) => {
-      const r = document.createElement("div");
-      r.className = "set-row";
-      const lbl = document.createElement("span");
-      lbl.textContent = label;
-      const inp = document.createElement("input");
-      inp.type = "number";
-      inp.className = "dev-input";
-      inp.value = String(value);
-      inp.onchange = () => {
-        const n = parseInt(inp.value, 10);
-        if (!Number.isNaN(n)) {
-          apply(n);
-          this.update();
-        }
-      };
-      r.append(lbl, inp);
-      return r;
-    };
-
-    // Night lighting: toggles the dark overlay + carved lights (was the N key).
-    const nightRow = row("Night", this.getNight?.() ?? false, (v) =>
-      this.onSetNight?.(v)
-    );
-
-    // Dev: beat a tier boss once — each win unlocks the NEXT still-locked ability of
-    // that tier across the roster (not the whole tier at once).
-    const raidWrap = document.createElement("div");
-    const raidStatus = document.createElement("div");
-    raidStatus.className = "dev-status";
-    raidStatus.textContent = "Beat a tier boss to unlock its next ability:";
-    const raidBtns = document.createElement("div");
-    raidBtns.className = "dev-raid-btns";
-    for (let t = 1; t <= 4; t++) {
-      const b = document.createElement("button");
-      b.className = "dev-btn";
-      b.textContent = `Win T${t} — ${TIER_BOSS[t]}`;
-      b.onclick = () => {
-        const pool = ABILITY_TIER[t] ?? [];
-        const before = this.state.tierAbilitiesUnlocked(t);
-        this.state.completeRaid(String(t));
-        const after = this.state.tierAbilitiesUnlocked(t);
-        if (after > before) {
-          const label = ABILITY_POOL[pool[after - 1]]?.label ?? pool[after - 1];
-          raidStatus.textContent =
-            `Unlocked ${label} — Tier ${t} ${after}/${pool.length} (beat ${TIER_BOSS[t]}).`;
-        } else {
-          raidStatus.textContent = `All Tier ${t} abilities already unlocked.`;
-        }
-      };
-      raidBtns.appendChild(b);
-    }
-    raidWrap.append(raidStatus, raidBtns);
-
-    panel.append(
-      nightRow,
-      numRow("Level", this.state.level, (n) => this.state.setLevel(n)),
-      numRow("Gold", this.state.gold, (n) => this.state.setGold(n)),
-      numRow("Brains", this.state.brains, (n) => this.state.setBrains(n)),
-      raidWrap
-    );
-  }
-
-  /** Account block for the Account menu: who you're signed in as and a Sign out
-   *  button — this is the ONE place Sign out lives. Returns null when there's no
-   *  online account (offline build or signed out) so the caller can omit it. The
-   *  friend code lives in the Friends panel now, not here. Sign out flushes the
-   *  save and returns to the sign-in gate (see hud.onSignOut / main.ts). */
-  private buildAccountBlock(): HTMLElement | null {
-    const acct = this.myAccount?.();
-    if (!this.socialOnline?.() || !acct) return null;
-    const block = document.createElement("div");
-    block.className = "set-acct";
-    const info = document.createElement("div");
-    info.className = "set-acct-info";
-    const who = document.createElement("div");
-    who.className = "set-acct-who";
-    who.innerHTML = `Signed in as <b>${acct.name}</b>`;
-    info.append(who);
-    const out = document.createElement("button");
-    out.className = "set-signout";
-    out.textContent = "Sign out";
-    out.onclick = () => this.onSignOut?.();
-    block.append(info, out);
-    return block;
-  }
-
-  /** Short "active N ago" for the device list. Coarse on purpose. */
-  private static relTime(ts: number): string {
-    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (s < 90) return "just now";
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 48) return `${h}h ago`;
-    return `${Math.floor(h / 24)}d ago`;
-  }
-
-  /** Devices block for the Account menu: this account's live sessions, each with a
-   *  device label + last-active time, and a Revoke button for every device EXCEPT
-   *  the current one (that's what Sign out is for). Loads asynchronously — returns
-   *  the container immediately and fills it in. Null when there's no online account. */
-  private buildDevicesBlock(): HTMLElement | null {
-    if (!this.socialOnline?.() || !this.onListSessions) return null;
-    const block = document.createElement("div");
-    block.className = "set-devices";
-    const h = document.createElement("h3");
-    h.textContent = "Devices";
-    const list = document.createElement("div");
-    list.className = "set-dev-list";
-    list.textContent = "Loading…";
-    block.append(h, list);
-
-    const render = async () => {
-      let rows: { id: string; label: string | null; lastUsedAt: number; current: boolean }[];
-      try {
-        rows = await this.onListSessions!();
-      } catch {
-        list.textContent = "Couldn't load your devices.";
-        return;
-      }
-      list.innerHTML = "";
-      if (!rows.length) { list.textContent = "No active devices."; return; }
-      for (const r of rows) {
-        const row = document.createElement("div");
-        row.className = "set-dev-row";
-        const meta = document.createElement("div");
-        meta.className = "set-dev-meta";
-        const name = document.createElement("div");
-        name.className = "set-dev-name";
-        // textContent — the label is server-derived, but never build markup from it.
-        name.textContent = r.label ?? "Unknown device";
-        const when = document.createElement("div");
-        when.className = "set-dev-when";
-        when.textContent = r.current ? "This device" : `Active ${Hud.relTime(r.lastUsedAt)}`;
-        meta.append(name, when);
-        row.append(meta);
-        if (!r.current) {
-          const rev = document.createElement("button");
-          rev.className = "set-dev-revoke";
-          rev.textContent = "Sign out";
-          rev.onclick = async () => {
-            rev.disabled = true;
-            const ok = await this.onRevokeSession?.(r.id).catch(() => false);
-            if (ok) row.remove();
-            else { rev.disabled = false; this.showToast("Couldn't sign that device out."); }
-          };
-          row.append(rev);
-        }
-        list.append(row);
-      }
-    };
-    void render();
-    return block;
-  }
+  // Settings + Developer menus live in ui/panels/settings.ts; these forward the
+  // Hud instance. buildAccountBlock/buildDevicesBlock are called by openProfiles.
+  private openSettings() { openSettingsPanel(this); }
+  private openDevMenu() { openDevMenuPanel(this); }
 
   // Account menu: who you're signed in as + Sign out — and Sign out lives ONLY
   // here. Profile SWITCHING (multiple independent save slots — Play / New Game /
@@ -2603,10 +2239,10 @@ export class Hud {
       title: "Account", replaceSelector: ".prof-bg",
     });
 
-    const acctBlock = this.buildAccountBlock();
+    const acctBlock = buildAccountBlock(this);
     if (acctBlock) {
       panel.append(acctBlock);
-      const devices = this.buildDevicesBlock();
+      const devices = buildDevicesBlock(this);
       if (devices) panel.append(devices);
     } else {
       // Offline build or signed out: nothing to manage here.
