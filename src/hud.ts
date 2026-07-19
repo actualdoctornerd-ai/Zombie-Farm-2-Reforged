@@ -35,6 +35,7 @@ import type {
 // HUD styles live in a real stylesheet (src/ui/hud.css) so they get CSS tooling
 // and hot-reload. Vite injects it at module load — no manual <style> element.
 import "./ui/hud.css";
+import { openModal } from "./ui/Modal";
 
 export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow" | "rotate";
 
@@ -511,18 +512,9 @@ export class Hud {
 
   // Full quest screen: every active quest as a card with its objectives, scrollable.
   private openQuestLog() {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel questlog";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
-    const h = document.createElement("h2");
-    h.textContent = `Quests (${this.questViews.length})`;
+    const { panel } = openModal({
+      host: this.el, panelClass: "questlog", title: `Quests (${this.questViews.length})`,
+    });
     const list = document.createElement("div");
     list.className = "qlog-list";
     if (!this.questViews.length) {
@@ -553,27 +545,12 @@ export class Hud {
       item.append(img, body);
       list.appendChild(item);
     }
-    panel.append(x, h, list);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(list);
   }
 
   // A quest's detail popup: title, tip, and each objective with its live count.
   private openQuestDetail(q: QuestView) {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel qdetail";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
-    const h = document.createElement("h2");
-    h.textContent = q.title;
-    panel.append(x, h);
+    const { panel } = openModal({ host: this.el, panelClass: "qdetail", title: q.title });
     for (const o of q.objectives) {
       const row = document.createElement("div");
       row.className = "qobj" + (o.done ? " done" : "");
@@ -587,9 +564,6 @@ export class Hud {
       tip.textContent = q.tip;
       panel.appendChild(tip);
     }
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
   }
 
   // Brief top-center banner for quest completion (messageComplete).
@@ -687,25 +661,19 @@ export class Hud {
 
   /** Game-styled confirmation. Native browser confirm/prompt dialogs are never used. */
   confirmInGame(title: string, message: string, confirmLabel = "Confirm"): Promise<boolean> {
-    document.querySelector("#hud .game-confirm-bg")?.remove();
     return new Promise((resolve) => {
       let settled = false;
       const finish = (value: boolean) => {
         if (settled) return;
         settled = true;
-        bg.remove();
         resolve(value);
       };
-      const bg = document.createElement("div");
-      bg.className = "panelbg game-confirm-bg";
-      const panel = document.createElement("div");
-      panel.className = "panel confirm-panel";
-      const close = document.createElement("button");
-      close.className = "panelclose";
-      close.innerHTML = `<img src="${UI("button_close.png")}">`;
-      close.onclick = () => finish(false);
-      const heading = document.createElement("h2");
-      heading.textContent = title;
+      // Close button and backdrop resolve false; the singleton dedupe drops any
+      // stale confirm still on screen before opening this one.
+      const { panel, close } = openModal({
+        host: this.el, bgClass: "game-confirm-bg", panelClass: "confirm-panel",
+        title, replaceSelector: ".game-confirm-bg", onClose: () => finish(false),
+      });
       const copy = document.createElement("p");
       copy.className = "confirm-msg";
       copy.textContent = message;
@@ -714,16 +682,13 @@ export class Hud {
       const cancel = document.createElement("button");
       cancel.className = "zbtn locate";
       cancel.textContent = "Cancel";
-      cancel.onclick = () => finish(false);
+      cancel.onclick = () => close();
       const accept = document.createElement("button");
       accept.className = "zbtn sell";
       accept.textContent = confirmLabel;
-      accept.onclick = () => finish(true);
+      accept.onclick = () => { finish(true); close(); };
       buttons.append(cancel, accept);
-      panel.append(close, heading, copy, buttons);
-      bg.appendChild(panel);
-      bg.onclick = (event) => { if (event.target === bg) finish(false); };
-      this.el.appendChild(bg);
+      panel.append(copy, buttons);
     });
   }
 
@@ -731,12 +696,11 @@ export class Hud {
     this.writerTakeover = onTakeover;
     this.writerLock?.remove();
     this.writerBanner?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg writer-lock-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel writer-lock-panel";
-    const heading = document.createElement("h2");
-    heading.textContent = "Farm active elsewhere";
+    // A takeover gate, not a dismissible dialog: no close button, no backdrop close.
+    const { bg, panel } = openModal({
+      host: this.el, bgClass: "writer-lock-bg", panelClass: "writer-lock-panel",
+      title: "Farm active elsewhere", closeButton: false, backdropClose: false,
+    });
     const copy = document.createElement("p");
     copy.textContent = "This farm is controlled by another browser or device. You can view it here, or take over and make this the active game.";
     const buttons = document.createElement("div");
@@ -767,9 +731,7 @@ export class Hud {
       }
     };
     buttons.append(view, take);
-    panel.append(heading, copy, buttons);
-    bg.appendChild(panel);
-    this.el.appendChild(bg);
+    panel.append(copy, buttons);
     this.writerLock = bg;
   }
 
@@ -1657,13 +1619,10 @@ export class Hud {
   }
 
   private openEpicBossArmy() {
-    document.querySelector("#hud .army-bg")?.remove();
     const party = this.getRaidParty?.();
-    const bg = document.createElement("div"); bg.className = "panelbg army-bg";
-    const panel = document.createElement("div"); panel.className = "panel";
-    const close = document.createElement("button"); close.className = "panelclose";
-    close.innerHTML = `<img src="${UI("button_close.png")}">`; close.onclick = () => bg.remove();
-    panel.appendChild(close); bg.appendChild(panel); this.el.appendChild(bg);
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "army-bg", replaceSelector: ".army-bg", backdropClose: false,
+    });
     if (!party?.eligible.length) { panel.insertAdjacentHTML("beforeend", `<h2>Choose your army</h2><p>You have no deployed zombies.</p>`); return; }
     const order: string[] = [];
     const preferred = this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? [];
@@ -1718,7 +1677,7 @@ export class Hud {
       if (!order.length || !this.onLaunchEpicBoss) return;
       start.disabled = true;
       if (await this.onLaunchEpicBoss([...order], payment)) {
-        bg.remove();
+        close();
         this.closeMarket();
       } else start.disabled = false;
     };
@@ -2424,22 +2383,12 @@ export class Hud {
   // block. The Developer section now lives in its own menu (openDevMenu), reached
   // via the invisible hotspot beside the nameplate.
   private openSettings() {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    const close = () => {
-      document.removeEventListener("fullscreenchange", refreshFullscreen);
-      bg.remove();
-    };
-    x.onclick = close;
-    const h = document.createElement("h2");
-    h.textContent = "Settings";
+    // The fullscreen listener is torn down via onClose so it detaches whether the
+    // panel is dismissed by the close button or a backdrop click.
+    const { panel } = openModal({
+      host: this.el, title: "Settings",
+      onClose: () => document.removeEventListener("fullscreenchange", refreshFullscreen),
+    });
 
     const row = (label: string, on: boolean, set: (v: boolean) => void) =>
       this.settingRow(label, on, set);
@@ -2568,7 +2517,6 @@ export class Hud {
     }
 
     panel.append(
-      x, h,
       row("Music", this.audio.musicOn, (v) => this.audio.setMusic(v)),
       row("Sound Effects", this.audio.sfxOn, (v) => this.audio.setSfx(v)),
       row("Ambience", this.audio.ambienceOn, (v) => this.audio.setAmbience(v)),
@@ -2588,27 +2536,13 @@ export class Hud {
     version.className = "set-version";
     version.textContent = `Version ${APP_VERSION}`;
     panel.append(version);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) close(); };
-    this.el.appendChild(bg);
   }
 
   // Developer menu: hidden from normal play, opened only via the invisible hotspot
   // beside the nameplate. Holds the Night-lighting toggle,
   // level/gold/brains overrides, and the per-tier raid ability unlocks.
   private openDevMenu() {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
-    const h = document.createElement("h2");
-    h.textContent = "Developer";
+    const { panel } = openModal({ host: this.el, title: "Developer" });
 
     const row = (label: string, on: boolean, set: (v: boolean) => void) =>
       this.settingRow(label, on, set);
@@ -2669,16 +2603,12 @@ export class Hud {
     raidWrap.append(raidStatus, raidBtns);
 
     panel.append(
-      x, h,
       nightRow,
       numRow("Level", this.state.level, (n) => this.state.setLevel(n)),
       numRow("Gold", this.state.gold, (n) => this.state.setGold(n)),
       numRow("Brains", this.state.brains, (n) => this.state.setBrains(n)),
       raidWrap
     );
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
   }
 
   /** Account block for the Account menu: who you're signed in as and a Sign out
@@ -2782,20 +2712,10 @@ export class Hud {
   // friend code, adding friends, and gifting/visiting all live in the Friends panel.
   // Opened by clicking the top-right nameplate / person icon.
   openProfiles() {
-    document.querySelector("#hud .prof-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg prof-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel profiles";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
-    const h = document.createElement("h2");
-    h.textContent = "Account";
-    panel.append(x, h);
+    const { panel } = openModal({
+      host: this.el, bgClass: "prof-bg", panelClass: "profiles",
+      title: "Account", replaceSelector: ".prof-bg",
+    });
 
     const acctBlock = this.buildAccountBlock();
     if (acctBlock) {
@@ -2809,10 +2729,6 @@ export class Hud {
       note.textContent = "Playing offline.";
       panel.append(note);
     }
-
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
   }
 
   /** Confirm a destructive social action before touching local or server state. */
@@ -2821,20 +2737,12 @@ export class Hud {
     action: "remove" | "block",
     onConfirm: () => void | Promise<void>
   ) {
-    document.querySelector("#hud .fr-confirm-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg fr-confirm-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel confirm-panel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "fr-confirm-bg", panelClass: "confirm-panel",
+      title: action === "block" ? "Block this friend?" : "Remove this friend?",
+      replaceSelector: ".fr-confirm-bg",
+    });
 
-    const h = document.createElement("h2");
-    h.textContent = action === "block" ? "Block this friend?" : "Remove this friend?";
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
     const name = document.createElement("b");
@@ -2852,7 +2760,7 @@ export class Hud {
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
     cancel.textContent = "Cancel";
-    cancel.onclick = () => bg.remove();
+    cancel.onclick = () => close();
     const confirm = document.createElement("button");
     confirm.className = "zbtn sell";
     confirm.textContent = action === "block" ? "Block" : "Remove";
@@ -2861,7 +2769,7 @@ export class Hud {
       cancel.disabled = true;
       try {
         await onConfirm();
-        bg.remove();
+        close();
       } catch {
         confirm.disabled = false;
         cancel.disabled = false;
@@ -2869,24 +2777,14 @@ export class Hud {
       }
     };
     btns.append(cancel, confirm);
-    panel.append(x, h, msg, btns);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(msg, btns);
   }
 
   private openSocial() {
-    document.querySelector("#hud .social-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg social-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel social-hub";
-    const close = document.createElement("button");
-    close.className = "panelclose";
-    close.innerHTML = `<img src="${UI("button_close.png")}">`;
-    close.onclick = () => bg.remove();
-    const title = document.createElement("h2");
-    title.textContent = "Social";
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "social-bg", panelClass: "social-hub",
+      title: "Social", replaceSelector: ".social-bg",
+    });
     const choices = document.createElement("div");
     choices.className = "social-choices";
     const friends = document.createElement("button");
@@ -2895,19 +2793,16 @@ export class Hud {
     const friendsNote = document.createElement("span");
     friendsNote.textContent = "Connect, gift brains, and visit farms";
     friends.appendChild(friendsNote);
-    friends.onclick = () => { bg.remove(); this.openFriends(); };
+    friends.onclick = () => { close(); this.openFriends(); };
     const market = document.createElement("button");
     market.className = "social-choice";
     market.append("Black Market");
     const marketNote = document.createElement("span");
     marketNote.textContent = "Post zombie sales and requests";
     market.appendChild(marketNote);
-    market.onclick = () => { bg.remove(); this.openBlackMarket(); };
+    market.onclick = () => { close(); this.openBlackMarket(); };
     choices.append(friends, market);
-    panel.append(close, title, choices);
-    bg.appendChild(panel);
-    bg.onclick = (event) => { if (event.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(choices);
   }
 
   private openBlackMarket(initialKind: BlackMarketOrderKind = "BUY_ZOMBIE") {
@@ -3674,19 +3569,10 @@ export class Hud {
   }
 
   openZombieInfo(info: ZombieInfo, refresh?: () => void) {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel zpanel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    const { panel, close } = openModal({ host: this.el, panelClass: "zpanel" });
 
     const wrap = this.buildZombieCard(info, panel);
-    panel.append(x, wrap);
+    panel.append(wrap);
 
     // Roster actions (only when this is an owned, id'd unit).
     if (info.id) {
@@ -3699,7 +3585,7 @@ export class Hud {
         b.disabled = !enabled;
         b.onclick = async () => {
           b.disabled = true;
-          bg.remove();
+          close();
           await fn();
           refresh?.();
         };
@@ -3723,35 +3609,20 @@ export class Hud {
       sell.className = "zbtn sell";
       sell.textContent = `Sell +${value}g`;
       sell.onclick = () => {
-        bg.remove();
+        close();
         this.confirmSellZombie(info, value, refresh);
       };
       btns.appendChild(sell);
       panel.append(btns);
     }
-
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
   }
 
   // Confirmation window for selling a zombie. Names the unit, shows the gold it
   // fetches, and warns that the sale is permanent — so a valuable zombie is not
   // sold by a single stray tap. Confirm sells; Cancel backs out to the roster.
   private confirmSellZombie(info: ZombieInfo, value: number, refresh?: () => void) {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel confirm-panel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    const { panel, close } = openModal({ host: this.el, panelClass: "confirm-panel", title: "Sell this zombie?" });
 
-    const h = document.createElement("h2");
-    h.textContent = "Sell this zombie?";
     const por = document.createElement("div");
     por.className = "obj-por";
     if (info.portrait) por.style.backgroundImage = `url(${info.portrait})`;
@@ -3771,22 +3642,19 @@ export class Hud {
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
     cancel.textContent = "Cancel";
-    cancel.onclick = () => bg.remove();
+    cancel.onclick = () => close();
     const confirm = document.createElement("button");
     confirm.className = "zbtn sell";
     confirm.textContent = `Sell +${value}g`;
     confirm.onclick = async () => {
       confirm.disabled = true;
-      bg.remove();
+      close();
       await this.onZombieSell?.(info.id!);
       refresh?.();
     };
     btns.append(cancel, confirm);
 
-    panel.append(x, h, por, msg, btns);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(por, msg, btns);
   }
 
   // Info popup for the crop/zombie still growing in the plot at (col,row): its
@@ -3798,21 +3666,14 @@ export class Hud {
     getInfo: () => { name: string; isZombie: boolean; ripe: boolean; remainingMs: number } | null) {
     const first = getInfo();
     if (!first) return;
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel crop-info";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
     let timer: number | undefined;
-    const close = () => { if (timer !== undefined) clearInterval(timer); bg.remove(); };
-    x.onclick = close;
+    // The live countdown timer is cleared via onClose so it stops on the close
+    // button, a backdrop click, or a programmatic close() below.
+    const { panel, close } = openModal({
+      host: this.el, panelClass: "crop-info", title: first.name,
+      onClose: () => { if (timer !== undefined) clearInterval(timer); },
+    });
 
-    const h = document.createElement("h2");
-    h.textContent = first.name;
     const kind = document.createElement("p");
     kind.className = "crop-kind";
     kind.textContent = first.isZombie ? "Growing zombie" : "Growing crop";
@@ -3884,11 +3745,8 @@ export class Hud {
     tick();
     timer = window.setInterval(tick, 500);
 
-    panel.append(x, h, kind, time);
+    panel.append(kind, time);
     if (boost) panel.append(grow);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) close(); };
-    this.el.appendChild(bg);
   }
 
   /** Convert a roster entry into the inspectable ZombieInfo shape. */
@@ -3908,26 +3766,16 @@ export class Hud {
   // The "Zombies" tab (right bar): a scrollable list where every owned zombie is
   // represented by its full inspect card (the same one shown when tapping a zombie).
   openZombieList() {
-    document.querySelector("#hud .zl-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg zl-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel zl-panel"; // position:relative host for card tooltips
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    // position:relative host (zl-panel) for card tooltips
+    const { panel } = openModal({
+      host: this.el, bgClass: "zl-bg", panelClass: "zl-panel", replaceSelector: ".zl-bg",
+    });
 
     const head = document.createElement("div");
     head.className = "zr-head";
     const list = document.createElement("div");
     list.className = "zl-list";
-    panel.append(x, head, list);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(head, list);
 
     // Show the complete owned roster here as a safety net for earned zombies. A boss
     // reward sent to storage remains visible and deployable even before the player
@@ -3961,17 +3809,7 @@ export class Hud {
   // hold stored zombies (tap to inspect / deploy back); empty slots are tapped to
   // move a zombie in off the farm. On-farm zombies do NOT appear here.
   openMausoleum() {
-    document.querySelector("#hud .zr-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg zr-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    const { panel } = openModal({ host: this.el, bgClass: "zr-bg", replaceSelector: ".zr-bg" });
 
     const wrap = document.createElement("div");
     wrap.className = "zroster";
@@ -3980,10 +3818,7 @@ export class Hud {
     const grid = document.createElement("div");
     grid.className = "zr-grid";
     wrap.append(head, grid);
-    panel.append(x, wrap);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(wrap);
 
     const render = () => {
       const roster = this.getRoster ? this.getRoster() : [];
@@ -4021,19 +3856,9 @@ export class Hud {
 
   // Empty-slot picker: choose an on-farm zombie to move into the Mausoleum.
   private pickZombieToStore(afterStore: () => void) {
-    document.querySelector("#hud .zpick-bg")?.remove();
     const roster = this.getRoster ? this.getRoster() : [];
     const onFarm = roster.filter((r) => !r.stored);
-    const bg = document.createElement("div");
-    bg.className = "panelbg zpick-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    const { panel, close } = openModal({ host: this.el, bgClass: "zpick-bg", replaceSelector: ".zpick-bg" });
 
     const wrap = document.createElement("div");
     wrap.className = "zroster";
@@ -4043,10 +3868,7 @@ export class Hud {
     const grid = document.createElement("div");
     grid.className = "zr-grid";
     wrap.append(head, grid);
-    panel.append(x, wrap);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(wrap);
 
     if (!onFarm.length) {
       const e = document.createElement("div");
@@ -4059,7 +3881,7 @@ export class Hud {
       grid.appendChild(
         this.buildRosterCard(z, async () => {
           await this.onZombieStore?.(z.id);
-          bg.remove();
+          close();
           afterStore();
         })
       );
@@ -4315,21 +4137,11 @@ export class Hud {
    *  remains a normal catalog buy; `onBought` advances to army ordering only after
    *  the optimistic/server-backed purchase was accepted. */
   private openRaidTicketPrompt(cooldownMs: number, voucher: BoostDef, onBought: () => void) {
-    document.querySelector("#hud .raid-ticket-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg raid-ticket-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel confirm-panel";
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "raid-ticket-bg", panelClass: "confirm-panel",
+      title: "Skip the invasion wait?", replaceSelector: ".raid-ticket-bg",
+    });
 
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
-
-    const h = document.createElement("h2");
-    h.textContent = "Skip the invasion wait?";
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
     msg.textContent = `This invasion is ready in ${fmtCooldown(cooldownMs)}.`;
@@ -4343,7 +4155,7 @@ export class Hud {
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
     cancel.textContent = "Cancel";
-    cancel.onclick = () => bg.remove();
+    cancel.onclick = () => close();
     const buy = document.createElement("button");
     buy.className = "zbtn sell";
     buy.textContent = `Buy Ticket · ${voucher.cost.toLocaleString()} Gold`;
@@ -4352,14 +4164,11 @@ export class Hud {
         this.showToast(`You need ${voucher.cost.toLocaleString()} gold for an Invasion Voucher.`);
         return;
       }
-      bg.remove();
+      close();
       onBought();
     };
     btns.append(cancel, buy);
-    panel.append(x, h, msg, btns);
-    bg.appendChild(panel);
-    bg.onclick = (event) => { if (event.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(msg, btns);
   }
 
   // Raid select: a list of invasions (left) + the selected raid's detail (right).
@@ -4914,11 +4723,12 @@ export class Hud {
   /** Celebratory "LEVEL UP" popup listing what the new level unlocked (invasions,
    *  market items, boosts). Fired from GameState.onLevelUpCb via main.ts. */
   openLevelUp(view: LevelUpView) {
-    document.querySelector("#hud .lvl-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg lvl-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel lvlup";
+    // No corner close button — the popup sets panel.innerHTML (which would wipe it)
+    // and is dismissed by its own Continue button or a backdrop click.
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "lvl-bg", panelClass: "lvlup",
+      closeButton: false, replaceSelector: ".lvl-bg",
+    });
 
     const brainRow = view.brains
       ? `<div class="lvl-reward"><img src="${UI("topbar_brain_icon.png")}"> +${view.brains} ` +
@@ -4944,11 +4754,8 @@ export class Hud {
     const done = document.createElement("button");
     done.className = "lvl-go";
     done.textContent = "Continue";
-    done.onclick = () => bg.remove();
+    done.onclick = () => close();
     panel.appendChild(done);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
     requestAnimationFrame(() => panel.classList.add("in"));
   }
 
@@ -4956,11 +4763,13 @@ export class Hud {
    *  styled like the level-up popup. Fired from the QuestSystem via main.ts. Only
    *  one shows at a time; a queued list (main.ts) feeds them in one after another. */
   openQuestComplete(view: QuestCompleteView) {
-    document.querySelector("#hud .qc-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "panelbg qc-bg";
-    const panel = document.createElement("div");
-    panel.className = "panel questdone";
+    // Deliberately non-dismissible by backdrop/close (see note below) — only the OK
+    // button acknowledges it. onClose advances the queued-completion chain.
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "qc-bg", panelClass: "questdone",
+      closeButton: false, backdropClose: false, replaceSelector: ".qc-bg",
+      onClose: () => this.onQuestCompleteClosed?.(),
+    });
 
     const rewardHtml = view.rewards.length
       ? `<div class="qc-sub">Reward</div><div class="qc-rewards">${view.rewards
@@ -4982,14 +4791,10 @@ export class Hud {
     const done = document.createElement("button");
     done.className = "lvl-go";
     done.textContent = "OK";
-    const close = () => { bg.remove(); this.onQuestCompleteClosed?.(); };
-    done.onclick = close;
+    // Quest completions may appear while the player is mid-action; the explicit OK
+    // button is the only way to acknowledge (and advance to the next queued one).
+    done.onclick = () => close();
     panel.appendChild(done);
-    bg.appendChild(panel);
-    // Quest completions may appear while the player is mid-action. Keep the modal
-    // open through stray/backdrop taps so its explicit OK button is the only way to
-    // acknowledge it (and advance to the next queued completion).
-    this.el.appendChild(bg);
     requestAnimationFrame(() => panel.classList.add("in"));
   }
 
@@ -5000,19 +4805,8 @@ export class Hud {
   // A compact Move / Store / Sell action popup for a placed farm object, shown
   // when it's tapped in Select mode.
   openObjectActions(o: ObjectActions) {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel obj-actions";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
+    const { panel, close } = openModal({ host: this.el, panelClass: "obj-actions", title: o.name });
 
-    const h = document.createElement("h2");
-    h.textContent = o.name;
     const por = document.createElement("div");
     por.className = "obj-por";
     if (o.portrait) por.style.backgroundImage = `url(${o.portrait})`;
@@ -5024,7 +4818,7 @@ export class Hud {
       b.className = `zbtn ${cls}`;
       b.textContent = label;
       b.disabled = !enabled;
-      b.onclick = () => { bg.remove(); fn(); };
+      b.onclick = () => { close(); fn(); };
       return b;
     };
     btns.append(
@@ -5033,31 +4827,14 @@ export class Hud {
       mk(o.canStore ? "Store" : "Storage full", "store", o.canStore, o.onStore),
       mk(`Sell +${o.sellRefund}${o.sellBrains ? "b" : "g"}`, "sell", true, o.onSell)
     );
-    panel.append(x, h, por, btns);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
+    panel.append(por, btns);
   }
 
   private openPanel(title: string, body: string) {
-    const bg = document.createElement("div");
-    bg.className = "panelbg";
-    const panel = document.createElement("div");
-    panel.className = "panel";
-    const x = document.createElement("button");
-    x.className = "panelclose";
-    const xi = document.createElement("img");
-    xi.src = UI("button_close.png");
-    x.appendChild(xi);
-    x.onclick = () => bg.remove();
-    const h = document.createElement("h2");
-    h.textContent = title;
+    const { panel } = openModal({ host: this.el, title });
     const p = document.createElement("p");
     p.textContent = body;
-    panel.append(x, h, p);
-    bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); }; // click backdrop closes
-    this.el.appendChild(bg);
+    panel.append(p);
   }
 
   private buildQuestToggle() {
