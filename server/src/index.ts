@@ -625,8 +625,13 @@ const validGameplayCommand = (value: unknown): value is GameplayCommand => {
         commandInt(command.quantity);
     case "roster.sell": return commandString(command.unitId);
     case "roster.status": return commandString(command.unitId) && typeof command.stored === "boolean";
+    case "roster.combine_start":
+      return commandString(command.potId) && commandString(command.parentAId) &&
+        commandString(command.parentBId) &&
+        (command.playerLevel === undefined || (commandInt(command.playerLevel) && command.playerLevel >= 1));
     case "roster.combine":
       return commandString(command.parentAId) && commandString(command.parentBId) &&
+        (command.potId === undefined || commandString(command.potId)) &&
         (command.playerLevel === undefined || (commandInt(command.playerLevel) && command.playerLevel >= 1));
     case "shop.size": return commandInt(command.size) && (command.currency === "gold" || command.currency === "brains");
     case "shop.climate": return commandString(command.terrain);

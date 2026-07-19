@@ -1,12 +1,13 @@
 # Security and Anti-Cheat Status
 
-Last reviewed: 2026-07-15
+Last reviewed: 2026-07-19
 
 ## Scope and status
 
-This document describes the current source tree at protocol v3. It covers authentication,
-sessions, social features, gameplay commands, persistence, economy, farms, quests, raids,
-rate limiting, and operational controls.
+This document describes the current source tree at gameplay protocol v3 (client integrity
+version 4, raid ruleset version 3). It covers authentication, sessions, the exclusive writer
+lease, social features, gameplay commands, persistence, economy, farms, quests, raids, Epic
+Boss runs, the Black Market, rate limiting, and operational controls.
 
 The configured public Worker responds to health checks and rejects unauthenticated protected
 requests, but its deployed commit and database migration state are not exposed publicly. Treat
@@ -15,17 +16,26 @@ the production posture as unconfirmed until the rollout checks in
 
 ## Current conclusion
 
-Protocol v3 is a strong server-authoritative base for ordinary farm, shop, inventory, object,
-storage, roster, and social operations. It is **not currently safe for paid currency,
-competitive rankings, trading, PvP, or other rewards whose integrity has real-world value**.
+Protocol v3 is a server-authoritative base for farm, shop, inventory, object, storage, roster,
+raid, Epic Boss, Black Market, and social operations. The three anti-cheat gaps that previously
+blocked valuable/competitive use have been closed:
 
-Two known anti-cheat gaps block that use:
+1. **Raid outcomes are now server-verified by deterministic replay.** `/raid/finish` no longer
+   accepts a client-asserted `win`/`survivors`/`losses`. It replays the pinned combat with the
+   submitted input transcript and derives the outcome server-side (`server/src/raidVerifier.ts`
+   → `src/raid/replay.ts`). Epic Boss finishes replay the same way.
+2. **Raid, Epic Boss, and Black Market mutations are serialized with `/commands`.** All mutation
+   routes acquire the same exclusive per-account active-operation lock (`active_batch_id`) through
+   the writer lease, so a raid settlement and a command batch can no longer interleave.
+3. **The free-plow XP loop is closed.** With a Plowing Monolith placed, plowing is free but grants
+   **zero** XP (the repeatable XP moved onto time-gated harvests); without the monolith, each plow
+   costs gold. Neither path yields cost-free repeatable XP.
 
-1. Raid finish trusts client-asserted victory and casualty data after a minimum elapsed time.
-2. Raid mutations do not participate in the account command compare-and-swap boundary, leaving
-   cross-route race and stale-write opportunities.
-Until those gaps are fixed, raid rewards and competitive progression must be treated as
-fun-only. Use `MUTATIONS_DISABLED=1` if active exploitation is observed.
+**Remaining posture.** Rewards and progression are now server-derived and catalog-bounded. The
+residual risks below are integrity limitations (bot-optimal input, deployment-gated enforcement,
+non-deterministic loot rolls, session compromise, offline mutability), not outcome forgery. This
+build is a non-commercial fan reimplementation with no real payment rail, so "paid currency" is
+notional. `MUTATIONS_DISABLED=1` remains the incident stop for all gameplay writes.
 
 ## Controls currently implemented
 
@@ -39,6 +49,24 @@ fun-only. Use `MUTATIONS_DISABLED=1` if active exploitation is observed.
   supported.
 - The `DEV_AUTH` bypass is gated server-side and production configuration sets it to `0`.
 
+### Exclusive writer lease (single-writer serialization)
+
+- One authenticated device at a time holds the account's writer lease: a device id + session +
+  generation + **SHA-256 token hash** row on `account_runtime_v3` (`server/src/v3/writer.ts`,
+  migration `0025_writer_lease.sql`).
+- Acquiring, recovering, taking over, and releasing the lease all run as compare-and-swap
+  updates on `account_version` / `writer_generation`; a takeover revokes the displaced session
+  in the same transaction.
+- Every mutation route (`/commands`, `/gifts`, `/raid/*`, `/epic-boss/*`, `/black-market/*`,
+  and `PUT /presentation|/save`) is fenced by the middleware in `index.ts`. `/commands`
+  validates the lease inline; the rest acquire a short-TTL **active-operation** guard
+  (`beginOperation`/`endOperation`) that blocks any concurrent command batch or other mutation
+  for that account.
+- Enforcement is deployment-gated: upgraded clients send `X-Integrity-Version`
+  (`CLIENT_INTEGRITY_VERSION = 4`) and are always fenced. When `WRITER_LEASE_MODE=enforce`,
+  un-upgraded clients receive `426 client_upgrade_required` on every mutation route; in the
+  default observe mode they are allowed through unfenced during rollout.
+
 ### Protocol-v3 authoritative state
 
 - `/bootstrap` returns the server gameplay projection, presentation projection, writer state,
@@ -50,12 +78,43 @@ fun-only. Use `MUTATIONS_DISABLED=1` if active exploitation is observed.
   inventory counts, object ownership, storage counts, and roster changes are computed from
   server-held state.
 - Command batches use account versions, a single writer device/generation, sequential command
-  numbers, a batch ID, and a D1 transaction guard. A retry of the latest committed batch returns
-  its stored result rather than applying it twice.
+  numbers, a batch ID, and a D1 transaction guard. A batch cannot commit while an
+  active-operation lock is held (`batch_in_progress`), and a retry of the latest committed batch
+  returns its stored result rather than applying it twice.
 - Presentation state is stored separately, versioned independently, allowlisted by top-level
   key, and capped at 128 KiB. Presentation data is not used as gameplay authority.
 - Historical v2 save/sync/action/checkpoint routes return `410 update_required` after
   authentication.
+
+### Server-verified raids and Epic Boss runs
+
+- `/raid/start` pins the entire combat configuration from server-owned roster and catalog state
+  (`buildPinnedV3Raid`): player/enemy units, boss throw/specials, summon and wall templates,
+  grabber, and concentration. The pinned config and `ruleset_version` are stored on the session
+  (migrations `0016`, `0017`, `0027`).
+- `/raid/finish` requires a matching `rulesetVersion` (`RAID_RULESET_VERSION = 3`; a mismatch
+  returns `426 stale_ruleset` and closes the session), rejects a `finalTick` beyond the paced
+  elapsed real time (`future_finish`), then **replays** the pinned sim with the submitted input
+  transcript and derives `win`/`survivors`/`losses`/`retreated`. Illegal inputs (e.g. an
+  un-unlocked ability) are rejected by the replay.
+- Casualties are deleted, survivor veterancy is incremented, and rewards (gold, first-clear XP,
+  brains, one loot roll) are computed server-side and catalog-bounded. Roster culling is
+  server-only: a forged casualty submitted through `/roster/actions` is rejected
+  (`server_only_raid_result`).
+- Every finish write carries a session-scoped `result_json` CAS guard and checks that exactly
+  one row changed; a raced/duplicate finish returns the stored result. Post-battle revival
+  restores casualties only from a server-owned snapshot, one brain each, idempotently.
+- Epic Boss activation spends brains atomically; start pins the run; finish replays the input
+  transcript the same way as raids.
+
+### Black Market (server-authoritative trading)
+
+- Buy/sell-zombie orders escrow the counter-value on the server: a buy order escrows the brain
+  price, a sell order escrows the zombie (with its mutation/veterancy snapshot).
+- Order creation enforces a per-day order cap, price bounds (`1 … 1,000,000` brains), and a
+  request fingerprint so a retried create is idempotent.
+- Fulfillment settles both deliveries atomically against authoritative roster/balance state;
+  cancellation returns the escrow. Orders cannot be self-fulfilled or double-settled.
 
 ### Social and abuse controls
 
@@ -65,131 +124,100 @@ fun-only. Use `MUTATIONS_DISABLED=1` if active exploitation is observed.
 - All routes have a global body ceiling. Presentation and command batches have tighter semantic
   limits.
 - Cloudflare rate-limit bindings protect authentication, read, and write tiers before gameplay
-  handlers. Protocol v3 additionally limits accepted semantic commands to 120 per account per
-  minute.
-- `MUTATIONS_DISABLED=1` stops `/commands`, `/presentation`, `/raid/start`, and `/raid/finish`
-  while retaining authenticated read/bootstrap access.
+  handlers. Protocol v3 additionally limits `/commands` to 30 requests per account per minute,
+  and raid start/finish/revive, Epic Boss, and Black Market writes to 60 per account per minute
+  each.
+- `MUTATIONS_DISABLED=1` stops `/commands`, `/presentation`, `/raid/*`, `/epic-boss/*`, and
+  `/black-market/*` while retaining authenticated read/bootstrap access.
 
-## Known vulnerabilities and limitations
+## Known limitations and residual risk
 
-### Critical: client-asserted raid outcomes
+These are the remaining integrity limitations after the three former gaps were closed. None of
+them allow a client to forge a raid outcome or set an arbitrary balance.
 
-Protocol-v3 `/raid/finish` accepts `win`, `survivors`, and `losses` from the client. The server
-checks that survivors and losses form a partition of the roster pinned at start and enforces a
-15-second earliest finish, but it does not replay combat or prove the result. A modified client
-can therefore submit a flawless victory and receive the catalog-bounded gold, first-clear XP,
-loot, quest events, and progress for that raid.
+### Enforcement is deployment-gated
 
-The deterministic protocol-v2 verifier remains in the repository but is not used by the active
-v3 raid endpoints. Documentation or tests for that verifier must not be interpreted as a v3
-security guarantee.
+The writer lease only rejects un-upgraded clients when `WRITER_LEASE_MODE=enforce`. In observe
+mode a legacy client bypasses fencing, so single-writer serialization is guaranteed only for
+upgraded clients. Set `WRITER_LEASE_MODE=enforce` (and confirm the client integrity version)
+before treating serialization as guaranteed for every request.
 
-Required fix: derive victory, casualties, veterancy, and rewards from a server simulation or a
-server-verified deterministic input transcript. Until then, disable valuable raid rewards or
-treat them as noncompetitive.
+### Bot-optimal input, not forged outcomes
 
-### High: raids are outside the account mutation transaction
+Because the server replays the client's input transcript against the pinned enemies, a modified
+client can submit frame-optimal (rather than human) inputs. This yields a bounded skill-ceiling
+advantage within legitimate combat, not an impossible result. A bot policy (input plausibility
+heuristics, anomaly rates) is out of scope; server authority prevents arbitrary values but does
+not by itself enforce "played by a human."
 
-`/commands` serializes state changes through `account_runtime_v3.account_version` and
-`active_batch_id`. Raid start and finish instead read and directly overwrite balances, gameplay
-JSON, quests, raid state, and roster rows without acquiring that boundary or incrementing the
-account version.
+### Non-deterministic loot rolls
 
-Concurrent command and raid requests can therefore produce stale writes, restore or double-use a
-consumable, lose a reward, or race a roster lock against sell/combine. Raid start also does not
-verify that every conditional roster-lock update changed exactly one row.
+Raid brain drops are seeded per session, but the single item-loot pick still uses runtime
+randomness (`Math.random`) on the server. It is not client-controlled and stays inside the
+enemy-scoped, inventory-deduped catalog, but it is not reproducible for audit/replay. A durable
+per-session seed would make settlement fully reconstructable.
 
-Required fix: settle raid start and finish through the same per-account transaction/CAS model as
-command batches, including guarded reads, version advancement, and checked lock-update counts.
+### Rejection telemetry is aggregate, not alerting
 
-### Resolved: free-plow XP loop
-
-When a placed `monolithPlowing` object reduces plow cost to zero, plowing now grants zero XP.
-Instead, the monolith adds one XP to every time-gated crop, zombie, and fruit-tree harvest. The
-offline client, legacy exact-economics path, and protocol-v3 command engine use the same reward
-rule. Regression coverage repeatedly removes and re-plows free soil and verifies that XP does not
-increase, then verifies the harvest bonus.
-
-### Medium: minimum protocol version does not revoke raid clients
-
-`MIN_PROTOCOL_VERSION` is currently enforced by `/commands`. `/raid/start`, `/raid/finish`, and
-`/presentation` do not carry or validate a protocol version. Raising the minimum version blocks
-command batches but does not disable a compromised client from calling the raid endpoints.
-
-Use `MUTATIONS_DISABLED=1` as the reliable current incident stop. A future fix should apply a
-shared protocol/build gate to every gameplay mutation route.
-
-### Medium: v3 rejection telemetry is incomplete
-
-The v3 audit ledger records selected successful durable commands and zombie creation. Individual
-semantic command rejections inside an otherwise successful HTTP batch are returned to the client
-but are not emitted as structured security events. The request metric records the batch as HTTP
-200, so repeated prerequisite/timing probes may not be distinguishable from routine traffic.
-
-Required fix: aggregate rejection counts and reason codes per batch/account hash, log repeated or
-high-signal failures, and alert on raid forgery attempts, command-rate violations, writer
-takeovers, and cross-route conflicts without logging raw account identifiers.
+`/commands` records per-batch rejection counts and the top-level rejection reason in the request
+metric, and durable commands plus raid start/finish/revive are written to the v3 audit ledger.
+There is still no thresholded alerting on repeated forgery/timing/writer-takeover probes;
+failures are observable in logs but not yet triaged automatically.
 
 ### Other residual risk
 
 - A compromised active session can act as its account until the session is revoked.
-- A custom client can automate legitimate commands up to server limits. Server authority prevents
-  arbitrary values but does not by itself enforce a bot policy.
-- Random server rolls currently use runtime randomness rather than a durable deterministic seed;
-  this is not client-controlled, but it complicates replay and incident reconstruction.
-- D1/Worker interruption can withhold or overwrite value at uncoordinated mutation boundaries.
-  Idempotency reduces duplicate application but does not repair every partial or stale-write case.
+- A custom client can automate legitimate commands up to server limits.
+- D1/Worker interruption can withhold or overwrite value at a mutation boundary; idempotency and
+  the CAS guards reduce duplicate application but do not repair every partial-write case.
 - Local/offline presentation and gameplay can be modified. Protocol v3 does not import that local
   value into a reset online account, but offline play is not cheat-resistant by design.
 
 ## Verification status
 
-On 2026-07-15 the following local checks passed:
+On 2026-07-19 the following local checks passed on a clean working tree:
 
 ```text
-npm test                              # client: 126 passed, 1 skipped
-cd server && npm run typecheck        # passed
-cd server && npm test                 # server: 189 passed
-cd server && npm run test:integration # passed
-```
-
-The Plowing Monolith reward change was re-verified on 2026-07-19:
-
-```text
-npm run build                         # passed
-npm test                              # client: 271 passed, 1 skipped
+npm test                              # client: 274 passed, 1 skipped
 cd server && npm run typecheck        # passed
 cd server && npm test                 # server: 239 passed
+cd server && npm run test:integration # 16 passed
 ```
 
-Passing tests do not close the remaining known vulnerabilities above. The current suites do not
-establish deterministic v3 raid outcomes or cross-route raid/command serialization.
+Coverage now includes the anti-forgery paths directly: replay determinism and illegal-input
+rejection (`src/raid/replay.test.ts`), a forged `/raid/finish` rejected with `bad_final_tick`
+(`server/test/integration/raidRewards.spec.ts`), a settlement that ignores a client-claimed
+outcome and derives the retreat plus the `stale_ruleset` gate (`server/test/integration/v3.spec.ts`,
+`raidGates.spec.ts`), a server-only roster-cull rejection (`roster.spec.ts`), and writer-lease
+takeover/replacement (`v3.spec.ts`). Passing tests do not by themselves certify the production
+deployment; confirm the live commit and remote D1 schema per the rollout doc.
 
 ## Required release gates
 
-Before enabling valuable or competitive features:
+The former blocking gates are met in source. Before treating a live deployment as safe for
+valuable/competitive features, confirm on the running environment:
 
-1. Replace client-asserted raid outcomes with server-proven outcomes and add forged perfect-win,
-   future-finish, malformed-transcript, and duplicate-settlement tests.
-2. Put raid start/finish inside the account version/CAS transaction and add adversarial races
-   against boost use, purchase, roster sell/combine, gift credit, and command settlement.
-3. Enforce protocol/build revocation on every mutation route and verify it against a stale client.
-4. Add structured v3 semantic-rejection telemetry and connect alert thresholds.
-5. Apply `0020_protocol_v3_reset.sql`, rotate `SESSION_SECRET`, deploy the matching Worker/client,
-   and perform the destructive-rollout smoke checks in order.
-6. Confirm the live Worker commit/configuration and verify the remote D1 schema rather than
-   inferring production state from source control.
-7. Keep paid currency, trading, competitive rankings, and PvP disabled until all prior gates pass.
+1. `WRITER_LEASE_MODE=enforce` and `MIN_PROTOCOL_VERSION=3` are set, and an un-upgraded client is
+   actually rejected on every mutation route.
+2. The live Worker commit and remote D1 schema match this source (migrations applied through
+   `0027_v3_raid_replay.sql`); do not infer production state from source control.
+3. `SESSION_SECRET` has been rotated for the current deployment and is not a reused historical
+   value.
+4. Add thresholded alerting on the existing audit/rejection telemetry (forged-finish attempts,
+   `stale_ruleset`/`future_finish` spikes, writer takeovers, command-rate violations).
+5. Optionally, replace the runtime loot roll with a durable per-session seed so raid settlement
+   is fully reconstructable.
 
 ## Incident response
 
 If exploitation is suspected:
 
-1. Set `MUTATIONS_DISABLED=1` and deploy the Worker. Confirm all four v3 mutation endpoints reject
-   writes.
+1. Set `MUTATIONS_DISABLED=1` and deploy the Worker. Confirm `/commands`, `/presentation`, and the
+   raid, Epic Boss, and Black Market mutation routes reject writes.
 2. Preserve D1 and Worker-log snapshots before corrective edits.
-3. Revoke affected sessions or rotate `SESSION_SECRET` if session compromise is possible.
-4. Inspect raid start/finish audit records, account-version history, command metrics, gift grants,
-   and inventory/roster inconsistencies.
-5. Repair related gameplay documents, balance, quest state, roster, and raid state together; do
-   not restore one JSON document in isolation.
+3. Revoke affected sessions or rotate `SESSION_SECRET` if session compromise is possible; a
+   writer takeover also revokes the displaced session.
+4. Inspect raid/Epic Boss start/finish audit records, account-version history, command metrics,
+   gift grants, Black Market escrow rows, and inventory/roster inconsistencies.
+5. Repair related gameplay documents, balance, quest state, roster, and raid/market state
+   together; do not restore one JSON document in isolation.

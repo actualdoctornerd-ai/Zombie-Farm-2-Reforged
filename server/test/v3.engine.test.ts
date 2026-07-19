@@ -612,6 +612,68 @@ describe("protocol v3 command engine", () => {
     ]);
   });
 
+  it("consumes both active parent slots when a timed Pot starts", () => {
+    const state = freshGameplayState();
+    state.zombieMax = 2;
+    state.roster = [
+      { id: "a", key: "ZombieActorRegularTier1", mutation: 1, invasions: 0, stored: false },
+      { id: "b", key: "ZombieActorGirlTier1", mutation: 2, invasions: 0, stored: false },
+    ];
+    state.farm.plots["0:0"] = {
+      state: "planted", cropKey: "ZombieActorHeadlessTier1", plantedAt: 0,
+      growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true,
+    };
+
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine_start", potId: "pot-1", parentAId: "a", parentBId: "b" },
+      { type: "farm.harvest", oc: 0, or: 0 },
+    ), { now: 1_000, id: () => "harvested" });
+
+    expect(result.results).toEqual([
+      { sequence: 1, status: "applied" },
+      { sequence: 2, status: "applied", createdIds: ["harvested"],
+        createdZombieSources: [{ id: "harvested", oc: 0, or: 0 }] },
+    ]);
+    expect(result.state.roster.filter((unit) => !unit.stored).map((unit) => unit.id))
+      .toEqual(["harvested"]);
+    expect(result.state.roster.filter((unit) => unit.lockedByRaid === "pot:pot-1").map((unit) => unit.id))
+      .toEqual(["a", "b"]);
+  });
+
+  it("keeps a ready Pot pending while all active slots are full", () => {
+    const state = freshGameplayState();
+    state.zombieMax = 1;
+    state.roster = [
+      { id: "active", key: "ZombieActorHeadlessTier1", mutation: 0, invasions: 0, stored: false },
+      { id: "a", key: "ZombieActorRegularTier1", mutation: 1, invasions: 0, stored: true, lockedByRaid: "pot:pot-1" },
+      { id: "b", key: "ZombieActorGirlTier1", mutation: 2, invasions: 0, stored: true, lockedByRaid: "pot:pot-1" },
+    ];
+
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", potId: "pot-1", parentAId: "a", parentBId: "b" },
+    ), { now: 1, id: () => "child" });
+
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "capacity_full" });
+    expect(result.state.roster).toEqual(state.roster);
+  });
+
+  it("replaces reserved parents with one active child when a slot is free", () => {
+    const state = freshGameplayState();
+    state.roster = [
+      { id: "a", key: "ZombieActorRegularTier1", mutation: 1, invasions: 0, stored: true, lockedByRaid: "pot:pot-1" },
+      { id: "b", key: "ZombieActorGirlTier1", mutation: 2, invasions: 0, stored: true, lockedByRaid: "pot:pot-1" },
+    ];
+
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine", potId: "pot-1", parentAId: "a", parentBId: "b" },
+    ), { now: 1, id: () => "child" });
+
+    expect(result.results[0]).toMatchObject({ status: "applied", createdIds: ["child"] });
+    expect(result.state.roster).toEqual([
+      { id: "child", key: "ZombieActorRegularTier1", mutation: 2, invasions: 0, stored: false },
+    ]);
+  });
+
   it("stores a combine award when stored parents do not free an active slot", () => {
     const state = freshGameplayState();
     state.zombieMax = 1;

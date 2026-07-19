@@ -384,14 +384,17 @@ export class ZombieField {
   /**
    * Collect a finished combine: builds the result zombie (species via
    * determineBaseClass, mutations inherited per-slot deterministically) and adds
-   * it to the farm at (col,row), or to storage if the army is at capacity.
-   * Returns the new unit's data, or null if nothing is ready. Result species is
+   * it to the farm at (col,row). Like any zombie crop, collection waits when the
+   * active army is full. Returns the new unit's data, or null if nothing is ready
+   * or no slot is free. Result species is
    * re-derived from the catalog by key; an unknown key aborts and returns null
    * (job already cleared).
    */
   collectCombine(col: number, row: number, potId?: string): OwnedZombie | null {
     const targetPotId = potId ?? this.field.zombiePotId();
     if (!targetPotId) return null;
+    // Like a ripe zombie crop, a ready Pot waits until the active farm has room.
+    if (!this.canAdd()) return null;
     const result = this.potFor(targetPotId).collect();
     if (!result) return null;
     const def = this.resolve(result.key);
@@ -401,18 +404,20 @@ export class ZombieField {
     // A combine result is granted via onCombineCollect (server validates it against the
     // two parents), NOT the generic onGrant — so suppress the latter while adding.
     this.combining = true;
-    if (this.canAdd()) {
-      this.addUnit(data);
-      this.syncCount();
-    } else {
-      this.stored.push(data); // no free army slot -> goes to the Mausoleum
-    }
+    this.addUnit(data);
+    this.syncCount();
     this.combining = false;
     if (this.rosterLive) {
       if (this.onCombineCollect) this.onCombineCollect(targetPotId, data.id, data.key, data.mutation);
       else this.onGrant?.({ id: data.id, key: data.key, mutation: data.mutation, invasions: data.invasions });
     }
     return data;
+  }
+
+  /** Roll back a rejected authoritative combine start. Server reconciliation then
+   * restores the two parents because they are no longer hidden by a pending job. */
+  cancelCombine(potId: string): void {
+    this.potFor(potId).cancel();
   }
 
   /** Credit a fought invasion to each unit in `ids` (drives veterancy). Applies

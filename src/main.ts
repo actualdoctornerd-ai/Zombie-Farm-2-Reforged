@@ -1150,6 +1150,10 @@ async function main() {
       hud.hideWriterLock();
     };
     economy.onCommandRejected = (command, error) => {
+      if (command?.type === "roster.combine_start") {
+        zombies.cancelCombine(command.potId);
+        saveManager.flushCritical();
+      }
       const subject = command?.type.startsWith("roster.") ? "Zombie action"
         : command?.type.startsWith("object.") ? "Object action"
         : command?.type.startsWith("storage.") ? "Reward action"
@@ -1500,6 +1504,7 @@ async function main() {
       remainingMs: pot.remainingMs(),
       totalMs: pot.totalMs(),
       monolith: field.hasCombineMonolith(), // Clay Monolith speeds the pot timer
+      canCollect: zombies.canAdd(),
       pending: pot.pending
         ? {
             keyA: pot.pending.keyA, keyB: pot.pending.keyB,

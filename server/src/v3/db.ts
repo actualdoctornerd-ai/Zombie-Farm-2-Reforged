@@ -359,7 +359,7 @@ export async function applyBatch(
       .bind(accountId, unit.id, unit.key, unit.mutation, unit.invasions, unit.stored ? 1 : 0,
         unit.lockedByRaid ?? null, now, accountId, body.batchId));
   }
-  const durableKinds = new Set(["power.buy", "object.buy", "object.refund", "object.upgrade", "storage.claim", "roster.sell", "roster.combine", "farmer.buy", "pet.buy"]);
+  const durableKinds = new Set(["power.buy", "object.buy", "object.refund", "object.upgrade", "storage.claim", "roster.sell", "roster.combine_start", "roster.combine", "farmer.buy", "pet.buy"]);
   body.commands.forEach((entry, index) => {
     const result = engine.results[index];
     if (result?.status !== "applied" || !durableKinds.has(entry.command.type)) return;
