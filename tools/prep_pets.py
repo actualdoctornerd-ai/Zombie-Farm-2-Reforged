@@ -178,6 +178,8 @@ def export(check_only: bool = False) -> dict:
                 "actorKey": actor_key,
                 "name": str(market.get("name") or key),
                 "cost": int(market.get("cost", 0)),
+                # The source awards this on purchase. Missing means zero (Pet Brain).
+                "xp": int(market.get("xp", 0)),
                 "brains": bool(market.get("brainsNeeded", False)),
                 "level": max(0, int(market.get("level", 0))),
                 "hidden": bool(market.get("dontShowInMarket", False)),

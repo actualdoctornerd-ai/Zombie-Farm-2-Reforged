@@ -593,6 +593,7 @@ function applyOne(
       if (levelForXp(state.balance.xp) < pet.level) return reject(sequence, "locked");
       if (state.balance.brains < pet.cost) return reject(sequence, "insufficient");
       state.balance.brains -= pet.cost;
+      state.balance.xp += pet.xp;
       state.ownedPets.push(pet.key);
       state.activePet = pet.key;
       return { sequence, status: "applied" };

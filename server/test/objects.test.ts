@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { OBJECTS, objectEcon, objectRefund, objectBuyXp } from "../src/objectCatalog";
 import { planObjectBuy, planObjectRefund, planObjectUpgrade } from "../src/objects";
+import placeables from "../../public/assets/placeables.json";
 
 const bal = (gold = 1000, brains = 1000, xp = 0) => ({ gold, brains, xp });
 
@@ -8,15 +9,24 @@ describe("objectCatalog — mirror of placeables.json", () => {
   it("has all 257 placeables", () => {
     expect(Object.keys(OBJECTS).length).toBe(257);
   });
+  it("matches every purchasable client catalog value", () => {
+    for (const placeable of placeables.filter((row) => row.category !== "reward" && row.cost > 0)) {
+      expect(objectEcon(placeable.key), placeable.key).toMatchObject({
+        cost: placeable.cost,
+        brains: placeable.brainsNeeded,
+        xp: placeable.xp,
+      });
+    }
+  });
   it("prices refund at floor(cost*0.2), and NOTHING for a free object", () => {
     expect(objectRefund(10)).toBe(2);
     expect(objectRefund(50)).toBe(10);
     expect(objectRefund(0)).toBe(0); // free object refunds nothing (no buy-free→refund mint)
   });
-  it("buy xp is source xp, else a tenth of cost (min 1)", () => {
-    expect(objectBuyXp(10, 0)).toBe(1);
-    expect(objectBuyXp(900, 9)).toBe(9); // source xp wins
-    expect(objectBuyXp(50, 0)).toBe(5);
+  it("buy xp is exactly the source xp", () => {
+    expect(objectBuyXp(10, 0)).toBe(0);
+    expect(objectBuyXp(900, 9)).toBe(9);
+    expect(objectBuyXp(50, 0)).toBe(0);
   });
   it("resolves known keys and rejects unknown", () => {
     expect(objectEcon("daisy")).toMatchObject({ cost: 10, brains: false });
@@ -30,8 +40,8 @@ const MAX_LEVEL = 99; // above every catalog gate
 
 describe("planObjectBuy — exact price + xp", () => {
   it("debits the right currency and computes buy xp", () => {
-    expect(planObjectBuy(objectEcon("daisy"), bal(100, 0), 0, MAX_LEVEL)).toEqual({ ok: true, currency: "gold", cost: 10, xp: 1 });
-    expect(planObjectBuy(objectEcon("skeletonCouple"), bal(0, 100), 0, MAX_LEVEL)).toEqual({ ok: true, currency: "brains", cost: 30, xp: 3 });
+    expect(planObjectBuy(objectEcon("daisy"), bal(100, 0), 0, MAX_LEVEL)).toEqual({ ok: true, currency: "gold", cost: 10, xp: 0 });
+    expect(planObjectBuy(objectEcon("skeletonCouple"), bal(0, 100), 0, MAX_LEVEL)).toEqual({ ok: true, currency: "brains", cost: 30, xp: 0 });
   });
   it("rejects unknown, unaffordable, and free/promo (not purchasable) objects", () => {
     expect(planObjectBuy(objectEcon("nope"), bal(), 0, MAX_LEVEL)).toMatchObject({ ok: false, error: "bad_item" });

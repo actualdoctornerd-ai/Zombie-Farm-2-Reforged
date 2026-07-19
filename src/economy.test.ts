@@ -20,10 +20,10 @@ describe("item economy helpers", () => {
     expect(sellBack(100)).toBe(Math.floor(100 * ECONOMY.SELL_BACK_RATIO));
     expect(sellBack(1)).toBe(1);
   });
-  it("buyXp prefers authoritative source XP when present", () =>
+  it("buyXp returns authoritative source XP when present", () =>
     expect(buyXp(1000, 42)).toBe(42));
-  it("buyXp falls back to a fraction of price (min 1) with no source XP", () => {
-    expect(buyXp(1000)).toBe(Math.round(1000 * ECONOMY.BUY_XP_COST_FRACTION));
-    expect(buyXp(1)).toBe(1);
+  it("buyXp grants zero when the source has no XP", () => {
+    expect(buyXp(1000)).toBe(0);
+    expect(buyXp(1, 0)).toBe(0);
   });
 });

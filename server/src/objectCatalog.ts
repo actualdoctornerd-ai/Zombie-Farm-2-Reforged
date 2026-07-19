@@ -1,7 +1,8 @@
 // Server mirror of public/assets/placeables.json purchase economics. GENERATED —
 // KEEP IN SYNC. Only the fields that decide VALUE are mirrored: buy cost + currency
 // + source xp. The server prices a placeable BUY and REFUND from THIS table (never a
-// client amount): buy debits `cost` (brains if `brains`, else gold) and grants buyXp;
+// client amount): buy debits `cost` (brains if `brains`, else gold) and grants the
+// exact authored XP;
 // refund credits floor(cost * SELL_BACK_RATIO). Object ownership is tracked as a COUNT
 // per key (like boosts) — placement/position stays client-side layout.
 //
@@ -10,12 +11,11 @@
 // not route its buy/refund through the server.
 
 export const SELL_BACK_RATIO = 0.2; // mirrors src/economy.ts ECONOMY.SELL_BACK_RATIO
-export const BUY_XP_COST_FRACTION = 0.1; // mirrors src/economy.ts
 
 export interface ObjectEcon {
   cost: number;
   brains: boolean; // cost paid in brains, not gold
-  xp: number;      // source xp (0 => buyXp falls back to a fraction of cost)
+  xp: number;      // exact source XP (0 => no XP)
   /** Player level required to buy. -1 means NO requirement (59 seasonal/promo items),
    *  matching the client's `state.level < def.level` check, which -1 passes for free. */
   level: number;
@@ -291,10 +291,9 @@ export function objectRefund(cost: number): number {
   return cost > 0 ? Math.max(1, Math.floor(cost * SELL_BACK_RATIO)) : 0;
 }
 
-/** XP granted for buying a placeable: its source xp, else a fraction of cost (min 1). */
-export function objectBuyXp(cost: number, sourceXp: number): number {
-  if (sourceXp > 0) return sourceXp;
-  return Math.max(1, Math.round(cost * BUY_XP_COST_FRACTION));
+/** XP granted for buying a placeable: exactly its source Market XP. */
+export function objectBuyXp(_cost: number, sourceXp: number): number {
+  return Math.max(0, sourceXp);
 }
 
 /** Per-key ownership ceiling — a plausibility bound (matches the save object cap). */

@@ -5,7 +5,8 @@
 // balance is easy to find, reason about, and adjust.
 //
 // Design intent (placeable items — decor / trees / functional):
-//   - BUYING an item costs its full price AND grants XP (progress reward).
+//   - BUYING an item costs its full price and grants exactly the XP authored in
+//     the source Market catalog. A missing/zero XP field grants no XP.
 //   - SELLING an item refunds only a small fraction of its price, so churning
 //     buy->sell is a real loss, not a free way to farm money.
 // ---------------------------------------------------------------------------
@@ -18,20 +19,12 @@ export const ECONOMY = {
    */
   SELL_BACK_RATIO: 0.2,
 
-  /**
-   * When an item's source data has no XP value, buying it still grants XP equal
-   * to this fraction of its price (rounded, min 1), so every purchase rewards
-   * progress. Items that DO carry an authoritative source XP use that instead.
-   */
-  BUY_XP_COST_FRACTION: 0.1,
-
 } as const;
 
 /** XP granted for buying/placing an item that cost `cost` and whose source data
  *  declares `sourceXp` (0/absent when the source has none). */
-export function buyXp(cost: number, sourceXp = 0): number {
-  if (sourceXp > 0) return sourceXp;
-  return Math.max(1, Math.round(cost * ECONOMY.BUY_XP_COST_FRACTION));
+export function buyXp(_cost: number, sourceXp = 0): number {
+  return Math.max(0, sourceXp);
 }
 
 /** Gold/brains refunded when selling an item that was bought for `cost`. */

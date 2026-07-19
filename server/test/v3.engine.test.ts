@@ -37,6 +37,7 @@ describe("protocol v3 command engine", () => {
     const bought = applyCommandBatch(state, commands({ type: "pet.buy", petKey: "catActor" }), { now: 1 });
     expect(bought.results[0]).toMatchObject({ status: "applied" });
     expect(bought.state.balance.brains).toBe(state.balance.brains - 50);
+    expect(bought.state.balance.xp).toBe(state.balance.xp + 1);
     expect(bought.state.ownedPets).toEqual(["catActor"]);
     expect(bought.state.activePet).toBe("catActor");
 

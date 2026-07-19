@@ -30,11 +30,11 @@ describe("objects — server-owned buy + refund", () => {
   it("buys a placeable: exact debit + buy xp + count++", async () => {
     const s = await player(100, 0);
     const r = await call<ObjRes>("POST", "/object/actions", s.token, {
-      actions: [{ id: aid("buy"), type: "buy", key: "daisy" }], // 10 gold, buyXp 1
+      actions: [{ id: aid("buy"), type: "buy", key: "daisy" }], // 10 gold, source XP 0
     });
     expect(r.body.results[0].status).toBe("applied");
     expect(r.body.balance.gold).toBe(90);
-    expect(r.body.balance.xp).toBe(BASE_XP + 1); // buyXp
+    expect(r.body.balance.xp).toBe(BASE_XP); // exact source XP: 0
     expect(r.body.objects.daisy).toBe(1);
   });
 

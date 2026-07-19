@@ -367,8 +367,8 @@ export class EconomyClient {
     return this.enqueue({ type: "farmer.equip", headId }) !== null;
   }
 
-  submitPetBuy(petKey: string, cost: number): boolean {
-    return this.enqueue({ type: "pet.buy", petKey }, { brains: -cost }) !== null;
+  submitPetBuy(petKey: string, cost: number, xp: number): boolean {
+    return this.enqueue({ type: "pet.buy", petKey }, { brains: -cost, xp }) !== null;
   }
 
   submitPetEquip(petKey: string | null): boolean {

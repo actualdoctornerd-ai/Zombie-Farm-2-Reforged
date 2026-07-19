@@ -340,6 +340,7 @@ export interface PetDef {
   actorKey: string;
   name: string;
   cost: number;
+  xp: number; // exact source XP granted on purchase
   brains: boolean;
   level: number;
   hidden: boolean;

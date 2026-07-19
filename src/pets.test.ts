@@ -7,6 +7,8 @@ describe("cosmetic pet catalog and client ownership", () => {
     expect(catalog.pets).toHaveLength(40);
     expect(new Set(catalog.pets.map((pet) => pet.key)).size).toBe(40);
     expect(catalog.pets.every((pet) => pet.brains && pet.cost > 0 && !pet.hidden)).toBe(true);
+    expect(catalog.pets.filter((pet) => pet.xp === 1)).toHaveLength(39);
+    expect(catalog.pets.find((pet) => pet.key === "brainActor")?.xp).toBe(0);
     expect(catalog.pets.find((pet) => pet.key === "pinkBunny")).toMatchObject({
       actorKey: "bunnyActor", color: [255, 190, 190],
     });
