@@ -13,7 +13,7 @@
 #hud .chips { display: flex; gap: 6px; align-items: center; }
 #hud .chip { display: flex; align-items: center; gap: 3px;
   border-style: solid; border-width: 9px 13px;
-  border-image: url(${BASE}assets/ui/button_bg.png) 14 fill / 9px 13px stretch;
+  border-image: url("/assets/ui/button_bg.png") 14 fill / 9px 13px stretch;
   color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000;
   min-height: 22px; margin: 0 -2px; }
 #hud .chip img { height: 20px; width: auto; }
@@ -22,7 +22,7 @@
 #hud .chip .xpfill { height: 100%; width: 0%; background: linear-gradient(#b6f36a,#5fbf2f); }
 #hud .spacer { flex: 1 1 auto; }
 #hud .nameplate { border-style: solid; border-width: 9px 16px;
-  border-image: url(${BASE}assets/ui/button_bg.png) 14 fill / 9px 16px stretch;
+  border-image: url("/assets/ui/button_bg.png") 14 fill / 9px 16px stretch;
   color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000;
   pointer-events: auto; cursor: pointer; user-select: none; }
 #hud .nameplate:hover { filter: brightness(1.12); }
@@ -43,7 +43,7 @@
   flex-direction: column; gap: 6px; pointer-events: auto; }
 #hud .quest { width: 48px; height: 48px; cursor: pointer; padding: 0;
   border-style: solid; border-width: 10px;
-  border-image: url(${BASE}assets/ui/button_bg.png) 13 fill / 10px stretch;
+  border-image: url("/assets/ui/button_bg.png") 13 fill / 10px stretch;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
 #hud .quest img { width: 100%; height: 100%; object-fit: contain; }
 #hud .quest .qbadge { position: absolute; bottom: -4px; right: -4px;
@@ -134,7 +134,7 @@
 #hud .mbtn .gbtn { display: block; text-align: center; color: #383838; font-weight: 700;
   font-size: 15px; padding: 5px 0; text-shadow: 0 1px 0 rgba(255,255,255,.45);
   border-style: solid; border-width: 6px 13px 8px 13px;
-  border-image: url(${BASE}assets/ui/nav_grey.png) 5 13 7 13 fill / 6px 13px 8px 13px stretch; }
+  border-image: url("/assets/ui/nav_grey.png") 5 13 7 13 fill / 6px 13px 8px 13px stretch; }
 #hud .mbtn .ready { position: absolute; top: -15px; left: 10px; z-index: -1;
   padding: 2px 14px 6px; background: linear-gradient(#a3213a,#6c1122);
   border: 2px solid #490c17; border-radius: 10px 10px 0 0; color: #fff;
@@ -338,7 +338,7 @@
   box-shadow: 0 1px 2px rgba(0,0,0,.6), inset 0 0 1px #2a271f; }
 #hud .zcard-nail.tl { left: 8px; } #hud .zcard-nail.tr { right: 8px; }
 #hud .zcard-board { margin: 0 auto 10px; width: 132px; height: 34px; line-height: 34px;
-  background: url(${BASE}assets/ui/market/title_board.png) center/100% 100% no-repeat;
+  background: url("/assets/ui/market/title_board.png") center/100% 100% no-repeat;
   color: #f4e6c2; font-weight: 800; font-size: 14px; text-shadow: 0 2px 2px #000;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; box-sizing: border-box; }
 #hud .zcard-board.renameable { cursor: text; }
@@ -431,7 +431,7 @@
   box-shadow: none; }
 #hud .zr-card:hover .zr-por { filter: brightness(1.08) drop-shadow(0 0 3px rgba(255,220,120,.8)); }
 #hud .zr-por { width: 66px; height: 66px; box-shadow: none; border-radius: 0;
-  background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat;
+  background: url("/assets/ui/storage/storage_frame.png") center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center; }
 #hud .zr-por-img { max-width: 48px; max-height: 48px; object-fit: contain; }
 #hud .zr-name { font-size: 11px; font-weight: 700; text-align: center; max-width: 80px;
@@ -442,7 +442,7 @@
   background: #2f74bb; color: #fff; padding: 1px 5px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
 #hud .zr-empty { grid-column: 1 / -1; text-align: center; opacity: .85; font-style: italic; padding: 26px 12px; }
 /* Mausoleum empty slots (tap to store a farm zombie) */
-#hud .zr-por-empty { background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat; }
+#hud .zr-por-empty { background: url("/assets/ui/storage/storage_frame.png") center/100% 100% no-repeat; }
 #hud .zr-plus { font-size: 30px; font-weight: 900; color: #6f5330; opacity: .55; }
 #hud .zr-slot-empty { opacity: .82; }
 #hud .zr-slot-empty:hover { opacity: 1; }
@@ -700,7 +700,7 @@
   max-height: 42vh; overflow: auto; padding: 4px 2px; }
 #hud .lvl-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 76px; }
 #hud .lvl-frame { width: 60px; height: 60px;
-  background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat;
+  background: url("/assets/ui/storage/storage_frame.png") center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center; }
 #hud .lvl-frame img { max-width: 46px; max-height: 46px; object-fit: contain; }
 #hud .lvl-nm { font-size: 10px; font-weight: 700; line-height: 1.1; max-width: 76px;
@@ -717,7 +717,7 @@
 #hud .questdone { width: min(420px, 90vw); display: flex; flex-direction: column; align-items: center;
   gap: 8px; text-align: center; }
 #hud .qc-icon { width: 72px; height: 72px;
-  background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat;
+  background: url("/assets/ui/storage/storage_frame.png") center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center;
   transform: scale(.6); opacity: 0; transition: transform .32s cubic-bezier(.2,1.5,.4,1), opacity .32s ease; }
 #hud .questdone.in .qc-icon { transform: scale(1); opacity: 1; }
@@ -740,11 +740,11 @@
 #hud .mkt { position: relative; box-sizing: border-box;
   width: min(770px, 94vw); height: min(500px, 90vh);
   border-style: solid; border-width: 32px 11px 12px 11px;
-  border-image: url(${BASE}assets/ui/market/paper_market.png) 32 11 12 11 fill / 32px 11px 12px 11px stretch;
+  border-image: url("/assets/ui/market/paper_market.png") 32 11 12 11 fill / 32px 11px 12px 11px stretch;
   padding: 4px 16px 8px; font-family: Georgia, "Times New Roman", serif;
   display: flex; flex-direction: column; }
 #hud .mkt-title { position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
-  width: 226px; height: 58px; background: url(${BASE}assets/ui/market/title_board.png) center/100% 100% no-repeat;
+  width: 226px; height: 58px; background: url("/assets/ui/market/title_board.png") center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center;
   color: #f4e6c2; font-weight: 700; font-size: 23px; text-shadow: 0 2px 2px #000; letter-spacing: .5px; }
 #hud .mkt-close { position: absolute; top: -16px; right: -16px; width: 44px; height: 44px;
@@ -757,17 +757,17 @@
 #hud .mkt-cur img { height: 21px; }
 #hud .mkt-tabs { display: flex; gap: 7px; justify-content: center; margin-bottom: 7px; }
 #hud .mkt-tab { border-style: solid; border-width: 7px 20px;
-  border-image: url(${BASE}assets/ui/market/tab.png) 16 fill / 7px 20px stretch;
+  border-image: url("/assets/ui/market/tab.png") 16 fill / 7px 20px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 15px; cursor: pointer; min-width: 58px;
   text-shadow: 0 1px 1px rgba(0,0,0,.45); }
-#hud .mkt-tab.sel { border-image-source: url(${BASE}assets/ui/market/tab_sel.png);
+#hud .mkt-tab.sel { border-image-source: url("/assets/ui/market/tab_sel.png");
   color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 #hud .mkt-subtabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 9px; }
 #hud .mkt-subtab { border-style: solid; border-width: 6px 16px;
-  border-image: url(${BASE}assets/ui/market/subtab.png) 12 fill / 6px 16px stretch;
+  border-image: url("/assets/ui/market/subtab.png") 12 fill / 6px 16px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 13px; cursor: pointer; min-width: 46px;
   text-shadow: 0 1px 1px rgba(0,0,0,.4); }
-#hud .mkt-subtab.sel { border-image-source: url(${BASE}assets/ui/market/subtab_sel.png);
+#hud .mkt-subtab.sel { border-image-source: url("/assets/ui/market/subtab_sel.png");
   color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 /* Search box: filters the current tab's cards by name. */
 #hud .mkt-search-row { display: flex; justify-content: center; margin-bottom: 8px; flex: 0 0 auto; }
@@ -906,7 +906,7 @@
   background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
 #hud .info-box { position: relative; box-sizing: border-box; width: min(330px, 86vw);
   border-style: solid; border-width: 32px 11px 12px 11px;
-  border-image: url(${BASE}assets/ui/market/paper_market.png) 32 11 12 11 fill / 32px 11px 12px 11px stretch;
+  border-image: url("/assets/ui/market/paper_market.png") 32 11 12 11 fill / 32px 11px 12px 11px stretch;
   padding: 4px 18px 16px; font-family: Georgia, "Times New Roman", serif; text-align: center;
   display: flex; flex-direction: column; align-items: center; gap: 8px; }
 #hud .info-close { position: absolute; top: -16px; right: -16px; width: 40px; height: 40px;
@@ -922,7 +922,7 @@
   background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; }
 #hud .st { position: relative; box-sizing: border-box; width: min(600px, 94vw); height: min(430px, 88vh);
   border-style: solid; border-width: 32px 11px 12px 11px;
-  border-image: url(${BASE}assets/ui/market/paper_market.png) 32 11 12 11 fill / 32px 11px 12px 11px stretch;
+  border-image: url("/assets/ui/market/paper_market.png") 32 11 12 11 fill / 32px 11px 12px 11px stretch;
   padding: 30px 16px 10px; font-family: Georgia, "Times New Roman", serif;
   display: flex; flex-direction: column; }
 #hud .st-close { position: absolute; top: -16px; right: -16px; width: 44px; height: 44px;
@@ -932,21 +932,21 @@
   display: flex; align-items: center; pointer-events: none; }
 #hud .st-header img.flank { height: 44px; }
 #hud .st-banner { width: 176px; height: 52px; margin: 0 -10px; z-index: 1;
-  background: url(${BASE}assets/ui/storage/board_storage.png) center/100% 100% no-repeat;
+  background: url("/assets/ui/storage/board_storage.png") center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center;
   color: #ffe9c2; font-weight: 700; font-size: 20px; text-shadow: 0 2px 2px #000; letter-spacing: .5px; }
 #hud .st-tabs { display: flex; gap: 7px; justify-content: center; margin-bottom: 8px; }
 #hud .st-tab { border-style: solid; border-width: 7px 18px;
-  border-image: url(${BASE}assets/ui/market/tab.png) 16 fill / 7px 18px stretch;
+  border-image: url("/assets/ui/market/tab.png") 16 fill / 7px 18px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 14px; cursor: pointer; min-width: 64px;
   text-shadow: 0 1px 1px rgba(0,0,0,.45); }
-#hud .st-tab.sel { border-image-source: url(${BASE}assets/ui/market/tab_sel.png);
+#hud .st-tab.sel { border-image-source: url("/assets/ui/market/tab_sel.png");
   color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 #hud .st-count { text-align: center; color: #5a3a12; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
 #hud .st-body { flex: 1 1 auto; overflow: auto; min-height: 0; }
 #hud .st-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 4px 2px; }
 #hud .st-slot { width: 54px; height: 54px; flex: 0 0 auto;
-  background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat;
+  background: url("/assets/ui/storage/storage_frame.png") center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center; }
 #hud .st-slot img { max-width: 42px; max-height: 42px; object-fit: contain; }
 #hud .st-empty { text-align: center; color: #6e4a1e; font-style: italic; padding: 34px 12px; font-size: 15px; }
@@ -971,7 +971,7 @@
   border-radius: 10px; }
 #hud .rcv-card.trophy { opacity: .9; }
 #hud .rcv-por { width: 58px; height: 58px;
-  background: url(${BASE}assets/ui/storage/storage_frame.png) center/100% 100% no-repeat;
+  background: url("/assets/ui/storage/storage_frame.png") center/100% 100% no-repeat;
   display: flex; align-items: center; justify-content: center; }
 #hud .rcv-por img { max-width: 44px; max-height: 44px; object-fit: contain; image-rendering: pixelated; }
 #hud .rcv-nm { font-size: 11px; font-weight: 700; color: #4a2f14; text-align: center;
@@ -984,7 +984,7 @@
 #hud .pm-bg { position: fixed; inset: 0; pointer-events: auto; z-index: 19; }
 #hud .pm { position: fixed; left: 6px; top: 64px; bottom: 8px; width: 258px; box-sizing: border-box;
   border-style: solid; border-width: 32px 11px 12px 11px;
-  border-image: url(${BASE}assets/ui/market/paper_market.png) 32 11 12 11 fill / 32px 11px 12px 11px stretch;
+  border-image: url("/assets/ui/market/paper_market.png") 32 11 12 11 fill / 32px 11px 12px 11px stretch;
   display: flex; flex-direction: column; font-family: Georgia, "Times New Roman", serif;
   animation: pmslide .18s ease-out; }
 @keyframes pmslide { from { transform: translateX(-112%); } to { transform: none; } }
@@ -993,17 +993,17 @@
 #hud .pm-close img { width: 100%; height: 100%; }
 #hud .pm-screens { display: flex; gap: 6px; justify-content: center; margin: 0 0 8px; }
 #hud .pm-screen { border-style: solid; border-width: 6px 16px;
-  border-image: url(${BASE}assets/ui/market/tab.png) 16 fill / 6px 16px stretch;
+  border-image: url("/assets/ui/market/tab.png") 16 fill / 6px 16px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 14px; cursor: pointer; min-width: 60px;
   text-shadow: 0 1px 1px rgba(0,0,0,.45); }
-#hud .pm-screen.sel { border-image-source: url(${BASE}assets/ui/market/tab_sel.png);
+#hud .pm-screen.sel { border-image-source: url("/assets/ui/market/tab_sel.png");
   color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 #hud .pm-subtabs { display: flex; gap: 4px; justify-content: center; margin-bottom: 8px; }
 #hud .pm-subtab { border-style: solid; border-width: 5px 11px;
-  border-image: url(${BASE}assets/ui/market/subtab.png) 12 fill / 5px 11px stretch;
+  border-image: url("/assets/ui/market/subtab.png") 12 fill / 5px 11px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 11px; cursor: pointer; letter-spacing: .3px;
   text-shadow: 0 1px 1px rgba(0,0,0,.4); }
-#hud .pm-subtab.sel { border-image-source: url(${BASE}assets/ui/market/subtab_sel.png);
+#hud .pm-subtab.sel { border-image-source: url("/assets/ui/market/subtab_sel.png");
   color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 #hud .pm-list { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column;
   gap: 8px; padding: 2px; min-height: 0; }
