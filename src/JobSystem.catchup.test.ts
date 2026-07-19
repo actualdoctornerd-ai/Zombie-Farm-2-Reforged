@@ -102,4 +102,54 @@ describe("JobSystem elapsed-time catch-up", () => {
     expect(walk.arrivals).toEqual([]);
     expect(jobs.busy).toBe(true);
   });
+
+  it("suppresses one-shot audio while completing background catch-up work", () => {
+    const walk = new FakeWalk();
+    const sounds: string[] = [];
+    const field = {
+      highlightLayer: new Container(), labelLayer: new Container(),
+      resolveTill: (col: number, row: number) => ({ valid: true, oc: col, or: row }),
+      reserveTill: () => {}, unreserveTill: () => {},
+      plotCenterOf: (col: number, row: number) => ({ x: col, y: row }),
+      hasFastWork: () => false, hasPlowFree: () => false,
+      tillAt: () => true,
+    };
+    const state = {
+      gold: 100, spendGold: () => {}, addXp: () => {},
+      onFarm: null, onTreeHarvest: null, canMutateOnline: null,
+    };
+    const jobs = new JobSystem(
+      field as never, { setWorking: () => {} } as never, walk as never, state as never,
+      () => {}, (sound) => sounds.push(sound)
+    );
+
+    jobs.enqueue("till", 2, 2);
+    jobs.advanceElapsed(3, true);
+
+    expect(jobs.busy).toBe(false);
+    expect(sounds).toEqual([]);
+  });
+
+  it("reports the currency needed when an affordable-looking action is rejected", () => {
+    const notices: [string, number][] = [];
+    const field = {
+      resolveTill: () => ({ valid: true, oc: 0, or: 0 }),
+      hasPlowFree: () => false,
+      plotOriginAt: () => ({ oc: 0, or: 0 }),
+      canPlant: () => true,
+      isRipe: () => false,
+    };
+    const jobs = new JobSystem(
+      field as never, {} as never, {} as never, { gold: 0, brains: 0, level: 1 } as never,
+      () => {}, () => {}, undefined, undefined, undefined, undefined, undefined,
+      (currency, needed) => notices.push([currency, needed])
+    );
+
+    expect(jobs.enqueue("till", 0, 0)).toBe(false);
+    expect(jobs.enqueue("plant", 0, 0, {
+      key: "carrot", name: "Carrot", stages: [], growMs: 1, cost: 25, sell: 1, xp: 1,
+      unlockLevel: 1,
+    })).toBe(false);
+    expect(notices).toEqual([["gold", 10], ["gold", 25]]);
+  });
 });

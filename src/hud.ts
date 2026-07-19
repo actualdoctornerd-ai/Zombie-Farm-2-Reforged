@@ -1941,7 +1941,7 @@ export class Hud {
       !this.hasGrave(c.cfg.unlockGrave);
     const locked = levelLocked || graveLock || forceLock;
     const card = document.createElement("div");
-    card.className = locked ? "pm-card locked" : "pm-card";
+    card.className = `${locked ? "pm-card locked" : "pm-card"}${c.cfg.isZombie ? " zombie" : ""}`;
 
     const name = document.createElement("div");
     name.className = "pm-name";

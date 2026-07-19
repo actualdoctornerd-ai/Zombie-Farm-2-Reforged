@@ -14,6 +14,7 @@ import { Sfx } from "./audio";
 import { harvestXp, plowXp } from "./farmRewards";
 
 export type JobKind = "till" | "plant" | "harvest";
+export type JobCurrency = "gold" | "brains";
 // "harvestTree" = harvest a placed fruit tree (uses the harvest animation, 2x fast).
 type Kind = JobKind | "walk" | "harvestTree";
 
@@ -76,7 +77,10 @@ export class JobSystem {
     private onPlotPlowed: (oc: number, or: number) => void = () => {},
     // Offline Epic Boss token roll. Online harvests are rolled authoritatively by
     // the server and arrive through the reconciled Epic Boss projection.
-    private onCropHarvested: (growMs: number, value: number, x: number, y: number) => boolean = () => false
+    private onCropHarvested: (growMs: number, value: number, x: number, y: number) => boolean = () => false,
+    // Immediate affordability feedback. Queue validation used to fail silently,
+    // making a valid plot look unresponsive when the player lacked currency.
+    private onInsufficientFunds: (currency: JobCurrency, needed: number) => void = () => {}
   ) {}
 
   private key(kind: JobKind, oc: number, or: number) {
@@ -106,11 +110,17 @@ export class JobSystem {
     }
     const k = this.key(kind, oc, or);
     if (this.pending.has(k)) return false;
-    if (kind === "till" && this.state.gold < this.plowCost()) return false;
+    if (kind === "till" && this.state.gold < this.plowCost()) {
+      this.onInsufficientFunds("gold", this.plowCost());
+      return false;
+    }
     if (kind === "plant" && cfg) {
       if (this.state.level < cfg.unlockLevel) return false; // not unlocked yet
       const funds = cfg.brainsNeeded ? this.state.brains : this.state.gold;
-      if (funds < cfg.cost) return false;
+      if (funds < cfg.cost) {
+        this.onInsufficientFunds(cfg.brainsNeeded ? "brains" : "gold", cfg.cost);
+        return false;
+      }
     }
 
     if (kind === "till") this.field.reserveTill(oc, or); // hold the area while queued
@@ -152,20 +162,31 @@ export class JobSystem {
    * returning after hours with an empty/short queue is bounded by that queue's
    * actual duration rather than the time spent away.
    */
-  advanceElapsed(elapsedSec: number) {
+  advanceElapsed(elapsedSec: number, suppressAudio = false) {
     let remaining = Number.isFinite(elapsedSec) ? Math.max(0, elapsedSec) : 0;
-    while (remaining > 0 && (this.busy || this.walk.moving)) {
-      const step = Math.min(CATCH_UP_STEP_SEC, remaining);
-      this.update(step);
+    const prior = this.audioSuppressed;
+    this.audioSuppressed ||= suppressAudio;
+    try {
+      while (remaining > 0 && (this.busy || this.walk.moving)) {
+        const step = Math.min(CATCH_UP_STEP_SEC, remaining);
+        this.update(step);
 
-      // A job in its walking phase should always own a live WalkController
-      // target. Avoid spinning through a very large elapsed interval if an
-      // invalid/off-field destination ever slips into the queue.
-      if (this.active && this.phase === "walk" && !this.walk.moving) break;
+        // A job in its walking phase should always own a live WalkController
+        // target. Avoid spinning through a very large elapsed interval if an
+        // invalid/off-field destination ever slips into the queue.
+        if (this.active && this.phase === "walk" && !this.walk.moving) break;
 
-      this.walk.update(step);
-      remaining -= step;
+        this.walk.update(step);
+        remaining -= step;
+      }
+    } finally {
+      this.audioSuppressed = prior;
     }
+  }
+
+  private audioSuppressed = false;
+  private playSfx(name: Sfx) {
+    if (!this.audioSuppressed) this.sfx(name);
   }
 
   // Cancel any queued/active job whose plot covers tile (col,row). Returns true if
@@ -234,7 +255,8 @@ export class JobSystem {
         }
         // Speed Monolith: farming is instant — apply on arrival, no hoe delay/bar.
         if (this.field.hasFastWork()) {
-          this.sfx(next.kind === "harvestTree" ? "harvest" : (next.kind as JobKind));
+          // apply() emits the completion sound. Playing a separate start sound here
+          // would overlap it because instant work has no delay between the two.
           this.apply(next);
           this.finish();
           return;
@@ -245,7 +267,7 @@ export class JobSystem {
         this.workTotal = fast ? WORK_MS / 2 : WORK_MS;
         this.workMs = this.workTotal;
         this.actor.setWorking(true, fast ? 2 : 1);
-        this.sfx(fast ? "harvest" : (next.kind as JobKind)); // hoe sound
+        this.playSfx(fast ? "harvest" : (next.kind as JobKind)); // hoe sound
         next.bar = this.makeBar(fast ? "Harvest" : LABEL[next.kind as JobKind], next.cx, next.cy);
       });
     } else if (this.phase === "work") {
@@ -277,13 +299,17 @@ export class JobSystem {
         }
         if (treeName) this.quest.post(QuestEvent.CropHarvested, treeName);
         this.float(job.cx, job.cy, `+${gold}g${xp ? `  +${xp}xp` : ""}`);
-        this.sfx("xp");
+        this.playSfx("xp");
       }
       return;
     }
     if (job.kind === "till") {
       const cost = this.plowCost(); // 0 with a Plowing Monolith
       const xp = plowXp(cost === 0);
+      if (this.state.gold < cost) {
+        this.onInsufficientFunds("gold", cost);
+        return;
+      }
       if (this.state.gold >= cost && this.field.tillAt(job.oc, job.or)) {
         // ONLINE: the server owns the plow cost + XP and RECORDS the soil, which
         // a later plant requires. Charging locally would just reconcile away (a free
@@ -295,7 +321,7 @@ export class JobSystem {
           if (xp) this.state.addXp(xp);
         }
         this.float(job.cx, job.cy, cost > 0 ? `-${cost}g  +${xp}xp` : "Plowed!");
-        this.sfx(xp ? "xp" : "till");
+        this.playSfx(xp ? "xp" : "till");
         this.onPlotPlowed(job.oc, job.or);
         this.quest.post(QuestEvent.SoilPlowed, "Plow");
         this.quest.post(QuestEvent.NewSoilPlowed, "Plow");
@@ -309,6 +335,10 @@ export class JobSystem {
       // sell value) are awarded on harvest, matching the source economy where the
       // crop's xp is its harvest reward.
       const funds = cfg.brainsNeeded ? this.state.brains : this.state.gold;
+      if (funds < cfg.cost) {
+        this.onInsufficientFunds(cfg.brainsNeeded ? "brains" : "gold", cfg.cost);
+        return;
+      }
       if (funds >= cfg.cost && this.field.plantAt(job.oc, job.or, cfg)) {
         // Zombie crops are now server-owned too (plant debits the cost, harvest yields a
         // verified unit), so they go through the server path like veggie crops.
@@ -323,7 +353,6 @@ export class JobSystem {
           const by = this.onCropPlanted(job.oc, job.or, cfg);
           if (by) {
             this.float(job.cx, job.cy - 18, `Fertilized by ${by}!`);
-            this.sfx("place");
           }
         }
         // ONLINE veggie crop: the server prices the seed cost exactly (net/economy →
@@ -343,6 +372,7 @@ export class JobSystem {
           this.float(job.cx, job.cy, `-${cfg.cost}${cfg.brainsNeeded ? "b" : "g"}`);
         }
         this.quest.post(QuestEvent.CropPlanted, cfg.name);
+        this.playSfx("place");
       }
     } else {
       const r = this.field.harvestAt(job.oc, job.or);
@@ -380,7 +410,7 @@ export class JobSystem {
           : `+${r.sell}g${r.fertilized ? " ×2" : ""}  +${xp}xp`;
         this.float(job.cx, job.cy, bossToken ? `${msg}  +1 Boss Token!` : msg);
         // A harvested zombie "resurrects"; a plain crop gives the reward chime.
-        this.sfx(r.isZombie ? "harvestZombie" : "xp");
+        this.playSfx(r.isZombie ? "harvestZombie" : "xp");
         this.quest.post(
           r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested,
           r.name

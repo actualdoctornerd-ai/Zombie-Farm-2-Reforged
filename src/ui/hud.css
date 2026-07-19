@@ -3,7 +3,7 @@
 
 /* top: brown wood bar with recessed slots + gear + name plate */
 #hud .topbar { position: fixed; top: 6px; left: 6px; right: 6px; display: flex;
-  align-items: center; gap: 8px; pointer-events: none;
+  align-items: center; gap: 8px; pointer-events: auto;
   background: linear-gradient(#6e4425, #492b16); border: 2px solid #2f1d0d;
   border-radius: 16px; padding: 5px 8px; box-shadow: 0 3px 6px rgba(0,0,0,.4); }
 #hud .gear { pointer-events: auto; width: 44px; height: 44px; border: none;
@@ -565,6 +565,7 @@
   overflow: hidden; }
 #hud .raid-bg .raidsel { max-height: calc(100dvh - 70px); min-height: 0; }
 #hud .raid-bg .rd-detail { overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+#hud .raid-bg .panelclose { top: 4px; right: 4px; z-index: 2; }
 /* army select */
 #hud .army-wrap { display: flex; flex-direction: column; gap: 10px; width: min(600px, 90vw); }
 #hud .army-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
@@ -1005,6 +1006,9 @@
 #hud .pm-port { grid-area: port; display: flex; align-items: center; }
 #hud .pm-port img { height: 46px; max-width: 76px; width: auto; object-fit: contain;
   image-rendering: auto; }
+#hud .pm-card.zombie .pm-port { width: 96px; height: 78px; justify-content: center; overflow: hidden; }
+#hud .pm-card.zombie .pm-port img { width: 96px; height: 96px; max-width: none; flex: 0 0 auto;
+  object-fit: contain; transform: scale(1.35); transform-origin: 50% 58%; }
 #hud .pm-right { grid-area: right; display: flex; flex-direction: column; justify-content: center;
   align-items: flex-end; gap: 5px; color: #452c0c; font-weight: 700; font-size: 13px; }
 #hud .pm-right span { display: flex; align-items: center; gap: 3px; }

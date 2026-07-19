@@ -581,7 +581,10 @@ async function main() {
     questBus,
     (oc, or) => zombies.tryFertilize(oc, or),
     (oc, or) => tutorial?.onPlotPlowed(oc, or),
-    awardOfflineEpicBossToken
+    awardOfflineEpicBossToken,
+    (currency, needed) => hud.showToast(
+      currency === "gold" ? "Not enough coins." : `Not enough brains (need ${needed}).`
+    )
   );
 
   // Quest-complete celebration, styled like the level-up popup. Quests can finish in
@@ -1485,6 +1488,7 @@ async function main() {
     const value = zombieSellValue(zombieDefs.get(z.key)?.cost ?? 0);
     const p = zombies.selectById(id); // deployed unit's world pos (null if stored)
     if (!zombies.sell(id)) return; // gone already; don't credit gold
+    audio.play("sell");
     // ONLINE: the server owns the roster — it prices + credits the sell (and rejects a
     // unit it doesn't own, so a fabricated zombie can't be cashed out). OFFLINE: credit
     // locally as before.
@@ -3019,9 +3023,12 @@ async function main() {
   // advances the missing time; if they stop, the first focus/visible event does.
   // Nothing else (notably raids) receives this elapsed time.
   let lastJobAdvanceAt = performance.now();
-  const advanceFarmJobsToNow = () => {
+  const advanceFarmJobsToNow = (forceSilent = false) => {
     const now = performance.now();
-    jobs.advanceElapsed((now - lastJobAdvanceAt) / 1000);
+    const elapsed = (now - lastJobAdvanceAt) / 1000;
+    // A throttled/hidden tab can complete several queued jobs in one catch-up.
+    // Do that work silently so their independent one-shots do not all burst at once.
+    jobs.advanceElapsed(elapsed, forceSilent || elapsed > 0.25);
     lastJobAdvanceAt = now;
   };
 
@@ -3113,12 +3120,12 @@ async function main() {
   document.addEventListener("visibilitychange", () => {
     // Settle the job clock on both edges. On hide this captures the final sliver
     // after the last frame; on show it consumes the entire suspended interval.
-    advanceFarmJobsToNow();
+    advanceFarmJobsToNow(true);
     if (document.hidden) return;
     field.update(0);
     saveManager.save();
   });
-  window.addEventListener("focus", advanceFarmJobsToNow);
+  window.addEventListener("focus", () => advanceFarmJobsToNow(true));
 
   // Live game-state handle + mutation helpers for local testing (instant raids,
   // boost grants, zombie spawning, placement, combine, raid wins). DEV BUILDS
