@@ -35,6 +35,7 @@ import type {
 // and hot-reload. Vite injects it at module load — no manual <style> element.
 import "./ui/hud.css";
 import { openModal } from "./ui/Modal";
+import { renderLevelUp, renderQuestComplete, renderObjectActions, renderInfoPanel } from "./ui/panels/dialogs";
 // View-model types + the grave classifier live in hudTypes so panel modules can
 // import them without depending on the whole Hud class. Re-exported below for the
 // existing `from "./hud"` importers (main.ts).
@@ -4608,79 +4609,14 @@ export class Hud {
   /** Celebratory "LEVEL UP" popup listing what the new level unlocked (invasions,
    *  market items, boosts). Fired from GameState.onLevelUpCb via main.ts. */
   openLevelUp(view: LevelUpView) {
-    // No corner close button — the popup sets panel.innerHTML (which would wipe it)
-    // and is dismissed by its own Continue button or a backdrop click.
-    const { panel, close } = openModal({
-      host: this.el, bgClass: "lvl-bg", panelClass: "lvlup",
-      closeButton: false, replaceSelector: ".lvl-bg",
-    });
-
-    const brainRow = view.brains
-      ? `<div class="lvl-reward"><img src="${UI("topbar_brain_icon.png")}"> +${view.brains} ` +
-        `${view.brains === 1 ? "brain" : "brains"}</div>`
-      : "";
-    const unlockHtml = view.unlocks.length
-      ? `<div class="lvl-sub">Unlocked</div><div class="lvl-unlocks">${view.unlocks
-          .map(
-            (u) =>
-              `<span class="lvl-slot" title="${u.name}"><span class="lvl-frame">` +
-              `<img src="${u.icon}" onerror="this.style.visibility='hidden'"></span>` +
-              `<span class="lvl-nm">${u.name}</span><span class="lvl-tag">${u.kind}</span></span>`
-          )
-          .join("")}</div>`
-      : `<div class="lvl-none">Nothing new this level — keep going!</div>`;
-
-    panel.innerHTML =
-      `<div class="lvl-burst">LEVEL UP!</div>` +
-      `<div class="lvl-num">You reached level ${view.level}</div>` +
-      brainRow +
-      unlockHtml;
-
-    const done = document.createElement("button");
-    done.className = "lvl-go";
-    done.textContent = "Continue";
-    done.onclick = () => close();
-    panel.appendChild(done);
-    requestAnimationFrame(() => panel.classList.add("in"));
+    renderLevelUp(this.el, view);
   }
 
   /** Celebratory "QUEST COMPLETE" popup showing the finished quest + its reward,
    *  styled like the level-up popup. Fired from the QuestSystem via main.ts. Only
    *  one shows at a time; a queued list (main.ts) feeds them in one after another. */
   openQuestComplete(view: QuestCompleteView) {
-    // Deliberately non-dismissible by backdrop/close (see note below) — only the OK
-    // button acknowledges it. onClose advances the queued-completion chain.
-    const { panel, close } = openModal({
-      host: this.el, bgClass: "qc-bg", panelClass: "questdone",
-      closeButton: false, backdropClose: false, replaceSelector: ".qc-bg",
-      onClose: () => this.onQuestCompleteClosed?.(),
-    });
-
-    const rewardHtml = view.rewards.length
-      ? `<div class="qc-sub">Reward</div><div class="qc-rewards">${view.rewards
-          .map(
-            (r) =>
-              `<span class="qc-reward"><img src="${r.icon}" onerror="this.style.visibility='hidden'">` +
-              `${r.label}</span>`
-          )
-          .join("")}</div>`
-      : "";
-
-    panel.innerHTML =
-      `<div class="qc-icon"><img src="${UI(view.icon)}" onerror="this.style.visibility='hidden'"></div>` +
-      `<div class="qc-burst">QUEST COMPLETE!</div>` +
-      `<div class="qc-title">${view.title}</div>` +
-      (view.message ? `<div class="qc-msg">${view.message}</div>` : "") +
-      rewardHtml;
-
-    const done = document.createElement("button");
-    done.className = "lvl-go";
-    done.textContent = "OK";
-    // Quest completions may appear while the player is mid-action; the explicit OK
-    // button is the only way to acknowledge (and advance to the next queued one).
-    done.onclick = () => close();
-    panel.appendChild(done);
-    requestAnimationFrame(() => panel.classList.add("in"));
+    renderQuestComplete(this.el, view, () => this.onQuestCompleteClosed?.());
   }
 
   /** Called when a quest-complete popup is dismissed, so main can show the next
@@ -4690,36 +4626,11 @@ export class Hud {
   // A compact Move / Store / Sell action popup for a placed farm object, shown
   // when it's tapped in Select mode.
   openObjectActions(o: ObjectActions) {
-    const { panel, close } = openModal({ host: this.el, panelClass: "obj-actions", title: o.name });
-
-    const por = document.createElement("div");
-    por.className = "obj-por";
-    if (o.portrait) por.style.backgroundImage = `url(${o.portrait})`;
-
-    const btns = document.createElement("div");
-    btns.className = "zbtns";
-    const mk = (label: string, cls: string, enabled: boolean, fn: () => void) => {
-      const b = document.createElement("button");
-      b.className = `zbtn ${cls}`;
-      b.textContent = label;
-      b.disabled = !enabled;
-      b.onclick = () => { close(); fn(); };
-      return b;
-    };
-    btns.append(
-      mk("Move", "locate", true, o.onMove),
-      mk("Rotate", "locate", true, o.onRotate),
-      mk(o.canStore ? "Store" : "Storage full", "store", o.canStore, o.onStore),
-      mk(`Sell +${o.sellRefund}${o.sellBrains ? "b" : "g"}`, "sell", true, o.onSell)
-    );
-    panel.append(por, btns);
+    renderObjectActions(this.el, o);
   }
 
   private openPanel(title: string, body: string) {
-    const { panel } = openModal({ host: this.el, title });
-    const p = document.createElement("p");
-    p.textContent = body;
-    panel.append(p);
+    renderInfoPanel(this.el, title, body);
   }
 
   private buildQuestToggle() {

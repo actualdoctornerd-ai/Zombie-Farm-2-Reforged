@@ -5,9 +5,7 @@
 // hud.css applies unchanged) and returns handles to the pieces the caller fills
 // in. A single idempotent `close()` covers the close button, the backdrop click
 // and any programmatic dismissal.
-import { BASE } from "../base";
-
-const UI = (n: string) => `${BASE}assets/ui/${n}`;
+import { UI } from "./uiAsset";
 
 export interface ModalHandle {
   /** The `.panelbg` backdrop element (already appended to the host). */
