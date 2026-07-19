@@ -45,3 +45,22 @@ export function fillPartySelection(
   }
   return result;
 }
+
+/** Put previously-used zombies first, in their saved attack order, then append
+ * every other eligible zombie in its existing order (the roster's harvest order). */
+export function orderPartyRoster<T extends { id: string }>(
+  eligible: T[],
+  preferredIds: string[],
+): T[] {
+  const byId = new Map(eligible.map((unit) => [unit.id, unit]));
+  const ordered: T[] = [];
+  const seen = new Set<string>();
+  for (const id of [...preferredIds, ...eligible.map((unit) => unit.id)]) {
+    const unit = byId.get(id);
+    if (unit && !seen.has(id)) {
+      ordered.push(unit);
+      seen.add(id);
+    }
+  }
+  return ordered;
+}

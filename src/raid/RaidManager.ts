@@ -33,6 +33,7 @@ import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
 import { rollLootTier } from "./LootTable";
 import { rollBrainDrop } from "./brainDrops";
+import { orderPartyRoster } from "./partySelection";
 
 /** Contact damage an environmental obstacle deals (source carries no value; a tuned
  *  chip value kept proportional to the ground-truth melee/HP scale — see BattleSim). */
@@ -75,9 +76,12 @@ export interface RaidCardView {
 
 export interface RaidPartyZombie {
   id: string;
+  key: string;
   name: string; // individual name
   typeName: string; // species/type
   portrait: string;
+  mutation: number;
+  color?: [number, number, number];
   str: number;
   dex: number;
   con: number;
@@ -90,7 +94,8 @@ export interface RaidPartyZombie {
 }
 
 export interface RaidPartyView {
-  eligible: RaidPartyZombie[]; // deployed zombies, strongest first
+  /** Deployed zombies in display/auto-pick order: previous raid first, then harvest order. */
+  eligible: RaidPartyZombie[];
   cap: number; // max selectable
   min: number; // minimum to launch
   defaultSelectedIds: string[];
@@ -256,14 +261,17 @@ export class RaidManager {
   partyView(): RaidPartyView {
     const cap = Math.min(ARMY_CAP, this.state.zombieMax);
     const abilityUnlocked = (k: string) => this.state.abilityUnlocked(k);
-    const eligible: RaidPartyZombie[] = this.deployed()
+    const harvestOrdered: RaidPartyZombie[] = this.deployed()
       .map((z) => {
         const disp = displayTotals(z, abilityUnlocked);
         return {
           id: z.id,
+          key: z.key,
           name: z.name,
           typeName: z.typeName,
           portrait: zombiePortrait(z.key),
+          mutation: z.mutation,
+          color: z.color,
           str: z.str,
           dex: z.dex,
           con: z.con,
@@ -273,8 +281,8 @@ export class RaidManager {
           dispSpeed: disp.dex,
           dispLife: disp.con,
         };
-      })
-      .sort((a, b) => b.power - a.power);
+      });
+    const eligible = orderPartyRoster(harvestOrdered, this.state.raidAttackOrder);
     // Restore the saved attack order, dropping any zombie that's no longer
     // deployed (sold, stored, died on a raid) and clamping to the current cap.
     const live = new Set(eligible.map((z) => z.id));

@@ -27,7 +27,7 @@ import { statBreakdown } from "./zombie/statDisplay";
 import { classTierRank } from "./zombie/taxonomy";
 import { BASE } from "./base";
 import { compareCropMarketOrder } from "./marketOrder";
-import { fillPartySelection } from "./raid/partySelection";
+import { fillPartySelection, orderPartyRoster } from "./raid/partySelection";
 import type {
   BlackMarketListResponse, BlackMarketMutationResponse, BlackMarketOrderKind,
   BlackMarketOrderView,
@@ -2805,6 +2805,8 @@ export class Hud {
     panel.appendChild(close); bg.appendChild(panel); this.el.appendChild(bg);
     if (!party?.eligible.length) { panel.insertAdjacentHTML("beforeend", `<h2>Choose your army</h2><p>You have no deployed zombies.</p>`); return; }
     const order: string[] = [];
+    const preferred = this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? [];
+    const eligible = orderPartyRoster(party.eligible, preferred);
     const wrap = document.createElement("div"); wrap.className = "army-wrap";
     const head = document.createElement("div"); head.className = "army-head";
     const cards = document.createElement("div"); cards.className = "army-grid";
@@ -2827,11 +2829,16 @@ export class Hud {
       start.disabled = !order.length || !canPay;
       cards.querySelectorAll<HTMLElement>(".army-card").forEach((el) => { const at = order.indexOf(el.dataset.id!); el.classList.toggle("sel", at >= 0); const tick = el.querySelector<HTMLElement>(".tick"); if (tick) tick.textContent = at >= 0 ? String(at + 1) : ""; });
     };
-    for (const z of party.eligible) {
+    for (const z of eligible) {
       const card = document.createElement("div"); card.className = "army-card"; card.dataset.id = z.id;
       const tick = document.createElement("span"); tick.className = "tick";
       const portrait = document.createElement("div"); portrait.className = "army-por";
-      portrait.style.backgroundImage = `url(${z.portrait})`;
+      if (z.portrait) portrait.style.backgroundImage = `url(${z.portrait})`;
+      if (this.zombieMutationPortraitOf) {
+        void this.zombieMutationPortraitOf(z.key, z.mutation, z.color)
+          .then((image) => { if (portrait.isConnected) portrait.style.backgroundImage = `url(${image})`; })
+          .catch(() => { /* retain the static species portrait */ });
+      }
       const name = document.createElement("div"); name.className = "army-nm"; name.textContent = z.name;
       const type = document.createElement("div"); type.className = "army-ty"; type.textContent = z.typeName;
       card.append(tick, portrait, name, type);
@@ -2841,9 +2848,8 @@ export class Hud {
     const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
     pay.onchange = () => { payment = pay.value as EpicBossPayment; refresh(); };
     pick.onclick = () => {
-      const preferred = this.getEpicBossView?.().find((view) => view.active)?.run?.attackOrder ?? [];
       order.splice(0, order.length, ...fillPartySelection(
-        order, preferred, party.eligible.map((z) => z.id), party.cap
+        order, preferred, eligible.map((z) => z.id), party.cap
       ));
       refresh();
     };
@@ -5765,6 +5771,11 @@ export class Hud {
       const por = document.createElement("div");
       por.className = "army-por";
       if (z.portrait) por.style.backgroundImage = `url(${z.portrait})`;
+      if (this.zombieMutationPortraitOf) {
+        void this.zombieMutationPortraitOf(z.key, z.mutation, z.color)
+          .then((image) => { if (por.isConnected) por.style.backgroundImage = `url(${image})`; })
+          .catch(() => { /* retain the static species portrait */ });
+      }
       const nm = document.createElement("div");
       nm.className = "army-nm";
       nm.textContent = z.name;
@@ -5832,10 +5843,9 @@ export class Hud {
     pick.className = "raid-quick";
     pick.textContent = "Pick for me";
     pick.onclick = () => {
-      for (const id of [...party.orderedSelectedIds, ...party.eligible.map((z) => z.id)]) {
-        if (order.length >= cap) break;
-        if (!order.includes(id)) order.push(id);
-      }
+      order.splice(0, order.length, ...fillPartySelection(
+        order, party.orderedSelectedIds, party.eligible.map((z) => z.id), cap,
+      ));
       refresh();
     };
 

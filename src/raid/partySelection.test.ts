@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillPartySelection, reconcilePartySelection } from "./partySelection";
+import { fillPartySelection, orderPartyRoster, reconcilePartySelection } from "./partySelection";
 
 describe("reconcilePartySelection", () => {
   it("replaces an optimistic id with its authoritative id", () => {
@@ -56,5 +56,21 @@ describe("fillPartySelection", () => {
       ["kept", "new-crazy", "new-dapper"],
       2
     )).toEqual(["new-dapper", "kept"]);
+  });
+});
+
+describe("orderPartyRoster", () => {
+  it("puts the previous raid order before remaining zombies in harvest order", () => {
+    const eligible = ["harvest-1", "headless-a", "harvest-3", "headless-b", "newest"]
+      .map((id) => ({ id }));
+
+    expect(orderPartyRoster(eligible, ["headless-a", "headless-b"]).map((z) => z.id))
+      .toEqual(["headless-a", "headless-b", "harvest-1", "harvest-3", "newest"]);
+  });
+
+  it("drops unavailable preferred ids and removes duplicates", () => {
+    const eligible = ["a", "b", "c"].map((id) => ({ id }));
+    expect(orderPartyRoster(eligible, ["gone", "b", "b"]).map((z) => z.id))
+      .toEqual(["b", "a", "c"]);
   });
 });
