@@ -14,7 +14,7 @@ Missing Features
   (RaidManager.hazardOf returns null). Trapeze grab + carrot/junk walls are now implemented.
 
 Future Features
-- Trading
-- Black Market
 - Weekly/Daily Quests
+
+Shipped (was Future): Trading / Black Market (server-authoritative escrow, see SECURITY.md)
 

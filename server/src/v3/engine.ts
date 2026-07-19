@@ -526,16 +526,52 @@ function applyOne(
       if (!unit) return reject(sequence, "not_owned");
       if (unit.stored === command.stored) return reject(sequence, "no_effect");
       const capacity = placedCapacity(state);
-      if (command.stored && state.roster.filter((candidate) => candidate.stored).length >= capacity.storage) return reject(sequence, "storage_full");
+      if (command.stored && state.roster.filter((candidate) =>
+        candidate.stored && !candidate.lockedByRaid?.startsWith("pot:")).length >= capacity.storage) {
+        return reject(sequence, "storage_full");
+      }
       if (!command.stored && state.roster.filter((candidate) => !candidate.stored).length >= capacity.army) return reject(sequence, "army_full");
       unit.stored = command.stored;
       return { sequence, status: "applied" };
     }
+    case "roster.combine_start": {
+      if (command.parentAId === command.parentBId) return reject(sequence, "same_parent");
+      const marker = `pot:${command.potId}`;
+      if (state.roster.some((unit) => unit.lockedByRaid === marker)) return reject(sequence, "pot_busy");
+      const a = state.roster.find((unit) => unit.id === command.parentAId && !unit.lockedByRaid);
+      const b = state.roster.find((unit) => unit.id === command.parentBId && !unit.lockedByRaid);
+      if (!a || !b) return reject(sequence, "not_owned");
+      if (rewardOnlyZombies.has(a.key) || rewardOnlyZombies.has(b.key)) return reject(sequence, "reward_only");
+      const requestedLevel = Number.isInteger(command.playerLevel) && command.playerLevel! >= 1
+        ? command.playerLevel!
+        : level;
+      if (!combinedSpecies(a, b, Math.min(requestedLevel, level))) return reject(sequence, "special_pair");
+      // Entering the Pot consumes both active slots immediately. The rows remain
+      // reserved internally so collection can derive and validate the exact child.
+      a.stored = true;
+      b.stored = true;
+      a.lockedByRaid = marker;
+      b.lockedByRaid = marker;
+      events.push({
+        type: "kCombinerCombinedNotification",
+        subject: [zombieNames.get(a.key) ?? a.key, zombieNames.get(b.key) ?? b.key].sort().join(" "),
+      });
+      return { sequence, status: "applied" };
+    }
     case "roster.combine": {
       if (command.parentAId === command.parentBId) return reject(sequence, "same_parent");
-      const a = state.roster.find((u) => u.id === command.parentAId && !u.lockedByRaid);
-      const b = state.roster.find((u) => u.id === command.parentBId && !u.lockedByRaid);
+      const marker = command.potId ? `pot:${command.potId}` : undefined;
+      // Unlocked fallback keeps pots started by the pre-reservation client
+      // collectable after upgrade; new starts always take the marker path.
+      const a = state.roster.find((u) => u.id === command.parentAId &&
+        (marker ? u.lockedByRaid === marker : !u.lockedByRaid)) ??
+        (marker ? state.roster.find((u) => u.id === command.parentAId && !u.lockedByRaid) : undefined);
+      const b = state.roster.find((u) => u.id === command.parentBId &&
+        (marker ? u.lockedByRaid === marker : !u.lockedByRaid)) ??
+        (marker ? state.roster.find((u) => u.id === command.parentBId && !u.lockedByRaid) : undefined);
       if (!a || !b) return reject(sequence, "not_owned");
+      const reserved = !!marker && a.lockedByRaid === marker && b.lockedByRaid === marker;
+      if (marker && !reserved && (a.lockedByRaid || b.lockedByRaid)) return reject(sequence, "not_owned");
       if (rewardOnlyZombies.has(a.key) || rewardOnlyZombies.has(b.key)) return reject(sequence, "reward_only");
       // Older clients omit the start level and retain collection-time behavior.
       // New clients send the persisted start level; capping it at the authoritative
@@ -545,16 +581,21 @@ function applyOne(
         : level;
       const resultKey = combinedSpecies(a, b, Math.min(requestedLevel, level));
       if (!resultKey) return reject(sequence, "special_pair");
+      const capacity = placedCapacity(state);
+      const activeAfterParents = state.roster.filter((unit) => !unit.stored).length -
+        Number(!a.stored) - Number(!b.stored);
+      if (marker && activeAfterParents >= capacity.army) {
+        return reject(sequence, "capacity_full");
+      }
       const id = options.id();
       // Mutation inheritance never invents a new bit. It carries one mutation per
       // anatomical slot and deterministically resolves a same-slot conflict.
       const mutation = combineMasks(a.mutation, b.mutation);
       state.roster = state.roster.filter((u) => u.id !== a.id && u.id !== b.id);
-      const capacity = placedCapacity(state);
-      const stored = state.roster.filter((unit) => !unit.stored).length >= capacity.army;
+      const stored = marker ? false : state.roster.filter((unit) => !unit.stored).length >= capacity.army;
       state.roster.push({ id, key: resultKey, mutation, invasions: 0, stored });
       created.push(id);
-      events.push({
+      if (!reserved) events.push({
         type: "kCombinerCombinedNotification",
         subject: [zombieNames.get(a.key) ?? a.key, zombieNames.get(b.key) ?? b.key].sort().join(" "),
       });
@@ -688,7 +729,9 @@ export function applyCommandBatch(
     if (command.type === "object.refund" || command.type === "object.status" || command.type === "object.upgrade") return [`object:${command.instanceId}`];
     if (command.type === "object.harvest_trees") return command.instanceIds.map((id) => `object:${id}`);
     if (command.type === "roster.sell" || command.type === "roster.status") return [`unit:${command.unitId}`];
-    if (command.type === "roster.combine") return [`unit:${command.parentAId}`, `unit:${command.parentBId}`];
+    if (command.type === "roster.combine_start" || command.type === "roster.combine") {
+      return [`unit:${command.parentAId}`, `unit:${command.parentBId}`];
+    }
     if (command.type === "storage.claim") return [`storage:${command.itemName}`];
     if (command.type === "storage.move") return [`storage:${command.itemKey}`];
     if (command.type === "pet.buy" || command.type === "pet.equip") return [`pet:${command.petKey ?? "active"}`];

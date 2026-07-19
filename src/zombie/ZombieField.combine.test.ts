@@ -62,4 +62,22 @@ describe("ZombieField combine save migration", () => {
     expect(zombies.rename("z1", "   ")).toBeNull();
     expect(zombies.serialize()[0].name).toBe("Sir Rottington");
   });
+
+  it("leaves a ready Pot pending while the active zombie capacity is full", () => {
+    const state = new GameState();
+    state.zombieMax = 0;
+    const def = {
+      key: "ordinary", name: "Regular Zombie", group: "Regular", tier: 1,
+      className: "Green", classColor: "#00ff00", str: 1, dex: 1, con: 1, focus: 1,
+    } as ZombieDef;
+    const field = { zombiePotId: () => "pot" } as unknown as Field;
+    const zombies = new ZombieField({} as GameAssets, field, state, (key) => key === def.key ? def : undefined);
+    zombies.restorePots({ pot: {
+      parentAId: "a", parentBId: "b", keyA: def.key, keyB: def.key,
+      maskA: 0, maskB: 0, startedAt: 0, finishAt: 0,
+    } });
+
+    expect(zombies.collectCombine(0, 0, "pot")).toBeNull();
+    expect(zombies.potFor("pot").pending).not.toBeNull();
+  });
 });

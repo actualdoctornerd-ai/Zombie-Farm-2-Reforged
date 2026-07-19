@@ -2232,6 +2232,7 @@ export class Hud {
         remainingMs: number;
         totalMs: number;
         monolith: boolean;
+        canCollect: boolean;
         pending: {
           keyA: string; keyB: string; maskA: number; maskB: number;
           colorA?: [number, number, number]; colorB?: [number, number, number];
@@ -5313,7 +5314,8 @@ export class Hud {
         note.textContent = s.ready
           ? "The combine is done — collect your new zombie."
           : `Combining… ${fmt(s.remainingMs)} left` + (s.monolith ? " (Monolith: ×½)" : "");
-        go.disabled = !s.ready;
+        if (s.ready && !s.canCollect) note.textContent = "Farm full — free a zombie slot to collect.";
+        go.disabled = !s.ready || !s.canCollect;
       };
       tick();
       stop();

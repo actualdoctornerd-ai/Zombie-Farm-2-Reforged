@@ -275,10 +275,18 @@ export class EconomyClient {
 
   submitRoster(input: RosterInput, optimistic: { gold?: number } = {}): void {
     if (input.type === "combineStart") {
-      this.combineParents.set(input.potId ?? "legacy", {
+      const potId = input.potId ?? "legacy";
+      this.combineParents.set(potId, {
         parentAId: input.parentAId,
         parentBId: input.parentBId,
         playerLevel: input.playerLevel,
+      });
+      this.enqueue({
+        type: "roster.combine_start",
+        potId,
+        parentAId: this.authoritativeUnitId(input.parentAId),
+        parentBId: this.authoritativeUnitId(input.parentBId),
+        ...(input.playerLevel === undefined ? {} : { playerLevel: input.playerLevel }),
       });
       return;
     }
@@ -287,6 +295,7 @@ export class EconomyClient {
     if (input.type === "combineCollect" && parents) {
       this.enqueue({
         type: "roster.combine",
+        potId,
         parentAId: this.authoritativeUnitId(parents.parentAId),
         parentBId: this.authoritativeUnitId(parents.parentBId),
         ...(parents.playerLevel === undefined ? {} : { playerLevel: parents.playerLevel }),
@@ -510,6 +519,7 @@ export class EconomyClient {
       const pending = this.optimistic.get(result.sequence);
       const command = this.commandsBySequence.get(result.sequence);
       if ((result.status === "rejected" || result.status === "dependency_failed") && result.error) {
+        if (command?.type === "roster.combine_start") this.combineParents.delete(command.potId);
         this.onCommandRejected?.(command, result.error);
       }
       if (pending?.localUnitId && result.status === "applied" && result.createdIds?.[0]) {

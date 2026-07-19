@@ -352,7 +352,7 @@ describe("v3 raid dependency ids", () => {
     expect(enqueue).toHaveBeenNthCalledWith(1, { type: "roster.status", unitId: "server-a", stored: true });
     expect(enqueue).toHaveBeenNthCalledWith(2, { type: "roster.sell", unitId: "server-b" });
     expect(enqueue).toHaveBeenNthCalledWith(3, {
-      type: "roster.combine", parentAId: "server-a", parentBId: "server-b",
+      type: "roster.combine", potId: "legacy", parentAId: "server-a", parentBId: "server-b",
     });
   });
 
@@ -366,8 +366,8 @@ describe("v3 raid dependency ids", () => {
     economy.submitRoster({ type: "combineCollect", potId: "pot-b", unitId: "child-b", key: "ignored" });
     economy.submitRoster({ type: "combineCollect", potId: "pot-a", unitId: "child-a", key: "ignored" });
 
-    expect(enqueue).toHaveBeenNthCalledWith(1, { type: "roster.combine", parentAId: "b1", parentBId: "b2" });
-    expect(enqueue).toHaveBeenNthCalledWith(2, { type: "roster.combine", parentAId: "a1", parentBId: "a2" });
+    expect(enqueue).toHaveBeenNthCalledWith(1, { type: "roster.combine", potId: "pot-b", parentAId: "b1", parentBId: "b2" });
+    expect(enqueue).toHaveBeenNthCalledWith(2, { type: "roster.combine", potId: "pot-a", parentAId: "a1", parentBId: "a2" });
   });
 
   it("carries the persisted combine-start level into collection", () => {
@@ -378,7 +378,23 @@ describe("v3 raid dependency ids", () => {
     economy.submitRoster({ type: "combineCollect", potId: "pot", unitId: "child", key: "ignored" });
 
     expect(enqueue).toHaveBeenCalledWith({
-      type: "roster.combine", parentAId: "a", parentBId: "b", playerLevel: 24,
+      type: "roster.combine", potId: "pot", parentAId: "a", parentBId: "b", playerLevel: 24,
+    });
+  });
+
+  it("reserves both authoritative parents as soon as combining starts", () => {
+    const economy = new EconomyClient(new GameState(), "combine-start-account");
+    (economy as any).authoritativeUnitIds.set("local-a", "server-a");
+    (economy as any).authoritativeUnitIds.set("local-b", "server-b");
+    const enqueue = vi.spyOn((economy as any).queue, "enqueue").mockReturnValueOnce(1);
+
+    economy.submitRoster({
+      type: "combineStart", potId: "pot-1", parentAId: "local-a", parentBId: "local-b", playerLevel: 12,
+    });
+
+    expect(enqueue).toHaveBeenCalledWith({
+      type: "roster.combine_start", potId: "pot-1",
+      parentAId: "server-a", parentBId: "server-b", playerLevel: 12,
     });
   });
 

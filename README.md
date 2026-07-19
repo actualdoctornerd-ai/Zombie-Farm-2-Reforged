@@ -72,15 +72,17 @@ future agents do not work from stale assumptions.
 ### Raids and combat
 - Raid select, army select, **live battle scene** (there is no player-facing quick/instant resolve — the game always plays the fight out), result panel, cooldown, voucher, loot, and XP/gold/brain rewards, including first-clear XP and ability tier unlocks.
 - Army-selection boost frontend: a **Concentration** toggle (bypasses the focus minigame) and a **Golden Dice** stepper (raises loot tier), both inventory-aware, consumed at raid start.
-- Zombies that die in an invasion are permanently lost (culled from the roster + save).
+- Zombies that die in an invasion are culled from the roster + save, unless revived from the one-time post-battle **revival offer** (one brain per casualty, restored from a server-owned snapshot online); casualties not revived are permanently lost.
 - All 11 invasions scale by player level through a full 7-stage difficulty ladder (McDonnell's authored ladder, extrapolated onto every other raid — one stage per invasion, not sequential waves; enemies emerge one at a time by design).
 - Side-view enemy actor art for all 11 raids: procedurally-animated rigs for 10 (idle/walk/attack-lunge) plus Video Games' real frame-atlas sprites. Ninja/Pirate/City rigs are decoded from the iOS binary (their bone layout ships in `public/assets/raids/enemies/models.json`; the atlases have no TexturePacker plist — see `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`). Raid particle FX (impact dust, victory confetti, heal).
 
 ### Online and social (Reforged)
 - **Google account authentication** — the hosted build gates the whole game behind Sign in with Google (`src/net/gate.ts`); an offline build (no config) has no lock.
 - **Player-chosen usernames** picked on first login.
-- **Online state** across devices: the Cloudflare Worker owns ordinary protocol-v3 gameplay state, with account-version conflict handling, an offline command outbox, and a local per-account cache. Raid outcome verification and cross-route raid serialization remain known security gaps; see `SECURITY.md`.
+- **Online state** across devices: the Cloudflare Worker owns protocol-v3 gameplay state, with an exclusive single-writer lease (token-hashed, account-version CAS), account-version conflict handling, an offline command outbox, and a local per-account cache.
+- **Server-verified raids**: `/raid/finish` replays the pinned combat from the submitted input transcript and derives the outcome server-side (no client-asserted win/casualties); all mutation routes are serialized through the writer lease. See `SECURITY.md` for the current anti-cheat posture and residual limits.
 - **Friends**: friend codes, server-backed friend lists, **daily brain gifting**, and a **gift inbox** with claiming.
+- **Black Market**: server-authoritative buy/sell-zombie orders with brain/zombie escrow, a per-day order cap, price bounds, and atomic fulfillment.
 - **Read-only friend-farm visits**: the client reloads into visit mode and the server returns an allowlisted projection of the friend's save (farm, objects, zombies, Zombie Pot only — currencies zeroed; progression, quests, raids, storage, and social data omitted). Autosave is disabled and editing controls are hidden while visiting.
 
 ### Platform and interface
