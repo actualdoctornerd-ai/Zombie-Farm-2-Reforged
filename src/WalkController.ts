@@ -84,6 +84,13 @@ export class WalkController {
     return { col: Math.round(g.col), row: Math.round(g.row) };
   }
 
+  /** True while the farmer has a destination (including queued path waypoints).
+   *  JobSystem uses this to stop elapsed-time catch-up as soon as all useful
+   *  movement and work has completed. */
+  get moving(): boolean {
+    return this.target !== null;
+  }
+
   teleport(col: number, row: number) {
     const c = tileCenter(col, row);
     this.wx = c.x;

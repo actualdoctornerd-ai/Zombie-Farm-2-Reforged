@@ -332,8 +332,11 @@ export class EconomyClient {
     this.enqueue({ type: "object.status", instanceId, status });
   }
 
-  submitTreeHarvest(instanceIds: string[], optimisticGold = 0): void {
-    if (instanceIds.length) this.enqueue({ type: "object.harvest_trees", instanceIds }, { gold: optimisticGold });
+  submitTreeHarvest(instanceIds: string[], optimisticGold = 0, optimisticXp = 0): void {
+    if (instanceIds.length) this.enqueue(
+      { type: "object.harvest_trees", instanceIds },
+      { gold: optimisticGold, xp: optimisticXp }
+    );
   }
 
   submitStorageClaim(

@@ -53,6 +53,7 @@ future agents do not work from stale assumptions.
 - Source-derived crop and zombie catalogs with level/currency/grave gates.
 - Local gold, brains, XP, level curve, item economy, and level-up unlock popup.
 - Persistent placeable objects, fruit trees, storage sheds, Mausoleum, graves, monoliths, Zombie Patch, and Zombie Pot.
+- A placed Plowing Monolith makes plowing free, removes the normal plow XP reward, and adds +1 XP to every crop, zombie, and fruit-tree harvest.
 - Market with Crops, Items, Upgrade, Boosts, Farmer, Pets, and Brains tabs, plus a name-search box and a themed pager on the card lists (pages fit the visible grid so it doesn't scroll on desktop/tablet).
 - Farm Size upgrades (40/50/60 tiers grow the field + adjust backdrop/foliage/camera).
 - Whole-farm ground/climate skins: owned terrains are stored in `GameState`, purchased in the Market Upgrade tab, repaint every tile via `Field.setClimate`, and can be re-applied for free later. The current climate is saved.

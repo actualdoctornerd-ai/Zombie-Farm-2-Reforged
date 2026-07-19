@@ -19,14 +19,11 @@ Protocol v3 is a strong server-authoritative base for ordinary farm, shop, inven
 storage, roster, and social operations. It is **not currently safe for paid currency,
 competitive rankings, trading, PvP, or other rewards whose integrity has real-world value**.
 
-Three known anti-cheat gaps block that use:
+Two known anti-cheat gaps block that use:
 
 1. Raid finish trusts client-asserted victory and casualty data after a minimum elapsed time.
 2. Raid mutations do not participate in the account command compare-and-swap boundary, leaving
    cross-route race and stale-write opportunities.
-3. A placed Plowing Monolith makes plowing free, while removing and re-plowing soil repeatedly
-   awards XP without a gameplay-time gate.
-
 Until those gaps are fixed, raid rewards and competitive progression must be treated as
 fun-only. Use `MUTATIONS_DISABLED=1` if active exploitation is observed.
 
@@ -105,16 +102,13 @@ verify that every conditional roster-lock update changed exactly one row.
 Required fix: settle raid start and finish through the same per-account transaction/CAS model as
 command batches, including guarded reads, version advancement, and checked lock-update counts.
 
-### High: free-plow XP loop
+### Resolved: free-plow XP loop
 
-A placed `monolithPlowing` object reduces plow cost to zero. Every successful plow grants one XP,
-and `farm.remove` can delete plowed soil. Alternating remove and plow therefore generates XP with
-no currency or time cost. The per-minute command ceiling limits speed but does not make the
-transition legitimate.
-
-Required fix: do not award repeatable XP for recreating previously owned soil, charge/remove the
-appropriate resource, retain an authoritative tile history, or disallow removal of plowed soil
-when it would reopen the reward.
+When a placed `monolithPlowing` object reduces plow cost to zero, plowing now grants zero XP.
+Instead, the monolith adds one XP to every time-gated crop, zombie, and fruit-tree harvest. The
+offline client, legacy exact-economics path, and protocol-v3 command engine use the same reward
+rule. Regression coverage repeatedly removes and re-plows free soil and verifies that XP does not
+increase, then verifies the harvest bonus.
 
 ### Medium: minimum protocol version does not revoke raid clients
 
@@ -159,9 +153,17 @@ cd server && npm test                 # server: 189 passed
 cd server && npm run test:integration # passed
 ```
 
-Passing tests do not close the known vulnerabilities above. The current suites do not establish
-deterministic v3 raid outcomes or cross-route raid/command serialization, and they do not reject
-the free-plow XP sequence.
+The Plowing Monolith reward change was re-verified on 2026-07-19:
+
+```text
+npm run build                         # passed
+npm test                              # client: 271 passed, 1 skipped
+cd server && npm run typecheck        # passed
+cd server && npm test                 # server: 239 passed
+```
+
+Passing tests do not close the remaining known vulnerabilities above. The current suites do not
+establish deterministic v3 raid outcomes or cross-route raid/command serialization.
 
 ## Required release gates
 
@@ -171,14 +173,13 @@ Before enabling valuable or competitive features:
    future-finish, malformed-transcript, and duplicate-settlement tests.
 2. Put raid start/finish inside the account version/CAS transaction and add adversarial races
    against boost use, purchase, roster sell/combine, gift credit, and command settlement.
-3. Close the free-plow XP loop and add a regression test covering repeated remove/plow batches.
-4. Enforce protocol/build revocation on every mutation route and verify it against a stale client.
-5. Add structured v3 semantic-rejection telemetry and connect alert thresholds.
-6. Apply `0020_protocol_v3_reset.sql`, rotate `SESSION_SECRET`, deploy the matching Worker/client,
+3. Enforce protocol/build revocation on every mutation route and verify it against a stale client.
+4. Add structured v3 semantic-rejection telemetry and connect alert thresholds.
+5. Apply `0020_protocol_v3_reset.sql`, rotate `SESSION_SECRET`, deploy the matching Worker/client,
    and perform the destructive-rollout smoke checks in order.
-7. Confirm the live Worker commit/configuration and verify the remote D1 schema rather than
+6. Confirm the live Worker commit/configuration and verify the remote D1 schema rather than
    inferring production state from source control.
-8. Keep paid currency, trading, competitive rankings, and PvP disabled until all prior gates pass.
+7. Keep paid currency, trading, competitive rankings, and PvP disabled until all prior gates pass.
 
 ## Incident response
 

@@ -25,6 +25,7 @@ import { farmerGold, farmerZombieGrowMs } from "../../../src/farmer";
 import { dropsEpicBossToken } from "../../../src/epicBoss/tokens";
 import { combineMasks } from "../../../src/zombie/mutations";
 import { createCombineRandom, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
+import { harvestXp, plowXp } from "../../../src/farmRewards";
 
 export const MAX_FARM_PLOTS = 225;
 export const MAX_FUNCTIONAL_OBJECTS = 512;
@@ -167,6 +168,12 @@ function addAwardedZombie(state: MutableGameplayState, key: string, id: string):
   });
 }
 
+function hasPlowingMonolith(state: MutableGameplayState): boolean {
+  return state.objects.objects.some(
+    (object) => object.status === "placed" && object.catalogKey === "monolithPlowing"
+  );
+}
+
 function rewardHarvest(
   state: MutableGameplayState,
   key: string,
@@ -186,12 +193,12 @@ function rewardHarvest(
     const id = makeId();
     addAwardedZombie(state, key, id);
     created.push(id);
-    state.balance.xp += zombieCropEcon(key)?.xp ?? 0;
+    state.balance.xp += harvestXp(zombieCropEcon(key)?.xp ?? 0, hasPlowingMonolith(state));
     return { ok: true, event: { type: "kCropHarvestedZombieNotification", subject: zombieNames.get(key) ?? key } };
   }
   const harvestValue = plot.sell * (plot.fertilized ? 2 : 1);
   state.balance.gold += farmerGold(harvestValue, state.farmerHeadId);
-  state.balance.xp += plot.xp;
+  state.balance.xp += harvestXp(plot.xp, hasPlowingMonolith(state));
   const run = state.epicBoss;
   if (run && !run.completedAt && run.expiresAt > now &&
       dropsEpicBossToken(plot.growMs, harvestValue, random)) {
@@ -275,12 +282,12 @@ function applyOne(
       if (!state.farm.plots[key] && overlapsExistingPlot(state.farm.plots, command.oc, command.or)) {
         return reject(sequence, "plot_overlap");
       }
-      const free = state.objects.objects.some((o) => o.status === "placed" && o.catalogKey === "monolithPlowing");
+      const free = hasPlowingMonolith(state);
       const cost = free ? 0 : PLOW_COST_V3;
       if (state.balance.gold < cost) return reject(sequence, "insufficient");
       if (!state.farm.plots[key] && Object.keys(state.farm.plots).length >= MAX_FARM_PLOTS) return reject(sequence, "farm_full");
       state.balance.gold -= cost;
-      state.balance.xp += 1;
+      state.balance.xp += plowXp(free);
       state.farm.plots[key] = { state: "plowed" };
       events.push({ type: "kSoilPlowedNotification", subject: "Plow" }, { type: "kNewSoilPlowedNotification", subject: "Plow" });
       return { sequence, status: "applied" };
@@ -493,11 +500,13 @@ function applyOne(
     case "object.harvest_trees": {
       const ids = [...new Set(command.instanceIds)].slice(0, MAX_FARM_PLOTS);
       let harvested = 0;
+      const bonusXp = harvestXp(0, hasPlowingMonolith(state));
       for (const id of ids) {
         const obj = state.objects.objects.find((o) => o.instanceId === id && o.status === "placed");
         const rule = obj ? objectRules.get(obj.catalogKey) : undefined;
         if (!obj || !rule?.growMs || !rule.harvestValue || (obj.readyAt ?? 0) > options.now) continue;
         state.balance.gold += farmerGold(rule.harvestValue, state.farmerHeadId);
+        state.balance.xp += bonusXp;
         obj.readyAt = options.now + rule.growMs;
         harvested++;
         events.push({ type: "kCropHarvestedNotification", subject: rule.name });

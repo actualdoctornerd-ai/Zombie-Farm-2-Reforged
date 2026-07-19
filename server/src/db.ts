@@ -1221,12 +1221,6 @@ export async function farmSize(db: D1Database, accountId: string): Promise<numbe
   return row?.size ?? BASE_FARM_SIZE;
 }
 
-/** The account's plow cost: free while it owns a Plowing Monolith. Read from
- *  server-owned object counts, never a client claim. */
-async function plowCost(db: D1Database, accountId: string): Promise<number> {
-  return (await objectCount(db, accountId, PLOW_FREE_OBJECT)) > 0 ? 0 : PLOW_COST;
-}
-
 export interface FarmResult {
   id: string;
   status: "applied" | "duplicate" | "rejected";
@@ -1337,6 +1331,7 @@ export async function applyFarmActions(
   // trigger is credited after — it can't unlock a crop earlier in the same batch).
   const size = await farmSize(db, accountId);
   const level = levelForXp(bal.xp);
+  const hasPlowingMonolith = (await objectCount(db, accountId, PLOW_FREE_OBJECT)) > 0;
 
   for (const a of actions) {
     if (!a || typeof a.id !== "string" || !a.id) {
@@ -1350,12 +1345,13 @@ export async function applyFarmActions(
 
     if (a.type === "plow") {
       // Till a plot: debit the SERVER's plow cost (0 while a Plowing Monolith is owned)
-      // + grant 1 xp, and record the soil so a plant can find it. Consuming the plow
+      // and record the soil so a plant can find it. The monolith moves plow XP onto
+      // harvests, closing the free remove/re-plow XP loop. Consuming the plow
       // cost server-side closes the free-plow gap: the old till spent gold locally, which
       // online just reconciled away.
       const plowed = await isPlowed(db, accountId, a.oc, a.or);
       const occupied = !!(await getCropPlot(db, accountId, a.oc, a.or));
-      const plan = planPlow(a, bal, size, await plowCost(db, accountId), plowed, occupied);
+      const plan = planPlow(a, bal, size, hasPlowingMonolith ? 0 : PLOW_COST, plowed, occupied);
       if (!plan.ok) {
         results.push({ id: a.id, status: "rejected", error: plan.error });
         continue;
@@ -1435,7 +1431,7 @@ export async function applyFarmActions(
         // Zombie crop harvest: grow-gated by SERVER time; yields a VERIFIED owned unit
         // (its key was validated at plant, so it's trusted here) + xp, NO gold. The unit
         // enters the roster so it's legitimately sellable and can't be fast-grown.
-        const plan = planZombieHarvest(a, plot, now);
+        const plan = planZombieHarvest(a, plot, now, hasPlowingMonolith);
         if (!plan.ok) {
           results.push({ id: a.id, status: "rejected", error: plan.error });
           continue;
@@ -1461,7 +1457,7 @@ export async function applyFarmActions(
         });
         continue;
       }
-      const plan = planHarvest(a, plot, now);
+      const plan = planHarvest(a, plot, now, hasPlowingMonolith);
       if (!plan.ok) {
         results.push({ id: a.id, status: "rejected", error: plan.error });
         continue;

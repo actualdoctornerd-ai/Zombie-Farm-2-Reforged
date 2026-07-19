@@ -11,12 +11,18 @@ import { GameState } from "./GameState";
 import { HH, HW, TILE_W } from "./iso";
 import { QuestBus, QuestEvent } from "./quest/events";
 import { Sfx } from "./audio";
+import { harvestXp, plowXp } from "./farmRewards";
 
 export type JobKind = "till" | "plant" | "harvest";
 // "harvestTree" = harvest a placed fruit tree (uses the harvest animation, 2x fast).
 type Kind = JobKind | "walk" | "harvestTree";
 
 const WORK_MS = 1250; // ~1.25s of hoeing per plot
+// Match the foreground loop's existing maximum step. Catch-up intentionally
+// replays logical movement/work in small slices: WalkController and JobSystem
+// cross waypoint, arrival, work, and next-job boundaries through callbacks, so
+// one giant dt would otherwise stop at the first boundary and discard the rest.
+const CATCH_UP_STEP_SEC = 0.05;
 const PLOW_COST = 10;
 const LABEL: Record<JobKind, string> = { till: "Plow", plant: "Plant", harvest: "Harvest" };
 
@@ -136,6 +142,32 @@ export class JobSystem {
     return this.active !== null || this.queue.length > 0;
   }
 
+  /** Advance farmer movement and queued work by real elapsed time.
+   *
+   * Browsers pause Pixi's requestAnimationFrame ticker in hidden/background
+   * tabs. Main feeds this method time from a separate wall clock, allowing the
+   * queue to catch up on the first background tick or when focus returns. Only
+   * the farmer/job pipeline is stepped; raids, pets, particles, and other visual
+   * systems remain paused. The loop exits once there is no useful work left, so
+   * returning after hours with an empty/short queue is bounded by that queue's
+   * actual duration rather than the time spent away.
+   */
+  advanceElapsed(elapsedSec: number) {
+    let remaining = Number.isFinite(elapsedSec) ? Math.max(0, elapsedSec) : 0;
+    while (remaining > 0 && (this.busy || this.walk.moving)) {
+      const step = Math.min(CATCH_UP_STEP_SEC, remaining);
+      this.update(step);
+
+      // A job in its walking phase should always own a live WalkController
+      // target. Avoid spinning through a very large elapsed interval if an
+      // invalid/off-field destination ever slips into the queue.
+      if (this.active && this.phase === "walk" && !this.walk.moving) break;
+
+      this.walk.update(step);
+      remaining -= step;
+    }
+  }
+
   // Cancel any queued/active job whose plot covers tile (col,row). Returns true if
   // something was un-queued (so the caller can skip its normal click action).
   cancelAtTile(col: number, row: number): boolean {
@@ -237,28 +269,33 @@ export class JobSystem {
       const baseGold = job.objId ? this.field.harvestObject(job.objId) : null;
       if (baseGold) {
         const gold = this.state.farmerHarvestGold(baseGold);
-        if (this.state.onTreeHarvest && job.objId) this.state.onTreeHarvest(job.objId, gold);
-        else this.state.addGold(gold);
+        const xp = harvestXp(0, this.field.hasPlowFree());
+        if (this.state.onTreeHarvest && job.objId) this.state.onTreeHarvest(job.objId, gold, xp);
+        else {
+          this.state.addGold(gold);
+          if (xp) this.state.addXp(xp);
+        }
         if (treeName) this.quest.post(QuestEvent.CropHarvested, treeName);
-        this.float(job.cx, job.cy, `+${gold}g`);
+        this.float(job.cx, job.cy, `+${gold}g${xp ? `  +${xp}xp` : ""}`);
         this.sfx("xp");
       }
       return;
     }
     if (job.kind === "till") {
       const cost = this.plowCost(); // 0 with a Plowing Monolith
+      const xp = plowXp(cost === 0);
       if (this.state.gold >= cost && this.field.tillAt(job.oc, job.or)) {
-        // ONLINE: the server owns the plow cost + the +1 xp and RECORDS the soil, which
+        // ONLINE: the server owns the plow cost + XP and RECORDS the soil, which
         // a later plant requires. Charging locally would just reconcile away (a free
         // plow) and leave the server with no soil to plant on. OFFLINE: charge locally.
         if (this.state.onFarm) {
-          this.state.onFarm({ type: "plow", oc: job.oc, or: job.or }, { gold: -cost, xp: 1 });
+          this.state.onFarm({ type: "plow", oc: job.oc, or: job.or }, { gold: -cost, xp });
         } else {
           if (cost > 0) this.state.spendGold(cost);
-          this.state.addXp(1);
+          if (xp) this.state.addXp(xp);
         }
-        this.float(job.cx, job.cy, cost > 0 ? `-${cost}g  +1xp` : `+1xp`);
-        this.sfx("xp");
+        this.float(job.cx, job.cy, cost > 0 ? `-${cost}g  +${xp}xp` : "Plowed!");
+        this.sfx(xp ? "xp" : "till");
         this.onPlotPlowed(job.oc, job.or);
         this.quest.post(QuestEvent.SoilPlowed, "Plow");
         this.quest.post(QuestEvent.NewSoilPlowed, "Plow");
@@ -311,6 +348,7 @@ export class JobSystem {
       const r = this.field.harvestAt(job.oc, job.or);
       if (r) {
         if (!r.zombieKey) r.sell = this.state.farmerHarvestGold(r.sell);
+        const xp = harvestXp(r.xp, this.field.hasPlowFree());
         const online = !!this.state.onFarm;
         // Spawn the harvested zombie FIRST (if any) so an online harvest can hand the
         // server the exact verified unit id it should record. spawnVerified suppresses
@@ -321,16 +359,16 @@ export class JobSystem {
           // Zombie crop: ONLINE the server grow-gates + grants the verified unit + xp
           // (no gold). Offline (or if the army was full so nothing spawned) credit xp.
           if (online && unitId) {
-            this.state.onFarm!({ type: "harvest", oc: job.oc, or: job.or, unitId }, { xp: r.xp });
+            this.state.onFarm!({ type: "harvest", oc: job.oc, or: job.or, unitId }, { xp });
           } else {
-            this.state.addXp(r.xp);
+            this.state.addXp(xp);
           }
         } else if (online) {
           // Veggie crop: the server credits the EXACT sell + xp, grow-gated by its clock.
-          this.state.onFarm!({ type: "harvest", oc: job.oc, or: job.or }, { gold: r.sell, xp: r.xp });
+          this.state.onFarm!({ type: "harvest", oc: job.oc, or: job.or }, { gold: r.sell, xp });
         } else {
           if (r.sell) this.state.addGold(r.sell);
-          this.state.addXp(r.xp);
+          this.state.addXp(xp);
         }
         // Always report veggie harvests. Offline this performs the token roll now;
         // online it remembers the plot so the later server-confirmed token can pop
@@ -338,8 +376,8 @@ export class JobSystem {
         const bossToken = !r.isZombie && this.onCropHarvested(r.growMs, r.sell, job.cx, job.cy);
         // Zombie crops pay no gold — they yield an owned zombie unit instead.
         const msg = r.zombieKey
-          ? `+${r.xp}xp`
-          : `+${r.sell}g${r.fertilized ? " ×2" : ""}  +${r.xp}xp`;
+          ? `+${xp}xp`
+          : `+${r.sell}g${r.fertilized ? " ×2" : ""}  +${xp}xp`;
         this.float(job.cx, job.cy, bossToken ? `${msg}  +1 Boss Token!` : msg);
         // A harvested zombie "resurrects"; a plain crop gives the reward chime.
         this.sfx(r.isZombie ? "harvestZombie" : "xp");

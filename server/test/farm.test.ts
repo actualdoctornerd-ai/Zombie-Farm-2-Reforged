@@ -112,7 +112,7 @@ describe("planPlow — server-owned till", () => {
   });
 
   it("is free while a Plowing Monolith is owned (the SERVER decides that, not the client)", () => {
-    expect(planPlow(plow(), bal(0), 30, 0, false, false)).toEqual({ ok: true, cost: 0, xp: 1 });
+    expect(planPlow(plow(), bal(0), 30, 0, false, false)).toEqual({ ok: true, cost: 0, xp: 0 });
   });
 
   it("rejects re-plowing already-plowed soil, so a till can't be farmed for xp", () => {
@@ -140,6 +140,11 @@ describe("planHarvest — server-time grow gate + exact reward", () => {
   it("credits the exact sell + xp once grown", () => {
     const r = planHarvest(harvest(), plot(), NOW + 900000);
     expect(r).toMatchObject({ ok: true, goldDelta: 16, xpDelta: 1 });
+  });
+
+  it("adds 1 xp to a harvest while a Plowing Monolith is active", () => {
+    expect(planHarvest(harvest(), plot({ xp: 3 }), NOW + 900000, true))
+      .toMatchObject({ ok: true, goldDelta: 16, xpDelta: 4 });
   });
 
   it("allows a harvest within the grace window (flush-delay offset)", () => {
@@ -211,6 +216,11 @@ describe("planZombieHarvest — grow gate + verified unit yield", () => {
   it("yields the plot's unit key + xp once grown", () => {
     const r = planZombieHarvest(harvest(), plot(), NOW + 600000);
     expect(r).toMatchObject({ ok: true, unitKey: GOLD_Z, xpDelta: 1 });
+  });
+
+  it("adds 1 xp to a zombie harvest while a Plowing Monolith is active", () => {
+    expect(planZombieHarvest(harvest(), plot(), NOW + 600000, true))
+      .toMatchObject({ ok: true, unitKey: GOLD_Z, xpDelta: 2 });
   });
 
   it("exposes dual-route specials but keeps gift-only and Epic rewards unplantable", () => {

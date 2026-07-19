@@ -1,8 +1,8 @@
 # Protocol v3 destructive rollout
 
 > **Current security restriction (2026-07-15):** protocol v3 must remain fun-only.
-> Raid outcomes are client-asserted, raid mutations are not serialized with `/commands`,
-> and a free-plow/remove loop can generate XP. Do not enable paid currency, trading,
+> Raid outcomes are client-asserted and raid mutations are not serialized with `/commands`.
+> Do not enable paid currency, trading,
 > competitive rankings, or PvP until the release gates in `../SECURITY.md` are complete.
 
 Protocol v3 deliberately has no data migration or backward compatibility. The reset

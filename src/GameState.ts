@@ -136,7 +136,7 @@ export class GameState {
   onRosterSell: ((unitId: string, value: number) => void) | null = null;
   /** ONLINE fruit-tree harvests are semantic object commands; the local animation
    * remains immediate while the server validates ownership/readiness. */
-  onTreeHarvest: ((instanceId: string, optimisticGold: number) => void) | null = null;
+  onTreeHarvest: ((instanceId: string, optimisticGold: number, optimisticXp: number) => void) | null = null;
 
   /** Adopt the server's authoritative boost counts (inventory reconcile). Replaces the
    *  local boost list wholesale — the server owns the counts, so the blob's list is an

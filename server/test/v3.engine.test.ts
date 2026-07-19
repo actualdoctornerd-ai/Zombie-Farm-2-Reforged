@@ -8,6 +8,7 @@ import {
   freshGameplayState,
   zombieDefaultMutation,
 } from "../src/v3/engine";
+import { QUEST_DEFINITIONS } from "../src/questCatalog";
 
 const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] =>
   values.map((command, index) => ({ sequence: index + 1, command }));
@@ -303,6 +304,36 @@ describe("protocol v3 command engine", () => {
     expect(result.state.balance.gold).toBe(385);
   });
 
+  it("moves Plowing Monolith XP from plows to time-gated harvests", () => {
+    const state = freshGameplayState();
+    state.quests.completed = Object.keys(QUEST_DEFINITIONS);
+    state.objects.objects.push({
+      instanceId: "plow-monolith", catalogKey: "monolithPlowing", status: "placed",
+    });
+    const replowed = applyCommandBatch(state, commands(
+      { type: "farm.plow", oc: 0, or: 0 },
+      { type: "farm.remove", oc: 0, or: 0 },
+      { type: "farm.plow", oc: 0, or: 0 },
+      { type: "farm.remove", oc: 0, or: 0 },
+      { type: "farm.plow", oc: 0, or: 0 },
+    ), { now: 1 });
+
+    expect(replowed.results.every((entry) => entry.status === "applied")).toBe(true);
+    expect(replowed.state.balance.gold).toBe(state.balance.gold);
+    expect(replowed.state.balance.xp).toBe(state.balance.xp);
+
+    replowed.state.farm.plots["4:0"] = {
+      state: "planted", cropKey: "carrot", plantedAt: 0, growMs: 1,
+      sell: 16, xp: 1, fertilized: false, zombie: false,
+    };
+    const harvested = applyCommandBatch(
+      replowed.state,
+      commands({ type: "farm.harvest", oc: 4, or: 0 }),
+      { now: 1_000 }
+    );
+    expect(harvested.state.balance.xp - replowed.state.balance.xp).toBe(2);
+  });
+
   it("Harvest power is one atomic command, orders zombies oldest-first, and leaves excess planted", () => {
     const state = freshGameplayState();
     state.inventory.insta_harvest = 1;
@@ -472,6 +503,22 @@ describe("protocol v3 command engine", () => {
     expect(result.results[0].status).toBe("applied");
     expect(result.state.balance.gold).toBeGreaterThan(200);
     expect(result.state.objects.objects[0].readyAt).toBeGreaterThan(100);
+  });
+
+  it("adds 1 xp per harvested fruit tree with a placed Plowing Monolith", () => {
+    const state = freshGameplayState();
+    state.objects.objects.push(
+      { instanceId: "monolith", catalogKey: "monolithPlowing", status: "placed" },
+      { instanceId: "tree-1", catalogKey: "fruitTreeApple", status: "placed", readyAt: 100 },
+      { instanceId: "tree-2", catalogKey: "fruitTreeApple", status: "placed", readyAt: 100 },
+    );
+    const result = applyCommandBatch(
+      state,
+      commands({ type: "object.harvest_trees", instanceIds: ["tree-1", "tree-2"] }),
+      { now: 100 }
+    );
+    expect(result.results[0].status).toBe("applied");
+    expect(result.state.balance.xp - state.balance.xp).toBe(2);
   });
 
   it("adopts the untracked free starter shed on its first paid upgrade", () => {

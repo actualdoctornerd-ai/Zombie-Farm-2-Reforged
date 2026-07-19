@@ -34,6 +34,7 @@ import { screenToGrid, tileCenter, TILE_H, TILE_W, HW, HH } from "./iso";
 import { setFootprint } from "./depthSort";
 import { NightLayer, makeLight } from "./lighting";
 import { buyXp, sellBack, zombieSellValue } from "./economy";
+import { harvestXp } from "./farmRewards";
 import {
   DEFAULT_FARM_BACKGROUND, getFarmBackground, isFarmBackground, setFarmBackground,
   FARM_BG_DENSITY, type FarmBackground,
@@ -801,7 +802,7 @@ async function main() {
           // individual optimistic harvests must not become commands.
         } else {
           if (r.sell) state.addGold(state.farmerHarvestGold(r.sell));
-          state.addXp(r.xp);
+          state.addXp(harvestXp(r.xp, field.hasPlowFree()));
           if (r.zombieKey) zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1);
         }
         questBus.post(r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested, r.name);
@@ -973,7 +974,7 @@ async function main() {
     // hook is what tells the game "boosts are server-owned"); counts reconcile like
     // currency, so the blob's boost list becomes an ignored cache.
     state.onInventory = (action, optimistic) => economy!.submitInventory(action, optimistic);
-    state.onTreeHarvest = (instanceId, gold) => economy!.submitTreeHarvest([instanceId], gold);
+    state.onTreeHarvest = (instanceId, gold, xp) => economy!.submitTreeHarvest([instanceId], gold, xp);
     // The server owns the Garden-zombie fertilize roll; when a freshly-planted crop
     // comes back fertilized, apply the 2x visual (leaf FX) to that plot.
     economy.onCropFertilized = (oc, or) => {
@@ -3007,6 +3008,18 @@ async function main() {
     return { bar, fill, label };
   };
 
+  // Pixi's ticker is requestAnimationFrame-driven and may stop completely when
+  // the tab/window is backgrounded. Keep a separate monotonic clock for just the
+  // queued farm-job pipeline. If frames are merely throttled, each sparse frame
+  // advances the missing time; if they stop, the first focus/visible event does.
+  // Nothing else (notably raids) receives this elapsed time.
+  let lastJobAdvanceAt = performance.now();
+  const advanceFarmJobsToNow = () => {
+    const now = performance.now();
+    jobs.advanceElapsed((now - lastJobAdvanceAt) / 1000);
+    lastJobAdvanceAt = now;
+  };
+
   app.ticker.add((ticker) => {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05);
     for (let i = bossTokenFx.length - 1; i >= 0; i--) {
@@ -3030,8 +3043,7 @@ async function main() {
       bossTokenFx.splice(i, 1);
     }
     if (raidScene) raidScene.update(dt); // live battle drives itself; farm still ticks behind
-    jobs.update(dt); // may start a walk-to-plot / hoe cycle for the farmer
-    walk.update(dt);
+    advanceFarmJobsToNow(); // wall-clock-safe queued work + farmer movement
     petActor?.update(dt, actor.container.x, actor.container.y);
     const penBounds = field.petPenBounds();
     for (const pet of penPetActors) {
@@ -3094,10 +3106,14 @@ async function main() {
   // single update(0) snaps every crop to its true current stage right away instead of
   // waiting on the first (possibly delayed) rAF tick, then we persist the fresh state.
   document.addEventListener("visibilitychange", () => {
+    // Settle the job clock on both edges. On hide this captures the final sliver
+    // after the last frame; on show it consumes the entire suspended interval.
+    advanceFarmJobsToNow();
     if (document.hidden) return;
     field.update(0);
     saveManager.save();
   });
+  window.addEventListener("focus", advanceFarmJobsToNow);
 
   // Live game-state handle + mutation helpers for local testing (instant raids,
   // boost grants, zombie spawning, placement, combine, raid wins). DEV BUILDS

@@ -10,6 +10,7 @@
 // player's Garden-zombie roster server-side, a later layer.)
 import type { CropEcon } from "./catalog";
 import { zombieCropEcon, type ZombieCropEcon } from "./zombieCropCatalog";
+import { BASE_PLOW_XP, harvestXp, plowXp } from "../../src/farmRewards";
 
 export interface Balance {
   gold: number;
@@ -32,7 +33,8 @@ export type FarmAction =
   // `unitId` is used ONLY when harvesting a zombie crop: the client-assigned id of the
   // owned unit the harvest yields, which the server records as a verified roster unit.
   | { id: string; type: "harvest"; oc: number; or: number; unitId?: string }
-  // Till a plot: debits the plow cost + grants 1 xp and records the soil as PLOWED,
+  // Till a plot: debits the plow cost and records the soil as PLOWED. A Plowing
+  // Monolith moves this action's XP reward onto harvests.
   // which a plant then requires. Re-tilling a harvested plot is the same action.
   | { id: string; type: "plow"; oc: number; or: number };
 
@@ -53,8 +55,8 @@ export const MAX_SEED_PLOTS = (MAX_COORD / PLOT) ** 2; // 1024
 /** Gold to plow one plot, mirroring src/JobSystem.ts PLOW_COST. Free while the account
  *  owns a Plowing Monolith (the db layer checks object ownership). */
 export const PLOW_COST = 10;
-/** xp granted for tilling one plot (JobSystem: state.addXp(1)). */
-export const PLOW_XP = 1;
+/** XP granted for tilling one plot without a Plowing Monolith. */
+export const PLOW_XP = BASE_PLOW_XP;
 /** The object key whose ownership makes plowing free (assets.ts: p.plowFree). */
 export const PLOW_FREE_OBJECT = "monolithPlowing";
 
@@ -147,13 +149,14 @@ export type HarvestPlan =
 export function planHarvest(
   a: Extract<FarmAction, { type: "harvest" }>,
   plot: PlotRecord | undefined,
-  now: number
+  now: number,
+  hasPlowingMonolith = false
 ): HarvestPlan {
   if (!validCoord(a.oc) || !validCoord(a.or)) return { ok: false, error: "bad_coord" };
   if (!plot) return { ok: false, error: "nothing_planted" };
   if (now - plot.planted_at < plot.grow_ms - GROW_GRACE_MS) return { ok: false, error: "not_grown" };
   const mult = plot.fertilized ? 2 : 1;
-  return { ok: true, goldDelta: plot.sell * mult, xpDelta: plot.xp };
+  return { ok: true, goldDelta: plot.sell * mult, xpDelta: harvestXp(plot.xp, hasPlowingMonolith) };
 }
 
 // ---- plow (till soil so it can be planted) --------------------------------------
@@ -183,7 +186,7 @@ export function planPlow(
   if (occupied) return { ok: false, error: "plot_occupied" };
   if (plowed) return { ok: false, error: "already_plowed" };
   if (bal.gold < cost) return { ok: false, error: "insufficient" };
-  return { ok: true, cost, xp: PLOW_XP };
+  return { ok: true, cost, xp: plowXp(cost === 0) };
 }
 
 // ---- zombie crops (plant a zombie seed -> grow -> harvest an owned unit) -------
@@ -240,7 +243,8 @@ export type ZombieHarvestPlan =
 export function planZombieHarvest(
   a: Extract<FarmAction, { type: "harvest" }>,
   plot: PlotRecord | undefined,
-  now: number
+  now: number,
+  hasPlowingMonolith = false
 ): ZombieHarvestPlan {
   if (!validCoord(a.oc) || !validCoord(a.or)) return { ok: false, error: "bad_coord" };
   if (!plot) return { ok: false, error: "nothing_planted" };
@@ -248,5 +252,5 @@ export function planZombieHarvest(
   if (now - plot.planted_at < plot.grow_ms - GROW_GRACE_MS) return { ok: false, error: "not_grown" };
   const econ = zombieCropEcon(plot.crop_key);
   if (!econ) return { ok: false, error: "bad_crop" };
-  return { ok: true, unitKey: plot.crop_key, xpDelta: econ.xp };
+  return { ok: true, unitKey: plot.crop_key, xpDelta: harvestXp(econ.xp, hasPlowingMonolith) };
 }
