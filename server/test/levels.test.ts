@@ -22,13 +22,13 @@ describe("levelForXp — server XP→level curve", () => {
   });
 });
 
-describe("levelUpBrains — +1 per level gained", () => {
-  it("grants one brain per level crossed", () => {
-    expect(levelUpBrains(1, 2)).toBe(1);
-    expect(levelUpBrains(1, 5)).toBe(4);
+describe("levelUpBrains — no brains post-brainflation revert", () => {
+  it("grants no brains when leveling up (the +1-per-level drip was removed)", () => {
+    expect(levelUpBrains(1, 2)).toBe(0);
+    expect(levelUpBrains(1, 5)).toBe(0);
   });
-  it("grants nothing when the level didn't rise", () => {
+  it("grants nothing when the level didn't rise either", () => {
     expect(levelUpBrains(5, 5)).toBe(0);
-    expect(levelUpBrains(5, 3)).toBe(0); // never negative
+    expect(levelUpBrains(5, 3)).toBe(0);
   });
 });

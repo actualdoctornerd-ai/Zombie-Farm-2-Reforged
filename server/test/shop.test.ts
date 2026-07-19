@@ -23,8 +23,8 @@ describe("shopCatalog — farm size tiers", () => {
   });
 
   it("sizeTier resolves only exact tier sizes, never the base or in-between", () => {
-    expect(sizeTier(40)).toMatchObject({ size: 40, gold: 10000, brains: 60 });
-    expect(sizeTier(60)).toMatchObject({ size: 60, gold: 250000, brains: 120 });
+    expect(sizeTier(40)).toMatchObject({ size: 40, gold: 10000, brains: 6 });
+    expect(sizeTier(60)).toMatchObject({ size: 60, gold: 250000, brains: 12 });
     expect(sizeTier(30)).toBeUndefined(); // base isn't a purchasable tier
     expect(sizeTier(45)).toBeUndefined(); // between tiers
     expect(sizeTier(70)).toBeUndefined(); // above max

@@ -2,7 +2,7 @@
  {
   "key": "ZombieActorZomBetty",
   "name": "ZomBetty",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -6,
@@ -24,7 +24,7 @@
  {
   "key": "ZombieActorZomBloke",
   "name": "ZomBloke",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -6,
@@ -46,7 +46,7 @@
  {
   "key": "ZombieActorGeorgeWashington",
   "name": "George Washington",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -5,
@@ -68,7 +68,7 @@
  {
   "key": "ZombieActorJohnHancock",
   "name": "John Hancock",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -5,
@@ -90,7 +90,7 @@
  {
   "key": "ZombieActorMummy",
   "name": "Mummy Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -3,
@@ -112,7 +112,7 @@
  {
   "key": "ZombieActorZomHelga",
   "name": "ZomHelga",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -1,
@@ -134,7 +134,7 @@
  {
   "key": "ZombieActorZombeachBum",
   "name": "Zombeach Bum",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -1,
@@ -156,7 +156,7 @@
  {
   "key": "ZombieActorZulaGirl",
   "name": "Zula Girl",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": -1,
@@ -178,7 +178,7 @@
  {
   "key": "ZombieActorSkittles",
   "name": "Skittles Zombie",
-  "cost": 10,
+  "cost": 1,
   "growMs": 86400000,
   "category": "special",
   "level": 0,
@@ -200,7 +200,7 @@
  {
   "key": "ZombieActorZwampThing",
   "name": "Zwamp Thing",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 0,
@@ -242,7 +242,7 @@
  {
   "key": "ZombieActorGardenTier3GreenFlower",
   "name": "Green Flower Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 1,
@@ -262,7 +262,7 @@
  {
   "key": "ZombieActorGardenTier5",
   "name": "Zombutterfly",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 1,
@@ -282,7 +282,7 @@
  {
   "key": "ZombieActorLarge2Tier5",
   "name": "Zcarecrow",
-  "cost": 50,
+  "cost": 5,
   "growMs": 21600000,
   "category": "special",
   "level": 1,
@@ -302,7 +302,7 @@
  {
   "key": "ZombieActorLarge3Tier5",
   "name": "Zanta Clause",
-  "cost": 50,
+  "cost": 5,
   "growMs": 21600000,
   "category": "special",
   "level": 1,
@@ -322,7 +322,7 @@
  {
   "key": "ZombieActorSmallTier5",
   "name": "Zombricaun",
-  "cost": 50,
+  "cost": 5,
   "growMs": 600000,
   "category": "special",
   "level": 1,
@@ -342,7 +342,7 @@
  {
   "key": "ZombieActorGirlTier5",
   "name": "Zombelly Dancer",
-  "cost": 50,
+  "cost": 5,
   "growMs": 14400000,
   "category": "special",
   "level": 1,
@@ -362,7 +362,7 @@
  {
   "key": "ZombieActorHeadlessTier5",
   "name": "Skull Head",
-  "cost": 50,
+  "cost": 5,
   "growMs": 14400000,
   "category": "special",
   "level": 1,
@@ -382,7 +382,7 @@
  {
   "key": "ZombieActorHeadless2Tier5",
   "name": "Diver Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 14400000,
   "category": "special",
   "level": 1,
@@ -402,7 +402,7 @@
  {
   "key": "ZombieActorRegular2Tier5",
   "name": "JackoZombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 14400000,
   "category": "special",
   "level": 1,
@@ -422,7 +422,7 @@
  {
   "key": "ZombieActorRegular3Tier5",
   "name": "Reindeer Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 14400000,
   "category": "special",
   "level": 1,
@@ -442,7 +442,7 @@
  {
   "key": "ZombieActorRegular4Tier5",
   "name": "Teddy Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 14400000,
   "category": "special",
   "level": 1,
@@ -622,7 +622,7 @@
  {
   "key": "ZombieActorForest",
   "name": "Forest Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 5,
@@ -644,7 +644,7 @@
  {
   "key": "ZombieActorMedusa",
   "name": "Medusa Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 5,
@@ -786,7 +786,7 @@
  {
   "key": "ZombieActorBrockColey",
   "name": "Brock Coley",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 10,
@@ -808,7 +808,7 @@
  {
   "key": "ZombieActorOldMcZombie",
   "name": "Old McZombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 10,
@@ -830,7 +830,7 @@
  {
   "key": "ZombieActorZastronaut",
   "name": "Zastronaut",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 10,
@@ -932,7 +932,7 @@
  {
   "key": "ZombieActorRegularTier5",
   "name": "Zombotron",
-  "cost": 50,
+  "cost": 5,
   "growMs": 14400000,
   "category": "special",
   "level": 15,
@@ -1112,7 +1112,7 @@
  {
   "key": "ZombieActorBombie",
   "name": "Bombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 20,
@@ -1134,7 +1134,7 @@
  {
   "key": "ZombieActorDapper",
   "name": "Dapper Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 20,
@@ -1156,7 +1156,7 @@
  {
   "key": "ZombieActorGranny",
   "name": "Granny Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 20,
@@ -1178,7 +1178,7 @@
  {
   "key": "ZombieActorLargeTier5",
   "name": "Zomviking",
-  "cost": 50,
+  "cost": 5,
   "growMs": 21600000,
   "category": "special",
   "level": 20,
@@ -1198,7 +1198,7 @@
  {
   "key": "ZombieActorGardenCupid",
   "name": "Cupid Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 20,
@@ -1219,7 +1219,7 @@
  {
   "key": "ZombieActorRegularCrazy",
   "name": "Crazy Zombie",
-  "cost": 50,
+  "cost": 5,
   "growMs": 86400000,
   "category": "special",
   "level": 20,
@@ -1380,7 +1380,7 @@
  {
   "key": "ZombieActorDrZombie",
   "name": "Dr. Zombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1402,7 +1402,7 @@
  {
   "key": "ZombieActorOmegaDrZombie",
   "name": "Omega Dr. Zombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1424,7 +1424,7 @@
  {
   "key": "ZombieActorBandido",
   "name": "Bandido Zombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1446,7 +1446,7 @@
  {
   "key": "ZombieActorVagabond",
   "name": "Vagabond Zombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1468,7 +1468,7 @@
  {
   "key": "ZombieActorCaptain",
   "name": "Captain Zombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1490,7 +1490,7 @@
  {
   "key": "ZombieActorAdmiral",
   "name": "Admiral Zombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1512,7 +1512,7 @@
  {
   "key": "ZombieActorChristmasGhost",
   "name": "Christmas Ghost Zombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1534,7 +1534,7 @@
  {
   "key": "ZombieActorScrooge",
   "name": "Scrooge Zombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1556,7 +1556,7 @@
  {
   "key": "ZombieActorDiva",
   "name": "Diva Zombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1578,7 +1578,7 @@
  {
   "key": "ZombieActorDeputy",
   "name": "Deputy Zombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1600,7 +1600,7 @@
  {
   "key": "ZombieActorMadame",
   "name": "Madame Zombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1622,7 +1622,7 @@
  {
   "key": "ZombieActorMasterNinjombie",
   "name": "Master Ninjombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1644,7 +1644,7 @@
  {
   "key": "ZombieActorMerZombie",
   "name": "MerZombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1666,7 +1666,7 @@
  {
   "key": "ZombieActorNinjombie",
   "name": "Ninjombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1688,7 +1688,7 @@
  {
   "key": "ZombieActorOmegaZombieBot",
   "name": "Omega Zombie Bot",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1710,7 +1710,7 @@
  {
   "key": "ZombieActorPoseidon",
   "name": "Poseidon Zombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1732,7 +1732,7 @@
  {
   "key": "ZombieActorProto",
   "name": "Proto Zombie",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1754,7 +1754,7 @@
  {
   "key": "ZombieActorSheriff",
   "name": "Sheriff Zombie",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1776,7 +1776,7 @@
  {
   "key": "ZombieActorZombieBot",
   "name": "Zombie Bot",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1798,7 +1798,7 @@
  {
   "key": "ZombieActorZombug",
   "name": "Zombug",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1820,7 +1820,7 @@
  {
   "key": "ZombieActorZomdini",
   "name": "Zomdini",
-  "cost": 200,
+  "cost": 20,
   "growMs": 86400000,
   "category": "special",
   "level": 25,
@@ -1842,7 +1842,7 @@
  {
   "key": "ZombieActorZomtar",
   "name": "Zomtar",
-  "cost": 400,
+  "cost": 40,
   "growMs": 86400000,
   "category": "special",
   "level": 25,

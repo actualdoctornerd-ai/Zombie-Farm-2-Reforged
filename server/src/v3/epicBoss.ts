@@ -299,7 +299,7 @@ export async function finish(
   const defeated = verified.outcome.win && damage >= session.starting_hp;
   const defeatedLevel = defeated ? run.level : null;
   if (defeatedLevel !== null) {
-    const currency = epicBossCurrencyReward(defeatedLevel);
+    const currency = epicBossCurrencyReward(defeatedLevel, def.maxLevel);
     balance.brains += currency.brains;
     balance.gold += currency.gold;
   }

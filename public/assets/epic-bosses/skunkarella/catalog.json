@@ -2,7 +2,7 @@
   "id": "skunkarella",
   "sourceId": 5,
   "name": "Skunkarella",
-  "costBrains": 100,
+  "costBrains": 10,
   "durationMs": 1209600000,
   "fightMs": 30000,
   "retryMs": 1200000,

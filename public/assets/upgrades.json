@@ -5,7 +5,7 @@
    "size": 40,
    "level": 11,
    "gold": 10000,
-   "brains": 60,
+   "brains": 6,
    "info": "40x40",
    "icon": "upgrade_farmsize.png"
   },
@@ -14,7 +14,7 @@
    "size": 50,
    "level": 21,
    "gold": 50000,
-   "brains": 80,
+   "brains": 8,
    "info": "50x50",
    "icon": "upgrade_farmsize.png"
   },
@@ -23,7 +23,7 @@
    "size": 60,
    "level": 31,
    "gold": 250000,
-   "brains": 120,
+   "brains": 12,
    "info": "60x60",
    "icon": "upgrade_farmsize.png"
   }

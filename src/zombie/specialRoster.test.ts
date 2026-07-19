@@ -37,7 +37,7 @@ describe("complete special-zombie roster", () => {
       "Bombie", "Crazy Zombie", "Cupid Zombie", "Dapper Zombie", "Granny Zombie",
     ]);
     expect(plantableSpecials.every((zombie) =>
-      zombie.cost === 50 && zombie.level === 20 && zombie.brainsNeeded === true
+      zombie.cost === 5 && zombie.level === 20 && zombie.brainsNeeded === true
     )).toBe(true);
   });
 

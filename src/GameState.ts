@@ -20,7 +20,8 @@ type Listener = () => void;
 export class GameState {
   name = "Zombie Farmer";
   gold = 400;
-  brains = 20;
+  // Post-brainflation revert: start with 2 brains (was 20). A brain is now ~10x more valuable.
+  brains = 2;
   xp = 0;
   zombieCount = 1;
   zombieMax = 16;
@@ -49,8 +50,8 @@ export class GameState {
   unlockedAbilities: string[] = [];
   // ---- Zombie Pot pricing ----
   // The Zombie Pot's first acquisition costs 500 GOLD; every one after that costs
-  // a flat 30 BRAINS, permanently. This is sticky: once the player has ever owned a
-  // pot (bought OR gifted by the tutorial), it stays at 30 brains even if they sell
+  // a flat 3 BRAINS, permanently. This is sticky: once the player has ever owned a
+  // pot (bought OR gifted by the tutorial), it stays at 3 brains even if they sell
   // it, so it must persist rather than be derived from whether a pot is on the farm.
   zombiePotBought = false;
   // ---- raids: lifetime win count per raid id (drives "first clear" + stats) ----
@@ -155,7 +156,7 @@ export class GameState {
   }
 
   /** Record that the player has acquired a Zombie Pot (bought or gifted). Once set,
-   *  the pot's price is a flat 30 brains forever (see zombiePotBought). */
+   *  the pot's price is a flat 3 brains forever (see zombiePotBought). */
   markZombiePotBought() {
     if (!this.zombiePotBought) {
       this.zombiePotBought = true;
@@ -222,14 +223,15 @@ export class GameState {
     this.emit();
   }
 
-  /** Effects granted when the player levels up. Grants a brain per level, resets
-   *  the between-invasions timer so a fresh raid is ready, and notifies the HUD to
-   *  show the unlock popup. The real game also refills zombie hunger — that belongs
-   *  with the (later) hunger phase; wire the reset in here when it lands. */
+  /** Effects granted when the player levels up. Resets the between-invasions timer so a
+   *  fresh raid is ready, and notifies the HUD to show the unlock popup. The real game
+   *  also refills zombie hunger — that belongs with the (later) hunger phase; wire the
+   *  reset in here when it lands.
+   *
+   *  NOTE: leveling up no longer grants brains (post-brainflation revert). A single brain
+   *  is now ~10x more valuable, so the old +1-brain-per-level drip was removed; brains come
+   *  from raids, epic bosses, gifts, and the market economy instead. */
   private onLevelUp(from: number, to: number) {
-    const grant = to - from; // +1 brain per level gained
-    this.brains += grant;
-    this.onMoney?.("brains", grant, "levelup");
     this.lastRaidAt = 0; // raid timer resets on level up
     this.onLevelUpCb?.(from, to);
   }

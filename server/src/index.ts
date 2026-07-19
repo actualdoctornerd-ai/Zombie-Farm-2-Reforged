@@ -72,7 +72,8 @@ const MAX_INBOX = 200; // unclaimed gifts we'll hold / return
 // self-seed exploit. Mirrors the client's fresh-game values (GameState defaults) so a
 // legitimately new player starts identically; farm size / roster / boosts default to
 // the base (empty) via their own tables.
-const STARTER_BALANCE = { gold: 400, brains: 20, xp: 0 } as const;
+// Post-brainflation revert: 2 starting brains (was 20). KEEP IN SYNC with GameState.brains.
+const STARTER_BALANCE = { gold: 400, brains: 2, xp: 0 } as const;
 const DEFAULT_FARM_SIZE = 30; // BASE_FARM_SIZE (shopCatalog)
 const DEFAULT_ARMY_SIZE = 16;
 

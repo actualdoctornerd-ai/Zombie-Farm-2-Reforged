@@ -15,7 +15,7 @@ describe("boostCatalog", () => {
   });
   it("prices the voucher in gold and the consumables in brains", () => {
     expect(boostEcon(VOUCHER_KEY)).toMatchObject({ cost: 2000, brains: false, perPurchase: 1 });
-    expect(boostEcon("insta_grow")).toMatchObject({ cost: 10, brains: true, perPurchase: 20 });
+    expect(boostEcon("insta_grow")).toMatchObject({ cost: 1, brains: true, perPurchase: 20 });
     expect(boostEcon("nope")).toBeUndefined();
   });
 });
@@ -27,7 +27,7 @@ describe("planBuy — exact price + grant", () => {
 
   it("debits the exact catalog cost in the right currency and grants perPurchase", () => {
     const r = planBuy(buy("insta_grow"), boostEcon("insta_grow"), bal(0, 50), 0, MAX_LEVEL);
-    expect(r).toEqual({ ok: true, currency: "brains", cost: 10, grant: 20 });
+    expect(r).toEqual({ ok: true, currency: "brains", cost: 1, grant: 20 });
     const v = planBuy(buy(VOUCHER_KEY), boostEcon(VOUCHER_KEY), bal(5000, 0), 3, MAX_LEVEL);
     expect(v).toEqual({ ok: true, currency: "gold", cost: 2000, grant: 1 });
   });

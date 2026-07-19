@@ -175,7 +175,7 @@ describe("protocol v3 command engine", () => {
     expect(result.state.farm.plots["15:12"]).toMatchObject({
       state: "planted", cropKey: "ZombieActorRegularTier1", zombie: true,
     });
-    expect(result.state.balance).toMatchObject({ gold: 355, brains: 10 });
+    expect(result.state.balance).toMatchObject({ gold: 355, brains: 19 });
   });
 
   it("rejects a new free-placed plot whose footprint overlaps another plot", () => {
@@ -560,10 +560,10 @@ describe("protocol v3 command engine", () => {
     expect(bought.results.map((entry) => entry.status)).toEqual(["applied", "applied"]);
     expect(bought.state.zombiePotBought).toBe(true);
     expect(bought.state.balance.gold).toBe(500);
-    expect(bought.state.balance.brains).toBe(75); // 30 spent, +5 brains from levels gained
+    expect(bought.state.balance.brains).toBe(97); // 3 spent on the repeat pot; leveling grants no brains
     expect(bought.state.objects.objects).toEqual(expect.arrayContaining([
       expect.objectContaining({ instanceId: "pot-1", catalogKey: "zombieCombiner", purchaseCost: 500, purchaseCurrency: "gold" }),
-      expect.objectContaining({ instanceId: "pot-2", catalogKey: "zombieCombiner", purchaseCost: 30, purchaseCurrency: "brains" }),
+      expect.objectContaining({ instanceId: "pot-2", catalogKey: "zombieCombiner", purchaseCost: 3, purchaseCurrency: "brains" }),
     ]));
 
     const sold = applyCommandBatch(bought.state, commands(
@@ -571,7 +571,7 @@ describe("protocol v3 command engine", () => {
       { type: "object.refund", instanceId: "pot-2" },
     ), { now: 101 });
     expect(sold.state.balance.gold).toBe(600);
-    expect(sold.state.balance.brains).toBe(81);
+    expect(sold.state.balance.brains).toBe(98); // +1 refund on the 3-brain repeat pot (floor(3*0.2)=0 → min 1)
     expect(sold.state.zombiePotBought).toBe(true);
   });
 

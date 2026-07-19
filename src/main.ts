@@ -489,6 +489,22 @@ async function main() {
   };
   recenter();
 
+  // Hold WASD to pan the farm camera. Movement is frame-rate independent and
+  // screen-space based, so it feels consistent at every zoom level.
+  const cameraKeys = new Set<string>();
+  const isEditableTarget = (target: EventTarget | null) => {
+    const el = target instanceof HTMLElement ? target : null;
+    return !!el && (el.isContentEditable || el.matches("input, textarea, select"));
+  };
+  window.addEventListener("keydown", (e) => {
+    const key = e.key.toLowerCase();
+    if (!"wasd".includes(key) || e.ctrlKey || e.metaKey || e.altKey || isEditableTarget(e.target)) return;
+    cameraKeys.add(key);
+    e.preventDefault();
+  });
+  window.addEventListener("keyup", (e) => cameraKeys.delete(e.key.toLowerCase()));
+  window.addEventListener("blur", () => cameraKeys.clear());
+
   // Zoom by `factor` while keeping the world point under (sx,sy) — a screen-space
   // pixel — fixed. Shared by mouse-wheel (desktop) and pinch (touch) so both zoom
   // toward the pointer/pinch-midpoint identically.
@@ -1210,6 +1226,9 @@ async function main() {
   let lastPlot = "";
   const last = new Point();
   const pressStart = new Point();
+  let hoveredCrop: { col: number; row: number; x: number; y: number } | null = null;
+  let cropHoverRefresh = 0;
+  let temporaryPanGesture = false;
   let pressPointerType = "mouse";
   let pressPointerId = -1;
   // Plow/plant tiles painted by the current finger gesture. They are queued only
@@ -1236,6 +1255,7 @@ async function main() {
     touchGestureTiles.length = 0;
     touchPinch = false;
     pinchDist = 0;
+    temporaryPanGesture = false;
     field.hideCursor();
     field.setObjectHighlight(null);
   };
@@ -2082,7 +2102,7 @@ async function main() {
         state.setEpicBossRun(result.run);
         const currency = result.defeatedLevel === null
           ? { brains: 0, gold: 0 }
-          : epicBossCurrencyReward(result.defeatedLevel);
+          : epicBossCurrencyReward(result.defeatedLevel, def.maxLevel);
         if (result.defeatedLevel !== null && !auth.isSignedIn()) {
           state.addBrains(currency.brains, "epic_boss_victory");
           state.addGold(currency.gold, "epic_boss_victory");
@@ -2511,10 +2531,10 @@ async function main() {
       return;
     }
     if (state.level < def.level) return;
-    // The Zombie Pot costs 500 GOLD for the first, then a flat 30 BRAINS for every
+    // The Zombie Pot costs 500 GOLD for the first, then a flat 3 BRAINS for every
     // one after — permanently, even if the player sells it (see zombiePotBought).
     const potBought = !!def.zombiePot && state.zombiePotBought;
-    const cost = def.zombiePot ? (potBought ? 30 : 500) : def.cost;
+    const cost = def.zombiePot ? (potBought ? 3 : 500) : def.cost;
     const useBrains = def.zombiePot ? potBought : def.brainsNeeded;
     const xp = buyXp(cost, def.xp); // exact source XP; zero means no reward
     // Server-owned object buy: the server debits the exact price, records ownership,
@@ -2528,7 +2548,7 @@ async function main() {
       if (!paid) return;
       state.addXp(xp);
     }
-    if (def.zombiePot) state.markZombiePotBought(); // next pot is 30 brains forever
+    if (def.zombiePot) state.markZombiePotBought(); // next pot is 3 brains forever
     const placedId = field.placeObject(def, oc, or, undefined, undefined, placeFlipped);
     if (def.zombiePot && placedId) {
       objectPurchases.set(placedId, { cost, currency: useBrains ? "brains" : "gold" });
@@ -2678,6 +2698,13 @@ async function main() {
       dragging = false;
       return;
     }
+    if (hud.isTemporaryPanning) {
+      temporaryPanGesture = true;
+      dragging = true;
+      moved = false;
+      last.copyFrom(e.global);
+      return;
+    }
     const { col, row, wx, wy } = tileAt(e);
     // Tutorial world gate: while the guided tutorial is active, freeze every farm
     // tap except the current beat's target plot (so nothing collapses the menu or
@@ -2717,12 +2744,14 @@ async function main() {
     }
   });
   app.stage.on("pointermove", (e: FederatedPointerEvent) => {
-    if (raidActive) return;
+    if (raidActive) { hoveredCrop = null; hud.showCropHover(null); return; }
     if (touchPinch) return; // pinch owns the gesture; skip pan/cursor updates
     if (dragging && e.pointerId === pressPointerId && !moved) {
       moved = gestureMoved(pressStart.x, pressStart.y, e.global.x, e.global.y, pressPointerType);
     }
     if (visiting) {
+      hoveredCrop = null;
+      hud.showCropHover(null);
       // Read-only visit: drag pans the camera; no tool cursors are ever shown.
       if (dragging) {
         const dx = e.global.x - last.x;
@@ -2737,6 +2766,13 @@ async function main() {
       return;
     }
     const { col, row, wx, wy } = tileAt(e);
+    if (!dragging && hud.mode === "walk" && !isTouchPointer(e.pointerType)) {
+      hoveredCrop = { col, row, x: e.global.x, y: e.global.y };
+      hud.showCropHover(field.cropInfoAt(col, row), e.global.x, e.global.y);
+    } else {
+      hoveredCrop = null;
+      hud.showCropHover(null);
+    }
     if (hud.mode === "place" && hud.placing) {
       field.setObjectCursor(hud.placing, col, row, undefined, placeFlipped); // ghost follows the cursor
       return;
@@ -2788,6 +2824,10 @@ async function main() {
     }
     const tool = hud.mode === "till" || hud.mode === "plant" ? hud.mode : null;
     field.setCursor(col, row, tool);
+  });
+  app.canvas.addEventListener("pointerleave", () => {
+    hoveredCrop = null;
+    hud.showCropHover(null);
   });
   const endDrag = (e: FederatedPointerEvent) => {
     if (dragging && !moved) {
@@ -2950,6 +2990,14 @@ async function main() {
     // During/after a pinch, dragging was cleared so endDrag fires no stray tap.
     if (touchPinch) return;
     if (pressPointerId !== -1 && e.pointerId !== pressPointerId) return;
+    if (temporaryPanGesture) {
+      temporaryPanGesture = false;
+      dragging = false;
+      moved = false;
+      lastPlot = "";
+      pressPointerId = -1;
+      return;
+    }
     if (dragging && moved && isTouchPointer(pressPointerType) &&
         (hud.mode === "till" || hud.mode === "plant")) {
       for (const tile of touchGestureTiles) enqueueTool(tile.col, tile.row);
@@ -2983,6 +3031,12 @@ async function main() {
     if (hud.mode !== "place") retrieving = null; // leaving placement drops a pending retrieve
     if (hud.mode !== "place") receiving = null; // ...and a pending Received placement
     if (hud.mode !== "place") placeFlipped = false; // and reset the ghost orientation
+  };
+  hud.onTemporaryPanChange = () => {
+    field.hideCursor();
+    field.setObjectHighlight(null);
+    hoveredCrop = null;
+    hud.showCropHover(null);
   };
 
   window.addEventListener("resize", recenter);
@@ -3034,6 +3088,22 @@ async function main() {
 
   app.ticker.add((ticker) => {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05);
+    const modalOpen = !!hud.el.querySelector(".panelbg, .mkt-bg, .st-bg, .pm-bg");
+    if (!raidActive && !modalOpen && cameraKeys.size) {
+      const speed = 520 * dt;
+      const dx = (cameraKeys.has("a") ? speed : 0) - (cameraKeys.has("d") ? speed : 0);
+      const dy = (cameraKeys.has("w") ? speed : 0) - (cameraKeys.has("s") ? speed : 0);
+      if (dx || dy) {
+        world.position.x += dx;
+        world.position.y += dy;
+        clampCamera();
+      }
+    }
+    cropHoverRefresh -= dt;
+    if (hoveredCrop && cropHoverRefresh <= 0) {
+      hud.showCropHover(field.cropInfoAt(hoveredCrop.col, hoveredCrop.row), hoveredCrop.x, hoveredCrop.y);
+      cropHoverRefresh = 0.25;
+    }
     for (let i = bossTokenFx.length - 1; i >= 0; i--) {
       const fx = bossTokenFx[i];
       fx.age += dt;

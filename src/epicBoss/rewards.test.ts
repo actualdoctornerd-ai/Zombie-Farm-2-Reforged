@@ -34,11 +34,33 @@ describe("Epic Boss zombie rewards", () => {
 });
 
 describe("Epic Boss currency rewards", () => {
-  it("scales brains by rounded quarter-level and awards 100x as much gold", () => {
-    expect(epicBossCurrencyReward(1)).toEqual({ brains: 1, gold: 100 });
-    expect(epicBossCurrencyReward(5)).toEqual({ brains: 1, gold: 100 });
-    expect(epicBossCurrencyReward(6)).toEqual({ brains: 2, gold: 200 });
-    expect(epicBossCurrencyReward(38)).toEqual({ brains: 10, gold: 1000 });
-    expect(epicBossCurrencyReward(40)).toEqual({ brains: 10, gold: 1000 });
+  it("awards brains only on every 5th level, with a bonus at the top tier(s)", () => {
+    // Non-milestone levels grant no brains (post-brainflation revert).
+    expect(epicBossCurrencyReward(1).brains).toBe(0);
+    expect(epicBossCurrencyReward(6).brains).toBe(0);
+    expect(epicBossCurrencyReward(24).brains).toBe(0);
+    // Every 5th level grants one brain.
+    expect(epicBossCurrencyReward(5).brains).toBe(1);
+    expect(epicBossCurrencyReward(20).brains).toBe(1); // full ladder: no top-tier bonus yet
+    expect(epicBossCurrencyReward(25).brains).toBe(1);
+    // Top tiers (30/35/40 on a 40-level ladder) grant a bonus brain.
+    expect(epicBossCurrencyReward(30).brains).toBe(2);
+    expect(epicBossCurrencyReward(35).brains).toBe(2);
+    expect(epicBossCurrencyReward(40).brains).toBe(2);
+  });
+
+  it("gives Dr. Groundhog's short ladder its bonus brain at level 20", () => {
+    // maxLevel 20 boss: the top-tier bonus lands on its final level.
+    expect(epicBossCurrencyReward(20, 20).brains).toBe(2);
+    expect(epicBossCurrencyReward(15, 20).brains).toBe(1);
+    expect(epicBossCurrencyReward(30, 20).brains).toBe(1); // beyond its ladder: plain milestone, no bonus
+  });
+
+  it("leaves the gold reward at its pre-revert per-level curve", () => {
+    expect(epicBossCurrencyReward(1).gold).toBe(100);
+    expect(epicBossCurrencyReward(5).gold).toBe(100);
+    expect(epicBossCurrencyReward(6).gold).toBe(200);
+    expect(epicBossCurrencyReward(38).gold).toBe(1000);
+    expect(epicBossCurrencyReward(40).gold).toBe(1000);
   });
 });

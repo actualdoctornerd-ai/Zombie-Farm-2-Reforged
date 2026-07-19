@@ -2,7 +2,7 @@
   "id": "mystical-mamba",
   "sourceId": 10,
   "name": "Mystical Mamba",
-  "costBrains": 100,
+  "costBrains": 10,
   "durationMs": 1209600000,
   "fightMs": 30000,
   "retryMs": 1200000,

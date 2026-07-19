@@ -773,7 +773,7 @@ export async function getOrSeedBalance(
 export async function creditLevelUps(
   db: D1Database,
   accountId: string,
-  now: number
+  _now: number // retained for call-site stability; level-up no longer credits a ledger entry
 ): Promise<number> {
   const row = await db
     .prepare("SELECT xp, claimed_level FROM balances WHERE account_id = ?")
@@ -790,21 +790,14 @@ export async function creditLevelUps(
     return 0;
   }
   if (level <= row.claimed_level) return 0;
-  const brains = level - row.claimed_level;
-  const upd = await db
-    .prepare(
-      "UPDATE balances SET brains = brains + ?, claimed_level = ? WHERE account_id = ? AND claimed_level = ?"
-    )
-    .bind(brains, level, accountId, row.claimed_level)
-    .run();
-  if ((upd.meta.changes ?? 0) !== 1) return 0; // lost the CAS race; the winner paid
+  // Post-brainflation revert: leveling up no longer grants brains. Still advance
+  // claimed_level so this doesn't re-run every call (and stays consistent with any
+  // level gating), but credit nothing and write no ledger entry.
   await db
-    .prepare(
-      "INSERT OR IGNORE INTO ledger (id, account_id, currency, delta, reason, created_at) VALUES (?, ?, 'brains', ?, 'levelup', ?)"
-    )
-    .bind(`lvl:${accountId}:${level}`, accountId, brains, now)
+    .prepare("UPDATE balances SET claimed_level = ? WHERE account_id = ? AND claimed_level = ?")
+    .bind(level, accountId, row.claimed_level)
     .run();
-  return brains;
+  return 0;
 }
 
 export interface QuestResult {

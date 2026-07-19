@@ -4,10 +4,12 @@
 export const BRAIN_DROP_RATE_MULTIPLIER = 2;
 export const BRAIN_OPTIMAL_LEVEL = 20;
 
+// Post-brainflation revert: amounts are 1/10 of the old 50/30/10 stacks (a brain is now
+// ~10x more valuable). Drop CHANCES are unchanged — only the stack sizes shrank.
 const BASE_BRAIN_DROP_TABLE = [
-  { amount: 50, lower: 0.005, upper: 0.01 },
-  { amount: 30, lower: 0.01, upper: 0.02 },
-  { amount: 10, lower: 0.025, upper: 0.05 },
+  { amount: 5, lower: 0.005, upper: 0.01 },
+  { amount: 3, lower: 0.01, upper: 0.02 },
+  { amount: 1, lower: 0.025, upper: 0.05 },
 ] as const;
 
 export function brainDropTable(recommendedLevel: number) {
