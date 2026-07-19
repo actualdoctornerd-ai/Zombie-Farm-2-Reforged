@@ -1,5 +1,6 @@
-/** One paid attempt when the player has no harvested event token. */
-export const EPIC_BOSS_FIGHT_BRAIN_COST = 10;
+/** One paid attempt when the player has no harvested event token. Post-brainflation
+ *  revert: 1 brain (was 10), now that a brain is ~10x more valuable. */
+export const EPIC_BOSS_FIGHT_BRAIN_COST = 1;
 export type EpicBossPayment = "token" | "brains";
 
 /**

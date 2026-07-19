@@ -424,7 +424,7 @@ export class Field {
   // it's a zombie, whether it's ripe, and how much grow time remains. Null when
   // the plot has no crop. Powers the "growing crop" info popup.
   cropInfoAt(col: number, row: number):
-    { name: string; isZombie: boolean; ripe: boolean; remainingMs: number; growMs: number } | null {
+    { name: string; isZombie: boolean; ripe: boolean; remainingMs: number; growMs: number; fertilized: boolean } | null {
     const at = this.plotOriginAt(col, row);
     if (!at) return null;
     const c = this.plots.get(this.key(at.oc, at.or))!.crop;
@@ -435,6 +435,7 @@ export class Field {
       ripe: c.ageMs >= c.cfg.growMs,
       remainingMs: Math.max(0, c.cfg.growMs - c.ageMs),
       growMs: c.cfg.growMs,
+      fertilized: !!c.fertilized,
     };
   }
   // A ripe crop that is a zombie (harvesting it would grow an owned unit). Used to

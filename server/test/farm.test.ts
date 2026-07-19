@@ -166,7 +166,7 @@ describe("planHarvest — server-time grow gate + exact reward", () => {
 
 // ---- zombie crops (plant a seed -> grow -> harvest an owned unit) --------
 const GOLD_Z = "ZombieActorRegularTier1"; // 35 gold, grow 600000, xp 1
-const BRAINS_Z = "ZombieActorBombie"; // permanent special: 50 brains, level 20
+const BRAINS_Z = "ZombieActorBombie"; // permanent special: 5 brains, level 20
 
 describe("planZombiePlant — cost in gold OR brains, yields a unit", () => {
   const plant = (over = {}) => ({ id: "zp", type: "plant" as const, oc: 4, or: 4, cropKey: GOLD_Z, ...over });
@@ -182,14 +182,14 @@ describe("planZombiePlant — cost in gold OR brains, yields a unit", () => {
 
   it("debits brains for a brains zombie crop", () => {
     const r = planZombiePlant(plant({ cropKey: BRAINS_Z }), zombieCropEcon(BRAINS_Z), false, bal(0, 100), NOW, ctx());
-    expect(r).toMatchObject({ ok: true, currency: "brains", cost: 50 });
+    expect(r).toMatchObject({ ok: true, currency: "brains", cost: 5 });
   });
 
   it("rejects an unknown crop, an occupied plot, insufficient funds, bad coords", () => {
     expect(planZombiePlant(plant({ cropKey: "carrot" }), zombieCropEcon("carrot"), false, bal(100), NOW, ctx())).toMatchObject({ ok: false, error: "bad_crop" });
     expect(planZombiePlant(plant(), zombieCropEcon(GOLD_Z), true, bal(100), NOW, ctx())).toMatchObject({ ok: false, error: "plot_occupied" });
     expect(planZombiePlant(plant(), zombieCropEcon(GOLD_Z), false, bal(10), NOW, ctx())).toMatchObject({ ok: false, error: "insufficient" });
-    expect(planZombiePlant(plant({ cropKey: BRAINS_Z }), zombieCropEcon(BRAINS_Z), false, bal(9999, 10), NOW, ctx())).toMatchObject({ ok: false, error: "insufficient" });
+    expect(planZombiePlant(plant({ cropKey: BRAINS_Z }), zombieCropEcon(BRAINS_Z), false, bal(9999, 4), NOW, ctx())).toMatchObject({ ok: false, error: "insufficient" });
     expect(planZombiePlant(plant({ oc: -1 }), zombieCropEcon(GOLD_Z), false, bal(100), NOW, ctx())).toMatchObject({ ok: false, error: "bad_coord" });
   });
 
@@ -224,8 +224,8 @@ describe("planZombieHarvest — grow gate + verified unit yield", () => {
   });
 
   it("exposes dual-route specials but keeps gift-only and Epic rewards unplantable", () => {
-    expect(zombieCropEcon("ZombieActorGardenCupid")).toMatchObject({ cost: 50, brains: true, level: 20 });
-    expect(zombieCropEcon("ZombieActorRegularCrazy")).toMatchObject({ cost: 50, brains: true, level: 20 });
+    expect(zombieCropEcon("ZombieActorGardenCupid")).toMatchObject({ cost: 5, brains: true, level: 20 });
+    expect(zombieCropEcon("ZombieActorRegularCrazy")).toMatchObject({ cost: 5, brains: true, level: 20 });
     expect(zombieCropEcon("ZombieActorGardenTier3GreenFlower")).toBeUndefined();
     expect(zombieCropEcon("ZombieActorGardenCupidPink")).toBeUndefined();
     expect(zombieCropEcon("ZombieActorGardenTier5")).toBeUndefined();

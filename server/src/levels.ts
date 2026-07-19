@@ -23,8 +23,12 @@ export function levelForXp(xp: number): number {
   return lvl;
 }
 
-/** Brains granted when advancing from `fromLevel` to `toLevel` — +1 per level gained,
- *  mirroring GameState.onLevelUp. Never negative. */
-export function levelUpBrains(fromLevel: number, toLevel: number): number {
-  return Math.max(0, toLevel - fromLevel);
+/** Brains granted when advancing from `fromLevel` to `toLevel`.
+ *
+ *  Post-brainflation revert: leveling up grants NO brains (mirrors GameState.onLevelUp).
+ *  The old +1-brain-per-level drip was removed now that a brain is ~10x more valuable.
+ *  Kept as a function (returning 0) so the v3 economy call sites stay stable and a future
+ *  milestone-based grant, if wanted, has one place to live. */
+export function levelUpBrains(_fromLevel: number, _toLevel: number): number {
+  return 0;
 }

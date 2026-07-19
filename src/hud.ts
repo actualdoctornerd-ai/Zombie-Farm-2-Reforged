@@ -121,7 +121,6 @@ export class Hud {
   private nameEl!: HTMLElement;
   private questCol!: HTMLElement;
   private questViews: QuestView[] = [];
-  private questsShown = true;
   private tools: Record<string, HTMLButtonElement> = {};
   private menuCol!: HTMLElement;
   private toolsBar!: HTMLElement;
@@ -141,6 +140,9 @@ export class Hud {
   private plantingCrop: CropConfig | null = null;
   private placingObj: PlaceableDef | null = null;
   private plantLabel!: HTMLElement;
+  private cropHover!: HTMLElement;
+  private temporaryPanMode: Mode | null = null;
+  onTemporaryPanChange: (() => void) | null = null;
 
   get planting(): CropConfig | null {
     return this.plantingCrop;
@@ -160,20 +162,19 @@ export class Hud {
     this.buildFab();
     this.buildTouchCancel();
     this.buildPlantLabel();
-    this.buildQuestToggle();
+    this.buildInvadeShortcut();
+    this.buildCropHover();
     this.wireMenuSounds();
     this.wireUiToggle();
     this.wireFullscreenToggle();
+    this.wireActionHotkeys();
     state.onChange(() => this.update());
     this.update();
-    // Mobile (esp. landscape) has little room: start with the menu + tools tucked
-    // into the corner fab and the quest rail hidden, so the default view is the
-    // farm plus a compact top bar. Everything is one tap away (fab / quest button).
+    // Mobile (esp. landscape) starts with the menu + tools tucked into the corner
+    // fab. The capped quest rail remains visible on every farm view.
     // Desktop keeps the full chrome on screen.
     if (isMobile()) {
       this.collapse();
-      this.questsShown = false;
-      this.questCol.style.display = "none";
     }
   }
 
@@ -252,6 +253,93 @@ export class Hud {
         // Some browsers can still reject fullscreen despite advertising support.
       });
     });
+  }
+
+  // Farm shortcuts. Menu keys only act from the unobstructed farm view; Escape
+  // closes the top overlay or cancels the active tool. Holding Space temporarily
+  // borrows Select/pan without discarding a crop, placement, or carried object.
+  private wireActionHotkeys() {
+    const typing = (target: EventTarget | null) => {
+      const t = target as HTMLElement | null;
+      return !!t && (t.isContentEditable || t.matches("input, textarea, select"));
+    };
+    const hasOverlay = () => !!this.el.querySelector(
+      ".panelbg, .mkt-bg, .info-bg, .st-bg, .pm-bg, .raid-res-bg, .revive-bg"
+    );
+    const activate = (mode: Mode) => {
+      if (this.mode !== mode) this.setMode(mode);
+    };
+
+    window.addEventListener("keydown", (e) => {
+      if (typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (e.key === "Escape") {
+        if (document.fullscreenElement) return; // preserve native fullscreen exit
+        if (this.closeTopOverlay()) { e.preventDefault(); return; }
+        this.endTemporaryPan();
+        if (this.mode !== "walk") { e.preventDefault(); this.setMode("walk"); }
+        return;
+      }
+
+      if (this.el.classList.contains("raiding") || this.el.classList.contains("visiting") ||
+          this.el.classList.contains("tutorial")) return;
+
+      if (e.code === "Space") {
+        if (!hasOverlay()) {
+          e.preventDefault();
+          if (!e.repeat) this.beginTemporaryPan();
+        }
+        return;
+      }
+      if (e.repeat || hasOverlay()) return;
+
+      const key = e.key.toLowerCase();
+      if (!new Set(["1", "2", "3", "4", "5", "p", "m", "i", "z", "b", "r", "q"]).has(key)) return;
+      this.endTemporaryPan();
+      const handled = () => { e.preventDefault(); this.audio.play("menuClick"); };
+      if (key === "1") { handled(); activate("walk"); }
+      else if (key === "2") { handled(); activate("move"); }
+      else if (key === "3") {
+        handled();
+        this.onRotateTool ? this.onRotateTool() : activate("rotate");
+      }
+      else if (key === "4") { handled(); activate("till"); }
+      else if (key === "5") { handled(); activate("remove"); }
+      else if (key === "p") {
+        handled();
+        this.openPlantMenu((cfg) => this.setPlanting(cfg));
+      } else if (key === "m") { handled(); this.openMarket(); }
+      else if (key === "i") { handled(); this.openRaids(); }
+      else if (key === "z") { handled(); this.openZombieList(); }
+      else if (key === "b") { handled(); this.openStorage("Boosts"); }
+      else if (key === "r") { handled(); this.openStorage(); }
+      else if (key === "q") { handled(); this.openQuestLog(); }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space") this.endTemporaryPan();
+    });
+    window.addEventListener("blur", () => this.endTemporaryPan());
+  }
+
+  private beginTemporaryPan() {
+    if (this.temporaryPanMode !== null) return;
+    this.temporaryPanMode = this.mode;
+    this.mode = "walk";
+    this.refreshTools();
+    this.onTemporaryPanChange?.();
+  }
+
+  private endTemporaryPan() {
+    if (this.temporaryPanMode === null) return;
+    this.mode = this.temporaryPanMode;
+    this.temporaryPanMode = null;
+    this.refreshTools();
+    this.onTemporaryPanChange?.();
+  }
+
+  get isTemporaryPanning(): boolean {
+    return this.temporaryPanMode !== null;
   }
 
   async toggleFullscreen() {
@@ -390,7 +478,7 @@ export class Hud {
     if (this.questViews.length) {
       const more = document.createElement("button");
       more.className = "quest qmore";
-      more.title = "View all quests";
+      more.title = "View all quests (Q)";
       more.innerHTML = `<span class="qmore-glyph">☰</span>`;
       const badge = document.createElement("span");
       badge.className = "qbadge";
@@ -497,12 +585,12 @@ export class Hud {
   // Each button is a colored frame around a grey glossy button (dark label).
   private buildMenu() {
     const items = [
-      { label: "Invade", fill: "#9c2135", light: "#c04155", dark: "#5a0f1c", ready: true },
-      { label: "Zombies", fill: "#55972a", light: "#79c247", dark: "#2f5f10" },
-      { label: "Boosts", fill: "#7a4bc9", light: "#9c74e0", dark: "#432379" },
-      { label: "Storage", fill: "#2f74bb", light: "#4f9bd8", dark: "#143f66" },
-      { label: "Market", fill: "#c9992e", light: "#e3bb52", dark: "#8a6512" },
-      { label: "Social", fill: "#2f9c8a", light: "#4fd0b8", dark: "#12564b" },
+      { label: "Invade", fill: "#9c2135", light: "#c04155", dark: "#5a0f1c", ready: true, shortcut: "I" },
+      { label: "Zombies", fill: "#55972a", light: "#79c247", dark: "#2f5f10", shortcut: "Z" },
+      { label: "Boosts", fill: "#7a4bc9", light: "#9c74e0", dark: "#432379", shortcut: "B" },
+      { label: "Storage", fill: "#2f74bb", light: "#4f9bd8", dark: "#143f66", shortcut: "R" },
+      { label: "Market", fill: "#c9992e", light: "#e3bb52", dark: "#8a6512", shortcut: "M" },
+      { label: "Social", fill: "#2f9c8a", light: "#4fd0b8", dark: "#12564b", shortcut: "" },
     ];
     const col = document.createElement("div");
     col.className = "menucol";
@@ -511,6 +599,7 @@ export class Hud {
       const btn = document.createElement("button");
       btn.className = "mbtn";
       btn.dataset.menu = m.label; // stable anchor for the tutorial arrow (menuButton())
+      btn.title = m.shortcut ? `${m.label} (${m.shortcut})` : m.label;
       btn.style.background = `linear-gradient(${m.light}, ${m.fill})`;
       btn.style.borderColor = m.dark;
       if (m.ready) {
@@ -637,12 +726,13 @@ export class Hud {
   setBossShortcut(active: boolean, label = "Boss") {
     this.bossActive = active;
     const invade = this.menuCol?.querySelector<HTMLButtonElement>('[data-menu="Invade"]');
-    if (invade) invade.title = active ? `${label} active — open raids for details` : "";
+    if (invade) invade.title = active ? `${label} active — open raids for details (I)` : "Invade (I)";
   }
 
-  private toolBtn(id: string, icon: string, label: string, onClick: () => void) {
+  private toolBtn(id: string, icon: string, label: string, shortcut: string, onClick: () => void) {
     const btn = document.createElement("button");
     btn.className = "tool";
+    btn.title = `${label} (${shortcut})`;
     const img = document.createElement("img");
     img.src = UI(icon);
     const lbl = document.createElement("span");
@@ -659,12 +749,12 @@ export class Hud {
     bar.className = "tools";
     this.toolsBar = bar;
     bar.append(
-      this.toolBtn("select", "button_multitool.png", "Select", () => this.setMode("walk")),
-      this.toolBtn("move", "button_move.png", "Move", () => this.setMode("move")),
-      this.toolBtn("rotate", "button_rotate.png", "Rotate", () =>
+      this.toolBtn("select", "button_multitool.png", "Select", "1", () => this.setMode("walk")),
+      this.toolBtn("move", "button_move.png", "Move", "2", () => this.setMode("move")),
+      this.toolBtn("rotate", "button_rotate.png", "Rotate", "3", () =>
         this.onRotateTool ? this.onRotateTool() : this.setMode("rotate")),
-      this.toolBtn("till", "button_plow.png", "Plow", () => this.setMode("till")),
-      this.toolBtn("remove", "button_sell.png", "Remove", () => this.setMode("remove"))
+      this.toolBtn("till", "button_plow.png", "Plow", "4", () => this.setMode("till")),
+      this.toolBtn("remove", "button_sell.png", "Remove", "5", () => this.setMode("remove"))
     );
     this.el.appendChild(bar);
     this.refreshTools();
@@ -771,28 +861,31 @@ export class Hud {
   /** Consume one mobile Back action. The topmost closeable overlay wins, followed
    * by the expanded chrome and then the active farm tool. Returns false only when
    * the browser should perform its normal navigation. */
+  private closeTopOverlay(): boolean {
+    const overlays = Array.from(this.el.querySelectorAll<HTMLElement>(
+      ".panelbg, .mkt-bg, .info-bg, .st-bg, .pm-bg, .raid-res-bg, .revive-bg"
+    )).filter((el) => el.isConnected && getComputedStyle(el).display !== "none");
+    if (!overlays.length) return false;
+    const top = overlays.reduce((best, el) => {
+      const z = Number.parseInt(getComputedStyle(el).zIndex, 10) || 0;
+      const bz = Number.parseInt(getComputedStyle(best).zIndex, 10) || 0;
+      return z > bz || (z === bz && (best.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
+        ? el : best;
+    });
+    const close = top.querySelector<HTMLElement>(
+      ".panelclose, .mkt-close, .info-close, .st-close, .pm-close"
+    );
+    if (!close) return true; // mandatory result/writer-lock screens stay mandatory
+    close.click();
+    return true;
+  }
+
   handleMobileBack(): boolean {
     if (this.el.classList.contains("visiting") && this.visitExit) {
       this.visitExit();
       return true;
     }
-    const overlays = Array.from(this.el.querySelectorAll<HTMLElement>(
-      ".panelbg, .mkt-bg, .info-bg, .st-bg, .pm-bg, .raid-res-bg, .revive-bg"
-    )).filter((el) => el.isConnected && getComputedStyle(el).display !== "none");
-    if (overlays.length) {
-      const top = overlays.reduce((best, el) => {
-        const z = Number.parseInt(getComputedStyle(el).zIndex, 10) || 0;
-        const bz = Number.parseInt(getComputedStyle(best).zIndex, 10) || 0;
-        return z > bz || (z === bz && (best.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
-          ? el : best;
-      });
-      const close = top.querySelector<HTMLElement>(
-        ".panelclose, .mkt-close, .info-close, .st-close, .pm-close"
-      );
-      if (!close) return true; // mandatory result/writer-lock screens stay mandatory
-      close.click();
-      return true;
-    }
+    if (this.closeTopOverlay()) return true;
     if (this.el.classList.contains("raiding")) return true;
     if (!this.collapsed) {
       this.collapse();
@@ -800,11 +893,6 @@ export class Hud {
     }
     if (this.mode !== "walk") {
       this.setMode("walk");
-      return true;
-    }
-    if (this.questsShown) {
-      this.questsShown = false;
-      this.questCol.style.display = "none";
       return true;
     }
     return false;
@@ -1216,12 +1304,12 @@ export class Hud {
           cards = next ? [next, ...others] : others;
         }
         return cards.map((c) => {
-          // The Zombie Pot flips to a flat 30 brains once the player has owned one
+          // The Zombie Pot flips to a flat 3 brains once the player has owned one
           // (see GameState.zombiePotBought); the market price must mirror the charge.
           const potPriced = !!c.def.zombiePot && this.state.zombiePotBought;
           return {
             name: c.name, portrait: c.portrait,
-            cost: potPriced ? 30 : c.cost, level: c.level,
+            cost: potPriced ? 3 : c.cost, level: c.level,
             brains: potPriced ? true : c.brainsNeeded,
             description: functionalDescription(c.def),
             onPick: () => { if (this.onBuy) this.onBuy(c.def); bg.remove(); },
@@ -4026,17 +4114,55 @@ export class Hud {
     renderInfoPanel(this.el, title, body);
   }
 
-  private buildQuestToggle() {
+  private buildInvadeShortcut() {
     const btn = document.createElement("button");
-    btn.className = "qtoggle";
+    btn.className = "invade-shortcut";
     const img = document.createElement("img");
-    img.src = UI("menu_profile_icon.png");
-    btn.appendChild(img);
-    btn.onclick = () => {
-      this.questsShown = !this.questsShown;
-      this.questCol.style.display = this.questsShown ? "flex" : "none";
+    img.src = UI("button_invade.png");
+    const timer = document.createElement("span");
+    timer.className = "invade-timer";
+    const refresh = () => {
+      const ms = this.getRaidStatus?.().cooldownMs ?? 0;
+      timer.textContent = ms > 0 ? fmtCooldown(ms) : "Ready";
+      btn.title = ms > 0 ? `Next invasion in ${fmtCooldown(ms)} (I)` : "Invade now (I)";
     };
+    refresh();
+    window.setInterval(refresh, 1000);
+    btn.append(img, timer);
+    btn.onclick = () => this.openRaids();
     this.el.appendChild(btn);
+  }
+
+  private buildCropHover() {
+    this.cropHover = document.createElement("div");
+    this.cropHover.className = "crop-hover";
+    this.el.appendChild(this.cropHover);
+  }
+
+  showCropHover(
+    info: { name: string; ripe: boolean; remainingMs: number; fertilized: boolean } | null,
+    x = 0, y = 0,
+  ) {
+    if (!info) {
+      this.cropHover.style.display = "none";
+      return;
+    }
+    const time = info.ripe ? "Ready to harvest" : `Time remaining: ${fmtCooldown(info.remainingMs)}`;
+    this.cropHover.replaceChildren();
+    const name = document.createElement("strong");
+    name.textContent = info.name;
+    const remaining = document.createElement("span");
+    remaining.textContent = time;
+    this.cropHover.append(name, remaining);
+    if (info.fertilized) {
+      const fertilized = document.createElement("span");
+      fertilized.className = "fertilized";
+      fertilized.textContent = "🍃 Fertilized";
+      this.cropHover.append(fertilized);
+    }
+    this.cropHover.style.left = `${Math.min(window.innerWidth - 170, x + 16)}px`;
+    this.cropHover.style.top = `${Math.min(window.innerHeight - 92, y + 16)}px`;
+    this.cropHover.style.display = "flex";
   }
 
   setMode(m: Mode) {

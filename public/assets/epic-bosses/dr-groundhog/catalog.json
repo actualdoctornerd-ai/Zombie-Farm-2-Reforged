@@ -2,7 +2,7 @@
   "id": "dr-groundhog",
   "sourceId": 1,
   "name": "Dr. Groundhog",
-  "costBrains": 100,
+  "costBrains": 5,
   "durationMs": 1209600000,
   "fightMs": 30000,
   "retryMs": 1200000,

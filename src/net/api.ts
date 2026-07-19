@@ -758,7 +758,7 @@ export const raidStart = (
     /** Golden Dice the server actually consumed + pinned to the session (may be fewer
      *  than asked if the stock ran short). Its loot roll uses this number. */
     dice?: number;
-    /** Server-pinned 10/30/50 brain award. It is visualized during combat but is
+    /** Server-pinned 1/3/5 brain award. It is visualized during combat but is
      * credited only if raidFinish verifies a boss-defeating win. */
     brainDrop?: number;
     concentration?: boolean;

@@ -23,9 +23,9 @@ export interface SizeTier {
 
 /** Farm-size upgrade tiers, in ascending order. Bought sequentially (30→40→50→60). */
 export const SIZE_TIERS: readonly SizeTier[] = [
-  { size: 40, gold: 10000, brains: 60, level: 11 },
-  { size: 50, gold: 50000, brains: 80, level: 21 },
-  { size: 60, gold: 250000, brains: 120, level: 31 },
+  { size: 40, gold: 10000, brains: 6, level: 11 },
+  { size: 50, gold: 50000, brains: 8, level: 21 },
+  { size: 60, gold: 250000, brains: 12, level: 31 },
 ];
 
 /** Ground/climate skin prices (gold). "grass" is the free default (always owned). */

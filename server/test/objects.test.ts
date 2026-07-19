@@ -30,7 +30,7 @@ describe("objectCatalog — mirror of placeables.json", () => {
   });
   it("resolves known keys and rejects unknown", () => {
     expect(objectEcon("daisy")).toMatchObject({ cost: 10, brains: false });
-    expect(objectEcon("skeletonCouple")).toMatchObject({ cost: 30, brains: true });
+    expect(objectEcon("skeletonCouple")).toMatchObject({ cost: 3, brains: true });
     expect(objectEcon("pettingZoo")).toMatchObject({ cost: 200, brains: false, level: -1 });
     expect(objectEcon("nope")).toBeUndefined();
   });
@@ -41,7 +41,7 @@ const MAX_LEVEL = 99; // above every catalog gate
 describe("planObjectBuy — exact price + xp", () => {
   it("debits the right currency and computes buy xp", () => {
     expect(planObjectBuy(objectEcon("daisy"), bal(100, 0), 0, MAX_LEVEL)).toEqual({ ok: true, currency: "gold", cost: 10, xp: 0 });
-    expect(planObjectBuy(objectEcon("skeletonCouple"), bal(0, 100), 0, MAX_LEVEL)).toEqual({ ok: true, currency: "brains", cost: 30, xp: 0 });
+    expect(planObjectBuy(objectEcon("skeletonCouple"), bal(0, 100), 0, MAX_LEVEL)).toEqual({ ok: true, currency: "brains", cost: 3, xp: 0 });
   });
   it("rejects unknown, unaffordable, and free/promo (not purchasable) objects", () => {
     expect(planObjectBuy(objectEcon("nope"), bal(), 0, MAX_LEVEL)).toMatchObject({ ok: false, error: "bad_item" });
@@ -62,7 +62,7 @@ describe("planObjectBuy — exact price + xp", () => {
 describe("planObjectRefund — must own it", () => {
   it("credits the catalog refund in the buy currency when owned", () => {
     expect(planObjectRefund(objectEcon("daisy"), 1)).toEqual({ ok: true, currency: "gold", refund: 2 });
-    expect(planObjectRefund(objectEcon("skeletonCouple"), 2)).toEqual({ ok: true, currency: "brains", refund: 6 });
+    expect(planObjectRefund(objectEcon("skeletonCouple"), 2)).toEqual({ ok: true, currency: "brains", refund: 1 });
   });
   it("rejects refunding an object you don't own, or an unknown key", () => {
     expect(planObjectRefund(objectEcon("daisy"), 0)).toMatchObject({ ok: false, error: "none_owned" });

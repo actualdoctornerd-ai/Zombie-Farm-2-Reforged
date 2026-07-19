@@ -433,7 +433,7 @@ function applyOne(
         object.catalogKey === "zombieCombiner" && object.status === "placed").length >= 3) {
         return reject(sequence, "object_limit");
       }
-      const cost = isZombiePot ? (state.zombiePotBought ? 30 : 500) : econ.cost;
+      const cost = isZombiePot ? (state.zombiePotBought ? 3 : 500) : econ.cost;
       const currency = isZombiePot
         ? (state.zombiePotBought ? "brains" : "gold")
         : (econ.brains ? "brains" : "gold");
