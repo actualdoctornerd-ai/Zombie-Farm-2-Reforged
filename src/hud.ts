@@ -38,6 +38,7 @@ import {
   openSettings as openSettingsPanel, openDevMenu as openDevMenuPanel,
   buildAccountBlock, buildDevicesBlock,
 } from "./ui/panels/settings";
+import { openStorage as openStoragePanel } from "./ui/panels/storage";
 // View-model types + the grave classifier live in hudTypes so panel modules can
 // import them without depending on the whole Hud class. Re-exported below for the
 // existing `from "./hud"` importers (main.ts).
@@ -132,10 +133,10 @@ export class Hud {
   private plantCards: MenuCard[] = [];
   private zombieCards: MenuCard[] = [];
   private blackMarketZombieCards: MenuCard[] = [];
-  private objectCards: ObjCard[] = [];
+  objectCards: ObjCard[] = []; // shared with panel modules (ui/panels/*)
   private farmUpgrades: FarmSizeUpgrade[] = []; // Market Upgrade tab (Farm Size)
   private farmer: FarmerCatalog = { heads: [], bodies: [] };
-  private pets: PetCatalog = { version: 0, pets: [] };
+  pets: PetCatalog = { version: 0, pets: [] }; // shared with panel modules
   private bossActive = false;
   private plantingCrop: CropConfig | null = null;
   private placingObj: PlaceableDef | null = null;
@@ -848,7 +849,7 @@ export class Hud {
   onApplyClimate: ((c: ClimateUpgrade) => void) | null = null;
 
   // Consumable-boost catalog (Market Boosts tab + Storage Boosts inventory).
-  private boosts: BoostDef[] = [];
+  boosts: BoostDef[] = []; // shared with panel modules
   setBoosts(boosts: BoostDef[]) {
     this.boosts = boosts;
   }
@@ -1825,253 +1826,9 @@ export class Hud {
   // grass/flower flanks, and tabs Items / Pets / Boosts / Received. Item capacity
   // comes from the placed shed's tier; pets and received are unlimited.
   // Opened by clicking the shed, Pet Pen, or the Storage button.
+  // Storage panel (Items/Pets/Boosts/Received) lives in ui/panels/storage.ts.
   openStorage(initialTab: string = "Items", managePen = false) {
-    document.querySelector("#hud .st-bg")?.remove();
-    const bg = document.createElement("div");
-    bg.className = "st-bg";
-    const st = document.createElement("div");
-    st.className = "st";
-
-    const close = document.createElement("button");
-    close.className = "st-close";
-    const ci = document.createElement("img");
-    ci.src = UI("button_close.png");
-    close.appendChild(ci);
-    close.onclick = () => bg.remove();
-
-    const header = document.createElement("div");
-    header.className = "st-header";
-    const fl = document.createElement("img");
-    fl.className = "flank";
-    fl.src = BASE + "assets/ui/storage/board_items_left.png";
-    const banner = document.createElement("div");
-    banner.className = "st-banner";
-    banner.textContent = "Storage";
-    const fr = document.createElement("img");
-    fr.className = "flank";
-    fr.src = BASE + "assets/ui/storage/board_item_right.png";
-    header.append(fl, banner, fr);
-
-    const tabsEl = document.createElement("div");
-    tabsEl.className = "st-tabs";
-    const count = document.createElement("div");
-    count.className = "st-count";
-    const body = document.createElement("div");
-    body.className = "st-body";
-
-    const portraitOf = (key: string) =>
-      this.objectCards.find((c) => c.def.key === key)?.portrait;
-
-    let tab = ["Items", "Pets", "Boosts", "Received"].includes(initialTab) ? initialTab : "Items";
-    const render = () => {
-      body.innerHTML = "";
-      body.scrollTop = 0;
-      if (tab === "Items") {
-        const used = this.state.storedItemTotal();
-        count.textContent = `${used} / ${this.state.storageItemCap} slots`;
-        const hint = document.createElement("div");
-        hint.className = "st-hint";
-        hint.textContent = used
-          ? "Tap a stored item to place it back on the farm."
-          : "Store decorations by tapping them on the farm.";
-        body.appendChild(hint);
-        const grid = document.createElement("div");
-        grid.className = "st-grid";
-        // One slot per stored stack (repeated by count), padded to capacity.
-        const flat: string[] = [];
-        for (const it of this.state.storedItems)
-          for (let k = 0; k < it.count; k++) flat.push(it.key);
-        for (let i = 0; i < this.state.storageItemCap; i++) {
-          const slot = document.createElement("div");
-          slot.className = "st-slot";
-          const key = flat[i];
-          if (key) {
-            const img = document.createElement("img");
-            const p = portraitOf(key);
-            if (p) img.src = p;
-            slot.appendChild(img);
-            slot.classList.add("filled");
-            slot.title = "Place on farm";
-            slot.onclick = () => {
-              bg.remove();
-              this.onRetrieveItem?.(key);
-            };
-          }
-          grid.appendChild(slot);
-        }
-        body.appendChild(grid);
-      } else if (tab === "Pets") {
-        count.textContent = managePen
-          ? `${this.state.penPets.length} / 4 in pen`
-          : `${this.state.ownedPets.length} pet${this.state.ownedPets.length === 1 ? "" : "s"}`;
-        const hint = document.createElement("div");
-        hint.className = "st-hint";
-        hint.textContent = this.state.ownedPets.length
-          ? managePen
-            ? "Choose up to four pets to wander inside this pen."
-            : "Tap a pet to make it your active companion."
-          : "Adopt pets from the Market's Pets tab.";
-        body.appendChild(hint);
-        if (!managePen && this.state.activePet) {
-          const hide = document.createElement("button");
-          hide.className = "st-use";
-          hide.textContent = "Hide Active Pet";
-          hide.onclick = () => { this.onEquipPet?.(null); render(); };
-          body.appendChild(hide);
-        }
-        const grid = document.createElement("div");
-        grid.className = "st-grid";
-        for (const key of this.state.ownedPets) {
-          const pet = this.pets.pets.find((candidate) => candidate.key === key);
-          if (!pet) continue;
-          const slot = document.createElement("button");
-          const selected = managePen ? this.state.penPets.includes(key) : this.state.activePet === key;
-          slot.className = "st-slot st-petslot" + (selected ? " filled" : "");
-          slot.title = managePen
-            ? selected ? `Remove ${pet.name} from pen` : `Deploy ${pet.name} in pen`
-            : selected ? `${pet.name} (active)` : `Activate ${pet.name}`;
-          const img = document.createElement("img");
-          img.src = `${BASE}assets/pets/${pet.portrait}`;
-          img.alt = pet.name;
-          slot.appendChild(img);
-          slot.onclick = () => {
-            if (managePen) {
-              const next = selected
-                ? this.state.penPets.filter((candidate) => candidate !== key)
-                : this.state.penPets.length < 4 ? [...this.state.penPets, key] : null;
-              if (!next) return;
-              this.onSetPenPets?.(next.flatMap((petKey) => {
-                const found = this.pets.pets.find((candidate) => candidate.key === petKey);
-                return found ? [found] : [];
-              }));
-            } else this.onEquipPet?.(pet);
-            render();
-          };
-          grid.appendChild(slot);
-        }
-        body.appendChild(grid);
-      } else if (tab === "Boosts") {
-        const total = this.state.boostInv.reduce((a, b) => a + b.count, 0);
-        count.textContent = `${total} boosts`;
-        if (!total) {
-          const e = document.createElement("div");
-          e.className = "st-empty";
-          e.textContent = "Buy boosts from the Market's Boosts tab.";
-          body.appendChild(e);
-        } else {
-          const list = document.createElement("div");
-          list.className = "st-boostlist";
-          for (const inv of this.state.boostInv) {
-            const def = this.boosts.find((b) => b.key === inv.key);
-            if (!def) continue;
-            const row = document.createElement("div");
-            row.className = "st-boost";
-            const img = document.createElement("img");
-            img.src = `${BASE}assets/boosts/${def.icon}`;
-            const info = document.createElement("div");
-            info.className = "st-boost-info";
-            info.innerHTML =
-              `<div class="nm">${def.name} <span class="ct">x${inv.count}</span></div>` +
-              `<div class="ds">${def.info || def.flavorText}</div>`;
-            const btn = document.createElement("button");
-            btn.className = "st-use";
-            if (def.effect === "grow") {
-              // Insta-Grow is a manual tool, not an auto-apply: equip it so the
-              // player taps each crop to ripen (rather than auto-growing nearby ones).
-              btn.textContent = "Equip";
-              btn.onclick = () => { bg.remove(); this.setMode("instagrow"); };
-            } else if (def.usableOnFarm) {
-              btn.textContent = "Use";
-              btn.onclick = () => { this.onUseBoost?.(def); render(); };
-            } else {
-              // Battle boosts (Invasion Voucher / Concentration / Golden Dice) are all
-              // chosen on the Invade screens, not from Storage — so just label them.
-              btn.textContent = "At Invade";
-              btn.disabled = true;
-            }
-            row.append(img, info, btn);
-            list.appendChild(row);
-          }
-          body.appendChild(list);
-        }
-      } else {
-        const views = this.getReceived?.() ?? [];
-        count.textContent = `${views.length} item${views.length === 1 ? "" : "s"}`;
-        if (!views.length) {
-          const e = document.createElement("div");
-          e.className = "st-empty";
-          e.textContent = "Rewards from raids and quests appear here.";
-          body.appendChild(e);
-        } else {
-          const hint = document.createElement("div");
-          hint.className = "st-hint";
-          hint.textContent = "Claim rewards, or place decorations on your farm.";
-          body.appendChild(hint);
-          const grid = document.createElement("div");
-          grid.className = "rcv-grid";
-          for (const v of views) grid.appendChild(this.receivedCard(v, bg, render));
-          body.appendChild(grid);
-        }
-      }
-    };
-
-    const tabBtns: Record<string, HTMLButtonElement> = {};
-    for (const name of ["Items", "Pets", "Boosts", "Received"]) {
-      const b = document.createElement("button");
-      b.className = "st-tab" + (name === tab ? " sel" : "");
-      b.textContent = name;
-      b.onclick = () => {
-        this.audio.play("menuClick");
-        tab = name;
-        Object.values(tabBtns).forEach((x) => x.classList.remove("sel"));
-        b.classList.add("sel");
-        render();
-      };
-      tabBtns[name] = b;
-      tabsEl.appendChild(b);
-    }
-
-    st.append(close, header, tabsEl, count, body);
-    bg.appendChild(st);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
-    this.el.appendChild(bg);
-    render();
-  }
-
-  // Build one Received-tab reward card. Placeables enter placement (closing the
-  // panel); boosts/currency claim in place (re-rendering the tab); trophies —
-  // loot decor with no placeable form in this build — are display-only.
-  private receivedCard(v: ReceivedView, bg: HTMLElement, rerender: () => void): HTMLElement {
-    const card = document.createElement("div");
-    card.className = "rcv-card" + (v.actionLabel ? "" : " trophy");
-    const por = document.createElement("div");
-    por.className = "rcv-por";
-    if (v.icon) {
-      const img = document.createElement("img");
-      img.src = v.icon;
-      por.appendChild(img);
-    }
-    const nm = document.createElement("div");
-    nm.className = "rcv-nm";
-    nm.textContent = v.name;
-    card.append(por, nm);
-    if (v.actionLabel) {
-      const btn = document.createElement("button");
-      btn.className = "st-use rcv-act";
-      btn.textContent = v.actionLabel;
-      if (v.kind === "placeable") {
-        btn.onclick = () => { bg.remove(); this.onPlaceReceived?.(v.index); };
-      } else {
-        btn.onclick = () => { this.onClaimReceived?.(v.index); rerender(); };
-      }
-      card.appendChild(btn);
-    } else {
-      const tag = document.createElement("div");
-      tag.className = "rcv-trophy";
-      tag.textContent = "Trophy";
-      card.appendChild(tag);
-    }
-    return card;
+    openStoragePanel(this, initialTab, managePen);
   }
 
   // Slide-in picker from the left (opened by the select tool on tilled ground).
