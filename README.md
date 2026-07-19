@@ -92,7 +92,7 @@ future agents do not work from stale assumptions.
 
 ### Saving and testing
 - Versioned save (local, or synchronized to the server when online) for farm, objects, zombies, boosts, quests, raids, Epic Boss runs, climate, and Zombie Pot jobs.
-- Automated Vitest suites exist for both client (`npm test`) and server (economy, loot, combat stats/prediction, mutations, Zombie Pot, ability unlocking, raid catalog/ordering, friend logic, and the server-side friend-visit save projection). Coverage is incomplete and the deploy workflow does not currently run the tests.
+- Automated Vitest suites exist for both client (`npm test`) and server (economy, loot, combat stats/prediction, mutations, Zombie Pot, ability unlocking, raid catalog/ordering, friend logic, and the server-side friend-visit save projection). Coverage is incomplete; the GitHub Pages deploy is gated by the client suite, and the Worker deploy is gated by migration validation, the server suite, and typechecking.
 
 `window.ZF` exposes debug handles including app, world, field, farmer, zombies, state, HUD,
 jobs, audio, save manager, quests, quest bus, raids, and helper functions (e.g. `ZF.runRaid`, which uses the retained headless resolver).
@@ -108,7 +108,7 @@ Qualifiers: *implemented*, *partially implemented*, *placeholder*, *disabled*, *
 - **Settings toggles — Sprites & Edition (placeholder):** the **ZF2 Sprites** and **Reforged/Traditional** switches persist a preference (`src/prefs.ts`) but do nothing yet. Sprites needs a ZF1 art pack and a runtime swap keyed off `getSpriteSet()`; Traditional needs feature gates so the online/friends surfaces read `isReforged()` and hide when it is off.
 - **QoL/UI (missing):** Received item cards/reveal/use flow, save reset/export/import, and fuller settings/help menus are missing.
 - **Assets (partially wired):** raid particle FX are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage assets are extracted but not wired into runtime systems.
-- **Tests/CI (partially implemented):** Vitest suites exist for client and server, but coverage is incomplete and the deploy workflow does not run them.
+- **Tests/CI (partially implemented):** Vitest suites exist for client and server, and both deployment workflows are test-gated. Coverage remains incomplete, and pull requests are not yet gated before merge.
 
 ## Run It Locally
 
@@ -166,10 +166,11 @@ cd server && npm run typecheck
 ## Deployment (GitHub Pages)
 
 The GitHub Actions workflow (`.github/workflows/deploy.yml`) runs on every push to
-`main`: it builds `dist/` and **force-pushes the output to the `gh-pages`
-branch**. The production online config (`VITE_API_URL`, `VITE_GOOGLE_CLIENT_ID`)
-is committed in `.env.production` — both values are public, so nothing is injected
-at build time.
+`main`: it installs dependencies, runs the client Vitest suite, builds `dist/`, and
+then **force-pushes the output to the `gh-pages` branch**. A test or build failure
+leaves the currently deployed site unchanged. The production online config
+(`VITE_API_URL`, `VITE_GOOGLE_CLIENT_ID`) is committed in `.env.production` — both
+values are public, so nothing is injected at build time.
 
 To serve it:
 
