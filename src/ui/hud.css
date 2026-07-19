@@ -147,19 +147,19 @@
 /* During a live raid the battle scene owns the screen: hide the farm chrome but
    keep raid panels (.panelbg) visible. */
 #hud.raiding .topbar, #hud.raiding .tools, #hud.raiding .menucol,
-#hud.raiding .questcol, #hud.raiding .qtoggle, #hud.raiding .fab,
-#hud.raiding .touch-cancel { display: none !important; }
+#hud.raiding .questcol, #hud.raiding .invade-shortcut, #hud.raiding .fab,
+#hud.raiding .touch-cancel, #hud.raiding .crop-hover { display: none !important; }
 /* "u" key: hide all farm chrome for a clean, unobstructed view of the farm. */
 #hud.ui-hidden .topbar, #hud.ui-hidden .tools, #hud.ui-hidden .menucol,
-#hud.ui-hidden .questcol, #hud.ui-hidden .qtoggle, #hud.ui-hidden .fab,
+#hud.ui-hidden .questcol, #hud.ui-hidden .invade-shortcut, #hud.ui-hidden .fab,
 #hud.ui-hidden .touch-cancel,
-#hud.ui-hidden .plantlabel { display: none !important; }
+#hud.ui-hidden .plantlabel, #hud.ui-hidden .crop-hover { display: none !important; }
 /* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
    surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
    camera, zombie inspect, and the visit banner remain. */
 #hud.visiting .topbar, #hud.visiting .tools, #hud.visiting .menucol,
-#hud.visiting .questcol, #hud.visiting .qtoggle, #hud.visiting .fab,
-#hud.visiting .touch-cancel { display: none !important; }
+#hud.visiting .questcol, #hud.visiting .invade-shortcut, #hud.visiting .fab,
+#hud.visiting .touch-cancel, #hud.visiting .crop-hover { display: none !important; }
 #hud .visit-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
   pointer-events: auto; display: flex; align-items: center; gap: 12px;
   background: rgba(30,45,20,.82); color: #fff; padding: 8px 12px 8px 16px;
@@ -180,11 +180,21 @@
 #hud .tool .lbl { position: absolute; bottom: -12px; left: 0; right: 0; text-align: center;
   font-size: 10px; color: #fff; font-weight: 700; text-shadow: 0 1px 2px #000; }
 
-/* bottom-left: quests toggle */
-#hud .qtoggle { position: fixed; left: 10px; bottom: 10px; pointer-events: auto;
-  border: none; background: none; cursor: pointer;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
-#hud .qtoggle img { height: 56px; }
+/* bottom-left: always-reachable invasion shortcut with live cooldown */
+#hud .invade-shortcut { position: fixed; left: 10px; bottom: 10px; width: 72px;
+  pointer-events: auto; border: none; background: none; cursor: pointer; padding: 0;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
+#hud .invade-shortcut img { width: 62px; height: 62px; object-fit: contain; }
+#hud .invade-timer { display: block; margin-top: -9px; padding: 2px 5px; border-radius: 8px;
+  background: rgba(72,10,24,.92); border: 1px solid #c04155; color: #fff;
+  font: 800 11px system-ui,sans-serif; text-align: center; text-shadow: 0 1px 1px #000; }
+
+#hud .crop-hover { position: fixed; z-index: 18; display: none; flex-direction: column;
+  pointer-events: none; min-width: 140px; gap: 2px; padding: 7px 10px; border-radius: 9px;
+  background: rgba(35,24,12,.94); border: 2px solid #8f713c; color: #f4e9cf;
+  box-shadow: 0 3px 8px rgba(0,0,0,.5); font: 12px system-ui,sans-serif; text-shadow: 0 1px 1px #000; }
+#hud .crop-hover strong { color: #fff3bf; font-size: 13px; }
+#hud .crop-hover .fertilized { color: #a9e66f; font-weight: 700; }
 
 /* bottom-right: collapsed HUD -> single button showing the active tool */
 #hud .fab { position: fixed; right: 14px; bottom: 12px; width: 62px; height: 62px;
@@ -263,6 +273,10 @@
 #hud .set-row { display: flex; align-items: center; justify-content: space-between;
   gap: 24px; min-width: 240px; padding: 8px 2px; font-size: 15px; font-weight: 700; }
 #hud .set-row + .set-row { border-top: 1px solid rgba(255,255,255,.15); }
+#hud .set-volume-controls { display: flex; align-items: center; gap: 8px; }
+#hud .set-volume input[type="range"] { width: 120px; accent-color: #76ad3c; cursor: pointer; }
+#hud .set-volume-value { width: 38px; color: #d9efb7; font: 700 12px ui-monospace,monospace;
+  text-align: right; }
 #hud .set-action { min-width: 112px; padding: 6px 12px; border: 2px solid #14240a;
   border-radius: 8px; cursor: pointer; color: #fff; font: 800 12px system-ui, sans-serif;
   text-shadow: 0 1px 1px #000; background: linear-gradient(#7ea63a, #55972a); }
@@ -1036,7 +1050,7 @@
     right: calc(14px + env(safe-area-inset-right)); }
   #hud .touch-cancel { bottom: calc(17px + env(safe-area-inset-bottom));
     right: calc(88px + env(safe-area-inset-right)); }
-  #hud .qtoggle { bottom: calc(10px + env(safe-area-inset-bottom));
+  #hud .invade-shortcut { bottom: calc(10px + env(safe-area-inset-bottom));
     left: calc(10px + env(safe-area-inset-left)); }
 }
 
@@ -1100,7 +1114,7 @@
    the full bottom bar; refreshTools() already keeps this icon and boost count live. */
 #hud.tutorial .tools { display: none !important; }
 #hud.tutorial .fab { display: block !important; }
-#hud.tutorial .qtoggle { display: none !important; }
+#hud.tutorial .invade-shortcut { display: none !important; }
 /* Full-screen tap blocker: only present while a step gates input. It swallows
    every DOM tap so nothing but the highlighted element is reachable. */
 #hud.tutorial .tut-blocker { position: fixed; inset: 0; pointer-events: auto;

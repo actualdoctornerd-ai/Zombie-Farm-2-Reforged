@@ -111,4 +111,27 @@ describe("AudioManager focus muting", () => {
     expect(music.paused).toBe(true);
     expect(ambience.paused).toBe(true);
   });
+
+  it("restores and applies independent channel volumes", () => {
+    storage.set(SETTINGS_KEY, JSON.stringify({
+      musicVolume: 0.5, sfxVolume: 0.25, ambienceVolume: 0.4,
+    }));
+    const audio = new AudioManager();
+    const [music, ambience] = MockAudio.instances;
+
+    expect(music.volume).toBeCloseTo(0.2);
+    expect(ambience.volume).toBeCloseTo(0.1);
+
+    audio.play("buy");
+    expect(MockAudio.instances[MockAudio.instances.length - 1].volume).toBeCloseTo(0.55 * 0.25);
+
+    audio.setMusicVolume(0.75);
+    audio.setSfxVolume(0.6);
+    audio.setAmbienceVolume(0.8);
+    expect(music.volume).toBeCloseTo(0.3);
+    expect(ambience.volume).toBeCloseTo(0.2);
+    expect(JSON.parse(storage.get(SETTINGS_KEY)!)).toMatchObject({
+      musicVolume: 0.75, sfxVolume: 0.6, ambienceVolume: 0.8,
+    });
+  });
 });

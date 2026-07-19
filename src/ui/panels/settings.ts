@@ -26,6 +26,32 @@ function settingRow(label: string, on: boolean, set: (v: boolean) => void) {
   return r;
 }
 
+function volumeRow(label: string, value: number, set: (v: number) => void) {
+  const r = document.createElement("label");
+  r.className = "set-row set-volume";
+  const lbl = document.createElement("span");
+  lbl.textContent = label;
+  const controls = document.createElement("span");
+  controls.className = "set-volume-controls";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "0";
+  slider.max = "100";
+  slider.step = "1";
+  slider.value = String(Math.round(value * 100));
+  slider.setAttribute("aria-label", `${label} volume`);
+  const amount = document.createElement("span");
+  amount.className = "set-volume-value";
+  amount.textContent = `${slider.value}%`;
+  slider.oninput = () => {
+    amount.textContent = `${slider.value}%`;
+    set(Number(slider.value) / 100);
+  };
+  controls.append(slider, amount);
+  r.append(lbl, controls);
+  return r;
+}
+
 // Reusable label + segmented multi-choice row (a small pill button per option).
 function settingChoiceRow<T extends string>(
   label: string,
@@ -206,8 +232,11 @@ export function openSettings(hud: Hud): void {
 
   panel.append(
     row("Music", hud.audio.musicOn, (v) => hud.audio.setMusic(v)),
+    volumeRow("Music Volume", hud.audio.musicVolume, (v) => hud.audio.setMusicVolume(v)),
     row("Sound Effects", hud.audio.sfxOn, (v) => hud.audio.setSfx(v)),
+    volumeRow("Effects Volume", hud.audio.sfxVolume, (v) => hud.audio.setSfxVolume(v)),
     row("Ambience", hud.audio.ambienceOn, (v) => hud.audio.setAmbience(v)),
+    volumeRow("Ambience Volume", hud.audio.ambienceVolume, (v) => hud.audio.setAmbienceVolume(v)),
     row("Mute When Unfocused", hud.audio.muteWhenUnfocused,
       (v) => hud.audio.setMuteWhenUnfocused(v)),
     noteEl("Silence the game while its tab or window is in the background."),

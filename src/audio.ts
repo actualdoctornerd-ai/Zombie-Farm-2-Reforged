@@ -73,13 +73,24 @@ interface StoredSettings {
   music?: boolean;
   sfx?: boolean;
   ambience?: boolean;
+  musicVolume?: number;
+  sfxVolume?: number;
+  ambienceVolume?: number;
   muteWhenUnfocused?: boolean;
 }
+
+const clampVolume = (value: unknown, fallback = 1): number =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.min(1, value))
+    : fallback;
 
 export class AudioManager {
   musicOn = true;
   sfxOn = true;
   ambienceOn = true;
+  musicVolume = 1;
+  sfxVolume = 1;
+  ambienceVolume = 1;
   muteWhenUnfocused = false;
   private bgm: HTMLAudioElement;
   private ambBed: HTMLAudioElement;
@@ -110,7 +121,12 @@ export class AudioManager {
     this.musicOn = s.music ?? true;
     this.sfxOn = s.sfx ?? true;
     this.ambienceOn = s.ambience ?? true;
+    this.musicVolume = clampVolume(s.musicVolume);
+    this.sfxVolume = clampVolume(s.sfxVolume);
+    this.ambienceVolume = clampVolume(s.ambienceVolume);
     this.muteWhenUnfocused = s.muteWhenUnfocused ?? false;
+    this.bgm.volume = 0.4 * this.musicVolume;
+    this.ambBed.volume = 0.25 * this.ambienceVolume;
 
     // `visibilitychange` covers background tabs/minimized windows while the
     // focus events also cover switching to another desktop window.
@@ -133,6 +149,8 @@ export class AudioManager {
   private persist() {
     const data: StoredSettings = {
       music: this.musicOn, sfx: this.sfxOn, ambience: this.ambienceOn,
+      musicVolume: this.musicVolume, sfxVolume: this.sfxVolume,
+      ambienceVolume: this.ambienceVolume,
       muteWhenUnfocused: this.muteWhenUnfocused,
     };
     try {
@@ -193,6 +211,13 @@ export class AudioManager {
     this.persist();
   }
 
+  setMusicVolume(value: number) {
+    this.musicVolume = clampVolume(value);
+    this.bgm.volume = 0.4 * this.musicVolume;
+    if (this.raidBgm) this.raidBgm.volume = 0.4 * this.musicVolume;
+    this.persist();
+  }
+
   // Enter a raid: swap the farm bgm for the raid's looping stage BGM (`file` is a
   // filename under assets/audio/). Safe to call regardless of the music toggle —
   // it only actually plays when music is on. No-op if the same track is already up.
@@ -203,7 +228,7 @@ export class AudioManager {
       this.bgm.pause();     // farm bed steps aside for the whole raid
       const a = new Audio(A(file));
       a.loop = true;
-      a.volume = 0.4;
+      a.volume = 0.4 * this.musicVolume;
       this.raidBgm = a;
       this.raidFile = file;
     }
@@ -228,6 +253,11 @@ export class AudioManager {
     this.persist();
   }
 
+  setSfxVolume(value: number) {
+    this.sfxVolume = clampVolume(value);
+    this.persist();
+  }
+
   // Fire-and-forget one-shot (new element each time so overlaps don't cut off).
   play(name: Sfx) {
     if (!this.sfxOn || !this.canPlay()) return;
@@ -247,9 +277,9 @@ export class AudioManager {
     this.playOneShot(file, 0.7);
   }
 
-  private playOneShot(file: string, volume: number) {
+  private playOneShot(file: string, volume: number, channelVolume = this.sfxVolume) {
     const a = new Audio(A(file));
-    a.volume = volume;
+    a.volume = volume * channelVolume;
     this.oneShots.add(a);
     const done = () => this.oneShots.delete(a);
     a.addEventListener("ended", done, { once: true });
@@ -262,6 +292,12 @@ export class AudioManager {
     this.ambienceOn = on;
     if (on && this.canPlay()) this.startAmbience();
     else this.stopAmbience();
+    this.persist();
+  }
+
+  setAmbienceVolume(value: number) {
+    this.ambienceVolume = clampVolume(value);
+    this.ambBed.volume = 0.25 * this.ambienceVolume;
     this.persist();
   }
 
@@ -284,7 +320,7 @@ export class AudioManager {
     this.ambTimer = setTimeout(() => {
       if (this.ambienceOn && this.canPlay()) {
         const file = AMBIENCE_ONESHOTS[Math.floor(Math.random() * AMBIENCE_ONESHOTS.length)];
-        this.playOneShot(file, 0.3);
+        this.playOneShot(file, 0.3, this.ambienceVolume);
         this.scheduleAmbienceOneShot();
       }
     }, delay);
