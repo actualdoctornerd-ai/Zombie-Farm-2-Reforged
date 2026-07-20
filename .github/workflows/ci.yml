@@ -1,0 +1,61 @@
+name: CI
+
+# Gates pull requests. Deployment lives in deploy.yml (Pages, on push to main) and
+# deploy-server.yml (Worker, manual) — this workflow only validates, never deploys.
+# It needs no secrets, so it runs safely on forked pull requests.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same PR cancels the in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  client:
+    name: Client (test + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Test
+        run: npm test
+      # `npm run build` is `tsc && vite build`, so this is the client typecheck too.
+      - name: Typecheck and build
+        run: npm run build
+
+  server:
+    name: Server (test + typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - name: Verify migrations
+        run: npm run migrations:check
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Integration tests
+        run: npm run test:integration

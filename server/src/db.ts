@@ -521,8 +521,8 @@ export async function markGiftClaimed(
 }
 
 /** Atomically consume an addressed gift, record its idempotency grant, and credit one
- * brain. Every side effect is guarded by this attempt's grant id, so concurrent claims
- * have one winner and a failed batch cannot hide a gift without its brain. */
+ * brain. Legacy versions could leave a grant behind while the gift stayed unclaimed;
+ * this transaction heals both settled and pending orphan grants without double credit. */
 export async function claimGiftBrain(
   db: D1Database,
   giftId: string,
@@ -532,27 +532,35 @@ export async function claimGiftBrain(
   seed: Balance
 ): Promise<boolean> {
   await getOrSeedBalance(db, accountId, seed);
-  const guard = "EXISTS(SELECT 1 FROM grants WHERE id=? AND source_gift_id=? AND account_id=?)";
+  const fence = "EXISTS(SELECT 1 FROM account_runtime_v3 WHERE account_id=? AND active_batch_id=?)";
   const result = await db.batch([
     db.prepare(`UPDATE account_runtime_v3 SET active_batch_id=?,active_batch_expires_at=?,
       account_version=account_version+1,updated_at=? WHERE account_id=?
-      AND (active_batch_id IS NULL OR active_batch_expires_at<=?)`)
-      .bind(grantId, now + 120_000, now, accountId, now),
+      AND (active_batch_id IS NULL OR active_batch_expires_at<=?)
+      AND EXISTS(SELECT 1 FROM gifts WHERE id=? AND to_id=? AND claimed_at IS NULL)`)
+      .bind(grantId, now + 120_000, now, accountId, now, giftId, accountId),
     db.prepare(`INSERT OR IGNORE INTO grants
       (id,account_id,kind,amount,source_gift_id,created_at,settled_at)
-      SELECT ?,?,'brain',1,id,?,? FROM gifts
+      SELECT ?,?,'brain',1,id,?,NULL FROM gifts
       WHERE id=? AND to_id=? AND claimed_at IS NULL
       AND EXISTS(SELECT 1 FROM account_runtime_v3 WHERE account_id=? AND active_batch_id=?)`)
-      .bind(grantId, accountId, now, now, giftId, accountId, accountId, grantId),
-    db.prepare(`UPDATE balances SET brains=brains+1 WHERE account_id=? AND ${guard}`)
-      .bind(accountId, grantId, giftId, accountId),
-    db.prepare(`UPDATE gifts SET claimed_at=? WHERE id=? AND to_id=? AND claimed_at IS NULL AND ${guard}`)
-      .bind(now, giftId, accountId, grantId, giftId, accountId),
+      .bind(grantId, accountId, now, giftId, accountId, accountId, grantId),
+    db.prepare(`UPDATE balances SET brains=brains+COALESCE((SELECT amount FROM grants
+      WHERE source_gift_id=? AND account_id=? AND kind='brain' AND settled_at IS NULL),0)
+      WHERE account_id=? AND EXISTS(SELECT 1 FROM grants WHERE source_gift_id=?
+      AND account_id=? AND kind='brain' AND settled_at IS NULL) AND ${fence}`)
+      .bind(giftId, accountId, accountId, giftId, accountId, accountId, grantId),
+    db.prepare(`UPDATE grants SET settled_at=? WHERE source_gift_id=? AND account_id=?
+      AND kind='brain' AND settled_at IS NULL AND ${fence}`)
+      .bind(now, giftId, accountId, accountId, grantId),
+    db.prepare(`UPDATE gifts SET claimed_at=? WHERE id=? AND to_id=? AND claimed_at IS NULL
+      AND EXISTS(SELECT 1 FROM grants WHERE source_gift_id=? AND account_id=?
+        AND kind='brain' AND settled_at IS NOT NULL) AND ${fence}`)
+      .bind(now, giftId, accountId, giftId, accountId, accountId, grantId),
     db.prepare(`UPDATE account_runtime_v3 SET active_batch_id=NULL,active_batch_expires_at=0,updated_at=?
       WHERE account_id=? AND active_batch_id=?`).bind(now, accountId, grantId),
   ]);
-  return (result[0]?.meta.changes ?? 0) === 1 && (result[1]?.meta.changes ?? 0) === 1 &&
-    (result[2]?.meta.changes ?? 0) === 1 && (result[3]?.meta.changes ?? 0) === 1;
+  return (result[0]?.meta.changes ?? 0) === 1 && (result[4]?.meta.changes ?? 0) === 1;
 }
 
 /** Record a PENDING grant (settled_at NULL) keyed by its source gift id, IF one

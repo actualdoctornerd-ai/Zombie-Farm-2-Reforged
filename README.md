@@ -29,20 +29,35 @@ farm visits all exist. It is **not** content-complete or fully faithful to every
 original system. The biggest remaining work is raid breadth/fidelity, pets,
 missing QoL menus, and broader asset integration.
 
-Authoritative planning/status docs live **outside this repo** and are the
-development-side references (they are intentionally not published here):
+### Where the docs live
 
-- `../ZF2R_extracted/docs/mechanics/IMPLEMENTATION_STATUS.md` - current implementation audit.
-- `../ZF2R_extracted/docs/mechanics/IMPLEMENTATION_ROADMAP.md` - phased roadmap.
-- `../ZF2R_extracted/docs/mechanics/MECHANICS.md` - source mechanics reference.
+Everything a contributor needs is in this repo:
+
+| Doc | Covers |
+|---|---|
+| [README.md](README.md) | This file — what's implemented, gaps, how to run it |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to set up, test, and open a pull request |
+| [SECURITY.md](SECURITY.md) | Anti-cheat posture, threat model, release gates |
+| [PROVENANCE.md](PROVENANCE.md) | What this is derived from, and what it is not |
+| [server/README.md](server/README.md) | API surface, local Worker setup, ops notes |
+| [server/RUNBOOK.md](server/RUNBOOK.md) | Incident response and operational procedures |
+| [docs/](docs/) | Per-system deep dives (Epic Bosses, Black Market, protocol rollout, recovered mechanics) |
+
+Some **source-extraction** references (the disassembly notes, the raw mechanics
+audit, and the phased roadmap) live outside this repo under `../ZF2R_extracted/`,
+because they are bound up with the extracted commercial game bundle and are not
+redistributable. You do **not** need them to contribute — anything load-bearing that
+comes out of them gets written up in `docs/mechanics/` here. If you hit a gameplay
+question that only those notes can answer, open an issue and ask; the answer will be
+copied into the repo rather than left external.
 
 ## Documentation Rule
 
 When changing gameplay behavior, generated asset coverage, menus, save schema, the
-online/social layer, or deployment, update this README and
-`../ZF2R_extracted/docs/mechanics/IMPLEMENTATION_STATUS.md` in the same change. If a
-change adds or removes a known gap, update the "Current Gaps" section there so
-future agents do not work from stale assumptions.
+online/social layer, or deployment, update this README **in the same change**. If a
+change adds or removes a known gap, update the "Current Gaps" section below so nobody
+works from stale assumptions. Security-relevant changes to the server or raid path
+must also update [SECURITY.md](SECURITY.md) and [server/README.md](server/README.md).
 
 ## Implemented
 
@@ -111,7 +126,7 @@ Qualifiers: *implemented*, *partially implemented*, *placeholder*, *disabled*, *
 - **Settings toggles — Sprites & Edition (placeholder):** the **ZF2 Sprites** and **Reforged/Traditional** switches persist a preference (`src/prefs.ts`) but do nothing yet. Sprites needs a ZF1 art pack and a runtime swap keyed off `getSpriteSet()`; Traditional needs feature gates so the online/friends surfaces read `isReforged()` and hide when it is off.
 - **QoL/UI (missing):** Received item cards/reveal/use flow, save reset/export/import, and fuller settings/help menus are missing.
 - **Assets (partially wired):** raid particle FX are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, raid/combat audio, many terrain tiles, and many stage assets are extracted but not wired into runtime systems.
-- **Tests/CI (partially implemented):** Vitest suites exist for client and server, and both deployment workflows are test-gated. Coverage remains incomplete, and pull requests are not yet gated before merge.
+- **Tests/CI (partially implemented):** Vitest suites exist for client and server; pull requests are gated by `.github/workflows/ci.yml` (client tests + build, server tests + integration + typecheck + migration check), and both deployment workflows are test-gated. Coverage remains incomplete — notably the HUD/DOM layer, which is largely untested.
 
 ## Run It Locally
 
@@ -161,10 +176,28 @@ npm run preview    # serve the built dist/ locally
 ## Tests
 
 ```bash
-npm test                 # client Vitest suite
-cd server && npm test    # server Vitest suite
-cd server && npm run typecheck
+npm test                            # client suite — 52 files, 295 tests
+npm run build                       # tsc typecheck + vite build
+
+cd server
+npm test                            # server unit suite — 18 files, 247 tests
+npm run test:integration            # route-level integration — 20 tests
+npm run typecheck                   # tsc --noEmit
+npm run migrations:check            # validate migration ordering/numbering
 ```
+
+The integration suite boots a real `wrangler dev` Worker with local D1 and drives it
+over HTTP (it can't use `@cloudflare/vitest-pool-workers` — that pool breaks on paths
+containing a space). It is slower than the unit suites and runs single-threaded,
+since every spec shares one Worker and database.
+
+Note that `vitest.integration.config.ts` **allowlists** which specs run — currently
+`v3.spec.ts` and `blackMarket.spec.ts`. The other files in `test/integration/` are
+retired protocol-v2 specs that are not executed; don't assume a green run covered
+them.
+
+CI runs all of these on every pull request (`.github/workflows/ci.yml`). Run them
+locally before opening one — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Deployment (GitHub Pages)
 
@@ -214,23 +247,41 @@ python tools/prep_boosts.py
 python tools/prep_quests.py
 python tools/prep_raids.py
 python tools/prep_drops.py
+python tools/prep_pets.py
+python tools/prep_enemies.py
+python tools/prep_upgrades.py
+python tools/prep_epic_bosses.py
 ```
+
+`tools/sprite_assembler.html` (built by `tools/build_sprite_assembler.py`) is a
+hands-on drag/rotate/pivot editor for hand-authoring zombie `models.json`; its
+export round-trips the same schema the runtime reads.
 
 ## Layout
 
 | Path | Role |
 |---|---|
 | `src/main.ts` | App boot, auth gate, game wiring, input, debug hooks |
-| `src/hud.ts` | DOM HUD, menus, market, storage, raids, zombie/quest/social panels |
+| `src/hud.ts` | DOM HUD shell: menus, market, raids, zombie/quest/social panels. Still the largest file (~4.3k lines); an in-progress refactor is moving panels out into `src/ui/` |
+| `src/ui/` | Extracted HUD pieces: `hud.css`, `Modal.ts`, `hudTypes.ts`, `uiAsset.ts`, and `panels/` (dialogs, settings, storage) |
 | `src/Field.ts` | Terrain, plots, crops, objects, climate skins, occupancy, persistence |
 | `src/GameState.ts` | Currencies, XP/level, storage, boosts, raid progress, friends |
+| `src/JobSystem.ts` | Growth/harvest timers, offline catch-up, fertilize |
+| `src/assets.ts` | Runtime asset catalog and loader paths |
 | `src/net/` | Online layer: auth, sign-in gate, server API client, friend visits |
 | `src/save/` | Save schema and local/server save manager |
 | `src/zombie/` | Owned zombies, rendering, traits, mutations, Zombie Pot |
-| `src/raid/` | Raid catalog, live battle sim/scene, headless resolver, rewards |
+| `src/raid/` | Raid catalog, live battle sim/scene, deterministic replay, rewards |
+| `src/epicBoss/` | Epic Boss runs: catalog, fight flow, rewards (see `docs/EPIC_BOSS_MECHANICS.md`) |
 | `src/quest/` | Quest bus and data-driven quest engine |
+| `src/tutorial/` | First-run tutorial controller, beats, and DOM overlay |
 | `src/social/` | Local friend-list fallback + gifting helpers |
 | `src/audio.ts` | Opt-in BGM/SFX |
-| `server/` | Cloudflare Worker + D1 backend: saves, friends, gifting, visits |
+| `src/platform.ts`, `src/touchInput.ts` | Phone/desktop capability detection, pinch-zoom and pan |
+| `src/prefs.ts` | Persisted user preferences (audio, foliage, sprite set, edition) |
+| `src/base.ts` | `BASE_URL` prefixing for all runtime asset URLs — never hardcode `/assets/...` |
+| `src/iso.ts`, `src/depthSort.ts`, `src/lighting.ts`, `src/cropTop.ts` | Isometric projection, draw-order toposort, night lighting, crop overhang fix |
+| `src/economy.ts`, `src/farmRewards.ts` | Prices, payouts, and reward math |
+| `server/` | Cloudflare Worker + D1 backend: saves, friends, gifting, visits, raid verification |
 | `tools/` | Source extraction and public asset/data generation |
 | `public/assets/` | Runtime-ready generated assets |

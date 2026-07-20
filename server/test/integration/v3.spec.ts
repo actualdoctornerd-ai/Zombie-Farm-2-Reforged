@@ -79,6 +79,38 @@ describe("protocol v3 API", () => {
     expect(after.body.accountVersion).toBe(before.body.accountVersion + 2);
   });
 
+  it("repairs legacy orphan grants while claiming without double-crediting", async () => {
+    const sender = await signIn(uniqueSub("gift-orphan-sender"));
+    const recipients = await Promise.all([
+      signIn(uniqueSub("gift-orphan-pending")),
+      signIn(uniqueSub("gift-orphan-settled")),
+    ]);
+    for (const recipient of recipients) await befriend(sender, recipient);
+
+    for (const [index, recipient] of recipients.entries()) {
+      const beforeSend = await call<any>("POST", "/bootstrap", recipient.token, {});
+      expect((await call("POST", "/gifts", sender.token, { toAccountId: recipient.accountId })).status).toBe(200);
+      const inbox = await call<Array<{ id: string }>>("GET", "/gifts/inbox", recipient.token);
+      expect(inbox.body).toHaveLength(1);
+      const settled = index === 1;
+      const orphan = await call<any>("POST", "/dev/fixture/orphan-gift-grant", recipient.token, {
+        giftId: inbox.body[0].id, settled,
+      });
+      expect(orphan).toMatchObject({ status: 200, body: { inserted: true, settled } });
+
+      const balanceBeforeClaim = await call<any>("POST", "/bootstrap", recipient.token, {});
+      expect(balanceBeforeClaim.body.gameplay.balance.brains).toBe(
+        beforeSend.body.gameplay.balance.brains + (settled ? 1 : 0)
+      );
+      const claimed = await call<any>("POST", "/gifts/claim", recipient.token, {
+        giftId: inbox.body[0].id,
+      });
+      expect(claimed.status, JSON.stringify(claimed.body)).toBe(200);
+      expect((await call<unknown[]>("GET", "/gifts/inbox", recipient.token)).body).toEqual([]);
+      expect(claimed.body.balance.brains).toBe(beforeSend.body.gameplay.balance.brains + 1);
+    }
+  });
+
   it("fences activity to one explicit writer and transfers control atomically", async () => {
     const session = await signIn(undefined, false);
     const clientA = "writer-client-aaaaaaaa";

@@ -4,9 +4,9 @@ Protocol-v3 gameplay and social server built on a Cloudflare Worker (Hono) and D
 (SQLite). Identity is Google Sign-In verified server-side; the browser client calls
 the API cross-origin from GitHub Pages.
 
-The ordinary command path is server-authoritative, but the current raid path has
-known anti-cheat and concurrency gaps. Read `../SECURITY.md` before deploying or
-enabling anything competitive or money-like.
+Both the ordinary command path and the raid path are server-authoritative. Residual
+concurrency and audit gaps remain. Read `../SECURITY.md` before deploying or enabling
+anything competitive or money-like.
 
 The online server remains optional. With `VITE_API_URL` unset, the client runs in
 offline-only mode and never contacts the Worker.
@@ -30,10 +30,18 @@ guard. Presentation state is stored and versioned separately. Historical v2 save
 state-sync, action, and raid-checkpoint routes are authenticated but return
 `410 update_required`.
 
+`/raid/start` pins the combat config (enemy set and player roster, built from
+server-owned tables and catalogs) into the session row. `/raid/finish` accepts only
+`{ sessionId, finalTick, inputs }` — there is no field through which a client can
+assert a `win`, survivor, or casualty. The outcome is derived by replaying that input
+transcript against the pinned config (`src/raidVerifier.ts` → `src/raid/replay.ts`),
+and rewards are priced from the server catalog against the replayed survivor ratio. An
+elapsed-time gate (`future_finish`) and ruleset-version pinning (`stale_ruleset`) are
+defense-in-depth on top of the replay, not substitutes for it. Epic Boss finishes use
+the same path.
+
 ## Current security restrictions
 
-- Raid `win`, survivor, and casualty claims are not currently proven by replay. The
-  server bounds their rewards but accepts the outcome claim after an elapsed-time gate.
 - Raid start/finish do not yet join the `/commands` account-version transaction and can
   race command writes.
 - A placed Plowing Monolith allows a repeatable remove/re-plow XP loop.

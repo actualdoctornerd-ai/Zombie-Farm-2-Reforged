@@ -415,6 +415,29 @@ app.post("/dev/fixture/balance", requireAuth, async (c) => {
   return c.json({ gold, brains, xp });
 });
 
+app.post("/dev/fixture/orphan-gift-grant", requireAuth, async (c) => {
+  if (c.env.DEV_AUTH !== "1") return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<{ giftId?: string; settled?: boolean }>()
+    .catch((): { giftId?: string; settled?: boolean } => ({}));
+  const accountId = c.get("accountId");
+  const gift = typeof body.giftId === "string"
+    ? await db.claimableGift(c.env.DB, body.giftId, accountId) : null;
+  if (!gift) return c.json({ error: "gift_not_found" }, 404);
+  const grantId = crypto.randomUUID();
+  const now = Date.now();
+  const statements = [c.env.DB.prepare(`INSERT OR IGNORE INTO grants
+    (id,account_id,kind,amount,source_gift_id,created_at,settled_at)
+    VALUES (?,?,'brain',1,?,?,?)`).bind(
+      grantId, accountId, gift.id, now, body.settled ? now : null
+    )];
+  if (body.settled) {
+    statements.push(c.env.DB.prepare(`UPDATE balances SET brains=brains+1 WHERE account_id=?
+      AND EXISTS(SELECT 1 FROM grants WHERE id=?)`).bind(accountId, grantId));
+  }
+  const result = await c.env.DB.batch(statements);
+  return c.json({ inserted: (result[0]?.meta.changes ?? 0) === 1, settled: !!body.settled });
+});
+
 app.use("*", async (c, next) => {
   const enforceAt = Number(c.env.INTEGRITY_V2_ENFORCE_AFTER_MS);
   const mutation = c.req.method !== "GET" && !c.req.path.startsWith("/session/") && c.req.path !== "/logout";
