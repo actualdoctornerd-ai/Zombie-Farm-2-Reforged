@@ -244,6 +244,8 @@
   text-shadow: 0 1px 2px #000; }
 #hud .panel h2 { margin: 0 0 8px; font-size: 20px; }
 #hud .panel p { margin: 0; font-size: 14px; opacity: .92; }
+#hud .settings-panel { box-sizing: border-box; max-height: calc(100dvh - 24px);
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #hud .panelclose { position: absolute; top: -16px; right: -16px; width: 42px; height: 42px;
   border: none; background: none; cursor: pointer; padding: 0;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
@@ -822,15 +824,25 @@
   border-bottom: 2px solid #4f2f13; color: #f4e6c2; font-size: 11px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; padding: 0 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 1px #000; }
-#hud .mkt-body { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center;
-  justify-content: space-between; padding: 4px 4px 5px; gap: 2px; min-height: 0; }
-#hud .mkt-body img { flex: 1 1 auto; max-height: 52px; max-width: 100%; object-fit: contain;
+#hud .mkt-body { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0,1fr) auto;
+  grid-template-rows: minmax(0,1fr) auto auto; grid-template-areas:
+  "portrait sell" "portrait time" "cost cost";
+  align-items: center; padding: 4px 5px 7px; gap: 2px 4px; min-height: 0; }
+#hud .mkt-body > .mkt-portrait { grid-area: portrait; justify-self: center;
+  max-height: 50px; max-width: 100%; object-fit: contain;
   image-rendering: auto; }
 #hud .mkt-sell { font-size: 11px; font-weight: 700; color: #3f7a1e; display: flex;
-  align-items: center; gap: 2px; }
+  grid-area: sell; align-items: center; gap: 2px; }
 #hud .mkt-sell img { height: 12px; max-height: 12px; }
+#hud .mkt-time { font-size: 11px; font-weight: 700; color: #452c0c; display: flex;
+  grid-area: time; align-items: center; gap: 2px; }
+#hud .mkt-time img { height: 13px; max-height: 13px; }
 #hud .mkt-cost { display: flex; align-items: center; justify-content: center; gap: 3px;
-  font-size: 13px; font-weight: 700; color: #452c0c; }
+  grid-area: cost;
+  width: 100%; box-sizing: border-box; min-height: 22px; padding: 3px 4px 4px;
+  border-radius: 6px; background: linear-gradient(#7a5220, #5e3d15);
+  font-size: 13px; line-height: 15px; font-weight: 700; color: #ffe9a8;
+  text-shadow: 0 1px 1px rgba(0,0,0,.5); }
 #hud .mkt-cost img { height: 15px; max-height: 15px; }
 #hud .mkt-card.locked { opacity: .55; filter: grayscale(.6); cursor: not-allowed; }
 #hud .mkt-card.locked:hover { background: #efe4bf; }
@@ -1001,15 +1013,15 @@
   border-image: url("/assets/ui/market/tab.png") 16 fill / 6px 16px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 14px; cursor: pointer; min-width: 60px;
   text-shadow: 0 1px 1px rgba(0,0,0,.45); }
-#hud .pm-screen.sel { border-image-source: url("/assets/ui/market/tab_sel.png");
-  color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+#hud .pm-screen.sel { border-image-source: url("/assets/ui/market/tab.png"); filter: brightness(.72);
+  color: #f6ecc8; text-shadow: 0 1px 1px rgba(0,0,0,.55); }
 #hud .pm-subtabs { display: flex; gap: 4px; justify-content: center; margin-bottom: 8px; }
 #hud .pm-subtab { border-style: solid; border-width: 5px 11px;
   border-image: url("/assets/ui/market/subtab.png") 12 fill / 5px 11px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 11px; cursor: pointer; letter-spacing: .3px;
   text-shadow: 0 1px 1px rgba(0,0,0,.4); }
-#hud .pm-subtab.sel { border-image-source: url("/assets/ui/market/subtab_sel.png");
-  color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+#hud .pm-subtab.sel { border-image-source: url("/assets/ui/market/subtab.png"); filter: brightness(.72);
+  color: #f6ecc8; text-shadow: 0 1px 1px rgba(0,0,0,.55); }
 #hud .pm-list { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column;
   gap: 8px; padding: 2px; min-height: 0; }
 #hud .pm-card { display: grid; grid-template-columns: 1fr auto;
@@ -1119,7 +1131,13 @@
    the full bottom bar; refreshTools() already keeps this icon and boost count live. */
 #hud.tutorial .tools { display: none !important; }
 #hud.tutorial .fab { display: block !important; }
-#hud.tutorial .invade-shortcut { display: none !important; }
+#hud.tutorial .topbar, #hud.tutorial .questcol, #hud.tutorial .menucol,
+#hud.tutorial .tools, #hud.tutorial .fab, #hud.tutorial .touch-cancel,
+#hud.tutorial .invade-shortcut { pointer-events: none !important; }
+#hud.tutorial .invade-shortcut:not(.tut-highlight) { display: none !important; }
+#hud.tutorial .tut-highlight { pointer-events: auto !important; }
+#hud.tutorial .mkt-bg.tut-market { z-index: 41; pointer-events: auto; }
+#hud .tut-layer.invade-step .tut-tim { bottom: 104px; }
 /* Full-screen tap blocker: only present while a step gates input. It swallows
    every DOM tap so nothing but the highlighted element is reachable. */
 #hud.tutorial .tut-blocker { position: fixed; inset: 0; pointer-events: auto;

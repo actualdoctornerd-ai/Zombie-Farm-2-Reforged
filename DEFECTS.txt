@@ -1,20 +1,11 @@
-enemy placement/animations are a bit off
+Deferred investigation
 
-Zwamp Thing - extra face for some reason?
-Cupid - shoot arrows to heal
+- Insta-Grow can optimistically mature a crop, then briefly revert it to a few
+  seconds remaining before becoming fully grown again. Confirm whether this is
+  limited to online/server reconciliation before changing it.
 
-occasional delay between recieving currency/exp and visual update
-
-Raid difficulty needs to be tuned
-
-Clipping between characters and crop sprites
-
-Missing Features
-- Ground-crossing obstacle hazards (Beach crab, Tree World turtle, Lawyers cars) still disabled
-  (RaidManager.hazardOf returns null). Trapeze grab + carrot/junk walls are now implemented.
-
-Future Features
-- Weekly/Daily Quests
-
-Shipped (was Future): Trading / Black Market (server-authoritative escrow, see SECURITY.md)
+- On iOS/mobile, drag-plowing can queue several adjacent 4x4 plot outlines in a
+  pattern that looks overlapping. The supplied screenshot is consistent with the
+  existing drag-paint gesture queuing multiple valid targets rather than duplicate
+  soil sprites. Revisit after confirming the intended mobile drag-plow behavior.
 

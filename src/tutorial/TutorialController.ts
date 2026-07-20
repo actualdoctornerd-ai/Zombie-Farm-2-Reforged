@@ -212,6 +212,8 @@ export class TutorialController {
     this.current = step;
     const def = STEPS[step];
     this.removeBlocker();
+    this.layer.classList.toggle("invade-step", step === TutStep.Invade);
+    this.d.hud.setTutorialMenuTarget(def.kind === "menu" ? (def.menuLabel ?? null) : null);
 
     // Menu beats need the (mobile) menu column visible to anchor the arrow.
     if (def.kind === "menu" && this.d.hud.isCollapsed) this.d.hud.expand();
@@ -312,7 +314,11 @@ export class TutorialController {
     // Poll the beats that have no game event to listen to.
     switch (this.current) {
       case TutStep.BuyInstaGrow:
-        if (this.d.state.boostCount(GROW_BOOST_KEY) >= 1) { this.advance(); return; }
+        if (this.d.state.boostCount(GROW_BOOST_KEY) >= 1) {
+          this.d.hud.closeMarket();
+          this.advance();
+          return;
+        }
         break;
       case TutStep.RipenCrop:
         if (this.plotTarget && this.d.field.isRipe(this.plotTarget.col, this.plotTarget.row)) {
@@ -338,7 +344,7 @@ export class TutorialController {
     }
     this.arrow.style.display = "block";
     if (menuLabel) {
-      const btn = this.d.hud.menuButton(menuLabel);
+      const btn = this.d.hud.tutorialTarget(menuLabel);
       if (!btn) { this.arrow.style.display = "none"; return; }
       const r = btn.getBoundingClientRect();
       // Sit just left of the button, pointing right (arrow_right.png is 0°).

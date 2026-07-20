@@ -17,7 +17,8 @@ import type { ProfileIndex } from "./save/profiles";
 import { canGiftBrain, type Friend } from "./social/friends";
 import { isMobile } from "./platform";
 import { type FarmBackground } from "./prefs";
-import { fmtCooldown, VOUCHER_KEY } from "./raid/RaidCatalog";
+import { fmtCooldown, MCDONNELL_ID, VOUCHER_KEY } from "./raid/RaidCatalog";
+import { marketPageSize } from "./marketPageSize";
 import { STATS, veterancy, veterancyMultiplier, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME,
   ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER } from "./zombie/traits";
 import { statBreakdown } from "./zombie/statDisplay";
@@ -60,6 +61,7 @@ interface MktEntry {
   level: number;
   brains?: boolean; // priced in brains rather than gold
   sell?: number; // harvest value (plants only)
+  timeLabel?: string; // catalog grow time (crop/zombie cards)
   graveNeeded?: "Blue" | "Red" | "Silver"; // locked until this colored grave is owned
   ownedLimit?: boolean; // "1 per farm" limit reached (gift vouchers) — can't buy
   owned?: boolean;
@@ -113,6 +115,7 @@ export class Hud {
   private writerLock: HTMLElement | null = null;
   private writerBanner: HTMLElement | null = null;
   private writerTakeover: (() => Promise<boolean>) | null = null;
+  private tutorialMenuTarget: string | null = null;
   private visitExit: (() => void) | null = null;
   private goldEl!: HTMLElement;
   private brainsEl!: HTMLElement;
@@ -222,7 +225,7 @@ export class Hud {
           t.tagName === "SELECT")
       )
         return;
-      if (this.el.classList.contains("raiding")) return;
+      if (this.el.classList.contains("raiding") || this.el.classList.contains("tutorial")) return;
       e.preventDefault();
       this.el.classList.toggle("ui-hidden");
     });
@@ -245,6 +248,7 @@ export class Hud {
       )
         return;
       if (
+        this.el.classList.contains("tutorial") ||
         !document.fullscreenEnabled ||
         typeof document.documentElement.requestFullscreen !== "function"
       )
@@ -275,6 +279,7 @@ export class Hud {
       if (typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
 
       if (e.key === "Escape") {
+        if (this.el.classList.contains("tutorial")) { e.preventDefault(); return; }
         if (document.fullscreenElement) return; // preserve native fullscreen exit
         if (this.closeTopOverlay()) { e.preventDefault(); return; }
         this.endTemporaryPan();
@@ -882,6 +887,7 @@ export class Hud {
   }
 
   handleMobileBack(): boolean {
+    if (this.el.classList.contains("tutorial")) return true;
     if (this.el.classList.contains("visiting") && this.visitExit) {
       this.visitExit();
       return true;
@@ -1161,10 +1167,18 @@ export class Hud {
   /** Toggle the input-gating `.tutorial` class on #hud (enables the tap blocker). */
   setTutorialGating(on: boolean) {
     this.el.classList.toggle("tutorial", on);
+    if (!on) this.setTutorialMenuTarget(null);
   }
-  /** Resolve a right-menu button by its label (Invade/Zombies/Boosts/Storage/
-   *  Market/Friends) so the tutorial arrow can anchor to it. */
-  menuButton(label: string): HTMLElement | null {
+  /** Select the sole menu control allowed by the current tutorial beat. Invade
+   *  intentionally uses the always-visible bottom-left shortcut. */
+  setTutorialMenuTarget(label: string | null) {
+    this.el.querySelectorAll(".tut-highlight").forEach((el) => el.classList.remove("tut-highlight"));
+    this.tutorialMenuTarget = label;
+    this.tutorialTarget(label)?.classList.add("tut-highlight");
+  }
+  tutorialTarget(label: string | null): HTMLElement | null {
+    if (!label) return null;
+    if (label === "Invade") return this.el.querySelector<HTMLElement>(".invade-shortcut");
     return this.menuCol?.querySelector<HTMLElement>(`[data-menu="${label}"]`) ?? null;
   }
   /** Whether the mobile FAB currently hides the menu column (arrow needs expand). */
@@ -1205,8 +1219,11 @@ export class Hud {
 
   openMarket(initialTab: string = "Crops") {
     this.closeMarket();
+    const tutorialBoostMarket = this.el.classList.contains("tutorial") &&
+      this.tutorialMenuTarget === "Market";
+    if (tutorialBoostMarket) initialTab = "Boosts";
     const bg = document.createElement("div");
-    bg.className = "mkt-bg";
+    bg.className = "mkt-bg" + (tutorialBoostMarket ? " tut-market" : "");
     const mkt = document.createElement("div");
     mkt.className = "mkt";
 
@@ -1220,6 +1237,7 @@ export class Hud {
     ci.src = UI("button_close.png");
     close.appendChild(ci);
     close.onclick = () => bg.remove();
+    if (tutorialBoostMarket) close.style.display = "none";
 
     const cur = document.createElement("div");
     cur.className = "mkt-cur";
@@ -1281,11 +1299,13 @@ export class Hud {
       if (tab === "Crops" && sub === "Plants")
         return this.plantCards.map((c) => ({
           name: c.name, portrait: c.portrait, cost: c.cost, level: c.level, sell: c.sell,
+          timeLabel: c.timeLabel,
           onPick: () => { this.setPlanting(c.cfg); bg.remove(); },
         }));
       if (tab === "Crops" && sub === "Zombies")
         return this.zombieCards.map((c) => ({
           name: c.name, portrait: c.portrait, cost: c.cost, level: c.level, brains: c.brains,
+          timeLabel: c.timeLabel,
           graveNeeded: c.cfg.unlockGrave,
           description: c.description,
           onPick: () => { this.setPlanting(c.cfg); bg.remove(); },
@@ -1319,7 +1339,7 @@ export class Hud {
       }
       if (tab === "Boosts") {
         // Buying stays in the panel (buy several); the count owned shows in the name.
-        return this.boosts.map((b) => {
+        return this.boosts.filter((b) => !tutorialBoostMarket || b.key === "insta_grow").map((b) => {
           const owned = this.state.boostCount(b.key);
           // Gift vouchers are "1 per farm": lock once you own that zombie or hold
           // the voucher (main supplies the predicate; it spans both Cupid vouchers).
@@ -1415,10 +1435,9 @@ export class Hud {
       const rowH = parseFloat(cs.gridAutoRows) || 122;
       const gap = parseFloat(cs.rowGap || "9") || 9;
       const avail = grid.clientHeight;
-      if (avail < rowH) return 10; // not laid out yet (or absurdly short) → sane default
-      const rows = Math.max(1, Math.floor((avail + gap) / (rowH + gap)));
-      const fit = cols * rows;
-      return cols >= 3 ? fit : Math.max(fit, 8);
+      return marketPageSize({
+        mobile: isMobile(), columns: cols, rowHeight: rowH, gap, availableHeight: avail,
+      });
     };
 
     const renderGrid = () => {
@@ -1429,7 +1448,7 @@ export class Hud {
       grid.classList.toggle("mkt-grid--upgrade", tab === "Upgrade" && sub === "Farm Size");
       grid.classList.toggle("mkt-grid--epic", tab === "Epic Boss");
       // Search + pager only ride the card-list tabs.
-      const canSearch = searchable();
+      const canSearch = searchable() && !tutorialBoostMarket;
       searchRow.style.display = canSearch ? "flex" : "none";
       if (tab === "Upgrade") {
         pager.style.display = "none";
@@ -1518,8 +1537,12 @@ export class Hud {
     }
 
     mkt.append(title, close, cur, tabsEl, subsEl, searchRow, grid, pager);
+    if (tutorialBoostMarket) {
+      tabsEl.style.display = "none";
+      subsEl.style.display = "none";
+    }
     bg.appendChild(mkt);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    if (!tutorialBoostMarket) bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
     this.el.appendChild(bg);
     renderSubs();
     renderGrid();
@@ -1688,6 +1711,7 @@ export class Hud {
     const body = document.createElement("div");
     body.className = "mkt-body";
     const img = document.createElement("img");
+    img.className = "mkt-portrait";
     img.loading = "lazy"; // only fetch portraits as cards scroll into view
     img.decoding = "async";
     img.src = en.portrait;
@@ -1697,6 +1721,12 @@ export class Hud {
       s.className = "mkt-sell";
       s.innerHTML = `<img src="${UI("topbar_money_icon.png")}">+${en.sell}`;
       body.appendChild(s);
+    }
+    if (en.timeLabel) {
+      const t = document.createElement("div");
+      t.className = "mkt-time";
+      t.innerHTML = `<img src="${UI("icon_time.png")}">${en.timeLabel}`;
+      body.appendChild(t);
     }
     const cost = document.createElement("div");
     cost.className = "mkt-cost";
@@ -3544,7 +3574,9 @@ export class Hud {
   // so the ladder reads as a real (mostly future) catalog.
   openRaids() {
     document.querySelector("#hud .raid-bg")?.remove();
-    const cards = this.getRaidCards ? this.getRaidCards() : [];
+    const tutorialRaid = this.el.classList.contains("tutorial") && this.tutorialMenuTarget === "Invade";
+    const allCards = this.getRaidCards ? this.getRaidCards() : [];
+    const cards = tutorialRaid ? allCards.filter((card) => card.id === MCDONNELL_ID) : allCards;
     const party = this.getRaidParty ? this.getRaidParty() : null;
     const haveN = party ? party.eligible.length : 0;
 
@@ -3562,6 +3594,7 @@ export class Hud {
     const stop = () => { if (tick) { clearInterval(tick); tick = 0; } };
     const close = () => { stop(); bg.remove(); };
     x.onclick = close;
+    if (tutorialRaid) x.style.display = "none";
 
     const wrap = document.createElement("div");
     wrap.className = "raidsel";
@@ -3572,7 +3605,7 @@ export class Hud {
     wrap.append(list, detail);
     panel.append(x, wrap);
     bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) close(); };
+    if (!tutorialRaid) bg.onclick = (e) => { if (e.target === bg) close(); };
     this.el.appendChild(bg);
 
     // Default selection: first unlocked raid, else the first card.
@@ -3701,7 +3734,7 @@ export class Hud {
       if (c.id === selId) card.classList.add("sel");
       list.appendChild(card);
     }
-    if (this.bossActive) {
+    if (!tutorialRaid && this.bossActive) {
       const epic = this.getEpicBossView?.().find((view) => view.active);
       if (epic) {
         const card = document.createElement("button");
@@ -3729,6 +3762,7 @@ export class Hud {
   // `useVoucher` carries a cooldown-bypass intent from the Raid Select screen.
   openRaidArmy(raid: RaidCardView, useVoucher = false) {
     document.querySelector("#hud .army-bg")?.remove();
+    const tutorialRaid = this.el.classList.contains("tutorial") && this.tutorialMenuTarget === "Invade";
     const party = this.getRaidParty ? this.getRaidParty() : null;
     const bg = document.createElement("div");
     bg.className = "panelbg army-bg";
@@ -3740,9 +3774,10 @@ export class Hud {
     xi.src = UI("button_close.png");
     x.appendChild(xi);
     x.onclick = () => bg.remove();
+    if (tutorialRaid) x.style.display = "none";
     panel.appendChild(x);
     bg.appendChild(panel);
-    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    if (!tutorialRaid) bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
     this.el.appendChild(bg);
 
     if (!party || !party.eligible.length) {

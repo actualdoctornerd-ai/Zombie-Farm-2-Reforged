@@ -509,6 +509,7 @@ async function main() {
   window.addEventListener("keydown", (e) => {
     const key = e.key.toLowerCase();
     if (!"wasd".includes(key) || e.ctrlKey || e.metaKey || e.altKey || isEditableTarget(e.target)) return;
+    if (hud.el.classList.contains("tutorial")) return;
     cameraKeys.add(key);
     e.preventDefault();
   });

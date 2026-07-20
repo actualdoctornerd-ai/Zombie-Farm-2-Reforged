@@ -100,7 +100,7 @@ export function openSettings(hud: Hud): void {
   // The fullscreen listener is torn down via onClose so it detaches whether the
   // panel is dismissed by the close button or a backdrop click.
   const { panel } = openModal({
-    host: hud.el, title: "Settings",
+    host: hud.el, title: "Settings", panelClass: "settings-panel",
     onClose: () => document.removeEventListener("fullscreenchange", refreshFullscreen),
   });
 
