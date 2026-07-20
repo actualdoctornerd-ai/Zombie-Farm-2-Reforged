@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/actualdoctornerd-ai/Zombie-Farm-2-Reforged/security/advisories/new
+    about: Do not file security bugs publicly. Report them privately here — see SECURITY.md.

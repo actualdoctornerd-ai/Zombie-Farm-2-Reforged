@@ -2,6 +2,24 @@
 
 Last reviewed: 2026-07-19
 
+## Reporting a vulnerability
+
+**Do not open a public issue for a security bug.** Use GitHub's private vulnerability
+reporting instead: the repository's **Security** tab → **Report a vulnerability**. That
+opens a private advisory thread visible only to the maintainer.
+
+In scope: anything that lets a client forge currency, items, zombies, XP, raid or Epic
+Boss outcomes, or Black Market orders; anything that reads or writes another player's
+account or save; authentication or session bypass; and anything defeating the writer
+lease or rate limits.
+
+Out of scope: cheats that only affect a purely offline/local save (there is no server
+and no other player to defend against there — the client is the authority by design),
+and the known gaps already documented below.
+
+This is a non-commercial hobby project with no bounty and best-effort response times.
+Please give a reasonable window before disclosing publicly.
+
 ## Scope and status
 
 This document describes the current source tree at gameplay protocol v3 (client integrity

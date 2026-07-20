@@ -18,10 +18,11 @@
 //
 // Now implemented: focus-bar distractions (butterfly/brain bubbles, with
 // Concentration bypass), activated abilities (windup/cooldown/stun/knockback),
-// boss specials, and ballistic projectiles. Still deferred/disabled: boss
-// summon/wall spawning (templates are built but the scheduler doesn't spawn them
-// yet) and ground-crossing environmental hazards (RaidManager.hazardOf returns
-// null pending better visual integration).
+// boss specials, ballistic projectiles, boss summon reinforcements, the
+// carrotWall/junkWall blockers, and the Circus trapeze carried-grab (grabberOf).
+// Still disabled: only the ground-crossing environmental hazards — Beach crab,
+// Tree World turtle, Lawyers cars — where RaidManager.hazardOf returns null
+// pending better visual integration.
 //
 // Combat numbers are the GROUND-TRUTH fight-data model (combatStats.ts, recovered from
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
@@ -137,8 +138,8 @@ const ENRAGE_DMG_MULT = 1.5; // boss melee damage grows
 // ---- Boss special actions (non-throw bossActions) ----
 // alienLaser fires a fast straight bolt; pixelFire is an AoE burst; turnZombie
 // removes your front zombie (it's turned against you); telekinesis is a heavy
-// single hit. summonBoss/wall need spawned entities and are DEFERRED (the scheduler
-// ticks them so timing stays faithful, but they land no effect yet).
+// single hit. summonBoss spawns a capped reinforcement and wall spawns a single
+// standing blocker — both go through spawnEnemy and join the normal queue.
 const LASER_SPEED = 900; // straight-bolt speed (sim px/s)
 const DEFAULT_SPECIAL_DMG = 8; // data carries no damage for most specials
 const SPECIAL_DMG_SCALE = 1.75; // same chip-scaling as thrown projectiles (see PROJ_DMG_SCALE)
@@ -1370,8 +1371,8 @@ export class BattleSim {
     return pick;
   }
 
-  /** Land a boss special. Effects that need spawned entities (summonBoss, wall) are
-   *  deferred — they still consume their cast/cooldown so timing is faithful. */
+  /** Land a boss special. Effects that need spawned entities (summonBoss, wall) go
+   *  through spawnEnemy; both are capped so the fight still resolves. */
   private runSpecial(sp: BossSpecial) {
     const dmg = Math.max(1, Math.round((sp.damage || DEFAULT_SPECIAL_DMG) * SPECIAL_DMG_SCALE));
     switch (sp.name) {

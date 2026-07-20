@@ -21,6 +21,14 @@ under the [MIT License](LICENSE). The third-party game assets described under
 [Asset Provenance](#asset-provenance) are excluded and remain subject to their
 owners' rights.
 
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the
+checks to run, and what makes a change easy to review. Open an issue before starting
+anything large. The [Current Gaps](#current-gaps) list is the best place to find
+already-scoped work. Security bugs go through private disclosure, not public issues
+([SECURITY.md](SECURITY.md)).
+
 ## Status
 
 A broad playable prototype: farming, placed objects, storage, owned zombies,
