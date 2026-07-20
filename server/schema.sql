@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS gifts (
 --   UPDATE gifts SET day_bucket = created_at / 86400000;
 
 CREATE INDEX IF NOT EXISTS idx_gifts_inbox ON gifts (to_id, claimed_at);
+CREATE INDEX IF NOT EXISTS idx_gifts_sender_day ON gifts (from_id, day_bucket);
 -- Atomic once/day gate: a second send in the same UTC day bucket hits this unique
 -- constraint and is rejected without any preceding eligibility read.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gifts_once ON gifts (from_id, to_id, day_bucket);

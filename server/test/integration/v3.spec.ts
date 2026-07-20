@@ -21,6 +21,35 @@ const commandBody = (
 });
 
 describe("protocol v3 API", () => {
+  it("awards 5 XP per send and caps the sender at two gifts per UTC day", async () => {
+    const sender = await signIn(uniqueSub("gift-xp-sender"));
+    const recipients = await Promise.all([
+      signIn(uniqueSub("gift-xp-recipient")),
+      signIn(uniqueSub("gift-xp-recipient")),
+      signIn(uniqueSub("gift-xp-recipient")),
+    ]);
+    for (const recipient of recipients) await befriend(sender, recipient);
+
+    const first = await call<any>(
+      "POST", "/gifts", sender.token, { toAccountId: recipients[0].accountId }
+    );
+    const second = await call<any>(
+      "POST", "/gifts", sender.token, { toAccountId: recipients[1].accountId }
+    );
+    const third = await call<any>(
+      "POST", "/gifts", sender.token, { toAccountId: recipients[2].accountId }
+    );
+
+    expect(first.status).toBe(200);
+    expect(first.body).toMatchObject({ xpAwarded: 5, giftsRemaining: 1, balance: { xp: 5 } });
+    expect(second.status).toBe(200);
+    expect(second.body).toMatchObject({ xpAwarded: 5, giftsRemaining: 0, balance: { xp: 10 } });
+    expect(third).toMatchObject({ status: 429, body: { error: "daily_gift_limit" } });
+
+    const after = await call<any>("POST", "/bootstrap", sender.token, {});
+    expect(after.body.gameplay.balance.xp).toBe(10);
+  });
+
   it("claims a gift atomically and credits exactly once across concurrent attempts", async () => {
     const sender = await signIn(uniqueSub("gift-sender"));
     const recipient = await signIn(uniqueSub("gift-recipient"));
@@ -214,7 +243,7 @@ describe("protocol v3 API", () => {
       bossId: "loco-locust",
       level: 1,
     });
-    expect(activated.body.balance.brains).toBe(brainsBeforeActivation - 100);
+    expect(activated.body.balance.brains).toBe(brainsBeforeActivation - 10);
 
     const started = await call<any>("POST", "/epic-boss/start", session.token, {
       orderedUnitIds: [epicZombieId],
@@ -234,7 +263,7 @@ describe("protocol v3 API", () => {
       payment: "brains",
     });
     expect(retried.status, JSON.stringify(retried.body)).toBe(200);
-    expect(retried.body.balance.brains).toBe(brainsBeforeActivation - 120);
+    expect(retried.body.balance.brains).toBe(brainsBeforeActivation - 12);
 
     const ended = await call<any>("POST", "/epic-boss/end", session.token, {
       runId: activationId,
@@ -360,11 +389,11 @@ describe("protocol v3 API", () => {
     const stale = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1, orderedUnitIds: [unitId], rulesetVersion: 2,
     });
-    expect(stale).toMatchObject({ status: 426, body: { error: "stale_ruleset", rulesetVersion: 3 } });
+    expect(stale).toMatchObject({ status: 426, body: { error: "stale_ruleset", rulesetVersion: 4 } });
     const started = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1,
       orderedUnitIds: [unitId],
-      rulesetVersion: 3,
+      rulesetVersion: 4,
     });
     expect(started.status, JSON.stringify(started.body)).toBe(200);
 
@@ -383,7 +412,7 @@ describe("protocol v3 API", () => {
     const next = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1,
       orderedUnitIds: [unitId],
-      rulesetVersion: 3,
+      rulesetVersion: 4,
     });
     expect(next.status).toBe(429);
     expect(next.body.error).toBe("cooldown");

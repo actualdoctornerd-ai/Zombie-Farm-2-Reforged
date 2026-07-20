@@ -240,8 +240,8 @@ export interface BlackMarketOrderView {
 export interface BlackMarketSummary {
   activePosts: number;
   postsToday: number;
-  activeLimit: 2;
-  dailyLimit: 10;
+  activeLimit: 10;
+  dailyLimit: 50;
   serverTime: number;
 }
 

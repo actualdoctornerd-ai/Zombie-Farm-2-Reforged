@@ -148,12 +148,13 @@
    keep raid panels (.panelbg) visible. */
 #hud.raiding .topbar, #hud.raiding .tools, #hud.raiding .menucol,
 #hud.raiding .questcol, #hud.raiding .invade-shortcut, #hud.raiding .fab,
-#hud.raiding .touch-cancel, #hud.raiding .crop-hover { display: none !important; }
+#hud.raiding .touch-cancel, #hud.raiding .plant-label,
+#hud.raiding .crop-hover { display: none !important; }
 /* "u" key: hide all farm chrome for a clean, unobstructed view of the farm. */
 #hud.ui-hidden .topbar, #hud.ui-hidden .tools, #hud.ui-hidden .menucol,
 #hud.ui-hidden .questcol, #hud.ui-hidden .invade-shortcut, #hud.ui-hidden .fab,
 #hud.ui-hidden .touch-cancel,
-#hud.ui-hidden .plantlabel, #hud.ui-hidden .crop-hover { display: none !important; }
+#hud.ui-hidden .plant-label, #hud.ui-hidden .crop-hover { display: none !important; }
 /* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
    surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
    camera, zombie inspect, and the visit banner remain. */
@@ -246,6 +247,7 @@
 #hud .panel p { margin: 0; font-size: 14px; opacity: .92; }
 #hud .settings-panel { box-sizing: border-box; max-height: calc(100dvh - 24px);
   overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#hud .settings-panel > .panelclose { top: 4px; right: 4px; z-index: 1; }
 #hud .panelclose { position: absolute; top: -16px; right: -16px; width: 42px; height: 42px;
   border: none; background: none; cursor: pointer; padding: 0;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }

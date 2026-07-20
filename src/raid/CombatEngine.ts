@@ -230,6 +230,26 @@ function primaryDamageTiming(
   return best ?? 0.5;
 }
 
+/** Allocate an exact-size deterministic population from a weighted table. Start with
+ * each entry's floor, then give the remaining slots to the largest fractional shares.
+ * This preserves `population` exactly instead of independently rounding into extra units. */
+function weightedPopulation(stage: RaidStage): string[] {
+  const population = Math.max(0, Math.floor(stage.population ?? 0));
+  const weighted = (stage.weighted ?? []).filter((entry) => entry.frequency > 0);
+  const total = weighted.reduce((sum, entry) => sum + entry.frequency, 0);
+  if (!population || total <= 0) return [];
+  const shares = weighted.map((entry, index) => {
+    const exact = (entry.frequency / total) * population;
+    return { entry, index, count: Math.floor(exact), remainder: exact - Math.floor(exact) };
+  });
+  let left = population - shares.reduce((sum, share) => sum + share.count, 0);
+  for (const share of [...shares].sort((a, b) => b.remainder - a.remainder || a.index - b.index)) {
+    if (left-- <= 0) break;
+    share.count++;
+  }
+  return shares.flatMap(({ entry, count }) => Array(count).fill(entry.enemy));
+}
+
 /** Build one enemy wave's combat line from a raid stage + stat/attack tables.
  *  Weighted-population waves fall back to filling `population` from the table. */
 export function buildEnemyUnits(
@@ -262,11 +282,7 @@ export function buildEnemyUnits(
   const keys =
     stage.enemyKeys && stage.enemyKeys.length
       ? stage.enemyKeys
-      : (stage.weighted ?? []).flatMap((w) =>
-          Array(Math.max(1, Math.round((w.frequency / 100) * (stage.population ?? 0)))).fill(
-            w.enemy
-          )
-        );
+      : weightedPopulation(stage);
   for (const k of keys) add(k, false);
   if (stage.bossKey) add(stage.bossKey, true);
   return out;

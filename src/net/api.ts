@@ -468,7 +468,9 @@ export const addFriend = (code: string) =>
 
 /** Send a brain. Throws ApiError(429) if the daily limit is hit. */
 export const sendGift = (toAccountId: string) =>
-  req<{ ok: true }>("POST", "/gifts", { toAccountId });
+  req<{ ok: true; xpAwarded?: number; giftsRemaining?: number; balance?: Balance; accountVersion?: number }>(
+    "POST", "/gifts", { toAccountId }
+  );
 
 export const getInbox = () => req<InboxGift[]>("GET", "/gifts/inbox");
 

@@ -10,6 +10,59 @@ const bootstrap = async (session: Awaited<ReturnType<typeof signIn>>) => {
 const operation = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
 describe("Black Market", () => {
+  it("allows 10 concurrent posts and explains the active limit on the 11th", async () => {
+    const poster = await signIn(uniqueSub("market-active-limit"));
+    const initial = await bootstrap(poster);
+    let expectedAccountVersion = initial.accountVersion;
+
+    for (let index = 0; index < 10; index++) {
+      const created = await call<any>("POST", "/black-market/orders", poster.token, {
+        operationId: operation(`active-${index}`), expectedAccountVersion,
+        kind: "BUY_ZOMBIE", zombieKey: "ZombieActorRegularTier1",
+        mutated: false, priceBrains: 1,
+      });
+      expect(created.status, JSON.stringify(created.body)).toBe(200);
+      expectedAccountVersion += 1;
+    }
+
+    const eleventh = await call<any>("POST", "/black-market/orders", poster.token, {
+      operationId: operation("active-11"), expectedAccountVersion,
+      kind: "BUY_ZOMBIE", zombieKey: "ZombieActorRegularTier1",
+      mutated: false, priceBrains: 1,
+    });
+    expect(eleventh).toMatchObject({ status: 409, body: { error: "active_post_limit" } });
+  });
+
+  it("allows 50 posts per day and explains the daily limit on the 51st", async () => {
+    const poster = await signIn(uniqueSub("market-daily-limit"));
+    const initial = await bootstrap(poster);
+    let expectedAccountVersion = initial.accountVersion;
+
+    for (let index = 0; index < 50; index++) {
+      const created = await call<any>("POST", "/black-market/orders", poster.token, {
+        operationId: operation(`daily-create-${index}`), expectedAccountVersion,
+        kind: "BUY_ZOMBIE", zombieKey: "ZombieActorRegularTier1",
+        mutated: false, priceBrains: 1,
+      });
+      expect(created.status, `create ${index + 1}: ${JSON.stringify(created.body)}`).toBe(200);
+      expectedAccountVersion += 1;
+
+      const cancelled = await call<any>(
+        "POST", `/black-market/orders/${created.body.order.id}/cancel`, poster.token,
+        { operationId: operation(`daily-cancel-${index}`), expectedAccountVersion }
+      );
+      expect(cancelled.status, `cancel ${index + 1}: ${JSON.stringify(cancelled.body)}`).toBe(200);
+      expectedAccountVersion += 1;
+    }
+
+    const fiftyFirst = await call<any>("POST", "/black-market/orders", poster.token, {
+      operationId: operation("daily-create-51"), expectedAccountVersion,
+      kind: "BUY_ZOMBIE", zombieKey: "ZombieActorRegularTier1",
+      mutated: false, priceBrains: 1,
+    });
+    expect(fiftyFirst).toMatchObject({ status: 409, body: { error: "daily_post_limit" } });
+  }, 30_000);
+
   it("allows a non-reward named special zombie to be posted for sale", async () => {
     const seller = await signIn(uniqueSub("market-special-seller"));
     const unitId = `market-special-${crypto.randomUUID()}`;

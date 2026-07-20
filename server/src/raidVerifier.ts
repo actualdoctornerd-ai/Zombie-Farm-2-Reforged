@@ -90,7 +90,7 @@ function bossThrowOf(raid: RaidDef, stage: RaidStage): BossThrowConfig | null {
     .filter((o) => o.sprite);
   if (!options.length) return null;
   const secs = stage.throwSpeed ?? raid.throwSpeed;
-  return { intervalMs: (secs > 0 ? secs : 2) * 2000, options };
+  return { intervalMs: (secs > 0 ? secs : 2) * 1000, options };
 }
 
 function bossSpecialsOf(stage: RaidStage): BossSpecial[] {

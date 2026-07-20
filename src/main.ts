@@ -1922,7 +1922,9 @@ async function main() {
   };
   hud.onGiftBrainOnline = async (friendId) => {
     try {
-      await api.sendGift(friendId);
+      const result = await api.sendGift(friendId);
+      // Remain compatible while the manually deployed Worker rolls forward.
+      if (result.balance) economy?.adoptExternalBalance(result.balance, result.accountVersion);
       return null;
     } catch (e) {
       return errCode(e);
@@ -1971,11 +1973,10 @@ async function main() {
   hud.getInbox = () => inboxCache;
   hud.onClaimGift = async (id) => {
     try {
-      await economy?.settleBeforeDependency();
-      const r = await api.claimGift(id);
-      // Gift settlement returns the server-owned balance. Adopt it immediately so
-      // the HUD reflects the brain without relying on a follow-up bootstrap.
-      economy?.adoptExternalBalance(r.balance, r.accountVersion);
+      // Gift claims are server-fenced independently of the gameplay writer. Do not
+      // let a paused queue or a writer lease held by another tab block acceptance.
+      if (economy) await economy.claimGift(id);
+      else await api.claimGift(id);
       try { await hud.refreshInbox?.(); }
       catch (refreshError) { console.warn("[gift] inbox refresh failed", errCode(refreshError)); }
       return true;

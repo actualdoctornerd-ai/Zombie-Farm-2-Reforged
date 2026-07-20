@@ -81,6 +81,7 @@ CREATE TABLE gifts (
   created_at INTEGER NOT NULL, day_bucket INTEGER NOT NULL, claimed_at INTEGER
 );
 CREATE INDEX idx_gifts_inbox ON gifts(to_id,claimed_at);
+CREATE INDEX idx_gifts_sender_day ON gifts(from_id,day_bucket);
 CREATE UNIQUE INDEX idx_gifts_once ON gifts(from_id,to_id,day_bucket);
 CREATE TABLE grants (
   id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

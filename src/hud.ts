@@ -2255,9 +2255,7 @@ export class Hud {
     const refresh = document.createElement("button");
     refresh.className = "prof-btn play";
     refresh.textContent = "Refresh";
-    const summary = document.createElement("div");
-    summary.className = "bm-summary";
-    toolbar.append(typeFilter, mutationFilter, sort, mineLabel, refresh, summary);
+    toolbar.append(typeFilter, mutationFilter, sort, mineLabel, refresh);
 
     const content = document.createElement("div");
     content.className = "bm-content";
@@ -2331,7 +2329,6 @@ export class Hud {
           sort: sort.value as "newest" | "price_asc" | "price_desc", mine: mine.checked,
         });
         if (generation !== renderGeneration || !bg.isConnected) return;
-        summary.textContent = `Active ${result.summary.activePosts}/2 · Today ${result.summary.postsToday}/10`;
         list.replaceChildren();
         if (!result.orders.length) {
           const empty = document.createElement("div"); empty.className = "bm-empty";
@@ -2421,9 +2418,9 @@ export class Hud {
         else if (code.startsWith("zombie_unavailable"))
           this.showToast("That zombie is no longer available or is busy.");
         else if (code.startsWith("active_post_limit"))
-          this.showToast("You already have two active Black Market posts.");
+          this.showToast("You can't have more than 10 active Black Market posts.");
         else if (code.startsWith("daily_post_limit"))
-          this.showToast("You have reached today's 10-post limit.");
+          this.showToast("You have reached today's limit of 50 Black Market posts.");
         else if (code.startsWith("insufficient_brains"))
           this.showToast("You do not have enough brains for that request.");
         else this.showToast("Could not create that post. Refresh and try again.");
@@ -2475,6 +2472,7 @@ export class Hud {
     const giftErr = (e: string | null): string | null =>
       e === null ? null
         : e === "already_gifted_today" ? "You already gifted them today."
+        : e === "daily_gift_limit" ? "You've sent both of today's gifts."
         : e === "not_friends" ? "You're not friends yet."
         : e === "recipient_inbox_full" ? "Their gift inbox is full right now."
         : e === "rate_limited" ? "Slow down a moment, then try again."
@@ -2657,7 +2655,7 @@ export class Hud {
             if (err) { this.showToast(err); gift.disabled = false; }
             else {
               f.giftOnCooldown = true;
-              this.showToast(`Sent a brain to ${f.name}! 🧠`);
+              this.showToast(`Sent a brain to ${f.name}! +5 XP`);
               renderList();
             }
           } else {

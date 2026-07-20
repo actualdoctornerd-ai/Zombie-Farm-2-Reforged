@@ -1313,7 +1313,7 @@ app.post("/friends/code/rotate", async (c) => {
   return c.json({ friendCode: code });
 });
 
-// ---- POST /gifts: send a brain (once/day per recipient, atomically) -----
+// ---- POST /gifts: send a brain (two/day total, +5 XP per send) -----------
 app.post("/gifts", async (c) => {
   const { toAccountId } = await c.req
     .json<{ toAccountId: string }>()
@@ -1330,9 +1330,23 @@ app.post("/gifts", async (c) => {
     return c.json({ error: "recipient_inbox_full" }, 409);
   }
   const now = Date.now();
-  const sent = await db.insertGiftOnce(c.env.DB, me, toAccountId, dayBucket(now), now);
-  if (!sent) return c.json({ error: "already_gifted_today" }, 429);
-  return c.json({ ok: true });
+  const result = await db.sendGiftWithReward(
+    c.env.DB, me, toAccountId, dayBucket(now), now, { ...STARTER_BALANCE }, 5
+  );
+  if (result.status === "already_gifted_today") {
+    return c.json({ error: "already_gifted_today" }, 429);
+  }
+  if (result.status === "daily_gift_limit") {
+    return c.json({ error: "daily_gift_limit" }, 429);
+  }
+  if (result.status !== "sent") return c.json({ error: "operation_in_progress" }, 409);
+  return c.json({
+    ok: true,
+    xpAwarded: 5,
+    giftsRemaining: Math.max(0, 2 - result.sentToday),
+    balance: result.balance,
+    accountVersion: result.accountVersion,
+  });
 });
 
 // ---- GET /gifts/inbox ---------------------------------------------------

@@ -102,7 +102,64 @@ describe("Garden healing and formation depth", () => {
     }, true);
     sim.units.find((u) => u.id === "player")!.state = "advance";
     sim.step(50);
-    expect(sim.projectiles[0]?.damage).toBe(120); // raw 6 × power scale 10 × projectile multiplier 2
+    expect(sim.projectiles[0]?.damage).toBe(22); // round(raw 6 × chip scale 1.75) × projectile multiplier 2
+  });
+
+  it("preserves explicitly harmless debris at zero damage", () => {
+    const player = unit({ id: "player", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const wall = unit({ id: "wall", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 300 });
+    const boss = unit({ id: "boss", sourceKey: "BeachStageActorBoss", team: "enemy", isBoss: true, con: 300 });
+    const sim = new BattleSim([player], [wall, boss], {
+      intervalMs: 50,
+      options: [{ damage: 0, weight: 1, sprite: "harmless.png", spriteSize: 32 }],
+    }, true);
+    sim.units.find((u) => u.id === "player")!.state = "advance";
+    sim.step(50);
+    expect(sim.projectiles[0]?.damage).toBe(0);
+  });
+
+  it("applies the player-zombie one-shot floor to boss projectiles", () => {
+    const player = unit({
+      id: "player", sourceKey: "ZombieActorRegularTier1", team: "player",
+      hp: 100, maxHp: 100, con: 1, dex: 1,
+    });
+    const wall = unit({
+      id: "wall", sourceKey: "FarmStageActorFarmhand", team: "enemy",
+      str: 0, dex: 0.01, attackCooldownMs: 100_000, con: 300,
+    });
+    const boss = unit({
+      id: "boss", sourceKey: "AlienStageActorBoss", team: "enemy", isBoss: true,
+      str: 0, dex: 0.01, attackCooldownMs: 100_000, con: 300,
+    });
+    const sim = new BattleSim([player], [wall, boss], null, true, [
+      { name: "alienLaser", weight: 1, castMs: 0, cooldownMs: 100_000, damage: 100 },
+    ]);
+    const p = sim.units.find((u) => u.id === "player")!;
+    p.state = "advance";
+    sim.step(16); // select the special
+    sim.step(16); // launch the straight projectile
+    for (let i = 0; i < 200 && p.hp === 100; i++) sim.step(16);
+    expect(p.hp).toBe(1);
+    expect(p.alive).toBe(true);
+  });
+
+  it("advances specials independently when a boss has no throw actions", () => {
+    const player = unit({ id: "player", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const wall = unit({ id: "wall", sourceKey: "AlienStageActorMinion", team: "enemy", con: 300 });
+    const boss = unit({ id: "boss", sourceKey: "AlienStageActorBoss", team: "enemy", isBoss: true, con: 300 });
+    const sim = new BattleSim([player], [wall, boss], null, true, [
+      { name: "summonBoss", weight: 50, castMs: 50, cooldownMs: 300, damage: 0 },
+      { name: "alienLaser", weight: 30, castMs: 50, cooldownMs: 300, damage: 0 },
+    ]);
+    sim.units.find((u) => u.id === "player")!.state = "advance";
+    const seen = new Set<string>();
+    for (let i = 0; i < 200 && seen.size < 2; i++) {
+      sim.step(50);
+      const pending = sim.snapshot().pendingSpecial;
+      if (pending) seen.add(pending.name);
+    }
+    expect(seen).toEqual(new Set(["summonBoss", "alienLaser"]));
+    expect(sim.snapshot().throwCount).toBe(0);
   });
 
   it("places combat priority from visual front to back within a column", () => {

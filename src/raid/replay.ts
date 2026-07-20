@@ -1,7 +1,7 @@
 import { BattleSim, type BattleSimSnapshot } from "./BattleSim";
 import type { RaidOutcome } from "./types";
 
-export const RAID_RULESET_VERSION = 3;
+export const RAID_RULESET_VERSION = 4;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

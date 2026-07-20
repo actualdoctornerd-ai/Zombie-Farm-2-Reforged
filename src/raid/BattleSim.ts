@@ -82,12 +82,12 @@ const MAX_ROWS = 4;
 const ROW_GAP = 46; // vertical spacing between rows
 const COL_GAP = 52; // depth spacing between columns
 
-// Anti-one-shot safeguard (INFERRED from `-[Actor damage:]` 0x3a064). A single ENEMY melee
+// Anti-one-shot safeguard (INFERRED from `-[Actor damage:]` 0x3a064). A single ENEMY hit
 // blow can't take a player zombie from above the floor straight to death or below 10% of max
 // HP — its HP snaps to exactly 1 instead, so it survives to act once more. Once already at the
 // 1-HP floor the next hit kills it (this models the in-binary state bit 0x10 that eventually
-// permits the killing blow, which we can't fully pin). Scoped to enemy MELEE only — boss
-// throws/specials (heuristic hazards) and the turnZombie instakill deliberately bypass it.
+// permits the killing blow, which we can't fully pin). `turnZombie` deliberately bypasses it
+// because that action removes/converts the target rather than dealing an ordinary hit.
 const ONE_SHOT_FLOOR = 0.1; // hit is capped if it would leave HP fraction below this
 
 // Mini Buddy: a waiting Small zombie mounts a Large zombie, rides to the line at
@@ -118,11 +118,12 @@ const PREDICT_SPEED_CAP = 150; // sim px/s — never lead a target faster than t
 // perch↔ground) rather than walking — its measured velocity is discarded (max real
 // step is moveSpeed≤260 × dt≤0.05s ≈ 13 px).
 export const TELEPORT_PX = 40;
-// Boss-action damage is authored in the same compact stat scale as unit strength.
-// Combat HP is con×100 and melee first converts strength to power with ×10, so throws
-// need that same conversion before the projectile difficulty multiplier. Pirate raw
-// 12.5/25/50 therefore becomes 250/500/1000 after the current ×2 setting.
-const PROJ_DMG_SCALE = POWER_PER_STR;
+// Boss-action throw damage is an independently authored chip-damage value, not a
+// Strength stat. Do not run it through POWER_PER_STR: that made McDonnell's raw
+// 6/12/18 throws deal 120/240/360 after the projectile multiplier. The exact source
+// conversion is not recovered, so retain the play-tested chip scale used before that
+// unsupported conversion was introduced.
+const PROJ_DMG_SCALE = 1.75;
 
 // ---- Round timer + enrage (ZFFightMan updateTimer:/showEnrageTimer) ----
 // The fight is a countdown; when it expires the boss ENRAGES. The reference build
@@ -330,6 +331,7 @@ export interface BattleSimSnapshot {
   enraged: boolean;
   specialCd: number;
   specialCast: number;
+  specialCount: number;
   pendingSpecial: BossSpecial | null;
   obstacleTimer: number;
   summonsLeft: number;
@@ -338,6 +340,28 @@ export interface BattleSimSnapshot {
   grabbers: SimGrabber[];
   grabberTimer: number;
   grabSeq: number;
+}
+
+/** Deterministic stand-in for the source game's weighted random roll. Replay must be
+ * identical on client and server, so hash the independent action counter into a stable
+ * unit interval and then apply the recovered cumulative-frequency selection rule. */
+function weightedPick<T extends { weight: number }>(items: readonly T[], count: number, salt: number): T | null {
+  if (!items.length) return null;
+  const weighted = items
+    .filter((item) => Number.isFinite(item.weight) && item.weight > 0)
+    .sort((a, b) => a.weight - b.weight);
+  if (!weighted.length) return items[count % items.length] ?? items[0];
+  const total = weighted.reduce((sum, item) => sum + item.weight, 0);
+  let x = (count + 1 + salt) | 0;
+  x = Math.imul(x ^ (x >>> 16), 0x21f0aaad);
+  x = Math.imul(x ^ (x >>> 15), 0x735a2d97);
+  const roll = (((x ^ (x >>> 15)) >>> 0) / 0x1_0000_0000) * total;
+  let cumulative = 0;
+  for (const item of weighted) {
+    cumulative += item.weight;
+    if (roll < cumulative) return item;
+  }
+  return weighted[weighted.length - 1];
 }
 
 function toSim(u: CombatUnit, i: number): SimUnit {
@@ -433,6 +457,7 @@ export class BattleSim {
   private specials: BossSpecial[];
   private specialCd = 0; // recovery until the next special can start
   private specialCast = 0; // wind-up left on the pending special
+  private specialCount = 0;
   private pendingSpecial: BossSpecial | null = null;
   // ---- environmental obstacle hazards ----
   private hazard: HazardConfig | null;
@@ -545,6 +570,7 @@ export class BattleSim {
       enraged: this._enraged,
       specialCd: this.specialCd,
       specialCast: this.specialCast,
+      specialCount: this.specialCount,
       pendingSpecial: this.pendingSpecial ? { ...this.pendingSpecial } : null,
       obstacleTimer: this.obstacleTimer,
       summonsLeft: this.summonsLeft,
@@ -578,6 +604,7 @@ export class BattleSim {
     this._enraged = snapshot.enraged;
     this.specialCd = snapshot.specialCd;
     this.specialCast = snapshot.specialCast;
+    this.specialCount = snapshot.specialCount ?? 0;
     this.pendingSpecial = snapshot.pendingSpecial ? { ...snapshot.pendingSpecial } : null;
     this.obstacleTimer = snapshot.obstacleTimer;
     this.summonsLeft = snapshot.summonsLeft;
@@ -829,18 +856,8 @@ export class BattleSim {
       u.team === "player"
         ? Math.max(1, Math.round(u.damage * lineupDamageBand(u.lineupIndex)))
         : u.damage;
-    if (
-      u.team === "enemy" &&
-      foe.team === "player" &&
-      foe.alive &&
-      foe.hp > 1 &&
-      (foe.hp - dmg) / foe.maxHp < ONE_SHOT_FLOOR
-    ) {
-      // Anti-one-shot: an enemy melee blow can't drop it below the floor in one hit — snap to 1.
-      foe.hp = 1;
-    } else {
-      this.dealDamage(foe, dmg, u.team === "player");
-    }
+    if (u.team === "enemy") this.dealEnemyDamage(foe, dmg);
+    else this.dealDamage(foe, dmg, true);
     u.struckThisTick = true;
     this.attacksLanded++;
     if (u.team === "player") {
@@ -878,6 +895,21 @@ export class BattleSim {
     }
     // A downed enemy opens the gate for the next to emerge after a beat.
     if (fromPlayer && foe.team === "enemy") this.emergeCooldown = ENEMY_EMERGE_GAP_MS;
+  }
+
+  /** Apply an ordinary enemy hit through the recovered player-zombie one-shot floor. */
+  private dealEnemyDamage(foe: SimUnit, dmg: number) {
+    if (
+      dmg > 0 &&
+      foe.team === "player" &&
+      foe.alive &&
+      foe.hp > 1 &&
+      (foe.hp - dmg) / foe.maxHp < ONE_SHOT_FLOOR
+    ) {
+      foe.hp = 1;
+      return;
+    }
+    this.dealDamage(foe, dmg, false);
   }
 
   /** Advance the charging zombie's focus bar, running the bubble minigame unless
@@ -1331,11 +1363,11 @@ export class BattleSim {
     this.specialCast = Math.max(0, pick.castMs);
   }
 
-  /** Weighted pick among the boss's specials (deterministic round-robin by count —
-   *  the sim stays RNG-free). Returns null if none. */
+  /** Frequency-weighted deterministic pick among the boss's specials. */
   private pickSpecial(): BossSpecial | null {
-    if (!this.specials.length) return null;
-    return this.specials[this.throwCount % this.specials.length] ?? this.specials[0];
+    const pick = weightedPick(this.specials, this.specialCount, 0x51ec1a1);
+    if (pick) this.specialCount++;
+    return pick;
   }
 
   /** Land a boss special. Effects that need spawned entities (summonBoss, wall) are
@@ -1352,7 +1384,7 @@ export class BattleSim {
         // AoE burst: chip every zombie that has moved out to fight.
         for (const p of this.players) {
           if (p.alive && (p.state === "advance" || p.state === "fight")) {
-            this.dealDamage(p, dmg * BOSS_SPECIAL_DAMAGE_MULT, false);
+            this.dealEnemyDamage(p, dmg * BOSS_SPECIAL_DAMAGE_MULT);
             p.struckThisTick = true;
           }
         }
@@ -1371,7 +1403,7 @@ export class BattleSim {
         // A heavy single-target lift+slam.
         const victim = this.frontFighter() ?? this.throwTarget();
         if (victim) {
-          this.dealDamage(victim, dmg * 2 * BOSS_SPECIAL_DAMAGE_MULT, false);
+          this.dealEnemyDamage(victim, dmg * 2 * BOSS_SPECIAL_DAMAGE_MULT);
           victim.struckThisTick = true;
         }
         break;
@@ -1597,11 +1629,12 @@ export class BattleSim {
   /** Launch a ballistic throw at the target zombie, leading its (capped) motion. */
   private launchThrow(target: SimUnit) {
     const opts = this.bossThrow!.options;
-    const opt = opts[this.throwCount % opts.length]; // deterministic round-robin
+    const opt = weightedPick(opts, this.throwCount, 0x7a20b055);
+    if (!opt) return;
     this.throwCount++;
     this.launchProjectile(
       target,
-      Math.max(1, Math.round(opt.damage * PROJ_DMG_SCALE)),
+      opt.damage > 0 ? Math.max(1, Math.round(opt.damage * PROJ_DMG_SCALE)) : 0,
       opt.sprite,
       opt.spriteSize
     );
@@ -1648,7 +1681,7 @@ export class BattleSim {
       vy,
       rot: 0,
       rotSpeed: (vx < 0 ? -1 : 1) * 7,
-      damage: Math.max(1, Math.round(damage * PROJECTILE_DAMAGE_MULT)),
+      damage: damage > 0 ? Math.max(1, Math.round(damage * PROJECTILE_DAMAGE_MULT)) : 0,
       sprite,
       spriteSize,
       done: false,
@@ -1679,7 +1712,7 @@ export class BattleSim {
         if (dx * dx + dy * dy <= hitR * hitR) {
           // Carried grabs are the Trapeze Artist (stepGrabbers), not projectiles; a
           // crossing hazard here just deals its damage.
-          this.dealDamage(p, pr.damage, false);
+          this.dealEnemyDamage(p, pr.damage);
           p.struckThisTick = true;
           pr.done = true;
           break;

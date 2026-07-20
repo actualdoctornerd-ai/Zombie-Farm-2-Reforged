@@ -517,6 +517,15 @@ export class EconomyClient {
   }
   async refreshAuthoritative(): Promise<void> { await this.refreshInventory(); }
 
+  /** Claiming a social gift is an independent, server-fenced mutation. It must not
+   * wait on the gameplay writer queue: another tab may own that queue, and a paused
+   * durable command must not prevent this account from receiving its gift. */
+  async claimGift(giftId: string) {
+    const result = await api.claimGift(giftId);
+    this.adoptExternalBalance(result.balance, result.accountVersion);
+    return result;
+  }
+
   /** Adopt a balance returned by a trusted server-side mutation such as claiming a
    * social gift. Pending optimistic gameplay deltas remain layered on top. */
   adoptExternalBalance(balance: api.Balance, accountVersion?: number): void {

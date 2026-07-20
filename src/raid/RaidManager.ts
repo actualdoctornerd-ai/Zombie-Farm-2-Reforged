@@ -544,11 +544,9 @@ export class RaidManager {
       }))
       .filter((o) => o.sprite);
     if (!options.length) return null;
-    // Source throwSpeed reads too fast in the live scene — aim for ~2 real seconds
-    // between throws, so each throwSpeed "second" maps to 2000ms (McDonnell's
-    // throwSpeed 2 → 4000ms).
+    // `throwSpeed` is authored in seconds (ZFFightMan's projectile timer).
     const secs = stage.throwSpeed ?? raid.throwSpeed;
-    return { intervalMs: (secs > 0 ? secs : 2) * 2000, options };
+    return { intervalMs: (secs > 0 ? secs : 2) * 1000, options };
   }
 
   /** Apply the result of a played-out raid: veterancy credit, win rewards, the

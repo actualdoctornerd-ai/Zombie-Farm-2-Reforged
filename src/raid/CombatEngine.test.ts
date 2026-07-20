@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveRaid, buildPlayerUnits } from "./CombatEngine";
+import { resolveRaid, buildEnemyUnits, buildPlayerUnits } from "./CombatEngine";
 import type { CombatUnit } from "./types";
 import type { OwnedZombie } from "../zombie/types";
 
@@ -88,6 +88,27 @@ describe("enemies engage one at a time (army concentration matters)", () => {
     const tank = mk({ id: "boss", team: "enemy", str: 8, con: 40 });
     const r = resolveRaid(army("player", 6), [tank]);
     expect(r.win).toBe(true);
+  });
+});
+
+describe("weighted raid populations", () => {
+  it("preserves the authored population exactly after weight apportionment", () => {
+    const stats = Object.fromEntries(["a", "b", "c"].map((key) => [key, {
+      str: 1, dex: 1, con: 1, attacks: [],
+    }]));
+    const units = buildEnemyUnits({
+      enemyKeys: [],
+      population: 11,
+      weighted: [
+        { enemy: "a", frequency: 50 },
+        { enemy: "b", frequency: 33 },
+        { enemy: "c", frequency: 17 },
+      ],
+    }, stats, {});
+    expect(units).toHaveLength(11);
+    expect(units.filter((unit) => unit.sourceKey === "a")).toHaveLength(5);
+    expect(units.filter((unit) => unit.sourceKey === "b")).toHaveLength(4);
+    expect(units.filter((unit) => unit.sourceKey === "c")).toHaveLength(2);
   });
 });
 

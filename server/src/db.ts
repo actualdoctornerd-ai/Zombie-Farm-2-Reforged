@@ -401,27 +401,64 @@ export async function blockedEitherWay(
   return !!row;
 }
 
-/** Send a gift, enforcing "once per UTC day per recipient" ATOMICALLY. The unique
- *  index idx_gifts_once (from_id, to_id, day_bucket) means a second send in the
- *  same bucket conflicts and inserts nothing — no read-then-insert race. Returns
- *  true if a gift was created, false if the daily gate already fired. */
-export async function insertGiftOnce(
+/** Gift sending remains once per UTC day per recipient and is additionally capped
+ * at two total recipients per sender/day. Successful sends credit 5 authoritative XP. */
+export type GiftSendStatus = "sent" | "already_gifted_today" | "daily_gift_limit" | "conflict";
+
+export interface GiftSendResult {
+  status: GiftSendStatus;
+  balance: Balance;
+  accountVersion: number;
+  sentToday: number;
+}
+
+/** Atomically create a gift and award its sender XP. The conditional INSERT
+ * enforces two total sends per UTC day, while idx_gifts_once still prevents two
+ * sends to the same recipient. */
+export async function sendGiftWithReward(
   db: D1Database,
   from: string,
   to: string,
   bucket: number,
-  now: number
-): Promise<boolean> {
+  now: number,
+  seed: Balance,
+  xpAward = 5
+): Promise<GiftSendResult> {
+  await getOrSeedBalance(db, from, seed);
   const id = idFromBytes(rand(16));
-  const res = await db
-    .prepare(
+  const guard = "EXISTS(SELECT 1 FROM gifts WHERE id=? AND from_id=?)";
+  const results = await db.batch([
+    db.prepare(
       `INSERT INTO gifts (id, from_id, to_id, type, created_at, day_bucket)
-       VALUES (?, ?, ?, 'brain', ?, ?)
+       SELECT ?, ?, ?, 'brain', ?, ?
+       WHERE (SELECT COUNT(*) FROM gifts WHERE from_id = ? AND day_bucket = ?) < 2
        ON CONFLICT (from_id, to_id, day_bucket) DO NOTHING`
-    )
-    .bind(id, from, to, now, bucket)
-    .run();
-  return (res.meta.changes ?? 0) === 1;
+    ).bind(id, from, to, now, bucket, from, bucket),
+    db.prepare(`UPDATE balances SET xp=xp+? WHERE account_id=? AND ${guard}`)
+      .bind(xpAward, from, id, from),
+    db.prepare(`INSERT INTO ledger (id,account_id,currency,delta,reason,created_at)
+      SELECT ?,?,'xp',?,'gift_sent',? WHERE ${guard}`)
+      .bind(id, from, xpAward, now, id, from),
+    db.prepare(`UPDATE account_runtime_v3 SET account_version=account_version+1,updated_at=?
+      WHERE account_id=? AND ${guard}`).bind(now, from, id, from),
+  ]);
+  const sent = (results[0]?.meta.changes ?? 0) === 1;
+  if (sent) await creditLevelUps(db, from, now);
+
+  const [balance, runtime, duplicate, daily] = await Promise.all([
+    getOrSeedBalance(db, from, seed),
+    db.prepare("SELECT account_version FROM account_runtime_v3 WHERE account_id=?")
+      .bind(from).first<{ account_version: number }>(),
+    sent ? Promise.resolve(null) : db.prepare(
+      "SELECT 1 AS found FROM gifts WHERE from_id=? AND to_id=? AND day_bucket=?"
+    ).bind(from, to, bucket).first<{ found: number }>(),
+    db.prepare("SELECT COUNT(*) AS n FROM gifts WHERE from_id=? AND day_bucket=?")
+      .bind(from, bucket).first<{ n: number }>(),
+  ]);
+  const sentToday = daily?.n ?? 0;
+  const status: GiftSendStatus = sent ? "sent" : duplicate ? "already_gifted_today" :
+    sentToday >= 2 ? "daily_gift_limit" : "conflict";
+  return { status, balance, accountVersion: runtime?.account_version ?? 0, sentToday };
 }
 
 /** Count of unclaimed gifts sitting in `to`'s inbox (for the inbox cap). */

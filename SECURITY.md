@@ -5,7 +5,7 @@ Last reviewed: 2026-07-19
 ## Scope and status
 
 This document describes the current source tree at gameplay protocol v3 (client integrity
-version 4, raid ruleset version 3). It covers authentication, sessions, the exclusive writer
+version 4, raid ruleset version 4). It covers authentication, sessions, the exclusive writer
 lease, social features, gameplay commands, persistence, economy, farms, quests, raids, Epic
 Boss runs, the Black Market, rate limiting, and operational controls.
 
@@ -92,7 +92,7 @@ notional. `MUTATIONS_DISABLED=1` remains the incident stop for all gameplay writ
   (`buildPinnedV3Raid`): player/enemy units, boss throw/specials, summon and wall templates,
   grabber, and concentration. The pinned config and `ruleset_version` are stored on the session
   (migrations `0016`, `0017`, `0027`).
-- `/raid/finish` requires a matching `rulesetVersion` (`RAID_RULESET_VERSION = 3`; a mismatch
+- `/raid/finish` requires a matching `rulesetVersion` (`RAID_RULESET_VERSION = 4`; a mismatch
   returns `426 stale_ruleset` and closes the session), rejects a `finalTick` beyond the paced
   elapsed real time (`future_finish`), then **replays** the pinned sim with the submitted input
   transcript and derives `win`/`survivors`/`losses`/`retreated`. Illegal inputs (e.g. an

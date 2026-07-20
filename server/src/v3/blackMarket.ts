@@ -8,8 +8,8 @@ import type {
 import objectRows from "../../../public/assets/placeables.json";
 import { isTradableZombie } from "../rosterCatalog";
 
-const ACTIVE_LIMIT = 2 as const;
-const DAILY_LIMIT = 10 as const;
+const ACTIVE_LIMIT = 10 as const;
+const DAILY_LIMIT = 50 as const;
 const MAX_PRICE = 1_000_000;
 const PAGE_SIZE = 30;
 

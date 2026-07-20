@@ -22,6 +22,34 @@ describe("v3 raid dependency ids", () => {
     expect((economy as any).queue.accountVersion).toBe(7);
   });
 
+  it("claims a gift without waiting on a paused gameplay writer queue", async () => {
+    const state = new GameState();
+    const economy = new EconomyClient(state, "gift-independent-account");
+    const queue = (economy as any).queue;
+    queue.adoptBootstrap({
+      accountVersion: 1, writerGeneration: 1, mutationsEnabled: true,
+      minimumProtocolVersion: 3,
+      writer: { status: "mine", generation: 1, lastActivityAt: 1 },
+    } as any);
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    queue.disable("offline");
+    const settle = vi.spyOn(queue, "settle");
+    const claim = vi.spyOn(api, "claimGift").mockResolvedValue({
+      balance: { gold: 200, brains: 16, xp: 0 },
+      accountVersion: 2,
+      alreadyClaimed: false,
+      credited: true,
+    });
+
+    await expect(economy.claimGift("gift-1")).resolves.toMatchObject({ credited: true });
+
+    expect(claim).toHaveBeenCalledWith("gift-1");
+    expect(settle).not.toHaveBeenCalled();
+    expect(queue.size).toBe(1);
+    expect(queue.accountVersion).toBe(2);
+    expect(state.brains).toBe(16);
+  });
+
   it("translates a selected optimistic harvest id after the batch settles", () => {
     const economy = new EconomyClient(new GameState(), "alias-test-account");
     (economy as any).optimistic.set(1, {
