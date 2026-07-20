@@ -446,6 +446,27 @@ export class EconomyClient {
 
   async flush(): Promise<void> { await this.queue.flush(); }
   async settleBeforeDependency(): Promise<void> {
+    try {
+      await this.queue.settle();
+      return;
+    } catch (error) {
+      // A bootstrap/network failure can leave an otherwise empty durable queue paused.
+      // Out-of-band mutations (gift claims, raids, Epic Boss actions) used to remain
+      // blocked behind that stale flag even after connectivity returned. With no local
+      // commands to preserve, a fresh bootstrap is a safe immediate recovery boundary.
+      if (this.queue.size > 0) throw error;
+    }
+
+    const bootstrap = await api.bootstrap(true);
+    this.queue.adoptBootstrap(bootstrap);
+    this.ready = true;
+    this.adoptGameplay(bootstrap.gameplay);
+    if (bootstrap.writer.status !== "mine") {
+      this.onWriterReplaced?.();
+      throw new Error("writer_replaced");
+    }
+    // Re-check the queue state so maintenance mode, a protocol gate, or ownership
+    // loss still blocks the external mutation instead of bypassing server authority.
     await this.queue.settle();
   }
 

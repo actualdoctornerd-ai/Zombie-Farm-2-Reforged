@@ -310,6 +310,50 @@ describe("v3 raid dependency ids", () => {
     expect(settle).toHaveBeenCalledOnce();
   });
 
+  it("recovers an empty paused queue before an out-of-band dependency", async () => {
+    const economy = new EconomyClient(new GameState(), "gift-recovery-account");
+    (economy as any).queue.disable("offline");
+    vi.spyOn(api, "bootstrap").mockResolvedValue({
+      protocolVersion: 3, serverTime: 1, minimumProtocolVersion: 3,
+      mutationsEnabled: true, accountVersion: 4, writerGeneration: 2,
+      writerDeviceId: "this-device",
+      writer: { status: "mine", generation: 2, lastActivityAt: 1 },
+      gameplay: {
+        balance: { gold: 200, brains: 15, xp: 0 },
+        farm: { version: 0, plots: {} }, objects: { version: 0, objects: [] },
+        quests: { version: 0, completed: [], progress: [] }, inventory: {},
+        storage: { received: {}, stored: {} }, roster: [], farmSize: 30,
+        climates: ["grass"], farmerHeads: [1], farmerHeadId: 1,
+        ownedPets: [], activePet: null, penPets: [], zombieMax: 16,
+        tutorialRewarded: false, raids: { progress: {}, lastRaidAt: 0 },
+        raidRevival: null, epicBoss: null,
+      },
+      presentation: { version: 0 },
+      social: { friends: [], incomingRequestCount: 0, inboxCount: 1 },
+      resumableRaid: null,
+    } as any);
+
+    await expect(economy.settleBeforeDependency()).resolves.toBeUndefined();
+    expect(api.bootstrap).toHaveBeenCalledWith(true);
+    expect(economy.available).toBe(true);
+  });
+
+  it("does not bypass a paused queue that still has unresolved commands", async () => {
+    const economy = new EconomyClient(new GameState(), "gift-pending-account");
+    const queue = (economy as any).queue;
+    queue.adoptBootstrap({
+      accountVersion: 1, writerGeneration: 1, mutationsEnabled: true,
+      minimumProtocolVersion: 3,
+      writer: { status: "mine", generation: 1, lastActivityAt: 1 },
+    } as any);
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    queue.disable("offline");
+    const bootstrap = vi.spyOn(api, "bootstrap");
+
+    await expect(economy.settleBeforeDependency()).rejects.toThrow("gameplay_unavailable");
+    expect(bootstrap).not.toHaveBeenCalled();
+  });
+
   it("reports rejected commands and identifies rejected optimistic objects", () => {
     const economy = new EconomyClient(new GameState(), "reject-account");
     const command = { type: "object.buy" as const, catalogKey: "mausoleum3", clientInstanceId: "o7" };
