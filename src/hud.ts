@@ -4119,16 +4119,20 @@ export class Hud {
     btn.className = "invade-shortcut";
     const img = document.createElement("img");
     img.src = UI("button_invade.png");
+    const label = document.createElement("span");
+    label.className = "invade-label";
+    label.textContent = "Invade";
     const timer = document.createElement("span");
     timer.className = "invade-timer";
     const refresh = () => {
       const ms = this.getRaidStatus?.().cooldownMs ?? 0;
-      timer.textContent = ms > 0 ? fmtCooldown(ms) : "Ready";
+      timer.hidden = ms <= 0;
+      timer.textContent = ms > 0 ? fmtCooldown(ms) : "";
       btn.title = ms > 0 ? `Next invasion in ${fmtCooldown(ms)} (I)` : "Invade now (I)";
     };
     refresh();
     window.setInterval(refresh, 1000);
-    btn.append(img, timer);
+    btn.append(timer, img, label);
     btn.onclick = () => this.openRaids();
     this.el.appendChild(btn);
   }

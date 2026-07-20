@@ -184,10 +184,15 @@
 #hud .invade-shortcut { position: fixed; left: 10px; bottom: 10px; width: 72px;
   pointer-events: auto; border: none; background: none; cursor: pointer; padding: 0;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
-#hud .invade-shortcut img { width: 62px; height: 62px; object-fit: contain; }
-#hud .invade-timer { display: block; margin-top: -9px; padding: 2px 5px; border-radius: 8px;
+#hud .invade-shortcut img { display: block; width: 72px; height: auto; object-fit: contain; }
+#hud .invade-label { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-55%);
+  color: #fff; font: 800 14px system-ui,sans-serif; text-align: center;
+  text-shadow: 0 1px 2px #000; }
+#hud .invade-timer { position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%);
+  min-width: 54px; padding: 2px 5px; border-radius: 8px;
   background: rgba(72,10,24,.92); border: 1px solid #c04155; color: #fff;
   font: 800 11px system-ui,sans-serif; text-align: center; text-shadow: 0 1px 1px #000; }
+#hud .invade-timer[hidden] { display: none; }
 
 #hud .crop-hover { position: fixed; z-index: 18; display: none; flex-direction: column;
   pointer-events: none; min-width: 140px; gap: 2px; padding: 7px 10px; border-radius: 9px;
