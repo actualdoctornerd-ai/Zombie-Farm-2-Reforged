@@ -4,7 +4,7 @@
 // appears under that plot and fills green, then the action applies and the marker
 // clears. Queue is FIFO so you can line up several actions at once.
 import { Container, Graphics, Text } from "pixi.js";
-import { CARROT, CropConfig, Field, PLOT } from "./Field";
+import { CARROT, CropConfig, Field, PLOT, ZombieMutationContext } from "./Field";
 import { Actor } from "./Actor";
 import { WalkController } from "./WalkController";
 import { GameState } from "./GameState";
@@ -67,7 +67,7 @@ export class JobSystem {
     // Fired when a zombie crop is harvested, to grow an owned zombie at its plot.
     // Returns the spawned unit's id (so an online harvest can tell the server which
     // verified unit the crop yielded), or null if nothing was spawned.
-    private onZombieHarvest: (key: string, oc: number, or: number) => string | null = () => null,
+    private onZombieHarvest: (key: string, oc: number, or: number, mutation: ZombieMutationContext) => string | null = () => null,
     // Quest event bus: plow/plant/harvest post notifications that advance quests.
     private quest: QuestBus = new QuestBus(),
     // Fired after a veggie crop is planted, to let Garden zombies roll to fertilize
@@ -383,7 +383,9 @@ export class JobSystem {
         // Spawn the harvested zombie FIRST (if any) so an online harvest can hand the
         // server the exact verified unit id it should record. spawnVerified suppresses
         // the generic onGrant — the server grants the unit via this farm harvest instead.
-        const unitId = r.zombieKey ? this.onZombieHarvest(r.zombieKey, job.oc, job.or) : null;
+        const unitId = r.zombieKey
+          ? this.onZombieHarvest(r.zombieKey, job.oc, job.or, r.mutationContext!)
+          : null;
 
         if (r.zombieKey) {
           // Zombie crop: ONLINE the server grow-gates + grants the verified unit + xp

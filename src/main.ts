@@ -45,6 +45,7 @@ import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tut
 import { initPlatform, isMobile } from "./platform";
 import { gestureMoved, isDeferredTouchMode, isTouchPointer } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
+import { resolveCropMutations } from "./zombie/cropMutations";
 import { MutationPortraits } from "./zombie/mutationPortrait";
 import { DR_GROUNDHOG, EPIC_BOSSES, epicBossById } from "./epicBoss/catalog";
 import { EpicBossManager } from "./epicBoss/EpicBossManager";
@@ -145,6 +146,15 @@ async function main() {
   // def (stats + taxonomy) to spawn the matching owned unit.
   const zombieDefs = new Map<string, ZombieDef>();
   for (const z of assets.zombies) zombieDefs.set(z.key, z);
+  const offlineHarvestMutation = (key: string, context: { cropKeys: string[]; guaranteed: boolean }): number | undefined => {
+    if (state.onFarm) return undefined; // online mutation rolls are server-owned
+    const def = zombieDefs.get(key);
+    if (!def) return undefined;
+    return resolveCropMutations(def.mutation ?? 0, context.cropKeys, {
+      guaranteed: context.guaranteed,
+      headless: def.group === "Headless",
+    });
+  };
   const allZombieCards = assets.zombies.map((z) => {
     const cfg: CropConfig = {
       key: z.key, name: z.name,
@@ -593,7 +603,9 @@ async function main() {
   // Harvesting a zombie crop grows an owned zombie at the plot's center tile.
   const jobs = new JobSystem(
     field, actor, walk, state, floatText, (name) => audio.play(name),
-    (key, oc, or) => zombies.spawnVerified(key, oc + 1, or + 1)?.id ?? null,
+    (key, oc, or, context) => zombies.spawnVerified(
+      key, oc + 1, or + 1, offlineHarvestMutation(key, context)
+    )?.id ?? null,
     questBus,
     (oc, or) => zombies.tryFertilize(oc, or),
     (oc, or) => tutorial?.onPlotPlowed(oc, or),
@@ -807,13 +819,19 @@ async function main() {
     }
     if (def.effect === "harvest") {
       let harvested = 0;
+      // Insta-Harvest is one atomic action: snapshot every zombie's neighbours so
+      // harvesting a ripe adjacent vegetable earlier in this loop cannot erase it.
+      const mutationContexts = new Map(field.ripePlots().filter((plot) => plot.isZombie)
+        .map((plot) => [`${plot.oc}:${plot.or}`, field.zombieMutationContextAt(plot.oc, plot.or)]));
       for (const pl of field.ripePlots()) {
         if (pl.isZombie && !zombies.canAdd()) continue; // respect the army cap
         const r = field.harvestAt(pl.oc, pl.or);
         if (!r) continue;
         if (state.onFarm) {
           if (r.zombieKey) {
-            const unit = zombies.spawnVerified(r.zombieKey, pl.oc + 1, pl.or + 1);
+            const context = mutationContexts.get(`${pl.oc}:${pl.or}`) ?? r.mutationContext!;
+            const unit = zombies.spawnVerified(r.zombieKey, pl.oc + 1, pl.or + 1,
+              offlineHarvestMutation(r.zombieKey, context));
             if (!unit) continue;
             powerUnitIds.push({ id: unit.id, oc: pl.oc, or: pl.or });
           }
@@ -822,7 +840,11 @@ async function main() {
         } else {
           if (r.sell) state.addGold(state.farmerHarvestGold(r.sell));
           state.addXp(harvestXp(r.xp, field.hasPlowFree()));
-          if (r.zombieKey) zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1);
+          if (r.zombieKey) {
+            const context = mutationContexts.get(`${pl.oc}:${pl.or}`) ?? r.mutationContext!;
+            zombies.spawn(r.zombieKey, pl.oc + 1, pl.or + 1,
+              offlineHarvestMutation(r.zombieKey, context));
+          }
         }
         questBus.post(r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested, r.name);
         const cropCenter = field.plotCenterOf(pl.oc, pl.or);

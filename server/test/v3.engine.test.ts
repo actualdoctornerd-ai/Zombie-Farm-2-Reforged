@@ -371,6 +371,87 @@ describe("protocol v3 command engine", () => {
     expect(result.state.balance.xp).toBe(1);
   });
 
+  it("authoritatively stacks four cardinal mutation crops to 100% at zombie harvest", () => {
+    const state = freshGameplayState();
+    state.farm.plots = {
+      "4:4": { state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 0, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true },
+      // Different plantedAt values represent different growth stages; all still count.
+      "0:4": { state: "planted", cropKey: "carrot", plantedAt: 0, growMs: 99_999, sell: 16, xp: 1, fertilized: false, zombie: false },
+      "8:4": { state: "planted", cropKey: "carrot", plantedAt: 500, growMs: 99_999, sell: 16, xp: 1, fertilized: false, zombie: false },
+      "4:0": { state: "planted", cropKey: "carrot", plantedAt: 900, growMs: 99_999, sell: 16, xp: 1, fertilized: false, zombie: false },
+      "4:8": { state: "planted", cropKey: "carrot", plantedAt: 999, growMs: 99_999, sell: 16, xp: 1, fertilized: false, zombie: false },
+      "12:4": { state: "planted", cropKey: "tomato", plantedAt: 0, growMs: 99_999, sell: 30, xp: 1, fertilized: false, zombie: false },
+    };
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.harvest", oc: 4, or: 4 },
+    ), { now: 1_000, random: () => 1, id: () => "mutated-zombie" });
+
+    expect(result.results[0]).toMatchObject({
+      status: "applied",
+      createdIds: ["mutated-zombie"],
+      createdZombieSources: [{ id: "mutated-zombie", oc: 4, or: 4 }],
+    });
+    expect(result.state.roster).toContainEqual(expect.objectContaining({
+      id: "mutated-zombie", mutation: 4,
+    }));
+  });
+
+  it("rolls multiple non-conflicting adjacent crops independently", () => {
+    const state = freshGameplayState();
+    state.farm.plots = {
+      "4:4": { state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 0, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true },
+      "0:4": { state: "planted", cropKey: "tomato", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
+      "8:4": { state: "planted", cropKey: "carrot", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
+      "4:0": { state: "planted", cropKey: "celery", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
+      "4:8": { state: "planted", cropKey: "lima_beans", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
+    };
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.harvest", oc: 4, or: 4 },
+    ), { now: 1_000, random: () => 0.1, id: () => "multi-mutant" });
+    expect(result.state.roster[0].mutation).toBe(1 | 4 | 64 | 1024);
+  });
+
+  it("makes an adjacent crop guaranteed with a placed Mutant Monolith", () => {
+    const state = freshGameplayState();
+    state.objects.objects.push({ instanceId: "mutation-monolith", catalogKey: "monolithMutation", status: "placed" });
+    state.farm.plots = {
+      "4:4": { state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 0, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true },
+      "0:4": { state: "planted", cropKey: "dragon_fruit", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
+      "12:4": { state: "planted", cropKey: "tomato", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
+    };
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.harvest", oc: 4, or: 4 },
+    ), { now: 1_000, random: () => 1, id: () => "guaranteed-mutant" });
+    expect(result.state.roster[0].mutation).toBe(4096);
+  });
+
+  it("snapshots adjacency for atomic Insta-Harvest before removing ripe crops", () => {
+    const state = freshGameplayState();
+    state.inventory.insta_harvest = 1;
+    state.farm.plots = {
+      "0:4": { state: "planted", cropKey: "carrot", plantedAt: 0, growMs: 1, sell: 16, xp: 1, fertilized: false, zombie: false },
+      "4:4": { state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 1, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true },
+    };
+    const result = applyCommandBatch(state, commands(
+      { type: "power.use", key: "insta_harvest" },
+    ), { now: 1_000, random: () => 0.1, id: () => "power-mutant" });
+    expect(result.state.farm.plots["0:4"].state).toBe("spent");
+    expect(result.state.roster[0].mutation).toBe(4);
+  });
+
+  it("keeps the Mutant Monolith's zombie growth reduction authoritative", () => {
+    const state = freshGameplayState();
+    state.balance.gold = 1_000;
+    state.balance.xp = 50_000;
+    state.objects.objects.push({ instanceId: "mutation-monolith", catalogKey: "monolithMutation", status: "placed" });
+    state.farm.plots["0:0"] = { state: "plowed" };
+    const result = applyCommandBatch(state, commands(
+      { type: "farm.plant", oc: 0, or: 0, cropKey: "ZombieActorRegularTier1Carrots" },
+    ), { now: 1, random: () => 1 });
+    expect(result.results[0].status).toBe("applied");
+    expect(result.state.farm.plots["0:0"]).toMatchObject({ growMs: 10_800_000 });
+  });
+
   it("keeps a ripe zombie planted when the active army is full, even with storage room", () => {
     const state = freshGameplayState();
     state.zombieMax = 1;

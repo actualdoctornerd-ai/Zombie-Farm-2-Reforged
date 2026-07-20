@@ -12,8 +12,8 @@
 //   * Max 5 mutations (one per slot).
 //   * Stat bonuses map: power/attack -> str, life -> con, speed -> dex.
 //
-// Acquisition in ZF2 (crop-adjacency was removed): buy a pre-mutated Market
-// zombie (guaranteed mutation), or combine two zombies in the Zombie Pot.
+// Acquisition: grow a zombie beside mutation-bearing crops, buy a pre-mutated
+// Market zombie, or combine two zombies in the Zombie Pot.
 // ---------------------------------------------------------------------------
 
 export type Slot = "head" | "hair_eye" | "arm" | "body" | "neck";

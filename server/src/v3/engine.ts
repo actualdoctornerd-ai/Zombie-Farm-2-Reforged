@@ -24,6 +24,7 @@ import { zombieCropEcon } from "../zombieCropCatalog";
 import { farmerGold, farmerZombieGrowMs } from "../../../src/farmer";
 import { dropsEpicBossToken } from "../../../src/epicBoss/tokens";
 import { combineMasks } from "../../../src/zombie/mutations";
+import { resolveCropMutations } from "../../../src/zombie/cropMutations";
 import { createCombineRandom, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
 import { harvestXp, plowXp } from "../../../src/farmRewards";
 
@@ -174,6 +175,26 @@ function hasPlowingMonolith(state: MutableGameplayState): boolean {
   );
 }
 
+function hasMutationMonolith(state: MutableGameplayState): boolean {
+  return state.objects.objects.some(
+    (object) => object.status === "placed" && object.catalogKey === "monolithMutation"
+  );
+}
+
+/** Cardinal plots touching this 4x4 plot. Crop age is deliberately ignored. */
+function adjacentCropKeys(
+  plots: Record<string, FarmPlotProjection>,
+  oc: number,
+  or: number
+): string[] {
+  const keys: string[] = [];
+  for (const [dc, dr] of [[-PLOT_SIZE, 0], [PLOT_SIZE, 0], [0, -PLOT_SIZE], [0, PLOT_SIZE]] as const) {
+    const plot = plots[plotKey(oc + dc, or + dr)];
+    if (plot?.state === "planted" && !plot.zombie) keys.push(plot.cropKey);
+  }
+  return keys;
+}
+
 function rewardHarvest(
   state: MutableGameplayState,
   key: string,
@@ -181,7 +202,8 @@ function rewardHarvest(
   makeId: () => string,
   created: string[],
   now: number,
-  random: () => number
+  random: () => number,
+  mutationCropKeys: readonly string[] = []
 ): { ok: true; event: QuestEvent } | { ok: false; error: string } {
   if (plot.zombie) {
     // Growing a zombie is different from receiving an award: a ripe zombie crop
@@ -191,7 +213,14 @@ function rewardHarvest(
       return { ok: false, error: "capacity_full" };
     }
     const id = makeId();
-    addAwardedZombie(state, key, id);
+    const rule = zombieRuleByKey.get(key);
+    const mutation = resolveCropMutations(zombieDefaultMutation(key), mutationCropKeys, {
+      guaranteed: hasMutationMonolith(state),
+      headless: rule?.group === "Headless",
+      random,
+    });
+    // Capacity was checked above, so a grown zombie always enters the active army.
+    state.roster.push({ id, key, mutation, invasions: 0, stored: false });
     created.push(id);
     state.balance.xp += harvestXp(zombieCropEcon(key)?.xp ?? 0, hasPlowingMonolith(state));
     return { ok: true, event: { type: "kCropHarvestedZombieNotification", subject: zombieNames.get(key) ?? key } };
@@ -312,7 +341,10 @@ function applyOne(
         cropKey: command.cropKey,
         plantedAt: options.now,
         growMs: zombie
-          ? farmerZombieGrowMs(zombie.growMs, state.farmerHeadId)
+          ? farmerZombieGrowMs(
+              zombie.growMs * (hasMutationMonolith(state) && zombieDefaultMutation(command.cropKey) ? 0.5 : 1),
+              state.farmerHeadId
+            )
           : veg?.growMs ?? 0,
         sell: veg?.sell ?? 0,
         xp: veg?.xp ?? zombie?.xp ?? 0,
@@ -328,7 +360,8 @@ function applyOne(
       if (!plot || plot.state !== "planted") return reject(sequence, "nothing_planted");
       if (!isRipe(plot, options.now)) return reject(sequence, "not_grown");
       const createdBefore = created.length;
-      const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created, options.now, options.random);
+      const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created, options.now,
+        options.random, adjacentCropKeys(state.farm.plots, command.oc, command.or));
       if (!harvest.ok) return reject(sequence, harvest.error);
       state.farm.plots[key] = { state: "spent", zombie: plot.zombie };
       events.push(harvest.event);
@@ -377,15 +410,17 @@ function applyOne(
           events.push({ type: "kSoilPlowedNotification", subject: "Plow" });
         }
       } else if (command.key === "insta_harvest") {
+        const mutationPlots = clone(state.farm.plots);
         const ripe = Object.entries(state.farm.plots)
           .filter((entry): entry is [string, Extract<FarmPlotProjection, { state: "planted" }>] => entry[1].state === "planted" && isRipe(entry[1], options.now))
           .sort((a, b) => a[1].plantedAt - b[1].plantedAt || a[0].localeCompare(b[0]));
         for (const [key, plot] of ripe) {
           const createdAt = created.length;
-          const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created, options.now, options.random);
+          const [oc, or] = key.split(":").map(Number);
+          const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created, options.now,
+            options.random, adjacentCropKeys(mutationPlots, oc, or));
           if (!harvest.ok) continue; // capacity-full zombie crops remain planted
           if (created.length > createdAt) {
-            const [oc, or] = key.split(":").map(Number);
             createdZombieSources.push({ id: created[created.length - 1], oc, or });
           }
           state.farm.plots[key] = { state: "spent", zombie: plot.zombie };

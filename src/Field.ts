@@ -53,6 +53,22 @@ export interface CropConfig {
   isZombie?: boolean; // harvest leaves a hole (vs. a dirt square)
   isMutant?: boolean; // mutant-tier zombie: grows in half the time with a Mutant Monolith
 }
+
+export interface ZombieMutationContext {
+  cropKeys: string[];
+  guaranteed: boolean;
+}
+
+export interface HarvestResult {
+  sell: number;
+  xp: number;
+  growMs: number;
+  name: string;
+  isZombie: boolean;
+  fertilized: boolean;
+  zombieKey?: string;
+  mutationContext?: ZombieMutationContext;
+}
 export const CARROT: CropConfig = {
   key: "carrot",
   name: "Carrots",
@@ -657,10 +673,11 @@ export class Field {
   // Harvest a ripe plot: crop -> dirt square, zombie -> hole. Returns {sell,xp,name};
   // for a zombie crop, `zombieKey` names the unit type to spawn as an owned zombie.
   // `name` is the crop/zombie display name (for quest-progress matching).
-  harvestAt(oc: number, or: number): { sell: number; xp: number; growMs: number; name: string; isZombie: boolean; fertilized: boolean; zombieKey?: string } | null {
+  harvestAt(oc: number, or: number): HarvestResult | null {
     const p = this.plots.get(this.key(oc, or));
     if (!p || !p.crop || p.crop.ageMs < p.crop.cfg.growMs) return null;
     const { cfg } = p.crop;
+    const mutationContext = cfg.isZombie ? this.zombieMutationContextAt(oc, or) : undefined;
     // Fertilized (by a Garden zombie): the harvest is worth DOUBLE — ground truth
     // (`isFertilized` yields 6 crop drops instead of 3).
     const fertilized = !!p.crop.fertilized;
@@ -669,7 +686,19 @@ export class Field {
     p.crop = undefined;
     p.state = cfg.isZombie ? "hole" : "dirt";
     this.fit(p.soil, this.assets.soil[cfg.isZombie ? HOLE_FILE : DIRT_FILE], oc, or, PLOT);
-    return { sell, xp: cfg.xp, growMs: cfg.growMs, name: cfg.name, isZombie: !!cfg.isZombie, fertilized, zombieKey: cfg.isZombie ? cfg.key : undefined };
+    return { sell, xp: cfg.xp, growMs: cfg.growMs, name: cfg.name, isZombie: !!cfg.isZombie,
+      fertilized, zombieKey: cfg.isZombie ? cfg.key : undefined, mutationContext };
+  }
+
+  /** Mutation crops in the four cardinal plots around a zombie plot. Only the
+   * planted crop key matters; its age and visual growth stage intentionally do not. */
+  zombieMutationContextAt(oc: number, or: number): ZombieMutationContext {
+    const cropKeys: string[] = [];
+    for (const [dc, dr] of [[-PLOT, 0], [PLOT, 0], [0, -PLOT], [0, PLOT]] as const) {
+      const crop = this.plots.get(this.key(oc + dc, or + dr))?.crop;
+      if (crop && !crop.cfg.isZombie) cropKeys.push(crop.cfg.key);
+    }
+    return { cropKeys, guaranteed: this.hasMutantMonolith() };
   }
 
   /** Mark the growing crop at plot (oc,or) as fertilized (a Garden zombie fertilized
