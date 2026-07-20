@@ -521,7 +521,21 @@ export class EconomyClient {
    * wait on the gameplay writer queue: another tab may own that queue, and a paused
    * durable command must not prevent this account from receiving its gift. */
   async claimGift(giftId: string) {
-    const result = await api.claimGift(giftId);
+    let result: Awaited<ReturnType<typeof api.claimGift>> | undefined;
+    let lastError: unknown;
+    // A command batch owns the account fence only briefly. Claims are idempotent,
+    // so retry a transient collision instead of making the player click again.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await api.claimGift(giftId);
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!(error instanceof api.ApiError) || error.code !== "operation_in_progress" || attempt === 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+      }
+    }
+    if (!result) throw lastError ?? new Error("gift_claim_failed");
     this.adoptExternalBalance(result.balance, result.accountVersion);
     return result;
   }

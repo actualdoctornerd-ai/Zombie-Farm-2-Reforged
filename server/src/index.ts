@@ -1411,6 +1411,15 @@ app.post("/gifts/claim", async (c) => {
     // A raid/epic/command settlement may temporarily own the account fence. Do not
     // report the gift as claimed when it is still waiting in the inbox.
     if (await db.claimableGift(c.env.DB, gift.id, me)) {
+      const runtime = await c.env.DB.prepare(`SELECT active_batch_id, active_batch_expires_at
+        FROM account_runtime_v3 WHERE account_id = ?`).bind(me)
+        .first<{ active_batch_id: string | null; active_batch_expires_at: number }>();
+      slog("gift_claim_deferred", {
+        account: me,
+        gift: gift.id,
+        activeBatch: runtime?.active_batch_id ?? null,
+        activeBatchExpiresAt: runtime?.active_batch_expires_at ?? 0,
+      }, "warn");
       return c.json({ error: "operation_in_progress" }, 409);
     }
     return respond(true, false);

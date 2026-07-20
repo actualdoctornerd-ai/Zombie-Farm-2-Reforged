@@ -50,6 +50,28 @@ describe("v3 raid dependency ids", () => {
     expect(state.brains).toBe(16);
   });
 
+  it("retries a gift claim that briefly collides with an account mutation", async () => {
+    vi.useFakeTimers();
+    const state = new GameState();
+    const economy = new EconomyClient(state, "gift-retry-account");
+    const claim = vi.spyOn(api, "claimGift")
+      .mockRejectedValueOnce(new api.ApiError(409, "operation_in_progress"))
+      .mockRejectedValueOnce(new api.ApiError(409, "operation_in_progress"))
+      .mockResolvedValue({
+        balance: { gold: 200, brains: 16, xp: 0 },
+        accountVersion: 3,
+        alreadyClaimed: false,
+        credited: true,
+      });
+
+    const claimed = economy.claimGift("gift-retry");
+    await vi.runAllTimersAsync();
+
+    await expect(claimed).resolves.toMatchObject({ credited: true });
+    expect(claim).toHaveBeenCalledTimes(3);
+    expect(state.brains).toBe(16);
+  });
+
   it("translates a selected optimistic harvest id after the batch settles", () => {
     const economy = new EconomyClient(new GameState(), "alias-test-account");
     (economy as any).optimistic.set(1, {

@@ -1981,8 +1981,17 @@ async function main() {
       catch (refreshError) { console.warn("[gift] inbox refresh failed", errCode(refreshError)); }
       return true;
     } catch (e) {
-      console.warn("[gift] claim failed", errCode(e));
-      return false;
+      const code = errCode(e);
+      console.warn("[gift] claim failed", code);
+      const reason: Record<string, string> = {
+        operation_in_progress: "your farm is still saving; try again in a moment",
+        rate_limited: "too many requests; wait a minute and try again",
+        offline: "the game server could not be reached",
+        unauthorized: "your session expired; sign in again",
+        no_session: "you need to sign in again",
+        client_upgrade_required: "reload the page to update the game",
+      };
+      return `Couldn't claim gift: ${reason[code] ?? code}.`;
     }
   };
 

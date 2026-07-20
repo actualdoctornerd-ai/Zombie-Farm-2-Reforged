@@ -1123,7 +1123,7 @@ export class Hud {
   /** Cached unclaimed gifts addressed to me. */
   getInbox: (() => { id: string; fromName: string }[]) | null = null;
   /** Claim a gift (credits a brain server-side). Returns whether it was credited. */
-  onClaimGift: ((id: string) => Promise<boolean>) | null = null;
+  onClaimGift: ((id: string) => Promise<true | string>) | null = null;
   /** Pull pending incoming friend requests into the cache. */
   refreshRequests: (() => Promise<void>) | null = null;
   /** Cached pending incoming friend requests (people asking to befriend me). */
@@ -2558,12 +2558,12 @@ export class Hud {
         claim.textContent = "Claim";
         claim.onclick = async () => {
           claim.disabled = true;
-          const credited = await (this.onClaimGift?.(g.id) ?? Promise.resolve(false));
-          if (credited) {
+          const result = await (this.onClaimGift?.(g.id) ?? Promise.resolve("Couldn't claim that gift."));
+          if (result === true) {
             this.showToast(`Claimed a brain from ${g.fromName}! 🧠`);
             await refresh();
           } else {
-            this.showToast("Couldn't claim that gift.");
+            this.showToast(result);
             claim.disabled = false;
           }
         };
