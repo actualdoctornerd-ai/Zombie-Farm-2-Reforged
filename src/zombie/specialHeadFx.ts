@@ -1,9 +1,10 @@
 import { Container, Graphics } from "pixi.js";
 
-export type SpecialHeadFxKind = "fire" | "confetti";
+export type SpecialHeadFxKind = "kindle" | "flame" | "confetti";
 
 const SPECIAL_HEAD_FX: Readonly<Record<string, SpecialHeadFxKind>> = {
-  ZombieActorHeadlessTier2: "fire",
+  ZombieActorHeadlessTier2: "kindle",
+  ZombieActorHeadlessTier3: "flame",
   ZombieActorHeadlessTier4: "confetti",
 };
 
@@ -25,36 +26,67 @@ interface ConfettiPiece {
   spin: number;
 }
 
-/** Actor-local looping effects for the two zombies whose animation is their head. */
+interface AuraMote {
+  graphic: Graphics;
+  age: number;
+  life: number;
+  vx: number;
+  vy: number;
+  phase: number;
+}
+
+const AURA_COLORS: Record<"kindle" | "flame", { core: number; mote: number }> = {
+  kindle: { core: 0xff5151, mote: 0x5268ff },
+  flame: { core: 0x5862ef, mote: 0xff665e },
+};
+
+/** Actor-local looping effects for zombies whose animation is their head. */
 export class SpecialHeadFx {
   readonly container = new Container();
   readonly kind: SpecialHeadFxKind;
   private time = 0;
-  private flames: Graphics[] = [];
+  private auraMotes: AuraMote[] = [];
   private confetti: ConfettiPiece[] = [];
 
   constructor(kind: SpecialHeadFxKind) {
     this.kind = kind;
     this.container.position.set(HEAD_X, HEAD_Y);
     this.container.zIndex = 6;
-    if (kind === "fire") this.buildFire();
-    else this.buildConfetti();
+    if (kind === "confetti") this.buildConfetti();
+    else this.buildAura(kind);
   }
 
-  private buildFire() {
-    const outer = new Graphics()
-      .moveTo(0, 9).bezierCurveTo(-12, 3, -8, -11, 1, -25)
-      .bezierCurveTo(3, -14, 12, -8, 10, 2)
-      .bezierCurveTo(9, 8, 4, 11, 0, 9).fill(0xf04a24);
-    const middle = new Graphics()
-      .moveTo(0, 8).bezierCurveTo(-7, 3, -4, -7, 3, -17)
-      .bezierCurveTo(3, -9, 8, -5, 7, 2)
-      .bezierCurveTo(6, 7, 2, 9, 0, 8).fill(0xffa51f);
-    const inner = new Graphics()
-      .moveTo(0, 7).bezierCurveTo(-4, 3, -2, -3, 2, -10)
-      .bezierCurveTo(5, -3, 5, 4, 0, 7).fill(0xfff176);
-    this.flames = [outer, middle, inner];
-    this.container.addChild(...this.flames);
+  private buildAura(kind: "kindle" | "flame") {
+    const { core, mote } = AURA_COLORS[kind];
+    // Concentric translucent discs approximate the soft-edged constant orb from
+    // the source art without requiring a dedicated bitmap or an expensive filter.
+    const halo = new Graphics().circle(0, 0, 17).fill({ color: core, alpha: 0.10 });
+    const glow = new Graphics().circle(0, 0, 14).fill({ color: core, alpha: 0.18 });
+    const orb = new Graphics().circle(0, 0, 11).fill({ color: core, alpha: 0.58 });
+    this.container.addChild(halo, glow, orb);
+
+    for (let i = 0; i < 7; i++) {
+      const radius = 2 + (i % 3);
+      const graphic = new Graphics().circle(0, 0, radius).fill({ color: mote, alpha: 0.45 });
+      const particle: AuraMote = { graphic, age: 0, life: 1, vx: 0, vy: 0, phase: 0 };
+      this.auraMotes.push(particle);
+      // Motes sit behind the stable core and remain visible through its alpha.
+      this.container.addChildAt(graphic, 0);
+      this.resetAuraMote(particle, i / 7);
+    }
+  }
+
+  private resetAuraMote(mote: AuraMote, progress = 0) {
+    const index = this.auraMotes.indexOf(mote);
+    mote.life = 0.8 + (index % 4) * 0.16;
+    mote.age = progress * mote.life;
+    mote.phase = index * 2.31;
+    mote.vx = Math.cos(mote.phase) * (5 + (index % 3) * 3);
+    mote.vy = -10 - (index % 3) * 4;
+    mote.graphic.position.set(
+      Math.sin(mote.phase) * 8 + mote.vx * mote.age,
+      3 + mote.vy * mote.age,
+    );
   }
 
   private buildConfetti() {
@@ -82,13 +114,17 @@ export class SpecialHeadFx {
 
   update(dt: number) {
     this.time += dt;
-    if (this.kind === "fire") {
-      this.flames.forEach((flame, i) => {
-        const wave = Math.sin(this.time * (9 + i * 1.7) + i * 2.1);
-        flame.scale.set(1 + wave * 0.06, 1 - wave * 0.08);
-        flame.position.set(wave * (1.2 - i * 0.25), Math.sin(this.time * 12 + i) * 0.7);
-        flame.rotation = wave * 0.035;
-      });
+    if (this.kind !== "confetti") {
+      for (const mote of this.auraMotes) {
+        mote.age += dt;
+        if (mote.age >= mote.life) this.resetAuraMote(mote);
+        const progress = mote.age / mote.life;
+        mote.graphic.x += (mote.vx + Math.sin(this.time * 5 + mote.phase) * 5) * dt;
+        mote.graphic.y += mote.vy * dt;
+        mote.graphic.alpha = Math.sin(progress * Math.PI) * 0.55;
+        const scale = 0.75 + Math.sin(progress * Math.PI) * 0.45;
+        mote.graphic.scale.set(scale);
+      }
       return;
     }
 
