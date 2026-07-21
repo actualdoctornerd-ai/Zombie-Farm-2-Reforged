@@ -1159,7 +1159,7 @@ export class RaidScene {
         const g = this.sim.grabbers.find((gr) => gr.grabbedId === u.id);
         if (g) {
           sx = this.mapX(g.x);
-          sy = this.mapProjY(g.y + 42);
+          sy = this.mapProjY(u.y);
         }
         // Held by a Beach crab: pinned at the crab's spot on the ground line, riding
         // along once it starts hauling.
@@ -1492,7 +1492,7 @@ export class RaidScene {
   private syncGrabbers() {
     if (!this.grabTex) return;
     const live = new Set<string>();
-    const s = this.scaleX();
+    const s = this.sizeScale();
     for (const g of this.sim.grabbers) {
       if (g.state === "gone") continue;
       live.add(g.id);
@@ -1513,17 +1513,18 @@ export class RaidScene {
       }
       const { root, body, bar } = entry;
       root.position.set(this.mapX(g.x), this.mapProjY(g.y));
-      const size = Math.max(56, 128 * s * 1.4);
-      body.width = size;
-      body.height = size;
+      // This source is a very wide 358x70 composition. Scaling both axes uniformly
+      // preserves the authored trapeze/artist proportions; assigning a square width and
+      // height here used to crush the art into a squat, barely recognizable sprite.
+      body.scale.set(s);
       body.rotation = (g.rot * Math.PI) / 180;
       body.tint = g.struckThisTick ? 0xff9a9a : 0xffffff; // flash on a landed tap
       // Health bar (shown once it has taken a tap), so the player sees rescue progress.
       bar.clear();
       if (g.hp < g.maxHp) {
-        const w = size * 0.66;
+        const w = 110 * s;
         const frac = Math.max(0, g.hp / g.maxHp);
-        const by = -size * 0.5;
+        const by = -20 * s;
         bar.roundRect(-w / 2, by, w, 6, 3).fill({ color: 0x000000, alpha: 0.55 });
         bar.roundRect(-w / 2, by, w * frac, 6, 3).fill({ color: 0xff5252 });
       }

@@ -162,7 +162,14 @@ const GRABBER_CROSS_SPEED = 190; // swoop-in speed (sim px/s), left → right
 const GRABBER_RISE_SPEED = 92; // carry-off rise speed (sim px/s), the slow 0.5 speed
 const GRABBER_CARRY_PAUSE_MS = 1000; // changeStateWithDelay_run_1: hold 1s before rising
 const GRABBER_TAP_CD_MS = 250; // tapDelay 0.25 — min gap between registered taps
-const GRABBER_ESCAPE_Y = BAND_TOP - 140; // risen past here (off the top) → the zombie is lost
+// The trapeze crosses above the lane while its victim remains on the ground. Once it
+// turns upward, this separation is retained so the pair rises together.
+const GRABBER_CROSS_Y = BAND_TOP;
+const GRABBER_ZOMBIE_OFFSET_Y = CENTER_Y - GRABBER_CROSS_Y;
+// mapProjY maps BOSS_STRUCT_Y to the visible perch, not the top edge. A full logical
+// field-height above zero clears even the tallest stage perch, so the zombie stays alive
+// until its whole sprite is off-screen rather than dying after the first small lift.
+const GRABBER_ESCAPE_ZOMBIE_Y = -FIELD_H;
 const GRABBER_SPAWN_MS = 7000; // respawn cadence after one leaves (initial from config)
 const GRABBER_HIT_R = 34; // overlap radius for the swoop to seize a zombie (sim units)
 // ---- Beach crab hazard (BeachStageActorCrab) ----
@@ -1596,8 +1603,10 @@ export class BattleSim {
       if (g.state === "swoop") {
         g.x += (GRABBER_CROSS_SPEED * dtMs) / 1000;
         // Coming from the left, the first deployed zombie it overlaps is the rear-most.
+        // The artist travels overhead, so contact is horizontal: the hanging trapeze
+        // crosses the zombie's lane position even though their logical y values differ.
         const victim = this.deployed().find(
-          (p) => p.state !== "grabbed" && Math.hypot(p.x - g.x, p.y - g.y) <= GRABBER_HIT_R
+          (p) => p.state !== "grabbed" && Math.abs(p.x - g.x) <= GRABBER_HIT_R
         );
         if (victim) {
           g.grabbedId = victim.id;
@@ -1623,11 +1632,11 @@ export class BattleSim {
           g.y -= (GRABBER_RISE_SPEED * dtMs) / 1000;
           g.rot = 90;
         }
-        z.x = g.x; // the seized zombie rides along, just below the trapeze
-        z.y = g.y + 42;
+        z.x = g.x; // the seized zombie rides below the overhead trapeze
+        z.y = g.y + GRABBER_ZOMBIE_OFFSET_Y;
         z.prevX = z.x;
         z.prevY = z.y;
-        if (g.y <= GRABBER_ESCAPE_Y) {
+        if (z.y <= GRABBER_ESCAPE_ZOMBIE_Y) {
           z.hp = 0; // carried off — the zombie is lost
           z.alive = false;
           z.state = "dead";
@@ -1768,7 +1777,7 @@ export class BattleSim {
     this.grabbers.push({
       id: `grab${this.grabSeq++}`,
       x: -80,
-      y: CENTER_Y,
+      y: GRABBER_CROSS_Y,
       state: "swoop",
       hp: cfg.hp,
       maxHp: cfg.hp,

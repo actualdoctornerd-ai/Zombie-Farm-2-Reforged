@@ -6,6 +6,7 @@ import { Container, Sprite } from "pixi.js";
 import { GameAssets, ZombieModel } from "../assets";
 import { bitsOf, slotOf } from "../zombie/mutations";
 import { zombiePartTint } from "../zombie/appearance";
+import { SpecialHeadFx, specialHeadFxKind } from "../zombie/specialHeadFx";
 
 const MODEL_BASE = 0.95;
 const TILT_AMP_MOVE = 0.1;
@@ -61,6 +62,7 @@ export class RaidActor {
   private tiltPhase = 0;
   private stepPhase = 0;
   private deathT = -1; // ≥0 once dead: seconds into the head-pop animation
+  private specialHeadFx: SpecialHeadFx | null = null;
 
   constructor(assets: GameAssets, key: string, mutation = 0) {
     this.container.addChild(this.root);
@@ -122,6 +124,11 @@ export class RaidActor {
       this.root.addChild(sp);
     }
     // Headless models have no feet — guard the walk animation.
+    const headFxKind = specialHeadFxKind(key);
+    if (headFxKind) {
+      this.specialHeadFx = new SpecialHeadFx(headFxKind);
+      this.root.addChild(this.specialHeadFx.container);
+    }
     if (!this.footF) { this.footF = new Sprite(); this.root.addChild(this.footF); }
     if (!this.footB) { this.footB = new Sprite(); this.root.addChild(this.footB); }
     this.root.scale.set(this.renderScale);
@@ -189,7 +196,10 @@ export class RaidActor {
 
   /** Mark this zombie dead — begins the head-pop on the next update. Idempotent. */
   markDead() {
-    if (this.deathT < 0) this.deathT = 0;
+    if (this.deathT < 0) {
+      this.deathT = 0;
+      if (this.specialHeadFx) this.specialHeadFx.container.visible = false;
+    }
   }
 
   update(dt: number, moving: boolean) {
@@ -212,6 +222,7 @@ export class RaidActor {
       return;
     }
 
+    this.specialHeadFx?.update(dt);
     // Head tilt (rocks back/forth; faster while moving).
     const period = moving ? TILT_PERIOD_MOVE : TILT_PERIOD_IDLE;
     const amp = moving ? TILT_AMP_MOVE : TILT_AMP_IDLE;

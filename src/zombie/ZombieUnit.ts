@@ -16,6 +16,7 @@ import { OwnedZombie } from "./types";
 import { bitsOf, slotOf } from "./mutations";
 import { matchesMutationReplacement, type MutationReplacement } from "./mutationVisual";
 import { zombiePartTint } from "./appearance";
+import { SpecialHeadFx, specialHeadFxKind } from "./specialHeadFx";
 
 // Head replacements draw over the base skull but under facial parts, so eyes stay
 // visible on Onion/Tomato/etc. Hair/eye mutations draw above the face.
@@ -77,6 +78,7 @@ export class ZombieUnit {
   private hitHalfW = 24;
   private hitH = 60;
   private fertilizeCastMs = 0;
+  private specialHeadFx: SpecialHeadFx | null = null;
 
   constructor(assets: GameAssets, field: Field, data: OwnedZombie) {
     this.field = field;
@@ -170,6 +172,11 @@ export class ZombieUnit {
     // Independent of species: a combined zombie shows exactly the mutations it
     // carries. Head parts join headParts (tilt with the head-nod); the rest sit flat.
     this.addMutations(assets, m, replaceable);
+    const headFxKind = specialHeadFxKind(this.data.key);
+    if (headFxKind) {
+      this.specialHeadFx = new SpecialHeadFx(headFxKind);
+      this.root.addChild(this.specialHeadFx.container);
+    }
     // Some models (Headless) have no feet parts; guard the walk animation.
     if (!this.footF) { this.footF = new Sprite(); this.root.addChild(this.footF); }
     if (!this.footB) { this.footB = new Sprite(); this.root.addChild(this.footB); }
@@ -357,6 +364,7 @@ export class ZombieUnit {
     }
     this.tilt(dt, moving);
     this.legs(moving, dt);
+    this.specialHeadFx?.update(dt);
     this.root.scale.set(this.renderScale * this.facing, this.renderScale);
     this.sync();
   }
