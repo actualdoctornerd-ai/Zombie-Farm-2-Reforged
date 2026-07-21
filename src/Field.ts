@@ -6,7 +6,7 @@ import { Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import {
   DIRT_FILE, GameAssets, HOLE_FILE, PlaceableDef, PLOWED_FILE, SEED_FILE,
 } from "./assets";
-import { footprintOrigin, gridToScreen, HH, HW, screenToGrid, TILE_H, TILE_W, tileCenter } from "./iso";
+import { clampPointToGrid, footprintOrigin, gridToScreen, HH, HW, screenToGrid, TILE_H, TILE_W, tileCenter } from "./iso";
 import { setFootprint, sortLayer } from "./depthSort";
 import { makeLight, OBJECT_GLOWS } from "./lighting";
 import { leafTexture, ParticleConfig, ParticleField } from "./raid/Particles";
@@ -1319,7 +1319,9 @@ export class Field {
   // World point the farmer walks to in order to harvest this object (its base).
   objectWorkPoint(id: string): { x: number; y: number } | null {
     const o = this.objects.get(id);
-    return o ? this.footprintAnchor(o.oc, o.or, o.def.tileW, o.def.tileH) : null;
+    if (!o) return null;
+    const base = this.footprintAnchor(o.oc, o.or, o.def.tileW, o.def.tileH);
+    return clampPointToGrid(base.x, base.y, this.w, this.h);
   }
   // Center/size for a queued-object footprint marker.
   objectHighlightArea(id: string): { x: number; y: number; tiles: number } | null {

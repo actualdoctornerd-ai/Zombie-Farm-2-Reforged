@@ -38,6 +38,26 @@ export function screenToGrid(x: number, y: number): { col: number; row: number }
   return { col, row };
 }
 
+/** Keep an interaction point on the playable grid. Object artwork can anchor at
+ * the bottom edge of its footprint, which rounds one tile past the farm when the
+ * object is placed flush against the south/east boundary. Preserve the authored
+ * point when it is valid; otherwise use the nearest in-bounds tile center. */
+export function clampPointToGrid(
+  x: number,
+  y: number,
+  cols: number,
+  rows: number
+): { x: number; y: number } {
+  const g = screenToGrid(x, y);
+  const col = Math.round(g.col);
+  const row = Math.round(g.row);
+  if (col >= 0 && row >= 0 && col < cols && row < rows) return { x, y };
+  return tileCenter(
+    Math.max(0, Math.min(cols - 1, col)),
+    Math.max(0, Math.min(rows - 1, row))
+  );
+}
+
 // Depth key for painter's-algorithm sorting: larger = drawn later (more "south").
 export function depth(col: number, row: number): number {
   return col + row;

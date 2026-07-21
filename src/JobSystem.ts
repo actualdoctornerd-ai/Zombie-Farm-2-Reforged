@@ -258,7 +258,7 @@ export class JobSystem {
       if (!next) return;
       this.active = next;
       this.phase = "walk";
-      this.walk.goToPoint(next.cx, next.cy, () => {
+      const walking = this.walk.goToPoint(next.cx, next.cy, () => {
         if (next.kind === "walk") {
           this.finish();
           return;
@@ -280,6 +280,9 @@ export class JobSystem {
         this.playSfx(fast ? "harvest" : (next.kind as JobKind)); // hoe sound
         next.bar = this.makeBar(fast ? "Harvest" : LABEL[next.kind as JobKind], next.cx, next.cy);
       });
+      // A malformed/off-field destination must not leave this job active forever
+      // and block every queued action behind its persistent green marker.
+      if (!walking) this.finish();
     } else if (this.phase === "work") {
       this.workMs -= dt * 1000;
       const progress = Math.max(0, Math.min(1, 1 - this.workMs / this.workTotal));

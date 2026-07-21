@@ -419,17 +419,21 @@ export class EconomyClient {
     _optimistic: { gold?: number; xp?: number }
   ): Promise<api.RaidFinishResult> {
     let result: api.RaidFinishResult | null = null;
-    // Tutorial invasions can resolve before the server's minimum fight duration.
-    // Retry-After is calculated on another clock, so waiting exactly that duration
-    // can still arrive a few milliseconds early. Allow repeated 425s and include a
-    // small scheduling margin so the session is always closed after a fast fight.
+    // Finishing is idempotent: once committed, the server stores and returns the same
+    // result for this session. Retry both fast tutorial fights and transient transport
+    // failures so a response lost after commit cannot strand the client before it
+    // applies casualties and rewards.
     for (let attempt = 0; attempt < 4 && !result; attempt++) {
       try {
         result = await api.raidFinish(sessionId, finalTick, inputs, outcome);
       } catch (error) {
-        if (!(error instanceof api.ApiError) || error.status !== 425 || attempt === 3) throw error;
+        if (!(error instanceof api.ApiError) || attempt === 3) throw error;
+        const transient = error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
+        if (error.status !== 425 && !transient) throw error;
         const retryAfterMs = Number((error.body as { retryAfterMs?: unknown } | undefined)?.retryAfterMs);
-        const delay = Number.isFinite(retryAfterMs) ? Math.max(0, retryAfterMs) + 250 : 1_250;
+        const delay = error.status === 425 && Number.isFinite(retryAfterMs)
+          ? Math.max(0, retryAfterMs) + 250
+          : 250 * (2 ** attempt);
         await new Promise<void>((resolve) => setTimeout(resolve, delay));
       }
     }

@@ -2337,6 +2337,18 @@ async function main() {
             gold: sr?.gold ?? 0,
             xp: sr?.xp ?? 0,
           });
+          // Always observe settlement, even when there were no casualties or the
+          // player has not closed the result panel yet. If every idempotent retry
+          // fails, a bootstrap still recovers any commit whose response was lost.
+          void settlementPromise.catch(async () => {
+            economy!.onRaidSettled = null;
+            try {
+              await economy!.refreshAuthoritative();
+              hud.showToast("The invasion response was interrupted. Your farm was resynced.");
+            } catch {
+              hud.showToast("The server could not settle that invasion. Reconnecting will resync your farm.");
+            }
+          });
         } else if (auth.isSignedIn() && raidSessionId) {
           // Signed in but no balance client (shouldn't happen): report finish for the
           // cooldown only; rewards were credited locally by finishRaid above.
@@ -2382,7 +2394,7 @@ async function main() {
                 saveManager.save();
                 return true;
               });
-            }).catch(() => hud.showToast("The server could not settle that invasion."));
+            }).catch(() => { /* the settlement observer above already recovered/reported */ });
           } else if (!auth.isSignedIn()) {
             hud.openZombieRevival(revivalViews, state.brains, (reviveIds) => {
               if (!state.spendBrains(reviveIds.length, "zombie_revive")) return false;

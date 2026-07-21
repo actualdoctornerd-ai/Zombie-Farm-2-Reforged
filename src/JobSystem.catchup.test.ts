@@ -13,6 +13,7 @@ class FakeWalk {
     this.remaining = 0.1;
     this.onArrive = onArrive ?? null;
     this.arrivals.push(x);
+    return true;
   }
 
   update(dt: number) {
@@ -130,6 +131,27 @@ describe("JobSystem elapsed-time catch-up", () => {
 
     expect(jobs.busy).toBe(false);
     expect(sounds).toEqual([]);
+  });
+
+  it("drops rejected walk destinations instead of freezing the job queue", () => {
+    const walk = {
+      moving: false,
+      goToPoint: () => false,
+      update: () => {},
+    };
+    const jobs = new JobSystem(
+      {} as never,
+      {} as never,
+      walk as never,
+      {} as never,
+      () => {},
+    );
+
+    jobs.enqueueWalk(10, 10);
+    jobs.enqueueWalk(20, 20);
+    jobs.advanceElapsed(1);
+
+    expect(jobs.busy).toBe(false);
   });
 
   it("retains each planting's logical completion time during catch-up", () => {

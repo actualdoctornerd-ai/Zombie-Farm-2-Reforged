@@ -56,6 +56,17 @@
 #hud .quest.qmore .qmore-glyph { font-size: 22px; line-height: 1; color: #f4e9cf;
   text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 #hud .quest.qmore .qbadge { background: #d8bc40; color: #3a2c07; border-color: #7a5f10; }
+/* Keep the rail clear of the bottom-left invasion shortcut on short screens. The
+   full quest log remains available through the final "more" card. */
+@media (max-height: 423px) {
+  #hud .questcol > .quest-entry:nth-child(n + 4) { display: none; }
+}
+@media (max-height: 369px) {
+  #hud .questcol > .quest-entry:nth-child(n + 3) { display: none; }
+}
+@media (max-height: 315px) {
+  #hud .questcol > .quest-entry:nth-child(n + 2) { display: none; }
+}
 /* quest detail popup */
 #hud .panel.qdetail { text-align: left; }
 #hud .qobj { font-size: 14px; color: #f4e9cf; margin: 4px 0; }

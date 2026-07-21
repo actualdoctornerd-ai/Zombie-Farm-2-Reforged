@@ -48,11 +48,11 @@ export class WalkController {
 
   // Walk to an exact world-space point. Optional onArrive runs on arrival. Ignored
   // if the point is off-field. Routes around objects when the direct path is blocked.
-  goToPoint(x: number, y: number, onArrive?: () => void) {
+  goToPoint(x: number, y: number, onArrive?: () => void): boolean {
     const g = screenToGrid(x, y);
     const goalC = Math.round(g.col);
     const goalR = Math.round(g.row);
-    if (!this.field.inBounds(goalC, goalR)) return;
+    if (!this.field.inBounds(goalC, goalR)) return false;
     this.onArrive = onArrive ?? null;
     this.queue = [];
 
@@ -72,11 +72,12 @@ export class WalkController {
         this.target = pts.shift()!;
         this.queue = pts;
         this.actor.setMoving(true);
-        return;
+        return true;
       }
     }
     this.target = { x, y };
     this.actor.setMoving(true);
+    return true;
   }
 
   get tile(): { col: number; row: number } {

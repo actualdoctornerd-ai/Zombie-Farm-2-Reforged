@@ -194,6 +194,48 @@ describe("v3 raid dependency ids", () => {
     expect(finish).toHaveBeenCalledTimes(3);
   });
 
+  it("retries an invasion finish when its committed response is lost", async () => {
+    vi.useFakeTimers();
+    const state = new GameState();
+    const economy = new EconomyClient(state, "lost-raid-response-account");
+    const committed = {
+      lastRaidAt: 123_456,
+      balance: { gold: 325, brains: 16, xp: 10 },
+      gold: 125,
+      brains: 1,
+      xp: 10,
+      firstClear: true,
+      raidProgress: { "1": 1 },
+      outcome: { win: true, rounds: 1, survivors: ["survivor"], losses: ["casualty"], enemiesBeaten: 1, playerDamage: 100 },
+    };
+    const finish = vi.spyOn(api, "raidFinish")
+      .mockRejectedValueOnce(new api.ApiError(0, "offline"))
+      .mockResolvedValue(committed);
+    const settledHandler = vi.fn();
+    economy.onRaidSettled = settledHandler;
+
+    const settled = economy.submitRaid("committed-session", 100, [], committed.outcome, {});
+    await vi.runAllTimersAsync();
+
+    await expect(settled).resolves.toBe(committed);
+    expect(finish).toHaveBeenCalledTimes(2);
+    expect(settledHandler).toHaveBeenCalledWith(committed);
+    expect(state.lastRaidAt).toBe(123_456);
+    expect(state.gold).toBe(325);
+    expect(state.brains).toBe(16);
+  });
+
+  it("does not retry a rejected invasion replay", async () => {
+    const economy = new EconomyClient(new GameState(), "bad-raid-replay-account");
+    const finish = vi.spyOn(api, "raidFinish")
+      .mockRejectedValue(new api.ApiError(422, "replay_mismatch"));
+
+    await expect(economy.submitRaid("bad-session", 100, [], {
+      win: false, rounds: 1, survivors: [], losses: [], enemiesBeaten: 0, playerDamage: 0,
+    }, {})).rejects.toMatchObject({ status: 422, code: "replay_mismatch" });
+    expect(finish).toHaveBeenCalledTimes(1);
+  });
+
   it("abandons a raid session left open by a previous page load", async () => {
     const gameplay = {
       balance: { gold: 200, brains: 15, xp: 0 },

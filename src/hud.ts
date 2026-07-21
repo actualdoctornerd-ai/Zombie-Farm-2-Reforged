@@ -457,7 +457,7 @@ export class Hud {
 
   private questCard(q: QuestView): HTMLButtonElement {
     const card = document.createElement("button");
-    card.className = "quest";
+    card.className = "quest quest-entry";
     const done = q.objectives.filter((o) => o.done).length;
     card.title = `${q.title} (${done}/${q.objectives.length})`; // hover summary
     const img = document.createElement("img");
