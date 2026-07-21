@@ -785,19 +785,14 @@ export async function getOrSeedBalance(
   // Initialize claimed_level to the seed's level so a brand-new/migrated account only
   // ever pays out level-ups earned AFTER creation (not a retroactive windfall). Rows
   // that predate the column keep the DEFAULT 0 sentinel, handled by creditLevelUps.
-  await db.batch([
-    db
-      .prepare(
-        "INSERT OR IGNORE INTO balances (account_id, gold, brains, xp, claimed_level) VALUES (?, ?, ?, ?, ?)"
-      )
-      .bind(accountId, s.gold, s.brains, s.xp, levelForXp(s.xp)),
-    db
-      .prepare(
-        `INSERT INTO account_import_state (account_id, balance_seeded)
-         VALUES (?, 1) ON CONFLICT(account_id) DO UPDATE SET balance_seeded = 1`
-      )
-      .bind(accountId),
-  ]);
+  // Protocol v3 permanently removed account_import_state and all client balance
+  // imports. Only initialize the authoritative balance row here.
+  await db
+    .prepare(
+      "INSERT OR IGNORE INTO balances (account_id, gold, brains, xp, claimed_level) VALUES (?, ?, ?, ?, ?)"
+    )
+    .bind(accountId, s.gold, s.brains, s.xp, levelForXp(s.xp))
+    .run();
   const row = await db
     .prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?")
     .bind(accountId)
