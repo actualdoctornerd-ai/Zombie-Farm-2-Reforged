@@ -184,7 +184,7 @@ describe("raids — server cooldown + idempotent finish", () => {
     const s = await signIn();
     await call("POST", "/economy/sync", s.token, { seed: { gold: 5000, brains: 0, xp: 0 } }); // fund a voucher later
     await grantRoster(s, [{ id: "raid-z1", key: "ZombieActorRegularTier1" }]);
-    const startBody = { raidId: 1, orderedUnitIds: ["raid-z1"], rulesetVersion: 4 };
+    const startBody = { raidId: 1, orderedUnitIds: ["raid-z1"], rulesetVersion: 6 };
     expect((await call<{ cooldownRemaining: number }>("GET", "/raid/state", s.token)).body.cooldownRemaining).toBe(0);
     const start = await call<{ ok: boolean; sessionId: string }>("POST", "/raid/start", s.token, startBody);
     expect(start.body.ok).toBe(true);

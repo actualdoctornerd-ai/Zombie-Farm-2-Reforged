@@ -59,6 +59,46 @@ describe("Mini Buddy", () => {
 });
 
 describe("Garden healing and formation depth", () => {
+  it("does not let healing re-arm consumed one-shot protection", () => {
+    const fighter = unit({
+      id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player",
+      hp: 100, maxHp: 100, str: 0.1,
+    });
+    const healer = unit({
+      id: "healer", sourceKey: "ZombieActorGardenTier1", team: "player",
+      hp: 100, maxHp: 100, str: 0.1, isGarden: true, abilities: ["heal"],
+    });
+    const enemy = unit({
+      id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy",
+      str: 100, hp: 100_000, maxHp: 100_000, attackCooldownMs: 4000,
+    });
+    const sim = new BattleSim([fighter, healer], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const h = sim.units.find((u) => u.id === "healer")!;
+    const e = sim.units.find((u) => u.id === "enemy")!;
+    f.state = "advance";
+    h.state = "advance";
+    e.state = "hold";
+    e.x = 915;
+    e.y = 280;
+
+    for (let elapsed = 0; elapsed < 30_000 && !(f.oneShotProtectionUsed && f.hp > 1); elapsed += 50) {
+      sim.step(50);
+    }
+    expect(h.healCastSeq).toBeGreaterThan(0);
+    expect(f.oneShotProtectionUsed).toBe(true);
+    expect(f.hp).toBeGreaterThan(1);
+
+    const resumed = new BattleSim([fighter, healer], [enemy], null, true);
+    resumed.restore(sim.snapshot());
+    const restoredFighter = resumed.units.find((u) => u.id === "fighter")!;
+    expect(restoredFighter.oneShotProtectionUsed).toBe(true);
+    for (let elapsed = 0; elapsed < 30_000 && restoredFighter.alive; elapsed += 50) resumed.step(50);
+
+    expect(restoredFighter.alive).toBe(false);
+    expect(restoredFighter.hp).toBe(0);
+  });
+
   it("holds a healer behind the line and restores a damaged deployed ally", () => {
     const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
     const healer = unit({

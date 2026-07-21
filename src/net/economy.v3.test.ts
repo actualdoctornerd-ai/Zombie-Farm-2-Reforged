@@ -10,6 +10,40 @@ afterEach(() => {
 });
 
 describe("v3 raid dependency ids", () => {
+  it("flushes a zombie harvest immediately so its server-owned mutation is visible", () => {
+    const economy = new EconomyClient(new GameState(), "zombie-harvest-flush");
+    const flush = vi.spyOn((economy as any).queue, "flush").mockResolvedValue(undefined);
+
+    economy.submitFarm(
+      { type: "harvest", oc: 4, or: 4, unitId: "local-zombie" },
+      { xp: 1 },
+    );
+
+    expect(flush).toHaveBeenCalledOnce();
+  });
+
+  it("keeps ordinary crop harvests in the batching window", () => {
+    const economy = new EconomyClient(new GameState(), "crop-harvest-batch");
+    const flush = vi.spyOn((economy as any).queue, "flush").mockResolvedValue(undefined);
+
+    economy.submitFarm({ type: "harvest", oc: 4, or: 4 }, { gold: 16, xp: 1 });
+
+    expect(flush).not.toHaveBeenCalled();
+  });
+
+  it("flushes Insta-Harvest immediately when it creates zombies", () => {
+    const economy = new EconomyClient(new GameState(), "bulk-zombie-harvest-flush");
+    const flush = vi.spyOn((economy as any).queue, "flush").mockResolvedValue(undefined);
+
+    economy.submitInventory({
+      type: "use",
+      key: "insta_harvest",
+      localZombieHarvests: [{ id: "local-zombie", oc: 4, or: 4 }],
+    }, { count: -1 });
+
+    expect(flush).toHaveBeenCalledOnce();
+  });
+
   it("adopts a gift claim balance while preserving pending optimistic deltas", () => {
     const state = new GameState();
     const economy = new EconomyClient(state, "gift-balance-account");

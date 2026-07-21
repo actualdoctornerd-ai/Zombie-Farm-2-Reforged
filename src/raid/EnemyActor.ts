@@ -55,6 +55,11 @@ const HEAVY_CHOP_KEY = "PirateStageActorScallywag";
 const HEAVY_CHOP_RAISE = 1.45;
 const HEAVY_CHOP_STRIKE = 0.55;
 const HEAVY_CHOP_RAISE_FRAC = 0.72;
+// Rigs that strike with the BACK arm instead of the front one. SquiDude's front "arm"
+// part is his bunched-up tentacle skirt (a wide z=9 mass covering the body) while the
+// back part is the single raised tentacle — so the default front-arm strike swung the
+// whole skirt. Striking with the back tentacle reads as the squid whipping it down.
+const STRIKE_BACK_ARM_KEYS = new Set(["BeachStageActorBoss"]);
 // A PUNCHER's forward jab keeps a small arm thrust (it has no tool to chop with).
 const ARM_THRUST = 0.5; // puncher front-arm rotation added at the peak (rad; +ve reads as a forward jab)
 const ARM_COCK = 0.35; // arm wind-up back-swing (× ARM_THRUST)
@@ -96,6 +101,7 @@ export class EnemyActor {
   private punch = false; // bare-fisted: rest arms at the sides, extend only to jab
   private slam = false; // two-handed overhead slam instead of a one-arm jab
   private heavyChop = false; // Scallywag's slower primary-hand club slam
+  private strikeBack = false; // strike with the BACK arm; the front assembly rests/sways
   private chopSign = 1; // sign of the weapon-chop rotation (−1 for a cross-body swing)
   /** Art faces LEFT; enemies attack leftward (toward the zombies), so no flip by default. */
   private facing = 1;
@@ -110,6 +116,7 @@ export class EnemyActor {
     this.punch = !!model.punch;
     this.slam = !!model.slam;
     this.heavyChop = sourceKey === HEAVY_CHOP_KEY;
+    this.strikeBack = STRIKE_BACK_ARM_KEYS.has(sourceKey);
     const backShoulder = model.pivots?.find((p) => p.name === "back-shoulder");
     if (backShoulder) this.backShoulder = { x: backShoulder.x, y: backShoulder.y };
     if (model.chopSign) this.chopSign = model.chopSign < 0 ? -1 : 1;
@@ -271,6 +278,14 @@ export class EnemyActor {
           a.sp.position.set(a.baseX, a.baseY);
         }
         a.sp.rotation = a.baseRot + slamAngle;
+      } else if (this.strikeBack) {
+        // Back-arm striker: the BACK arm swings the strike, the front assembly only
+        // rests/sways. Rotate about the part's OWN anchor rather than the rig's
+        // `shoulder` — that pivot is authored for the front assembly, and these rigs
+        // carry no back-shoulder pivot. The squid's back tentacle anchors at its top
+        // centre, so an in-place rotation reads as it whipping down from the base.
+        a.sp.position.set(a.baseX, a.baseY);
+        a.sp.rotation = a.baseRot + (a.back && attack ? frontAngle : sway(a));
       } else if (!a.back && this.shoulder && (this.punch || attack)) {
         // Front arm rotates about the shared shoulder: puncher jab or weapon chop.
         const theta = frontAngle;

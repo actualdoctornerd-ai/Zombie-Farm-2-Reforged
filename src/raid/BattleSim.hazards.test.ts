@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BattleSim } from "./BattleSim";
-import type { CombatUnit, GrabberConfig } from "./types";
+import type { CombatUnit, CrabConfig, GrabberConfig } from "./types";
 
 function unit(over: Partial<CombatUnit> & Pick<CombatUnit, "id" | "sourceKey" | "team">): CombatUnit {
   return {
@@ -99,5 +99,95 @@ describe("boss wall (carrotWall / junkWall)", () => {
     expect(wall.hp).toBe(1500);
     expect(sim.tapWall(wall.id)).toBe(true);
     expect(wall.hp).toBe(1425); // 1500 − 75
+  });
+});
+
+/** Build a sim with a Beach crab; the player starts already deployed on the lane. */
+function crabSim(crab: CrabConfig, players: CombatUnit[], enemies: CombatUnit[]) {
+  const sim = new BattleSim(
+    players, enemies, null, true, [], null, 10 * 60 * 1000, null, null, false, false, false, 60, null, crab
+  );
+  for (const p of players) {
+    sim.units.find((u) => u.id === p.id)!.state = "advance";
+  }
+  return sim;
+}
+
+// Ground truth: HP 1000 / 100 per tap = exactly 10 taps; 2.0s hold before the haul.
+const CRAB: CrabConfig = { sprite: "c.png", hp: 1000, tapDamage: 100, spawnMs: 100, limit: 2, holdMs: 2000 };
+
+describe("Beach crab hazard", () => {
+  it("grabs a deployed zombie on contact — held, alive, and invincible to the fight", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "BeachStageActorMinion2", team: "enemy", con: 3000 });
+    const sim = crabSim(CRAB, [player], [enemy]);
+    stepUntil(sim, () => sim.units.find((u) => u.id === "p")!.state === "grabbed");
+    const z = sim.units.find((u) => u.id === "p")!;
+    expect(z.state).toBe("grabbed");
+    expect(z.alive).toBe(true);
+    expect(z.taken).toBe(false); // still in the fight until it's hauled off
+    expect(sim.activeCrabs().length).toBeGreaterThan(0);
+  });
+
+  it("takes exactly 10 taps to kill (100 damage vs 1000 HP)", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "BeachStageActorMinion2", team: "enemy", con: 3000 });
+    const sim = crabSim(CRAB, [player], [enemy]);
+    stepUntil(sim, () => sim.activeCrabs().length > 0);
+    const id = sim.activeCrabs()[0].id;
+    for (let i = 0; i < 9; i++) {
+      expect(sim.tapCrab(id)).toBe(true);
+      sim.step(300); // clear the tap cooldown
+    }
+    expect(sim.crabs.find((c) => c.id === id)!.hp).toBe(100);
+    expect(sim.tapCrab(id)).toBe(true); // the 10th kills it
+    expect(sim.activeCrabs().some((c) => c.id === id)).toBe(false);
+  });
+
+  it("tapping it to death FREES the held zombie back onto the lane", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "BeachStageActorMinion2", team: "enemy", con: 3000 });
+    const sim = crabSim(CRAB, [player], [enemy]);
+    stepUntil(sim, () => sim.units.find((u) => u.id === "p")!.state === "grabbed");
+    const id = sim.crabs.find((c) => c.grabbedId === "p")!.id;
+    for (let i = 0; i < 10; i++) {
+      sim.tapCrab(id);
+      sim.step(300);
+    }
+    const z = sim.units.find((u) => u.id === "p")!;
+    expect(z.alive).toBe(true);
+    expect(z.taken).toBe(false);
+    expect(z.state).not.toBe("grabbed"); // back on the lane
+  });
+
+  it("if NOT tapped it carries the zombie off: taken, still alive, out of the fight", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "BeachStageActorMinion2", team: "enemy", con: 3000 });
+    const sim = crabSim(CRAB, [player], [enemy]);
+    stepUntil(sim, () => sim.units.find((u) => u.id === "p")!.taken, 60000);
+    const z = sim.units.find((u) => u.id === "p")!;
+    expect(z.taken).toBe(true);
+    expect(z.alive).toBe(true); // NOT the death path (source state 38, not 100)
+    // A carried-off zombie still counts as a SURVIVOR — it comes home after the raid.
+    expect(sim.outcome().survivors).toContain("p");
+    expect(sim.outcome().losses).not.toContain("p");
+  });
+
+  it("losing every zombie to crabs ends the fight (taken zombies can't keep it alive)", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "BeachStageActorMinion2", team: "enemy", con: 3000 });
+    const sim = crabSim(CRAB, [player], [enemy]);
+    stepUntil(sim, () => sim.finished, 90000);
+    expect(sim.units.find((u) => u.id === "p")!.taken).toBe(true);
+    expect(sim.finished).toBe(true);
+    expect(sim.outcome().win).toBe(false);
+  });
+
+  it("respects the concurrent cap", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "BeachStageActorMinion2", team: "enemy", con: 3000 });
+    const sim = crabSim({ ...CRAB, limit: 2 }, [player], [enemy]);
+    stepUntil(sim, () => false, 8000); // let the spawn timer run well past 2 intervals
+    expect(sim.activeCrabs().length).toBeLessThanOrEqual(2);
   });
 });

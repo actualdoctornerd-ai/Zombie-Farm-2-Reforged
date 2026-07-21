@@ -16,7 +16,7 @@ import { RaidActor } from "./RaidActor";
 import { EnemyActor } from "./EnemyActor";
 import { ParticleField, ParticleConfig } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
-import { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
+import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
 import { RAID_TICK_MS, type RaidReplayInput } from "./replay";
 import { extrapolatePosition, interpolatePosition, visualCountdown } from "./renderInterpolation";
 
@@ -42,6 +42,8 @@ export interface RaidSceneParams {
   wallTemplate?: CombatUnit | null;
   /** Carried-grab hazard (Circus Trapeze Artist) for this raid (null/omitted = none). */
   grabber?: GrabberConfig | null;
+  /** Beach crab hazard for this raid (null/omitted = none). Client-only — see crabOf. */
+  crab?: CrabConfig | null;
   /** Concentration boost spent — skip the focus-bubble minigame this fight. */
   concentration?: boolean;
   /** Precommitted 10/30/50 brain award. Each visible brain represents a stack of 5. */
@@ -93,9 +95,28 @@ const BOSS_COLOR = 0xffc107;
 const ZOMBIE_H = 91;
 const ENEMY_H = 130;
 const BOSS_H = 195;
+// The Beach crab hazard. It used to be mis-filed as a wave enemy and so rendered at the
+// full ENEMY_H, which read far too big for a critter that scuttles between ankles; a third
+// of that is the size the player asked for (and matches the source's 0.8-scaled 86x43 art
+// sitting well below the zombies' heads).
+const CRAB_H = ENEMY_H / 3;
 // Per-boss height multipliers (by enemy source key) for bosses that read wrong at the
 // shared BOSS_H. Old McDonnell is a chunky sprite that looms too large on his silo —
 // scaled down 20% to sit better on the structure.
+// Per-enemy forward nudge, as a fraction of the sprite's RENDERED width (+ = toward the
+// zombies / screen-left). Enemy rigs are authored with every part in positive model x, so
+// the art hangs entirely to the RIGHT of the unit's sim origin (see the hpCenterX note in
+// makeToken). Enemies scale to a target HEIGHT, so a very WIDE rig renders correspondingly
+// wide and its art overhangs the stage's right edge at the doorway hold spot. Keyed by
+// enemy source key.
+const ENEMY_FORWARD_FX: Record<string, number> = {
+  // Valentine's chocolate monsters. Minion1 is the extreme case: a 219x69 rig (~3.2:1),
+  // so at enemy height it renders ~6x wider than a normal humanoid minion and sat mostly
+  // off-screen. 2 and 3 are squatter than average too, but far less severe.
+  ValentinesDayStageActorMinion1: 0.4,
+  ValentinesDayStageActorMinion2: 0.4,
+  ValentinesDayStageActorMinion3: 0.4,
+};
 const BOSS_H_SCALE: Record<string, number> = {
   FarmStageActorBoss: 0.8, // Old McDonnell — 20% smaller
 };
@@ -136,8 +157,13 @@ const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
   4: { dy: 0.12 }, // Ninjas: too high on the structure
   5: { dy: 0.16 }, // Robots (sky perch): hovering too high
   6: { dx: -0.03, dy: 0.2 }, // Aliens (sky perch): too high; rides a UFO
-  7: { dx: -0.18, dy: 0.13 }, // Summer Break (sky perch): squid boss too far right
+  7: { dx: -0.18, dy: 0.28 }, // Summer Break (sky perch): squid boss too far right + too high
   8: { dx: -0.14 }, // Circus: boss too far right on the car
+  10: { dy: 0.2 }, // Tree World (sky perch): head cropped off the top of the screen
+  // Valentine's: Felix Wonky stands on the shop table, not up in the sky. The default
+  // sky perch (PERCH_FY 0.2) puts him near the ceiling; +0.45 lands his feet at 0.65
+  // down the stage rect — i.e. ~35% up from the bottom, on the table top.
+  11: { dy: 0.45 },
 };
 // Alien boss rides a UFO (AlienStageElements bossShip/bossShipBack): the saucer + glass
 // dome sit IN FRONT of the alien (its transparent centre shows the pilot), the small back
@@ -264,9 +290,13 @@ export class RaidScene {
   private hazardSprite = ""; // this raid's obstacle/grab art, preloaded for syncProjectiles
   private wallTemplate: CombatUnit | null; // preloaded so a spawned wall renders as a sprite
   private grabberSprite = ""; // Trapeze Artist art (preloaded), "" if this raid has none
+  private crabSprite = ""; // Beach crab art (preloaded), "" if this raid has none
   private grabTex: Texture | null = null; // trapeze texture
   private grabLayer = new Container(); // trapeze sprites (above the field, tappable)
   private grabSprites = new Map<string, { root: Container; body: Sprite; bar: Graphics }>();
+  private crabTex: Texture | null = null; // beach crab hazard texture
+  private crabLayer = new Container(); // crab sprites (above the field, tappable)
+  private crabSprites = new Map<string, { root: Container; body: Sprite; bar: Graphics }>();
   private imageBase: string | null;
   private bossTexture: string;
   private bossAnimationDefs: RaidSceneParams["bossAnimations"];
@@ -354,6 +384,7 @@ export class RaidScene {
     this.hazardSprite = params.hazard?.sprite ?? "";
     this.wallTemplate = params.wallTemplate ?? null;
     this.grabberSprite = params.grabber?.sprite ?? "";
+    this.crabSprite = params.crab?.sprite ?? "";
     this.imageBase = params.imageBase ?? null;
     this.bossTexture = params.bossTexture ?? "";
     this.bossAnimationDefs = params.bossAnimations;
@@ -375,7 +406,8 @@ export class RaidScene {
       !!params.escapeOnRoundEnd,
       !!params.bossFallsFromSky,
       params.bossEngageDistance,
-      params.grabber ?? null
+      params.grabber ?? null,
+      params.crab ?? null
     );
     this.maxPlayerHp = Math.max(1, sumMax(params.playerUnits));
     this.maxEnemyHp = Math.max(1, sumMax(params.enemyUnits));
@@ -498,6 +530,11 @@ export class RaidScene {
     if (this.grabberSprite) {
       this.grabTex = await loadTex(raidImage(this.grabberSprite));
       this.container.addChild(this.grabLayer);
+    }
+    // Beach crab art + layer (tappable while it wanders and while it hauls a zombie).
+    if (this.crabSprite) {
+      this.crabTex = await loadTex(raidImage(this.crabSprite));
+      this.container.addChild(this.crabLayer);
     }
 
     // Team-bar face badges: a representative party zombie on the left, the raid's
@@ -700,12 +737,17 @@ export class RaidScene {
         const s = targetH / Math.max(1, b.height);
         ea.container.scale.set(s);
         ea.container.y = -(b.y + b.height) * s; // stand its feet at the origin
+        // Pull an over-wide rig forward (screen-left) so it doesn't overhang the stage's
+        // right edge at the doorway hold spot. Fraction of the RENDERED width, so it
+        // tracks the contain-fit stage automatically.
+        const forwardX = (ENEMY_FORWARD_FX[u.sourceKey] ?? 0) * b.width * s;
+        ea.container.x = -forwardX;
         root.addChild(ea.container);
         base = Math.max(16, (b.width * s) / 2);
         // Enemy rig parts are authored in positive model-space coordinates. Their
         // feet/sim origin remains at x=0, so center the HP bar on the rendered rig
         // bounds rather than on that origin (which put nearly every bar to the left).
-        hpCenterX = (b.x + b.width / 2) * s;
+        hpCenterX = (b.x + b.width / 2) * s - forwardX;
         topY = -(b.height * s);
         enemyActor = ea;
       } else if (tex) {
@@ -1119,7 +1161,16 @@ export class RaidScene {
           sx = this.mapX(g.x);
           sy = this.mapProjY(g.y + 42);
         }
+        // Held by a Beach crab: pinned at the crab's spot on the ground line, riding
+        // along once it starts hauling.
+        const c = this.sim.crabs.find((cr) => cr.grabbedId === u.id);
+        if (c) {
+          sx = this.mapX(c.x);
+          sy = this.mapY(c.y) + UNIT_GROUND_NUDGE * this.sizeScale();
+        }
       }
+      // Carried off the field by a crab — gone from this fight (it comes home after).
+      tok.root.visible = !u.taken;
       tok.root.position.set(sx, sy);
       tok.root.zIndex = u.isBoss ? 100000 : u.state === "grabbed" ? 90000 : u.alive ? Math.round(sy * 10) : 0;
 
@@ -1385,6 +1436,55 @@ export class RaidScene {
 
     this.syncProjectiles();
     this.syncGrabbers();
+    this.syncCrabs();
+  }
+
+  /** Mirror the Beach crab hazards into tappable sprites. Ten taps kills one, which frees
+   *  any zombie it holds; an HP bar appears after the first tap so the player can see the
+   *  rescue landing. Crabs walk the ground line, so they use mapY (not mapProjY). */
+  private syncCrabs() {
+    if (!this.crabTex) return;
+    const live = new Set<string>();
+    for (const c of this.sim.crabs) {
+      if (c.state === "gone") continue;
+      live.add(c.id);
+      let entry = this.crabSprites.get(c.id);
+      if (!entry) {
+        const root = new Container();
+        const body = new Sprite(this.crabTex);
+        body.anchor.set(0.5, 1); // feet on the ground line
+        const bar = new Graphics();
+        root.addChild(body, bar);
+        root.eventMode = "static";
+        root.cursor = "pointer";
+        root.on("pointertap", () => this.sim.tapCrab(c.id));
+        this.crabLayer.addChild(root);
+        entry = { root, body, bar };
+        this.crabSprites.set(c.id, entry);
+      }
+      const { root, body, bar } = entry;
+      root.position.set(this.mapX(c.x), this.mapY(c.y) + UNIT_GROUND_NUDGE * this.sizeScale());
+      const h = CRAB_H * this.sizeScale();
+      body.height = h;
+      body.width = h * (this.crabTex.width / Math.max(1, this.crabTex.height));
+      // Face its heading; the art faces left, so a rightward walk mirrors.
+      body.scale.x = Math.abs(body.scale.x) * (c.state === "wander" && c.dir > 0 ? -1 : 1);
+      body.tint = c.struckThisTick ? 0xff9a9a : 0xffffff;
+      bar.clear();
+      if (c.hp < c.maxHp) {
+        const w = h * 1.4;
+        const frac = Math.max(0, c.hp / c.maxHp);
+        const by = -h - 10;
+        bar.roundRect(-w / 2, by, w, 5, 3).fill({ color: 0x000000, alpha: 0.55 });
+        bar.roundRect(-w / 2, by, w * frac, 5, 3).fill({ color: 0xff5252 });
+      }
+    }
+    for (const [id, entry] of this.crabSprites) {
+      if (!live.has(id)) {
+        entry.root.destroy({ children: true });
+        this.crabSprites.delete(id);
+      }
+    }
   }
 
   /** Mirror the Trapeze Artist grab hazards into tappable sprites (with an HP bar while

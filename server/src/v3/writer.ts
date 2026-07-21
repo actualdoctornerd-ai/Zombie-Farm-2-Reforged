@@ -23,6 +23,46 @@ interface RuntimeWriterRow {
 
 const OPERATION_TTL_MS = 120_000;
 
+/** How long a lease survives with no live document behind it. This is NOT "time
+ *  since the player last acted": a visible tab refreshes the lease every few
+ *  seconds via GET /writer/status, so an AFK player keeps their lease indefinitely.
+ *  It elapses only when the tab is closed, crashed, force-quit, or backgrounded --
+ *  and even then the lease is merely CLAIMABLE, never revoked. A holder whose lease
+ *  nobody took keeps writing without interruption. */
+export const WRITER_IDLE_MS = 600_000;
+
+/** The ownership poll runs every 5s while visible; persisting that would be ~720
+ *  writes per player-hour for no benefit. One write per minute keeps a lease far
+ *  from the idle threshold at a twelfth of the cost. */
+const HEARTBEAT_MIN_INTERVAL_MS = 60_000;
+
+const isHeld = (row: RuntimeWriterRow): boolean =>
+  !!row.writer_device_id && !!row.writer_token_hash && !!row.writer_session_id;
+
+/** Evaluated lazily at read time rather than swept by a cron: D1 has no TTL, and a
+ *  sweeper would be more moving parts for an identical result. */
+const isIdle = (row: RuntimeWriterRow, now: number): boolean =>
+  now - (row.writer_last_activity_at ?? 0) > WRITER_IDLE_MS;
+
+/** Refresh the holder's lease from its ownership poll. The WHERE clause repeats the
+ *  full ownership fence so a takeover landing between the read and this write can
+ *  never be papered over by a heartbeat. Returns the effective activity timestamp. */
+const heartbeat = async (
+  db: D1Database,
+  accountId: string,
+  sessionId: string,
+  row: RuntimeWriterRow,
+  credential: WriterCredential,
+  now: number
+): Promise<number> => {
+  const last = row.writer_last_activity_at ?? 0;
+  if (now - last < HEARTBEAT_MIN_INTERVAL_MS) return last;
+  const result = await db.prepare(`UPDATE account_runtime_v3 SET writer_last_activity_at=?,updated_at=?
+    WHERE account_id=? AND writer_device_id=? AND writer_session_id=? AND writer_generation=?`)
+    .bind(now, now, accountId, credential.clientId, sessionId, credential.generation).run();
+  return (result.meta.changes ?? 0) === 1 ? now : last;
+};
+
 const tokenHash = async (token: string): Promise<string> => {
   const bytes = new TextEncoder().encode(token);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -57,9 +97,20 @@ export async function projection(
   now: number
 ): Promise<WriterProjection> {
   const row = await readRuntime(db, accountId, now);
-  const free = !row.writer_device_id || !row.writer_token_hash || !row.writer_session_id;
+  // Ownership is resolved BEFORE staleness, and deliberately so. Reporting a stale
+  // but unclaimed lease as "free" to its own holder would make the client's 5s
+  // ownership poll see status !== "mine", trip handleWriterLost, and raise the very
+  // takeover gate idle expiry exists to prevent. Staleness is a statement about what
+  // OTHER clients may claim; it never invalidates the holder.
+  if (isHeld(row) && await matches(row, sessionId, credential)) {
+    return {
+      status: "mine",
+      generation: row.writer_generation,
+      lastActivityAt: await heartbeat(db, accountId, sessionId, row, credential!, now),
+    };
+  }
   return {
-    status: free ? "free" : await matches(row, sessionId, credential) ? "mine" : "other",
+    status: !isHeld(row) || isIdle(row, now) ? "free" : "other",
     generation: row.writer_generation,
     lastActivityAt: row.writer_last_activity_at,
   };
@@ -102,8 +153,13 @@ export async function acquire(
     }
     return { status: 200, generation: row.writer_generation, accountVersion: row.account_version };
   }
-  const free = !row.writer_device_id || !row.writer_token_hash || !row.writer_session_id;
-  if (!free && !body.takeover) return { status: 423, error: "writer_active", generation: row.writer_generation };
+  // An idle lease has no live document behind it, so a new client may claim it
+  // without the takeover gate. This is the only path that recovers a lease stranded
+  // by a crash or force-quit on a DIFFERENT browser or device; the same browser is
+  // already covered by its stable clientId hitting the recovery branch above.
+  const held = isHeld(row);
+  const claimable = !held || isIdle(row, now);
+  if (!claimable && !body.takeover) return { status: 423, error: "writer_active", generation: row.writer_generation };
   if (body.observedGeneration !== row.writer_generation) {
     return { status: 409, error: "writer_changed", generation: row.writer_generation };
   }
@@ -118,12 +174,18 @@ export async function acquire(
       AND (active_batch_id IS NULL OR active_batch_expires_at<=?)`)
     .bind(body.clientId, sessionId, hash, now, now, accountId, row.writer_generation,
       row.account_version, now);
-  const replacedSessionId = !free && body.takeover && row.writer_session_id !== sessionId
+  const replacedSessionId = held && body.takeover && row.writer_session_id !== sessionId
     ? row.writer_session_id
     : null;
   // A takeover is also a session handoff: revoke the displaced login in the same
   // transaction as the writer CAS. The EXISTS guard means a failed/stale CAS can
   // never sign out the old session by itself.
+  //
+  // Gated on body.takeover, never on `claimable`: an idle claim is automatic, so
+  // signing the other device out for it would kick a player who merely backgrounded
+  // a tab. An idle claim still bumps the generation, so the displaced holder learns
+  // it lost the lease via writer_replaced and can take it back -- while staying
+  // signed in. Only the deliberate "Take over here" button revokes a session.
   const statements = [updateWriter];
   if (replacedSessionId) {
     statements.push(db.prepare(`UPDATE sessions SET revoked_at=?

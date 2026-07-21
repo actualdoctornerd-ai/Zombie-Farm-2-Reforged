@@ -251,7 +251,11 @@ export class EconomyClient {
         : input.type === "remove"
           ? { type: "farm.remove", oc: input.oc, or: input.or }
           : { type: "farm.plow", oc: input.oc, or: input.or };
-    this.enqueue(command, { ...optimistic, localUnitId: input.unitId });
+    const sequence = this.enqueue(command, { ...optimistic, localUnitId: input.unitId });
+    // A harvested zombie is rendered immediately, but its crop-adjacency mutation
+    // is server-owned. Do not leave that visible result sitting in the ordinary
+    // batching window: reconcile it as soon as network latency allows.
+    if (sequence !== null && input.type === "harvest" && input.unitId) void this.queue.flush();
   }
 
   submitInventory(input: InventoryInput, optimistic: { count: number; gold?: number; brains?: number }): void {
@@ -259,7 +263,7 @@ export class EconomyClient {
     const command: GameplayCommand = input.type === "buy"
       ? { type: "power.buy", key: input.key }
       : { type: "power.use", key: input.key, oc: input.oc, or: input.or, target: input.target };
-    this.enqueue(command, {
+    const sequence = this.enqueue(command, {
       gold: optimistic.gold,
       brains: optimistic.brains,
       inventoryKey: input.key,
@@ -267,6 +271,10 @@ export class EconomyClient {
       localUnitId: input.unitId,
       localZombieHarvests: input.localZombieHarvests,
     });
+    // Insta-Harvest can create several zombies whose mutations are all resolved by
+    // the server. Flush the single semantic power command immediately for the same
+    // reason as an ordinary zombie harvest.
+    if (sequence !== null && input.localZombieHarvests?.length) void this.queue.flush();
   }
 
   submitPower(key: "insta_harvest" | "insta_plow"): void {

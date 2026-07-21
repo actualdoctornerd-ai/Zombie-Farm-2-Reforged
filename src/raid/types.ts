@@ -222,6 +222,25 @@ export interface GrabberConfig {
   spawnDelayMs: number; // initial wait + respawn cadence (spawnState wait_4)
 }
 
+/** Beach crab hazard config (`BeachStageActorCrab`, Summer Break). Disassembled ground
+ *  truth: it is NOT a combat enemy — it has no attack path and no gold loot. It spawns on
+ *  the obstacle timer up to a concurrent cap, wanders the lane, and on touching a deployed
+ *  zombie GRABS it (the zombie goes inert + invincible), holds ~2 s, then carries it off
+ *  the LEFT edge, at which point the zombie is removed from the fight (source state 38 —
+ *  explicitly not the death path). Tapping the crab deals `tapDamage` per tap; killing it
+ *  frees the zombie back onto the lane. See docs/mechanics/RAID_TIMING_AND_HAZARDS.md.
+ *
+ *  CLIENT-ONLY: the server verifier builds its sim WITHOUT this, so the authoritative
+ *  replay is the un-harassed ("optimistic") run — see RaidManager.crabOf. */
+export interface CrabConfig {
+  sprite: string; // beach_crab.png
+  hp: number; // con 10 x HP_PER_CON = 1000
+  tapDamage: number; // hitBoxTouched -> damage:100 (=> exactly 10 taps)
+  spawnMs: number; // obstacleSpawnTimer (5 s on raid 7)
+  limit: number; // obstacleLimit — concurrent cap, slot returned when one dies
+  holdMs: number; // grab -> carry delay (CCDelayTime 2.0 s)
+}
+
 /** The outcome of a resolved raid (fed to the Result panel + reward pipeline). */
 export interface RaidOutcome {
   win: boolean;

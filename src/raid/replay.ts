@@ -1,7 +1,10 @@
 import { BattleSim, type BattleSimSnapshot } from "./BattleSim";
 import type { RaidOutcome } from "./types";
 
-export const RAID_RULESET_VERSION = 4;
+// 6: hazards moved client-only (the verifier no longer simulates the trapeze) and
+// `clientWin` concessions were added — in-flight v5 sessions must not replay under these
+// rules, so the bump invalidates them via the existing stale_ruleset path.
+export const RAID_RULESET_VERSION = 6;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

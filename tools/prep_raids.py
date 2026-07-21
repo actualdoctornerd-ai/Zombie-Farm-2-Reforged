@@ -106,18 +106,34 @@ BOSS_PREF = {5: "RobotStageActorBrainBot"}
 LADDER_POP_BASE = 7
 
 
-def family_parts(rid, unit_stats):
+def hazard_keys(e):
+    """Actor classes a raid spawns as ENVIRONMENTAL HAZARDS rather than wave enemies.
+
+    These carry UnitStats entries (they need hp/damage to interact with zombies) and
+    share the raid's `<Family>StageActor` prefix, so a naive prefix sweep files them as
+    minions. The beach Crab is the case that bit us: `BeachStageActorCrab` has no
+    "Obstacle" in its name — unlike TreeWorldStageTurtleObstacleActor — so only the
+    raid's own hazard fields identify it. It was landing in the endless-wave spawn pool
+    and marching in as a regular enemy."""
+    keys = set(e.get("obstacleActors") or [])
+    if e.get("initialSpawnClass"):
+        keys.add(e["initialSpawnClass"])
+    return keys
+
+
+def family_parts(rid, unit_stats, hazards=frozenset()):
     """Resolve a raid's (primary, secondary, boss, all_minions) from UnitStats.
 
     primary  = the weakest grunt (str+con) — the numerous common enemy, like the
                single Farmhand McDonnell opens with. secondary = the toughest grunt
                (the McDonnell Lumberjack that rounds out a full wave). all_minions is
-               weak→strong for the population pool. Returns (None, None, None, []) if
-               the family can't be resolved."""
+               weak→strong for the population pool. `hazards` (see hazard_keys) are
+               excluded — they spawn on the obstacle timer, not in a wave. Returns
+               (None, None, None, []) if the family can't be resolved."""
     pfx = STAGE_FAMILY.get(rid)
     if not pfx:
         return None, None, None, []
-    members = sorted(k for k in unit_stats if k.startswith(pfx))
+    members = sorted(k for k in unit_stats if k.startswith(pfx) and k not in hazards)
     if not members:
         return None, None, None, []
     bosses = [k for k in members if unit_stats[k].get("bossActions")]
@@ -143,14 +159,14 @@ def population_pool(minions):
     ]
 
 
-def build_ladder(rid, unit_stats, base_pop):
+def build_ladder(rid, unit_stats, base_pop, hazards=frozenset()):
     """Extrapolate McDonnell's 7-stage difficulty ladder onto a raid, using its own
     minions/boss. Stage indices mirror McDonnell exactly (bossIdx 3): the pre-boss
     stages grow the grunt count, then the boss appears at recommendedLevel, then two
     endless population waves. Unlike McDonnell — whose first boss stage disables
     throwing — every OTHER boss throws from its first appearance (stage 3). Returns []
     if the family can't be resolved (raid then falls back to any source stages)."""
-    primary, secondary, boss, minions = family_parts(rid, unit_stats)
+    primary, secondary, boss, minions = family_parts(rid, unit_stats, hazards)
     if not primary or not boss:
         return []
     full = [primary, primary, primary, primary, secondary]
@@ -179,7 +195,8 @@ def stages_for(rid, e, unit_stats):
     Every other raid gets McDonnell's ladder shape extrapolated onto its own family,
     seeded with the raid's real source population where the source authored one stage."""
     real = [norm_stage(s) for s in e.get("stageSettings", []) or []]
-    primary, secondary, boss, minions = family_parts(rid, unit_stats)
+    hazards = hazard_keys(e)
+    primary, secondary, boss, minions = family_parts(rid, unit_stats, hazards)
     src_pop = next((s["population"] for s in real if s.get("population")), None)
     if len(real) >= 3:  # a genuine authored ladder (McDonnell) — keep it
         if minions:
@@ -187,7 +204,7 @@ def stages_for(rid, e, unit_stats):
                 if s.get("population") and not s.get("enemyKeys") and not s.get("weighted"):
                     s["weighted"] = population_pool(minions)
         return real
-    ladder = build_ladder(rid, unit_stats, src_pop or LADDER_POP_BASE)
+    ladder = build_ladder(rid, unit_stats, src_pop or LADDER_POP_BASE, hazards)
     return ladder or real
 
 

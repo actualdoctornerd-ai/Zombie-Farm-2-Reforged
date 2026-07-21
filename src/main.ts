@@ -2298,6 +2298,8 @@ async function main() {
       bossThrow: setup.bossThrow,
       bossSpecials: setup.bossSpecials,
       hazard: setup.hazard,
+      grabber: setup.grabber,
+      crab: setup.crab,
       summonTemplate: setup.summonTemplate,
       wallTemplate: setup.wallTemplate,
       brainDrop: setup.brainDrop,

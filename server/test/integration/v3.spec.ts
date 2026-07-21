@@ -421,11 +421,11 @@ describe("protocol v3 API", () => {
     const stale = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1, orderedUnitIds: [unitId], rulesetVersion: 2,
     });
-    expect(stale).toMatchObject({ status: 426, body: { error: "stale_ruleset", rulesetVersion: 4 } });
+    expect(stale).toMatchObject({ status: 426, body: { error: "stale_ruleset", rulesetVersion: 6 } });
     const started = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1,
       orderedUnitIds: [unitId],
-      rulesetVersion: 4,
+      rulesetVersion: 6,
     });
     expect(started.status, JSON.stringify(started.body)).toBe(200);
 
@@ -444,7 +444,7 @@ describe("protocol v3 API", () => {
     const next = await call<any>("POST", "/raid/start", session.token, {
       raidId: 1,
       orderedUnitIds: [unitId],
-      rulesetVersion: 4,
+      rulesetVersion: 6,
     });
     expect(next.status).toBe(429);
     expect(next.body.error).toBe("cooldown");
@@ -484,5 +484,112 @@ describe("protocol v3 API", () => {
     const malformed = await call<any>("POST", "/commands", session.token,
       commandBody(boot, "batch-bad-trees", 1, [{ type: "object.harvest_trees", instanceIds: "all" }]));
     expect(malformed.status).toBe(400);
+  });
+});
+
+// Client-only hazards (the Beach crab — see RaidManager.crabOf) are deliberately absent
+// from the server's replay, making that replay an OPTIMISTIC ceiling. `clientWin` lets a
+// player concede a fight the hazard actually cost them, and ONLY in that direction.
+describe("raid finish — clientWin concession", () => {
+  const raidReadyZombie = async (batchId: string) => {
+    const session = await signIn();
+    const boot = (await call<any>("POST", "/bootstrap", session.token, {
+      protocolVersion: 3,
+      deviceId: deviceA,
+    })).body;
+    const grown = await call<any>("POST", "/commands", session.token,
+      commandBody(boot, batchId, 1, [
+        { type: "farm.plow", oc: 0, or: 0 },
+        { type: "farm.plant", oc: 0, or: 0, cropKey: "ZombieActorRegularTier1" },
+        { type: "power.buy", key: "insta_grow" },
+        { type: "power.use", key: "insta_grow", oc: 0, or: 0 },
+        { type: "farm.harvest", oc: 0, or: 0 },
+      ]));
+    const unitId = grown.body.createdZombieIds[0];
+    const started = await call<any>("POST", "/raid/start", session.token, {
+      raidId: 1, orderedUnitIds: [unitId], rulesetVersion: 6,
+    });
+    return { session, sessionId: started.body.sessionId, unitId };
+  };
+
+  it("clientWin:true can NOT upgrade a server-derived loss", async () => {
+    const { session, sessionId } = await raidReadyZombie("batch-concede-up");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }], clientWin: true,
+    });
+    expect(finished.status).toBe(200);
+    // The retreat still governs — a truthful-looking client flag buys nothing.
+    expect(finished.body).toMatchObject({ gold: 0, xp: 0, outcome: { win: false } });
+  });
+
+  it("clientWin:false settles as a loss and pays nothing", async () => {
+    const { session, sessionId } = await raidReadyZombie("batch-concede-down");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }], clientWin: false,
+    });
+    expect(finished.status).toBe(200);
+    expect(finished.body).toMatchObject({ gold: 0, xp: 0, firstClear: false, outcome: { win: false } });
+  });
+
+  it("rejects a non-boolean clientWin rather than coercing it", async () => {
+    const { session, sessionId } = await raidReadyZombie("batch-concede-bad");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }], clientWin: "yes",
+    });
+    expect(finished).toMatchObject({ status: 400, body: { error: "bad_client_win" } });
+  });
+
+  it("omitting clientWin behaves exactly as before (older clients)", async () => {
+    const { session, sessionId } = await raidReadyZombie("batch-concede-absent");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+    });
+    expect(finished.status).toBe(200);
+    expect(finished.body).toMatchObject({ outcome: { win: false } });
+  });
+
+  it("clientLosses folds a conceded death into the settlement", async () => {
+    const { session, sessionId, unitId } = await raidReadyZombie("batch-concede-death");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+      clientWin: false, clientLosses: [unitId],
+    });
+    expect(finished.status).toBe(200);
+    // The replay retreated with the zombie intact; the client reports it died to a hazard.
+    expect(finished.body.outcome.losses).toContain(unitId);
+    expect(finished.body.outcome.survivors).not.toContain(unitId);
+    // ...and it is genuinely gone from the roster, offered back only as a paid revival.
+    expect(finished.body.revival?.zombies?.some((z: any) => z.id === unitId)).toBe(true);
+  });
+
+  it("ignores clientLosses ids that were never locked to this raid", async () => {
+    const { session, sessionId, unitId } = await raidReadyZombie("batch-concede-foreign");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+      clientLosses: ["not-my-zombie", "someone-elses-unit"],
+    });
+    expect(finished.status).toBe(200);
+    // Foreign ids are dropped, so nothing died and no casualty offer is raised.
+    expect(finished.body.outcome.losses).toEqual([]);
+    expect(finished.body.revival).toBeNull();
+  });
+
+  it("rejects a malformed clientLosses instead of coercing it", async () => {
+    const { session, sessionId } = await raidReadyZombie("batch-concede-badloss");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+      clientLosses: [{ id: "z" }],
+    });
+    expect(finished).toMatchObject({ status: 400, body: { error: "bad_client_losses" } });
+  });
+
+  it("a conceded death cannot INCREASE the payout", async () => {
+    const { session, sessionId, unitId } = await raidReadyZombie("batch-concede-nopay");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [{ seq: 1, tick: 0, type: "retreat" }],
+      clientLosses: [unitId],
+    });
+    expect(finished.status).toBe(200);
+    expect(finished.body).toMatchObject({ gold: 0, xp: 0 });
   });
 });

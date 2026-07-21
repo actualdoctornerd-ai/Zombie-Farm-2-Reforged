@@ -978,15 +978,11 @@
     "weighted": [
      {
       "enemy": "BeachStageActorMinion2",
-      "frequency": 50
-     },
-     {
-      "enemy": "BeachStageActorCrab",
-      "frequency": 33
+      "frequency": 67
      },
      {
       "enemy": "BeachStageActorMinion1",
-      "frequency": 17
+      "frequency": 33
      }
     ],
     "wave": 6,
@@ -998,15 +994,11 @@
     "weighted": [
      {
       "enemy": "BeachStageActorMinion2",
-      "frequency": 50
-     },
-     {
-      "enemy": "BeachStageActorCrab",
-      "frequency": 33
+      "frequency": 67
      },
      {
       "enemy": "BeachStageActorMinion1",
-      "frequency": 17
+      "frequency": 33
      }
     ],
     "wave": 7,

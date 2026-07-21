@@ -57,11 +57,14 @@ const raids = raidsJson as RaidDef[];
 const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
 const attacks = attacksJson as Record<string, AttackDef>;
 const zombieDefs = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
-const GRAB_SPRITE: Readonly<Record<number, string>> = { 8: "hazard_trapeze_girl.png" };
 
-function grabberOf(raid: RaidDef): GrabberConfig | null {
-  const sprite = GRAB_SPRITE[raid.id];
-  return raid.hasGrab && sprite ? { sprite, hp: 1000, tapDamage: 100, spawnDelayMs: 4000 } : null;
+/** Hazards are CLIENT-ONLY. The verifier deliberately simulates the UN-HARASSED fight, so
+ *  its replay is an optimistic ceiling the live game can only fall short of — the player
+ *  then concedes a lost fight via `clientWin` (see v3/raid.ts finishRaid). Previously the
+ *  trapeze ran here but NOT in the live scene, so Circus players lost zombies to a hazard
+ *  they never saw. Returning null keeps every hazard on one side of the line. */
+function grabberOf(_raid: RaidDef): GrabberConfig | null {
+  return null;
 }
 
 function stageRosterKeys(stage: RaidStage): string[] {

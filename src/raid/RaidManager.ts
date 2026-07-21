@@ -30,7 +30,7 @@ import {
 import { BASE } from "../base";
 import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { displayTotals } from "../zombie/statDisplay";
-import { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
+import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, HazardConfig, RaidDef, RaidOutcome, RaidStage } from "./types";
 import { rollLootTier } from "./LootTable";
 import { rollBrainDrop } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
@@ -52,6 +52,10 @@ const OBSTACLE_SPRITE: Record<number, string> = {
 const GRAB_SPRITE: Record<number, string> = {
   8: "hazard_trapeze_girl.png",
 };
+/** The Beach crab hazard: identified by the raid's own `initialSpawnClass` rather than a
+ *  per-id table, since that field is exactly what the source's obstacle timer spawns. */
+const CRAB_ACTOR = "BeachStageActorCrab";
+const CRAB_SPRITE = "hazard_beach_crab.png";
 
 // ---- HUD-facing view models ----
 
@@ -173,6 +177,8 @@ export interface RaidSetup {
   wallTemplate: CombatUnit | null;
   /** Carried-grab hazard (Circus Trapeze Artist) for the live scene (null if none). */
   grabber: GrabberConfig | null;
+  /** Beach crab hazard (client-only — see crabOf). */
+  crab: CrabConfig | null;
   /** Golden Dice spent on this fight — carried into finishRaid() for loot luck. */
   dice: number;
   /** Concentration boost spent — the live scene skips the focus-bubble minigame. */
@@ -387,6 +393,7 @@ export class RaidManager {
       bossSpecials: this.bossSpecialsOf(stage),
       hazard: this.hazardOf(raid),
       grabber: this.grabberOf(raid),
+      crab: this.crabOf(raid),
       ...this.summonWallTemplatesOf(stage, enemyUnits),
       dice,
       concentration,
@@ -403,6 +410,27 @@ export class RaidManager {
     const sprite = GRAB_SPRITE[raid.id];
     if (!raid.hasGrab || !sprite) return null;
     return { sprite, hp: 1000, tapDamage: 100, spawnDelayMs: 4000 };
+  }
+
+  /** Beach crab hazard config, from the raid's own `initialSpawnClass` + obstacle timer.
+   *  Ground truth (`BeachStageActorCrab`): HP 1000 (con 10 x 100), 100 per tap = 10 taps,
+   *  2.0 s hold before it hauls the zombie off, spawn cadence + concurrent cap straight
+   *  from `obstacleSpawnSecs` / `obstacleLimit` (5 s / 2 on Summer Break).
+   *
+   *  DELIBERATELY CLIENT-ONLY. The server verifier (server/src/raidVerifier.ts) builds its
+   *  sim without this, so the authoritative replay is the un-harassed run. A crab can
+   *  therefore only ever make the player's own live result WORSE than the server ceiling,
+   *  never better — which is why it needs no anti-cheat plumbing. */
+  private crabOf(raid: RaidDef): CrabConfig | null {
+    if (raid.initialSpawnClass !== CRAB_ACTOR || !raid.obstacleLimit) return null;
+    return {
+      sprite: CRAB_SPRITE,
+      hp: 1000,
+      tapDamage: 100,
+      spawnMs: (raid.obstacleSpawnSecs > 0 ? raid.obstacleSpawnSecs : 5) * 1000,
+      limit: raid.obstacleLimit,
+      holdMs: 2000,
+    };
   }
 
   /** Every enemy key in a stage (boss + fixed + weighted minions), so a stage-wide scan

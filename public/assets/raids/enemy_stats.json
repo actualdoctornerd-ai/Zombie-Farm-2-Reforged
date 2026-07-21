@@ -77,17 +77,6 @@
   "standardBossLoot": true,
   "str": 4
  },
- "BeachStageActorCrab": {
-  "attacks": [
-   {
-    "frequency": 100,
-    "name": "BeachMinionSmash"
-   }
-  ],
-  "con": 10,
-  "dex": 1,
-  "str": 1
- },
  "BeachStageActorMinion1": {
   "attacks": [
    {

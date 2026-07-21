@@ -31,11 +31,15 @@ const CLIENT_KEY = "zf2r.v4.writer-client";
 const WRITER_KEY = "zf2r.v4.writer";
 
 // v3 is an intentional clean break. Never replay a v1/v2 save or outbox into a
-// newly-created authoritative account.
+// newly-created authoritative account. The allowlist is every LIVE schema prefix,
+// not just v3: this purge runs on each load, so a namespace missing from here is
+// erased on the very next boot rather than persisting as intended.
+const LIVE_KEY_PREFIXES = ["zf2r.v3.", "zf2r.v4."];
 try {
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith("zf2r.") || key.startsWith("zombiefarm.")) && !key.startsWith("zf2r.v3.")) {
+    if (key && (key.startsWith("zf2r.") || key.startsWith("zombiefarm.")) &&
+        !LIVE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) {
       localStorage.removeItem(key);
     }
   }
@@ -55,12 +59,18 @@ export function deviceId(): string {
   }
 }
 
+/** This browser profile's writer identity. Deliberately in localStorage, not
+ *  sessionStorage: the server can silently re-issue a lease to the same
+ *  client+session presenting a fresh token, but a per-tab id makes every reopen
+ *  look like a new client and forces the "Farm active elsewhere" takeover gate.
+ *  It is an availability key, never a credential on its own — the lease is still
+ *  fenced by writer_session_id and the hashed writer token. */
 export function writerClientId(): string {
   try {
-    const current = sessionStorage.getItem(CLIENT_KEY);
+    const current = localStorage.getItem(CLIENT_KEY);
     if (current) return current;
     const created = crypto.randomUUID();
-    sessionStorage.setItem(CLIENT_KEY, created);
+    localStorage.setItem(CLIENT_KEY, created);
     return created;
   } catch {
     return crypto.randomUUID();
@@ -84,31 +94,44 @@ let writerRejectedHandler: (() => void) | null = null;
 let sessionRejectedHandler: (() => void) | null = null;
 
 // A server credential belongs to one live document at a time. Web Locks are scoped
-// to the origin and released automatically when a document unloads, which makes a
-// reload a clean handoff while still fencing a duplicated tab that inherited this
-// tab's sessionStorage. A losing document never deletes the persisted credential.
+// to the origin and released automatically when a document unloads OR crashes,
+// which is what makes them a trustworthy "is another tab of this game alive right
+// now?" probe. The name is scoped to the ACCOUNT, not to this document's clientId:
+// a per-client name means two independent tabs request different locks and never
+// contend, so the lock could only ever fence a duplicated tab. Account scoping is
+// what distinguishes a genuine second tab (lock held -> read-only) from a reopen
+// after close (lock free -> claim it silently). A losing document never deletes the
+// persisted credential.
 const supportsWriterLocks = typeof navigator !== "undefined" && !!navigator.locks;
 let localWriterLockHeld = !supportsWriterLocks;
-let resolveWriterLock: ((held: boolean) => void) | null = null;
-const writerLockAcquired = new Promise<boolean>((resolve) => { resolveWriterLock = resolve; });
+let writerLockRequest: Promise<boolean> | null = null;
+let writerLockAccountId: string | null = null;
 
-if (supportsWriterLocks) {
-  void navigator.locks.request(`zf2r.v4.writer:${writerClientId()}`, async () => {
-    localWriterLockHeld = true;
-    // A contending document suppresses its in-memory copy while it waits. Restore
-    // that copy only after the browser grants this document exclusive ownership.
-    writerCredential ??= readWriterCredential();
-    resolveWriterLock?.(true);
-    resolveWriterLock = null;
-    await new Promise<void>(() => { /* held for this document's lifetime */ });
-  }).catch(() => {
-    // Web Locks are an availability guard, not the server security boundary. If a
-    // browser advertises the API but it fails, preserve the existing server fence.
-    localWriterLockHeld = true;
-    writerCredential ??= readWriterCredential();
-    resolveWriterLock?.(true);
-    resolveWriterLock = null;
+// Deferred until the account is known — unlike the old per-client name, this one
+// cannot be built at module load, and prepareWriterAccess() already runs after auth.
+function requestWriterLock(accountId: string): Promise<boolean> {
+  if (writerLockRequest && writerLockAccountId === accountId) return writerLockRequest;
+  writerLockAccountId = accountId;
+  writerLockRequest = new Promise<boolean>((resolve) => {
+    let settle: ((held: boolean) => void) | null = resolve;
+    const grant = () => {
+      localWriterLockHeld = true;
+      // A contending document suppresses its in-memory copy while it waits. Restore
+      // that copy only after the browser grants this document exclusive ownership.
+      writerCredential ??= readWriterCredential();
+      settle?.(true);
+      settle = null;
+    };
+    void navigator.locks.request(`zf2r.v4.writer:${accountId}`, async () => {
+      grant();
+      await new Promise<void>(() => { /* held for this document's lifetime */ });
+    }).catch(() => {
+      // Web Locks are an availability guard, not the server security boundary. If a
+      // browser advertises the API but it fails, preserve the existing server fence.
+      grant();
+    });
   });
+  return writerLockRequest;
 }
 
 const persistWriter = (value: WriterCredential | null): void => {
@@ -121,8 +144,14 @@ const persistWriter = (value: WriterCredential | null): void => {
 
 export async function prepareWriterAccess(waitMs = 1_500): Promise<boolean> {
   if (localWriterLockHeld) return true;
+  // Offline-only mode and the signed-out path have no account to contend over, so
+  // there is nothing to fence; grant immediately as the pre-account-scoped lock did.
+  if (!API || !session) {
+    localWriterLockHeld = true;
+    return true;
+  }
   const acquired = await Promise.race([
-    writerLockAcquired,
+    requestWriterLock(session.accountId),
     new Promise<boolean>((resolve) => setTimeout(() => resolve(false), waitMs)),
   ]);
   if (!acquired) writerCredential = null; // suppress locally; never erase sessionStorage
@@ -312,6 +341,37 @@ export async function releaseWriter(): Promise<void> {
   if (!hasWriterCredential()) return;
   try { await req<{ ok: true }>("POST", "/writer/release"); }
   finally { clearWriterCredential(); }
+}
+
+// Hand the lease back on a clean teardown so the next launch finds it free instead
+// of meeting the takeover gate. sendBeacon cannot carry the X-Writer-* headers the
+// endpoint authenticates on, so this is a keepalive fetch: same headers as req(),
+// but allowed to outlive the document. Fire-and-forget — the response is unreadable
+// by then, and the stable clientId (silent re-acquire) plus the server-side idle
+// expiry remain the nets for the paths this cannot cover, like a crash or force-quit.
+const releaseWriterOnUnload = (event: PageTransitionEvent): void => {
+  // A bfcache freeze can be restored into a live document that still believes it
+  // owns the lease. Only release when the page is genuinely going away.
+  if (event.persisted) return;
+  if (!API || !session || !hasWriterCredential() || !writerCredential) return;
+  try {
+    void fetch(`${API}/writer/release`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "X-Integrity-Version": String(CLIENT_INTEGRITY_VERSION),
+        "X-Client-Build": import.meta.env.VITE_BUILD_ID ?? "dev",
+        "Authorization": `Bearer ${session.token}`,
+        "X-Writer-Client": writerCredential.clientId,
+        "X-Writer-Generation": String(writerCredential.generation),
+        "X-Writer-Token": writerCredential.token,
+      },
+    }).catch(() => { /* unload is best-effort */ });
+  } catch { /* unload is best-effort */ }
+};
+
+if (typeof addEventListener === "function") {
+  addEventListener("pagehide", releaseWriterOnUnload);
 }
 
 export const writerStatus = () =>
@@ -809,11 +869,19 @@ export interface RaidFinishResult {
 
 /** Report a finished raid. The server deterministically replays the pinned combat,
  * starts the cooldown idempotently, and returns its authoritative outcome/reward. */
-export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[], _outcome?: RaidOutcome) =>
+/** Settle a raid. The server REPLAYS the transcript and prices the reward from its own
+ *  outcome — the client cannot claim a win or keep a zombie the replay killed. `clientWin`
+ *  and `clientLosses` are the two exceptions and both are strictly CONCESSIONS: the server
+ *  ANDs the win and UNIONS the deaths, so each can only ever make the result worse. They
+ *  exist because hazards (the Beach crab, the Circus trapeze) are deliberately absent from
+ *  the server's optimistic replay, so the live fight can go worse than the server believes
+ *  and the player's real result should stand. */
+export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[], outcome?: RaidOutcome) =>
   req<RaidFinishResult>("POST", "/raid/finish", {
     sessionId,
     finalTick,
     inputs,
+    ...(outcome ? { clientWin: outcome.win, clientLosses: outcome.losses } : {}),
   });
 
 export interface RaidReviveResult {

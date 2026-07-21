@@ -28,7 +28,7 @@
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
 // arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult, then the player
 // lineup-depth band (1.0/0.85/0.7/0.55; enemies ×1.0). See combatStats.lineupDamageBand.
-import type { BossSpecial, BossThrowConfig, CombatUnit, GrabberConfig, HazardConfig, RaidOutcome } from "./types";
+import type { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, HazardConfig, RaidOutcome } from "./types";
 import { ACTIVATED_ABILITY, activatedKeyFor, teamAbilitiesIn } from "../zombie/abilities";
 import { deriveHitDamage, lineupDamageBand, POWER_PER_STR } from "./combatStats";
 import { BOSS_SPECIAL_DAMAGE_MULT, PROJECTILE_DAMAGE_MULT } from "./balance";
@@ -85,10 +85,11 @@ const COL_GAP = 52; // depth spacing between columns
 
 // Anti-one-shot safeguard (INFERRED from `-[Actor damage:]` 0x3a064). A single ENEMY hit
 // blow can't take a player zombie from above the floor straight to death or below 10% of max
-// HP — its HP snaps to exactly 1 instead, so it survives to act once more. Once already at the
-// 1-HP floor the next hit kills it (this models the in-binary state bit 0x10 that eventually
-// permits the killing blow, which we can't fully pin). `turnZombie` deliberately bypasses it
-// because that action removes/converts the target rather than dealing an ordinary hit.
+// HP — its HP snaps to exactly 1 instead, so it survives to act once more. Protection is
+// latched as consumed so healing above 1 HP cannot re-arm it; the next lethal hit kills it.
+// This models the in-binary state bit 0x10 that eventually permits the killing blow, which
+// we can't fully pin. `turnZombie` deliberately bypasses it because that action converts the
+// target rather than dealing an ordinary hit.
 const ONE_SHOT_FLOOR = 0.1; // hit is capped if it would leave HP fraction below this
 
 // Mini Buddy: a waiting Small zombie mounts a Large zombie, rides to the line at
@@ -164,6 +165,23 @@ const GRABBER_TAP_CD_MS = 250; // tapDelay 0.25 — min gap between registered t
 const GRABBER_ESCAPE_Y = BAND_TOP - 140; // risen past here (off the top) → the zombie is lost
 const GRABBER_SPAWN_MS = 7000; // respawn cadence after one leaves (initial from config)
 const GRABBER_HIT_R = 34; // overlap radius for the swoop to seize a zombie (sim units)
+// ---- Beach crab hazard (BeachStageActorCrab) ----
+// Disassembled: wanders, grabs a zombie on contact, holds 2 s, then carries it off the
+// LEFT edge (source destination x = −100) where the zombie leaves the fight. Tapped to
+// death → the zombie is released and resumes. See types.ts CrabConfig.
+const CRAB_WALK_SPEED = 70; // lane speed (sim px/s). NOT ground truth — the source sets
+// this via a scaled setWalkingSpeed: the disassembly did not resolve; tuned to read as a
+// scuttle that a player has time to react to.
+const CRAB_CARRY_SPEED = 95; // speed while hauling a zombie toward the left edge
+const CRAB_EXIT_X = -60; // past this (off the left edge) the carried zombie is out
+const CRAB_HIT_R = 30; // contact radius for the grab (sim units)
+const CRAB_TAP_CD_MS = 250; // min gap between registered taps (matches the trapeze tapDelay)
+const CRAB_WANDER_MS = 1400; // how long it holds one wander heading before re-picking
+// Wander band: the source picks random destinations around the mid-lane. The exact
+// formula did not disassemble cleanly, so this is a bounded patrol of the contested
+// middle instead of a guess at the original RNG.
+const CRAB_WANDER_MIN_X = 300;
+const CRAB_WANDER_MAX_X = 760;
 
 // ---- Boss summon / wall specials ----
 const SUMMON_CAP = 3; // most extra minions a boss can summon in one fight
@@ -228,6 +246,7 @@ export interface SimUnit {
   hp: number;
   maxHp: number;
   alive: boolean;
+  oneShotProtectionUsed: boolean; // remains consumed through healing and replay checkpoints
   state: UnitState;
   charge: number; // 0..1 focus fill (zombies only)
   focus: number; // 0..100 focus stat: distraction resistance (ground truth Help.json)
@@ -272,10 +291,33 @@ export interface SimUnit {
   stunInflictMs: number; // stun this enemy applies to a zombie on hit (ms)
   attackDamageTiming: number; // 0..1 fraction of the swing when it connects (enemy anim)
   isWall: boolean; // boss-summoned blocker (carrotWall / junkWall) — tappable, no attacks
+  /** Carried off the field by a Beach crab: still ALIVE (it comes home after the raid —
+   *  source state 38 is not the death path) but out of this fight, so it counts as a
+   *  survivor while no longer keeping the battle alive. */
+  taken: boolean;
 }
 
 /** A Trapeze Artist grab hazard, consumed by the renderer. Sweeps in, seizes a zombie,
  *  then carries it off unless the player taps it to death. */
+/** A Beach crab hazard, consumed by the renderer. Wanders, grabs a zombie, holds, then
+ *  hauls it off the left edge unless the player taps it to death. */
+export interface SimCrab {
+  id: string;
+  x: number;
+  y: number;
+  state: "wander" | "hold" | "carry" | "gone";
+  dir: -1 | 1; // current wander heading (−1 = toward the zombies / left)
+  wanderMs: number; // time left on the current heading
+  hp: number;
+  maxHp: number;
+  tapDamage: number;
+  grabbedId: string | null;
+  holdMs: number; // pre-carry pause left (source: 2.0 s)
+  tapCdMs: number;
+  sprite: string;
+  struckThisTick: boolean;
+}
+
 export interface SimGrabber {
   id: string;
   x: number;
@@ -341,6 +383,10 @@ export interface BattleSimSnapshot {
   grabbers: SimGrabber[];
   grabberTimer: number;
   grabSeq: number;
+  // Client-only Beach crab hazard: absent from server-built snapshots (see crabOf).
+  crabs?: SimCrab[];
+  crabTimer?: number;
+  crabSeq?: number;
 }
 
 /** Deterministic stand-in for the source game's weighted random roll. Replay must be
@@ -387,6 +433,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     hp: Math.max(0, Math.min(u.maxHp, u.hp)),
     maxHp: u.maxHp,
     alive: true,
+    oneShotProtectionUsed: false,
     state: isPlayer ? "waiting" : "queued",
     charge: 0,
     focus: u.focus ?? 0,
@@ -431,6 +478,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stunInflictMs: isPlayer ? 0 : u.stunMs ?? 0,
     attackDamageTiming: u.attackDamageTiming ?? 0.5,
     isWall: false,
+    taken: false,
   };
 }
 
@@ -468,6 +516,11 @@ export class BattleSim {
   private grabberCfg: GrabberConfig | null;
   private grabberTimer: number; // ms until the next trapeze sweeps in
   private grabSeq = 0;
+  // ---- Beach crab hazard (client-only; see the ctor param) ----
+  readonly crabs: SimCrab[] = [];
+  private crabCfg: CrabConfig | null;
+  private crabTimer: number; // ms until the next crab scuttles in
+  private crabSeq = 0;
   // ---- summon / wall specials ----
   private summonTemplate: CombatUnit | null;
   private wallTemplate: CombatUnit | null;
@@ -508,11 +561,17 @@ export class BattleSim {
     /** Larger bosses need a wider melee line so their art does not swallow zombies. */
     engageDistance = ENGAGE,
     /** Carried-grab hazard (Circus Trapeze Artist) for this raid (null = none). */
-    grabber: GrabberConfig | null = null
+    grabber: GrabberConfig | null = null,
+    /** Beach crab hazard (null = none). CLIENT-ONLY by design: the server verifier
+     *  omits it, so the authoritative replay is the un-harassed run and a crab can only
+     *  ever make the player's own result WORSE. See RaidManager.crabOf. */
+    crab: CrabConfig | null = null
   ) {
     this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
     this.grabberCfg = grabber;
     this.grabberTimer = grabber?.spawnDelayMs ?? Infinity;
+    this.crabCfg = crab;
+    this.crabTimer = crab?.spawnMs ?? Infinity;
     const enemyHoldX = this.bossFallsFromSky ? EPIC_BOSS_HOLD_X : ENEMY_HOLD_X;
     this.frontX = enemyHoldX - this.engageDistance;
     this.supportX = CHARGE_X + (this.frontX - CHARGE_X) * 0.5;
@@ -580,6 +639,9 @@ export class BattleSim {
       grabbers: this.grabbers.map((g) => ({ ...g })),
       grabberTimer: this.grabberTimer,
       grabSeq: this.grabSeq,
+      crabs: this.crabs.map((c) => ({ ...c })),
+      crabTimer: this.crabTimer,
+      crabSeq: this.crabSeq,
     };
   }
 
@@ -588,6 +650,9 @@ export class BattleSim {
       ...u,
       abilities: [...u.abilities],
       healCastSeq: u.healCastSeq ?? 0,
+      // An old checkpoint parked at the 1-HP floor has necessarily consumed
+      // its protection. New checkpoints persist the explicit latch.
+      oneShotProtectionUsed: u.oneShotProtectionUsed ?? (u.team === "player" && u.hp <= 1),
     })));
     this.players = this.units.filter((u) => u.team === "player");
     this.enemies = this.units.filter((u) => u.team === "enemy");
@@ -618,6 +683,11 @@ export class BattleSim {
     );
     this.grabberTimer = snapshot.grabberTimer ?? this.grabberTimer;
     this.grabSeq = snapshot.grabSeq ?? this.grabSeq;
+    // Crab fields are absent from server-built snapshots (the verifier omits the hazard),
+    // in which case the local crab state simply carries on unchanged.
+    this.crabs.splice(0, this.crabs.length, ...(snapshot.crabs ?? []).map((c) => ({ ...c })));
+    this.crabTimer = snapshot.crabTimer ?? this.crabTimer;
+    this.crabSeq = snapshot.crabSeq ?? this.crabSeq;
   }
 
   // ---- activated abilities (player-triggered from the battle strip) ----
@@ -841,8 +911,10 @@ export class BattleSim {
     return { vx: u.vx * k, vy: u.vy * k };
   }
 
+  /** Can this side still fight? A zombie carried off by a crab is still ALIVE (it returns
+   *  after the raid) but is out of the battle, so it must not keep a lost fight running. */
   private anyAlive(side: SimUnit[]): boolean {
-    return side.some((u) => u.alive);
+    return side.some((u) => u.alive && !u.taken);
   }
 
   /** Land a hit from `u` on `foe` when its clock is ready; else re-arm. An enemy
@@ -904,10 +976,12 @@ export class BattleSim {
       dmg > 0 &&
       foe.team === "player" &&
       foe.alive &&
+      !foe.oneShotProtectionUsed &&
       foe.hp > 1 &&
       (foe.hp - dmg) / foe.maxHp < ONE_SHOT_FLOOR
     ) {
       foe.hp = 1;
+      foe.oneShotProtectionUsed = true;
       return;
     }
     this.dealDamage(foe, dmg, false);
@@ -1095,6 +1169,7 @@ export class BattleSim {
     this.stepBossSpecials(dtMs);
     this.stepObstacles(dtMs);
     this.stepGrabbers(dtMs);
+    this.stepCrabs(dtMs);
     this.stepProjectiles(dtMs);
 
     this.assignFormation();
@@ -1565,6 +1640,127 @@ export class BattleSim {
     for (let i = this.grabbers.length - 1; i >= 0; i--) {
       if (this.grabbers[i].state === "gone") this.grabbers.splice(i, 1);
     }
+  }
+
+  /** Advance the Beach crab hazard. Ground truth (`BeachStageActorCrab update:`): spawns on
+   *  the obstacle timer up to `limit` alive at once, wanders, grabs the first deployed
+   *  zombie it touches (that zombie goes inert + invincible), holds `holdMs`, then hauls it
+   *  off the LEFT edge — at which point the zombie leaves the fight (`taken`, source state
+   *  38: NOT death, it comes home afterwards). Tapping it to death (`tapCrab`) frees the
+   *  zombie and returns the spawn slot. */
+  private stepCrabs(dtMs: number) {
+    if (!this.crabCfg) return;
+    const live = this.crabs.filter((c) => c.state !== "gone").length;
+    if (live < this.crabCfg.limit && this.anyAlive(this.players)) {
+      this.crabTimer -= dtMs;
+      if (this.crabTimer <= 0) {
+        this.spawnCrab();
+        this.crabTimer = this.crabCfg.spawnMs;
+      }
+    }
+    for (const c of this.crabs) {
+      if (c.state === "gone") continue;
+      if (c.tapCdMs > 0) c.tapCdMs -= dtMs;
+      if (c.state === "wander") {
+        c.wanderMs -= dtMs;
+        if (c.wanderMs <= 0) {
+          // Re-pick a heading deterministically from the crab's own id + the sim clock,
+          // so a replay of the same tick stream reproduces the same patrol.
+          c.dir = ((this.crabSeq + Math.floor(this.elapsed / CRAB_WANDER_MS)) % 2 === 0 ? -1 : 1);
+          c.wanderMs = CRAB_WANDER_MS;
+        }
+        c.x += (CRAB_WALK_SPEED * c.dir * dtMs) / 1000;
+        if (c.x < CRAB_WANDER_MIN_X) { c.x = CRAB_WANDER_MIN_X; c.dir = 1; }
+        if (c.x > CRAB_WANDER_MAX_X) { c.x = CRAB_WANDER_MAX_X; c.dir = -1; }
+        const victim = this.deployed().find(
+          (p) => !p.taken && Math.hypot(p.x - c.x, p.y - c.y) <= CRAB_HIT_R
+        );
+        if (victim) {
+          c.grabbedId = victim.id;
+          c.state = "hold";
+          c.holdMs = this.crabCfg.holdMs;
+          victim.state = "grabbed";
+          victim.windupKey = null;
+          victim.windupMs = 0;
+          victim.stunMs = 0;
+        }
+      } else if (c.state === "hold" || c.state === "carry") {
+        const z = c.grabbedId ? this.players.find((p) => p.id === c.grabbedId) : null;
+        if (!z || !z.alive) {
+          c.grabbedId = null;
+          c.state = "gone";
+          continue;
+        }
+        if (c.state === "hold") {
+          c.holdMs -= dtMs;
+          if (c.holdMs <= 0) c.state = "carry";
+        } else {
+          c.x -= (CRAB_CARRY_SPEED * dtMs) / 1000; // haul it off the left edge
+        }
+        z.x = c.x; // the seized zombie rides along with the crab
+        z.y = c.y;
+        z.prevX = z.x;
+        z.prevY = z.y;
+        if (c.x <= CRAB_EXIT_X) {
+          z.taken = true; // out of THIS fight; still alive, still a survivor
+          c.grabbedId = null;
+          c.state = "gone";
+        }
+      }
+    }
+    for (let i = this.crabs.length - 1; i >= 0; i--) {
+      if (this.crabs[i].state === "gone") this.crabs.splice(i, 1);
+    }
+  }
+
+  private spawnCrab() {
+    const cfg = this.crabCfg!;
+    this.crabs.push({
+      id: `crab${this.crabSeq++}`,
+      x: CRAB_WANDER_MAX_X,
+      y: CENTER_Y,
+      state: "wander",
+      dir: -1,
+      wanderMs: CRAB_WANDER_MS,
+      hp: cfg.hp,
+      maxHp: cfg.hp,
+      tapDamage: cfg.tapDamage,
+      grabbedId: null,
+      holdMs: 0,
+      tapCdMs: 0,
+      sprite: cfg.sprite,
+      struckThisTick: false,
+    });
+  }
+
+  /** Player tapped a crab: one tap of damage (rate-limited). Ground truth 100 damage vs
+   *  1000 HP = exactly 10 taps. Killing it releases any zombie it holds back onto the lane
+   *  (source state 9 → 10, invincibility off) and frees its spawn slot. */
+  tapCrab(id: string): boolean {
+    const c = this.crabs.find((x) => x.id === id && x.state !== "gone");
+    if (!c || c.tapCdMs > 0) return false;
+    c.tapCdMs = CRAB_TAP_CD_MS;
+    c.hp -= c.tapDamage;
+    c.struckThisTick = true;
+    if (c.hp <= 0) {
+      c.hp = 0;
+      const z = c.grabbedId ? this.players.find((p) => p.id === c.grabbedId) : null;
+      if (z && z.alive) {
+        z.state = "advance"; // released: back on the lane, re-advances from the rear
+        z.y = CENTER_Y;
+        z.timerMs = z.cooldownMs;
+        z.stunMs = 0;
+        z.formOrder = this.releaseSeq++;
+      }
+      c.grabbedId = null;
+      c.state = "gone";
+    }
+    return true;
+  }
+
+  /** Crabs the renderer can draw / the player can tap. */
+  activeCrabs(): SimCrab[] {
+    return this.crabs.filter((c) => c.state !== "gone");
   }
 
   private spawnGrabber() {

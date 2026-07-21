@@ -172,10 +172,30 @@ async function closeInvalidRaid(db: D1Database, accountId: string, sessionId: st
 export async function finishRaid(
   db: D1Database,
   accountId: string,
-  body: { sessionId?: unknown; finalTick?: unknown; inputs?: unknown },
+  body: { sessionId?: unknown; finalTick?: unknown; inputs?: unknown; clientWin?: unknown; clientLosses?: unknown },
   now: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (typeof body.sessionId !== "string" || !body.sessionId) return { status: 400, body: { error: "bad_session" } };
+  // CONCESSION ONLY. The server's replay stays authoritative for everything it can see;
+  // this flag is ANDed with it below, so a client can only ever turn its own win into a
+  // loss (pure self-harm — it forfeits gold, XP, brains, loot and the first clear). It
+  // exists because client-only hazards are deliberately omitted from the server's replay
+  // (see RaidManager.crabOf): the server simulates the UN-HARASSED fight, an optimistic
+  // ceiling, so a fight the player actually lost to a crab must be allowed to count as
+  // lost. Absent (older clients) = no concession.
+  if (body.clientWin !== undefined && typeof body.clientWin !== "boolean") {
+    return { status: 400, body: { error: "bad_client_win" } };
+  }
+  const conceded = body.clientWin === false;
+  // Deaths the LIVE fight suffered that the server's hazard-free replay did not. Same
+  // one-way rule as `clientWin` (see the merge below). Bounded by the army cap so a
+  // malformed body can't build an unbounded IN (...) clause downstream.
+  if (body.clientLosses !== undefined &&
+      (!Array.isArray(body.clientLosses) || body.clientLosses.length > 64 ||
+       body.clientLosses.some((id) => typeof id !== "string"))) {
+    return { status: 400, body: { error: "bad_client_losses" } };
+  }
+  const clientLosses = [...new Set((body.clientLosses as string[] | undefined) ?? [])];
   const session = await db.prepare("SELECT * FROM raid_sessions_v3 WHERE id = ? AND account_id = ?")
     .bind(body.sessionId, accountId).first<SessionRow>();
   if (!session) return { status: 404, body: { error: "bad_session" } };
@@ -213,18 +233,31 @@ export async function finishRaid(
     await closeInvalidRaid(db, accountId, session.id, now);
     return { status: 422, body: { error: verified.error } };
   }
-  const { survivors, losses } = verified.outcome;
+  const { survivors: replaySurvivors, losses: replayLosses } = verified.outcome;
   const retreated = verified.retreated;
-  const accounted = new Set([...survivors, ...losses]);
+  const accounted = new Set([...replaySurvivors, ...replayLosses]);
   if ([...accounted].some((id) => !locked.includes(id)) || (!retreated && accounted.size !== locked.length)) {
     await closeInvalidRaid(db, accountId, session.id, now);
     return { status: 422, body: { error: "replay_roster_mismatch" } };
   }
-  const escaped = retreated ? locked.filter((id) => !losses.includes(id)) : survivors;
-  if (new Set([...escaped, ...losses]).size !== locked.length || escaped.some((id) => losses.includes(id))) {
+  const replayEscaped = retreated ? locked.filter((id) => !replayLosses.includes(id)) : replaySurvivors;
+  if (new Set([...replayEscaped, ...replayLosses]).size !== locked.length ||
+      replayEscaped.some((id) => replayLosses.includes(id))) {
     return { status: 400, body: { error: "bad_roster_partition" } };
   }
-  const win = !retreated && verified.outcome.win;
+  // Fold in the client's CONCEDED deaths. Same one-way rule as `clientWin`: a zombie the
+  // server's (hazard-free) replay brought home may be reported dead, never the reverse, and
+  // only from this raid's locked roster. Every consequence is self-harm — fewer survivors
+  // means less win gold, no perfect-game bonus, no veterancy tick, and a casualty that costs
+  // brains to revive — so it needs no authority beyond a membership check. Ids the server
+  // already counted dead, or that it never locked, are ignored rather than rejected: a
+  // divergent client shouldn't be able to fail its own settlement.
+  const concededDeaths = clientLosses.filter((id) => replayEscaped.includes(id));
+  const losses = [...replayLosses, ...concededDeaths];
+  const escaped = replayEscaped.filter((id) => !concededDeaths.includes(id));
+  const survivors = retreated ? replaySurvivors.filter((id) => !concededDeaths.includes(id)) : escaped;
+  // AND, never OR: the client may only drag a win down to a loss (see `conceded` above).
+  const win = !retreated && verified.outcome.win && !conceded;
   const raidId = Number(session.raid_id);
   const econ = raidEcon(raidId);
   if (!econ) return { status: 409, body: { error: "bad_raid" } };
@@ -272,7 +305,10 @@ export async function finishRaid(
   ] : [];
   const questChanges = applyQuestEvents(nextBalance, quests, questEvents);
   nextBalance.brains += levelUpBrains(levelForXp(balance.xp), levelForXp(nextBalance.xp));
-  const outcome = verified.outcome;
+  // Report the SETTLED result, not the raw replay: on a concession the reward pipeline
+  // above already treated this as a loss, so the echoed outcome must agree or the
+  // client's result panel would claim a win it was not paid for.
+  const outcome = { ...verified.outcome, win, survivors, losses };
   const casualties: CasualtySnapshot[] = (casualtyRows.results ?? []).map((row) => ({
     id: row.unit_id,
     key: row.zombie_key,
