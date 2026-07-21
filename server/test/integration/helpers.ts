@@ -55,10 +55,10 @@ export async function call<T = unknown>(
   return { status: res.status, body: parsed as T };
 }
 
-/** Dev sign-in (DEV_AUTH=1 in .dev.vars): a fresh isolated account. */
+/** Dev sign-in (DEV_AUTH=1 in the integration harness): a fresh isolated account. */
 export async function signIn(devSub = uniqueSub(), acquireWriter = true): Promise<Session> {
   const r = await call<Session>("POST", "/auth", undefined, { devSub });
-  if (r.status !== 200) throw new Error(`auth failed: ${r.status}`);
+  if (r.status !== 200) throw new Error(`auth failed: ${r.status} ${JSON.stringify(r.body)}`);
   if (acquireWriter) {
     const boot = await call<any>("POST", "/bootstrap", r.body.token, {});
     const clientId = "device-aaaaaaaa";

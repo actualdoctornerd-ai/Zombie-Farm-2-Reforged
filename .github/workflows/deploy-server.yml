@@ -13,6 +13,9 @@ on:
   #   paths:
   #     - "server/**"
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -20,15 +23,27 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      # Server modules import shared code from the root package, including PixiJS.
+      - name: Install shared dependencies
+        run: npm ci
+        working-directory: .
       - run: npm ci
       - name: Verify migrations
         run: npm run migrations:check
-      - name: Test and typecheck
-        run: npm test && npm run typecheck
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Integration tests
+        run: npm run test:integration
       - name: Deploy with Wrangler
         uses: cloudflare/wrangler-action@v3
         with:

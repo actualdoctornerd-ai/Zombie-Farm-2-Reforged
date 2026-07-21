@@ -1,11 +1,13 @@
 // Boots a real `wrangler dev` Worker + local D1 once for the integration suite,
-// then tears it down. Reads DEV_AUTH=1 etc. from .dev.vars (so dev sign-in works).
+// then tears it down. Test-only bindings are passed explicitly so CI does not
+// depend on a developer's ignored .dev.vars file.
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { rmSync } from "node:fs";
 
 const PORT = 8799;
 const BASE = `http://127.0.0.1:${PORT}`;
 const TEST_STATE = ".wrangler/test-state";
+const TEST_ENV_FILE = "./test/integration/wrangler.test.env";
 let child: ChildProcess | undefined;
 
 function runWrangler(args: string[]) {
@@ -47,11 +49,16 @@ export async function setup() {
   runWrangler(["d1", "execute", "zombiefarm", "--local", `--persist-to=${TEST_STATE}`, "--file=./schema.sql"]);
   runWrangler(["d1", "execute", "zombiefarm", "--local", `--persist-to=${TEST_STATE}`, "--file=./scripts/baseline-migrations.sql"]);
 
-  const command = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "npx";
-  const args = process.platform === "win32"
-    ? ["/d", "/s", "/c", `npx wrangler dev --port ${PORT} --local --persist-to=${TEST_STATE} --var BLACK_MARKET_ENABLED:1`]
-    : ["wrangler", "dev", "--port", String(PORT), "--local", `--persist-to=${TEST_STATE}`, "--var", "BLACK_MARKET_ENABLED:1"];
-  child = spawn(command, args, {
+  child = spawn(process.execPath, [
+    "./node_modules/wrangler/bin/wrangler.js",
+    "dev",
+    "--port",
+    String(PORT),
+    "--local",
+    `--persist-to=${TEST_STATE}`,
+    "--env-file",
+    TEST_ENV_FILE,
+  ], {
     stdio: "ignore",
     detached: process.platform !== "win32",
   });
