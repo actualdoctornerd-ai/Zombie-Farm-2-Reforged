@@ -2892,7 +2892,7 @@
   "messageComplete": "You completed The Perfect Yard!",
   "tip": "Be the envy of your neighborhood.",
   "sprite": "Icon_Quest_Decorating.png",
-  "levelRequired": 44,
+  "levelRequired": 45,
   "prerequisiteQuest": -1,
   "requirements": [
    {

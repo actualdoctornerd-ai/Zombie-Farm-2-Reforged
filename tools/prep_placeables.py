@@ -55,6 +55,16 @@ EPIC_REWARD_TILES = {
     "mysticalMambaBanner", "mysticalMambasWishMachineLeft", "mysticalMambasWishMachineRight",
 }
 
+# These quest objectives target separately named color variants that share one
+# TileProperties key. Most same-tile Market rows are redundant recolors, but these
+# must remain distinct catalog cards or the corresponding buy objectives cannot be
+# completed. The first row keeps the source tile key; preserved variants receive a
+# stable name-derived suffix below.
+QUEST_VARIANT_KEYS = {
+    "Violet Flower Bed": "flowerBedViolet",
+    "Yellow Flower Bed": "flowerBedYellow",
+}
+
 
 def classify(e):
     if e.get("subCategory") == "special":
@@ -213,7 +223,7 @@ def main():
     tileprops = json.load(open(os.path.join(GAMEPLAY, "TileProperties.json"), encoding="utf-8"))["Entries"]
 
     catalog = []
-    seen = set()  # tile keys already emitted (dedupe color variants)
+    seen = set()  # tile keys with at least one emitted market/reward object
     counts = {"tree": 0, "decor": 0, "functional": 0, "reward": 0}
     skipped = 0
 
@@ -224,8 +234,9 @@ def main():
 
     for e in items:
         tile = e.get("tile")
-        if not tile or tile in seen:
+        if not tile or (tile in seen and e.get("name") not in QUEST_VARIANT_KEYS):
             continue
+        key = tile if tile not in seen else QUEST_VARIANT_KEYS[e["name"]]
         category = "reward" if tile in EPIC_REWARD_TILES else classify(e)
         tp = tileprops.get(tile, {})
 
@@ -254,12 +265,19 @@ def main():
                 fl, fn = tp.get("frameList"), tp.get("frameName")
                 if fl and fn:
                     sprite_img = extract_from_atlas(fl, fn)
-            # Epic reward objects frequently use a loose in-world PNG while still
-            # being categorized as decor (or omit their Market category entirely).
-            if category == "reward" and sprite_img is None and tp.get("spriteSheet"):
+            # Some ordinary decor and Epic rewards use loose sprites (occasionally
+            # one rectangle within a shared sheet) rather than an atlas frame.
+            # Without this fallback named quest items such as Gravestone, Heart
+            # Gravestone, and the Cupid Statues silently disappear from the market.
+            if sprite_img is None and tp.get("spriteSheet"):
                 loose = image(tp["spriteSheet"])
                 if loose is not None:
                     sprite_img = loose.copy()
+                    fw, fh = tp.get("width"), tp.get("height")
+                    fx, fy = int(tp.get("x") or 0), int(tp.get("y") or 0)
+                    if fw and fh and (fx > 0 or fy > 0 or
+                                      int(fw) < sprite_img.width or int(fh) < sprite_img.height):
+                        sprite_img = sprite_img.crop((fx, fy, fx + int(fw), fy + int(fh)))
         else:  # functional: prefer the full-size in-world sprite from
             # TileProperties (a standalone tex10xx.png); the market icon is tiny
             # and would look pixelated placed on the farm.
@@ -281,7 +299,7 @@ def main():
             skipped += 1
             continue
 
-        out_name = f"{tile}.png"
+        out_name = f"{key}.png"
         sprite_img.save(os.path.join(OBJDIR, out_name))
         seen.add(tile)
         counts[category] += 1
@@ -296,7 +314,7 @@ def main():
         if m:
             slots = int(m.group(1))
         catalog.append({
-            "key": tile,
+            "key": key,
             "name": e["name"],
             "category": category,
             "cost": e.get("cost", 0),

@@ -77,6 +77,11 @@ def main():
     for k, q in quests.items():
         add_quest(k, q)
 
+    # The Perfect Yard requires the Lawnmower, which unlocks at level 45. Do not
+    # surface the quest at the shipped level 44 while one required purchase is
+    # still locked in the Market.
+    out["61"]["levelRequired"] = 45
+
     # Bully Frog's only surviving quest definitions are embedded in its
     # EpicEventEnemy row rather than Quests.plist. Import the unambiguous 3xxx
     # records; several middle milestones incorrectly reuse Groundhog's 1xxx IDs

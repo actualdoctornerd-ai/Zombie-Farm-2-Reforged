@@ -7,6 +7,25 @@ export function isTouchPointer(pointerType: string): boolean {
   return pointerType === "touch";
 }
 
+/** Keep a touch gesture owned by the game canvas until pointer-up. Mobile HUD
+ * changes can otherwise move a DOM control under the finger after pointer-down,
+ * causing Android to retarget the release and Pixi to miss the tap entirely.
+ * Legacy TouchEvent browsers do not have an active PointerEvent to capture, so
+ * setPointerCapture may throw there; falling back to Pixi's normal path is safe. */
+export function captureTouchPointer(
+  target: Pick<Element, "setPointerCapture">,
+  pointerId: number,
+  pointerType: string,
+): boolean {
+  if (!isTouchPointer(pointerType)) return false;
+  try {
+    target.setPointerCapture(pointerId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const DEFERRED_TOUCH_MODES = new Set(["place", "move", "remove", "instagrow", "rotate"]);
 
 /** Mutating tools that must wait for finger-up because their effects cannot be

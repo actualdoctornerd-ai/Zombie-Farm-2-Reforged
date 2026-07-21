@@ -43,7 +43,7 @@ import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
 import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform, isMobile } from "./platform";
-import { gestureMoved, isDeferredTouchMode, isTouchPointer } from "./touchInput";
+import { captureTouchPointer, gestureMoved, isDeferredTouchMode, isTouchPointer } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
 import { resolveCropMutations } from "./zombie/cropMutations";
 import { MutationPortraits } from "./zombie/mutationPortrait";
@@ -2713,6 +2713,10 @@ async function main() {
     if (touchPinch) return; // a pinch is in progress; ignore extra finger-downs
     if (isTouchPointer(e.pointerType) && !e.isPrimary) return;
     const touch = isTouchPointer(e.pointerType);
+    // The tap immediately collapses the mobile HUD, which changes the DOM under
+    // the finger. Keep Android's release routed to the canvas so endDrag can open
+    // the plot's plant/crop panel instead of silently losing pointer-up.
+    captureTouchPointer(app.canvas, e.pointerId, e.pointerType);
     pressPointerType = e.pointerType;
     pressPointerId = e.pointerId;
     pressStart.copyFrom(e.global);

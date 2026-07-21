@@ -6,8 +6,8 @@ import placeables from "../../public/assets/placeables.json";
 const bal = (gold = 1000, brains = 1000, xp = 0) => ({ gold, brains, xp });
 
 describe("objectCatalog — mirror of placeables.json", () => {
-  it("has all 257 placeables", () => {
-    expect(Object.keys(OBJECTS).length).toBe(257);
+  it("has all 263 server-priced placeables", () => {
+    expect(Object.keys(OBJECTS).length).toBe(263);
   });
   it("matches every purchasable client catalog value", () => {
     for (const placeable of placeables.filter((row) => row.category !== "reward" && row.cost > 0)) {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  captureTouchPointer,
   gestureMoved,
   isDeferredTouchMode,
   isTouchPointer,
@@ -26,6 +27,19 @@ describe("farm touch gesture classification", () => {
     expect(isTouchPointer("touch")).toBe(true);
     expect(isTouchPointer("pen")).toBe(false);
     expect(isTouchPointer("mouse")).toBe(false);
+  });
+
+  it("captures Android touch pointers on the game canvas", () => {
+    const captured: number[] = [];
+    const target = { setPointerCapture: (id: number) => captured.push(id) };
+    expect(captureTouchPointer(target, 17, "touch")).toBe(true);
+    expect(captured).toEqual([17]);
+  });
+
+  it("leaves non-touch and legacy touch-event paths alone", () => {
+    const target = { setPointerCapture: () => { throw new Error("no active pointer"); } };
+    expect(captureTouchPointer(target, 1, "mouse")).toBe(false);
+    expect(captureTouchPointer(target, 2, "touch")).toBe(false);
   });
 
   it("defers every irreversible edit tool until a touch is confirmed", () => {
