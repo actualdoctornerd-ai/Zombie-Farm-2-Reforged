@@ -1,12 +1,25 @@
 // Boots a real `wrangler dev` Worker + local D1 once for the integration suite,
 // then tears it down. Reads DEV_AUTH=1 etc. from .dev.vars (so dev sign-in works).
-import { spawn, execFileSync, execSync, type ChildProcess } from "node:child_process";
+import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { rmSync } from "node:fs";
 
 const PORT = 8799;
 const BASE = `http://127.0.0.1:${PORT}`;
 const TEST_STATE = ".wrangler/test-state";
 let child: ChildProcess | undefined;
+
+function runWrangler(args: string[]) {
+  // Invoke the installed CLI with the current Node runtime. Keep successful
+  // setup quiet, but surface Wrangler's output when bootstrap fails in CI.
+  try {
+    execFileSync(process.execPath, ["./node_modules/wrangler/bin/wrangler.js", ...args], { stdio: "pipe" });
+  } catch (error) {
+    const failure = error as { stdout?: unknown; stderr?: unknown };
+    const output = [failure.stdout, failure.stderr].filter(Boolean).map(String).join("\n");
+    if (output) console.error(output);
+    throw error;
+  }
+}
 
 function stopWorker() {
   if (!child?.pid) return;
@@ -31,12 +44,8 @@ export async function setup() {
   } catch {
     throw new Error(`could not clear isolated integration state: ${TEST_STATE}`);
   }
-  execSync(`npx wrangler d1 execute zombiefarm --local --persist-to=${TEST_STATE} --file=./schema.sql`, {
-    stdio: "ignore",
-  });
-  execSync(`npx wrangler d1 execute zombiefarm --local --persist-to=${TEST_STATE} --file=./scripts/baseline-migrations.sql`, {
-    stdio: "ignore",
-  });
+  runWrangler(["d1", "execute", "zombiefarm", "--local", `--persist-to=${TEST_STATE}`, "--file=./schema.sql"]);
+  runWrangler(["d1", "execute", "zombiefarm", "--local", `--persist-to=${TEST_STATE}`, "--file=./scripts/baseline-migrations.sql"]);
 
   const command = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "npx";
   const args = process.platform === "win32"
