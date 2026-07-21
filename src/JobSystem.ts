@@ -56,6 +56,10 @@ export class JobSystem {
   private workMs = 0;
   private workTotal = WORK_MS; // duration of the active job's work phase
   private pending = new Set<string>(); // dedupe key "kind:bc,br"
+  // While elapsed background time is replayed, actions must use the replay
+  // cursor rather than Date.now(). Otherwise every planting completed by one
+  // catch-up pass receives the same (late) timestamp.
+  private replayNow: number | null = null;
 
   constructor(
     private field: Field,
@@ -164,11 +168,16 @@ export class JobSystem {
    */
   advanceElapsed(elapsedSec: number, suppressAudio = false) {
     let remaining = Number.isFinite(elapsedSec) ? Math.max(0, elapsedSec) : 0;
+    const endAt = Date.now();
+    let cursor = endAt - remaining * 1000;
     const prior = this.audioSuppressed;
+    const priorReplayNow = this.replayNow;
     this.audioSuppressed ||= suppressAudio;
     try {
       while (remaining > 0 && (this.busy || this.walk.moving)) {
         const step = Math.min(CATCH_UP_STEP_SEC, remaining);
+        cursor += step * 1000;
+        this.replayNow = cursor;
         this.update(step);
 
         // A job in its walking phase should always own a live WalkController
@@ -181,6 +190,7 @@ export class JobSystem {
       }
     } finally {
       this.audioSuppressed = prior;
+      this.replayNow = priorReplayNow;
     }
   }
 
@@ -339,7 +349,7 @@ export class JobSystem {
         this.onInsufficientFunds(cfg.brainsNeeded ? "brains" : "gold", cfg.cost);
         return;
       }
-      if (funds >= cfg.cost && this.field.plantAt(job.oc, job.or, cfg)) {
+      if (funds >= cfg.cost && this.field.plantAt(job.oc, job.or, cfg, this.replayNow ?? Date.now())) {
         // Zombie crops are now server-owned too (plant debits the cost, harvest yields a
         // verified unit), so they go through the server path like veggie crops.
         const online = !!this.state.onFarm;

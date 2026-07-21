@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Container } from "pixi.js";
 import { JobSystem } from "./JobSystem";
 
@@ -27,6 +27,8 @@ class FakeWalk {
 }
 
 describe("JobSystem elapsed-time catch-up", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("crosses movement callbacks and completes multiple queued jobs", () => {
     const walk = new FakeWalk();
     const jobs = new JobSystem(
@@ -128,6 +130,47 @@ describe("JobSystem elapsed-time catch-up", () => {
 
     expect(jobs.busy).toBe(false);
     expect(sounds).toEqual([]);
+  });
+
+  it("retains each planting's logical completion time during catch-up", () => {
+    vi.useFakeTimers();
+    const now = 1_000_000;
+    vi.setSystemTime(now);
+    const walk = new FakeWalk();
+    const plantedAt: number[] = [];
+    const field = {
+      highlightLayer: new Container(), labelLayer: new Container(),
+      plotOriginAt: (col: number, row: number) => ({ oc: col, or: row }),
+      canPlant: () => true, isRipe: () => false,
+      plotCenterOf: (col: number, row: number) => ({ x: col, y: row }),
+      hasFastWork: () => false,
+      plantAt: (_oc: number, _or: number, _cfg: unknown, at: number) => {
+        plantedAt.push(at);
+        return true;
+      },
+    };
+    const state = {
+      gold: 100, brains: 0, level: 1,
+      spendGold: (amount: number) => { state.gold -= amount; },
+      onFarm: null, onTreeHarvest: null, canMutateOnline: null,
+    };
+    const cfg = {
+      key: "carrot", name: "Carrot", stages: [], growMs: 60_000,
+      cost: 1, sell: 1, xp: 1, unlockLevel: 1,
+    };
+    const jobs = new JobSystem(
+      field as never, { setWorking: () => {} } as never, walk as never, state as never,
+      () => {},
+    );
+
+    expect(jobs.enqueue("plant", 0, 0, cfg)).toBe(true);
+    expect(jobs.enqueue("plant", 4, 0, cfg)).toBe(true);
+    jobs.advanceElapsed(10, true);
+
+    expect(plantedAt).toHaveLength(2);
+    expect(plantedAt[0]).toBeLessThan(plantedAt[1]);
+    expect(plantedAt[0]).toBeLessThan(now - 5_000);
+    expect(plantedAt[1]).toBeLessThan(now - 5_000);
   });
 
   it("reports the currency needed when an affordable-looking action is rejected", () => {

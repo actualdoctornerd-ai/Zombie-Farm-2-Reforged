@@ -593,7 +593,7 @@ export class Field {
   }
 
   // Plant a crop/zombie on a plowed plot. Seeds the soil and shows the seed sprite.
-  plantAt(oc: number, or: number, cfg: CropConfig): boolean {
+  plantAt(oc: number, or: number, cfg: CropConfig, plantedAt = Date.now()): boolean {
     const p = this.plots.get(this.key(oc, or));
     if (!p || p.state !== "plowed" || p.crop) return false;
     this.fit(p.soil, this.assets.soil[SEED_FILE], oc, or, PLOT); // seeded soil
@@ -603,7 +603,7 @@ export class Field {
     const useCfg = cfg.isMutant && cfg.growMs > 0 && this.hasMutantMonolith()
       ? { ...cfg, growMs: Math.round(cfg.growMs * 0.5) }
       : cfg;
-    const crop: Planting = { cfg: useCfg, plantedAt: Date.now(), ageMs: 0, sprite: new Sprite(), baseY: 0 };
+    const crop: Planting = { cfg: useCfg, plantedAt, ageMs: 0, sprite: new Sprite(), baseY: 0 };
     crop.baseY = this.layoutCrop(crop, useCfg.stages[0], oc, or); // layoutCrop parents by stage
     p.crop = crop;
     p.state = "planted";

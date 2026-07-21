@@ -3125,6 +3125,16 @@ async function main() {
     lastJobAdvanceAt = now;
   };
 
+  // requestAnimationFrame normally stops in a hidden tab. Keep the small farm-job
+  // pipeline alive on a coarse timer so plant commands reach the authoritative
+  // server near their logical completion time instead of being held until the tab
+  // is visible again. Browsers may throttle this timer (which is fine because the
+  // elapsed-time replay closes the gap), and fully suspended tabs still catch up
+  // through the visibility handler below.
+  window.setInterval(() => {
+    if (document.hidden) advanceFarmJobsToNow(true);
+  }, 1000);
+
   app.ticker.add((ticker) => {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05);
     const modalOpen = !!hud.el.querySelector(".panelbg, .mkt-bg, .st-bg, .pm-bg");
