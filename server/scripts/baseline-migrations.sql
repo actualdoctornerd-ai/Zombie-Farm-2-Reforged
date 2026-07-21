@@ -36,4 +36,5 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
   ('0025_writer_lease.sql'),
   ('0026_black_market.sql'),
   ('0027_v3_raid_replay.sql'),
-  ('0028_gift_rewards.sql');
+  ('0028_gift_rewards.sql'),
+  ('0029_restore_ledger.sql');

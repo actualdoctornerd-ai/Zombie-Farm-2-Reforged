@@ -50,6 +50,19 @@ const stale = baseline.filter((file) => !files.includes(file));
 if (missing.length) errors.push(`baseline is missing: ${missing.join(", ")}`);
 if (stale.length) errors.push(`baseline references absent files: ${stale.join(", ")}`);
 
+// Integration tests initialize from schema.sql and baseline the migration names, so
+// they do not replay destructive historical migrations. Guard the live append-only
+// ledger explicitly: if a reset drops it, a later forward migration must restore it.
+let ledgerPresent = true;
+for (const file of files) {
+  const sql = readFileSync(resolve(migrationsDir, file), "utf8");
+  const statements = [...sql.matchAll(
+    /(CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?|DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?)ledger\b/gi
+  )];
+  for (const [, operation] of statements) ledgerPresent = !/^DROP/i.test(operation);
+}
+if (!ledgerPresent) errors.push("migration replay drops the live ledger table without restoring it");
+
 if (errors.length) {
   for (const error of errors) console.error(`[migrations] ${error}`);
   process.exitCode = 1;
