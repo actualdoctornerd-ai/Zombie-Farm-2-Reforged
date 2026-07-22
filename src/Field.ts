@@ -37,6 +37,13 @@ const FERTILIZE_FX: ParticleConfig = {
 const FERT_EMIT_MS = 900; // one leaf ≈ every 0.9s per fertilized crop (source ~0.75/s)
 const FERT_CANOPY_DY = 52; // leaves emit this far above the crop's ground contact
 
+// Fruit trees are packed closely enough that a full-sprite rectangular tap target
+// makes the transparent space beside one trunk cover its neighbours. Keep a broad
+// canopy target, inset just inside the art, and narrow the lower target to the trunk.
+const TREE_CANOPY_HEIGHT_RATIO = 0.65;
+const TREE_CANOPY_WIDTH_RATIO = 0.92;
+const TREE_TRUNK_WIDTH_RATIO = 0.38;
+
 export interface CropConfig {
   key: string;
   name: string;
@@ -1425,6 +1432,15 @@ export class Field {
         const grid = screenToGrid(wx, wy);
         hit = grid.col >= o.oc - 0.5 && grid.col <= o.oc + o.def.tileW - 0.5 &&
           grid.row >= o.or - 0.5 && grid.row <= o.or + o.def.tileH - 0.5;
+      } else if (o.def.category === "tree") {
+        const top = s.y - s.height;
+        const canopyBottom = top + s.height * TREE_CANOPY_HEIGHT_RATIO;
+        const canopyHalfW = s.width * TREE_CANOPY_WIDTH_RATIO * 0.5;
+        const trunkHalfW = s.width * TREE_TRUNK_WIDTH_RATIO * 0.5;
+        hit = (wy >= top && wy <= canopyBottom &&
+          wx >= s.x - canopyHalfW && wx <= s.x + canopyHalfW) ||
+          (wy >= canopyBottom && wy <= s.y &&
+            wx >= s.x - trunkHalfW && wx <= s.x + trunkHalfW);
       } else hit = wx >= s.x - s.width * 0.5 && wx <= s.x + s.width * 0.5 &&
         wy >= s.y - s.height && wy <= s.y;
       if (hit) {
