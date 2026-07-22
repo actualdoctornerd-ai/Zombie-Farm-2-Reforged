@@ -4,6 +4,7 @@ import { resolveLoot, rollLoot } from "../loot";
 import { raidEcon, raidUnlocked, winGold } from "../raidCatalog";
 import { applyQuestEvents } from "./engine";
 import type { QuestProjection } from "../../../src/net/protocol";
+import type { RaidOutcome } from "../../../src/raid/types";
 import raidRows from "../../../public/assets/raids/raids.json";
 import { farmerCooldownMs } from "../../../src/farmer";
 import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
@@ -160,13 +161,25 @@ export async function startRaid(
     rulesetVersion: RAID_RULESET_VERSION } };
 }
 
-async function closeInvalidRaid(db: D1Database, accountId: string, sessionId: string, now: number): Promise<void> {
-  await db.batch([
+async function closeInvalidRaid(
+  db: D1Database,
+  accountId: string,
+  sessionId: string,
+  now: number,
+  rejection?: { raidId: string; error: string; finalTick: unknown; clientWin: unknown; inputCount: number }
+): Promise<void> {
+  const statements = [
     db.prepare("UPDATE raid_sessions_v3 SET finished_at=? WHERE id=? AND account_id=? AND finished_at IS NULL")
       .bind(now, sessionId, accountId),
     db.prepare("UPDATE roster_v3 SET locked_by_raid=NULL WHERE account_id=? AND locked_by_raid=?")
       .bind(accountId, sessionId),
-  ]);
+  ];
+  if (rejection) statements.push(
+    db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
+      VALUES(?,?, 'raid_finish_rejected', ?, ?)`)
+      .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId, ...rejection }), now)
+  );
+  await db.batch(statements);
 }
 
 export async function finishRaid(
@@ -212,7 +225,10 @@ export async function finishRaid(
     return { status: 200, body: result };
   }
   if (session.ruleset_version !== RAID_RULESET_VERSION) {
-    await closeInvalidRaid(db, accountId, session.id, now);
+    await closeInvalidRaid(db, accountId, session.id, now, {
+      raidId: session.raid_id, error: "stale_ruleset", finalTick: body.finalTick,
+      clientWin: body.clientWin, inputCount: Array.isArray(body.inputs) ? body.inputs.length : 0,
+    });
     return { status: 409, body: { error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
   }
   const pacedTick = Math.floor((now - session.started_at) / 50) + 40;
@@ -220,31 +236,71 @@ export async function finishRaid(
   let config: PinnedRaidConfig;
   try { config = JSON.parse(session.config_json) as PinnedRaidConfig; }
   catch {
-    await closeInvalidRaid(db, accountId, session.id, now);
+    await closeInvalidRaid(db, accountId, session.id, now, {
+      raidId: session.raid_id, error: "bad_session_config", finalTick: body.finalTick,
+      clientWin: body.clientWin, inputCount: Array.isArray(body.inputs) ? body.inputs.length : 0,
+    });
     return { status: 409, body: { error: "bad_session_config" } };
   }
   if (!Array.isArray(config.playerUnits) || !Array.isArray(config.enemyUnits) ||
       !Array.isArray(config.rosterIds) || config.rosterIds.length !== locked.length) {
-    await closeInvalidRaid(db, accountId, session.id, now);
+    await closeInvalidRaid(db, accountId, session.id, now, {
+      raidId: session.raid_id, error: "bad_session_config", finalTick: body.finalTick,
+      clientWin: body.clientWin, inputCount: Array.isArray(body.inputs) ? body.inputs.length : 0,
+    });
     return { status: 409, body: { error: "bad_session_config" } };
   }
   const verified = verifyRaid(config, body.finalTick as number, body.inputs as RaidReplayInput[]);
-  if (!verified.ok) {
-    await closeInvalidRaid(db, accountId, session.id, now);
+  // Client-only hazards can make the visible fight finish after the two deterministic
+  // simulations have diverged. In that case the server may still be fighting
+  // (`truncated_transcript`) or may disagree about a post-divergence interaction. A
+  // client concession is pure self-harm, so accept only those divergence-shaped replay
+  // failures as a zero-reward loss. Structural transcript failures remain rejected.
+  const concessionReplayErrors = new Set([
+    "truncated_transcript", "illegal_bubble", "illegal_ability", "input_after_finish",
+  ]);
+  const concessionFallbackError = !verified.ok && conceded && concessionReplayErrors.has(verified.error)
+    ? verified.error
+    : null;
+  if (!verified.ok && !concessionFallbackError) {
+    await closeInvalidRaid(db, accountId, session.id, now, {
+      raidId: session.raid_id, error: verified.error, finalTick: body.finalTick,
+      clientWin: body.clientWin, inputCount: Array.isArray(body.inputs) ? body.inputs.length : 0,
+    });
     return { status: 422, body: { error: verified.error } };
   }
-  const { survivors: replaySurvivors, losses: replayLosses } = verified.outcome;
-  const retreated = verified.retreated;
-  const accounted = new Set([...replaySurvivors, ...replayLosses]);
-  if ([...accounted].some((id) => !locked.includes(id)) || (!retreated && accounted.size !== locked.length)) {
-    await closeInvalidRaid(db, accountId, session.id, now);
-    return { status: 422, body: { error: "replay_roster_mismatch" } };
+  let replaySurvivors: string[];
+  let replayLosses: string[];
+  let retreated: boolean;
+  let replayOutcome: RaidOutcome;
+  if (concessionFallbackError) {
+    // Do not award unverifiable survivor veterancy. Claimed deaths are applied below;
+    // every other locked unit simply returns home unchanged.
+    replaySurvivors = locked;
+    replayLosses = [];
+    retreated = false;
+    replayOutcome = { win: false, rounds: 0, survivors: [], losses: [], enemiesBeaten: 0, playerDamage: 0 };
+  } else {
+    const accepted = verified as Extract<typeof verified, { ok: true }>;
+    replaySurvivors = accepted.outcome.survivors;
+    replayLosses = accepted.outcome.losses;
+    retreated = accepted.retreated;
+    replayOutcome = accepted.outcome;
+    const accounted = new Set([...replaySurvivors, ...replayLosses]);
+    if ([...accounted].some((id) => !locked.includes(id)) || (!retreated && accounted.size !== locked.length)) {
+      await closeInvalidRaid(db, accountId, session.id, now, {
+        raidId: session.raid_id, error: "replay_roster_mismatch", finalTick: body.finalTick,
+        clientWin: body.clientWin, inputCount: Array.isArray(body.inputs) ? body.inputs.length : 0,
+      });
+      return { status: 422, body: { error: "replay_roster_mismatch" } };
+    }
+    const replayEscaped = retreated ? locked.filter((id) => !replayLosses.includes(id)) : replaySurvivors;
+    if (new Set([...replayEscaped, ...replayLosses]).size !== locked.length ||
+        replayEscaped.some((id) => replayLosses.includes(id))) {
+      return { status: 400, body: { error: "bad_roster_partition" } };
+    }
   }
   const replayEscaped = retreated ? locked.filter((id) => !replayLosses.includes(id)) : replaySurvivors;
-  if (new Set([...replayEscaped, ...replayLosses]).size !== locked.length ||
-      replayEscaped.some((id) => replayLosses.includes(id))) {
-    return { status: 400, body: { error: "bad_roster_partition" } };
-  }
   // Fold in the client's CONCEDED deaths. Same one-way rule as `clientWin`: a zombie the
   // server's (hazard-free) replay brought home may be reported dead, never the reverse, and
   // only from this raid's locked roster. Every consequence is self-harm — fewer survivors
@@ -255,9 +311,11 @@ export async function finishRaid(
   const concededDeaths = clientLosses.filter((id) => replayEscaped.includes(id));
   const losses = [...replayLosses, ...concededDeaths];
   const escaped = replayEscaped.filter((id) => !concededDeaths.includes(id));
-  const survivors = retreated ? replaySurvivors.filter((id) => !concededDeaths.includes(id)) : escaped;
+  const survivors = concessionFallbackError
+    ? []
+    : retreated ? replaySurvivors.filter((id) => !concededDeaths.includes(id)) : escaped;
   // AND, never OR: the client may only drag a win down to a loss (see `conceded` above).
-  const win = !retreated && verified.outcome.win && !conceded;
+  const win = !retreated && replayOutcome.win && !conceded;
   const raidId = Number(session.raid_id);
   const econ = raidEcon(raidId);
   if (!econ) return { status: 409, body: { error: "bad_raid" } };
@@ -308,7 +366,7 @@ export async function finishRaid(
   // Report the SETTLED result, not the raw replay: on a concession the reward pipeline
   // above already treated this as a loss, so the echoed outcome must agree or the
   // client's result panel would claim a win it was not paid for.
-  const outcome = { ...verified.outcome, win, survivors, losses };
+  const outcome = { ...replayOutcome, win, survivors, losses };
   const casualties: CasualtySnapshot[] = (casualtyRows.results ?? []).map((row) => ({
     id: row.unit_id,
     key: row.zombie_key,
@@ -343,7 +401,8 @@ export async function finishRaid(
       .bind(JSON.stringify({ completed: quests.completed, progress: quests.progress }), now, accountId, session.id, resultJson),
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, 'raid_finish', ?, ? WHERE ${guard}`)
-      .bind(settlementId, accountId, JSON.stringify({ sessionId: session.id, raidId, win, survivors, losses, gold: baseGold + lootGold, brains, xp }), now,
+      .bind(settlementId, accountId, JSON.stringify({ sessionId: session.id, raidId, win, survivors, losses,
+        gold: baseGold + lootGold, brains, xp, ...(concessionFallbackError ? { concessionFallbackError } : {}) }), now,
         session.id, resultJson),
   ];
   if (revival) statements.push(db.prepare(`INSERT OR IGNORE INTO raid_revivals_v3

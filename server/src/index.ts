@@ -586,7 +586,14 @@ app.use("*", async (c, next) => {
     c.env.DB, c.get("accountId"), c.get("sessionId"), credential, operationId, Date.now()
   );
   if (began === "writer_replaced") return c.json({ error: "writer_replaced" }, 423);
-  if (began === "operation_in_progress") return c.json({ error: "operation_in_progress" }, 409);
+  if (began === "operation_in_progress") {
+    slog("writer_operation_rejected", {
+      account: accountHash(c.get("accountId")),
+      path: c.req.path,
+      reason: began,
+    }, "warn");
+    return c.json({ error: "operation_in_progress", retryAfterMs: 250 }, 409);
+  }
   try {
     await next();
   } finally {

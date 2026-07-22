@@ -46,7 +46,7 @@ import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tut
 import { initPlatform, isMobile } from "./platform";
 import { initPwa } from "./pwa";
 import {
-  captureTouchPointer, gestureMoved, isDeferredTouchMode, isTouchPointer,
+  captureTouchPointer, gestureMoved, isDeferredTouchMode, isOutsideFarmPanGesture, isTouchPointer,
   isSelectTapGesture, isZombieHold, TOUCH_ZOMBIE_HOLD_MS,
 } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
@@ -1266,6 +1266,7 @@ async function main() {
   let pressPointerId = -1;
   let pressMaxDistance = 0;
   let touchSelectStartTile: { col: number; row: number } | null = null;
+  let touchOutsideFarmPan = false;
   let zombieLongPressTimer: ReturnType<typeof setTimeout> | null = null;
   let zombieLongPressActivated = false;
   // Plant tiles painted by the current finger gesture. Plowing uses the explicit
@@ -1300,6 +1301,7 @@ async function main() {
     moved = false;
     lastPlot = "";
     pressPointerId = -1;
+    touchOutsideFarmPan = false;
     touchGestureTiles.length = 0;
     plowPreview = null;
     touchPlowGesture = null;
@@ -1674,7 +1676,10 @@ async function main() {
     assets,
     state,
     zombies,
-    { save: () => { saveManager.flush(); void economy?.flush(); } },
+    // Raid settlement is the authoritative write. A synchronous presentation flush
+    // here used to race /raid/finish for the writer-operation lock; schedule the
+    // visual save normally and let the durable finish go first.
+    { save: () => { saveManager.save(); void economy?.flush(); } },
     raidCooldownMs
   );
   hud.getRaidCards = () => raids.raidCards();
@@ -2412,13 +2417,14 @@ async function main() {
           // Always observe settlement, even when there were no casualties or the
           // player has not closed the result panel yet. If every idempotent retry
           // fails, a bootstrap still recovers any commit whose response was lost.
-          void settlementPromise.catch(async () => {
+          void settlementPromise.catch(async (error) => {
             economy!.onRaidSettled = null;
+            const code = error instanceof api.ApiError ? error.code : "unknown_error";
             try {
               await economy!.refreshAuthoritative();
-              hud.showToast("The invasion response was interrupted. Your farm was resynced.");
+              hud.showToast(`Invasion settlement failed (${code}). Your farm was resynced.`, 6000);
             } catch {
-              hud.showToast("The server could not settle that invasion. Reconnecting will resync your farm.");
+              hud.showToast(`Invasion settlement failed (${code}). Reconnecting will resync your farm.`, 6000);
             }
           });
         } else if (auth.isSignedIn() && raidSessionId) {
@@ -2839,6 +2845,7 @@ async function main() {
     pressPointerId = e.pointerId;
     pressMaxDistance = 0;
     touchSelectStartTile = null;
+    touchOutsideFarmPan = false;
     cancelZombieLongPress();
     zombieLongPressActivated = false;
     pressStart.copyFrom(e.global);
@@ -2871,6 +2878,11 @@ async function main() {
       return;
     }
     const { col, row, wx, wy } = tileAt(e);
+    touchOutsideFarmPan = isOutsideFarmPanGesture(
+      e.pointerType,
+      hud.mode,
+      field.inBounds(col, row),
+    );
     // Tutorial world gate: while the guided tutorial is active, freeze every farm
     // tap except the current beat's target plot (so nothing collapses the menu or
     // acts out of turn). Menu/narrative beats freeze the farm entirely.
@@ -3009,7 +3021,7 @@ async function main() {
       return;
     }
     if (dragging) {
-      if (hud.mode === "walk") {
+      if (hud.mode === "walk" || touchOutsideFarmPan) {
         const dx = e.global.x - last.x;
         const dy = e.global.y - last.y;
         if (moved) {
@@ -3242,12 +3254,13 @@ async function main() {
       touchGestureTiles.length = 0;
       return;
     }
-    if (dragging && moved && isTouchPointer(pressPointerType) &&
+    if (dragging && moved && !touchOutsideFarmPan && isTouchPointer(pressPointerType) &&
         (hud.mode === "till" || hud.mode === "plant")) {
       for (const tile of touchGestureTiles) enqueueTool(tile.col, tile.row);
     }
     endDrag(e);
     pressPointerId = -1;
+    touchOutsideFarmPan = false;
     touchSelectStartTile = null;
     touchGestureTiles.length = 0;
   };

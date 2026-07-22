@@ -58,6 +58,23 @@ describe("Mini Buddy", () => {
   });
 });
 
+describe("finished combat input", () => {
+  it("rejects ability and focus inputs after the decisive tick", () => {
+    const player = unit({
+      id: "player", sourceKey: "ZombieActorLargeTier2", team: "player", abilities: ["bash"],
+    });
+    const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy" });
+    const sim = new BattleSim([player], [enemy], null, true);
+    const live = sim.units.find((candidate) => candidate.id === "player")!;
+    live.state = "charging";
+    live.distracted = true;
+    sim.finished = true;
+
+    expect(sim.activate("bash")).toBe(false);
+    expect(sim.popBubble("player")).toBe(false);
+  });
+});
+
 describe("Garden healing and formation depth", () => {
   it("does not let healing re-arm consumed one-shot protection", () => {
     const fighter = unit({

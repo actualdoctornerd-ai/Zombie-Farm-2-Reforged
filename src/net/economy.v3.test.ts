@@ -7,7 +7,20 @@ import * as api from "./api";
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
+
+const memoryStorage = () => {
+  const values = new Map<string, string>();
+  return {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+    removeItem: (key: string) => { values.delete(key); },
+    clear: () => values.clear(),
+    key: (index: number) => [...values.keys()][index] ?? null,
+    get length() { return values.size; },
+  };
+};
 
 describe("v3 raid dependency ids", () => {
   it("flushes a zombie harvest immediately so its server-owned mutation is visible", () => {
@@ -225,6 +238,51 @@ describe("v3 raid dependency ids", () => {
     expect(state.brains).toBe(16);
   });
 
+  it("retries writer-operation contention instead of discarding the invasion", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("localStorage", memoryStorage());
+    const economy = new EconomyClient(new GameState(), "raid-writer-contention");
+    const result = {
+      lastRaidAt: 123_456,
+      balance: { gold: 300, brains: 15, xp: 10 },
+      gold: 100,
+      xp: 10,
+      firstClear: true,
+      raidProgress: { "1": 1 },
+    };
+    const finish = vi.spyOn(api, "raidFinish")
+      .mockRejectedValueOnce(new api.ApiError(409, "operation_in_progress", { retryAfterMs: 0 }))
+      .mockResolvedValue(result);
+
+    const settled = economy.submitRaid("contended-session", 100, [], {
+      win: true, rounds: 1, survivors: ["z1"], losses: [], enemiesBeaten: 1, playerDamage: 100,
+    }, {});
+    await vi.runAllTimersAsync();
+
+    await expect(settled).resolves.toBe(result);
+    expect(finish).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem("zf2r.v3.raid-finish::raid-writer-contention")).toBeNull();
+  });
+
+  it("keeps the completed transcript durable after all live network retries fail", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("localStorage", memoryStorage());
+    const accountId = "durable-offline-invasion";
+    const economy = new EconomyClient(new GameState(), accountId);
+    vi.spyOn(api, "raidFinish").mockRejectedValue(new api.ApiError(0, "offline"));
+    const outcome = {
+      win: true, rounds: 2, survivors: ["z1"], losses: [], enemiesBeaten: 1, playerDamage: 200,
+    };
+
+    const settled = economy.submitRaid("offline-finish-session", 200, [], outcome, {});
+    const rejected = expect(settled).rejects.toMatchObject({ status: 0, code: "offline" });
+    await vi.runAllTimersAsync();
+    await rejected;
+
+    expect(JSON.parse(localStorage.getItem(`zf2r.v3.raid-finish::${accountId}`) ?? "null"))
+      .toMatchObject({ sessionId: "offline-finish-session", finalTick: 200, outcome });
+  });
+
   it("does not retry a rejected invasion replay", async () => {
     const economy = new EconomyClient(new GameState(), "bad-raid-replay-account");
     const finish = vi.spyOn(api, "raidFinish")
@@ -272,6 +330,60 @@ describe("v3 raid dependency ids", () => {
       { seq: 1, tick: 0, type: "retreat" },
     ]);
     expect(bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it("replays a durable completed invasion after reload instead of retreating", async () => {
+    vi.stubGlobal("localStorage", memoryStorage());
+    const accountId = "durable-raid-recovery";
+    const outcome = {
+      win: true, rounds: 4, survivors: ["zombie-1"], losses: [], enemiesBeaten: 2, playerDamage: 500,
+    };
+    localStorage.setItem(`zf2r.v3.raid-finish::${accountId}`, JSON.stringify({
+      sessionId: "completed-before-reload",
+      finalTick: 321,
+      inputs: [{ seq: 1, tick: 12, type: "bubble", unitId: "zombie-1" }],
+      outcome,
+      savedAt: 10,
+    }));
+    const gameplay = {
+      balance: { gold: 200, brains: 15, xp: 0 },
+      farm: { version: 0, plots: {} }, objects: { version: 0, objects: [] },
+      quests: { version: 0, completed: [], progress: [] }, inventory: {},
+      storage: { received: {}, stored: {} }, roster: [], farmSize: 30,
+      climates: ["grass"], farmerHeads: [1], farmerHeadId: 1, ownedPets: [],
+      activePet: null, penPets: [], zombieMax: 16, tutorialRewarded: false,
+      raids: { progress: {}, lastRaidAt: 0 }, raidRevival: null, epicBoss: null,
+    };
+    const stale = {
+      protocolVersion: 3, serverTime: 1, minimumProtocolVersion: 3,
+      mutationsEnabled: true, accountVersion: 1, writerGeneration: 1,
+      writerDeviceId: "this-device",
+      writer: { status: "mine", generation: 1, lastActivityAt: 1 },
+      gameplay, presentation: { version: 0 },
+      social: { friends: [], incomingRequestCount: 0, inboxCount: 0 },
+      resumableRaid: {
+        sessionId: "completed-before-reload", raidId: "1", startedAt: 1,
+        earliestFinishAt: 16_000, expiresAt: 900_000, rosterIds: ["zombie-1"],
+      },
+    } as any;
+    const bootstrap = vi.spyOn(api, "bootstrap")
+      .mockResolvedValueOnce(stale)
+      .mockResolvedValueOnce({ ...stale, resumableRaid: null });
+    const finish = vi.spyOn(api, "raidFinish").mockResolvedValue({
+      lastRaidAt: 1, balance: gameplay.balance, gold: 100, xp: 10,
+      firstClear: true, raidProgress: { "1": 1 },
+    });
+
+    await new EconomyClient(new GameState(), accountId).start();
+
+    expect(finish).toHaveBeenCalledWith(
+      "completed-before-reload",
+      321,
+      [{ seq: 1, tick: 12, type: "bubble", unitId: "zombie-1" }],
+      outcome,
+    );
+    expect(bootstrap).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem(`zf2r.v3.raid-finish::${accountId}`)).toBeNull();
   });
 
   it("matches bulk-harvest aliases by plot rather than array order", () => {

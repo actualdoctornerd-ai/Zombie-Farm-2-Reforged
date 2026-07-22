@@ -36,6 +36,16 @@ export function isDeferredTouchMode(mode: string): boolean {
   return DEFERRED_TOUCH_MODES.has(mode);
 }
 
+/** Plant-mode drags normally paint plots, but a finger that starts beyond the
+ * farm has no valid planting target and should retain the camera-pan affordance. */
+export function isOutsideFarmPanGesture(
+  pointerType: string,
+  mode: string,
+  inFarmBounds: boolean,
+): boolean {
+  return isTouchPointer(pointerType) && mode === "plant" && !inFarmBounds;
+}
+
 export function gestureMoved(
   startX: number,
   startY: number,

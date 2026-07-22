@@ -578,6 +578,7 @@ export class RaidScene {
     this.bubble.eventMode = "static";
     this.bubble.cursor = "pointer";
     this.bubble.on("pointertap", () => {
+      if (this.sim.finished) return;
       if (this.bubbleUnitId && this.sim.popBubble(this.bubbleUnitId)) {
         this.recordInput({ type: "bubble", unitId: this.bubbleUnitId });
         this.bubble.scale.set(0.8); // tap feedback, eased back in layout
@@ -638,6 +639,7 @@ export class RaidScene {
       cell.eventMode = "static";
       cell.cursor = "pointer";
       cell.on("pointertap", () => {
+        if (this.sim.finished) return;
         if (this.sim.activate(key)) {
           this.recordInput({ type: "ability", abilityKey: key });
           cell.scale.set(0.86); // tap feedback (eased back in layout)
@@ -1763,6 +1765,14 @@ export class RaidScene {
           // Collapse simultaneous hits to one cue so a large army does not stack
           // a painfully loud group of identical one-shots.
           if (struck) this.onStrike?.();
+        }
+        if (this.sim.finished) {
+          // Freeze outcome-relevant controls on the decisive tick, not after the
+          // cinematic pause. Otherwise a last tap can enter the transcript at a tick
+          // the verifier has already finished.
+          this.abilityStrip.interactiveChildren = false;
+          this.bubble.visible = false;
+          this.retreatBtn.visible = false;
         }
         // Confetti pops the moment the players win (across the top of the field).
         if (this.sim.finished && this.sim.playerWon && !this.confettiFired && this.confettiCfg) {

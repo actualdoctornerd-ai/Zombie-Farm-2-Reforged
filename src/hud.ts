@@ -552,7 +552,7 @@ export class Hud {
   }
 
   // Brief top-center banner for quest completion (messageComplete).
-  showToast(msg: string) {
+  showToast(msg: string, durationMs = 2600) {
     const t = document.createElement("div");
     t.className = "qtoast";
     t.textContent = msg;
@@ -561,7 +561,7 @@ export class Hud {
     window.setTimeout(() => {
       t.classList.remove("show");
       window.setTimeout(() => t.remove(), 400);
-    }, 2600);
+    }, durationMs);
   }
 
   // Turn `el` (holding a friend code) into a click-to-copy control. Clicking

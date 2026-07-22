@@ -531,6 +531,62 @@ describe("raid finish — clientWin concession", () => {
     expect(finished.body).toMatchObject({ gold: 0, xp: 0, firstClear: false, outcome: { win: false } });
   });
 
+  it("settles a natural client-only hazard loss while the server replay is still running", async () => {
+    const { session, sessionId, unitId } = await raidReadyZombie("batch-concede-truncated");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId,
+      // A hazard can end the visible fight before the hazard-free verifier reaches a
+      // terminal state. Unlike a user retreat, that natural ending has no retreat input.
+      finalTick: 0,
+      inputs: [],
+      clientWin: false,
+      clientLosses: [unitId],
+    });
+    expect(finished.status).toBe(200);
+    expect(finished.body).toMatchObject({
+      gold: 0,
+      brains: 0,
+      xp: 0,
+      firstClear: false,
+      outcome: { win: false, survivors: [], losses: [unitId] },
+    });
+    expect(finished.body.revival?.zombies?.some((z: any) => z.id === unitId)).toBe(true);
+
+    // The result is committed idempotently rather than closing the session as invalid.
+    const retry = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId, finalTick: 0, inputs: [], clientWin: false, clientLosses: [unitId],
+    });
+    expect(retry.status).toBe(200);
+    expect(retry.body).toEqual(finished.body);
+  });
+
+  it("does not let concession bypass structurally invalid transcripts", async () => {
+    const { session, sessionId } = await raidReadyZombie("batch-concede-malformed");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId,
+      finalTick: 1,
+      inputs: [{ seq: 2, tick: 0, type: "retreat" }],
+      clientWin: false,
+    });
+    expect(finished).toMatchObject({ status: 422, body: { error: "bad_sequence" } });
+  });
+
+  it("settles a loss after a post-divergence interaction disagrees with the verifier", async () => {
+    const { session, sessionId } = await raidReadyZombie("batch-concede-interaction");
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId,
+      finalTick: 0,
+      // A hazard can change which unit is charging/active, making a locally accepted
+      // interaction illegal in the hazard-free replay.
+      inputs: [{ seq: 1, tick: 0, type: "bubble", unitId: "not-charging-server-side" }],
+      clientWin: false,
+    });
+    expect(finished).toMatchObject({
+      status: 200,
+      body: { gold: 0, brains: 0, xp: 0, outcome: { win: false, survivors: [], losses: [] } },
+    });
+  });
+
   it("rejects a non-boolean clientWin rather than coercing it", async () => {
     const { session, sessionId } = await raidReadyZombie("batch-concede-bad");
     const finished = await call<any>("POST", "/raid/finish", session.token, {

@@ -748,6 +748,7 @@ export class BattleSim {
   /** Trigger an activated move on ONE eligible zombie (the front-most). Returns
    *  false if none is ready. Starts the wind-up; the payoff lands when it fills. */
   activate(key: string): boolean {
+    if (this.finished) return false;
     const ab = ACTIVATED_ABILITY[key];
     if (!ab) return false;
     let pick: SimUnit | null = null;
@@ -1064,6 +1065,7 @@ export class BattleSim {
    *  (distraction) pop resumes the fill; a brain (full) pop sends it forward.
    *  Returns true if a bubble was actually popped (drives tap feedback). */
   popBubble(id: string): boolean {
+    if (this.finished) return false;
     const p = this.players.find((u) => u.id === id);
     if (!p || !p.alive || p.state !== "charging") return false;
     if (p.awaitRelease) { this.releaseCharger(p); return true; }

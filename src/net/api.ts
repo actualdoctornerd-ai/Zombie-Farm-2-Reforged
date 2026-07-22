@@ -872,10 +872,11 @@ export interface RaidFinishResult {
 /** Settle a raid. The server REPLAYS the transcript and prices the reward from its own
  *  outcome — the client cannot claim a win or keep a zombie the replay killed. `clientWin`
  *  and `clientLosses` are the two exceptions and both are strictly CONCESSIONS: the server
- *  ANDs the win and UNIONS the deaths, so each can only ever make the result worse. They
- *  exist because hazards (the Beach crab, the Circus trapeze) are deliberately absent from
- *  the server's optimistic replay, so the live fight can go worse than the server believes
- *  and the player's real result should stand. */
+ *  ANDs the win and UNIONS the deaths, so each can only ever make the result worse. When a
+ *  client-only hazard ends the live fight before the optimistic server replay, an explicit
+ *  loss concession also lets the server close that unfinished replay with zero rewards.
+ *  This exists because hazards (the Beach crab, the Circus trapeze) are deliberately absent
+ *  from server simulation, so the player's real, worse result must still settle. */
 export const raidFinish = (sessionId: string, finalTick: number, inputs: RaidReplayInput[], outcome?: RaidOutcome) =>
   req<RaidFinishResult>("POST", "/raid/finish", {
     sessionId,

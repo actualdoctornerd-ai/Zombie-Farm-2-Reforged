@@ -3,7 +3,12 @@
 export const GAMEPLAY_PROTOCOL = 3 as const;
 export const CLIENT_INTEGRITY_VERSION = 4 as const;
 export const COMMAND_BATCH_LIMIT = 64;
-export const COMMAND_BATCH_WINDOW_MS = 10_000;
+// Mutations coalesce into one /commands POST per window. Widened from 10s to 30s to
+// cut request volume while actively farming (~3x fewer batches). Safe because the
+// outbox is durable in localStorage with idempotent batchId replay, dependent
+// actions (raids/spends) force an immediate flush via settle(), and the queue also
+// flushes on beforeunload / visibilitychange:hidden.
+export const COMMAND_BATCH_WINDOW_MS = 30_000;
 export const PRESENTATION_WINDOW_MS = 60_000;
 
 export type CommandStatus = "applied" | "duplicate" | "rejected" | "dependency_failed";

@@ -2,6 +2,7 @@ import type { GameState } from "../GameState";
 import * as api from "./api";
 import { CommandQueue } from "./commandQueue";
 import type { BootstrapResponse, CommandBatchResponse, GameplayCommand } from "./protocol";
+import type { RaidOutcome } from "../raid/types";
 
 export interface InventoryInput {
   type: "buy" | "use" | "grant";
@@ -42,6 +43,17 @@ interface OptimisticDelta {
   localObjectId?: string;
 }
 
+interface PendingRaidFinish {
+  sessionId: string;
+  finalTick: number;
+  inputs: api.RaidReplayInput[];
+  outcome: RaidOutcome;
+  savedAt: number;
+}
+
+const RAID_FINISH_PREFIX = "zf2r.v3.raid-finish";
+const RAID_FINISH_RETRY_MS = [250, 500, 1_000, 2_000, 4_000, 8_000];
+
 /** Compatibility facade used by the current gameplay code. Every non-raid method
  * feeds one protocol-v3 queue; none of these methods owns an HTTP stream anymore. */
 export class EconomyClient {
@@ -79,7 +91,7 @@ export class EconomyClient {
   onWriterAvailable: (() => void) | null = null;
   onCommandRejected: ((command: GameplayCommand | undefined, error: string) => void) | null = null;
 
-  constructor(private state: GameState, accountId: string) {
+  constructor(private state: GameState, private readonly accountId: string) {
     this.queue = new CommandQueue(accountId);
     this.queue.onProjection = (response) => this.adoptCommandResponse(response);
     this.queue.onUnavailable = (reason) => {
@@ -96,9 +108,13 @@ export class EconomyClient {
       // A different device cannot push a takeover notification into this page.
       // Poll the cheap writer projection so an idle displaced session discovers
       // its server-side revocation and returns to auth without waiting for input.
+      // An ACTIVE session already learns of a takeover through the writerGeneration
+      // on every /commands response, so this poll only covers the idle-visible-tab
+      // case — where discovering displacement in ~45s instead of 5s is invisible.
+      // Slowed from 5s to 45s to cut ~9x of the idle request volume.
       setInterval(() => {
         if (document.visibilityState === "visible") void this.checkOwnership();
-      }, 5_000);
+      }, 45_000);
     }
   }
 
@@ -113,17 +129,7 @@ export class EconomyClient {
         catch { /* another client may have acquired it between bootstrap and claim */ }
         bootstrap = await api.bootstrap(true);
       }
-      // A page reload cannot resume the rendered battle scene. If bootstrap finds a
-      // session left open by the previous page (for example, a short tutorial fight
-      // whose delayed finish request was interrupted), settle it as a retreat before
-      // exposing the farm. Otherwise both normal invasions and Epic Boss attempts stay
-      // blocked until the session's 15-minute TTL expires.
-      if (bootstrap.writer.status === "mine" && bootstrap.resumableRaid) {
-        await api.raidFinish(bootstrap.resumableRaid.sessionId, 0, [
-          { seq: 1, tick: 0, type: "retreat" },
-        ]);
-        bootstrap = await api.bootstrap(true);
-      }
+      bootstrap = await this.recoverResumableRaid(bootstrap);
       this.queue.adoptBootstrap(bootstrap);
       this.ready = true;
       this.adoptGameplay(bootstrap.gameplay);
@@ -188,7 +194,8 @@ export class EconomyClient {
 
   private async recover(): Promise<void> {
     try {
-      const bootstrap = await api.bootstrap(true);
+      let bootstrap = await api.bootstrap(true);
+      bootstrap = await this.recoverResumableRaid(bootstrap);
       this.queue.adoptBootstrap(bootstrap);
       this.ready = true;
       this.adoptGameplay(bootstrap.gameplay);
@@ -206,7 +213,8 @@ export class EconomyClient {
 
   private async reloadAfterConflict(): Promise<void> {
     try {
-      const bootstrap = await api.bootstrap(true);
+      let bootstrap = await api.bootstrap(true);
+      bootstrap = await this.recoverResumableRaid(bootstrap);
       this.queue.rebaseAfterConflict(bootstrap);
       this.ready = true;
       this.optimistic.clear();
@@ -415,29 +423,26 @@ export class EconomyClient {
     sessionId: string,
     finalTick: number,
     inputs: api.RaidReplayInput[],
-    outcome: import("../raid/types").RaidOutcome,
+    outcome: RaidOutcome,
     _optimistic: { gold?: number; xp?: number }
   ): Promise<api.RaidFinishResult> {
-    let result: api.RaidFinishResult | null = null;
-    // Finishing is idempotent: once committed, the server stores and returns the same
-    // result for this session. Retry both fast tutorial fights and transient transport
-    // failures so a response lost after commit cannot strand the client before it
-    // applies casualties and rewards.
-    for (let attempt = 0; attempt < 4 && !result; attempt++) {
-      try {
-        result = await api.raidFinish(sessionId, finalTick, inputs, outcome);
-      } catch (error) {
-        if (!(error instanceof api.ApiError) || attempt === 3) throw error;
-        const transient = error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
-        if (error.status !== 425 && !transient) throw error;
-        const retryAfterMs = Number((error.body as { retryAfterMs?: unknown } | undefined)?.retryAfterMs);
-        const delay = error.status === 425 && Number.isFinite(retryAfterMs)
-          ? Math.max(0, retryAfterMs) + 250
-          : 250 * (2 ** attempt);
-        await new Promise<void>((resolve) => setTimeout(resolve, delay));
+    const pending: PendingRaidFinish = { sessionId, finalTick, inputs, outcome, savedAt: Date.now() };
+    this.persistPendingRaid(pending);
+    let result: api.RaidFinishResult;
+    try {
+      result = await this.sendRaidFinish(pending);
+      this.clearPendingRaid(sessionId);
+    } catch (error) {
+      // Transport/writer contention leaves the server session resumable. Preserve the
+      // exact transcript and let reconnect/bootstrap retry it instead of turning a
+      // completed invasion into a retreat.
+      if (this.raidFinishRetryable(error) || (error instanceof api.ApiError && error.status === 423)) {
+        this.scheduleRecovery();
+      } else {
+        this.clearPendingRaid(sessionId);
       }
+      throw error;
     }
-    if (!result) throw new Error("raid_settlement_failed");
     this.base = result.balance;
     if (result.inventory) this.serverInv = { ...result.inventory };
     if (result.storage) this.state.syncStorage(result.storage.received, result.storage.stored);
@@ -522,12 +527,80 @@ export class EconomyClient {
   }
 
   async refreshInventory(): Promise<void> {
-    const bootstrap = await api.bootstrap(true);
+    let bootstrap = await api.bootstrap(true);
+    bootstrap = await this.recoverResumableRaid(bootstrap);
     this.queue.adoptBootstrap(bootstrap);
     this.ready = true;
     this.adoptGameplay(bootstrap.gameplay);
   }
   async refreshAuthoritative(): Promise<void> { await this.refreshInventory(); }
+
+  private pendingRaidKey(): string { return `${RAID_FINISH_PREFIX}::${this.accountId}`; }
+
+  private persistPendingRaid(value: PendingRaidFinish): void {
+    try { localStorage.setItem(this.pendingRaidKey(), JSON.stringify(value)); }
+    catch { /* the live retry path still works when storage is unavailable */ }
+  }
+
+  private readPendingRaid(): PendingRaidFinish | null {
+    try {
+      const value = JSON.parse(localStorage.getItem(this.pendingRaidKey()) ?? "null") as PendingRaidFinish | null;
+      if (!value || typeof value.sessionId !== "string" || !Number.isInteger(value.finalTick) ||
+          !Array.isArray(value.inputs) || !value.outcome || typeof value.outcome.win !== "boolean") return null;
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  private clearPendingRaid(sessionId?: string): void {
+    const current = this.readPendingRaid();
+    if (sessionId && current && current.sessionId !== sessionId) return;
+    try { localStorage.removeItem(this.pendingRaidKey()); } catch { /* unavailable */ }
+  }
+
+  private raidFinishRetryable(error: unknown): boolean {
+    if (!(error instanceof api.ApiError)) return false;
+    return error.status === 0 || error.status === 408 || error.status === 425 || error.status === 429 ||
+      error.status >= 500 || error.code === "operation_in_progress" ||
+      error.code === "state_conflict" || error.code === "future_finish";
+  }
+
+  private async sendRaidFinish(pending: PendingRaidFinish): Promise<api.RaidFinishResult> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await api.raidFinish(pending.sessionId, pending.finalTick, pending.inputs, pending.outcome);
+      } catch (error) {
+        if (!this.raidFinishRetryable(error) || attempt === RAID_FINISH_RETRY_MS.length) throw error;
+        const retryAfterMs = Number((error as api.ApiError).body &&
+          ((error as api.ApiError).body as { retryAfterMs?: unknown }).retryAfterMs);
+        const delay = Number.isFinite(retryAfterMs) && retryAfterMs >= 0
+          ? retryAfterMs + 250
+          : RAID_FINISH_RETRY_MS[attempt];
+        await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  /** Resolve a server session discovered by bootstrap. A durable completed transcript
+   * wins over the old crash fallback; only a genuinely abandoned session retreats. */
+  private async recoverResumableRaid(bootstrap: BootstrapResponse): Promise<BootstrapResponse> {
+    if (bootstrap.writer.status !== "mine") return bootstrap;
+    const pending = this.readPendingRaid();
+    const resumable = bootstrap.resumableRaid;
+    if (!resumable) {
+      if (pending) this.clearPendingRaid(pending.sessionId);
+      return bootstrap;
+    }
+    if (pending?.sessionId === resumable.sessionId) {
+      await this.sendRaidFinish(pending);
+      this.clearPendingRaid(pending.sessionId);
+    } else {
+      if (pending) this.clearPendingRaid(pending.sessionId);
+      await api.raidFinish(resumable.sessionId, 0, [{ seq: 1, tick: 0, type: "retreat" }]);
+    }
+    return api.bootstrap(true);
+  }
 
   /** Claiming a social gift is an independent, server-fenced mutation. It must not
    * wait on the gameplay writer queue: another tab may own that queue, and a paused

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as api from "./api";
 import { CommandQueue } from "./commandQueue";
+import { COMMAND_BATCH_WINDOW_MS } from "./protocol";
 
 const bootstrap = {
   accountVersion: 0,
@@ -51,7 +52,7 @@ describe("protocol v3 command queue", () => {
     expect(() => queue.enqueue({ type: "farm.plow", oc: 4, or: 0 })).toThrow("gameplay_unavailable");
   });
 
-  it("uses a fixed ten-second deadline that later commands do not extend", async () => {
+  it("uses a fixed batch-window deadline that later commands do not extend", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
     const sent: any[] = [];
@@ -62,7 +63,9 @@ describe("protocol v3 command queue", () => {
     const queue = new CommandQueue("fixed-window-test");
     queue.adoptBootstrap(bootstrap);
     queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
-    await vi.advanceTimersByTimeAsync(9_000);
+    // Enqueue a second command 1s before the first command's window closes; it must
+    // ride the SAME batch and must not push the deadline out.
+    await vi.advanceTimersByTimeAsync(COMMAND_BATCH_WINDOW_MS - 1_000);
     queue.enqueue({ type: "farm.plow", oc: 4, or: 0 });
     await vi.advanceTimersByTimeAsync(999);
     expect(sent).toHaveLength(0);
