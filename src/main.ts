@@ -3051,9 +3051,13 @@ async function main() {
     if (dragging && (!moved || selectTap)) {
       const { col, row, wx, wy } = tileAt(e);
       if (isTouchPointer(pressPointerType)) {
+        // In Select mode, empty tilled soil owns the tap: it must reach the
+        // Plants/Zombies picker below even if a queued/active job still covers
+        // the plot. Other touch targets retain tap-to-cancel behavior.
+        const selectingPlantablePlot = hud.mode === "walk" && field.canPlant(col, row);
         // Match desktop's queued-action toggle, but only after this is known to be
         // a tap so the first finger of a pinch cannot cancel unrelated work.
-        if (jobs.cancelAtTile(col, row)) {
+        if (!selectingPlantablePlot && jobs.cancelAtTile(col, row)) {
           dragging = false;
           lastPlot = "";
           return;

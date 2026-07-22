@@ -60,19 +60,20 @@ export class SpecialHeadFx {
     const { core, mote } = AURA_COLORS[kind];
     // Concentric translucent discs approximate the soft-edged constant orb from
     // the source art without requiring a dedicated bitmap or an expensive filter.
-    const halo = new Graphics().circle(0, 0, 17).fill({ color: core, alpha: 0.10 });
-    const glow = new Graphics().circle(0, 0, 14).fill({ color: core, alpha: 0.18 });
-    const orb = new Graphics().circle(0, 0, 11).fill({ color: core, alpha: 0.58 });
+    const halo = new Graphics().circle(0, 0, 15).fill({ color: core, alpha: 0.10 });
+    const glow = new Graphics().circle(0, 0, 12).fill({ color: core, alpha: 0.18 });
+    const orb = new Graphics().circle(0, 0, 9.5).fill({ color: core, alpha: 0.58 });
     this.container.addChild(halo, glow, orb);
 
-    for (let i = 0; i < 7; i++) {
+    const moteCount = 9;
+    for (let i = 0; i < moteCount; i++) {
       const radius = 2 + (i % 3);
       const graphic = new Graphics().circle(0, 0, radius).fill({ color: mote, alpha: 0.45 });
       const particle: AuraMote = { graphic, age: 0, life: 1, vx: 0, vy: 0, phase: 0 };
       this.auraMotes.push(particle);
       // Motes sit behind the stable core and remain visible through its alpha.
       this.container.addChildAt(graphic, 0);
-      this.resetAuraMote(particle, i / 7);
+      this.resetAuraMote(particle, i / moteCount);
     }
   }
 
