@@ -11,7 +11,7 @@
     {
       "name": "zombiefarm-preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "preview", "--", "--port", "4173"],
+      "runtimeArgs": ["run", "preview"],
       "port": 4173,
       "autoPort": true
     }

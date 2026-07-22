@@ -591,7 +591,6 @@ export class Hud {
   // Each button is a colored frame around a grey glossy button (dark label).
   private buildMenu() {
     const items = [
-      { label: "Invade", fill: "#9c2135", light: "#c04155", dark: "#5a0f1c", ready: true, shortcut: "I" },
       { label: "Zombies", fill: "#55972a", light: "#79c247", dark: "#2f5f10", shortcut: "Z" },
       { label: "Boosts", fill: "#7a4bc9", light: "#9c74e0", dark: "#432379", shortcut: "B" },
       { label: "Storage", fill: "#2f74bb", light: "#4f9bd8", dark: "#143f66", shortcut: "R" },
@@ -608,20 +607,6 @@ export class Hud {
       btn.title = m.shortcut ? `${m.label} (${m.shortcut})` : m.label;
       btn.style.background = `linear-gradient(${m.light}, ${m.fill})`;
       btn.style.borderColor = m.dark;
-      if (m.ready) {
-        const r = document.createElement("span");
-        r.className = "ready";
-        r.textContent = "Ready";
-        btn.appendChild(r);
-        // The cooldown advances on wall-clock time and does not emit GameState
-        // changes, so keep this badge synchronized independently.
-        const refreshReady = () => {
-          const status = this.getRaidStatus?.();
-          r.style.display = !status || status.cooldownMs <= 0 ? "" : "none";
-        };
-        refreshReady();
-        window.setInterval(refreshReady, 1000);
-      }
       const g = document.createElement("span");
       g.className = "gbtn";
       g.textContent = m.label === "Boosts" ? "⚡ Boosts" : m.label;
@@ -731,8 +716,12 @@ export class Hud {
 
   setBossShortcut(active: boolean, label = "Boss") {
     this.bossActive = active;
-    const invade = this.menuCol?.querySelector<HTMLButtonElement>('[data-menu="Invade"]');
-    if (invade) invade.title = active ? `${label} active — open raids for details (I)` : "Invade (I)";
+    const invade = this.el.querySelector<HTMLButtonElement>(".invade-shortcut");
+    if (invade) {
+      if (active) invade.dataset.bossTitle = `${label} active — open raids for details (I)`;
+      else delete invade.dataset.bossTitle;
+      invade.title = invade.dataset.bossTitle ?? "Invade (I)";
+    }
   }
 
   private toolBtn(id: string, icon: string, label: string, shortcut: string, onClick: () => void) {
@@ -4162,7 +4151,8 @@ export class Hud {
       const ms = this.getRaidStatus?.().cooldownMs ?? 0;
       timer.hidden = ms <= 0;
       timer.textContent = ms > 0 ? fmtCooldown(ms) : "";
-      btn.title = ms > 0 ? `Next invasion in ${fmtCooldown(ms)} (I)` : "Invade now (I)";
+      btn.title = btn.dataset.bossTitle
+        ?? (ms > 0 ? `Next invasion in ${fmtCooldown(ms)} (I)` : "Invade now (I)");
     };
     refresh();
     window.setInterval(refresh, 1000);

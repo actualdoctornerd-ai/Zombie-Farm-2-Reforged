@@ -2,6 +2,7 @@
 // three-pixel cutoff; a finger naturally wanders farther while making a tap.
 export const MOUSE_TAP_SLOP = 3;
 export const TOUCH_TAP_SLOP = 14;
+export const TOUCH_SELECT_TAP_SLOP = 32;
 export const TOUCH_ZOMBIE_HOLD_MS = 450;
 
 export function isTouchPointer(pointerType: string): boolean {
@@ -50,4 +51,11 @@ export function gestureMoved(
  * can never steal a quick tap intended for the plot beneath it. */
 export function isZombieHold(pointerType: string, heldMs: number, moved: boolean): boolean {
   return isTouchPointer(pointerType) && !moved && heldMs >= TOUCH_ZOMBIE_HOLD_MS;
+}
+
+/** Select-tool taps get a little more forgiveness than camera/tool gestures.
+ * Quick finger contact often wanders after crossing the pan threshold, but a
+ * short wobble should still activate the plot beneath the release point. */
+export function isSelectTapGesture(pointerType: string, moved: boolean, maxDistance: number): boolean {
+  return !moved || (isTouchPointer(pointerType) && maxDistance <= TOUCH_SELECT_TAP_SLOP);
 }

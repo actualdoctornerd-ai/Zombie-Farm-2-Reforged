@@ -10,6 +10,21 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Zombie Farm 2 Reforged</title>
+
+    <!-- PWA: installable to the home screen with an app icon. Paths use Vite's
+         %BASE_URL% token so they resolve both at a domain root and under a
+         GitHub Pages project subpath. Icon paths INSIDE the manifest are relative
+         to the manifest URL, so they need no base prefix. -->
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <meta name="theme-color" content="#33502b" />
+    <meta name="application-name" content="Zombie Farm" />
+    <!-- iOS: standalone (no Safari chrome), draw under the notch to match
+         viewport-fit=cover, and use its own home-screen icon (ignores manifest). -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Zombie Farm" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
     <style>
       html, body { margin: 0; height: 100%; background: #33502b; overflow: hidden;
         overscroll-behavior: none; }

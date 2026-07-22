@@ -1,0 +1,16 @@
+{
+  "name": "Zombie Farm 2 Reforged",
+  "short_name": "Zombie Farm",
+  "description": "Grow crops, raise a zombie army, and raid rival farms.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#33502b",
+  "theme_color": "#33502b",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

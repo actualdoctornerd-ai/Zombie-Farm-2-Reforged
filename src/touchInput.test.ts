@@ -3,10 +3,12 @@ import {
   captureTouchPointer,
   gestureMoved,
   isDeferredTouchMode,
+  isSelectTapGesture,
   isTouchPointer,
   isZombieHold,
   MOUSE_TAP_SLOP,
   TOUCH_TAP_SLOP,
+  TOUCH_SELECT_TAP_SLOP,
   TOUCH_ZOMBIE_HOLD_MS,
 } from "./touchInput";
 
@@ -56,5 +58,13 @@ describe("farm touch gesture classification", () => {
     expect(isZombieHold("touch", TOUCH_ZOMBIE_HOLD_MS, false)).toBe(true);
     expect(isZombieHold("touch", TOUCH_ZOMBIE_HOLD_MS + 100, true)).toBe(false);
     expect(isZombieHold("mouse", TOUCH_ZOMBIE_HOLD_MS, false)).toBe(false);
+  });
+
+  it("keeps a quick select-tool wobble eligible as a mobile tap", () => {
+    expect(isSelectTapGesture("touch", true, TOUCH_TAP_SLOP + 1)).toBe(true);
+    expect(isSelectTapGesture("touch", true, TOUCH_SELECT_TAP_SLOP)).toBe(true);
+    expect(isSelectTapGesture("touch", true, TOUCH_SELECT_TAP_SLOP + 1)).toBe(false);
+    expect(isSelectTapGesture("mouse", true, 4)).toBe(false);
+    expect(isSelectTapGesture("mouse", false, 0)).toBe(true);
   });
 });

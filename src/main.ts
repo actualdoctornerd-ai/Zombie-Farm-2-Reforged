@@ -44,9 +44,10 @@ import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
 import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform, isMobile } from "./platform";
+import { initPwa } from "./pwa";
 import {
   captureTouchPointer, gestureMoved, isDeferredTouchMode, isTouchPointer,
-  isZombieHold, TOUCH_ZOMBIE_HOLD_MS,
+  isSelectTapGesture, isZombieHold, TOUCH_ZOMBIE_HOLD_MS,
 } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
 import { resolveCropMutations } from "./zombie/cropMutations";
@@ -69,6 +70,10 @@ async function main() {
   // Detect device up front so <html data-platform> is set before the HUD's CSS
   // renders (drives the compact/desktop layout; re-evaluates on resize/rotate).
   initPlatform();
+  // Register the PWA service worker (production build only; no-op in dev and where
+  // service workers are unavailable). Done before the sign-in gate so offline
+  // caching + the update toast work regardless of auth state.
+  initPwa();
   // The game is locked behind Google sign-in: block here until the player is
   // signed in and has chosen a username (no-op on an offline build). Only then do
   // we load assets and build the game, so nothing runs for a signed-out visitor.
@@ -1259,6 +1264,7 @@ async function main() {
   let temporaryPanGesture = false;
   let pressPointerType = "mouse";
   let pressPointerId = -1;
+  let pressMaxDistance = 0;
   let zombieLongPressTimer: ReturnType<typeof setTimeout> | null = null;
   let zombieLongPressActivated = false;
   // Plant tiles painted by the current finger gesture. Plowing uses the explicit
@@ -2830,6 +2836,7 @@ async function main() {
     captureTouchPointer(app.canvas, e.pointerId, e.pointerType);
     pressPointerType = e.pointerType;
     pressPointerId = e.pointerId;
+    pressMaxDistance = 0;
     cancelZombieLongPress();
     zombieLongPressActivated = false;
     pressStart.copyFrom(e.global);
@@ -2938,8 +2945,12 @@ async function main() {
   app.stage.on("pointermove", (e: FederatedPointerEvent) => {
     if (raidActive) { hoveredCrop = null; hud.showCropHover(null); return; }
     if (touchPinch) return; // pinch owns the gesture; skip pan/cursor updates
-    if (dragging && e.pointerId === pressPointerId && !moved) {
-      moved = gestureMoved(pressStart.x, pressStart.y, e.global.x, e.global.y, pressPointerType);
+    if (dragging && e.pointerId === pressPointerId) {
+      pressMaxDistance = Math.max(
+        pressMaxDistance,
+        Math.hypot(e.global.x - pressStart.x, e.global.y - pressStart.y),
+      );
+      if (!moved) moved = gestureMoved(pressStart.x, pressStart.y, e.global.x, e.global.y, pressPointerType);
       if (moved) cancelZombieLongPress();
     }
     if (visiting) {
@@ -3035,7 +3046,9 @@ async function main() {
     hud.showCropHover(null);
   });
   const endDrag = (e: FederatedPointerEvent) => {
-    if (dragging && !moved) {
+    const selectTap = hud.mode === "walk" &&
+      isSelectTapGesture(pressPointerType, moved, pressMaxDistance);
+    if (dragging && (!moved || selectTap)) {
       const { col, row, wx, wy } = tileAt(e);
       if (isTouchPointer(pressPointerType)) {
         // Match desktop's queued-action toggle, but only after this is known to be
