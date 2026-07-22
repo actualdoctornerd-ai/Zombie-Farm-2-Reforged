@@ -2867,6 +2867,10 @@ async function main() {
     // acts out of turn). Menu/narrative beats freeze the farm entirely.
     if (tutorial.active && !tutorial.allowsTile(col, row)) return;
     hud.collapse(); // any tap on the field collapses the bars into the corner fab
+    // Plow remains equipped after making a plot. On touch, tapping that newly
+    // plantable soil is selection intent: return to the Multi-tool so pointer-up
+    // opens the same left-side Plants/Zombies picker as a desktop click.
+    if (touch && hud.mode === "till" && field.canPlant(col, row)) hud.setMode("walk");
     if (touch && hud.mode === "walk") beginZombieLongPress(wx, wy, e.pointerId);
     if (touch && hud.mode === "till") {
       dragging = true;
