@@ -734,7 +734,15 @@ export class Hud {
     lbl.className = "lbl";
     lbl.textContent = label;
     btn.append(img, lbl);
-    btn.onclick = () => { this.audio.play("menuClick"); onClick(); };
+    btn.onclick = () => {
+      const previousMode = this.mode;
+      this.audio.play("menuClick");
+      onClick();
+      // On the compact HUD, choosing a tool should finish the toolbar interaction.
+      // Otherwise the next farm tap both closes the toolbar and performs the newly
+      // selected action, which makes that first action easy to trigger by accident.
+      if (isMobile() && this.mode !== previousMode) this.collapse();
+    };
     this.tools[id] = btn;
     return btn;
   }
