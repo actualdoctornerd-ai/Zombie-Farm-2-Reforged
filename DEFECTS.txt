@@ -4,8 +4,3 @@ Deferred investigation
   seconds remaining before becoming fully grown again. Confirm whether this is
   limited to online/server reconciliation before changing it.
 
-- On iOS/mobile, drag-plowing can queue several adjacent 4x4 plot outlines in a
-  pattern that looks overlapping. The supplied screenshot is consistent with the
-  existing drag-paint gesture queuing multiple valid targets rather than duplicate
-  soil sprites. Revisit after confirming the intended mobile drag-plow behavior.
-

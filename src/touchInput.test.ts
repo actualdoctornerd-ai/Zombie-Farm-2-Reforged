@@ -4,8 +4,10 @@ import {
   gestureMoved,
   isDeferredTouchMode,
   isTouchPointer,
+  isZombieHold,
   MOUSE_TAP_SLOP,
   TOUCH_TAP_SLOP,
+  TOUCH_ZOMBIE_HOLD_MS,
 } from "./touchInput";
 
 describe("farm touch gesture classification", () => {
@@ -47,5 +49,12 @@ describe("farm touch gesture classification", () => {
       expect(isDeferredTouchMode(mode), mode).toBe(true);
     for (const mode of ["walk", "till", "plant"])
       expect(isDeferredTouchMode(mode), mode).toBe(false);
+  });
+
+  it("reserves zombie selection for an unmoved touch hold", () => {
+    expect(isZombieHold("touch", TOUCH_ZOMBIE_HOLD_MS - 1, false)).toBe(false);
+    expect(isZombieHold("touch", TOUCH_ZOMBIE_HOLD_MS, false)).toBe(true);
+    expect(isZombieHold("touch", TOUCH_ZOMBIE_HOLD_MS + 100, true)).toBe(false);
+    expect(isZombieHold("mouse", TOUCH_ZOMBIE_HOLD_MS, false)).toBe(false);
   });
 });

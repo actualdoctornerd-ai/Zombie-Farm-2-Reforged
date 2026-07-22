@@ -121,6 +121,8 @@ export interface TillTarget {
   valid: boolean; // can till here (place new plot or re-till dirt/hole)
 }
 
+export type TillHandleDirection = "col-" | "col+" | "row-" | "row+";
+
 // A placed farm object (tree/decor) occupying a tileW x tileH footprint.
 interface FarmObject {
   id: string;
@@ -176,6 +178,9 @@ export class Field {
   // erases them out of the darkness so a glow reveals the scene around it at night.
   readonly objectLights = new Container();
   readonly cursor = new Container();
+  readonly tillSelectionLayer = new Container();
+  private tillSelection = new Graphics();
+  private tillSelectionHandles = new Map<TillHandleDirection, { x: number; y: number }>();
   private cursorGreen = new Graphics();
   private cursorRed = new Graphics();
   private cursorLabel!: Text;
@@ -209,6 +214,7 @@ export class Field {
     this.entityLayer.sortableChildren = true;
     this.resize(assets.field.w, assets.field.h); // builds the initial ground grid
     this.buildCursor();
+    this.tillSelectionLayer.addChild(this.tillSelection);
     this.objGhost.anchor.set(0.5, 1);
     this.objGhost.visible = false;
     this.cursor.addChild(this.objGhost);
@@ -1322,6 +1328,69 @@ export class Field {
     if (!o) return null;
     const base = this.footprintAnchor(o.oc, o.or, o.def.tileW, o.def.tileH);
     return clampPointToGrid(base.x, base.y, this.w, this.h);
+  }
+
+  /** Draw a multi-plot plow preview. Invalid plots remain visible in red and are
+   * skipped when the caller commits. Touch selections also expose four handles. */
+  setTillSelection(targets: readonly (TillTarget & { valid: boolean })[], showHandles: boolean) {
+    this.cursor.visible = false;
+    this.tillSelection.clear();
+    this.tillSelectionHandles.clear();
+    if (!targets.length) {
+      this.tillSelectionLayer.visible = false;
+      return;
+    }
+    const w = PLOT * HW;
+    const h = PLOT * HH;
+    for (const target of targets) {
+      const c = this.plotCenterOf(target.oc, target.or);
+      const color = target.valid ? 0x8df25a : 0xff5a5a;
+      this.tillSelection.moveTo(c.x, c.y - h).lineTo(c.x + w, c.y)
+        .lineTo(c.x, c.y + h).lineTo(c.x - w, c.y).lineTo(c.x, c.y - h)
+        .fill({ color, alpha: 0.2 }).stroke({ width: 3, color, alpha: 0.95 });
+    }
+    if (showHandles) {
+      const minOc = Math.min(...targets.map((t) => t.oc));
+      const maxOc = Math.max(...targets.map((t) => t.oc));
+      const minOr = Math.min(...targets.map((t) => t.or));
+      const maxOr = Math.max(...targets.map((t) => t.or));
+      const midOc = (minOc + maxOc) / 2;
+      const midOr = (minOr + maxOr) / 2;
+      const centerFor = (oc: number, or: number) => this.plotCenterOf(oc, or);
+      const sides: [TillHandleDirection, { x: number; y: number }, number, number][] = [
+        ["col-", centerFor(minOc, midOr), -HW, -HH],
+        ["col+", centerFor(maxOc, midOr), HW, HH],
+        ["row-", centerFor(midOc, minOr), HW, -HH],
+        ["row+", centerFor(midOc, maxOr), -HW, HH],
+      ];
+      for (const [direction, edge, dx, dy] of sides) {
+        const length = Math.hypot(dx, dy);
+        const ux = dx / length, uy = dy / length;
+        const x = edge.x + ux * (w / 2 + 24);
+        const y = edge.y + uy * (h + 18);
+        const px = -uy, py = ux;
+        this.tillSelectionHandles.set(direction, { x, y });
+        this.tillSelection.circle(x, y, 18).fill({ color: 0x173510, alpha: 0.92 })
+          .stroke({ width: 3, color: 0xffffff, alpha: 0.95 });
+        this.tillSelection.moveTo(x + ux * 10, y + uy * 10)
+          .lineTo(x - ux * 7 + px * 8, y - uy * 7 + py * 8)
+          .lineTo(x - ux * 7 - px * 8, y - uy * 7 - py * 8)
+          .closePath().fill({ color: 0xffffff });
+      }
+    }
+    this.tillSelectionLayer.visible = true;
+  }
+
+  clearTillSelection() {
+    this.tillSelection.clear();
+    this.tillSelectionHandles.clear();
+    this.tillSelectionLayer.visible = false;
+  }
+
+  tillHandleAt(x: number, y: number, radius: number): TillHandleDirection | null {
+    for (const [direction, point] of this.tillSelectionHandles)
+      if (Math.hypot(x - point.x, y - point.y) <= radius) return direction;
+    return null;
   }
   // Center/size for a queued-object footprint marker.
   objectHighlightArea(id: string): { x: number; y: number; tiles: number } | null {

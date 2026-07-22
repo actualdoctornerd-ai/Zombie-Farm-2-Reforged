@@ -2,6 +2,7 @@
 // three-pixel cutoff; a finger naturally wanders farther while making a tap.
 export const MOUSE_TAP_SLOP = 3;
 export const TOUCH_TAP_SLOP = 14;
+export const TOUCH_ZOMBIE_HOLD_MS = 450;
 
 export function isTouchPointer(pointerType: string): boolean {
   return pointerType === "touch";
@@ -43,4 +44,10 @@ export function gestureMoved(
 ): boolean {
   const slop = isTouchPointer(pointerType) ? TOUCH_TAP_SLOP : MOUSE_TAP_SLOP;
   return Math.hypot(x - startX, y - startY) > slop;
+}
+
+/** Zombies use a distinct hold gesture on touch screens so an overlapping unit
+ * can never steal a quick tap intended for the plot beneath it. */
+export function isZombieHold(pointerType: string, heldMs: number, moved: boolean): boolean {
+  return isTouchPointer(pointerType) && !moved && heldMs >= TOUCH_ZOMBIE_HOLD_MS;
 }

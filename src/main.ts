@@ -1,11 +1,12 @@
 import { Application, Assets, Container, FederatedPointerEvent, Graphics, Point, Sprite, Text, Texture } from "pixi.js";
+import { plowRectangle, PlowOrigin, uniquePlowOrigins } from "./plowSelection";
 // Patch Pixi's renderer to use no-eval polyfills for its shader/UBO/uniform/particle
 // codegen (it otherwise uses `new Function`, which the production CSP's script-src
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
 // pixi.js lists ./lib/unsafe-eval/init.* under "sideEffects", so it survives bundling.
 import "pixi.js/unsafe-eval";
 import { loadAssets, ensureObjectTexture, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, lootImage, purchasableZombies } from "./assets";
-import { Field, CARROT, CropConfig } from "./Field";
+import { Field, CARROT, CropConfig, PLOT, type TillHandleDirection, type TillTarget } from "./Field";
 import { Actor } from "./Actor";
 import { PetActor } from "./PetActor";
 import { WalkController } from "./WalkController";
@@ -43,7 +44,10 @@ import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
 import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
 import { initPlatform, isMobile } from "./platform";
-import { captureTouchPointer, gestureMoved, isDeferredTouchMode, isTouchPointer } from "./touchInput";
+import {
+  captureTouchPointer, gestureMoved, isDeferredTouchMode, isTouchPointer,
+  isZombieHold, TOUCH_ZOMBIE_HOLD_MS,
+} from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
 import { resolveCropMutations } from "./zombie/cropMutations";
 import { MutationPortraits } from "./zombie/mutationPortrait";
@@ -422,6 +426,7 @@ async function main() {
   // Job labels ("Plow/Plant/Harvest" pills) and the plot cursor render above the
   // field + entities so they're never hidden behind the farmer/zombie.
   world.addChild(field.labelLayer);
+  world.addChild(field.tillSelectionLayer);
   world.addChild(field.cursor);
 
   // Center camera on the starting tile (pivot = that tile center) and render the
@@ -1254,9 +1259,20 @@ async function main() {
   let temporaryPanGesture = false;
   let pressPointerType = "mouse";
   let pressPointerId = -1;
-  // Plow/plant tiles painted by the current finger gesture. They are queued only
-  // on finger-up, so a second finger can safely convert the gesture into a pinch.
+  let zombieLongPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let zombieLongPressActivated = false;
+  // Plant tiles painted by the current finger gesture. Plowing uses the explicit
+  // rectangle state below so a release can never also become a second plow tap.
   const touchGestureTiles: { col: number; row: number }[] = [];
+  type PlowPreview = { anchor: PlowOrigin; current: PlowOrigin; targets: TillTarget[] };
+  let plowPreview: PlowPreview | null = null;
+  let touchPlowGesture: "position" | "resize" | "confirm" | null = null;
+  let touchPlowHandle: TillHandleDirection | null = null;
+
+  const cancelZombieLongPress = () => {
+    if (zombieLongPressTimer !== null) clearTimeout(zombieLongPressTimer);
+    zombieLongPressTimer = null;
+  };
 
   // ---- multi-touch pinch-to-zoom (mobile) ----
   // Handled with native touch events (not Pixi pointers): e.touches reliably
@@ -1271,11 +1287,17 @@ async function main() {
   let pinchDist = 0;
   const pinchMid = new Point();
   const cancelPointerGesture = () => {
+    cancelZombieLongPress();
+    zombieLongPressActivated = false;
     dragging = false;
     moved = false;
     lastPlot = "";
     pressPointerId = -1;
     touchGestureTiles.length = 0;
+    plowPreview = null;
+    touchPlowGesture = null;
+    touchPlowHandle = null;
+    field.clearTillSelection();
     touchPinch = false;
     pinchDist = 0;
     temporaryPanGesture = false;
@@ -1297,11 +1319,16 @@ async function main() {
       if (e.touches.length !== 2 || raidActive) return;
       e.preventDefault();
       touchPinch = true;
+      cancelZombieLongPress();
       dragging = false; // abandon any in-progress single-finger pan
       // Nothing has committed yet: discard the pending paint stroke and let the
       // two fingers control the camera instead.
       touchGestureTiles.length = 0;
       lastPlot = "";
+      plowPreview = null;
+      touchPlowGesture = null;
+      touchPlowHandle = null;
+      field.clearTillSelection();
       field.hideCursor();
       const g = pinchInfo(e.touches);
       pinchDist = g.dist;
@@ -1347,6 +1374,44 @@ async function main() {
     if (hud.mode === "plant" && hud.planting)
       return jobs.enqueue("plant", col, row, hud.planting);
     return false;
+  };
+
+  const originAtTile = (col: number, row: number): PlowOrigin => {
+    const target = field.resolveTill(col, row);
+    return { oc: target.oc, or: target.or };
+  };
+  const resolvedPlowTargets = (anchor: PlowOrigin, current: PlowOrigin): TillTarget[] => {
+    const resolved = plowRectangle(anchor, current).map(({ oc, or }) =>
+      field.resolveTill(oc + PLOT / 2, or + PLOT / 2));
+    return uniquePlowOrigins(resolved);
+  };
+  const showPlowPreview = (anchor: PlowOrigin, current: PlowOrigin, handles: boolean) => {
+    const targets = resolvedPlowTargets(anchor, current);
+    plowPreview = { anchor, current, targets };
+    field.setTillSelection(targets, handles);
+  };
+  const clearPlowPreview = () => {
+    plowPreview = null;
+    touchPlowGesture = null;
+    touchPlowHandle = null;
+    field.clearTillSelection();
+  };
+  const commitPlowPreview = () => {
+    const targets = uniquePlowOrigins(plowPreview?.targets ?? []).filter((target) => target.valid);
+    clearPlowPreview();
+    for (const target of targets)
+      jobs.enqueue("till", target.oc + PLOT / 2, target.or + PLOT / 2);
+  };
+  const previewContains = (col: number, row: number) => !!plowPreview?.targets.some(
+    ({ oc, or }) => col >= oc && col < oc + PLOT && row >= or && row < or + PLOT
+  );
+  const constrainHandleDrag = (origin: PlowOrigin): PlowOrigin => {
+    if (!plowPreview || !touchPlowHandle) return origin;
+    const { anchor } = plowPreview;
+    if (touchPlowHandle === "col-") return { oc: Math.min(origin.oc, anchor.oc), or: origin.or };
+    if (touchPlowHandle === "col+") return { oc: Math.max(origin.oc, anchor.oc), or: origin.or };
+    if (touchPlowHandle === "row-") return { oc: origin.oc, or: Math.min(origin.or, anchor.or) };
+    return { oc: origin.oc, or: Math.max(origin.or, anchor.or) };
   };
 
   // ---- object buy / place / move ----
@@ -2719,6 +2784,40 @@ async function main() {
     }
   };
 
+  const inspectZombie = (zu: NonNullable<ReturnType<typeof zombies.pick>>) => {
+    zombies.select(zu);
+    const d = zu.getData();
+    const wp = zu.worldPos;
+    floatText(wp.x, wp.y - 44, "Brains…");
+    audio.brain(d.group, d.key);
+    hud.openZombieInfo({
+      name: d.name, typeName: d.typeName, key: d.key, group: d.group,
+      className: d.className, classColor: d.classColor,
+      str: d.str * state.farmerZombieStrengthMult(), dex: d.dex,
+      con: d.con * state.farmerZombieLifeMult(), focus: d.focus, mutation: d.mutation,
+      invasions: d.invasions,
+      portrait: zombiePortrait(d.key), color: d.color,
+      // Friend-farm visits are inspect-only, so omit action-bearing unit IDs.
+      id: visiting ? undefined : d.id, stored: false,
+    });
+  };
+
+  const beginZombieLongPress = (wx: number, wy: number, pointerId: number) => {
+    cancelZombieLongPress();
+    zombieLongPressActivated = false;
+    const candidate = zombies.pick(wx, wy);
+    if (!candidate) return;
+    zombieLongPressTimer = setTimeout(() => {
+      zombieLongPressTimer = null;
+      if (pointerId !== pressPointerId || touchPinch || !dragging ||
+          !isZombieHold(pressPointerType, TOUCH_ZOMBIE_HOLD_MS, moved)) return;
+      zombieLongPressActivated = true;
+      dragging = false;
+      lastPlot = "";
+      inspectZombie(candidate);
+    }, TOUCH_ZOMBIE_HOLD_MS);
+  };
+
   app.stage.on("pointerdown", (e: FederatedPointerEvent) => {
     if (raidActive) return; // farm input is inert during a live raid
     if (economy && !economy.available) { hud.showToast("Gameplay paused — reconnect to continue."); return; }
@@ -2731,6 +2830,8 @@ async function main() {
     captureTouchPointer(app.canvas, e.pointerId, e.pointerType);
     pressPointerType = e.pointerType;
     pressPointerId = e.pointerId;
+    cancelZombieLongPress();
+    zombieLongPressActivated = false;
     pressStart.copyFrom(e.global);
     touchGestureTiles.length = 0;
     if (visiting) {
@@ -2740,6 +2841,10 @@ async function main() {
       dragging = true;
       moved = false;
       last.copyFrom(e.global);
+      if (touch) {
+        const w = toWorld(e);
+        beginZombieLongPress(w.x, w.y, e.pointerId);
+      }
       return;
     }
     if (e.button === 2) { // right-click -> back to the select tool
@@ -2762,6 +2867,30 @@ async function main() {
     // acts out of turn). Menu/narrative beats freeze the farm entirely.
     if (tutorial.active && !tutorial.allowsTile(col, row)) return;
     hud.collapse(); // any tap on the field collapses the bars into the corner fab
+    if (touch && hud.mode === "walk") beginZombieLongPress(wx, wy, e.pointerId);
+    if (touch && hud.mode === "till") {
+      dragging = true;
+      moved = false;
+      last.copyFrom(e.global);
+      const handle = plowPreview
+        ? field.tillHandleAt(wx, wy, 34 / Math.max(0.01, world.scale.x))
+        : null;
+      if (handle) {
+        touchPlowGesture = "resize";
+        touchPlowHandle = handle;
+      } else if (previewContains(col, row)) {
+        // Confirmation is deliberately deferred until an unmoved pointer-up. This
+        // is the single commit path that prevents one tap from placing twice.
+        touchPlowGesture = "confirm";
+        touchPlowHandle = null;
+      } else {
+        const anchor = originAtTile(col, row);
+        touchPlowGesture = "position";
+        touchPlowHandle = null;
+        showPlowPreview(anchor, anchor, true);
+      }
+      return;
+    }
     if (isDeferredTouchMode(hud.mode)) {
       if (touch) {
         // Wait for pointer-up. A second finger may still convert this tap into a
@@ -2784,11 +2913,19 @@ async function main() {
       dragging = false;
       return;
     }
+    if (!touch && hud.mode === "till") {
+      const anchor = originAtTile(col, row);
+      dragging = true;
+      moved = false;
+      last.copyFrom(e.global);
+      showPlowPreview(anchor, anchor, false);
+      return;
+    }
     dragging = true;
     moved = false;
     last.copyFrom(e.global);
     if (hud.mode !== "walk") {
-      // Mouse preserves immediate click/drag painting. Touch waits for either a
+      // Plant preserves immediate mouse click/drag painting. Touch waits for either a
       // confirmed tap or movement beyond its larger finger-jitter threshold.
       if (!touch) enqueueTool(col, row);
       lastPlot = touch ? "" : tileKey(col, row);
@@ -2799,6 +2936,7 @@ async function main() {
     if (touchPinch) return; // pinch owns the gesture; skip pan/cursor updates
     if (dragging && e.pointerId === pressPointerId && !moved) {
       moved = gestureMoved(pressStart.x, pressStart.y, e.global.x, e.global.y, pressPointerType);
+      if (moved) cancelZombieLongPress();
     }
     if (visiting) {
       hoveredCrop = null;
@@ -2862,9 +3000,19 @@ async function main() {
           clampCamera(); // block panning above the sky
         }
         last.copyFrom(e.global);
+      } else if (hud.mode === "till" && plowPreview) {
+        if (moved && touchPlowGesture === "position") {
+          const anchor = originAtTile(col, row);
+          showPlowPreview(anchor, anchor, true);
+        } else if (moved && touchPlowGesture === "resize") {
+          showPlowPreview(plowPreview.anchor, constrainHandleDrag(originAtTile(col, row)), true);
+        } else if (moved && !isTouchPointer(pressPointerType)) {
+          showPlowPreview(plowPreview.anchor, originAtTile(col, row), false);
+        }
+        return;
       } else if (moved) {
-        // Drag-paint plow/plant across the field. Touch records the stroke and
-        // commits on finger-up; mouse queues each new tile immediately.
+        // Drag-paint plants across the field. Touch records the stroke and commits
+        // on finger-up; mouse queues each new tile immediately.
         const tk = tileKey(col, row);
         if (tk !== lastPlot) {
           if (isTouchPointer(pressPointerType)) touchGestureTiles.push({ col, row });
@@ -2873,7 +3021,9 @@ async function main() {
         }
       }
     }
-    const tool = hud.mode === "till" || hud.mode === "plant" ? hud.mode : null;
+    const tool = (hud.mode === "till" && plowPreview)
+      ? null
+      : hud.mode === "till" || hud.mode === "plant" ? hud.mode : null;
     field.setCursor(col, row, tool);
   });
   app.canvas.addEventListener("pointerleave", () => {
@@ -2927,26 +3077,11 @@ async function main() {
         // Storage; a ripe fruit tree harvests for gold; else it's tile-based (same
         // clickbox as Plow) — ripe plot -> harvest; tilled plot -> plant picker;
         // spent plot -> re-till; else free-roam when idle.
-        const zu = zombies.pick(wx, wy);
+        // A touch tap deliberately bypasses zombies so the plot/crop beneath is
+        // always reachable. Touch zombie inspection is handled by press-and-hold.
+        const zu = isTouchPointer(pressPointerType) ? null : zombies.pick(wx, wy);
         if (zu) {
-          zombies.select(zu);
-          const d = zu.getData();
-          // The zombie moans for "Brains…" (float text + a per-group audio bark).
-          const wp = zu.worldPos;
-          floatText(wp.x, wp.y - 44, "Brains…");
-          audio.brain(d.group, d.key);
-          hud.openZombieInfo({
-            name: d.name, typeName: d.typeName, key: d.key, group: d.group,
-            className: d.className, classColor: d.classColor,
-            str: d.str * state.farmerZombieStrengthMult(), dex: d.dex,
-            con: d.con * state.farmerZombieLifeMult(), focus: d.focus, mutation: d.mutation,
-            invasions: d.invasions,
-            portrait: zombiePortrait(d.key), // per-type composited portrait
-            color: d.color,
-            // Visiting a friend: inspect only — omit the id so openZombieInfo
-            // renders no Deploy/Store/Sell/Locate actions on their unit.
-            id: visiting ? undefined : d.id, stored: false,
-          });
+          inspectZombie(zu);
           dragging = false;
           lastPlot = "";
           return;
@@ -3041,12 +3176,39 @@ async function main() {
     // During/after a pinch, dragging was cleared so endDrag fires no stray tap.
     if (touchPinch) return;
     if (pressPointerId !== -1 && e.pointerId !== pressPointerId) return;
+    cancelZombieLongPress();
+    if (zombieLongPressActivated) {
+      zombieLongPressActivated = false;
+      dragging = false;
+      moved = false;
+      lastPlot = "";
+      pressPointerId = -1;
+      touchGestureTiles.length = 0;
+      return;
+    }
     if (temporaryPanGesture) {
       temporaryPanGesture = false;
       dragging = false;
       moved = false;
       lastPlot = "";
       pressPointerId = -1;
+      return;
+    }
+    if (dragging && hud.mode === "till" && plowPreview) {
+      if (isTouchPointer(pressPointerType)) {
+        if (touchPlowGesture === "confirm" && !moved) commitPlowPreview();
+        else {
+          // Positioning and handle drags only edit the preview; a later tap on the
+          // highlighted area performs the one and only commit.
+          touchPlowGesture = null;
+          touchPlowHandle = null;
+        }
+      } else commitPlowPreview();
+      dragging = false;
+      moved = false;
+      lastPlot = "";
+      pressPointerId = -1;
+      touchGestureTiles.length = 0;
       return;
     }
     if (dragging && moved && isTouchPointer(pressPointerType) &&
@@ -3075,6 +3237,7 @@ async function main() {
   // Hide the tool cursor when switching tools (and drop any carried object);
   // next pointer move re-shows the right cursor.
   hud.onModeChange = () => {
+    clearPlowPreview();
     field.hideCursor();
     field.setObjectHighlight(null);
     zombies.clearSelection();
@@ -3084,6 +3247,7 @@ async function main() {
     if (hud.mode !== "place") placeFlipped = false; // and reset the ghost orientation
   };
   hud.onTemporaryPanChange = () => {
+    clearPlowPreview();
     field.hideCursor();
     field.setObjectHighlight(null);
     hoveredCrop = null;
