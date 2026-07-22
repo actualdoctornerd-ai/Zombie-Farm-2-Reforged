@@ -1354,28 +1354,34 @@ export class Field {
       const maxOc = Math.max(...targets.map((t) => t.oc));
       const minOr = Math.min(...targets.map((t) => t.or));
       const maxOr = Math.max(...targets.map((t) => t.or));
-      const midOc = (minOc + maxOc) / 2;
-      const midOr = (minOr + maxOr) / 2;
-      const centerFor = (oc: number, or: number) => this.plotCenterOf(oc, or);
-      const sides: [TillHandleDirection, { x: number; y: number }, number, number][] = [
-        ["col-", centerFor(minOc, midOr), -HW, -HH],
-        ["col+", centerFor(maxOc, midOr), HW, HH],
-        ["row-", centerFor(midOc, minOr), HW, -HH],
-        ["row+", centerFor(midOc, maxOr), -HW, HH],
+      const a = gridToScreen(minOc, minOr);
+      const b = gridToScreen(maxOc + PLOT, minOr);
+      const c = gridToScreen(maxOc + PLOT, maxOr + PLOT);
+      const d = gridToScreen(minOc, maxOr + PLOT);
+      const center = { x: (a.x + b.x + c.x + d.x) / 4, y: (a.y + b.y + c.y + d.y) / 4 };
+      const sides: [TillHandleDirection, { x: number; y: number }, { x: number; y: number }][] = [
+        ["row-", a, b], ["col+", b, c], ["row+", c, d], ["col-", d, a],
       ];
-      for (const [direction, edge, dx, dy] of sides) {
-        const length = Math.hypot(dx, dy);
-        const ux = dx / length, uy = dy / length;
-        const x = edge.x + ux * (w / 2 + 24);
-        const y = edge.y + uy * (h + 18);
+      for (const [direction, start, end] of sides) {
+        const edge = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+        const tx = end.x - start.x, ty = end.y - start.y;
+        const length = Math.hypot(tx, ty);
+        let ux = ty / length, uy = -tx / length;
+        // Pick the perpendicular that points away from the selection's center.
+        if (ux * (edge.x - center.x) + uy * (edge.y - center.y) < 0) {
+          ux = -ux;
+          uy = -uy;
+        }
+        const x = edge.x + ux * 30;
+        const y = edge.y + uy * 30;
         const px = -uy, py = ux;
         this.tillSelectionHandles.set(direction, { x, y });
         this.tillSelection.circle(x, y, 18).fill({ color: 0x173510, alpha: 0.92 })
-          .stroke({ width: 3, color: 0xffffff, alpha: 0.95 });
+          .stroke({ width: 3, color: 0x8df25a, alpha: 0.95 });
         this.tillSelection.moveTo(x + ux * 10, y + uy * 10)
           .lineTo(x - ux * 7 + px * 8, y - uy * 7 + py * 8)
           .lineTo(x - ux * 7 - px * 8, y - uy * 7 - py * 8)
-          .closePath().fill({ color: 0xffffff });
+          .closePath().fill({ color: 0x8df25a });
       }
     }
     this.tillSelectionLayer.visible = true;

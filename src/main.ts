@@ -1265,6 +1265,7 @@ async function main() {
   let pressPointerType = "mouse";
   let pressPointerId = -1;
   let pressMaxDistance = 0;
+  let touchSelectStartTile: { col: number; row: number } | null = null;
   let zombieLongPressTimer: ReturnType<typeof setTimeout> | null = null;
   let zombieLongPressActivated = false;
   // Plant tiles painted by the current finger gesture. Plowing uses the explicit
@@ -2837,6 +2838,7 @@ async function main() {
     pressPointerType = e.pointerType;
     pressPointerId = e.pointerId;
     pressMaxDistance = 0;
+    touchSelectStartTile = null;
     cancelZombieLongPress();
     zombieLongPressActivated = false;
     pressStart.copyFrom(e.global);
@@ -2878,6 +2880,7 @@ async function main() {
     // plantable soil is selection intent: return to the Multi-tool so pointer-up
     // opens the same left-side Plants/Zombies picker as a desktop click.
     if (touch && hud.mode === "till" && field.canPlant(col, row)) hud.setMode("walk");
+    if (touch && hud.mode === "walk") touchSelectStartTile = { col, row };
     if (touch && hud.mode === "walk") beginZombieLongPress(wx, wy, e.pointerId);
     if (touch && hud.mode === "till") {
       dragging = true;
@@ -3049,15 +3052,22 @@ async function main() {
     const selectTap = hud.mode === "walk" &&
       isSelectTapGesture(pressPointerType, moved, pressMaxDistance);
     if (dragging && (!moved || selectTap)) {
-      const { col, row, wx, wy } = tileAt(e);
+      const released = tileAt(e);
+      // A touch tap targets the plot beneath initial contact. This prevents normal
+      // finger wobble from resolving the release just beyond an isometric edge.
+      const startPlot = touchSelectStartTile
+        ? field.plotOriginAt(touchSelectStartTile.col, touchSelectStartTile.row)
+        : null;
+      const col = startPlot ? touchSelectStartTile!.col : released.col;
+      const row = startPlot ? touchSelectStartTile!.row : released.row;
+      const { wx, wy } = released;
       if (isTouchPointer(pressPointerType)) {
-        // In Select mode, empty tilled soil owns the tap: it must reach the
-        // Plants/Zombies picker below even if a queued/active job still covers
-        // the plot. Other touch targets retain tap-to-cancel behavior.
-        const selectingPlantablePlot = hud.mode === "walk" && field.canPlant(col, row);
+        // Select-mode taps belong to farm content, never the plot-wide queued-job
+        // cancel shortcut. Other tools retain tap-to-cancel behavior.
+        const selectingFarmContent = hud.mode === "walk";
         // Match desktop's queued-action toggle, but only after this is known to be
         // a tap so the first finger of a pinch cannot cancel unrelated work.
-        if (!selectingPlantablePlot && jobs.cancelAtTile(col, row)) {
+        if (!selectingFarmContent && jobs.cancelAtTile(col, row)) {
           dragging = false;
           lastPlot = "";
           return;
@@ -3238,6 +3248,7 @@ async function main() {
     }
     endDrag(e);
     pressPointerId = -1;
+    touchSelectStartTile = null;
     touchGestureTiles.length = 0;
   };
   app.stage.on("pointerup", onPointerUp);
