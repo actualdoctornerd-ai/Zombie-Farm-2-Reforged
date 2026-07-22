@@ -152,6 +152,9 @@ export class Field {
   readonly container = new Container();
   readonly groundLayer = new Container();
   readonly plotLayer = new Container();
+  // Plow selection/queued markers belong with the soil: actors and grown crops
+  // must paint over them just as they do over ordinary plowed ground.
+  readonly plowHighlightLayer = new Container();
   // Seed-stage crops live here — ABOVE the soil but BELOW the entity layer, so a
   // just-seeded plot layers exactly like plain plowed soil (actors always draw over
   // it). Once a crop grows past the seed stage it graduates to the entity layer and
@@ -224,9 +227,11 @@ export class Field {
     // tall sprite (which graduates into entityLayer) — otherwise the top of the
     // harvest highlight gets clipped by the crop. main parents it above entityLayer.
     this.container.addChild(
-      this.groundLayer, this.plotLayer, this.cropSeedLayer, this.cropGroundLayer,
+      this.groundLayer, this.plotLayer, this.plowHighlightLayer,
+      this.cropSeedLayer, this.cropGroundLayer,
       this.groundObjectLayer
     );
+    this.plowHighlightLayer.addChild(this.tillSelectionLayer);
     this.fxLayer.addChild(this.fx.container);
   }
 

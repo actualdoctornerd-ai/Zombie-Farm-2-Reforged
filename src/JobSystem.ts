@@ -129,7 +129,7 @@ export class JobSystem {
 
     if (kind === "till") this.field.reserveTill(oc, or); // hold the area while queued
     const c = this.field.plotCenterOf(oc, or);
-    const diamond = this.makeDiamond(c.x, c.y);
+    const diamond = this.makeDiamond(c.x, c.y, PLOT, kind === "till");
     this.queue.push({ kind, oc, or, cx: c.x, cy: c.y, diamond, bar: null, cfg, pendKey: k });
     this.pending.add(k);
     return true;
@@ -441,7 +441,7 @@ export class JobSystem {
   }
 
   // Green plot diamond marking a queued/working plot (under the farmer).
-  private makeDiamond(cx: number, cy: number, tiles = PLOT): Graphics {
+  private makeDiamond(cx: number, cy: number, tiles = PLOT, plow = false): Graphics {
     const w = tiles * HW;
     const h = tiles * HH;
     const g = new Graphics();
@@ -449,7 +449,7 @@ export class JobSystem {
       .fill({ color: 0x8df25a, alpha: 0.28 })
       .stroke({ width: 3, color: 0x8df25a, alpha: 0.95 });
     g.position.set(cx, cy);
-    this.field.highlightLayer.addChild(g);
+    (plow ? this.field.plowHighlightLayer : this.field.highlightLayer).addChild(g);
     return g;
   }
 

@@ -252,9 +252,8 @@ async function main() {
   // depth-sorts correctly in front of / behind trees.
   world.addChild(field.entityLayer);
 
-  // Job highlight diamonds (queued plow/plant/harvest markers) draw ABOVE the
-  // entity layer so a ripe crop's tall sprite can't clip the top of the harvest
-  // highlight. Kept below fxLayer/night so leaves and dusk still layer over it.
+  // Plant/harvest job diamonds draw above entities so tall ripe crops do not clip
+  // them. Plow markers live beside plotLayer inside Field, under actors/crops.
   world.addChild(field.highlightLayer);
 
   // Fertilize leaf FX draw above crops/actors (below night so they dim at dusk).
@@ -429,9 +428,9 @@ async function main() {
   // N key. Hooks are wired below once the HUD exists.
 
   // Job labels ("Plow/Plant/Harvest" pills) and the plot cursor render above the
-  // field + entities so they're never hidden behind the farmer/zombie.
+  // field + entities so they're never hidden behind the farmer/zombie. The plow
+  // selection itself is parented with the soil inside Field.
   world.addChild(field.labelLayer);
-  world.addChild(field.tillSelectionLayer);
   world.addChild(field.cursor);
 
   // Center camera on the starting tile (pivot = that tile center) and render the

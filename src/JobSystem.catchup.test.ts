@@ -54,6 +54,7 @@ describe("JobSystem elapsed-time catch-up", () => {
     const tilled: string[] = [];
     const field = {
       highlightLayer: new Container(),
+      plowHighlightLayer: new Container(),
       labelLayer: new Container(),
       resolveTill: (col: number, row: number) => ({ valid: true, oc: col, or: row }),
       reserveTill: () => {},
@@ -82,6 +83,8 @@ describe("JobSystem elapsed-time catch-up", () => {
 
     expect(jobs.enqueue("till", 10, 10)).toBe(true);
     expect(jobs.enqueue("till", 20, 20)).toBe(true);
+    expect(field.plowHighlightLayer.children).toHaveLength(2);
+    expect(field.highlightLayer.children).toHaveLength(0);
     jobs.advanceElapsed(3);
 
     expect(tilled).toEqual(["10,10", "20,20"]);
@@ -110,7 +113,7 @@ describe("JobSystem elapsed-time catch-up", () => {
     const walk = new FakeWalk();
     const sounds: string[] = [];
     const field = {
-      highlightLayer: new Container(), labelLayer: new Container(),
+      highlightLayer: new Container(), plowHighlightLayer: new Container(), labelLayer: new Container(),
       resolveTill: (col: number, row: number) => ({ valid: true, oc: col, or: row }),
       reserveTill: () => {}, unreserveTill: () => {},
       plotCenterOf: (col: number, row: number) => ({ x: col, y: row }),
@@ -161,7 +164,7 @@ describe("JobSystem elapsed-time catch-up", () => {
     const walk = new FakeWalk();
     const plantedAt: number[] = [];
     const field = {
-      highlightLayer: new Container(), labelLayer: new Container(),
+      highlightLayer: new Container(), plowHighlightLayer: new Container(), labelLayer: new Container(),
       plotOriginAt: (col: number, row: number) => ({ oc: col, or: row }),
       canPlant: () => true, isRipe: () => false,
       plotCenterOf: (col: number, row: number) => ({ x: col, y: row }),

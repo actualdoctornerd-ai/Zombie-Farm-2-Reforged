@@ -217,7 +217,7 @@ export interface HazardConfig {
  *  See docs/mechanics/RAID_TIMING_AND_HAZARDS.md (Trapeze Artist lifecycle). */
 export interface GrabberConfig {
   sprite: string; // hazard art (e.g. hazard_trapeze_girl.png)
-  hp: number; // trapeze HP (genericStageActor con 10 → 1000)
+  hp: number; // tuned trapeze HP (source-derived value is 1000)
   tapDamage: number; // damage per tap (damageSelf_100 → 100)
   spawnDelayMs: number; // initial wait + respawn cadence (spawnState wait_4)
 }
@@ -234,7 +234,7 @@ export interface GrabberConfig {
  *  replay is the un-harassed ("optimistic") run — see RaidManager.crabOf. */
 export interface CrabConfig {
   sprite: string; // beach_crab.png
-  hp: number; // con 10 x HP_PER_CON = 1000
+  hp: number; // tuned crab HP (source-derived value is 1000)
   tapDamage: number; // hitBoxTouched -> damage:100 (=> exactly 10 taps)
   spawnMs: number; // obstacleSpawnTimer (5 s on raid 7)
   limit: number; // obstacleLimit — concurrent cap, slot returned when one dies

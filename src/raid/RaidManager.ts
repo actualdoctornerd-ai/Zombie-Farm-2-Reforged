@@ -56,6 +56,9 @@ const GRAB_SPRITE: Record<number, string> = {
  *  per-id table, since that field is exactly what the source's obstacle timer spawns. */
 const CRAB_ACTOR = "BeachStageActorCrab";
 const CRAB_SPRITE = "hazard_beach_crab.png";
+// Desktop tapping is slower than the original touch interaction. Seven landed taps is
+// two-thirds of the source-derived 1000 HP while retaining the authored 100 damage/tap.
+const RESCUE_HAZARD_HP = 667;
 
 // ---- HUD-facing view models ----
 
@@ -402,19 +405,19 @@ export class RaidManager {
   }
 
   /** Carried-grab hazard config for raids that field one (the Circus Trapeze Artist).
-   *  Ground truth (Enemies.json Trapeze Artist): HP from genericStageActor (con 10 → 1000),
-   *  100 damage per tap, first sweep after ~4s (spawnState wait_4). Returns null for raids
+   *  Source HP is 1000; tuned to 667 for desktop input, with 100 damage per tap. The first
+   *  sweep starts after ~4s (spawnState wait_4). Returns null for raids
    *  with no trapeze. (The Lawyers cars also `grabZombie` but ship no sprite / different
    *  motion — not wired here.) */
   private grabberOf(raid: RaidDef): GrabberConfig | null {
     const sprite = GRAB_SPRITE[raid.id];
     if (!raid.hasGrab || !sprite) return null;
-    return { sprite, hp: 1000, tapDamage: 100, spawnDelayMs: 4000 };
+    return { sprite, hp: RESCUE_HAZARD_HP, tapDamage: 100, spawnDelayMs: 4000 };
   }
 
   /** Beach crab hazard config, from the raid's own `initialSpawnClass` + obstacle timer.
-   *  Ground truth (`BeachStageActorCrab`): HP 1000 (con 10 x 100), 100 per tap = 10 taps,
-   *  2.0 s hold before it hauls the zombie off, spawn cadence + concurrent cap straight
+   *  Source HP is 1000; tuned to 667 for desktop input (seven 100-damage taps). It holds
+   *  for 2.0 s before hauling the zombie off; spawn cadence + concurrent cap come straight
    *  from `obstacleSpawnSecs` / `obstacleLimit` (5 s / 2 on Summer Break).
    *
    *  DELIBERATELY CLIENT-ONLY. The server verifier (server/src/raidVerifier.ts) builds its
@@ -425,7 +428,7 @@ export class RaidManager {
     if (raid.initialSpawnClass !== CRAB_ACTOR || !raid.obstacleLimit) return null;
     return {
       sprite: CRAB_SPRITE,
-      hp: 1000,
+      hp: RESCUE_HAZARD_HP,
       tapDamage: 100,
       spawnMs: (raid.obstacleSpawnSecs > 0 ? raid.obstacleSpawnSecs : 5) * 1000,
       limit: raid.obstacleLimit,

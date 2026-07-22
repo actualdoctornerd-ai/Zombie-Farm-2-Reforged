@@ -85,11 +85,10 @@ describe("Trapeze Artist grab hazard", () => {
     const enemy = unit({ id: "e", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 3000 });
     const sim = grabSim({ ...GRAB, hp: 100000 }, [player], [enemy]);
     stepUntil(sim, () => sim.activeGrabber() !== null);
-    const g = sim.activeGrabber()!;
     const z = sim.units.find((u) => u.id === "p")!;
 
-    // The old escape point was g.y=-50, where the zombie was still plainly visible.
-    stepUntil(sim, () => g.y <= -50);
+    // Well into the lift, the zombie is still alive; death waits for full clearance.
+    stepUntil(sim, () => z.y <= -50);
     expect(z.alive).toBe(true);
     expect(z.state).toBe("grabbed");
 

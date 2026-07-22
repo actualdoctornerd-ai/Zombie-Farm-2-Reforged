@@ -1502,7 +1502,9 @@ export class RaidScene {
       if (!entry) {
         const root = new Container();
         const body = new Sprite(this.grabTex);
-        body.anchor.set(0.5, 0.12); // pivot near the bar it hangs from
+        // The authored rope begins near (100, 1) in the 358x70 texture. Pivoting there
+        // keeps that point fixed just above the screen while the artist swings beneath it.
+        body.anchor.set(100 / 358, 1 / 70);
         const bar = new Graphics();
         root.addChild(body);
         root.addChild(bar);

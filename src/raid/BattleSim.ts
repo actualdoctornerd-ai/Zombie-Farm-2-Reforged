@@ -158,20 +158,25 @@ const KNOCKBACK_PX = 150; // how far back the zombie is shoved (sim units)
 // it off (changeSpeed_0.5 : setRotationTo_90). The player taps it (touchedAction
 // damageSelf_100, tapDelay 0.25) to whittle its HP; killed → dyingAction dropZombie frees
 // the zombie back into the fight; if it reaches its exit still carrying, that zombie DIES.
-const GRABBER_CROSS_SPEED = 190; // swoop-in speed (sim px/s), left → right
+const GRABBER_SWING_MS = 1800;
+const GRABBER_SWING_START_DEG = 150; // starts down-left of its fixed rope anchor
+const GRABBER_SWING_END_DEG = 90; // finishes directly beneath the anchor
 const GRABBER_RISE_SPEED = 92; // carry-off rise speed (sim px/s), the slow 0.5 speed
 const GRABBER_CARRY_PAUSE_MS = 1000; // changeStateWithDelay_run_1: hold 1s before rising
 const GRABBER_TAP_CD_MS = 250; // tapDelay 0.25 — min gap between registered taps
-// The trapeze crosses above the lane while its victim remains on the ground. Once it
-// turns upward, this separation is retained so the pair rises together.
-const GRABBER_CROSS_Y = BAND_TOP;
-const GRABBER_ZOMBIE_OFFSET_Y = CENTER_Y - GRABBER_CROSS_Y;
+// The rope pivots from just above, and slightly left of, the field centre. The source
+// texture is anchored at the top of its rope by RaidScene, so rotating it reads as a
+// pendulum instead of a sprite sliding across the ground.
+const GRABBER_PIVOT_X = FIELD_W * 0.44;
+const GRABBER_PIVOT_Y = BOSS_STRUCT_Y - 140;
+// Keep the zombie a little below the ground-line offset at pickup. This makes its upper
+// body meet the artist while leaving the zombie itself lower during the upward carry.
+const GRABBER_ZOMBIE_OFFSET_Y = CENTER_Y - GRABBER_PIVOT_Y + 30;
 // mapProjY maps BOSS_STRUCT_Y to the visible perch, not the top edge. A full logical
 // field-height above zero clears even the tallest stage perch, so the zombie stays alive
 // until its whole sprite is off-screen rather than dying after the first small lift.
 const GRABBER_ESCAPE_ZOMBIE_Y = -FIELD_H;
 const GRABBER_SPAWN_MS = 7000; // respawn cadence after one leaves (initial from config)
-const GRABBER_HIT_R = 34; // overlap radius for the swoop to seize a zombie (sim units)
 // ---- Beach crab hazard (BeachStageActorCrab) ----
 // Disassembled: wanders, grabs a zombie on contact, holds 2 s, then carries it off the
 // LEFT edge (source destination x = −100) where the zombie leaves the fight. Tapped to
@@ -1603,14 +1608,18 @@ export class BattleSim {
       if (g.state === "gone") continue;
       if (g.tapCdMs > 0) g.tapCdMs -= dtMs;
       if (g.state === "swoop") {
-        g.x += (GRABBER_CROSS_SPEED * dtMs) / 1000;
-        // Coming from the left, the first deployed zombie it overlaps is the rear-most.
-        // The artist travels overhead, so contact is horizontal: the hanging trapeze
-        // crosses the zombie's lane position even though their logical y values differ.
-        const victim = this.deployed().find(
-          (p) => p.state !== "grabbed" && Math.abs(p.x - g.x) <= GRABBER_HIT_R
-        );
-        if (victim) {
+        g.pauseMs = Math.max(0, g.pauseMs - dtMs);
+        const t = 1 - g.pauseMs / GRABBER_SWING_MS;
+        const eased = t * t * (3 - 2 * t);
+        g.rot = GRABBER_SWING_START_DEG +
+          (GRABBER_SWING_END_DEG - GRABBER_SWING_START_DEG) * eased;
+        if (g.pauseMs <= 0) {
+          // At the bottom of the swing, take the rear-most deployed zombie.
+          const victim = this.deployed().sort((a, b) => a.x - b.x)[0];
+          if (!victim) {
+            g.state = "gone";
+            continue;
+          }
           g.grabbedId = victim.id;
           g.state = "carry";
           g.pauseMs = GRABBER_CARRY_PAUSE_MS;
@@ -1618,8 +1627,6 @@ export class BattleSim {
           victim.windupKey = null;
           victim.windupMs = 0;
           victim.stunMs = 0;
-        } else if (g.x > FIELD_W + 80) {
-          g.state = "gone"; // swept clear across without a catch
         }
       } else if (g.state === "carry") {
         const z = g.grabbedId ? this.players.find((p) => p.id === g.grabbedId) : null;
@@ -1778,17 +1785,17 @@ export class BattleSim {
     const cfg = this.grabberCfg!;
     this.grabbers.push({
       id: `grab${this.grabSeq++}`,
-      x: -80,
-      y: GRABBER_CROSS_Y,
+      x: GRABBER_PIVOT_X,
+      y: GRABBER_PIVOT_Y,
       state: "swoop",
       hp: cfg.hp,
       maxHp: cfg.hp,
       tapDamage: cfg.tapDamage,
       grabbedId: null,
-      pauseMs: 0,
+      pauseMs: GRABBER_SWING_MS,
       tapCdMs: 0,
       sprite: cfg.sprite,
-      rot: 0,
+      rot: GRABBER_SWING_START_DEG,
       struckThisTick: false,
     });
   }
