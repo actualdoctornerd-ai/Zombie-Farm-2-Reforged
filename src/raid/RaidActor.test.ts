@@ -43,4 +43,21 @@ describe("RaidActor mutation rendering", () => {
     actor.poseArms(1, false, false, 0, 0);
     expect(arms.every((arm) => arm.rotation === -2.5)).toBe(true);
   });
+
+  it("raises healing arms forward from rest to overhead, then resets", () => {
+    const actor = new RaidActor(assets(), "test");
+    const arms = (actor as unknown as { arms: { rotation: number }[] }).arms;
+
+    actor.poseArms(0, false, false, 0, 0);
+    expect(arms.every((arm) => arm.rotation === -1.5)).toBe(true);
+
+    actor.poseArms(0, false, false, 0, 0, -1, 0.5);
+    expect(arms.every((arm) => arm.rotation === 0)).toBe(true);
+
+    actor.poseArms(0, false, false, 0, 0, -1, 1);
+    expect(arms.every((arm) => arm.rotation === 1.5)).toBe(true);
+
+    actor.poseArms(0, false, false, 0, 0);
+    expect(arms.every((arm) => arm.rotation === -1.5)).toBe(true);
+  });
 });

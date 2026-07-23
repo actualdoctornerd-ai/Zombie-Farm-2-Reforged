@@ -171,6 +171,7 @@ const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
 // dome behind. Sizes/offsets in unit-px (scaled with the boss token). Eyeballed.
 const ALIEN_BOSS_KEY = "AlienStageActorBoss";
 const CIRCUS_BOSS_KEY = "CircusStageActorBoss";
+const NINJA_BOSS_KEY = "NinjaStageActorBoss";
 const UFO_FRONT_H = 156; // saucer rendered height (unit px)
 const UFO_FRONT_DY = -8; // saucer base ~at the boss's feet, so its legs sit inside
 const UFO_BACK_H = 30; // back dome height
@@ -1112,6 +1113,13 @@ export class RaidScene {
       const groundDrop = UNIT_GROUND_NUDGE * szs;
       const pos = renderPos(u);
       let [sx, sy] = u.isBoss ? bossPos(u, pos.x, pos.y) : [toX(pos.x) + slide, toY(pos.y) + groundDrop];
+      // Mr. Whiskers' authored origin leaves his rig up/back from the intended perch.
+      // Offset from the current position by proportions of the rendered actor itself.
+      if (u.sourceKey === NINJA_BOSS_KEY &&
+          (u.state === "structure" || u.state === "descending") && tok.enemyActor) {
+        sx -= tok.enemyActor.container.width * 0.3 * szs;
+        sy += Math.max(0, -tok.topY) * 0.5 * szs;
+      }
       // Perched/exiting bosses use their structure baseline; after re-entering the
       // lane they stand on the same lowered ground baseline as every other unit.
       if (u.isBoss && u.state !== "structure" && u.state !== "descending") {
@@ -1275,7 +1283,7 @@ export class RaidScene {
         // clock — a full switch per cooldown — kept continuous per hit by atkCount.
         const fighting = this.phase === "fight" && u.state === "fight" && !u.windupKey && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
-        tok.actor.poseArms(Math.max(windup, healRaise), fighting, moving, atkProg, tok.atkCount, slamProg);
+        tok.actor.poseArms(windup, fighting, moving, atkProg, tok.atkCount, slamProg, healRaise);
       }
       // Enemy rig: idle bob when holding position, walk cycle while advancing, and a
       // forward strike lunge while trading blows — the lunge peaks at the attack's
@@ -1290,8 +1298,14 @@ export class RaidScene {
         // sim's 0..1 wind-up onto the attack envelope's active window (past its rest
         // lead-in) so the arm animates over the whole wind-up.
         if (u.isBoss && u.state === "structure") {
-          const sw = this.sim.bossThrowSwing(550, visualLeadMs);
-          attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
+          const summon = this.sim.bossWallSummonProgress();
+          if (summon !== null) {
+            // Slow raise/hold across the full authored (~3 s) wall summon.
+            attack = { atkProg: 0.28 + 0.64 * summon, damageTiming: 0.98 };
+          } else {
+            const sw = this.sim.bossThrowSwing(550, visualLeadMs);
+            attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
+          }
         }
         const jumpingFromPerch = u.state === "descending" && u.sourceKey === CIRCUS_BOSS_KEY;
         tok.enemyActor.update(dtSec, u.alive && simMoving && !jumpingFromPerch, attack);
@@ -1318,7 +1332,9 @@ export class RaidScene {
 
       const frac = Math.max(0, u.hp / u.maxHp);
       tok.hp.clear();
-      if (u.alive && u.state !== "carried") {
+      // Enemy bars remain visible for target readability. Owned-zombie bars stay
+      // out of the way until that zombie has actually taken damage.
+      if (u.alive && u.state !== "carried" && (u.team === "enemy" || frac < 1)) {
         const w = tok.base * 2;
         const fill = u.team === "enemy" ? ENEMY_COLOR : PLAYER_COLOR; // enemies red
         tok.hp

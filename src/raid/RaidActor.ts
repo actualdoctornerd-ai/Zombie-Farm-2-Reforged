@@ -26,6 +26,10 @@ const RAISE_ANGLE = -2.5;
 const ARM_FWD = 0.0;
 // Arms hanging DOWN at the sides — only while WAITING in the back group.
 const ARM_REST = -1.5;
+// Healing is cast from rest, sweeping FORWARD past ARM_FWD and up over the head.
+// The activated-move angle starts from the forward zombie pose and winds backward,
+// which makes a rest-to-heal motion look like the arms kick behind the body.
+const HEAL_OVERHEAD = 1.5;
 // Basic-attack wave: from the forward pose, the arms pump up/down in opposition (one
 // up while the other's down) — a full switch per landed hit. Kept small so they stay
 // reading as "out in front" rather than flailing overhead.
@@ -162,7 +166,8 @@ export class RaidActor {
     walking: boolean,
     atkProg: number,
     atkCount: number,
-    smashSlam = -1
+    smashSlam = -1,
+    healRaise = 0
   ) {
     if (smashSlam >= 0) {
       // Smash SLAM: arms drive from fully overhead (1) back down (0) as the zombie
@@ -171,6 +176,10 @@ export class RaidActor {
       for (const arm of this.arms) arm.rotation = a;
     } else if (windup > 0) {
       const a = Math.max(0, Math.min(1, windup)) * RAISE_ANGLE;
+      for (const arm of this.arms) arm.rotation = a;
+    } else if (healRaise > 0) {
+      const t = Math.max(0, Math.min(1, healRaise));
+      const a = ARM_REST + (HEAL_OVERHEAD - ARM_REST) * t;
       for (const arm of this.arms) arm.rotation = a;
     } else if (attacking && this.arms.length) {
       // Out in front + up/down wave. One full switch = one attack; the parity term

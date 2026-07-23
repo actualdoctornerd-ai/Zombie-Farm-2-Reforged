@@ -200,6 +200,10 @@ const SUMMON_CAP = 3; // most extra minions a boss can summon in one fight
 // Per-tap chip on a boss wall (ground truth ZFFightWall ccTouchEnded → damage: = const/20,
 // const ≈ the wall's HP 1500 → 75). Zombies do the bulk; tapping is an assist.
 const WALL_TAP_DAMAGE = 75;
+// Walls materialize where Garden support normally holds. Zombies that had already
+// crossed that point when the cast began keep fighting ahead; everyone behind it must
+// stop here and break it before continuing.
+const WALL_MELEE_GAP = ENGAGE;
 
 // ---- Environmental obstacle hazards (spawnObstacle:) ----
 const OBSTACLE_SPEED = 190; // obstacle crossing speed (sim px/s), right→left
@@ -303,6 +307,7 @@ export interface SimUnit {
   stunInflictMs: number; // stun this enemy applies to a zombie on hit (ms)
   attackDamageTiming: number; // 0..1 fraction of the swing when it connects (enemy anim)
   isWall: boolean; // boss-summoned blocker (carrotWall / junkWall) — tappable, no attacks
+  passedWall: boolean; // latched when already beyond a newly summoned wall
   /** Carried off the field by a Beach crab: still ALIVE (it comes home after the raid —
    *  source state 38 is not the death path) but out of this fight, so it counts as a
    *  survivor while no longer keeping the battle alive. */
@@ -490,6 +495,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stunInflictMs: isPlayer ? 0 : u.stunMs ?? 0,
     attackDamageTiming: u.attackDamageTiming ?? 0.5,
     isWall: false,
+    passedWall: false,
     taken: false,
   };
 }
@@ -665,6 +671,7 @@ export class BattleSim {
       // An old checkpoint parked at the 1-HP floor has necessarily consumed
       // its protection. New checkpoints persist the explicit latch.
       oneShotProtectionUsed: u.oneShotProtectionUsed ?? (u.team === "player" && u.hp <= 1),
+      passedWall: u.passedWall ?? false,
     })));
     this.players = this.units.filter((u) => u.team === "player");
     this.enemies = this.units.filter((u) => u.team === "enemy");
@@ -836,6 +843,11 @@ export class BattleSim {
     );
     for (const healer of deployed) {
       if (!this.isHealer(healer)) continue;
+      // A lane blocker takes priority over Garden support work.
+      if (this.wallInWay(healer)) {
+        healer.healTimerMs = Math.max(healer.healTimerMs, 250);
+        continue;
+      }
       healer.healTimerMs -= dtMs;
       if (healer.healTimerMs > 0) continue;
 
@@ -862,11 +874,13 @@ export class BattleSim {
 
   /** Nearest enemy a zombie can reach (on the ground, not queued/perched). */
   private targetEnemy(u: SimUnit): SimUnit | null {
+    const wall = this.wallInWay(u);
+    if (wall) return wall;
     let best: SimUnit | null = null;
     let bestD = Infinity;
     for (const e of this.enemies) {
       if (!e.alive || e.state === "queued" || e.state === "structure" || e.state === "descending" ||
-          e.state === "falling" || e.state === "landing") continue;
+          e.state === "falling" || e.state === "landing" || e.isWall) continue;
       const d = Math.abs(e.x - u.x);
       if (d < bestD) {
         bestD = d;
@@ -874,6 +888,13 @@ export class BattleSim {
       }
     }
     return best;
+  }
+
+  /** A stationary wall ahead of this zombie. The latch keeps zombies which were
+   *  already beyond the summon point from turning around to attack it. */
+  private wallInWay(u: SimUnit): SimUnit | null {
+    if (u.passedWall) return null;
+    return this.enemies.find((e) => e.alive && e.isWall && u.x <= e.x + 0.5) ?? null;
   }
 
   /** The FRONT-MOST player within an enemy's striking range — the single zombie
@@ -1100,16 +1121,18 @@ export class BattleSim {
     if (this.emergeCooldown > 0) return;
 
     const activeMelee = this.enemies.filter(
-      (e) => e.alive && !e.isBoss && e.state !== "queued"
+      (e) => e.alive && !e.isBoss && !e.isWall && e.state !== "queued"
     ).length;
-    const normalsLeft = this.enemies.some((e) => !e.isBoss && e.alive);
+    const normalsLeft = this.enemies.some((e) => !e.isBoss && !e.isWall && e.alive);
+    const blockersLeft = this.enemies.some((e) => e.isWall && e.alive);
 
     if (activeMelee < MAX_ACTIVE_ENEMIES) {
       const next = this.enemies.find((e) => e.alive && !e.isBoss && e.state === "queued");
       if (next) next.state = "emerging";
     }
 
-    if (this.boss && this.boss.alive && this.boss.state === "structure" && !normalsLeft && activeMelee === 0) {
+    if (this.boss && this.boss.alive && this.boss.state === "structure" &&
+        !normalsLeft && !blockersLeft && activeMelee === 0) {
       this.boss.state = "descending"; // climb down, exit out the back, then re-enter
     }
   }
@@ -1167,8 +1190,11 @@ export class BattleSim {
     this.promote(dtMs);
     this.stepEnrage(dtMs);
 
-    // Boss throwing (only while perched and minions remain to cover for it).
-    if (this.bossThrow && this.boss && this.boss.alive && this.boss.state === "structure") {
+    // Let a wall cast claim the boss before processing throws. Its authored cast
+    // pauses the throw clock; tossing resumes from the same point after summoning.
+    this.stepBossSpecials(dtMs);
+    if (this.bossThrow && this.boss && this.boss.alive && this.boss.state === "structure" &&
+        !this.isCastingWall()) {
       this.throwTimer -= dtMs;
       if (this.throwTimer <= 0) {
         const target = this.throwTarget();
@@ -1180,7 +1206,6 @@ export class BattleSim {
         }
       }
     }
-    this.stepBossSpecials(dtMs);
     this.stepObstacles(dtMs);
     this.stepGrabbers(dtMs);
     this.stepCrabs(dtMs);
@@ -1251,7 +1276,11 @@ export class BattleSim {
             break;
           }
           // Move to the assigned formation slot (never past the enemy).
-          const mdx = p.slotX - p.x;
+          const blockingWall = this.wallInWay(p);
+          const destinationX = blockingWall
+            ? Math.min(p.slotX, blockingWall.x - WALL_MELEE_GAP)
+            : p.slotX;
+          const mdx = destinationX - p.x;
           const mdy = p.slotY - p.y;
           const md = Math.hypot(mdx, mdy);
           const stepd = (p.moveSpeed * (p.buddyId ? 2 : 1) * dtMs) / 1000;
@@ -1259,7 +1288,7 @@ export class BattleSim {
             p.x += (mdx / md) * stepd;
             p.y += (mdy / md) * stepd;
           } else {
-            p.x = p.slotX;
+            p.x = destinationX;
             p.y = p.slotY;
           }
           // The formation is only for spacing / projectile hitboxes — EVERY zombie
@@ -1269,9 +1298,11 @@ export class BattleSim {
           const foe = this.targetEnemy(p);
           const enemyArrived = !!foe && (foe.state === "hold" || foe.state === "fight");
           const inCombatZone = p.x >= frontX - MAX_ROWS * COL_GAP - 12;
-          const atSlot = Math.hypot(p.slotX - p.x, p.slotY - p.y) <= 2;
+          const atSlot = Math.hypot(destinationX - p.x, p.slotY - p.y) <= 2;
           if (p.buddyId && enemyArrived && atSlot) this.deployMiniBuddy(p, foe);
-          if (foe && enemyArrived && inCombatZone) {
+          const atBlockingWall = !!blockingWall &&
+            Math.abs(blockingWall.x - p.x) <= WALL_MELEE_GAP + 2;
+          if (foe && enemyArrived && (inCombatZone || atBlockingWall)) {
             p.state = "fight";
             // A charging zombie makes no normal attacks — it's winding up the big
             // hit; deliver the payoff when the wind-up fills. Otherwise attack.
@@ -1288,6 +1319,11 @@ export class BattleSim {
     // Enemies (emerge / boss descends, then stand and strike; never move otherwise).
     for (const e of this.enemies) {
       if (!e.alive || e.state === "queued" || e.state === "structure") continue;
+      if (e.isWall) {
+        e.state = "hold";
+        e.timerMs = e.cooldownMs;
+        continue;
+      }
       if (e.state === "falling") {
         e.y = Math.min(CENTER_Y, e.y + (EPIC_BOSS_FALL_SPEED * dtMs) / 1000);
         e.timerMs = e.cooldownMs;
@@ -1400,10 +1436,23 @@ export class BattleSim {
     if (!this.bossThrow || !this.boss || !this.boss.alive || this.boss.state !== "structure") {
       return null;
     }
+    if (this.isCastingWall()) return null;
     if (!this.throwTarget()) return null; // empty lane → arm rests
     const visualTimer = Math.max(0, this.throwTimer - visualLeadMs);
     if (visualTimer > windowMs) return 0;
     return clamp(1 - visualTimer / windowMs, 0, 1);
+  }
+
+  private isCastingWall(): boolean {
+    return this.pendingSpecial?.name === "wall";
+  }
+
+  /** Progress of the wall-summoning pose. This replaces the normal throw swing
+   *  throughout the wall action's authored cast time. */
+  bossWallSummonProgress(): number | null {
+    const sp = this.pendingSpecial;
+    if (!sp || sp.name !== "wall") return null;
+    return clamp(1 - this.specialCast / Math.max(1, sp.castMs), 0, 1);
   }
 
   /** Whether the boss is "active" (able to throw / cast specials): alive and either
@@ -1508,10 +1557,21 @@ export class BattleSim {
         break;
       }
       case "wall": {
-        // A high-HP blocker in the lane — spawn one only if none is standing. Tappable.
+        // Materialize at the Garden support line. It never walks or attacks.
         const wt = this.wallTemplate;
         if (wt && !this.enemies.some((e) => e.alive && e.sourceKey === wt.sourceKey)) {
-          this.spawnEnemy(wt).isWall = true;
+          const wall = this.spawnEnemy(wt);
+          wall.isWall = true;
+          wall.state = "hold";
+          wall.x = this.supportX;
+          wall.y = CENTER_Y;
+          wall.prevX = wall.x;
+          wall.prevY = wall.y;
+          wall.vx = 0;
+          wall.vy = 0;
+          for (const p of this.players) {
+            if (p.alive && p.x > wall.x + 0.5) p.passedWall = true;
+          }
         }
         break;
       }
