@@ -721,9 +721,6 @@
   transition: transform .32s cubic-bezier(.2,1.5,.4,1), opacity .32s ease; }
 #hud .lvlup.in .lvl-burst { transform: scale(1); opacity: 1; }
 #hud .lvl-num { font-size: 19px; font-weight: 800; color: #eafff0; margin-top: -2px; }
-#hud .lvl-reward { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800;
-  color: #ff9db0; }
-#hud .lvl-reward img { width: 22px; height: 22px; }
 #hud .lvl-sub { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
   color: #b6f36a; margin-top: 4px; opacity: .95; }
 #hud .lvl-unlocks { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;

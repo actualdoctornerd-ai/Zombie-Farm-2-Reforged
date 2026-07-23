@@ -113,8 +113,7 @@ export class GameState {
     this.brains = brains;
     this.xp = xp;
     const after = this.level;
-    // The server has already granted level-up brains and updated authoritative state;
-    // reconciliation only needs to restore the missed presentation notification.
+    // Reconciliation still needs to restore a missed level-up presentation notification.
     if (after > before) this.onLevelUpCb?.(before, after);
     this.emit();
   }

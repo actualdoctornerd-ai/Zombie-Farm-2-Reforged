@@ -16,10 +16,6 @@ export function renderLevelUp(host: HTMLElement, view: LevelUpView): void {
     closeButton: false, replaceSelector: ".lvl-bg",
   });
 
-  const brainRow = view.brains
-    ? `<div class="lvl-reward"><img src="${UI("topbar_brain_icon.png")}"> +${view.brains} ` +
-      `${view.brains === 1 ? "brain" : "brains"}</div>`
-    : "";
   const unlockHtml = view.unlocks.length
     ? `<div class="lvl-sub">Unlocked</div><div class="lvl-unlocks">${view.unlocks
         .map(
@@ -34,7 +30,6 @@ export function renderLevelUp(host: HTMLElement, view: LevelUpView): void {
   panel.innerHTML =
     `<div class="lvl-burst">LEVEL UP!</div>` +
     `<div class="lvl-num">You reached level ${view.level}</div>` +
-    brainRow +
     unlockHtml;
 
   const done = document.createElement("button");

@@ -96,7 +96,6 @@ export interface LevelUpUnlock {
 }
 export interface LevelUpView {
   level: number; // the new level reached
-  brains: number; // brains granted by the level-up(s)
   unlocks: LevelUpUnlock[];
 }
 

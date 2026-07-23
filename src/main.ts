@@ -226,7 +226,7 @@ async function main() {
       if (b.level > from && b.level <= to)
         unlocks.push({ icon: `${BASE}assets/boosts/${b.icon}`, name: b.name, kind: "Boost" });
     }
-    hud.openLevelUp({ level: to, brains: to - from, unlocks });
+    hud.openLevelUp({ level: to, unlocks });
     audio.play("levelUp");
   };
 
