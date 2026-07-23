@@ -4,7 +4,7 @@
 //   plowed -> planted -> (grows) -> harvest -> dirt (crop) / hole (zombie) -> re-till.
 import { Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import {
-  DIRT_FILE, GameAssets, HOLE_FILE, PlaceableDef, PLOWED_FILE, SEED_FILE,
+  DIRT_FILE, GameAssets, HOLE_FILE, multiplyObjectTint, objectTint, PlaceableDef, PLOWED_FILE, SEED_FILE,
 } from "./assets";
 import { clampPointToGrid, footprintOrigin, gridToScreen, HH, HW, screenToGrid, TILE_H, TILE_W, tileCenter } from "./iso";
 import { setFootprint, sortLayer } from "./depthSort";
@@ -901,6 +901,7 @@ export class Field {
   ) {
     const name = this.objectSpriteName(def, ready);
     const texture = this.assets.objects[name] ?? this.assets.objects[def.sprite] ?? Texture.EMPTY;
+    const tint = objectTint(def.color);
     sp.anchor.set(0.5, 1);
     const s = this.objectScale();
     // Flip = mirror horizontally (about the sprite's bottom-center anchor), so the
@@ -932,6 +933,7 @@ export class Field {
         sprite.texture = cropped;
         sprite.anchor.set(0.5, 0);
         sprite.scale.set(scaleX, s);
+        sprite.tint = tint;
         sprite.position.set(a.x + (flipped ? -center : center) * s, a.y - f.height * s + y * s);
       };
       layoutCrop(sp, rearLeftTexture, 0, 0);
@@ -967,6 +969,7 @@ export class Field {
       return;
     }
     sp.texture = texture;
+    sp.tint = tint;
     sp.scale.set(scaleX, s);
     sp.position.set(a.x, a.y);
     // Depth-sorts by the object's full footprint (see depthSort): an actor on the
@@ -1466,7 +1469,10 @@ export class Field {
     const a = this.footprintAnchor(oc, or, def.tileW, def.tileH);
     this.objGhost.position.set(a.x, a.y);
     this.objGhost.alpha = 0.6;
-    this.objGhost.tint = valid ? 0x9cffa0 : 0xff8a8a;
+    this.objGhost.tint = multiplyObjectTint(
+      objectTint(def.color),
+      valid ? 0x9cffa0 : 0xff8a8a,
+    );
     this.objGhost.visible = true;
     this.cursor.visible = true;
     return { oc, or, valid };

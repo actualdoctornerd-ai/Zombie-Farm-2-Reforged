@@ -72,7 +72,30 @@ interface MktEntry {
   owned?: boolean;
   equipped?: boolean;
   description?: string; // "what does it do" blurb shown by the card's magnifier
+  tint?: [number, number, number]; // multiplicative object tint from Market data
   onPick: () => void;
+}
+
+/** Apply cocos2d/Pixi-style multiplicative RGB tinting to a DOM image. */
+function tintMarketPortrait(img: HTMLImageElement, color?: [number, number, number]) {
+  if (!color || color.every((channel) => channel === 255)) return;
+  const apply = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !canvas.width || !canvas.height) return;
+    ctx.drawImage(img, 0, 0);
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = `rgb(${color[0]} ${color[1]} ${color[2]})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Multiplication paints transparent pixels too; restore the source alpha.
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(img, 0, 0);
+    img.src = canvas.toDataURL();
+  };
+  if (img.complete) apply();
+  else img.addEventListener("load", apply, { once: true });
 }
 
 /** Player-facing "what does it do" blurb for a functional Market item, shown when the
@@ -1340,7 +1363,7 @@ export class Hud {
             name: c.name, portrait: c.portrait,
             cost: potPriced ? 3 : c.cost, level: c.level,
             brains: potPriced ? true : c.brainsNeeded,
-            description: functionalDescription(c.def),
+            description: functionalDescription(c.def), tint: c.def.color,
             onPick: () => { if (this.onBuy) this.onBuy(c.def); bg.remove(); },
           };
         });
@@ -1723,6 +1746,7 @@ export class Hud {
     img.loading = "lazy"; // only fetch portraits as cards scroll into view
     img.decoding = "async";
     img.src = en.portrait;
+    tintMarketPortrait(img, en.tint);
     body.appendChild(img);
     if (en.sell !== undefined) {
       const s = document.createElement("div");

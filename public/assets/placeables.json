@@ -3988,6 +3988,11 @@
   "level": 0,
   "xp": 800,
   "brainsNeeded": true,
+  "color": [
+   183,
+   255,
+   183
+  ],
   "tileW": 2,
   "tileH": 2,
   "movable": true,
@@ -4034,6 +4039,11 @@
   "level": 0,
   "xp": 1000,
   "brainsNeeded": true,
+  "color": [
+   255,
+   255,
+   255
+  ],
   "tileW": 2,
   "tileH": 2,
   "movable": true,
@@ -4057,6 +4067,11 @@
   "level": 0,
   "xp": 1000,
   "brainsNeeded": true,
+  "color": [
+   153,
+   153,
+   255
+  ],
   "tileW": 2,
   "tileH": 2,
   "movable": true,
@@ -4080,6 +4095,11 @@
   "level": 0,
   "xp": 1000,
   "brainsNeeded": true,
+  "color": [
+   255,
+   255,
+   100
+  ],
   "tileW": 2,
   "tileH": 2,
   "movable": true,
@@ -4356,6 +4376,11 @@
   "level": 25,
   "xp": 6000,
   "brainsNeeded": true,
+  "color": [
+   169,
+   100,
+   54
+  ],
   "tileW": 2,
   "tileH": 2,
   "movable": true,

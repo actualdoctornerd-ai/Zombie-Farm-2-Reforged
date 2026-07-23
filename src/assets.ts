@@ -234,6 +234,8 @@ export interface PlaceableDef {
   level: number; // player level required to unlock
   xp: number; // xp granted on purchase/placement
   brainsNeeded?: boolean;
+  /** Original Market RGB, applied multiplicatively to the object sprite. */
+  color?: [number, number, number];
   tileW: number; // footprint width in tiles
   tileH: number; // footprint height in tiles
   // Movement collision can be WIDER than the placement footprint. A fence occupies a
@@ -267,6 +269,20 @@ export interface PlaceableDef {
   growMs?: number;
   harvestValue?: number;
   growingSprite?: string;
+}
+
+/** Convert an authored RGB triplet to the packed tint format used by Pixi. */
+export function objectTint(color?: [number, number, number]): number {
+  if (!color) return 0xffffff;
+  const [r, g, b] = color.map((channel) => Math.max(0, Math.min(255, Math.round(channel))));
+  return (r << 16) | (g << 8) | b;
+}
+
+/** Multiply two packed RGB tints channel-by-channel, matching sprite tinting. */
+export function multiplyObjectTint(a: number, b: number): number {
+  const channel = (shift: number) =>
+    Math.round(((a >> shift) & 0xff) * ((b >> shift) & 0xff) / 255);
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0);
 }
 
 /** Maximum simultaneously-owned copies of a Market placeable. Functional items

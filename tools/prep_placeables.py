@@ -321,6 +321,12 @@ def main():
             "level": e.get("level", 1),
             "xp": e.get("xp", 0),
             "brainsNeeded": bool(e.get("brainsNeeded", False)),
+            # The original game passes this Market RGB through
+            # placeNewObjectTileWithKey:andFilename:andColor: and applies it as a
+            # multiplicative cocos2d sprite tint. Functional monoliths deliberately
+            # share tex1009.png and get their distinct appearance from this value.
+            **({"color": e["color"]}
+               if e.get("monolith") and len(e.get("color", [])) == 3 else {}),
             # Whole tiles only: the game reads these via integerValue (truncates),
             # so coerce any fractional footprint (e.g. coolerLarge 1.5) to an int.
             "tileW": max(1, int(tp.get("tileWidth", 1))),
