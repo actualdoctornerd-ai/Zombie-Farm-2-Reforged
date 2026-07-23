@@ -14,6 +14,7 @@
   var LINES = ["Gathering Zombies…", "Zombies Taking a Bath…",
     "Zombies Getting Dressed…", "Zombies Marching…", "Zombies Going to Work…"];
   var li = 0, cur = 0, tgt = 0.12, phase = "load", auto = true;
+  var onDismiss = null;
 
   // Cycle the status line while loading.
   var cycle = setInterval(function () {
@@ -46,6 +47,11 @@
     if (phase !== "ready") return;
     phase = "done";
     boot.classList.add("hidden");
+    if (onDismiss) {
+      var callback = onDismiss;
+      onDismiss = null;
+      callback();
+    }
     setTimeout(function () { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 650);
   }
   boot.addEventListener("click", dismiss);
@@ -54,7 +60,8 @@
     // Report a real load milestone (0..1); stops the auto-creep.
     progress: function (p) { auto = false; clearInterval(creep); if (p > tgt) tgt = p; },
     // Boot finished building the game: fill to 100%, then flip to "Click to Start".
-    ready: function () { auto = false; clearInterval(creep); tgt = 1;
+    ready: function (callback) { onDismiss = typeof callback === "function" ? callback : null;
+      auto = false; clearInterval(creep); tgt = 1;
       if (phase === "load") phase = "readywait"; },
     // Bail out (fatal error): tear the overlay down so the error is visible.
     fail: function () { clearInterval(cycle); clearInterval(creep);

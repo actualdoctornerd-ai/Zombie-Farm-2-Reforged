@@ -33,9 +33,24 @@ const HEAL_OVERHEAD = 1.5;
 // Basic-attack wave: from the forward pose, the arms pump up/down in opposition (one
 // up while the other's down) — a full switch per landed hit. Kept small so they stay
 // reading as "out in front" rather than flailing overhead.
-const ARM_WAVE = 0.34;
 // A faint alternating sway on the forward arms while walking, so they're not stiff.
 const ARM_WALK_SWAY = 0.09;
+// Focus pose: eyes narrow vertically while the gold deployment bar advances.
+// Ease rather than snapping so distraction/refocus transitions remain organic.
+const FOCUS_EYE_SCALE_Y = 0.76;
+const FOCUS_EYE_EASE = 14;
+// Recovered ZFAttackAnims/ZFAnims timelines. ZombieBite (anim 8) moves the
+// head, jaw, eyes and both arms; ZombieScratch (anim 9) uses an asymmetric
+// arm flail plus a head thrust.
+const BITE_DAMAGE_TIMING = 0.75;
+const SCRATCH_DAMAGE_TIMING = 0.5;
+const BITE_HEAD_X = -8;
+const BITE_HEAD_Y = -6;
+const BITE_JAW_X = -3;
+const BITE_JAW_Y = 6; // source Y-up -6 converted to Pixi Y-down
+const BITE_ARM_ANGLE = -120 * Math.PI / 180;
+const SCRATCH_HEAD_X = -8;
+const SCRATCH_HEAD_Y = 1;
 // ---- death: the head POPS OFF and tumbles backward ----
 // On death the head detaches and launches up-and-back (away from the enemy), falling
 // under gravity while it spins. Worked in the rig's LOCAL space (a POSITIVE x is always
@@ -55,6 +70,8 @@ export class RaidActor {
   // engine draw order); the head-nod tilts each around the neck point (see ZombieUnit).
   private neck = { x: 0, y: 0 };
   private headParts: { sp: Sprite; bx: number; by: number }[] = [];
+  private eyes: { sp: Sprite; baseScaleY: number }[] = [];
+  private jaws: Sprite[] = [];
   private footF!: Sprite;
   private footB!: Sprite;
   private footFBaseY = 0;
@@ -104,6 +121,10 @@ export class RaidActor {
       this.root.addChild(sp);
       if (p.group === "head") {
         this.headParts.push({ sp, bx: p.px, by: p.py });
+        if (/Eye[LR](?:\.png)?$/i.test(p.file)) {
+          this.eyes.push({ sp, baseScaleY: sp.scale.y });
+        }
+        if (/Jaw(?:Feature)?(?:\.png)?$/i.test(p.file)) this.jaws.push(sp);
       } else if (p.group === "footF") { this.footF = sp; this.footFBaseY = p.py; }
       else if (p.group === "footB") { this.footB = sp; this.footBBaseY = p.py; }
       // Arms live in the "root" group; grab them by filename for the wind-up.
@@ -144,30 +165,18 @@ export class RaidActor {
     else if (dx < -0.01) this.facing = 1;
   }
 
-  /** Pose the arms each frame. Priority: an activated-move WIND-UP (both arms swing
-   *  overhead, two-handed) > a basic ATTACK (arms held out in front, pumping up/down
-   *  in OPPOSITION — one up while the other is down, a full switch per landed hit) >
-   *  WALKING (arms straight out in front, a faint sway) > WAITING (arms at the sides).
-   *  So arms are FORWARD whenever the zombie is moving or fighting, and only drop to
-   *  the sides while it stands idle in the back group.
-   *
-   *  windup:    0..1 activated-charge progress (0 = none).
-   *  attacking: is this zombie trading basic blows right now.
-   *  walking:   is this zombie advancing/marching (arms out, like the attack pose).
-   *  atkProg:   0..1 through the current attack cooldown (0 = just hit).
-   *  atkCount:  hits landed so far — its parity flips the wave each attack so the
-   *             reach stays continuous when atkProg snaps 1→0 on the landed hit.
-   *
-   *  TODO(bite): a SECOND basic-attack variant — a head-lunge BITE (the zombie
-   *  darts its head/upper body forward to chomp) — is noted for a later pass. */
+/** Pose combat and movement each frame. Priority is activated-move wind-up,
+   *  attack, walking, then idle. Bite and scratch follow the recovered source
+   *  timelines, rotated so their contact frames line up with simulated damage. */
   poseArms(
     windup: number,
     attacking: boolean,
     walking: boolean,
     atkProg: number,
-    atkCount: number,
+    _atkCount: number,
     smashSlam = -1,
-    healRaise = 0
+    healRaise = 0,
+    attackName = ""
   ) {
     if (smashSlam >= 0) {
       // Smash SLAM: arms drive from fully overhead (1) back down (0) as the zombie
@@ -182,15 +191,8 @@ export class RaidActor {
       const a = ARM_REST + (HEAL_OVERHEAD - ARM_REST) * t;
       for (const arm of this.arms) arm.rotation = a;
     } else if (attacking && this.arms.length) {
-      // Out in front + up/down wave. One full switch = one attack; the parity term
-      // keeps the wave continuous across the cooldown reset (atkProg 1→0 + a π step
-      // cancel out).
-      const phase = atkProg * Math.PI + (atkCount % 2 ? Math.PI : 0);
-      const c = Math.cos(phase);
-      this.arms.forEach((arm, i) => {
-        const dir = i % 2 === 0 ? 1 : -1; // alternate arms: one up while the other's down
-        arm.rotation = ARM_FWD + dir * c * ARM_WAVE;
-      });
+      if (/scratch/i.test(attackName)) this.poseScratch(atkProg);
+      else this.poseBite(atkProg);
     } else if (walking && this.arms.length) {
       // Straight out in front (like the attack base) with a faint alternating sway.
       const s = Math.sin(this.stepPhase);
@@ -203,6 +205,77 @@ export class RaidActor {
     }
   }
 
+  /** Rotate a cooldown phase so source-time `damageTiming` occurs at the sim hit.
+   *  After a hit the source animation finishes recovery, returns to neutral, then
+   *  begins the next wind-up without a visible discontinuity. */
+  private sourceAttackProgress(atkProg: number, damageTiming: number): number {
+    const recovery = 1 - damageTiming;
+    return atkProg <= recovery ? damageTiming + atkProg : atkProg - recovery;
+  }
+
+  private poseBite(atkProg: number) {
+    const t = this.sourceAttackProgress(atkProg, BITE_DAMAGE_TIMING);
+    // ZFAnims headBite: 0.13 move, 0.25 hold, 0.62 return.
+    const head = t < 0.13 ? smooth(t / 0.13)
+      : t < 0.38 ? 1
+      : 1 - smooth((t - 0.38) / 0.62);
+    for (const part of this.headParts) {
+      part.sp.x += BITE_HEAD_X * head;
+      part.sp.y += BITE_HEAD_Y * head;
+    }
+
+    // jawBite: open over 0.37 then snap mostly shut over 0.06.
+    const jaw = t < 0.37 ? smooth(t / 0.37)
+      : t < 0.43 ? 1 - smooth((t - 0.37) / 0.06)
+      : 0;
+    for (const part of this.jaws) {
+      part.x += BITE_JAW_X * jaw;
+      part.y += BITE_JAW_Y * jaw;
+    }
+
+    // eyeBiteSquint reaches 75% height during the bite and releases quickly.
+    const squint = t < 0.43 ? smooth(Math.min(1, t / 0.12))
+      : t < 0.49 ? 1 - smooth((t - 0.43) / 0.06)
+      : 0;
+    for (const eye of this.eyes) {
+      eye.sp.scale.y = eye.baseScaleY * (1 - 0.25 * squint);
+    }
+
+    // armBite: -90 degrees in 0.12, -120 in 0.06, hold, then recover.
+    const arm = t < 0.12 ? smooth(t / 0.12) * 0.75
+      : t < 0.18 ? 0.75 + smooth((t - 0.12) / 0.06) * 0.25
+      : t < 0.36 ? 1
+      : t < 0.79 ? 1 - smooth((t - 0.36) / 0.43)
+      : 0;
+    for (const part of this.arms) part.rotation = BITE_ARM_ANGLE * arm;
+  }
+
+  private poseScratch(atkProg: number) {
+    const t = this.sourceAttackProgress(atkProg, SCRATCH_DAMAGE_TIMING);
+    // headFlail: 0.5 toward the target, 0.5 back. Its midpoint is the hit.
+    const thrust = Math.sin(Math.PI * t);
+    for (const part of this.headParts) {
+      part.sp.x += SCRATCH_HEAD_X * thrust;
+      part.sp.y += SCRATCH_HEAD_Y * thrust;
+    }
+
+    // eyeFlailSquint: 0.125 squeeze, 0.5 hold, 0.125 release.
+    const squint = t < 0.125 ? smooth(t / 0.125)
+      : t < 0.625 ? 1
+      : t < 0.75 ? 1 - smooth((t - 0.625) / 0.125)
+      : 0;
+    for (const eye of this.eyes) {
+      eye.sp.scale.y = eye.baseScaleY * (1 - 0.25 * squint);
+    }
+
+    // armFlailFront/Back are distinct binary helpers: the front claw cuts down
+    // hard while the back arm counterbalances with a smaller opposite sweep.
+    const slash = Math.sin(Math.PI * t);
+    this.arms.forEach((arm, i) => {
+      arm.rotation = i % 2 === 0 ? 0.92 * slash : -0.42 * slash;
+    });
+  }
+
   /** Mark this zombie dead — begins the head-pop on the next update. Idempotent. */
   markDead() {
     if (this.deathT < 0) {
@@ -211,7 +284,7 @@ export class RaidActor {
     }
   }
 
-  update(dt: number, moving: boolean) {
+  update(dt: number, moving: boolean, focusing = false) {
     // Dead: pop the head off and let it tumble backward (skip the normal idle/walk).
     if (this.deathT >= 0) {
       this.deathT += dt;
@@ -232,6 +305,11 @@ export class RaidActor {
     }
 
     this.specialHeadFx?.update(dt);
+    const eyeEase = Math.min(1, dt * FOCUS_EYE_EASE);
+    const eyeTarget = focusing ? FOCUS_EYE_SCALE_Y : 1;
+    for (const eye of this.eyes) {
+      eye.sp.scale.y += (eye.baseScaleY * eyeTarget - eye.sp.scale.y) * eyeEase;
+    }
     // Head tilt (rocks back/forth; faster while moving).
     const period = moving ? TILT_PERIOD_MOVE : TILT_PERIOD_IDLE;
     const amp = moving ? TILT_AMP_MOVE : TILT_AMP_IDLE;
@@ -265,4 +343,9 @@ export class RaidActor {
     }
     this.root.scale.set(this.renderScale * this.facing, this.renderScale);
   }
+}
+
+function smooth(t: number): number {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
 }

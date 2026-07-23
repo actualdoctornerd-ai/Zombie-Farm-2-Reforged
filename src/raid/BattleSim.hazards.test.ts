@@ -35,6 +35,21 @@ function stepUntil(sim: BattleSim, pred: () => boolean, maxMs = 12000): number {
 const GRAB: GrabberConfig = { sprite: "t.png", hp: 200, tapDamage: 100, spawnDelayMs: 100 };
 
 describe("Trapeze Artist grab hazard", () => {
+  it("uses the authored 0-to-180-degree incoming rotation", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 3000 });
+    const sim = grabSim(GRAB, [player], [enemy]);
+
+    stepUntil(sim, () => sim.grabbers.length > 0);
+    const g = sim.grabbers[0];
+    expect(g.state).toBe("swoop");
+    expect(g.rot).toBeLessThan(10);
+    sim.step(750);
+    expect(g.state).toBe("swoop");
+    expect(g.rot).toBeGreaterThan(60);
+    expect(g.rot).toBeLessThan(120);
+  });
+
   it("sweeps in and seizes a deployed zombie (it goes inactive)", () => {
     const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
     const enemy = unit({ id: "e", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 3000 });

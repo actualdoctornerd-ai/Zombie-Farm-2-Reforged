@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { call, grantRoster, signIn, uniqueSub } from "./helpers";
+import { call, grantBalance, grantRoster, signIn, uniqueSub, xpForLevel } from "./helpers";
 
 const bootstrap = async (session: Awaited<ReturnType<typeof signIn>>) => {
   const result = await call<any>("POST", "/bootstrap", session.token, {});
@@ -76,6 +76,98 @@ describe("Black Market", () => {
 
     expect(created.status, JSON.stringify(created.body)).toBe(200);
     expect(created.body.order).toMatchObject({ kind: "SELL_ZOMBIE", zombieKey: "ZombieActorZomBetty" });
+  });
+
+  it("requires level 20 before requesting or purchasing a special zombie", async () => {
+    const seller = await signIn(uniqueSub("market-special-level-seller"));
+    const buyer = await signIn(uniqueSub("market-special-level-buyer"));
+    const unitId = `market-special-level-${crypto.randomUUID()}`;
+    await grantRoster(seller, [{ id: unitId, key: "ZombieActorZomBetty" }]);
+
+    const buyerBefore = await bootstrap(buyer);
+    const requestLocked = await call("POST", "/black-market/orders", buyer.token, {
+      operationId: operation("special-level-request"),
+      expectedAccountVersion: buyerBefore.accountVersion,
+      kind: "BUY_ZOMBIE", zombieKey: "ZombieActorZomBetty", mutated: false, priceBrains: 1,
+    });
+    expect(requestLocked).toMatchObject({
+      status: 403,
+      body: { error: "black_market_level_locked" },
+    });
+
+    const sellerBefore = await bootstrap(seller);
+    const created = await call<any>("POST", "/black-market/orders", seller.token, {
+      operationId: operation("special-level-sale"),
+      expectedAccountVersion: sellerBefore.accountVersion,
+      kind: "SELL_ZOMBIE", unitId, priceBrains: 1,
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+
+    const locked = await call("POST", `/black-market/orders/${created.body.order.id}/fulfill`, buyer.token, {
+      operationId: operation("special-level-locked"),
+      expectedAccountVersion: buyerBefore.accountVersion,
+    });
+    expect(locked).toMatchObject({ status: 403, body: { error: "black_market_level_locked" } });
+
+    await grantBalance(buyer, { xp: xpForLevel(20) });
+    const buyerAt20 = await bootstrap(buyer);
+    const fulfilled = await call("POST", `/black-market/orders/${created.body.order.id}/fulfill`, buyer.token, {
+      operationId: operation("special-level-unlocked"),
+      expectedAccountVersion: buyerAt20.accountVersion,
+    });
+    expect(fulfilled.status).toBe(200);
+  });
+
+  it("requires the zombie's colored gravestone to be placed before purchase", async () => {
+    const seller = await signIn(uniqueSub("market-grave-seller"));
+    const buyer = await signIn(uniqueSub("market-grave-buyer"));
+    const unitId = `market-red-${crypto.randomUUID()}`;
+    await grantRoster(seller, [{ id: unitId, key: "ZombieActorRegularTier3" }]);
+    await grantBalance(buyer, { brains: 20, xp: xpForLevel(20) });
+
+    const sellerBefore = await bootstrap(seller);
+    const created = await call<any>("POST", "/black-market/orders", seller.token, {
+      operationId: operation("red-sale"),
+      expectedAccountVersion: sellerBefore.accountVersion,
+      kind: "SELL_ZOMBIE", unitId, priceBrains: 1,
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+
+    const buyerBefore = await bootstrap(buyer);
+    const locked = await call("POST", `/black-market/orders/${created.body.order.id}/fulfill`, buyer.token, {
+      operationId: operation("red-no-grave"),
+      expectedAccountVersion: buyerBefore.accountVersion,
+    });
+    expect(locked).toMatchObject({
+      status: 403,
+      body: { error: "black_market_grave_required" },
+    });
+
+    const graveBatch = await call<any>("POST", "/commands", buyer.token, {
+      protocolVersion: 3,
+      deviceId: "device-aaaaaaaa",
+      batchId: operation("red-grave-batch"),
+      firstSequence: 1,
+      expectedAccountVersion: buyerBefore.accountVersion,
+      writerGeneration: buyerBefore.writerGeneration,
+      commands: [{
+        sequence: 1,
+        command: {
+          type: "object.buy",
+          catalogKey: "gravestoneRed",
+          clientInstanceId: operation("red-grave"),
+        },
+      }],
+    });
+    expect(graveBatch.status, JSON.stringify(graveBatch.body)).toBe(200);
+    expect(graveBatch.body.results[0]).toMatchObject({ status: "applied" });
+
+    const buyerWithGrave = await bootstrap(buyer);
+    const fulfilled = await call("POST", `/black-market/orders/${created.body.order.id}/fulfill`, buyer.token, {
+      operationId: operation("red-with-grave"),
+      expectedAccountVersion: buyerWithGrave.accountVersion,
+    });
+    expect(fulfilled.status).toBe(200);
   });
 
   it("escrows and atomically fulfills a zombie sale", async () => {
@@ -159,6 +251,53 @@ describe("Black Market", () => {
     const after = await bootstrap(requester);
     expect(after.gameplay.balance.brains).toBe(before.gameplay.balance.brains);
     expect(cancelled.body.summary).toMatchObject({ activePosts: 0, postsToday: 1 });
+  });
+
+  it("allows multiple requested mutations and ORs alternatives in the same slot", async () => {
+    const requester = await signIn(uniqueSub("market-specific-requester"));
+    const seller = await signIn(uniqueSub("market-specific-seller"));
+    const wrongId = `market-wrong-mutation-${crypto.randomUUID()}`;
+    const matchingId = `market-matching-mutation-${crypto.randomUUID()}`;
+    await grantRoster(seller, [
+      { id: wrongId, key: "ZombieActorRegularTier1", mutation: 4 },
+      // Broccohair satisfies a request for Broccohair OR Cauli-hair. The extra
+      // Turnip-Arm mutation does not prevent the match.
+      { id: matchingId, key: "ZombieActorRegularTier1", mutation: 128 | 8 },
+    ]);
+
+    const requesterBefore = await bootstrap(requester);
+    const created = await call<any>("POST", "/black-market/orders", requester.token, {
+      operationId: operation("specific-request"),
+      expectedAccountVersion: requesterBefore.accountVersion,
+      kind: "BUY_ZOMBIE",
+      zombieKey: "ZombieActorRegularTier1",
+      mutated: true,
+      mutationRequired: 128 | 512,
+      priceBrains: 2,
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+    expect(created.body.order).toMatchObject({
+      mutated: true,
+      mutationRequired: 128 | 512,
+    });
+
+    const sellerBefore = await bootstrap(seller);
+    const mismatch = await call("POST", `/black-market/orders/${created.body.order.id}/fulfill`, seller.token, {
+      operationId: operation("specific-mismatch"),
+      expectedAccountVersion: sellerBefore.accountVersion,
+      unitId: wrongId,
+    });
+    expect(mismatch).toMatchObject({ status: 409, body: { error: "zombie_mismatch" } });
+
+    const fulfilled = await call("POST", `/black-market/orders/${created.body.order.id}/fulfill`, seller.token, {
+      operationId: operation("specific-match"),
+      expectedAccountVersion: sellerBefore.accountVersion,
+      unitId: matchingId,
+    });
+    expect(fulfilled.status).toBe(200);
+    expect((await bootstrap(requester)).gameplay.roster).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "ZombieActorRegularTier1", mutation: 128 | 8 }),
+    ]));
   });
 
   it("returns a cancelled sale to the farm unless the active farm is full", async () => {

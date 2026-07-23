@@ -6,7 +6,13 @@ import type {
   BlackMarketSummary,
 } from "../../../src/net/protocol";
 import objectRows from "../../../public/assets/placeables.json";
-import { isTradableZombie } from "../rosterCatalog";
+import { ALL_BITS, SLOTS, SLOT_MASK } from "../../../src/zombie/mutations";
+import { levelForXp, XP_THRESHOLDS } from "../levels";
+import {
+  blackMarketPurchaseRequirement,
+  isTradableZombie,
+  type BlackMarketPurchaseRequirement,
+} from "../rosterCatalog";
 
 const ACTIVE_LIMIT = 10 as const;
 const DAILY_LIMIT = 50 as const;
@@ -38,6 +44,7 @@ interface OrderRow {
   kind: BlackMarketOrderKind;
   zombie_key: string;
   mutated_required: number;
+  mutation_required: number | null;
   price_brains: number;
   status: "OPEN" | "FULFILLED" | "CANCELLED";
   created_at: number;
@@ -58,12 +65,88 @@ const validId = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(value);
 const validPrice = (value: unknown): value is number =>
   Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= MAX_PRICE;
+const VALID_MUTATION_MASK = ALL_BITS.reduce((mask, bit) => mask | bit, 0);
+const validMutationRequirement = (value: unknown): value is number | undefined =>
+  value === undefined || (Number.isSafeInteger(value) && Number(value) > 0 &&
+    (Number(value) & ~VALID_MUTATION_MASK) === 0);
+export const matchesMutationRequirement = (
+  mutation: number,
+  mutated: number,
+  mutationRequired: number | null
+): boolean => {
+  if (mutationRequired === null) return (mutation !== 0) === !!mutated;
+  return SLOTS.every((slot) => {
+    const requestedInSlot = mutationRequired & SLOT_MASK[slot];
+    return requestedInSlot === 0 || (mutation & requestedInSlot) !== 0;
+  });
+};
+const mutationRequirementSql = (mutationRequired: number | null): {
+  sql: string;
+  binds: number[];
+} => {
+  if (mutationRequired === null) return { sql: "(mutation!=0)=?", binds: [] };
+  const slotMasks = SLOTS
+    .map((slot) => mutationRequired & SLOT_MASK[slot])
+    .filter((mask) => mask !== 0);
+  return {
+    sql: slotMasks.map(() => "(mutation & ?) != 0").join(" AND "),
+    binds: slotMasks,
+  };
+};
+
+async function purchaseRequirementFailure(
+  db: D1Database,
+  accountId: string,
+  zombieKey: string
+): Promise<MarketFailure | null> {
+  const requirement = blackMarketPurchaseRequirement(zombieKey);
+  if (!requirement) return { status: 400, error: "bad_zombie_request" };
+  if (requirement.minLevel) {
+    const balance = await db.prepare("SELECT xp FROM balances WHERE account_id=?")
+      .bind(accountId).first<{ xp: number }>();
+    if (!balance || levelForXp(balance.xp) < requirement.minLevel) {
+      return { status: 403, error: "black_market_level_locked" };
+    }
+  }
+  if (requirement.graveKey) {
+    const grave = await db.prepare(`SELECT 1 present
+      FROM object_documents_v3 documents, json_each(documents.current_json) entry
+      WHERE documents.account_id=? AND json_extract(entry.value,'$.catalogKey')=?
+        AND json_extract(entry.value,'$.status')='placed' LIMIT 1`)
+      .bind(accountId, requirement.graveKey).first<{ present: number }>();
+    if (!grave) return { status: 403, error: "black_market_grave_required" };
+  }
+  return null;
+}
+
+function purchaseRequirementGuard(
+  accountId: string,
+  requirement: BlackMarketPurchaseRequirement
+): { sql: string; binds: unknown[] } {
+  const clauses: string[] = [];
+  const binds: unknown[] = [];
+  if (requirement.minLevel) {
+    clauses.push("EXISTS(SELECT 1 FROM balances WHERE account_id=? AND xp>=?)");
+    binds.push(accountId, XP_THRESHOLDS[requirement.minLevel - 1] ?? Number.MAX_SAFE_INTEGER);
+  }
+  if (requirement.graveKey) {
+    clauses.push(`EXISTS(SELECT 1 FROM object_documents_v3 documents,
+      json_each(documents.current_json) entry WHERE documents.account_id=?
+      AND json_extract(entry.value,'$.catalogKey')=?
+      AND json_extract(entry.value,'$.status')='placed')`);
+    binds.push(accountId, requirement.graveKey);
+  }
+  return { sql: clauses.length ? clauses.join(" AND ") : "1=1", binds };
+}
 
 const toView = (row: OrderRow, accountId: string): BlackMarketOrderView => ({
   id: row.id,
   kind: row.kind,
   zombieKey: row.zombie_key,
   mutated: !!row.mutated_required,
+  ...(row.kind === "BUY_ZOMBIE" && row.mutation_required !== null
+    ? { mutationRequired: row.mutation_required }
+    : {}),
   ...(row.kind === "SELL_ZOMBIE" && row.escrow_mutation !== null
     ? { mutation: row.escrow_mutation, invasions: row.escrow_invasions ?? 0 }
     : {}),
@@ -166,7 +249,13 @@ export async function create(
   }
   const input = kind === "SELL_ZOMBIE"
     ? { kind, unitId: body.unitId, priceBrains: body.priceBrains }
-    : { kind, zombieKey: body.zombieKey, mutated: body.mutated, priceBrains: body.priceBrains };
+    : {
+        kind,
+        zombieKey: body.zombieKey,
+        mutated: body.mutated,
+        mutationRequired: body.mutationRequired ?? null,
+        priceBrains: body.priceBrains,
+      };
   const fp = fingerprint("CREATE", input);
   const prior = await replay(db, accountId, operationId, fp, now);
   if (prior) return prior;
@@ -181,6 +270,7 @@ export async function create(
 
   let zombieKey: string;
   let mutated = 0;
+  let mutationRequired: number | null = null;
   let mutation: number | null = null;
   let invasions: number | null = null;
   let unitId: string | null = null;
@@ -195,8 +285,13 @@ export async function create(
     mutated = unit.mutation !== 0 ? 1 : 0; unitId = body.unitId;
   } else {
     if (typeof body.zombieKey !== "string" || typeof body.mutated !== "boolean" ||
+        !validMutationRequirement(body.mutationRequired) ||
+        (body.mutationRequired !== undefined && body.mutated !== true) ||
         !isTradableZombie(body.zombieKey)) return { status: 400, error: "bad_zombie_request" };
     zombieKey = body.zombieKey; mutated = body.mutated ? 1 : 0;
+    mutationRequired = body.mutationRequired ?? null;
+    const requirementFailure = await purchaseRequirementFailure(db, accountId, zombieKey);
+    if (requirementFailure) return requirementFailure;
     const balance = await db.prepare("SELECT brains FROM balances WHERE account_id=?")
       .bind(accountId).first<{ brains: number }>();
     if (!balance || balance.brains < Number(body.priceBrains)) return { status: 409, error: "insufficient_brains" };
@@ -206,12 +301,12 @@ export async function create(
   const guard = `EXISTS (SELECT 1 FROM account_runtime_v3 r WHERE r.account_id=?
     AND r.account_version=? AND r.active_batch_id IS NOT NULL)`;
   const statements: D1PreparedStatement[] = [db.prepare(`INSERT INTO black_market_orders
-    (id,creator_account_id,kind,zombie_key,mutated_required,price_brains,status,created_day,created_at,
+    (id,creator_account_id,kind,zombie_key,mutated_required,mutation_required,price_brains,status,created_day,created_at,
      source_unit_id,escrow_mutation,escrow_invasions,escrow_brains)
-    SELECT ?,?,?,?,?,?,'OPEN',?,?,?,?,?,? WHERE ${guard}
+    SELECT ?,?,?,?,?,?,?,'OPEN',?,?,?,?,?,? WHERE ${guard}
       AND (SELECT COUNT(*) FROM black_market_orders WHERE creator_account_id=? AND status='OPEN')<?
       AND (SELECT COUNT(*) FROM black_market_orders WHERE creator_account_id=? AND created_day=?)<?`)
-    .bind(orderId, accountId, kind, zombieKey, mutated, body.priceBrains, dayBucket(now), now,
+    .bind(orderId, accountId, kind, zombieKey, mutated, mutationRequired, body.priceBrains, dayBucket(now), now,
       unitId, mutation, invasions, kind === "BUY_ZOMBIE" ? body.priceBrains : 0,
       accountId, expectedVersion, accountId, ACTIVE_LIMIT, accountId, dayBucket(now), DAILY_LIMIT)];
   if (kind === "SELL_ZOMBIE") {
@@ -231,7 +326,9 @@ export async function create(
       .bind(operationId, accountId, fp, orderId, now, orderId),
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?,?,'black_market_create',?,? WHERE EXISTS(SELECT 1 FROM black_market_orders WHERE id=?)`)
-      .bind(`${accountId}:market:${operationId}`, accountId, JSON.stringify({ orderId, kind, zombieKey, mutated: !!mutated, priceBrains: body.priceBrains }), now, orderId)
+      .bind(`${accountId}:market:${operationId}`, accountId, JSON.stringify({
+        orderId, kind, zombieKey, mutated: !!mutated, mutationRequired, priceBrains: body.priceBrains,
+      }), now, orderId)
   );
   const committed = await db.batch(statements);
   if ((committed[0]?.meta.changes ?? 0) !== 1 || (committed[1]?.meta.changes ?? 0) !== 1) {
@@ -299,13 +396,26 @@ export async function fulfill(
   if (row.creator_account_id === accountId) return { status: 403, error: "self_trade" };
   if (row.status !== "OPEN") return { status: 409, error: "order_closed" };
 
+  const recipientAccountId = row.kind === "SELL_ZOMBIE" ? accountId : row.creator_account_id;
+  const requirementFailure = await purchaseRequirementFailure(db, recipientAccountId, row.zombie_key);
+  if (requirementFailure) return requirementFailure;
+  const recipientRequirement = purchaseRequirementGuard(
+    recipientAccountId,
+    blackMarketPurchaseRequirement(row.zombie_key) ?? {}
+  );
+
   let offered: { unitId: string; mutation: number; invasions: number } | null = null;
   if (row.kind === "BUY_ZOMBIE") {
     if (!validId(body.unitId)) return { status: 400, error: "bad_unit" };
     const unit = await db.prepare(`SELECT unit_id,zombie_key,mutation,invasions FROM roster_v3
       WHERE account_id=? AND unit_id=? AND locked_by_raid IS NULL`).bind(accountId, body.unitId)
       .first<{ unit_id: string; zombie_key: string; mutation: number; invasions: number }>();
-    if (!unit || unit.zombie_key !== row.zombie_key || (unit.mutation !== 0) !== !!row.mutated_required)
+    const mutationMatches = !!unit && matchesMutationRequirement(
+      unit.mutation,
+      row.mutated_required,
+      row.mutation_required
+    );
+    if (!unit || unit.zombie_key !== row.zombie_key || !mutationMatches)
       return { status: 409, error: "zombie_mismatch" };
     if (!isTradableZombie(unit.zombie_key)) return { status: 403, error: "zombie_not_tradable" };
     offered = { unitId: unit.unit_id, mutation: unit.mutation, invasions: unit.invasions };
@@ -320,21 +430,29 @@ export async function fulfill(
     return { status: 409, error: "counterparty_busy" };
 
   const recipientUnitId = crypto.randomUUID();
+  const mutationAsset = mutationRequirementSql(row.mutation_required);
   const actorAsset = row.kind === "SELL_ZOMBIE"
     ? "EXISTS(SELECT 1 FROM balances WHERE account_id=? AND brains>=?)"
     : `EXISTS(SELECT 1 FROM roster_v3 WHERE account_id=? AND unit_id=? AND zombie_key=?
-        AND (mutation!=0)=? AND locked_by_raid IS NULL)`;
+        AND ${mutationAsset.sql}
+        AND locked_by_raid IS NULL)`;
   const actorAssetBinds = row.kind === "SELL_ZOMBIE"
     ? [accountId, row.price_brains]
-    : [accountId, offered!.unitId, row.zombie_key, row.mutated_required];
+    : [
+        accountId,
+        offered!.unitId,
+        row.zombie_key,
+        ...(row.mutation_required === null ? [row.mutated_required] : mutationAsset.binds),
+      ];
   const claim = db.prepare(`UPDATE black_market_orders SET status='FULFILLED',closed_at=?,
       closed_operation_id=?,fulfilled_by_account_id=? WHERE id=? AND status='OPEN'
       AND creator_account_id!=? AND ${actorAsset}
       AND EXISTS(SELECT 1 FROM account_runtime_v3 WHERE account_id=? AND account_version=? AND active_batch_id IS NOT NULL)
       AND NOT EXISTS(SELECT 1 FROM account_runtime_v3 WHERE account_id=black_market_orders.creator_account_id
-        AND active_batch_id IS NOT NULL AND active_batch_expires_at>?)`)
+        AND active_batch_id IS NOT NULL AND active_batch_expires_at>?)
+      AND ${recipientRequirement.sql}`)
     .bind(now, operationId, accountId, orderId, accountId, ...actorAssetBinds,
-      accountId, expectedVersion, now);
+      accountId, expectedVersion, now, ...recipientRequirement.binds);
   const guard = "EXISTS(SELECT 1 FROM black_market_orders WHERE id=? AND status='FULFILLED' AND closed_operation_id=?)";
   const statements: D1PreparedStatement[] = [claim];
   if (row.kind === "SELL_ZOMBIE") {

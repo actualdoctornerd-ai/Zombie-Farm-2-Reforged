@@ -158,9 +158,12 @@ const KNOCKBACK_PX = 150; // how far back the zombie is shoved (sim units)
 // it off (changeSpeed_0.5 : setRotationTo_90). The player taps it (touchedAction
 // damageSelf_100, tapDelay 0.25) to whittle its HP; killed → dyingAction dropZombie frees
 // the zombie back into the fight; if it reaches its exit still carrying, that zombie DIES.
-const GRABBER_SWING_MS = 1800;
-const GRABBER_SWING_START_DEG = 150; // starts down-left of its fixed rope anchor
-const GRABBER_SWING_END_DEG = 90; // finishes directly beneath the anchor
+// movingAnimation `rotateTo_180_17`: Actor.parseAnimationString interprets this
+// as a 180-degree target over 17 animation ticks (the stage cadence is 0.1 s).
+// Collision then explicitly snaps the grabbed actor to 90 degrees for the carry.
+const GRABBER_SWING_MS = 1700;
+const GRABBER_SWING_START_DEG = 0;
+const GRABBER_SWING_END_DEG = 180;
 const GRABBER_RISE_SPEED = 92; // carry-off rise speed (sim px/s), the slow 0.5 speed
 const GRABBER_CARRY_PAUSE_MS = 1000; // changeStateWithDelay_run_1: hold 1s before rising
 const GRABBER_TAP_CD_MS = 250; // tapDelay 0.25 — min gap between registered taps
@@ -278,6 +281,8 @@ export interface SimUnit {
   prevX: number; // position at the start of the current step (velocity bookkeeping)
   prevY: number;
   damage: number;
+  /** Primary authored attack name, used only to select its presentation SFX. */
+  attackName: string;
   cooldownMs: number;
   timerMs: number;
   moveSpeed: number;
@@ -468,6 +473,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     // Enemies use this as-is (band always 1.0); a player zombie's normal swing multiplies it by
     // lineupDamageBand(lineupIndex) at hit time (activated specials use the unbanded value).
     damage: Math.max(1, Math.round(deriveHitDamage(u.str * POWER_PER_STR, mult))),
+    attackName: u.attacks[0]?.name ?? "",
     cooldownMs: u.attackCooldownMs,
     timerMs: u.attackCooldownMs,
     moveSpeed: isPlayer ? advanceSpeed(u.dex) : EMERGE_SPEED,

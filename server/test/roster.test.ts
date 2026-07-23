@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { ZOMBIE_COST, isKnownZombie, isTradableZombie, zombieSell } from "../src/rosterCatalog";
+import {
+  ZOMBIE_COST,
+  blackMarketPurchaseRequirement,
+  isKnownZombie,
+  isTradableZombie,
+  zombieSell,
+} from "../src/rosterCatalog";
 import { validateUnit, cleanIds } from "../src/roster";
 import zombieRows from "../../public/assets/zombies.json";
 
@@ -21,6 +27,15 @@ describe("rosterCatalog", () => {
     expect(isTradableZombie("ZombieActorZombug")).toBe(true);
     expect(isTradableZombie("ZombieActorBandido")).toBe(true);
     expect(isTradableZombie("ZombieActorMadeUp")).toBe(false);
+  });
+  it("defines Black Market gates independently of planting levels", () => {
+    expect(blackMarketPurchaseRequirement("ZombieActorRegularTier1")).toEqual({});
+    expect(blackMarketPurchaseRequirement("ZombieActorRegularTier3")).toMatchObject({
+      grave: "Red",
+      graveKey: "gravestoneRed",
+    });
+    expect(blackMarketPurchaseRequirement("ZombieActorZomBetty")).toEqual({ minLevel: 20 });
+    expect(blackMarketPurchaseRequirement("ZombieActorMadeUp")).toBeNull();
   });
 });
 

@@ -77,6 +77,22 @@ const BACK_ARM_SWING = 0.5; // rad the rear arm swings back at the jab peak
 const SLAM_RAISE = 2.5; // rad both arms rotate UP overhead at the top of the wind-up
 const SLAM_FOLLOW = 0.7; // rad past rest at the bottom of the slam (follow-through)
 const SLAM_RAISE_FRAC = 0.55; // fraction of the pre-hit window spent raising (rest slams down)
+// Circus attack families recovered from ZFAttackAnims (22/24) and the
+// CircusStageActorMinion2 attack-state override (23).
+const CIRCUS_BEAR_ATTACK = "UnicycleBearAttack";
+const CIRCUS_STACK_ATTACK = "MidgetStackAttack";
+const CIRCUS_RINGMASTER_ATTACK = "RingMasterAttack";
+// Lawyers raid families recovered from ZFAttackAnims animation IDs 1, 4, and 6.
+const LAWYER_WORKER_ATTACK = "CrazedWorkerAttack";
+const LAWYER_ATTACK = "LawyerAttack";
+const LAWYER_BOSS_ATTACKS = new Set(["CorporateBossPunch", "CorporateBossPunchSpecial"]);
+// Pirates raid animation IDs 2 and 3. Scallywag shares animation 1 above.
+const PIRATE_BOSS_ATTACK = "PirateBossSlash";
+const PIRATE_SWASHBUCKLER_ATTACK = "SwashbucklerSlice";
+const NINJA_STAB_ATTACK = "NinjaStab";
+const ROBOT_BRO_ATTACK = "BroBotAttack";
+const ROBOT_JUNK_ATTACK = "JunkBotBite";
+const DEG = Math.PI / 180;
 
 /** Smoothstep 0..1. */
 const smooth = (t: number) => {
@@ -84,15 +100,37 @@ const smooth = (t: number) => {
   return x * x * (3 - 2 * x);
 };
 
+const keyframe = (t: number, frames: readonly (readonly [number, number])[]) => {
+  if (t <= frames[0][0]) return frames[0][1];
+  for (let i = 1; i < frames.length; i++) {
+    const [time, value] = frames[i];
+    const [prevTime, prevValue] = frames[i - 1];
+    if (t <= time) return prevValue + (value - prevValue) * smooth((t - prevTime) / (time - prevTime));
+  }
+  return frames[frames.length - 1][1];
+};
+
+export interface EnemyAttackPose {
+  atkProg: number;
+  damageTiming: number;
+  attackName?: string;
+}
+
 export class EnemyActor {
   readonly container = new Container();
   private root = new Container();
   private neck: { x: number; y: number } | null;
   private headParts: { sp: Sprite; bx: number; by: number }[] = [];
-  private legs: { sp: Sprite; baseY: number; baseRot: number; back: boolean }[] = [];
-  private arms: { sp: Sprite; baseX: number; baseY: number; baseRot: number; back: boolean }[] = [];
+  private legs: { sp: Sprite; baseX: number; baseY: number; baseRot: number; back: boolean }[] = [];
+  private arms: {
+    sp: Sprite; baseX: number; baseY: number; baseRot: number;
+    baseScaleX: number; baseScaleY: number; back: boolean;
+  }[] = [];
+  private bodies: {
+    sp: Sprite; baseX: number; baseY: number; baseRot: number; baseScaleX: number; baseScaleY: number;
+  }[] = [];
   private wings: { sp: Sprite; baseRot: number; back: boolean }[] = [];
-  private wheels: Sprite[] = [];
+  private wheels: { sp: Sprite; baseRot: number }[] = [];
   private hasLegs = false;
   /** Shared shoulder pivot the front arm(s) + held tool swing about during an attack —
    *  the top-most (min py) front arm part's anchor. Null if the rig has no front arm. */
@@ -132,11 +170,20 @@ export class EnemyActor {
       sp.zIndex = p.z;
       this.root.addChild(sp);
       if (p.group === "head") this.headParts.push({ sp, bx: p.px, by: p.py });
-      else if (p.group === "leg") this.legs.push({ sp, baseY: p.py, baseRot: p.rot, back: p.back });
+      else if (p.group === "leg")
+        this.legs.push({ sp, baseX: p.px, baseY: p.py, baseRot: p.rot, back: p.back });
       else if (p.group === "arm")
-        this.arms.push({ sp, baseX: p.px, baseY: p.py, baseRot: p.rot, back: p.back });
+        this.arms.push({
+          sp, baseX: p.px, baseY: p.py, baseRot: p.rot,
+          baseScaleX: sp.scale.x, baseScaleY: sp.scale.y, back: p.back,
+        });
+      else if (p.group === "body")
+        this.bodies.push({
+          sp, baseX: p.px, baseY: p.py, baseRot: p.rot,
+          baseScaleX: sp.scale.x, baseScaleY: sp.scale.y,
+        });
       else if (p.group === "wing") this.wings.push({ sp, baseRot: p.rot, back: p.back });
-      else if (p.group === "wheel") this.wheels.push(sp);
+      else if (p.group === "wheel") this.wheels.push({ sp, baseRot: p.rot });
     }
     this.hasLegs = this.legs.length > 0;
     // Shoulder the front-arm assembly (upper arm + held tool) swings about, so the
@@ -166,8 +213,21 @@ export class EnemyActor {
    *   `damageTiming` is where in the swing the hit connects. Null = not attacking
    *   (rest). The lunge/thrust peaks near the hit, then recovers to rest by cycle end.
    */
-  update(dt: number, moving: boolean, attack: { atkProg: number; damageTiming: number } | null = null) {
+  update(dt: number, moving: boolean, attack: EnemyAttackPose | null = null) {
     this.t += dt;
+    const circusAttack = attack?.attackName === CIRCUS_BEAR_ATTACK
+      || attack?.attackName === CIRCUS_STACK_ATTACK
+      || attack?.attackName === CIRCUS_RINGMASTER_ATTACK;
+    const lawyersAttack = attack?.attackName === LAWYER_WORKER_ATTACK
+      || attack?.attackName === LAWYER_ATTACK
+      || !!attack?.attackName && LAWYER_BOSS_ATTACKS.has(attack.attackName);
+    const pirateAttack = attack?.attackName === PIRATE_BOSS_ATTACK
+      || attack?.attackName === PIRATE_SWASHBUCKLER_ATTACK;
+    const ninjaAttack = attack?.attackName === NINJA_STAB_ATTACK;
+    const robotAttack = attack?.attackName === ROBOT_BRO_ATTACK
+      || attack?.attackName === ROBOT_JUNK_ATTACK;
+    const authoredAttack = circusAttack || lawyersAttack || pirateAttack || ninjaAttack || robotAttack;
+    const genericAttack = authoredAttack ? null : attack;
 
     // Attack swing envelopes (0 when not attacking): a forward-then-back thrust that
     // peaks at the attack's damageTiming so the reach lands with the sim's hit.
@@ -175,11 +235,11 @@ export class EnemyActor {
     let cock = 0; // brief backward wind-up, 0..1
     let chop = 0; // weapon-holders: front-arm rotation about the shoulder (- up, + downstroke)
     let slamAngle = 0; // slammers only: arms raise overhead (-) then slam down (+) to the hit
-    if (attack) {
+    if (genericAttack) {
       // The swing occupies the tail SWING_FRAC of the cooldown; rest before it.
-      const u = (attack.atkProg - (1 - SWING_FRAC)) / SWING_FRAC;
+      const u = (genericAttack.atkProg - (1 - SWING_FRAC)) / SWING_FRAC;
       if (u > 0 && u < 1) {
-        const c = Math.min(0.95, Math.max(0.05, attack.damageTiming)); // connect fraction
+        const c = Math.min(0.95, Math.max(0.05, genericAttack.damageTiming)); // connect fraction
         thrust = u < c ? smooth(u / c) : 1 - smooth((u - c) / (1 - c));
         cock = Math.sin(Math.PI * Math.min(u / c, 1)); // wind-up bump, peaks mid-approach
         // Chop: raise the tool UP over the first CHOP_RAISE_FRAC of the approach, whip it
@@ -238,11 +298,13 @@ export class EnemyActor {
         for (const l of this.legs) {
           const s = Math.sin(this.stepPhase + (l.back ? Math.PI : 0));
           l.sp.rotation = l.baseRot + s * STEP_ANGLE;
+          l.sp.x = l.baseX;
           l.sp.y = l.baseY - Math.max(0, s) * STEP_LIFT;
         }
       } else {
         for (const l of this.legs) {
           l.sp.rotation = l.baseRot;
+          l.sp.x = l.baseX;
           l.sp.y = l.baseY;
         }
       }
@@ -253,7 +315,7 @@ export class EnemyActor {
     // sway as tentacles/fins (floaters). BACK arms never thrust: they rest, or sway on
     // floaters. Rotating about the shoulder (not each part's own anchor) is what makes
     // the weapon travel WITH the arm instead of spinning in place.
-    const swing = attack ? ARM_THRUST * thrust - ARM_THRUST * ARM_COCK * cock : 0;
+    const swing = genericAttack ? ARM_THRUST * thrust - ARM_THRUST * ARM_COCK * cock : 0;
     // A puncher's front arm hangs at its side (droop) and eases up to extended (0) at the
     // jab's peak (it has no tool, so it jabs); a weapon-holder chops instead (see `chop`).
     const droop = this.punch ? ARM_PUNCH_DROOP : 0;
@@ -263,7 +325,8 @@ export class EnemyActor {
     const sway = (a: { back: boolean }) =>
       this.hasLegs ? 0 : Math.sin(this.t * ARM_FREQ + (a.back ? Math.PI : 0)) * (moving ? ARM_SWAY_MOVE : ARM_SWAY_IDLE);
     for (const a of this.arms) {
-      if (this.slam && attack) {
+      a.sp.scale.set(a.baseScaleX, a.baseScaleY);
+      if (this.slam && genericAttack) {
         // Overhead slam: BOTH arm assemblies rotate about their authored shoulders.
         // Rotating at the sprite anchors made the Pirate Boss's arms detach and orbit.
         const pivot = a.back ? this.backShoulder : this.shoulder;
@@ -285,15 +348,15 @@ export class EnemyActor {
         // carry no back-shoulder pivot. The squid's back tentacle anchors at its top
         // centre, so an in-place rotation reads as it whipping down from the base.
         a.sp.position.set(a.baseX, a.baseY);
-        a.sp.rotation = a.baseRot + (a.back && attack ? frontAngle : sway(a));
-      } else if (!a.back && this.shoulder && (this.punch || attack)) {
+        a.sp.rotation = a.baseRot + (a.back && genericAttack ? frontAngle : sway(a));
+      } else if (!a.back && this.shoulder && (this.punch || genericAttack)) {
         // Front arm rotates about the shared shoulder: puncher jab or weapon chop.
         const theta = frontAngle;
         const cos = Math.cos(theta), sin = Math.sin(theta);
         const dx = a.baseX - this.shoulder.x, dy = a.baseY - this.shoulder.y;
         a.sp.position.set(this.shoulder.x + dx * cos - dy * sin, this.shoulder.y + dx * sin + dy * cos);
         a.sp.rotation = a.baseRot + theta;
-      } else if (a.back && attack && this.hasLegs) {
+      } else if (a.back && genericAttack && this.hasLegs) {
         // Rear arm on a legged attacker: counter-swing with the strike (opposite the
         // front jab, smaller reach) so the back arm pumps along instead of freezing.
         const back = -BACK_ARM_SWING * thrust + BACK_ARM_SWING * ARM_COCK * cock;
@@ -312,9 +375,314 @@ export class EnemyActor {
 
     // Wheel rolls in the travel direction while advancing (facing +1 = moving left).
     if (moving) {
-      for (const wl of this.wheels) wl.rotation -= dt * WHEEL_SPIN * this.facing;
+      for (const wheel of this.wheels) wheel.sp.rotation -= dt * WHEEL_SPIN * this.facing;
     }
 
+    for (const body of this.bodies) {
+      body.sp.position.set(body.baseX, body.baseY);
+      body.sp.rotation = body.baseRot;
+      body.sp.scale.set(body.baseScaleX, body.baseScaleY);
+    }
+    if (circusAttack && attack) this.poseCircusAttack(attack);
+    else if (lawyersAttack && attack) this.poseLawyersAttack(attack);
+    else if (pirateAttack && attack) this.posePirateAttack(attack);
+    else if (ninjaAttack && attack) this.poseNinjaStab(attack);
+    else if (robotAttack && attack) this.poseRobotAttack(attack);
+
     this.root.scale.x = this.facing;
+  }
+
+  /** Rotate the cooldown so the source contact frame coincides with the sim hit. */
+  private sourceAttackProgress(atkProg: number, damageTiming: number) {
+    const recovery = 1 - damageTiming;
+    return atkProg <= recovery ? damageTiming + atkProg : atkProg - recovery;
+  }
+
+  private poseCircusAttack(attack: EnemyAttackPose) {
+    const t = this.sourceAttackProgress(attack.atkProg, attack.damageTiming);
+    if (attack.attackName === CIRCUS_BEAR_ATTACK) this.poseUnicycleBear(t);
+    else if (attack.attackName === CIRCUS_STACK_ATTACK) this.poseMidgetStack(t);
+    else if (attack.attackName === CIRCUS_RINGMASTER_ATTACK) this.poseRingmaster(t);
+  }
+
+  private poseLawyersAttack(attack: EnemyAttackPose) {
+    const t = this.sourceAttackProgress(attack.atkProg, attack.damageTiming);
+    if (attack.attackName === LAWYER_WORKER_ATTACK) this.poseCrazedWorker(t);
+    else if (attack.attackName === LAWYER_ATTACK) this.poseLawyer(t);
+    else if (attack.attackName && LAWYER_BOSS_ATTACKS.has(attack.attackName))
+      this.poseCorporateBoss(t);
+  }
+
+  private posePirateAttack(attack: EnemyAttackPose) {
+    const t = this.sourceAttackProgress(attack.atkProg, attack.damageTiming);
+    if (attack.attackName === PIRATE_BOSS_ATTACK) this.posePirateBoss(t);
+    else if (attack.attackName === PIRATE_SWASHBUCKLER_ATTACK)
+      this.poseSwashbuckler(t);
+  }
+
+  /**
+   * Animation 1: armWhackFront + armHackBack2 + headHack.
+   * The source front hand takes almost the whole cycle to wind through 180 degrees,
+   * while the rear hand performs a shorter three-key hack and the head snaps forward.
+   */
+  private poseCrazedWorker(t: number) {
+    const front = keyframe(t, [[0, 0], [0.9, 180 * DEG], [1, 0]]);
+    const back = keyframe(t, [
+      [0, 0], [0.55, -90 * DEG], [0.8, 25 * DEG],
+      [0.85, -135 * DEG], [1, -135 * DEG],
+    ]);
+    for (const arm of this.arms) {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + (arm.back ? back : front);
+    }
+    // headHack is two relative moves: (8, 4) over .95, then (-5, 0) over .05.
+    const headX = keyframe(t, [[0, 0], [0.95, -8], [1, -3]]);
+    const headY = keyframe(t, [[0, 0], [0.95, -4], [1, -4]]);
+    for (const head of this.headParts) {
+      head.sp.x += headX * this.facing;
+      head.sp.y += headY;
+    }
+  }
+
+  /**
+   * Animation 4: the boss-only Flail2 pair. Each arm runs two .4s strikes with
+   * a sharp .1s reset; the rear arm starts cocked at -45 degrees.
+   */
+  private poseCorporateBoss(t: number) {
+    const phase = t < 0.5 ? t : t - 0.5;
+    const front = phase <= 0.4
+      ? keyframe(phase, [[0, 0], [0.4, -90 * DEG]])
+      : keyframe(phase, [[0.4, -90 * DEG], [0.5, 0]]);
+    const back = phase <= 0.1
+      ? keyframe(phase, [[0, 0], [0.1, -45 * DEG]])
+      : keyframe(phase, [[0.1, -45 * DEG], [0.5, -135 * DEG]]);
+    for (const arm of this.arms) {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + (arm.back ? back : front);
+    }
+    // headFlail: half a second into the blow, then half a second back.
+    const headFlail = t <= 0.5 ? smooth(t / 0.5) : 1 - smooth((t - 0.5) / 0.5);
+    for (const head of this.headParts) {
+      head.sp.x += -8 * this.facing * headFlail;
+      head.sp.y += headFlail;
+    }
+  }
+
+  /**
+   * Animation 6: an immediate 15px forward/up step, standard front/back flails,
+   * and headFlail. The two arm helpers deliberately arrive on alternating beats.
+   */
+  private poseLawyer(t: number) {
+    const front = keyframe(t, [[0, 0], [0.5, 50 * DEG], [0.75, 0], [1, 0]]);
+    const back = keyframe(t, [[0, 0], [0.5, 0], [0.75, 50 * DEG], [1, 0]]);
+    for (const arm of this.arms) {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + (arm.back ? back : front);
+    }
+    const step = t < 0.75 ? 1 : 1 - smooth((t - 0.75) / 0.25);
+    this.root.x += -15 * this.facing * step;
+    this.root.y -= 15 * step;
+    const headFlail = t <= 0.5 ? smooth(t / 0.5) : 1 - smooth((t - 0.5) / 0.5);
+    for (const head of this.headParts) {
+      head.sp.x += -8 * this.facing * headFlail;
+      head.sp.y += headFlail;
+    }
+  }
+
+  /**
+   * Animation 2: armHackFront + an accelerated armHackBack + headFlail.
+   * The rear helper is run at 90% scale and therefore finishes before contact.
+   */
+  private posePirateBoss(t: number) {
+    const front = keyframe(t, [[0, 0], [0.95, 90 * DEG], [1, -135 * DEG]]);
+    const back = keyframe(t, [[0, 0], [0.855, 45 * DEG], [0.9, -135 * DEG], [1, -135 * DEG]]);
+    for (const arm of this.arms) {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + (arm.back ? back : front);
+    }
+    const headFlail = t <= 0.5 ? smooth(t / 0.5) : 1 - smooth((t - 0.5) / 0.5);
+    for (const head of this.headParts) {
+      head.sp.x += -8 * this.facing * headFlail;
+      head.sp.y += headFlail;
+    }
+  }
+
+  /** Animation 3: armHackFront + armHackBack2 + the late headHack snap. */
+  private poseSwashbuckler(t: number) {
+    const front = keyframe(t, [[0, 0], [0.95, 90 * DEG], [1, -135 * DEG]]);
+    const back = keyframe(t, [
+      [0, 0], [0.55, -90 * DEG], [0.8, 25 * DEG],
+      [0.85, -135 * DEG], [1, -135 * DEG],
+    ]);
+    for (const arm of this.arms) {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + (arm.back ? back : front);
+    }
+    const headX = keyframe(t, [[0, 0], [0.95, -8], [1, -3]]);
+    const headY = keyframe(t, [[0, 0], [0.95, -4], [1, -4]]);
+    for (const head of this.headParts) {
+      head.sp.x += headX * this.facing;
+      head.sp.y += headY;
+    }
+  }
+
+  /**
+   * Animation 7: the Ninja girl's authored full-body stab. ZFAnims combines
+   * armFlailFront3/Back3, headFlail2, the forward-lean helpers, and a tiptoe.
+   */
+  private poseNinjaStab(attack: EnemyAttackPose) {
+    const t = this.sourceAttackProgress(attack.atkProg, attack.damageTiming);
+    const frontArm = keyframe(t, [[0, 0], [0.8, -20 * DEG], [1, 90 * DEG]]);
+    const backArm = keyframe(t, [[0, 0], [0.2, -90 * DEG], [1, 20 * DEG]]);
+    for (const arm of this.arms) {
+      const leanX = arm.back ? -5 : -10;
+      const leanY = arm.back ? 4 : 2;
+      arm.sp.x = arm.baseX + leanX * this.facing * t;
+      arm.sp.y = arm.baseY + leanY * t;
+      arm.sp.rotation = arm.baseRot + (arm.back ? backArm : frontArm);
+    }
+
+    const headAngle = keyframe(t, [
+      [0, 0], [0.25, 0], [0.5, -3 * DEG],
+      [0.75, -10 * DEG], [1, -2 * DEG],
+    ]) * this.facing;
+    for (const head of this.headParts) {
+      head.sp.x += -8 * this.facing * t;
+      head.sp.y += 3 * t;
+      head.sp.rotation = headAngle;
+    }
+    for (const body of this.bodies)
+      body.sp.rotation = body.baseRot - 8 * DEG * this.facing * t;
+
+    for (const leg of this.legs) {
+      if (leg.back) continue;
+      leg.sp.x = leg.baseX + 2 * this.facing * t;
+      leg.sp.y = leg.baseY - 2 * t;
+      leg.sp.rotation = leg.baseRot - 20 * DEG * this.facing * t;
+    }
+  }
+
+  private poseRobotAttack(attack: EnemyAttackPose) {
+    const t = this.sourceAttackProgress(attack.atkProg, attack.damageTiming);
+    if (attack.attackName === ROBOT_BRO_ATTACK) this.poseBroBot(t);
+    else if (attack.attackName === ROBOT_JUNK_ATTACK) this.poseJunkBot(t);
+  }
+
+  /** Animation 14: BroBot's two independent mechanical arm spins and head jolt. */
+  private poseBroBot(t: number) {
+    const front = this.arms.filter((arm) => !arm.back);
+    const primary = keyframe(t, [
+      [0, 0], [0.05, 0], [0.65, 180 * DEG],
+      [0.95, -270 * DEG], [1, 90 * DEG],
+    ]);
+    const secondary = keyframe(t, [
+      [0, 0], [0.01, 0], [0.61, 140 * DEG],
+      [0.96, -275 * DEG], [1, 0],
+    ]);
+    front.forEach((arm, i) => {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + (i === 0 ? primary : secondary);
+      const scale = i === 0
+        ? keyframe(t, [[0, 1], [0.9, 1.2], [1, 1]])
+        : 1;
+      arm.sp.scale.set(arm.baseScaleX * scale, arm.baseScaleY * scale);
+    });
+    for (const arm of this.arms.filter((item) => item.back)) {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + keyframe(t, [
+        [0, 0], [0.9, 10 * DEG], [1, -20 * DEG],
+      ]);
+    }
+    const headX = keyframe(t, [[0, 0], [0.8, -8], [0.95, 5], [1, 0]]);
+    const headY = keyframe(t, [[0, 0], [0.8, -4], [0.95, 2], [1, 0]]);
+    for (const head of this.headParts) {
+      head.sp.x += headX * this.facing;
+      head.sp.y += headY;
+    }
+  }
+
+  /** Animation 15: JunkBot's body recoil followed by the fast 100-degree bite snap. */
+  private poseJunkBot(t: number) {
+    const body = keyframe(t, [[0, 0], [0.2, -20 * DEG], [1, 0]]);
+    for (const part of this.bodies) part.sp.rotation = part.baseRot + body;
+    const bite = keyframe(t, [[0, 0], [0.2, 100 * DEG], [0.3, 0], [1, 0]]);
+    for (const head of this.headParts) head.sp.rotation = bite;
+  }
+
+  /** Animation 22: rapid unicycle corrections, a large arm flourish, then recovery. */
+  private poseUnicycleBear(t: number) {
+    const bodyRock = keyframe(t, [
+      [0, 0], [0.05, -10 * DEG], [0.1, 10 * DEG], [0.2, -15 * DEG],
+      [0.3, 15 * DEG], [0.6, -10 * DEG], [1, 0],
+    ]);
+    for (const body of this.bodies) body.sp.rotation = body.baseRot + bodyRock;
+    for (const leg of this.legs) leg.sp.rotation = leg.baseRot - bodyRock * 0.6;
+
+    this.arms.forEach((arm, i) => {
+      const direction = i === 0 ? -1 : 1;
+      const angle = keyframe(t, [
+        [0, 0], [0.05, direction * 90 * DEG], [0.1, -direction * 90 * DEG],
+        [0.2, direction * 120 * DEG], [0.3, -direction * 15 * DEG],
+        [0.55, direction * 10 * DEG], [1, 0],
+      ]);
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + angle;
+    });
+    for (const wheel of this.wheels) {
+      wheel.sp.rotation = wheel.baseRot + keyframe(t, [
+        [0, 0], [0.2, -90 * DEG], [0.3, 90 * DEG], [0.65, -20 * DEG], [1, 0],
+      ]);
+    }
+    const hop = Math.sin(Math.PI * t);
+    this.root.y += -5 * hop;
+  }
+
+  /** Animation 23 lives in CircusStageActorMinion2, not the generic dispatcher. */
+  private poseMidgetStack(t: number) {
+    const hit = 0.2;
+    const envelope = t <= hit ? smooth(t / hit) : 1 - smooth((t - hit) / (1 - hit));
+    this.bodies.forEach((body, i) => {
+      const direction = i % 2 === 0 ? 1 : -1;
+      const layer = i + 1;
+      body.sp.x = body.baseX + direction * layer * 1.5 * envelope;
+      body.sp.y = body.baseY - (i === this.bodies.length - 1 ? 5 : 2) * envelope;
+      body.sp.rotation = body.baseRot + direction * (8 + layer) * DEG * envelope;
+      body.sp.scale.set(
+        body.baseScaleX * (1 + 0.025 * layer * envelope),
+        body.baseScaleY * (1 - 0.02 * layer * envelope)
+      );
+    });
+    this.arms.forEach((arm, i) => {
+      const direction = i % 2 === 0 ? -1 : 1;
+      arm.sp.x = arm.baseX + direction * 3 * envelope;
+      arm.sp.y = arm.baseY - (i + 1) * envelope;
+      arm.sp.rotation = arm.baseRot + direction * (10 + i * 3) * DEG * envelope;
+    });
+  }
+
+  /** Animation 24: the Ringmaster's staggered, full-body theatrical strike. */
+  private poseRingmaster(t: number) {
+    const front = keyframe(t, [
+      [0, 0], [0.1, 90 * DEG], [0.5, 160 * DEG], [0.75, 40 * DEG], [1, 0],
+    ]);
+    const back = keyframe(t, [
+      [0, 0], [0.1, -90 * DEG], [0.5, -160 * DEG], [0.75, -40 * DEG], [1, 0],
+    ]);
+    for (const arm of this.arms) {
+      arm.sp.position.set(arm.baseX, arm.baseY);
+      arm.sp.rotation = arm.baseRot + (arm.back ? back : front);
+    }
+    const flourish = keyframe(t, [[0, 0], [0.4, 1], [0.75, 0.55], [1, 0]]);
+    const strike = keyframe(t, [[0, 0], [0.5, 0], [0.75, 1], [1, 0]]);
+    for (const body of this.bodies) body.sp.rotation = body.baseRot - 10 * DEG * flourish;
+    for (const head of this.headParts) {
+      head.sp.x -= 10 * strike;
+      head.sp.y += 5 * strike;
+      head.sp.rotation += 10 * DEG * flourish;
+    }
+    this.legs.forEach((leg, i) => {
+      leg.sp.rotation = leg.baseRot + (i % 2 === 0 ? -1 : 1) * 10 * DEG * flourish;
+    });
+    this.root.x += -this.facing * 5 * strike;
   }
 }

@@ -13,7 +13,7 @@ import { AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sp
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
 import { BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, ENEMY_HOLD_X, ENEMY_SPAWN_X, FIELD_H, FIELD_W, SimUnit, TELEPORT_PX } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
-import { EnemyActor } from "./EnemyActor";
+import { EnemyActor, type EnemyAttackPose } from "./EnemyActor";
 import { ParticleField, ParticleConfig } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
@@ -60,8 +60,8 @@ export interface RaidSceneParams {
   bossGroundOffset?: { x: number; y: number };
   confirmRetreat?: () => Promise<boolean>;
   onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
-  /** Presentation-only impact cue; combat remains deterministic without it. */
-  onStrike?: () => void;
+  /** Presentation-only authored attack cue; combat remains deterministic without it. */
+  onStrike?: (strike: { team: "player" | "enemy"; attackName?: string }) => void;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
 }
 
@@ -202,6 +202,15 @@ function parseVec(s: string): [number, number] {
 const enemySprite = (key: string) => `${BASE}assets/raids/enemies/${key}.png`;
 /** Packed part strip for an enemy's animated rig (raids/enemies/parts/<key>.png). */
 const enemyStripUrl = (key: string) => `${BASE}assets/raids/enemies/parts/${key}.png`;
+const enemyFrameUrl = (key: string, state: "idle" | "attack", frame: number) =>
+  `${BASE}assets/raids/enemies/animations/${key}/${state}-${frame}.png`;
+const ENEMY_FRAME_COUNTS: Record<string, { idle: number; attack: number }> = {
+  VideoGameStageBossActor: { idle: 2, attack: 4 },
+  VideoGameStageGhostActor: { idle: 3, attack: 3 },
+  VideoGameStageKnightActor: { idle: 3, attack: 3 },
+  VideoGameStageMonsterActor: { idle: 3, attack: 3 },
+  VideoGameStageZombieActor: { idle: 4, attack: 3 },
+};
 // Source-game focus thought-bubbles (misc/thoughtBubble*.png), shown over the
 // charging zombie. Butterfly = distracted; brain = fully focused / ready.
 const BUBBLE_BUTTERFLY = BASE + "assets/ui/thoughtBubbleButterfly.png";
@@ -216,6 +225,12 @@ interface Token {
   root: Container;
   actor?: RaidActor; // player zombie rig (walk animation)
   enemyActor?: EnemyActor; // enemy rig (idle bob / walk / limb animation)
+  frameActor?: {
+    sprite: Sprite;
+    idle: Texture[];
+    attack: Texture[];
+    time: number;
+  }; // authentic pre-rendered Video Games frames
   epicActor?: AnimatedSprite;
   epicAnim?: string;
   hp: Graphics;
@@ -261,7 +276,7 @@ export class RaidScene {
   private raid: RaidDef;
   private onFinish: (o: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
   private onCheckpoint: ((finalTick: number, inputs: RaidReplayInput[]) => Promise<void>) | null;
-  private onStrike: (() => void) | null;
+  private onStrike: ((strike: { team: "player" | "enemy"; attackName?: string }) => void) | null;
   private lastCheckpointTick = 0;
   private checkpointing = false;
   private checkpointRetryAt = 0;
@@ -283,6 +298,7 @@ export class RaidScene {
   private texByUnit = new Map<string, Texture | null>(); // fallback portrait tokens
   private enemyTex = new Map<string, Texture | null>(); // composited enemy sprites
   private enemyStrip = new Map<string, Texture | null>(); // packed part strips (animated rigs)
+  private enemyFrames = new Map<string, { idle: Texture[]; attack: Texture[] }>();
   private ufoBackTex: Texture | null = null; // alien boss UFO (back dome)
   private ufoFrontTex: Texture | null = null; // alien boss UFO (saucer + glass dome)
 
@@ -454,7 +470,17 @@ export class RaidScene {
       enemyKeys.map(async (k) => {
         // Prefer the animated rig (part strip) when a model exists; else the flat
         // composite; else the token falls back to the raid's icon / boss portrait.
-        if (this.assets.enemyModels[k]) {
+        const frameCounts = ENEMY_FRAME_COUNTS[k];
+        if (frameCounts) {
+          const loadFrames = async (state: "idle" | "attack", count: number) =>
+            (await Promise.all(
+              Array.from({ length: count }, (_, i) => loadTex(enemyFrameUrl(k, state, i)))
+            )).filter((tex): tex is Texture => tex !== null);
+          this.enemyFrames.set(k, {
+            idle: await loadFrames("idle", frameCounts.idle),
+            attack: await loadFrames("attack", frameCounts.attack),
+          });
+        } else if (this.assets.enemyModels[k]) {
           this.enemyStrip.set(k, await loadTex(enemyStripUrl(k)));
         } else {
           this.enemyTex.set(k, await loadTex(enemySprite(k)));
@@ -466,7 +492,8 @@ export class RaidScene {
     const fallbackUrls = new Map<string, string>();
     for (const u of this.sim.units) {
       if (u.team !== "enemy") continue;
-      if (this.enemyTex.get(u.sourceKey) || this.enemyStrip.get(u.sourceKey)) continue;
+      if (this.enemyFrames.get(u.sourceKey) || this.enemyTex.get(u.sourceKey)
+        || this.enemyStrip.get(u.sourceKey)) continue;
       fallbackUrls.set(u.id, u.isBoss ? bossUrl : enemyUrl);
     }
     const uniq = [...new Set([...fallbackUrls.values()].filter(Boolean))];
@@ -674,6 +701,7 @@ export class RaidScene {
     const root = new Container();
     let actor: RaidActor | undefined;
     let enemyActor: EnemyActor | undefined;
+    let frameActor: Token["frameActor"];
     let epicActor: AnimatedSprite | undefined;
     let epicAnim: string | undefined;
     let base = 22;
@@ -720,7 +748,17 @@ export class RaidScene {
       const strip = this.enemyStrip.get(u.sourceKey) ?? null;
       const model = this.assets.enemyModels[u.sourceKey];
       const tex = this.enemyTex.get(u.sourceKey) ?? null;
-      if (strip && model) {
+      const frames = this.enemyFrames.get(u.sourceKey);
+      if (frames?.idle.length) {
+        const sp = new Sprite(frames.idle[0]);
+        sp.anchor.set(0.5, 1);
+        const s = targetH / Math.max(1, frames.idle[0].height);
+        sp.scale.set(s);
+        root.addChild(sp);
+        base = Math.max(16, frames.idle[0].width * s / 2);
+        topY = -targetH;
+        frameActor = { sprite: sp, idle: frames.idle, attack: frames.attack, time: 0 };
+      } else if (strip && model) {
         // Animated rig: assemble from the part strip and fit to the role height.
         const ea = new EnemyActor(strip, model, u.sourceKey);
         const b = ea.container.getLocalBounds();
@@ -812,7 +850,7 @@ export class RaidScene {
       root.on("pointertap", () => this.sim.tapWall(u.id));
     }
     return {
-      root, actor, enemyActor, epicActor, epicAnim: epicActor ? epicAnim : undefined,
+      root, actor, enemyActor, frameActor, epicActor, epicAnim: epicActor ? epicAnim : undefined,
       hp, charge, base, hpCenterX, topY, pulse: 0, atkCount: 0,
       deathAnim: -1, emerged: false,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
@@ -1245,7 +1283,12 @@ export class RaidScene {
         if (exitMarch) tok.actor.setFacingFromDelta(this.phase === "retreat" ? -1 : 1);
         else if (Math.abs(u.vx) > 6) tok.actor.setFacingFromDelta(u.vx);
         const moving = u.alive && (simMoving || introMarch || exitMarch);
-        tok.actor.update(dtSec, moving);
+        // The source focus pose narrows the eyes while the gold bar is advancing.
+        // A distracted zombie or one waiting on the full-bar brain bubble is no
+        // longer actively focusing, so its eyes relax.
+        const focusing =
+          u.state === "charging" && !u.distracted && !u.awaitRelease && u.charge < 1;
+        tok.actor.update(dtSec, moving, focusing);
 
         // Garden heal: lift both arms overhead, hold through the healing burst, then
         // lower them. This pose is visual only; healing remains simulation-owned.
@@ -1283,7 +1326,9 @@ export class RaidScene {
         // clock — a full switch per cooldown — kept continuous per hit by atkCount.
         const fighting = this.phase === "fight" && u.state === "fight" && !u.windupKey && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
-        tok.actor.poseArms(windup, fighting, moving, atkProg, tok.atkCount, slamProg, healRaise);
+        tok.actor.poseArms(
+          windup, fighting, moving, atkProg, tok.atkCount, slamProg, healRaise, u.attackName
+        );
       }
       // Enemy rig: idle bob when holding position, walk cycle while advancing, and a
       // forward strike lunge while trading blows — the lunge peaks at the attack's
@@ -1292,7 +1337,9 @@ export class RaidScene {
         if (Math.abs(u.vx) > 6) tok.enemyActor.setFacingFromDelta(u.vx);
         const enemyFighting = u.state === "fight" && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
-        let attack = enemyFighting ? { atkProg, damageTiming: u.attackDamageTiming } : null;
+        let attack: EnemyAttackPose | null = enemyFighting
+          ? { atkProg, damageTiming: u.attackDamageTiming, attackName: u.attackName }
+          : null;
         // Perched boss: a simple throw swing — the arm cocks and swings forward as the
         // throw winds up, releasing (peak reach) as the projectile launches. Map the
         // sim's 0..1 wind-up onto the attack envelope's active window (past its rest
@@ -1304,11 +1351,32 @@ export class RaidScene {
             attack = { atkProg: 0.28 + 0.64 * summon, damageTiming: 0.98 };
           } else {
             const sw = this.sim.bossThrowSwing(550, visualLeadMs);
-            attack = sw === null ? null : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
+            attack = sw === null
+              ? null
+              : { atkProg: 0.28 + 0.72 * sw, damageTiming: 0.9 };
           }
         }
         const jumpingFromPerch = u.state === "descending" && u.sourceKey === CIRCUS_BOSS_KEY;
         tok.enemyActor.update(dtSec, u.alive && simMoving && !jumpingFromPerch, attack);
+      }
+      if (tok.frameActor) {
+        tok.frameActor.time += dtSec;
+        const fighting = u.state === "fight" && u.alive && tok.frameActor.attack.length > 0;
+        if (fighting) {
+          const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
+          const recovery = 1 - u.attackDamageTiming;
+          const sourceT = atkProg <= recovery
+            ? u.attackDamageTiming + atkProg
+            : atkProg - recovery;
+          const index = Math.min(
+            tok.frameActor.attack.length - 1,
+            Math.floor(sourceT * tok.frameActor.attack.length)
+          );
+          tok.frameActor.sprite.texture = tok.frameActor.attack[index];
+        } else {
+          const index = Math.floor(tok.frameActor.time * 4) % tok.frameActor.idle.length;
+          tok.frameActor.sprite.texture = tok.frameActor.idle[index];
+        }
       }
       if (tok.epicActor) {
         const attackDef = this.bossAnimationDefs?.attack;
@@ -1752,10 +1820,13 @@ export class RaidScene {
         // renderer would replay one strike several times, resetting the pulse and
         // flipping the attack-arm parity every display frame.
         if (stepped) {
-          let struck = false;
+          let strike: SimUnit | null = null;
           for (const u of this.sim.units) {
             if (u.struckThisTick) {
-              struck = true;
+              // When both sides connect on one fixed tick, prefer the player's
+              // authored zombie cue. This retains the one-cue-per-tick mix guard
+              // while ensuring zombie bites cannot be masked by an enemy hit.
+              if (!strike || (strike.team === "enemy" && u.team === "player")) strike = u;
               const t = this.tokens.get(u.id);
               if (t) {
                 t.pulse = 1;
@@ -1769,7 +1840,12 @@ export class RaidScene {
           }
           // Collapse simultaneous hits to one cue so a large army does not stack
           // a painfully loud group of identical one-shots.
-          if (struck) this.onStrike?.();
+          if (strike) {
+            this.onStrike?.({
+              team: strike.team,
+              attackName: strike.attackName,
+            });
+          }
         }
         if (this.sim.finished) {
           // Freeze outcome-relevant controls on the decisive tick, not after the

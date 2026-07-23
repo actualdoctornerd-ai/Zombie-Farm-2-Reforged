@@ -406,7 +406,8 @@ export const blackMarketSummary = () => req<BlackMarketSummary>("GET", "/black-m
 
 export const createBlackMarketOrder = (body:
   | { operationId: string; expectedAccountVersion: number; kind: "SELL_ZOMBIE"; unitId: string; priceBrains: number }
-  | { operationId: string; expectedAccountVersion: number; kind: "BUY_ZOMBIE"; zombieKey: string; mutated: boolean; priceBrains: number }
+  | { operationId: string; expectedAccountVersion: number; kind: "BUY_ZOMBIE"; zombieKey: string;
+      mutated: boolean; mutationRequired?: number; priceBrains: number }
 ) => req<BlackMarketMutationResponse>("POST", "/black-market/orders", body);
 
 export const cancelBlackMarketOrder = (id: string, operationId: string, expectedAccountVersion: number) =>

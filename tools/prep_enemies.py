@@ -654,8 +654,12 @@ def build_bare_actors():
 
 
 def build_videogame_actors():
-    """VideoGame enemies: extract the standing IDLE frame from each TexturePacker
-    atlas as the flat actor sprite (the scene shows a flat texture when no rig)."""
+    """Extract both the fallback idle sprite and every authentic idle/attack frame.
+
+    These actors are pre-rendered frame animations rather than paper dolls. Keeping
+    each frame on its full source-size canvas prevents TexturePacker trimming from
+    making the actor jitter when RaidScene swaps frames.
+    """
     for key, base in VIDEOGAME_ATLASES.items():
         png, plist = base + ".png", base + ".plist"
         if not (os.path.exists(png) and os.path.exists(plist)):
@@ -663,21 +667,39 @@ def build_videogame_actors():
             continue
         atlas = Image.open(png).convert("RGBA")
         frames = plistlib.load(open(plist, "rb"))["frames"]
-        idle = sorted(k for k in frames if "idle" in k.lower()) or sorted(frames)
-        f = frames[idle[0]]
-        tx, ty, tw, th = parse_rect(f["textureRect"])
-        if f.get("textureRotated", False):
-            crop = atlas.crop((int(tx), int(ty), int(tx + th), int(ty + tw))).rotate(-90, expand=True)
-        else:
-            crop = atlas.crop((int(tx), int(ty), int(tx + tw), int(ty + th)))
-        cx, cy, _cw, _ch = parse_rect(f["spriteColorRect"])
-        ssz = parse_rect(f["spriteSourceSize"])
-        canvas = Image.new("RGBA", (int(ssz[0]), int(ssz[1])), (0, 0, 0, 0))
-        canvas.alpha_composite(crop, (int(cx), int(cy)))
-        box = canvas.getbbox()
-        out = canvas.crop(box) if box else canvas
+        states = {
+            state: sorted(name for name in frames if state in name.lower())
+            for state in ("idle", "attack")
+        }
+        anim_dir = os.path.join(OUT_DIR, "animations", key)
+        os.makedirs(anim_dir, exist_ok=True)
+        rendered = {}
+        for state, names in states.items():
+            rendered[state] = []
+            for i, name in enumerate(names):
+                f = frames[name]
+                tx, ty, tw, th = parse_rect(f["textureRect"])
+                if f.get("textureRotated", False):
+                    crop = atlas.crop(
+                        (int(tx), int(ty), int(tx + th), int(ty + tw))
+                    ).rotate(-90, expand=True)
+                else:
+                    crop = atlas.crop((int(tx), int(ty), int(tx + tw), int(ty + th)))
+                cx, cy, _cw, _ch = parse_rect(f["spriteColorRect"])
+                ssz = parse_rect(f["spriteSourceSize"])
+                canvas = Image.new("RGBA", (int(ssz[0]), int(ssz[1])), (0, 0, 0, 0))
+                canvas.alpha_composite(crop, (int(cx), int(cy)))
+                canvas.save(os.path.join(anim_dir, f"{state}-{i}.png"))
+                rendered[state].append(canvas)
+        idle = states["idle"] or sorted(frames)
+        out = rendered["idle"][0]
+        box = out.getbbox()
+        out = out.crop(box) if box else out
         out.save(os.path.join(OUT_DIR, f"{key}.png"))
-        print(f"  {key}: idle '{idle[0]}' -> {out.width}x{out.height}")
+        print(
+            f"  {key}: {len(states['idle'])} idle + {len(states['attack'])} attack "
+            f"frames; fallback '{idle[0]}' -> {out.width}x{out.height}"
+        )
 
 
 def resolve_parts(spec, frames):

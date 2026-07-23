@@ -12,9 +12,15 @@ export type Sfx =
   | "buy" | "sell" | "place" | "instaGrow"
   | "menuOpen" | "menuClose" | "menuClick" | "levelUp" | "attack";
 
-// All clips are shipped as compressed .mp3 (universal browser support). The
+export interface FightStrike {
+  team: "player" | "enemy";
+  attackName?: string;
+}
+
+// Most clips are shipped as compressed .mp3 (universal browser support). The
 // .wav->.mp3 coercion lets data-driven filenames (e.g. decor tapSound values
 // authored as *.wav) resolve to the shipped file without editing that data.
+// Recovered fight cues opt out through an explicit path and retain their PCM WAV.
 const A = (n: string) => n.includes("/")
   ? `${BASE}assets/${n}`
   : `${BASE}assets/audio/${n.replace(/\.wav$/i, ".mp3")}`;
@@ -47,6 +53,22 @@ const SFX_VOL: Partial<Record<Sfx, number>> = {
   levelUp: 0.75, harvestZombie: 0.7,
   attack: 0.32,
 };
+
+// Ground truth from Attacks.json: player zombies' ordinary attack is ZombieBite,
+// while stage actors choose a cue matching their authored attack. These files use
+// an explicit assets/audio/ path so A() preserves the recovered WAV extension
+// instead of applying its legacy data-driven WAV -> MP3 decor coercion.
+function fightStrikeFile({ team, attackName = "" }: FightStrike): string {
+  const attack = attackName.toLowerCase();
+  if (attack.includes("bite")) return "audio/bite.wav";
+  if (attack.includes("poke") || attack.includes("stab") || attack.includes("midgetstack")) {
+    return "audio/poke.wav";
+  }
+  if (attack.includes("slice") || attack.includes("slash")) return "audio/swipe.wav";
+  if (attack.includes("flail") || attack.includes("scratch")) return "audio/flail.wav";
+  if (team === "player") return "audio/bite.wav";
+  return "audio/punch.wav";
+}
 
 // Ambient farm life: a quiet continuous bed, plus an occasional rooster/crow so
 // the farm never sounds dead. One-shots fire on a randomized 18-42s timer.
@@ -262,6 +284,12 @@ export class AudioManager {
   play(name: Sfx) {
     if (!this.sfxOn || !this.canPlay()) return;
     this.playOneShot(SFX_FILE[name], SFX_VOL[name] ?? DEFAULT_VOL);
+  }
+
+  /** Play the attack cue authored for the side/type that landed a raid strike. */
+  fightStrike(strike: FightStrike) {
+    if (!this.sfxOn || !this.canPlay()) return;
+    this.playOneShot(fightStrikeFile(strike), strike.team === "player" ? 0.55 : 0.42);
   }
 
   // A zombie's "Brains…" bark when it's tapped on the farm, chosen by its group.

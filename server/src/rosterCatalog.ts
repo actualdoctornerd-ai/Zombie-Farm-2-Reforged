@@ -98,6 +98,33 @@ const TRADABLE_ZOMBIES = new Set(
   (zombieRows as Array<{ key: string }>).map((zombie) => zombie.key)
 );
 
+export const BLACK_MARKET_SPECIAL_LEVEL = 20;
+
+export interface BlackMarketPurchaseRequirement {
+  minLevel?: number;
+  grave?: "Blue" | "Red" | "Silver";
+  graveKey?: "gravestoneBlue" | "gravestoneRed" | "gravestoneSilver";
+}
+
+const BLACK_MARKET_REQUIREMENTS = new Map(
+  (zombieRows as Array<{ key: string; category?: string; className?: string }>).map((zombie) => {
+    const grave = zombie.className === "Blue" || zombie.className === "Red" || zombie.className === "Silver"
+      ? zombie.className
+      : undefined;
+    return [zombie.key, {
+      ...(zombie.category === "special" ? { minLevel: BLACK_MARKET_SPECIAL_LEVEL } : {}),
+      ...(grave ? { grave, graveKey: `gravestone${grave}` } : {}),
+    } satisfies BlackMarketPurchaseRequirement] as const;
+  })
+);
+
+/** Requirements for receiving a zombie through the Black Market. Ordinary catalog
+ * level requirements intentionally do not apply; only colored graves and level-20
+ * access to special zombies gate a purchase. */
+export function blackMarketPurchaseRequirement(key: string): BlackMarketPurchaseRequirement | null {
+  return BLACK_MARKET_REQUIREMENTS.get(key) ?? null;
+}
+
 /** Server-owned Black Market allowlist. `marketHidden` controls visibility in the
  * ordinary crop market, while `rewardOnly` controls acquisition. Neither prevents
  * an authoritatively owned zombie from trading. */

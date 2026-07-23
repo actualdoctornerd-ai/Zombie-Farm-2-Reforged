@@ -233,6 +233,9 @@ export interface BlackMarketOrderView {
   kind: BlackMarketOrderKind;
   zombieKey: string;
   mutated: boolean;
+  /** Mutation-choice mask requested by a BUY_ZOMBIE order. Bits within one body
+   * slot are OR alternatives; requirements across different slots are ANDed. */
+  mutationRequired?: number;
   mutation?: number;
   invasions?: number;
   priceBrains: number;

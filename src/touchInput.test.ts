@@ -7,6 +7,7 @@ import {
   isSelectTapGesture,
   isTouchPointer,
   isZombieHold,
+  shouldRecoverTouchPointerUp,
   MOUSE_TAP_SLOP,
   TOUCH_TAP_SLOP,
   TOUCH_SELECT_TAP_SLOP,
@@ -45,6 +46,13 @@ describe("farm touch gesture classification", () => {
     const target = { setPointerCapture: () => { throw new Error("no active pointer"); } };
     expect(captureTouchPointer(target, 1, "mouse")).toBe(false);
     expect(captureTouchPointer(target, 2, "touch")).toBe(false);
+  });
+
+  it("recovers only the active Android touch release", () => {
+    expect(shouldRecoverTouchPointerUp(17, 17, "touch")).toBe(true);
+    expect(shouldRecoverTouchPointerUp(17, 18, "touch")).toBe(false);
+    expect(shouldRecoverTouchPointerUp(-1, 17, "touch")).toBe(false);
+    expect(shouldRecoverTouchPointerUp(17, 17, "mouse")).toBe(false);
   });
 
   it("defers every irreversible edit tool until a touch is confirmed", () => {

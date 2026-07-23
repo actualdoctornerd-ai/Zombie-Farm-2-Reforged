@@ -134,4 +134,24 @@ describe("AudioManager focus muting", () => {
       musicVolume: 0.75, sfxVolume: 0.6, ambienceVolume: 0.8,
     });
   });
+
+  it("uses the recovered zombie bite and authored enemy attack cues", () => {
+    const audio = new AudioManager();
+
+    audio.fightStrike({ team: "player", attackName: "ZombieBite" });
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/bite.wav");
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.volume).toBeCloseTo(0.55);
+
+    audio.fightStrike({ team: "player", attackName: "ZombieScratch" });
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/flail.wav");
+
+    audio.fightStrike({ team: "enemy", attackName: "FarmhandPoke" });
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/poke.wav");
+
+    audio.fightStrike({ team: "enemy", attackName: "MidgetStackAttack" });
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/poke.wav");
+
+    audio.fightStrike({ team: "enemy", attackName: "LumberjackSlice" });
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/swipe.wav");
+  });
 });

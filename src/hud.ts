@@ -10,7 +10,7 @@ import type { FarmerBodyDef, FarmerCatalog, FarmerHeadDef, PetCatalog, PetDef } 
 import { EPIC_BOSS_FIGHT_BRAIN_COST, type EpicBossPayment } from "./epicBoss/tokens";
 import { AudioManager } from "./audio";
 import { MAX_ZOMBIE_NAME_LENGTH, RosterEntry } from "./zombie/types";
-import { mutationLabel, mutationBonus } from "./zombie/mutations";
+import { ALL_BITS, MUTATIONS, mutationLabel, mutationBonus } from "./zombie/mutations";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
@@ -30,6 +30,11 @@ import type {
   BlackMarketListResponse, BlackMarketMutationResponse, BlackMarketOrderKind,
   BlackMarketOrderView,
 } from "./net/protocol";
+import {
+  blackMarketMutationRequirementLabel,
+  blackMarketPurchaseLock,
+  matchesBlackMarketMutation,
+} from "./blackMarketRules";
 // HUD styles live in a real stylesheet (src/ui/hud.css) so they get CSS tooling
 // and hot-reload. Vite injects it at module load — no manual <style> element.
 import "./ui/hud.css";
@@ -1012,7 +1017,7 @@ export class Hud {
   }) => Promise<BlackMarketListResponse>) | null = null;
   onCreateBlackMarketOrder: ((input:
     | { kind: "SELL_ZOMBIE"; unitId: string; priceBrains: number }
-    | { kind: "BUY_ZOMBIE"; zombieKey: string; mutated: boolean; priceBrains: number }
+    | { kind: "BUY_ZOMBIE"; zombieKey: string; mutated: boolean; mutationRequired?: number; priceBrains: number }
   ) => Promise<BlackMarketMutationResponse>) | null = null;
   onCancelBlackMarketOrder: ((orderId: string) => Promise<BlackMarketMutationResponse>) | null = null;
   onFulfillBlackMarketOrder: ((order: BlackMarketOrderView, unitId?: string) => Promise<BlackMarketMutationResponse>) | null = null;
@@ -2276,9 +2281,25 @@ export class Hud {
     assetLabel.append(assetCaption, asset);
     const mutationLabelEl = document.createElement("label");
     mutationLabelEl.append("Mutation requirement");
-    const requestedMutation = document.createElement("select");
-    requestedMutation.append(new Option("Mutated: No", "false"), new Option("Mutated: Yes", "true"));
-    mutationLabelEl.appendChild(requestedMutation);
+    const mutationMode = document.createElement("select");
+    mutationMode.append(
+      new Option("No mutation", "false"),
+      new Option("Any mutation", "true"),
+      new Option("Specific mutations…", "specific")
+    );
+    const mutationChoices = document.createElement("div");
+    mutationChoices.className = "bm-mutation-choices";
+    mutationChoices.hidden = true;
+    const mutationChecks = ALL_BITS.map((bit) => {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = String(bit);
+      label.append(input, MUTATIONS[bit].name);
+      mutationChoices.appendChild(label);
+      return input;
+    });
+    mutationLabelEl.append(mutationMode, mutationChoices);
     const priceLabel = document.createElement("label");
     priceLabel.append("Price in brains");
     const price = document.createElement("input");
@@ -2294,6 +2315,36 @@ export class Hud {
     let kind = initialKind;
     let renderGeneration = 0;
     const cardFor = (key: string) => catalog.find((entry) => entry.cfg.key === key);
+    const purchaseLockFor = (key: string) => {
+      const card = cardFor(key);
+      if (!card) return null;
+      return blackMarketPurchaseLock(
+        { category: card.category, unlockGrave: card.cfg.unlockGrave },
+        this.state.level,
+        (grave) => this.hasGrave?.(grave) ?? false
+      );
+    };
+    const selectedMutationMask = () => mutationChecks.reduce(
+      (mask, input) => input.checked ? mask | Number(input.value) : mask,
+      0
+    );
+    const refreshComposeStatus = () => {
+      const selling = composeKind.value === "SELL_ZOMBIE";
+      const purchaseLock = selling ? null : purchaseLockFor(asset.value);
+      const missingMutation = !selling && mutationMode.value === "specific" &&
+        selectedMutationMask() === 0;
+      mutationChoices.hidden = selling || mutationMode.value !== "specific";
+      escrowNote.textContent = selling
+        ? "This zombie leaves your roster while the post is open."
+        : purchaseLock?.label ??
+          (missingMutation
+            ? "Select at least one specific mutation."
+            : mutationMode.value === "specific"
+              ? "Same-slot choices are alternatives; choices in different slots are all required."
+              : "The full brain offer is removed while the request is open.");
+      escrowNote.classList.toggle("bm-lock", !!purchaseLock || missingMutation);
+      submit.disabled = !asset.value || !!purchaseLock || missingMutation || !this.socialOnline?.();
+    };
     const updateCompose = () => {
       const selling = composeKind.value === "SELL_ZOMBIE";
       asset.replaceChildren();
@@ -2304,14 +2355,15 @@ export class Hud {
           asset.appendChild(option);
         }
       } else {
-        for (const card of catalog) asset.append(new Option(card.name, card.cfg.key));
+        for (const card of catalog) {
+          const lock = purchaseLockFor(card.cfg.key);
+          const option = new Option(lock ? `${card.name} — ${lock.label}` : card.name, card.cfg.key);
+          asset.append(option);
+        }
       }
       mutationLabelEl.style.display = selling ? "none" : "flex";
       submit.textContent = selling ? "Post Zombie Sale" : "Post Request";
-      escrowNote.textContent = selling
-        ? "This zombie leaves your roster while the post is open."
-        : "The full brain offer is removed while the request is open.";
-      submit.disabled = !asset.options.length || !this.socialOnline?.();
+      refreshComposeStatus();
     };
 
     const setTabs = () => {
@@ -2346,9 +2398,14 @@ export class Hud {
           const name = document.createElement("div"); name.className = "bm-name";
           name.textContent = cardFor(order.zombieKey)?.name ?? order.zombieKey;
           const meta = document.createElement("div"); meta.className = "bm-meta";
-          const mutationText = order.mutated
-            ? `Yes${order.mutation ? ` — ${mutationLabel(order.mutation)}` : ""}` : "No";
-          meta.textContent = `Mutated: ${mutationText}${order.invasions ? ` · ${veterancy(order.invasions)}` : ""}\n${order.mine ? "Your post" : order.creatorName}`;
+          const mutationText = order.kind === "BUY_ZOMBIE"
+            ? order.mutationRequired
+              ? `Requested mutations: ${blackMarketMutationRequirementLabel(order.mutationRequired)}`
+              : `Requested mutation: ${order.mutated ? "Any mutation" : "None"}`
+            : `Mutated: ${order.mutated
+              ? `Yes${order.mutation ? ` — ${mutationLabel(order.mutation)}` : ""}`
+              : "No"}${order.invasions ? ` · ${veterancy(order.invasions)}` : ""}`;
+          meta.textContent = `${mutationText}\n${order.mine ? "Your post" : order.creatorName}`;
           const cost = document.createElement("div"); cost.className = "bm-price";
           cost.append(String(order.priceBrains));
           const brain = document.createElement("img"); brain.src = UI("topbar_brain_icon.png"); cost.appendChild(brain);
@@ -2364,12 +2421,23 @@ export class Hud {
             };
           } else {
             action.textContent = order.kind === "SELL_ZOMBIE" ? "Buy Zombie" : "Sell Matching Zombie";
+            const purchaseLock = order.kind === "SELL_ZOMBIE" ? purchaseLockFor(order.zombieKey) : null;
+            if (purchaseLock) {
+              marketCard.classList.add("locked");
+              const lockNote = document.createElement("div");
+              lockNote.className = "bm-lock";
+              lockNote.textContent = purchaseLock.label;
+              body.appendChild(lockNote);
+              action.textContent = purchaseLock.label;
+              action.disabled = true;
+            }
             action.onclick = async () => {
+              if (purchaseLock) { this.showToast(purchaseLock.label); return; }
               let unitId: string | undefined;
               let detail = `Spend ${order.priceBrains} brains for this zombie?`;
               if (order.kind === "BUY_ZOMBIE") {
                 const match = (this.getRoster?.() ?? []).find((zombie) => zombie.key === order.zombieKey &&
-                  (zombie.mutation !== 0) === order.mutated);
+                  matchesBlackMarketMutation(zombie.mutation, order.mutated, order.mutationRequired));
                 if (!match) { this.showToast("You do not own a matching available zombie."); return; }
                 unitId = match.id; detail = `Trade ${match.name} for ${order.priceBrains} brains?`;
               }
@@ -2380,6 +2448,10 @@ export class Hud {
                 const code = error instanceof Error ? error.message : "";
                 if (code.startsWith("insufficient_brains"))
                   this.showToast(`You need ${order.priceBrains} brains to buy this zombie.`);
+                else if (code.startsWith("black_market_level_locked"))
+                  this.showToast("Special zombies can be purchased at level 20.");
+                else if (code.startsWith("black_market_grave_required"))
+                  this.showToast("Place this zombie's required gravestone on your farm first.");
                 else if (code.startsWith("counterparty_busy"))
                   this.showToast("The seller is syncing. Try the trade again in a moment.");
                 else this.showToast("That trade is no longer available. Market refreshed.");
@@ -2399,19 +2471,35 @@ export class Hud {
     for (const control of [typeFilter, mutationFilter, sort, mine]) control.onchange = () => void renderOrders();
     refresh.onclick = () => void renderOrders();
     composeKind.onchange = updateCompose;
+    asset.onchange = refreshComposeStatus;
+    mutationMode.onchange = refreshComposeStatus;
+    for (const input of mutationChecks) input.onchange = refreshComposeStatus;
     submit.onclick = async () => {
       const priceBrains = Number(price.value);
       if (!Number.isSafeInteger(priceBrains) || priceBrains < 1 || priceBrains > 1_000_000) {
         this.showToast("Enter a whole brain price between 1 and 1,000,000."); return;
       }
       const selling = composeKind.value === "SELL_ZOMBIE";
+      if (!selling) {
+        const purchaseLock = purchaseLockFor(asset.value);
+        if (purchaseLock) { this.showToast(purchaseLock.label); return; }
+      }
       const warning = selling ? "The selected zombie will be held in escrow." : `${priceBrains} brains will be held in escrow.`;
       if (!await this.confirmInGame("Create Black Market post?", warning, "Create Post")) return;
       submit.disabled = true;
       try {
+        const mutationRequired = mutationMode.value === "specific"
+          ? selectedMutationMask()
+          : undefined;
         await this.onCreateBlackMarketOrder?.(selling
           ? { kind: "SELL_ZOMBIE", unitId: asset.value, priceBrains }
-          : { kind: "BUY_ZOMBIE", zombieKey: asset.value, mutated: requestedMutation.value === "true", priceBrains });
+          : {
+              kind: "BUY_ZOMBIE",
+              zombieKey: asset.value,
+              mutated: mutationMode.value !== "false",
+              ...(mutationRequired ? { mutationRequired } : {}),
+              priceBrains,
+            });
         kind = selling ? "SELL_ZOMBIE" : "BUY_ZOMBIE";
         setTabs(); updateCompose(); refreshBalance(); price.value = ""; await renderOrders();
       } catch (error) {
@@ -2426,9 +2514,13 @@ export class Hud {
           this.showToast("You have reached today's limit of 50 Black Market posts.");
         else if (code.startsWith("insufficient_brains"))
           this.showToast("You do not have enough brains for that request.");
+        else if (code.startsWith("black_market_level_locked"))
+          this.showToast("Special zombies can be purchased at level 20.");
+        else if (code.startsWith("black_market_grave_required"))
+          this.showToast("Place this zombie's required gravestone on your farm first.");
         else this.showToast("Could not create that post. Refresh and try again.");
       }
-      finally { submit.disabled = false; }
+      finally { refreshComposeStatus(); }
     };
 
     setTabs(); updateCompose();

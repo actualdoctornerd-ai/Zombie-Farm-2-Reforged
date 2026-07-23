@@ -28,6 +28,19 @@ export function captureTouchPointer(
   }
 }
 
+/** Android can deliver the native pointer-up without Pixi producing the matching
+ * federated stage event after the HUD changes under the finger. In that case the
+ * native release may finish the one active touch gesture. */
+export function shouldRecoverTouchPointerUp(
+  activePointerId: number,
+  releasedPointerId: number,
+  pointerType: string,
+): boolean {
+  return isTouchPointer(pointerType) &&
+    activePointerId !== -1 &&
+    releasedPointerId === activePointerId;
+}
+
 const DEFERRED_TOUCH_MODES = new Set(["place", "move", "remove", "instagrow", "rotate"]);
 
 /** Mutating tools that must wait for finger-up because their effects cannot be

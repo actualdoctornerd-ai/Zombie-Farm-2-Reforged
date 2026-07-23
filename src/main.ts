@@ -47,7 +47,7 @@ import { initPlatform, isMobile } from "./platform";
 import { initPwa } from "./pwa";
 import {
   captureTouchPointer, gestureMoved, isDeferredTouchMode, isOutsideFarmPanGesture, isTouchPointer,
-  isSelectTapGesture, isZombieHold, TOUCH_ZOMBIE_HOLD_MS,
+  isSelectTapGesture, isZombieHold, shouldRecoverTouchPointerUp, TOUCH_ZOMBIE_HOLD_MS,
 } from "./touchInput";
 import { mutationDescription } from "./zombie/mutations";
 import { resolveCropMutations } from "./zombie/cropMutations";
@@ -58,12 +58,17 @@ import { buildEpicBossSetup, rollEpicBossLoot } from "./epicBoss/combat";
 import { epicBossCurrencyReward } from "./epicBoss/rewards";
 import { epicZombieRewardNotes, visibleEpicBosses } from "./epicBoss/market";
 import { dropsEpicBossToken, EPIC_BOSS_FIGHT_BRAIN_COST } from "./epicBoss/tokens";
+import { offerFullscreenPrompt } from "./ui/panels/fullscreenPrompt";
 
 // The boot / start screen lives in index.html and paints on the first frame (no
 // empty-farm flash). We report load milestones to it and, once the game is fully
 // built, tell it to finish — it then shows "Click to Start" and a tap dismisses it.
 const boot = (window as unknown as {
-  __ZFBoot?: { progress(p: number): void; ready(): void; fail(): void };
+  __ZFBoot?: {
+    progress(p: number): void;
+    ready(onDismiss?: () => void): void;
+    fail(): void;
+  };
 }).__ZFBoot;
 
 async function main() {
@@ -225,6 +230,13 @@ async function main() {
     for (const b of assets.boosts) {
       if (b.level > from && b.level <= to)
         unlocks.push({ icon: `${BASE}assets/boosts/${b.icon}`, name: b.name, kind: "Boost" });
+    }
+    if (from < 20 && to >= 20) {
+      unlocks.push({
+        icon: zombiePortrait("ZombieActorZomBetty"),
+        name: "Special zombies can now be purchased on the Black Market",
+        kind: "Black Market",
+      });
     }
     hud.openLevelUp({ level: to, unlocks });
     audio.play("levelUp");
@@ -2210,7 +2222,7 @@ async function main() {
       // Loco Locust sits low inside his generously padded animation cells. Lift his
       // whole token slightly so the visible character shares the other bosses' line.
       bossGroundOffset: { x: 32, y: def.id === "loco-locust" ? 8 : 24 },
-      onStrike: () => audio.play("attack"),
+      onStrike: (strike) => audio.fightStrike(strike),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from battle?", `This attempt will end and ${def.name} will escape.`, "Retreat"
       ),
@@ -2388,7 +2400,7 @@ async function main() {
       wallTemplate: setup.wallTemplate,
       brainDrop: setup.brainDrop,
       concentration: setup.concentration,
-      onStrike: () => audio.play("attack"),
+      onStrike: (strike) => audio.fightStrike(strike),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from invasion?", "This invasion will count as a loss.", "Retreat"
       ),
@@ -3276,6 +3288,19 @@ async function main() {
   };
   app.stage.on("pointerup", onPointerUp);
   app.stage.on("pointerupoutside", onPointerUp);
+  // Some Android browsers emit the native release but lose Pixi's federated
+  // pointer-up when collapsing the HUD changes the DOM beneath the finger. Wait
+  // until native propagation is complete, then finish any touch gesture Pixi did
+  // not already finish. Select taps intentionally resolve from pressStart: that
+  // is the stable plowed plot the player actually touched.
+  window.addEventListener("pointerup", (e: PointerEvent) => {
+    if (!shouldRecoverTouchPointerUp(pressPointerId, e.pointerId, e.pointerType)) return;
+    const pointerId = e.pointerId;
+    setTimeout(() => {
+      if (!shouldRecoverTouchPointerUp(pressPointerId, pointerId, "touch")) return;
+      onPointerUp({ pointerId, global: pressStart } as FederatedPointerEvent);
+    }, 0);
+  });
   app.stage.on("pointercancel", cancelPointerGesture);
   window.addEventListener("blur", cancelPointerGesture);
   document.addEventListener("visibilitychange", () => {
@@ -3541,8 +3566,14 @@ async function main() {
   console.log(`field ${field.w}x${field.h} ready`);
 
   // Game is fully built behind the boot overlay — fill the bar and flip it to
-  // "Click to Start". The player's tap dismisses the overlay to reveal the farm.
-  boot?.ready();
+  // "Click to Start". Once that signed-in player dismisses the overlay, offer
+  // fullscreen on supported mobile browsers. This callback timing prevents the
+  // prompt from covering the loading art, while its dedicated top layer keeps it
+  // above the tutorial and any writer/device-lock dialog already on the HUD.
+  const offerMobileFullscreen = () =>
+    offerFullscreenPrompt(hud, isMobile(), auth.isSignedIn());
+  if (boot) boot.ready(offerMobileFullscreen);
+  else offerMobileFullscreen();
 }
 
 main().catch((err) => {
