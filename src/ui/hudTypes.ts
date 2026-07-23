@@ -79,6 +79,7 @@ export interface ObjectActions {
   name: string;
   portrait: string;
   canStore: boolean; // false when the shed is full or item can't be stored
+  canSell: boolean; // functional items are permanent and cannot be sold
   sellRefund: number;
   sellBrains: boolean;
   onMove: () => void;

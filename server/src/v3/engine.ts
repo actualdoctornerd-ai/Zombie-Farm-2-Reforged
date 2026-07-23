@@ -36,6 +36,7 @@ export const PLOW_COST_V3 = 10;
 
 interface ObjectRule {
   name: string;
+  category: string;
   armyMax: number;
   storageSlots: number;
   growMs: number;
@@ -464,8 +465,9 @@ function applyOne(
       if (state.objects.objects.length >= MAX_FUNCTIONAL_OBJECTS) return reject(sequence, "object_limit");
       if (level < econ.level) return reject(sequence, "locked");
       const isZombiePot = command.catalogKey === "zombieCombiner";
-      if (isZombiePot && state.objects.objects.filter((object) =>
-        object.catalogKey === "zombieCombiner" && object.status === "placed").length >= 3) {
+      const purchaseLimit = isZombiePot ? 3 : objectRules.get(command.catalogKey)?.category === "functional" ? 1 : undefined;
+      if (purchaseLimit !== undefined && state.objects.objects.filter((object) =>
+        object.catalogKey === command.catalogKey).length >= purchaseLimit) {
         return reject(sequence, "object_limit");
       }
       const cost = isZombiePot ? (state.zombiePotBought ? 3 : 500) : econ.cost;
@@ -492,6 +494,9 @@ function applyOne(
       const obj = state.objects.objects[index];
       const econ = objectEcon(obj.catalogKey);
       if (!econ) return reject(sequence, "bad_item");
+      if (objectRules.get(obj.catalogKey)?.category === "functional") {
+        return reject(sequence, "not_sellable");
+      }
       state.objects.objects.splice(index, 1);
       const currency = obj.purchaseCurrency ?? (econ.brains ? "brains" : "gold");
       state.balance[currency] += objectRefund(obj.purchaseCost ?? econ.cost);
@@ -512,6 +517,11 @@ function applyOne(
       }
       if (!econ || econ.cost <= 0) return reject(sequence, "bad_item");
       if (level < econ.level) return reject(sequence, "locked");
+      if (state.objects.objects.some((candidate) => candidate !== obj &&
+        candidate.catalogKey === command.catalogKey) &&
+        objectRules.get(command.catalogKey)?.category === "functional") {
+        return reject(sequence, "object_limit");
+      }
       const currency = econ.brains ? "brains" : "gold";
       if (state.balance[currency] < econ.cost) return reject(sequence, "insufficient");
       state.balance[currency] -= econ.cost;

@@ -34,6 +34,9 @@ export function planObjectBuy(
   if (!levelAllows(level, econ.level)) return { ok: false, error: "locked" };
   const currency = econ.brains ? "brains" : "gold";
   if (bal[currency] < econ.cost) return { ok: false, error: "insufficient" };
+  if (econ.purchaseLimit !== undefined && have + 1 > econ.purchaseLimit) {
+    return { ok: false, error: "purchase_limit" };
+  }
   if (have + 1 > MAX_OBJECT_COUNT) return { ok: false, error: "stack_full" };
   return { ok: true, currency, cost: econ.cost, xp: objectBuyXp(econ.cost, econ.xp) };
 }
@@ -46,6 +49,7 @@ export type ObjectRefundPlan =
  *  decrements the count. A free (cost 0) object refunds 0 (see objectRefund). */
 export function planObjectRefund(econ: ObjectEcon | undefined, have: number): ObjectRefundPlan {
   if (!econ) return { ok: false, error: "bad_item" };
+  if (econ.purchaseLimit !== undefined) return { ok: false, error: "not_sellable" };
   if (have < 1) return { ok: false, error: "none_owned" };
   return { ok: true, currency: econ.brains ? "brains" : "gold", refund: objectRefund(econ.cost) };
 }
@@ -81,6 +85,9 @@ export function planObjectUpgrade(
   if (consumesFrom && haveFrom < 1) return { ok: false, error: "none_owned" };
   const currency = to.brains ? "brains" : "gold";
   if (bal[currency] < to.cost) return { ok: false, error: "insufficient" };
+  if (to.purchaseLimit !== undefined && haveTo + 1 > to.purchaseLimit) {
+    return { ok: false, error: "purchase_limit" };
+  }
   if (haveTo + 1 > MAX_OBJECT_COUNT) return { ok: false, error: "stack_full" };
   return { ok: true, currency, cost: to.cost, xp: objectBuyXp(to.cost, to.xp), consumesFrom };
 }

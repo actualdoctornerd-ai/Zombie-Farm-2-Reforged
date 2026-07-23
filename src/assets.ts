@@ -269,6 +269,14 @@ export interface PlaceableDef {
   growingSprite?: string;
 }
 
+/** Maximum simultaneously-owned copies of a Market placeable. Functional items
+ * default to one; the Zombie Pot is the explicit higher-limit exception. Stored
+ * objects still count as owned. Undefined means no special purchase limit. */
+export function placeablePurchaseLimit(def: Pick<PlaceableDef, "key" | "category">): number | undefined {
+  if (def.category !== "functional") return undefined;
+  return def.key === "zombieCombiner" ? 3 : 1;
+}
+
 export interface GameAssets {
   field: FieldData;
   groundIndex: GroundIndex;

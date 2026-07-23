@@ -18,6 +18,12 @@ describe("objectCatalog — mirror of placeables.json", () => {
       });
     }
   });
+  it("limits every functional item, with the Zombie Pot capped at three", () => {
+    for (const placeable of placeables.filter((row) => row.category === "functional")) {
+      expect(objectEcon(placeable.key)?.purchaseLimit, placeable.key)
+        .toBe(placeable.key === "zombieCombiner" ? 3 : 1);
+    }
+  });
   it("prices refund at floor(cost*0.2), and NOTHING for a free object", () => {
     expect(objectRefund(10)).toBe(2);
     expect(objectRefund(50)).toBe(10);
@@ -57,6 +63,14 @@ describe("planObjectBuy — exact price + xp", () => {
     expect(objectEcon("skeletonCouple")!.level).toBe(-1);
     expect(planObjectBuy(objectEcon("skeletonCouple"), bal(0, 100), 0, 1)).toMatchObject({ ok: true });
   });
+  it("rejects functional copies above their ownership limit", () => {
+    expect(planObjectBuy(objectEcon("gravestoneBlue"), bal(0, 100), 1, MAX_LEVEL))
+      .toMatchObject({ ok: false, error: "purchase_limit" });
+    expect(planObjectBuy(objectEcon("zombieCombiner"), bal(1000, 100), 2, MAX_LEVEL))
+      .toMatchObject({ ok: true });
+    expect(planObjectBuy(objectEcon("zombieCombiner"), bal(1000, 100), 3, MAX_LEVEL))
+      .toMatchObject({ ok: false, error: "purchase_limit" });
+  });
 });
 
 describe("planObjectRefund — must own it", () => {
@@ -67,6 +81,12 @@ describe("planObjectRefund — must own it", () => {
   it("rejects refunding an object you don't own, or an unknown key", () => {
     expect(planObjectRefund(objectEcon("daisy"), 0)).toMatchObject({ ok: false, error: "none_owned" });
     expect(planObjectRefund(objectEcon("nope"), 5)).toMatchObject({ ok: false, error: "bad_item" });
+  });
+  it("never sells functional items", () => {
+    expect(planObjectRefund(objectEcon("gravestoneBlue"), 1))
+      .toMatchObject({ ok: false, error: "not_sellable" });
+    expect(planObjectRefund(objectEcon("zombieCombiner"), 1))
+      .toMatchObject({ ok: false, error: "not_sellable" });
   });
 });
 

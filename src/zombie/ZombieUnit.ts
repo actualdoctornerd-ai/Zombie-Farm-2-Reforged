@@ -17,6 +17,7 @@ import { bitsOf, slotOf } from "./mutations";
 import { matchesMutationReplacement, type MutationReplacement } from "./mutationVisual";
 import { zombiePartTint } from "./appearance";
 import { SpecialHeadFx, specialHeadFxKind } from "./specialHeadFx";
+import { HEADLESS_HEIGHT_SCALE } from "./displayScale";
 
 // Head replacements draw over the base skull but under facial parts, so eyes stay
 // visible on Onion/Tomato/etc. Hair/eye mutations draw above the face.
@@ -161,7 +162,8 @@ export class ZombieUnit {
       assets.zombieModels["ZombieActorRegularTier1"];
     const [r, g, b] = this.data.color ?? m.color;
     const tint = (r << 16) | (g << 8) | b; // authentic Market colour
-    const scale = defaultFarmScale(assets, m);
+    const scale = defaultFarmScale(assets, m) *
+      (this.data.group === "Headless" ? HEADLESS_HEIGHT_SCALE : 1);
     this.renderScale = scale;
     this.root.sortableChildren = true;
     this.neck = { x: m.neck.x, y: m.neck.y };

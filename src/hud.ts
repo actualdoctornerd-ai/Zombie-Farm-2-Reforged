@@ -5,7 +5,7 @@
 import { GameState } from "./GameState";
 import { CropConfig } from "./Field";
 import { zombieSellValue } from "./economy";
-import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon } from "./assets";
+import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon, placeablePurchaseLimit } from "./assets";
 import type { FarmerBodyDef, FarmerCatalog, FarmerHeadDef, PetCatalog, PetDef } from "./assets";
 import { EPIC_BOSS_FIGHT_BRAIN_COST, type EpicBossPayment } from "./epicBoss/tokens";
 import { AudioManager } from "./audio";
@@ -959,6 +959,8 @@ export class Hud {
 
   // Entering placement mode for a bought object (set by main).
   onBuy: ((def: PlaceableDef) => void) | null = null;
+  /** Whether the total owned count (placed + stored) reached this item's limit. */
+  objectLimitReached: ((def: PlaceableDef) => boolean) | null = null;
   // Storage slots of the currently-placed shed (0 = none). Drives which single
   // shed the Market offers: only the NEXT upgrade above the current tier.
   getShedSlots: (() => number) | null = null;
@@ -1309,6 +1311,10 @@ export class Hud {
         }));
       if (tab === "Items") {
         let cards = this.objectCards.filter((c) => c.category === ITEM_CAT[sub]);
+        // Limited functional items leave the Market once the player owns the
+        // allowed number. The callback counts both placed and shed-stored copies.
+        cards = cards.filter((c) => placeablePurchaseLimit(c.def) === undefined ||
+          !this.objectLimitReached?.(c.def));
         // Storage sheds are a single upgradeable object: show only the NEXT tier
         // above the placed shed (all other sheds hidden). Non-shed functional
         // items are unaffected.

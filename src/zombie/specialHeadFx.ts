@@ -11,6 +11,7 @@ const SPECIAL_HEAD_FX: Readonly<Record<string, SpecialHeadFxKind>> = {
 // Headless rigs store neck=(0, 0), so use their visible shoulder opening.
 const HEAD_X = 5;
 const HEAD_Y = -51;
+const AURA_ORB_RADIUS = 9.5 * 0.8;
 const CONFETTI_COLORS = [0xf94144, 0xf9c74f, 0x43aa8b, 0x577590, 0xe36bae, 0xf3722c];
 
 export function specialHeadFxKind(key: string): SpecialHeadFxKind | null {
@@ -62,7 +63,7 @@ export class SpecialHeadFx {
     // the source art without requiring a dedicated bitmap or an expensive filter.
     const halo = new Graphics().circle(0, 0, 15).fill({ color: core, alpha: 0.10 });
     const glow = new Graphics().circle(0, 0, 12).fill({ color: core, alpha: 0.18 });
-    const orb = new Graphics().circle(0, 0, 9.5).fill({ color: core, alpha: 0.58 });
+    const orb = new Graphics().circle(0, 0, AURA_ORB_RADIUS).fill({ color: core, alpha: 0.58 });
     this.container.addChild(halo, glow, orb);
 
     const moteCount = 9;

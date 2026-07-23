@@ -5,7 +5,7 @@ import { plowRectangle, PlowOrigin, uniquePlowOrigins } from "./plowSelection";
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
 // pixi.js lists ./lib/unsafe-eval/init.* under "sideEffects", so it survives bundling.
 import "pixi.js/unsafe-eval";
-import { loadAssets, ensureObjectTexture, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, lootImage, purchasableZombies } from "./assets";
+import { loadAssets, ensureObjectTexture, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, lootImage, purchasableZombies, placeablePurchaseLimit } from "./assets";
 import { Field, CARROT, CropConfig, PLOT, type TillHandleDirection, type TillTarget } from "./Field";
 import { Actor } from "./Actor";
 import { PetActor } from "./PetActor";
@@ -1429,6 +1429,13 @@ async function main() {
     const id = field.shedId();
     return id ? field.objectDefOf(id)?.storageSlots ?? 0 : 0;
   };
+  hud.objectLimitReached = (def) => {
+    const limit = placeablePurchaseLimit(def);
+    if (limit === undefined) return false;
+    const placed = field.objectKeyCounts()[def.key] ?? 0;
+    const stored = state.storedItems.find((item) => item.key === def.key)?.count ?? 0;
+    return placed + stored >= limit;
+  };
   // Colored graves gate planting their zombie class (Blue/Red/Silver).
   hud.hasGrave = (color) => field.hasGrave(color);
 
@@ -1550,6 +1557,7 @@ async function main() {
   // have a second (growing) frame to preload.
   hud.onBuy = async (def) => {
     if (onlineGameplayBlocked()) return;
+    if (hud.objectLimitReached?.(def)) return;
     await ensureObjectTexture(assets, def.sprite);
     if (def.growingSprite) await ensureObjectTexture(assets, def.growingSprite);
     if (def.storageSlots && field.shedId()) upgradeShed(def); // upgrade, don't place
@@ -2610,6 +2618,7 @@ async function main() {
   const tryPlaceObject = (col: number, row: number) => {
     const def = hud.placing;
     if (!def) return;
+    if (!retrieving && receiving === null && hud.objectLimitReached?.(def)) return;
     if (def.storageSlots && field.shedId()) return; // only one shed on the farm
     if (def.zombieStorage && field.mausoleumId()) return; // only one Mausoleum
     if (def.zombiePatch && field.patchId()) return; // only one Zombie Patch
@@ -2719,6 +2728,7 @@ async function main() {
   const sellObject = (id: string) => {
     if (onlineGameplayBlocked()) return;
     const def = field.objectDefOf(id);
+    if (def?.category === "functional") return;
     const o = field.objectOriginOf(id);
     field.removeObject(id);
     if (!def || !o) return;
@@ -2769,7 +2779,7 @@ async function main() {
     const id = field.objectAtPoint(wx, wy);
     if (id) {
       const d = field.objectDefOf(id);
-      if (d?.storageSlots || d?.zombieStorage) return; // storage buildings are movable, not sellable
+      if (d?.category === "functional") return;
       sellObject(id);
       return;
     }
@@ -3167,6 +3177,7 @@ async function main() {
             name: def.name,
             portrait: `${BASE}assets/objects/${def.sprite}`,
             canStore: canStore(def),
+            canSell: def.category !== "functional",
             sellRefund: sellRefund(def),
             sellBrains: !!def.brainsNeeded,
             onMove: () => {

@@ -106,7 +106,9 @@ export function renderObjectActions(host: HTMLElement, o: ObjectActions): void {
   btns.append(
     mk("Move", "locate", true, o.onMove),
     mk("Rotate", "locate", true, o.onRotate),
-    mk(o.canStore ? "Store" : "Storage full", "store", o.canStore, o.onStore),
+    mk(o.canStore ? "Store" : "Storage full", "store", o.canStore, o.onStore)
+  );
+  if (o.canSell) btns.append(
     mk(`Sell +${o.sellRefund}${o.sellBrains ? "b" : "g"}`, "sell", true, o.onSell)
   );
   panel.append(por, btns);

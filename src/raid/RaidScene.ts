@@ -19,6 +19,7 @@ import { ABILITY_POOL } from "../zombie/traits";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, HazardConfig, RaidDef, RaidLevelAsset, RaidOutcome } from "./types";
 import { RAID_TICK_MS, type RaidReplayInput } from "./replay";
 import { extrapolatePosition, interpolatePosition, visualCountdown } from "./renderInterpolation";
+import { HEADLESS_HEIGHT_SCALE } from "../zombie/displayScale";
 
 type RaidInputDraft =
   | { type: "bubble"; unitId: string }
@@ -685,12 +686,14 @@ export class RaidScene {
       // standard raid height regardless of the model's authored group scale.
       actor = new RaidActor(this.assets, u.sourceKey, u.mutation);
       const b = actor.container.getLocalBounds();
-      const s = ZOMBIE_H / Math.max(1, b.height);
+      const heightScale = u.isHeadless ? HEADLESS_HEIGHT_SCALE : 1;
+      const targetHeight = ZOMBIE_H * heightScale;
+      const s = targetHeight / Math.max(1, b.height);
       actor.container.scale.set(s);
       actor.container.y = -(b.y + b.height) * s; // stand its feet at the origin
       root.addChild(actor.container);
       base = Math.max(14, (b.width * s) / 2);
-      topY = -ZOMBIE_H;
+      topY = -targetHeight;
       // Remember the base transform so the Smash grow can scale the rig about its
       // FEET (container.y scales with the same factor) without moving the HP bar.
       actorBaseScale = s;

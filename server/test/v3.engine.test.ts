@@ -651,9 +651,33 @@ describe("protocol v3 command engine", () => {
       { type: "object.refund", instanceId: "pot-1" },
       { type: "object.refund", instanceId: "pot-2" },
     ), { now: 101 });
-    expect(sold.state.balance.gold).toBe(600);
-    expect(sold.state.balance.brains).toBe(98); // +1 refund on the 3-brain repeat pot (floor(3*0.2)=0 → min 1)
+    expect(sold.results).toEqual([
+      expect.objectContaining({ status: "rejected", error: "not_sellable" }),
+      expect.objectContaining({ status: "rejected", error: "not_sellable" }),
+    ]);
+    expect(sold.state.balance.gold).toBe(500);
+    expect(sold.state.balance.brains).toBe(97);
+    expect(sold.state.objects.objects).toHaveLength(2);
     expect(sold.state.zombiePotBought).toBe(true);
+  });
+
+  it("rejects duplicate functional buys even when the owned copy is stored", () => {
+    const state = freshGameplayState();
+    state.balance.brains = 100;
+    state.objects.objects.push({
+      instanceId: "blue-grave",
+      catalogKey: "gravestoneBlue",
+      status: "stored",
+    });
+    const result = applyCommandBatch(state, commands({
+      type: "object.buy",
+      catalogKey: "gravestoneBlue",
+      clientInstanceId: "duplicate-grave",
+    }), { now: 100 });
+
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "object_limit" });
+    expect(result.state.objects.objects).toHaveLength(1);
+    expect(result.state.balance.brains).toBe(100);
   });
 
   it("advances the Apple Harvest quest for a harvested Apple Tree", () => {
