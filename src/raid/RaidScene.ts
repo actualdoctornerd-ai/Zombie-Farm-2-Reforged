@@ -281,7 +281,6 @@ export class RaidScene {
   private texByUnit = new Map<string, Texture | null>(); // fallback portrait tokens
   private enemyTex = new Map<string, Texture | null>(); // composited enemy sprites
   private enemyStrip = new Map<string, Texture | null>(); // packed part strips (animated rigs)
-  private playerScale = 0; // common px-per-rig-unit for player zombies (see refPlayerScale)
   private ufoBackTex: Texture | null = null; // alien boss UFO (back dome)
   private ufoFrontTex: Texture | null = null; // alien boss UFO (saucer + glass dome)
 
@@ -669,19 +668,6 @@ export class RaidScene {
     this.container.addChild(badge);
   }
 
-  // px-per-rig-unit shared by all player zombies. Calibrated ONCE so a baseline
-  // Regular zombie renders at ZOMBIE_H; every other type then scales by the same
-  // factor, preserving the authentic relative sizes baked into each model's group
-  // scale (Large 1.15, Small 0.60, …) instead of squashing them all to one height.
-  private refPlayerScale(): number {
-    if (this.playerScale) return this.playerScale;
-    const ref = new RaidActor(this.assets, "ZombieActorRegularTier1");
-    const h = Math.max(1, ref.container.getLocalBounds().height);
-    ref.container.destroy({ children: true });
-    this.playerScale = ZOMBIE_H / h;
-    return this.playerScale;
-  }
-
   private makeToken(u: SimUnit): Token {
     const root = new Container();
     let actor: RaidActor | undefined;
@@ -695,18 +681,16 @@ export class RaidScene {
     let actorBaseY = 0;
 
     if (u.team === "player") {
-      // Real farm-style zombie rig (with the walk animation). A COMMON scale is
-      // applied to every player zombie (not a per-unit fit-to-height), so the
-      // authentic per-group sizes carry through — a Large brute towers over a Small
-      // gnome instead of all zombies rendering at one height.
+      // Real farm-style zombie rig (with the walk animation), restored to the
+      // standard raid height regardless of the model's authored group scale.
       actor = new RaidActor(this.assets, u.sourceKey, u.mutation);
       const b = actor.container.getLocalBounds();
-      const s = this.refPlayerScale();
+      const s = ZOMBIE_H / Math.max(1, b.height);
       actor.container.scale.set(s);
       actor.container.y = -(b.y + b.height) * s; // stand its feet at the origin
       root.addChild(actor.container);
       base = Math.max(14, (b.width * s) / 2);
-      topY = -(b.height * s); // this unit's actual rendered height
+      topY = -ZOMBIE_H;
       // Remember the base transform so the Smash grow can scale the rig about its
       // FEET (container.y scales with the same factor) without moving the HP bar.
       actorBaseScale = s;

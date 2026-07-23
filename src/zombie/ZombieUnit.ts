@@ -25,11 +25,29 @@ const MUT_FACE_OVERLAY_Z = 20;
 
 const SPEED_PX = 34; // slow amble
 const WANDER_RADIUS = 5; // tiles from current spot to pick a new target
-// Global multiplier on a model's own `scale`. The model `scale` values ARE the
-// exact per-group whole-actor setScale from the ZF2 binary (Regular 0.90, Small
-// 0.60, Girl 0.80, Garden 0.70, Large 1.15, Headless 0.90 — see prep_zombie_models
-// scale_of), so this stays 1.0 to render them at the game's true size.
-const MODEL_BASE = 1.0;
+// Farm zombies share the regular zombie's default rendered height. Model files
+// retain their source-authored group scales for other renderers, but the farm no
+// longer makes Small/Large groups shorter or taller than the standard unit.
+function modelHeight(assets: GameAssets, model: ZombieModel): number {
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const part of model.parts) {
+    const tex = assets.zombiePartTex[part.file];
+    if (!tex) continue;
+    const scale = part.scale ?? 1;
+    const partTop = part.py - part.ay * tex.height * scale;
+    top = Math.min(top, partTop);
+    bottom = Math.max(bottom, partTop + tex.height * scale);
+  }
+  return Number.isFinite(top) && Number.isFinite(bottom) ? Math.max(1, bottom - top) : 1;
+}
+
+function defaultFarmScale(assets: GameAssets, model: ZombieModel): number {
+  const regular = assets.zombieModels["ZombieActorRegularTier1"];
+  if (!regular) return 1;
+  const defaultHeight = modelHeight(assets, regular) * (regular.scale ?? 1);
+  return defaultHeight / modelHeight(assets, model);
+}
 
 const TILT_AMP_MOVE = 0.1;
 const TILT_AMP_IDLE = 0.05;
@@ -64,7 +82,7 @@ export class ZombieUnit {
   private footFBaseY = 0;
   private footBBaseY = 0;
   private arms: { sp: Sprite; baseRotation: number }[] = [];
-  private renderScale = MODEL_BASE; // MODEL_BASE * model group-scale
+  private renderScale = 1;
 
   private wx = 0;
   private wy = 0;
@@ -143,7 +161,7 @@ export class ZombieUnit {
       assets.zombieModels["ZombieActorRegularTier1"];
     const [r, g, b] = this.data.color ?? m.color;
     const tint = (r << 16) | (g << 8) | b; // authentic Market colour
-    const scale = MODEL_BASE * (m.scale ?? 1);
+    const scale = defaultFarmScale(assets, m);
     this.renderScale = scale;
     this.root.sortableChildren = true;
     this.neck = { x: m.neck.x, y: m.neck.y };
