@@ -37,6 +37,20 @@ function assets(): GameAssets {
 }
 
 describe("RaidActor mutation rendering", () => {
+  it("excludes animated head effects from raid sizing bounds", () => {
+    const testAssets = assets();
+    testAssets.zombieModels.ZombieActorHeadlessTier1 = model;
+    testAssets.zombieModels.ZombieActorHeadlessTier2 = model;
+    const undecorated = new RaidActor(testAssets, "ZombieActorHeadlessTier1");
+    const actor = new RaidActor(testAssets, "ZombieActorHeadlessTier2");
+
+    expect(actor.container.getLocalBounds().height)
+      .toBeGreaterThan(undecorated.container.getLocalBounds().height);
+    expect(actor.getSizingBounds()).toEqual(undecorated.getSizingBounds());
+    expect(actor.container.getLocalBounds().height)
+      .toBeGreaterThan(actor.getSizingBounds().height);
+  });
+
   it("replaces the normal front arm and animates the mutation arm", () => {
     const actor = new RaidActor(assets(), "test", 8);
     const root = (actor as unknown as { root: { children: unknown[] } }).root;

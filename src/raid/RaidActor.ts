@@ -90,6 +90,23 @@ export class RaidActor {
     this.build(assets, key, mutation);
   }
 
+  /**
+   * Bounds of the zombie rig used to normalize its raid size.
+   *
+   * Animated head effects can extend well above a headless body. Including those
+   * particles in the contain-fit bounds makes decorated headless zombies smaller
+   * than otherwise identical undecorated ones.
+   */
+  getSizingBounds() {
+    const fx = this.specialHeadFx?.container;
+    if (!fx) return this.container.getLocalBounds();
+
+    this.root.removeChild(fx);
+    const bounds = this.container.getLocalBounds();
+    this.root.addChild(fx);
+    return bounds;
+  }
+
   private build(assets: GameAssets, key: string, mutation: number) {
     const m: ZombieModel =
       assets.zombieModels[key] ?? assets.zombieModels["ZombieActorRegularTier1"];

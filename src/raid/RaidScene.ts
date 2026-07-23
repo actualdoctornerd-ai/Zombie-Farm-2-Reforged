@@ -20,6 +20,7 @@ import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, Ha
 import { RAID_TICK_MS, type RaidReplayInput } from "./replay";
 import { extrapolatePosition, interpolatePosition, visualCountdown } from "./renderInterpolation";
 import { HEADLESS_HEIGHT_SCALE } from "../zombie/displayScale";
+import { zombieBasicAttackName } from "./zombieAttackPresentation";
 
 type RaidInputDraft =
   | { type: "bubble"; unitId: string }
@@ -239,7 +240,7 @@ interface Token {
   hpCenterX: number; // visual center of the actor in token-local coordinates
   topY: number; // y of the sprite top (negative), for the hp bar
   pulse: number; // hit lunge, decays to 0
-  atkCount: number; // basic hits landed (parity drives the arm-wave switch)
+  atkCount: number; // basic hits landed; advances this zombie's bite/scratch alternation
   deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
   emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
   // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
@@ -310,7 +311,12 @@ export class RaidScene {
   private crabSprite = ""; // Beach crab art (preloaded), "" if this raid has none
   private grabTex: Texture | null = null; // trapeze texture
   private grabLayer = new Container(); // trapeze sprites (above the field, tappable)
-  private grabSprites = new Map<string, { root: Container; body: Sprite; bar: Graphics }>();
+  private grabSprites = new Map<string, {
+    root: Container;
+    ropes: Graphics;
+    body: Sprite;
+    bar: Graphics;
+  }>();
   private crabTex: Texture | null = null; // beach crab hazard texture
   private crabLayer = new Container(); // crab sprites (above the field, tappable)
   private crabSprites = new Map<string, { root: Container; body: Sprite; bar: Graphics }>();
@@ -714,7 +720,7 @@ export class RaidScene {
       // Real farm-style zombie rig (with the walk animation), restored to the
       // standard raid height regardless of the model's authored group scale.
       actor = new RaidActor(this.assets, u.sourceKey, u.mutation);
-      const b = actor.container.getLocalBounds();
+      const b = actor.getSizingBounds();
       const heightScale = u.isHeadless ? HEADLESS_HEIGHT_SCALE : 1;
       const targetHeight = ZOMBIE_H * heightScale;
       const s = targetHeight / Math.max(1, b.height);
@@ -1321,20 +1327,29 @@ export class RaidScene {
         tok.actor.container.scale.set(tok.actorBaseScale * grow);
         tok.actor.container.y = tok.actorBaseY * grow;
 
-        // Arms: smash slam > wind-up (activated) > attack (forward + wave) > walking
-        // (forward) > waiting (sides). The attack wave is locked to the sim's attack
-        // clock — a full switch per cooldown — kept continuous per hit by atkCount.
+        // Arms: smash slam > wind-up (activated) > basic attack > walking > waiting.
+        // Each zombie alternates Bite/Scratch after a landed hit; distractSeed offsets
+        // its starting move so staggered fighters can show both attacks concurrently.
         const fighting = this.phase === "fight" && u.state === "fight" && !u.windupKey && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
+        const attackName = zombieBasicAttackName(u.distractSeed, tok.atkCount);
         tok.actor.poseArms(
-          windup, fighting, moving, atkProg, tok.atkCount, slamProg, healRaise, u.attackName
+          windup, fighting, moving, atkProg, tok.atkCount, slamProg, healRaise, attackName
         );
       }
       // Enemy rig: idle bob when holding position, walk cycle while advancing, and a
       // forward strike lunge while trading blows — the lunge peaks at the attack's
       // damageTiming so its reach lands with the sim's hit (see EnemyActor).
       if (tok.enemyActor) {
-        if (Math.abs(u.vx) > 6) tok.enemyActor.setFacingFromDelta(u.vx);
+        // The Ringmaster's direct hop travels slightly right from the circus car.
+        // Using that delta as his facing mirrors the asymmetric rig, leaving his
+        // body to the zombies' left and his long whip over the combat origin.
+        if (u.sourceKey === CIRCUS_BOSS_KEY &&
+            (u.state === "descending" || u.state === "hold" || u.state === "fight")) {
+          tok.enemyActor.setFacingFromDelta(-1);
+        } else if (Math.abs(u.vx) > 6) {
+          tok.enemyActor.setFacingFromDelta(u.vx);
+        }
         const enemyFighting = u.state === "fight" && u.alive;
         const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
         let attack: EnemyAttackPose | null = enemyFighting
@@ -1572,21 +1587,25 @@ export class RaidScene {
       let entry = this.grabSprites.get(g.id);
       if (!entry) {
         const root = new Container();
+        const ropes = new Graphics();
         const body = new Sprite(this.grabTex);
         // The authored rope begins near (100, 1) in the 358x70 texture. Pivoting there
         // keeps that point fixed just above the screen while the artist swings beneath it.
         body.anchor.set(100 / 358, 1 / 70);
         const bar = new Graphics();
+        root.addChild(ropes);
         root.addChild(body);
         root.addChild(bar);
-        root.eventMode = "static";
-        root.cursor = "pointer";
-        root.on("pointertap", () => this.sim.tapGrabber(g.id));
+        // Keep the procedural rope extensions out of the hit target; only the
+        // trapeze bitmap itself should be tappable.
+        body.eventMode = "static";
+        body.cursor = "pointer";
+        body.on("pointertap", () => this.sim.tapGrabber(g.id));
         this.grabLayer.addChild(root);
-        entry = { root, body, bar };
+        entry = { root, ropes, body, bar };
         this.grabSprites.set(g.id, entry);
       }
-      const { root, body, bar } = entry;
+      const { root, ropes, body, bar } = entry;
       root.position.set(this.mapX(g.x), this.mapProjY(g.y));
       // This source is a very wide 358x70 composition. Scaling both axes uniformly
       // preserves the authored trapeze/artist proportions; assigning a square width and
@@ -1594,6 +1613,16 @@ export class RaidScene {
       body.scale.set(s);
       body.rotation = (g.rot * Math.PI) / 180;
       body.tint = g.struckThisTick ? 0xff9a9a : 0xffffff; // flash on a landed tap
+      // The mobile-era bitmap ends both ropes at x=0. On a tall viewport those blunt
+      // ends float visibly below the top edge, so continue the authored strands
+      // backward along the same rotated axis until they are safely off-screen.
+      const ropeStartX = -100 * s;
+      const ropeEndX = ropeStartX - (this.app.screen.width + this.app.screen.height);
+      ropes.clear()
+        .moveTo(ropeEndX, 14 * s).lineTo(ropeStartX, 14 * s)
+        .moveTo(ropeEndX, 46 * s).lineTo(ropeStartX, 46 * s)
+        .stroke({ width: Math.max(1, 2 * s), color: 0x000000, alpha: 0.9 });
+      ropes.rotation = body.rotation;
       // Health bar (shown once it has taken a tap), so the player sees rescue progress.
       bar.clear();
       if (g.hp < g.maxHp) {
@@ -1820,17 +1849,24 @@ export class RaidScene {
         // renderer would replay one strike several times, resetting the pulse and
         // flipping the attack-arm parity every display frame.
         if (stepped) {
-          let strike: SimUnit | null = null;
+          let strike: { unit: SimUnit; attackName: string } | null = null;
           for (const u of this.sim.units) {
             if (u.struckThisTick) {
+              const t = this.tokens.get(u.id);
+              // Capture the move before incrementing atkCount so impact audio names
+              // the exact Bite/Scratch animation that just connected.
+              const attackName = u.team === "player" && t
+                ? zombieBasicAttackName(u.distractSeed, t.atkCount)
+                : u.attackName;
               // When both sides connect on one fixed tick, prefer the player's
               // authored zombie cue. This retains the one-cue-per-tick mix guard
               // while ensuring zombie bites cannot be masked by an enemy hit.
-              if (!strike || (strike.team === "enemy" && u.team === "player")) strike = u;
-              const t = this.tokens.get(u.id);
+              if (!strike || (strike.unit.team === "enemy" && u.team === "player")) {
+                strike = { unit: u, attackName };
+              }
               if (t) {
                 t.pulse = 1;
-                t.atkCount++; // completes an arm-wave switch (the attacker just hit)
+                t.atkCount++; // next basic swing uses the other animation and cue
                 // A small dust burst at the point of impact (victim's mid-body).
                 if (this.bashCfg && u.alive) {
                   this.particles.burst(this.bashCfg, t.root.x, t.root.y + t.topY * 0.5, 0.28);
@@ -1842,7 +1878,7 @@ export class RaidScene {
           // a painfully loud group of identical one-shots.
           if (strike) {
             this.onStrike?.({
-              team: strike.team,
+              team: strike.unit.team,
               attackName: strike.attackName,
             });
           }

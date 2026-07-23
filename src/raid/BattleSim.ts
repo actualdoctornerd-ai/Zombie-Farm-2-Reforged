@@ -161,9 +161,13 @@ const KNOCKBACK_PX = 150; // how far back the zombie is shoved (sim units)
 // movingAnimation `rotateTo_180_17`: Actor.parseAnimationString interprets this
 // as a 180-degree target over 17 animation ticks (the stage cadence is 0.1 s).
 // Collision then explicitly snaps the grabbed actor to 90 degrees for the carry.
-const GRABBER_SWING_MS = 1700;
-const GRABBER_SWING_START_DEG = 0;
-const GRABBER_SWING_END_DEG = 180;
+const GRABBER_FULL_ARC_MS = 1700;
+// The source texture points to the right at 0 degrees. Enter at 180 degrees so the
+// artist travels left-to-right, then stop at the 90-degree bottom/contact pose instead
+// of finishing the unused second half of the arc and snapping backward to the victim.
+const GRABBER_SWING_START_DEG = 180;
+const GRABBER_CONTACT_DEG = 90;
+const GRABBER_SWING_TO_CONTACT_MS = GRABBER_FULL_ARC_MS / 2;
 const GRABBER_RISE_SPEED = 92; // carry-off rise speed (sim px/s), the slow 0.5 speed
 const GRABBER_CARRY_PAUSE_MS = 1000; // changeStateWithDelay_run_1: hold 1s before rising
 const GRABBER_TAP_CD_MS = 250; // tapDelay 0.25 — min gap between registered taps
@@ -1675,17 +1679,19 @@ export class BattleSim {
       if (g.tapCdMs > 0) g.tapCdMs -= dtMs;
       if (g.state === "swoop") {
         g.pauseMs = Math.max(0, g.pauseMs - dtMs);
-        const t = 1 - g.pauseMs / GRABBER_SWING_MS;
+        const t = 1 - g.pauseMs / GRABBER_SWING_TO_CONTACT_MS;
         const eased = t * t * (3 - 2 * t);
         g.rot = GRABBER_SWING_START_DEG +
-          (GRABBER_SWING_END_DEG - GRABBER_SWING_START_DEG) * eased;
+          (GRABBER_CONTACT_DEG - GRABBER_SWING_START_DEG) * eased;
         if (g.pauseMs <= 0) {
-          // At the bottom of the swing, take the rear-most deployed zombie.
+          // Contact ends the swing. Do not complete the far half of the arc and then
+          // snap back to 90 degrees: that was the visible pre-grab teleport.
           const victim = this.deployed().sort((a, b) => a.x - b.x)[0];
           if (!victim) {
             g.state = "gone";
             continue;
           }
+          g.rot = GRABBER_CONTACT_DEG;
           g.grabbedId = victim.id;
           g.state = "carry";
           g.pauseMs = GRABBER_CARRY_PAUSE_MS;
@@ -1858,7 +1864,7 @@ export class BattleSim {
       maxHp: cfg.hp,
       tapDamage: cfg.tapDamage,
       grabbedId: null,
-      pauseMs: GRABBER_SWING_MS,
+      pauseMs: GRABBER_SWING_TO_CONTACT_MS,
       tapCdMs: 0,
       sprite: cfg.sprite,
       rot: GRABBER_SWING_START_DEG,
