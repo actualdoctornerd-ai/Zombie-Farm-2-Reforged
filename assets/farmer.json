@@ -1,0 +1,321 @@
+{
+  "heads": [
+    {
+      "id": 0,
+      "name": "Male Head 1",
+      "part": "malehead2.png",
+      "bodyId": 0,
+      "sort": 1,
+      "cost": 0,
+      "brains": false
+    },
+    {
+      "id": 4,
+      "name": "Female Head 1",
+      "part": "femalehead2.png",
+      "bodyId": 1,
+      "sort": 2,
+      "cost": 0,
+      "brains": false
+    },
+    {
+      "id": 1,
+      "name": "Male Head 2",
+      "part": "malehead1.png",
+      "bodyId": 0,
+      "sort": 3,
+      "cost": 0,
+      "brains": false
+    },
+    {
+      "id": 5,
+      "name": "Female Head 2",
+      "part": "femalehead1.png",
+      "bodyId": 1,
+      "sort": 4,
+      "cost": 0,
+      "brains": false
+    },
+    {
+      "id": 10,
+      "name": "Male Head 3",
+      "part": "malehead3.png",
+      "bodyId": 2,
+      "sort": 5,
+      "cost": 0,
+      "brains": false
+    },
+    {
+      "id": 11,
+      "name": "Female Head 3",
+      "part": "femalehead3.png",
+      "bodyId": 3,
+      "sort": 6,
+      "cost": 0,
+      "brains": false
+    },
+    {
+      "id": 12,
+      "name": "Paper Bag Head",
+      "part": "paperbaghead.png",
+      "bodyId": 0,
+      "sort": 7,
+      "cost": 15,
+      "brains": true,
+      "description": "+10% more gold for harvesting",
+      "effect": {
+        "key": "harvestGold",
+        "amount": 0.1
+      }
+    },
+    {
+      "id": 13,
+      "name": "Monolith Head",
+      "part": "monolithhead.png",
+      "bodyId": 0,
+      "sort": 8,
+      "cost": 15,
+      "brains": true,
+      "description": "-25% grow time for zombies",
+      "effect": {
+        "key": "zombieGrowTime",
+        "amount": -0.25
+      }
+    },
+    {
+      "id": 14,
+      "name": "Pumpkin Head",
+      "part": "pumpkinhead.png",
+      "bodyId": 0,
+      "sort": 9,
+      "cost": 15,
+      "brains": true,
+      "description": "+10% more gold for harvesting",
+      "effect": {
+        "key": "harvestGold",
+        "amount": 0.1
+      }
+    },
+    {
+      "id": 2,
+      "name": "Skeleton Male",
+      "part": "skeletonmale.png",
+      "bodyId": 0,
+      "sort": 10,
+      "cost": 15,
+      "brains": true,
+      "description": "+10% zombie life",
+      "effect": {
+        "key": "zombieLife",
+        "amount": 0.1
+      }
+    },
+    {
+      "id": 6,
+      "name": "Skeleton Female",
+      "part": "skeletonfemale.png",
+      "bodyId": 1,
+      "sort": 11,
+      "cost": 15,
+      "brains": true,
+      "description": "+10% zombie life",
+      "effect": {
+        "key": "zombieLife",
+        "amount": 0.1
+      }
+    },
+    {
+      "id": 3,
+      "name": "Vampire Male",
+      "part": "vampiremale.png",
+      "bodyId": 0,
+      "sort": 12,
+      "cost": 15,
+      "brains": true,
+      "description": "+10% zombie strength",
+      "effect": {
+        "key": "zombieStrength",
+        "amount": 0.1
+      }
+    },
+    {
+      "id": 7,
+      "name": "Vampire Female",
+      "part": "vampirefemale.png",
+      "bodyId": 1,
+      "sort": 13,
+      "cost": 15,
+      "brains": true,
+      "description": "+10% zombie strength",
+      "effect": {
+        "key": "zombieStrength",
+        "amount": 0.1
+      }
+    },
+    {
+      "id": 8,
+      "name": "Zombie King",
+      "part": "zombieking.png",
+      "bodyId": 0,
+      "sort": 14,
+      "cost": 15,
+      "brains": true,
+      "description": "-25% invasion time",
+      "effect": {
+        "key": "invasionCooldown",
+        "amount": -0.25
+      }
+    },
+    {
+      "id": 9,
+      "name": "Zombie Queen",
+      "part": "zombiequeen.png",
+      "bodyId": 1,
+      "sort": 15,
+      "cost": 15,
+      "brains": true,
+      "description": "-25% invasion time",
+      "effect": {
+        "key": "invasionCooldown",
+        "amount": -0.25
+      }
+    },
+    {
+      "id": 15,
+      "name": "Jester Head",
+      "part": "Jester_Mask.png",
+      "bodyId": 0,
+      "sort": 16,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 17,
+      "name": "Astronaut Male",
+      "part": "astronaut_male.png",
+      "bodyId": 0,
+      "sort": 17,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 16,
+      "name": "Astronaut Female",
+      "part": "astronaut_female.png",
+      "bodyId": 1,
+      "sort": 18,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 19,
+      "name": "Dino Male",
+      "part": "dinosaur_male.png",
+      "bodyId": 0,
+      "sort": 19,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 18,
+      "name": "Dino Female",
+      "part": "dinosaur_female.png",
+      "bodyId": 1,
+      "sort": 20,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 21,
+      "name": "Knight Male",
+      "part": "knight_male.png",
+      "bodyId": 0,
+      "sort": 20,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 20,
+      "name": "Knight Female",
+      "part": "knight_female.png",
+      "bodyId": 1,
+      "sort": 22,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 23,
+      "name": "Ninja Male",
+      "part": "ninja_male.png",
+      "bodyId": 0,
+      "sort": 23,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 22,
+      "name": "Ninja Female",
+      "part": "ninja_female.png",
+      "bodyId": 1,
+      "sort": 24,
+      "cost": 15,
+      "brains": true
+    },
+    {
+      "id": 25,
+      "name": "Señor Farmer",
+      "part": "playerSpriteSheet_sombrero_Male.png",
+      "bodyId": 0,
+      "sort": 25,
+      "cost": 20,
+      "brains": true
+    },
+    {
+      "id": 24,
+      "name": "Señorita Farmer",
+      "part": "playerSpriteSheet_sombrero_Female.png",
+      "bodyId": 1,
+      "sort": 26,
+      "cost": 20,
+      "brains": true
+    }
+  ],
+  "bodies": [
+    {
+      "id": 0,
+      "name": "Male Body 1",
+      "body": "malebody1.png",
+      "arm1": "male_arm1.png",
+      "arm2": "male_arm2.png",
+      "arm3": "male_arm3.png",
+      "arm4": "male_arm4.png"
+    },
+    {
+      "id": 1,
+      "name": "Female Body 1",
+      "body": "femalebody1.png",
+      "arm1": "female_arm1.png",
+      "arm2": "female_arm2.png",
+      "arm3": "female_arm3.png",
+      "arm4": "female_arm4.png"
+    },
+    {
+      "id": 2,
+      "name": "Male Body 2",
+      "body": "malebody2.png",
+      "arm1": "male_arm3.png",
+      "arm2": "male_arm4.png",
+      "arm3": "male_arm3.png",
+      "arm4": "male_arm4.png"
+    },
+    {
+      "id": 3,
+      "name": "Female Body 2",
+      "body": "femalebody2.png",
+      "arm1": "female_arm3.png",
+      "arm2": "female_arm4.png",
+      "arm3": "female_arm3.png",
+      "arm4": "female_arm4.png"
+    }
+  ]
+}

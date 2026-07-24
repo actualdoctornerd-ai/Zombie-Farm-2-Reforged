@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' https://accounts.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://accounts.google.com https://zombiefarm-server.zombiefarm.workers.dev; frame-src https://accounts.google.com; worker-src 'self' blob:; form-action 'self'" />
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover: draw under notches; user-scalable=no + touch-action
+         none: the browser must not pinch-zoom or scroll the page, so those
+         gestures reach the game's own pinch-zoom / pan instead. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Zombie Farm 2 Reforged</title>
+
+    <!-- PWA: installable to the home screen with an app icon. Paths use Vite's
+         ./ token so they resolve both at a domain root and under a
+         GitHub Pages project subpath. Icon paths INSIDE the manifest are relative
+         to the manifest URL, so they need no base prefix. -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#33502b" />
+    <meta name="application-name" content="Zombie Farm" />
+    <!-- iOS: standalone (no Safari chrome), draw under the notch to match
+         viewport-fit=cover, and use its own home-screen icon (ignores manifest). -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Zombie Farm" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #33502b; overflow: hidden;
+        overscroll-behavior: none; }
+      /* Fill the safe area (notch / home indicator) so the canvas covers the
+         whole screen; the HUD reads these insets to stay clear of the notch. */
+      #app { position: fixed; inset: 0; touch-action: none; -webkit-user-select: none;
+        user-select: none; -webkit-tap-highlight-color: transparent; }
+      #hud {
+        position: fixed; left: 10px; top: 8px; z-index: 10;
+        font: 12px/1.4 system-ui, sans-serif; color: #fff;
+        text-shadow: 0 1px 2px rgba(0,0,0,.6); pointer-events: none;
+        user-select: none;
+      }
+
+      /* ---- Boot / start screen ----------------------------------------------
+         Static markup so it paints on the very first frame (no empty-farm flash
+         while the bundle + assets load). It sits above the canvas/HUD but BELOW
+         the sign-in gate (z 100000). The "Reforged" plate doubles as the load
+         bar: an orange fill sweeps across it as loading progresses; when full,
+         the status line becomes "Click to Start" and a tap dismisses it. Art is
+         the game's own shipped title illustration + logo. -------------------- */
+      #boot {
+        position: fixed; inset: 0; z-index: 9000; overflow: hidden;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: #6db3e6; /* fallback; the art is drawn in the layered elements below */
+        transition: opacity .55s ease; -webkit-tap-highlight-color: transparent;
+        font-family: "Trebuchet MS", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      /* Background layers: a blurred, zoomed COVER copy fills the whole window so the
+         space beside the art isn't empty bars, and a CONTAIN copy on top shows the full
+         illustration with nothing cropped off the top/bottom. */
+      .boot-bg-blur { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+        background: url(assets/title/title_cleaned.png) center/cover no-repeat;
+        filter: blur(28px) brightness(.9); transform: scale(1.12); }
+      .boot-bg-art { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+        background: url(assets/title/title_cleaned.png) center/contain no-repeat; }
+      .boot-scrim { position: absolute; inset: 0; z-index: 2; pointer-events: none;
+        background: linear-gradient(180deg, rgba(10,20,35,.12) 0%, transparent 30%,
+          transparent 55%, rgba(8,16,10,.8) 100%); }
+      #boot.hidden { opacity: 0; pointer-events: none; }
+      .boot-stack { position: relative; z-index: 5; display: flex; flex-direction: column;
+        align-items: center; width: 100%; max-width: 560px; padding: 0 24px;
+        transform: translateY(8vh); }
+      .boot-logo { width: min(82vw, 430px); height: auto;
+        filter: drop-shadow(0 12px 20px rgba(0,0,0,.45)); }
+      .boot-plate { position: relative; overflow: hidden; isolation: isolate; margin-top: -1.5%;
+        font: 900 clamp(16px, 5vw, 26px)/1 "Arial Black", "Trebuchet MS", sans-serif;
+        letter-spacing: .34em; text-transform: uppercase; color: #f3ecd2; text-indent: .34em;
+        background: linear-gradient(#2a1c12, #160e08); padding: .55em 1.3em; border-radius: 8px;
+        border: 2px solid rgba(243,236,210,.85);
+        box-shadow: 0 6px 0 rgba(0,0,0,.3), 0 10px 18px rgba(0,0,0,.35); }
+      .boot-plate .pfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; z-index: 0;
+        border-radius: 6px; background: linear-gradient(90deg, #c9550a, #f07a1e);
+        box-shadow: 0 0 14px 2px rgba(240,122,30,.55); transition: width .12s linear; }
+      .boot-plate span { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+      .boot-status { position: relative; z-index: 2; margin-top: 20px;
+        font: 700 clamp(13px, 3.4vw, 16px)/1 "Trebuchet MS", system-ui, sans-serif;
+        letter-spacing: .06em; color: #f3ecd2; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
+      .boot-status.ready { letter-spacing: .14em; cursor: pointer;
+        animation: bootpulse 1.15s ease-in-out infinite; }
+      @keyframes bootpulse { 0%,100% { opacity: .6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.05); } }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-status.ready { animation: none; opacity: 1; }
+        #boot { transition: none; }
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-DqEW435L.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BzsAvX8F.css">
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud">
+      <b>Zombie Farm 2 Reforged</b><br />
+      Click a tile to walk there · drag to pan
+    </div>
+
+    <div id="boot">
+      <div class="boot-bg-blur"></div>
+      <div class="boot-bg-art"></div>
+      <div class="boot-scrim"></div>
+      <div class="boot-stack">
+        <img class="boot-logo" src="assets/title/logo.png" alt="Zombie Farm 2" />
+        <div class="boot-plate"><div class="pfill" id="bootFill"></div><span>Reforged</span></div>
+        <div class="boot-status" id="bootStatus">Gathering Zombies…</div>
+      </div>
+    </div>
+
+    <!-- External classic (non-module) script: runs before the app module so the
+         load bar animates during the bundle download, and exposes window.__ZFBoot
+         for main.ts to report progress / signal ready. External (not inline) so a
+         strict CSP allows it via `script-src 'self'` (see public/boot.js). -->
+    <script src="./boot.js"></script>
+
+  </body>
+</html>

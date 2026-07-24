@@ -1,0 +1,296 @@
+{
+ "Jester_Mask.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "astronaut_female.png": {
+  "offsetX": -1,
+  "offsetY": 36,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "astronaut_male.png": {
+  "offsetX": 2,
+  "offsetY": 40,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "boot_back.png": {
+  "offsetX": -1,
+  "offsetY": 5,
+  "pivotX": 0.75,
+  "pivotY": 0.9,
+  "z": 2
+ },
+ "boot_front.png": {
+  "offsetX": 10,
+  "offsetY": 5,
+  "pivotX": 0.75,
+  "pivotY": 0.9,
+  "z": 3
+ },
+ "dinosaur_female.png": {
+  "offsetX": -5,
+  "offsetY": 36,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "dinosaur_male.png": {
+  "offsetX": -7,
+  "offsetY": 39,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "female_arm1.png": {
+  "offsetX": -9,
+  "offsetY": 27,
+  "pivotX": 0.75,
+  "pivotY": 0.8,
+  "z": 0
+ },
+ "female_arm2.png": {
+  "offsetX": 8,
+  "offsetY": 25,
+  "pivotX": 0.25,
+  "pivotY": 0.8,
+  "z": 6
+ },
+ "female_arm3.png": {
+  "offsetX": -9,
+  "offsetY": 27,
+  "pivotX": 0.75,
+  "pivotY": 0.8,
+  "z": 0
+ },
+ "female_arm4.png": {
+  "offsetX": 8,
+  "offsetY": 25,
+  "pivotX": 0.25,
+  "pivotY": 0.8,
+  "z": 6
+ },
+ "femalebody1.png": {
+  "offsetX": 0,
+  "offsetY": 13,
+  "pivotX": 0.5,
+  "pivotY": 0.34,
+  "z": 1
+ },
+ "femalebody2.png": {
+  "offsetX": 0,
+  "offsetY": 13,
+  "pivotX": 0.5,
+  "pivotY": 0.34,
+  "z": 1
+ },
+ "femalehead1.png": {
+  "offsetX": 2,
+  "offsetY": 40,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "femalehead2.png": {
+  "offsetX": 2,
+  "offsetY": 40,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "femalehead3.png": {
+  "offsetX": 2,
+  "offsetY": 40,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "knight_female.png": {
+  "offsetX": -1,
+  "offsetY": 37,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "knight_male.png": {
+  "offsetX": -2,
+  "offsetY": 40,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "lamp.png": {
+  "offsetX": 0,
+  "offsetY": 0,
+  "pivotX": 1.0,
+  "pivotY": 1,
+  "z": 5
+ },
+ "male_arm1.png": {
+  "offsetX": -10,
+  "offsetY": 27,
+  "pivotX": 0.75,
+  "pivotY": 0.8,
+  "z": 0
+ },
+ "male_arm2.png": {
+  "offsetX": 10,
+  "offsetY": 28,
+  "pivotX": 0.25,
+  "pivotY": 0.8,
+  "z": 6
+ },
+ "male_arm3.png": {
+  "offsetX": -10,
+  "offsetY": 27,
+  "pivotX": 0.75,
+  "pivotY": 0.8,
+  "z": 0
+ },
+ "male_arm4.png": {
+  "offsetX": 10,
+  "offsetY": 28,
+  "pivotX": 0.25,
+  "pivotY": 0.8,
+  "z": 6
+ },
+ "malebody1.png": {
+  "offsetX": 0,
+  "offsetY": 13,
+  "pivotX": 0.5,
+  "pivotY": 0.34,
+  "z": 1
+ },
+ "malebody2.png": {
+  "offsetX": 0,
+  "offsetY": 13,
+  "pivotX": 0.5,
+  "pivotY": 0.34,
+  "z": 1
+ },
+ "malehead1.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "malehead2.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "malehead3.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "monolithhead.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.4,
+  "z": 7
+ },
+ "ninja_female.png": {
+  "offsetX": 4,
+  "offsetY": 40,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "ninja_male.png": {
+  "offsetX": 4,
+  "offsetY": 41,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "paperbaghead.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "playerSpriteSheet_sombrero_Female.png": {
+  "offsetX": 1,
+  "offsetY": 42,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "playerSpriteSheet_sombrero_Male.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "plough.png": {
+  "offsetX": 0,
+  "offsetY": 0,
+  "pivotX": 0.75,
+  "pivotY": 0.5,
+  "z": 5
+ },
+ "pumpkinhead.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.3,
+  "z": 7
+ },
+ "skeletonfemale.png": {
+  "offsetX": 2,
+  "offsetY": 40,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "skeletonmale.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "vampirefemale.png": {
+  "offsetX": 2,
+  "offsetY": 40,
+  "pivotX": 0.55,
+  "pivotY": 0.25,
+  "z": 7
+ },
+ "vampiremale.png": {
+  "offsetX": 0,
+  "offsetY": 44,
+  "pivotX": 0.5,
+  "pivotY": 0.3,
+  "z": 7
+ },
+ "zombieking.png": {
+  "offsetX": -2,
+  "offsetY": 41,
+  "pivotX": 0.5,
+  "pivotY": 0.3,
+  "z": 7
+ },
+ "zombiequeen.png": {
+  "offsetX": 2,
+  "offsetY": 40,
+  "pivotX": 0.55,
+  "pivotY": 0.3,
+  "z": 7
+ }
+}

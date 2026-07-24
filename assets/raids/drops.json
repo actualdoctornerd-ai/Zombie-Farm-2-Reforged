@@ -1,0 +1,642 @@
+{
+ "10 Brains": {
+  "icon": "",
+  "brains": true,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Alien Banner": {
+  "icon": "tex1046.png",
+  "brains": false,
+  "gold": false,
+  "tile": "alienBanner",
+  "unique": true,
+  "limit": 0
+ },
+ "Bamboo": {
+  "icon": "tex1028.png",
+  "brains": false,
+  "gold": false,
+  "tile": "bambooTree",
+  "unique": false,
+  "limit": 0
+ },
+ "Bike": {
+  "icon": "tex1068.png",
+  "brains": false,
+  "gold": false,
+  "tile": "bike",
+  "unique": true,
+  "limit": 0
+ },
+ "Bonus Gold": {
+  "icon": "",
+  "brains": false,
+  "gold": true,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Broken Tractor": {
+  "icon": "tex1064.png",
+  "brains": false,
+  "gold": false,
+  "tile": "brokenTractor",
+  "unique": false,
+  "limit": 0
+ },
+ "Bunny Rock": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "rockBunny",
+  "unique": false,
+  "limit": 0
+ },
+ "Bunnypig Bush": {
+  "icon": "tex2007.png",
+  "brains": false,
+  "gold": false,
+  "tile": "treeWorldPigling",
+  "unique": false,
+  "limit": 0
+ },
+ "Chocolate Cone": {
+  "icon": "tex1093.png",
+  "brains": false,
+  "gold": false,
+  "tile": "iceCreamConeChocolate",
+  "unique": false,
+  "limit": 0
+ },
+ "Circus Flag: Blue": {
+  "icon": "tex2002.png",
+  "brains": false,
+  "gold": false,
+  "tile": "circusFlagBlue",
+  "unique": false,
+  "limit": 0
+ },
+ "Circus Flag: Green": {
+  "icon": "tex2002.png",
+  "brains": false,
+  "gold": false,
+  "tile": "circusFlagGreen",
+  "unique": false,
+  "limit": 0
+ },
+ "Circus Flag: Yellow": {
+  "icon": "tex2002.png",
+  "brains": false,
+  "gold": false,
+  "tile": "circusFlagYellow",
+  "unique": false,
+  "limit": 0
+ },
+ "Circus Popcorn": {
+  "icon": "tex2002.png",
+  "brains": false,
+  "gold": false,
+  "tile": "circusPopcorn",
+  "unique": false,
+  "limit": 0
+ },
+ "Circus Tent": {
+  "icon": "tex2002.png",
+  "brains": false,
+  "gold": false,
+  "tile": "circusTent",
+  "unique": false,
+  "limit": 0
+ },
+ "Cobrahawk Bush": {
+  "icon": "tex2007.png",
+  "brains": false,
+  "gold": false,
+  "tile": "treeWorldCobraHawk",
+  "unique": false,
+  "limit": 0
+ },
+ "Coffin 1": {
+  "icon": "tex2003.png",
+  "brains": false,
+  "gold": false,
+  "tile": "coffin1",
+  "unique": false,
+  "limit": 0
+ },
+ "Coffin 2": {
+  "icon": "tex2003.png",
+  "brains": false,
+  "gold": false,
+  "tile": "coffin2",
+  "unique": false,
+  "limit": 0
+ },
+ "Coffin 3": {
+  "icon": "tex2003.png",
+  "brains": false,
+  "gold": false,
+  "tile": "coffin3",
+  "unique": false,
+  "limit": 0
+ },
+ "Concentration": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Corporate Banner": {
+  "icon": "tex1046.png",
+  "brains": false,
+  "gold": false,
+  "tile": "corporatevilleBanner",
+  "unique": true,
+  "limit": 0
+ },
+ "Crashed UFO": {
+  "icon": "tex1068.png",
+  "brains": false,
+  "gold": false,
+  "tile": "crashedUFO",
+  "unique": false,
+  "limit": 0
+ },
+ "Double Rainbow": {
+  "icon": "tex1049.png",
+  "brains": false,
+  "gold": false,
+  "tile": "doubleRainbow_01",
+  "unique": false,
+  "limit": 0
+ },
+ "Easter Grass": {
+  "icon": "tex1089.png",
+  "brains": false,
+  "gold": false,
+  "tile": "easterGrass",
+  "unique": false,
+  "limit": 0
+ },
+ "Farmer Banner": {
+  "icon": "tex1046.png",
+  "brains": false,
+  "gold": false,
+  "tile": "oldMcDonnellBanner",
+  "unique": true,
+  "limit": 0
+ },
+ "Gallows": {
+  "icon": "tex1053.png",
+  "brains": false,
+  "gold": false,
+  "tile": "gallows",
+  "unique": false,
+  "limit": 0
+ },
+ "Giant Clam": {
+  "icon": "tex1087.png",
+  "brains": false,
+  "gold": false,
+  "tile": "giantClamClosed",
+  "unique": true,
+  "limit": 0
+ },
+ "Golden Dice": {
+  "icon": "",
+  "brains": false,
+  "gold": true,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Egg": {
+  "icon": "tex1091.png",
+  "brains": false,
+  "gold": true,
+  "tile": "goldEgg",
+  "unique": true,
+  "limit": 0
+ },
+ "Green Gift Box": {
+  "icon": "tex1074.png",
+  "brains": false,
+  "gold": false,
+  "tile": "greenGift",
+  "unique": false,
+  "limit": 0
+ },
+ "Haunted Clocktower": {
+  "icon": "tex2003.png",
+  "brains": false,
+  "gold": false,
+  "tile": "hauntedClocktower",
+  "unique": false,
+  "limit": 0
+ },
+ "Haystack": {
+  "icon": "tex1016.png",
+  "brains": false,
+  "gold": false,
+  "tile": "haystack",
+  "unique": false,
+  "limit": 0
+ },
+ "Hazard Fence": {
+  "icon": "tex1063.png",
+  "brains": false,
+  "gold": false,
+  "tile": "hazardFence",
+  "unique": false,
+  "limit": 0
+ },
+ "Heart Candle": {
+  "icon": "tex1075.png",
+  "brains": false,
+  "gold": false,
+  "tile": "heartCandle",
+  "unique": false,
+  "limit": 0
+ },
+ "Heart Hedge": {
+  "icon": "tex1075.png",
+  "brains": false,
+  "gold": false,
+  "tile": "heartHedge",
+  "unique": false,
+  "limit": 0
+ },
+ "Ice Cream Stand": {
+  "icon": "tex1094.png",
+  "brains": false,
+  "gold": false,
+  "tile": "iceCreamStand",
+  "unique": false,
+  "limit": 0
+ },
+ "Ice Cream Truck": {
+  "icon": "tex1092.png",
+  "brains": false,
+  "gold": false,
+  "tile": "iceCreamTruck",
+  "unique": true,
+  "limit": 0
+ },
+ "Insta-Grow": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Insta-Harvest": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Insta-Plow": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Invasion Voucher": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Love Shack": {
+  "icon": "tex1077.png",
+  "brains": false,
+  "gold": false,
+  "tile": "loveShack",
+  "unique": false,
+  "limit": 0
+ },
+ "Mechanical Bull": {
+  "icon": "tex1082.png",
+  "brains": false,
+  "gold": false,
+  "tile": "mechanicalBull",
+  "unique": true,
+  "limit": 0
+ },
+ "Monument": {
+  "icon": "tex1081.png",
+  "brains": false,
+  "gold": false,
+  "tile": "monument",
+  "unique": true,
+  "limit": 0
+ },
+ "Mosscrab Bush": {
+  "icon": "tex2007.png",
+  "brains": false,
+  "gold": false,
+  "tile": "treeWorldMossCrab",
+  "unique": false,
+  "limit": 0
+ },
+ "Ninja Banner": {
+  "icon": "tex1046.png",
+  "brains": false,
+  "gold": false,
+  "tile": "ninjaBanner",
+  "unique": true,
+  "limit": 0
+ },
+ "Parrot": {
+  "icon": "tex1079.png",
+  "brains": false,
+  "gold": false,
+  "tile": "parrot",
+  "unique": true,
+  "limit": 0
+ },
+ "Phoenix Statue": {
+  "icon": "tex2007.png",
+  "brains": false,
+  "gold": false,
+  "tile": "treeWorldPhoenix",
+  "unique": false,
+  "limit": 0
+ },
+ "Pirate Banner": {
+  "icon": "tex1046.png",
+  "brains": false,
+  "gold": false,
+  "tile": "pirateBanner",
+  "unique": true,
+  "limit": 0
+ },
+ "Pixel Banner": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "pixelBanner",
+  "unique": true,
+  "limit": 0
+ },
+ "Pixel Block": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "pixelBrick",
+  "unique": false,
+  "limit": 0
+ },
+ "Pixel Campfire": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "pixelCampfire",
+  "unique": false,
+  "limit": 0
+ },
+ "Pixel Floating Block": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "pixelBrickFloating",
+  "unique": false,
+  "limit": 0
+ },
+ "Pixel Tower": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "pixelTower",
+  "unique": false,
+  "limit": 0
+ },
+ "Pixel Tree": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "pixelTree",
+  "unique": false,
+  "limit": 0
+ },
+ "Popcorn Machine": {
+  "icon": "tex2002.png",
+  "brains": false,
+  "gold": false,
+  "tile": "circusPopcorn",
+  "unique": false,
+  "limit": 0
+ },
+ "Poppy's House": {
+  "icon": "tex2007.png",
+  "brains": false,
+  "gold": false,
+  "tile": "treeWorldPoppyHouse",
+  "unique": true,
+  "limit": 0
+ },
+ "Pyramid": {
+  "icon": "tex1068.png",
+  "brains": false,
+  "gold": false,
+  "tile": "pyramid",
+  "unique": false,
+  "limit": 0
+ },
+ "Red Gift Box": {
+  "icon": "tex1074.png",
+  "brains": false,
+  "gold": false,
+  "tile": "redGift",
+  "unique": false,
+  "limit": 0
+ },
+ "Refresher": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Ring of Fire": {
+  "icon": "tex2002.png",
+  "brains": false,
+  "gold": false,
+  "tile": "fireRing",
+  "unique": false,
+  "limit": 0
+ },
+ "Robot Banner": {
+  "icon": "tex1046.png",
+  "brains": false,
+  "gold": false,
+  "tile": "robotBanner",
+  "unique": true,
+  "limit": 0
+ },
+ "Rock Lobster": {
+  "icon": "tex1085.png",
+  "brains": false,
+  "gold": false,
+  "tile": "rockLobster",
+  "unique": false,
+  "limit": 0
+ },
+ "Rusty Fragment": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 3
+ },
+ "Sand Dollar": {
+  "icon": "tex1086.png",
+  "brains": false,
+  "gold": false,
+  "tile": "sandDollar",
+  "unique": false,
+  "limit": 0
+ },
+ "Satellite Dish": {
+  "icon": "tex1083.png",
+  "brains": false,
+  "gold": false,
+  "tile": "setiDish",
+  "unique": true,
+  "limit": 0
+ },
+ "Scarecrow": {
+  "icon": "tex1012.png",
+  "brains": false,
+  "gold": false,
+  "tile": "scarecrowNormal",
+  "unique": false,
+  "limit": 0
+ },
+ "Spooky Tree": {
+  "icon": "tex2003.png",
+  "brains": false,
+  "gold": false,
+  "tile": "treeSpooky",
+  "unique": false,
+  "limit": 0
+ },
+ "Strawberry Cone": {
+  "icon": "tex1093.png",
+  "brains": false,
+  "gold": false,
+  "tile": "iceCreamConeStrawberry",
+  "unique": false,
+  "limit": 0
+ },
+ "Street Light": {
+  "icon": "tex1029.png",
+  "brains": false,
+  "gold": false,
+  "tile": "streetLight",
+  "unique": false,
+  "limit": 0
+ },
+ "Taiko Drum": {
+  "icon": "tex1080.png",
+  "brains": false,
+  "gold": false,
+  "tile": "taikoDrum",
+  "unique": true,
+  "limit": 0
+ },
+ "Teddy Bear": {
+  "icon": "tex1073.png",
+  "brains": false,
+  "gold": false,
+  "tile": "teddyBear",
+  "unique": false,
+  "limit": 0
+ },
+ "Teddy Valentine": {
+  "icon": "tex1075.png",
+  "brains": false,
+  "gold": false,
+  "tile": "teddyValentine",
+  "unique": false,
+  "limit": 0
+ },
+ "Toxic Drum": {
+  "icon": "tex1062.png",
+  "brains": false,
+  "gold": false,
+  "tile": "toxicDrum",
+  "unique": false,
+  "limit": 0
+ },
+ "Treasure Chest": {
+  "icon": "tex1031.png",
+  "brains": false,
+  "gold": false,
+  "tile": "treasureChest",
+  "unique": false,
+  "limit": 0
+ },
+ "Valentine Gift": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "",
+  "unique": false,
+  "limit": 0
+ },
+ "Vanilla Cone": {
+  "icon": "tex1093.png",
+  "brains": false,
+  "gold": false,
+  "tile": "iceCreamConeVanilla",
+  "unique": false,
+  "limit": 0
+ },
+ "Windmill": {
+  "icon": "tex1084.png",
+  "brains": false,
+  "gold": false,
+  "tile": "windmill",
+  "unique": true,
+  "limit": 0
+ },
+ "Witch's Cauldron": {
+  "icon": "tex2003.png",
+  "brains": false,
+  "gold": false,
+  "tile": "witchsCauldron",
+  "unique": true,
+  "limit": 0
+ },
+ "Yellow Gift Box": {
+  "icon": "tex1074.png",
+  "brains": false,
+  "gold": false,
+  "tile": "yellowGift",
+  "unique": false,
+  "limit": 0
+ },
+ "Zombie Sign": {
+  "icon": "tex1018.png",
+  "brains": false,
+  "gold": false,
+  "tile": "zombieXingSign",
+  "unique": false,
+  "limit": 0
+ }
+}

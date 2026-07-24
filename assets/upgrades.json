@@ -1,0 +1,81 @@
+{
+ "mapSize": [
+  {
+   "name": "Big 'ol Farm",
+   "size": 40,
+   "level": 11,
+   "gold": 10000,
+   "brains": 6,
+   "info": "40x40",
+   "icon": "upgrade_farmsize.png"
+  },
+  {
+   "name": "Huge 'ol Farm",
+   "size": 50,
+   "level": 21,
+   "gold": 50000,
+   "brains": 8,
+   "info": "50x50",
+   "icon": "upgrade_farmsize.png"
+  },
+  {
+   "name": "Massive 'ol Farm",
+   "size": 60,
+   "level": 31,
+   "gold": 250000,
+   "brains": 12,
+   "info": "60x60",
+   "icon": "upgrade_farmsize.png"
+  }
+ ],
+ "climate": [
+  {
+   "name": "Grassy Ground",
+   "climateGID": 1,
+   "level": -4,
+   "gold": 0,
+   "icon": "upgrade_ground_grassy.png",
+   "terrain": "grass"
+  },
+  {
+   "name": "Urban Ground",
+   "climateGID": 16,
+   "level": 1,
+   "gold": 1000,
+   "icon": "upgrade_ground_urban.png",
+   "terrain": "stone"
+  },
+  {
+   "name": "Sandy Ground",
+   "climateGID": 6,
+   "level": 1,
+   "gold": 2000,
+   "icon": "upgrade_ground_sandy.png",
+   "terrain": "dirt"
+  },
+  {
+   "name": "Snowy Ground",
+   "climateGID": 11,
+   "level": 1,
+   "gold": 5000,
+   "icon": "upgrade_ground_snowy.png",
+   "terrain": "snow"
+  },
+  {
+   "name": "Dead Ground",
+   "climateGID": 21,
+   "level": 1,
+   "gold": 5000,
+   "icon": "upgrade_ground_dead.png",
+   "terrain": "sand"
+  },
+  {
+   "name": "Lunar Ground",
+   "climateGID": 26,
+   "level": 1,
+   "gold": 10000,
+   "icon": "upgrade_ground_lunar.png",
+   "terrain": "water"
+  }
+ ]
+}

@@ -1,0 +1,195 @@
+{
+  "id": "mystical-mamba",
+  "sourceId": 10,
+  "name": "Mystical Mamba",
+  "costBrains": 10,
+  "durationMs": 1209600000,
+  "fightMs": 30000,
+  "retryMs": 1200000,
+  "encounterMs": 7200000,
+  "baseHp": 2000,
+  "multipliers": [
+    1,
+    1.4,
+    2.2,
+    3.6,
+    6.8,
+    7.4,
+    8.1,
+    9.4,
+    14,
+    23,
+    25,
+    27.4,
+    31.7,
+    40,
+    53,
+    58,
+    64,
+    74,
+    88,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107
+  ],
+  "maxLevel": 40,
+  "music": "music.wav",
+  "punchSfx": "punch.wav",
+  "introText": "Mystical Mamba is here",
+  "successText": "You beat Mystical Mamba. They'll be back stronger than before!",
+  "failedText": "Mystical Mamba beat you",
+  "unitStats": {
+    "str": 2,
+    "dex": 2,
+    "con": 20,
+    "attacks": [
+      {
+        "name": "EpicBossAttack",
+        "frequency": 100
+      }
+    ]
+  },
+  "animations": {},
+  "levelAssets": [
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-01.png",
+      "z": -12
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-02.png",
+      "z": -11
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-03.png",
+      "z": -10
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-04.png",
+      "z": -9
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-05.png",
+      "z": -8
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-06.png",
+      "z": -7
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-07.png",
+      "z": -6
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-08.png",
+      "z": -5
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-09.png",
+      "z": -4
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-10.png",
+      "z": -3
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-11.png",
+      "z": -2
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-12.png",
+      "z": -1
+    }
+  ],
+  "loot": [
+    {
+      "level": 15,
+      "name": "Mystical Mamba Banner",
+      "sprite": "EPB_10_BANNER.png",
+      "tile": "mysticalMambaBanner"
+    },
+    {
+      "level": 30,
+      "name": "Mystical Mamba's Wish Machine",
+      "sprite": "zomtarMachine_default.png",
+      "tile": "mysticalMambasWishMachineLeft"
+    },
+    {
+      "level": 40,
+      "name": "Tame Mamba",
+      "sprite": "tameMamba_default.png",
+      "stageActor": "tameMamba"
+    }
+  ],
+  "questIds": ["10000", "10011"],
+  "portrait": "portrait.png",
+  "lootIcon": "loot-icon.png",
+  "questIcon": "quest-icon.png",
+  "bossTexture": "boss.png",
+  "reconstructed": true,
+  "copied": [
+    "EPB_10_BANNER.png",
+    "EPB_10_BANNER_Icon_MarketItems.png",
+    "EPB_10_IPHONE_ns_icon.png",
+    "ZOMTAR_EPB10_default.plist",
+    "ZOMTAR_EPB10_default.png",
+    "ZOMTAR_PARTICLE.plist",
+    "ZOMTAR_machine_Icon_MarketItems.png",
+    "boss.png",
+    "intro-1.png",
+    "intro-2.png",
+    "intro-3.png",
+    "intro.caf",
+    "loot-icon.png",
+    "music.wav",
+    "portrait.png",
+    "punch.wav",
+    "quest-icon.png",
+    "source-sheet.png",
+    "tameMamba_default.plist",
+    "tameMamba_default.png",
+    "zomtarMachine_default.plist",
+    "zomtarMachine_default.png"
+  ]
+}

@@ -1,0 +1,384 @@
+{
+  "id": "loco-locust",
+  "sourceId": 2,
+  "name": "Loco Locust",
+  "costBrains": 10,
+  "durationMs": 1209600000,
+  "fightMs": 30000,
+  "retryMs": 1200000,
+  "encounterMs": 7200000,
+  "baseHp": 2000,
+  "multipliers": [
+    1,
+    1.4,
+    2.2,
+    3.6,
+    6.8,
+    7.4,
+    8.1,
+    9.4,
+    14,
+    23,
+    25,
+    27.4,
+    31.7,
+    40,
+    53,
+    58,
+    64,
+    74,
+    88,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107,
+    107
+  ],
+  "maxLevel": 40,
+  "music": "music.wav",
+  "punchSfx": "punch.wav",
+  "introText": "Loco Locust is here",
+  "successText": "You Beat Loco Locust.  He'll be back stronger than before!",
+  "failedText": "Loco Locust beat you",
+  "unitStats": {
+    "attacks": [
+      {
+        "frequency": 100,
+        "name": "VideoGameZombieBite"
+      }
+    ],
+    "con": 20,
+    "dex": 2,
+    "str": 2
+  },
+  "animations": {
+    "idle": {
+      "file": "idle.png",
+      "cellWidth": 275,
+      "cellHeight": 275,
+      "frameCount": 8,
+      "frameSeconds": 0.08333333333333333
+    },
+    "enter": {
+      "file": "enter.png",
+      "cellWidth": 275,
+      "cellHeight": 275,
+      "frameCount": 22,
+      "frameSeconds": 0.08333333333333333
+    },
+    "attack": {
+      "file": "attack.png",
+      "cellWidth": 275,
+      "cellHeight": 275,
+      "frameCount": 9,
+      "frameSeconds": 0.08333333333333333
+    },
+    "defeat": {
+      "file": "defeat.png",
+      "cellWidth": 275,
+      "cellHeight": 275,
+      "frameCount": 4,
+      "frameSeconds": 0.08333333333333333
+    },
+    "escape": {
+      "file": "escape.png",
+      "cellWidth": 275,
+      "cellHeight": 275,
+      "frameCount": 4,
+      "frameSeconds": 0.08333333333333333
+    },
+    "fly": {
+      "file": "fly.png",
+      "cellWidth": 275,
+      "cellHeight": 275,
+      "frameCount": 1,
+      "frameSeconds": 0.08333333333333333
+    }
+  },
+  "levelAssets": [
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-01.png",
+      "z": -11
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "scrollToEnd": true,
+      "speed": "20",
+      "sprite": "background-02.png",
+      "z": -10
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{480,0}",
+      "scrollToEnd": true,
+      "speed": "20",
+      "sprite": "background-03.png",
+      "z": -10
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "scrollToEnd": true,
+      "speed": "30",
+      "sprite": "background-04.png",
+      "z": -9
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{479,0}",
+      "scrollToEnd": true,
+      "speed": "30",
+      "sprite": "background-05.png",
+      "z": -9
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{0,0}",
+      "scrollToEnd": true,
+      "speed": "60",
+      "sprite": "background-06.png",
+      "z": -8
+    },
+    {
+      "anchor": "{0,0}",
+      "isScrolling": true,
+      "position": "{959,0}",
+      "scrollToEnd": true,
+      "speed": "60",
+      "sprite": "background-07.png",
+      "z": -8
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{230,308}",
+        "{230,303}"
+      ],
+      "position": "{230,308}",
+      "speed": "200",
+      "sprite": "background-08.png",
+      "z": -7
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{290,315}",
+        "{290,308}"
+      ],
+      "position": "{290,315}",
+      "speed": "275",
+      "sprite": "background-09.png",
+      "z": -6
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{292,188}",
+        "{292,185}"
+      ],
+      "position": "{292,188}",
+      "speed": "450",
+      "sprite": "background-10.png",
+      "z": -5
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{3,250}",
+        "{6,251}",
+        "{8,247}",
+        "{5,247}"
+      ],
+      "position": "{3,250}",
+      "speed": "400",
+      "sprite": "background-11.png",
+      "z": -4
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{15,280}",
+        "{18,277}",
+        "{22,284}",
+        "{18,284}"
+      ],
+      "position": "{15,284}",
+      "speed": "300",
+      "sprite": "background-12.png",
+      "z": -3
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{34,176}",
+        "{39,179}",
+        "{40,183}",
+        "{35,178}"
+      ],
+      "position": "{34,176}",
+      "speed": "275",
+      "sprite": "background-13.png",
+      "z": -2
+    },
+    {
+      "anchor": "{0,1}",
+      "isMoving": true,
+      "movePoints": [
+        "{67,93}",
+        "{67,97}"
+      ],
+      "position": "{67,93}",
+      "speed": "200",
+      "sprite": "background-14.png",
+      "z": -1
+    },
+    {
+      "anchor": "{0,0}",
+      "position": "{0,0}",
+      "sprite": "background-15.png",
+      "z": 0
+    }
+  ],
+  "loot": [
+    {
+      "level": 5,
+      "name": "Loco Locust's Cactus Target",
+      "scale": 0.35,
+      "sprite": "EpicB2_Shooting_Target.png",
+      "tile": "cactusTarget",
+      "unique": false
+    },
+    {
+      "level": 10,
+      "name": "Loco Locust's Saddle",
+      "scale": 0.35,
+      "sprite": "EpicB2_Saddle.png",
+      "tile": "saddle",
+      "unique": false
+    },
+    {
+      "level": 15,
+      "name": "Loco Locust's Rocking Horse",
+      "scale": 0.35,
+      "sprite": "EpicB2_RockingHorse.png",
+      "tile": "rockingHorse",
+      "unique": false
+    },
+    {
+      "level": 20,
+      "name": "Loco Locust's Boots",
+      "scale": 0.35,
+      "sprite": "EpicB2_Boots.png",
+      "tile": "boots",
+      "unique": false
+    },
+    {
+      "level": 25,
+      "name": "Loco Locust's Banjo",
+      "scale": 0.35,
+      "sprite": "EpicB2_Bango.png",
+      "tile": "banjo",
+      "unique": false
+    },
+    {
+      "level": 30,
+      "name": "Loco Locust's Saloon",
+      "scale": 0.35,
+      "sprite": "EPIC_BOSS2_Saloon.png",
+      "tile": "saloon",
+      "unique": false
+    },
+    {
+      "level": 35,
+      "name": "Loco Locust's Hideout",
+      "scale": 0.35,
+      "sprite": "EPIC_BOSS2_Bandit_Hideout.png",
+      "tile": "hideout",
+      "unique": false
+    },
+    {
+      "level": 37,
+      "name": "Loco Locust's Gun Rack",
+      "scale": 0.35,
+      "sprite": "EPIC_BOSS2_GunCollection.png",
+      "tile": "gunRack",
+      "unique": false
+    },
+    {
+      "level": 39,
+      "name": "Tame Locust",
+      "scale": 0.35,
+      "sprite": "locolocustpet.png",
+      "stageActor": "locolocustpetActor"
+    }
+  ],
+  "questIds": [
+    "2000",
+    "2001",
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2010",
+    "2011"
+  ],
+  "portrait": "portrait.png",
+  "lootIcon": "loot-icon.png",
+  "questIcon": "quest-icon.png",
+  "bossTexture": "boss.png",
+  "reconstructed": false,
+  "copied": [
+    "EPIC_BOSS2_Bandit_Hideout.png",
+    "EPIC_BOSS2_GunCollection.png",
+    "EPIC_BOSS2_Saloon.png",
+    "EpicB2_Bango.png",
+    "EpicB2_Boots.png",
+    "EpicB2_RockingHorse.png",
+    "EpicB2_Saddle.png",
+    "EpicB2_Shooting_Target.png",
+    "intro-1.png",
+    "intro-2.png",
+    "intro-3.png",
+    "intro.caf",
+    "locolocustpet.plist",
+    "locolocustpet.png",
+    "loot-icon.png",
+    "music.wav",
+    "portrait.png",
+    "punch.wav",
+    "quest-icon.png",
+    "source-sheet.plist",
+    "source-sheet.png"
+  ]
+}

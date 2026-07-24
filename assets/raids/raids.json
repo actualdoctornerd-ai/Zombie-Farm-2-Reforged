@@ -1,0 +1,1666 @@
+[
+ {
+  "id": 1,
+  "name": "Old McDonnell's Farm",
+  "bossName": "Old McDonnell",
+  "bossPortrait": "portrait_old_mcdonnel.png",
+  "enemyIcon": "enemyIcon.png",
+  "unlockLevel": 0,
+  "recommendedLevel": 5,
+  "introText": "That darned farmer Old McDonnell has been givin ya the stink eye lately... Why don't ya show him who's boss!\\n\\nTap on \"Invade\" when yer ready to raid his barn.",
+  "successText": "You just beat Old McDonnell and his flimsy farmhands! You can bet he'll be back though...",
+  "failureText": "Old McDonnell beat yer zombies somethin' fierce! You might need stronger zombies... or some better luck.",
+  "xp": 100,
+  "goldReward": 1200,
+  "bonusGold": 400,
+  "throwSpeed": 2,
+  "music": "farmStageBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGFarm_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGFarm_barn.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 100
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "FarmStageActorFarmhand"
+    ]
+   },
+   {
+    "enemyKeys": [
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand"
+    ],
+    "wave": 1
+   },
+   {
+    "enemyKeys": [
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorLumberjack"
+    ],
+    "wave": 2
+   },
+   {
+    "enemyKeys": [
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorLumberjack"
+    ],
+    "bossKey": "FarmStageActorBoss",
+    "wave": 3,
+    "throwingDisabled": true
+   },
+   {
+    "enemyKeys": [
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorFarmhand",
+     "FarmStageActorLumberjack"
+    ],
+    "bossKey": "FarmStageActorBoss",
+    "wave": 4,
+    "throwSpeed": 2
+   },
+   {
+    "enemyKeys": [],
+    "bossKey": "FarmStageActorBoss",
+    "wave": 5,
+    "population": 7,
+    "throwSpeed": 1.5,
+    "weighted": [
+     {
+      "enemy": "FarmStageActorFarmhand",
+      "frequency": 90
+     },
+     {
+      "enemy": "FarmStageActorLumberjack",
+      "frequency": 10
+     }
+    ]
+   },
+   {
+    "enemyKeys": [],
+    "bossKey": "FarmStageActorBoss",
+    "wave": 6,
+    "population": 10,
+    "throwSpeed": 1,
+    "weighted": [
+     {
+      "enemy": "FarmStageActorFarmhand",
+      "frequency": 80
+     },
+     {
+      "enemy": "FarmStageActorLumberjack",
+      "frequency": 20
+     }
+    ]
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Haystack"
+   ],
+   [
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Farmer Banner"
+   ],
+   [
+    "Scarecrow"
+   ],
+   [
+    "Windmill"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false
+ },
+ {
+  "id": 2,
+  "name": "Zombies vs Lawyers",
+  "bossName": "CorporateVille",
+  "bossPortrait": "portrait_lawyer.png",
+  "enemyIcon": "enemyIcon1.png",
+  "unlockLevel": 16,
+  "recommendedLevel": 16,
+  "introText": "CorporateVille's lawyers want to take away yer land and build a parking lot! Defend yer land from these high falutin' cityfolk.",
+  "successText": "CorporateVille's lawyers have been repealed by yer astounding army!",
+  "failureText": "CorporateVille's lawyers beat yer zombies somethin' fierce! You might need stronger zombies... or some better luck.",
+  "xp": 800,
+  "goldReward": 1500,
+  "bonusGold": 750,
+  "throwSpeed": 5,
+  "music": "fightBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGCity_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGCity_mid.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   },
+   {
+    "sprite": "fightBGCity_front.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 100
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "CityStageActorCrazedWorker"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorLawyer"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorLawyer"
+    ],
+    "bossKey": "CityStageActorBoss",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorCrazedWorker",
+     "CityStageActorLawyer"
+    ],
+    "bossKey": "CityStageActorBoss",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "CityStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "CityStageActorCrazedWorker",
+      "frequency": 67
+     },
+     {
+      "enemy": "CityStageActorLawyer",
+      "frequency": 33
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "CityStageActorBoss",
+    "population": 13,
+    "weighted": [
+     {
+      "enemy": "CityStageActorCrazedWorker",
+      "frequency": 67
+     },
+     {
+      "enemy": "CityStageActorLawyer",
+      "frequency": 33
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Zombie Sign"
+   ],
+   [
+    "Insta-Harvest",
+    "Insta-Plow",
+    "Invasion Voucher"
+   ],
+   [
+    "Corporate Banner"
+   ],
+   [
+    "Street Light"
+   ],
+   [
+    "Monument"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": true
+ },
+ {
+  "id": 3,
+  "name": "Zombies vs Pirates",
+  "bossName": "The Dread Pirate Arrrnold",
+  "bossPortrait": "portrait_pirate.png",
+  "enemyIcon": "enemyIcon2.png",
+  "unlockLevel": 21,
+  "recommendedLevel": 21,
+  "introText": "The Dread Pirate Arrrnold has been plundering farms left and right. Those ruffians and scallywags have you targeted next! Tap invade when yer ready to face him.",
+  "successText": "The Dread Pirate Arrrnold and his band o' scallywags have fled back to the high seas. He'll think twice before botherin' you again.",
+  "failureText": "The Dread Pirate Arrrnold beat yer zombies something fierce! Rumors say pirates clobber anything that moves too fast. hmmmm...",
+  "xp": 1500,
+  "goldReward": 2000,
+  "bonusGold": 750,
+  "throwSpeed": 8,
+  "music": "pirateStageBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGPirate_sky.png",
+    "position": "{0,320}",
+    "anchor": "{0,1}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGPirate_water.png",
+    "position": "{0,-101}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGPirate_water.png",
+    "position": "{-512,-101}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGPirate_mid.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   },
+   {
+    "sprite": "fightBGPirate_front.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 100
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "PirateStageActorSwashbuckler"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorScallywag"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorScallywag"
+    ],
+    "bossKey": "PirateStageActorBoss",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorSwashbuckler",
+     "PirateStageActorScallywag"
+    ],
+    "bossKey": "PirateStageActorBoss",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "PirateStageActorBoss",
+    "population": 7,
+    "weighted": [
+     {
+      "enemy": "PirateStageActorSwashbuckler",
+      "frequency": 67
+     },
+     {
+      "enemy": "PirateStageActorScallywag",
+      "frequency": 33
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "PirateStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "PirateStageActorSwashbuckler",
+      "frequency": 67
+     },
+     {
+      "enemy": "PirateStageActorScallywag",
+      "frequency": 33
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Treasure Chest"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Pirate Banner"
+   ],
+   [
+    "Gallows"
+   ],
+   [
+    "Parrot"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false
+ },
+ {
+  "id": 4,
+  "name": "Zombies vs Ninjas",
+  "bossName": "Mr. Whiskers",
+  "bossPortrait": "portrait_ninja.png",
+  "enemyIcon": "enemyIcon3.png",
+  "unlockLevel": 26,
+  "recommendedLevel": 26,
+  "introText": "The Carrot Clan are ninja looting yer crops! Tap invade when yer ready to face the evil ninja overlord Mr. Whiskers!",
+  "successText": "Looks like you sent Mr. Whiskers runnin fer the hills. Remember nobody likes a ninja looter!",
+  "failureText": "Them crafty ninjas beat yer zombies something fierce!  You might wanna try combining zombies with the Zombie Pot... ",
+  "xp": 2500,
+  "goldReward": 2500,
+  "bonusGold": 1250,
+  "throwSpeed": 2,
+  "music": "ninjaStageBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGNinja_bg.png",
+    "position": "{0,320}",
+    "anchor": "{0,1}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGNinja_mid.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   },
+   {
+    "sprite": "fightBGNinja_front.png",
+    "position": "{480,320}",
+    "anchor": "{1,1}",
+    "z": 100
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "NinjaStageActorGirl"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorBoy"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorBoy"
+    ],
+    "bossKey": "NinjaStageActorBoss",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorGirl",
+     "NinjaStageActorBoy"
+    ],
+    "bossKey": "NinjaStageActorBoss",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "NinjaStageActorBoss",
+    "population": 7,
+    "weighted": [
+     {
+      "enemy": "NinjaStageActorGirl",
+      "frequency": 67
+     },
+     {
+      "enemy": "NinjaStageActorBoy",
+      "frequency": 33
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "NinjaStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "NinjaStageActorGirl",
+      "frequency": 67
+     },
+     {
+      "enemy": "NinjaStageActorBoy",
+      "frequency": 33
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Bamboo"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Ninja Banner"
+   ],
+   [
+    "Double Rainbow"
+   ],
+   [
+    "Taiko Drum"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false
+ },
+ {
+  "id": 5,
+  "name": "Zombies vs Robots",
+  "bossName": "The Robots",
+  "bossPortrait": "portrait_robot.png",
+  "enemyIcon": "enemyIcon4.png",
+  "unlockLevel": 31,
+  "recommendedLevel": 31,
+  "introText": "Sinister robots have set up a factory nearby. Shut them down before they take your job! Tap invade when yer ready to face them.",
+  "successText": "Them brainless robots have been reduced to nuts and bolts! Looks like yer jobs are safe once again.\nFor now...",
+  "failureText": "Them heartless robots beat yer zombies something fierce!  You might wanna try combining zombies with the Zombie Pot... ",
+  "xp": 3500,
+  "goldReward": 3000,
+  "bonusGold": 1500,
+  "throwSpeed": 2,
+  "music": "robotStageBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGRobot_BG.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGRobot_PLATFORMwlight.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 3
+   },
+   {
+    "sprite": "fightBGRobot_FLOOR.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 3
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "RobotStageActorJunkBot"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorBroBot"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorBroBot"
+    ],
+    "bossKey": "RobotStageActorBrainBot",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorJunkBot",
+     "RobotStageActorBroBot"
+    ],
+    "bossKey": "RobotStageActorBrainBot",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "RobotStageActorBrainBot",
+    "population": 7,
+    "weighted": [
+     {
+      "enemy": "RobotStageActorJunkBot",
+      "frequency": 67
+     },
+     {
+      "enemy": "RobotStageActorBroBot",
+      "frequency": 33
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "RobotStageActorBrainBot",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "RobotStageActorJunkBot",
+      "frequency": 67
+     },
+     {
+      "enemy": "RobotStageActorBroBot",
+      "frequency": 33
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Hazard Fence"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Robot Banner",
+    "Broken Tractor"
+   ],
+   [
+    "Toxic Drum"
+   ],
+   [
+    "Mechanical Bull"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false
+ },
+ {
+  "id": 6,
+  "name": "Zombies vs Aliens",
+  "bossName": "The Aliens",
+  "bossPortrait": "portrait_alien.png",
+  "enemyIcon": "enemyIcon5.png",
+  "unlockLevel": 36,
+  "recommendedLevel": 36,
+  "introText": "Malicious aliens have been drawing crop circles everywhere! Someone has to put a stop to this vandalism!",
+  "successText": "Those malicious aliens have been sent back to their planet. You sure taught them a lesson or two.",
+  "failureText": "Them aliens really did a number on ya, this is a tough fight so make sure you bring some veteran mutant zombies.",
+  "xp": 4500,
+  "goldReward": 4000,
+  "bonusGold": 2000,
+  "throwSpeed": 0.2,
+  "music": "alienStageBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGAlien_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "AlienStageActorMinion"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion"
+    ],
+    "bossKey": "AlienStageActorBoss",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion",
+     "AlienStageActorMinion"
+    ],
+    "bossKey": "AlienStageActorBoss",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "AlienStageActorBoss",
+    "population": 7,
+    "weighted": [
+     {
+      "enemy": "AlienStageActorMinion",
+      "frequency": 100
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "AlienStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "AlienStageActorMinion",
+      "frequency": 100
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Bike"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Alien Banner",
+    "Crashed UFO"
+   ],
+   [
+    "Pyramid"
+   ],
+   [
+    "Satellite Dish"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false
+ },
+ {
+  "id": 7,
+  "name": "Summer Break",
+  "bossName": "SquiDude",
+  "bossPortrait": "portrait_squidude.png",
+  "enemyIcon": "enemyIcon6.png",
+  "unlockLevel": 8,
+  "recommendedLevel": 8,
+  "introText": "Your zombies want to party on the beach for summer vacation, but there's a bunch of party poopin' Sea Monsters crashing the scene. Someone's gotta kick them out before they ruin the fun for everyone!",
+  "successText": "Them Sea Monsters won't be coming back anytime soon. Surf's up zombies!",
+  "failureText": "Looks like you weren't cool enough to party with the Sea Monsters.  Remember to tap them crabs to release your zombies.",
+  "xp": 500,
+  "goldReward": 1200,
+  "bonusGold": 600,
+  "throwSpeed": 1.5,
+  "music": "fightBGM.mp3",
+  "seasonal": true,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGBeach_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "BeachStageActorMinion2"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion1"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion1"
+    ],
+    "bossKey": "BeachStageActorBoss",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion2",
+     "BeachStageActorMinion1"
+    ],
+    "bossKey": "BeachStageActorBoss",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "BeachStageActorBoss",
+    "population": 7,
+    "weighted": [
+     {
+      "enemy": "BeachStageActorMinion2",
+      "frequency": 67
+     },
+     {
+      "enemy": "BeachStageActorMinion1",
+      "frequency": 33
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "BeachStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "BeachStageActorMinion2",
+      "frequency": 67
+     },
+     {
+      "enemy": "BeachStageActorMinion1",
+      "frequency": 33
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Sand Dollar"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Ice Cream Stand"
+   ],
+   [
+    "Rock Lobster"
+   ],
+   [
+    "Giant Clam"
+   ]
+  ],
+  "obstacleLimit": 2,
+  "obstacleSpawnSecs": 5.0,
+  "obstacleActors": [
+   "SpecialStageActorObstacle"
+  ],
+  "initialSpawnClass": "BeachStageActorCrab",
+  "hasGrab": false
+ },
+ {
+  "id": 8,
+  "name": "Zombies vs Circus",
+  "bossName": "Ringmaster",
+  "bossPortrait": "portrait_circus.png",
+  "enemyIcon": "enemy_icon_circus.png",
+  "unlockLevel": 12,
+  "recommendedLevel": 12,
+  "introText": "If there's one thing that the Circus hates more than the sound of children laughing, it's zombies! Send these clowns packin'!",
+  "successText": "The Ringmaster's minions were just circus peanuts to your zombie horde!",
+  "failureText": "This ain't time to be clownin' around! You'll need tougher zombies to take down the Ringmaster, so get farmin'!",
+  "xp": 500,
+  "goldReward": 1200,
+  "bonusGold": 600,
+  "throwSpeed": 1.5,
+  "music": "fightBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGCircus_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGCircus_car_overlay.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 100
+   },
+   {
+    "sprite": "fightBGCircus_car.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "CircusStageActorMinion1"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion2"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion2"
+    ],
+    "bossKey": "CircusStageActorBoss",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion1",
+     "CircusStageActorMinion2"
+    ],
+    "bossKey": "CircusStageActorBoss",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "CircusStageActorBoss",
+    "population": 7,
+    "weighted": [
+     {
+      "enemy": "CircusStageActorMinion1",
+      "frequency": 67
+     },
+     {
+      "enemy": "CircusStageActorMinion2",
+      "frequency": 33
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "CircusStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "CircusStageActorMinion1",
+      "frequency": 67
+     },
+     {
+      "enemy": "CircusStageActorMinion2",
+      "frequency": 33
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Concentration",
+    "Insta-Grow",
+    "Invasion Voucher"
+   ],
+   [
+    "Circus Flag: Green",
+    "Circus Flag: Yellow",
+    "Circus Flag: Blue"
+   ],
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Circus Tent"
+   ],
+   [
+    "Ring of Fire"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": true
+ },
+ {
+  "id": 9,
+  "name": "Zombies vs Video Games",
+  "bossName": "Zedzox",
+  "bossPortrait": "portrait_zedzox.png",
+  "enemyIcon": "enemy_icon_pixel.png",
+  "unlockLevel": 43,
+  "recommendedLevel": 43,
+  "introText": "The vile video game villain, Zedzox, has escaped into the real world and wants to turn all zombies into video game cannon fodder! Stop his cliche quest at all costs!",
+  "successText": "Zedzox has gone slinking back to his lair. He has learned a valuable lesson about pigeonholing the role of zombies in the modern game. (At least until he forgets it.)",
+  "failureText": "It's game over for you! Luckily, you have infinite continues on your side.",
+  "xp": 5500,
+  "goldReward": 5000,
+  "bonusGold": 1200,
+  "throwSpeed": 2,
+  "music": "fightBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGPixel_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGPixel_front.png",
+    "position": "{480,14}",
+    "anchor": "{1,0}",
+    "z": 100
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "VideoGameStageGhostActor"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageZombieActor"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageZombieActor"
+    ],
+    "bossKey": "VideoGameStageBossActor",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageGhostActor",
+     "VideoGameStageZombieActor"
+    ],
+    "bossKey": "VideoGameStageBossActor",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "VideoGameStageBossActor",
+    "population": 7,
+    "weighted": [
+     {
+      "enemy": "VideoGameStageGhostActor",
+      "frequency": 40
+     },
+     {
+      "enemy": "VideoGameStageMonsterActor",
+      "frequency": 30
+     },
+     {
+      "enemy": "VideoGameStageKnightActor",
+      "frequency": 20
+     },
+     {
+      "enemy": "VideoGameStageZombieActor",
+      "frequency": 10
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "VideoGameStageBossActor",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "VideoGameStageGhostActor",
+      "frequency": 40
+     },
+     {
+      "enemy": "VideoGameStageMonsterActor",
+      "frequency": 30
+     },
+     {
+      "enemy": "VideoGameStageKnightActor",
+      "frequency": 20
+     },
+     {
+      "enemy": "VideoGameStageZombieActor",
+      "frequency": 10
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Pixel Block",
+    "Pixel Floating Block"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Pixel Banner",
+    "Pixel Tree"
+   ],
+   [
+    "Pixel Campfire"
+   ],
+   [
+    "Pixel Tower"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false
+ },
+ {
+  "id": 10,
+  "name": "Tree World",
+  "bossName": "Goffy",
+  "bossPortrait": "portrait_goffy.png",
+  "enemyIcon": "enemy_icon_goffy.png",
+  "unlockLevel": 8,
+  "recommendedLevel": 8,
+  "introText": "Goffy, the dastardly forest fairy, has kidnapped critters from Tree World! Stop her from draining their good nature and replacing it with finely-crafted fairy evil!",
+  "successText": "Victory! Goffy will think twice before she tries that trick again! Or she would if she weren't so dastardly. \nEvil forest fairies aren't big on learning from their mistakes.",
+  "failureText": "Oh no! Goffy has gotten away with her nefarious plan\u2026for now. Get back as soon as you can to put a stop to her wicked ways!",
+  "xp": 500,
+  "goldReward": 1200,
+  "bonusGold": 600,
+  "throwSpeed": 0,
+  "music": "fightBGM.mp3",
+  "seasonal": true,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "invasion_treeworld_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "invasion_treeworld_bgfront.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 0
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "TreeWorldStageZobraActor"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageRaccoonActor"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageRaccoonActor"
+    ],
+    "bossKey": "TreeWorldStageBossActor",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageZobraActor",
+     "TreeWorldStageRaccoonActor"
+    ],
+    "bossKey": "TreeWorldStageBossActor",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "TreeWorldStageBossActor",
+    "population": 8,
+    "weighted": [
+     {
+      "enemy": "TreeWorldStageZobraActor",
+      "frequency": 50
+     },
+     {
+      "enemy": "TreeWorldStageMantisActor",
+      "frequency": 33
+     },
+     {
+      "enemy": "TreeWorldStageRaccoonActor",
+      "frequency": 17
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "TreeWorldStageBossActor",
+    "population": 11,
+    "weighted": [
+     {
+      "enemy": "TreeWorldStageZobraActor",
+      "frequency": 50
+     },
+     {
+      "enemy": "TreeWorldStageMantisActor",
+      "frequency": 33
+     },
+     {
+      "enemy": "TreeWorldStageRaccoonActor",
+      "frequency": 17
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Bunnypig Bush"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Cobrahawk Bush",
+    "Mosscrab Bush"
+   ],
+   [
+    "Phoenix Statue"
+   ],
+   [
+    "Poppy's House"
+   ]
+  ],
+  "obstacleLimit": 3,
+  "obstacleSpawnSecs": 20.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "TreeWorldStageTurtleObstacleActor",
+  "hasGrab": false
+ },
+ {
+  "id": 11,
+  "name": "Valentine's Day",
+  "bossName": "Felix Wonky",
+  "bossPortrait": "portrait_cook.png",
+  "enemyIcon": "enemy_icon_cook.png",
+  "unlockLevel": 8,
+  "recommendedLevel": 8,
+  "introText": "The evil chocolatier, Felix Wonky, has declared that zombies don't deserve love! Get over to his shop and cost him a fortune in fudge!",
+  "successText": "That battle was 93% perspiration, 6% zombies, 4% horrible violence, and 2% butterscotch ripple.",
+  "failureText": "Goodbye, zombies. Adieu. Aufwiedersehen.  Gesundheit. Farewell.",
+  "xp": 500,
+  "goldReward": 1200,
+  "bonusGold": 600,
+  "throwSpeed": 0,
+  "music": "fightBGM.mp3",
+  "seasonal": true,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGValentines2012_00.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGValentines2012_01.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 0
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [
+     "ValentinesDayStageActorMinion1"
+    ],
+    "wave": 1,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1"
+    ],
+    "wave": 2,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion3"
+    ],
+    "wave": 3,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion3"
+    ],
+    "bossKey": "ValentinesDayStageActorBoss",
+    "wave": 4,
+    "synthesized": true
+   },
+   {
+    "enemyKeys": [
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion1",
+     "ValentinesDayStageActorMinion3"
+    ],
+    "bossKey": "ValentinesDayStageActorBoss",
+    "wave": 5,
+    "synthesized": true
+   },
+   {
+    "bossKey": "ValentinesDayStageActorBoss",
+    "population": 8,
+    "weighted": [
+     {
+      "enemy": "ValentinesDayStageActorMinion1",
+      "frequency": 50
+     },
+     {
+      "enemy": "ValentinesDayStageActorMinion2",
+      "frequency": 33
+     },
+     {
+      "enemy": "ValentinesDayStageActorMinion3",
+      "frequency": 17
+     }
+    ],
+    "wave": 6,
+    "synthesized": true
+   },
+   {
+    "bossKey": "ValentinesDayStageActorBoss",
+    "population": 11,
+    "weighted": [
+     {
+      "enemy": "ValentinesDayStageActorMinion1",
+      "frequency": 50
+     },
+     {
+      "enemy": "ValentinesDayStageActorMinion2",
+      "frequency": 33
+     },
+     {
+      "enemy": "ValentinesDayStageActorMinion3",
+      "frequency": 17
+     }
+    ],
+    "wave": 7,
+    "synthesized": true
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Invasion Voucher",
+    "Golden Dice",
+    "Invasion Voucher"
+   ],
+   [
+    "Heart Hedge"
+   ],
+   [
+    "Heart Candle"
+   ],
+   [
+    "Teddy Valentine"
+   ],
+   [
+    "Love Shack"
+   ]
+  ],
+  "obstacleLimit": 1,
+  "obstacleSpawnSecs": 10.0,
+  "obstacleActors": [
+   "ValentinesDayStageActorObstacle"
+  ],
+  "initialSpawnClass": "ValentinesDayStageActorObstacle",
+  "hasGrab": false
+ }
+]

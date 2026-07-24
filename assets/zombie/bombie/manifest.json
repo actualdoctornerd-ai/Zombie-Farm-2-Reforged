@@ -1,0 +1,25 @@
+{
+ "name": "bombie",
+ "neck": {
+  "x": 12,
+  "y": -58
+ },
+ "color": [
+  117,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "Head.png",
+   "group": "head",
+   "px": 12,
+   "py": -58,
+   "ax": 0.73,
+   "ay": 0.7,
+   "z": 4,
+   "scale": 1
+  }
+ ]
+}

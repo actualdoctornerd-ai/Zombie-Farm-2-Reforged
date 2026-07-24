@@ -1,0 +1,828 @@
+{
+ "AlienStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "CrazedWorkerAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "castTime": 2,
+    "frequency": 50,
+    "name": "summonBoss"
+   },
+   {
+    "cooldownTime": 2,
+    "frequency": 30,
+    "name": "alienLaser"
+   }
+  ],
+  "con": 250,
+  "dex": 5,
+  "standardBossLoot": true,
+  "str": 7
+ },
+ "AlienStageActorMinion": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "CrazedWorkerAttack"
+   }
+  ],
+  "con": 60,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 6
+ },
+ "BeachStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialBossAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 12,
+    "frequency": 40,
+    "name": "throw",
+    "sprite": "beach_debris_boot.png",
+    "spriteSize": 64
+   },
+   {
+    "damage": 0.0,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "beach_debris_fishbone.png",
+    "spriteSize": 64
+   },
+   {
+    "damage": 36,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "beach_debris_seamine.png",
+    "spriteSize": 64
+   },
+   {
+    "damage": 36,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "beach_debris_squid.png",
+    "spriteSize": 64
+   }
+  ],
+  "con": 35,
+  "dex": 2,
+  "standardBossLoot": true,
+  "str": 4
+ },
+ "BeachStageActorMinion1": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialMinion2Attack1"
+   }
+  ],
+  "con": 8,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 4
+ },
+ "BeachStageActorMinion2": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialMinion1Attack"
+   }
+  ],
+  "con": 8,
+  "dex": 2,
+  "standardGoldLoot": true,
+  "str": 2
+ },
+ "CircusStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "RingMasterAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 9,
+    "frequency": 20,
+    "name": "throw",
+    "sprite": "projectile_megaphone.png"
+   },
+   {
+    "damage": 9,
+    "frequency": 20,
+    "name": "throw",
+    "sprite": "projectile_stool.png"
+   },
+   {
+    "damage": 18,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "projectile_unicycle.png"
+   },
+   {
+    "damage": 24,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "projectile_midget.png"
+   }
+  ],
+  "con": 15,
+  "dex": 4,
+  "standardBossLoot": true,
+  "str": 3,
+  "throwOffset": "{10,90}",
+  "throwTiming": 0.1
+ },
+ "CircusStageActorMinion1": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "UnicycleBearAttack"
+   }
+  ],
+  "con": 6,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 4
+ },
+ "CircusStageActorMinion2": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "MidgetStackAttack"
+   }
+  ],
+  "con": 6,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 4
+ },
+ "CityStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 60,
+    "name": "CorporateBossPunch"
+   },
+   {
+    "frequency": 40,
+    "name": "CorporateBossPunchSpecial"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 12,
+    "frequency": 40,
+    "name": "throw",
+    "sprite": "stapler.png",
+    "spriteSize": 32
+   },
+   {
+    "damage": 24,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "phone.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 36,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "monitor.png",
+    "spriteSize": 64
+   }
+  ],
+  "con": 45,
+  "dex": 4,
+  "standardBossLoot": true,
+  "str": 8
+ },
+ "CityStageActorCrazedWorker": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "CrazedWorkerAttack"
+   }
+  ],
+  "con": 25,
+  "dex": 2.5,
+  "standardGoldLoot": true,
+  "str": 2
+ },
+ "CityStageActorLawyer": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "LawyerAttack"
+   }
+  ],
+  "con": 25,
+  "dex": 2,
+  "standardGoldLoot": true,
+  "str": 3.5
+ },
+ "FarmStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "OldMcDonnellPunch"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 6,
+    "frequency": 40,
+    "name": "throw",
+    "sprite": "stex0004.png",
+    "spriteSize": 32
+   },
+   {
+    "damage": 12,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "chicken.png",
+    "spriteSize": 32
+   },
+   {
+    "damage": 18,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "bucket.png",
+    "spriteSize": 50
+   }
+  ],
+  "con": 20,
+  "dex": 1.5,
+  "standardBossLoot": true,
+  "str": 2
+ },
+ "FarmStageActorFarmhand": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "FarmhandPoke"
+   }
+  ],
+  "con": 3,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 2
+ },
+ "FarmStageActorLumberjack": {
+  "attacks": [
+   {
+    "frequency": 90,
+    "name": "LumberjackSlice"
+   },
+   {
+    "frequency": 10,
+    "name": "LumberjackSpecial"
+   }
+  ],
+  "con": 4,
+  "dex": 2,
+  "standardGoldLoot": true,
+  "str": 1.5
+ },
+ "NinjaStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "CrazedWorkerAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 17.5,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "kunai.png",
+    "spriteSize": 32
+   },
+   {
+    "damage": 35,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "rabbit.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 52.5,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "ramen.png",
+    "spriteSize": 50
+   },
+   {
+    "castTime": 3,
+    "collisionSize": 70,
+    "frequency": 100,
+    "hp": 1500,
+    "name": "wall",
+    "sprite": "carrotWall.png",
+    "spriteSize": 128
+   }
+  ],
+  "con": 250,
+  "dex": 5,
+  "standardBossLoot": true,
+  "str": 7
+ },
+ "NinjaStageActorBoy": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "CrazedWorkerAttack"
+   }
+  ],
+  "con": 60,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 18
+ },
+ "NinjaStageActorGirl": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "NinjaStab"
+   }
+  ],
+  "con": 40,
+  "dex": 10,
+  "standardGoldLoot": true,
+  "str": 1.5
+ },
+ "PirateStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "PirateBossSlash"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 12.5,
+    "frequency": 40,
+    "name": "throw",
+    "sprite": "parrot.png",
+    "spriteSize": 32
+   },
+   {
+    "damage": 25,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "chest.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 50,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "anchor.png",
+    "spriteSize": 64
+   }
+  ],
+  "con": 120,
+  "dex": 0.4,
+  "standardBossLoot": true,
+  "str": 500
+ },
+ "PirateStageActorScallywag": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "CrazedWorkerAttack"
+   }
+  ],
+  "con": 40,
+  "dex": 0.5,
+  "standardGoldLoot": true,
+  "str": 50
+ },
+ "PirateStageActorSwashbuckler": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SwashbucklerSlice"
+   }
+  ],
+  "con": 25,
+  "dex": 2,
+  "standardGoldLoot": true,
+  "str": 8
+ },
+ "RobotStageActorBrainBot": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "BrainBotShock"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 50,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "barrel.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 50,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "wreckingBall.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 35,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "wrench.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 20,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "spring.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 20,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "screw.png",
+    "spriteSize": 50
+   },
+   {
+    "castTime": 3,
+    "damage": "0",
+    "frequency": 50,
+    "name": "telekinesis"
+   }
+  ],
+  "con": 280,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 14
+ },
+ "RobotStageActorBroBot": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "BroBotAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 20,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "spring.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 35,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "screw.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 35,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "wrench.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 50,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "wreckingBall.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 50,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "barrel.png",
+    "spriteSize": 50
+   }
+  ],
+  "con": 350,
+  "dex": 3,
+  "standardGoldLoot": true,
+  "str": 8
+ },
+ "RobotStageActorJunkBot": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "JunkBotBite"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 50,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "barrel.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 50,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "wreckingBall.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 35,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "wrench.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 20,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "screw.png",
+    "spriteSize": 50
+   },
+   {
+    "damage": 20,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "spring.png",
+    "spriteSize": 50
+   },
+   {
+    "castTime": 3,
+    "collisionSize": 70,
+    "frequency": 100,
+    "hp": 1500,
+    "name": "wall",
+    "sprite": "junkWall.png",
+    "spriteSize": 128
+   }
+  ],
+  "con": 310,
+  "dex": 5,
+  "standardGoldLoot": true,
+  "str": 3.6
+ },
+ "TreeWorldStageBossActor": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialBossAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 12,
+    "frequency": 34,
+    "name": "throw",
+    "sprite": "weapon_acorn.png"
+   },
+   {
+    "damage": 0,
+    "frequency": 33,
+    "name": "throw",
+    "sprite": "weapon_apple.png"
+   },
+   {
+    "damage": 36,
+    "frequency": 33,
+    "name": "throw",
+    "sprite": "weapon_pinecone.png"
+   }
+  ],
+  "con": 15,
+  "dex": 4,
+  "standardBossLoot": true,
+  "str": 3,
+  "throwOffset": "{-20,120}",
+  "throwTiming": 0.1
+ },
+ "TreeWorldStageMantisActor": {
+  "attacks": [
+   {
+    "frequency": 50,
+    "name": "SpecialMinion2Attack1"
+   },
+   {
+    "frequency": 50,
+    "name": "SpecialMinion2Attack2"
+   }
+  ],
+  "con": 8,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 3
+ },
+ "TreeWorldStageRaccoonActor": {
+  "attacks": [
+   {
+    "frequency": 50,
+    "name": "SpecialMinion3Attack1"
+   },
+   {
+    "frequency": 50,
+    "name": "SpecialMinion3Attack2"
+   }
+  ],
+  "con": 8,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 3
+ },
+ "TreeWorldStageZobraActor": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialMinion1Attack"
+   }
+  ],
+  "con": 6,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 4
+ },
+ "ValentinesDayStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialBossAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 12,
+    "frequency": 40,
+    "name": "throw",
+    "sprite": "valentines2012_debris_pot.png"
+   },
+   {
+    "damage": 0,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "valentines2012_debris_spoon.png"
+   },
+   {
+    "damage": 36,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "valentines2012_debris_sweetheart.png"
+   }
+  ],
+  "con": 15,
+  "dex": 4,
+  "standardBossLoot": true,
+  "str": 3,
+  "throwOffset": "{-20,120}",
+  "throwTiming": 0.1
+ },
+ "ValentinesDayStageActorMinion1": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialMinion1Attack"
+   }
+  ],
+  "con": 6,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 4
+ },
+ "ValentinesDayStageActorMinion2": {
+  "attacks": [
+   {
+    "frequency": 50,
+    "name": "SpecialMinion2Attack1"
+   },
+   {
+    "frequency": 50,
+    "name": "SpecialMinion2Attack2"
+   }
+  ],
+  "con": 8,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 3
+ },
+ "ValentinesDayStageActorMinion3": {
+  "attacks": [
+   {
+    "frequency": 50,
+    "name": "SpecialMinion3Attack1"
+   },
+   {
+    "frequency": 50,
+    "name": "SpecialMinion3Attack2"
+   }
+  ],
+  "con": 8,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 3
+ },
+ "VideoGameStageBossActor": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "VideoGameBossPunch"
+   }
+  ],
+  "bossActions": [
+   {
+    "castTime": 3,
+    "frequency": 100,
+    "name": "turnZombie"
+   },
+   {
+    "castTime": 2,
+    "frequency": 60,
+    "name": "pixelFire"
+   },
+   {
+    "damage": 100,
+    "frequency": 20,
+    "name": "throw",
+    "sprite": "pixel_debris_boulder.png"
+   },
+   {
+    "damage": 100,
+    "frequency": 20,
+    "name": "throw",
+    "sprite": "pixel_debris_fireball.png"
+   },
+   {
+    "damage": 100,
+    "frequency": 20,
+    "name": "throw",
+    "sprite": "pixel_debris_sword.png"
+   }
+  ],
+  "con": 300,
+  "dex": 10,
+  "standardBossLoot": true,
+  "str": 6
+ },
+ "VideoGameStageGhostActor": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "VideoGameGhostBite"
+   }
+  ],
+  "con": 120,
+  "dex": 3,
+  "standardGoldLoot": true,
+  "str": 15
+ },
+ "VideoGameStageKnightActor": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "VideoGameKnightPoke"
+   }
+  ],
+  "con": 140,
+  "dex": 2,
+  "standardGoldLoot": true,
+  "str": 20
+ },
+ "VideoGameStageMonsterActor": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "VideoGameMonsterFlail"
+   }
+  ],
+  "con": 120,
+  "dex": 2,
+  "standardGoldLoot": true,
+  "str": 20
+ },
+ "VideoGameStageZombieActor": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "VideoGameZombieBite"
+   }
+  ],
+  "con": 10000,
+  "dex": 6,
+  "str": 8
+ }
+}
