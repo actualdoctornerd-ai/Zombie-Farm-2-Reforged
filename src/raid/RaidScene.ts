@@ -155,7 +155,11 @@ const PERCH_BIAS_FX = 0.22;
 // Applies to BOTH structure perches (sinks the boss lower behind the building) and sky
 // perches (moves the hovering boss). Keyed by raid id.
 const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
-  2: { dy: 0.13 }, // Lawyers: boss sat too high on the front building
+  // At the reference stage scale a boss is ~0.38 of the stage height, so 0.19
+  // moves CorporateVille down about half of his rendered height. Keep his
+  // existing 0.13 correction as well.
+  2: { dy: 0.32 }, // Lawyers: existing correction + another half-height down
+  3: { dy: 0.095 }, // Pirates: about one quarter of the boss's rendered height down
   4: { dy: 0.12 }, // Ninjas: too high on the structure
   5: { dy: 0.16 }, // Robots (sky perch): hovering too high
   6: { dx: -0.03, dy: 0.2 }, // Aliens (sky perch): too high; rides a UFO
