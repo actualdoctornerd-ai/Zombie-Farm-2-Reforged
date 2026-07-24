@@ -323,9 +323,11 @@ export class RaidScene {
   private grabLayer = new Container(); // trapeze sprites (above the field, tappable)
   private grabSprites = new Map<string, {
     root: Container;
+    pendulum: Container;
+    ropeExtension: Graphics;
     body: Sprite;
     bar: Graphics;
-    swingScale: number;
+    extensionLength: number;
   }>();
   private crabTex: Texture | null = null; // beach crab hazard texture
   private crabLayer = new Container(); // crab sprites (above the field, tappable)
@@ -1603,23 +1605,26 @@ export class RaidScene {
       let entry = this.grabSprites.get(g.id);
       if (!entry) {
         const root = new Container();
+        const pendulum = new Container();
+        const ropeExtension = new Graphics();
         const body = new Sprite(this.grabTex);
         // The two ropes terminate at x=0. Their midpoint is the real suspension point;
         // the artist occupies the far end of the long horizontal source texture.
         body.anchor.set(0, 31 / 70);
         const bar = new Graphics();
-        root.addChild(body);
+        pendulum.addChild(ropeExtension);
+        pendulum.addChild(body);
+        root.addChild(pendulum);
         root.addChild(bar);
         // Only the trapeze bitmap itself should be tappable.
         body.eventMode = "static";
         body.cursor = "pointer";
         body.on("pointertap", () => this.sim.tapGrabber(g.id));
         this.grabLayer.addChild(root);
-        entry = { root, body, bar, swingScale: s };
+        entry = { root, pendulum, ropeExtension, body, bar, extensionLength: 0 };
         this.grabSprites.set(g.id, entry);
       }
-      const { root, body, bar } = entry;
-      let bodyScale = entry.swingScale;
+      const { root, pendulum, ropeExtension, body, bar } = entry;
       let visualRot = g.rot;
       if (g.state === "swoop") {
         // Original staging: the suspension is dead-center and a quarter-screen above
@@ -1637,8 +1642,12 @@ export class RaidScene {
             (targetTok?.topY ?? -ZOMBIE_H) * 0.45 * s;
           const dx = targetX - pivotX;
           const dy = targetY - pivotY;
-          bodyScale = Math.hypot(dx, dy) / TRAPEZE_ARTIST_X;
-          entry.swingScale = bodyScale;
+          // Preserve the artist at normal stage scale. Only lengthen the two ropes
+          // between the suspension and the source bitmap when the lane is farther away.
+          entry.extensionLength = Math.max(
+            0,
+            Math.hypot(dx, dy) - TRAPEZE_ARTIST_X * s
+          );
           const contactRot = Math.atan2(dy, dx) * 180 / Math.PI;
           const progress = Math.max(0, Math.min(1, 1 - g.pauseMs / g.swingTotalMs));
           const eased = progress * progress * (3 - 2 * progress);
@@ -1656,15 +1665,24 @@ export class RaidScene {
           z
             ? this.mapProjY(z.y) +
               (this.tokens.get(z.id)?.topY ?? -ZOMBIE_H) * 0.45 * s -
-              TRAPEZE_ARTIST_X * bodyScale
+              entry.extensionLength - TRAPEZE_ARTIST_X * s
             : this.mapProjY(g.y)
         );
       }
       // This source is a very wide 358x70 composition. Scaling both axes uniformly
       // preserves the authored trapeze/artist proportions; assigning a square width and
       // height here used to crush the art into a squat, barely recognizable sprite.
-      body.scale.set(bodyScale);
-      body.rotation = (visualRot * Math.PI) / 180;
+      ropeExtension.clear();
+      if (entry.extensionLength > 0) {
+        ropeExtension
+          .moveTo(0, -16 * s).lineTo(entry.extensionLength, -16 * s)
+          .moveTo(0, 16 * s).lineTo(entry.extensionLength, 16 * s)
+          .stroke({ width: Math.max(1, 2 * s), color: 0x000000, alpha: 0.9 });
+      }
+      body.position.set(entry.extensionLength, 0);
+      body.scale.set(s);
+      body.rotation = 0;
+      pendulum.rotation = (visualRot * Math.PI) / 180;
       body.tint = g.struckThisTick ? 0xff9a9a : 0xffffff; // flash on a landed tap
       // Health bar (shown once it has taken a tap), so the player sees rescue progress.
       bar.clear();
