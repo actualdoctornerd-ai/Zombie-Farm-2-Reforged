@@ -35,7 +35,7 @@ function stepUntil(sim: BattleSim, pred: () => boolean, maxMs = 12000): number {
 const GRAB: GrabberConfig = { sprite: "t.png", hp: 200, tapDamage: 100, spawnDelayMs: 100 };
 
 describe("Trapeze Artist grab hazard", () => {
-  it("swings left-to-right and stops at the 90-degree contact pose", () => {
+  it("first swings right-to-left and stops when it reaches its target", () => {
     const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
     const enemy = unit({ id: "e", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 3000 });
     const sim = grabSim(GRAB, [player], [enemy]);
@@ -43,26 +43,48 @@ describe("Trapeze Artist grab hazard", () => {
     stepUntil(sim, () => sim.grabbers.length > 0);
     const g = sim.grabbers[0];
     expect(g.state).toBe("swoop");
-    expect(g.rot).toBeGreaterThan(170);
+    expect(g.rot).toBeLessThan(10);
     sim.step(400);
     expect(g.state).toBe("swoop");
-    expect(g.rot).toBeGreaterThan(90);
-    expect(g.rot).toBeLessThan(180);
+    expect(g.rot).toBeGreaterThan(0);
+    expect(g.rot).toBeLessThan(g.contactDeg);
 
     stepUntil(sim, () => g.state === "carry");
     expect(g.rot).toBe(90);
   });
 
-  it("grabs on contact instead of completing the whole arc and snapping back", () => {
+  it("reanchors the pivot directly above the zombie at contact", () => {
     const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
     const enemy = unit({ id: "e", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 3000 });
     const sim = grabSim(GRAB, [player], [enemy]);
 
-    const elapsed = stepUntil(sim, () => sim.activeGrabber() !== null);
-    // 100 ms spawn delay + roughly half of the authored 1.7-second arc.
-    expect(elapsed).toBeGreaterThanOrEqual(900);
-    expect(elapsed).toBeLessThan(1_100);
-    expect(sim.activeGrabber()!.rot).toBe(90);
+    stepUntil(sim, () => sim.grabbers.length > 0);
+    const g = sim.grabbers[0];
+    expect(g.swingTotalMs).toBeLessThan(1700);
+    stepUntil(sim, () => sim.activeGrabber() !== null);
+    const z = sim.units.find((u) => u.id === "p")!;
+    expect(g.x).toBe(z.x);
+    expect(g.rot).toBe(90);
+  });
+
+  it("alternates the next appearance to a left-to-right swing", () => {
+    const player = unit({ id: "p", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const enemy = unit({ id: "e", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 3000 });
+    const sim = grabSim(GRAB, [player], [enemy]);
+
+    stepUntil(sim, () => sim.activeGrabber() !== null);
+    const first = sim.activeGrabber()!;
+    expect(first.swingStartDeg).toBe(0);
+    expect(sim.tapGrabber(first.id)).toBe(true);
+    sim.step(300);
+    expect(sim.tapGrabber(first.id)).toBe(true);
+
+    stepUntil(sim, () => sim.grabbers.some((g) => g.id === "grab1"), 9000);
+    const second = sim.grabbers.find((g) => g.id === "grab1")!;
+    expect(second.state).toBe("swoop");
+    expect(second.swingStartDeg).toBe(180);
+    expect(second.rot).toBeLessThan(180);
+    expect(second.rot).toBeGreaterThan(second.contactDeg);
   });
 
   it("sweeps in and seizes a deployed zombie (it goes inactive)", () => {

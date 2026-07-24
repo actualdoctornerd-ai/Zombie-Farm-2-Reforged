@@ -908,7 +908,10 @@ app.post("/epic-boss/activate", async (c) => {
     await c.req.json<{ activationId?: unknown; bossId?: unknown }>().catch(() => ({}));
   const activationId = typeof body.activationId === "string" && body.activationId ? body.activationId : crypto.randomUUID();
   const result = await v3EpicBoss.activate(c.env.DB, c.get("accountId"), activationId, body.bossId, Date.now());
-  return result.status === 200 ? c.json(result.body) : c.json(result.body, 409);
+  if (result.status === 200) return c.json(result.body);
+  if (result.status === 400) return c.json(result.body, 400);
+  if (result.status === 403) return c.json(result.body, 403);
+  return c.json(result.body, 409);
 });
 
 app.post("/epic-boss/end", async (c) => {

@@ -10,6 +10,15 @@ const unit = (id: string, team: "player" | "enemy", boss = false): CombatUnit =>
 });
 
 describe("Epic Boss BattleSim mode", () => {
+  it("starts the zombie waiting crowd close to the left edge", () => {
+    const players = Array.from({ length: 8 }, (_, index) => unit(`p${index}`, "player"));
+    const sim = new BattleSim(players, [unit("boss", "enemy", true)]);
+    const homes = sim.snapshot().units.filter((u) => u.team === "player");
+    expect(Math.min(...homes.map((u) => u.x))).toBeGreaterThanOrEqual(-1);
+    expect(Math.max(...homes.map((u) => u.x))).toBeLessThanOrEqual(131);
+    expect(homes.every((u) => u.state === "waiting")).toBe(true);
+  });
+
   it("preserves an injured boss's starting health", () => {
     const boss = unit("boss", "enemy", true);
     boss.hp = 3_250;

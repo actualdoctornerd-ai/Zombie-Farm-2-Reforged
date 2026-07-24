@@ -40,6 +40,8 @@ export interface EpicBossMarketView {
   portrait: string;
   questIcon: string;
   costBrains: number;
+  unlockLevel: number;
+  levelLocked: boolean;
   maxLevel: number;
   reconstructed: boolean;
   blocked: boolean;

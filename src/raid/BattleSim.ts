@@ -162,19 +162,18 @@ const KNOCKBACK_PX = 150; // how far back the zombie is shoved (sim units)
 // as a 180-degree target over 17 animation ticks (the stage cadence is 0.1 s).
 // Collision then explicitly snaps the grabbed actor to 90 degrees for the carry.
 const GRABBER_FULL_ARC_MS = 1700;
-// The source texture points to the right at 0 degrees. Enter at 180 degrees so the
-// artist travels left-to-right, then stop at the 90-degree bottom/contact pose instead
-// of finishing the unused second half of the arc and snapping backward to the victim.
-const GRABBER_SWING_START_DEG = 180;
+// The texture runs from its suspension point at x=0 to the artist at the far end.
+// In logical field space that span is about half the lane, so the target's x determines
+// the angle at which the artist reaches it. Successive appearances approach that angle
+// from alternating sides instead of traversing both directions in one appearance.
+const GRABBER_SWING_RADIUS_X = FIELD_W * 0.5;
 const GRABBER_CONTACT_DEG = 90;
-const GRABBER_SWING_TO_CONTACT_MS = GRABBER_FULL_ARC_MS / 2;
 const GRABBER_RISE_SPEED = 92; // carry-off rise speed (sim px/s), the slow 0.5 speed
 const GRABBER_CARRY_PAUSE_MS = 1000; // changeStateWithDelay_run_1: hold 1s before rising
 const GRABBER_TAP_CD_MS = 250; // tapDelay 0.25 — min gap between registered taps
-// The rope pivots from just above, and slightly left of, the field centre. The source
-// texture is anchored at the top of its rope by RaidScene, so rotating it reads as a
-// pendulum instead of a sprite sliding across the ground.
-const GRABBER_PIVOT_X = FIELD_W * 0.44;
+// The renderer places this pivot at horizontal center and one-quarter viewport above
+// the top edge. The logical x is retained for target-angle and snapshot calculations.
+const GRABBER_PIVOT_X = FIELD_W * 0.5;
 const GRABBER_PIVOT_Y = BOSS_STRUCT_Y - 140;
 // Keep the zombie a little below the ground-line offset at pickup. This makes its upper
 // body meet the artist while leaving the zombie itself lower during the upward carry.
@@ -235,7 +234,8 @@ function clusterHome(i: number): { x: number; y: number } {
   const by = BAND_TOP + 40 + Math.floor(i / cols) * 42;
   const jx = (hash(i * 2 + 1) - 0.5) * 26;
   const jy = (hash(i * 2 + 7) - 0.5) * 26;
-  return { x: clamp(bx + jx, 26, 158), y: clamp(by + jy, BAND_TOP, BAND_BOT) };
+  // Preserve the original loose formation and move the entire crowd left uniformly.
+  return { x: clamp(bx + jx, 26, 158) - 27, y: clamp(by + jy, BAND_TOP, BAND_BOT) };
 }
 
 export type UnitState =
@@ -357,6 +357,10 @@ export interface SimGrabber {
   tapCdMs: number; // min gap enforcement between registered taps
   sprite: string;
   rot: number; // visual rotation (renderer)
+  swingStartDeg: number; // 0 = enters from right, 180 = enters from left
+  contactDeg: number; // target-aware angle where the artist reaches the zombie
+  swingTotalMs: number;
+  targetId: string | null; // intended contact target while swooping
   struckThisTick: boolean; // a tap landed this step (renderer feedback)
 }
 
@@ -708,7 +712,13 @@ export class BattleSim {
     this.grabbers.splice(
       0,
       this.grabbers.length,
-      ...(snapshot.grabbers ?? []).map((g) => ({ ...g }))
+      ...(snapshot.grabbers ?? []).map((g) => ({
+        ...g,
+        swingStartDeg: g.swingStartDeg ?? g.rot,
+        contactDeg: g.contactDeg ?? GRABBER_CONTACT_DEG,
+        swingTotalMs: g.swingTotalMs ?? Math.max(1, g.pauseMs),
+        targetId: g.targetId ?? null,
+      }))
     );
     this.grabberTimer = snapshot.grabberTimer ?? this.grabberTimer;
     this.grabSeq = snapshot.grabSeq ?? this.grabSeq;
@@ -1659,9 +1669,9 @@ export class BattleSim {
     );
   }
 
-  /** Advance the Trapeze Artist grab hazard. Spawns one at a time on a cadence; it sweeps
-   *  in from the left and seizes the first (rear-most) deployed zombie it overlaps, holds
-   *  ~1s, then rises to carry it off. Tapping (tapGrabber) whittles its HP — killed → the
+  /** Advance the Trapeze Artist grab hazard. Spawns one at a time on a cadence; successive
+   *  appearances alternate right-to-left and left-to-right, seize a selected zombie on
+   *  contact, hold ~1s, then rise to carry it off. Tapping (tapGrabber) whittles its HP — killed → the
    *  zombie DROPS back into the fight; escaped off the top → the carried zombie DIES. */
   private stepGrabbers(dtMs: number) {
     if (!this.grabberCfg) return;
@@ -1670,7 +1680,8 @@ export class BattleSim {
     if (!active && this.anyAlive(this.players)) {
       this.grabberTimer -= dtMs;
       if (this.grabberTimer <= 0 && this.deployed().length > 0) {
-        this.spawnGrabber();
+        const victim = this.deployed().sort((a, b) => a.x - b.x)[0];
+        this.spawnGrabber(victim);
         this.grabberTimer = GRABBER_SPAWN_MS;
       }
     }
@@ -1679,20 +1690,25 @@ export class BattleSim {
       if (g.tapCdMs > 0) g.tapCdMs -= dtMs;
       if (g.state === "swoop") {
         g.pauseMs = Math.max(0, g.pauseMs - dtMs);
-        const t = 1 - g.pauseMs / GRABBER_SWING_TO_CONTACT_MS;
+        const t = 1 - g.pauseMs / g.swingTotalMs;
         const eased = t * t * (3 - 2 * t);
-        g.rot = GRABBER_SWING_START_DEG +
-          (GRABBER_CONTACT_DEG - GRABBER_SWING_START_DEG) * eased;
+        g.rot = g.swingStartDeg + (g.contactDeg - g.swingStartDeg) * eased;
         if (g.pauseMs <= 0) {
-          // Contact ends the swing. Do not complete the far half of the arc and then
-          // snap back to 90 degrees: that was the visible pre-grab teleport.
-          const victim = this.deployed().sort((a, b) => a.x - b.x)[0];
-          if (!victim) {
+          const victim = g.targetId
+            ? this.players.find((p) => p.id === g.targetId)
+            : null;
+          if (!victim || !victim.alive ||
+              (victim.state !== "advance" && victim.state !== "fight")) {
             g.state = "gone";
             continue;
           }
+          // Re-anchor directly above the victim and turn vertical. Because contactDeg
+          // put the artist itself at the victim first, only the rope pivot jumps.
+          g.x = victim.x;
+          g.y = victim.y - GRABBER_ZOMBIE_OFFSET_Y;
           g.rot = GRABBER_CONTACT_DEG;
           g.grabbedId = victim.id;
+          g.targetId = null;
           g.state = "carry";
           g.pauseMs = GRABBER_CARRY_PAUSE_MS;
           victim.state = "grabbed";
@@ -1853,10 +1869,22 @@ export class BattleSim {
     return this.crabs.filter((c) => c.state !== "gone");
   }
 
-  private spawnGrabber() {
+  private spawnGrabber(victim: SimUnit) {
     const cfg = this.grabberCfg!;
+    const seq = this.grabSeq++;
+    const swingStartDeg = seq % 2 === 0 ? 0 : 180;
+    const targetDx = clamp(
+      (victim.x - GRABBER_PIVOT_X) / GRABBER_SWING_RADIUS_X,
+      -1,
+      1
+    );
+    const contactDeg = Math.acos(targetDx) * 180 / Math.PI;
+    const swingTotalMs = Math.max(
+      1,
+      GRABBER_FULL_ARC_MS * Math.abs(contactDeg - swingStartDeg) / 180
+    );
     this.grabbers.push({
-      id: `grab${this.grabSeq++}`,
+      id: `grab${seq}`,
       x: GRABBER_PIVOT_X,
       y: GRABBER_PIVOT_Y,
       state: "swoop",
@@ -1864,10 +1892,14 @@ export class BattleSim {
       maxHp: cfg.hp,
       tapDamage: cfg.tapDamage,
       grabbedId: null,
-      pauseMs: GRABBER_SWING_TO_CONTACT_MS,
+      pauseMs: swingTotalMs,
       tapCdMs: 0,
       sprite: cfg.sprite,
-      rot: GRABBER_SWING_START_DEG,
+      rot: swingStartDeg,
+      swingStartDeg,
+      contactDeg,
+      swingTotalMs,
+      targetId: victim.id,
       struckThisTick: false,
     });
   }

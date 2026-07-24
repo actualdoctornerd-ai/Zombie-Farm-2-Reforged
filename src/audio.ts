@@ -91,6 +91,10 @@ function brainFile(group: string, key: string): string {
   }
 }
 
+function zombieGroupFromKey(key: string): string {
+  return /^ZombieActor(Garden|Girl|Small|Large|Regular)/i.exec(key)?.[1] ?? "Regular";
+}
+
 interface StoredSettings {
   music?: boolean;
   sfx?: boolean;
@@ -296,6 +300,12 @@ export class AudioManager {
   brain(group: string, key: string) {
     if (!this.sfxOn || !this.canPlay()) return;
     this.playOneShot(brainFile(group, key), 0.7);
+  }
+
+  // Raid combat carries the actor key rather than the farm catalog group. Derive
+  // the same group from that key so brain-bubble releases use the farm tap bark.
+  brainForZombie(key: string) {
+    this.brain(zombieGroupFromKey(key), key);
   }
 
   // A placed decoration's signature tap sound (TileProperties tapSoundEffect /

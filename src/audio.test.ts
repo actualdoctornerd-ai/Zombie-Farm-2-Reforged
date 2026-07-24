@@ -154,4 +154,14 @@ describe("AudioManager focus muting", () => {
     audio.fightStrike({ team: "enemy", attackName: "LumberjackSlice" });
     expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/swipe.wav");
   });
+
+  it("uses the farm interaction bark for a raid zombie actor key", () => {
+    const audio = new AudioManager();
+
+    audio.brainForZombie("ZombieActorGardenTier1");
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/brainGarden.mp3");
+
+    audio.brainForZombie("ZombieActorRegularTier3");
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/brainRobot.mp3");
+  });
 });

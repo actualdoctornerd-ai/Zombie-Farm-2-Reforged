@@ -250,8 +250,19 @@ describe("protocol v3 API", () => {
     });
     expect(unauthenticated.status).toBe(401);
 
+    const lockedSession = await signIn();
+    await grantBalance(lockedSession, { gold: 400, brains: 1_000, xp: 20_500 });
+    const locked = await call<any>("POST", "/epic-boss/activate", lockedSession.token, {
+      activationId: uniqueSub("activation-level-locked"),
+      bossId: "loco-locust",
+    });
+    expect(locked).toMatchObject({
+      status: 403,
+      body: { error: "locked", level: 25, unlockLevel: 32 },
+    });
+
     const session = await signIn();
-    await grantBalance(session, { gold: 400, brains: 1_000, xp: 0 });
+    await grantBalance(session, { gold: 400, brains: 1_000, xp: 61_000 });
     const boot = (await call<any>("POST", "/bootstrap", session.token, {})).body;
     const grown = await call<any>("POST", "/commands", session.token,
       commandBody(boot, "batch-epic-zombie", 1, [

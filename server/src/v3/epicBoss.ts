@@ -1,5 +1,5 @@
 import type { EpicBossProjection, QuestProjection } from "../../../src/net/protocol";
-import { epicBossById, epicBossHp } from "../../../src/epicBoss/catalog";
+import { epicBossById, epicBossHp, epicBossUnlockLevel } from "../../../src/epicBoss/catalog";
 import type { EpicBossDef } from "../../../src/epicBoss/types";
 import { DICE_KEY, VOUCHER_KEY } from "../boostCatalog";
 import { QUEST_REWARD, questDefinition } from "../questCatalog";
@@ -75,6 +75,11 @@ export async function activate(
   if (current?.run_id === activationId) return { status: 200, body: { event: projectRun(current), balance } };
   if (current && !current.completed_at && current.expires_at > now) {
     return { status: 409, body: { error: "event_active", event: projectRun(current) } };
+  }
+  const level = levelForXp(balance.xp);
+  const unlockLevel = epicBossUnlockLevel(def);
+  if (level < unlockLevel) {
+    return { status: 403, body: { error: "locked", level, unlockLevel } };
   }
   if (balance.brains < def.costBrains) return { status: 409, body: { error: "insufficient_brains", balance } };
   const hp = epicBossHp(def, 1);

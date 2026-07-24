@@ -52,7 +52,12 @@ import {
 import { mutationDescription } from "./zombie/mutations";
 import { resolveCropMutations } from "./zombie/cropMutations";
 import { MutationPortraits } from "./zombie/mutationPortrait";
-import { DR_GROUNDHOG, EPIC_BOSSES, epicBossById } from "./epicBoss/catalog";
+import {
+  DR_GROUNDHOG,
+  EPIC_BOSSES,
+  epicBossById,
+  epicBossUnlockLevel,
+} from "./epicBoss/catalog";
 import { EpicBossManager } from "./epicBoss/EpicBossManager";
 import { buildEpicBossSetup, rollEpicBossLoot } from "./epicBoss/combat";
 import { epicBossCurrencyReward } from "./epicBoss/rewards";
@@ -1728,7 +1733,8 @@ async function main() {
       return {
         id: def.id, name: def.name,
         portrait: epicAsset(def, def.portrait), questIcon: epicAsset(def, def.questIcon),
-        costBrains: def.costBrains, maxLevel: def.maxLevel,
+        costBrains: def.costBrains, unlockLevel: epicBossUnlockLevel(def),
+        levelLocked: state.level < epicBossUnlockLevel(def), maxLevel: def.maxLevel,
         reconstructed: !!def.reconstructed, blocked: active && !ownActive,
         run: ownRun, active: ownActive,
         expired: !!ownRun && !ownRun.completedAt && now >= ownRun.expiresAt,
@@ -1764,6 +1770,11 @@ async function main() {
   hud.onActivateEpicBoss = async (bossId) => {
     if (epicBoss.isActive(state.epicBossRun)) return false;
     const def = selectEpicBoss(bossId);
+    const unlockLevel = epicBossUnlockLevel(def);
+    if (state.level < unlockLevel) {
+      hud.showToast(`${def.name} unlocks at level ${unlockLevel}.`);
+      return false;
+    }
     if (auth.isSignedIn()) {
       try {
         await economy?.settleBeforeDependency();
@@ -1776,7 +1787,8 @@ async function main() {
         return true;
       } catch (error) {
         const code = errCode(error);
-        hud.showToast(code === "insufficient_brains" ? `You need ${def.costBrains} brains.`
+        hud.showToast(code === "locked" ? `${def.name} unlocks at level ${unlockLevel}.`
+          : code === "insufficient_brains" ? `You need ${def.costBrains} brains.`
           : code === "gameplay_unavailable" || code === "offline" ? "Reconnecting to the farm serverâ€¦"
           : "The Epic Boss event could not be started.");
         return false;
@@ -2223,6 +2235,7 @@ async function main() {
       // whole token slightly so the visible character shares the other bosses' line.
       bossGroundOffset: { x: 32, y: def.id === "loco-locust" ? 8 : 24 },
       onStrike: (strike) => audio.fightStrike(strike),
+      onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from battle?", `This attempt will end and ${def.name} will escape.`, "Retreat"
       ),
@@ -2401,6 +2414,7 @@ async function main() {
       brainDrop: setup.brainDrop,
       concentration: setup.concentration,
       onStrike: (strike) => audio.fightStrike(strike),
+      onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from invasion?", "This invasion will count as a loss.", "Retreat"
       ),

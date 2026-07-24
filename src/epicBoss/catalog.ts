@@ -22,8 +22,17 @@ export const EPIC_BOSSES: readonly EpicBossDef[] = [
 ];
 const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
 
+export const DR_GROUNDHOG_UNLOCK_LEVEL = 24;
+export const OTHER_EPIC_BOSS_UNLOCK_LEVEL = 32;
+
 export function epicBossById(id: string | null | undefined): EpicBossDef | null {
   return id ? BY_ID.get(id) ?? null : null;
+}
+export function epicBossUnlockLevel(boss: EpicBossDef | string): number {
+  const id = typeof boss === "string" ? boss : boss.id;
+  return id === DR_GROUNDHOG.id
+    ? DR_GROUNDHOG_UNLOCK_LEVEL
+    : OTHER_EPIC_BOSS_UNLOCK_LEVEL;
 }
 export function epicBossHp(def: EpicBossDef, level: number): number {
   const index = Math.max(0, Math.min(def.maxLevel - 1, Math.floor(level) - 1));

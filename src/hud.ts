@@ -1601,6 +1601,7 @@ export class Hud {
           `<div><b>${run.tokenCount}</b> Boss Token${run.tokenCount === 1 ? "" : "s"}</div>` +
           (view.encounterRemainingMs ? `<div>HP resets in ${fmt(view.encounterRemainingMs)}</div>` : "")
         : `<p>Start a 14-day, ${view.maxLevel}-level Epic Boss event.</p>` +
+          `<p class="${view.levelLocked ? "epic-wait" : ""}">Available at player level ${view.unlockLevel}.</p>` +
           (view.reconstructed ? `<p class="epic-wait">Recovered static battle art.</p>` : "") +
           (view.completed ? "<p>Previous run completed!</p>" : view.expired ? "<p>Previous run expired.</p>" : "")) +
       `<details><summary>Possible rewards</summary><div>${view.rewards.join("<br>")}</div>` +
@@ -1616,8 +1617,9 @@ export class Hud {
       action.onclick = () => this.openEpicBossArmy();
     } else {
       action.innerHTML = view.blocked ? "Another boss event is active" :
+        view.levelLocked ? `Requires Level ${view.unlockLevel}` :
         `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
-      action.disabled = view.blocked || this.state.brains < view.costBrains;
+      action.disabled = view.blocked || view.levelLocked || this.state.brains < view.costBrains;
       action.onclick = async () => {
         if (!await this.confirmInGame(
           `Start ${view.name}?`,

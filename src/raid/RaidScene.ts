@@ -63,6 +63,8 @@ export interface RaidSceneParams {
   onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
   /** Presentation-only authored attack cue; combat remains deterministic without it. */
   onStrike?: (strike: { team: "player" | "enemy"; attackName?: string }) => void;
+  /** Presentation-only zombie bark when its full-focus brain bubble sends it forward. */
+  onBrainRelease?: (sourceKey: string) => void;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
 }
 
@@ -102,6 +104,9 @@ const BOSS_H = 195;
 // of that is the size the player asked for (and matches the source's 0.8-scaled 86x43 art
 // sitting well below the zombies' heads).
 const CRAB_H = ENEMY_H / 3;
+// Approximate attachment/contact point along hazard_trapeze_girl.png's 358px width.
+// The ropes occupy x=0..~280 and the artist's grabbing body is centered near x=300.
+const TRAPEZE_ARTIST_X = 300;
 // Per-boss height multipliers (by enemy source key) for bosses that read wrong at the
 // shared BOSS_H. Old McDonnell is a chunky sprite that looms too large on his silo —
 // scaled down 20% to sit better on the structure.
@@ -282,6 +287,7 @@ export class RaidScene {
   private onFinish: (o: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
   private onCheckpoint: ((finalTick: number, inputs: RaidReplayInput[]) => Promise<void>) | null;
   private onStrike: ((strike: { team: "player" | "enemy"; attackName?: string }) => void) | null;
+  private onBrainRelease: ((sourceKey: string) => void) | null;
   private lastCheckpointTick = 0;
   private checkpointing = false;
   private checkpointRetryAt = 0;
@@ -317,9 +323,9 @@ export class RaidScene {
   private grabLayer = new Container(); // trapeze sprites (above the field, tappable)
   private grabSprites = new Map<string, {
     root: Container;
-    ropes: Graphics;
     body: Sprite;
     bar: Graphics;
+    swingScale: number;
   }>();
   private crabTex: Texture | null = null; // beach crab hazard texture
   private crabLayer = new Container(); // crab sprites (above the field, tappable)
@@ -407,6 +413,7 @@ export class RaidScene {
     this.onFinish = params.onFinish;
     this.onCheckpoint = params.onCheckpoint ?? null;
     this.onStrike = params.onStrike ?? null;
+    this.onBrainRelease = params.onBrainRelease ?? null;
     this.bossThrow = params.bossThrow;
     this.hazardSprite = params.hazard?.sprite ?? "";
     this.wallTemplate = params.wallTemplate ?? null;
@@ -617,8 +624,13 @@ export class RaidScene {
     this.bubble.cursor = "pointer";
     this.bubble.on("pointertap", () => {
       if (this.sim.finished) return;
+      const bubble = this.sim.chargingBubble();
       if (this.bubbleUnitId && this.sim.popBubble(this.bubbleUnitId)) {
         this.recordInput({ type: "bubble", unitId: this.bubbleUnitId });
+        if (bubble?.kind === "brain" && bubble.id === this.bubbleUnitId) {
+          const zombie = this.sim.units.find((unit) => unit.id === this.bubbleUnitId);
+          if (zombie) this.onBrainRelease?.(zombie.sourceKey);
+        }
         this.bubble.scale.set(0.8); // tap feedback, eased back in layout
       }
     });
@@ -1591,42 +1603,69 @@ export class RaidScene {
       let entry = this.grabSprites.get(g.id);
       if (!entry) {
         const root = new Container();
-        const ropes = new Graphics();
         const body = new Sprite(this.grabTex);
-        // The authored rope begins near (100, 1) in the 358x70 texture. Pivoting there
-        // keeps that point fixed just above the screen while the artist swings beneath it.
-        body.anchor.set(100 / 358, 1 / 70);
+        // The two ropes terminate at x=0. Their midpoint is the real suspension point;
+        // the artist occupies the far end of the long horizontal source texture.
+        body.anchor.set(0, 31 / 70);
         const bar = new Graphics();
-        root.addChild(ropes);
         root.addChild(body);
         root.addChild(bar);
-        // Keep the procedural rope extensions out of the hit target; only the
-        // trapeze bitmap itself should be tappable.
+        // Only the trapeze bitmap itself should be tappable.
         body.eventMode = "static";
         body.cursor = "pointer";
         body.on("pointertap", () => this.sim.tapGrabber(g.id));
         this.grabLayer.addChild(root);
-        entry = { root, ropes, body, bar };
+        entry = { root, body, bar, swingScale: s };
         this.grabSprites.set(g.id, entry);
       }
-      const { root, ropes, body, bar } = entry;
-      root.position.set(this.mapX(g.x), this.mapProjY(g.y));
+      const { root, body, bar } = entry;
+      let bodyScale = entry.swingScale;
+      let visualRot = g.rot;
+      if (g.state === "swoop") {
+        // Original staging: the suspension is dead-center and a quarter-screen above
+        // the viewport. The endpoint remains hidden until the artist swings into view.
+        const pivotX = this.app.screen.width / 2;
+        const pivotY = -this.app.screen.height * 0.25;
+        root.position.set(pivotX, pivotY);
+        const target = g.targetId
+          ? this.sim.units.find((unit) => unit.id === g.targetId)
+          : null;
+        if (target) {
+          const targetX = this.mapX(target.x);
+          const targetTok = this.tokens.get(target.id);
+          const targetY = this.mapY(target.y) + UNIT_GROUND_NUDGE * s +
+            (targetTok?.topY ?? -ZOMBIE_H) * 0.45 * s;
+          const dx = targetX - pivotX;
+          const dy = targetY - pivotY;
+          bodyScale = Math.hypot(dx, dy) / TRAPEZE_ARTIST_X;
+          entry.swingScale = bodyScale;
+          const contactRot = Math.atan2(dy, dx) * 180 / Math.PI;
+          const progress = Math.max(0, Math.min(1, 1 - g.pauseMs / g.swingTotalMs));
+          const eased = progress * progress * (3 - 2 * progress);
+          visualRot = g.swingStartDeg + (contactRot - g.swingStartDeg) * eased;
+        }
+      } else {
+        const z = g.grabbedId
+          ? this.sim.units.find((unit) => unit.id === g.grabbedId)
+          : null;
+        // Once contact is made, put the suspension directly above the zombie. Derive
+        // its screen y from the visible rope length so the artist barely moves while
+        // the rig turns vertical and begins lifting.
+        root.position.set(
+          this.mapX(g.x),
+          z
+            ? this.mapProjY(z.y) +
+              (this.tokens.get(z.id)?.topY ?? -ZOMBIE_H) * 0.45 * s -
+              TRAPEZE_ARTIST_X * bodyScale
+            : this.mapProjY(g.y)
+        );
+      }
       // This source is a very wide 358x70 composition. Scaling both axes uniformly
       // preserves the authored trapeze/artist proportions; assigning a square width and
       // height here used to crush the art into a squat, barely recognizable sprite.
-      body.scale.set(s);
-      body.rotation = (g.rot * Math.PI) / 180;
+      body.scale.set(bodyScale);
+      body.rotation = (visualRot * Math.PI) / 180;
       body.tint = g.struckThisTick ? 0xff9a9a : 0xffffff; // flash on a landed tap
-      // The mobile-era bitmap ends both ropes at x=0. On a tall viewport those blunt
-      // ends float visibly below the top edge, so continue the authored strands
-      // backward along the same rotated axis until they are safely off-screen.
-      const ropeStartX = -100 * s;
-      const ropeEndX = ropeStartX - (this.app.screen.width + this.app.screen.height);
-      ropes.clear()
-        .moveTo(ropeEndX, 14 * s).lineTo(ropeStartX, 14 * s)
-        .moveTo(ropeEndX, 46 * s).lineTo(ropeStartX, 46 * s)
-        .stroke({ width: Math.max(1, 2 * s), color: 0x000000, alpha: 0.9 });
-      ropes.rotation = body.rotation;
       // Health bar (shown once it has taken a tap), so the player sees rescue progress.
       bar.clear();
       if (g.hp < g.maxHp) {
