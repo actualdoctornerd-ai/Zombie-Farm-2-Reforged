@@ -1,0 +1,85 @@
+{
+ "name": "zomtar",
+ "neck": {
+  "x": 0,
+  "y": -24
+ },
+ "color": [
+  255,
+  255,
+  255
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": -9,
+   "py": -32,
+   "ax": 0.743272,
+   "ay": 0.234545,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 4,
+   "py": -26,
+   "ax": 0.525,
+   "ay": 0.44999999999999996,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "Jaw.png",
+   "group": "head",
+   "px": 4,
+   "py": -41,
+   "ax": 0.900955,
+   "ay": 0.09140599999999999,
+   "z": 1,
+   "scale": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 12,
+   "py": -35,
+   "ax": 0.719336,
+   "ay": 0.31896599999999997,
+   "z": 2,
+   "scale": 1
+  },
+  {
+   "file": "Head.png",
+   "group": "head",
+   "px": 0,
+   "py": -24,
+   "ax": 0.668157,
+   "ay": 1.078239,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -9,
+   "py": -28,
+   "ax": -0.264802,
+   "ay": -1.3972349999999998,
+   "z": -1,
+   "scale": 1
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": -2,
+   "py": -5,
+   "ax": 0.654194,
+   "ay": 0.37259699999999996,
+   "z": -2,
+   "scale": 1
+  }
+ ]
+}

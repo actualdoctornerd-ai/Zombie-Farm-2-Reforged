@@ -1,0 +1,44 @@
+{
+ "grass": [
+  "grass_0.png",
+  "grass_1.png",
+  "grass_2.png",
+  "grass_3.png",
+  "grass_4.png"
+ ],
+ "dirt": [
+  "dirt_0.png",
+  "dirt_1.png",
+  "dirt_2.png",
+  "dirt_3.png",
+  "dirt_4.png"
+ ],
+ "snow": [
+  "snow_0.png",
+  "snow_1.png",
+  "snow_2.png",
+  "snow_3.png",
+  "snow_4.png"
+ ],
+ "stone": [
+  "stone_0.png",
+  "stone_1.png",
+  "stone_2.png",
+  "stone_3.png",
+  "stone_4.png"
+ ],
+ "sand": [
+  "sand_0.png",
+  "sand_1.png",
+  "sand_2.png",
+  "sand_3.png",
+  "sand_4.png"
+ ],
+ "water": [
+  "water_0.png",
+  "water_1.png",
+  "water_2.png",
+  "water_3.png",
+  "water_4.png"
+ ]
+}
