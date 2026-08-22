@@ -1,0 +1,10494 @@
+{
+ "CityStageActorLawyer": {
+  "attack": {
+   "duration": 0.5,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 0.75,
+   "attackName": "LawyerAttack",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 6), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "front arm flail",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       50
+      ],
+      [
+       0.75,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm flail",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       0
+      ],
+      [
+       0.75,
+       50
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "head flail y",
+     "target": "head",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       1
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "move": {
+   "duration": 2,
+   "loop": true,
+   "timeBase": "free",
+   "tracks": [
+    {
+     "name": "head rock",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       5.157
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -5.157
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       5.157
+      ]
+     ]
+    },
+    {
+     "name": "breathe",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 0.446,
+      "phase": 0
+     }
+    },
+    {
+     "name": "front leg stride",
+     "target": "leg.front",
+     "channel": "rot",
+     "wave": {
+      "amp": 17.189,
+      "cycles": 1.432,
+      "phase": 0
+     }
+    },
+    {
+     "name": "back leg stride",
+     "target": "leg.back",
+     "channel": "rot",
+     "wave": {
+      "amp": 17.189,
+      "cycles": 1.432,
+      "phase": 0.5
+     }
+    },
+    {
+     "name": "front leg lift",
+     "target": "leg.front",
+     "channel": "y",
+     "wave": {
+      "amp": -2.5,
+      "cycles": 1.432,
+      "phase": 0,
+      "clamp": "pos"
+     }
+    },
+    {
+     "name": "back leg lift",
+     "target": "leg.back",
+     "channel": "y",
+     "wave": {
+      "amp": -2.5,
+      "cycles": 1.432,
+      "phase": 0.5,
+      "clamp": "pos"
+     }
+    },
+    {
+     "name": "front arm at rest",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       -74.485
+      ]
+     ]
+    }
+   ]
+  },
+  "idle": {
+   "duration": 4,
+   "loop": true,
+   "timeBase": "free",
+   "tracks": [
+    {
+     "name": "head rock",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ]
+    },
+    {
+     "name": "breathe",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 0.891,
+      "phase": 0
+     }
+    }
+   ]
+  }
+ },
+ "PirateStageActorBoss": {
+  "attack": {
+   "duration": 2.9,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 0.95,
+   "attackName": "PirateBossSlash",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 2), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "front arm hack",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       90
+      ],
+      [
+       1,
+       -135
+      ]
+     ]
+    },
+    {
+     "name": "back arm hack",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       45
+      ],
+      [
+       1,
+       -135
+      ]
+     ]
+    },
+    {
+     "name": "head flail x",
+     "target": "head",
+     "channel": "x",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       -8
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "head flail y",
+     "target": "head",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       1
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "PirateStageActorScallywag": {
+  "attack": {
+   "duration": 2,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 1,
+   "attackName": "CrazedWorkerAttack",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 1), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "front arm whack",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       180
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm hack",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.55,
+       -9
+      ],
+      [
+       0.8,
+       5
+      ],
+      [
+       0.85,
+       -9
+      ],
+      [
+       1,
+       -9
+      ]
+     ]
+    },
+    {
+     "name": "head hack x",
+     "target": "head",
+     "channel": "x",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       -8
+      ],
+      [
+       1,
+       -3
+      ]
+     ]
+    },
+    {
+     "name": "head hack y",
+     "target": "head",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       -4
+      ],
+      [
+       1,
+       -4
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "PirateStageActorSwashbuckler": {
+  "attack": {
+   "duration": 0.5,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 0.95,
+   "attackName": "SwashbucklerSlice",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 3), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "front arm hack",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       90
+      ],
+      [
+       1,
+       -135
+      ]
+     ]
+    },
+    {
+     "name": "head hack x",
+     "target": "head",
+     "channel": "x",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       -3
+      ],
+      [
+       1,
+       -3
+      ]
+     ]
+    },
+    {
+     "name": "head hack y",
+     "target": "head",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       -1
+      ],
+      [
+       1,
+       -4
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       20
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "idle": {
+   "duration": 4,
+   "loop": true,
+   "timeBase": "free",
+   "tracks": [
+    {
+     "name": "head rock",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ]
+    },
+    {
+     "name": "breathe",
+     "target": "root",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.75,
+       -0.523
+      ],
+      [
+       1,
+       -0.38
+      ]
+     ],
+     "ease": "smooth"
+    },
+    {
+     "name": "new track",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       -80
+      ],
+      [
+       1,
+       -95
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "TreeWorldStageZobraActor": {
+  "idle": {
+   "duration": 4,
+   "loop": true,
+   "timeBase": "free",
+   "tracks": [
+    {
+     "name": "hover",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 2.4,
+      "cycles": 0.891,
+      "phase": 0
+     }
+    },
+    {
+     "name": "front wing flap",
+     "target": "wing.front",
+     "channel": "rot",
+     "wave": {
+      "amp": 20.054,
+      "cycles": 3.82,
+      "phase": 0
+     },
+     "pivot": "wing"
+    },
+    {
+     "name": "back wing flap",
+     "target": "wing.back",
+     "channel": "rot",
+     "wave": {
+      "amp": 20.054,
+      "cycles": 3.82,
+      "phase": 0.5
+     },
+     "pivot": "wing-back"
+    }
+   ]
+  },
+  "move": {
+   "duration": 2,
+   "loop": true,
+   "timeBase": "free",
+   "tracks": [
+    {
+     "name": "hover",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 2.4,
+      "cycles": 0.446,
+      "phase": 0
+     }
+    },
+    {
+     "name": "front wing flap",
+     "target": "wing.front",
+     "channel": "rot",
+     "wave": {
+      "amp": 20.054,
+      "cycles": 1.91,
+      "phase": 0
+     },
+     "pivot": "wing"
+    },
+    {
+     "name": "back wing flap",
+     "target": "wing.back",
+     "channel": "rot",
+     "wave": {
+      "amp": 20.054,
+      "cycles": 1.91,
+      "phase": 0.5
+     },
+     "pivot": "wing-back"
+    }
+   ]
+  },
+  "attack": {
+   "duration": 1,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.8,
+   "attackName": "SpecialMinion1Attack",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 2.4,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.856,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.214
+      ],
+      [
+       0.325,
+       0.425
+      ],
+      [
+       0.348,
+       0.63
+      ],
+      [
+       0.37,
+       0.825
+      ],
+      [
+       0.393,
+       1.008
+      ],
+      [
+       0.415,
+       1.175
+      ],
+      [
+       0.438,
+       1.325
+      ],
+      [
+       0.46,
+       1.455
+      ],
+      [
+       0.483,
+       1.563
+      ],
+      [
+       0.505,
+       1.648
+      ],
+      [
+       0.528,
+       1.707
+      ],
+      [
+       0.55,
+       1.742
+      ],
+      [
+       0.573,
+       1.749
+      ],
+      [
+       0.595,
+       1.731
+      ],
+      [
+       0.618,
+       1.687
+      ],
+      [
+       0.64,
+       1.617
+      ],
+      [
+       0.663,
+       1.523
+      ],
+      [
+       0.685,
+       1.406
+      ],
+      [
+       0.708,
+       1.267
+      ],
+      [
+       0.73,
+       1.11
+      ],
+      [
+       0.753,
+       0.936
+      ],
+      [
+       0.775,
+       0.748
+      ],
+      [
+       0.798,
+       0.549
+      ],
+      [
+       0.82,
+       0.341
+      ],
+      [
+       0.843,
+       0.129
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "wing.front",
+     "channel": "rot",
+     "pivot": "wing",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       20
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "wing.back",
+     "channel": "rot",
+     "pivot": "wing-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       -20
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "TreeWorldStageMantisActor": {
+  "attack:SpecialMinion2Attack2": {
+   "duration": 1,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.7,
+   "attackName": "SpecialMinion2Attack2",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.784,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.245
+      ],
+      [
+       0.325,
+       0.484
+      ],
+      [
+       0.348,
+       0.715
+      ],
+      [
+       0.37,
+       0.931
+      ],
+      [
+       0.393,
+       1.129
+      ],
+      [
+       0.415,
+       1.305
+      ],
+      [
+       0.438,
+       1.455
+      ],
+      [
+       0.46,
+       1.577
+      ],
+      [
+       0.483,
+       1.667
+      ],
+      [
+       0.505,
+       1.725
+      ],
+      [
+       0.528,
+       1.749
+      ],
+      [
+       0.55,
+       1.739
+      ],
+      [
+       0.573,
+       1.695
+      ],
+      [
+       0.595,
+       1.617
+      ],
+      [
+       0.618,
+       1.507
+      ],
+      [
+       0.64,
+       1.368
+      ],
+      [
+       0.663,
+       1.202
+      ],
+      [
+       0.685,
+       1.013
+      ],
+      [
+       0.708,
+       0.803
+      ],
+      [
+       0.73,
+       0.578
+      ],
+      [
+       0.753,
+       0.341
+      ],
+      [
+       0.775,
+       0.098
+      ],
+      [
+       0.798,
+       0
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.582,
+       48.701
+      ],
+      [
+       0.784,
+       -22.918
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.784,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       1.402
+      ],
+      [
+       0.325,
+       2.776
+      ],
+      [
+       0.348,
+       4.095
+      ],
+      [
+       0.37,
+       5.335
+      ],
+      [
+       0.393,
+       6.469
+      ],
+      [
+       0.415,
+       7.477
+      ],
+      [
+       0.438,
+       8.337
+      ],
+      [
+       0.46,
+       9.034
+      ],
+      [
+       0.483,
+       9.553
+      ],
+      [
+       0.505,
+       9.885
+      ],
+      [
+       0.528,
+       10.023
+      ],
+      [
+       0.55,
+       9.964
+      ],
+      [
+       0.573,
+       9.709
+      ],
+      [
+       0.595,
+       9.264
+      ],
+      [
+       0.618,
+       8.636
+      ],
+      [
+       0.64,
+       7.839
+      ],
+      [
+       0.663,
+       6.889
+      ],
+      [
+       0.685,
+       5.802
+      ],
+      [
+       0.708,
+       4.602
+      ],
+      [
+       0.73,
+       3.312
+      ],
+      [
+       0.753,
+       1.956
+      ],
+      [
+       0.775,
+       0.562
+      ],
+      [
+       0.798,
+       0
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "attack:SpecialMinion2Attack1": {
+   "duration": 1,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.9,
+   "attackName": "SpecialMinion2Attack1",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.928,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.191
+      ],
+      [
+       0.325,
+       0.379
+      ],
+      [
+       0.348,
+       0.563
+      ],
+      [
+       0.37,
+       0.74
+      ],
+      [
+       0.393,
+       0.908
+      ],
+      [
+       0.415,
+       1.065
+      ],
+      [
+       0.438,
+       1.21
+      ],
+      [
+       0.46,
+       1.341
+      ],
+      [
+       0.483,
+       1.455
+      ],
+      [
+       0.505,
+       1.552
+      ],
+      [
+       0.528,
+       1.631
+      ],
+      [
+       0.55,
+       1.69
+      ],
+      [
+       0.573,
+       1.73
+      ],
+      [
+       0.595,
+       1.748
+      ],
+      [
+       0.618,
+       1.746
+      ],
+      [
+       0.64,
+       1.723
+      ],
+      [
+       0.663,
+       1.68
+      ],
+      [
+       0.685,
+       1.617
+      ],
+      [
+       0.708,
+       1.534
+      ],
+      [
+       0.73,
+       1.434
+      ],
+      [
+       0.753,
+       1.316
+      ],
+      [
+       0.775,
+       1.182
+      ],
+      [
+       0.798,
+       1.035
+      ],
+      [
+       0.82,
+       0.875
+      ],
+      [
+       0.843,
+       0.705
+      ],
+      [
+       0.865,
+       0.526
+      ],
+      [
+       0.888,
+       0.341
+      ],
+      [
+       0.91,
+       0.153
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.669,
+       48.701
+      ],
+      [
+       0.928,
+       -22.918
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.928,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       1.092
+      ],
+      [
+       0.325,
+       2.17
+      ],
+      [
+       0.348,
+       3.223
+      ],
+      [
+       0.37,
+       4.238
+      ],
+      [
+       0.393,
+       5.202
+      ],
+      [
+       0.415,
+       6.104
+      ],
+      [
+       0.438,
+       6.934
+      ],
+      [
+       0.46,
+       7.681
+      ],
+      [
+       0.483,
+       8.337
+      ],
+      [
+       0.505,
+       8.894
+      ],
+      [
+       0.528,
+       9.345
+      ],
+      [
+       0.55,
+       9.685
+      ],
+      [
+       0.573,
+       9.91
+      ],
+      [
+       0.595,
+       10.017
+      ],
+      [
+       0.618,
+       10.006
+      ],
+      [
+       0.64,
+       9.875
+      ],
+      [
+       0.663,
+       9.626
+      ],
+      [
+       0.685,
+       9.264
+      ],
+      [
+       0.708,
+       8.791
+      ],
+      [
+       0.73,
+       8.214
+      ],
+      [
+       0.753,
+       7.539
+      ],
+      [
+       0.775,
+       6.774
+      ],
+      [
+       0.798,
+       5.929
+      ],
+      [
+       0.82,
+       5.014
+      ],
+      [
+       0.843,
+       4.038
+      ],
+      [
+       0.865,
+       3.015
+      ],
+      [
+       0.888,
+       1.956
+      ],
+      [
+       0.91,
+       0.874
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "ValentinesDayStageActorMinion3": {
+  "attack:SpecialMinion3Attack2": {
+   "duration": 1,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.2,
+   "attackName": "SpecialMinion3Attack2",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 2.4,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.424,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.825
+      ],
+      [
+       0.325,
+       1.455
+      ],
+      [
+       0.348,
+       1.742
+      ],
+      [
+       0.37,
+       1.617
+      ],
+      [
+       0.393,
+       1.11
+      ],
+      [
+       0.415,
+       0.341
+      ],
+      [
+       0.438,
+       0
+      ],
+      [
+       0.46,
+       0
+      ],
+      [
+       0.483,
+       0
+      ],
+      [
+       0.505,
+       0
+      ],
+      [
+       0.528,
+       0
+      ],
+      [
+       0.55,
+       0
+      ],
+      [
+       0.573,
+       0
+      ],
+      [
+       0.595,
+       0
+      ],
+      [
+       0.618,
+       0
+      ],
+      [
+       0.64,
+       0
+      ],
+      [
+       0.663,
+       0
+      ],
+      [
+       0.685,
+       0
+      ],
+      [
+       0.708,
+       0
+      ],
+      [
+       0.73,
+       0
+      ],
+      [
+       0.753,
+       0
+      ],
+      [
+       0.775,
+       0
+      ],
+      [
+       0.798,
+       0
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "body.2",
+     "channel": "rot",
+     "pivot": "neck",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       -30
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "body.0",
+     "channel": "rot",
+     "pivot": "neck",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       -30
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "attack:SpecialMinion3Attack1": {
+   "duration": 1,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.9,
+   "attackName": "SpecialMinion3Attack1",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 2.4,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.928,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.191
+      ],
+      [
+       0.325,
+       0.379
+      ],
+      [
+       0.348,
+       0.563
+      ],
+      [
+       0.37,
+       0.74
+      ],
+      [
+       0.393,
+       0.908
+      ],
+      [
+       0.415,
+       1.065
+      ],
+      [
+       0.438,
+       1.21
+      ],
+      [
+       0.46,
+       1.341
+      ],
+      [
+       0.483,
+       1.455
+      ],
+      [
+       0.505,
+       1.552
+      ],
+      [
+       0.528,
+       1.631
+      ],
+      [
+       0.55,
+       1.69
+      ],
+      [
+       0.573,
+       1.73
+      ],
+      [
+       0.595,
+       1.748
+      ],
+      [
+       0.618,
+       1.746
+      ],
+      [
+       0.64,
+       1.723
+      ],
+      [
+       0.663,
+       1.68
+      ],
+      [
+       0.685,
+       1.617
+      ],
+      [
+       0.708,
+       1.534
+      ],
+      [
+       0.73,
+       1.434
+      ],
+      [
+       0.753,
+       1.316
+      ],
+      [
+       0.775,
+       1.182
+      ],
+      [
+       0.798,
+       1.035
+      ],
+      [
+       0.82,
+       0.875
+      ],
+      [
+       0.843,
+       0.705
+      ],
+      [
+       0.865,
+       0.526
+      ],
+      [
+       0.888,
+       0.341
+      ],
+      [
+       0.91,
+       0.153
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "body.2",
+     "channel": "rot",
+     "pivot": "neck",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       20
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "body.0",
+     "channel": "rot",
+     "pivot": "neck",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       20
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "ValentinesDayStageActorMinion1": {
+  "attack": {
+   "duration": 1,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.8,
+   "attackName": "SpecialMinion1Attack",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 1.1,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.856,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.214
+      ],
+      [
+       0.325,
+       0.425
+      ],
+      [
+       0.348,
+       0.63
+      ],
+      [
+       0.37,
+       0.825
+      ],
+      [
+       0.393,
+       1.008
+      ],
+      [
+       0.415,
+       1.175
+      ],
+      [
+       0.438,
+       1.325
+      ],
+      [
+       0.46,
+       1.455
+      ],
+      [
+       0.483,
+       1.563
+      ],
+      [
+       0.505,
+       1.648
+      ],
+      [
+       0.528,
+       1.707
+      ],
+      [
+       0.55,
+       1.742
+      ],
+      [
+       0.573,
+       1.749
+      ],
+      [
+       0.595,
+       1.731
+      ],
+      [
+       0.618,
+       1.687
+      ],
+      [
+       0.64,
+       1.617
+      ],
+      [
+       0.663,
+       1.523
+      ],
+      [
+       0.685,
+       1.406
+      ],
+      [
+       0.708,
+       1.267
+      ],
+      [
+       0.73,
+       1.11
+      ],
+      [
+       0.753,
+       0.936
+      ],
+      [
+       0.775,
+       0.748
+      ],
+      [
+       0.798,
+       0.549
+      ],
+      [
+       0.82,
+       0.341
+      ],
+      [
+       0.843,
+       0.129
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.626,
+       48.701
+      ],
+      [
+       0.856,
+       -22.918
+      ],
+      [
+       1,
+       0
+      ]
+     ],
+     "mute": false
+    }
+   ]
+  }
+ },
+ "ValentinesDayStageActorBoss": {
+  "attack": {
+   "duration": 0.25,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.7,
+   "attackName": "SpecialBossAttack",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.784,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.245
+      ],
+      [
+       0.325,
+       0.484
+      ],
+      [
+       0.348,
+       0.715
+      ],
+      [
+       0.37,
+       0.931
+      ],
+      [
+       0.393,
+       1.129
+      ],
+      [
+       0.415,
+       1.305
+      ],
+      [
+       0.438,
+       1.455
+      ],
+      [
+       0.46,
+       1.577
+      ],
+      [
+       0.483,
+       1.667
+      ],
+      [
+       0.505,
+       1.725
+      ],
+      [
+       0.528,
+       1.749
+      ],
+      [
+       0.55,
+       1.739
+      ],
+      [
+       0.573,
+       1.695
+      ],
+      [
+       0.595,
+       1.617
+      ],
+      [
+       0.618,
+       1.507
+      ],
+      [
+       0.64,
+       1.368
+      ],
+      [
+       0.663,
+       1.202
+      ],
+      [
+       0.685,
+       1.013
+      ],
+      [
+       0.708,
+       0.803
+      ],
+      [
+       0.73,
+       0.578
+      ],
+      [
+       0.753,
+       0.341
+      ],
+      [
+       0.775,
+       0.098
+      ],
+      [
+       0.798,
+       0
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.582,
+       48.701
+      ],
+      [
+       0.784,
+       -22.918
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.784,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       1.402
+      ],
+      [
+       0.325,
+       2.776
+      ],
+      [
+       0.348,
+       4.095
+      ],
+      [
+       0.37,
+       5.335
+      ],
+      [
+       0.393,
+       6.469
+      ],
+      [
+       0.415,
+       7.477
+      ],
+      [
+       0.438,
+       8.337
+      ],
+      [
+       0.46,
+       9.034
+      ],
+      [
+       0.483,
+       9.553
+      ],
+      [
+       0.505,
+       9.885
+      ],
+      [
+       0.528,
+       10.023
+      ],
+      [
+       0.55,
+       9.964
+      ],
+      [
+       0.573,
+       9.709
+      ],
+      [
+       0.595,
+       9.264
+      ],
+      [
+       0.618,
+       8.636
+      ],
+      [
+       0.64,
+       7.839
+      ],
+      [
+       0.663,
+       6.889
+      ],
+      [
+       0.685,
+       5.802
+      ],
+      [
+       0.708,
+       4.602
+      ],
+      [
+       0.73,
+       3.312
+      ],
+      [
+       0.753,
+       1.956
+      ],
+      [
+       0.775,
+       0.562
+      ],
+      [
+       0.798,
+       0
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "throw": {
+   "duration": 0.55,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.9,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.72,
+    "uSpan": 1
+   },
+   "note": "Perched boss throw: the arm cocks and swings, releasing the projectile at the hit mark.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.191
+      ],
+      [
+       0.063,
+       0.379
+      ],
+      [
+       0.094,
+       0.563
+      ],
+      [
+       0.125,
+       0.74
+      ],
+      [
+       0.156,
+       0.908
+      ],
+      [
+       0.188,
+       1.065
+      ],
+      [
+       0.219,
+       1.21
+      ],
+      [
+       0.25,
+       1.341
+      ],
+      [
+       0.281,
+       1.455
+      ],
+      [
+       0.313,
+       1.552
+      ],
+      [
+       0.344,
+       1.631
+      ],
+      [
+       0.375,
+       1.69
+      ],
+      [
+       0.406,
+       1.73
+      ],
+      [
+       0.438,
+       1.748
+      ],
+      [
+       0.469,
+       1.746
+      ],
+      [
+       0.5,
+       1.723
+      ],
+      [
+       0.531,
+       1.68
+      ],
+      [
+       0.563,
+       1.617
+      ],
+      [
+       0.594,
+       1.534
+      ],
+      [
+       0.625,
+       1.434
+      ],
+      [
+       0.656,
+       1.316
+      ],
+      [
+       0.688,
+       1.182
+      ],
+      [
+       0.719,
+       1.035
+      ],
+      [
+       0.75,
+       0.875
+      ],
+      [
+       0.781,
+       0.705
+      ],
+      [
+       0.813,
+       0.526
+      ],
+      [
+       0.844,
+       0.341
+      ],
+      [
+       0.875,
+       0.153
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.54,
+       -25
+      ],
+      [
+       0.9,
+       -22.918
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       1.092
+      ],
+      [
+       0.063,
+       2.17
+      ],
+      [
+       0.094,
+       3.223
+      ],
+      [
+       0.125,
+       4.238
+      ],
+      [
+       0.156,
+       5.202
+      ],
+      [
+       0.188,
+       6.104
+      ],
+      [
+       0.219,
+       6.934
+      ],
+      [
+       0.25,
+       7.681
+      ],
+      [
+       0.281,
+       8.337
+      ],
+      [
+       0.313,
+       8.894
+      ],
+      [
+       0.344,
+       9.345
+      ],
+      [
+       0.375,
+       9.685
+      ],
+      [
+       0.406,
+       9.91
+      ],
+      [
+       0.438,
+       10.017
+      ],
+      [
+       0.469,
+       10.006
+      ],
+      [
+       0.5,
+       9.875
+      ],
+      [
+       0.531,
+       9.626
+      ],
+      [
+       0.563,
+       9.264
+      ],
+      [
+       0.594,
+       8.791
+      ],
+      [
+       0.625,
+       8.214
+      ],
+      [
+       0.656,
+       7.539
+      ],
+      [
+       0.688,
+       6.774
+      ],
+      [
+       0.719,
+       5.929
+      ],
+      [
+       0.75,
+       5.014
+      ],
+      [
+       0.781,
+       4.038
+      ],
+      [
+       0.813,
+       3.015
+      ],
+      [
+       0.844,
+       1.956
+      ],
+      [
+       0.875,
+       0.874
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "ability": {
+   "duration": 3,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.98,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.64,
+    "uSpan": 0.888888888888889
+   },
+   "note": "Boss special (wall summon): a slow raise/hold across the authored cast time.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.008
+      ],
+      [
+       0.05,
+       -0.032
+      ],
+      [
+       0.075,
+       -0.07
+      ],
+      [
+       0.1,
+       -0.123
+      ],
+      [
+       0.125,
+       -0.189
+      ],
+      [
+       0.15,
+       -0.268
+      ],
+      [
+       0.175,
+       -0.358
+      ],
+      [
+       0.2,
+       -0.46
+      ],
+      [
+       0.225,
+       -0.572
+      ],
+      [
+       0.25,
+       -0.693
+      ],
+      [
+       0.275,
+       -0.823
+      ],
+      [
+       0.3,
+       -0.961
+      ],
+      [
+       0.325,
+       -1.106
+      ],
+      [
+       0.35,
+       -1.257
+      ],
+      [
+       0.375,
+       -1.415
+      ],
+      [
+       0.4,
+       -1.577
+      ],
+      [
+       0.425,
+       -1.743
+      ],
+      [
+       0.45,
+       -1.913
+      ],
+      [
+       0.475,
+       -2.085
+      ],
+      [
+       0.5,
+       -2.259
+      ],
+      [
+       0.525,
+       -2.434
+      ],
+      [
+       0.55,
+       -2.61
+      ],
+      [
+       0.575,
+       -2.785
+      ],
+      [
+       0.6,
+       -2.958
+      ],
+      [
+       0.625,
+       -3.13
+      ],
+      [
+       0.65,
+       -3.299
+      ],
+      [
+       0.675,
+       -3.464
+      ],
+      [
+       0.7,
+       -3.625
+      ],
+      [
+       0.725,
+       -3.781
+      ],
+      [
+       0.75,
+       -3.931
+      ],
+      [
+       0.775,
+       -4.074
+      ],
+      [
+       0.8,
+       -4.211
+      ],
+      [
+       0.825,
+       -4.338
+      ],
+      [
+       0.85,
+       -4.457
+      ],
+      [
+       0.875,
+       -4.567
+      ],
+      [
+       0.9,
+       -4.665
+      ],
+      [
+       0.925,
+       -4.753
+      ],
+      [
+       0.95,
+       -4.829
+      ],
+      [
+       0.975,
+       -4.891
+      ],
+      [
+       1,
+       -4.941
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.161
+      ],
+      [
+       0.063,
+       0.32
+      ],
+      [
+       0.094,
+       0.476
+      ],
+      [
+       0.125,
+       0.629
+      ],
+      [
+       0.156,
+       0.776
+      ],
+      [
+       0.188,
+       0.916
+      ],
+      [
+       0.219,
+       1.049
+      ],
+      [
+       0.25,
+       1.173
+      ],
+      [
+       0.281,
+       1.288
+      ],
+      [
+       0.313,
+       1.391
+      ],
+      [
+       0.344,
+       1.482
+      ],
+      [
+       0.375,
+       1.561
+      ],
+      [
+       0.406,
+       1.627
+      ],
+      [
+       0.438,
+       1.68
+      ],
+      [
+       0.469,
+       1.718
+      ],
+      [
+       0.5,
+       1.741
+      ],
+      [
+       0.531,
+       1.75
+      ],
+      [
+       0.563,
+       1.744
+      ],
+      [
+       0.594,
+       1.723
+      ],
+      [
+       0.625,
+       1.688
+      ],
+      [
+       0.656,
+       1.639
+      ],
+      [
+       0.688,
+       1.576
+      ],
+      [
+       0.719,
+       1.499
+      ],
+      [
+       0.75,
+       1.41
+      ],
+      [
+       0.781,
+       1.309
+      ],
+      [
+       0.813,
+       1.197
+      ],
+      [
+       0.844,
+       1.075
+      ],
+      [
+       0.875,
+       0.944
+      ],
+      [
+       0.906,
+       0.804
+      ],
+      [
+       0.938,
+       0.659
+      ],
+      [
+       0.969,
+       0.507
+      ],
+      [
+       1,
+       0.351
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       0.216
+      ],
+      [
+       0.05,
+       0.842
+      ],
+      [
+       0.075,
+       1.843
+      ],
+      [
+       0.1,
+       3.184
+      ],
+      [
+       0.125,
+       4.83
+      ],
+      [
+       0.15,
+       6.748
+      ],
+      [
+       0.175,
+       8.902
+      ],
+      [
+       0.2,
+       11.257
+      ],
+      [
+       0.225,
+       13.78
+      ],
+      [
+       0.25,
+       16.435
+      ],
+      [
+       0.275,
+       19.188
+      ],
+      [
+       0.3,
+       22.004
+      ],
+      [
+       0.325,
+       24.849
+      ],
+      [
+       0.35,
+       27.688
+      ],
+      [
+       0.375,
+       30.486
+      ],
+      [
+       0.4,
+       33.208
+      ],
+      [
+       0.425,
+       35.821
+      ],
+      [
+       0.45,
+       38.289
+      ],
+      [
+       0.475,
+       40.578
+      ],
+      [
+       0.5,
+       42.653
+      ],
+      [
+       0.525,
+       44.48
+      ],
+      [
+       0.55,
+       46.024
+      ],
+      [
+       0.575,
+       47.249
+      ],
+      [
+       0.6,
+       48.123
+      ],
+      [
+       0.625,
+       48.609
+      ],
+      [
+       0.65,
+       48.613
+      ],
+      [
+       0.675,
+       47.433
+      ],
+      [
+       0.7,
+       45.015
+      ],
+      [
+       0.725,
+       41.532
+      ],
+      [
+       0.75,
+       37.155
+      ],
+      [
+       0.775,
+       32.057
+      ],
+      [
+       0.8,
+       26.408
+      ],
+      [
+       0.825,
+       20.381
+      ],
+      [
+       0.85,
+       14.148
+      ],
+      [
+       0.875,
+       7.88
+      ],
+      [
+       0.9,
+       1.75
+      ],
+      [
+       0.925,
+       -4.07
+      ],
+      [
+       0.95,
+       -9.41
+      ],
+      [
+       0.975,
+       -14.096
+      ],
+      [
+       1,
+       -17.957
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.046
+      ],
+      [
+       0.05,
+       -0.182
+      ],
+      [
+       0.075,
+       -0.403
+      ],
+      [
+       0.1,
+       -0.705
+      ],
+      [
+       0.125,
+       -1.084
+      ],
+      [
+       0.15,
+       -1.535
+      ],
+      [
+       0.175,
+       -2.053
+      ],
+      [
+       0.2,
+       -2.634
+      ],
+      [
+       0.225,
+       -3.275
+      ],
+      [
+       0.25,
+       -3.969
+      ],
+      [
+       0.275,
+       -4.714
+      ],
+      [
+       0.3,
+       -5.505
+      ],
+      [
+       0.325,
+       -6.336
+      ],
+      [
+       0.35,
+       -7.205
+      ],
+      [
+       0.375,
+       -8.106
+      ],
+      [
+       0.4,
+       -9.035
+      ],
+      [
+       0.425,
+       -9.988
+      ],
+      [
+       0.45,
+       -10.96
+      ],
+      [
+       0.475,
+       -11.946
+      ],
+      [
+       0.5,
+       -12.944
+      ],
+      [
+       0.525,
+       -13.947
+      ],
+      [
+       0.55,
+       -14.952
+      ],
+      [
+       0.575,
+       -15.954
+      ],
+      [
+       0.6,
+       -16.949
+      ],
+      [
+       0.625,
+       -17.933
+      ],
+      [
+       0.65,
+       -18.9
+      ],
+      [
+       0.675,
+       -19.848
+      ],
+      [
+       0.7,
+       -20.77
+      ],
+      [
+       0.725,
+       -21.663
+      ],
+      [
+       0.75,
+       -22.523
+      ],
+      [
+       0.775,
+       -23.345
+      ],
+      [
+       0.8,
+       -24.125
+      ],
+      [
+       0.825,
+       -24.857
+      ],
+      [
+       0.85,
+       -25.539
+      ],
+      [
+       0.875,
+       -26.165
+      ],
+      [
+       0.9,
+       -26.731
+      ],
+      [
+       0.925,
+       -27.233
+      ],
+      [
+       0.95,
+       -27.666
+      ],
+      [
+       0.975,
+       -28.025
+      ],
+      [
+       1,
+       -28.308
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.92
+      ],
+      [
+       0.063,
+       1.832
+      ],
+      [
+       0.094,
+       2.728
+      ],
+      [
+       0.125,
+       3.602
+      ],
+      [
+       0.156,
+       4.445
+      ],
+      [
+       0.188,
+       5.251
+      ],
+      [
+       0.219,
+       6.012
+      ],
+      [
+       0.25,
+       6.723
+      ],
+      [
+       0.281,
+       7.377
+      ],
+      [
+       0.313,
+       7.969
+      ],
+      [
+       0.344,
+       8.494
+      ],
+      [
+       0.375,
+       8.947
+      ],
+      [
+       0.406,
+       9.324
+      ],
+      [
+       0.438,
+       9.623
+      ],
+      [
+       0.469,
+       9.841
+      ],
+      [
+       0.5,
+       9.976
+      ],
+      [
+       0.531,
+       10.027
+      ],
+      [
+       0.563,
+       9.993
+      ],
+      [
+       0.594,
+       9.875
+      ],
+      [
+       0.625,
+       9.673
+      ],
+      [
+       0.656,
+       9.39
+      ],
+      [
+       0.688,
+       9.028
+      ],
+      [
+       0.719,
+       8.59
+      ],
+      [
+       0.75,
+       8.079
+      ],
+      [
+       0.781,
+       7.501
+      ],
+      [
+       0.813,
+       6.859
+      ],
+      [
+       0.844,
+       6.159
+      ],
+      [
+       0.875,
+       5.407
+      ],
+      [
+       0.906,
+       4.61
+      ],
+      [
+       0.938,
+       3.773
+      ],
+      [
+       0.969,
+       2.905
+      ],
+      [
+       1,
+       2.013
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "FarmStageActorLumberjack": {
+  "attack:LumberjackSpecial": {
+   "duration": 0.5,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.5,
+   "attackName": "LumberjackSpecial",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.64,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.341
+      ],
+      [
+       0.325,
+       0.67
+      ],
+      [
+       0.348,
+       0.972
+      ],
+      [
+       0.37,
+       1.237
+      ],
+      [
+       0.393,
+       1.455
+      ],
+      [
+       0.415,
+       1.617
+      ],
+      [
+       0.438,
+       1.716
+      ],
+      [
+       0.46,
+       1.75
+      ],
+      [
+       0.483,
+       1.716
+      ],
+      [
+       0.505,
+       1.617
+      ],
+      [
+       0.528,
+       1.455
+      ],
+      [
+       0.55,
+       1.237
+      ],
+      [
+       0.573,
+       0.972
+      ],
+      [
+       0.595,
+       0.67
+      ],
+      [
+       0.618,
+       0.341
+      ],
+      [
+       0.64,
+       0
+      ],
+      [
+       0.663,
+       0
+      ],
+      [
+       0.685,
+       0
+      ],
+      [
+       0.708,
+       0
+      ],
+      [
+       0.73,
+       0
+      ],
+      [
+       0.753,
+       0
+      ],
+      [
+       0.775,
+       0
+      ],
+      [
+       0.798,
+       0
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.496,
+       -48.701
+      ],
+      [
+       0.64,
+       100
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.64,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       1.956
+      ],
+      [
+       0.325,
+       3.837
+      ],
+      [
+       0.348,
+       5.571
+      ],
+      [
+       0.37,
+       7.09
+      ],
+      [
+       0.393,
+       8.337
+      ],
+      [
+       0.415,
+       9.264
+      ],
+      [
+       0.438,
+       9.834
+      ],
+      [
+       0.46,
+       10.027
+      ],
+      [
+       0.483,
+       9.834
+      ],
+      [
+       0.505,
+       9.264
+      ],
+      [
+       0.528,
+       8.337
+      ],
+      [
+       0.55,
+       7.09
+      ],
+      [
+       0.573,
+       5.571
+      ],
+      [
+       0.595,
+       3.837
+      ],
+      [
+       0.618,
+       1.956
+      ],
+      [
+       0.64,
+       0
+      ],
+      [
+       0.663,
+       0
+      ],
+      [
+       0.685,
+       0
+      ],
+      [
+       0.708,
+       0
+      ],
+      [
+       0.73,
+       0
+      ],
+      [
+       0.753,
+       0
+      ],
+      [
+       0.775,
+       0
+      ],
+      [
+       0.798,
+       0
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "attack:LumberjackSlice": {
+   "duration": 0.5,
+   "loop": true,
+   "timeBase": "cycle",
+   "damageTiming": 0.75,
+   "attackName": "LumberjackSlice",
+   "note": "Generic procedural swing \u2014 the rig has no authored timeline.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.82,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       0.228
+      ],
+      [
+       0.325,
+       0.453
+      ],
+      [
+       0.348,
+       0.67
+      ],
+      [
+       0.37,
+       0.875
+      ],
+      [
+       0.393,
+       1.065
+      ],
+      [
+       0.415,
+       1.237
+      ],
+      [
+       0.438,
+       1.388
+      ],
+      [
+       0.46,
+       1.516
+      ],
+      [
+       0.483,
+       1.617
+      ],
+      [
+       0.505,
+       1.69
+      ],
+      [
+       0.528,
+       1.735
+      ],
+      [
+       0.55,
+       1.75
+      ],
+      [
+       0.573,
+       1.735
+      ],
+      [
+       0.595,
+       1.69
+      ],
+      [
+       0.618,
+       1.617
+      ],
+      [
+       0.64,
+       1.516
+      ],
+      [
+       0.663,
+       1.388
+      ],
+      [
+       0.685,
+       1.237
+      ],
+      [
+       0.708,
+       1.065
+      ],
+      [
+       0.73,
+       0.875
+      ],
+      [
+       0.753,
+       0.67
+      ],
+      [
+       0.775,
+       0.453
+      ],
+      [
+       0.798,
+       0.228
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.604,
+       -48.701
+      ],
+      [
+       0.82,
+       22.918
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.82,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0.28,
+       0
+      ],
+      [
+       0.303,
+       1.309
+      ],
+      [
+       0.325,
+       2.595
+      ],
+      [
+       0.348,
+       3.837
+      ],
+      [
+       0.37,
+       5.013
+      ],
+      [
+       0.393,
+       6.104
+      ],
+      [
+       0.415,
+       7.09
+      ],
+      [
+       0.438,
+       7.955
+      ],
+      [
+       0.46,
+       8.684
+      ],
+      [
+       0.483,
+       9.264
+      ],
+      [
+       0.505,
+       9.685
+      ],
+      [
+       0.528,
+       9.941
+      ],
+      [
+       0.55,
+       10.027
+      ],
+      [
+       0.573,
+       9.941
+      ],
+      [
+       0.595,
+       9.685
+      ],
+      [
+       0.618,
+       9.264
+      ],
+      [
+       0.64,
+       8.684
+      ],
+      [
+       0.663,
+       7.955
+      ],
+      [
+       0.685,
+       7.09
+      ],
+      [
+       0.708,
+       6.104
+      ],
+      [
+       0.73,
+       5.013
+      ],
+      [
+       0.753,
+       3.837
+      ],
+      [
+       0.775,
+       2.595
+      ],
+      [
+       0.798,
+       1.309
+      ],
+      [
+       0.82,
+       0
+      ],
+      [
+       0.843,
+       0
+      ],
+      [
+       0.865,
+       0
+      ],
+      [
+       0.888,
+       0
+      ],
+      [
+       0.91,
+       0
+      ],
+      [
+       0.933,
+       0
+      ],
+      [
+       0.955,
+       0
+      ],
+      [
+       0.978,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "RobotStageActorBrainBot": {
+  "idle": {
+   "duration": 4,
+   "loop": true,
+   "timeBase": "free",
+   "tracks": [
+    {
+     "name": "breathe",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 0.891,
+      "phase": 0
+     }
+    },
+    {
+     "name": "new track",
+     "target": "arm",
+     "channel": "rot",
+     "pivot": "self",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       20
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "throw": {
+   "duration": 0.55,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.9,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.72,
+    "uSpan": 1
+   },
+   "note": "Perched boss throw: the arm cocks and swings, releasing the projectile at the hit mark.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.191
+      ],
+      [
+       0.063,
+       0.379
+      ],
+      [
+       0.094,
+       0.563
+      ],
+      [
+       0.125,
+       0.74
+      ],
+      [
+       0.156,
+       0.908
+      ],
+      [
+       0.188,
+       1.065
+      ],
+      [
+       0.219,
+       1.21
+      ],
+      [
+       0.25,
+       1.341
+      ],
+      [
+       0.281,
+       1.455
+      ],
+      [
+       0.313,
+       1.552
+      ],
+      [
+       0.344,
+       1.631
+      ],
+      [
+       0.375,
+       1.69
+      ],
+      [
+       0.406,
+       1.73
+      ],
+      [
+       0.438,
+       1.748
+      ],
+      [
+       0.469,
+       1.746
+      ],
+      [
+       0.5,
+       1.723
+      ],
+      [
+       0.531,
+       1.68
+      ],
+      [
+       0.563,
+       1.617
+      ],
+      [
+       0.594,
+       1.534
+      ],
+      [
+       0.625,
+       1.434
+      ],
+      [
+       0.656,
+       1.316
+      ],
+      [
+       0.688,
+       1.182
+      ],
+      [
+       0.719,
+       1.035
+      ],
+      [
+       0.75,
+       0.875
+      ],
+      [
+       0.781,
+       0.705
+      ],
+      [
+       0.813,
+       0.526
+      ],
+      [
+       0.844,
+       0.341
+      ],
+      [
+       0.875,
+       0.153
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       40
+      ],
+      [
+       0.54,
+       48.701
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       40
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       1.092
+      ],
+      [
+       0.063,
+       2.17
+      ],
+      [
+       0.094,
+       3.223
+      ],
+      [
+       0.125,
+       4.238
+      ],
+      [
+       0.156,
+       5.202
+      ],
+      [
+       0.188,
+       6.104
+      ],
+      [
+       0.219,
+       6.934
+      ],
+      [
+       0.25,
+       7.681
+      ],
+      [
+       0.281,
+       8.337
+      ],
+      [
+       0.313,
+       8.894
+      ],
+      [
+       0.344,
+       9.345
+      ],
+      [
+       0.375,
+       9.685
+      ],
+      [
+       0.406,
+       9.91
+      ],
+      [
+       0.438,
+       10.017
+      ],
+      [
+       0.469,
+       10.006
+      ],
+      [
+       0.5,
+       9.875
+      ],
+      [
+       0.531,
+       9.626
+      ],
+      [
+       0.563,
+       9.264
+      ],
+      [
+       0.594,
+       8.791
+      ],
+      [
+       0.625,
+       8.214
+      ],
+      [
+       0.656,
+       7.539
+      ],
+      [
+       0.688,
+       6.774
+      ],
+      [
+       0.719,
+       5.929
+      ],
+      [
+       0.75,
+       5.014
+      ],
+      [
+       0.781,
+       4.038
+      ],
+      [
+       0.813,
+       3.015
+      ],
+      [
+       0.844,
+       1.956
+      ],
+      [
+       0.875,
+       0.874
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "RobotStageActorBroBot": {
+  "attack": {
+   "duration": 0.333,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 1,
+   "attackName": "BroBotAttack",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 14), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "primary arm spin",
+     "target": "arm.front.0",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.05,
+       0
+      ],
+      [
+       0.65,
+       180
+      ],
+      [
+       0.95,
+       -270
+      ],
+      [
+       1,
+       90
+      ]
+     ]
+    },
+    {
+     "name": "secondary arm spin",
+     "target": "arm.front.1",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.01,
+       0
+      ],
+      [
+       0.61,
+       140
+      ],
+      [
+       0.96,
+       -275
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "primary arm stretch x",
+     "target": "arm.front.0",
+     "channel": "scaleX",
+     "keys": [
+      [
+       0,
+       1
+      ],
+      [
+       0.9,
+       1.2
+      ],
+      [
+       1,
+       1
+      ]
+     ]
+    },
+    {
+     "name": "primary arm stretch y",
+     "target": "arm.front.0",
+     "channel": "scaleY",
+     "keys": [
+      [
+       0,
+       1
+      ],
+      [
+       0.9,
+       1.2
+      ],
+      [
+       1,
+       1
+      ]
+     ]
+    },
+    {
+     "name": "back arm",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       10
+      ],
+      [
+       1,
+       -20
+      ]
+     ]
+    },
+    {
+     "name": "back arm",
+     "target": "weapon",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       10
+      ],
+      [
+       1,
+       -20
+      ]
+     ]
+    },
+    {
+     "name": "head jolt x",
+     "target": "head",
+     "channel": "x",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.8,
+       -8
+      ],
+      [
+       0.95,
+       5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "head jolt y",
+     "target": "head",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.8,
+       -4
+      ],
+      [
+       0.95,
+       2
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "throw": {
+   "duration": 0.55,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.9,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.72,
+    "uSpan": 1
+   },
+   "note": "Perched boss throw: the arm cocks and swings, releasing the projectile at the hit mark.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.191
+      ],
+      [
+       0.063,
+       0.379
+      ],
+      [
+       0.094,
+       0.563
+      ],
+      [
+       0.125,
+       0.74
+      ],
+      [
+       0.156,
+       0.908
+      ],
+      [
+       0.188,
+       1.065
+      ],
+      [
+       0.219,
+       1.21
+      ],
+      [
+       0.25,
+       1.341
+      ],
+      [
+       0.281,
+       1.455
+      ],
+      [
+       0.313,
+       1.552
+      ],
+      [
+       0.344,
+       1.631
+      ],
+      [
+       0.375,
+       1.69
+      ],
+      [
+       0.406,
+       1.73
+      ],
+      [
+       0.438,
+       1.748
+      ],
+      [
+       0.469,
+       1.746
+      ],
+      [
+       0.5,
+       1.723
+      ],
+      [
+       0.531,
+       1.68
+      ],
+      [
+       0.563,
+       1.617
+      ],
+      [
+       0.594,
+       1.534
+      ],
+      [
+       0.625,
+       1.434
+      ],
+      [
+       0.656,
+       1.316
+      ],
+      [
+       0.688,
+       1.182
+      ],
+      [
+       0.719,
+       1.035
+      ],
+      [
+       0.75,
+       0.875
+      ],
+      [
+       0.781,
+       0.705
+      ],
+      [
+       0.813,
+       0.526
+      ],
+      [
+       0.844,
+       0.341
+      ],
+      [
+       0.875,
+       0.153
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.54,
+       48.701
+      ],
+      [
+       0.9,
+       -22.918
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "weapon",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       1.092
+      ],
+      [
+       0.063,
+       2.17
+      ],
+      [
+       0.094,
+       3.223
+      ],
+      [
+       0.125,
+       4.238
+      ],
+      [
+       0.156,
+       5.202
+      ],
+      [
+       0.188,
+       6.104
+      ],
+      [
+       0.219,
+       6.934
+      ],
+      [
+       0.25,
+       7.681
+      ],
+      [
+       0.281,
+       8.337
+      ],
+      [
+       0.313,
+       8.894
+      ],
+      [
+       0.344,
+       9.345
+      ],
+      [
+       0.375,
+       9.685
+      ],
+      [
+       0.406,
+       9.91
+      ],
+      [
+       0.438,
+       10.017
+      ],
+      [
+       0.469,
+       10.006
+      ],
+      [
+       0.5,
+       9.875
+      ],
+      [
+       0.531,
+       9.626
+      ],
+      [
+       0.563,
+       9.264
+      ],
+      [
+       0.594,
+       8.791
+      ],
+      [
+       0.625,
+       8.214
+      ],
+      [
+       0.656,
+       7.539
+      ],
+      [
+       0.688,
+       6.774
+      ],
+      [
+       0.719,
+       5.929
+      ],
+      [
+       0.75,
+       5.014
+      ],
+      [
+       0.781,
+       4.038
+      ],
+      [
+       0.813,
+       3.015
+      ],
+      [
+       0.844,
+       1.956
+      ],
+      [
+       0.875,
+       0.874
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "weapon",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       1.092
+      ],
+      [
+       0.063,
+       2.17
+      ],
+      [
+       0.094,
+       3.223
+      ],
+      [
+       0.125,
+       4.238
+      ],
+      [
+       0.156,
+       5.202
+      ],
+      [
+       0.188,
+       6.104
+      ],
+      [
+       0.219,
+       6.934
+      ],
+      [
+       0.25,
+       7.681
+      ],
+      [
+       0.281,
+       8.337
+      ],
+      [
+       0.313,
+       8.894
+      ],
+      [
+       0.344,
+       9.345
+      ],
+      [
+       0.375,
+       9.685
+      ],
+      [
+       0.406,
+       9.91
+      ],
+      [
+       0.438,
+       10.017
+      ],
+      [
+       0.469,
+       10.006
+      ],
+      [
+       0.5,
+       9.875
+      ],
+      [
+       0.531,
+       9.626
+      ],
+      [
+       0.563,
+       9.264
+      ],
+      [
+       0.594,
+       8.791
+      ],
+      [
+       0.625,
+       8.214
+      ],
+      [
+       0.656,
+       7.539
+      ],
+      [
+       0.688,
+       6.774
+      ],
+      [
+       0.719,
+       5.929
+      ],
+      [
+       0.75,
+       5.014
+      ],
+      [
+       0.781,
+       4.038
+      ],
+      [
+       0.813,
+       3.015
+      ],
+      [
+       0.844,
+       1.956
+      ],
+      [
+       0.875,
+       0.874
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "ability": {
+   "duration": 3,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.98,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.64,
+    "uSpan": 0.888888888888889
+   },
+   "note": "Boss special (wall summon): a slow raise/hold across the authored cast time.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.008
+      ],
+      [
+       0.05,
+       -0.032
+      ],
+      [
+       0.075,
+       -0.07
+      ],
+      [
+       0.1,
+       -0.123
+      ],
+      [
+       0.125,
+       -0.189
+      ],
+      [
+       0.15,
+       -0.268
+      ],
+      [
+       0.175,
+       -0.358
+      ],
+      [
+       0.2,
+       -0.46
+      ],
+      [
+       0.225,
+       -0.572
+      ],
+      [
+       0.25,
+       -0.693
+      ],
+      [
+       0.275,
+       -0.823
+      ],
+      [
+       0.3,
+       -0.961
+      ],
+      [
+       0.325,
+       -1.106
+      ],
+      [
+       0.35,
+       -1.257
+      ],
+      [
+       0.375,
+       -1.415
+      ],
+      [
+       0.4,
+       -1.577
+      ],
+      [
+       0.425,
+       -1.743
+      ],
+      [
+       0.45,
+       -1.913
+      ],
+      [
+       0.475,
+       -2.085
+      ],
+      [
+       0.5,
+       -2.259
+      ],
+      [
+       0.525,
+       -2.434
+      ],
+      [
+       0.55,
+       -2.61
+      ],
+      [
+       0.575,
+       -2.785
+      ],
+      [
+       0.6,
+       -2.958
+      ],
+      [
+       0.625,
+       -3.13
+      ],
+      [
+       0.65,
+       -3.299
+      ],
+      [
+       0.675,
+       -3.464
+      ],
+      [
+       0.7,
+       -3.625
+      ],
+      [
+       0.725,
+       -3.781
+      ],
+      [
+       0.75,
+       -3.931
+      ],
+      [
+       0.775,
+       -4.074
+      ],
+      [
+       0.8,
+       -4.211
+      ],
+      [
+       0.825,
+       -4.338
+      ],
+      [
+       0.85,
+       -4.457
+      ],
+      [
+       0.875,
+       -4.567
+      ],
+      [
+       0.9,
+       -4.665
+      ],
+      [
+       0.925,
+       -4.753
+      ],
+      [
+       0.95,
+       -4.829
+      ],
+      [
+       0.975,
+       -4.891
+      ],
+      [
+       1,
+       -4.941
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.161
+      ],
+      [
+       0.063,
+       0.32
+      ],
+      [
+       0.094,
+       0.476
+      ],
+      [
+       0.125,
+       0.629
+      ],
+      [
+       0.156,
+       0.776
+      ],
+      [
+       0.188,
+       0.916
+      ],
+      [
+       0.219,
+       1.049
+      ],
+      [
+       0.25,
+       1.173
+      ],
+      [
+       0.281,
+       1.288
+      ],
+      [
+       0.313,
+       1.391
+      ],
+      [
+       0.344,
+       1.482
+      ],
+      [
+       0.375,
+       1.561
+      ],
+      [
+       0.406,
+       1.627
+      ],
+      [
+       0.438,
+       1.68
+      ],
+      [
+       0.469,
+       1.718
+      ],
+      [
+       0.5,
+       1.741
+      ],
+      [
+       0.531,
+       1.75
+      ],
+      [
+       0.563,
+       1.744
+      ],
+      [
+       0.594,
+       1.723
+      ],
+      [
+       0.625,
+       1.688
+      ],
+      [
+       0.656,
+       1.639
+      ],
+      [
+       0.688,
+       1.576
+      ],
+      [
+       0.719,
+       1.499
+      ],
+      [
+       0.75,
+       1.41
+      ],
+      [
+       0.781,
+       1.309
+      ],
+      [
+       0.813,
+       1.197
+      ],
+      [
+       0.844,
+       1.075
+      ],
+      [
+       0.875,
+       0.944
+      ],
+      [
+       0.906,
+       0.804
+      ],
+      [
+       0.938,
+       0.659
+      ],
+      [
+       0.969,
+       0.507
+      ],
+      [
+       1,
+       0.351
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       0.216
+      ],
+      [
+       0.05,
+       0.842
+      ],
+      [
+       0.075,
+       1.843
+      ],
+      [
+       0.1,
+       3.184
+      ],
+      [
+       0.125,
+       4.83
+      ],
+      [
+       0.15,
+       6.748
+      ],
+      [
+       0.175,
+       8.902
+      ],
+      [
+       0.2,
+       11.257
+      ],
+      [
+       0.225,
+       13.78
+      ],
+      [
+       0.25,
+       16.435
+      ],
+      [
+       0.275,
+       19.188
+      ],
+      [
+       0.3,
+       22.004
+      ],
+      [
+       0.325,
+       24.849
+      ],
+      [
+       0.35,
+       27.688
+      ],
+      [
+       0.375,
+       30.486
+      ],
+      [
+       0.4,
+       33.208
+      ],
+      [
+       0.425,
+       35.821
+      ],
+      [
+       0.45,
+       38.289
+      ],
+      [
+       0.475,
+       40.578
+      ],
+      [
+       0.5,
+       42.653
+      ],
+      [
+       0.525,
+       44.48
+      ],
+      [
+       0.55,
+       46.024
+      ],
+      [
+       0.575,
+       47.249
+      ],
+      [
+       0.6,
+       48.123
+      ],
+      [
+       0.625,
+       48.609
+      ],
+      [
+       0.65,
+       48.613
+      ],
+      [
+       0.675,
+       47.433
+      ],
+      [
+       0.7,
+       45.015
+      ],
+      [
+       0.725,
+       41.532
+      ],
+      [
+       0.75,
+       37.155
+      ],
+      [
+       0.775,
+       32.057
+      ],
+      [
+       0.8,
+       26.408
+      ],
+      [
+       0.825,
+       20.381
+      ],
+      [
+       0.85,
+       14.148
+      ],
+      [
+       0.875,
+       7.88
+      ],
+      [
+       0.9,
+       1.75
+      ],
+      [
+       0.925,
+       -4.07
+      ],
+      [
+       0.95,
+       -9.41
+      ],
+      [
+       0.975,
+       -14.096
+      ],
+      [
+       1,
+       -17.957
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.046
+      ],
+      [
+       0.05,
+       -0.182
+      ],
+      [
+       0.075,
+       -0.403
+      ],
+      [
+       0.1,
+       -0.705
+      ],
+      [
+       0.125,
+       -1.084
+      ],
+      [
+       0.15,
+       -1.535
+      ],
+      [
+       0.175,
+       -2.053
+      ],
+      [
+       0.2,
+       -2.634
+      ],
+      [
+       0.225,
+       -3.275
+      ],
+      [
+       0.25,
+       -3.969
+      ],
+      [
+       0.275,
+       -4.714
+      ],
+      [
+       0.3,
+       -5.505
+      ],
+      [
+       0.325,
+       -6.336
+      ],
+      [
+       0.35,
+       -7.205
+      ],
+      [
+       0.375,
+       -8.106
+      ],
+      [
+       0.4,
+       -9.035
+      ],
+      [
+       0.425,
+       -9.988
+      ],
+      [
+       0.45,
+       -10.96
+      ],
+      [
+       0.475,
+       -11.946
+      ],
+      [
+       0.5,
+       -12.944
+      ],
+      [
+       0.525,
+       -13.947
+      ],
+      [
+       0.55,
+       -14.952
+      ],
+      [
+       0.575,
+       -15.954
+      ],
+      [
+       0.6,
+       -16.949
+      ],
+      [
+       0.625,
+       -17.933
+      ],
+      [
+       0.65,
+       -18.9
+      ],
+      [
+       0.675,
+       -19.848
+      ],
+      [
+       0.7,
+       -20.77
+      ],
+      [
+       0.725,
+       -21.663
+      ],
+      [
+       0.75,
+       -22.523
+      ],
+      [
+       0.775,
+       -23.345
+      ],
+      [
+       0.8,
+       -24.125
+      ],
+      [
+       0.825,
+       -24.857
+      ],
+      [
+       0.85,
+       -25.539
+      ],
+      [
+       0.875,
+       -26.165
+      ],
+      [
+       0.9,
+       -26.731
+      ],
+      [
+       0.925,
+       -27.233
+      ],
+      [
+       0.95,
+       -27.666
+      ],
+      [
+       0.975,
+       -28.025
+      ],
+      [
+       1,
+       -28.308
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "weapon",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.046
+      ],
+      [
+       0.05,
+       -0.182
+      ],
+      [
+       0.075,
+       -0.403
+      ],
+      [
+       0.1,
+       -0.705
+      ],
+      [
+       0.125,
+       -1.084
+      ],
+      [
+       0.15,
+       -1.535
+      ],
+      [
+       0.175,
+       -2.053
+      ],
+      [
+       0.2,
+       -2.634
+      ],
+      [
+       0.225,
+       -3.275
+      ],
+      [
+       0.25,
+       -3.969
+      ],
+      [
+       0.275,
+       -4.714
+      ],
+      [
+       0.3,
+       -5.505
+      ],
+      [
+       0.325,
+       -6.336
+      ],
+      [
+       0.35,
+       -7.205
+      ],
+      [
+       0.375,
+       -8.106
+      ],
+      [
+       0.4,
+       -9.035
+      ],
+      [
+       0.425,
+       -9.988
+      ],
+      [
+       0.45,
+       -10.96
+      ],
+      [
+       0.475,
+       -11.946
+      ],
+      [
+       0.5,
+       -12.944
+      ],
+      [
+       0.525,
+       -13.947
+      ],
+      [
+       0.55,
+       -14.952
+      ],
+      [
+       0.575,
+       -15.954
+      ],
+      [
+       0.6,
+       -16.949
+      ],
+      [
+       0.625,
+       -17.933
+      ],
+      [
+       0.65,
+       -18.9
+      ],
+      [
+       0.675,
+       -19.848
+      ],
+      [
+       0.7,
+       -20.77
+      ],
+      [
+       0.725,
+       -21.663
+      ],
+      [
+       0.75,
+       -22.523
+      ],
+      [
+       0.775,
+       -23.345
+      ],
+      [
+       0.8,
+       -24.125
+      ],
+      [
+       0.825,
+       -24.857
+      ],
+      [
+       0.85,
+       -25.539
+      ],
+      [
+       0.875,
+       -26.165
+      ],
+      [
+       0.9,
+       -26.731
+      ],
+      [
+       0.925,
+       -27.233
+      ],
+      [
+       0.95,
+       -27.666
+      ],
+      [
+       0.975,
+       -28.025
+      ],
+      [
+       1,
+       -28.308
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.92
+      ],
+      [
+       0.063,
+       1.832
+      ],
+      [
+       0.094,
+       2.728
+      ],
+      [
+       0.125,
+       3.602
+      ],
+      [
+       0.156,
+       4.445
+      ],
+      [
+       0.188,
+       5.251
+      ],
+      [
+       0.219,
+       6.012
+      ],
+      [
+       0.25,
+       6.723
+      ],
+      [
+       0.281,
+       7.377
+      ],
+      [
+       0.313,
+       7.969
+      ],
+      [
+       0.344,
+       8.494
+      ],
+      [
+       0.375,
+       8.947
+      ],
+      [
+       0.406,
+       9.324
+      ],
+      [
+       0.438,
+       9.623
+      ],
+      [
+       0.469,
+       9.841
+      ],
+      [
+       0.5,
+       9.976
+      ],
+      [
+       0.531,
+       10.027
+      ],
+      [
+       0.563,
+       9.993
+      ],
+      [
+       0.594,
+       9.875
+      ],
+      [
+       0.625,
+       9.673
+      ],
+      [
+       0.656,
+       9.39
+      ],
+      [
+       0.688,
+       9.028
+      ],
+      [
+       0.719,
+       8.59
+      ],
+      [
+       0.75,
+       8.079
+      ],
+      [
+       0.781,
+       7.501
+      ],
+      [
+       0.813,
+       6.859
+      ],
+      [
+       0.844,
+       6.159
+      ],
+      [
+       0.875,
+       5.407
+      ],
+      [
+       0.906,
+       4.61
+      ],
+      [
+       0.938,
+       3.773
+      ],
+      [
+       0.969,
+       2.905
+      ],
+      [
+       1,
+       2.013
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "RobotStageActorJunkBot": {
+  "attack": {
+   "duration": 0.2,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 1,
+   "attackName": "JunkBotBite",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 15), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.555,
+       -2.421
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     },
+     "posOnly": true,
+     "ease": "smooth"
+    },
+    {
+     "name": "new track",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.2,
+       90
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       -50
+      ],
+      [
+       0.2,
+       60
+      ],
+      [
+       1,
+       -50
+      ]
+     ]
+    }
+   ]
+  },
+  "throw": {
+   "duration": 0.55,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.9,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.72,
+    "uSpan": 1
+   },
+   "note": "Perched boss throw: the arm cocks and swings, releasing the projectile at the hit mark.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.191
+      ],
+      [
+       0.063,
+       0.379
+      ],
+      [
+       0.094,
+       0.563
+      ],
+      [
+       0.125,
+       0.74
+      ],
+      [
+       0.156,
+       0.908
+      ],
+      [
+       0.188,
+       1.065
+      ],
+      [
+       0.219,
+       1.21
+      ],
+      [
+       0.25,
+       1.341
+      ],
+      [
+       0.281,
+       1.455
+      ],
+      [
+       0.313,
+       1.552
+      ],
+      [
+       0.344,
+       1.631
+      ],
+      [
+       0.375,
+       1.69
+      ],
+      [
+       0.406,
+       1.73
+      ],
+      [
+       0.438,
+       1.748
+      ],
+      [
+       0.469,
+       1.746
+      ],
+      [
+       0.5,
+       1.723
+      ],
+      [
+       0.531,
+       1.68
+      ],
+      [
+       0.563,
+       1.617
+      ],
+      [
+       0.594,
+       1.534
+      ],
+      [
+       0.625,
+       1.434
+      ],
+      [
+       0.656,
+       1.316
+      ],
+      [
+       0.688,
+       1.182
+      ],
+      [
+       0.719,
+       1.035
+      ],
+      [
+       0.75,
+       0.875
+      ],
+      [
+       0.781,
+       0.705
+      ],
+      [
+       0.813,
+       0.526
+      ],
+      [
+       0.844,
+       0.341
+      ],
+      [
+       0.875,
+       0.153
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       45
+      ],
+      [
+       0.2,
+       110
+      ],
+      [
+       0.9,
+       45
+      ],
+      [
+       1,
+       30
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.231,
+       90
+      ],
+      [
+       0.9,
+       -28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       1.092
+      ],
+      [
+       0.063,
+       2.17
+      ],
+      [
+       0.094,
+       3.223
+      ],
+      [
+       0.125,
+       4.238
+      ],
+      [
+       0.156,
+       5.202
+      ],
+      [
+       0.188,
+       6.104
+      ],
+      [
+       0.219,
+       6.934
+      ],
+      [
+       0.25,
+       7.681
+      ],
+      [
+       0.281,
+       8.337
+      ],
+      [
+       0.313,
+       8.894
+      ],
+      [
+       0.344,
+       9.345
+      ],
+      [
+       0.375,
+       9.685
+      ],
+      [
+       0.406,
+       9.91
+      ],
+      [
+       0.438,
+       10.017
+      ],
+      [
+       0.469,
+       10.006
+      ],
+      [
+       0.5,
+       9.875
+      ],
+      [
+       0.531,
+       9.626
+      ],
+      [
+       0.563,
+       9.264
+      ],
+      [
+       0.594,
+       8.791
+      ],
+      [
+       0.625,
+       8.214
+      ],
+      [
+       0.656,
+       7.539
+      ],
+      [
+       0.688,
+       6.774
+      ],
+      [
+       0.719,
+       5.929
+      ],
+      [
+       0.75,
+       5.014
+      ],
+      [
+       0.781,
+       4.038
+      ],
+      [
+       0.813,
+       3.015
+      ],
+      [
+       0.844,
+       1.956
+      ],
+      [
+       0.875,
+       0.874
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "ability": {
+   "duration": 3,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.98,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.64,
+    "uSpan": 0.888888888888889
+   },
+   "note": "Boss special (wall summon): a slow raise/hold across the authored cast time.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.008
+      ],
+      [
+       0.05,
+       -0.032
+      ],
+      [
+       0.075,
+       -0.07
+      ],
+      [
+       0.1,
+       -0.123
+      ],
+      [
+       0.125,
+       -0.189
+      ],
+      [
+       0.15,
+       -0.268
+      ],
+      [
+       0.175,
+       -0.358
+      ],
+      [
+       0.2,
+       -0.46
+      ],
+      [
+       0.225,
+       -0.572
+      ],
+      [
+       0.25,
+       -0.693
+      ],
+      [
+       0.275,
+       -0.823
+      ],
+      [
+       0.3,
+       -0.961
+      ],
+      [
+       0.325,
+       -1.106
+      ],
+      [
+       0.35,
+       -1.257
+      ],
+      [
+       0.375,
+       -1.415
+      ],
+      [
+       0.4,
+       -1.577
+      ],
+      [
+       0.425,
+       -1.743
+      ],
+      [
+       0.45,
+       -1.913
+      ],
+      [
+       0.475,
+       -2.085
+      ],
+      [
+       0.5,
+       -2.259
+      ],
+      [
+       0.525,
+       -2.434
+      ],
+      [
+       0.55,
+       -2.61
+      ],
+      [
+       0.575,
+       -2.785
+      ],
+      [
+       0.6,
+       -2.958
+      ],
+      [
+       0.625,
+       -3.13
+      ],
+      [
+       0.65,
+       -3.299
+      ],
+      [
+       0.675,
+       -3.464
+      ],
+      [
+       0.7,
+       -3.625
+      ],
+      [
+       0.725,
+       -3.781
+      ],
+      [
+       0.75,
+       -3.931
+      ],
+      [
+       0.775,
+       -4.074
+      ],
+      [
+       0.8,
+       -4.211
+      ],
+      [
+       0.825,
+       -4.338
+      ],
+      [
+       0.85,
+       -4.457
+      ],
+      [
+       0.875,
+       -4.567
+      ],
+      [
+       0.9,
+       -4.665
+      ],
+      [
+       0.925,
+       -4.753
+      ],
+      [
+       0.95,
+       -4.829
+      ],
+      [
+       0.975,
+       -4.891
+      ],
+      [
+       1,
+       -4.941
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.161
+      ],
+      [
+       0.063,
+       0.32
+      ],
+      [
+       0.094,
+       0.476
+      ],
+      [
+       0.125,
+       0.629
+      ],
+      [
+       0.156,
+       0.776
+      ],
+      [
+       0.188,
+       0.916
+      ],
+      [
+       0.219,
+       1.049
+      ],
+      [
+       0.25,
+       1.173
+      ],
+      [
+       0.281,
+       1.288
+      ],
+      [
+       0.313,
+       1.391
+      ],
+      [
+       0.344,
+       1.482
+      ],
+      [
+       0.375,
+       1.561
+      ],
+      [
+       0.406,
+       1.627
+      ],
+      [
+       0.438,
+       1.68
+      ],
+      [
+       0.469,
+       1.718
+      ],
+      [
+       0.5,
+       1.741
+      ],
+      [
+       0.531,
+       1.75
+      ],
+      [
+       0.563,
+       1.744
+      ],
+      [
+       0.594,
+       1.723
+      ],
+      [
+       0.625,
+       1.688
+      ],
+      [
+       0.656,
+       1.639
+      ],
+      [
+       0.688,
+       1.576
+      ],
+      [
+       0.719,
+       1.499
+      ],
+      [
+       0.75,
+       1.41
+      ],
+      [
+       0.781,
+       1.309
+      ],
+      [
+       0.813,
+       1.197
+      ],
+      [
+       0.844,
+       1.075
+      ],
+      [
+       0.875,
+       0.944
+      ],
+      [
+       0.906,
+       0.804
+      ],
+      [
+       0.938,
+       0.659
+      ],
+      [
+       0.969,
+       0.507
+      ],
+      [
+       1,
+       0.351
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       0.216
+      ],
+      [
+       0.05,
+       0.842
+      ],
+      [
+       0.075,
+       1.843
+      ],
+      [
+       0.1,
+       3.184
+      ],
+      [
+       0.125,
+       4.83
+      ],
+      [
+       0.15,
+       6.748
+      ],
+      [
+       0.175,
+       8.902
+      ],
+      [
+       0.2,
+       11.257
+      ],
+      [
+       0.225,
+       13.78
+      ],
+      [
+       0.25,
+       16.435
+      ],
+      [
+       0.275,
+       19.188
+      ],
+      [
+       0.3,
+       22.004
+      ],
+      [
+       0.325,
+       24.849
+      ],
+      [
+       0.35,
+       27.688
+      ],
+      [
+       0.375,
+       30.486
+      ],
+      [
+       0.4,
+       33.208
+      ],
+      [
+       0.425,
+       35.821
+      ],
+      [
+       0.45,
+       38.289
+      ],
+      [
+       0.475,
+       40.578
+      ],
+      [
+       0.5,
+       42.653
+      ],
+      [
+       0.525,
+       44.48
+      ],
+      [
+       0.55,
+       46.024
+      ],
+      [
+       0.575,
+       47.249
+      ],
+      [
+       0.6,
+       48.123
+      ],
+      [
+       0.625,
+       48.609
+      ],
+      [
+       0.65,
+       48.613
+      ],
+      [
+       0.675,
+       47.433
+      ],
+      [
+       0.7,
+       45.015
+      ],
+      [
+       0.725,
+       41.532
+      ],
+      [
+       0.75,
+       37.155
+      ],
+      [
+       0.775,
+       32.057
+      ],
+      [
+       0.8,
+       26.408
+      ],
+      [
+       0.825,
+       20.381
+      ],
+      [
+       0.85,
+       14.148
+      ],
+      [
+       0.875,
+       7.88
+      ],
+      [
+       0.9,
+       1.75
+      ],
+      [
+       0.925,
+       -4.07
+      ],
+      [
+       0.95,
+       -9.41
+      ],
+      [
+       0.975,
+       -14.096
+      ],
+      [
+       1,
+       -17.957
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.046
+      ],
+      [
+       0.05,
+       -0.182
+      ],
+      [
+       0.075,
+       -0.403
+      ],
+      [
+       0.1,
+       -0.705
+      ],
+      [
+       0.125,
+       -1.084
+      ],
+      [
+       0.15,
+       -1.535
+      ],
+      [
+       0.175,
+       -2.053
+      ],
+      [
+       0.2,
+       -2.634
+      ],
+      [
+       0.225,
+       -3.275
+      ],
+      [
+       0.25,
+       -3.969
+      ],
+      [
+       0.275,
+       -4.714
+      ],
+      [
+       0.3,
+       -5.505
+      ],
+      [
+       0.325,
+       -6.336
+      ],
+      [
+       0.35,
+       -7.205
+      ],
+      [
+       0.375,
+       -8.106
+      ],
+      [
+       0.4,
+       -9.035
+      ],
+      [
+       0.425,
+       -9.988
+      ],
+      [
+       0.45,
+       -10.96
+      ],
+      [
+       0.475,
+       -11.946
+      ],
+      [
+       0.5,
+       -12.944
+      ],
+      [
+       0.525,
+       -13.947
+      ],
+      [
+       0.55,
+       -14.952
+      ],
+      [
+       0.575,
+       -15.954
+      ],
+      [
+       0.6,
+       -16.949
+      ],
+      [
+       0.625,
+       -17.933
+      ],
+      [
+       0.65,
+       -18.9
+      ],
+      [
+       0.675,
+       -19.848
+      ],
+      [
+       0.7,
+       -20.77
+      ],
+      [
+       0.725,
+       -21.663
+      ],
+      [
+       0.75,
+       -22.523
+      ],
+      [
+       0.775,
+       -23.345
+      ],
+      [
+       0.8,
+       -24.125
+      ],
+      [
+       0.825,
+       -24.857
+      ],
+      [
+       0.85,
+       -25.539
+      ],
+      [
+       0.875,
+       -26.165
+      ],
+      [
+       0.9,
+       -26.731
+      ],
+      [
+       0.925,
+       -27.233
+      ],
+      [
+       0.95,
+       -27.666
+      ],
+      [
+       0.975,
+       -28.025
+      ],
+      [
+       1,
+       -28.308
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "auto",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.92
+      ],
+      [
+       0.063,
+       1.832
+      ],
+      [
+       0.094,
+       2.728
+      ],
+      [
+       0.125,
+       3.602
+      ],
+      [
+       0.156,
+       4.445
+      ],
+      [
+       0.188,
+       5.251
+      ],
+      [
+       0.219,
+       6.012
+      ],
+      [
+       0.25,
+       6.723
+      ],
+      [
+       0.281,
+       7.377
+      ],
+      [
+       0.313,
+       7.969
+      ],
+      [
+       0.344,
+       8.494
+      ],
+      [
+       0.375,
+       8.947
+      ],
+      [
+       0.406,
+       9.324
+      ],
+      [
+       0.438,
+       9.623
+      ],
+      [
+       0.469,
+       9.841
+      ],
+      [
+       0.5,
+       9.976
+      ],
+      [
+       0.531,
+       10.027
+      ],
+      [
+       0.563,
+       9.993
+      ],
+      [
+       0.594,
+       9.875
+      ],
+      [
+       0.625,
+       9.673
+      ],
+      [
+       0.656,
+       9.39
+      ],
+      [
+       0.688,
+       9.028
+      ],
+      [
+       0.719,
+       8.59
+      ],
+      [
+       0.75,
+       8.079
+      ],
+      [
+       0.781,
+       7.501
+      ],
+      [
+       0.813,
+       6.859
+      ],
+      [
+       0.844,
+       6.159
+      ],
+      [
+       0.875,
+       5.407
+      ],
+      [
+       0.906,
+       4.61
+      ],
+      [
+       0.938,
+       3.773
+      ],
+      [
+       0.969,
+       2.905
+      ],
+      [
+       1,
+       2.013
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.15,
+       -140
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "new track",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "back-shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.15,
+       100
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "CircusStageActorMinion1": {
+  "attack": {
+   "duration": 1,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 0.3,
+   "attackName": "UnicycleBearAttack",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 22), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "legs counter-rock",
+     "target": "leg",
+     "channel": "rot",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.05,
+       6
+      ],
+      [
+       0.1,
+       -6
+      ],
+      [
+       0.2,
+       9
+      ],
+      [
+       0.3,
+       -9
+      ],
+      [
+       0.6,
+       6
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "arm 1 flourish",
+     "target": "arm.0",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.05,
+       -90
+      ],
+      [
+       0.1,
+       90
+      ],
+      [
+       0.2,
+       -120
+      ],
+      [
+       0.3,
+       15
+      ],
+      [
+       0.55,
+       -10
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "arm 2 flourish",
+     "target": "arm.1",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.05,
+       90
+      ],
+      [
+       0.1,
+       -90
+      ],
+      [
+       0.2,
+       120
+      ],
+      [
+       0.3,
+       -15
+      ],
+      [
+       0.55,
+       10
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "wheel correction",
+     "target": "wheel",
+     "channel": "rot",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.2,
+       -90
+      ],
+      [
+       0.3,
+       90
+      ],
+      [
+       0.65,
+       -20
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "hop",
+     "target": "root",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.083,
+       -1.294
+      ],
+      [
+       0.167,
+       -2.5
+      ],
+      [
+       0.25,
+       -3.536
+      ],
+      [
+       0.333,
+       -4.33
+      ],
+      [
+       0.417,
+       -4.83
+      ],
+      [
+       0.5,
+       -5
+      ],
+      [
+       0.583,
+       -4.83
+      ],
+      [
+       0.667,
+       -4.33
+      ],
+      [
+       0.75,
+       -3.536
+      ],
+      [
+       0.833,
+       -2.5
+      ],
+      [
+       0.917,
+       -1.294
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "CircusStageActorBoss": {
+  "attack": {
+   "duration": 0.25,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 0.75,
+   "attackName": "RingMasterAttack",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 24), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "front arm",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.1,
+       10
+      ],
+      [
+       0.5,
+       15
+      ],
+      [
+       0.75,
+       -10
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.1,
+       0
+      ],
+      [
+       0.5,
+       60
+      ],
+      [
+       0.75,
+       -40
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body flourish",
+     "target": "body",
+     "channel": "rot",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.4,
+       -10
+      ],
+      [
+       0.75,
+       -5.5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "head strike x",
+     "target": "head",
+     "channel": "x",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       0
+      ],
+      [
+       0.75,
+       -2
+      ],
+      [
+       1,
+       0
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "head strike y",
+     "target": "head",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       0
+      ],
+      [
+       0.75,
+       2
+      ],
+      [
+       1,
+       0
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "step",
+     "target": "root",
+     "channel": "x",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       0
+      ],
+      [
+       0.75,
+       -2
+      ],
+      [
+       1,
+       0
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "leg 1 splay",
+     "target": "leg.0",
+     "channel": "rot",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.4,
+       -10
+      ],
+      [
+       0.75,
+       -5.5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "leg 2 splay",
+     "target": "leg.1",
+     "channel": "rot",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.4,
+       10
+      ],
+      [
+       0.75,
+       5.5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "throw": {
+   "duration": 0.55,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.9,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.72,
+    "uSpan": 1
+   },
+   "note": "Perched boss throw: the arm cocks and swings, releasing the projectile at the hit mark.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       -5
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.191
+      ],
+      [
+       0.063,
+       0.379
+      ],
+      [
+       0.094,
+       0.563
+      ],
+      [
+       0.125,
+       0.74
+      ],
+      [
+       0.156,
+       0.908
+      ],
+      [
+       0.188,
+       1.065
+      ],
+      [
+       0.219,
+       1.21
+      ],
+      [
+       0.25,
+       1.341
+      ],
+      [
+       0.281,
+       1.455
+      ],
+      [
+       0.313,
+       1.552
+      ],
+      [
+       0.344,
+       1.631
+      ],
+      [
+       0.375,
+       1.69
+      ],
+      [
+       0.406,
+       1.73
+      ],
+      [
+       0.438,
+       1.748
+      ],
+      [
+       0.469,
+       1.746
+      ],
+      [
+       0.5,
+       1.723
+      ],
+      [
+       0.531,
+       1.68
+      ],
+      [
+       0.563,
+       1.617
+      ],
+      [
+       0.594,
+       1.534
+      ],
+      [
+       0.625,
+       1.434
+      ],
+      [
+       0.656,
+       1.316
+      ],
+      [
+       0.688,
+       1.182
+      ],
+      [
+       0.719,
+       1.035
+      ],
+      [
+       0.75,
+       0.875
+      ],
+      [
+       0.781,
+       0.705
+      ],
+      [
+       0.813,
+       0.526
+      ],
+      [
+       0.844,
+       0.341
+      ],
+      [
+       0.875,
+       0.153
+      ],
+      [
+       0.906,
+       0
+      ],
+      [
+       0.938,
+       0
+      ],
+      [
+       0.969,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "smooth",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       28.648
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  "ability": {
+   "duration": 3,
+   "loop": true,
+   "timeBase": "windup",
+   "damageTiming": 0.98,
+   "simProgress": {
+    "rest": 0.28,
+    "span": 0.64,
+    "uSpan": 0.888888888888889
+   },
+   "note": "Boss special (wall summon): a slow raise/hold across the authored cast time.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "body lunge",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.008
+      ],
+      [
+       0.05,
+       -0.032
+      ],
+      [
+       0.075,
+       -0.07
+      ],
+      [
+       0.1,
+       -0.123
+      ],
+      [
+       0.125,
+       -0.189
+      ],
+      [
+       0.15,
+       -0.268
+      ],
+      [
+       0.175,
+       -0.358
+      ],
+      [
+       0.2,
+       -0.46
+      ],
+      [
+       0.225,
+       -0.572
+      ],
+      [
+       0.25,
+       -0.693
+      ],
+      [
+       0.275,
+       -0.823
+      ],
+      [
+       0.3,
+       -0.961
+      ],
+      [
+       0.325,
+       -1.106
+      ],
+      [
+       0.35,
+       -1.257
+      ],
+      [
+       0.375,
+       -1.415
+      ],
+      [
+       0.4,
+       -1.577
+      ],
+      [
+       0.425,
+       -1.743
+      ],
+      [
+       0.45,
+       -1.913
+      ],
+      [
+       0.475,
+       -2.085
+      ],
+      [
+       0.5,
+       -2.259
+      ],
+      [
+       0.525,
+       -2.434
+      ],
+      [
+       0.55,
+       -2.61
+      ],
+      [
+       0.575,
+       -2.785
+      ],
+      [
+       0.6,
+       -2.958
+      ],
+      [
+       0.625,
+       -3.13
+      ],
+      [
+       0.65,
+       -3.299
+      ],
+      [
+       0.675,
+       -3.464
+      ],
+      [
+       0.7,
+       -3.625
+      ],
+      [
+       0.725,
+       -3.781
+      ],
+      [
+       0.75,
+       -3.931
+      ],
+      [
+       0.775,
+       -4.074
+      ],
+      [
+       0.8,
+       -4.211
+      ],
+      [
+       0.825,
+       -4.338
+      ],
+      [
+       0.85,
+       -4.457
+      ],
+      [
+       0.875,
+       -4.567
+      ],
+      [
+       0.9,
+       -4.665
+      ],
+      [
+       0.925,
+       -4.753
+      ],
+      [
+       0.95,
+       -4.829
+      ],
+      [
+       0.975,
+       -4.891
+      ],
+      [
+       1,
+       -4.941
+      ]
+     ]
+    },
+    {
+     "name": "body wind-up",
+     "target": "root",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.161
+      ],
+      [
+       0.063,
+       0.32
+      ],
+      [
+       0.094,
+       0.476
+      ],
+      [
+       0.125,
+       0.629
+      ],
+      [
+       0.156,
+       0.776
+      ],
+      [
+       0.188,
+       0.916
+      ],
+      [
+       0.219,
+       1.049
+      ],
+      [
+       0.25,
+       1.173
+      ],
+      [
+       0.281,
+       1.288
+      ],
+      [
+       0.313,
+       1.391
+      ],
+      [
+       0.344,
+       1.482
+      ],
+      [
+       0.375,
+       1.561
+      ],
+      [
+       0.406,
+       1.627
+      ],
+      [
+       0.438,
+       1.68
+      ],
+      [
+       0.469,
+       1.718
+      ],
+      [
+       0.5,
+       1.741
+      ],
+      [
+       0.531,
+       1.75
+      ],
+      [
+       0.563,
+       1.744
+      ],
+      [
+       0.594,
+       1.723
+      ],
+      [
+       0.625,
+       1.688
+      ],
+      [
+       0.656,
+       1.639
+      ],
+      [
+       0.688,
+       1.576
+      ],
+      [
+       0.719,
+       1.499
+      ],
+      [
+       0.75,
+       1.41
+      ],
+      [
+       0.781,
+       1.309
+      ],
+      [
+       0.813,
+       1.197
+      ],
+      [
+       0.844,
+       1.075
+      ],
+      [
+       0.875,
+       0.944
+      ],
+      [
+       0.906,
+       0.804
+      ],
+      [
+       0.938,
+       0.659
+      ],
+      [
+       0.969,
+       0.507
+      ],
+      [
+       1,
+       0.351
+      ]
+     ]
+    },
+    {
+     "name": "front arm chop",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       0.216
+      ],
+      [
+       0.05,
+       0.842
+      ],
+      [
+       0.075,
+       1.843
+      ],
+      [
+       0.1,
+       3.184
+      ],
+      [
+       0.125,
+       4.83
+      ],
+      [
+       0.15,
+       6.748
+      ],
+      [
+       0.175,
+       8.902
+      ],
+      [
+       0.2,
+       11.257
+      ],
+      [
+       0.225,
+       13.78
+      ],
+      [
+       0.25,
+       16.435
+      ],
+      [
+       0.275,
+       19.188
+      ],
+      [
+       0.3,
+       22.004
+      ],
+      [
+       0.325,
+       24.849
+      ],
+      [
+       0.35,
+       27.688
+      ],
+      [
+       0.375,
+       30.486
+      ],
+      [
+       0.4,
+       33.208
+      ],
+      [
+       0.425,
+       35.821
+      ],
+      [
+       0.45,
+       38.289
+      ],
+      [
+       0.475,
+       40.578
+      ],
+      [
+       0.5,
+       42.653
+      ],
+      [
+       0.525,
+       44.48
+      ],
+      [
+       0.55,
+       46.024
+      ],
+      [
+       0.575,
+       47.249
+      ],
+      [
+       0.6,
+       48.123
+      ],
+      [
+       0.625,
+       48.609
+      ],
+      [
+       0.65,
+       48.613
+      ],
+      [
+       0.675,
+       47.433
+      ],
+      [
+       0.7,
+       45.015
+      ],
+      [
+       0.725,
+       41.532
+      ],
+      [
+       0.75,
+       37.155
+      ],
+      [
+       0.775,
+       32.057
+      ],
+      [
+       0.8,
+       26.408
+      ],
+      [
+       0.825,
+       20.381
+      ],
+      [
+       0.85,
+       14.148
+      ],
+      [
+       0.875,
+       7.88
+      ],
+      [
+       0.9,
+       1.75
+      ],
+      [
+       0.925,
+       -4.07
+      ],
+      [
+       0.95,
+       -9.41
+      ],
+      [
+       0.975,
+       -14.096
+      ],
+      [
+       1,
+       -17.957
+      ]
+     ]
+    },
+    {
+     "name": "back arm counter-swing",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.025,
+       -0.046
+      ],
+      [
+       0.05,
+       -0.182
+      ],
+      [
+       0.075,
+       -0.403
+      ],
+      [
+       0.1,
+       -0.705
+      ],
+      [
+       0.125,
+       -1.084
+      ],
+      [
+       0.15,
+       -1.535
+      ],
+      [
+       0.175,
+       -2.053
+      ],
+      [
+       0.2,
+       -2.634
+      ],
+      [
+       0.225,
+       -3.275
+      ],
+      [
+       0.25,
+       -3.969
+      ],
+      [
+       0.275,
+       -4.714
+      ],
+      [
+       0.3,
+       -5.505
+      ],
+      [
+       0.325,
+       -6.336
+      ],
+      [
+       0.35,
+       -7.205
+      ],
+      [
+       0.375,
+       -8.106
+      ],
+      [
+       0.4,
+       -9.035
+      ],
+      [
+       0.425,
+       -9.988
+      ],
+      [
+       0.45,
+       -10.96
+      ],
+      [
+       0.475,
+       -11.946
+      ],
+      [
+       0.5,
+       -12.944
+      ],
+      [
+       0.525,
+       -13.947
+      ],
+      [
+       0.55,
+       -14.952
+      ],
+      [
+       0.575,
+       -15.954
+      ],
+      [
+       0.6,
+       -16.949
+      ],
+      [
+       0.625,
+       -17.933
+      ],
+      [
+       0.65,
+       -18.9
+      ],
+      [
+       0.675,
+       -19.848
+      ],
+      [
+       0.7,
+       -20.77
+      ],
+      [
+       0.725,
+       -21.663
+      ],
+      [
+       0.75,
+       -22.523
+      ],
+      [
+       0.775,
+       -23.345
+      ],
+      [
+       0.8,
+       -24.125
+      ],
+      [
+       0.825,
+       -24.857
+      ],
+      [
+       0.85,
+       -25.539
+      ],
+      [
+       0.875,
+       -26.165
+      ],
+      [
+       0.9,
+       -26.731
+      ],
+      [
+       0.925,
+       -27.233
+      ],
+      [
+       0.95,
+       -27.666
+      ],
+      [
+       0.975,
+       -28.025
+      ],
+      [
+       1,
+       -28.308
+      ]
+     ]
+    },
+    {
+     "name": "back arm wind-up",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.031,
+       0.92
+      ],
+      [
+       0.063,
+       1.832
+      ],
+      [
+       0.094,
+       2.728
+      ],
+      [
+       0.125,
+       3.602
+      ],
+      [
+       0.156,
+       4.445
+      ],
+      [
+       0.188,
+       5.251
+      ],
+      [
+       0.219,
+       6.012
+      ],
+      [
+       0.25,
+       6.723
+      ],
+      [
+       0.281,
+       7.377
+      ],
+      [
+       0.313,
+       7.969
+      ],
+      [
+       0.344,
+       8.494
+      ],
+      [
+       0.375,
+       8.947
+      ],
+      [
+       0.406,
+       9.324
+      ],
+      [
+       0.438,
+       9.623
+      ],
+      [
+       0.469,
+       9.841
+      ],
+      [
+       0.5,
+       9.976
+      ],
+      [
+       0.531,
+       10.027
+      ],
+      [
+       0.563,
+       9.993
+      ],
+      [
+       0.594,
+       9.875
+      ],
+      [
+       0.625,
+       9.673
+      ],
+      [
+       0.656,
+       9.39
+      ],
+      [
+       0.688,
+       9.028
+      ],
+      [
+       0.719,
+       8.59
+      ],
+      [
+       0.75,
+       8.079
+      ],
+      [
+       0.781,
+       7.501
+      ],
+      [
+       0.813,
+       6.859
+      ],
+      [
+       0.844,
+       6.159
+      ],
+      [
+       0.875,
+       5.407
+      ],
+      [
+       0.906,
+       4.61
+      ],
+      [
+       0.938,
+       3.773
+      ],
+      [
+       0.969,
+       2.905
+      ],
+      [
+       1,
+       2.013
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "NinjaStageActorGirl": {
+  "attack": {
+   "duration": 0.35,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 0.5,
+   "attackName": "NinjaStab",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 7), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     },
+     "posOnly": true
+    },
+    {
+     "name": "front arm stab",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "shoulder",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       -20
+      ],
+      [
+       1,
+       90
+      ]
+     ]
+    },
+    {
+     "name": "back arm",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       -90
+      ],
+      [
+       1,
+       20
+      ]
+     ]
+    },
+    {
+     "name": "back arm lean y",
+     "target": "arm.back",
+     "channel": "y",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       4
+      ]
+     ]
+    },
+    {
+     "name": "head lean x",
+     "target": "head",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       -2
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "head lean y",
+     "target": "head",
+     "channel": "y",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       3
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "body lean",
+     "target": "body",
+     "channel": "rot",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       -2
+      ]
+     ],
+     "mute": false
+    },
+    {
+     "name": "tiptoe x",
+     "target": "leg.front",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       2
+      ]
+     ]
+    },
+    {
+     "name": "tiptoe x",
+     "target": "leg.back",
+     "channel": "x",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       2
+      ]
+     ]
+    },
+    {
+     "name": "tiptoe y",
+     "target": "leg.front",
+     "channel": "y",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       -2
+      ]
+     ]
+    },
+    {
+     "name": "tiptoe y",
+     "target": "leg.back",
+     "channel": "y",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       -2
+      ]
+     ]
+    },
+    {
+     "name": "tiptoe rot",
+     "target": "leg.front",
+     "channel": "rot",
+     "ease": "linear",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       -20
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "NinjaStageActorBoss": {
+  "attack": {
+   "duration": 0.2,
+   "loop": true,
+   "timeBase": "source",
+   "damageTiming": 1,
+   "attackName": "CrazedWorkerAttack",
+   "authored": true,
+   "note": "Authored ZFAttackAnims timeline (animID 1), over the bob and head rock the engine never stops.",
+   "tracks": [
+    {
+     "name": "breathe (free-running)",
+     "target": "root",
+     "channel": "y",
+     "wave": {
+      "amp": 0.6,
+      "cycles": 1,
+      "phase": 0
+     },
+     "free": {
+      "period": 4.488
+     }
+    },
+    {
+     "name": "head rock (free-running)",
+     "target": "head",
+     "channel": "rot",
+     "pivot": "neck",
+     "keys": [
+      [
+       0,
+       2.578
+      ],
+      [
+       0.3,
+       0
+      ],
+      [
+       0.6,
+       -2.578
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       2.578
+      ]
+     ],
+     "free": {
+      "period": 4
+     }
+    },
+    {
+     "name": "front arm whack",
+     "target": "arm.front",
+     "channel": "rot",
+     "pivot": "auto",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.9,
+       180
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "back arm hack",
+     "target": "arm.back",
+     "channel": "rot",
+     "pivot": "shoulder-back",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.55,
+       10
+      ],
+      [
+       0.8,
+       0
+      ],
+      [
+       1,
+       0
+      ]
+     ]
+    },
+    {
+     "name": "head hack x",
+     "target": "head",
+     "channel": "x",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       -8
+      ],
+      [
+       1,
+       -3
+      ]
+     ]
+    },
+    {
+     "name": "head hack y",
+     "target": "head",
+     "channel": "y",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       0.95,
+       -4
+      ],
+      [
+       1,
+       -4
+      ]
+     ]
+    }
+   ]
+  }
+ }
+}

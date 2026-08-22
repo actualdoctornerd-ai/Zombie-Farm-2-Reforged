@@ -1,0 +1,25 @@
+{
+ "name": "skittles_zombie",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  117,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 8,
+   "py": -14,
+   "ax": 0.63,
+   "ay": 0.6599999999999999,
+   "z": 3,
+   "scale": 0.8
+  }
+ ]
+}

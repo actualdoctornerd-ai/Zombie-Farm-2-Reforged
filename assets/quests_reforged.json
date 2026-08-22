@@ -1,0 +1,541 @@
+{
+  "20001": {
+    "id": "20001",
+    "title": "Groundskeeper",
+    "messageComplete": "Seventy-five patches of soil. Your back will never forgive you.",
+    "tip": "Every patch you plow counts, whatever you plant in it.",
+    "sprite": "Icon_Quest_Plowing.png",
+    "levelRequired": 8,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kSoilPlowedNotification",
+        "notificationObject": "",
+        "countTotal": 75,
+        "text": "Plow 75 patches of soil",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 75,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20002": {
+    "id": "20002",
+    "title": "Green Fingers",
+    "messageComplete": "A hundred crops harvested. The farm has never looked better.",
+    "tip": "Vegetable crops and fruit trees. Zombie crops have their own quests.",
+    "sprite": "Icon_Quest_HarvestVegetables.png",
+    "levelRequired": 14,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "",
+        "countTotal": 100,
+        "text": "Harvest 100 vegetable crops",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 180,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20003": {
+    "id": "20003",
+    "title": "Not a Scratch",
+    "messageComplete": "Three invasions, not one zombie lost. Immaculate.",
+    "tip": "An invasion counts only if every zombie you sent walks back out.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 13,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kInvasionPerfectGameNotification",
+        "notificationObject": "",
+        "countTotal": 3,
+        "text": "Win 3 invasions without losing a zombie",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 250,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20004": {
+    "id": "20004",
+    "title": "Master Combiner",
+    "messageComplete": "Fifteen combines. The Pot knows you by name now.",
+    "tip": "Every zombie the Pot hands over counts, farm or Mausoleum.",
+    "sprite": "Icon_Quest_Combining.png",
+    "levelRequired": 20,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kCombinerCollectedNotification",
+        "notificationObject": "",
+        "countTotal": 15,
+        "text": "Collect 15 zombies from the Zombie Pot",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 300,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20005": {
+    "id": "20005",
+    "title": "Bring Home a Legend",
+    "messageComplete": "One of the rarest zombies in the world, and it followed you home.",
+    "tip": "A handful of invasions hide a unique zombie. Keep winning and one will turn up.",
+    "sprite": "Icon_Quest_OldMcDonnell.png",
+    "levelRequired": 15,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kLootItemWonNotification",
+        "notificationObject": "Rare Invasion Zombie",
+        "countTotal": 1,
+        "text": "Win a rare zombie from an invasion",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 400,
+    "rewardBrains": 1,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20006": {
+    "id": "20006",
+    "title": "Second Wind",
+    "messageComplete": "Back on its feet and straight into the fight.",
+    "tip": "Garden zombies learn Resurrect at Red rank. Only counts on an invasion you win.",
+    "sprite": "Icon_Quest_HarvestZombies.png",
+    "levelRequired": 18,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kZombieResurrectedNotification",
+        "notificationObject": "",
+        "countTotal": 1,
+        "text": "Revive a zombie during an invasion",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 200,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20007": {
+    "id": "20007",
+    "title": "Worth It",
+    "messageComplete": "Five enemies, five very short conversations.",
+    "tip": "Small zombies learn Explode at Red rank. It costs you the zombie, and only a win counts.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 20,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kEnemyDefeatedByAbilityNotification",
+        "notificationObject": "Explosion",
+        "countTotal": 5,
+        "text": "Destroy 5 enemies with explosions",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 400,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20008": {
+    "id": "20008",
+    "title": "Heavy Machinery",
+    "messageComplete": "The boss never saw the big one coming.",
+    "tip": "A Bash hits harder; Smash trades damage for a 1-second stun. Either counts.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 24,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kBossDefeatedByAbilityNotification",
+        "notificationObject": "Smash",
+        "countTotal": 1,
+        "text": "Land the killing blow on a boss with a Smash",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 1200,
+    "rewardBrains": 1,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20009": {
+    "id": "20009",
+    "title": "Veteran Commander",
+    "messageComplete": "Ten invasions. They tell stories about your farm now.",
+    "tip": "Every invasion you win counts, on any stage.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 25,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kInvasionSuccessfulNotification",
+        "notificationObject": "",
+        "countTotal": 10,
+        "text": "Win 10 invasions",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 900,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20010": {
+    "id": "20010",
+    "title": "First Class",
+    "messageComplete": "Elite invasions hit back. You hit harder.",
+    "tip": "Spend a Brain Ticket to promote an invasion to elite.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 26,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kEliteInvasionSuccessfulNotification",
+        "notificationObject": "",
+        "countTotal": 1,
+        "text": "Win an elite invasion",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 1000,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20011": {
+    "id": "20011",
+    "title": "Nine Lives",
+    "messageComplete": "Twenty-five zombies who were, briefly, no longer with us.",
+    "tip": "One Garden zombie can only revive once per invasion, and only a win counts.",
+    "sprite": "Icon_Quest_HarvestZombies.png",
+    "levelRequired": 30,
+    "prerequisiteQuest": 20006,
+    "requirements": [
+      {
+        "notificationID": "kZombieResurrectedNotification",
+        "notificationObject": "",
+        "countTotal": 25,
+        "text": "Revive 25 zombies during invasions",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 1400,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20012": {
+    "id": "20012",
+    "title": "Recycled",
+    "messageComplete": "It blew itself to pieces and came back for seconds.",
+    "tip": "Bring a Garden zombie AND a Small one: revive the mini that just exploded, and win.",
+    "sprite": "Icon_Quest_HarvestZombies.png",
+    "levelRequired": 33,
+    "prerequisiteQuest": 20007,
+    "requirements": [
+      {
+        "notificationID": "kZombieResurrectedNotification",
+        "notificationObject": "Exploded Mini",
+        "countTotal": 1,
+        "text": "Revive a mini zombie that blew itself up",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 3600,
+    "rewardBrains": 1,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20013": {
+    "id": "20013",
+    "title": "Elite Operator",
+    "messageComplete": "Five elite invasions. The tickets were worth every coin.",
+    "tip": "Brain Tickets are bought with gold in the Market.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 34,
+    "prerequisiteQuest": 20010,
+    "requirements": [
+      {
+        "notificationID": "kEliteInvasionSuccessfulNotification",
+        "notificationObject": "",
+        "countTotal": 5,
+        "text": "Win 5 elite invasions",
+        "type": 2,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 3600,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20014": {
+    "id": "20014",
+    "title": "Flawless Tour",
+    "messageComplete": "Six stages, six perfect runs. Nobody does this.",
+    "tip": "One flawless win on each stage of the main ladder.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 36,
+    "prerequisiteQuest": 20003,
+    "requirements": [
+      {
+        "notificationID": "kInvasionPerfectGameNotification",
+        "notificationObject": "Old McDonnell's Farm",
+        "countTotal": 1,
+        "text": "Flawless win: Old McDonnell's Farm",
+        "type": 1,
+        "sprite": ""
+      },
+      {
+        "notificationID": "kInvasionPerfectGameNotification",
+        "notificationObject": "Zombies vs Lawyers",
+        "countTotal": 1,
+        "text": "Flawless win: Zombies vs Lawyers",
+        "type": 1,
+        "sprite": ""
+      },
+      {
+        "notificationID": "kInvasionPerfectGameNotification",
+        "notificationObject": "Zombies vs Pirates",
+        "countTotal": 1,
+        "text": "Flawless win: Zombies vs Pirates",
+        "type": 1,
+        "sprite": ""
+      },
+      {
+        "notificationID": "kInvasionPerfectGameNotification",
+        "notificationObject": "Zombies vs Ninjas",
+        "countTotal": 1,
+        "text": "Flawless win: Zombies vs Ninjas",
+        "type": 1,
+        "sprite": ""
+      },
+      {
+        "notificationID": "kInvasionPerfectGameNotification",
+        "notificationObject": "Zombies vs Robots",
+        "countTotal": 1,
+        "text": "Flawless win: Zombies vs Robots",
+        "type": 1,
+        "sprite": ""
+      },
+      {
+        "notificationID": "kInvasionPerfectGameNotification",
+        "notificationObject": "Zombies vs Aliens",
+        "countTotal": 1,
+        "text": "Flawless win: Zombies vs Aliens",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 4000,
+    "rewardBrains": 1,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20015": {
+    "id": "20015",
+    "title": "Going Out With a Bang",
+    "messageComplete": "One mini zombie. One boss. One very loud goodbye.",
+    "tip": "Only Explode Ver. 2 can reach a boss \u2014 a Small zombie at Silver rank.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 38,
+    "prerequisiteQuest": 20007,
+    "requirements": [
+      {
+        "notificationID": "kBossDefeatedByAbilityNotification",
+        "notificationObject": "Explosion",
+        "countTotal": 1,
+        "text": "Defeat a boss with an explosion",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 4000,
+    "rewardBrains": 1,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20016": {
+    "id": "20016",
+    "title": "Untouchable",
+    "messageComplete": "An elite invasion, and every last zombie came home.",
+    "tip": "The hardest thing on the farm. Bring your best.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 40,
+    "prerequisiteQuest": 20010,
+    "requirements": [
+      {
+        "notificationID": "kElitePerfectGameNotification",
+        "notificationObject": "",
+        "countTotal": 1,
+        "text": "Win an elite invasion without losing a zombie",
+        "type": 1,
+        "sprite": ""
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 5600,
+    "rewardBrains": 1,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  },
+  "20017": {
+    "id": "20017",
+    "title": "Game Over, Zedzox",
+    "messageComplete": "Three runs through the pixel world. Zedzox is out of continues.",
+    "tip": "Win Zombies vs Video Games three times.",
+    "sprite": "Icon_Quest_Invasion.png",
+    "levelRequired": 43,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kInvasionSuccessfulNotification",
+        "notificationObject": "Zombies vs Video Games",
+        "countTotal": 3,
+        "text": "Beat the Video Games 3x",
+        "type": 2,
+        "sprite": "Icon_Quest_Invasion.png"
+      }
+    ],
+    "rewardType": 0,
+    "rewardValue": 6000,
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
+  }
+}
