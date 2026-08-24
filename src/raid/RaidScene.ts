@@ -493,6 +493,47 @@ interface Token {
   fuseT: number; // seconds accumulated toward the next Explode wind-up spark
 }
 
+/** The opaque box inside a texture, in texture pixels — everything outside it is
+ *  transparent padding. A species portrait frames its zombie inside a fixed 160x180
+ *  card with a LOT of air (a mini fills about 46% of the height, sitting low), so a
+ *  sprite sized by the texture draws a zombie roughly half the intended size, parked
+ *  off-centre. Callers that need the ZOMBIE to be a given size on screen have to
+ *  measure the content, not the card. Null when pixels are unavailable (no document,
+ *  a tainted canvas); callers fall back to plain texture sizing. */
+function opaqueBounds(url: string): { x: number; y: number; w: number; h: number } | null {
+  if (typeof document === "undefined") return null;
+  const source = Assets.cache.get(url) as Texture | undefined;
+  const image = source?.source?.resource as CanvasImageSource | undefined;
+  if (!image) return null;
+  const w = Math.max(1, source!.width);
+  const h = Math.max(1, source!.height);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return null;
+    context.drawImage(image, 0, 0, w, h);
+    const pixels = context.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        // 8/255, not 0: the extracted art carries a faint premultiplied halo that
+        // would otherwise measure as content and re-inflate the padding.
+        if (pixels[(y * w + x) * 4 + 3] <= 8) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < 0) return null;
+    return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+  } catch {
+    return null;
+  }
+}
+
 async function loadTex(url: string): Promise<Texture | null> {
   try {
     return (await Assets.load(url)) as Texture;
@@ -556,6 +597,10 @@ export class RaidScene {
   private ufoFrontTex: Texture | null = null; // alien boss UFO (saucer + glass dome)
   private hoverClock = 0; // seconds, drives the alien saucer's idle bob
 
+  /** How to draw a thrown ZOMBIE so it reads at its true field size (see
+   *  `opaqueBounds`). Keyed by the same `zombie:<key>` sprite name as `projTex`;
+   *  absent for every ordinary boss projectile, which keeps its authored sizing. */
+  private projZombieDraw = new Map<string, { scale: number; anchorX: number; anchorY: number }>();
   // Boss projectiles.
   private bossThrow: BossThrowConfig | null;
   private wallTemplate: CombatUnit | null; // preloaded so a spawned wall renders as a sprite
@@ -970,10 +1015,13 @@ export class RaidScene {
       // A PvP formation defense throws its MINI, so the projectile is drawn from the
       // species portrait rather than the raid image folder. `zombie:<key>` is the
       // marker (src/raid/pvp.ts); every other sprite resolves exactly as before.
-      const url = opt.sprite.startsWith(PVP_ZOMBIE_SPRITE_PREFIX)
-        ? zombiePortrait(opt.sprite.slice(PVP_ZOMBIE_SPRITE_PREFIX.length))
-        : raidImage(opt.sprite);
-      this.projTex.set(opt.sprite, await loadTex(url));
+      const zombieKey = opt.sprite.startsWith(PVP_ZOMBIE_SPRITE_PREFIX)
+        ? opt.sprite.slice(PVP_ZOMBIE_SPRITE_PREFIX.length)
+        : "";
+      const url = zombieKey ? zombiePortrait(zombieKey) : raidImage(opt.sprite);
+      const tex = await loadTex(url);
+      this.projTex.set(opt.sprite, tex);
+      if (zombieKey && tex) this.planThrownZombie(opt.sprite, url, zombieKey, tex);
     }
     // The alien laser bolt. Without this it fell through to the generic "no art" hazard
     // dot — an orange circle. The art is the source's own alienLaser.plist emitter baked
@@ -3004,6 +3052,28 @@ export class RaidScene {
     return this.dotTex;
   }
 
+  /** Size a thrown mini to the SAME height it stands at on the field, rather than to
+   *  the authored `spriteSize` — which is a sim number (it sets the collision radius,
+   *  PROJ_HIT_FACTOR) and must not be retuned to fix a drawing. The mini is a real
+   *  defender in this fight, so its token already carries the exact height the rig
+   *  was scaled to; matching it is what makes the thrown copy read as the same
+   *  zombie. Falls back to the authored sizing if either measurement is missing. */
+  private planThrownZombie(sprite: string, url: string, key: string, tex: Texture): void {
+    const owner = this.sim.units.find((u) => u.sourceKey === key && u.team === "enemy");
+    const token = owner ? this.tokens.get(owner.id) : undefined;
+    const fieldHeight = token ? -token.topY : 0;
+    const box = opaqueBounds(url);
+    if (!token || fieldHeight <= 0 || !box) return;
+    // Anchor on the ZOMBIE's centre rather than the card's, so it flies along the arc
+    // the sim computed AND tumbles about itself — a fixed position offset would put the
+    // rotation centre back on the card and swing the zombie around it instead.
+    this.projZombieDraw.set(sprite, {
+      scale: fieldHeight / box.h,
+      anchorX: (box.x + box.w / 2) / Math.max(1, tex.width),
+      anchorY: (box.y + box.h / 2) / Math.max(1, tex.height),
+    });
+  }
+
   private syncProjectiles() {
     const live = new Set<string>();
     const s = this.scaleX();
@@ -3015,7 +3085,9 @@ export class RaidScene {
         // Hazards with no preloaded sprite (falling obstacles / grabs) render as a
         // round warning dot — NOT Texture.WHITE, which read as a spinning square.
         sp = new Sprite(tex ?? this.hazardDotTex());
-        sp.anchor.set(0.5);
+        const plan = this.projZombieDraw.get(pr.sprite);
+        if (plan) sp.anchor.set(plan.anchorX, plan.anchorY);
+        else sp.anchor.set(0.5);
         if (!tex) sp.tint = 0xff7a3c;
         this.projLayer.addChild(sp);
         this.projSprites.set(pr.id, sp);
@@ -3024,11 +3096,18 @@ export class RaidScene {
           this.onStrike?.({ team: "enemy", sfxFile: "alienLaser.wav" });
         }
       }
-      // Rendered ~2× the old size (the collision radius in BattleSim is unchanged —
-      // this is a visual-legibility bump so thrown items read clearly).
-      const size = Math.max(20, pr.spriteSize * s * 2.4);
-      sp.width = size;
-      sp.height = size;
+      // A thrown zombie draws at its own field size, keeping the portrait's aspect;
+      // everything else keeps the authored square sizing, rendered ~2x the old size
+      // (the collision radius in BattleSim is unchanged — that bump is purely a
+      // visual-legibility one so thrown items read clearly).
+      const zombieDraw = this.projZombieDraw.get(pr.sprite);
+      if (zombieDraw) {
+        sp.scale.set(zombieDraw.scale);
+      } else {
+        const size = Math.max(20, pr.spriteSize * s * 2.4);
+        sp.width = size;
+        sp.height = size;
+      }
       sp.rotation = pr.rot;
       const visual = extrapolatePosition(pr.x, pr.y, pr.vx, pr.vy, this.simAccumulatorMs, RAID_TICK_MS);
       let px = this.mapX(visual.x);
