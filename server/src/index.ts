@@ -649,6 +649,7 @@ app.use("/gifts/claim", rateLimit("RL_WRITE", "gift_claim", 120, 60_000));
 app.use("/raid/start", rateLimit("RL_WRITE", "raid_start", 60, 60_000));
 app.use("/raid/pvp/start", rateLimit("RL_WRITE", "pvp_start", 30, 60_000));
 app.use("/raid/pvp/finish", rateLimit("RL_WRITE", "pvp_finish", 30, 60_000));
+app.use("/raid/pvp/abandon", rateLimit("RL_WRITE", "pvp_abandon", 30, 60_000));
 app.use("/raid/pvp/collect", rateLimit("RL_WRITE", "pvp_collect", 60, 60_000));
 app.use("/raid/pvp/collect-all", rateLimit("RL_WRITE", "pvp_collect_all", 30, 60_000));
 app.use("/raid/pvp/history", rateLimit("RL_READ", "pvp_history", 120, 60_000));
@@ -1126,6 +1127,7 @@ app.post("/bootstrap", async (c) => {
   // leaving a roster locked or blocking the other battle mode indefinitely.
   await v3Raid.expireLiveRaid(c.env.DB, accountId, now);
   await v3EpicBoss.expireLiveEpicBoss(c.env.DB, accountId, now);
+  await v3Pvp.expireLivePvp(c.env.DB, accountId, now);
   const writerState = await writer.projection(
     c.env.DB, accountId, c.get("sessionId"), writerCredential(c), now
   );
@@ -1478,6 +1480,15 @@ app.post("/raid/pvp/finish", async (c) => {
   if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
   const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const result = await v3Pvp.finishPvp(c.env.DB, c.get("accountId"), body, Date.now());
+  return c.json(result.body, result.status as 200);
+});
+
+app.post("/raid/pvp/abandon", async (c) => {
+  // Not gated on pvpEnabled or mutationsHalted, for the same reason /finish isn't and
+  // then one more: this route only ever RELEASES a lock. Refusing it during a halt
+  // would strand a player behind the very session they are trying to give up.
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const result = await v3Pvp.abandonPvp(c.env.DB, c.get("accountId"), body, Date.now());
   return c.json(result.body, result.status as 200);
 });
 

@@ -461,8 +461,37 @@ const releaseWriterOnUnload = (event: PageTransitionEvent): void => {
   } catch { /* unload is best-effort */ }
 };
 
+/** The friend invasion this document is holding open, if any. A live PvP session is a
+ *  one-at-a-time lock exactly like the writer lease, and a tab closed mid-battle used
+ *  to strand it for the full 15-minute TTL. Set on launch, cleared on settle. */
+let liveInvasionSession: string | null = null;
+export const setLiveInvasionSession = (sessionId: string | null): void => {
+  liveInvasionSession = sessionId;
+};
+
+const releaseInvasionOnUnload = (event: PageTransitionEvent): void => {
+  if (event.persisted) return; // bfcache freeze — the fight may still be resumed
+  if (!API || !session || !liveInvasionSession) return;
+  try {
+    // Same keepalive-fetch reasoning as the writer lease above: this needs the bearer
+    // header, so sendBeacon is out. Best-effort; the TTL is still the backstop.
+    void fetch(`${API}/raid/pvp/abandon`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Integrity-Version": String(CLIENT_INTEGRITY_VERSION),
+        "X-Client-Build": BUILD_TAG,
+        "Authorization": `Bearer ${session.token}`,
+      },
+      body: JSON.stringify({ sessionId: liveInvasionSession }),
+    }).catch(() => { /* unload is best-effort */ });
+  } catch { /* unload is best-effort */ }
+};
+
 if (typeof addEventListener === "function") {
   addEventListener("pagehide", releaseWriterOnUnload);
+  addEventListener("pagehide", releaseInvasionOnUnload);
 }
 
 export const writerStatus = () =>
@@ -1109,6 +1138,13 @@ export const pvpFinish = (sessionId: string, finalTick: number, inputs: RaidRepl
     inputs,
     ...(outcome ? { clientWin: outcome.win } : {}),
   });
+
+/** Give back the one-live-invasion slot after a fight ends without a verdict — a scene
+ *  that failed to load, a settle the verifier refused, a tab closed mid-battle. Settles
+ *  nothing (no win, no loss, no reward) and does NOT refund the attempt against that
+ *  friend. Safe to call twice; safe to call after a successful finish. */
+export const pvpAbandon = (sessionId: string) =>
+  req<{ ok: boolean; released?: boolean }>("POST", "/raid/pvp/abandon", { sessionId });
 
 export interface PvpHistoryEntry {
   sessionId: string;

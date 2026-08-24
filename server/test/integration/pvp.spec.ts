@@ -91,6 +91,95 @@ describe("friend invasion start gates", () => {
   });
 });
 
+describe("abandoning a fight gives the slot back", () => {
+  interface Started { ok: boolean; sessionId: string }
+  interface View {
+    attacks: { sessionId: string }[];
+    defenses: { sessionId: string }[];
+    stats: { lifetime: { attackWins: number; attackLosses: number; defenseWins: number } };
+    claim: { count: number };
+  }
+
+  it("releases the live session, settles nothing, and does not refund the attempt", async () => {
+    // The bug this pins: /raid/pvp/start allows one live session per attacker, and the
+    // ONLY things that used to close one were a settle and the 15-minute TTL. So a
+    // scene that failed to load, a refused settle, or a tab closed mid-battle locked
+    // the player out of EVERY invasion until it ran down.
+    const attacker = await pvpPlayer("pvp-abandon-a", attackUnits);
+    const defender = await pvpPlayer("pvp-abandon-d", [{ id: "d0" }]);
+    await befriend(attacker, defender);
+
+    const started = await call<Started>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+
+    const blocked = await call<{ error: string }>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(blocked).toMatchObject({ status: 409, body: { error: "raid_in_progress" } });
+
+    const released = await call<{ ok: boolean; released: boolean }>(
+      "POST", "/raid/pvp/abandon", attacker.token, { sessionId: started.body.sessionId });
+    expect(released.status, JSON.stringify(released.body)).toBe(200);
+    expect(released.body.released).toBe(true);
+
+    // The slot is free again immediately — no waiting out the TTL.
+    const retry = await call<Started>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(retry.status, JSON.stringify(retry.body)).toBe(200);
+    expect(retry.body.sessionId).not.toBe(started.body.sessionId);
+    await call("POST", "/raid/pvp/abandon", attacker.token, { sessionId: retry.body.sessionId });
+
+    // NOTHING was settled: no win, no loss, no defense reward parked. An abandoned
+    // fight is not a defense the friend held — they were never really attacked.
+    const attackerView = await call<View>("GET", "/raid/pvp/history", attacker.token);
+    expect(attackerView.body.attacks).toHaveLength(0);
+    expect(attackerView.body.stats.lifetime.attackWins).toBe(0);
+    expect(attackerView.body.stats.lifetime.attackLosses).toBe(0);
+    const defenderView = await call<View>("GET", "/raid/pvp/history", defender.token);
+    expect(defenderView.body.defenses).toHaveLength(0);
+    expect(defenderView.body.stats.lifetime.defenseWins).toBe(0);
+    expect(defenderView.body.claim.count).toBe(0);
+
+    // But the attempts were still SPENT — abandoning must not farm free retries.
+    for (let opened = 2; opened < PVP_DAILY_ATTACKS_PER_PAIR; opened++) {
+      const more = await call<Started>("POST", "/raid/pvp/start", attacker.token,
+        startBody(defender.accountId));
+      expect(more.status, `attempt ${opened}: ${JSON.stringify(more.body)}`).toBe(200);
+      await call("POST", "/raid/pvp/abandon", attacker.token, { sessionId: more.body.sessionId });
+    }
+    const capped = await call<{ error: string }>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(capped).toMatchObject({ status: 429, body: { error: "pair_limit" } });
+  });
+
+  it("is idempotent, and cannot re-open a fight that already settled", async () => {
+    const attacker = await pvpPlayer("pvp-abandon-i", attackUnits);
+    const defender = await pvpPlayer("pvp-abandon-j", [{ id: "d0" }]);
+    await befriend(attacker, defender);
+
+    // Nothing live: a blind release is a no-op, not an error. The client fires this
+    // from teardown paths that cannot know whether a session is still open.
+    const idle = await call<{ ok: boolean; released: boolean }>(
+      "POST", "/raid/pvp/abandon", attacker.token, {});
+    expect(idle).toMatchObject({ status: 200, body: { ok: true, released: false } });
+
+    const started = await call<Started>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    const sessionId = started.body.sessionId;
+    const finished = await call<{ win: boolean }>("POST", "/raid/pvp/finish", attacker.token,
+      { sessionId, finalTick: 0, inputs: [] });
+    expect(finished.status, JSON.stringify(finished.body)).toBe(200);
+
+    // A late release cannot un-settle it: the result stands and stays readable.
+    const late = await call<{ released: boolean }>("POST", "/raid/pvp/abandon", attacker.token,
+      { sessionId });
+    expect(late.body.released).toBe(false);
+    const view = await call<View>("GET", "/raid/pvp/history", attacker.token);
+    expect(view.body.attacks).toHaveLength(1);
+    expect(view.body.attacks[0].sessionId).toBe(sessionId);
+  });
+});
+
 describe("defense authoring", () => {
   interface DefenseGet {
     ok: boolean;

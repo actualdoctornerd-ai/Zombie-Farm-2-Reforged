@@ -4673,8 +4673,30 @@ async function main() {
     return Promise.race([build, expired]);
   };
 
+  /** The friend invasion this client currently holds open on the server. PvP allows one
+   *  live session per attacker; every way a fight can end WITHOUT settling has to hand
+   *  it back, or the player is locked out of all invasions until the 15-minute TTL runs
+   *  down. Cleared the moment /raid/pvp/finish answers — settled or refused, the row is
+   *  no longer ours to release. */
+  let livePvpSession: string | null = null;
+  const setLivePvpSession = (sessionId: string | null) => {
+    livePvpSession = sessionId;
+    api.setLiveInvasionSession(sessionId); // so a closed tab releases it too
+  };
+  const releasePvpSession = () => {
+    const sessionId = livePvpSession;
+    if (!sessionId) return;
+    setLivePvpSession(null);
+    // Fire-and-forget: the fight is already over on this side, and the TTL still
+    // covers the case where this call never lands.
+    void api.pvpAbandon(sessionId).catch(() => { /* best effort */ });
+  };
+
   const abandonBattle = () => {
     crumb("battle:left", raidScene ? "scene torn down" : "never loaded");
+    // Covers every non-settling exit from a friend invasion in one place: a scene that
+    // failed to load, a settle the verifier refused, a teardown from elsewhere.
+    releasePvpSession();
     if (raidScene) {
       app.stage.removeChild(raidScene.container);
       raidScene.destroy();
@@ -4986,6 +5008,7 @@ async function main() {
     world.visible = false;
     hud.setRaiding(true);
     hud.setBattleLoading(true, `Invading ${friendName}'s farm…`);
+    setLivePvpSession(sessionId);
     crumb("battle:launch", `pvp:${friendName} · ${config.playerUnits.length} zombies`);
     audio.enterRaid(raidDef.music);
     withBattleLoadTimeout(RaidScene.create(app, {
@@ -5010,6 +5033,11 @@ async function main() {
       onCheckpoint: undefined,
       onFinish: (outcome, finalTick, inputs) => {
         void api.pvpFinish(sessionId, finalTick, inputs, outcome).then((res) => {
+          // Settled: the row is closed server-side, so stop tracking it. A refusal
+          // takes the other path, where abandonBattle hands the session back — the
+          // release is idempotent, so it costs nothing when the server had already
+          // closed the row itself over an invalid replay.
+          setLivePvpSession(null);
           // Boost rewards were granted into server inventory; adopt the echoed counts.
           if (res.inventory) economy?.adoptRaidStartInventory(res.inventory);
           const rewards = res.rewards ?? [];

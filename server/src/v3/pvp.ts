@@ -126,11 +126,43 @@ function sweepReplaysSql(db: D1Database, accountId: string): D1PreparedStatement
     .bind(accountId, PVP_REPLAYS_KEPT);
 }
 
-/** Release an abandoned live session (win stays NULL — it never fought). */
-async function expireLivePvp(db: D1Database, attackerId: string, now: number): Promise<void> {
+/** Release an abandoned live session (win stays NULL — it never fought). Exported so
+ *  /bootstrap can sweep it at READ time, the way raids and Epic Bosses already do: a
+ *  player who closed the tab mid-fight should not find the mode locked when they come
+ *  back, and nothing about waiting for their next attack makes the stale row truer.
+ *  `config_json` is deliberately left alone — see the file header: on THIS table the
+ *  windowed sweep is the only writer allowed to clear it, and it collects these rows
+ *  (win NULL is outside both replay windows) at the next settled fight. */
+export async function expireLivePvp(db: D1Database, attackerId: string, now: number): Promise<void> {
   await db.prepare(`UPDATE pvp_sessions_v3 SET finished_at = ?
     WHERE attacker_id = ? AND finished_at IS NULL AND expires_at <= ?`)
     .bind(now, attackerId, now).run();
+}
+
+/** Give the live-session slot back NOW, on the attacker's say-so — the fight never
+ *  reached a verdict, so this settles nothing: no win, no loss, no reward, no stats
+ *  row. The attempt itself is NOT refunded; `startPvp`'s pair cap counts opened
+ *  attacks on purpose, so abandoning cannot farm free retries against one friend.
+ *
+ *  Without this the 15-minute TTL was the only way out, and every ordinary way a
+ *  fight can end badly — a scene that fails to load, a refresh mid-battle, a settle
+ *  that the verifier refuses — locked the player out of ALL invasions until it ran
+ *  down. Idempotent by the `finished_at IS NULL` guard: a race with a real finish
+ *  loses, which is the right way round. */
+export async function abandonPvp(
+  db: D1Database,
+  accountId: string,
+  body: { sessionId?: unknown },
+  now: number
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+  // Scoped to the caller's own live row, and to a named session when the client knows
+  // which one it is holding: a blind release must not close a fight the player has
+  // since (re)opened in another tab.
+  const res = await db.prepare(`UPDATE pvp_sessions_v3 SET finished_at = ?
+    WHERE attacker_id = ? AND finished_at IS NULL${sessionId ? " AND id = ?" : ""}`)
+    .bind(...(sessionId ? [now, accountId, sessionId] : [now, accountId])).run();
+  return { status: 200, body: { ok: true, released: (res.meta.changes ?? 0) > 0 } };
 }
 
 export async function startPvp(
