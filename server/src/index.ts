@@ -66,6 +66,9 @@ import * as v3 from "./v3/db";
 import * as v3Raid from "./v3/raid";
 import * as v3EpicBoss from "./v3/epicBoss";
 import * as v3Pvp from "./v3/pvp";
+import {
+  PVP_DEFENSE_MODE_DEFAULT, isPvpDefenseMode, type PvpDefenseMode,
+} from "../../src/raid/pvp";
 import * as writer from "./v3/writer";
 import * as blackMarket from "./v3/blackMarket";
 
@@ -1452,12 +1455,19 @@ app.post("/raid/revive", async (c) => {
 // same shape as the Black Market's opt-in, and the client hides its surfaces behind
 // PVP_UI_ENABLED (src/raid/pvp.ts) — flip both to bring it back.
 const pvpEnabled = (env: Bindings): boolean => env.PVP_ENABLED === "1";
+/** Which defense a friend invasion fights. Exactly one mode is live at a time and the
+ *  WORKER decides: it authors the pinned config to match, so no client redeploy is
+ *  involved in switching. Unset or unrecognised falls back to the shipped behaviour. */
+const pvpDefenseMode = (env: Bindings): PvpDefenseMode =>
+  isPvpDefenseMode(env.PVP_DEFENSE_MODE) ? env.PVP_DEFENSE_MODE : PVP_DEFENSE_MODE_DEFAULT;
 
 app.post("/raid/pvp/start", async (c) => {
   if (!pvpEnabled(c.env)) return c.json({ error: "pvp_disabled" }, 503);
   if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
   const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
-  const result = await v3Pvp.startPvp(c.env.DB, c.get("accountId"), body, Date.now());
+  const result = await v3Pvp.startPvp(
+    c.env.DB, c.get("accountId"), body, Date.now(), pvpDefenseMode(c.env)
+  );
   return c.json(result.body, result.status as 200);
 });
 
@@ -1507,14 +1517,16 @@ app.post("/raid/pvp/defense", async (c) => {
 
 app.get("/raid/pvp/defense", async (c) => {
   if (!pvpEnabled(c.env)) return c.json({ error: "pvp_disabled" }, 503);
-  const result = await v3Pvp.getDefensePvp(c.env.DB, c.get("accountId"));
+  const result = await v3Pvp.getDefensePvp(c.env.DB, c.get("accountId"), pvpDefenseMode(c.env));
   return c.json(result.body, result.status as 200);
 });
 
 app.post("/raid/pvp/preview", async (c) => {
   if (!pvpEnabled(c.env)) return c.json({ error: "pvp_disabled" }, 503);
   const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
-  const result = await v3Pvp.previewPvp(c.env.DB, c.get("accountId"), body, Date.now());
+  const result = await v3Pvp.previewPvp(
+    c.env.DB, c.get("accountId"), body, Date.now(), pvpDefenseMode(c.env)
+  );
   return c.json(result.body, result.status as 200);
 });
 

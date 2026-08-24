@@ -246,6 +246,8 @@ const MINI_CARRIER_STUN_MS = 1000;
 // finalPower. Heal selects another zombie at or below 50% Life; Heal All has its
 // own automatic 20-second timer.
 const HEAL_POWER_MULT = 0.5;
+/** No revive ever happens on the defender pass, so it shares one frozen empty set. */
+const EMPTY_CAST: ReadonlySet<string> = new Set<string>();
 const HEAL_AOE_MS = 20_000;
 
 // Ballistic throws.
@@ -596,6 +598,16 @@ export interface SimUnit {
    *  rather than restarting from the snapshot's position. */
   burnDir: 1 | -1;
   burnAnchorX: number;
+  // ---- PvP formation defense (friend invasions). All null outside it, which is
+  // what keeps every raid transcript byte-identical. See src/raid/pvp.ts.
+  /** Authored hold position: this unit walks here and stands, instead of holding at
+   *  the shared doorway. */
+  stationX: number | null;
+  stationY: number | null;
+  /** Fight-clock ms at which this unit walks on, ignoring the wave's drip budget. */
+  deployAtMs: number | null;
+  /** The job this defender holds in the farm's defense. */
+  defenseRole: string | null;
   passedWall: boolean; // latched when already beyond a newly summoned wall
   /** Carried off the field by a Beach crab: still ALIVE (it comes home after the raid —
    *  source state 38 is not the death path) but out of this fight, so it counts as a
@@ -736,7 +748,10 @@ function toSim(u: CombatUnit, i: number): SimUnit {
   const mult = u.attacks[0]?.mult ?? 1;
   const isPlayer = u.team === "player";
   const home = isPlayer ? clusterHome(i) : { x: ENEMY_SPAWN_X, y: CENTER_Y };
-  const abilities = isPlayer ? u.abilities ?? [] : [];
+  // Enemies are authored with `abilities: []` everywhere in the raid catalog, so
+  // passing the list through is byte-identical for raids — and it is what lets a PvP
+  // formation defender keep the passives that run themselves (a healer that heals).
+  const abilities = u.abilities ?? [];
   return {
     id: u.id,
     sourceKey: u.sourceKey,
@@ -825,6 +840,10 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     attackDamageTiming: u.attackDamageTiming ?? 0.5,
     isWall: false,
     isSummon: false,
+    stationX: u.stationX ?? null,
+    stationY: u.stationY ?? null,
+    deployAtMs: u.deployAtMs ?? null,
+    defenseRole: u.defenseRole ?? null,
     isTurned: false,
     turnedFromId: null,
     burnMs: 0,
@@ -1094,6 +1113,10 @@ export class BattleSim {
       knockBackSpeed: u.knockBackSpeed ?? 0,
       passedWall: u.passedWall ?? false,
       isSummon: u.isSummon ?? false,
+      stationX: u.stationX ?? null,
+      stationY: u.stationY ?? null,
+      deployAtMs: u.deployAtMs ?? null,
+      defenseRole: u.defenseRole ?? null,
       // A checkpoint from before the conversion / burn can only exist on a ruleset the
       // session handshake already rejects, so these defaults are belt-and-braces: they
       // restore a fight in which nobody is on fire and nobody has been turned, which is
@@ -1635,9 +1658,12 @@ export class BattleSim {
   /** Authentic Garden support. Heal selects the most injured OTHER deployed
    *  zombie with missing Life and restores 50% of the healer's Power.
    *  Heal All independently fires every 20 seconds for the same amount. */
-  private stepHealing(dtMs: number, rezCast: Set<string>) {
-    const deployed = this.players.filter(
-      (p) => p.alive && (p.state === "advance" || p.state === "fight")
+  private stepHealing(dtMs: number, rezCast: ReadonlySet<string>, roster: SimUnit[] = this.players) {
+    const deployed = roster.filter(
+      (p) => p.alive &&
+        // "hold" is the enemy side's standing state; no player is ever in it, so this
+        // is byte-identical for raids and for the attacking army.
+        (p.state === "advance" || p.state === "fight" || p.state === "hold")
     );
     for (const healer of deployed) {
       if (!this.isHealer(healer)) continue;
@@ -2344,14 +2370,35 @@ export class BattleSim {
 
     // A summoned abductee is off-budget on BOTH counts: it does not occupy one of the
     // wave's slots, and it does not hold the boss on its perch. See SimUnit.isSummon.
+    // AUTHORED DEFENDERS (PvP formation defense) ignore the wave budget entirely:
+    // each walks on when its own clock says so, and none of them counts toward or
+    // competes for `activeTarget`. Absent `deployAtMs` this loop does nothing, which
+    // is every raid.
+    for (const e of this.enemies) {
+      if (e.deployAtMs === null || !e.alive || e.state !== "queued") continue;
+      if (this.elapsed >= e.deployAtMs) e.state = "emerging";
+    }
+    // A support defender alone at the back would stand past the attackers' reach and
+    // run the fight to the four-minute cap. Drop its station so it walks up to the
+    // ordinary doorway, where every raid's enemies are fought — the fight can end.
+    const standing = this.enemies.filter((e) => e.alive && !e.isSummon && !e.isTurned);
+    if (standing.length === 1 && standing[0].defenseRole === "support" &&
+        standing[0].stationX !== null) {
+      standing[0].stationX = null;
+      if (standing[0].state === "hold") standing[0].state = "emerging";
+    }
+
     const activeMelee = this.enemies.filter(
-      (e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon && e.state !== "queued"
+      (e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon &&
+        e.deployAtMs === null && e.state !== "queued"
     ).length;
     const normalsLeft = this.enemies.some((e) => !e.isBoss && !e.isWall && !e.isSummon && e.alive);
     const blockersLeft = this.enemies.some((e) => e.isWall && e.alive);
 
     if (activeMelee < this.activeTarget) {
-      const next = this.enemies.find((e) => e.alive && !e.isBoss && e.state === "queued");
+      const next = this.enemies.find(
+        (e) => e.alive && !e.isBoss && e.deployAtMs === null && e.state === "queued"
+      );
       if (next) next.state = "emerging";
     }
 
@@ -2359,6 +2406,13 @@ export class BattleSim {
         !normalsLeft && !blockersLeft && activeMelee === 0) {
       this.boss.state = "descending"; // climb down, exit out the back, then re-enter
     }
+  }
+
+  /** Where this enemy stands once it has walked in: its authored station if it has
+   *  one (PvP formation defense), otherwise the shared doorway every raid uses. */
+  private holdXOf(e: SimUnit): number {
+    if (e.stationX !== null) return e.stationX;
+    return this.bossFallsFromSky ? EPIC_BOSS_HOLD_X : ENEMY_HOLD_X;
   }
 
   /** Which row bucket a zombie falls in — `calculateDestinationPoint` dispatches on the
@@ -2509,6 +2563,11 @@ export class BattleSim {
 
     this.assignFormation();
     this.stepHealing(dtMs, this.stepResurrect());
+    // The DEFENDER's own support pass. Only a PvP formation defense carries healing
+    // abilities on the enemy side (raid enemies are authored with none), so this is a
+    // no-op everywhere else. Resurrect is deliberately NOT mirrored: it draws on the
+    // player-side corpse backlog, and a defender backlog is its own piece of work.
+    this.stepHealing(dtMs, EMPTY_CAST, this.enemies);
     const frontX = this.frontX;
 
     // Zombies.
@@ -2725,14 +2784,16 @@ export class BattleSim {
       }
       if (e.state === "emerging") {
         // Re-enter from the right at ground level and walk left to the hold spot —
-        // exactly where the normal enemies attack from.
+        // exactly where the normal enemies attack from, unless this defender was
+        // authored a station of its own (PvP formation defense).
+        const holdX = this.holdXOf(e);
         const sx = (EMERGE_SPEED * dtMs) / 1000;
-        e.x = Math.max(ENEMY_HOLD_X, e.x - sx);
-        e.y = CENTER_Y;
+        e.x = Math.max(holdX, e.x - sx);
+        e.y = e.stationY ?? CENTER_Y;
         e.timerMs = this.cycleMs(e, null);
-        if (e.x <= ENEMY_HOLD_X) {
-          e.x = ENEMY_HOLD_X;
-          e.y = CENTER_Y;
+        if (e.x <= holdX) {
+          e.x = holdX;
+          e.y = e.stationY ?? CENTER_Y;
           e.state = "hold";
         }
         continue;

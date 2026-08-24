@@ -555,7 +555,32 @@ import type { RaidOutcome } from "./types";
 // numbers. Both halves make fights no easier; a rare v39-marginal win may become a
 // loss. Same cost as every bump: an invasion in flight at deploy time settles as
 // stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 40;
+// v41 — THE PvP DEFENSE FORMATION, and the two things it needed from the sim. Only a
+// friend invasion fought in "formation" defense mode is affected; every raid transcript
+// is byte-identical, which is what the optional-field gating below buys and what the
+// raid suites prove.
+// (a) AUTHORED STATIONS AND ARRIVALS. A defender may now carry `stationX`/`stationY`
+// (walk here and stand, instead of holding at the shared ENEMY_HOLD_X doorway) and
+// `deployAtMs` (walk on when my own clock says so, ignoring the wave's drip budget
+// entirely — such a unit neither counts toward `activeTarget` nor competes for it).
+// That is what lets a farm defend itself as a FORMATION — a Headless tank holding the
+// front at 820, the brute and mini behind it at 890, the line arriving as
+// reinforcements — rather than as a wave trickling out of a barn three at a time.
+// (b) DEFENDERS KEEP THE ABILITIES THAT RUN THEMSELVES. `toSim` no longer force-strips
+// the enemy ability list (every raid enemy is authored with `abilities: []`, so raids
+// do not move), and `stepHealing` runs a second pass over the enemy roster. A defending
+// Garden zombie therefore HEALS, which it never did: PvP stripped every ability as
+// "nobody is home to tap them", but heal needs nobody. Measured before the fix — giving
+// the defense a healer made it lose 7 s FASTER, because the slot cost it a fighter and
+// bought nothing. `ressurect` is deliberately still stripped on defense: it reads the
+// player-side corpse backlog and a defender backlog is its own piece of work.
+// A support defender left alone at the back also drops its station and walks up to the
+// ordinary doorway, so a won-on-points defense ends in a fight rather than idling into
+// the four-minute cap.
+// Same cost as every bump: an invasion in flight at deploy time settles as
+// stale_ruleset and pays nothing, and stored PvP replays recorded under 40 stop being
+// watchable (the 10-per-role window washes that out within a few fights).
+export const RAID_RULESET_VERSION = 41;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

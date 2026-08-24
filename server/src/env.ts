@@ -47,6 +47,12 @@ export interface Bindings {
   /** Friend invasions (PvP). Fully built and verified, PARKED ("0") while the interface
    *  is redesigned — see docs/FRIEND_INVASIONS.md for the feature and how to re-enable. */
   PVP_ENABLED?: string;
+  /** Which defense a friend invasion fights: "classic" (the shipped wave out of the
+   *  barn doorway) or "formation" (one zombie per class, each with a job and a
+   *  station). Exactly one is live at a time; the Worker AUTHORS the pinned config to
+   *  match, so the client fights whatever it is handed. See src/raid/pvp.ts and
+   *  docs/PVP_DEFENSE_FORMATION.md. Unset = "classic". */
+  PVP_DEFENSE_MODE?: string;
   /** Exclusive-writer rollout: observe accepts legacy clients; enforce requires the
    * authenticated writer credential on every gameplay mutation. */
   WRITER_LEASE_MODE?: "observe" | "enforce";

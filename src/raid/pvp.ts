@@ -30,16 +30,75 @@ export const PVP_RAID_ID = -2;
 /** An attacking lineup is exactly eight zombies — no more, no fewer. */
 export const PVP_ARMY_SIZE = 8;
 
-/** How many defenders a defense fields TODAY: the strongest N of the deployed
- *  (non-crypt) roster, or up to N of an AUTHORED line-up. This is the BASE size —
- *  the customization shop will sell defense-slot upgrades that raise an account's
- *  own cap toward PVP_DEFENSE_CAP_MAX; until those exist, everyone is at base. */
+/** How many defenders a defense fields: the strongest N of the deployed (non-crypt)
+ *  roster, or up to N of an AUTHORED line-up. Six is also exactly the number of
+ *  zombie classes, which is what lets "formation" mode give every class its own job.
+ *  There is no upgrade path past it — a defense is worth the zombies in it. */
 export const PVP_DEFENSE_CAP = 6;
 
-/** The ceiling defense-slot upgrades may reach. Nothing grants slots yet — this is
- *  the design bound the upgrade path builds toward, exported so the loadout editor
- *  and the server validation agree on the day it lands. */
-export const PVP_DEFENSE_CAP_MAX = 10;
+// ---------------------------------------------------------------------------
+// DEFENSE MODES. Two ways a farm can defend itself, and exactly one is live at a
+// time — the Worker picks it (PVP_DEFENSE_MODE) and AUTHORS the pinned config to
+// match, so the client simply fights whatever it is handed. There are deliberately
+// no defense upgrades in either mode: a defense is worth exactly the zombies
+// standing in it (owner's ruling — see docs/PVP_DEFENSE_FORMATION.md).
+//
+//   "classic"   — the shipped behaviour. An ordered line-up (or the auto strongest
+//                 pick) walks out of the barn doorway under PVP_WAVE_CADENCE, three
+//                 on the field at a time, with every ability stripped.
+//   "formation" — one zombie per class, each with an authored job and station: a
+//                 Headless tank holding the front, a Garden healer at the back that
+//                 ACTUALLY heals, a Large brute and Small mini mid-depth, and the
+//                 Regular/Girl line arriving as reinforcements.
+export type PvpDefenseMode = "classic" | "formation";
+export const PVP_DEFENSE_MODES: readonly PvpDefenseMode[] = ["classic", "formation"];
+export const PVP_DEFENSE_MODE_DEFAULT: PvpDefenseMode = "classic";
+export const isPvpDefenseMode = (value: unknown): value is PvpDefenseMode =>
+  typeof value === "string" && (PVP_DEFENSE_MODES as readonly string[]).includes(value);
+
+/** The six jobs a formation defense fills — one per zombie class, which is why the
+ *  defense cap and the class count are the same number. */
+export type PvpDefenseRole = "tank" | "support" | "brute" | "mini" | "line";
+
+/** Which class fills which job. `group` is the zombie's body type (types.ts). */
+export const PVP_ROLE_BY_GROUP: Readonly<Record<string, PvpDefenseRole>> = {
+  Headless: "tank",
+  Garden: "support",
+  Large: "brute",
+  Small: "mini",
+  Regular: "line",
+  Female: "line",
+};
+
+/** Stations, in sim x (FIELD_W 1000). The defense holds at the barn doorway (940)
+ *  today with 60px of stage behind it — no room for a formation — so the tank is
+ *  pulled FORWARD of the barn and the rest fill in behind it. */
+export const DEF_TANK_X = 820; // ~1 sprite in front of the barn face
+export const DEF_LINE_X = 890; // brute, mini, and the line reinforcements
+export const DEF_SUPPORT_X = 950; // healer, in the doorway, out of the combat band
+
+export const PVP_STATION_BY_ROLE: Readonly<Record<PvpDefenseRole, number>> = {
+  tank: DEF_TANK_X,
+  brute: DEF_LINE_X,
+  mini: DEF_LINE_X,
+  line: DEF_LINE_X,
+  support: DEF_SUPPORT_X,
+};
+
+/** Reinforcement cadence: the line arrives on this beat, so an attacker who clears
+ *  fast gets ahead and one who does not gets buried. The primary balance dial. */
+export const PVP_DEFENSE_DRIP_MS = 15_000;
+
+/** Abilities a DEFENDER keeps. These run themselves — nobody has to tap them, so
+ *  "nobody is home" was never a reason to strip them. Everything else (bash,
+ *  explode, Mini Buddy) is a tap and stays stripped: a defender cannot tap.
+ *
+ *  `ressurect` is deliberately NOT here yet. Reviving reads the player-side corpse
+ *  backlog (BattleSim.fallen), so a defending Garden would need a backlog of its own
+ *  — its own piece of work, and one that interacts with the win condition, so it is
+ *  left for later rather than half-done. A defending healer HEALS, which is the job
+ *  the design gives it. */
+export const PVP_DEFENSE_PASSIVE_ABILITIES: readonly string[] = ["heal", "healAOE"];
 
 /** Both sides of a friend invasion must be past the opening arc of the game: level 7
  *  keeps brand-new farms out of the matchmaking pool in either role. */
@@ -103,8 +162,17 @@ export function armyScore(units: CombatUnit[]): number {
  *  - ids are re-minted `d0..dN` like a wave's so nothing downstream confuses them
  *    with the attacker's roster ids.
  */
-function toEnemyCopy(u: CombatUnit, i: number): CombatUnit {
-  const copy: CombatUnit = { ...u, id: `d${i}`, team: "enemy", abilities: [] };
+function toEnemyCopy(u: CombatUnit, i: number, keepPassives = false): CombatUnit {
+  const copy: CombatUnit = {
+    ...u,
+    id: `d${i}`,
+    team: "enemy",
+    // Classic mode strips every ability. Formation mode keeps the ones that run
+    // themselves, which is what lets a defending healer actually heal.
+    abilities: keepPassives
+      ? u.abilities.filter((key) => PVP_DEFENSE_PASSIVE_ABILITIES.includes(key))
+      : [],
+  };
   delete copy.teamAuraStats;
   delete copy.walkingSpeedMult;
   return copy;
@@ -138,6 +206,58 @@ export function toDefenseUnits(units: CombatUnit[]): CombatUnit[] {
  *  loadout to still-owned zombies. */
 export function orderedDefenseUnits(units: CombatUnit[]): CombatUnit[] {
   return enemyCopies(units.slice(0, PVP_DEFENSE_CAP));
+}
+
+// ---------------------------------------------------------------------------
+// FORMATION MODE. One zombie per class, each with a job, a station and an arrival
+// time. The line (Regular/Girl) reinforces on PVP_DEFENSE_DRIP_MS; everyone else is
+// already in place when the fight opens — the tank walks out to meet the attacker,
+// which it can afford to do because a Headless carries the game's lowest dex on its
+// highest con: a wall that barely bites, so the attacker's one-at-a-time trickle has
+// time to build up. See docs/PVP_DEFENSE_FORMATION.md.
+
+/** The job a zombie of this class holds, or null if its class fills no job. */
+export function roleForGroup(group: string | undefined): PvpDefenseRole | null {
+  return (group && PVP_ROLE_BY_GROUP[group]) || null;
+}
+
+/** Pick at most one zombie per job, strongest first within each. Deterministic. */
+export function selectFormationDefense(units: CombatUnit[]): CombatUnit[] {
+  const best = new Map<PvpDefenseRole, CombatUnit>();
+  const ranked = [...units].sort(
+    (a, b) => unitScore(b) - unitScore(a) || a.id.localeCompare(b.id)
+  );
+  for (const unit of ranked) {
+    const role = roleForGroup(unit.group);
+    // Regular and Girl BOTH map to "line", so the second one would be dropped by a
+    // plain one-per-role rule. Give the line two seats, keyed by class.
+    const seat = role === "line" ? (`line:${unit.group}` as PvpDefenseRole) : role;
+    if (!seat) continue;
+    if (!best.has(seat)) best.set(seat, unit);
+  }
+  return [...best.values()].slice(0, PVP_DEFENSE_CAP);
+}
+
+/** Convert a selected formation into the enemy side, authoring each unit's job,
+ *  station and arrival. Order is front-to-back so the tank is index 0. */
+export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
+  const ROLE_ORDER: PvpDefenseRole[] = ["tank", "brute", "mini", "line", "support"];
+  const ordered = [...selected].sort((a, b) => {
+    const ra = ROLE_ORDER.indexOf(roleForGroup(a.group) ?? "line");
+    const rb = ROLE_ORDER.indexOf(roleForGroup(b.group) ?? "line");
+    return ra - rb || a.id.localeCompare(b.id);
+  });
+  let lineSeat = 0;
+  return ordered.map((unit, i) => {
+    const role = roleForGroup(unit.group) ?? "line";
+    const copy = toEnemyCopy(unit, i, true);
+    copy.defenseRole = role;
+    copy.stationX = PVP_STATION_BY_ROLE[role];
+    // The line arrives as reinforcements, one per beat; everyone else is in place
+    // when the fight opens (the tank walks out from there to its station).
+    copy.deployAtMs = role === "line" ? PVP_DEFENSE_DRIP_MS * ++lineSeat : 0;
+    return copy;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -185,14 +305,46 @@ export function unitTierPoints(u: CombatUnit): number {
   return unitScore(u) / Math.max(0.05, 1 - (u.damageReduction ?? 0));
 }
 
+// SUPPORT CREDIT (owner's ruling: a healer is worth what a fighter is worth).
+//
+// hp × dps scores a healer at almost nothing — the Garden class carries the smallest
+// stats in the game — yet a working healer makes a fight materially harder. Crediting
+// it with its OWN throughput does not fix that: heal restores HEAL_POWER_MULT of the
+// healer's power per cast, which is about half its attack dps, so it would score ~1.5x
+// of very little. The value is that it multiplies the WHOLE line's staying power, so
+// that is where the credit goes: healing over a nominal fight becomes effective HP for
+// the group.
+//
+// A healer only earns this where it can actually heal — the credit keys off the ability
+// surviving on the unit, which happens in formation mode and never in classic mode,
+// where every ability is stripped. So the tier always describes the fight the mode
+// really produces, with no mode plumbing needed here.
+const HEAL_POWER_MULT = 0.5; // mirrors BattleSim's constant
+/** Nominal fight length the healing credit is integrated over. Measured PvP fights
+ *  ran 35-75 s; 60 is the middle. Tuned so a six-role defense fielding a healer scores
+ *  about what six fighters would — which is the whole point of the ruling. */
+const HEAL_CREDIT_SECS = 60;
+
+/** Hit points a unit restores per second, or 0 if it cannot heal. */
+export function unitHealPerSec(u: CombatUnit): number {
+  if (!u.abilities.some((key) => key === "heal" || key === "healAOE")) return 0;
+  const power = u.str * POWER_PER_STR;
+  return power * HEAL_POWER_MULT * (1000 / Math.max(1, u.attackCooldownMs));
+}
+
 /** A group's tier score: Σ points / √(count × baseSize) — the per-slot average at
- *  base size, rising √count above it, diluting below it. */
+ *  base size, rising √count above it, diluting below it — then lifted by whatever
+ *  healing the group sustains, as a share of its own hit points. */
 export function groupTierPoints(
   units: ReadonlyArray<CombatUnit>,
   baseSize: number
 ): number {
   const total = units.reduce((sum, u) => sum + unitTierPoints(u), 0);
-  return total / Math.sqrt(Math.max(units.length, 1) * Math.max(baseSize, 1));
+  const base = total / Math.sqrt(Math.max(units.length, 1) * Math.max(baseSize, 1));
+  const teamHp = units.reduce((sum, u) => sum + u.maxHp, 0);
+  if (teamHp <= 0) return base;
+  const healed = units.reduce((sum, u) => sum + unitHealPerSec(u), 0) * HEAL_CREDIT_SECS;
+  return base * (1 + healed / teamHp);
 }
 
 export function pvpTierForPoints(points: number): number {

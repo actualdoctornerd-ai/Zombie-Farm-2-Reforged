@@ -130,7 +130,11 @@ describe("defense authoring", () => {
     expect(mine.status).toBe(200);
     expect(mine.body.unitIds).toEqual(["d2", "d1"]);
     expect(mine.body.defense?.authored).toBe(true);
-    expect(mine.body.defense?.defenders.map((d) => d.key)).toEqual([REGULAR, HEADLESS]);
+    // Ordering is MODE-dependent (classic keeps the saved order, formation orders by
+    // job), so this spec asserts membership; the ordering rules are pinned per mode in
+    // "defense modes" below and in src/raid/pvp.test.ts.
+    expect([...(mine.body.defense?.defenders ?? [])].map((d) => d.key).sort())
+      .toEqual([HEADLESS, REGULAR].sort());
     expect(mine.body.defense?.tier).toBeGreaterThanOrEqual(1);
 
     // The pinned fight fields the authored defense in the authored EMERGENCE order.
@@ -138,7 +142,8 @@ describe("defense authoring", () => {
       enemyUnits: { id: string; sourceKey: string; team: string }[];
     } }>("POST", "/raid/pvp/start", attacker.token, startBody(defender.accountId));
     expect(started.status, JSON.stringify(started.body)).toBe(200);
-    expect(started.body.config.enemyUnits.map((u) => u.sourceKey)).toEqual([REGULAR, HEADLESS]);
+    expect([...started.body.config.enemyUnits].map((u) => u.sourceKey).sort())
+      .toEqual([HEADLESS, REGULAR].sort());
     expect(started.body.config.enemyUnits.map((u) => u.id)).toEqual(["d0", "d1"]);
     await call("POST", "/raid/pvp/finish", attacker.token, retreatFinish(started.body.sessionId));
 
@@ -148,7 +153,8 @@ describe("defense authoring", () => {
       "POST", "/raid/pvp/preview", attacker.token, { defenderId: defender.accountId });
     expect(scout.status).toBe(200);
     expect(scout.body.authored).toBe(true);
-    expect(scout.body.defenders.map((d) => d.key)).toEqual([REGULAR, HEADLESS]);
+    expect([...scout.body.defenders].map((d) => d.key).sort())
+      .toEqual([HEADLESS, REGULAR].sort());
     expect(scout.body.attackerTier).toBeGreaterThanOrEqual(1);
     // Scouting works both ways between friends…
     const reverseScout = await call<{ ok: boolean }>("POST", "/raid/pvp/preview",
@@ -252,6 +258,87 @@ describe("defenses degrade gracefully when zombies disappear", () => {
     expect(planned.status).toBe(200);
     expect(planned.body.authored).toBe(true);
     expect(planned.body.defenders).toHaveLength(1);
+  });
+});
+
+describe("defense modes", () => {
+  // The suite's Worker runs PVP_DEFENSE_MODE=formation (wrangler.test.env), so these
+  // assert the mode that is under development. Exactly one mode is reachable at a
+  // time; switching is a Worker var, so there is nothing client-side to toggle.
+  interface DefenseGet {
+    ok: boolean;
+    mode: string;
+    defense: { defenders: { key: string; role?: string }[]; authored: boolean } | null;
+  }
+  interface StartResponse {
+    ok: boolean;
+    sessionId: string;
+    config: {
+      waveCadence: { maxActive: number; dripMs: number };
+      enemyUnits: {
+        sourceKey: string; abilities: string[];
+        defenseRole?: string; stationX?: number; deployAtMs?: number;
+      }[];
+    };
+  }
+
+  it("fields one zombie per class, each with a job, a station and an arrival", async () => {
+    const attacker = await pvpPlayer("pvp-mode-a", attackUnits);
+    // One of every class, plus a spare Regular that should NOT get a seat.
+    const defender = await pvpPlayer("pvp-mode-d", [
+      { id: "f0", key: HEADLESS }, { id: "f1", key: "ZombieActorGardenTier3" },
+      { id: "f2", key: "ZombieActorLargeTier3" }, { id: "f3", key: "ZombieActorSmallTier3" },
+      { id: "f4", key: REGULAR }, { id: "f5", key: "ZombieActorGirlTier3" },
+      { id: "f6", key: REGULAR },
+    ]);
+    await befriend(attacker, defender);
+
+    const mine = await call<DefenseGet>("GET", "/raid/pvp/defense", defender.token);
+    expect(mine.status, JSON.stringify(mine.body)).toBe(200);
+    expect(mine.body.mode).toBe("formation");
+    const roles = (mine.body.defense?.defenders ?? []).map((d) => d.role);
+    expect(roles).toEqual(["tank", "brute", "mini", "line", "line", "support"]);
+
+    const started = await call<StartResponse>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+    const units = started.body.config.enemyUnits;
+    expect(units).toHaveLength(6);
+
+    // The tank holds the front, the support sits deepest, the line reinforces late.
+    const byRole = new Map(units.map((u) => [u.defenseRole, u]));
+    expect(byRole.get("tank")!.stationX).toBeLessThan(byRole.get("brute")!.stationX!);
+    expect(byRole.get("support")!.stationX).toBeGreaterThan(byRole.get("brute")!.stationX!);
+    expect(byRole.get("tank")!.deployAtMs).toBe(0);
+    expect(byRole.get("support")!.deployAtMs).toBe(0);
+    expect(units.filter((u) => u.defenseRole === "line")
+      .every((u) => (u.deployAtMs ?? 0) > 0)).toBe(true);
+
+    // Nothing TAPPABLE survives on defense. The positive half — a defending healer
+    // keeping `heal` and actually healing — needs the ability UNLOCKED, which takes
+    // raid progress no dev fixture grants, so it is pinned at sim level instead
+    // (src/raid/pvp.test.ts, "a defending healer heals").
+    for (const unit of units) {
+      expect(unit.abilities.every((key) => key === "heal" || key === "healAOE")).toBe(true);
+    }
+    // The wave drip is switched off: a formation authors its own arrivals.
+    expect(started.body.config.waveCadence.dripMs).toBe(0);
+
+    await call("POST", "/raid/pvp/finish", attacker.token, retreatFinish(started.body.sessionId));
+  });
+
+  it("still settles a formation fight end to end", async () => {
+    const attacker = await pvpPlayer("pvp-mode-w", attackUnits);
+    const defender = await pvpPlayer("pvp-mode-x", [{ id: "g0" }, { id: "g1", key: HEADLESS }]);
+    await befriend(attacker, defender);
+    const started = await call<StartResponse>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+    const finished = await call<{ win: boolean; rewards: unknown[] }>(
+      "POST", "/raid/pvp/finish", attacker.token,
+      { sessionId: started.body.sessionId, finalTick: 0, inputs: [] });
+    expect(finished.status, JSON.stringify(finished.body)).toBe(200);
+    expect(typeof finished.body.win).toBe("boolean");
   });
 });
 

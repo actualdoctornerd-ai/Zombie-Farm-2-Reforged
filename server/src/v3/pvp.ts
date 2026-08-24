@@ -38,8 +38,10 @@ import {
   PVP_DAILY_REWARDED_DEFENSES,
   PVP_DAILY_REWARDED_WINS,
   PVP_DEFENSE_CAP,
+  PVP_DEFENSE_MODE_DEFAULT,
   PVP_REPLAYS_KEPT,
   pvpRewardsForTier,
+  type PvpDefenseMode,
   type PvpReward,
 } from "../../../src/raid/pvp";
 import type { RaidOutcome } from "../../../src/raid/types";
@@ -135,7 +137,8 @@ export async function startPvp(
   db: D1Database,
   accountId: string,
   body: { defenderId?: unknown; orderedUnitIds?: unknown; rulesetVersion?: unknown },
-  now: number
+  now: number,
+  mode: PvpDefenseMode = PVP_DEFENSE_MODE_DEFAULT
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   await expireLivePvp(db, accountId, now);
   if (body.rulesetVersion !== RAID_RULESET_VERSION) {
@@ -159,7 +162,7 @@ export async function startPvp(
   if ((pairToday?.n ?? 0) >= PVP_DAILY_ATTACKS_PER_PAIR) {
     return { status: 429, body: { ok: false, error: "pair_limit", limit: PVP_DAILY_ATTACKS_PER_PAIR } };
   }
-  const pinned = await buildPinnedPvpRaid(db, accountId, defenderId, body.orderedUnitIds);
+  const pinned = await buildPinnedPvpRaid(db, accountId, defenderId, body.orderedUnitIds, mode);
   if (!pinned.ok) {
     const status = pinned.error === "bad_roster" || pinned.error === "bad_defender" ? 400
       : pinned.error === "attacker_level" || pinned.error === "defender_level" ? 403
@@ -392,19 +395,20 @@ export async function setDefensePvp(
  *  freshly built snapshot (score, the reward tier beating it pays, the line-up). */
 export async function getDefensePvp(
   db: D1Database,
-  accountId: string
+  accountId: string,
+  mode: PvpDefenseMode = PVP_DEFENSE_MODE_DEFAULT
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const [loadoutRow, snapshot] = await Promise.all([
     db.prepare("SELECT loadout_json FROM pvp_defense_v3 WHERE account_id = ?")
       .bind(accountId).first<{ loadout_json: string }>(),
-    buildDefenseSnapshot(db, accountId),
+    buildDefenseSnapshot(db, accountId, mode),
   ]);
   const loadout = parse<{ unitIds?: string[] }>(loadoutRow?.loadout_json, {});
   const unitIds = Array.isArray(loadout.unitIds) ? loadout.unitIds : [];
   if (!snapshot.ok) {
-    return { status: 200, body: { ok: true, unitIds, defense: null, error: snapshot.error } };
+    return { status: 200, body: { ok: true, mode, unitIds, defense: null, error: snapshot.error } };
   }
-  return { status: 200, body: { ok: true, unitIds, defense: {
+  return { status: 200, body: { ok: true, mode, unitIds, defense: {
     score: snapshot.score,
     tier: snapshot.tier,
     defenders: snapshot.defenders,
@@ -419,7 +423,8 @@ export async function previewPvp(
   db: D1Database,
   accountId: string,
   body: { defenderId?: unknown },
-  now: number
+  now: number,
+  mode: PvpDefenseMode = PVP_DEFENSE_MODE_DEFAULT
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const defenderId = typeof body.defenderId === "string" ? body.defenderId : "";
   if (!defenderId || defenderId === accountId) return { status: 400, body: { ok: false, error: "bad_defender" } };
@@ -427,7 +432,7 @@ export async function previewPvp(
     return { status: 403, body: { ok: false, error: "not_friends" } };
   }
   const [snapshot, pairToday] = await Promise.all([
-    buildDefenseSnapshot(db, defenderId),
+    buildDefenseSnapshot(db, defenderId, mode),
     db.prepare(`SELECT COUNT(*) AS n FROM pvp_sessions_v3
       WHERE attacker_id = ? AND defender_id = ? AND started_at >= ?`)
       .bind(accountId, defenderId, dayBucket(now) * DAY_MS).first<{ n: number }>(),
@@ -437,6 +442,7 @@ export async function previewPvp(
     return { status, body: { ok: false, error: snapshot.error } };
   }
   return { status: 200, body: { ok: true,
+    mode,
     defenderName: snapshot.defenderName,
     defenseScore: snapshot.score,
     /** The defense GROUP's tier — also exactly what a win against it pays. */

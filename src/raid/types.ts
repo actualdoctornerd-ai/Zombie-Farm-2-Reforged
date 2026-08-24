@@ -194,6 +194,20 @@ export interface CombatUnit {
   /** Fractional damage reduction 0..1, applied after armor (binary
    *  `finalDamageReduction`). 0/absent = none. */
   damageReduction?: number;
+  // ---- PvP defense formation (friend invasions, "formation" defense mode) ----
+  // All three are OPTIONAL and authored server-side into the pinned config. When they
+  // are ABSENT every unit behaves exactly as it always has, which is what keeps raid
+  // transcripts byte-identical: only a formation-mode PvP defense ever carries them.
+  // See docs/PVP_DEFENSE_FORMATION.md and src/raid/pvp.ts.
+  /** Which authored job this defender holds in the farm's defense. */
+  defenseRole?: "tank" | "support" | "brute" | "mini" | "line";
+  /** Authored hold position. An enemy carrying this walks to it and stands there
+   *  instead of holding at the shared ENEMY_HOLD_X doorway. */
+  stationX?: number;
+  stationY?: number;
+  /** Fight-clock ms at which this defender walks on. 0 = already there when the
+   *  fight opens. Present = this unit ignores the wave's drip cadence entirely. */
+  deployAtMs?: number;
   /** Pre-team-aura stats plus the additive contribution from one matching deployed
    *  carrier. BattleSim uses this to turn Chivalry/Grace/Protect/Fortitude on only
    *  while their holder is actually deployed; headless/instant resolvers can keep

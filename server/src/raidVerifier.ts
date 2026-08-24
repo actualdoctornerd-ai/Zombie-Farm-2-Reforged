@@ -45,12 +45,16 @@ import {
   PVP_MIN_LEVEL,
   PVP_RAID_ID,
   PVP_WAVE_CADENCE,
+  PVP_DEFENSE_MODE_DEFAULT,
   armyScore,
   enemyCopies,
+  formationDefenseUnits,
   groupTierPoints,
   pvpTierForPoints,
   selectAutoDefense,
+  selectFormationDefense,
   type PvpConfigInfo,
+  type PvpDefenseMode,
 } from "../../src/raid/pvp";
 import { parseRosterColor } from "./v3/rosterColor";
 
@@ -501,6 +505,8 @@ export interface PvpDefenderPreview {
   name: string;
   mutation?: number;
   color?: [number, number, number];
+  /** Formation mode only: the job this defender holds. */
+  role?: string;
 }
 
 export type DefenseSnapshotResult =
@@ -518,6 +524,8 @@ export type DefenseSnapshotResult =
       /** True when the line-up came from the defender's saved defense, not the
        *  strongest-pick auto snapshot. */
       authored: boolean;
+      /** Which defense mode composed this snapshot. */
+      mode: PvpDefenseMode;
     }
   | { ok: false; error: string };
 
@@ -529,7 +537,8 @@ export type DefenseSnapshotResult =
  *  zombies: a defense is a plan, not who happens to stand on the lawn. */
 export async function buildDefenseSnapshot(
   db: D1Database,
-  defenderId: string
+  defenderId: string,
+  mode: PvpDefenseMode = PVP_DEFENSE_MODE_DEFAULT
 ): Promise<DefenseSnapshotResult> {
   const [account, context, names, loadoutRow] = await Promise.all([
     db.prepare("SELECT username FROM accounts WHERE id = ?").bind(defenderId)
@@ -580,8 +589,20 @@ export async function buildDefenseSnapshot(
     farmerStrengthMult: farmerMultiplier(context.bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(context.bonusHead, "zombieLife"),
   });
-  const selected = authored ? built.slice(0, PVP_DEFENSE_CAP) : selectAutoDefense(built);
-  const units = enemyCopies(selected);
+  // MODE decides how the defense is composed AND how it fights. In "formation" the
+  // saved loadout narrows the pool (the defender's chosen zombies) and the builder
+  // then fills one job per class from it; in "classic" the saved order IS the
+  // emergence order, exactly as it shipped.
+  // In formation mode the saved loadout NARROWS the pool (these are the zombies the
+  // defender chose to stand guard) and the builder fills one job per class from it.
+  // In classic mode the saved order IS the emergence order, exactly as it shipped.
+  const pool = authored ? built.slice(0, PVP_DEFENSE_CAP) : built;
+  const selected = mode === "formation"
+    ? selectFormationDefense(authored ? pool : built)
+    : (authored ? pool : selectAutoDefense(built));
+  const units = mode === "formation"
+    ? formationDefenseUnits(selected)
+    : enemyCopies(selected);
   return {
     ok: true,
     units,
@@ -595,8 +616,10 @@ export async function buildDefenseSnapshot(
       name: u.name,
       ...(u.mutation !== undefined ? { mutation: u.mutation } : {}),
       ...(u.color ? { color: u.color } : {}),
+      ...(u.defenseRole ? { role: u.defenseRole } : {}),
     })),
     authored,
+    mode,
   };
 }
 
@@ -607,7 +630,8 @@ export async function buildPinnedPvpRaid(
   db: D1Database,
   attackerId: string,
   defenderId: string,
-  orderedIds: unknown
+  orderedIds: unknown,
+  mode: PvpDefenseMode = PVP_DEFENSE_MODE_DEFAULT
 ): Promise<BuildPinnedPvpResult> {
   if (!Array.isArray(orderedIds) || orderedIds.length !== PVP_ARMY_SIZE) {
     return { ok: false, error: "bad_roster" };
@@ -623,7 +647,7 @@ export async function buildPinnedPvpRaid(
       .bind(attackerId, ...ids).all<PvpRosterRow>(),
     accountFightContext(db, attackerId),
     rosterNames(db, attackerId),
-    buildDefenseSnapshot(db, defenderId),
+    buildDefenseSnapshot(db, defenderId, mode),
   ]);
   if (attacker.level < PVP_MIN_LEVEL) return { ok: false, error: "attacker_level" };
   if (!defense.ok) return defense;
@@ -658,7 +682,10 @@ export async function buildPinnedPvpRaid(
       bossThrow: null,
       bossSpecials: [],
       summon: null,
-      waveCadence: PVP_WAVE_CADENCE,
+      // Classic mode feeds the defense through the wave drip. A formation defense
+      // authors each unit's arrival instead, so the cadence is left at the one-at-a-
+      // time default and never competes with it (see BattleSim.promote).
+      waveCadence: mode === "formation" ? { maxActive: 1, dripMs: 0 } : PVP_WAVE_CADENCE,
       wallTemplate: null,
       turnedTemplate: null,
       grabber: null,

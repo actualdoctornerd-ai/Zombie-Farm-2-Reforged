@@ -1,6 +1,13 @@
 # PvP Defense Formation — Half A spec
 
-**Status: SPEC, NOT BUILT.** This describes the defense rework for friend invasions
+**Status: BUILT (Half A), LIVE ON STAGING.** Shipped as one of TWO defense modes —
+`PVP_DEFENSE_MODE` picks which one a Worker fields, and exactly one is reachable in
+game at a time (`"formation"` on staging and in dev, `"classic"` in production).
+Measured after the build: break-even moved from **1.24x to 1.05x**, inside the target
+band below, with no four-minute timeouts. The section headings below describe what was
+built; deviations are called out inline.
+
+**Original status when written: SPEC, NOT BUILT.** This describes the defense rework for friend invasions
 (`docs/FRIEND_INVASIONS.md`), split into two halves. **Half A — roles, standing
 positions and deployment — is specified here.** Half B (the brute on the perch, the
 thrown-and-returning mini, descend-on-tank-death) is deliberately out of scope; it is
@@ -80,9 +87,12 @@ bit in front of the barn" is structural, not decorative.
 Several bodies at one station keep the existing y-fan (`SRC_SLOT_Y_STEP`, `ROW_SPREAD`)
 so they do not draw on top of each other.
 
-**Reachability rule (required, not optional).** A healer at 950 sits ~190 px beyond the
-attacker's reach. If it is ever the **last defender alive it advances to `DEF_LINE_X`**
-so the fight can end. Without this, every won-on-points defense becomes a four-minute
+**Reachability rule (required, not optional).** A healer at 950 sits beyond the
+attacker's reach. If it is ever the **last defender alive it drops its station** and
+walks up to the ordinary doorway — where every raid's enemies are fought, so it is
+reachable by definition — and the fight can end. (Built that way rather than moving it
+to `DEF_LINE_X`: it needs no new constant and no coupling from the sim back to the PvP
+rules module.) Without this, every won-on-points defense becomes a four-minute
 stare-down — the same stalemate the Garden zombie already causes today. The owner has
 ruled that a timeout is a defense win; that ruling stands, but it should be rare.
 
@@ -106,8 +116,11 @@ mobbing the first zombie to arrive.
 
 Today: `abilities: []` for every defender. Change to a **passive allowlist**:
 
-- **Restored**: `heal`, `healAOE`, `ressurect`. These run themselves — nobody needs to
-  tap them, so "nobody is home to tap them" was never a reason to strip them.
+- **Restored**: `heal`, `healAOE`. These run themselves — nobody needs to tap them, so
+  "nobody is home to tap them" was never a reason to strip them. **`ressurect` was NOT
+  restored** (a deviation from this spec, taken during the build): reviving reads the
+  player-side corpse backlog, so a defending Garden needs a backlog of its own, and that
+  interacts with the win condition. Left whole for later rather than done by halves.
 - **Still stripped**: `bash`, `bashV2`, `explode`, `explodeV2`, `attachMini`. Those are
   taps. A defender cannot tap, and a *scripted* Mini Buddy is Half B.
 - **Unchanged**: Protect's damage reduction and the full-team auras already ride

@@ -937,6 +937,11 @@
 #hud .pvp-claim { background: #274126; border-color: #142611; }
 #hud .pvp-stats { display: flex; flex-direction: column; gap: 2px; padding: 2px 4px; }
 
+#hud .pvp-roles { display: flex; flex-direction: column; gap: 5px; margin-top: 3px; }
+#hud .pvp-role { display: flex; align-items: center; gap: 7px; }
+#hud .pvp-role-text { display: flex; flex-direction: column; min-width: 0; }
+#hud .pvp-role-name { font-size: 12.5px; font-weight: 800; overflow-wrap: anywhere; }
+
 /* ---- Zombie Pot (combiner) ---- */
 #hud .cmb { display: flex; flex-direction: column; gap: 12px; width: min(560px, 90vw);
   max-width: 100%; min-width: 0; }

@@ -18,12 +18,20 @@ import {
   PVP_DEFENSE_CAP,
   PVP_TIER_REWARDS,
   PVP_WAVE_CADENCE,
+  DEF_LINE_X,
+  DEF_SUPPORT_X,
+  DEF_TANK_X,
+  PVP_DEFENSE_DRIP_MS,
+  PVP_DEFENSE_PASSIVE_ABILITIES,
   armyScore,
   buildPvpRaidDef,
+  enemyCopies,
+  formationDefenseUnits,
   groupTierPoints,
   orderedDefenseUnits,
   pvpRewardsForTier,
   pvpTierForPoints,
+  selectFormationDefense,
   toDefenseUnits,
   unitScore,
   unitTierPoints,
@@ -235,6 +243,146 @@ describe("a Garden zombie only stations when it can actually support (ruleset v4
     expect(locked[0].isGarden).toBe(false); // no heal yet — it fights in the line
     expect(unlocked[0].isGarden).toBe(true); // a real healer keeps the station
     expect(locked[0].group).toBe("Garden"); // the body type itself is untouched
+  });
+});
+
+describe("formation defense mode", () => {
+  const defOf = (key: string) =>
+    zombieDefs.find((z) => z.key === key) as unknown as Parameters<typeof makeOwned>[1];
+  const ONE_PER_CLASS = [
+    "ZombieActorHeadlessTier3", "ZombieActorGardenTier3", "ZombieActorLargeTier3",
+    "ZombieActorSmallTier3", "ZombieActorRegularTier3", "ZombieActorGirlTier3",
+  ];
+  const build = (keys: string[], prefix: string, unlocked = true) => buildPlayerUnits(
+    keys.map((k, i) => makeOwned(`${prefix}${i}`, defOf(k), 0, 0, 0, 0)),
+    { concentration: true, abilityUnlocked: () => unlocked, playerLevel: 30 }
+  );
+  const formation = (unlocked = true) =>
+    formationDefenseUnits(selectFormationDefense(build(ONE_PER_CLASS, "d", unlocked)));
+
+  it("gives every class its own job, front to back, one seat each", () => {
+    const units = formation();
+    expect(units.map((u) => u.defenseRole)).toEqual(
+      ["tank", "brute", "mini", "line", "line", "support"]
+    );
+    // The tank holds the front; the support stands deepest, out of the combat band.
+    const at = (role: string) => units.find((u) => u.defenseRole === role)!;
+    expect(at("tank").stationX).toBe(DEF_TANK_X);
+    expect(at("brute").stationX).toBe(DEF_LINE_X);
+    expect(at("support").stationX).toBe(DEF_SUPPORT_X);
+    expect(at("tank").stationX!).toBeLessThan(at("support").stationX!);
+    // The Headless leads because it is the WALL THAT BARELY BITES: lowest dex in the
+    // game on the highest con. Put a brute in front instead and the standing formation
+    // becomes a meat grinder — see docs/PVP_DEFENSE_FORMATION.md.
+    expect(at("tank").sourceKey).toContain("Headless");
+  });
+
+  it("stands the defense up at once and reinforces the line on the drip", () => {
+    const units = formation();
+    for (const role of ["tank", "brute", "mini", "support"]) {
+      expect(units.find((u) => u.defenseRole === role)!.deployAtMs).toBe(0);
+    }
+    const line = units.filter((u) => u.defenseRole === "line");
+    expect(line.map((u) => u.deployAtMs)).toEqual([PVP_DEFENSE_DRIP_MS, PVP_DEFENSE_DRIP_MS * 2]);
+  });
+
+  it("keeps the abilities that run themselves and strips every tap", () => {
+    const units = formation();
+    const support = units.find((u) => u.defenseRole === "support")!;
+    expect(support.abilities).toContain("heal");
+    for (const unit of units) {
+      for (const key of unit.abilities) {
+        expect(PVP_DEFENSE_PASSIVE_ABILITIES).toContain(key);
+      }
+    }
+    // Classic mode is unchanged: it strips everything, healer included.
+    expect(toDefenseUnits(build(ONE_PER_CLASS, "c")).every((u) => u.abilities.length === 0))
+      .toBe(true);
+  });
+
+  it("a defending healer HEALS — the silent no-op this mode exists to fix", () => {
+    const defenders = formation();
+    const attackers = build(Array.from({ length: PVP_ARMY_SIZE }, () => "ZombieActorRegularTier4"), "a");
+    const sim = new BattleSim(
+      attackers, defenders, null, true, [], undefined,
+      null, null, false, false, false, undefined, null, null,
+      { maxActive: 1, dripMs: 0 }, null
+    );
+    const hpWas = new Map<string, number>();
+    let healed = false;
+    for (let t = 0; t < RAID_MAX_TICKS && !sim.finished; t++) {
+      sim.step(RAID_TICK_MS);
+      for (const u of sim.units) {
+        if (u.team !== "enemy" || !u.alive) continue;
+        const prev = hpWas.get(u.id);
+        if (prev !== undefined && u.hp > prev) healed = true;
+        hpWas.set(u.id, u.hp);
+      }
+    }
+    expect(healed, "a defending Garden zombie restored a defender's hit points").toBe(true);
+    // ...and the fight still reaches a verdict rather than idling into the cap: the
+    // support drops its station once it is alone, so it can be reached and fought.
+    expect(sim.finished).toBe(true);
+  });
+
+  it("holds the balance target: a defense breaks even near a fair mirror", () => {
+    // The reason this mode exists. Measured on the shipped classic defense, an
+    // attacker needed a 1.24x STRONGER defense to be stopped — it fields three
+    // zombies at a time while the attacker accumulates without a ceiling. A standing
+    // formation with a working healer brings that to ~1.05x.
+    //
+    // Pinned as a BAND, not a number: this is a balance goal, and a later change that
+    // quietly hands the fight to one side should fail here rather than in a playtest.
+    // The sim is fully deterministic, so the search below is stable.
+    const ATTACK = ["ZombieActorRegularTier3", "ZombieActorHeadlessTier3", "ZombieActorLargeTier3",
+      "ZombieActorGirlTier3", "ZombieActorSmallTier3", "ZombieActorRegularTier4",
+      "ZombieActorHeadlessTier4", "ZombieActorLargeTier4"];
+    const scaled = (keys: string[], power: number, prefix: string) => buildPlayerUnits(
+      keys.map((k, i) => {
+        const base = zombieDefs.find((z) => z.key === k)!;
+        return makeOwned(`${prefix}${i}`, { ...base,
+          str: (base.str as number) * power, dex: (base.dex as number) * power,
+          con: (base.con as number) * power } as unknown as Parameters<typeof makeOwned>[1],
+          0, 0, 0, 0);
+      }),
+      { concentration: true, abilityUnlocked: () => true, playerLevel: 30 }
+    );
+    const attackerWins = (defPower: number) => {
+      const sim = new BattleSim(
+        scaled(ATTACK, 1, "a"),
+        formationDefenseUnits(selectFormationDefense(scaled(ONE_PER_CLASS, defPower, "d"))),
+        null, true, [], undefined,
+        null, null, false, false, false, undefined, null, null,
+        { maxActive: 1, dripMs: 0 }, null
+      );
+      let t = 0;
+      while (!sim.finished && t < RAID_MAX_TICKS) { sim.step(RAID_TICK_MS); t++; }
+      return sim.playerWon;
+    };
+    let lo = 0.2;
+    let hi = 4.0;
+    for (let i = 0; i < 14; i++) {
+      const mid = (lo + hi) / 2;
+      if (attackerWins(mid)) lo = mid; else hi = mid;
+    }
+    expect(hi).toBeGreaterThan(0.9); // the defense must not simply win by standing
+    expect(hi).toBeLessThan(1.25); // ...nor need a materially stronger roster to hold
+  });
+
+  it("credits support in the tier — a healer is worth what a fighter is worth", () => {
+    // Six fighters versus five fighters and a healer: the healer must not be a
+    // downgrade (owner's ruling). Without the group-level credit it scored ~zero.
+    const sixFighters = build(
+      ["ZombieActorHeadlessTier3", "ZombieActorLargeTier3", "ZombieActorSmallTier3",
+       "ZombieActorRegularTier3", "ZombieActorGirlTier3", "ZombieActorRegularTier4"], "f");
+    const withHealer = formation();
+    const fighters = groupTierPoints(enemyCopies(sixFighters), PVP_DEFENSE_CAP);
+    const healer = groupTierPoints(withHealer, PVP_DEFENSE_CAP);
+    expect(healer / fighters).toBeGreaterThan(0.6);
+    // The credit only applies where the healing is REAL: strip the abilities (classic
+    // mode) and the same six zombies score strictly lower.
+    expect(groupTierPoints(toDefenseUnits(build(ONE_PER_CLASS, "d")), PVP_DEFENSE_CAP))
+      .toBeLessThan(healer);
   });
 });
 

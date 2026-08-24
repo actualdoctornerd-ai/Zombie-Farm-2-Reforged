@@ -1165,6 +1165,8 @@ export interface PvpDefenderPreview {
   name: string;
   mutation?: number;
   color?: [number, number, number];
+  /** Formation mode only: the job this defender holds in the farm's defense. */
+  role?: string;
 }
 
 export interface PvpDefenseView {
@@ -1175,11 +1177,16 @@ export interface PvpDefenseView {
   authored: boolean;
 }
 
-/** The caller's own defense line-up + how an attacker would meet it. */
+/** The caller's own defense line-up + how an attacker would meet it. `mode` says which
+ *  defense the deployed Worker fields — exactly one is live at a time. */
 export const pvpDefenseGet = () =>
-  req<{ ok: boolean; unitIds: string[]; defense: PvpDefenseView | null; error?: string }>(
-    "GET", "/raid/pvp/defense"
-  );
+  req<{
+    ok: boolean;
+    mode?: string;
+    unitIds: string[];
+    defense: PvpDefenseView | null;
+    error?: string;
+  }>("GET", "/raid/pvp/defense");
 
 /** Save (or clear, with []) the authored defense order. */
 export const pvpDefenseSet = (unitIds: string[]) =>

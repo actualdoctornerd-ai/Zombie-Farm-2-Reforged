@@ -62,6 +62,7 @@ export interface PvpDefenderPreviewView {
   name: string;
   mutation?: number;
   color?: [number, number, number];
+  role?: string;
 }
 
 export interface PvpScoutView {
@@ -76,6 +77,7 @@ export interface PvpScoutView {
 }
 
 export interface PvpDefenseInfoView {
+  mode?: string;
   unitIds: string[];
   defense: {
     score: number;
@@ -118,6 +120,41 @@ function defenseStrip(hud: Hud, defenders: PvpDefenderPreviewView[]): HTMLElemen
     strip.appendChild(pip);
   }
   return strip;
+}
+
+/** What each job does, in one word the player can act on. */
+const ROLE_LABEL: Readonly<Record<string, string>> = {
+  tank: "Holds the front",
+  brute: "Heavy hitter",
+  mini: "Little terror",
+  line: "Reinforcement",
+  support: "Heals the line",
+};
+
+/** The formation, one row per job: portrait, who is filling it, what it does. */
+function formationList(hud: Hud, defenders: PvpDefenderPreviewView[]): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "pvp-roles";
+  for (const d of defenders) {
+    const row = document.createElement("div");
+    row.className = "pvp-role";
+    const pip = document.createElement("div");
+    pip.className = "zteam-pip";
+    const portrait = hud.zombiePortraitOf?.(d.key) ?? "";
+    if (portrait) pip.style.backgroundImage = `url(${portrait})`;
+    const text = document.createElement("div");
+    text.className = "pvp-role-text";
+    const who = document.createElement("div");
+    who.className = "pvp-role-name";
+    who.textContent = d.name;
+    const job = document.createElement("div");
+    job.className = "zteam-sub";
+    job.textContent = ROLE_LABEL[d.role ?? ""] ?? "Defender";
+    text.append(who, job);
+    row.append(pip, text);
+    wrap.appendChild(row);
+  }
+  return wrap;
 }
 
 /** Portrait tile for an OWN roster entry (mutation-aware, deferred). */
@@ -309,12 +346,15 @@ export function openInvasionsPanel(hud: Hud) {
         holder.textContent = "Couldn't load your defense — try again in a moment.";
         return;
       }
+      const formation = view.mode === "formation";
       const note = document.createElement("p");
       note.className = "rd-intro";
-      note.textContent =
-        "When a friend invades, these zombies defend your farm. " +
-        "Zombies play nice with each other, so no losses are permanent. " +
-        "Arrange your own line-up, or let the farm field its strongest automatically.";
+      note.textContent = formation
+        ? "When a friend invades, these zombies defend your farm — one of each kind, " +
+          "each with a job. Zombies play nice with each other, so no losses are permanent."
+        : "When a friend invades, these zombies defend your farm. " +
+          "Zombies play nice with each other, so no losses are permanent. " +
+          "Arrange your own line-up, or let the farm field its strongest automatically.";
       holder.appendChild(note);
 
       if (view.error === "no_defense") {
@@ -331,15 +371,19 @@ export function openInvasionsPanel(hud: Hud) {
         info.className = "zteam-info";
         const head = document.createElement("div");
         head.className = "zteam-nm";
-        head.textContent = view.defense.authored
-          ? `Your arranged defense (${view.defense.defenders.length})`
-          : `Auto defense: your strongest ${view.defense.defenders.length}`;
+        head.textContent = formation
+          ? `Your farm's defenders (${view.defense.defenders.length})`
+          : view.defense.authored
+            ? `Your arranged defense (${view.defense.defenders.length})`
+            : `Auto defense: your strongest ${view.defense.defenders.length}`;
         const sub = document.createElement("div");
         sub.className = "zteam-sub";
         sub.textContent =
           `Tier ${view.defense.tier} ${TIER_STARS(view.defense.tier)} defense. ` +
           "Stronger defenders give more boosts — hold the farm and the reward is yours.";
-        info.append(head, sub, defenseStrip(hud, view.defense.defenders));
+        info.append(head, sub, formation
+          ? formationList(hud, view.defense.defenders)
+          : defenseStrip(hud, view.defense.defenders));
         summary.appendChild(info);
         holder.appendChild(summary);
       }
@@ -348,7 +392,9 @@ export function openInvasionsPanel(hud: Hud) {
       actions.className = "zbtns";
       const edit = document.createElement("button");
       edit.className = "zbtn deploy";
-      edit.textContent = view.defense?.authored ? "Edit line-up" : "Arrange a line-up";
+      edit.textContent = formation
+        ? (view.defense?.authored ? "Choose defenders" : "Pick your defenders")
+        : (view.defense?.authored ? "Edit line-up" : "Arrange a line-up");
       edit.onclick = () => openDefenseEditor(hud, view.unitIds, () => {
         body.innerHTML = "";
         renderDefense();
