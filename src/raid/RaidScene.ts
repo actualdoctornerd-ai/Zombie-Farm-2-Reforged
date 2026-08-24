@@ -10,7 +10,7 @@
 // are later phases (see IMPLEMENTATION_RAIDS_PLAN.md). Tokens are placeholder
 // portraits, not side-view stage actors.
 import { AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
-import { GameAssets, raidImage } from "../assets";
+import { GameAssets, raidImage, zombiePortrait } from "../assets";
 import { isEpicBossKey } from "../epicBoss/combat";
 import { noteAssetFailure } from "../assetFailures";
 import { ALIEN_LASER_SPRITE, BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, CHARGE_X, ENEMY_HOLD_X, ENEMY_SPAWN_X, EPIC_BOSS_LAND_MS, FIELD_H, FIELD_W, laserInterval, SimUnit, TELEPORT_PX, THROW_WINDUP_MS } from "./BattleSim";
@@ -22,6 +22,7 @@ import { ACTIVATED_ABILITY } from "../zombie/abilities";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidLevelAsset, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { ABDUCTEE_KEYS, alienTintFor } from "./alienStage";
 import { RAID_MAX_INPUTS, RAID_TICK_MS, type RaidReplayInput } from "./replay";
+import { PVP_ZOMBIE_SPRITE_PREFIX } from "./pvp";
 import {
   extrapolatePosition,
   interpolatePosition,
@@ -966,7 +967,13 @@ export class RaidScene {
     ]);
     for (const opt of this.bossThrow?.options ?? []) {
       if (this.projTex.has(opt.sprite)) continue;
-      this.projTex.set(opt.sprite, await loadTex(raidImage(opt.sprite)));
+      // A PvP formation defense throws its MINI, so the projectile is drawn from the
+      // species portrait rather than the raid image folder. `zombie:<key>` is the
+      // marker (src/raid/pvp.ts); every other sprite resolves exactly as before.
+      const url = opt.sprite.startsWith(PVP_ZOMBIE_SPRITE_PREFIX)
+        ? zombiePortrait(opt.sprite.slice(PVP_ZOMBIE_SPRITE_PREFIX.length))
+        : raidImage(opt.sprite);
+      this.projTex.set(opt.sprite, await loadTex(url));
     }
     // The alien laser bolt. Without this it fell through to the generic "no art" hazard
     // dot — an orange circle. The art is the source's own alienLaser.plist emitter baked

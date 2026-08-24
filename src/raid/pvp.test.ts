@@ -23,6 +23,11 @@ import {
   DEF_TANK_X,
   PVP_DEFENSE_DRIP_MS,
   PVP_DEFENSE_PASSIVE_ABILITIES,
+  PVP_PERCH_X,
+  PVP_PERCH_Y,
+  PVP_THROW_INTERVAL_MS,
+  PVP_ZOMBIE_SPRITE_PREFIX,
+  pvpBossThrow,
   armyScore,
   buildPvpRaidDef,
   enemyCopies,
@@ -268,13 +273,39 @@ describe("formation defense mode", () => {
     // The tank holds the front; the support stands deepest, out of the combat band.
     const at = (role: string) => units.find((u) => u.defenseRole === role)!;
     expect(at("tank").stationX).toBe(DEF_TANK_X);
-    expect(at("brute").stationX).toBe(DEF_LINE_X);
+    expect(at("mini").stationX).toBe(DEF_LINE_X);
     expect(at("support").stationX).toBe(DEF_SUPPORT_X);
     expect(at("tank").stationX!).toBeLessThan(at("support").stationX!);
+    // The BRUTE is up on the perch — the boss of the farm — so its station is in the
+    // air, above and right of the ground line. refreshFrontLine skips it entirely.
+    expect(at("brute").isBoss).toBe(true);
+    expect(at("brute").stationY!).toBeLessThan(0);
     // The Headless leads because it is the WALL THAT BARELY BITES: lowest dex in the
     // game on the highest con. Put a brute in front instead and the standing formation
     // becomes a meat grinder — see docs/PVP_DEFENSE_FORMATION.md.
     expect(at("tank").sourceKey).toContain("Headless");
+  });
+
+  it("arms the perched brute with a throw that looks like the defense's own mini", () => {
+    const units = formation();
+    const throwCfg = pvpBossThrow(units)!;
+    expect(throwCfg).toBeTruthy();
+    expect(throwCfg.intervalMs).toBe(PVP_THROW_INTERVAL_MS);
+    const [option] = throwCfg.options;
+    // The projectile IS the mini: drawn from its portrait, hitting for what it hits for.
+    const mini = units.find((u) => u.defenseRole === "mini")!;
+    expect(option.sprite).toBe(`${PVP_ZOMBIE_SPRITE_PREFIX}${mini.sourceKey}`);
+    expect(option.damage).toBeGreaterThan(0);
+    // No brute or no mini means no throw, rather than a throw of nothing.
+    expect(pvpBossThrow(units.filter((u) => u.defenseRole !== "mini"))).toBeNull();
+    expect(pvpBossThrow(units.filter((u) => u.defenseRole !== "brute"))).toBeNull();
+  });
+
+  it("perches the brute clear of the ground stations and drops the perch on descent", () => {
+    const brute = formation().find((u) => u.defenseRole === "brute")!;
+    expect(brute.stationY).toBe(PVP_PERCH_Y);
+    expect(brute.stationY!).toBeLessThan(0); // up in the air, not on the lawn
+    expect(brute.stationX).toBe(PVP_PERCH_X);
   });
 
   it("stands the defense up at once and reinforces the line on the drip", () => {

@@ -933,6 +933,9 @@ export class BattleSim {
   private engageDistance: number;
   private rowXFit = 1; // fraction of the recovered in-row depth that fits inside contact
   private frontX: number;
+  /** Any defender carries an authored station (PvP formation defense). Absent in every
+   *  raid, which is what keeps the dynamic front line below off their transcripts. */
+  private authoredStations = false;
   private supportX: number;
   /** Distinct ACTIVATED moves present in the army (fixed) — the tappable strip. */
   readonly activatedKeys: string[];
@@ -988,6 +991,10 @@ export class BattleSim {
     this.crabTimer = crab?.spawnMs ?? Infinity;
     const enemyHoldX = this.bossFallsFromSky ? EPIC_BOSS_HOLD_X : ENEMY_HOLD_X;
     this.frontX = enemyHoldX - this.engageDistance;
+    // A formation defense does not stand at the shared doorway, so the army's line
+    // cannot be a constant derived from it — see refreshFrontLine, which runs once the
+    // rosters below exist and again every step.
+    this.authoredStations = enemyUnits.some((u) => u.stationX !== undefined && u.stationX !== null);
     // How much of the recovered row depth actually fits. The source's row spans ~90 of its
     // own points and its enemies reach that far; ours reach `engageDistance`, which is less
     // than half that, so the standoff/fan is compressed to fit inside contact. The ORDER is
@@ -1001,6 +1008,7 @@ export class BattleSim {
     this.players = playerUnits.map((u, i) => toSim(u, i));
     this.enemies = ordered.map((u, i) => toSim(u, i));
     this.units = [...this.players, ...this.enemies];
+    this.refreshFrontLine();
 
     this.boss = this.enemies.find((e) => e.isBoss) ?? null;
     if (this.boss) {
@@ -1010,8 +1018,10 @@ export class BattleSim {
         this.boss.y = EPIC_BOSS_FALL_Y;
       } else {
         this.boss.state = "structure";
-        this.boss.x = BOSS_STRUCT_X;
-        this.boss.y = BOSS_STRUCT_Y;
+        // An authored perch (PvP formation defense) wins over the shared structure
+        // position, which is tuned for a boss SPRITE rather than a zombie rig.
+        this.boss.x = this.boss.stationX ?? BOSS_STRUCT_X;
+        this.boss.y = this.boss.stationY ?? BOSS_STRUCT_Y;
       }
     }
     // Own it: enrage halves `intervalMs` IN PLACE (see applyEnrage), and the verifier is
@@ -2370,6 +2380,8 @@ export class BattleSim {
 
     // A summoned abductee is off-budget on BOTH counts: it does not occupy one of the
     // wave's slots, and it does not hold the boss on its perch. See SimUnit.isSummon.
+    // The front-most surviving station decides where the army stands (no-op in raids).
+    this.refreshFrontLine();
     // AUTHORED DEFENDERS (PvP formation defense) ignore the wave budget entirely:
     // each walks on when its own clock says so, and none of them counts toward or
     // competes for `activeTarget`. Absent `deployAtMs` this loop does nothing, which
@@ -2404,8 +2416,38 @@ export class BattleSim {
 
     if (this.boss && this.boss.alive && this.boss.state === "structure" &&
         !normalsLeft && !blockersLeft && activeMelee === 0) {
-      this.boss.state = "descending"; // climb down, exit out the back, then re-enter
+      // Climb down, exit out the back, then re-enter. An authored PERCH is dropped
+      // here: from now on this is a ground unit, and keeping the station would walk
+      // it back to a spot up in the air.
+      this.boss.stationX = null;
+      this.boss.stationY = null;
+      this.boss.state = "descending";
     }
+  }
+
+  /** The army's line follows the FRONT-MOST defender.
+   *
+   *  `frontX` is normally a constant — every raid's wave holds at the same doorway, so
+   *  `ENEMY_HOLD_X - engageDistance` is where the zombies stop. A formation defense
+   *  breaks that assumption: its tank stands well forward of the barn, and an army
+   *  anchored on the doorway would walk straight PAST it to a line behind its back.
+   *
+   *  So when stations are authored the line is re-derived from the front-most station
+   *  still held by a live defender. It reads STATIONS rather than live positions on
+   *  purpose: a reinforcement still walking in would otherwise drag the line around
+   *  behind it. When the tank falls, the next station forward becomes the line and the
+   *  army pushes up — which is the behaviour you want anyway. */
+  private refreshFrontLine(): void {
+    if (!this.authoredStations) return;
+    const holdX = this.bossFallsFromSky ? EPIC_BOSS_HOLD_X : ENEMY_HOLD_X;
+    let front = holdX;
+    for (const e of this.enemies) {
+      // The perched brute is up in the air and unreachable until it climbs down, so
+      // it must never pull the army's line forward onto a position it cannot fight.
+      if (!e.alive || e.isSummon || e.isTurned || e.isBoss) continue;
+      front = Math.min(front, e.stationX ?? holdX);
+    }
+    this.frontX = front - this.engageDistance;
   }
 
   /** Where this enemy stands once it has walked in: its authored station if it has

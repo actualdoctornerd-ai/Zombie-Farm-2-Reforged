@@ -275,9 +275,10 @@ describe("defense modes", () => {
     sessionId: string;
     config: {
       waveCadence: { maxActive: number; dripMs: number };
+      bossThrow: { options: { sprite: string; damage: number }[] } | null;
       enemyUnits: {
-        sourceKey: string; abilities: string[];
-        defenseRole?: string; stationX?: number; deployAtMs?: number;
+        sourceKey: string; abilities: string[]; isBoss?: boolean;
+        defenseRole?: string; stationX?: number; stationY?: number; deployAtMs?: number;
       }[];
     };
   }
@@ -307,10 +308,23 @@ describe("defense modes", () => {
 
     // The tank holds the front, the support sits deepest, the line reinforces late.
     const byRole = new Map(units.map((u) => [u.defenseRole, u]));
-    expect(byRole.get("tank")!.stationX).toBeLessThan(byRole.get("brute")!.stationX!);
-    expect(byRole.get("support")!.stationX).toBeGreaterThan(byRole.get("brute")!.stationX!);
+    expect(byRole.get("tank")!.stationX).toBeLessThan(byRole.get("mini")!.stationX!);
+    expect(byRole.get("support")!.stationX).toBeGreaterThan(byRole.get("mini")!.stationX!);
     expect(byRole.get("tank")!.deployAtMs).toBe(0);
     expect(byRole.get("support")!.deployAtMs).toBe(0);
+    // The brute takes the boss's perch: its station is in the AIR, above the ground
+    // line, and it lobs the mini from up there.
+    expect(byRole.get("brute")!.isBoss).toBe(true);
+    expect(byRole.get("brute")!.stationY!).toBeLessThan(0);
+    // The throw must be IN THE PINNED CONFIG the client adopts. The client builds its
+    // BattleSim from exactly this object, and the verifier replays with it — a client
+    // that dropped it would fight a throw-less fight and then be settled against one
+    // with throws, diverging from the brute's first lob. (That bug shipped briefly:
+    // main.ts hardcoded bossThrow: null on the PvP launch.)
+    const throwCfg = started.body.config.bossThrow;
+    expect(throwCfg, "formation mode must pin the brute's throw").toBeTruthy();
+    expect(throwCfg!.options[0].sprite).toContain(byRole.get("mini")!.sourceKey);
+    expect(throwCfg!.options[0].damage).toBeGreaterThan(0);
     expect(units.filter((u) => u.defenseRole === "line")
       .every((u) => (u.deployAtMs ?? 0) > 0)).toBe(true);
 

@@ -12,7 +12,7 @@
 // the server returns the complete pinned config from /raid/pvp/start and the client
 // ADOPTS it wholesale, so there is no per-side derivation to keep in sync and no
 // ruleset bump — a defender zombie is just an enemy-team CombatUnit.
-import type { CombatUnit, RaidDef, WaveCadence } from "./types";
+import type { BossThrowConfig, CombatUnit, RaidDef, WaveCadence } from "./types";
 import { POWER_PER_STR } from "./combatStats";
 
 /** CLIENT KILL SWITCH — normally leave this true: the Invasions surfaces already
@@ -73,7 +73,7 @@ export const PVP_ROLE_BY_GROUP: Readonly<Record<string, PvpDefenseRole>> = {
 /** Stations, in sim x (FIELD_W 1000). The defense holds at the barn doorway (940)
  *  today with 60px of stage behind it — no room for a formation — so the tank is
  *  pulled FORWARD of the barn and the rest fill in behind it. */
-export const DEF_TANK_X = 820; // ~1 sprite in front of the barn face
+export const DEF_TANK_X = 770; // out in front of the barn, clear of the line behind it
 export const DEF_LINE_X = 890; // brute, mini, and the line reinforcements
 export const DEF_SUPPORT_X = 950; // healer, in the doorway, out of the combat band
 
@@ -88,6 +88,21 @@ export const PVP_STATION_BY_ROLE: Readonly<Record<PvpDefenseRole, number>> = {
 /** Reinforcement cadence: the line arrives on this beat, so an attacker who clears
  *  fast gets ahead and one who does not gets buried. The primary balance dial. */
 export const PVP_DEFENSE_DRIP_MS = 15_000;
+
+/** How often the perched brute lobs the mini. */
+export const PVP_THROW_INTERVAL_MS = 6_000;
+
+/** Where the brute perches. The shared BOSS_STRUCT_X/Y is tuned for an enemy boss
+ *  SPRITE; a zombie is drawn from its paper-doll rig with a different anchor, so it
+ *  reads as sitting low and left of the silo. These are the PvP-only numbers, applied
+ *  through the brute's station and cleared the moment it climbs down. */
+export const PVP_PERCH_X = 895;
+export const PVP_PERCH_Y = -250;
+
+/** Marker prefix for a projectile drawn as a ZOMBIE rather than a raid image. The
+ *  renderer resolves `zombie:<key>` through the per-species portrait; anything else
+ *  still resolves through the raid image folder. */
+export const PVP_ZOMBIE_SPRITE_PREFIX = "zombie:";
 
 /** Abilities a DEFENDER keeps. These run themselves — nobody has to tap them, so
  *  "nobody is home" was never a reason to strip them. Everything else (bash,
@@ -239,7 +254,13 @@ export function selectFormationDefense(units: CombatUnit[]): CombatUnit[] {
 }
 
 /** Convert a selected formation into the enemy side, authoring each unit's job,
- *  station and arrival. Order is front-to-back so the tank is index 0. */
+ *  station and arrival. Order is front-to-back so the tank is index 0.
+ *
+ *  The BRUTE takes the boss's perch. Marking it `isBoss` is not a cosmetic label: it
+ *  is what hands it the whole perched-boss machinery the sim already has — it starts
+ *  on the structure instead of walking in, it throws on the boss action clock, it is
+ *  off the wave budget, and it climbs down to fight once the rest of the defense is
+ *  gone. The farm's heavy hitter IS the boss of the farm. */
 export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
   const ROLE_ORDER: PvpDefenseRole[] = ["tank", "brute", "mini", "line", "support"];
   const ordered = [...selected].sort((a, b) => {
@@ -252,12 +273,43 @@ export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
     const role = roleForGroup(unit.group) ?? "line";
     const copy = toEnemyCopy(unit, i, true);
     copy.defenseRole = role;
+    if (role === "brute") {
+      // The sim parks a non-falling boss on the structure; the station here only
+      // moves it to the PvP perch (a zombie rig sits differently from a boss sprite)
+      // and is CLEARED when it climbs down, so it never anchors the army's line or
+      // drags a ground walk up into the air. refreshFrontLine skips it regardless.
+      copy.isBoss = true;
+      copy.deployAtMs = 0;
+      copy.stationX = PVP_PERCH_X;
+      copy.stationY = PVP_PERCH_Y;
+      return copy;
+    }
     copy.stationX = PVP_STATION_BY_ROLE[role];
     // The line arrives as reinforcements, one per beat; everyone else is in place
     // when the fight opens (the tank walks out from there to its station).
     copy.deployAtMs = role === "line" ? PVP_DEFENSE_DRIP_MS * ++lineSeat : 0;
     return copy;
   });
+}
+
+/** What the perched brute lobs. For now the projectile simply LOOKS like the mini —
+ *  the defense's Small zombie, drawn from its own portrait — and hits for what that
+ *  mini hits for, which is the honest number to start from. The throw-and-return
+ *  "reload" flight is Half B; this is a plain boss throw with a zombie's face on it. */
+export function pvpBossThrow(defense: CombatUnit[]): BossThrowConfig | null {
+  const brute = defense.find((u) => u.defenseRole === "brute");
+  if (!brute) return null;
+  const mini = defense.find((u) => u.defenseRole === "mini");
+  if (!mini) return null;
+  return {
+    intervalMs: PVP_THROW_INTERVAL_MS,
+    options: [{
+      damage: unitHitDamage(mini),
+      weight: 1,
+      sprite: `${PVP_ZOMBIE_SPRITE_PREFIX}${mini.sourceKey}`,
+      spriteSize: 40,
+    }],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -442,6 +494,10 @@ export interface PvpFightConfig {
   rosterIds: string[];
   playerUnits: CombatUnit[];
   enemyUnits: CombatUnit[];
+  /** Formation mode: the perched brute's throw. The client MUST adopt this — the
+   *  verifier replays with it, so dropping it desynchronises the two simulations
+   *  from the brute's first throw. Null in classic mode. */
+  bossThrow: BossThrowConfig | null;
   waveCadence: WaveCadence;
   /** Always true for friend invasions: the focus-bubble minigame is skipped on both
    *  simulations, and both sides' units are built at full focus. */

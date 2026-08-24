@@ -4993,7 +4993,10 @@ async function main() {
       assets,
       playerUnits: config.playerUnits,
       enemyUnits: config.enemyUnits,
-      bossThrow: null,
+      // ADOPTED, not null: formation mode perches a brute that throws, and the
+      // server's verifier replays with it. Dropping it here would put the two
+      // simulations out of step from the brute's first throw.
+      bossThrow: config.bossThrow ?? null,
       waveCadence: config.waveCadence,
       // PvP always fights at full focus: pinned server-side, mirrored here — a
       // disagreement would desync the verified replay from tick 0.
@@ -5230,7 +5233,10 @@ async function main() {
       assets,
       playerUnits: config.playerUnits,
       enemyUnits: config.enemyUnits,
-      bossThrow: null,
+      // ADOPTED, not null: formation mode perches a brute that throws, and the
+      // server's verifier replays with it. Dropping it here would put the two
+      // simulations out of step from the brute's first throw.
+      bossThrow: config.bossThrow ?? null,
       waveCadence: config.waveCadence,
       concentration: true,
       playback: { finalTick, inputs },

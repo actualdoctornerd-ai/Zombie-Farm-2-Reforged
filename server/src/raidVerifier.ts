@@ -50,6 +50,7 @@ import {
   enemyCopies,
   formationDefenseUnits,
   groupTierPoints,
+  pvpBossThrow,
   pvpTierForPoints,
   selectAutoDefense,
   selectFormationDefense,
@@ -679,7 +680,9 @@ export async function buildPinnedPvpRaid(
       rosterIds: ids,
       playerUnits,
       enemyUnits,
-      bossThrow: null,
+      // Formation mode perches the brute and lets it lob the mini; classic has no
+      // boss and no throw at all.
+      bossThrow: mode === "formation" ? pvpBossThrow(enemyUnits) : null,
       bossSpecials: [],
       summon: null,
       // Classic mode feeds the defense through the wave drip. A formation defense
