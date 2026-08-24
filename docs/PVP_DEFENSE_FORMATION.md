@@ -156,12 +156,27 @@ today's fallback (auto-pick over the deployed roster); an empty farm keeps `no_d
 
 Composition becomes fixed at six, so the `sqrt(count x base)` size factor is nearly
 constant for defenses and stops doing useful work there (it still matters on the attack
-side, which is always a free 8). More importantly, **a working healer will still score
-near zero on hp x dps while making the fight materially harder** — the same mismatch that
-made healers look like dead weight on the scout screen. Half A should either credit
-support inside `unitTierPoints` (healing throughput as effective HP) or accept that a
-support slot reads as a tier discount. This is a decision, not a detail: it is the reason
-`PVP_TIER_POINT_THRESHOLDS` was lowered to 1.5M.
+side, which is always a free 8).
+
+**DECIDED: `unitTierPoints` credits support — a healer is worth what a fighter is worth.**
+Left alone, a healer scores near zero on hp x dps while making the fight materially
+harder, which is the mismatch that made healers read as dead weight on the scout screen.
+
+The modelling choice inside that decision matters, because the obvious implementation
+under-delivers. Crediting a healer with its OWN throughput (`heal per second = power x
+HEAL_POWER_MULT x 1000 / cooldownMs`, which lands at about half its attack dps) leaves it
+at ~1.5x its solo score — and the Garden class carries the smallest stats in the game
+(str and con both 1–5.5 across the normal tiers), so 1.5x of very little is still very
+little. A healer is valuable because it multiplies the whole line's staying power, not
+because of what it does alone.
+
+So credit it at the GROUP level: healing throughput becomes effective HP for the team,
+
+    groupTierPoints = SUM(fighters' hp x dps) x (1 + healPerSec x fightSecs / teamHp)
+
+with `fightSecs` a fixed nominal fight length rather than anything measured, so the score
+stays a pure function of the roster. Tune the constant so a six-role defense with a
+healer scores about what six fighters would; that is the whole point of the decision.
 
 ## Ruleset and replays
 
@@ -215,8 +230,9 @@ precedent), the descend-when-the-tank-dies trigger, and the scripted Mini Buddy 
 descent. Half A leaves the Brute and Mini as ordinary line fighters at `DEF_LINE_X`,
 which is the fallback the design already calls for when Mini Buddy is not unlocked.
 
-Role **upgrades** are also out of scope, but Half A should not preclude them: a faster
-reinforcement drip, an earlier brute descent, a quicker mini reload. Note that fixed roles
-retire the planned slot-count upgrade path (`PVP_DEFENSE_CAP_MAX` = 10) — with six
-authored roles there is nowhere for a seventh body to stand, so upgrades should buy
-*behaviour* rather than slots.
+**DECIDED: there are no defense upgrades at all.** Not slot-count, not behaviour. A
+defense is worth exactly what the six zombies standing in it are worth, and the only way
+to field a better one is to own better zombies. This retires the planned
+`PVP_DEFENSE_CAP_MAX` = 10 path outright (delete the constant with this work), and it
+keeps the scout screen honest: the tier a friend shows is their roster, with no invisible
+purchased modifiers behind it.
