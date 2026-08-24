@@ -152,6 +152,34 @@ describe("abandoning a fight gives the slot back", () => {
     expect(capped).toMatchObject({ status: 429, body: { error: "pair_limit" } });
   });
 
+  it("releases without a writer lease — the unload beacon and the replaced tab", async () => {
+    // The case this exists for is a tab that is going away or has already lost the
+    // writer lease to a newer one. Both reach /raid/pvp/abandon with no usable writer
+    // credential — the pagehide keepalive cannot read one, and a replaced tab's is
+    // stale. `/raid/*` POSTs are writer-fenced as a class, so abandon answered 423
+    // Locked in exactly the situation it is for, and the session stayed stuck for the
+    // full TTL. Blanking the writer headers here reproduces that.
+    const attacker = await pvpPlayer("pvp-abandon-w", attackUnits);
+    const defender = await pvpPlayer("pvp-abandon-x", [{ id: "d0" }]);
+    await befriend(attacker, defender);
+
+    const started = await call<Started>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+
+    const noLease = { "x-writer-client": "", "x-writer-generation": "", "x-writer-token": "" };
+    const released = await call<{ ok: boolean; released: boolean }>(
+      "POST", "/raid/pvp/abandon", attacker.token, { sessionId: started.body.sessionId }, noLease);
+    expect(released.status, JSON.stringify(released.body)).toBe(200);
+    expect(released.body.released).toBe(true);
+
+    // And the slot really is free — not merely reported as such.
+    const retry = await call<Started>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(retry.status, JSON.stringify(retry.body)).toBe(200);
+    await call("POST", "/raid/pvp/abandon", attacker.token, { sessionId: retry.body.sessionId });
+  });
+
   it("is idempotent, and cannot re-open a fight that already settled", async () => {
     const attacker = await pvpPlayer("pvp-abandon-i", attackUnits);
     const defender = await pvpPlayer("pvp-abandon-j", [{ id: "d0" }]);

@@ -846,9 +846,18 @@ app.get("/writer/status", async (c) => c.json(await writer.projection(
   c.env.DB, c.get("accountId"), c.get("sessionId"), writerCredential(c), Date.now()
 )));
 
+/** Releasing a lock is not a mutation to fence. `/raid/pvp/abandon` closes the caller's
+ *  own live invasion and grants nothing, and the tabs that need it most — one whose
+ *  writer lease was taken by a newer tab, one firing a keepalive on pagehide with no
+ *  credential to send — are precisely the ones the fence refuses. Fencing it made the
+ *  route answer 423 in exactly the situation it exists for, leaving the session stuck
+ *  for the full TTL. Same reasoning as /writer/release, which was never fenced either. */
+const WRITER_FENCE_EXEMPT = new Set(["/raid/pvp/abandon"]);
+
 const writerProtectedMutation = (method: string, path: string): boolean => {
   if (method === "PUT" && (path === "/presentation" || path === "/save")) return true;
   if (method !== "POST") return false;
+  if (WRITER_FENCE_EXEMPT.has(path)) return false;
   return path === "/commands" || path === "/gifts" ||
     path.startsWith("/raid/") || path.startsWith("/epic-boss/") || path.startsWith("/black-market/");
 };
