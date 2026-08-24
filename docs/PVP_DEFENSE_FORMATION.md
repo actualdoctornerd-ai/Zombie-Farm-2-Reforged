@@ -1,0 +1,222 @@
+# PvP Defense Formation — Half A spec
+
+**Status: SPEC, NOT BUILT.** This describes the defense rework for friend invasions
+(`docs/FRIEND_INVASIONS.md`), split into two halves. **Half A — roles, standing
+positions and deployment — is specified here.** Half B (the brute on the perch, the
+thrown-and-returning mini, descend-on-tank-death) is deliberately out of scope; it is
+sketched at the end so Half A does not paint it into a corner.
+
+## Why
+
+Measured on the shipped build (all-fighter rosters, level 30, no ability taps, each
+duel played twice with the roles swapped):
+
+| Matchup, identical rosters | Result |
+|---|---|
+| 8 attack v 6 defense (shipped) | attacker wins **both** directions, 4 of 8 survive |
+| break-even | defense needs **+10% stats (1.34x strength)** just to hold |
+
+Three causes, all of which Half A addresses:
+
+1. **The defense can never field more than three zombies.**
+   `PVP_WAVE_CADENCE.maxActive = 3` caps *concurrent* defenders no matter how many are
+   in the roster; death only ever *replaces*. The attacker has no such ceiling — they
+   arrive one at a time (`CHARGE_MS` 3600 plus the walk, ~4.5 s each) but **accumulate**.
+   That is why the attacker's edge grows with army size: at 6v6 the defense wins, at
+   10v10 it loses.
+2. **A defending healer heals nothing.** `toEnemyCopy` sets `abilities: []`, and heal and
+   resurrect are ability-driven. Worse, `stepHealing` and `stepResurrect` iterate
+   `this.players` only — so restoring the array alone would still do nothing. Measured:
+   swapping a fighter for a healer gains the *attacker* 3 survivors, and costs the
+   *defender* the fight 7 s faster.
+3. **The defense has no shape.** It is a raid wave walking out of a doorway. Invading a
+   friend's farm should not look like raiding stage 4.
+
+## The roles
+
+One zombie per class — six roles, exactly today's `PVP_DEFENSE_CAP`. The defender picks
+*which* of their zombies fills each role; the roles themselves are fixed.
+
+| Role | Class | Half A behaviour |
+|---|---|---|
+| **Tank** | Headless | Walks out at t=0 and holds the front. The contact point for the whole fight. |
+| **Support** | Garden | Already standing at the back when the fight opens. Heals (see "Abilities on defense"). |
+| **Brute** | Large | Stands mid-depth behind the tank. Half B lifts it onto the perch. |
+| **Mini** | Small | Deploys beside the Brute. Half B makes it the thrown projectile. |
+| **Line** | Regular | Reinforces on a timer. |
+| **Line** | Girl | Reinforces on a timer. |
+
+Why the Headless tank is what makes the pile-up fair: it has the game's **lowest dex, a
+flat 1.0** (every other class runs 1.3–4.0) on its **highest con**. At tier 4 that is
+roughly 50 dps behind 2,700 HP — about a third of Regular/Girl/Small output for nearly
+double the staying power. A standing defense led by a Headless is a wall that barely
+bites, so the attacker's one-every-4.5-seconds trickle has time to build up behind its
+first arrival instead of being fed in and killed piecemeal. **This is load-bearing**:
+put a Large in front instead and the same formation becomes a meat grinder.
+
+## Positions
+
+Sim coordinates (`FIELD_W` 1000, `FIELD_H` 560, `CENTER_Y` 280). Existing landmarks:
+
+```
+220        250              448            848      940        1000
+CHARGE_X   GARDEN_STATION   SUMMON_SPAWN   BOSS_    ENEMY_     right
+(attacker  (attacker's      (mid-lane)     STRUCT_X HOLD_X     edge
+ staging)   healer)                        (perch)  (doorway)
+
+                                    attacker line ~880 (ENEMY_HOLD_X - ENGAGE)
+```
+
+The defense currently has **no depth**: everyone holds at the doorway (940) with 60 px of
+stage behind them. Pulling the tank forward is what creates room for a formation, so "a
+bit in front of the barn" is structural, not decorative.
+
+| Station | x | Notes |
+|---|---|---|
+| `DEF_TANK_X` | **820** | ~1 sprite in front of the barn face. Attackers close to ~760. |
+| `DEF_LINE_X` | **890** | Brute, Mini, and the Regular/Girl reinforcements — behind the tank, in front of the doorway. |
+| `DEF_SUPPORT_X` | **950** | Healer, in the doorway: deepest, out of the combat band. |
+
+Several bodies at one station keep the existing y-fan (`SRC_SLOT_Y_STEP`, `ROW_SPREAD`)
+so they do not draw on top of each other.
+
+**Reachability rule (required, not optional).** A healer at 950 sits ~190 px beyond the
+attacker's reach. If it is ever the **last defender alive it advances to `DEF_LINE_X`**
+so the fight can end. Without this, every won-on-points defense becomes a four-minute
+stare-down — the same stalemate the Garden zombie already causes today. The owner has
+ruled that a timeout is a defense win; that ruling stands, but it should be rare.
+
+## Deployment schedule
+
+| When | Who |
+|---|---|
+| t = 0 | Support standing at `DEF_SUPPORT_X`; Tank begins walking to `DEF_TANK_X`; Brute + Mini take `DEF_LINE_X` |
+| t = 15 s | Regular joins `DEF_LINE_X` |
+| t = 30 s | Girl joins `DEF_LINE_X` |
+
+`PVP_DEFENSE_DRIP_MS = 15_000` is the primary balance dial — it is what lets an attacker
+who clears fast get ahead, and what punishes one who does not. Expect to tune it after
+the first measurement; see "Balance target".
+
+The defenders **stand**. They do not march at the attacker. Contact happens because the
+attacker walks into the tank, which is what stops a fully-deployed defense from simply
+mobbing the first zombie to arrive.
+
+## Abilities on defense
+
+Today: `abilities: []` for every defender. Change to a **passive allowlist**:
+
+- **Restored**: `heal`, `healAOE`, `ressurect`. These run themselves — nobody needs to
+  tap them, so "nobody is home to tap them" was never a reason to strip them.
+- **Still stripped**: `bash`, `bashV2`, `explode`, `explodeV2`, `attachMini`. Those are
+  taps. A defender cannot tap, and a *scripted* Mini Buddy is Half B.
+- **Unchanged**: Protect's damage reduction and the full-team auras already ride
+  pre-baked stats and `damageReduction`, and keep working exactly as they do now.
+
+**The real work here is not the allowlist.** `stepHealing` and `stepResurrect` walk
+`this.players`, so they need a defender-side pass (or to be generalised over a team).
+Either way, keep the behaviour identical to the player-side one — heal cadence,
+50%-of-power amount, the corpse backlog for resurrect — so there is one rule rather than
+two that drift apart.
+
+## Config shape
+
+The pinned config stays the single source of truth, so both simulations agree by
+construction. Add **optional** fields to the materialised defender `CombatUnit`s:
+
+```ts
+role?: "tank" | "support" | "brute" | "mini" | "line";
+stationX?: number;   // authored hold position
+stationY?: number;
+deployAtMs?: number; // 0 = on the field when the fight opens
+```
+
+Absent fields mean today's behaviour, so **every raid stays byte-identical** and only PvP
+changes. `buildDefenseSnapshot` authors these server-side; the client adopts them
+wholesale, as it already does for everything else.
+
+## Loadout storage
+
+`pvp_defense_v3.loadout_json` moves from an ordered list to a role map:
+
+```json
+{ "roles": { "tank": "u123", "support": "u456", "brute": "u789" } }
+```
+
+Migration is cheap (the column is already JSON): read an existing ordered array, assign
+each unit to its own class's role, first one wins, drop the rest. No SQL migration is
+needed — only the parse path.
+
+**Missing roles are legal and expected.** A level-7 farm may own no Garden and no Large;
+that role simply stands empty and the defense is weaker for it. This doubles as a
+progression goal ("get a Headless to hold your line"). An entirely empty loadout keeps
+today's fallback (auto-pick over the deployed roster); an empty farm keeps `no_defense`.
+
+## Tier scoring
+
+Composition becomes fixed at six, so the `sqrt(count x base)` size factor is nearly
+constant for defenses and stops doing useful work there (it still matters on the attack
+side, which is always a free 8). More importantly, **a working healer will still score
+near zero on hp x dps while making the fight materially harder** — the same mismatch that
+made healers look like dead weight on the scout screen. Half A should either credit
+support inside `unitTierPoints` (healing throughput as effective HP) or accept that a
+support slot reads as a tier discount. This is a decision, not a detail: it is the reason
+`PVP_TIER_POINT_THRESHOLDS` was lowered to 1.5M.
+
+## Ruleset and replays
+
+Transcript-changing for PvP, so `RAID_RULESET_VERSION` bumps with a changelog entry in
+`src/raid/replay.ts`. Two already-understood costs:
+
+- A PvP fight in flight at deploy settles as `stale_ruleset` and pays nothing.
+- **Stored replays recorded under the old version stop being watchable** (`/replay`
+  already refuses a stale recording). The 10-per-role window means this washes out within
+  a few fights.
+
+Raid transcripts must NOT change — that is what the optional-field gating buys, and it is
+worth a test that says so.
+
+## Balance target and what to measure
+
+Target: **the mirror should be close to a coin flip.** Today a defense needs 1.34x to
+hold; aim for break-even in the **1.0–1.1x** band, with the defense winning a true mirror
+slightly more often than not (defending is passive, so the tie should favour the player
+who is not there).
+
+Re-run the harness behind the numbers at the top of this document — the roles-and-stations
+version of it — and record:
+
+1. Mirror duel, both directions, with all six roles filled.
+2. Break-even multiplier at shipped sizes.
+3. The same with roles missing (2, 4, 6 filled) — the degradation curve.
+4. Time to resolution: the four-minute cap should be rare, not routine.
+
+## Test plan
+
+- **Determinism**: same pinned config plus transcript gives an identical outcome (the
+  existing PvP determinism test, extended to the new fields).
+- **Stations and schedule**: each role holds its authored x; Regular and Girl arrive at
+  15 s and 30 s; the tank is the front-most defender for the whole fight.
+- **The healer heals**: defender HP recovers mid-fight — the assertion that would have
+  caught today's silent no-op.
+- **Reachability**: a lone surviving healer advances, and the fight ends inside the cap.
+- **Degradation**: missing roles field a smaller defense without error; an empty loadout
+  falls back to auto-pick; an empty farm still answers `no_defense`.
+- **Raids unchanged**: the existing raid suites pass untouched, proving the gating.
+- **Balance pin**: break-even multiplier inside the target band, so a later change that
+  quietly hands the fight to one side fails a test rather than a playtest.
+
+## Explicitly NOT in Half A
+
+Held back so Half A can ship and be measured on its own: the perch position for the Brute
+(`BOSS_STRUCT_X` 848 / `BOSS_STRUCT_Y` -150), the thrown mini that strikes, returns and
+reloads (a genuinely new projectile mechanic — the alien spawn-on-landing is *not* the
+precedent), the descend-when-the-tank-dies trigger, and the scripted Mini Buddy mount on
+descent. Half A leaves the Brute and Mini as ordinary line fighters at `DEF_LINE_X`,
+which is the fallback the design already calls for when Mini Buddy is not unlocked.
+
+Role **upgrades** are also out of scope, but Half A should not preclude them: a faster
+reinforcement drip, an earlier brute descent, a quicker mini reload. Note that fixed roles
+retire the planned slot-count upgrade path (`PVP_DEFENSE_CAP_MAX` = 10) — with six
+authored roles there is nowhere for a seventh body to stand, so upgrades should buy
+*behaviour* rather than slots.

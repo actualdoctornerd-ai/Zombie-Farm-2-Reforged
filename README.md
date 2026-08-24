@@ -105,6 +105,9 @@ trust one:
   redesign's open questions), and
   everything under `docs/mechanics/` (behaviour recovered from the original binary, with the
   derivation — these win over intuition, see CONTRIBUTING; `mechanics/README.md` indexes them).
+- **Design specs for work not yet built**: `PVP_DEFENSE_FORMATION.md` (the friend-invasion
+  defense rework - roles, standing positions, deployment; opens with a status banner saying
+  so). Read it as intent, not as a description of how the code works now.
 - **Historical design plans** for features that have since shipped:
   `BLACK_MARKET_IMPLEMENTATION_PLAN.md`, `DECOR_RESTORATION_PLAN.md`. Kept for the *why*, not
   as a description of how the code works now. Each opens with a status banner saying so; where
