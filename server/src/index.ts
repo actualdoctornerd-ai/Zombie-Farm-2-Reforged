@@ -1531,7 +1531,9 @@ app.post("/raid/pvp/defense", async (c) => {
   if (!pvpEnabled(c.env)) return c.json({ error: "pvp_disabled" }, 503);
   if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
   const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
-  const result = await v3Pvp.setDefensePvp(c.env.DB, c.get("accountId"), body, Date.now());
+  const result = await v3Pvp.setDefensePvp(
+    c.env.DB, c.get("accountId"), body, Date.now(), pvpDefenseMode(c.env)
+  );
   return c.json(result.body, result.status as 200);
 });
 

@@ -398,7 +398,8 @@ export async function setDefensePvp(
   db: D1Database,
   accountId: string,
   body: { unitIds?: unknown },
-  now: number
+  now: number,
+  mode: PvpDefenseMode = PVP_DEFENSE_MODE_DEFAULT
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!Array.isArray(body.unitIds) || body.unitIds.length > PVP_DEFENSE_CAP) {
     return { status: 400, body: { ok: false, error: "bad_loadout" } };
@@ -418,17 +419,22 @@ export async function setDefensePvp(
     .bind(accountId, ...ids).all<{ unit_id: string; zombie_key: string }>();
   const rows = owned.results ?? [];
   if (rows.length !== ids.length) return { status: 400, body: { ok: false, error: "unit_not_owned" } };
-  // ONE PER CLASS. The formation fills one job per group, so a second Regular could
-  // never take the field — `selectFormationDefense` would drop it at snapshot time and
-  // the defender would be quietly guarding with five. Refusing it here makes the rule
-  // the player's rule rather than a silent truncation they find out about by losing.
-  const groups = new Set<string>();
-  for (const row of rows) {
-    const group = zombieGroup(row.zombie_key);
-    if (!group || groups.has(group)) {
-      return { status: 400, body: { ok: false, error: "duplicate_class" } };
+  // ONE PER CLASS — but ONLY in formation mode, which is the mode that fills one job
+  // per group. `selectFormationDefense` would drop a second Regular at snapshot time
+  // and the defender would be quietly guarding with five, so refusing it here makes
+  // the rule the player's rather than a silent truncation they find out about by
+  // losing. CLASSIC mode has no such structure: `orderedDefenseUnits` fields the saved
+  // order as-is, any six, so imposing the rule there would refuse a perfectly playable
+  // line-up (a farm of six Regulars could not save a defense at all).
+  if (mode === "formation") {
+    const groups = new Set<string>();
+    for (const row of rows) {
+      const group = zombieGroup(row.zombie_key);
+      if (!group || groups.has(group)) {
+        return { status: 400, body: { ok: false, error: "duplicate_class" } };
+      }
+      groups.add(group);
     }
-    groups.add(group);
   }
   await db.prepare(`INSERT INTO pvp_defense_v3 (account_id, loadout_json, updated_at)
     VALUES (?, ?, ?) ON CONFLICT(account_id) DO UPDATE SET loadout_json = excluded.loadout_json,
