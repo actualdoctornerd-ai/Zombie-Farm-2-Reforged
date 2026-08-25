@@ -3067,6 +3067,8 @@ export class RaidScene {
     // Anchor on the ZOMBIE's centre rather than the card's, so it flies along the arc
     // the sim computed AND tumbles about itself — a fixed position offset would put the
     // rotation centre back on the card and swing the zombie around it instead.
+    // `scale` is viewport-INDEPENDENT (it maps the portrait's opaque box onto the
+    // token's authored height); the caller multiplies in sizeScale() at draw time.
     this.projZombieDraw.set(sprite, {
       scale: fieldHeight / box.h,
       anchorX: (box.x + box.w / 2) / Math.max(1, tex.width),
@@ -3077,6 +3079,11 @@ export class RaidScene {
   private syncProjectiles() {
     const live = new Set<string>();
     const s = this.scaleX();
+    // Tokens are laid out at `tok.root.scale.set(sizeScale())`, so a unit's real
+    // on-screen height is its authored height TIMES this viewport factor. It cannot be
+    // baked into the throw plan at load time — it changes with the window — so a thrown
+    // zombie has to pick it up here, exactly as its own token does.
+    const szs = this.sizeScale();
     for (const pr of this.sim.projectiles) {
       live.add(pr.id);
       let sp = this.projSprites.get(pr.id);
@@ -3102,7 +3109,7 @@ export class RaidScene {
       // visual-legibility one so thrown items read clearly).
       const zombieDraw = this.projZombieDraw.get(pr.sprite);
       if (zombieDraw) {
-        sp.scale.set(zombieDraw.scale);
+        sp.scale.set(zombieDraw.scale * szs);
       } else {
         const size = Math.max(20, pr.spriteSize * s * 2.4);
         sp.width = size;
