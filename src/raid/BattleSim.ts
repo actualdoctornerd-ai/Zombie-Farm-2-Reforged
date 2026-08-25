@@ -606,6 +606,8 @@ export interface SimUnit {
   stationY: number | null;
   /** Fight-clock ms at which this unit walks on, ignoring the wave's drip budget. */
   deployAtMs: number | null;
+  /** Held in reserve until the perched boss descends (PvP formation mini). */
+  deployWithBoss: boolean;
   /** The job this defender holds in the farm's defense. */
   defenseRole: string | null;
   passedWall: boolean; // latched when already beyond a newly summoned wall
@@ -843,6 +845,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stationX: u.stationX ?? null,
     stationY: u.stationY ?? null,
     deployAtMs: u.deployAtMs ?? null,
+    deployWithBoss: u.deployWithBoss ?? false,
     defenseRole: u.defenseRole ?? null,
     isTurned: false,
     turnedFromId: null,
@@ -1126,6 +1129,7 @@ export class BattleSim {
       stationX: u.stationX ?? null,
       stationY: u.stationY ?? null,
       deployAtMs: u.deployAtMs ?? null,
+    deployWithBoss: u.deployWithBoss ?? false,
       defenseRole: u.defenseRole ?? null,
       // A checkpoint from before the conversion / burn can only exist on a ruleset the
       // session handshake already rejects, so these defaults are belt-and-braces: they
@@ -2404,12 +2408,19 @@ export class BattleSim {
       (e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon &&
         e.deployAtMs === null && e.state !== "queued"
     ).length;
-    const normalsLeft = this.enemies.some((e) => !e.isBoss && !e.isWall && !e.isSummon && e.alive);
+    // A mini still waiting in the barn is ammunition, not a defender holding the line:
+    // counting it here would hold the brute on its perch forever, since the very thing
+    // that releases the mini is the brute climbing down.
+    const normalsLeft = this.enemies.some(
+      (e) => !e.isBoss && !e.isWall && !e.isSummon && e.alive &&
+        !(e.deployWithBoss && e.state === "queued")
+    );
     const blockersLeft = this.enemies.some((e) => e.isWall && e.alive);
 
     if (activeMelee < this.activeTarget) {
       const next = this.enemies.find(
-        (e) => e.alive && !e.isBoss && e.deployAtMs === null && e.state === "queued"
+        (e) => e.alive && !e.isBoss && e.deployAtMs === null && e.state === "queued" &&
+          !e.deployWithBoss
       );
       if (next) next.state = "emerging";
     }
@@ -2422,6 +2433,12 @@ export class BattleSim {
       this.boss.stationX = null;
       this.boss.stationY = null;
       this.boss.state = "descending";
+      // The brute brings its ammunition down with it — the mini stops being a thrown
+      // projectile and joins the fight on foot. (The scripted Mini Buddy mount, when
+      // the brute has that ability, is still to come; today they simply arrive together.)
+      for (const e of this.enemies) {
+        if (e.deployWithBoss && e.alive && e.state === "queued") e.state = "emerging";
+      }
     }
   }
 
@@ -2445,6 +2462,8 @@ export class BattleSim {
       // The perched brute is up in the air and unreachable until it climbs down, so
       // it must never pull the army's line forward onto a position it cannot fight.
       if (!e.alive || e.isSummon || e.isTurned || e.isBoss) continue;
+      // Same reasoning as the perched brute: a mini still in the barn is unreachable.
+      if (e.deployWithBoss && e.state === "queued") continue;
       front = Math.min(front, e.stationX ?? holdX);
     }
     this.frontX = front - this.engageDistance;

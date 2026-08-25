@@ -208,6 +208,11 @@ export interface CombatUnit {
   /** Fight-clock ms at which this defender walks on. 0 = already there when the
    *  fight opens. Present = this unit ignores the wave's drip cadence entirely. */
   deployAtMs?: number;
+  /** Held off-field until the perched boss climbs down, then released with it. The
+   *  formation defense's MINI is the brute's ammunition: it waits in the barn between
+   *  throws rather than standing in the line, so it neither holds the boss on its
+   *  perch nor counts as a defender the attackers must clear. */
+  deployWithBoss?: boolean;
   /** Pre-team-aura stats plus the additive contribution from one matching deployed
    *  carrier. BattleSim uses this to turn Chivalry/Grace/Protect/Fortitude on only
    *  while their holder is actually deployed; headless/instant resolvers can keep

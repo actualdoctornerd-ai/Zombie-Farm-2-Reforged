@@ -47,7 +47,7 @@ server-owned tables and catalogs) into the session row. `/raid/finish` accepts
 replaying that input transcript against the pinned config (`src/raidVerifier.ts` →
 `src/raid/replay.ts`), and rewards are priced from the server catalog against the replayed
 survivor ratio. An elapsed-time gate (`future_finish`) and ruleset-version pinning
-(`stale_ruleset`, currently `RAID_RULESET_VERSION = 41` — declared once in
+(`stale_ruleset`, currently `RAID_RULESET_VERSION = 42` — declared once in
 `src/raid/replay.ts` and imported by both sides) are defense-in-depth on top of the replay,
 not substitutes for it. `/epic-boss/start` performs the same handshake and refuses a
 mismatched client with `426 stale_ruleset` before charging a token or a brain.

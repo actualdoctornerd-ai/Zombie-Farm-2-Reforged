@@ -268,6 +268,10 @@ export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
     const rb = ROLE_ORDER.indexOf(roleForGroup(b.group) ?? "line");
     return ra - rb || a.id.localeCompare(b.id);
   });
+  // Only a defense that actually has a brute can hold its mini back as ammunition —
+  // with no thrower there is nothing to reload, and a mini left waiting for a descent
+  // that never comes would stand the fight up until the time cap.
+  const hasBrute = ordered.some((u) => roleForGroup(u.group) === "brute");
   let lineSeat = 0;
   return ordered.map((unit, i) => {
     const role = roleForGroup(unit.group) ?? "line";
@@ -285,6 +289,14 @@ export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
       return copy;
     }
     copy.stationX = PVP_STATION_BY_ROLE[role];
+    if (role === "mini" && hasBrute) {
+      // The mini IS the projectile. It lives in the barn, gets lobbed, runs back, and
+      // is lobbed again — so it must not also stand in the line being hit. It takes
+      // the field only when the brute climbs down and brings it along. No deployAtMs:
+      // a descent is an event, not a time, so the sim releases it rather than a clock.
+      copy.deployWithBoss = true;
+      return copy;
+    }
     // The line arrives as reinforcements, one per beat; everyone else is in place
     // when the fight opens (the tank walks out from there to its station).
     copy.deployAtMs = role === "line" ? PVP_DEFENSE_DRIP_MS * ++lineSeat : 0;

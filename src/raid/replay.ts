@@ -580,7 +580,16 @@ import type { RaidOutcome } from "./types";
 // Same cost as every bump: an invasion in flight at deploy time settles as
 // stale_ruleset and pays nothing, and stored PvP replays recorded under 40 stop being
 // watchable (the 10-per-role window washes that out within a few fights).
-export const RAID_RULESET_VERSION = 41;
+// v42 — THE MINI IS THE AMMUNITION, NOT A DEFENDER. In formation mode the defense's
+// Small zombie no longer starts on the field: it carries `deployWithBoss` and waits
+// off-field while the brute lobs it, taking the field only when the brute climbs down
+// and brings it along. It is excluded from the "normals left" test that holds the boss
+// on its perch (counting it there would deadlock — the descent is the very thing that
+// releases it), from the wave pick, and from the army's front-line anchor while it
+// waits. A defense with no brute is unaffected: with nothing to throw it, its mini
+// deploys normally, or it would wait for a descent that never comes.
+// Raids are untouched again — `deployWithBoss` is absent on every authored enemy.
+export const RAID_RULESET_VERSION = 42;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;
