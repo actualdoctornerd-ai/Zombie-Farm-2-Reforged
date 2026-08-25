@@ -304,10 +304,19 @@ export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
   });
 }
 
-/** What the perched brute lobs. For now the projectile simply LOOKS like the mini —
- *  the defense's Small zombie, drawn from its own portrait — and hits for what that
- *  mini hits for, which is the honest number to start from. The throw-and-return
- *  "reload" flight is Half B; this is a plain boss throw with a zombie's face on it. */
+/** What the perched brute lobs: the defense's Small zombie, drawn from its own
+ *  portrait, hitting for the BRUTE's swing plus the MINI's — both zombies are in the
+ *  blow, one supplying the arm and the other the teeth (owner's ruling).
+ *
+ *  That sum is also what makes the perch phase mean anything. Paying the mini's hit
+ *  alone, the throw was worth 0.007x of the fight's break-even — five lobs of a Small
+ *  zombie's melee against eight attackers is noise — so the defense's heaviest hitter
+ *  spent the whole opening contributing nothing, and the fight only improved for the
+ *  defender once it climbed down. Adding the brute's swing puts its strength to work
+ *  from the perch, which is what standing up there is for.
+ *
+ *  The throw-and-return "reload" flight is still presentation to come; mechanically
+ *  this is a boss throw with a zombie's face on it. */
 export function pvpBossThrow(defense: CombatUnit[]): BossThrowConfig | null {
   const brute = defense.find((u) => u.defenseRole === "brute");
   if (!brute) return null;
@@ -316,7 +325,7 @@ export function pvpBossThrow(defense: CombatUnit[]): BossThrowConfig | null {
   return {
     intervalMs: PVP_THROW_INTERVAL_MS,
     options: [{
-      damage: unitHitDamage(mini),
+      damage: unitHitDamage(brute) + unitHitDamage(mini),
       weight: 1,
       sprite: `${PVP_ZOMBIE_SPRITE_PREFIX}${mini.sourceKey}`,
       spriteSize: 40,

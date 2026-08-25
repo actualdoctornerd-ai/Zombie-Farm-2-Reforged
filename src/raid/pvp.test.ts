@@ -336,6 +336,56 @@ describe("formation defense mode", () => {
     expect(lone.deployAtMs).toBe(0);
   });
 
+  it("the brute and its mini take the field together, and not before", () => {
+    // The owner's rule: the mini is the ammunition for the whole perch phase, then the
+    // pair charges out together (the Mini Buddy mount is the flavour; simultaneous
+    // arrival is the mechanic). So the mini must be off-field for every tick the brute
+    // is up on the structure, and on-field from the tick it starts down.
+    const defenders = formation();
+    const attackers = build(
+      Array.from({ length: PVP_ARMY_SIZE }, () => "ZombieActorRegularTier4"), "a");
+    const sim = new BattleSim(
+      attackers, defenders, pvpBossThrow(defenders), true, [], undefined,
+      null, null, false, false, false, undefined, null, null,
+      { maxActive: 1, dripMs: 0 }, null
+    );
+    const roster = (sim as unknown as {
+      enemies: { defenseRole: string | null; state: string; alive: boolean }[];
+    }).enemies;
+    const brute = roster.find((e) => e.defenseRole === "brute")!;
+    const mini = roster.find((e) => e.defenseRole === "mini")!;
+
+    let sawPerchedTogether = false;
+    let releasedWhileBrutePerched = false;
+    let strandedAfterDescent = false;
+    for (let t = 0; t < RAID_MAX_TICKS && !sim.finished; t++) {
+      sim.step(RAID_TICK_MS);
+      if (brute.state === "structure") {
+        sawPerchedTogether = true;
+        if (mini.state !== "queued") releasedWhileBrutePerched = true;
+      } else if (brute.alive && mini.alive && mini.state === "queued") {
+        strandedAfterDescent = true;
+      }
+    }
+    expect(sawPerchedTogether, "the brute never perched — the fixture is wrong").toBe(true);
+    expect(releasedWhileBrutePerched, "the mini walked on mid-bombardment").toBe(false);
+    expect(strandedAfterDescent, "the mini was left in the barn after the brute came down")
+      .toBe(false);
+  });
+
+  it("the throw carries BOTH zombies' swings, not just the mini's", () => {
+    // Owner's ruling, and the fix for a throw that measured as noise: the brute
+    // supplies the arm, the mini the teeth.
+    const units = formation();
+    const brute = units.find((u) => u.defenseRole === "brute")!;
+    const mini = units.find((u) => u.defenseRole === "mini")!;
+    const hit = (u: typeof brute) =>
+      Math.max(1, Math.round(u.str * 10 * (u.attacks[0]?.mult ?? 1)));
+    expect(pvpBossThrow(units)!.options[0].damage).toBe(hit(brute) + hit(mini));
+    // Sanity: the brute is the larger half, so this is not a rounding-level change.
+    expect(hit(brute)).toBeGreaterThan(hit(mini));
+  });
+
   it("keeps the abilities that run themselves and strips every tap", () => {
     const units = formation();
     const support = units.find((u) => u.defenseRole === "support")!;
@@ -384,18 +434,22 @@ describe("formation defense mode", () => {
     // MEASURED REGRESSION, RECORDED NOT ACCEPTED (ruleset 42). Holding the mini back as
     // the brute's ammunition moved break-even 1.19x -> 1.39x, i.e. the defense is now
     // favoured — worse than the classic mode this was built to improve on. The cause is
-    // measurable and is NOT the missing body: the brute descends once the normals are
-    // gone, the held mini no longer counts among them, so the brute joins the fight
-    // sooner. That only helps the defense because a PERCHED brute contributes almost
-    // nothing — the throw is worth 0.007x of break-even (1.395 without it, 1.388 with),
-    // so time on the perch is time the defense's best fighter is wasted.
+    // NOT the missing body: the brute descends once the normals are gone, the held mini
+    // no longer counts among them, so the brute joins the fight sooner. That only helps
+    // the defense because a PERCHED brute was contributing almost nothing.
     //
-    // The lever is therefore the throw's damage, not the formation: `pvpBossThrow` pays
-    // one mini melee hit per 6 s, which is noise against an eight-strong army. Raids
-    // solve exactly this with `fightScaledThrow` (re-base onto "kills the reference
-    // healer in N hits"); PvP has no equivalent yardstick yet. That is an owner balance
-    // call, so the band below records where the fight actually sits rather than a number
-    // this test invented. Restore 0.9–1.25 when the throw is made to matter.
+    // Paying the throw BOTH zombies' swings (owner's ruling) is the first repair: it
+    // took the throw from worth 0.007x of break-even to 0.058x (1.395 with it off,
+    // 1.337 with it on), so the perch phase now does something. Not enough on its own —
+    // 1.337 is still outside the 1.25 goal.
+    //
+    // The remaining lever is almost certainly the DESCENT TRIGGER, not another damage
+    // number. The authored design has the brute come down when the HEADLESS TANK dies;
+    // it currently waits for the whole rest of the defense, which keeps the defense's
+    // best fighter safe on an unreachable perch through the entire grind and then adds
+    // it, fresh and with a fresh mini, to a thinned attacking army. Building that is an
+    // owner call on their own design, so the band records where the fight actually sits
+    // rather than a number this test invented. Restore 0.9–1.25 when it lands.
     //
     // Pinned as a BAND, not a number: the sim is fully deterministic, so the search
     // below is stable and any FURTHER drift fails here rather than in a playtest.
@@ -434,8 +488,8 @@ describe("formation defense mode", () => {
       if (attackerWins(mid)) lo = mid; else hi = mid;
     }
     expect(hi).toBeGreaterThan(0.9); // the defense must not simply win by standing
-    // GOAL: < 1.25 (see above). Recorded reality while the brute's throw is inert.
-    expect(hi).toBeLessThan(1.45);
+    // GOAL: < 1.25 (see above). Recorded reality while the brute descends late.
+    expect(hi).toBeLessThan(1.35);
   });
 
   it("credits support in the tier — a healer is worth what a fighter is worth", () => {

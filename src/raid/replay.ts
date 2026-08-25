@@ -588,7 +588,11 @@ import type { RaidOutcome } from "./types";
 // releases it), from the wave pick, and from the army's front-line anchor while it
 // waits. A defense with no brute is unaffected: with nothing to throw it, its mini
 // deploys normally, or it would wait for a descent that never comes.
-// Raids are untouched again — `deployWithBoss` is absent on every authored enemy.
+// The brute's throw also now pays BOTH zombies' swings (brute + mini) rather than the
+// mini's alone: the brute supplies the arm, the mini the teeth. That is a fight-damage
+// change on every formation invasion, which is the other half of why this bump exists.
+// Raids are untouched again — `deployWithBoss` is absent on every authored enemy, and
+// no raid boss's throw goes through pvpBossThrow.
 export const RAID_RULESET_VERSION = 42;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
