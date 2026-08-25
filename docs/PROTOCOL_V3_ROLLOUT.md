@@ -4,7 +4,7 @@
 > closed — raid/Epic Boss outcomes are server-verified by deterministic replay, all mutation
 > routes are serialized through the writer lease's active-operation lock, and the free-plow XP
 > loop is gone. The Beach crab and Circus trapeze hazards have been client-only since raid
-> ruleset version 6 (current version **42**), so `/raid/finish` accepts one-way
+> ruleset version 6 (current version **44**), so `/raid/finish` accepts one-way
 > `clientWin`/`clientLosses` concessions that can only worsen the submitting player's own
 > result; see the concession-fallback limitation in `../SECURITY.md`. Fertilization remains
 > client-asserted by design so its animation is immediate without another server request. This

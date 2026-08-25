@@ -17,7 +17,9 @@ import type {
 import objectRows from "../../../public/assets/placeables.json";
 import { SLOTS, SLOT_MASK } from "../../../src/zombie/mutations";
 import { maskIntersect, maskWithout } from "../../../src/zombie/mutationMask";
-import { REQUESTABLE_MUTATION_MASK } from "../../../src/blackMarketRules";
+import {
+  BLACK_MARKET_MIN_LEVEL, REQUESTABLE_MUTATION_MASK,
+} from "../../../src/blackMarketRules";
 import { levelForXp, XP_THRESHOLDS } from "../levels";
 import {
   blackMarketFilterKeys,
@@ -220,6 +222,21 @@ const mutationRequirementSql = (mutationRequired: number | null): {
     binds: slotMasks,
   };
 };
+
+/** The market's own level floor, checked before anything moves. The client hides the
+ *  Black Market below BLACK_MARKET_MIN_LEVEL, but hiding a button is not a rule — this
+ *  is, and it costs one indexed read on the two calls that create obligations (a post
+ *  and a trade). Browsing is deliberately not gated: a client that got a board back
+ *  still cannot act on it, and reads are the cheap half. */
+async function marketLevelFailure(
+  db: D1Database,
+  accountId: string
+): Promise<MarketFailure | null> {
+  const balance = await db.prepare("SELECT xp FROM balances WHERE account_id=?")
+    .bind(accountId).first<{ xp: number }>();
+  if (balance && levelForXp(balance.xp) >= BLACK_MARKET_MIN_LEVEL) return null;
+  return { status: 403, error: "black_market_locked" };
+}
 
 async function purchaseRequirementFailure(
   db: D1Database,
@@ -803,6 +820,9 @@ export async function create(
   const prior = await replay(db, accountId, operationId, fp, now);
   if (prior) return prior;
 
+  const levelFailure = await marketLevelFailure(db, accountId);
+  if (levelFailure) return levelFailure;
+
   const runtime = await db.prepare("SELECT account_version,active_batch_id FROM account_runtime_v3 WHERE account_id=?")
     .bind(accountId).first<RuntimeRow>();
   if (!runtime || runtime.account_version !== expectedVersion) return { status: 409, error: "state_conflict" };
@@ -1079,6 +1099,8 @@ export async function fulfill(
   const fp = fingerprint("FULFILL", { orderId, unitId: body.unitId ?? null });
   const prior = await replay(db, accountId, operationId, fp, now);
   if (prior) return prior;
+  const levelFailure = await marketLevelFailure(db, accountId);
+  if (levelFailure) return levelFailure;
   const row = await orderRow(db, orderId);
   if (!row) return { status: 404, error: "order_not_found" };
   if (row.creator_account_id === accountId) return { status: 403, error: "self_trade" };

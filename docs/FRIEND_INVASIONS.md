@@ -49,7 +49,15 @@ Asymmetries built into the off state, on purpose:
     **▶ Watch** where the recording survives), lifetime + trailing-7-day win/loss
     stats for both roles, and the claim backlog banner with **Claim all**.
 - **Level gate**: both sides must be **level 7+** (`PVP_MIN_LEVEL`) — new farms are
-  neither attackers nor targets.
+  neither attackers nor targets. The Social hub shows the Invasions entry greyed with
+  "Unlocks at level 7" below that, rather than hiding it: the locked entry is the only
+  place a player learns the feature exists and what reaching it costs. The panel keeps
+  its own in-panel gate too, since the hub is not the only way in.
+- **First open**: Tim Buckwheat gives a one-shot briefing (`PVP_INTRO_TIP`, remembered
+  per device via `prefs.hasSeenPvpTip`) explaining the two things the Defense tab never
+  states — that defending picks the strongest of each CLASS rather than an army, and
+  that nothing is ever lost holding the farm. It layers over the panel, so the tabs stay
+  usable behind it.
 - The fight runs on **Old McDonnell's stage** against the defense snapshot under a mild
   swarm cadence (3 on the field, +1 every 5 s). Defenders render with their real farm
   rigs — mutations, tints, names — mirrored to face the attackers.

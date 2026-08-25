@@ -1,6 +1,7 @@
 // Pure, framework-free logic — no D1, no Hono, no crypto side effects. Everything
 // here is unit-tested (test/logic.test.ts) and reused by the route handlers.
 import type { SaveGame } from "./env";
+import { refuseName, type NameRefusal } from "./nameFilter";
 
 /** Milliseconds in a day — the gift cooldown window. Server owns this clock. */
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -178,15 +179,35 @@ export function projectFriendSave(save: SaveGame): SaveGame {
 export const USERNAME_MIN = 2;
 export const USERNAME_MAX = 20;
 
-/** Normalize + validate a chosen username: trim, collapse internal runs of
- *  whitespace to single spaces, and require 2–20 chars of letters/numbers/spaces
- *  or `_ - . '`. Returns the cleaned name, or null if it doesn't qualify. Not
- *  unique — two players may share one. */
-export function normalizeUsername(raw: string): string | null {
+/** Why a username was refused, for a caller that wants to say something more
+ *  useful than "no". `shape` covers length and illegal characters. */
+export type UsernameRefusal = "shape" | NameRefusal;
+
+/** Validate a chosen username in both halves — shape, then content.
+ *
+ *  The SHAPE rule is an allowlist on purpose: only letters, numbers and five
+ *  punctuation marks get in, which rejects zero-width characters, RTL overrides,
+ *  stacked combining marks and emoji before the content filter ever runs. The
+ *  CONTENT rule is `refuseName` (see `nameFilter.ts`), which is where slurs,
+ *  profanity and staff impersonation are caught.
+ *
+ *  Both live behind this one function because a name has exactly one way in, and
+ *  a second entry point is how a filter quietly stops applying. */
+export function validateUsername(raw: string): { name: string } | { refused: UsernameRefusal } {
   const cleaned = raw.trim().replace(/\s+/g, " ");
-  if (cleaned.length < USERNAME_MIN || cleaned.length > USERNAME_MAX) return null;
-  if (!/^[\p{L}\p{N} _.'-]+$/u.test(cleaned)) return null;
-  return cleaned;
+  if (cleaned.length < USERNAME_MIN || cleaned.length > USERNAME_MAX) return { refused: "shape" };
+  if (!/^[\p{L}\p{N} _.'-]+$/u.test(cleaned)) return { refused: "shape" };
+  const refused = refuseName(cleaned);
+  return refused ? { refused } : { name: cleaned };
+}
+
+/** Normalize + validate a chosen username: trim, collapse internal runs of
+ *  whitespace to single spaces, require 2–20 chars of letters/numbers/spaces or
+ *  `_ - . '`, and refuse a name the content filter rejects. Returns the cleaned
+ *  name, or null if it doesn't qualify. Not unique — two players may share one. */
+export function normalizeUsername(raw: string): string | null {
+  const result = validateUsername(raw);
+  return "name" in result ? result.name : null;
 }
 
 /** Normalize/validate a friend code typed by a user (trim, upper, tolerate a

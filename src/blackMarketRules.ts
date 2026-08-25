@@ -1,3 +1,10 @@
+/** The Black Market itself opens at level 10. Trading is a late-opening surface: it
+ *  needs a roster worth posting and brains worth spending, and a brand-new farm that
+ *  wanders in can only be sold to. Client-side the Social hub locks the entry; the
+ *  Worker enforces the same floor on the two calls that actually move anything
+ *  (create + fulfill), so the lock is real rather than a hidden button. */
+export const BLACK_MARKET_MIN_LEVEL = 10;
+
 export const BLACK_MARKET_SPECIAL_LEVEL = 20;
 export const BLACK_MARKET_COLOR_LEVELS = {
   Blue: 1,

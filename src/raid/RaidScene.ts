@@ -2902,11 +2902,14 @@ export class RaidScene {
     }
   }
 
-  /** Light (or re-arm) the Regular zombie's automatic T3/T4 eye beam. This is
-   *  presentation-only: the replay-safe damage and cadence remain owned by
-   *  BattleSim.stepLaser. Each sim tick lands here and extends the beam's hold by
-   *  one firing interval plus a linger, so a zombie that keeps cycling shows one
-   *  unbroken ray rather than a flash per tick. */
+  /** Light (or re-arm) a Regular's automatic T3/T4 eye beam. This is presentation-only:
+   *  the replay-safe damage and cadence stay owned by BattleSim. Each sim tick lands here
+   *  and extends the beam's hold by one firing interval plus a linger, so a zombie that
+   *  keeps cycling shows one unbroken ray rather than a flash per tick.
+   *
+   *  Driven off `laserFxSeq`, which the arming loop reads for EVERY unit — so a PvP
+   *  defender's beam (BattleSim.stepDefenderLaser) draws itself here too, pointing the
+   *  other way down the lane. Nothing else was needed: a defender is an ordinary token. */
   private armZombieBeam(u: SimUnit) {
     const holdS = laserInterval(u.abilities, u.cooldownMs) / 1000 + BEAM_LINGER_S;
     const prev = this.zombieBeams.get(u.id);

@@ -146,6 +146,42 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
     ],
   },
   {
+    id: "privacy",
+    label: "Privacy",
+    title: "Your data",
+    intro: "What this game knows about you, who can see it, and how to take it back. The short version: less than you would expect.",
+    sections: [
+      {
+        title: "A Local Farm is completely private",
+        body: "A Local Farm never contacts a server at all. There is no account, no sign-in, and no request of any kind leaves your device — the farm lives in your browser's own storage and nowhere else. Nobody, including us, can see it. The trade is that it is only as safe as the browser holding it, so use Settings to export a backup if it matters to you.",
+      },
+      {
+        title: "Signing in tells us less than you would think",
+        body: "When you sign in with Google, Google hands the game a token that contains an anonymous id number, your email address, and your Google display name. The game reads the id number and deliberately throws the other two away — your email address and your Google name are never stored, never sent anywhere, and never shown to anyone. The id number is meaningless outside this game; it exists only so that signing in again finds the same farm.",
+      },
+      {
+        title: "What is actually on the server",
+        body: "Your account row holds four things: that anonymous id, the name you chose for yourself, your friend code, and when you last played. Alongside it sits your farm — crops, zombies, buildings, quests, invasions, everything you have earned. There is also a list of your signed-in devices, each labelled roughly, like \"Chrome on Windows\", so you can spot a session you do not recognise and end it from the Account menu. No email addresses, no IP addresses, no location, and no real names are stored anywhere.",
+      },
+      {
+        title: "What other farmers can see",
+        body: "The name you choose is the only thing about you that other players see, and it appears in two places: to friends, and on any Black Market post you create, where every farmer browsing the market can read it. Choose it with that in mind. A friend visiting your farm gets a look-only copy that shows the farm, your buildings, your zombies and your Zombie Pot — your gold and brains read as zero, and your quests, invasions, storage and friend list are not sent at all. Nobody can change anything on your farm, ever. You can hand out a new friend code from the Account menu whenever you like, which retires the old one, and you can block another farmer to cut off contact entirely.",
+      },
+      {
+        title: "No ads, no analytics, no tracking",
+        body: "There is no advertising, no analytics, no third-party tracking of any kind, and nothing about you is sold, shared, or handed to anyone. This is not only a promise: the game ships with a browser security policy that permits it to talk to exactly two places — Google's sign-in page and this game's own server — so it could not quietly report to anywhere else even if something in it tried.",
+      },
+      {
+        title: "Crash reports stay on your device",
+        body: "If something goes wrong, the game keeps a short record of it in your browser so you can help us fix it. That record is never sent automatically and never leaves your device on its own. Settings has a Copy Diagnostics button that puts it on your clipboard, and it is entirely up to you whether to paste it into a bug report. It contains no personal information — just the game version, what failed, and what you were doing at the time.",
+      },
+      {
+        title: "Taking your farm, or removing it",
+        body: "Settings can export any farm to a file at any time, which you can keep as a backup or import into a Local Farm on another device. Nothing locks your progress in. If you would rather not be here at all, the Account menu has a Delete button: it asks you twice, and then removes your account and everything attached to it — the farm, the zombies, the friendships, the lot. It is immediate, it is permanent, and nothing is kept back or archived. Signing in afterwards simply starts you a brand-new farm, because there is nothing left to sign in to. A Local Farm has the same button and works the same way, on the save in this browser.",
+      },
+    ],
+  },
+  {
     id: "project",
     label: "Project",
     title: "Open source & credits",

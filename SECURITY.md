@@ -26,7 +26,7 @@ Please give a reasonable window before disclosing publicly.
 ## Scope and status
 
 This document describes the current source tree at gameplay protocol v3 (client integrity
-version 5, raid ruleset version 42). It covers authentication, sessions, the exclusive writer
+version 5, raid ruleset version 44). It covers authentication, sessions, the exclusive writer
 lease, social features, gameplay commands, persistence, economy, farms, quests, raids, Epic
 Boss runs, the Black Market, rate limiting, and operational controls.
 
@@ -172,9 +172,9 @@ them reaches the trail.
   (`buildPinnedV3Raid`): player/enemy units, boss throw/specials, summon and wall templates,
   and concentration. The pinned config and `ruleset_version` are stored on the session
   (migrations `0016`, `0017`, `0027`). The config still carries a `grabber` field, but since
-  ruleset 6 (current version 42) `raidVerifier.grabberOf` returns `null` unconditionally — hazards are client-only
+  ruleset 6 (current version 44) `raidVerifier.grabberOf` returns `null` unconditionally — hazards are client-only
   and are not simulated server-side at all.
-- `/raid/finish` requires a matching `rulesetVersion` (`RAID_RULESET_VERSION = 42`; a mismatch
+- `/raid/finish` requires a matching `rulesetVersion` (`RAID_RULESET_VERSION = 44`; a mismatch
   returns `409 stale_ruleset` and closes the session), rejects a `finalTick` beyond the paced
   elapsed real time (`future_finish`), then **replays** the pinned sim with the submitted input
   transcript and derives `win`/`survivors`/`losses`/`retreated`, subject to the one-way
@@ -243,14 +243,39 @@ them reaches the trail.
   paid sends atomically debiting that gold. These rules are enforced in SQL, so failed,
   duplicate, or racing sends cannot bypass them or overdraw the sender. A unique grant record
   prevents duplicate claims.
+- Chosen usernames pass a two-part check (`validateUsername`, `server/src/logic.ts`) on the one
+  route that can set one. The SHAPE half is an allowlist — `^[\p{L}\p{N} _.'-]+$`, 2–20 chars —
+  so zero-width characters, RTL/LTR overrides, stacked combining marks and emoji are rejected
+  structurally rather than by enumeration. The CONTENT half (`server/src/nameFilter.ts`) folds
+  homoglyphs, fullwidth forms and leetspeak, then matches slurs, profanity and staff
+  impersonation. This is an abuse control, not an integrity one: a username is the only
+  player-authored string other players see, and it reaches strangers rather than only friends,
+  because every Black Market listing carries its creator's name. Refusals return
+  `blocked_username` with a coarse category and never the matched term.
+- **Self-service account deletion** (`POST /account/delete`, `server/src/accountDeletion.ts`) is
+  irreversible and authenticated. It requires an explicit `confirm: "DELETE"` body token so it
+  cannot be reached by a bare replayed POST, is limited to 5/account/minute, and is refused
+  while a command batch or raid settlement is in flight, or while the account has an open Black
+  Market post or a fulfilled trade whose zombie is unclaimed — the latter because the order rows
+  cascade with the account and would otherwise destroy a counterparty's property.
+  `black_market_orders.fulfilled_by_account_id` is nulled rather than deleted for the same
+  reason. It deletes the `accounts` row itself, freeing the `google_sub`, so a subsequent
+  sign-in creates a new account rather than restoring the old one. The purge list is written out
+  in source because D1 refuses `pragma_foreign_key_list` with `SQLITE_AUTH`; `accountDeletion.test.ts`
+  holds that list to `schema.sql` so a migration adding a table fails a test instead of orphaning
+  a deleted player's rows. Deliberately NOT a writer-protected mutation: `endOperation` would
+  write to a row the handler has just deleted.
 - All routes have a global body ceiling. Presentation and command batches have tighter semantic
   limits.
 - Cloudflare rate-limit bindings protect authentication, read, and write tiers before gameplay
   handlers. Protocol v3 additionally limits `/commands` to 30 requests per account per minute,
   and raid start/finish/revive, Epic Boss, and Black Market writes to 60 per account per minute
   each.
-- `MUTATIONS_DISABLED=1` stops `/commands`, `/presentation`, `/raid/*`, `/epic-boss/*`, and
-  `/black-market/*` while retaining authenticated read/bootstrap access.
+- `MUTATIONS_DISABLED=1` stops `/commands`, `/presentation`, `/raid/*`, `/epic-boss/*`,
+  `/black-market/*`, and `/account/delete` while retaining authenticated read/bootstrap access.
+  Deletion is halted with the rest deliberately: during an incident an irreversible purge is the
+  last thing that should still run, and in the `export_only` closedown mode a player deleting
+  instead of exporting would lose the farm that window exists to hand them.
 
 ## Known limitations and residual risk
 

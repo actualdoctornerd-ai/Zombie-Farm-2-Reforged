@@ -19,8 +19,20 @@ import {
   lineupSpeedBand,
   LINEUP_SPEED_BANDS,
   mirroredAttackIntervalSec,
+  mirrorIntervalSec,
+  pirateBossSlamIntervalSec,
+  MIRROR_FLOOR_SEC,
+  SCALLYWAG_MIRROR_DIVISOR,
+  SCALLYWAG_KEY,
+  PIRATE_BOSS_KEY,
+  PIRATE_BOSS_MIRROR_DIVISOR,
+  PIRATE_BOSS_MIN_SLAM_SEC,
+  PIRATE_BOSS_HEADLESS_SLAM_SEC,
+  HEADLESS_SPECIES_CYCLE_SEC,
   farmRaidEnemyPace,
   ALIEN_LASER_DAMAGE,
+  laserHitDamage,
+  LASER_DAMAGE_PER_STR,
   BURN_MAX_HP_FRACTION_PER_SEC,
   POWER_PER_STR,
   HP_PER_CON,
@@ -250,6 +262,76 @@ describe("mirroredAttackIntervalSec — the Pirate Scallywag override", () => {
     expect(mirroredAttackIntervalSec(0.4)).toBe(0.5); // dex 5 → clamped
     expect(mirroredAttackIntervalSec(0)).toBe(0.5);
   });
+  it("keeps the recovered 0.8 for anyone who is not the boss", () => {
+    expect(SCALLYWAG_MIRROR_DIVISOR).toBe(0.8);
+    // The dispatcher reads the EFFECTIVE cycle for everyone but Arrrnold, and ignores
+    // the species cycle handed to it entirely.
+    for (const key of [SCALLYWAG_KEY, "PirateStageActorSwashbuckler"]) {
+      expect(mirrorIntervalSec(key, 1.6, 2.0)).toBeCloseTo(3.2);
+      expect(mirrorIntervalSec(key, 1, 99)).toBeCloseTo(1.25);
+      expect(mirrorIntervalSec(key, 0.4, 99)).toBe(MIRROR_FLOOR_SEC);
+    }
+  });
+});
+
+describe("Arrrnold's slam is priced on the SPECIES in front of him (v44)", () => {
+  // Catalog dex per body, so 2 s / dex is the species cycle:
+  //   Headless & Bombie 1 · Large 1.3 · Regular 2 · Female 3.5 · Small 4
+  const SPECIES: [string, number, number][] = [
+    ["Headless / Bombie", 1, 6.5],
+    ["Large", 1.3, 3.845],
+    ["Regular", 2, 1.625],
+    ["Female", 3.5, 1.25], // floored
+    ["Small", 4, 1.25], // floored
+  ];
+
+  it("holds a Headless-led line to one slam every 6.5 s", () => {
+    expect(HEADLESS_SPECIES_CYCLE_SEC).toBe(2);
+    expect(PIRATE_BOSS_HEADLESS_SLAM_SEC).toBe(6.5);
+    expect(pirateBossSlamIntervalSec(HEADLESS_SPECIES_CYCLE_SEC)).toBeCloseTo(6.5);
+  });
+
+  it("prices every body in the catalog off its base dex", () => {
+    for (const [what, dex, expected] of SPECIES) {
+      expect(pirateBossSlamIntervalSec(2 / dex), what).toBeCloseTo(expected, 2);
+    }
+  });
+
+  it("never slams faster than 1.25 s, however fast the species", () => {
+    expect(PIRATE_BOSS_MIN_SLAM_SEC).toBe(1.25);
+    for (const dex of [3.5, 4, 8, 20]) {
+      expect(pirateBossSlamIntervalSec(2 / dex)).toBe(PIRATE_BOSS_MIN_SLAM_SEC);
+    }
+    // The floor bites from a 0.877 s species cycle (base dex 2.28) down.
+    expect(pirateBossSlamIntervalSec(0.878)).toBeGreaterThan(PIRATE_BOSS_MIN_SLAM_SEC);
+    expect(pirateBossSlamIntervalSec(0.876)).toBe(PIRATE_BOSS_MIN_SLAM_SEC);
+  });
+
+  it("is deaf to everything except the body — rank, mutations, buffs, depth", () => {
+    // Same Headless species cycle, wildly different CURRENT cycles: one answer.
+    for (const effective of [0.2, 0.8, 1.6, 2, 8]) {
+      expect(mirrorIntervalSec(PIRATE_BOSS_KEY, effective, 2)).toBeCloseTo(6.5);
+    }
+    // …and a Scallywag standing next to him in the same fight reads exactly those
+    // effective cycles instead, which is what keeps the raid's "too fast" rule alive.
+    expect(mirrorIntervalSec(SCALLYWAG_KEY, 0.8, 2)).toBeCloseTo(0.8);
+    expect(mirrorIntervalSec(SCALLYWAG_KEY, 2, 2)).toBeCloseTo(5);
+  });
+
+  it("still rewards a slower body, monotonically, above the floor", () => {
+    let prev = 0;
+    for (const cycle of [0.9, 1, 1.538, 2]) {
+      const v = pirateBossSlamIntervalSec(cycle);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+  });
+
+  it("derives the divisor from the tuning point, so the two cannot drift apart", () => {
+    expect(PIRATE_BOSS_MIRROR_DIVISOR)
+      .toBeCloseTo((HEADLESS_SPECIES_CYCLE_SEC ** 2) / PIRATE_BOSS_HEADLESS_SLAM_SEC);
+    expect(mirrorIntervalSec(PIRATE_BOSS_KEY, 99, 2)).toBeCloseTo(PIRATE_BOSS_HEADLESS_SLAM_SEC);
+  });
 });
 
 describe("farmRaidEnemyPace — Old McDonnell's level ramp (raid 1 only)", () => {
@@ -284,5 +366,31 @@ describe("recovered flat hazard values", () => {
     const share = BURN_MAX_HP_FRACTION_PER_SEC * (PIXEL_FIRE_BURN_MS / 1000);
     expect(share).toBeGreaterThan(0.15);
     expect(share).toBeLessThan(0.5);
+  });
+});
+
+describe("the walking laser is priced in strength alone", () => {
+  // The one divergence: ground truth pays 10 % of Power (= exactly the firer's strength),
+  // the reimpl pays 20 %. Both anchors are pinned so a change to either has to be deliberate.
+  it("pays 2 damage per point of strength, i.e. 20 % of Power", () => {
+    expect(LASER_DAMAGE_PER_STR).toBe(2);
+    for (const str of [2.1, 5.25, 8.4, 12.6, 23.32, 42]) {
+      expect(laserHitDamage(str * POWER_PER_STR)).toBe(Math.round(str * 2));
+    }
+  });
+
+  it("is twice the binary's rate, rounded once at the end", () => {
+    // The binary pays `round(power x 0.10)`; this pays `round(power x 0.20)`. Rounding ONCE
+    // on the doubled rate is the point of stating it this way: doubling the binary's already-
+    // rounded bolt would quantise every half-strength zombie down (str 5.25 -> 10, not 11).
+    for (const str of [2.1, 5.25, 8.4, 12.6, 23.32, 42]) {
+      const power = str * POWER_PER_STR;
+      expect(laserHitDamage(power)).toBe(Math.max(1, Math.round(power * 0.20)));
+    }
+  });
+
+  it("never drops a bolt to zero, however feeble the firer", () => {
+    expect(laserHitDamage(0)).toBe(1);
+    expect(laserHitDamage(0.1)).toBe(1);
   });
 });

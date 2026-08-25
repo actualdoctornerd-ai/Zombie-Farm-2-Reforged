@@ -42,6 +42,7 @@ const FRIEND_SORT_KEY = "zf2r.friendSort";
 const ZOMBIE_SORT_KEY = "zf2r.zombieSort";
 const HAZARD_TIP_KEY = "zf2r.seenHazardTip";
 const RAID_TIP_KEY = "zf2r.seenRaidTip."; // + raid id
+const PVP_TIP_KEY = "zf2r.seenPvpTip";
 const BODY_COLOR_KEY = "zf2r.zombieBodyColor";
 const SHOW_MUTATIONS_KEY = "zf2r.showZombieMutations";
 const HEALTH_NUMBERS_KEY = "zf2r.showHealthNumbers";
@@ -279,6 +280,20 @@ export function hasSeenRaidTip(raidId: number): boolean {
 
 export function markRaidTipSeen(raidId: number): void {
   writePref(RAID_TIP_KEY + raidId, "1");
+}
+
+/** Whether Tim has explained how DEFENDING works, given once when the Invasions panel
+ *  is first opened. Defending is the one part of the game the player never plays: the
+ *  farm fights on its own, one zombie per class, and nothing is lost either way — so
+ *  the panel would otherwise be the first screen with rules nobody stated. Device-local
+ *  for the same reason as the other tips: it is a hint about how to read a screen, not
+ *  account progression, so a browser that cannot write storage just hears it again. */
+export function hasSeenPvpTip(): boolean {
+  return readPref(PVP_TIP_KEY) === "1";
+}
+
+export function markPvpTipSeen(): void {
+  writePref(PVP_TIP_KEY, "1");
 }
 
 /** When the local-clock night window opens and closes, in the device's own

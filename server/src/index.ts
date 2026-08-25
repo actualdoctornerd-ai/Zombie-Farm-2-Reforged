@@ -35,16 +35,17 @@ import {
   deviceLabel,
   importEligible,
   normalizeFriendCode,
-  normalizeUsername,
+  validateUsername,
   friendActivity,
   type GiftReward,
 } from "./logic";
 import { validateSave, MAX_SAVE_BYTES } from "./validate";
+import { operationInProgress, purgeAccount, unsettledMarketOrders } from "./accountDeletion";
 import type { EconomyEvent } from "./economy";
 import type { FarmAction } from "./farm";
 import { raidEcon, raidUnlocked } from "./raidCatalog";
 import type { StorageAction } from "./storage";
-import { levelForXp } from "./levels";
+import { levelForXp, XP_THRESHOLDS } from "./levels";
 import type { InventoryAction } from "./inventory";
 import type { ObjectAction } from "./objects";
 import type { RosterAction } from "./roster";
@@ -414,6 +415,7 @@ app.use("/username", requireAuth);
 app.use("/save", requireAuth);
 app.use("/state", requireAuth);
 app.use("/session/*", requireAuth);
+app.use("/account/*", requireAuth);
 app.use("/logout", requireAuth);
 app.use("/friends", requireAuth);
 app.use("/friends/*", requireAuth);
@@ -513,6 +515,21 @@ app.post("/dev/fixture/balance", requireAuth, async (c) => {
   await c.env.DB.prepare(`UPDATE balances SET gold=?, brains=?, xp=?, claimed_level=? WHERE account_id=?`)
     .bind(gold, brains, xp, levelForXp(xp), c.get("accountId")).run();
   return c.json({ gold, brains, xp });
+});
+
+// Put an account at a LEVEL without disturbing its wallet. `/dev/fixture/balance`
+// rewrites the whole balances row (its unset fields fall back to defaults), so a suite
+// that needs a level floor met — the Black Market's, say — cannot use it without also
+// resetting the gold and brains the test just staged. This moves xp alone. Dev-only:
+// with DEV_AUTH="0" (the deployed value) this route does not exist.
+app.post("/dev/fixture/level", requireAuth, async (c) => {
+  const body = await c.req.json<{ level?: number }>().catch((): { level?: number } => ({}));
+  const level = Math.max(1, Math.min(XP_THRESHOLDS.length, Math.floor(Number(body.level ?? 1))));
+  if (!Number.isSafeInteger(level)) return c.json({ error: "bad_fixture_level" }, 400);
+  const xp = XP_THRESHOLDS[level - 1];
+  await c.env.DB.prepare("UPDATE balances SET xp=?, claimed_level=? WHERE account_id=?")
+    .bind(xp, level, c.get("accountId")).run();
+  return c.json({ level, xp });
 });
 
 app.post("/dev/fixture/orphan-gift-grant", requireAuth, async (c) => {
@@ -638,6 +655,9 @@ app.use("*", async (c, next) => {
 // D1 constraints regardless of the throttle.
 app.use("/save", rateLimit("RL_WRITE", "save", 120, 60_000)); // GET + PUT
 app.use("/username", rateLimit("RL_WRITE", "username", 10, 60_000));
+// Deleting an account is a once-ever action; a tight limit costs a real player
+// nothing and stops a stolen token being used to hammer the purge path.
+app.use("/account/delete", rateLimit("RL_WRITE", "account_delete", 5, 60_000));
 app.use("/friends/add", rateLimit("RL_WRITE", "friend_add", 20, 60_000));
 app.use("/friends/accept", rateLimit("RL_WRITE", "friend_accept", 60, 60_000));
 app.use("/friends/reject", rateLimit("RL_WRITE", "friend_reject", 60, 60_000));
@@ -1636,10 +1656,18 @@ app.post("/username", async (c) => {
   const { username } = await c.req
     .json<{ username: string }>()
     .catch(() => ({ username: "" }));
-  const name = normalizeUsername(username ?? "");
-  if (!name) return c.json({ error: "bad_username" }, 400);
-  await db.setUsername(c.env.DB, c.get("accountId"), name);
-  return c.json({ username: name });
+  const result = validateUsername(username ?? "");
+  if ("refused" in result) {
+    // `bad_username` is kept for the shape failure so an older client's handling
+    // of it is unchanged; a content refusal is a NEW code, because "2-20 letters
+    // and numbers" is unhelpful advice to someone whose name was legal but not
+    // allowed. The reason is returned but deliberately not itemised further — the
+    // filter's word lists are not something to hand back a probe at 10/min.
+    if (result.refused === "shape") return c.json({ error: "bad_username" }, 400);
+    return c.json({ error: "blocked_username", reason: result.refused }, 400);
+  }
+  await db.setUsername(c.env.DB, c.get("accountId"), result.name);
+  return c.json({ username: result.name });
 });
 
 // ---- session management -------------------------------------------------
@@ -1654,6 +1682,55 @@ app.post("/session/refresh", async (c) => {
 app.post("/logout", async (c) => {
   await db.revokeSession(c.env.DB, c.get("sessionId"), Date.now());
   return c.json({ ok: true });
+});
+
+// ---- POST /account/delete: self-service account deletion ----------------
+// Removes the account and every row that references it. The Google id is freed
+// with the row, so signing in again lands on `/auth`'s ordinary create path and
+// produces a brand-new account — see `accountDeletion.ts` for why that is the
+// whole "start fresh" implementation.
+//
+// NOT registered as a writer-protected mutation on purpose. That middleware wraps
+// the handler in beginOperation/endOperation, and `endOperation` writes to
+// `account_runtime_v3` — a row this handler has just deleted, whose foreign key
+// would then refuse the write. The serialization it provides is done here
+// instead, by refusing while an operation is genuinely in flight.
+//
+// The body must carry `confirm: "DELETE"`. The UI already asks twice; this is so
+// the destructive route cannot be triggered by a bare replayed POST.
+app.post("/account/delete", async (c) => {
+  const { confirm } = await c.req
+    .json<{ confirm: string }>()
+    .catch(() => ({ confirm: "" }));
+  if (confirm !== "DELETE") return c.json({ error: "confirm_required" }, 400);
+
+  // Halted with every other gameplay write. During an incident an irreversible
+  // purge is the last thing that should still run, and in `export_only` — the
+  // beta-to-release handoff — a player deleting instead of exporting would lose
+  // the farm the window exists to hand them.
+  if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
+
+  const accountId = c.get("accountId");
+  const now = Date.now();
+
+  if (await operationInProgress(c.env.DB, accountId, now)) {
+    return c.json({ error: "operation_in_progress", retryAfterMs: 250 }, 409);
+  }
+
+  // Refuse rather than strand a counterparty mid-trade — the player is told to
+  // finish up in the Black Market and come back.
+  const unsettled = await unsettledMarketOrders(c.env.DB, accountId);
+  if (unsettled > 0) return c.json({ error: "market_unsettled", orders: unsettled }, 409);
+
+  // Logged BEFORE the purge: `audit_events_v3` cascades with the account, so an
+  // audit row written inside the deletion would delete itself. This line in the
+  // Worker log is deliberately the only trace that survives, and it carries the
+  // hashed id rather than the id, so it identifies a deletion without preserving
+  // the account it just erased.
+  slog("account_deleted", { account: accountHash(accountId) }, "info");
+
+  const statements = await purgeAccount(c.env.DB, accountId);
+  return c.json({ ok: true, statements });
 });
 
 // Sign out everywhere (revoke every session for the account) — emergency control.

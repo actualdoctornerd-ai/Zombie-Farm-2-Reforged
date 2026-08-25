@@ -65,6 +65,14 @@ its un-modelled `speedMultiplier` partly cancelled the error).
   but it ships: against a dex-1 zombie (2 s) the Scallywag runs at 5 s, against a dex-3 zombie
   (0.67 s) it clamps to the 0.5 s floor. This — not a global pace — is where the "pirate brute
   swings every ~4 s" reference observation comes from.
+  - **DELIBERATE DIVERGENCE (ruleset 38, re-tuned in 44): Arrrnold mirrors too, on his own
+    terms.** The binary reaches the override through `isKindOfClass: PirateStageActorScallywag`
+    alone, so the boss is not in it. The reimpl treats mirroring as a family trait — his 5000-damage
+    slam one-shots every body in the game, so con cannot answer him and his CLOCK is the only dial
+    the matchup has. He reads the front zombie's **species base** cycle (2 s / catalog dex, nothing
+    else applied), on divisor `2² / 6.5 ≈ 0.6154`, floored at 1.25 s: a Headless-led line holds him
+    to one slam every 6.5 s and keeps holding it however upgraded that Headless is. The Scallywag's
+    own numbers above are untouched ground truth — see `combatStats.PIRATE_BOSS_KEY`.
 - **Old McDonnell's farm level ramp** (0x36b8e–0x36be6): when `zfGameData.currentEnemy == 1`, every
   NON-zombie actor's interval is multiplied by 0.66 at player level ≥ 10 and 0.44 at ≥ 15. Only
   raid 1 does this; it keeps the starter raid dangerous as you out-level it.

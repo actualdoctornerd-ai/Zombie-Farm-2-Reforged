@@ -41,8 +41,15 @@ Three causes, all of which Half A addresses:
 
 ## The roles
 
-One zombie per class — six roles, exactly today's `PVP_DEFENSE_CAP`. The defender picks
-*which* of their zombies fills each role; the roles themselves are fixed.
+One zombie per class — six **posts**, exactly today's `PVP_DEFENSE_CAP`. The defender
+picks *which* of their zombies fills each post; the posts themselves are fixed.
+
+Roles and posts are NOT the same count, and confusing them is a real bug rather than a
+wording nicety: Regular and Girl share the **Line** role but stand in a post each, so
+there are five roles and six posts. Anything enforcing "one of each" must key off
+`defenseSeatForGroup` (the post) and never off `roleForGroup` (the job) — the picker
+once keyed off the role, merged the two line classes into one post, and left the sixth
+slot permanently unfillable: a full defense read 5/6.
 
 | Role | Class | Half A behaviour |
 |---|---|---|
@@ -105,12 +112,13 @@ ruled that a timeout is a defense win; that ruling stands, but it should be rare
 | t = 10 s | Girl joins `DEF_LINE_X` |
 
 **One zombie per class, and the picker says so.** A defense line-up may hold at most one
-zombie of each group, because the formation fills one job per group — a second Regular has
+zombie of each group, because the formation fills one post per group — a second Regular has
 no post to stand at and `selectFormationDefense` would drop it at snapshot time. The editor
-labels every card with the job it would fill, dims one whose post is already held (clicking
-it SWAPS rather than failing), and counts "n / 6 jobs filled" naming the empty posts.
-`setDefensePvp` refuses a duplicate with `duplicate_class`, so the rule cannot be worked
-around by a hand-built request.
+labels every card with the post it would fill, dims one whose post is already held (clicking
+it SWAPS rather than failing), and counts "n / 6 posts filled" naming the empty ones.
+`setDefensePvp` refuses a duplicate with `duplicate_class` — per CLASS, which is the same
+rule the picker counts, so a full six-class line-up is accepted on both sides and the rule
+cannot be worked around by a hand-built request.
 
 Measured consequence, recorded because it is sharp: defensibility tracks farm DIVERSITY,
 not farm size. Identical farms on both sides, all Tier 3 — 8 Regulars field 1 defender and

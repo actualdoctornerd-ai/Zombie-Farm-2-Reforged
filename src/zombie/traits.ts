@@ -111,7 +111,7 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   protect: { label: "Protect", effect: "20% less damage to nearby non-Headless zombies", desc: "Other zombie types take less damage when you're near", icon: `${AB}ability_protect.png` },
   tankHitPointsBuff: { label: "Fortitude", effect: "+10% Life to Headless zombies", desc: "Headless zombies are a little tougher", icon: `${AB}ability_tankHitPointsBuff.png` },
   // ---- Tier 3 ----
-  laserBeam: { label: "Laser Beam", effect: "Automatic shots for 10% Power", desc: "Shoot a laser beam while you're walking!", icon: `${AB}ability_laserBeam.png` },
+  laserBeam: { label: "Laser Beam", effect: "Automatic shots for 20% Power", desc: "Shoot a laser beam while you're walking!", icon: `${AB}ability_laserBeam.png` },
   stun: { label: "Random Stun", effect: "4% chance to stun for 1 second", desc: "Small chance to stun your target", icon: `${AB}ability_stun.png` },
   explode: { label: "Explode", effect: "One 10× area hit and 3-second stun; the zombie is destroyed", desc: "Zombie will explode and stun the enemy (use when fighting)", icon: `${AB}ability_explode.png` },
   bash: { label: "Bash", effect: "2.75× attack; 10-second recharge", desc: "Bashes the enemy when activated (use when fighting)", icon: `${AB}ability_bash.png` },

@@ -229,9 +229,17 @@ export interface CombatUnit {
    *  DEX or the attack interval. */
   walkingSpeedMult?: number;
   /** This enemy ignores its own dex clock and MIRRORS its opponent's attack interval
-   *  (`combatStats.mirroredAttackIntervalSec`) — the Pirate Scallywag's override.
-   *  Recomputed against the current foe every time it re-arms. Players: false. */
+   *  (`combatStats.mirrorIntervalSec`) — the Pirate Scallywag's override, and Arrrnold's
+   *  divergent one. Recomputed against the current foe every time it re-arms.
+   *  Players: false. */
   mirrorsOpponentSpeed?: boolean;
+  /** This zombie's SPECIES BASE attack cycle in ms: 2 s ÷ its catalog dex, with no
+   *  veterancy, mutation, level ramp, ability buff or lineup band on it. `attackCooldownMs`
+   *  is what the zombie actually swings at; this is what its BODY would swing at.
+   *  Read by exactly one thing — Arrrnold's slam clock, which is keyed to the body in
+   *  front of him and deliberately not to how upgraded it is. Set by buildPlayerUnits;
+   *  absent on enemies and on hand-built units, where the effective cycle stands in. */
+  speciesCycleMs?: number;
 }
 
 /** One item the boss can throw, derived from UnitStats bossActions. */

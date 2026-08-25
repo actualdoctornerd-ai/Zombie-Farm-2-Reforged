@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { call, grantBalance, grantRoster, signIn, uniqueSub, xpForLevel } from "./helpers";
+import {
+  call, grantBalance as setBalance, grantLevel, grantRoster,
+  signIn as authSignIn, uniqueSub, xpForLevel, type Session,
+} from "./helpers";
+import { BLACK_MARKET_MIN_LEVEL } from "../../../src/blackMarketRules";
+
+// The Black Market opens at BLACK_MARKET_MIN_LEVEL and the Worker enforces that floor
+// on every post and every trade, so each account here trades from that level up. The
+// wrappers below exist because `/dev/fixture/balance` REWRITES the whole balances row —
+// xp included — so a later balance grant would silently drop the account back to level
+// 1. Tests that need a HIGHER level (the special/colour unlocks) pass their own xp and
+// keep it. `lockedSignIn` is the way to get an account BELOW the floor on purpose.
+const lockedSignIn = authSignIn;
+
+const signIn = async (devSub?: string): Promise<Session> => {
+  const session = await authSignIn(devSub);
+  await grantLevel(session, BLACK_MARKET_MIN_LEVEL);
+  return session;
+};
+
+const grantBalance = async (
+  s: Session,
+  balance: { gold?: number; brains?: number; xp?: number }
+): Promise<void> => {
+  await setBalance(s, balance);
+  if (balance.xp === undefined) await grantLevel(s, BLACK_MARKET_MIN_LEVEL);
+};
 
 const bootstrap = async (session: Awaited<ReturnType<typeof signIn>>) => {
   const result = await call<any>("POST", "/bootstrap", session.token, {});
@@ -13,6 +39,44 @@ const operation = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const WRITER_DEVICE = "device-aaaaaaaa";
 
 describe("Black Market", () => {
+  it(`refuses posts and trades below level ${BLACK_MARKET_MIN_LEVEL}`, async () => {
+    const seller = await signIn(uniqueSub("market-floor-seller"));
+    const newcomer = await lockedSignIn(uniqueSub("market-floor-newcomer"));
+    await setBalance(newcomer, { brains: 50, xp: xpForLevel(BLACK_MARKET_MIN_LEVEL - 1) });
+
+    // The newcomer cannot post...
+    const newcomerBoot = await bootstrap(newcomer);
+    const posted = await call<any>("POST", "/black-market/orders", newcomer.token, {
+      operationId: operation("floor-create"), expectedAccountVersion: newcomerBoot.accountVersion,
+      kind: "BUY_ZOMBIE", zombieKey: "ZombieActorRegularTier1", mutated: false, priceBrains: 1,
+    });
+    expect(posted).toMatchObject({ status: 403, body: { error: "black_market_locked" } });
+
+    // ...nor buy one somebody at level put up.
+    const unitId = `market-floor-${crypto.randomUUID()}`;
+    await grantRoster(seller, [{ id: unitId, key: "ZombieActorRegularTier1" }]);
+    const sellerBoot = await bootstrap(seller);
+    const listing = await call<any>("POST", "/black-market/orders", seller.token, {
+      operationId: operation("floor-listing"), expectedAccountVersion: sellerBoot.accountVersion,
+      kind: "SELL_ZOMBIE", unitId, priceBrains: 1,
+    });
+    expect(listing.status, JSON.stringify(listing.body)).toBe(200);
+
+    const bought = await call<any>(
+      "POST", `/black-market/orders/${listing.body.order.id}/fulfill`, newcomer.token,
+      { operationId: operation("floor-fulfill"), expectedAccountVersion: newcomerBoot.accountVersion }
+    );
+    expect(bought).toMatchObject({ status: 403, body: { error: "black_market_locked" } });
+
+    // Reaching the level opens both, with nothing else about the account changed.
+    await grantLevel(newcomer, BLACK_MARKET_MIN_LEVEL);
+    const opened = await call<any>(
+      "POST", `/black-market/orders/${listing.body.order.id}/fulfill`, newcomer.token,
+      { operationId: operation("floor-fulfill-ok"), expectedAccountVersion: newcomerBoot.accountVersion }
+    );
+    expect(opened.status, JSON.stringify(opened.body)).toBe(200);
+  });
+
   it("allows 10 concurrent posts and explains the active limit on the 11th", async () => {
     const poster = await signIn(uniqueSub("market-active-limit"));
     await grantBalance(poster, { brains: 20 });

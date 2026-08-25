@@ -112,6 +112,14 @@ export async function grantBalance(
   if (r.status !== 200) throw new Error(`balance fixture failed: ${r.status}`);
 }
 
+/** Put an account at `level` without touching its gold or brains — unlike
+ *  `grantBalance`, which rewrites the whole balances row. Use this for a level FLOOR a
+ *  feature enforces (the Black Market's, for one) so it survives later balance grants. */
+export async function grantLevel(s: Session, level: number): Promise<void> {
+  const r = await call("POST", "/dev/fixture/level", s.token, { level });
+  if (r.status !== 200) throw new Error(`level fixture failed: ${r.status}`);
+}
+
 /** A minimal valid save blob (passes validateSave) with the given currency. */
 export function makeSave(gold = 200, brains = 15, xp = 0) {
   return {

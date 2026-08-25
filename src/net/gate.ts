@@ -10,6 +10,7 @@ import * as auth from "./auth";
 import * as api from "./api";
 import {
   fetchServiceStatus, isExportOnly, OPEN_STATUS, peekServiceStatus, signInRefusalMessage,
+  usernameRefusalMessage,
 } from "./serviceStatus";
 
 const STYLE = `
@@ -126,10 +127,18 @@ export function requireAuth(): Promise<void> {
           finish();
         } catch (e) {
           btn.disabled = false;
-          err.textContent =
-            e instanceof api.ApiError && e.code === "bad_username"
-              ? "2–20 letters, numbers, spaces or _ - . '"
-              : "Couldn't save that — check your connection and try again.";
+          // A CONTENT refusal has to be told apart from a network failure here more
+          // than anywhere else in the game: this picker is the only way past the
+          // gate, so "check your connection and try again" is advice that can never
+          // work — the same name is refused every time, and the player has no way to
+          // learn that the name is the problem. The server sends `reason` for exactly
+          // this, and usernameRefusalMessage owns the wording for both surfaces.
+          err.textContent = e instanceof api.ApiError
+            ? usernameRefusalMessage({
+                code: e.code,
+                reason: (e.body as { reason?: string } | null)?.reason,
+              })
+            : "Couldn't save that — check your connection and try again.";
         }
       };
       btn.onclick = () => void submit();

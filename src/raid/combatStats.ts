@@ -209,12 +209,78 @@ export const SCALLYWAG_KEY = "PirateStageActorScallywag";
  *  makes true of the minion. Reading it as a family trait is what this expresses, and it
  *  gives dex a job in the one fight where hit points have none (his 5000-damage slam is
  *  larger than the max HP of every zombie in the game, so nothing survives a second one
- *  whatever its con). Mirroring makes a SLOW front-liner the counter-play. */
+ *  whatever its con). Mirroring makes a SLOW front-liner the counter-play.
+ *
+ *  His mirror differs from the Scallywag's in all three of its terms, and every one of
+ *  them is a balance dial rather than a recovered constant:
+ *
+ *   1. It reads the zombie's SPECIES BASE cycle, not its current one. The Scallywag
+ *      mirrors what the zombie is actually doing (veterancy, mutations, level ramp,
+ *      ability speed buffs, lineup depth — all of it), which is ground truth and stays.
+ *      Arrrnold reads the body's catalog dex alone, so his pace is a property of WHAT you
+ *      put in front of him, not how upgraded it is. That makes the counter-play something
+ *      a player can see and choose (a Headless leads the line, and Headless has front
+ *      priority) instead of something their own progression quietly takes away — under
+ *      the effective-speed reading, every rank and every +dex mutation sped his slam up.
+ *   2. His own divisor, derived from the tuning point below.
+ *   3. His own floor — PIRATE_BOSS_MIN_SLAM_SEC, well above the Scallywag's 0.5 s. His
+ *      slam is a one-hit kill on anything in the roster, so the floor is the worst case a
+ *      fast species can bring on itself, and half a second between one-shots is not a
+ *      fight.
+ *
+ *  Every zombie still dies to his second landed hit, so the seconds between them ARE the
+ *  fight — that is the number worth naming. */
 export const PIRATE_BOSS_KEY = "PirateStageActorBoss";
 /** Enemies whose attack clock mirrors the zombie they face rather than their own dex. */
 export const MIRROR_SPEED_KEYS: ReadonlySet<string> = new Set([SCALLYWAG_KEY, PIRATE_BOSS_KEY]);
+
+/** The Scallywag's floor and divisor, as recovered. Ground truth; do not tune these. */
+export const MIRROR_FLOOR_SEC = 0.5;
+export const SCALLYWAG_MIRROR_DIVISOR = 0.8;
+
+/** The recovered mirror: `max(0.5, opponentInterval² / 0.8)` against the opponent's
+ *  CURRENT effective cycle. The Scallywag's, unchanged. */
 export function mirroredAttackIntervalSec(opponentIntervalSec: number): number {
-  return Math.max(0.5, (opponentIntervalSec * opponentIntervalSec) / 0.8);
+  return Math.max(MIRROR_FLOOR_SEC, (opponentIntervalSec * opponentIntervalSec) / SCALLYWAG_MIRROR_DIVISOR);
+}
+
+/** No matter how fast a species is, Arrrnold's slam lands no more often than this. A
+ *  slam is a one-hit kill on every body in the roster, so this is the worst case a
+ *  player can walk into — the fastest species (Small, base dex 4) sits here. */
+export const PIRATE_BOSS_MIN_SLAM_SEC = 1.25;
+/** The species the boss curve is tuned against: the Headless family's base dex of 1, so
+ *  a 2 s catalog cycle. It is the slowest body in the game and the one with front
+ *  priority, which makes it both the natural counter-play and the natural anchor. */
+export const HEADLESS_SPECIES_CYCLE_SEC = 2.0;
+/** What leading with that body buys: one slam every 6.5 s. The tuned number. */
+export const PIRATE_BOSS_HEADLESS_SLAM_SEC = 6.5;
+/** …which fixes the divisor. Derived, not authored, so the two numbers above stay the
+ *  only ones to move when the fight is re-priced (≈0.6154). */
+export const PIRATE_BOSS_MIRROR_DIVISOR =
+  (HEADLESS_SPECIES_CYCLE_SEC * HEADLESS_SPECIES_CYCLE_SEC) / PIRATE_BOSS_HEADLESS_SLAM_SEC;
+
+/** Arrrnold's slam clock against a zombie whose SPECIES BASE cycle is `speciesCycleSec`
+ *  (2/catalog dex — no veterancy, mutations, level ramp, ability buff or lineup band). */
+export function pirateBossSlamIntervalSec(speciesCycleSec: number): number {
+  return Math.max(
+    PIRATE_BOSS_MIN_SLAM_SEC,
+    (speciesCycleSec * speciesCycleSec) / PIRATE_BOSS_MIRROR_DIVISOR
+  );
+}
+
+/** The clock a mirroring enemy keeps against the zombie it faces. The two pirates read
+ *  DIFFERENT things about that zombie, which is the whole reason this dispatch exists:
+ *  the Scallywag mirrors its CURRENT cycle (`effectiveSec`, ground truth, so a decked-out
+ *  army speeds the minions up), Arrrnold mirrors its SPECIES BASE (`speciesCycleSec`, so
+ *  only the body type moves him). Both call sites go through here. */
+export function mirrorIntervalSec(
+  sourceKey: string,
+  effectiveSec: number,
+  speciesCycleSec: number
+): number {
+  return sourceKey === PIRATE_BOSS_KEY
+    ? pirateBossSlamIntervalSec(speciesCycleSec)
+    : mirroredAttackIntervalSec(effectiveSec);
 }
 
 /** Old McDonnell's Farm (raid 1) enemy speed-up — GROUND TRUTH (`getFightAttackSpeed`
@@ -251,6 +317,33 @@ export const BURN_MAX_HP_FRACTION_PER_SEC = 0.05;
 /** Flat damage of the Alien boss's laser bolt (`AlienStageBullet collidedWith:`,
  *  immediate 0x43480000 = 200.0f). Not a stat-derived value — a hard constant. */
 export const ALIEN_LASER_DAMAGE = 200;
+
+// ---------------------------------------------------------------------------
+// The zombie WALKING LASER (laserBeam / its zomBeam upgrade) — DELIBERATE DIVERGENCE.
+//
+// Ground truth is 10 % of Power (`power = str × 10`, so one bolt landed for exactly the
+// firer's strength stat). That reads fine on paper and is feeble in play: the tier-3
+// Regular that first earns the beam has str 8.4, so its automatic shot chipped for 8
+// while its own melee swing hit for 84.
+//
+// The reimpl DOUBLES it — 20 % of Power, i.e. 2 damage per point of strength:
+//
+//   damage = LASER_DAMAGE_PER_STR × (power / POWER_PER_STR)
+//
+// Strength is the ONLY input. dex still sets how OFTEN the beam fires (attackSpeed/3, /6
+// for the Ver.2 upgrade — untouched ground truth), but it has no say in how hard one bolt
+// lands. Nor does anything else: the beam skips the focus multiplier and both lineup-depth
+// bands that a melee swing takes, so it is worth 0.6× a front-rank zombie's melee DPS at
+// T3 and 1.2× at T4, rising well above that for a zombie fighting from the back ranks.
+
+/** Laser damage per point of strength — twice the binary's, the whole divergence. */
+export const LASER_DAMAGE_PER_STR = 2;
+
+/** One walking-laser bolt's damage, from the firer's finalPower. Strength only — the
+ *  caller's dex never enters here (it only schedules the shot). Floored at 1. */
+export function laserHitDamage(power: number): number {
+  return Math.max(1, Math.round((power / POWER_PER_STR) * LASER_DAMAGE_PER_STR));
+}
 
 // ---------------------------------------------------------------------------
 // Lineup-depth damage falloff — GROUND TRUTH (`-[Actor damageIn:]` 0x372bc–0x37348, pinned

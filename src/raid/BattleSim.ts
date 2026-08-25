@@ -40,9 +40,10 @@ import {
   deriveAttackIntervalMs,
   deriveHitDamage,
   deriveMaxHp,
+  laserHitDamage,
   lineupDamageBand,
   lineupSpeedBand,
-  mirroredAttackIntervalSec,
+  mirrorIntervalSec,
   protectReduction,
   POWER_PER_STR,
 } from "./combatStats";
@@ -509,6 +510,10 @@ export interface SimUnit {
   distractSeed: number; // per-unit seed for the deterministic distraction roll
   bubbleMs: number; // ms until the current bubble auto-resolves
   struckThisTick: boolean;
+  /** Set by the zombie walk step each tick: this unit is on the field and still
+   *  closing on its slot. Read by a PvP DEFENDER's laser, which fires at whoever is
+   *  walking in (see stepDefenderLaser). Transient — recomputed every tick. */
+  walkingThisTick: boolean;
   vx: number; // measured velocity over the last step (sim px/s) — drives throw lead
   vy: number;
   prevX: number; // position at the start of the current step (velocity bookkeeping)
@@ -615,8 +620,11 @@ export interface SimUnit {
    *  source state 38 is not the death path) but out of this fight, so it counts as a
    *  survivor while no longer keeping the battle alive. */
   taken: boolean;
-  /** Enemy that ignores its dex clock and mirrors its opponent's (Pirate Scallywag). */
+  /** Enemy that ignores its dex clock and mirrors its opponent's (both pirates). */
   mirrorsOpponentSpeed: boolean;
+  /** A zombie's SPECIES BASE cycle in ms (2 s ÷ catalog dex, nothing else applied).
+   *  Arrrnold's slam is priced on this rather than on `cooldownMs`; see combatStats. */
+  speciesCycleMs: number;
 }
 
 /** A Trapeze Artist grab hazard, consumed by the renderer. Sweeps in, seizes a zombie,
@@ -788,6 +796,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     distractSeed: i,
     bubbleMs: 0,
     struckThisTick: false,
+    walkingThisTick: false,
     vx: 0,
     vy: 0,
     prevX: home.x,
@@ -855,6 +864,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     passedWall: false,
     taken: false,
     mirrorsOpponentSpeed: !isPlayer && !!u.mirrorsOpponentSpeed,
+    speciesCycleMs: u.speciesCycleMs ?? u.attackCooldownMs,
   };
 }
 
@@ -1114,6 +1124,7 @@ export class BattleSim {
       laserTimerMs: u.laserTimerMs ?? laserInterval(u.abilities, u.cooldownMs),
       laserFxSeq: u.laserFxSeq ?? 0,
       laserTargetId: u.laserTargetId ?? null,
+      walkingThisTick: u.walkingThisTick ?? false,
       abilityRollSeq: u.abilityRollSeq ?? 0,
       usedAbilities: [...(u.usedAbilities ?? [])],
       resurrectUsed: u.resurrectUsed ?? false,
@@ -1955,8 +1966,9 @@ export class BattleSim {
     return roll;
   }
 
-  /** Fire the automatic walking laser. Both versions deal 10% of finalPower;
-   *  Ver.2 schedules at finalAttackSpeed/6 instead of /3. */
+  /** Fire the automatic walking laser. Both versions deal `laserHitDamage(finalPower)`
+   *  — 20 % of Power, strength and nothing else (see combatStats); Ver.2 only schedules
+   *  faster, at finalAttackSpeed/6 instead of /3. */
   private stepLaser(u: SimUnit, dtMs: number) {
     const interval = laserInterval(u.abilities, u.cooldownMs);
     if (interval <= 0) return;
@@ -1964,7 +1976,7 @@ export class BattleSim {
     if (u.laserTimerMs > 0) return;
     const foe = this.targetEnemy(u);
     if (foe) {
-      const dmg = Math.max(1, Math.round(u.power * 0.10));
+      const dmg = laserHitDamage(u.power);
       this.dealDamage(foe, dmg, true);
       u.laserTargetId = foe.id;
       u.laserFxSeq++;
@@ -1975,17 +1987,73 @@ export class BattleSim {
     u.laserTimerMs += interval;
   }
 
+  /** The DEFENDER's walking laser — a PvP-only mirror of stepLaser, and a deliberate
+   *  divergence from it.
+   *
+   *  An attacker's beam fires while the FIRER walks: it is the weapon of the approach, and
+   *  it falls silent the moment its owner arrives and starts swinging. A defender never
+   *  makes that approach — it is stood on an authored station waiting — so the same trigger
+   *  would hand it a beam it could essentially never fire. The mirror is therefore taken on
+   *  the OTHER side of the same moment: a defender fires while THEY are walking in, at
+   *  whoever is still closing. Both readings cover exactly one phase of the fight, the
+   *  approach, from the two ends of it.
+   *
+   *  Consequences worth naming:
+   *   - it goes quiet once the line is engaged and nobody is walking, so it cannot grind a
+   *     stalled fight down; a knocked-back attacker walking back in re-opens the window,
+   *     exactly as it re-opens the attacker's own beam;
+   *   - it targets the CLOSEST walker, which is the unit about to reach the line rather
+   *     than a straggler still leaving the charge queue;
+   *   - damage goes through `dealEnemyDamage`, so the victim's Protect reduction, Block
+   *     roll and one-shot floor all apply, the same as any other blow it takes.
+   *
+   *  Raids cannot reach this: every authored raid enemy carries `abilities: []`, and PvP
+   *  only lets a formation defense keep the beam (pvp.PVP_DEFENSE_PASSIVE_ABILITIES). */
+  private stepDefenderLaser(u: SimUnit, dtMs: number) {
+    const interval = laserInterval(u.abilities, u.cooldownMs);
+    if (interval <= 0) return;
+    u.laserTimerMs -= dtMs;
+    if (u.laserTimerMs > 0) return;
+    const foe = this.closestAdvancingPlayer(u);
+    if (foe) {
+      this.dealEnemyDamage(foe, laserHitDamage(u.power));
+      u.laserTargetId = foe.id;
+      u.laserFxSeq++;
+      u.struckThisTick = true;
+      this.attacksLanded++;
+    }
+    u.laserTimerMs += interval;
+  }
+
+  /** The nearest zombie still walking in — a defender laser's target. `walkingThisTick` is
+   *  set by the zombie walk step, which runs earlier in the same tick, so this reads the
+   *  CURRENT tick's decision rather than the previous one's. */
+  private closestAdvancingPlayer(u: SimUnit): SimUnit | null {
+    let best: SimUnit | null = null;
+    let bestD = Infinity;
+    for (const p of this.players) {
+      if (!p.alive || p.taken || p.isTurned || !p.walkingThisTick) continue;
+      const d = Math.abs(p.x - u.x);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    return best;
+  }
+
   /** One attack cycle in ms for `u` while facing `foe` — ground truth
    *  `-[Actor getFightAttackSpeed]`. `cooldownMs` already carries the raw dex clock
    *  (2/dex zombie, 1/dex enemy) times the attack's `speedMultiplier`; on top of that:
    *   - a player zombie deeper than the front five swings slower (lineupSpeedBand);
-   *   - a Scallywag throws its own clock away and mirrors its opponent's cycle.
+   *   - a Scallywag throws its own clock away and mirrors its opponent's CURRENT cycle,
+ *     and Arrrnold does the same against that opponent's SPECIES BASE cycle.
    *  Everything that re-arms an attack timer goes through here. */
   private cycleMs(u: SimUnit, foe: SimUnit | null): number {
     if (u.team === "player") return u.cooldownMs * lineupSpeedBand(u.lineupIndex);
     if (u.mirrorsOpponentSpeed && foe && foe.team === "player") {
       const foeSec = (foe.cooldownMs * lineupSpeedBand(foe.lineupIndex)) / 1000;
-      return mirroredAttackIntervalSec(foeSec) * 1000;
+      return mirrorIntervalSec(u.sourceKey, foeSec, foe.speciesCycleMs / 1000) * 1000;
     }
     return u.cooldownMs;
   }
@@ -2619,6 +2687,7 @@ export class BattleSim {
     this.lastProjectileImpactSprite = "";
     for (const u of this.units) {
       u.struckThisTick = false;
+      u.walkingThisTick = false;
       u.prevX = u.x; // snapshot for this step's velocity measurement (see below)
       u.prevY = u.y;
     }
@@ -2756,6 +2825,7 @@ export class BattleSim {
             p.x = destinationX;
             p.y = p.slotY;
           }
+          p.walkingThisTick = wasWalking;
           if (wasWalking) this.stepLaser(p, dtMs);
           // The formation is only for spacing / projectile hitboxes — EVERY zombie
           // that has reached the combat zone attacks the enemy once it has arrived
@@ -2806,6 +2876,11 @@ export class BattleSim {
         e.timerMs = this.cycleMs(e, null);
         continue;
       }
+      // The defender's beam, before any state branch: it fires from the station it is
+      // standing on, while it is walking to that station, and while it is fighting. What
+      // gates it is whether anyone is still WALKING IN, not what this unit is doing.
+      this.stepDefenderLaser(e, dtMs);
+
       if (e.state === "falling") {
         e.y = Math.min(CENTER_Y, e.y + (EPIC_BOSS_FALL_SPEED * dtMs) / 1000);
         e.timerMs = this.cycleMs(e, null);

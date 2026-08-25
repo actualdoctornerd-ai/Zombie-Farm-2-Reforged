@@ -26,7 +26,7 @@ import {
   farmRaidEnemyPace,
   lineupDamageBand,
   lineupSpeedBand,
-  mirroredAttackIntervalSec,
+  mirrorIntervalSec,
   POWER_PER_STR,
   MIRROR_SPEED_KEYS,
   protectReduction,
@@ -253,6 +253,11 @@ export function buildPlayerUnits(
       supportsFromRear, z.group === "Headless"
     );
     u.group = z.group;
+    // The BODY's clock, before anything the player did to this individual. Only the
+    // pirate boss reads it (combatStats.PIRATE_BOSS_KEY): his slam is priced on the
+    // species standing in front of him, so a Headless holds him off whether it is a
+    // fresh recruit or a mutated Master.
+    u.speciesCycleMs = deriveAttackIntervalMs(rawDex, "player");
     u.className = z.className;
     u.mutation = z.mutation;
     u.color = z.color;
@@ -454,12 +459,14 @@ export function resolveRaid(
   // doesn't re-slot on knockback, so the static party order is the lineup.
   const lineup = new Map<string, number>(p.map((u, i) => [u.id, i]));
   /** A unit's effective cycle in ms: the depth SLOWDOWN band for zombies (ground truth
-   *  `getFightAttackSpeed`), and for a Scallywag the mirror of its current foe's cycle. */
+   *  `getFightAttackSpeed`), and for a mirroring pirate the mirror of its current foe —
+   *  the foe's CURRENT cycle for a Scallywag, its SPECIES BASE cycle for Arrrnold. */
   const cycleMs = (u: CombatUnit, foe: CombatUnit | null) => {
     if (u.team === "player") return u.attackCooldownMs * lineupSpeedBand(lineup.get(u.id) ?? 0);
     if (u.mirrorsOpponentSpeed && foe) {
       const foeSec = (foe.attackCooldownMs * lineupSpeedBand(lineup.get(foe.id) ?? 0)) / 1000;
-      return mirroredAttackIntervalSec(foeSec) * 1000;
+      const speciesSec = (foe.speciesCycleMs ?? foe.attackCooldownMs) / 1000;
+      return mirrorIntervalSec(u.sourceKey, foeSec, speciesSec) * 1000;
     }
     return u.attackCooldownMs;
   };

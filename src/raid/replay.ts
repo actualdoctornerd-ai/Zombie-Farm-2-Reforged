@@ -482,7 +482,8 @@ import type { RaidOutcome } from "./types";
 // realistic mixed 16-party fields three Headless, so each takes 0.40 and Arrrnold's 5000
 // lands as 3000 — survivable outright by a master Bombie's 4084.
 // (b) THE DREAD PIRATE ARRRNOLD MIRRORS HIS OPPONENT'S ATTACK SPEED, as the Scallywag
-// already does (`mirroredAttackIntervalSec`, max(0.5, opponentInterval²/0.8)). The
+// already does (`mirroredAttackIntervalSec`, max(0.5, opponentInterval²/0.8) — the boss's
+// divisor is his own from v44 down). The
 // binary reaches that override through the Scallywag class alone, so this half is a
 // DELIBERATE DIVERGENCE — see combatStats.PIRATE_BOSS_KEY for the reasoning. It exists
 // because his authored 5000-damage slam is larger than the max hit points of every
@@ -602,7 +603,116 @@ import type { RaidOutcome } from "./types";
 // change on every formation invasion, which is the other half of why this bump exists.
 // Raids are untouched again — `deployWithBoss` is absent on every authored enemy, and
 // no raid boss's throw goes through pvpBossThrow.
-export const RAID_RULESET_VERSION = 42;
+// v43 — THE WALKING LASER, ON BOTH SIDES.
+// (a) THE BOLT PAYS DOUBLE. `laserBeam`/`zomBeam` bolts were ground truth's
+// "10 % of Power", which (power = str x 10) made one bolt worth exactly the firer's raw
+// strength — 8 damage on the tier-3 Regular that first earns the beam, against 84 for the
+// same zombie's ordinary swing. The bolt now pays 20 % of Power, twice the binary's
+// (combatStats.laserHitDamage). Strength remains the only input and the firing CADENCE is
+// untouched ground truth (attackSpeed/3, and /6 for the Ver.2 upgrade), so dex still
+// decides how often the beam fires and still has no say in how hard one bolt lands.
+// Measured against melee: the beam goes from 0.30x a front-rank zombie's own melee DPS to
+// 0.60x at T3, and 0.60x to 1.20x at T4.
+// This makes fights strictly EASIER for any army carrying a laser: a deliberate balance
+// change, not a fix. Armies with no laser zombie replay byte-identically, and the step is
+// small enough that every elite profile held its fitted rung (eliteInvasion.balance.test).
+//
+// (b) AND THE DEFENDER GETS ONE TOO — PvP only. The beam was the single ability a defender
+// could never have: `pvp.toEnemyCopy` stripped it, and `stepLaser` runs from the zombie walk
+// step, which a defender stood on an authored station never reaches. So every player-side
+// damage change landed on the attacking side alone and tilted the mode a little further.
+// `laserBeam`/`zomBeam` now survive into a FORMATION defense (PVP_DEFENSE_PASSIVE_ABILITIES,
+// the same 'nobody has to tap it' test heal passes), fired by BattleSim.stepDefenderLaser on
+// the mirror-image trigger: an attacker shoots while IT walks in, a defender shoots while
+// THEY do. Same bolt, same clock, through dealEnemyDamage so Protect/Block/the one-shot
+// floor all apply. Measured, break-even defense multiplier on the pinned mirror: 1.125
+// before this ruleset, 1.175 with the damage buff alone, 1.101 with the defender's beam in.
+// Raids are untouched: every authored enemy carries `abilities: []` (a converted pixel
+// zombie included), so laserInterval returns 0 and the new call is a no-op. Classic PvP
+// defenses are untouched too — they still clear every ability. Stored FORMATION replays
+// recorded under 42 stop being watchable; the 10-per-role window washes that out in a few
+// fights, the same as at v41.
+// Same cost as every bump: an invasion in flight at deploy time settles as stale_ruleset
+// and pays nothing.
+// v44 — ARRRNOLD IS PRICED ON THE BODY IN FRONT OF HIM. He keeps the v38 mirror, but
+// none of the Scallywag's three constants: not its divisor, not its 0.5 s floor, and not
+// — the part that actually changes the fight — the thing it reads about its opponent.
+//
+// The minion mirrors the zombie's CURRENT cycle, which is recovered ground truth and
+// stays exactly as it is. Applying that same reading to the boss made his slam get
+// FASTER as the player's army got better: veterancy is +5% dex a rank, the level ramp and
+// speed abilities add more, and the three dex mutations add +5 FLAT between them — every
+// one of those shortens the zombie's cycle, which the square then shortens again. A fresh
+// Headless bought him down to a 5 s slam; the same Headless at Master pulled him back up
+// to 3.2 s. The mutations are the violent term, and they are also why this was worse for
+// every OTHER body than for the counter-play one: a Headless cannot wear them at all
+// (makeOwned strips them by body type), but a Large carrying all three goes from a
+// 1.538 s cycle to 0.317 s, which under the old reading put Arrrnold on the Scallywag's
+// 0.5 s floor — a 5000-damage one-shot twice a second. Since the slam is a one-hit kill
+// on every body in the roster (5000 damage against a 5513 best-in-roster max HP), that
+// meant progression bought a strictly worse matchup, and the counter-play the raid states
+// out loud — "pirates clobber anything that moves too fast" — was something the player
+// could not actually hold on to.
+//
+// He now reads the zombie's SPECIES BASE cycle: 2 s / catalog dex, with no veterancy,
+// mutation, level ramp, ability buff or lineup band on it (CombatUnit.speciesCycleMs, set
+// once by buildPlayerUnits from the pre-mutation, pre-scale dex; the server rebuilds the
+// same field from the pinned party, so nothing new goes over the wire). What decides his
+// pace is therefore WHICH BODY leads the line, and nothing else.
+//
+// The curve is `speciesCycle² / PIRATE_BOSS_MIRROR_DIVISOR`, on a divisor of 2² / 6.5
+// ≈ 0.6154 derived from the Headless tuning point rather than authored, floored at
+// PIRATE_BOSS_MIN_SLAM_SEC = 1.25 s. The floor is his own and much higher than the
+// minion's 0.5 s: at one-shot damage, half a second between slams is not a fight. It
+// binds from a 0.877 s species cycle (catalog dex 2.28) down.
+//
+// Read the result per CATALOG ENTRY, not per family. Two families are uniform and four
+// are not, and that difference is the whole reason the counter-play works (measured over
+// all 95 entries carrying a group and a dex):
+//
+//   family     n   catalog dex   slam            at the 1.25 s floor
+//   Headless   7   1.0           6.50 s          0/7    <- uniform: the counter-play
+//   Large      8   1.3           3.85 s          0/8    <- uniform
+//   Garden     8   2.0 - 3.0     1.62 s - floor  2/8
+//   Female    13   2 - 8         1.62 s - floor  12/13
+//   Regular   54   1 - 8         6.50 s - floor  24/54  <- the whole span, see below
+//   Small      5   4.0 - 4.4     floor           5/5
+//
+// Regular spans the entire range because the family holds both the mainline ladder and
+// the named specials. The ladder itself is nearly flat — Tier 1 through Tier 4 and every
+// crop variant are dex 2.0 (1.62 s), the Tier 5s dex 2.1 (1.47 s) — so ORDINARY
+// progression barely moves him, which is the important half. The outliers are named
+// zombies: Zombeach Bum is dex 1 and holds him at 6.50 s exactly like a Headless, while
+// Ninjombie, Bandido, Vagabond and the rest of the fast specials sit on the floor. Zula
+// Girl is the same story in the Female column (dex 2, 1.62 s, against a family that is
+// otherwise floored). So a player CAN hand him a faster clock — by fielding a different,
+// faster BODY, never by upgrading the one they have.
+//
+// Headless keeps front priority, so the counter-play is reachable, unmissable, and — the
+// point of the change — permanent: all seven Headless entries are dex 1, so it holds
+// whichever one is fielded and at whatever rank, and no upgrade to that zombie can undo
+// it. Precisely: it is body CHOICE that is still live, not body PROGRESS.
+//
+// The Scallywags in that same wave still mirror effective speed, so the
+// raid's "too fast" rule keeps its teeth against a decked-out army; it is now the minions
+// that enforce it rather than the one-shot boss.
+//
+// Transcript-changing from the boss's first swing on every Pirates invasion; no other raid
+// fields a mirroring enemy and no PvP defense can, so every other transcript is
+// byte-identical. Measured on the balance stick (16-strong, front unit a Headless T4 —
+// effective cycle 1.6 s, species cycle 2.0 s) at power 1/1.5/2/3, ordinary and elite: the
+// boss lands roughly half the slams he used to (6->3 at power 1, 15->9 on the power-2
+// elite, 6->3 on the power-3 elite), which is worth ONE extra survivor at three of the
+// eight rungs and nothing at the other five. No win or loss flipped: weakest-winning-army
+// is 0.451 ordinary / 1.581 elite before and after, to three decimals. His melee was
+// always a small share of a fight the Scallywags do most of the killing in — the change is
+// to the pacing of the one attack that one-shots, not to the raid's difficulty.
+// The old reading is visible in that same trace: on the power-2 elite the v43 boss ran
+// 3.25 s -> 2.6 s -> 0.75 s -> 2.55 s as the front slot changed hands, the 0.75 s coming
+// from a fast Regular stepping up after the Headless fell. Under v44 the same fight reads
+// 6.5 s while the Headless holds. Same cost as every bump: an invasion in flight at deploy
+// time settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 44;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

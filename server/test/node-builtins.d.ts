@@ -17,6 +17,9 @@ declare module "node:sqlite" {
       /** Widened for migration0049.test.ts, which binds a JSON board into an UPDATE
        *  rather than inlining it into an exec() string. */
       run(...params: unknown[]): { changes: number };
+      /** Widened for accountDeletion.test.ts, which reads the schema's whole
+       *  foreign-key list back in one query to hold the purge list to it. */
+      all(...params: unknown[]): unknown[];
     };
     close(): void;
   }

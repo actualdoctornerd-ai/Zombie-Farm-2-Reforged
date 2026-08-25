@@ -37,6 +37,9 @@ import {
   pvpRewardsForTier,
   pvpTierForPoints,
   selectFormationDefense,
+  defenseSeatForGroup,
+  PVP_DEFENSE_SEATS,
+  PVP_ROLE_BY_GROUP,
   toDefenseUnits,
   unitScore,
   unitTierPoints,
@@ -264,6 +267,76 @@ describe("formation defense mode", () => {
   );
   const formation = (unlocked = true) =>
     formationDefenseUnits(selectFormationDefense(build(ONE_PER_CLASS, "d", unlocked)));
+
+  it("has one post per class, so all PVP_DEFENSE_CAP of them can be filled", () => {
+    // The bug this pins: Regular and Girl share the "line" JOB, so anything enforcing
+    // "one each" by ROLE merged them into a single post and left the sixth slot
+    // permanently unfillable — a full defense read 5/6. The posts are what the picker
+    // and the auto snapshot both count, and there are exactly PVP_DEFENSE_CAP of them.
+    const seats = Object.keys(PVP_ROLE_BY_GROUP).map((group) => defenseSeatForGroup(group));
+    expect(new Set(seats).size).toBe(PVP_DEFENSE_CAP);
+    expect(new Set(seats)).toEqual(new Set(PVP_DEFENSE_SEATS));
+    expect(PVP_DEFENSE_SEATS).toHaveLength(PVP_DEFENSE_CAP);
+    expect(defenseSeatForGroup("Regular")).not.toBe(defenseSeatForGroup("Female"));
+    expect(defenseSeatForGroup("Sasquatch")).toBeNull(); // a class with no post
+
+    // ...and one zombie of each class really does fill every one of them.
+    expect(selectFormationDefense(build(ONE_PER_CLASS, "d"))).toHaveLength(PVP_DEFENSE_CAP);
+  });
+
+  it("lets a defending Regular fire its beam while the attackers walk in", () => {
+    // The mirror of the attacker's walking laser (BattleSim.stepDefenderLaser). A defender
+    // stands on a station and never walks, so the firer-walks trigger would have handed it a
+    // beam it could never use; it fires while THEY close instead. Without this the laser was
+    // the one ability only an attacker could ever have, so every player-side damage buff
+    // tilted the mode — see the balance target below.
+    const defense = formation();
+    const regular = defense.find((u) => u.sourceKey === "ZombieActorRegularTier3")!;
+    expect(regular.abilities).toContain("laserBeam"); // kept by PVP_DEFENSE_PASSIVE_ABILITIES
+    const attackers = build(["ZombieActorHeadlessTier4", "ZombieActorHeadlessTier4"], "a");
+    const sim = new BattleSim(attackers, defense, null, true, [], undefined, null, null,
+      false, false, false, undefined, null, null, { maxActive: 1, dripMs: 0 }, null);
+    const firer = sim.units.find((u) => u.id === regular.id)!;
+    const startHp = sim.units.filter((u) => u.team === "player").reduce((s, u) => s + u.hp, 0);
+    // Attackers are chosen for having NO beam of their own, so any damage here is the
+    // defender's: it is the only thing on the field that can shoot while nobody is in range.
+    let ticks = 0;
+    while (firer.laserFxSeq === 0 && ticks < 400) { sim.step(RAID_TICK_MS); ticks++; }
+    expect(firer.laserFxSeq).toBeGreaterThan(0);
+    expect(firer.laserTargetId).toMatch(/^a/);
+    expect(sim.units.filter((u) => u.team === "player").reduce((s, u) => s + u.hp, 0))
+      .toBeLessThan(startHp);
+  });
+
+  it("holds the beam while nobody is walking in", () => {
+    // The window is the APPROACH, both ways round: an attacker's beam goes quiet when it
+    // arrives and starts swinging, and a defender's goes quiet when there is nobody left to
+    // shoot at. A defender that kept firing into a stalled line would be grinding down a
+    // fight it is not winning, which is not what the ability is.
+    const defense = formation();
+    const regular = defense.find((u) => u.sourceKey === "ZombieActorRegularTier3")!;
+    const sim = new BattleSim(build(["ZombieActorHeadlessTier4"], "a"), defense, null, true, [],
+      undefined, null, null, false, false, false, undefined, null, null,
+      { maxActive: 1, dripMs: 0 }, null);
+    const firer = sim.units.find((u) => u.id === regular.id)!;
+    // Nothing has been released from the charge queue, so no zombie is walking in yet.
+    for (let t = 0; t < 10; t++) sim.step(RAID_TICK_MS);
+    expect(sim.units.some((u) => u.team === "player" && u.walkingThisTick)).toBe(false);
+    expect(firer.laserFxSeq).toBe(0);
+  });
+
+  it("leaves classic mode stripped, beam included", () => {
+    // Classic defenses clear EVERY ability (see toEnemyCopy); only formation mode keeps the
+    // ones that run themselves. A raid is protected by the same gate from the other side:
+    // every authored enemy carries `abilities: []`, so laserInterval returns 0 for it.
+    const classic = toDefenseUnits(build(ONE_PER_CLASS, "d"));
+    expect(classic.every((u) => u.abilities.length === 0)).toBe(true);
+    const sim = new BattleSim(build(["ZombieActorRegularTier3"], "a"), classic, null, true, [],
+      undefined, null, null, false, false, false, undefined, null, null,
+      { maxActive: 1, dripMs: 0 }, null);
+    for (let t = 0; t < 400; t++) sim.step(RAID_TICK_MS);
+    expect(sim.units.filter((u) => u.team === "enemy").every((u) => u.laserFxSeq === 0)).toBe(true);
+  });
 
   it("gives every class its own job, front to back, one seat each", () => {
     const units = formation();
@@ -520,6 +593,23 @@ describe("formation defense mode", () => {
     //   mixed 1.13 · 8xRegT4 1.37 · 8xHeadT4 1.45 · 8xLargeT4 1.16 · 8xSmallT4 0.97
     // The spread nearly halved (0.84 wide -> 0.48) but has NOT closed, and no dial
     // closes it — tune against the spread, never against one column.
+    //
+    // RULESET 43 (the walking laser, and the defender's mirror of it). Re-swept, full red six:
+    //   before          mixed 1.125 · RegT4 1.374 · HeadT4 1.450 · LargeT4 1.161 · SmallT4 0.973
+    //   beam buff only  mixed 1.175 · RegT4 1.538 · HeadT4 1.450 · LargeT4 1.161 · SmallT4 0.973
+    //   + defender beam mixed 1.101 · RegT4 1.480 · HeadT4 1.404 · LargeT4 1.078 · SmallT4 0.924
+    // The middle row is the whole argument for stepDefenderLaser: only the two columns with
+    // beam carriers move at all, and they move against the defense, because the beam was the
+    // one ability a defender could not have. Give it back and every column comes down, the
+    // all-Regular one included. Four of the five now sit BELOW where they started.
+    // The exception is 8xRegT4 (1.374 -> 1.480), and it is structural rather than a miss: an
+    // attacker may field eight beam carriers, a one-per-class formation defense exactly one,
+    // so the mirror is 8:1 in that column and cannot fully answer it. It is worth noting the
+    // TOP of the spread barely moved (1.450 -> 1.480); what widened it (0.477 -> 0.556) is the
+    // bottom coming down, i.e. the defense improving against the armies it already beat.
+    // With the mirror in, laser DAMAGE is close to spread-neutral: at ground-truth damage the
+    // mixed column reads 1.111 against 1.101 at the shipped 2x, so a bigger beam now very
+    // slightly favours the DEFENSE — it covers the whole approach, the attacker's only its own.
     //
     // Pinned as a BAND, not a number: the sim is fully deterministic, so the search
     // below is stable and any FURTHER drift fails here rather than in a playtest.

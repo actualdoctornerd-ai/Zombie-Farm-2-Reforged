@@ -4358,13 +4358,55 @@ async function main() {
     await auth.signOut();
     location.reload(); // back to the sign-in gate
   };
+  // Permanent deletion, both modes. Written as ONE mode-branched assignment on
+  // purpose: the hooks in this block are assigned unconditionally (they check the
+  // mode when CALLED, not here), so a second unguarded `hud.onDeleteAccount = …`
+  // earlier in the file would simply be overwritten — which is exactly what the
+  // first version of this did, leaving Local Farm's delete button quietly calling
+  // the server and failing.
+  hud.onDeleteAccount = playMode === "local" ? async () => {
+    // No account and no server call: on this side the farm IS the save, so
+    // clearing it (and the backup, which `clear` handles) is the whole operation.
+    // Reloading then boots the ordinary new-game path.
+    saveManager.suspend(); // one-way, but the next line is the delete — nothing to save
+    saveManager.clear();
+    location.reload();
+    return null;
+  } : async () => {
+    try {
+      await api.deleteAccount();
+    } catch (e) {
+      // Refused — a live trade, or a batch still in flight. Nothing was deleted and
+      // the farm is genuinely still playable, so leave the autosave alone and let the
+      // dialog explain. Two things have to hold for "still playable" to be true, and
+      // both are one-way if they are got wrong: `suspend()` is deliberately NOT called
+      // before this point, and `api.deleteAccount` deliberately does not release the
+      // writer lease before the call — releasing it here would leave a surviving farm
+      // unable to write, behind a takeover gate it has no reason to be behind.
+      return errCode(e);
+    }
+    // Past here the account is gone and the session with it. Stop the autosave so
+    // no pending flush fires at a server row that no longer exists, then reload
+    // into the sign-in gate — where the same Google account signs in to a brand-new
+    // farm, because the server freed the id along with the row.
+    saveManager.suspend();
+    location.reload();
+    return null;
+  };
   hud.onSetUsername = async (name) => {
     try {
       await api.setUsername(name);
       hud.refreshAccount();
       return null;
     } catch (e) {
-      return errCode(e);
+      // Not errCode: a content refusal carries a `reason` in the body, and dropping
+      // it here is what left Settings explaining a blocked name as a network fault.
+      return {
+        code: errCode(e),
+        reason: e instanceof api.ApiError
+          ? (e.body as { reason?: string } | null)?.reason
+          : undefined,
+      };
     }
   };
   hud.getBlackMarketOrders = (query) => api.blackMarketOrders(query);

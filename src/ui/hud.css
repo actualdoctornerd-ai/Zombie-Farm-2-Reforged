@@ -849,6 +849,16 @@
 #hud .ztip .zbd-total > span { color: #ffe08a; font-weight: 800; }
 /* action buttons (zombie panel + object popup) */
 #hud .zbtns { display: flex; gap: 8px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+/* The Account menu's delete row. Set apart by a rule and extra space rather than
+   by shouting — the button is already a `sell` (red) and the two dialogs behind it
+   do the actual persuading, so this only needs to stop the destructive action
+   sitting flush against "Statistics" where a stray tap could find it.
+
+   Written as `.zbtns.acct-danger` on purpose: the narrow-screen block near the end
+   of this file re-sets `#hud .zbtns { margin-top: 8px }`, which has the same
+   specificity and comes later, so a plain `.acct-danger` would silently lose its
+   separation on exactly the screens where a mis-tap is likeliest. */
+#hud .zbtns.acct-danger { margin-top: 18px; padding-top: 14px; border-top: 1px solid #ffffff24; }
 #hud .zbtn { border: 2px solid #1e1207; border-radius: 9px; padding: 7px 14px; cursor: pointer;
   font: 700 13px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 1px #000;
   background: linear-gradient(#7a5220, #5e3d15); }
@@ -1510,6 +1520,9 @@
 #hud .social-choice { min-height: 120px; border: 3px solid #6d4b24; border-radius: 14px;
   background: linear-gradient(#f3e5bd,#d7bc7d); color: #4a3014; font: 700 20px Georgia,serif; cursor: pointer; }
 #hud .social-choice span { display: block; margin-top: 8px; font: 400 13px Georgia,serif; }
+/* A social surface the farm has not reached yet: still listed (so the player knows it
+   is coming and what it costs), but plainly shut. */
+#hud .social-choice.locked { filter: grayscale(.6); opacity: .62; cursor: default; }
 #hud .bm { width: min(900px, 96vw); height: min(610px, 94vh); }
 #hud .bm-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; }
 #hud .bm-toolbar select, #hud .bm-compose select, #hud .bm-compose input {

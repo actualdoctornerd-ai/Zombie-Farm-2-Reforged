@@ -61,6 +61,40 @@ export function signInRefusalMessage(code: string | null): string | null {
   }
 }
 
+/** A username refusal, as the two name-picking surfaces receive it: the server's
+ *  error code plus, for a content refusal, which KIND of problem it was. */
+export interface UsernameRefusal {
+  code: string;
+  reason?: string;
+}
+
+/** Player-facing line for a username the server refused.
+ *
+ *  There are two refusals and they need opposite advice. `bad_username` is the SHAPE
+ *  rule — length and legal characters — so restating that rule is exactly right.
+ *  `blocked_username` is the CONTENT filter, where restating it is actively
+ *  misleading: the name WAS 2-20 legal characters and was still not allowed, so a
+ *  player told to use letters and numbers will retype the same name and be refused
+ *  again. That dead end is the reason this function exists.
+ *
+ *  The copy stays coarse on purpose. It names the category and never the word that
+ *  matched, because `nameFilter.ts`'s lists are not something to hand back to
+ *  somebody probing them at ten tries a minute. Impersonation is the one case worth
+ *  splitting out: that player wrote nothing offensive, and "reserved" tells them why
+ *  their perfectly ordinary name bounced.
+ *
+ *  Lives here rather than in gate.ts for the same reason `signInRefusalMessage` does
+ *  — gate.ts cannot be imported by a test without pulling in Google Sign-In, which
+ *  touches `window` the moment it loads. */
+export function usernameRefusalMessage(refusal: UsernameRefusal): string {
+  if (refusal.code === "bad_username") return "Use 2–20 letters, numbers, spaces or _ - . '";
+  if (refusal.code !== "blocked_username")
+    return "Couldn't save that. Check your connection and try again.";
+  return refusal.reason === "impersonation"
+    ? "That name is reserved — it looks like a staff or game account. Please pick another."
+    : "That name isn't allowed here. Please pick another.";
+}
+
 let cached: ServiceStatus | null = null;
 
 /** The memoised status, or null if nothing has probed yet. Lets a caller that runs

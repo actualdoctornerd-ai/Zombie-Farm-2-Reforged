@@ -16,6 +16,7 @@ import { recallOneOf, remember } from "../viewState";
 import { ABILITY_POOL, ABILITY_TIER, TIER_BOSS } from "../../zombie/traits";
 import { otherPlayMode, playModeDestinationLabel } from "../../playMode";
 import { updateCheckMessage, type UpdateCheckResult } from "../../updateCheck";
+import { usernameRefusalMessage } from "../../net/serviceStatus";
 import {
   checkShellUpdate,
   openReleasePage,
@@ -228,14 +229,12 @@ export function openSettings(hud: Hud): void {
       input.disabled = true;
       status.classList.remove("error");
       status.textContent = "Saving…";
-      const error = await hud.onSetUsername!(name).catch(() => "error");
+      const error = await hud.onSetUsername!(name).catch(() => ({ code: "error" }));
       save.disabled = false;
       input.disabled = false;
       if (error) {
         status.classList.add("error");
-        status.textContent = error === "bad_username"
-          ? "Use 2–20 letters, numbers, spaces or _ - . '"
-          : "Couldn't save that. Try again.";
+        status.textContent = usernameRefusalMessage(error);
         return;
       }
       input.value = hud.myAccount?.()?.name ?? name;

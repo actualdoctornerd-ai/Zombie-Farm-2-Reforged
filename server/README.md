@@ -28,6 +28,7 @@ Core routes:
   `GET /black-market/history`, `POST /black-market/orders`,
   `POST /black-market/orders/:id/cancel`, `POST /black-market/orders/:id/fulfill`,
   `POST /black-market/orders/:id/collect`, `POST /black-market/orders/:id/repost`
+- `POST /account/delete` — self-service permanent deletion (body `{confirm:"DELETE"}`)
 - `GET /me`, `POST /username`, `POST /session/refresh`, `POST /logout`,
   `POST /session/logout-all`, `GET /session/list`, `POST /session/revoke`
 - `GET /friends`, `GET /friends/requests`, `GET /friends/:id/save` (read-only visit projection),
@@ -47,7 +48,7 @@ server-owned tables and catalogs) into the session row. `/raid/finish` accepts
 replaying that input transcript against the pinned config (`src/raidVerifier.ts` →
 `src/raid/replay.ts`), and rewards are priced from the server catalog against the replayed
 survivor ratio. An elapsed-time gate (`future_finish`) and ruleset-version pinning
-(`stale_ruleset`, currently `RAID_RULESET_VERSION = 42` — declared once in
+(`stale_ruleset`, currently `RAID_RULESET_VERSION = 44` — declared once in
 `src/raid/replay.ts` and imported by both sides) are defense-in-depth on top of the replay,
 not substitutes for it. `/epic-boss/start` performs the same handshake and refuses a
 mismatched client with `426 stale_ruleset` before charging a token or a brain.
@@ -59,6 +60,25 @@ one-way (`win = !retreated && replayOutcome.win && !conceded`; conceded deaths a
 intersected with zombies the replay brought home alive), so a client can only concede a
 worse result for itself. Epic Boss finishes use the same replay path and have **no**
 concession field.
+
+`POST /username` validates in two halves (`validateUsername` in `src/logic.ts`). The shape
+rule is an allowlist — letters, numbers and `_ - . '` — which is what rejects zero-width
+characters, RTL overrides, stacked combining marks and emoji. The content rule is
+`src/nameFilter.ts`, which folds homoglyphs, fullwidth forms, leetspeak and separator padding
+to one matching form, then matches slurs anywhere, profanity on word boundaries (and anywhere
+when the name was padded), and staff/maintainer impersonation on the whole name. A shape
+failure still answers `400 bad_username`; a content failure answers `400 blocked_username`
+with a coarse `reason`, and deliberately does not itemise which term matched.
+
+`POST /account/delete` clears every column referencing `accounts(id)` and then the account
+row, which frees the Google `sub` so the next sign-in creates a genuinely new account. The
+purge list is written out in `src/accountDeletion.ts` rather than introspected because **D1
+refuses `pragma_foreign_key_list` with `SQLITE_AUTH`**; `test/accountDeletion.test.ts` holds
+that list to `schema.sql`, so a migration adding an account-referencing table fails a test
+instead of silently orphaning rows. Deletion is refused with `409 market_unsettled` while the
+account has an open Black Market post or a fulfilled trade whose zombie is unclaimed, so it
+can never destroy a counterparty's property, and it is halted along with every other gameplay
+write by `MUTATIONS_DISABLED=1` or an `export_only`/`closed` service mode.
 
 ## Current security restrictions
 

@@ -118,12 +118,19 @@ export const PVP_ZOMBIE_SPRITE_PREFIX = "zombie:";
  *  "nobody is home" was never a reason to strip them. Everything else (bash,
  *  explode, Mini Buddy) is a tap and stays stripped: a defender cannot tap.
  *
+ *  The WALKING LASER is here for the same reason as heal: nobody has to tap it. It needed
+ *  a trigger of its own, though — an attacker's beam fires while the firer walks, and a
+ *  defender stands on a station and never does. BattleSim.stepDefenderLaser takes the
+ *  mirror on the other side of the same moment: a defender fires while the ATTACKERS are
+ *  walking in. Without it the beam was the one ability a buff could only ever hand to the
+ *  attacking side, which is why every player-side damage change used to tilt the mode.
+ *
  *  `ressurect` is deliberately NOT here yet. Reviving reads the player-side corpse
  *  backlog (BattleSim.fallen), so a defending Garden would need a backlog of its own
  *  — its own piece of work, and one that interacts with the win condition, so it is
  *  left for later rather than half-done. A defending healer HEALS, which is the job
  *  the design gives it. */
-export const PVP_DEFENSE_PASSIVE_ABILITIES: readonly string[] = ["heal", "healAOE"];
+export const PVP_DEFENSE_PASSIVE_ABILITIES: readonly string[] = ["heal", "healAOE", "laserBeam", "zomBeam"];
 
 /** Both sides of a friend invasion must be past the opening arc of the game: level 7
  *  keeps brand-new farms out of the matchmaking pool in either role. */
@@ -246,17 +253,33 @@ export function roleForGroup(group: string | undefined): PvpDefenseRole | null {
   return (group && PVP_ROLE_BY_GROUP[group]) || null;
 }
 
-/** Pick at most one zombie per job, strongest first within each. Deterministic. */
+/** The POST a class stands at, which is not the same thing as its job: Regular and
+ *  Girl both hold the "line" job, so the line has TWO posts and the formation has
+ *  six — one per class, exactly PVP_DEFENSE_CAP. Anything that enforces "one each"
+ *  must key off this rather than off the role, or the two line classes fight over a
+ *  single post and the sixth slot can never be filled. */
+export type PvpDefenseSeat = string;
+
+/** Every post a formation defense can fill, front to back. */
+export const PVP_DEFENSE_SEATS: readonly PvpDefenseSeat[] = [
+  "tank", "brute", "mini", "line:Regular", "line:Female", "support",
+];
+
+/** Which post this class stands at, or null if its class has none. */
+export function defenseSeatForGroup(group: string | undefined): PvpDefenseSeat | null {
+  const role = roleForGroup(group);
+  if (!role) return null;
+  return role === "line" ? `line:${group}` : role;
+}
+
+/** Pick at most one zombie per POST, strongest first within each. Deterministic. */
 export function selectFormationDefense(units: CombatUnit[]): CombatUnit[] {
-  const best = new Map<PvpDefenseRole, CombatUnit>();
+  const best = new Map<PvpDefenseSeat, CombatUnit>();
   const ranked = [...units].sort(
     (a, b) => unitScore(b) - unitScore(a) || a.id.localeCompare(b.id)
   );
   for (const unit of ranked) {
-    const role = roleForGroup(unit.group);
-    // Regular and Girl BOTH map to "line", so the second one would be dropped by a
-    // plain one-per-role rule. Give the line two seats, keyed by class.
-    const seat = role === "line" ? (`line:${unit.group}` as PvpDefenseRole) : role;
+    const seat = defenseSeatForGroup(unit.group);
     if (!seat) continue;
     if (!best.has(seat)) best.set(seat, unit);
   }

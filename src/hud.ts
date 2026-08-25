@@ -11,6 +11,7 @@ import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon, p
 import type { FarmerBodyDef, FarmerCatalog, FarmerHeadDef, PetCatalog, PetDef } from "./assets";
 import { EPIC_BOSS_FIGHT_BRAIN_COST, type EpicBossPayment } from "./epicBoss/tokens";
 import { AudioManager } from "./audio";
+import type { UsernameRefusal } from "./net/serviceStatus";
 import { RosterEntry } from "./zombie/types";
 import {
   bitAllowed, MUTATION_LIST, mutationBonus,
@@ -45,7 +46,7 @@ import { orderPartyRoster } from "./raid/partySelection";
 import {
   compactOrder, fillSlots, selectedCount, toggleSlot, type OrderSlots,
 } from "./raid/attackOrderSlots";
-import { PVP_ARMY_SIZE, PVP_UI_ENABLED } from "./raid/pvp";
+import { PVP_ARMY_SIZE, PVP_MIN_LEVEL, PVP_UI_ENABLED } from "./raid/pvp";
 import { openInvasionsPanel } from "./ui/panels/invasions";
 import type {
   PvpDefenseInfoView, PvpOverviewView, PvpRewardView, PvpScoutView,
@@ -62,6 +63,7 @@ import { FREE_DAILY_GIFTS, GIFT_GOLD_COST, GIFT_XP_REWARD, MAX_FRIENDS } from ".
 import {
   BLACK_MARKET_CLASS_FILTERS,
   BLACK_MARKET_GROUP_FILTERS,
+  BLACK_MARKET_MIN_LEVEL,
   blackMarketComposeDefaults,
   blackMarketMutationRequirementLabel,
   blackMarketPurchaseLock,
@@ -1682,8 +1684,15 @@ export class Hud {
   renderAuthButton: ((el: HTMLElement) => void) | null = null;
   /** Sign out (flushes + reloads into offline mode). */
   onSignOut: (() => void) | null = null;
-  /** Change the signed-in player's display name. Resolves to an error code, or null. */
-  onSetUsername: ((name: string) => Promise<string | null>) | null = null;
+  /** Permanently delete this farm — the online account and all its rows, or the
+   *  local save. Resolves to an error code, or null once the farm is gone (at
+   *  which point the implementation reloads, so nothing after it runs). */
+  onDeleteAccount: (() => Promise<string | null>) | null = null;
+  /** Change the signed-in player's display name. Resolves to a refusal, or null.
+   *  Carries the server's `reason` alongside the code because the two refusals need
+   *  opposite advice — see `usernameRefusalMessage`, which both name-picking
+   *  surfaces render through. */
+  onSetUsername: ((name: string) => Promise<UsernameRefusal | null>) | null = null;
   /** Pull the latest friends list from the server into the cache. */
   refreshFriends: (() => Promise<void>) | null = null;
   /** Add a friend by their shared code. Resolves to an error code, or null on success. */
@@ -3099,6 +3108,128 @@ export class Hud {
     };
     switchActions.appendChild(switchFarm);
     panel.appendChild(switchActions);
+
+    // Deletion is last, visually separated, and labelled for the farm it will
+    // actually destroy — "Delete Account" over a Local Farm would be a lie, since
+    // a Local Farm has no account.
+    if (this.onDeleteAccount) {
+      const dangerRow = document.createElement("div");
+      dangerRow.className = "zbtns acct-danger";
+      const del = document.createElement("button");
+      del.className = "zbtn sell";
+      del.textContent = this.playMode === "local" ? "Delete Local Farm" : "Delete Account";
+      del.onclick = () => {
+        close();
+        this.confirmDeleteAccount();
+      };
+      dangerRow.appendChild(del);
+      panel.appendChild(dangerRow);
+    }
+  }
+
+  /** The two-step confirmation in front of deletion.
+   *
+   *  Two steps, not one, because this is the only irreversible action in the game
+   *  and a single dialog is one mis-tap from a deleted farm. They are deliberately
+   *  NOT the same dialog twice: the first states the consequences, and the second
+   *  asks for a different, explicit sentence ("Yes, delete my account") in a button
+   *  that is not where the first dialog's confirm button was — so the second tap
+   *  cannot land on muscle memory from the first.
+   *
+   *  Neither step is skippable and there is no "don't ask again". */
+  private confirmDeleteAccount(): void {
+    const online = this.playMode !== "local";
+    const noun = online ? "account" : "local farm";
+
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "fr-confirm-bg", panelClass: "confirm-panel",
+      title: online ? "Delete your account?" : "Delete this farm?",
+      replaceSelector: ".fr-confirm-bg",
+    });
+
+    const msg = document.createElement("p");
+    msg.className = "confirm-msg";
+    msg.append(online
+      ? "This deletes your account and everything on it — your farm, your zombies, your gold and brains, your quests and invasion progress, your friends and your Almanacs."
+      : "This deletes this farm and everything on it — your zombies, your gold and brains, your quests and invasion progress, and your Almanacs.");
+
+    const warn = document.createElement("span");
+    warn.className = "confirm-warn";
+    warn.textContent = "This cannot be undone. There is no backup and no way to recover it.";
+    msg.append(document.createElement("br"), warn);
+
+    const after = document.createElement("span");
+    after.className = "confirm-warn";
+    after.textContent = online
+      ? "Signing in again will start you a brand-new farm from the beginning."
+      : "Playing again will start you a brand-new farm from the beginning.";
+    msg.append(document.createElement("br"), after);
+
+    // Only worth saying while there is still something to export.
+    const escape = document.createElement("span");
+    escape.className = "confirm-warn";
+    escape.textContent = "If you only want a copy, cancel and use Settings → Export first.";
+    msg.append(document.createElement("br"), escape);
+
+    const btns = document.createElement("div");
+    btns.className = "zbtns";
+    const cancel = document.createElement("button");
+    cancel.className = "zbtn locate";
+    cancel.textContent = "Cancel";
+    cancel.onclick = () => close();
+    const next = document.createElement("button");
+    next.className = "zbtn sell";
+    next.textContent = "Continue";
+    // Deliberately NOT markPrimary: Enter should not confirm a step whose only
+    // purpose is to make the player stop and read.
+    next.onclick = () => {
+      close();
+      this.confirmDeleteAccountFinal(noun);
+    };
+    btns.append(cancel, next);
+    panel.append(msg, btns);
+  }
+
+  /** Step two: the explicit sentence, and the actual call. */
+  private confirmDeleteAccountFinal(noun: string): void {
+    const { panel, close } = openModal({
+      host: this.el, bgClass: "fr-confirm-bg", panelClass: "confirm-panel",
+      title: "Are you sure?", replaceSelector: ".fr-confirm-bg",
+    });
+
+    const msg = document.createElement("p");
+    msg.className = "confirm-msg";
+    msg.append(`Last chance — deleting your ${noun} is permanent.`);
+    panel.appendChild(msg);
+
+    const btns = document.createElement("div");
+    btns.className = "zbtns";
+    const cancel = document.createElement("button");
+    cancel.className = "zbtn locate";
+    cancel.textContent = "Keep my farm";
+    const confirm = document.createElement("button");
+    confirm.className = "zbtn sell";
+    confirm.textContent = `Yes, delete my ${noun}`;
+    // No markPrimary here either — the confirming button must be pressed on
+    // purpose, never by an Enter left over from another dialog.
+
+    cancel.onclick = () => close();
+    confirm.onclick = async () => {
+      confirm.disabled = true;
+      cancel.disabled = true;
+      confirm.textContent = "Deleting…";
+      const error = await this.onDeleteAccount?.().catch(() => "failed");
+      if (!error) return; // the farm is gone; the implementation is reloading
+      close();
+      this.showToast(
+        error === "market_unsettled"
+          ? "Finish your Black Market trades first, then try again."
+          : error === "operation_in_progress"
+            ? "Something is still saving. Try again in a moment."
+            : "Couldn't delete the farm. Try again in a moment.");
+    };
+    btns.append(cancel, confirm);
+    panel.appendChild(btns);
   }
 
   /** Confirm a bulk friends-panel action ("Gift all", "Open all") before it runs.
@@ -3208,33 +3339,46 @@ export class Hud {
     });
     const choices = document.createElement("div");
     choices.className = "social-choices";
-    const friends = document.createElement("button");
-    friends.className = "social-choice";
-    friends.append("Friends");
-    const friendsNote = document.createElement("span");
-    friendsNote.textContent = "Connect, gift brains, and visit farms";
-    friends.appendChild(friendsNote);
-    friends.onclick = () => { close(); this.openFriends(); };
-    const market = document.createElement("button");
-    market.className = "social-choice";
-    market.append("Black Market");
-    const marketNote = document.createElement("span");
-    marketNote.textContent = "Post zombie sales and requests";
-    market.appendChild(marketNote);
-    market.onclick = () => { close(); this.openBlackMarket(); };
-    choices.append(friends, market);
+    const level = this.getPlayerLevel?.() ?? 0;
+    // Both trading surfaces open partway into the game. A locked entry is SHOWN
+    // rather than hidden — it is the only place the player learns the feature is
+    // coming and what it costs to get there — but it does not open, so the panel
+    // behind it never has to explain itself to someone who cannot use it yet.
+    const choice = (
+      title: string,
+      note: string,
+      minLevel: number,
+      open: () => void,
+    ): HTMLButtonElement => {
+      const btn = document.createElement("button");
+      btn.className = "social-choice";
+      btn.append(title);
+      const sub = document.createElement("span");
+      const locked = level < minLevel;
+      sub.textContent = locked ? `Unlocks at level ${minLevel}` : note;
+      btn.appendChild(sub);
+      if (locked) {
+        btn.classList.add("locked");
+        btn.disabled = true;
+        btn.title = `${title} opens at level ${minLevel}.`;
+      } else btn.onclick = () => { close(); open(); };
+      return btn;
+    };
+    choices.append(
+      choice("Friends", "Connect, gift brains, and visit farms", 0,
+        () => this.openFriends()),
+      choice("Black Market", "Post zombie sales and requests", BLACK_MARKET_MIN_LEVEL,
+        () => this.openBlackMarket()),
+    );
     // Friend invasions — shown only when the deployed Worker accepts them, so the
     // feature launches with a single Worker-var flip (PVP_ENABLED) and no client
-    // redeploy. PVP_UI_ENABLED stays as the hard client-side kill switch.
+    // redeploy. PVP_UI_ENABLED stays as the hard client-side kill switch. The level
+    // floor is the same PVP_MIN_LEVEL both the panel and the server already enforce.
     if (PVP_UI_ENABLED && (this.pvpAvailable?.() ?? false)) {
-      const invasions = document.createElement("button");
-      invasions.className = "social-choice";
-      invasions.append("Invasions");
-      const invasionsNote = document.createElement("span");
-      invasionsNote.textContent = "Raid friends' farms, arrange your defense";
-      invasions.appendChild(invasionsNote);
-      invasions.onclick = () => { close(); openInvasionsPanel(this); };
-      choices.appendChild(invasions);
+      choices.appendChild(choice(
+        "Invasions", "Raid friends' farms, arrange your defense", PVP_MIN_LEVEL,
+        () => openInvasionsPanel(this),
+      ));
     }
     panel.append(choices);
   }
@@ -3904,6 +4048,8 @@ export class Hud {
                 const code = error instanceof Error ? error.message : "";
                 if (code.startsWith("insufficient_brains") || code.startsWith("insufficient_gold"))
                   this.showToast(`You need ${asking} to buy this zombie.`);
+                else if (code.startsWith("black_market_locked"))
+                  this.showToast(`The Black Market opens at level ${BLACK_MARKET_MIN_LEVEL}.`);
                 else if (code.startsWith("black_market_level_locked"))
                   this.showToast("Reach the required level before purchasing this zombie.");
                 else if (code.startsWith("counterparty_busy"))
@@ -4007,6 +4153,8 @@ export class Hud {
           this.showToast("You do not have enough brains for that request.");
         else if (code.startsWith("insufficient_gold"))
           this.showToast("You do not have enough gold for that request.");
+        else if (code.startsWith("black_market_locked"))
+          this.showToast(`The Black Market opens at level ${BLACK_MARKET_MIN_LEVEL}.`);
         else if (code.startsWith("black_market_level_locked"))
           this.showToast("Reach the required level before requesting this zombie.");
         else this.showToast("Could not create that post. Refresh and try again.");

@@ -1026,7 +1026,7 @@ describe("binary-authentic ability procs", () => {
 });
 
 describe("lasers, resurrection, and activated attacks", () => {
-  it("fires the base walking laser for 10% Power", () => {
+  it("fires the base walking laser for 20 % of Power", () => {
     const laser = unit({
       id: "laser", sourceKey: "ZombieActorRegularTier3", team: "player",
       abilities: ["laserBeam"], attackCooldownMs: 600,
@@ -1043,7 +1043,7 @@ describe("lasers, resurrection, and activated attacks", () => {
     e.state = "hold";
     e.x = 915;
     sim.step(200); // finalAttackSpeed / 3
-    expect(e.hp).toBe(9995);
+    expect(e.hp).toBe(9990); // str 5 -> power 50 -> 20 %
     expect(p.laserFxSeq).toBe(1);
     expect(p.laserTargetId).toBe("enemy");
   });
@@ -1069,7 +1069,7 @@ describe("lasers, resurrection, and activated attacks", () => {
 
     expect(p.laserFxSeq).toBe(1);
     expect(p.laserTargetId).toBe("enemy");
-    expect(e.hp).toBe(9995);
+    expect(e.hp).toBe(9990); // same bolt as the T3 beam; only the cadence upgrades
   });
 
   /** A fighter, a Garden medic, and a punching bag. The medic starts deployed unless the

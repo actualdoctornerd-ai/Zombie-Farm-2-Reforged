@@ -11,6 +11,7 @@ import { markPrimary, openModal } from "../Modal";
 import { onFirstVisible } from "../onFirstVisible";
 import type { AlmanacEntryView, MenuCard, ZombieInfo } from "../hudTypes";
 import { zombieSellValue } from "../../economy";
+import { BLACK_MARKET_MIN_LEVEL } from "../../blackMarketRules";
 import { MAX_ZOMBIE_NAME_LENGTH, RosterEntry } from "../../zombie/types";
 import { mutationBonus } from "../../zombie/mutations";
 import {
@@ -363,6 +364,13 @@ function buildZombieActions(hud: Hud, info: ZombieInfo, close: () => void, refre
 
 function openZombieSellChoices(hud: Hud, info: ZombieInfo, value: number, refresh?: () => void) {
   if (!hud.socialOnline?.()) { confirmSellZombie(hud, info, value, refresh); return; }
+  // The market's level floor is enforced by the Worker on every post, so a farm below
+  // it can only sell for gold — skip straight to that rather than offering a choice
+  // the server would refuse.
+  if ((hud.getPlayerLevel?.() ?? 0) < BLACK_MARKET_MIN_LEVEL) {
+    confirmSellZombie(hud, info, value, refresh);
+    return;
+  }
   const { panel, close } = openModal({ host: hud.el, panelClass: "confirm-panel", title: "Sell this zombie" });
   const message = document.createElement("p");
   message.className = "confirm-msg";

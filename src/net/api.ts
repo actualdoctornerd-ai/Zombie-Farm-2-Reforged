@@ -603,6 +603,36 @@ export async function logout(): Promise<void> {
 /** Revoke every session for this account (sign out everywhere). */
 export const logoutEverywhere = () => req<{ ok: true }>("POST", "/session/logout-all");
 
+/** Delete this account and everything attached to it, permanently, then drop the
+ *  local session so the tab cannot keep using a token whose row no longer exists.
+ *
+ *  `confirm: "DELETE"` is required by the route. The UI asks the player twice
+ *  before calling this; the token is a second lock so the destructive route cannot
+ *  be reached by a bare replayed POST.
+ *
+ *  The server does NOT leave a blanked account behind — the row goes, which frees
+ *  the Google id, so signing in again creates a genuinely new account rather than
+ *  restoring this one. Throws ApiError(409) with `market_unsettled` when a trade is
+ *  still in flight; the caller shows that as its own message.
+ *
+ *  THE LEASE IS NOT RELEASED FIRST, which is deliberate. This route REFUSES on paths
+ *  the design expects a player to reach — an open Black Market post, a batch still
+ *  settling, a closedown window — and releasing up front clears the local credential
+ *  before finding that out. Nothing re-acquires it: `checkOwnership` returns early
+ *  when there is no credential, so the document is left unable to write and the next
+ *  gameplay action raises the "Farm active elsewhere" takeover gate at a player whose
+ *  farm is fine and whose deletion never happened.
+ *
+ *  Releasing first buys nothing either way. The lease lives in `account_runtime_v3`,
+ *  which the purge deletes with every other row, so a SUCCESSFUL deletion frees it
+ *  regardless — and the local credential is dropped here afterwards without a
+ *  request, because the row it names is already gone. */
+export async function deleteAccount(): Promise<void> {
+  await req<{ ok: true }>("POST", "/account/delete", { confirm: "DELETE" });
+  clearWriterCredential(); // local only — the server row went with the account
+  clearSession();
+}
+
 /** A live device/session for the Account menu's device list. `current` marks the
  *  session this browser is using (can't be revoked from here — use Sign out). */
 export interface SessionInfo {
