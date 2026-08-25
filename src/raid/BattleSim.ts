@@ -2425,8 +2425,21 @@ export class BattleSim {
       if (next) next.state = "emerging";
     }
 
-    if (this.boss && this.boss.alive && this.boss.state === "structure" &&
-        !normalsLeft && !blockersLeft && activeMelee === 0) {
+    // WHEN the perched unit comes down. A raid boss waits for its whole wave to be
+    // cleared. A PvP formation BRUTE comes down as soon as the ground line is gone —
+    // every defender still standing is a healer, or nobody is standing at all — because
+    // the Garden zombie cannot hold a line and leaving the brute up there while it is
+    // farmed just parks the defense's best fighter somewhere unreachable.
+    //
+    // Deliberately reads who is ON THE GROUND, not who is alive: a line reinforcement
+    // still waiting on the drip does NOT hold the brute up. An attacker who kills the
+    // tank before the first reinforcement lands has earned the brute early, which is
+    // the whole point of hitting fast.
+    const bruteHolds = this.boss?.defenseRole === "brute"
+      ? this.enemies.some((e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon &&
+          e.state !== "queued" && e.defenseRole !== "support")
+      : normalsLeft || blockersLeft || activeMelee > 0;
+    if (this.boss && this.boss.alive && this.boss.state === "structure" && !bruteHolds) {
       // Climb down, exit out the back, then re-enter. An authored PERCH is dropped
       // here: from now on this is a ground unit, and keeping the station would walk
       // it back to a spot up in the air.

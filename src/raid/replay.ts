@@ -588,6 +588,11 @@ import type { RaidOutcome } from "./types";
 // releases it), from the wave pick, and from the army's front-line anchor while it
 // waits. A defense with no brute is unaffected: with nothing to throw it, its mini
 // deploys normally, or it would wait for a descent that never comes.
+// The brute also comes DOWN sooner: it leaves the perch once no non-healer defender is
+// standing on the ground, rather than waiting for every last defender (healer included)
+// to die. Queued reinforcements do not hold it up, so killing the tank before the drip
+// lands earns the brute early. Measured: descent moves 33.0 s -> 24.5 s on the pinned
+// fight. Gated on the boss carrying defenseRole "brute", so a raid boss is untouched.
 // The brute's throw also now pays BOTH zombies' swings (brute + mini) rather than the
 // mini's alone: the brute supplies the arm, the mini the teeth. That is a fight-damage
 // change on every formation invasion, which is the other half of why this bump exists.

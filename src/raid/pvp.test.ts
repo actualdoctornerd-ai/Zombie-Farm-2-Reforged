@@ -373,6 +373,52 @@ describe("formation defense mode", () => {
       .toBe(false);
   });
 
+  it("the brute comes down once only the healer is left holding the ground", () => {
+    // Owner's rule: the brute descends when the headless, normal and girl zombies are
+    // dead — or any time the Garden zombie is the only one down there, which is what
+    // happens when an attacker kills the tank before a reinforcement lands. A Garden
+    // zombie cannot hold a line, so leaving the brute perched while the farm is picked
+    // apart just parks the defense's best fighter somewhere unreachable.
+    //
+    // The assertion that matters is DESCENDS WITH THE HEALER STILL ALIVE: the old rule
+    // waited for every last defender, healer included, and could never satisfy it.
+    // Measured, the descent moved from 33.0 s to 24.5 s on this fight.
+    const defenders = formation();
+    const attackers = build(["ZombieActorRegularTier3", "ZombieActorHeadlessTier3",
+      "ZombieActorLargeTier3", "ZombieActorGirlTier3", "ZombieActorSmallTier3",
+      "ZombieActorRegularTier4", "ZombieActorHeadlessTier4", "ZombieActorLargeTier4"], "a");
+    const sim = new BattleSim(
+      attackers, defenders, pvpBossThrow(defenders), true, [], undefined,
+      null, null, false, false, false, undefined, null, null,
+      { maxActive: 1, dripMs: 0 }, null
+    );
+    const roster = (sim as unknown as {
+      enemies: { defenseRole: string | null; state: string; alive: boolean; isBoss: boolean }[];
+    }).enemies;
+    const brute = roster.find((e) => e.defenseRole === "brute")!;
+    const support = roster.find((e) => e.defenseRole === "support")!;
+
+    let descended = false;
+    let holdersAtDescent = -1;
+    let supportAliveAtDescent = false;
+    for (let t = 0; t < RAID_MAX_TICKS && !sim.finished; t++) {
+      sim.step(RAID_TICK_MS);
+      if (brute.state === "structure" || !brute.alive) continue;
+      descended = true;
+      // The mini is excluded because the descent is what RELEASES it — it walks out
+      // with the brute, so by this tick it is already standing.
+      holdersAtDescent = roster.filter((e) => e.alive && !e.isBoss &&
+        e.state !== "queued" && e.defenseRole !== "support" && e.defenseRole !== "mini").length;
+      supportAliveAtDescent = support.alive;
+      break;
+    }
+    expect(descended, "the brute never left its perch").toBe(true);
+    // Not early: it does not abandon the line while the line still holds.
+    expect(holdersAtDescent, "came down while a non-healer still held the ground").toBe(0);
+    // Not late: this is the half the old "wait for every defender" rule failed.
+    expect(supportAliveAtDescent, "waited for the healer to die too").toBe(true);
+  });
+
   it("the throw carries BOTH zombies' swings, not just the mini's", () => {
     // Owner's ruling, and the fix for a throw that measured as noise: the brute
     // supplies the arm, the mini the teeth.
@@ -443,13 +489,21 @@ describe("formation defense mode", () => {
     // 1.337 with it on), so the perch phase now does something. Not enough on its own —
     // 1.337 is still outside the 1.25 goal.
     //
-    // The remaining lever is almost certainly the DESCENT TRIGGER, not another damage
-    // number. The authored design has the brute come down when the HEADLESS TANK dies;
-    // it currently waits for the whole rest of the defense, which keeps the defense's
-    // best fighter safe on an unreachable perch through the entire grind and then adds
-    // it, fresh and with a fresh mini, to a thinned attacking army. Building that is an
-    // owner call on their own design, so the band records where the fight actually sits
-    // rather than a number this test invented. Restore 0.9–1.25 when it lands.
+    // The descent trigger was then built (the brute comes down once only the healer is
+    // left standing) and it does NOT move this number — 1.337 before and after, while
+    // the descent itself moves 8.5 s earlier on a fast clear. Recorded because the
+    // obvious hypothesis was wrong: at the balance point the healer is not what was
+    // holding the brute up, so freeing it changes nothing there.
+    //
+    // MEASURED LEVERS, for whoever tunes this next. The reinforcement drip runs
+    // BACKWARDS — slowing it strengthens the defense (15 s 1.337, 20 s 1.423, 25 s
+    // 1.538), because late arrivals drag the fight toward the four-minute cap and a
+    // cap is a defender win. The throw is the clean one, and both ways of spending it
+    // reach the goal at about 3x its current output:
+    //     damage x1 1.337 · x2 1.283 · x3 1.230
+    //     every 6 s 1.337 · 4 s 1.306 · 3 s 1.310 · 2 s 1.248
+    // Which of those to spend is an owner call, so the band records where the fight
+    // actually sits rather than a number this test invented. Restore 0.9–1.25 with it.
     //
     // Pinned as a BAND, not a number: the sim is fully deterministic, so the search
     // below is stable and any FURTHER drift fails here rather than in a playtest.
