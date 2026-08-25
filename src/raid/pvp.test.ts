@@ -477,33 +477,39 @@ describe("formation defense mode", () => {
     // zombies at a time while the attacker accumulates without a ceiling. A standing
     // formation with a working healer brought that to ~1.05x.
     //
+    // WHICH WAY THIS NUMBER POINTS, because earlier notes here had it inverted: it is
+    // the multiplier the DEFENSE needs before it holds, so 1.00 is a fair mirror and
+    // ABOVE 1.00 means the ATTACKER is favoured. Confirmed directly — the full red six
+    // loses to a mirror-power eight at 0.5x, 1.0x and 1.2x, and only holds from ~1.34x.
+    //
     // MEASURED REGRESSION, RECORDED NOT ACCEPTED (ruleset 42). Holding the mini back as
-    // the brute's ammunition moved break-even 1.19x -> 1.39x, i.e. the defense is now
-    // favoured — worse than the classic mode this was built to improve on. The cause is
-    // NOT the missing body: the brute descends once the normals are gone, the held mini
-    // no longer counts among them, so the brute joins the fight sooner. That only helps
-    // the defense because a PERCHED brute was contributing almost nothing.
+    // the brute's ammunition moved this 1.19x -> 1.39x: the mini left the defensive
+    // line, so the line got weaker, which is exactly as plain as it sounds. That is
+    // worse than the classic mode formation was built to improve on (1.24x).
     //
-    // Paying the throw BOTH zombies' swings (owner's ruling) is the first repair: it
-    // took the throw from worth 0.007x of break-even to 0.058x (1.395 with it off,
-    // 1.337 with it on), so the perch phase now does something. Not enough on its own —
-    // 1.337 is still outside the 1.25 goal.
+    // Paying the throw BOTH zombies' swings (owner's ruling) is the first repair,
+    // taking the throw from worth 0.007x of this number to 0.058x (1.395 with it off,
+    // 1.337 with it on) — the perch phase now does something. The descent trigger that
+    // followed does NOT move it at all (1.337 either side) even though the descent
+    // itself lands 8.5 s earlier: coming down sooner both adds the brute's damage and
+    // exposes it to being killed, and those cancel.
     //
-    // The descent trigger was then built (the brute comes down once only the healer is
-    // left standing) and it does NOT move this number — 1.337 before and after, while
-    // the descent itself moves 8.5 s earlier on a fast clear. Recorded because the
-    // obvious hypothesis was wrong: at the balance point the healer is not what was
-    // holding the brute up, so freeing it changes nothing there.
+    // MEASURED LEVERS, swept across compositions. Both work in the intuitive direction
+    // and stack; a fair mirror wants roughly the 7.5s/x3 corner:
+    //          mixed  8xRegT4  8xHeadT4  8xSmallT4
+    //   15s x1  1.34     1.59      1.97       1.13   <- shipped
+    //   15s x3  1.23     1.47      1.95       1.00
+    //   10s x1  1.22     1.44      1.71       1.04
+    //   7.5s x1 1.17     1.38      1.57       0.99
+    //   7.5s x3 1.06     1.33      1.54       0.88
+    // ATTACKER COMPOSITION MATTERS MORE THAN EITHER DIAL. Eight Headless T4 (the
+    // tankiest body in the game) sit at 1.97 and barely respond to the throw, because
+    // they out-last it rather than out-damage it; eight Small T4 are already at parity.
+    // No dial closes that spread — it is the shape of the fight, and worth knowing
+    // before anyone tunes to a single column.
     //
-    // MEASURED LEVERS, for whoever tunes this next. The reinforcement drip runs
-    // BACKWARDS — slowing it strengthens the defense (15 s 1.337, 20 s 1.423, 25 s
-    // 1.538), because late arrivals drag the fight toward the four-minute cap and a
-    // cap is a defender win. The throw is the clean one, and both ways of spending it
-    // reach the goal at about 3x its current output:
-    //     damage x1 1.337 · x2 1.283 · x3 1.230
-    //     every 6 s 1.337 · 4 s 1.306 · 3 s 1.310 · 2 s 1.248
-    // Which of those to spend is an owner call, so the band records where the fight
-    // actually sits rather than a number this test invented. Restore 0.9–1.25 with it.
+    // Which lever to spend is an owner call, so the band records where the fight
+    // actually sits rather than a number this test invented. Restore 0.9-1.25 with it.
     //
     // Pinned as a BAND, not a number: the sim is fully deterministic, so the search
     // below is stable and any FURTHER drift fails here rather than in a playtest.
