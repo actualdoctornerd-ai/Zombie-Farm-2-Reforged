@@ -86,8 +86,18 @@ export const PVP_STATION_BY_ROLE: Readonly<Record<PvpDefenseRole, number>> = {
 };
 
 /** Reinforcement cadence: the line arrives on this beat, so an attacker who clears
- *  fast gets ahead and one who does not gets buried. The primary balance dial. */
-export const PVP_DEFENSE_DRIP_MS = 15_000;
+ *  fast gets ahead and one who does not gets buried. The primary balance dial, and
+ *  measurably the strongest one — see the sweep in pvp.test.ts.
+ *
+ *  Was 15 s, which had two problems. A typical fight lasted ~33 s, so the SECOND
+ *  reinforcement (at 2x the beat) arrived at 30 s and barely swung a sword — half the
+ *  line was decorative. And the tanky-attacker case (eight Headless) sat at 1.97x and
+ *  would not respond to throw damage, because those armies out-LAST a defense rather
+ *  than out-damage it; only more defenders on the ground sooner touches that. At 5 s
+ *  both reinforcements are in early, the spread across attacker compositions nearly
+ *  halves (1.13-1.97 -> 0.97-1.45), and the fight runs ~45 s with the brute coming
+ *  down late, as a finish rather than a mid-fight event. */
+export const PVP_DEFENSE_DRIP_MS = 5_000;
 
 /** How often the perched brute lobs the mini. */
 export const PVP_THROW_INTERVAL_MS = 6_000;

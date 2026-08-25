@@ -508,8 +508,18 @@ describe("formation defense mode", () => {
     // No dial closes that spread — it is the shape of the fight, and worth knowing
     // before anyone tunes to a single column.
     //
-    // Which lever to spend is an owner call, so the band records where the fight
-    // actually sits rather than a number this test invented. Restore 0.9-1.25 with it.
+    // RESOLVED by the drip, not the throw: 15 s -> 5 s brings this fight to 1.13 and the
+    // goal band is restored. The drip won because it is the only dial that moves the
+    // tanky-attacker case — eight Headless T4 go 1.97 -> 1.45, while three times the
+    // throw damage barely touched them (1.97 -> 1.95). Armies that out-LAST a defense
+    // are answered by more defenders on the ground sooner, not by bigger numbers. It
+    // also fixed a pacing bug nobody had noticed: at 15 s the SECOND reinforcement
+    // landed at 30 s into a ~33 s fight, so half the line never fought.
+    //
+    // Full sweep at 5 s (13 defense x 6 attacker compositions), full red six:
+    //   mixed 1.13 · 8xRegT4 1.37 · 8xHeadT4 1.45 · 8xLargeT4 1.16 · 8xSmallT4 0.97
+    // The spread nearly halved (0.84 wide -> 0.48) but has NOT closed, and no dial
+    // closes it — tune against the spread, never against one column.
     //
     // Pinned as a BAND, not a number: the sim is fully deterministic, so the search
     // below is stable and any FURTHER drift fails here rather than in a playtest.
@@ -548,8 +558,7 @@ describe("formation defense mode", () => {
       if (attackerWins(mid)) lo = mid; else hi = mid;
     }
     expect(hi).toBeGreaterThan(0.9); // the defense must not simply win by standing
-    // GOAL: < 1.25 (see above). Recorded reality while the brute descends late.
-    expect(hi).toBeLessThan(1.35);
+    expect(hi).toBeLessThan(1.25); // ...nor need a materially stronger roster to hold
   });
 
   it("credits support in the tier — a healer is worth what a fighter is worth", () => {

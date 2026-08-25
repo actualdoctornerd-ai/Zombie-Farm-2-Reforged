@@ -101,12 +101,15 @@ ruled that a timeout is a defense win; that ruling stands, but it should be rare
 | When | Who |
 |---|---|
 | t = 0 | Support standing at `DEF_SUPPORT_X`; Tank begins walking to `DEF_TANK_X`; Brute + Mini take `DEF_LINE_X` |
-| t = 15 s | Regular joins `DEF_LINE_X` |
-| t = 30 s | Girl joins `DEF_LINE_X` |
+| t = 5 s | Regular joins `DEF_LINE_X` |
+| t = 10 s | Girl joins `DEF_LINE_X` |
 
-`PVP_DEFENSE_DRIP_MS = 15_000` is the primary balance dial — it is what lets an attacker
-who clears fast get ahead, and what punishes one who does not. Expect to tune it after
-the first measurement; see "Balance target".
+`PVP_DEFENSE_DRIP_MS = 5_000` is the primary balance dial — it is what lets an attacker
+who clears fast get ahead, and what punishes one who does not. Measured across 13 defense
+and 6 attacker compositions it is also the strongest dial available, and the only one that
+moves the tanky-attacker case: armies that out-LAST a defense rather than out-damage it
+ignore throw damage but not extra bodies. It was 15 s, at which the second reinforcement
+arrived at 30 s into a ~33 s fight and barely participated. See "Balance target".
 
 The defenders **stand**. They do not march at the attacker. Contact happens because the
 attacker walks into the tank, which is what stops a fully-deployed defense from simply

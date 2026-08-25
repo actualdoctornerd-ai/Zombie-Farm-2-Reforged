@@ -588,6 +588,10 @@ import type { RaidOutcome } from "./types";
 // releases it), from the wave pick, and from the army's front-line anchor while it
 // waits. A defense with no brute is unaffected: with nothing to throw it, its mini
 // deploys normally, or it would wait for a descent that never comes.
+// The line reinforcement beat drops 15 s -> 5 s (PVP_DEFENSE_DRIP_MS), so a formation
+// defense puts its Regular and Girl on the ground at 5 s and 10 s instead of 15 s and
+// 30 s. Measured as the strongest available dial and the only one that answers an
+// attacking army built to out-LAST a defense rather than out-damage it.
 // The brute also comes DOWN sooner: it leaves the perch once no non-healer defender is
 // standing on the ground, rather than waiting for every last defender (healer included)
 // to die. Queued reinforcements do not hold it up, so killing the tank before the drip
