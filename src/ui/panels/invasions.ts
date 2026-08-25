@@ -18,9 +18,11 @@ import { onFirstVisible } from "../onFirstVisible";
 import type { RosterEntry } from "../../zombie/types";
 import { visibleMutations } from "../../zombie/mutationVisibility";
 import {
-  compactOrder, selectedCount, toggleSlot, type OrderSlots,
+  compactOrder, selectedCount, type OrderSlots,
 } from "../../raid/attackOrderSlots";
-import { PVP_ARMY_SIZE, PVP_DEFENSE_CAP, PVP_MIN_LEVEL } from "../../raid/pvp";
+import {
+  PVP_ARMY_SIZE, PVP_DEFENSE_CAP, PVP_MIN_LEVEL, roleForGroup,
+} from "../../raid/pvp";
 
 // ---- view types (structurally matched by net/api's results; main.ts passes the
 // server payloads straight through) --------------------------------------------
@@ -123,6 +125,21 @@ function defenseStrip(hud: Hud, defenders: PvpDefenderPreviewView[]): HTMLElemen
 }
 
 /** What each job does, in one word the player can act on. */
+/** The jobs a formation defense fills, front to back. One class each — see
+ *  PVP_ROLE_BY_GROUP: Headless tanks, Large is the brute, Small its ammunition,
+ *  Regular and Girl reinforce the line, Garden heals. */
+const DEFENSE_JOBS = ["tank", "brute", "mini", "line", "support"] as const;
+
+/** The post itself, for the picker ("who stands here"). ROLE_LABEL below says what
+ *  the post DOES, which is what a finished line-up wants to show instead. */
+const JOB_NAME: Readonly<Record<string, string>> = {
+  tank: "Front line",
+  brute: "Heavy",
+  mini: "Ammo",
+  line: "Reinforcement",
+  support: "Healer",
+};
+
 const ROLE_LABEL: Readonly<Record<string, string>> = {
   tank: "Holds the front",
   brute: "Heavy hitter",
@@ -436,13 +453,29 @@ export function openInvasionsPanel(hud: Hud) {
 
     const cap = PVP_DEFENSE_CAP;
     const ownedIds = new Set(roster.map((z) => z.id));
-    let order: OrderSlots = currentIds.filter((id) => ownedIds.has(id)).slice(0, cap);
+    const byId = new Map(roster.map((z) => [z.id, z]));
+    const jobOf = (id: string) => roleForGroup(byId.get(id)?.group);
+    // ONE PER JOB. Each class fills its own post, so a second Regular has nowhere to
+    // stand — picking one REPLACES the Regular already chosen rather than being
+    // refused, which is the difference between a rule you can feel and one that just
+    // says no. The server enforces the same thing (`duplicate_class`).
+    let order: OrderSlots = [];
+    for (const id of currentIds) {
+      if (!ownedIds.has(id)) continue;
+      const job = jobOf(id);
+      if (!job || order.some((held) => held && jobOf(held) === job)) continue;
+      if (order.length < cap) order.push(id);
+    }
 
     const title = document.createElement("h2");
     title.textContent = "Arrange your defense";
     const counter = document.createElement("span");
     counter.className = "army-count";
     head.append(title, counter);
+    const blurb = document.createElement("p");
+    blurb.className = "zteam-note";
+    blurb.textContent = "One of each class — they each fill their own job.";
+    head.append(blurb);
 
     const save = document.createElement("button");
     save.className = "raid-go";
@@ -450,11 +483,23 @@ export function openInvasionsPanel(hud: Hud) {
 
     const refresh = () => {
       const n = selectedCount(order);
-      counter.textContent = `${n} / ${cap} standing`;
+      const filled = new Set(order.filter(Boolean).map((id) => jobOf(id!)));
+      counter.textContent = `${n} / ${cap} jobs filled`;
       counter.classList.toggle("short", !n);
+      const empty = DEFENSE_JOBS.filter((job) => !filled.has(job));
+      blurb.textContent = empty.length === DEFENSE_JOBS.length
+        ? "One of each class — they each fill their own job."
+        : empty.length
+          ? `No one on: ${empty.map((job) => JOB_NAME[job]).join(", ")}.`
+          : "Every job filled — a full formation.";
       for (const card of grid.querySelectorAll<HTMLElement>(".army-card")) {
-        const at = order.indexOf(card.dataset.id!);
+        const id = card.dataset.id!;
+        const at = order.indexOf(id);
+        const job = jobOf(id);
         card.classList.toggle("sel", at >= 0);
+        // Someone else already holds this post: still clickable (it swaps), but shown
+        // as taken so the one-per-class rule is visible before the click, not after.
+        card.classList.toggle("taken", at < 0 && !!job && filled.has(job));
         const tick = card.querySelector<HTMLElement>(".tick");
         if (tick) tick.textContent = at >= 0 ? String(at + 1) : "";
       }
@@ -470,7 +515,13 @@ export function openInvasionsPanel(hud: Hud) {
     }
     // Any owned zombie can stand in the defense — resting ones included: the
     // defense is a plan the server snapshots, not who happens to be on the lawn.
-    for (const z of roster) {
+    // Ordered by job, so the grid itself reads as one post per class.
+    const ranked = [...roster].sort((a, b) => {
+      const ja = DEFENSE_JOBS.indexOf(roleForGroup(a.group) ?? "line");
+      const jb = DEFENSE_JOBS.indexOf(roleForGroup(b.group) ?? "line");
+      return ja - jb || a.typeName.localeCompare(b.typeName) || a.name.localeCompare(b.name);
+    });
+    for (const z of ranked) {
       const card = document.createElement("div");
       card.className = "army-card";
       card.dataset.id = z.id;
@@ -483,14 +534,23 @@ export function openInvasionsPanel(hud: Hud) {
       const ty = document.createElement("div");
       ty.className = "army-ty";
       ty.textContent = z.typeName;
+      const job = document.createElement("div");
+      job.className = "army-st pvp-job";
+      const role = roleForGroup(z.group);
+      job.textContent = role ? JOB_NAME[role] : "No post";
       const where = document.createElement("div");
       where.className = "army-st zteam-where";
       where.textContent = z.stored ? "Resting" : "On farm";
       const tick = document.createElement("span");
       tick.className = "tick";
-      card.append(tick, por, nm, ty, where);
+      card.append(tick, por, nm, ty, job, where);
       card.onclick = () => {
-        order = toggleSlot(order, z.id, cap);
+        const mine = roleForGroup(z.group);
+        if (!mine) return; // no post to stand at
+        if (order.includes(z.id)) order = order.filter((id) => id !== z.id);
+        // Taking a post the player already filled REPLACES its holder, so a click
+        // always does something rather than silently failing at the cap.
+        else order = [...order.filter((id) => !id || jobOf(id) !== mine), z.id].slice(0, cap);
         refresh();
       };
       grid.appendChild(card);
@@ -498,9 +558,16 @@ export function openInvasionsPanel(hud: Hud) {
 
     const strongest = document.createElement("button");
     strongest.className = "raid-quick";
-    strongest.textContent = "Fill with current farm";
+    strongest.textContent = "One of each class";
     strongest.onclick = () => {
-      order = roster.filter((z) => !z.stored).slice(0, cap).map((z) => z.id);
+      // First zombie of each job, in job order — the same shape the server's auto
+      // snapshot builds, so "fill" and "leave it to the game" agree.
+      const picked = new Map<string, string>();
+      for (const z of ranked) {
+        const role = roleForGroup(z.group);
+        if (role && !picked.has(role)) picked.set(role, z.id);
+      }
+      order = [...picked.values()].slice(0, cap);
       refresh();
     };
     const clear = document.createElement("button");
@@ -514,7 +581,9 @@ export function openInvasionsPanel(hud: Hud) {
       save.disabled = true;
       const err = await (hudRef.onSavePvpDefense?.(ids) ?? Promise.resolve("offline"));
       if (err) {
-        hudRef.showToast("Couldn't save the defense — try again in a moment.");
+        hudRef.showToast(err === "duplicate_class"
+          ? "Only one zombie of each class can stand — they each fill their own job."
+          : "Couldn't save the defense — try again in a moment.");
         save.disabled = false;
         return;
       }

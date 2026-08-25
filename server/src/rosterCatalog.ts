@@ -112,6 +112,17 @@ const HEADLESS_ZOMBIES = new Set(
 );
 
 /** A headless species has no head to mutate. */
+/** A zombie's GROUP (Regular / Female / Small / Large / Headless / Garden). The
+ *  formation defense fills one job per group, so this is what the one-per-class rule
+ *  is checked against. Undefined for a key the catalog does not know. */
+const ZOMBIE_GROUP = new Map(
+  (zombieRows as Array<{ key: string; group?: string }>).map((zombie) => [zombie.key, zombie.group])
+);
+
+export function zombieGroup(key: string): string | undefined {
+  return ZOMBIE_GROUP.get(key);
+}
+
 export function isHeadlessZombie(key: string): boolean {
   return HEADLESS_ZOMBIES.has(key);
 }

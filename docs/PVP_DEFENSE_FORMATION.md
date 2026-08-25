@@ -104,6 +104,19 @@ ruled that a timeout is a defense win; that ruling stands, but it should be rare
 | t = 5 s | Regular joins `DEF_LINE_X` |
 | t = 10 s | Girl joins `DEF_LINE_X` |
 
+**One zombie per class, and the picker says so.** A defense line-up may hold at most one
+zombie of each group, because the formation fills one job per group — a second Regular has
+no post to stand at and `selectFormationDefense` would drop it at snapshot time. The editor
+labels every card with the job it would fill, dims one whose post is already held (clicking
+it SWAPS rather than failing), and counts "n / 6 jobs filled" naming the empty posts.
+`setDefensePvp` refuses a duplicate with `duplicate_class`, so the rule cannot be worked
+around by a hand-built request.
+
+Measured consequence, recorded because it is sharp: defensibility tracks farm DIVERSITY,
+not farm size. Identical farms on both sides, all Tier 3 — 8 Regulars field 1 defender and
+break even at 2.77x; 6 classes field 6 and break even at 0.92x (defense slightly favoured,
+which is the goal). A single-class farm is close to indefensible, by design.
+
 `PVP_DEFENSE_DRIP_MS = 5_000` is the primary balance dial — it is what lets an attacker
 who clears fast get ahead, and what punishes one who does not. Measured across 13 defense
 and 6 attacker compositions it is also the strongest dial available, and the only one that

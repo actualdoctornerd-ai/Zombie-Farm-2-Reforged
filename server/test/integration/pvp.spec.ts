@@ -91,6 +91,38 @@ describe("friend invasion start gates", () => {
   });
 });
 
+describe("a defense line-up is one zombie per class", () => {
+  it("refuses a second zombie of the same class", async () => {
+    // The formation fills ONE job per group, so a second Regular could never take the
+    // field — selectFormationDefense drops it at snapshot time. Before this rule the
+    // player could save such a line-up and would then defend with five without ever
+    // being told, finding out by losing. Refuse it at the door instead.
+    const player = await pvpPlayer("pvp-oneclass", [
+      { id: "u0", key: REGULAR }, { id: "u1", key: REGULAR }, { id: "u2", key: HEADLESS },
+    ]);
+    const dup = await call<{ error: string }>("POST", "/raid/pvp/defense", player.token,
+      { unitIds: ["u0", "u1"] });
+    expect(dup).toMatchObject({ status: 400, body: { error: "duplicate_class" } });
+
+    // One of each is fine, and is what comes back.
+    const ok = await call<{ ok: boolean; unitIds: string[] }>(
+      "POST", "/raid/pvp/defense", player.token, { unitIds: ["u0", "u2"] });
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200);
+    expect(ok.body.unitIds).toEqual(["u0", "u2"]);
+
+    // Ownership still outranks it: an unowned id is refused before the class rule,
+    // so a probe cannot learn what classes another account holds.
+    const foreign = await call<{ error: string }>("POST", "/raid/pvp/defense", player.token,
+      { unitIds: ["u0", "not-mine"] });
+    expect(foreign).toMatchObject({ status: 400, body: { error: "unit_not_owned" } });
+
+    // Clearing back to automatic is unaffected.
+    const cleared = await call<{ ok: boolean }>("POST", "/raid/pvp/defense", player.token,
+      { unitIds: [] });
+    expect(cleared.status).toBe(200);
+  });
+});
+
 describe("abandoning a fight gives the slot back", () => {
   interface Started { ok: boolean; sessionId: string }
   interface View {

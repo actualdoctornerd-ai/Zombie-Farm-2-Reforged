@@ -23,6 +23,7 @@
 //    stats survive, so a month of absence loses recordings, never loot.
 import { MAX_STACK, BOOST_KEYS } from "../boostCatalog";
 import { areFriends } from "../db";
+import { zombieGroup } from "../rosterCatalog";
 import { dayBucket } from "../logic";
 import {
   buildDefenseSnapshot,
@@ -413,9 +414,22 @@ export async function setDefensePvp(
   }
   const placeholders = ids.map(() => "?").join(",");
   const owned = await db.prepare(
-    `SELECT COUNT(*) AS n FROM roster_v3 WHERE account_id = ? AND unit_id IN (${placeholders})`)
-    .bind(accountId, ...ids).first<{ n: number }>();
-  if ((owned?.n ?? 0) !== ids.length) return { status: 400, body: { ok: false, error: "unit_not_owned" } };
+    `SELECT unit_id, zombie_key FROM roster_v3 WHERE account_id = ? AND unit_id IN (${placeholders})`)
+    .bind(accountId, ...ids).all<{ unit_id: string; zombie_key: string }>();
+  const rows = owned.results ?? [];
+  if (rows.length !== ids.length) return { status: 400, body: { ok: false, error: "unit_not_owned" } };
+  // ONE PER CLASS. The formation fills one job per group, so a second Regular could
+  // never take the field — `selectFormationDefense` would drop it at snapshot time and
+  // the defender would be quietly guarding with five. Refusing it here makes the rule
+  // the player's rule rather than a silent truncation they find out about by losing.
+  const groups = new Set<string>();
+  for (const row of rows) {
+    const group = zombieGroup(row.zombie_key);
+    if (!group || groups.has(group)) {
+      return { status: 400, body: { ok: false, error: "duplicate_class" } };
+    }
+    groups.add(group);
+  }
   await db.prepare(`INSERT INTO pvp_defense_v3 (account_id, loadout_json, updated_at)
     VALUES (?, ?, ?) ON CONFLICT(account_id) DO UPDATE SET loadout_json = excluded.loadout_json,
     updated_at = excluded.updated_at`)
