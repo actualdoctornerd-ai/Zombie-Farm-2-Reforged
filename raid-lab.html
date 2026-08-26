@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZF Raid Lab</title>
+    <!--
+      Raid Lab — a dev-only stage for every raid animation.
+      ======================================================
+      Served by the Vite dev server at /raid-lab.html. It is NOT part of the production
+      build (rollup's default input is index.html alone), so it costs the shipped bundle
+      nothing.
+
+      Like /zombie-review.html and unlike tools/rig_studio.html, this page imports the
+      GAME's own modules — loadAssets(), RaidScene, BattleSim, the fight-config builders
+      RaidManager itself uses. The fight on screen is a real fight: the same simulation,
+      the same actors, the same clips. What it adds is a way to ASK for a particular
+      animation instead of waiting for one:
+
+        • activated moves fire through the sim's own `activate()`;
+        • boss actions are SOLOED — the fight is rebuilt carrying only that one action,
+          on a tight cadence, so it plays over and over;
+        • heals, revives and deaths are staged by wounding units, which lets the sim
+          reach those states through its ordinary paths rather than being posed.
+
+      If an animation looks wrong here, it looks wrong in an invasion.
+    -->
+    <style>
+      :root {
+        --bg: #14171c; --panel: #1c2128; --panel2: #232a33; --line: #313a45;
+        --ink: #e6edf3; --muted: #8b98a5; --accent: #58a6ff; --accent2: #3fb950;
+        --danger: #f85149; --warn: #d29922;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+        font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+      #app { display: grid; grid-template-columns: 246px 1fr 312px; height: 100vh; }
+      .col { min-width: 0; display: flex; flex-direction: column; background: var(--panel);
+        overflow-y: auto; scrollbar-gutter: stable; }
+      .col > * { flex-shrink: 0; }
+      .col.left { border-right: 1px solid var(--line); }
+      .col.right { border-left: 1px solid var(--line); }
+      .col.center { position: relative; background: var(--bg); overflow: hidden; }
+      h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+        color: var(--muted); margin: 0; padding: 10px 12px 6px; position: sticky; top: 0;
+        z-index: 2; background: var(--panel); }
+      .col.center h2 { position: static; }
+      .pad { padding: 8px 12px; }
+      label { color: var(--muted); font-size: 11px; }
+      select, input, button {
+        font: inherit; color: var(--ink); background: var(--panel2);
+        border: 1px solid var(--line); border-radius: 5px; padding: 5px 7px; }
+      select, input[type=text] { width: 100%; }
+      input[type=range] { width: 100%; padding: 0; }
+      input[type=number] { width: 56px; }
+      button { cursor: pointer; }
+      button:hover { border-color: var(--accent); }
+      button:disabled { opacity: .35; cursor: default; }
+      button:disabled:hover { border-color: var(--line); }
+      button.on { background: #1f6feb33; border-color: var(--accent); color: #cfe4ff; }
+      button.go { background: #3fb95022; border-color: #3fb95066; }
+      .row { display: flex; gap: 6px; align-items: center; }
+      .row + .row { margin-top: 6px; }
+      .wrap { display: flex; gap: 5px; flex-wrap: wrap; }
+      .mini { padding: 3px 6px; font-size: 11px; }
+      .toolbar { display: flex; gap: 6px; padding: 8px 10px; align-items: center;
+        flex-wrap: wrap; border-bottom: 1px solid var(--line); background: var(--panel); }
+      .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 3px; }
+      #stage { flex: 1; position: relative; overflow: hidden; touch-action: none; }
+      #stage canvas { display: block; }
+      #status { border-top: 1px solid var(--line); background: var(--panel);
+        padding: 6px 10px; font: 11px/1.5 ui-monospace, "Cascadia Code", monospace;
+        color: var(--muted); white-space: pre-wrap; min-height: 58px; }
+      #status b { color: var(--ink); font-weight: 600; }
+      .item { display: flex; align-items: center; gap: 7px; padding: 4px 10px;
+        cursor: pointer; user-select: none; border-bottom: 1px solid #ffffff08; }
+      .item:hover { background: var(--panel2); }
+      .item.sel { background: #1f6feb26; box-shadow: inset 2px 0 0 var(--accent); }
+      .item .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .item .tag { font-size: 9px; color: var(--muted); background: var(--panel2);
+        padding: 1px 4px; border-radius: 3px; }
+      .slot { font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+        color: var(--muted); margin: 10px 12px 3px; }
+      .note { color: var(--muted); font-size: 11px; padding: 0 12px 6px; }
+      .note code { color: #b7c6d4; }
+      .act { display: block; width: 100%; text-align: left; margin: 0 0 4px;
+        padding: 5px 8px; font-size: 12px; }
+      .act .k { color: var(--muted); font-size: 10px; float: right;
+        font-family: ui-monospace, monospace; }
+      .act.solo { background: #d2992222; border-color: #d2992288; }
+      .armyrow { display: flex; gap: 5px; align-items: center; margin-bottom: 5px; }
+      .armyrow select { flex: 1; min-width: 0; }
+      .abil { display: flex; align-items: center; gap: 6px; padding: 3px 10px;
+        cursor: pointer; user-select: none; border-radius: 5px; }
+      .abil:hover { background: var(--panel2); }
+      .abil.on { background: #3fb95022; box-shadow: inset 2px 0 0 var(--accent2); }
+      .abil .box { width: 13px; height: 13px; border: 1px solid var(--line);
+        border-radius: 3px; flex: 0 0 auto; }
+      .abil.on .box { background: var(--accent2); border-color: var(--accent2); }
+      .abil .nm { flex: 1; }
+      .abil .st { font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+      #boot { position: absolute; inset: 0; display: grid; place-items: center;
+        background: var(--bg); color: var(--muted); z-index: 5; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="col left">
+        <h2>Invasion</h2>
+        <div id="raidList"></div>
+        <div class="slot">Difficulty</div>
+        <div class="pad">
+          <div class="row">
+            <label style="flex:0 0 52px">Level</label>
+            <input id="level" type="range" min="1" max="45" step="1" value="25" />
+            <span id="levelV" class="mini" style="min-width:26px;text-align:right">25</span>
+          </div>
+          <div class="row">
+            <label style="flex:0 0 52px">Wave</label>
+            <input id="wave" type="range" min="0" max="7" step="1" value="0" />
+            <span id="waveV" class="mini" style="min-width:26px;text-align:right">0</span>
+          </div>
+          <div class="row">
+            <button id="elite" class="mini" style="flex:1" title="Brain Ticket profile">Elite</button>
+            <button id="conc" class="mini on" style="flex:1" title="Skip the focus-bubble minigame">Full focus</button>
+          </div>
+        </div>
+        <div class="slot">Stage</div>
+        <div class="note" id="stageInfo"></div>
+      </div>
+
+      <div class="col center">
+        <div class="toolbar">
+          <button id="play" class="mini">Pause</button>
+          <button id="step" class="mini" title="One 50 ms sim tick">Step</button>
+          <button id="step10" class="mini">Step ×10</button>
+          <button id="engage" class="mini" title="Run the fight forward until a zombie is swinging — activated moves need one there">Skip to contact</button>
+          <div class="sep"></div>
+          <label>Speed</label>
+          <input id="speed" type="range" min="0.05" max="2" step="0.05" value="1"
+                 style="width:110px" />
+          <span id="speedV" class="mini" style="min-width:40px;text-align:right">1.00×</span>
+          <div class="sep"></div>
+          <button id="restart" class="mini go">Restart</button>
+          <button id="png" class="mini">Export PNG</button>
+        </div>
+        <div id="stage"><div id="boot">loading assets…</div></div>
+        <div id="status"></div>
+      </div>
+
+      <div class="col right">
+        <h2>Actions</h2>
+        <div class="note">
+          Activated moves and the fight-state pokes act on the LIVE fight.
+          A <b>soloed</b> boss action or hazard rebuilds the fight carrying only that one,
+          so it repeats — click it again to go back to the shipped mix.
+        </div>
+        <div class="pad" id="actions"></div>
+
+        <h2>Army</h2>
+        <div class="pad">
+          <div id="armyRows"></div>
+          <div class="wrap" style="margin-top:6px">
+            <button id="addRow" class="mini">+ Row</button>
+            <button id="pRegulars" class="mini">8 Regular</button>
+            <button id="pMixed" class="mini">One of each</button>
+            <button id="pGarden" class="mini" title="Adds a Garden healer so Heal fires">+ Healer</button>
+          </div>
+        </div>
+
+        <h2>Abilities</h2>
+        <div class="note" id="abilNote"></div>
+        <div id="abils"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/devtools/raidLab.ts"></script>
+  </body>
+</html>

@@ -558,7 +558,12 @@ async function loadParticle(name: string): Promise<ParticleConfig | null> {
 
 export class RaidScene {
   readonly container = new Container();
-  private sim: BattleSim;
+  /** The fight this scene is drawing. Public so a harness can reach it: the raid lab
+   *  (src/devtools/raidLab.ts) triggers activated abilities through `sim.activate` and
+   *  stages heal/revive conditions by writing to `sim.units`, which is how it can show
+   *  an animation on demand without a second, diverging copy of the fight. The GAME
+   *  never touches it from outside — every player input goes through recordInput. */
+  readonly sim: BattleSim;
   private raid: RaidDef;
   private onFinish: (o: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
   private onCheckpoint: ((finalTick: number, inputs: RaidReplayInput[]) => Promise<void>) | null;

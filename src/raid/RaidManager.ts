@@ -10,11 +10,12 @@ import { GameState } from "../GameState";
 import { ZombieField } from "../zombie/ZombieField";
 import { OwnedZombie } from "../zombie/types";
 import { buildEnemyUnits, buildPlayerUnits, resolveRaid } from "./CombatEngine";
-import { rescueHazardHp } from "./hazardTaps";
+import {
+  bossSpecialsFor, bossThrowFor, crabFor, grabberFor, summonFor, turnedTemplateFor,
+  wallTemplateFor,
+} from "./fightConfig";
 import {
   ARMY_CAP,
-  bossThrowIntervalSecs,
-  fightScaledThrow,
   CONCENTRATION_KEY,
   DICE_KEY,
   MIN_ARMY,
@@ -34,9 +35,8 @@ import {
 } from "./RaidCatalog";
 import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { displayTotals } from "../zombie/statDisplay";
-import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidOutcome, RaidStage, SummonConfig, WaveCadence } from "./types";
-import { summonConfigFor, waveCadenceFor } from "./alienStage";
-import { turnedUnitFor } from "./videoGameStage";
+import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
+import { waveCadenceFor } from "./alienStage";
 import { rollLootTier } from "./LootTable";
 import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
@@ -55,25 +55,7 @@ import {
   eliteBossSpecials,
   eliteBossThrow,
   eliteProfile,
-  eliteWallHp,
-  type EliteProfile,
 } from "./eliteInvasion";
-
-/** Real grab-hazard art per raid id. Circus = the trapeze girl (extracted from the
- *  stage atlas). */
-const GRAB_SPRITE: Record<number, string> = {
-  8: "hazard_trapeze_girl.png",
-};
-/** The Beach crab hazard: identified by the raid's own `initialSpawnClass` rather than a
- *  per-id table, since that field is exactly what the source's obstacle timer spawns. */
-const CRAB_ACTOR = "BeachStageActorCrab";
-const CRAB_SPRITE = "hazard_beach_crab.png";
-// Seven landed taps is two-thirds of the source-derived 1000 HP while retaining the
-// authored 100 damage/tap. That is the TOUCH figure; `rescueHazardHp` halves it again for
-// a mouse (four clicks), because clicking a hazard apart seven times, several times a
-// fight, is a lot of clicking for one rescue. See src/raid/hazardTaps.ts — both hazards
-// are client-only, so the two devices may legitimately differ here.
-const RESCUE_HAZARD_HP = 667;
 
 // ---- HUD-facing view models ----
 
@@ -247,7 +229,7 @@ export interface RaidSetup {
   turnedTemplate: CombatUnit | null;
   /** Carried-grab hazard (Circus Trapeze Artist) for the live scene (null if none). */
   grabber: GrabberConfig | null;
-  /** Beach crab hazard (client-only — see crabOf). */
+  /** Beach crab hazard (client-only — see fightConfig.crabFor). */
   crab: CrabConfig | null;
   /** Golden Dice spent on this fight — carried into finishRaid() for loot luck. */
   dice: number;
@@ -530,183 +512,26 @@ export class RaidManager {
       // the raids whose mechanic it is) more frequent projectiles, harder specials, and
       // a tougher wall. The verifier applies the same three helpers to the same profile.
       bossThrow: eliteBossThrow(
-        this.bossThrowOf(raid, stage, this.state.raidWins(String(raid.id))),
+        bossThrowFor(this.assets, raid, stage, this.state.raidWins(String(raid.id))),
         profile
       ),
-      bossSpecials: eliteBossSpecials(this.bossSpecialsOf(stage), profile),
-      grabber: this.grabberOf(raid),
-      crab: this.crabOf(raid),
+      bossSpecials: eliteBossSpecials(bossSpecialsFor(this.assets, stage), profile),
+      grabber: grabberFor(raid),
+      crab: crabFor(raid),
       // Alien-stage divergences (raid 6 only) — see raid/alienStage.ts. The verifier
       // builds both from the same helpers, off the same elite/level context.
       waveCadence: waveCadenceFor(raid.id),
-      summon: this.summonConfigOf(raid, stage, profile),
-      wallTemplate: this.wallTemplateOf(stage, profile),
+      summon: summonFor(this.assets, raid, stage, this.state.level, profile),
+      wallTemplate: wallTemplateFor(this.assets, stage, profile),
       // Video Games divergence (raid 9 only) — see raid/videoGameStage.ts. Same shape as
       // the alien summon: the verifier derives it from the same helper and context.
-      turnedTemplate: this.turnedTemplateOf(raid, stage, profile),
+      turnedTemplate: turnedTemplateFor(this.assets, raid, stage, this.state.level, profile),
       dice,
       concentration,
       brainDrop,
       brainEligible: hasBoss,
       elite,
     };
-  }
-
-  /** Carried-grab hazard config for raids that field one (the Circus Trapeze Artist).
-   *  Source HP is 1000; tuned to 667 for desktop input, with 100 damage per tap. The first
-   *  sweep starts after ~4s (spawnState wait_4). Returns null for raids
-   *  with no trapeze. (The Lawyers cars also `grabZombie` but ship no sprite / different
-   *  motion — not wired here.) */
-  private grabberOf(raid: RaidDef): GrabberConfig | null {
-    const sprite = GRAB_SPRITE[raid.id];
-    if (!raid.hasGrab || !sprite) return null;
-    return { sprite, hp: rescueHazardHp(RESCUE_HAZARD_HP), tapDamage: 100, spawnDelayMs: 4000 };
-  }
-
-  /** Beach crab hazard config, from the raid's own `initialSpawnClass` + obstacle timer.
-   *  Source HP is 1000; tuned to 667 for desktop input (seven 100-damage taps). It holds
-   *  for 2.0 s before hauling the zombie off; spawn cadence + concurrent cap come straight
-   *  from `obstacleSpawnSecs` / `obstacleLimit` (5 s / 2 on Summer Break).
-   *
-   *  DELIBERATELY CLIENT-ONLY. The server verifier (server/src/raidVerifier.ts) builds its
-   *  sim without this, so the authoritative replay is the un-harassed run. A crab can
-   *  therefore only ever make the player's own live result WORSE than the server ceiling,
-   *  never better — which is why it needs no anti-cheat plumbing. */
-  private crabOf(raid: RaidDef): CrabConfig | null {
-    if (raid.initialSpawnClass !== CRAB_ACTOR || !raid.obstacleLimit) return null;
-    return {
-      sprite: CRAB_SPRITE,
-      hp: rescueHazardHp(RESCUE_HAZARD_HP),
-      tapDamage: 100,
-      spawnMs: (raid.obstacleSpawnSecs > 0 ? raid.obstacleSpawnSecs : 5) * 1000,
-      limit: raid.obstacleLimit,
-      holdMs: 2000,
-    };
-  }
-
-  /** The alien boss's abductee queue. `summonBoss` is the ALIEN boss's action and no
-   *  other's, and what it summons is a rota of abducted humans rather than a copy of the
-   *  wave — see raid/alienStage.ts for the disassembly. */
-  private summonConfigOf(
-    raid: RaidDef,
-    stage: RaidStage,
-    elite: EliteProfile | null = null
-  ): SummonConfig | null {
-    if (!stage.bossKey || stage.throwingDisabled) return null;
-    const actions = this.assets.enemyStats[stage.bossKey]?.bossActions ?? [];
-    if (!actions.some((a) => a.name === "summonBoss")) return null;
-    return summonConfigFor(raid.id, this.assets.enemyStats, this.assets.raidAttacks, {
-      raidId: raid.id,
-      playerLevel: this.state.level,
-      elite,
-    });
-  }
-
-  /** The pixel zombie `turnZombie` converts a zombie into. `turnZombie` is the Video Games
-   *  boss's action and no other's — see raid/videoGameStage.ts. */
-  private turnedTemplateOf(
-    raid: RaidDef,
-    stage: RaidStage,
-    elite: EliteProfile | null = null
-  ): CombatUnit | null {
-    if (!stage.bossKey || stage.throwingDisabled) return null;
-    const actions = this.assets.enemyStats[stage.bossKey]?.bossActions ?? [];
-    if (!actions.some((a) => a.name === "turnZombie")) return null;
-    return turnedUnitFor(raid.id, this.assets.enemyStats, this.assets.raidAttacks, {
-      raidId: raid.id,
-      playerLevel: this.state.level,
-      elite,
-    });
-  }
-
-  /** The blocker `wall` drops: a high-HP body sized from the action's own `hp`. Null
-   *  unless the stage's BOSS carries the action. */
-  private wallTemplateOf(
-    stage: RaidStage,
-    elite: EliteProfile | null = null
-  ): CombatUnit | null {
-    if (!stage.bossKey || stage.throwingDisabled) return null;
-    const wall = (this.assets.enemyStats[stage.bossKey]?.bossActions ?? [])
-      .find((a) => a.name === "wall");
-    if (!wall) return null;
-    const hp = Math.max(1, Math.round(eliteWallHp(wall.hp ?? 1500, elite)));
-    // Use the action's own wall art (Ninja carrotWall.png / Robot junkWall.png); the
-    // sourceKey strips ".png" so the renderer keys its preloaded texture by it.
-    return {
-      id: "wall",
-      sourceKey: (wall.sprite ?? "carrotWall.png").replace(/\.png$/i, ""),
-      team: "enemy",
-      name: "Wall",
-      str: 0,
-      dex: 1,
-      con: Math.round(hp / 10),
-      focus: 0,
-      hp, // the sim's toSim() uses maxHp directly, so set it to the wall's HP
-      maxHp: hp,
-      attackCooldownMs: 3500,
-      attacks: [{ name: "", frequency: 1, mult: 0 }],
-      isBoss: false,
-      alive: true,
-      isGarden: false,
-      isHeadless: false,
-      abilities: [],
-    };
-  }
-
-  /** Build the boss's SPECIAL (non-throw) actions for the selected stage — lasers,
-   *  AoE bursts, turn-zombie, etc. Same gate as throws (needs a boss and an "active"
-   *  stage). Cast/cooldown come from the source castTime/cooldownTime (seconds);
-   *  where a special has no cooldown the cast doubles as the recovery.
-   *
-   *  Strictly the BOSS's own list. Each robot carries a different special (JunkBot the
-   *  junk wall, BrainBot telekinesis, BroBot only faster throws) and the source note is
-   *  explicit that "a Robot will only use their special abilities when they are the boss
-   *  of the invasion" — so a stage-wide scan for an action is exactly the bug that had
-   *  BrainBot summoning JunkBot's walls. */
-  private bossSpecialsOf(stage: RaidStage): BossSpecial[] {
-    if (!stage.bossKey || stage.throwingDisabled) return [];
-    const actions = this.assets.enemyStats[stage.bossKey]?.bossActions ?? [];
-    return actions
-      .filter((a) => a.name !== "throw")
-      .map((a) => {
-        const castMs = (a.castTime ?? 0) * 1000;
-        const cooldownMs = (a.cooldownTime ?? a.castTime ?? 2) * 1000;
-        return {
-          name: a.name,
-          weight: a.frequency,
-          castMs,
-          cooldownMs,
-          damage: a.damage ?? 0,
-        };
-      });
-  }
-
-  /** Build the boss's projectile config for the selected stage. Returns null when
-   *  the stage has no boss OR throwing is disabled on it (early boss waves let the
-   *  boss come down to fight without throwing — verified in the real game). The
-   *  throw interval comes from the stage's throwSpeed, else the raid default. */
-  private bossThrowOf(
-    raid: RaidDef,
-    stage: RaidStage,
-    priorWins: number
-  ): BossThrowConfig | null {
-    if (!stage.bossKey || stage.throwingDisabled) return null;
-    const actions = this.assets.enemyStats[stage.bossKey]?.bossActions ?? [];
-    const options = actions
-      .filter((a) => a.name === "throw")
-      .map((a) => ({
-        damage: a.damage ?? 0,
-        weight: a.frequency,
-        sprite: a.sprite ?? "",
-        spriteSize: a.spriteSize ?? 32,
-      }))
-      .filter((o) => o.sprite);
-    if (!options.length) return null;
-    // `throwSpeed` is authored in seconds (ZFFightMan's projectile timer).
-    const secs = bossThrowIntervalSecs(raid, stage, priorWins);
-    // Damage is re-based onto the raid's own rung before the elite profile multiplies it,
-    // so a Brain Ticket scales the rebalanced fight rather than the authored chip value.
-    return fightScaledThrow({ intervalMs: secs * 1000, options }, raid);
   }
 
   /** Apply the result of a played-out raid: veterancy credit, win rewards, the

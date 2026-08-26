@@ -23,13 +23,15 @@ import attacksJson from "../../public/assets/raids/attacks.json";
 import zombiesJson from "../../public/assets/zombies.json";
 import { BattleSim } from "./BattleSim";
 import { buildEnemyUnits, buildPlayerUnits } from "./CombatEngine";
-import { bossThrowIntervalSecs, fightScaledThrow, fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
-import { eliteBossSpecials, eliteBossThrow, eliteProfile, eliteWallHp, ELITE_PROFILES } from "./eliteInvasion";
+import { fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
+import { eliteBossSpecials, eliteBossThrow, eliteProfile, ELITE_PROFILES } from "./eliteInvasion";
 import { RAID_MAX_TICKS, RAID_TICK_MS } from "./replay";
-import { summonConfigFor, waveCadenceFor } from "./alienStage";
-import { turnedUnitFor } from "./videoGameStage";
+import { waveCadenceFor } from "./alienStage";
+import {
+  bossSpecialsFor, bossThrowFor, summonFor, turnedTemplateFor, wallTemplateFor,
+} from "./fightConfig";
 import { makeOwned } from "../zombie/types";
-import type { AttackDef, BossSpecial, BossThrowConfig, CombatUnit, EnemyStat, RaidDef, RaidStage } from "./types";
+import type { AttackDef, CombatUnit, EnemyStat, RaidDef } from "./types";
 
 const raids = raidsJson as RaidDef[];
 const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
@@ -51,55 +53,10 @@ function stickArmy(size: number, power: number): CombatUnit[] {
   return buildPlayerUnits(party, { concentration: true, abilityUnlocked: () => true, playerLevel: 45 });
 }
 
-function throwOf(raid: RaidDef, stage: RaidStage): BossThrowConfig | null {
-  if (!stage.bossKey || stage.throwingDisabled) return null;
-  const options = (enemyStats[stage.bossKey]?.bossActions ?? [])
-    .filter((a) => a.name === "throw")
-    .map((a) => ({ damage: a.damage ?? 0, weight: a.frequency, sprite: a.sprite ?? "", spriteSize: a.spriteSize ?? 32 }))
-    .filter((o) => o.sprite);
-  if (!options.length) return null;
-  // Same rebalance the shipped fight gets (RaidManager.bossThrowOf) — the stick has to
-  // measure the throws the player actually eats, not the authored chip values.
-  return fightScaledThrow({ intervalMs: bossThrowIntervalSecs(raid, stage, 99) * 1000, options }, raid);
-}
-
-function specialsOf(stage: RaidStage): BossSpecial[] {
-  if (!stage.bossKey || stage.throwingDisabled) return [];
-  return (enemyStats[stage.bossKey]?.bossActions ?? [])
-    .filter((a) => a.name !== "throw")
-    .map((a) => ({
-      name: a.name,
-      weight: a.frequency,
-      castMs: (a.castTime ?? 0) * 1000,
-      cooldownMs: (a.cooldownTime ?? a.castTime ?? 2) * 1000,
-      damage: a.damage ?? 0,
-    }));
-}
-
-function wallOf(stage: RaidStage, elite: boolean, raidId: number): CombatUnit | null {
-  if (!stage.bossKey || stage.throwingDisabled) return null;
-  const wall = (enemyStats[stage.bossKey]?.bossActions ?? []).find((a) => a.name === "wall");
-  if (!wall) return null;
-  const hp = Math.max(1, Math.round(eliteWallHp(wall.hp ?? 1500, eliteProfile(raidId, elite))));
-  return {
-    id: "wall", sourceKey: "carrotWall", team: "enemy", name: "Wall", str: 0, dex: 1,
-    con: Math.round(hp / 10), focus: 0, hp, maxHp: hp, attackCooldownMs: 3500,
-    attacks: [{ name: "", frequency: 1, mult: 0 }], isBoss: false, alive: true,
-    isGarden: false, isHeadless: false, abilities: [],
-  };
-}
-
-/** The pixel zombie Zedzox's `turnZombie` converts a zombie into. Without this the stick
- *  would measure the Video Games invasion with its signature special disabled — the action
- *  is a no-op when the sim has nothing to stand up — and quietly report the wrong number
- *  for the raid three elite profiles are pinned to. */
-function turnedOf(stage: RaidStage, elite: boolean, raidId: number): CombatUnit | null {
-  if (!stage.bossKey || stage.throwingDisabled) return null;
-  if (!(enemyStats[stage.bossKey]?.bossActions ?? []).some((a) => a.name === "turnZombie")) return null;
-  return turnedUnitFor(raidId, enemyStats, attacks, {
-    raidId, playerLevel: 45, elite: eliteProfile(raidId, elite),
-  });
-}
+/** The fight configs the SHIPPED invasion carries, from the same builders RaidManager
+ *  uses (raid/fightConfig.ts). This file used to keep its own transcriptions of all four
+ *  — which is how a measuring stick ends up measuring something the player never fights. */
+const fightAssets = { enemyStats, raidAttacks: attacks };
 
 interface Result { win: boolean; losses: number; secs: number; timedOut: boolean }
 
@@ -109,21 +66,18 @@ function fight(raid: RaidDef, elite: boolean, size: number, power: number, seed 
   const enemyUnits = buildEnemyUnits(stage, enemyStats, attacks, {
     raidId: raid.id, playerLevel: 45, elite: profile,
   });
-  const summon = (enemyStats[stage.bossKey ?? ""]?.bossActions ?? []).some((a) => a.name === "summonBoss")
-    ? summonConfigFor(raid.id, enemyStats, attacks, { raidId: raid.id, playerLevel: 45, elite: profile })
-    : null;
   const sim = new BattleSim(
     stickArmy(size, power),
     enemyUnits,
-    eliteBossThrow(throwOf(raid, stage), profile),
+    eliteBossThrow(bossThrowFor(fightAssets, raid, stage, 99), profile),
     true,
-    eliteBossSpecials(specialsOf(stage), profile),
+    eliteBossSpecials(bossSpecialsFor(fightAssets, stage), profile),
     undefined,
-    summon,
-    wallOf(stage, elite, raid.id),
+    summonFor(fightAssets, raid, stage, 45, profile),
+    wallTemplateFor(fightAssets, stage, profile),
     false, false, false, undefined, null, null,
     waveCadenceFor(raid.id),
-    turnedOf(stage, elite, raid.id)
+    turnedTemplateFor(fightAssets, raid, stage, 45, profile)
   );
   let ticks = 0;
   while (!sim.finished && ticks < RAID_MAX_TICKS) {

@@ -572,6 +572,29 @@ shot of the current rig to `tmp/review-shots/` through a dev-server-only `/__cap
 (see `captureEndpointPlugin` in `vite.config.ts`), which is how an art pass diffs before and
 after without a download dialog per shot; the Export PNG button downloads normally.
 
+**Raid Lab** (`npm run dev`, then <http://localhost:5173/raid-lab.html>) does the same job for
+the fight. An invasion animation is easy to author and hard to WATCH: a boss special fires on
+a weighted roll behind a cast timer, a Garden heal needs somebody hurt, a revive needs somebody
+dead, and the Circus trapeze sweeps into a fight you have to survive first. The lab runs a real
+`RaidScene` over a real `BattleSim`, built from the same `raid/fightConfig.ts` builders
+`RaidManager` uses, and adds only a way to ask for a particular animation:
+
+- **activated moves** (Bash / Smash / Explode / Ver.2 / Mini Buddy) fire through the sim's own
+  `activate()`, live, on the running fight;
+- **boss actions** are *soloed* — pick one throw or special and the fight is rebuilt carrying
+  that alone on a short recovery, so it loops. The action keeps its authored cast and its elite
+  scaling; only the mix and the recovery belong to the lab. Same for the two rescue hazards;
+- **heals, revives and deaths** are staged by *wounding* units and letting the simulation reach
+  those states down its ordinary paths — nothing here poses a unit or writes a state, which is
+  why what plays is the real animation.
+
+Every playable invasion, every seasonal event and all eight Epic Bosses are in the picker, at
+any player level, wave roll and elite profile. "Skip to contact" runs the walk-in off (it is
+ten to fifteen seconds, and an activated move needs somebody already swinging); Step / Step ×10
+advance one 50 ms sim tick at a time, and the speed slider goes down to 0.05× for reading a
+single swing. `ZFLAB` in the console holds `scene`, `sim`, `assets` and a `frames(n)` driver for
+anything the buttons do not cover. Dev page only — `vite build` ships `index.html` alone.
+
 ## Layout
 
 | Path | Role |
@@ -591,7 +614,7 @@ after without a download dialog per shot; the Export PNG button downloads normal
 | `src/quest/` | Quest bus and data-driven quest engine; `periodic/` holds the generated daily/weekly objective board |
 | `src/tutorial/` | First-run tutorial controller, beats, and DOM overlay |
 | `src/social/` | Local friend-list fallback + gifting helpers |
-| `src/devtools/` | Dev-only pages served by `vite dev` and excluded from the build (`zombieReview.ts` ↔ `zombie-review.html`) |
+| `src/devtools/` | Dev-only pages served by `vite dev` and excluded from the build (`zombieReview.ts` ↔ `zombie-review.html`, `raidLab.ts` ↔ `raid-lab.html`) |
 | `src/audio.ts` | Opt-in BGM/SFX |
 | `src/platform.ts`, `src/touchInput.ts` | Phone/desktop capability detection, pinch-zoom and pan, tap/hold gesture rules |
 | `src/plowSelection.ts` | Drag-select plow rectangle geometry |

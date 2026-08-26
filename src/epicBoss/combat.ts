@@ -2,7 +2,6 @@ import type { GameAssets } from "../assets";
 import { deriveAttackIntervalMs, pickByFrequency } from "../raid/combatStats";
 import { buildPlayerUnits } from "../raid/CombatEngine";
 import type { CombatUnit, RaidDef } from "../raid/types";
-import type { GameState } from "../GameState";
 import type { OwnedZombie } from "../zombie/types";
 import { epicBossDamage, epicBossDamageTiming } from "./catalog";
 import type { EpicBossDef, EpicBossLoot, EpicBossRun } from "./types";
@@ -22,6 +21,17 @@ export function isEpicBossKey(sourceKey: string): boolean {
   return sourceKey.startsWith(EPIC_BOSS_KEY_PREFIX);
 }
 
+/** What an Epic Boss fight needs to know about the PLAYER. GameState satisfies this
+ *  structurally, so the game passes its own state and nothing changes; the raid lab
+ *  (src/devtools/raidLab.ts) passes a plain object, because a tool that wants to watch
+ *  the boss's attack strip should not have to construct a save first. */
+export interface EpicBossPlayerContext {
+  level: number;
+  abilityUnlocked(key: string): boolean;
+  farmerZombieStrengthMult(): number;
+  farmerZombieLifeMult(): number;
+}
+
 export interface EpicBossSetup {
   raid: RaidDef;
   party: OwnedZombie[];
@@ -34,7 +44,7 @@ export function buildEpicBossSetup(
   run: EpicBossRun,
   party: OwnedZombie[],
   assets: GameAssets,
-  state: GameState
+  state: EpicBossPlayerContext
 ): EpicBossSetup {
   const playerUnits = buildPlayerUnits(party, {
     concentration: true, // full focus throughput; BattleSim still uses manual brain release
