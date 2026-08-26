@@ -42,7 +42,7 @@ import type {
   BossSpecial, BossThrowConfig, BossThrowOption, CombatUnit, RaidDef, RaidStage,
 } from "../raid/types";
 import { ABILITY_KIND } from "../zombie/abilities";
-import { ABILITY_POOL, ABILITY_TIER } from "../zombie/traits";
+import { abilityTierOf, ABILITY_POOL, ABILITY_TIER } from "../zombie/traits";
 import { makeOwned } from "../zombie/types";
 
 // ---------------------------------------------------------------------------
@@ -64,10 +64,27 @@ const state = {
   elite: false,
   concentration: true,
   epicLevel: 5,
+  /** Highest ability tier UNLOCKED, exactly as the game gates it — a zombie shows the
+   *  ability for each tier up to its own colour-class rank, but only once that tier's
+   *  invasion boss has been beaten.
+   *
+   *  Default 2, and the reason is the laser. The army below picks the strongest species
+   *  in each group, and the strongest Regular is a rank-4 one whose OWN tier-3 and tier-4
+   *  abilities are Laser Beam and Laser Beam Ver.2. Unlock everything and five zombies
+   *  walk in firing continuously, which is a perfectly real army and completely useless
+   *  for watching anything else. Two is a quiet baseline you add to. */
+  tierCap: 2,
   army: [] as ArmyRow[],
-  /** Abilities granted to EVERY zombie on top of what its class already gives. */
+  /** Abilities granted to EVERY zombie on top of what its class already gives.
+   *
+   *  The default is what the ACTION buttons need and nothing else: the five activated
+   *  moves, and the three support abilities the sim gates on `isGarden` so only the one
+   *  Garden zombie ever casts them. Deliberately NOT the lasers — `laserBeam`/`zomBeam`
+   *  are automatic and ungated, so granting one to the whole army turns every fight into
+   *  eight laser turrets and you cannot see the animation you came to watch. Tick them
+   *  on when the laser IS what you came to watch (and cut the army down to one). */
   granted: new Set<string>(["bash", "bashV2", "explode", "explodeV2", "attachMini",
-    "heal", "healAOE", "ressurect", "protect", "laserBeam"]),
+    "heal", "healAOE", "ressurect"]),
   solo: "" as Solo,
   paused: false,
   speed: 1,
@@ -165,10 +182,13 @@ function party() {
   return out;
 }
 
+/** The game's unlock gate, driven by the Tiers slider rather than by raid wins. */
+const unlocked = (key: string) => abilityTierOf(key) <= state.tierCap;
+
 function playerUnits(): CombatUnit[] {
   const units = buildPlayerUnits(party(), {
     concentration: state.concentration,
-    abilityUnlocked: () => true,
+    abilityUnlocked: unlocked,
     playerLevel: state.level,
   });
   // The granted set is ADDITIVE and applied after the build, so it changes what the sim
@@ -264,7 +284,7 @@ function epicParams(def: EpicBossDef): RaidSceneParams {
   };
   const setup = buildEpicBossSetup(def, run, party(), assets, {
     level: state.level,
-    abilityUnlocked: () => true,
+    abilityUnlocked: unlocked,
     farmerZombieStrengthMult: () => 1,
     farmerZombieLifeMult: () => 1,
   });
@@ -643,14 +663,21 @@ function buildAbilityList() {
   const box = $("#abils");
   box.innerHTML = "";
   $("#abilNote").innerHTML =
-    "Granted to every zombie on top of its class's own. This changes what the fight " +
-    "<b>does</b> — the sim reads the list every tick — but not its stats, which were " +
-    "baked when the units were built. So the passive <code>+%</code> abilities will " +
-    "appear on the card and change nothing.";
+    "Granted to <b>every</b> zombie, on top of its class's own. This changes what the " +
+    "fight <b>does</b> — the sim reads the list every tick — but not its stats, which " +
+    "were baked when the units were built, so the passive <code>+%</code> ones appear " +
+    "on the card and change nothing.<br>" +
+    "<code>activated</code> waits for its button. <code>team</code> is automatic but " +
+    "gated — the heals and the revive only ever come from a Garden zombie. " +
+    "<code>self</code> is automatic and <b>ungated</b>: grant Laser Beam and all eight " +
+    "zombies fire, which drowns out whatever else you were watching.";
   for (let tier = 1; tier <= 4; tier++) {
     const head = document.createElement("div");
     head.className = "slot";
-    head.textContent = `Tier ${tier}`;
+    // A tier above the cap is locked for the SPECIES gate, so nothing is granted by
+    // class rank — but the checkboxes still work, because granting is how the lab
+    // reaches an ability its army could not otherwise carry.
+    head.textContent = tier <= state.tierCap ? `Tier ${tier}` : `Tier ${tier} · locked`;
     box.appendChild(head);
     for (const key of ABILITY_TIER[tier]) {
       const meta = ABILITY_POOL[key];
@@ -762,6 +789,15 @@ function wireControls() {
     refreshStage();
   });
   wave.addEventListener("change", () => { void restart(); });
+
+  const tiers = $<HTMLInputElement>("#tiers");
+  tiers.addEventListener("input", () => {
+    const v = parseInt(tiers.value, 10);
+    if (!Number.isFinite(v)) return;
+    state.tierCap = v;
+    $("#tiersV").textContent = String(v);
+  });
+  tiers.addEventListener("change", () => { buildAbilityList(); void restart(); });
 
   const elite = $<HTMLButtonElement>("#elite");
   elite.addEventListener("click", () => {

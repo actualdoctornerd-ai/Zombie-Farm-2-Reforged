@@ -589,7 +589,15 @@ dead, and the Circus trapeze sweeps into a fight you have to survive first. The 
   why what plays is the real animation.
 
 Every playable invasion, every seasonal event and all eight Epic Bosses are in the picker, at
-any player level, wave roll and elite profile. "Skip to contact" runs the walk-in off (it is
+any player level, wave roll and elite profile. **Tiers** is the game's own ability gate (beat
+McDonnell for tier 1, the Lawyers for 2, the Pirates for 3, the Ninjas for 4) and it defaults
+to 2 on purpose: the default army takes the strongest species in each group, and the strongest
+Regular is a rank-4 one whose own tier-3 and tier-4 abilities are Laser Beam and Laser Beam
+Ver.2 — unlock everything and five zombies walk in firing continuously over whatever you came
+to watch. Raise it when the laser is the thing. Below the army list, ticking an ability grants
+it to *every* zombie: `activated` waits for its button and `team` is gated to a Garden zombie,
+but `self` is automatic and ungated, which is the same trap from the other direction.
+"Skip to contact" runs the walk-in off (it is
 ten to fifteen seconds, and an activated move needs somebody already swinging); Step / Step ×10
 advance one 50 ms sim tick at a time, and the speed slider goes down to 0.05× for reading a
 single swing. `ZFLAB` in the console holds `scene`, `sim`, `assets` and a `frames(n)` driver for
