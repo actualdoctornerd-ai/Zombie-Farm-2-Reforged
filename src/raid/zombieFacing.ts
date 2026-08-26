@@ -17,10 +17,17 @@ export function zombieFacingDelta(u: {
   vx: number;
   windupKey: string | null;
   alive: boolean;
+  knockBackSpeed?: number;
 }, opts: { exitMarch: boolean; retreating: boolean }): number | null {
   // The end-of-fight march overrides everything: home on a retreat, onward on a win.
   if (opts.exitMarch) return opts.retreating ? -1 : 1;
   if (!u.alive) return null;
+  // Being SHOVED is the other case where travel is not intent. A knockback slides the
+  // zombie backward fast, so the `vx` branch below turned it around to face the way it
+  // was flying — and a zombie that turns its back and strides away reads as retreating
+  // under its own steam rather than as one that just took a hit. It is still fighting
+  // the enemy in front of it; it just isn't standing where it was.
+  if ((u.knockBackSpeed ?? 0) > 0) return 1;
   // Fighting (or charging an activated move) always squares up to the enemy, even on
   // the tick a zombie is still closing the last few pixels to its slot.
   if (u.state === "fight" || u.windupKey) return 1;

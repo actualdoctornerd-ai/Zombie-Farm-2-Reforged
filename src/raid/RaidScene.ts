@@ -26,6 +26,7 @@ import { PVP_ZOMBIE_SPRITE_PREFIX } from "./pvp";
 import {
   extrapolatePosition,
   interpolatePosition,
+  knockBackDrawX,
   isOffstageBossReentryFrame,
   playerStagingOffset,
   visualCountdown,
@@ -683,6 +684,11 @@ export class RaidScene {
   }>();
   private blastFx: { g: Graphics; t: number; scale: number }[] = [];
   private shakeT = 0; // seconds left in the blast shake (0 = still)
+  /** Sim x each shoved zombie was standing at when its current shove began, by unit id.
+   *  Easing the slide needs where it came FROM and the simulation carries only where it
+   *  is going (`knockBackToX`); the entry is dropped the moment the shove lands, so this
+   *  holds at most the handful of zombies being pushed right now. See knockBackDrawX. */
+  private knockFrom = new Map<string, number>();
   private brainLayer = new Container();
   private brainTex: Texture | null = null;
   private brainDrop = 0;
@@ -1887,6 +1893,16 @@ export class RaidScene {
       const szs = this.sizeScale();
       const groundDrop = UNIT_GROUND_NUDGE * szs;
       const pos = renderPos(u);
+      // A shove is drawn on an ease-out over the simulation's linear slide (see
+      // knockBackDrawX). Remember where it started — the simulation carries only the
+      // destination — and let go the moment the slide ends, where both curves agree.
+      if (u.knockBackSpeed > 0) {
+        const from = this.knockFrom.get(u.id) ?? u.prevX;
+        this.knockFrom.set(u.id, from);
+        pos.x = knockBackDrawX(pos.x, from, u.knockBackToX);
+      } else if (this.knockFrom.size) {
+        this.knockFrom.delete(u.id);
+      }
       let [sx, sy] = u.isBoss ? bossPos(u, pos.x, pos.y) : [toX(pos.x), toY(pos.y) + groundDrop];
       if (u.team === "player") {
         const stagingOffsetPx = r.w * PLAYER_STAGING_NUDGE_FX;
@@ -2131,7 +2147,10 @@ export class RaidScene {
             retreating: this.phase === "retreat",
           });
         if (facing !== null) tok.actor.setFacingFromDelta(facing);
-        const moving = u.alive && (simMoving || exitMarch);
+        // A zombie mid-shove is travelling fast, but not under its own power: running the
+        // walk cycle over it is the single biggest reason a knockback read as strolling
+        // backwards. Hold the standing pose and let the slide move it.
+        const moving = u.alive && !(u.knockBackSpeed > 0) && (simMoving || exitMarch);
         // The source focus pose narrows the eyes while the gold bar is advancing.
         // A distracted zombie or one waiting on the full-bar brain bubble is no
         // longer actively focusing, so its eyes relax.

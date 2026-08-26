@@ -4,6 +4,7 @@ import {
   interpolateFixedStep,
   interpolatePosition,
   isOffstageBossReentryFrame,
+  knockBackDrawX,
   playerStagingOffset,
   visualCountdown,
 } from "./renderInterpolation";
@@ -43,5 +44,39 @@ describe("raid render interpolation", () => {
 
   it("extrapolates projectiles using their retained velocity", () => {
     expect(extrapolatePosition(10, 20, 100, -50, 25, 50)).toEqual({ x: 12.5, y: 18.75 });
+  });
+});
+
+describe("knockback shove easing", () => {
+  // The slide the SIMULATION runs is linear and its timing is ground truth (`force: 5.0`
+  // -> knockBackSpeed), replayed by the server. Only the curve the renderer draws it on
+  // is ours, and it has to hand over cleanly at both ends or the zombie snaps.
+  const FROM = 700;
+  const TO = 600; // shoved 100 units back down the lane
+
+  it("starts and lands exactly where the simulation does", () => {
+    expect(knockBackDrawX(FROM, FROM, TO)).toBe(FROM);
+    expect(knockBackDrawX(TO, FROM, TO)).toBe(TO);
+  });
+
+  it("is ahead of the linear slide the whole way, and fastest off the mark", () => {
+    // Half way through the simulation's slide the shove is already three quarters home:
+    // that is what makes it read as a shove instead of a walk.
+    expect(knockBackDrawX(650, FROM, TO)).toBeCloseTo(625, 6);
+    // Ahead at every sample, never behind — a drawn position that lagged would look like
+    // the zombie resisting the hit.
+    for (let t = 0.05; t < 1; t += 0.05) {
+      const simX = FROM + (TO - FROM) * t;
+      expect(knockBackDrawX(simX, FROM, TO)).toBeLessThan(simX);
+    }
+  });
+
+  it("does not run past the destination, or back off a zero-length shove", () => {
+    // The sim floors the shove at the staging slot, so a zombie already behind it gets
+    // a span of zero — there is no curve to draw and nothing to divide by.
+    expect(knockBackDrawX(FROM, FROM, FROM)).toBe(FROM);
+    // Clamped: a stray sample past either end cannot throw the rig off the lane.
+    expect(knockBackDrawX(TO - 50, FROM, TO)).toBe(TO);
+    expect(knockBackDrawX(FROM + 50, FROM, TO)).toBe(FROM);
   });
 });

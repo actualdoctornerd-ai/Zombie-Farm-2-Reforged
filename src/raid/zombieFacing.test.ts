@@ -44,6 +44,19 @@ describe("player zombie facing", () => {
     expect(facesEnemy(zombieFacingDelta(marching, { exitMarch: true, retreating: false }))).toBe(true);
   });
 
+  it("a shoved zombie keeps facing the enemy that shoved it", () => {
+    // A knockback slides the zombie backwards fast, so `vx` is large and NEGATIVE. Read
+    // as travel, that turned it round to face the way it was flying, and a zombie
+    // striding away from the fight reads as retreating rather than as one that just got
+    // hit. Travel is not intent while something else is doing the travelling.
+    const shoved = zombie({ state: "advance", vx: -320, knockBackSpeed: 327 });
+    expect(facesEnemy(zombieFacingDelta(shoved, NORMAL))).toBe(true);
+    // Same velocity with no shove behind it is an ordinary walk, and still faces the walk.
+    expect(facesHome(zombieFacingDelta(zombie({ state: "advance", vx: -320 }), NORMAL))).toBe(true);
+    // The end-of-fight march still outranks it: a retreat walks home, shoved or not.
+    expect(facesHome(zombieFacingDelta(shoved, { exitMarch: true, retreating: true }))).toBe(true);
+  });
+
   it("leaves the dead where they fell", () => {
     expect(zombieFacingDelta(zombie({ state: "dead", alive: false, vx: -90 }), NORMAL)).toBeNull();
   });
