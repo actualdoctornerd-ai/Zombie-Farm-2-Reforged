@@ -288,6 +288,12 @@ const ENEMY_FORWARD_FX: Record<string, number> = {
 };
 const BOSS_H_SCALE: Record<string, number> = {
   FarmStageActorBoss: 0.8, // Old McDonnell — 20% smaller
+  // Zedzox. Measured against the others: every boss fits to BOSS_H, but the rig bounds
+  // are what render, and his came out 174px where Felix Wonky and Goffy are both 161 —
+  // 8% over, which on a pixel-art wizard standing against pixel-art masonry reads as a
+  // giant. 0.85 takes him just under the shared size and pulls his robe hem in off the
+  // castle wall, which the sink below finishes.
+  VideoGameStageBossActor: 0.85,
 };
 // The contain-fit scale at which the *_H heights above render 1:1. Raise this to make
 // all units smaller across the board, lower it to make them bigger.
@@ -332,11 +338,20 @@ const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
   6: { dx: -0.03, dy: 0.2 }, // Aliens (sky perch): too high; rides a UFO
   7: { dx: -0.18, dy: 0.28 }, // Summer Break (sky perch): squid boss too far right + too high
   8: { dx: -0.14 }, // Circus: boss too far right on the car
-  10: { dy: 0.2 }, // Tree World (sky perch): head cropped off the top of the screen
+  // Video Games: Zedzox stood a shade left and high of the gatehouse arch, so his robe
+  // hem and shoe hung out past the wall's edge over open air. The perch layer here is
+  // only a 55px-wide strip, so occluding the leg behind it is not available at any size
+  // that keeps his face on screen — measured, +0.045 already pushes it off the right
+  // edge. +0.02 lands the shoe ON the arch's masonry instead, which is the fix.
+  9: { dx: 0.02, dy: 0.02 },
+  // Tree World (sky perch): Goffy was up in the canopy, overlapping the hanging cages.
+  // 0.2 kept his head on screen; the rest of this brings him down onto the tree itself,
+  // just under a full rendered height (0.381 * ~0.85).
+  10: { dy: 0.52 },
   // Valentine's: Felix Wonky stands on the shop table, not up in the sky. The default
-  // sky perch (PERCH_FY 0.2) puts him near the ceiling; +0.45 lands his feet at 0.65
-  // down the stage rect — i.e. ~35% up from the bottom, on the table top.
-  11: { dy: 0.45 },
+  // sky perch (PERCH_FY 0.2) puts him near the ceiling; 0.45 landed him at the table but
+  // still floating a little above it — the extra 0.038 is a tenth of his rendered height.
+  11: { dy: 0.488 },
 };
 // Alien boss rides a UFO (AlienStageElements bossShip/bossShipBack): the saucer + glass
 // dome sit IN FRONT of the alien (its transparent centre shows the pilot), the small back

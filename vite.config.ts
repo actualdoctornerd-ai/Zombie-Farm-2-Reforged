@@ -95,7 +95,17 @@ export default defineConfig(({ mode }) => {
     base: "./",
     // Honour a harness-assigned PORT (autoPort) so multiple sessions don't collide on
     // 5173; fall back to 5173 for a plain `npm run dev`.
-    server: { port: Number(process.env.PORT) || 5173, host: true },
+    server: {
+      port: Number(process.env.PORT) || 5173,
+      host: true,
+      // `tmp/` is where /__capture writes review shots — inside the project root, so the
+      // dev server was watching it and doing a full page RELOAD on every capture. That
+      // turns the review tools against themselves: zombie-review and the raid lab both
+      // capture mid-session, and each shot threw away the state (selected rig, running
+      // fight, console instrumentation) that the NEXT shot was supposed to compare with.
+      // Nothing under tmp/ is ever imported, so nothing there should invalidate a module.
+      watch: { ignored: ["**/tmp/**"] },
+    },
     // `vite preview` (serves the built dist, incl. the PWA service worker which is
     // disabled in dev) — honour the harness-assigned PORT like the dev server.
     preview: { port: Number(process.env.PORT) || 4173, host: true },
