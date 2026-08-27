@@ -38,7 +38,7 @@ import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { waveCadenceFor } from "./alienStage";
 import { rollLootTier } from "./LootTable";
-import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable } from "./brainDrops";
+import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable, firstClearBrains } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
 import {
   rollRaidZombieDropWithPity,
@@ -626,12 +626,16 @@ export class RaidManager {
         }
         // Brains drop in addition to loot. Offline credit is local; online credit is
         // applied by the server only after deterministic replay verifies the boss win.
-        brains = brainDrop;
+        // The FIRST clear of an invasion pays a guaranteed brain on top of the roll
+        // (2 from the Pirates' unlock level up — see firstClearBrains), boss or no boss.
+        brains = brainDrop + (firstClear ? firstClearBrains(raid.unlockLevel) : 0);
         if (brains > 0) this.state.addBrains(brains);
         // Settle the silent pity streak on the fights that could actually pay: a boss win.
         // A loss never reaches here, and a boss-less stage can't roll brains, so neither
-        // charges the counter towards a guarantee it wouldn't be able to honour.
-        if (brainEligible) this.state.brainDryStreak = nextBrainDryStreak(this.state.brainDryStreak, brains);
+        // charges the counter towards a guarantee it wouldn't be able to honour. Settled
+        // on the ROLLED drop alone — the deterministic first-clear grant must not delay
+        // the RNG guarantee (same rule as the server's /raid/finish).
+        if (brainEligible) this.state.brainDryStreak = nextBrainDryStreak(this.state.brainDryStreak, brainDrop);
         // The rare zombie carries its own silent per-raid pity: enough dry wins of THIS raid
         // and the next one hands it over outright (see zombieDrops.ts). Streak settles on
         // every win of a raid that has one; raids without a rare zombie never get a key.

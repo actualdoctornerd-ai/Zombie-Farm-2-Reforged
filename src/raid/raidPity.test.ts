@@ -72,6 +72,61 @@ describe("offline invasion brain pity", () => {
   });
 });
 
+// A Pirates-tier fixture (unlockLevel 21) for the first-clear double. Same tier-0 /
+// empty-loot shape as RAID so only the brain bookkeeping is in play.
+const PIRATES_TIER = {
+  id: 98, name: "Test Pirates", recommendedLevel: 21, unlockLevel: 21,
+  goldReward: 100, bonusGold: 0, xp: 0, loot: [[], [], [], []],
+} as unknown as RaidDef;
+
+describe("offline first-clear brain grant", () => {
+  // A fresh GameState starts with 1 brain, so every balance check is a delta.
+  it("pays 1 brain the first time a low invasion is cleared, and never again", () => {
+    const { state, raids } = makeManager();
+    const start = state.brains;
+    const first = raids.finishRaid(RAID, PARTY, WIN, 0, false, 0, true);
+    expect(first.firstClear).toBe(true);
+    expect(first.brains).toBe(1);
+    expect(state.brains).toBe(start + 1);
+    const second = raids.finishRaid(RAID, PARTY, WIN, 0, false, 0, true);
+    expect(second.firstClear).toBe(false);
+    expect(second.brains).toBe(0);
+    expect(state.brains).toBe(start + 1);
+  });
+
+  it("pays 2 brains for the Pirates tier and up, on top of a rolled drop", () => {
+    const { state, raids } = makeManager();
+    const start = state.brains;
+    const view = raids.finishRaid(PIRATES_TIER, PARTY, WIN, 0, false, 1, true);
+    expect(view.brains).toBe(3); // 1 rolled + 2 first-clear
+    expect(state.brains).toBe(start + 3);
+  });
+
+  it("pays even on a boss-less stage — it rewards the clear, not the boss", () => {
+    const { state, raids } = makeManager();
+    const start = state.brains;
+    const view = raids.finishRaid(RAID, PARTY, WIN, 0, false, 0, false);
+    expect(view.brains).toBe(1);
+    expect(state.brains).toBe(start + 1);
+  });
+
+  it("does not touch the pity streak — only the rolled drop settles it", () => {
+    const { state, raids } = makeManager();
+    const start = state.brains;
+    raids.finishRaid(RAID, PARTY, WIN, 0, false, 0, true);
+    expect(state.brains).toBe(start + 1); // first-clear brain paid...
+    expect(state.brainDryStreak).toBe(1); // ...but the dry streak still advanced.
+  });
+
+  it("pays nothing extra online — the server owns the grant", () => {
+    const { state, raids } = makeManager();
+    const start = state.brains;
+    const view = raids.finishRaid(RAID, PARTY, WIN, 0, true, 0, true);
+    expect(view.brains).toBe(0);
+    expect(state.brains).toBe(start);
+  });
+});
+
 // Old McDonnell's — the raid that drops Old McZombie at 1%. Empty loot so the item roll
 // stays out of the way; goldReward keeps winGold honest.
 const MCDONNELLS = {

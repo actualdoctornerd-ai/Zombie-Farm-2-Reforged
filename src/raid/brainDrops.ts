@@ -61,6 +61,18 @@ export function rollBrainDrop(
   return 0;
 }
 
+/** The FIRST-ever clear of an invasion pays a guaranteed brain on top of the rolled
+ *  drop: 1 brain below this unlock level, 2 from it up. 21 is the Pirates' unlock
+ *  level, so "the Pirates and every harder raid" (Ninjas, Robots, Aliens, Video Games)
+ *  pay double; the starter, Circus, Lawyers, and the level-8 seasonal raids pay one.
+ *  Paid even on a boss-less stage (a first clear is a first clear), and shared by the
+ *  server (/raid/finish) and the offline build so both price it identically. */
+export const FIRST_CLEAR_BRAIN_DOUBLE_LEVEL = 21;
+
+export function firstClearBrains(unlockLevel: number): number {
+  return unlockLevel >= FIRST_CLEAR_BRAIN_DOUBLE_LEVEL ? 2 : 1;
+}
+
 /** Brain-eligible invasions a player may settle without a single brain before the next
  *  one is guaranteed to pay. At the top of the table a win drops something ~24% of the
  *  time, so an unlucky-but-perfectly-ordinary player can otherwise go a very long dry

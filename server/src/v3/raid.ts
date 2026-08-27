@@ -11,7 +11,7 @@ import type { RaidOutcome } from "../../../src/raid/types";
 import raidRows from "../../../public/assets/raids/raids.json";
 import { activeBonusHeadId, farmerCooldownMs } from "../../../src/farmer";
 import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
-import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak } from "../../../src/raid/brainDrops";
+import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak, firstClearBrains } from "../../../src/raid/brainDrops";
 import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
 import { rollRaidZombieDropWithPity, nextRaidZombieDryWins, hasRaidZombieDrop,
   RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
@@ -514,13 +514,21 @@ export async function finishRaid(
     ? Math.max(0, Math.trunc(boosts.brainDrop as number))
     : null;
   const hasBoss = config.enemyUnits.some((unit) => unit.isBoss);
-  const brains = !win ? 0
+  const rolledBrains = !win ? 0
     : pinnedBrains ?? legacyBrainDrop(session.id, econ.recLevel, hasBoss);
+  // The first-ever clear of an invasion pays a guaranteed brain on top of the roll
+  // (2 from the Pirates' unlock level up — see firstClearBrains). Derived from the
+  // server's own progress_json + catalog, never the request, and paid even on a
+  // boss-less stage: it rewards the clear, not the boss.
+  const brains = rolledBrains + (firstClear ? firstClearBrains(econ.unlockLevel) : 0);
   // Advance the silent brain pity counter. Only a WIN against a boss was a real chance at
   // a brain, so only that settles the streak — a loss (paid nothing) and a boss-less stage
-  // (can't roll brains) leave it exactly where it was.
+  // (can't roll brains) leave it exactly where it was. The streak settles on the ROLLED
+  // drop alone: the one-time first-clear grant is deterministic, not a lucky roll, and
+  // must not push the RNG guarantee further out for the ladder-climbing players who are
+  // exactly the ones collecting first clears.
   const brainDryStreak = win && hasBoss
-    ? nextBrainDryStreak(raidState.brain_dry_streak ?? 0, brains)
+    ? nextBrainDryStreak(raidState.brain_dry_streak ?? 0, rolledBrains)
     : Math.max(0, Math.trunc(raidState.brain_dry_streak ?? 0));
   // `qty` is present only for a bundled boost drop; the client shows it as "x10".
   let loot: { name: string; kind: "gold" | "boost" | "item"; qty?: number } | null = null;

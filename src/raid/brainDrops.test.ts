@@ -5,6 +5,8 @@ import {
   BRAIN_RAMP_LEVEL,
   brainDropChance,
   brainDropTable,
+  FIRST_CLEAR_BRAIN_DOUBLE_LEVEL,
+  firstClearBrains,
   nextBrainDryStreak,
   rollBrainDrop,
   rollBrainDropWithPity,
@@ -35,6 +37,16 @@ describe("invasion brain drops", () => {
     const rolls = [0.5, 0.039];
     expect(rollBrainDrop(20, () => rolls.shift() ?? 1)).toBe(3);
     expect(rollBrainDrop(20, () => 1)).toBe(0);
+  });
+
+  it("pays 1 first-clear brain below the Pirates' unlock level and 2 from it up", () => {
+    // The Pirates unlock at 21 (raids.json) — the double starts exactly there.
+    expect(FIRST_CLEAR_BRAIN_DOUBLE_LEVEL).toBe(21);
+    expect(firstClearBrains(0)).toBe(1); // Old McDonnell's
+    expect(firstClearBrains(8)).toBe(1); // seasonal raids
+    expect(firstClearBrains(16)).toBe(1); // Lawyers
+    expect(firstClearBrains(21)).toBe(2); // Pirates
+    expect(firstClearBrains(43)).toBe(2); // Video Games
   });
 });
 
