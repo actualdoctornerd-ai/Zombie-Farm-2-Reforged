@@ -21,7 +21,7 @@ import {
   compactOrder, selectedCount, toggleSlot, type OrderSlots,
 } from "../../raid/attackOrderSlots";
 import {
-  defenseSeatForGroup, PVP_ARMY_SIZE, PVP_DEFENSE_CAP, PVP_DEFENSE_SEATS,
+  roleForGroup, PVP_ARMY_SIZE, PVP_DEFENSE_CAP, PVP_DEFENSE_ROLES,
   PVP_MIN_LEVEL,
 } from "../../raid/pvp";
 import { hasSeenPvpTip, markPvpTipSeen } from "../../prefs";
@@ -30,11 +30,11 @@ import { hasSeenPvpTip, markPvpTipSeen } from "../../prefs";
  *  is the one thing in the game the player never actually plays — the farm fights on
  *  its own while they are away — so the two rules that make the Defense tab make sense
  *  (one zombie per class, and nothing is ever lost) are said out loud once rather than
- *  left to be inferred from a screen of empty posts. See prefs.hasSeenPvpTip. */
+ *  left to be inferred from a screen of empty jobs. See prefs.hasSeenPvpTip. */
 const PVP_INTRO_TIP =
   "Now then — invadin' a neighbour is one thing, but defendin' yer OWN patch works " +
   "a mite different. Ye don't march an army out; the farm holds the line without ye. " +
-  "So pick yer strongest of EACH kind — they've each got their own post to stand.\n" +
+  "So pick yer strongest of EACH kind — they've each got their own job to do.\n" +
   "And don't ye fret. It's all in good fun: no zombie's ever lost defendin' the " +
   "place. They get right back up and dust themselves off!";
 
@@ -138,22 +138,22 @@ function defenseStrip(hud: Hud, defenders: PvpDefenderPreviewView[]): HTMLElemen
   return strip;
 }
 
-/** The posts a formation defense fills, front to back — ONE PER CLASS, which is why
+/** The jobs a formation defense fills, front to back — ONE PER CLASS, which is why
  *  there are six of them and not five: Headless tanks, Large is the brute, Small its
- *  ammunition, Garden heals, and the line has a post each for Regular and Girl. Those
- *  two share the "line" JOB but stand in their own posts (PVP_DEFENSE_SEATS), so the
- *  picker keys off the post and never off the job — keying off the job merges the two
- *  line classes and leaves the sixth slot permanently unfillable. */
-const DEFENSE_SEATS = PVP_DEFENSE_SEATS;
+ *  ammunition, Garden heals, and Normal and Girl are a reinforcement job EACH. Those
+ *  two do identical work, and are still two jobs rather than one job with two holders
+ *  (owner's ruling) — which is also what lets the picker count jobs and be right, since
+ *  the job list and the class list are now the same six things. */
+const DEFENSE_ROLES = PVP_DEFENSE_ROLES;
 
-/** The post itself, for the picker ("who stands here"). ROLE_LABEL below says what
- *  the post DOES, which is what a finished line-up wants to show instead. */
-const SEAT_NAME: Readonly<Record<string, string>> = {
+/** The job's NAME, for the picker ("who stands here"). ROLE_LABEL below says what the
+ *  job DOES, which is what a finished line-up wants to show instead. */
+const ROLE_NAME: Readonly<Record<string, string>> = {
   tank: "Front line",
   brute: "Heavy",
   mini: "Ammo",
-  "line:Regular": "Reinforcement (Normal)",
-  "line:Female": "Reinforcement (Girl)",
+  line: "Reinforcement (Normal)",
+  girl: "Reinforcement (Girl)",
   support: "Healer",
 };
 
@@ -161,7 +161,8 @@ const ROLE_LABEL: Readonly<Record<string, string>> = {
   tank: "Holds the front",
   brute: "Heavy hitter",
   mini: "Little terror",
-  line: "Reinforcement",
+  line: "Normal reinforcement",
+  girl: "Girl reinforcement",
   support: "Heals the line",
 };
 
@@ -487,19 +488,18 @@ export function openInvasionsPanel(hud: Hud) {
     const cap = PVP_DEFENSE_CAP;
     const ownedIds = new Set(roster.map((z) => z.id));
     const byId = new Map(roster.map((z) => [z.id, z]));
-    const seatOf = (id: string) => defenseSeatForGroup(byId.get(id)?.group);
-    // ONE PER POST. Each class fills its own post, so a second Regular has nowhere to
+    const roleOf = (id: string) => roleForGroup(byId.get(id)?.group);
+    // ONE PER JOB. Each class fills its own job, so a second Regular has nowhere to
     // stand — picking one REPLACES the Regular already chosen rather than being
     // refused, which is the difference between a rule you can feel and one that just
-    // says no. The server enforces the same thing per CLASS (`duplicate_class`), which
-    // is why the picker counts POSTS rather than jobs: Regular and Girl are two posts
-    // sharing one job, and merging them stranded the sixth slot.
+    // says no. The server enforces the same thing per CLASS (`duplicate_class`), and
+    // one class now maps to exactly one job, so the two rules are the same rule.
     let order: OrderSlots = [];
     for (const id of currentIds) {
       if (!ownedIds.has(id)) continue;
       if (formation) {
-        const seat = seatOf(id);
-        if (!seat || order.some((held) => held && seatOf(held) === seat)) continue;
+        const role = roleOf(id);
+        if (!role || order.some((held) => held && roleOf(held) === role)) continue;
       }
       if (order.length < cap) order.push(id);
     }
@@ -522,25 +522,25 @@ export function openInvasionsPanel(hud: Hud) {
 
     const refresh = () => {
       const n = selectedCount(order);
-      const filled = new Set(order.filter(Boolean).map((id) => seatOf(id!)));
-      counter.textContent = formation ? `${n} / ${cap} posts filled` : `${n} / ${cap} standing`;
+      const filled = new Set(order.filter(Boolean).map((id) => roleOf(id!)));
+      counter.textContent = formation ? `${n} / ${cap} jobs filled` : `${n} / ${cap} standing`;
       counter.classList.toggle("short", !n);
-      const empty = DEFENSE_SEATS.filter((seat) => !filled.has(seat));
+      const empty = DEFENSE_ROLES.filter((role) => !filled.has(role));
       if (formation) {
-        blurb.textContent = empty.length === DEFENSE_SEATS.length
-          ? "One of each class — they each fill their own post."
+        blurb.textContent = empty.length === DEFENSE_ROLES.length
+          ? "One of each class — they each fill their own job."
           : empty.length
-            ? `No one on: ${empty.map((seat) => SEAT_NAME[seat]).join(", ")}.`
-            : "Every post filled — a full formation.";
+            ? `No one on: ${empty.map((role) => ROLE_NAME[role]).join(", ")}.`
+            : "Every job filled — a full formation.";
       }
       for (const card of grid.querySelectorAll<HTMLElement>(".army-card")) {
         const id = card.dataset.id!;
         const at = order.indexOf(id);
-        const seat = seatOf(id);
+        const role = roleOf(id);
         card.classList.toggle("sel", at >= 0);
-        // Someone else already holds this post: still clickable (it swaps), but shown
+        // Someone else already holds this job: still clickable (it swaps), but shown
         // as taken so the one-per-class rule is visible before the click, not after.
-        card.classList.toggle("taken", formation && at < 0 && !!seat && filled.has(seat));
+        card.classList.toggle("taken", formation && at < 0 && !!role && filled.has(role));
         const tick = card.querySelector<HTMLElement>(".tick");
         if (tick) tick.textContent = at >= 0 ? String(at + 1) : "";
       }
@@ -556,13 +556,14 @@ export function openInvasionsPanel(hud: Hud) {
     }
     // Any owned zombie can stand in the defense — resting ones included: the
     // defense is a plan the server snapshots, not who happens to be on the lawn.
-    // Ordered by job, so the grid itself reads as one post per class.
-    const seatRank = (group: string | undefined) => {
-      const at = DEFENSE_SEATS.indexOf(defenseSeatForGroup(group) ?? "");
-      return at < 0 ? DEFENSE_SEATS.length : at; // a class with no post sorts last
+    // Ordered by job, so the grid itself reads as one job per class.
+    const roleRank = (group: string | undefined) => {
+      const role = roleForGroup(group);
+      const at = role ? DEFENSE_ROLES.indexOf(role) : -1;
+      return at < 0 ? DEFENSE_ROLES.length : at; // a class with no job sorts last
     };
     const ranked = [...roster].sort((a, b) =>
-      seatRank(a.group) - seatRank(b.group)
+      roleRank(a.group) - roleRank(b.group)
       || a.typeName.localeCompare(b.typeName) || a.name.localeCompare(b.name));
     for (const z of ranked) {
       const card = document.createElement("div");
@@ -579,8 +580,8 @@ export function openInvasionsPanel(hud: Hud) {
       ty.textContent = z.typeName;
       const job = document.createElement("div");
       job.className = "army-st pvp-job";
-      const seat = defenseSeatForGroup(z.group);
-      job.textContent = formation ? (seat ? SEAT_NAME[seat] : "No post") : "";
+      const role = roleForGroup(z.group);
+      job.textContent = formation ? (role ? ROLE_NAME[role] : "No job") : "";
       const where = document.createElement("div");
       where.className = "army-st zteam-where";
       where.textContent = z.stored ? "Resting" : "On farm";
@@ -589,12 +590,12 @@ export function openInvasionsPanel(hud: Hud) {
       card.append(tick, por, nm, ty, job, where);
       card.onclick = () => {
         if (!formation) { order = toggleSlot(order, z.id, cap); refresh(); return; }
-        const mine = defenseSeatForGroup(z.group);
-        if (!mine) return; // no post to stand at
+        const mine = roleForGroup(z.group);
+        if (!mine) return; // no job to stand in
         if (order.includes(z.id)) order = order.filter((id) => id !== z.id);
-        // Taking a post the player already filled REPLACES its holder, so a click
+        // Taking a job the player already filled REPLACES its holder, so a click
         // always does something rather than silently failing at the cap.
-        else order = [...order.filter((id) => !id || seatOf(id) !== mine), z.id].slice(0, cap);
+        else order = [...order.filter((id) => !id || roleOf(id) !== mine), z.id].slice(0, cap);
         refresh();
       };
       grid.appendChild(card);
@@ -609,12 +610,12 @@ export function openInvasionsPanel(hud: Hud) {
         refresh();
         return;
       }
-      // First zombie of each POST, in post order — the same shape the server's auto
+      // First zombie of each JOB, in job order — the same shape the server's auto
       // snapshot builds, so "fill" and "leave it to the game" agree.
       const picked = new Map<string, string>();
       for (const z of ranked) {
-        const seat = defenseSeatForGroup(z.group);
-        if (seat && !picked.has(seat)) picked.set(seat, z.id);
+        const role = roleForGroup(z.group);
+        if (role && !picked.has(role)) picked.set(role, z.id);
       }
       order = [...picked.values()].slice(0, cap);
       refresh();

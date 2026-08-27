@@ -116,9 +116,8 @@ const MAX_SIM_MS = 4 * 60 * 1000; // hard safety cap (min-damage 1 avoids stalls
 // ---- Front formation (GROUND TRUTH: `-[ZombieActor calculateDestinationPoint]` 0x4c9d4)
 // The army's ORDER *is* the formation — there is no separate layout pass. A zombie's index
 // in `[fightMan zombies]` gives its depth BAND (index / 5, the same divisor the damage and
-// cadence falloffs use — see combatStats.lineupDamageBand), and its rank among that band's
-// engaged members, ordered by BODY TYPE, gives its slot inside the row. The recovered
-// formula, in the source's 480x320 points:
+// cadence falloffs use — see combatStats.lineupDamageBand), and its rank inside that band
+// gives its row slot. The recovered formula, in the source's 480x320 points:
 //
 //   x = zombieAttackPosition.x - 55 - 35*band - standoff(body) + 5*(n - 1 - slot)
 //   y = 4*slot - 2*n + 10
@@ -128,8 +127,9 @@ const MAX_SIM_MS = 4 * 60 * 1000; // hard safety cap (min-damage 1 avoids stalls
 // derived from the raid's own hold position and engage distance) and apply the recovered
 // geometry RELATIVE to it.
 //
-// ONE part of this block is deliberately not the binary's: the `Small` body's place in the
-// row. See MINI_STANDS_WITH_REGULAR below.
+// The source body offsets remain as spacing hints, but the reimplementation deliberately
+// clamps them behind FIFO order so body type cannot change who arrived first. Headless is
+// promoted by `armyOrder`; see MINI_STANDS_WITH_REGULAR for the Small-body detail.
 const BAND_SIZE = 5; // zombies per depth band — `index / 5`, exactly the damage band
 const SRC_BAND_GAP = 35; // each band stands this much further back
 const SRC_SLOT_X_STEP = 5; // slots inside one row fan FORWARD by this much
@@ -1907,7 +1907,7 @@ export class BattleSim {
     return deployed.reduce((a, b) => (b.x < a.x ? b : a));
   }
 
-  /** Whom the ALIEN LASER aims at — and it is NOT whom a throw aims at.
+  /** Whom the ALIEN LASER aims at — ANY zombie standing on the lane, picked at random.
    *
    *  GROUND TRUTH (`ZFFightMan shootBullet:from:` 0x5ea74): the saucer builds a fresh
    *  candidate array of zombies that are `isInMeleeRange` — which `-[ZombieActor
@@ -1918,18 +1918,43 @@ export class BattleSim {
    *      idx = (arc4random() % 100) / 100.0 * count
    *  and fires at that zombie's position. Empty candidate list -> no bullet at all.
    *
-   *  So the laser is a FRONT-LINE weapon: it burns whoever is toe-to-toe with the wave,
-   *  never the Garden healers massed back at the support line. That is the opposite of
-   *  the boss THROW (see throwTarget), which is a lob aimed over the tanks — and using
-   *  throwTarget() here was the bug that had every alien bolt land on the healers.
+   *  DELIBERATE DIVERGENCE — the candidate list is every DEPLOYED zombie, not only the
+   *  engaged ones. Design call: the saucer fires whenever the player has anything on the
+   *  lane at all. Two reasons the recovered reading could not stay:
    *
-   *  `state === "fight"` is this sim's `actorIsFighting`: a zombie in the combat band
-   *  with an arrived foe. Healers hold at supportX, well short of the band, so they stay
-   *  in "advance" and are correctly off the target list. */
+   *   1. It could stall the raid outright. A Garden zombie holds at a fixed absolute x
+   *      (GARDEN_STATION_X — itself a deliberate divergence, see there) and closes on
+   *      nothing, so it is never `actorIsFighting`. An army of nothing but healers, or
+   *      one whose last ordinary body has died, handed the saucer an empty list on EVERY
+   *      cycle: it fired nothing, they had nothing hurt to heal, and the fight ran out
+   *      the four-minute cap with neither side able to touch the other. Reported as the
+   *      boss refusing to shoot the Gardens at the back.
+   *   2. The engaged-only list also went empty for whole seconds at a time in ordinary
+   *      fights — between waves, and while the front rank crossed the lane — and a boss
+   *      that visibly stops shooting for no reason the player can see reads as broken
+   *      rather than as faithful.
+   *
+   *  The source's own selection is UNCHANGED: one candidate at random, same roll, same
+   *  salt. Only the list it draws from is wider. That does mean the healers are now in it
+   *  — the thing this function was originally written to prevent — but the two are not
+   *  the same shape at all. The old bug was `throwTarget()` here, which picks the
+   *  REAR-MOST deployed zombie every single time: it is a lob aimed over the tanks, so
+   *  every bolt in the fight landed on the support station and nowhere else. A random draw
+   *  puts a healer's share of the fire on it and no more — one bolt in N with N deployed —
+   *  which is pressure on the back line, not a guided missile at it. Do not "fix" this
+   *  back to `throwTarget`.
+   *
+   *  Deployed = on the lane: advancing to its slot or fighting at it. A zombie still in
+   *  the charge queue at the back is not on the field, and one carried off by a crab or
+   *  turned into a pixel zombie (`taken`) is off it, so neither is a candidate. */
   private laserTarget(): SimUnit | null {
-    const engaged = this.players.filter((p) => p.alive && !p.taken && p.state === "fight");
-    if (!engaged.length) return null;
-    return engaged[Math.floor(hash(this.actionCount * 13 + 7) * engaged.length) % engaged.length];
+    const deployed = this.players.filter(
+      (p) => p.alive && !p.taken && (p.state === "advance" || p.state === "fight")
+    );
+    if (!deployed.length) return null;
+    return deployed[
+      Math.floor(hash(this.actionCount * 13 + 7) * deployed.length) % deployed.length
+    ];
   }
 
   /** The velocity a throw leads a target by: its MEASURED velocity (how it actually
@@ -2240,8 +2265,18 @@ export class BattleSim {
     defeated.y = CENTER_Y;
     defeated.prevX = defeated.x;
     defeated.prevY = defeated.y;
+    // Death gives the slot up, so resurrection is a fresh arrival at the tail just like
+    // knockback. Headless is the one exception to where that arrival is displayed: every
+    // incoming Headless pushes to position zero, including one arriving via resurrection.
     defeated.formOrder = this.releaseSeq++;
-    defeated.frontPriority = false;
+    defeated.frontPriority = defeated.isHeadless;
+    // Sent back to the charge slot means sent back BEHIND anything standing mid-lane —
+    // the alien boss's abductee, or a boss wall. `passedWall` latches "already ahead of
+    // that blocker when it appeared", and a corpse carried back to x=CHARGE_X plainly is
+    // not: leaving it latched let a revived zombie walk straight through the abductee it
+    // had marched past in its first life and never trade a blow with it. It re-enters the
+    // lane like any other zombie, so it re-earns the latch (or fights the blocker).
+    defeated.passedWall = false;
     defeated.timerMs = this.cycleMs(defeated, null);
     defeated.windupKey = null;
     defeated.windupMs = 0;
@@ -2572,19 +2607,10 @@ export class BattleSim {
     return "Regular"; // includes every Small: a Mini queues with the ordinary bodies
   }
 
-  /** Build the ordered army — the reimpl's stand-in for `[fightMan zombies]`, which is the
-   *  single source of truth for depth band, damage band, deploy order and draw order.
-   *
-   *  Order is deployment order (`formOrder`), then the two mutations `reorderZombies`
-   *  (0x5b554) makes every time it runs:
-   *
-   *   1. HEADLESS PROMOTION — only if NONE of the front five is an engaged Headless does it
-   *      take the LAST engaged Headless anywhere in the array and `insertObject:atIndex:0`.
-   *      It is a repair, not a standing sort: a Headless that is already up front stays
-   *      wherever it is, and a second one is never pulled forward.
-   *   2. GARDEN PUSH-BACK — `setZombieToLastIndex` on every deployed Garden, which lands
-   *      them at the end of the DEPLOYED block (that call inserts before the first zombie
-   *      still in the back group), in their existing relative order. */
+  /** Build the authoritative line order. Ordinary zombies are FIFO by arrival
+   *  (`formOrder`). Knockback and resurrection assign a fresh order at the tail. An active
+   *  Headless priority overrides FIFO and puts that zombie at the very front; among
+   *  Headless zombies, the newest arrival is first because it pushes into position zero. */
   private armyOrder(): SimUnit[] {
     // `!p.taken`: a zombie carried out of the fight (a crab's passenger, a zombie
     // Zedzox has converted) keeps whatever state it was in, and it used to keep its
@@ -2596,31 +2622,18 @@ export class BattleSim {
     // becomes the pixel zombie").
     const committed = this.players
       .filter((p) => p.alive && !p.taken && (p.state === "advance" || p.state === "fight"))
-      .sort((a, b) => a.formOrder - b.formOrder);
-
-    const gardens = committed.filter((p) => p.isGarden);
-    const rest = committed.filter((p) => !p.isGarden);
-    const order = gardens.length && rest.length ? [...rest, ...gardens] : committed;
-
-    const engagedHeadless = (p: SimUnit) => p.isHeadless && p.state === "fight";
-    if (!order.slice(0, BAND_SIZE).some(engagedHeadless)) {
-      let last = -1;
-      for (let i = 0; i < order.length; i++) if (engagedHeadless(order[i])) last = i;
-      if (last >= 0) {
-        // The source does `insertObject:atIndex:0` on the real array, so the promotion
-        // STICKS. Write it into formOrder rather than only into this frame's copy —
-        // re-deriving it every tick would satisfy the front-five test on the next frame,
-        // drop the zombie back, and leave it oscillating between two slots forever.
-        order[last].formOrder = Math.min(...order.map((p) => p.formOrder)) - 1;
-        order.unshift(...order.splice(last, 1));
-      }
-    }
-    return order;
+      .sort((a, b) => {
+        if (a.frontPriority !== b.frontPriority) return a.frontPriority ? -1 : 1;
+        return a.frontPriority
+          ? b.formOrder - a.formOrder
+          : a.formOrder - b.formOrder;
+      });
+    return committed;
   }
 
-  /** Place the army. Band = index / 5; the slot inside a band is the zombie's rank among
-   *  that band's members ordered by body type (BODY_ROW_ORDER), and both the x fan and the
-   *  y step come from `calculateDestinationPoint`. */
+  /** Place the army. Band and slot both come directly from the authoritative line order;
+   *  body geometry may add spacing, but it may never let a later arrival overtake an
+   *  earlier one. */
   private assignFormation() {
     const order = this.armyOrder();
 
@@ -2634,12 +2647,7 @@ export class BattleSim {
     for (let start = 0; start < order.length; start += BAND_SIZE) {
       const band = start / BAND_SIZE;
       const members = order.slice(start, start + BAND_SIZE);
-      // Row order inside the band: Headless to the front, healers to the back, everyone
-      // else (Minis included — MINI_STANDS_WITH_REGULAR) by weight in between.
-      const row = members.slice().sort((a, b) => {
-        const d = BODY_ROW_ORDER.indexOf(this.bodyOf(a)) - BODY_ROW_ORDER.indexOf(this.bodyOf(b));
-        return d || a.formOrder - b.formOrder;
-      });
+      const row = members;
       const n = row.length;
       // Source x is absolute off `zombieAttackPosition`; ours hangs off `frontX`, which is
       // derived from the raid's own hold position. Normalising on the row's front-most
@@ -2649,7 +2657,14 @@ export class BattleSim {
       const rel = (p: SimUnit, slot: number) =>
         -(SRC_BODY_STANDOFF[this.bodyOf(p)] ?? 0) * SIM_PER_SOURCE_X + (n - 1 - slot) * SLOT_X_STEP;
       const bandX = this.frontX - band * BAND_GAP;
-      const rels = row.map(rel);
+      const rels: number[] = [];
+      for (let slot = 0; slot < row.length; slot++) {
+        const authored = rel(row[slot], slot);
+        // Body-specific standoff values are spacing hints, not another ordering system.
+        // Clamp each later slot behind its predecessor so FIFO stays true on screen and
+        // in `playerInRange`, which selects the physically front-most zombie.
+        rels.push(slot === 0 ? authored : Math.min(authored, rels[slot - 1] - SLOT_X_STEP));
+      }
       // Anchor the row on the front-most member that has actually REACHED the line —
       // not on one still walking in from the charge slot. See ROW_ANCHOR_EPS.
       const standing = rels.filter((_, i) => row[i].x >= bandX - ROW_ANCHOR_EPS);

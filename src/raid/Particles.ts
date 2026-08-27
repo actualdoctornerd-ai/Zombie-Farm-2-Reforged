@@ -103,6 +103,40 @@ export function petalTexture(): Texture {
   return Texture.from(c);
 }
 
+/** A five-pointed star, drawn once and reused — the source's `starFX.png`, which is
+ *  what `stun.plist` emits over a stunned actor's head. Drawn rather than loaded for
+ *  the same reason the leaf and petal are: the extracted PNG is premultiplied twice
+ *  (see the premultiplied-alpha note in the art pipeline) and would carry a dark rim
+ *  against the additive-ish yellow the config tints it. Tinted per-particle like
+ *  every other texture here, so the colour stays in the config. */
+export function starTexture(): Texture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 32;
+  const g = c.getContext("2d")!;
+  g.translate(16, 16);
+  g.rotate(-Math.PI / 2); // point up
+  const OUTER = 15;
+  const INNER = 6.2;
+  g.fillStyle = "rgba(255,255,255,1)";
+  g.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? OUTER : INNER;
+    const a = (i * Math.PI) / 5;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
+  }
+  g.closePath();
+  g.fill();
+  // A thin darker outline so a pale star still reads against the bright stage art
+  // (the stars land over heads, which are the busiest part of the frame).
+  g.strokeStyle = "rgba(0,0,0,0.3)";
+  g.lineWidth = 1.1;
+  g.stroke();
+  return Texture.from(c);
+}
+
 const rand = (v: number) => (Math.random() * 2 - 1) * v;
 
 export class ParticleField {

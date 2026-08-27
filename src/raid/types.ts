@@ -200,7 +200,7 @@ export interface CombatUnit {
   // transcripts byte-identical: only a formation-mode PvP defense ever carries them.
   // See docs/PVP_DEFENSE_FORMATION.md and src/raid/pvp.ts.
   /** Which authored job this defender holds in the farm's defense. */
-  defenseRole?: "tank" | "support" | "brute" | "mini" | "line";
+  defenseRole?: "tank" | "support" | "brute" | "mini" | "line" | "girl";
   /** Authored hold position. An enemy carrying this walks to it and stands there
    *  instead of holding at the shared ENEMY_HOLD_X doorway. */
   stationX?: number;

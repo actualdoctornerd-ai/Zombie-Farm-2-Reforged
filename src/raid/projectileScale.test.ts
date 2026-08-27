@@ -341,8 +341,12 @@ describe("boss projectile scaling", () => {
   }
 
   /** Fight the raid headlessly and return how much of the lone healer's health the boss's
-   *  PROJECTILES took off (heals and melee excluded — only the projectile step counts). */
-  function projectilePressure(raid: RaidDef, healerSlot = 4): { dealt: number; maxHp: number } {
+   *  PROJECTILES took off (heals and melee excluded — only the projectile step counts).
+   *  `dealtWhileGuarded` is the share of that landed while the healer still had an army
+   *  in front of it — the only window the front-line rule claims anything about. */
+  function projectilePressure(
+    raid: RaidDef, healerSlot = 4
+  ): { dealt: number; dealtWhileGuarded: number; maxHp: number } {
     const level = Math.max(8, raid.unlockLevel);
     const stage = resolveStageWave(fightStage(raid, level)!, seededRandom(`proj:${raid.id}`));
     const elite = null;
@@ -363,16 +367,22 @@ describe("boss projectile scaling", () => {
       .players.find((p) => p.id === "healer")!;
     const inner = sim as unknown as { stepProjectiles: (dt: number) => void };
     const step = inner.stepProjectiles.bind(sim);
+    const roster = (sim as unknown as { players: Array<{ id: string; alive: boolean }> }).players;
     let dealt = 0;
+    let dealtWhileGuarded = 0;
     inner.stepProjectiles = (dt: number) => {
       const before = healer.hp;
+      const guarded = roster.some((p) => p.id !== "healer" && p.alive);
       step(dt);
-      if (healer.hp < before) dealt += before - healer.hp;
+      if (healer.hp < before) {
+        dealt += before - healer.hp;
+        if (guarded) dealtWhileGuarded += before - healer.hp;
+      }
     };
     for (let t = 0; t < RAID_MAX_TICKS && sim.step(RAID_TICK_MS); t++) {
       // fight it out
     }
-    return { dealt, maxHp: healer.maxHp };
+    return { dealt, dealtWhileGuarded, maxHp: healer.maxHp };
   }
 
   it("takes a lone level-appropriate healer from full to dead, on every throwing boss", () => {
@@ -416,10 +426,17 @@ describe("boss projectile scaling", () => {
   });
 
   it("leaves the Aliens to their laser", () => {
-    // Raid 6 is the one boss with no throw table, and its laser deliberately targets the
-    // ENGAGED front line rather than the support station (BattleSim laserTarget) — so no
-    // projectile reaches the healer there, by design, and no amount of throw scaling would.
+    // Raid 6 is the one boss with no throw table — its projectile is the laser, so no
+    // amount of throw scaling touches it and it sits outside the rebalance above. It
+    // clears the same bar anyway, by its own weapon: the laser now draws its target from
+    // the whole DEPLOYED line rather than only the engaged front of it (see
+    // BattleSim.laserTarget), so a healer standing behind an army takes its share of the
+    // fire instead of none of it, and this one dies to the saucer while the army it was
+    // healing is still standing. Measured: 606 damage on a 550 bar, 577 of it before the
+    // last of the army fell.
     const aliens = raids.find((r) => r.id === 6)!;
-    expect(projectilePressure(aliens).dealt).toBe(0);
+    const { dealt, dealtWhileGuarded, maxHp } = projectilePressure(aliens);
+    expect(dealt).toBeGreaterThanOrEqual(maxHp);
+    expect(dealtWhileGuarded).toBeGreaterThan(0);
   });
 });

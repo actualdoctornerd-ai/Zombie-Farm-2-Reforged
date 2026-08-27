@@ -24,6 +24,9 @@ import {
 } from "../zombie/appearance";
 import { SpecialHeadFx, specialHeadFxKind } from "../zombie/specialHeadFx";
 import { poseForFrame } from "./clipRuntime";
+import {
+  zombieAttackClipName, ZOMBIE_ATTACK_DAMAGE_TIMING,
+} from "./zombieAttackPresentation";
 
 const MODEL_BASE = 0.95;
 const TILT_AMP_MOVE = 0.1;
@@ -59,8 +62,11 @@ const FOCUS_EYE_EASE = 14;
 // Recovered ZFAttackAnims/ZFAnims timelines. ZombieBite (anim 8) moves the
 // head, jaw, eyes and both arms; ZombieScratch (anim 9) uses an asymmetric
 // arm flail plus a head thrust.
-const BITE_DAMAGE_TIMING = 0.75;
-const SCRATCH_DAMAGE_TIMING = 0.5;
+// The two contact timings are NOT repeated here: the renderer measures each swing's
+// follow-through window from the same numbers, and a copy that drifted would park a
+// waiting zombie mid-bite instead of at rest. One source, in zombieAttackPresentation.
+const BITE_DAMAGE_TIMING = ZOMBIE_ATTACK_DAMAGE_TIMING.ZombieBite;
+const SCRATCH_DAMAGE_TIMING = ZOMBIE_ATTACK_DAMAGE_TIMING.ZombieScratch;
 const BITE_HEAD_X = -8;
 const BITE_HEAD_Y = -6;
 const BITE_JAW_X = -3;
@@ -359,7 +365,7 @@ export class RaidActor {
   ): boolean {
     if (!this.clipModel) return false;
     const name = attacking
-      ? (/scratch/i.test(attackName) ? "attack:scratch" : "attack:bite")
+      ? zombieAttackClipName(/scratch/i.test(attackName) ? "ZombieScratch" : "ZombieBite")
       : walking ? "move" : "idle";
     const pose = poseForFrame(
       "zombie", this.clipKey, this.clipModel, walking,

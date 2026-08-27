@@ -279,7 +279,7 @@
    "damageTiming": 0.95,
    "attackName": "PirateBossSlash",
    "authored": true,
-   "note": "Authored ZFAttackAnims timeline (animID 2), over the bob and head rock the engine never stops.",
+   "note": "Authored ZFAttackAnims timeline (animID 2), over the bob and head rock the engine never stops. RE-TIMED, three fixes. (1) The source's two-key smoothstep raise eased OUT into the top key, parking both arms overhead for the last ~20% of the cycle -- a dwell that scales with the cooldown. The raise is now a linear-interpolated ease-IN reaching 90/45 deg only at 0.95, so the slam leaves the top the instant it arrives. (2) The source looped -135 straight back to 0, teleporting both arms out of the slammed pose. (3) The slam AND the lift back out of it now both live inside the 0.95->1 post-contact tail, which puts the rest pose at clip time 0 -- where the renderer parks a swing that has not struck yet (raid/attackPhase.ts). Move the recovery back before t=0 and Arrrnold engages mid-recovery with his arms already down. Contact stays at 0.95 (ground truth) and every pose angle is unchanged.",
    "tracks": [
     {
      "name": "breathe (free-running)",
@@ -336,14 +336,43 @@
        0
       ],
       [
+       0.35,
+       20
+      ],
+      [
+       0.6,
+       45
+      ],
+      [
+       0.8,
+       68
+      ],
+      [
+       0.9,
+       82
+      ],
+      [
        0.95,
        90
       ],
       [
-       1,
+       0.975,
        -135
+      ],
+      [
+       0.983,
+       -70
+      ],
+      [
+       0.99,
+       -28
+      ],
+      [
+       1,
+       0
       ]
-     ]
+     ],
+     "ease": "linear"
     },
     {
      "name": "back arm hack",
@@ -356,14 +385,43 @@
        0
       ],
       [
+       0.35,
+       10
+      ],
+      [
+       0.6,
+       22
+      ],
+      [
+       0.8,
+       34
+      ],
+      [
+       0.9,
+       41
+      ],
+      [
        0.95,
        45
       ],
       [
-       1,
+       0.975,
        -135
+      ],
+      [
+       0.983,
+       -70
+      ],
+      [
+       0.99,
+       -28
+      ],
+      [
+       1,
+       0
       ]
-     ]
+     ],
+     "ease": "linear"
     },
     {
      "name": "head flail x",
@@ -414,7 +472,7 @@
    "damageTiming": 1,
    "attackName": "CrazedWorkerAttack",
    "authored": true,
-   "note": "Authored ZFAttackAnims timeline (animID 1), over the bob and head rock the engine never stops.",
+   "note": "Authored ZFAttackAnims timeline (animID 1), over the bob and head rock the engine never stops. RE-TIMED. CrazedWorkerAttack has damageTiming 1, so the blow lands on the animation's LAST frame -- and clip time 1 is the same instant as clip time 0. The whack peaked at 0.9 and was back at REST by the time it connected, while the head and back arm ended the loop displaced and snapped home. The recovery now sits at the HEAD of the cycle, where the next frame after the hit actually is, so the arm arrives at its full 180 whack exactly as the damage is dealt and clip time 0 and 1 hold one pose. Every authored angle is unchanged.",
    "tracks": [
     {
      "name": "breathe (free-running)",
@@ -468,15 +526,15 @@
      "keys": [
       [
        0,
-       0
-      ],
-      [
-       0.9,
        180
       ],
       [
-       1,
+       0.15,
        0
+      ],
+      [
+       1,
+       180
       ]
      ]
     },
@@ -488,6 +546,10 @@
      "keys": [
       [
        0,
+       -9
+      ],
+      [
+       0.12,
        0
       ],
       [
@@ -515,6 +577,10 @@
      "keys": [
       [
        0,
+       -3
+      ],
+      [
+       0.12,
        0
       ],
       [
@@ -534,6 +600,10 @@
      "keys": [
       [
        0,
+       -4
+      ],
+      [
+       0.12,
        0
       ],
       [
@@ -557,7 +627,7 @@
    "damageTiming": 0.95,
    "attackName": "SwashbucklerSlice",
    "authored": true,
-   "note": "Authored ZFAttackAnims timeline (animID 3), over the bob and head rock the engine never stops.",
+   "note": "Authored ZFAttackAnims timeline (animID 3), over the bob and head rock the engine never stops. RE-TIMED to match the Pirate Boss, whose hack this is one rank down and whose three faults it shared exactly: a two-key smoothstep raise that eased OUT into the top and parked both arms overhead for the last fifth of the cycle; a loop that jumped from the -135 slam straight back to 0, teleporting the arm one frame after the hit; and a head that held its jolt across the seam. The raise is now a linear ease-IN reaching 90 only at 0.95, and the slam AND the lift back out of it both live inside the 0.95->1 post-contact tail, which puts the rest pose at clip time 0 -- where the renderer parks a swing that has not struck yet (raid/attackPhase.ts). Contact stays at 0.95 (ground truth); every authored pose angle is unchanged.",
    "tracks": [
     {
      "name": "breathe (free-running)",
@@ -614,14 +684,43 @@
        0
       ],
       [
+       0.35,
+       20
+      ],
+      [
+       0.6,
+       45
+      ],
+      [
+       0.8,
+       68
+      ],
+      [
+       0.9,
+       82
+      ],
+      [
        0.95,
        90
       ],
       [
-       1,
+       0.975,
        -135
+      ],
+      [
+       0.983,
+       -70
+      ],
+      [
+       0.99,
+       -28
+      ],
+      [
+       1,
+       0
       ]
-     ]
+     ],
+     "ease": "linear"
     },
     {
      "name": "head hack x",
@@ -637,8 +736,12 @@
        -3
       ],
       [
+       0.975,
+       -5
+      ],
+      [
        1,
-       -3
+       0
       ]
      ]
     },
@@ -656,13 +759,17 @@
        -1
       ],
       [
-       1,
+       0.975,
        -4
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
     {
-     "name": "new track",
+     "name": "back arm counter-swing",
      "target": "arm.back",
      "channel": "rot",
      "pivot": "shoulder-back",
@@ -5266,7 +5373,7 @@
    "damageTiming": 1,
    "attackName": "BroBotAttack",
    "authored": true,
-   "note": "Authored ZFAttackAnims timeline (animID 14), over the bob and head rock the engine never stops.",
+   "note": "Authored ZFAttackAnims timeline (animID 14), over the bob and head rock the engine never stops. RE-TIMED for damageTiming 1: the blow lands on the last frame, so clip time 1 and clip time 0 are one instant and must hold one pose. The windmill ended at 90 and restarted at 0, snapping the arm a quarter turn one frame after every hit, and both back-arm tracks did the same 20 degrees the other way. Each now STARTS at the pose it ends on and recovers to rest over the head of the cycle. Every authored angle is unchanged.",
    "tracks": [
     {
      "name": "breathe (free-running)",
@@ -5320,10 +5427,10 @@
      "keys": [
       [
        0,
-       0
+       90
       ],
       [
-       0.05,
+       0.12,
        0
       ],
       [
@@ -5414,6 +5521,10 @@
      "keys": [
       [
        0,
+       -20
+      ],
+      [
+       0.1,
        0
       ],
       [
@@ -5434,6 +5545,10 @@
      "keys": [
       [
        0,
+       -20
+      ],
+      [
+       0.1,
        0
       ],
       [
@@ -10115,7 +10230,7 @@
    "damageTiming": 0.5,
    "attackName": "NinjaStab",
    "authored": true,
-   "note": "Authored ZFAttackAnims timeline (animID 7), over the bob and head rock the engine never stops.",
+   "note": "Authored ZFAttackAnims timeline (animID 7), over the bob and head rock the engine never stops. RE-TIMED. NinjaStab connects at 0.5, so half this cycle is the blow's follow-through -- and the whole animation had been authored the other way up: the arm reached its +90 stab at clip time 1 and snapped 90 degrees back to rest one frame later, while the hit itself landed at 0.5 with the arm still WOUND BACK at -20. Every lean (head, body, back arm, both feet) drifted to its extreme at that same seam and snapped with it. The stab now peaks at 0.5, where the damage is, and the lean peaks with it and relaxes across the tail, so clip time 0 and 1 are both the rest pose -- which is where the renderer parks a swing that has not struck yet (raid/attackPhase.ts). Every authored pose angle is unchanged; only when the rig passes through them moved.",
    "tracks": [
     {
      "name": "breathe (free-running)",
@@ -10173,12 +10288,24 @@
        0
       ],
       [
-       0.5,
+       0.25,
        -20
       ],
       [
-       1,
+       0.5,
        90
+      ],
+      [
+       0.6,
+       55
+      ],
+      [
+       0.75,
+       22
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
@@ -10197,8 +10324,16 @@
        -90
       ],
       [
-       1,
+       0.7,
        20
+      ],
+      [
+       0.85,
+       8
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
@@ -10213,8 +10348,12 @@
        0
       ],
       [
-       1,
+       0.5,
        4
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
@@ -10229,8 +10368,12 @@
        0
       ],
       [
-       1,
+       0.5,
        -2
+      ],
+      [
+       1,
+       0
       ]
      ],
      "mute": false
@@ -10246,8 +10389,12 @@
        0
       ],
       [
-       1,
+       0.5,
        3
+      ],
+      [
+       1,
+       0
       ]
      ],
      "mute": false
@@ -10263,8 +10410,12 @@
        0
       ],
       [
-       1,
+       0.5,
        -2
+      ],
+      [
+       1,
+       0
       ]
      ],
      "mute": false
@@ -10280,8 +10431,12 @@
        0
       ],
       [
-       1,
+       0.5,
        2
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
@@ -10296,8 +10451,12 @@
        0
       ],
       [
-       1,
+       0.5,
        2
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
@@ -10312,8 +10471,12 @@
        0
       ],
       [
-       1,
+       0.5,
        -2
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
@@ -10328,8 +10491,12 @@
        0
       ],
       [
-       1,
+       0.5,
        -2
+      ],
+      [
+       1,
+       0
       ]
      ]
     },
@@ -10344,8 +10511,12 @@
        0
       ],
       [
-       1,
+       0.5,
        -20
+      ],
+      [
+       1,
+       0
       ]
      ]
     }
@@ -10360,7 +10531,7 @@
    "damageTiming": 1,
    "attackName": "CrazedWorkerAttack",
    "authored": true,
-   "note": "Authored ZFAttackAnims timeline (animID 1), over the bob and head rock the engine never stops.",
+   "note": "Authored ZFAttackAnims timeline (animID 1), over the bob and head rock the engine never stops. RE-TIMED for damageTiming 1 exactly as the Scallywag's copy of this animation was: the blow lands on the last frame, so the recovery belongs at the head of the cycle and the whack has to arrive AT the hit rather than 10% before it. Clip time 0 and 1 now hold one pose. Every authored angle is unchanged.",
    "tracks": [
     {
      "name": "breathe (free-running)",
@@ -10414,15 +10585,15 @@
      "keys": [
       [
        0,
-       0
-      ],
-      [
-       0.9,
        180
       ],
       [
-       1,
+       0.15,
        0
+      ],
+      [
+       1,
+       180
       ]
      ]
     },
@@ -10457,6 +10628,10 @@
      "keys": [
       [
        0,
+       -3
+      ],
+      [
+       0.12,
        0
       ],
       [
@@ -10476,6 +10651,10 @@
      "keys": [
       [
        0,
+       -4
+      ],
+      [
+       0.12,
        0
       ],
       [

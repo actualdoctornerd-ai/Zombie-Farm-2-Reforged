@@ -93,6 +93,26 @@ const PIRATE_SWASHBUCKLER_ATTACK = "SwashbucklerSlice";
 const NINJA_STAB_ATTACK = "NinjaStab";
 const ROBOT_BRO_ATTACK = "BroBotAttack";
 const ROBOT_JUNK_ATTACK = "JunkBotBite";
+
+/** The attack names that have a hand-transcribed pose of their own below, instead of the
+ *  generic thrust. They matter outside this file for one reason: every one of them runs
+ *  on the SOURCE animation's timeline (each `poseXxx` opens with `sourceAttackProgress`),
+ *  so unlike the generic swing they carry a post-contact tail the renderer has to know
+ *  about — see raid/attackPhase.ts. Keep in step with the `authoredAttack` test in
+ *  `update`; raid/attackRestPose.test.ts fails if the two disagree. */
+const BESPOKE_ATTACKS: ReadonlySet<string> = new Set([
+  CIRCUS_BEAR_ATTACK, CIRCUS_STACK_ATTACK, CIRCUS_RINGMASTER_ATTACK,
+  LAWYER_WORKER_ATTACK, LAWYER_ATTACK, ...LAWYER_BOSS_ATTACKS,
+  PIRATE_BOSS_ATTACK, PIRATE_SWASHBUCKLER_ATTACK,
+  NINJA_STAB_ATTACK, ROBOT_BRO_ATTACK, ROBOT_JUNK_ATTACK,
+]);
+
+/** Does the PROCEDURAL pose for this attack run on the source animation's own timeline?
+ *  True for the transcribed family poses, false for the generic thrust — which is driven
+ *  by the cooldown window (rest for the first 28%, swing over the rest) and has no tail. */
+export function enemyProceduralPoseIsSourceRotated(attackName: string | undefined): boolean {
+  return !!attackName && BESPOKE_ATTACKS.has(attackName);
+}
 const DEG = Math.PI / 180;
 
 /** Smoothstep 0..1. */

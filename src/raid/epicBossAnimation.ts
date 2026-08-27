@@ -77,21 +77,27 @@ export function epicStripFrameIndex(progress: number, frameCount: number): numbe
 /**
  * The attack strip's frame for a point in the attack cycle.
  *
- * `attackMs` is the sim's countdown to the next hit, so the cycle runs from
- * `cooldownMs` (just struck) down to 0 (striking). The strip is laid over that so its
- * frame at `damageTiming` lands on the hit: the tail past the impact frame plays out
- * over the start of the next cycle, and the wind-up occupies the rest.
+ * `atkProg` is 0 at the instant of contact and fills to 1 at the next one. The strip is
+ * laid over that so its frame at `damageTiming` lands on the hit: the tail past the
+ * impact frame plays out over the start of the next cycle, and the wind-up occupies the
+ * rest.
+ *
+ * That tail is why the caller must hand this a progress read through `attackPhase`
+ * rather than `1 - attackMs / cooldownMs`, which is what it used to compute for itself.
+ * Progress 0 asserts a blow just landed, and the sim re-arms an idle enemy's clock every
+ * tick — so a boss re-engaging replayed its post-impact frames at nothing. Dr Groundhog
+ * and the Loco Locust connect at 0.25, which makes that THREE QUARTERS of a twelve- and
+ * a nine-frame strip.
  */
 export function epicAttackFrameIndex(
-  attackMs: number,
-  cooldownMs: number,
+  atkProg: number,
   damageTiming: number,
   frameCount: number
 ): number {
   if (frameCount <= 1) return 0;
   const timing = Math.max(0, Math.min(1, damageTiming));
-  const atkProg = Math.max(0, Math.min(1, 1 - attackMs / Math.max(1, cooldownMs)));
+  const prog = Math.max(0, Math.min(1, atkProg));
   const recovery = 1 - timing;
-  const sourceT = atkProg <= recovery ? timing + atkProg : atkProg - recovery;
+  const sourceT = prog <= recovery ? timing + prog : prog - recovery;
   return Math.max(0, Math.min(frameCount - 1, Math.floor(sourceT * frameCount)));
 }

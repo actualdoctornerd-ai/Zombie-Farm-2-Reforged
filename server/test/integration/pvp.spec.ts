@@ -434,7 +434,7 @@ describe("defense modes", () => {
 
   it("fields one zombie per class, each with a job, a station and an arrival", async () => {
     const attacker = await pvpPlayer("pvp-mode-a", attackUnits);
-    // One of every class, plus a spare Regular that should NOT get a seat.
+    // One of every class, plus a spare Regular that should NOT get a job.
     const defender = await pvpPlayer("pvp-mode-d", [
       { id: "f0", key: HEADLESS }, { id: "f1", key: "ZombieActorGardenTier3" },
       { id: "f2", key: "ZombieActorLargeTier3" }, { id: "f3", key: "ZombieActorSmallTier3" },
@@ -447,7 +447,10 @@ describe("defense modes", () => {
     expect(mine.status, JSON.stringify(mine.body)).toBe(200);
     expect(mine.body.mode).toBe("formation");
     const roles = (mine.body.defense?.defenders ?? []).map((d) => d.role);
-    expect(roles).toEqual(["tank", "brute", "mini", "line", "line", "support"]);
+    // Six jobs, one per class — Normal ("line") and Girl ("girl") are separate jobs
+    // doing identical work, which is what makes the job count and the class count the
+    // same six and the spare Regular unplaceable.
+    expect(roles).toEqual(["tank", "brute", "mini", "line", "girl", "support"]);
 
     const started = await call<StartResponse>("POST", "/raid/pvp/start", attacker.token,
       startBody(defender.accountId));
@@ -474,7 +477,7 @@ describe("defense modes", () => {
     expect(throwCfg, "formation mode must pin the brute's throw").toBeTruthy();
     expect(throwCfg!.options[0].sprite).toContain(byRole.get("mini")!.sourceKey);
     expect(throwCfg!.options[0].damage).toBeGreaterThan(0);
-    expect(units.filter((u) => u.defenseRole === "line")
+    expect(units.filter((u) => u.defenseRole === "line" || u.defenseRole === "girl")
       .every((u) => (u.deployAtMs ?? 0) > 0)).toBe(true);
 
     // Nothing TAPPABLE survives on defense. The positive half — a defending healer

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  attackProgress, markStruck, newAttackPhase, observeAttackTimer, postContactTail,
+} from "./attackPhase";
+import {
   epicAttackFrameIndex, epicBossAnimationLoops, epicStripFrameIndex, selectEpicBossAnimation,
 } from "./epicBossAnimation";
 import { EPIC_BOSS_LAND_MS } from "./BattleSim";
@@ -85,25 +88,31 @@ describe("epicStripFrameIndex", () => {
 });
 
 describe("epicAttackFrameIndex", () => {
+  // The caller now reads progress through raid/attackPhase (so the strip stops replaying
+  // its post-impact frames at nothing on a re-engage); these cases were written against
+  // the countdown it used to take, so convert here and keep them readable as one.
+  const atCountdown = (attackMs: number, cooldownMs: number) =>
+    Math.max(0, Math.min(1, 1 - attackMs / Math.max(1, cooldownMs)));
+
   it("lands the impact frame on the sim's hit", () => {
     // 10 frames, damage at 0.8 => frame 8 is the impact. attackMs 0 IS the hit.
-    expect(epicAttackFrameIndex(0, 500, 0.8, 10)).toBe(8);
+    expect(epicAttackFrameIndex(atCountdown(0, 500), 0.8, 10)).toBe(8);
   });
 
   it("plays the swing's tail over the start of the next cycle", () => {
     // Just after a hit the strip is still in recovery (past the impact frame), and it
     // reaches the last frame before the wind-up restarts from frame 0.
-    expect(epicAttackFrameIndex(500, 500, 0.8, 10)).toBe(8);
-    expect(epicAttackFrameIndex(450, 500, 0.8, 10)).toBe(9);
+    expect(epicAttackFrameIndex(atCountdown(500, 500), 0.8, 10)).toBe(8);
+    expect(epicAttackFrameIndex(atCountdown(450, 500), 0.8, 10)).toBe(9);
     // The recovery tail owns the first 20% of the cycle; the wind-up restarts under it.
-    expect(epicAttackFrameIndex(400, 500, 0.8, 10)).toBe(9);
-    expect(epicAttackFrameIndex(399, 500, 0.8, 10)).toBe(0);
+    expect(epicAttackFrameIndex(atCountdown(400, 500), 0.8, 10)).toBe(9);
+    expect(epicAttackFrameIndex(atCountdown(399, 500), 0.8, 10)).toBe(0);
   });
 
   it("advances monotonically through the wind-up", () => {
     let previous = -1;
     for (let ms = 399; ms >= 0; ms--) {
-      const index = epicAttackFrameIndex(ms, 500, 0.8, 10);
+      const index = epicAttackFrameIndex(atCountdown(ms, 500), 0.8, 10);
       expect(index).toBeGreaterThanOrEqual(previous);
       previous = index;
     }
@@ -112,15 +121,32 @@ describe("epicAttackFrameIndex", () => {
 
   it("shows every frame of the strip exactly once per attack cycle", () => {
     const seen = new Set<number>();
-    for (let ms = 500; ms > 0; ms -= 1) seen.add(epicAttackFrameIndex(ms, 500, 0.8, 10));
+    for (let ms = 500; ms > 0; ms -= 1) seen.add(epicAttackFrameIndex(atCountdown(ms, 500), 0.8, 10));
     expect([...seen].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
+  it("does not replay the post-impact frames at a boss that has not struck", () => {
+    // Dr Groundhog connects at 0.25, so three quarters of his twelve-frame strip is the
+    // follow-through of the blow before. The sim re-arms an idle enemy's clock every
+    // tick, so every re-engage used to restart the strip at frame 3 and play the whole
+    // recovery out at nothing. Held at the end of the tail instead, it waits on the last
+    // frame — the strip's own rest — and winds up from there.
+    const DT = 0.25, FRAMES = 12, CYCLE = 1000;
+    const phase = newAttackPhase(CYCLE);
+    observeAttackTimer(phase, CYCLE, true); // engaged, full timer, nothing struck
+    const waiting = attackProgress(phase, CYCLE, postContactTail(DT, true));
+    expect(epicAttackFrameIndex(waiting, DT, FRAMES)).toBe(FRAMES - 1);
+    // With a blow really behind it the recovery plays, exactly as it should.
+    markStruck(phase);
+    expect(epicAttackFrameIndex(attackProgress(phase, CYCLE, postContactTail(DT, true)), DT, FRAMES))
+      .toBe(Math.floor(DT * FRAMES));
+  });
+
   it("stays in range for a single-frame strip and for a clamped damage timing", () => {
-    expect(epicAttackFrameIndex(120, 500, 0.8, 1)).toBe(0);
-    expect(epicAttackFrameIndex(120, 500, 5, 6)).toBeLessThan(6);
-    expect(epicAttackFrameIndex(120, 500, -5, 6)).toBeGreaterThanOrEqual(0);
-    expect(epicAttackFrameIndex(0, 0, 0.8, 6)).toBeLessThan(6);
+    expect(epicAttackFrameIndex(atCountdown(120, 500), 0.8, 1)).toBe(0);
+    expect(epicAttackFrameIndex(atCountdown(120, 500), 5, 6)).toBeLessThan(6);
+    expect(epicAttackFrameIndex(atCountdown(120, 500), -5, 6)).toBeGreaterThanOrEqual(0);
+    expect(epicAttackFrameIndex(atCountdown(0, 0), 0.8, 6)).toBeLessThan(6);
   });
 
   // The regression this module exists for: every authored attack strip is LONGER than
@@ -139,7 +165,7 @@ describe("epicAttackFrameIndex", () => {
 
       const seen = new Set<number>();
       for (let ms = cycleMs; ms > 0; ms -= 0.5) {
-        seen.add(epicAttackFrameIndex(ms, cycleMs, 0.88, strip.frameCount));
+        seen.add(epicAttackFrameIndex(atCountdown(ms, cycleMs), 0.88, strip.frameCount));
       }
       expect(seen.size).toBe(strip.frameCount); // one full pass per swing, no frames lost
     }

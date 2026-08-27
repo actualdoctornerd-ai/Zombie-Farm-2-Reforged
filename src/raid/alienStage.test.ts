@@ -11,6 +11,10 @@ import {
   waveCadenceFor,
 } from "./alienStage";
 import type { CombatUnit, SummonConfig } from "./types";
+// @ts-ignore - node types are test-environment only, as in clipData.test.ts
+import { readFileSync } from "node:fs";
+
+const read = (p: string) => JSON.parse(readFileSync(new URL(p, import.meta.url), "utf-8"));
 
 const CENTER_Y = FIELD_H / 2;
 
@@ -302,6 +306,21 @@ describe("every alien is a different colour", () => {
     }
   });
 
+  it("leaves the alien's own face and body detail grey in the shipped rig", () => {
+    // `-[AlienStageActorMinion initSprite]` calls `setInheritColor: NO` on minionFace and
+    // minionBodyDetail, so the RANDOM tint dresses the uniform (suit, sleeves, boots,
+    // helmet) and the alien inside it stays grey. tools/prep_enemies.py writes the flag,
+    // but models.json is also round-tripped through the Rig Studio, and an export that
+    // dropped `noTint` once already recoloured the alien itself along with its suit.
+    const model = read("../../public/assets/raids/enemies/models.json")[ALIEN_MINION_KEY];
+    const grey = model.parts.filter((p: { noTint?: boolean }) => p.noTint);
+    expect(grey).toHaveLength(2);
+    // The face is the top-most head part; the body detail is the zipper over the suit.
+    expect(grey.map((p: { z: number }) => p.z).sort((a: number, b: number) => a - b)).toEqual([4, 6]);
+    // ...and the uniform still takes the colour: everything else is tintable.
+    expect(model.parts.length - grey.length).toBeGreaterThan(4);
+  });
+
   it("is stable per unit but spread across the wave", () => {
     // Stable: a token rebuilt mid-fight must come back the same colour.
     expect(alienTintFor(ALIEN_MINION_KEY, "a7")).toBe(alienTintFor(ALIEN_MINION_KEY, "a7"));
@@ -310,5 +329,137 @@ describe("every alien is a different colour", () => {
       Array.from({ length: 20 }, (_, i) => alienTintFor(ALIEN_MINION_KEY, `a${i}`))
     );
     expect(seen.size).toBeGreaterThan(15);
+  });
+});
+
+// The abductee is a mid-lane roadblock, and `passedWall` is the latch that says "I was
+// already ahead of it when it landed, so it is not in my way". Two paths put a zombie
+// BACK behind the blocker after that latch is set — a knockback shove, which keeps it on
+// purpose (a shoved zombie does not turn round), and a revive, which is a re-entry from
+// the charge slot and had no business keeping it. A revived zombie walked straight through
+// the abductee it had marched past in its first life and never traded a blow with it,
+// which on the one raid whose boss re-summons the moment the last one dies is a roadblock
+// that can only be cleared by zombies that have never died.
+describe("a revived zombie re-enters the lane behind the abductee", () => {
+  const abductees = (): SummonConfig => ({
+    queue: ABDUCTEE_SEED.map((key) =>
+      unit({ id: key, sourceKey: key, team: "enemy", str: 2, con: 1, hp: 400, maxHp: 400 })),
+    pool: [...new Set(ABDUCTEE_POOL)].map((key) =>
+      unit({ id: key, sourceKey: key, team: "enemy", str: 2, con: 1, hp: 400, maxHp: 400 })),
+  });
+  const summoned = (sim: BattleSim) => sim.units.filter((u: SimUnit) => u.isSummon);
+
+  it("stops short of it and fights it, rather than walking through", () => {
+    const fighter = unit({
+      id: "f", sourceKey: "ZombieActorRegularTier1", team: "player", str: 5, hp: 5000, maxHp: 5000,
+    });
+    const medic = unit({
+      id: "g", sourceKey: "ZombieActorGardenTier3", team: "player",
+      str: 8, isGarden: true, abilities: ["ressurect"], hp: 1e7, maxHp: 1e7,
+    });
+    const sim = new BattleSim(
+      [fighter, medic],
+      [
+        unit({ id: "bag", sourceKey: ALIEN_MINION_KEY, team: "enemy", str: 0, hp: 1e7, maxHp: 1e7 }),
+        unit({ id: "boss", sourceKey: "AlienStageActorBoss", team: "enemy", isBoss: true, str: 0, hp: 1e7, maxHp: 1e7 }),
+      ],
+      // A long summon cooldown so the fighter clears the FIRST abductee and reaches the
+      // front line before the next one lands — which is what latches `passedWall`.
+      null, true, [{ name: "summonBoss", weight: 1, castMs: 0, cooldownMs: 25_000, damage: 0 }],
+      undefined, abductees()
+    );
+    const f = sim.units.find((u: SimUnit) => u.id === "f")!;
+    for (let i = 0; i < 1200; i++) sim.step(50);
+    const victim = summoned(sim).filter((u: SimUnit) => u.alive)[0];
+    expect(victim).toBeTruthy();
+    expect(f.x).toBeGreaterThan(victim.x); // it marched past this one, latch and all
+    expect(f.passedWall).toBe(true);
+    victim.hp = victim.maxHp = 1e7; // keep THIS abductee standing for the rest of the test
+
+    (sim as any).dealDamage(f, f.maxHp, false);
+    for (let i = 0; i < 400; i++) sim.step(50);
+
+    expect(f.alive).toBe(true);
+    expect(f.passedWall).toBe(false);
+    expect(f.x).toBeLessThan(victim.x);          // …and it is stopped short of the blocker
+    expect(f.x).toBeGreaterThan(victim.x - 120); // …close enough to actually reach it
+    expect(victim.hp).toBeLessThan(victim.maxHp);
+  });
+});
+
+// The saucer fires whenever the player has anything on the lane. The recovered rule was
+// narrower — only zombies ENGAGED with the wave were candidates — and it could stall the
+// raid outright: a Garden zombie holds a fixed spot and closes on nothing, so it is never
+// engaged, and an army of nothing but healers (or one whose last ordinary body has died)
+// handed the saucer an empty candidate list on every cycle. It fired nothing, they had
+// nothing hurt to heal, and the fight ran out its four-minute clock with neither side able
+// to touch the other. See laserTarget for the divergence and what is kept from the source.
+describe("the saucer shoots whatever is on the lane", () => {
+  const gardens = () => ["g0", "g1"].map((id) => unit({
+    id, sourceKey: "ZombieActorGardenTier3", team: "player",
+    str: 8, isGarden: true, abilities: ["heal"], hp: 1e7, maxHp: 1e7,
+  }));
+  const laserSaucer = (players: CombatUnit[]) => new BattleSim(
+    players,
+    [
+      unit({ id: "bag", sourceKey: ALIEN_MINION_KEY, team: "enemy", str: 0, hp: 1e7, maxHp: 1e7 }),
+      unit({ id: "boss", sourceKey: "AlienStageActorBoss", team: "enemy", isBoss: true, str: 0, hp: 1e7, maxHp: 1e7 }),
+    ],
+    null, true, [{ name: "alienLaser", weight: 1, castMs: 0, cooldownMs: 300, damage: 0 }]
+  );
+
+  /** Fire on this field for 20 s and report what landed, per zombie. */
+  const shootAt = (players: CombatUnit[]) => {
+    const sim = laserSaucer(players);
+    for (let i = 0; i < 400; i++) sim.step(50);
+    const zombies = sim.units.filter((u: SimUnit) => u.team === "player");
+    return {
+      bolts: sim.snapshot().projSeq,
+      dealt: Object.fromEntries(zombies.map((u) => [u.id, u.maxHp - u.hp])),
+      total: zombies.reduce((sum, u) => sum + (u.maxHp - u.hp), 0),
+      states: zombies.map((u) => u.state),
+    };
+  };
+
+  it("fires at the healers when they are the only zombies on the field", () => {
+    const { bolts, total, states } = shootAt(gardens());
+    // They are never engaged and never will be — that is what made this field unreachable.
+    expect(states.every((st) => st === "advance")).toBe(true);
+    expect(bolts).toBeGreaterThan(0);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it("fires at a LONE healer too — one Garden is still a field it must be able to reach", () => {
+    // The one-zombie case is the stalemate at its purest: nothing else can ever deploy,
+    // so an empty candidate list here is an empty candidate list for the whole raid.
+    const { bolts, total } = shootAt(gardens().slice(0, 1));
+    expect(bolts).toBeGreaterThan(0);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it("spreads the fire when an ordinary body is out there with them", () => {
+    // The healers stay in it — the draw is over the whole deployed line — but they take a
+    // share rather than the whole barrage. The bug this rule replaced aimed the bolt like
+    // a THROW, at the rear-most deployed unit, which put every shot on the support station.
+    const fighter = unit({
+      id: "f", sourceKey: "ZombieActorRegularTier1", team: "player", hp: 1e7, maxHp: 1e7,
+    });
+    const { dealt, total } = shootAt([fighter, ...gardens()]);
+    expect(total).toBeGreaterThan(0);
+    expect(dealt.f).toBeGreaterThan(0);
+    expect(dealt.g0 + dealt.g1).toBeLessThan(total); // …not all of it on the back line
+  });
+
+  it("holds its fire while the lane is empty", () => {
+    // Not "nobody is engaged" — nobody is OUT there. An army still in the charge queue is
+    // not sniped at the back of the field.
+    const sim = laserSaucer(gardens());
+    const zombies = sim.units.filter((u: SimUnit) => u.team === "player");
+    for (let i = 0; i < 400; i++) {
+      for (const z of zombies) z.state = "waiting";
+      sim.step(50);
+    }
+    expect(sim.snapshot().projSeq).toBe(0);
+    expect(zombies.every((u) => u.hp === u.maxHp)).toBe(true);
   });
 });

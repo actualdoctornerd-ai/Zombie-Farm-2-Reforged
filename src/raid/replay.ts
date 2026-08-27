@@ -712,7 +712,68 @@ import type { RaidOutcome } from "./types";
 // from a fast Regular stepping up after the Headless fell. Under v44 the same fight reads
 // 6.5 s while the Headless holds. Same cost as every bump: an invasion in flight at deploy
 // time settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 44;
+//
+// v45 — three fixes to what happens AFTER a zombie is put back on the lane, two of them
+// on Zombies vs Aliens. Reported together; they share the one code path (`resurrect`)
+// twice over.
+//
+//  1. A REVIVED ZOMBIE KEEPS ITS RANK. `resurrect` used to hand the zombie a fresh
+//     `formOrder` off `releaseSeq`, dropping it to the tail of the deployed block — the
+//     same thing knockback, the crab and the trapeze do. Those three are SHOVES: the row
+//     behind has closed over the gap while the zombie recovers, and going to the back is
+//     the price. A revive is not. The zombie died, the line closed over it entirely, and
+//     it comes back as a re-entry.
+//     For a Headless that was the whole of its defining behaviour, gone: `armyOrder`'s
+//     promotion is the source's repair pass (last ENGAGED Headless, and only while no
+//     Headless holds the front five), so a revived one — still walking in from the charge
+//     slot, and outranked outright if the army fields a second Headless — sat in whatever
+//     depth band its tail rank gave it. With two Headless it never recovered at all.
+//     It now keeps its own `formOrder` and, for a Headless, its `frontPriority`.
+//  2. A REVIVED ZOMBIE RE-EARNS `passedWall`. Coming back at x=CHARGE_X puts it behind
+//     anything standing mid-lane — the alien boss's abductee, or a boss wall — but the
+//     "I was already past it when it landed" latch survived the death, so it walked
+//     straight through the abductee and never traded a blow with it. On raid 6, whose
+//     boss re-summons the moment the last abductee dies, that made the roadblock
+//     clearable only by zombies that had never died.
+//  3. THE SAUCER SHOOTS ANYTHING ON THE LANE. `laserTarget` drew only from ENGAGED
+//     zombies — the recovered `isInMeleeRange` candidate list. A Garden zombie holds at a
+//     fixed absolute x (itself a divergence) and closes on nothing, so it is never in
+//     that set: an army of nothing but healers, or one whose last ordinary body has died,
+//     handed the saucer an empty list on EVERY cycle. It fired nothing, they had nothing
+//     hurt to heal, and the fight ran out the four-minute cap with neither side able to
+//     touch the other. The engaged-only list also emptied for seconds at a time in
+//     ordinary fights — between waves, and while the front rank crossed — and a boss that
+//     visibly stops shooting reads as broken rather than as faithful.
+//     The list is now every DEPLOYED zombie. The source's SELECTION is untouched: one
+//     candidate at random, same roll, same salt, and an empty lane still refuses the shot.
+//     This is not a return to the `throwTarget` bug that predated the rule — that picked
+//     the REAR-MOST deployed zombie every time, so every bolt of the fight landed on the
+//     support station; a random draw puts one bolt in N on a healer with N deployed.
+//     Measured on the balance stick: weakest-winning-army 0.977 -> 0.991 ordinary and
+//     2.119 -> 2.206 elite, no win or loss flipped at any rung, and the late-invasion
+//     elite ramp still climbs in order. On the projectile stick (one healer in an
+//     8-strong army) the healer goes from surviving the fight to dying to the laser
+//     during it: 606 damage on a 550 bar, 577 of it before the last of the army fell.
+//
+// Transcript-changing from the first revive of a fight, and (3) from the saucer's first
+// shot on every raid-6 invasion. Same cost as every bump: an invasion in flight at deploy
+// time settles as stale_ruleset and pays nothing.
+//
+// v46 — authoritative front-line ordering. This supersedes v45 item 1 after the intended
+// line rule was clarified:
+//
+//  1. Ordinary zombies are FIFO by arrival. Body-type standoff still spaces sprites but
+//     can no longer reorder slots or make a later light body physically overtake an
+//     earlier heavy one.
+//  2. Knockback and resurrection are fresh arrivals at the tail of the ordinary line.
+//  3. Every incoming Headless pushes into position zero, including one returning from
+//     resurrection. Multiple Headless zombies therefore put the newest arrival first.
+//     Knockback temporarily clears that priority; once recovery reaches the line, the
+//     Headless pushes back into position zero.
+//
+// Transcript-changing whenever differently sized bodies share a band, and on knockback
+// or resurrection. In-flight invasions at deploy time settle as stale_ruleset.
+export const RAID_RULESET_VERSION = 46;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

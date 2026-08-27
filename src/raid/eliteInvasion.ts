@@ -245,7 +245,10 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // ramp's second rung, fitted to p* 1.66. Alone among the five it goes slightly UP: the
   // ramp is a straight climb in ladder order, and the Ninjas sit between a Pirates raid
   // that came down and a Robots raid that came down further.
-  4: { str: 2.97, con: 1.81, dex: 1.41, throwDamage: 1.34, throwRate: 1.64, wallHp: 1.58, specialDamage: 2.39 },
+  // v46 FIFO RE-FIT: corrected front-line ordering made this rung overshoot its intended
+  // relationship to the Video Games. Its non-projectile multipliers step down together;
+  // the calibrated throw step stays exactly as authored above.
+  4: { str: 2.85, con: 1.76, dex: 1.39, throwDamage: 1.34, throwRate: 1.64, wallHp: 1.55, specialDamage: 2.31 },
 
   // 5 — Zombies vs Robots. One of each bot, a random one leading, each with its own
   // special (junk wall, telekinesis). Bots are already the tankiest wave in the game, so
@@ -349,7 +352,10 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // is the check on the whole exercise rather than an oversight: Zedzox's authored flat 100s
   // already cleared the yardstick, so his ordinary throw did not move, so his elite step
   // (2.22) did not need to.
-  9: { str: 1.58, con: 1.44, dex: 1.29, throwDamage: 1.72, throwRate: 1.29, wallHp: 1, specialDamage: 2.03 },
+  // v46 FIFO RE-FIT: the corrected line made the Aliens narrowly overtake this final rung,
+  // so its non-projectile profile gets a small lift to keep the last unlocked invasion the
+  // hardest elite fight. The independently calibrated projectile step stays unchanged.
+  9: { str: 1.64, con: 1.48, dex: 1.32, throwDamage: 1.72, throwRate: 1.29, wallHp: 1, specialDamage: 2.13 },
 
   // 10 / 11 — Tree World and Valentine's Day. Seasonal, no signature mechanic, and the
   // two weakest waves after McDonnell's, so they take the same broad treatment as

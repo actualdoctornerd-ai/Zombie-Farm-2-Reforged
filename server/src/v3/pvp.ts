@@ -290,24 +290,16 @@ export async function finishPvp(
   // replay always completes. `clientWin` stays a one-way concession all the same.
   const win = !verified.retreated && verified.outcome.win && !conceded;
 
-  // Daily income accounting. Two concurrent finishes for one attacker cannot race
-  // (one live session per attacker + the result CAS below); two DIFFERENT attackers
-  // finishing against one defender can, in which case the defender may be paid for
-  // one extra defense that day — a rare, tiny over-pay, accepted over serialising
-  // every defender's fights.
+  // Daily income accounting. One live session per attacker makes the attacker count
+  // safe. Defender eligibility is deliberately calculated inside the settlement UPDATE
+  // below: a separate SELECT lets two attackers observe the same remaining cap slot.
   const dayStart = dayBucket(now) * DAY_MS;
   let attackerRewarded = false;
-  let defenseRewarded = false;
   if (win) {
     const paid = await db.prepare(`SELECT COUNT(*) AS n FROM pvp_sessions_v3
       WHERE attacker_id = ? AND win = 1 AND attacker_rewarded = 1 AND finished_at >= ?`)
       .bind(accountId, dayStart).first<{ n: number }>();
     attackerRewarded = (paid?.n ?? 0) < PVP_DAILY_REWARDED_WINS;
-  } else {
-    const paid = await db.prepare(`SELECT COUNT(*) AS n FROM pvp_sessions_v3
-      WHERE defender_id = ? AND win = 0 AND defense_rewarded = 1 AND finished_at >= ?`)
-      .bind(session.defender_id, dayStart).first<{ n: number }>();
-    defenseRewarded = (paid?.n ?? 0) < PVP_DAILY_REWARDED_DEFENSES;
   }
 
   const tiers = parse<{ attackerTier?: number; defenderTier?: number }>(session.boosts_json, {});
@@ -331,12 +323,17 @@ export async function finishPvp(
   const inputsJson = JSON.stringify(Array.isArray(body.inputs) ? body.inputs : []);
   const statements: D1PreparedStatement[] = [
     db.prepare(`UPDATE pvp_sessions_v3 SET finished_at = ?, result_json = ?, win = ?,
-      final_tick = ?, inputs_json = ?, attacker_rewarded = ?, defense_rewarded = ?
+      final_tick = ?, inputs_json = ?, attacker_rewarded = ?, defense_rewarded = CASE
+        WHEN ? = 1 THEN NULL
+        WHEN (SELECT COUNT(*) FROM pvp_sessions_v3 paid
+          WHERE paid.defender_id = ? AND paid.win = 0 AND paid.defense_rewarded = 1
+            AND paid.finished_at >= ?) < ? THEN 1
+        ELSE 0 END
       WHERE id = ? AND finished_at IS NULL`)
       .bind(now, resultJson, win ? 1 : 0, Math.max(0, Math.trunc(Number(body.finalTick) || 0)),
         inputsJson.length <= 40_000 ? inputsJson : null,
-        win ? (attackerRewarded ? 1 : 0) : null, win ? null : (defenseRewarded ? 1 : 0),
-        session.id),
+        win ? (attackerRewarded ? 1 : 0) : null,
+        win ? 1 : 0, session.defender_id, dayStart, PVP_DAILY_REWARDED_DEFENSES, session.id),
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, 'pvp_finish', ?, ? WHERE ${guard}`)
       .bind(settlementId, accountId, JSON.stringify({

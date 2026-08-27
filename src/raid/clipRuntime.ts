@@ -125,6 +125,24 @@ export function clipNameFor(
 }
 
 /**
+ * Which timeline the attack pose for this rig runs on, or null when no clip covers it
+ * and the actor will pose itself procedurally. Resolved exactly the way `poseForFrame`
+ * resolves it, including the fall back from a named clip to the plain "attack" one, so
+ * the answer is the clip the frame will actually draw.
+ *
+ * The renderer needs this before it computes progress: only a `"source"` timeline has a
+ * post-contact tail to suppress (see raid/attackPhase.ts `postContactTail`).
+ */
+export function attackClipTimeBase(
+  kind: RigKind, key: string, attackName: string | undefined, explicit?: string,
+): Clip["timeBase"] | null {
+  if (!hasRigClips(kind, key)) return null;
+  let clip = rigClipFor(kind, key, clipNameFor(false, attackName, true, explicit));
+  if (!clip && attackName) clip = rigClipFor(kind, key, "attack");
+  return clip ? (clip.timeBase || "free") : null;
+}
+
+/**
  * Resolve and evaluate the clip for one actor frame, or null to run the procedural pose.
  * A named attack clip falls back to the un-suffixed "attack" the studio writes when a rig
  * has only one, so a rig with a single swing can be edited under either name.

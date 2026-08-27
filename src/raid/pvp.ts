@@ -56,19 +56,44 @@ export const PVP_DEFENSE_MODE_DEFAULT: PvpDefenseMode = "classic";
 export const isPvpDefenseMode = (value: unknown): value is PvpDefenseMode =>
   typeof value === "string" && (PVP_DEFENSE_MODES as readonly string[]).includes(value);
 
-/** The six jobs a formation defense fills — one per zombie class, which is why the
- *  defense cap and the class count are the same number. */
-export type PvpDefenseRole = "tank" | "support" | "brute" | "mini" | "line";
+/** The six jobs a formation defense fills — ONE PER ZOMBIE CLASS, which is why the
+ *  defense cap and the class count are the same number.
+ *
+ *  Normal and Girl are two jobs even though they do the same work, stand in the same
+ *  place and arrive on the same beat (owner's ruling, 2026-08-25). They were one shared
+ *  "line" job with two holders, and that one-to-many gap was a bug generator rather
+ *  than a wording nicety: anything enforcing "one of each" that keyed off the job
+ *  merged the two line classes into a single slot and left the sixth permanently
+ *  unfillable — a full defense read 5/6. With a job per class the count of jobs IS the
+ *  cap, so keying off the job is now always right. Anything that needs "does the same
+ *  work" rather than "is the same job" asks `isLineRole`, never `=== "line"`. */
+export type PvpDefenseRole = "tank" | "support" | "brute" | "mini" | "line" | "girl";
 
-/** Which class fills which job. `group` is the zombie's body type (types.ts). */
+/** Which class fills which job. `group` is the zombie's body type (types.ts). One
+ *  class in, one job out — the map is a bijection and every rule below leans on it. */
 export const PVP_ROLE_BY_GROUP: Readonly<Record<string, PvpDefenseRole>> = {
   Headless: "tank",
   Garden: "support",
   Large: "brute",
   Small: "mini",
   Regular: "line",
-  Female: "line",
+  Female: "girl",
 };
+
+/** Every job a formation defense can fill, front to back. Exactly PVP_DEFENSE_CAP of
+ *  them, pinned by test — the picker counts these, the auto snapshot fills these. */
+export const PVP_DEFENSE_ROLES: readonly PvpDefenseRole[] = [
+  "tank", "brute", "mini", "line", "girl", "support",
+];
+
+/** The two REINFORCEMENT jobs: Normal and Girl. Separate jobs, identical work — both
+ *  stand at DEF_LINE_X and both arrive on the drip. Every mechanical rule about "the
+ *  line" reads this, so adding a third line class later is one entry, not a hunt. */
+export const PVP_LINE_ROLES: readonly PvpDefenseRole[] = ["line", "girl"];
+
+/** Does this job arrive as a reinforcement rather than standing at the opening bell? */
+export const isLineRole = (role: PvpDefenseRole | null | undefined): boolean =>
+  !!role && (PVP_LINE_ROLES as readonly string[]).includes(role);
 
 /** Stations, in sim x (FIELD_W 1000). The defense holds at the barn doorway (940)
  *  today with 60px of stage behind it — no room for a formation — so the tank is
@@ -82,6 +107,7 @@ export const PVP_STATION_BY_ROLE: Readonly<Record<PvpDefenseRole, number>> = {
   brute: DEF_LINE_X,
   mini: DEF_LINE_X,
   line: DEF_LINE_X,
+  girl: DEF_LINE_X, // the same station as Normal: a separate JOB, not a separate place
   support: DEF_SUPPORT_X,
 };
 
@@ -253,35 +279,19 @@ export function roleForGroup(group: string | undefined): PvpDefenseRole | null {
   return (group && PVP_ROLE_BY_GROUP[group]) || null;
 }
 
-/** The POST a class stands at, which is not the same thing as its job: Regular and
- *  Girl both hold the "line" job, so the line has TWO posts and the formation has
- *  six — one per class, exactly PVP_DEFENSE_CAP. Anything that enforces "one each"
- *  must key off this rather than off the role, or the two line classes fight over a
- *  single post and the sixth slot can never be filled. */
-export type PvpDefenseSeat = string;
-
-/** Every post a formation defense can fill, front to back. */
-export const PVP_DEFENSE_SEATS: readonly PvpDefenseSeat[] = [
-  "tank", "brute", "mini", "line:Regular", "line:Female", "support",
-];
-
-/** Which post this class stands at, or null if its class has none. */
-export function defenseSeatForGroup(group: string | undefined): PvpDefenseSeat | null {
-  const role = roleForGroup(group);
-  if (!role) return null;
-  return role === "line" ? `line:${group}` : role;
-}
-
-/** Pick at most one zombie per POST, strongest first within each. Deterministic. */
+/** Pick at most one zombie per JOB, strongest first within each. Deterministic.
+ *
+ *  There is no second key to get wrong here any more: one class holds one job, so a
+ *  second Regular loses to the first Regular and never to the Girl. */
 export function selectFormationDefense(units: CombatUnit[]): CombatUnit[] {
-  const best = new Map<PvpDefenseSeat, CombatUnit>();
+  const best = new Map<PvpDefenseRole, CombatUnit>();
   const ranked = [...units].sort(
     (a, b) => unitScore(b) - unitScore(a) || a.id.localeCompare(b.id)
   );
   for (const unit of ranked) {
-    const seat = defenseSeatForGroup(unit.group);
-    if (!seat) continue;
-    if (!best.has(seat)) best.set(seat, unit);
+    const role = roleForGroup(unit.group);
+    if (!role) continue;
+    if (!best.has(role)) best.set(role, unit);
   }
   return [...best.values()].slice(0, PVP_DEFENSE_CAP);
 }
@@ -295,17 +305,23 @@ export function selectFormationDefense(units: CombatUnit[]): CombatUnit[] {
  *  off the wave budget, and it climbs down to fight once the rest of the defense is
  *  gone. The farm's heavy hitter IS the boss of the farm. */
 export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
-  const ROLE_ORDER: PvpDefenseRole[] = ["tank", "brute", "mini", "line", "support"];
-  const ordered = [...selected].sort((a, b) => {
-    const ra = ROLE_ORDER.indexOf(roleForGroup(a.group) ?? "line");
-    const rb = ROLE_ORDER.indexOf(roleForGroup(b.group) ?? "line");
-    return ra - rb || a.id.localeCompare(b.id);
-  });
+  // Front-to-back RANK, which is not the job list: Normal and Girl are two jobs doing
+  // one job's work, so they share a rank and still settle between themselves on id.
+  // Giving Girl its own rank would have made the Normal always arrive first, and which
+  // of the two lands on the 5 s beat and which on the 10 s is transcript-visible — a
+  // ruleset change, which this deliberately is not.
+  const ROLE_RANK: Readonly<Record<PvpDefenseRole, number>> = {
+    tank: 0, brute: 1, mini: 2, line: 3, girl: 3, support: 4,
+  };
+  const rankOf = (u: CombatUnit) => ROLE_RANK[roleForGroup(u.group) ?? "line"];
+  const ordered = [...selected].sort(
+    (a, b) => rankOf(a) - rankOf(b) || a.id.localeCompare(b.id)
+  );
   // Only a defense that actually has a brute can hold its mini back as ammunition —
   // with no thrower there is nothing to reload, and a mini left waiting for a descent
   // that never comes would stand the fight up until the time cap.
   const hasBrute = ordered.some((u) => roleForGroup(u.group) === "brute");
-  let lineSeat = 0;
+  let lineBeat = 0;
   return ordered.map((unit, i) => {
     const role = roleForGroup(unit.group) ?? "line";
     const copy = toEnemyCopy(unit, i, true);
@@ -331,8 +347,9 @@ export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
       return copy;
     }
     // The line arrives as reinforcements, one per beat; everyone else is in place
-    // when the fight opens (the tank walks out from there to its station).
-    copy.deployAtMs = role === "line" ? PVP_DEFENSE_DRIP_MS * ++lineSeat : 0;
+    // when the fight opens (the tank walks out from there to its station). BOTH line
+    // jobs drip, and off the SAME counter — two jobs, one queue.
+    copy.deployAtMs = isLineRole(role) ? PVP_DEFENSE_DRIP_MS * ++lineBeat : 0;
     return copy;
   });
 }

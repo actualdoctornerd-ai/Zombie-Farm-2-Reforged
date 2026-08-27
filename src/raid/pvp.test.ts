@@ -37,8 +37,9 @@ import {
   pvpRewardsForTier,
   pvpTierForPoints,
   selectFormationDefense,
-  defenseSeatForGroup,
-  PVP_DEFENSE_SEATS,
+  roleForGroup,
+  isLineRole,
+  PVP_DEFENSE_ROLES,
   PVP_ROLE_BY_GROUP,
   toDefenseUnits,
   unitScore,
@@ -268,20 +269,41 @@ describe("formation defense mode", () => {
   const formation = (unlocked = true) =>
     formationDefenseUnits(selectFormationDefense(build(ONE_PER_CLASS, "d", unlocked)));
 
-  it("has one post per class, so all PVP_DEFENSE_CAP of them can be filled", () => {
-    // The bug this pins: Regular and Girl share the "line" JOB, so anything enforcing
-    // "one each" by ROLE merged them into a single post and left the sixth slot
-    // permanently unfillable — a full defense read 5/6. The posts are what the picker
-    // and the auto snapshot both count, and there are exactly PVP_DEFENSE_CAP of them.
-    const seats = Object.keys(PVP_ROLE_BY_GROUP).map((group) => defenseSeatForGroup(group));
-    expect(new Set(seats).size).toBe(PVP_DEFENSE_CAP);
-    expect(new Set(seats)).toEqual(new Set(PVP_DEFENSE_SEATS));
-    expect(PVP_DEFENSE_SEATS).toHaveLength(PVP_DEFENSE_CAP);
-    expect(defenseSeatForGroup("Regular")).not.toBe(defenseSeatForGroup("Female"));
-    expect(defenseSeatForGroup("Sasquatch")).toBeNull(); // a class with no post
+  it("has one JOB per class, so all PVP_DEFENSE_CAP of them can be filled", () => {
+    // The bug this pins: Regular and Girl once shared a single "line" job, so anything
+    // enforcing "one each" by role merged them into one slot and left the sixth
+    // permanently unfillable — a full defense read 5/6. Girl is now a job of its own
+    // (owner's ruling), which makes class -> job a BIJECTION: the job list, the class
+    // list and the cap are the same six things, so keying off the job is always right.
+    const roles = Object.keys(PVP_ROLE_BY_GROUP).map((group) => roleForGroup(group));
+    expect(new Set(roles).size).toBe(PVP_DEFENSE_CAP);
+    expect(new Set(roles)).toEqual(new Set(PVP_DEFENSE_ROLES));
+    expect(PVP_DEFENSE_ROLES).toHaveLength(PVP_DEFENSE_CAP);
+    expect(roleForGroup("Regular")).not.toBe(roleForGroup("Female"));
+    expect(roleForGroup("Sasquatch")).toBeNull(); // a class with no job
 
     // ...and one zombie of each class really does fill every one of them.
     expect(selectFormationDefense(build(ONE_PER_CLASS, "d"))).toHaveLength(PVP_DEFENSE_CAP);
+  });
+
+  it("keeps Normal and Girl doing identical work in two different jobs", () => {
+    // "Two jobs, even if they do the same thing" is the whole ruling, so BOTH halves
+    // are pinned: distinct job names, identical mechanics. A future edit that gives
+    // Girl its own station or its own beat has to come through this test.
+    expect(isLineRole(roleForGroup("Regular"))).toBe(true);
+    expect(isLineRole(roleForGroup("Female"))).toBe(true);
+    expect(isLineRole(roleForGroup("Headless"))).toBe(false);
+
+    const defense = formation();
+    const normal = defense.find((u) => u.sourceKey === "ZombieActorRegularTier3")!;
+    const girl = defense.find((u) => u.sourceKey === "ZombieActorGirlTier3")!;
+    expect(normal.defenseRole).toBe("line");
+    expect(girl.defenseRole).toBe("girl");
+    // Same post, same reinforcement queue: one beat each, off one shared counter.
+    expect(girl.stationX).toBe(normal.stationX);
+    expect(normal.stationX).toBe(DEF_LINE_X);
+    expect([normal.deployAtMs, girl.deployAtMs].sort((a, b) => (a ?? 0) - (b ?? 0)))
+      .toEqual([PVP_DEFENSE_DRIP_MS, PVP_DEFENSE_DRIP_MS * 2]);
   });
 
   it("lets a defending Regular fire its beam while the attackers walk in", () => {
@@ -338,10 +360,10 @@ describe("formation defense mode", () => {
     expect(sim.units.filter((u) => u.team === "enemy").every((u) => u.laserFxSeq === 0)).toBe(true);
   });
 
-  it("gives every class its own job, front to back, one seat each", () => {
+  it("gives every class its own job, front to back, one each", () => {
     const units = formation();
     expect(units.map((u) => u.defenseRole)).toEqual(
-      ["tank", "brute", "mini", "line", "line", "support"]
+      ["tank", "brute", "mini", "line", "girl", "support"]
     );
     // The tank holds the front; the support stands deepest, out of the combat band.
     const at = (role: string) => units.find((u) => u.defenseRole === role)!;
@@ -386,7 +408,9 @@ describe("formation defense mode", () => {
     for (const role of ["tank", "brute", "support"]) {
       expect(units.find((u) => u.defenseRole === role)!.deployAtMs).toBe(0);
     }
-    const line = units.filter((u) => u.defenseRole === "line");
+    // BOTH reinforcement jobs drip, off one shared counter — Normal and Girl are two
+    // jobs queueing for the same beat, not two queues.
+    const line = units.filter((u) => isLineRole(u.defenseRole ?? null));
     expect(line.map((u) => u.deployAtMs)).toEqual([PVP_DEFENSE_DRIP_MS, PVP_DEFENSE_DRIP_MS * 2]);
   });
 

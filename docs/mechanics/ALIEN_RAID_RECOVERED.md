@@ -51,6 +51,25 @@ laser was the bug: every alien bolt landed on the Garden healers massed at the s
 
 **Fixed:** `BattleSim.laserTarget()`, and an `alienLaser` case in `canPerform`.
 
+> **DELIBERATE DIVERGENCE (raid ruleset 45): the candidate list is every DEPLOYED zombie,
+> not only the engaged ones.** The random draw above is kept exactly — same roll, same
+> salt, one candidate — and so is the empty-list refusal; only the set it draws from is
+> wider. Two reasons the recovered reading could not stay. First, it can stall the raid:
+> a Garden zombie holds at a fixed absolute x (`GARDEN_STATION_X`, itself a divergence)
+> and closes on nothing, so it is never `isInMeleeRange` — an army of nothing but healers,
+> or one whose last ordinary body has died, hands the saucer an empty list on *every*
+> cycle, and the fight runs out the four-minute cap with neither side able to reach the
+> other. Second, even in ordinary fights the engaged-only list goes empty for seconds at a
+> time (between waves, and while the front rank crosses the lane), and a boss that
+> visibly stops shooting reads as broken rather than as faithful.
+>
+> This is NOT a return to the `getThrowTarget` bug described above. That selector picks the
+> rear-most deployed zombie *every time*, so every bolt of the fight lands on the support
+> station; a random draw puts one bolt in N on a healer with N zombies deployed. Measured
+> on the balance stick: weakest-winning-army 0.977 → 0.991 ordinary, 2.119 → 2.206 elite,
+> no win or loss flipped at any rung. On the projectile stick (one healer in an 8-strong
+> army) the healer goes from surviving the fight to dying to the laser during it.
+
 ## 2. Bolt physics
 
 | Quantity | Ground truth | Where |

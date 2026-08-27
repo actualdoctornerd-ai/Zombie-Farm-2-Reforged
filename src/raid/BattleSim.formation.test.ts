@@ -1,18 +1,9 @@
 // Who stands at the front of the line, and therefore who dies.
 //
 // This sim's enemies do not chip the whole front row — `playerInRange` picks the single
-// front-most zombie down the lane and commits everything to it. So the body-type standoff
-// in `assignFormation` is not cosmetic: whichever body plants closest to the enemy is the
-// body that absorbs the entire fight.
-//
-// The binary puts the LIGHTEST body there (`Small: -15`, and the front-most slot of its
-// band), which in this sim made every Mini in the army the designated casualty. Players
-// reported their Minis pushing to the front and getting themselves killed. So Minis were
-// folded into the Regular bucket — see MINI_STANDS_WITH_REGULAR in BattleSim.ts. The
-// Headless still pushes to the front, because that is the whole point of a Headless.
-//
-// These tests pin both halves of that. If a future pass "restores" the disassembled
-// `Small` bucket, the first test here is what should stop it.
+// front-most zombie down the lane and commits everything to it. Formation geometry is
+// therefore gameplay: body-specific spacing must not silently reorder the FIFO line.
+// Headless is the deliberate exception and always pushes into position zero.
 import { describe, expect, it } from "vitest";
 import { BattleSim, ENEMY_HOLD_X } from "./BattleSim";
 import type { CombatUnit } from "./types";
@@ -196,8 +187,10 @@ describe("a reinforcement does not open a hole in the line while it walks up", (
     expect(idleTicks).toBe(0);
   });
 
-  it("keeps it in contact for a Regular taking the lead off a heavier body", () => {
-    expect(reinforce(large("l"), regular("r")).idleTicks).toBe(0);
+  it("keeps it in contact without letting a later Regular overtake a heavier body", () => {
+    const ordinary = reinforce(large("l"), regular("r"));
+    expect(ordinary.idleTicks).toBe(0);
+    expect(ordinary.a.x).toBeGreaterThan(ordinary.b.x);
     expect(reinforce(regular("r"), headless("h")).idleTicks).toBe(0);
   });
 
@@ -207,5 +200,80 @@ describe("a reinforcement does not open a hole in the line while it walks up", (
     const { gaveGround, a, b } = reinforce(large("l"), headless("h"));
     expect(gaveGround).toBeGreaterThan(20); // the Large did give way — once, at the end
     expect(b.x).toBeGreaterThan(a.x);       // ...and the Headless leads the row
+  });
+});
+
+// Resurrection is a new arrival: it gets a fresh tail order. A Headless then applies its
+// defining exception and pushes that new arrival into position zero.
+describe("a resurrected zombie rejoins the line", () => {
+  const medic = (id: string) =>
+    unit({
+      id, sourceKey: "ZombieActorGardenTier3", group: "Garden", team: "player",
+      isGarden: true, abilities: ["ressurect"],
+    });
+
+  /** Deploy the party through the real charge queue (so every zombie claims a distinct
+   *  `formOrder`), let it settle on the line, then kill `victim` and let the medic revive
+   *  it. Returns the army's rank order before the death and after the revive. */
+  function reviveInLine(players: CombatUnit[], victimId: string) {
+    const enemy = unit({
+      id: "e", sourceKey: "FarmStageActorEnemy", team: "enemy", con: 100_000, str: 1, dex: 1,
+      hp: 1e12, maxHp: 1e12,
+    });
+    const sim = new BattleSim(
+      players, [enemy], null, true, [], 10 * 60 * 1000, null, null, false, false, false, 60, null, null
+    );
+    const e = sim.units.find((u) => u.id === "e")!;
+    const roster = sim.units.filter((u) => u.team === "player");
+    // An indestructible punching bag: this is about the formation, not about who wins.
+    const settle = (ms: number) => {
+      for (let t = 0; t < ms; t += 50) {
+        e.hp = e.maxHp = 1e12;
+        sim.step(50);
+      }
+    };
+    for (let t = 0; t < 120_000; t += 50) {
+      e.hp = e.maxHp = 1e12;
+      sim.step(50);
+      if (roster.every((u) => u.state !== "waiting" && u.state !== "charging")) break;
+    }
+    settle(20_000);
+    const rank = () => roster.slice()
+      .sort((a, b) => a.lineupIndex - b.lineupIndex).map((u) => u.id);
+    const before = rank();
+    const victim = sim.units.find((u) => u.id === victimId)!;
+    (sim as any).dealDamage(victim, victim.maxHp, false);
+    settle(20_000);
+    expect(victim.alive, "the medic should have revived it").toBe(true);
+    return { before, after: rank(), victim, sim, frontMost: () => frontMostId(sim) };
+  }
+
+  it("gives a revived Headless a new order but puts it at the head of the line", () => {
+    const { before, after, victim, sim, frontMost } = reviveInLine(
+      [headless("h"), regular("r0"), regular("r1"), regular("r2"), medic("g")], "h"
+    );
+    expect(before[0]).toBe("h");
+    expect(after[0]).toBe("h");
+    expect(victim.formOrder).toBeGreaterThan(
+      Math.max(...sim.units.filter((u) => u.team === "player" && u.id !== "h").map((u) => u.formOrder))
+    );
+    expect(frontMost()).toBe("h");
+  });
+
+  it("pushes a resurrected Headless ahead of a Headless already at the front", () => {
+    const { before, after } = reviveInLine(
+      [headless("h0"), headless("h1"), regular("r0"), regular("r1"), regular("r2"),
+        regular("r3"), regular("r4"), medic("g")], "h0"
+    );
+    expect(before.slice(0, 2)).toEqual(["h1", "h0"]);
+    expect(after.slice(0, 2)).toEqual(["h0", "h1"]);
+  });
+
+  it("puts a resurrected ordinary body at the back", () => {
+    const { before, after } = reviveInLine(
+      [regular("r0"), regular("r1"), regular("r2"), medic("g")], "r0"
+    );
+    expect(before[0]).toBe("r0");
+    expect(after).toEqual(["r1", "r2", "g", "r0"]);
   });
 });

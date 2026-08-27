@@ -15,8 +15,10 @@ import { isEpicBossKey } from "../epicBoss/combat";
 import { noteAssetFailure } from "../assetFailures";
 import { ALIEN_LASER_SPRITE, BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, CHARGE_X, ENEMY_HOLD_X, ENEMY_SPAWN_X, EPIC_BOSS_LAND_MS, FIELD_H, FIELD_W, laserInterval, SimUnit, TELEPORT_PX, THROW_WINDUP_MS } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
-import { EnemyActor, type EnemyAttackPose } from "./EnemyActor";
-import { ParticleField, ParticleConfig } from "./Particles";
+import {
+  EnemyActor, enemyProceduralPoseIsSourceRotated, type EnemyAttackPose,
+} from "./EnemyActor";
+import { ParticleField, ParticleConfig, starTexture } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
 import { ACTIVATED_ABILITY } from "../zombie/abilities";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidLevelAsset, RaidOutcome, SummonConfig, WaveCadence } from "./types";
@@ -34,7 +36,9 @@ import {
 import { advanceRaidArmy, raidArmyHasExited } from "./raidOutro";
 import { zombieRaidHeightScale } from "../zombie/displayScale";
 import { visibleMutations } from "../zombie/mutationVisibility";
-import { zombieBasicAttackName } from "./zombieAttackPresentation";
+import {
+  zombieAttackClipName, zombieAttackDamageTiming, zombieBasicAttackName,
+} from "./zombieAttackPresentation";
 import { zombieFacingDelta } from "./zombieFacing";
 import {
   epicAttackFrameIndex, epicBossAnimationLoops, epicStripFrameIndex, selectEpicBossAnimation,
@@ -44,6 +48,11 @@ import { hazardTapProfile } from "./hazardTaps";
 import {
   formatHealthNumbers, newDamageTally, tallyDamage, type DamageTally,
 } from "./combatNumbers";
+import {
+  ageAttackPhase, attackProgress, markStruck, newAttackPhase, observeAttackTimer,
+  postContactTail, type AttackPhase,
+} from "./attackPhase";
+import { attackClipTimeBase, sourceAttackProgress } from "./clipRuntime";
 import { getShowDamageNumbers, getShowHealthNumbers } from "../prefs";
 import { isMobile } from "../platform";
 import { readSafeAreaInsets } from "../safeArea";
@@ -134,6 +143,10 @@ const BLAST_RING_R = 260; // how far the shockwave ring races out
 const BLAST_SHAKE_S = 0.45;
 const BLAST_SHAKE_PX = 11;
 const FUSE_SPARK_S = 0.11; // spark cadence while the fuse burns down
+/** Parked value of `Token.stunT` while a unit is NOT stunned: large enough that the
+ *  first frame of the next stun is already past the star cadence, so the stars start
+ *  on the frame the hold lands instead of a fifth of a second into it. */
+const STUN_PRIMED = 1e3;
 // Sparks thrown by the blast: a fast omnidirectional additive burst that falls under
 // gravity and shrinks to embers. Authored here rather than as a particles/*.json
 // because it has no ZF2R original to copy — the source never destroyed its exploder.
@@ -488,6 +501,10 @@ interface Token {
   hpCenterX: number; // visual center of the actor in token-local coordinates
   topY: number; // y of the sprite top (negative), for the hp bar
   atkCount: number; // basic hits landed; advances this zombie's bite/scratch alternation
+  /** Where this combatant is in its current swing. Read from the sim's attack timer,
+   *  which is NOT armed with `cooldownMs` for a mirroring pirate or a back-rank
+   *  zombie — see raid/attackPhase.ts. */
+  atkPhase: AttackPhase;
   deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
   emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
   // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
@@ -507,6 +524,7 @@ interface Token {
   laserFxSeq: number; // last automatic laser event rendered for this unit
   explodeFxSeq: number; // last self-destruct blast rendered for this unit
   fuseT: number; // seconds accumulated toward the next Explode wind-up spark
+  stunT: number; // seconds accumulated toward the next stun star
 }
 
 /** The opaque box inside a texture, in texture pixels — everything outside it is
@@ -697,6 +715,9 @@ export class RaidScene {
     root: Container; t: number; delay: number; startX: number; startY: number; endX: number; endY: number;
   }[] = [];
   private particles = new ParticleField(); // melee-impact dust + victory confetti
+  /** Stun stars. A field of its own because a ParticleField owns ONE texture, and
+   *  these are the star the source emits rather than the shared soft dot. */
+  private stunParticles = new ParticleField(starTexture());
   // Foreground aperture matte: battlefield art stays inside the stage image even
   // while units, projectiles, and hazards travel beyond any of its four edges.
   private stageMatte = new Graphics();
@@ -704,6 +725,7 @@ export class RaidScene {
   private confettiCfg: ParticleConfig | null = null;
   private smokeCfg: ParticleConfig | null = null; // enemy death poof (source: playDeathEffect → smoke.plist)
   private healCfg: ParticleConfig | null = null;
+  private stunCfg: ParticleConfig | null = null; // stun stars (source: stun.plist / starFX)
   private confettiFired = false;
 
   // Top HUD backing + team bars. The backing visually separates the health/stats
@@ -1029,12 +1051,16 @@ export class RaidScene {
     this.container.addChild(this.projLayer);
     this.container.addChild(this.fxLayer); // death poofs draw above everything
     this.container.addChild(this.particles.container); // impact dust / confetti on top
+    // Stun stars sit above the dust: they arc over a head that the impact dust from the
+    // very hit that caused the stun is also covering.
+    this.container.addChild(this.stunParticles.container);
     this.container.addChild(this.brainLayer); // boss loot arcs above combat particles
-    [this.bashCfg, this.confettiCfg, this.smokeCfg, this.healCfg] = await Promise.all([
+    [this.bashCfg, this.confettiCfg, this.smokeCfg, this.healCfg, this.stunCfg] = await Promise.all([
       loadParticle("bash"),
       loadParticle("confetti"),
       loadParticle("smoke"),
       loadParticle("healSingle"),
+      loadParticle("stun"),
     ]);
     for (const opt of this.bossThrow?.options ?? []) {
       if (this.projTex.has(opt.sprite)) continue;
@@ -1536,10 +1562,11 @@ export class RaidScene {
       ufoParts: ufoParts.length ? ufoParts : undefined,
       pilotBars,
       hp, hpText, charge, base, hpCenterX, topY, atkCount: 0,
+      atkPhase: newAttackPhase(u.cooldownMs),
       deathAnim: -1, emerged: false, hpKey: -1, chargeKey: -1,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
       healFxSeq: 0, healCastSeq: 0, healPose: 0, laserFxSeq: 0,
-      explodeFxSeq: 0, fuseT: 0,
+      explodeFxSeq: 0, fuseT: 0, stunT: STUN_PRIMED,
     };
   }
 
@@ -2128,6 +2155,31 @@ export class RaidScene {
       } else if (tok.fuseT !== 0) {
         tok.fuseT = 0;
       }
+      // Held: stars over the head. GROUND TRUTH — `stun.plist` is a `duration: -1`
+      // emitter of 5 `starFX.png` particles on a 0.987 s lifespan, fired straight up
+      // (angle 90, speed 138) against gravity 197, so each star arcs about 48 px and
+      // falls back. The source attaches it to the stunned actor, so it keeps emitting
+      // for as long as the hold lasts. Re-emitting on the authored rate rather than
+      // bursting once is what covers the whole family from one code path: 1 s from
+      // Random Stun / Smash / telekinesis, 2 s from a Mini Buddy ram, 3 s from an
+      // Explode. Applies to BOTH teams — an enemy hold and a zombie hold are the same
+      // effect, and only the sim decides who is holding whom.
+      const stunCfg = this.stunCfg;
+      if (u.alive && u.stunMs > 0 && stunCfg) {
+        const every = stunCfg.particleLifespan / Math.max(1, stunCfg.maxParticles);
+        tok.stunT += dtSec;
+        if (tok.stunT >= every) {
+          tok.stunT = 0;
+          this.stunParticles.burst(
+            stunCfg,
+            sx + tok.hpCenterX * szs,
+            sy + tok.topY * 1.02 * szs, // topY is negative — just clear of the head
+            1 / stunCfg.maxParticles // one star per tick of the cadence
+          );
+        }
+      } else if (tok.stunT !== STUN_PRIMED) {
+        tok.stunT = STUN_PRIMED;
+      }
       // The simulation advances at a fixed 50 ms cadence while rendering can run
       // faster. Use the velocity retained by the last simulation tick, rather than
       // comparing positions each render frame: the latter alternated moving/stopped
@@ -2200,8 +2252,24 @@ export class RaidScene {
         // its starting move so staggered fighters can show both attacks concurrently.
         const fighting = !burning &&
           this.phase === "fight" && u.state === "fight" && !u.windupKey && u.alive;
-        const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
+        // The swing's own clock, not `cooldownMs`: a zombie behind the front five is
+        // armed with a lineup band (×1.425/×2/×4) and would otherwise stand frozen on
+        // its contact pose for most of the cycle. See raid/attackPhase.ts.
         const attackName = zombieBasicAttackName(u.distractSeed, tok.atkCount);
+        observeAttackTimer(tok.atkPhase, u.timerMs, fighting);
+        // A zombie poses itself from the SOURCE timeline (RaidActor.poseBite /
+        // poseScratch rotate by the same damageTiming), so it has a real tail — unless a
+        // rig ever ships an authored clip on some other time base, which this asks.
+        const zombieBase = attackClipTimeBase(
+          "zombie", u.sourceKey, undefined, zombieAttackClipName(attackName)
+        );
+        const atkProg = attackProgress(
+          tok.atkPhase, visualAttackMs,
+          postContactTail(
+            zombieAttackDamageTiming(attackName),
+            zombieBase === null || zombieBase === "source"
+          )
+        );
         tok.actor.poseArms(
           burning ? 1 : windup,
           fighting, moving, atkProg, tok.atkCount,
@@ -2224,7 +2292,24 @@ export class RaidScene {
           tok.enemyActor.setFacingFromDelta(u.vx);
         }
         const enemyFighting = u.state === "fight" && u.alive;
-        const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
+        // Ditto for the enemy side, where the gap is widest: Arrrnold mirrors the body he
+        // faces (6.5 s against a Headless) off a 2.5 s `cooldownMs`, and every enemy has
+        // its clock re-armed each tick while it holds without a target.
+        observeAttackTimer(tok.atkPhase, u.timerMs, enemyFighting);
+        // Which convention this rig's pose runs on. An authored clip says so outright;
+        // with no clip it depends on WHICH procedural pose it falls to — the transcribed
+        // family poses (poseCrazedWorker, poseCorporateBoss, ...) are source-rotated and
+        // carry a tail, while the generic thrust is driven by the cooldown window and has
+        // none. Holding McDonnell's generic thrust at his 0.6 tail parks him 98% of the
+        // way through the lunge, frozen there until his first blow lands.
+        const enemyBase = attackClipTimeBase("enemy", u.sourceKey, u.attackName);
+        const enemySourceRotated = enemyBase === null
+          ? enemyProceduralPoseIsSourceRotated(u.attackName)
+          : enemyBase === "source";
+        const atkProg = attackProgress(
+          tok.atkPhase, visualAttackMs,
+          postContactTail(u.attackDamageTiming, enemySourceRotated)
+        );
         let attack: EnemyAttackPose | null = enemyFighting
           ? { atkProg, damageTiming: u.attackDamageTiming, attackName: u.attackName }
           : null;
@@ -2253,12 +2338,20 @@ export class RaidScene {
       if (tok.frameActor) {
         tok.frameActor.time += dtSec;
         const fighting = u.state === "fight" && u.alive && tok.frameActor.attack.length > 0;
+        // A frame strip rotates onto the source timeline exactly as an authored clip
+        // does, so it carries the same post-contact tail and needs the same two readings
+        // the rigs got: the interval the timer was ARMED with, and a blow actually behind
+        // the follow-through it is drawing. Without them a strip replayed its
+        // post-contact frames on every re-engage — and a strip is MOSTLY tail, so that is
+        // most of the animation. Zedzox connects at 0.33, which leaves two thirds of a
+        // four-frame swing to fire off at nothing each time the front row died and
+        // refilled.
+        observeAttackTimer(tok.atkPhase, u.timerMs, fighting);
         if (fighting) {
-          const atkProg = Math.max(0, Math.min(1, 1 - visualAttackMs / Math.max(1, u.cooldownMs)));
-          const recovery = 1 - u.attackDamageTiming;
-          const sourceT = atkProg <= recovery
-            ? u.attackDamageTiming + atkProg
-            : atkProg - recovery;
+          const atkProg = attackProgress(
+            tok.atkPhase, visualAttackMs, postContactTail(u.attackDamageTiming, true)
+          );
+          const sourceT = sourceAttackProgress(atkProg, u.attackDamageTiming);
           const index = Math.min(
             tok.frameActor.attack.length - 1,
             Math.floor(sourceT * tok.frameActor.attack.length)
@@ -2269,6 +2362,7 @@ export class RaidScene {
           tok.frameActor.sprite.texture = tok.frameActor.idle[index];
         }
       }
+
       if (tok.epicActor) {
         // The attack strip is driven off the sim's attack clock, not off playback: it
         // is authored LONGER than the cycle it belongs to, so a one-shot that had to
@@ -2293,9 +2387,17 @@ export class RaidScene {
         if (clockDriven) {
           // Indexed against the sprite's OWN frame count, so a strip that failed to
           // load degrades to a still rather than an out-of-range texture lookup.
+          // The strip is source-rotated like every other authored swing, so it reads its
+          // progress through the phase — the armed interval, and a blow actually behind
+          // the frames it is about to play.
+          observeAttackTimer(tok.atkPhase, u.timerMs, wanted === "attack" && u.alive);
           const index = wanted === "attack"
             ? epicAttackFrameIndex(
-              visualAttackMs, u.cooldownMs, u.attackDamageTiming, tok.epicActor.totalFrames
+              attackProgress(
+                tok.atkPhase, visualAttackMs,
+                postContactTail(u.attackDamageTiming, true)
+              ),
+              u.attackDamageTiming, tok.epicActor.totalFrames
             )
             : epicStripFrameIndex(
               1 - visualAttackMs / EPIC_BOSS_LAND_MS, tok.epicActor.totalFrames
@@ -2303,6 +2405,9 @@ export class RaidScene {
           if (tok.epicActor.currentFrame !== index) tok.epicActor.gotoAndStop(index);
         }
       }
+      // After every pose path — rig, frame strip and Epic Boss alike — so each one's
+      // strike age advances on the same schedule.
+      ageAttackPhase(tok.atkPhase, dtSec * 1000);
 
       // Enemy bars remain visible for target readability. Owned-zombie bars stay
       // out of the way until that zombie has actually taken damage. Bars redraw
@@ -2772,6 +2877,7 @@ export class RaidScene {
     const dy = amp * 0.6 * (Math.random() * 2 - 1);
     for (const layer of [
       this.tokenLayer, this.projLayer, this.fxLayer, this.particles.container,
+      this.stunParticles.container,
       this.brainLayer, this.grabLayer, this.crabLayer,
     ]) {
       layer.position.set(dx, dy);
@@ -3216,6 +3322,7 @@ export class RaidScene {
     this.stepShake(dtSec);
     this.stepBrainDrops(dtSec);
     this.particles.update(dtSec);
+    this.stunParticles.update(dtSec);
 
     // Retreat is handled here (not in the tap handler) so nothing runs mid
     // event-dispatch on the button that triggered it.
@@ -3297,6 +3404,8 @@ export class RaidScene {
               }
               if (t) {
                 t.atkCount++; // next basic swing uses the other animation and cue
+                // …and this is the blow whose follow-through the rig is allowed to draw.
+                markStruck(t.atkPhase);
                 // A small dust burst at the point of impact (victim's mid-body).
                 const dust = u.team === "enemy" || SHOW_ZOMBIE_ATTACK_DUST;
                 if (dust && this.bashCfg && u.alive) {

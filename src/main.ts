@@ -5235,14 +5235,18 @@ async function main() {
     try {
       let claimed = 0;
       const rewards = new Map<string, number>();
-      // Bounded slices server-side; loop until the backlog is drained.
-      for (let guard = 0; guard < 20; guard++) {
+      // The server bounds each transaction, not the action: keep requesting slices so
+      // "Claim all" drains the entire backlog instead of silently stopping at 4,000.
+      while (true) {
         const res = await api.pvpCollectAll();
         if (!res.ok) break;
         claimed += res.claimed;
         for (const r of res.rewards) rewards.set(r.key, (rewards.get(r.key) ?? 0) + r.qty);
         if (res.inventory) economy?.adoptRaidStartInventory(res.inventory);
         if (!res.remaining) break;
+        // A malformed/stale response must not turn the button into an infinite request
+        // loop. A valid remaining slice always claims at least one row.
+        if (res.claimed === 0) break;
       }
       return claimed
         ? { claimed, rewards: [...rewards.entries()].map(([key, qty]) => ({ key, qty })) }

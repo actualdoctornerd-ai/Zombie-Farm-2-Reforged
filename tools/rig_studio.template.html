@@ -1454,11 +1454,18 @@ const ZF = (() => {
       return out;
     }
     const out = {
-      parts: m.parts.map((p) => ({
-        rx: p.rx, ry: p.ry, rw: p.rw, rh: p.rh,
-        px: r2(p.px), py: r2(p.py), ax: r2(p.ax), ay: r2(p.ay),
-        z: p.z, rot: r2(p.rot || 0), group: p.group || "body", back: !!p.back,
-      })),
+      parts: m.parts.map((p) => {
+        const o = {
+          rx: p.rx, ry: p.ry, rw: p.rw, rh: p.rh,
+          px: r2(p.px), py: r2(p.py), ax: r2(p.ax), ay: r2(p.ay),
+          z: p.z, rot: r2(p.rot || 0), group: p.group || "body", back: !!p.back,
+        };
+        // The rig's `setInheritColor: NO` parts. The studio never edits this flag, but
+        // it MUST carry it through an export -- a round-trip that dropped it is what
+        // recoloured the alien minion's own grey face along with its uniform.
+        if (p.noTint) o.noTint = true;
+        return o;
+      }),
     };
     out.neck = m.neck ? { x: r2(m.neck.x), y: r2(m.neck.y) } : null;
     if (m.shoulder) out.shoulder = { x: r2(m.shoulder.x), y: r2(m.shoulder.y) };
