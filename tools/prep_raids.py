@@ -42,6 +42,20 @@ IMGDIR = os.path.join(OUT, "images")
 # (10), and Valentine's Day (11) are the limited/seasonal events here.
 SEASONAL_IDS = {7, 10, 11}
 
+# DELIBERATE DIVERGENCE from Enemies.json: the three seasonal invasions all ship
+# stacked at level 8 (`level` and `reccomendedLevel` alike, so all three landed at
+# once). Spread them so the early ladder paces out: Valentine's Day at 6, Tree World
+# kept at 8, Summer Break (the beach/Spring Break invasion) at 10. Applied to BOTH
+# unlockLevel and recommendedLevel — the pair mirror each other on every non-tutorial
+# raid — so everything priced off the raid's rung re-fits on its own: the boss-throw
+# yardstick (RaidCatalog.targetThrowDamage reads unlockLevel) and the brain-drop ramp
+# (brainDrops.ts reads recommendedLevel). Tree World's two Goffy quests stay at
+# levelRequired 8, which still matches; no quest references the other two invasions.
+LEVEL_OVERRIDES = {
+    11: 6,   # Valentine's Day  8 -> 6
+    7: 10,   # Summer Break     8 -> 10
+}
+
 # Gold rewards are NOT present in the source data (Enemies.json only lists loot
 # NAMES; Drops.json has no amounts) — the real values are computed in the game
 # binary. These figures are sourced from the PUBLIC WIKI and the public wiki openly
@@ -399,8 +413,8 @@ def main():
             "bossName": e.get("bossName", ""),
             "bossPortrait": copy_img(e.get("bossHeadPortrait", ""), missing),
             "enemyIcon": copy_img(e.get("enemyIcon", ""), missing),
-            "unlockLevel": as_int(e.get("level")),
-            "recommendedLevel": as_int(e.get("reccomendedLevel")),  # source typo
+            "unlockLevel": LEVEL_OVERRIDES.get(rid, as_int(e.get("level"))),
+            "recommendedLevel": LEVEL_OVERRIDES.get(rid, as_int(e.get("reccomendedLevel"))),  # source typo
             "introText": e.get("introText", ""),
             "successText": e.get("invasionSuccessText", ""),
             "failureText": e.get("invasionFailedText", ""),

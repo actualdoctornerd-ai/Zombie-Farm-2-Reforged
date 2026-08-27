@@ -11,9 +11,9 @@
 //
 //   raid                    unlocks   XP to next level there   1%    pays
 //   Old McDonnell's Farm       1                 25            0.25   10  (floor)
-//   Summer Break               8                500            5      12  (set)
+//   Valentine's Day            6                175            1.75   12  (set)
 //   Tree World                 8                500            5      12  (set)
-//   Valentine's Day            8                500            5      12  (set)
+//   Summer Break              10                500            5      12  (set)
 //   Zombies vs Circus         12                500            5      14  (set)
 //   Zombies vs Lawyers        16              1,000           10      16  (set)
 //   Zombies vs Pirates        21              2,000           20      20
@@ -51,11 +51,11 @@ export const REPEAT_INVASION_XP: Readonly<Record<number, number>> = {
   4: 50,  // Zombies vs Ninjas — unlock 26
   5: 80,  // Zombies vs Robots — unlock 31
   6: 100, // Zombies vs Aliens — unlock 36
-  7: 12,  // Summer Break — unlock 8
+  7: 12,  // Summer Break — unlock 10
   8: 14,  // Zombies vs Circus — unlock 12
   9: 140, // Zombies vs Video Games — unlock 43
   10: 12, // Tree World — unlock 8
-  11: 12, // Valentine's Day — unlock 8
+  11: 12, // Valentine's Day — unlock 6
 };
 
 /** What a Brain Ticket multiplies the repeat XP by.
