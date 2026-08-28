@@ -123,6 +123,43 @@ VIDEOGAME_ATLASES = {
     "VideoGameStageZombieActor": os.path.join(EXTRACT, "assets", "spritesheets", "zombies", "VideoGameZombie"),
 }
 
+
+def videogame_ground_cutout(frame):
+    """Cut Zedzox out of the opaque perch-window backdrop for ground frames.
+
+    Pure black is overloaded: it fills the window and draws the character's
+    one-pixel outline. A flood fill cannot separate them once they touch. Build the
+    matte offline by keeping every coloured character pixel plus immediately adjacent
+    black outline pixels, then make the remaining pure black transparent.
+    """
+    rgba = frame.convert("RGBA")
+    src = rgba.load()
+    w, h = rgba.size
+    coloured = {
+        (x, y)
+        for y in range(h)
+        for x in range(w)
+        if src[x, y][3] and src[x, y][:3] != (0, 0, 0)
+    }
+    out = Image.new("RGBA", rgba.size, (0, 0, 0, 0))
+    dst = out.load()
+    for y in range(h):
+        for x in range(w):
+            pixel = src[x, y]
+            if not pixel[3]:
+                continue
+            if pixel[:3] != (0, 0, 0):
+                dst[x, y] = pixel
+                continue
+            if any(
+                (x + dx, y + dy) in coloured
+                for dy in (-1, 0, 1)
+                for dx in (-1, 0, 1)
+                if dx or dy
+            ):
+                dst[x, y] = pixel
+    return out
+
 # Sheets that ship a TexturePacker atlas (as .plist OR a plist-shaped .json) but NO
 # JSON rig. Their parts are TRIMMED layers of one composition sharing a
 # spriteSourceSize, so pasting each part at its spriteColorRect origin reconstructs
@@ -702,6 +739,10 @@ def build_videogame_actors():
                 canvas = Image.new("RGBA", (int(ssz[0]), int(ssz[1])), (0, 0, 0, 0))
                 canvas.alpha_composite(crop, (int(cx), int(cy)))
                 canvas.save(os.path.join(anim_dir, f"{state}-{i}.png"))
+                if key == "VideoGameStageBossActor":
+                    videogame_ground_cutout(canvas).save(
+                        os.path.join(anim_dir, f"ground-{state}-{i}.png")
+                    )
                 rendered[state].append(canvas)
         idle = states["idle"] or sorted(frames)
         out = rendered["idle"][0]

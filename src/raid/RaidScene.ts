@@ -57,6 +57,10 @@ import { getShowDamageNumbers, getShowHealthNumbers } from "../prefs";
 import { isMobile } from "../platform";
 import { readSafeAreaInsets } from "../safeArea";
 import { abilityColumnStep, computeRaidHudLayout } from "./raidHudLayout";
+import {
+  selectTickPresentation, type RaidStrikePresentation,
+} from "./combatPresentation";
+import { usesGroundEnemyFrames } from "./enemyFramePresentation";
 
 type RaidInputDraft =
   | { type: "bubble"; unitId: string }
@@ -111,12 +115,7 @@ export interface RaidSceneParams {
   playback?: { finalTick: number; inputs: RaidReplayInput[] };
   onCheckpoint?: (finalTick: number, inputs: RaidReplayInput[]) => Promise<void>;
   /** Presentation-only authored attack cue; combat remains deterministic without it. */
-  onStrike?: (strike: {
-    team: "player" | "enemy";
-    attackName?: string;
-    impact?: "projectile";
-    sfxFile?: string;
-  }) => void;
+  onStrike?: (strike: RaidStrikePresentation) => void;
   /** Presentation-only zombie bark when its full-focus brain bubble sends it forward. */
   onBrainRelease?: (sourceKey: string) => void;
   /** Presentation-only callback on the decisive victory tick, before the outro march. */
@@ -352,12 +351,13 @@ const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
   6: { dx: -0.03, dy: 0.2 }, // Aliens (sky perch): too high; rides a UFO
   7: { dx: -0.18, dy: 0.28 }, // Summer Break (sky perch): squid boss too far right + too high
   8: { dx: -0.14 }, // Circus: boss too far right on the car
-  // Video Games: Zedzox stood a shade left and high of the gatehouse arch, so his robe
-  // hem and shoe hung out past the wall's edge over open air. The perch layer here is
-  // only a 55px-wide strip, so occluding the leg behind it is not available at any size
-  // that keeps his face on screen — measured, +0.045 already pushes it off the right
-  // edge. +0.02 lands the shoe ON the arch's masonry instead, which is the fix.
-  9: { dx: 0.02, dy: 0.02 },
+  // Video Games: Zedzox belongs INSIDE the ruined wall's black window (top-right of
+  // the gatehouse, above the arch dome), not standing on the bricks — his 96×96 frames
+  // keep their black backdrop on purpose, and it disappears only against that opening.
+  // The computed structure perch put him on the masonry with the backdrop's bottom
+  // edge reading as a foot hanging over open air. This lifts his feet to the window's
+  // sill (the arch dome's top edge), where the frame merges into the dark interior.
+  9: { dx: 0.02, dy: -0.143 },
   // Tree World (sky perch): Goffy was up in the canopy, overlapping the hanging cages.
   // 0.2 kept his head on screen; the rest of this brings him down onto the tree itself,
   // just under a full rendered height (0.381 * ~0.85).
@@ -441,6 +441,8 @@ const enemySprite = (key: string) => `${BASE}assets/raids/enemies/${key}.png`;
 const enemyStripUrl = (key: string) => `${BASE}assets/raids/enemies/parts/${key}.png`;
 const enemyFrameUrl = (key: string, state: "idle" | "attack", frame: number) =>
   `${BASE}assets/raids/enemies/animations/${key}/${state}-${frame}.png`;
+const enemyGroundFrameUrl = (key: string, state: "idle" | "attack", frame: number) =>
+  `${BASE}assets/raids/enemies/animations/${key}/ground-${state}-${frame}.png`;
 // ---- pixelFire flame (see raid/pixelFireFx.ts) ----
 /** One flame square at SIZE_REF_SCALE, in unit px. Coarse on purpose: the fire has to read
  *  as built out of blocks at a glance, and a finer grid just looks like a smooth flame. */
@@ -472,6 +474,15 @@ const BUBBLE_DX = 74; // shift the (mirrored) bubble right of the charging zombi
 
 type Phase = "intro" | "fight" | "outro" | "retreat" | "defeat" | "done";
 
+/** Pre-rendered frame strips for a Video Games actor; the ground* copies exist only
+ *  for Zedzox, whose authored frames carry the perch window's black backdrop. */
+interface EnemyFrameSet {
+  idle: Texture[];
+  attack: Texture[];
+  groundIdle?: Texture[];
+  groundAttack?: Texture[];
+}
+
 interface Token {
   root: Container;
   actor?: RaidActor; // player zombie rig (walk animation)
@@ -480,6 +491,9 @@ interface Token {
     sprite: Sprite;
     idle: Texture[];
     attack: Texture[];
+    /** Prepared transparent assets for ground states (Zedzox only). */
+    groundIdle?: Texture[];
+    groundAttack?: Texture[];
     time: number;
   }; // authentic pre-rendered Video Games frames
   epicActor?: AnimatedSprite;
@@ -601,12 +615,7 @@ export class RaidScene {
   private raid: RaidDef;
   private onFinish: (o: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
   private onCheckpoint: ((finalTick: number, inputs: RaidReplayInput[]) => Promise<void>) | null;
-  private onStrike: ((strike: {
-    team: "player" | "enemy";
-    attackName?: string;
-    impact?: "projectile";
-    sfxFile?: string;
-  }) => void) | null;
+  private onStrike: ((strike: RaidStrikePresentation) => void) | null;
   private onBrainRelease: ((sourceKey: string) => void) | null;
   private onVictory: (() => void) | null;
   private lastCheckpointTick = 0;
@@ -631,7 +640,7 @@ export class RaidScene {
   private texByUnit = new Map<string, Texture | null>(); // fallback portrait tokens
   private enemyTex = new Map<string, Texture | null>(); // composited enemy sprites
   private enemyStrip = new Map<string, Texture | null>(); // packed part strips (animated rigs)
-  private enemyFrames = new Map<string, { idle: Texture[]; attack: Texture[] }>();
+  private enemyFrames = new Map<string, EnemyFrameSet>();
   private ufoBackTex: Texture | null = null; // alien boss UFO (back dome)
   private ufoFrontTex: Texture | null = null; // alien boss UFO (saucer + glass dome)
   private hoverClock = 0; // seconds, drives the alien saucer's idle bob
@@ -952,10 +961,24 @@ export class RaidScene {
             (await Promise.all(
               Array.from({ length: count }, (_, i) => loadTex(enemyFrameUrl(k, state, i)))
             )).filter((tex): tex is Texture => tex !== null);
-          this.enemyFrames.set(k, {
+          const frames: EnemyFrameSet = {
             idle: await loadFrames("idle", frameCounts.idle),
             attack: await loadFrames("attack", frameCounts.attack),
-          });
+          };
+          // Zedzox alone: his authored frames merge into the perch window's black
+          // interior. Ground states use prepared transparent assets so the fight never
+          // allocates canvases or guesses which black pixels belong to his outline.
+          if (k === "VideoGameStageBossActor") {
+            const loadGroundFrames = async (state: "idle" | "attack", count: number) =>
+              (await Promise.all(
+                Array.from({ length: count }, (_, i) => loadTex(enemyGroundFrameUrl(k, state, i)))
+              )).filter((tex): tex is Texture => tex !== null);
+            const groundIdle = await loadGroundFrames("idle", frameCounts.idle);
+            const groundAttack = await loadGroundFrames("attack", frameCounts.attack);
+            if (groundIdle.length === frameCounts.idle) frames.groundIdle = groundIdle;
+            if (groundAttack.length === frameCounts.attack) frames.groundAttack = groundAttack;
+          }
+          this.enemyFrames.set(k, frames);
         } else if (this.assets.enemyModels[k]) {
           this.enemyStrip.set(k, await loadTex(enemyStripUrl(k)));
         } else if (!isEpicBossKey(k)) {
@@ -1395,7 +1418,10 @@ export class RaidScene {
         root.addChild(sp);
         base = Math.max(16, frames.idle[0].width * s / 2);
         topY = -targetH;
-        frameActor = { sprite: sp, idle: frames.idle, attack: frames.attack, time: 0 };
+        frameActor = {
+          sprite: sp, idle: frames.idle, attack: frames.attack,
+          groundIdle: frames.groundIdle, groundAttack: frames.groundAttack, time: 0,
+        };
       } else if (strip && model) {
         // Animated rig: assemble from the part strip and fit to the role height.
         const ea = new EnemyActor(strip, model, u.sourceKey);
@@ -2337,7 +2363,18 @@ export class RaidScene {
       }
       if (tok.frameActor) {
         tok.frameActor.time += dtSec;
-        const fighting = u.state === "fight" && u.alive && tok.frameActor.attack.length > 0;
+        // Zedzox's authored frames belong against the perch window's black interior;
+        // off the structure (walking in, fighting, holding, dying on the ground) the
+        // backdrop-stripped copies keep them from reading as a black box on the dirt.
+        // "descending" keeps the authored art: the slide-out happens at perch height,
+        // still against the window and the dark sky behind the wall. ("queued" never
+        // reaches this loop — those tokens are skipped above.)
+        const offPerch = usesGroundEnemyFrames(u.state);
+        const idleFrames =
+          (offPerch ? tok.frameActor.groundIdle : undefined) ?? tok.frameActor.idle;
+        const attackFrames =
+          (offPerch ? tok.frameActor.groundAttack : undefined) ?? tok.frameActor.attack;
+        const fighting = u.state === "fight" && u.alive && attackFrames.length > 0;
         // A frame strip rotates onto the source timeline exactly as an authored clip
         // does, so it carries the same post-contact tail and needs the same two readings
         // the rigs got: the interval the timer was ARMED with, and a blow actually behind
@@ -2353,13 +2390,13 @@ export class RaidScene {
           );
           const sourceT = sourceAttackProgress(atkProg, u.attackDamageTiming);
           const index = Math.min(
-            tok.frameActor.attack.length - 1,
-            Math.floor(sourceT * tok.frameActor.attack.length)
+            attackFrames.length - 1,
+            Math.floor(sourceT * attackFrames.length)
           );
-          tok.frameActor.sprite.texture = tok.frameActor.attack[index];
+          tok.frameActor.sprite.texture = attackFrames[index];
         } else {
-          const index = Math.floor(tok.frameActor.time * 4) % tok.frameActor.idle.length;
-          tok.frameActor.sprite.texture = tok.frameActor.idle[index];
+          const index = Math.floor(tok.frameActor.time * 4) % idleFrames.length;
+          tok.frameActor.sprite.texture = idleFrames[index];
         }
       }
 
@@ -3368,6 +3405,7 @@ export class RaidScene {
         // at the display cadence, but it can no longer change the outcome.
         let catchup = 0;
         let stepped = false;
+        const presentationEvents: RaidStrikePresentation[] = [];
         while (this.simAccumulatorMs >= RAID_TICK_MS && !this.sim.finished && catchup++ < 5) {
           // Playback: inject the recorded transcript exactly where the verifier does —
           // inputs stamped with this tick apply BEFORE this tick is stepped, and a
@@ -3378,58 +3416,55 @@ export class RaidScene {
           this.simAccumulatorMs -= RAID_TICK_MS;
           this.simTick++;
           stepped = true;
+          // BattleSim's impact fields intentionally live for one fixed tick. Capture
+          // them before a later catch-up step resets them, while still applying every
+          // actor's follow-through and attack alternation even if its cue loses the
+          // one-cue-per-tick mix priority below.
+          const strikes: RaidStrikePresentation[] = [];
+          for (const u of this.sim.units) {
+            if (!u.struckThisTick) continue;
+            const t = this.tokens.get(u.id);
+            const attackName = u.team === "player" && t
+              ? zombieBasicAttackName(u.distractSeed, t.atkCount)
+              : u.attackName;
+            strikes.push({
+              team: u.team,
+              attackName,
+              sfxFile: this.assets.raidAttacks[attackName]?.sfxID,
+            });
+            if (t) {
+              t.atkCount++;
+              markStruck(t.atkPhase);
+              const dust = u.team === "enemy" || SHOW_ZOMBIE_ATTACK_DUST;
+              if (dust && this.bashCfg && u.alive) {
+                this.particles.burst(this.bashCfg, t.root.x, t.root.y + t.topY * 0.5, 0.28);
+              }
+            }
+          }
+          const event = selectTickPresentation(
+            strikes,
+            this.sim.projectileImpactsThisTick > 0
+              ? {
+                  team: "enemy",
+                  impact: "projectile",
+                  sfxFile: this.sim.lastProjectileImpactSprite === ALIEN_LASER_SPRITE
+                    ? "stun.wav"
+                    : undefined,
+                }
+              : null
+          );
+          if (event) presentationEvents.push(event);
         }
-        // `struckThisTick` remains set until the NEXT simulation step resets it. Only
-        // consume it on a frame that actually advanced the sim; otherwise a 60/120 Hz
-        // renderer would replay one strike several times, resetting the pulse and
-        // flipping the attack-arm parity every display frame.
+        // Damage numbers sample cumulative HP once per rendered frame. Impact cues,
+        // however, replay the fixed-tick history captured above so an empty final
+        // catch-up tick cannot erase an earlier strike.
         if (stepped) {
-          let strike: { unit: SimUnit; attackName: string } | null = null;
           for (const u of this.sim.units) {
             // Damage numbers are read off the HP the tick just wrote — no hook into
             // the fight itself, so the transcript the verifier replays is untouched.
             if (this.showDamageNumbers) this.stepDamageNumber(u, dtSec);
-            if (u.struckThisTick) {
-              const t = this.tokens.get(u.id);
-              // Capture the move before incrementing atkCount so impact audio names
-              // the exact Bite/Scratch animation that just connected.
-              const attackName = u.team === "player" && t
-                ? zombieBasicAttackName(u.distractSeed, t.atkCount)
-                : u.attackName;
-              // When both sides connect on one fixed tick, prefer the player's
-              // authored zombie cue. This retains the one-cue-per-tick mix guard
-              // while ensuring zombie bites cannot be masked by an enemy hit.
-              if (!strike || (strike.unit.team === "enemy" && u.team === "player")) {
-                strike = { unit: u, attackName };
-              }
-              if (t) {
-                t.atkCount++; // next basic swing uses the other animation and cue
-                // …and this is the blow whose follow-through the rig is allowed to draw.
-                markStruck(t.atkPhase);
-                // A small dust burst at the point of impact (victim's mid-body).
-                const dust = u.team === "enemy" || SHOW_ZOMBIE_ATTACK_DUST;
-                if (dust && this.bashCfg && u.alive) {
-                  this.particles.burst(this.bashCfg, t.root.x, t.root.y + t.topY * 0.5, 0.28);
-                }
-              }
-            }
           }
-          // Collapse simultaneous hits to one cue so a large army does not stack
-          // a painfully loud group of identical one-shots.
-          if (this.sim.projectileImpactsThisTick > 0) {
-            // `AlienStageBullet collidedWith:` plays stun.wav on the hit, not the generic
-            // thrown-debris splat.
-            const sfxFile = this.sim.lastProjectileImpactSprite === ALIEN_LASER_SPRITE
-              ? "stun.wav"
-              : undefined;
-            this.onStrike?.({ team: "enemy", impact: "projectile", sfxFile });
-          } else if (strike) {
-            this.onStrike?.({
-              team: strike.unit.team,
-              attackName: strike.attackName,
-              sfxFile: this.assets.raidAttacks[strike.attackName]?.sfxID,
-            });
-          }
+          for (const event of presentationEvents) this.onStrike?.(event);
         }
         if (this.sim.finished) {
           // Freeze outcome-relevant controls on the decisive tick, not after the
