@@ -773,7 +773,21 @@ import type { RaidOutcome } from "./types";
 //
 // Transcript-changing whenever differently sized bodies share a band, and on knockback
 // or resurrection. In-flight invasions at deploy time settle as stale_ruleset.
-export const RAID_RULESET_VERSION = 46;
+//
+// v47 — a standing wall no longer keeps the boss on its perch. With the wave dead and
+// only the carrotWall/junkWall left, the boss sat up top — untargetable, still throwing —
+// while the army chewed 1500 hp of wall; worse, any zombie already past the wall when it
+// was cast (`passedWall`) had nothing to attack at all (the wall behind it is latched
+// away and a perched boss is not a target), so it stood idle under fire until the player
+// hand-tapped the wall down. The boss now descends once the MINIONS are cleared, wall or
+// no wall. The wall itself still stands and still bars un-passed zombies, and no
+// replacement wall follows the boss down — every boss action is perch-gated in
+// `canPerform`, unchanged since walls shipped.
+// Transcript-changing only on Ninja/Robot invasions, and only in fights where the wave
+// died before its boss's wall. PvP is untouched: formation defenses cannot wall, and the
+// brute's descent reads its own branch of the hold condition. Same cost as every bump:
+// an invasion in flight at deploy time settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 47;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

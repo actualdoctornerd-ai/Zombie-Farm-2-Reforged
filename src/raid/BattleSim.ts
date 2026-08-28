@@ -2518,7 +2518,14 @@ export class BattleSim {
       (e) => !e.isBoss && !e.isWall && !e.isSummon && e.alive &&
         !(e.deployWithBoss && e.state === "queued")
     );
-    const blockersLeft = this.enemies.some((e) => e.isWall && e.alive);
+    // A standing WALL deliberately does not hold the boss on its perch (ruleset 47).
+    // It used to: with the wave dead and only the carrotWall/junkWall left, the boss sat
+    // up top — untargetable, still throwing — while the army chewed 1500 hp of wall, and
+    // any zombie already past the wall when it was cast (`passedWall`) had no target at
+    // all: it stood idle under fire until the player hand-tapped the wall down. The boss
+    // now comes down once the MINIONS are cleared; the wall still stands and still bars
+    // un-passed zombies, and no replacement follows the boss down — every boss action is
+    // perch-gated in canPerform.
 
     if (activeMelee < this.activeTarget) {
       const next = this.enemies.find(
@@ -2541,7 +2548,7 @@ export class BattleSim {
     const bruteHolds = this.boss?.defenseRole === "brute"
       ? this.enemies.some((e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon &&
           e.state !== "queued" && e.defenseRole !== "support")
-      : normalsLeft || blockersLeft || activeMelee > 0;
+      : normalsLeft || activeMelee > 0;
     if (this.boss && this.boss.alive && this.boss.state === "structure" && !bruteHolds) {
       // Climb down, exit out the back, then re-enter. An authored PERCH is dropped
       // here: from now on this is a ground unit, and keeping the station would walk

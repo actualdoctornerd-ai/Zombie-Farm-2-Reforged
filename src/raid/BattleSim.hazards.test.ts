@@ -257,6 +257,54 @@ describe("boss wall (carrotWall / junkWall)", () => {
     expect(sim.units.some((u) => u.isWall)).toBe(false);
   });
 
+  it("does not keep the boss perched: the boss descends once the minions die, wall standing", () => {
+    // Ruleset 47. The zombie starts PAST the wall's spawn point, so it latches
+    // `passedWall` and kills the minion straight through the fight — leaving the field
+    // in the state that used to soft-lock it: minions dead, wall untouched, boss up top
+    // untargetable and still throwing, and this zombie with no target at all until the
+    // player hand-tapped 1500 hp of wall away.
+    const past = unit({
+      id: "past", sourceKey: "ZombieActorRegularTier1", team: "player",
+      str: 60, attackCooldownMs: 200,
+    });
+    const minion = unit({
+      id: "minion", sourceKey: "NinjaStageActorBoy", team: "enemy",
+      hp: 40, maxHp: 40, con: 100, attackCooldownMs: 10_000,
+    });
+    const boss = unit({
+      id: "boss", sourceKey: "NinjaStageActorBoss", team: "enemy",
+      isBoss: true, con: 3000,
+    });
+    const wallTemplate = unit({
+      id: "wall", sourceKey: "carrotWall", team: "enemy", str: 0, con: 150,
+      hp: 1500, maxHp: 1500, attacks: [{ name: "", frequency: 1, mult: 0 }],
+    });
+    const sim = new BattleSim(
+      [past], [minion, boss], null, true,
+      [{ name: "wall", weight: 100, castMs: 1, cooldownMs: 999999, damage: 0 }],
+      10 * 60 * 1000, null, wallTemplate
+    );
+    const z = sim.units.find((u) => u.id === "past")!;
+    const m = sim.units.find((u) => u.id === "minion")!;
+    const b = sim.units.find((u) => u.id === "boss")!;
+    z.state = "advance";
+    z.x = 700;
+    m.state = "hold";
+    m.x = 915;
+
+    stepUntil(sim, () => sim.units.some((u) => u.isWall && u.alive));
+    expect(z.passedWall).toBe(true);
+    expect(b.state).toBe("structure");
+
+    stepUntil(sim, () => !m.alive);
+    expect(m.alive).toBe(false);
+
+    stepUntil(sim, () => b.state !== "structure");
+    const wall = sim.units.find((u) => u.isWall)!;
+    expect(wall.alive).toBe(true); // nothing ever hit it — it is NOT what let the boss down
+    expect(b.state).toBe("descending");
+  });
+
   it("blocks zombies marching past it, but not those already past it or holding behind it", () => {
     const blocked = unit({
       id: "blocked", sourceKey: "ZombieActorRegularTier1", team: "player",
