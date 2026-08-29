@@ -166,12 +166,21 @@ export default defineConfig(({ mode }) => {
             {
               // Game art (crops, zombies, objects, raids, the 64MB of epic bosses):
               // stable filenames, rarely change -> CacheFirst for instant offline loads.
+              //
+              // `maxEntries` has to stay comfortably ABOVE the number of art files the
+              // game ships, because the eviction it causes is invisible and permanent-
+              // feeling: workbox trims by least-recently-used, so on a farm holding more
+              // art than the cap the pieces a player looks at least — a seasonal decor,
+              // one raid's stage — are dropped and re-downloaded on every visit, and an
+              // offline launch simply finds them missing. Raised 2000 -> 3000 when the
+              // animated-decor cell sheets took the count to 1921; the ceiling is a
+              // COUNT, not bytes, so headroom here is free.
               urlPattern: ({ url, sameOrigin }) =>
                 sameOrigin && /\/assets\/.*\.(png|jpe?g|webp|gif|svg)$/i.test(url.pathname),
               handler: "CacheFirst",
               options: {
                 cacheName: "zf-art",
-                expiration: { maxEntries: 2000, maxAgeSeconds: 60 * 60 * 24 * 60 },
+                expiration: { maxEntries: 3000, maxAgeSeconds: 60 * 60 * 24 * 60 },
                 cacheableResponse: { statuses: [0, 200] },
               },
             },

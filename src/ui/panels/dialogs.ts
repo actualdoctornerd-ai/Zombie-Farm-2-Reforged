@@ -8,13 +8,15 @@ import { setTintedSrc, tintedImage } from "../tintedSprite";
 import { UI } from "../uiAsset";
 import type { LevelUpView, QuestCompleteView, ObjectActions } from "../hudTypes";
 
-/** Celebratory "LEVEL UP" popup listing what the new level unlocked. */
-export function renderLevelUp(host: HTMLElement, view: LevelUpView): void {
+/** Celebratory "LEVEL UP" popup listing what the new level unlocked. `onClose`
+ *  fires once the celebration is dismissed (Continue or backdrop) — main uses it
+ *  to chain Tim's unlock explanations so they never cover the popup itself. */
+export function renderLevelUp(host: HTMLElement, view: LevelUpView, onClose?: () => void): void {
   // No corner close button — the popup sets panel.innerHTML (which would wipe it)
   // and is dismissed by its own Continue button or a backdrop click.
   const { panel, close } = openModal({
     host, bgClass: "lvl-bg", panelClass: "lvlup",
-    closeButton: false, replaceSelector: ".lvl-bg",
+    closeButton: false, replaceSelector: ".lvl-bg", onClose,
   });
 
   const unlockHtml = view.unlocks.length

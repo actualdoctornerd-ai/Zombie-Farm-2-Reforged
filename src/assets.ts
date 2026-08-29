@@ -273,6 +273,59 @@ export interface BoostDef {
 }
 
 // A placeable farm object (tree/decor/functional) from Market + TileProperties.
+/** One animated layer of a placed object: a strip of cells cut from `sheet`,
+ *  laid left-to-right in `cols` columns and wrapped into rows. */
+export interface ObjectAnimLayer {
+  sheet: string; // filename under /assets/objects/
+  n: number; // cell count
+  cols: number; // cells per row on the sheet
+  ms: number; // how long ONE pass through every cell takes
+  /** Pause held on the LAST cell before the loop restarts (the Geyser rests 5s
+   *  between eruptions). Never set on a tap-played layer. */
+  restMs?: number;
+  /** Plays once when the object is tapped instead of looping. */
+  onClick?: boolean;
+  /** These cells ARE the object's own sprite rather than a part drawn over it, so
+   *  a finished tap-played run puts the still back (cocos restoreOriginalFrame).
+   *  An overlay layer has no still to fall back to and rests on cell 0. */
+  base?: boolean;
+  sound?: string; // fired as the run reaches `soundFrame`
+  soundFrame?: number;
+}
+/** One MOTION-PATH part of a placed object: a single piece of art walked along a
+ *  keyframed path (the Mechanical Egg's lid, a firefly in its jar, any of the
+ *  Skeleton Couple's 21 bones). Positions are in screen pixels relative to the
+ *  object's ground point, which is where Field anchors its sprite. */
+export interface ObjectAnimPart {
+  art: string; // filename under /assets/objects/
+  x: number; // home position of the part's anchor, from the ground point
+  y: number;
+  ax?: number; // anchor within the part (default its top-left)
+  ay?: number;
+  ms?: number; // one lap of the path; absent for a part that never moves
+  keys?: [number, number, number][]; // [t, dx, dy], linearly interpolated
+  scaleMs?: number; // the scale track runs on its own clock (the Dish twinkles
+  scaleKeys?: [number, number][]; // fast while it hops slowly)
+  onClick?: boolean; // plays once when the object is tapped
+  sound?: string;
+  soundAt?: number; // ms into the lap
+}
+/** A placed object's animation. A FLIPBOOK layer cycles cells that are `w`x`h` and
+ *  share the still sprite's centre line, so a mirrored object needs no offset;
+ *  `dy` is how far they hang below its ground line. A MOTION part is drawn over the
+ *  object instead, which is why `base` exists: the still bakes every part in at its
+ *  home position (the bull on its plinth, the lid on the egg) and `base` is that art
+ *  with the parts taken back out, so nothing is left behind when they move.
+ *  See tools/prep_placeables.py build_animation. */
+export interface ObjectAnimDef {
+  w: number;
+  h: number;
+  dy?: number;
+  base?: string;
+  layers: ObjectAnimLayer[];
+  parts?: ObjectAnimPart[];
+}
+
 export interface PlaceableDef {
   key: string;
   name: string;
@@ -324,6 +377,10 @@ export interface PlaceableDef {
    *  keeps the pot itself in exactly the same place. */
   busySprite?: string;
   readySprite?: string;
+  /** Flipbook animation played on the farm (26 decor items have one). See
+   *  `objectAnimation.ts` for how it runs and tools/prep_placeables.py for how the
+   *  cell sheets are cut. */
+  anim?: ObjectAnimDef;
   nativeW: number;
   nativeH: number;
   pivotX: number;
@@ -965,16 +1022,31 @@ export async function ensureObjectTexture(
 
 /** Every /assets/objects/ file a placed object draws: its own art, the pre-harvest
  *  frame a fruit tree shows, the far-side layer the Pet Pen renders behind its
- *  contents, and the working-state frames the Zombie Pot swaps to. Callers preload
- *  the whole list — a missing back layer would leave the pen showing only its near
- *  wall, and a missing lid would pop the pot back to idle art mid-combine. */
+ *  contents, the working-state frames the Zombie Pot swaps to, and the cell sheets
+ *  an animated decor flips through. Callers preload the whole list — a missing back
+ *  layer would leave the pen showing only its near wall, a missing lid would pop the
+ *  pot back to idle art mid-combine, and a missing cell sheet would leave a windmill
+ *  standing still. */
 export function objectSpriteFiles(def: PlaceableDef): string[] {
   return [...new Set(
     [def.sprite, def.growingSprite, def.backSprite, def.busySprite, def.readySprite,
       // Every corner of a road bend, so the Rotate tool never lands on a blank frame.
       // Two of the four share one file, hence the dedupe.
-      ...(def.turns ?? []).map((t) => t.sprite)]
+      ...(def.turns ?? []).map((t) => t.sprite),
+      ...objectAnimFiles(def)]
       .filter((f): f is string => !!f))];
+}
+
+/** The cell sheets an animated decoration flips through. Included in
+ *  `objectSpriteFiles` so they preload with everything else, but listed separately
+ *  because they are the one part an object can be placed WITHOUT: a sheet that fails
+ *  to download costs the motion, not the windmill. */
+export function objectAnimFiles(def: PlaceableDef): string[] {
+  return [
+    ...(def.anim?.layers ?? []).map((l) => l.sheet),
+    ...(def.anim?.parts ?? []).map((p) => p.art),
+    ...(def.anim?.base ? [def.anim.base] : []),
+  ];
 }
 
 /** Preload every texture `def` needs before it can be placed on the farm. */

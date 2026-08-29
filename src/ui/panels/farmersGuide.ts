@@ -17,7 +17,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
     id: "welcome",
     label: "Welcome",
     title: "Welcome to Zombie Farm Reforged",
-    intro: "A field guide to for zombie farmers.",
+    intro: "A field guide for zombie farmers.",
     sections: [
       {
         title: "Zombie Farm Reforged",

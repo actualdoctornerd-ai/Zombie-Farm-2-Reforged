@@ -40,7 +40,9 @@ import { COMBINE_SPECIAL_LEVEL } from "./zombie/combineSpecies";
 import type { AlmanacGuideTopic } from "./zombie/almanacGuide";
 import type { MutationAlmanacEntry } from "./zombie/mutationAlmanac";
 import { BASE } from "./base";
-import { compareCropMarketOrder, compareItemMarketOrder } from "./marketOrder";
+import {
+  compareCropMarketOrder, compareItemMarketOrder, cropAvailableInMarket,
+} from "./marketOrder";
 import { decorAvailable, themeLabel, themeOf } from "./decorThemes";
 import { orderPartyRoster } from "./raid/partySelection";
 import {
@@ -48,6 +50,8 @@ import {
 } from "./raid/attackOrderSlots";
 import { PVP_ARMY_SIZE, PVP_MIN_LEVEL, PVP_UI_ENABLED } from "./raid/pvp";
 import { openInvasionsPanel } from "./ui/panels/invasions";
+import { openLeaderboardPanel } from "./ui/panels/leaderboard";
+import type { FriendLeaderboardEntry } from "./net/api";
 import type {
   PvpDefenseInfoView, PvpOverviewView, PvpRewardView, PvpScoutView,
 } from "./ui/panels/invasions";
@@ -251,6 +255,10 @@ const MARKET_COIN: Record<BlackMarketCurrency, string> = {
   GOLD: "topbar_money_icon.png",
 };
 const MARKET_MAX_PRICE = 10_000_000;
+/** Most boost packs one confirmation will buy. Online every pack is a separate
+ *  atomic `inventory buy` command (the server prices and debits each one), so this
+ *  also bounds a single tap's command burst against the Worker's rate budget. */
+const BOOST_BUY_LIMIT = 10;
 function marketPrice(amount: number, currency: BlackMarketCurrency): string {
   if (currency === "GOLD") return `${amount.toLocaleString()} gold`;
   return `${amount.toLocaleString()} brain${amount === 1 ? "" : "s"}`;
@@ -1058,8 +1066,9 @@ export class Hud {
    *  do not use this: buying one only arms a planting/placement step the player still
    *  has to finish (or cancel with a right-click), so the commitment is already
    *  explicit and a prompt there is pure friction. Everything else — farm size,
-   *  ground, boosts, farmer parts, pets — spends the moment the card is tapped, so it
-   *  asks first. A free item needs no prompt. */
+   *  ground, farmer parts, pets, an in-place shed/Mausoleum upgrade — spends the
+   *  moment the card is tapped, so it asks first (boosts get the quantity dialog
+   *  below instead). A free item needs no prompt. */
   private confirmPurchase(name: string, cost: number, brains = false): Promise<boolean> {
     if (cost <= 0) return Promise.resolve(true);
     return this.confirmInGame(
@@ -1067,6 +1076,82 @@ export class Hud {
       `This costs ${cost.toLocaleString()} ${brains ? "brains" : "gold"}.`,
       "Buy"
     );
+  }
+
+  /** Boost-purchase confirmation with a quantity stepper. Resolves the number of
+   *  packs the player asked for (0 = cancelled); the caller performs the buy, which
+   *  re-checks funds pack by pack. Gold and brains keep moving underneath an open
+   *  dialog (zombies harvest, the farmer spends), so the affordability cap is
+   *  re-read from live state on a short interval rather than captured once — and
+   *  even the resolved quantity is only a request, not a reservation. */
+  private confirmBoostQuantity(b: BoostDef): Promise<number> {
+    if (b.cost <= 0) return Promise.resolve(1);
+    return new Promise((resolve) => {
+      let settled = false;
+      let qty = 1;
+      let ticker: ReturnType<typeof setInterval> | undefined;
+      const finish = (value: number) => {
+        if (settled) return;
+        settled = true;
+        if (ticker !== undefined) clearInterval(ticker);
+        resolve(value);
+      };
+      const { panel, close } = openModal({
+        host: this.el, bgClass: "game-confirm-bg", panelClass: "confirm-panel",
+        title: `Buy ${b.name}?`, replaceSelector: ".game-confirm-bg", onClose: () => finish(0),
+      });
+      const coin = b.brainsNeeded ? "brains" : "gold";
+      const copy = document.createElement("p");
+      copy.className = "confirm-msg";
+      copy.textContent = b.perPurchase > 1
+        ? `Each purchase gives ${b.perPurchase} uses and costs ${b.cost.toLocaleString()} ${coin}.`
+        : `Each one costs ${b.cost.toLocaleString()} ${coin}.`;
+      const row = document.createElement("div");
+      row.className = "confirm-qty-row";
+      const minus = document.createElement("button");
+      minus.className = "zbtn";
+      minus.textContent = "−";
+      minus.setAttribute("aria-label", "Buy one fewer");
+      const count = document.createElement("span");
+      count.className = "confirm-qty";
+      const plus = document.createElement("button");
+      plus.className = "zbtn";
+      plus.textContent = "+";
+      plus.setAttribute("aria-label", "Buy one more");
+      row.append(minus, count, plus);
+      const total = document.createElement("p");
+      total.className = "confirm-msg confirm-qty-total";
+      const buttons = document.createElement("div");
+      buttons.className = "zbtns";
+      const cancel = document.createElement("button");
+      cancel.className = "zbtn locate";
+      cancel.textContent = "Cancel";
+      cancel.onclick = () => close();
+      const accept = document.createElement("button");
+      accept.className = "zbtn sell";
+      markPrimary(accept); // Enter confirms
+      accept.onclick = () => { finish(qty); close(); };
+      buttons.append(cancel, accept);
+      panel.append(copy, row, total, buttons);
+      const funds = () => (b.brainsNeeded ? this.state.brains : this.state.gold);
+      // Capped well below the Worker's 120-commands-per-minute budget: online each
+      // pack is its own atomic `buy` command (see main.ts onBuyBoost).
+      const maxQty = () => Math.max(1, Math.min(BOOST_BUY_LIMIT, Math.floor(funds() / b.cost)));
+      const refresh = () => {
+        qty = Math.min(qty, maxQty());
+        count.textContent = String(qty);
+        minus.disabled = qty <= 1;
+        plus.disabled = qty >= maxQty();
+        total.textContent =
+          `Total: ${(qty * b.cost).toLocaleString()} ${coin} — you have ${funds().toLocaleString()}.`;
+        accept.disabled = funds() < qty * b.cost;
+        accept.textContent = qty > 1 ? `Buy ${qty}` : "Buy";
+      };
+      minus.onclick = () => { if (qty > 1) { qty--; refresh(); } };
+      plus.onclick = () => { if (qty < maxQty()) { qty++; refresh(); } };
+      ticker = setInterval(refresh, 400);
+      refresh();
+    });
   }
 
   /** Game-styled confirmation. Native browser confirm/prompt dialogs are never used. */
@@ -1356,9 +1441,9 @@ export class Hud {
 
   // Catalog for the plant/zombie picker (built by main from the market data).
   setCatalog(plants: MenuCard[], zombies: MenuCard[]) {
-    // Permanent crops form the first unlock ladder; holiday crops form a second
-    // ladder at the end. Stable ties retain authored order.
-    this.plantCards = [...plants].sort(compareCropMarketOrder);
+    // This ONE list feeds Market → Crops → Plants and the picker opened from tilled
+    // soil. The complete crop-config map in main still restores planted event crops.
+    this.plantCards = plants.filter(cropAvailableInMarket).sort(compareCropMarketOrder);
     this.zombieCards = [...zombies].sort((a, b) => a.level - b.level);
   }
 
@@ -1398,10 +1483,11 @@ export class Hud {
     this.boosts = boosts;
   }
   setFarmerCatalog(catalog: FarmerCatalog) { this.farmer = catalog; }
-  /** Catalog row for a head id reported by the server, for the friends list. Returns
-   *  null for an unknown or absent id — a head this build has no art for must draw
-   *  nothing rather than silently show a different player's face. */
-  private friendHeadPart(headId: number | undefined): FarmerHeadDef | null {
+  /** Catalog row for a head id reported by the server, for the friends list and the
+   *  leaderboard panel. Returns null for an unknown or absent id — a head this build
+   *  has no art for must draw nothing rather than silently show a different player's
+   *  face. */
+  friendHeadPart(headId: number | undefined): FarmerHeadDef | null {
     if (headId === undefined) return null;
     return this.farmer.heads.find((head) => head.id === headId) ?? null;
   }
@@ -1414,8 +1500,10 @@ export class Hud {
   onBuyPet: ((pet: PetDef) => boolean) | null = null;
   onEquipPet: ((pet: PetDef | null) => void) | null = null;
   onSetPenPets: ((pets: PetDef[]) => void) | null = null;
-  // Buy a boost into inventory (returns true if paid); use one from inventory.
-  onBuyBoost: ((def: BoostDef) => boolean) | null = null;
+  // Buy `qty` packs of a boost into inventory (default 1). Returns how many packs
+  // were actually paid for — each pack re-checks funds, so a background spend or
+  // harvest between confirm and buy shortens the run instead of overdrafting.
+  onBuyBoost: ((def: BoostDef, qty?: number) => number) | null = null;
   onUseBoost: ((def: BoostDef) => void) | null = null;
   /** Whether a farm boost currently has a valid target. Used to prevent no-op uses. */
   canUseBoost: ((def: BoostDef) => boolean) | null = null;
@@ -1704,6 +1792,9 @@ export class Hud {
   /** Launch a friend invasion against this friend (online only): opens the PvP army
    *  picker, then the battle. Nobody risks anything; the winner takes boosts. */
   onInvadeFriend: ((friendId: string, name: string) => void) | null = null;
+  /** You + your accepted friends with the numbers the friend leaderboard ranks
+   *  (Social → Leaderboard, ui/panels/leaderboard.ts). One server round trip. */
+  getFriendLeaderboard: (() => Promise<FriendLeaderboardEntry[]>) | null = null;
   // ---- Invasions panel hooks (online only; see ui/panels/invasions.ts) ----
   /** Whether the deployed Worker accepts friend invasions (bootstrap capability).
    *  The Social hub shows the Invasions entry only when this is true, so the whole
@@ -1823,10 +1914,18 @@ export class Hud {
   /** Toggle the input-gating `.tutorial` class on #hud (enables the tap blocker). */
   setTutorialGating(on: boolean) {
     this.el.classList.toggle("tutorial", on);
-    if (!on) this.setTutorialMenuTarget(null);
+    if (!on) {
+      this.setTutorialMenuTarget(null);
+      // The tutorial's menu beats expand the chrome, and nothing during the run can
+      // collapse it again (the fab is pointer-events-gated). Return mobile to its
+      // collapsed baseline so the player is not left with the tool bar out and — on
+      // portrait — the invade shortcut the tutorial just taught hidden beneath it.
+      if (isMobile()) this.collapse();
+    }
   }
   /** Select the sole menu control allowed by the current tutorial beat. Invade
-   *  intentionally uses the always-visible bottom-left shortcut. */
+   *  uses the bottom-left shortcut — the portrait chrome-expanded hide rule is
+   *  scoped to `:not(.tutorial)` so that beat's one allowed control stays visible. */
   setTutorialMenuTarget(label: string | null) {
     this.el.querySelectorAll(".tut-highlight").forEach((el) => el.classList.remove("tut-highlight"));
     this.tutorialMenuTarget = label;
@@ -2066,7 +2165,25 @@ export class Hud {
             description: functionalDescription(c.def), credit: c.def.credit,
             tint: c.def.color,
             theme: themeLabel(themeOf(c.def)),
-            onPick: () => { if (this.onBuy) this.onBuy(c.def); bg.remove(); },
+            onPick: async () => {
+              // A shed or Mausoleum with one already placed UPGRADES IN PLACE the
+              // moment the card is tapped (main.ts onBuy) — no placement step to
+              // back out of — so it confirms like the other commit-on-tap
+              // purchases. Every other item only arms placement here; money moves
+              // when the object is actually set down, which is its own commitment.
+              // The Mausoleum branch mirrors main.ts's own condition: a tier at or
+              // below the placed one is a deliberate no-op there, and a confirm the
+              // purchase never honours is worse than the silent nothing it replaced.
+              const mausoleumCap = this.getMausoleumCap?.() ?? 0;
+              const upgradesInPlace =
+                (!!c.def.storageSlots && (this.getShedSlots?.() ?? 0) > 0) ||
+                (!!c.def.zombieStorage && mausoleumCap > 0 &&
+                  (c.def.zombieSlots ?? 0) > mausoleumCap);
+              if (upgradesInPlace &&
+                  !await this.confirmPurchase(c.name, c.cost, !!c.brainsNeeded)) return;
+              if (this.onBuy) this.onBuy(c.def);
+              bg.remove();
+            },
           };
         });
       }
@@ -2086,8 +2203,19 @@ export class Hud {
             description: [b.info, b.flavorText].filter(Boolean).join(" ") || undefined,
             ownedLimit,
             onPick: async () => {
-              if (!await this.confirmPurchase(b.name, b.cost, b.brainsNeeded)) return;
-              if (this.onBuyBoost && this.onBuyBoost(b)) { refreshCur(); renderGrid(); }
+              // Gift vouchers are 1-per-farm, so they keep the plain yes/no confirm;
+              // everything else gets the quantity dialog.
+              const qty = b.effect === "gift"
+                ? (await this.confirmPurchase(b.name, b.cost, b.brainsNeeded) ? 1 : 0)
+                : await this.confirmBoostQuantity(b);
+              if (!qty) return;
+              const bought = this.onBuyBoost ? this.onBuyBoost(b, qty) : 0;
+              if (bought) { refreshCur(); renderGrid(); }
+              // Funds moved while the dialog was up and the run came up short — say
+              // so, since the player asked for a specific number.
+              if (bought < qty) {
+                this.showToast(`Bought ${bought} of ${qty} — not enough ${b.brainsNeeded ? "brains" : "gold"}.`);
+              }
             },
           };
         });
@@ -3380,6 +3508,13 @@ export class Hud {
         () => openInvasionsPanel(this),
       ));
     }
+    // No level gate: the board is readable from level 1 (it ranks Level itself),
+    // and the panel handles the signed-out state with the same sign-in prompt the
+    // Friends panel uses.
+    choices.appendChild(choice(
+      "Leaderboard", "See how you rank among your friends", 0,
+      () => openLeaderboardPanel(this),
+    ));
     panel.append(choices);
   }
 
@@ -5652,6 +5787,32 @@ export class Hud {
     // Default selection: first unlocked raid, else the first card.
     let selId = (cards.find((c) => c.unlocked) ?? cards[0])?.id ?? -1;
 
+    // Whether to advertise each raid's ELITE recommended level. Same visibility rule as
+    // the Brain Ticket button on the army screen: a player who cannot buy one and holds
+    // none has no elite invasion to be advised about, and the number would only be one
+    // more unexplained figure on the card. (`brainTickets` is a global count — the raid
+    // id passed here only picks the dice cap, which this call ignores.)
+    const ticketLevel = this.boosts.find((b) => b.key === BRAIN_TICKET_KEY)?.level ?? 0;
+    const showElite = this.state.level >= ticketLevel ||
+      (this.getRaidBoosts?.(selId)?.brainTickets ?? 0) > 0;
+    /** The elite advice as a card/detail suffix — empty when it should stay hidden. */
+    const eliteAdvice = (c: RaidCardView, long: boolean): string => {
+      if (!showElite) return "";
+      // Past roughly level 30 the figure stands in for a GEARED roster rather than for a
+      // level (player level stops buying army strength there — see raids.json
+      // `eliteRecommendedLevel`), so say so instead of quoting a level the player may
+      // already have.
+      const geared = c.eliteRecommendedLevel > 30;
+      const title = geared
+        ? `A Brain Ticket run here is fitted for level ${c.eliteRecommendedLevel} — and at ` +
+          "this end of the ladder that means a mutated, veteran army as much as a level."
+        : `A Brain Ticket run here is fitted for level ${c.eliteRecommendedLevel}.`;
+      const text = long
+        ? `Elite level ${c.eliteRecommendedLevel}${geared ? "+" : ""}`
+        : `Elite ${c.eliteRecommendedLevel}${geared ? "+" : ""}`;
+      return ` <span class="rd-elite-lv" title="${title}">· ${text}</span>`;
+    };
+
     /** Redraw ONLY the cooldown-dependent footer of the mounted detail pane.
      *
      *  The 1s ticker used to call renderDetail, which wipes and rebuilds the whole pane.
@@ -5683,6 +5844,7 @@ export class Hud {
         `<div class="rd-title">${c.name}</div>` +
         (c.bossName ? `<div class="rd-boss">${c.bossName}</div>` : "") +
         `<div class="rd-meta">Recommended level ${c.recommendedLevel}` +
+        eliteAdvice(c, true) +
         // The XP the NEXT win pays: the big one-time first-clear bonus while it is still
         // unclaimed, then the per-raid repeat trickle from then on. Only ever one of the
         // two — they never stack, so advertising both would overstate the reward.
@@ -5857,7 +6019,7 @@ export class Hud {
       if (c.portrait) thumb.style.backgroundImage = `url(${c.portrait})`;
       const txt = document.createElement("div");
       const sub = c.unlocked
-        ? `<div class="rd-cl">Rec. Lv ${c.recommendedLevel}</div>`
+        ? `<div class="rd-cl">Rec. Lv ${c.recommendedLevel}${eliteAdvice(c, false)}</div>`
         : `<div class="rd-cl lock">${c.lockReason}</div>`;
       txt.innerHTML = `<div class="rd-cn">${c.name}</div>${sub}`;
       card.append(thumb, txt);
@@ -6076,7 +6238,9 @@ export class Hud {
         : `🎟 Brain Ticket <span class="rb-ct">buy · ${(this.boosts.find((b) => b.key === BRAIN_TICKET_KEY)?.cost ?? 0).toLocaleString()}g</span>`;
       eliteBtn.classList.toggle("on", useBrainTicket);
       eliteNote.textContent = useBrainTicket
-        ? "ELITE invasion: 4x brain and rare-zombie odds — and enemies far above this invasion's usual strength."
+        ? "ELITE invasion: 4x brain and rare-zombie odds — and enemies far above this " +
+          `invasion's usual strength. Fitted for level ${raid.eliteRecommendedLevel}` +
+          `${raid.eliteRecommendedLevel > 30 ? " and a mutated, veteran army" : ""}.`
         : "";
     };
     eliteBtn.title =
@@ -6484,9 +6648,10 @@ export class Hud {
   }
 
   /** Celebratory "LEVEL UP" popup listing what the new level unlocked (invasions,
-   *  market items, boosts). Fired from GameState.onLevelUpCb via main.ts. */
-  openLevelUp(view: LevelUpView) {
-    renderLevelUp(this.el, view);
+   *  market items, boosts). Fired from GameState.onLevelUpCb via main.ts.
+   *  `onClose` fires when the celebration is dismissed (see renderLevelUp). */
+  openLevelUp(view: LevelUpView, onClose?: () => void) {
+    renderLevelUp(this.el, view, onClose);
   }
 
   /** Celebratory "QUEST COMPLETE" popup showing the finished quest + its reward,

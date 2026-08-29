@@ -43,6 +43,12 @@ export interface RaidDef {
   /** Player level required to unlock (0 = always). */
   unlockLevel: number;
   recommendedLevel: number;
+  /** The level to advise for an ELITE (Brain Ticket) run — reimpl-only, and ADVICE
+   *  ONLY: nothing gates on it (the elite fight's only hard gate is the Brain Ticket's
+   *  own catalog level). Measured through the real BattleSim; above roughly level 30 the
+   *  figure stands in for GEAR — mutations, a monolith, veterancy — because player level
+   *  stops buying army strength there. See ELITE_RECOMMENDED_LEVELS in prep_raids.py. */
+  eliteRecommendedLevel: number;
   introText: string;
   successText: string;
   failureText: string;

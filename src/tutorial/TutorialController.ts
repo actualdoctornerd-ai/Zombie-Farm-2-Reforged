@@ -56,6 +56,10 @@ export class TutorialController {
   private unsubBus: (() => void) | null = null;
   private raf = 0;
   private settlingPlant = false;
+  /** OpenGuide beat: the player has had the Farmer's Guide open this beat. The
+   *  beat completes when the guide CLOSES again, so Tim's farewell (and the gold)
+   *  waits until they are back on the farm rather than popping over the pages. */
+  private guideSeen = false;
 
   // DOM
   private layer!: HTMLDivElement;
@@ -228,6 +232,7 @@ export class TutorialController {
     const def = STEPS[step];
     this.removeBlocker();
     this.disarmSkip(); // a half-tapped skip must not carry into the next beat
+    this.guideSeen = false;
     this.layer.classList.toggle("invade-step", step === TutStep.Invade);
     // Only a narrative beat wants a clickable bubble; on every other beat Tim floats
     // above the boost market and must not intercept taps meant for it.
@@ -240,8 +245,13 @@ export class TutorialController {
     if (step !== TutStep.BuyInstaGrow) this.d.hud.closeMarket();
     this.d.hud.setTutorialMenuTarget(def.kind === "menu" ? (def.menuLabel ?? null) : null);
 
-    // Menu beats need the (mobile) menu column visible to anchor the arrow.
-    if (def.kind === "menu" && this.d.hud.isCollapsed) this.d.hud.expand();
+    // Menu beats need the (mobile) menu column visible to anchor the arrow —
+    // except Invade, whose target is the fixed bottom-left shortcut, not a menu
+    // button, so expanding buys nothing (and used to leave portrait phones in the
+    // chrome-expanded state that hid that very shortcut).
+    if (def.kind === "menu" && def.menuLabel !== "Invade" && this.d.hud.isCollapsed) {
+      this.d.hud.expand();
+    }
     // Each plot beat equips the tool its target expects.
     if (step === TutStep.Plow && this.d.hud.mode !== "till") this.d.hud.setMode("till");
     if (step === TutStep.PlantZombie && this.d.hud.mode !== "walk") this.d.hud.setMode("walk");
@@ -326,6 +336,11 @@ export class TutorialController {
       this.current === TutStep.Invade &&
         !!document.querySelector("#hud .raid-bg, #hud .army-bg")
     );
+    // Likewise, the open Farmer's Guide owns the screen: Tim steps aside while
+    // the player reads (the arrow already hides itself behind any .panelbg).
+    const guideOpen =
+      this.current === TutStep.OpenGuide && !!document.querySelector("#hud .guide-bg");
+    this.layer.classList.toggle("guide-open", guideOpen);
 
     // A plot beat with no target reaches NOTHING: allowsTile() refuses every tile and
     // a plot beat highlights no menu, so the overlay would sit there with the whole
@@ -366,6 +381,18 @@ export class TutorialController {
         if (this.plotTarget && this.d.field.isRipe(this.plotTarget.col, this.plotTarget.row)) {
           this.advance(); return;
         }
+        break;
+      case TutStep.OpenGuide:
+        // Complete once the guide has been opened AND closed again, so the
+        // farewell (and its gold) greets the player back on the farm instead of
+        // popping up over the pages they were sent to read.
+        if (guideOpen) {
+          // The highlighted Guide button sits at z 41, above the guide's own
+          // backdrop (20) — drop the glow while the panel is open. No restore
+          // needed: closing the guide is what completes the beat.
+          if (!this.guideSeen) this.d.hud.setTutorialMenuTarget(null);
+          this.guideSeen = true;
+        } else if (this.guideSeen) { this.advance(); return; }
         break;
       default:
         break;
@@ -418,10 +445,18 @@ export class TutorialController {
       const btn = this.d.hud.tutorialTarget(menuLabel);
       if (!btn) { this.arrow.style.display = "none"; return; }
       const r = btn.getBoundingClientRect();
-      // Sit just left of the button, pointing right (arrow_right.png is 0°).
-      this.arrow.style.left = `${r.left - ARROW_SIZE - ARROW_MENU_GAP}px`;
-      this.arrow.style.top = `${r.top + r.height / 2 - ARROW_SIZE / 2}px`;
-      this.arrow.style.transform = "rotate(0deg)";
+      if (r.left >= ARROW_SIZE + ARROW_MENU_GAP) {
+        // Sit just left of the button, pointing right (arrow_right.png is 0°).
+        this.arrow.style.left = `${r.left - ARROW_SIZE - ARROW_MENU_GAP}px`;
+        this.arrow.style.top = `${r.top + r.height / 2 - ARROW_SIZE / 2}px`;
+        this.arrow.style.transform = "rotate(0deg)";
+      } else {
+        // No room on the left — the Invade shortcut hugs the screen edge, which
+        // used to push this arrow off-screen entirely. Sit above, pointing down.
+        this.arrow.style.left = `${r.left + r.width / 2 - ARROW_SIZE / 2}px`;
+        this.arrow.style.top = `${r.top - ARROW_SIZE - ARROW_MENU_GAP}px`;
+        this.arrow.style.transform = "rotate(90deg)";
+      }
     } else if (def.kind === "plot" && this.plotTarget) {
       const p = this.d.plotScreenPos(this.plotTarget.col, this.plotTarget.row);
       // Sit above the plot, pointing down (rotate the right-arrow 90°).

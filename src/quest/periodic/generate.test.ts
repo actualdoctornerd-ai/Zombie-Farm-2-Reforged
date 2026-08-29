@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import plants from "../../../public/assets/plants.json";
+import { cropAvailableInMarket } from "../../marketOrder";
 import { XP_THRESHOLDS } from "../../GameState";
 import {
   DAILY_UNLOCK_LEVEL, WEEKLY_MULTIPLIER, WEEKLY_UNLOCK_LEVEL, applyPeriodicEvents,
@@ -79,6 +80,27 @@ describe("periodic quest generation", () => {
           const crop = cropByName.get(quest.notificationObject);
           if (!crop) continue; // wildcard or non-crop objective
           expect(crop.level).toBeLessThanOrEqual(level);
+        }
+      }
+    }
+  });
+
+  // Unlocked is not the same as OBTAINABLE. Seasonal seeds are withheld from every
+  // purchase surface (marketOrder.ts cropAvailableInMarket) while their unlock levels
+  // stay authored in plants.json, so a pool filtered on level alone happily named
+  // Candy Corn at a farm with no way to buy one. The board rotates its pool rather
+  // than rolling it, so such a crop is not a rare unlucky day — it comes round on a
+  // schedule — which is why this sweeps whole periods, not one board.
+  it("never names a crop the player cannot buy the seed for", () => {
+    for (let level = DAILY_UNLOCK_LEVEL; level <= 45; level++) {
+      for (let period = 20670; period < 20678; period++) {
+        const sets = [daily(level, period), weekly(level, period)];
+        for (const set of sets) {
+          for (const quest of set.quests) {
+            const crop = cropByName.get(quest.notificationObject);
+            if (!crop) continue; // wildcard or non-crop objective
+            expect(cropAvailableInMarket(crop)).toBe(true);
+          }
         }
       }
     }

@@ -56,6 +56,46 @@ LEVEL_OVERRIDES = {
     7: 10,   # Summer Break     8 -> 10
 }
 
+# The level to advise for an ELITE (Brain Ticket) run of each invasion. Not in the
+# source data — ZF2 had no elite mode; this is the reimpl's own figure, and it is
+# ADVICE ONLY: nothing gates on it. The only hard gate an elite fight has is the Brain
+# Ticket's own catalog level (boosts.json / server boostCatalog, level 20).
+#
+# MEASURED, not guessed, the same way src/raid/eliteInvasion.balance.test.ts measures
+# the profiles: a 16-strong roster of the best GOLD-catalog species unlocked at each
+# level, level-scaled through modifyStatWithLevelScale (combatStats.levelScaleStat),
+# five invasions of veterancy, run through the real BattleSim, binary-searched for the
+# lowest level that wins all three wave seeds. The sweep was repeated at five "gear"
+# multipliers (1 = no mutations/monoliths/heads, 3 = the balance test's MAXED_STICK),
+# and each raid's figure is the level at which a player carrying the gear that is
+# plausible AT that point on the ladder clears it.
+#
+# THE NUMBERS ABOVE ~30 ARE PROXIES FOR GEAR, NOT MEASUREMENTS OF LEVEL, and that is
+# the one thing to know before editing them. Player level stops buying army strength
+# around there: the stat ramp completes at 25 (levelScaleT), and the gold catalog's
+# last real upgrades are Zombarian (26), Party Zombie (29) and Robo Zombie (30) — the
+# Tier-4 mutants at 39/40 only improve the sixth roster slot. So the measured level for
+# the top five elites saturates at 29-30 whatever the profile says, and 32/36/40/45
+# encode "by then you will have the mutations, the monolith and the veterancy" instead.
+# Which is why the card shows them as advice next to a roster hint (hud.ts), and why
+# raising an elite PROFILE should move the gear expectation here rather than the level.
+ELITE_RECOMMENDED_LEVELS = {
+    1: 20,   # Old McDonnell's — winnable elite at any level; this is just the ticket gate
+    11: 18,  # Valentine's Day
+    10: 18,  # Tree World
+    7: 18,   # Summer Break
+    8: 20,   # Circus
+    2: 22,   # Lawyers
+    3: 28,   # Pirates      — first rung that needs mutations, not just levels
+    4: 32,   # Ninjas
+    5: 36,   # Robots
+    6: 40,   # Aliens
+    9: 45,   # Video Games  — the top of the elite ramp
+}
+# Placeholder for an invasion with no authored figure, mirroring DEFAULT_ELITE_PROFILE:
+# a real step over the ordinary advice, never nothing.
+ELITE_LEVEL_FALLBACK_STEP = 6
+
 # Gold rewards are NOT present in the source data (Enemies.json only lists loot
 # NAMES; Drops.json has no amounts) — the real values are computed in the game
 # binary. These figures are sourced from the PUBLIC WIKI and the public wiki openly
@@ -415,6 +455,11 @@ def main():
             "enemyIcon": copy_img(e.get("enemyIcon", ""), missing),
             "unlockLevel": LEVEL_OVERRIDES.get(rid, as_int(e.get("level"))),
             "recommendedLevel": LEVEL_OVERRIDES.get(rid, as_int(e.get("reccomendedLevel"))),  # source typo
+            # Advice for a Brain Ticket run (see ELITE_RECOMMENDED_LEVELS). Reimpl-only.
+            "eliteRecommendedLevel": ELITE_RECOMMENDED_LEVELS.get(
+                rid,
+                LEVEL_OVERRIDES.get(rid, as_int(e.get("reccomendedLevel"))) + ELITE_LEVEL_FALLBACK_STEP,
+            ),
             "introText": e.get("introText", ""),
             "successText": e.get("invasionSuccessText", ""),
             "failureText": e.get("invasionFailedText", ""),

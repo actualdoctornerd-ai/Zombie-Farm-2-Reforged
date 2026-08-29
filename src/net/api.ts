@@ -654,6 +654,44 @@ export const revokeSession = (sessionId: string) =>
 
 export const getFriends = () => req<FriendView[]>("GET", "/friends");
 
+/** The lifetime-tally counters the server projects onto the friend leaderboard —
+ *  a fixed subset of the Statistics panel's tally (src/stats.ts), with the bulky
+ *  per-crop harvest map already summed. Mirrors server logic.ts LeaderboardStats. */
+export interface FriendLeaderboardStats {
+  harvested: number;
+  planted: number;
+  plowed: number;
+  treesHarvested: number;
+  goldEarned: number;
+  brainsEarned: number;
+  zombiesGrown: number;
+  zombiesCombined: number;
+  raidsWon: number;
+  raidsLost: number;
+}
+
+/** One farmer on the friend leaderboard: the caller (`self`) or an accepted friend. */
+export interface FriendLeaderboardEntry {
+  accountId: string;
+  name: string;
+  /** Present (true) only on the caller's own row. */
+  self?: boolean;
+  /** The Farmer head they're wearing, same as the friends list row. */
+  headId?: number;
+  /** Server-derived level (from server-owned XP) — the one authoritative column. */
+  level: number;
+  /** Null when they've never published a tally (older client, or never synced) —
+   *  shown as "no stats yet", never scored as a farm of zeroes. */
+  stats: FriendLeaderboardStats | null;
+}
+
+/** You + your accepted friends, with the numbers the leaderboard ranks. Unordered:
+ *  rank depends on which stat is ranked, so sorting is the caller's job
+ *  (social/leaderboard.ts rankLeaderboard). */
+export const getFriendLeaderboard = () =>
+  req<{ entries: FriendLeaderboardEntry[] }>("GET", "/leaderboard/friends")
+    .then((r) => r.entries);
+
 /** Pending incoming friend requests (people who asked to befriend me). */
 export interface FriendRequestView {
   fromAccountId: string;

@@ -167,3 +167,21 @@ describe("brain ticket wiring", () => {
     expect(Object.keys(ELITE_PROFILES).map(Number).sort((a, b) => a - b)).toEqual(playable);
   });
 });
+
+describe("elite recommended level", () => {
+  // raids.json `eliteRecommendedLevel` is display-only advice (hud.ts raid cards), but it
+  // is advice about THIS table, so it has to keep step with it.
+  it("advises a level above the ordinary fight on every playable invasion", () => {
+    for (const raid of raids.filter((r) => r.playable)) {
+      expect(raid.eliteRecommendedLevel).toBeGreaterThan(raid.recommendedLevel);
+    }
+  });
+
+  it("climbs with the elite RAMP the profiles are fitted to", () => {
+    // The five late invasions are fitted to a smooth climb in ladder order (see the
+    // eliteInvasion.ts header). A profile re-fit that reorders them and leaves the advice
+    // behind would tell a player the Aliens are a gentler Brain Ticket than the Robots.
+    const ramp = [3, 4, 5, 6, 9].map((id) => raids.find((r) => r.id === id)!.eliteRecommendedLevel);
+    for (let i = 1; i < ramp.length; i++) expect(ramp[i]).toBeGreaterThan(ramp[i - 1]);
+  });
+});

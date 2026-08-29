@@ -20,6 +20,7 @@ export enum TutStep {
   Invade = 5,
   Done = 8, // 6/7 were legacy post-raid beats
   Plow = 9,
+  OpenGuide = 10,
 }
 
 export const TUTORIAL_SEQUENCE: readonly TutStep[] = [
@@ -30,6 +31,7 @@ export const TUTORIAL_SEQUENCE: readonly TutStep[] = [
   TutStep.RipenCrop,
   TutStep.Harvest,
   TutStep.Invade,
+  TutStep.OpenGuide,
   TutStep.Done,
 ];
 
@@ -154,10 +156,16 @@ export const STEPS: Record<TutStep, StepDef> = {
     menuLabel: "Invade",
     say: "Now that you've got a zombie, it's time to start a\nZOMBIE INVASION! Tap Invade and send it into Old McDonnell's Farm.",
   },
+  [TutStep.OpenGuide]: {
+    step: TutStep.OpenGuide,
+    kind: "menu",
+    menuLabel: "Guide",
+    say: "One last thing! Any question ya got — crops, zombies, invasions — my Farmer's Guide has the answer.\nTap Guide and take a peek.",
+  },
   [TutStep.Done]: {
     step: TutStep.Done,
     kind: "narrative",
-    say: "That's it — you're a real Zombie Farmer now!\nHere's 200 gold to get you started. Happy farmin'!",
+    say: "That's it — you're a real Zombie Farmer now!\nHere's 200 gold to get you started. And remember, the Guide's always there if ya need it. Happy farmin'!",
     hint: "Tap to finish",
   },
 };

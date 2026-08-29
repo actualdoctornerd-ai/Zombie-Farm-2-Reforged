@@ -803,7 +803,15 @@ def extract_first_animated_frame(tp):
 # the orbit's FIRST frame over the plinth, exactly as extract_multiplepieces bakes a
 # rigged object's layers. Frame 01 is also the widest spread of the twelve and the only
 # one the source itself starts on; the campfire's flame frames likewise start at fr00.
-ANIMATION_OVER_BASE = {"spaceSolarSystem", "pixelCampfire"}
+# The Mechanical Egg and the Mechanical Bull are the MOTION-PATH members of the same
+# family, and were the same bug: the Egg's `frameName` is its bottom half, with the
+# lid that lifts off it living in the animation, and the Bull's is the little plinth
+# under a bull whose body, head and tail are all animated parts. So the Egg shipped
+# as a half egg and the Bull as an empty stand. Baking each part's home position over
+# the base fixes the market card and the placed still alike; the parts are then taken
+# back out of the art the object DRAWS (see `residual` in build_animation) so nothing
+# is left behind when they move.
+ANIMATION_OVER_BASE = {"spaceSolarSystem", "pixelCampfire", "goldEgg", "mechanicalBull"}
 
 
 def extract_animated_over_base(tp):
@@ -958,6 +966,394 @@ def extract_child_layer(tp):
     for layer in layers:
         canvas.alpha_composite(layer, (0, 0))
     return canvas
+
+
+# ---- Animated decor (flipbook) ----------------------------------------------
+# 44 TileProperties tiles carry `animationDictionaries`, the source's per-tile
+# animation. Two shapes share that one field: a FLIPBOOK (`animationFrames`, a
+# frame list cycled in place) and a MOTION PATH (one named part walked along a
+# `moveOffsets` script). Only the flipbook is built here; the six motion-path
+# tiles (fireflies, Mechanical Egg, Ice Cream Truck, Mechanical Bull, Satellite
+# Dish, Skeleton Couple) still ship as stills.
+#
+# GROUND TRUTH: `animationSpeed` is the WHOLE LOOP's duration in seconds, not a
+# per-frame delay. The Water Mill settles it — 29 frames at 2.416 is 83.3 ms a
+# frame, a 0.4 s blink held open for 2 s, where the per-frame reading gives a
+# 70-second blink. Six more tiles land on exactly frames/12 (Brainata 21/1.75,
+# Wind Sculpture 13/1.083, Box o' Lantern 12/1.0, Water Otter 8/0.67): the art
+# was drawn at 12 fps and the loop's length written down.
+#
+# A layer's frames and the tile's own base frame are trimmed out of ONE shared
+# untrimmed canvas (`spriteSourceSize`), which is what lines them up: for 25 of
+# the 26 tiles built here that canvas is identical for base and animation. The
+# Tiki Torch is the exception that pins the general rule (torch 25x87, flame
+# 25x112) — cocos anchors both sprites on the tile's one ground point, so
+# canvases align on their BOTTOM edge and horizontal centre, which is what puts
+# the flame above the torch head instead of through the middle of it.
+ANIM_SHEET_MAX_W = 2048  # cells wrap into rows rather than exceed this
+
+
+def anim_layers(tp):
+    """The tile's FLIPBOOK layers as [(dict, [frame names])] — motion-path layers
+    (`animationFrameName` + `moveOffsets`, no frame list) are left out."""
+    return [(ad, [n for n in ad["animationFrames"] if n != "playSound"])
+            for ad in tp.get("animationDictionaries", []) or []
+            if ad.get("animationFrames")]
+
+
+_frame_index = {}
+
+
+def _find_frame_list(fn):
+    """Which atlas actually holds frame `fn`.
+
+    The Satellite Dish needs this: its twinkle layer names `tex1082.plist`, and
+    `seti_twinkle.png` is in tex1083. The tile has therefore been declaring a frame
+    that does not exist for as long as the game has shipped. Rather than hard-code
+    the one fix, fall back to an index over every atlas in the bundle — a mis-named
+    frame list is a source typo, not a missing asset.
+    """
+    if not _frame_index:
+        for name in sorted(os.listdir(APP)):
+            if not name.endswith(".plist"):
+                continue
+            try:
+                fr = frames(name)
+            except Exception:
+                continue
+            for key in fr or ():
+                _frame_index.setdefault(key, name)
+    return _frame_index.get(fn)
+
+
+def _placed(fl, fn):
+    """(image, colorRect, untrimmed canvas size) for one atlas frame, or None."""
+    fr = frames(fl)
+    if not fr or fn not in fr:
+        fl = _find_frame_list(fn)
+        fr = frames(fl) if fl else None
+    if not fr or fn not in fr:
+        return None
+    im = extract_from_atlas(fl, fn)
+    if im is None:
+        return None
+    f = fr[fn]
+    src = tuple(int(v) for v in re.findall(r"-?\d+", f["spriteSourceSize"])[:2])
+    return im, rect(f["spriteColorRect"]), src
+
+
+# ---- Motion-path decor -------------------------------------------------------
+# The other shape an `animationDictionaries` layer takes: ONE named part walked
+# along a script instead of a frame list cycled in place. Six tiles use it — the
+# Mechanical Egg's lid, the Ice Cream Truck's drip, the Mechanical Bull's buck, the
+# Satellite Dish's twinkle, the three fireflies in Bully Frog's jar, and the
+# Skeleton Couple, which is a 21-part paper doll built entirely this way.
+#
+# The scripts are `_`-separated steps of `head:seconds`:
+#   {x,y}      move (see the axis note below)      d      hold this long
+#   playSound  fire soundID here (zero length)     1.2    scale to this (scaleSequence)
+#
+# GROUND TRUTH on the y axis, which the two move keys do NOT share:
+#   `moveOffsets` is a cocos MoveBy, so its y points UP. The Mechanical Egg settles
+#   it — its lid runs `{0,32}` slowly, holds, then `{0,-32}` in 50ms with a thunk,
+#   which is a lid lifting and slamming shut. Read the other way the lid sinks INTO
+#   the egg it is drawn over.
+#   `moveToOffsets` is authored in IMAGE coordinates, y DOWN. The Ice Cream Truck
+#   settles that one: its drip runs 112 -> 115 -> 129 -> 179 in 0.7s, 0.15s, 0.15s,
+#   which read downward is a drip accelerating off the truck under gravity, and read
+#   upward is a drip accelerating into the sky.
+#
+# Both are converted here into the same thing — keyframed OFFSETS from the part's
+# home position, in screen pixels — so the runtime only ever interpolates and adds.
+
+
+def _script(spec):
+    """[(head, seconds)] for one `_`-separated move/scale script."""
+    out = []
+    for token in (spec or "").split("_"):
+        if not token:
+            continue
+        head, _, tail = token.rpartition(":")
+        out.append((head, float(tail or 0)))
+    return out
+
+
+def _move_track(spec, absolute, home, sound):
+    """(total ms, [[t, dx, dy]], cue ms) for a move script, as offsets from `home`.
+
+    The first key repeats the script's LAST value rather than starting at zero: the
+    source repeats the whole sequence for ever, so the move back to the start is a
+    step of the animation (the truck's drip springs back up to the nozzle in 10ms),
+    not a jump between loops.
+    """
+    def walk(start):
+        x, y, t, keys, cue = start[0], start[1], 0.0, [], None
+        for head, secs in _script(spec):
+            if head == "playSound":
+                cue = round(t * 1000)
+                continue
+            if head != "d":
+                a, b = (float(v) for v in re.findall(r"-?\d+\.?\d*", head))
+                # A relative step is a cocos delta (y up); an absolute one is an
+                # image-space point, so it becomes an offset from home directly.
+                x, y = (a - home[0], b - home[1]) if absolute else (x + a, y - b)
+            t += secs
+            keys.append([round(t * 1000), round(x, 2), round(y, 2)])
+        return x, y, t, keys, cue
+
+    end = walk((0.0, 0.0))
+    x, y, t, keys, cue = walk((end[0], end[1]))
+    keys.insert(0, [0, round(end[0], 2), round(end[1], 2)])
+    return round(t * 1000), keys, (cue if sound else None)
+
+
+def _scale_track(spec):
+    """(total ms, [[t, scale]]) for a scaleSequence, seeded the same way."""
+    def walk(start):
+        s, t, keys = start, 0.0, []
+        for head, secs in _script(spec):
+            if head != "d":
+                s = float(head)
+            t += secs
+            keys.append([round(t * 1000), s])
+        return s, t, keys
+
+    end = walk(1.0)[0]
+    s, t, keys = walk(end)
+    keys.insert(0, [0, end])
+    return round(t * 1000), keys
+
+
+def motion_layers(tp):
+    """The tile's MOTION-PATH layers: every dictionary that names one part rather
+    than a frame list. A layer with neither a script nor a scale is still one — the
+    Skeleton Couple's two feet stand still inside a doll that does not."""
+    return [ad for ad in tp.get("animationDictionaries", []) or []
+            if not ad.get("animationFrames") and ad.get("animationFrameName")]
+
+
+def build_animation(tile, tp, sprite_img):
+    """({anim fields}, [(filename, sheet image)]) for an animated tile, else (None, []).
+
+    Every cell is the whole object as it looks at that step, drawn on ONE canvas
+    shared by the layers. That canvas keeps the still sprite's ground line and
+    centre line and only grows upward and sideways, so swapping a cell in for the
+    still leaves a placed object standing exactly where it stands today — no
+    per-frame offset to mirror, no pivot to re-derive, and cell 0 is simply what
+    the object looks like at rest. Layer 0 carries the base art with it (the fire
+    ON the fireplace); any further layer is drawn over the object as its own
+    sprite, because two layers can run at different speeds (Skunkarella's
+    Fountain: chocolate 0.35 s, sparkle 0.5 s) and folding those into one strip
+    would take a 3.5-second, 280-cell timeline.
+    """
+    layers = anim_layers(tp)
+    moving = motion_layers(tp)
+    if not layers and not moving:
+        return None, []
+
+    from PIL import Image
+
+    base_fl, base_fn = tp.get("frameList"), tp.get("frameName")
+    base = _placed(base_fl, base_fn) if base_fl and base_fn else None
+    if base and is_blank(base[0]):
+        base = None  # both Worm Holes rest on a transparent placeholder frame
+
+    seqs = []  # per flipbook layer, [(image, colorRect, canvas)] in frame order
+    for ad, names in layers:
+        got = [_placed(ad.get("animationFrameList") or base_fl, n) for n in names]
+        if any(g is None for g in got):
+            return None, []
+        seqs.append(got)
+    # A motion layer is ONE part. Skip a layer whose art is missing rather than
+    # dropping the whole tile: only the Satellite Dish's twinkle is at risk, and a
+    # dish that does not sparkle still beats a dish that does not ship.
+    moving = [(ad, _placed(ad.get("animationFrameList") or base_fl,
+                           ad["animationFrameName"])) for ad in moving]
+    moving = [(ad, p) for ad, p in moving if p and not is_blank(p[0])]
+    # A part placed by moveToOffsets carries its own tiny canvas and is positioned
+    # by the script, so it must stay out of the still/cell geometry below.
+    anchored = [p for ad, p in moving if not ad.get("moveToOffsets")]
+
+    every = ([base] if base else []) + [f for s in seqs for f in s] + anchored
+    cw = max(p[2][0] for p in every)
+    ch = max(p[2][1] for p in every)
+
+    def put(p):  # bottom + centre alignment, see the Tiki Torch note above
+        return p[1][0] + (cw - p[2][0]) // 2, p[1][1] + (ch - p[2][1])
+
+    def box(p):
+        px, py = put(p)
+        return px, py, px + p[1][2], py + p[1][3]
+
+    def bounds(ps):
+        bs = [box(p) for p in ps]
+        return (min(b[0] for b in bs), min(b[1] for b in bs),
+                max(b[2] for b in bs), max(b[3] for b in bs))
+
+    u = bounds(every)
+
+    # Where today's still sits on that canvas. Four extraction paths in main()
+    # produce it, so four rules find it again; the assert is what keeps the two
+    # sets in step if either side is ever edited.
+    if tp.get("multiplePieces"):
+        still = (0, 0, cw, ch)  # extract_multiplepieces returns the whole canvas
+    elif tile in ANIMATION_OVER_BASE:
+        # main() bakes frame 0 of each layer over the base, then crops that
+        # symmetrically about the base's centre line, keeping its ground line.
+        content = bounds([base] + [s[0] for s in seqs] + anchored)
+        bx0, _, bx1, by1 = box(base)
+        mid = (bx0 + bx1) / 2
+        half = max(mid - content[0], content[2] - mid)
+        lo, hi = int(round(mid - half)), int(round(mid + half))
+        still = (lo, content[1], hi - lo, by1 - content[1])
+    elif base:
+        b = box(base)
+        still = (b[0], b[1], b[2] - b[0], b[3] - b[1])
+    else:
+        b = box(next(f for s in seqs for f in s if not is_blank(f[0])))
+        still = (b[0], b[1], b[2] - b[0], b[3] - b[1])
+    if not layers:  # motion only: there are no cells, so the still IS the canvas
+        u = (still[0], still[1], still[0] + still[2], still[1] + still[3])
+    assert (still[2], still[3]) == sprite_img.size, (
+        f"{tile}: the animation canvas puts the still at {still[2]}x{still[3]}, "
+        f"but {sprite_img.width}x{sprite_img.height} shipped")
+
+    # The cell: the still's centre line, grown to hold every frame. Symmetric about
+    # that centre on purpose — a mirrored object reflects about it, so a cell that
+    # is symmetric needs no horizontal offset and none to mirror. A frame that dips
+    # BELOW the still's ground line (a Worm Hole's swirl, by 4px) drops the cell's
+    # floor and is paid for with `dy` rather than clipped off.
+    mid = still[0] + still[2] / 2
+    ground = still[1] + still[3]
+    bottom = max(u[3], ground)
+    top = min(u[1], still[1])
+    half = max(mid - min(u[0], still[0]), max(u[2], still[0] + still[2]) - mid)
+    left, right = int(round(mid - half)), int(round(mid + half))
+
+    def cell(pieces):
+        canvas = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
+        for p in pieces:
+            canvas.alpha_composite(p[0], put(p))
+        return canvas.crop((left, top, right, bottom))
+
+    out, sheets = [], []
+    for i, ((ad, _), seq) in enumerate(zip(layers, seqs)):
+        # Layer 0 draws over the base art; `frameBehind` puts it under instead
+        # (the Parrot's wings), and `animateBaseSprite` frames REPLACE the still,
+        # so the base drops out of the stack entirely.
+        with_base = i == 0 and base is not None and not ad.get("animateBaseSprite")
+        cells = [cell([f, base] if with_base and ad.get("frameBehind") else
+                      [base, f] if with_base else [f]) for f in seq]
+        cols = max(1, min(len(cells), ANIM_SHEET_MAX_W // max(1, cells[0].width)))
+        rows = -(-len(cells) // cols)
+        sheet = Image.new("RGBA", (cols * cells[0].width, rows * cells[0].height),
+                          (0, 0, 0, 0))
+        for n, c in enumerate(cells):
+            sheet.alpha_composite(c, ((n % cols) * c.width, (n // cols) * c.height))
+        name = f"{tile}_anim{i}.png"
+        sheets.append((name, sheet))
+        raw = ad["animationFrames"]
+        marker = raw.index("playSound") if "playSound" in raw else -1
+        out.append({
+            "sheet": name,
+            "n": len(cells),
+            "cols": cols,
+            # animationSpeed is the whole loop; per-frame is what the runtime wants.
+            "ms": int(round((ad.get("animationSpeed") or 0) * 1000)),
+            # A pause held on the LAST cell before the loop restarts — the Geyser
+            # erupts for a second and then sits still for five. Meaningless for a
+            # tap-played layer, which stops when it reaches the end.
+            **({"restMs": int(round(ad["animationDelayAfter"] * 1000))}
+               if ad.get("animationDelayAfter") and not ad.get("onClick") else {}),
+            # Tap to play once (Parrot, Taiko Drum, Monument, Box o' Lantern,
+            # Anniversary Gift) rather than loop for ever.
+            **({"onClick": True} if ad.get("onClick") else {}),
+            # This layer IS the object's own sprite rather than a part drawn over
+            # it, so cocos' restoreOriginalFrame puts the still back when a
+            # tap-played run ends. Overlay layers have no still to fall back to and
+            # rest on their own first cell instead — which is what keeps the
+            # Liberty Monument's raised arm on the statue between waves.
+            **({"base": True} if ad.get("animateBaseSprite") else {}),
+            # A literal "playSound" entry in the frame list is a cue, not a frame:
+            # it fires soundID as the animation reaches that point.
+            **({"sound": ad["soundID"],
+                "soundFrame": min(len([n for n in raw[:marker] if n != "playSound"]),
+                                  len(cells) - 1)}
+               if marker >= 0 and ad.get("soundID") else {}),
+        })
+    # ---- Motion-path parts ---------------------------------------------------
+    # Each one ships as its own little PNG and its own sprite, positioned against
+    # the object's GROUND POINT (the bottom-centre of the still, which is where
+    # Field anchors it). Nothing is baked, so a part is free to travel outside the
+    # object's own art — the Mechanical Egg's lid lifts 32px clear of it.
+    anchor = (still[0] + still[2] / 2, still[1] + still[3])
+    parts, arts = [], []
+    for i, (ad, p) in enumerate(moving):
+        if ad.get("frameBehind"):
+            raise ValueError(f"{tile}: a motion part asks to draw behind the base, "
+                             f"which the runtime draws parts over")
+        absolute = bool(ad.get("moveToOffsets"))
+        # cocos anchorPoint is y-UP; ours is y-down. Only the two moveToOffsets
+        # tiles declare one, and a script's point is that anchor's destination.
+        ax, ay = pair(ad["anchorPoint"]) if ad.get("anchorPoint") else (0.0, 0.0)
+        ay = 1 - ay if ad.get("anchorPoint") else 0.0
+        if absolute:
+            first = [float(v) for v in re.findall(
+                r"-?\d+\.?\d*", _script(ad["moveToOffsets"])[0][0])]
+            home = (first[0], first[1])
+        else:
+            px, py = put(p)
+            home = (px + p[1][2] * ax, py + p[1][3] * ay)
+        name = f"{tile}_part{i}.png"
+        arts.append((name, p[0]))
+        ms, keys, cue = _move_track(ad.get("moveOffsets") or ad.get("moveToOffsets"),
+                                    absolute, home, ad.get("soundID"))
+        scale_ms, scale_keys = _scale_track(ad.get("scaleSequence"))
+        parts.append({
+            "art": name,
+            # Home position of the part's anchor, relative to the ground point.
+            "x": round(home[0] - anchor[0], 2), "y": round(home[1] - anchor[1], 2),
+            **({"ax": ax, "ay": ay} if (ax or ay) else {}),
+            **({"ms": ms, "keys": keys} if ms else {}),
+            **({"scaleMs": scale_ms, "scaleKeys": scale_keys} if scale_ms else {}),
+            **({"onClick": True} if ad.get("onClick") else {}),
+            **({"sound": ad["soundID"], "soundAt": cue} if cue is not None else {}),
+        })
+
+    # The still bakes every part in at its home position (that is what puts the
+    # bull on its plinth and the lid on the egg), so the art the object actually
+    # DRAWS has to be the still with those parts taken back out — otherwise each
+    # one leaves a copy of itself behind the moment it moves.
+    residual = None
+    if parts:
+        claimed = {ad["animationFrameName"] for ad, _ in moving}
+        keep = ([] if not base or base_fn in claimed else [base]) + [
+            s[0] for (ad, _), s in zip(layers, seqs) if not is_blank(s[0][0])]
+        canvas = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
+        for q in keep:
+            canvas.alpha_composite(q[0], put(q))
+        cropped = canvas.crop((still[0], still[1], still[0] + still[2], still[1] + still[3]))
+        if cropped.tobytes() != sprite_img.convert("RGBA").tobytes():
+            residual = (f"{tile}_still.png", cropped)
+            arts.append(residual)
+
+    return {"w": right - left, "h": bottom - top,
+            # Cells hang `dy` px below the still's ground line; the runtime pushes
+            # the sprite down by that much so the object keeps standing where it did.
+            **({"dy": bottom - ground} if bottom != ground else {}),
+            **({"base": residual[0]} if residual else {}),
+            "layers": out,
+            **({"parts": parts} if parts else {})}, sheets + arts
+
+
+def emit_animation(tile, tp, sprite_img):
+    """Build a tile's flipbook and write its sheets; {} when it has none."""
+    anim, sheets = build_animation(tile, tp, sprite_img)
+    if not anim:
+        return {}
+    for name, sheet in sheets:
+        sheet.save(os.path.join(OBJDIR, name))
+    return {"anim": anim}
 
 
 def main():
@@ -1126,6 +1522,8 @@ def main():
             # Art with writing on it: Rotate is a mirror, so it would read backwards.
             **({"noMirror": True} if tile in NO_MIRROR_TILES else {}),
             "sprite": out_name,
+            # Flipbook animation played on the farm (see build_animation).
+            **emit_animation(tile, tp, sprite_img),
             # Far-side art drawn BEHIND anything standing inside this object.
             **({"backSprite": back_name} if back_name else {}),
             # Working-state art (Zombie Pot: lid on while cooking, arm out when done).
@@ -1233,6 +1631,8 @@ def main():
             # Art with writing on it: Rotate is a mirror, so it would read backwards.
             **({"noMirror": True} if tile in NO_MIRROR_TILES else {}),
             "sprite": out_name,
+            # Flipbook animation played on the farm (see build_animation).
+            **emit_animation(tile, tp, sprite_img),
             "nativeW": sprite_img.width,
             "nativeH": sprite_img.height,
             "pivotX": tp.get("pivotx", 0.5),
@@ -1312,7 +1712,10 @@ def main():
         c["growingSprite"] for c in catalog if c["growingSprite"]} | {
         c["backSprite"] for c in catalog if c.get("backSprite")} | {
         c[field] for c in catalog for _, field in STATE_SPRITE_TILES if c.get(field)} | {
-        t["sprite"] for c in catalog for t in c.get("turns", [])}
+        t["sprite"] for c in catalog for t in c.get("turns", [])} | {
+        L["sheet"] for c in catalog for L in c.get("anim", {}).get("layers", [])} | {
+        P["art"] for c in catalog for P in c.get("anim", {}).get("parts", [])} | {
+        c["anim"]["base"] for c in catalog if c.get("anim", {}).get("base")}
     orphans = sorted(f for f in os.listdir(OBJDIR)
                      if f.endswith(".png") and f not in referenced)
     for f in orphans:

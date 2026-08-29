@@ -36,6 +36,7 @@ import {
   wallTemplateFor,
 } from "../raid/fightConfig";
 import { fightStage, resolveStageWave, seededRandom } from "../raid/RaidCatalog";
+import { compareRaidMenuOrder } from "../raid/raidMenuOrder";
 import { RaidScene, type RaidSceneParams } from "../raid/RaidScene";
 import { RAID_TICK_MS } from "../raid/replay";
 import type {
@@ -550,14 +551,9 @@ function buildRaidList() {
     box.appendChild(h);
   };
 
-  const ladder = assets.raids.filter((r) => r.playable && !r.seasonal);
-  const seasonal = assets.raids.filter((r) => r.playable && r.seasonal);
+  const ladder = assets.raids.filter((r) => r.playable).sort(compareRaidMenuOrder);
   head("Ladder");
   for (const r of ladder) add(`raid:${r.id}`, r.name, `L${r.recommendedLevel}`);
-  if (seasonal.length) {
-    head("Events");
-    for (const r of seasonal) add(`raid:${r.id}`, r.name, `L${r.recommendedLevel}`);
-  }
   head("Epic bosses");
   for (const b of EPIC_BOSSES) add(`epic:${b.id}`, b.name, `×${b.maxLevel}`);
 }

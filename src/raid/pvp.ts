@@ -538,6 +538,7 @@ export function buildPvpRaidDef(
     enemyIcon: "",
     unlockLevel: 0,
     recommendedLevel: 0,
+    eliteRecommendedLevel: 0, // A friend invasion has no Brain Ticket mode — neither figure is ever shown.
     introText: `${info.defenderName}'s zombies shamble out to defend their turf.`,
     successText: "The farm is yours — for bragging rights, anyway.",
     failureText: "The defense holds. Nobody was hurt (much).",

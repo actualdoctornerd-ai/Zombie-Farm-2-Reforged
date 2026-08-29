@@ -1051,6 +1051,13 @@
   color: #ffb09f; font-size: 12px; }
 #hud .fullscreen-prompt-actions { justify-content: center; margin-top: 8px; }
 #hud .confirm-msg { margin: 0 0 6px; font-size: 14px; line-height: 1.4; }
+/* Boost-purchase quantity stepper (− count +) inside the confirm panel. */
+#hud .confirm-qty-row { display: flex; gap: 10px; align-items: center; justify-content: center;
+  margin: 10px 0 4px; }
+#hud .confirm-qty-row .zbtn { padding: 4px 13px; font-size: 16px; line-height: 1; }
+#hud .confirm-qty { min-width: 36px; text-align: center; font: 800 18px system-ui, sans-serif;
+  color: #ffe08a; text-shadow: 0 1px 1px #000; }
+#hud .confirm-qty-total { font-weight: 700; }
 #hud .confirm-warn { display: inline-block; margin-top: 6px; font-size: 12px; color: #f6c76a; font-style: italic; }
 
 /* ---- Growing crop/zombie info popup ---- */
@@ -1087,6 +1094,10 @@
 #hud .rd-cn { font-size: 12px; font-weight: 800; line-height: 1.2; }
 #hud .rd-cl { font-size: 10px; font-weight: 700; opacity: .8; }
 #hud .rd-cl.lock { color: #ffb0a0; opacity: 1; }
+/* Elite (Brain Ticket) recommended level, on both the list card and the detail meta.
+   Violet to match the Brain Ticket toggle — the same colour rule as .raid-elite-btn:
+   this figure belongs to the harder fight, not to the ordinary one beside it. */
+#hud .rd-elite-lv { color: #e3c6ff; }
 #hud .rd-detail { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 #hud .rd-hero { display: flex; gap: 12px; align-items: center; }
 #hud .rd-hero > div { min-width: 0; } /* let the title/boss/meta column wrap instead of overflowing */
@@ -1523,6 +1534,32 @@
 /* A social surface the farm has not reached yet: still listed (so the player knows it
    is coming and what it costs), but plainly shut. */
 #hud .social-choice.locked { filter: grayscale(.6); opacity: .62; cursor: default; }
+/* ---- friend leaderboard (Social → Leaderboard) ---- */
+#hud .lb-panel { width: min(520px, 94vw); }
+/* One chip per rankable stat; the active one wears the "go" green the hub uses. */
+#hud .lb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; justify-content: center; }
+#hud .lb-chip { border: 2px solid #6d4b24; border-radius: 9px; padding: 4px 10px; cursor: pointer;
+  background: linear-gradient(#f3e5bd, #d7bc7d); color: #4a3014;
+  font: 700 12px Georgia, serif; text-shadow: none; }
+#hud .lb-chip:hover { filter: brightness(1.08); }
+#hud .lb-chip.active { background: linear-gradient(#79c247, #55972a); color: #fff;
+  border-color: #2f5b12; text-shadow: 0 1px 1px #000; cursor: default; }
+/* Loading / error / "just you so far" line; keeps its slot so rows don't jump. */
+#hud .lb-status { min-height: 16px; margin-bottom: 4px; text-align: center;
+  font: 700 12px Georgia, serif; color: #c9b98f; }
+#hud .lb-list { max-height: 56vh; }
+#hud .lb-row { gap: 8px; }
+/* Your own row, in the same green the active profile row already uses. */
+#hud .lb-row.lb-self { background: rgba(112,169,30,.22);
+  box-shadow: inset 0 0 0 1px rgba(142,199,79,.5); }
+#hud .lb-rank { flex: 0 0 auto; min-width: 36px; text-align: center;
+  font: 800 14px system-ui, sans-serif; color: #f4e9cf; }
+#hud .lb-rank.lb-medal { font-size: 19px; }
+#hud .lb-name { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 15px;
+  color: #f4e9cf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#hud .lb-value { flex: 0 0 auto; font: 800 14px system-ui, sans-serif; color: #ffd98a; }
+#hud .lb-value.lb-novalue { font: italic 600 12px Georgia, serif; color: #b6a986; }
+#hud .lb-signin { margin: 10px 0 8px; font-size: 14px; color: #e9ffd8; }
 #hud .bm { width: min(900px, 96vw); height: min(610px, 94vh); }
 #hud .bm-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; }
 #hud .bm-toolbar select, #hud .bm-compose select, #hud .bm-compose input {
@@ -1924,8 +1961,12 @@
   /* A portrait phone is too narrow for the centered tool bar AND the bottom-left
      invasion shortcut: the tool bar reaches into the shortcut's corner and sits on
      top of it. While the chrome is expanded the tools win; tapping the fab tucks
-     them away and the shortcut comes straight back. */
-  #hud.chrome-expanded .invade-shortcut { display: none; }
+     them away and the shortcut comes straight back.
+     NOT during the tutorial: its beats expand the chrome themselves, the tool bar
+     is display:none there (so the overlap cannot happen), and the Invade beat's
+     one allowed control is this very shortcut — hiding it froze portrait players
+     on that beat with nothing to tap. */
+  #hud.chrome-expanded:not(.tutorial) .invade-shortcut { display: none; }
 }
 
 /* Landscape phone: the six-item dock, stacked one-per-row, is taller than the
@@ -2139,6 +2180,9 @@
 /* Raid select and army select carry their own instructions and launch control.
    Remove Tim once either panel opens so he cannot cover Start Invasion. */
 #hud .tut-layer.invasion-menu-open .tut-tim { display: none; }
+/* Same on the OpenGuide beat: Tim steps aside while the Farmer's Guide is open
+   so nothing covers the pages he sent the player to read. */
+#hud .tut-layer.guide-open .tut-tim { display: none; }
 /* Full-screen tap blocker: only present while a step gates input. It swallows
    every DOM tap so nothing but the highlighted element is reachable. */
 #hud.tutorial .tut-blocker { position: fixed; inset: 0; pointer-events: auto;

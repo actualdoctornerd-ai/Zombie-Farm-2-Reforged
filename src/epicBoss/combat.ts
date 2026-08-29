@@ -87,6 +87,7 @@ export function buildEpicBossSetup(
     enemyIcon: "",
     unlockLevel: 0,
     recommendedLevel: 0,
+    eliteRecommendedLevel: 0, // An Epic Boss run has no Brain Ticket mode — neither figure is ever shown.
     introText: def.introText,
     successText: def.successText,
     failureText: def.failedText,

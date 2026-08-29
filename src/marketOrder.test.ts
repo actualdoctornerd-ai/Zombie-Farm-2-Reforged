@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { compareCropMarketOrder, compareItemMarketOrder } from "./marketOrder";
+import {
+  compareCropMarketOrder, compareItemMarketOrder, cropAvailableInMarket,
+} from "./marketOrder";
 
 describe("crop market ordering", () => {
+  it("temporarily removes seasonal crops from purchase surfaces", () => {
+    const rows = [
+      { name: "Carrot", level: 1 },
+      { name: "Candy Corn", level: 13, seasonal: true },
+      { name: "Potato", level: 10 },
+    ];
+    expect(rows.filter(cropAvailableInMarket).map((row) => row.name))
+      .toEqual(["Carrot", "Potato"]);
+  });
+
   it("puts regular crops before holiday crops regardless of unlock level", () => {
     const entries = [
       { name: "Holiday L1", level: 1, seasonal: true },

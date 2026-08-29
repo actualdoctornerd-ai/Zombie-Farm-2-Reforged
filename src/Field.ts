@@ -12,6 +12,10 @@ import { setFootprint, sortLayer } from "./depthSort";
 import { makeLight, OBJECT_GLOWS } from "./lighting";
 import { mintObjectId, objectIdFloor } from "./objectIds";
 import {
+  advanceObjectAnim, animFrames, createObjectAnim, posePart, REST, triggerObjectAnim,
+  type ObjectAnimState,
+} from "./objectAnimation";
+import {
   COST_AVOID, COST_GROUND, COST_PATH, isGate, objectWalkCost, wormholeSide,
 } from "./pathCosts";
 import type { Cell, PathOptions } from "./pathfind";
@@ -293,6 +297,9 @@ interface FarmObject {
   // object's ordering against characters outside the pen.
   frontOverlay?: Container;
   frontMask?: Graphics;
+  // Animated decor (windmill, geyser, koi pond, …): the flipbook driving `sprite`
+  // and, for the two objects with a second layer, its child sprites.
+  anim?: ObjectAnimState;
   light?: Sprite; // additive night glow (glowing objects only), lives in the night layer
   // Fruit trees only: readyAt = epoch ms the fruit ripens; ready = fruit present.
   readyAt: number;
@@ -392,6 +399,9 @@ export class Field {
   // stored one. main uses it to re-theme everything OUTSIDE the farm (the scenery
   // ring, the hills backdrop, the viewport filler) to match. See surroundings.ts.
   onClimateChange: ((terrain: string) => void) | null = null;
+  /** Plays a cue an animation reached (the Parrot's squawk, the Taiko Drum's hits).
+   *  Bound to the audio mixer by main; a bare Field just animates silently. */
+  playAnimationSound: (file: string) => void = () => {};
 
   private ground: Sprite[][] = [];
   private plots = new Map<string, Plot>(); // key "oc,or"
@@ -1175,8 +1185,12 @@ export class Field {
     }
     this.fx.update(dt);
     this.tickSakuraPetals(dt);
-    // Ripen fruit trees: when the timer elapses, swap to the fruit-bearing sprite.
+    // Ripen fruit trees (swap to the fruit-bearing sprite when the timer elapses)
+    // and advance animated decor. Both ride the one pass over the objects.
+    const dtMs = dt * 1000;
     for (const o of this.objects.values()) {
+      if (o.anim && advanceObjectAnim(o.anim, dtMs, this.playAnimationSound))
+        this.applyObjectAnim(o.sprite, o.anim);
       if (!o.def.harvestValue || o.ready || now < o.readyAt) continue;
       o.ready = true;
       this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, true, o.flipped, o);
@@ -1452,7 +1466,8 @@ export class Field {
 
   private fitObjectSprite(
     sp: Sprite, def: PlaceableDef, oc: number, or: number, ready = true, flipped = false,
-    extra?: { backSprite?: Sprite; frontOverlay?: Container; work?: ObjectWork; turn?: number },
+    extra?: { backSprite?: Sprite; frontOverlay?: Container; work?: ObjectWork; turn?: number;
+      anim?: ObjectAnimState },
   ) {
     const turn = extra?.turn ?? 0;
     const name = this.objectSpriteName(def, ready, extra?.work, turn);
@@ -1475,6 +1490,16 @@ export class Field {
       sprite.position.set(a.x + off.dx, this.objectRenderY(def, a.y) + off.dy);
     };
     lay(sp, texture);
+    // Animated decor draws a CELL over the still `lay` just applied. The cells share
+    // the still's centre line, so the mirror and the position above already hold for
+    // them; `dy` is the one correction — how far the cells hang below the still's
+    // ground line (the Taiko Drum's sticks reach 15px under the drum). It is applied
+    // whenever the object is animated, including the moment a tap-played object is
+    // resting on its still, where it is worth at most the single pixel that costs.
+    if (extra?.anim) {
+      sp.position.y += (extra.anim.def.dy ?? 0) * s;
+      this.applyObjectAnim(sp, extra.anim);
+    }
     // Depth-sorts by the object's full footprint (see depthSort): an actor on the
     // object's own tiles or south of it draws in front, one behind it is covered.
     const back = extra?.backSprite;
@@ -1504,7 +1529,65 @@ export class Field {
     }
   }
 
+  // ---- Animated decor ------------------------------------------------------
+  // Cells cut once per SHEET, not per placed object: ten tiki torches all flip
+  // through the same four textures.
+  private animCells = new Map<string, Texture[]>();
+
+  /** Build the flipbook for a def about to be placed and hang its extra layers off
+   *  `host`. Undefined for ordinary decor and for art that has not loaded. */
+  private makeObjectAnim(def: PlaceableDef, host: Sprite): ObjectAnimState | undefined {
+    const anim = def.anim && createObjectAnim(def.anim, (layer) => {
+      const cached = this.animCells.get(layer.sheet);
+      if (cached) return cached;
+      const sheet = this.assets.objects[layer.sheet];
+      if (!sheet) return undefined;
+      const cells = animFrames(layer, def.anim!, sheet);
+      this.animCells.set(layer.sheet, cells);
+      return cells;
+    }, (file) => this.assets.objects[file]);
+    for (const l of anim?.layers ?? []) if (l.sprite) host.addChild(l.sprite);
+    // Parts are added in source order, which is their draw order (the Skeleton
+    // Couple's 21 bones stack shoulders under head under hat).
+    for (const p of anim?.parts ?? []) host.addChild(p.sprite);
+    return anim;
+  }
+
+  /** Show each layer's current cell. Layer 0 drives the object's own sprite, so a
+   *  layer resting on its still (a tapped Box o' Lantern between pops) simply leaves
+   *  the texture `fitObjectSprite` set. */
+  private applyObjectAnim(sp: Sprite, anim: ObjectAnimState) {
+    // The still holds every motion part baked in at its home spot, so an object
+    // whose parts are moving draws the art with them taken back out.
+    if (anim.base) sp.texture = anim.base;
+    for (const l of anim.layers) {
+      const tex = l.frame === REST ? undefined : l.frames[l.frame];
+      if (l.sprite) l.sprite.texture = tex ?? Texture.EMPTY;
+      else if (tex) sp.texture = tex;
+    }
+    for (const p of anim.parts) {
+      const pose = posePart(p);
+      p.sprite.position.set(pose.x, pose.y);
+      p.sprite.scale.set(pose.scale);
+      // A part scaled to nothing (the truck's drip between falls) is hidden rather
+      // than drawn as a zero-area quad.
+      p.sprite.visible = pose.scale > 0;
+    }
+  }
+
+  /** Play the tap-triggered animation on a placed object (the Parrot's squawk, the
+   *  Taiko Drum's two hits). No-op for an object with no flipbook or a looping one. */
+  triggerObjectAnimation(id: string): boolean {
+    const obj = this.objects.get(id);
+    if (!obj?.anim || !triggerObjectAnim(obj.anim)) return false;
+    this.applyObjectAnim(obj.sprite, obj.anim);
+    return true;
+  }
+
   private destroyObjectSprites(obj: FarmObject) {
+    for (const l of obj.anim?.layers ?? []) l.sprite?.destroy();
+    for (const p of obj.anim?.parts ?? []) p.sprite.destroy();
+    obj.anim = undefined;
     obj.sprite.removeFromParent();
     obj.backSprite?.removeFromParent();
     obj.frontOverlay?.removeFromParent();
@@ -1636,7 +1719,9 @@ export class Field {
     const frontOverlay = def.petPen ? new Container() : undefined;
     const frontMask = def.petPen ? new Graphics() : undefined;
     if (frontOverlay && frontMask) frontOverlay.mask = frontMask;
-    this.fitObjectSprite(sprite, def, oc, or, ready, flipped, { backSprite, frontOverlay, turn });
+    const anim = this.makeObjectAnim(def, sprite);
+    this.fitObjectSprite(sprite, def, oc, or, ready, flipped,
+      { backSprite, frontOverlay, turn, anim });
     const layer = this.isGroundObject(def) ? this.groundObjectLayer : this.entityLayer;
     if (backSprite) layer.addChild(backSprite);
     layer.addChild(sprite);
@@ -1644,7 +1729,7 @@ export class Field {
     if (frontMask) layer.addChild(frontMask);
     const oid = id ?? this.mintId();
     const obj: FarmObject = { id: oid, def, oc, or, sprite, backSprite,
-      frontOverlay, frontMask, readyAt: ra, ready, flipped, turn };
+      frontOverlay, frontMask, anim, readyAt: ra, ready, flipped, turn };
     this.objects.set(oid, obj);
     this.attachObjectLight(obj);
     if (memorial) this.setMemorialOccupant(oid, memorial); // restoring an enshrined statue

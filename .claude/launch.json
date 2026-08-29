@@ -25,6 +25,21 @@
       "autoPort": true
     },
     {
+      "name": "zombiefarm-localapi",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--mode",
+        "localapi",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
+    },
+    {
       "name": "zombiefarm-worker",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

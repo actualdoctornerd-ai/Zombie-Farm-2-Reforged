@@ -49,6 +49,7 @@ import {
 } from "./zombieDrops";
 import { raidBoostBundle } from "./lootBundles";
 import { invasionWinXp, repeatInvasionXp } from "./repeatXp";
+import { compareRaidMenuOrder } from "./raidMenuOrder";
 import {
   BRAIN_TICKET_KEY,
   ELITE_BRAIN_LUCK,
@@ -65,6 +66,9 @@ export interface RaidCardView {
   bossName: string;
   portrait: string; // full image url
   recommendedLevel: number;
+  /** The same advice for a Brain Ticket run (raids.json `eliteRecommendedLevel`). Not a
+   *  gate — an elite fight is only ever gated by owning the ticket. */
+  eliteRecommendedLevel: number;
   unlockLevel: number;
   xp: number; // the enemy's XP value (informational)
   /** XP actually on offer from this card: the enemy's `xp` if never cleared, else 0
@@ -302,8 +306,7 @@ export class RaidManager {
     return this.zombies.roster().filter((r) => !r.stored);
   }
 
-  /** All invasions as cards for the select screen (sorted: ladder by level,
-   *  seasonal events after). */
+  /** All invasions as cards for the select screen, at their unlock positions. */
   raidCards(): RaidCardView[] {
     const level = this.state.level;
     return this.assets.raids
@@ -313,6 +316,7 @@ export class RaidManager {
         bossName: r.bossName,
         portrait: r.bossPortrait ? raidImage(r.bossPortrait) : "",
         recommendedLevel: r.recommendedLevel,
+        eliteRecommendedLevel: r.eliteRecommendedLevel,
         unlockLevel: r.unlockLevel,
         xp: r.xp,
         firstClearXp: this.state.hasClearedRaid(String(r.id)) ? 0 : r.xp,
@@ -340,12 +344,7 @@ export class RaidManager {
         lockReason: lockReason(r, level),
         minArmy: minArmyFor(r, this.state.raidWins(String(r.id))),
       }))
-      .sort(
-        (a, b) =>
-          Number(a.seasonal) - Number(b.seasonal) ||
-          a.unlockLevel - b.unlockLevel ||
-          a.id - b.id
-      );
+      .sort(compareRaidMenuOrder);
   }
 
   /** Eligible army + default selection for a raid's Army screen. */

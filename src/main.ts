@@ -5,7 +5,7 @@ import { choosePlowOrigin } from "./plowSelection";
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
 // pixi.js lists ./lib/unsafe-eval/init.* under "sideEffects", so it survives bundling.
 import "pixi.js/unsafe-eval";
-import { loadAssets, canMirrorObject, turnCount, turnFlip, ensureBackgroundTexture, ensureObjectTexture, ensureObjectTextures, objectSpriteFiles, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, raidRewardImage, purchasableZombies, placeablePurchaseLimit, objectTint } from "./assets";
+import { loadAssets, canMirrorObject, turnCount, turnFlip, ensureBackgroundTexture, ensureObjectTexture, ensureObjectTextures, objectAnimFiles, objectSpriteFiles, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, raidRewardImage, purchasableZombies, placeablePurchaseLimit, objectTint } from "./assets";
 import { pickPiece, type PathSpec, type RoadSpec, type SceneryPiece, type SkylineSpec, type SpringSpec, surroundingsTheme, themeObjectFiles } from "./surroundings";
 import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
@@ -80,6 +80,7 @@ import { raidTip } from "./raid/raidTips";
 import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
 import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
+import { timUnlockNoticesFor } from "./tutorial/unlockNotices";
 import { initPlatform, isMobile, isTouch } from "./platform";
 import { initPwa, promptReload, checkForUpdate } from "./pwa";
 import { initDiagnostics, recordDiagnostic } from "./diagnostics";
@@ -410,7 +411,22 @@ async function main() {
         kind: "Black Market",
       });
     }
-    hud.openLevelUp({ level: to, unlocks });
+    // Levels that open a whole SYSTEM (the Zombie Pot, daily quests, the Black
+    // Market) get a Tim Buckwheat explanation once the celebration is dismissed —
+    // the popup lists what appeared; Tim says what it means. Chained off onClose
+    // so he never covers the popup, and sequentially so two crossings in one jump
+    // cannot stack two Tims (showTimNotice replaces rather than stacks).
+    const timNotices = timUnlockNoticesFor(from, to, onlineFarm);
+    hud.openLevelUp(
+      { level: to, unlocks },
+      timNotices.length
+        ? () => {
+            void (async () => {
+              for (const message of timNotices) await hud.timSays(message, "Got it!");
+            })();
+          }
+        : undefined
+    );
     audio.play("levelUp");
   };
 
@@ -1472,6 +1488,9 @@ async function main() {
   // restoring one. Wired after the first world sync so a callback can never run
   // before the backdrop/bounds/foliage it re-dresses exist.
   field.onClimateChange = applySurroundings;
+  // Cues an animated decoration reaches mid-run, played on the SFX channel like any
+  // other one-shot (see objectAnimation's `sound`).
+  field.playAnimationSound = (file) => audio.tap(file);
   applySurroundings(field.climate);
 
   const clampZoom = () => {
@@ -1963,28 +1982,37 @@ async function main() {
     return onlineFarm && !!economy && !economy.available;
   }
 
-  hud.onBuyBoost = (def) => {
-    if (onlineGameplayBlocked()) return false;
-    if (tutorial && !tutorial.allowsBoostPurchase(def.key)) return false;
-    if (def.effect === "gift" && giftLimitReached(def.key)) return false; // 1 per farm
-    if (state.onInventory) {
-      // ONLINE: the server prices the boost (exact catalog cost), debits currency, and
-      // grants perPurchase — atomically. Affordability is checked against the
-      // server-synced balance first for instant feedback; the server is the gate.
-      const funds = def.brainsNeeded ? state.brains : state.gold;
-      if (funds < def.cost) return false;
-      const optimistic = def.brainsNeeded
-        ? { count: def.perPurchase, brains: -def.cost }
-        : { count: def.perPurchase, gold: -def.cost };
-      state.onInventory({ type: "buy", key: def.key }, optimistic);
-      audio.play("buy");
-      return true;
+  hud.onBuyBoost = (def, qty = 1) => {
+    if (onlineGameplayBlocked()) return 0;
+    if (tutorial && !tutorial.allowsBoostPurchase(def.key)) return 0;
+    if (def.effect === "gift" && giftLimitReached(def.key)) return 0; // 1 per farm
+    if (def.effect === "gift") qty = 1; // a voucher run makes no sense — 1 per farm
+    // Each pack is bought as its own atomic step with a fresh funds check, so a
+    // balance that moved underneath the confirm dialog (harvests landing, the
+    // farmer spending) shortens the run rather than overdrafting. Returns how many
+    // packs were actually paid for.
+    let bought = 0;
+    for (let i = 0; i < qty; i++) {
+      if (state.onInventory) {
+        // ONLINE: the server prices the boost (exact catalog cost), debits currency,
+        // and grants perPurchase — atomically, one command per pack. Affordability is
+        // checked against the optimistically-updated balance first for instant
+        // feedback; the server is the gate.
+        const funds = def.brainsNeeded ? state.brains : state.gold;
+        if (funds < def.cost) break;
+        const optimistic = def.brainsNeeded
+          ? { count: def.perPurchase, brains: -def.cost }
+          : { count: def.perPurchase, gold: -def.cost };
+        state.onInventory({ type: "buy", key: def.key }, optimistic);
+      } else {
+        const paid = def.brainsNeeded ? state.spendBrains(def.cost) : state.spendGold(def.cost);
+        if (!paid) break;
+        state.addBoost(def.key, def.perPurchase); // a purchase grants `perPurchase` uses
+      }
+      bought++;
     }
-    const paid = def.brainsNeeded ? state.spendBrains(def.cost) : state.spendGold(def.cost);
-    if (!paid) return false;
-    state.addBoost(def.key, def.perPurchase); // a purchase grants `perPurchase` uses
-    audio.play("buy");
-    return true;
+    if (bought > 0) audio.play("buy"); // once per run, not per pack
+    return bought;
   };
   hud.onUseBoost = (def) => {
     if (onlineGameplayBlocked()) return;
@@ -2643,8 +2671,10 @@ async function main() {
       // A sprite whose download failed would otherwise be placed as an EMPTY texture: an
       // invisible object still holding its tiles against every future placement. Skip it
       // and let the next reconcile retry the download.
-      const textureReady = (def: PlaceableDef) =>
-        objectSpriteFiles(def).every((file) => !!assets.objects[file]);
+      const textureReady = (def: PlaceableDef) => {
+        const optional = new Set(objectAnimFiles(def)); // motion, not the object
+        return objectSpriteFiles(def).every((file) => optional.has(file) || !!assets.objects[file]);
+      };
 
       const current = new Map(field.serializeObjects().map((object) => [object.id, object]));
       /** Local objects already adopted by a server object in this pass. */
@@ -4490,6 +4520,9 @@ async function main() {
     const list = await api.getFriends();
     state.friends = list.map(api.toFriend); // server list becomes the cache
   };
+  // The friend leaderboard (Social → Leaderboard). A plain passthrough: the panel
+  // owns its loading/error states, and the ranking is pure (social/leaderboard.ts).
+  hud.getFriendLeaderboard = () => api.getFriendLeaderboard();
   hud.onAddFriendCode = async (code) => {
     try {
       await api.addFriend(code);
@@ -6383,6 +6416,7 @@ async function main() {
 
   const interactWithObject = (objId: string, objDef: PlaceableDef): boolean => {
     if (objDef.tapSound) audio.tap(objDef.tapSound);
+    field.triggerObjectAnimation(objId); // tap-played decor (Parrot, Taiko Drum, …)
     if (objDef.storageSlots) hud.openStorage();
     else if (objDef.memorial) openMemorialFor(objId, objDef);
     else if (objDef.zombieStorage) hud.openMausoleum();
@@ -6829,6 +6863,8 @@ async function main() {
         const objDef = objId ? field.objectDefOf(objId) : null;
         // Signature decor (Liberty Bell, Gnome King, …) plays its own tap sound.
         if (objDef?.tapSound) audio.tap(objDef.tapSound);
+        // Tap-played decor: the Parrot flaps and squawks, the Box o' Lantern pops.
+        if (objId) field.triggerObjectAnimation(objId);
         if (objId && objDef && objDef.storageSlots) {
           hud.openStorage();
         } else if (objId && objDef && objDef.memorial) {

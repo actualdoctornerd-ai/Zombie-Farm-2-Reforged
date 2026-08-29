@@ -1,3 +1,9 @@
+/** Seasonal seeds are temporarily unavailable from every crop-purchase surface.
+ * Planted crops still use the complete asset catalog for save restore and harvest. */
+export function cropAvailableInMarket(crop: { seasonal?: boolean }): boolean {
+  return !crop.seasonal;
+}
+
 /** Market crop order: permanent catalog first, holiday/seasonal catalog last;
  * unlock level orders entries within each group. Stable sort preserves authored
  * order for entries tied on both keys. */

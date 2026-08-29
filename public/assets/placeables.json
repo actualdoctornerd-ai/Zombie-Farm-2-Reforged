@@ -145,6 +145,711 @@
   "movable": true,
   "rotations": 1,
   "sprite": "skeletonCouple.png",
+  "anim": {
+   "w": 131,
+   "h": 209,
+   "base": "skeletonCouple_still.png",
+   "layers": [],
+   "parts": [
+    {
+     "art": "skeletonCouple_part0.png",
+     "x": -22.5,
+     "y": -94.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       0.0
+      ],
+      [
+       400,
+       1.0,
+       -1.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part1.png",
+     "x": -45.5,
+     "y": -40.0
+    },
+    {
+     "art": "skeletonCouple_part2.png",
+     "x": -62.5,
+     "y": -74.0
+    },
+    {
+     "art": "skeletonCouple_part3.png",
+     "x": -63.5,
+     "y": -104.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       1.0
+      ],
+      [
+       280,
+       0.0,
+       1.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part4.png",
+     "x": -63.5,
+     "y": -132.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       1.0
+      ],
+      [
+       280,
+       0.0,
+       1.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part5.png",
+     "x": -60.5,
+     "y": -154.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       1.0
+      ],
+      [
+       280,
+       0.0,
+       1.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part6.png",
+     "x": -58.5,
+     "y": -161.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       0.0
+      ],
+      [
+       280,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part7.png",
+     "x": -49.5,
+     "y": -79.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       0.0
+      ],
+      [
+       400,
+       0.0,
+       -1.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part8.png",
+     "x": -52.5,
+     "y": -112.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       0.0
+      ],
+      [
+       280,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       1.0,
+       -1.0
+      ],
+      [
+       400,
+       1.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part9.png",
+     "x": -55.5,
+     "y": -147.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       0.0
+      ],
+      [
+       400,
+       0.0,
+       -1.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part10.png",
+     "x": -19.5,
+     "y": -120.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       0.0
+      ],
+      [
+       400,
+       1.0,
+       -1.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part11.png",
+     "x": -23.5,
+     "y": -143.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       80,
+       0.0,
+       1.0
+      ],
+      [
+       180,
+       0.0,
+       2.0
+      ],
+      [
+       280,
+       0.0,
+       2.0
+      ],
+      [
+       300,
+       1.0,
+       -1.0
+      ],
+      [
+       400,
+       1.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part12.png",
+     "x": -51.5,
+     "y": -186.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       80,
+       1.0,
+       0.0
+      ],
+      [
+       180,
+       2.0,
+       1.0
+      ],
+      [
+       280,
+       2.0,
+       1.0
+      ],
+      [
+       300,
+       -2.0,
+       -1.0
+      ],
+      [
+       400,
+       -4.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part13.png",
+     "x": -55.5,
+     "y": -208.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       80,
+       1.0,
+       0.0
+      ],
+      [
+       180,
+       2.0,
+       1.0
+      ],
+      [
+       280,
+       2.0,
+       1.0
+      ],
+      [
+       300,
+       -2.0,
+       -1.0
+      ],
+      [
+       400,
+       -4.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part14.png",
+     "x": -50.5,
+     "y": -146.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       280,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part15.png",
+     "x": -24.5,
+     "y": -85.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       0.0
+      ],
+      [
+       400,
+       0.0,
+       -1.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part16.png",
+     "x": 31.5,
+     "y": -109.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       0.0
+      ],
+      [
+       280,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part17.png",
+     "x": -5.5,
+     "y": -125.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       0.0
+      ],
+      [
+       280,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part18.png",
+     "x": 10.5,
+     "y": -87.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       0.0
+      ],
+      [
+       280,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part19.png",
+     "x": 2.5,
+     "y": -162.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       80,
+       1.0,
+       0.0
+      ],
+      [
+       180,
+       2.0,
+       1.0
+      ],
+      [
+       280,
+       2.0,
+       1.0
+      ],
+      [
+       300,
+       -2.0,
+       -1.0
+      ],
+      [
+       400,
+       -4.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "skeletonCouple_part20.png",
+     "x": -8.5,
+     "y": -96.0,
+     "ms": 500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       180,
+       0.0,
+       0.0
+      ],
+      [
+       280,
+       0.0,
+       0.0
+      ],
+      [
+       300,
+       0.0,
+       -1.0
+      ],
+      [
+       400,
+       0.0,
+       -2.0
+      ],
+      [
+       500,
+       0.0,
+       0.0
+      ]
+     ]
+    }
+   ]
+  },
   "nativeW": 131,
   "nativeH": 209,
   "pivotX": 0.29,
@@ -171,6 +876,21 @@
   "movable": true,
   "rotations": 1,
   "sprite": "boxoLantern.png",
+  "anim": {
+   "w": 81,
+   "h": 117,
+   "dy": 1,
+   "layers": [
+    {
+     "sheet": "boxoLantern_anim0.png",
+     "n": 12,
+     "cols": 12,
+     "ms": 1000,
+     "onClick": true,
+     "base": true
+    }
+   ]
+  },
   "nativeW": 59,
   "nativeH": 52,
   "pivotX": 0.16,
@@ -197,6 +917,20 @@
   "movable": true,
   "rotations": 1,
   "sprite": "zombieGift.png",
+  "anim": {
+   "w": 100,
+   "h": 114,
+   "layers": [
+    {
+     "sheet": "zombieGift_anim0.png",
+     "n": 18,
+     "cols": 18,
+     "ms": 1000,
+     "onClick": true,
+     "base": true
+    }
+   ]
+  },
   "nativeW": 92,
   "nativeH": 86,
   "pivotX": 0.269142,
@@ -642,6 +1376,19 @@
   "movable": true,
   "rotations": 0,
   "sprite": "birthdayCakeThirdYearRight.png",
+  "anim": {
+   "w": 93,
+   "h": 205,
+   "dy": 1,
+   "layers": [
+    {
+     "sheet": "birthdayCakeThirdYearRight_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 350
+    }
+   ]
+  },
   "nativeW": 93,
   "nativeH": 201,
   "pivotX": 0.210528,
@@ -668,6 +1415,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "heartFountain.png",
+  "anim": {
+   "w": 93,
+   "h": 150,
+   "layers": [
+    {
+     "sheet": "heartFountain_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 300
+    }
+   ]
+  },
   "nativeW": 93,
   "nativeH": 150,
   "pivotX": 0.2282,
@@ -2148,6 +2907,19 @@
   "movable": true,
   "rotations": 1,
   "sprite": "spaceWormHoleA.png",
+  "anim": {
+   "w": 107,
+   "h": 132,
+   "dy": 4,
+   "layers": [
+    {
+     "sheet": "spaceWormHoleA_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 500
+    }
+   ]
+  },
   "nativeW": 97,
   "nativeH": 128,
   "pivotX": 0.29,
@@ -2172,6 +2944,19 @@
   "movable": true,
   "rotations": 1,
   "sprite": "spaceWormHoleB.png",
+  "anim": {
+   "w": 109,
+   "h": 132,
+   "dy": 4,
+   "layers": [
+    {
+     "sheet": "spaceWormHoleB_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 500
+    }
+   ]
+  },
   "nativeW": 99,
   "nativeH": 128,
   "pivotX": 0.32,
@@ -2196,6 +2981,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "fancyFireplace.png",
+  "anim": {
+   "w": 141,
+   "h": 161,
+   "layers": [
+    {
+     "sheet": "fancyFireplace_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 500
+    }
+   ]
+  },
   "nativeW": 141,
   "nativeH": 161,
   "pivotX": 0.51,
@@ -2274,8 +3071,47 @@
   "movable": true,
   "rotations": 1,
   "sprite": "goldEgg.png",
+  "anim": {
+   "w": 80,
+   "h": 100,
+   "base": "goldEgg_still.png",
+   "layers": [],
+   "parts": [
+    {
+     "art": "goldEgg_part0.png",
+     "x": -38.0,
+     "y": -100.0,
+     "ms": 1050,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       500,
+       0.0,
+       -32.0
+      ],
+      [
+       1000,
+       0.0,
+       -32.0
+      ],
+      [
+       1050,
+       0.0,
+       0.0
+      ]
+     ],
+     "onClick": true,
+     "sound": "block.wav",
+     "soundAt": 1050
+    }
+   ]
+  },
   "nativeW": 80,
-  "nativeH": 76,
+  "nativeH": 100,
   "pivotX": 0.1875,
   "pivotY": -0.17,
   "armyMax": 0,
@@ -2431,6 +3267,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "stPatricksFountain.png",
+  "anim": {
+   "w": 200,
+   "h": 183,
+   "layers": [
+    {
+     "sheet": "stPatricksFountain_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 350
+    }
+   ]
+  },
   "nativeW": 200,
   "nativeH": 183,
   "pivotX": 0.2,
@@ -2455,6 +3303,19 @@
   "movable": true,
   "rotations": 1,
   "sprite": "spaceSolarSystem.png",
+  "anim": {
+   "w": 271,
+   "h": 168,
+   "dy": 4,
+   "layers": [
+    {
+     "sheet": "spaceSolarSystem_anim0.png",
+     "n": 12,
+     "cols": 7,
+     "ms": 1200
+    }
+   ]
+  },
   "nativeW": 271,
   "nativeH": 127,
   "pivotX": 0.4,
@@ -2533,6 +3394,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "holidayChocolateFountain.png",
+  "anim": {
+   "w": 88,
+   "h": 231,
+   "layers": [
+    {
+     "sheet": "holidayChocolateFountain_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 350
+    }
+   ]
+  },
   "nativeW": 88,
   "nativeH": 231,
   "pivotX": 0.25,
@@ -3465,6 +4338,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "stPatricksIrishFlag.png",
+  "anim": {
+   "w": 88,
+   "h": 82,
+   "layers": [
+    {
+     "sheet": "stPatricksIrishFlag_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 350
+    }
+   ]
+  },
   "nativeW": 24,
   "nativeH": 79,
   "pivotX": -0.23,
@@ -7611,6 +8496,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "tikiTorch.png",
+  "anim": {
+   "w": 25,
+   "h": 111,
+   "layers": [
+    {
+     "sheet": "tikiTorch_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 300
+    }
+   ]
+  },
   "nativeW": 23,
   "nativeH": 85,
   "pivotX": -0.42,
@@ -8021,6 +8918,19 @@
   "movable": true,
   "rotations": 1,
   "sprite": "geyser.png",
+  "anim": {
+   "w": 140,
+   "h": 228,
+   "layers": [
+    {
+     "sheet": "geyser_anim0.png",
+     "n": 19,
+     "cols": 14,
+     "ms": 1000,
+     "restMs": 5000
+    }
+   ]
+  },
   "nativeW": 122,
   "nativeH": 70,
   "pivotX": 0.35,
@@ -8455,6 +9365,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "koiPond.png",
+  "anim": {
+   "w": 270,
+   "h": 180,
+   "layers": [
+    {
+     "sheet": "koiPond_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 500
+    }
+   ]
+  },
   "nativeW": 270,
   "nativeH": 180,
   "pivotX": 0.42,
@@ -8479,6 +9401,19 @@
   "movable": true,
   "rotations": 1,
   "sprite": "olympus.png",
+  "anim": {
+   "w": 294,
+   "h": 252,
+   "dy": 11,
+   "layers": [
+    {
+     "sheet": "olympus_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 500
+    }
+   ]
+  },
   "nativeW": 222,
   "nativeH": 222,
   "pivotX": 0.4,
@@ -9745,6 +10680,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "squirmyWorms.png",
+  "anim": {
+   "w": 104,
+   "h": 108,
+   "layers": [
+    {
+     "sheet": "squirmyWorms_anim0.png",
+     "n": 9,
+     "cols": 9,
+     "ms": 1000
+    }
+   ]
+  },
   "nativeW": 104,
   "nativeH": 108,
   "pivotX": 0.278835,
@@ -9769,6 +10716,133 @@
   "movable": true,
   "rotations": 1,
   "sprite": "fireflies.png",
+  "anim": {
+   "w": 49,
+   "h": 75,
+   "base": "fireflies_still.png",
+   "layers": [],
+   "parts": [
+    {
+     "art": "fireflies_part0.png",
+     "x": 3.5,
+     "y": -40.0,
+     "ms": 2100,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       500,
+       0.0,
+       -1.0
+      ],
+      [
+       600,
+       0.0,
+       -1.0
+      ],
+      [
+       1600,
+       0.0,
+       1.0
+      ],
+      [
+       2100,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "fireflies_part1.png",
+     "x": 1.5,
+     "y": -23.0,
+     "ms": 2500,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       600,
+       0.0,
+       -1.0
+      ],
+      [
+       700,
+       0.0,
+       -1.0
+      ],
+      [
+       1900,
+       0.0,
+       1.0
+      ],
+      [
+       2500,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "fireflies_part2.png",
+     "x": -12.5,
+     "y": -38.0,
+     "ms": 2100,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       100,
+       0.0,
+       -1.0
+      ],
+      [
+       500,
+       0.0,
+       -2.0
+      ],
+      [
+       600,
+       0.0,
+       -2.0
+      ],
+      [
+       1000,
+       0.0,
+       -1.0
+      ],
+      [
+       1200,
+       0.0,
+       1.0
+      ],
+      [
+       1600,
+       0.0,
+       2.0
+      ],
+      [
+       2000,
+       0.0,
+       1.0
+      ],
+      [
+       2100,
+       0.0,
+       0.0
+      ]
+     ]
+    }
+   ]
+  },
   "nativeW": 49,
   "nativeH": 75,
   "pivotX": 0.040816,
@@ -9961,6 +11035,24 @@
   "movable": true,
   "rotations": 1,
   "sprite": "fancyFountain.png",
+  "anim": {
+   "w": 70,
+   "h": 139,
+   "layers": [
+    {
+     "sheet": "fancyFountain_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 350
+    },
+    {
+     "sheet": "fancyFountain_anim1.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 500
+    }
+   ]
+  },
   "nativeW": 70,
   "nativeH": 139,
   "pivotX": 0.157142,
@@ -10658,6 +11750,19 @@
   "movable": true,
   "rotations": 1,
   "sprite": "teleporter.png",
+  "anim": {
+   "w": 177,
+   "h": 151,
+   "layers": [
+    {
+     "sheet": "teleporter_anim0.png",
+     "n": 12,
+     "cols": 11,
+     "ms": 1710,
+     "base": true
+    }
+   ]
+  },
   "nativeW": 177,
   "nativeH": 151,
   "pivotX": 0.197743,
@@ -10682,6 +11787,18 @@
   "movable": true,
   "rotations": 0,
   "sprite": "mysticalMambasWishMachineLeft.png",
+  "anim": {
+   "w": 103,
+   "h": 234,
+   "layers": [
+    {
+     "sheet": "mysticalMambasWishMachineLeft_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 670
+    }
+   ]
+  },
   "nativeW": 103,
   "nativeH": 184,
   "pivotX": 0.276196,
@@ -11188,6 +12305,76 @@
   "rotations": 1,
   "noMirror": true,
   "sprite": "iceCreamTruck.png",
+  "anim": {
+   "w": 144,
+   "h": 195,
+   "layers": [],
+   "parts": [
+    {
+     "art": "iceCreamTruck_part0.png",
+     "x": 30.0,
+     "y": -83.0,
+     "ax": 0.5,
+     "ay": 0.5,
+     "ms": 3510,
+     "keys": [
+      [
+       0,
+       0.0,
+       67.0
+      ],
+      [
+       10,
+       0.0,
+       0.0
+      ],
+      [
+       2510,
+       0.0,
+       0.0
+      ],
+      [
+       3210,
+       0.0,
+       3.0
+      ],
+      [
+       3360,
+       0.0,
+       17.0
+      ],
+      [
+       3510,
+       0.0,
+       67.0
+      ]
+     ],
+     "scaleMs": 3510,
+     "scaleKeys": [
+      [
+       0,
+       1.0
+      ],
+      [
+       10,
+       0.0
+      ],
+      [
+       2500,
+       0.0
+      ],
+      [
+       2510,
+       1.0
+      ],
+      [
+       3510,
+       1.0
+      ]
+     ]
+    }
+   ]
+  },
   "nativeW": 144,
   "nativeH": 195,
   "pivotX": 0.27,
@@ -11212,8 +12399,85 @@
   "movable": true,
   "rotations": 1,
   "sprite": "mechanicalBull.png",
-  "nativeW": 54,
-  "nativeH": 46,
+  "anim": {
+   "w": 146,
+   "h": 95,
+   "base": "mechanicalBull_still.png",
+   "layers": [],
+   "parts": [
+    {
+     "art": "mechanicalBull_part0.png",
+     "x": -38.0,
+     "y": -95.0,
+     "ms": 220,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       110,
+       0.0,
+       -2.0
+      ],
+      [
+       220,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "mechanicalBull_part1.png",
+     "x": -28.0,
+     "y": -85.0,
+     "ms": 200,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       100,
+       0.0,
+       -3.0
+      ],
+      [
+       200,
+       0.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "art": "mechanicalBull_part2.png",
+     "x": 7.0,
+     "y": -75.0,
+     "ms": 180,
+     "keys": [
+      [
+       0,
+       0.0,
+       0.0
+      ],
+      [
+       90,
+       0.0,
+       -2.0
+      ],
+      [
+       180,
+       0.0,
+       0.0
+      ]
+     ]
+    }
+   ]
+  },
+  "nativeW": 146,
+  "nativeH": 95,
   "pivotX": 0.4,
   "pivotY": -0.1,
   "armyMax": 0,
@@ -11236,6 +12500,19 @@
   "movable": true,
   "rotations": 1,
   "sprite": "monument.png",
+  "anim": {
+   "w": 88,
+   "h": 135,
+   "layers": [
+    {
+     "sheet": "monument_anim0.png",
+     "n": 7,
+     "cols": 7,
+     "ms": 500,
+     "onClick": true
+    }
+   ]
+  },
   "nativeW": 88,
   "nativeH": 92,
   "pivotX": 0.22,
@@ -11308,6 +12585,21 @@
   "movable": true,
   "rotations": 1,
   "sprite": "parrot.png",
+  "anim": {
+   "w": 52,
+   "h": 128,
+   "layers": [
+    {
+     "sheet": "parrot_anim0.png",
+     "n": 7,
+     "cols": 7,
+     "ms": 500,
+     "onClick": true,
+     "sound": "parrot.wav",
+     "soundFrame": 2
+    }
+   ]
+  },
   "nativeW": 38,
   "nativeH": 80,
   "pivotX": 0.28,
@@ -11428,6 +12720,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "pixelCampfire.png",
+  "anim": {
+   "w": 43,
+   "h": 58,
+   "layers": [
+    {
+     "sheet": "pixelCampfire_anim0.png",
+     "n": 3,
+     "cols": 3,
+     "ms": 200
+    }
+   ]
+  },
   "nativeW": 43,
   "nativeH": 54,
   "pivotX": -0.05,
@@ -11548,6 +12852,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "fireRing.png",
+  "anim": {
+   "w": 28,
+   "h": 77,
+   "layers": [
+    {
+     "sheet": "fireRing_anim0.png",
+     "n": 3,
+     "cols": 3,
+     "ms": 300
+    }
+   ]
+  },
   "nativeW": 28,
   "nativeH": 63,
   "pivotX": -0.43,
@@ -11644,6 +12960,83 @@
   "movable": true,
   "rotations": 1,
   "sprite": "setiDish.png",
+  "anim": {
+   "w": 100,
+   "h": 112,
+   "layers": [],
+   "parts": [
+    {
+     "art": "setiDish_part0.png",
+     "x": 18.0,
+     "y": -34.0,
+     "ax": 0.5,
+     "ay": 0.5,
+     "ms": 9504,
+     "keys": [
+      [
+       0,
+       18.0,
+       -68.0
+      ],
+      [
+       1,
+       0.0,
+       0.0
+      ],
+      [
+       501,
+       0.0,
+       0.0
+      ],
+      [
+       502,
+       -46.0,
+       -73.0
+      ],
+      [
+       1002,
+       -46.0,
+       -73.0
+      ],
+      [
+       1003,
+       -44.0,
+       -19.0
+      ],
+      [
+       1503,
+       -44.0,
+       -19.0
+      ],
+      [
+       1504,
+       18.0,
+       -68.0
+      ],
+      [
+       9504,
+       18.0,
+       -68.0
+      ]
+     ],
+     "scaleMs": 300,
+     "scaleKeys": [
+      [
+       0,
+       0.8
+      ],
+      [
+       150,
+       1.2
+      ],
+      [
+       300,
+       0.8
+      ]
+     ]
+    }
+   ]
+  },
   "nativeW": 100,
   "nativeH": 112,
   "pivotX": 0.22,
@@ -11716,6 +13109,31 @@
   "movable": true,
   "rotations": 1,
   "sprite": "taikoDrum.png",
+  "anim": {
+   "w": 178,
+   "h": 125,
+   "dy": 15,
+   "layers": [
+    {
+     "sheet": "taikoDrum_anim0.png",
+     "n": 9,
+     "cols": 9,
+     "ms": 400,
+     "onClick": true,
+     "sound": "taiko.wav",
+     "soundFrame": 2
+    },
+    {
+     "sheet": "taikoDrum_anim1.png",
+     "n": 9,
+     "cols": 9,
+     "ms": 400,
+     "onClick": true,
+     "sound": "taiko.wav",
+     "soundFrame": 6
+    }
+   ]
+  },
   "nativeW": 104,
   "nativeH": 110,
   "pivotX": 0.35,
@@ -11812,6 +13230,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "windmill.png",
+  "anim": {
+   "w": 101,
+   "h": 203,
+   "layers": [
+    {
+     "sheet": "windmill_anim0.png",
+     "n": 3,
+     "cols": 3,
+     "ms": 180
+    }
+   ]
+  },
   "nativeW": 97,
   "nativeH": 203,
   "pivotX": 0.22,
@@ -11836,6 +13266,18 @@
   "movable": true,
   "rotations": 1,
   "sprite": "witchsCauldron.png",
+  "anim": {
+   "w": 61,
+   "h": 81,
+   "layers": [
+    {
+     "sheet": "witchsCauldron_anim0.png",
+     "n": 4,
+     "cols": 4,
+     "ms": 200
+    }
+   ]
+  },
   "nativeW": 61,
   "nativeH": 59,
   "pivotX": 0.1,

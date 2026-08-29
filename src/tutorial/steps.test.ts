@@ -5,7 +5,7 @@ import {
 } from "./steps";
 
 describe("tutorial sequence", () => {
-  it("requires real plowing before planting and ends after the raid", () => {
+  it("requires real plowing before planting and visits the guide after the raid", () => {
     expect(TUTORIAL_SEQUENCE).toEqual([
       TutStep.Welcome,
       TutStep.Plow,
@@ -14,6 +14,7 @@ describe("tutorial sequence", () => {
       TutStep.RipenCrop,
       TutStep.Harvest,
       TutStep.Invade,
+      TutStep.OpenGuide,
       TutStep.Done,
     ]);
   });
@@ -21,7 +22,8 @@ describe("tutorial sequence", () => {
   it("advances through the explicit non-contiguous persisted step ids", () => {
     expect(nextTutorialStep(TutStep.Welcome)).toBe(TutStep.Plow);
     expect(nextTutorialStep(TutStep.Plow)).toBe(TutStep.PlantZombie);
-    expect(nextTutorialStep(TutStep.Invade)).toBe(TutStep.Done);
+    expect(nextTutorialStep(TutStep.Invade)).toBe(TutStep.OpenGuide);
+    expect(nextTutorialStep(TutStep.OpenGuide)).toBe(TutStep.Done);
     expect(nextTutorialStep(TutStep.Done)).toBeNull();
   });
 
@@ -66,6 +68,7 @@ describe("tutorial sequence", () => {
     expect(tutorialStepNeedsTarget(TutStep.Welcome)).toBe(false);
     expect(tutorialStepNeedsTarget(TutStep.BuyInstaGrow)).toBe(false);
     expect(tutorialStepNeedsTarget(TutStep.Invade)).toBe(false);
+    expect(tutorialStepNeedsTarget(TutStep.OpenGuide)).toBe(false);
     expect(tutorialStepNeedsTarget(TutStep.Done)).toBe(false);
     // A step id this build does not know must not claim to need a target.
     expect(tutorialStepNeedsTarget(6 as TutStep)).toBe(false);
