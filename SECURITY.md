@@ -412,9 +412,11 @@ valuable/competitive features, confirm on the running environment:
 
 1. `WRITER_LEASE_MODE=enforce` and `MIN_PROTOCOL_VERSION=3` are set, and an un-upgraded client is
    actually rejected on every mutation route.
-2. The live Worker commit and remote D1 schema match this source (migrations applied through
-   `0031_account_last_online.sql`); do not infer production state from source control.
-   Note `0030` and `0031` are non-idempotent `ALTER TABLE ... ADD COLUMN` migrations.
+2. The live Worker commit and remote D1 schema match this source — `wrangler d1 migrations
+   list zombiefarm --remote --env production` reports nothing pending, and `GET /` reports the
+   `raidRulesetVersion` this source declares. Do not infer production state from source
+   control. Several migrations are non-idempotent `ALTER TABLE ... ADD COLUMN`; the table in
+   `server/migrations/README.md` names each one and what it does on a re-run.
 3. `SESSION_SECRET` has been rotated for the current deployment and is not a reused historical
    value.
 4. Add thresholded alerting on the existing audit/rejection telemetry (forged-finish attempts,
