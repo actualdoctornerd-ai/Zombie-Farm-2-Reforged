@@ -185,7 +185,13 @@ export function zombieAppearancePrefs(): ZombieAppearancePrefs {
   return { bodyColor: getZombieBodyColorMode(), showMutations: getShowZombieMutations() };
 }
 
-/** Which sprite pack to render with. Defaults to ZF2 (the only pack wired today). */
+/** Which sprite pack to render with. Defaults to ZF2 (the only pack wired today).
+ *
+ *  NOTHING READS THIS RIGHT NOW. The Settings switch that used to set it was pulled
+ *  (see ui/panels/settings.ts) because it changed no pixels; the accessors stay because
+ *  the stored value on a device that flipped it is still valid, and the ZF1 art pack that
+ *  gives the choice meaning is being extracted by tools/extract_zf1_ipa.py. Wire the
+ *  runtime swap to this, then put the switch back — not the other way round. */
 export function getSpriteSet(): SpriteSet {
   return readPref(SPRITE_KEY) === "zf1" ? "zf1" : "zf2";
 }

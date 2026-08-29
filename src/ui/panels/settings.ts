@@ -7,7 +7,7 @@ import { openModal } from "../Modal";
 import { BUILD_ID } from "../../version";
 import { diagnosticsReport, diagnosticsCount, clearDiagnostics } from "../../diagnostics";
 import {
-  getSpriteSet, setSpriteSet, FARM_BACKGROUNDS,
+  FARM_BACKGROUNDS,
   getRightClickMode, setRightClickMode,
   getShowHealthNumbers, setShowHealthNumbers,
   getShowDamageNumbers, setShowDamageNumbers,
@@ -189,13 +189,17 @@ export function openSettings(hud: Hud): void {
   refreshFullscreen();
   document.addEventListener("fullscreenchange", refreshFullscreen);
 
-  // Sprite set: original Zombie Farm (ZF1) vs the sequel's art (ZF2). Persisted
-  // only — nothing swaps art on it yet (see prefs.ts / README "Current Gaps").
-  // ON = ZF2 (the pack wired today), OFF = ZF1.
-  const spriteRow = row("ZF2 Sprites", getSpriteSet() === "zf2", (v) =>
-    setSpriteSet(v ? "zf2" : "zf1")
-  );
-  const spriteNote = noteEl("Original (ZF1) vs sequel (ZF2) art. Art swapping isn't wired yet.");
+  // The ZF2 Sprites switch is deliberately NOT built here. It used to sit at the
+  // bottom of Display, and it did nothing: this panel was the only reader of
+  // `getSpriteSet()`, so flipping it persisted a preference and changed not one pixel. A
+  // setting that visibly does nothing is a support ticket, so it stays out of the panel
+  // until there is art behind it.
+  //
+  // The preference itself is left intact in prefs.ts on purpose — `zf2r.spriteSet` is
+  // still written on any device that flipped it, and the ZF1 art pack that gives the
+  // switch meaning is being extracted (tools/extract_zf1_ipa.py). Restoring this is a
+  // `row("ZF2 Sprites", ...)` and an entry in the `display` list below; the thing that
+  // has to land first is a runtime swap keyed off `getSpriteSet()`.
 
   // Signed-in players can change the same display name they chose on first login.
   // The server remains the source of truth for normalization and validation.
@@ -558,7 +562,6 @@ export function openSettings(hud: Hud): void {
       ...bgBlock,
       ...appearanceBlock,
       ...combatBlock,
-      spriteRow, spriteNote,
     ],
     controls: controlsBlock,
   };
