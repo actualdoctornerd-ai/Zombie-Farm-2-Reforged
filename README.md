@@ -101,13 +101,13 @@ trust one:
 
 - **Current behaviour**, kept in step with the code: `FEATURES.md`, `EPIC_BOSS_MECHANICS.md`,
   `PROTOCOL_V3_ROLLOUT.md`, `SPECIAL_ZOMBIE_ACQUISITION.md`, `EPIC_BOSS_ASSET_AUDIT.md`,
-  `FRIEND_INVASIONS.md` (a built-and-parked feature: what exists, the switches, and the
-  redesign's open questions), and
+  `FRIEND_INVASIONS.md` (reworked, live on staging and parked in production: what exists,
+  the one switch that launches it, and what remains), `PVP_DEFENSE_FORMATION.md` (Half A of
+  the friend-invasion defense rework — built, and one of the two modes `PVP_DEFENSE_MODE`
+  picks between; the sections describe what was built, with deviations called out inline),
+  and
   everything under `docs/mechanics/` (behaviour recovered from the original binary, with the
   derivation — these win over intuition, see CONTRIBUTING; `mechanics/README.md` indexes them).
-- **Design specs for work not yet built**: `PVP_DEFENSE_FORMATION.md` (the friend-invasion
-  defense rework - roles, standing positions, deployment; opens with a status banner saying
-  so). Read it as intent, not as a description of how the code works now.
 - **Historical design plans** for features that have since shipped:
   `BLACK_MARKET_IMPLEMENTATION_PLAN.md`, `DECOR_RESTORATION_PLAN.md`. Kept for the *why*, not
   as a description of how the code works now. Each opens with a status banner saying so; where
@@ -146,24 +146,26 @@ source files that own it — is [docs/FEATURES.md](docs/FEATURES.md); what's *mi
 [Current Gaps](#current-gaps) below.
 
 - **Farm** — 30x30 to 70x70 isometric field, free-placed 4x4 plots, plow/plant/harvest with
-  offline timers, drag-select plowing, placeable objects and fruit trees, storage, eight
-  ground/climate skins (Sakura brings the game's first weather), and a per-skin scenery ring
-  and horizon.
+  offline timers, drag-select plowing, placeable objects and fruit trees (32 of which animate,
+  on a loop or on a tap), storage, eight ground/climate skins (Sakura brings the game's first
+  weather), and a per-skin scenery ring and horizon.
 - **Economy** — gold, brains, XP and a 45-level curve; source-derived crop, zombie, decor,
   boost and pet catalogs with level and currency gates; Market with search and paging.
 - **Zombies** — owned roster with per-type rigs, mutations (Zombie Pot combination with
   per-slot bitmask inheritance), veterancy, abilities, teams, a discovery Almanac, and a
   Memorial Statue for the fallen.
-- **Quests** — 122 records: 106 recovered from the original `Quests.plist` plus 16
+- **Quests** — 123 records: 106 recovered from the original `Quests.plist` plus 17
   Reforged-original achievements, on top of a generated daily/weekly objective board.
 - **Raids** — 11 invasions with live battle scenes, recovered enemy rigs and attack
   timelines, permanent casualties with a one-time revival offer, boosts, loot, and elite
   invasions via the Brain Ticket. Eight Epic Boss events run as repeatable 14-day ladders.
 - **Online (Reforged)** — an explicit Local/Online farm choice that never merges the two;
   Google sign-in, server-authoritative state behind a single-writer lease, deterministic
-  server-verified raids, friends and gifting, the Black Market, and read-only farm visits.
+  server-verified raids, friends and gifting, a fun-only friend leaderboard, the Black Market,
+  and read-only farm visits.
 - **Platform** — one responsive build for phone and desktop, an installable PWA, a Windows
-  launcher and a Tauri desktop app, local-only diagnostics, and an in-game Farmer's Guide.
+  launcher and a Tauri desktop app, local-only diagnostics, a lifetime Statistics panel, a
+  nine-beat first-run tutorial with follow-up unlock notices, and an in-game Farmer's Guide.
 
 In **dev builds only** (`import.meta.env.DEV`), `window.ZF` exposes debug handles including app,
 world, field, farmer, zombies, state, HUD, jobs, audio, save manager, quests, quest bus, periodic
@@ -339,6 +341,7 @@ npm test                            # server unit suite
 npm run test:integration            # route-level integration (boots a real Worker)
 npm run typecheck                   # tsc --noEmit
 npm run migrations:check            # validate migration ordering/numbering
+npm run catalogs:check              # server catalog mirrors still match public/assets
 ```
 
 The integration suite boots a real `wrangler dev` Worker with local D1 and drives it
@@ -517,11 +520,11 @@ stage height, units fitted to their role height. (The Epic Boss stages' `isScrol
 `isMoving` layers are a preview of the SOURCE data — the game draws every level asset
 statically — so that toggle is off by default.)
 
-The clip schema, its evaluator and the built-in clips live in `tools/rigClips.js`, which
-has exactly one copy: `build_rig_studio.py` inlines it into the studio, and
-`src/rigClips.test.ts` drives that same file against the real `EnemyActor` and
-`RaidActor` over a whole attack cycle, asserting every part lands where the engine puts
-it. That is the same arrangement `tools/tileAnchorGeometry.js` has with `Field`, and for
+The clip schema and its evaluator live in `src/raid/rigClips.js`, and the built-in clips
+in `tools/rigClipsAuthored.js` — two files, one copy each. `build_rig_studio.py` inlines
+both into the studio with their ES exports stripped, and `src/rigClips.test.ts` drives
+those same files against the real `EnemyActor` and `RaidActor` over a whole attack cycle,
+asserting every part lands where the engine puts it. That is the same arrangement `tools/tileAnchorGeometry.js` has with `Field`, and for
 the same reason — a bench that animates a rig differently from the game teaches you a
 wrong animation, and the mistake ships looking measured. It has already earned its keep:
 it is what caught every authored attack dismembering its own arm (see the changelog).
@@ -608,8 +611,8 @@ anything the buttons do not cover. Dev page only — `vite build` ships `index.h
 | Path | Role |
 |---|---|
 | `src/main.ts` | App boot, auth gate, game wiring, input, debug hooks |
-| `src/hud.ts` | DOM HUD shell: menus, market, Black Market, raids, zombie/quest/social panels. Still the largest file (~6.3k lines); an in-progress refactor is moving panels out into `src/ui/`, but new systems have been landing faster than old ones move |
-| `src/ui/` | Extracted HUD pieces: `hud.css`, `Modal.ts`, `hudTypes.ts`, `uiAsset.ts`, `toolWheel.ts`, `viewState.ts`, and `panels/` (dialogs, settings, storage, zombies, teams, memorial, periodicQuests, farmersGuide, fullscreenPrompt) |
+| `src/hud.ts` | DOM HUD shell: menus, market, Black Market, raids, zombie/quest/social panels. Still by far the largest file; an in-progress refactor is moving panels out into `src/ui/`, but new systems have been landing faster than old ones move |
+| `src/ui/` | Extracted HUD pieces: `hud.css`, `Modal.ts`, `hudTypes.ts`, `uiAsset.ts`, `toolWheel.ts`, `viewState.ts`, `TimNotice.ts`, `onFirstVisible.ts`, `storageBoosts.ts`, `tintedSprite.ts`, and `panels/` (dialogs, settings, storage, zombies, teams, memorial, periodicQuests, farmersGuide, fullscreenPrompt, invasions, leaderboard, stats, epicBossStart) |
 | `src/Field.ts` | Terrain, plots, crops, objects, climate skins, occupancy, persistence |
 | `src/GameState.ts` | Currencies, XP/level, storage, boosts, raid progress, friends |
 | `src/JobSystem.ts` | Growth/harvest timers, offline catch-up, fertilize |

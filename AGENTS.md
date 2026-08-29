@@ -15,7 +15,7 @@ in `server/wrangler.toml`:
   throwaway accounts without Google.
 - **Production** — Worker `zombiefarm-server`, database `zombiefarm` (real player
   data). Reachable ONLY with an explicit `--env production` flag;
-  `npm run deploy:prod` runs the full check suite (migrations:check, typecheck,
+  `npm run deploy:prod` runs the full check suite (migrations:check, catalogs:check, typecheck,
   unit + integration tests) before deploying. Omitting the flag fails safe for
   config-bound commands, but `wrangler d1 execute <name> --remote` resolves any
   database in the account by name — so `d1 execute zombiefarm --remote` touches

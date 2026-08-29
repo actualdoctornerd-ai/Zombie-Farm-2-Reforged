@@ -3,8 +3,8 @@
 // requirement dispatches the quest's reward and unlocks any quest gated behind it.
 //
 // Quests activate when their prerequisite is complete AND the player meets the level
-// gate. All 122 shipped quest records load (106 recovered from Quests.plist via quests.json,
-// plus 16 Reforged-original ones from quests_reforged.json — assets.ts merges the two into one
+// gate. All 123 shipped quest records load (106 recovered from Quests.plist via quests.json,
+// plus 17 Reforged-original ones from quests_reforged.json — assets.ts merges the two into one
 // map, ids disjoint by construction); the farm loop, raids/invasions (loot/perfect/success),
 // and the Zombie Pot combiner have live emitters (see LIVE_EVENTS below). Quests
 // gated on still-unsupported categories (social and photo/camera) simply never

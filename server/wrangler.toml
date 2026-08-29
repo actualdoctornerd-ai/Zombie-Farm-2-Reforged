@@ -8,7 +8,7 @@
 # Production config lives in [env.production] at the bottom and is only reachable
 # with an explicit `--env production` — that flag IS the extra step guarding prod.
 # Prefer `npm run deploy` / `npm run deploy:prod`; the latter runs the full check
-# suite (migrations:check, typecheck, unit + integration tests) before deploying.
+# suite (migrations:check, catalogs:check, typecheck, unit + integration tests) before deploying.
 #
 # NOTE: named environments inherit almost nothing — vars, d1_databases, and
 # unsafe.bindings must be declared in BOTH places. A binding added only at the

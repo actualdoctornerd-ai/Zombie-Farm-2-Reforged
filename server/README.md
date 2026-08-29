@@ -34,6 +34,12 @@ Core routes:
 - `GET /friends`, `GET /friends/requests`, `GET /friends/:id/save` (read-only visit projection),
   `POST /friends/add|accept|reject|remove|block`, `POST /friends/code/rotate`
 - `POST /gifts`, `GET /gifts/inbox`, `POST /gifts/claim`
+- `GET /leaderboard/friends` — you + accepted friends, as a closed counter projection
+  (`LEADERBOARD_COUNTER_KEYS` in `src/logic.ts`). Fun-only: nothing reads a rank back.
+- `POST /raid/pvp/start|finish|preview|abandon|collect|collect-all|defense`,
+  `GET /raid/pvp/defense`, `GET /raid/pvp/history`, `GET /raid/pvp/replay/:sessionId` —
+  friend invasions, gated by `PVP_ENABLED` (see `../docs/FRIEND_INVASIONS.md` for which
+  of these deliberately stay live when the switch is off)
 - `POST /dev/fixture/*` — DEV-only test fixtures, gated by `DEV_AUTH`
 
 `/commands` applies allowlisted semantic gameplay commands against server-held state

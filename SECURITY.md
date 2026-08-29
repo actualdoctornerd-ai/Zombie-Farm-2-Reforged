@@ -1,6 +1,6 @@
 # Security and Anti-Cheat Status
 
-Last reviewed: 2026-07-28
+Last reviewed: 2026-08-28
 
 ## Reporting a vulnerability
 
@@ -368,14 +368,15 @@ automatically.
 
 ## Verification status
 
-On 2026-08-14 the following local checks passed on a clean working tree:
+On 2026-08-28 the following local checks passed on a clean working tree:
 
 ```text
-npm test                              # client: 1586 passed, 1 skipped (161 files)
+npm test                              # client: 2057 passed, 1 skipped (205 files)
 cd server && npm run typecheck        # passed
-cd server && npm run migrations:check # 54 files verified
-cd server && npm test                 # server: 524 passed (41 files)
-cd server && npm run test:integration # 81 passed (5 files)
+cd server && npm run migrations:check # 58 files verified
+cd server && npm run catalogs:check   # passed
+cd server && npm test                 # server: 642 passed (57 files)
+cd server && npm run test:integration # 99 passed (7 files)
 ```
 
 Coverage includes the anti-forgery paths directly: replay determinism and illegal-input
@@ -384,7 +385,9 @@ a client-claimed win plus the `stale_ruleset` gate (`server/test/integration/v3.
 `raidGates.spec.ts`), the `/raid/finish` elapsed-time gate refusing a finish paced past real
 time, a body-asserted win paying nothing and moving no balance, and a duplicate finish replaying
 the stored result rather than settling twice (all `raidGates.spec.ts`), a server-only roster-cull
-rejection (`roster.spec.ts`), and writer-lease takeover/replacement (`v3.spec.ts`). Every server catalog that
+that removes the casualty and offers it back only as a paid revival (`v3.spec.ts`) over a roster
+validator that refuses a fabricated or reward-only species key (`server/test/roster.test.ts`),
+and writer-lease takeover/replacement (`v3.spec.ts`). Every server catalog that
 mirrors a client asset is now held to it by a test — `boostCatalogSync`, `raidCatalogSync`
 (rewards, unlock gates and loot tables), `shopCatalogSync`, `objectCatalogSync` and
 `farm.test.ts`, with `rosterCatalog` / `zombieCropCatalog` / `questCatalog` derived from their

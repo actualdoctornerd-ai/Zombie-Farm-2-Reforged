@@ -29,7 +29,7 @@ const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
 //
 // The ladder runs weakest prize first, by the sustained DPS of each boss's best
 // reward zombie (str x 10 damage per 2/dex seconds, abilities folded in):
-//   24  Dr. Groundhog     Omega Dr. Zombie   307 DPS / 4043 HP   (entry boss, 5 brains)
+//   24  Dr. Groundhog     Omega Dr. Zombie   307 DPS / 4043 HP   (entry boss, 3 brains)
 //   28  Bully Frog        Captain Zombie     307 DPS / 4742 HP
 //   30  Rocky Rhino       Brock Coley        662 DPS /  735 HP
 //   32  General Larvaelus Zombug             579 DPS / 2275 HP

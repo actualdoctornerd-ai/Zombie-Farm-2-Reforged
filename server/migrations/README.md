@@ -28,7 +28,8 @@ D1 database see the renamed destructive migration as pending. `npm run migration
 allows only that exact legacy pair, rejects future duplicate/gapped numbers, and verifies
 that the fresh-database baseline ledger contains every migration filename. New migrations
 must therefore continue at the next free number and use one unique number per file — run
-`npm run migrations:check`, which prints it (`0054` at the time of writing).
+`npm run migrations:check`, which prints it. Take the number from that command rather than
+from this page: it is the only source that cannot be out of date.
 
 ---
 
@@ -103,6 +104,8 @@ manual `schema.sql` touched the table):
 | `0044_black_market_mutation_width` | **Table rebuild**: recreates `black_market_orders` (to widen `mutation_required`'s CHECK from `BETWEEN 1 AND 8191` to `> 0`) *and* `black_market_receipts`, then drops and renames | The first rebuild since `0020`. Rows are copied by explicit column list; the old **receipts** table is dropped **before** the old orders table, because `DROP TABLE` fires `ON DELETE CASCADE` and would otherwise take every idempotency receipt with it. Re-running it fails (the `_0044` tables already exist) — snapshot both tables first, and verify the counts afterwards. |
 | `0045_black_market_gold` | **Table rebuild**, same shape as `0044`: recreates `black_market_orders` (to widen `price_brains` from `BETWEEN 1 AND 1000000` to `1 … 10,000,000` and add `currency`) and `black_market_receipts` | The second rebuild. The same cascade ordering applies for the same reason — receipts first. Re-running fails on the existing `_0045` tables; snapshot and verify counts as with `0044`. A pre-existing post needs no data change: it is already a brains post. |
 | `0048_fallen_released_at` | `ALTER TABLE fallen_v3 ADD COLUMN released_at` | Fails if `released_at` exists. Existing rows keep `NULL` and are ranked by `died_at`, as they were before. |
+| `0054_epic_boss_started_crop` | `ALTER TABLE epic_boss_runs_v3 ADD COLUMN started_crop TEXT NOT NULL DEFAULT ''` | Fails if `started_crop` exists. Every existing row correctly becomes `''`, which means "bought" — the non-empty case is a run a favourite crop lured onto the farm for free, which is the only one the client announces. |
+| `0057_pvp_rework` | Two `ALTER TABLE pvp_sessions_v3 ADD COLUMN` (`attacker_rewarded`, `defense_rewarded`) plus two new tables, then a backfill `UPDATE` | Fails if either column exists. The backfill reads historical fights as rewarded on their winning side, so no past invasion is retroactively unpaid. Only reachable where `0055_pvp_invasions` has run. |
 
 The remaining current migrations use repeatable deletes or `CREATE … IF NOT EXISTS`
 (including `0029_restore_ledger`, which recreates the `ledger` table dropped by the v3

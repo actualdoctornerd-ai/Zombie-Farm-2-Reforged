@@ -42,7 +42,7 @@ Run what CI runs. All of it passes on `main`, so anything red is yours:
 npm test && npm run build
 
 cd server
-npm run migrations:check && npm run typecheck && npm test && npm run test:integration
+npm run migrations:check && npm run catalogs:check && npm run typecheck && npm test && npm run test:integration
 ```
 
 If you only touched client code you can skip the server block, and vice versa — CI
