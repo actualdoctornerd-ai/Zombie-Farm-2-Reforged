@@ -60,6 +60,48 @@ export function friendActivity(lastOnlineAt: number, now: number): FriendActivit
   return "away";
 }
 
+/** The counters GET /leaderboard/friends ships for each friend, lifted out of the
+ *  lifetime tally that rides the presentation blob (`ui.stats`, client src/stats.ts).
+ *  A fixed projection rather than the blob itself, for two reasons: the tally's
+ *  per-crop map is the bulky part and none of the leaderboard's business (only its
+ *  TOTAL is comparable across farms), and shipping a friend's raw blob would make
+ *  every counter a future client ever adds visible to friends by default instead of
+ *  by decision. */
+export const LEADERBOARD_COUNTER_KEYS = [
+  "planted", "plowed", "treesHarvested", "goldEarned", "brainsEarned",
+  "zombiesGrown", "zombiesCombined", "raidsWon", "raidsLost",
+] as const;
+
+export type LeaderboardStats = Record<(typeof LEADERBOARD_COUNTER_KEYS)[number], number>
+  & { harvested: number };
+
+/** Project one account's stored `ui.stats` JSON into the leaderboard's counters.
+ *
+ *  The tally is client-authored display data (validStatsBlob checks shape on write,
+ *  nothing checks truth), so this reads it defensively rather than trusting the
+ *  write-time gate: a counter that is missing, negative, or not a safe integer
+ *  reads as 0, and a blob that is not a tally at all reads as null ("no stats
+ *  yet") rather than a row of zeroes pretending to be a farm that has done
+ *  nothing. `harvested` is the summed per-crop map, clamped the same way. */
+export function leaderboardStatsFromJson(statsJson: string | null): LeaderboardStats | null {
+  if (!statsJson) return null;
+  let raw: unknown;
+  try { raw = JSON.parse(statsJson); } catch { return null; }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const src = raw as Record<string, unknown>;
+  const counter = (value: unknown): number =>
+    typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0;
+  const stats = { harvested: 0 } as LeaderboardStats;
+  for (const key of LEADERBOARD_COUNTER_KEYS) stats[key] = counter(src[key]);
+  const harvested = src.harvested;
+  if (harvested && typeof harvested === "object" && !Array.isArray(harvested)) {
+    for (const value of Object.values(harvested as Record<string, unknown>)) {
+      stats.harvested += counter(value);
+    }
+  }
+  return stats;
+}
+
 /** What a claimed gift pays out. `amount` is brains for "brain", gold for "gold". */
 export interface GiftReward {
   kind: "brain" | "gold";

@@ -37,6 +37,7 @@ import {
   normalizeFriendCode,
   validateUsername,
   friendActivity,
+  leaderboardStatsFromJson,
   type GiftReward,
 } from "./logic";
 import { validateSave, MAX_SAVE_BYTES } from "./validate";
@@ -437,6 +438,7 @@ app.use("/presentation", requireAuth);
 app.use("/writer/*", requireAuth);
 app.use("/black-market", requireAuth);
 app.use("/black-market/*", requireAuth);
+app.use("/leaderboard/*", requireAuth);
 
 /** Every `/dev/*` route in one gate, registered BEFORE any of them so it runs first.
  *
@@ -720,6 +722,7 @@ app.use("/state", rateLimit("RL_READ", "state", 300, 60_000));
 app.use("/friends", rateLimit("RL_READ", "friends_list", 300, 60_000));
 app.use("/friends/requests", rateLimit("RL_READ", "friends_reqs", 300, 60_000));
 app.use("/friends/:id/save", rateLimit("RL_READ", "friend_farm", 120, 60_000));
+app.use("/leaderboard/friends", rateLimit("RL_READ", "leaderboard", 120, 60_000));
 app.use("/gifts/inbox", rateLimit("RL_READ", "inbox", 300, 60_000));
 app.use("/session/refresh", rateLimit("RL_READ", "refresh", 60, 60_000));
 
@@ -1944,6 +1947,31 @@ app.get("/friends", async (c) => {
       activity: friendActivity(f.last_online_at, now),
     }))
   );
+});
+
+// ---- GET /leaderboard/friends: the friend-only leaderboard --------------
+// The caller plus every accepted friend, each with the display identity the
+// friends list already discloses (chosen name, worn head, derived level) and a
+// fixed projection of the lifetime tally their client publishes in its
+// presentation blob (`ui.stats`). Read-only and fun-only: the counters are
+// client-authored display data, nothing here or downstream reads them back as
+// truth, and they are shown only to people the account accepted as friends.
+// Ranking happens client-side — rank depends on which stat is being ranked by.
+app.get("/leaderboard/friends", async (c) => {
+  const accountId = c.get("accountId");
+  const rows = await db.listFriendLeaderboard(c.env.DB, accountId);
+  return c.json({
+    entries: rows.map((row) => ({
+      accountId: row.id,
+      name: row.username ?? "Player", // chosen display name only (no PII)
+      self: row.id === accountId ? true : undefined,
+      headId: row.head_id ?? undefined,
+      level: levelForXp(row.xp),
+      // null = no tally published yet (older client, or never synced) — the UI
+      // says so instead of scoring silence as a farm that has done nothing.
+      stats: leaderboardStatsFromJson(row.stats_json),
+    })),
+  });
 });
 
 // ---- GET /friends/requests: pending incoming friend requests ------------

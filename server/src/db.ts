@@ -226,6 +226,46 @@ export async function listFriends(
   return res.results ?? [];
 }
 
+/** One row of GET /leaderboard/friends: an account's display identity plus the raw
+ *  material its leaderboard entry is projected from. */
+export interface FriendLeaderboardRow {
+  id: string;
+  username: string | null;
+  /** Server-owned XP (balances); 0 for an account that has never played online. */
+  xp: number;
+  head_id: number | null;
+  /** The stored `ui.stats` tally as a JSON string, or null when the account has no
+   *  presentation blob or its blob carries no tally. Projected by the route through
+   *  leaderboardStatsFromJson — never shipped raw. */
+  stats_json: string | null;
+}
+
+/** The caller and every accepted friend, in one indexed query — the friend-only
+ *  leaderboard's roster. Shaped like listFriends' pulls: xp from balances,
+ *  head/stats lifted with json_extract rather than by shipping whole documents,
+ *  because those blobs carry state a friend may not see. Bounded by MAX_FRIENDS+1
+ *  rows. Ordering is left to the client — rank depends on which stat it is
+ *  ranking by. */
+export async function listFriendLeaderboard(
+  db: D1Database,
+  accountId: string
+): Promise<FriendLeaderboardRow[]> {
+  const res = await db
+    .prepare(
+      `SELECT a.id, a.username, COALESCE(b.xp, 0) AS xp,
+              json_extract(g.current_json, '$.farmerHeadId') AS head_id,
+              json_extract(p.current_json, '$.ui.stats') AS stats_json
+       FROM accounts a
+       LEFT JOIN balances b ON b.account_id = a.id
+       LEFT JOIN gameplay_documents_v3 g ON g.account_id = a.id
+       LEFT JOIN presentations_v3 p ON p.account_id = a.id
+       WHERE a.id = ?1 OR a.id IN (SELECT b_id FROM friendships WHERE a_id = ?1)`
+    )
+    .bind(accountId)
+    .all<FriendLeaderboardRow>();
+  return res.results ?? [];
+}
+
 /** Lifetime gifts each friend has sent ME, keyed by their account id. Claimed and
  *  unclaimed alike — this is a "who actually reciprocates" signal for the friends
  *  list, not an inbox count. One indexed group-by over idx_gifts_inbox (to_id, ...),
