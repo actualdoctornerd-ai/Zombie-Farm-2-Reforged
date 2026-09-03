@@ -2574,6 +2574,14 @@ async function main() {
     };
     economy.onPendingChange = (pending) =>
       hud.setPlayStatus("online", pending > 0 ? "saving" : "synced", pending);
+    // The sync badge is a button: a press sends the waiting batch immediately. A press
+    // while one is already on the wire is ignored, so it cannot be spammed into extra
+    // requests; the badge itself is the feedback (SAVING (n) → SYNCED as it lands).
+    hud.onSyncRequested = () => {
+      const outcome = economy!.syncNow();
+      if (outcome === "idle") hud.showToast("Everything is synced.");
+      else if (outcome === "paused") hud.showToast("Reconnecting to your farm…");
+    };
     // This tab's JS and the deployed Worker disagree about the raid ruleset, so every
     // invasion would be refused at /raid/start. Tell the player up front — the fix is a
     // reload, and finding that out before committing an army is far better than after.

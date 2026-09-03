@@ -421,3 +421,67 @@ describe("the queue's pauses are legible in a bug report", () => {
     expect(readCrumbs().filter((c) => c.tag.startsWith("queue:"))).toEqual([]);
   });
 });
+
+describe("the sync indicator's send-now press", () => {
+  it("sends the waiting batch at once, ignores presses while it is on the wire, and keeps mid-send actions in order", async () => {
+    vi.useFakeTimers();
+    let releaseFirst!: () => void;
+    const firstReleased = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const sent: any[] = [];
+    vi.spyOn(api, "sendCommandBatch").mockImplementation(async (batch) => {
+      sent.push(batch);
+      if (sent.length === 1) await firstReleased;
+      return responseFor(batch);
+    });
+    const queue = new CommandQueue("send-now-test");
+    queue.adoptBootstrap(bootstrap);
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    queue.enqueue({ type: "farm.plow", oc: 4, or: 0 });
+    expect(sent).toHaveLength(0);
+
+    // The press does not wait for the batch window.
+    expect(queue.sendNow()).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].commands.map((entry: any) => entry.sequence)).toEqual([1, 2]);
+
+    // The player keeps farming while the batch is on the wire, and mashes the badge.
+    queue.enqueue({ type: "farm.plant", oc: 0, or: 0, cropKey: "carrot" });
+    for (let i = 0; i < 5; i++) expect(queue.sendNow()).toBe(false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(1);
+    expect(queue.size).toBe(3);
+
+    // Once it lands, the mid-send command is still waiting (its own window has not
+    // elapsed) and a fresh press sends it, after everything that went before.
+    releaseFirst();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(1);
+    expect(queue.size).toBe(1);
+    expect(queue.sendNow()).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(2);
+    expect(sent[1].commands.map((entry: any) => entry.sequence)).toEqual([3]);
+    expect(queue.size).toBe(0);
+
+    // Nothing waiting: the press is a no-op, not a request.
+    expect(queue.sendNow()).toBe(false);
+    await vi.advanceTimersByTimeAsync(COMMAND_BATCH_WINDOW_MS);
+    expect(sent).toHaveLength(2);
+  });
+
+  it("does not send from a paused queue", async () => {
+    const sent: any[] = [];
+    vi.spyOn(api, "sendCommandBatch").mockImplementation(async (batch) => {
+      sent.push(batch);
+      return responseFor(batch);
+    });
+    const queue = new CommandQueue("send-now-paused-test");
+    queue.adoptBootstrap(bootstrap);
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    queue.disable("test_pause");
+    expect(queue.sendNow()).toBe(false);
+    await Promise.resolve();
+    expect(sent).toHaveLength(0);
+  });
+});

@@ -926,6 +926,17 @@ export class EconomyClient {
   }
 
   async flush(): Promise<void> { await this.queue.flush(); }
+  /** The sync indicator was pressed. Sends whatever is waiting right now; while a
+   *  batch is already on the wire the press does nothing ("busy"). A paused farm gets
+   *  its next recovery attempt pulled forward instead, which is itself one-at-a-time. */
+  syncNow(): "sent" | "busy" | "idle" | "paused" {
+    if (!this.available) {
+      this.nudgeRecovery();
+      return "paused";
+    }
+    if (this.queue.sendNow()) return "sent";
+    return this.queue.size > 0 ? "busy" : "idle";
+  }
   async settleBeforeDependency(): Promise<void> {
     try {
       await this.queue.settle();

@@ -229,6 +229,23 @@ export class CommandQueue {
     await this.flush();
   }
 
+  /** A player-initiated send: the sync indicator was pressed. Pending work goes on
+   *  the wire immediately instead of waiting out its batch window.
+   *
+   *  Returns false, and does nothing, while a batch is already on the wire — so a
+   *  mashed button costs exactly one request per round trip — and when there is
+   *  nothing to send or the queue is paused (recovery, not sending, is the answer to a
+   *  pause). Commands enqueued during the send land in `pending` behind the immutable
+   *  in-flight envelope, exactly as they do for a timer-driven flush, so acting on the
+   *  farm mid-send is safe: they ride the next batch, in order. */
+  sendNow(): boolean {
+    if (this.flushing || this.paused || (!this.inFlight && !this.pending.length)) return false;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    void this.flush();
+    return true;
+  }
+
   async flush(): Promise<void> {
     if (this.flushing) return this.flushing;
     if (this.paused || (!this.inFlight && !this.pending.length)) return;

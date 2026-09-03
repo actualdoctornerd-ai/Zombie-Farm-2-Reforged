@@ -296,6 +296,9 @@ function giftRewardLabel(reward: GiftReward): string {
 export class Hud {
   mode: Mode = "walk";
   onModeChange: (() => void) | null = null;
+  /** Pressing the online sync indicator. Wired by main.ts to send the pending command
+   *  batch at once; unset (local farm, visiting) the badge opens the Account menu. */
+  onSyncRequested: (() => void) | null = null;
   // Rotate tool tap: main handles it contextually (flip the placement ghost / the
   // carried object / enter the standalone rotate mode). Null falls back to setMode.
   onRotateTool: (() => void) | null = null;
@@ -680,7 +683,10 @@ export class Hud {
     this.playStatusEl.setAttribute("type", "button");
     this.playStatusEl.setAttribute("aria-label", "Current farm: Local Farm. Choose Local or Online.");
     this.playStatusEl.title = "Choose Local or Online";
-    this.playStatusEl.onclick = () => this.openProfiles();
+    this.playStatusEl.onclick = () => {
+      if (this.playMode === "online" && this.onSyncRequested) this.onSyncRequested();
+      else this.openProfiles();
+    };
 
     // Account button: a person icon just right of the nameplate. Opens the same
     // Account menu; stays visible on mobile (where the nameplate is hidden), so
@@ -968,11 +974,12 @@ export class Hud {
       : state === "reconnecting" ? "ONLINE · RECONNECTING"
       : state === "saving" ? `ONLINE · SAVING${pending ? ` (${pending})` : ""}`
       : "ONLINE · SYNCED";
+    const action = mode === "online" && this.onSyncRequested ? "Press to sync now." : "Choose Local or Online.";
     this.playStatusEl.setAttribute(
       "aria-label",
-      `${mode === "local" ? "Local Farm" : "Online Farm"}: ${statusLabel}. Choose Local or Online.`
+      `${mode === "local" ? "Local Farm" : "Online Farm"}: ${statusLabel}. ${action}`
     );
-    this.playStatusEl.title = `${statusLabel}. Choose Local or Online.`;
+    this.playStatusEl.title = `${statusLabel}. ${action}`;
   }
 
   // Brief top-center banner for quest completion (messageComplete).
