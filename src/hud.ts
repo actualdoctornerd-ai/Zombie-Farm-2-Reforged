@@ -3356,12 +3356,7 @@ export class Hud {
       const error = await this.onDeleteAccount?.().catch(() => "failed");
       if (!error) return; // the farm is gone; the implementation is reloading
       close();
-      this.showToast(
-        error === "market_unsettled"
-          ? "Finish your Black Market trades first, then try again."
-          : error === "operation_in_progress"
-            ? "Something is still saving. Try again in a moment."
-            : "Couldn't delete the farm. Try again in a moment.");
+      this.showToast(deleteRefusalCopy(error), 4200);
     };
     btns.append(cancel, confirm);
     panel.appendChild(btns);
@@ -5085,8 +5080,14 @@ export class Hud {
   // the spot. `getInfo` is re-read on a timer so the countdown ticks live and
   // flips to "Ready to harvest!" the moment it ripens (whether by the boost or by
   // waiting it out).
+  /** The growing-crop popup: what it is and how long until it's ripe.
+   *
+   *  `readOnly` (a friend's farm) drops the Insta-Grow row: the visitor can look,
+   *  not ripen. Their own boost count would be the visitor's, and the tool must
+   *  never be equipped on a farm that can't be edited. */
   openCropInfo(
-    getInfo: () => { name: string; isZombie: boolean; ripe: boolean; remainingMs: number } | null) {
+    getInfo: () => { name: string; isZombie: boolean; ripe: boolean; remainingMs: number } | null,
+    opts: { readOnly?: boolean } = {}) {
     const first = getInfo();
     if (!first) return;
     let timer: number | undefined;
@@ -5098,15 +5099,14 @@ export class Hud {
     });
 
     const kind = document.createElement("p");
-    kind.className = "crop-kind";
-    kind.textContent = first.isZombie ? "Growing zombie" : "Growing crop";
+    kind.className = "crop-kind"; // text set by tick(): it follows ripeness
     const time = document.createElement("p");
     time.className = "crop-time";
 
     // Insta-Grow row: icon + "Insta-Grow (xN)" + Use button. Using it consumes one
     // stacked use (the rest stay available) and ripens this crop immediately. The
     // row hides once ripe (nothing left to speed up) and disables at 0 uses.
-    const boost = this.getSpeedGrowBoost?.() ?? null;
+    const boost = opts.readOnly ? null : (this.getSpeedGrowBoost?.() ?? null);
     const grow = document.createElement("div");
     grow.className = "crop-grow";
     let growCount: HTMLSpanElement | undefined;
@@ -5144,6 +5144,9 @@ export class Hud {
     const tick = () => {
       const cur = getInfo();
       if (!cur) { close(); return; } // crop harvested/removed elsewhere
+      kind.textContent = cur.isZombie
+        ? (cur.ripe ? "Ripe zombie" : "Growing zombie")
+        : (cur.ripe ? "Ripe crop" : "Growing crop");
       if (cur.ripe) {
         time.textContent = "Ready to harvest!";
         time.classList.add("ripe");
@@ -6834,5 +6837,25 @@ export class Hud {
     if (!this.nameEl) return;
     const acct = this.myAccount?.();
     this.nameEl.textContent = acct?.name || "Zombie Farmer";
+  }
+}
+
+/** The toast for a refused or failed account deletion, keyed by the server's error
+ *  code (or the client's own: `offline`, `http_5xx`). A pure function so the whole
+ *  mapping reads in one place. The two 409s are refusals the player
+ *  can clear themselves; the rest are not, and must not say "try again in a
+ *  moment" — a purge that fails once fails every time until the maintainer reads
+ *  the Worker log, and "in a moment" sent players back to the button all evening. */
+export function deleteRefusalCopy(code: string): string {
+  switch (code) {
+    case "market_unsettled": return "Finish your Black Market trades first, then try again.";
+    case "operation_in_progress": return "Something is still saving. Try again in a moment.";
+    case "mutations_disabled": return "Deleting is paused while the service is closing down. Try again later.";
+    case "rate_limited": return "Too many tries. Wait a minute, then try again.";
+    case "offline": return "Couldn't reach the server. Check your connection and try again.";
+    default:
+      return /^(purge_failed|http_5\d\d)$/.test(code)
+        ? "The server couldn't delete the farm. The error has been recorded — try again later."
+        : "Couldn't delete the farm. Try again in a moment.";
   }
 }

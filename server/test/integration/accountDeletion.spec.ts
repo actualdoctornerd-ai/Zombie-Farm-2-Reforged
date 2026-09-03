@@ -45,8 +45,8 @@ describe("POST /account/delete", () => {
     expect(deleted.body.ok).toBe(true);
     // Every reference actioned plus the account row itself — the count is derived
     // from the schema, so it is asserted as "a lot", not as a number that would go
-    // stale with the next migration.
-    expect(deleted.body.statements).toBeGreaterThan(40);
+    // stale with the next migration. (36 on 2026-09-02.)
+    expect(deleted.body.statements).toBeGreaterThan(30);
 
     // The session row went with the account, so the token it minted is now worthless.
     const afterwards = await call<any>("POST", "/bootstrap", session.token, {});

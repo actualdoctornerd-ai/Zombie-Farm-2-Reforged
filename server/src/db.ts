@@ -2300,9 +2300,9 @@ export async function grantRosterFixture(
     const row = u as RosterRow;
     const g = validateUnit(row?.id, row?.key, row?.mutation, row?.invasions);
     if (!g.ok) continue;
-    stmts.push(db.prepare(
-      "INSERT OR IGNORE INTO roster (account_id, id, key, mutation, invasions) VALUES (?, ?, ?, ?, ?)"
-    ).bind(accountId, g.unitId, g.key, g.mutation, g.invasions));
+    // roster_v3 only. This used to shadow every unit into the pre-v3 `roster` table
+    // as well, which the v3 reset dropped; the fixture kept working only because the
+    // test database was built from a schema.sql that still declared it.
     stmts.push(db.prepare(`INSERT OR IGNORE INTO roster_v3
       (account_id,unit_id,zombie_key,mutation,invasions,stored,created_at)
       VALUES(?,?,?,?,?,?,?)`).bind(accountId, g.unitId, g.key, g.mutation, g.invasions,

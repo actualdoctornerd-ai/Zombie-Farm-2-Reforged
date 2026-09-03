@@ -41,7 +41,7 @@ import {
   type GiftReward,
 } from "./logic";
 import { validateSave, MAX_SAVE_BYTES } from "./validate";
-import { operationInProgress, purgeAccount, unsettledMarketOrders } from "./accountDeletion";
+import { attemptPurge, operationInProgress, unsettledMarketOrders } from "./accountDeletion";
 import type { EconomyEvent } from "./economy";
 import type { FarmAction } from "./farm";
 import { raidEcon, raidUnlocked } from "./raidCatalog";
@@ -1725,15 +1725,25 @@ app.post("/account/delete", async (c) => {
   const unsettled = await unsettledMarketOrders(c.env.DB, accountId);
   if (unsettled > 0) return c.json({ error: "market_unsettled", orders: unsettled }, 409);
 
-  // Logged BEFORE the purge: `audit_events_v3` cascades with the account, so an
-  // audit row written inside the deletion would delete itself. This line in the
-  // Worker log is deliberately the only trace that survives, and it carries the
-  // hashed id rather than the id, so it identifies a deletion without preserving
-  // the account it just erased.
-  slog("account_deleted", { account: accountHash(accountId) }, "info");
+  const purge = await attemptPurge(c.env.DB, accountId);
+  if (!purge.ok) {
+    // The batch is atomic, so nothing was deleted: the account is intact and the
+    // player is told a server error was recorded, not "try again in a moment" —
+    // a purge that fails once fails every time until someone reads this line. It
+    // carries the database's own message because that message IS the diagnosis:
+    // "no such table" means `schema.sql` and the migration chain have drifted
+    // apart again (see `test/schemaParity.test.ts`).
+    slog("account_delete_failed", { account: accountHash(accountId), reason: purge.reason });
+    return c.json({ error: "purge_failed" }, 500);
+  }
 
-  const statements = await purgeAccount(c.env.DB, accountId);
-  return c.json({ ok: true, statements });
+  // Logged AFTER the purge succeeds, so the line means what it says. It is not an
+  // audit row — `audit_events_v3` cascades with the account, so a row written
+  // there would delete itself — and it is deliberately the only trace that
+  // survives, carrying the hashed id rather than the id, so it identifies a
+  // deletion without preserving the account it just erased.
+  slog("account_deleted", { account: accountHash(accountId) }, "info");
+  return c.json({ ok: true, statements: purge.statements });
 });
 
 // Sign out everywhere (revoke every session for the account) — emergency control.

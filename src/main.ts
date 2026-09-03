@@ -4421,7 +4421,13 @@ async function main() {
       // before this point, and `api.deleteAccount` deliberately does not release the
       // writer lease before the call — releasing it here would leave a surviving farm
       // unable to write, behind a takeover gate it has no reason to be behind.
-      return errCode(e);
+      //
+      // The code rides the diagnostics trail: a player who reports "it says come
+      // back later" can paste a crumb that says WHICH refusal, or that the server
+      // itself failed (`purge_failed`, which is the maintainer's problem, not theirs).
+      const code = errCode(e);
+      crumb("account:delete-refused", code);
+      return code;
     }
     // Past here the account is gone and the session with it. Stop the autosave so
     // no pending flush fires at a server row that no longer exists, then reload
@@ -6678,10 +6684,12 @@ async function main() {
       return;
     }
     if (visiting) {
-      hoveredCrop = null;
-      hud.showCropHover(null);
       // Read-only visit: drag pans the camera; no tool cursors are ever shown.
+      // An idle mouse still gets the crop/tree hover, the same look a visitor
+      // would take at their own field. It reads state and changes nothing.
       if (dragging) {
+        hoveredCrop = null;
+        hud.showCropHover(null);
         const dx = e.global.x - last.x;
         const dy = e.global.y - last.y;
         if (moved) {
@@ -6690,6 +6698,17 @@ async function main() {
           clampCamera();
         }
         last.copyFrom(e.global);
+      } else if (!isTouchPointer(e.pointerType)) {
+        const { col, row, wx, wy } = tileAt(e);
+        hoveredCrop = { col, row, wx, wy, x: e.global.x, y: e.global.y };
+        hud.showCropHover(
+          field.cropInfoAt(col, row) ?? field.treeInfoAtPoint(wx, wy),
+          e.global.x,
+          e.global.y,
+        );
+      } else {
+        hoveredCrop = null;
+        hud.showCropHover(null);
       }
       return;
     }
@@ -6857,9 +6876,25 @@ async function main() {
         }
         zombies.clearSelection();
         if (visiting) {
-          // Read-only visit: a tap on non-zombie ground just free-roams the
-          // visitor's avatar. No harvest/plant/store/object actions on their farm.
-          if (!jobs.busy) walk.goToPoint(wx, wy);
+          // Read-only visit: looking is allowed, touching is not. A planted plot
+          // (growing OR ripe: nothing here can harvest it) and a fruit tree open the
+          // same info popup they do at home, minus the Insta-Grow row. On touch the
+          // plot keeps the tap over a zombie exactly as at home, and bare ground
+          // falls through to the zombie so no hold is needed there. Anything else
+          // just free-roams the visitor's avatar: no harvest/plant/store/object
+          // actions on their farm.
+          if (field.hasCrop(col, row)) {
+            hud.openCropInfo(() => field.cropInfoAt(col, row), { readOnly: true });
+          } else if (field.treeInfoAtPoint(wx, wy)) {
+            hud.openCropInfo(() => {
+              const t = field.treeInfoAtPoint(wx, wy);
+              return t ? { ...t, isZombie: false } : null;
+            }, { readOnly: true });
+          } else {
+            const bare = isTouchPointer(pressPointerType) ? zombies.pick(wx, wy) : null;
+            if (bare) inspectZombie(bare);
+            else if (!jobs.busy) walk.goToPoint(wx, wy);
+          }
           dragging = false;
           lastPlot = "";
           return;

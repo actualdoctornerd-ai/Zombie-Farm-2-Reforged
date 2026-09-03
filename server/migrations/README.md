@@ -35,14 +35,23 @@ from this page: it is the only source that cannot be out of date.
 
 ## The schema.sql ⇄ migrations relationship (read this first)
 
-There are two SQL sources and they overlap:
+There are two SQL sources and they describe the same database:
 
-- **`../schema.sql`** — the *complete current schema*, all `CREATE TABLE IF NOT
-  EXISTS`. It includes the base tables (`accounts`, `saves`, `gifts`, `friendships`,
-  `sessions`, …) that predate the migration system and are **not** reproduced in any
-  migration file.
-- **`migrations/00NN_*.sql`** — the *incremental* changes layered on top of that base,
-  from the Track-A pass onward.
+- **`../schema.sql`** — a *snapshot* of the complete current schema, all `CREATE TABLE
+  IF NOT EXISTS`. Since `0020_protocol_v3_reset` rebuilt everything from nothing, it
+  contains no table the migrations do not build: the pre-v3 base tables (`saves`,
+  `roster`, `inventory`, `combine_jobs`, …) are gone from both.
+- **`migrations/00NN_*.sql`** — the *history*: the reset and every incremental change
+  since, which is how the production database was built.
+
+**They must agree object for object** — tables, columns, defaults, foreign-key
+actions, indexes, triggers — and `../test/schemaParity.test.ts` replays the chain
+from the reset into SQLite and diffs it against `schema.sql` to make sure they do.
+Any migration that changes the schema edits `schema.sql` in the same commit, and any
+edit to `schema.sql` ships with the migration that makes the same change on
+production. (This was not always so: `schema.sql` carried 25 dropped tables for
+months, the account-deletion purge list mirrored it, every test passed, and every
+production deletion failed on `DELETE FROM combine_jobs`.)
 
 Because they overlap, **pick one path per database** (below). Do not run
 `schema.sql` and then `migrations apply` on the same DB — the `ALTER` migrations will

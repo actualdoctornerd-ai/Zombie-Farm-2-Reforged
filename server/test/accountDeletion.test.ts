@@ -43,7 +43,8 @@ describe("ACCOUNT_REFERENCES mirrors the schema", () => {
   it("finds a believable number of references at all", () => {
     // Guards the guard: if the introspection silently returned nothing, every
     // assertion below would pass vacuously and the purge would look verified.
-    expect(schema.length).toBeGreaterThan(50);
+    // (35 on 2026-09-02, once schema.sql stopped declaring the 25 pre-v3 tables.)
+    expect(schema.length).toBeGreaterThan(30);
   });
 
   it("lists every column that references accounts, and nothing that doesn't", () => {
