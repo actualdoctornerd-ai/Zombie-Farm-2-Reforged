@@ -37,8 +37,10 @@ import { bossForFavoriteCrop, luresEpicBoss } from "../../../src/epicBoss/favori
 import { reopenEpicQuests } from "../../../src/epicBoss/rewards";
 import { questSubjectMatches } from "../../../src/quest/matching";
 import {
-  applyPeriodicEvents, claimPeriodicQuest, refreshPeriodicState, xpToNextLevel,
+  applyPeriodicEvents, claimPeriodicQuest, generatePeriodicSet, refreshPeriodicState,
+  unlockLevel, xpToNextLevel,
 } from "../../../src/quest/periodic/generate";
+import { periodIndex } from "../../../src/quest/periodic/periods";
 import type { PeriodicQuestState } from "../../../src/quest/periodic/types";
 import { objectQuestAliases } from "../../../src/quest/objectVariants";
 import { decorAvailable } from "../../../src/decorThemes";
@@ -1396,6 +1398,28 @@ function applyOne(
       state.balance.xp += claim.xp;
       return { sequence, status: "applied" };
     }
+    case "quest.periodic_author": {
+      // The client drew this scope's board itself the instant it qualified (the
+      // level-up it saw optimistically, or a rollover) and is asking for the SAME one.
+      // Nothing about the board is read off the command: the period comes from the
+      // server clock, the level is clamped to the XP the server holds — `level` here
+      // already includes what the commands earlier in this batch earned, which is how
+      // the batch that crosses level 5 lands its board in its own response — and the
+      // generator is the shared deterministic one. A forged command can therefore at
+      // most ask for a board sized for a LOWER level than it has earned. A scope that
+      // already holds this period's board is left exactly as it is: re-rolling would
+      // be a free reset of its counts and claims, which is the per-day cap's backbone.
+      const period = periodIndex(command.scope, options.now);
+      const authored = Math.min(command.level, level);
+      if (authored < unlockLevel(command.scope)) return reject(sequence, "below_unlock");
+      const periodic = periodicStateOf(state);
+      if (periodic[command.scope]?.period === period) return reject(sequence, "already_authored");
+      periodic[command.scope] = generatePeriodicSet({
+        accountId: options.accountId, scope: command.scope, period, level: authored,
+        xpToNext: xpToNextLevel(authored, XP_THRESHOLDS),
+      });
+      return { sequence, status: "applied" };
+    }
     case "epicBoss.token": {
       // Taken on trust. The client rolled this token when it harvested the crop (see
       // GameplayCommand in protocol.ts); the only things checked are that the event it
@@ -1486,6 +1510,14 @@ export function applyCommandBatch(
     inventory: state.inventory,
     storage: state.storage,
   });
+  // Roll the sets forward a SECOND time, at the level this batch LEFT the player on
+  // (quest rewards included). The pre-loop call ran at the level they arrived with,
+  // so the batch that crossed level 5 generated nothing and the board waited for the
+  // next batch — one more command and up to thirty seconds away — or a reload. The
+  // client now authors its own board the moment it qualifies (quest.periodic_author
+  // above); this is the convergence for a second device, a client that could not
+  // send the command, or a level crossed by a quest reward alone.
+  refreshPeriodic(state, required.accountId, required.now);
   const levelBefore = levelForXp(balanceBefore.xp);
   const levelAfter = levelForXp(state.balance.xp);
   // The original game makes invasions immediately available after a level-up.

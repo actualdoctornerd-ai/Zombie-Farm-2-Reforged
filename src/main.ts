@@ -1942,6 +1942,7 @@ async function main() {
     {
       authoritative: onlineFarm,
       submitClaim: (scope, questId, xp) => economy?.submitPeriodicQuestClaim(scope, questId, xp) ?? false,
+      submitAuthor: (scope, level) => economy?.submitPeriodicQuestAuthor(scope, level) ?? false,
       claimed: (text, xp) => hud.showToast(`${text} — +${xp} XP`),
       render: (views) => hud.setPeriodicQuests(views),
     }
@@ -2898,6 +2899,12 @@ async function main() {
       // the run projection already carries the correction. There is nothing the player
       // could have done differently, so it passes without a rollback toast.
       if (command?.type === "epicBoss.token") return;
+      // A refused board request is the periodic system's to settle (it either already
+      // holds the server's board or takes its own down) — never a rollback toast.
+      if (command?.type === "quest.periodic_author") {
+        periodicQuests.authorRefused(command.scope, error);
+        return;
+      }
       if (command?.type === "roster.combine_start") {
         zombies.cancelCombine(command.potId);
         saveManager.flushCritical();

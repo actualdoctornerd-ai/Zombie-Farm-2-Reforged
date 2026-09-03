@@ -640,6 +640,19 @@ export async function finishRaid(
     now,
   });
   applyPeriodicEvents(periodic, questEvents);
+  // Then roll forward again at the level this win LEFT them on. A raid is the one
+  // path that can cross level 5 (or 15) without a command batch, and without this the
+  // scope it unlocked waited for the next batch or a reload, exactly the lag the
+  // command lane used to have (see quest.periodic_author in engine.ts).
+  const levelAfterWin = levelForXp(nextBalance.xp);
+  if (levelAfterWin > periodicLevel) {
+    refreshPeriodicState(periodic, {
+      accountId,
+      level: levelAfterWin,
+      xpToNext: xpToNextLevel(levelAfterWin, XP_THRESHOLDS),
+      now,
+    });
+  }
   const periodicChanged = periodicBefore !== JSON.stringify(periodic);
   const periodicQuests: PeriodicQuestProjection = {
     version: periodicRow.version + (periodicChanged ? 1 : 0),

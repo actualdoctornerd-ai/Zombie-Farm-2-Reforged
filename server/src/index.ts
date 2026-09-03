@@ -1032,6 +1032,9 @@ export const validGameplayCommand = (value: unknown): value is GameplayCommand =
     case "quest.periodic_claim":
       return (command.scope === "daily" || command.scope === "weekly") &&
         commandString(command.questId, 64);
+    case "quest.periodic_author":
+      return (command.scope === "daily" || command.scope === "weekly") &&
+        commandInt(command.level) && command.level >= 1 && command.level <= 200;
     case "epicBoss.token":
       return commandString(command.runId) &&
         (command.count === undefined ||

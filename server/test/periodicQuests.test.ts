@@ -8,6 +8,8 @@ import { describe, it, expect } from "vitest";
 import plantRows from "../../public/assets/plants.json";
 import { applyCommandBatch, freshGameplayState, periodicStateOf } from "../src/v3/engine";
 import { XP_THRESHOLDS, levelForXp } from "../src/levels";
+import { generatePeriodicSet, xpToNextLevel } from "../../src/quest/periodic/generate";
+import { periodIndex } from "../../src/quest/periodic/periods";
 import type { GameplayCommand } from "../../src/net/protocol";
 import type { MutableGameplayState } from "../src/v3/engine";
 
@@ -153,6 +155,96 @@ describe("periodic quests — the authoritative board", () => {
       { now: NOON + 1000, accountId: ACCOUNT });
     expect(result.results[0]).toMatchObject({ status: "rejected", error: "no_such_quest" });
     expect(result.state.balance.xp).toBe(seeded.state.balance.xp);
+  });
+
+  // The batch that CROSSES level 5. The sets used to be rolled forward only before
+  // the commands ran, at the level the player arrived with — so this batch saw level
+  // 4, generated nothing, and the board appeared a batch later (one more command and
+  // up to thirty seconds) or on reload. The plot is plowed and planted in an earlier
+  // batch, the XP is then pinned one short of level 5, and the harvest crosses it.
+  function crossingBatch(extra: GameplayCommand[] = [], target: 5 | 15 = 5, now = NOON) {
+    const scope = target === 5 ? "daily" : "weekly";
+    const state = freshGameplayState();
+    state.balance.gold = 500_000;
+    state.balance.xp = XP_THRESHOLDS[target - 2];
+    expect(levelForXp(state.balance.xp)).toBe(target - 1);
+    const plowed = applyCommandBatch(state, commands(
+      { type: "farm.plow", oc: 0, or: 0 },
+      { type: "farm.plant", oc: 0, or: 0, cropKey: "carrot" },
+    ), { now, accountId: ACCOUNT });
+    expect(plowed.results.every((r) => r.status === "applied")).toBe(true);
+    expect(periodicStateOf(plowed.state)[scope]).toBeNull();
+    plowed.state.balance.xp = XP_THRESHOLDS[target - 1] - 1;
+    return applyCommandBatch(plowed.state, commands({ type: "farm.harvest", oc: 0, or: 0 }, ...extra),
+      { now: now + 5 * 3_600_000, accountId: ACCOUNT });
+  }
+
+  it("hands a level-5 crossing its board in that batch's own response", () => {
+    const after = crossingBatch();
+    expect(after.results[0].status).toBe("applied");
+    const level = levelForXp(after.state.balance.xp);
+    expect(level).toBeGreaterThanOrEqual(5);
+    const daily = periodicStateOf(after.state).daily;
+    expect(daily?.quests.length).toBeGreaterThan(0);
+    expect(daily?.level).toBe(level);
+    expect(after.periodicChanged).toBe(true);
+  });
+
+  it("installs the board the client authored for the level it crossed", () => {
+    const after = crossingBatch([{ type: "quest.periodic_author", scope: "daily", level: 5 }]);
+    expect(after.results[1]).toMatchObject({ status: "applied" });
+    const daily = periodicStateOf(after.state).daily!;
+    expect(daily.level).toBe(5);
+    expect(daily.counts.every((count) => count === 0)).toBe(true);
+    expect(daily.claimed).toEqual([]);
+    // The exact set the client drew: same generator, same account, same period, same
+    // level — nothing about it crossed the wire.
+    const expected = generatePeriodicSet({
+      accountId: ACCOUNT, scope: "daily", period: periodIndex("daily", NOON), level: 5,
+      xpToNext: xpToNextLevel(5, XP_THRESHOLDS),
+    });
+    expect(daily.quests).toEqual(expected.quests);
+  });
+
+  it("clamps a forged level to the XP the server holds", () => {
+    const after = crossingBatch([{ type: "quest.periodic_author", scope: "daily", level: 40 }]);
+    expect(after.results[1]).toMatchObject({ status: "applied" });
+    expect(periodicStateOf(after.state).daily!.level).toBe(levelForXp(after.state.balance.xp));
+  });
+
+  it("refuses to author a scope below its unlock", () => {
+    const result = applyCommandBatch(stateAtLevel(3),
+      commands({ type: "quest.periodic_author", scope: "daily", level: 5 }),
+      { now: NOON, accountId: ACCOUNT });
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "below_unlock" });
+    expect(periodicStateOf(result.state).daily).toBeNull();
+    expect(result.periodicChanged).toBe(false);
+  });
+
+  it("never re-rolls a board that already exists for the period", () => {
+    // The per-day cap's backbone: a second author for the same period would be a free
+    // reset of counts and claims, so it is refused and the board is left untouched.
+    const seeded = applyCommandBatch(stateAtLevel(30), commands({ type: "writer.claim" }),
+      { now: NOON, accountId: ACCOUNT });
+    const board = periodicStateOf(seeded.state);
+    board.daily!.counts[0] = 2;
+    board.daily!.claimed = [board.daily!.quests[1].id];
+    const before = JSON.stringify(board);
+
+    const again = applyCommandBatch(seeded.state,
+      commands({ type: "quest.periodic_author", scope: "daily", level: 30 }),
+      { now: NOON + 1000, accountId: ACCOUNT });
+    expect(again.results[0]).toMatchObject({ status: "rejected", error: "already_authored" });
+    expect(JSON.stringify(periodicStateOf(again.state))).toBe(before);
+    expect(again.periodicChanged).toBe(false);
+  });
+
+  it("authors the weekly scope the same way, in the batch that crosses 15", () => {
+    const after = crossingBatch([{ type: "quest.periodic_author", scope: "weekly", level: 15 }], 15);
+    expect(after.results[1]).toMatchObject({ status: "applied" });
+    expect(periodicStateOf(after.state).weekly?.level).toBe(15);
+    // And the daily board the player already had is untouched by the crossing.
+    expect(periodicStateOf(after.state).daily?.level).toBe(14);
   });
 
   // The client coalesces up to 30 seconds of play into one POST, so the harvest that

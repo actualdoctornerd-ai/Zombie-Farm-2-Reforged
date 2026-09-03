@@ -302,6 +302,25 @@ appear in the same frame; the next batch response carries the identical board.
 **Deploy.** Worker: yes, FIRST (an old Worker rejects the unknown command type and the client
 would show an error). Migration: no (`periodic_quest_documents_v3` unchanged).
 
+**STATUS: DONE (committed 2026-09-03).** All seven steps as written, plus two things the plan
+did not say: (a) the client keeps `authored`/`refused` period maps per scope, so the command
+goes once per period and a `below_unlock` refusal (the optimistic level was not real) takes
+the local board down via `PeriodicQuestSystem.authorRefused`, wired from
+`economy.onCommandRejected` in main.ts (`already_authored` is silent — the server's board is
+the same one); (b) authoring is gated on `adopted` so a board is never drawn over a
+projection that has not arrived. Server: the engine case clamps `min(command.level, level)`
+where `level` already includes the XP earlier commands in the batch earned — that is how the
+crossing batch lands its board. Verified against a LOCAL Worker (wrangler dev + `--mode
+localapi`, dev sign-in, `/dev/fixture/balance` xp=249, a carrot backdated in local D1):
+harvest with the 1-XP preview → level 5, the 3-quest daily board and the ★ button in the SAME
+tick; the flushed batch carried `farm.harvest` + `quest.periodic_author`, both applied, and
+the response board was identical to the local one. A batch that crossed via plow XP with no
+local author got the board in its own response (step 5 live). A `below_unlock` refusal took
+the local board down live. Root 2086 + server unit + integration 103/103 (one flake on the
+first run, clean on rerun). NOT verified against staging — needs the Worker deploy first.
+Trap: local D1 farm document `current_json` IS the plots map (keys `"0:0"`), not
+`{plots:{}}`.
+
 ---
 
 ## 6. Quest fulfilment delay

@@ -871,6 +871,17 @@ export class EconomyClient {
     return true;
   }
 
+  /** Ask the server to derive the daily/weekly board this client just generated for
+   *  itself (PeriodicQuestSystem.authorDue). Flushed immediately, like the claim: the
+   *  board is already on screen, and its counts only start moving once the server has
+   *  installed the same one. */
+  submitPeriodicQuestAuthor(scope: "daily" | "weekly", level: number): boolean {
+    const sequence = this.enqueue({ type: "quest.periodic_author", scope, level });
+    if (sequence === null) return false;
+    void this.queue.flush();
+    return true;
+  }
+
   async submitRaid(
     sessionId: string,
     finalTick: number,

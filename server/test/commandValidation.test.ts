@@ -55,6 +55,7 @@ const SAMPLES: Record<GameplayCommand["type"], GameplayCommand> = {
   "memorial.enshrine": { type: "memorial.enshrine", instanceId: "obj-1", unitId: "z-1", name: "Bob" },
   "memorial.clear": { type: "memorial.clear", instanceId: "obj-1" },
   "quest.periodic_claim": { type: "quest.periodic_claim", scope: "daily", questId: "daily_invade" },
+  "quest.periodic_author": { type: "quest.periodic_author", scope: "daily", level: 5 },
   "epicBoss.token": { type: "epicBoss.token", runId: "run-1", count: 3 },
   "tutorial.complete": { type: "tutorial.complete" },
 };
@@ -88,6 +89,11 @@ describe("gameplay command validation", () => {
     expect(validGameplayCommand({ type: "epicBoss.token", runId: "run-1", count: 0 })).toBe(false);
     expect(validGameplayCommand({ type: "epicBoss.token", runId: "run-1", count: 5_000 })).toBe(false);
     expect(validGameplayCommand({ type: "epicBoss.token", runId: "" })).toBe(false);
+    // The board request names a scope and a whole level, nothing else — never quests.
+    expect(validGameplayCommand({ type: "quest.periodic_author", scope: "monthly", level: 5 })).toBe(false);
+    expect(validGameplayCommand({ type: "quest.periodic_author", scope: "daily", level: 4.5 })).toBe(false);
+    expect(validGameplayCommand({ type: "quest.periodic_author", scope: "daily", level: 0 })).toBe(false);
+    expect(validGameplayCommand({ type: "quest.periodic_author", scope: "daily" })).toBe(false);
     expect(validGameplayCommand(null)).toBe(false);
   });
 });

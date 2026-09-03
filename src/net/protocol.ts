@@ -97,6 +97,16 @@ export type GameplayCommand =
    *  grant themselves inside the transaction that completes them — a periodic quest
    *  waits to be claimed, so this is the only command that pays one out. */
   | { type: "quest.periodic_claim"; scope: "daily" | "weekly"; questId: string }
+  /** Ask the server to derive the daily/weekly board this client has just generated
+   *  for itself. The client draws the board the instant it qualifies — the level-up it
+   *  saw optimistically, or a period rollover — with the same deterministic generator
+   *  the server runs, so the two agree without the board ever crossing the wire: the
+   *  command carries no quests, only the scope and the level the client drew for. The
+   *  server derives the period from its own clock, clamps `level` to the XP it holds,
+   *  refuses a scope that already has this period's board (`already_authored` — never
+   *  a re-roll, which would be a free reset of counts and claims) or a level below the
+   *  scope's unlock (`below_unlock`), and otherwise installs the identical set. */
+  | { type: "quest.periodic_author"; scope: "daily" | "weekly"; level: number }
   /** Record Boss Tokens the CLIENT rolled on harvest. Deliberately unverified: the
    *  server no longer rolls for tokens itself and does not re-check this claim, so an
    *  edited client can mint tokens. That is an accepted trade — a token buys one Epic
@@ -172,10 +182,13 @@ export interface QuestProjection {
   progress: { questId: string; counts: number[] }[];
 }
 
-/** Daily/weekly quests. Server-owned like the catalog quests, but with a lifecycle of
- *  their own: the set is regenerated whenever its UTC period rolls over, and each
- *  quest's XP is collected by a `quest.periodic_claim` command rather than granted on
- *  completion. Either scope is null until it unlocks (daily at level 5, weekly at 15). */
+/** Daily/weekly quests. Client-authored, server-verified: the client generates a
+ *  scope's board the moment it qualifies and asks the server to derive the identical
+ *  one (`quest.periodic_author`), while the counts and the claims stay server-owned
+ *  like the catalog quests. The set is regenerated whenever its UTC period rolls over,
+ *  and each quest's XP is collected by a `quest.periodic_claim` command rather than
+ *  granted on completion. Either scope is null until it unlocks (daily at level 5,
+ *  weekly at 15). */
 export interface PeriodicQuestProjection {
   version: number;
   daily: PeriodicScopeState | null;

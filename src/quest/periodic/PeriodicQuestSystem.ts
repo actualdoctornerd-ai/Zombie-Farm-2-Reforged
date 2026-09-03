@@ -8,22 +8,33 @@
 //     everything in the save. Exactly the same generator the server uses, so the two
 //     builds agree about what a Tuesday looks like.
 //
-//   ONLINE (`authoritative: true`) — the server owns all of it. Bus events are ignored
-//     outright (the server counts the commands they came from), the state is whatever
-//     the last projection said, and a claim is a command whose result arrives as a new
-//     projection. Progress is NOT previewed optimistically the way catalog quests are:
-//     these counts arrive with the very next batch response, and a preview that ran
-//     ahead of the server could offer a Claim button for a reward the server would
-//     then refuse.
+//   ONLINE (`authoritative: true`) — the server owns the counts and the claims. Bus
+//     events are ignored outright (the server counts the commands they came from), the
+//     state is whatever the last projection said, and a claim is a command whose result
+//     arrives as a new projection. Progress is NOT previewed optimistically the way
+//     catalog quests are: these counts arrive with the very next batch response, and a
+//     preview that ran ahead of the server could offer a Claim button for a reward the
+//     server would then refuse.
+//
+//     The BOARD, though, is authored here. The generator is deterministic and shared,
+//     so the instant this client qualifies for a scope (the level-up it just saw, or
+//     a period rollover) it draws the board itself, shows it, and sends a
+//     `quest.periodic_author` command asking the server to derive the same one. The
+//     server never reads a quest off the wire — it re-generates and compares levels —
+//     and its projection replaces the local board when it lands (identically, when
+//     the level matched). Before this the board waited for the NEXT batch after the
+//     level-up: the server rolled the sets forward before applying the commands, so
+//     the batch that crossed level 5 saw level 4 and the star button arrived up to a
+//     command and thirty seconds late, or on reload.
 
 import type { GameState } from "../../GameState";
 import { XP_THRESHOLDS } from "../../GameState";
 import { QuestBus } from "../events";
 import {
-  applyPeriodicEvents, claimPeriodicQuest, claimablePeriodicCount, periodicViews,
-  refreshPeriodicState, xpToNextLevel,
+  applyPeriodicEvents, claimPeriodicQuest, claimablePeriodicCount, generatePeriodicSet,
+  periodicViews, refreshPeriodicState, unlockLevel, xpToNextLevel,
 } from "./generate";
-import { periodEndsAt } from "./periods";
+import { periodEndsAt, periodIndex } from "./periods";
 import {
   emptyPeriodicState, type PeriodicQuestState, type PeriodicScope, type PeriodicScopeState,
   type PeriodicScopeView,
@@ -35,6 +46,9 @@ export interface PeriodicQuestHooks {
   /** Online only: send the claim. The XP arrives with the server's next projection. */
   /** Return true only when the authoritative command entered the durable queue. */
   submitClaim?: (scope: PeriodicScope, questId: string, xp: number) => boolean;
+  /** Online only: ask the server to derive the board this client just drew for
+   *  itself (see the mode note). Return true only when the command entered the queue. */
+  submitAuthor?: (scope: PeriodicScope, level: number) => boolean;
   /** Celebrate a paid-out claim. */
   claimed?: (text: string, xp: number) => void;
   /** Push the current panel state to the HUD. */
@@ -50,6 +64,12 @@ export class PeriodicQuestSystem {
   /** Set once the online projection has been received, so an online client does not
    *  briefly draw a locally-generated board before the server's arrives. */
   private adopted = false;
+  /** Online: the period each scope's author command was last SENT for, so a board is
+   *  asked for once per period however many level-ups or refresh ticks follow. */
+  private authored: Partial<Record<PeriodicScope, number>> = {};
+  /** Online: the period the server REFUSED for a scope (below its unlock: the level
+   *  this client crossed optimistically was not real). Not drawn again that period. */
+  private refused: Partial<Record<PeriodicScope, number>> = {};
 
   constructor(
     private gameState: GameState,
@@ -71,13 +91,20 @@ export class PeriodicQuestSystem {
       this.gameState.onChange(() => {
         if (this.refresh()) this.hooks.render(this.views());
       });
+    } else {
+      // Online the same level-up authors the board locally and asks the server for
+      // the same one — the star button and Tim's notice land in the same frame.
+      this.gameState.onChange(() => {
+        if (this.authorDue()) this.hooks.render(this.views());
+      });
     }
   }
 
-  /** Roll the sets forward to now. Offline this generates; online it only advances the
-   *  clock the panel's countdown reads, since the server owns the sets. */
+  /** Roll the sets forward to now. Offline this generates; online it authors any
+   *  scope that has become due (a level-up, a rollover) and asks the server for the
+   *  same board — the counts and the claims stay the server's. */
   refresh(now = Date.now()): boolean {
-    if (this.hooks.authoritative) return false;
+    if (this.hooks.authoritative) return this.authorDue(now);
     const level = this.gameState.level;
     return refreshPeriodicState(this.state, {
       accountId: this.identity(),
@@ -85,6 +112,50 @@ export class PeriodicQuestSystem {
       xpToNext: xpToNextLevel(level, XP_THRESHOLDS),
       now,
     });
+  }
+
+  /** Online: draw any scope that is due and this client has not drawn yet, and ask the
+   *  server for the same one. Due means: the player's level (optimistic XP included —
+   *  that is the level-up they just saw) reaches the scope's unlock, and the board on
+   *  hand is not this period's. Only once the projection has been adopted, so a board
+   *  is never drawn over a server one that has simply not arrived yet. Returns true
+   *  when a board was drawn. */
+  private authorDue(now = Date.now()): boolean {
+    if (!this.adopted) return false;
+    const level = this.gameState.level;
+    let drawn = false;
+    for (const scope of ["daily", "weekly"] as const) {
+      if (level < unlockLevel(scope)) continue;
+      const period = periodIndex(scope, now);
+      if (this.state[scope]?.period === period || this.refused[scope] === period) continue;
+      this.state[scope] = generatePeriodicSet({
+        accountId: this.identity(), scope, period, level,
+        xpToNext: xpToNextLevel(level, XP_THRESHOLDS),
+      });
+      drawn = true;
+      // Sent once per period. A send that could not be queued is retried on the next
+      // level change or refresh tick, and the server's own post-batch roll-forward
+      // produces the same board regardless — the command only makes it immediate.
+      if (this.authored[scope] !== period && this.hooks.submitAuthor?.(scope, level)) {
+        this.authored[scope] = period;
+      }
+    }
+    return drawn;
+  }
+
+  /** Online: the server refused this client's author command. `already_authored`
+   *  means its board for the period exists — the projection carrying it has either
+   *  replaced the local one already or is identical — so there is nothing to do.
+   *  Anything else (`below_unlock`: the level crossed optimistically was not real)
+   *  means the board drawn here was never earned, and it comes down. */
+  authorRefused(scope: PeriodicScope, error: string, now = Date.now()): void {
+    if (!this.hooks.authoritative || error === "already_authored") return;
+    const period = periodIndex(scope, now);
+    this.refused[scope] = period;
+    if (this.state[scope]?.period === period) {
+      this.state[scope] = null;
+      this.hooks.render(this.views());
+    }
   }
 
   /** Online: install the server's authoritative sets. */
