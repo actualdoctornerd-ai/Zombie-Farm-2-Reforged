@@ -449,10 +449,11 @@
 #hud.ui-hidden .plant-label, #hud.ui-hidden .crop-hover { display: none !important; }
 /* Visiting a friend's farm: a strictly read-only view. Hide every farm-editing
    surface (tools, menu, quests, fab, top bar) so nothing can be mutated; only the
-   camera, zombie inspect, and the visit banner remain. */
+   camera, zombie/crop inspect (the crop hover included), and the visit banner
+   remain. */
 #hud.visiting .topbar, #hud.visiting .tools, #hud.visiting .menucol,
 #hud.visiting .questcol, #hud.visiting .invade-shortcut, #hud.visiting .fab,
-#hud.visiting .touch-cancel, #hud.visiting .crop-hover { display: none !important; }
+#hud.visiting .touch-cancel { display: none !important; }
 #hud .visit-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
   pointer-events: auto; display: flex; align-items: center; gap: 12px;
   background: rgba(30,45,20,.82); color: #fff; padding: 8px 12px 8px 16px;
@@ -2157,7 +2158,11 @@
    HUD. Keep the active Multi/Plow/Insta-Grow icon at bottom-right without showing
    the full bottom bar; refreshTools() already keeps this icon and boost count live. */
 #hud.tutorial .tools { display: none !important; }
-#hud.tutorial .fab { display: block !important; }
+/* `:not(.raiding)` because `.tutorial` stays on #hud for the whole tutorial, its
+   Invade beat's raid included, and this rule otherwise ties the raid hide-list above
+   on specificity and wins on source order — which painted the tool button over the
+   battle scene's Retreat button in the same corner on phones. */
+#hud.tutorial:not(.raiding) .fab { display: block !important; }
 #hud.tutorial .topbar, #hud.tutorial .questcol, #hud.tutorial .menucol,
 #hud.tutorial .tools, #hud.tutorial .fab, #hud.tutorial .touch-cancel,
 #hud.tutorial .invade-shortcut { pointer-events: none !important; }
