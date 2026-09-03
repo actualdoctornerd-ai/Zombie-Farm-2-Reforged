@@ -59,4 +59,14 @@ describe("tutorial stacking order", () => {
     expect(/#hud \.tut-tim \{[^}]*pointer-events:\s*none/m.test(css)).toBe(true);
     expect(css).toContain("#hud .tut-layer.narrative-step .tut-bubble { pointer-events: auto; }");
   });
+
+  // `.tutorial` stays on #hud through the tutorial's own Invade raid. The rule that
+  // shows the compact tool button during the tutorial ties the raid hide-list on
+  // specificity and comes later in the file, so without the `:not(.raiding)` guard it
+  // wins and paints the button over the battle scene's Retreat button (same corner
+  // on phones). Pinned as text because the cascade is the whole bug.
+  it("hides the tutorial's tool button once the tutorial raid is on screen", () => {
+    expect(css).toContain("#hud.tutorial:not(.raiding) .fab { display: block !important; }");
+    expect(css).not.toMatch(/^#hud\.tutorial \.fab \{ display: block/m);
+  });
 });

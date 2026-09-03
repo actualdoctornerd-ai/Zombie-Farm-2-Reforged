@@ -127,6 +127,12 @@ Invade beat, screenshot the raid: Retreat visible, no FAB. Non-tutorial raid unc
 
 **Deploy.** Worker: no. Migration: no.
 
+**STATUS: DONE (committed 2026-09-02).** Rule is `#hud.tutorial:not(.raiding) .fab` with a comment;
+`tutorialLayering.test.ts` pins the text. Verified in the dev server at 375×812 by toggling
+classes on `#hud` and reading the computed display of `.fab`: tutorial → block,
+tutorial+raiding → none, raiding → none, plain → block (mobile). The full tutorial-to-Invade
+playthrough was not run; the cascade is the whole bug and the computed style is the proof.
+
 ---
 
 ## 3. Double Invade launches two battles
