@@ -130,6 +130,70 @@ describe("bulk farm commands", () => {
     expect(bulk.state.raids.lastRaidAt).toBe(0); // the level-up zeroed the cooldown
   });
 
+  // The harvest half. Same contract as plowing — a transport change, not a rules
+  // change — plus the one thing a harvest has that a plow does not: what it grew.
+  it("harvests every ripe plot in one command and matches one at a time", () => {
+    const grow = (state: ReturnType<typeof richFarm>) => {
+      const planted = applyCommandBatch(state, commands(
+        { type: "farm.plow_many", plots: plots(12) },
+        { type: "farm.plant_many", cropKey: "carrot", plots: plots(12) },
+      ), { now: 1 });
+      expect(planted.results.every((r) => r.status === "applied")).toBe(true);
+      return planted.state;
+    };
+    const ripeAt = 1 + 24 * 3_600_000;
+
+    const bulk = applyCommandBatch(grow(richFarm()),
+      commands({ type: "farm.harvest_many", plots: plots(12) }), { now: ripeAt });
+    expect(bulk.results[0]).toEqual({ sequence: 1, status: "applied" });
+    expect(Object.values(bulk.state.farm.plots).every((plot) => plot.state === "spent")).toBe(true);
+
+    const single = applyCommandBatch(grow(richFarm()),
+      commands(...plots(12).map((plot) => ({ type: "farm.harvest" as const, ...plot }))), { now: ripeAt });
+    expect(single.results.every((r) => r.status === "applied")).toBe(true);
+    expect(bulk.state.balance).toEqual(single.state.balance);
+    expect(bulk.state.farm.plots).toEqual(single.state.farm.plots);
+    // And the same quest events, in the same order — the counts a daily reads.
+    expect(bulk.questChanges).toEqual(single.questChanges);
+  });
+
+  it("pairs the zombies a bulk harvest grows to the plots they grew on", () => {
+    const state = richFarm();
+    state.balance.brains = 500;
+    state.balance.xp = 20_500; // level 25: every crop here is unlocked
+    const planted = applyCommandBatch(state, commands(
+      { type: "farm.plow_many", plots: plots(3) },
+      { type: "farm.plant_many", cropKey: "carrot", plots: [plots(3)[0]] },
+      { type: "farm.plant_many", cropKey: "ZombieActorRegularTier1", plots: [plots(3)[1], plots(3)[2]] },
+    ), { now: 1 });
+    expect(planted.results.every((r) => r.status === "applied"), JSON.stringify(planted.results)).toBe(true);
+
+    const reaped = applyCommandBatch(planted.state,
+      commands({ type: "farm.harvest_many", plots: plots(3) }), { now: 1 + 7 * 86_400_000 });
+    const result = reaped.results[0];
+    expect(result.status).toBe("applied");
+    expect(result.createdIds).toHaveLength(2);
+    expect(result.createdZombieSources).toEqual([
+      { id: result.createdIds![0], oc: plots(3)[1].oc, or: plots(3)[1].or },
+      { id: result.createdIds![1], oc: plots(3)[2].oc, or: plots(3)[2].or },
+    ]);
+    expect(reaped.createdZombieIds).toEqual(result.createdIds);
+  });
+
+  it("harvests what is ripe and reports the plots that are not", () => {
+    const planted = applyCommandBatch(richFarm(), commands(
+      { type: "farm.plow_many", plots: plots(2) },
+      { type: "farm.plant_many", cropKey: "carrot", plots: plots(2) },
+    ), { now: 1 });
+    // Only the first plot is planted early enough to be ripe by `now`.
+    (planted.state.farm.plots["0:0"] as { plantedAt: number }).plantedAt = -10_000_000;
+    const reaped = applyCommandBatch(planted.state,
+      commands({ type: "farm.harvest_many", plots: plots(2) }), { now: 2 });
+    expect(reaped.results[0]).toMatchObject({ status: "applied", rejectedPlots: 1, rejectedPlotError: "not_grown" });
+    expect(reaped.state.farm.plots["0:0"].state).toBe("spent");
+    expect(reaped.state.farm.plots["4:0"].state).toBe("planted");
+  });
+
   it("applies nothing, and refuses nothing, for an empty plot list", () => {
     const state = freshGameplayState();
     const result = applyCommandBatch(

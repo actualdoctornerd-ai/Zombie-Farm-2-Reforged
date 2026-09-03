@@ -8,13 +8,16 @@
 //     everything in the save. Exactly the same generator the server uses, so the two
 //     builds agree about what a Tuesday looks like.
 //
-//   ONLINE (`authoritative: true`) — the server owns the counts and the claims. Bus
-//     events are ignored outright (the server counts the commands they came from), the
+//   ONLINE (`authoritative: true`) — the server owns the counts and the claims. The
 //     state is whatever the last projection said, and a claim is a command whose result
-//     arrives as a new projection. Progress is NOT previewed optimistically the way
-//     catalog quests are: these counts arrive with the very next batch response, and a
-//     preview that ran ahead of the server could offer a Claim button for a reward the
-//     server would then refuse.
+//     arrives as a new projection. Bus events are applied to a display-only COPY of
+//     that state, with the server's own counting function, so the bar and the badge
+//     move the moment the chore is done rather than when the batch window closes (up
+//     to thirty seconds later — "my quests take ages to update"). The copy is thrown
+//     away on every projection. What the preview never does is offer the Claim: a
+//     quest done in preview but not yet in the server's count shows as `pending`, and
+//     claim() itself reads the authoritative state — a claim the server would refuse
+//     must not be offered, and that reasoning still stands.
 //
 //     The BOARD, though, is authored here. The generator is deterministic and shared,
 //     so the instant this client qualifies for a scope (the level-up it just saw, or
@@ -49,6 +52,10 @@ export interface PeriodicQuestHooks {
   /** Online only: ask the server to derive the board this client just drew for
    *  itself (see the mode note). Return true only when the command entered the queue. */
   submitAuthor?: (scope: PeriodicScope, level: number) => boolean;
+  /** Online only: a local event has just finished a quest in preview. Flush the
+   *  command lane so the server's count (and the Claim) arrive without waiting out
+   *  the batch window. */
+  requestConfirmation?: () => void;
   /** Celebrate a paid-out claim. */
   claimed?: (text: string, xp: number) => void;
   /** Push the current panel state to the HUD. */
@@ -58,6 +65,14 @@ export interface PeriodicQuestHooks {
 /** The account identity the roll is seeded with. Offline there is no account, so the
  *  local profile's own id stands in — it just has to be stable for one save. */
 export type PeriodicIdentity = () => string;
+
+/** A structural copy: the preview must never share a counts array with the adopted
+ *  state, or applyPeriodicEvents on the copy would advance the claim gate too. */
+function clonePeriodic(state: PeriodicQuestState): PeriodicQuestState {
+  const copy = (set: PeriodicScopeState | null): PeriodicScopeState | null =>
+    set ? { ...set, quests: [...set.quests], counts: [...set.counts], claimed: [...set.claimed] } : null;
+  return { daily: copy(state.daily), weekly: copy(state.weekly) };
+}
 
 export class PeriodicQuestSystem {
   private state: PeriodicQuestState = emptyPeriodicState();
@@ -70,6 +85,9 @@ export class PeriodicQuestSystem {
   /** Online: the period the server REFUSED for a scope (below its unlock: the level
    *  this client crossed optimistically was not real). Not drawn again that period. */
   private refused: Partial<Record<PeriodicScope, number>> = {};
+  /** Online: the adopted state plus this client's unconfirmed events, for display.
+   *  Null until the first event after a projection; discarded by the next one. */
+  private preview: PeriodicQuestState | null = null;
 
   constructor(
     private gameState: GameState,
@@ -97,7 +115,24 @@ export class PeriodicQuestSystem {
       this.gameState.onChange(() => {
         if (this.authorDue()) this.hooks.render(this.views());
       });
+      // And the same events the offline build counts move the display-only preview.
+      bus.subscribe((nid, object, _n, aliases) => {
+        if (this.previewEvent(nid, object, aliases)) this.hooks.render(this.views());
+      });
     }
+  }
+
+  /** Online: count one local event against the preview copy. Returns true when the
+   *  display changed. Nothing here touches the adopted state or the claim gate. */
+  private previewEvent(nid: string, object: string, aliases: readonly string[]): boolean {
+    if (!this.adopted) return false;
+    this.preview ??= clonePeriodic(this.state);
+    const claimableBefore = claimablePeriodicCount(this.preview);
+    const advanced = applyPeriodicEvents(this.preview, [{ type: nid, subject: object, aliases }]);
+    if (advanced && claimablePeriodicCount(this.preview) > claimableBefore) {
+      this.hooks.requestConfirmation?.();
+    }
+    return advanced;
   }
 
   /** Roll the sets forward to now. Offline this generates; online it authors any
@@ -132,6 +167,7 @@ export class PeriodicQuestSystem {
         accountId: this.identity(), scope, period, level,
         xpToNext: xpToNextLevel(level, XP_THRESHOLDS),
       });
+      this.preview = null; // a copy of the old state would be missing this board
       drawn = true;
       // Sent once per period. A send that could not be queued is retried on the next
       // level change or refresh tick, and the server's own post-batch roll-forward
@@ -154,6 +190,7 @@ export class PeriodicQuestSystem {
     this.refused[scope] = period;
     if (this.state[scope]?.period === period) {
       this.state[scope] = null;
+      this.preview = null;
       this.hooks.render(this.views());
     }
   }
@@ -163,6 +200,9 @@ export class PeriodicQuestSystem {
     if (!this.hooks.authoritative) return;
     this.adopted = true;
     this.state = state ? { daily: state.daily, weekly: state.weekly } : emptyPeriodicState();
+    // The server's count supersedes whatever this client had previewed on top of the
+    // previous projection: a refused command's events vanish with it.
+    this.preview = null;
     this.hooks.render(this.views());
   }
 
@@ -185,6 +225,8 @@ export class PeriodicQuestSystem {
       // trip is in flight. Only do this after enqueue succeeds: otherwise there is no
       // future projection guaranteed to undo the local latch.
       set.claimed = [...set.claimed, questId];
+      const previewSet = this.preview?.[scope];
+      if (previewSet && !previewSet.claimed.includes(questId)) previewSet.claimed = [...previewSet.claimed, questId];
       this.hooks.render(this.views());
       return;
     }
@@ -197,12 +239,25 @@ export class PeriodicQuestSystem {
 
   views(now = Date.now()): PeriodicScopeView[] {
     if (this.hooks.authoritative && !this.adopted) return [];
-    return periodicViews(this.state, now);
+    if (!this.preview) return periodicViews(this.state, now);
+    // Preview counts on the bar; the Claim only where the SERVER's count agrees.
+    const confirmed = new Set<string>();
+    for (const scope of periodicViews(this.state, now)) {
+      for (const quest of scope.quests) if (quest.done) confirmed.add(`${scope.scope}:${quest.id}`);
+    }
+    return periodicViews(this.preview, now).map((scope) => ({
+      ...scope,
+      quests: scope.quests.map((quest) =>
+        quest.done && !quest.claimed && !confirmed.has(`${scope.scope}:${quest.id}`)
+          ? { ...quest, pending: true }
+          : quest),
+    }));
   }
 
-  /** How many finished quests are waiting to be collected — the HUD's badge. */
+  /** How many finished quests are waiting to be collected — the HUD's badge. Reads
+   *  the preview online, so the badge lights with the chore rather than the batch. */
   get claimable(): number {
-    return claimablePeriodicCount(this.state);
+    return claimablePeriodicCount(this.preview ?? this.state);
   }
 
   /** When the soonest period rolls over, so the HUD knows when to redraw. */

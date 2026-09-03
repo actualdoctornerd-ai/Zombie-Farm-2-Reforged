@@ -111,7 +111,10 @@ export class EconomyClient {
     | null = null;
   onPetState: ((ownedPets: string[], activePet: string | null, penPets: string[]) => void) | null = null;
   onQuestState: ((state: api.QuestStateResult) => void) | null = null;
-  onQuestChanges: ((changes: api.QuestChange[]) => void) | null = null;
+  /** `settled` is true when this response left nothing pending or in flight — every
+   *  local event that fed a quest preview has now been answered, so a completion the
+   *  server did not confirm can be rolled back (QuestSystem.applyAuthoritativeChanges). */
+  onQuestChanges: ((changes: api.QuestChange[], settled: boolean) => void) | null = null;
   /** Authoritative daily/weekly quest state. Null from a Worker that predates the
    *  feature, which the client reads as "no periodic quests" rather than as empty. */
   onPeriodicQuestState: ((state: PeriodicQuestProjection | null) => void) | null = null;
@@ -595,6 +598,9 @@ export class EconomyClient {
       if (input.type === "plow") {
         if (last.type !== "farm.plow_many" || last.plots.length >= FARM_BULK_LIMIT) return null;
         folded = { ...last, plots: [...last.plots, { oc: input.oc, or: input.or }] };
+      } else if (input.type === "harvest") {
+        if (last.type !== "farm.harvest_many" || last.plots.length >= FARM_BULK_LIMIT) return null;
+        folded = { ...last, plots: [...last.plots, { oc: input.oc, or: input.or }] };
       } else if (input.type === "plant") {
         // One crop per command: a stroke plants one thing, and a player who switches
         // seed mid-queue simply starts a new command.
@@ -614,9 +620,15 @@ export class EconomyClient {
   }
 
   submitFarm(input: FarmActionInput, optimistic: { gold?: number; brains?: number; xp?: number }): void {
-    // Plow and plant always go out in their BULK form, even for a single plot, so the
-    // next plot the farmer finishes has something to fold into.
-    if (input.type === "plow" || input.type === "plant") {
+    // Plow, plant and harvest always go out in their BULK form, even for a single plot,
+    // so the next plot the farmer finishes has something to fold into.
+    // A harvested zombie rides along as a plot -> local unit pairing, and its command
+    // is flushed at once: the unit is on screen already, but its crop-adjacency
+    // mutation is server-owned and must not sit in the ordinary batching window.
+    const zombieHarvest = input.type === "harvest" && input.unitId
+      ? { id: input.unitId, oc: input.oc, or: input.or }
+      : null;
+    if (input.type === "plow" || input.type === "plant" || input.type === "harvest") {
       const merged = this.coalesceFarmPlot(input);
       if (merged !== null) {
         // The fold carries the plot's own cost and XP onto the command it joined, so the
@@ -626,8 +638,10 @@ export class EconomyClient {
           pending.gold += optimistic.gold ?? 0;
           pending.brains += optimistic.brains ?? 0;
           pending.xp += optimistic.xp ?? 0;
+          if (zombieHarvest) (pending.localZombieHarvests ??= []).push(zombieHarvest);
         }
         this.reconcile();
+        if (zombieHarvest) void this.queue.flush();
         return;
       }
     }
@@ -638,18 +652,21 @@ export class EconomyClient {
           plots: [{ oc: input.oc, or: input.or, fertilized: !!input.fertilized }],
         }
       : input.type === "harvest"
-        ? { type: "farm.harvest", oc: input.oc, or: input.or }
+        ? { type: "farm.harvest_many", plots: [{ oc: input.oc, or: input.or }] }
         : input.type === "remove"
           ? { type: "farm.remove", oc: input.oc, or: input.or }
           : input.type === "move"
             ? { type: "farm.move", oc: input.oc, or: input.or,
                 toOc: input.toOc ?? input.oc, toOr: input.toOr ?? input.or }
             : { type: "farm.plow_many", plots: [{ oc: input.oc, or: input.or }] };
-    const sequence = this.enqueue(command, { ...optimistic, localUnitId: input.unitId });
-    // A harvested zombie is rendered immediately, but its crop-adjacency mutation
-    // is server-owned. Do not leave that visible result sitting in the ordinary
-    // batching window: reconcile it as soon as network latency allows.
-    if (sequence !== null && input.type === "harvest" && input.unitId) void this.queue.flush();
+    const sequence = this.enqueue(command, {
+      ...optimistic,
+      // The bulk harvest pairs its zombies by plot (createdZombieSources), never by
+      // `createdIds[0]` — two zombie plots in one command would otherwise both alias
+      // to the first. Every other farm command still names its one unit directly.
+      ...(zombieHarvest ? { localZombieHarvests: [zombieHarvest] } : { localUnitId: input.unitId }),
+    });
+    if (sequence !== null && zombieHarvest) void this.queue.flush();
   }
 
   submitInventory(
@@ -671,10 +688,15 @@ export class EconomyClient {
       localUnitId: input.unitId,
       localZombieHarvests: input.localZombieHarvests,
     });
-    // Insta-Harvest can create several zombies whose mutations are all resolved by
-    // the server. Flush the single semantic power command immediately for the same
-    // reason as an ordinary zombie harvest.
-    if (sequence !== null && input.localZombieHarvests?.length) void this.queue.flush();
+    // Insta-Harvest is flushed immediately, zombies or not: it can create several
+    // zombies whose mutations are all resolved by the server (the same reason an
+    // ordinary zombie harvest flushes), and it is the one action that finishes a
+    // whole board of daily-quest chores at once — the previews move the moment it is
+    // used, and a confirmation sitting out the 30 s window is the delay that was
+    // reported. One flush per power use; the budget is counted in commands, not POSTs.
+    if (sequence !== null && (input.key === "insta_harvest" || input.localZombieHarvests?.length)) {
+      void this.queue.flush();
+    }
   }
 
   submitPower(key: "insta_harvest" | "insta_plow"): void {
@@ -919,7 +941,9 @@ export class EconomyClient {
       result.lastRaidAt,
       result.serverTime ?? Date.now(),
     ));
-    this.onQuestChanges?.(result.questChanges ?? []);
+    // A raid settlement is not a batch response: it says nothing about the outbox,
+    // so no completion preview is judged here (see applyAuthoritativeChanges).
+    this.onQuestChanges?.(result.questChanges ?? [], false);
     // An invasion win is the only thing that can advance an invasion daily, and it
     // never crosses the command lane — so this settlement is the sole place the
     // periodic panel learns about it.
@@ -1002,7 +1026,7 @@ export class EconomyClient {
     // already consider complete — so the old order silently swallowed the completion
     // popup for every epic-boss quest, including the one handing over the event's
     // signature zombie. The raid lane (submitRaid) posts changes alone for this reason.
-    this.onQuestChanges?.(result.questChanges);
+    this.onQuestChanges?.(result.questChanges, false);
     this.onQuestState?.({ completed: result.quests.completed, progress: result.quests.progress, questChanges: result.questChanges });
     const serverTime = result.serverTime ?? Date.now();
     this.onEpicBossState?.(this.withPendingBossTokens(epicBossRunToClient(result.event, serverTime)));
@@ -1246,7 +1270,7 @@ export class EconomyClient {
     Object.assign(this.deferredRosterAliases, aliases);
     Object.assign(this.deferredObjectAliases, objectAliases);
     rejectedObjectIds.forEach((id) => this.deferredRejectedObjectIds.add(id));
-    this.onQuestChanges?.(response.questChanges);
+    this.onQuestChanges?.(response.questChanges, this.queue.size === 0);
     this.adoptGameplay(response.gameplay, aliases, objectAliases, rejectedObjectIds, response.serverTime);
     if (this.queue.size === 0) this.onAuthoritativeSettled?.(response.serverTime);
   }

@@ -78,6 +78,14 @@ export class QuestSystem {
   private authoritativePreview = new Map<string, number[]>();
   private optimisticallyCelebrated = new Set<string>();
   private authoritativeCompletionRequested = new Set<string>();
+  /** Online: quests whose every objective the LOCAL events have satisfied but the
+   *  server has not yet confirmed. Off the rail, prerequisite-satisfied for their
+   *  successors, rewarded by nobody — presentation only, exactly like the count
+   *  preview. Confirmed by the server's `completed` change; rolled back when a
+   *  response settles the outbox without it (applyAuthoritativeChanges). Before this
+   *  a finished quest sat on the rail at 2/2, successor hidden, until the batch
+   *  window closed — up to thirty seconds of "did that count?". */
+  private previewCompleted = new Set<string>();
 
   constructor(
     private defs: Map<string, QuestDef>,
@@ -95,12 +103,14 @@ export class QuestSystem {
   /** Whether a quest is currently eligible to take an active slot. */
   private eligible(id: string): boolean {
     const def = this.defs.get(id);
-    if (!def || this.completed.has(id) || this.active.has(id)) return false;
+    if (!def || this.completed.has(id) || this.active.has(id) || this.previewCompleted.has(id)) return false;
     // Seasonal (date-gated) and epic-event quests are driven by their own systems,
     // not the normal progression rail.
     if (def.seasonal || (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id)))) return false;
-    // Prerequisite must be finished, and the level gate met.
-    if (def.prerequisiteQuest >= 0 && !this.completed.has(String(def.prerequisiteQuest))) return false;
+    // Prerequisite must be finished (or finished in preview, online), and the level
+    // gate met.
+    if (def.prerequisiteQuest >= 0 && !this.completed.has(String(def.prerequisiteQuest)) &&
+        !this.previewCompleted.has(String(def.prerequisiteQuest))) return false;
     if (def.levelRequired >= 0 && this.state.level < def.levelRequired) return false;
     // Only surface quests the player can actually make progress on right now, so a
     // dormant quest (e.g. a raid quest before raids exist) never occupies a slot.
@@ -249,6 +259,7 @@ export class QuestSystem {
       const def = this.defs.get(id);
       if (!def) continue;
       if (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id))) continue;
+      if (this.previewCompleted.has(id)) continue; // retired from the rail, pending confirmation
       const displayCounts = this.hooks.authoritative
         ? this.authoritativePreview.get(id) ?? counts
         : counts;
@@ -308,23 +319,48 @@ export class QuestSystem {
       if (!advanced) continue;
       anyAdvanced = true;
       this.authoritativePreview.set(id, counts);
-      if (def.requirements.every((requirement, index) => counts[index] >= requirement.countTotal) &&
-          !this.optimisticallyCelebrated.has(id)) {
-        this.optimisticallyCelebrated.add(id);
-        this.hooks.completed(def);
+      if (def.requirements.every((requirement, index) => counts[index] >= requirement.countTotal)) {
+        // Finished as far as this client can tell: off the rail, successor unlocked,
+        // popup once. The server still owns the reward and the durable completion.
+        this.previewCompleted.add(id);
+        if (!this.optimisticallyCelebrated.has(id)) {
+          this.optimisticallyCelebrated.add(id);
+          this.hooks.completed(def);
+        }
       }
       if (this.optimisticallyCelebrated.has(id) && !this.authoritativeCompletionRequested.has(id)) {
         this.authoritativeCompletionRequested.add(id);
         anyCompleted = true;
       }
     }
+    // A preview-completed prerequisite lets its successor take a slot now.
+    if (anyCompleted) this.tryActivate();
     return { advanced: anyAdvanced, completed: anyCompleted };
+  }
+
+  /** Undo a completion preview the server did not confirm: the quest returns to the
+   *  rail at its authoritative counts, and any successor that only ever qualified
+   *  through the preview leaves it again. The celebration is not repeated either
+   *  way (optimisticallyCelebrated stays), so a later real completion is quiet. */
+  private rollBackPreviewCompletion(id: string): void {
+    this.previewCompleted.delete(id);
+    // The events that finished it in preview were refused along with it: the count
+    // preview they built is stale too, so the rail shows the server's number.
+    this.authoritativePreview.delete(id);
+    const prerequisite = Number(id);
+    for (const [successorId, successor] of this.defs) {
+      if (successor.prerequisiteQuest !== prerequisite || !this.active.has(successorId)) continue;
+      if (this.completed.has(id)) continue;
+      this.active.delete(successorId);
+      this.authoritativePreview.delete(successorId);
+    }
   }
 
   private resetAuthoritativePreview(): void {
     this.authoritativePreview.clear();
     this.optimisticallyCelebrated.clear();
     this.authoritativeCompletionRequested.clear();
+    this.previewCompleted.clear();
   }
 
   /** Surface/pause Epic Boss quests without discarding their lifetime progress. */
@@ -361,6 +397,7 @@ export class QuestSystem {
       this.authoritativePreview.delete(id);
       this.optimisticallyCelebrated.delete(id);
       this.authoritativeCompletionRequested.delete(id);
+      this.previewCompleted.delete(id);
     }
     if (!changed) return;
     this.tryActivate();
@@ -449,8 +486,16 @@ export class QuestSystem {
     this.hooks.render(this.views());
   }
 
-  /** Apply the progress delta returned with the trusted command that caused it. */
-  applyAuthoritativeChanges(changes: { questId: string; counts: number[]; completed: boolean }[]): void {
+  /** Apply the progress delta returned with the trusted command that caused it.
+   *
+   *  `settled` means the response left the outbox empty: every local event that fed
+   *  a preview has been answered. A completion previewed but not confirmed by then
+   *  was refused (or never posted), and it rolls back here — the one moment that is
+   *  known to be safe, since an unanswered command could still be carrying it. */
+  applyAuthoritativeChanges(
+    changes: { questId: string; counts: number[]; completed: boolean }[],
+    settled = false
+  ): void {
     for (const change of changes) {
       const def = this.defs.get(change.questId);
       if (!def) continue;
@@ -462,6 +507,7 @@ export class QuestSystem {
         this.authoritativePreview.delete(change.questId);
         this.optimisticallyCelebrated.delete(change.questId);
         this.authoritativeCompletionRequested.delete(change.questId);
+        this.previewCompleted.delete(change.questId);
         if (!wasCompleted && !wasOptimisticallyCelebrated) this.hooks.completed(def);
       } else if (!this.completed.has(change.questId)) {
         const authoritative = def.requirements.map(
@@ -485,6 +531,11 @@ export class QuestSystem {
             this.authoritativePreview.set(change.questId, merged);
           }
         }
+      }
+    }
+    if (settled) {
+      for (const id of [...this.previewCompleted]) {
+        if (!this.completed.has(id)) this.rollBackPreviewCompletion(id);
       }
     }
     this.tryActivate();

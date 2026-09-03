@@ -172,6 +172,7 @@
   justify-content: flex-end; }
 #hud .pq-action .zbtn.pq-claim { padding: 6px 12px; font-size: 12px; }
 #hud .pq-claimed { color: #8fdc5a; font-size: 12px; font-weight: 800; }
+#hud .pq-confirming { color: #d9c98a; font-size: 12px; font-weight: 800; opacity: 0.85; }
 #hud .pq-empty { color: #cbb98f; font-style: italic; padding: 8px; }
 /* Phones: the reward chip and the button stop fitting beside the objective, so the
    row wraps and they share the line under it. The body's basis is the row minus the

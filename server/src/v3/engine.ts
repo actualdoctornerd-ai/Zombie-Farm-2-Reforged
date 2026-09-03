@@ -681,18 +681,27 @@ function applyBulkFarm(
   let applied = 0;
   let rejectedPlots = 0;
   let firstError = "";
+  // What the plots grew, gathered across the command. A bulk harvest can pull several
+  // zombie crops, and the client pairs each new unit to the plot it came from through
+  // createdZombieSources — never by position, which two iteration orders would break.
+  const createdIds: string[] = [];
+  const createdZombieSources: { id: string; oc: number; or: number }[] = [];
   for (const command of commands) {
     const result = applyOne(state, { sequence, command }, options, events, created);
-    if (result.status === "applied") applied++;
-    else {
+    if (result.status === "applied") {
+      applied++;
+      if (result.createdIds?.length) createdIds.push(...result.createdIds);
+      if (result.createdZombieSources?.length) createdZombieSources.push(...result.createdZombieSources);
+    } else {
       rejectedPlots++;
       firstError ||= result.error ?? "no_effect";
     }
   }
   if (!applied && rejectedPlots) return reject(sequence, firstError);
+  const grown = createdIds.length ? { createdIds, createdZombieSources } : {};
   return rejectedPlots
-    ? { sequence, status: "applied", rejectedPlots, rejectedPlotError: firstError }
-    : { sequence, status: "applied" };
+    ? { sequence, status: "applied", ...grown, rejectedPlots, rejectedPlotError: firstError }
+    : { sequence, status: "applied", ...grown };
 }
 
 function applyOne(
@@ -734,6 +743,12 @@ function applyOne(
           type: "farm.plant", oc: plot.oc, or: plot.or,
           cropKey: command.cropKey, fertilized: plot.fertilized,
         })));
+    case "farm.harvest_many":
+      // Plot by plot, in the order the farmer reached them — so a vegetable pulled
+      // earlier in the command is already gone when a zombie crop beside it rolls its
+      // mutations, exactly as it was when each plot was its own command.
+      return applyBulkFarm(state, sequence, options, events, created,
+        command.plots.map((plot) => ({ type: "farm.harvest", oc: plot.oc, or: plot.or })));
     case "farm.plant": {
       if (!validCoord(command.oc, state.farmSize) || !validCoord(command.or, state.farmSize)) return reject(sequence, "bad_coord");
       const key = plotKey(command.oc, command.or);

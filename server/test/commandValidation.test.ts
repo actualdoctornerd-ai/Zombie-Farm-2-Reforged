@@ -24,6 +24,7 @@ const SAMPLES: Record<GameplayCommand["type"], GameplayCommand> = {
     plots: [{ oc: 0, or: 0 }, { oc: 4, or: 0, fertilized: true }],
   },
   "farm.harvest": { type: "farm.harvest", oc: 0, or: 0 },
+  "farm.harvest_many": { type: "farm.harvest_many", plots: [{ oc: 0, or: 0 }, { oc: 4, or: 0 }] },
   "farm.remove": { type: "farm.remove", oc: 0, or: 0 },
   "farm.move": { type: "farm.move", oc: 0, or: 0, toOc: 8, toOr: 4 },
   "power.buy": { type: "power.buy", key: "fertilizer" },

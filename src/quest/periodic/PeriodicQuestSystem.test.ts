@@ -124,6 +124,87 @@ describe("PeriodicQuestSystem authoritative authoring", () => {
   });
 });
 
+// The display-only preview. Online the board's counts used to move only with the batch
+// response — up to thirty seconds after the chore — while the catalog quests beside
+// them moved at once. The preview applies the server's own counting function to a copy
+// of the adopted state; the copy is discarded by every projection, and the Claim is
+// still gated on the server's count.
+describe("PeriodicQuestSystem authoritative preview", () => {
+  const openDaily = (): PeriodicScopeState => ({ ...completedDaily(), counts: [3] });
+  function online() {
+    const bus = new QuestBus();
+    const render = vi.fn();
+    const requestConfirmation = vi.fn();
+    const submitClaim = vi.fn(() => true);
+    const system = new PeriodicQuestSystem(new GameState(), () => "account", bus, {
+      authoritative: true, submitClaim, requestConfirmation, render,
+    });
+    return { bus, system, render, requestConfirmation, submitClaim };
+  }
+
+  it("moves the bar and the badge with the local event, before the server answers", () => {
+    const { bus, system, render, requestConfirmation } = online();
+    system.adoptAuthoritative({ daily: openDaily(), weekly: null });
+    render.mockClear();
+
+    bus.post("kSoilPlowedNotification", "Plow");
+
+    expect(system.views()[0].quests[0]).toMatchObject({ count: 4, done: false });
+    expect(render).toHaveBeenCalledOnce();
+    expect(requestConfirmation).not.toHaveBeenCalled();
+
+    bus.post("kSoilPlowedNotification", "Plow");
+
+    expect(system.views()[0].quests[0]).toMatchObject({ count: 5, done: true, pending: true });
+    expect(system.claimable).toBe(1);
+    expect(requestConfirmation).toHaveBeenCalledOnce();
+  });
+
+  it("never offers the Claim ahead of the server's count", () => {
+    const { bus, system, submitClaim } = online();
+    system.adoptAuthoritative({ daily: openDaily(), weekly: null });
+    bus.post("kSoilPlowedNotification", "Plow");
+    bus.post("kSoilPlowedNotification", "Plow");
+
+    system.claim("daily", "daily_plow");
+
+    expect(submitClaim).not.toHaveBeenCalled();
+    expect(system.views()[0].quests[0].pending).toBe(true);
+  });
+
+  it("is replaced by the projection, whichever way the server counted", () => {
+    const { bus, system } = online();
+    system.adoptAuthoritative({ daily: openDaily(), weekly: null });
+    bus.post("kSoilPlowedNotification", "Plow");
+    bus.post("kSoilPlowedNotification", "Plow");
+
+    // Confirmed: the Claim opens and nothing reads as pending any more.
+    system.adoptAuthoritative({ daily: completedDaily(), weekly: null });
+    expect(system.views()[0].quests[0]).toMatchObject({ count: 5, done: true });
+    expect(system.views()[0].quests[0].pending).toBeUndefined();
+    expect(system.claimable).toBe(1);
+
+    // Refused (the command was rejected): the preview vanished with it.
+    system.adoptAuthoritative({ daily: openDaily(), weekly: null });
+    expect(system.views()[0].quests[0]).toMatchObject({ count: 3, done: false });
+    expect(system.claimable).toBe(0);
+  });
+
+  it("ignores events that arrive before the first projection", () => {
+    const { bus, system } = online();
+    bus.post("kSoilPlowedNotification", "Plow");
+    expect(system.views()).toEqual([]);
+  });
+
+  it("never lets the preview touch the adopted state", () => {
+    const { bus, system } = online();
+    const adopted = openDaily();
+    system.adoptAuthoritative({ daily: adopted, weekly: null });
+    bus.post("kSoilPlowedNotification", "Plow");
+    expect(adopted.counts).toEqual([3]);
+  });
+});
+
 describe("PeriodicQuestSystem authoritative claims", () => {
   it("keeps a reward claimable when the command cannot be queued", () => {
     const submitClaim = vi.fn(() => false);

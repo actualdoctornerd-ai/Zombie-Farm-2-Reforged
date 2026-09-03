@@ -55,6 +55,14 @@ export type GameplayCommand =
       cropKey: string;
       plots: { oc: number; or: number; fertilized?: boolean }[];
     }
+  /** Bulk harvest, the same way. The farmer harvests a field one plot at a time and
+   *  each plot used to be its own semantic command against the Worker's 120-a-minute
+   *  budget, so a big field harvested by hand crossed it inside one window and the
+   *  outbox backed off behind 429s for minutes — which is what "my quests take ages to
+   *  update" turned out to be. Each plot is harvested under exactly the single-plot
+   *  rules; the zombies it grows come back paired to their plots in
+   *  `createdZombieSources`, never by list position. */
+  | { type: "farm.harvest_many"; plots: { oc: number; or: number }[] }
   | { type: "farm.harvest"; oc: number; or: number }
   | { type: "farm.remove"; oc: number; or: number }
   /** Relocate a plot and whatever is growing on it. Layout only — the crop,

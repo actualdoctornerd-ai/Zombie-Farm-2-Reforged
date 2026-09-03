@@ -1943,6 +1943,11 @@ async function main() {
       authoritative: onlineFarm,
       submitClaim: (scope, questId, xp) => economy?.submitPeriodicQuestClaim(scope, questId, xp) ?? false,
       submitAuthor: (scope, level) => economy?.submitPeriodicQuestAuthor(scope, level) ?? false,
+      // Same shape as the catalog quests' completion check: let the posting stack
+      // finish enqueueing its command, then drain the lane.
+      requestConfirmation: () => {
+        queueMicrotask(() => { void economy?.settleBeforeDependency().catch(() => {}); });
+      },
       claimed: (text, xp) => hud.showToast(`${text} — +${xp} XP`),
       render: (views) => hud.setPeriodicQuests(views),
     }
@@ -2854,7 +2859,7 @@ async function main() {
       state.syncFarmerOwnership(headIds, assets.farmer, equippedHeadId, bonusHeadId);
     economy.onPetState = (ownedPets, activePet, penPets) => state.syncPetOwnership(ownedPets, activePet, penPets);
     economy.onQuestState = (serverState) => quests.restoreAuthoritative(serverState);
-    economy.onQuestChanges = (changes) => quests.applyAuthoritativeChanges(changes);
+    economy.onQuestChanges = (changes, settled) => quests.applyAuthoritativeChanges(changes, settled);
     economy.onPeriodicQuestState = (serverState) => periodicQuests.adoptAuthoritative(serverState);
     economy.onTutorialState = (rewarded) => {
       if (!rewarded) return;

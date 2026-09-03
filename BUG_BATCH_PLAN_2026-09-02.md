@@ -364,6 +364,29 @@ Watch `/commands` for 429s on a 56-plot insta-harvest before/after `harvest_many
 **Deploy.** Worker: yes, FIRST (bulking memory: an old Worker rejects `harvest_many`).
 Migration: no.
 
+**STATUS: DONE (committed 2026-09-03).** Two corrections to the cause as written: (c) was
+wrong about Insta-Harvest — it already ships as ONE `power.use` semantic command (main.ts
+`applyBoost` deliberately does not call onFarm per plot); the per-plot cost was the HAND
+harvest (JobSystem → `state.onFarm` per plot). (d) was right and is done (flush on any
+`insta_harvest`). Change 2 keys the rollback to the response that leaves the outbox EMPTY
+(`onQuestChanges(changes, settled)`), not to individual sequences: QuestSystem never sees
+sequence numbers and the fold makes "which command carried this event" unknowable; settled
+is the one moment every posted event is known to be answered. Rollback also drops the
+COUNT preview for that quest (its events were refused too) and deactivates successors that
+only qualified through the preview; the popup is never repeated. Periodic preview: views
+carry `pending` (done in preview, not in the server's count) and the panel renders
+"Confirming…" instead of Claim; `claim()` still reads the authoritative state; a preview
+completion calls `requestConfirmation` (flush). `applyBulkFarm` now aggregates
+createdIds/createdZombieSources so a bulk harvest pairs zombies by plot. Verified against
+the LOCAL Worker: posting the Apple Tree buy event retired quest 62 and showed successor 63
+in the same tick, and the next settled batch (a plow) rolled it back (62 at 0/1, 63 gone);
+three hand harvests → daily "Harvest 45 vegetable crops" read 3 in the same tick, the batch
+carried ONE result for three plots, and the response's counts were [0,3,0]. Root 2091 +
+server unit + integration 103/103. NOT verified against staging (Worker deploy first).
+Trap: the line-ending check `grep -q $'\r'` reported LF for files that were CRLF; an
+edit script without a CRLF fallback then "MISSING"-ed. 16 working-tree files were
+normalised to LF (git autocrlf makes that transparent in the blobs).
+
 ---
 
 ## 7. Brain lifetime tally inflation (Asami: 141/127 vs a real 62)

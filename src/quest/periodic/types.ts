@@ -66,6 +66,10 @@ export interface PeriodicQuestView {
   done: boolean;
   claimed: boolean;
   xp: number;
+  /** Online only: `done` by this client's own events, not yet by the server's count.
+   *  The bar is full and the badge lit, but the Claim waits for confirmation — a
+   *  claim the server would refuse must not be offered (see PeriodicQuestSystem). */
+  pending?: boolean;
 }
 
 /** One scope's panel: its quests plus when the period rolls over. */

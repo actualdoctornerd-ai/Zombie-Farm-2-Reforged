@@ -974,6 +974,11 @@ export const validGameplayCommand = (value: unknown): value is GameplayCommand =
         command.plots.every((plot) => !!plot && typeof plot === "object" &&
           commandInt((plot as Record<string, unknown>).oc) &&
           commandInt((plot as Record<string, unknown>).or));
+    case "farm.harvest_many":
+      return Array.isArray(command.plots) && command.plots.length <= FARM_BULK_LIMIT &&
+        command.plots.every((plot) => !!plot && typeof plot === "object" &&
+          commandInt((plot as Record<string, unknown>).oc) &&
+          commandInt((plot as Record<string, unknown>).or));
     case "farm.plant_many":
       return commandString(command.cropKey) && Array.isArray(command.plots) &&
         command.plots.length <= FARM_BULK_LIMIT &&

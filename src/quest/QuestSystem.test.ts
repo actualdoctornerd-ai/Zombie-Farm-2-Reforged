@@ -83,10 +83,9 @@ describe("QuestSystem client-paced progress", () => {
     });
     system.restore();
 
-    bus.post(QuestEvent.SoilPlowed);
-    bus.post(QuestEvent.SoilPlowed); // preview := 2, server has only seen the first
-    system.applyAuthoritativeChanges([{ questId: "1", counts: [1], completed: false }]);
-    expect(system.views()[0].objectives[0].count).toBe(2); // no flicker backwards
+    bus.post(QuestEvent.SoilPlowed); // preview := 1, server has not seen it yet
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [0], completed: false }]);
+    expect(system.views()[0].objectives[0].count).toBe(1); // no flicker backwards
   });
 
   it("requests prompt server confirmation when local events predict completion", () => {
@@ -108,7 +107,8 @@ describe("QuestSystem client-paced progress", () => {
     bus.post(QuestEvent.SoilPlowed);
     expect(requestAuthoritativeCompletionCheck).toHaveBeenCalledTimes(1);
     expect(completed).toHaveBeenCalledTimes(1);
-    expect(system.views()[0].objectives[0].count).toBe(2);
+    // Finished in preview: off the rail already, but not durably complete.
+    expect(system.views()).toEqual([]);
     expect(system.completedCount).toBe(0);
 
     system.applyAuthoritativeChanges([{ questId: "1", counts: [2], completed: true }]);
@@ -335,6 +335,90 @@ describe("QuestSystem client-paced progress", () => {
 // the tab up solid — no error, no frame, just a dead page. Every writer to `active`
 // fences on `completed` today, so this cannot be reached through the public API; the
 // guard is here because the failure is a hard freeze and the fix is one line.
+// The completion preview. Online, a quest whose objectives this client's own events
+// have satisfied used to sit on the rail at 2/2 — successor hidden — until the batch
+// window closed and the server's `completed` change arrived: up to thirty seconds of
+// "did that count?". Now it leaves the rail and unlocks its successor at once, and rolls
+// back only when a response settles the outbox without confirming it.
+describe("QuestSystem completion preview", () => {
+  const successor = (): QuestDef => ({ ...quest(), id: "2", title: "More Dirt", prerequisiteQuest: 1 });
+  const online = () => {
+    const bus = new QuestBus();
+    const completed = vi.fn();
+    const system = new QuestSystem(new Map([["1", quest()], ["2", successor()]]), new GameState(), bus, {
+      authoritative: true,
+      requestAuthoritativeCompletionCheck: vi.fn(),
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed, render: vi.fn(),
+    });
+    system.restoreAuthoritative({ completed: [], progress: [{ questId: "1", counts: [0] }] });
+    return { bus, system, completed };
+  };
+
+  it("retires a finished quest from the rail and shows its successor at once", () => {
+    const { bus, system, completed } = online();
+    expect(system.views().map((view) => view.id)).toEqual(["1"]);
+
+    bus.post(QuestEvent.SoilPlowed);
+    bus.post(QuestEvent.SoilPlowed);
+
+    expect(system.views().map((view) => view.id)).toEqual(["2"]);
+    expect(completed).toHaveBeenCalledTimes(1);
+    // Presentation only: nothing durable, nothing rewarded.
+    expect(system.completedCount).toBe(0);
+    expect(system.serialize().completed).toEqual([]);
+  });
+
+  it("keeps the preview while the outbox still has unanswered commands", () => {
+    const { bus, system } = online();
+    bus.post(QuestEvent.SoilPlowed);
+    bus.post(QuestEvent.SoilPlowed);
+
+    // A response for an EARLIER batch: the completing command may still be in flight.
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [1], completed: false }], false);
+
+    expect(system.views().map((view) => view.id)).toEqual(["2"]);
+  });
+
+  it("rolls the preview back when the outbox settles without the completion", () => {
+    const { bus, system, completed } = online();
+    bus.post(QuestEvent.SoilPlowed);
+    bus.post(QuestEvent.SoilPlowed);
+
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [1], completed: false }], true);
+
+    // Back on the rail at the server's count; the successor it unlocked is gone again.
+    expect(system.views().map((view) => view.id)).toEqual(["1"]);
+    expect(system.views()[0].objectives[0].count).toBe(1);
+    expect(system.completedCount).toBe(0);
+    // A later real completion confirms quietly — the popup already played once.
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [2], completed: true }], true);
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(system.completedCount).toBe(1);
+    expect(system.views().map((view) => view.id)).toEqual(["2"]);
+  });
+
+  it("confirms without a second celebration and keeps the successor", () => {
+    const { bus, system, completed } = online();
+    bus.post(QuestEvent.SoilPlowed);
+    bus.post(QuestEvent.SoilPlowed);
+
+    system.applyAuthoritativeChanges([{ questId: "1", counts: [2], completed: true }], true);
+
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(system.completedCount).toBe(1);
+    expect(system.views().map((view) => view.id)).toEqual(["2"]);
+  });
+
+  it("drops the preview with everything else when the projection is replaced", () => {
+    const { bus, system } = online();
+    bus.post(QuestEvent.SoilPlowed);
+    bus.post(QuestEvent.SoilPlowed);
+    system.restoreAuthoritative({ completed: [], progress: [{ questId: "1", counts: [0] }] });
+    expect(system.views().map((view) => view.id)).toEqual(["1"]);
+    expect(system.views()[0].objectives[0].count).toBe(0);
+  });
+});
+
 describe("a completed quest never stays on the rail", () => {
   it("terminates the sweep even when a completed id is forced back into active", () => {
     const bus = new QuestBus();

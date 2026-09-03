@@ -79,6 +79,14 @@ function questRow(
     claimed.className = "pq-claimed";
     claimed.textContent = "✓ Claimed";
     action.appendChild(claimed);
+  } else if (quest.done && quest.pending) {
+    // Finished by this client's own events, not yet by the server's count. The bar is
+    // full; the Claim waits for the confirmation that is already on its way.
+    const confirming = document.createElement("span");
+    confirming.className = "pq-confirming";
+    confirming.textContent = "Confirming…";
+    confirming.title = "Waiting for the server to confirm this quest";
+    action.appendChild(confirming);
   } else if (quest.done) {
     const claim = markPrimary(document.createElement("button"));
     claim.className = "zbtn pq-claim";
