@@ -179,6 +179,24 @@ free of a second `RaidScene` build.
 
 **Deploy.** Worker: only if step 5 is included (yes, recommended). Migration: no.
 
+**STATUS: DONE (committed 2026-09-02).** Step 5 included → Worker deploy: yes.
+- `src/raid/launchGate.ts` (LaunchGate: token via `run()`, epoch via `stamp()`/`isCurrent()`)
+  wired into `hud.onLaunchRaid`, `hud.onLaunchEpicBoss`, the PvP army callback and
+  `onWatchPvpReplay`; all four `RaidScene.create` sites stamp and check. The bodies became
+  `launchRaid` / `launchEpicBoss` consts typed off `Hud[...]` so no re-indent was needed.
+- hud.ts: army + Epic panels keep a `launching` local ORed into `refresh()`; the panel is NOT
+  removed synchronously (the token makes that unnecessary and the screen stays up for a
+  declined launch exactly as before).
+- Server: `server/src/v3/liveSessionRace.ts` `isLiveSessionCollision()` maps the unique-index
+  throw to 409 in raid.ts / epicBoss.ts / pvp.ts; `liveSessionRace.test.ts` pins SQLite's
+  actual message for all three indexes. The integration tie test (raidGates.spec.ts) proves
+  200+409 and never 500 but CANNOT force a true tie on local D1 — the loser usually gets
+  `unit_not_owned` from the roster pin, which runs before the live-session read.
+- Verified in the dev server (Play Local, 3 spawned Regulars, Old McDonnell): Fight →
+  deselect/reselect mid-launch → Fight button stayed disabled, a direct second
+  `onLaunchRaid` returned false, the stage gained exactly one scene. `launchGate.test.ts` (7)
+  pins the token/epoch semantics. Root 2071 + server 657 tests green.
+
 ---
 
 ## 4. Mutation Almanac never records online crop-adjacency mutations

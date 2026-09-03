@@ -45,6 +45,7 @@ import { QuestSystem } from "./quest/QuestSystem";
 import { PeriodicQuestSystem } from "./quest/periodic/PeriodicQuestSystem";
 import { QuestDef, questBonusRewardInfo, questRewardInfo } from "./quest/types";
 import { RaidManager, RaidResultView, type LootDrop } from "./raid/RaidManager";
+import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID } from "./raid/RaidCatalog";
 import { PVP_ARMY_SIZE, PVP_UI_ENABLED, buildPvpRaidDef } from "./raid/pvp";
@@ -4722,6 +4723,11 @@ async function main() {
   // `raidActive` gates farm input synchronously (the scene loads its textures async);
   // `raidScene` is the running scene once ready.
   let raidScene: RaidScene | null = null;
+  /** One launch at a time, decided synchronously, plus a stamp that lets a scene build
+   *  landing late tell that it has been superseded. `raidActive` alone covers neither:
+   *  it is set near the END of a launch (after the server gate and Tim's tips), and it
+   *  cannot tell this build's fight from a later one. See src/raid/launchGate.ts. */
+  const launchGate = new LaunchGate();
 
   /** Put the farm back after a battle that never got as far as its own teardown.
    *
@@ -4801,7 +4807,9 @@ async function main() {
     flushLevelUps();
   };
 
-  hud.onLaunchEpicBoss = async (partyIds, payment) => {
+  hud.onLaunchEpicBoss = (partyIds, payment) =>
+    launchGate.run(async () => launchEpicBoss(partyIds, payment), false);
+  const launchEpicBoss: NonNullable<Hud["onLaunchEpicBoss"]> = async (partyIds, payment) => {
     if (raidActive || Date.now() < raidLaunchLockedUntil) return false;
     const def = selectEpicBoss(state.epicBossRun?.bossId);
     const gate = epicBoss.start(state.epicBossRun, partyIds);
@@ -4886,6 +4894,7 @@ async function main() {
     hud.setBattleLoading(true, `Loading ${def.name}…`);
     crumb("battle:launch", `${def.name} L${paidRun.level} · ${party.length} zombies · ${payment}`);
     audio.enterRaid(setup.raid.music);
+    const epoch = launchGate.stamp();
     withBattleLoadTimeout(RaidScene.create(app, {
       raid: setup.raid,
       assets,
@@ -5037,7 +5046,7 @@ async function main() {
       // The GAP to the launch crumb above is the measurement this whole trail exists for:
       // this step taking seconds instead of tenths is what the green-screen report was.
       crumb("battle:ready", def.name);
-      if (!raidActive) return scene.destroy();
+      if (!raidActive || !launchGate.isCurrent(epoch)) return scene.destroy();
       raidScene = scene;
       app.stage.addChild(scene.container);
       // Debug handle — dev builds only, mirroring the online launch path below.
@@ -5100,6 +5109,7 @@ async function main() {
     setLivePvpSession(sessionId);
     crumb("battle:launch", `pvp:${friendName} · ${config.playerUnits.length} zombies`);
     audio.enterRaid(raidDef.music);
+    const epoch = launchGate.stamp();
     withBattleLoadTimeout(RaidScene.create(app, {
       raid: raidDef,
       assets,
@@ -5170,7 +5180,7 @@ async function main() {
     })).then((scene) => {
       hud.setBattleLoading(false);
       crumb("battle:ready", raidDef.name);
-      if (!raidActive) return scene.destroy();
+      if (!raidActive || !launchGate.isCurrent(epoch)) return scene.destroy();
       raidScene = scene;
       app.stage.addChild(scene.container);
       if (import.meta.env.DEV) {
@@ -5191,8 +5201,8 @@ async function main() {
   hud.onInvadeFriend = (friendId, friendName) => {
     if (!PVP_UI_ENABLED) return; // parked — see docs/FRIEND_INVASIONS.md
     if (!onlineFarm) { hud.showToast("Friend invasions need an online farm."); return; }
-    if (raidActive || Date.now() < raidLaunchLockedUntil) return;
-    hud.openPvpArmy(friendName, async (orderedIds) => {
+    if (raidActive || launchGate.busy || Date.now() < raidLaunchLockedUntil) return;
+    hud.openPvpArmy(friendName, (orderedIds) => void launchGate.run(async () => {
       try {
         await economy?.settleBeforeDependency();
         const settled = reconcilePartySelection(
@@ -5240,7 +5250,7 @@ async function main() {
           } else hud.showToast("The invasion could not be started.");
         } else hud.showToast("Gameplay is paused until the server reconnects.");
       }
-    });
+    }, undefined));
   };
   // ---- Invasions panel hooks (ui/panels/invasions.ts) ----
   hud.pvpAvailable = () => !!economy?.serverPvpEnabled;
@@ -5303,8 +5313,8 @@ async function main() {
     }
   };
   hud.onWatchPvpReplay = (sessionId) => {
-    if (!onlineFarm || raidActive) return;
-    void (async () => {
+    if (!onlineFarm || raidActive || launchGate.busy) return;
+    void launchGate.run(async () => {
       try {
         const res = await api.pvpReplay(sessionId);
         if (!res.ok || !res.config) {
@@ -5320,7 +5330,7 @@ async function main() {
           : "That recording could not be loaded."
         );
       }
-    })();
+    }, undefined);
   };
   /** Watch a recorded invasion: the same battle scene, fed the verified transcript,
    *  with every control disabled (see RaidScene's playback mode). Settles nothing. */
@@ -5349,6 +5359,7 @@ async function main() {
       hud.setRaiding(false);
       audio.exitRaid();
     };
+    const epoch = launchGate.stamp();
     withBattleLoadTimeout(RaidScene.create(app, {
       raid: raidDef,
       assets,
@@ -5371,7 +5382,7 @@ async function main() {
     })).then((scene) => {
       hud.setBattleLoading(false);
       crumb("battle:ready", `replay:${raidDef.name}`);
-      if (!raidActive) return scene.destroy();
+      if (!raidActive || !launchGate.isCurrent(epoch)) return scene.destroy();
       raidScene = scene;
       app.stage.addChild(scene.container);
       if (import.meta.env.DEV) {
@@ -5389,7 +5400,13 @@ async function main() {
     });
   };
 
-  hud.onLaunchRaid = async (raidId, partyIds, opts) => {
+  hud.onLaunchRaid = (raidId, partyIds, opts) =>
+    launchGate.run(async () => launchRaid(raidId, partyIds, opts), false);
+  const launchRaid: NonNullable<Hud["onLaunchRaid"]> = async (raidId, partyIds, opts) => {
+    // The gate above already refused a re-entrant tap; this is the ordinary "a fight
+    // is on" / "relaunch too soon" check. Everything below it that drops the fence on
+    // the live session (raidSessionId, the expiry, setLiveRaid) now only runs for a
+    // launch that is actually going ahead.
     if (raidActive || Date.now() < raidLaunchLockedUntil) return false;
     raidSessionId = null;
     clearRaidExpiry();
@@ -5554,6 +5571,7 @@ async function main() {
     hud.setBattleLoading(true, `Loading ${setup.raid.name}…`); // ...which is blank until it lands
     crumb("battle:launch", `${setup.raid.name} · ${setup.playerUnits.length} zombies`);
     audio.enterRaid(setup.raid.music); // swap farm bed for this stage's battle BGM
+    const epoch = launchGate.stamp();
     withBattleLoadTimeout(RaidScene.create(app, {
       raid: setup.raid,
       assets,
@@ -5761,7 +5779,7 @@ async function main() {
     })).then((scene) => {
       hud.setBattleLoading(false);
       crumb("battle:ready", setup.raid.name); // ...and the gap to the launch crumb is the load
-      if (!raidActive) return scene.destroy(); // finished/aborted before load done
+      if (!raidActive || !launchGate.isCurrent(epoch)) return scene.destroy(); // finished/aborted before load done
       raidScene = scene;
       app.stage.addChild(scene.container);
       // Debug handle — dev builds only (window.ZF doesn't exist in prod). Guarded

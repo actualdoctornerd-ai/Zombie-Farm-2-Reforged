@@ -46,6 +46,7 @@ import {
   type PvpReward,
 } from "../../../src/raid/pvp";
 import type { RaidOutcome } from "../../../src/raid/types";
+import { isLiveSessionCollision } from "./liveSessionRace";
 
 /** Same job as the raid TTL, same length, same limits: it only releases an ABANDONED
  *  session (here: frees the one-live-session slot); a finish keyed on `finished_at
@@ -204,7 +205,7 @@ export async function startPvp(
   }
   const sessionId = crypto.randomUUID();
   const tiers = { attackerTier: pinned.config.pvp.attackerTier, defenderTier: pinned.config.pvp.defenderTier };
-  await db.batch([
+  const opened = await db.batch([
     db.prepare(`INSERT INTO pvp_sessions_v3
       (id, attacker_id, defender_id, config_json, ruleset_version, attack_score, defense_score,
        boosts_json, started_at, earliest_finish_at, expires_at)
@@ -218,7 +219,12 @@ export async function startPvp(
         sessionId, defenderId,
         attackScore: pinned.config.pvp.attackScore, defenseScore: pinned.config.pvp.defenseScore,
       }), now),
-  ]);
+  ]).then(() => true, (error: unknown) => {
+    // Two starts tied on idx_pvp_live — see liveSessionRace.ts.
+    if (isLiveSessionCollision(error)) return false;
+    throw error;
+  });
+  if (!opened) return { status: 409, body: { ok: false, error: "raid_in_progress" } };
   return { status: 200, body: {
     ok: true, sessionId, config: pinned.config,
     expiresAt: now + PVP_TTL_MS, earliestFinishAt: now + EARLIEST_FINISH_MS,

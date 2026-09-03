@@ -20,6 +20,7 @@ import { EPIC_BOSS_FIGHT_BRAIN_COST } from "../../../src/epicBoss/tokens";
 import { ARMY_CAP } from "../../../src/raid/RaidCatalog";
 import { BRAIN_TICKET_KEY } from "../../../src/raid/eliteInvasion";
 import { RAID_RULESET_VERSION } from "../../../src/raid/replay";
+import { isLiveSessionCollision } from "./liveSessionRace";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 
 export interface RunRow {
@@ -308,7 +309,13 @@ export async function start(
   statements.push(db.prepare(`UPDATE roster_v3 SET locked_by_raid=?
     WHERE account_id=? AND locked_by_raid IS NULL
       AND unit_id IN (${ids.map(() => "?").join(",")})`).bind(sessionId, accountId, ...ids));
-  await db.batch(statements);
+  try {
+    await db.batch(statements);
+  } catch (error) {
+    // Two starts tied on idx_epic_boss_session_live_v3 — see liveSessionRace.ts.
+    if (isLiveSessionCollision(error)) return { status: 409, body: { error: "battle_in_progress" } };
+    throw error;
+  }
   if (payment === "token") row.token_count--;
   else balance.brains -= EPIC_BOSS_FIGHT_BRAIN_COST;
   return { status: 200, body: { ok: true, sessionId, event: {

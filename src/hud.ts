@@ -2644,6 +2644,7 @@ export class Hud {
     const pay = document.createElement("select"); pay.className = "raid-quick";
     let payment: EpicBossPayment = (this.getEpicBossView?.().find((view) => view.active)?.run?.tokenCount ?? 0) > 0
       ? "token" : "brains";
+    let launching = false; // see openRaidArmy — the same re-enabled-button trap
     const refresh = () => {
       const bossName = this.getEpicBossView?.().find((view) => view.active)?.name ?? "Epic Boss";
       const tokens = this.getEpicBossView?.().find((view) => view.active)?.run?.tokenCount ?? 0;
@@ -2656,7 +2657,7 @@ export class Hud {
       const n = selectedCount(order);
       head.innerHTML = `<h2>Send your army — ${bossName}</h2><span class="army-count">${n}/${party.cap} · min 1</span>`;
       start.textContent = n ? `Fight with ${n}` : "Choose a zombie";
-      start.disabled = !n || !canPay;
+      start.disabled = !n || !canPay || launching;
       cards.querySelectorAll<HTMLElement>(".army-card").forEach((el) => { const at = order.indexOf(el.dataset.id!); el.classList.toggle("sel", at >= 0); const tick = el.querySelector<HTMLElement>(".tick"); if (tick) tick.textContent = at >= 0 ? String(at + 1) : ""; });
     };
     for (const z of eligible) {
@@ -2689,11 +2690,12 @@ export class Hud {
       // Any gaps left while picking are closed here: the fight gets a continuous order.
       const attackOrder = compactOrder(order);
       if (!attackOrder.length || !this.onLaunchEpicBoss) return;
-      start.disabled = true;
+      launching = true;
+      refresh();
       if (await this.onLaunchEpicBoss(attackOrder, payment)) {
         close();
         this.closeMarket();
-      } else start.disabled = false;
+      } else { launching = false; refresh(); }
     };
     foot.append(pick, pay, start); wrap.append(head, cards, foot); panel.appendChild(wrap); refresh();
   }
@@ -6139,6 +6141,13 @@ export class Hud {
 
     const start = document.createElement("button");
     start.className = "raid-go";
+    // Held from the Fight tap until the launch answers. `refresh()` runs on every card
+    // tap and re-derives the button from the selection count; without this it handed
+    // a second, live Fight button to a player who deselected and reselected a zombie
+    // while the first launch was still on its way (the server gate, Tim's tip) — and
+    // the second tap launched a second battle. main.ts refuses that re-entry too; this
+    // keeps the screen honest about it.
+    let launching = false;
 
     const refresh = () => {
       const n = selectedCount(order);
@@ -6146,7 +6155,7 @@ export class Hud {
         `<h2>Send your army — ${raid.name}</h2>` +
         `<span class="army-count${n < min ? " short" : ""}">${n}/${cap} · min ${min}</span>`;
       start.textContent = n < min ? `Need ${min - n} more` : `Invade with ${n}`;
-      start.disabled = n < min;
+      start.disabled = n < min || launching;
       for (const el of grid.querySelectorAll<HTMLElement>(".army-card")) {
         const pos = order.indexOf(el.dataset.id!);
         el.classList.toggle("sel", pos >= 0);
@@ -6310,10 +6319,11 @@ export class Hud {
         "are gone for good.",
         "Invade (Elite)"
       )) return;
-      start.disabled = true;
+      launching = true;
+      refresh();
       const launched = await this.onLaunchRaid(raid.id, attackOrder, launchOpts());
       if (launched) bg.remove();
-      else start.disabled = false;
+      else { launching = false; refresh(); }
     };
     foot.append(pick, start);
     refresh();

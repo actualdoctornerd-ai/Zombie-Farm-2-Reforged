@@ -19,6 +19,7 @@ import { raidFeatQuestEvents } from "../../../src/raid/featQuestEvents";
 import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
+import { isLiveSessionCollision } from "./liveSessionRace";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 /** How long an invasion session may sit open before it is treated as ABANDONED and
@@ -276,7 +277,14 @@ export async function startRaid(
     WHERE account_id = ? AND locked_by_raid IS NULL
       AND unit_id IN (${requested.map(() => "?").join(",")})`)
     .bind(sessionId, accountId, ...requested));
-  await db.batch(statements);
+  try {
+    await db.batch(statements);
+  } catch (error) {
+    // Two starts tied: both read "no live session" above, and idx_raid_v3_live refused
+    // the second insert. The same answer the read gives, not a 500 (liveSessionRace.ts).
+    if (isLiveSessionCollision(error)) return { status: 409, body: { ok: false, error: "raid_in_progress" } };
+    throw error;
+  }
   return { status: 200, body: { ok: true, sessionId, bypassed: remaining > 0, dice,
     concentration, elite, brainDrop, inventory: core.inventory, lastRaidAt: now, expiresAt, earliestFinishAt,
     serverTime: now,

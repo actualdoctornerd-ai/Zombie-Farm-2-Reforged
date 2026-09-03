@@ -151,3 +151,36 @@ describe("raid finish — replay-derived, never client-claimed", () => {
     expect(replayed.body.win).toBe(first.body.win);
   });
 });
+
+// Two starts that TIE. Each reads "no live session" before inserting one, so a genuine
+// tie gets past both reads and lands on idx_raid_v3_live, which refuses the second
+// insert. That refusal used to escape as a raw 500; it is the same situation the read
+// answers with 409, and it must say so (server/src/v3/liveSessionRace.ts). The
+// client's double-tap guard makes the tie rare; this is the server being right anyway.
+describe("raid start — two starts at once", () => {
+  it("opens exactly one session and refuses the other as in-progress, never a 500", async () => {
+    const s = await raidPlayer("raid-race");
+    const body = { raidId: 1, orderedUnitIds: ["z1"], rulesetVersion: RAID_RULESET_VERSION };
+    const results = await Promise.all([
+      call<{ ok?: boolean; error?: string }>("POST", "/raid/start", s.token, body),
+      call<{ ok?: boolean; error?: string }>("POST", "/raid/start", s.token, body),
+    ]);
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses, JSON.stringify(results.map((r) => r.body))).toEqual([200, 409]);
+    // Which 409 depends on how far the loser got before the winner committed: the
+    // roster pin runs before the live-session read, so a loser that arrives after the
+    // commit sees its zombie locked (`unit_not_owned`); one that reads before the
+    // commit sees the live row (`raid_in_progress`); and a true tie on the insert is
+    // mapped to `raid_in_progress` by liveSessionRace.ts, whose message match is
+    // pinned in ../liveSessionRace.test.ts. Local D1 serialises requests closely
+    // enough that the tie itself cannot be forced from here — what this proves is
+    // that no path answers 500.
+    const refused = results.find((r) => r.status === 409)!;
+    expect(["raid_in_progress", "unit_not_owned"]).toContain(refused.body.error);
+
+    // And the one that won is the only live session: a third start is refused too.
+    const third = await call<{ error?: string }>("POST", "/raid/start", s.token, body);
+    expect(third.status).toBe(409);
+    expect(["raid_in_progress", "unit_not_owned"]).toContain(third.body.error);
+  });
+});
