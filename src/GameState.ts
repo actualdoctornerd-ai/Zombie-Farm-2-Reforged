@@ -477,16 +477,28 @@ export class GameState {
   /** Record one obtained zombie of `key` in the Almanac's lifetime counter, along with
    *  every mutation it arrived wearing.
    *
-   *  `mutation` is optional so a caller that genuinely has no mask (a test, a legacy
-   *  path) still counts the species — a missing mask must never be read as "and it had
-   *  no mutations", which would be indistinguishable from a plain zombie and silently
-   *  correct. Callers that own a unit pass `unit.mutation`. */
-  recordZombieDiscovered(key: string, mutation = 0) {
+   *  `mutation` is REQUIRED. It used to default to 0, and that default is how the
+   *  Mutation Almanac stopped recording crop mutations earned online: the optimistic
+   *  harvest spawned with no mask, counted the species, and the real mask the server
+   *  rolled arrived later on a path that had already decided the unit was known. A
+   *  caller that genuinely has no mask says so with an explicit 0 (a species counts
+   *  even bare) — but it has to say it, so the next such gap fails to compile. */
+  recordZombieDiscovered(key: string, mutation: number) {
     this.zombieDiscovered[key] = (this.zombieDiscovered[key] ?? 0) + 1;
-    for (const def of mutationsOf(mutation)) {
+    this.recordMutationsDiscovered(mutation, { emit: false });
+    this.emit();
+  }
+
+  /** Credit every mutation in `mask` without touching the species count. For a
+   *  zombie whose species was counted when it was spawned and whose mask only became
+   *  known afterwards — an online harvest, where the server rolls the crop mutations
+   *  and hands them back with the reconciled roster. Pass the NEW bits only (see
+   *  newMutationBits in zombie/mutationMask.ts); a mask of 0 records nothing. */
+  recordMutationsDiscovered(mask: number, opts: { emit?: boolean } = {}) {
+    for (const def of mutationsOf(mask)) {
       this.mutationDiscovered[def.key] = (this.mutationDiscovered[def.key] ?? 0) + 1;
     }
-    this.emit();
+    if (opts.emit !== false) this.emit();
   }
 
   /** The Almanac counts what the player OWNS, not where they keep it, so a reward

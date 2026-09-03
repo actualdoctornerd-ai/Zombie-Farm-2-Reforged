@@ -100,7 +100,7 @@ describe("grantReward Almanac accounting", () => {
   it("does not count again when a Received reward is claimed into a slot", () => {
     const { zombies, state } = harness();
     // Earned earlier and filed in Received, so the Almanac already holds it.
-    state.recordZombieDiscovered(def.key);
+    state.recordZombieDiscovered(def.key, 0);
     zombies.grantReward(def.key, 0, 0, "claimed", true, { recordDiscovery: false });
     expect(state.zombieDiscovered[def.key]).toBe(1);
     expect(zombies.roster().map((unit) => unit.id)).toContain("claimed");

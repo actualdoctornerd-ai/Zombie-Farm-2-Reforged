@@ -79,7 +79,7 @@ describe("Almanac counts unclaimed reward zombies", () => {
 
   it("never lowers a count already earned at grant time", () => {
     const s = new GameState();
-    for (let i = 0; i < 6; i++) s.recordZombieDiscovered("ZombieActorDrZombie");
+    for (let i = 0; i < 6; i++) s.recordZombieDiscovered("ZombieActorDrZombie", 0);
     s.syncStorage({ [marker("ZombieActorDrZombie")]: 1 }, {});
     expect(s.zombieDiscovered.ZombieActorDrZombie).toBe(6);
   });

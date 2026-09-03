@@ -6,7 +6,8 @@ import { MUTATION_LIST, SLOTS, mutationsOf } from "./mutations";
 import { CLASS_COLOR } from "./taxonomy";
 import {
   SLOT_LABELS, TIER_PORTRAIT_ZOMBIE,
-  backfillMutationDiscovered, mutationAlmanacEntries, sanitizeMutationDiscovered, statEffectText,
+  backfillMutationDiscovered, mutationAlmanacEntries, repairMutationDiscovered,
+  sanitizeMutationDiscovered, statEffectText,
 } from "./mutationAlmanac";
 
 // The icon files that actually ship, enumerated off the asset tree at build time: a
@@ -129,6 +130,32 @@ describe("discovery persistence helpers", () => {
     const mask = MUTATION_LIST.slice(0, 3).reduce((sum, def) => sum + def.bit, 0);
     expect(Object.keys(backfillMutationDiscovered([{ mutation: mask }])).sort())
       .toEqual(mutationsOf(mask).map((def) => def.key).sort());
+  });
+
+  // The per-key repair. The empty-map seed above could never reach a save whose map
+  // was non-empty but missing a mutation the roster wears — which is exactly what the
+  // online harvest left behind. Floors, never increments: safe to run on every load.
+  it("floors a mutation the roster wears but the map has never counted", () => {
+    const tomato = MUTATION_LIST.find((def) => def.key === "tomato")!.bit;
+    const carrot = MUTATION_LIST.find((def) => def.key === "carrot")!.bit;
+    const repaired = repairMutationDiscovered({ carrot: 3 }, [
+      { mutation: tomato + carrot },
+      { mutation: tomato },
+    ]);
+    expect(repaired).toEqual({ carrot: 3, tomato: 1 });
+  });
+
+  it("repairs idempotently and never lowers a count", () => {
+    const tomato = MUTATION_LIST.find((def) => def.key === "tomato")!.bit;
+    const once = repairMutationDiscovered({ tomato: 4, celery: 2 }, [{ mutation: tomato }]);
+    expect(once).toEqual({ tomato: 4, celery: 2 });
+    expect(repairMutationDiscovered(once, [{ mutation: tomato }])).toEqual(once);
+  });
+
+  it("seeds the whole map when there is none, exactly like the backfill", () => {
+    const tomato = MUTATION_LIST.find((def) => def.key === "tomato")!.bit;
+    const roster = [{ mutation: tomato }, { mutation: tomato }];
+    expect(repairMutationDiscovered({}, roster)).toEqual(backfillMutationDiscovered(roster));
   });
 
   it("keeps only finite counts of at least one", () => {

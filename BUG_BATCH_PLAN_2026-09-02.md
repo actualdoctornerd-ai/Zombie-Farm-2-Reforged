@@ -233,6 +233,22 @@ open the game → backfill lights it.
 
 **Deploy.** Worker: no. Migration: no.
 
+**STATUS: DONE (committed 2026-09-03).** One deviation from step 1: crediting the new bits through
+`recordZombieDiscovered` would have counted the SPECIES a second time (it was counted at the
+optimistic spawn), so GameState gained `recordMutationsDiscovered(mask)` — mutations only — and
+`recordZombieDiscovered` routes through it. The reconcile calls it with
+`newMutationBits(source.mutation, save.mutation)` (mutationMask.ts) for any aliased/direct source,
+NOT gated on `rosterLive` (a mask that landed after the app closed is still news on the next
+load; the local mask only catches up once, so it cannot inflate). Step 2 became
+`repairMutationDiscovered(existing, roster)` in mutationAlmanac.ts: whole-map seed when empty,
+otherwise a per-key floor of 1; runs on every load. Step 3 done (two test callers now pass 0).
+Verified in the dev server (Play Local): spawn a Regular (mask 0), reconcile it under a server id
+with alias + mask 1 → `mutationDiscovered.tomato = 1`, species count unchanged, Mutations tab
+"2 / 16 discovered" with Tomatohead lit, repeat reconcile credits nothing, gaining carrot credits
+carrot only; a doctored save with `almanac.mutations = {carrot:1}` and a tomato-wearing roster
+reloads to `{carrot:1, tomato:1}`. Not verified against staging (the fix is client-only; the
+reconcile path driven above is the one a server roster hits). Root 2079 tests green.
+
 ---
 
 ## 5. Daily quests: instant at level 5, client-authored, server-verified

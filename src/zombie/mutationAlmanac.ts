@@ -166,6 +166,24 @@ export function backfillMutationDiscovered(
   return out;
 }
 
+/** The map a save should open with: seeded whole when it has none, and otherwise
+ *  with every mutation the roster is wearing present at ONE or more. The second half
+ *  is the repair for the gap the online harvest left — the species was counted, the
+ *  mask arrived later and was never credited, and a backfill that only ran on an empty
+ *  map could never reach it. Runs on every load: a floor, never an increment, so it is
+ *  idempotent and never lowers a count the player earned. */
+export function repairMutationDiscovered(
+  existing: MutationDiscoveredMap,
+  roster: readonly { mutation?: number }[]
+): MutationDiscoveredMap {
+  if (!Object.keys(existing).length) return backfillMutationDiscovered(roster);
+  const out: MutationDiscoveredMap = { ...existing };
+  for (const unit of roster) {
+    for (const def of mutationsOf(unit.mutation ?? 0)) out[def.key] = Math.max(out[def.key] ?? 0, 1);
+  }
+  return out;
+}
+
 /** Keep only finite counts >= 1, exactly as the species map is sanitized. */
 export function sanitizeMutationDiscovered(raw: unknown): MutationDiscoveredMap {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertMaskBitIndex, bitValue, isMaskBit, MAX_MASK_BITS, maskBits,
-  maskHas, maskIntersect, maskUnion, maskWithout,
+  maskHas, maskIntersect, maskUnion, maskWithout, newMutationBits,
 } from "./mutationMask";
 
 // The whole reason this module exists: `&`, `|` and `~` coerce to 32-BIT SIGNED, so
@@ -87,5 +87,23 @@ describe("bit indices", () => {
     expect(isMaskBit(0)).toBe(false);
     expect(isMaskBit(-2)).toBe(false);
     expect(isMaskBit(2 ** 53)).toBe(false); // past the exact-integer boundary
+  });
+});
+
+describe("newMutationBits", () => {
+  // What the Mutation Almanac credits when a server mask lands on a unit the client
+  // spawned with none: the bits gained, and only those.
+  it("hands back the bits gained and none the unit already wore", () => {
+    expect(newMutationBits(0, 5)).toBe(5);
+    expect(newMutationBits(1, 5)).toBe(4);
+    expect(newMutationBits(5, 5)).toBe(0);
+    expect(newMutationBits(5, 1)).toBe(0); // a dropped bit is not a discovery
+  });
+
+  it("is exact for a tier-4 variant bit", () => {
+    // 32768 is bit 15, one of the two tier-4 variant bits; together with bit 31 and
+    // beyond it is where the bitwise version of this would have started to lie.
+    expect(newMutationBits(1, 1 + 32768)).toBe(32768);
+    expect(newMutationBits(32768, 32768 + BIT_31 + BIT_32)).toBe(BIT_31 + BIT_32);
   });
 });

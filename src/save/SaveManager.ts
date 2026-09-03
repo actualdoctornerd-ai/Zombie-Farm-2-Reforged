@@ -20,7 +20,7 @@ import { GAMEPLAY_PROTOCOL } from "../net/protocol";
 import { epicBossRunToClient, serverTimestampToClient } from "../net/clock";
 import { reconcileTutorialCompletion } from "../tutorial/steps";
 import { backfillDiscovered, sanitizeDiscovered } from "../zombie/almanac";
-import { backfillMutationDiscovered, sanitizeMutationDiscovered } from "../zombie/mutationAlmanac";
+import { repairMutationDiscovered, sanitizeMutationDiscovered } from "../zombie/mutationAlmanac";
 import { sanitizeFallen, sanitizeFallenUncapped } from "../zombie/memorial";
 import { sanitizeTeams } from "../zombie/teams";
 import { sanitizeFarmStats } from "../stats";
@@ -771,11 +771,14 @@ export class SaveManager {
       : backfillDiscovered(data.ownedZombies ?? []);
     // The same for mutations, seeded independently: a save from between the two tabs
     // shipping has species counts and no mutation ones, so an emptiness test on the
-    // species map would wrongly conclude this one needs no backfill either.
-    const mutations = sanitizeMutationDiscovered(data.almanac?.mutations);
-    this.state.mutationDiscovered = Object.keys(mutations).length
-      ? mutations
-      : backfillMutationDiscovered(data.ownedZombies ?? []);
+    // species map would wrongly conclude this one needs no backfill either. And
+    // per key, not only when empty: a mutation the roster is wearing that the map
+    // has never heard of is a gap (the online-harvest one, for every account that
+    // hit it before the reconcile learned to credit the server's mask), healed here
+    // to a floor of one on every load.
+    this.state.mutationDiscovered = repairMutationDiscovered(
+      sanitizeMutationDiscovered(data.almanac?.mutations), data.ownedZombies ?? []
+    );
     // `received` was assigned straight onto the state above, so the reward zombies
     // parked in it have not been through receiveItem/syncStorage yet. Owned is owned:
     // count them here too, or an unclaimed prize opens the Almanac as a silhouette.

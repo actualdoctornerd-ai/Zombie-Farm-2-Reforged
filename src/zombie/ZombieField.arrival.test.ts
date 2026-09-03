@@ -29,7 +29,7 @@ function subject(field: unknown, farmerTile: () => { col: number; row: number })
     field,
     farmerTile,
     resolve: (key: string) => (key === DEF.key ? DEF : undefined),
-    state: { setZombieCount: vi.fn(), recordZombieDiscovered: vi.fn() },
+    state: { setZombieCount: vi.fn(), recordZombieDiscovered: vi.fn(), recordMutationsDiscovered: vi.fn() },
   });
   return zombies;
 }
@@ -93,6 +93,61 @@ describe("where a server-granted zombie turns up", () => {
 
     expect((zombies as never as { state: { recordZombieDiscovered: ReturnType<typeof vi.fn> } })
       .state.recordZombieDiscovered).toHaveBeenCalledWith(DEF.key, 5);
+  });
+
+  // The online harvest. The client spawns the zombie the moment it is picked, with
+  // mutation 0, and counts its species; the server rolls the crop mutations and hands
+  // the unit back under its own id, aliased to the optimistic one. That arrival has a
+  // source, so the species is (rightly) not counted again — and, before this, neither
+  // was anything else: a Tomatohead grown online never lit its Almanac entry.
+  it("credits the server's mask when an aliased optimistic harvest is reconciled", () => {
+    const zombies = subject(fieldStub([]), () => ({ col: 12, row: 9 }));
+    Object.assign(zombies, {
+      stored: [{ ...DEF, id: "local-7", key: DEF.key, mutation: 0, invasions: 0, col: 3, row: 4 }],
+    });
+
+    zombies.reconcileServerRoster([{ ...purchase, id: "srv-9", mutation: 5 }], { "srv-9": "local-7" });
+
+    const state = (zombies as never as {
+      state: { recordZombieDiscovered: ReturnType<typeof vi.fn>; recordMutationsDiscovered: ReturnType<typeof vi.fn> };
+    }).state;
+    expect(state.recordMutationsDiscovered).toHaveBeenCalledWith(5);
+    expect(state.recordZombieDiscovered).not.toHaveBeenCalled();
+    // And it is still the same zombie, in the same place.
+    const [unit] = zombies.roster();
+    expect({ id: unit.id, col: unit.col, row: unit.row, mutation: unit.mutation })
+      .toEqual({ id: "srv-9", col: 3, row: 4, mutation: 5 });
+  });
+
+  it("credits only the bits a known unit gained, not the ones it already wore", () => {
+    const zombies = subject(fieldStub([]), () => ({ col: 12, row: 9 }));
+    Object.assign(zombies, {
+      stored: [{ ...DEF, id: "srv-1", key: DEF.key, mutation: 1, invasions: 0, col: 3, row: 4 }],
+    });
+
+    zombies.reconcileServerRoster([{ ...purchase, mutation: 1 + 4 }]);
+
+    const state = (zombies as never as {
+      state: { recordMutationsDiscovered: ReturnType<typeof vi.fn> };
+    }).state;
+    expect(state.recordMutationsDiscovered).toHaveBeenCalledTimes(1);
+    expect(state.recordMutationsDiscovered).toHaveBeenCalledWith(4);
+  });
+
+  it("credits nothing when a known unit comes back with the mask it already had", () => {
+    const zombies = subject(fieldStub([]), () => ({ col: 12, row: 9 }));
+    Object.assign(zombies, {
+      stored: [{ ...DEF, id: "srv-1", key: DEF.key, mutation: 5, invasions: 0, col: 3, row: 4 }],
+    });
+
+    // A changed field forces the record to be rebuilt; the mask is unchanged.
+    zombies.reconcileServerRoster([{ ...purchase, mutation: 5, invasions: 2 }]);
+
+    const state = (zombies as never as {
+      state: { recordZombieDiscovered: ReturnType<typeof vi.fn>; recordMutationsDiscovered: ReturnType<typeof vi.fn> };
+    }).state;
+    expect(state.recordMutationsDiscovered).not.toHaveBeenCalled();
+    expect(state.recordZombieDiscovered).not.toHaveBeenCalled();
   });
 
   it("does not credit the Almanac for a zombie returned by a cancelled sale", () => {

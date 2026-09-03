@@ -9,6 +9,7 @@ import { GameState } from "../GameState";
 import { OwnedZombieSave, ZombiePotSave } from "../save/schema";
 import { findEscape } from "../pathfind";
 import { addMutation } from "./mutations";
+import { newMutationBits } from "./mutationMask";
 import { makeOwned, normalizeZombieName, OwnedZombie, RosterEntry } from "./types";
 import { ZombieUnit } from "./ZombieUnit";
 import { ZombiePot } from "./ZombiePot";
@@ -1001,6 +1002,17 @@ export class ZombieField {
         // carries a fresh unit id but it is the same zombie they already own, so
         // crediting it would let list/cancel cycles farm the lifetime count.
         if (this.rosterLive && !source && !save.restored) this.state.recordZombieDiscovered(data.key, data.mutation);
+        // A unit this client DID spawn, coming back wearing mutations it did not have:
+        // the online harvest. It grew optimistically with no mask (the server rolls
+        // crop mutations), counted its species then, and this is the first the client
+        // hears what it is wearing — so credit the new bits, and only the new bits.
+        // Not gated on rosterLive: a mask that landed after the app closed is still
+        // news on the next load, and it cannot inflate the count because the local
+        // mask only ever catches up once.
+        else if (source) {
+          const gained = newMutationBits(source.mutation, save.mutation);
+          if (gained) this.state.recordMutationsDiscovered(gained);
+        }
       }
     } finally {
       this.harvesting = false;

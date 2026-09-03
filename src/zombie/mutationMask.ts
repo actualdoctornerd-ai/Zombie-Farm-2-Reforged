@@ -86,6 +86,15 @@ export function maskWithout(a: number, b: number): number {
   return combine(a, b, (x, y) => x && !y);
 }
 
+/** The bits `after` carries that `before` did not: what a zombie GAINED when its mask
+ *  changed. Named for the one question the Mutation Almanac asks when a server mask
+ *  lands on a unit the client spawned optimistically with none — credit the new
+ *  mutations, and only those, never the ones it already wore. Bits `before` had and
+ *  `after` dropped are not a discovery of anything, so they do not appear. */
+export function newMutationBits(before: number, after: number): number {
+  return maskWithout(after, before);
+}
+
 /** Every bit set in `mask`, lowest first. Unbounded by the known catalog, so it also
  *  surfaces bits a stale client wrote — callers that only want known ones filter. */
 export function maskBits(mask: number): number[] {
