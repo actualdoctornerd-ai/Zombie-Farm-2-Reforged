@@ -787,7 +787,22 @@ import type { RaidOutcome } from "./types";
 // died before its boss's wall. PvP is untouched: formation defenses cannot wall, and the
 // brute's descent reads its own branch of the hold condition. Same cost as every bump:
 // an invasion in flight at deploy time settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 47;
+//
+// v48 — a weighted wave emerges in a seeded shuffle. The frequency allocation that fills
+// a `population` wave emitted its list GROUPED by type in table order, and the sim
+// spawns in list order, so every fight of a given invasion sent the same enemies in the
+// same sequence — seven Lawyers, then three Crazed Workers, every time. The multiset is
+// unchanged (counts per type exactly as authored); only the order is drawn, by the
+// session-seeded RNG the Worker pins at /raid/start and the client redraws from
+// (RaidCatalog.resolveStageWave). Bosses never enter the list and still resolve last.
+// Transcript-changing on every fight of raids 2, 3, 4, 7, 8, 9, 10 and 11, and on Old
+// McDonnell's top two rungs (stages 5-6, the only weighted ones on its ladder); a no-op
+// on raid 6 (one enemy type) and on McDonnell's authored rungs 0-4 (the tutorial's
+// lumberjack-last order is kept). Raid 5 (Robots) drew its whole wave already and its
+// draw sequence is untouched, so it is bit-identical. PvP and Epic Boss never resolve a
+// stage wave and are unaffected. Same cost as every bump: an invasion in flight at
+// deploy time settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 48;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

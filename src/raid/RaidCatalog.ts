@@ -366,22 +366,75 @@ export function seededRandom(seed: string): () => number {
   };
 }
 
-/** Turn a `randomBoss` stage into a concrete one: draw the boss from the roster, then
- *  order the rest as the spawn queue. Any other stage is returned untouched, so every
- *  caller can resolve unconditionally and then read `bossKey` / `enemyKeys` normally.
- *  `rand` must be seeded (see seededRandom) wherever the fight is server-verified. */
-export function resolveStageWave(stage: RaidStage, rand: () => number): RaidStage {
-  if (!stage.randomBoss) return stage;
-  const roster = (stage.weighted ?? []).map((entry) => entry.enemy).filter(Boolean);
-  if (!roster.length) return stage;
-  // Source order: the boss is drawn (and removed) first, then each remaining spawn.
-  const bossKey = roster.splice(Math.min(roster.length - 1, Math.floor(rand() * roster.length)), 1)[0];
-  const enemyKeys: string[] = [];
-  while (roster.length) {
-    enemyKeys.push(roster.splice(Math.min(roster.length - 1, Math.floor(rand() * roster.length)), 1)[0]);
+/** Allocate an exact-size deterministic population from a weighted table. Start with
+ *  each entry's floor, then give the remaining slots to the largest fractional shares.
+ *  This preserves `population` exactly instead of independently rounding into extra
+ *  units. The list comes out GROUPED by type, in table order — which is the order the
+ *  wave used to emerge in, every fight (see resolveStageWave). */
+export function weightedPopulation(stage: RaidStage): string[] {
+  const population = Math.max(0, Math.floor(stage.population ?? 0));
+  const weighted = (stage.weighted ?? []).filter((entry) => entry.frequency > 0);
+  const total = weighted.reduce((sum, entry) => sum + entry.frequency, 0);
+  if (!population || total <= 0) return [];
+  const shares = weighted.map((entry, index) => {
+    const exact = (entry.frequency / total) * population;
+    return { entry, index, count: Math.floor(exact), remainder: exact - Math.floor(exact) };
+  });
+  let left = population - shares.reduce((sum, share) => sum + share.count, 0);
+  for (const share of [...shares].sort((a, b) => b.remainder - a.remainder || a.index - b.index)) {
+    if (left-- <= 0) break;
+    share.count++;
   }
-  // `enemyKeys` now drives the wave, so drop `weighted`: buildEnemyUnits prefers the
-  // explicit list, and leaving both would let a later reader re-derive the old
-  // frequency allocation (which could never field all three bots).
-  return { ...stage, bossKey, enemyKeys, weighted: undefined, population: enemyKeys.length };
+  return shares.flatMap(({ entry, count }) => Array(count).fill(entry.enemy));
+}
+
+/** Seeded Fisher–Yates over a copy. Consumes exactly `items.length - 1` draws. */
+function shuffled<T>(items: readonly T[], rand: () => number): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.min(i, Math.floor(rand() * (i + 1)));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** Turn a stage into the concrete wave a fight will play — the spawn queue, in order.
+ *
+ *  A `randomBoss` stage (Robots) draws its boss from the roster, then orders the rest.
+ *  A `weighted` stage (every other raid's single wave, and Old McDonnell's top two
+ *  rungs) fields its exact authored multiset — counts per type unchanged — in a seeded
+ *  SHUFFLE (ruleset 48). The old order was the allocation's own: grouped by type, table
+ *  order, identical every fight, so the first Lawyer invasion looked exactly like the
+ *  hundredth. Bosses never enter the list (BattleSim sorts them last regardless), and an
+ *  authored `enemyKeys` stage (McDonnell's tutorial rungs — lumberjack last on purpose)
+ *  is returned untouched. Every caller can resolve unconditionally and then read
+ *  `bossKey` / `enemyKeys` normally.
+ *
+ *  `rand` must be seeded (see seededRandom) wherever the fight is server-verified: the
+ *  Worker pins the order it draws at /raid/start into the session, and the client redraws
+ *  from the same seed. The Robots' draw sequence is unchanged, so raid 5 is bit-identical
+ *  to before the shuffle existed. */
+export function resolveStageWave(stage: RaidStage, rand: () => number): RaidStage {
+  if (stage.randomBoss) {
+    const roster = (stage.weighted ?? []).map((entry) => entry.enemy).filter(Boolean);
+    if (!roster.length) return stage;
+    // Source order: the boss is drawn (and removed) first, then each remaining spawn.
+    const bossKey = roster.splice(Math.min(roster.length - 1, Math.floor(rand() * roster.length)), 1)[0];
+    const enemyKeys: string[] = [];
+    while (roster.length) {
+      enemyKeys.push(roster.splice(Math.min(roster.length - 1, Math.floor(rand() * roster.length)), 1)[0]);
+    }
+    // `enemyKeys` now drives the wave, so drop `weighted`: buildEnemyUnits prefers the
+    // explicit list, and leaving both would let a later reader re-derive the old
+    // frequency allocation (which could never field all three bots).
+    return { ...stage, bossKey, enemyKeys, weighted: undefined, population: enemyKeys.length };
+  }
+  if (stage.weighted && !(stage.enemyKeys && stage.enemyKeys.length)) {
+    const enemyKeys = shuffled(weightedPopulation(stage), rand);
+    if (!enemyKeys.length) return stage;
+    // Same reasoning as above: the list drives the wave, and `weighted` would let a
+    // later reader re-derive the grouped order.
+    return { ...stage, enemyKeys, weighted: undefined, population: enemyKeys.length };
+  }
+  return stage;
 }

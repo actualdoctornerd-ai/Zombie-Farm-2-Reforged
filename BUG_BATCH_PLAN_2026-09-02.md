@@ -492,6 +492,25 @@ the boss last in both; a staging fight settles (replay matches).
 **Deploy.** Worker FIRST, then client (deploy.yml refuses a client ahead of the Worker). Pick
 a quiet window: fights in flight at deploy settle as `stale_ruleset` and pay nothing.
 
+**STATUS: DONE (committed 2026-09-04).** As designed, with one correction to the cause text:
+raid 1 is NOT "authored" throughout — its ladder's top two rungs (stages 5-6) are weighted
+and shuffle too; rungs 0-4 (authored `enemyKeys`, lumberjack last) are untouched. So the
+diverging set is 2,3,4,7,8,9,10,11 + McDonnell stages 5-6; raid 6 is a one-type no-op; raid
+5's draw sequence is unchanged (bit-identical). `weightedPopulation` moved to RaidCatalog.ts
+(exported; CombatEngine imports it — no cycle, RaidCatalog never imports CombatEngine) and
+the shuffle is a seeded Fisher–Yates over its exact multiset; the Robots branch runs first
+and unchanged. Balance: `eliteInvasion.balance.test.ts` + `projectileScale.test.ts` stayed
+green under v48 (21/21) with NO profile re-fit — the p* table in eliteInvasion.ts was left
+alone (its comment history not extended, since no rung moved off its band). Docs: SECURITY.md
+(3 sites), docs/PROTOCOL_V3_ROLLOUT.md, server/README.md → 48 (docsVersionSync green);
+README/CONTRIBUTING/RUNBOOK/EPIC_BOSS/BLACK_MARKET docs quote no current value. The Circus
+fixture note went into `server/test/raidDivergence.test.ts` (JSON cannot carry a comment);
+its pinned `enemyKeys` are read verbatim by the replay, so it stays valid. Verified in the
+served client (Vite modules at /raid-lab.html): Lawyers and Circus give two orders for two
+lab seeds, boss never in the list, McDonnell rung 7 shuffled, tutorial rung untouched, Robots
+draw identical. Root 2114 + server 596 unit tests green. NOT verified on staging (deploy
+first). Reminder for the deploy: Worker FIRST, quiet window.
+
 ---
 
 ## 9. Close out — record, then delete this file

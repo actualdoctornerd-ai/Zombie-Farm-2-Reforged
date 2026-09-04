@@ -11,7 +11,7 @@
 import { describe, it, expect } from "vitest";
 import raidsJson from "../../public/assets/raids/raids.json";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
-import { fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
+import { fightStage, resolveStageWave, seededRandom, weightedPopulation } from "./RaidCatalog";
 import type { EnemyStat, RaidDef } from "./types";
 
 const raids = raidsJson as unknown as RaidDef[];
@@ -155,12 +155,82 @@ describe("Zombies vs Robots — randomBoss", () => {
     expect(telekinetic).toEqual(["RobotStageActorBrainBot"]);
   });
 
-  it("leaves every other raid's wave untouched", () => {
+  it("leaves an authored enemyKeys wave untouched", () => {
+    // McDonnell's tutorial rungs spell their spawn order out (lumberjack last at the
+    // Invade beat); nothing is drawn for them.
     for (const r of raids) {
       for (const s of r.stages) {
-        if (s.randomBoss) continue;
+        if (s.randomBoss || s.weighted) continue;
         expect(resolveStageWave(s, seededRandom("x"))).toBe(s);
       }
+    }
+  });
+});
+
+// Ruleset 48: every other weighted wave emerges in a seeded shuffle of its exact
+// multiset. Before this the allocation's grouped order WAS the emergence order, so every
+// fight of an invasion sent the same enemies in the same sequence.
+describe("weighted waves — seeded shuffle of the authored multiset (ruleset 48)", () => {
+  const weightedStages = raids.flatMap((r) =>
+    r.stages.map((s, i) => ({ raid: r, index: i, stage: s }))
+      .filter(({ stage }) => stage.weighted && !stage.randomBoss && !(stage.enemyKeys?.length)));
+
+  it("covers the raids the bump names, and only those", () => {
+    // 2, 3, 4, 6, 7, 8, 9, 10, 11 (their single wave) plus McDonnell's rungs 5 and 6.
+    expect(weightedStages.map(({ raid, index }) => `${raid.id}#${index}`)).toEqual([
+      "1#5", "1#6", "2#0", "3#0", "4#0", "6#0", "7#0", "8#0", "9#0", "10#0", "11#0",
+    ]);
+  });
+
+  it("draws the SAME order from the same seed — client and server must agree", () => {
+    for (const { stage } of weightedStages) {
+      for (const seed of ["session-a", "session-b", "0", "8f14e45f-ea3f-4f2b-9f2c-000000000000"]) {
+        expect(resolveStageWave(stage, seededRandom(seed)))
+          .toEqual(resolveStageWave(stage, seededRandom(seed)));
+      }
+    }
+  });
+
+  it("keeps the exact authored multiset — counts per type never change", () => {
+    for (const { raid, index, stage } of weightedStages) {
+      const authored = [...weightedPopulation(stage)].sort();
+      expect(authored.length, `${raid.name} #${index}`).toBe(stage.population);
+      for (let i = 0; i < 20; i++) {
+        const wave = resolveStageWave(stage, seededRandom(`m${i}`));
+        expect([...wave.enemyKeys].sort(), `${raid.name} #${index} seed ${i}`).toEqual(authored);
+        expect(wave.population).toBe(stage.population);
+        expect(wave.weighted).toBeUndefined(); // no grouped re-derivation downstream
+        expect(wave.bossKey).toBe(stage.bossKey);
+      }
+    }
+  });
+
+  it("never puts the boss in the spawn list", () => {
+    for (const { stage } of weightedStages) {
+      const wave = resolveStageWave(stage, seededRandom("boss"));
+      expect(wave.enemyKeys).not.toContain(stage.bossKey);
+    }
+  });
+
+  it("actually varies between seeds wherever there is more than one type to order", () => {
+    for (const { raid, index, stage } of weightedStages) {
+      const types = new Set(weightedPopulation(stage));
+      const orders = new Set<string>();
+      for (let i = 0; i < 40; i++) orders.add(resolveStageWave(stage, seededRandom(`o${i}`)).enemyKeys.join(">"));
+      if (types.size < 2) expect(orders.size, `${raid.name} #${index}`).toBe(1); // Aliens: one type
+      else expect(orders.size, `${raid.name} #${index}`).toBeGreaterThan(1);
+    }
+  });
+
+  it("no longer emerges grouped by type every fight", () => {
+    // The order that used to be the only one. Across forty seeds at least one fight must
+    // differ from it, for every wave with something to shuffle.
+    for (const { raid, index, stage } of weightedStages) {
+      const grouped = weightedPopulation(stage).join(">");
+      if (new Set(weightedPopulation(stage)).size < 2) continue;
+      const anyDifferent = Array.from({ length: 40 }, (_, i) =>
+        resolveStageWave(stage, seededRandom(`g${i}`)).enemyKeys.join(">")).some((order) => order !== grouped);
+      expect(anyDifferent, `${raid.name} #${index}`).toBe(true);
     }
   });
 });

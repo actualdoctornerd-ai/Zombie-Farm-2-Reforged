@@ -7,6 +7,10 @@ import circusSession from "./fixtures/circusTruncatedSession.json";
 // (raid 8) invasion that the player WON on screen and the verifier threw away. Kept
 // verbatim because the incident is the regression: 104 Circus and 31 Beach victories
 // across 84 accounts were rejected this way, all of them `clientWin=1`.
+// Its pinned wave predates ruleset 48: the `enemyKeys` in it are the old grouped order
+// (grouped by type, table order). A pinned config carries its resolved list, so the
+// replay reads it verbatim and the fixture stays valid — it simply is not an order a
+// fight started under v48 would draw.
 const CONFIG = circusSession as unknown as PinnedRaidConfig;
 const REPORTED_FINAL_TICK = 2043; // what the client said; the server's own fight is longer
 
