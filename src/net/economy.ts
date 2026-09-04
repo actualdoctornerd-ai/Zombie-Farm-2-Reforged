@@ -80,6 +80,15 @@ const RAID_FINISH_RETRY_MS = [250, 500, 1_000, 2_000, 4_000, 8_000];
 export class EconomyClient {
   private readonly queue: CommandQueue;
   private base: api.Balance | null = null;
+  /** Server time the balance in `base` was computed at, when the response said. A
+   *  balance stamped EARLIER than this one is stale — a batch answered late, after a
+   *  raid settlement or a market payout already moved the money — and adopting it
+   *  would dip the balance and then recover it on the next response, booking the
+   *  same movement on both sides of the lifetime tally. */
+  private baseServerTime = 0;
+  /** A booking to hand back the moment the next bootstrap's balance is adopted —
+   *  the market escrow a cancelled post is about to return (see refreshAuthoritative). */
+  private pendingUnbook: { gold: number; brains: number } | null = null;
   private serverInv: Record<string, number> = {};
   private optimistic = new Map<number, OptimisticDelta>();
   private authoritativeUnitIds = new Map<string, string>();
@@ -278,6 +287,10 @@ export class EconomyClient {
     this.clearOwnershipCheck();
     api.clearWriterCredential();
     this.queue.markWriterLost();
+    // The outbox is discarded with the lease, so its spends never happen — and the
+    // bootstrap that follows carries whatever the server DID apply of it. Hand the
+    // bookings back now; the server's balance re-books exactly what landed.
+    this.unbookDeltas(this.optimistic.values());
     this.optimistic.clear();
     this.commandsBySequence.clear();
     this.gateOnWriterReplaced();
@@ -522,6 +535,10 @@ export class EconomyClient {
       bootstrap = await this.recoverResumableRaid(bootstrap);
       this.queue.rebaseAfterConflict(bootstrap);
       this.ready = true;
+      // The commands are kept and retried, so their spends will book again when the
+      // retry lands. Without this they booked THREE times: at enqueue, again as the
+      // retry applied, and the spring-back in between as income.
+      this.unbookDeltas(this.optimistic.values());
       this.optimistic.clear();
       this.adoptGameplay(bootstrap.gameplay, {}, {}, [], bootstrap.serverTime);
       this.syncOwnershipPolling(bootstrap.writer.status);
@@ -543,6 +560,29 @@ export class EconomyClient {
       this.conflictReloading = false;
       this.ensureRecoveryArmed();
     }
+  }
+
+  /** Give back the lifetime-tally bookings of deltas that are being dropped from the
+   *  optimistic overlay without the server having applied them (GameState.unbookCurrency). */
+  private unbookDeltas(deltas: Iterable<OptimisticDelta>): void {
+    let gold = 0;
+    let brains = 0;
+    for (const delta of deltas) {
+      gold += delta.gold;
+      brains += delta.brains;
+    }
+    if (gold || brains) this.state.unbookCurrency(gold, brains);
+  }
+
+  /** Install a server balance, unless it is older than the one already on hand. Only
+   *  a response that says when it was computed can be judged; one that does not is
+   *  taken as current, exactly as before. */
+  private adoptBase(balance: api.Balance, serverTime?: number): void {
+    if (serverTime !== undefined) {
+      if (serverTime < this.baseServerTime) return;
+      this.baseServerTime = serverTime;
+    }
+    this.base = { ...balance };
   }
 
   private enqueue(command: GameplayCommand, delta: Partial<OptimisticDelta> = {}): number | null {
@@ -933,7 +973,7 @@ export class EconomyClient {
     // fight. Adopting them unconditionally set `base` to undefined (silently skipping
     // every later reconcile) and pushed NaN through the cooldown clock. Guard them the
     // way the other two settlement call sites already do.
-    if (result.balance) this.base = result.balance;
+    if (result.balance) this.adoptBase(result.balance, result.serverTime);
     if (result.inventory) this.serverInv = { ...result.inventory };
     if (result.storage) this.state.syncStorage(result.storage.received, result.storage.stored);
     if (result.raidProgress) this.state.syncRaidProgress(result.raidProgress);
@@ -1017,7 +1057,7 @@ export class EconomyClient {
   }
 
   adoptEpicBossResult(result: api.EpicBossFinishResult): void {
-    this.base = result.balance;
+    this.adoptBase(result.balance, result.serverTime);
     this.serverInv = { ...result.inventory };
     this.state.syncStorage(result.storage.received, result.storage.stored);
     this.onPetState?.(result.ownedPets, this.state.activePet, this.state.penPets);
@@ -1057,15 +1097,24 @@ export class EconomyClient {
     return this.authoritativeUnitIds.get(id) ?? id;
   }
 
-  async refreshInventory(): Promise<void> {
+  async refreshInventory(opts: { unbook?: { gold: number; brains: number } } = {}): Promise<void> {
     let bootstrap = await api.bootstrap(true);
     bootstrap = await this.recoverResumableRaid(bootstrap);
     this.queue.adoptBootstrap(bootstrap);
     this.ready = true;
+    // Applied inside the adoption, in the same synchronous run as the balance it
+    // pairs with — never here, where a harvest could accrue against a shifted tally.
+    if (opts.unbook) this.pendingUnbook = opts.unbook;
     this.adoptGameplay(bootstrap.gameplay, {}, {}, [], bootstrap.serverTime);
     this.syncOwnershipPolling(bootstrap.writer.status);
   }
-  async refreshAuthoritative(): Promise<void> { await this.refreshInventory(); }
+  /** Re-adopt the server's whole projection. `unbook` hands a lifetime-tally booking
+   *  back as the fresh balance lands (GameState.unbookCurrency) — for a Black Market
+   *  post cancelled with its escrowed payment coming home: that payment booked as
+   *  spending when the post went up, and the refund would book as income. */
+  async refreshAuthoritative(opts: { unbook?: { gold: number; brains: number } } = {}): Promise<void> {
+    await this.refreshInventory(opts);
+  }
 
   private pendingRaidKey(): string { return `${RAID_FINISH_PREFIX}::${this.accountId}`; }
 
@@ -1208,8 +1257,8 @@ export class EconomyClient {
 
   /** Adopt a balance returned by a trusted server-side mutation such as claiming a
    * social gift. Pending optimistic gameplay deltas remain layered on top. */
-  adoptExternalBalance(balance: api.Balance, accountVersion?: number): void {
-    this.base = { ...balance };
+  adoptExternalBalance(balance: api.Balance, accountVersion?: number, serverTime?: number): void {
+    this.adoptBase(balance, serverTime);
     if (accountVersion !== undefined) this.queue.adoptAccountVersion(accountVersion);
     this.reconcile();
   }
@@ -1264,6 +1313,12 @@ export class EconomyClient {
       if (pending?.localObjectId && (result.status === "rejected" || result.status === "dependency_failed")) {
         rejectedObjectIds.push(pending.localObjectId);
       }
+      // A refused command's optimistic movement never happened. Its booking goes back
+      // here, in the same run as the delta leaves the overlay and the server's balance
+      // (which never moved for it) is adopted below — so the spring-back books nothing.
+      if (pending && (result.status === "rejected" || result.status === "dependency_failed")) {
+        this.unbookDeltas([pending]);
+      }
       this.optimistic.delete(result.sequence);
       this.commandsBySequence.delete(result.sequence);
     }
@@ -1280,9 +1335,17 @@ export class EconomyClient {
     aliases: Record<string, string> = {},
     objectAliases: Record<string, string> = {},
     rejectedObjectIds: string[] = [],
-    serverTime = Date.now(),
+    serverTime?: number,
   ): void {
-    this.base = gameplay.balance;
+    // Only a response that says when it was computed can be judged stale (adoptBase);
+    // the timestamp translations below need a clock either way.
+    const stampedAt = serverTime;
+    serverTime ??= Date.now();
+    if (this.pendingUnbook) {
+      this.state.unbookCurrency(this.pendingUnbook.gold, this.pendingUnbook.brains);
+      this.pendingUnbook = null;
+    }
+    this.adoptBase(gameplay.balance, stampedAt);
     this.serverInv = gameplay.inventory;
     this.state.zombiePotBought = gameplay.zombiePotBought ?? false;
     this.state.syncRaidProgress(gameplay.raids.progress);

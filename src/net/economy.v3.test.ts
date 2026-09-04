@@ -3,6 +3,12 @@ import { GameState } from "../GameState";
 import { EconomyClient, OWNERSHIP_POLL_IDLE_MS } from "./economy";
 import type { CommandBatchResponse } from "./protocol";
 import * as api from "./api";
+import { newFarmStats } from "../stats";
+import type { SequencedCommand } from "./protocol";
+
+/** The outbox's own pending list. */
+const pending = (economy: EconomyClient): SequencedCommand[] =>
+  (economy as unknown as { queue: { pending: SequencedCommand[] } }).queue.pending;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -47,6 +53,134 @@ const bootstrapFixture = (overrides: Record<string, unknown> = {}): any => ({
   social: { friends: [], incomingRequestCount: 0, inboxCount: 0 },
   resumableRaid: null,
   ...overrides,
+});
+
+// The lifetime tally under the online economy. Every case here is a balance that
+// would dip and recover — and used to book on both sides for it.
+describe("lifetime tally under the online economy", () => {
+  const gameplayWith = (balance: { gold: number; brains: number; xp: number }): any => ({
+    ...bootstrapFixture().gameplay, balance,
+  });
+  const batchResponse = (
+    results: CommandBatchResponse["results"],
+    balance: { gold: number; brains: number; xp: number },
+    serverTime: number,
+  ): CommandBatchResponse => ({
+    protocolVersion: 3, batchId: `b${serverTime}`, accountVersion: 1, writerGeneration: 1, serverTime,
+    results, gameplay: gameplayWith(balance),
+    farmVersionBefore: 0, farmVersionAfter: 0, netDelta: { gold: 0, brains: 0, xp: 0 },
+    questChanges: [], createdZombieIds: [],
+  });
+  /** An online client with a settled balance and a clean tally. */
+  const settled = (name: string, balance = { gold: 1000, brains: 20, xp: 0 }) => {
+    const state = new GameState();
+    const economy = new EconomyClient(state, name);
+    (economy as any).adoptGameplay(gameplayWith(balance), {}, {}, [], 100);
+    state.restoreStats(newFarmStats(0));
+    return { state, economy };
+  };
+
+  it("nets a refused spend to zero on both sides of the tally", () => {
+    const { state, economy } = settled("tally-reject");
+    economy.submitInventory({ type: "buy", key: "fertilizer" }, { count: 1, gold: -100 });
+    const sequence = pending(economy)[0].sequence;
+    expect(state.gold).toBe(900);
+    expect(state.stats.goldSpent).toBe(100);
+
+    (economy as any).adoptCommandResponse(batchResponse(
+      [{ sequence, status: "rejected", error: "insufficient" }], { gold: 1000, brains: 20, xp: 0 }, 200));
+
+    expect(state.gold).toBe(1000);
+    expect(state.stats.goldSpent).toBe(0);
+    expect(state.stats.goldEarned).toBe(0);
+  });
+
+  it("books an accepted spend once, and never as income", () => {
+    const { state, economy } = settled("tally-accept");
+    economy.submitInventory({ type: "buy", key: "fertilizer" }, { count: 1, brains: -3 });
+    const sequence = pending(economy)[0].sequence;
+
+    (economy as any).adoptCommandResponse(batchResponse(
+      [{ sequence, status: "applied" }], { gold: 1000, brains: 17, xp: 0 }, 200));
+
+    expect(state.brains).toBe(17);
+    expect(state.stats.brainsSpent).toBe(3);
+    expect(state.stats.brainsEarned).toBe(0);
+  });
+
+  it("hands the outbox's bookings back when the writer lease is lost", () => {
+    // The lease moved to another device: the outbox is discarded, its spends never
+    // happen, and the bootstrap that follows carries what the server DID apply.
+    const { state, economy } = settled("tally-writer-lost");
+    vi.spyOn(api, "clearWriterCredential").mockImplementation(() => {});
+    vi.spyOn(api, "bootstrap").mockRejectedValue(new Error("offline"));
+    economy.submitInventory({ type: "buy", key: "fertilizer" }, { count: 1, gold: -100 });
+    economy.submitInventory({ type: "buy", key: "fertilizer" }, { count: 1, brains: -2 });
+    expect(state.stats.goldSpent).toBe(100);
+    expect(state.stats.brainsSpent).toBe(2);
+
+    (economy as any).handleWriterLost();
+    // Nothing of it landed: the server's balance is the one from before.
+    (economy as any).adoptGameplay(gameplayWith({ gold: 1000, brains: 20, xp: 0 }), {}, {}, [], 300);
+
+    expect(state.gold).toBe(1000);
+    expect(state.stats.goldSpent).toBe(0);
+    expect(state.stats.goldEarned).toBe(0);
+    expect(state.stats.brainsSpent).toBe(0);
+    expect(state.stats.brainsEarned).toBe(0);
+  });
+
+  it("books a spend the server applied before the lease was lost exactly once", () => {
+    const { state, economy } = settled("tally-writer-lost-applied");
+    vi.spyOn(api, "clearWriterCredential").mockImplementation(() => {});
+    vi.spyOn(api, "bootstrap").mockRejectedValue(new Error("offline"));
+    economy.submitInventory({ type: "buy", key: "fertilizer" }, { count: 1, gold: -100 });
+
+    (economy as any).handleWriterLost();
+    (economy as any).adoptGameplay(gameplayWith({ gold: 900, brains: 20, xp: 0 }), {}, {}, [], 300);
+
+    expect(state.gold).toBe(900);
+    expect(state.stats.goldSpent).toBe(100);
+    expect(state.stats.goldEarned).toBe(0);
+  });
+
+  it("ignores a balance computed before the one already on hand", () => {
+    // A batch answered late, after a raid settlement already paid out: adopting its
+    // pre-settlement balance would take the brains away and the next response would
+    // hand them back — booked as spent AND earned.
+    const { state, economy } = settled("tally-stale");
+    economy.adoptExternalBalance({ gold: 1000, brains: 26, xp: 0 }, undefined, 500); // the settlement
+    expect(state.stats.brainsEarned).toBe(6);
+
+    (economy as any).adoptCommandResponse(batchResponse([], { gold: 1000, brains: 20, xp: 0 }, 400));
+
+    expect(state.brains).toBe(26);
+    expect(state.stats.brainsSpent).toBe(0);
+    expect(state.stats.brainsEarned).toBe(6);
+    // A balance with no timestamp is taken as current, as it always was.
+    economy.adoptExternalBalance({ gold: 1000, brains: 27, xp: 0 });
+    expect(state.brains).toBe(27);
+  });
+
+  it("gives a cancelled request's escrow booking back as the refund lands", async () => {
+    const { state, economy } = settled("tally-market-cancel");
+    // The post went up: the market took 5 brains, and the refresh booked the spend.
+    vi.spyOn(api, "bootstrap").mockResolvedValue(bootstrapFixture({
+      serverTime: 200, gameplay: gameplayWith({ gold: 1000, brains: 15, xp: 0 }),
+    }));
+    await economy.refreshAuthoritative();
+    expect(state.stats.brainsSpent).toBe(5);
+
+    // Cancelled: the escrow comes home with the next refresh.
+    vi.spyOn(api, "bootstrap").mockResolvedValue(bootstrapFixture({
+      serverTime: 300, gameplay: gameplayWith({ gold: 1000, brains: 20, xp: 0 }),
+    }));
+    await economy.refreshAuthoritative({ unbook: { gold: 0, brains: -5 } });
+
+    expect(state.brains).toBe(20);
+    expect(state.stats.brainsSpent).toBe(0);
+    expect(state.stats.brainsEarned).toBe(0);
+  });
 });
 
 describe("v3 raid dependency ids", () => {

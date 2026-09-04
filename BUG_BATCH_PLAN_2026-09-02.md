@@ -426,6 +426,30 @@ counters unchanged. Run a raid with a farm batch in flight — earned rises by t
 
 **Deploy.** Worker: no. Migration: no.
 
+**STATUS: DONE (committed 2026-09-04).** Built on ONE primitive instead of the four
+mechanisms above: `GameState.unbookCurrency(gold, brains)` gives a booking back (stats
+minus, tally baseline shifted by the delta) so the correction that follows books nothing
+and the server's balance then counts the real movement once. Applied: (a) rejected /
+dependency_failed deltas in `adoptCommandResponse`; (b) BOTH `optimistic.clear()` sites —
+not `rebase` as planned: rebase keeps the spend booking, which is wrong when the outbox is
+DROPPED (writer lost: `markWriterLost` discards pending) and double-books when it is
+RETRIED (conflict: `rebaseAfterConflict` keeps the commands, so the spend books again on
+landing) — unbook is exact in both; (c) Black Market cancel of a BUY_ZOMBIE post via
+`refreshAuthoritative({ unbook })`, applied INSIDE `adoptGameplay` in the same run as the
+refunded balance (a tally shifted ahead of its balance would book the gap on the next
+harvest); the cancel response's `order.kind/price/currency` supply the amount, so hud.ts
+is untouched. Expiry refunds have no client call site and remain a (small) residual.
+Step 3 was moot: `RaidManager` only calls addBrains OFFLINE (the online path hands rewards
+to /raid/finish); the raid-adjacent inflation is the stale-response ordering, closed by
+`EconomyClient.adoptBase(balance, serverTime)` — a balance stamped earlier than the one on
+hand is skipped (batch response, bootstrap, raid finish, epic boss result, gift claim all
+pass their serverTime; a balance with no stamp is taken as current). Cached-snapshot boot
+left alone: the snapshot is written only at settled points with the stats it matches, so
+a rebase there would hide genuine off-device movement. Verified live (local Worker): a
+`power.buy` the server refused (`bad_item`) with a -100 optimistic gold booked spent
+86→186 in the same tick and returned to 86 after the rejection, earned unchanged, gold
+restored. Root 2108 tests green (9 new). Existing inflated counters accepted as history.
+
 ---
 
 ## 8. Randomised enemy emergence order (ruleset 48)

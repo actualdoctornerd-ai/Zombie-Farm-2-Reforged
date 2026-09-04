@@ -4482,7 +4482,17 @@ async function main() {
     if (!economy) throw new Error("online_gameplay_unavailable");
     const expectedAccountVersion = await economy.prepareExternalMutation();
     const result = await api.cancelBlackMarketOrder(orderId, crypto.randomUUID(), expectedAccountVersion);
-    await economy.refreshAuthoritative();
+    // A cancelled request hands its escrowed payment back. That payment booked as
+    // spending in the lifetime tally when the post went up (the balance fell), and the
+    // refund would book as income — a post that never traded counted on both sides.
+    // Hand the spend booking back as the refunded balance is adopted.
+    const escrow = result.order.kind === "BUY_ZOMBIE" ? result.order.price : 0;
+    await economy.refreshAuthoritative(escrow ? {
+      unbook: {
+        gold: result.order.currency === "GOLD" ? -escrow : 0,
+        brains: result.order.currency === "BRAINS" ? -escrow : 0,
+      },
+    } : {});
     saveManager.flushCritical();
     return result;
   };
@@ -4563,7 +4573,7 @@ async function main() {
     try {
       const result = await api.sendGift(friendId);
       // Remain compatible while the manually deployed Worker rolls forward.
-      if (result.balance) economy?.adoptExternalBalance(result.balance, result.accountVersion);
+      if (result.balance) economy?.adoptExternalBalance(result.balance, result.accountVersion, result.serverTime);
       if (result.lastRaidAt != null) state.syncRaidCooldown(serverTimestampToClient(
         result.lastRaidAt,
         result.serverTime ?? Date.now(),

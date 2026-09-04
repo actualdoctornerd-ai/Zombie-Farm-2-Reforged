@@ -56,6 +56,42 @@ describe("lifetime currency totals", () => {
   });
 });
 
+// The wobble that inflated one player's brains to 141 earned / 127 spent against a
+// real 62: a balance that dips and recovers is booked on BOTH sides. The remedy hands a
+// booking back when the movement behind it never happened, and shifts the baseline so
+// the correction that follows books nothing.
+describe("giving a booking back", () => {
+  it("nets a refused online spend to zero on both sides", () => {
+    const s = new GameState();
+    const before = s.gold;
+    // The optimistic spend (booked), then the server refuses it: the delta leaves the
+    // overlay and the balance springs back to what the server always held.
+    s.syncBalance(before - 100, s.brains, s.xp);
+    expect(s.stats.goldSpent).toBe(100);
+    s.unbookCurrency(-100, 0);
+    s.syncBalance(before, s.brains, s.xp);
+    expect(s.stats.goldSpent).toBe(0);
+    expect(s.stats.goldEarned).toBe(0);
+  });
+
+  it("books a dropped spend exactly once, when the server's balance carries it", () => {
+    const s = new GameState();
+    const before = s.brains;
+    s.syncBalance(s.gold, before - 3, s.xp); // optimistic spend, booked
+    s.unbookCurrency(0, -3);                  // the overlay is cleared (writer lost)
+    s.syncBalance(s.gold, before - 3, s.xp); // …but the server had applied it
+    expect(s.stats.brainsSpent).toBe(3);
+    expect(s.stats.brainsEarned).toBe(0);
+  });
+
+  it("never drives a counter below zero", () => {
+    const s = new GameState();
+    s.unbookCurrency(-50, 4);
+    expect(s.stats.goldSpent).toBe(0);
+    expect(s.stats.brainsEarned).toBe(0);
+  });
+});
+
 describe("lifetime farm and zombie counters", () => {
   it("credits a zombie crop as both a harvest and a zombie", () => {
     const s = new GameState();

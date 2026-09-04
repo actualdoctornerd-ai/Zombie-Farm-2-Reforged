@@ -328,6 +328,33 @@ export class GameState {
     this.tallyBrains = this.brains;
   }
 
+  /** Give back the booking of an optimistic movement that never happened.
+   *
+   *  The tally is read off the balance (accrueCurrencyStats), which counts an online
+   *  action exactly once — but it also counts a balance that DIPS AND RECOVERS twice,
+   *  once on each side: a spend the server then refuses springs back as "income"; an
+   *  outbox cleared when the writer moved or a conflict rebased springs its spends
+   *  back the same way, and they book as spending AGAIN when the server's own figure
+   *  lands; a Black Market post's escrow books as spending going up and income coming
+   *  home. That is how one player's lifetime brains read 141 earned / 127 spent
+   *  against a real 62 — both sides inflated by the same wobble.
+   *
+   *  `gold` / `brains` are the SIGNED deltas that were booked (a spend is negative).
+   *  The stats hand the booking back, and the tally baseline shifts by the same
+   *  amount, so the balance correction that follows — the delta vanishing from the
+   *  optimistic overlay, or the server's figure arriving — books nothing. Whatever
+   *  really happened is then counted exactly once, when the server's balance carries
+   *  it. Callers pair this with the correction in the same synchronous run: a tally
+   *  shifted ahead of its balance would book the gap on the next unrelated accrual. */
+  unbookCurrency(gold: number, brains: number) {
+    if (gold > 0) this.stats.goldEarned = Math.max(0, this.stats.goldEarned - gold);
+    else if (gold < 0) this.stats.goldSpent = Math.max(0, this.stats.goldSpent + gold);
+    if (brains > 0) this.stats.brainsEarned = Math.max(0, this.stats.brainsEarned - brains);
+    else if (brains < 0) this.stats.brainsSpent = Math.max(0, this.stats.brainsSpent + brains);
+    this.tallyGold -= gold;
+    this.tallyBrains -= brains;
+  }
+
   /** Adopt a balance WITHOUT counting it as earned or spent. Loading a save, or
    *  importing one, is not a windfall — without this an account with 50,000 gold
    *  would book that much in earnings every time it signed in. */
