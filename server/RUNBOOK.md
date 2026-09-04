@@ -55,6 +55,7 @@ wrangler tail --format json | grep '"lvl":"alert"'
 | `dev_auth_rejected` | alert | A `devSub` (dev-bypass) sign-in hit a **prod** server (`DEV_AUTH` unset). Should be impossible in normal use. | **any** occurrence → page. Confirm `DEV_AUTH` is unset in prod. |
 | `account_command_rejected` | alert | An account exceeded its hourly/daily command-volume ceiling and was refused. | **any** sustained occurrence → automation or a runaway client on that account. |
 | `command_batch_invalid` | alert | A `/commands` envelope failed structural validation and was refused `400`. Carries `build`, `integrityVersion` and `describeInvalidBatch`'s reason (envelope faults named before any command). Unrecoverable for that account — the client will retry the same bad batch forever. | **any** occurrence → a shipped client is emitting batches the server won't take. Read `build` first; a single build id across many accounts is a release regression. |
+| `account_delete_failed` | alert | `POST /account/delete` could not purge the account: the atomic `db.batch` threw (`reason` names the statement — historically `no such table`, when `ACCOUNT_REFERENCES` named a table a migration had dropped) and the player got `500 purge_failed` with nothing deleted. `account_deleted` is only logged after a successful purge, so a delete attempt with no `account_deleted` line is this. Guard: `server/test/schemaParity.test.ts` proves `schema.sql` matches the migration replay and that every `ACCOUNT_REFERENCES` table exists. | **any** occurrence → a schema/migration drift; fix before another player tries. |
 | `black_market_sweep_failed` | warn | The opportunistic expiry sweep of stale Black Market posts threw. The request it rode on still succeeds. | Repeated → posts are not expiring; check the 3-day expiry query against `created_at`. |
 | `auth_token_invalid` | warn | A Google ID token failed verification. | > ~20/min globally, or a burst from one IP → credential/endpoint probing. |
 | `auth_denied` | info | A request was rejected at auth. `stage:"token"` = bad/expired/absent JWT (routine). `stage:"session"` = valid signature but the session is revoked / idle-expired / mismatched. | Spike in `stage:"session"` → possible **leaked-token replay after a revoke**. Investigate the account; consider logout-all + secret rotation. |
@@ -202,6 +203,24 @@ wrangler d1 execute zombiefarm --remote --json --command \
 Cross-check any `createdIds` against `roster_v3`; `locked_by_raid LIKE 'pot:%'`
 identifies units currently reserved inside a Zombie Pot. `--json` output is prefixed by
 a config warning banner, so slice from the first `[` before parsing.
+
+**Brain-ledger forensic ("my brains are wrong / my Statistics say 141 earned").** The
+Statistics counters are a client-authored tally and can be inflated by a balance that dipped
+and recovered (fixed client-side 2026-09-04 — earlier history is not repaired); the WALLET is
+authoritative and its trajectory is reconstructible. `raid_sessions_v3.result_json` carries
+`balance.brains` after every settled invasion, and `audit_events_v3` carries every durable
+command with its detail; walk them together in time order and the brains figure must move
+only by the drops, gifts, market payouts and spends you can name:
+
+```sh
+wrangler d1 execute zombiefarm --remote --json --command \
+  "SELECT finished_at, json_extract(result_json,'$.balance.brains') AS brains, \
+          json_extract(result_json,'$.brains') AS drop FROM raid_sessions_v3 \
+   WHERE account_id='<id>' AND result_json IS NOT NULL ORDER BY finished_at DESC LIMIT 40"
+```
+
+A tally that exceeds the sum of those movements is display inflation, not a lost or minted
+brain; the current balance in `balances` is the answer to give the player.
 
 Note that a Zombie Pot combine returns ONE unit, usually of slot 1's species: below level
 25, combining two of a kind gives back one that looks identical to its parents, which is

@@ -154,6 +154,12 @@ them reaches the trail.
 - `/commands` accepts an allowlisted semantic command union. It rejects arbitrary balance/state
   setters and validates catalog keys, ownership, affordability, level gates, capacity, crop
   timing, and coordinates on the server.
+- Daily/weekly quest boards are client-authored and server-verified: `quest.periodic_author`
+  carries only a scope and a level, never a quest array. The server takes the period from its
+  own clock, clamps the level to the XP it holds, refuses a level below the scope's unlock and
+  a scope that already has this period's board (no re-roll — the per-day cap's backbone), and
+  derives the set itself with the shared deterministic generator. Counts and claims stay
+  server-owned.
 - Farm timestamps, random IDs, combine output, prices, refunds, XP, level rewards,
   inventory counts, object ownership, storage counts, and roster changes are computed from
   server-held state. **Fertilization is no longer in this list** — see the known limitation below.

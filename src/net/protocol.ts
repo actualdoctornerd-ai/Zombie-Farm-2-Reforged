@@ -45,9 +45,10 @@ export type GameplayCommand =
   | { type: "writer.claim" }
   | { type: "farm.plow"; oc: number; or: number }
   | { type: "farm.plant"; oc: number; or: number; cropKey: string; fertilized?: boolean }
-  // Bulk forms of the two commands a drag-paint stroke produces by the hundred. The
-  // single-plot forms above stay on the wire for cached older clients; a current client
-  // only ever sends these (see FARM_BULK_LIMIT and EconomyClient.submitFarm). Each is
+  // Bulk forms of the farm commands a stroke produces by the hundred — plow and plant
+  // from a drag-paint, harvest from the farmer working down a field. The single-plot
+  // forms stay on the wire for cached older clients; a current client only ever sends
+  // these (see FARM_BULK_LIMIT and EconomyClient.submitFarm). Each is
   // applied plot by plot, in order, by exactly the single-plot rules.
   | { type: "farm.plow_many"; plots: { oc: number; or: number }[] }
   | {
