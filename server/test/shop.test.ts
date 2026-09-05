@@ -10,7 +10,6 @@ import {
   climateCost,
 } from "../src/shopCatalog";
 import { MAX_FARM_PLOTS, PLOT_SIZE } from "../src/v3/engine";
-import { MAX_FIELD_DIM } from "../src/validate";
 import upgrades from "../../public/assets/upgrades.json";
 
 // P16 — server-owned farm-size (a sequential scalar) + climate skins (an owned set).
@@ -42,10 +41,6 @@ describe("shopCatalog — farm size tiers", () => {
       steps.push(cur.brains - prev.brains);
     }
     for (let i = 1; i < steps.length; i++) expect(steps[i]).toBe(steps[i - 1] * 2);
-  });
-
-  it("keeps every tier inside the field bounds the save validator enforces", () => {
-    for (const tier of SIZE_TIERS) expect(tier.size).toBeLessThanOrEqual(MAX_FIELD_DIM);
   });
 
   // MAX_FARM_PLOTS used to be the literal 225 — exactly right for the 60x60 farm that

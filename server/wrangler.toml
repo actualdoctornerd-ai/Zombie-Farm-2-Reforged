@@ -57,8 +57,6 @@ migrations_dir = "migrations"
 GOOGLE_CLIENT_ID = "249211577622-cmqa6so9re0hgh2lti4mpe40nlcm3l4k.apps.googleusercontent.com"
 ALLOWED_ORIGIN = "http://localhost:5173"
 DEV_AUTH = "1"
-MIGRATION_CUTOFF_MS = "0"
-INTEGRITY_V2_ENFORCE_AFTER_MS = "1"
 MIN_PROTOCOL_VERSION = "3"
 MUTATIONS_DISABLED = "0"
 BLACK_MARKET_ENABLED = "1"
@@ -132,10 +130,6 @@ migrations_dir = "migrations"
 GOOGLE_CLIENT_ID = "249211577622-cmqa6so9re0hgh2lti4mpe40nlcm3l4k.apps.googleusercontent.com"
 ALLOWED_ORIGIN = "https://zombiefarmreforged.com"
 DEV_AUTH = "0"
-MIGRATION_CUTOFF_MS = "0"
-# Old mutation clients are intentionally cut off immediately. The current client uses
-# gameplay protocol v3; the INTEGRITY_V2 setting above names the request-signing scheme.
-INTEGRITY_V2_ENFORCE_AFTER_MS = "1"
 MIN_PROTOCOL_VERSION = "3"
 MUTATIONS_DISABLED = "0"
 BLACK_MARKET_ENABLED = "1"
@@ -152,13 +146,9 @@ WRITER_LEASE_MODE = "enforce"
 # Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
 # raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
 # RAID_COOLDOWN_MS = "7200000"
-# Save-import cutoff (epoch ms). Accounts created before this may import their existing
-# save into server-owned state (once per subsystem); everyone else gets fixed server
-# defaults and can't self-declare a starting balance. Set to the rollout/migration-
-# window end when you migrate existing players; leave unset (= 0, imports closed) to
-# refuse all client-declared seeds. See SECURITY.md own-account plan.
-# To run a deliberately time-boxed import in a separate recovery deployment, replace
-# the zero above with its absolute end timestamp. Production should remain zero.
+# There is no save-import path any more: the protocol-v2 seed routes and their
+# MIGRATION_CUTOFF_MS gate were removed on 2026-09-03 (the tables went in migration
+# 0020). Every account starts from the fixed server defaults in v3/engine.
 
 # Cloudflare's native per-key limiter. Throttling only — the D1 constraints
 # (gift uniqueness, grants, save CAS) remain the real correctness controls. These

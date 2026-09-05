@@ -135,7 +135,7 @@ them reaches the trail.
   updates on `account_version` / `writer_generation`; a takeover revokes the displaced session
   in the same transaction.
 - Every mutation route (`/commands`, `/gifts`, `/raid/*`, `/epic-boss/*`, `/black-market/*`,
-  and `PUT /presentation|/save`) is fenced by the middleware in `index.ts`. `/commands`
+  and `PUT /presentation`) is fenced by the middleware in `index.ts`. `/commands`
   validates the lease inline; the rest acquire a short-TTL **active-operation** guard
   (`beginOperation`/`endOperation`) that blocks any concurrent command batch or other mutation
   for that account.
@@ -169,8 +169,12 @@ them reaches the trail.
   returns its stored result rather than applying it twice.
 - Presentation state is stored separately, versioned independently, allowlisted by top-level
   key, and capped at 128 KiB. Presentation data is not used as gameplay authority.
-- Historical v2 save/sync/action/checkpoint routes return `410 update_required` after
-  authentication.
+- Historical v2 save/sync/action/checkpoint routes (`/save`, `/state`, `/economy/*`,
+  `/quest/*`, `/farm/*`, `/inventory/*`, `/object/*`, `/roster/*`, `/shop/*`, `/storage/*`,
+  `/raid/state|sync|checkpoint`) return `410 update_required` after authentication. Their
+  handlers and the `db.ts` helpers behind them were removed on 2026-09-03: migration
+  `0020_protocol_v3_reset.sql` had already dropped every table they read, so the surface
+  is a list of paths in `retiredV2`, not code that can be reached.
 
 ### Server-verified raids and Epic Boss runs
 
@@ -188,8 +192,9 @@ them reaches the trail.
 - Casualties are deleted, survivor veterancy is incremented, and rewards (gold, first-clear XP,
   brains, one loot roll) are computed server-side and catalog-bounded. On the concession-fallback
   branch survivors are deliberately emptied so **no unverifiable veterancy is awarded**. Roster
-  culling is server-only: a forged casualty submitted through `/roster/actions` is rejected
-  (`server_only_raid_result`).
+  culling is server-only: there is no client route that can file a casualty (the v2
+  `/roster/actions` path that once rejected forged ones with `server_only_raid_result` is
+  retired outright).
 - Every rejected finish writes a durable `raid_finish_rejected` row to `audit_events_v3`
   (stale ruleset, bad session config, replay failure, roster mismatch).
 - Every finish write carries a session-scoped `result_json` CAS guard and checks that exactly
@@ -402,14 +407,14 @@ client alone, which is how the Brain Ticket's level-20 gate came to be advisory.
 production deployment; confirm the live commit and remote D1 schema per the rollout doc.
 
 **What the integration run does not cover.** `vitest.integration.config.ts` runs every
-`test/integration/**/*.spec.ts` except four excluded protocol-v2 specs — `api`, `inventory`,
-`raidLoot` and `raidRewards`. Those drive routes that now answer `410`; anything they uniquely
-proved about the live surface has to be re-established against v3 before it counts. The
-forged-finish coverage this section used to cite from `raidRewards.spec.ts` was in exactly that
-state and has now been ported to `raidGates.spec.ts` (the v2 spec asserted `bad_final_tick`; the
-v3 route spells the same property as `future_finish`). Reward-table and inventory-grant
-assertions from `raidLoot` / `inventory` have **not** been ported and remain dark at the route
-level, though the unit suites cover the same catalogs.
+`test/integration/**/*.spec.ts` with no exclusions. The four protocol-v2 specs that used to be
+excluded — `api`, `inventory`, `raidLoot` and `raidRewards` — were deleted with the v2 routes
+on 2026-09-03; what they uniquely proved about the live surface was ported first (`/logout` and
+`/session/logout-all` revocation to `sessions.spec.ts`, `/friends/block` to `v3.spec.ts`, and
+earlier the forged-finish gates to `raidGates.spec.ts`, where the v2 `bad_final_tick` property
+is spelled `future_finish`). Reward-table and inventory-grant assertions from `raidLoot` /
+`inventory` were **not** ported and remain dark at the route level, though the unit suites
+cover the same catalogs.
 
 ## Required release gates
 

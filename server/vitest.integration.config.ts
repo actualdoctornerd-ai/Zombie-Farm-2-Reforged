@@ -18,15 +18,9 @@ export default defineConfig({
     // with nothing recording it. A new spec must run the day it is written, so
     // opting OUT is now the thing that has to be spelled out.
     include: ["test/integration/**/*.spec.ts"],
-    exclude: [
-      // Retired: these drive protocol-v2 routes that now answer 410 (see `retiredV2`
-      // in src/index.ts). Kept only until their live-surface equivalents exist in
-      // v3.spec.ts — see the coverage note in test/integration/README.md.
-      "test/integration/api.spec.ts",
-      "test/integration/inventory.spec.ts",
-      "test/integration/raidLoot.spec.ts",
-      "test/integration/raidRewards.spec.ts",
-    ],
+    // No exclusions. The four protocol-v2 specs that used to sit here (api, inventory,
+    // raidLoot, raidRewards) were deleted with the v2 routes and their D1 tables; what
+    // they uniquely covered on the LIVE surface was ported first (see README.md).
     globalSetup: ["./test/integration/globalSetup.ts"],
     testTimeout: 20000,
     hookTimeout: 20000,

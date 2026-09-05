@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import placeables from "../../public/assets/placeables.json";
 import { objectEcon } from "../src/objectCatalog";
-import { planObjectBuy } from "../src/objects";
 
 describe("fruit-tree balance", () => {
   const tree = (key: string) => placeables.find((entry) => entry.key === key);
@@ -22,8 +21,6 @@ describe("fruit-tree balance", () => {
     for (const [key, xp] of Object.entries(expected)) {
       expect(tree(key), key).toMatchObject({ xp });
       expect(objectEcon(key), key).toMatchObject({ xp });
-      expect(planObjectBuy(objectEcon(key), { gold: 10_000, brains: 0, xp: 0 }, 0, 99), key)
-        .toMatchObject({ ok: true, xp });
     }
   });
 

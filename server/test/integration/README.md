@@ -30,23 +30,23 @@ dead: they cover live v3 routes and had gone dark alongside them, with nothing r
 the loss. Both `sessions` and `raidGates` needed real repairs when they were brought
 back — the game had moved under them while nothing was running them.
 
-## Still excluded, and what that costs
+## The retired v2 specs
 
-Four specs remain excluded because they are written against retired v2 routes. Each is
-listed with the **live** surface it would cover, so the gap is a decision rather than an
-accident. Porting one means swapping its v2 setup for `grantBalance` / `grantRoster` and
-its v2 mutations for `commandBody` + `POST /commands` (see `raidGates.spec.ts`, which is
-the worked example).
+The four specs that were still excluded after that (`api`, `inventory`, `raidLoot`,
+`raidRewards`) have been **deleted** along with the protocol-v2 routes they drove and the
+D1 tables those routes read (dropped in migration `0020_protocol_v3_reset.sql`). Before
+deleting, the assertions that were unique to the live surface were ported:
 
-| Spec | Live routes it would restore | Already covered elsewhere? |
+| Was in | Now in | What it proves |
 | --- | --- | --- |
-| `api.spec.ts` | `/friends/block`, `/logout`, `/session/logout-all` | Partly — `v3.spec.ts` covers friend add/accept/requests and the whole gift flow. **Block and logout-all are covered nowhere.** |
-| `raidLoot.spec.ts` | `/raid/checkpoint`, loot rolls on `/raid/finish` | No. `/raid/checkpoint` has **no integration coverage at all**. |
-| `raidRewards.spec.ts` | reward/XP math on `/raid/finish` | Partly — its **gate** assertions (a finish paced past real time, a body-asserted win paying nothing, a duplicate finish replaying the stored result) have been ported to `raidGates.spec.ts`. The **payout curve** is still asserted nowhere: `v3.spec.ts` settles raids without checking the numbers. |
-| `inventory.spec.ts` | boost consumption across `/raid/start` → `/raid/finish` | Partly — unit tests cover the catalog; nothing covers the round trip. |
+| `api.spec.ts` | `sessions.spec.ts` | `/logout` and `/session/logout-all` really revoke (a revoked token gets 401 on `/me`). |
+| `api.spec.ts` | `v3.spec.ts` | `/friends/block` tears the edge down both ways, refuses the blocked side's gift, and swallows its re-add. |
+| `raidRewards.spec.ts` | `raidGates.spec.ts` | the finish gates (paced past real time, body-asserted win paying nothing, duplicate finish replaying the stored result). |
 
-The highest-value port is `raidLoot.spec.ts`: `/raid/checkpoint` is a live, unverified
-route on the money path.
+Still asserted nowhere at the route level, as before: the raid **payout curve** and
+**boost consumption** across `/raid/start` → `/raid/finish` (`v3.spec.ts` settles raids
+without checking the numbers; the unit suites cover the catalogs). `/raid/checkpoint` is
+no longer a gap — it was a v2 route and now answers `410` like the rest.
 
 ## Conventions
 

@@ -2,17 +2,18 @@
 //
 // Identity: Google Sign-In verified once (auth.ts), then our own revocable session
 // (a sessions row + a signed access-token JWT carrying its id).
-// Ground truth: the save blob (rev-guarded via an atomic compare-and-swap), the
-// friend graph (consent-based: requests -> accept), and the once/day gift limit
-// (a UNIQUE index, not a read-then-insert). The blob is opaque to the server
-// except player.brains, which a gift claim credits through an idempotent grant.
+// Ground truth: the protocol-v3 gameplay projection (v3/db.ts — bootstrap, command
+// batches, presentation), the friend graph (consent-based: requests -> accept), and the
+// gift ledger (a UNIQUE index, not a read-then-insert). Nothing client-authored is
+// trusted for balances, roster, farm, or raid results.
 //
 // Hardening added in the Track-A security pass (see SECURITY.md):
-//   • runtime save validation + size limit at PUT /save (validate.ts);
 //   • per-account / per-IP rate limiting on sensitive routes;
 //   • consent friendships with accept / remove / block, non-oracle add, long codes;
 //   • atomic gift send + idempotent, grant-backed claim;
 //   • server-revocable sessions with logout / logout-all.
+// The protocol-v2 save blob and its sync/action routes were retired with migration
+// 0020 (tables dropped); their paths answer 410 (see `retiredV2`).
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
@@ -33,36 +34,16 @@ import {
 import {
   dayBucket,
   deviceLabel,
-  importEligible,
   normalizeFriendCode,
   validateUsername,
   friendActivity,
   leaderboardStatsFromJson,
   type GiftReward,
 } from "./logic";
-import { validateSave, MAX_SAVE_BYTES } from "./validate";
 import { attemptPurge, operationInProgress, unsettledMarketOrders } from "./accountDeletion";
-import type { EconomyEvent } from "./economy";
-import type { FarmAction } from "./farm";
-import { raidEcon, raidUnlocked } from "./raidCatalog";
-import type { StorageAction } from "./storage";
 import { levelForXp, XP_THRESHOLDS } from "./levels";
-import type { InventoryAction } from "./inventory";
-import type { ObjectAction } from "./objects";
-import type { RosterAction } from "./roster";
-import {
-  buildPinnedRaid,
-  verifyRaidSegment,
-  RAID_RULESET_VERSION,
-  type PinnedRaidConfig,
-  type RaidReplayInput,
-} from "./raidVerifier";
+import { RAID_RULESET_VERSION } from "./raidVerifier";
 import { MAX_FUNCTIONAL_OBJECTS } from "./v3/engine";
-import type { BattleSimSnapshot } from "../../src/raid/BattleSim";
-import plantCatalog from "../../public/assets/plants.json";
-import zombieCatalog from "../../public/assets/zombies.json";
-import boostCatalog from "../../public/assets/boosts.json";
-import objectCatalog from "../../public/assets/placeables.json";
 import { CLIENT_INTEGRITY_VERSION, COMMAND_BATCH_LIMIT, EPIC_BOSS_TOKEN_GRANT_LIMIT, FARM_BULK_LIMIT, GAMEPLAY_PROTOCOL, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
 import * as v3 from "./v3/db";
 import * as v3Raid from "./v3/raid";
@@ -85,127 +66,10 @@ const MAX_INBOX = 200; // unclaimed gifts we'll hold / return
 // The fixed starting state a NEW account (or any account when save-import is closed)
 // receives. A client can never declare its own starting balance — that was the
 // self-seed exploit. Mirrors the client's fresh-game values (GameState defaults) so a
-// legitimately new player starts identically; farm size / roster / boosts default to
-// the base (empty) via their own tables.
+// legitimately new player starts identically.
 // The tutorial spends the fresh player's one brain on Insta-Grow.
 // KEEP IN SYNC with GameState.brains and v3/engine.freshGameplayState.
 const STARTER_BALANCE = { gold: 400, brains: 1, xp: 0 } as const;
-const DEFAULT_FARM_SIZE = 30; // BASE_FARM_SIZE (shopCatalog)
-const DEFAULT_ARMY_SIZE = 16;
-
-function presentationOnlySave(save: SaveGame): SaveGame {
-  return {
-    version: save.version,
-    savedAt: save.savedAt,
-    player: {
-      name: save.player?.name ?? "Zombie Farmer",
-      gold: 0,
-      brains: 0,
-      xp: 0,
-      zombieMax: DEFAULT_ARMY_SIZE,
-      zombieCount: 0,
-      farmer: save.player?.farmer,
-    },
-    farm: {
-      fieldId: save.farm?.fieldId ?? "default",
-      w: save.farm?.w ?? DEFAULT_FARM_SIZE,
-      h: save.farm?.h ?? DEFAULT_FARM_SIZE,
-      climate: save.farm?.climate ?? "grass",
-      background: save.farm?.background,
-      plots: (save.farm?.plots ?? []).filter((p) => p.state === "dirt" || p.state === "hole").map((p) => ({
-        oc: p.oc,
-        or: p.or,
-        state: p.state,
-      })),
-    },
-    // Identity/key entries are retained only as layout hints. GET /state and visitor
-    // projection intersect them with authoritative ownership before returning them.
-    objects: save.objects ?? [],
-    ownedZombies: (save.ownedZombies ?? []).map((z) => ({
-      id: z.id,
-      key: z.key,
-      name: z.name,
-      pos: z.pos,
-      stored: z.stored,
-      color: z.color,
-    })),
-    raids: { completed: {}, attackOrder: save.raids?.attackOrder ?? [] },
-    tutorial: save.tutorial,
-  };
-}
-
-const catalogName = (rows: unknown, key: string): string => {
-  if (!Array.isArray(rows)) return "";
-  const row = rows.find((x) => x && typeof x === "object" && (x as { key?: unknown }).key === key) as
-    | { name?: unknown }
-    | undefined;
-  return typeof row?.name === "string" ? row.name : "";
-};
-
-const farmQuestEvents = (actions: FarmAction[], results: db.FarmResult[]): db.TrustedGameEvent[] => {
-  const byId = new Map(actions.map((a) => [a?.id, a]));
-  const out: db.TrustedGameEvent[] = [];
-  for (const result of results) {
-    if (result.status !== "applied") continue;
-    const a = byId.get(result.id);
-    if (!a) continue;
-    if (a.type === "plow") {
-      out.push(
-        { id: `farm:${a.id}:plow`, type: "kSoilPlowedNotification", subject: "Plow" },
-        { id: `farm:${a.id}:new-plow`, type: "kNewSoilPlowedNotification", subject: "Plow" }
-      );
-    } else if (a.type === "plant") {
-      const subject = catalogName(zombieCatalog, a.cropKey) || catalogName(plantCatalog, a.cropKey);
-      out.push({ id: `farm:${a.id}:plant`, type: "kCropPlantedNotification", subject });
-    } else if (a.type === "harvest") {
-      // The action does not carry the planted key. applyFarmActions returns the
-      // authoritative catalog subject for this exact reason.
-      if (result.subject) {
-        out.push({
-          id: `farm:${a.id}:harvest`,
-          type: result.zombie ? "kCropHarvestedZombieNotification" : "kCropHarvestedNotification",
-          subject: result.subject,
-        });
-      }
-    }
-  }
-  return out;
-};
-
-/** The save-import cutoff (epoch ms), or 0 when unset/invalid (imports closed). */
-function migrationCutoffMs(env: Bindings): number {
-  const n = Number(env.MIGRATION_CUTOFF_MS);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-/** Whether `accountId` may still import its pre-existing save into server-owned state:
- *  the account must have been created before the migration cutoff. When the cutoff is
- *  unset/0, or the account is newer than it, NO client-supplied seed is honored and the
- *  account gets fixed server defaults instead. This is what stops a fresh account from
- *  self-declaring 100M gold / a full roster (SECURITY.md own-account plan, item 2/5). */
-async function seedAllowed(env: Bindings, accountId: string): Promise<boolean> {
-  const cut = migrationCutoffMs(env);
-  if (!cut) return false; // fast path: imports closed → skip the account read
-  const acct = await db.accountById(env.DB, accountId);
-  return !!acct && importEligible(acct.created_at, cut);
-}
-
-/** The currency seed to use when a NON-sync path must lazily create the balances row
- *  (gift claim, grant reconcile). Uses the SAME cutoff rule as the sync endpoints: a
- *  migration-eligible account may seed from its declared save currency, everyone else
- *  gets fixed server defaults. Without this, a gift claim would create the balances row
- *  straight from the (editable) save blob, letting a fresh account self-seed an inflated
- *  balance past the cutoff — the gate the sync endpoints already close. */
-async function balanceSeed(
-  env: Bindings,
-  accountId: string,
-  player: { gold?: number; brains?: number; xp?: number } | null | undefined
-): Promise<{ gold: number; brains: number; xp: number }> {
-  if (await seedAllowed(env, accountId)) {
-    return { gold: player?.gold ?? 0, brains: player?.brains ?? 0, xp: player?.xp ?? 0 };
-  }
-  return { ...STARTER_BALANCE };
-}
 
 /** Severity for a security log line, so an alerting rule can filter cheaply on the
  *  `lvl` field. info = routine/operational; warn = a rejected/abnormal request worth
@@ -219,20 +83,6 @@ type SecLvl = "info" | "warn" | "alert";
 function slog(event: string, detail: Record<string, unknown> = {}, lvl: SecLvl = "warn"): void {
   // eslint-disable-next-line no-console
   console.log(JSON.stringify({ sec: event, lvl, ...detail }));
-}
-
-async function commandVolumeAllowed(env: Bindings, accountId: string, amount: number, now: number): Promise<boolean> {
-  if (amount <= 0) return true;
-  const hourStart = Math.floor(now / 3_600_000) * 3_600_000;
-  const dayStart = Math.floor(now / 86_400_000) * 86_400_000;
-  const hourly = await db.bumpCommandVolume(env.DB, accountId, "hour", hourStart, amount);
-  const daily = await db.bumpCommandVolume(env.DB, accountId, "day", dayStart, amount);
-  if (hourly >= 1_000 && hourly - amount < 1_000) {
-    slog("account_command_volume", { account: accountId, hourly, daily }, "warn");
-  }
-  const allowed = hourly <= 2_000 && daily <= 10_000;
-  if (!allowed) slog("account_command_rejected", { account: accountId, hourly, daily }, "alert");
-  return allowed;
 }
 
 // ---- CORS ---------------------------------------------------------------
@@ -413,8 +263,6 @@ const requireAuth: MiddlewareHandler<{ Bindings: Bindings; Variables: Vars }> = 
 
 app.use("/me", requireAuth);
 app.use("/username", requireAuth);
-app.use("/save", requireAuth);
-app.use("/state", requireAuth);
 app.use("/session/*", requireAuth);
 app.use("/account/*", requireAuth);
 app.use("/logout", requireAuth);
@@ -424,14 +272,6 @@ app.use("/gifts", requireAuth);
 app.use("/gifts/*", requireAuth);
 app.use("/raid/*", requireAuth);
 app.use("/epic-boss/*", requireAuth);
-app.use("/storage/*", requireAuth);
-app.use("/economy/*", requireAuth);
-app.use("/quest/*", requireAuth);
-app.use("/farm/*", requireAuth);
-app.use("/inventory/*", requireAuth);
-app.use("/object/*", requireAuth);
-app.use("/roster/*", requireAuth);
-app.use("/shop/*", requireAuth);
 app.use("/bootstrap", requireAuth);
 app.use("/commands", requireAuth);
 app.use("/presentation", requireAuth);
@@ -439,6 +279,22 @@ app.use("/writer/*", requireAuth);
 app.use("/black-market", requireAuth);
 app.use("/black-market/*", requireAuth);
 app.use("/leaderboard/*", requireAuth);
+
+// Protocol v2's save/sync/action surface is retired: migration 0020 dropped every table
+// its handlers read, and the handlers themselves are gone. The explicit 410 (behind
+// auth, like the routes were) keeps a stale client failing closed on "update required"
+// instead of silently diverging on a 404.
+const retiredV2 = [
+  "/save", "/state", "/economy/sync", "/economy/apply", "/quest/state", "/quest/complete",
+  "/farm/actions", "/farm/sync", "/inventory/sync", "/inventory/actions",
+  "/object/sync", "/object/actions", "/roster/sync", "/roster/actions",
+  "/shop/state", "/shop/size", "/shop/climate", "/storage/sync", "/storage/actions",
+  "/raid/state", "/raid/sync", "/raid/checkpoint",
+];
+for (const path of retiredV2) {
+  app.use(path, requireAuth, async (c) =>
+    c.json({ error: "update_required", protocolVersion: GAMEPLAY_PROTOCOL }, 410));
+}
 
 /** Every `/dev/*` route in one gate, registered BEFORE any of them so it runs first.
  *
@@ -635,27 +491,11 @@ app.post("/dev/fixture/gift-reward", requireAuth, async (c) => {
   return c.json({ ok: true, kind, amount });
 });
 
-app.use("*", async (c, next) => {
-  const enforceAt = Number(c.env.INTEGRITY_V2_ENFORCE_AFTER_MS);
-  const mutation = c.req.method !== "GET" && !c.req.path.startsWith("/session/") && c.req.path !== "/logout";
-  if (
-    mutation &&
-    Number.isFinite(enforceAt) &&
-    enforceAt > 0 &&
-    Date.now() >= enforceAt &&
-    !["2", "3", String(CLIENT_INTEGRITY_VERSION)].includes(c.req.header("X-Integrity-Version") ?? "")
-  ) {
-    return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 426);
-  }
-  await next();
-});
-
 // Per-account rate limits (run after requireAuth so they key on the account).
 // Writes → RL_WRITE tier; reads/polling → RL_READ tier (looser). Coverage now
 // includes authenticated READS and refresh, not just writes, so a valid bot can't
 // exhaust the free tier through "harmless" polling. Security invariants remain on
 // D1 constraints regardless of the throttle.
-app.use("/save", rateLimit("RL_WRITE", "save", 120, 60_000)); // GET + PUT
 app.use("/username", rateLimit("RL_WRITE", "username", 10, 60_000));
 // Deleting an account is a once-ever action; a tight limit costs a real player
 // nothing and stops a stolen token being used to hammer the purge path.
@@ -679,29 +519,9 @@ app.use("/raid/pvp/replay/*", rateLimit("RL_READ", "pvp_replay", 60, 60_000));
 app.use("/raid/pvp/defense", rateLimit("RL_WRITE", "pvp_defense", 60, 60_000));
 // Preview builds a full defense snapshot from D1 — read-only but not free.
 app.use("/raid/pvp/preview", rateLimit("RL_READ", "pvp_preview", 60, 60_000));
-app.use("/raid/checkpoint", rateLimit("RL_WRITE", "raid_checkpoint", 30, 60_000));
 app.use("/raid/finish", rateLimit("RL_WRITE", "raid_finish", 60, 60_000));
 app.use("/raid/revive", rateLimit("RL_WRITE", "raid_revive", 60, 60_000));
 app.use("/epic-boss/*", rateLimit("RL_WRITE", "epic_boss", 60, 60_000));
-app.use("/raid/state", rateLimit("RL_READ", "raid_state", 300, 60_000));
-app.use("/economy/apply", rateLimit("RL_WRITE", "economy_apply", 120, 60_000));
-app.use("/economy/sync", rateLimit("RL_READ", "economy_sync", 300, 60_000));
-app.use("/quest/complete", rateLimit("RL_WRITE", "quest_complete", 120, 60_000));
-app.use("/quest/state", rateLimit("RL_READ", "quest_state", 300, 60_000));
-app.use("/farm/actions", rateLimit("RL_WRITE", "farm_actions", 120, 60_000));
-app.use("/farm/sync", rateLimit("RL_READ", "farm_sync", 300, 60_000));
-app.use("/raid/sync", rateLimit("RL_READ", "raid_sync", 300, 60_000));
-app.use("/storage/sync", rateLimit("RL_READ", "storage_sync", 300, 60_000));
-app.use("/storage/actions", rateLimit("RL_WRITE", "storage_actions", 120, 60_000));
-app.use("/inventory/actions", rateLimit("RL_WRITE", "inventory_actions", 120, 60_000));
-app.use("/inventory/sync", rateLimit("RL_READ", "inventory_sync", 300, 60_000));
-app.use("/object/actions", rateLimit("RL_WRITE", "object_actions", 120, 60_000));
-app.use("/object/sync", rateLimit("RL_READ", "object_sync", 300, 60_000));
-app.use("/roster/actions", rateLimit("RL_WRITE", "roster_actions", 120, 60_000));
-app.use("/roster/sync", rateLimit("RL_READ", "roster_sync", 300, 60_000));
-app.use("/shop/size", rateLimit("RL_WRITE", "shop_size", 30, 60_000));
-app.use("/shop/climate", rateLimit("RL_WRITE", "shop_climate", 30, 60_000));
-app.use("/shop/state", rateLimit("RL_READ", "shop_state", 300, 60_000));
 app.use("/logout", rateLimit("RL_WRITE", "logout", 30, 60_000));
 app.use("/session/logout-all", rateLimit("RL_WRITE", "logout_all", 10, 60_000));
 app.use("/session/revoke", rateLimit("RL_WRITE", "session_revoke", 30, 60_000));
@@ -718,7 +538,6 @@ app.use("/black-market/*", (c, next) =>
 // Reads + refresh (RL_READ): /me, GET /save shares the /save write limiter above,
 // friend lists, a friend's farm, requests, inbox, token refresh.
 app.use("/me", rateLimit("RL_READ", "me", 300, 60_000));
-app.use("/state", rateLimit("RL_READ", "state", 300, 60_000));
 app.use("/friends", rateLimit("RL_READ", "friends_list", 300, 60_000));
 app.use("/friends/requests", rateLimit("RL_READ", "friends_reqs", 300, 60_000));
 app.use("/friends/:id/save", rateLimit("RL_READ", "friend_farm", 120, 60_000));
@@ -878,7 +697,7 @@ app.get("/writer/status", async (c) => c.json(await writer.projection(
 const WRITER_FENCE_EXEMPT = new Set(["/raid/pvp/abandon"]);
 
 const writerProtectedMutation = (method: string, path: string): boolean => {
-  if (method === "PUT" && (path === "/presentation" || path === "/save")) return true;
+  if (method === "PUT" && path === "/presentation") return true;
   if (method !== "POST") return false;
   if (WRITER_FENCE_EXEMPT.has(path)) return false;
   return path === "/commands" || path === "/gifts" ||
@@ -1636,20 +1455,6 @@ app.post("/epic-boss/finish", async (c) => {
   return c.json(result.body, 409);
 });
 
-// Protocol v2's mutation/read-sync surface is deliberately retired. Keeping the
-// explicit response makes stale clients fail closed instead of silently diverging.
-const retiredV2 = new Set([
-  "/save", "/state", "/economy/sync", "/economy/apply", "/quest/state", "/quest/complete",
-  "/farm/actions", "/farm/sync", "/inventory/sync", "/inventory/actions",
-  "/object/sync", "/object/actions", "/roster/sync", "/roster/actions",
-  "/shop/state", "/shop/size", "/shop/climate", "/storage/sync", "/storage/actions",
-  "/raid/state", "/raid/sync", "/raid/checkpoint", "/raid/start-v2-replay-disabled", "/raid/finish-v2-replay-disabled",
-]);
-app.use("*", async (c, next) => {
-  if (retiredV2.has(c.req.path)) return c.json({ error: "update_required", protocolVersion: GAMEPLAY_PROTOCOL }, 410);
-  await next();
-});
-
 // ---- GET /me ------------------------------------------------------------
 app.get("/me", async (c) => {
   const acct = await db.accountById(c.env.DB, c.get("accountId"));
@@ -1789,149 +1594,6 @@ app.post("/session/revoke", async (c) => {
   const ok = await db.revokeSessionForAccount(c.env.DB, sessionId, c.get("accountId"), Date.now());
   if (!ok) return c.json({ error: "not_found" }, 404);
   return c.json({ ok: true });
-});
-
-// ---- GET /save ----------------------------------------------------------
-app.get("/save", async (c) => {
-  const accountId = c.get("accountId");
-  const row = await db.getSave(c.env.DB, accountId);
-  const save = row ? (JSON.parse(row.blob) as SaveGame) : null;
-  // Credit any owed-but-deferred gift brains (crash-window recovery) into the
-  // server balance. `seed` lazily creates the balance row if it doesn't exist yet —
-  // gated by the migration cutoff (NOT trusted straight from the blob), so this path
-  // can't be used to self-seed an inflated balance. No-op when nothing is pending.
-  const seed = await balanceSeed(c.env, accountId, save?.player);
-  const applied = await db.reconcilePendingGrants(c.env.DB, accountId, Date.now(), seed);
-  if (applied) slog("grants_reconciled", { account: accountId, applied }, "info");
-  if (!save) return c.json({ save: null, rev: 0 });
-  return c.json({ save: (await seedAllowed(c.env, accountId)) ? save : presentationOnlySave(save), rev: row!.rev });
-});
-
-// ---- PUT /save: validated, atomic optimistic-concurrency write ----------
-app.put("/save", async (c) => {
-  // Size guard first — reject an oversized body before parsing/validating it.
-  const raw = await c.req.text();
-  if (raw.length > MAX_SAVE_BYTES) {
-    slog("save_too_large", { account: c.get("accountId"), bytes: raw.length });
-    return c.json({ error: "save_too_large" }, 413);
-  }
-  let parsed: { save: unknown; baseRev: unknown };
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return c.json({ error: "bad_request" }, 400);
-  }
-  const { save, baseRev } = parsed;
-  if (save == null || typeof baseRev !== "number" || !Number.isInteger(baseRev) || baseRev < 0) {
-    return c.json({ error: "bad_request" }, 400);
-  }
-  // Structural + bounds validation. A malformed/oversized/insane save is rejected
-  // here, which also protects visitors (they only ever render a *stored* save).
-  const v = validateSave(save);
-  if (!v.ok) {
-    slog("save_invalid", { account: c.get("accountId"), reason: v.error });
-    return c.json({ error: "invalid_save", reason: v.error }, 422);
-  }
-
-  const accountId = c.get("accountId");
-  const now = Date.now();
-  const stored = (await seedAllowed(c.env, accountId)) ? (save as SaveGame) : presentationOnlySave(save as SaveGame);
-  const newRev = await db.casWriteSave(c.env.DB, accountId, JSON.stringify(stored), baseRev, now);
-  if (newRev === null) {
-    // Rev mismatch (another device wrote in between): hand back the server copy.
-    const cur = await db.getSave(c.env.DB, accountId);
-    slog("save_conflict", { account: accountId }, "info"); // normal optimistic-concurrency loser
-    return c.json(
-      { error: "conflict", rev: cur?.rev ?? 0, save: cur ? JSON.parse(cur.blob) : null },
-      409
-    );
-  }
-  return c.json({ rev: newRev });
-});
-
-// ---- GET /state: all persistent online value in one projection ----------
-app.get("/state", async (c) => {
-  const accountId = c.get("accountId");
-  const now = Date.now();
-  const row = await db.getSave(c.env.DB, accountId);
-  const layout = row ? presentationOnlySave(JSON.parse(row.blob) as SaveGame) : null;
-  const balance = await db.getOrSeedBalance(c.env.DB, accountId, await balanceSeed(c.env, accountId, null));
-  balance.brains += await db.creditLevelUps(c.env.DB, accountId, now);
-  const inventory = await db.readInventory(c.env.DB, accountId);
-  const objectCounts = await db.readObjects(c.env.DB, accountId);
-  const rosterRows = await db.readRosterState(c.env.DB, accountId);
-  const rosterLayout = new Map((layout?.ownedZombies ?? []).map((z) => [z.id, z]));
-  const roster = rosterRows.map((r) => {
-    const hint = rosterLayout.get(r.id);
-    return {
-      id: r.id,
-      key: r.key,
-      mutation: r.mutation,
-      invasions: r.invasions,
-      pos: hint?.pos,
-      stored: hint?.stored,
-      color: hint?.color,
-    };
-  });
-  const remaining = { ...objectCounts };
-  const objects = (layout?.objects ?? []).filter((o) => {
-    const n = remaining[o.key] ?? 0;
-    if (n <= 0) return false;
-    remaining[o.key] = n - 1;
-    return true;
-  });
-  const zombieMax = DEFAULT_ARMY_SIZE + objects.reduce((sum, object) => {
-    const def = objectCatalog.find((candidate) => candidate.key === object.key);
-    return sum + Math.max(0, def?.armyMax ?? 0);
-  }, 0);
-  const farm = await db.readFarmPlots(c.env.DB, accountId);
-  const authoritativePlotKeys = new Set([
-    ...farm.plowed.map((p) => `${p.oc}:${p.pr}`),
-    ...farm.crops.map((p) => `${p.oc}:${p.pr}`),
-  ]);
-  const presentationPlots = (layout?.farm.plots ?? []).filter(
-    (p) => (p.state === "dirt" || p.state === "hole") && !authoritativePlotKeys.has(`${p.oc}:${p.or}`)
-  );
-  const plots: SaveGame["farm"]["plots"] = [
-    ...presentationPlots,
-    ...farm.plowed.map((p) => ({ oc: p.oc, or: p.pr, state: "plowed" as const })),
-    ...farm.crops.map((p) => ({
-      oc: p.oc,
-      or: p.pr,
-      state: "planted" as const,
-      crop: {
-        key: p.crop_key,
-        isZombie: !!catalogName(zombieCatalog, p.crop_key),
-        plantedAt: p.planted_at,
-        growMs: p.grow_ms,
-        fertilized: !!p.fertilized,
-      },
-    })),
-  ];
-  const storage = await db.readStorage(c.env.DB, accountId);
-  const shop = await db.readShopState(c.env.DB, accountId);
-  const raids = await db.readRaidProgress(c.env.DB, accountId);
-  const lastRaidAt = await db.raidLastAt(c.env.DB, accountId);
-  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
-  const quests = await db.readQuestState(c.env.DB, accountId);
-  const currentBalance = questChanges.some((change) => change.completed)
-    ? await db.getOrSeedBalance(c.env.DB, accountId, balance)
-    : balance;
-  return c.json({
-    integrityVersion: 2,
-    balance: currentBalance,
-    level: levelForXp(currentBalance.xp),
-    zombieMax,
-    inventory,
-    objectCounts,
-    objects,
-    roster,
-    farm: { size: shop.size, plots },
-    shop,
-    storage,
-    raids: { progress: raids, lastRaidAt },
-    quests: { ...quests, questChanges },
-  });
 });
 
 // ---- GET /friends -------------------------------------------------------
@@ -2280,760 +1942,6 @@ app.post("/gifts/claim", async (c) => {
   }
 
   return respond(false, true, claim.reward);
-});
-
-// ---- raids: server-owned cooldown + one-use sessions --------------------
-// The between-raids cooldown is decided HERE, not by the client-authored save, so
-// editing the save can't reset it. Whether the player WON is still client-adjudicated
-// (real authority needs deterministic replay — a later phase); the session opened here
-// is the seam that replay will hang on. What the server DOES own: which raids you may
-// invade (level), that only one raid is open at a time, that a session can't be settled
-// after it expires, and the reward number itself.
-//
-// NOTE on the cooldown: skipping it with an Invasion Voucher is a REAL game mechanic
-// (earn gold -> buy a ticket -> raid again), so the cooldown is deliberately NOT a hard
-// rate limit and must never be turned into one. It bounds nothing on its own; the reward
-// ceiling + the unlock gate are what bound a raid's value.
-const RAID_COOLDOWN_DEFAULT_MS = 2 * 60 * 60 * 1000; // 2h
-const RAID_SESSION_TTL_DEFAULT_MS = 30 * 60 * 1000; // a raid must be settled within 30 min
-function raidCooldownMs(env: Bindings): number {
-  const n = Number(env.RAID_COOLDOWN_MS);
-  return Number.isFinite(n) && n >= 0 ? n : RAID_COOLDOWN_DEFAULT_MS;
-}
-/** How long a session stays settleable. Env-overridable so tests can observe an expiry;
- *  a non-positive/garbage value falls back to the default rather than disabling the TTL. */
-function raidSessionTtlMs(env: Bindings): number {
-  const n = Number(env.RAID_SESSION_TTL_MS);
-  return Number.isFinite(n) && n > 0 ? n : RAID_SESSION_TTL_DEFAULT_MS;
-}
-
-// GET /raid/state — the client syncs its cooldown display AND its raid progress (lifetime
-// wins per raid, which drive ability unlocks) from this authoritative state, on load and
-// after a raid.
-app.get("/raid/state", async (c) => {
-  const me = c.get("accountId");
-  const lastRaidAt = await db.raidLastAt(c.env.DB, me);
-  const cooldownMs = raidCooldownMs(c.env);
-  const remaining = Math.max(0, cooldownMs - (Date.now() - lastRaidAt));
-  const progress = await db.readRaidProgress(c.env.DB, me);
-  return c.json({ lastRaidAt, cooldownMs, cooldownRemaining: remaining, progress });
-});
-
-// POST /raid/sync — one-time import of a migrating save's lifetime raid wins. Without it
-// the server would treat a veteran account as having cleared nothing and re-grant every
-// first-clear XP award. Cutoff-gated, then guarded by raid_state.progress_seeded; a
-// post-cutoff account imports nothing and just reads its authoritative progress.
-app.post("/raid/sync", async (c) => {
-  const body = await c.req.json<{ completed?: unknown }>().catch(() => ({ completed: {} }));
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const progress = await db.seedRaidProgress(
-    c.env.DB,
-    c.get("accountId"),
-    allow ? body.completed : {},
-    Date.now()
-  );
-  return c.json({ progress });
-});
-
-// POST /raid/start — gate on the raid's UNLOCK LEVEL and the server cooldown, reserve
-// the account's single open raid, then open a one-use session that PINS the raid being
-// fought (raidId) so /raid/finish can price the reward from the server catalog.
-// `bypassed` tells the client whether a cooldown was actually skipped (the voucher is
-// consumed server-side).
-app.post("/raid/start-v2-replay-disabled", async (c) => {
-  const body: {
-    raidId?: number;
-    orderedUnitIds?: unknown;
-    useVoucher?: boolean;
-    bypass?: boolean;
-    concentration?: boolean;
-    dice?: number;
-    rulesetVersion?: number;
-  } = await c.req
-    .json<{
-      raidId?: number;
-      orderedUnitIds?: unknown;
-      useVoucher?: boolean;
-      bypass?: boolean;
-      concentration?: boolean;
-      dice?: number;
-      rulesetVersion?: number;
-    }>()
-    .catch(() => ({}));
-  if (body.rulesetVersion !== RAID_RULESET_VERSION) {
-    return c.json({ ok: false, error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION }, 426);
-  }
-  const raidId = body.raidId;
-  const econ = typeof raidId === "number" ? raidEcon(raidId as number) : undefined;
-  if (!econ) return c.json({ ok: false, error: "bad_raid" }, 400);
-  const accountId = c.get("accountId");
-  const now = Date.now();
-  const balance = await db.getOrSeedBalance(c.env.DB, accountId, await balanceSeed(c.env, accountId, null));
-  const level = levelForXp(balance.xp);
-  if (!raidUnlocked(econ!, level)) {
-    return c.json({ ok: false, error: "locked", unlockLevel: econ!.unlockLevel, level }, 403);
-  }
-  const cooldownMs = raidCooldownMs(c.env);
-  const lastRaidAt = await db.raidLastAt(c.env.DB, accountId);
-  const remaining = Math.max(0, cooldownMs - (now - lastRaidAt));
-  const onCooldown = remaining > 0;
-  if (onCooldown && !(body.useVoucher ?? body.bypass)) {
-    return c.json({ ok: false, cooldownRemaining: remaining });
-  }
-  // Minted first: it seeds the wave's own randomness (the Robots' random boss), and the
-  // client redraws the same wave from the session id returned below.
-  const sessionId = crypto.randomUUID();
-  const pinned = await buildPinnedRaid(
-    c.env.DB, accountId, raidId!, body.orderedUnitIds, !!body.concentration, sessionId);
-  if (!pinned.ok) return c.json({ ok: false, error: pinned.error }, 422);
-  const dice = Number.isInteger(body.dice) ? Math.max(0, body.dice as number) : 0;
-  const opened = await db.openVerifiedRaidSession(c.env.DB, {
-    id: sessionId,
-    accountId,
-    raidId: raidId!,
-    rosterIds: pinned.config.rosterIds,
-    configJson: JSON.stringify(pinned.config),
-    rulesetVersion: RAID_RULESET_VERSION,
-    rngSeed: crypto.randomUUID(),
-    useVoucher: onCooldown,
-    concentration: !!body.concentration,
-    dice,
-    startedAt: now,
-    expiresAt: now + raidSessionTtlMs(c.env),
-  });
-  if (!opened) {
-    return c.json({ ok: false, error: onCooldown ? "no_consumable_or_raid_in_progress" : "raid_in_progress" }, 409);
-  }
-  return c.json({
-    ok: true,
-    sessionId,
-    bypassed: onCooldown,
-    concentration: !!body.concentration,
-    dice,
-    rulesetVersion: RAID_RULESET_VERSION,
-  });
-});
-
-// The benchmark-selected verifier mode: at most 15 seconds of fixed-tick combat is
-// replayed per request, then a JSON-safe pure-sim snapshot is CAS-persisted.
-app.post("/raid/checkpoint", async (c) => {
-  const raw = await c.req.text();
-  if (raw.length > 32 * 1024) return c.json({ error: "transcript_too_large" }, 413);
-  let body: { sessionId?: string; finalTick?: number; inputs?: RaidReplayInput[] };
-  try { body = JSON.parse(raw) as typeof body; } catch { return c.json({ error: "bad_request" }, 400); }
-  const accountId = c.get("accountId");
-  if (typeof body.sessionId !== "string") return c.json({ error: "bad_request" }, 400);
-  const session = await db.verifiedRaidSession(c.env.DB, body.sessionId, accountId);
-  if (!session || session.finished_at != null || session.expires_at <= Date.now()) return c.json({ error: "expired_or_closed" }, 409);
-  if (session.ruleset_version !== RAID_RULESET_VERSION) return c.json({ error: "stale_ruleset" }, 409);
-  const prior = await db.readRaidCheckpoint(c.env.DB, body.sessionId, accountId);
-  const startTick = prior?.last_tick ?? 0;
-  const finalTick = body.finalTick as number;
-  const inputBytes = JSON.stringify(body.inputs ?? []).length;
-  const cumulativeInputBytes = (prior?.input_bytes ?? 0) + inputBytes;
-  if (cumulativeInputBytes > 32 * 1024) return c.json({ error: "transcript_too_large" }, 413);
-  if (!Number.isInteger(finalTick) || finalTick <= startTick || finalTick - startTick > 300) {
-    return c.json({ error: "bad_checkpoint_tick" }, 422);
-  }
-  // A small latency allowance permits the request to arrive just ahead of wall time,
-  // while preventing a bot from precomputing/banking an entire raid instantly.
-  const pacedTick = Math.floor((Date.now() - session.started_at) / 50) + 40;
-  if (finalTick > pacedTick) return c.json({ error: "future_checkpoint" }, 422);
-  let config: PinnedRaidConfig;
-  let snapshot: BattleSimSnapshot | null = null;
-  try {
-    config = JSON.parse(session.config_json) as PinnedRaidConfig;
-    snapshot = prior ? JSON.parse(prior.state_json) as BattleSimSnapshot : null;
-  } catch { return c.json({ error: "bad_session_config" }, 500); }
-  const cpuStart = performance.now();
-  const verified = verifyRaidSegment(config, snapshot, startTick, finalTick, prior?.last_seq ?? 0, body.inputs ?? [], false);
-  const replayCpuMs = performance.now() - cpuStart;
-  slog("raid_replay", { account: accountId, sessionId: body.sessionId, checkpoint: true, replayCpuMs, transcriptSize: raw.length }, "info");
-  if (!verified.ok) {
-    slog("invalid_raid_input", { account: accountId, sessionId: body.sessionId, error: verified.error }, "alert");
-    await db.closeInvalidRaidSession(c.env.DB, body.sessionId, accountId, verified.error, Date.now());
-    return c.json({ error: verified.error }, 422);
-  }
-  const stored = await db.storeRaidCheckpoint(
-    c.env.DB, body.sessionId, accountId, startTick, finalTick, verified.lastSeq,
-    cumulativeInputBytes, JSON.stringify(verified.snapshot), Date.now()
-  );
-  if (!stored) return c.json({ error: "checkpoint_conflict" }, 409);
-  return c.json({ ok: true, finalTick, lastSeq: verified.lastSeq, finished: verified.finished, replayCpuMs });
-});
-
-app.post("/raid/start-legacy-disabled", async (c) => {
-  return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 410);
-  /* c8 ignore start -- retained temporarily only to make historical diff reviewable */
-  const { bypass, raidId, dice } = await c.req
-    .json<{ bypass?: boolean; raidId?: number; dice?: number }>()
-    .catch(() => ({ bypass: false, raidId: undefined, dice: 0 }));
-  // Pin a KNOWN raid so finish can price it; reject an unknown id up front.
-  const econ = typeof raidId === "number" ? raidEcon(raidId as number) : undefined;
-  if (!econ) return c.json({ ok: false, error: "bad_raid" }, 400);
-  const me = c.get("accountId");
-  const now = Date.now();
-  // Unlock gate from SERVER-owned xp. Without this any account could invade the richest
-  // raid at level 1 and — since a fabricated win still pays first-clear XP, and XP buys
-  // level-up brains — turn a forged win into premium currency.
-  const bal = await db.getOrSeedBalance(c.env.DB, me, await balanceSeed(c.env, me, null));
-  const level = levelForXp(bal.xp);
-  if (!raidUnlocked(econ!, level)) {
-    return c.json({ ok: false, error: "locked", unlockLevel: econ!.unlockLevel, level }, 403);
-  }
-  const cooldownMs = raidCooldownMs(c.env);
-  const lastRaidAt = await db.raidLastAt(c.env.DB, me);
-  const remaining = Math.max(0, cooldownMs - (now - lastRaidAt));
-  const onCooldown = remaining > 0;
-  // On cooldown: only a voucher gets through, and it's consumed SERVER-SIDE (the count
-  // is server-owned now), so a modified client can't bypass for free. No voucher held
-  // → treated as still on cooldown. Buying a voucher to raid again is intended play.
-  let bypassed = false;
-  if (onCooldown) {
-    if (!bypass) return c.json({ ok: false, cooldownRemaining: remaining });
-    const consumed = await db.consumeVoucher(c.env.DB, me);
-    if (!consumed) return c.json({ ok: false, cooldownRemaining: remaining, error: "no_voucher" });
-    bypassed = true;
-  }
-  // One open raid per account, reserved ATOMICALLY. The cooldown only starts at finish,
-  // so without this a client could bank many session ids in the pre-first-finish window
-  // and settle them later for repeated rewards. A voucher was already consumed above if
-  // we bypassed, so refund it rather than swallow it when the reserve loses.
-  const sessionId = crypto.randomUUID();
-  const opened = await db.openRaidSessionOnce(c.env.DB, sessionId, me, raidId as number, now, now + raidSessionTtlMs(c.env));
-  if (!opened) {
-    if (bypassed) await db.refundVoucher(c.env.DB, me);
-    return c.json({ ok: false, error: "raid_in_progress" }, 409);
-  }
-  // Golden Dice (loot luck) are consumed HERE and pinned to the session, so the server's
-  // loot roll at finish uses the real number rather than a client claim. Done after the
-  // reserve so a lost race doesn't eat the dice. Spending fewer than asked is fine — the
-  // session records what was actually spent.
-  const spent = await db.consumeDice(c.env.DB, me, Number(dice) || 0);
-  if (spent > 0) await db.setSessionDice(c.env.DB, sessionId, spent);
-  return c.json({ ok: true, sessionId, bypassed, dice: spent });
-});
-
-// POST /raid/finish — consume the session once, start the cooldown, and credit the
-// SERVER-COMPUTED reward for the session's pinned raid (base win gold + first-clear
-// XP + the server-rolled loot). Idempotent: a retry credits nothing and echoes the
-// current balance/cooldown. An EXPIRED session is refused (`expired: true`) — a raid must
-// be settled within its TTL. `win`/`survivalFrac` are client-asserted (deferred: input
-// replay), but the server owns the reward number, so a fabricated win can't exceed that
-// raid's real payout.
-app.post("/raid/finish-v2-replay-disabled", async (c) => {
-  const raw = await c.req.text();
-  if (raw.length > 32 * 1024) return c.json({ error: "transcript_too_large" }, 413);
-  let body: { sessionId?: string; finalTick?: number; inputs?: RaidReplayInput[] };
-  try {
-    body = JSON.parse(raw) as typeof body;
-  } catch {
-    return c.json({ error: "bad_request" }, 400);
-  }
-  const accountId = c.get("accountId");
-  const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
-  if (!sessionId) return c.json({ error: "bad_request" }, 400);
-  const session = await db.verifiedRaidSession(c.env.DB, sessionId, accountId);
-  if (!session) return c.json({ error: "unknown_session" }, 404);
-  if (session.result_json) return c.json(JSON.parse(session.result_json));
-  const now = Date.now();
-  if (session.finished_at != null || session.expires_at <= now) {
-    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "expired_or_closed", now);
-    return c.json({ error: "expired_or_closed", expired: session.expires_at <= now }, 409);
-  }
-  if (session.ruleset_version !== RAID_RULESET_VERSION) {
-    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "stale_ruleset", now);
-    return c.json({ error: "stale_ruleset" }, 409);
-  }
-  let config: PinnedRaidConfig;
-  try {
-    config = JSON.parse(session.config_json) as PinnedRaidConfig;
-  } catch {
-    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "bad_session_config", now);
-    return c.json({ error: "bad_session_config" }, 500);
-  }
-  const checkpoint = await db.readRaidCheckpoint(c.env.DB, sessionId, accountId);
-  if ((checkpoint?.input_bytes ?? 0) + JSON.stringify(body.inputs ?? []).length > 32 * 1024) {
-    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "transcript_too_large", now);
-    return c.json({ error: "transcript_too_large" }, 413);
-  }
-  let checkpointSnapshot: BattleSimSnapshot | null = null;
-  try { checkpointSnapshot = checkpoint ? JSON.parse(checkpoint.state_json) as BattleSimSnapshot : null; }
-  catch { return c.json({ error: "bad_checkpoint" }, 500); }
-  const cpuStart = performance.now();
-  const verified = verifyRaidSegment(
-    config,
-    checkpointSnapshot,
-    checkpoint?.last_tick ?? 0,
-    body.finalTick as number,
-    checkpoint?.last_seq ?? 0,
-    body.inputs as RaidReplayInput[],
-    true
-  );
-  const replayCpuMs = performance.now() - cpuStart;
-  const transcriptSize = raw.length;
-  slog("raid_replay", { account: accountId, sessionId, replayCpuMs, transcriptSize }, "info");
-  if (!verified.ok) {
-    slog("invalid_raid_input", { account: accountId, sessionId, error: verified.error, replayCpuMs, transcriptSize }, "alert");
-    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, verified.error, now);
-    return c.json({ error: verified.error }, 422);
-  }
-  if (!verified.finished || !verified.outcome) {
-    await db.closeInvalidRaidSession(c.env.DB, sessionId, accountId, "truncated_transcript", now);
-    return c.json({ error: "truncated_transcript" }, 422);
-  }
-  const survivalFrac = config.rosterIds.length
-    ? verified.outcome.survivors.length / config.rosterIds.length
-    : 0;
-  const settled = await db.settleRaid(
-    c.env.DB,
-    sessionId,
-    accountId,
-    verified.outcome.win,
-    survivalFrac,
-    now
-  );
-  const brains = verified.outcome.win
-    ? await db.grantVerifiedRaidBrains(
-        c.env.DB,
-        accountId,
-        sessionId,
-        raidEcon(config.raidId)?.recLevel ?? 0,
-        session.rng_seed,
-        now
-      )
-    : 0;
-  if (brains > 0) {
-    settled.balance = await db.getOrSeedBalance(c.env.DB, accountId, settled.balance);
-  }
-  const questEvents: db.TrustedGameEvent[] = [];
-  if (verified.outcome.win) {
-    questEvents.push({
-      id: `raid:${sessionId}:success`,
-      type: "kInvasionSuccessfulNotification",
-      subject: config.raidName,
-    });
-    if (verified.outcome.losses.length === 0) {
-      questEvents.push({
-        id: `raid:${sessionId}:perfect`,
-        type: "kInvasionPerfectGameNotification",
-        subject: config.raidName,
-      });
-    }
-    if (settled.loot?.name) {
-      questEvents.push({
-        id: `raid:${sessionId}:loot`,
-        type: "kLootItemWonNotification",
-        subject: settled.loot.name,
-      });
-    }
-  }
-  await db.recordTrustedGameEvents(c.env.DB, accountId, questEvents, now);
-  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
-  const result = {
-    ...settled,
-    brains,
-    outcome: verified.outcome,
-    replayCpuMs,
-    questChanges,
-    rulesetVersion: RAID_RULESET_VERSION,
-  };
-  await db.commitVerifiedRaidRoster(
-    c.env.DB,
-    sessionId,
-    accountId,
-    verified.outcome.survivors,
-    verified.outcome.losses,
-    JSON.stringify(result)
-  );
-  return c.json(result);
-});
-
-app.post("/raid/finish-legacy-disabled", async (c) => {
-  return c.json({ error: "client_upgrade_required", integrityVersion: 2 }, 410);
-  /* c8 ignore start -- retained temporarily only to make historical diff reviewable */
-  const { sessionId, win, survivalFrac } = await c.req
-    .json<{ sessionId: string; win?: boolean; survivalFrac?: number }>()
-    .catch(() => ({ sessionId: "", win: false, survivalFrac: 0 }));
-  const me = c.get("accountId");
-  if (!sessionId) return c.json({ error: "bad_request" }, 400);
-  const r = await db.settleRaid(
-    c.env.DB,
-    sessionId,
-    me,
-    !!win,
-    typeof survivalFrac === "number" ? (survivalFrac as number) : 0,
-    Date.now()
-  );
-  return c.json({
-    lastRaidAt: r.lastRaidAt,
-    balance: r.balance,
-    gold: r.gold,
-    xp: r.xp,
-    firstClear: r.firstClear,
-    expired: !!r.expired,
-    loot: r.loot ?? null,
-  });
-});
-
-// ---- item storage: the Received bucket + the shed ------------------------
-// POST /storage/sync — one-time import of a migrating save's Received + shed items.
-// Cutoff-gated, then guarded by farm_state.storage_seeded. Raid loot lands in `received`
-// server-side now, and the loot roll reads these to answer "do you already own one?".
-app.post("/storage/sync", async (c) => {
-  const body = await c.req
-    .json<{ received?: unknown; stored?: unknown }>()
-    .catch(() => ({ received: [], stored: [] }));
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const storage = await db.seedStorage(
-    c.env.DB,
-    c.get("accountId"),
-    allow ? body.received : [],
-    allow ? body.stored : []
-  );
-  return c.json(storage);
-});
-
-// POST /storage/actions — MOVES, never grants: claim a Received item into the boost or
-// placeable it represents, or pack an owned object into the shed / take it back out.
-// Every action spends something the server already recorded you owning.
-app.post("/storage/actions", async (c) => {
-  const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
-  const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 256) return c.json({ error: "too_many_actions" }, 413);
-  const r = await db.applyStorageActions(c.env.DB, c.get("accountId"), raw as StorageAction[], Date.now());
-  const rejected = r.results.filter((x) => x.status === "rejected").length;
-  if (rejected) slog("storage_rejected", { account: c.get("accountId"), rejected });
-  return c.json(r);
-});
-
-// ---- economy: server-authoritative balances (gold/brains/xp) ------------
-// The server owns the balance via an idempotent ledger. GET seeds it once from the
-// player's save so migration keeps their progress; thereafter the balance is
-// authoritative and the client reconciles to it. Earn amounts are still
-// client-computed but bounded (economy.ts) — exact per-action economics need the
-// server to own farm/roster state (a later layer).
-// POST /economy/sync — read the authoritative balance, seeding it (once) from the
-// client's current currency if no balance row exists yet. The client always sends
-// its local gold/brains/xp; the server uses them ONLY on first seed (clampSeed
-// bounds abuse) and ignores them afterward, so this doubles as a plain refresh.
-// Seeding from the client (not the save) correctly handles a brand-new account
-// whose starting currency isn't on the server yet.
-app.post("/economy/sync", async (c) => {
-  const body = await c.req
-    .json<{ seed?: { gold?: number; brains?: number; xp?: number } }>()
-    .catch(() => ({ seed: undefined }));
-  // Only a migration-eligible account may seed from its declared currency; everyone
-  // else (new accounts, post-window) gets fixed starter defaults. getOrSeedBalance
-  // is INSERT-OR-IGNORE, so an already-seeded balance is preserved either way.
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const s = body.seed ?? {};
-  const seed = allow
-    ? { gold: s.gold ?? 0, brains: s.brains ?? 0, xp: s.xp ?? 0 }
-    : { ...STARTER_BALANCE };
-  const balance = await db.getOrSeedBalance(c.env.DB, c.get("accountId"), seed);
-  // Catch up any owed level-up brains (and initialize the sentinel for legacy rows) —
-  // level is derived from server xp, so this is authoritative and needs no client input.
-  balance.brains += await db.creditLevelUps(c.env.DB, c.get("accountId"), Date.now());
-  return c.json(balance);
-});
-
-app.post("/economy/apply", async (c) => {
-  const body = await c.req
-    .json<{ events?: unknown }>()
-    .catch(() => ({ events: [] }));
-  const raw = Array.isArray(body.events) ? body.events : [];
-  if (raw.length > 32) return c.json({ error: "too_many_events" }, 413);
-  if (!(await commandVolumeAllowed(c.env, c.get("accountId"), raw.length, Date.now()))) {
-    return c.json({ error: "command_volume_exceeded" }, 429);
-  }
-  // Coerce to the event shape; economy.validateEvent rejects anything malformed.
-  const events = raw as EconomyEvent[];
-  const { balance, results } = await db.applyEvents(c.env.DB, c.get("accountId"), events);
-  const rejected = results.filter((r) => r.status === "rejected").length;
-  if (rejected) slog("economy_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, results });
-});
-
-// ---- quests: server-authoritative, bounded-once rewards -----------------
-// A completed quest grants its reward from the SERVER catalog (never a client amount),
-// at most once per (account, quest). Currency rewards hit the balance (and trigger any
-// owed level-up); item/zombie rewards are recorded but deferred to Phase D. The client
-// still decides WHEN a quest completes (requirement proof is deferred), so the reward is
-// bounded-once, not yet proven-earned — a claimed quest yields at most its real payout.
-app.get("/quest/state", async (c) => {
-  const accountId = c.get("accountId");
-  const now = Date.now();
-  if (await seedAllowed(c.env, accountId)) {
-    const row = await db.getSave(c.env.DB, accountId);
-    const save = row ? (JSON.parse(row.blob) as SaveGame) : null;
-    await db.seedLegacyQuestCompletions(c.env.DB, accountId, save?.quests?.completed ?? [], now);
-  } else {
-    await db.seedLegacyQuestCompletions(c.env.DB, accountId, [], now);
-  }
-  return c.json({ ...(await db.readQuestState(c.env.DB, accountId)), questChanges: [] });
-});
-
-app.post("/quest/complete", async (c) => {
-  const { questId } = await c.req
-    .json<{ questId: string }>()
-    .catch(() => ({ questId: "" }));
-  if (typeof questId !== "string" || !questId || questId.length > 32) {
-    return c.json({ error: "bad_request" }, 400);
-  }
-  const result = await db.completeQuest(c.env.DB, c.get("accountId"), questId, Date.now());
-  if (result.status === "rejected") {
-    slog("quest_rejected", { account: c.get("accountId"), questId, error: result.error });
-  }
-  return c.json(result);
-});
-
-// ---- farm: exact per-action economics -----------------------------------
-// Plant/harvest with SERVER-computed economics and server-time grow gating. Unlike
-// /economy/apply (which bounds-validates a client-claimed delta), the server here
-// computes the seed cost, harvest value, and xp from its own catalog + crop plot
-// records — so crop gold can't be fabricated and crops can't be fast-harvested by
-// editing the client clock. Returns the new balance so the client reconciles.
-app.post("/farm/actions", async (c) => {
-  const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
-  const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 64) return c.json({ error: "too_many_actions" }, 413);
-  const actions = raw as FarmAction[];
-  const now = Date.now();
-  const accountId = c.get("accountId");
-  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
-    return c.json({ error: "command_volume_exceeded" }, 429);
-  }
-  const { balance, results } = await db.applyFarmActions(c.env.DB, accountId, actions, now);
-  const farm = await db.readFarmPlots(c.env.DB, accountId);
-  await db.recordTrustedGameEvents(c.env.DB, accountId, farmQuestEvents(actions, results), now);
-  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
-  const rejected = results.filter((r) => r.status === "rejected").length;
-  if (rejected) slog("farm_rejected", { account: c.get("accountId"), rejected });
-  const authoritativeBalance = questChanges.some((change) => change.completed)
-    ? await db.getOrSeedBalance(c.env.DB, accountId, balance)
-    : balance;
-  return c.json({ balance: authoritativeBalance, results, farm, questChanges });
-});
-
-// ---- POST /farm/sync: one-time import of already-plowed soil -------------
-// A migrating player's tilled-but-unplanted soil exists only in their save. Import it
-// once (cutoff-gated, then guarded by farm_state.soil_seeded) so plants there aren't
-// rejected as `not_plowed` on soil their client won't let them re-till. A post-cutoff
-// account imports nothing and simply reads its authoritative set.
-app.post("/farm/sync", async (c) => {
-  const body = await c.req.json<{ plowed?: unknown }>().catch(() => ({ plowed: [] }));
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const plowed = await db.seedPlowedSoil(
-    c.env.DB,
-    c.get("accountId"),
-    allow ? body.plowed : [],
-    Date.now()
-  );
-  return c.json({ plowed });
-});
-
-// ---- inventory: server-owned consumable boosts --------------------------
-// Boost COUNTS are server-authoritative. Seed once from the save, then buy/use/grant
-// go through the server: a buy debits the EXACT catalog price + grants, so a client
-// can't underpay or fabricate a boost in the blob. Returns the full boost inventory so
-// the client reconciles (the blob's boost list becomes an ignored cache).
-app.post("/inventory/sync", async (c) => {
-  const body = await c.req
-    .json<{ counts?: Record<string, unknown> }>()
-    .catch(() => ({ counts: {} }));
-  const counts: Record<string, unknown> =
-    body.counts && typeof body.counts === "object" ? (body.counts as Record<string, unknown>) : {};
-  // Import boost counts only for a migration-eligible account; otherwise ignore the
-  // declared counts (seedInventory is itself seed-once-if-empty as defense in depth).
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const inventory = await db.seedInventory(c.env.DB, c.get("accountId"), allow ? counts : {});
-  return c.json({ inventory });
-});
-
-app.post("/inventory/actions", async (c) => {
-  const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
-  const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 32) return c.json({ error: "too_many_actions" }, 413);
-  const actions = raw as InventoryAction[];
-  const now = Date.now();
-  const accountId = c.get("accountId");
-  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
-    return c.json({ error: "command_volume_exceeded" }, 429);
-  }
-  const { balance, inventory, results, farm } = await db.applyInventoryActions(
-    c.env.DB,
-    accountId,
-    actions,
-    now
-  );
-  const byId = new Map(actions.map((a) => [a?.id, a]));
-  await db.recordTrustedGameEvents(
-    c.env.DB,
-    accountId,
-    results
-      .filter((r) => r.status === "applied" && byId.get(r.id)?.type === "buy")
-      .map((r) => {
-        const a = byId.get(r.id)!;
-        return {
-          id: `inventory:${r.id}:buy`,
-          type: "kItemBoughtNotification",
-          subject: catalogName(boostCatalog, a.key),
-        };
-      }),
-    now
-  );
-  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
-  const rejected = results.filter((r) => r.status === "rejected").length;
-  if (rejected) slog("inventory_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, inventory, results, farm, questChanges });
-});
-
-// ---- objects: server-owned placeable ownership (counts) -----------------
-// Object OWNERSHIP is server-authoritative (a count per key); placement/position stays
-// client-side layout. A buy debits the exact catalog cost + grants buyXp; a refund
-// credits floor(cost*0.2) only for an object you actually own — so a client can't
-// fabricate a placeable or refund one it never bought. Seed once from the save.
-app.post("/object/sync", async (c) => {
-  const body = await c.req
-    .json<{ counts?: Record<string, unknown> }>()
-    .catch(() => ({ counts: {} }));
-  const counts: Record<string, unknown> =
-    body.counts && typeof body.counts === "object" ? (body.counts as Record<string, unknown>) : {};
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const objects = await db.seedObjects(c.env.DB, c.get("accountId"), allow ? counts : {});
-  return c.json({ objects });
-});
-
-app.post("/object/actions", async (c) => {
-  const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
-  const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 32) return c.json({ error: "too_many_actions" }, 413);
-  const actions = raw as ObjectAction[];
-  const now = Date.now();
-  const accountId = c.get("accountId");
-  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
-    return c.json({ error: "command_volume_exceeded" }, 429);
-  }
-  const { balance, objects, results } = await db.applyObjectActions(
-    c.env.DB,
-    accountId,
-    actions,
-    now
-  );
-  const byId = new Map(actions.map((a) => [a?.id, a]));
-  await db.recordTrustedGameEvents(
-    c.env.DB,
-    accountId,
-    results
-      .filter((r) => r.status === "applied")
-      .flatMap((r) => {
-        const a = byId.get(r.id);
-        if (!a || (a.type !== "buy" && a.type !== "upgrade")) return [];
-        const key = a.type === "buy" ? a.key : a.toKey;
-        return [{ id: `object:${r.id}:buy`, type: "kItemBoughtNotification", subject: catalogName(objectCatalog, key) }];
-      }),
-    now
-  );
-  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
-  const rejected = results.filter((r) => r.status === "rejected").length;
-  if (rejected) slog("object_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, objects, results, questChanges });
-});
-
-// ---- shop: server-owned farm size + climate skins -----------------------
-// Non-boost purchases the server now owns. Size upgrades are sequential (only the
-// immediate next tier is buyable) and priced exactly; climate skins are an owned set.
-// Both seed once from the save, then the server is authoritative (an edited save can't
-// fabricate a bigger farm or free skins). NOT covered: placeable objects (their
-// ownership is farm-layout placement — client-authored; see shopCatalog.ts).
-app.post("/shop/state", async (c) => {
-  const body = await c.req
-    .json<{ size?: number; climates?: unknown }>()
-    .catch(() => ({ size: undefined, climates: undefined }));
-  // Seed farm size + climates from the save only for a migration-eligible account;
-  // otherwise seed base size + no skins (getOrSeedShopState only seeds on first init).
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const state = await db.getOrSeedShopState(
-    c.env.DB,
-    c.get("accountId"),
-    allow && typeof body.size === "number" ? body.size : DEFAULT_FARM_SIZE,
-    allow ? body.climates : []
-  );
-  return c.json(state);
-});
-
-app.post("/shop/size", async (c) => {
-  const body = await c.req.json<{ actionId?: string; size?: number; currency?: string }>().catch(() => ({ actionId: "", size: undefined, currency: "gold" }));
-  const currency = body.currency === "brains" ? "brains" : "gold";
-  if (typeof body.actionId !== "string" || !body.actionId || typeof body.size !== "number") return c.json({ error: "bad_request" }, 400);
-  const r = await db.buySize(c.env.DB, c.get("accountId"), body.actionId, body.size, currency, Date.now());
-  if (!r.ok) slog("shop_rejected", { account: c.get("accountId"), kind: "size", error: r.error });
-  return c.json(r);
-});
-
-app.post("/shop/climate", async (c) => {
-  const body = await c.req.json<{ actionId?: string; terrain?: string }>().catch(() => ({ actionId: "", terrain: "" }));
-  if (typeof body.actionId !== "string" || !body.actionId || typeof body.terrain !== "string" || !body.terrain) return c.json({ error: "bad_request" }, 400);
-  const r = await db.buyClimate(c.env.DB, c.get("accountId"), body.actionId, body.terrain, Date.now());
-  if (!r.ok) slog("shop_rejected", { account: c.get("accountId"), kind: "climate", error: r.error });
-  return c.json(r);
-});
-
-// ---- roster: server-owned zombie units ----------------------------------
-// The server keeps a validation + money shadow of the player's units. A SELL is
-// priced + credited here (so a fabricated unit can't be sold for gold); grants (crop
-// harvest, gift redeem, combine result), veterancy, and casualties keep it accurate.
-// The roster isn't mirrored back to overwrite the client's units (it drives money +
-// future raid-roster validation), so combine result computation stays client-side for
-// now, bounded to a real catalog key.
-app.post("/roster/sync", async (c) => {
-  const body = await c.req.json<{ units?: unknown }>().catch(() => ({ units: [] }));
-  // Import save units only for a migration-eligible account; otherwise ignore them
-  // (seedRoster is itself seed-once-if-empty as defense in depth). This closes the
-  // repeat-sync re-injection door — units can't be added then sold for gold.
-  const allow = await seedAllowed(c.env, c.get("accountId"));
-  const count = await db.seedRoster(c.env.DB, c.get("accountId"), allow ? body.units : []);
-  return c.json({ count });
-});
-
-app.post("/roster/actions", async (c) => {
-  const body = await c.req.json<{ actions?: unknown }>().catch(() => ({ actions: [] }));
-  const raw = Array.isArray(body.actions) ? body.actions : [];
-  if (raw.length > 32) return c.json({ error: "too_many_actions" }, 413);
-  const actions = raw as RosterAction[];
-  const now = Date.now();
-  const accountId = c.get("accountId");
-  if (!(await commandVolumeAllowed(c.env, accountId, actions.length, now))) {
-    return c.json({ error: "command_volume_exceeded" }, 429);
-  }
-  const { balance, results } = await db.applyRosterActions(c.env.DB, accountId, actions, now);
-  const byId = new Map(actions.map((a) => [a?.id, a]));
-  await db.recordTrustedGameEvents(
-    c.env.DB,
-    accountId,
-    results
-      .filter((r) => r.status === "applied" && !!r.subject)
-      .flatMap((r) => {
-        const a = byId.get(r.id);
-        if (!a) return [];
-        if (a.type === "combineCollect") {
-          // No kCombinerHarvestedNotification here: that event now means "the Pot
-          // produced a species neither parent was" (isCombinePromotion), and this
-          // legacy path only accepts a result that IS one of the two parent keys —
-          // so a promotion cannot reach it. The v3 combine command emits it.
-          return [
-            { id: `roster:${r.id}:combine`, type: "kCombinerCombinedNotification", subject: r.combinedSubject ?? "" },
-          ];
-        }
-        return [];
-      }),
-    now
-  );
-  const questChanges = await db.processQuestEvents(c.env.DB, accountId, now);
-  const rejected = results.filter((r) => r.status === "rejected").length;
-  if (rejected) slog("roster_rejected", { account: c.get("accountId"), rejected });
-  return c.json({ balance, results, questChanges });
 });
 
 // ---- scheduled cleanup (cron; see wrangler.toml [triggers]) -------------

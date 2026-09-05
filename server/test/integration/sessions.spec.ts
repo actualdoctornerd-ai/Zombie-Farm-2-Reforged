@@ -54,3 +54,23 @@ describe("session/device management", () => {
     expect((await call("GET", "/me", victim.token)).status).toBe(200);
   });
 });
+
+// Ported from the retired api.spec.ts (protocol v2): these were the only integration
+// assertions that /logout and /session/logout-all actually revoke.
+describe("session revocation", () => {
+  it("rejects a token after logout", async () => {
+    const s = await signIn();
+    expect((await call("GET", "/me", s.token)).status).toBe(200);
+    await call("POST", "/logout", s.token);
+    expect((await call("GET", "/me", s.token)).status).toBe(401); // session revoked
+  });
+
+  it("logout-all revokes every session for the account", async () => {
+    const sub = uniqueSub("multi");
+    const s1 = await signIn(sub);
+    const s2 = await signIn(sub, false); // same account, second device/session
+    await call("POST", "/session/logout-all", s1.token);
+    expect((await call("GET", "/me", s1.token)).status).toBe(401);
+    expect((await call("GET", "/me", s2.token)).status).toBe(401);
+  });
+});

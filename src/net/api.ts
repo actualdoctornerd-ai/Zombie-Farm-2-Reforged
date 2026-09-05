@@ -364,10 +364,6 @@ export async function authenticate(
 }
 
 // ---- data methods -------------------------------------------------------
-export interface SavePayload {
-  save: SaveGame | null;
-  rev: number;
-}
 export interface FriendView {
   accountId: string;
   name: string;
@@ -573,13 +569,6 @@ export async function setUsername(name: string): Promise<string> {
   return r.username;
 }
 
-export const getSave = () => req<SavePayload>("GET", "/save");
-
-/** PUT the save. Resolves to the new rev, or throws ApiError(409) whose `.body`
- *  carries `{ rev, save }` for reconciliation. */
-export const putSave = (save: SaveGame, baseRev: number) =>
-  req<{ rev: number }>("PUT", "/save", { save, baseRev });
-
 /** Renew the access token for the current (still-live) session. Called
  *  opportunistically on startup so a long-lived tab keeps a fresh token without a
  *  Google round-trip. A revoked session yields 401 → clears the local session. */
@@ -766,65 +755,17 @@ export const claimGift = (giftId: string) =>
     { giftId }
   );
 
-// ---- economy (server-authoritative balances) ----------------------------
+// ---- shared value types --------------------------------------------------
+// The protocol-v2 read/sync/action wrappers that used to live here (/economy/*,
+// /quest/*, /farm/*, /inventory/*, /object/*, /roster/*, /shop/*, /raid/state,
+// /raid/sync, /storage/sync) are gone with the routes; the Worker answers 410 on
+// those paths. Only the value types the v3 economy client still speaks remain.
 export type Currency = "gold" | "brains" | "xp";
 export interface Balance {
   gold: number;
   brains: number;
   xp: number;
 }
-export interface EconomyEvent {
-  id: string;
-  currency: Currency;
-  delta: number;
-  reason: string;
-  queuedAt?: number;
-}
-export interface EconomyResult {
-  id: string;
-  status: "applied" | "duplicate" | "rejected";
-  error?: string;
-}
-
-/** Read the authoritative balance, seeding it once from `seed` (the client's current
- *  currency) if the server has no balance row yet. Server-owned thereafter — `seed`
- *  is ignored once seeded, so this also serves as a plain refresh. */
-export const syncEconomy = (seed: Balance) =>
-  req<Balance>("POST", "/economy/sync", { seed });
-
-/** Submit a batch of currency events; returns the new authoritative balance and a
- *  per-event verdict (applied / duplicate / rejected). Idempotent by event id. */
-export const applyEconomy = (events: EconomyEvent[]) =>
-  req<{ balance: Balance; results: EconomyResult[] }>("POST", "/economy/apply", { events });
-
-// ---- quests (server-authoritative, bounded-once rewards) ----------------
-export interface QuestCompleteResult {
-  status: "applied" | "duplicate" | "rejected";
-  error?: string;
-  balance: Balance;
-  /** What was actually credited this call (0s on duplicate; item/zombie deferred). */
-  granted: { gold: number; brains: number; xp: number };
-  /** True when the reward is an item/zombie the server records but can't grant yet. */
-  deferred: boolean;
-}
-
-export interface AuthoritativeState {
-  integrityVersion: 2;
-  balance: Balance;
-  level: number;
-  zombieMax: number;
-  inventory: Record<string, number>;
-  objectCounts: Record<string, number>;
-  objects: NonNullable<SaveGame["objects"]>;
-  roster: NonNullable<SaveGame["ownedZombies"]>;
-  farm: { size: number; plots: SaveGame["farm"]["plots"] };
-  shop: ShopState;
-  storage: { received: Record<string, number>; stored: Record<string, number> };
-  raids: { progress: Record<string, number>; lastRaidAt: number };
-  quests: QuestStateResult;
-}
-
-export const getState = () => req<AuthoritativeState>("GET", "/state");
 
 export interface QuestChange {
   questId: string;
@@ -836,32 +777,6 @@ export interface QuestStateResult {
   completed: string[];
   progress: { questId: string; counts: number[] }[];
   questChanges: QuestChange[];
-}
-
-export const questState = () => req<QuestStateResult>("GET", "/quest/state");
-
-/** Complete a quest server-side: grants its SERVER-catalog reward (currency + any
- *  level-up it triggers) at most once per quest. Idempotent by (account, quest) — a
- *  retry returns status "duplicate" and credits nothing. */
-export const completeQuest = (questId: string) =>
-  req<QuestCompleteResult>("POST", "/quest/complete", { questId });
-
-// ---- farm actions (exact per-action economics) --------------------------
-export type FarmAction =
-  | { id: string; type: "plant"; oc: number; or: number; cropKey: string; fertilized?: boolean }
-  // `unitId` is sent only when harvesting a ZOMBIE crop: the owned unit id the harvest
-  // yields, which the server records as a verified roster unit.
-  | { id: string; type: "harvest"; oc: number; or: number; unitId?: string }
-  // Till a plot. The server owns the plow cost (free with a Plowing Monolith) and
-  // records the soil, which a later plant requires.
-  | { id: string; type: "plow"; oc: number; or: number };
-export interface FarmResult {
-  id: string;
-  status: "applied" | "duplicate" | "rejected";
-  error?: string;
-  gold?: number;
-  xp?: number;
-  fertilized?: boolean; // plant only: the server-persisted fertilize result
 }
 
 export interface FarmState {
@@ -878,148 +793,12 @@ export interface FarmState {
   }[];
 }
 
-/** Submit farm actions (plow/plant/harvest). The server computes exact economics and
- *  gates harvest by server time; returns the new authoritative balance + verdicts. */
-export const applyFarm = (actions: FarmAction[]) =>
-  req<{ balance: Balance; results: FarmResult[]; farm: FarmState; questChanges: QuestChange[] }>("POST", "/farm/actions", { actions });
-
-/** One-time import of a migrating save's already-PLOWED soil, so plants there aren't
- *  rejected as `not_plowed`. Ignored (and merely read back) once the account is seeded
- *  or past the migration cutoff. Returns the authoritative plowed set. */
-export const syncFarm = (plowed: { oc: number; or: number }[]) =>
-  req<{ plowed: { oc: number; pr: number }[] }>("POST", "/farm/sync", { plowed });
-
-// ---- inventory (server-owned consumable boosts) -------------------------
-export type InventoryAction =
-  | { id: string; type: "buy"; key: string }
-  // `unitId`: gift vouchers only — the zombie the redeem grants is filed under this id.
-  | { id: string; type: "use"; key: string; qty?: number; unitId?: string; oc?: number; or?: number }
-  | { id: string; type: "grant"; key: string; qty?: number };
-
-export interface InventoryResult {
-  id: string;
-  status: "applied" | "duplicate" | "rejected";
-  error?: string;
-}
-
-/** Seed the server boost inventory from the save (one-time; INSERT OR IGNORE) and read
- *  back the authoritative counts. Also used as a plain "read current inventory". */
-export const syncInventory = (counts: Record<string, number>) =>
-  req<{ inventory: Record<string, number> }>("POST", "/inventory/sync", { counts });
-
-/** Apply boost buy/use/grant actions; returns the resulting balance + full inventory. */
-export const applyInventory = (actions: InventoryAction[]) =>
-  req<{ balance: Balance; inventory: Record<string, number>; results: InventoryResult[]; farm: FarmState; questChanges: QuestChange[] }>(
-    "POST",
-    "/inventory/actions",
-    { actions }
-  );
-
-// ---- objects (server-owned placeable ownership) -------------------------
-export type ObjectAction =
-  | { id: string; type: "buy"; key: string }
-  | { id: string; type: "refund"; key: string }
-  // In-place swap at the new object's full price (the shed upgrade).
-  | { id: string; type: "upgrade"; fromKey: string; toKey: string };
-
-export interface ObjectResult {
-  id: string;
-  status: "applied" | "duplicate" | "rejected";
-  error?: string;
-}
-
-/** Seed the server object counts from the save (one-time) and read them back. */
-export const syncObjects = (counts: Record<string, number>) =>
-  req<{ objects: Record<string, number> }>("POST", "/object/sync", { counts });
-
-/** Apply object buy/refund actions; returns the resulting balance + object counts. */
-export const applyObjects = (actions: ObjectAction[]) =>
-  req<{ balance: Balance; objects: Record<string, number>; results: ObjectResult[]; questChanges: QuestChange[] }>(
-    "POST",
-    "/object/actions",
-    { actions }
-  );
-
-// ---- roster (server-owned zombie units) ---------------------------------
-export type RosterAction =
-  | { id: string; type: "sell"; unitId: string }
-  | { id: string; type: "grant"; unitId: string; key: string; mutation?: number; invasions?: number }
-  | { id: string; type: "veteran"; unitIds: string[] }
-  | { id: string; type: "casualty"; unitIds: string[] }
-  | { id: string; type: "combineStart"; parentAId: string; parentBId: string }
-  | { id: string; type: "combineCollect"; unitId: string; key: string; mutation?: number };
-
-export interface RosterResult {
-  id: string;
-  status: "applied" | "duplicate" | "rejected";
-  error?: string;
-  gold?: number; // sell payout
-}
-
 export interface RosterSeedUnit {
   id: string;
   key: string;
   mutation: number;
   invasions: number;
 }
-
-/** Seed the server roster shadow from the save's units (one-time; INSERT OR IGNORE). */
-export const syncRoster = (units: RosterSeedUnit[]) =>
-  req<{ count: number }>("POST", "/roster/sync", { units });
-
-/** Apply roster sell/grant/veteran/casualty actions; returns the resulting balance. */
-export const applyRoster = (actions: RosterAction[]) =>
-  req<{ balance: Balance; results: RosterResult[]; questChanges: QuestChange[] }>("POST", "/roster/actions", { actions });
-
-// ---- shop (server-owned farm size + climate skins) ----------------------
-export interface ShopState {
-  size: number;
-  climates: string[];
-}
-export interface ShopResult extends ShopState {
-  ok: boolean;
-  error?: string;
-  balance: Balance;
-}
-
-/** Seed + read the server-owned farm size + climate set (from the save on first call). */
-export const shopState = (size: number, climates: string[]) =>
-  req<ShopState>("POST", "/shop/state", { size, climates });
-
-/** Buy the next farm-size tier for the exact price. Returns the authoritative state. */
-export const shopSize = (actionId: string, size: number, currency: "gold" | "brains") =>
-  req<ShopResult>("POST", "/shop/size", { actionId, size, currency });
-
-/** Buy a ground/climate skin for its exact price. Returns the authoritative state. */
-export const shopClimate = (actionId: string, terrain: string) =>
-  req<ShopResult>("POST", "/shop/climate", { actionId, terrain });
-
-// ---- raids (server-owned cooldown + progress) ----------------------------
-/** Authoritative raid cooldown clock + progress (lifetime wins per raid id, which drive
- *  ability unlocks). The client seeds its display and its unlocks from this. */
-export const raidState = () =>
-  req<{
-    lastRaidAt: number;
-    cooldownMs: number;
-    cooldownRemaining: number;
-    progress: Record<string, number>;
-  }>("GET", "/raid/state");
-
-/** One-time import of this save's lifetime raid wins, so a migrating veteran isn't seen
- *  as having cleared nothing (which would re-grant every first-clear XP award and drop
- *  their ability unlocks). Ignored once seeded or past the migration cutoff. */
-export const raidSync = (completed: Record<string, number>) =>
-  req<{ progress: Record<string, number> }>("POST", "/raid/sync", { completed });
-
-/** Server-owned item storage: the Received bucket (raid loot awaiting claim) and the
- *  shed. Imports this save's items ONCE (cutoff-gated), then just reads them back. Raid
- *  loot lands in `received` server-side, and the loot roll reads these to decide whether
- *  a unique may still drop. */
-export const storageSync = (received: string[], stored: { key: string; count: number }[]) =>
-  req<{ received: Record<string, number>; stored: Record<string, number> }>("POST", "/storage/sync", {
-    received,
-    stored,
-  });
 
 /** Ask the server to authorize a raid on `raidId`. `ok:false` with `cooldownRemaining`
  *  means the server cooldown is still active (and no voucher bypass was requested).
@@ -1148,13 +927,6 @@ export interface RaidReviveResult {
  * permanently abandoned; each accepted id costs one brain. */
 export const raidRevive = (sessionId: string, reviveIds: string[]) =>
   req<RaidReviveResult>("POST", "/raid/revive", { sessionId, reviveIds });
-
-export const raidCheckpoint = (sessionId: string, finalTick: number, inputs: RaidReplayInput[]) =>
-  req<{ ok: boolean; finalTick: number; lastSeq: number; finished: boolean; replayCpuMs: number }>(
-    "POST",
-    "/raid/checkpoint",
-    { sessionId, finalTick, inputs }
-  );
 
 // ---- friend invasions (PvP) ---------------------------------------------
 

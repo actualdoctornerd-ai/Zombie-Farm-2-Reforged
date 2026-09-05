@@ -168,6 +168,22 @@ describe("protocol v3 API", () => {
     expect(r.body.count).toBe(count);
   };
 
+  it("block tears down the friendship and refuses a gift from the blocked side", async () => {
+    // Ported from the retired api.spec.ts: /friends/block was otherwise asserted nowhere.
+    const a = await signIn();
+    const b = await signIn();
+    await befriend(a, b);
+    expect((await call<unknown[]>("GET", "/friends", a.token)).body).toHaveLength(1);
+    await call("POST", "/friends/block", a.token, { accountId: b.accountId });
+    expect((await call<unknown[]>("GET", "/friends", a.token)).body).toHaveLength(0);
+    expect((await call<unknown[]>("GET", "/friends", b.token)).body).toHaveLength(0);
+    const gift = await call<{ error: string }>("POST", "/gifts", b.token, { toAccountId: a.accountId });
+    expect(gift.status).toBe(403);
+    // The block is one-way silent: b's re-add is swallowed by the non-oracle, not filed.
+    await call("POST", "/friends/add", b.token, { code: a.friendCode });
+    expect((await call<unknown[]>("GET", "/friends/requests", a.token)).body).toHaveLength(0);
+  });
+
   it("a full account still RECEIVES requests but cannot accept them", async () => {
     const full = await signIn(uniqueSub("cap-full"));
     const asker = await signIn(uniqueSub("cap-asker"));

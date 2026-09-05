@@ -23,20 +23,6 @@ export interface Bindings {
    *  NOTE: skipping this with an Invasion Voucher is intended play, so it is NOT a rate
    *  limit and must never be used as one. */
   RAID_COOLDOWN_MS?: string;
-  /** How long a raid session stays settleable, in ms (string var). Defaults to 30 min.
-   *  A finish after this is refused, so a session can't be banked and cashed in later.
-   *  Set short in .dev.vars so the integration suite can actually observe an expiry. */
-  RAID_SESSION_TTL_MS?: string;
-  /** Save-import cutoff (epoch ms, string var). An account may import its pre-existing
-   *  save (currency/roster/boosts/farm) into server-owned state ONLY if it was created
-   *  before this instant, and only once per subsystem. Accounts created at/after it —
-   *  and every account when this is unset/0 — get fixed SERVER DEFAULTS instead and can
-   *  never self-declare a starting balance. Set to the migration-window end in prod;
-   *  set far-future in .dev.vars so local/integration accounts can seed. Default 0 =
-   *  no imports (most secure). See SECURITY.md own-account plan, item 2/5. */
-  MIGRATION_CUTOFF_MS?: string;
-  /** Epoch ms after which mutation clients must send X-Integrity-Version: 2. */
-  INTEGRITY_V2_ENFORCE_AFTER_MS?: string;
   /** Protocol-v3 operational controls. Raising the minimum rejects old builds;
    * setting MUTATIONS_DISABLED=1 leaves bootstrap/read paths available while
    * stopping all economy mutations during an incident or maintenance window. */
