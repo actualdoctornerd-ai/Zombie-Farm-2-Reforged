@@ -68,6 +68,20 @@ export interface ZombieModel {
   // instead of the shared one. Keyed by mutation KEY (a raw bit still resolves — see
   // mutationVisual.mutationPartFor).
   mutationOverrides?: Record<string, string>;
+  /** Pre-drawn animation frames for a rig that has NO bones to pose — the Video Game
+   *  Zombie is a 96x96 pixel flipbook, not a paper doll. `parts` then holds exactly
+   *  one sprite (the first idle frame, feet on the origin) and the farm/raid rigs
+   *  swap these textures onto it instead of nodding a head or swinging an arm. A
+   *  flipbook rig hangs no mutation art either: there is no head or arm slot to
+   *  attach a vegetable to (mutationVisual.mutationPartFor). */
+  flipbook?: ZombieFlipbook;
+}
+export interface ZombieFlipbook {
+  /** Texture keys (zombiePartTex) in play order; cycled at `fps` while idle/walking. */
+  idle: string[];
+  /** Texture keys for one swing, indexed by the attack's source-time progress. */
+  attack: string[];
+  fps: number;
 }
 
 // A crop-mutation body part (mutations.json), attached at runtime onto any base
@@ -140,7 +154,21 @@ interface SpecialZombieManifest {
   neck: { x: number; y: number };
   color?: [number, number, number];
   floatingHead?: boolean;
+  /** A COMPLETE actor rather than a delta: nothing of the ordinary skeleton is
+   *  inherited. The Video Game Zombie's single flipbook sprite is the whole body. */
+  complete?: boolean;
   parts: Array<Omit<ZombieModelPart, "tint"> & { file: string }>;
+  /** Frame files (same folder as `parts`) for a rig animated by texture swaps. */
+  flipbook?: ZombieFlipbook;
+}
+
+/** Every dedicated file a manifest draws from: its parts plus any flipbook frames. */
+export function specialZombieFiles(manifest: SpecialZombieManifest): string[] {
+  return [...new Set([
+    ...manifest.parts.map((part) => part.file),
+    ...(manifest.flipbook?.idle ?? []),
+    ...(manifest.flipbook?.attack ?? []),
+  ])];
 }
 
 const SPECIAL_GROUP_SCALE: Record<string, number> = {
@@ -201,7 +229,7 @@ export function mergeSpecialZombieModel(
   const ownJaw = replaced.has("Jaw");
   const headDx = replaced.has("Head") ? manifest.neck.x - base.neck.x : 0;
   const headDy = replaced.has("Head") ? manifest.neck.y - base.neck.y : 0;
-  const inherited = manifest.floatingHead
+  const inherited = manifest.floatingHead || manifest.complete
     ? []
     : base.parts.filter((part) => {
       const partSlot = slot(part.file);
@@ -219,12 +247,20 @@ export function mergeSpecialZombieModel(
     file: textureKey(part.file),
     tint: false,
   }));
+  const flipbook = manifest.flipbook;
   return {
     name: def.name,
     neck: replaced.has("Head") ? manifest.neck : base.neck,
     scale: SPECIAL_GROUP_SCALE[def.group] ?? base.scale,
     color: manifest.color ?? base.color,
     parts: [...inherited, ...dedicated].sort((a, b) => a.z - b.z),
+    ...(flipbook ? {
+      flipbook: {
+        idle: flipbook.idle.map(textureKey),
+        attack: flipbook.attack.map(textureKey),
+        fps: flipbook.fps,
+      },
+    } : {}),
   };
 }
 export interface ZombieDef {
@@ -945,7 +981,7 @@ export async function loadAssets(): Promise<GameAssets> {
   for (const z of zombies.filter((row) => row.specialSprite)) {
     const manifest = specialModels[z.key];
     if (!manifest) continue;
-    for (const file of new Set(manifest.parts.map((part) => part.file))) {
+    for (const file of specialZombieFiles(manifest)) {
       const f = specialFrames[`${z.key}:${file}`];
       if (!f) continue;
       zombiePartTex[`special:${z.key}:${file}`] = new Texture({

@@ -751,6 +751,118 @@ NAMED_SPECIAL_ZOMBIES = [
     ("Diva Zombie", "diva_zombie", "ZombieActorDiva"),
 ]
 
+# ---------------------------------------------------------------------------
+# Video Game Zombie — the one playable zombie that is NOT a paper-doll rig
+# ---------------------------------------------------------------------------
+# The pixel zombie of the "Zombies vs Video Games" invasion (VideoGameZombie.plist)
+# is a seven-frame flipbook — four idle, three attack — with no body parts to hang
+# a head-nod or an arm-swing on. As a playable species it is shipped through the
+# same special-zombie atlas as the named actors, but its manifest is COMPLETE
+# (`complete: true` — nothing of the ordinary skeleton is inherited) and carries a
+# `flipbook` block that the farm and raid rigs step through instead of posing bones.
+# Every frame is written to one shared box (the union of all seven on the plist's
+# 96x96 source canvas), so swapping textures never shifts the feet. Runtime:
+# src/assets.ts mergeSpecialZombieModel,
+# src/zombie/ZombieUnit.ts, src/raid/RaidActor.ts.
+VIDEO_GAME_ZOMBIE = ("video_game_zombie", "ZombieActorRegularVideoGame")
+VIDEO_GAME_ZOMBIE_IDLE = ["zombie_idle_fr00.png", "zombie_idle_fr01.png",
+                          "zombie_idle_fr02.png", "zombie_idle_fr03.png"]
+VIDEO_GAME_ZOMBIE_ATTACK = ["zombie_attack_fr00.png", "zombie_attack_fr01.png",
+                            "zombie_attack_fr02.png"]
+# The source frame is 94px tall; a Regular rig stands ~82 units. Same height as the
+# ordinary zombies it files with (group Regular), so the farm scale is the family's.
+VIDEO_GAME_ZOMBIE_SCALE = 0.87
+# The sprite's own green (its most common opaque pixel). Nothing is tinted with it —
+# the frames are drawn in colour — but it is what a Pot child inherits as its colour
+# and what the roster card swatches.
+VIDEO_GAME_ZOMBIE_COLOR = [0, 192, 0]
+VIDEO_GAME_ZOMBIE_FPS = 4  # matches the raid enemy's idle cadence (RaidScene frameActor)
+
+
+def export_video_game_zombie():
+    """Write the pixel zombie's untrimmed frames + a complete flipbook manifest, and
+    bake its card portrait."""
+    stem, catalog_key = VIDEO_GAME_ZOMBIE
+    plist = load_plist(os.path.join(APP, "VideoGameZombie.plist"))["frames"]
+    atlas = Image.open(os.path.join(APP, "VideoGameZombie.png")).convert("RGBA")
+    folder = os.path.join(OUT, "zombie", stem)
+    os.makedirs(folder, exist_ok=True)
+
+    def untrimmed(frame_name):
+        f = plist[frame_name]
+        sw, sh = rect("{{0,0}," + f["spriteSourceSize"] + "}")[2:]
+        x, y, w, h = rect(f["textureRect"])
+        rotated = f.get("textureRotated", False)
+        cw, ch = (h, w) if rotated else (w, h)
+        piece = atlas.crop((x, y, x + cw, y + ch))
+        if rotated:
+            piece = piece.rotate(-90, expand=True)
+        ox, oy = rect(f["spriteColorRect"])[:2]
+        canvas = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
+        canvas.alpha_composite(piece, (ox, oy))
+        return canvas
+
+    # Every frame is cut to ONE shared box — the union of all seven frames' opaque
+    # pixels on the 96x96 source canvas — so the strip keeps its feet planted when a
+    # texture swaps, and the rig's bounds (hit box, raid contain-fit) are the zombie
+    # rather than the source canvas's transparent margins.
+    frames = {name: untrimmed(name) for name in VIDEO_GAME_ZOMBIE_IDLE + VIDEO_GAME_ZOMBIE_ATTACK}
+    boxes = [im.getbbox() for im in frames.values()]
+    union = (min(b[0] for b in boxes), min(b[1] for b in boxes),
+             max(b[2] for b in boxes), max(b[3] for b in boxes))
+    idle_files, attack_files = [], []
+    for i, name in enumerate(VIDEO_GAME_ZOMBIE_IDLE):
+        frames[name].crop(union).save(os.path.join(folder, f"idle-{i}.png"))
+        idle_files.append(f"idle-{i}.png")
+    for i, name in enumerate(VIDEO_GAME_ZOMBIE_ATTACK):
+        frames[name].crop(union).save(os.path.join(folder, f"attack-{i}.png"))
+        attack_files.append(f"attack-{i}.png")
+
+    first = Image.open(os.path.join(folder, idle_files[0]))
+    # Feet on the origin: the shared box's bottom edge is the sole line, and its
+    # horizontal anchor is the standing frame's centre of mass so the idle loop stands
+    # on the spot (the attack frames lean forward by a few pixels, as authored).
+    idle_box = frames[VIDEO_GAME_ZOMBIE_IDLE[0]].getbbox()
+    ax = round(((idle_box[0] + idle_box[2]) / 2 - union[0]) / first.width, 3)
+    ay = 1.0
+    manifest = {
+        "name": stem,
+        "neck": inherited_head_offset_pixi(),
+        "color": VIDEO_GAME_ZOMBIE_COLOR,
+        "complete": True,
+        # One part: the current frame, feet on the origin (anchor bottom-centre).
+        "parts": [{
+            "file": idle_files[0], "group": "root", "px": 0, "py": 0,
+            "ax": ax, "ay": ay, "z": 3, "scale": VIDEO_GAME_ZOMBIE_SCALE,
+        }],
+        "flipbook": {"idle": idle_files, "attack": attack_files, "fps": VIDEO_GAME_ZOMBIE_FPS},
+    }
+    json.dump(manifest, open(os.path.join(folder, "manifest.json"), "w"), indent=1)
+
+    # Portrait: same canvas + feet origin as composite_zombie, NEAREST so the pixels
+    # stay square on the card.
+    W, H, cx, cy = 180, 200, 90, 165
+    s = VIDEO_GAME_ZOMBIE_SCALE
+    fw, fh = max(1, round(first.width * s)), max(1, round(first.height * s))
+    scaled = first.resize((fw, fh), Image.Resampling.NEAREST)
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    canvas.alpha_composite(scaled, (round(cx - ax * fw), round(cy - fh)))
+    out_name = stem + ".png"
+    canvas.save(os.path.join(OUT, "zombie", out_name))
+    json.dump({"anchorX": cx / W, "anchorY": cy / H, "w": W, "h": H},
+              open(os.path.join(OUT, "zombie", out_name + ".json"), "w"))
+    portrait_dir = os.path.join(OUT, "zombie", "portrait")
+    os.makedirs(portrait_dir, exist_ok=True)
+    shutil.copy2(os.path.join(OUT, "zombie", out_name),
+                 os.path.join(portrait_dir, catalog_key + ".png"))
+    print(f"zombie: exported {catalog_key} ({len(idle_files)} idle + {len(attack_files)} attack frames)")
+
+
+def inherited_head_offset_pixi():
+    """The ordinary neck in the runtime's Y-down space (what a manifest stores)."""
+    x, y_up = inherited_head_offset()
+    return {"x": x, "y": -y_up}
+
 
 def export_zombie_parts(entry_name, name):
     """Export a zombie's individual parts + a manifest so it can be assembled and
@@ -923,11 +1035,17 @@ def pack_special_zombies():
     frames = {}
     manifests = {}
     images = []
-    for _, stem, catalog_key in NAMED_SPECIAL_ZOMBIES:
+    packed = [(stem, key) for _, stem, key in NAMED_SPECIAL_ZOMBIES] + [VIDEO_GAME_ZOMBIE]
+    for stem, catalog_key in packed:
         folder = os.path.join(OUT, "zombie", stem)
         manifest = json.load(open(os.path.join(folder, "manifest.json")))
         manifests[catalog_key] = manifest
-        for file in dict.fromkeys(p["file"] for p in manifest["parts"]):
+        # A flipbook's other frames are textures too, even though only the first is
+        # a "part" — the runtime swaps them in on the same sprite.
+        flipbook = manifest.get("flipbook", {})
+        files = ([p["file"] for p in manifest["parts"]]
+                 + flipbook.get("idle", []) + flipbook.get("attack", []))
+        for file in dict.fromkeys(files):
             part = Image.open(os.path.join(folder, file)).convert("RGBA")
             if x + part.width + padding > atlas_w:
                 x = padding
@@ -1012,6 +1130,7 @@ if __name__ == "__main__":
         composite_zombie(source_name, file_stem + ".png", catalog_key)
         shutil.copy2(os.path.join(OUT, "zombie", file_stem + ".png"),
                      os.path.join(portrait_dir, catalog_key + ".png"))
+    export_video_game_zombie()
     pack_special_zombies()
     export_rig()
     make_field(idx)

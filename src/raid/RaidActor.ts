@@ -2,7 +2,7 @@
 // model the farm uses (assets.zombieModels), with the SAME idle-tilt + leg-step
 // walk animation as ZombieUnit — just decoupled from the farm's field/pathing.
 // The scene positions it and tells it whether it's moving each frame.
-import { Container, Sprite } from "pixi.js";
+import { Container, Sprite, type Texture } from "pixi.js";
 import { GameAssets, ZombieModel } from "../assets";
 import { slotOf } from "../zombie/mutations";
 import {
@@ -115,6 +115,10 @@ export class RaidActor {
   private clipModel: ZombieModel | null = null;
   private clipKey = "";
   private specialHeadFx: SpecialHeadFx | null = null;
+  /** A frame-strip rig (the Video Game Zombie): the one body sprite plus its idle and
+   *  attack textures. update() cycles the idle strip; poseArms() picks the attack
+   *  frame off the same source-time clock the bite pose uses. Null for paper dolls. */
+  private flipbook: { sp: Sprite; idle: Texture[]; attack: Texture[]; fps: number } | null = null;
 
   constructor(
     assets: GameAssets,
@@ -225,6 +229,12 @@ export class RaidActor {
       if (p.tint) sp.tint = zombiePartTint(p.file, tint, group);
       this.root.addChild(sp);
       this.partSprites.push({ sp, i: partIndex, px: p.px, py: p.py, scale: p.scale ?? 1 });
+      if (m.flipbook && p.file === m.flipbook.idle[0]) {
+        const frames = (files: string[]) => files.flatMap((file) => assets.zombiePartTex[file] ?? []);
+        this.flipbook = {
+          sp, idle: frames(m.flipbook.idle), attack: frames(m.flipbook.attack), fps: m.flipbook.fps,
+        };
+      }
       if (p.group === "head") {
         this.headParts.push({ sp, bx: p.px, by: p.py });
         if (/Eye[LR](?:\.png)?$/i.test(p.file)) {
@@ -338,6 +348,14 @@ export class RaidActor {
       const t = Math.max(0, Math.min(1, healRaise));
       const a = ARM_REST + (HEAL_OVERHEAD - ARM_REST) * t;
       for (const arm of this.arms) arm.rotation = a;
+    } else if (attacking && this.flipbook?.attack.length) {
+      // A frame strip is one swing laid out over the source timeline, so it is indexed
+      // by the same rotated progress the bite pose reads: the contact frame lands on
+      // the sim's hit and the strip's tail plays out as the recovery.
+      const strip = this.flipbook.attack;
+      const t = this.sourceAttackProgress(atkProg, BITE_DAMAGE_TIMING);
+      const frame = strip[Math.min(strip.length - 1, Math.floor(t * strip.length))];
+      if (this.flipbook.sp.texture !== frame) this.flipbook.sp.texture = frame;
     } else if (attacking && this.arms.length) {
       if (/scratch/i.test(attackName)) this.poseScratch(atkProg);
       else this.poseBite(atkProg);
@@ -510,6 +528,13 @@ export class RaidActor {
 
     this.t += dt;
     this.specialHeadFx?.update(dt);
+    if (this.flipbook?.idle.length) {
+      // One loop for waiting and advancing alike; poseArms() overrides it with the
+      // attack strip while a swing is in flight.
+      const idle = this.flipbook.idle;
+      const frame = idle[Math.floor(this.t * this.flipbook.fps) % idle.length];
+      if (this.flipbook.sp.texture !== frame) this.flipbook.sp.texture = frame;
+    }
     const eyeEase = Math.min(1, dt * FOCUS_EYE_EASE);
     const eyeTarget = focusing ? FOCUS_EYE_SCALE_Y : 1;
     for (const eye of this.eyes) {

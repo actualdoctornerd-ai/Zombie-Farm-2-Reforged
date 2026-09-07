@@ -22,12 +22,20 @@ const EYE_MUTATION_BITS: ReadonlySet<number> = new Set([CARROT_MUTATION_BIT, EYE
  * authored against the old numeric form — including an existing mod's — keeps
  * resolving. Overrides are how the Tier-4 variants show their own art for a mutation
  * they share (carrot -> eyebiscusHat, cauli -> heartichokeBody).
+ *
+ * A flipbook rig (the Video Game Zombie) draws NO mutation art at all: every
+ * vegetable is authored against the paper-doll skeleton's head, arm and body slots,
+ * and a pre-drawn pixel frame has none of them to attach to. The mutation stays on
+ * the unit and keeps its stat bonus; only the drawing is skipped — the same rule the
+ * masked-face specials apply to their head slot, applied to every slot. All three
+ * rigs (farm, raid, portrait) resolve their art through here, so this is the one seam.
  */
 export function mutationPartFor(
   parts: Readonly<Record<string, MutationPart>>,
-  model: Pick<ZombieModel, "mutationOverrides"> | undefined,
+  model: Pick<ZombieModel, "mutationOverrides" | "flipbook"> | undefined,
   bit: number,
 ): MutationPart | undefined {
+  if (model?.flipbook) return undefined;
   const key = mutationOf(bit)?.key;
   const overrides = model?.mutationOverrides;
   const named = (key ? overrides?.[key] : undefined) ?? overrides?.[String(bit)];

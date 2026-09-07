@@ -105,7 +105,7 @@ describe("boss projectile scaling", () => {
 
   it("mirrors the market's Garden ladder, specials excluded", () => {
     // GARDEN_MARKET_LADDER is a literal in RaidCatalog so that module stays free of the
-    // 95-entry zombie catalog. This re-derives it from zombies.json so a new healer, a
+    // 96-entry zombie catalog. This re-derives it from zombies.json so a new healer, a
     // re-levelled one or a re-costed one cannot drift the two apart silently.
     const ladder = zdefs
       .filter((z) => z.group === "Garden" && z.category === "normal" && !z.marketHidden)

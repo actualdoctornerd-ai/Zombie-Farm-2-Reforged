@@ -54,6 +54,31 @@ MARKET_SPECIALS = {
     "Granny Zombie",
 }
 
+# ---- Authored (Reforged-only) zombies ----------------------------------------
+# Species with no row in ZF2's Market.json or UnitStats.json at all, so the source
+# join above cannot produce them. Kept as complete literals: a re-run rewrites the
+# row from here rather than dropping it, and `specialSprite` keeps it out of the
+# source-enrichment loop (which would otherwise report it as unmatched and exit 1).
+#
+# Video Game Zombie — the pixel zombie of the "Zombies vs Video Games" invasion
+# (raid 9, unlock level 43) as a playable species. Filed as an ORDINARY zombie
+# (category "normal", group Regular, tier-less Yellow class like Crazy) rather than a
+# sixth permanent special, so it sits in the Market's Normal tab, can go in either
+# Pot slot and carries no Black Market special gate. Stats are one step above the
+# Crazy Zombie (19 / 2 / 28 / 100) — the strongest plantable zombie, by a little.
+# Its art is a frame strip, exported by tools/prep_assets.py export_video_game_zombie.
+AUTHORED_ZOMBIES = [
+    {
+        "key": "ZombieActorRegularVideoGame", "name": "Video Game Zombie",
+        "cost": 6, "growMs": 86_400_000, "category": "normal", "level": 43, "xp": 2,
+        "brainsNeeded": True, "group": "Regular",
+        "className": "Yellow", "classColor": "#ffd24a",
+        "str": 20.0, "dex": 2.1, "con": 29.0, "focus": 100.0,
+        "mutation": 0, "tier": 5, "specialSprite": "video_game_zombie.png",
+        "rewardOnly": False, "marketHidden": False,
+    },
+]
+
 # Brain prices take the shared brainflation retune (see tools/reforge_economy.py).
 # Without it this script silently reverted the retune on every re-run, snapping all
 # 55 brains-priced zombies back to their ZF2 values (5 -> 50, 20 -> 200, 40 -> 400).
@@ -221,6 +246,10 @@ def main():
         rebalance_special_stats(key, data)
         if row: row.update(data)
         else: zombies.append(data)
+    for data in AUTHORED_ZOMBIES:
+        row = next((z for z in zombies if z["key"] == data["key"]), None)
+        if row: row.update(data)
+        else: zombies.append(dict(data))
     for z in zombies:
         if z.get("specialSprite"):
             continue

@@ -85,7 +85,7 @@ export function bossThrowIntervalSecs(
 /** The Garden zombies the MARKET sells, as (unlock level, base con), cheapest first.
  *  Mirrors zombies.json — locked by projectileScale.test.ts, which re-derives it there so a
  *  new healer or a re-costed one cannot drift this table silently. Kept as a literal rather
- *  than an import so RaidCatalog stays free of the 95-entry zombie catalog.
+ *  than an import so RaidCatalog stays free of the 96-entry zombie catalog.
  *
  *  Brain-gated SPECIALS are deliberately excluded. The Cupid Zombie is nominally on sale at
  *  level 20 and carries con 15 — three times the whole gold ladder's top rung — so counting

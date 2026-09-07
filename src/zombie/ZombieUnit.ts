@@ -94,6 +94,10 @@ export class ZombieUnit {
   private footBBaseY = 0;
   private arms: { sp: Sprite; baseRotation: number }[] = [];
   private renderScale = 1;
+  // A pre-drawn frame strip on a rig with no bones (the Video Game Zombie): the one
+  // body sprite and the idle textures it cycles through. Null for every paper doll.
+  private flipbook: { sp: Sprite; frames: Texture[]; fps: number } | null = null;
+  private flipbookTime = 0;
 
   // Position, and the remaining (straightened — see walkRoute) waypoints. `warp` marks
   // the far side of a wormhole hop: the zombie is moved there outright rather than
@@ -247,6 +251,10 @@ export class ZombieUnit {
       if (p.tint) sp.tint = zombiePartTint(p.file, tint, this.data.group);
       this.parts.push(sp);
       this.root.addChild(sp);
+      if (m.flipbook && p.file === m.flipbook.idle[0]) {
+        const frames = m.flipbook.idle.flatMap((file) => assets.zombiePartTex[file] ?? []);
+        this.flipbook = { sp, frames, fps: m.flipbook.fps };
+      }
       if (matchesMutationReplacement(p.file, "body")) replaceable.body.push(sp);
       if (matchesMutationReplacement(p.file, "armF")) replaceable.armF.push(sp);
       if (p.group === "head" && matchesMutationReplacement(p.file, "head")) {
@@ -313,6 +321,7 @@ export class ZombieUnit {
     this.headParts = [];
     this.eyeParts = [];
     this.arms = [];
+    this.flipbook = null;
     this.specialHeadFx = null; // its container was a child, destroyed above
     this.fertilizeCloud.clear(); // buildFarmEffects redraws it
     const closed = this.eyesClosed;
@@ -547,6 +556,23 @@ export class ZombieUnit {
     }
   }
 
+  /** Step a flipbook rig's idle strip. The pixel zombie has one loop for standing and
+   *  walking alike (its source raid enemy plays the same four frames while it
+   *  advances), and it holds its first frame while napping on the Patch — it has no
+   *  eyes to close, so a frozen frame is what "asleep" looks like. */
+  private stepFlipbook(dt: number, walking: boolean) {
+    const book = this.flipbook;
+    if (!book || !book.frames.length) return;
+    if (this.sleeping && !walking) {
+      this.flipbookTime = 0;
+    } else {
+      this.flipbookTime += dt;
+    }
+    const index = Math.floor(this.flipbookTime * book.fps) % book.frames.length;
+    const frame = book.frames[index];
+    if (book.sp.texture !== frame) book.sp.texture = frame;
+  }
+
   private legs(moving: boolean, dt: number) {
     if (moving) {
       this.stepPhase += dt * STEP_SPEED;
@@ -629,6 +655,7 @@ export class ZombieUnit {
     this.tilt(dt, walking);
     this.legs(walking, dt);
     this.poseArms(walking, dt);
+    this.stepFlipbook(dt, walking);
     this.updateFarmEffects();
     this.specialHeadFx?.update(dt);
     this.root.scale.set(this.renderScale * this.facing, this.renderScale);

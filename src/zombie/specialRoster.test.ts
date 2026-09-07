@@ -14,17 +14,23 @@ describe("complete special-zombie roster", () => {
   });
 
   it("implements every recovered named special with its dedicated art", () => {
+    // 40 recovered named actors, plus the Video Game Zombie: the one dedicated-sheet
+    // zombie that is NOT a special (see videoGameZombie.test.ts for its own rules).
     const named = zombies.filter((zombie) => zombie.specialSprite);
-    expect(named).toHaveLength(40);
-    expect(new Set(named.map((zombie) => zombie.key)).size).toBe(40);
-    expect(named.every((zombie) => zombie.category === "special")).toBe(true);
+    expect(named).toHaveLength(41);
+    expect(new Set(named.map((zombie) => zombie.key)).size).toBe(41);
+    expect(named.filter((zombie) => zombie.category !== "special").map((zombie) => zombie.key))
+      .toEqual(["ZombieActorRegularVideoGame"]);
     expect(named.every((zombie) => zombie.key in specialModels)).toBe(true);
     for (const zombie of named) {
-      const model = specialModels[zombie.key as keyof typeof specialModels];
+      const model = specialModels[zombie.key as keyof typeof specialModels] as {
+        floatingHead?: boolean; complete?: boolean; neck: { x: number; y: number };
+        parts: Array<{ file: string; group: string }>;
+      };
       expect(model.parts.length).toBeGreaterThan(0);
       expect(model.parts.every((part) => `${zombie.key}:${part.file}` in specialFrames)).toBe(true);
       const hasDedicatedHead = model.parts.some((part) => part.file === "Head.png");
-      if (!model.floatingHead && !hasDedicatedHead) {
+      if (!model.floatingHead && !model.complete && !hasDedicatedHead) {
         expect(model.neck).toEqual({ x: 7, y: -36 });
       }
       for (const part of model.parts.filter((entry) =>

@@ -668,7 +668,7 @@ import type { RaidOutcome } from "./types";
 //
 // Read the result per CATALOG ENTRY, not per family. Two families are uniform and four
 // are not, and that difference is the whole reason the counter-play works (measured over
-// all 95 entries carrying a group and a dex):
+// all 96 entries carrying a group and a dex):
 //
 //   family     n   catalog dex   slam            at the 1.25 s floor
 //   Headless   7   1.0           6.50 s          0/7    <- uniform: the counter-play

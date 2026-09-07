@@ -1980,5 +1980,27 @@
   "mutation": 32768,
   "tier": 4,
   "marketHidden": false
+ },
+ {
+  "key": "ZombieActorRegularVideoGame",
+  "name": "Video Game Zombie",
+  "cost": 6,
+  "growMs": 86400000,
+  "category": "normal",
+  "level": 43,
+  "xp": 2,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Yellow",
+  "classColor": "#ffd24a",
+  "str": 20.0,
+  "dex": 2.1,
+  "con": 29.0,
+  "focus": 100.0,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "video_game_zombie.png",
+  "rewardOnly": false,
+  "marketHidden": false
  }
 ]
