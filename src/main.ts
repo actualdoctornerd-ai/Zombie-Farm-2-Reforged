@@ -6494,7 +6494,10 @@ async function main() {
     zombies.select(zu);
     const d = zu.getData();
     const wp = zu.worldPos;
-    floatText(wp.x, wp.y - 44, "Brains…");
+    // A Headless zombie has nothing to say it with: no bark (audio.brain already
+    // returns null for the group) and no "Brains…" bubble either. The info panel is
+    // the tap's feedback for those.
+    if (d.group !== "Headless") floatText(wp.x, wp.y - 44, "Brains…");
     audio.brain(d.group, d.key);
     hud.openZombieInfo({
       name: d.name, typeName: d.typeName, key: d.key, group: d.group,
