@@ -32,7 +32,7 @@ Implemented in `zombiefarm/src/raid/` (BattleSim is the authority; RaidScene ren
 | Zombies vs Lawyers | 5 s | — | Cars/vans cross & `grabZombie` |
 | Zombies vs Pirates | 8 s | — | ship (decorative) |
 | Zombies vs Ninjas | 2 s | — | — |
-| Zombies vs Robots | 2 s | — | — |
+| Zombies vs Robots | 2 s (Bro-Bot as boss: **1 s**, reimpl ruleset 49 — see below) | — | — |
 | Zombies vs Aliens | **0.2 s** | — | — |
 | Summer Break (Beach) | 1.5 s | **2 / 5 s** turtles + a Crab (initial) | — |
 | Zombies vs Circus | 1.5 s | — | Trapeze Artist `grabZombie` then drops |
@@ -84,6 +84,10 @@ degenerates to a plain `throwSpeed` interval. The specials:
   deliberately replaces with a real burn — see the implementation note below), + 100-dmg throws.
 - **Ninjas** — `wall` (cast **3 s**, hp **1500**, collision 70) — a carrotWall blocking the lane.
 - **Robots (BrainBot)** — `telekinesis` (cast **3 s**) + 5 debris types.
+- **Robots (Bro-Bot)** — no special action in the data; the wiki's "incredible throwing arm" (about
+  one throw a second against the raid's 2 s) is reimplemented as `RaidCatalog.BOSS_THROW_PACE`
+  (x0.5 on the interval, applied after the ruleset-34 damage sizing and before the elite profile,
+  in both throw builders). JunkBot and BrainBot keep the raid cadence.
 - Farm/Pirate/City — pure escalating throws (McDonnell 6/12/18; Pirate 12.5/25/50; City 12/24/36).
 
 ## Loot & drop tables — RECOVERED (ground truth)

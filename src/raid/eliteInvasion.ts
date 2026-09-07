@@ -262,7 +262,17 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // ramp's middle rung, fitted to p* 1.82. It was one of the three sharing the old top
   // band; with the Video Games' ordinary fight no longer a cliff there is room for a
   // proper climb above it, so it steps down to make that room.
-  5: { str: 2.61, con: 1.92, dex: 1.43, throwDamage: 1.4, throwRate: 1.43, wallHp: 1.54, specialDamage: 3.04 },
+  // v49 RE-FIT (x0.95 on every NON-throw multiplier's distance from 1.0): Bro-Bot now
+  // throws at his own pace (RaidCatalog.BOSS_THROW_PACE — twice the raid's cadence, each
+  // projectile as sized), and the elite profile multiplies on top of that, so the rung
+  // measured 2.03 and the Ninjas -> Robots step broke the ramp's "no step over half the
+  // rise" rule. The throw fields are pinned by projectileScale.test.ts (the elite step is
+  // their PRODUCT, 2.0, and cannot drop below it), so the budget comes out of the body
+  // instead — the same move as the Circus re-fit, in the other direction. Measured
+  // after: 1.95, inside the window the neighbouring rungs leave (Ninjas 1.67, Aliens
+  // 2.24). All three boss draws sit within 0.04 of each other, so the paced Bro-Bot is
+  // not the outlier the report might suggest — the whole rung was on the margin.
+  5: { str: 2.53, con: 1.87, dex: 1.41, throwDamage: 1.4, throwRate: 1.43, wallHp: 1.51, specialDamage: 2.94 },
 
   // 6 — Zombies vs Aliens. Twenty minions, a summoning boss and the laser. Their normal
   // fight is already the longest on the ladder (over two minutes), so con barely moves —

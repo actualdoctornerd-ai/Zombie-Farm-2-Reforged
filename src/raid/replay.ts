@@ -802,7 +802,17 @@ import type { RaidOutcome } from "./types";
 // draw sequence is untouched, so it is bit-identical. PvP and Epic Boss never resolve a
 // stage wave and are unaffected. Same cost as every bump: an invasion in flight at
 // deploy time settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 48;
+//
+// v49 — Bro-Bot throws at his own pace. The Robots' three bosses shared the raid's one
+// authored `throwSpeed`, so the bot whose whole special is "throws faster" (wiki: about
+// one a second, against the raid's two) had no special at all. `RaidCatalog.BOSS_THROW_PACE`
+// halves his interval AFTER the ruleset-34 rebalance has sized the projectile (so each
+// still hits what a robot's hits; he lands twice as many) and BEFORE the elite profile,
+// in both throw builders. Transcript-changing only on Zombies vs Robots fights that draw
+// Bro-Bot as boss; JunkBot and BrainBot fights, every other raid, PvP and the Epic Boss
+// are bit-identical. Same cost as every bump: an invasion in flight at deploy time
+// settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 49;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

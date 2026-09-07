@@ -9,6 +9,7 @@ import {
   minArmyFor,
   bossThrowIntervalSecs,
   fightScaledThrow,
+  pacedBossThrow,
   resolveStageWave,
   seededRandom,
   ARMY_CAP,
@@ -134,8 +135,12 @@ function bossThrowOf(
     .filter((o) => o.sprite);
   if (!options.length) return null;
   const secs = bossThrowIntervalSecs(raid, stage, priorWins);
-  // Same order as RaidManager.bossThrowOf: rebalance onto the raid's rung, THEN elite.
-  return eliteBossThrow(fightScaledThrow({ intervalMs: secs * 1000, options }, raid), elite);
+  // Same order as fightConfig.bossThrowFor: rebalance onto the raid's rung, then the
+  // boss's own pace (Bro-Bot, BOSS_THROW_PACE), THEN elite.
+  return eliteBossThrow(
+    pacedBossThrow(fightScaledThrow({ intervalMs: secs * 1000, options }, raid), stage),
+    elite
+  );
 }
 
 // Strictly the BOSS's own actions — mirrors RaidManager.bossSpecialsOf, and must stay

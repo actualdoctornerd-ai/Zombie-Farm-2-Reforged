@@ -213,6 +213,46 @@ export function fightScaledThrow(
   };
 }
 
+// ---------------------------------------------------------------------------
+// PER-BOSS THROW PACE — a boss whose special IS its cadence.
+//
+// Zombies vs Robots fields three robots and draws one as the boss, and each robot's
+// special only fires when it leads: JunkBot walls, BrainBot lifts, and Bro-Bot — "a macho
+// robot with a popped collar and an incredible throwing arm" — just throws faster. The
+// wiki (zombiefarm.fandom.com/wiki/Zombies_vs_Robots) puts him at about one projectile a
+// second, "much harder on healers", against the raid's authored two-second `throwSpeed`.
+// Nothing in the recovered data carries that: Enemies/UnitStats give all three bots the
+// same 20/35/50 throw table and the raid ONE `throwSpeed`, so through ruleset 48 the
+// three robots threw at exactly the same rate and Bro-Bot had no special at all — which
+// is what a player reported.
+//
+// The pace multiplies the INTERVAL after `fightScaledThrow` has sized the damage. Order
+// matters: the rebalance divides its lethal budget by the cadence, so paced first it
+// would halve every projectile and hand Bro-Bot the same dps as his brothers — a faster
+// animation, not a special. Paced after, each projectile still hits what the raid's rung
+// says a robot's projectile hits (the shared authored table), and he simply lands twice
+// as many: the shape the original had. The elite profile then multiplies on top, as it
+// does for every raid; Robots' elite step (2.0) leaves the paced elite Bro-Bot at 3.75 s
+// to the reference healer, above the 3.5 s floor projectileScale.test.ts holds.
+//
+// Both throw builders (fightConfig.bossThrowFor and the Worker's raidVerifier.bossThrowOf)
+// must apply it in the same place or the pinned config and the live fight disagree.
+export const BOSS_THROW_PACE: Readonly<Record<string, number>> = {
+  RobotStageActorBroBot: 0.5,
+};
+
+/** Apply the boss's own throw pace, if it has one. Reads the RESOLVED stage's `bossKey`
+ *  (the Robots draw theirs at resolveStageWave), so an unresolved random-boss stage —
+ *  or any other raid — comes back untouched. */
+export function pacedBossThrow(
+  config: BossThrowConfig | null,
+  stage: Pick<RaidStage, "bossKey">
+): BossThrowConfig | null {
+  const pace = stage.bossKey ? BOSS_THROW_PACE[stage.bossKey] : undefined;
+  if (!config || !pace || pace === 1) return config;
+  return { ...config, intervalMs: config.intervalMs * pace };
+}
+
 /** Real between-invasions cooldown (Help.json: "wait two hours between invasions,
  *  unless you purchase an Invasion Voucher"). Playtest-scaled in main.ts. */
 export const RAID_COOLDOWN_MS = 2 * 60 * 60 * 1000;

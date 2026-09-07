@@ -20,7 +20,7 @@ import type { GameAssets } from "../assets";
 import { summonConfigFor } from "./alienStage";
 import { eliteWallHp, type EliteProfile } from "./eliteInvasion";
 import { rescueHazardHp } from "./hazardTaps";
-import { bossThrowIntervalSecs, fightScaledThrow } from "./RaidCatalog";
+import { bossThrowIntervalSecs, fightScaledThrow, pacedBossThrow } from "./RaidCatalog";
 import type {
   BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidStage,
   SummonConfig,
@@ -79,7 +79,9 @@ export function bossThrowFor(
   const secs = bossThrowIntervalSecs(raid, stage, priorWins);
   // Damage is re-based onto the raid's own rung before the elite profile multiplies it,
   // so a Brain Ticket scales the rebalanced fight rather than the authored chip value.
-  return fightScaledThrow({ intervalMs: secs * 1000, options }, raid);
+  // Then the boss's own pace (Bro-Bot), on the sized throw — see BOSS_THROW_PACE for why
+  // the order is rebalance -> pace -> elite. The Worker's bossThrowOf mirrors this.
+  return pacedBossThrow(fightScaledThrow({ intervalMs: secs * 1000, options }, raid), stage);
 }
 
 /** Build the boss's SPECIAL (non-throw) actions for the selected stage — lasers, AoE
