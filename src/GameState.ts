@@ -94,8 +94,9 @@ export class GameState {
   // server owns the equivalent counter (raid_state_v3.brain_dry_streak) and never sends it
   // down, so this stays 0 while signed in. Nothing in the UI reads it — by design.
   brainDryStreak = 0;
-  // OFFLINE rare-zombie pity, keyed by raid id: wins of that raid since it last dropped its
-  // rare zombie. At RAID_ZOMBIE_PITY_WINS the next win hands it over outright. Server-owned
+  // OFFLINE rare-zombie pity, keyed per prize (zombieDrops.raidZombieDryKey — the raid id,
+  // or "<id>:elite" for a story invasion's promoted prize): wins that rolled for it since it
+  // last landed. At RAID_ZOMBIE_PITY_WINS the next win hands it over outright. Server-owned
   // online (raid_state_v3.zombie_dry_json) and, like the above, deliberately unread by any UI.
   zombieDryWins: Record<string, number> = {};
   // The player's chosen attack order (deployed zombie ids, first attacks first).

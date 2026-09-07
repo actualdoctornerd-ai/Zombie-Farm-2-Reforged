@@ -72,6 +72,18 @@ of its cost, so a 5-brain special returns 5,000 gold.
 
 - Bombie, Crazy Zombie, Cupid Zombie, Dapper Zombie, and Granny Zombie.
 
+## Market: Video Game Zombie (Normal tab)
+
+The pixel zombie of the *Zombies vs Video Games* invasion is plantable as an **ordinary**
+zombie — `category: "normal"`, group Regular, the tier-less Yellow class — not a sixth
+special. It costs **6 brains**, unlocks at **level 43** (the invasion's own unlock level)
+and grows in 24 hours. Its stats (20 / 2.1 / 29 / 100) sit one step above the Crazy
+Zombie's, making it the strongest plantable zombie by a small margin. Being normal, it can
+go in either Zombie Pot slot and carries no Black Market special gate. Its art is a
+seven-frame flipbook rather than a paper-doll rig, so it wears no mutation art (the
+mutation and its stat bonus still apply). Authored in `tools/prep_market.py`
+(`AUTHORED_ZOMBIES`) and `tools/prep_assets.py` (`export_video_game_zombie`).
+
 ## Market vouchers (4)
 
 These can also be obtained by buying and using a boost rather than planting the
@@ -96,10 +108,13 @@ Zastronaut, Deputy, Master Ninjombie, MerZombie, Ninjombie, Omega Zombie Bot, Po
 Sheriff, and Zombie Bot. Another player escrows the zombie as a `SELL_ZOMBIE` order, or fills
 a `BUY_ZOMBIE` request.
 
-**Four of those 28 also drop from invasions** and are therefore reachable solo: Old McZombie
+**Thirteen of those 28 also drop from invasions** and are therefore reachable solo: Old McZombie
 (Old McDonnell's, 1%), Diver (Summer Break), Forest (Tree World) and Teddy (Valentine's Day,
-0.8% each) — see `src/raid/zombieDrops.ts` and the rare-zombie section of
-`docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-raid pity makes that route bounded:
+0.8% each), Zastronaut (Aliens, 1%), and the faction pairs — Deputy / MerZombie / Ninjombie /
+Zombie Bot from an ordinary win of the Lawyers / Pirates / Ninjas / Robots (1%), with Sheriff /
+Poseidon / Master Ninjombie / Omega Zombie Bot paid *instead* on an elite (Brain Ticket) win of
+the same raid (2%). See `src/raid/zombieDrops.ts` and the rare-zombie section of
+`docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-prize pity makes that route bounded:
 100 wins of a raid without its zombie guarantees it on the next. Nothing in the game says so.
 
 Delivery is gated on the **recipient**, checked pre-flight and re-checked as a SQL guard inside

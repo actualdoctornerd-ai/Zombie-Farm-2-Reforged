@@ -6,7 +6,7 @@ import type { ZombieDef } from "../assets";
 import { purchasableZombies } from "../assets";
 import { COMBINE_SPECIAL_BY_GROUP, COMBINE_SPECIAL_LEVEL } from "./combineSpecies";
 import { EPIC_QUEST_ZOMBIE_REWARDS } from "../epicBoss/rewards";
-import { RAID_ZOMBIE_DROPS } from "../raid/zombieDrops";
+import { RAID_ZOMBIE_SOURCES, type RaidZombieSource } from "../raid/zombieDrops";
 
 /** Lifetime obtained count per species key. Persisted (local save / online
  *  presentation — see save/schema.ts AlmanacSave). A key's presence with a
@@ -19,9 +19,10 @@ export interface ObtainSources {
   epicBossNameByQuestId: (questId: string) => string | undefined;
 }
 
-// Reverse maps: species key -> where it comes from.
-const RAID_BY_ZOMBIE: Readonly<Record<string, number>> = Object.fromEntries(
-  Object.entries(RAID_ZOMBIE_DROPS).map(([raidId, drop]) => [drop.key, Number(raidId)])
+// Reverse maps: species key -> where it comes from. Ordinary and elite invasion prizes
+// both count (a Sheriff comes only from an elite Lawyers fight).
+const RAID_BY_ZOMBIE: Readonly<Record<string, RaidZombieSource>> = Object.fromEntries(
+  RAID_ZOMBIE_SOURCES.map((source) => [source.drop.key, source])
 );
 const EPIC_QUEST_BY_ZOMBIE: Readonly<Record<string, string>> = Object.fromEntries(
   Object.entries(EPIC_QUEST_ZOMBIE_REWARDS).map(([questId, key]) => [key, questId])
@@ -85,12 +86,13 @@ export function almanacEntries(
 /** One-line "how do I get this?" hint, shown for undiscovered entries. Sources are
  *  checked in specificity order — a raid/epic exclusive names its exact source. */
 export function obtainHint(def: ZombieDef, sources: ObtainSources): string {
-  const raidId = RAID_BY_ZOMBIE[def.key];
-  if (raidId !== undefined) {
-    const raid = sources.raidNameById(raidId);
+  const source = RAID_BY_ZOMBIE[def.key];
+  if (source !== undefined) {
+    const raid = sources.raidNameById(source.raidId);
+    const fight = source.elite ? "an elite (Brain Ticket) invasion" : "an invasion";
     return raid
-      ? `Rarely found after winning an invasion of ${raid}.`
-      : "Rarely found after winning a certain invasion.";
+      ? `Rarely found after winning ${fight} of ${raid}.`
+      : `Rarely found after winning ${fight}.`;
   }
   const questId = EPIC_QUEST_BY_ZOMBIE[def.key];
   if (questId !== undefined) {

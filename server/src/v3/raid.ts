@@ -14,7 +14,7 @@ import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidCon
 import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak, firstClearBrains } from "../../../src/raid/brainDrops";
 import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
 import { rollRaidZombieDropWithPity, nextRaidZombieDryWins, hasRaidZombieDrop,
-  RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
+  raidZombieDryKey, RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
 import { raidFeatQuestEvents } from "../../../src/raid/featQuestEvents";
 import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
@@ -504,8 +504,8 @@ export async function finishRaid(
   const objects = parse<Array<{ catalogKey: string; status: string }>>(objectRow.current_json, []);
   const progress = parse<Record<string, number>>(raidState.progress_json, {});
   // Wins of each raid since it last handed over its rare zombie (silent pity — never sent
-  // to the client, see zombieDrops.ts). Only the four raids that HAVE a rare zombie ever
-  // appear as keys.
+  // to the client, see zombieDrops.ts). Only raids that HAVE a rare zombie ever appear as
+  // keys, and a story invasion's elite prize keeps its own key (raidZombieDryKey).
   const zombieDry = parse<Record<string, number>>(raidState.zombie_dry_json, {});
   const firstClear = win && !(progress[String(raidId)] > 0);
   const baseGold = win ? winGold(econ, survivors.length / locked.length) : 0;
@@ -560,15 +560,18 @@ export async function finishRaid(
     }
     else if (grant.kind === "item") { core.storage.received[grant.name] = (core.storage.received[grant.name] ?? 0) + 1; loot = { name: grant.name, kind: "item" }; }
     // Same PINNED dice the item roll uses: they widen the rare-zombie chance too, and the
-    // count came from /raid/start (already charged), never from this request.
+    // count came from /raid/start (already charged), never from this request. The SESSION's
+    // elite flag picks the prize: a story invasion's Brain Ticket fight rolls for its
+    // promoted zombie (Sheriff, not Deputy) at that zombie's own rate.
+    const zombieDryKey = raidZombieDryKey(raidId, !!boosts.elite);
     const zombieDrop = rollRaidZombieDropWithPity(
-      raidId, true, Math.random(), zombieDry[String(raidId)] ?? 0, boosts.dice ?? 0, eliteLuck
+      raidId, true, Math.random(), zombieDry[zombieDryKey] ?? 0, boosts.dice ?? 0, eliteLuck, !!boosts.elite
     );
-    // Settle this raid's dry-win streak on every win it could have dropped from. A win that
+    // Settle this prize's dry-win streak on every win it could have dropped from. A win that
     // pays (rolled or floored) resets it; a dry one adds to it. Raids with no rare zombie
     // never get a key at all.
     if (hasRaidZombieDrop(raidId)) {
-      zombieDry[String(raidId)] = nextRaidZombieDryWins(zombieDry[String(raidId)] ?? 0, !!zombieDrop);
+      zombieDry[zombieDryKey] = nextRaidZombieDryWins(zombieDry[zombieDryKey] ?? 0, !!zombieDrop);
     }
     if (zombieDrop) {
       const activeCapacity = (core.zombieMax ?? 16) + objects.reduce(

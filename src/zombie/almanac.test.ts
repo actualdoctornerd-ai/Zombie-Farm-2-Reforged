@@ -82,6 +82,18 @@ describe("obtainHint", () => {
       .toContain("McDonnell Farm");
   });
 
+  it("says a promoted prize needs the ELITE fight, and counts it obtainable", () => {
+    const sheriff = def({ key: "ZombieActorSheriff", marketHidden: true });
+    expect(isObtainable(sheriff)).toBe(true);
+    expect(isObtainable(def({ key: "ZombieActorDeputy", marketHidden: true }))).toBe(true);
+    expect(isObtainable(def({ key: "ZombieActorZastronaut", marketHidden: true }))).toBe(true);
+    const hint = obtainHint(sheriff, { ...SOURCES, raidNameById: () => "Zombies vs Lawyers" });
+    expect(hint).toContain("elite");
+    expect(hint).toContain("Brain Ticket");
+    expect(hint).toContain("Zombies vs Lawyers");
+    expect(obtainHint(def({ key: "ZombieActorDeputy", marketHidden: true }), SOURCES)).not.toContain("elite");
+  });
+
   it("names the epic boss for an epic-reward zombie", () => {
     expect(obtainHint(def({ key: "ZombieActorDrZombie", rewardOnly: true }), SOURCES))
       .toContain("Dr. Skunkarella");

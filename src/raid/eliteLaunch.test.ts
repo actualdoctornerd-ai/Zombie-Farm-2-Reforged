@@ -5,7 +5,8 @@ import { RaidManager } from "./RaidManager";
 import { GameState } from "../GameState";
 import { BRAIN_TICKET_KEY, ELITE_BRAIN_LUCK, ELITE_PROFILES } from "./eliteInvasion";
 import { VOUCHER_KEY, RAID_COOLDOWN_MS } from "./RaidCatalog";
-import { raidZombieDropRate, OLD_MC_ZOMBIE_KEY } from "./zombieDrops";
+import { raidZombieDropRate, OLD_MC_ZOMBIE_KEY, NINJOMBIE_KEY, MASTER_NINJOMBIE_KEY,
+  RAID_ZOMBIE_PITY_WINS } from "./zombieDrops";
 import type { EnemyStat, RaidDef, RaidOutcome } from "./types";
 
 const ENEMY_STATS: Record<string, EnemyStat> = {
@@ -181,5 +182,61 @@ describe("what an elite invasion pays", () => {
     } finally {
       Math.random = random;
     }
+  });
+});
+
+describe("a story invasion promotes its rare zombie on a Brain Ticket", () => {
+  // The harness's raid IS the Ninjas (id 4): Ninjombie ordinarily, Master Ninjombie elite.
+  it("pays the base zombie on an ordinary win and the promoted one on an elite win", () => {
+    const { raids, granted } = makeManager();
+    const random = Math.random;
+    try {
+      // 1.5% misses Ninjombie's 1% but lands inside Master Ninjombie's 2%.
+      expect(raidZombieDropRate(4)).toBeCloseTo(0.01, 10);
+      expect(raidZombieDropRate(4, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.02, 10);
+      Math.random = () => 0.015;
+      raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, false);
+      expect(granted).toEqual([]);
+      raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, true);
+      expect(granted).toEqual([MASTER_NINJOMBIE_KEY]);
+      // 0.5% lands for both — and the ordinary fight still pays the BASE zombie.
+      Math.random = () => 0.005;
+      raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, false);
+      expect(granted).toEqual([MASTER_NINJOMBIE_KEY, NINJOMBIE_KEY]);
+    } finally {
+      Math.random = random;
+    }
+  });
+
+  it("keeps the ordinary and elite pity streaks apart", () => {
+    const { raids, state, granted } = makeManager();
+    const random = Math.random;
+    try {
+      Math.random = () => 1; // never a natural drop
+      for (let i = 0; i < RAID_ZOMBIE_PITY_WINS; i++) raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, false);
+      expect(state.zombieDryWins["4"]).toBe(RAID_ZOMBIE_PITY_WINS);
+      expect(state.zombieDryWins["4:elite"]).toBeUndefined();
+      // The floor is the DEPUTY-side one: an elite win here does not cash it in.
+      raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, true);
+      expect(granted).toEqual([]);
+      expect(state.zombieDryWins["4:elite"]).toBe(1);
+      // …but the next ordinary win does, and resets only its own streak.
+      raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, false);
+      expect(granted).toEqual([NINJOMBIE_KEY]);
+      expect(state.zombieDryWins["4"]).toBe(0);
+      expect(state.zombieDryWins["4:elite"]).toBe(1);
+    } finally {
+      Math.random = random;
+    }
+  });
+
+  it("tells the raid card which zombie the Brain Ticket fight pays instead", () => {
+    const { raids } = makeManager();
+    // The harness raid is a stub; give the card the one field raidCards() reads unguarded.
+    (RAID as { introText?: string }).introText = "";
+    const card = raids.raidCards().find((c) => c.id === 4)!;
+    expect(card.zombieDrop).toEqual({
+      name: "Ninjombie", rate: 0.01, eliteName: "Master Ninjombie", eliteRate: 0.02,
+    });
   });
 });

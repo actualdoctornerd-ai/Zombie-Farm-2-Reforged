@@ -5904,8 +5904,12 @@ export class Hud {
         `${pctOdds(c.brainOdds.chance)} per boss win (${tiers})` +
         ` · ${pctOdds(c.eliteBrainOdds.chance)} on a Brain Ticket`;
       if (c.zombieDrop) {
+        // A story invasion promotes its prize on a Brain Ticket (Deputy -> Sheriff), so the
+        // elite half names the other zombie; everywhere else it is the same one, at 4x.
+        const promoted = c.zombieDrop.eliteName !== c.zombieDrop.name;
         dropRow(c.zombieDrop.name).textContent =
-          `${pctOdds(c.zombieDrop.rate)} per win · ${pctOdds(c.zombieDrop.eliteRate)} on a` +
+          `${pctOdds(c.zombieDrop.rate)} per win · ` +
+          (promoted ? `${c.zombieDrop.eliteName} ${pctOdds(c.zombieDrop.eliteRate)} instead on a` : `${pctOdds(c.zombieDrop.eliteRate)} on a`) +
           " Brain Ticket · Golden Dice raise it";
       }
       const boostVal = dropRow("Boosts");

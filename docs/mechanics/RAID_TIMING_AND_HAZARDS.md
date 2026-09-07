@@ -173,9 +173,16 @@ The floor is **deliberately invisible**: the counter is never sent to the client
 in the UI names it, counts it out, or marks a floored drop differently from a rolled one. Keep
 it that way when touching the result panel or the fight's brain pickup.
 
-**Rare zombies are a separate roll, with the same treatment.** Four raids independently roll a
+**Rare zombies are a separate roll, with the same treatment.** Nine raids independently roll a
 special zombie on a win (`src/raid/zombieDrops.ts`): Old McDonnell's → Old McZombie at **1%**,
-Summer Break / Tree World / Valentine's Day → Diver / Forest / Teddy at **0.8%**.
+Summer Break / Tree World / Valentine's Day → Diver / Forest / Teddy at **0.8%**, the Aliens →
+Zastronaut at **1%**, and the four faction invasions pay a **pair**: an ordinary win of the
+Lawyers / Pirates / Ninjas / Robots rolls Deputy / MerZombie / Ninjombie / Zombie Bot at **1%**,
+while an ELITE (Brain Ticket) win rolls for the promoted zombie *instead* — Sheriff / Poseidon /
+Master Ninjombie / Omega Zombie Bot at **2%** (`RAID_ELITE_ZOMBIE_DROPS`). On those four the 2% IS
+the elite premium: `ELITE_BRAIN_LUCK` is deliberately not stacked on top, or the sheriff would be
+eight times as common as the deputy. Single-prize raids keep the 4x. (In the source these eight
+were alternate Epic Boss prizes for events that were never built.) Rates are a first pass.
 
 **Golden Dice raise that rate too — a deliberate divergence.** In the source the dice touch only
 the item tier roll; here each die spent adds one further base rate to the rare-zombie chance
@@ -186,12 +193,14 @@ The count is the same PINNED one the item roll uses — charged at `/raid/start`
 the finish request — and it is clamped (`ZOMBIE_LUCK_DICE_CAP`) so a forged count can't make the
 drop certain.
 
-**The rare-zombie roll also has its own pity**, counted **per raid**: after `RAID_ZOMBIE_PITY_WINS = 100` wins of *that* raid
+**The rare-zombie roll also has its own pity**, counted **per prize**: after `RAID_ZOMBIE_PITY_WINS = 100` wins of *that* raid
 without *its* zombie, the next win of it hands the zombie over
 (`rollRaidZombieDropWithPity`). Winning a different raid does nothing for it, a loss is not a
 completion, and receiving the zombie (rolled or guaranteed) resets that raid's count to 0 — so a
-collector starts a fresh 100 rather than being handed duplicates. Stored server-side as
-`raid_state_v3.zombie_dry_json` (`{"<raidId>": <dryWins>}`), offline as
+collector starts a fresh 100 rather than being handed duplicates. A paired raid keeps TWO streaks
+(`raidZombieDryKey`): ordinary wins under `"<raidId>"` and elite wins under `"<raidId>:elite"`, so a
+hundred dry Lawyers wins guarantee the Deputy, never a Sheriff on the first ticket. Stored server-side as
+`raid_state_v3.zombie_dry_json` (`{"<raidId>": <dryWins>, "<raidId>:elite": <dryWins>}`), offline as
 `GameState.zombieDryWins`. Same secrecy rule as the brain floor: never sent to the client, never
 surfaced, and a guaranteed zombie arrives through the ordinary reward row.
 
