@@ -70,7 +70,7 @@ describe("Golden Dice raise the rare-zombie rate", () => {
     expect(raidZombieDropRate(1, 2)).toBeCloseTo(0.03, 10);
     expect(raidZombieDropRate(1, 5)).toBeCloseTo(0.06, 10); // the five a full loot table allows
     expect(raidZombieDropRate(7, 5)).toBeCloseTo(0.06, 10); // event zombies: the same 1% base
-    expect(raidZombieDropRate(6, 5)).toBeCloseTo(0.09, 10); // Zastronaut: 1.5% base
+    expect(raidZombieDropRate(6, 5)).toBeCloseTo(0.12, 10); // Zastronaut: 2% base
   });
 
   it("widens the winning roll window accordingly", () => {
@@ -198,19 +198,23 @@ describe("the story invasions' prize pairs", () => {
   const MISS = 1;
   // raid, base zombie, promoted zombie, the raid's rung of the rate ladder (in percent)
   const PAIRS: Array<[number, string, string, number]> = [
-    [2, DEPUTY_ZOMBIE_KEY, SHERIFF_ZOMBIE_KEY, 1.1],
-    [3, MER_ZOMBIE_KEY, POSEIDON_ZOMBIE_KEY, 1.2],
-    [4, NINJOMBIE_KEY, MASTER_NINJOMBIE_KEY, 1.3],
-    [5, ZOMBIE_BOT_KEY, OMEGA_ZOMBIE_BOT_KEY, 1.4],
+    [2, DEPUTY_ZOMBIE_KEY, SHERIFF_ZOMBIE_KEY, 1.2],
+    [3, MER_ZOMBIE_KEY, POSEIDON_ZOMBIE_KEY, 1.4],
+    [4, NINJOMBIE_KEY, MASTER_NINJOMBIE_KEY, 1.6],
+    [5, ZOMBIE_BOT_KEY, OMEGA_ZOMBIE_BOT_KEY, 1.8],
   ];
 
-  it("pins the ladder: a tenth of a percent per story invasion, promoted prizes at double", () => {
-    const ladder: Record<number, number> = { 2: 0.011, 3: 0.012, 4: 0.013, 5: 0.014, 6: 0.015 };
+  it("pins the ladder: a fifth of a percent per story invasion to 2% on the Aliens, promoted prizes 3-4.5%", () => {
+    const ladder: Record<number, number> = { 2: 0.012, 3: 0.014, 4: 0.016, 5: 0.018, 6: 0.02 };
     expect(Object.keys(STORY_ZOMBIE_DROP_RATES).map(Number).sort()).toEqual([2, 3, 4, 5, 6]);
     for (const [id, rate] of Object.entries(ladder)) {
       expect(STORY_ZOMBIE_DROP_RATES[Number(id)], `raid ${id}`).toBeCloseTo(rate, 12);
     }
-    expect(ELITE_PRIZE_RATE_MULTIPLIER).toBe(2);
+    expect(ELITE_PRIZE_RATE_MULTIPLIER).toBe(2.5);
+    expect(RAID_ELITE_ZOMBIE_DROPS[2].rate).toBeCloseTo(0.03, 12);
+    expect(RAID_ELITE_ZOMBIE_DROPS[3].rate).toBeCloseTo(0.035, 12);
+    expect(RAID_ELITE_ZOMBIE_DROPS[4].rate).toBeCloseTo(0.04, 12);
+    expect(RAID_ELITE_ZOMBIE_DROPS[5].rate).toBeCloseTo(0.045, 12);
   });
 
   it.each(PAIRS)("raid %i pays its base zombie on an ordinary win at its rung", (raidId, base, _p, rung) => {
@@ -221,10 +225,10 @@ describe("the story invasions' prize pairs", () => {
     expect(rollRaidZombieDrop(raidId, true, rate + 1e-6)).toBeNull();
   });
 
-  it.each(PAIRS)("raid %i pays its PROMOTED zombie instead on an elite win, at double", (raidId, base, promoted, rung) => {
-    const rate = 2 * rung / 100;
+  it.each(PAIRS)("raid %i pays its PROMOTED zombie instead on an elite win, at 2.5x", (raidId, base, promoted, rung) => {
+    const rate = 2.5 * rung / 100;
     expect(raidZombieDropFor(raidId, true)?.key).toBe(promoted);
-    // Twice the ordinary rate — and NOT the 4x elite luck on top of that.
+    // 2.5x the ordinary rate — and NOT the 4x elite luck on top of that.
     expect(raidZombieDropRate(raidId, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(rate, 10);
     expect(rollRaidZombieDrop(raidId, true, rate - 1e-6, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(promoted);
     expect(rollRaidZombieDrop(raidId, true, rate + 1e-6, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
@@ -233,8 +237,8 @@ describe("the story invasions' prize pairs", () => {
   });
 
   it("still lets Golden Dice widen the promoted prize's roll", () => {
-    expect(raidZombieDropRate(2, 1, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.044, 10);
-    expect(raidZombieDropRate(2, 5, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.132, 10);
+    expect(raidZombieDropRate(2, 1, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.06, 10);
+    expect(raidZombieDropRate(2, 5, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.18, 10);
   });
 
   it("asking for the elite prize of a single-prize raid is the ordinary prize at elite luck", () => {
@@ -246,9 +250,9 @@ describe("the story invasions' prize pairs", () => {
   it("gives the Aliens the Zastronaut as a single prize that takes the 4x elite luck", () => {
     expect(RAID_ZOMBIE_DROPS[6].key).toBe(ZASTRONAUT_KEY);
     expect(RAID_ELITE_ZOMBIE_DROPS[6]).toBeUndefined();
-    expect(raidZombieDropRate(6)).toBeCloseTo(0.015, 10);
-    expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.06, 10);
-    expect(rollRaidZombieDrop(6, true, 0.05, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZASTRONAUT_KEY);
+    expect(raidZombieDropRate(6)).toBeCloseTo(0.02, 10);
+    expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.08, 10);
+    expect(rollRaidZombieDrop(6, true, 0.07, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZASTRONAUT_KEY);
   });
 
   it("keeps a separate pity streak for each prize of a paired raid, and one for the rest", () => {
@@ -289,10 +293,18 @@ describe("the rare-zombie rate ladder", () => {
     .map(([id, drop]) => ({ raidId: Number(id), rec: recLevel.get(Number(id))!, rate: drop.rate }))
     .sort((a, b) => a.rec - b.rec);
 
-  it("keeps every ordinary prize around 1%: never below it, never past 1.5%", () => {
+  it("keeps every ordinary prize between 1% and the Aliens' 2%", () => {
     for (const { raidId, rate } of ordinary) {
       expect(rate, `raid ${raidId}`).toBeGreaterThanOrEqual(0.01 - 1e-12);
-      expect(rate, `raid ${raidId}`).toBeLessThanOrEqual(0.015 + 1e-12);
+      expect(rate, `raid ${raidId}`).toBeLessThanOrEqual(0.02 + 1e-12);
+    }
+    expect(RAID_ZOMBIE_DROPS[6].rate).toBeCloseTo(0.02, 12); // the top of the ladder IS the Aliens
+  });
+
+  it("keeps every promoted prize inside 3-4.5%", () => {
+    for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS)) {
+      expect(drop.rate, `raid ${id}`).toBeGreaterThanOrEqual(0.03 - 1e-12);
+      expect(drop.rate, `raid ${id}`).toBeLessThanOrEqual(0.045 + 1e-12);
     }
   });
 

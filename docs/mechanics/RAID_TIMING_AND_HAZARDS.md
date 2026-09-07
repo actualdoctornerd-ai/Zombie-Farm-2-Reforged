@@ -175,16 +175,16 @@ it that way when touching the result panel or the fight's brain pickup.
 
 **Rare zombies are a separate roll, with the same treatment.** Nine raids independently roll a
 special zombie on a win (`src/raid/zombieDrops.ts`), on ONE rate ladder read off the raid's
-recommended level — about 1%, a tenth of a percent more per story invasion: Old McDonnell's →
-Old McZombie and Summer Break / Tree World / Valentine's Day → Diver / Forest / Teddy at **1%**;
-Lawyers → Deputy **1.1%**, Pirates → MerZombie **1.2%**, Ninjas → Ninjombie **1.3%**, Robots →
-Zombie Bot **1.4%**, Aliens → Zastronaut **1.5%**. The four faction invasions pay a **pair**: an
-ELITE (Brain Ticket) win rolls for the promoted zombie *instead* — Sheriff / Poseidon / Master
-Ninjombie / Omega Zombie Bot at **double** the raid's ordinary rate (2.2 / 2.4 / 2.6 / 2.8%,
-`RAID_ELITE_ZOMBIE_DROPS`, `ELITE_PRIZE_RATE_MULTIPLIER`). On those four the doubled rate IS the
-elite premium: `ELITE_BRAIN_LUCK` is deliberately not stacked on top, or the sheriff would be
-eight times as common as the deputy. Single-prize raids keep the 4x (the Zastronaut reaches 6% on
-a ticket). In the source these eight were alternate Epic Boss prizes for events that were never
+recommended level — 1% on the easy invasions, a fifth of a percent more per story invasion to
+2% on the Aliens: Old McDonnell's → Old McZombie and Summer Break / Tree World / Valentine's Day →
+Diver / Forest / Teddy at **1%**; Lawyers → Deputy **1.2%**, Pirates → MerZombie **1.4%**, Ninjas →
+Ninjombie **1.6%**, Robots → Zombie Bot **1.8%**, Aliens → Zastronaut **2.0%**. The four faction
+invasions pay a **pair**: an ELITE (Brain Ticket) win rolls for the promoted zombie *instead* —
+Sheriff / Poseidon / Master Ninjombie / Omega Zombie Bot at **2.5x** the raid's ordinary rate
+(3.0 / 3.5 / 4.0 / 4.5%, `RAID_ELITE_ZOMBIE_DROPS`, `ELITE_PRIZE_RATE_MULTIPLIER`). On those four
+that rate IS the elite premium: `ELITE_BRAIN_LUCK` is deliberately not stacked on top, or the
+sheriff would be ten times as common as the deputy. Single-prize raids keep the 4x (the Zastronaut
+reaches 8% on a ticket). In the source these eight were alternate Epic Boss prizes for events that were never
 built. `zombieDrops.test.ts` pins the ladder to the recommended-level order.
 
 **Golden Dice raise that rate too — a deliberate divergence.** In the source the dice touch only
@@ -192,7 +192,7 @@ the item tier roll; here each die spent adds one further base rate to the rare-z
 (`ZOMBIE_LUCK_PER_DIE = 1`, so 1 die doubles it, 2 dice triple it), matching what the boost's own
 description already promises about "rare items". Old McZombie runs 1 → 2 → 3 → … → **6%** across
 the five dice a full six-tier loot table allows (`maxLuckTiers`); the harder invasions climb the
-same way from their own rung (the Aliens' Zastronaut 1.5 → **9%**).
+same way from their own rung (the Aliens' Zastronaut 2 → **12%**).
 The count is the same PINNED one the item roll uses — charged at `/raid/start`, never taken from
 the finish request — and it is clamped (`ZOMBIE_LUCK_DICE_CAP`) so a forged count can't make the
 drop certain.

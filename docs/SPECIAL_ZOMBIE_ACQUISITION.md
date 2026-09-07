@@ -111,9 +111,9 @@ a `BUY_ZOMBIE` request.
 **Thirteen of those 28 also drop from invasions** and are therefore reachable solo: Old McZombie
 (Old McDonnell's), Diver (Summer Break), Forest (Tree World) and Teddy (Valentine's Day) at 1%
 each; Deputy / MerZombie / Ninjombie / Zombie Bot from an ordinary win of the Lawyers / Pirates /
-Ninjas / Robots (1.1 / 1.2 / 1.3 / 1.4%), with Sheriff / Poseidon / Master Ninjombie / Omega
-Zombie Bot paid *instead* on an elite (Brain Ticket) win of the same raid (double: 2.2 / 2.4 /
-2.6 / 2.8%); and Zastronaut from the Aliens (1.5%). See `src/raid/zombieDrops.ts` and the rare-zombie section of
+Ninjas / Robots (1.2 / 1.4 / 1.6 / 1.8%), with Sheriff / Poseidon / Master Ninjombie / Omega
+Zombie Bot paid *instead* on an elite (Brain Ticket) win of the same raid (2.5x: 3.0 / 3.5 /
+4.0 / 4.5%); and Zastronaut from the Aliens (2%). See `src/raid/zombieDrops.ts` and the rare-zombie section of
 `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-prize pity makes that route bounded:
 100 wins of a raid without its zombie guarantees it on the next. Nothing in the game says so.
 

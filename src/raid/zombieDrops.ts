@@ -11,19 +11,22 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 
 // ---- The rare-zombie rate ladder ---------------------------------------------------
 // Every rare invasion zombie sits on ONE ladder, read off how hard its invasion is (the
-// raid's recommended level): about 1% a win, a tenth of a percent more per story
-// invasion up the difficulty order. Tuned to a feel, not a formula — the rates are
-// written out so the whole ladder can be read at a glance and re-tuned in one place:
+// raid's recommended level): 1% a win on the easy invasions, climbing a fifth of a
+// percent per story invasion to 2% on the Aliens. Tuned to a feel, not a formula — the
+// rates are written out so the whole ladder can be read at a glance and re-tuned in
+// one place:
 //
 //   rec  5  Old McDonnell's   Old McZombie      1.0%
 //   rec  6  Valentine's Day   Teddy Zombie      1.0%
 //   rec  8  Tree World        Forest Zombie     1.0%
 //   rec 10  Summer Break      Diver Zombie      1.0%
-//   rec 16  Lawyers           Deputy Zombie     1.1%   (Sheriff 2.2% on a ticket)
-//   rec 21  Pirates           MerZombie         1.2%   (Poseidon 2.4%)
-//   rec 26  Ninjas            Ninjombie         1.3%   (Master Ninjombie 2.6%)
-//   rec 31  Robots            Zombie Bot        1.4%   (Omega Zombie Bot 2.8%)
-//   rec 36  Aliens            Zastronaut        1.5%   (6% on a ticket: single prize, x4)
+//   rec 16  Lawyers           Deputy Zombie     1.2%   (Sheriff 3.0% on a ticket)
+//   rec 21  Pirates           MerZombie         1.4%   (Poseidon 3.5%)
+//   rec 26  Ninjas            Ninjombie         1.6%   (Master Ninjombie 4.0%)
+//   rec 31  Robots            Zombie Bot        1.8%   (Omega Zombie Bot 4.5%)
+//   rec 36  Aliens            Zastronaut        2.0%   (8% on a ticket: single prize, x4)
+//
+// The promoted prizes run 3-4.5%: ELITE_PRIZE_RATE_MULTIPLIER x their raid's rung.
 //
 // The four easy invasions share the floor on purpose — three of them are seasonal and
 // unlock at level 6-10, and Old McDonnell's is the tutorial raid; none is harder than
@@ -70,16 +73,16 @@ export const ZASTRONAUT_KEY = "ZombieActorZastronaut";
 
 /** Each story invasion's ordinary-prize rate: its rung of the ladder above. */
 export const STORY_ZOMBIE_DROP_RATES: Readonly<Record<number, number>> = {
-  [LAWYERS_RAID_ID]: pct(1.1),
-  [PIRATES_RAID_ID]: pct(1.2),
-  [NINJAS_RAID_ID]: pct(1.3),
-  [ROBOTS_RAID_ID]: pct(1.4),
-  [ALIENS_RAID_ID]: pct(1.5),
+  [LAWYERS_RAID_ID]: pct(1.2),
+  [PIRATES_RAID_ID]: pct(1.4),
+  [NINJAS_RAID_ID]: pct(1.6),
+  [ROBOTS_RAID_ID]: pct(1.8),
+  [ALIENS_RAID_ID]: pct(2.0),
 };
 /** A promoted prize's own rate on an elite fight is this many times its raid's ordinary
- *  rate, reflecting the harder wave. That product is the WHOLE elite premium — see
- *  raidZombieDropRate. */
-export const ELITE_PRIZE_RATE_MULTIPLIER = 2;
+ *  rate, reflecting the harder wave — 2.5x puts the four promoted prizes on 3.0 / 3.5 /
+ *  4.0 / 4.5%. That product is the WHOLE elite premium — see raidZombieDropRate. */
+export const ELITE_PRIZE_RATE_MULTIPLIER = 2.5;
 const elitePrizeRate = (raidId: number): number =>
   ELITE_PRIZE_RATE_MULTIPLIER * STORY_ZOMBIE_DROP_RATES[raidId];
 
@@ -182,7 +185,7 @@ export const ZOMBIE_LUCK_DICE_CAP = 10;
  *  `elite` says which PRIZE is being rolled for. On a raid that promotes its prize
  *  (RAID_ELITE_ZOMBIE_DROPS) an elite fight rolls for the promoted zombie at that zombie's
  *  OWN rate and `luck` is not applied: the promoted rate already is the elite premium, and
- *  stacking the 4x on top would make the sheriff eight times as common as the deputy. A
+ *  stacking the 4x on top would make the sheriff ten times as common as the deputy. A
  *  raid with a single prize keeps the old behaviour — the same zombie, at `luck` times the
  *  rate. Never exceeds 1. */
 export function raidZombieDropRate(raidId: number, dice = 0, luck = 1, elite = false): number {
