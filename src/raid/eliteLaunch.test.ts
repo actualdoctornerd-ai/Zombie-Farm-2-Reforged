@@ -191,10 +191,10 @@ describe("a story invasion promotes its rare zombie on a Brain Ticket", () => {
     const { raids, granted } = makeManager();
     const random = Math.random;
     try {
-      // 1.5% misses Ninjombie's 1% but lands inside Master Ninjombie's 2%.
-      expect(raidZombieDropRate(4)).toBeCloseTo(0.01, 10);
-      expect(raidZombieDropRate(4, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.02, 10);
-      Math.random = () => 0.015;
+      // 2% misses Ninjombie's 1.3% but lands inside Master Ninjombie's 2.6%.
+      expect(raidZombieDropRate(4)).toBeCloseTo(0.013, 10);
+      expect(raidZombieDropRate(4, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.026, 10);
+      Math.random = () => 0.02;
       raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, false);
       expect(granted).toEqual([]);
       raids.finishRaid(RAID, [] as never, WIN, 0, false, 0, true, true);
@@ -235,8 +235,8 @@ describe("a story invasion promotes its rare zombie on a Brain Ticket", () => {
     // The harness raid is a stub; give the card the one field raidCards() reads unguarded.
     (RAID as { introText?: string }).introText = "";
     const card = raids.raidCards().find((c) => c.id === 4)!;
-    expect(card.zombieDrop).toEqual({
-      name: "Ninjombie", rate: 0.01, eliteName: "Master Ninjombie", eliteRate: 0.02,
-    });
+    expect(card.zombieDrop).toMatchObject({ name: "Ninjombie", eliteName: "Master Ninjombie" });
+    expect(card.zombieDrop!.rate).toBeCloseTo(0.013, 10);
+    expect(card.zombieDrop!.eliteRate).toBeCloseTo(0.026, 10);
   });
 });

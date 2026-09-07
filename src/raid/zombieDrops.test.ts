@@ -19,8 +19,8 @@ import {
   RAID_ZOMBIE_SOURCES,
   raidZombieDropFor,
   raidZombieDryKey,
-  STORY_ZOMBIE_DROP_RATE,
-  STORY_ELITE_ZOMBIE_DROP_RATE,
+  STORY_ZOMBIE_DROP_RATES,
+  ELITE_PRIZE_RATE_MULTIPLIER,
   DEPUTY_ZOMBIE_KEY,
   SHERIFF_ZOMBIE_KEY,
   MER_ZOMBIE_KEY,
@@ -33,6 +33,7 @@ import {
   isRareInvasionZombieName,
 } from "./zombieDrops";
 import { ELITE_BRAIN_LUCK } from "./eliteInvasion";
+import raidRows from "../../public/assets/raids/raids.json";
 
 describe("rare raid zombie drops", () => {
   it("keeps Old McZombie on its existing exact 1% threshold", () => {
@@ -47,11 +48,11 @@ describe("rare raid zombie drops", () => {
     [7, DIVER_ZOMBIE_KEY],
     [10, FOREST_ZOMBIE_KEY],
     [11, TEDDY_ZOMBIE_KEY],
-  ])("drops the configured event zombie from raid %i at exactly 0.8%%", (raidId, key) => {
-    expect(EVENT_ZOMBIE_DROP_RATE).toBe(0.008);
+  ])("drops the configured event zombie from raid %i at exactly 1%%", (raidId, key) => {
+    expect(EVENT_ZOMBIE_DROP_RATE).toBe(0.01);
     expect(rollRaidZombieDrop(raidId, true, 0)?.key).toBe(key);
-    expect(rollRaidZombieDrop(raidId, true, 0.007999999)?.key).toBe(key);
-    expect(rollRaidZombieDrop(raidId, true, 0.008)).toBeNull();
+    expect(rollRaidZombieDrop(raidId, true, 0.009999999)?.key).toBe(key);
+    expect(rollRaidZombieDrop(raidId, true, 0.01)).toBeNull();
   });
 
   it("never drops from a loss, an unrelated invasion, or an invalid roll", () => {
@@ -68,7 +69,8 @@ describe("Golden Dice raise the rare-zombie rate", () => {
     expect(raidZombieDropRate(1, 1)).toBeCloseTo(0.02, 10);
     expect(raidZombieDropRate(1, 2)).toBeCloseTo(0.03, 10);
     expect(raidZombieDropRate(1, 5)).toBeCloseTo(0.06, 10); // the five a full loot table allows
-    expect(raidZombieDropRate(7, 5)).toBeCloseTo(0.048, 10); // event zombies: 0.8% base
+    expect(raidZombieDropRate(7, 5)).toBeCloseTo(0.06, 10); // event zombies: the same 1% base
+    expect(raidZombieDropRate(6, 5)).toBeCloseTo(0.09, 10); // Zastronaut: 1.5% base
   });
 
   it("widens the winning roll window accordingly", () => {
@@ -169,7 +171,7 @@ describe("a Brain Ticket widens the rare-zombie roll too", () => {
     expect(raidZombieDropRate(1, 0, ELITE_BRAIN_LUCK)).toBeCloseTo(0.04, 10);
     // Dice first (one die doubles the base), then the elite multiplier.
     expect(raidZombieDropRate(1, 1, ELITE_BRAIN_LUCK)).toBeCloseTo(0.08, 10);
-    expect(raidZombieDropRate(7, 0, ELITE_BRAIN_LUCK)).toBeCloseTo(0.032, 10);
+    expect(raidZombieDropRate(7, 0, ELITE_BRAIN_LUCK)).toBeCloseTo(0.04, 10);
   });
 
   it("turns a roll that would have missed into a drop", () => {
@@ -194,38 +196,45 @@ describe("a Brain Ticket widens the rare-zombie roll too", () => {
 
 describe("the story invasions' prize pairs", () => {
   const MISS = 1;
-  const PAIRS: Array<[number, string, string]> = [
-    [2, DEPUTY_ZOMBIE_KEY, SHERIFF_ZOMBIE_KEY],
-    [3, MER_ZOMBIE_KEY, POSEIDON_ZOMBIE_KEY],
-    [4, NINJOMBIE_KEY, MASTER_NINJOMBIE_KEY],
-    [5, ZOMBIE_BOT_KEY, OMEGA_ZOMBIE_BOT_KEY],
+  // raid, base zombie, promoted zombie, the raid's rung of the rate ladder (in percent)
+  const PAIRS: Array<[number, string, string, number]> = [
+    [2, DEPUTY_ZOMBIE_KEY, SHERIFF_ZOMBIE_KEY, 1.1],
+    [3, MER_ZOMBIE_KEY, POSEIDON_ZOMBIE_KEY, 1.2],
+    [4, NINJOMBIE_KEY, MASTER_NINJOMBIE_KEY, 1.3],
+    [5, ZOMBIE_BOT_KEY, OMEGA_ZOMBIE_BOT_KEY, 1.4],
   ];
 
-  it("pins the first-pass rates: 1% ordinary, 2% for the promoted prize", () => {
-    expect(STORY_ZOMBIE_DROP_RATE).toBe(0.01);
-    expect(STORY_ELITE_ZOMBIE_DROP_RATE).toBe(0.02);
+  it("pins the ladder: a tenth of a percent per story invasion, promoted prizes at double", () => {
+    const ladder: Record<number, number> = { 2: 0.011, 3: 0.012, 4: 0.013, 5: 0.014, 6: 0.015 };
+    expect(Object.keys(STORY_ZOMBIE_DROP_RATES).map(Number).sort()).toEqual([2, 3, 4, 5, 6]);
+    for (const [id, rate] of Object.entries(ladder)) {
+      expect(STORY_ZOMBIE_DROP_RATES[Number(id)], `raid ${id}`).toBeCloseTo(rate, 12);
+    }
+    expect(ELITE_PRIZE_RATE_MULTIPLIER).toBe(2);
   });
 
-  it.each(PAIRS)("raid %i pays its base zombie on an ordinary win at 1%", (raidId, base) => {
+  it.each(PAIRS)("raid %i pays its base zombie on an ordinary win at its rung", (raidId, base, _p, rung) => {
+    const rate = rung / 100;
     expect(raidZombieDropFor(raidId)?.key).toBe(base);
-    expect(raidZombieDropRate(raidId)).toBeCloseTo(0.01, 10);
-    expect(rollRaidZombieDrop(raidId, true, 0.009)?.key).toBe(base);
-    expect(rollRaidZombieDrop(raidId, true, 0.01)).toBeNull();
+    expect(raidZombieDropRate(raidId)).toBeCloseTo(rate, 10);
+    expect(rollRaidZombieDrop(raidId, true, rate - 1e-6)?.key).toBe(base);
+    expect(rollRaidZombieDrop(raidId, true, rate + 1e-6)).toBeNull();
   });
 
-  it.each(PAIRS)("raid %i pays its PROMOTED zombie instead on an elite win, at 2%", (raidId, base, promoted) => {
+  it.each(PAIRS)("raid %i pays its PROMOTED zombie instead on an elite win, at double", (raidId, base, promoted, rung) => {
+    const rate = 2 * rung / 100;
     expect(raidZombieDropFor(raidId, true)?.key).toBe(promoted);
     // Twice the ordinary rate — and NOT the 4x elite luck on top of that.
-    expect(raidZombieDropRate(raidId, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.02, 10);
-    expect(rollRaidZombieDrop(raidId, true, 0.019, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(promoted);
-    expect(rollRaidZombieDrop(raidId, true, 0.02, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
+    expect(raidZombieDropRate(raidId, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(rate, 10);
+    expect(rollRaidZombieDrop(raidId, true, rate - 1e-6, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(promoted);
+    expect(rollRaidZombieDrop(raidId, true, rate + 1e-6, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
     // The base zombie never comes out of an elite fight, however lucky the roll.
     expect(rollRaidZombieDrop(raidId, true, 0, 5, ELITE_BRAIN_LUCK, true)?.key).not.toBe(base);
   });
 
   it("still lets Golden Dice widen the promoted prize's roll", () => {
-    expect(raidZombieDropRate(2, 1, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.04, 10);
-    expect(raidZombieDropRate(2, 5, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.12, 10);
+    expect(raidZombieDropRate(2, 1, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.044, 10);
+    expect(raidZombieDropRate(2, 5, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.132, 10);
   });
 
   it("asking for the elite prize of a single-prize raid is the ordinary prize at elite luck", () => {
@@ -237,9 +246,9 @@ describe("the story invasions' prize pairs", () => {
   it("gives the Aliens the Zastronaut as a single prize that takes the 4x elite luck", () => {
     expect(RAID_ZOMBIE_DROPS[6].key).toBe(ZASTRONAUT_KEY);
     expect(RAID_ELITE_ZOMBIE_DROPS[6]).toBeUndefined();
-    expect(raidZombieDropRate(6)).toBeCloseTo(0.01, 10);
-    expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.04, 10);
-    expect(rollRaidZombieDrop(6, true, 0.03, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZASTRONAUT_KEY);
+    expect(raidZombieDropRate(6)).toBeCloseTo(0.015, 10);
+    expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.06, 10);
+    expect(rollRaidZombieDrop(6, true, 0.05, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZASTRONAUT_KEY);
   });
 
   it("keeps a separate pity streak for each prize of a paired raid, and one for the rest", () => {
@@ -270,5 +279,38 @@ describe("the story invasions' prize pairs", () => {
     expect(isRareInvasionZombieName("Deputy Zombie")).toBe(true);
     expect(isRareInvasionZombieName("Zastronaut")).toBe(true);
     expect(isRareInvasionZombieName("Bombie")).toBe(false);
+  });
+});
+
+describe("the rare-zombie rate ladder", () => {
+  const recLevel = new Map((raidRows as { id: number; recommendedLevel: number }[])
+    .map((raid) => [raid.id, raid.recommendedLevel]));
+  const ordinary = Object.entries(RAID_ZOMBIE_DROPS)
+    .map(([id, drop]) => ({ raidId: Number(id), rec: recLevel.get(Number(id))!, rate: drop.rate }))
+    .sort((a, b) => a.rec - b.rec);
+
+  it("keeps every ordinary prize around 1%: never below it, never past 1.5%", () => {
+    for (const { raidId, rate } of ordinary) {
+      expect(rate, `raid ${raidId}`).toBeGreaterThanOrEqual(0.01 - 1e-12);
+      expect(rate, `raid ${raidId}`).toBeLessThanOrEqual(0.015 + 1e-12);
+    }
+  });
+
+  it("never pays a harder invasion less than an easier one", () => {
+    for (let i = 1; i < ordinary.length; i++) {
+      expect(ordinary[i].rate, `raid ${ordinary[i].raidId} vs ${ordinary[i - 1].raidId}`)
+        .toBeGreaterThanOrEqual(ordinary[i - 1].rate - 1e-12);
+    }
+  });
+
+  it("climbs the story invasions strictly, in their unlock order", () => {
+    const story = [2, 3, 4, 5, 6].map((id) => RAID_ZOMBIE_DROPS[id].rate);
+    for (let i = 1; i < story.length; i++) expect(story[i]).toBeGreaterThan(story[i - 1]);
+  });
+
+  it("prices every promoted prize at exactly the multiplier times its raid's ordinary rate", () => {
+    for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS)) {
+      expect(drop.rate).toBeCloseTo(ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[Number(id)].rate, 12);
+    }
   });
 });

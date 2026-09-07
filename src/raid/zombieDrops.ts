@@ -8,7 +8,31 @@ export interface RaidZombieDrop {
 export const OLD_MC_ZOMBIE_KEY = "ZombieActorOldMcZombie";
 export const OLD_MC_ZOMBIE_NAME = "Old McZombie";
 export const OLD_MC_ZOMBIE_RAID_ID = 1;
-export const OLD_MC_ZOMBIE_DROP_RATE = 1 / 100;
+
+// ---- The rare-zombie rate ladder ---------------------------------------------------
+// Every rare invasion zombie sits on ONE ladder, read off how hard its invasion is (the
+// raid's recommended level): about 1% a win, a tenth of a percent more per story
+// invasion up the difficulty order. Tuned to a feel, not a formula — the rates are
+// written out so the whole ladder can be read at a glance and re-tuned in one place:
+//
+//   rec  5  Old McDonnell's   Old McZombie      1.0%
+//   rec  6  Valentine's Day   Teddy Zombie      1.0%
+//   rec  8  Tree World        Forest Zombie     1.0%
+//   rec 10  Summer Break      Diver Zombie      1.0%
+//   rec 16  Lawyers           Deputy Zombie     1.1%   (Sheriff 2.2% on a ticket)
+//   rec 21  Pirates           MerZombie         1.2%   (Poseidon 2.4%)
+//   rec 26  Ninjas            Ninjombie         1.3%   (Master Ninjombie 2.6%)
+//   rec 31  Robots            Zombie Bot        1.4%   (Omega Zombie Bot 2.8%)
+//   rec 36  Aliens            Zastronaut        1.5%   (6% on a ticket: single prize, x4)
+//
+// The four easy invasions share the floor on purpose — three of them are seasonal and
+// unlock at level 6-10, and Old McDonnell's is the tutorial raid; none is harder than
+// another in a way a rate should reward. zombieDrops.test.ts pins the ladder to the
+// recommended-level order so a re-tune cannot quietly invert it.
+const pct = (percent: number): number => percent / 100;
+export const OLD_MC_ZOMBIE_DROP_RATE = pct(1);
+/** The three seasonal invasions' zombies — the ladder's floor, same as Old McZombie. */
+export const EVENT_ZOMBIE_DROP_RATE = pct(1);
 
 export const DIVER_ZOMBIE_KEY = "ZombieActorHeadless2Tier5";
 export const DIVER_ZOMBIE_NAME = "Diver Zombie";
@@ -22,14 +46,12 @@ export const TEDDY_ZOMBIE_KEY = "ZombieActorRegular4Tier5";
 export const TEDDY_ZOMBIE_NAME = "Teddy Zombie";
 export const VALENTINES_DAY_RAID_ID = 11;
 
-export const EVENT_ZOMBIE_DROP_RATE = 0.8 / 100;
-
 // ---- The story invasions' prize pairs ---------------------------------------------
 // In the source these eight were ALTERNATE Epic Boss prizes for events that were never
 // built. Here they are the story invasions' rare zombies instead, one pair per faction:
 // the ordinary fight pays the base zombie, and an ELITE (Brain Ticket) fight pays the
 // promoted one in its place — the sheriff outranks the deputy the way the elite
-// invasion outranks the ordinary one. Rates are a first pass, pending a balance pass.
+// invasion outranks the ordinary one.
 export const LAWYERS_RAID_ID = 2;
 export const PIRATES_RAID_ID = 3;
 export const NINJAS_RAID_ID = 4;
@@ -46,11 +68,20 @@ export const ZOMBIE_BOT_KEY = "ZombieActorZombieBot";
 export const OMEGA_ZOMBIE_BOT_KEY = "ZombieActorOmegaZombieBot";
 export const ZASTRONAUT_KEY = "ZombieActorZastronaut";
 
-/** Base rate of a story invasion's ordinary prize — the same 1% Old McZombie has had. */
-export const STORY_ZOMBIE_DROP_RATE = 1 / 100;
-/** The promoted prize's own rate on an elite fight: twice the ordinary one, reflecting the
- *  harder wave. This number is the WHOLE elite premium — see raidZombieDropRate. */
-export const STORY_ELITE_ZOMBIE_DROP_RATE = 2 * STORY_ZOMBIE_DROP_RATE;
+/** Each story invasion's ordinary-prize rate: its rung of the ladder above. */
+export const STORY_ZOMBIE_DROP_RATES: Readonly<Record<number, number>> = {
+  [LAWYERS_RAID_ID]: pct(1.1),
+  [PIRATES_RAID_ID]: pct(1.2),
+  [NINJAS_RAID_ID]: pct(1.3),
+  [ROBOTS_RAID_ID]: pct(1.4),
+  [ALIENS_RAID_ID]: pct(1.5),
+};
+/** A promoted prize's own rate on an elite fight is this many times its raid's ordinary
+ *  rate, reflecting the harder wave. That product is the WHOLE elite premium — see
+ *  raidZombieDropRate. */
+export const ELITE_PRIZE_RATE_MULTIPLIER = 2;
+const elitePrizeRate = (raidId: number): number =>
+  ELITE_PRIZE_RATE_MULTIPLIER * STORY_ZOMBIE_DROP_RATES[raidId];
 
 /** What an ORDINARY win of each raid can pay. Every raid with a rare zombie appears here. */
 export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
@@ -59,11 +90,11 @@ export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
     name: OLD_MC_ZOMBIE_NAME,
     rate: OLD_MC_ZOMBIE_DROP_RATE,
   },
-  [LAWYERS_RAID_ID]: { key: DEPUTY_ZOMBIE_KEY, name: "Deputy Zombie", rate: STORY_ZOMBIE_DROP_RATE },
-  [PIRATES_RAID_ID]: { key: MER_ZOMBIE_KEY, name: "MerZombie", rate: STORY_ZOMBIE_DROP_RATE },
-  [NINJAS_RAID_ID]: { key: NINJOMBIE_KEY, name: "Ninjombie", rate: STORY_ZOMBIE_DROP_RATE },
-  [ROBOTS_RAID_ID]: { key: ZOMBIE_BOT_KEY, name: "Zombie Bot", rate: STORY_ZOMBIE_DROP_RATE },
-  [ALIENS_RAID_ID]: { key: ZASTRONAUT_KEY, name: "Zastronaut", rate: STORY_ZOMBIE_DROP_RATE },
+  [LAWYERS_RAID_ID]: { key: DEPUTY_ZOMBIE_KEY, name: "Deputy Zombie", rate: STORY_ZOMBIE_DROP_RATES[LAWYERS_RAID_ID] },
+  [PIRATES_RAID_ID]: { key: MER_ZOMBIE_KEY, name: "MerZombie", rate: STORY_ZOMBIE_DROP_RATES[PIRATES_RAID_ID] },
+  [NINJAS_RAID_ID]: { key: NINJOMBIE_KEY, name: "Ninjombie", rate: STORY_ZOMBIE_DROP_RATES[NINJAS_RAID_ID] },
+  [ROBOTS_RAID_ID]: { key: ZOMBIE_BOT_KEY, name: "Zombie Bot", rate: STORY_ZOMBIE_DROP_RATES[ROBOTS_RAID_ID] },
+  [ALIENS_RAID_ID]: { key: ZASTRONAUT_KEY, name: "Zastronaut", rate: STORY_ZOMBIE_DROP_RATES[ALIENS_RAID_ID] },
   [SPRING_BREAK_RAID_ID]: {
     key: DIVER_ZOMBIE_KEY,
     name: DIVER_ZOMBIE_NAME,
@@ -84,10 +115,10 @@ export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
 /** What an ELITE win pays INSTEAD of the ordinary prize, for the raids that promote it.
  *  A raid absent here pays its ordinary prize on elite fights too (at elite luck). */
 export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
-  [LAWYERS_RAID_ID]: { key: SHERIFF_ZOMBIE_KEY, name: "Sheriff Zombie", rate: STORY_ELITE_ZOMBIE_DROP_RATE },
-  [PIRATES_RAID_ID]: { key: POSEIDON_ZOMBIE_KEY, name: "Poseidon Zombie", rate: STORY_ELITE_ZOMBIE_DROP_RATE },
-  [NINJAS_RAID_ID]: { key: MASTER_NINJOMBIE_KEY, name: "Master Ninjombie", rate: STORY_ELITE_ZOMBIE_DROP_RATE },
-  [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: STORY_ELITE_ZOMBIE_DROP_RATE },
+  [LAWYERS_RAID_ID]: { key: SHERIFF_ZOMBIE_KEY, name: "Sheriff Zombie", rate: elitePrizeRate(LAWYERS_RAID_ID) },
+  [PIRATES_RAID_ID]: { key: POSEIDON_ZOMBIE_KEY, name: "Poseidon Zombie", rate: elitePrizeRate(PIRATES_RAID_ID) },
+  [NINJAS_RAID_ID]: { key: MASTER_NINJOMBIE_KEY, name: "Master Ninjombie", rate: elitePrizeRate(NINJAS_RAID_ID) },
+  [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
 };
 
 /** The prize a win of `raidId` rolls for: the elite one when this was an elite fight and
