@@ -958,13 +958,14 @@ export class Hud {
 
   setPlayStatus(
     mode: PlayMode,
-    state: "synced" | "saving" | "reconnecting" | "cached" = "synced",
+    state: "synced" | "saving" | "working" | "reconnecting" | "cached" = "synced",
     pending = 0,
   ) {
     const statusLabel = mode === "local"
       ? "Saved on this device"
       : state === "synced" ? "Everything synced"
       : state === "saving" ? `${pending || "Some"} change${pending === 1 ? "" : "s"} waiting to sync`
+      : state === "working" ? `The farmer still has ${pending || "some"} job${pending === 1 ? "" : "s"} to finish; if you leave now they are done on your next visit`
       : state === "reconnecting" ? "Reconnecting; changes may be waiting to sync"
       : "Offline view; changes may be waiting to sync";
     this.playStatusEl.className = `play-status ${mode} ${state}`;
@@ -973,6 +974,7 @@ export class Hud {
       : state === "cached" ? "ONLINE · OFFLINE VIEW"
       : state === "reconnecting" ? "ONLINE · RECONNECTING"
       : state === "saving" ? `ONLINE · SAVING${pending ? ` (${pending})` : ""}`
+      : state === "working" ? `ONLINE · WORKING${pending ? ` (${pending})` : ""}`
       : "ONLINE · SYNCED";
     const action = mode === "online" && this.onSyncRequested ? "Press to sync now." : "Choose Local or Online.";
     this.playStatusEl.setAttribute(

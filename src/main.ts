@@ -2302,7 +2302,14 @@ async function main() {
       ].join(", "),
     };
   };
-  jobs.onQueueChanged = () => saveManager.checkpointJobs();
+  // Online, the badge also reads the farmer's queue (see refreshPlayStatus below): a
+  // field the farmer is still walking has not reached the server, and "SYNCED" while
+  // it was mid-pass is what let "I made sure it was synced" go wrong.
+  let refreshPlayStatus: (() => void) | null = null;
+  jobs.onQueueChanged = () => {
+    saveManager.checkpointJobs();
+    refreshPlayStatus?.();
+  };
 
   // Pixi's ticker is requestAnimationFrame-driven and may stop completely when
   // the tab/window is backgrounded. Keep a separate monotonic clock for just the
@@ -2579,8 +2586,27 @@ async function main() {
         saveManager.cacheAuthoritativeSnapshot(serverTime);
       });
     };
-    economy.onPendingChange = (pending) =>
-      hud.setPlayStatus("online", pending > 0 ? "saving" : "synced", pending);
+    // Two things can still be waiting: batched commands in the outbox, and plots the
+    // farmer has queued but not reached (those become commands only on arrival). The
+    // badge reads SAVING for the first, WORKING for the second, and SYNCED only when
+    // both are empty — a player leaving on WORKING now knows the rest of the field is
+    // planted on their next visit, not tonight. Refreshed only while gameplay is
+    // available so it never paints over RECONNECTING.
+    let outboxPending = 0;
+    refreshPlayStatus = () => {
+      if (!economy?.available) return;
+      const work = jobs.pendingWork;
+      hud.setPlayStatus(
+        "online",
+        outboxPending > 0 ? "saving" : work > 0 ? "working" : "synced",
+        outboxPending > 0 ? outboxPending : work,
+      );
+    };
+    economy.onPendingChange = (pending) => {
+      outboxPending = pending;
+      if (economy?.available) refreshPlayStatus?.();
+      else hud.setPlayStatus("online", pending > 0 ? "saving" : "synced", pending);
+    };
     // The sync badge is a button: a press sends the waiting batch immediately. A press
     // while one is already on the wire is ignored, so it cannot be spammed into extra
     // requests; the badge itself is the feedback (SAVING (n) → SYNCED as it lands).

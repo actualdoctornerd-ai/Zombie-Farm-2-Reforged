@@ -47,6 +47,23 @@ describe("JobSystem elapsed-time catch-up", () => {
     expect(walk.arrivals).toEqual([10, 20]);
     expect(walk.moving).toBe(false);
     expect(jobs.busy).toBe(false);
+    expect(jobs.pendingWork).toBe(0);
+  });
+
+  it("counts the active job and the queue as pending work, for the sync badge", () => {
+    // Online, a queued plot becomes a command only when the farmer reaches it, so the
+    // badge reads this count as work still waiting rather than SYNCED.
+    const walk = new FakeWalk();
+    const jobs = new JobSystem(
+      {} as never, {} as never, walk as never, {} as never, () => {},
+    );
+    expect(jobs.pendingWork).toBe(0);
+    jobs.enqueueWalk(10, 10);
+    jobs.enqueueWalk(20, 20);
+    jobs.enqueueWalk(30, 30);
+    expect(jobs.pendingWork).toBe(3); // one active, two queued
+    jobs.advanceElapsed(1);
+    expect(jobs.pendingWork).toBe(0);
   });
 
   it("reports whether a restore was accepted, so a refused journal can be retried", () => {
@@ -416,6 +433,55 @@ describe("JobSystem elapsed-time catch-up", () => {
     expect(plantedAt[0]).toBeLessThan(plantedAt[1]);
     expect(plantedAt[0]).toBeLessThan(now - 5_000);
     expect(plantedAt[1]).toBeLessThan(now - 5_000);
+  });
+
+  it("stamps a replayed ONLINE planting at now, the clock the server will give it", () => {
+    // The mirror of the test above. Online the server is the crop's clock and it stamps
+    // the plant when the command applies — for a journal replayed on return, NOW. A
+    // player who planted a whole field, saw SYNCED between plots and left came back to
+    // find the farmer's catch-up back-dating every remaining plot: half the field read
+    // grown locally while the server had only just started its timers, the harvest was
+    // refused as not grown, and the resync snapped those plots to fresh timers.
+    vi.useFakeTimers();
+    const now = 1_000_000;
+    vi.setSystemTime(now);
+    const walk = new FakeWalk();
+    const plantedAt: number[] = [];
+    const farmActions: unknown[] = [];
+    const field = {
+      highlightLayer: new Container(), plowHighlightLayer: new Container(), labelLayer: new Container(),
+      plotOriginAt: (col: number, row: number) => ({ oc: col, or: row }),
+      canPlant: () => true, isRipe: () => false,
+      plotCenterOf: (col: number, row: number) => ({ x: col, y: row }),
+      hasFastWork: () => false,
+      plantAt: (_oc: number, _or: number, _cfg: unknown, at: number) => {
+        plantedAt.push(at);
+        return true;
+      },
+    };
+    const state = {
+      gold: 100, brains: 0, level: 1,
+      recordPlowed: () => {}, recordPlanted: () => {}, recordHarvest: () => {}, recordTreeHarvest: () => {},
+      onFarm: (action: unknown) => farmActions.push(action),
+      onTreeHarvest: null, canMutateOnline: () => true,
+    };
+    const cfg = {
+      key: "carrot", name: "Carrot", stages: [], growMs: 60_000,
+      cost: 1, sell: 1, xp: 1, unlockLevel: 1,
+    };
+    const jobs = new JobSystem(
+      field as never, { setWorking: () => {} } as never, walk as never, state as never,
+      () => {},
+    );
+
+    expect(jobs.enqueue("plant", 0, 0, cfg)).toBe(true);
+    expect(jobs.enqueue("plant", 4, 0, cfg)).toBe(true);
+    jobs.advanceElapsed(10, true);
+
+    // Both plots are planted (and both commands go to the server)...
+    expect(farmActions).toHaveLength(2);
+    // ...at the wall clock, not the replay cursor: nothing is back-dated online.
+    expect(plantedAt).toEqual([now, now]);
   });
 
   it("rolls online fertilization immediately and includes it in the plant action", () => {

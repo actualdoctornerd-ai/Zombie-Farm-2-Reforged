@@ -52,6 +52,7 @@
 #hud .play-status:focus-visible { outline: 2px solid #d9ff9b; outline-offset: 2px; }
 #hud .play-status.online { background: #245985; }
 #hud .play-status.reconnecting { background: #8a5b16; }
+#hud .play-status.working { background: #3f6b2a; }
 #hud .play-status.cached { background: #6b4b2a; }
 /* profile button: a person icon just right of the nameplate; opens the Profile menu.
    Stays visible on mobile (where the nameplate is hidden) so the menu is reachable. */

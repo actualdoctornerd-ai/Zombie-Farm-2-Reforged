@@ -243,6 +243,13 @@ export class JobSystem {
     return this.active !== null || this.queue.length > 0;
   }
 
+  /** Jobs the farmer still has to do (the active one included). Online, none of
+   *  these has reached the server yet — the command is emitted when the farmer
+   *  finishes the plot — so the sync badge counts them as work still waiting. */
+  get pendingWork(): number {
+    return (this.active ? 1 : 0) + this.queue.length;
+  }
+
   /** Suspend/resume queued farmer work without cancelling it.
    *
    *  Resuming REPLAYS the paused interval through the same elapsed-time catch-up a
@@ -574,10 +581,19 @@ export class JobSystem {
         this.onInsufficientFunds(cfg.brainsNeeded ? "brains" : "gold", cfg.cost);
         return true;
       }
-      if (funds >= cfg.cost && this.field.plantAt(job.oc, job.or, cfg, this.replayNow ?? Date.now())) {
-        // Zombie crops are now server-owned too (plant debits the cost, harvest yields a
-        // verified unit), so they go through the server path like veggie crops.
-        const online = !!this.state.onFarm;
+      // Zombie crops are now server-owned too (plant debits the cost, harvest yields a
+      // verified unit), so they go through the server path like veggie crops.
+      const online = !!this.state.onFarm;
+      // The crop's clock. OFFLINE the elapsed-time replay is the farm's own truth, so a
+      // planting the catch-up completes is stamped at the moment the farmer would have
+      // reached it (the replay cursor). ONLINE the server is the truth and it stamps the
+      // plant at the moment the command applies — which for a replayed journal is NOW.
+      // Back-dating locally there made a field planted on the way out look half grown on
+      // the way back in while the server had only just started every timer: the local
+      // crop read ripe, the harvest came back `not_grown`, and the next resync snapped
+      // every one of those plots back to a fresh timer.
+      const plantedAt = online ? Date.now() : (this.replayNow ?? Date.now());
+      if (funds >= cfg.cost && this.field.plantAt(job.oc, job.or, cfg, plantedAt)) {
         // Garden zombies fertilize a freshly-planted VEGGIE crop (zombie crops sell
         // for nothing, so they're never fertilized). A hit doubles the harvest.
         // The client owns the roll in both modes so its visual appears immediately.
