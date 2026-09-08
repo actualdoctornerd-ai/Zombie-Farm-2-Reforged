@@ -124,7 +124,6 @@ const plantNames = new Map((plantRows as (NamedRule & { key: string })[]).map((r
 const zombieRules = zombieRows as ZombieRule[];
 const zombieNames = new Map(zombieRules.map((r) => [r.key, r.name]));
 const zombieMutations = new Map(zombieRules.map((r) => [r.key, r.mutation ?? 0]));
-const rewardOnlyZombies = new Set(zombieRules.filter((r) => r.rewardOnly).map((r) => r.key));
 const zombieRuleByKey = new Map(zombieRules.map((r) => [r.key, r]));
 // Mutation bit -> Market mutant species name, so a zombie that grew its mutation in
 // the field still satisfies the quests that name the bought mutant (quest 55/56).
@@ -1152,7 +1151,9 @@ function applyOne(
       const a = state.roster.find((unit) => unit.id === command.parentAId && !unit.lockedByRaid);
       const b = state.roster.find((unit) => unit.id === command.parentBId && !unit.lockedByRaid);
       if (!a || !b) return reject(sequence, "not_owned");
-      if (rewardOnlyZombies.has(a.key) || rewardOnlyZombies.has(b.key)) return reject(sequence, "reward_only");
+      // Reward-only prizes are specials, so the slot rules below already say what
+      // they may do: slot 1 only, and never two of them. A prize in slot 1 is how it
+      // gets mutated at all — it is never planted beside a crop.
       const specialA = zombieRuleByKey.get(a.key)?.category === "special";
       const specialB = zombieRuleByKey.get(b.key)?.category === "special";
       if (specialA && specialB) return reject(sequence, "special_pair");
@@ -1196,7 +1197,6 @@ function applyOne(
       // recorded its slots has nothing to consult, so it keeps trusting the command.
       const startedSlotOne = command.potId ? state.potSlots?.[command.potId] : undefined;
       const [a, b] = startedSlotOne === second.id ? [second, first] : [first, second];
-      if (rewardOnlyZombies.has(a.key) || rewardOnlyZombies.has(b.key)) return reject(sequence, "reward_only");
       // The slot-1 restriction is enforced when a job STARTS (combine_start). Collection
       // deliberately does not re-check it: a job persisted before the rule — reserved or
       // not — has already consumed both parents client-side, and selectCombineSpecies

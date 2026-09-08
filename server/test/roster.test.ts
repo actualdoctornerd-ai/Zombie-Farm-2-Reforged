@@ -50,16 +50,16 @@ describe("rosterCatalog", () => {
     expect(legalMutation("ZombieActorRegularTier1", 8192 | 8)).toBe(8192 | 8);
     expect(legalMutation("ZombieActorGardenTier4", 8192)).toBe(8192);
   });
-  it("strips mutations from EPIC zombies only — specials keep theirs (owner's rule)", () => {
+  it("lets EPIC zombies keep a mutation, like every other special (owner's rule, 2026-09-07)", () => {
     // "Epic" is the Almanac's own Epic page: the Epic Boss event prizes
-    // (EPIC_QUEST_ZOMBIE_REWARDS / isRewardOnlyZombie). No trusted write may hand
-    // one a mutation, which closes the one door the organic gates leave open —
-    // mutations grow only on crop-grown zombies, and epics cannot enter the Pot.
-    expect(legalMutation("ZombieActorVagabond", 4 | 8 | 128)).toBe(0);
-    expect(legalMutation("ZombieActorScrooge", 8192)).toBe(0);
-    expect(legalMutation("ZombieActorAdmiral", 1024)).toBe(0);
-    // The seed path is stricter still: it refuses to mint an epic at all, so the
-    // strip above is the backstop for any other trusted write that names one.
+    // (EPIC_QUEST_ZOMBIE_REWARDS / isRewardOnlyZombie). The Zombie Pot is their one
+    // route to a mutation (slot 1, wearing slot 2's mask), and the mask the Pot
+    // hands them has to survive this scrub or the child collects unmutated.
+    expect(legalMutation("ZombieActorVagabond", 4 | 8 | 128)).toBe(4 | 8 | 128);
+    expect(legalMutation("ZombieActorScrooge", 8192)).toBe(8192);
+    expect(legalMutation("ZombieActorAdmiral", 1024)).toBe(1024);
+    // The seed path still refuses to mint an epic at all — they are earned, never
+    // seeded — so a trusted write cannot conjure one, mutated or not.
     expect(validateUnit("epic", "ZombieActorMadame", 9, 0))
       .toEqual({ ok: false, error: "reward_only" });
     // SPECIALS ARE NOT EPICS. The tier-5s, Pot promotions and brain-market legends

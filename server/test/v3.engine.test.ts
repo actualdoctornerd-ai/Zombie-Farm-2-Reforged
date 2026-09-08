@@ -1600,16 +1600,34 @@ describe("protocol v3 command engine", () => {
     ]);
   });
 
-  it("does not let the Zombie Pot clone an Epic reward zombie", () => {
+  it("mutates an Epic reward zombie in slot 1 with slot 2's mutations", () => {
+    // An Epic prize is never planted beside a crop, so the Pot is the one way it can
+    // wear a mutation: it goes in slot 1 like any special, comes back out as itself,
+    // and takes the donor's mask. Both parents are consumed, so nothing is cloned.
     const state = freshGameplayState();
     state.roster = [
       { id: "epic", key: "ZombieActorBandido", mutation: 0, invasions: 0, stored: false },
-      { id: "base", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false },
+      { id: "tomato", key: "ZombieActorRegularTier1Tomatoes", mutation: 1, invasions: 0, stored: false },
     ];
     const result = applyCommandBatch(state, commands(
-      { type: "roster.combine", parentAId: "epic", parentBId: "base" }
+      { type: "roster.combine", parentAId: "epic", parentBId: "tomato" }
+    ), { now: 1, random: () => 0.99, id: () => "child" });
+    expect(result.results[0]).toMatchObject({ status: "applied" });
+    expect(result.state.roster).toEqual([
+      { id: "child", key: "ZombieActorBandido", mutation: 1, invasions: 0, stored: false },
+    ]);
+  });
+
+  it("keeps an Epic reward zombie out of slot 2, like every other special", () => {
+    const state = freshGameplayState();
+    state.roster = [
+      { id: "base", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false },
+      { id: "epic", key: "ZombieActorBandido", mutation: 0, invasions: 0, stored: false },
+    ];
+    const result = applyCommandBatch(state, commands(
+      { type: "roster.combine_start", potId: "pot1", parentAId: "base", parentBId: "epic" }
     ), { now: 1 });
-    expect(result.results[0]).toMatchObject({ status: "rejected", error: "reward_only" });
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "special_slot" });
     expect(result.state.roster).toHaveLength(2);
   });
 

@@ -453,13 +453,12 @@ export class ZombieField {
     const hasA = this.units.some((u) => u.id === idA) || this.stored.some((d) => d.id === idA);
     const hasB = this.units.some((u) => u.id === idB) || this.stored.some((d) => d.id === idB);
     if (!hasA || !hasB) return false;
-    const peekA = this.roster().find((zombie) => zombie.id === idA)!;
     const peekB = this.roster().find((zombie) => zombie.id === idB)!;
-    const defA = this.resolve(peekA.key);
     const defB = this.resolve(peekB.key);
-    if (defA?.rewardOnly || defB?.rewardOnly) return false;
     // Named specials are permanent output species, so they may only occupy the
-    // first (output-species) slot.
+    // first (output-species) slot. The Epic Boss prizes are specials too: a reward
+    // zombie in slot 1 comes back out as itself, wearing slot 2's mutations — that is
+    // the one way it can be mutated, since it is never planted beside a crop.
     if (defB?.category === "special") return false;
     const a = this.takeOwned(idA)!;
     const b = this.takeOwned(idB)!;

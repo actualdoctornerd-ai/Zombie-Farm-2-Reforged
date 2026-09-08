@@ -111,13 +111,19 @@ export function hidesHeadMutationArt(key: string): boolean {
  * controls the rendered rig.
  */
 export function mutationBitsForRendering(
-  zombies: readonly Pick<ZombieDef, "key" | "category">[] | undefined,
+  zombies: readonly Pick<ZombieDef, "key" | "category" | "rewardOnly">[] | undefined,
   key: string,
   mutation: number,
 ): number[] {
-  const isSpecial = zombies?.some((zombie) =>
-    zombie.key === key && zombie.category === "special"
-  ) ?? false;
+  const def = zombies?.find((zombie) => zombie.key === key);
+  const isSpecial = def?.category === "special";
+  // An Epic Boss prize (the reward-only species) can now WEAR mutations — it takes
+  // them in the Zombie Pot like any other special — but draws none of them yet. Its
+  // art is a complete authored actor (a doctor's coat, a pirate's hat, a bug's shell)
+  // with no mutation art of its own, and the generic vegetables land on it as badly
+  // as they do on the pixel zombie. The bits stay on the unit with their full stat
+  // bonus; only the drawing waits for per-actor art.
+  if (def?.rewardOnly) return [];
   const maskedFace = hidesHeadMutationArt(key);
   return bitsOf(mutation).filter((bit) =>
     !(isSpecial && EYE_MUTATION_BITS.has(bit))

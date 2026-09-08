@@ -129,18 +129,18 @@ export function isHeadlessZombie(key: string): boolean {
 
 /** The mutation mask a unit of `key` may legally carry ON A TRUSTED WRITE.
  *
- *  EPIC zombies never carry mutations (owner's rule, 2026-08-24). Epics are the
- *  Almanac's own Epic page — the Epic Boss event prizes, `EPIC_QUEST_ZOMBIE_REWARDS`,
- *  the same set `isRewardOnlyZombie` names. Every ORGANIC path to a mutated epic is
- *  already shut: mutations only grow on crop-grown zombies, epics are refused as
- *  Zombie Pot parents (both at start and at collect), and the Pot's promotion child
- *  is always a tier-5 Special, never an epic. This strip closes the one remaining
- *  door — a trusted write that supplies its own mask (the one-time save migration,
- *  a dev fixture) — so the rule holds structurally rather than by coincidence.
+ *  EPIC zombies may carry mutations (owner's rule, reversed 2026-09-07 — from
+ *  2026-08-24 to then they were stripped here). Epics are the Almanac's own Epic
+ *  page — the Epic Boss event prizes, `EPIC_QUEST_ZOMBIE_REWARDS`, the same set
+ *  `isRewardOnlyZombie` names. Their one organic route to a mutation is the Zombie
+ *  Pot: an epic in slot 1 comes back out as itself wearing slot 2's mask (v3/engine
+ *  `roster.combine`), the same rule every other special follows. They are still never
+ *  minted by the seed path (validateUnit) and never planted.
  *
- *  SPECIALS ARE NOT COVERED, deliberately: the tier-5s, the Pot promotions and the
- *  brain-market legends may all carry mutations, and a special in Pot slot 1 still
- *  inherits its partner's. Only the Epic page is exempt.
+ *  SPECIALS ARE NOT COVERED, deliberately: the tier-5s, the Pot promotions, the
+ *  brain-market legends AND the Epic prizes may all carry mutations, and a special in
+ *  Pot slot 1 still inherits its partner's. (The Epic prizes used to be zeroed here,
+ *  back when the Pot refused them; the Pot is now the one way they get mutated.)
  *
  *  For everyone else: head and hair/eye bits are dropped for the headless family
  *  (a Party Zombie can't be carrot-eyed), except the Pumpking that stands in for the
@@ -150,7 +150,6 @@ export function isHeadlessZombie(key: string): boolean {
  *  server-side twin of the client's makeOwned, which scrubs the same bits wherever a
  *  mask lands on a unit — both must agree or the unit's stats diverge. */
 export function legalMutation(key: string, mask: number): number {
-  if (isRewardOnlyZombie(key)) return 0;
   return applyBodyTypeRestriction(upgradeVariantMutations(key, mask), isHeadlessZombie(key));
 }
 

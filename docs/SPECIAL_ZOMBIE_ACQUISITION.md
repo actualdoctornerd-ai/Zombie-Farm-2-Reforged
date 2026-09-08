@@ -57,7 +57,11 @@ deployed army is full the reward is filed in **Received** instead: it is not in 
 roster yet, and claiming it from the Storage panel takes a real Mausoleum slot, so a
 player with no Mausoleum (or a full one) must make room before the unit can join. The
 reward is never destroyed — it waits in Received indefinitely. They cannot be bought,
-planted, seeded by migration, or used to duplicate themselves in the Zombie Pot.
+planted or seeded by migration. They CAN go in the Zombie Pot, in slot 1 only like every
+other special: the prize comes back out as itself wearing slot 2's mutations, both parents
+consumed, which is the one way a zombie that is never planted beside a crop can be mutated.
+The mutations count for stats but draw no art on an Epic prize yet
+(`mutationBitsForRendering`) — their authored actors have no vegetable art of their own.
 
 ## Market: Special zombie crops (5)
 
@@ -171,8 +175,8 @@ falls through to the ordinary rules.
 
 A named special is a permanent output type: it may only be placed in **slot 1** (the
 Pot refuses to start otherwise, client and server), and it is always inherited. Two
-specials cannot be combined, and Epic/event `rewardOnly` zombies cannot enter the pot
-at all.
+specials cannot be combined. Epic/event `rewardOnly` zombies are specials and follow the
+same slot-1 rule (they used to be barred from the Pot entirely).
 
 > Note: this replaces the recovered `determineBaseClass` rules (non-veggie parent wins,
 > then higher combat tier, then a coin flip on a tie — see the zombie-pot disassembly

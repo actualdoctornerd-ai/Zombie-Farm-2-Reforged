@@ -31,6 +31,18 @@ describe("mutation visual replacements", () => {
     expect(mutationBitsForRendering(zombies, "special", 4 | 8)).toEqual([8]);
   });
 
+  it("draws no mutation art at all on an Epic reward zombie, in any slot", () => {
+    // The prize wears the bits (the Pot put them there, and they buff its stats);
+    // only the drawing waits for per-actor art.
+    const zombies = [
+      { key: "epic", category: "special" as const, rewardOnly: true },
+      { key: "special", category: "special" as const, rewardOnly: false },
+    ];
+    const everySlot = MUTATION_LIST.reduce((m, def) => m | bitOf(def.key), 0);
+    expect(mutationBitsForRendering(zombies, "epic", everySlot)).toEqual([]);
+    expect(mutationBitsForRendering(zombies, "special", everySlot).length).toBeGreaterThan(0);
+  });
+
   it("draws no head mutation on a masked face, but still draws its other slots", () => {
     // The mask (a beard, a space helmet, a wall of leaves) sits over an ordinary head,
     // so a head mutation would hide that head and float the face parts over the
