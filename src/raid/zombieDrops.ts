@@ -81,9 +81,8 @@ export const ZOSMONAUT_KEY = "ZombieActorZosmonaut";
  *  (tools/prep_assets.py CUT_SPECIAL_ZOMBIES) — the Circus's rare zombie. */
 export const ZOMBOZO_KEY = "ZombieActorZombozo";
 /** The pixel zombie of the Video Games invasion as a playable species (a flipbook
- *  rig, see docs/SPECIAL_ZOMBIE_ACQUISITION.md) — that invasion's rare zombie. It is
- *  an ORDINARY (normal-category) zombie by the owner's call, so it goes in either Pot
- *  slot; an elite promoted version is planned. */
+ *  rig, see docs/SPECIAL_ZOMBIE_ACQUISITION.md) — that invasion's rare zombie, a
+ *  special like the other prizes; an elite promoted version is planned. */
 export const VIDEO_GAMES_RAID_ID = 9;
 export const VIDEO_GAME_ZOMBIE_KEY = "ZombieActorRegularVideoGame";
 

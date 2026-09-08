@@ -179,7 +179,7 @@ recommended level — 1% on the easy invasions, a fifth of a percent more per st
 2% on the Aliens: Old McDonnell's → Old McZombie, Summer Break / Tree World / Valentine's Day →
 Diver / Forest / Teddy, and the Circus → Zombozo (a Mini in the clown's costume) at **1%**; Lawyers → Deputy **1.2%**, Pirates → MerZombie **1.4%**, Ninjas →
 Ninjombie **1.6%**, Robots → Zombie Bot **1.8%**, Aliens → Zastronaut **2.0%**, and the Video Games →
-their own pixel **Video Game Zombie** (an ordinary-category species) at the same **2.0%** ceiling. The four faction
+their own pixel **Video Game Zombie** at the same **2.0%** ceiling. The four faction
 invasions pay a **pair**: an ELITE (Brain Ticket) win rolls for the promoted zombie *instead* —
 Sheriff / Poseidon / Master Ninjombie / Omega Zombie Bot at **2.5x** the raid's ordinary rate
 (3.0 / 3.5 / 4.0 / 4.5%, `RAID_ELITE_ZOMBIE_DROPS`, `ELITE_PRIZE_RATE_MULTIPLIER`), and the Aliens

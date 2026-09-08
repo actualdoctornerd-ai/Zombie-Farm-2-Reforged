@@ -2,13 +2,11 @@
 // playable species. Two things make it unlike every other catalog row, and this
 // pins both.
 //
-//  1. It is an ORDINARY zombie with a special's art route AND a prize's obtain route.
-//     It is category "normal" (either Pot slot, no Black Market special gate), in the
-//     Regular group, with the tier-less Yellow class the Crazy Zombie wears — yet it
-//     is never planted: it is the Video Games invasion's rare zombie
-//     (raid/zombieDrops.ts, an elite promoted version planned) and it is drawn from the
-//     dedicated special-zombie atlas, because its art is authored nowhere on the
-//     shared ZombieSheet.
+//  1. It is a SPECIAL with a prize's obtain route: the Video Games invasion's rare
+//     zombie (raid/zombieDrops.ts, an elite promoted version planned), category
+//     "special" in the Regular group with the Special class the other prizes wear,
+//     never planted. It is drawn from the dedicated special-zombie atlas, because its
+//     art is authored nowhere on the shared ZombieSheet.
 //  2. It is a FLIPBOOK, not a paper doll. Its manifest is complete (no inherited
 //     skeleton), holds one sprite, and carries idle/attack frame strips; the rigs
 //     swap textures instead of posing bones, and no mutation art can attach.
@@ -45,16 +43,18 @@ const manifest = specialModels[KEY as keyof typeof specialModels] as unknown as 
 };
 
 describe("Video Game Zombie catalog row", () => {
-  it("exists and files as an ordinary Regular zombie of the Yellow class", () => {
+  it("exists and files as a special Regular zombie of the Special class", () => {
     expect(row).toBeDefined();
     expect(row.name).toBe("Video Game Zombie");
-    expect(row.category).toBe("normal");
+    expect(row.category).toBe("special");
     expect(row.group).toBe("Regular");
-    expect(row.className).toBe("Yellow");
-    expect(row.classColor).toBe(crazy.classColor);
-    // The runtime classifier agrees with the baked taxonomy (no Tier token -> Yellow).
-    expect(classify(KEY)).toEqual({ group: "Regular", className: "Yellow", classColor: row.classColor });
-    // Yellow sees every ability tier, like the Crazy Zombie.
+    const deputy = zombies.find((zombie) => zombie.key === "ZombieActorDeputy")!;
+    expect(row.className).toBe(deputy.className);
+    expect(row.classColor).toBe(deputy.classColor);
+    // The runtime classifier's fallback reads the key (no Tier token -> Yellow); the
+    // baked class is authoritative and only the GROUP has to agree.
+    expect(classify(KEY).group).toBe("Regular");
+    // Special sees every ability tier, like the Crazy Zombie.
     expect(classTierRank(row.className)).toBe(classTierRank(crazy.className));
     // Same farm silhouette scale as the family it files with.
     expect(zombieFarmScale(row.group, row.className, KEY)).toBe(zombieFarmScale("Regular", "Green", "ZombieActorRegularTier1"));
@@ -79,8 +79,8 @@ describe("Video Game Zombie catalog row", () => {
   });
 
   it("is the Video Games invasion's rare zombie, never a gravestone", () => {
-    expect(row.rewardOnly).toBe(false); // an ordinary zombie: either Pot slot, tradable
-    expect(row.marketHidden).toBe(true); // ...but never planted
+    expect(row.rewardOnly).toBe(false); // a prize, not an Epic: Pot slot 1, tradable
+    expect(row.marketHidden).toBe(true); // never planted
     expect(row.brainsNeeded).toBe(true); // the brain cost is its sell / trade value
     expect(row.cost).toBeGreaterThan(crazy.cost);
     expect(row.level).toBe(43); // the Video Games invasion's own unlock level
