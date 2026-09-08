@@ -1043,13 +1043,15 @@ def composite_zombie(entry_name, out_name, catalog_key=None):
 DERIVED_SPECIAL_ZOMBIES = [
     # The Aliens' promoted (Brain Ticket) prize: the Zastronaut in a rust launch suit
     # under a charcoal helmet with a near-black plate that the face still reads
-    # through. Picked from a sheet of recolours on 2026-09-07 (src/raid/zombieDrops.ts).
+    # through, and black boots to match the helmet. Picked from a sheet of recolours on
+    # 2026-09-07 (src/raid/zombieDrops.ts).
     {
         "stem": "zosmonaut", "key": "ZombieActorZosmonaut", "base": "zastronaut",
         "recolour": {
             "suit":   ((200, 70, 30), 1.0, 0.85, 1.0),
             "helmet": ((60, 60, 70), 0.3, 0.4, 1.0),
             "visor":  ((50, 45, 60), 0.35, 0.42, 1.12),
+            "boot":   ((40, 40, 45), 0.3, 0.6, 1.0),
         },
     },
 ]
