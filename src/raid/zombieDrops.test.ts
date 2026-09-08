@@ -224,7 +224,7 @@ describe("the story invasions' prize pairs", () => {
     expect(RAID_ELITE_ZOMBIE_DROPS[4].rate).toBeCloseTo(0.04, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[5].rate).toBeCloseTo(0.045, 12);
     // The Aliens' 2.5 x 2% = 5% would leave the band; the cap holds it at the top —
-    // and the Video Games' Final Boss, on the same 2% rung, with it.
+    // and the Boss Zombie, on the same 2% rung, with it.
     expect(ELITE_PRIZE_RATE_CAP).toBeCloseTo(0.045, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[6].rate).toBeCloseTo(0.045, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID]).toMatchObject({ key: FINAL_BOSS_ZOMBIE_KEY });
@@ -258,13 +258,13 @@ describe("the story invasions' prize pairs", () => {
   it("asking for the elite prize of a single-prize raid is the ordinary prize at elite luck", () => {
     expect(raidZombieDropFor(1, true)?.key).toBe(OLD_MC_ZOMBIE_KEY);
     expect(raidZombieDropRate(1, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.04, 10);
-    // The Video Games promote: a ticket win rolls the Final Boss, never the base zombie.
+    // The Video Games promote: a ticket win rolls the Boss Zombie, never the base zombie.
     expect(raidZombieDropFor(VIDEO_GAMES_RAID_ID, true)?.key).toBe(FINAL_BOSS_ZOMBIE_KEY);
     expect(raidZombieDropFor(VIDEO_GAMES_RAID_ID, false)?.key).toBe(VIDEO_GAME_ZOMBIE_KEY);
     expect(raidZombieDropFor(99, true)).toBeNull();
   });
 
-  it("gives the Aliens the Zastronaut ordinarily and the Zosmonaut on a ticket, at the cap", () => {
+  it("gives the Aliens the Zastronaut ordinarily and the Cozmonaut on a ticket, at the cap", () => {
     expect(RAID_ZOMBIE_DROPS[6].key).toBe(ZASTRONAUT_KEY);
     expect(RAID_ELITE_ZOMBIE_DROPS[6].key).toBe(ZOSMONAUT_KEY);
     expect(raidZombieDropRate(6)).toBeCloseTo(0.02, 10);
@@ -317,7 +317,7 @@ describe("the story invasions' prize pairs", () => {
     expect(isRareInvasionZombieName("Sheriff Zombie")).toBe(true);
     expect(isRareInvasionZombieName("Deputy Zombie")).toBe(true);
     expect(isRareInvasionZombieName("Zastronaut")).toBe(true);
-    expect(isRareInvasionZombieName("Zosmonaut")).toBe(true);
+    expect(isRareInvasionZombieName("Cozmonaut")).toBe(true);
     expect(isRareInvasionZombieName("Zombozo")).toBe(true);
     expect(isRareInvasionZombieName("Bombie")).toBe(false);
   });

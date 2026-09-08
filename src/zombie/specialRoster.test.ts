@@ -16,8 +16,8 @@ describe("complete special-zombie roster", () => {
   it("implements every recovered named special with its dedicated art", () => {
     // 40 recovered named actors, plus the Video Game Zombie — a flipbook rig on the
     // dedicated sheet (see videoGameZombie.test.ts for its own rules) —
-    // plus the Final Boss Zombie, its palette swap (DERIVED_FLIPBOOK_ZOMBIES) —
-    // plus the Zosmonaut, a DERIVED recolour of the Zastronaut with no recovered
+    // plus the Boss Zombie, its palette swap (DERIVED_FLIPBOOK_ZOMBIES) —
+    // plus the Cozmonaut, a DERIVED recolour of the Zastronaut with no recovered
     // source of its own (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), plus the
     // Zombozo, CUT from the Circus clown's enemy art (CUT_SPECIAL_ZOMBIES).
     const named = zombies.filter((zombie) => zombie.specialSprite);

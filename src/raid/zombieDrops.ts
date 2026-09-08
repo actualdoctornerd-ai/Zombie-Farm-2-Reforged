@@ -25,7 +25,7 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 //   rec 21  Pirates           MerZombie         1.4%   (Poseidon 3.5%)
 //   rec 26  Ninjas            Ninjombie         1.6%   (Master Ninjombie 4.0%)
 //   rec 31  Robots            Zombie Bot        1.8%   (Omega Zombie Bot 4.5%)
-//   rec 36  Aliens            Zastronaut        2.0%   (Zosmonaut 4.5%, capped)
+//   rec 36  Aliens            Zastronaut        2.0%   (Cozmonaut 4.5%, capped)
 //
 // The promoted prizes run 3-4.5%: ELITE_PRIZE_RATE_MULTIPLIER x their raid's rung, held
 // under ELITE_PRIZE_RATE_CAP — which is only ever the Aliens' 5% brought back to 4.5%.
@@ -151,8 +151,8 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   [PIRATES_RAID_ID]: { key: POSEIDON_ZOMBIE_KEY, name: "Poseidon Zombie", rate: elitePrizeRate(PIRATES_RAID_ID) },
   [NINJAS_RAID_ID]: { key: MASTER_NINJOMBIE_KEY, name: "Master Ninjombie", rate: elitePrizeRate(NINJAS_RAID_ID) },
   [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
-  [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Zosmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
-  [VIDEO_GAMES_RAID_ID]: { key: FINAL_BOSS_ZOMBIE_KEY, name: "Final Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID) },
+  [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Cozmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
+  [VIDEO_GAMES_RAID_ID]: { key: FINAL_BOSS_ZOMBIE_KEY, name: "Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID) },
 };
 
 /** The prize a win of `raidId` rolls for: the elite one when this was an elite fight and

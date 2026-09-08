@@ -66,11 +66,11 @@ MARKET_SPECIALS = {
 # marketHidden; the brain cost is its sell/Black Market value). A SPECIAL like the
 # other invasion prizes (category "special", Special class, group Regular): Pot slot 1
 # only, level-20 Black Market gate. (It shipped as a normal-category zombie; the owner
-# reclassified it 2026-09-08.) Its elite is the Final Boss Zombie below. Stats: the Crazy Zombie's shape
+# reclassified it 2026-09-08.) Its elite is the Boss Zombie below. Stats: the Crazy Zombie's shape
 # (19 / 2 / 28 / 100, dex one step up) scaled x1.48 by the prize re-fit (see
 # SPECIAL_STAT_REBALANCE in reforge_economy.py) so that, wearing the damage set, it
-# sits ON the prize line at level 43 (~2,028) and a little under the Vagabond (2,075) —
-# the strongest prize a ticket-less run can win.
+# sat ON the prize line at level 43 (~2,028), then its con cut by a fifth (42.9 -> 34.3,
+# owner's call 2026-09-08): ~1,850 with the damage set, well under the Vagabond (2,075).
 # Its art is a frame strip, exported by tools/prep_assets.py export_video_game_zombie.
 AUTHORED_ZOMBIES = [
     {
@@ -78,23 +78,24 @@ AUTHORED_ZOMBIES = [
         "cost": 6, "growMs": 86_400_000, "category": "special", "level": 43, "xp": 2,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",
-        "str": 29.6, "dex": 2.1, "con": 42.9, "focus": 100.0,
+        "str": 29.6, "dex": 2.1, "con": 34.3, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "video_game_zombie.png",
         "rewardOnly": False, "marketHidden": True,
     },
     # The Video Games' promoted (Brain Ticket) prize: the pixel zombie's palette swap
     # (tools/prep_assets.py DERIVED_FLIPBOOK_ZOMBIES), the way a game's final boss is
     # the same sprite in a stronger colour. Priced like the other promoted prizes
-    # (twice the base zombie). Stats: the Video Game Zombie's shape x1.125, so that
-    # wearing the damage set it sits 200 ABOVE the prize line at level 43 (the elite
-    # rule in SPECIAL_STAT_REBALANCE) — ~2,228, past the Vagabond: the strongest
-    # zombie in the game, and the rarest (4.5% on a ticket win of the hardest raid).
+    # (twice the base zombie). Stats: the Video Game Zombie's shape x1.125 (str) —
+    # the elite rule's 200 above the prize line — with its con then cut by a fifth
+    # like the base's (48.3 -> 38.6, owner's call 2026-09-08): ~2,030 with the damage
+    # set, a hair under the Vagabond (2,075). The rarest zombie in the game (4.5% on a
+    # ticket win of the hardest raid).
     {
-        "key": "ZombieActorRegularFinalBoss", "name": "Final Boss Zombie",
+        "key": "ZombieActorRegularFinalBoss", "name": "Boss Zombie",
         "cost": 12, "growMs": 86_400_000, "category": "special", "level": 43, "xp": 2,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",
-        "str": 33.3, "dex": 2.1, "con": 48.3, "focus": 100.0,
+        "str": 33.3, "dex": 2.1, "con": 38.6, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "final_boss_zombie.png",
         "rewardOnly": False, "marketHidden": True,
     },
@@ -105,7 +106,7 @@ AUTHORED_ZOMBIES = [
     # reforge_economy.py): the elite Aliens prize, 200 above the Epic line at level 36
     # (x2.16 of its first-pass 10.5 / 3.67 / 17.2, the Zastronaut +20%).
     {
-        "key": "ZombieActorZosmonaut", "name": "Zosmonaut",
+        "key": "ZombieActorZosmonaut", "name": "Cozmonaut",
         "cost": 10, "growMs": 86_400_000, "category": "special", "level": 25, "xp": 1,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",

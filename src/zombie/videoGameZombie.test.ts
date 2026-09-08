@@ -3,7 +3,7 @@
 // pins both.
 //
 //  1. It is a SPECIAL with a prize's obtain route: the Video Games invasion's rare
-//     zombie (raid/zombieDrops.ts; the Final Boss Zombie is its palette-swapped elite), category
+//     zombie (raid/zombieDrops.ts; the Boss Zombie is its palette-swapped elite), category
 //     "special" in the Regular group with the Special class the other prizes wear,
 //     never planted. It is drawn from the dedicated special-zombie atlas, because its
 //     art is authored nowhere on the shared ZombieSheet.
@@ -13,7 +13,7 @@
 //
 // Its stats are fitted to the prize line at its level 43 — the line the Epic and
 // invasion prizes sit on (tools/reforge_economy.py SPECIAL_STAT_REBALANCE) — held a
-// little under the Vagabond, the strongest Epic. Its elite, the Final Boss Zombie, sits above.
+// little under the Vagabond, the strongest Epic. Its elite, the Boss Zombie, sits between them.
 import { describe, expect, it } from "vitest";
 // @ts-ignore — node test environment only (the app has no @types/node)
 import { existsSync } from "node:fs";
@@ -69,12 +69,13 @@ describe("Video Game Zombie catalog row", () => {
     // The balance yardstick (see the Zombie Strength Ladder): sqrt(DPS x HP) wearing
     // the five-slot damage set (+9 str, +2 dex, +9 con on a Regular body). The prize
     // line pays 1,500 at level 24 rising 500 over 18 levels; at level 43 that is
-    // ~2,028. The owner's brief: ON the line, but at least a bit under the Vagabond.
+    // ~2,028. The owner's brief: ON the line, at least a bit under the Vagabond — and
+    // then a fifth off its con (42.9 -> 34.3), which leaves it ~9% under the line.
     const mutated = (z: ZombieDef) =>
       Math.sqrt(500 * (z.str + 9) * (z.dex + 2) * (z.con + 9));
     const vagabond = zombies.find((zombie) => zombie.key === "ZombieActorVagabond")!;
     const line = 1500 + (row.level - 24) * (500 / 18);
-    expect(mutated(row)).toBeGreaterThan(line * 0.97);
+    expect(mutated(row)).toBeGreaterThan(line * 0.88);
     expect(mutated(row)).toBeLessThan(mutated(vagabond) * 0.99);
   });
 

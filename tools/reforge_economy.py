@@ -361,8 +361,9 @@ SPECIAL_STAT_REBALANCE = {
     #   * a MINI prize is fitted as a Mini: its target is 0.86 of the line, the ratio
     #     the Small tier-5 (Zombricaun) holds against the Regular tier-5 (Zombotron)
     #     on this yardstick (the Silver pair gives the same 0.86). The Zombozo is the
-    #     one so far. The Video Game Zombie, a plantable Regular at level 43, is also
-    #     fitted ON this line (held under the Vagabond) — see AUTHORED_ZOMBIES.
+    #     one so far. The Video Game Zombie (the Video Games' prize) and its elite, the
+    #     Boss Zombie, were fitted on this line and then had their con cut by a fifth
+    #     (owner's call) — see AUTHORED_ZOMBIES in prep_market.py.
     #
     # Before the raise the prizes sat 250 under the Epic line. Before the first fit
     # Deputy / Sheriff had Epic-omega stats at level 16, and Zombie Bot / Omega Zombie
@@ -381,7 +382,7 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorZombieBot":        {"str": 19.3, "con": 20.0},  # 24/25      x0.80  L31
     "ZombieActorOmegaZombieBot":   {"str": 22.2, "con": 23.9},  # 28/30      x0.80  L31 elite
     "ZombieActorZastronaut":       {"str": 19.7, "con": 32.3},  # 8.71/14.3  x2.26  L36
-    # The Zosmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows
+    # The Cozmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows
     # (prep_market.py AUTHORED_ZOMBIES) and are fitted there.
 }
 

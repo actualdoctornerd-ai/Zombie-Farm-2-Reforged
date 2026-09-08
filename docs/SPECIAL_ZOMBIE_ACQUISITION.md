@@ -76,20 +76,21 @@ of its cost, so a 5-brain special returns 5,000 gold.
 
 - Bombie, Crazy Zombie, Cupid Zombie, Dapper Zombie, and Granny Zombie.
 
-## Invasion prizes: Video Game Zombie and Final Boss Zombie
+## Invasion prizes: Video Game Zombie and Boss Zombie
 
 The pixel zombie of the *Zombies vs Video Games* invasion is that invasion's **rare zombie**
 (`src/raid/zombieDrops.ts`, **2%** per win like the Aliens', the ladder's top). Its promoted
-prize on an elite win is the **Final Boss Zombie**: the same seven frames under a palette swap
+prize on an elite win is the **Boss Zombie**: the same seven frames under a palette swap
 (purple body, gold eyes, charcoal trousers — `DERIVED_FLIPBOOK_ZOMBIES`), 12 brains, fitted 200
-above the prize line (~2,228 with the damage set), which makes it the strongest zombie in the game
-and, at 4.5% on a ticket win of the hardest invasion, the rarest. A special like the other prizes — `category: "special"`, the
+above the prize line and then, like the base, a fifth off its con (~2,030 with the damage set, a
+hair under the Vagabond), and at 4.5% on a ticket win of the hardest invasion the rarest zombie
+in the game. A special like the other prizes — `category: "special"`, the
 Special class, group Regular — so Zombie Pot slot 1 only and the level-20 Black Market gate;
 never planted (`marketHidden`), its **6 brain** cost is its sell / trade value. Level **43** is
 the invasion's own unlock level. Its
-stats are fitted to the prize line at level 43 (the same line the Epic and invasion prizes sit
-on, see `SPECIAL_STAT_REBALANCE` in `tools/reforge_economy.py`), held a little under the
-Vagabond Zombie. Its art is a seven-frame flipbook rather than a paper-doll rig, so it wears
+stats were fitted to the prize line at level 43 (the same line the Epic and invasion prizes sit
+on, see `SPECIAL_STAT_REBALANCE` in `tools/reforge_economy.py`) and then had a fifth taken off
+their con, leaving it well under the Vagabond Zombie. Its art is a seven-frame flipbook rather than a paper-doll rig, so it wears
 no mutation art (the mutation and its stat bonus still apply). Authored in
 `tools/prep_market.py` (`AUTHORED_ZOMBIES`) and `tools/prep_assets.py`
 (`export_video_game_zombie`).
@@ -114,7 +115,7 @@ the distinct pink Cupid actor, not the ordinary Cupid actor.
 The only route for the 32 `marketHidden` specials — ZomBetty, ZomBloke, George Washington,
 John Hancock, Mummy Zombie, ZomHelga, Zombeach Bum, Zula Girl, Skittles, Zwamp Thing,
 Zcarecrow, Zanta Clause, Diver, JackoZombie, Reindeer, Teddy, Forest, Medusa, Old McZombie,
-Zastronaut, Zosmonaut, Zombozo, Video Game Zombie, Final Boss Zombie, Deputy, Master Ninjombie, MerZombie, Ninjombie, Omega Zombie
+Zastronaut, Cozmonaut, Zombozo, Video Game Zombie, Boss Zombie, Deputy, Master Ninjombie, MerZombie, Ninjombie, Omega Zombie
 Bot, Poseidon, Sheriff, and Zombie Bot. Another player escrows the zombie as a `SELL_ZOMBIE` order, or fills
 a `BUY_ZOMBIE` request.
 
@@ -123,11 +124,11 @@ a `BUY_ZOMBIE` request.
 each; Deputy / MerZombie / Ninjombie / Zombie Bot from an ordinary win of the Lawyers / Pirates /
 Ninjas / Robots (1.2 / 1.4 / 1.6 / 1.8%), with Sheriff / Poseidon / Master Ninjombie / Omega
 Zombie Bot paid *instead* on an elite (Brain Ticket) win of the same raid (2.5x: 3.0 / 3.5 /
-4.0 / 4.5%); and Zastronaut from the Aliens (2%), with the Zosmonaut — a derived rust-suit
+4.0 / 4.5%); and Zastronaut from the Aliens (2%), with the Cozmonaut — a derived rust-suit
 recolour of it — paid *instead* on an elite win (4.5%); and the Zombozo — a Mini zombie cut from
 the Circus clown's enemy art (`CUT_SPECIAL_ZOMBIES` in `tools/prep_assets.py`) — from the Circus
 (1%, a single prize like the seasonals); and the Video Game Zombie — the Video Games' own pixel zombie
-as a flipbook rig — from the Video Games at the ladder's 2% top, with the **Final Boss Zombie** — its
+as a flipbook rig — from the Video Games at the ladder's 2% top, with the **Boss Zombie** — its
 palette swap, purple and gold (`DERIVED_FLIPBOOK_ZOMBIES` in `tools/prep_assets.py`) — paid *instead* on an
 elite win at the 4.5% cap. See `src/raid/zombieDrops.ts` and the rare-zombie section of
 `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-prize pity makes that route bounded:
