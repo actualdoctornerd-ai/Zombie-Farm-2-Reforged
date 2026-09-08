@@ -79,15 +79,16 @@ AUTHORED_ZOMBIES = [
     },
     # The Aliens' promoted invasion prize: a derived recolour of the Zastronaut
     # (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), so it has no source row. Priced
-    # and levelled like the other promoted prizes (Sheriff: twice the base zombie);
-    # stats are the Zastronaut's +20%, the same step Omega Zombie Bot takes over
-    # Zombie Bot — a first pass, pending a balance pass.
+    # and levelled like the other promoted prizes (Sheriff: twice the base zombie).
+    # Stats follow the 2026-09-07 invasion-prize re-fit (see SPECIAL_STAT_REBALANCE in
+    # reforge_economy.py): the elite Aliens prize, on the prizes' line at level 36 and
+    # capped at x1.5 of its first-pass 10.5 / 3.67 / 17.2 (the Zastronaut +20%).
     {
         "key": "ZombieActorZosmonaut", "name": "Zosmonaut",
         "cost": 10, "growMs": 86_400_000, "category": "special", "level": 25, "xp": 1,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",
-        "str": 10.5, "dex": 3.67, "con": 17.2, "focus": 100.0,
+        "str": 15.8, "dex": 3.67, "con": 25.8, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "zosmonaut.png",
         "rewardOnly": False, "marketHidden": True,
     },
@@ -334,6 +335,9 @@ def main():
         # value is an erroneous 0, so keep the corrected gameplay classification.
         if z["key"] == "ZombieActorRegularCrazy":
             z["tier"] = 5
+        # Two invasion prizes live in UnitStats rather than Zombies.json (the Teddy and
+        # the Diver are seasonal tier-5s), so the prize re-fit has to reach them here.
+        rebalance_special_stats(z["key"], z)
         # Re-levelled market mutants wear the colour of the band they now sit in.
         # Runs after BOTH classify() and the UnitStats tier read because it
         # overrides both, keeping colour and tier number in agreement.

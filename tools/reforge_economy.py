@@ -315,6 +315,35 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorMadame":         {"str": 19.1, "con": 20.0},  # 21/22      x0.91
     "ZombieActorBandido":        {"str": 20.1, "con": 19.3},  # 24/23      x0.84
     "ZombieActorVagabond":       {"str": 19.6, "con": 21.1},  # 25/27      x0.78
+    # INVASION PRIZE RE-FIT (2026-09-07), the same method on the rare invasion drops
+    # (src/raid/zombieDrops.ts — ordinary prize and the elite promoted one). They can
+    # be mutated in the Pot exactly like the epics, so the target is again the
+    # damage-set strength, on the prizes' OWN line: 1,000 at level 1 (what a fully
+    # mutated Silver reaches — the floor the owner asked for, "around a silver/red")
+    # rising to 1,750 at level 43, which keeps every prize ahead of the Market at the
+    # level its invasion unlocks and just under the Epic line. The elite prize sits 75
+    # above the line, the ordinary one 75 below where the raid has both; a raid with a
+    # single prize sits on it. Growth is capped at x1.5 — the Diver (dex 1) and the two
+    # Aliens prizes stop there, a little under their targets, rather than tripling.
+    #
+    # Biggest movers: Deputy / Sheriff had Epic-omega stats at level 16 (1,820 mutated
+    # against the Epic line's 1,500 at level 24); Zombie Bot / Omega Zombie Bot were
+    # the strongest zombies in the game after the Vagabond.
+    #                                             # ZF2 str/con -> factor
+    "ZombieActorOldMcZombie":      {"str": 7.5,  "con": 12.3},  # 8.71/14.3  x0.86  L1
+    "ZombieActorRegular4Tier5":    {"str": 11.9, "con": 18.7},  # 12.6/19.8  x0.94  L6  Teddy
+    "ZombieActorForest":           {"str": 9.3,  "con": 15.3},  # 8.71/14.3  x1.07  L8
+    "ZombieActorHeadless2Tier5":   {"str": 16.5, "con": 44.6},  # 11/29.7    x1.5   L10 Diver (cap)
+    "ZombieActorDeputy":           {"str": 11.4, "con": 21.0},  # 21/38.5    x0.54  L16
+    "ZombieActorSheriff":          {"str": 13.7, "con": 25.1},  # 21/38.5    x0.65  L16 elite
+    "ZombieActorMerZombie":        {"str": 13.4, "con": 11.9},  # 18/16      x0.75  L21
+    "ZombieActorPoseidon":         {"str": 14.8, "con": 12.6},  # 20/17      x0.74  L21 elite
+    "ZombieActorNinjombie":        {"str": 20.8, "con": 10.4},  # 20/10      x1.04  L26
+    "ZombieActorMasterNinjombie":  {"str": 26.0, "con": 13.0},  # 20/10      x1.30  L26 elite
+    "ZombieActorZombieBot":        {"str": 15.4, "con": 16.0},  # 24/25      x0.64  L31
+    "ZombieActorOmegaZombieBot":   {"str": 17.6, "con": 18.9},  # 28/30      x0.63  L31 elite
+    "ZombieActorZastronaut":       {"str": 13.1, "con": 21.5},  # 8.71/14.3  x1.5   L36 (cap)
+    # The Zosmonaut is an AUTHORED row (prep_market.py AUTHORED_ZOMBIES), fitted there.
 }
 
 
