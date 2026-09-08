@@ -2,9 +2,11 @@
 // playable species. Two things make it unlike every other catalog row, and this
 // pins both.
 //
-//  1. It is an ORDINARY zombie with a special's art route. It files under the
-//     Market's Normal tab (category "normal"), in the Regular group, with the
-//     tier-less Yellow class the Crazy Zombie wears — but it is drawn from the
+//  1. It is an ORDINARY zombie with a special's art route AND a prize's obtain route.
+//     It is category "normal" (either Pot slot, no Black Market special gate), in the
+//     Regular group, with the tier-less Yellow class the Crazy Zombie wears — yet it
+//     is never planted: it is the Video Games invasion's rare zombie
+//     (raid/zombieDrops.ts, an elite promoted version planned) and it is drawn from the
 //     dedicated special-zombie atlas, because its art is authored nowhere on the
 //     shared ZombieSheet.
 //  2. It is a FLIPBOOK, not a paper doll. Its manifest is complete (no inherited
@@ -24,6 +26,7 @@ import {
   mergeSpecialZombieModel, purchasableZombies, specialZombieFiles,
   type ZombieDef, type ZombieModel,
 } from "../assets";
+import { RAID_ZOMBIE_DROPS, VIDEO_GAMES_RAID_ID } from "../raid/zombieDrops";
 import { almanacEntries, isObtainable, obtainHint } from "./almanac";
 import { mutationPartFor } from "./mutationVisual";
 import { bitOf } from "./mutations";
@@ -75,23 +78,25 @@ describe("Video Game Zombie catalog row", () => {
     expect(mutated(row)).toBeLessThan(mutated(vagabond) * 0.99);
   });
 
-  it("is a plantable Market gravestone, not a sixth permanent special", () => {
-    expect(row.rewardOnly).toBe(false);
-    expect(row.marketHidden).toBe(false);
-    expect(row.brainsNeeded).toBe(true);
+  it("is the Video Games invasion's rare zombie, never a gravestone", () => {
+    expect(row.rewardOnly).toBe(false); // an ordinary zombie: either Pot slot, tradable
+    expect(row.marketHidden).toBe(true); // ...but never planted
+    expect(row.brainsNeeded).toBe(true); // the brain cost is its sell / trade value
     expect(row.cost).toBeGreaterThan(crazy.cost);
     expect(row.level).toBe(43); // the Video Games invasion's own unlock level
-    expect(purchasableZombies(zombies).some((zombie) => zombie.key === KEY)).toBe(true);
-    expect(purchasableZombies(zombies).filter((zombie) => zombie.category === "special"))
-      .not.toContainEqual(expect.objectContaining({ key: KEY }));
+    expect(purchasableZombies(zombies).some((zombie) => zombie.key === KEY)).toBe(false);
+    expect(RAID_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID]?.key).toBe(KEY);
   });
 
-  it("appears in the Zombie Almanac as a Market zombie", () => {
+  it("appears in the Zombie Almanac as an invasion zombie", () => {
     expect(isObtainable(row)).toBe(true);
     const entry = almanacEntries(zombies, {}).find((e) => e.key === KEY);
     expect(entry).toBeDefined();
-    const sources = { raidNameById: () => undefined, epicBossNameByQuestId: () => undefined };
-    expect(obtainHint(row, sources)).toMatch(/Market gravestone \(level 43, 6 brains\)/);
+    const sources = {
+      raidNameById: (id: number) => (id === VIDEO_GAMES_RAID_ID ? "Zombies vs Video Games" : undefined),
+      epicBossNameByQuestId: () => undefined,
+    };
+    expect(obtainHint(row, sources)).toMatch(/Zombies vs Video Games/);
   });
 });
 

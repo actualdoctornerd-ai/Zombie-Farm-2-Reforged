@@ -76,19 +76,20 @@ of its cost, so a 5-brain special returns 5,000 gold.
 
 - Bombie, Crazy Zombie, Cupid Zombie, Dapper Zombie, and Granny Zombie.
 
-## Market: Video Game Zombie (Normal tab)
+## Invasion prize: Video Game Zombie (an ordinary zombie)
 
-The pixel zombie of the *Zombies vs Video Games* invasion is plantable as an **ordinary**
-zombie — `category: "normal"`, group Regular, the tier-less Yellow class — not a sixth
-special. It costs **6 brains**, unlocks at **level 43** (the invasion's own unlock level)
-and grows in 24 hours. Its stats are fitted to the prize line at level 43 (the same line the
-Epic and invasion prizes sit on, see `SPECIAL_STAT_REBALANCE` in `tools/reforge_economy.py`),
-held a little under the Vagabond Zombie: it is by far the strongest plantable zombie, and an
-elite version is planned. Being normal, it can
-go in either Zombie Pot slot and carries no Black Market special gate. Its art is a
-seven-frame flipbook rather than a paper-doll rig, so it wears no mutation art (the
-mutation and its stat bonus still apply). Authored in `tools/prep_market.py`
-(`AUTHORED_ZOMBIES`) and `tools/prep_assets.py` (`export_video_game_zombie`).
+The pixel zombie of the *Zombies vs Video Games* invasion is that invasion's **rare zombie**
+(`src/raid/zombieDrops.ts`, **2%** per win like the Aliens', the ladder's top; an elite
+promoted version is planned). It is never planted (`marketHidden`) but it is an **ordinary**
+zombie by the owner's call — `category: "normal"`, group Regular, the tier-less Yellow class —
+so it can go in either Zombie Pot slot and carries no Black Market special gate; its **6
+brain** cost is its sell / trade value. Level **43** is the invasion's own unlock level. Its
+stats are fitted to the prize line at level 43 (the same line the Epic and invasion prizes sit
+on, see `SPECIAL_STAT_REBALANCE` in `tools/reforge_economy.py`), held a little under the
+Vagabond Zombie. Its art is a seven-frame flipbook rather than a paper-doll rig, so it wears
+no mutation art (the mutation and its stat bonus still apply). Authored in
+`tools/prep_market.py` (`AUTHORED_ZOMBIES`) and `tools/prep_assets.py`
+(`export_video_game_zombie`).
 
 ## Market vouchers (4)
 

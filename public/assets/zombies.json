@@ -2001,7 +2001,7 @@
   "tier": 5,
   "specialSprite": "video_game_zombie.png",
   "rewardOnly": false,
-  "marketHidden": false
+  "marketHidden": true
  },
  {
   "key": "ZombieActorZosmonaut",

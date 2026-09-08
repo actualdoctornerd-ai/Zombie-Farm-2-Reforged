@@ -61,10 +61,12 @@ MARKET_SPECIALS = {
 # source-enrichment loop (which would otherwise report it as unmatched and exit 1).
 #
 # Video Game Zombie — the pixel zombie of the "Zombies vs Video Games" invasion
-# (raid 9, unlock level 43) as a playable species. Filed as an ORDINARY zombie
-# (category "normal", group Regular, tier-less Yellow class like Crazy) rather than a
-# sixth permanent special, so it sits in the Market's Normal tab, can go in either
-# Pot slot and carries no Black Market special gate. Stats: the Crazy Zombie's shape
+# (raid 9, unlock level 43) as a playable species: THAT INVASION'S RARE ZOMBIE
+# (src/raid/zombieDrops.ts, 2% like the Aliens' — it is never planted, hence
+# marketHidden; the brain cost is its sell/Black Market value). Filed as an ORDINARY
+# zombie (category "normal", group Regular, tier-less Yellow class like Crazy) rather
+# than a special, by the owner's call, so it can go in either Pot slot and carries no
+# Black Market special gate. An elite promoted version is planned. Stats: the Crazy Zombie's shape
 # (19 / 2 / 28 / 100, dex one step up) scaled x1.48 by the prize re-fit (see
 # SPECIAL_STAT_REBALANCE in reforge_economy.py) so that, wearing the damage set, it
 # sits ON the prize line at level 43 (~2,028) and a little under the Vagabond (2,075) —
@@ -78,7 +80,7 @@ AUTHORED_ZOMBIES = [
         "className": "Yellow", "classColor": "#ffd24a",
         "str": 29.6, "dex": 2.1, "con": 42.9, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "video_game_zombie.png",
-        "rewardOnly": False, "marketHidden": False,
+        "rewardOnly": False, "marketHidden": True,
     },
     # The Aliens' promoted invasion prize: a derived recolour of the Zastronaut
     # (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), so it has no source row. Priced

@@ -80,8 +80,16 @@ export const ZOSMONAUT_KEY = "ZombieActorZosmonaut";
 /** A Mini zombie in the Circus clown's costume, cut from the enemy art
  *  (tools/prep_assets.py CUT_SPECIAL_ZOMBIES) — the Circus's rare zombie. */
 export const ZOMBOZO_KEY = "ZombieActorZombozo";
+/** The pixel zombie of the Video Games invasion as a playable species (a flipbook
+ *  rig, see docs/SPECIAL_ZOMBIE_ACQUISITION.md) — that invasion's rare zombie. It is
+ *  an ORDINARY (normal-category) zombie by the owner's call, so it goes in either Pot
+ *  slot; an elite promoted version is planned. */
+export const VIDEO_GAMES_RAID_ID = 9;
+export const VIDEO_GAME_ZOMBIE_KEY = "ZombieActorRegularVideoGame";
 
-/** Each story invasion's ordinary-prize rate: its rung of the ladder above. */
+/** Each story invasion's ordinary-prize rate: its rung of the ladder above. The Video
+ *  Games invasion (recommended level 43) sits past the Aliens at the ladder's top and
+ *  pays the same 2% ceiling. */
 export const STORY_ZOMBIE_DROP_RATES: Readonly<Record<number, number>> = {
   [CIRCUS_RAID_ID]: pct(1.0),
   [LAWYERS_RAID_ID]: pct(1.2),
@@ -89,6 +97,7 @@ export const STORY_ZOMBIE_DROP_RATES: Readonly<Record<number, number>> = {
   [NINJAS_RAID_ID]: pct(1.6),
   [ROBOTS_RAID_ID]: pct(1.8),
   [ALIENS_RAID_ID]: pct(2.0),
+  [VIDEO_GAMES_RAID_ID]: pct(2.0),
 };
 /** A promoted prize's own rate on an elite fight is this many times its raid's ordinary
  *  rate, reflecting the harder wave — 2.5x puts the four promoted prizes on 3.0 / 3.5 /
@@ -114,6 +123,7 @@ export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
   [ROBOTS_RAID_ID]: { key: ZOMBIE_BOT_KEY, name: "Zombie Bot", rate: STORY_ZOMBIE_DROP_RATES[ROBOTS_RAID_ID] },
   [ALIENS_RAID_ID]: { key: ZASTRONAUT_KEY, name: "Zastronaut", rate: STORY_ZOMBIE_DROP_RATES[ALIENS_RAID_ID] },
   [CIRCUS_RAID_ID]: { key: ZOMBOZO_KEY, name: "Zombozo", rate: STORY_ZOMBIE_DROP_RATES[CIRCUS_RAID_ID] },
+  [VIDEO_GAMES_RAID_ID]: { key: VIDEO_GAME_ZOMBIE_KEY, name: "Video Game Zombie", rate: STORY_ZOMBIE_DROP_RATES[VIDEO_GAMES_RAID_ID] },
   [SPRING_BREAK_RAID_ID]: {
     key: DIVER_ZOMBIE_KEY,
     name: DIVER_ZOMBIE_NAME,
