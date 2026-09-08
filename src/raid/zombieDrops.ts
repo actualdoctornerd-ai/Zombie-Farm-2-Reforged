@@ -20,6 +20,7 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 //   rec  6  Valentine's Day   Teddy Zombie      1.0%
 //   rec  8  Tree World        Forest Zombie     1.0%
 //   rec 10  Summer Break      Diver Zombie      1.0%
+//   rec 12  Circus            Zombozo           1.0%   (single prize: x4 on a ticket)
 //   rec 16  Lawyers           Deputy Zombie     1.2%   (Sheriff 3.0% on a ticket)
 //   rec 21  Pirates           MerZombie         1.4%   (Poseidon 3.5%)
 //   rec 26  Ninjas            Ninjombie         1.6%   (Master Ninjombie 4.0%)
@@ -29,9 +30,10 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 // The promoted prizes run 3-4.5%: ELITE_PRIZE_RATE_MULTIPLIER x their raid's rung, held
 // under ELITE_PRIZE_RATE_CAP — which is only ever the Aliens' 5% brought back to 4.5%.
 //
-// The four easy invasions share the floor on purpose — three of them are seasonal and
-// unlock at level 6-10, and Old McDonnell's is the tutorial raid; none is harder than
-// another in a way a rate should reward. zombieDrops.test.ts pins the ladder to the
+// The five easy invasions share the floor on purpose — three of them are seasonal and
+// unlock at level 6-10, Old McDonnell's is the tutorial raid, and the Circus (rec 12) is
+// the first story invasion after it; none is harder than another in a way a rate should
+// reward. The climb starts at the Lawyers. zombieDrops.test.ts pins the ladder to the
 // recommended-level order so a re-tune cannot quietly invert it.
 const pct = (percent: number): number => percent / 100;
 export const OLD_MC_ZOMBIE_DROP_RATE = pct(1);
@@ -61,6 +63,7 @@ export const PIRATES_RAID_ID = 3;
 export const NINJAS_RAID_ID = 4;
 export const ROBOTS_RAID_ID = 5;
 export const ALIENS_RAID_ID = 6;
+export const CIRCUS_RAID_ID = 8;
 
 export const DEPUTY_ZOMBIE_KEY = "ZombieActorDeputy";
 export const SHERIFF_ZOMBIE_KEY = "ZombieActorSheriff";
@@ -74,9 +77,13 @@ export const ZASTRONAUT_KEY = "ZombieActorZastronaut";
 /** The Zastronaut in a rust suit and charcoal helmet — a derived recolour
  *  (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), the Aliens' promoted prize. */
 export const ZOSMONAUT_KEY = "ZombieActorZosmonaut";
+/** A Mini zombie in the Circus clown's costume, cut from the enemy art
+ *  (tools/prep_assets.py CUT_SPECIAL_ZOMBIES) — the Circus's rare zombie. */
+export const ZOMBOZO_KEY = "ZombieActorZombozo";
 
 /** Each story invasion's ordinary-prize rate: its rung of the ladder above. */
 export const STORY_ZOMBIE_DROP_RATES: Readonly<Record<number, number>> = {
+  [CIRCUS_RAID_ID]: pct(1.0),
   [LAWYERS_RAID_ID]: pct(1.2),
   [PIRATES_RAID_ID]: pct(1.4),
   [NINJAS_RAID_ID]: pct(1.6),
@@ -106,6 +113,7 @@ export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
   [NINJAS_RAID_ID]: { key: NINJOMBIE_KEY, name: "Ninjombie", rate: STORY_ZOMBIE_DROP_RATES[NINJAS_RAID_ID] },
   [ROBOTS_RAID_ID]: { key: ZOMBIE_BOT_KEY, name: "Zombie Bot", rate: STORY_ZOMBIE_DROP_RATES[ROBOTS_RAID_ID] },
   [ALIENS_RAID_ID]: { key: ZASTRONAUT_KEY, name: "Zastronaut", rate: STORY_ZOMBIE_DROP_RATES[ALIENS_RAID_ID] },
+  [CIRCUS_RAID_ID]: { key: ZOMBOZO_KEY, name: "Zombozo", rate: STORY_ZOMBIE_DROP_RATES[CIRCUS_RAID_ID] },
   [SPRING_BREAK_RAID_ID]: {
     key: DIVER_ZOMBIE_KEY,
     name: DIVER_ZOMBIE_NAME,

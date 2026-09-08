@@ -41,6 +41,9 @@ describe("complete special-zombie roster", () => {
         expect(part.group).toBe("head");
       }
     }
+    // The Zombozo is a Mini: it names the Small skeleton so it wears the Mini's face.
+    expect((specialModels as Record<string, { base?: string }>).ZombieActorZombozo.base)
+      .toBe("ZombieActorSmallTier1");
   });
 
   it("exposes exactly the five permanent plantable specials", () => {

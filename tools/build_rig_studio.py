@@ -184,7 +184,7 @@ def build_zombie() -> dict:
         row = zombies.get(key)
         if not row:
             continue
-        base = models["ZombieActorHeadlessTier1" if key == "ZombieActorBombie" else "ZombieActorRegularTier1"]
+        base = models[manifest.get("base") or ("ZombieActorHeadlessTier1" if key == "ZombieActorBombie" else "ZombieActorRegularTier1")]
         replaced = {slot(p["file"]) for p in manifest["parts"]}
         complete_face = key in pa.COMPLETE_SPECIAL_FACE_KEYS
         masked = key in pa.MASKED_FACE_KEYS

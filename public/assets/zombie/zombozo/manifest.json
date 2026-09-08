@@ -10,6 +10,7 @@
   95
  ],
  "floatingHead": false,
+ "base": "ZombieActorSmallTier1",
  "parts": [
   {
    "file": "Hat.png",

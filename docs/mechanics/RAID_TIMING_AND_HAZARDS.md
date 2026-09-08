@@ -173,11 +173,11 @@ The floor is **deliberately invisible**: the counter is never sent to the client
 in the UI names it, counts it out, or marks a floored drop differently from a rolled one. Keep
 it that way when touching the result panel or the fight's brain pickup.
 
-**Rare zombies are a separate roll, with the same treatment.** Nine raids independently roll a
+**Rare zombies are a separate roll, with the same treatment.** Ten raids independently roll a
 special zombie on a win (`src/raid/zombieDrops.ts`), on ONE rate ladder read off the raid's
 recommended level — 1% on the easy invasions, a fifth of a percent more per story invasion to
-2% on the Aliens: Old McDonnell's → Old McZombie and Summer Break / Tree World / Valentine's Day →
-Diver / Forest / Teddy at **1%**; Lawyers → Deputy **1.2%**, Pirates → MerZombie **1.4%**, Ninjas →
+2% on the Aliens: Old McDonnell's → Old McZombie, Summer Break / Tree World / Valentine's Day →
+Diver / Forest / Teddy, and the Circus → Zombozo (a Mini in the clown's costume) at **1%**; Lawyers → Deputy **1.2%**, Pirates → MerZombie **1.4%**, Ninjas →
 Ninjombie **1.6%**, Robots → Zombie Bot **1.8%**, Aliens → Zastronaut **2.0%**. The four faction
 invasions pay a **pair**: an ELITE (Brain Ticket) win rolls for the promoted zombie *instead* —
 Sheriff / Poseidon / Master Ninjombie / Omega Zombie Bot at **2.5x** the raid's ordinary rate

@@ -31,6 +31,8 @@ import {
   OMEGA_ZOMBIE_BOT_KEY,
   ZASTRONAUT_KEY,
   ZOSMONAUT_KEY,
+  ZOMBOZO_KEY,
+  CIRCUS_RAID_ID,
   ELITE_PRIZE_RATE_CAP,
   isRareInvasionZombieName,
 } from "./zombieDrops";
@@ -59,7 +61,7 @@ describe("rare raid zombie drops", () => {
 
   it("never drops from a loss, an unrelated invasion, or an invalid roll", () => {
     expect(rollRaidZombieDrop(7, false, 0)).toBeNull();
-    expect(rollRaidZombieDrop(8, true, 0)).toBeNull(); // the Circus has no rare zombie
+    expect(rollRaidZombieDrop(9, true, 0)).toBeNull(); // the Video Games have no rare zombie
     expect(rollRaidZombieDrop(10, true, -0.1)).toBeNull();
     expect(rollRaidZombieDrop(11, true, Number.NaN)).toBeNull();
   });
@@ -85,8 +87,8 @@ describe("Golden Dice raise the rare-zombie rate", () => {
 
   it("still pays nothing on a loss or for a raid with no rare zombie", () => {
     expect(rollRaidZombieDrop(1, false, 0.0, 10)).toBeNull();
-    expect(rollRaidZombieDrop(8, true, 0.0, 10)).toBeNull();
-    expect(raidZombieDropRate(8, 10)).toBe(0);
+    expect(rollRaidZombieDrop(9, true, 0.0, 10)).toBeNull();
+    expect(raidZombieDropRate(9, 10)).toBe(0);
   });
 
   it("clamps a garbage or oversized dice count instead of guaranteeing the drop", () => {
@@ -102,10 +104,10 @@ describe("Golden Dice raise the rare-zombie rate", () => {
 describe("rare zombie pity floor", () => {
   const MISS = 1; // a roll above every drop rate
 
-  it("only the nine raids with a rare zombie have a streak that means anything", () => {
-    expect([1, 2, 3, 4, 5, 6, 7, 10, 11].every(hasRaidZombieDrop)).toBe(true);
-    // The Circus and Video Games pay no rare zombie.
-    expect([8, 9].some(hasRaidZombieDrop)).toBe(false);
+  it("only the ten raids with a rare zombie have a streak that means anything", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 10, 11].every(hasRaidZombieDrop)).toBe(true);
+    // The Video Games pay no rare zombie.
+    expect(hasRaidZombieDrop(9)).toBe(false);
   });
 
   it("withholds the zombie until the raid's dry wins reach the threshold", () => {
@@ -122,7 +124,7 @@ describe("rare zombie pity floor", () => {
   });
 
   it("never conjures a zombie for a raid that has none, or for a loss", () => {
-    expect(rollRaidZombieDropWithPity(8, true, MISS, 10_000)).toBeNull();
+    expect(rollRaidZombieDropWithPity(9, true, MISS, 10_000)).toBeNull();
     expect(rollRaidZombieDropWithPity(1, false, MISS, RAID_ZOMBIE_PITY_WINS)).toBeNull();
   });
 
@@ -187,8 +189,8 @@ describe("a Brain Ticket widens the rare-zombie roll too", () => {
   });
 
   it("still pays nothing on a raid with no rare zombie", () => {
-    expect(raidZombieDropRate(8, 5, ELITE_BRAIN_LUCK)).toBe(0);
-    expect(rollRaidZombieDrop(8, true, 0, 5, ELITE_BRAIN_LUCK)).toBeNull();
+    expect(raidZombieDropRate(9, 5, ELITE_BRAIN_LUCK)).toBe(0);
+    expect(rollRaidZombieDrop(9, true, 0, 5, ELITE_BRAIN_LUCK)).toBeNull();
   });
 
   it("cannot exceed certainty", () => {
@@ -207,8 +209,8 @@ describe("the story invasions' prize pairs", () => {
   ];
 
   it("pins the ladder: a fifth of a percent per story invasion to 2% on the Aliens, promoted prizes 3-4.5%", () => {
-    const ladder: Record<number, number> = { 2: 0.012, 3: 0.014, 4: 0.016, 5: 0.018, 6: 0.02 };
-    expect(Object.keys(STORY_ZOMBIE_DROP_RATES).map(Number).sort()).toEqual([2, 3, 4, 5, 6]);
+    const ladder: Record<number, number> = { 8: 0.01, 2: 0.012, 3: 0.014, 4: 0.016, 5: 0.018, 6: 0.02 };
+    expect(Object.keys(STORY_ZOMBIE_DROP_RATES).map(Number).sort()).toEqual([2, 3, 4, 5, 6, 8]);
     for (const [id, rate] of Object.entries(ladder)) {
       expect(STORY_ZOMBIE_DROP_RATES[Number(id)], `raid ${id}`).toBeCloseTo(rate, 12);
     }
@@ -249,7 +251,7 @@ describe("the story invasions' prize pairs", () => {
   it("asking for the elite prize of a single-prize raid is the ordinary prize at elite luck", () => {
     expect(raidZombieDropFor(1, true)?.key).toBe(OLD_MC_ZOMBIE_KEY);
     expect(raidZombieDropRate(1, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.04, 10);
-    expect(raidZombieDropFor(8, true)).toBeNull();
+    expect(raidZombieDropFor(9, true)).toBeNull();
   });
 
   it("gives the Aliens the Zastronaut ordinarily and the Zosmonaut on a ticket, at the cap", () => {
@@ -262,6 +264,16 @@ describe("the story invasions' prize pairs", () => {
     expect(rollRaidZombieDrop(6, true, 0.044, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZOSMONAUT_KEY);
     expect(rollRaidZombieDrop(6, true, 0.046, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
     expect(rollRaidZombieDrop(6, true, 0, 5, ELITE_BRAIN_LUCK, true)?.key).not.toBe(ZASTRONAUT_KEY);
+  });
+
+  it("gives the Circus the Zombozo as a single prize on the 1% floor, 4x on a ticket", () => {
+    expect(RAID_ZOMBIE_DROPS[CIRCUS_RAID_ID].key).toBe(ZOMBOZO_KEY);
+    expect(RAID_ELITE_ZOMBIE_DROPS[CIRCUS_RAID_ID]).toBeUndefined();
+    expect(raidZombieDropRate(CIRCUS_RAID_ID)).toBeCloseTo(0.01, 10);
+    expect(raidZombieDropRate(CIRCUS_RAID_ID, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.04, 10);
+    expect(rollRaidZombieDrop(CIRCUS_RAID_ID, true, 0.009)?.key).toBe(ZOMBOZO_KEY);
+    expect(rollRaidZombieDrop(CIRCUS_RAID_ID, true, 0.01)).toBeNull();
+    expect(raidZombieDryKey(CIRCUS_RAID_ID, true)).toBe("8");
   });
 
   it("keeps a separate pity streak for each prize of a paired raid, and one for the rest", () => {
@@ -283,7 +295,8 @@ describe("the story invasions' prize pairs", () => {
     expect(byKey.get(ZASTRONAUT_KEY)).toMatchObject({ raidId: 6, elite: false });
     expect(byKey.get(ZOSMONAUT_KEY)).toMatchObject({ raidId: 6, elite: true });
     expect(byKey.get(OLD_MC_ZOMBIE_KEY)).toMatchObject({ raidId: 1, elite: false });
-    expect(byKey.size).toBe(14);
+    expect(byKey.get(ZOMBOZO_KEY)).toMatchObject({ raidId: CIRCUS_RAID_ID, elite: false });
+    expect(byKey.size).toBe(15);
     // Every source key is a distinct zombie: no prize is reachable from two places.
     expect(new Set(RAID_ZOMBIE_SOURCES.map((s) => s.drop.key)).size).toBe(RAID_ZOMBIE_SOURCES.length);
   });
@@ -293,6 +306,7 @@ describe("the story invasions' prize pairs", () => {
     expect(isRareInvasionZombieName("Deputy Zombie")).toBe(true);
     expect(isRareInvasionZombieName("Zastronaut")).toBe(true);
     expect(isRareInvasionZombieName("Zosmonaut")).toBe(true);
+    expect(isRareInvasionZombieName("Zombozo")).toBe(true);
     expect(isRareInvasionZombieName("Bombie")).toBe(false);
   });
 });

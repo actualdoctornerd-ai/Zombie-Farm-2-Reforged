@@ -1,7 +1,6 @@
 # Special zombie acquisition
 
-The runtime catalog contains 58 zombies in the Special category. Every one but the
-Zombozo (a proposed Circus invasion prize whose drop is not wired yet) has a
+The runtime catalog contains 58 zombies in the Special category. Every one has a
 reachable acquisition route; Epic-event rewards and voucher gifts are deliberately
 excluded from the plantable zombie Market.
 
@@ -113,15 +112,15 @@ Zastronaut, Zosmonaut, Zombozo, Deputy, Master Ninjombie, MerZombie, Ninjombie, 
 Bot, Poseidon, Sheriff, and Zombie Bot. Another player escrows the zombie as a `SELL_ZOMBIE` order, or fills
 a `BUY_ZOMBIE` request.
 
-**Fourteen of those 30 also drop from invasions** and are therefore reachable solo: Old McZombie
+**Fifteen of those 30 also drop from invasions** and are therefore reachable solo: Old McZombie
 (Old McDonnell's), Diver (Summer Break), Forest (Tree World) and Teddy (Valentine's Day) at 1%
 each; Deputy / MerZombie / Ninjombie / Zombie Bot from an ordinary win of the Lawyers / Pirates /
 Ninjas / Robots (1.2 / 1.4 / 1.6 / 1.8%), with Sheriff / Poseidon / Master Ninjombie / Omega
 Zombie Bot paid *instead* on an elite (Brain Ticket) win of the same raid (2.5x: 3.0 / 3.5 /
 4.0 / 4.5%); and Zastronaut from the Aliens (2%), with the Zosmonaut — a derived rust-suit
-recolour of it — paid *instead* on an elite win (4.5%). The Zombozo — a Mini zombie cut from the
-Circus clown's enemy art (`CUT_SPECIAL_ZOMBIES` in `tools/prep_assets.py`) — is proposed as the
-Circus's rare zombie but has no drop wired yet, so it is not in the Almanac. See `src/raid/zombieDrops.ts` and the rare-zombie section of
+recolour of it — paid *instead* on an elite win (4.5%); and the Zombozo — a Mini zombie cut from
+the Circus clown's enemy art (`CUT_SPECIAL_ZOMBIES` in `tools/prep_assets.py`) — from the Circus
+(1%, a single prize like the seasonals). See `src/raid/zombieDrops.ts` and the rare-zombie section of
 `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-prize pity makes that route bounded:
 100 wins of a raid without its zombie guarantees it on the next. Nothing in the game says so.
 

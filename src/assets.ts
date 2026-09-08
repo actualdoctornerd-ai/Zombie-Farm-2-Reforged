@@ -157,6 +157,11 @@ interface SpecialZombieManifest {
   /** A COMPLETE actor rather than a delta: nothing of the ordinary skeleton is
    *  inherited. The Video Game Zombie's single flipbook sprite is the whole body. */
   complete?: boolean;
+  /** The ordinary skeleton this delta is laid over. Absent = the Regular Tier-1 rig
+   *  (Bombie: the Headless one). A Small-family actor names ZombieActorSmallTier1 so
+   *  it inherits the MINI's face — the Regular face plus its eyebrow feature — rather
+   *  than the Regular's. */
+  base?: string;
   parts: Array<Omit<ZombieModelPart, "tint"> & { file: string }>;
   /** Frame files (same folder as `parts`) for a rig animated by texture swaps. */
   flipbook?: ZombieFlipbook;
@@ -990,8 +995,10 @@ export async function loadAssets(): Promise<GameAssets> {
       });
     }
     // Bombie is authored as a floating head, but its plantable incarnation uses
-    // the ordinary headless-zombie body beneath its dedicated bomb attachments.
-    const base = z.key === "ZombieActorBombie" ? headless : plain;
+    // the ordinary headless-zombie body beneath its dedicated bomb attachments. A
+    // manifest may name its own skeleton (the Zombozo is a Mini, eyebrow and all).
+    const base = (manifest.base && zombieModels[manifest.base])
+      || (z.key === "ZombieActorBombie" ? headless : plain);
     const assembledManifest = z.key === "ZombieActorBombie"
       ? { ...manifest, floatingHead: false }
       : manifest;

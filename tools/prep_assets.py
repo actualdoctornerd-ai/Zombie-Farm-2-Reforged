@@ -1107,7 +1107,7 @@ def composite_from_manifest(stem, catalog_key):
     models = json.load(open(os.path.join(OUT, "zombie", "models.json")))
     frames = json.load(open(os.path.join(OUT, "zombie", "frames.json")))
     base_sheet = Image.open(os.path.join(OUT, "zombie", "ZombieSheet.png")).convert("RGBA")
-    base = models["ZombieActorRegularTier1"]
+    base = models[manifest.get("base", "ZombieActorRegularTier1")]
     replaced = {p["file"].removesuffix(".png") for p in manifest["parts"]}
     complete_face = catalog_key in COMPLETE_SPECIAL_FACE_KEYS
     masked_face = catalog_key in MASKED_FACE_KEYS
@@ -1207,6 +1207,9 @@ CUT_SPECIAL_ZOMBIES = [
     # pom-pom, red shoes. Proposed as the Circus invasion's rare zombie, 2026-09-07.
     {
         "stem": "zombozo", "key": "ZombieActorZombozo",
+        # A Mini: laid over the Small skeleton so it inherits the Mini's face (the
+        # Regular face plus its eyebrow feature), not the Regular's.
+        "base": "ZombieActorSmallTier1",
         "source": os.path.join("raids", "enemies", "parts", "CircusStageActorMinion2.png"),
         "cell": (202, 2, 47, 51),
         "classify": _clown_class,
@@ -1282,6 +1285,7 @@ def cut_special_zombies():
             "neck": inherited_head_offset_pixi(),
             "color": spec["color"],
             "floatingHead": False,
+            **({"base": spec["base"]} if spec.get("base") else {}),
             "parts": parts,
         }
         json.dump(manifest, open(os.path.join(dst, "manifest.json"), "w"), indent=1)
