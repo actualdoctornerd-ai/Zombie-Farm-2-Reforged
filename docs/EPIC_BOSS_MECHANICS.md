@@ -10,23 +10,31 @@ active run.
 Costs and unlocks (server-enforced in `v3/epicBoss.ts`): activation **ramps 3-5 brains**
 with the unlock ladder. Each event has its own unlock level, ordered by how strong its
 prize zombies are, because the eight are not interchangeable — Loco Locust pays the
-strongest zombie in the game and Dr. Groundhog one that deals a quarter of its damage:
+strongest zombie in the game and Dr. Groundhog one that deals a third of its damage.
 
-| Level | Boss | Brains | Best prize | DPS | HP |
-|---|---|---:|---|---:|---:|
-| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 307 | 4,043 |
-| 28 | Bully Frog | 3 | Admiral Zombie | 336 | 4,253 |
-| 30 | Rocky Rhino | 4 | Brock Coley | 662 | 735 |
-| 32 | General Larvaelus | 4 | Zombug | 579 | 1,575 |
-| 34 | Mystical Mamba | 4 | Zomtar | 662 | 1,575 |
-| 38 | Foul Owl | 4 | Scrooge Zombie | 573 | 4,410 |
-| 40 | Skunkarella | 5 | Madame Zombie | 991 | 2,200 |
-| 42 | Loco Locust | 5 | Vagabond Zombie | 1,102 | 2,835 |
+Since the 2026-09-07 Epic re-fit the prizes are FITTED TO THE LADDER rather than the ladder
+to the prizes: the prizes can now be mutated in the Zombie Pot, so each one's str and con
+are scaled (dex never) so that, wearing the five-slot damage mutation set, its strength
+(`sqrt(DPS x HP)`) lands on a line from 1,500 at level 24 to 2,000 at level 42 — the omega
+75 above the line, the rung-5 prize 75 below (`tools/reforge_economy.py`
+SPECIAL_STAT_REBALANCE has the fit; the Zombie Strength Ladder page plots it).
 
-(HP as the fight sees it: `con x 100` with the unit's own ability buffs, unmutated.)
+| Level | Boss | Brains | Best prize | str / dex / con | DPS | HP |
+|---|---|---:|---|---|---:|---:|
+| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 17.3 / 2.65 / 31.6 | 229 | 3,160 |
+| 28 | Bully Frog | 3 | Admiral Zombie | 17.8 / 2.9 / 34.3 | 258 | 3,430 |
+| 30 | Rocky Rhino | 4 | Brock Coley | 46 / 3 / 8 | 690 | 800 |
+| 32 | General Larvaelus | 4 | Zombug | 17.2 / 7 / 17.2 | 602 | 1,720 |
+| 34 | Mystical Mamba | 4 | Zomtar | 23 / 6 / 17.2 | 690 | 1,720 |
+| 38 | Foul Owl | 4 | Scrooge Zombie | 9.9 / 8 / 31.9 | 396 | 3,190 |
+| 40 | Skunkarella | 5 | Madame Zombie | 19.1 / 8 / 20 | 764 | 2,000 |
+| 42 | Loco Locust | 5 | Vagabond Zombie | 19.6 / 8 / 21.1 | 784 | 2,110 |
+
+(Plain catalog stats: `str x 10` per hit every `2 / dex` seconds, `con x 100` HP — no
+veterancy, abilities or mutations.)
 
 Rocky Rhino and Foul Owl are swapped against a strict DPS sort deliberately: Brock Coley
-is a 40-str/735-HP glass cannon, while Scrooge is the highest-HP zombie in the game and is
+is a 46-str/800-HP glass cannon, while Scrooge is the toughest Epic and is
 worth holding back. A locked activation returns `403 locked` with the required level, and
 the Market card renders "Available at player level N".
 
@@ -380,10 +388,12 @@ marked complete on its next win with the omega zombie unclaimable.
 Admiral Zombie is a **rebalance, not recovered data** (`tools/reforge_economy.py`
 SPECIAL_STAT_REBALANCE): it shipped as a strictly worse Captain Zombie — same 21 str and
 38.5 con, but dex 2 against the Captain's 2.65 — so Bully Frog was the one ladder whose top
-prize was a downgrade on the prize you got at the bottom of it. It is now dex 2.9 / con 40.5,
-edging the Captain on both axes. These
-nine named zombies are reward-only catalog units: they never appear as purchasable
-zombie crops and cannot be consumed or cloned through the Zombie Pot. A reward joins
+prize was a downgrade on the prize you got at the bottom of it. It keeps dex 2.9 against the
+Captain's 2.65 through the 2026-09-07 re-fit (now 17.8 / 2.9 / 34.3 against the Captain's
+16.7 / 2.65 / 30.5), edging it on both axes. These
+named zombies are reward-only catalog units: they never appear as purchasable zombie crops.
+They can enter the Zombie Pot in slot 1 only, like every special, and come back out as
+themselves wearing slot 2's mutations (both parents consumed — nothing is cloned). A reward joins
 the farm when an army slot is open; otherwise it is filed in **Received**, where it
 waits until the player claims it into a free Mausoleum slot. A full farm can never
 destroy an earned unit — but it no longer overflows the Mausoleum either, so claiming

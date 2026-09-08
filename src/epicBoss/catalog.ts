@@ -27,20 +27,22 @@ const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
 // Vagabond (the strongest zombie in the game) beside Dr. Groundhog's Omega, which
 // deals a quarter of its damage, at the same price and the same player level.
 //
-// The ladder runs weakest prize first, by the sustained DPS of each boss's best
-// reward zombie (str x 10 damage per 2/dex seconds, abilities folded in):
-//   24  Dr. Groundhog     Omega Dr. Zombie   307 DPS / 4043 HP   (entry boss, 3 brains)
-//   28  Bully Frog        Captain Zombie     307 DPS / 4742 HP
-//   30  Rocky Rhino       Brock Coley        662 DPS /  735 HP
-//   32  General Larvaelus Zombug             579 DPS / 2275 HP
-//   34  Mystical Mamba    Zomtar             662 DPS / 2275 HP
-//   38  Foul Owl          Scrooge Zombie     573 DPS / 5110 HP   (the best tank)
-//   40  Skunkarella       Madame Zombie      991 DPS / 2200 HP
-//   42  Loco Locust       Vagabond Zombie   1102 DPS / 2700 HP
-//
-// Rocky Rhino and Foul Owl are swapped against a strict DPS sort on purpose: Brock
-// Coley is a 40-str/735-HP glass cannon that dies to anything, while Scrooge is the
-// highest-HP zombie in the game and worth holding back as a late-ladder reward.
+// The ladder runs weakest prize first. Since the 2026-09-07 re-fit the prizes' str
+// and con are FITTED TO THIS LADDER rather than the other way round: each prize is
+// scaled so that, wearing the five-slot damage mutation set, its strength
+// (sqrt(DPS x HP)) lands on a line from 1,500 at level 24 to 2,000 at level 42 — the
+// omega 75 above the line, the rung-5 prize 75 below (tools/reforge_economy.py
+// SPECIAL_STAT_REBALANCE has the fit and the numbers). Dex is untouched, so each
+// event still hands out the KIND of zombie it always did — Dr. Groundhog's slow
+// tanks, Loco Locust's fast bruisers, Brock Coley the glass cannon:
+//   24  Dr. Groundhog     Omega Dr. Zombie   17.3 / 2.65 / 31.6   (entry boss, 3 brains)
+//   28  Bully Frog        Admiral Zombie     17.8 / 2.9  / 34.3
+//   30  Rocky Rhino       Brock Coley        46.0 / 3    /  8.0
+//   32  General Larvaelus Zombug             17.2 / 7    / 17.2
+//   34  Mystical Mamba    Zomtar             23.0 / 6    / 17.2
+//   38  Foul Owl          Scrooge Zombie      9.9 / 8    / 31.9   (the best tank)
+//   40  Skunkarella       Madame Zombie      19.1 / 8    / 20.0
+//   42  Loco Locust       Vagabond Zombie    19.6 / 8    / 21.1
 export const EPIC_BOSS_UNLOCK_LEVELS: Readonly<Record<string, number>> = {
   "dr-groundhog": 24,
   "bully-frog": 28,

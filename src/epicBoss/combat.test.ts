@@ -400,14 +400,18 @@ describe("Epic Boss damage ramp", () => {
 
   it("teaches the support lesson at the entry event, cheaply", () => {
     // A glass cannon led from the front dies to even the entry boss, and DEVELOPING IT IS
-    // NOT THE FIX — Zomtar at 1500 HP reaches ~3000 fully veteran and mutated, against
-    // 48 DPS over a 60 s attempt. Bringing the right body is the fix.
+    // NOT THE FIX — Proto Zombie at 1150 HP reaches ~2400 fully veteran and mutated,
+    // against 48 DPS over a 60 s attempt. Bringing the right body is the fix.
     //
     // That is deliberate and it is why the lesson lands here rather than at Foul Owl: the
     // entry event is the cheapest place to learn that a front slot needs a wall, and the
     // cost of learning it is one attempt on a 3-brain event rather than a lost omega on a
     // 5-brain one.
-    for (const front of ["Zomtar", "Old McZombie"]) {
+    //
+    // (Zomtar was the example until the 2026-09-07 Epic re-fit lifted it to 1720 HP —
+    // developed, it now just outlasts the 60 s attempt. It is still no tank: see the
+    // Loco Locust test above, where it dies at the top of the ramp either way.)
+    for (const front of ["Proto Zombie", "Old McZombie"]) {
       expect(frontDied(line(front), bossOf(groundhog, 1)), front).toBe(true);
       expect(frontDied(mutated(front), bossOf(groundhog, 1)), front).toBe(true);
     }

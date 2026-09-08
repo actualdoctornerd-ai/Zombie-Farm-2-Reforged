@@ -272,19 +272,49 @@ def rebalance_mutant(key, entry):
 
 # ---- Named-special stat overrides ----------------------------------------
 # The named specials take their combat stats straight from ZF2's Zombies.json.
-# These entries overwrite a stat AFTER that read, for the cases where the shipped
-# numbers make an event ladder pay out backwards.
+# These entries overwrite a stat AFTER that read.
 #
-# Admiral Zombie is the only one so far. It is Bully Frog's TOP prize (quest 3011,
-# the final level of the ladder), and it shipped as a strictly worse Captain Zombie
-# (quest 3000, the first prize): identical 21 str / 38.5 con, but dex 2 against the
-# Captain's 2.65, so climbing the whole ladder bought a zombie that deals 24% LESS
-# damage than the one you got at the bottom of it. It is the only epic ladder in the
-# game whose omega prize is a downgrade. The Admiral now edges the Captain on both
-# axes it can be compared on — a little faster and a little tougher.
+# EPIC PRIZE RE-FIT (2026-09-07). The 15 Epic Boss prizes can now be mutated in the
+# Zombie Pot (slot 1, wearing slot 2's mask — see docs/SPECIAL_ZOMBIE_ACQUISITION.md),
+# so their stats are balanced around the MUTATED zombie, not the plain one. The fit:
+#
+#   * strength = sqrt(DPS x HP) = sqrt(500 x str x dex x con), the same yardstick the
+#     Zombie Strength Ladder plots (str x 10 per hit, 2/dex s per swing, con x 100 HP);
+#   * the target is what the prize reaches wearing the five-slot DAMAGE set
+#     (Pumpking, Eyebiscus, Dragon-arm, Heartichoke, Flytrap: +9 str, +2 dex, +9 con):
+#     a line from 1,500 at Dr. Groundhog's unlock (level 24) to 2,000 at Loco
+#     Locust's (level 42), the rung-5 prize 75 below the line and the omega 75 above
+#     it (Brock Coley, paid on both rungs, sits on the line);
+#   * dex is NEVER touched — speed is each prize's character — and str and con are
+#     scaled by ONE factor per prize, so its shape survives; a prize that would have
+#     to GROW is capped at +15% (Brock Coley, Zombug, Proto, Zomtar, Zomdini land a
+#     little under the line rather than jumping a third).
+#
+# Before the fit the fast omegas ran away once mutated (Vagabond 2,474, Scrooge 2,369,
+# Bandido and Madame past 2,150 against a fully mutated Video Game Zombie's 1,503),
+# while the slow ones barely moved. Every prize is still stronger unmutated than a
+# plain Crazy Zombie (729) or Video Game Zombie (780).
+#
+# Admiral keeps the earlier correction on top: it is Bully Frog's TOP prize and had
+# shipped as a strictly worse Captain (same str/con, dex 2 against 2.65), the only epic
+# ladder whose omega was a downgrade. Its dex 2.9 edges the Captain's 2.65.
 SPECIAL_STAT_REBALANCE = {
-    # key: {stat: value}
-    "ZombieActorAdmiral": {"dex": 2.9, "con": 40.5},  # Captain: dex 2.65, con 38.5
+    # key: {stat: value}                          # ZF2 str/con -> factor
+    "ZombieActorDrZombie":       {"str": 15.8, "con": 28.2},  # 19.9/35.5  x0.79
+    "ZombieActorOmegaDrZombie":  {"str": 17.3, "con": 31.6},  # 21/38.5    x0.82
+    "ZombieActorCaptain":        {"str": 16.7, "con": 30.5},  # 21/38.5    x0.79
+    "ZombieActorAdmiral":        {"str": 17.8, "dex": 2.9, "con": 34.3},  # 21/40.5 x0.85
+    "ZombieActorBrockColey":     {"str": 46.0, "con": 8.0},   # 40/7       x1.15 (cap)
+    "ZombieActorProto":          {"str": 16.1, "con": 11.5},  # 14/10      x1.15 (cap)
+    "ZombieActorZombug":         {"str": 17.2, "con": 17.2},  # 15/15      x1.15 (cap)
+    "ZombieActorZomdini":        {"str": 17.2, "con": 13.8},  # 15/12      x1.15 (cap)
+    "ZombieActorZomtar":         {"str": 23.0, "con": 17.2},  # 20/15      x1.15 (cap)
+    "ZombieActorChristmasGhost": {"str": 10.2, "con": 25.2},  # 13/32      x0.79
+    "ZombieActorScrooge":        {"str": 9.9,  "con": 31.9},  # 13/42      x0.76
+    "ZombieActorDiva":           {"str": 21.7, "con": 19.5},  # 20/18      x1.08
+    "ZombieActorMadame":         {"str": 19.1, "con": 20.0},  # 21/22      x0.91
+    "ZombieActorBandido":        {"str": 20.1, "con": 19.3},  # 24/23      x0.84
+    "ZombieActorVagabond":       {"str": 19.6, "con": 21.1},  # 25/27      x0.78
 }
 
 
