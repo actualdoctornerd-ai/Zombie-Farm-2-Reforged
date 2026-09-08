@@ -2002,5 +2002,27 @@
   "specialSprite": "video_game_zombie.png",
   "rewardOnly": false,
   "marketHidden": false
+ },
+ {
+  "key": "ZombieActorZosmonaut",
+  "name": "Zosmonaut",
+  "cost": 10,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 25,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 10.5,
+  "dex": 3.67,
+  "con": 17.2,
+  "focus": 100.0,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zosmonaut.png",
+  "rewardOnly": false,
+  "marketHidden": true
  }
 ]

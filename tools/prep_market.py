@@ -77,6 +77,20 @@ AUTHORED_ZOMBIES = [
         "mutation": 0, "tier": 5, "specialSprite": "video_game_zombie.png",
         "rewardOnly": False, "marketHidden": False,
     },
+    # The Aliens' promoted invasion prize: a derived recolour of the Zastronaut
+    # (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), so it has no source row. Priced
+    # and levelled like the other promoted prizes (Sheriff: twice the base zombie);
+    # stats are the Zastronaut's +20%, the same step Omega Zombie Bot takes over
+    # Zombie Bot — a first pass, pending a balance pass.
+    {
+        "key": "ZombieActorZosmonaut", "name": "Zosmonaut",
+        "cost": 10, "growMs": 86_400_000, "category": "special", "level": 25, "xp": 1,
+        "brainsNeeded": True, "group": "Regular",
+        "className": "Special", "classColor": "#c077ff",
+        "str": 10.5, "dex": 3.67, "con": 17.2, "focus": 100.0,
+        "mutation": 0, "tier": 5, "specialSprite": "zosmonaut.png",
+        "rewardOnly": False, "marketHidden": True,
+    },
 ]
 
 # Brain prices take the shared brainflation retune (see tools/reforge_economy.py).

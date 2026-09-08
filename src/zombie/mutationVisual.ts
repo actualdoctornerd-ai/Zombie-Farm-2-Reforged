@@ -94,6 +94,7 @@ export function mutationPartZIndex(
 const MASKED_FACE_KEYS: ReadonlySet<string> = new Set([
   "ZombieActorOldMcZombie",
   "ZombieActorZastronaut",
+  "ZombieActorZosmonaut", // a derived recolour of the Zastronaut: same helmet
   "ZombieActorForest",
 ]);
 

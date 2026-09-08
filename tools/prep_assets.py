@@ -703,6 +703,7 @@ COMPLETE_SPECIAL_FACE_KEYS = {
 MASKED_FACE_KEYS = {
     "ZombieActorOldMcZombie",
     "ZombieActorZastronaut",
+    "ZombieActorZosmonaut",
     "ZombieActorForest",
 }
 DEFAULT_FACE_SLOTS = {"EyeL", "EyeR", "UpperTeeth", "LowerTeeth", "Scar", "Jaw"}
@@ -1021,6 +1022,150 @@ def composite_zombie(entry_name, out_name, catalog_key=None):
     print(f"zombie: composited {entry_name} -> {out_name}")
 
 
+# ---------------------------------------------------------------------------
+# Derived specials — recolours of an existing named actor
+# ---------------------------------------------------------------------------
+# A derived actor has no source plist. Its attachments are the BASE actor's, re-hued
+# per pixel class, and its manifest is the base manifest under a new name, so it rigs,
+# animates and masks exactly like its parent. The recolour keeps every pixel's own
+# brightness (V): the authored shading and the ink outline survive, and only hue /
+# saturation (and, for the glass, opacity) move.
+#
+# Pixel classes on a Zastronaut-shaped actor:
+#   line    the ink outline (V < 0.17) — never touched
+#   visor   Features.png only: the translucent or blue-leaning paint (the glass)
+#   helmet  Features.png: everything else (the shell)
+#   boot    Foot*.png: the green boots
+#   suit    everything else that is near-neutral — the white fabric AND its grey fold
+#           shadows right down to the outline. Capping this class at a brightness left
+#           grey speckles across a recoloured suit.
+# Each class maps to (target rgb, saturation strength, value multiplier, alpha multiplier).
+DERIVED_SPECIAL_ZOMBIES = [
+    # The Aliens' promoted (Brain Ticket) prize: the Zastronaut in a rust launch suit
+    # under a charcoal helmet with a near-black plate that the face still reads
+    # through. Picked from a sheet of recolours on 2026-09-07 (src/raid/zombieDrops.ts).
+    {
+        "stem": "zosmonaut", "key": "ZombieActorZosmonaut", "base": "zastronaut",
+        "recolour": {
+            "suit":   ((200, 70, 30), 1.0, 0.85, 1.0),
+            "helmet": ((60, 60, 70), 0.3, 0.4, 1.0),
+            "visor":  ((50, 45, 60), 0.35, 0.42, 1.12),
+        },
+    },
+]
+
+
+def _pixel_class(part_file, r, g, b, a):
+    h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+    if v < 0.17:
+        return "line"
+    if part_file == "Features.png":
+        if a < 250 or (0.5 < h < 0.72 and s > 0.08):
+            return "visor"
+        return "helmet"
+    if part_file.startswith("Foot") and 0.18 < h < 0.48 and s > 0.3:
+        return "boot"
+    if s < 0.2:
+        return "suit"
+    return "other"
+
+
+def _push_colour(px, target, sat=1.0, value_mul=1.0, alpha_mul=1.0):
+    """Re-hue one pixel toward `target`, keeping its own shading (V)."""
+    r, g, b, a = px
+    th, ts, _ = colorsys.rgb_to_hsv(*[c / 255 for c in target])
+    _, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+    v = max(0.0, min(1.0, v * value_mul))
+    s = s + (ts - s) * sat
+    rr, gg, bb = colorsys.hsv_to_rgb(th, s, v)
+    return (int(rr * 255), int(gg * 255), int(bb * 255), min(255, int(a * alpha_mul)))
+
+
+def _recolour_part(part_file, im, spec):
+    im = im.convert("RGBA").copy()
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            p = px[x, y]
+            if p[3] < 4:
+                continue
+            k = _pixel_class(part_file, *p)
+            if k in spec:
+                px[x, y] = _push_colour(p, *spec[k])
+    return im
+
+
+def composite_from_manifest(stem, catalog_key):
+    """Bake a card portrait for an actor that lives only as an OUT manifest + parts
+    (no source plist): the ordinary Regular skeleton, tinted the actor's colour, with the
+    actor's attachments over it — the same slot/face rules composite_zombie applies, on
+    the same 180x200 canvas with the feet at (90,165)."""
+    folder = os.path.join(OUT, "zombie", stem)
+    manifest = json.load(open(os.path.join(folder, "manifest.json")))
+    models = json.load(open(os.path.join(OUT, "zombie", "models.json")))
+    frames = json.load(open(os.path.join(OUT, "zombie", "frames.json")))
+    base_sheet = Image.open(os.path.join(OUT, "zombie", "ZombieSheet.png")).convert("RGBA")
+    base = models["ZombieActorRegularTier1"]
+    replaced = {p["file"].removesuffix(".png") for p in manifest["parts"]}
+    complete_face = catalog_key in COMPLETE_SPECIAL_FACE_KEYS
+    masked_face = catalog_key in MASKED_FACE_KEYS
+    own_jaw = "Jaw" in replaced
+    items = []
+    for p in base["parts"]:
+        base_slot = p["file"].removeprefix("default")
+        if base_slot in replaced:
+            continue
+        if complete_face and base_slot in DEFAULT_FACE_SLOTS:
+            continue
+        if masked_face and base_slot in MASKED_FACE_SLOTS:
+            continue
+        if own_jaw and base_slot == "LowerTeeth":
+            continue
+        f = frames[p["file"]]
+        part = base_sheet.crop((f["x"], f["y"], f["x"] + f["w"], f["y"] + f["h"]))
+        if p.get("tint"):
+            part = _tint(part, manifest["color"])
+        items.append((p["z"], part, p["px"], p["py"], p["ax"], p["ay"], p.get("scale", 1)))
+    for p in manifest["parts"]:
+        part = Image.open(os.path.join(folder, p["file"])).convert("RGBA")
+        items.append((p["z"], part, p["px"], p["py"], p["ax"], p["ay"], p.get("scale", 1)))
+    items.sort(key=lambda t: t[0])
+    W, H, cx, cy = 180, 200, 90, 165
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    for _, part, px, py, ax, ay, scale in items:
+        if scale != 1:
+            part = part.resize((max(1, round(part.width * scale)),
+                                max(1, round(part.height * scale))), Image.Resampling.LANCZOS)
+        w, h = part.size
+        canvas.alpha_composite(part, (round(cx + px - ax * w), round(cy + py - ay * h)))
+    out_name = stem + ".png"
+    canvas.save(os.path.join(OUT, "zombie", out_name))
+    json.dump({"anchorX": cx / W, "anchorY": cy / H, "w": W, "h": H},
+              open(os.path.join(OUT, "zombie", out_name + ".json"), "w"))
+    portrait_dir = os.path.join(OUT, "zombie", "portrait")
+    os.makedirs(portrait_dir, exist_ok=True)
+    shutil.copy2(os.path.join(OUT, "zombie", out_name),
+                 os.path.join(portrait_dir, catalog_key + ".png"))
+
+
+def derive_special_zombies():
+    """Write each derived actor's recoloured parts + manifest from its base's OUT
+    folder, and bake its portrait. Runs after the named actors are exported, so the
+    base is always the freshly exported one."""
+    for spec in DERIVED_SPECIAL_ZOMBIES:
+        src = os.path.join(OUT, "zombie", spec["base"])
+        dst = os.path.join(OUT, "zombie", spec["stem"])
+        os.makedirs(dst, exist_ok=True)
+        manifest = json.load(open(os.path.join(src, "manifest.json")))
+        manifest["name"] = spec["stem"]
+        for part in manifest["parts"]:
+            im = Image.open(os.path.join(src, part["file"]))
+            _recolour_part(part["file"], im, spec["recolour"]).save(os.path.join(dst, part["file"]))
+        json.dump(manifest, open(os.path.join(dst, "manifest.json"), "w"), indent=1)
+        composite_from_manifest(spec["stem"], spec["key"])
+        print(f"zombie: derived {spec['key']} from {spec['base']} ({len(manifest['parts'])} parts)")
+
+
 def pack_special_zombies():
     """Pack all named-special attachments into one runtime atlas.
 
@@ -1035,7 +1180,8 @@ def pack_special_zombies():
     frames = {}
     manifests = {}
     images = []
-    packed = [(stem, key) for _, stem, key in NAMED_SPECIAL_ZOMBIES] + [VIDEO_GAME_ZOMBIE]
+    packed = ([(stem, key) for _, stem, key in NAMED_SPECIAL_ZOMBIES] + [VIDEO_GAME_ZOMBIE]
+              + [(d["stem"], d["key"]) for d in DERIVED_SPECIAL_ZOMBIES])
     for stem, catalog_key in packed:
         folder = os.path.join(OUT, "zombie", stem)
         manifest = json.load(open(os.path.join(folder, "manifest.json")))
@@ -1131,6 +1277,7 @@ if __name__ == "__main__":
         shutil.copy2(os.path.join(OUT, "zombie", file_stem + ".png"),
                      os.path.join(portrait_dir, catalog_key + ".png"))
     export_video_game_zombie()
+    derive_special_zombies()
     pack_special_zombies()
     export_rig()
     make_field(idx)

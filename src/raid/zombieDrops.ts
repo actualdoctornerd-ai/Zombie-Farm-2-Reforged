@@ -24,9 +24,10 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 //   rec 21  Pirates           MerZombie         1.4%   (Poseidon 3.5%)
 //   rec 26  Ninjas            Ninjombie         1.6%   (Master Ninjombie 4.0%)
 //   rec 31  Robots            Zombie Bot        1.8%   (Omega Zombie Bot 4.5%)
-//   rec 36  Aliens            Zastronaut        2.0%   (8% on a ticket: single prize, x4)
+//   rec 36  Aliens            Zastronaut        2.0%   (Zosmonaut 4.5%, capped)
 //
-// The promoted prizes run 3-4.5%: ELITE_PRIZE_RATE_MULTIPLIER x their raid's rung.
+// The promoted prizes run 3-4.5%: ELITE_PRIZE_RATE_MULTIPLIER x their raid's rung, held
+// under ELITE_PRIZE_RATE_CAP — which is only ever the Aliens' 5% brought back to 4.5%.
 //
 // The four easy invasions share the floor on purpose — three of them are seasonal and
 // unlock at level 6-10, and Old McDonnell's is the tutorial raid; none is harder than
@@ -70,6 +71,9 @@ export const MASTER_NINJOMBIE_KEY = "ZombieActorMasterNinjombie";
 export const ZOMBIE_BOT_KEY = "ZombieActorZombieBot";
 export const OMEGA_ZOMBIE_BOT_KEY = "ZombieActorOmegaZombieBot";
 export const ZASTRONAUT_KEY = "ZombieActorZastronaut";
+/** The Zastronaut in a rust suit and charcoal helmet — a derived recolour
+ *  (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), the Aliens' promoted prize. */
+export const ZOSMONAUT_KEY = "ZombieActorZosmonaut";
 
 /** Each story invasion's ordinary-prize rate: its rung of the ladder above. */
 export const STORY_ZOMBIE_DROP_RATES: Readonly<Record<number, number>> = {
@@ -83,8 +87,12 @@ export const STORY_ZOMBIE_DROP_RATES: Readonly<Record<number, number>> = {
  *  rate, reflecting the harder wave — 2.5x puts the four promoted prizes on 3.0 / 3.5 /
  *  4.0 / 4.5%. That product is the WHOLE elite premium — see raidZombieDropRate. */
 export const ELITE_PRIZE_RATE_MULTIPLIER = 2.5;
+/** The promoted prizes are meant to sit inside 3-4.5%. The multiplier alone would put
+ *  the Aliens' at 5%, so the top of the ladder is held here rather than by bending the
+ *  multiplier for the other four. */
+export const ELITE_PRIZE_RATE_CAP = pct(4.5);
 const elitePrizeRate = (raidId: number): number =>
-  ELITE_PRIZE_RATE_MULTIPLIER * STORY_ZOMBIE_DROP_RATES[raidId];
+  Math.min(ELITE_PRIZE_RATE_CAP, ELITE_PRIZE_RATE_MULTIPLIER * STORY_ZOMBIE_DROP_RATES[raidId]);
 
 /** What an ORDINARY win of each raid can pay. Every raid with a rare zombie appears here. */
 export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
@@ -122,6 +130,7 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   [PIRATES_RAID_ID]: { key: POSEIDON_ZOMBIE_KEY, name: "Poseidon Zombie", rate: elitePrizeRate(PIRATES_RAID_ID) },
   [NINJAS_RAID_ID]: { key: MASTER_NINJOMBIE_KEY, name: "Master Ninjombie", rate: elitePrizeRate(NINJAS_RAID_ID) },
   [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
+  [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Zosmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
 };
 
 /** The prize a win of `raidId` rolls for: the elite one when this was an elite fight and

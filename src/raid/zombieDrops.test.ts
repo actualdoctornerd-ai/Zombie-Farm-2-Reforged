@@ -30,6 +30,8 @@ import {
   ZOMBIE_BOT_KEY,
   OMEGA_ZOMBIE_BOT_KEY,
   ZASTRONAUT_KEY,
+  ZOSMONAUT_KEY,
+  ELITE_PRIZE_RATE_CAP,
   isRareInvasionZombieName,
 } from "./zombieDrops";
 import { ELITE_BRAIN_LUCK } from "./eliteInvasion";
@@ -215,6 +217,9 @@ describe("the story invasions' prize pairs", () => {
     expect(RAID_ELITE_ZOMBIE_DROPS[3].rate).toBeCloseTo(0.035, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[4].rate).toBeCloseTo(0.04, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[5].rate).toBeCloseTo(0.045, 12);
+    // The Aliens' 2.5 x 2% = 5% would leave the band; the cap holds it at the top.
+    expect(ELITE_PRIZE_RATE_CAP).toBeCloseTo(0.045, 12);
+    expect(RAID_ELITE_ZOMBIE_DROPS[6].rate).toBeCloseTo(0.045, 12);
   });
 
   it.each(PAIRS)("raid %i pays its base zombie on an ordinary win at its rung", (raidId, base, _p, rung) => {
@@ -247,19 +252,23 @@ describe("the story invasions' prize pairs", () => {
     expect(raidZombieDropFor(8, true)).toBeNull();
   });
 
-  it("gives the Aliens the Zastronaut as a single prize that takes the 4x elite luck", () => {
+  it("gives the Aliens the Zastronaut ordinarily and the Zosmonaut on a ticket, at the cap", () => {
     expect(RAID_ZOMBIE_DROPS[6].key).toBe(ZASTRONAUT_KEY);
-    expect(RAID_ELITE_ZOMBIE_DROPS[6]).toBeUndefined();
+    expect(RAID_ELITE_ZOMBIE_DROPS[6].key).toBe(ZOSMONAUT_KEY);
     expect(raidZombieDropRate(6)).toBeCloseTo(0.02, 10);
-    expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.08, 10);
-    expect(rollRaidZombieDrop(6, true, 0.07, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZASTRONAUT_KEY);
+    // 4.5%, not 2.5 x 2% = 5% and not 4 x 2% = 8%: the promoted prize takes neither the
+    // uncapped multiplier nor the single-prize elite luck.
+    expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.045, 10);
+    expect(rollRaidZombieDrop(6, true, 0.044, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZOSMONAUT_KEY);
+    expect(rollRaidZombieDrop(6, true, 0.046, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
+    expect(rollRaidZombieDrop(6, true, 0, 5, ELITE_BRAIN_LUCK, true)?.key).not.toBe(ZASTRONAUT_KEY);
   });
 
   it("keeps a separate pity streak for each prize of a paired raid, and one for the rest", () => {
     expect(raidZombieDryKey(2, false)).toBe("2");
     expect(raidZombieDryKey(2, true)).toBe("2:elite");
     expect(raidZombieDryKey(1, true)).toBe("1"); // Old McZombie: one prize, one streak
-    expect(raidZombieDryKey(6, true)).toBe("6"); // Zastronaut likewise
+    expect(raidZombieDryKey(6, true)).toBe("6:elite"); // the Aliens pay a pair too
     // A hundred dry ORDINARY wins guarantee the Deputy; the elite streak starts from zero.
     expect(rollRaidZombieDropWithPity(2, true, MISS, RAID_ZOMBIE_PITY_WINS)?.key).toBe(DEPUTY_ZOMBIE_KEY);
     expect(rollRaidZombieDropWithPity(2, true, MISS, RAID_ZOMBIE_PITY_WINS, 0, ELITE_BRAIN_LUCK, true)?.key)
@@ -272,8 +281,9 @@ describe("the story invasions' prize pairs", () => {
     expect(byKey.get(DEPUTY_ZOMBIE_KEY)).toMatchObject({ raidId: 2, elite: false });
     expect(byKey.get(SHERIFF_ZOMBIE_KEY)).toMatchObject({ raidId: 2, elite: true });
     expect(byKey.get(ZASTRONAUT_KEY)).toMatchObject({ raidId: 6, elite: false });
+    expect(byKey.get(ZOSMONAUT_KEY)).toMatchObject({ raidId: 6, elite: true });
     expect(byKey.get(OLD_MC_ZOMBIE_KEY)).toMatchObject({ raidId: 1, elite: false });
-    expect(byKey.size).toBe(13);
+    expect(byKey.size).toBe(14);
     // Every source key is a distinct zombie: no prize is reachable from two places.
     expect(new Set(RAID_ZOMBIE_SOURCES.map((s) => s.drop.key)).size).toBe(RAID_ZOMBIE_SOURCES.length);
   });
@@ -282,6 +292,7 @@ describe("the story invasions' prize pairs", () => {
     expect(isRareInvasionZombieName("Sheriff Zombie")).toBe(true);
     expect(isRareInvasionZombieName("Deputy Zombie")).toBe(true);
     expect(isRareInvasionZombieName("Zastronaut")).toBe(true);
+    expect(isRareInvasionZombieName("Zosmonaut")).toBe(true);
     expect(isRareInvasionZombieName("Bombie")).toBe(false);
   });
 });
@@ -320,9 +331,15 @@ describe("the rare-zombie rate ladder", () => {
     for (let i = 1; i < story.length; i++) expect(story[i]).toBeGreaterThan(story[i - 1]);
   });
 
-  it("prices every promoted prize at exactly the multiplier times its raid's ordinary rate", () => {
+  it("prices every promoted prize at the multiplier times its raid's ordinary rate, under the cap", () => {
     for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS)) {
-      expect(drop.rate).toBeCloseTo(ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[Number(id)].rate, 12);
+      const uncapped = ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[Number(id)].rate;
+      expect(drop.rate).toBeCloseTo(Math.min(ELITE_PRIZE_RATE_CAP, uncapped), 12);
     }
+    // Only the top of the ladder is actually held down by the cap; the other four land
+    // inside the band on the multiplier alone (Robots sits exactly ON the cap, uncapped).
+    const capped = Object.keys(RAID_ELITE_ZOMBIE_DROPS).map(Number)
+      .filter((id) => ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[id].rate > ELITE_PRIZE_RATE_CAP + 1e-12);
+    expect(capped).toEqual([6]);
   });
 });

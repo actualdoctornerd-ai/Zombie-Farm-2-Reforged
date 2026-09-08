@@ -181,10 +181,12 @@ Diver / Forest / Teddy at **1%**; Lawyers → Deputy **1.2%**, Pirates → MerZo
 Ninjombie **1.6%**, Robots → Zombie Bot **1.8%**, Aliens → Zastronaut **2.0%**. The four faction
 invasions pay a **pair**: an ELITE (Brain Ticket) win rolls for the promoted zombie *instead* —
 Sheriff / Poseidon / Master Ninjombie / Omega Zombie Bot at **2.5x** the raid's ordinary rate
-(3.0 / 3.5 / 4.0 / 4.5%, `RAID_ELITE_ZOMBIE_DROPS`, `ELITE_PRIZE_RATE_MULTIPLIER`). On those four
-that rate IS the elite premium: `ELITE_BRAIN_LUCK` is deliberately not stacked on top, or the
-sheriff would be ten times as common as the deputy. Single-prize raids keep the 4x (the Zastronaut
-reaches 8% on a ticket). In the source these eight were alternate Epic Boss prizes for events that were never
+(3.0 / 3.5 / 4.0 / 4.5%, `RAID_ELITE_ZOMBIE_DROPS`, `ELITE_PRIZE_RATE_MULTIPLIER`), and the Aliens
+pay the **Zosmonaut** — a derived rust-suit recolour of the Zastronaut (`DERIVED_SPECIAL_ZOMBIES`
+in `tools/prep_assets.py`) — at **4.5%**: the multiplier's 5% held to the band's top by
+`ELITE_PRIZE_RATE_CAP`. On the five paired raids that rate IS the elite premium: `ELITE_BRAIN_LUCK`
+is deliberately not stacked on top, or the sheriff would be ten times as common as the deputy.
+The four single-prize raids (Old McDonnell's and the seasonals) keep the 4x. In the source these eight were alternate Epic Boss prizes for events that were never
 built. `zombieDrops.test.ts` pins the ladder to the recommended-level order.
 
 **Golden Dice raise that rate too — a deliberate divergence.** In the source the dice touch only
