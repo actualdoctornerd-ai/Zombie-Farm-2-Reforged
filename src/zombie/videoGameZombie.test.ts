@@ -11,7 +11,9 @@
 //     skeleton), holds one sprite, and carries idle/attack frame strips; the rigs
 //     swap textures instead of posing bones, and no mutation art can attach.
 //
-// Its stats sit one step above the Crazy Zombie's — the point of the species.
+// Its stats are fitted to the prize line at its level 43 — the line the Epic and
+// invasion prizes sit on (tools/reforge_economy.py SPECIAL_STAT_REBALANCE) — held a
+// little under the Vagabond, the strongest Epic. An elite version is planned above it.
 import { describe, expect, it } from "vitest";
 // @ts-ignore — node test environment only (the app has no @types/node)
 import { existsSync } from "node:fs";
@@ -55,16 +57,22 @@ describe("Video Game Zombie catalog row", () => {
     expect(zombieFarmScale(row.group, row.className, KEY)).toBe(zombieFarmScale("Regular", "Green", "ZombieActorRegularTier1"));
   });
 
-  it("is slightly stronger than the Crazy Zombie on every combat stat", () => {
+  it("tops the plantable ladder and sits on the prize line, under the Vagabond", () => {
     expect(row.str).toBeGreaterThan(crazy.str);
     expect(row.dex).toBeGreaterThan(crazy.dex);
     expect(row.con).toBeGreaterThan(crazy.con);
     expect(row.focus).toBe(crazy.focus);
-    // "Slightly": no stat more than 10% up, so it tops the ladder without breaking it.
-    expect(row.str / crazy.str).toBeLessThanOrEqual(1.1);
-    expect(row.dex / crazy.dex).toBeLessThanOrEqual(1.1);
-    expect(row.con / crazy.con).toBeLessThanOrEqual(1.1);
     expect(row.tier).toBe(5);
+    // The balance yardstick (see the Zombie Strength Ladder): sqrt(DPS x HP) wearing
+    // the five-slot damage set (+9 str, +2 dex, +9 con on a Regular body). The prize
+    // line pays 1,500 at level 24 rising 500 over 18 levels; at level 43 that is
+    // ~2,028. The owner's brief: ON the line, but at least a bit under the Vagabond.
+    const mutated = (z: ZombieDef) =>
+      Math.sqrt(500 * (z.str + 9) * (z.dex + 2) * (z.con + 9));
+    const vagabond = zombies.find((zombie) => zombie.key === "ZombieActorVagabond")!;
+    const line = 1500 + (row.level - 24) * (500 / 18);
+    expect(mutated(row)).toBeGreaterThan(line * 0.97);
+    expect(mutated(row)).toBeLessThan(mutated(vagabond) * 0.99);
   });
 
   it("is a plantable Market gravestone, not a sixth permanent special", () => {

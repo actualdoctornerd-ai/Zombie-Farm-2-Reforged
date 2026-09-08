@@ -64,8 +64,11 @@ MARKET_SPECIALS = {
 # (raid 9, unlock level 43) as a playable species. Filed as an ORDINARY zombie
 # (category "normal", group Regular, tier-less Yellow class like Crazy) rather than a
 # sixth permanent special, so it sits in the Market's Normal tab, can go in either
-# Pot slot and carries no Black Market special gate. Stats are one step above the
-# Crazy Zombie (19 / 2 / 28 / 100) — the strongest plantable zombie, by a little.
+# Pot slot and carries no Black Market special gate. Stats: the Crazy Zombie's shape
+# (19 / 2 / 28 / 100, dex one step up) scaled x1.48 by the prize re-fit (see
+# SPECIAL_STAT_REBALANCE in reforge_economy.py) so that, wearing the damage set, it
+# sits ON the prize line at level 43 (~2,028) and a little under the Vagabond (2,075) —
+# by far the strongest plantable zombie. An elite version is planned above it.
 # Its art is a frame strip, exported by tools/prep_assets.py export_video_game_zombie.
 AUTHORED_ZOMBIES = [
     {
@@ -73,7 +76,7 @@ AUTHORED_ZOMBIES = [
         "cost": 6, "growMs": 86_400_000, "category": "normal", "level": 43, "xp": 2,
         "brainsNeeded": True, "group": "Regular",
         "className": "Yellow", "classColor": "#ffd24a",
-        "str": 20.0, "dex": 2.1, "con": 29.0, "focus": 100.0,
+        "str": 29.6, "dex": 2.1, "con": 42.9, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "video_game_zombie.png",
         "rewardOnly": False, "marketHidden": False,
     },
@@ -95,15 +98,17 @@ AUTHORED_ZOMBIES = [
     # The Zombozo: a Mini zombie in the Circus's little clown's costume, cut from the
     # enemy art (tools/prep_assets.py CUT_SPECIAL_ZOMBIES). Proposed as the Circus
     # invasion's rare zombie. Its shape is the Zombricaun's, the Small family's other
-    # tier-5 (7.5 / 4.4 / 8.8), scaled x1.47 by the invasion-prize re-fit (see
+    # tier-5 (7.5 / 4.4 / 8.8), scaled x1.13 by the invasion-prize re-fit (see
     # SPECIAL_STAT_REBALANCE in reforge_economy.py) to sit on the prizes' line at the
-    # Circus's level 12. Level = the Circus's unlock level.
+    # Circus's level 12 AS A MINI: the line is taken at the Mini family's 0.86 of the
+    # Regular one, the ratio the Small tier-5 holds against the Regular tier-5 on the
+    # same yardstick. Level = the Circus's unlock level.
     {
         "key": "ZombieActorZombozo", "name": "Zombozo",
         "cost": 5, "growMs": 86_400_000, "category": "special", "level": 12, "xp": 1,
         "brainsNeeded": True, "group": "Small",
         "className": "Special", "classColor": "#c077ff",
-        "str": 11.1, "dex": 4.5, "con": 12.7, "focus": 100.0,
+        "str": 8.4, "dex": 4.5, "con": 9.7, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "zombozo.png",
         "rewardOnly": False, "marketHidden": True,
     },

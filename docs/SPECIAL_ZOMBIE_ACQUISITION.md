@@ -81,8 +81,10 @@ of its cost, so a 5-brain special returns 5,000 gold.
 The pixel zombie of the *Zombies vs Video Games* invasion is plantable as an **ordinary**
 zombie — `category: "normal"`, group Regular, the tier-less Yellow class — not a sixth
 special. It costs **6 brains**, unlocks at **level 43** (the invasion's own unlock level)
-and grows in 24 hours. Its stats (20 / 2.1 / 29 / 100) sit one step above the Crazy
-Zombie's, making it the strongest plantable zombie by a small margin. Being normal, it can
+and grows in 24 hours. Its stats are fitted to the prize line at level 43 (the same line the
+Epic and invasion prizes sit on, see `SPECIAL_STAT_REBALANCE` in `tools/reforge_economy.py`),
+held a little under the Vagabond Zombie: it is by far the strongest plantable zombie, and an
+elite version is planned. Being normal, it can
 go in either Zombie Pot slot and carries no Black Market special gate. Its art is a
 seven-frame flipbook rather than a paper-doll rig, so it wears no mutation art (the
 mutation and its stat bonus still apply). Authored in `tools/prep_market.py`

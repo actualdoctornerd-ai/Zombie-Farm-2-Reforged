@@ -358,6 +358,11 @@ SPECIAL_STAT_REBALANCE = {
     #     tank line for the same reason.
     #   * growth is capped at x2; nothing reaches it now (the Aliens prizes needed
     #     x1.44 / x1.5).
+    #   * a MINI prize is fitted as a Mini: its target is 0.86 of the line, the ratio
+    #     the Small tier-5 (Zombricaun) holds against the Regular tier-5 (Zombotron)
+    #     on this yardstick (the Silver pair gives the same 0.86). The Zombozo is the
+    #     one so far. The Video Game Zombie, a plantable Regular at level 43, is also
+    #     fitted ON this line (held under the Vagabond) — see AUTHORED_ZOMBIES.
     #
     # Before the raise the prizes sat 250 under the Epic line. Before the first fit
     # Deputy / Sheriff had Epic-omega stats at level 16, and Zombie Bot / Omega Zombie
