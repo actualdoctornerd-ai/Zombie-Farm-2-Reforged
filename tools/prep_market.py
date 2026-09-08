@@ -91,6 +91,19 @@ AUTHORED_ZOMBIES = [
         "mutation": 0, "tier": 5, "specialSprite": "zosmonaut.png",
         "rewardOnly": False, "marketHidden": True,
     },
+    # The Zombozo: a Mini zombie in the Circus's little clown's costume, cut from the
+    # enemy art (tools/prep_assets.py CUT_SPECIAL_ZOMBIES). Proposed as the Circus
+    # invasion's rare zombie; stats sit beside the Zombricaun, the Small family's other
+    # tier-5 (7.5 / 4.4 / 8.8). Level = the Circus's unlock level.
+    {
+        "key": "ZombieActorZombozo", "name": "Zombozo",
+        "cost": 5, "growMs": 86_400_000, "category": "special", "level": 12, "xp": 1,
+        "brainsNeeded": True, "group": "Small",
+        "className": "Special", "classColor": "#c077ff",
+        "str": 7.5, "dex": 4.5, "con": 8.6, "focus": 100.0,
+        "mutation": 0, "tier": 5, "specialSprite": "zombozo.png",
+        "rewardOnly": False, "marketHidden": True,
+    },
 ]
 
 # Brain prices take the shared brainflation retune (see tools/reforge_economy.py).

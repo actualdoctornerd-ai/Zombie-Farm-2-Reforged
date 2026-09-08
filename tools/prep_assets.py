@@ -1168,6 +1168,127 @@ def derive_special_zombies():
         print(f"zombie: derived {spec['key']} from {spec['base']} ({len(manifest['parts'])} parts)")
 
 
+# ---------------------------------------------------------------------------
+# Cut specials — a zombie dressed in parts lifted from a raid enemy's art
+# ---------------------------------------------------------------------------
+# Like a derived actor, a cut actor has no source plist of its own. Its attachments are
+# regions of an ENEMY strip (raids/enemies/parts/<key>.png), selected per pixel class
+# inside one cell, mirrored to face right (enemies face left), and hung on the ordinary
+# skeleton by an authored manifest. Everything not cut — skull, eyes, teeth, arms — is
+# inherited and tinted the family's green, so it reads as a zombie in a costume.
+#
+# Each part's `select(cls, x, y)` says which classified pixels of the cell it keeps;
+# the ink outline hugging a kept region rides along (dilated by one pixel) so the cut
+# does not lose its edge. Positions are in the ordinary rig's space, Y down, feet at
+# the origin — the same numbers models.json / a manifest use — and are a FIRST PASS
+# meant to be tuned in tools/rig_studio.html, which lists every special.
+def _clown_class(r, g, b, a):
+    h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+    if v < 0.2:
+        return "dark"
+    if s < 0.15:
+        return "white"
+    if 0.45 < h < 0.56 and s > 0.3:
+        return "cyan"
+    if 0.56 <= h < 0.72:
+        return "blue"
+    if (h < 0.04 or h > 0.93) and s > 0.5:
+        return "red"
+    if 0.08 < h < 0.2 and s > 0.4:
+        return "yellow"
+    if 0.02 <= h <= 0.1:
+        return "skin"
+    return "other"
+
+
+CUT_SPECIAL_ZOMBIES = [
+    # The Zombozo: the Circus's little stacked clown (CircusStageActorMinion2, one cell
+    # of the MidgetStack) as a Mini zombie — blue wig, red nose, striped shirt with its
+    # pom-pom, red shoes. Proposed as the Circus invasion's rare zombie, 2026-09-07.
+    {
+        "stem": "zombozo", "key": "ZombieActorZombozo",
+        "source": os.path.join("raids", "enemies", "parts", "CircusStageActorMinion2.png"),
+        "cell": (202, 2, 47, 51),
+        "classify": _clown_class,
+        "color": [194, 255, 95],   # the Small family's green (Zombricaun / Mini Zombie)
+        "parts": [
+            # wig: the cyan mass across the top of the cell (the pom-pom lower down is
+            # cyan too, and belongs to the shirt)
+            {"file": "Hat.png", "select": lambda c, x, y: c == "cyan" and y < 27,
+             "group": "head", "px": 0, "py": -60, "ax": 0.5, "ay": 0.8, "z": 7, "scale": 1.25},
+            # nose: the round red blob on the face, above the mouth
+            {"file": "Features.png", "select": lambda c, x, y: c == "red" and 10 <= y <= 21 and x < 20,
+             "group": "head", "px": -6, "py": -41, "ax": 0.5, "ay": 0.5, "z": 6, "scale": 1.1},
+            # shirt: the striped torso, the hand, and the pom-pom, between wig and shoes
+            {"file": "Body.png", "select": lambda c, x, y: 27 <= y <= 43 and c in ("yellow", "white", "blue", "cyan", "skin", "other"),
+             "group": "root", "px": 10, "py": -13, "ax": 0.63, "ay": 0.66, "z": 3, "scale": 1.8},
+            # shoes: the red at the very bottom; one cut serves both feet, as the default does
+            {"file": "FootF.png", "select": lambda c, x, y: c == "red" and y >= 42,
+             "group": "footF", "px": 16, "py": -8, "ax": 0.75, "ay": 0.1, "z": 2, "scale": 1.4},
+            {"file": "FootB.png", "select": lambda c, x, y: c == "red" and y >= 42,
+             "group": "footB", "px": -1, "py": -8, "ax": 0.75, "ay": 0.1, "z": 1, "scale": 1.4},
+        ],
+    },
+]
+
+
+def _cut_part(cell, classify, select, mirror=True):
+    """The pixels of `cell` that `select` keeps, plus the outline touching them, cropped
+    to their box. Returns (image, box) — box in cell coordinates, before mirroring."""
+    w, h = cell.size
+    px = cell.load()
+    cls = {}
+    for y in range(h):
+        for x in range(w):
+            p = px[x, y]
+            if p[3] >= 8:
+                cls[(x, y)] = classify(*p)
+    keep = {xy for xy, c in cls.items() if select(c, *xy)}
+    for (x, y) in list(keep):
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                n = (x + dx, y + dy)
+                if cls.get(n) == "dark":
+                    keep.add(n)
+    if not keep:
+        raise SystemExit("cut selected no pixels")
+    xs = [x for x, _ in keep]; ys = [y for _, y in keep]
+    box = (min(xs), min(ys), max(xs) + 1, max(ys) + 1)
+    out = Image.new("RGBA", (box[2] - box[0], box[3] - box[1]), (0, 0, 0, 0))
+    op = out.load()
+    for (x, y) in keep:
+        op[x - box[0], y - box[1]] = px[x, y]
+    if mirror:
+        out = out.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    return out, box
+
+
+def cut_special_zombies():
+    """Write each cut actor's parts + manifest from its enemy strip, and bake its portrait."""
+    for spec in CUT_SPECIAL_ZOMBIES:
+        strip = Image.open(os.path.join(OUT, spec["source"])).convert("RGBA")
+        cx, cy, cw, ch = spec["cell"]
+        cell = strip.crop((cx, cy, cx + cw, cy + ch))
+        dst = os.path.join(OUT, "zombie", spec["stem"])
+        os.makedirs(dst, exist_ok=True)
+        parts = []
+        for part in spec["parts"]:
+            im, box = _cut_part(cell, spec["classify"], part["select"])
+            im.save(os.path.join(dst, part["file"]))
+            parts.append({k: v for k, v in part.items() if k != "select"})
+            print(f"    {part['file']:14} {im.width}x{im.height} from cell box {box}")
+        manifest = {
+            "name": spec["stem"],
+            "neck": inherited_head_offset_pixi(),
+            "color": spec["color"],
+            "floatingHead": False,
+            "parts": parts,
+        }
+        json.dump(manifest, open(os.path.join(dst, "manifest.json"), "w"), indent=1)
+        composite_from_manifest(spec["stem"], spec["key"])
+        print(f"zombie: cut {spec['key']} from {spec['source']} ({len(parts)} parts)")
+
+
 def pack_special_zombies():
     """Pack all named-special attachments into one runtime atlas.
 
@@ -1183,7 +1304,8 @@ def pack_special_zombies():
     manifests = {}
     images = []
     packed = ([(stem, key) for _, stem, key in NAMED_SPECIAL_ZOMBIES] + [VIDEO_GAME_ZOMBIE]
-              + [(d["stem"], d["key"]) for d in DERIVED_SPECIAL_ZOMBIES])
+              + [(d["stem"], d["key"]) for d in DERIVED_SPECIAL_ZOMBIES]
+              + [(c["stem"], c["key"]) for c in CUT_SPECIAL_ZOMBIES])
     for stem, catalog_key in packed:
         folder = os.path.join(OUT, "zombie", stem)
         manifest = json.load(open(os.path.join(folder, "manifest.json")))
@@ -1280,6 +1402,7 @@ if __name__ == "__main__":
                      os.path.join(portrait_dir, catalog_key + ".png"))
     export_video_game_zombie()
     derive_special_zombies()
+    cut_special_zombies()
     pack_special_zombies()
     export_rig()
     make_field(idx)

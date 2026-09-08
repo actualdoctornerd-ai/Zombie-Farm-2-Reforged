@@ -14,7 +14,9 @@ for. So every asset rides in as a data URI:
   • enemy   — raids/enemies/models.json + each model's own parts/<key>.png strip,
               plus enemy_stats.json/attacks.json so a rig knows which ATTACK it swings
               and at what damageTiming (that is what the attack clip is fitted to)
-  • zombie  — zombie/models.json + the shared ZombieSheet.png atlas + frames.json
+  • zombie  — zombie/models.json + the shared ZombieSheet.png atlas + frames.json, PLUS
+              every named special merged onto the skeleton the way the runtime does it,
+              drawn off the two sheets stacked into one atlas
   • stages  — every raid's levelAssets and the fightBG*/invasion* art they name, so a
               rig can be posed on the stage it actually fights on
   • epic    — all eight Epic Bosses: catalog.json's animations block, the six frame
@@ -151,13 +153,71 @@ def build_enemy() -> dict:
 
 
 def build_zombie() -> dict:
+    """The 55 base rigs PLUS every named special, merged the way the runtime merges
+    them (src/assets.ts mergeSpecialZombieModel): the ordinary skeleton with the actor's
+    own attachments over it, face slots dropped per the same three rules. The studio
+    draws one atlas per zombie dataset, so the two sheets are stacked into one image
+    and the special frames re-keyed `special:<key>:<file>` with the offset applied."""
+    import io
+    from PIL import Image
+    sys.path.insert(0, str(TOOLS))
+    import prep_assets as pa
     zdir = ASSETS / "zombie"
+    models = load_json(zdir / "models.json")
+    frames = load_json(zdir / "frames.json")
+    special_models = load_json(zdir / "special_models.json")
+    special_frames = load_json(zdir / "special_frames.json")
+    zombies = {z["key"]: z for z in load_json(ASSETS / "zombies.json")}
+    base_img = Image.open(zdir / "ZombieSheet.png").convert("RGBA")
+    special_img = Image.open(zdir / "SpecialZombieSheet.png").convert("RGBA")
+    atlas = Image.new("RGBA", (max(base_img.width, special_img.width), base_img.height + special_img.height))
+    atlas.alpha_composite(base_img, (0, 0))
+    atlas.alpha_composite(special_img, (0, base_img.height))
+    off = base_img.height
+    for key, f in special_frames.items():
+        actor, file = key.split(":", 1)
+        frames[f"special:{actor}:{file}"] = {"x": f["x"], "y": f["y"] + off, "w": f["w"], "h": f["h"]}
+    group_scale = {"Regular": 0.9, "Female": 0.8, "Girl": 0.8, "Small": 0.6,
+                   "Large": 1.15, "Headless": 0.9, "Garden": 0.7}
+    slot = lambda file: file.removeprefix("default").removesuffix(".png")
+    for key, manifest in special_models.items():
+        row = zombies.get(key)
+        if not row:
+            continue
+        base = models["ZombieActorHeadlessTier1" if key == "ZombieActorBombie" else "ZombieActorRegularTier1"]
+        replaced = {slot(p["file"]) for p in manifest["parts"]}
+        complete_face = key in pa.COMPLETE_SPECIAL_FACE_KEYS
+        masked = key in pa.MASKED_FACE_KEYS
+        own_jaw = "Jaw" in replaced
+        head_dx = manifest["neck"]["x"] - base["neck"]["x"] if "Head" in replaced else 0
+        head_dy = manifest["neck"]["y"] - base["neck"]["y"] if "Head" in replaced else 0
+        inherited = []
+        if not manifest.get("floatingHead") and not manifest.get("complete"):
+            for p in base["parts"]:
+                ps = slot(p["file"])
+                if ps in replaced: continue
+                if complete_face and ps in pa.DEFAULT_FACE_SLOTS: continue
+                if masked and ps in pa.MASKED_FACE_SLOTS: continue
+                if own_jaw and ps == "LowerTeeth": continue
+                q = dict(p)
+                if p["group"] == "head":
+                    q["px"] = p["px"] + head_dx; q["py"] = p["py"] + head_dy
+                inherited.append(q)
+        dedicated = [{**p, "file": f"special:{key}:{p['file']}", "tint": False} for p in manifest["parts"]]
+        models[key] = {
+            "name": f"{row['name']} (special)",
+            "neck": manifest["neck"] if "Head" in replaced else base["neck"],
+            "scale": group_scale.get(row["group"], base.get("scale", 1)),
+            "color": manifest.get("color", base.get("color")),
+            "parts": sorted(inherited + dedicated, key=lambda p: p["z"]),
+        }
+    buf = io.BytesIO(); atlas.save(buf, "PNG", optimize=True)
     return {
         "kind": "zombie",
         "label": "Zombies",
-        "models": load_json(zdir / "models.json"),
-        "frames": load_json(zdir / "frames.json"),
-        "atlas": data_uri(zdir / "ZombieSheet.png"),
+        "models": models,
+        "frames": frames,
+        "atlas": "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii"),
     }
 
 

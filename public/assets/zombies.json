@@ -2024,5 +2024,27 @@
   "specialSprite": "zosmonaut.png",
   "rewardOnly": false,
   "marketHidden": true
+ },
+ {
+  "key": "ZombieActorZombozo",
+  "name": "Zombozo",
+  "cost": 5,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 12,
+  "xp": 1,
+  "brainsNeeded": true,
+  "group": "Small",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 7.5,
+  "dex": 4.5,
+  "con": 8.6,
+  "focus": 100.0,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "zombozo.png",
+  "rewardOnly": false,
+  "marketHidden": true
  }
 ]

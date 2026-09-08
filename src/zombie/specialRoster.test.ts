@@ -17,10 +17,11 @@ describe("complete special-zombie roster", () => {
     // 40 recovered named actors, plus the Video Game Zombie — the one dedicated-sheet
     // zombie that is NOT a special (see videoGameZombie.test.ts for its own rules) —
     // plus the Zosmonaut, a DERIVED recolour of the Zastronaut with no recovered
-    // source of its own (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES).
+    // source of its own (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), plus the
+    // Zombozo, CUT from the Circus clown's enemy art (CUT_SPECIAL_ZOMBIES).
     const named = zombies.filter((zombie) => zombie.specialSprite);
-    expect(named).toHaveLength(42);
-    expect(new Set(named.map((zombie) => zombie.key)).size).toBe(42);
+    expect(named).toHaveLength(43);
+    expect(new Set(named.map((zombie) => zombie.key)).size).toBe(43);
     expect(named.filter((zombie) => zombie.category !== "special").map((zombie) => zombie.key))
       .toEqual(["ZombieActorRegularVideoGame"]);
     expect(named.every((zombie) => zombie.key in specialModels)).toBe(true);

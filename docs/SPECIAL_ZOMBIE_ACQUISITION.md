@@ -1,11 +1,12 @@
 # Special zombie acquisition
 
-The runtime catalog contains 57 zombies in the Special category. Every one has a
+The runtime catalog contains 58 zombies in the Special category. Every one but the
+Zombozo (a proposed Circus invasion prize whose drop is not wired yet) has a
 reachable acquisition route; Epic-event rewards and voucher gifts are deliberately
 excluded from the plantable zombie Market.
 
-The routes below account for all 57: 15 Epic Boss rewards, 5 plantable Market crops,
-2 voucher-exclusive, 6 combine-only, and the remaining **29 obtainable only through the
+The routes below account for all 58: 15 Epic Boss rewards, 5 plantable Market crops,
+2 voucher-exclusive, 6 combine-only, and the remaining **30 obtainable only through the
 Black Market** — every one of those is `marketHidden: true` and has no planting route at all.
 
 ## Epic Boss events (15)
@@ -103,22 +104,24 @@ zombie (Crazy and Cupid retain both routes):
 Each voucher is limited to one owned copy of its exact result. The 2012 gift uses
 the distinct pink Cupid actor, not the ordinary Cupid actor.
 
-## Black Market (29)
+## Black Market (30)
 
-The only route for the 29 `marketHidden` specials — ZomBetty, ZomBloke, George Washington,
+The only route for the 30 `marketHidden` specials — ZomBetty, ZomBloke, George Washington,
 John Hancock, Mummy Zombie, ZomHelga, Zombeach Bum, Zula Girl, Skittles, Zwamp Thing,
 Zcarecrow, Zanta Clause, Diver, JackoZombie, Reindeer, Teddy, Forest, Medusa, Old McZombie,
-Zastronaut, Zosmonaut, Deputy, Master Ninjombie, MerZombie, Ninjombie, Omega Zombie Bot,
-Poseidon, Sheriff, and Zombie Bot. Another player escrows the zombie as a `SELL_ZOMBIE` order, or fills
+Zastronaut, Zosmonaut, Zombozo, Deputy, Master Ninjombie, MerZombie, Ninjombie, Omega Zombie
+Bot, Poseidon, Sheriff, and Zombie Bot. Another player escrows the zombie as a `SELL_ZOMBIE` order, or fills
 a `BUY_ZOMBIE` request.
 
-**Fourteen of those 29 also drop from invasions** and are therefore reachable solo: Old McZombie
+**Fourteen of those 30 also drop from invasions** and are therefore reachable solo: Old McZombie
 (Old McDonnell's), Diver (Summer Break), Forest (Tree World) and Teddy (Valentine's Day) at 1%
 each; Deputy / MerZombie / Ninjombie / Zombie Bot from an ordinary win of the Lawyers / Pirates /
 Ninjas / Robots (1.2 / 1.4 / 1.6 / 1.8%), with Sheriff / Poseidon / Master Ninjombie / Omega
 Zombie Bot paid *instead* on an elite (Brain Ticket) win of the same raid (2.5x: 3.0 / 3.5 /
 4.0 / 4.5%); and Zastronaut from the Aliens (2%), with the Zosmonaut — a derived rust-suit
-recolour of it — paid *instead* on an elite win (4.5%). See `src/raid/zombieDrops.ts` and the rare-zombie section of
+recolour of it — paid *instead* on an elite win (4.5%). The Zombozo — a Mini zombie cut from the
+Circus clown's enemy art (`CUT_SPECIAL_ZOMBIES` in `tools/prep_assets.py`) — is proposed as the
+Circus's rare zombie but has no drop wired yet, so it is not in the Almanac. See `src/raid/zombieDrops.ts` and the rare-zombie section of
 `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-prize pity makes that route bounded:
 100 wins of a raid without its zombie guarantees it on the next. Nothing in the game says so.
 
