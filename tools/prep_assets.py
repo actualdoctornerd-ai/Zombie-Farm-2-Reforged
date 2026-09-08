@@ -1219,17 +1219,19 @@ CUT_SPECIAL_ZOMBIES = [
             # cyan too, and belongs to the shirt)
             {"file": "Hat.png", "select": lambda c, x, y: c == "cyan" and y < 27,
              "group": "head", "px": 0, "py": -60, "ax": 0.5, "ay": 0.8, "z": 7, "scale": 1.25},
-            # nose: the round red blob on the face, above the mouth
+            # nose: the round red blob on the face, above the mouth (position tuned in the
+            # Rig Studio, 2026-09-08)
             {"file": "Features.png", "select": lambda c, x, y: c == "red" and 10 <= y <= 21 and x < 20,
-             "group": "head", "px": -6, "py": -41, "ax": 0.5, "ay": 0.5, "z": 6, "scale": 1.1},
+             "group": "head", "px": -11.455, "py": -41.248, "ax": 0.5, "ay": 0.5, "z": 6, "scale": 1.1},
             # shirt: the striped torso, the hand, and the pom-pom, between wig and shoes
             {"file": "Body.png", "select": lambda c, x, y: 27 <= y <= 43 and c in ("yellow", "white", "blue", "cyan", "skin", "other"),
              "group": "root", "px": 10, "py": -13, "ax": 0.63, "ay": 0.66, "z": 3, "scale": 1.8},
-            # shoes: the red at the very bottom; one cut serves both feet, as the default does
-            {"file": "FootF.png", "select": lambda c, x, y: c == "red" and y >= 42,
-             "group": "footF", "px": 16, "py": -8, "ax": 0.75, "ay": 0.1, "z": 2, "scale": 1.4},
-            {"file": "FootB.png", "select": lambda c, x, y: c == "red" and y >= 42,
-             "group": "footB", "px": -1, "py": -8, "ax": 0.75, "ay": 0.1, "z": 1, "scale": 1.4},
+            # shoes: the ORDINARY zombie foot, recoloured clown-red, in the default foot's own
+            # place — not a cut from the enemy art (the clown's shoes read as blobs at rig scale)
+            {"file": "FootF.png", "frame": "defaultFootF", "recolour": ((205, 25, 40), 1.0, 0.95, 1.0),
+             "group": "footF", "px": 16, "py": -8, "ax": 0.75, "ay": 0.1, "z": 2},
+            {"file": "FootB.png", "frame": "defaultFootB", "recolour": ((205, 25, 40), 1.0, 0.95, 1.0),
+             "group": "footB", "px": -1, "py": -8, "ax": 0.75, "ay": 0.1, "z": 1},
         ],
     },
 ]
@@ -1266,8 +1268,29 @@ def _cut_part(cell, classify, select, mirror=True):
     return out, box
 
 
+def _recoloured_frame(frame_name, recolour):
+    """An ordinary ZombieSheet frame with every painted pixel (not the ink outline) pushed
+    toward a colour — for a costume piece that is the default part in a different paint."""
+    frames = json.load(open(os.path.join(OUT, "zombie", "frames.json")))
+    sheet = Image.open(os.path.join(OUT, "zombie", "ZombieSheet.png")).convert("RGBA")
+    f = frames[frame_name]
+    im = sheet.crop((f["x"], f["y"], f["x"] + f["w"], f["y"] + f["h"])).copy()
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            p = px[x, y]
+            if p[3] < 8:
+                continue
+            _, _, v = colorsys.rgb_to_hsv(p[0] / 255, p[1] / 255, p[2] / 255)
+            if v >= 0.17:
+                px[x, y] = _push_colour(p, *recolour)
+    return im
+
+
 def cut_special_zombies():
-    """Write each cut actor's parts + manifest from its enemy strip, and bake its portrait."""
+    """Write each cut actor's parts + manifest from its enemy strip, and bake its portrait.
+    A part with a `frame` instead of a `select` is an ordinary skeleton frame recoloured
+    (see _recoloured_frame) rather than a cut."""
     for spec in CUT_SPECIAL_ZOMBIES:
         strip = Image.open(os.path.join(OUT, spec["source"])).convert("RGBA")
         cx, cy, cw, ch = spec["cell"]
@@ -1276,10 +1299,14 @@ def cut_special_zombies():
         os.makedirs(dst, exist_ok=True)
         parts = []
         for part in spec["parts"]:
-            im, box = _cut_part(cell, spec["classify"], part["select"])
+            if "frame" in part:
+                im = _recoloured_frame(part["frame"], part["recolour"])
+                print(f"    {part['file']:14} {im.width}x{im.height} = {part['frame']} recoloured")
+            else:
+                im, box = _cut_part(cell, spec["classify"], part["select"])
+                print(f"    {part['file']:14} {im.width}x{im.height} from cell box {box}")
             im.save(os.path.join(dst, part["file"]))
-            parts.append({k: v for k, v in part.items() if k != "select"})
-            print(f"    {part['file']:14} {im.width}x{im.height} from cell box {box}")
+            parts.append({k: v for k, v in part.items() if k not in ("select", "frame", "recolour")})
         manifest = {
             "name": spec["stem"],
             "neck": inherited_head_offset_pixi(),
