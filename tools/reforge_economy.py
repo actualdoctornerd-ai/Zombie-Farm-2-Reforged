@@ -340,35 +340,44 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorMadame":         {"str": 19.1, "con": 20.0},  # 21/22      x0.91
     "ZombieActorBandido":        {"str": 20.1, "con": 19.3},  # 24/23      x0.84
     "ZombieActorVagabond":       {"str": 19.6, "con": 21.1},  # 25/27      x0.78
-    # INVASION PRIZE RE-FIT (2026-09-07), the same method on the rare invasion drops
-    # (src/raid/zombieDrops.ts — ordinary prize and the elite promoted one). They can
-    # be mutated in the Pot exactly like the epics, so the target is again the
-    # damage-set strength, on the prizes' OWN line: 1,000 at level 1 (what a fully
-    # mutated Silver reaches — the floor the owner asked for, "around a silver/red")
-    # rising to 1,750 at level 43, which keeps every prize ahead of the Market at the
-    # level its invasion unlocks and just under the Epic line. The elite prize sits 75
-    # above the line, the ordinary one 75 below where the raid has both; a raid with a
-    # single prize sits on it. Growth is capped at x1.5 — the Diver (dex 1) and the two
-    # Aliens prizes stop there, a little under their targets, rather than tripling.
+    # INVASION PRIZE RE-FIT (2026-09-07, raised 2026-09-08), the same method on the
+    # rare invasion drops (src/raid/zombieDrops.ts — ordinary prize and the elite
+    # promoted one). They can be mutated in the Pot exactly like the epics, so the
+    # target is again the damage-set strength. The owner's brief: they are hard to
+    # get, so they COMPETE with the Epic prizes — sidegrades at comparable levels —
+    # and the elite ones are stronger than their level suggests. So:
     #
-    # Biggest movers: Deputy / Sheriff had Epic-omega stats at level 16 (1,820 mutated
-    # against the Epic line's 1,500 at level 24); Zombie Bot / Omega Zombie Bot were
-    # the strongest zombies in the game after the Vagabond.
+    #   * the line is the Epic line itself, extended below level 24 (1,500 at 24 ->
+    #     2,000 at 42, i.e. 27.8 per level), floored by the earlier prize line
+    #     (1,000 at level 1 -> 1,750 at 43) which is the higher of the two up to
+    #     level 15 — so the four early prizes and the Diver did not move;
+    #   * the ORDINARY prize sits ON the line, between an Epic rung-5 prize (-75) and
+    #     its omega (+75) at the same level;
+    #   * the ELITE prize sits 200 ABOVE the line — above the omega — which is about
+    #     what the line pays seven levels later. The elite tanks get +500 HP over the
+    #     tank line for the same reason.
+    #   * growth is capped at x2; nothing reaches it now (the Aliens prizes needed
+    #     x1.44 / x1.5).
+    #
+    # Before the raise the prizes sat 250 under the Epic line. Before the first fit
+    # Deputy / Sheriff had Epic-omega stats at level 16, and Zombie Bot / Omega Zombie
+    # Bot were the strongest zombies in the game after the Vagabond.
     #                                             # ZF2 str/con -> factor
     "ZombieActorOldMcZombie":      {"str": 7.5,  "con": 12.3},  # 8.71/14.3  x0.86  L1
     "ZombieActorRegular4Tier5":    {"str": 11.9, "con": 18.7},  # 12.6/19.8  x0.94  L6  Teddy
     "ZombieActorForest":           {"str": 9.3,  "con": 15.3},  # 8.71/14.3  x1.07  L8
-    "ZombieActorHeadless2Tier5":   {"str": 16.5, "con": 31.3},  # 11/29.7    str x1.5 (cap); TANK con from HP line
-    "ZombieActorDeputy":           {"str": 11.4, "con": 26.1},  # 21/38.5    str x0.54; TANK
-    "ZombieActorSheriff":          {"str": 13.7, "con": 30.1},  # 21/38.5    str x0.65; TANK, elite
-    "ZombieActorMerZombie":        {"str": 13.4, "con": 11.9},  # 18/16      x0.75  L21
-    "ZombieActorPoseidon":         {"str": 14.8, "con": 12.6},  # 20/17      x0.74  L21 elite
-    "ZombieActorNinjombie":        {"str": 20.8, "con": 10.4},  # 20/10      x1.04  L26
-    "ZombieActorMasterNinjombie":  {"str": 26.0, "con": 13.0},  # 20/10      x1.30  L26 elite
-    "ZombieActorZombieBot":        {"str": 15.4, "con": 16.0},  # 24/25      x0.64  L31
-    "ZombieActorOmegaZombieBot":   {"str": 17.6, "con": 18.9},  # 28/30      x0.63  L31 elite
-    "ZombieActorZastronaut":       {"str": 13.1, "con": 21.5},  # 8.71/14.3  x1.5   L36 (cap)
-    # The Zosmonaut is an AUTHORED row (prep_market.py AUTHORED_ZOMBIES), fitted there.
+    "ZombieActorHeadless2Tier5":   {"str": 16.5, "con": 31.3},  # 11/29.7    str x1.5; TANK con from HP line
+    "ZombieActorDeputy":           {"str": 11.4, "con": 28.1},  # 21/38.5    str x0.54; TANK, on the tank line
+    "ZombieActorSheriff":          {"str": 13.7, "con": 33.1},  # 21/38.5    str x0.65; TANK, elite +500 HP
+    "ZombieActorMerZombie":        {"str": 15.8, "con": 14.1},  # 18/16      x0.88  L21
+    "ZombieActorPoseidon":         {"str": 17.9, "con": 15.3},  # 20/17      x0.90  L21 elite
+    "ZombieActorNinjombie":        {"str": 25.4, "con": 12.7},  # 20/10      x1.27  L26
+    "ZombieActorMasterNinjombie":  {"str": 32.1, "con": 16.0},  # 20/10      x1.60  L26 elite
+    "ZombieActorZombieBot":        {"str": 19.3, "con": 20.0},  # 24/25      x0.80  L31
+    "ZombieActorOmegaZombieBot":   {"str": 22.2, "con": 23.9},  # 28/30      x0.80  L31 elite
+    "ZombieActorZastronaut":       {"str": 19.7, "con": 32.3},  # 8.71/14.3  x2.26  L36
+    # The Zosmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows
+    # (prep_market.py AUTHORED_ZOMBIES) and are fitted there.
 }
 
 
