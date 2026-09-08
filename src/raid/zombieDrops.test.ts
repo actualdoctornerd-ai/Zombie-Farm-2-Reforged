@@ -35,7 +35,7 @@ import {
   CIRCUS_RAID_ID,
   ELITE_PRIZE_RATE_CAP,
   isRareInvasionZombieName,
-  VIDEO_GAMES_RAID_ID, VIDEO_GAME_ZOMBIE_KEY, ALIENS_RAID_ID,
+  VIDEO_GAMES_RAID_ID, VIDEO_GAME_ZOMBIE_KEY, FINAL_BOSS_ZOMBIE_KEY, ALIENS_RAID_ID,
 } from "./zombieDrops";
 import { ELITE_BRAIN_LUCK } from "./eliteInvasion";
 import raidRows from "../../public/assets/raids/raids.json";
@@ -223,9 +223,12 @@ describe("the story invasions' prize pairs", () => {
     expect(RAID_ELITE_ZOMBIE_DROPS[3].rate).toBeCloseTo(0.035, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[4].rate).toBeCloseTo(0.04, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[5].rate).toBeCloseTo(0.045, 12);
-    // The Aliens' 2.5 x 2% = 5% would leave the band; the cap holds it at the top.
+    // The Aliens' 2.5 x 2% = 5% would leave the band; the cap holds it at the top —
+    // and the Video Games' Final Boss, on the same 2% rung, with it.
     expect(ELITE_PRIZE_RATE_CAP).toBeCloseTo(0.045, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[6].rate).toBeCloseTo(0.045, 12);
+    expect(RAID_ELITE_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID]).toMatchObject({ key: FINAL_BOSS_ZOMBIE_KEY });
+    expect(RAID_ELITE_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID].rate).toBeCloseTo(0.045, 12);
   });
 
   it.each(PAIRS)("raid %i pays its base zombie on an ordinary win at its rung", (raidId, base, _p, rung) => {
@@ -255,8 +258,9 @@ describe("the story invasions' prize pairs", () => {
   it("asking for the elite prize of a single-prize raid is the ordinary prize at elite luck", () => {
     expect(raidZombieDropFor(1, true)?.key).toBe(OLD_MC_ZOMBIE_KEY);
     expect(raidZombieDropRate(1, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.04, 10);
-    // The Video Games have no promoted prize yet, so an elite win rolls the ordinary one.
-    expect(raidZombieDropFor(VIDEO_GAMES_RAID_ID, true)?.key).toBe(VIDEO_GAME_ZOMBIE_KEY);
+    // The Video Games promote: a ticket win rolls the Final Boss, never the base zombie.
+    expect(raidZombieDropFor(VIDEO_GAMES_RAID_ID, true)?.key).toBe(FINAL_BOSS_ZOMBIE_KEY);
+    expect(raidZombieDropFor(VIDEO_GAMES_RAID_ID, false)?.key).toBe(VIDEO_GAME_ZOMBIE_KEY);
     expect(raidZombieDropFor(99, true)).toBeNull();
   });
 
@@ -303,7 +307,8 @@ describe("the story invasions' prize pairs", () => {
     expect(byKey.get(OLD_MC_ZOMBIE_KEY)).toMatchObject({ raidId: 1, elite: false });
     expect(byKey.get(ZOMBOZO_KEY)).toMatchObject({ raidId: CIRCUS_RAID_ID, elite: false });
     expect(byKey.get(VIDEO_GAME_ZOMBIE_KEY)).toMatchObject({ raidId: VIDEO_GAMES_RAID_ID, elite: false });
-    expect(byKey.size).toBe(16);
+    expect(byKey.get(FINAL_BOSS_ZOMBIE_KEY)).toMatchObject({ raidId: VIDEO_GAMES_RAID_ID, elite: true });
+    expect(byKey.size).toBe(17);
     // Every source key is a distinct zombie: no prize is reachable from two places.
     expect(new Set(RAID_ZOMBIE_SOURCES.map((s) => s.drop.key)).size).toBe(RAID_ZOMBIE_SOURCES.length);
   });
@@ -361,6 +366,7 @@ describe("the rare-zombie rate ladder", () => {
     // inside the band on the multiplier alone (Robots sits exactly ON the cap, uncapped).
     const capped = Object.keys(RAID_ELITE_ZOMBIE_DROPS).map(Number)
       .filter((id) => ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[id].rate > ELITE_PRIZE_RATE_CAP + 1e-12);
-    expect(capped).toEqual([6]);
+    // The Aliens and the Video Games: both on the 2% rung, both held at 4.5%.
+    expect(capped).toEqual([6, 9]);
   });
 });

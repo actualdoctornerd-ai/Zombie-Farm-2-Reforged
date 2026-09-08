@@ -82,9 +82,13 @@ export const ZOSMONAUT_KEY = "ZombieActorZosmonaut";
 export const ZOMBOZO_KEY = "ZombieActorZombozo";
 /** The pixel zombie of the Video Games invasion as a playable species (a flipbook
  *  rig, see docs/SPECIAL_ZOMBIE_ACQUISITION.md) — that invasion's rare zombie, a
- *  special like the other prizes; an elite promoted version is planned. */
+ *  special like the other prizes. */
 export const VIDEO_GAMES_RAID_ID = 9;
 export const VIDEO_GAME_ZOMBIE_KEY = "ZombieActorRegularVideoGame";
+/** The Video Games' promoted prize: the pixel zombie's palette swap, the way a game's
+ *  final boss is the same sprite in a stronger colour — a derived flipbook
+ *  (tools/prep_assets.py DERIVED_FLIPBOOK_ZOMBIES). */
+export const FINAL_BOSS_ZOMBIE_KEY = "ZombieActorRegularFinalBoss";
 
 /** Each story invasion's ordinary-prize rate: its rung of the ladder above. The Video
  *  Games invasion (recommended level 43) sits past the Aliens at the ladder's top and
@@ -148,6 +152,7 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   [NINJAS_RAID_ID]: { key: MASTER_NINJOMBIE_KEY, name: "Master Ninjombie", rate: elitePrizeRate(NINJAS_RAID_ID) },
   [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
   [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Zosmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
+  [VIDEO_GAMES_RAID_ID]: { key: FINAL_BOSS_ZOMBIE_KEY, name: "Final Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID) },
 };
 
 /** The prize a win of `raidId` rolls for: the elite one when this was an elite fight and

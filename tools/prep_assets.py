@@ -859,6 +859,82 @@ def export_video_game_zombie():
     print(f"zombie: exported {catalog_key} ({len(idle_files)} idle + {len(attack_files)} attack frames)")
 
 
+# ---------------------------------------------------------------------------
+# Derived flipbooks — a pixel zombie's palette swap
+# ---------------------------------------------------------------------------
+# The pixel zombie is drawn in exactly four colours (body green, black ink, cream
+# eyes/teeth, brown trousers), so its "elite" form is what a game's own would be: the
+# same seven frames under a different palette, mapped colour for colour. The manifest
+# is the base's under a new name and swatch colour; everything about how it stands,
+# animates and fits (scale, anchor, fps) is inherited, so the two file identically.
+DERIVED_FLIPBOOK_ZOMBIES = [
+    # The Video Games' promoted (Brain Ticket) prize, the way a final boss is the same
+    # sprite in a stronger colour: royal purple body, gold eyes and teeth, charcoal
+    # trousers. Ink stays black.
+    {
+        "stem": "final_boss_zombie", "key": "ZombieActorRegularFinalBoss",
+        "base": "video_game_zombie",
+        "palette": {
+            (0, 192, 0): (146, 46, 214),       # body green -> royal purple
+            (254, 223, 150): (255, 208, 64),   # cream eyes / teeth -> gold
+            (99, 63, 0): (52, 42, 72),         # brown trousers -> charcoal
+        },
+    },
+]
+
+
+def _swap_palette(im, palette):
+    """Map exact RGB values, leaving alpha alone; any colour not in the map (the ink)
+    is untouched. A 4-colour sprite is a lookup, not a hue shift."""
+    out = im.copy()
+    px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if a and (r, g, b) in palette:
+                px[x, y] = (*palette[(r, g, b)], a)
+    return out
+
+
+def derive_flipbook_zombies():
+    """Write each derived flipbook's recoloured frames + manifest from its base's OUT
+    folder, and bake its portrait exactly as the base's was (NEAREST, feet origin)."""
+    for spec in DERIVED_FLIPBOOK_ZOMBIES:
+        src = os.path.join(OUT, "zombie", spec["base"])
+        dst = os.path.join(OUT, "zombie", spec["stem"])
+        os.makedirs(dst, exist_ok=True)
+        manifest = json.load(open(os.path.join(src, "manifest.json")))
+        manifest["name"] = spec["stem"]
+        files = list(dict.fromkeys(
+            [p["file"] for p in manifest["parts"]]
+            + manifest["flipbook"]["idle"] + manifest["flipbook"]["attack"]))
+        for file in files:
+            _swap_palette(Image.open(os.path.join(src, file)).convert("RGBA"), spec["palette"]) \
+                .save(os.path.join(dst, file))
+        # The swatch colour is what the body green became.
+        base_colour = tuple(manifest["color"])
+        manifest["color"] = list(spec["palette"].get(base_colour, base_colour))
+        json.dump(manifest, open(os.path.join(dst, "manifest.json"), "w"), indent=1)
+
+        part = manifest["parts"][0]
+        first = Image.open(os.path.join(dst, part["file"])).convert("RGBA")
+        W, H, cx, cy = 180, 200, 90, 165
+        s = part.get("scale", 1)
+        fw, fh = max(1, round(first.width * s)), max(1, round(first.height * s))
+        scaled = first.resize((fw, fh), Image.Resampling.NEAREST)
+        canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        canvas.alpha_composite(scaled, (round(cx - part["ax"] * fw), round(cy - fh)))
+        out_name = spec["stem"] + ".png"
+        canvas.save(os.path.join(OUT, "zombie", out_name))
+        json.dump({"anchorX": cx / W, "anchorY": cy / H, "w": W, "h": H},
+                  open(os.path.join(OUT, "zombie", out_name + ".json"), "w"))
+        portrait_dir = os.path.join(OUT, "zombie", "portrait")
+        os.makedirs(portrait_dir, exist_ok=True)
+        shutil.copy2(os.path.join(OUT, "zombie", out_name),
+                     os.path.join(portrait_dir, spec["key"] + ".png"))
+        print(f"zombie: derived flipbook {spec['key']} from {spec['base']} ({len(files)} frames)")
+
+
 def inherited_head_offset_pixi():
     """The ordinary neck in the runtime's Y-down space (what a manifest stores)."""
     x, y_up = inherited_head_offset()
@@ -1336,7 +1412,9 @@ def pack_special_zombies():
     images = []
     packed = ([(stem, key) for _, stem, key in NAMED_SPECIAL_ZOMBIES] + [VIDEO_GAME_ZOMBIE]
               + [(d["stem"], d["key"]) for d in DERIVED_SPECIAL_ZOMBIES]
-              + [(c["stem"], c["key"]) for c in CUT_SPECIAL_ZOMBIES])
+              + [(c["stem"], c["key"]) for c in CUT_SPECIAL_ZOMBIES]
+              # Packed LAST so no existing atlas frame moves.
+              + [(d["stem"], d["key"]) for d in DERIVED_FLIPBOOK_ZOMBIES])
     for stem, catalog_key in packed:
         folder = os.path.join(OUT, "zombie", stem)
         manifest = json.load(open(os.path.join(folder, "manifest.json")))
@@ -1432,6 +1510,7 @@ if __name__ == "__main__":
         shutil.copy2(os.path.join(OUT, "zombie", file_stem + ".png"),
                      os.path.join(portrait_dir, catalog_key + ".png"))
     export_video_game_zombie()
+    derive_flipbook_zombies()
     derive_special_zombies()
     cut_special_zombies()
     pack_special_zombies()

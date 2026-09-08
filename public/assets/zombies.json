@@ -2004,6 +2004,28 @@
   "marketHidden": true
  },
  {
+  "key": "ZombieActorRegularFinalBoss",
+  "name": "Final Boss Zombie",
+  "cost": 12,
+  "growMs": 86400000,
+  "category": "special",
+  "level": 43,
+  "xp": 2,
+  "brainsNeeded": true,
+  "group": "Regular",
+  "className": "Special",
+  "classColor": "#c077ff",
+  "str": 33.3,
+  "dex": 2.1,
+  "con": 48.3,
+  "focus": 100.0,
+  "mutation": 0,
+  "tier": 5,
+  "specialSprite": "final_boss_zombie.png",
+  "rewardOnly": false,
+  "marketHidden": true
+ },
+ {
   "key": "ZombieActorZosmonaut",
   "name": "Zosmonaut",
   "cost": 10,

@@ -3,7 +3,7 @@
 // pins both.
 //
 //  1. It is a SPECIAL with a prize's obtain route: the Video Games invasion's rare
-//     zombie (raid/zombieDrops.ts, an elite promoted version planned), category
+//     zombie (raid/zombieDrops.ts; the Final Boss Zombie is its palette-swapped elite), category
 //     "special" in the Regular group with the Special class the other prizes wear,
 //     never planted. It is drawn from the dedicated special-zombie atlas, because its
 //     art is authored nowhere on the shared ZombieSheet.
@@ -13,7 +13,7 @@
 //
 // Its stats are fitted to the prize line at its level 43 — the line the Epic and
 // invasion prizes sit on (tools/reforge_economy.py SPECIAL_STAT_REBALANCE) — held a
-// little under the Vagabond, the strongest Epic. An elite version is planned above it.
+// little under the Vagabond, the strongest Epic. Its elite, the Final Boss Zombie, sits above.
 import { describe, expect, it } from "vitest";
 // @ts-ignore — node test environment only (the app has no @types/node)
 import { existsSync } from "node:fs";
