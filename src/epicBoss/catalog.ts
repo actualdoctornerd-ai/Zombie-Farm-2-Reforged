@@ -34,9 +34,11 @@ const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
 // omega 75 above the line, the rung-5 prize 75 below (tools/reforge_economy.py
 // SPECIAL_STAT_REBALANCE has the fit and the numbers). Dex is untouched, so each
 // event still hands out the KIND of zombie it always did — Dr. Groundhog's slow
-// tanks, Loco Locust's fast bruisers, Brock Coley the glass cannon:
-//   24  Dr. Groundhog     Omega Dr. Zombie   17.3 / 2.65 / 31.6   (entry boss, 3 brains)
-//   28  Bully Frog        Admiral Zombie     17.8 / 2.9  / 34.3
+// tanks, Loco Locust's fast bruisers, Brock Coley the glass cannon. The slow tanks
+// (Groundhog's and Bully Frog's four prizes) take their con from a separate HP fit —
+// a tank is measured on the HP it reaches with the life set, not on damage:
+//   24  Dr. Groundhog     Omega Dr. Zombie   17.3 / 2.65 / 37.0   (entry boss, 3 brains)
+//   28  Bully Frog        Admiral Zombie     17.8 / 2.9  / 40.6
 //   30  Rocky Rhino       Brock Coley        46.0 / 3    /  8.0
 //   32  General Larvaelus Zombug             17.2 / 7    / 17.2
 //   34  Mystical Mamba    Zomtar             23.0 / 6    / 17.2

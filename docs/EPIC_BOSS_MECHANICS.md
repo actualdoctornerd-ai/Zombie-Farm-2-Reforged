@@ -17,12 +17,16 @@ to the prizes: the prizes can now be mutated in the Zombie Pot, so each one's st
 are scaled (dex never) so that, wearing the five-slot damage mutation set, its strength
 (`sqrt(DPS x HP)`) lands on a line from 1,500 at level 24 to 2,000 at level 42 — the omega
 75 above the line, the rung-5 prize 75 below (`tools/reforge_economy.py`
-SPECIAL_STAT_REBALANCE has the fit; the Zombie Strength Ladder page plots it).
+SPECIAL_STAT_REBALANCE has the fit; the Zombie Strength Ladder page plots it). The slow
+tanks — Dr. Groundhog's and Bully Frog's four prizes — keep that str but take their con from
+a separate HP fit: the HP they reach with the five-slot life set lands on a tank line from
+5,000 at level 24 to 6,600 at level 42 (omega +200, rung-5 prize −200), because a tank's
+value is the hits it absorbs, not a damage-weighted average.
 
 | Level | Boss | Brains | Best prize | str / dex / con | DPS | HP |
 |---|---|---:|---|---|---:|---:|
-| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 17.3 / 2.65 / 31.6 | 229 | 3,160 |
-| 28 | Bully Frog | 3 | Admiral Zombie | 17.8 / 2.9 / 34.3 | 258 | 3,430 |
+| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 17.3 / 2.65 / 37 | 229 | 3,700 |
+| 28 | Bully Frog | 3 | Admiral Zombie | 17.8 / 2.9 / 40.6 | 258 | 4,060 |
 | 30 | Rocky Rhino | 4 | Brock Coley | 46 / 3 / 8 | 690 | 800 |
 | 32 | General Larvaelus | 4 | Zombug | 17.2 / 7 / 17.2 | 602 | 1,720 |
 | 34 | Mystical Mamba | 4 | Zomtar | 23 / 6 / 17.2 | 690 | 1,720 |
@@ -389,8 +393,8 @@ Admiral Zombie is a **rebalance, not recovered data** (`tools/reforge_economy.py
 SPECIAL_STAT_REBALANCE): it shipped as a strictly worse Captain Zombie — same 21 str and
 38.5 con, but dex 2 against the Captain's 2.65 — so Bully Frog was the one ladder whose top
 prize was a downgrade on the prize you got at the bottom of it. It keeps dex 2.9 against the
-Captain's 2.65 through the 2026-09-07 re-fit (now 17.8 / 2.9 / 34.3 against the Captain's
-16.7 / 2.65 / 30.5), edging it on both axes. These
+Captain's 2.65 through the 2026-09-07 re-fit (now 17.8 / 2.9 / 40.6 against the Captain's
+16.7 / 2.65 / 36.6), edging it on both axes. These
 named zombies are reward-only catalog units: they never appear as purchasable zombie crops.
 They can enter the Zombie Pot in slot 1 only, like every special, and come back out as
 themselves wearing slot 2's mutations (both parents consumed — nothing is cloned). A reward joins

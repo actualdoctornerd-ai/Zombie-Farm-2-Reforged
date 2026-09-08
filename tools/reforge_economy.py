@@ -298,12 +298,37 @@ def rebalance_mutant(key, entry):
 # Admiral keeps the earlier correction on top: it is Bully Frog's TOP prize and had
 # shipped as a strictly worse Captain (same str/con, dex 2 against 2.65), the only epic
 # ladder whose omega was a downgrade. Its dex 2.9 edges the Captain's 2.65.
+# TANKS ARE FITTED ON HP, NOT ON sqrt(DPS x HP). The damage yardstick treats a
+# tank's missing damage as a deficit and "repairs" it with con (the Diver, dex 1,
+# came out of the first pass with 4,460 HP at level 10 — the toughest zombie in the
+# game), and it pulled the slow Epic tanks' con DOWN along with their str. So the
+# seven slow, con-heavy prizes below — an explicit ROLE list, not a ratio, so nothing
+# changes role by accident — keep the str the damage fit gave them and take their
+# con from an HP fit instead: the HP they reach wearing the five-slot LIFE set
+# (Potatohead, Cauli-hair, Dragon-arm, Heartichoke, Flytrap: +15 con; a headless body
+# can only wear the three body-side pieces, +9) lands on a tank line.
+#
+#   * Invasion tank line: 3,600 HP at level 1 -> 5,600 at level 43, elite prize
+#     +200 and ordinary -200 where a raid pays both. Anchored on the Market's own
+#     tanks: a Red headless (Flamehead, L17) reaches 2,500 with the life set and a
+#     Silver headless (Party Zombie, L29) 4,200, so a prize sits about a colour
+#     class ahead at its level. The Diver's authored 29.7 con was already right by
+#     this measure; it lands at 31.3.
+#   * Epic tank line: 5,000 HP at level 24 -> 6,600 at level 42, omega +200 and
+#     rung-5 prize -200. The Groundhog and Bully Frog prizes land within a point or
+#     two of their authored con (Admiral 40.6 against ZF2's 40.5).
+#
+# Scrooge and the Christmas Ghost are NOT on this list although they are the
+# toughest Foul Owl prizes: at dex 8 their HP is worth damage too, and an HP fit
+# with their str restored put Scrooge at 2,500 on the damage yardstick, back above
+# the Vagabond. They stay on the damage line, where they are still the third and
+# fifth toughest Epics.
 SPECIAL_STAT_REBALANCE = {
     # key: {stat: value}                          # ZF2 str/con -> factor
-    "ZombieActorDrZombie":       {"str": 15.8, "con": 28.2},  # 19.9/35.5  x0.79
-    "ZombieActorOmegaDrZombie":  {"str": 17.3, "con": 31.6},  # 21/38.5    x0.82
-    "ZombieActorCaptain":        {"str": 16.7, "con": 30.5},  # 21/38.5    x0.79
-    "ZombieActorAdmiral":        {"str": 17.8, "dex": 2.9, "con": 34.3},  # 21/40.5 x0.85
+    "ZombieActorDrZombie":       {"str": 15.8, "con": 33.0},  # 19.9/35.5  str x0.79; TANK con from HP line
+    "ZombieActorOmegaDrZombie":  {"str": 17.3, "con": 37.0},  # 21/38.5    str x0.82; TANK
+    "ZombieActorCaptain":        {"str": 16.7, "con": 36.6},  # 21/38.5    str x0.79; TANK
+    "ZombieActorAdmiral":        {"str": 17.8, "dex": 2.9, "con": 40.6},  # 21/40.5 str x0.85; TANK
     "ZombieActorBrockColey":     {"str": 46.0, "con": 8.0},   # 40/7       x1.15 (cap)
     "ZombieActorProto":          {"str": 16.1, "con": 11.5},  # 14/10      x1.15 (cap)
     "ZombieActorZombug":         {"str": 17.2, "con": 17.2},  # 15/15      x1.15 (cap)
@@ -333,9 +358,9 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorOldMcZombie":      {"str": 7.5,  "con": 12.3},  # 8.71/14.3  x0.86  L1
     "ZombieActorRegular4Tier5":    {"str": 11.9, "con": 18.7},  # 12.6/19.8  x0.94  L6  Teddy
     "ZombieActorForest":           {"str": 9.3,  "con": 15.3},  # 8.71/14.3  x1.07  L8
-    "ZombieActorHeadless2Tier5":   {"str": 16.5, "con": 44.6},  # 11/29.7    x1.5   L10 Diver (cap)
-    "ZombieActorDeputy":           {"str": 11.4, "con": 21.0},  # 21/38.5    x0.54  L16
-    "ZombieActorSheriff":          {"str": 13.7, "con": 25.1},  # 21/38.5    x0.65  L16 elite
+    "ZombieActorHeadless2Tier5":   {"str": 16.5, "con": 31.3},  # 11/29.7    str x1.5 (cap); TANK con from HP line
+    "ZombieActorDeputy":           {"str": 11.4, "con": 26.1},  # 21/38.5    str x0.54; TANK
+    "ZombieActorSheriff":          {"str": 13.7, "con": 30.1},  # 21/38.5    str x0.65; TANK, elite
     "ZombieActorMerZombie":        {"str": 13.4, "con": 11.9},  # 18/16      x0.75  L21
     "ZombieActorPoseidon":         {"str": 14.8, "con": 12.6},  # 20/17      x0.74  L21 elite
     "ZombieActorNinjombie":        {"str": 20.8, "con": 10.4},  # 20/10      x1.04  L26
