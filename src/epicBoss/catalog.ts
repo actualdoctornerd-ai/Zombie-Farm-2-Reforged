@@ -37,14 +37,14 @@ const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
 // tanks, Loco Locust's fast bruisers, Brock Coley the glass cannon. The slow tanks
 // (Groundhog's and Bully Frog's four prizes) take their con from a separate HP fit —
 // a tank is measured on the HP it reaches with the life set, not on damage:
-//   24  Dr. Groundhog     Omega Dr. Zombie   17.3 / 2.65 / 37.0   (entry boss, 3 brains)
-//   28  Bully Frog        Admiral Zombie     17.8 / 2.9  / 40.6
-//   30  Rocky Rhino       Brock Coley        46.0 / 3    /  8.0
-//   32  General Larvaelus Zombug             17.2 / 7    / 17.2
-//   34  Mystical Mamba    Zomtar             23.0 / 6    / 17.2
-//   38  Foul Owl          Scrooge Zombie      9.9 / 8    / 31.9   (the best tank)
-//   40  Skunkarella       Madame Zombie      19.1 / 8    / 20.0
-//   42  Loco Locust       Vagabond Zombie    19.6 / 8    / 21.1
+//   24  Dr. Groundhog     Omega Dr. Zombie   17 / 2.65 / 37   (entry boss, 3 brains)
+//   28  Bully Frog        Admiral Zombie     18 / 2.9  / 41
+//   30  Rocky Rhino       Brock Coley        46 / 3    /  8
+//   32  General Larvaelus Zombug             17 / 7    / 17
+//   34  Mystical Mamba    Zomtar             23 / 6    / 17
+//   38  Foul Owl          Scrooge Zombie     10 / 8    / 32   (the best tank)
+//   40  Skunkarella       Madame Zombie      19 / 8    / 20
+//   42  Loco Locust       Vagabond Zombie    20 / 8    / 21
 export const EPIC_BOSS_UNLOCK_LEVELS: Readonly<Record<string, number>> = {
   "dr-groundhog": 24,
   "bully-frog": 28,

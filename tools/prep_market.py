@@ -69,8 +69,9 @@ MARKET_SPECIALS = {
 # reclassified it 2026-09-08.) Its elite is the Boss Zombie below. Stats: the Crazy Zombie's shape
 # (19 / 2 / 28 / 100, dex one step up) scaled x1.48 by the prize re-fit (see
 # SPECIAL_STAT_REBALANCE in reforge_economy.py) so that, wearing the damage set, it
-# sat ON the prize line at level 43 (~2,028), then its con cut by a fifth (42.9 -> 34.3,
-# owner's call 2026-09-08): ~1,850 with the damage set, well under the Vagabond (2,075).
+# sat ON the prize line at level 43 (~2,028), then its con cut by a fifth (43 -> 34,
+# owner's call 2026-09-08) and every stat rounded to a whole number: ~1,850 with the
+# damage set, well under the Vagabond (~2,085).
 # Its art is a frame strip, exported by tools/prep_assets.py export_video_game_zombie.
 AUTHORED_ZOMBIES = [
     {
@@ -78,7 +79,7 @@ AUTHORED_ZOMBIES = [
         "cost": 6, "growMs": 86_400_000, "category": "special", "level": 43, "xp": 2,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",
-        "str": 29.6, "dex": 2.1, "con": 34.3, "focus": 100.0,
+        "str": 30, "dex": 2.1, "con": 34, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "video_game_zombie.png",
         "rewardOnly": False, "marketHidden": True,
     },
@@ -87,15 +88,15 @@ AUTHORED_ZOMBIES = [
     # the same sprite in a stronger colour. Priced like the other promoted prizes
     # (twice the base zombie). Stats: the Video Game Zombie's shape x1.125 (str) —
     # the elite rule's 200 above the prize line — with its con then cut by a fifth
-    # like the base's (48.3 -> 38.6, owner's call 2026-09-08): ~2,030 with the damage
-    # set, a hair under the Vagabond (2,075). The rarest zombie in the game (4.5% on a
-    # ticket win of the hardest raid).
+    # like the base's (48 -> 39, owner's call 2026-09-08), whole numbers throughout:
+    # ~2,035 with the damage set, a hair under the Vagabond (~2,085). The rarest zombie
+    # in the game (4.5% on a ticket win of the hardest raid).
     {
         "key": "ZombieActorRegularFinalBoss", "name": "Boss Zombie",
         "cost": 12, "growMs": 86_400_000, "category": "special", "level": 43, "xp": 2,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",
-        "str": 33.3, "dex": 2.1, "con": 38.6, "focus": 100.0,
+        "str": 33, "dex": 2.1, "con": 39, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "final_boss_zombie.png",
         "rewardOnly": False, "marketHidden": True,
     },
@@ -110,7 +111,7 @@ AUTHORED_ZOMBIES = [
         "cost": 10, "growMs": 86_400_000, "category": "special", "level": 25, "xp": 1,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",
-        "str": 22.7, "dex": 3.67, "con": 37.0, "focus": 100.0,
+        "str": 23, "dex": 3.67, "con": 37, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "zosmonaut.png",
         "rewardOnly": False, "marketHidden": True,
     },
@@ -127,7 +128,7 @@ AUTHORED_ZOMBIES = [
         "cost": 5, "growMs": 86_400_000, "category": "special", "level": 12, "xp": 1,
         "brainsNeeded": True, "group": "Small",
         "className": "Special", "classColor": "#c077ff",
-        "str": 8.4, "dex": 4.5, "con": 9.7, "focus": 100.0,
+        "str": 8, "dex": 4.5, "con": 10, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "zombozo.png",
         "rewardOnly": False, "marketHidden": True,
     },

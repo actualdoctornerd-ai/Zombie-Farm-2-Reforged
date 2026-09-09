@@ -288,7 +288,9 @@ def rebalance_mutant(key, entry):
 #   * dex is NEVER touched — speed is each prize's character — and str and con are
 #     scaled by ONE factor per prize, so its shape survives; a prize that would have
 #     to GROW is capped at +15% (Brock Coley, Zombug, Proto, Zomtar, Zomdini land a
-#     little under the line rather than jumping a third).
+#     little under the line rather than jumping a third);
+#   * every fitted str and con is then ROUNDED TO A WHOLE NUMBER (owner's call,
+#     2026-09-08); the factors quoted beside each row are the fit's, before rounding.
 #
 # Before the fit the fast omegas ran away once mutated (Vagabond 2,474, Scrooge 2,369,
 # Bandido and Madame past 2,150 against a fully mutated Video Game Zombie's 1,503),
@@ -325,21 +327,21 @@ def rebalance_mutant(key, entry):
 # fifth toughest Epics.
 SPECIAL_STAT_REBALANCE = {
     # key: {stat: value}                          # ZF2 str/con -> factor
-    "ZombieActorDrZombie":       {"str": 15.8, "con": 33.0},  # 19.9/35.5  str x0.79; TANK con from HP line
-    "ZombieActorOmegaDrZombie":  {"str": 17.3, "con": 37.0},  # 21/38.5    str x0.82; TANK
-    "ZombieActorCaptain":        {"str": 16.7, "con": 36.6},  # 21/38.5    str x0.79; TANK
-    "ZombieActorAdmiral":        {"str": 17.8, "dex": 2.9, "con": 40.6},  # 21/40.5 str x0.85; TANK
-    "ZombieActorBrockColey":     {"str": 46.0, "con": 8.0},   # 40/7       x1.15 (cap)
-    "ZombieActorProto":          {"str": 16.1, "con": 11.5},  # 14/10      x1.15 (cap)
-    "ZombieActorZombug":         {"str": 17.2, "con": 17.2},  # 15/15      x1.15 (cap)
-    "ZombieActorZomdini":        {"str": 17.2, "con": 13.8},  # 15/12      x1.15 (cap)
-    "ZombieActorZomtar":         {"str": 23.0, "con": 17.2},  # 20/15      x1.15 (cap)
-    "ZombieActorChristmasGhost": {"str": 10.2, "con": 25.2},  # 13/32      x0.79
-    "ZombieActorScrooge":        {"str": 9.9,  "con": 31.9},  # 13/42      x0.76
-    "ZombieActorDiva":           {"str": 21.7, "con": 19.5},  # 20/18      x1.08
-    "ZombieActorMadame":         {"str": 19.1, "con": 20.0},  # 21/22      x0.91
-    "ZombieActorBandido":        {"str": 20.1, "con": 19.3},  # 24/23      x0.84
-    "ZombieActorVagabond":       {"str": 19.6, "con": 21.1},  # 25/27      x0.78
+    "ZombieActorDrZombie":       {"str": 16, "con": 33},  # 19.9/35.5  str x0.79; TANK con from HP line
+    "ZombieActorOmegaDrZombie":  {"str": 17, "con": 37},  # 21/38.5    str x0.82; TANK
+    "ZombieActorCaptain":        {"str": 17, "con": 37},  # 21/38.5    str x0.79; TANK
+    "ZombieActorAdmiral":        {"str": 18, "dex": 2.9, "con": 41},  # 21/40.5 str x0.85; TANK
+    "ZombieActorBrockColey":     {"str": 46, "con": 8},   # 40/7       x1.15 (cap)
+    "ZombieActorProto":          {"str": 16, "con": 12},  # 14/10      x1.15 (cap)
+    "ZombieActorZombug":         {"str": 17, "con": 17},  # 15/15      x1.15 (cap)
+    "ZombieActorZomdini":        {"str": 17, "con": 14},  # 15/12      x1.15 (cap)
+    "ZombieActorZomtar":         {"str": 23, "con": 17},  # 20/15      x1.15 (cap)
+    "ZombieActorChristmasGhost": {"str": 10, "con": 25},  # 13/32      x0.79
+    "ZombieActorScrooge":        {"str": 10,  "con": 32},  # 13/42      x0.76
+    "ZombieActorDiva":           {"str": 22, "con": 20},  # 20/18      x1.08
+    "ZombieActorMadame":         {"str": 19, "con": 20},  # 21/22      x0.91
+    "ZombieActorBandido":        {"str": 20, "con": 19},  # 24/23      x0.84
+    "ZombieActorVagabond":       {"str": 20, "con": 21},  # 25/27      x0.78
     # INVASION PRIZE RE-FIT (2026-09-07, raised 2026-09-08), the same method on the
     # rare invasion drops (src/raid/zombieDrops.ts — ordinary prize and the elite
     # promoted one). They can be mutated in the Pot exactly like the epics, so the
@@ -369,19 +371,19 @@ SPECIAL_STAT_REBALANCE = {
     # Deputy / Sheriff had Epic-omega stats at level 16, and Zombie Bot / Omega Zombie
     # Bot were the strongest zombies in the game after the Vagabond.
     #                                             # ZF2 str/con -> factor
-    "ZombieActorOldMcZombie":      {"str": 7.5,  "con": 12.3},  # 8.71/14.3  x0.86  L1
-    "ZombieActorRegular4Tier5":    {"str": 11.9, "con": 18.7},  # 12.6/19.8  x0.94  L6  Teddy
-    "ZombieActorForest":           {"str": 9.3,  "con": 15.3},  # 8.71/14.3  x1.07  L8
-    "ZombieActorHeadless2Tier5":   {"str": 16.5, "con": 31.3},  # 11/29.7    str x1.5; TANK con from HP line
-    "ZombieActorDeputy":           {"str": 11.4, "con": 28.1},  # 21/38.5    str x0.54; TANK, on the tank line
-    "ZombieActorSheriff":          {"str": 13.7, "con": 33.1},  # 21/38.5    str x0.65; TANK, elite +500 HP
-    "ZombieActorMerZombie":        {"str": 15.8, "con": 14.1},  # 18/16      x0.88  L21
-    "ZombieActorPoseidon":         {"str": 17.9, "con": 15.3},  # 20/17      x0.90  L21 elite
-    "ZombieActorNinjombie":        {"str": 25.4, "con": 12.7},  # 20/10      x1.27  L26
-    "ZombieActorMasterNinjombie":  {"str": 32.1, "con": 16.0},  # 20/10      x1.60  L26 elite
-    "ZombieActorZombieBot":        {"str": 19.3, "con": 20.0},  # 24/25      x0.80  L31
-    "ZombieActorOmegaZombieBot":   {"str": 22.2, "con": 23.9},  # 28/30      x0.80  L31 elite
-    "ZombieActorZastronaut":       {"str": 19.7, "con": 32.3},  # 8.71/14.3  x2.26  L36
+    "ZombieActorOldMcZombie":      {"str": 8,  "con": 12},  # 8.71/14.3  x0.86  L1
+    "ZombieActorRegular4Tier5":    {"str": 12, "con": 19},  # 12.6/19.8  x0.94  L6  Teddy
+    "ZombieActorForest":           {"str": 9,  "con": 15},  # 8.71/14.3  x1.07  L8
+    "ZombieActorHeadless2Tier5":   {"str": 17, "con": 31},  # 11/29.7    str x1.5; TANK con from HP line
+    "ZombieActorDeputy":           {"str": 11, "con": 28},  # 21/38.5    str x0.54; TANK, on the tank line
+    "ZombieActorSheriff":          {"str": 14, "con": 33},  # 21/38.5    str x0.65; TANK, elite +500 HP
+    "ZombieActorMerZombie":        {"str": 16, "con": 14},  # 18/16      x0.88  L21
+    "ZombieActorPoseidon":         {"str": 18, "con": 15},  # 20/17      x0.90  L21 elite
+    "ZombieActorNinjombie":        {"str": 25, "con": 13},  # 20/10      x1.27  L26
+    "ZombieActorMasterNinjombie":  {"str": 32, "con": 16},  # 20/10      x1.60  L26 elite
+    "ZombieActorZombieBot":        {"str": 19, "con": 20},  # 24/25      x0.80  L31
+    "ZombieActorOmegaZombieBot":   {"str": 22, "con": 24},  # 28/30      x0.80  L31 elite
+    "ZombieActorZastronaut":       {"str": 20, "con": 32},  # 8.71/14.3  x2.26  L36
     # The Cozmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows
     # (prep_market.py AUTHORED_ZOMBIES) and are fitted there.
 }

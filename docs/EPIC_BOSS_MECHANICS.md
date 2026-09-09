@@ -25,14 +25,14 @@ value is the hits it absorbs, not a damage-weighted average.
 
 | Level | Boss | Brains | Best prize | str / dex / con | DPS | HP |
 |---|---|---:|---|---|---:|---:|
-| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 17.3 / 2.65 / 37 | 229 | 3,700 |
-| 28 | Bully Frog | 3 | Admiral Zombie | 17.8 / 2.9 / 40.6 | 258 | 4,060 |
+| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 17 / 2.65 / 37 | 225 | 3,700 |
+| 28 | Bully Frog | 3 | Admiral Zombie | 18 / 2.9 / 41 | 261 | 4,100 |
 | 30 | Rocky Rhino | 4 | Brock Coley | 46 / 3 / 8 | 690 | 800 |
-| 32 | General Larvaelus | 4 | Zombug | 17.2 / 7 / 17.2 | 602 | 1,720 |
+| 32 | General Larvaelus | 4 | Zombug | 17 / 7 / 17 | 595 | 1,700 |
 | 34 | Mystical Mamba | 4 | Zomtar | 23 / 6 / 17.2 | 690 | 1,720 |
-| 38 | Foul Owl | 4 | Scrooge Zombie | 9.9 / 8 / 31.9 | 396 | 3,190 |
-| 40 | Skunkarella | 5 | Madame Zombie | 19.1 / 8 / 20 | 764 | 2,000 |
-| 42 | Loco Locust | 5 | Vagabond Zombie | 19.6 / 8 / 21.1 | 784 | 2,110 |
+| 38 | Foul Owl | 4 | Scrooge Zombie | 10 / 8 / 32 | 400 | 3,200 |
+| 40 | Skunkarella | 5 | Madame Zombie | 19 / 8 / 20 | 760 | 2,000 |
+| 42 | Loco Locust | 5 | Vagabond Zombie | 20 / 8 / 21 | 800 | 2,100 |
 
 (Plain catalog stats: `str x 10` per hit every `2 / dex` seconds, `con x 100` HP — no
 veterancy, abilities or mutations.)
@@ -393,8 +393,8 @@ Admiral Zombie is a **rebalance, not recovered data** (`tools/reforge_economy.py
 SPECIAL_STAT_REBALANCE): it shipped as a strictly worse Captain Zombie — same 21 str and
 38.5 con, but dex 2 against the Captain's 2.65 — so Bully Frog was the one ladder whose top
 prize was a downgrade on the prize you got at the bottom of it. It keeps dex 2.9 against the
-Captain's 2.65 through the 2026-09-07 re-fit (now 17.8 / 2.9 / 40.6 against the Captain's
-16.7 / 2.65 / 36.6), edging it on both axes. These
+Captain's 2.65 through the 2026-09-07 re-fit (now 18 / 2.9 / 41 against the Captain's
+17 / 2.65 / 37), edging it on both axes. These
 named zombies are reward-only catalog units: they never appear as purchasable zombie crops.
 They can enter the Zombie Pot in slot 1 only, like every special, and come back out as
 themselves wearing slot 2's mutations (both parents consumed — nothing is cloned). A reward joins
