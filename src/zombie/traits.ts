@@ -200,7 +200,10 @@ export function groupAbilityAt(group: string, tier: number): string | null {
 //   - MerZombie / Poseidon are LARGE (brutes) with Random Stun in place of Bash.
 //   - Ninjombie / Master Ninjombie stay REGULAR with Turbo Walking Speed and Double
 //     Strike in place of the two lasers.
-//   - Proto Zombie / Zombug are simply Minis now (group Small) and need no row here.
+//   - Proto Zombie / Zombug are Minis (group Small) with the Small ladder's empty tiers
+//     1-2, but Resurrect (tier 3) and Smash (tier 4) in place of the two Explodes — the
+//     ONLY Resurrect outside the Garden family, which is why BattleSim.canResurrect keys
+//     off the ability rather than the body (v51).
 export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   //                          t1                t2                   t3            t4
   ZombieActorRegularCrazy:   ["buffAllStats",   "chivalry",          "stun",       "doubleStrike"],
@@ -212,6 +215,8 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorPoseidon:       ["powerBuff",      "attachMini",        "stun",       "bashV2"],
   ZombieActorNinjombie:      ["buffAllStats",   "chivalry",          "turboSpeed", "doubleStrike"],
   ZombieActorMasterNinjombie:["buffAllStats",   "chivalry",          "turboSpeed", "doubleStrike"],
+  ZombieActorProto:          [null,             null,                "ressurect",  "bashV2"],
+  ZombieActorZombug:         [null,             null,                "ressurect",  "bashV2"],
 };
 
 /** The ability a specific unit has at `tier`: a named-unique override if any,

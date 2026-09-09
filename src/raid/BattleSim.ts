@@ -1645,9 +1645,9 @@ export class BattleSim {
     mini.timerMs = this.cycleMs(mini, null);
   }
 
-  /** Deployed Garden holders that still have their one revive banked — the count the
-   *  battle strip shows the player. A holder that is dead, waiting at the back, or
-   *  carried off projects nothing, exactly like every other team ability. */
+  /** Deployed holders that still have their one revive banked — the count the battle
+   *  strip shows the player. A holder that is dead, waiting at the back, or carried off
+   *  projects nothing, exactly like every other team ability. */
   resurrectsLeft(): number {
     return this.players.filter((p) => this.canResurrect(p)).length;
   }
@@ -1655,10 +1655,18 @@ export class BattleSim {
   /** GROUND TRUTH (`-[ZombieActorGarden canRez]` 0x7c745): the ability must be `active`
    *  and `unlocked`, which is the source game's way of spelling "carried and not yet
    *  spent" — `ressurectZombie:` sets `setConsumed:YES` / `setActive:NO` on tag 29 the
-   *  moment it fires, so each Garden zombie revives exactly once per fight. */
+   *  moment it fires, so each holder revives exactly once per fight.
+   *
+   *  The holder is whoever CARRIES the ability, not the Garden body (v51): the source
+   *  only ever handed Resurrect to Gardens, so `canRez` living on ZombieActorGarden was
+   *  a fact about its ladder, not a rule about bodies. Since the Minis Proto Zombie and
+   *  Zombug carry it at tier 3, a holder standing in the LINE polls the corpse backlog
+   *  from there — same window (deployed, alive, unspent), same most-recent-corpse pick —
+   *  and it stays a fighter: no support station, no deploy-last (CombatEngine's
+   *  `supportsFromRear` is still Garden-only on purpose). */
   private canResurrect(p: SimUnit): boolean {
     return (
-      p.alive && !p.taken && p.isGarden &&
+      p.alive && !p.taken &&
       (p.state === "advance" || p.state === "fight") &&
       p.abilities.includes("ressurect") && !p.resurrectUsed
     );

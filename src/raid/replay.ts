@@ -825,7 +825,15 @@ import type { RaidOutcome } from "./types";
 // verifier imports (group, str/dex/con) moved for all ten, so any fight fielding one
 // would disagree with a v49 server. Same cost as every bump: an invasion in flight at
 // deploy time settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 50;
+// v51 — Resurrect belongs to its holder, not to the Garden body. Proto Zombie and Zombug
+// (Minis since v50) now carry Resurrect at tier 3 and Smash at tier 4 in place of the two
+// Explodes (owner, 2026-09-08). `canResurrect` dropped its `isGarden` clause: any deployed,
+// alive, unspent holder polls the corpse backlog, from the line if that is where it
+// stands. Nothing else about the revive moved (most-recent corpse, once per holder, the
+// revived unit comes back spent). Transcript-changing only for fights that field one of
+// the two Minis; every Garden revive replays as before. Same cost as every bump: an
+// invasion in flight at deploy time settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 51;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

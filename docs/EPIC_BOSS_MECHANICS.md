@@ -24,8 +24,9 @@ the HP they reach with the five-slot life set lands on a tank line from 5,000 at
 absorbs, not a damage-weighted average. Two pairs have since left the fit (2026-09-08):
 Dr. Groundhog's Doctors are Garden healers (Heal / Heal All, with Laser Beam Ver.2 from the
 support station in place of Resurrect) held a step over the Cupid Zombie, and General
-Larvaelus's Proto Zombie / Zombug are Minis (fitted str and con ×0.86; Explode / Explode
-Ver.2, and they ride a brute as its Mini Buddy).
+Larvaelus's Proto Zombie / Zombug are Minis (fitted str and con ×0.86; they ride a brute as
+its Mini Buddy) carrying Resurrect at tier 3 and Smash at tier 4 — the only Resurrect outside
+the Garden family, cast from the line.
 
 | Level | Boss | Brains | Best prize | str / dex / con | DPS | HP |
 |---|---|---:|---|---|---:|---:|

@@ -34,7 +34,7 @@ const PAIRS: Array<[string, string, string, (string | null)[]]> = [
   ["ZombieActorNinjombie", "ZombieActorMasterNinjombie", "Regular",
     ["buffAllStats", "chivalry", "turboSpeed", "doubleStrike"]],
   ["ZombieActorProto", "ZombieActorZombug", "Small",
-    [null, null, "explode", "explodeV2"]],
+    [null, null, "ressurect", "bashV2"]],
 ];
 
 describe("reclassed special pairs (2026-09-08)", () => {

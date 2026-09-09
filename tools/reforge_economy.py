@@ -336,8 +336,9 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorCaptain":        {"str": 17, "con": 37},  # 21/38.5    str x0.79; TANK
     "ZombieActorAdmiral":        {"str": 18, "dex": 2.9, "con": 41},  # 21/40.5 str x0.85; TANK
     "ZombieActorBrockColey":     {"str": 46, "con": 8},   # 40/7       x1.15 (cap)
-    # Proto Zombie and Zombug are MINIS since 2026-09-08 (group Small: Explode /
-    # Explode Ver.2, ride a brute as its Mini Buddy, drawn at Mini size). The MINI
+    # Proto Zombie and Zombug are MINIS since 2026-09-08 (group Small: ride a brute as
+    # its Mini Buddy, drawn at Mini size; Resurrect t3 + Smash t4 in place of the
+    # Explodes — traits.SPECIAL_ABILITIES). The MINI
     # RULE below applied literally to the fitted stats: str and con x0.86, dex kept.
     "ZombieActorProto":          {"str": 14, "con": 10},  # 14/10      x1.15 (cap) then x0.86 Mini
     "ZombieActorZombug":         {"str": 15, "con": 15},  # 15/15      x1.15 (cap) then x0.86 Mini

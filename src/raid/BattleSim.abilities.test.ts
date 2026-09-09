@@ -1801,3 +1801,47 @@ describe("a Garden holder's laser fires from the support station (v50)", () => {
     expect(l.walkingThisTick).toBe(true);
   });
 });
+
+describe("Resurrect belongs to its holder, not the Garden body (v51)", () => {
+  it("a Mini in the line revives the most recent corpse once, and stays a fighter", () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const mini = unit({
+      id: "mini", sourceKey: "ZombieActorProto", group: "Small", team: "player",
+      abilities: ["ressurect", "bashV2"], // no isGarden: it fights from the line
+    });
+    const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy" });
+    const sim = new BattleSim([fighter, mini], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const m = sim.units.find((u) => u.id === "mini")!;
+    m.state = "advance";
+    expect(sim.resurrectsLeft()).toBe(1); // the strip counts a deployed non-Garden holder
+
+    (sim as any).dealDamage(f, f.maxHp, false);
+    expect(f.alive).toBe(false);
+    sim.step(50);
+    expect(f.alive).toBe(true);
+    expect(f.hp).toBe(f.maxHp);
+    expect(m.resurrectUsed).toBe(true);
+    expect(m.isGarden).toBe(false); // it never became a support unit to do it
+    expect(sim.resurrectsLeft()).toBe(0);
+
+    (sim as any).dealDamage(f, f.maxHp, false);
+    sim.step(50);
+    expect(f.alive).toBe(false); // one revive per holder, Mini or Garden
+  });
+
+  it("a Mini still queued at the back cannot cast it", () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const mini = unit({
+      id: "mini", sourceKey: "ZombieActorZombug", group: "Small", team: "player",
+      abilities: ["ressurect"],
+    });
+    const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy" });
+    const sim = new BattleSim([fighter, mini], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    (sim as any).dealDamage(f, f.maxHp, false);
+    sim.step(50);
+    expect(f.alive).toBe(false); // the holder is "waiting", so the corpse stays down
+    expect(sim.resurrectsLeft()).toBe(0);
+  });
+});
