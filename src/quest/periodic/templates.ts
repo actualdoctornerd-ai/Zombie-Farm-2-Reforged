@@ -274,11 +274,12 @@ const dailyHarvestAnyCrop: QuestTemplate = {
   build({ band }) {
     const countTotal = dailyCount(band, "harvestAny");
     return {
-      // "vegetable" is load-bearing, not flavour: the wildcard listens to
-      // kCropHarvestedNotification, and a zombie crop emits the ZOMBIE variant instead
-      // (server/test/harvestEventSplit.test.ts). Fruit trees do count, which only ever
-      // helps, so the wording errs on the side of promising less than it delivers.
-      text: `Harvest ${countTotal} vegetable crops`,
+      // Deliberately just "crops": players read "vegetable" as excluding things like
+      // tomatoes and fruit trees, which all do count. The wildcard listens to
+      // kCropHarvestedNotification, so every ordinary crop counts and only zombie
+      // crops don't — they emit the ZOMBIE variant instead
+      // (server/test/harvestEventSplit.test.ts) and have their own quests.
+      text: `Harvest ${countTotal} crops`,
       icon: ICON.crops,
       notificationID: QuestEvent.CropHarvested,
       notificationObject: "",
@@ -358,11 +359,12 @@ const weeklyHarvestAnyCrop: QuestTemplate = {
   build({ band }) {
     const countTotal = weeklyCount(band, "harvestAny");
     return {
-      // "vegetable" is load-bearing, not flavour: the wildcard listens to
-      // kCropHarvestedNotification, and a zombie crop emits the ZOMBIE variant instead
-      // (server/test/harvestEventSplit.test.ts). Fruit trees do count, which only ever
-      // helps, so the wording errs on the side of promising less than it delivers.
-      text: `Harvest ${countTotal} vegetable crops`,
+      // Deliberately just "crops": players read "vegetable" as excluding things like
+      // tomatoes and fruit trees, which all do count. The wildcard listens to
+      // kCropHarvestedNotification, so every ordinary crop counts and only zombie
+      // crops don't — they emit the ZOMBIE variant instead
+      // (server/test/harvestEventSplit.test.ts) and have their own quests.
+      text: `Harvest ${countTotal} crops`,
       icon: ICON.crops,
       notificationID: QuestEvent.CropHarvested,
       notificationObject: "",

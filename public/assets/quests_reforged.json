@@ -32,7 +32,7 @@
     "id": "20002",
     "title": "Green Fingers",
     "messageComplete": "A hundred crops harvested. The farm has never looked better.",
-    "tip": "Vegetable crops and fruit trees. Zombie crops have their own quests.",
+    "tip": "Any crop counts except zombie crops, which have their own quests.",
     "sprite": "Icon_Quest_HarvestVegetables.png",
     "levelRequired": 14,
     "prerequisiteQuest": -1,
@@ -41,7 +41,7 @@
         "notificationID": "kCropHarvestedNotification",
         "notificationObject": "",
         "countTotal": 100,
-        "text": "Harvest 100 vegetable crops",
+        "text": "Harvest 100 crops",
         "type": 2,
         "sprite": ""
       }
