@@ -116,8 +116,8 @@ ruled that a timeout is a defense win; that ruling stands, but it should be rare
 | When | Who |
 |---|---|
 | t = 0 | Support standing at `DEF_SUPPORT_X`; Tank begins walking to `DEF_TANK_X`; Brute + Mini take `DEF_LINE_X` |
-| t = 5 s | Regular joins `DEF_LINE_X` |
-| t = 10 s | Girl joins `DEF_LINE_X` |
+| t = 10 s | Regular joins `DEF_LINE_X` |
+| t = 20 s | Girl joins `DEF_LINE_X` |
 
 **One zombie per class, and the picker says so.** A defense line-up may hold at most one
 zombie of each group, because the formation fills one job per group — a second Regular has
@@ -133,12 +133,23 @@ not farm size. Identical farms on both sides, all Tier 3 — 8 Regulars field 1 
 break even at 2.77x; 6 classes field 6 and break even at 0.92x (defense slightly favoured,
 which is the goal). A single-class farm is close to indefensible, by design.
 
-`PVP_DEFENSE_DRIP_MS = 5_000` is the primary balance dial — it is what lets an attacker
+`PVP_DEFENSE_DRIP_MS = 10_000` is the primary balance dial — it is what lets an attacker
 who clears fast get ahead, and what punishes one who does not. Measured across 13 defense
 and 6 attacker compositions it is also the strongest dial available, and the only one that
 moves the tanky-attacker case: armies that out-LAST a defense rather than out-damage it
 ignore throw damage but not extra bodies. It was 15 s, at which the second reinforcement
-arrived at 30 s into a ~33 s fight and barely participated. See "Balance target".
+arrived at 30 s into a ~33 s fight and barely participated; then 5 s; then **doubled to
+10 s by owner call (ruleset 54)**. Break-even by attacker composition at each setting:
+
+| drip | mixed | 8xRegT4 | 8xHeadT4 | 8xLargeT4 | 8xSmallT4 |
+|---|---|---|---|---|---|
+| 5 s | 1.109 | 1.480 | 1.718 | 1.078 | 0.924 |
+| **10 s** | **1.194** | **1.573** | **2.190** | **1.207** | **1.036** |
+| 15 s | 1.310 | 1.692 | 2.700 | 1.388 | 1.125 |
+
+The mixed column stays inside the pinned band; the SPREAD is what pays for the slower
+beat (0.794 wide -> 1.154), and the tanky-attacker column is where it lands. See
+"Balance target".
 
 **Half B shipped, and the descent gate is the LINE.** The table above is Half A: the
 brute and mini stood at `DEF_LINE_X`. Live, the brute perches (`PVP_PERCH_X/Y`, marked

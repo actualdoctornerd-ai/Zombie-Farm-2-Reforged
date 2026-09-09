@@ -124,8 +124,24 @@ export const PVP_STATION_BY_ROLE: Readonly<Record<PvpDefenseRole, number>> = {
  *  than out-damage it; only more defenders on the ground sooner touches that. At 5 s
  *  both reinforcements are in early, the spread across attacker compositions nearly
  *  halves (1.13-1.97 -> 0.97-1.45), and the fight runs ~45 s with the brute coming
- *  down late, as a finish rather than a mid-fight event. */
-export const PVP_DEFENSE_DRIP_MS = 5_000;
+ *  down late, as a finish rather than a mid-fight event.
+ *
+ *  DOUBLED 5 s -> 10 s (owner, 2026-09-09): the Regular lands at 10 s and the Girl at
+ *  20 s. This is a deliberate move BACK toward the 15 s end, and it costs what the drop
+ *  bought — re-swept at ruleset 53, break-even by attacker composition:
+ *
+ *              mixed  8xRegT4  8xHeadT4  8xLargeT4  8xSmallT4
+ *      5.0s    1.109    1.480     1.718      1.078      0.924
+ *     10.0s    1.194    1.573     2.190      1.207      1.036   <- shipped
+ *     15.0s    1.310    1.692     2.700      1.388      1.125
+ *
+ *  The mixed column stays inside the pinned band (1.194 against a 1.25 ceiling), so the
+ *  headline fight is still roughly fair. What pays for it is the SPREAD, which more than
+ *  doubles (0.794 wide -> 1.154): the tanky-attacker case is the one that moves, because
+ *  bodies on the ground sooner is the only lever it ever responded to, and eight Headless
+ *  T4 go 1.718 -> 2.190. If the mode later needs that column pulled back, this is the dial
+ *  that did it — the throw barely touches it (measured, see the balance test). */
+export const PVP_DEFENSE_DRIP_MS = 10_000;
 
 /** How often the perched brute lobs the mini. */
 export const PVP_THROW_INTERVAL_MS = 6_000;
@@ -310,7 +326,7 @@ export function formationDefenseUnits(selected: CombatUnit[]): CombatUnit[] {
   // Front-to-back RANK, which is not the job list: Normal and Girl are two jobs doing
   // one job's work, so they share a rank and still settle between themselves on id.
   // Giving Girl its own rank would have made the Normal always arrive first, and which
-  // of the two lands on the 5 s beat and which on the 10 s is transcript-visible — a
+  // of the two lands on the first beat and which on the second is transcript-visible — a
   // ruleset change, which this deliberately is not.
   const ROLE_RANK: Readonly<Record<PvpDefenseRole, number>> = {
     tank: 0, brute: 1, mini: 2, line: 3, girl: 3, support: 4,

@@ -853,7 +853,17 @@ import type { RaidOutcome } from "./types";
 // lose (or never had) the tank before a reinforcement lands. Raids and the Epic Boss have
 // no `defenseRole` at all and replay bit-identically. Same cost as every bump: a fight in
 // flight at deploy time settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 53;
+// v54 — the formation line reinforces at 10 s, not 5 s (owner, 2026-09-09). PVP_DEFENSE_DRIP_MS
+// doubles, so a defense puts its Regular on the ground at 10 s and its Girl at 20 s. Deliberately
+// a move back toward the 15 s the mode started at, and it gives back what the drop to 5 s bought:
+// the mixed break-even goes 1.109 -> 1.194 (band ceiling 1.25, so still fair) but the SPREAD across
+// attacker compositions more than doubles, 0.794 -> 1.154, because bodies-on-the-ground-sooner is
+// the only lever the tanky-attacker case responds to and eight Headless T4 go 1.718 -> 2.190. Full
+// sweep in the constant's comment. Transcript-changing for EVERY formation-mode friend invasion
+// that fields a Regular or a Girl, which is nearly all of them; classic-mode PvP, raids and the
+// Epic Boss have no `deployAtMs` and replay bit-identically. Same cost as every bump: a fight in
+// flight at deploy time settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 54;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

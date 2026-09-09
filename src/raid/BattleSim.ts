@@ -2580,7 +2580,7 @@ export class BattleSim {
     // is not on the ground yet (owner, 2026-09-09). It used to read who was standing
     // only, and that had the brute-heavy defenses opening with no perch phase at all: a
     // farm with no Headless has nobody but the healer on the lawn at the bell — the
-    // Normal and Girl are still queued for their 5 s and 10 s beats — so the descent
+    // Normal and Girl are still queued for their PVP_DEFENSE_DRIP_MS beats — so the descent
     // condition was already true on tick one and the brute walked its mini straight out
     // of the barn. The gate is now the LINE: the brute comes down once the tank and both
     // reinforcements are dead, whether they got to stand or not. It still never waits on

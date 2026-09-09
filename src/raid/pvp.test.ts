@@ -518,7 +518,7 @@ describe("formation defense mode", () => {
   it("a defense with no tank still gets its perch phase — the line holds the brute up", () => {
     // The bug (prod, 2026-09-09): a farm with no Headless opened with its brute already
     // walking out of the barn. Nothing but the healer stands at the bell — the Normal and
-    // Girl are queued for the 5 s and 10 s beats — so a descent condition that read only
+    // Girl are queued for their drip beats — so a descent condition that read only
     // who was ON THE GROUND was satisfied on tick one, and the whole perch phase (five
     // lobs of the mini, the defense's heaviest hitter out of reach) never happened.
     //
@@ -676,6 +676,17 @@ describe("formation defense mode", () => {
     // With the mirror in, laser DAMAGE is close to spread-neutral: at ground-truth damage the
     // mixed column reads 1.111 against 1.101 at the shipped 2x, so a bigger beam now very
     // slightly favours the DEFENSE — it covers the whole approach, the attacker's only its own.
+    //
+    // RULESET 54 (the drip doubled back to 10 s, owner's call). Re-swept, full red six:
+    //           mixed  8xRegT4  8xHeadT4  8xLargeT4  8xSmallT4
+    //    5.0s   1.109    1.480     1.718      1.078      0.924
+    //   10.0s   1.194    1.573     2.190      1.207      1.036   <- shipped
+    //   15.0s   1.310    1.692     2.700      1.388      1.125
+    // The mixed column stays inside the band below (1.194 against a 1.25 ceiling) — the
+    // headline fight is still roughly fair — and the SPREAD is what pays: 0.794 wide ->
+    // 1.154, essentially all of it in the tanky-attacker column, which is the one bodies
+    // on the ground sooner was the only answer to. Recorded, not hidden: if 8xHeadT4 has
+    // to come back down, THIS is the dial that sent it up.
     //
     // Pinned as a BAND, not a number: the sim is fully deterministic, so the search
     // below is stable and any FURTHER drift fails here rather than in a playtest.
