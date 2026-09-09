@@ -833,7 +833,15 @@ import type { RaidOutcome } from "./types";
 // revived unit comes back spent). Transcript-changing only for fights that field one of
 // the two Minis; every Garden revive replays as before. Same cost as every bump: an
 // invasion in flight at deploy time settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 51;
+// v52 — a zombie walking in holds no place in the line (owner, 2026-09-09). `SimUnit.inLine`
+// latches on arrival at the slot and `armyOrder` ranks every walker behind everyone
+// standing; release order still decides the place it takes once there. Until now a
+// Headless crossing the field — from the charge slot or revived at the rear — took slot
+// zero at once and the standing row stepped a body standoff back to leave its spot open,
+// out of the wave's melee reach, for the whole walk. The row now keeps the line and the
+// newcomer pushes in when it gets there; the settled formation is unchanged. Transcript-
+// changing for any fight with a reinforcement, knockback or revive, i.e. nearly all.
+export const RAID_RULESET_VERSION = 52;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

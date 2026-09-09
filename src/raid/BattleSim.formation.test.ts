@@ -22,8 +22,8 @@ const regular = (id: string) =>
   unit({ id, sourceKey: "ZombieActorRegularTier1", group: "Regular", team: "player" });
 const large = (id: string) =>
   unit({ id, sourceKey: "ZombieActorLargeTier1", group: "Large", team: "player" });
-const headless = (id: string) =>
-  unit({ id, sourceKey: "ZombieActorHeadlessTier1", group: "Headless", team: "player", isHeadless: true });
+const headless = (id: string, dex = 5) =>
+  unit({ id, sourceKey: "ZombieActorHeadlessTier1", group: "Headless", team: "player", isHeadless: true, dex });
 
 /** An army deployed onto the lane against one indestructible enemy, stepped far enough
  *  for everyone to reach their slot. Returns the sim so slots can be read off it. */
@@ -174,12 +174,14 @@ describe("a reinforcement does not open a hole in the line while it walks up", (
     }
     let idleTicks = 0;
     let gaveGround = 0;
+    let gaveGroundEarly = 0; // ...while the newcomer was still well short of the line
     for (let t = 0; t < 8_000; t += 50) {
       sim.step(50);
       if (e.state !== "fight") idleTicks++;
       gaveGround = Math.max(gaveGround, engagedAt - a.x);
+      if (b.x < engagedAt - 30) gaveGroundEarly = Math.max(gaveGroundEarly, engagedAt - a.x);
     }
-    return { idleTicks, gaveGround, a, b, e };
+    return { idleTicks, gaveGround, gaveGroundEarly, a, b, e };
   }
 
   it("keeps the enemy in contact while a Headless crosses the field", () => {
@@ -201,6 +203,15 @@ describe("a reinforcement does not open a hole in the line while it walks up", (
     expect(gaveGround).toBeGreaterThan(20); // the Large did give way — once, at the end
     expect(b.x).toBeGreaterThan(a.x);       // ...and the Headless leads the row
   });
+
+  it("holds the line until the newcomer is actually there (v52)", () => {
+    // A zombie walking in holds no place: the Large must not step back to leave the
+    // front slot open while the Headless is still crossing the field. It gives way only
+    // once the Headless is at the line and pushes in.
+    const { gaveGroundEarly, gaveGround } = reinforce(large("l"), headless("h"));
+    expect(gaveGroundEarly).toBeLessThanOrEqual(2);
+    expect(gaveGround).toBeGreaterThan(20);
+  });
 });
 
 // Resurrection is a new arrival: it gets a fresh tail order. A Headless then applies its
@@ -215,7 +226,9 @@ describe("a resurrected zombie rejoins the line", () => {
   /** Deploy the party through the real charge queue (so every zombie claims a distinct
    *  `formOrder`), let it settle on the line, then kill `victim` and let the medic revive
    *  it. Returns the army's rank order before the death and after the revive. */
-  function reviveInLine(players: CombatUnit[], victimId: string) {
+  function reviveInLine(
+    players: CombatUnit[], victimId: string, observe?: (sim: BattleSim) => void
+  ) {
     const enemy = unit({
       id: "e", sourceKey: "FarmStageActorEnemy", team: "enemy", con: 100_000, str: 1, dex: 1,
       hp: 1e12, maxHp: 1e12,
@@ -243,10 +256,46 @@ describe("a resurrected zombie rejoins the line", () => {
     const before = rank();
     const victim = sim.units.find((u) => u.id === victimId)!;
     (sim as any).dealDamage(victim, victim.maxHp, false);
-    settle(20_000);
+    for (let t = 0; t < 20_000; t += 50) {
+      e.hp = e.maxHp = 1e12;
+      sim.step(50);
+      observe?.(sim);
+    }
     expect(victim.alive, "the medic should have revived it").toBe(true);
-    return { before, after: rank(), victim, sim, frontMost: () => frontMostId(sim) };
+    return { before, after: rank(), victim, sim, e, frontMost: () => frontMostId(sim) };
   }
+
+  it("keeps the standing row on the line while a revived Headless walks back (v52)", () => {
+    // Revived at the rear, a dex-1 Headless takes seven seconds to cross the field. It
+    // holds no place until it gets there: the Regulars close up to the line at once and
+    // the enemy keeps a target the whole time — no row stepping back to leave the front
+    // slot open for a zombie that is still walking.
+    let rowFront = Infinity; // the standing row's lead position while the Headless walks
+    let lineX = 0;
+    let idleTicks = 0;
+    let observed = 0;
+    const { frontMost } = reviveInLine(
+      [headless("h", 1), regular("r0"), regular("r1"), regular("r2"), medic("g")], "h",
+      (sim) => {
+        const h = sim.units.find((u) => u.id === "h")!;
+        const e = sim.units.find((u) => u.id === "e")!;
+        lineX = (sim as any).frontX;
+        if (!h.alive || h.x > lineX - 100) return; // only while it is well short of the line
+        // The row closes up the moment the leader falls: give it half a second to walk
+        // the one slot step forward before holding it to the line.
+        if (++observed <= 10) return;
+        const standing = sim.units.filter(
+          (u) => u.team === "player" && u.alive && u.id !== "h" && !u.isGarden
+        );
+        rowFront = Math.min(rowFront, Math.max(...standing.map((u) => u.x)));
+        if (e.state !== "fight") idleTicks++;
+      }
+    );
+    expect(observed).toBeGreaterThan(50);
+    expect(rowFront).toBeGreaterThanOrEqual(lineX - 3);
+    expect(idleTicks).toBeLessThanOrEqual(2);
+    expect(frontMost()).toBe("h"); // ...and it still ends up at the head of the line
+  });
 
   it("gives a revived Headless a new order but puts it at the head of the line", () => {
     const { before, after, victim, sim, frontMost } = reviveInLine(

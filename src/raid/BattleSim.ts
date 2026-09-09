@@ -532,6 +532,12 @@ export interface SimUnit {
   /** Headless units push to the front. Sending one to the back temporarily clears
    * this flag so the row behind can fill the vacancy while it recovers. */
   frontPriority: boolean;
+  /** Has this zombie REACHED the line since it last set out for it? Only a zombie that
+   *  has holds a place in the formation; one still walking in — from the charge slot,
+   *  back from a knockback, or revived at the rear — is ranked behind everyone standing
+   *  and takes its real place (a Headless pushes to the front) only on arrival. So the
+   *  row never opens a hole for someone who is not there yet. See armyOrder. */
+  inLine: boolean;
   lineupIndex: number; // front-to-back rank among committed zombies (0 = front) → damage band
   slotX: number; // assigned formation position
   slotY: number;
@@ -815,6 +821,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     mill: hash(i * 3 + 2) * Math.PI * 2,
     formOrder: 0,
     frontPriority: isPlayer && !!u.isHeadless,
+    inLine: false,
     lineupIndex: 0,
     slotX: home.x,
     slotY: home.y,
@@ -1133,6 +1140,7 @@ export class BattleSim {
       // its protection. New checkpoints persist the explicit latch.
       oneShotProtectionUsed: u.oneShotProtectionUsed ?? (u.team === "player" && u.hp <= 1),
       frontPriority: u.frontPriority ?? false,
+      inLine: u.inLine ?? false,
       knockBackToX: u.knockBackToX ?? 0,
       knockBackSpeed: u.knockBackSpeed ?? 0,
       passedWall: u.passedWall ?? false,
@@ -1641,6 +1649,7 @@ export class BattleSim {
     mini.prevY = mini.y;
     mini.charge = 1;
     mini.formOrder = carrier.formOrder + 0.25;
+    mini.inLine = carrier.inLine; // put down beside its carrier: in line if the carrier is
     mini.state = "advance";
     mini.timerMs = this.cycleMs(mini, null);
   }
@@ -2215,6 +2224,7 @@ export class BattleSim {
     p.knockBackSpeed = SRC_KNOCKBACK_FORCE * 60 * gapsPerSourcePoint;
     p.formOrder = this.releaseSeq++; // tail of the deployed block → deeper band
     p.frontPriority = false;
+    p.inLine = false; // it is walking back in; it holds no place until it gets there
     p.state = "advance";
     p.timerMs = this.cycleMs(p, null);
   }
@@ -2287,9 +2297,13 @@ export class BattleSim {
     defeated.prevY = defeated.y;
     // Death gives the slot up, so resurrection is a fresh arrival at the tail just like
     // knockback. Headless is the one exception to where that arrival is displayed: every
-    // incoming Headless pushes to position zero, including one arriving via resurrection.
+    // incoming Headless pushes to position zero, including one arriving via resurrection
+    // — but only once it has walked back up. It holds no place in the line on the way
+    // (`inLine`), so the row does not step back to leave its spot open for the seven
+    // seconds a slow Headless takes to cross the field.
     defeated.formOrder = this.releaseSeq++;
     defeated.frontPriority = defeated.isHeadless;
+    defeated.inLine = false;
     // Sent back to the charge slot means sent back BEHIND anything standing mid-lane —
     // the alien boss's abductee, or a boss wall. `passedWall` latches "already ahead of
     // that blocker when it appeared", and a corpse carried back to x=CHARGE_X plainly is
@@ -2634,10 +2648,24 @@ export class BattleSim {
     return "Regular"; // includes every Small: a Mini queues with the ordinary bodies
   }
 
-  /** Build the authoritative line order. Ordinary zombies are FIFO by arrival
+  /** Build the authoritative line order. Ordinary zombies are FIFO by release
    *  (`formOrder`). Knockback and resurrection assign a fresh order at the tail. An active
    *  Headless priority overrides FIFO and puts that zombie at the very front; among
-   *  Headless zombies, the newest arrival is first because it pushes into position zero. */
+   *  Headless zombies, the newest arrival is first because it pushes into position zero.
+   *
+   *  A zombie still WALKING IN (`!inLine`) ranks behind everyone already standing,
+   *  whatever its priority or order: it has no place in the line until it gets there,
+   *  and takes its release-order place — pushing in ahead of later releases, a Headless
+   *  ahead of everyone — only on arrival. Before v52 it was ranked at once: a Headless
+   *  crossing the field (from the charge slot, or revived at the rear) held slot zero for
+   *  the whole walk, so the standing row re-slotted a body standoff BACK to leave its
+   *  spot open, out of the wave's melee reach, for as long as the walk took (seven
+   *  seconds for a dex-1 Headless). Reported as zombies "reserving spots for themselves
+   *  while walking in" with the enemy standing in front of an empty slot. Now the row
+   *  keeps the line and the newcomer pushes its way in when it gets there — the same
+   *  final formation, without the hole. Release order (not arrival order) stays the
+   *  rank so a fast body released later never overtakes one sent ahead of it — the Mini
+   *  rule (MINI_STANDS_WITH_REGULAR) depends on that. */
   private armyOrder(): SimUnit[] {
     // `!p.taken`: a zombie carried out of the fight (a crab's passenger, a zombie
     // Zedzox has converted) keeps whatever state it was in, and it used to keep its
@@ -2650,6 +2678,7 @@ export class BattleSim {
     const committed = this.players
       .filter((p) => p.alive && !p.taken && (p.state === "advance" || p.state === "fight"))
       .sort((a, b) => {
+        if (a.inLine !== b.inLine) return a.inLine ? -1 : 1;
         if (a.frontPriority !== b.frontPriority) return a.frontPriority ? -1 : 1;
         return a.frontPriority
           ? b.formOrder - a.formOrder
@@ -2883,6 +2912,13 @@ export class BattleSim {
           const enemyArrived = !!foe && (foe.state === "hold" || foe.state === "fight");
           const inCombatZone = p.x >= frontX - COMBAT_ZONE_DEPTH;
           const atSlot = Math.hypot(destinationX - p.x, p.slotY - p.y) <= 2;
+          // Arrival. Until now this zombie was ranked behind everyone standing and walked
+          // to a place at the tail of the line; from here it holds its real place, by
+          // release order (a Headless pushes to the front — see armyOrder). Not while
+          // parked short of its slot at a blocking wall: that is not the line, and a
+          // Headless stuck behind a wall must not pull the row back to make room for it
+          // at the front.
+          if (!p.inLine && atSlot && !blockingWall) p.inLine = true;
           // Knockback and carry/drop effects send a Headless zombie to the rear long
           // enough for another row to fill the open front slot. Once it reaches that
           // recovery slot, restore its defining behavior: it pushes forward again.
@@ -3639,6 +3675,7 @@ export class BattleSim {
         z.stunMs = 0;
         z.formOrder = this.releaseSeq++;
         z.frontPriority = false;
+        z.inLine = false;
       }
       c.grabbedId = null;
       c.state = "gone";
@@ -3748,6 +3785,7 @@ export class BattleSim {
         z.stunMs = 0;
         z.formOrder = this.releaseSeq++; // re-enters at the back of the formation
         z.frontPriority = false;
+        z.inLine = false;
       }
       g.grabbedId = null;
       g.state = "gone";
@@ -3797,6 +3835,7 @@ export class BattleSim {
     z.timerMs = this.cycleMs(z, null);
     z.formOrder = this.releaseSeq++;
     z.frontPriority = false;
+    z.inLine = false;
   }
 
   /** Player tapped a burning zombie: smother the fire. One tap does it — the burn is on a
