@@ -140,6 +140,18 @@ moves the tanky-attacker case: armies that out-LAST a defense rather than out-da
 ignore throw damage but not extra bodies. It was 15 s, at which the second reinforcement
 arrived at 30 s into a ~33 s fight and barely participated. See "Balance target".
 
+**Half B shipped, and the descent gate is the LINE.** The table above is Half A: the
+brute and mini stood at `DEF_LINE_X`. Live, the brute perches (`PVP_PERCH_X/Y`, marked
+`isBoss`) and the mini waits in the barn as its ammunition (`deployWithBoss`), and the
+pair takes the field together when the brute climbs down. It climbs down once every
+**tank and line** defender is dead — Headless, Regular and Girl. Deliberately not the
+healer (a Garden zombie cannot hold a line, and waiting for it parked the defense's best
+fighter out of reach while the farm was picked apart), and deliberately not the mini (the
+descent is the event that releases it). A reinforcement still QUEUED on the drip holds the
+brute up just as a standing one does: reading the lawn instead of the line meant a defense
+with no Headless — nobody standing at the bell but the healer — descended on tick one and
+got no perch phase at all (prod bug, fixed at ruleset 53).
+
 The defenders **stand**. They do not march at the attacker. Contact happens because the
 attacker walks into the tank, which is what stops a fully-deployed defense from simply
 mobbing the first zombie to arrive.

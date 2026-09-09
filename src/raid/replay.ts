@@ -841,7 +841,19 @@ import type { RaidOutcome } from "./types";
 // out of the wave's melee reach, for the whole walk. The row now keeps the line and the
 // newcomer pushes in when it gets there; the settled formation is unchanged. Transcript-
 // changing for any fight with a reinforcement, knockback or revive, i.e. nearly all.
-export const RAID_RULESET_VERSION = 52;
+// v53 — a PvP formation brute is held on its perch by the LINE, not by the lawn (owner,
+// 2026-09-09, off the prod launch). The descent condition read who was standing, and a
+// defense with no Headless has nobody but the healer standing at the opening bell — its
+// Normal and Girl are queued for the 5 s and 10 s beats — so the condition was already
+// true on tick one and the brute walked its mini out of the barn before the fight began,
+// with no perch phase and no throws at all. A line reinforcement still waiting on the
+// drip now holds the brute up exactly as a standing one does; the healer still never
+// does, and neither does the mini (the descent is what releases it). Transcript-changing
+// only for friend invasions in formation mode, and within those only for defenses that
+// lose (or never had) the tank before a reinforcement lands. Raids and the Epic Boss have
+// no `defenseRole` at all and replay bit-identically. Same cost as every bump: a fight in
+// flight at deploy time settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 53;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

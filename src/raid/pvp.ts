@@ -91,8 +91,10 @@ export const PVP_DEFENSE_ROLES: readonly PvpDefenseRole[] = [
  *  line" reads this, so adding a third line class later is one entry, not a hunt. */
 export const PVP_LINE_ROLES: readonly PvpDefenseRole[] = ["line", "girl"];
 
-/** Does this job arrive as a reinforcement rather than standing at the opening bell? */
-export const isLineRole = (role: PvpDefenseRole | null | undefined): boolean =>
+/** Does this job arrive as a reinforcement rather than standing at the opening bell?
+ *  Takes a plain string because the SIM asks it too (BattleSim carries `defenseRole`
+ *  as an opaque string), and a role it does not recognise is simply not the line. */
+export const isLineRole = (role: string | null | undefined): boolean =>
   !!role && (PVP_LINE_ROLES as readonly string[]).includes(role);
 
 /** Stations, in sim x (FIELD_W 1000). The defense holds at the barn doorway (940)

@@ -47,6 +47,7 @@ import {
   protectReduction,
   POWER_PER_STR,
 } from "./combatStats";
+import { isLineRole } from "./pvp";
 import {
   PIXEL_FIRE_BURN_MS,
   PIXEL_FIRE_PACE_REACH,
@@ -2575,13 +2576,19 @@ export class BattleSim {
     // the Garden zombie cannot hold a line and leaving the brute up there while it is
     // farmed just parks the defense's best fighter somewhere unreachable.
     //
-    // Deliberately reads who is ON THE GROUND, not who is alive: a line reinforcement
-    // still waiting on the drip does NOT hold the brute up. An attacker who kills the
-    // tank before the first reinforcement lands has earned the brute early, which is
-    // the whole point of hitting fast.
+    // A line reinforcement still waiting on the drip HOLDS THE BRUTE UP even though it
+    // is not on the ground yet (owner, 2026-09-09). It used to read who was standing
+    // only, and that had the brute-heavy defenses opening with no perch phase at all: a
+    // farm with no Headless has nobody but the healer on the lawn at the bell — the
+    // Normal and Girl are still queued for their 5 s and 10 s beats — so the descent
+    // condition was already true on tick one and the brute walked its mini straight out
+    // of the barn. The gate is now the LINE: the brute comes down once the tank and both
+    // reinforcements are dead, whether they got to stand or not. It still never waits on
+    // the healer, and never on the mini (the descent is what releases it).
     const bruteHolds = this.boss?.defenseRole === "brute"
       ? this.enemies.some((e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon &&
-          e.state !== "queued" && e.defenseRole !== "support")
+          e.defenseRole !== "support" &&
+          (e.state !== "queued" || isLineRole(e.defenseRole)))
       : normalsLeft || activeMelee > 0;
     if (this.boss && this.boss.alive && this.boss.state === "structure" && !bruteHolds) {
       // Climb down, exit out the back, then re-enter. An authored PERCH is dropped

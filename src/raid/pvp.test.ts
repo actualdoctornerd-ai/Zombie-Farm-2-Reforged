@@ -472,10 +472,9 @@ describe("formation defense mode", () => {
 
   it("the brute comes down once only the healer is left holding the ground", () => {
     // Owner's rule: the brute descends when the headless, normal and girl zombies are
-    // dead — or any time the Garden zombie is the only one down there, which is what
-    // happens when an attacker kills the tank before a reinforcement lands. A Garden
-    // zombie cannot hold a line, so leaving the brute perched while the farm is picked
-    // apart just parks the defense's best fighter somewhere unreachable.
+    // dead — the healer alone does not hold it up. A Garden zombie cannot hold a line,
+    // so leaving the brute perched while the farm is picked apart just parks the
+    // defense's best fighter somewhere unreachable.
     //
     // The assertion that matters is DESCENDS WITH THE HEALER STILL ALIVE: the old rule
     // waited for every last defender, healer included, and could never satisfy it.
@@ -514,6 +513,49 @@ describe("formation defense mode", () => {
     expect(holdersAtDescent, "came down while a non-healer still held the ground").toBe(0);
     // Not late: this is the half the old "wait for every defender" rule failed.
     expect(supportAliveAtDescent, "waited for the healer to die too").toBe(true);
+  });
+
+  it("a defense with no tank still gets its perch phase — the line holds the brute up", () => {
+    // The bug (prod, 2026-09-09): a farm with no Headless opened with its brute already
+    // walking out of the barn. Nothing but the healer stands at the bell — the Normal and
+    // Girl are queued for the 5 s and 10 s beats — so a descent condition that read only
+    // who was ON THE GROUND was satisfied on tick one, and the whole perch phase (five
+    // lobs of the mini, the defense's heaviest hitter out of reach) never happened.
+    //
+    // The gate is the LINE, not the lawn: a reinforcement still waiting on the drip holds
+    // the brute up exactly as it would standing.
+    const defenders = formationDefenseUnits(selectFormationDefense(
+      build(ONE_PER_CLASS.filter((k) => !k.includes("Headless")), "d")));
+    expect(defenders.some((u) => u.defenseRole === "tank")).toBe(false);
+    const attackers = build(
+      Array.from({ length: PVP_ARMY_SIZE }, () => "ZombieActorRegularTier4"), "a");
+    const sim = new BattleSim(
+      attackers, defenders, pvpBossThrow(defenders), true, [], undefined,
+      null, null, false, false, false, undefined, null, null,
+      { maxActive: 1, dripMs: 0 }, null
+    );
+    const roster = (sim as unknown as {
+      enemies: { defenseRole: string | null; state: string; alive: boolean }[];
+    }).enemies;
+    const brute = roster.find((e) => e.defenseRole === "brute")!;
+    const line = roster.filter((e) => isLineRole(e.defenseRole));
+    expect(line).toHaveLength(2);
+
+    let perchedMs = 0;
+    let lineAliveAtDescent = -1;
+    for (let t = 0; t < RAID_MAX_TICKS && !sim.finished; t++) {
+      sim.step(RAID_TICK_MS);
+      if (brute.state === "structure") { perchedMs += RAID_TICK_MS; continue; }
+      if (!brute.alive) break;
+      lineAliveAtDescent = line.filter((e) => e.alive).length;
+      break;
+    }
+    // It perched at all, and long enough for the throw clock to come round.
+    expect(perchedMs, "the brute left the barn at the opening bell")
+      .toBeGreaterThan(PVP_THROW_INTERVAL_MS);
+    // And it came down only once BOTH reinforcements were dead — not once they had
+    // merely failed to arrive yet.
+    expect(lineAliveAtDescent, "descended with a reinforcement still alive").toBe(0);
   });
 
   it("the throw carries BOTH zombies' swings, not just the mini's", () => {
