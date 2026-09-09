@@ -133,15 +133,16 @@ DEV_AUTH = "0"
 MIN_PROTOCOL_VERSION = "3"
 MUTATIONS_DISABLED = "0"
 BLACK_MARKET_ENABLED = "1"
-# Friend invasions: PARKED in production while the feature is finished on staging.
+# Friend invasions: LIVE in production since 2026-09-09.
 # This var is the ONE launch switch — the client's Invasions surfaces follow it via
-# the bootstrap's `pvpEnabled` capability, so flipping it to "1" and deploying this
-# Worker launches the feature with no client redeploy (docs/FRIEND_INVASIONS.md).
+# the bootstrap's `pvpEnabled` capability, so flipping it back to "0" and deploying
+# this Worker parks the feature with no client redeploy (docs/FRIEND_INVASIONS.md).
 # Deploy order still matters for the ruleset handshake: Worker first.
-PVP_ENABLED = "0"
-# See the staging block above. Production stays on the shipped defense until the
-# formation mode has been played and tuned on staging.
-PVP_DEFENSE_MODE = "classic"
+PVP_ENABLED = "1"
+# See the staging block above. Production runs the formation defense (roles, stations,
+# deployment — docs/PVP_DEFENSE_FORMATION.md) as of the 2026-09-09 launch; "classic" is
+# the shipped barn-doorway wave and stays available as the fallback.
+PVP_DEFENSE_MODE = "formation"
 WRITER_LEASE_MODE = "enforce"
 # Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
 # raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
