@@ -360,6 +360,12 @@ SPECIAL_STAT_REBALANCE = {
     #     tank line for the same reason.
     #   * growth is capped at x2; nothing reaches it now (the Aliens prizes needed
     #     x1.44 / x1.5).
+    #   * the ALIENS pair is then held a step UNDER the Video Games pair (owner's
+    #     call, 2026-09-08): the Video Games are the harder invasion, so the
+    #     Zastronaut sits under the Video Game Zombie and the Cozmonaut under the
+    #     Boss Zombie on plain strength, mutated strength and HP alike (about 4% off
+    #     the line for the Zastronaut, 6% for the Cozmonaut) — the Cozmonaut still
+    #     edges the Omega Zombie Bot, the elite prize one invasion earlier.
     #   * a MINI prize is fitted as a Mini: its target is 0.86 of the line, the ratio
     #     the Small tier-5 (Zombricaun) holds against the Regular tier-5 (Zombotron)
     #     on this yardstick (the Silver pair gives the same 0.86). The Zombozo is the
@@ -383,7 +389,7 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorMasterNinjombie":  {"str": 32, "con": 16},  # 20/10      x1.60  L26 elite
     "ZombieActorZombieBot":        {"str": 19, "con": 20},  # 24/25      x0.80  L31
     "ZombieActorOmegaZombieBot":   {"str": 22, "con": 24},  # 28/30      x0.80  L31 elite
-    "ZombieActorZastronaut":       {"str": 20, "con": 32},  # 8.71/14.3  x2.26  L36
+    "ZombieActorZastronaut":       {"str": 19, "con": 30},  # 8.71/14.3  x2.14  L36; held under the VGZ
     # The Cozmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows
     # (prep_market.py AUTHORED_ZOMBIES) and are fitted there.
 }

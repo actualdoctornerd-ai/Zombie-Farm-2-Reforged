@@ -104,14 +104,16 @@ AUTHORED_ZOMBIES = [
     # (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), so it has no source row. Priced
     # and levelled like the other promoted prizes (Sheriff: twice the base zombie).
     # Stats follow the invasion-prize re-fit (see SPECIAL_STAT_REBALANCE in
-    # reforge_economy.py): the elite Aliens prize, 200 above the Epic line at level 36
-    # (x2.16 of its first-pass 10.5 / 3.67 / 17.2, the Zastronaut +20%).
+    # reforge_economy.py): the elite Aliens prize, fitted 200 above the Epic line at
+    # level 36 (x2.16 of its first-pass 10.5 / 3.67 / 17.2, the Zastronaut +20%) and
+    # then held a step UNDER the Boss Zombie, the harder invasion's elite prize
+    # (owner's call, 2026-09-08) — 21 / 3.67 / 34 against its 33 / 2.1 / 39.
     {
         "key": "ZombieActorZosmonaut", "name": "Cozmonaut",
         "cost": 10, "growMs": 86_400_000, "category": "special", "level": 25, "xp": 1,
         "brainsNeeded": True, "group": "Regular",
         "className": "Special", "classColor": "#c077ff",
-        "str": 23, "dex": 3.67, "con": 37, "focus": 100.0,
+        "str": 21, "dex": 3.67, "con": 34, "focus": 100.0,
         "mutation": 0, "tier": 5, "specialSprite": "zosmonaut.png",
         "rewardOnly": False, "marketHidden": True,
     },
