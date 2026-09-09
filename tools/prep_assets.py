@@ -16,6 +16,7 @@ Run:  python tools/prep_assets.py
 """
 import colorsys, os, re, io, json, plistlib, random, shutil
 from PIL import Image
+from atlas_stamp import stamp_frames
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
@@ -1440,7 +1441,12 @@ def pack_special_zombies():
     for part, px, py in images:
         atlas.alpha_composite(part, (px, py))
     folder = os.path.join(OUT, "zombie")
-    atlas.save(os.path.join(folder, "SpecialZombieSheet.png"), optimize=True)
+    sheet_path = os.path.join(folder, "SpecialZombieSheet.png")
+    atlas.save(sheet_path, optimize=True)
+    # The table carries a digest of the sheet it was cut from; the runtime versions the
+    # sheet URL with it so a cached copy is never read through a newer table. See
+    # tools/atlas_stamp.py: every sheet + table pair must be stamped this way.
+    stamp_frames(frames, sheet_path)
     json.dump(frames, open(os.path.join(folder, "special_frames.json"), "w"), separators=(",", ":"))
     json.dump(manifests, open(os.path.join(folder, "special_models.json"), "w"), separators=(",", ":"))
     print(f"special zombies: packed {len(images)} parts into {atlas_w}x{atlas_h} atlas")

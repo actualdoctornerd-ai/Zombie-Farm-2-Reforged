@@ -175,6 +175,8 @@ def build_zombie() -> dict:
     atlas.alpha_composite(special_img, (0, base_img.height))
     off = base_img.height
     for key, f in special_frames.items():
+        if key.startswith("$"):
+            continue  # the sheet stamp (tools/atlas_stamp.py), not a part
         actor, file = key.split(":", 1)
         frames[f"special:{actor}:{file}"] = {"x": f["x"], "y": f["y"] + off, "w": f["w"], "h": f["h"]}
     group_scale = {"Regular": 0.9, "Female": 0.8, "Girl": 0.8, "Small": 0.6,

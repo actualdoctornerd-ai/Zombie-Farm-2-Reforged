@@ -8,6 +8,7 @@ import { setZombieNames } from "./zombie/names";
 import { hidesHeadMutationArt } from "./zombie/mutationVisual";
 import { BASE } from "./base";
 import { fetchJson, mapConcurrent } from "./assetLoading";
+import { atlasUrl, frameRects, type FrameTable } from "./atlasVersion";
 import { noteAssetFailure } from "./assetFailures";
 import { isFencePanel } from "./pathCosts";
 import { MAX_ZOMBIE_POTS } from "./placementLimit";
@@ -947,26 +948,33 @@ export async function loadAssets(): Promise<GameAssets> {
 
   // Per-type zombie models: one shared atlas (ZombieSheet.png) sliced into part
   // sub-textures via frames.json, plus models.json (composition per unit type).
-  const [zombieModels, zombieFrames, mutationParts, sheet, enemyModels,
-    specialModels, specialFrames, specialSheet, enemyClips, zombieClips] = await Promise.all([
+  const [zombieModels, zombieFrameTable, mutationParts, enemyModels,
+    specialModels, specialFrameTable, enemyClips, zombieClips] = await Promise.all([
     json<Record<string, ZombieModel>>(BASE + "assets/zombie/models.json"),
-    json<Record<string, { x: number; y: number; w: number; h: number }>>(
-      BASE + "assets/zombie/frames.json"
-    ),
+    json<FrameTable>(BASE + "assets/zombie/frames.json"),
     json<Record<string, MutationPart>>(BASE + "assets/zombie/mutations.json"),
-    Assets.load(BASE + "assets/zombie/ZombieSheet.png") as Promise<Texture>,
     json<Record<string, EnemyModel>>(BASE + "assets/raids/enemies/models.json").catch(() => ({})),
     json<Record<string, SpecialZombieManifest>>(BASE + "assets/zombie/special_models.json"),
-    json<Record<string, { x: number; y: number; w: number; h: number }>>(
-      BASE + "assets/zombie/special_frames.json"
-    ),
-    Assets.load(BASE + "assets/zombie/SpecialZombieSheet.png") as Promise<Texture>,
+    json<FrameTable>(BASE + "assets/zombie/special_frames.json"),
     // Animations authored in the Rig Studio, if any have been. Optional by design: a rig
     // with no clip keeps running the procedural pose in EnemyActor/RaidActor, so a
     // missing file is the ordinary case rather than a failure. See raid/clipRuntime.ts.
     json<ClipSet>(BASE + "assets/raids/enemies/clips.json").catch(() => ({})),
     json<ClipSet>(BASE + "assets/zombie/clips.json").catch(() => ({})),
   ]);
+  // The two sheets load AFTER their frame tables, not alongside them: each table stamps
+  // the digest of the sheet it was cut from, and that digest versions the sheet's URL.
+  // Without it a sixty-day CacheFirst copy of the sheet is read through whatever table
+  // is current — every zombie packed since that copy was taken renders from transparent
+  // (or nonexistent) pixels. See atlasVersion.ts.
+  const [sheet, specialSheet] = await Promise.all([
+    Assets.load(atlasUrl(BASE + "assets/zombie/ZombieSheet.png", zombieFrameTable)) as Promise<Texture>,
+    Assets.load(
+      atlasUrl(BASE + "assets/zombie/SpecialZombieSheet.png", specialFrameTable)
+    ) as Promise<Texture>,
+  ]);
+  const zombieFrames = frameRects(zombieFrameTable);
+  const specialFrames = frameRects(specialFrameTable);
   setRigClips("enemy", enemyClips);
   setRigClips("zombie", zombieClips);
   const zombiePartTex: Record<string, Texture> = {};

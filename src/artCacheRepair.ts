@@ -20,6 +20,11 @@
 //
 // Cheap by construction: one localStorage read on the common path, and the sweep only
 // touches the listed entries.
+//
+// Not the tool for a sprite ATLAS whose frame table moved on (a new zombie packed onto
+// ZombieSheet / SpecialZombieSheet): those are versioned by content instead, so the
+// stale copy is never asked for again — see src/atlasVersion.ts. This list is for art
+// whose filename AND table are unchanged but whose pixels were wrong.
 
 /** Bump when adding to STALE_ART. Each new value re-runs the sweep once per browser. */
 const ART_EPOCH = "3";

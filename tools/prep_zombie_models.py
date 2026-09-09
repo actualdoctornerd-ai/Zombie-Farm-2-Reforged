@@ -25,6 +25,8 @@ import os
 import re
 import shutil
 
+from atlas_stamp import stamp_frames
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 APP = os.path.join(ROOT, "ZF2R_extracted", "raw", "ios-1.0", "1.0", "Payload", "ZF2R.app")
 SHEET_JSON = os.path.join(ROOT, "ZF2R_extracted", "data", "json", "sprites", "ZombieSheet.json")
@@ -566,6 +568,9 @@ def main():
             json.dump(obj, fh, indent=1)
             fh.write("\n")
 
+    # Stamp the table with the digest of the sheet copied above, so the runtime can
+    # version the sheet URL (see tools/atlas_stamp.py / src/atlasVersion.ts).
+    stamp_frames(used_frames, os.path.join(OUT, "ZombieSheet.png"))
     dump(used_frames, "frames.json")
     dump(models, "models.json")
     dump(mutations, "mutations.json")
