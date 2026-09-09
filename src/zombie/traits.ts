@@ -186,9 +186,32 @@ export function groupAbilityAt(group: string, tier: number): string | null {
 // Named unique zombies override their group's ability set. The Crazy zombie
 // (user-confirmed 2026-07-07) carries +5% All Stats, Chivalry, Random Stun, and
 // Double Strike — one per tier (t1..t4), gated by those tiers' bosses.
+//
+// The five invasion/epic PAIRS below were reclassed by the owner on 2026-09-08. Each
+// pair takes its new group's ladder with ONE slot swapped, so the card, the unlock gate
+// and the sim all read the same four keys:
+//   - Dr. Zombie / Omega Dr. Zombie are GARDEN healers whose tier-3 move is Laser Beam
+//     Ver.2 instead of Resurrect. It is a TIER-4 ability sitting in the tier-3 slot, so
+//     it unlocks with the Ninjas (abilityUnlocked keys off the ability's own tier), and
+//     the card's padlock names that boss (abilityTierOf), not the slot's. In the sim a
+//     Garden fires its laser from the support station while it heals, but only while
+//     another zombie is ahead of it (BattleSim.zombieAhead) — see replay.ts v50.
+//   - Zombie Bot / Omega Zombie Bot are HEADLESS with Laser Beam in place of Turbo.
+//   - MerZombie / Poseidon are LARGE (brutes) with Random Stun in place of Bash.
+//   - Ninjombie / Master Ninjombie stay REGULAR with Turbo Walking Speed and Double
+//     Strike in place of the two lasers.
+//   - Proto Zombie / Zombug are simply Minis now (group Small) and need no row here.
 export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
-  //                        t1              t2          t3      t4
-  ZombieActorRegularCrazy: ["buffAllStats", "chivalry", "stun", "doubleStrike"],
+  //                          t1                t2                   t3            t4
+  ZombieActorRegularCrazy:   ["buffAllStats",   "chivalry",          "stun",       "doubleStrike"],
+  ZombieActorDrZombie:       ["heal",           "tankHitPointsBuff", "zomBeam",    "healAOE"],
+  ZombieActorOmegaDrZombie:  ["heal",           "tankHitPointsBuff", "zomBeam",    "healAOE"],
+  ZombieActorZombieBot:      ["hitPointsBuff",  "protect",           "laserBeam",  "block"],
+  ZombieActorOmegaZombieBot: ["hitPointsBuff",  "protect",           "laserBeam",  "block"],
+  ZombieActorMerZombie:      ["powerBuff",      "attachMini",        "stun",       "bashV2"],
+  ZombieActorPoseidon:       ["powerBuff",      "attachMini",        "stun",       "bashV2"],
+  ZombieActorNinjombie:      ["buffAllStats",   "chivalry",          "turboSpeed", "doubleStrike"],
+  ZombieActorMasterNinjombie:["buffAllStats",   "chivalry",          "turboSpeed", "doubleStrike"],
 };
 
 /** The ability a specific unit has at `tier`: a named-unique override if any,

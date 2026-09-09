@@ -1229,6 +1229,18 @@ export class BattleSim {
     return p.isGarden && (p.abilities.includes("heal") || p.abilities.includes("healAOE"));
   }
 
+  /** Is another of this zombie's own side deployed AHEAD of it — walking in or fighting?
+   *  The gate on a support zombie's laser (v50): a Garden never makes the approach the
+   *  walking laser belongs to, so it fires from its station instead, but only while it
+   *  has a line to shoot over. Alone on the field it is a healer with nobody to heal, not
+   *  an artillery piece. `taken` zombies are off the field (see armyOrder). */
+  private zombieAhead(p: SimUnit): boolean {
+    return this.players.some((q) =>
+      q !== p && q.alive && !q.taken &&
+      (q.state === "advance" || q.state === "fight") && q.x > p.x
+    );
+  }
+
   /** Where an un-deployed zombie sits in the queue to go out. `promote()` releases the
    *  first "waiting" unit in roster order, so the roster index IS the deploy order — and
    *  whoever is already "charging" is ahead of every one of them. Only meaningful for a
@@ -2848,7 +2860,13 @@ export class BattleSim {
             p.y = p.slotY;
           }
           p.walkingThisTick = wasWalking;
-          if (wasWalking) this.stepLaser(p, dtMs);
+          // The laser is the weapon of the approach: it fires while its owner WALKS and
+          // falls silent once it arrives. A Garden holder is the exception (v50): it
+          // walks to a station outside the combat zone and stays there healing, so the
+          // walking rule would give it a beam it fires for a few seconds and never again.
+          // A support zombie fires from wherever it stands — walking or stationed —
+          // for as long as one of its own is ahead of it to shoot over.
+          if (p.isGarden ? this.zombieAhead(p) : wasWalking) this.stepLaser(p, dtMs);
           // The formation is only for spacing / projectile hitboxes — EVERY zombie
           // that has reached the combat zone attacks the enemy once it has arrived
           // (not just the front row). The enemy still only strikes those in melee

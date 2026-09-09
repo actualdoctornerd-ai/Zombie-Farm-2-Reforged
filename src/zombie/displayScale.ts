@@ -25,7 +25,12 @@ const SPECIAL_SCALE: Readonly<Record<string, number>> = {
 
 export function zombieFarmScale(group: string, className: string, key: string): number {
   if (className === "Special" || className === "Yellow") {
-    return SPECIAL_SCALE[key] ?? FAMILY_SCALE.Regular;
+    // A named special keeps Regular size whatever family it fights as (a Large
+    // MerZombie, a Headless Zombie Bot) — its rig was authored at that size. The one
+    // exception is the MINI family: being small is what a Mini IS, so a Small-group
+    // special (Proto Zombie, Zombug, the Zombozo) takes the Mini scale like the
+    // Zombricaun does.
+    return SPECIAL_SCALE[key] ?? (group === "Small" ? FAMILY_SCALE.Small : FAMILY_SCALE.Regular);
   }
   return FAMILY_SCALE[group] ?? FAMILY_SCALE.Regular;
 }

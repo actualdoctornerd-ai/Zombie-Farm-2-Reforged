@@ -16,7 +16,7 @@ import { MAX_ZOMBIE_NAME_LENGTH, RosterEntry } from "../../zombie/types";
 import { mutationBonus } from "../../zombie/mutations";
 import {
   STATS, veterancy, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME, MUTATION_FRAME,
-  ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER,
+  ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER, abilityTierOf,
 } from "../../zombie/traits";
 import { mutationEntries, mutationTipText } from "../../zombie/mutationDisplay";
 import {
@@ -291,7 +291,10 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     } else {
       cell.className = "zabil locked";
       cell.innerHTML = `<span class="zlock">🔒</span>`;
-      const boss = TIER_BOSS[t];
+      // The gate is the ABILITY's tier, not the slot's: a named special may carry a
+      // higher-tier move in a lower slot (the Doctors' Laser Ver.2 at tier 3 unlocks
+      // with the Ninjas, not the Pirates) — GameState.abilityUnlocked keys off the same.
+      const boss = TIER_BOSS[abilityTierOf(key) || t];
       cell.onclick = (e) => {
         e.stopPropagation();
         showTip(cell, meta.label, `Defeat ${boss} to unlock this ability.`);

@@ -23,6 +23,11 @@ describe("zombie display sizing", () => {
   it("defaults named specials to regular size while retaining known small transformations", () => {
     expect(zombieFarmScale("Female", "Special", "ZombieActorZomBetty")).toBe(0.9);
     expect(zombieFarmScale("Small", "Special", "ZombieActorSmallTier5")).toBe(0.6);
+    // A Small-GROUP special is a Mini and takes the Mini scale by default (Proto Zombie,
+    // Zombug, Zombozo); every other family's specials stay at Regular size.
+    expect(zombieFarmScale("Small", "Special", "ZombieActorProto")).toBe(0.6);
+    expect(zombieFarmScale("Large", "Special", "ZombieActorMerZombie")).toBe(0.9);
+    expect(zombieFarmScale("Headless", "Special", "ZombieActorZombieBot")).toBe(0.9);
     expect(zombieRaidHeightScale("Garden", "Green", "ZombieActorGardenTier1", 70, 70))
       .toBeCloseTo(0.7 / 0.9);
   });

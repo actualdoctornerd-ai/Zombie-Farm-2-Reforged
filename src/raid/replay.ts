@@ -812,7 +812,20 @@ import type { RaidOutcome } from "./types";
 // Bro-Bot as boss; JunkBot and BrainBot fights, every other raid, PvP and the Epic Boss
 // are bit-identical. Same cost as every bump: an invasion in flight at deploy time
 // settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 49;
+// v50 — five special pairs reclassed (owner, 2026-09-08), and the one sim rule the new
+// Doctors needed. Dr. Zombie / Omega Dr. Zombie are Garden healers with Laser Beam Ver.2
+// in the Resurrect slot; Zombie Bot / Omega Zombie Bot are Headless (dex 1, tank-line
+// con, Laser Beam for Turbo); MerZombie / Poseidon are brutes (Random Stun for Bash);
+// Ninjombie / Master Ninjombie keep Regular with Turbo + Double Strike; Proto Zombie /
+// Zombug are Minis (str/con x0.86). The sim change: a Garden holder's laser no longer
+// waits for the walk — it fires from the support station while it heals, gated on a
+// zombie of its own being AHEAD of it (advance or fight), see `zombieAhead`. Only a
+// Garden with a laser can reach the new branch, and only the two Doctors have one; every
+// fight without them replays bit-identically on the sim side, but the catalog rows the
+// verifier imports (group, str/dex/con) moved for all ten, so any fight fielding one
+// would disagree with a v49 server. Same cost as every bump: an invasion in flight at
+// deploy time settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 50;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

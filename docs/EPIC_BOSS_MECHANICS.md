@@ -18,17 +18,21 @@ are scaled (dex never) so that, wearing the five-slot damage mutation set, its s
 (`sqrt(DPS x HP)`) lands on a line from 1,500 at level 24 to 2,000 at level 42 — the omega
 75 above the line, the rung-5 prize 75 below (`tools/reforge_economy.py`
 SPECIAL_STAT_REBALANCE has the fit; the Zombie Strength Ladder page plots it). The slow
-tanks — Dr. Groundhog's and Bully Frog's four prizes — keep that str but take their con from
-a separate HP fit: the HP they reach with the five-slot life set lands on a tank line from
-5,000 at level 24 to 6,600 at level 42 (omega +200, rung-5 prize −200), because a tank's
-value is the hits it absorbs, not a damage-weighted average.
+tanks — Bully Frog's two prizes — keep that str but take their con from a separate HP fit:
+the HP they reach with the five-slot life set lands on a tank line from 5,000 at level 24 to
+6,600 at level 42 (omega +200, rung-5 prize −200), because a tank's value is the hits it
+absorbs, not a damage-weighted average. Two pairs have since left the fit (2026-09-08):
+Dr. Groundhog's Doctors are Garden healers (Heal / Heal All, with Laser Beam Ver.2 from the
+support station in place of Resurrect) held a step over the Cupid Zombie, and General
+Larvaelus's Proto Zombie / Zombug are Minis (fitted str and con ×0.86; Explode / Explode
+Ver.2, and they ride a brute as its Mini Buddy).
 
 | Level | Boss | Brains | Best prize | str / dex / con | DPS | HP |
 |---|---|---:|---|---|---:|---:|
-| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 17 / 2.65 / 37 | 225 | 3,700 |
+| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 15 / 2.65 / 25 | 199 | 2,500 |
 | 28 | Bully Frog | 3 | Admiral Zombie | 18 / 2.9 / 41 | 261 | 4,100 |
 | 30 | Rocky Rhino | 4 | Brock Coley | 46 / 3 / 8 | 690 | 800 |
-| 32 | General Larvaelus | 4 | Zombug | 17 / 7 / 17 | 595 | 1,700 |
+| 32 | General Larvaelus | 4 | Zombug | 15 / 7 / 15 | 525 | 1,500 |
 | 34 | Mystical Mamba | 4 | Zomtar | 23 / 6 / 17.2 | 690 | 1,720 |
 | 38 | Foul Owl | 4 | Scrooge Zombie | 10 / 8 / 32 | 400 | 3,200 |
 | 40 | Skunkarella | 5 | Madame Zombie | 19 / 8 / 20 | 760 | 2,000 |

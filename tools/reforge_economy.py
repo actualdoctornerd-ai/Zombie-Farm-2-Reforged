@@ -327,13 +327,20 @@ def rebalance_mutant(key, entry):
 # fifth toughest Epics.
 SPECIAL_STAT_REBALANCE = {
     # key: {stat: value}                          # ZF2 str/con -> factor
-    "ZombieActorDrZombie":       {"str": 16, "con": 33},  # 19.9/35.5  str x0.79; TANK con from HP line
-    "ZombieActorOmegaDrZombie":  {"str": 17, "con": 37},  # 21/38.5    str x0.82; TANK
+    # The two Doctors are GARDEN healers since 2026-09-08 (heal / Heal All, a Laser
+    # Ver.2 from the support station instead of Resurrect). No longer tanks: held
+    # a step over the Cupid Zombie (13.5/3/15 -> plain strength 551, damage set
+    # 1,162, life-set HP 3,000): Dr. +10% / +8% / 3,700, Omega +28% / +19% / 4,000.
+    "ZombieActorDrZombie":       {"str": 14, "con": 22},  # 19.9/35.5  Garden healer, over the Cupid
+    "ZombieActorOmegaDrZombie":  {"str": 15, "con": 25},  # 21/38.5    Garden healer, over the Cupid
     "ZombieActorCaptain":        {"str": 17, "con": 37},  # 21/38.5    str x0.79; TANK
     "ZombieActorAdmiral":        {"str": 18, "dex": 2.9, "con": 41},  # 21/40.5 str x0.85; TANK
     "ZombieActorBrockColey":     {"str": 46, "con": 8},   # 40/7       x1.15 (cap)
-    "ZombieActorProto":          {"str": 16, "con": 12},  # 14/10      x1.15 (cap)
-    "ZombieActorZombug":         {"str": 17, "con": 17},  # 15/15      x1.15 (cap)
+    # Proto Zombie and Zombug are MINIS since 2026-09-08 (group Small: Explode /
+    # Explode Ver.2, ride a brute as its Mini Buddy, drawn at Mini size). The MINI
+    # RULE below applied literally to the fitted stats: str and con x0.86, dex kept.
+    "ZombieActorProto":          {"str": 14, "con": 10},  # 14/10      x1.15 (cap) then x0.86 Mini
+    "ZombieActorZombug":         {"str": 15, "con": 15},  # 15/15      x1.15 (cap) then x0.86 Mini
     "ZombieActorZomdini":        {"str": 17, "con": 14},  # 15/12      x1.15 (cap)
     "ZombieActorZomtar":         {"str": 23, "con": 17},  # 20/15      x1.15 (cap)
     "ZombieActorChristmasGhost": {"str": 10, "con": 25},  # 13/32      x0.79
@@ -365,7 +372,8 @@ SPECIAL_STAT_REBALANCE = {
     #     Zastronaut sits under the Video Game Zombie and the Cozmonaut under the
     #     Boss Zombie on plain strength, mutated strength and HP alike (about 4% off
     #     the line for the Zastronaut, 6% for the Cozmonaut) — the Cozmonaut still
-    #     edges the Omega Zombie Bot, the elite prize one invasion earlier.
+    #     edges the Omega Zombie Bot, the elite prize one invasion earlier (moot
+    #     since the Bots became Headless tanks — see their rows).
     #   * a MINI prize is fitted as a Mini: its target is 0.86 of the line, the ratio
     #     the Small tier-5 (Zombricaun) holds against the Regular tier-5 (Zombotron)
     #     on this yardstick (the Silver pair gives the same 0.86). The Zombozo is the
@@ -387,8 +395,13 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorPoseidon":         {"str": 18, "con": 15},  # 20/17      x0.90  L21 elite
     "ZombieActorNinjombie":        {"str": 25, "con": 13},  # 20/10      x1.27  L26
     "ZombieActorMasterNinjombie":  {"str": 32, "con": 16},  # 20/10      x1.60  L26 elite
-    "ZombieActorZombieBot":        {"str": 19, "con": 20},  # 24/25      x0.80  L31
-    "ZombieActorOmegaZombieBot":   {"str": 22, "con": 24},  # 28/30      x0.80  L31 elite
+    # The two Bots are HEADLESS since 2026-09-08 (Life / Protect / Laser Beam /
+    # Block, lead the line): a Headless stat line with the str they already had.
+    # Dex 1 like every Headless; con from the TANK line at level 31 — a Headless
+    # wears only the three body-slot life mutations (+9 con), so 5,029 -> 41 and
+    # the elite's 5,529 -> 46 (the Diver, 4,029 -> 31, is the same arithmetic).
+    "ZombieActorZombieBot":        {"str": 19, "dex": 1, "con": 41},  # 24/25  L31; TANK, on the tank line
+    "ZombieActorOmegaZombieBot":   {"str": 22, "dex": 1, "con": 46},  # 28/30  L31 elite; TANK, +500 HP
     "ZombieActorZastronaut":       {"str": 19, "con": 30},  # 8.71/14.3  x2.14  L36; held under the VGZ
     # The Cozmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows
     # (prep_market.py AUTHORED_ZOMBIES) and are fitted there.

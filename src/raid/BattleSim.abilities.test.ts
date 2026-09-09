@@ -1729,3 +1729,75 @@ describe("boss action budget (throws and specials share one roll)", () => {
     expect(launched).toBeLessThanOrEqual(11);
   });
 });
+
+describe("a Garden holder's laser fires from the support station (v50)", () => {
+  /** A Doctor stood at the Garden station, a fighter, and a punching bag. The Doctor is
+   *  already deployed and standing still — the case the walking laser could never reach. */
+  const party = () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const doctor = unit({
+      id: "doctor", sourceKey: "ZombieActorDrZombie", group: "Garden", team: "player",
+      isGarden: true, abilities: ["heal", "zomBeam"], attackCooldownMs: 600,
+    });
+    const enemy = unit({
+      id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy",
+      hp: 10_000, maxHp: 10_000,
+    });
+    const sim = new BattleSim([fighter, doctor], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const d = sim.units.find((u) => u.id === "doctor")!;
+    const e = sim.units.find((u) => u.id === "enemy")!;
+    d.state = "advance";
+    d.x = 250; // GARDEN_STATION_X — parked, so `wasWalking` is false every tick
+    e.state = "hold";
+    e.x = ENEMY_HOLD_X;
+    return { sim, f, d, e };
+  };
+
+  it("fires while one of its own is ahead of it, without taking a step", () => {
+    const { sim, f, d, e } = party();
+    f.state = "advance";
+    f.x = 600;
+    sim.step(100); // Ver.2 cadence: finalAttackSpeed / 6
+    expect(d.laserFxSeq).toBe(1);
+    expect(d.laserTargetId).toBe("enemy");
+    expect(e.hp).toBe(9990); // the same 20 %-of-Power bolt as the walking beam
+    expect(d.x).toBe(250); // it never left the station to do it
+  });
+
+  it("holds its fire with nobody ahead of it", () => {
+    const { sim, d, e } = party();
+    // The fighter is still in the charge queue: nothing deployed stands ahead of the
+    // Doctor, so there is no line to shoot over and the beam stays dark.
+    sim.step(500);
+    expect(d.laserFxSeq).toBe(0);
+    expect(e.hp).toBe(10_000);
+  });
+
+  it("leaves an ordinary walker's beam on the walking rule", () => {
+    // A Regular with the same beam, parked at the same spot with a fighter ahead: not a
+    // Garden, so the v50 branch is not its — it fires only while it walks, as before.
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const laser = unit({
+      id: "laser", sourceKey: "ZombieActorRegularTier4", team: "player",
+      abilities: ["zomBeam"], attackCooldownMs: 600,
+    });
+    const enemy = unit({
+      id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy",
+      hp: 10_000, maxHp: 10_000,
+    });
+    const sim = new BattleSim([fighter, laser], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const l = sim.units.find((u) => u.id === "laser")!;
+    const e = sim.units.find((u) => u.id === "enemy")!;
+    f.state = "advance";
+    f.x = 600;
+    l.state = "advance";
+    l.x = 300;
+    e.state = "hold";
+    e.x = ENEMY_HOLD_X;
+    sim.step(100);
+    expect(l.laserFxSeq).toBe(1); // it is walking to its slot, so the walking rule fires it
+    expect(l.walkingThisTick).toBe(true);
+  });
+});
