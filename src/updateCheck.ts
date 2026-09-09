@@ -76,6 +76,29 @@ function workerSettled(worker: ServiceWorker, timeoutMs: number): Promise<void> 
   });
 }
 
+/** Which worker, if any, a reload should activate first.
+ *
+ *  Split out of pwa.ts because getting it wrong is invisible and awful: a reload with
+ *  nothing waiting is served straight out of the precache, so a ruleset-skew prompt
+ *  reloads into the SAME stale bundle, skews against the same Worker and prompts again
+ *  — an unbreakable loop for the player. A skew prompt arrives with nothing waiting by
+ *  definition (the player never dismissed an update toast; the mismatch is what alerted
+ *  them), so "nothing waiting" must mean LOOK, not RELOAD ANYWAY. */
+export async function findWorkerToActivate(
+  registration: ServiceWorkerRegistration,
+  check: (
+    getRegistration: () => Promise<ServiceWorkerRegistration | null | undefined>,
+  ) => Promise<UpdateCheckResult> = checkRegistrationForUpdate,
+): Promise<{ worker: ServiceWorker } | { worker: null; reason: UpdateCheckResult }> {
+  if (registration.waiting) return { worker: registration.waiting };
+
+  const reason = await check(async () => registration);
+  // Re-read rather than trusting the verdict: the update may have installed a worker
+  // that was still "installing" when the poll timed out.
+  if (registration.waiting) return { worker: registration.waiting };
+  return { worker: null, reason };
+}
+
 /** Ask a waiting worker to take control and resolve only after the browser confirms
  *  activation. A false result means the caller should leave the page in place and
  *  offer another try; reloading before activation can serve the old app shell. */

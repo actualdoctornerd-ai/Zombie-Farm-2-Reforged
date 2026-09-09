@@ -16,6 +16,7 @@ import type { PlayMode } from "./playMode";
 import {
   activateWaitingWorker,
   checkRegistrationForUpdate,
+  findWorkerToActivate,
   type UpdateCheckResult,
 } from "./updateCheck";
 
@@ -38,12 +39,25 @@ async function activateWaitingWorkerAndReload(): Promise<void> {
     showUpdateRetryToast("The update couldn't start. Check your connection, then try again.");
     return;
   }
-  const waiting = registration?.waiting;
-  if (!waiting) {
-    // Ruleset-skew prompts can reuse this path when no update is waiting.
+  if (!registration) {
+    // No service worker at all (dev, or a browser without them): nothing can serve a
+    // stale shell, so a plain reload genuinely refetches.
     location.reload();
     return;
   }
+
+  // Nothing waiting means LOOK for an update, never reload anyway — see
+  // findWorkerToActivate for why a bare reload here loops the player forever.
+  const found = await findWorkerToActivate(registration);
+  if (!found.worker) {
+    // Genuinely nothing newer to install. Reloading cannot fix a skew on its own, so
+    // say what is true instead of bouncing the player through the same toast again.
+    showUpdateRetryToast(found.reason === "error"
+      ? "Couldn't reach the update server. Check your connection, then try again."
+      : "The new version isn't published yet. Try again in a minute.");
+    return;
+  }
+  const waiting = found.worker;
 
   const activated = await activateWaitingWorker(waiting, navigator.serviceWorker);
   if (activated) {

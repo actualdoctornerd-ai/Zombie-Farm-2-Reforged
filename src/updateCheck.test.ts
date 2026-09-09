@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   activateWaitingWorker,
   checkRegistrationForUpdate,
+  findWorkerToActivate,
   updateCheckMessage,
 } from "./updateCheck";
 
@@ -151,5 +152,69 @@ describe("update activation", () => {
 
     serviceWorkers.controllerChanged();
     await expect(pending).resolves.toBe(true);
+  });
+});
+
+// The update-loop guard. A ruleset-skew prompt always arrives with nothing waiting, so
+// this is the branch that decides between "look for a build" and "reload into the same
+// precached shell and prompt again", which is a loop the player cannot break out of.
+describe("findWorkerToActivate", () => {
+  it("activates a worker that is already waiting without polling", async () => {
+    const waiting = fakeWorker("installed") as unknown as ServiceWorker;
+    const check = vi.fn();
+    const found = await findWorkerToActivate(
+      { waiting } as unknown as ServiceWorkerRegistration,
+      check as never,
+    );
+
+    expect(found.worker).toBe(waiting);
+    expect(check).not.toHaveBeenCalled();
+  });
+
+  it("looks for an update when nothing is waiting, rather than reloading", async () => {
+    const waiting = fakeWorker("installed") as unknown as ServiceWorker;
+    const registration = { waiting: null as ServiceWorker | null };
+    // The poll is what installs the new build; the worker only appears afterwards.
+    const check = vi.fn(async () => {
+      registration.waiting = waiting;
+      return "update-ready" as const;
+    });
+
+    const found = await findWorkerToActivate(
+      registration as unknown as ServiceWorkerRegistration,
+      check as never,
+    );
+
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(found.worker).toBe(waiting);
+  });
+
+  it("reports no worker when the poll finds nothing, so the caller cannot reload", async () => {
+    const check = vi.fn(async () => "up-to-date" as const);
+
+    const found = await findWorkerToActivate(
+      { waiting: null } as unknown as ServiceWorkerRegistration,
+      check as never,
+    );
+
+    expect(found.worker).toBeNull();
+    expect(found).toMatchObject({ reason: "up-to-date" });
+  });
+
+  it("still activates a worker that finished installing after the poll gave up", async () => {
+    const waiting = fakeWorker("installed") as unknown as ServiceWorker;
+    const registration = { waiting: null as ServiceWorker | null };
+    // "error" (or a timed-out install) must not lose a worker that landed anyway.
+    const check = vi.fn(async () => {
+      registration.waiting = waiting;
+      return "error" as const;
+    });
+
+    const found = await findWorkerToActivate(
+      registration as unknown as ServiceWorkerRegistration,
+      check as never,
+    );
+
+    expect(found.worker).toBe(waiting);
   });
 });
