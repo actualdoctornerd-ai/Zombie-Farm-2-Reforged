@@ -51,6 +51,46 @@ describe("RaidActor mutation rendering", () => {
       .toBeGreaterThan(actor.getSizingBounds().height);
   });
 
+  // A zombie that HOLDS something tall (a flag, a mast, a raised blade) is otherwise
+  // measured as a flag-tall unit, and the raid's contain-fit shrinks the zombie to
+  // squeeze the prop into the unit box. The label says where the ZOMBIE ends.
+  const flagged = (topY?: number): GameAssets => {
+    const testAssets = assets();
+    testAssets.zombieModels.flag = {
+      ...model,
+      ...(topY === undefined ? {} : { topY }),
+      parts: [
+        ...model.parts,
+        { file: "defaultBody", group: "root", px: 0, py: -120, ax: 0.5, ay: 0.5, z: 9, tint: true },
+      ],
+    };
+    return testAssets;
+  };
+
+  it("sizes a labelled rig to its own top, not the top of its art", () => {
+    const unlabelled = new RaidActor(flagged(), "flag").getSizingBounds();
+    const labelled = new RaidActor(flagged(-30), "flag").getSizingBounds();
+
+    // MODEL_BASE 0.95 carries the label from model space into the container's.
+    expect(labelled.y).toBeCloseTo(-30 * 0.95, 5);
+    expect(labelled.y + labelled.height).toBeCloseTo(unlabelled.y + unlabelled.height, 5);
+    expect(labelled.height).toBeLessThan(unlabelled.height);
+    // The height the raid divides its role height by — so the zombie ends up bigger.
+    const actor = new RaidActor(flagged(-30), "flag");
+    expect(actor.getNativeSizingHeight())
+      .toBeCloseTo(actor.getSizingBounds().height / 0.95, 5);
+    expect(actor.getNativeSizingHeight())
+      .toBeLessThan(new RaidActor(flagged(), "flag").getNativeSizingHeight());
+  });
+
+  it("ignores a label that does not describe the assembled rig", () => {
+    const plain = new RaidActor(flagged(), "flag").getSizingBounds();
+    // Above the art entirely, and below the feet: both leave the rig measured whole
+    // rather than fitted to a nonsense height.
+    expect(new RaidActor(flagged(-400), "flag").getSizingBounds()).toEqual(plain);
+    expect(new RaidActor(flagged(50), "flag").getSizingBounds()).toEqual(plain);
+  });
+
   it("replaces BOTH base arms and animates the mirrored mutation pair", () => {
     const actor = new RaidActor(assets(), "test", 8);
     const root = (actor as unknown as { root: { children: unknown[] } }).root;

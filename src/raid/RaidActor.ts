@@ -2,7 +2,7 @@
 // model the farm uses (assets.zombieModels), with the SAME idle-tilt + leg-step
 // walk animation as ZombieUnit — just decoupled from the farm's field/pathing.
 // The scene positions it and tells it whether it's moving each frame.
-import { Container, Sprite, type Texture } from "pixi.js";
+import { Container, Rectangle, Sprite, type Texture } from "pixi.js";
 import { GameAssets, ZombieModel } from "../assets";
 import { slotOf } from "../zombie/mutations";
 import {
@@ -142,15 +142,37 @@ export class RaidActor {
    * Animated head effects can extend well above a headless body. Including those
    * particles in the contain-fit bounds makes decorated headless zombies smaller
    * than otherwise identical undecorated ones.
+   *
+   * A rig whose model carries a hand-labelled `topY` (Rig Studio → tops.json) is
+   * measured to THAT line instead of to the top of its art: an Admiral's flag, a
+   * Zomtar's horns, a Ninjombie's raised blade are held above the zombie rather than
+   * part of it, and fitting them into the unit box shrinks the zombie itself. What
+   * sticks out above the label simply overhangs, the way the head effects do.
    */
-  getSizingBounds() {
+  getSizingBounds(): Rectangle {
     const fx = this.specialHeadFx?.container;
-    if (!fx) return this.container.getLocalBounds();
+    if (fx) this.root.removeChild(fx);
+    // Cloned: Pixi hands back a shared Bounds/Rectangle it reuses on the next measure,
+    // and the sizing box outlives this call (RaidScene keeps it to place the rig).
+    const bounds = this.container.getLocalBounds().rectangle.clone();
+    if (fx) this.root.addChild(fx);
 
-    this.root.removeChild(fx);
-    const bounds = this.container.getLocalBounds();
-    this.root.addChild(fx);
+    const top = this.labelledTopY;
+    if (top === null) return bounds;
+    const bottom = bounds.y + bounds.height;
+    // Ignore a label that does not describe this assembly (below the feet, or above
+    // the art entirely) rather than fitting the rig to a nonsense height.
+    if (!(top > bounds.y && top < bottom)) return bounds;
+    bounds.y = top;
+    bounds.height = bottom - top;
     return bounds;
+  }
+
+  /** The model's labelled top in CONTAINER space (the rig is drawn through
+   *  `root.scale = renderScale`), or null when the rig carries no label. */
+  private get labelledTopY(): number | null {
+    const top = this.clipModel?.topY;
+    return typeof top === "number" && Number.isFinite(top) ? top * this.renderScale : null;
   }
 
   /** Rig height before its model-authored scale is applied. Farm actors use this

@@ -76,6 +76,14 @@ export interface ZombieModel {
    *  flipbook rig hangs no mutation art either: there is no head or arm slot to
    *  attach a vegetable to (mutationVisual.mutationPartFor). */
   flipbook?: ZombieFlipbook;
+  /** Model-space y of the zombie's OWN top — the crown of its head — when that sits
+   *  BELOW the top of its art. A rig that carries something tall (a flag, a mast, a
+   *  plume, an antenna) otherwise measures as a much taller unit than it reads as, and
+   *  the raid's contain-fit shrinks the body to squeeze the prop into the same box.
+   *  Labelled by hand in the Rig Studio and shipped in assets/zombie/tops.json; absent
+   *  means "measure the whole silhouette", which is right for every ordinary rig.
+   *  Negative (the rig stands with its feet at y=0 and grows upward). */
+  topY?: number;
 }
 export interface ZombieFlipbook {
   /** Texture keys (zombiePartTex) in play order; cycled at `fps` while idle/walking. */
@@ -269,6 +277,19 @@ export function mergeSpecialZombieModel(
     } : {}),
   };
 }
+/** Write the hand-labelled rig tops (assets/zombie/tops.json) onto the assembled
+ *  models. A label for a key this build does not carry is ignored rather than thrown:
+ *  the table is edited by hand in the Rig Studio and outlives any one rig. */
+export function applyZombieTops(
+  models: Record<string, ZombieModel>,
+  tops: Record<string, number>,
+): void {
+  for (const [key, topY] of Object.entries(tops ?? {})) {
+    const model = models[key];
+    if (model && Number.isFinite(topY)) model.topY = topY;
+  }
+}
+
 export interface ZombieDef {
   key: string;
   name: string;
@@ -949,7 +970,7 @@ export async function loadAssets(): Promise<GameAssets> {
   // Per-type zombie models: one shared atlas (ZombieSheet.png) sliced into part
   // sub-textures via frames.json, plus models.json (composition per unit type).
   const [zombieModels, zombieFrameTable, mutationParts, enemyModels,
-    specialModels, specialFrameTable, enemyClips, zombieClips] = await Promise.all([
+    specialModels, specialFrameTable, enemyClips, zombieClips, zombieTops] = await Promise.all([
     json<Record<string, ZombieModel>>(BASE + "assets/zombie/models.json"),
     json<FrameTable>(BASE + "assets/zombie/frames.json"),
     json<Record<string, MutationPart>>(BASE + "assets/zombie/mutations.json"),
@@ -961,6 +982,10 @@ export async function loadAssets(): Promise<GameAssets> {
     // missing file is the ordinary case rather than a failure. See raid/clipRuntime.ts.
     json<ClipSet>(BASE + "assets/raids/enemies/clips.json").catch(() => ({})),
     json<ClipSet>(BASE + "assets/zombie/clips.json").catch(() => ({})),
+    // Hand-labelled rig tops (Rig Studio → assets/zombie/tops.json). Optional the same
+    // way clips are: a rig with no label is measured whole, which is what every rig
+    // that carries nothing above its head wants.
+    json<Record<string, number>>(BASE + "assets/zombie/tops.json").catch(() => ({})),
   ]);
   // The two sheets load AFTER their frame tables, not alongside them: each table stamps
   // the digest of the sheet it was cut from, and that digest versions the sheet's URL.
@@ -1014,6 +1039,12 @@ export async function loadAssets(): Promise<GameAssets> {
       base, z, assembledManifest, (file) => `special:${z.key}:${file}`
     );
   }
+
+  // Hand-labelled tops, applied LAST so a named special takes its own label rather
+  // than the skeleton's: a merged model is a fresh object, so anything written before
+  // the merge above would be thrown away with it. One flat table covers both the base
+  // rigs and the specials because a top belongs to the ASSEMBLED zombie.
+  applyZombieTops(zombieModels, zombieTops);
 
   // Object sprites (197 of them) are loaded lazily — only when an object is
   // actually placed or restored — via ensureObjectTexture(). Market cards use

@@ -480,7 +480,7 @@ rig edits made there are still there.
 
 * **Rig** — the drag/rotate/pivot editor for the paper-doll rigs (zombie
   `models.json` and `raids/enemies/models.json`); its export round-trips the same schema
-  the runtime reads.
+  the runtime reads. It also labels a zombie's **top** — see below.
 * **Animation** — runs and EDITS the procedural animations that pose those rigs. Every
   rig arrives with the clips the game actually gives it, rebuilt from
   `src/raid/EnemyActor.ts` and `src/raid/RaidActor.ts`: idle, move, one clip per named
@@ -513,6 +513,26 @@ rig edits made there are still there.
 
 The side columns scroll, so a short window hides nothing: panels keep their height and
 the section headings stick to the top of the column.
+
+#### Labelling a zombie's top (raid sizing)
+
+A raid fits every zombie's whole silhouette into one unit box, which is right until a rig
+CARRIES something: the Admiral's plume, Zomtar's horns, the Master Ninjombie's raised
+blade. Measured flag and all, the zombie under it is squeezed small to make the prop fit.
+The Rig tab's **Rig top** panel (Zombies dataset) labels where the zombie itself ends —
+drag the pink `top` tab down onto the crown, type the number, or select the head and hit
+*↥ from selected part*; the readout says exactly how much bigger the fit becomes. The
+label is what the raid then sizes to, and whatever sticks out above it simply overhangs,
+the same way an animated head effect already does.
+
+Labels ship in **`public/assets/zombie/tops.json`** — a flat `actor key → model-space y`
+table, written by the tab's **⬇ tops.json** button, applied over the assembled models at
+load (`applyZombieTops` in `src/assets.ts`) and read by `RaidActor.getSizingBounds`. It
+is its own file rather than a field in `models.json` because a named special has no row
+there — its rig is merged at load — and a top belongs to the ASSEMBLED zombie. No label
+means "measure the whole rig", which is what every ordinary zombie wants; a label that
+does not lie inside the rig's own art is ignored at runtime and failed by
+`src/zombie/rigTops.test.ts`, so a stale one cannot sit there looking applied.
 
 Everything a rig or a boss stands on is a real raid stage, laid out the way `RaidScene`
 does it: the source 480x320 cocos design space, contain-fit, ground line at 0.9 of the

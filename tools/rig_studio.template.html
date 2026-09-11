@@ -242,6 +242,8 @@
         <h2>Model pivots &amp; flags</h2>
         <div id="pivotEditor"></div>
         <div class="flags" id="flagEditor"></div>
+        <h2 id="topHead">Rig top <span class="hint">(raid sizing)</span></h2>
+        <div id="topEditor"></div>
         <h2 style="display:flex;justify-content:space-between;align-items:center">
           Export <button class="mini primary" id="btnCopy" style="margin-right:10px">Copy model</button>
         </h2>
@@ -249,6 +251,7 @@
           <div class="row" style="margin-bottom:6px">
             <button class="mini" id="btnCopyAll" title="Copy the entire edited models.json">Copy ALL</button>
             <button class="mini" id="btnPaste" title="Paste a model JSON to replace the current model">Paste model</button>
+            <button class="mini" id="btnTops" title="Download every labelled rig top as public/assets/zombie/tops.json">⬇ tops.json</button>
           </div>
         </div>
         <textarea id="export" spellcheck="false" readonly></textarea>
@@ -653,6 +656,19 @@ const ZF = (() => {
     if (!any) return { x: 0, y: -50, w: 40, h: 50 };
     return { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
   }
+  /** The box a raid actually FITS to a role height: the rig's bounds, cut off at the
+   *  model's hand-labelled `topY` when it carries one. A zombie holding a flag is
+   *  otherwise measured as a flag-tall unit and shrunk to fit the prop in the box; the
+   *  label says where the ZOMBIE ends and lets the prop overhang. Mirrors
+   *  RaidActor.getSizingBounds, including its "ignore a nonsense label" guard. */
+  function sizingBounds(dsName, model) {
+    const b = rigBounds(dsName, model);
+    const top = model && model.topY;
+    if (typeof top !== "number" || !isFinite(top)) return b;
+    const bottom = b.y + b.h;
+    if (!(top > b.y && top < bottom)) return b;
+    return { x: b.x, y: top, w: b.w, h: bottom - top };
+  }
 
   // ---- tinting ------------------------------------------------------------
   // A zombie part marked `tint` takes the unit colour — the same multiply the
@@ -943,7 +959,7 @@ const ZF = (() => {
     partRect, partLabel, partMeta, pivotsOf, pivotPoint,
     targetsOf: (dsName, model) => targetsOf(RIGS[dsName].kind, model),
     resolveTarget: (dsName, model, target) => resolveTarget(RIGS[dsName].kind, model, target),
-    partCorners, rigBounds, tintedFrame, clearTint, drawRig,
+    partCorners, rigBounds, sizingBounds, tintedFrame, clearTint, drawRig,
     DESIGN_W, DESIGN_H, GROUND_FY, SIZE_REF_SCALE, ZOMBIE_H, ENEMY_H, BOSS_H,
     GROUND_NUDGE, UNIT_GROUND_NUDGE, FIELD_INSET_FX,
     STAGES, STAGE_IMG, stageTex, ensureStage, bgRect, drawStage, laneX, mapX, footY, parseVec,
@@ -1141,6 +1157,7 @@ const ZF = (() => {
     rebuildFrameList();
     updateAddUi();
     $("#btnLoadFrames").style.display = kind === "zombie" ? "" : "none";
+    $("#btnTops").style.display = kind === "zombie" ? "" : "none";
     rebuildModelSelect(false);
     ZF.status("storeStatus", d.autosave ? "💾 Restored your stored edits" : "", d.autosave ? "#3fb950" : "");
   }
@@ -1186,7 +1203,8 @@ const ZF = (() => {
     model.pivots = model.pivots || [];
     if (!keepSel) { sel = model.parts.length ? 0 : -1; hidden.clear(); }
     if (sel >= model.parts.length) sel = model.parts.length - 1;
-    rebuildLayers(); rebuildInspector(); rebuildPivotEditor(); rebuildFlags(); updateExport();
+    rebuildLayers(); rebuildInspector(); rebuildPivotEditor(); rebuildFlags();
+    rebuildTopEditor(); updateExport();
     if (!keepSel) fitView(); else draw();
   }
 
@@ -1394,6 +1412,104 @@ const ZF = (() => {
     }));
     box.appendChild(add);
   }
+  // ---- the rig top --------------------------------------------------------
+  // A zombie that HOLDS something tall — a flag, a mast, a raised blade, a plume —
+  // is measured by the raid's contain-fit as a much taller unit than it reads as, so
+  // the body shrinks to squeeze the prop into the unit box. Labelling the zombie's
+  // OWN top (its crown, which sits below the top of the art) is what the raid then
+  // sizes to; the prop simply overhangs. No label = measure the whole silhouette,
+  // which is right for every rig that carries nothing.
+  // Shipped as public/assets/zombie/tops.json; read back by src/assets.ts.
+  const TOP_TAB_X = 44;   // the grab tab's centre, in canvas px from the left edge
+  const topY = () => (model && typeof model.topY === "number" && Number.isFinite(model.topY)
+    ? model.topY : null);
+  /** Top edge of one part, in model px — what "from selected part" labels. */
+  function partTopY(i) {
+    const corners = ZF.partCorners(dsName, model.parts[i]);
+    if (!corners.length) return null;
+    return corners.reduce((m, c) => Math.min(m, c[1]), Infinity);
+  }
+  /** Move an EXISTING label. Kept off rebuildTopEditor so a drag does not rip the
+   *  number input out from under the pointer (or out from under a typing cursor). */
+  function setTop(v, snap) {
+    model.topY = snap ? Math.round(v) : v;
+    sync();
+    const inp = $("#topEditor").querySelector('input[type="number"]');
+    if (inp && document.activeElement !== inp) inp.value = round(model.topY);
+    drawTopReadout();
+  }
+  function rebuildTopEditor() {
+    const head = $("#topHead"), box = $("#topEditor");
+    const on = kind === "zombie";
+    head.style.display = on ? "" : "none";
+    box.style.display = on ? "" : "none";
+    if (!on) return;
+    box.innerHTML = "";
+    const b = ZF.rigBounds(dsName, model);
+    const top = topY();
+    const hint = el("div", "hint");
+    hint.style.padding = "0 8px 8px";
+    if (top == null) {
+      const pad = el("div", "pad");
+      pad.appendChild(mkBtn("+ label the top", () => {
+        pushUndo();
+        // Start at the art's own top: the line is then dragged DOWN onto the crown,
+        // which is the only direction this label ever moves.
+        model.topY = round(b.y);
+        sync(); rebuildTopEditor();
+      }));
+      box.appendChild(pad);
+      hint.innerHTML = "Unlabelled — the raid fits this rig's <b>whole</b> silhouette ("
+        + Math.round(b.h) + " px tall) into the unit box.";
+      box.appendChild(hint);
+      return;
+    }
+    const row = el("div", "pivotrow");
+    const dot = el("span", null, "▔"); dot.style.color = "var(--pink, #db61a2)";
+    const nm = el("span", null, "top y"); nm.style.flex = "1";
+    const y = document.createElement("input");
+    y.type = "number"; y.step = "0.5"; y.value = round(top);
+    y.addEventListener("focus", () => pushUndo("topy"));
+    y.addEventListener("input", () => {
+      const v = parseFloat(y.value);
+      if (Number.isFinite(v)) { model.topY = v; sync(); drawTopReadout(); }
+    });
+    row.append(dot, nm, y, mkBtn("×", () => {
+      pushUndo(); delete model.topY; sync(); rebuildTopEditor();
+    }, "danger"));
+    box.appendChild(row);
+    const pad = el("div", "pad");
+    const from = mkBtn("↥ from selected part", () => {
+      const t = sel >= 0 && model.parts[sel] ? partTopY(sel) : null;
+      if (t == null) {
+        ZF.status("storeStatus", "Select the part that IS the zombie's top first "
+          + "(the head, or its hat).", "#d29922");
+        return;
+      }
+      pushUndo(); setTop(round(t), false);
+    });
+    from.title = "Put the line on the top edge of the selected part — pick the head "
+      + "(or the hat) and the label lands exactly on the crown";
+    pad.appendChild(from);
+    box.appendChild(pad);
+    box.appendChild(hint);
+    drawTopReadout();
+  }
+  /** The one line that says what the label BUYS, refreshed on every drag. */
+  function drawTopReadout() {
+    const hint = $("#topEditor").querySelector(".hint");
+    if (!hint) return;
+    const b = ZF.rigBounds(dsName, model);
+    const top = topY();
+    if (top == null) return;
+    const over = Math.max(0, top - b.y);
+    const sized = Math.max(1, b.y + b.h - top);
+    hint.innerHTML = over < 0.5
+      ? "Label is at the top of the art — same size as no label at all."
+      : Math.round(over) + " px of art sits above the label. The raid sizes "
+        + Math.round(sized) + " px of zombie into the unit box (was " + Math.round(b.h)
+        + " px) — <b>" + (b.h / sized).toFixed(2) + "×</b> bigger — and lets the rest overhang.";
+  }
   function flagToggle(name, val, set) {
     const l = el("label", "toggle", '<input type="checkbox" ' + (val ? "checked" : "") + "/> " + name);
     l.querySelector("input").addEventListener("change", (e) => { pushUndo(); set(e.target.checked); sync(); });
@@ -1444,6 +1560,9 @@ const ZF = (() => {
     if (kind === "zombie") {
       const out = { name: m.name, neck: { x: m.neck.x, y: m.neck.y }, scale: m.scale };
       if (m.color) out.color = m.color;
+      // Shipped in tops.json, not models.json (a merged special has no row there) —
+      // carried through the export so a hand-pasted model keeps its label.
+      if (typeof m.topY === "number" && Number.isFinite(m.topY)) out.topY = r2(m.topY);
       if (m.pivots && m.pivots.length) out.pivots = m.pivots.map((p) => ({ name: p.name, x: r2(p.x), y: r2(p.y) }));
       out.parts = m.parts.map((p) => {
         const o = { file: p.file, group: p.group || "root", px: r2(p.px), py: r2(p.py), ax: r2(p.ax), ay: r2(p.ay), z: p.z, tint: !!p.tint };
@@ -1510,6 +1629,7 @@ const ZF = (() => {
     if (model.neck) drawPivot(model.neck.x, model.neck.y, "#f85149", "neck");
     if (model.shoulder) drawPivot(model.shoulder.x, model.shoulder.y, "#39c5cf", "shoulder");
     (model.pivots || []).forEach((pv) => drawPivot(pv.x, pv.y, "#d29922", pv.name || ""));
+    if (kind === "zombie" && topY() != null) drawTopLine(topY());
     $("#badge").textContent = model ? modelKey + " · " + model.parts.length + " parts" : "";
   }
   function drawGrid() {
@@ -1560,6 +1680,21 @@ const ZF = (() => {
     ctx.moveTo(s[0], s[1] - 7); ctx.lineTo(s[0], s[1] + 7);
     ctx.stroke();
     if (label) { ctx.fillStyle = color; ctx.font = "10px monospace"; ctx.fillText(label, s[0] + 8, s[1] - 4); }
+  }
+
+  /** The labelled top: a guide line across the stage with a grab tab at the left. */
+  function drawTopLine(y) {
+    const sy = w2s(0, y)[1];
+    ctx.save();
+    ctx.strokeStyle = "#db61a2"; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(0, sy + 0.5); ctx.lineTo(cssW, sy + 0.5); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#db61a2";
+    ctx.fillRect(TOP_TAB_X - 26, sy - 8, 52, 16);
+    ctx.fillStyle = "#14171c"; ctx.font = "10px monospace"; ctx.textAlign = "center";
+    ctx.fillText("top", TOP_TAB_X, sy + 4);
+    ctx.textAlign = "left";
+    ctx.restore();
   }
 
   // ---- interaction --------------------------------------------------------
@@ -1616,6 +1751,9 @@ const ZF = (() => {
       const q = w2s(model.pivots[i].x, model.pivots[i].y);
       if (dist2(m[0], m[1], q[0], q[1]) < 90) { pushUndo(); drag = { mode: "pivot", i }; return; }
     }
+    // Only the TAB grabs the top line: the line itself runs across the whole stage,
+    // right over the head it was just dragged onto, and would eat those clicks.
+    if (overTopTab(m[0], m[1])) { pushUndo(); drag = { mode: "top" }; return; }
     const w = s2w(m[0], m[1]);
     const hit = pickPart(w[0], w[1]);
     if (hit >= 0) {
@@ -1658,15 +1796,22 @@ const ZF = (() => {
     } else if (drag.mode === "neck") { setXY(model.neck, w[0], w[1], e.shiftKey); sync(); rebuildPivotEditor(); }
     else if (drag.mode === "shoulder") { setXY(model.shoulder, w[0], w[1], e.shiftKey); sync(); rebuildPivotEditor(); }
     else if (drag.mode === "pivot") { setXY(model.pivots[drag.i], w[0], w[1], e.shiftKey); sync(); rebuildPivotEditor(); }
+    else if (drag.mode === "top") { setTop(w[1], e.shiftKey); }
   });
   function setXY(o, x, y, snap) { o.x = snap ? Math.round(x) : x; o.y = snap ? Math.round(y) : y; }
   canvas.addEventListener("pointerup", (e) => {
     drag = null;
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   });
+  function overTopTab(mx, my) {
+    if (kind !== "zombie" || topY() == null) return false;
+    const sy = w2s(0, topY())[1];
+    return Math.abs(my - sy) <= 9 && Math.abs(mx - TOP_TAB_X) <= 30;
+  }
   function hoverCursor(mx, my) {
     let c = "default";
     if (spaceDown) c = "grab";
+    else if (overTopTab(mx, my)) c = "ns-resize";
     else if (model) {
       const w = s2w(mx, my);
       if (sel >= 0 && model.parts[sel]) {
@@ -1759,6 +1904,21 @@ const ZF = (() => {
   $("#btnCopy").addEventListener("click", () => ZF.copyText($("#export").value, $("#btnCopy"), "Copy model"));
   $("#btnCopyAll").addEventListener("click", () => {
     ZF.copyText(JSON.stringify(allSerialized(), null, 1), $("#btnCopyAll"), "Copy ALL");
+  });
+  // The labels do NOT ride models.json: the specials in this dataset are MERGED
+  // rigs with no row of their own there. One flat key -> y table, which src/assets.ts
+  // lays over every assembled model (base and special alike) at load.
+  $("#btnTops").addEventListener("click", () => {
+    const out = {};
+    let n = 0;
+    for (const k of Object.keys(models).sort()) {
+      const t = models[k] && models[k].topY;
+      if (typeof t === "number" && Number.isFinite(t)) { out[k] = r2(t); n++; }
+    }
+    ZF.download("tops.json", JSON.stringify(out, null, 1) + "\n");
+    ZF.status("storeStatus",
+      "⬇ tops.json (" + n + " labelled) — drop it in public/assets/zombie/",
+      n ? "#58a6ff" : "#d29922");
   });
   $("#btnPaste").addEventListener("click", async () => {
     let txt = "";
@@ -2489,9 +2649,13 @@ const CLIPS = {
     const defaultMirror = ZF.RIGS[dsName].kind === "zombie";
     const mirror = $("#aMirror").checked ? !defaultMirror : defaultMirror;
     const facing = mirror ? -1 : 1;
+    // On a stage the rig is fitted to its role height the way RaidScene does it —
+    // to the LABELLED top when the model carries one. The "rig" role is a plain
+    // look-at-the-whole-thing preview, so it keeps the full silhouette.
+    const sb = ZF.sizingBounds(dsName, model);
     const s = role === "rig"
       ? Math.min((cssW * 0.55) / b.w, (cssH * 0.62) / b.h) * zoomMul
-      : (targetH / Math.max(1, b.h)) * r.sizeScale * zoomMul;
+      : (targetH / Math.max(1, sb.h)) * r.sizeScale * zoomMul;
     // RaidScene pulls an over-wide enemy rig forward (screen-left) so it does not
     // overhang the stage; the nudge is a fraction of the RENDERED width.
     const forwardX = (ZF.SCENE.enemyForwardFX || {})[modelKey] ? (ZF.SCENE.enemyForwardFX[modelKey] * b.w * s) : 0;
@@ -3567,7 +3731,7 @@ const CLIPS = {
     const role = u.team === "player" ? "zombie" : (/Boss/i.test(u.key) ? "boss" : "enemy");
     const bossScale = (ZF.SCENE.bossHScale || {})[u.key] || 1;
     const targetH = role === "zombie" ? ZF.ZOMBIE_H : role === "boss" ? ZF.BOSS_H * bossScale : ZF.ENEMY_H;
-    const s = (targetH / Math.max(1, b.h)) * r.sizeScale;
+    const s = (targetH / Math.max(1, ZF.sizingBounds(u.ds, u.model).h)) * r.sizeScale;
     const forwardX = (ZF.SCENE.enemyForwardFX || {})[u.key] ? (ZF.SCENE.enemyForwardFX[u.key] * b.w * s) : 0;
     const x = ZF.laneX(r, u.laneF) - forwardX;
     const y = ZF.footY(r);

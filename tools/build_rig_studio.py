@@ -213,6 +213,15 @@ def build_zombie() -> dict:
             "color": manifest.get("color", base.get("color")),
             "parts": sorted(inherited + dedicated, key=lambda p: p["z"]),
         }
+    # Hand-labelled rig tops (the Rig tab's top line -> tops.json, read at runtime by
+    # src/assets.ts). Laid over the ASSEMBLED models the same way the game does it, so
+    # the studio opens a rig with the label it actually ships with. Optional file.
+    tops_path = zdir / "tops.json"
+    tops = load_json(tops_path) if tops_path.exists() else {}
+    for key, top in tops.items():
+        if key in models and isinstance(top, (int, float)):
+            models[key]["topY"] = top
+
     buf = io.BytesIO(); atlas.save(buf, "PNG", optimize=True)
     return {
         "kind": "zombie",
