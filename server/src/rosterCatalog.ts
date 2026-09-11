@@ -3,6 +3,7 @@ import zombieRows from "../../public/assets/zombies.json";
 import {
   BLACK_MARKET_CLASS_FILTERS,
   BLACK_MARKET_GROUP_FILTERS,
+  blackMarketSpecialLevel,
   type BlackMarketFilterOption,
 } from "../../src/blackMarketRules";
 import { OBJECTS } from "./objectCatalog";
@@ -157,8 +158,6 @@ const TRADABLE_ZOMBIES = new Set(
   (zombieRows as Array<{ key: string }>).map((zombie) => zombie.key)
 );
 
-export const BLACK_MARKET_SPECIAL_LEVEL = 20;
-
 export interface BlackMarketPurchaseRequirement {
   minLevel?: number;
 }
@@ -176,7 +175,7 @@ const BLACK_MARKET_REQUIREMENTS = new Map(
       : undefined;
     const colorLevel = color ? OBJECTS[BLACK_MARKET_COLOR_GRAVESTONES[color]].level : 0;
     const minLevel = Math.max(
-      zombie.category === "special" ? BLACK_MARKET_SPECIAL_LEVEL : 0,
+      zombie.category === "special" ? blackMarketSpecialLevel(zombie.key) : 0,
       colorLevel
     );
     return [zombie.key, {
@@ -187,7 +186,10 @@ const BLACK_MARKET_REQUIREMENTS = new Map(
 
 /** Requirements for receiving a zombie through the Black Market. Ordinary catalog
  * level requirements intentionally do not apply. Colored classes use the level that
- * unlocks their gravestone; special zombies additionally require level 20. */
+ * unlocks their gravestone; a special uses the level its own source opens at — its
+ * invasion, its Epic Boss event, or the Zombie Pot — under a level-25 floor
+ * (blackMarketSpecialLevel). This is the authoritative half of the same rule the
+ * client shows as a lock on the card. */
 export function blackMarketPurchaseRequirement(key: string): BlackMarketPurchaseRequirement | null {
   return BLACK_MARKET_REQUIREMENTS.get(key) ?? null;
 }

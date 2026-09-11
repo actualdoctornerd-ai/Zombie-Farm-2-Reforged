@@ -5,8 +5,10 @@
 > server-authoritative; the nav reshuffle described below (Social hub, Epic Bosses moved out
 > of the standalone Boss button) is done. Three things have changed since: buy orders can now
 > demand **specific mutations** (`mutation_required`, migration `0030`), delivery is gated
-> on the recipient (level 20 for special zombies; levels 1/15/25 for Blue/Red/Silver classes,
-> matching their gravestone unlocks but not requiring grave ownership), and a post is priced in
+> on the recipient (a special zombie needs the level its own invasion / Epic Boss event / the
+> Zombie Pot opens at, under a floor of 25 — see `../docs/SPECIAL_ZOMBIE_ACQUISITION.md`;
+> Blue/Red/Silver classes need levels 1/15/25, matching their gravestone unlocks but not
+> requiring grave ownership), and a post is priced in
 > **gold or brains** over the wider range `1 … 10,000,000` (`currency`, migration `0045`) — so
 > every "brains" below should be read as "the post's own currency". For current behavior read
 > `../SECURITY.md` (Black Market section) and

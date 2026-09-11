@@ -1,8 +1,9 @@
-import { Renderer, Texture } from "pixi.js";
+import { Container, Renderer, Texture } from "pixi.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GameAssets, ZombieModel } from "../assets";
 import {
-  buildZombiePortraitRig, validatePortraitDataUrl, MutationPortraits, MAX_PORTRAIT_ATTEMPTS,
+  buildZombiePortraitRig, portraitFrameTop, validatePortraitDataUrl, MutationPortraits,
+  MAX_PORTRAIT_ATTEMPTS,
 } from "./mutationPortrait";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -219,6 +220,84 @@ describe("portrait extraction scheduling", () => {
 
     await expect(portraits.get("test", 1)).resolves.toBe("data:image/png;base64,ok");
   });
+
+// A card's portrait box fits the image by `contain`, so a rig that CARRIES something
+// tall is shrunk to squeeze the prop in and its face ends up two thirds the size of an
+// ordinary zombie's. The hand-labelled top (assets/zombie/tops.json) frames the card to
+// the zombie instead. See src/raid/RaidActor.ts for the same rule in a raid.
+describe("a labelled rig's portrait frame", () => {
+  /** The test rig plus a banner held high above its head. */
+  const flagged = (topY?: number): ZombieModel => ({
+    ...model,
+    ...(topY === undefined ? {} : { topY }),
+    parts: [
+      ...model.parts,
+      { file: "banner", group: "root", px: 0, py: -120, ax: 0.5, ay: 0.5, z: 1, tint: false },
+    ],
+  });
+  const flaggedAssets = (m: ZombieModel) => ({
+    ...assets,
+    zombieModels: { ...assets.zombieModels, test: m },
+    zombiePartTex: { ...assets.zombiePartTex, banner: Texture.EMPTY, tallHat: Texture.EMPTY },
+    mutationParts: {
+      ...assets.mutationParts,
+      // A crop hat that rears up well above the crown — the flytrap collar does exactly
+      // this on seven of the eight rigs labelled so far.
+      "2": { file: "tallHat", group: "head", headRel: true, ox: 0, oy: 60, ax: 0.5, ay: 0.5, z: 5 },
+    },
+  }) as unknown as GameAssets;
+  const frameTop = (m: ZombieModel, mutation = 0) => {
+    const a = flaggedAssets(m);
+    const rig = buildZombiePortraitRig(a, "test", mutation);
+    const target = new Container();
+    target.addChild(rig);
+    return portraitFrameTop(rig, m, target.getLocalBounds());
+  };
+
+  it("frames to the label instead of the top of the art", () => {
+    // Texture.EMPTY is 1x1, so a centred sprite reaches half a pixel past its y.
+    expect(frameTop(flagged())).toBe(-120.5);    // unlabelled: the banner sets the top
+    expect(frameTop(flagged(-34))).toBe(-34);    // labelled: the zombie's own crown
+  });
+
+  it("carries the label through the model's own scale", () => {
+    expect(frameTop({ ...flagged(-34), scale: 0.5 })).toBe(-17);
+  });
+
+  it("ignores a label that does not describe the rig", () => {
+    expect(frameTop(flagged(-400))).toBe(-120.5); // above the art entirely
+    expect(frameTop(flagged(40))).toBe(-120.5);   // below the feet
+  });
+
+  it("never crops mutation art, whatever the label says", () => {
+    // The hat sits at neck.y - oy = -80, above the -34 label: a card exists to show
+    // what the zombie is wearing, so the frame opens back up for it.
+    expect(frameTop(flagged(-34), 2)).toBe(-80.5);
+    // ...but only as far as the mutation reaches, not back to the banner.
+    expect(frameTop(flagged(-34), 1)).toBe(-34);
+  });
+
+  it("extracts the cropped frame, not the whole silhouette", async () => {
+    stubOpaqueDecode();
+    const renderer = fakeRenderer(async () => "data:image/png;base64,ok");
+    const labelled = new MutationPortraits(renderer, flaggedAssets(flagged(-34)));
+    await labelled.get("test", 0);
+    const cropped = (renderer.extract.base64 as unknown as
+      { mock: { calls: [{ frame: { y: number; height: number } }][] } }).mock.calls[0][0].frame;
+
+    const plainRenderer = fakeRenderer(async () => "data:image/png;base64,ok");
+    const plain = new MutationPortraits(plainRenderer, flaggedAssets(flagged()));
+    await plain.get("test", 0);
+    const whole = (plainRenderer.extract.base64 as unknown as
+      { mock: { calls: [{ frame: { y: number; height: number } }][] } }).mock.calls[0][0].frame;
+
+    expect(cropped.y).toBeGreaterThan(whole.y);
+    expect(cropped.height).toBeLessThan(whole.height);
+    // Same feet, so the zombie is the same size in rig space — only the empty prop
+    // space above it is gone, which is what makes it bigger in the card's box.
+    expect(cropped.y + cropped.height).toBeCloseTo(whole.y + whole.height, 5);
+  });
+});
 
   it("gives up on a portrait that keeps failing instead of retrying it forever", async () => {
     stubOpaqueDecode();

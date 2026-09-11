@@ -66,8 +66,8 @@ The mutations count for stats but draw no art on an Epic prize yet
 ## Market: Special zombie crops (5)
 
 These five permanent specials cost **5 brains** to plant (the 50-brain figure predates the
-brainflation revert). Their unlock levels are **not** uniform, and are not level 20 — that
-figure is the Black Market *delivery* gate below, not the planting gate. Per `zombies.json`,
+brainflation revert). Their unlock levels are **not** uniform, and are not the Black Market's
+level-25 floor — that figure is the *delivery* gate below, not the planting gate. Per `zombies.json`,
 most `Tier5` crops unlock at level **1**; `ZombieActorRegularTier5` at **15** and
 `ZombieActorLargeTier5` at **20**.
 
@@ -85,7 +85,8 @@ prize on an elite win is the **Boss Zombie**: the same seven frames under a pale
 above the prize line and then, like the base, a fifth off its con (~2,030 with the damage set, a
 hair under the Vagabond), and at 4.5% on a ticket win of the hardest invasion the rarest zombie
 in the game. A special like the other prizes — `category: "special"`, the
-Special class, group Regular — so Zombie Pot slot 1 only and the level-20 Black Market gate;
+Special class, group Regular — so Zombie Pot slot 1 only, and a level-43 Black Market gate (the
+invasion's own unlock level, the highest in the game);
 never planted (`marketHidden`), its **6 brain** cost is its sell / trade value. Level **43** is
 the invasion's own unlock level. Its
 stats were fitted to the prize line at level 43 (the same line the Epic and invasion prizes sit
@@ -137,15 +138,31 @@ elite win at the 4.5% cap. See `src/raid/zombieDrops.ts` and the rare-zombie sec
 Delivery is gated on the **recipient**, checked pre-flight and re-checked as a SQL guard inside
 the fulfillment transaction (`server/src/rosterCatalog.ts`, `server/src/v3/blackMarket.ts`):
 
-- **Player level 20** for any `special`-category zombie (`BLACK_MARKET_SPECIAL_LEVEL`); a failure
-  returns `403 black_market_level_locked`.
+- **The level that special's own source opens at**, never below a floor of **25**
+  (`blackMarketSpecialLevel`, over `specialZombieSourceLevel` in `src/zombie/specialUnlock.ts`); a
+  failure returns `403 black_market_level_locked`. The source is read off the system that actually
+  grants the zombie, so a re-tuned invasion or a re-ordered Epic ladder moves the gate with it:
+
+  | Source | Level read from | Gate |
+  |---|---|---|
+  | Invasion prize (ordinary or elite) | that raid's `unlockLevel` | Ninjas 26, Robots 31, Aliens 36, Video Games 43; Lawyers/Pirates/Circus/seasonals fall to the floor |
+  | Epic Boss prize | `EPIC_BOSS_UNLOCK_LEVELS` | Bully Frog 28, Rocky Rhino 30, Larvaelus 32, Mamba 34, Foul Owl 38, Skunkarella 40, Loco Locust 42; Dr. Groundhog (24) falls to the floor |
+  | Zombie Pot tier-5 promotion | `COMBINE_SPECIAL_LEVEL` | 25 |
+  | No live source (the orphaned seasonals) | — | 25 |
+
+  An elite prize gates with its raid, not above it: an elite win is a harder fight of the same
+  invasion, not a later one. A zombie with more than one route takes the **earliest** of them.
 - **Player level 1/15/25** for the Blue/Red/Silver colored classes (29 units across the catalog
   carry a `className`), matching the level that unlocks each class's gravestone. The gravestone
   does not need to be owned or placed. A failure returns `403 black_market_level_locked`.
 
 Note the framing difference from the rest of this document: the Black Market **bypasses ordinary
-crop unlock levels entirely**. Level 20 for specials and the class-level thresholds for colored
-zombies are the *only* gates, so a zombie whose planting route would be locked can still arrive by trade.
+crop unlock levels entirely**. The source-level gate above and the class-level thresholds for
+colored zombies are the *only* gates, so a zombie whose planting route would be locked can still
+arrive by trade — but no longer one whose *source* is still locked. The five brain-market specials
+are the one place the ordinary Market is briefly ahead of the trade: they plant at level 20 and
+trade at the floor's 25 (`specialUnlock.test.ts` pins the floor at or above every market special,
+so a future one authored past it moves the floor rather than being left behind it).
 
 ## Combining
 

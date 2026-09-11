@@ -534,6 +534,19 @@ means "measure the whole rig", which is what every ordinary zombie wants; a labe
 does not lie inside the rig's own art is ignored at runtime and failed by
 `src/zombie/rigTops.test.ts`, so a stale one cannot sit there looking applied.
 
+The same label frames a **card portrait**. An owned zombie's portrait is extracted live
+(`src/zombie/mutationPortrait.ts`) and cropped to the rig's own bounds, and the card's
+portrait box fits that image by `contain` — so a flag-carrying rig was shrunk there for
+exactly the reason it was shrunk in a raid. `portraitFrameTop` crops to the label
+instead, and the prop is cropped by the frame the way it overhangs the raid's unit box.
+Two things are never cropped: a label outside the rig's art (ignored, as above) and
+MUTATION art, which always wins over the label — a crop hat that rears above the crown
+(the flytrap collar does on five of the eight rigs labelled so far) reopens the frame,
+because showing what a zombie is wearing is the whole job of the card. The BAKED
+species portraits (`tools/prep_zombie_models.py`) need no such rule: they are composited
+onto one fixed 160x180 canvas with the feet at a fixed point, so every zombie is already
+drawn at one scale and a tall rig simply uses more of the canvas.
+
 Everything a rig or a boss stands on is a real raid stage, laid out the way `RaidScene`
 does it: the source 480x320 cocos design space, contain-fit, ground line at 0.9 of the
 stage height, units fitted to their role height. (The Epic Boss stages' `isScrolling` /

@@ -3,7 +3,7 @@ import {
   call, grantBalance as setBalance, grantLevel, grantRoster,
   signIn as authSignIn, uniqueSub, xpForLevel, type Session,
 } from "./helpers";
-import { BLACK_MARKET_MIN_LEVEL } from "../../../src/blackMarketRules";
+import { BLACK_MARKET_MIN_LEVEL, BLACK_MARKET_SPECIAL_FLOOR_LEVEL } from "../../../src/blackMarketRules";
 
 // The Black Market opens at BLACK_MARKET_MIN_LEVEL and the Worker enforces that floor
 // on every post and every trade, so each account here trades from that level up. The
@@ -189,7 +189,7 @@ describe("Black Market", () => {
     expect(await browse("&zombieClass=Chartreuse")).toEqual([...units.map((unit) => unit.key)].sort());
   });
 
-  it("requires level 20 before requesting or purchasing a special zombie", async () => {
+  it("gates a special zombie at its source's level, never below the floor", async () => {
     const seller = await signIn(uniqueSub("market-special-level-seller"));
     const buyer = await signIn(uniqueSub("market-special-level-buyer"));
     const unitId = `market-special-level-${crypto.randomUUID()}`;
@@ -220,13 +220,33 @@ describe("Black Market", () => {
     });
     expect(locked).toMatchObject({ status: 403, body: { error: "black_market_level_locked" } });
 
-    await grantBalance(buyer, { xp: xpForLevel(20) });
-    const buyerAt20 = await bootstrap(buyer);
+    // ZomBetty has no live source of any kind, so she sits on the bare floor.
+    await grantBalance(buyer, { xp: xpForLevel(BLACK_MARKET_SPECIAL_FLOOR_LEVEL) });
+    const buyerAtFloor = await bootstrap(buyer);
     const fulfilled = await call("POST", `/black-market/orders/${created.body.order.id}/fulfill`, buyer.token, {
       operationId: operation("special-level-unlocked"),
-      expectedAccountVersion: buyerAt20.accountVersion,
+      expectedAccountVersion: buyerAtFloor.accountVersion,
     });
-    expect(fulfilled.status).toBe(200);
+    expect(fulfilled.status, JSON.stringify(fulfilled.body)).toBe(200);
+
+    // A special whose own source opens later stays locked at the floor: the Zastronaut
+    // comes off the Aliens, and the Aliens do not unlock until 36.
+    const alienUnitId = `market-alien-level-${crypto.randomUUID()}`;
+    await grantRoster(seller, [{ id: alienUnitId, key: "ZombieActorZastronaut" }]);
+    const sellerAfter = await bootstrap(seller);
+    const alienSale = await call<any>("POST", "/black-market/orders", seller.token, {
+      operationId: operation("special-level-alien-sale"),
+      expectedAccountVersion: sellerAfter.accountVersion,
+      kind: "SELL_ZOMBIE", unitId: alienUnitId, priceBrains: 1,
+    });
+    expect(alienSale.status, JSON.stringify(alienSale.body)).toBe(200);
+
+    const buyerAfter = await bootstrap(buyer);
+    const alienLocked = await call("POST", `/black-market/orders/${alienSale.body.order.id}/fulfill`, buyer.token, {
+      operationId: operation("special-level-alien-locked"),
+      expectedAccountVersion: buyerAfter.accountVersion,
+    });
+    expect(alienLocked).toMatchObject({ status: 403, body: { error: "black_market_level_locked" } });
   });
 
   it("unlocks a colored zombie at its gravestone level without requiring the gravestone", async () => {

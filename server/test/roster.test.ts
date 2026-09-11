@@ -73,8 +73,12 @@ describe("rosterCatalog", () => {
     expect(blackMarketPurchaseRequirement("ZombieActorSmallTier2")).toEqual({ minLevel: 1 });
     expect(blackMarketPurchaseRequirement("ZombieActorRegularTier3")).toEqual({ minLevel: 15 });
     expect(blackMarketPurchaseRequirement("ZombieActorLargeTier4")).toEqual({ minLevel: 25 });
-    expect(blackMarketPurchaseRequirement("ZombieActorGardenTier3GreenFlower")).toEqual({ minLevel: 20 });
-    expect(blackMarketPurchaseRequirement("ZombieActorZomBetty")).toEqual({ minLevel: 20 });
+    // A special takes its OWN source's unlock level under a level-25 floor, so the
+    // authoritative gate matches the lock the client draws on the card.
+    expect(blackMarketPurchaseRequirement("ZombieActorGardenTier3GreenFlower")).toEqual({ minLevel: 25 });
+    expect(blackMarketPurchaseRequirement("ZombieActorZomBetty")).toEqual({ minLevel: 25 });
+    expect(blackMarketPurchaseRequirement("ZombieActorZastronaut")).toEqual({ minLevel: 36 }); // Aliens
+    expect(blackMarketPurchaseRequirement("ZombieActorVagabond")).toEqual({ minLevel: 42 }); // Loco Locust
     expect(blackMarketPurchaseRequirement("ZombieActorMadeUp")).toBeNull();
   });
 });

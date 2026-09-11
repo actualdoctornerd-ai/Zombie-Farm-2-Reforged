@@ -3707,7 +3707,7 @@ export class Hud {
       const card = cardFor(key);
       if (!card) return null;
       return blackMarketPurchaseLock(
-        { category: card.category, unlockGrave: card.cfg.unlockGrave },
+        { key: card.cfg.key, category: card.category, unlockGrave: card.cfg.unlockGrave },
         this.state.level
       );
     };

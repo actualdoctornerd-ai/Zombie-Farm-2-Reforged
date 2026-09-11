@@ -22,6 +22,13 @@ import { classify } from "./taxonomy";
 
 const MUT_BASE_FOREGROUND_Z = 30;
 
+/** The sprites in a portrait rig that came from MUTATION art rather than from the
+ *  zombie's own parts. A card exists to show what the zombie is wearing, so the
+ *  frame that crops a labelled rig (see portraitFrameTop) must never cut these —
+ *  several crop hats rear up well above the crown a top label marks. Marked here,
+ *  at the one place they are built, rather than re-derived from their placement. */
+const MUTATION_SPRITES = new WeakSet<Sprite>();
+
 /** Ensure a renderer extraction contains at least one visible pixel before it is
  * allowed to replace a known-good catalog portrait. Some browser/GPU combinations
  * have returned a valid transparent PNG instead of rejecting the extraction. */
@@ -130,6 +137,7 @@ export function buildZombiePortraitRig(
       }
     }
     sprite.zIndex = mutationPartZIndex(bit, part.group, part.z);
+    MUTATION_SPRITES.add(sprite);
     root.addChild(sprite);
     // A crop arm claims BOTH arms, so the card shows the same mirrored pair the
     // farm and battlefield rigs assemble.
@@ -143,6 +151,7 @@ export function buildZombiePortraitRig(
         back.scale.set(at.scale);
         back.tint = at.tint;
         back.zIndex = at.z;
+        MUTATION_SPRITES.add(back);
         root.addChild(back);
       }
     }
@@ -150,6 +159,37 @@ export function buildZombiePortraitRig(
 
   root.scale.set(model.scale ?? 1);
   return root;
+}
+
+/**
+ * Top edge of the portrait frame, in the rig's own (scaled) space.
+ *
+ * A card's portrait box fits the extracted image by `contain`, so a rig that carries
+ * something tall — the Admiral's plume, Zomtar's headdress, the Master Ninjombie's
+ * banner — is shrunk to squeeze the prop into the box and its face ends up two thirds
+ * the size of an ordinary zombie's beside it. A rig with a hand-labelled `topY`
+ * (Rig Studio -> assets/zombie/tops.json) is framed to that line instead, so the
+ * zombie itself fills the box and the prop is cropped by the frame — the portrait
+ * equivalent of the overhang the raid gives it.
+ *
+ * Two things are never cropped: a label that does not lie inside this rig's art is
+ * ignored (the same guard RaidActor.getSizingBounds applies), and mutation art always
+ * wins over the label, because showing what a zombie is wearing is the whole job of
+ * the card.
+ */
+export function portraitFrameTop(
+  rig: Container, model: ZombieModel, bounds: { y: number; height: number },
+): number {
+  const label = model.topY;
+  if (typeof label !== "number" || !Number.isFinite(label)) return bounds.y;
+  const scaled = label * (model.scale ?? 1);
+  if (!(scaled > bounds.y && scaled < bounds.y + bounds.height)) return bounds.y;
+  let top = scaled;
+  for (const child of rig.children) {
+    if (!(child instanceof Sprite) || !MUTATION_SPRITES.has(child) || !child.visible) continue;
+    top = Math.min(top, child.getBounds().y);
+  }
+  return Math.max(bounds.y, top);
 }
 
 /** How many times one key/mask/color may fail before it stops being retried. A
@@ -270,12 +310,14 @@ export class MutationPortraits {
     const target = new Container();
     target.addChild(rig);
     const bounds = target.getLocalBounds();
+    const model = this.assets.zombieModels[key] ?? this.assets.zombieModels["ZombieActorRegularTier1"];
+    const top = model ? portraitFrameTop(rig, model, bounds) : bounds.y;
     const pad = 8;
     const frame = new Rectangle(
       bounds.x - pad,
-      bounds.y - pad,
+      top - pad,
       Math.max(1, bounds.width + pad * 2),
-      Math.max(1, bounds.height + pad * 2),
+      Math.max(1, bounds.y + bounds.height - top + pad * 2),
     );
     try {
       const source = await this.renderer.extract.base64({

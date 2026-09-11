@@ -226,9 +226,12 @@ them reaches the trail.
   slot in the mask must be satisfied; bits within one slot are OR-alternatives; unrequested extra
   mutations are allowed. The match is compiled into SQL and re-checked inside the fulfillment
   transaction, not merely pre-flight.
-- Delivery is gated on the **recipient**: `special`-category zombies require player level 20, and
-  Blue/Red/Silver classes require the level that unlocks their gravestone (1/15/25), without
-  requiring the gravestone itself (`server/src/rosterCatalog.ts`).
+- Delivery is gated on the **recipient**: a `special`-category zombie requires the level at which
+  its own source opens — the invasion's `unlockLevel`, the Epic Boss event's, or the Zombie Pot's —
+  under a floor of 25 (`src/zombie/specialUnlock.ts`), so trading cannot hand a mid-game farm a
+  prize from an invasion it has not unlocked; Blue/Red/Silver classes require the level that
+  unlocks their gravestone (1/15/25), without requiring the gravestone itself
+  (`server/src/rosterCatalog.ts`).
   Checked pre-flight and re-checked as a SQL guard inside the fulfillment claim.
 - Fulfillment settles both deliveries atomically against authoritative roster/balance state;
   cancellation returns the escrow. Orders cannot be self-fulfilled or double-settled.

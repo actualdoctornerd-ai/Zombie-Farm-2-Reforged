@@ -5,7 +5,22 @@
  *  (create + fulfill), so the lock is real rather than a hidden button. */
 export const BLACK_MARKET_MIN_LEVEL = 10;
 
-export const BLACK_MARKET_SPECIAL_LEVEL = 20;
+/** Floor under every special-zombie purchase.
+ *
+ *  The Black Market was the game's shortcut past its own progression: one level-20 gate
+ *  covered the whole special category, so a farm that had just cleared the Lawyers could
+ *  buy an Aliens Cozmonaut or a Loco Locust Vagabond outright — the two strongest things
+ *  in the game — for gold someone else had earned. A special is now gated at the level its
+ *  OWN source opens (`specialZombieSourceLevel`: the invasion's unlock level, the Epic
+ *  Boss event's, the Zombie Pot's), held under this floor. Trading still bypasses crop
+ *  planting levels and still saves a player the grind; what it no longer does is skip the
+ *  ladder.
+ *
+ *  25 rather than 20 so the floor sits on the Zombie Pot's own promotion level
+ *  (COMBINE_SPECIAL_LEVEL) — the earliest point at which a player makes a special of their
+ *  own — and so the five brain-market specials, which a level-20 farm can already plant,
+ *  are the only place the market is briefly ahead of the trade. */
+export const BLACK_MARKET_SPECIAL_FLOOR_LEVEL = 25;
 export const BLACK_MARKET_COLOR_LEVELS = {
   Blue: 1,
   Red: 15,
@@ -15,6 +30,8 @@ export const BLACK_MARKET_COLOR_LEVELS = {
 export type BlackMarketPurchaseLock = { kind: "level"; level: number; label: string };
 
 export interface BlackMarketZombieRequirement {
+  /** Catalog key — what decides a special's own source level. */
+  key?: string;
   category?: "normal" | "special" | "mutant";
   unlockGrave?: "Blue" | "Red" | "Silver";
 }
@@ -74,14 +91,26 @@ export function blackMarketComposeDefaults(
   };
 }
 
-/** Black Market purchases ignore ordinary crop unlock levels. Colored classes unlock
- * at their gravestone's level, while every special zombie also has a level-20 gate. */
+/** The level a BUYER must have reached to receive `key`, if it is a special: the level
+ *  its own invasion / Epic Boss event / the Zombie Pot opens at, never below
+ *  BLACK_MARKET_SPECIAL_FLOOR_LEVEL. A special with no live source (the orphaned
+ *  seasonals, tradable only because old saves hold them) takes the bare floor. */
+export function blackMarketSpecialLevel(key: string | undefined): number {
+  return Math.max(
+    BLACK_MARKET_SPECIAL_FLOOR_LEVEL,
+    (key !== undefined ? specialZombieSourceLevel(key) : null) ?? 0
+  );
+}
+
+/** Black Market purchases ignore ordinary crop unlock levels. Colored classes unlock at
+ * their gravestone's level, while a special is gated at its own source's level (see
+ * blackMarketSpecialLevel). The stricter of the two applies. */
 export function blackMarketPurchaseLock(
   zombie: BlackMarketZombieRequirement,
   playerLevel: number
 ): BlackMarketPurchaseLock | null {
   const requiredLevel = Math.max(
-    zombie.category === "special" ? BLACK_MARKET_SPECIAL_LEVEL : 0,
+    zombie.category === "special" ? blackMarketSpecialLevel(zombie.key) : 0,
     zombie.unlockGrave ? BLACK_MARKET_COLOR_LEVELS[zombie.unlockGrave] : 0
   );
   if (playerLevel < requiredLevel) {
@@ -130,3 +159,4 @@ export function blackMarketMutationRequirementLabel(mask: number): string {
 }
 import { ALL_MUTATIONS_MASK, MUTATION_LIST, SLOTS, SLOT_MASK } from "./zombie/mutations";
 import { maskHas, maskIntersect } from "./zombie/mutationMask";
+import { specialZombieSourceLevel } from "./zombie/specialUnlock";
