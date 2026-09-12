@@ -1,0 +1,85 @@
+{
+ "name": "george_washington",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  159,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": -3,
+   "py": -25,
+   "ax": 0.93,
+   "ay": 0.24,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 10,
+   "py": -13,
+   "ax": 0.5827615857124329,
+   "ay": 0.7022091913968325,
+   "z": 3,
+   "scale": 1
+  },
+  {
+   "file": "Hat.png",
+   "group": "head",
+   "px": 6,
+   "py": -35,
+   "ax": 0.6543311476707458,
+   "ay": 1.2017822265625,
+   "z": 11,
+   "scale": 1
+  },
+  {
+   "file": "Collar.png",
+   "group": "root",
+   "px": 0,
+   "py": 0,
+   "ax": -0.25823697075247765,
+   "ay": 1.428810715675354,
+   "z": 2,
+   "scale": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 11,
+   "py": -29,
+   "ax": 0.7662924528121948,
+   "ay": 0.26418882980942726,
+   "z": 7,
+   "scale": 1
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -1,
+   "py": -8,
+   "ax": 0.560431893914938,
+   "ay": 0.14739573746919632,
+   "z": 1,
+   "scale": 1
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 16,
+   "py": -8,
+   "ax": 0.9441636204719543,
+   "ay": 0.12031251937150955,
+   "z": 2,
+   "scale": 1
+  }
+ ]
+}

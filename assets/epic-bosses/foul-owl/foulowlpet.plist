@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>foulowl_pet_blink01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 19}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -9}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{139, 169}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_blink02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 18}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{116, 114}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_blink03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 18}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{145, 2}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_blink04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 17}, {37, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{61, 67}, {37, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_blink05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 18}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{139, 57}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_walk01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{9, 19}, {55, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{3, -9}</string>
+			<key>spriteSize</key>
+			<string>{55, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 201}, {55, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_walk02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{7, 20}, {55, 51}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -9}</string>
+			<key>spriteSize</key>
+			<string>{55, 51}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{59, 136}, {55, 51}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_walk03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{10, 12}, {39, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{-4, -3}</string>
+			<key>spriteSize</key>
+			<string>{39, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{98, 189}, {39, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_walk04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{10, 7}, {37, 59}}</string>
+			<key>spriteOffset</key>
+			<string>{-5, -0}</string>
+			<key>spriteSize</key>
+			<string>{37, 59}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{59, 189}, {37, 59}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_walk05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{2, 4}, {55, 63}}</string>
+			<key>spriteOffset</key>
+			<string>{-4, 1}</string>
+			<key>spriteSize</key>
+			<string>{55, 63}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 136}, {55, 63}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_walk06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 3}, {57, 67}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -0}</string>
+			<key>spriteSize</key>
+			<string>{57, 67}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 67}, {57, 67}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_pet_walk07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 10}, {63, 63}}</string>
+			<key>spriteOffset</key>
+			<string>{2, -5}</string>
+			<key>spriteSize</key>
+			<string>{63, 63}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 2}, {63, 63}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowlpet_idle01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 19}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -9}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{178, 57}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowlpet_idle02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 18}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{155, 112}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowlpet_idle03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 18}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{106, 2}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowlpet_idle04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 17}, {37, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{67, 2}, {37, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowlpet_idle05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{16, 18}, {37, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -8}</string>
+			<key>spriteSize</key>
+			<string>{37, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 73}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{100, 59}, {37, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>Untitled</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+		<key>size</key>
+		<string>{256, 256}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>foulowlpet</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<false/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>foulowlpet</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>
