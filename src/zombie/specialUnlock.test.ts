@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import raidRows from "../../public/assets/raids/raids.json";
 import zombieRows from "../../public/assets/zombies.json";
-import { BLACK_MARKET_SPECIAL_FLOOR_LEVEL, blackMarketSpecialLevel } from "../blackMarketRules";
+import {
+  BLACK_MARKET_SPECIAL_FLOOR_LEVEL,
+  BLACK_MARKET_SPECIAL_HEAD_START,
+  blackMarketSpecialLevel,
+} from "../blackMarketRules";
 import { EPIC_BOSS_UNLOCK_LEVELS } from "../epicBoss/catalog";
 import { EPIC_QUEST_ZOMBIE_REWARDS } from "../epicBoss/rewards";
 import { RAID_ZOMBIE_SOURCES } from "../raid/zombieDrops";
@@ -49,10 +53,23 @@ describe("special zombie source levels", () => {
 });
 
 describe("the Black Market special gate", () => {
-  it("never lets a special be bought before its source opens", () => {
+  it("never lets a special be bought more than the head start before its source", () => {
     for (const [key, sourceLevel] of SPECIAL_ZOMBIE_SOURCE_LEVELS) {
-      expect(blackMarketSpecialLevel(key)).toBeGreaterThanOrEqual(sourceLevel);
+      expect(blackMarketSpecialLevel(key))
+        .toBeGreaterThanOrEqual(sourceLevel - BLACK_MARKET_SPECIAL_HEAD_START);
     }
+  });
+
+  it("hands the head start to every special whose source clears the floor", () => {
+    // A gate that simply equalled the source would make the market the LAST place a
+    // prize turns up; the three levels are the whole point of the rule.
+    for (const [key, sourceLevel] of SPECIAL_ZOMBIE_SOURCE_LEVELS) {
+      if (sourceLevel - BLACK_MARKET_SPECIAL_HEAD_START <= BLACK_MARKET_SPECIAL_FLOOR_LEVEL) continue;
+      expect(blackMarketSpecialLevel(key)).toBe(sourceLevel - BLACK_MARKET_SPECIAL_HEAD_START);
+    }
+    expect(blackMarketSpecialLevel("ZombieActorZastronaut")).toBe(33); // Aliens at 36
+    expect(blackMarketSpecialLevel("ZombieActorVagabond")).toBe(39);   // Loco Locust at 42
+    expect(blackMarketSpecialLevel("ZombieActorRegularFinalBoss")).toBe(40); // Video Games at 43
   });
 
   it("never lets a special be bought below the floor", () => {
@@ -63,15 +80,13 @@ describe("the Black Market special gate", () => {
     }
   });
 
-  it("keeps the floor at or above every special the Market itself sells", () => {
-    // The five brain-market specials (Bombie, Crazy, Cupid, Dapper, Granny) can be
-    // PLANTED at their catalog level, so a floor above that is the one place trading is
-    // stricter than growing your own. That is tolerable at 20-vs-25; a market special
-    // authored well past the floor would make the Black Market look arbitrarily broken,
-    // and should move the floor rather than be left behind it.
+  it("is never stricter than planting one of the specials the Market itself sells", () => {
+    // The five brain-market specials (Bombie, Crazy, Cupid, Dapper, Granny) can be PLANTED
+    // at their catalog level. A trade gate above that would make the Black Market the
+    // harder of the two routes to a zombie anyone can simply grow, which is backwards.
     for (const zombie of zombieRows as Array<{ key: string; category: string; level: number; marketHidden?: boolean; rewardOnly?: boolean }>) {
       if (zombie.category !== "special" || zombie.marketHidden || zombie.rewardOnly) continue;
-      expect(zombie.level).toBeLessThanOrEqual(BLACK_MARKET_SPECIAL_FLOOR_LEVEL);
+      expect(blackMarketSpecialLevel(zombie.key)).toBeLessThanOrEqual(zombie.level);
     }
   });
 });

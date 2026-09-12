@@ -230,7 +230,7 @@ describe("Black Market", () => {
     expect(fulfilled.status, JSON.stringify(fulfilled.body)).toBe(200);
 
     // A special whose own source opens later stays locked at the floor: the Zastronaut
-    // comes off the Aliens, and the Aliens do not unlock until 36.
+    // comes off the Aliens (unlock 36), so it trades from 33 and not before.
     const alienUnitId = `market-alien-level-${crypto.randomUUID()}`;
     await grantRoster(seller, [{ id: alienUnitId, key: "ZombieActorZastronaut" }]);
     const sellerAfter = await bootstrap(seller);

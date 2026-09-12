@@ -49,32 +49,40 @@ describe("Black Market purchase requirements", () => {
     expect(blackMarketPurchaseLock(
       { key: "ZombieActorZomBetty", category: "special" },
       BLACK_MARKET_SPECIAL_FLOOR_LEVEL - 1
-    )).toMatchObject({ kind: "level", level: 25 });
+    )).toMatchObject({ kind: "level", level: 20 });
     expect(blackMarketPurchaseLock(
       { key: "ZombieActorZomBetty", category: "special" },
       BLACK_MARKET_SPECIAL_FLOOR_LEVEL
     )).toBeNull();
   });
 
-  it("gates a special at the level its own source opens", () => {
-    // Aliens unlock at 36, so their prizes do — buying one at 30 was the shortcut.
-    expect(blackMarketPurchaseLock({ key: ZASTRONAUT_KEY, category: "special" }, 35))
-      .toMatchObject({ kind: "level", level: 36 });
-    expect(blackMarketPurchaseLock({ key: ZOSMONAUT_KEY, category: "special" }, 36)).toBeNull();
+  it("gates a special three levels under the source that grants it", () => {
+    // Aliens unlock at 36, so their prizes trade from 33 — a head start, not a shortcut.
+    expect(blackMarketPurchaseLock({ key: ZASTRONAUT_KEY, category: "special" }, 32))
+      .toMatchObject({ kind: "level", level: 33 });
+    expect(blackMarketPurchaseLock({ key: ZOSMONAUT_KEY, category: "special" }, 33)).toBeNull();
     // Loco Locust's Vagabond is the strongest zombie in the game; its event opens at 42.
-    expect(blackMarketPurchaseLock({ key: "ZombieActorVagabond", category: "special" }, 41))
-      .toMatchObject({ kind: "level", level: 42 });
-    // An early source is raised to the floor rather than lowered to its own level: the
-    // Lawyers unlock at 16, but no special is deliverable before 25.
-    expect(blackMarketPurchaseLock({ key: DEPUTY_ZOMBIE_KEY, category: "special" }, 24))
-      .toMatchObject({ kind: "level", level: 25 });
+    expect(blackMarketPurchaseLock({ key: "ZombieActorVagabond", category: "special" }, 38))
+      .toMatchObject({ kind: "level", level: 39 });
+    // An early source is raised to the floor rather than dropped below it: the Lawyers
+    // unlock at 16, but no special is deliverable before 20.
+    expect(blackMarketPurchaseLock({ key: DEPUTY_ZOMBIE_KEY, category: "special" }, 19))
+      .toMatchObject({ kind: "level", level: 20 });
+    expect(blackMarketPurchaseLock({ key: DEPUTY_ZOMBIE_KEY, category: "special" }, 20)).toBeNull();
   });
 
   it("uses the stricter requirement for a special colored zombie", () => {
+    // The Green Flower Zombie has no source, so its special gate is the floor's 20 — the
+    // Red gravestone's 15 is the looser of the two and must not win.
     expect(blackMarketPurchaseLock(
       { key: "ZombieActorGardenTier3GreenFlower", category: "special", unlockGrave: "Red" },
-      24
-    )).toMatchObject({ kind: "level", level: 25 });
+      19
+    )).toMatchObject({ kind: "level", level: 20 });
+    // ...and where the source is the stricter one, a Silver class does not cap it.
+    expect(blackMarketPurchaseLock(
+      { key: "ZombieActorRegularFinalBoss", category: "special", unlockGrave: "Silver" },
+      39
+    )).toMatchObject({ kind: "level", level: 40 });
   });
 
   it("ORs requested mutations in one slot and ANDs requirements across slots", () => {
