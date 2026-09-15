@@ -3721,6 +3721,17 @@ export class BattleSim {
     for (const zombie of this.players) {
       if (!zombie.alive || zombie.taken) continue;
       zombie.burnMs = 0; // nobody marches out of a won fight still on fire
+      // A shove that was still sliding when the last enemy fell is abandoned where it
+      // got to. The slide is only ever ended by `stepKnockBack`, and the simulation
+      // stops stepping the moment the fight is decided — so a zombie caught mid-shove
+      // kept `knockBackSpeed` forever, and the renderer draws a shoved zombie on an
+      // ease-out CLAMPED to the slide's own interval. Marching the other way put it
+      // outside that interval, pinning it to the spot it was hit on for the whole
+      // victory march (posed standing, too: a shoved rig deliberately holds its pose
+      // rather than running the walk cycle). It stood at the front line while the rest
+      // of the army walked past it and off the stage.
+      zombie.knockBackSpeed = 0;
+      zombie.knockBackToX = zombie.x;
       if (heldIds.has(zombie.id)) zombie.y = CENTER_Y;
       if (!zombie.buddyCarrierId) zombie.state = "advance";
       zombie.prevX = zombie.x;

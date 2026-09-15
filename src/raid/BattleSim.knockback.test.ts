@@ -11,6 +11,8 @@
 // that it never overrides normal front-row targeting while a front row stands.
 import { describe, expect, it } from "vitest";
 import { BattleSim } from "./BattleSim";
+import { advanceRaidArmy } from "./raidOutro";
+import { knockBackDrawX } from "./renderInterpolation";
 import type { CombatUnit } from "./types";
 
 function unit(over: Partial<CombatUnit> & Pick<CombatUnit, "id" | "sourceKey" | "team">): CombatUnit {
@@ -231,5 +233,38 @@ describe("an attack's effects land at that attack's own frequency", () => {
 
   it("never shoves when no entry in the list carries one", () => {
     expect(shoves(0)).toBe(0);
+  });
+});
+
+describe("a shove does not survive the fight it was landed in", () => {
+  it("ends a slide that was still running when the army was sent home", () => {
+    // Reported as "some zombies stop at the edge of the screen after an invasion. They
+    // just stop walking." A slide is only ever ended by stepKnockBack, and the sim stops
+    // stepping the instant the fight is decided — so a zombie caught mid-shove kept
+    // `knockBackSpeed`, which the renderer reads twice: it draws a shoved zombie on an
+    // ease-out CLAMPED to the slide's own interval (marching the other way leaves that
+    // interval, pinning the rig to the spot it was hit on), and it holds the standing
+    // pose rather than running the walk cycle. One zombie stood at the front line for the
+    // whole victory march while the rest of the army walked past it and off the stage.
+    const sim = laneSim(true);
+    let shoved: { knockBackSpeed: number; knockBackToX: number; x: number } | undefined;
+    for (let t = 0; t < 60_000 && !shoved; t += 50) {
+      sim.step(50);
+      shoved = playersOf(sim).find((p) => p.alive && p.knockBackSpeed > 0);
+    }
+    expect(shoved).toBeDefined();
+    const slid = shoved!;
+    // The clamp that froze it: drawn from where the shove began, the march back out the
+    // other way lands outside [from..to] and pins the rig to `from`.
+    const from = slid.x + 10;
+    expect(knockBackDrawX(slid.x + 200, from, slid.knockBackToX)).toBe(from);
+
+    sim.prepareArmyExit();
+
+    expect(slid.knockBackSpeed).toBe(0);
+    // …so the renderer's shove branch is skipped entirely and the march is drawn where
+    // the simulation actually put it.
+    advanceRaidArmy(sim.units, 1, 230, 1000);
+    expect(slid.x).toBeGreaterThan(from);
   });
 });
