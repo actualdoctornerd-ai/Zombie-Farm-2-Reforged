@@ -136,6 +136,12 @@ const PETAL_SPAWN_HEADROOM = 0.25;
 // Fruit trees are packed closely enough that a full-sprite rectangular tap target
 // makes the transparent space beside one trunk cover its neighbours. Keep a broad
 // canopy target, inset just inside the art, and narrow the lower target to the trunk.
+/** Washes laid over the object a tool is pointing at (multiplied onto its own tint,
+ *  so a recoloured placeable keeps its colour). Red reads "this goes away"; green
+ *  reads "this is where it lands" — the Move tool's drop-on-the-shed gesture. */
+export const OBJECT_WASH_REMOVE = 0xff7a6a;
+export const OBJECT_WASH_STORE = 0x8fe39a;
+
 const TREE_CANOPY_HEIGHT_RATIO = 0.65;
 const TREE_CANOPY_WIDTH_RATIO = 0.92;
 const TREE_TRUNK_WIDTH_RATIO = 0.38;
@@ -422,6 +428,9 @@ export class Field {
   private walkOpts: PathOptions | null = null;
   private nextObjId = 1;
   private highlightedObj: string | null = null;
+  // Which wash the highlighted object is currently wearing, so a change of MEANING
+  // on the same object (red "will remove" -> green "will store") repaints.
+  private highlightWash = OBJECT_WASH_REMOVE;
 
   constructor(private assets: GameAssets) {
     this.groundObjectLayer.sortableChildren = true;
@@ -2007,8 +2016,8 @@ export class Field {
     return obj.def;
   }
 
-  // Tint the object under the Remove tool's cursor so the player sees what will be
-  // removed; pass null to clear. No-op if it's already the highlighted object.
+  // Tint the object under a tool's cursor so the player sees what it will act on;
+  // pass null to clear. No-op if the same object already wears the same wash.
   //
   // A recoloured placeable (Black Fence Gate, Pink Iron Fence) is the base art plus
   // a sprite tint, so the wash has to compose with that colour rather than replace
@@ -2016,8 +2025,8 @@ export class Field {
   // until the farm was rebuilt, and washing to bare red would flash a black gate
   // bright. Multiply both ways — white is the identity, so an untinted object is
   // unaffected.
-  setObjectHighlight(id: string | null) {
-    if (id === this.highlightedObj) return;
+  setObjectHighlight(id: string | null, wash: number = OBJECT_WASH_REMOVE) {
+    if (id === this.highlightedObj && wash === this.highlightWash) return;
     const applyWash = (obj: FarmObject | undefined, wash: number) => {
       if (!obj) return;
       const tint = multiplyObjectTint(objectTint(obj.def.color), wash);
@@ -2030,7 +2039,8 @@ export class Field {
     };
     applyWash(this.highlightedObj ? this.objects.get(this.highlightedObj) : undefined, 0xffffff);
     this.highlightedObj = id;
-    applyWash(id ? this.objects.get(id) : undefined, 0xff7a6a); // reddish "will remove" wash
+    this.highlightWash = wash;
+    applyWash(id ? this.objects.get(id) : undefined, wash);
   }
   objectDefOf(id: string): PlaceableDef | null {
     return this.objects.get(id)?.def ?? null;
@@ -2157,9 +2167,14 @@ export class Field {
   }
   // Topmost object whose (tall) sprite contains world point (wx,wy) — so a tree
   // is clickable anywhere on its art, not just its footprint tile.
-  objectAtPoint(wx: number, wy: number): string | null {
+  //
+  // `ignoreId` skips one object. An object carried by the Move tool stays on the
+  // farm and stays drawn while it is in hand, so asking "what am I hovering over?"
+  // mid-carry would otherwise keep answering with the thing being carried.
+  objectAtPoint(wx: number, wy: number, ignoreId?: string): string | null {
     let best: FarmObject | null = null;
     for (const o of this.objects.values()) {
+      if (o.id === ignoreId) continue;
       const s = o.sprite;
       let hit: boolean;
       if (o.def.petPen) {

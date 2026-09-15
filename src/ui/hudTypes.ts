@@ -115,6 +115,10 @@ export interface ObjectActions {
    *  greyscale PNG). Omitted/white leaves the portrait as authored. */
   tint?: number;
   canStore: boolean; // false when the shed is full or item can't be stored
+  /** Why Store is unavailable, when the reason is not "the shed is full" — a busy
+   *  Zombie Pot, for one, refuses because packing it away would throw the combine
+   *  running inside it. Labels the disabled button so it explains itself. */
+  storeBlockedLabel?: string;
   canSell: boolean; // functional items are permanent and cannot be sold
   sellRefund: number;
   sellBrains: boolean;

@@ -5,7 +5,7 @@
 import type { Hud } from "../../hud";
 import { UI } from "../uiAsset";
 import { BASE } from "../../base";
-import { objectTint } from "../../assets";
+import { canSellPlaceable, objectTint } from "../../assets";
 import type { ReceivedView } from "../hudTypes";
 import { setTintedSrc } from "../tintedSprite";
 import { storageBoostRows } from "../storageBoosts";
@@ -66,7 +66,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
       hint.className = "st-hint";
       hint.textContent = used
         ? "Tap a stored item to place it back on the farm."
-        : "Store decorations by tapping them on the farm.";
+        : "Tap an item on the farm to store it, or drop it on the shed with the Move tool.";
       body.appendChild(hint);
       const grid = document.createElement("div");
       grid.className = "st-grid";
@@ -91,15 +91,20 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
             bg.remove();
             hud.onRetrieveItem?.(key);
           };
-          const sell = document.createElement("button");
-          sell.className = "st-slot-sell";
-          sell.textContent = "Sell";
-          sell.title = "Sell from storage";
-          sell.onclick = async (event) => {
-            event.stopPropagation();
-            if (await hud.onSellStoredItem?.(key)) render();
-          };
-          slot.appendChild(sell);
+          // Only for something that can actually be sold. A functional building —
+          // a monolith, a Zombie Pot — is permanent, so its Sell button would do
+          // nothing at all, and a button that does nothing reads as a broken game.
+          if (card && canSellPlaceable(card.def)) {
+            const sell = document.createElement("button");
+            sell.className = "st-slot-sell";
+            sell.textContent = "Sell";
+            sell.title = "Sell from storage";
+            sell.onclick = async (event) => {
+              event.stopPropagation();
+              if (await hud.onSellStoredItem?.(key)) render();
+            };
+            slot.appendChild(sell);
+          }
         }
         grid.appendChild(slot);
       }

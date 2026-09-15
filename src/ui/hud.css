@@ -1016,6 +1016,9 @@
 #hud .cmb-go:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.5); }
 /* Spend an Insta-Grow on the running combine. A consumable, not a collect, so it
    reads amber and sits beside the (disabled) Collect rather than replacing it. */
+/* Moving/shelving the Pot is housekeeping, not part of the combine — present but
+   visibly secondary to the panel's own actions (same treatment as the memorial). */
+#hud .cmb-options { align-self: center; font-size: 12px; opacity: .78; }
 #hud .cmb-go.cmb-hurry { background: linear-gradient(#e8b757, #b8811f); color: #22190a;
   padding: 10px 18px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
 #hud .cmb-hurry-i { width: 18px; height: 18px; object-fit: contain; }

@@ -5,13 +5,16 @@ import { choosePlowOrigin } from "./plowSelection";
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
 // pixi.js lists ./lib/unsafe-eval/init.* under "sideEffects", so it survives bundling.
 import "pixi.js/unsafe-eval";
-import { loadAssets, canMirrorObject, turnCount, turnFlip, ensureBackgroundTexture, ensureObjectTexture, ensureObjectTextures, objectAnimFiles, objectSpriteFiles, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, raidRewardImage, purchasableZombies, placeablePurchaseLimit, objectTint } from "./assets";
+import { loadAssets, canMirrorObject, turnCount, turnFlip, ensureBackgroundTexture, ensureObjectTexture, ensureObjectTextures, objectAnimFiles, objectSpriteFiles, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, raidRewardImage, purchasableZombies, placeablePurchaseLimit, objectTint, canSellPlaceable } from "./assets";
 import { pickPiece, type PathSpec, type RoadSpec, type SceneryPiece, type SkylineSpec, type SpringSpec, surroundingsTheme, themeObjectFiles } from "./surroundings";
 import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
 import { armyCapacityOf, BASE_ARMY_MAX } from "./armyCapacity";
 import { shedCapacityOf } from "./shedCapacity";
-import { Field, CARROT, CropConfig, objectFootprint, PLOT, savedTurn } from "./Field";
+import {
+  Field, CARROT, CropConfig, objectFootprint, OBJECT_WASH_STORE, PLOT, savedTurn,
+} from "./Field";
+import { storeBlock, storeBlockLabel, storeBlockMessage } from "./storeRules";
 import { Actor } from "./Actor";
 import { PetActor } from "./PetActor";
 import { SPEED_PX, WalkController } from "./WalkController";
@@ -3997,6 +4000,14 @@ async function main() {
     saveManager.save();
     return true;
   };
+  // Reach the ordinary Move / Rotate / Store sheet for the Pot the panel is open on.
+  // Tapping a Pot opens the combiner, so without this the building itself could only
+  // be moved with the Move tool and could never be shelved at all.
+  hud.onPotObjectOptions = () => {
+    const potId = activePotId ?? field.zombiePotId();
+    const def = potId ? field.objectDefOf(potId) : null;
+    if (potId && def) openObjectActionsFor(potId, def);
+  };
   // Every special — the Epic Boss prizes included, since they became mutable — may
   // go in the Pot, but only in slot 1: the child is always slot 1's species, so a
   // special is the thing being mutated, never a donor.
@@ -6026,6 +6037,7 @@ async function main() {
   const cancelCarry = () => {
     carrying = null;
     carryingPlot = null;
+    field.setObjectHighlight(null); // drop any "this drop shelves it" wash on the shed
     field.hideObjectCursor();
     field.hideCursor();
   };
@@ -6170,9 +6182,27 @@ async function main() {
   // it. Invalid drop keeps it carried; right-click / tool-switch cancels.
   const handleMoveTap = (col: number, row: number, wx: number, wy: number) => {
     if (carrying) {
+      const { id, def } = carrying;
+      // Dropping a carried item ONTO the shed shelves it, which is the gesture
+      // players reach for first and the only one that works on a farm with nowhere
+      // left to put the thing down. Same hit test a tap uses, so "on the shed" means
+      // what it looks like. Carrying the shed itself is just a move.
+      const shed = field.shedId();
+      const onShed = !!shed && shed !== id &&
+        field.objectAtPoint(wx, wy, id) === shed;
+      if (onShed && canStoreObject(id, def) && storeObject(id)) {
+        cancelCarry(); // only once the object is really off the farm
+        hud.showToast(`${def.name} packed away in your shed.`);
+        return;
+      }
       const { oc, or } = field.resolveObjectOrigin(
-        carrying.def, col, row, turnFlip(carrying.def, carrying.turn));
-      if (field.moveObject(carrying.id, oc, or, carrying.turn)) cancelCarry();
+        def, col, row, turnFlip(def, carrying.turn));
+      if (field.moveObject(id, oc, or, carrying.turn)) { cancelCarry(); return; }
+      // Aimed at the shed, refused by it, and with no room behind it either — a tall
+      // sprite covers free ground, so the move is still tried first. Nothing at all
+      // happened, so say why the shed would not take it rather than eating the tap.
+      const block = onShed ? objectStoreRefusal(id, def) : null;
+      if (block) hud.showToast(storeBlockMessage(block, def.name));
       return;
     }
     if (carryingPlot) {
@@ -6221,7 +6251,7 @@ async function main() {
    *  in quantity and has to be reversible: a player who buys ten and wants two back
    *  otherwise has no way out. Its occupant is handed back to the graveyard by
    *  Field.onMemorialReleased, so a sale costs the plinth and nothing else. */
-  const canSellObject = (def: PlaceableDef) => def.category !== "functional" || !!def.memorial;
+  const canSellObject = (def: PlaceableDef) => canSellPlaceable(def);
 
   // Sell a placed object for a refund (used by the Remove tool + object popup).
   const sellObject = (id: string) => {
@@ -6310,26 +6340,45 @@ async function main() {
 
   // Store a placed object in the shed (returns it to inventory for free re-placing
   // later). Reverses any functional effect; the shed must have a free slot.
-  const storeObject = (id: string) => {
-    if (onlineGameplayBlocked()) return;
+  const storeObject = (id: string): boolean => {
+    if (onlineGameplayBlocked()) return false;
     const def = field.objectDefOf(id);
-    if (!def) return;
-    if (!state.storeItem(def.key)) return; // shed full
+    if (!def) return false;
+    if (!canStoreObject(id, def)) return false;
+    if (!state.storeItem(def.key)) return false; // shed full
     field.removeObject(id);
     refreshArmyCap(); // reverse functional effect — derived, so it reads the farm AFTER
     const storedIds = storedObjectIds.get(def.key) ?? [];
     storedIds.push(id);
     storedObjectIds.set(def.key, storedIds);
     economy?.submitObjectStatus(id, "stored");
+    audio.play("place"); // both ways in (the action sheet, a drop on the shed) sound alike
+    // The shed holds a key and a count, not an open panel: a Pot that was the
+    // combiner's subject is no longer on the farm to be the subject of anything.
+    if (activePotId === id) activePotId = null;
+    return true;
   };
 
-  // Can this object be stored in the shed? Storage buildings can't; the shed
-  // must have a free slot. A Memorial Statue can — the shed holds only a key and a
-  // count, so it goes in as a bare plinth and its occupant returns to the graveyard
-  // (Field.onMemorialReleased) rather than being shelved with it.
-  const canStore = (def: PlaceableDef) =>
-    !def.storageSlots && !def.zombieStorage &&
-    state.storedItemTotal() < state.storageItemCap;
+  // Why the shed refuses something, or null when it takes it. See storeRules.ts:
+  // a Memorial Statue goes in as a bare plinth (its occupant returns to the
+  // graveyard via Field.onMemorialReleased), a Mausoleum never goes in at all, and a
+  // Zombie Pot goes in only when there is no combine inside it.
+  const shedSpace = () => ({ used: state.storedItemTotal(), cap: state.storageItemCap });
+
+  /** Asked of a DEF alone, for something not on the farm yet (a Received reward). */
+  const storeRefusal = (def: PlaceableDef) => storeBlock(def, shedSpace());
+  const canStore = (def: PlaceableDef) => storeRefusal(def) === null;
+
+  /** A Zombie Pot with a combine in it (running or finished-but-uncollected). */
+  const potInUse = (id: string, def: PlaceableDef) =>
+    !!def.zombiePot && zombies.potFor(id).busy;
+
+  /** The same question for a copy standing on the farm, which can additionally be
+   *  in the middle of something. */
+  const objectStoreRefusal = (id: string, def: PlaceableDef) =>
+    storeBlock(def, shedSpace(), { potInUse: potInUse(id, def) });
+  const canStoreObject = (id: string, def: PlaceableDef) =>
+    objectStoreRefusal(id, def) === null;
 
 
   // The Move / Rotate / Store / Sell sheet for a placed object. Both entry points
@@ -6340,7 +6389,11 @@ async function main() {
       name: def.name,
       portrait: `${BASE}assets/objects/${def.sprite}`,
       tint: objectTint(def.color), // monoliths share one sprite, coloured per def
-      canStore: canStore(def),
+      canStore: canStoreObject(oid, def),
+      storeBlockedLabel: (() => {
+        const block = objectStoreRefusal(oid, def);
+        return block ? storeBlockLabel(block) : undefined;
+      })(),
       canSell: canSellObject(def),
       sellRefund: sellRefund(def),
       sellBrains: false,
@@ -6366,7 +6419,7 @@ async function main() {
         }
         saveManager.save();
       },
-      onStore: () => storeObject(oid),
+      onStore: () => void storeObject(oid),
       // The sheet sells decor on one tap, which is fine for a 50-gold daisy. A
       // Memorial Statue is a 3,000-gold object that may be carrying somebody, so it
       // asks first — and says where that somebody goes.
@@ -6801,7 +6854,18 @@ async function main() {
       return;
     }
     if (hud.mode === "move") {
-      if (carrying) field.setObjectCursor(carrying.def, col, row, carrying.id, carrying.turn);
+      if (carrying) {
+        // Over the shed, the drop shelves what is in hand rather than placing it
+        // (see handleMoveTap). Say so: wash the shed green and drop the ghost, so
+        // the gesture announces itself instead of having to be discovered.
+        const shed = field.shedId();
+        const overShed = !!shed && shed !== carrying.id &&
+          field.objectAtPoint(wx, wy, carrying.id) === shed &&
+          canStoreObject(carrying.id, carrying.def);
+        field.setObjectHighlight(overShed ? shed : null, OBJECT_WASH_STORE);
+        if (overShed) { field.hideObjectCursor(); field.hideCursor(); }
+        else field.setObjectCursor(carrying.def, col, row, carrying.id, carrying.turn);
+      }
       else if (carryingPlot) field.setPlotMoveCursor(col, row, carryingPlot.oc, carryingPlot.or);
       return;
     }

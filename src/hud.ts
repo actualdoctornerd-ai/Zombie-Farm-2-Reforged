@@ -1700,6 +1700,11 @@ export class Hud {
    *  able to do this by tapping the pot; this is the same action offered from the panel
    *  the player is already looking at. Returns false when nothing was spent. */
   onPotInstaGrow: (() => boolean) | null = null;
+  /** Open the ordinary Move / Rotate / Store sheet for the Pot this panel belongs to.
+   *  A tapped Pot opens THIS panel instead of that sheet, so without a way through
+   *  the building itself would be unmovable and unstorable — the same trap the
+   *  Memorial Statue was in (see memorial.ts onObjectOptions). */
+  onPotObjectOptions: (() => void) | null = null;
   /** Tears down the open combiner's countdown ticker. Held on the instance because
    *  openCombiner can replace a panel it did not build, and dropping that panel's
    *  DOM does not stop the interval its closure owns. */
@@ -5392,6 +5397,18 @@ export class Hud {
     // is here to prevent. A stale handle is harmless; stop() is idempotent.
     this.combinerStop = stop;
 
+    // The Pot is a building as well as a workshop, and tapping it opens THIS panel
+    // rather than the object sheet — so this is the only way through to moving or
+    // shelving the thing itself. Deliberately quieter than Combine/Collect: it is
+    // about the furniture, not about what is cooking in it.
+    const objectOptionsButton = () => {
+      const b = document.createElement("button");
+      b.className = "zbtn locate cmb-options";
+      b.textContent = "Move / Store pot";
+      b.onclick = () => { stop(); bg.remove(); this.onPotObjectOptions?.(); };
+      return b;
+    };
+
     // --- BUSY view: the two parents + a progress bar while the combine runs,
     //     then the finished zombie on its own once it is ready to collect. ---
     const renderBusy = () => {
@@ -5466,6 +5483,7 @@ export class Hud {
         buttons.className = "cmb-actions";
         buttons.append(go, toCrypt);
         wrap.append(head, result, note, buttons);
+        if (this.onPotObjectOptions) wrap.append(objectOptionsButton());
       } else {
         // Show the two parents going in (from the pending job's keys + masks).
         const slots = document.createElement("div");
@@ -5497,6 +5515,7 @@ export class Hud {
         buttons.append(go, toCrypt);
         if (growBoost && this.onPotInstaGrow) buttons.appendChild(hurry);
         wrap.append(head, slots, bar, note, buttons);
+        if (this.onPotObjectOptions) wrap.append(objectOptionsButton());
       }
 
       const tick = () => {
@@ -5656,6 +5675,7 @@ export class Hud {
         else renderIdle();
       };
       wrap.append(head, slots, ruleNote, list, go);
+      if (this.onPotObjectOptions) wrap.append(objectOptionsButton());
       // Picking a zombie re-renders this whole view, and the picker is as long as the
       // roster — without this, every tap threw a player scrolled deep into their army
       // back to the first tile. Restored after the list is in the document: an

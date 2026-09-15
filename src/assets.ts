@@ -587,6 +587,13 @@ export function placeablePurchaseLimit(def: Pick<PlaceableDef, "key" | "category
   return def.key === "zombieCombiner" ? MAX_ZOMBIE_POTS : 1;
 }
 
+/** Can a copy of this be sold back for gold — from the farm, or out of the shed?
+ *  Functional buildings are permanent; the Memorial Statue is the one exception, a
+ *  3,000-gold piece of furniture whose occupant simply returns to the graveyard. */
+export function canSellPlaceable(def: Pick<PlaceableDef, "category" | "memorial">): boolean {
+  return def.category !== "functional" || !!def.memorial;
+}
+
 export interface GameAssets {
   field: FieldData;
   groundIndex: GroundIndex;
