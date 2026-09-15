@@ -250,6 +250,11 @@ const GARDEN_TIER: Readonly<Record<string, number>> = {
   ZombieActorGardenTier5: 5,
   ZombieActorGardenCupid: 5,
   ZombieActorGardenCupidPink: 5,
+  // The two Dr. Zombies are Garden-group specials (zombies.json, tier 5), so they
+  // fertilize at the same 12% as a Zombutterfly — the key prefix is the only thing
+  // that sets them apart, and it must not be what this table keys off.
+  ZombieActorDrZombie: 5,
+  ZombieActorOmegaDrZombie: 5,
 };
 const FERTILIZE_BY_TIER: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12 };
 
