@@ -48,6 +48,7 @@ import { hazardTapProfile } from "./hazardTaps";
 import {
   formatHealthNumbers, newDamageTally, tallyDamage, type DamageTally,
 } from "./combatNumbers";
+import { HIT_FLASH_SEC, NO_TINT, hitFlashTint } from "./hitFlash";
 import {
   ageAttackPhase, attackProgress, markStruck, newAttackPhase, observeAttackTimer,
   postContactTail, type AttackPhase,
@@ -519,6 +520,10 @@ interface Token {
    *  which is NOT armed with `cooldownMs` for a mirroring pirate or a back-rank
    *  zombie — see raid/attackPhase.ts. */
   atkPhase: AttackPhase;
+  /** Seconds left on the damage wash (0 = none). Zombie rigs only — see raid/hitFlash.ts.
+   *  Held on the token rather than the sim so a restored checkpoint cannot inherit a
+   *  half-played flash, and so it decays on the RENDER clock like the rest of the FX. */
+  hitFlash: number;
   deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
   emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
   // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
@@ -1589,7 +1594,7 @@ export class RaidScene {
       pilotBars,
       hp, hpText, charge, base, hpCenterX, topY, atkCount: 0,
       atkPhase: newAttackPhase(u.cooldownMs),
-      deathAnim: -1, emerged: false, hpKey: -1, chargeKey: -1,
+      hitFlash: 0, deathAnim: -1, emerged: false, hpKey: -1, chargeKey: -1,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
       healFxSeq: 0, healCastSeq: 0, healPose: 0, laserFxSeq: 0,
       explodeFxSeq: 0, fuseT: 0, stunT: STUN_PRIMED,
@@ -2213,6 +2218,17 @@ export class RaidScene {
       const simMoving = Math.hypot(u.vx, u.vy) > 6;
       const exitMarch = (this.phase === "retreat" || this.phase === "outro") && u.team === "player" && u.alive;
       if (tok.actor) {
+        // Fade the damage wash on the RENDER clock, so it eases out at the display
+        // cadence rather than in 50 ms sim steps. Tinting the rig container (not the
+        // token root) keeps the health and focus bars out of it, and the rig's own part
+        // tints — the zombie's colour, its eyes, a mutation's — multiply through
+        // underneath rather than being replaced.
+        if (tok.hitFlash > 0) {
+          tok.hitFlash = Math.max(0, tok.hitFlash - dtSec);
+          tok.actor.container.tint = hitFlashTint(tok.hitFlash);
+        } else if (tok.actor.container.tint !== NO_TINT) {
+          tok.actor.container.tint = NO_TINT; // a flash stranded by a death / revive
+        }
         // A defender's rig (friend invasion) fights mirrored: its enemy line is to the
         // LEFT, so the semantic returns of zombieFacingDelta ("+1 = toward the enemy")
         // don't apply — face the attackers while holding/fighting, else face the walk.
@@ -2947,14 +2963,25 @@ export class RaidScene {
     }
   }
 
-  /** Sample one unit's damage-taken total after a simulation tick; float the increase as a
-   *  number once it is worth printing (see combatNumbers.tallyDamage). The total counts the
-   *  attack's post-mitigation damage, NOT the health removed, so overkill and the one-shot
-   *  latch no longer shrink the figure a player reads. */
-  private stepDamageNumber(u: SimUnit, dtSec: number) {
+  /** Damage this unit took over the tick just simulated, re-arming the watch. Null on a
+   *  first sighting, where there is nothing to compare against. The total counts the
+   *  attack's post-mitigation damage, NOT the health removed, so overkill and the
+   *  one-shot latch no longer shrink the figure a player reads.
+   *
+   *  Sampled ONCE per stepped tick and shared by the hit flash and the damage numbers.
+   *  The watch used to live inside `stepDamageNumber`, which the Settings toggle gates —
+   *  the flash is not optional, so neither reader may own it. */
+  private sampleDamageTaken(u: SimUnit): number | null {
     const before = this.damageWatch.get(u.id);
     this.damageWatch.set(u.id, u.damageFxTaken);
-    if (before === undefined) return; // first sighting: nothing to compare against
+    if (before === undefined) return null;
+    return Math.max(0, u.damageFxTaken - before);
+  }
+
+  /** Float this tick's damage as a number once it is worth printing (see
+   *  combatNumbers.tallyDamage). Zero is still worth a call: a unit that died this tick
+   *  flushes whatever its tally was holding back. */
+  private stepDamageNumber(u: SimUnit, took: number, dtSec: number) {
     let tally = this.damageTallies.get(u.id);
     if (!tally) {
       tally = newDamageTally();
@@ -2963,7 +2990,7 @@ export class RaidScene {
     // The total only ever climbs, so heals and Resurrects need no guarding against here
     // (the max is belt-and-braces against a restored checkpoint resetting it). `!u.alive`
     // flushes whatever is still held back, because a dead unit gets no later flush.
-    const shown = tallyDamage(tally, Math.max(0, u.damageFxTaken - before), dtSec, !u.alive);
+    const shown = tallyDamage(tally, took, dtSec, !u.alive);
     if (shown !== null) this.spawnDamageNumber(u, shown);
   }
 
@@ -3460,9 +3487,20 @@ export class RaidScene {
         // catch-up tick cannot erase an earlier strike.
         if (stepped) {
           for (const u of this.sim.units) {
-            // Damage numbers are read off the HP the tick just wrote — no hook into
-            // the fight itself, so the transcript the verifier replays is untouched.
-            if (this.showDamageNumbers) this.stepDamageNumber(u, dtSec);
+            // Damage numbers and the hit flash are read off the HP the tick just wrote —
+            // no hook into the fight itself, so the transcript the verifier replays is
+            // untouched.
+            const took = this.sampleDamageTaken(u);
+            if (took === null) continue;
+            // A blow that LANDS washes the victim's rig red (raid/hitFlash.ts). Every
+            // damage source folds into `damageFxTaken` — melee, a thrown monitor, an
+            // alien bolt, a pixelFire burn — so one watch covers all of them, and a
+            // fully blocked hit adds nothing and so flashes nothing.
+            if (took > 0) {
+              const hit = this.tokens.get(u.id);
+              if (hit?.actor) hit.hitFlash = HIT_FLASH_SEC;
+            }
+            if (this.showDamageNumbers) this.stepDamageNumber(u, took, dtSec);
           }
           for (const event of presentationEvents) this.onStrike?.(event);
         }
