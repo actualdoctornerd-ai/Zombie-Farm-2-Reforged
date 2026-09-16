@@ -183,3 +183,25 @@ export function graveNeededFor(className: string): "Blue" | "Red" | "Silver" | n
   if (className === "Silver") return "Silver";
   return null; // Green (T1), Special, Yellow need no grave
 }
+
+/** One appearance the placed storage shed can wear, as the picker draws it. */
+export interface ShedAppearanceOption {
+  key: string;         // catalog key of the shed whose ART this is
+  name: string;        // that shed's Market name ("Wood Hut")
+  portrait: string;    // image URL
+  tint?: number;       // packed placeable tint, so the card matches the farm
+  slots: number;       // that tier's capacity, shown only to order the list in words
+}
+
+/** The shed appearance picker's whole view model. Null (rather than an empty list)
+ *  whenever no shed is placed, which is what hides the button. */
+export interface ShedAppearanceView {
+  /** Unlocked looks, earliest tier first. Always contains `current`. */
+  options: ShedAppearanceOption[];
+  /** Catalog key of the look the shed is wearing now. */
+  current: string;
+  /** The shed's real tier name, for the line that explains the split between what
+   *  it looks like and what it holds. */
+  realName: string;
+  slots: number;
+}

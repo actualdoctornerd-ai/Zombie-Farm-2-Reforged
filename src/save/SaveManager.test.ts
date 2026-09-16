@@ -86,6 +86,33 @@ describe("SaveManager object layout races", () => {
     manager.reconcileObjectLayouts(new Set());
     expect((manager as any).presentation().objectLayout).toEqual([]);
   });
+
+  // The shed's chosen look rides the layout row, beside its position and rotation,
+  // because it is the same kind of fact: client-authored decoration of an object
+  // whose real type the server owns. The row must never restate that type — a skin
+  // that arrived as `key` would be a second, contradictory answer to "what tier is
+  // standing here", and capacity is read from the first.
+  it("carries a shed's appearance override without touching its real key", () => {
+    const field = {
+      serializeObjects: vi.fn().mockReturnValue(
+        [{ id: "shed-1", key: "storage07", oc: 3, or: 4, skin: "storage01" }]),
+    };
+    const manager = new SaveManager(
+      {} as never, field as never, {} as never, {} as never, {} as never,
+      new Map(), new Map(), async () => undefined, "online",
+    );
+    vi.spyOn(manager, "serialize").mockImplementation(() => ({
+      version: 1,
+      savedAt: 1,
+      player: { name: "Tester", farmerAppearance: {} },
+      farm: { fieldId: "default", w: 30, h: 30, climate: "grass", plots: [] },
+      objects: field.serializeObjects(),
+    } as never));
+
+    const [row] = (manager as any).presentation().objectLayout;
+    expect(row.skin).toBe("storage01");
+    expect(row.key).toBeUndefined(); // only the free starter shed ever writes one
+  });
 });
 
 describe("SaveManager mode isolation", () => {

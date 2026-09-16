@@ -1125,7 +1125,7 @@ app.put("/presentation", async (c) => {
     objectLayout.length <= MAX_FUNCTIONAL_OBJECTS + 1 && objectLayout.every((entry) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
       const row = entry as { id?: unknown; key?: unknown; oc?: unknown; or?: unknown;
-        rotation?: unknown; turn?: unknown; memorial?: unknown };
+        rotation?: unknown; turn?: unknown; skin?: unknown; memorial?: unknown };
       return typeof row.id === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(row.id) &&
         (row.key === undefined || row.key === "storage01") &&
         Number.isSafeInteger(row.oc) && Number(row.oc) >= 0 && Number(row.oc) < 128 &&
@@ -1134,6 +1134,13 @@ app.put("/presentation", async (c) => {
         // A road bend stores which corner it is turned to instead of a mirror flag.
         (row.turn === undefined ||
           (Number.isSafeInteger(row.turn) && Number(row.turn) >= 0 && Number(row.turn) < 8)) &&
+        // A cosmetic appearance override: the catalog key of an earlier shed whose
+        // art this object wears. Bounded as a catalog key and nothing more — which
+        // skin is legal for which object is the client's ladder to know, and it is
+        // re-checked there on the way back in (src/objectSkins.ts). It can never buy
+        // capacity: the object document, not this blob, says what tier is placed.
+        (row.skin === undefined ||
+          (typeof row.skin === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(row.skin))) &&
         // A Memorial Statue carries the one zombie carved on it.
         (row.memorial === undefined || validFallenEntry(row.memorial));
     }));
@@ -1676,7 +1683,7 @@ app.get("/friends/:id/save", async (c) => {
   const p = boot.presentation.data as {
     farm?: { climate?: string; background?: string; zombiePatchGathered?: boolean };
     objectLayout?: { id: string; key?: string; oc: number; or: number; rotation?: number;
-      turn?: number }[];
+      turn?: number; skin?: string }[];
     rosterLayout?: { id: string; name?: string; pos?: { col: number, row: number }; color?: [number, number, number] }[];
   };
   const objectLayout = new Map((p.objectLayout ?? []).map((o) => [o.id, o]));
@@ -1717,7 +1724,7 @@ app.get("/friends/:id/save", async (c) => {
       if (obj.status !== "placed") return [];
       const layout = objectLayout.get(obj.instanceId);
       return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout?.oc ?? 0, or: layout?.or ?? 0,
-        rotation: layout?.rotation, turn: layout?.turn, readyAt: obj.readyAt,
+        rotation: layout?.rotation, turn: layout?.turn, skin: layout?.skin, readyAt: obj.readyAt,
         // A visitor sees the zombie carved on each Memorial Statue. This comes from
         // the authoritative graveyard rather than the owner's presentation blob,
         // which is the reason the graveyard is server-side at all: the blob is not
@@ -1727,7 +1734,7 @@ app.get("/friends/:id/save", async (c) => {
     }).concat([...objectLayout.values()].flatMap((layout) =>
       layout.key === "storage01" && !boot.gameplay.objects.objects.some((obj) => obj.instanceId === layout.id)
         ? [{ id: layout.id, key: layout.key, oc: layout.oc, or: layout.or,
-          rotation: layout.rotation, turn: layout.turn, readyAt: undefined }]
+          rotation: layout.rotation, turn: layout.turn, skin: layout.skin, readyAt: undefined }]
         : [])),
     ownedZombies: boot.gameplay.roster.map((unit) => {
       const layout = rosterLayout.get(unit.id);

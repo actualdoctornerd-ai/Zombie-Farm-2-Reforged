@@ -43,7 +43,7 @@ type PresentationData = {
     zombiePatchGathered?: boolean;
   };
   objectLayout?: { id: string; key?: string; oc: number; or: number; rotation?: number;
-    turn?: number; memorial?: FallenZombieSave }[];
+    turn?: number; skin?: string; memorial?: FallenZombieSave }[];
   rosterLayout?: { id: string; name?: string; pos?: { col: number; row: number }; stored?: boolean; color?: [number, number, number] }[];
   zombiePot?: SaveGame["zombiePot"];
   zombiePots?: SaveGame["zombiePots"];
@@ -249,6 +249,10 @@ export class SaveManager {
         // A road bend's corner. Its own field, not `rotation`: for those pieces
         // turning is a swap of art, not a mirror. See Field.savedTurn.
         turn: object.turn,
+        // Which earlier shed's look this one is wearing. Presentation, like the
+        // rest of this row: the object document owns the shed's real tier, and the
+        // skin is re-checked against it on the way back in (objectSkins).
+        skin: object.skin,
       });
     }
     return {
@@ -604,7 +608,7 @@ export class SaveManager {
       // reconcile treats it as an orphan and re-homes it onto a real free tile.
       if (!layout) return [];
       return [{ id: obj.instanceId, key: obj.catalogKey, oc: layout.oc, or: layout.or,
-        rotation: layout.rotation, turn: layout.turn,
+        rotation: layout.rotation, turn: layout.turn, skin: layout.skin,
         memorial: enshrined.get(obj.instanceId), readyAt: obj.readyAt == null
           ? undefined
           : serverTimestampToClient(obj.readyAt, boot.serverTime, clientTime) }];
@@ -612,7 +616,8 @@ export class SaveManager {
     for (const layout of objectLayout.values()) {
       if (layout.key === "storage01" && !objects.some((object) => object.id === layout.id)) {
         objects.push({ id: layout.id, key: layout.key, oc: layout.oc, or: layout.or,
-          rotation: layout.rotation, turn: layout.turn, memorial: layout.memorial, readyAt: undefined });
+          rotation: layout.rotation, turn: layout.turn, skin: layout.skin,
+          memorial: layout.memorial, readyAt: undefined });
       }
     }
     const pots = Object.fromEntries(Object.entries(p.zombiePots ?? {}).filter(([, pot]) =>
@@ -809,9 +814,14 @@ export class SaveManager {
     await Promise.all(objects.flatMap((object) => {
       const def = this.placeCatalog.get(object.key);
       if (!def) return [];
-      return objectSpriteFiles(def).map((file) => this.preload(file));
+      // A skinned object draws art its own def never names, so that file has to be
+      // in the atlas before the field is rebuilt or the shed restores blank.
+      const skin = object.skin ? this.placeCatalog.get(object.skin) : undefined;
+      return [...objectSpriteFiles(def), ...(skin ? objectSpriteFiles(skin) : [])]
+        .map((file) => this.preload(file));
     }));
-    this.field.restoreObjects(objects, (key) => this.placeCatalog.get(key));
+    this.field.restoreObjects(objects, (key) => this.placeCatalog.get(key),
+      this.placeCatalog.values());
     this.zombies.restore(data.ownedZombies ?? []);
     this.zombies.restoreGathered(data.farm.zombiePatchGathered, this.field.patchRestTiles());
     this.zombies.restorePots(data.zombiePots, data.zombiePot);

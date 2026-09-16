@@ -111,12 +111,13 @@ import { showTimNotice } from "./ui/TimNotice";
 // existing `from "./hud"` importers (main.ts).
 import type {
   Mode, ObjCard, MenuCard, EpicBossMarketView, ZombieInfo, ObjectActions,
-  AlmanacEntryView, LevelUpView, QuestCompleteView, ReceivedView,
+  AlmanacEntryView, LevelUpView, QuestCompleteView, ReceivedView, ShedAppearanceView,
 } from "./ui/hudTypes";
 export { graveNeededFor } from "./ui/hudTypes";
 export type {
   Mode, ObjCard, MenuCard, EpicBossMarketView, ZombieInfo, ObjectActions,
   LevelUpUnlock, LevelUpView, QuestReward, QuestCompleteView, ReceivedView,
+  ShedAppearanceOption, ShedAppearanceView,
 } from "./ui/hudTypes";
 
 // A unified Market grid entry (crop, zombie, or object), with what to do on pick.
@@ -1524,6 +1525,12 @@ export class Hud {
   // Storage slots of the currently-placed shed (0 = none). Drives which single
   // shed the Market offers: only the NEXT upgrade above the current tier.
   getShedSlots: (() => number) | null = null;
+  /** Every look the placed shed may wear and the one it is wearing, or null when no
+   *  shed is placed. Read on every render: an upgrade adds a card to it. */
+  getShedAppearance: (() => ShedAppearanceView | null) | null = null;
+  /** Dress the placed shed in the appearance `key` (its own key = back to its own
+   *  art). Loads the art, applies it and saves. */
+  onPickShedAppearance: ((key: string) => void | Promise<void>) | null = null;
   /** Whether a colored grave is placed (gates planting that zombie class). */
   hasGrave: ((color: "Blue" | "Red" | "Silver") => boolean) | null = null;
   /** Whether the Plowing Monolith is placed — it moves the plow XP onto harvests,

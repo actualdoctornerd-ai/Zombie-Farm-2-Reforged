@@ -343,6 +343,11 @@ export interface PlacedObjectSave {
   /** Fruit trees: epoch ms when the fruit next becomes harvestable (offline
    *  growth — fruit ripens while the game is closed). */
   readyAt?: number;
+  /** Catalog key of a purely COSMETIC appearance override — an earlier storage shed
+   *  whose art this object wears (see src/objectSkins.ts). Never the object's real
+   *  type: `key` alone decides capacity, sale price and what the Market offers next.
+   *  Absent on every object wearing its own look, which is almost all of them. */
+  skin?: string;
   /** Memorial Statue only: the perished zombie enshrined on this plinth. Carried
    *  on the object rather than in `fallen` so the statue and its occupant move,
    *  save and load as one thing. */

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { MAX_FUNCTIONAL_OBJECTS } from "../src/v3/engine";
 import { MAX_ZOMBIE_NAME_LENGTH } from "../../src/zombie/types";
+import placeables from "../../public/assets/placeables.json";
 
 // The presentation blob is validated wholesale and rejected wholesale: one field the
 // Worker dislikes and the ENTIRE write is refused — zombie names, teams, the Almanac,
@@ -31,6 +32,19 @@ describe("presentation bounds track the limits they are derived from", () => {
   it("does not re-hardcode the object cap next to the derived bound", () => {
     // The failure mode is a literal creeping back in, not a wrong constant.
     expect(source).not.toMatch(/objectLayout\.length <= \d+/);
+  });
+
+  // A shed wearing an earlier tier's look sends that tier's catalog key. The bound
+  // is a shape check, not an allow-list — but a shape the real keys fail would refuse
+  // the whole blob for anyone who ever touched the appearance picker.
+  it("accepts every shed appearance key the client can send", () => {
+    const bound = source.match(/typeof row\.skin === "string" && \/(.+?)\/\.test\(row\.skin\)/);
+    expect(bound, "objectLayout skin check not found — has the validator moved?").toBeTruthy();
+    const pattern = new RegExp(bound![1]);
+    const sheds = (placeables as { key: string; storageSlots?: number }[])
+      .filter((def) => def.storageSlots);
+    expect(sheds.length).toBeGreaterThan(1);
+    for (const def of sheds) expect(pattern.test(def.key), def.key).toBe(true);
   });
 
   it("accepts every zombie name the client is willing to make", () => {

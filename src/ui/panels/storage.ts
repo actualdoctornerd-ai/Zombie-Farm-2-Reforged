@@ -9,6 +9,7 @@ import { canSellPlaceable, objectTint } from "../../assets";
 import type { ReceivedView } from "../hudTypes";
 import { setTintedSrc } from "../tintedSprite";
 import { storageBoostRows } from "../storageBoosts";
+import { openShedAppearance } from "./shedAppearance";
 import { keepScroll, recallOneOf, remember } from "../viewState";
 
 const INSTA_PLOW_DELAY_MS = 500;
@@ -68,6 +69,19 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
         ? "Tap a stored item to place it back on the farm."
         : "Tap an item on the farm to store it, or drop it on the shed with the Move tool.";
       body.appendChild(hint);
+      // The shed's own look. This tab IS the shed — tapping it on the farm opens
+      // exactly here — and the other three tabs belong to the pen, the boosts and
+      // gifts, so the button is scoped to this one. Hidden until an upgrade has
+      // actually left an earlier look behind to go back to.
+      const appearance = hud.getShedAppearance?.();
+      if (appearance && appearance.options.length > 1) {
+        const skinBtn = document.createElement("button");
+        skinBtn.className = "st-use";
+        skinBtn.textContent = "Shed Appearance";
+        skinBtn.title = "Wear the look of any shed you've owned";
+        skinBtn.onclick = () => openShedAppearance(hud, appearance, render);
+        body.appendChild(skinBtn);
+      }
       const grid = document.createElement("div");
       grid.className = "st-grid";
       // One slot per stored stack (repeated by count), padded to capacity.

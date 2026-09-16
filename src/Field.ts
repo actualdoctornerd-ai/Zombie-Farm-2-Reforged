@@ -11,6 +11,7 @@ import { clampPointToGrid, footprintOrigin, gridToScreen, HH, HW, screenToGrid, 
 import { setFootprint, sortLayer } from "./depthSort";
 import { makeLight, OBJECT_GLOWS } from "./lighting";
 import { mintObjectId, objectIdFloor } from "./objectIds";
+import { resolveObjectSkin, skinCompatible } from "./objectSkins";
 import {
   advanceObjectAnim, animFrames, createObjectAnim, posePart, REST, triggerObjectAnim,
   type ObjectAnimState,
@@ -329,6 +330,10 @@ interface FarmObject {
   // changes — so only the snapshot is ever persisted.
   memorial?: FallenZombie;
   memorialRig?: Container;
+  // A cosmetic appearance override: another def whose ART this object wears while
+  // keeping its own def for everything else (see src/objectSkins.ts). Undefined —
+  // never a copy of `def` — means "wearing its own look".
+  skin?: PlaceableDef;
 }
 
 export class Field {
@@ -1476,12 +1481,17 @@ export class Field {
   private fitObjectSprite(
     sp: Sprite, def: PlaceableDef, oc: number, or: number, ready = true, flipped = false,
     extra?: { backSprite?: Sprite; frontOverlay?: Container; work?: ObjectWork; turn?: number;
-      anim?: ObjectAnimState },
+      anim?: ObjectAnimState; skin?: PlaceableDef },
   ) {
     const turn = extra?.turn ?? 0;
-    const name = this.objectSpriteName(def, ready, extra?.work, turn);
-    const texture = this.assets.objects[name] ?? this.assets.objects[def.sprite] ?? Texture.EMPTY;
-    const tint = objectTint(def.color);
+    // An appearance override changes WHICH PICTURE is drawn and nothing else. Where
+    // the art lands, what it covers and what it blocks all stay with the object's own
+    // def, so a skinned shed occupies exactly the tiles its real tier does —
+    // skinCompatible is what makes that safe to assume.
+    const art = extra?.skin ?? def;
+    const name = this.objectSpriteName(art, ready, extra?.work, turn);
+    const texture = this.assets.objects[name] ?? this.assets.objects[art.sprite] ?? Texture.EMPTY;
+    const tint = objectTint(art.color);
     const s = this.objectScale();
     // Flip = mirror horizontally, which in iso reflects the footprint about the
     // origin tile — so the art is bottom-centered on the TRANSPOSED rectangle it
@@ -1521,7 +1531,7 @@ export class Field {
     // differ only in paint order. The far wall takes the same footprint with no bias,
     // which is what orders the pair.
     if (back) {
-      lay(back, this.assets.objects[def.backSprite ?? ""] ?? Texture.EMPTY);
+      lay(back, this.assets.objects[art.backSprite ?? ""] ?? Texture.EMPTY);
       setFootprint(back, oc, or, c1, r1);
     }
     // Pets stand on the pen's own tiles, so the depth sort puts them in FRONT of it —
@@ -1905,11 +1915,39 @@ export class Field {
     }
     this.setExtensionBlocks(id, o.def, o.oc, o.or, o.flipped, false);
     o.def = def;
+    // An upgrade shows what was bought. A skin chosen for the old tier is dropped
+    // rather than carried over, so the shed the player just paid for is the shed
+    // they see; the old look is still one tap away in the appearance picker, which
+    // has just gained a card rather than lost one.
+    o.skin = undefined;
     o.ready = def.growMs ? o.ready : false;
     this.fitObjectSprite(o.sprite, def, o.oc, o.or, true, o.flipped, o);
     this.forEachFootprint(o.oc, o.or, now.w, now.h, (t) => this.tileObject.set(t, id));
     this.setExtensionBlocks(id, def, o.oc, o.or, o.flipped, true);
     return true;
+  }
+
+  /** Dress an object in another def's art, or (null) put it back in its own.
+   *
+   *  Cosmetic only: `def` is untouched, so capacity, sell value and every footprint
+   *  read carry on from the real object. Refuses a skin whose art would not sit
+   *  where this object's does — the caller decides which skins are UNLOCKED
+   *  (objectSkinOptions), this decides which are safe to draw, and a saved or
+   *  visited farm is checked by both. Caller must have the skin's texture loaded. */
+  setObjectSkin(id: string, skin: PlaceableDef | null): boolean {
+    const o = this.objects.get(id);
+    if (!o) return false;
+    if (skin && !skinCompatible(o.def, skin)) return false;
+    // "No skin" and "skinned as myself" are one state: keeping a self-skin would
+    // outlive the next upgrade and pin the shed to art it has grown out of.
+    o.skin = skin && skin.key !== o.def.key ? skin : undefined;
+    this.fitObjectSprite(o.sprite, o.def, o.oc, o.or, o.ready, o.flipped, o);
+    return true;
+  }
+
+  /** The appearance an object is wearing, or null when it wears its own. */
+  objectSkinOf(id: string): PlaceableDef | null {
+    return this.objects.get(id)?.skin ?? null;
   }
 
   // Relocate an existing object; false if the destination footprint is invalid.
@@ -2403,6 +2441,7 @@ export class Field {
       // not — comes back as the corner it drew, not as a different one.
       if (o.def.turns) { if (o.turn) s.turn = o.turn; }
       else if (o.flipped) s.rotation = 1;
+      if (o.skin) s.skin = o.skin.key; // cosmetic appearance override, never the real key
       if (o.memorial) s.memorial = o.memorial; // the zombie enshrined on this plinth
       out.push(s);
     }
@@ -2434,8 +2473,13 @@ export class Field {
     return attempt(saved) || (!!saved && attempt(0));
   }
 
-  // Rebuild placed objects from a save. `resolve` maps a def key to its config.
-  restoreObjects(saves: PlacedObjectSave[], resolve: (key: string) => PlaceableDef | undefined) {
+  // Rebuild placed objects from a save. `resolve` maps a def key to its config;
+  // `catalog` is the whole placeable catalog, needed only to judge a saved
+  // appearance override (which skins an object has unlocked is a fact about the
+  // catalog's ladder, not about this one save). Omitting it restores the objects
+  // wearing their own art.
+  restoreObjects(saves: PlacedObjectSave[], resolve: (key: string) => PlaceableDef | undefined,
+    catalog: Iterable<PlaceableDef> = []) {
     for (const o of this.objects.values()) {
       this.destroyObjectSprites(o);
       this.destroyObjectLight(o);
@@ -2454,6 +2498,10 @@ export class Field {
       // counts (see sanitizeFallenUncapped).
       const memorial = s.memorial ? sanitizeFallenUncapped([s.memorial])[0] : undefined;
       this.restoreOneObject(def, s, memorial);
+      // Appearance last: the object has to exist before it can be dressed, and a
+      // skin that is no longer legal for it (a hand-edited save, a visited farm)
+      // is dropped here rather than drawn.
+      if (s.skin) this.setObjectSkin(s.id, resolveObjectSkin(def, s.skin, catalog));
       restored.push(s.id); // reserve the id even if the object could not be re-placed
     }
     // Monotonic: a save whose objects all carry server instance ids scans to nothing,

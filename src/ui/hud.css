@@ -1746,6 +1746,16 @@
   border: 1px solid #63251c; border-radius: 7px; padding: 2px 5px; cursor: pointer;
   color: #fff; background: linear-gradient(#c95c4d,#92372d); font: 700 9px/1.2 Georgia, serif; }
 #hud .st-empty { text-align: center; color: #6e4a1e; font-style: italic; padding: 34px 12px; font-size: 15px; }
+/* Shed appearance picker: taller slots, since each one is captioned with the shed's
+   name — "Wood Hut" and "Bone Hut" are the same silhouette in different paint. */
+#hud .shed-skin-bg { z-index: 23; } /* above the Storage panel (21) that opens it */
+#hud .shed-skin-blurb { max-width: 430px; margin: 0 0 10px; font-style: italic; }
+#hud .shed-skin-slot { width: 78px; height: 84px; flex-direction: column; gap: 2px;
+  border: none; padding: 2px; cursor: pointer; font: inherit; }
+#hud .shed-skin-slot img { max-width: 52px; max-height: 50px; }
+#hud .shed-skin-slot.filled { outline: 2px solid #f0c04a; outline-offset: -2px; border-radius: 6px; }
+#hud .shed-skin-name { font: 700 9px/1.1 Georgia, serif; color: #f4e3c2; text-align: center;
+  text-shadow: 0 1px 2px #000; overflow-wrap: anywhere; }
 /* boost inventory rows (Storage -> Boosts) */
 #hud .st-boostlist { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
 #hud .st-boost { display: flex; align-items: center; gap: 10px; padding: 6px 8px;

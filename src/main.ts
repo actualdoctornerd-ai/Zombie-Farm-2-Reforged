@@ -11,6 +11,7 @@ import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
 import { armyCapacityOf, BASE_ARMY_MAX } from "./armyCapacity";
 import { shedCapacityOf } from "./shedCapacity";
+import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
   Field, CARROT, CropConfig, objectFootprint, OBJECT_WASH_STORE, PLOT, savedTurn,
 } from "./Field";
@@ -3571,6 +3572,39 @@ async function main() {
   hud.getShedSlots = () => {
     const id = field.shedId();
     return id ? field.objectDefOf(id)?.storageSlots ?? 0 : 0;
+  };
+  // The shed's look, which an upgrade otherwise takes away for good. Every tier at
+  // or below the placed one is offered: the Market only ever sells the NEXT shed up,
+  // so that set is exactly the sheds this farm has owned (see objectSkins).
+  hud.getShedAppearance = () => {
+    if (visiting) return null; // a visitor is looking at someone else's shed
+    const id = field.shedId();
+    const def = id ? field.objectDefOf(id) : null;
+    if (!id || !def) return null;
+    const options = objectSkinOptions(def, placeCatalog.values());
+    if (!options.length) return null;
+    return {
+      options: options.map((o) => ({
+        key: o.key, name: o.name, portrait: `${BASE}assets/objects/${o.sprite}`,
+        tint: objectTint(o.color), slots: o.storageSlots ?? 0,
+      })),
+      current: field.objectSkinOf(id)?.key ?? def.key,
+      realName: def.name,
+      slots: def.storageSlots ?? 0,
+    };
+  };
+  hud.onPickShedAppearance = async (key) => {
+    const id = field.shedId();
+    const def = id ? field.objectDefOf(id) : null;
+    if (!id || !def) return;
+    const skin = resolveObjectSkin(def, key, placeCatalog.values());
+    // The chosen art is almost never the one already in the atlas — objects load
+    // lazily, and the whole point of this list is the tiers that are no longer on
+    // the farm. Load before applying or the shed draws empty.
+    if (skin) await ensureObjectTextures(assets, skin);
+    if (!field.setObjectSkin(id, skin)) return;
+    audio.play("place");
+    saveManager.save();
   };
   hud.objectLimitReached = (def) => {
     const limit = placeablePurchaseLimit(def);
