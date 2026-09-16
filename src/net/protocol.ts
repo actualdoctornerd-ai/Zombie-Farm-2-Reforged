@@ -329,6 +329,12 @@ export interface SocialBootstrap {
   friends: { accountId: string; name: string; friendCode: string }[];
   incomingRequestCount: number;
   inboxCount: number;
+  /** When the most recent friend invasion AGAINST this account settled, on the server
+   *  clock — null when nobody has ever invaded them. Carried here so the client can
+   *  light the "you were invaded" dot (social/badges.ts) without spending a request on
+   *  the whole PvP history at boot. Optional: a Worker with PVP_ENABLED off doesn't
+   *  compute it, and an older one doesn't send it — both read as "never". */
+  lastInvadedAt?: number | null;
 }
 
 /** How recently a friend played, at the only resolution the server discloses to them.

@@ -2606,6 +2606,10 @@ async function main() {
         outboxPending > 0 ? outboxPending : work,
       );
     };
+    // The invasion dot needs the bootstrap's `social.lastInvadedAt`. Wired here, beside
+    // the other economy callbacks and well before `economy.start()`, because boot fires
+    // its social pulls independently — nothing downstream may assume one order.
+    economy.onBootstrapped = () => hud.refreshSocialBadges();
     economy.onPendingChange = (pending) => {
       outboxPending = pending;
       if (economy?.available) refreshPlayStatus?.();
@@ -4740,10 +4744,12 @@ async function main() {
     void hud.refreshInbox?.().then(() => {
       const n = hud.getInbox?.().length ?? 0;
       if (n) hud.showToast(`You have ${n} gift${n === 1 ? "" : "s"} waiting! 🎁`);
+      hud.refreshSocialBadges();
     }).catch(() => { /* best-effort toast; offline boot must not surface an error */ });
     void hud.refreshRequests?.().then(() => {
       const n = hud.getRequests?.().length ?? 0;
       if (n) hud.showToast(`You have ${n} friend request${n === 1 ? "" : "s"}! 👋`);
+      hud.refreshSocialBadges();
     }).catch(() => { /* best-effort toast; offline boot must not surface an error */ });
     void hud.getBlackMarketFulfillments?.().then((rows) => {
       const n = rows.length;
@@ -5350,7 +5356,11 @@ async function main() {
   };
   // ---- Invasions panel hooks (ui/panels/invasions.ts) ----
   hud.pvpAvailable = () => !!economy?.serverPvpEnabled;
+  hud.getLastInvadedAt = () => economy?.serverLastInvadedAt ?? null;
   hud.getPlayerLevel = () => state.level;
+  // The last of the hooks socialBadges() reads. `onBootstrapped` above covers a
+  // bootstrap that lands after this line; this covers one that already has.
+  hud.refreshSocialBadges();
   hud.getPvpOverview = async () => {
     if (!onlineFarm) return null;
     try { return await api.pvpHistory(); } catch { return null; }

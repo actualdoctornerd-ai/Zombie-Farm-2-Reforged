@@ -27,9 +27,14 @@ import type { ProfileIndex } from "./save/profiles";
 import { canGiftBrain, type Friend } from "./social/friends";
 import { planGiftAll, type GiftAllPlan } from "./social/giftAll";
 import { FRIEND_SORTS, isFriendSort, sortFriends } from "./social/friendSort";
+import {
+  NO_SOCIAL_BADGES, badgeSummary, friendsBadge, invadedSinceSeen, invasionsBadge,
+  socialBadge, type SocialBadges,
+} from "./social/badges";
+import { setBadge } from "./ui/badge";
 import { isMobile } from "./platform";
 import {
-  getFriendSort, setFriendSort,
+  getFriendSort, setFriendSort, invadedSeenAt, markInvadedSeen,
   type DayNightMode, type FarmBackground, type ZombieAppearancePrefs,
 } from "./prefs";
 import { fmtCooldown, MCDONNELL_ID, VOUCHER_KEY } from "./raid/RaidCatalog";
@@ -1022,6 +1027,91 @@ export class Hud {
     };
   }
 
+  // ---- Social notification dots ------------------------------------------------
+  // The dot the player sees on the dock, and the ones on the Social hub's tiles and
+  // the Invasions tabs, are all painted from THIS one read of live state. Nothing
+  // caches a badge: `refreshSocialBadges()` re-asks and repaints, and every action
+  // that could change the answer (claiming a gift, answering a request, looking at
+  // the invasion history) calls it afterwards.
+
+  /** What is currently waiting for this player across the social surfaces. */
+  socialBadges(): SocialBadges {
+    // An offline farm has no inbox, no requests and no invasions — and the Social
+    // button isn't even in the dock. Answer empty rather than reading stale caches
+    // left over from a session that has since signed out.
+    if (!(this.socialOnline?.() ?? false)) return NO_SOCIAL_BADGES;
+    return {
+      gifts: this.getInbox?.().length ?? 0,
+      requests: this.getRequests?.().length ?? 0,
+      // Gated on the level too: below it the hub's Invasions tile is shut, so a dot on
+      // the dock would lead to a door that does not open. (The server gates invasions
+      // at the same level, so this is belt-and-braces rather than a real case.)
+      invaded: (this.pvpAvailable?.() ?? false)
+        && (this.getPlayerLevel?.() ?? 0) >= PVP_MIN_LEVEL
+        && invadedSinceSeen(this.getLastInvadedAt?.() ?? null, this.invasionMark()),
+    };
+  }
+
+  /** The seen-mark, adopting the account's existing history on a device that has none.
+   *
+   *  Without this, a new device — or one whose storage was evicted, which is the common
+   *  case here (see the storage notes in settings) — would open to a dot for invasions
+   *  the player watched weeks ago on another screen, and the dot would mean nothing.
+   *  So the first time a device is told when this farm was last invaded, it adopts that
+   *  instant as already seen.
+   *
+   *  `1` is the floor for "initialized, but nothing has happened yet": it has to be
+   *  distinguishable from 0 ("this device has never been told anything"), or a farm
+   *  that had never been invaded would silently swallow the very first invasion it
+   *  ever suffered. Done lazily, on read, because the value it adopts arrives on the
+   *  bootstrap's own schedule and boot has no single point where it is known to be in
+   *  hand. Idempotent: markInvadedSeen only ever moves the mark forward. */
+  private invasionMark(): number {
+    const mark = invadedSeenAt();
+    if (mark > 0) return mark;
+    const last = this.getLastInvadedAt?.() ?? null;
+    if (!(this.pvpAvailable?.() ?? false)) return mark; // nothing known yet; don't stamp
+    const adopted = Math.max(last ?? 0, 1);
+    markInvadedSeen(adopted);
+    return adopted;
+  }
+
+  /** Repaint every dot that is currently on screen. Cheap and idempotent: safe to
+   *  call after anything at all, which is the point — call sites never have to work
+   *  out WHICH badge their action cleared. */
+  refreshSocialBadges(): void {
+    const badges = this.socialBadges();
+    const social = this.menuCol?.querySelector<HTMLElement>('[data-menu="Social"]');
+    if (social) setBadge(social, socialBadge(badges), badgeSummary(badges));
+    // On a phone the whole dock tucks into the fab, taking the Social button — and its
+    // dot — off screen entirely. The fab carries the same dot while it is out, so the
+    // notification survives the layout that hides the thing it is attached to. (The fab
+    // is display:none on desktop, so this is free there.)
+    if (this.fab) setBadge(this.fab, socialBadge(badges), badgeSummary(badges));
+    // The hub and the panels repaint through the same helper when they are open; when
+    // they are closed there is nothing to update.
+    for (const el of this.el.querySelectorAll<HTMLElement>("[data-badge]")) {
+      const kind = el.dataset.badge;
+      const on = kind === "friends" ? friendsBadge(badges)
+        : kind === "invasions" ? invasionsBadge(badges)
+        : false;
+      // Scoped to the tile: a dot on Friends must not read out the invasion that the
+      // Invasions tile next to it is the one carrying.
+      setBadge(el, on, on ? badgeSummary(badges, kind === "friends" ? "friends" : "invasions") : "");
+    }
+  }
+
+  /** The player has now LOOKED at their invasion history: stamp the seen-mark forward
+   *  to the newest invasion the server has told us about, which puts the dot out.
+   *  `newest` lets a caller that holds fresher data (the History tab, which pulls the
+   *  full list) stamp past what bootstrap reported. */
+  markInvasionsSeen(newest?: number | null): void {
+    const boot = this.getLastInvadedAt?.() ?? null;
+    const at = Math.max(boot ?? 0, newest ?? 0);
+    if (at > 0) markInvadedSeen(at);
+    this.refreshSocialBadges();
+  }
+
   // Compact icon dock: keeps these secondary destinations visually grouped and
   // clears the middle-right playfield that the old stack of wide pills covered.
   private buildMenu() {
@@ -1070,6 +1160,9 @@ export class Hud {
       col.appendChild(btn);
     }
     this.el.appendChild(col);
+    // Paint whatever is already waiting. Boot order is not guaranteed: the inbox and
+    // request pulls may land before or after the dock is built, so both ends refresh.
+    this.refreshSocialBadges();
   }
 
   /** Confirm a Market purchase that COMMITS on the tap. Crops and Items deliberately
@@ -1821,6 +1914,10 @@ export class Hud {
    *  The Social hub shows the Invasions entry only when this is true, so the whole
    *  feature launches (and parks) with the Worker's PVP_ENABLED var alone. */
   pvpAvailable: (() => boolean) | null = null;
+  /** When the newest settled invasion against this farm finished, on the SERVER clock
+   *  (bootstrap `social.lastInvadedAt`), or null for "never". Compared against the
+   *  device's own seen-mark to decide the Invasions dot — see social/badges.ts. */
+  getLastInvadedAt: (() => number | null) | null = null;
   /** The player's current level, for the invasion level gate's client-side face. */
   getPlayerLevel: (() => number) | null = null;
   /** History + stats + claim backlog, in one server round trip. */
@@ -3490,11 +3587,15 @@ export class Hud {
     // rather than hidden — it is the only place the player learns the feature is
     // coming and what it costs to get there — but it does not open, so the panel
     // behind it never has to explain itself to someone who cannot use it yet.
+    // `badge` names which slice of socialBadges() this tile answers for; the dot is
+    // then painted (and repainted) by refreshSocialBadges through the data attribute,
+    // so the hub never has to be told separately when something clears behind it.
     const choice = (
       title: string,
       note: string,
       minLevel: number,
       open: () => void,
+      badge?: "friends" | "invasions",
     ): HTMLButtonElement => {
       const btn = document.createElement("button");
       btn.className = "social-choice";
@@ -3507,12 +3608,17 @@ export class Hud {
         btn.classList.add("locked");
         btn.disabled = true;
         btn.title = `${title} opens at level ${minLevel}.`;
-      } else btn.onclick = () => { close(); open(); };
+      } else {
+        // A locked tile carries no dot: it cannot be opened, so a dot on it would be a
+        // notification with nowhere to go.
+        if (badge) btn.dataset.badge = badge;
+        btn.onclick = () => { close(); open(); };
+      }
       return btn;
     };
     choices.append(
       choice("Friends", "Connect, gift brains, and visit farms", 0,
-        () => this.openFriends()),
+        () => this.openFriends(), "friends"),
       choice("Black Market", "Post zombie sales and requests", BLACK_MARKET_MIN_LEVEL,
         () => this.openBlackMarket()),
     );
@@ -3523,7 +3629,7 @@ export class Hud {
     if (PVP_UI_ENABLED && (this.pvpAvailable?.() ?? false)) {
       choices.appendChild(choice(
         "Invasions", "Raid friends' farms, arrange your defense", PVP_MIN_LEVEL,
-        () => openInvasionsPanel(this),
+        () => openInvasionsPanel(this), "invasions",
       ));
     }
     // No level gate: the board is readable from level 1 (it ranks Level itself),
@@ -3534,6 +3640,7 @@ export class Hud {
       () => openLeaderboardPanel(this),
     ));
     panel.append(choices);
+    this.refreshSocialBadges();
   }
 
   openBlackMarket(initialKind: BlackMarketOrderKind = "BUY_ZOMBIE", selectedUnitId?: string) {
@@ -5060,6 +5167,9 @@ export class Hud {
     const renderFriends = () => { renderToolbar(); renderList(); };
     const renderAll = () => {
       renderNote(); renderAcct(); renderRequests(); renderInbox(); renderFriends();
+      // Every path that empties the inbox or answers a request comes back through
+      // here, so this is the one place the dock's dot has to be re-asked from.
+      this.refreshSocialBadges();
     };
     const refresh = async () => {
       if (online()) {

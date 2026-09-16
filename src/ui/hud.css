@@ -327,6 +327,24 @@
   opacity: 0; transition: opacity .35s, transform .35s; z-index: 50; }
 #hud .qtoast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---- notification dot (ui/badge.ts) ----
+   One red circle, reused by every surface that can carry one: the Social button in
+   the dock, the Social hub's choices, the Invasions panel's History tab. Deliberately
+   numberless — the panel behind a dot always names the exact counts — so it stays the
+   same size everywhere and never reflows the control it sits on.
+   The glow is what makes it read as NEW against the game's own red-brown chrome. */
+#hud .ui-badge { position: absolute; top: -4px; right: -4px; width: 13px; height: 13px;
+  box-sizing: border-box; border-radius: 50%; pointer-events: none; z-index: 3;
+  background: radial-gradient(circle at 35% 30%, #ff6a6a, #d4132c 62%, #8d0a1c);
+  border: 2px solid #fff3d8; box-shadow: 0 0 6px rgba(255,60,60,.85), 0 1px 2px rgba(0,0,0,.5);
+  animation: badge-pop .32s ease-out; }
+/* The dot's meaning, reachable by a screen reader and nothing else: a bare red circle
+   announces itself to sighted players only. */
+#hud .ui-badge-text { position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; }
+@keyframes badge-pop { from { transform: scale(0); } 70% { transform: scale(1.25); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { #hud .ui-badge { animation: none; } }
+
 /* Secondary destinations live in one wooden dock, vertically centered at the
    right edge. Icons use the game's existing UI art. */
 #hud .menucol { position: fixed; right: 12px; top: 50%; transform: translateY(-50%);
@@ -543,6 +561,9 @@
   padding: 0 5px; box-sizing: border-box; border-radius: 11px; display: none; align-items: center;
   justify-content: center; font: 800 12px system-ui, sans-serif; color: #16110a; background: #8ec74f;
   border: 2px solid #16110a; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+/* The social dot on the collapsed fab takes the LEFT corner: the right one already
+   belongs to the Insta-Grow uses badge, and the two are live at the same time. */
+#hud .fab > .ui-badge { top: 0; left: 0; right: auto; }
 /* label next to the active tool showing what's currently being planted */
 #hud .plant-label { position: fixed; right: 84px; bottom: 24px; pointer-events: none;
   display: none; align-items: center; gap: 6px; padding: 6px 13px; border-radius: 14px;
@@ -1377,6 +1398,9 @@
 #hud .mkt-cur .bm-held { font-size: 12px; font-weight: 700; color: #8ad14a;
   background: rgba(138,209,74,.14); border-radius: 7px; padding: 2px 7px; margin-left: -10px; }
 #hud .mkt-tabs { display: flex; gap: 7px; justify-content: center; margin-bottom: 7px; }
+/* Tabs are drawn with a border-image, so a dot has to hang outside the art to be seen
+   at all; `position: relative` exists here only to anchor it. */
+#hud .mkt-tab { position: relative; }
 #hud .mkt-tab { border-style: solid; border-width: 7px 20px;
   border-image: url("/assets/ui/market/tab.png") 16 fill / 7px 20px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 15px; cursor: pointer; min-width: 58px;
@@ -1534,8 +1558,11 @@
 /* ---- Social hub + asynchronous Black Market ---- */
 #hud .social-hub { width: min(470px, 90vw); text-align: center; }
 #hud .social-choices { display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 16px; padding: 18px; }
-#hud .social-choice { min-height: 120px; border: 3px solid #6d4b24; border-radius: 14px;
+#hud .social-choice { position: relative; min-height: 120px; border: 3px solid #6d4b24; border-radius: 14px;
   background: linear-gradient(#f3e5bd,#d7bc7d); color: #4a3014; font: 700 20px Georgia,serif; cursor: pointer; }
+/* The hub's tiles are big and the grid has real gaps, so their dots sit inside the
+   corner rather than hanging off it — outside, they read as belonging to the gap. */
+#hud .social-choice > .ui-badge { top: 7px; right: 7px; }
 #hud .social-choice span { display: block; margin-top: 8px; font: 400 13px Georgia,serif; }
 /* A social surface the farm has not reached yet: still listed (so the player knows it
    is coming and what it costs), but plainly shut. */

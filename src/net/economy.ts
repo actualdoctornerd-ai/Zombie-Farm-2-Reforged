@@ -160,6 +160,11 @@ export class EconomyClient {
   /** Some — not all — of a bulk plow/plant's plots were refused. */
   onBulkFarmPartial: ((plots: number, error: string) => void) | null = null;
   onAuthoritativeSettled: ((serverTime: number) => void) | null = null;
+  /** Fired once the boot bootstrap has been adopted, so callers that read its
+   *  capability/social fields (`serverPvpEnabled`, `serverLastInvadedAt`) know when
+   *  those stopped being "not known yet". Boot fires several independent requests at
+   *  once, so nothing may assume the bootstrap landed before any of the others. */
+  onBootstrapped: (() => void) | null = null;
   onPendingChange: ((pending: number) => void) | null = null;
   /** Fired at boot when the Worker's raid ruleset differs from this bundle's. Every
    *  `/raid/start` would be refused with `426 stale_ruleset` until the tab reloads, so
@@ -228,6 +233,11 @@ export class EconomyClient {
       // boot only — the client's Invasions surfaces follow the Worker's PVP_ENABLED
       // flag, so launching (or parking) PvP never needs a client redeploy.
       this.serverPvpEnabled = bootstrap.pvpEnabled === true;
+      // When this farm was last invaded, for the Social dots (social/badges.ts). Read
+      // at boot only: the badge answers "anything happened while I was away?", and a
+      // fight that settles mid-session is one the player is present for.
+      this.serverLastInvadedAt = bootstrap.social.lastInvadedAt ?? null;
+      this.onBootstrapped?.();
       if (bootstrap.raidRulesetVersion !== RAID_RULESET_VERSION) {
         this.onRulesetSkew?.(bootstrap.raidRulesetVersion, RAID_RULESET_VERSION);
       }
@@ -251,6 +261,11 @@ export class EconomyClient {
   /** Whether the deployed Worker accepts friend invasions (bootstrap `pvpEnabled`).
    *  False until the first successful bootstrap. */
   serverPvpEnabled = false;
+
+  /** When the newest settled invasion against this farm finished, on the SERVER clock
+   *  (bootstrap `social.lastInvadedAt`). Null until the first successful bootstrap,
+   *  and on any Worker with PvP parked. */
+  serverLastInvadedAt: number | null = null;
 
   /** A compact description of WHY gameplay is unavailable, read live at the moment
    *  it's shown rather than remembered from a callback — several paths pause the

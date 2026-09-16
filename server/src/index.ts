@@ -1001,7 +1001,17 @@ app.post("/bootstrap", async (c) => {
   // Feature capability, not state: the client shows its Invasions surfaces only when
   // this Worker will accept /raid/pvp/start, so launching PvP is ONE Worker-var flip
   // with no client redeploy and no dead button in the meantime.
-  const payload = { ...response, pvpEnabled: pvpEnabled(c.env) };
+  const pvpOn = pvpEnabled(c.env);
+  // When the farm was last invaded, for the client's "you were invaded" dot. Folded in
+  // HERE rather than inside v3.bootstrap because the other caller of that projection is
+  // /friends/:id/save, which throws the social block away — a visit must not pay for a
+  // query nobody reads. Skipped outright when PvP is parked: no fights, no dot.
+  const lastInvadedAt = pvpOn ? await v3Pvp.lastInvadedAt(c.env.DB, accountId) : null;
+  const payload = {
+    ...response,
+    pvpEnabled: pvpOn,
+    social: { ...response.social, lastInvadedAt },
+  };
   metric("bootstrap", accountId, started, { payloadBytes: JSON.stringify(payload).length });
   return c.json(payload);
 });

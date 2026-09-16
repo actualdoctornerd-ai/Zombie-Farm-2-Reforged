@@ -25,6 +25,7 @@ import {
   PVP_MIN_LEVEL,
 } from "../../raid/pvp";
 import { hasSeenPvpTip, markPvpTipSeen } from "../../prefs";
+import { setBadge } from "../badge";
 
 /** Tim's one-off briefing, given the first time the Invasions panel opens. Defending
  *  is the one thing in the game the player never actually plays — the farm fights on
@@ -267,12 +268,23 @@ export function openInvasionsPanel(hud: Hud) {
     tabs.appendChild(tab);
   }
 
+  // The panel opens on Attack, so an invasion the player has not seen would sit one
+  // tab away with nothing pointing at it. The dot rides the History tab until they go
+  // there — the same dot, from the same state, as the one on the dock behind them.
+  const paintHistoryBadge = () => {
+    const tab = tabButtons.get("History");
+    if (!tab) return;
+    const on = hud.socialBadges().invaded;
+    setBadge(tab, on, on ? "your farm was invaded" : "");
+  };
+
   const render = () => {
     for (const [name, tab] of tabButtons) tab.classList.toggle("sel", name === current);
     body.innerHTML = "";
     if (current === "Attack") renderAttack();
     else if (current === "Defense") renderDefense();
     else renderHistory();
+    paintHistoryBadge();
   };
 
   // ---- Attack -----------------------------------------------------------------
@@ -762,6 +774,11 @@ export function openInvasionsPanel(hud: Hud) {
       };
       section("⚔ Your attacks", view.attacks, "attacker");
       section("🛡 Invasions against you", view.defenses, "defender");
+      // Looked at — put the dot out. Stamped from the list actually on screen (not
+      // from the boot value), because a fight that settled since boot is now visible
+      // here too, and leaving the mark behind it would re-light the dot next launch.
+      hud.markInvasionsSeen(view.defenses[0]?.finishedAt ?? null);
+      paintHistoryBadge();
     });
   };
 

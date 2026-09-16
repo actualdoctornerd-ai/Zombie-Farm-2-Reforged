@@ -141,6 +141,24 @@ export async function expireLivePvp(db: D1Database, attackerId: string, now: num
     .bind(now, attackerId, now).run();
 }
 
+/** When the most recent SETTLED invasion against `accountId` finished, on the server
+ *  clock — null if nobody has ever invaded them. /bootstrap carries this so the client
+ *  can light its "you were invaded" dot without pulling the whole PvP history at boot
+ *  (see src/social/badges.ts); one row off idx_pvp_defender, newest first.
+ *
+ *  `win IS NOT NULL` is the same filter historyPvp uses, and it is load-bearing here:
+ *  expireLivePvp stamps finished_at on ABANDONED attacks too, and those rows carry the
+ *  defender's id. Counting them would light a dot over a fight that never happened and
+ *  that the History tab, which filters them out, could never explain. */
+export async function lastInvadedAt(db: D1Database, accountId: string): Promise<number | null> {
+  const row = await db.prepare(
+    `SELECT finished_at AS at FROM pvp_sessions_v3
+     WHERE defender_id = ? AND win IS NOT NULL
+     ORDER BY finished_at DESC LIMIT 1`
+  ).bind(accountId).first<{ at: number | null }>();
+  return row?.at ?? null;
+}
+
 /** Give the live-session slot back NOW, on the attacker's say-so — the fight never
  *  reached a verdict, so this settles nothing: no win, no loss, no reward, no stats
  *  row. The attempt itself is NOT refunded; `startPvp`'s pair cap counts opened

@@ -508,6 +508,42 @@ describe("defense modes", () => {
   });
 });
 
+// The one field /bootstrap carries purely so the client can put a red dot on its Social
+// button: when this farm was last invaded. It is the defender's only word that anything
+// happened while they were away — the fight settles entirely on the attacker's device —
+// so the value has to survive the full live path, not just the query that computes it.
+describe("bootstrap tells a defender they were invaded", () => {
+  interface Boot { social: { lastInvadedAt?: number | null } }
+  const bootstrap = (token: string) => call<Boot>("POST", "/bootstrap", token, {});
+
+  it("is null until a fight settles, then names when it did", async () => {
+    const attacker = await pvpPlayer("pvp-dot-a", attackUnits);
+    const defender = await pvpPlayer("pvp-dot-d", [{ id: "d0" }]);
+    await befriend(attacker, defender);
+
+    const before = await bootstrap(defender.token);
+    expect(before.status, JSON.stringify(before.body)).toBe(200);
+    expect(before.body.social.lastInvadedAt ?? null).toBeNull();
+
+    const at = Date.now();
+    const started = await call<{ sessionId: string }>("POST", "/raid/pvp/start", attacker.token,
+      startBody(defender.accountId));
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+    const finished = await call("POST", "/raid/pvp/finish", attacker.token,
+      { sessionId: started.body.sessionId, finalTick: 0, inputs: [] });
+    expect(finished.status, JSON.stringify(finished.body)).toBe(200);
+
+    const after = await bootstrap(defender.token);
+    expect(after.status).toBe(200);
+    expect(after.body.social.lastInvadedAt).toBeGreaterThanOrEqual(at);
+
+    // The ATTACKER was not invaded by winning one: the field is per-role, and reading
+    // it off the wrong side of the same row is the obvious way to get this wrong.
+    const attackerBoot = await bootstrap(attacker.token);
+    expect(attackerBoot.body.social.lastInvadedAt ?? null).toBeNull();
+  });
+});
+
 describe("friend invasion — attacks, claims, daily caps", () => {
   interface StartResponse {
     ok: boolean;

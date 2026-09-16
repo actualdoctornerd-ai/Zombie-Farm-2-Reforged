@@ -43,6 +43,7 @@ const ZOMBIE_SORT_KEY = "zf2r.zombieSort";
 const HAZARD_TIP_KEY = "zf2r.seenHazardTip";
 const RAID_TIP_KEY = "zf2r.seenRaidTip."; // + raid id
 const PVP_TIP_KEY = "zf2r.seenPvpTip";
+const INVADED_SEEN_KEY = "zf2r.invadedSeenAt";
 const BODY_COLOR_KEY = "zf2r.zombieBodyColor";
 const SHOW_MUTATIONS_KEY = "zf2r.showZombieMutations";
 const HEALTH_NUMBERS_KEY = "zf2r.showHealthNumbers";
@@ -300,6 +301,24 @@ export function hasSeenPvpTip(): boolean {
 
 export function markPvpTipSeen(): void {
   writePref(PVP_TIP_KEY, "1");
+}
+
+/** High-water mark of the newest invasion against this farm the player has LOOKED at,
+ *  on the server clock (see social/badges.ts). Device-local on purpose: an invasion
+ *  leaves nothing to claim and nothing was ever at risk, so "seen" is a property of
+ *  this screen, not of the account — a second device gets its own dot, and a browser
+ *  that cannot write storage simply keeps showing one until it is re-stamped.
+ *  0 means "no mark yet"; the boot path stamps it so history never arrives as news. */
+export function invadedSeenAt(): number {
+  const value = Number(readPref(INVADED_SEEN_KEY));
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function markInvadedSeen(at: number): void {
+  // Only ever moves forward: two panels (and a boot stamp) write this, and an older
+  // value arriving late must not re-light a dot the player already cleared.
+  if (!Number.isFinite(at) || at <= invadedSeenAt()) return;
+  writePref(INVADED_SEEN_KEY, String(Math.floor(at)));
 }
 
 /** When the local-clock night window opens and closes, in the device's own
