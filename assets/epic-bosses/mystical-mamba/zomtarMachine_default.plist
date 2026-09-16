@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>ZOMTAR_LEFT_BASE.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 52}, {103, 184}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -26}</string>
+			<key>spriteSize</key>
+			<string>{103, 184}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 186}, {103, 184}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_LFT_FRAME1.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{105, 0}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_LFT_FRAME2.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{307, 176}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_LFT_FRAME3.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{105, 176}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_LFT_FRAME4.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{307, 0}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_RHT_FRAME1.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{206, 0}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_RHT_FRAME2.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{408, 0}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_RHT_FRAME3.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{408, 176}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_RHT_FRAME4.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 2}, {99, 174}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 29}</string>
+			<key>spriteSize</key>
+			<string>{99, 174}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{206, 176}, {99, 174}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>ZOMTAR_RIGHT_BASE.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 52}, {103, 184}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -26}</string>
+			<key>spriteSize</key>
+			<string>{103, 184}</string>
+			<key>spriteSourceSize</key>
+			<string>{103, 236}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 0}, {103, 184}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>zomtarMachine</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+		<key>size</key>
+		<string>{512, 512}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>zomtarMachine_default</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<false/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>zomtarMachine_default</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>

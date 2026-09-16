@@ -1,0 +1,778 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>foulowl_attack_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 108}, {237, 167}}</string>
+			<key>spriteOffset</key>
+			<string>{28, -54}</string>
+			<key>spriteSize</key>
+			<string>{237, 167}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1155, 2}, {237, 167}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{99, 113}, {249, 161}}</string>
+			<key>spriteOffset</key>
+			<string>{36, -56}</string>
+			<key>spriteSize</key>
+			<string>{249, 161}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1498, 839}, {249, 161}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{50, 103}, {271, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{-2, -51}</string>
+			<key>spriteSize</key>
+			<string>{271, 171}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{802, 183}, {271, 171}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{142, 21}, {177, 253}}</string>
+			<key>spriteOffset</key>
+			<string>{43, -10}</string>
+			<key>spriteSize</key>
+			<string>{177, 253}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 2}, {177, 253}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{169, 38}, {145, 235}}</string>
+			<key>spriteOffset</key>
+			<string>{54, -18}</string>
+			<key>spriteSize</key>
+			<string>{145, 235}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 257}, {145, 235}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{157, 43}, {147, 231}}</string>
+			<key>spriteOffset</key>
+			<string>{43, -21}</string>
+			<key>spriteSize</key>
+			<string>{147, 231}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 494}, {147, 231}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{132, 59}, {179, 215}}</string>
+			<key>spriteOffset</key>
+			<string>{34, -29}</string>
+			<key>spriteSize</key>
+			<string>{179, 215}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{149, 257}, {179, 215}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 107}, {327, 167}}</string>
+			<key>spriteOffset</key>
+			<string>{-23, -53}</string>
+			<key>spriteSize</key>
+			<string>{327, 167}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{675, 774}, {327, 167}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{45, 114}, {295, 159}}</string>
+			<key>spriteOffset</key>
+			<string>{5, -56}</string>
+			<key>spriteSize</key>
+			<string>{295, 159}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1631, 2}, {295, 159}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_attack_fr10.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{86, 111}, {255, 163}}</string>
+			<key>spriteOffset</key>
+			<string>{26, -55}</string>
+			<key>spriteSize</key>
+			<string>{255, 163}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1241, 859}, {255, 163}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_defeat_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{94, 108}, {237, 167}}</string>
+			<key>spriteOffset</key>
+			<string>{25, -54}</string>
+			<key>spriteSize</key>
+			<string>{237, 167}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1075, 173}, {237, 167}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_defeat_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{94, 111}, {235, 163}}</string>
+			<key>spriteOffset</key>
+			<string>{24, -55}</string>
+			<key>spriteSize</key>
+			<string>{235, 163}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1392, 338}, {235, 163}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_defeat_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{104, 85}, {219, 189}}</string>
+			<key>spriteOffset</key>
+			<string>{26, -42}</string>
+			<key>spriteSize</key>
+			<string>{219, 189}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{408, 406}, {219, 189}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_defeat_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{86, 67}, {225, 207}}</string>
+			<key>spriteOffset</key>
+			<string>{11, -33}</string>
+			<key>spriteSize</key>
+			<string>{225, 207}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{181, 2}, {225, 207}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{68, 14}, {255, 195}}</string>
+			<key>spriteOffset</key>
+			<string>{8, 26}</string>
+			<key>spriteSize</key>
+			<string>{255, 195}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{151, 474}, {255, 195}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{60, 67}, {283, 173}}</string>
+			<key>spriteOffset</key>
+			<string>{14, -16}</string>
+			<key>spriteSize</key>
+			<string>{283, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{629, 382}, {283, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{57, 110}, {275, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{7, -51}</string>
+			<key>spriteSize</key>
+			<string>{275, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{398, 864}, {275, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{62, 132}, {269, 143}}</string>
+			<key>spriteOffset</key>
+			<string>{9, -66}</string>
+			<key>spriteSize</key>
+			<string>{269, 143}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1631, 163}, {269, 143}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{85, 110}, {233, 165}}</string>
+			<key>spriteOffset</key>
+			<string>{14, -55}</string>
+			<key>spriteSize</key>
+			<string>{233, 165}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1241, 692}, {233, 165}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{100, 91}, {205, 183}}</string>
+			<key>spriteOffset</key>
+			<string>{15, -45}</string>
+			<key>spriteSize</key>
+			<string>{205, 183}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{595, 197}, {205, 183}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{71, 82}, {253, 193}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -41}</string>
+			<key>spriteSize</key>
+			<string>{253, 193}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{408, 2}, {253, 193}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{78, 80}, {259, 195}}</string>
+			<key>spriteOffset</key>
+			<string>{20, -40}</string>
+			<key>spriteSize</key>
+			<string>{259, 195}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{137, 727}, {259, 195}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{77, 81}, {263, 193}}</string>
+			<key>spriteOffset</key>
+			<string>{21, -40}</string>
+			<key>spriteSize</key>
+			<string>{263, 193}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{330, 211}, {263, 193}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr10.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{82, 96}, {251, 179}}</string>
+			<key>spriteOffset</key>
+			<string>{20, -48}</string>
+			<key>spriteSize</key>
+			<string>{251, 179}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{663, 2}, {251, 179}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr11.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 107}, {235, 167}}</string>
+			<key>spriteOffset</key>
+			<string>{27, -53}</string>
+			<key>spriteSize</key>
+			<string>{235, 167}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1004, 726}, {235, 167}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr12.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{95, 110}, {239, 165}}</string>
+			<key>spriteOffset</key>
+			<string>{27, -55}</string>
+			<key>spriteSize</key>
+			<string>{239, 165}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1121, 525}, {239, 165}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_enter_fr13.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 106}, {237, 169}}</string>
+			<key>spriteOffset</key>
+			<string>{28, -53}</string>
+			<key>spriteSize</key>
+			<string>{237, 169}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{916, 2}, {237, 169}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_escape_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{44, 108}, {281, 167}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -54}</string>
+			<key>spriteSize</key>
+			<string>{281, 167}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{838, 557}, {281, 167}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_escape_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{47, 86}, {309, 175}}</string>
+			<key>spriteOffset</key>
+			<string>{14, -36}</string>
+			<key>spriteSize</key>
+			<string>{309, 175}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{527, 597}, {309, 175}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_escape_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{131, 65}, {133, 197}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -26}</string>
+			<key>spriteSize</key>
+			<string>{133, 197}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 727}, {133, 197}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_escape_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{140, 44}, {127, 191}}</string>
+			<key>spriteOffset</key>
+			<string>{16, -2}</string>
+			<key>spriteSize</key>
+			<string>{127, 191}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{398, 671}, {127, 191}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 108}, {237, 167}}</string>
+			<key>spriteOffset</key>
+			<string>{28, -54}</string>
+			<key>spriteSize</key>
+			<string>{237, 167}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{914, 356}, {237, 167}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 108}, {235, 165}}</string>
+			<key>spriteOffset</key>
+			<string>{27, -53}</string>
+			<key>spriteSize</key>
+			<string>{235, 165}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1314, 171}, {235, 165}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 109}, {235, 165}}</string>
+			<key>spriteOffset</key>
+			<string>{27, -54}</string>
+			<key>spriteSize</key>
+			<string>{235, 165}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1394, 2}, {235, 165}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 110}, {233, 163}}</string>
+			<key>spriteOffset</key>
+			<string>{26, -54}</string>
+			<key>spriteSize</key>
+			<string>{233, 163}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1601, 503}, {233, 163}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 112}, {233, 161}}</string>
+			<key>spriteOffset</key>
+			<string>{26, -55}</string>
+			<key>spriteSize</key>
+			<string>{233, 161}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1713, 668}, {233, 161}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 111}, {235, 163}}</string>
+			<key>spriteOffset</key>
+			<string>{27, -55}</string>
+			<key>spriteSize</key>
+			<string>{235, 163}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1476, 674}, {235, 163}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 110}, {237, 163}}</string>
+			<key>spriteOffset</key>
+			<string>{28, -54}</string>
+			<key>spriteSize</key>
+			<string>{237, 163}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1362, 509}, {237, 163}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>foulowl_idle_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{97, 109}, {237, 165}}</string>
+			<key>spriteOffset</key>
+			<string>{28, -54}</string>
+			<key>spriteSize</key>
+			<string>{237, 165}</string>
+			<key>spriteSourceSize</key>
+			<string>{375, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1153, 342}, {237, 165}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>Untitled</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+		<key>size</key>
+		<string>{2048, 1024}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>foulowl</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<false/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>foulowl</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>
