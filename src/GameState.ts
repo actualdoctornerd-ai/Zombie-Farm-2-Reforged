@@ -96,7 +96,9 @@ export class GameState {
   brainDryStreak = 0;
   // OFFLINE rare-zombie pity, keyed per prize (zombieDrops.raidZombieDryKey — the raid id,
   // or "<id>:elite" for a story invasion's promoted prize): wins that rolled for it since it
-  // last landed. At RAID_ZOMBIE_PITY_WINS the next win hands it over outright. Server-owned
+  // last landed. At that prize's floor (raidZombiePityWins — 50 for an ordinary prize, fed by
+  // ordinary AND elite wins alike; 40 for a promoted one, fed only by elite wins) the next win
+  // hands it over outright. Advanced only through settleRaidZombieDrop. Server-owned
   // online (raid_state_v3.zombie_dry_json) and, like the above, deliberately unread by any UI.
   zombieDryWins: Record<string, number> = {};
   // The player's chosen attack order (deployed zombie ids, first attacks first).

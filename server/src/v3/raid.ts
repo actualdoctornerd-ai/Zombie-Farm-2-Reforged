@@ -13,8 +13,7 @@ import { activeBonusHeadId, farmerCooldownMs } from "../../../src/farmer";
 import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
 import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak, firstClearBrains } from "../../../src/raid/brainDrops";
 import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
-import { rollRaidZombieDropWithPity, nextRaidZombieDryWins, hasRaidZombieDrop,
-  raidZombieDryKey, RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
+import { settleRaidZombieDrop, RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
 import { raidFeatQuestEvents } from "../../../src/raid/featQuestEvents";
 import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
@@ -561,18 +560,14 @@ export async function finishRaid(
     else if (grant.kind === "item") { core.storage.received[grant.name] = (core.storage.received[grant.name] ?? 0) + 1; loot = { name: grant.name, kind: "item" }; }
     // Same PINNED dice the item roll uses: they widen the rare-zombie chance too, and the
     // count came from /raid/start (already charged), never from this request. The SESSION's
-    // elite flag picks the prize: a story invasion's Brain Ticket fight rolls for its
-    // promoted zombie (Sheriff, not Deputy) at that zombie's own rate.
-    const zombieDryKey = raidZombieDryKey(raidId, !!boosts.elite);
-    const zombieDrop = rollRaidZombieDropWithPity(
-      raidId, true, Math.random(), zombieDry[zombieDryKey] ?? 0, boosts.dice ?? 0, eliteLuck, !!boosts.elite
-    );
-    // Settle this prize's dry-win streak on every win it could have dropped from. A win that
-    // pays (rolled or floored) resets it; a dry one adds to it. Raids with no rare zombie
-    // never get a key at all.
-    if (hasRaidZombieDrop(raidId)) {
-      zombieDry[zombieDryKey] = nextRaidZombieDryWins(zombieDry[zombieDryKey] ?? 0, !!zombieDrop);
-    }
+    // elite flag picks the fight: on a story invasion a Brain Ticket rolls for BOTH prizes and
+    // feeds BOTH dry-win streaks. One shared helper settles all of it, so this path and the
+    // client's offline one stay identical; raids with no rare zombie never get a key at all.
+    const settled = settleRaidZombieDrop(raidId, !!boosts.elite, zombieDry, {
+      roll: Math.random(), baseRoll: Math.random(), dice: boosts.dice ?? 0, luck: eliteLuck,
+    });
+    const zombieDrop = settled.drop;
+    Object.assign(zombieDry, settled.dry);
     if (zombieDrop) {
       const activeCapacity = (core.zombieMax ?? 16) + objects.reduce(
         (total, object) => total +

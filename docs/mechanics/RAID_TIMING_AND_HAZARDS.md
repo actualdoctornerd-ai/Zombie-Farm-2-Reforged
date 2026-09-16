@@ -179,15 +179,30 @@ recommended level — 1% on the easy invasions, a fifth of a percent more per st
 2% on the Aliens: Old McDonnell's → Old McZombie, Summer Break / Tree World / Valentine's Day →
 Diver / Forest / Teddy, and the Circus → Zombozo (a Mini in the clown's costume) at **1%**; Lawyers → Deputy **1.2%**, Pirates → MerZombie **1.4%**, Ninjas →
 Ninjombie **1.6%**, Robots → Zombie Bot **1.8%**, Aliens → Zastronaut **2.0%**, and the Video Games →
-their own pixel **Video Game Zombie** at the same **2.0%** ceiling, promoted to the **Boss Zombie** (a palette swap) on an elite win at the **4.5%** cap. The four faction
-invasions pay a **pair**: an ELITE (Brain Ticket) win rolls for the promoted zombie *instead* —
-Sheriff / Poseidon / Master Ninjombie / Omega Zombie Bot at **2.5x** the raid's ordinary rate
-(3.0 / 3.5 / 4.0 / 4.5%, `RAID_ELITE_ZOMBIE_DROPS`, `ELITE_PRIZE_RATE_MULTIPLIER`), and the Aliens
-pay the **Cozmonaut** — a derived rust-suit recolour of the Zastronaut (`DERIVED_SPECIAL_ZOMBIES`
-in `tools/prep_assets.py`) — at **4.5%**: the multiplier's 5% held to the band's top by
-`ELITE_PRIZE_RATE_CAP`. On the five paired raids that rate IS the elite premium: `ELITE_BRAIN_LUCK`
-is deliberately not stacked on top, or the sheriff would be ten times as common as the deputy.
-The four single-prize raids (Old McDonnell's and the seasonals) keep the 4x. In the source these eight were alternate Epic Boss prizes for events that were never
+their own pixel **Video Game Zombie** at the same **2.0%** ceiling, with the **Boss Zombie** (a palette swap) as its promoted prize at the **4.5%** cap. Six invasions pay a
+**pair**, and an ELITE (Brain Ticket) win of one rolls for **both, independently**:
+
+- the **promoted** zombie on its own draw at **2.5x** the raid's ordinary rate — Sheriff /
+  Poseidon / Master Ninjombie / Omega Zombie Bot at 3.0 / 3.5 / 4.0 / 4.5%
+  (`RAID_ELITE_ZOMBIE_DROPS`, `ELITE_PRIZE_RATE_MULTIPLIER`), and the Aliens' **Cozmonaut** — a
+  derived rust-suit recolour of the Zastronaut (`DERIVED_SPECIAL_ZOMBIES` in
+  `tools/prep_assets.py`) — at **4.5%**, the multiplier's 5% held to the band's top by
+  `ELITE_PRIZE_RATE_CAP`. That rate IS the elite premium: `ELITE_BRAIN_LUCK` is deliberately not
+  stacked on top, or the sheriff would be ten times as common as the deputy.
+- the **ordinary** zombie on a second, independent draw at the plain `ELITE_BRAIN_LUCK` **4x** its
+  rung — Deputy 4.8%, MerZombie 5.6%, Ninjombie 6.4%, Zombie Bot 7.2%, Zastronaut 8.0% — exactly
+  what a single-prize raid's ticket has always paid.
+
+The promoted prize wins when both land, so a win is still at most one zombie (the ordinary one's
+effective share is its rate times the promoted prize's miss: a Lawyers ticket pays the Deputy
+4.8% x 97% = 4.66% of wins). **This is why the pair is drawn that way**: a ticket must not be the
+cheap route to the rarer zombie. Before, an elite win rolled *only* the promoted prize, which left
+the Deputy unobtainable on a ticket while the Sheriff — at 2.5x the Deputy's rate — was the easier
+half of the pair to farm. Now the promoted zombie is the rarer of the two inside the very fight
+that pays it, and a ticket is strictly better than an ordinary win for either. The five
+single-prize raids (Old McDonnell's, the three seasonals and the Circus) are unchanged: one zombie,
+4x on a ticket.
+In the source these eight were alternate Epic Boss prizes for events that were never
 built. `zombieDrops.test.ts` pins the ladder to the recommended-level order.
 
 **Golden Dice raise that rate too — a deliberate divergence.** In the source the dice touch only
@@ -200,16 +215,31 @@ The count is the same PINNED one the item roll uses — charged at `/raid/start`
 the finish request — and it is clamped (`ZOMBIE_LUCK_DICE_CAP`) so a forged count can't make the
 drop certain.
 
-**The rare-zombie roll also has its own pity**, counted **per prize**: after `RAID_ZOMBIE_PITY_WINS = 100` wins of *that* raid
-without *its* zombie, the next win of it hands the zombie over
-(`rollRaidZombieDropWithPity`). Winning a different raid does nothing for it, a loss is not a
-completion, and receiving the zombie (rolled or guaranteed) resets that raid's count to 0 — so a
-collector starts a fresh 100 rather than being handed duplicates. A paired raid keeps TWO streaks
-(`raidZombieDryKey`): ordinary wins under `"<raidId>"` and elite wins under `"<raidId>:elite"`, so a
-hundred dry Lawyers wins guarantee the Deputy, never a Sheriff on the first ticket. Stored server-side as
-`raid_state_v3.zombie_dry_json` (`{"<raidId>": <dryWins>, "<raidId>:elite": <dryWins>}`), offline as
-`GameState.zombieDryWins`. Same secrecy rule as the brain floor: never sent to the client, never
-surfaced, and a guaranteed zombie arrives through the ordinary reward row.
+**The rare-zombie roll also has its own pity**, counted **per prize**, on two floors:
+
+- `RAID_ZOMBIE_PITY_WINS = 50` for an **ordinary** prize. Because every win rolls that prize — a
+  Brain Ticket fight included — the fifty is **split across both kinds of fight**. Someone who
+  only ever runs the Lawyers on tickets still walks towards their Deputy.
+- `RAID_ELITE_ZOMBIE_PITY_WINS = 40` for a **promoted** prize. Only an elite win can pay one or
+  move its streak, and tickets are the scarce currency, so it is the shorter count.
+
+Winning a different raid does nothing for either, a loss is not a completion, and receiving a prize
+(rolled or guaranteed) resets *that prize's* count to 0 — so a collector starts fresh rather than
+being handed duplicates. A paired raid keeps TWO streaks (`raidZombieDryKey`): the ordinary prize
+under `"<raidId>"`, which every win feeds, and the promoted one under `"<raidId>:elite"`, which only
+elite wins feed. A streak is reset only by **its own** prize (`resetsRaidZombieDry`): a ticket that
+hands over a Deputy leaves the Sheriff's forty where it was, and vice versa. When both floors come
+due on the same win the promoted one is paid, matching the roll's own precedence — a win never hands
+over two zombies.
+
+`settleRaidZombieDrop` does the whole settlement — both draws, both floors, both counters — and is
+the one entry point the offline client and the Worker share, so the two cannot drift. Stored
+server-side as `raid_state_v3.zombie_dry_json`
+(`{"<raidId>": <dryWins>, "<raidId>:elite": <dryWins>}`), offline as `GameState.zombieDryWins`; each
+counter clamps at its own floor, so a save carrying a leftover 100 from the old single threshold
+settles down on its next win rather than sitting above the guarantee. Same secrecy rule as the brain
+floor: never sent to the client, never surfaced, and a guaranteed zombie arrives through the
+ordinary reward row.
 
 Gold: `getStandardGoldLootForStageLevel:` + `goldDistributionLevelCoefficient` = 2.3
 (win gold scales with level); wiki figures still used where exact source gold is unmapped.

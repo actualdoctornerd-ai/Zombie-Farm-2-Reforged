@@ -140,6 +140,12 @@ function ticketTopic(facts: AlmanacGuideFacts): AlmanacGuideTopic {
         `elite run feels like more of that invasion rather than a flat difficulty slider. ` +
         `Take your strongest army; losing the fight spends the ticket for nothing.`,
 
+      `Six invasions have a SECOND, rarer zombie that only a ticket can pay — the Sheriff ` +
+        `behind the Deputy, the Master Ninjombie behind the Ninjombie, and so on. An elite ` +
+        `win rolls for both: the ordinary zombie at the ${ELITE_BRAIN_LUCK}x above, and the ` +
+        `rarer one on its own roll at a lower rate. You keep whichever lands, the rarer one ` +
+        `first — so a ticket is the best way to win either half of the pair.`,
+
       `Golden Dice stack on top. Each die spent on the fight adds another ` +
         `${Math.round(ZOMBIE_LUCK_PER_DIE * 100)}% of the raid's base rare-zombie rate, and ` +
         `the elite multiplier applies to that total — so dice and a ticket on the same ` +

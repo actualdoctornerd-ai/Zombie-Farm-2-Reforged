@@ -41,12 +41,9 @@ import { rollLootTier } from "./LootTable";
 import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable, firstClearBrains } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
 import {
-  rollRaidZombieDropWithPity,
-  nextRaidZombieDryWins,
-  hasRaidZombieDrop,
+  settleRaidZombieDrop,
   raidZombieDropRate,
   raidZombieDropFor,
-  raidZombieDryKey,
   RAID_ZOMBIE_DROPS,
 } from "./zombieDrops";
 import { raidBoostBundle } from "./lootBundles";
@@ -90,12 +87,21 @@ export interface RaidCardView {
   /** The same odds on a Brain Ticket (every tier x ELITE_BRAIN_LUCK) — what the elite
    *  toggle is actually buying, shown next to the ordinary figure. */
   eliteBrainOdds: { chance: number; tiers: { amount: number; chance: number }[] };
-  /** The rare zombie only this raid drops, at its base (no Golden Dice) chance, and the
-   *  same chance on a Brain Ticket. null for the raids that have none. */
-  /** The raid's rare zombie. `eliteName` is the prize a Brain Ticket fight rolls for
-   *  instead — the same zombie on most raids, the promoted one (Sheriff for Deputy) on
-   *  the story invasions that pay a pair. */
-  zombieDrop: { name: string; rate: number; eliteName: string; eliteRate: number } | null;
+  /** The rare zombie this raid drops, at its base (no Golden Dice) chance, plus what a Brain
+   *  Ticket fight pays. `eliteBaseRate` is THIS zombie on a ticket; `eliteName` / `eliteRate`
+   *  are the extra promoted prize a story invasion rolls alongside it (Sheriff for Deputy),
+   *  and are this same zombie at that same rate on the raids that pay only one.
+   *  null for the raids that have none. */
+  zombieDrop: {
+    name: string;
+    rate: number;
+    eliteName: string;
+    eliteRate: number;
+    /** What a Brain Ticket fight pays the ORDINARY prize at — elite luck on its rung. On a
+     *  raid that promotes, this is the second of the ticket's two rolls; elsewhere it is
+     *  `eliteRate` itself, the one roll there is. */
+    eliteBaseRate: number;
+  } | null;
   /** Boosts on this raid's loot table, with the quantity one drop pays. */
   boostDrops: { key: string; name: string; qty: number }[];
   introText: string;
@@ -341,6 +347,7 @@ export class RaidManager {
               rate: raidZombieDropRate(r.id),
               eliteName: raidZombieDropFor(r.id, true)!.name,
               eliteRate: raidZombieDropRate(r.id, 0, ELITE_BRAIN_LUCK, true),
+              eliteBaseRate: raidZombieDropRate(r.id, 0, ELITE_BRAIN_LUCK, false),
             }
           : null,
         boostDrops: boostDrops(r, this.assets.boosts),
@@ -641,22 +648,20 @@ export class RaidManager {
         // on the ROLLED drop alone — the deterministic first-clear grant must not delay
         // the RNG guarantee (same rule as the server's /raid/finish).
         if (brainEligible) this.state.brainDryStreak = nextBrainDryStreak(this.state.brainDryStreak, brainDrop);
-        // The rare zombie carries its own silent per-prize pity: enough dry wins of THIS
-        // prize and the next one hands it over outright (see zombieDrops.ts). Streak settles
-        // on every win that rolled for it; raids without a rare zombie never get a key. A
-        // story invasion's elite prize (Sheriff, not Deputy) keeps its own streak.
-        const dryKey = raidZombieDryKey(raid.id, elite);
-        // `dice` — the Golden Dice spent on this fight — widens the rare-zombie chance the
-        // same way it shifts the item roll's tier, and an elite (Brain Ticket) run either
-        // multiplies it by ELITE_BRAIN_LUCK or, where the raid promotes its prize, rolls
-        // for the promoted zombie at its own rate instead (raidZombieDropRate).
-        const zombieDrop = rollRaidZombieDropWithPity(
-          raid.id, true, Math.random(), this.state.zombieDryWins[dryKey] ?? 0, dice,
-          elite ? ELITE_BRAIN_LUCK : 1, elite
-        );
-        if (hasRaidZombieDrop(raid.id)) {
-          this.state.zombieDryWins[dryKey] = nextRaidZombieDryWins(this.state.zombieDryWins[dryKey] ?? 0, !!zombieDrop);
-        }
+        // The rare zombie carries its own silent per-prize pity, and an elite fight of a
+        // paired raid rolls BOTH prizes and so feeds BOTH streaks. settleRaidZombieDrop does
+        // the whole thing — the two draws, the two floors, the two counters — so the offline
+        // settlement here and the Worker's online one cannot drift apart. `dice` (the Golden
+        // Dice spent on this fight) widens the rare-zombie chance the same way it shifts the
+        // item roll's tier, and a Brain Ticket multiplies it by ELITE_BRAIN_LUCK.
+        const settled = settleRaidZombieDrop(raid.id, elite, this.state.zombieDryWins, {
+          roll: Math.random(),
+          baseRoll: Math.random(),
+          dice,
+          luck: elite ? ELITE_BRAIN_LUCK : 1,
+        });
+        this.state.zombieDryWins = settled.dry;
+        const zombieDrop = settled.drop;
         if (zombieDrop) {
           this.hooks.grantZombie?.(zombieDrop.key);
           loot.push({ name: zombieDrop.name, icon: zombiePortrait(zombieDrop.key) });

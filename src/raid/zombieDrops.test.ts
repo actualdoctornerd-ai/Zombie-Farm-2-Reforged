@@ -19,6 +19,10 @@ import {
   RAID_ZOMBIE_SOURCES,
   raidZombieDropFor,
   raidZombieDryKey,
+  resetsRaidZombieDry,
+  settleRaidZombieDrop,
+  raidZombiePityWins,
+  RAID_ELITE_ZOMBIE_PITY_WINS,
   STORY_ZOMBIE_DROP_RATES,
   ELITE_PRIZE_RATE_MULTIPLIER,
   DEPUTY_ZOMBIE_KEY,
@@ -239,15 +243,35 @@ describe("the story invasions' prize pairs", () => {
     expect(rollRaidZombieDrop(raidId, true, rate + 1e-6)).toBeNull();
   });
 
-  it.each(PAIRS)("raid %i pays its PROMOTED zombie instead on an elite win, at 2.5x", (raidId, base, promoted, rung) => {
-    const rate = 2.5 * rung / 100;
+  it.each(PAIRS)("raid %i rolls BOTH prizes on an elite win: the promoted one at 2.5x, the base one at elite luck", (raidId, base, promoted, rung) => {
+    const promotedRate = 2.5 * rung / 100;
+    const baseEliteRate = ELITE_BRAIN_LUCK * rung / 100;
     expect(raidZombieDropFor(raidId, true)?.key).toBe(promoted);
     // 2.5x the ordinary rate — and NOT the 4x elite luck on top of that.
-    expect(raidZombieDropRate(raidId, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(rate, 10);
-    expect(rollRaidZombieDrop(raidId, true, rate - 1e-6, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(promoted);
-    expect(rollRaidZombieDrop(raidId, true, rate + 1e-6, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
-    // The base zombie never comes out of an elite fight, however lucky the roll.
-    expect(rollRaidZombieDrop(raidId, true, 0, 5, ELITE_BRAIN_LUCK, true)?.key).not.toBe(base);
+    expect(raidZombieDropRate(raidId, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(promotedRate, 10);
+    // ...while the base zombie's elite window is the plain 4x every single-prize raid gets.
+    expect(raidZombieDropRate(raidId, 0, ELITE_BRAIN_LUCK, false)).toBeCloseTo(baseEliteRate, 10);
+    // The promoted prize is the RARER of the two inside the very fight that pays it, which
+    // is the whole point of the pair: a ticket cannot be the cheap way to farm the sheriff.
+    expect(promotedRate).toBeLessThan(baseEliteRate);
+
+    // First draw inside the promoted window: the promoted prize, whatever the second says.
+    expect(rollRaidZombieDrop(raidId, true, promotedRate - 1e-6, 0, ELITE_BRAIN_LUCK, true, 0)?.key).toBe(promoted);
+    expect(rollRaidZombieDrop(raidId, true, promotedRate - 1e-6, 0, ELITE_BRAIN_LUCK, true, MISS)?.key).toBe(promoted);
+    // Promoted misses, the second draw lands: the base zombie — obtainable on a ticket.
+    expect(rollRaidZombieDrop(raidId, true, MISS, 0, ELITE_BRAIN_LUCK, true, baseEliteRate - 1e-6)?.key).toBe(base);
+    // Both miss: nothing. The second draw's window stops at 4x the rung.
+    expect(rollRaidZombieDrop(raidId, true, MISS, 0, ELITE_BRAIN_LUCK, true, baseEliteRate + 1e-6)).toBeNull();
+  });
+
+  it.each(PAIRS)("raid %i draws its two elite prizes independently, not out of one window", (raidId, base, promoted, rung) => {
+    // A draw between the two rates pays the BASE zombie on the second draw and the PROMOTED
+    // one on the first — proof the two rolls are separate rather than slices of one window.
+    const between = (2.5 * rung / 100 + ELITE_BRAIN_LUCK * rung / 100) / 2;
+    expect(rollRaidZombieDrop(raidId, true, MISS, 0, ELITE_BRAIN_LUCK, true, between)?.key).toBe(base);
+    expect(rollRaidZombieDrop(raidId, true, between, 0, ELITE_BRAIN_LUCK, true, MISS)).toBeNull();
+    // Both prizes landing is not two zombies: the rarer one takes the win.
+    expect(rollRaidZombieDrop(raidId, true, 0, 0, ELITE_BRAIN_LUCK, true, 0)?.key).toBe(promoted);
   });
 
   it("still lets Golden Dice widen the promoted prize's roll", () => {
@@ -258,7 +282,7 @@ describe("the story invasions' prize pairs", () => {
   it("asking for the elite prize of a single-prize raid is the ordinary prize at elite luck", () => {
     expect(raidZombieDropFor(1, true)?.key).toBe(OLD_MC_ZOMBIE_KEY);
     expect(raidZombieDropRate(1, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.04, 10);
-    // The Video Games promote: a ticket win rolls the Boss Zombie, never the base zombie.
+    // The Video Games promote: a ticket win rolls the Boss Zombie alongside the base one.
     expect(raidZombieDropFor(VIDEO_GAMES_RAID_ID, true)?.key).toBe(FINAL_BOSS_ZOMBIE_KEY);
     expect(raidZombieDropFor(VIDEO_GAMES_RAID_ID, false)?.key).toBe(VIDEO_GAME_ZOMBIE_KEY);
     expect(raidZombieDropFor(99, true)).toBeNull();
@@ -271,9 +295,13 @@ describe("the story invasions' prize pairs", () => {
     // 4.5%, not 2.5 x 2% = 5% and not 4 x 2% = 8%: the promoted prize takes neither the
     // uncapped multiplier nor the single-prize elite luck.
     expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, true)).toBeCloseTo(0.045, 10);
-    expect(rollRaidZombieDrop(6, true, 0.044, 0, ELITE_BRAIN_LUCK, true)?.key).toBe(ZOSMONAUT_KEY);
-    expect(rollRaidZombieDrop(6, true, 0.046, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
-    expect(rollRaidZombieDrop(6, true, 0, 5, ELITE_BRAIN_LUCK, true)?.key).not.toBe(ZASTRONAUT_KEY);
+    expect(rollRaidZombieDrop(6, true, 0.044, 0, ELITE_BRAIN_LUCK, true, MISS)?.key).toBe(ZOSMONAUT_KEY);
+    expect(rollRaidZombieDrop(6, true, 0.046, 0, ELITE_BRAIN_LUCK, true, MISS)).toBeNull();
+    // The Zastronaut comes out of a ticket too, on its own 4 x 2% = 8% second draw — wider
+    // than the Cozmonaut's capped 4.5%, so the capped prize stays the rarer of the pair.
+    expect(raidZombieDropRate(6, 0, ELITE_BRAIN_LUCK, false)).toBeCloseTo(0.08, 10);
+    expect(rollRaidZombieDrop(6, true, 0.046, 0, ELITE_BRAIN_LUCK, true, 0.079)?.key).toBe(ZASTRONAUT_KEY);
+    expect(rollRaidZombieDrop(6, true, 0.046, 0, ELITE_BRAIN_LUCK, true, 0.081)).toBeNull();
   });
 
   it("gives the Circus the Zombozo as a single prize on the 1% floor, 4x on a ticket", () => {
@@ -293,9 +321,101 @@ describe("the story invasions' prize pairs", () => {
     expect(raidZombieDryKey(6, true)).toBe("6:elite"); // the Aliens pay a pair too
     // A hundred dry ORDINARY wins guarantee the Deputy; the elite streak starts from zero.
     expect(rollRaidZombieDropWithPity(2, true, MISS, RAID_ZOMBIE_PITY_WINS)?.key).toBe(DEPUTY_ZOMBIE_KEY);
-    expect(rollRaidZombieDropWithPity(2, true, MISS, RAID_ZOMBIE_PITY_WINS, 0, ELITE_BRAIN_LUCK, true)?.key)
+    expect(rollRaidZombieDropWithPity(2, true, MISS, RAID_ELITE_ZOMBIE_PITY_WINS, 0, ELITE_BRAIN_LUCK, true)?.key)
       .toBe(SHERIFF_ZOMBIE_KEY);
     expect(rollRaidZombieDropWithPity(2, true, MISS, 0, 0, ELITE_BRAIN_LUCK, true)).toBeNull();
+  });
+
+  it("pins the two floors: 50 for an ordinary prize, 40 for a promoted one", () => {
+    expect(RAID_ZOMBIE_PITY_WINS).toBe(50);
+    expect(RAID_ELITE_ZOMBIE_PITY_WINS).toBe(40);
+    // A floor and a streak key always agree about which prize they are for.
+    expect(raidZombiePityWins(2, true)).toBe(RAID_ELITE_ZOMBIE_PITY_WINS);
+    expect(raidZombiePityWins(2, false)).toBe(RAID_ZOMBIE_PITY_WINS);
+    // A single-prize raid has only the ordinary floor, elite fights included.
+    expect(raidZombiePityWins(CIRCUS_RAID_ID, true)).toBe(RAID_ZOMBIE_PITY_WINS);
+    expect(raidZombiePityWins(1, true)).toBe(RAID_ZOMBIE_PITY_WINS);
+    // The promoted prize is the rarer drop but the SHORTER guarantee: only elite wins feed it.
+    expect(RAID_ELITE_ZOMBIE_PITY_WINS).toBeLessThan(RAID_ZOMBIE_PITY_WINS);
+  });
+
+  it("splits the ordinary floor across both kinds of fight — an elite win cashes it in too", () => {
+    // 49 dry ordinary wins on the books and a ticket for the fiftieth: it pays the Deputy.
+    // Before elite fights rolled the ordinary prize this would have paid nothing at all.
+    const deputyFloor = rollRaidZombieDropWithPity(
+      2, true, MISS, 0, 0, ELITE_BRAIN_LUCK, true, MISS, RAID_ZOMBIE_PITY_WINS
+    );
+    expect(deputyFloor?.key).toBe(DEPUTY_ZOMBIE_KEY);
+    // One short of it, nothing.
+    expect(rollRaidZombieDropWithPity(
+      2, true, MISS, 0, 0, ELITE_BRAIN_LUCK, true, MISS, RAID_ZOMBIE_PITY_WINS - 1
+    )).toBeNull();
+    // The PROMOTED floor is checked first when both are due — one win, one zombie.
+    expect(rollRaidZombieDropWithPity(
+      2, true, MISS, RAID_ELITE_ZOMBIE_PITY_WINS, 0, ELITE_BRAIN_LUCK, true, MISS, RAID_ZOMBIE_PITY_WINS
+    )?.key).toBe(SHERIFF_ZOMBIE_KEY);
+    // An ordinary fight has one streak and one floor, at 50.
+    expect(rollRaidZombieDropWithPity(2, true, MISS, RAID_ZOMBIE_PITY_WINS)?.key).toBe(DEPUTY_ZOMBIE_KEY);
+    expect(rollRaidZombieDropWithPity(2, true, MISS, RAID_ZOMBIE_PITY_WINS - 1)).toBeNull();
+    // ...and cannot reach the promoted prize at any depth.
+    expect(rollRaidZombieDropWithPity(2, true, MISS, 10_000)?.key).toBe(DEPUTY_ZOMBIE_KEY);
+  });
+
+  it("settles both streaks of a paired elite win, and only the one of every other win", () => {
+    const miss = { roll: MISS, baseRoll: MISS, luck: ELITE_BRAIN_LUCK };
+    // A dry elite win feeds BOTH counters: it rolled both prizes.
+    expect(settleRaidZombieDrop(2, true, {}, miss)).toEqual({ drop: null, dry: { "2": 1, "2:elite": 1 } });
+    // A dry ordinary win feeds only the Deputy's.
+    expect(settleRaidZombieDrop(2, false, {}, { roll: MISS, baseRoll: MISS }))
+      .toEqual({ drop: null, dry: { "2": 1 } });
+    // A single-prize raid has the one counter either way.
+    expect(settleRaidZombieDrop(CIRCUS_RAID_ID, true, {}, miss))
+      .toEqual({ drop: null, dry: { "8": 1 } });
+    // A raid with no rare zombie never gets a key.
+    expect(settleRaidZombieDrop(99, true, {}, miss)).toEqual({ drop: null, dry: {} });
+
+    // A Sheriff resets his own streak and leaves the Deputy's climbing.
+    const sheriff = settleRaidZombieDrop(2, true, { "2": 7, "2:elite": 3 }, { ...miss, roll: 0 });
+    expect(sheriff.drop?.key).toBe(SHERIFF_ZOMBIE_KEY);
+    expect(sheriff.dry).toEqual({ "2": 8, "2:elite": 0 });
+    // A Deputy out of a ticket does the mirror image — the Sheriff's floor is untouched.
+    const deputy = settleRaidZombieDrop(2, true, { "2": 7, "2:elite": 3 }, { ...miss, baseRoll: 0 });
+    expect(deputy.drop?.key).toBe(DEPUTY_ZOMBIE_KEY);
+    expect(deputy.dry).toEqual({ "2": 0, "2:elite": 4 });
+    // The stored map is never mutated in place — both settlements read the same input above.
+    const stored = { "2": 7, "2:elite": 3 };
+    settleRaidZombieDrop(2, true, stored, miss);
+    expect(stored).toEqual({ "2": 7, "2:elite": 3 });
+
+    // Each counter clamps at its OWN floor, so an old save's leftover 100 settles downward
+    // rather than sitting above a shorter guarantee forever.
+    const legacy = settleRaidZombieDrop(2, true, { "2": 100, "2:elite": 100 }, miss);
+    expect(legacy.drop?.key).toBe(SHERIFF_ZOMBIE_KEY); // the promoted floor is long past due
+    expect(legacy.dry).toEqual({ "2": RAID_ZOMBIE_PITY_WINS, "2:elite": 0 });
+  });
+
+  it("resets a streak only on its OWN prize, so a Deputy out of a ticket spares the Sheriff's floor", () => {
+    const deputy = RAID_ZOMBIE_DROPS[2];
+    const sheriff = RAID_ELITE_ZOMBIE_DROPS[2];
+    // The elite streak guarantees the Sheriff: only he clears it.
+    expect(resetsRaidZombieDry(2, true, sheriff)).toBe(true);
+    expect(resetsRaidZombieDry(2, true, deputy)).toBe(false);
+    expect(resetsRaidZombieDry(2, true, null)).toBe(false);
+    // The ordinary streak is the Deputy's, and an ordinary win is the only fight that feeds it.
+    expect(resetsRaidZombieDry(2, false, deputy)).toBe(true);
+    expect(resetsRaidZombieDry(2, false, sheriff)).toBe(false);
+    // A single-prize raid answers the same either way.
+    expect(resetsRaidZombieDry(1, true, RAID_ZOMBIE_DROPS[1])).toBe(true);
+
+    // 39 dry elite wins, then a ticket that pays a Deputy: the Sheriff's floor keeps climbing
+    // and the fortieth dry win still hands him over.
+    let dry = RAID_ELITE_ZOMBIE_PITY_WINS - 1;
+    const paidDeputy = rollRaidZombieDropWithPity(2, true, MISS, dry, 0, ELITE_BRAIN_LUCK, true, 0);
+    expect(paidDeputy?.key).toBe(DEPUTY_ZOMBIE_KEY);
+    dry = nextRaidZombieDryWins(dry, resetsRaidZombieDry(2, true, paidDeputy), RAID_ELITE_ZOMBIE_PITY_WINS);
+    expect(dry).toBe(RAID_ELITE_ZOMBIE_PITY_WINS);
+    expect(rollRaidZombieDropWithPity(2, true, MISS, dry, 0, ELITE_BRAIN_LUCK, true, MISS)?.key)
+      .toBe(SHERIFF_ZOMBIE_KEY);
   });
 
   it("lists every prize, ordinary and elite, as a source with its raid", () => {

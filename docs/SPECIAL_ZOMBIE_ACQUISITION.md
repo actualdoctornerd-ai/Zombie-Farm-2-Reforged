@@ -80,7 +80,7 @@ of its cost, so a 5-brain special returns 5,000 gold.
 
 The pixel zombie of the *Zombies vs Video Games* invasion is that invasion's **rare zombie**
 (`src/raid/zombieDrops.ts`, **2%** per win like the Aliens', the ladder's top). Its promoted
-prize on an elite win is the **Boss Zombie**: the same seven frames under a palette swap
+promoted prize, rolled alongside it on an elite win, is the **Boss Zombie**: the same seven frames under a palette swap
 (purple body, gold eyes, charcoal trousers — `DERIVED_FLIPBOOK_ZOMBIES`), 12 brains, fitted 200
 above the prize line and then, like the base, a fifth off its con (~2,030 with the damage set, a
 hair under the Vagabond), and at 4.5% on a ticket win of the hardest invasion the rarest zombie
@@ -124,16 +124,20 @@ a `BUY_ZOMBIE` request.
 (Old McDonnell's), Diver (Summer Break), Forest (Tree World) and Teddy (Valentine's Day) at 1%
 each; Deputy / MerZombie / Ninjombie / Zombie Bot from an ordinary win of the Lawyers / Pirates /
 Ninjas / Robots (1.2 / 1.4 / 1.6 / 1.8%), with Sheriff / Poseidon / Master Ninjombie / Omega
-Zombie Bot paid *instead* on an elite (Brain Ticket) win of the same raid (2.5x: 3.0 / 3.5 /
+Zombie Bot rolled *alongside* them on an elite (Brain Ticket) win of the same raid (2.5x: 3.0 / 3.5 /
 4.0 / 4.5%); and Zastronaut from the Aliens (2%), with the Cozmonaut — a derived rust-suit
-recolour of it — paid *instead* on an elite win (4.5%); and the Zombozo — a Mini zombie cut from
+recolour of it — on an elite win (4.5%); and the Zombozo — a Mini zombie cut from
 the Circus clown's enemy art (`CUT_SPECIAL_ZOMBIES` in `tools/prep_assets.py`) — from the Circus
 (1%, a single prize like the seasonals); and the Video Game Zombie — the Video Games' own pixel zombie
 as a flipbook rig — from the Video Games at the ladder's 2% top, with the **Boss Zombie** — its
-palette swap, purple and gold (`DERIVED_FLIPBOOK_ZOMBIES` in `tools/prep_assets.py`) — paid *instead* on an
-elite win at the 4.5% cap. See `src/raid/zombieDrops.ts` and the rare-zombie section of
+palette swap, purple and gold (`DERIVED_FLIPBOOK_ZOMBIES` in `tools/prep_assets.py`) — on an
+elite win at the 4.5% cap. An elite win draws the pair **independently**, the promoted zombie at the
+rate above and the ordinary one at 4x its rung (Deputy 4.8% … Zastronaut 8.0%), so a ticket is the
+best way to farm *either* half and the promoted one is still the rarer of the two. See `src/raid/zombieDrops.ts` and the rare-zombie section of
 `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-prize pity makes that route bounded:
-100 wins of a raid without its zombie guarantees it on the next. Nothing in the game says so.
+50 wins of a raid without its ordinary zombie guarantees it on the next — counted across ordinary
+and elite fights alike, since both roll it — and 40 *elite* wins without its promoted zombie
+guarantee that one. Nothing in the game says so.
 
 Delivery is gated on the **recipient**, checked pre-flight and re-checked as a SQL guard inside
 the fulfillment transaction (`server/src/rosterCatalog.ts`, `server/src/v3/blackMarket.ts`):
