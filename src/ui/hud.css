@@ -1773,6 +1773,28 @@
   border: 1px solid #63251c; border-radius: 7px; padding: 2px 5px; cursor: pointer;
   color: #fff; background: linear-gradient(#c95c4d,#92372d); font: 700 9px/1.2 Georgia, serif; }
 #hud .st-empty { text-align: center; color: #6e4a1e; font-style: italic; padding: 34px 12px; font-size: 15px; }
+/* Bulk sell from the shed (Storage -> Items -> Sell Multiple). The bar is sticky
+   because a 72-slot shed scrolls well past it, and a selection you can only act on
+   by scrolling back to the top is a trap. */
+#hud .st-selbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: center; gap: 6px; padding: 6px 4px; margin-bottom: 2px;
+  background: #fcfedc; box-shadow: 0 4px 6px -4px rgba(90,58,18,.5); }
+#hud .st-seltally { flex: 1 1 auto; min-width: 88px; color: #5a3a12; font-weight: 700; font-size: 13px; }
+#hud .st-seltally .g { color: #3f6b12; }
+#hud .st-quiet { background: linear-gradient(#b99a68,#8d7040); box-shadow: 0 1px 0 #6b5227; }
+/* Selected slots read as picked from across the grid: gold frame, dimmed art
+   behind a tick, so a mis-tap is obvious before the confirm dialog. */
+#hud .st-slot.picked { outline: 3px solid #f0c04a; outline-offset: -3px; border-radius: 6px;
+  filter: brightness(1.1) drop-shadow(0 0 4px rgba(255,220,120,.9)); }
+#hud .st-tick { position: absolute; right: -3px; top: -3px; width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+  font: 700 12px/1 Georgia, serif; color: #fff; }
+#hud .st-slot.picked .st-tick { background: linear-gradient(#70a91e,#527d13);
+  border: 1px solid #3c5a10; border-radius: 50%; text-shadow: 0 1px 1px rgba(0,0,0,.5); }
+/* A permanent building is still shown while picking — hiding it would make the
+   grid lie about what the shed holds — but it is plainly out of the sale. */
+#hud .st-slot.unpickable { opacity: .45; filter: grayscale(.85); cursor: default; }
+#hud .st-slot.unpickable:hover { filter: grayscale(.85); }
 /* Shed appearance picker: taller slots, since each one is captioned with the shed's
    name — "Wood Hut" and "Bone Hut" are the same silhouette in different paint. */
 #hud .shed-skin-bg { z-index: 23; } /* above the Storage panel (21) that opens it */
@@ -1964,6 +1986,10 @@
     overflow: hidden; text-overflow: ellipsis; }
   #hud .st-boost { min-width: 0; }
   #hud .rcv-card, #hud .rcv-nm { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+  /* Narrow enough that the tally and three buttons cannot share a row: give the
+     tally its own line so the actions stay together rather than stranding one of
+     them underneath the other two. */
+  #hud .st-seltally { flex: 1 0 100%; text-align: center; }
 }
 
 /* In portrait, the full ONLINE · SYNCED badge crowds the currency bar. Keep its

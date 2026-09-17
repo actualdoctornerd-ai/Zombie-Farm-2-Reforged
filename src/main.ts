@@ -32,6 +32,7 @@ import { POT_DURATION_MS } from "./zombie/ZombiePot";
 import { isCombinePromotion } from "./zombie/combineSpecies";
 import { GameState } from "./GameState";
 import { ensureLocalStoredIds, takeStoredObject } from "./storedObjectOwnership";
+import { describeStoredSale, planStoredSale } from "./shedBulkSell";
 import { Hud, graveNeededFor, LevelUpUnlock, ReceivedView, QuestCompleteView, QuestReward, type Mode } from "./hud";
 import { JobSystem } from "./JobSystem";
 import { AudioManager } from "./audio";
@@ -2569,14 +2570,17 @@ async function main() {
   };
   const storedObjectIds = new Map<string, string[]>();
   const objectPurchases = new Map<string, { cost: number; currency: "gold" | "brains" }>();
-  /** The instance id of one stored copy of `key` — what both the retrieve and sell
-   *  paths act on. Online that identity is the server's and comes from the object
-   *  reconcile below; offline the save carries counts only, so it is minted on first
-   *  use (otherwise a reloaded local shed holds items that can't be placed or sold). */
-  const storedInstanceId = (key: string): string | undefined =>
-    economy
-      ? storedObjectIds.get(key)?.[0]
-      : ensureLocalStoredIds(state, storedObjectIds, key, () => `stored-${crypto.randomUUID()}`);
+  /** The instance ids of every stored copy of `key`, in shed order — what both the
+   *  retrieve and sell paths act on. Online those identities are the server's and
+   *  come from the object reconcile below; offline the save carries counts only, so
+   *  they are minted on first use (otherwise a reloaded local shed holds items that
+   *  can't be placed or sold). */
+  const storedInstanceIds = (key: string): readonly string[] => {
+    if (!economy) ensureLocalStoredIds(state, storedObjectIds, key, () => `stored-${crypto.randomUUID()}`);
+    return storedObjectIds.get(key) ?? [];
+  };
+  /** One stored copy of `key` — the single-item retrieve and sell paths. */
+  const storedInstanceId = (key: string): string | undefined => storedInstanceIds(key)[0];
   if (!visiting && onlineFarm) {
     let authoritativeObjectIds = new Set<string>();
     const acct = api.getSession()?.accountId ?? "anon";
@@ -6326,6 +6330,47 @@ async function main() {
     floatText(c.x, c.y, `+${refund}g`);
   };
 
+  /** Gold ONE stored copy pays. Priced from what that exact copy cost — two Hedges
+   *  in the same shed are not worth the same when one was a brain purchase and the
+   *  other an award-only raid prize. */
+  const storedRefund = (key: string, instanceId: string): number => {
+    const def = placeCatalog.get(key);
+    if (!def) return 0;
+    const purchase = objectPurchases.get(instanceId);
+    const boughtWithBrains = purchase ? purchase.currency === "brains" : !!def.brainsNeeded;
+    return purchase ? sellBack(purchase.cost, boughtWithBrains) : sellRefund(def);
+  };
+
+  /** Resolve selected shed slots into the copies a sale may actually consume.
+   *  Anything unsellable is dropped here rather than trusted from the panel, so a
+   *  selection that went stale (a Pot shelved into the grid mid-select) can't talk
+   *  the sale into a permanent item. */
+  const planShedSale = (keys: string[]) => planStoredSale(
+    keys.filter((key) => {
+      const def = placeCatalog.get(key);
+      return !!def && canSellObject(def);
+    }),
+    storedInstanceIds,
+    storedRefund,
+  );
+
+  /** Consume one resolved copy: shed projections, placement arming, the purchase
+   *  record, and the refund itself. False when that copy was already gone. */
+  const sellStoredLot = (lot: { key: string; instanceId: string; refund: number }): boolean => {
+    if (!takeStoredObject(state, storedObjectIds, lot)) return false;
+    // Selling the copy that is armed for placement would otherwise leave the
+    // cursor holding an object the shed no longer has.
+    if (retrieving?.instanceId === lot.instanceId) {
+      retrieving = null;
+      hud.setPlacing(null);
+    }
+    objectPurchases.delete(lot.instanceId);
+    if (economy) {
+      economy.submitObject({ type: "refund", key: lot.key, instanceId: lot.instanceId }, { gold: lot.refund });
+    } else state.addGold(lot.refund);
+    return true;
+  };
+
   hud.onSellStoredItem = async (key) => {
     if (onlineGameplayBlocked()) return false;
     const def = placeCatalog.get(key);
@@ -6337,25 +6382,56 @@ async function main() {
       hud.showToast("That item is no longer in your shed.");
       return false;
     }
-    const purchase = objectPurchases.get(instanceId);
-    const boughtWithBrains = purchase ? purchase.currency === "brains" : !!def.brainsNeeded;
-    const refund = purchase ? sellBack(purchase.cost, boughtWithBrains) : sellRefund(def);
+    const refund = storedRefund(key, instanceId);
     if (!await hud.confirmInGame(
       `Sell ${def.name}?`,
       `Sell this stored item for ${refund} gold? This cannot be undone.`,
       `Sell +${refund}g`,
     )) return false;
-    if (!takeStoredObject(state, storedObjectIds, { key, instanceId })) return false;
-    if (retrieving?.instanceId === instanceId) {
-      retrieving = null;
-      hud.setPlacing(null);
-    }
-    objectPurchases.delete(instanceId);
-    if (economy) {
-      economy.submitObject({ type: "refund", key, instanceId }, { gold: refund });
-    } else state.addGold(refund);
+    if (!sellStoredLot({ key, instanceId, refund })) return false;
     audio.play("sell");
     return true;
+  };
+
+  // The multi-select sale behind Storage -> Items -> Sell Multiple. Priced and
+  // confirmed as ONE act (one dialog, one toast) but submitted as one refund per
+  // copy, because that is what the object service owns: a shed of 72 is well
+  // inside a command batch, so nothing here needs a bulk command.
+  hud.getStoredSellTotal = (keys) => planShedSale(keys).gold;
+  hud.onSellStoredItems = async (keys) => {
+    if (onlineGameplayBlocked()) return null;
+    const plan = planShedSale(keys);
+    if (!plan.lots.length) {
+      hud.showToast("Those items are no longer in your shed.");
+      return null;
+    }
+    const what = describeStoredSale(plan.lots, (key) => placeCatalog.get(key)?.name ?? key);
+    if (!await hud.confirmInGame(
+      `Sell ${plan.lots.length} stored item${plan.lots.length === 1 ? "" : "s"}?`,
+      `${what} — for ${plan.gold.toLocaleString()} gold. This cannot be undone.`,
+      `Sell +${plan.gold.toLocaleString()}g`,
+    )) return null;
+    // Each copy is re-checked against the shed as it is consumed — the dialog was
+    // open long enough for a reconcile or another panel to move things — and a copy
+    // that has gone is skipped rather than refunded out of nothing.
+    let gold = 0;
+    let sold = 0;
+    for (const lot of plan.lots) {
+      if (!sellStoredLot(lot)) continue;
+      gold += lot.refund;
+      sold++;
+    }
+    if (!sold) {
+      hud.showToast("Those items are no longer in your shed.");
+      return null;
+    }
+    audio.play("sell");
+    const short = plan.lots.length - sold + plan.missing;
+    hud.showToast(
+      `Sold ${sold} item${sold === 1 ? "" : "s"} for ${gold.toLocaleString()} gold.` +
+      (short ? ` ${short} ${short === 1 ? "was" : "were"} no longer in your shed.` : "")
+    );
+    return gold;
   };
 
   hud.onSellReceived = async (index) => {

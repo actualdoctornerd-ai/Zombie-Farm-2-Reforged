@@ -1752,6 +1752,13 @@ export class Hud {
   onRetrieveItem: ((key: string) => void) | null = null;
   /** Permanently sell one stored placeable without placing it first. */
   onSellStoredItem: ((key: string) => Promise<boolean> | boolean) | null = null;
+  /** Permanently sell several stored placeables in one go. Takes one entry per
+   *  selected slot, so a key repeats to sell that many copies of it. Returns the
+   *  gold paid, or null when the player backed out or nothing could be sold. */
+  onSellStoredItems: ((keys: string[]) => Promise<number | null>) | null = null;
+  /** What that same selection would pay, priced copy by copy (two Hedges can be
+   *  worth different gold). Drives the live total on the multi-select bar. */
+  getStoredSellTotal: ((keys: string[]) => number) | null = null;
 
   // ---- Received rewards (raid loot / quest items) hooks (set by main) ----
   /** Resolve the current Received bucket into displayable reward cards. */
