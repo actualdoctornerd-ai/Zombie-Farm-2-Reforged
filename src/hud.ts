@@ -96,11 +96,12 @@ import {
 } from "./ui/panels/settings";
 import { openStorage as openStoragePanel } from "./ui/panels/storage";
 import {
-  buildZombieCard, buildRosterCard, openCatalogZombieCard,
+  buildRosterFilterBar, buildZombieCard, buildRosterCard, openCatalogZombieCard, recallRosterFilter,
   openZombieInfo as openZombieInfoPanel,
   openZombiesPanel, rosterInfo, type ZombiesPanelTab,
 } from "./ui/panels/zombies";
 import { openMemorialPanel, type MemorialView } from "./ui/panels/memorial";
+import { encodeRosterFilter, filterZombies, isFiltered } from "./zombie/rosterFilter";
 import { openTeamsPanel } from "./ui/panels/teams";
 import type { TeamAssembleResult, ZombieTeam } from "./zombie/teams";
 import {
@@ -5318,6 +5319,7 @@ export class Hud {
   // hold stored zombies (tap to inspect / deploy back); empty slots are tapped to
   // move a zombie in off the farm. On-farm zombies do NOT appear here.
   openMausoleum() {
+    const MAUSOLEUM_FILTER_KEY = "mausoleum.filter";
     const { panel } = openModal({ host: this.el, bgClass: "zr-bg", replaceSelector: ".zr-bg" });
 
     const wrap = document.createElement("div");
@@ -5342,12 +5344,31 @@ export class Hud {
       cnt.className = "zr-total";
       cnt.textContent = `${stored.length} / ${cap} stored`;
       head.append(title, cnt);
+      const filter = recallRosterFilter(MAUSOLEUM_FILTER_KEY, stored);
+      const filtered = isFiltered(filter);
+      const shown = filterZombies(stored, filter);
+      if (filtered) {
+        const sub = document.createElement("span");
+        sub.className = "zr-sub";
+        sub.textContent = ` · ${shown.length} shown`;
+        cnt.appendChild(sub);
+      }
+      if (stored.length > 1) {
+        head.appendChild(buildRosterFilterBar(stored, filter, (next) => {
+          remember(MAUSOLEUM_FILTER_KEY, encodeRosterFilter(next));
+          remember("mausoleum.grid", 0);
+          render();
+        }));
+      }
 
       grid.innerHTML = "";
       // Reward grants are never discarded. If a full Mausoleum receives an Epic
       // reward, expose the protected overflow slot instead of hiding the zombie.
-      for (let i = 0; i < Math.max(cap, stored.length); i++) {
-        const z = stored[i];
+      // A filtered view lists only the matches: empty slots are about room, not
+      // about any class or species, so they return with the full view.
+      const slots = filtered ? shown.length : Math.max(cap, stored.length);
+      for (let i = 0; i < slots; i++) {
+        const z = shown[i];
         if (z) {
           grid.appendChild(buildRosterCard(this, z, () => this.openZombieInfo(rosterInfo(this, z), render)));
         } else {

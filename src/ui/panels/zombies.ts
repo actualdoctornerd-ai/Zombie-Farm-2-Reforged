@@ -28,8 +28,12 @@ import type { AlmanacGuideTopic } from "../../zombie/almanacGuide";
 import { statEffectText, type MutationAlmanacEntry } from "../../zombie/mutationAlmanac";
 import { SLOTS } from "../../zombie/mutations";
 import { ZOMBIE_SORTS, isZombieSort, sortZombies, type ZombieSort } from "../../zombie/rosterSort";
+import {
+  classOptions, decodeRosterFilter, encodeRosterFilter, filterZombies, isFiltered,
+  settleRosterFilter, speciesOptions, type FilterableZombie, type RosterFilter,
+} from "../../zombie/rosterFilter";
 import { getZombieSort, setZombieSort } from "../../prefs";
-import { keepScroll, recallOneOf, remember } from "../viewState";
+import { keepScroll, recall, recallOneOf, remember } from "../viewState";
 
 // A closeable modal: the zombie's trading-card (portrait, name board, veterancy /
 // type / invasions) on the LEFT, and its stats (icon row) over abilities (icon
@@ -523,6 +527,60 @@ export function buildRosterCard(hud: Hud, z: RosterEntry, onClick: () => void): 
 
 export type ZombiesPanelTab = "roster" | "almanac" | "mutations";
 
+/** The filter a roster view last used this session (viewState: survives a reload in
+ *  the same tab, starts clean in a new one), settled against the rows it will
+ *  filter now. Deliberately NOT a device pref like the sort: a filter hides
+ *  zombies, and one that silently came back days later would read as lost zombies. */
+export function recallRosterFilter(key: string, rows: readonly FilterableZombie[]): RosterFilter {
+  return settleRosterFilter(rows, decodeRosterFilter(recall(key)));
+}
+
+/** Class + species dropdowns over `rows`, shared by My Zombies and the Mausoleum.
+ *  `onChange` receives the settled filter; the caller remembers it and re-renders. */
+export function buildRosterFilterBar(
+  rows: readonly FilterableZombie[],
+  filter: RosterFilter,
+  onChange: (next: RosterFilter) => void,
+): HTMLElement {
+  const bar = document.createElement("div");
+  bar.className = "zl-filters";
+  const picker = (
+    label: string, allLabel: string,
+    options: { value: string; label: string; count: number }[], value: string,
+    set: (value: string) => RosterFilter,
+  ) => {
+    const wrap = document.createElement("label");
+    wrap.className = "zl-sort";
+    wrap.append(label);
+    const select = document.createElement("select");
+    select.className = "prof-input zl-sort-select";
+    select.setAttribute("aria-label", `Filter zombies by ${label.toLowerCase()}`);
+    select.append(new Option(allLabel, ""));
+    for (const o of options) {
+      const item = new Option(`${o.label} (${o.count})`, o.value);
+      item.selected = o.value === value;
+      select.appendChild(item);
+    }
+    select.onchange = () => onChange(settleRosterFilter(rows, set(select.value)));
+    wrap.appendChild(select);
+    return wrap;
+  };
+  bar.append(
+    picker("Class", "All classes", classOptions(rows), filter.group,
+      (group) => ({ ...filter, group })),
+    picker("Species", "All species", speciesOptions(rows, filter.group), filter.species,
+      (species) => ({ ...filter, species })),
+  );
+  if (isFiltered(filter)) {
+    const clear = document.createElement("button");
+    clear.className = "zl-filter-clear";
+    clear.textContent = "Clear";
+    clear.onclick = () => onChange({ group: "", species: "" });
+    bar.appendChild(clear);
+  }
+  return bar;
+}
+
 // The "Zombies" tab (right bar): "My Zombies" lists every owned zombie as its
 // full inspect card (the same one shown when tapping a zombie); the "Zombie
 // Almanac" is the species collection, in three groups — Normal, Special, Epic.
@@ -569,6 +627,7 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
   mkTab("mutations", "Mutations");
 
   let rosterSort: ZombieSort = getZombieSort();
+  const ROSTER_FILTER_KEY = "zombies.filter.roster";
 
   const renderRoster = () => {
     // Show the complete owned roster here as a safety net for earned zombies. A boss
@@ -581,12 +640,20 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
     pruneMutationVisibility(roster.map((z) => z.id));
     const onFarm = roster.filter((r) => !r.stored).length;
     const stored = roster.length - onFarm;
+    const filter = recallRosterFilter(ROSTER_FILTER_KEY, roster);
+    const shown = filterZombies(roster, filter);
     head.innerHTML = "";
     const title = document.createElement("h2");
     title.textContent = "Your Zombies";
     const cnt = document.createElement("span");
     cnt.className = "zr-total";
     cnt.textContent = `${onFarm} on farm${stored ? ` · ${stored} stored` : ""}`;
+    if (isFiltered(filter)) {
+      const sub = document.createElement("span");
+      sub.className = "zr-sub";
+      sub.textContent = ` · ${shown.length} shown`;
+      cnt.appendChild(sub);
+    }
     head.append(title, cnt);
 
     if (!roster.length) {
@@ -620,11 +687,16 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
       };
       label.appendChild(select);
       head.appendChild(label);
+      head.appendChild(buildRosterFilterBar(roster, filter, (next) => {
+        remember(ROSTER_FILTER_KEY, encodeRosterFilter(next));
+        remember("zombies.scroll.roster", 0);
+        show("roster");
+      }));
     }
 
     // Sort the INSPECT views, not the raw roster: those carry the farmer's
     // strength/life multipliers, so the list ranks by the number each card shows.
-    const infos = roster.map((z) => rosterInfo(hud, z));
+    const infos = shown.map((z) => rosterInfo(hud, z));
     for (const info of sortZombies(infos, rosterSort, (k) => hud.state.abilityUnlocked(k))) {
       const row = document.createElement("div");
       // Use the exact same panel/card composition as the single-zombie modal;
