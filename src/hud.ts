@@ -39,6 +39,7 @@ import {
 } from "./prefs";
 import { fmtCooldown, MCDONNELL_ID, VOUCHER_KEY } from "./raid/RaidCatalog";
 import { BRAIN_TICKET_KEY } from "./raid/eliteInvasion";
+import { acceptsBrainTicket } from "./raid/dualInvasion";
 import { marketPageSize } from "./marketPageSize";
 import { veterancy } from "./zombie/traits";
 import { COMBINE_SPECIAL_LEVEL } from "./zombie/combineSpecies";
@@ -266,6 +267,11 @@ const MARKET_MAX_PRICE = 10_000_000;
  *  atomic `inventory buy` command (the server prices and debits each one), so this
  *  also bounds a single tap's command burst against the Worker's rate budget. */
 const BOOST_BUY_LIMIT = 10;
+
+/** The Concentrate toggle's face. Shared by the raid picker and the Epic Boss picker
+ *  so the two cannot drift into describing the same consumable differently. */
+const CONCENTRATE_LABEL = (owned: number) =>
+  `🧠 Concentrate <span class="rb-ct">x${owned}</span>`;
 function marketPrice(amount: number, currency: BlackMarketCurrency): string {
   if (currency === "GOLD") return `${amount.toLocaleString()} gold`;
   return `${amount.toLocaleString()} brain${amount === 1 ? "" : "s"}`;
@@ -1848,7 +1854,13 @@ export class Hud {
   getEpicBossView: (() => EpicBossMarketView[]) | null = null;
   onActivateEpicBoss: ((bossId: string) => boolean | Promise<boolean>) | null = null;
   onEndEpicBoss: (() => boolean | Promise<boolean>) | null = null;
-  onLaunchEpicBoss: ((partyIds: string[], payment: EpicBossPayment) => boolean | Promise<boolean>) | null = null;
+  onLaunchEpicBoss: ((
+    partyIds: string[], payment: EpicBossPayment, concentration?: boolean,
+  ) => boolean | Promise<boolean>) | null = null;
+  /** How many Concentration the player owns, for the Epic Boss picker's toggle. The
+   *  raid picker reads its whole boost stock through getRaidBoosts, but an epic fight
+   *  takes no voucher, dice or ticket -- only this one. */
+  getEpicBossConcentration: (() => number) | null = null;
 
   // ---- save profiles (set by main) ----
   /** Current profile index (active id + all profiles). */
@@ -1936,6 +1948,10 @@ export class Hud {
   getPvpDefense: (() => Promise<PvpDefenseInfoView | null>) | null = null;
   /** Save (or clear, with []) the authored defense order. Error code or null. */
   onSavePvpDefense: ((unitIds: string[]) => Promise<string | null>) | null = null;
+  /** Fight your own defense, to see whether it holds. Opens the army picker and then
+   *  the ordinary PvP battle against your own snapshot — no session, no rewards, no
+   *  daily cap, and no row in anyone's history. */
+  onTestPvpDefense: (() => void) | null = null;
   /** Claim every outstanding defense reward. Null = nothing granted. */
   onClaimAllPvpDefense:
     | (() => Promise<{ claimed: number; rewards: PvpRewardView[] } | null>)
@@ -2800,6 +2816,22 @@ export class Hud {
       cards.appendChild(card);
     }
     const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
+    // Concentration, the one battle consumable an epic fight can take. The fight
+    // already runs with no butterflies, so what this buys here is what the raid
+    // version buys: the brain bubble fills and goes on its own.
+    const concStock = this.getEpicBossConcentration?.() ?? 0;
+    let useConcentration = false;
+    if (concStock > 0) {
+      const cBtn = document.createElement("button");
+      cBtn.className = "raid-boost-btn";
+      cBtn.innerHTML = CONCENTRATE_LABEL(concStock);
+      cBtn.title = "Skip the brain bubble: zombies charge and advance on their own.";
+      cBtn.onclick = () => {
+        useConcentration = !useConcentration;
+        cBtn.classList.toggle("on", useConcentration);
+      };
+      foot.appendChild(cBtn);
+    }
     pay.onchange = () => { payment = pay.value as EpicBossPayment; refresh(); };
     pick.onclick = () => {
       order = fillSlots(order, preferred, eligible.map((z) => z.id), party.cap);
@@ -2811,7 +2843,7 @@ export class Hud {
       if (!attackOrder.length || !this.onLaunchEpicBoss) return;
       launching = true;
       refresh();
-      if (await this.onLaunchEpicBoss(attackOrder, payment)) {
+      if (await this.onLaunchEpicBoss(attackOrder, payment, useConcentration)) {
         close();
         this.closeMarket();
       } else { launching = false; refresh(); }
@@ -5977,6 +6009,10 @@ export class Hud {
     /** The elite advice as a card/detail suffix — empty when it should stay hidden. */
     const eliteAdvice = (c: RaidCardView, long: boolean): string => {
       if (!showElite) return "";
+      // Nothing to advise where a ticket is refused: these four carry a tier ladder instead,
+      // and their eliteRecommendedLevel is pinned to the ordinary one precisely because it
+      // means nothing (see tools/prep_raids.py DUAL_INVASIONS).
+      if (!acceptsBrainTicket(c.id)) return "";
       // Past roughly level 30 the figure stands in for a GEARED roster rather than for a
       // level (player level stops buying army strength there — see raids.json
       // `eliteRecommendedLevel`), so say so instead of quoting a level the player may
@@ -6067,7 +6103,7 @@ export class Hud {
         .join(" · ");
       dropRow("Brains").textContent =
         `${pctOdds(c.brainOdds.chance)} per boss win (${tiers})` +
-        ` · ${pctOdds(c.eliteBrainOdds.chance)} on a Brain Ticket`;
+        (acceptsBrainTicket(c.id) ? ` · ${pctOdds(c.eliteBrainOdds.chance)} on a Brain Ticket` : "");
       if (c.zombieDrop) {
         // A story invasion adds a promoted prize on a Brain Ticket (Deputy -> Sheriff), so
         // the elite half quotes both: this zombie at 4x, PLUS the rarer one. Everywhere else
@@ -6127,7 +6163,9 @@ export class Hud {
           go.textContent = c.lockReason || "Locked";
           go.disabled = true;
         } else if (cd > 0) {
-          if (st.brainTicketCount > 0 && st.voucherCount <= 0) {
+          // A dual invasion refuses a Brain Ticket (dualInvasion.ts), so it can never be
+          // the cooldown door here either — the voucher branch below is the only skip.
+          if (st.brainTicketCount > 0 && st.voucherCount <= 0 && acceptsBrainTicket(c.id)) {
             go.textContent = "Use Brain Ticket & Invade";
             go.disabled = !canFight;
             armElite = true;
@@ -6303,12 +6341,16 @@ export class Hud {
     const diceMax = Math.min(boosts.dice, boosts.maxDice);
     let useConcentration = false;
     let diceChosen = 0;
-    let useBrainTicket = armElite && boosts.brainTickets > 0;
+    let useBrainTicket = armElite && boosts.brainTickets > 0 && acceptsBrainTicket(raid.id);
+    // A dual invasion opens on the highest rung this farm has reached, which is the one a
+    // returning player wants nine times out of ten. Every rung below it stays selectable.
+    let tierChosen = raid.tiers > 0 ? Math.max(1, raid.tierUnlocked) : 0;
     const launchOpts = (): RaidLaunchOpts => ({
       useVoucher,
       concentration: useConcentration,
       dice: diceChosen,
       brainTicket: useBrainTicket,
+      tier: tierChosen,
     });
 
     const start = document.createElement("button");
@@ -6377,10 +6419,48 @@ export class Hud {
     // usable): a Concentration toggle and a Golden Dice stepper.
     const boostRow = document.createElement("div");
     boostRow.className = "raid-boosts";
+    // THE TIER PICKER (dual invasions only). One button per rung: the cleared ones and the
+    // next one are selectable, the rest are padlocked. It sits at the head of the row
+    // because it is a difficulty choice rather than a consumable — it spends nothing, and
+    // unlike the Brain Ticket beside it, it can be changed freely before every launch.
+    //
+    // NOTE while the ladder is flat: every rung currently builds an IDENTICAL fight
+    // (dualInvasion.tierProfile is a placeholder). Picking tier 7 changes what a win
+    // credits, not what you fight. That is deliberate for now — the mechanics and their
+    // per-rung schedule come first, and the profiles are fitted last.
+    if (raid.tiers > 0) {
+      const tierWrap = document.createElement("div");
+      tierWrap.className = "raid-tiers";
+      const label = document.createElement("span");
+      label.className = "raid-tier-label";
+      label.textContent = "Tier";
+      tierWrap.appendChild(label);
+      const tierBtns: HTMLButtonElement[] = [];
+      const drawTiers = () => {
+        tierBtns.forEach((btn, i) => {
+          const rung = i + 1;
+          btn.classList.toggle("on", rung === tierChosen);
+          btn.disabled = rung > raid.tierUnlocked;
+          btn.title = rung > raid.tierUnlocked
+            ? `Clear tier ${raid.tierUnlocked} to unlock this one.`
+            : `Fight tier ${rung} of ${raid.tiers}.`;
+        });
+      };
+      for (let rung = 1; rung <= raid.tiers; rung++) {
+        const btn = document.createElement("button");
+        btn.className = "raid-tier-btn";
+        btn.textContent = rung > raid.tierUnlocked ? "🔒" : String(rung);
+        btn.onclick = () => { tierChosen = rung; drawTiers(); };
+        tierBtns.push(btn);
+        tierWrap.appendChild(btn);
+      }
+      drawTiers();
+      boostRow.appendChild(tierWrap);
+    }
     if (boosts.concentration > 0) {
       const cBtn = document.createElement("button");
       cBtn.className = "raid-boost-btn";
-      cBtn.innerHTML = `🧠 Concentrate <span class="rb-ct">x${boosts.concentration}</span>`;
+      cBtn.innerHTML = CONCENTRATE_LABEL(boosts.concentration);
       cBtn.title = "Skip the focus minigame: zombies charge and advance on their own.";
       cBtn.onclick = () => {
         useConcentration = !useConcentration;
@@ -6450,7 +6530,14 @@ export class Hud {
     // A held ticket still works below the gate (it may have been bought before a
     // rollback, or gifted): hide the button only when there is nothing to spend and
     // nothing that could be bought.
-    if (ticketUnlocked || ticketsHeld > 0) boostRow.append(eliteBtn, eliteNote);
+    //
+    // …and never on an invasion that refuses one. A dual invasion's difficulty is its tier,
+    // so the button would arm a flag the sim and the server both throw away — the player
+    // would watch a 10,000-gold ticket buy nothing (RaidManager.beginRaid forces elite off,
+    // and /raid/start answers `elite_unavailable`).
+    if ((ticketUnlocked || ticketsHeld > 0) && acceptsBrainTicket(raid.id)) {
+      boostRow.append(eliteBtn, eliteNote);
+    }
     if (boostRow.childElementCount) wrap.insertBefore(boostRow, foot);
 
     // "Pick for me": KEEP whatever the player has already selected (in the order they

@@ -18,10 +18,15 @@ export function zombieFacingDelta(u: {
   windupKey: string | null;
   alive: boolean;
   knockBackSpeed?: number;
-}, opts: { exitMarch: boolean; retreating: boolean }): number | null {
+}, opts: { exitMarch: boolean; retreating: boolean; benched?: boolean }): number | null {
   // The end-of-fight march overrides everything: home on a retreat, onward on a win.
   if (opts.exitMarch) return opts.retreating ? -1 : 1;
   if (!u.alive) return null;
+  // Benched by the Lawyer boss's placard: it is walking OFF, and it should look like it.
+  // The walk-off moves `x` directly rather than through `vx`, so without this the zombie
+  // slides backwards still squared up to the enemy — which is exactly how a knockback
+  // reads, and the opposite of "this class has left the fight".
+  if (opts.benched) return -1;
   // Being SHOVED is the other case where travel is not intent. A knockback slides the
   // zombie backward fast, so the `vx` branch below turned it around to face the way it
   // was flying — and a zombie that turns its back and strides away reads as retreating

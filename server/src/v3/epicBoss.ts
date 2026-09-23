@@ -7,7 +7,8 @@ import { applyQuestEvents, CONFIG_SPENT, MEMORIAL_GRAVEYARD_CAP } from "./engine
 import zombieRows from "../../../public/assets/zombies.json";
 import { buildPlayerUnits } from "../../../src/raid/CombatEngine";
 import { deriveAttackIntervalMs } from "../../../src/raid/combatStats";
-import { BattleSim } from "../../../src/raid/BattleSim";
+import { EPIC_BOSS_ENGAGE } from "../../../src/epicBoss/combat";
+import { buildFight } from "../../../src/raid/buildFight";
 import { replayRaid, type RaidReplayInput } from "../../../src/raid/replay";
 import type { CombatUnit } from "../../../src/raid/types";
 import { makeOwned } from "../../../src/zombie/types";
@@ -17,7 +18,7 @@ import { levelForXp } from "../levels";
 import { EPIC_LOOT_DROP_CHANCE, EPIC_LOOT_ROLLS, epicBrainTicketChance, epicBossCurrencyReward, epicLootWeight, epicQuestZombieReward, reopenEpicQuests, shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import objectRows from "../../../public/assets/placeables.json";
 import { EPIC_BOSS_FIGHT_BRAIN_COST } from "../../../src/epicBoss/tokens";
-import { ARMY_CAP } from "../../../src/raid/RaidCatalog";
+import { ARMY_CAP, CONCENTRATION_KEY } from "../../../src/raid/RaidCatalog";
 import { BRAIN_TICKET_KEY } from "../../../src/raid/eliteInvasion";
 import { RAID_RULESET_VERSION } from "../../../src/raid/replay";
 import { isLiveSessionCollision } from "./liveSessionRace";
@@ -34,7 +35,17 @@ interface SessionRow {
   id: string; run_id: string; level: number; starting_hp: number; roster_json: string;
   config_json: string; started_at: number; expires_at: number; finished_at: number | null; result_json: string | null;
 }
-interface EpicCombatConfig { rulesetVersion: number; playerUnits: CombatUnit[]; enemyUnits: CombatUnit[] }
+interface EpicCombatConfig {
+  rulesetVersion: number;
+  playerUnits: CombatUnit[];
+  enemyUnits: CombatUnit[];
+  /** A Concentration was spent on this attempt: the brain bubble auto-releases instead
+   *  of waiting to be popped. Pinned here because the VERIFIER has to replay the same
+   *  fight the player fought — a flag read off the finish request would let a client
+   *  claim a charge pace it never paid for. Absent on sessions opened before the boost
+   *  reached epic bosses, which read as `false` and replay exactly as they always did. */
+  concentration?: boolean;
+}
 const zombies = new Map((zombieRows as Array<{key:string}>).map((z) => [z.key, z]));
 const objectArmyCapacity = new Map((objectRows as Array<{key:string;armyMax?:number}>).map((o) => [o.key, o.armyMax ?? 0]));
 const defFor = (bossId: string): EpicBossDef | null => epicBossById(bossId);
@@ -197,7 +208,7 @@ export async function expireLiveEpicBoss(db: D1Database, accountId: string, now:
 
 export async function start(
   db: D1Database, accountId: string, orderedUnitIds: unknown, payment: unknown, now: number,
-  rulesetVersion?: unknown
+  rulesetVersion?: unknown, useConcentration?: unknown
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   await expireLiveEpicBoss(db, accountId, now);
   const ids = Array.isArray(orderedUnitIds)
@@ -239,8 +250,16 @@ export async function start(
   if (epic) {
     const pinned = parse<string[]>(epic.roster_json, []);
     if (pinned.length === ids.length && pinned.every((id, index) => id === ids[index])) {
+      // A resume adopts the EXISTING session's fight, so it has to report that
+      // session's Concentration rather than let the client re-decide. The player may
+      // well have left the toggle alone this time; the fight they are re-entering was
+      // already paid for and already pinned, and a client that charges at a different
+      // pace than the verifier replays is a guaranteed 422 at the finish. Nothing is
+      // charged again here either — the boost came off the stock at the first start.
+      const resumedConfig = parse<EpicCombatConfig | null>(epic.config_json, null);
       return { status: 200, body: { ok: true, resumed: true, sessionId: epic.id,
-        event: projectRun(row), balance, expiresAt: epic.expires_at } };
+        event: projectRun(row), balance, expiresAt: epic.expires_at,
+        concentration: resumedConfig?.concentration === true } };
     }
     return { status: 409, body: { error: "battle_in_progress" } };
   }
@@ -250,6 +269,7 @@ export async function start(
     row.max_hp = epicBossHp(def, row.level); row.current_hp = row.max_hp;
     row.encounter_started_at = 0; row.retry_ready_at = 0;
   }
+  const concentration = useConcentration === true;
   if (payment !== "token" && payment !== "brains") return { status: 400, body: { error: "bad_payment" } };
   if (payment === "token" && row.token_count < 1) return { status: 409, body: { error: "insufficient_tokens" } };
   if (payment === "brains" && balance && balance.brains < EPIC_BOSS_FIGHT_BRAIN_COST) {
@@ -288,7 +308,17 @@ export async function start(
     // Per-attack, from the catalog; mirrors src/epicBoss/combat.ts — keep the two in step.
     abilities:[],attackDamageTiming:epicBossDamageTiming(def),
   };
-  const config: EpicCombatConfig = { rulesetVersion: RAID_RULESET_VERSION, playerUnits, enemyUnits:[boss] };
+  // Checked against the copy of the inventory that gets written back below, exactly as
+  // /raid/start does it — the debit has to come off the object that is persisted, or
+  // the boost is spent in the fight and still sitting in the player's stock afterwards.
+  if (concentration && (core.inventory[CONCENTRATION_KEY] ?? 0) < 1) {
+    return { status: 409, body: { error: "no_concentration" } };
+  }
+  if (concentration) core.inventory[CONCENTRATION_KEY]--;
+  const config: EpicCombatConfig = {
+    rulesetVersion: RAID_RULESET_VERSION, playerUnits, enemyUnits:[boss],
+    ...(concentration ? { concentration: true } : {}),
+  };
   const statements: D1PreparedStatement[] = [
     db.prepare(`INSERT INTO epic_boss_sessions_v3
       (id,account_id,run_id,level,starting_hp,roster_json,config_json,started_at,expires_at)
@@ -297,6 +327,12 @@ export async function start(
       attack_order_json=?,max_hp=?,current_hp=? WHERE account_id=? AND run_id=?`)
       .bind(encounterStartedAt, JSON.stringify(ids), row.max_hp, row.current_hp, accountId, row.run_id),
   ];
+  // Only written when something was actually debited: an attempt that spends no boost
+  // must not rewrite the gameplay document and race the player's own command batches.
+  if (concentration) {
+    statements.push(db.prepare("UPDATE gameplay_documents_v3 SET current_json = ?, updated_at = ? WHERE account_id = ?")
+      .bind(JSON.stringify(core), now, accountId));
+  }
   if (payment === "token") {
     statements.push(db.prepare(`UPDATE epic_boss_runs_v3 SET token_count=token_count-1
       WHERE account_id=? AND run_id=? AND token_count>0`).bind(accountId, row.run_id));
@@ -320,7 +356,10 @@ export async function start(
   else balance.brains -= EPIC_BOSS_FIGHT_BRAIN_COST;
   return { status: 200, body: { ok: true, sessionId, event: {
     ...projectRun(row)!, encounterStartedAt, retryReadyAt: 0, attackOrder: ids,
-  }, balance, expiresAt } };
+  }, balance, expiresAt,
+    // Echoed so the client adopts the debited stock rather than guessing at it, the
+    // same handshake /raid/start uses. Only sent when a boost was actually spent.
+    ...(concentration ? { concentration: true, inventory: core.inventory } : {}) } };
 }
 
 export async function finish(
@@ -365,10 +404,21 @@ export async function finish(
     ]);
     return { status: 409, body: { error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
   }
-  const verified = replayRaid(new BattleSim(
-    config.playerUnits, config.enemyUnits, null, false, [], def.fightMs,
-    null, null, true, true, true, 150
-  ), body.finalTick as number, body.inputs as RaidReplayInput[]);
+  const verified = replayRaid(buildFight({
+    playerUnits: config.playerUnits,
+    enemyUnits: config.enemyUnits,
+    roundMs: def.fightMs,
+    // The Epic Boss shape: no butterflies (the brain bubble still gates release), the
+    // round running out ENDS the attempt instead of enraging, the boss falls onto the
+    // combat line instead of holding a perch, and its art needs a wider melee line.
+    noDistractions: true,
+    escapeOnRoundEnd: true,
+    bossFallsFromSky: true,
+    engageDistance: EPIC_BOSS_ENGAGE,
+    // Read off the PINNED config, never off the finish request. A session opened
+    // before the boost reached epic bosses has no field and replays as it always did.
+    concentration: config.concentration === true,
+  }), body.finalTick as number, body.inputs as RaidReplayInput[]);
   if (!verified.ok) return { status: 422, body: { error: verified.error } };
   const { survivors, losses } = verified.outcome;
   const lockedSet = new Set(locked);

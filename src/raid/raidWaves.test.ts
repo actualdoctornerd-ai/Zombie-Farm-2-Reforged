@@ -176,9 +176,12 @@ describe("weighted waves — seeded shuffle of the authored multiset (ruleset 48
       .filter(({ stage }) => stage.weighted && !stage.randomBoss && !(stage.enemyKeys?.length)));
 
   it("covers the raids the bump names, and only those", () => {
-    // 2, 3, 4, 6, 7, 8, 9, 10, 11 (their single wave) plus McDonnell's rungs 5 and 6.
+    // 2, 3, 4, 6, 7, 8, 9, 10, 11 (their single wave) plus McDonnell's rungs 5 and 6, and
+    // the four dual invasions — whose whole point is a wave mixed from two factions, so a
+    // weighted table is the one thing they are guaranteed to have.
     expect(weightedStages.map(({ raid, index }) => `${raid.id}#${index}`)).toEqual([
       "1#5", "1#6", "2#0", "3#0", "4#0", "6#0", "7#0", "8#0", "9#0", "10#0", "11#0",
+      "12#0", "13#0", "14#0", "15#0",
     ]);
   });
 

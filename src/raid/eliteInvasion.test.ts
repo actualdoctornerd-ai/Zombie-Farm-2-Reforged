@@ -13,6 +13,7 @@ import {
 } from "./eliteInvasion";
 import { buildEnemyUnits } from "./CombatEngine";
 import type { BossSpecial, BossThrowConfig, EnemyStat, RaidDef, RaidStage } from "./types";
+import { acceptsBrainTicket } from "./dualInvasion";
 
 const raids = raidsJson as RaidDef[];
 
@@ -162,8 +163,12 @@ describe("brain ticket wiring", () => {
     expect(ELITE_BRAIN_LUCK).toBe(4);
   });
 
-  it("has a profile for every playable invasion, and none for anything else", () => {
-    const playable = raids.filter((r) => r.playable).map((r) => r.id).sort((a, b) => a - b);
+  it("has a profile for every ticketable invasion, and none for anything else", () => {
+    // The dual invasions are playable but refuse Brain Tickets — their ten-tier ladder is the
+    // difficulty selector (see dualInvasion.ts), so they must NOT carry an elite profile.
+    const playable = raids
+      .filter((r) => r.playable && acceptsBrainTicket(r.id))
+      .map((r) => r.id).sort((a, b) => a - b);
     expect(Object.keys(ELITE_PROFILES).map(Number).sort((a, b) => a - b)).toEqual(playable);
   });
 });
@@ -171,8 +176,10 @@ describe("brain ticket wiring", () => {
 describe("elite recommended level", () => {
   // raids.json `eliteRecommendedLevel` is display-only advice (hud.ts raid cards), but it
   // is advice about THIS table, so it has to keep step with it.
-  it("advises a level above the ordinary fight on every playable invasion", () => {
-    for (const raid of raids.filter((r) => r.playable)) {
+  it("advises a level above the ordinary fight on every ticketable invasion", () => {
+    // Nothing to advise where a Brain Ticket is refused; those four pin the field to their
+    // own recommended level rather than carrying a meaningless elite figure.
+    for (const raid of raids.filter((r) => r.playable && acceptsBrainTicket(r.id))) {
       expect(raid.eliteRecommendedLevel).toBeGreaterThan(raid.recommendedLevel);
     }
   });

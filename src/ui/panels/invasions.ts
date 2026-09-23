@@ -455,6 +455,18 @@ export function openInvasionsPanel(hud: Hud) {
         renderDefense();
       });
       actions.appendChild(edit);
+      // Fight it yourself. Only offered once a defense exists — there is nothing to
+      // test before that, and the server would refuse with `no_defense` anyway.
+      if (view.defense && hud.onTestPvpDefense) {
+        const test = document.createElement("button");
+        test.className = "zbtn store";
+        test.textContent = "⚔ Test your defense";
+        test.onclick = () => {
+          close();
+          hud.onTestPvpDefense?.();
+        };
+        actions.appendChild(test);
+      }
       if (view.defense?.authored) {
         const auto = document.createElement("button");
         auto.className = "zbtn store";
@@ -746,17 +758,30 @@ export function openInvasionsPanel(hud: Hud) {
           const who = document.createElement("b");
           who.textContent = row.otherName; // account-controlled → textContent
           const youWon = role === "attacker" ? row.attackerWon : !row.attackerWon;
+          // Both roles state the verdict in as many words. The defense rows used to
+          // describe the EVENT and leave the reader to infer the result from it
+          // ("raided your farm" = you lost) while the attack rows right above said
+          // "victory"/"repelled" outright — which is why players reported that the
+          // history does not tell them whether an invasion beat their defense.
+          const verdict = document.createElement("b");
+          verdict.className = `pvp-verdict ${youWon ? "won" : "lost"}`;
           if (role === "attacker") {
-            nm.append("⚔ You invaded ", who, row.attackerWon ? " — victory!" : " — repelled");
+            verdict.textContent = row.attackerWon ? "VICTORY" : "REPELLED";
+            nm.append("⚔ You invaded ", who, " — ", verdict);
           } else {
-            nm.append("🛡 ", who, row.attackerWon ? " raided your farm" : " was repelled!");
+            verdict.textContent = row.attackerWon ? "DEFENSE LOST" : "DEFENSE HELD";
+            nm.append("🛡 ", who, " invaded you — ", verdict);
           }
           const sub = document.createElement("div");
           sub.className = "zteam-sub";
           const paid = youWon
             ? (row.rewarded ? (row.claimableTier ? "reward waiting" : "rewarded") : "past the daily cap — no reward")
             : "";
-          sub.textContent = [ago(row.finishedAt), paid].filter(Boolean).join(" · ");
+          // The two scores come down with every row and were being dropped on the
+          // floor. They are the only thing that says HOW close it was, and the only
+          // way to see that without them was to sit through the replay.
+          const score = `⚔ ${row.attackScore} vs 🛡 ${row.defenseScore}`;
+          sub.textContent = [ago(row.finishedAt), score, paid].filter(Boolean).join(" · ");
           info.append(nm, sub);
           el.appendChild(info);
           if (row.replayAvailable) {

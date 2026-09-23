@@ -1,0 +1,18 @@
+-- Dual-invasion TIER progress (docs/POST_45_PROGRESSION.md).
+--
+-- The four post-45 invasions (raid ids 12-15) carry a ten-rung ladder instead of the single
+-- difficulty every other invasion has: beating tier N unlocks tier N+1, and any unlocked tier
+-- can be replayed for its rewards. `tier_json` is that ladder position, {"<raidId>": <highest
+-- tier CLEARED>}; a raid absent from the map has cleared nothing and can only play tier 1.
+--
+-- WHY IT IS SERVER STATE. Which rungs a player has unlocked is progression, and progression is
+-- server-owned (the same reason `progress_json` next to it is). The client asks for a tier at
+-- /raid/start; the server checks it against this map, PINS it on the session, and credits that
+-- pinned tier — never a tier named at finish — when the fight is won. That holds even though
+-- every tier currently builds an identical fight: the server cannot tell two tiers apart by
+-- replaying them, so the only trustworthy tier is the one it issued.
+--
+-- It rides on raid_state_v3 rather than a table of its own because it is exactly the same kind
+-- of thing as the win counts beside it, written in the same guarded settlement fold (see
+-- the single UPDATE in src/v3/raid.ts).
+ALTER TABLE raid_state_v3 ADD COLUMN tier_json TEXT NOT NULL DEFAULT '{}';

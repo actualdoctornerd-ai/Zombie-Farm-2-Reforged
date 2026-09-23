@@ -77,6 +77,12 @@ export type GameplayCommand =
   | { type: "object.status"; instanceId: string; status: "placed" | "stored" }
   | { type: "object.harvest_trees"; instanceIds: string[] }
   | { type: "storage.claim"; itemName: string; clientInstanceId?: string }
+  /** Sell a Received reward outright, for the gold the object it would have become is
+   *  worth. Deliberately NOT storage.claim + object.refund: that pair mints an object
+   *  for the instant between the two commands, so on a farm at the object cap the claim
+   *  is refused and the refund dies with it — leaving the reward undisposable, which is
+   *  exactly the state a full farm most needs a way out of. Nothing is created here. */
+  | { type: "storage.refund"; itemName: string }
   | { type: "storage.move"; itemKey: string; direction: "store" | "take"; quantity: number }
   | { type: "roster.sell"; unitId: string }
   | { type: "roster.status"; unitId: string; stored: boolean }
@@ -311,7 +317,13 @@ export interface GameplayProjection {
    *  which is ordered by creation and so cannot be read as slot order. Server-owned:
    *  entries appear on `roster.combine_start` and are dropped on `roster.combine`. */
   potSlots?: Record<string, string>;
-  raids: { progress: Record<string, number>; lastRaidAt: number };
+  raids: {
+    progress: Record<string, number>;
+    /** Dual-invasion ladder: highest tier CLEARED per raid id. Absent on a server that
+     *  predates the post-45 invasions, which reads the same as having cleared none. */
+    tiers?: Record<string, number>;
+    lastRaidAt: number;
+  };
   raidRevival?: {
     sessionId: string;
     zombies: { id: string; key: string; mutation: number; invasions: number; stored: boolean }[];

@@ -50,7 +50,16 @@ import {
 } from "../../../src/quest/mutantSubjects";
 import { encodeReceivedZombie, parseReceivedZombie } from "../../../src/zombie/receivedReward";
 
-export const MAX_FUNCTIONAL_OBJECTS = 512;
+/** How many objects one farm may own — placed AND stored, decor included (the name
+ *  predates decor going through the same document). Raised 512 -> 1024 on 2026-09-22.
+ *
+ *  Everything that has to move with this number reads it rather than repeating it:
+ *  the presentation blob's object-layout bound and its byte ceiling (see
+ *  MAX_PRESENTATION_BYTES in server/src/index.ts) and the graveyard read in db.ts.
+ *  What does NOT scale automatically is client paint order — src/depthSort.ts runs an
+ *  O(n^2) toposort over the whole entity layer on any frame a footprint moves — so a
+ *  further raise wants a frame-time measurement on a fully decorated farm first. */
+export const MAX_FUNCTIONAL_OBJECTS = 1024;
 
 /** The only shape a CLIENT-proposed object instance id may take. Every path that lets
  *  the client name an object it is creating runs its id through this; anything else is
@@ -1383,6 +1392,37 @@ function applyOne(
         ...(rule?.growMs ? { readyAt: options.now + rule.growMs } : {}),
       });
       return { sequence, status: "applied", createdIds: [instanceId] };
+    }
+    case "storage.refund": {
+      // Selling a Received reward outright. This exists because the obvious shape —
+      // claim it into an object, then refund that object — cannot work on a full farm:
+      // storage.claim is capped by MAX_FUNCTIONAL_OBJECTS, so the claim is refused and
+      // the refund behind it dies as a dependency. The player was then holding a reward
+      // they could neither place NOR sell, with the object cap as the thing standing in
+      // the way of the one action that would have made room. Nothing is minted here, so
+      // the cap is not consulted at all.
+      const have = state.storage.received[command.itemName] ?? 0;
+      // A Received zombie is roster business (roster.sell), not an object sale.
+      if (parseReceivedZombie(command.itemName)) return reject(sequence, "bad_item");
+      const plan = planClaim(command.itemName, have);
+      if (!plan.ok) return reject(sequence, plan.error);
+      // A boost is stock, not furniture: it has no object to price and claiming it
+      // never touched the object cap in the first place.
+      if (plan.kind !== "object") return reject(sequence, "not_sellable");
+      const econ = objectEcon(plan.objectKey);
+      if (!econ) return reject(sequence, "bad_item");
+      // The same rule object.refund enforces: functional buildings are permanent, the
+      // Memorial Statue excepted. Kept in step deliberately — a reward that cannot be
+      // sold off the farm must not become sellable by never reaching it.
+      if (objectRules.get(plan.objectKey)?.category === "functional" && !isMemorial(plan.objectKey)) {
+        return reject(sequence, "not_sellable");
+      }
+      state.storage.received[command.itemName] = have - 1;
+      // purchaseCost null: an award has no price to derive a refund from, so this takes
+      // the authored `awardedSellValue` branch — the same number object.refund pays for
+      // the same prize, and the same one the client quotes in the confirm dialog.
+      state.balance.gold += objectSellGold(plan.objectKey, econ, null, econ.brains);
+      return { sequence, status: "applied" };
     }
     case "storage.move": {
       if (!Number.isInteger(command.quantity) || command.quantity <= 0 || command.quantity > 225) return reject(sequence, "bad_quantity");

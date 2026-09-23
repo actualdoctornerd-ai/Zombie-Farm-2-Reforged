@@ -3,13 +3,12 @@ import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
 import attacksJson from "../../public/assets/raids/attacks.json";
 import zombiesJson from "../../public/assets/zombies.json";
 import { BattleSim, type BattleSimSnapshot } from "../../src/raid/BattleSim";
-import { buildEnemyUnits, buildPlayerUnits } from "../../src/raid/CombatEngine";
+import { buildFight } from "../../src/raid/buildFight";
+import { buildPlayerUnits } from "../../src/raid/CombatEngine";
+import { composeFight } from "../../src/raid/composeFight";
 import {
   fightStage,
   minArmyFor,
-  bossThrowIntervalSecs,
-  fightScaledThrow,
-  pacedBossThrow,
   resolveStageWave,
   seededRandom,
   ARMY_CAP,
@@ -24,20 +23,12 @@ import type {
   CombatUnit,
   EnemyStat,
   RaidDef,
-  RaidStage,
   GrabberConfig,
   SummonConfig,
   WaveCadence,
 } from "../../src/raid/types";
-import { summonConfigFor, waveCadenceFor } from "../../src/raid/alienStage";
-import { turnedUnitFor } from "../../src/raid/videoGameStage";
-import {
-  eliteBossSpecials,
-  eliteBossThrow,
-  eliteProfile,
-  eliteWallHp,
-  type EliteProfile,
-} from "../../src/raid/eliteInvasion";
+import { waveCadenceFor } from "../../src/raid/alienStage";
+import { eliteProfile } from "../../src/raid/eliteInvasion";
 import { levelForXp } from "./levels";
 import { activeBonusHeadId, farmerMultiplier } from "../../src/farmer";
 import {
@@ -59,6 +50,10 @@ import {
   type PvpDefenseMode,
 } from "../../src/raid/pvp";
 import { parseRosterColor } from "./v3/rosterColor";
+import {
+  isDualInvasion, MAX_TIER, MIN_TIER, raidProfile,
+  type BubbleConfig, type CopyConfig, type SignConfig,
+} from "../../src/raid/dualInvasion";
 
 export { RAID_RULESET_VERSION };
 export type { RaidReplayInput };
@@ -72,6 +67,10 @@ interface RosterRow {
 
 export interface PinnedRaidConfig {
   raidId: number;
+  /** The dual-invasion rung this fight IS (0 for every raid without a ladder). Pinned here
+   *  because it is part of the fight: the placard rotation below is derived from it, and a
+   *  win credits THIS value rather than anything the finish request says. */
+  tier?: number;
   raidName: string;
   rosterIds: string[];
   playerUnits: CombatUnit[];
@@ -88,6 +87,19 @@ export interface PinnedRaidConfig {
    *  src/raid/videoGameStage.ts. Optional so a session pinned before the conversion
    *  existed still parses; such a session is rejected at the ruleset handshake anyway. */
   turnedTemplate?: CombatUnit | null;
+  /** The Lawyer boss's placard rotation, pinned at /raid/start (raid 12 only). */
+  sign?: SignConfig | null;
+  /** The ninja's throw rate tracks the army's attack speed (raid 13 only). */
+  dexTax?: boolean;
+  /** The trapeze's copies of the player's own zombies (raid 14 only). */
+  copies?: CopyConfig | null;
+  /** The saucer's five-action bubble, and the wall its `wall` action drops (raid 15). */
+  bubble?: BubbleConfig | null;
+  bubbleWall?: CombatUnit | null;
+  /** The ringmaster's early drop and the mid-lane station he then fights from (raid 14,
+   *  rung 5+). Pinned like everything else the rung decides. */
+  bossDropAtMs?: number | null;
+  bossGroundStationX?: number | null;
   grabber: GrabberConfig | null;
   concentration: boolean;
   /** A Brain Ticket was charged at /raid/start: every combat value above is already
@@ -108,114 +120,9 @@ const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
 const attacks = attacksJson as Record<string, AttackDef>;
 const zombieDefs = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
 
-/** Hazards are CLIENT-ONLY. The verifier deliberately simulates the UN-HARASSED fight, so
- *  its replay is an optimistic ceiling the live game can only fall short of — the player
- *  then concedes a lost fight via `clientWin` (see v3/raid.ts finishRaid). Previously the
- *  trapeze ran here but NOT in the live scene, so Circus players lost zombies to a hazard
- *  they never saw. Returning null keeps every hazard on one side of the line. */
-function grabberOf(_raid: RaidDef): GrabberConfig | null {
-  return null;
-}
-
-function bossThrowOf(
-  raid: RaidDef,
-  stage: RaidStage,
-  priorWins: number,
-  elite: EliteProfile | null
-): BossThrowConfig | null {
-  if (!stage.bossKey || stage.throwingDisabled) return null;
-  const options = (enemyStats[stage.bossKey]?.bossActions ?? [])
-    .filter((a) => a.name === "throw")
-    .map((a) => ({
-      damage: a.damage ?? 0,
-      weight: a.frequency,
-      sprite: a.sprite ?? "",
-      spriteSize: a.spriteSize ?? 32,
-    }))
-    .filter((o) => o.sprite);
-  if (!options.length) return null;
-  const secs = bossThrowIntervalSecs(raid, stage, priorWins);
-  // Same order as fightConfig.bossThrowFor: rebalance onto the raid's rung, then the
-  // boss's own pace (Bro-Bot, BOSS_THROW_PACE), THEN elite.
-  return eliteBossThrow(
-    pacedBossThrow(fightScaledThrow({ intervalMs: secs * 1000, options }, raid), stage),
-    elite
-  );
-}
-
-// Strictly the BOSS's own actions — mirrors RaidManager.bossSpecialsOf, and must stay
-// in step with it or the pinned config and the client's fight disagree.
-function bossSpecialsOf(stage: RaidStage, elite: EliteProfile | null): BossSpecial[] {
-  if (!stage.bossKey || stage.throwingDisabled) return [];
-  const actions = enemyStats[stage.bossKey]?.bossActions ?? [];
-  return eliteBossSpecials(
-    actions
-      .filter((a) => a.name !== "throw")
-      .map((a) => ({
-        name: a.name,
-        weight: a.frequency,
-        castMs: (a.castTime ?? 0) * 1000,
-        cooldownMs: (a.cooldownTime ?? a.castTime ?? 2) * 1000,
-        damage: a.damage ?? 0,
-      })),
-    elite
-  );
-}
-
-// Mirrors RaidManager.summonConfigOf + wallTemplateOf + turnedTemplateOf. Both sides must
-// build the same abductee roster, wall and pixel zombie off the same elite/level context,
-// or the replay diverges the first time the boss casts. `raidId`/`playerLevel` are the
-// pair buildEnemyUnits also needs.
-function summonWallTemplates(
-  stage: RaidStage,
-  raidId: number,
-  playerLevel: number,
-  elite: EliteProfile | null
-): {
-  summon: SummonConfig | null;
-  wallTemplate: CombatUnit | null;
-  turnedTemplate: CombatUnit | null;
-} {
-  let summon: SummonConfig | null = null;
-  let wallTemplate: CombatUnit | null = null;
-  let turnedTemplate: CombatUnit | null = null;
-  if (!stage.bossKey || stage.throwingDisabled) return { summon, wallTemplate, turnedTemplate };
-  const actions = enemyStats[stage.bossKey]?.bossActions ?? [];
-  if (actions.some((a) => a.name === "summonBoss")) {
-    summon = summonConfigFor(raidId, enemyStats, attacks, { raidId, playerLevel, elite });
-  }
-  const wall = actions.find((a) => a.name === "wall");
-  if (wall) {
-    const hp = Math.max(1, Math.round(eliteWallHp(wall.hp ?? 1500, elite)));
-    wallTemplate = {
-      id: "wall",
-      sourceKey: (wall.sprite ?? "carrotWall.png").replace(/\.png$/i, ""),
-      team: "enemy",
-      name: "Wall",
-      str: 0,
-      dex: 1,
-      con: Math.round(hp / 10),
-      focus: 0,
-      hp,
-      maxHp: hp,
-      attackCooldownMs: 3500,
-      attacks: [{ name: "", frequency: 1, mult: 0 }],
-      isBoss: false,
-      alive: true,
-      isGarden: false,
-      isHeadless: false,
-      abilities: [],
-    };
-  }
-  if (actions.some((a) => a.name === "turnZombie")) {
-    turnedTemplate = turnedUnitFor(raidId, enemyStats, attacks, { raidId, playerLevel, elite });
-  }
-  return { summon, wallTemplate, turnedTemplate };
-}
-
 export type BuildPinnedResult =
   | { ok: true; config: PinnedRaidConfig }
-  | { ok: false; error: string };
+  | { ok: false; error: string; unlockedTier?: number };
 
 /** Build combat exclusively from the owned roster and server catalogs. */
 export async function buildPinnedRaid(
@@ -291,7 +198,17 @@ export async function buildPinnedRaid(
   // raidId + playerLevel drive the farm raid's enemy speed-up; the client passes the
   // same pair in RaidManager.beginRaid — they MUST match or the replay diverges.
   const profile = eliteProfile(raidId, elite);
-  const enemyUnits = buildEnemyUnits(stage, enemyStats, attacks, { raidId, playerLevel: level, elite: profile });
+  // Same composer as the v3 path, the client and the harness. This legacy path fights no
+  // dual invasion, so the rung is 0 and the ladder's fields all come back null — that is
+  // the composer answering, not this function deciding.
+  const composed = composeFight({ enemyStats, raidAttacks: attacks }, raid, stage, {
+    playerLevel: level,
+    tier: 0,
+    elite: profile,
+    priorWins: wins.get(raidId) ?? 0,
+    waveSeed,
+    hazards: false,
+  });
   return {
     ok: true,
     config: {
@@ -299,12 +216,7 @@ export async function buildPinnedRaid(
       raidName: raid.name,
       rosterIds: ids,
       playerUnits: buildPlayerUnits(party, { concentration, abilityUnlocked, playerLevel: level }),
-      enemyUnits,
-      bossThrow: bossThrowOf(raid, stage, wins.get(raidId) ?? 0, profile),
-      bossSpecials: bossSpecialsOf(stage, profile),
-      ...summonWallTemplates(stage, raidId, level, profile),
-      waveCadence: waveCadenceFor(raidId),
-      grabber: grabberOf(raid),
+      ...composed,
       concentration,
       elite,
     },
@@ -312,24 +224,32 @@ export async function buildPinnedRaid(
 }
 
 export function createPinnedSim(config: PinnedRaidConfig): BattleSim {
-  return new BattleSim(
-    config.playerUnits,
-    config.enemyUnits,
-    config.bossThrow,
-    config.concentration,
-    config.bossSpecials,
-    undefined,
-    config.summon ?? null,
-    config.wallTemplate,
-    false,
-    false,
-    false,
-    undefined,
-    config.grabber ?? null,
-    null,
-    config.waveCadence ?? waveCadenceFor(config.raidId),
-    config.turnedTemplate ?? null
-  );
+  return buildFight({
+    playerUnits: config.playerUnits,
+    enemyUnits: config.enemyUnits,
+    bossThrow: config.bossThrow,
+    concentration: config.concentration,
+    bossSpecials: config.bossSpecials,
+    summon: config.summon,
+    wallTemplate: config.wallTemplate,
+    // Hazards stay OFF here on purpose: the verifier simulates the un-harassed fight so
+    // its replay is a ceiling the live game can only fall short of (see `grabberOf`).
+    // `config.grabber` is null for every raid this build pins; it is still read rather
+    // than hard-coded because a PINNED config is persisted and an older session's may
+    // carry one, and a stored fight must replay under the rules it was pinned with. The
+    // crab has never been pinned at all, so it is named null.
+    grabber: config.grabber,
+    crab: null,
+    waveCadence: config.waveCadence ?? waveCadenceFor(config.raidId),
+    turnedTemplate: config.turnedTemplate,
+    sign: config.sign,
+    dexTax: config.dexTax,
+    copies: config.copies,
+    bossDropAtMs: config.bossDropAtMs,
+    bossGroundStationX: config.bossGroundStationX,
+    bubble: config.bubble,
+    bubbleWall: config.bubbleWall,
+  });
 }
 
 /** Build the same pinned combat configuration from protocol-v3 authoritative state. */
@@ -347,7 +267,12 @@ export async function buildPinnedV3Raid(
    *  decides this (it is the side that debits the ticket) and hands the same answer to
    *  the client, which must adopt it rather than re-deriving one; the two simulations
    *  have to scale the wave identically or the replay diverges from tick 0. */
-  elite = false
+  elite = false,
+  /** The dual-invasion rung the client asked for. Validated HERE, against this account's
+   *  own ladder, because this function already reads `raid_state_v3` and because what it
+   *  validates is part of the config it pins — splitting the two would let a caller pin a
+   *  fight at one rung and then record another. Ignored for raids without a ladder. */
+  requestedTier: unknown = 0
 ): Promise<BuildPinnedResult> {
   if (!Array.isArray(orderedIds) || orderedIds.length > ARMY_CAP || orderedIds.length === 0) {
     return { ok: false, error: "bad_roster" };
@@ -363,8 +288,8 @@ export async function buildPinnedV3Raid(
     db.prepare(`SELECT unit_id,zombie_key,mutation,invasions FROM roster_v3
       WHERE account_id=? AND stored=0 AND locked_by_raid IS NULL AND unit_id IN (${placeholders})`)
       .bind(accountId, ...ids).all<V3RosterRow>(),
-    db.prepare("SELECT progress_json FROM raid_state_v3 WHERE account_id=?")
-      .bind(accountId).first<{ progress_json: string }>(),
+    db.prepare("SELECT progress_json, tier_json FROM raid_state_v3 WHERE account_id=?")
+      .bind(accountId).first<{ progress_json: string; tier_json: string }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?")
       .bind(accountId).first<{ current_json: string }>(),
   ]);
@@ -378,6 +303,23 @@ export async function buildPinnedV3Raid(
     catch { return {}; }
   })();
   if (ids.length < minArmyFor(raid, winsObject[String(raidId)] ?? 0)) return { ok: false, error: "army_too_small" };
+  // THE RUNG. A dual invasion is fought at a chosen tier; everything else is tier 0. The
+  // ladder is progression and therefore server state — the client's picker is a
+  // convenience, not the rule — so the request is checked against what this account has
+  // actually cleared, and the answer becomes part of the pinned config.
+  let tier = 0;
+  if (isDualInvasion(raidId)) {
+    const cleared = (() => {
+      try { return JSON.parse(raidState?.tier_json ?? "{}") as Record<string, number>; }
+      catch { return {}; }
+    })();
+    const unlocked = Math.min(MAX_TIER, Math.max(0, Math.floor(cleared[String(raidId)] ?? 0)) + 1);
+    const wanted = Number.isFinite(Number(requestedTier)) ? Math.floor(Number(requestedTier)) : MIN_TIER;
+    if (wanted < MIN_TIER || wanted > unlocked) {
+      return { ok: false, error: "tier_locked", unlockedTier: unlocked };
+    }
+    tier = wanted;
+  }
   const authored = fightStage(raid, level);
   if (!authored) return { ok: false, error: "bad_stage" };
   const stage = resolveStageWave(authored, seededRandom(waveSeed));
@@ -406,8 +348,22 @@ export async function buildPinnedV3Raid(
   };
   // raidId + playerLevel drive the farm raid's enemy speed-up; the client passes the
   // same pair in RaidManager.beginRaid — they MUST match or the replay diverges.
-  const profile = eliteProfile(raidId, elite);
-  const enemyUnits = buildEnemyUnits(stage, enemyStats, attacks, { raidId, playerLevel: level, elite: profile });
+  // The multipliers this fight runs under: the pinned rung's profile on a dual invasion,
+  // the Brain Ticket's anywhere else. Same helper the client calls, off the same inputs.
+  const profile = raidProfile(raidId, { elite, tier });
+  // The whole opposition, from the ONE composer the client's RaidManager and the
+  // difficulty harness also call (src/raid/composeFight.ts). `hazards: false` is the
+  // verifier's standing decision: it simulates the UN-HARASSED fight, so its replay is a
+  // ceiling the live game can only fall short of and a client-only trapeze or crab can
+  // never invent a win. See the `grabberOf` note above.
+  const composed = composeFight({ enemyStats, raidAttacks: attacks }, raid, stage, {
+    playerLevel: level,
+    tier,
+    elite: profile,
+    priorWins: winsObject[String(raidId)] ?? 0,
+    waveSeed,
+    hazards: false,
+  });
   return {
     ok: true,
     config: {
@@ -421,14 +377,13 @@ export async function buildPinnedV3Raid(
         farmerStrengthMult: farmerMultiplier(bonusHead, "zombieStrength"),
         farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
       }),
-      enemyUnits,
-      bossThrow: bossThrowOf(raid, stage, winsObject[String(raidId)] ?? 0, profile),
-      bossSpecials: bossSpecialsOf(stage, profile),
-      ...summonWallTemplates(stage, raidId, level, profile),
-      waveCadence: waveCadenceFor(raidId),
-      grabber: grabberOf(raid),
+      // Everything below comes from the composer, PINNED rather than recomputed at
+      // replay time so the verifier reads back the exact wave, placard rotation, rung
+      // rules and templates the fight was fought under.
+      ...composed,
       concentration,
       elite,
+      tier,
     },
   };
 }

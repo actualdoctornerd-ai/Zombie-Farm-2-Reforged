@@ -41,6 +41,7 @@ import {
   PVP_DEFENSE_CAP,
   PVP_DEFENSE_MODE_DEFAULT,
   PVP_REPLAYS_KEPT,
+  PVP_HISTORY_ROWS,
   pvpRewardsForTier,
   type PvpDefenseMode,
   type PvpReward,
@@ -247,6 +248,44 @@ export async function startPvp(
     ok: true, sessionId, config: pinned.config,
     expiresAt: now + PVP_TTL_MS, earliestFinishAt: now + EARLIEST_FINISH_MS,
     serverTime: now, rulesetVersion: RAID_RULESET_VERSION,
+  } };
+}
+
+/**
+ * Attack your OWN defense, for practice. Everything that makes an invasion an
+ * invasion is deliberately absent: no session row, no live-fight lock, no pair cap,
+ * no rewards, no result, no audit entry. It is a fight config and nothing else.
+ *
+ * That is also why it needs no verification on the way back and has no /finish:
+ * nothing is at stake, so there is nothing for a forged replay to win. The one thing
+ * it does keep is the ruleset gate, because a client whose sim disagrees with this
+ * config would show the player a fight their real defense would never fight — which
+ * is the entire point of the feature.
+ *
+ * The attacker's chosen army may overlap the defense loadout; the same zombie can
+ * stand on both sides. Their combat ids cannot collide (defenders are re-keyed d0..dn
+ * by toEnemyCopy), and a test where you may not use your best zombies would answer a
+ * question nobody asked.
+ */
+export async function practicePvp(
+  db: D1Database,
+  accountId: string,
+  body: { orderedUnitIds?: unknown; rulesetVersion?: unknown },
+  now: number,
+  mode: PvpDefenseMode = PVP_DEFENSE_MODE_DEFAULT
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (body.rulesetVersion !== RAID_RULESET_VERSION) {
+    return { status: 426, body: { ok: false, error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
+  }
+  const pinned = await buildPinnedPvpRaid(db, accountId, accountId, body.orderedUnitIds, mode);
+  if (!pinned.ok) {
+    const status = pinned.error === "bad_roster" || pinned.error === "bad_defender" ? 400
+      : pinned.error === "attacker_level" || pinned.error === "defender_level" ? 403
+      : 409;
+    return { status, body: { ok: false, error: pinned.error } };
+  }
+  return { status: 200, body: {
+    ok: true, config: pinned.config, serverTime: now, rulesetVersion: RAID_RULESET_VERSION,
   } };
 }
 
@@ -572,7 +611,7 @@ export async function historyPvp(
        (config_json <> '{}' AND inputs_json IS NOT NULL) AS has_replay
      FROM pvp_sessions_v3 WHERE ${role} = ? AND win IS NOT NULL
      ORDER BY finished_at DESC LIMIT ?`)
-    .bind(accountId, PVP_REPLAYS_KEPT).all<HistoryRow>();
+    .bind(accountId, PVP_HISTORY_ROWS).all<HistoryRow>();
   const [attackRows, defenseRows, lifetimeRow, weekRow, todayRow, claimRows] = await Promise.all([
     roleQuery("attacker_id"),
     roleQuery("defender_id"),

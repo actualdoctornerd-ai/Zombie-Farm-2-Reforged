@@ -364,7 +364,7 @@ describe("a revived zombie re-enters the lane behind the abductee", () => {
         unit({ id: "boss", sourceKey: "AlienStageActorBoss", team: "enemy", isBoss: true, str: 0, hp: 1e7, maxHp: 1e7 }),
       ],
       // A long summon cooldown so the fighter clears the FIRST abductee and reaches the
-      // front line before the next one lands — which is what latches `passedWall`.
+      // front line before the next one lands — which is what latches it past that one.
       null, true, [{ name: "summonBoss", weight: 1, castMs: 0, cooldownMs: 25_000, damage: 0 }],
       undefined, abductees()
     );
@@ -373,14 +373,14 @@ describe("a revived zombie re-enters the lane behind the abductee", () => {
     const victim = summoned(sim).filter((u: SimUnit) => u.alive)[0];
     expect(victim).toBeTruthy();
     expect(f.x).toBeGreaterThan(victim.x); // it marched past this one, latch and all
-    expect(f.passedWall).toBe(true);
+    expect(f.passedBlockers).toContain(victim.id);
     victim.hp = victim.maxHp = 1e7; // keep THIS abductee standing for the rest of the test
 
     (sim as any).dealDamage(f, f.maxHp, false);
     for (let i = 0; i < 400; i++) sim.step(50);
 
     expect(f.alive).toBe(true);
-    expect(f.passedWall).toBe(false);
+    expect(f.passedBlockers).toEqual([]);
     expect(f.x).toBeLessThan(victim.x);          // …and it is stopped short of the blocker
     expect(f.x).toBeGreaterThan(victim.x - 120); // …close enough to actually reach it
     expect(victim.hp).toBeLessThan(victim.maxHp);

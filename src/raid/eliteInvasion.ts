@@ -135,8 +135,9 @@ export interface EliteProfile {
   /** Enemy `str` — per-hit damage (damage = str x 10 x attack multiplier). */
   str: number;
   /** Enemy `con` — hit points (hp = con x 100). Restraint here is deliberate: HP is
-   *  what makes a fight LONG, and a fight that outlives the four-minute replay cap
-   *  (RAID_MAX_TICKS) cannot settle at all. */
+   *  what makes a fight LONG, and the four-minute fight clock ends a battle wherever it
+   *  has got to (BattleSim.RAID_TIME_LIMIT_MS). Past a point, more bulk stops making a
+   *  fight harder and starts making it unfinishable. */
   con: number;
   /** The BOSS's `con`, when it should not scale with the rest of the wave. Absent means
    *  "same as `con`". A separate lever because minions and bosses carry very different

@@ -44,6 +44,9 @@ import { attemptPurge, operationInProgress, unsettledMarketOrders } from "./acco
 import { levelForXp, XP_THRESHOLDS } from "./levels";
 import { RAID_RULESET_VERSION } from "./raidVerifier";
 import { MAX_FUNCTIONAL_OBJECTS } from "./v3/engine";
+import {
+  MAX_PRESENTATION_BYTES, MAX_PRESENTATION_FALLEN, REQUEST_ENVELOPE_BYTES,
+} from "./presentationLimits";
 import { CLIENT_INTEGRITY_VERSION, COMMAND_BATCH_LIMIT, EPIC_BOSS_TOKEN_GRANT_LIMIT, FARM_BULK_LIMIT, GAMEPLAY_PROTOCOL, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
 import * as v3 from "./v3/db";
 import * as v3Raid from "./v3/raid";
@@ -119,10 +122,15 @@ app.get("/", async (c) => {
   });
 });
 
-// Hard body ceiling on EVERY route, applied before any handler parses. Just above
-// the 512 KiB save cap so saves pass (PUT /save then applies the precise limit);
-// everything else has tiny bodies. Blocks multi-MB payloads as a cheap DoS guard.
-app.use("*", bodyLimit({ maxSize: 550 * 1024, onError: (c) => c.json({ error: "too_large" }, 413) }));
+// Hard body ceiling on EVERY route, applied before any handler parses. Blocks multi-MB
+// payloads as a cheap DoS guard; every route but /presentation has a tiny body. Derived
+// from the presentation ceiling plus request envelope — see presentationLimits.ts, which
+// also explains why those constants do not live in this file. (It used to be sized
+// against the v2 `PUT /save` cap, a route removed in 2026-09.)
+app.use("*", bodyLimit({
+  maxSize: MAX_PRESENTATION_BYTES + REQUEST_ENVELOPE_BYTES,
+  onError: (c) => c.json({ error: "too_large" }, 413),
+}));
 
 // ---- rate limiting ------------------------------------------------------
 type RLTier = "RL_AUTH" | "RL_WRITE" | "RL_READ";
@@ -519,6 +527,9 @@ app.use("/raid/pvp/replay/*", rateLimit("RL_READ", "pvp_replay", 60, 60_000));
 app.use("/raid/pvp/defense", rateLimit("RL_WRITE", "pvp_defense", 60, 60_000));
 // Preview builds a full defense snapshot from D1 — read-only but not free.
 app.use("/raid/pvp/preview", rateLimit("RL_READ", "pvp_preview", 60, 60_000));
+// A read rate: practice writes nothing, but it does build a full pinned fight (two
+// roster reads plus the defense snapshot), so it is not free to serve.
+app.use("/raid/pvp/practice", rateLimit("RL_READ", "pvp_practice", 30, 60_000));
 app.use("/raid/finish", rateLimit("RL_WRITE", "raid_finish", 60, 60_000));
 app.use("/raid/revive", rateLimit("RL_WRITE", "raid_revive", 60, 60_000));
 app.use("/epic-boss/*", rateLimit("RL_WRITE", "epic_boss", 60, 60_000));
@@ -544,12 +555,6 @@ app.use("/friends/:id/save", rateLimit("RL_READ", "friend_farm", 120, 60_000));
 app.use("/leaderboard/friends", rateLimit("RL_READ", "leaderboard", 120, 60_000));
 app.use("/gifts/inbox", rateLimit("RL_READ", "inbox", 300, 60_000));
 app.use("/session/refresh", rateLimit("RL_READ", "refresh", 60, 60_000));
-
-/** How many fallen zombies one account may park in its presentation blob. Mirrors
- *  MAX_REMEMBERED_FALLEN on the client. The blob is capped at 128 KB in total, so
- *  the graveyard gets a hard ceiling of its own rather than being allowed to crowd
- *  out object positions and roster names. */
-const MAX_PRESENTATION_FALLEN = 60;
 
 /** One entry of a LEGACY client's graveyard.
  *
@@ -825,6 +830,7 @@ export const validGameplayCommand = (value: unknown): value is GameplayCommand =
     case "storage.claim":
       return commandString(command.itemName) &&
         (command.clientInstanceId === undefined || commandString(command.clientInstanceId));
+    case "storage.refund": return commandString(command.itemName);
     case "storage.move":
       return commandString(command.itemKey) && (command.direction === "store" || command.direction === "take") &&
         commandInt(command.quantity);
@@ -1173,7 +1179,7 @@ app.put("/presentation", async (c) => {
     }
   }
   const encoded = JSON.stringify(data);
-  if (encoded.length > 128 * 1024) return c.json({ error: "too_large" }, 413);
+  if (encoded.length > MAX_PRESENTATION_BYTES) return c.json({ error: "too_large" }, 413);
   const saved = await v3.writePresentation(c.env.DB, accountId, body.expectedVersion, data, Date.now());
   if (!saved) return c.json({ error: "presentation_conflict" }, 409);
   metric("presentation", accountId, started, { payloadBytes: encoded.length });
@@ -1419,6 +1425,19 @@ app.post("/raid/pvp/preview", async (c) => {
   return c.json(result.body, result.status as 200);
 });
 
+// Fight your own defense. Read-only: it opens no session and writes nothing, which is
+// why it is not gated on mutationsHalted the way /start is — there is no mutation to
+// halt, and a halt that also blocked practice would be stopping the one PvP action
+// that cannot affect anyone's account.
+app.post("/raid/pvp/practice", async (c) => {
+  if (!pvpEnabled(c.env)) return c.json({ error: "pvp_disabled" }, 503);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const result = await v3Pvp.practicePvp(
+    c.env.DB, c.get("accountId"), body, Date.now(), pvpDefenseMode(c.env)
+  );
+  return c.json(result.body, result.status as 200);
+});
+
 app.post("/epic-boss/activate", async (c) => {
   if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
   const body: { activationId?: unknown; bossId?: unknown } =
@@ -1445,12 +1464,13 @@ app.post("/epic-boss/end", async (c) => {
 
 app.post("/epic-boss/start", async (c) => {
   if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
-  const body: { orderedUnitIds?: unknown; payment?: unknown; rulesetVersion?: unknown } =
-    await c.req.json<{ orderedUnitIds?: unknown; payment?: unknown; rulesetVersion?: unknown }>().catch(() => ({}));
+  const body: { orderedUnitIds?: unknown; payment?: unknown; rulesetVersion?: unknown; concentration?: unknown } =
+    await c.req.json<{ orderedUnitIds?: unknown; payment?: unknown; rulesetVersion?: unknown; concentration?: unknown }>().catch(() => ({}));
   const now = Date.now();
   await v3Raid.expireLiveRaid(c.env.DB, c.get("accountId"), now);
   const result = await v3EpicBoss.start(
-    c.env.DB, c.get("accountId"), body.orderedUnitIds, body.payment, now, body.rulesetVersion
+    c.env.DB, c.get("accountId"), body.orderedUnitIds, body.payment, now, body.rulesetVersion,
+    body.concentration
   );
   if (result.status === 200) return c.json({ ...result.body, serverTime: now });
   if (result.status === 400) return c.json(result.body, 400);

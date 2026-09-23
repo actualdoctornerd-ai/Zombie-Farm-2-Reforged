@@ -13,6 +13,7 @@ import { activeBonusHeadId, farmerCooldownMs } from "../../../src/farmer";
 import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
 import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak, firstClearBrains } from "../../../src/raid/brainDrops";
 import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
+import { acceptsBrainTicket } from "../../../src/raid/dualInvasion";
 import { settleRaidZombieDrop, RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
 import { raidFeatQuestEvents } from "../../../src/raid/featQuestEvents";
 import objectRows from "../../../public/assets/placeables.json";
@@ -62,6 +63,8 @@ interface RaidStateRow {
   progress_json: string;
   brain_dry_streak: number;
   zombie_dry_json: string;
+  /** Dual-invasion ladder: {"<raidId>": highest tier CLEARED}. See migration 0058. */
+  tier_json: string;
 }
 interface QuestRow { version: number; current_json: string }
 interface SessionRow {
@@ -178,7 +181,7 @@ export async function expireLiveRaid(db: D1Database, accountId: string, now: num
 export async function startRaid(
   db: D1Database,
   accountId: string,
-  body: { raidId?: unknown; orderedUnitIds?: unknown; useVoucher?: unknown; brainTicket?: unknown; concentration?: unknown; dice?: unknown; rulesetVersion?: unknown },
+  body: { raidId?: unknown; orderedUnitIds?: unknown; useVoucher?: unknown; brainTicket?: unknown; concentration?: unknown; dice?: unknown; rulesetVersion?: unknown; tier?: unknown },
   now: number,
   cooldownMs = DEFAULT_COOLDOWN_MS
 ): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -206,18 +209,39 @@ export async function startRaid(
   const coreRow = await db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id = ?")
     .bind(accountId).first<{ current_json: string }>();
   const wantsElite = body.brainTicket === true;
+  // The dual invasions refuse a Brain Ticket: their tier ladder is the difficulty selector
+  // (src/raid/dualInvasion.ts). Refused BEFORE the wave is pinned and before any inventory
+  // is touched, so nothing is spent — and refused here rather than only in the client,
+  // because "the button is hidden" is not a rule.
+  if (wantsElite && !acceptsBrainTicket(raidId)) {
+    return { status: 409, body: { ok: false, error: "elite_unavailable" } };
+  }
   const ticketsOwned = parse<CoreState>(coreRow?.current_json ?? "", { inventory: {}, storage: { received: {}, stored: {} } })
     .inventory[BRAIN_TICKET_KEY] ?? 0;
   const elite = wantsElite && ticketsOwned >= 1;
-  const pinned = await buildPinnedV3Raid(db, accountId, raidId, body.orderedUnitIds, concentration, sessionId, elite);
+  const pinned = await buildPinnedV3Raid(
+    db, accountId, raidId, body.orderedUnitIds, concentration, sessionId, elite, body.tier
+  );
   if (!pinned.ok) {
-    const status = pinned.error === "locked" ? 403 : pinned.error === "bad_raid" || pinned.error === "bad_roster" ? 400 : 409;
-    return { status, body: { ok: false, error: pinned.error } };
+    const status = pinned.error === "locked" || pinned.error === "tier_locked" ? 403
+      : pinned.error === "bad_raid" || pinned.error === "bad_roster" ? 400 : 409;
+    return {
+      status,
+      body: {
+        ok: false, error: pinned.error,
+        ...(pinned.unlockedTier !== undefined ? { unlockedTier: pinned.unlockedTier } : {}),
+      },
+    };
   }
+  // The rung the pin settled on — validated against this account's ladder and baked into
+  // the config, including the placard rotation derived from it. Everything downstream
+  // (the session's boosts_json, the settlement that credits the clear) uses THIS, never
+  // the number the request asked for.
+  const tier = pinned.config.tier ?? 0;
   const [balance, raidState, live, liveEpic, roster] = await Promise.all([
     db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId).first<{ gold: number; brains: number; xp: number }>(),
-    db.prepare("SELECT last_started_at, progress_json, brain_dry_streak FROM raid_state_v3 WHERE account_id = ?")
-      .bind(accountId).first<Pick<RaidStateRow, "last_started_at" | "progress_json" | "brain_dry_streak">>(),
+    db.prepare("SELECT last_started_at, progress_json, brain_dry_streak, tier_json FROM raid_state_v3 WHERE account_id = ?")
+      .bind(accountId).first<Pick<RaidStateRow, "last_started_at" | "progress_json" | "brain_dry_streak" | "tier_json">>(),
     db.prepare("SELECT id FROM raid_sessions_v3 WHERE account_id = ? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     db.prepare("SELECT id FROM epic_boss_sessions_v3 WHERE account_id = ? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     db.prepare(`SELECT unit_id FROM roster_v3 WHERE account_id = ? AND locked_by_raid IS NULL AND stored = 0
@@ -259,14 +283,14 @@ export async function startRaid(
     db.prepare(`INSERT INTO raid_sessions_v3
       (id, account_id, raid_id, roster_json, boosts_json, config_json, ruleset_version, started_at, earliest_finish_at, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(sessionId, accountId, String(raidId), JSON.stringify(requested), JSON.stringify({ dice, concentration, brainDrop, elite }),
+      .bind(sessionId, accountId, String(raidId), JSON.stringify(requested), JSON.stringify({ dice, concentration, brainDrop, elite, tier }),
         JSON.stringify(pinned.config), RAID_RULESET_VERSION, now, earliestFinishAt, expiresAt),
     db.prepare("UPDATE raid_state_v3 SET last_started_at = ? WHERE account_id = ?").bind(now, accountId),
     db.prepare("UPDATE gameplay_documents_v3 SET current_json = ?, updated_at = ? WHERE account_id = ?")
       .bind(JSON.stringify(core), now, accountId),
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       VALUES(?,?, 'raid_start', ?, ?)`)
-      .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId, raidId, roster: requested, dice, concentration, elite, bypassed: remaining > 0 }), now),
+      .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId, raidId, roster: requested, dice, concentration, elite, tier, bypassed: remaining > 0 }), now),
   ];
   // One statement for the whole army. `locked_by_raid IS NULL` still gates each row
   // individually, so a unit locked between the pre-check above and this write is skipped
@@ -472,7 +496,7 @@ export async function finishRaid(
   const [balance, coreRow, raidState, questRow, periodicRow, casualtyRows, presentationRow, objectRow, rosterCounts] = await Promise.all([
     db.prepare("SELECT gold, brains, xp, claimed_level FROM balances WHERE account_id = ?").bind(accountId).first<{ gold: number; brains: number; xp: number; claimed_level: number }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id = ?").bind(accountId).first<{ current_json: string }>(),
-    db.prepare("SELECT last_started_at, progress_json, brain_dry_streak, zombie_dry_json FROM raid_state_v3 WHERE account_id = ?").bind(accountId).first<RaidStateRow>(),
+    db.prepare("SELECT last_started_at, progress_json, brain_dry_streak, zombie_dry_json, tier_json FROM raid_state_v3 WHERE account_id = ?").bind(accountId).first<RaidStateRow>(),
     db.prepare("SELECT version, current_json FROM quest_documents_v3 WHERE account_id = ?").bind(accountId).first<QuestRow>(),
     db.prepare("SELECT version, current_json FROM periodic_quest_documents_v3 WHERE account_id = ?").bind(accountId).first<QuestRow>(),
     losses.length
@@ -508,7 +532,7 @@ export async function finishRaid(
   const zombieDry = parse<Record<string, number>>(raidState.zombie_dry_json, {});
   const firstClear = win && !(progress[String(raidId)] > 0);
   const baseGold = win ? winGold(econ, survivors.length / locked.length) : 0;
-  const boosts = parse<{ dice?: number; brainDrop?: number; elite?: boolean }>(session.boosts_json, {});
+  const boosts = parse<{ dice?: number; brainDrop?: number; elite?: boolean; tier?: number }>(session.boosts_json, {});
   // Elite is read back from the SESSION, not from this request: the ticket was charged
   // and the wave scaled at /raid/start, so that is where the fact lives.
   const eliteLuck = boosts.elite ? ELITE_BRAIN_LUCK : 1;
@@ -542,6 +566,14 @@ export async function finishRaid(
   let newZombie: { id: string; key: string; stored: boolean; received?: boolean } | null = null;
   let newZombieName: string | null = null;
   let lootGold = 0;
+  // The ladder. A win at the PINNED tier (never one the finish request names) advances the
+  // rung, and only upwards: replaying a tier already cleared pays its rewards again but
+  // cannot move the ladder, which is what makes every unlocked tier freely replayable.
+  const tiers = parse<Record<string, number>>(raidState.tier_json ?? "{}", {});
+  const pinnedTier = Math.max(0, Math.floor(boosts.tier ?? 0));
+  if (win && pinnedTier > 0) {
+    tiers[String(raidId)] = Math.max(Math.floor(tiers[String(raidId)] ?? 0), pinnedTier);
+  }
   if (win) {
     progress[String(raidId)] = (progress[String(raidId)] ?? 0) + 1;
     // Ownership spans Received + the shed + placed objects, so a `unique` really does drop
@@ -692,7 +724,7 @@ export async function finishRaid(
   const settlementId = crypto.randomUUID();
   const result = { settlementId, lastRaidAt, serverTime: now, balance: nextBalance, gold: baseGold + lootGold,
     brains, xp: nextBalance.xp - balance.xp, firstClear, loot, newZombie, outcome, questChanges,
-    inventory: core.inventory, storage: core.storage, raidProgress: progress, revival,
+    inventory: core.inventory, storage: core.storage, raidProgress: progress, raidTiers: tiers, revival,
     periodicQuests, rulesetVersion: RAID_RULESET_VERSION };
   const resultJson = JSON.stringify(result);
   const guard = "EXISTS (SELECT 1 FROM raid_sessions_v3 s WHERE s.id = ? AND s.result_json = ?)";
@@ -707,8 +739,9 @@ export async function finishRaid(
       WHERE account_id = ? AND ${guard}`)
       .bind(JSON.stringify(core), now, accountId, session.id, resultJson),
     db.prepare(`UPDATE raid_state_v3 SET progress_json = ?, last_started_at = ?, brain_dry_streak = ?,
-      zombie_dry_json = ? WHERE account_id = ? AND ${guard}`)
-      .bind(JSON.stringify(progress), lastRaidAt, brainDryStreak, JSON.stringify(zombieDry), accountId, session.id, resultJson),
+      zombie_dry_json = ?, tier_json = ? WHERE account_id = ? AND ${guard}`)
+      .bind(JSON.stringify(progress), lastRaidAt, brainDryStreak, JSON.stringify(zombieDry),
+        JSON.stringify(tiers), accountId, session.id, resultJson),
     db.prepare(`UPDATE quest_documents_v3 SET version = version + 1, current_json = ?, updated_at = ?
       WHERE account_id = ? AND ${guard}`)
       .bind(JSON.stringify({ completed: quests.completed, progress: quests.progress }), now, accountId, session.id, resultJson),

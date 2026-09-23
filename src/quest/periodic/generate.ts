@@ -58,10 +58,32 @@ export const WEEKLY_MULTIPLIER = 7;
 const DAILY_SLOT_WEIGHTS = [0.9, 0.9, 1.2] as const;
 const WEEKLY_SLOT_WEIGHTS = [1, 1] as const;
 
-/** XP needed to advance FROM `level` to the next one. At the cap there is no next
- *  level, so the final step is reused — periodic quests keep paying at max level. */
+/** The last level whose own step the periodic board is paid against. Every level from here
+ *  up is priced as if it were still this one.
+ *
+ *  THE BOARD IS FROZEN AT ITS LEVEL-45 VALUE (owner decision, docs/POST_45_PROGRESSION.md).
+ *  A periodic reward is a SHARE OF THE REQUIREMENT, so without this the daily and weekly
+ *  payouts would inflate in lockstep with the new 46-50 thresholds and the extra levels
+ *  would take exactly as long as the old ones — the file's own note below says as much:
+ *  raising thresholds can never slow progression down, only this can. Levels 46-50 are meant
+ *  to be bought with the new invasions instead.
+ *
+ *  It is 44, NOT 45, and the difference is the whole point. `xpToNextLevel(45)` used to mean
+ *  "the final step reused" (218,000 - 193,000 = 25,000) because 45 was the top of the array.
+ *  With five more tiers above it, 45 has a real next step — the new, much larger 45→46 one —
+ *  so clamping at 45 would hand the board a raise at exactly the level it is supposed to be
+ *  pinned to. Clamping at 44 keeps the 25,000 figure the shipped board has always been paid
+ *  from, which is also what generate.test.ts asserts.
+ *
+ *  `dailyShare()` needs no such clamp: its interpolation already saturates at MAX_LEVEL. */
+export const PERIODIC_XP_REFERENCE_LEVEL = 44;
+
+/** XP needed to advance FROM `level` to the next one, for periodic-reward sizing. At the cap
+ *  there is no next level, so the final step is reused — periodic quests keep paying at max
+ *  level — and above PERIODIC_XP_REFERENCE_LEVEL the reference step is reused likewise. */
 export function xpToNextLevel(level: number, thresholds: readonly number[]): number {
-  const index = Math.max(1, Math.min(thresholds.length, Math.floor(level)));
+  const capped = Math.min(Math.floor(level), PERIODIC_XP_REFERENCE_LEVEL);
+  const index = Math.max(1, Math.min(thresholds.length, capped));
   if (index >= thresholds.length) {
     return thresholds[thresholds.length - 1] - thresholds[thresholds.length - 2];
   }

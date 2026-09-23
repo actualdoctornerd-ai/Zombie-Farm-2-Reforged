@@ -3,11 +3,16 @@ import { RAIDS, raidEcon, winGold, raidUnlocked } from "../src/raidCatalog";
 import { invasionWinXp, repeatInvasionXp } from "../../src/raid/repeatXp";
 
 describe("raidCatalog", () => {
-  it("has the 11 playable raids with positive reward data", () => {
-    expect(Object.keys(RAIDS)).toHaveLength(11);
+  it("has all 15 playable raids, the 11 source ones with positive gold", () => {
+    expect(Object.keys(RAIDS)).toHaveLength(15);
     for (const [id, r] of Object.entries(RAIDS)) {
-      expect(r.gold, id).toBeGreaterThan(0);
       expect(r.xp, id).toBeGreaterThan(0);
+      // The four dual invasions (12-15) carry gold 0 DELIBERATELY: the wiki has no figure
+      // for a raid it never had, so winGold falls back to pricing them off recLevel. The
+      // eleven source raids all have a real wiki figure and must keep it.
+      if (Number(id) <= 11) expect(r.gold, id).toBeGreaterThan(0);
+      else expect(r.gold, id).toBe(0);
+      expect(r.recLevel, id).toBeGreaterThan(0);
     }
   });
   it("raidEcon looks up known ids and rejects unknown", () => {

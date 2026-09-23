@@ -50,8 +50,15 @@ describe("award-only prize sell values", () => {
     // is worth more than its common loot. Raid 6 is exempt — its tier-4 Pyramid is a
     // 200,000-gold Market showpiece that happens to sit on a loot table, and matching
     // it would make the Aliens a gold faucet (see raidDropValue.ts).
+    //
+    // Raid 15 is exempt for exactly the same reason and no other: it is the dual invasion
+    // STAGED as the Aliens, and it currently inherits their loot table verbatim, Pyramid
+    // included. That inheritance is a PLACEHOLDER — the four dual invasions dropping the
+    // same decor as invasions cleared thirty levels earlier is not a reward for the hardest
+    // content in the game. When they get their own tables this exemption goes with it.
+    const PYRAMID_EXEMPT = new Set([6, 15]);
     for (const [id, tiers] of Object.entries(RAID_LOOT)) {
-      if (Number(id) === 6) continue;
+      if (PYRAMID_EXEMPT.has(Number(id))) continue;
       const rows = lootTiles().filter((row) => row.raidId === Number(id));
       const rarest = Math.max(...rows.map((row) => row.tier));
       if (rarest === 0) continue;

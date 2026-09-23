@@ -13,6 +13,7 @@ import { AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sp
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
 import { isEpicBossKey } from "../epicBoss/combat";
 import { noteAssetFailure } from "../assetFailures";
+import { buildFight } from "./buildFight";
 import { ALIEN_LASER_SPRITE, BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, CHARGE_X, ENEMY_HOLD_X, ENEMY_SPAWN_X, EPIC_BOSS_LAND_MS, FIELD_H, FIELD_W, laserInterval, SimUnit, TELEPORT_PX, THROW_WINDUP_MS } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
 import {
@@ -62,6 +63,8 @@ import {
   selectTickPresentation, type RaidStrikePresentation,
 } from "./combatPresentation";
 import { usesGroundEnemyFrames } from "./enemyFramePresentation";
+import { stageRaidId } from "./RaidCatalog";
+import { buildSignIcon } from "./signIcon";
 
 type RaidInputDraft =
   | { type: "bubble"; unitId: string }
@@ -69,8 +72,11 @@ type RaidInputDraft =
   | { type: "wallTap"; unitId: string }
   | { type: "fireTap"; unitId: string }
   | { type: "turnedTap"; unitId: string }
+  | { type: "signPick"; offer: number; option: number }
+  | { type: "castCancel" }
   | { type: "retreat" };
 import { BASE } from "../base";
+import type { BubbleAction, BubbleConfig, CopyConfig, SignConfig } from "./dualInvasion";
 
 export interface RaidSceneParams {
   raid: RaidDef;
@@ -89,6 +95,18 @@ export interface RaidSceneParams {
   /** Pixel zombie the boss's turnZombie converts a zombie into (null/omitted = none).
    *  Only the Video Games boss carries the action — see raid/videoGameStage.ts. */
   turnedTemplate?: CombatUnit | null;
+  /** The Lawyer boss's placard rotation (raid 12 only). */
+  sign?: SignConfig | null;
+  /** The ninja's throw rate tracks the army's attack speed (raid 13 only). */
+  dexTax?: boolean;
+  /** The trapeze's copies of the player's own zombies (raid 14 only). */
+  copies?: CopyConfig | null;
+  /** The saucer's bubble and the wall it drops (raid 15). */
+  bubble?: BubbleConfig | null;
+  bubbleWall?: CombatUnit | null;
+  /** The ringmaster's early drop and the mid-lane station he fights from (raid 14, t5+). */
+  bossDropAtMs?: number | null;
+  bossGroundStationX?: number | null;
   /** Carried-grab hazard (Circus Trapeze Artist) for this raid (null/omitted = none). */
   grabber?: GrabberConfig | null;
   /** Beach crab hazard for this raid (null/omitted = none). Client-only — see crabOf. */
@@ -202,6 +220,16 @@ const OUTRO_RESULT_DELAY_MS = 1500; // keep the original menu timing while the m
 const RETREAT_RESULT_DELAY_MS = 1500;
 const EPIC_BOSS_EXIT_MS = 800; // reverse the sky entry before the result panel appears
 const DEATH_FADE = 0.45; // seconds for a fallen unit to poof + fade out
+/** How much bigger the pirate captain gets at a full wind-up (raid 13). */
+const CHARGE_SWELL = 0.22;
+/** White → deep red as a charge fills. Matches hitFlashTint's shape so the two washes read
+ *  as the same language: this one just does not fade, it ARRIVES. */
+function chargeTint(frac: number): number {
+  const k = Math.max(0, Math.min(1, frac));
+  const g = Math.round(255 * (1 - 0.72 * k));
+  const b = Math.round(255 * (1 - 0.82 * k));
+  return (255 << 16) | (g << 8) | b;
+}
 const HEAL_POSE_S = 0.7; // Garden healer raises, holds, then lowers both arms
 // Beam-down pillar, recovered from the binary — see spawnLightPillar for the derivation.
 // The width is in design units (of DESIGN_W); the height is the whole stage.
@@ -223,6 +251,34 @@ const ABILITY_PASSIVE_STEP = 2 * ABILITY_PASSIVE_R + 6; // horizontal pitch of t
 const ABILITY_PASSIVE_GAP = 7;
 /** Gap between the top HUD and the button column when there is no passive row. */
 const ABILITY_ACTIVE_GAP = 14;
+// The Lawyer boss's objection panel (raid 12). Two bubbles either side of centre, with the
+// "what is barred right now" line above them and the choose-clock under. Sized so the pair
+// still fits inside a landscape phone's width with the ability column beside it.
+const SIGN_BUBBLE_W = 112;
+const SIGN_BUBBLE_H = 52;
+const SIGN_BUBBLE_GAP = 12;
+/** Height reserved above the bubbles for the barred-right-now line. */
+const SIGN_BENCH_H = 18;
+/** Box one class's face is drawn into inside a bubble. Two of them fit side by side from
+ *  PAIRED_SIGN_TIER, where a bubble names a pair. */
+const SIGN_ICON_BOX = 38;
+/** How close enrage has to be before it is worth putting beside the fight clock. Far enough
+ *  out it is noise; this is roughly one exchange's warning. */
+const ENRAGE_WARN_MS = 20_000;
+
+// The saucer's bubble (raid 15): what it is charging, how far along, and how many cancels
+// are left — sharing the objection panel's slot under the top HUD, since no fight has both.
+const BUBBLE_PANEL_W = 236;
+const BUBBLE_PANEL_H = 46;
+/** What the saucer is thinking about, in words. Placeholder for the five action icons,
+ *  and the thing that makes the fight playable until they exist. */
+const BUBBLE_LABEL: Readonly<Record<BubbleAction, string>> = {
+  wall: "WALL incoming",
+  aoe: "SHOCKWAVE incoming",
+  swap: "REINFORCEMENT incoming",
+  stunAll: "STUN incoming",
+  portal: "PORTAL incoming",
+};
 // Activated buttons hold their slot for the whole fight and signal availability by
 // darkening instead of vanishing. Tint (not alpha) keeps them solid over a busy
 // battlefield, so a dark button still reads as a button.
@@ -524,6 +580,10 @@ interface Token {
    *  Held on the token rather than the sim so a restored checkpoint cannot inherit a
    *  half-played flash, and so it decays on the RENDER clock like the rest of the FX. */
   hitFlash: number;
+  /** Last frame's wind-up fraction for the pirate captain's swell (raid 13). Held on the
+   *  token so the rig settles back to its own scale on the frame the charge ends, rather
+   *  than being left inflated by whichever frame last saw it. */
+  chargeSwell: number;
   deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
   emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
   // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
@@ -750,6 +810,23 @@ export class RaidScene {
   private pLabel!: Text;
   private eLabel!: Text;
   private roundLabel!: Text; // top-center countdown → "ENRAGED" when it expires
+  /** The Lawyer boss's objection (raid 12): what is barred now, and the two bubbles the
+   *  player chooses the next bar from. See buildSignPanel. */
+  private signPanel = new Container();
+  private signBench!: Text;
+  private signTimer = new Graphics();
+  private signBubbles: { root: Container; bg: Graphics; faces: Container }[] = [];
+  /** Last drawn state of the panel, so it redraws on a change rather than every frame. */
+  private signKey = "";
+  /** The saucer's bubble (raid 15): the charging action, its bar, and the cancel button. */
+  private bubblePanel = new Container();
+  private bubbleBg = new Graphics();
+  private bubbleLabel!: Text;
+  private bubbleBar = new Graphics();
+  private cancelBtn = new Container();
+  private cancelBg = new Graphics();
+  private cancelLabel!: Text;
+  private bubbleKey = "";
   private pFace = new Container(); // generic zombie face badge, left of the player bar
   private eFace = new Container(); // boss face badge, right of the enemy bar
   private retreatBtn = new Container();
@@ -781,6 +858,8 @@ export class RaidScene {
       else if (input.type === "wallTap") this.sim.tapWall(input.unitId);
       else if (input.type === "fireTap") this.sim.tapFire(input.unitId);
       else if (input.type === "turnedTap") this.sim.tapTurned(input.unitId);
+      else if (input.type === "signPick") this.sim.pickSign(input.offer, input.option);
+      else if (input.type === "castCancel") this.sim.cancelCast();
       else if (input.type === "retreat") this.retreatRequested = true;
     }
   }
@@ -878,24 +957,31 @@ export class RaidScene {
     this.confirmRetreat = params.confirmRetreat ?? (() => Promise.resolve(true));
     this.playback = params.playback ?? null;
     this.brainDrop = Math.max(0, Math.floor(params.brainDrop ?? 0));
-    this.sim = new BattleSim(
-      params.playerUnits,
-      params.enemyUnits,
-      params.bossThrow,
-      !!params.concentration,
-      params.bossSpecials ?? [],
-      params.roundMs,
-      params.summon ?? null,
-      params.wallTemplate ?? null,
-      !!params.noDistractions,
-      !!params.escapeOnRoundEnd,
-      !!params.bossFallsFromSky,
-      params.bossEngageDistance,
-      params.grabber ?? null,
-      params.crab ?? null,
-      params.waveCadence,
-      params.turnedTemplate ?? null
-    );
+    this.sim = buildFight({
+      playerUnits: params.playerUnits,
+      enemyUnits: params.enemyUnits,
+      bossThrow: params.bossThrow,
+      concentration: params.concentration,
+      bossSpecials: params.bossSpecials,
+      roundMs: params.roundMs,
+      summon: params.summon,
+      wallTemplate: params.wallTemplate,
+      noDistractions: params.noDistractions,
+      escapeOnRoundEnd: params.escapeOnRoundEnd,
+      bossFallsFromSky: params.bossFallsFromSky,
+      engageDistance: params.bossEngageDistance,
+      grabber: params.grabber,
+      crab: params.crab,
+      waveCadence: params.waveCadence,
+      turnedTemplate: params.turnedTemplate,
+      sign: params.sign,
+      dexTax: params.dexTax,
+      copies: params.copies,
+      bossDropAtMs: params.bossDropAtMs,
+      bossGroundStationX: params.bossGroundStationX,
+      bubble: params.bubble,
+      bubbleWall: params.bubbleWall,
+    });
     // Rescue-hazard taps are paced for a finger by default. A mouse clicks two to three
     // times faster than that gate, so most of a click-spamming player's clicks landed
     // inside the cooldown and were dropped — which is what "there is a delay before my
@@ -1594,7 +1680,7 @@ export class RaidScene {
       pilotBars,
       hp, hpText, charge, base, hpCenterX, topY, atkCount: 0,
       atkPhase: newAttackPhase(u.cooldownMs),
-      hitFlash: 0, deathAnim: -1, emerged: false, hpKey: -1, chargeKey: -1,
+      hitFlash: 0, chargeSwell: 0, deathAnim: -1, emerged: false, hpKey: -1, chargeKey: -1,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
       healFxSeq: 0, healCastSeq: 0, healPose: 0, laserFxSeq: 0,
       explodeFxSeq: 0, fuseT: 0, stunT: STUN_PRIMED,
@@ -1650,7 +1736,105 @@ export class RaidScene {
     });
     this.roundLabel.anchor.set(0.5, 0);
     this.container.addChild(this.roundLabel);
+    this.buildSignPanel();
+    this.buildBubblePanel();
     this.buildRetreatButton();
+  }
+
+  /** THE OBJECTION PANEL, under the countdown: a line saying what is barred right now, and
+   *  the two bubbles the player taps to choose what is barred next.
+   *
+   *  Drawn shapes and text rather than the lawyer's thought-bubble art, because that art
+   *  does not exist yet. It is a PLACEHOLDER, but not an optional one — the choice is the
+   *  whole fight, and a fight whose central question is invisible cannot be played at all.
+   *  When the art lands this becomes two bubbles over the lawyer's head; the hit targets,
+   *  the countdown and the wiring below are already what that will need. */
+  private buildSignPanel() {
+    this.signBench = new Text({
+      text: "",
+      style: { fontFamily: "sans-serif", fontSize: 13, fontWeight: "700", fill: 0xffd479 },
+    });
+    this.signBench.anchor.set(0.5, 0);
+    this.signPanel.addChild(this.signBench);
+    for (let i = 0; i < 2; i++) {
+      const root = new Container();
+      const bg = new Graphics();
+      // The faces live in their own layer so a redraw can throw them away and rebuild
+      // without touching the bubble's chrome or its hit area.
+      const faces = new Container();
+      root.addChild(bg, faces);
+      root.position.set(
+        i === 0 ? -SIGN_BUBBLE_W - SIGN_BUBBLE_GAP / 2 : SIGN_BUBBLE_GAP / 2,
+        SIGN_BENCH_H,
+      );
+      root.eventMode = "static";
+      root.cursor = "pointer";
+      // An EXPLICIT hit area, because a bare Container has none: Pixi hit-tests a static
+      // Container against its `hitArea` and otherwise only recurses into interactive
+      // children, and a `bg` Graphics left at the default `passive` is not one. Without
+      // this the bubbles draw, light up on hover in the tab, and silently take no taps —
+      // which is exactly how the first cut of this panel behaved in the Raid Lab.
+      root.hitArea = new Rectangle(0, 0, SIGN_BUBBLE_W, SIGN_BUBBLE_H);
+      root.on("pointertap", () => this.tapSignBubble(i));
+      this.signPanel.addChild(root);
+      this.signBubbles.push({ root, bg, faces });
+    }
+    this.signPanel.addChild(this.signTimer);
+    this.signPanel.visible = false;
+    this.container.addChild(this.signPanel);
+  }
+
+  /** THE SAUCER'S BUBBLE (raid 15): what it is charging, a bar for how long you have left
+   *  to decide, and the cancel button with its remaining charges.
+   *
+   *  Drawn text and boxes rather than the thought-bubble art and the five action icons,
+   *  which do not exist yet — and this is the fight where that matters most, because the
+   *  whole decision is "which of these five do I stop". The words carry it until the icons
+   *  land; a player who cannot read the bubble is playing a random number generator. */
+  private buildBubblePanel() {
+    this.bubbleLabel = new Text({
+      text: "",
+      style: { fontFamily: "sans-serif", fontSize: 14, fontWeight: "800", fill: 0xffffff },
+    });
+    this.bubbleLabel.anchor.set(0.5, 0.5);
+    this.bubbleLabel.position.set(BUBBLE_PANEL_W / 2, 15);
+    this.bubblePanel.addChild(this.bubbleBg, this.bubbleLabel, this.bubbleBar);
+
+    this.cancelLabel = new Text({
+      text: "",
+      style: { fontFamily: "sans-serif", fontSize: 13, fontWeight: "800", fill: 0xffffff },
+    });
+    this.cancelLabel.anchor.set(0.5, 0.5);
+    this.cancelLabel.position.set(46, 14);
+    this.cancelBtn.addChild(this.cancelBg, this.cancelLabel);
+    this.cancelBtn.position.set(BUBBLE_PANEL_W / 2 - 46, BUBBLE_PANEL_H + 6);
+    this.cancelBtn.eventMode = "static";
+    this.cancelBtn.cursor = "pointer";
+    // An explicit hit area for the same reason the objection's bubbles carry one: a bare
+    // static Container is tested against `hitArea` and otherwise only recurses into
+    // interactive children, so without this it draws perfectly and takes no taps.
+    this.cancelBtn.hitArea = new Rectangle(0, 0, 92, 28);
+    this.cancelBtn.on("pointertap", () => this.tapCancel());
+    this.bubblePanel.addChild(this.cancelBtn);
+    this.bubblePanel.visible = false;
+    this.container.addChild(this.bubblePanel);
+  }
+
+  /** Spend a cancel. Transcribed like every other tap the verifier cannot derive. */
+  private tapCancel() {
+    if (this.sim.finished || this.playback) return;
+    if (this.sim.cancelCast()) this.recordInput({ type: "castCancel" });
+  }
+
+  /** Commit a choice. TRANSCRIBED for the reason every simulated tap is: the verifier
+   *  cannot derive it, and an untranscribed one leaves the two fights barring different
+   *  classes from here on. The sim owns the refusal — a tap after the slot has resolved,
+   *  or a second tap on an offer already answered, records nothing. */
+  private tapSignBubble(option: number) {
+    if (this.sim.finished || this.playback) return;
+    const offer = this.sim.signOfferIndex();
+    if (offer === null) return;
+    if (this.sim.pickSign(offer, option)) this.recordInput({ type: "signPick", offer, option });
   }
 
   /** A "Retreat" button (bottom-right) that ends the raid as a
@@ -1756,9 +1940,13 @@ export class RaidScene {
     this.applyPerchTweak();
   }
 
-  /** Nudge the computed perch by this raid's per-raid tuning override (if any). */
+  /** Nudge the computed perch by this raid's per-raid tuning override (if any).
+   *
+   *  Keyed by the STAGE's raid, not this one's: a dual invasion stands its boss on a
+   *  borrowed structure, so it needs that structure's correction. Keyed by `raid.id` the
+   *  four of them fell through the table entirely and every one of their bosses floated. */
   private applyPerchTweak() {
-    const tw = PERCH_TWEAK[this.raid.id];
+    const tw = PERCH_TWEAK[stageRaidId(this.raid)];
     if (!tw) return;
     this.perchFX += tw.dx ?? 0;
     this.perchFY += tw.dy ?? 0;
@@ -2217,6 +2405,8 @@ export class RaidScene {
       // between ticks and made walking rigs twitch rapidly.
       const simMoving = Math.hypot(u.vx, u.vy) > 6;
       const exitMarch = (this.phase === "retreat" || this.phase === "outro") && u.team === "player" && u.alive;
+      // Who the placard has benched this frame ([] on every invasion without one).
+      const benchedGroups = this.sim.signedGroups();
       if (tok.actor) {
         // Fade the damage wash on the RENDER clock, so it eases out at the display
         // cadence rather than in 50 ms sim steps. Tinting the rig container (not the
@@ -2239,6 +2429,7 @@ export class RaidScene {
           : zombieFacingDelta(u, {
             exitMarch,
             retreating: this.phase === "retreat",
+            benched: benchedGroups.length > 0 && !!u.group && benchedGroups.includes(u.group),
           });
         if (facing !== null) tok.actor.setFacingFromDelta(facing);
         // A zombie mid-shove is travelling fast, but not under its own power: running the
@@ -2324,6 +2515,18 @@ export class RaidScene {
       // forward strike lunge while trading blows — the lunge peaks at the attack's
       // damageTiming so its reach lands with the sim's hit (see EnemyActor).
       if (tok.enemyActor) {
+        // THE CHARGE (raid 13): the pirate captain swells and reddens as his wind-up fills.
+        // This is the player's only warning that a slam is coming and their only read on how
+        // much time is left to answer it, so both ramp with `chargeFrac` — the colour and
+        // the size ARE the timer. Applied here rather than in the zombie-rig branch above
+        // because he is an enemy and never reaches that one.
+        if (u.chargeFrac > 0 || tok.chargeSwell > 0) {
+          tok.chargeSwell = u.chargeFrac;
+          tok.enemyActor.container.tint = tok.chargeSwell > 0
+            ? chargeTint(tok.chargeSwell)
+            : NO_TINT;
+          tok.root.scale.set(szs * (1 + CHARGE_SWELL * tok.chargeSwell));
+        }
         // The Ringmaster's direct hop travels slightly right from the circus car.
         // Using that delta as his facing mirrors the asymmetric rig, leaving his
         // body to the zombies' left and his long whip over the combat origin.
@@ -2569,6 +2772,10 @@ export class RaidScene {
       this.pFace.visible = !hudLayout.hidePortraits;
       this.eFace.visible = !hudLayout.hidePortraits;
       this.roundLabel.position.set(W / 2, topY);
+      // Below the whole top block, not 22px under the countdown: at that height it landed
+      // on top of the enemy's name label, which sits under the right-hand bar.
+      this.signPanel.position.set(W / 2, hudLayout.topHudHeight + 4);
+      this.bubblePanel.position.set((W - BUBBLE_PANEL_W) / 2, hudLayout.topHudHeight + 4);
       this.retreatBtn.position.set(
         W - hudLayout.retreatRightMargin - this.retreatBtn.width,
         H - this.retreatBtn.height - hudLayout.retreatBottomMargin,
@@ -2609,17 +2816,129 @@ export class RaidScene {
     this.eLabel.text = `${this.raid.bossName || "Enemies"}  ${totals.enemyAlive}`;
     this.eLabel.x = barW - this.eLabel.width;
 
-    // Round countdown → ENRAGED. Only meaningful for a raid with a boss timer.
-    const remMs = this.sim.roundRemainingMs();
-    if (this.sim.enraged) {
-      this.roundLabel.text = "⚠ ENRAGED";
-      this.roundLabel.style.fill = 0xff5a3c;
-    } else if (remMs > 0) {
-      const s = Math.ceil(remMs / 1000);
-      this.roundLabel.text = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-      this.roundLabel.style.fill = s <= 15 ? 0xffcc33 : 0xffffff;
-    } else {
-      this.roundLabel.text = "";
+    // THE FIGHT CLOCK, and the enrage warning beside it.
+    //
+    // The clock is the primary reading because it is the one that ends the battle: at 0:00
+    // the fight stops where it stands and the player loses (BattleSim.RAID_TIME_LIMIT_MS).
+    // It used to be invisible, and the countdown in this spot was the ENRAGE timer — which
+    // reads like a fight timer, runs out three minutes early, and then leaves the slot
+    // blank for the rest of the battle. A player could be sixty seconds from losing a fight
+    // they were winning with nothing on screen saying so.
+    //
+    // Enrage keeps its warning, but only when it is imminent, and as a suffix: two live
+    // countdowns side by side is how the old one got misread in the first place. It is
+    // dropped entirely on a cramped phone HUD, where the centre has no room beside the
+    // health bars and the clock is the half that matters.
+    const leftMs = this.sim.timeRemainingMs();
+    const leftS = Math.ceil(leftMs / 1000);
+    const clock = `⏱ ${Math.floor(leftS / 60)}:${String(leftS % 60).padStart(2, "0")}`;
+    const enrageMs = this.sim.roundRemainingMs();
+    let warn = "";
+    if (!hudLayout.hidePortraits) {
+      if (this.sim.enraged) warn = "   ⚠ ENRAGED";
+      else if (enrageMs > 0 && enrageMs <= ENRAGE_WARN_MS) {
+        warn = `   ⚠ ${Math.ceil(enrageMs / 1000)}s`;
+      }
+    }
+    this.roundLabel.text = clock + warn;
+    this.roundLabel.style.fill = leftS <= 15
+      ? 0xff5a3c
+      : leftS <= 60 ? 0xffcc33
+      : this.sim.enraged ? 0xffb0a0 : 0xffffff;
+
+    // The objection. `signOffer` is null on every invasion without one, so the panel
+    // simply never appears anywhere else.
+    const offer = this.sim.signOffer();
+    this.signPanel.visible = !!offer;
+    if (offer) {
+      const barred = this.sim.signedGroups();
+      const picked = this.sim.signPick();
+      const key = `${offer[0].join("+")}|${offer[1].join("+")}|${barred.join("+")}|${picked}`;
+      if (key !== this.signKey) {
+        this.signKey = key;
+        this.signBench.text = barred.length
+          ? `⚖ BARRED: ${barred.join(" + ")}`
+          : "⚖ OBJECTION — CHOOSE ONE";
+        for (let i = 0; i < 2; i++) {
+          const bubble = this.signBubbles[i];
+          // Three looks, and the middle one earns its keep: once a choice is made the
+          // panel has to keep SHOWING it, because the consequence does not arrive until
+          // the next slot and a player who cannot see what they picked learns nothing
+          // from what happens to them five seconds later.
+          const chosen = picked === i;
+          const spent = picked !== null && !chosen;
+          bubble.bg.clear()
+            .roundRect(0, 0, SIGN_BUBBLE_W, SIGN_BUBBLE_H, 8)
+            .fill({ color: chosen ? 0x8a6a1f : 0x241f18, alpha: spent ? 0.45 : 0.92 })
+            .stroke({
+              width: chosen ? 3 : 2,
+              color: chosen ? 0xffd479 : 0xc7b78b,
+              alpha: spent ? 0.3 : 0.85,
+            });
+          // THE FACES, not the words. One per class this bubble names — one below the
+          // paired rung, two from it — spaced evenly across the bubble's width.
+          bubble.faces.removeChildren().forEach((child) => child.destroy({ children: true }));
+          const names = offer[i];
+          names.forEach((group, slot) => {
+            const icon = buildSignIcon(this.assets, group, SIGN_ICON_BOX);
+            if (!icon) return;
+            icon.position.set(
+              (SIGN_BUBBLE_W * (slot + 1)) / (names.length + 1),
+              SIGN_BUBBLE_H / 2,
+            );
+            bubble.faces.addChild(icon);
+          });
+          bubble.faces.alpha = spent ? 0.45 : 1;
+          // An answered offer stops taking taps at the source as well as in the sim, so a
+          // stray thumb cannot record a refusal into the transcript.
+          bubble.root.eventMode = picked === null ? "static" : "none";
+        }
+      }
+      // The countdown runs every frame — it is the only part of the panel that moves, and
+      // it is what turns "choose one" into "choose one NOW".
+      const left = this.sim.signChooseFrac();
+      const timerW = 2 * SIGN_BUBBLE_W + SIGN_BUBBLE_GAP;
+      const timerY = SIGN_BENCH_H + SIGN_BUBBLE_H + 4;
+      this.signTimer.clear()
+        .rect(-timerW / 2, timerY, timerW, 3)
+        .fill({ color: 0x000000, alpha: 0.35 })
+        .rect(-timerW / 2, timerY, timerW * left, 3)
+        .fill({ color: left < 0.3 ? 0xff5a3c : 0xffd479, alpha: 0.9 });
+    }
+
+    // The saucer's bubble. `bubbleAction` is null on every invasion without one, so the
+    // panel simply never appears anywhere else.
+    const incoming = this.sim.bubbleAction();
+    this.bubblePanel.visible = !!incoming;
+    if (incoming) {
+      const left = this.sim.cancelsLeft();
+      const key = `${incoming}|${left}`;
+      if (key !== this.bubbleKey) {
+        this.bubbleKey = key;
+        this.bubbleLabel.text = `☄ ${BUBBLE_LABEL[incoming]}`;
+        this.bubbleBg.clear()
+          .roundRect(0, 0, BUBBLE_PANEL_W, BUBBLE_PANEL_H, 8)
+          .fill({ color: 0x1b2430, alpha: 0.92 })
+          .stroke({ width: 2, color: 0x8fd0ff, alpha: 0.85 });
+        // Greyed rather than hidden when the budget is gone: "you have none left" is a
+        // thing the player needs to see, and a button that vanishes mid-fight reads as a
+        // bug rather than as a consequence.
+        this.cancelLabel.text = left > 0 ? `✖ Cancel  ${left}` : "✖ spent";
+        this.cancelBg.clear()
+          .roundRect(0, 0, 92, 28, 6)
+          .fill({ color: left > 0 ? 0x2a4a63 : 0x2a2a2a, alpha: 0.92 })
+          .stroke({ width: 2, color: left > 0 ? 0x8fd0ff : 0x555555, alpha: 0.8 });
+        this.cancelBtn.eventMode = left > 0 ? "static" : "none";
+        this.cancelBtn.alpha = left > 0 ? 1 : 0.55;
+      }
+      // The charge bar runs every frame — it is the reaction window, and the only part of
+      // the panel that moves.
+      const filled = this.sim.bubbleProgress();
+      this.bubbleBar.clear()
+        .rect(10, BUBBLE_PANEL_H - 12, BUBBLE_PANEL_W - 20, 5)
+        .fill({ color: 0x000000, alpha: 0.4 })
+        .rect(10, BUBBLE_PANEL_H - 12, (BUBBLE_PANEL_W - 20) * filled, 5)
+        .fill({ color: filled > 0.7 ? 0xff5a3c : 0x8fd0ff, alpha: 0.95 });
     }
 
     // Retreat occupies the bottom-right action slot used by the farm quest control,

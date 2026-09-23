@@ -52,7 +52,7 @@ import { QuestDef, questBonusRewardInfo, questRewardInfo } from "./quest/types";
 import { RaidManager, RaidResultView, type LootDrop } from "./raid/RaidManager";
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
-import { RAID_COOLDOWN_MS, MCDONNELL_ID } from "./raid/RaidCatalog";
+import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
 import { PVP_ARMY_SIZE, PVP_UI_ENABLED, buildPvpRaidDef } from "./raid/pvp";
 import { reconcilePartySelection } from "./raid/partySelection";
 import { planTeamAssembly, sanitizeTeams, settleTeamMembers } from "./zombie/teams";
@@ -116,7 +116,7 @@ import {
   epicBossUnlockLevel,
 } from "./epicBoss/catalog";
 import { EpicBossManager } from "./epicBoss/EpicBossManager";
-import { buildEpicBossSetup, rollEpicBossDrops } from "./epicBoss/combat";
+import { buildEpicBossSetup, EPIC_BOSS_ENGAGE, rollEpicBossDrops } from "./epicBoss/combat";
 import { epicBossCurrencyReward, epicBrainTicketChance } from "./epicBoss/rewards";
 import { BRAIN_TICKET_KEY } from "./raid/eliteInvasion";
 import { epicZombieRewardNotes, visibleEpicBosses } from "./epicBoss/market";
@@ -2987,6 +2987,10 @@ async function main() {
         not_owned: "the item is no longer available", capacity_full: "capacity is full",
         none_owned: "the reward is no longer available", stack_full: "the inventory stack is full",
         army_full: "the farm is full", storage_full: "storage is full",
+        // Both the per-item limit (one of most functional buildings, three Pots) and
+        // the farm-wide object cap come back under this one error, so the wording has
+        // to cover both without claiming which.
+        object_limit: "the farm already holds as many of those as it can",
         shed_full: "the shed is full",
         not_grown: "the crop is not ready", nothing_planted: "the crop changed",
         not_plowed: "the soil is no longer plowed", plot_occupied: "the plot already contains a crop",
@@ -4823,6 +4827,8 @@ async function main() {
     maxDice: raids.maxDiceFor(raidId),
     brainTickets: raids.brainTicketCount(),
   });
+  // The Epic Boss picker's one consumable — same stock, read through the same manager.
+  hud.getEpicBossConcentration = () => raids.concentrationCount();
 
   // Live battle scene — the ONLY way a raid is played out (no instant/auto-resolve in
   // the game; `raids.start` remains only for the `ZF.runRaid` dev hook + headless tests).
@@ -4913,9 +4919,9 @@ async function main() {
     flushLevelUps();
   };
 
-  hud.onLaunchEpicBoss = (partyIds, payment) =>
-    launchGate.run(async () => launchEpicBoss(partyIds, payment), false);
-  const launchEpicBoss: NonNullable<Hud["onLaunchEpicBoss"]> = async (partyIds, payment) => {
+  hud.onLaunchEpicBoss = (partyIds, payment, concentration) =>
+    launchGate.run(async () => launchEpicBoss(partyIds, payment, concentration), false);
+  const launchEpicBoss: NonNullable<Hud["onLaunchEpicBoss"]> = async (partyIds, payment, concentration) => {
     if (raidActive || Date.now() < raidLaunchLockedUntil) return false;
     const def = selectEpicBoss(state.epicBossRun?.bossId);
     const gate = epicBoss.start(state.epicBossRun, partyIds);
@@ -4928,6 +4934,11 @@ async function main() {
     const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
     let party: ReturnType<typeof zombies.roster> = [];
     let epicSessionId: string | null = null;
+    // Concentration on an epic fight. The epic shape already runs with no butterflies,
+    // so what the boost buys here is the auto-release: the brain bubble fills and goes
+    // on its own. Re-checked against the real stock rather than trusted from the
+    // picker, which can predate a boost spent in another battle.
+    let spendConcentration = !!concentration && raids.concentrationCount() > 0;
     if (onlineFarm) {
       try {
         await economy?.settleBeforeDependency();
@@ -4949,8 +4960,16 @@ async function main() {
         partyIds = settled.ids;
         party = settled.party;
         if (!party.length) return false;
-        const opened = await api.epicBossStart(partyIds, payment);
+        const opened = await api.epicBossStart(partyIds, payment, spendConcentration);
         epicSessionId = opened.sessionId;
+        // The server is authoritative about this, not the toggle: re-entering a live
+        // session adopts the fight ALREADY pinned to it, which may have been paid for
+        // on an earlier launch. Simulating at a different charge pace than the verifier
+        // replays would fail the finish outright.
+        if (opened.concentration !== undefined) spendConcentration = opened.concentration;
+        // The server debits the boost and echoes the stock; adopt it rather than
+        // decrementing locally, exactly as the raid launch does.
+        if (opened.inventory) economy?.adoptRaidStartInventory(opened.inventory);
         economy?.adoptEpicBossActivation(opened.event, opened.balance, opened.serverTime);
         state.setEpicBossRun(epicBossRunToClient(opened.event, opened.serverTime ?? Date.now()));
       } catch (error) {
@@ -4959,6 +4978,7 @@ async function main() {
         else if (code === "insufficient_brains") hud.showToast(`You need ${EPIC_BOSS_FIGHT_BRAIN_COST} brains.`);
         else if (code === "battle_in_progress") hud.showToast("Another battle is already in progress.");
         else if (code === "bad_roster") hud.showToast("One of those zombies is unavailable. Please choose your army again.");
+        else if (code === "no_concentration") hud.showToast("You don't have a Concentration to spend.");
         else if (code === "stale_ruleset") {
           // Same refusal, same remedy as an invasion (see the raid launch path): this tab
           // predates the deployed Worker, so it would simulate the fight under different
@@ -4977,6 +4997,9 @@ async function main() {
       partyIds = settled.ids;
       party = settled.party;
       if (!party.length) return false;
+      // Offline the save owns the stock, so spend it here — online the server debited
+      // it at /epic-boss/start and echoed the result.
+      if (spendConcentration) state.useBoost(CONCENTRATION_KEY);
       if (payment === "token") {
         if ((gate.run.tokenCount ?? 0) < 1) { hud.showToast("You need a Boss Token."); return false; }
         state.setEpicBossRun({ ...gate.run, tokenCount: gate.run.tokenCount - 1 });
@@ -5010,12 +5033,15 @@ async function main() {
       roundMs: def.fightMs,
       escapeOnRoundEnd: true,
       noDistractions: true,
+      // Must match what the server pinned into the session config, or the verified
+      // replay charges at a different pace than the fight the player watched.
+      concentration: spendConcentration,
       imageBase: epicAsset(def, ""),
       bossTexture: epicAsset(def, def.bossTexture),
       bossPortrait: epicAsset(def, def.portrait),
       bossAnimations: def.animations,
       bossFallsFromSky: true,
-      bossEngageDistance: 150,
+      bossEngageDistance: EPIC_BOSS_ENGAGE,
       // The animated bosses sit high and left inside generously padded animation cells,
       // so their token is nudged to put the visible character on the ground line (Loco
       // Locust sits lower in his cells than the rest, so he needs less of a drop). A
@@ -5199,10 +5225,15 @@ async function main() {
   // boosts scaled by the opposing army's strength.
   const boostDefOf = (key: string) => assets.boosts.find((b) => b.key === key);
   const launchPvpBattle = (
-    sessionId: string,
+    sessionId: string | null,
     config: NonNullable<Awaited<ReturnType<typeof api.pvpStart>>["config"]>,
     friendName: string
   ) => {
+    // A null session is a PRACTICE run against the player's own defense: the server
+    // opened nothing, so there is no live fight to track, nothing to settle and
+    // nothing to abandon. Everything else about the fight is identical, which is the
+    // point — a test that fought a different fight would be worthless.
+    const practice = sessionId === null;
     const raidDef = buildPvpRaidDef(
       { raidName: config.raidName, defenderName: config.pvp.defenderName },
       assets.raids.find((r) => r.id === MCDONNELL_ID)
@@ -5211,9 +5242,9 @@ async function main() {
     raidActive = true;
     world.visible = false;
     hud.setRaiding(true);
-    hud.setBattleLoading(true, `Invading ${friendName}'s farm…`);
-    setLivePvpSession(sessionId);
-    crumb("battle:launch", `pvp:${friendName} · ${config.playerUnits.length} zombies`);
+    hud.setBattleLoading(true, practice ? "Testing your defense…" : `Invading ${friendName}'s farm…`);
+    if (sessionId) setLivePvpSession(sessionId);
+    crumb("battle:launch", `${practice ? "pvp-practice" : `pvp:${friendName}`} · ${config.playerUnits.length} zombies`);
     audio.enterRaid(raidDef.music);
     const epoch = launchGate.stamp();
     withBattleLoadTimeout(RaidScene.create(app, {
@@ -5233,10 +5264,37 @@ async function main() {
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
       confirmRetreat: () => hud.confirmInGame(
-        "Retreat from the invasion?", "The fight ends and their defense holds.", "Retreat"
+        practice ? "Stop the test?" : "Retreat from the invasion?",
+        practice ? "The test ends. Nothing was at stake." : "The fight ends and their defense holds.",
+        practice ? "Stop" : "Retreat"
       ),
       onCheckpoint: undefined,
       onFinish: (outcome, finalTick, inputs) => {
+        if (practice || sessionId === null) {
+          // Settled entirely here. There is no session to finish and no reward to
+          // verify, so the local sim's own outcome IS the result — the fight was the
+          // server's pinned config, which is the only part that had to be authoritative.
+          const view: RaidResultView = {
+            // The player attacked their own defense, so a win means the defense FAILED.
+            win: !outcome.win,
+            title: outcome.win ? "YOUR DEFENSE FELL" : "YOUR DEFENSE HELD",
+            enemiesBeaten: outcome.enemiesBeaten,
+            zombiesLost: 0,
+            gold: 0, brains: 0, xp: 0, firstClear: false,
+            loot: [],
+            abilityUnlock: "",
+          };
+          hud.openRaidResult(view, () => {
+            if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
+            raidActive = false;
+            resumeFarmJobs();
+            world.visible = true;
+            hud.setRaiding(false);
+            audio.exitRaid();
+          });
+          hud.showToast("Practice run — no rewards, and nothing was lost.", 5000);
+          return;
+        }
         void api.pvpFinish(sessionId, finalTick, inputs, outcome).then((res) => {
           // Settled: the row is closed server-side, so stop tracking it. A refusal
           // takes the other path, where abandonBattle hands the session back — the
@@ -5355,6 +5413,47 @@ async function main() {
             hud.showToast("Another invasion is already in progress.");
           } else hud.showToast("The invasion could not be started.");
         } else hud.showToast("Gameplay is paused until the server reconnects.");
+      }
+    }, undefined));
+  };
+  // Fight your own defense. Deliberately the same code path as a real invasion —
+  // same army picker, same pinned config from the server, same battle scene — with a
+  // null session id standing for "nothing is at stake". A test that took a shortcut
+  // anywhere would be answering a different question than the one being asked.
+  hud.onTestPvpDefense = () => {
+    if (!PVP_UI_ENABLED) return;
+    if (!onlineFarm) { hud.showToast("Testing your defense needs an online farm."); return; }
+    if (raidActive || launchGate.busy || Date.now() < raidLaunchLockedUntil) return;
+    hud.openPvpArmy("your own defense", (orderedIds) => void launchGate.run(async () => {
+      try {
+        await economy?.settleBeforeDependency();
+        const settled = reconcilePartySelection(
+          orderedIds,
+          zombies.roster().filter((z) => !z.stored),
+          (id) => economy?.authoritativeUnitId(id) ?? id,
+          PVP_ARMY_SIZE
+        );
+        if (settled.missingIds.length || settled.ids.length !== PVP_ARMY_SIZE) {
+          hud.showToast("Some chosen zombies are no longer available. Please pick your army again.");
+          return;
+        }
+        const gate = await api.pvpPractice(settled.ids);
+        if (!gate.ok || !gate.config) {
+          hud.showToast(gate.error === "no_defense"
+            ? "Set a defense line-up first, then you can test it."
+            : "The test could not be started.");
+          return;
+        }
+        // No raidLaunchLockedUntil stamp: that cooldown exists to space out attacks
+        // that cost a friend's pair cap, and a practice run costs nobody anything.
+        launchPvpBattle(null, gate.config, gate.config.pvp.defenderName);
+      } catch (error) {
+        if (error instanceof api.ApiError && error.code === "stale_ruleset") {
+          hud.showToast("The game has updated. Reload to test your defense.", 6000);
+          promptReload("The game has updated. Reload to keep playing.");
+        } else if (error instanceof api.ApiError && error.code === "no_defense") {
+          hud.showToast("Set a defense line-up first, then you can test it.");
+        } else hud.showToast("The test could not be started.");
       }
     }, undefined));
   };
@@ -5549,7 +5648,8 @@ async function main() {
           partyIds,
           !!opts.concentration,
           Math.max(0, Math.floor(opts.dice ?? 0)),
-          !!opts.brainTicket
+          !!opts.brainTicket,
+          Math.max(0, Math.floor(opts.tier ?? 0))
         );
         if (!gate.ok) {
           // Distinguish the server's refusals: the client already hides locked raids and
@@ -5563,6 +5663,10 @@ async function main() {
             hud.showToast("No Invasion Voucher to skip the cooldown.");
           } else if (gate.error === "no_brain_ticket") {
             hud.showToast("No Brain Ticket for an elite invasion.");
+          } else if (gate.error === "elite_unavailable") {
+            hud.showToast("This invasion has tiers instead of Brain Tickets.");
+          } else if (gate.error === "tier_locked") {
+            hud.showToast(`Tier ${gate.unlockedTier ?? 1} is as far as you have climbed here.`);
           } else {
             const mins = Math.ceil((gate.cooldownRemaining ?? 0) / 60000);
             hud.showToast(`Invasion on cooldown — about ${mins} min left.`);
@@ -5612,6 +5716,8 @@ async function main() {
           else if (error.code === "raid_in_progress") hud.showToast("Another invasion is already in progress.");
           else if (error.code === "no_voucher") hud.showToast("No Invasion Voucher to skip the cooldown.");
           else if (error.code === "no_brain_ticket") hud.showToast("No Brain Ticket for an elite invasion.");
+          else if (error.code === "elite_unavailable") hud.showToast("This invasion has tiers instead of Brain Tickets.");
+          else if (error.code === "tier_locked") hud.showToast("You have not unlocked that tier yet.");
           else if (error.code === "stale_ruleset") {
             // This tab predates the deployed Worker, so the server refuses to pin a fight
             // it and the client would simulate differently. Nothing is consumed and no
@@ -5695,6 +5801,13 @@ async function main() {
       waveCadence: setup.waveCadence,
       wallTemplate: setup.wallTemplate,
       turnedTemplate: setup.turnedTemplate,
+      sign: setup.sign,
+      dexTax: setup.dexTax,
+      copies: setup.copies,
+      bubble: setup.bubble,
+      bubbleWall: setup.bubbleWall,
+      bossDropAtMs: setup.bossDropAtMs,
+      bossGroundStationX: setup.bossGroundStationX,
       brainDrop: setup.brainDrop,
       concentration: setup.concentration,
       onStrike: (strike) => audio.fightStrike(strike),
@@ -5716,7 +5829,7 @@ async function main() {
         const online = onlineFarm && !!raidSessionId && !!economy;
         const view = raids.finishRaid(
           setup.raid, setup.party, outcome, setup.dice, online,
-          setup.brainDrop, setup.brainEligible, setup.elite
+          setup.brainDrop, setup.brainEligible, setup.elite, setup.tier
         );
         const casualtyParty = setup.party.filter((zombie) => outcome.losses.includes(zombie.id));
         let settlementPromise: Promise<api.RaidFinishResult> | null = null;
@@ -6446,12 +6559,12 @@ async function main() {
       `Sell +${refund}g`,
     )) return false;
     if (economy) {
-      // Claim into a short-lived authoritative object, then refund it in the same
-      // ordered command batch. The requested id links the two operations without
-      // ever placing a client-side object on the farm.
-      const instanceId = `reward-sale-${crypto.randomUUID()}`;
-      if (!economy.submitStorageClaim(entry, { localObjectId: instanceId })) return false;
-      economy.submitObject({ type: "refund", key: def.key, instanceId }, { gold: refund });
+      // One command, and deliberately not the claim-then-refund pair this used to be.
+      // That pair minted an object between the two commands, so a farm at the object
+      // cap had its claim refused ("object limit") and the refund behind it rolled back
+      // as a dependency ("no longer available") — the reward could then neither be
+      // placed nor sold, on exactly the full farm that needed to shed one.
+      if (!economy.submitStorageRefund(entry, refund)) return false;
     } else state.addGold(refund);
     state.takeReceivedAt(index);
     audio.play("sell");

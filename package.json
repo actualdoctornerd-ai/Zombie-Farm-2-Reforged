@@ -12,7 +12,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:replay-benchmark": "vitest run --config vitest.replay.config.ts",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:difficulty": "vitest run --config vitest.difficulty.config.ts && node tools/difficulty_table.mjs",
+    "test:cohorts": "vitest run --config vitest.cohorts.config.ts && node tools/cohort_table.mjs",
+    "test:strength": "vitest run --config vitest.strength.config.ts && node tools/strength_table.mjs && node tools/strength_page.mjs",
+    "test:builds": "vitest run --config vitest.builds.config.ts && node tools/build_table.mjs",
+    "test:mechanics": "vitest run --config vitest.mechanics.config.ts && node tools/mechanic_table.mjs",
+    "test:search": "vitest run --config vitest.search.config.ts && node tools/search_table.mjs",
+    "test:effective": "vitest run --config vitest.effective.config.ts && vitest run --config vitest.effectiveFit.config.ts && node tools/effective_table.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.6.6"

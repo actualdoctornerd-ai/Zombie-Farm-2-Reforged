@@ -813,7 +813,11 @@ export const raidStart = (
   orderedUnitIds: string[],
   concentration = false,
   dice = 0,
-  brainTicket = false
+  brainTicket = false,
+  /** Which rung of a dual invasion's ladder to fight (1..MAX_TIER). Ignored for every
+   *  other raid, which has no ladder. The server validates it against what this account
+   *  has unlocked and answers `tier_locked` if it is above that. */
+  tier = 0
 ) =>
   req<{
     ok: boolean;
@@ -822,6 +826,8 @@ export const raidStart = (
     cooldownRemaining?: number;
     error?: string;
     unlockLevel?: number;
+    /** Answered with `error:"tier_locked"`: the highest tier this account may fight. */
+    unlockedTier?: number;
     /** Golden Dice the server actually consumed + pinned to the session (may be fewer
      *  than asked if the stock ran short). Its loot roll uses this number. */
     dice?: number;
@@ -851,6 +857,7 @@ export const raidStart = (
     concentration,
     dice,
     brainTicket,
+    tier,
     rulesetVersion: RAID_RULESET_VERSION,
   });
 
@@ -888,6 +895,8 @@ export interface RaidFinishResult {
   inventory?: Record<string, number>;
   storage?: { received: Record<string, number>; stored: Record<string, number> };
   raidProgress?: Record<string, number>;
+  /** Dual-invasion ladder after this settlement: highest tier CLEARED per raid id. */
+  raidTiers?: Record<string, number>;
   /** Daily/weekly quest state after this settlement — an invasion win advances it, and
    *  /raid/finish is the only path a win travels. Absent on a Worker predating them. */
   periodicQuests?: PeriodicQuestProjection | null;
@@ -947,6 +956,19 @@ export const pvpStart = (defenderId: string, orderedUnitIds: string[]) =>
     limit?: number;
   }>("POST", "/raid/pvp/start", {
     defenderId,
+    orderedUnitIds,
+    rulesetVersion: RAID_RULESET_VERSION,
+  });
+
+/** Fight your own defense. Returns a fight config and nothing else: no session, so
+ *  there is no id to finish, nothing to abandon and nothing to claim. */
+export const pvpPractice = (orderedUnitIds: string[]) =>
+  req<{
+    ok: boolean;
+    error?: string;
+    config?: PvpFightConfig;
+    serverTime?: number;
+  }>("POST", "/raid/pvp/practice", {
     orderedUnitIds,
     rulesetVersion: RAID_RULESET_VERSION,
   });
@@ -1144,14 +1166,28 @@ export const epicBossEnd = (runId: string) => req<{
  *  the Worker, and v28/v29 put the attempt window and the damage curve inside the rules, so
  *  a bundle that disagrees with the deployed Worker must be refused BEFORE it pays for an
  *  attempt it would then lose at verification. */
-export const epicBossStart = (orderedUnitIds: string[], payment: import("../epicBoss/tokens").EpicBossPayment) => req<{
+export const epicBossStart = (
+  orderedUnitIds: string[],
+  payment: import("../epicBoss/tokens").EpicBossPayment,
+  concentration = false,
+) => req<{
   ok: true;
   sessionId: string;
   event: import("./protocol").EpicBossProjection;
   balance: Balance;
   expiresAt: number;
   serverTime?: number;
-}>("POST", "/epic-boss/start", { orderedUnitIds, payment, rulesetVersion: RAID_RULESET_VERSION });
+  /** The Concentration state of the session the caller is now in. Sent when a boost
+   *  was just spent (with the debited `inventory`), and on a RESUME, where it reports
+   *  what the live session was already pinned with. */
+  concentration?: boolean;
+  inventory?: Record<string, number>;
+  /** True when this re-entered an already-open session instead of opening one. */
+  resumed?: boolean;
+}>("POST", "/epic-boss/start", {
+  orderedUnitIds, payment, rulesetVersion: RAID_RULESET_VERSION,
+  ...(concentration ? { concentration: true } : {}),
+});
 
 export const epicBossFinish = (
   sessionId: string,

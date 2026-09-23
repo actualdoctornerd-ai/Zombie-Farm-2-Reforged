@@ -863,7 +863,199 @@ import type { RaidOutcome } from "./types";
 // that fields a Regular or a Girl, which is nearly all of them; classic-mode PvP, raids and the
 // Epic Boss have no `deployAtMs` and replay bit-identically. Same cost as every bump: a fight in
 // flight at deploy time settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 54;
+// v55 — two blockers can stand at once (Stage 0 of the post-45 dual invasions; see
+// docs/POST_45_PROGRESSION.md). Three latent defects in the roadblock machinery, all of which
+// were correct only while a wall and an abductee could never share a lane:
+//   - `wallInWay` took the first blocker in ARRAY order (i.e. spawn order) rather than the
+//     nearest one ahead, so a zombie standing between two could fix on the far one and walk
+//     through the near one. It now takes the nearest, ties keeping array order.
+//   - `passedWall` was one boolean for "I am already past a blocker", so passing either one
+//     excused a zombie from BOTH. It is now `passedBlockers`, a per-blocker id list. Any
+//     backwards carry clears it — the revive already did, and a teleport will have to.
+//   - `isSummon` meant both "off the wave budget" and "is a roadblock", with `!isTurned`
+//     patched on wherever the converted pixel zombie had to be excused. Geometry is now its
+//     own flag, `isBlocker`.
+// Plus `anchorsLine`, so a hazard dropped mid-lane does not drag the army's line up to meet
+// it (refreshFrontLine). NO SHIPPED FIGHT CHANGES: no raid fields two blockers, no PvE fight
+// authors a station, and the full raid suite — including the elite balance measurements —
+// is unmoved. The bump is for the SNAPSHOT: a checkpoint written under v54 carries
+// `passedWall` and no `isBlocker`, so restoring one here would put a fight back on the lane
+// with nothing blocking it.
+// v56 — the Lawyer boss's PLACARD (raid 12, Stage 1 of the post-45 invasions; see
+// docs/POST_45_PROGRESSION.md). While a placard is up, the class it names stops attacking,
+// gives up its place in the line and walks slowly backwards out of the fight; its live
+// support work stops with it (no heals, no revives, no activated button), and the whole
+// thing ends when the boss leaves its perch to fight.
+//
+// The rotation is FIXED and identical every fight, and the placard on screen is a pure
+// function of the fight clock — no stored index, no roll, nothing new in the snapshot — so
+// the two simulations cannot drift apart on it even in principle. It rides in the pinned
+// config (`PinnedRaidConfig.sign`) alongside the wave, so a replay reads back the exact
+// rotation the fight was fought under rather than re-deriving one.
+//
+// Touches raid 12 alone: `signFor` returns null everywhere else and the sim's whole sign
+// path is behind a null config, so every other transcript is bit-identical. The bump is
+// owed anyway because a v55 session carries no `sign` in its config and would replay this
+// fight without one.
+// v57 — the pirate captain's CHARGE and the ninja's DEX TAX (raid 13, Stage 2 of the
+// post-45 invasions; see docs/POST_45_PROGRESSION.md).
+//
+// The captain fights on the ground as a powerful minion — the ninja holds the boss slot —
+// and winds up a long slam that lands on the whole deployed line. Stuns aimed at him during
+// that wind-up do NOT freeze him: they fill a POISE bar, per source (a Female proc 10%, a
+// Smash 50%, a ram or a fuse the whole thing), and filling it sends him back to the start
+// after a rest. That swap is the point. Everywhere else a stun is `Math.max`, which against
+// a charge is an off switch rather than a counter: a girl-heavy line lands a proc about
+// every 1.7 s and a wind-up would simply never complete, all fight, for free.
+//
+// This introduces ONE entry point for stunning an enemy (`stunEnemy`), which every
+// player-side stun now routes through — the activated moves, the Mini Buddy ram and the
+// Female proc. Behaviour for every other enemy is unchanged: with no charge running it is
+// the same `Math.max` it always was.
+//
+// The dex tax re-derives the perched ninja's throw interval from the army's total attack
+// speed each time he throws, so the sky tightens as the player commits more of their line.
+// It reads player state, which is new for an enemy behaviour, and stays deterministic for
+// the ordinary reason: it is sim state on both sides of the same pinned config.
+//
+// Touches raid 13 alone — `chargeFor` is null elsewhere and `dexTax` is false — so every
+// other transcript is bit-identical. The bump is owed anyway: a v56 session carries neither
+// the captain nor the flag in its config.
+// v58 — THE LAWYER'S OBJECTION BECOMES A CHOICE (raid 12; see docs/POST_45_PROGRESSION.md).
+//
+// The placard used to name one class on a fixed rotation and bench it. It now holds up TWO
+// thought bubbles naming two different classes, and the player taps the one that goes; from
+// tier 6 each bubble holds a pair. If nobody taps, the slot takes a pinned auto-pick. So the
+// mechanic stops being "survive the rotation you memorised" and becomes "give up one of
+// these two, every five seconds, while the field changes under you".
+//
+// Three things this changes about the transcript.
+//
+//   * A NEW INPUT, `signPick` (offer index + which bubble). The pick is the only thing in
+//     raid 12 the two simulations cannot derive independently, so it is transcribed for
+//     exactly the reason `wallTap` is (v14): an untranscribed one puts them permanently out
+//     of step. `offer` is carried rather than implied so a pick can only ever answer the
+//     question it was actually shown.
+//   * THE BENCH IS NO LONGER A PURE FUNCTION OF THE CLOCK. The sim now carries the resolved
+//     picks (`signResolved`) and the uncommitted one (`signPending`), and both ride the
+//     CHECKPOINT snapshot — a mid-fight segment that forgot them would resume barring the
+//     wrong class.
+//   * THE AUTO-PICK IS PINNED, NOT ROLLED. `signFor` pre-draws one bubble per slot from the
+//     raid session seed (the same seed the Robots' wave is drawn from) into the config the
+//     Worker pins at /raid/start. Nothing about an unattended slot is decided during the
+//     fight, so there is nothing for the two sides to disagree about.
+//
+// A REFUSED `signPick` IS THE ONE REFUSAL IN THE TRANSCRIPT THAT IS NOT SELF-HARM. The other
+// five are all the player helping their own army, so dropping one only ever makes the
+// server's own fight harder (see `advanceRaidSegment`). A dropped pick instead lets the
+// server's slot fall through to the auto-pick, which may bar a DIFFERENT class than the
+// player's screen did — from there the two fights are simply different. It is dropped
+// anyway, and deliberately: the alternative is failing the whole finish on a one-tick race,
+// which is the bug class that cost 84 accounts their hazard-raid victories at v29. It also
+// cannot be induced on purpose. Raid 12 carries neither client-only hazard (no trapeze, no
+// crab), so the two sims run tick-for-tick identical and a well-formed pick made against a
+// live offer is accepted on both sides; and the auto-pick a refusal would fall through to
+// is unknown to the player, so there is nothing to aim a forced refusal at.
+//
+// Touches raid 12 alone — `signFor` is null everywhere else — so every other transcript is
+// bit-identical. The bump is owed anyway: a v57 session's pinned config carries the old
+// `rotation` shape and no auto-pick table at all. Same cost as every bump: an invasion in
+// flight at deploy time settles as stale_ruleset and pays nothing.
+// v59 — THE DUAL INVASIONS BECOME A FIGHT. Four playtest findings from raid 12, all of
+// which change the transcript from tick 0, so they land together (owner, 2026-09-19).
+//
+//   * THE WAVE LINES UP. Raids 12-15 leave the one-at-a-time drip for the alien stage's
+//     cadence (6 on the field, another slot every 10 s — `dualWaveCadence`, a deliberate
+//     copy of the alien numbers rather than an alias of them). Ten of the eleven shipped
+//     raids let `activeTarget` sit at 1, which against a finished roster is a queue rather
+//     than a battle, and it hides the wave: you can never see how much of it is left.
+//   * THE RUNG NOW SCALES THE ENEMIES. `tierProfile` is finally wired into the fight
+//     through one shared `raidProfile(raidId, {elite, tier})` that the client, the Worker
+//     and the Raid Lab all call. It was built at ruleset 55 and left disconnected pending
+//     the harness rebuild; leaving it out meant every rung fought the authored wave, and a
+//     rung-7 fight fell to an unmutated Silver roster in 44 s without a casualty. The ramp
+//     is also RE-BASED so tier 1 opens above the authored fight instead of at it — still a
+//     placeholder, now a playtest-set one rather than an untested 1.0.
+//   * McDONNELL DOES NOT SHOVE HERE. `OldMcDonnellPunch` carries `knockBack` at frequency
+//     100, so every swing he lands throws a zombie 150 units down the lane and re-slots it
+//     last. Against a wave that trickles that is a duel mechanic; against a wave that LINES
+//     UP it carries the zombie out of reach of the entire line, repeatedly. Stripped from
+//     the farmer squad only — he keeps it on raid 1, where it has always worked.
+//   * THE OBJECTION DWELL IS 8 s, up from 5. Five was long enough to read the two bubbles
+//     and not long enough to think about them.
+//
+// Touches raids 12-15 alone: `dualWaveCadence` and `tierProfile` are gated on
+// `isDualInvasion`, and the squad is raid 12's. Every other transcript is bit-identical.
+// Same cost as every bump: an invasion in flight at deploy time settles as stale_ruleset
+// and pays nothing.
+// v60 — THE SECOND LINE (raid 14, Circus & Video Games; Stage 3 of the post-45 invasions).
+//
+// Everything in this fight happens behind you.
+//
+//   * COPIES. Every time a zombie deploys, the trapeze drops a copy of THAT zombie into
+//     the army's rear — its own built stats at a tier-scaled fraction of its life, in a
+//     different tint. Per deployment rather than on a timer, so the player chooses what
+//     the circus gets to copy by choosing their queue order. It is the first thing in the
+//     sim that makes a unit out of one of the PLAYER's, and it stays deterministic for the
+//     ordinary reason: release order is sim state driven by `promote` and by focus-bubble
+//     taps, and those taps are transcribed, so both sides copy the same zombie on the same
+//     tick.
+//   * A copy is a BLOCKER, which is what makes the rear a separate fight. A zombie swings
+//     at whatever is nearest in x from wherever it stands, so an ordinary enemy dropped
+//     behind the line would just be shot down from the line at no positional cost. The
+//     `passedBlockers` latch means the existing line ignores it and the reinforcements
+//     behind it have to cut through — and blockers are outside the win condition, so it
+//     can never hang the fight.
+//   * STACKS. Three midget towers, each ONE unit carrying a height rather than three
+//     bodies (nine extra bodies would not settle inside four minutes). Height is DERIVED
+//     from hit points — a tower carries one pool per level it has climbed and fights at
+//     however many are still standing — so burst topples a level and the thing weakens as
+//     it comes apart, with no second state machine.
+//   * THE RINGMASTER stops waiting for his wave from rung 5: he drops on a clock into a
+//     mid-lane station with `anchorsLine` false. Every other boss still waits, and this is
+//     the first `bossDropAtMs` / `bossGroundStationX` in the game.
+//
+// Touches raid 14 alone — `copiesFor`, `stacksFor` and `ringmasterDropMs` are all null
+// elsewhere — so every other transcript is bit-identical. The bump is owed anyway: a v59
+// session's pinned config carries none of the three. Same cost as every bump: an invasion
+// in flight at deploy time settles as stale_ruleset and pays nothing.
+// v61 — THE BUBBLE (raid 15, Aliens & Robots; Stage 4, the last of the post-45 invasions).
+//
+// A thought bubble over the saucer charges one of five disasters in a fixed order, and the
+// player holds a limited budget of CANCELS. The fixed order costs the replay no randomness
+// at all; what keeps the decision live is scarcity — fewer charges than actions means a
+// fixed order is a fixed MENU rather than a fixed answer.
+//
+//   wall     the JunkBot's blocker at `supportX`, INSIDE the player's own half, so it cuts
+//            reinforcements off rather than barring a line that already walked past it
+//   aoe      damage to every deployed zombie at once
+//   swap     the next QUEUED alien is re-statted into something far worse — no new body,
+//            so it can neither hold the boss on its perch nor spend the settle budget
+//   stunAll  nothing on its own; everything when a wall is up or the portal just landed
+//   portal   (rung 6+) half the deployed line back to the staging slot, its
+//            `passedBlockers` cleared so the wall it has to walk back through counts again
+//
+// A new input, `castCancel`. Unlike `signPick` this one IS one-way self-harm in the
+// ordinary sense — a refused cancel is help the server's player never receives, and the
+// server simply eats a disaster the client stopped — so it is dropped and counted like the
+// other taps rather than failing the finish.
+//
+// THE ALIEN WAVE IS RE-COMPOSED, which changes raid 15's transcript on its own. It cloned
+// the alien stage's twenty-strong weighted table WITH the robots in it, and a BroBot is
+// con 350 against an alien minion's 60: the fight weighed 409,000 points, nearly four times
+// the settle budget, and the tier ladder had to divide by six to keep it finishable. The
+// aliens are the wave now (ten of them) and the robots send ONE powerful minion on its own
+// clock, exactly as the farm boss does in raid 12 and the pirate captain in 13.
+//
+// The alien boss's abduction stays, and lands immediately enemy-side of the bubble's wall
+// instead of at the authored mid-lane spot — so wall plus abductee is one double-thick
+// roadblock across the player's own lane rather than two separate nuisances.
+// `summonConfigFor` is extended to raid 15 for the first time.
+//
+// Touches raid 15 alone — `bubbleFor` is null elsewhere, and so is the bubble wall that the
+// abductee re-homing keys on. Same cost as every bump: an invasion in flight at deploy time
+// settles as stale_ruleset and pays nothing.
+export const RAID_RULESET_VERSION = 61;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;
@@ -875,6 +1067,8 @@ export type RaidReplayInput =
   | { seq: number; tick: number; type: "wallTap"; unitId: string }
   | { seq: number; tick: number; type: "fireTap"; unitId: string }
   | { seq: number; tick: number; type: "turnedTap"; unitId: string }
+  | { seq: number; tick: number; type: "signPick"; offer: number; option: number }
+  | { seq: number; tick: number; type: "castCancel" }
   | { seq: number; tick: number; type: "retreat" };
 
 /** How far the server's replay had to depart from the client's account of the fight.
@@ -913,7 +1107,9 @@ export type SegmentResult =
  * simulation to its own conclusion.
  *
  * A tap the sim REFUSES (`illegal_bubble` / `illegal_ability` / `illegal_wall_tap` /
- * `illegal_fire_tap` / `illegal_turned_tap`) is dropped the same way, for the same reason.
+ * `illegal_fire_tap` / `illegal_turned_tap` / `illegal_sign_pick`) is dropped the same way.
+ * Five of the six are for the same reason; `illegal_sign_pick` is the exception and is
+ * dropped for a different one — see the v58 note at the top of this file.
  * All five are the player HELPING their own army — releasing a charged zombie, spending an
  * activated move, chipping a wall, smothering a fire, breaking a converted zombie back
  * out — so a refusal is help the server's player never receives, and every consequence
@@ -1008,6 +1204,26 @@ export function advanceRaidSegment(
         if (typeof input.unitId !== "string") return { ok: false, error: "illegal_turned_tap" };
         if (!sim.tapTurned(input.unitId)) {
           const fatal = refuse("illegal_turned_tap");
+          if (fatal) return fatal;
+        }
+      } else if (input.type === "signPick") {
+        // Choosing which class the Lawyer boss bars. Structurally malformed is fatal, as
+        // everywhere else; a well-formed pick the sim will not take is dropped and
+        // counted — see the v58 note above for why that one is a real (if unreachable)
+        // divergence rather than help the server's player never receives.
+        if (!Number.isInteger(input.offer) || input.offer < 0) return { ok: false, error: "illegal_sign_pick" };
+        if (input.option !== 0 && input.option !== 1) return { ok: false, error: "illegal_sign_pick" };
+        if (!sim.pickSign(input.offer, input.option)) {
+          const fatal = refuse("illegal_sign_pick");
+          if (fatal) return fatal;
+        }
+      } else if (input.type === "castCancel") {
+        // Stopping the saucer's cast (raid 15). This one IS one-way self-harm in the
+        // ordinary sense — a refused cancel is help the server's player never receives,
+        // and the server then eats a disaster the client stopped — so it is dropped and
+        // counted like the taps above rather than failing the finish.
+        if (!sim.cancelCast()) {
+          const fatal = refuse("illegal_cancel");
           if (fatal) return fatal;
         }
       } else if (input.type === "retreat") {

@@ -225,7 +225,8 @@ export class SaveManager {
       boosts: this.state.boostInv,
       quests: this.quests.serialize(),
       ...(this.periodicQuests?.serialize() ? { periodicQuests: this.periodicQuests.serialize() } : {}),
-      raids: { completed: this.state.raidsCompleted, lastRaidAt: this.state.lastRaidAt, attackOrder: this.state.raidAttackOrder,
+      raids: { completed: this.state.raidsCompleted, tiers: this.state.raidTiers,
+        lastRaidAt: this.state.lastRaidAt, attackOrder: this.state.raidAttackOrder,
         brainDryStreak: this.state.brainDryStreak, zombieDryWins: this.state.zombieDryWins },
       epicBoss: this.state.epicBossRun ?? undefined,
       social: { friends: this.state.friends },
@@ -757,6 +758,7 @@ export class SaveManager {
     }
     this.state.boostInv = data.boosts ?? [];
     this.state.raidsCompleted = data.raids?.completed ?? {};
+    this.state.raidTiers = data.raids?.tiers ?? {};
     this.state.lastRaidAt = data.raids?.lastRaidAt ?? 0;
     this.state.raidAttackOrder = data.raids?.attackOrder ?? [];
     this.state.brainDryStreak = Math.max(0, Math.trunc(data.raids?.brainDryStreak ?? 0));

@@ -73,7 +73,7 @@ interface RaidRow {
   earliest_finish_at: number;
   expires_at: number;
 }
-interface RaidStateRow { last_started_at: number; progress_json: string }
+interface RaidStateRow { last_started_at: number; progress_json: string; tier_json: string }
 interface EpicRunRow {
   run_id: string; boss_id: string; activated_at: number; expires_at: number; level: number;
   max_hp: number; current_hp: number; encounter_started_at: number; retry_ready_at: number;
@@ -191,7 +191,7 @@ async function readAll(db: D1Database, accountId: string) {
     db.prepare(`SELECT id, raid_id, roster_json, started_at, earliest_finish_at, expires_at
       FROM raid_sessions_v3 WHERE account_id = ? AND finished_at IS NULL ORDER BY started_at DESC LIMIT 1`)
       .bind(accountId).first<RaidRow>(),
-    db.prepare("SELECT last_started_at, progress_json FROM raid_state_v3 WHERE account_id = ?")
+    db.prepare("SELECT last_started_at, progress_json, tier_json FROM raid_state_v3 WHERE account_id = ?")
       .bind(accountId).first<RaidStateRow>(),
     db.prepare(`SELECT session_id, casualties_json FROM raid_revivals_v3
       WHERE account_id = ? AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1`)
@@ -302,7 +302,8 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     potSlots: core.potSlots ?? {},
     roster,
     fallen,
-    raids: { progress: parse(rows.raidState.progress_json, {}), lastRaidAt: rows.raidState.last_started_at },
+    raids: { progress: parse(rows.raidState.progress_json, {}), tiers: parse(rows.raidState.tier_json, {}),
+      lastRaidAt: rows.raidState.last_started_at },
     raidRevival: rows.raidRevival ? {
       sessionId: rows.raidRevival.session_id,
       zombies: parse(rows.raidRevival.casualties_json, []),

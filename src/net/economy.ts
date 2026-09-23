@@ -866,6 +866,13 @@ export class EconomyClient {
     ) !== null;
   }
 
+  /** Sell a Received reward where it stands. One command, no object: see the
+   *  `storage.refund` note in protocol.ts for why the claim-then-refund pair it
+   *  replaces could not be used on a farm at the object cap. */
+  submitStorageRefund(itemName: string, gold: number): boolean {
+    return this.enqueue({ type: "storage.refund", itemName }, { gold }) !== null;
+  }
+
   submitShopSize(size: number, currency: "gold" | "brains", cost: number): boolean {
     return this.enqueue(
       { type: "shop.size", size, currency }, currency === "gold" ? { gold: -cost } : { brains: -cost }
@@ -992,6 +999,7 @@ export class EconomyClient {
     if (result.inventory) this.serverInv = { ...result.inventory };
     if (result.storage) this.state.syncStorage(result.storage.received, result.storage.stored);
     if (result.raidProgress) this.state.syncRaidProgress(result.raidProgress);
+    if (result.raidTiers) this.state.syncRaidTiers(result.raidTiers);
     if (result.lastRaidAt != null) this.state.syncRaidCooldown(serverTimestampToClient(
       result.lastRaidAt,
       result.serverTime ?? Date.now(),
@@ -1364,6 +1372,7 @@ export class EconomyClient {
     this.serverInv = gameplay.inventory;
     this.state.zombiePotBought = gameplay.zombiePotBought ?? false;
     this.state.syncRaidProgress(gameplay.raids.progress);
+    this.state.syncRaidTiers(gameplay.raids.tiers ?? {});
     this.state.syncRaidCooldown(serverTimestampToClient(gameplay.raids.lastRaidAt, serverTime));
     // Outside the deferStructural gate below: periodic quests are pure display state
     // with no dependency on the farm reconcile, so holding them back would leave the

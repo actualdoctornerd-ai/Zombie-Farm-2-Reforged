@@ -25,15 +25,21 @@ import "pixi.js/unsafe-eval";
 import { Application, type Ticker } from "pixi.js";
 import { loadAssets, type GameAssets, type ZombieDef } from "../assets";
 import { EPIC_BOSSES, epicBossHp } from "../epicBoss/catalog";
-import { buildEpicBossSetup } from "../epicBoss/combat";
+import { buildEpicBossSetup, EPIC_BOSS_ENGAGE } from "../epicBoss/combat";
 import { epicAsset } from "../epicBoss/lootImage";
 import type { EpicBossDef, EpicBossRun } from "../epicBoss/types";
 import { waveCadenceFor } from "../raid/alienStage";
 import { buildEnemyUnits, buildPlayerUnits } from "../raid/CombatEngine";
-import { eliteBossSpecials, eliteBossThrow, eliteProfile } from "../raid/eliteInvasion";
+import { eliteBossSpecials, eliteBossThrow } from "../raid/eliteInvasion";
 import {
-  bossSpecialsFor, bossThrowFor, crabFor, grabberFor, summonFor, turnedTemplateFor,
-  wallTemplateFor,
+  acceptsBrainTicket, bubbleFor, copiesFor, isDexTaxRaid, isDualInvasion, MAX_TIER,
+  raidProfile, ringmasterDropMs, RINGMASTER_STATION_X, signFor, stacksFor,
+  STACK_MAX_HEIGHT,
+} from "../raid/dualInvasion";
+import {
+  bossSpecialsFor, bossThrowFor, bubbleWallFor, circusStacksFor, crabFor, farmerSquadFor,
+  grabberFor, pirateCaptainFor, robotEscortFor,
+  summonFor, turnedTemplateFor, wallTemplateFor,
 } from "../raid/fightConfig";
 import { fightStage, resolveStageWave, seededRandom } from "../raid/RaidCatalog";
 import { compareRaidMenuOrder } from "../raid/raidMenuOrder";
@@ -45,6 +51,7 @@ import type {
 import { ABILITY_KIND } from "../zombie/abilities";
 import { abilityTierOf, ABILITY_POOL, ABILITY_TIER } from "../zombie/traits";
 import { makeOwned } from "../zombie/types";
+import { bestMutationMask, bestMutationSummary } from "./bestMutations";
 
 // ---------------------------------------------------------------------------
 // State
@@ -75,6 +82,14 @@ const state = {
    *  walk in firing continuously, which is a perfectly real army and completely useless
    *  for watching anything else. Two is a quiet baseline you add to. */
   tierCap: 2,
+  /** Which RUNG of a dual invasion's ladder to fight (raids 12-15; 1-10). Ignored by every
+   *  other raid, which has no ladder. Not to be confused with `tierCap` above — that is the
+   *  ABILITY unlock gate and means something else entirely. */
+  tier: 1,
+  /** Give every zombie the strongest legal mutation in every slot (see bestMutations.ts).
+   *  Nothing in the game hands anyone a maxed mask; this is here so a rung can be asked
+   *  the question at the CEILING rather than only against an unmutated line. */
+  bestMutations: false,
   army: [] as ArmyRow[],
   /** Abilities granted to EVERY zombie on top of what its class already gives.
    *
@@ -122,9 +137,11 @@ void (async function main() {
 
   state.army = defaultArmy();
   buildRaidList();
+  buildTierStrip();
   buildAbilityList();
   buildArmyRows();
   wireControls();
+  refreshBisNote();
   await restart();
 
   app.ticker.add(tick);
@@ -164,21 +181,46 @@ const raidOf = (): RaidDef | null =>
 /** The stage this raid fights at the chosen level, with its wave roll resolved. Random
  *  rosters (the Robots' boss, the Ninjas' mix) are seeded off `state.wave` so a given
  *  slider position always brings the same line-up back. */
+/** Rungs this invasion's ladder has — `MAX_TIER` for the four dual invasions, 0 for
+ *  everything else. Asked through `isDualInvasion` so the lab, the HUD picker and the
+ *  server gate all answer "does this raid have a ladder?" the same way. */
+const tiersOf = (raid: RaidDef | null): number =>
+  raid && isDualInvasion(raid.id) ? MAX_TIER : 0;
+
+/** The rung actually in force: clamped to what this invasion offers, and 0 where there is
+ *  no ladder — which is what every builder below expects to be handed. */
+function labTier(raid: RaidDef): number {
+  const rungs = tiersOf(raid);
+  return rungs > 0 ? Math.max(1, Math.min(rungs, state.tier)) : 0;
+}
+
+/** The Lawyer boss's objection for the lab. Seeded off the wave slider like everything
+ *  else here, so a given slider position always brings the same auto-picks back — which
+ *  is what makes "did my choice do that, or the coin?" answerable. */
+function labSign(raid: RaidDef) {
+  return signFor(raid.id, labTier(raid), `lab:${raid.id}:${state.wave}`);
+}
+
 function currentStage(raid: RaidDef): RaidStage | null {
   const base = fightStage(raid, state.level);
   if (!base) return null;
   return resolveStageWave(base, seededRandom(`lab:${raid.id}:${state.wave}`));
 }
 
-/** The party, as owned zombies. */
+/** The party, as owned zombies. Mutations are per SPECIES rather than per body: "best in
+ *  slot" is a function of the stat block, so every copy of a species gets the same answer
+ *  and the mask is worth computing once. */
 function party() {
   const defs = new Map(assets.zombies.map((z) => [z.key, z]));
+  const masks = new Map<string, number>();
   const out = [];
   let n = 0;
   for (const row of state.army) {
     const def = defs.get(row.key);
     if (!def) continue;
-    for (let i = 0; i < row.count; i++) out.push(makeOwned(`lab${n++}`, def, 0, 0, 5));
+    if (state.bestMutations && !masks.has(def.key)) masks.set(def.key, bestMutationMask(def));
+    const mask = state.bestMutations ? masks.get(def.key) : undefined;
+    for (let i = 0; i < row.count; i++) out.push(makeOwned(`lab${n++}`, def, 0, 0, 5, mask));
   }
   return out;
 }
@@ -234,7 +276,7 @@ function buildParams(): RaidSceneParams | null {
   const stage = currentStage(raid);
   if (!stage) return null;
 
-  const profile = eliteProfile(raid.id, state.elite);
+  const profile = raidProfile(raid.id, { elite: eliteFor(raid), tier: labTier(raid) });
   const fightAssets = assets;
   const shippedThrow = eliteBossThrow(bossThrowFor(fightAssets, raid, stage, 99), profile);
   const shippedSpecials = eliteBossSpecials(bossSpecialsFor(fightAssets, stage), profile);
@@ -248,9 +290,22 @@ function buildParams(): RaidSceneParams | null {
     raid,
     assets,
     playerUnits: playerUnits(),
-    enemyUnits: buildEnemyUnits(stage, assets.enemyStats, assets.raidAttacks, {
-      raidId: raid.id, playerLevel: state.level, elite: profile,
-    }),
+    enemyUnits: [
+      ...buildEnemyUnits(stage, assets.enemyStats, assets.raidAttacks, {
+        raidId: raid.id, playerLevel: state.level, elite: profile,
+      }),
+      // The Lawyers & Farmers squad walks on mid-fight on its own clock. Appended here for
+      // the same reason the templates below travel with the fight: leave it out and the
+      // lab is quietly watching a different battle from the one the game plays.
+      ...farmerSquadFor(fightAssets, raid, labSign(raid), profile, state.level),
+      // …and the Ninjas & Pirates captain with his charge, for the same reason. The rung
+      // is what sets his wind-up (10 s at the bottom of the ladder, 5 s at the top).
+      ...pirateCaptainFor(fightAssets, raid, labTier(raid), profile, state.level),
+      // …and the Circus towers, on their own clocks.
+      ...circusStacksFor(fightAssets, raid, labTier(raid), profile, state.level),
+      // …and the Aliens & Robots guest heavy.
+      ...robotEscortFor(fightAssets, raid, profile, state.level),
+    ],
     bossThrow,
     bossSpecials: specials,
     // The wall / summon / pixel-zombie templates are what their actions STAND UP, so
@@ -259,6 +314,20 @@ function buildParams(): RaidSceneParams | null {
     wallTemplate: wallTemplateFor(fightAssets, stage, profile),
     summon: summonFor(fightAssets, raid, stage, state.level, profile),
     turnedTemplate: turnedTemplateFor(fightAssets, raid, stage, state.level, profile),
+    // The Lawyer boss's objection. Raid 12 only; `signFor` answers null everywhere else,
+    // which is exactly what the scene wants.
+    sign: labSign(raid),
+    // The ninja's throw rate tracks the army's attack speed (raid 13).
+    dexTax: isDexTaxRaid(raid.id),
+    // The Circus & Video Games second line (raid 14): the copy rule, and the ringmaster's
+    // early drop with the mid-lane station he fights from.
+    copies: copiesFor(raid.id, labTier(raid)),
+    // The saucer's bubble and the wall it drops (raid 15).
+    bubble: bubbleFor(raid.id, labTier(raid)),
+    bubbleWall: bubbleWallFor(fightAssets, raid, profile),
+    bossDropAtMs: ringmasterDropMs(raid.id, labTier(raid)),
+    bossGroundStationX:
+      ringmasterDropMs(raid.id, labTier(raid)) === null ? null : RINGMASTER_STATION_X,
     waveCadence: waveCadenceFor(raid.id),
     grabber: hazard === "crab" ? null : grabber,
     crab: hazard === "grabber" ? null : crab,
@@ -306,7 +375,7 @@ function epicParams(def: EpicBossDef): RaidSceneParams {
     bossPortrait: epicAsset(def, def.portrait),
     bossAnimations: def.animations,
     bossFallsFromSky: true,
-    bossEngageDistance: 150,
+    bossEngageDistance: EPIC_BOSS_ENGAGE,
     // Same compensation main.ts applies: the authored bosses sit high inside padded
     // animation cells; a reconstructed one is cut tight and stands on the line unaided.
     bossGroundOffset: def.reconstructed
@@ -317,6 +386,14 @@ function epicParams(def: EpicBossDef): RaidSceneParams {
       outcomeLine = `${outcome.win ? "WIN" : "LOSS"} — ${def.name} L${level}`;
     },
   };
+}
+
+/** The lab's elite flag, GATED by whether the selected invasion accepts a Brain Ticket.
+ *  The dual invasions do not (their tier ladder is the difficulty selector), so toggling
+ *  Elite on one would show a fight the game can never serve — DEFAULT_ELITE_PROFILE applied
+ *  to a raid that has no elite profile and never will. */
+function eliteFor(raid: RaidDef): boolean {
+  return acceptsBrainTicket(raid.id) && state.elite;
 }
 
 async function restart() {
@@ -432,7 +509,7 @@ function actionGroups(): { title: string; actions: Action[] }[] {
 
   // --- the boss's own repertoire, soloed -------------------------------------------
   if (raid && stage) {
-    const profile = eliteProfile(raid.id, state.elite);
+    const profile = raidProfile(raid.id, { elite: eliteFor(raid), tier: labTier(raid) });
     const shippedThrow = eliteBossThrow(bossThrowFor(assets, raid, stage, 99), profile);
     const specials = eliteBossSpecials(bossSpecialsFor(assets, stage), profile);
     const actions: Action[] = [];
@@ -539,7 +616,15 @@ function buildRaidList() {
     row.addEventListener("click", () => {
       state.fight = id;
       state.solo = "";
+      // A dual invasion is level-46-and-up content and its stage table says so. Landing on
+      // it at the lab's default level 25 picks a stage the game would never serve there,
+      // so the level goes with the pick — the point of this tool is to fight the real one.
+      const picked = id.startsWith("raid:")
+        ? assets.raids.find((r) => r.id === Number(id.slice(5))) ?? null
+        : null;
+      if (tiersOf(picked) > 0 && picked) setLevel(picked.recommendedLevel);
       buildRaidList();
+      buildTierStrip();
       void restart();
     });
     box.appendChild(row);
@@ -556,6 +641,100 @@ function buildRaidList() {
   for (const r of ladder) add(`raid:${r.id}`, r.name, `L${r.recommendedLevel}`);
   head("Epic bosses");
   for (const b of EPIC_BOSSES) add(`epic:${b.id}`, b.name, `×${b.maxLevel}`);
+}
+
+/** Move the Level slider from code, keeping the input, the label and the state in step.
+ *  Every caller that changes the level has to go through this or the slider lies. */
+function setLevel(level: number) {
+  const input = $<HTMLInputElement>("#level");
+  const v = Math.max(1, Math.min(Number(input.max) || 50, Math.round(level)));
+  state.level = v;
+  state.epicLevel = Math.max(1, Math.round(v / 4));
+  input.value = String(v);
+  $("#levelV").textContent = String(v);
+}
+
+/** The rung picker: one button per rung of a dual invasion's ladder, and nothing at all
+ *  on a raid that has no ladder.
+ *
+ *  UNLIKE the game's own picker (hud.ts) there are no padlocks — the lab is not an
+ *  account and has nothing cleared, so every rung is open. That is the one place this
+ *  deliberately diverges from what a player sees. */
+function buildTierStrip() {
+  const raid = raidOf();
+  const rungs = tiersOf(raid);
+  const slot = $("#rungSlot");
+  const pad = $("#rungPad");
+  const wasHidden = slot.hidden;
+  slot.hidden = pad.hidden = rungs <= 0;
+  if (!raid || rungs <= 0) return;
+  // The invasion list is long enough to push this off the bottom of the column, and on a
+  // dual invasion the rung is the FIRST thing you want. Bring it into view the moment it
+  // appears — but only then, so re-picking a rung does not yank the page around.
+  if (wasHidden) pad.scrollIntoView({ block: "nearest" });
+  state.tier = Math.max(1, Math.min(rungs, state.tier));
+
+  const strip = $("#tierStrip");
+  strip.innerHTML = "";
+  for (let rung = 1; rung <= rungs; rung++) {
+    const btn = document.createElement("button");
+    btn.className = "mini" + (rung === state.tier ? " on" : "");
+    btn.textContent = `t${rung}`;
+    btn.addEventListener("click", () => {
+      state.tier = rung;
+      buildTierStrip();
+      void restart();
+    });
+    strip.appendChild(btn);
+  }
+
+  // Say plainly what the rung does, mechanic and numbers both: a silent picker tells you
+  // nothing about which of the two you just moved.
+  const sign = labSign(raid);
+  const bits: string[] = [];
+  if (sign) {
+    bits.push(sign.offers[0].every((bubble) => bubble.length > 1)
+      ? "the lawyer offers a PAIR of classes per bubble"
+      : "the lawyer offers one class per bubble");
+  }
+  const captain = pirateCaptainFor(assets, raid, state.tier)[0];
+  if (captain?.charge) bits.push(`captain wind-up ${(captain.charge.windupMs / 1000).toFixed(1)} s`);
+  const copies = copiesFor(raid.id, state.tier);
+  if (copies) {
+    bits.push(`${copies.maxAlive} cop${copies.maxAlive === 1 ? "y" : "ies"} at `
+      + `${Math.round(copies.hpFraction * 100)}% life${copies.keepPassives ? ", passives kept" : ""}`);
+  }
+  const stacks = stacksFor(raid.id, state.tier);
+  if (stacks) bits.push(`stacks climb every ${(stacks.growMs / 1000).toFixed(0)} s`);
+  if (ringmasterDropMs(raid.id, state.tier) !== null) bits.push("ringmaster drops early");
+  const bubble = bubbleFor(raid.id, state.tier);
+  if (bubble) {
+    bits.push(`${bubble.cycle.length}-action bubble, ${(bubble.castMs / 1000).toFixed(1)} s to react`
+      + ` · ${bubble.cancels} cancels`);
+  }
+  // …and what the rung is worth in hit points, which is the other half of a rung and the
+  // half you cannot read off the field. The HP figure is also the one to watch against the
+  // settle cap — see DUAL_SETTLE_REFERENCE_DPS.
+  const profile = raidProfile(raid.id, { tier: state.tier });
+  const stage = currentStage(raid);
+  const enemies = stage
+    ? [
+      ...buildEnemyUnits(stage, assets.enemyStats, assets.raidAttacks, {
+        raidId: raid.id, playerLevel: state.level, elite: profile,
+      }),
+      ...farmerSquadFor(assets, raid, labSign(raid), profile, state.level),
+      ...pirateCaptainFor(assets, raid, state.tier, profile, state.level),
+      // The towers count at FULL height — that is the weight the settle budget carries.
+      ...circusStacksFor(assets, raid, state.tier, profile, state.level)
+        .map((u) => ({ ...u, maxHp: u.maxHp * STACK_MAX_HEIGHT })),
+      ...robotEscortFor(assets, raid, profile, state.level),
+    ]
+    : [];
+  const hp = Math.round(enemies.reduce((sum, unit) => sum + unit.maxHp, 0));
+  const numbers = `${hp.toLocaleString()} enemy HP · ×${(profile?.str ?? 1).toFixed(2)} damage`;
+  $("#rungNote").textContent = bits.length
+    ? `${bits.join(" · ")}.\n${numbers}`
+    : `This invasion's mechanic is not built yet, so only the numbers move.\n${numbers}`;
 }
 
 function refreshStage() {
@@ -575,7 +754,7 @@ function refreshStage() {
   // Circus, the late endless ones) leaves that array empty and draws its line-up from
   // `weighted` + `population` instead, which reads as "0 enemy types" and is a lie.
   const line = buildEnemyUnits(stage, assets.enemyStats, assets.raidAttacks, {
-    raidId: raid.id, playerLevel: state.level, elite: eliteProfile(raid.id, state.elite),
+    raidId: raid.id, playerLevel: state.level, elite: raidProfile(raid.id, { elite: eliteFor(raid), tier: labTier(raid) }),
   });
   const kinds = new Set(line.filter((u) => !u.isBoss).map((u) => u.sourceKey));
   const grunts = line.filter((u) => !u.isBoss).length;
@@ -613,6 +792,119 @@ function defaultArmy(): ArmyRow[] {
   push("Large", 1);
   push("Regular", 5);
   return rows.length ? rows : [{ key: assets.zombies[0].key, count: 8 }];
+}
+
+// ---------------------------------------------------------------------------
+// Endgame rosters
+// ---------------------------------------------------------------------------
+// The presets above this block are for watching an ANIMATION: a handful of zombies with
+// every activated move granted to all of them, so a button always has a caster. These
+// four are for PLAYING a post-45 invasion, which needs the opposite — a full army of the
+// species an endgame account actually fields, carrying only the abilities those species
+// really have. So applying one also unlocks every ability TIER (a level-46 account has
+// beaten every gate) and CLEARS the blanket grant.
+//
+// They are built to give the raid-12 objection four different arguments. Ask "Headless or
+// Garden?" of the Brick and of the Glass and you are asking two different questions, which
+// is the property the fight is supposed to have and the quickest way to find out whether
+// it does.
+
+/** A zombie by key, falling back to the strongest ordinary member of its group when the
+ *  named species is missing — a preset must never come back empty. */
+function speciesOr(key: string, group: string): ZombieDef | null {
+  return assets.zombies.find((z) => z.key === key) ?? pickForGroup(group);
+}
+
+interface Roster { rows: ArmyRow[]; blurb: string }
+
+function endgameRoster(kind: "meta" | "balanced" | "glass" | "brick"): Roster {
+  const of = (group: string) => pickForGroup(group);
+  const rows: ArmyRow[] = [];
+  const push = (def: ZombieDef | null, count: number) => { if (def && count > 0) rows.push({ key: def.key, count }); };
+
+  if (kind === "meta") {
+    // THE STACK THESE INVASIONS EXIST TO BREAK — the owner named it in the design pass:
+    // "1-2 healer 1-2 tank + a bunch of vagabonds". The Vagabond is a Special rather than
+    // an ordinary Silver, and it is the whole point: dex 8 against an ordinary 2, which
+    // is also the worst case for raid 13's dex tax.
+    push(of("Garden"), 2);
+    push(of("Headless"), 2);
+    push(speciesOr("ZombieActorVagabond", "Regular"), 12);
+    return { rows, blurb: "2 heal · 2 tank · 12 dex-8 Regulars. The meta the post-45 fights are aimed at — and the heaviest sky raid 13 can be asked for." };
+  }
+  if (kind === "glass") {
+    push(of("Regular"), 10);
+    push(of("Female"), 10);
+    return { rows, blurb: "All damage, no tank, no heals. Every objection bubble costs it something it cannot spare." };
+  }
+  if (kind === "brick") {
+    push(of("Headless"), 6);
+    push(of("Large"), 6);
+    push(of("Garden"), 4);
+    push(of("Small"), 4);
+    return { rows, blurb: "Bodies, weight and sustain, with almost nothing that ENDS anything. Watch the four-minute cap." };
+  }
+  push(of("Headless"), 3);
+  push(of("Garden"), 3);
+  push(of("Regular"), 5);
+  push(of("Female"), 4);
+  push(of("Small"), 3);
+  push(of("Large"), 2);
+  return { rows, blurb: "All six classes. The only roster with a real answer to every bubble — and the baseline the other three are read against." };
+}
+
+/** Apply a roster: the army, every ability tier unlocked, and the lab's blanket grant
+ *  cleared so what walks on is a roster rather than a demo rig. */
+function applyRoster(kind: "meta" | "balanced" | "glass" | "brick") {
+  const { rows, blurb } = endgameRoster(kind);
+  if (!rows.length) return;
+  state.army = rows;
+  state.tierCap = 4;
+  state.granted.clear();
+  const tiers = $<HTMLInputElement>("#tiers");
+  tiers.value = "4";
+  $("#tiersV").textContent = "4";
+  const total = rows.reduce((n, r) => n + r.count, 0);
+  $("#rosterNote").textContent =
+    `${total} zombies · all ability tiers unlocked · nothing granted on top.\n${blurb}`;
+  buildArmyRows();
+  buildAbilityList();
+  refreshBisNote(); // a new roster is new species, so the picks change with it
+  void restart();
+}
+
+/** What best-in-slot actually handed each species, because "everything" is not an answer:
+ *  the head and hair/eye slots each offer a choice of STAT, so two species in the same army
+ *  can legitimately come out wearing different things — and a Headless comes out wearing
+ *  fewer, since it has no head and no hair to mutate. Showing the picks is what makes that
+ *  legible instead of mysterious. */
+function refreshBisNote() {
+  const box = $("#bisNote");
+  if (!state.bestMutations) {
+    box.textContent = "Off — the army fights on its species' own stats.";
+    return;
+  }
+  const defs = new Map(assets.zombies.map((z) => [z.key, z]));
+  const lines: string[] = [];
+  const total = { str: 0, dex: 0, con: 0 };
+  const seen = new Set<string>();
+  for (const row of state.army) {
+    const def = defs.get(row.key);
+    if (!def) continue;
+    const sum = bestMutationSummary(def);
+    total.str += sum.str * row.count;
+    total.dex += sum.dex * row.count;
+    total.con += sum.con * row.count;
+    if (seen.has(def.key)) continue;
+    seen.add(def.key);
+    lines.push(`${def.name}: ${sum.label || "nothing it can wear"}`);
+  }
+  const delta = [
+    total.str ? `+${total.str} str` : "",
+    total.dex ? `+${total.dex} dex` : "",
+    total.con ? `+${total.con} con` : "",
+  ].filter(Boolean).join(" · ");
+  box.textContent = [`ON — ${delta || "no change"} across the army.`, ...lines].join("\n");
 }
 
 function buildArmyRows() {
@@ -828,6 +1120,17 @@ function wireControls() {
     preset(groups.map((g) => pickForGroup(g)).filter((d): d is ZombieDef => !!d)
       .map((d) => ({ key: d.key, count: 1 })));
   });
+  const bis = $<HTMLButtonElement>("#pBis");
+  bis.addEventListener("click", () => {
+    state.bestMutations = !state.bestMutations;
+    bis.classList.toggle("on", state.bestMutations);
+    refreshBisNote();
+    void restart();
+  });
+  $("#pMeta").addEventListener("click", () => applyRoster("meta"));
+  $("#pBalanced").addEventListener("click", () => applyRoster("balanced"));
+  $("#pGlass").addEventListener("click", () => applyRoster("glass"));
+  $("#pWall").addEventListener("click", () => applyRoster("brick"));
   $("#pGarden").addEventListener("click", () => {
     const def = pickForGroup("Garden");
     if (!def) return;

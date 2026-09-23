@@ -43,6 +43,7 @@ import { RAID_MAX_TICKS, RAID_TICK_MS } from "./replay";
 import type {
   AttackDef, BossSpecial, BossThrowConfig, CombatUnit, EnemyStat, RaidDef, RaidStage,
 } from "./types";
+import { acceptsBrainTicket } from "./dualInvasion";
 
 const raids = raidsJson as RaidDef[];
 const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
@@ -96,11 +97,19 @@ const throwers = raids
   })
   .filter((r): r is { raid: RaidDef; stage: RaidStage; authored: BossThrowConfig } => !!r?.authored);
 
+/** Throwers that will accept a Brain Ticket. The four dual invasions inherit a throwing boss
+ *  from the faction that stages them, so they belong in the ORDINARY throw checks — but they
+ *  carry no elite profile at all (their tier ladder is the difficulty selector), so they are
+ *  not part of anything measuring an elite step. See dualInvasion.ts. */
+const ticketableThrowers = throwers.filter((t) => acceptsBrainTicket(t.raid.id));
+
 describe("boss projectile scaling", () => {
   it("covers every invasion whose boss throws", () => {
     // The Aliens are the one boss with no throw table at all — its projectile is the
-    // laser, an authored flat 200 that already clears the floor (see below).
-    expect(throwers.map((t) => t.raid.id)).toEqual([1, 2, 3, 4, 5, 7, 8, 9, 10, 11]);
+    // laser, an authored flat 200 that already clears the floor (see below). 12/13/14 are the
+    // dual invasions, which inherit the City, Ninja and Circus bosses; 15 is staged as the
+    // Aliens and inherits their lack of a throw table for the same reason raid 6 has none.
+    expect(throwers.map((t) => t.raid.id)).toEqual([1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14]);
   });
 
   it("mirrors the market's Garden ladder, specials excluded", () => {
@@ -266,7 +275,7 @@ describe("boss projectile scaling", () => {
     // did nothing — and left alone they would have charged the rebalance twice: elite
     // Circus measured 343 dmg/s, deleting the healer it is aimed at in six tenths of a
     // second. Every profile's throw is now a step over the REBALANCED throw.
-    for (const { raid, authored } of throwers) {
+    for (const { raid, authored } of ticketableThrowers) {
       const ordinary = fightScaledThrow(authored, raid)!;
       const elite = eliteBossThrow(ordinary, eliteProfile(raid.id, true))!;
       const step = throwDps(elite) / throwDps(ordinary);

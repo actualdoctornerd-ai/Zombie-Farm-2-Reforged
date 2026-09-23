@@ -14,6 +14,7 @@
 import type { AttackDef, CombatUnit, EnemyStat, SummonConfig, WaveCadence } from "./types";
 import { buildUnitsForKeys } from "./CombatEngine";
 import type { EliteProfile } from "./eliteInvasion";
+import { BUBBLE_RAID_ID, dualWaveCadence } from "./dualInvasion";
 
 /** Enemies.json ID of Zombies vs Aliens. */
 export const ALIEN_RAID_ID = 6;
@@ -76,11 +77,12 @@ export function alienTintFor(sourceKey: string, unitId: string): number | null {
   return (channel(1) << 16) | (channel(2) << 8) | channel(3);
 }
 
-/** How this raid feeds its wave in. Only raid 6 departs from one-at-a-time. */
+/** How this raid feeds its wave in. Raid 6 departs from one-at-a-time because the binary
+ *  says so; the four dual invasions depart from it by design, and line up the same way (see
+ *  dualInvasion.dualWaveCadence). Everything else trickles. */
 export function waveCadenceFor(raidId: number): WaveCadence {
-  return raidId === ALIEN_RAID_ID
-    ? { maxActive: ALIEN_MAX_ACTIVE, dripMs: ALIEN_DRIP_MS }
-    : { maxActive: 1, dripMs: 0 };
+  if (raidId === ALIEN_RAID_ID) return { maxActive: ALIEN_MAX_ACTIVE, dripMs: ALIEN_DRIP_MS };
+  return dualWaveCadence(raidId) ?? { maxActive: 1, dripMs: 0 };
 }
 
 /** The abductee queue for a stage whose boss carries `summonBoss` — only the alien one
@@ -93,7 +95,11 @@ export function summonConfigFor(
   attacks: Record<string, AttackDef>,
   opts: { raidId?: number; playerLevel?: number; elite?: EliteProfile | null } = {}
 ): SummonConfig | null {
-  if (raidId !== ALIEN_RAID_ID) return null;
+  // Raid 15 is fought on this stage with this boss, so it gets the rota too. Keyed by id
+  // rather than by "does the boss carry summonBoss" because the ROTA is the alien stage's
+  // authored content (ABDUCTEE_SEED / _POOL), not the action's — a future boss that
+  // summoned something else would want its own list, not this one.
+  if (raidId !== ALIEN_RAID_ID && raidId !== BUBBLE_RAID_ID) return null;
   const build = (keys: string[]): CombatUnit[] =>
     buildUnitsForKeys(keys, null, stats, attacks, opts);
   // Seed order matters (the queue is FIFO), so build it as authored rather than deduped.

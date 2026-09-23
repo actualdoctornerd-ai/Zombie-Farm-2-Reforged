@@ -46,8 +46,15 @@ import {
   mirrorIntervalSec,
   protectReduction,
   POWER_PER_STR,
+  ATTACK_INTERVAL_SEC,
 } from "./combatStats";
 import { isLineRole } from "./pvp";
+import {
+  ABDUCTEE_WALL_GAP, autoPickFor, COPY_PASSIVE_ABILITIES,
+  COPY_STATION_X, COPY_TINT, dexTaxedInterval, poiseFor, POISE_THRESHOLD, PORTAL_FRACTION,
+  type BubbleAction, type BubbleConfig, type ChargeConfig, type CopyConfig,
+  type SignConfig, type SignOffer,
+} from "./dualInvasion";
 import {
   PIXEL_FIRE_BURN_MS,
   PIXEL_FIRE_PACE_REACH,
@@ -105,6 +112,12 @@ const BRAIN_AUTO_MS = 3200; // full bar auto-advances if not popped
 const STEP_SPEED = 260; // zombie stepping out to its lane (px/s)
 const EMERGE_SPEED = 210; // enemy walking in from the right (px/s)
 const CIRCUS_BOSS_KEY = "CircusStageActorBoss";
+/** How fast a benched zombie trudges away from the line (px/s). Deliberately slower than
+ *  a walk-in: the bench is five seconds, and a zombie that sprinted to the back would
+ *  spend the rest of the fight walking forward again. */
+const SIGN_RETREAT_SPEED = 70;
+/** Shared empty answer for `signedGroups`, so the common case allocates nothing. */
+const NO_GROUPS: readonly string[] = [];
 const BOSS_JUMP_MS = 650; // Circus Ringmaster drops directly from the car to the lane
 const ENEMY_EMERGE_GAP_MS = 450; // beat before the next enemy emerges
 /** Default wave cadence: strictly one enemy at a time. GROUND TRUTH — every stage owns a
@@ -112,7 +125,19 @@ const ENEMY_EMERGE_GAP_MS = 450; // beat before the next enemy emerges
  *  `spawnTimer` drip, and `spawnTimer` is seeded to an hour everywhere except the alien
  *  stage. So one-at-a-time is right for ten of the eleven raids. See types.WaveCadence. */
 const SOLO_WAVE: WaveCadence = { maxActive: 1, dripMs: 0 };
-const MAX_SIM_MS = 4 * 60 * 1000; // hard safety cap (min-damage 1 avoids stalls)
+/** THE FIGHT CLOCK. Four simulated minutes, after which the battle ends where it stands.
+ *
+ *  This is not a safety net, it is a RULE, and the player is told it: `RaidScene` counts it
+ *  down on the top bar and the result panel says OUT OF TIME. A fight that reaches it is a
+ *  perfectly ordinary loss — settled, verified, rewarded like any other loss — because the
+ *  sim finishes here rather than being cut off. That matters: the verifier's own cap
+ *  (`replay.RAID_MAX_TICKS`) is the SAME instant, so the server's replay stops for the same
+ *  reason on the same tick and agrees. `timeLimit.test.ts` pins the two constants together,
+ *  since they are declared in different files and nothing else would notice them drifting —
+ *  and a drift is how a fight would start coming back `truncated_transcript`, with the
+ *  player's session voided and nothing to tell them. */
+export const RAID_TIME_LIMIT_MS = 4 * 60 * 1000;
+const MAX_SIM_MS = RAID_TIME_LIMIT_MS;
 
 // ---- Front formation (GROUND TRUTH: `-[ZombieActor calculateDestinationPoint]` 0x4c9d4)
 // The army's ORDER *is* the formation — there is no separate layout pass. A zombie's index
@@ -593,10 +618,21 @@ export interface SimUnit {
    *  counts toward the wave nor holds the boss on its perch. Without that exclusion an
    *  uncapped summon would deadlock the descent. */
   isSummon: boolean;
+  /** A stationary mid-lane ROADBLOCK: something that bars a zombie which has not already
+   *  walked past it (see wallInWay). True for a boss wall and for an abductee, false for
+   *  everything else — including the converted pixel zombie, which is off-budget like an
+   *  abductee but pointedly not a blocker (see isTurned).
+   *
+   *  This is the half of `isSummon` that is about GEOMETRY, split out from the half that is
+   *  about the wave BUDGET. They used to be the same flag with `!isTurned` patched on at
+   *  every call site, which worked only because no shipped raid ever fielded two blockers
+   *  at once. A dual invasion does (a wall with an abductee behind it), and two blockers
+   *  need to be told apart rather than filtered by what they happen not to be. */
+  isBlocker: boolean;
   /** A pixel zombie Zedzox's `turnZombie` made out of one of YOUR zombies (raid 9). It
-   *  rides the `isSummon` machinery — stationary mid-lane blocker, off the wave budget —
-   *  and additionally does NOT gate the win (see anyAlive): its authored body is a
-   *  million hit points, so a fight that had to kill it could never end. */
+   *  rides the `isSummon` machinery — off the wave budget — but is NOT a blocker
+   *  (`isBlocker` stays false), and additionally does NOT gate the win (see anyAlive): its
+   *  authored body is a million hit points, so a fight that had to kill it could never end. */
   isTurned: boolean;
   /** Id of the player zombie this pixel zombie was made from. Tapping it apart hands that
    *  zombie back (see tapTurned), which is the whole reason the taps are worth spending. */
@@ -622,11 +658,71 @@ export interface SimUnit {
   deployWithBoss: boolean;
   /** The job this defender holds in the farm's defense. */
   defenseRole: string | null;
-  passedWall: boolean; // latched when already beyond a newly summoned wall
+  /** Whether this unit's authored station is allowed to pull the army's line forward
+   *  (see refreshFrontLine). True for a PvP defender, whose station IS the line it holds.
+   *  False for something dropped into the middle of the lane as a hazard — a stack, a
+   *  copy, a ringmaster who came down off his car — where an army that marched up to meet
+   *  it would abolish the distance the hazard exists to create. Defaults true, so nothing
+   *  that does not ask for it changes. */
+  anchorsLine: boolean;
+  /** A CIRCUS STACK's own hit points — one level's worth (raid 14). 0 on everything else,
+   *  which is what marks a unit as not being a stack at all.
+   *
+   *  A stack is ONE unit carrying `stackMax` of these pools, and the height it fights at is
+   *  how many are still standing (see stackHeight). That is the whole model: a hit worth a
+   *  pool topples a level, and the tower gets weaker as it comes apart, with no second
+   *  state machine to keep in step with the first. */
+  stackBaseHp: number;
+  /** How tall it has CLIMBED — the ceiling its hit points are measured against, not the
+   *  height it is fighting at. Grows on `stackTimerMs` while it is left alone. */
+  stackMax: number;
+  /** Ms until it climbs another level, the cadence it climbs at, and how tall it is
+   *  allowed to get. */
+  stackTimerMs: number;
+  stackGrowMs: number;
+  stackCeiling: number;
+  /** The fighting height as of the last tick, and a counter bumped every time that height
+   *  DROPS — so the renderer can play a topple instead of inferring one by watching a
+   *  number change, and so the drop survives a checkpoint. */
+  stackSeen: number;
+  stackToppleSeq: number;
+  /** Already re-statted by the bubble's queue swap (raid 15), so a later cast picks a
+   *  different body instead of stacking multipliers on the same one. */
+  swapped: boolean;
+  /** A copy of one of the player's own zombies, dropped in behind their line (raid 14).
+   *  Only used to count them against the rung's cap and to tell the renderer to draw it
+   *  as a mirror rather than as a circus act. */
+  isCopy: boolean;
+  /** Ids of the blockers this unit was ALREADY PAST when they appeared, and therefore does
+   *  not turn round to fight (see wallInWay).
+   *
+   *  One id per blocker rather than a single boolean. The boolean was correct while only
+   *  one blocker could ever stand at a time: with a wall and an abductee both on the lane,
+   *  "I passed something" would excuse a zombie from the OTHER one as well, and it would
+   *  walk through a roadblock that landed in front of it. Cleared outright when a unit is
+   *  carried backwards — a revive (see reviveUnit) and any teleport — because a unit
+   *  re-entering the lane behind everything has passed nothing. */
+  passedBlockers: string[];
   /** Carried off the field by a Beach crab: still ALIVE (it comes home after the raid —
    *  source state 38 is not the death path) but out of this fight, so it counts as a
    *  survivor while no longer keeping the battle alive. */
   taken: boolean;
+  // ---- the pirate captain's charge (raid 13; see dualInvasion.ts) ----
+  /** The charge this unit carries, or null for everyone else (which is everyone else). */
+  chargeCfg: ChargeConfig | null;
+  /** Wind-up remaining on the charge, ms. 0 = not charging. */
+  chargeMs: number;
+  /** Poise put into the bar by stuns since this wind-up began, 0..POISE_THRESHOLD. */
+  poise: number;
+  /** Cooldown before the next wind-up may begin (after a slam or a break), ms. */
+  chargeRestMs: number;
+  /** Presentation: how far through the wind-up, 0..1, for the swell and the reddening.
+   *  Read by RaidScene; nothing in the sim depends on it. */
+  chargeFrac: number;
+  /** Bumped every time a charge is BROKEN, so the scene can play the stagger once. */
+  chargeBreakSeq: number;
+  /** Bumped every time a slam lands, so the scene can play the impact once. */
+  chargeSlamSeq: number;
   /** Enemy that ignores its dex clock and mirrors its opponent's (both pirates). */
   mirrorsOpponentSpeed: boolean;
   /** A zombie's SPECIES BASE cycle in ms (2 s ÷ catalog dex, nothing else applied).
@@ -730,6 +826,20 @@ export interface BattleSimSnapshot {
   activeTarget?: number;
   spawnSeq: number;
   activatedKeys: string[];
+  /** The Lawyer boss's objection (raid 12): which bubble was taken for each RESOLVED
+   *  slot, and the player's uncommitted pick for the slot in progress. Absent on every
+   *  other raid's snapshot and on any taken before the mechanic existed — `restore`
+   *  treats both as "nothing decided yet", which is what a fresh sim holds. */
+  signResolved?: number[];
+  signPending?: number | null;
+  /** The saucer's bubble (raid 15): where it is in the cycle, what is charging, how long
+   *  it stays quiet, and what the player has left to spend. Absent on every other raid and
+   *  on any snapshot taken before the mechanic existed — `restore` reads those as a fight
+   *  that has not started thinking yet, which is what a fresh sim holds. */
+  bubbleIndex?: number;
+  bubbleCastMs?: number;
+  bubbleGapMs?: number;
+  cancels?: number;
   grabbers: SimGrabber[];
   grabberTimer: number;
   grabSeq: number;
@@ -859,18 +969,39 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     attackDamageTiming: u.attackDamageTiming ?? 0.5,
     isWall: false,
     isSummon: false,
+    isBlocker: false,
     stationX: u.stationX ?? null,
     stationY: u.stationY ?? null,
     deployAtMs: u.deployAtMs ?? null,
     deployWithBoss: u.deployWithBoss ?? false,
     defenseRole: u.defenseRole ?? null,
+    anchorsLine: u.anchorsLine ?? true,
+    // One level's pool is the unit's OWN built hit points — not `deriveMaxHp(con)`, which
+    // skips the level ramp and the tier profile that `maxHp` already carries and would
+    // leave the tower's height measured against the wrong yardstick.
+    stackBaseHp: u.stack ? Math.max(1, u.maxHp) : 0,
+    stackMax: 1,
+    stackTimerMs: u.stack?.growMs ?? 0,
+    stackGrowMs: u.stack?.growMs ?? 0,
+    stackCeiling: u.stack?.maxHeight ?? 1,
+    stackSeen: 1,
+    stackToppleSeq: 0,
+    swapped: false,
+    isCopy: false,
     isTurned: false,
     turnedFromId: null,
     burnMs: 0,
     burnDir: 1,
     burnAnchorX: home.x,
-    passedWall: false,
+    passedBlockers: [],
     taken: false,
+    chargeCfg: u.charge ?? null,
+    chargeMs: 0,
+    poise: 0,
+    chargeRestMs: 0,
+    chargeFrac: 0,
+    chargeBreakSeq: 0,
+    chargeSlamSeq: 0,
     mirrorsOpponentSpeed: !isPlayer && !!u.mirrorsOpponentSpeed,
     speciesCycleMs: u.speciesCycleMs ?? u.attackCooldownMs,
   };
@@ -918,6 +1049,10 @@ export class BattleSim {
   private roundLeft: number;
   private _enraged = false;
   escaped = false;
+  /** The fight clock ran out with both sides still standing. A loss, but a DIFFERENT loss
+   *  from being wiped out, and the only one the player can still be holding an army in —
+   *  so the result panel names it rather than reporting a defeat that never happened. */
+  outOfTime = false;
   // ---- boss actions (throws AND specials share ONE budget — see stepBossActions) ----
   private specials: BossSpecial[];
   private actions: BossActionChoice[] = []; // the merged weighted roll table
@@ -926,6 +1061,26 @@ export class BattleSim {
   private actionCount = 0; // deterministic roll counter
   private specialCast = 0; // wind-up left on the pending special
   private pendingSpecial: BossSpecial | null = null;
+  // ---- the saucer's bubble (raid 15; see dualInvasion.ts) ----
+  /** Where in the cycle the saucer is, how much charge is left on the thing it is doing,
+   *  and how long it stays quiet before starting the next one. */
+  private bubbleIndex = 0;
+  private bubbleCastMs = 0;
+  private bubbleGapMs = 0;
+  /** Cancels the player has left. Seeded from the rung's budget at construction. */
+  private cancels = 0;
+  /** Bumped when a cast lands, when one is cancelled, and when the portal actually moves
+   *  somebody — three things the renderer wants to react to and cannot infer. */
+  private bubbleFireSeq = 0;
+  private bubbleCancelSeq = 0;
+  private portalSeq = 0;
+  // ---- the Lawyer boss's objection (raid 12; see dualInvasion.ts) ----
+  /** Which bubble was taken for each RESOLVED slot, oldest first. Its LENGTH is the index
+   *  of the offer currently on the table, which is why nothing else stores that. */
+  private signResolved: number[] = [];
+  /** The player's committed pick for the offer on the table, or null while they have not
+   *  chosen. Cleared when the slot resolves. */
+  private signPending: number | null = null;
   // ---- carried-grab hazard (Trapeze Artist) ----
   readonly grabbers: SimGrabber[] = [];
   private grabberCfg: GrabberConfig | null;
@@ -1003,7 +1158,27 @@ export class BattleSim {
     cadence: WaveCadence = SOLO_WAVE,
     /** The pixel zombie the Video Games boss's `turnZombie` converts a zombie INTO
      *  (null = this boss can't turn anyone). See raid/videoGameStage.ts. */
-    turnedTemplate: CombatUnit | null = null
+    turnedTemplate: CombatUnit | null = null,
+    /** The Lawyer boss's placard rotation (null = this invasion has no sign). See
+     *  raid/dualInvasion.ts. */
+    private signCfg: SignConfig | null = null,
+    /** The ninja's throw rate tracks the army's total dex (raid 13). See the dex tax in
+     *  raid/dualInvasion.ts. */
+    private dexTax = false,
+    /** The trapeze's copies of the player's own zombies (raid 14; null = this invasion
+     *  has none). See spawnCopy and raid/dualInvasion.ts. */
+    private copyCfg: CopyConfig | null = null,
+    /** Ms at which this invasion's boss abandons its perch whatever the wave is doing
+     *  (the raid-14 ringmaster from rung 5; null everywhere else), and the ground station
+     *  it fights from once it is down. */
+    private bossDropAtMs: number | null = null,
+    private bossGroundStationX: number | null = null,
+    /** The saucer's five-action bubble (raid 15; null = this invasion has none). */
+    private bubbleCfg: BubbleConfig | null = null,
+    /** The blocker the bubble's `wall` action drops. Separate from `wallTemplate` because
+     *  that one belongs to a BOSS ACTION and the saucer has no `wall` in its list — raid
+     *  15 borrows the JunkBot's (see fightConfig.bubbleWallFor). */
+    private bubbleWall: CombatUnit | null = null
   ) {
     this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
     this.grabberCfg = grabber;
@@ -1015,6 +1190,10 @@ export class BattleSim {
     // A formation defense does not stand at the shared doorway, so the army's line
     // cannot be a constant derived from it — see refreshFrontLine, which runs once the
     // rosters below exist and again every step.
+    this.cancels = this.bubbleCfg?.cancels ?? 0;
+    // The saucer thinks for a beat before its first idea, so the fight does not open on a
+    // cast the player has not been shown the field for yet.
+    this.bubbleGapMs = this.bubbleCfg?.gapMs ?? 0;
     this.authoredStations = enemyUnits.some((u) => u.stationX !== undefined && u.stationX !== null);
     // How much of the recovered row depth actually fits. The source's row spans ~90 of its
     // own points and its enemies reach that far; ours reach `engageDistance`, which is less
@@ -1081,6 +1260,7 @@ export class BattleSim {
       units: this.units.map((u) => ({
         ...u,
         abilities: [...u.abilities],
+        passedBlockers: [...u.passedBlockers],
         teamAuraStats: u.teamAuraStats ? { ...u.teamAuraStats } : null,
       })),
       projectiles: this.projectiles.map((p) => ({ ...p })),
@@ -1109,6 +1289,12 @@ export class BattleSim {
       activeTarget: this.activeTarget,
       spawnSeq: this.spawnSeq,
       activatedKeys: [...this.activatedKeys],
+      signResolved: [...this.signResolved],
+      signPending: this.signPending,
+      bubbleIndex: this.bubbleIndex,
+      bubbleCastMs: this.bubbleCastMs,
+      bubbleGapMs: this.bubbleGapMs,
+      cancels: this.cancels,
       grabbers: this.grabbers.map((g) => ({ ...g })),
       grabberTimer: this.grabberTimer,
       grabSeq: this.grabSeq,
@@ -1144,13 +1330,34 @@ export class BattleSim {
       inLine: u.inLine ?? false,
       knockBackToX: u.knockBackToX ?? 0,
       knockBackSpeed: u.knockBackSpeed ?? 0,
-      passedWall: u.passedWall ?? false,
+      passedBlockers: [...(u.passedBlockers ?? [])],
+      chargeCfg: u.chargeCfg ?? null,
+      chargeMs: u.chargeMs ?? 0,
+      poise: u.poise ?? 0,
+      chargeRestMs: u.chargeRestMs ?? 0,
+      chargeFrac: u.chargeFrac ?? 0,
+      chargeBreakSeq: u.chargeBreakSeq ?? 0,
+      chargeSlamSeq: u.chargeSlamSeq ?? 0,
       isSummon: u.isSummon ?? false,
+      // A checkpoint written before the split cannot reach here — the session handshake
+      // rejects its ruleset — so this is the same belt-and-braces default as isTurned
+      // below: a restored fight in which nothing is standing in the lane.
+      isBlocker: u.isBlocker ?? false,
       stationX: u.stationX ?? null,
       stationY: u.stationY ?? null,
       deployAtMs: u.deployAtMs ?? null,
     deployWithBoss: u.deployWithBoss ?? false,
       defenseRole: u.defenseRole ?? null,
+      anchorsLine: u.anchorsLine ?? true,
+      stackBaseHp: u.stackBaseHp ?? 0,
+      stackMax: u.stackMax ?? 1,
+      stackTimerMs: u.stackTimerMs ?? 0,
+      stackGrowMs: u.stackGrowMs ?? 0,
+      stackCeiling: u.stackCeiling ?? 1,
+      stackSeen: u.stackSeen ?? 1,
+      stackToppleSeq: u.stackToppleSeq ?? 0,
+      swapped: u.swapped ?? false,
+      isCopy: u.isCopy ?? false,
       // A checkpoint from before the conversion / burn can only exist on a ruleset the
       // session handshake already rejects, so these defaults are belt-and-braces: they
       // restore a fight in which nobody is on fire and nobody has been turned, which is
@@ -1204,6 +1411,12 @@ export class BattleSim {
     this.activatedKeys.splice(0, this.activatedKeys.length, ...snapshot.activatedKeys);
     // Purely derived, so it is not in the snapshot — re-derive it from the keys that are.
     this.activatedGroups.splice(0, this.activatedGroups.length, ...activatedGroupsOf(this.activatedKeys));
+    this.signResolved = [...(snapshot.signResolved ?? [])];
+    this.signPending = snapshot.signPending ?? null;
+    this.bubbleIndex = snapshot.bubbleIndex ?? 0;
+    this.bubbleCastMs = snapshot.bubbleCastMs ?? 0;
+    this.bubbleGapMs = snapshot.bubbleGapMs ?? this.bubbleCfg?.gapMs ?? 0;
+    this.cancels = snapshot.cancels ?? this.bubbleCfg?.cancels ?? 0;
     this.grabbers.splice(
       0,
       this.grabbers.length,
@@ -1308,6 +1521,10 @@ export class BattleSim {
    *  move you most want to pre-time the one move you could not. */
   private readyToActivate(p: SimUnit, key: string): boolean {
     if (p.usedAbilities.includes(key)) return false;
+    // A benched zombie offers no button. Checked here rather than at the tap so the strip's
+    // ready-count drops with it — a button that lights up and then refuses is worse than a
+    // button that visibly goes away.
+    if (this.isSigned(p)) return false;
     // Mini Buddy is the one move performed OFF the field, so it does not go through
     // the in-position test below at all — see `canTakeMini` for its window (any
     // time before the carrier has deployed).
@@ -1580,12 +1797,12 @@ export class BattleSim {
         if (e.isTurned) continue;
         if (e.isBoss && !ab.hitBoss && (key === "explode" || key === "explodeV2")) continue;
         this.recordAbilityKill(key, e, () => this.dealDamage(e, dmg, true));
-        if (ab.stunMs) e.stunMs = Math.max(e.stunMs, ab.stunMs);
+        if (ab.stunMs) this.stunEnemy(e, ab.stunMs, key);
         this.playerDamage += dmg;
       }
     } else if (foe) {
       this.recordAbilityKill(key, foe, () => this.dealDamage(foe, dmg, true));
-      if (ab.stunMs) foe.stunMs = Math.max(foe.stunMs, ab.stunMs);
+      if (ab.stunMs) this.stunEnemy(foe, ab.stunMs, key);
       this.playerDamage += dmg;
     }
     p.struckThisTick = true;
@@ -1640,7 +1857,7 @@ export class BattleSim {
     carrier.buddyId = null;
     carrier.abilityCdMs = 0;
     carrier.stunMs = Math.max(carrier.stunMs, MINI_CARRIER_STUN_MS);
-    if (foe) foe.stunMs = Math.max(foe.stunMs, MINI_ENEMY_STUN_MS);
+    if (foe) this.stunEnemy(foe, MINI_ENEMY_STUN_MS, "attachMini");
     if (!mini || !mini.alive) return;
     mini.buddyCarrierId = null;
     mini.buddyMountMs = 0;
@@ -1698,6 +1915,7 @@ export class BattleSim {
     for (const healer of this.players) {
       if (!this.fallen.length) break;
       if (!this.canResurrect(healer) || this.wallInWay(healer)) continue;
+      if (this.isSigned(healer)) continue; // benched: it is walking away, not reviving
       const corpseId = this.fallen[this.fallen.length - 1];
       const corpse = this.players.find((p) => p.id === corpseId);
       if (!corpse) {
@@ -1722,6 +1940,11 @@ export class BattleSim {
     );
     for (const healer of deployed) {
       if (!this.isHealer(healer)) continue;
+      // Benched by the placard. This is the half of "no abilities" the walk-off branch
+      // cannot cover: healing is stepped from here over the whole roster, not from the
+      // unit's own march, so a sad Garden zombie would otherwise keep topping the line up
+      // from the back — which is exactly the support the sign is supposed to remove.
+      if (this.isSigned(healer)) continue;
       if (rezCast.has(healer.id)) continue; // spent this beat's cast on the revive
       // A lane blocker takes priority over Garden support work. Note that `wallInWay` no
       // longer counts a blocker a healer was never marching past (see there): at its
@@ -1791,8 +2014,13 @@ export class BattleSim {
    *  mid-field rather than holding at the wave's doorway). The latch keeps zombies which
    *  were already beyond the spawn point from turning around to attack it.
    *
-   *  The two can never be on the field together — only the Ninja and Robot bosses build
-   *  walls and only the alien boss summons — so they share the one `passedWall` latch.
+   *  Until the dual invasions the two could never be on the field together — only the Ninja
+   *  and Robot bosses build walls and only the alien boss summons — and the code leaned on
+   *  it twice: one shared latch for "I am past it", and a `.find()` that took whichever
+   *  blocker happened to be EARLIER IN THE ARRAY rather than the nearer one. With two
+   *  standing, array order is spawn order, so a zombie between a wall and an abductee could
+   *  fix on the far one and walk through the near one. Both are fixed below: the nearest
+   *  blocker ahead wins, and the latch is per blocker.
    *
    *  A converted PIXEL ZOMBIE is pointedly NOT one of these, even though it rides the same
    *  `isSummon` flag for spawning and budget. It is not a blocker and not a melee target
@@ -1803,11 +2031,489 @@ export class BattleSim {
    *  all. Making it a target instead of a blocker is no better; the army would simply pour
    *  four minutes of damage into it. So it is a hazard rather than an enemy: it stands
    *  where it lands, swings at whatever files past, and answers only to taps. */
+  /** The army's total ATTACK SPEED on the field, expressed as equivalent dex. The ninja's
+   *  throw rate is a function of it (see dualInvasion.dexTaxedInterval).
+   *
+   *  Derived from each zombie's LIVE attack interval rather than from a stored dex, which
+   *  is both what the sim actually has and the truer reading of "total attack speed": a
+   *  zombie sped up by an ability is swinging faster, so it should cost more sky. The
+   *  conversion is the player-side cadence rule inverted (interval = 2 s / dex). */
+  private deployedDex(): number {
+    let total = 0;
+    for (const p of this.players) {
+      if (!p.alive || p.taken) continue;
+      if (p.state === "waiting" || p.state === "charging" || p.state === "dead") continue;
+      if (p.cooldownMs > 0) total += (ATTACK_INTERVAL_SEC.player * 1000) / p.cooldownMs;
+    }
+    return total;
+  }
+
+  /** Stun an enemy — the ONE way the player's side does it, so the pirate captain's poise
+   *  bar can intercept every source with the value that source is worth.
+   *
+   *  `source` is the ability key behind the stun (POISE_CONTRIBUTION). While he is winding
+   *  up a charge the stun does NOT land: it goes into the bar instead, and filling the bar
+   *  is what stops him. That swap is the whole mechanic — a stun that both froze him and
+   *  filled the bar would be the off switch poise exists to remove. */
+  private stunEnemy(foe: SimUnit, ms: number, source: string) {
+    if (!foe.alive) return;
+    if (foe.chargeMs > 0) {
+      const gain = poiseFor(source);
+      if (gain > 0) {
+        foe.poise = Math.min(POISE_THRESHOLD, foe.poise + gain);
+        if (foe.poise >= POISE_THRESHOLD) this.breakCharge(foe);
+      }
+      return;
+    }
+    foe.stunMs = Math.max(foe.stunMs, ms);
+  }
+
+  /** A filled bar: the wind-up is abandoned and he has to start again, after a rest. */
+  private breakCharge(u: SimUnit) {
+    u.chargeMs = 0;
+    u.poise = 0;
+    u.chargeFrac = 0;
+    u.chargeRestMs = u.chargeCfg?.recoveryMs ?? 0;
+    u.chargeBreakSeq++;
+  }
+
+  /** Advance the pirate captain's slam charge by one tick. Named apart from `stepCharge`,
+   *  which is the ZOMBIE side's focus bar and an unrelated thing that shares the word.
+   *
+   *  He only winds up while ENGAGED — a charge that ran while he was still walking in would
+   *  land its slam on a line that had not met him yet, and the player would have had no
+   *  window in which to answer it. */
+  private stepSlamCharge(u: SimUnit, dtMs: number) {
+    const cfg = u.chargeCfg;
+    if (!cfg || !u.alive) return;
+    if (u.chargeRestMs > 0) {
+      u.chargeRestMs = Math.max(0, u.chargeRestMs - dtMs);
+      return;
+    }
+    if (u.stunMs > 0) return; // an ordinary stun landed between charges: he is not winding up
+    if (u.chargeMs <= 0) {
+      if (u.state !== "fight" && u.state !== "hold") return;
+      u.chargeMs = cfg.windupMs;
+      u.poise = 0;
+    }
+    u.chargeMs = Math.max(0, u.chargeMs - dtMs);
+    u.chargeFrac = cfg.windupMs > 0 ? 1 - u.chargeMs / cfg.windupMs : 0;
+    if (u.chargeMs > 0) return;
+    // The slam. It lands on every DEPLOYED zombie at once — that is what makes it worth
+    // spending a one-use move to stop, and why its damage is capped well under his authored
+    // per-target hit (see chargeFor).
+    for (const p of this.players) {
+      if (!p.alive || p.taken) continue;
+      if (p.state === "waiting" || p.state === "charging" || p.state === "dead") continue;
+      this.dealEnemyDamage(p, cfg.damage);
+    }
+    u.chargeFrac = 0;
+    u.poise = 0;
+    u.chargeRestMs = cfg.recoveryMs;
+    u.chargeSlamSeq++;
+  }
+
+  /** How tall a circus stack is FIGHTING at right now: how many of its own hit-point
+   *  pools are still standing, capped by how far it has climbed. 1 for everything that is
+   *  not a stack, so every caller can multiply by it unconditionally.
+   *
+   *  Derived rather than stored, which is what makes toppling free: damage lands on one
+   *  pool and the height follows it down in the same tick, with nothing to keep in step. */
+  stackHeight(u: SimUnit): number {
+    if (u.stackBaseHp <= 0) return 1;
+    return Math.max(1, Math.min(u.stackMax, Math.ceil(u.hp / u.stackBaseHp)));
+  }
+
+  /** Grow the towers, and record a topple when one has lost a level since last tick.
+   *
+   *  A stack only climbs while it is STANDING ON THE FIELD — a tower still queued at the
+   *  doorway that grew on the clock would walk on at full height, which removes the whole
+   *  race the mechanic is: the player is supposed to be able to reach it before it tops
+   *  out. */
+  private stepStacks(dtMs: number) {
+    for (const e of this.enemies) {
+      if (e.stackBaseHp <= 0) continue;
+      const height = this.stackHeight(e);
+      if (height < e.stackSeen) e.stackToppleSeq++;
+      e.stackSeen = height;
+      if (!e.alive || e.state === "queued" || e.stackGrowMs <= 0) continue;
+      if (e.stackMax >= e.stackCeiling) continue;
+      e.stackTimerMs -= dtMs;
+      if (e.stackTimerMs > 0) continue;
+      e.stackTimerMs += e.stackGrowMs;
+      e.stackMax++;
+      // Another midget climbs on: the tower gains a whole pool, both in what it can lose
+      // and in what it currently has. A stack the player has already knocked down to one
+      // level therefore rebuilds from where it stands rather than from full.
+      e.maxHp += e.stackBaseHp;
+      e.hp += e.stackBaseHp;
+      e.stackSeen = this.stackHeight(e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // THE SAUCER'S BUBBLE (raid 15) — see dualInvasion.ts
+  // ---------------------------------------------------------------------------
+
+  /** Which action the saucer is charging, or null when nothing is up. */
+  bubbleAction(): BubbleAction | null {
+    const cfg = this.bubbleCfg;
+    if (!cfg || !cfg.cycle.length || this.bubbleCastMs <= 0) return null;
+    if (!this.boss || !this.boss.alive) return null;
+    return cfg.cycle[this.bubbleIndex % cfg.cycle.length];
+  }
+
+  /** How far the charge has filled, 0..1. Presentation only; 0 when nothing is charging. */
+  bubbleProgress(): number {
+    const cfg = this.bubbleCfg;
+    if (!cfg || !this.bubbleAction() || cfg.castMs <= 0) return 0;
+    return Math.max(0, Math.min(1, 1 - this.bubbleCastMs / cfg.castMs));
+  }
+
+  /** Cancels the player has left. */
+  cancelsLeft(): number {
+    return this.bubbleCfg ? this.cancels : 0;
+  }
+
+  /** The charge the pirate captain is winding up, or null when nobody is (raid 13).
+   *
+   *  A PURE READ of state the sim already keeps on the unit, added because nothing public
+   *  exposed it and so nothing outside the renderer could tell a wind-up was happening.
+   *  That was not merely inconvenient: the harness pilot decides from public observers
+   *  only, so a fight whose whole question is "which slams do you stop" was being measured
+   *  by a player who could not see a slam coming — 63 slams against 3 broken charges, and
+   *  every one of those three an accident of something being off cooldown at the time.
+   *
+   *  `poise` and `threshold` are both reported rather than a fraction, because the caller
+   *  has to decide WHICH answer to spend and the answers are priced in absolute poise
+   *  (dualInvasion.POISE_CONTRIBUTION: Smash is half a bar and comes back, the fuse is a
+   *  whole one and costs a zombie). A fraction would throw away the arithmetic that makes
+   *  that a decision.
+   *
+   *  Null while he is resting between charges, so a caller polling this sees exactly the
+   *  window in which an interrupt does anything. */
+  chargeStatus(): {
+    id: string;
+    windupMsLeft: number;
+    windupTotalMs: number;
+    poise: number;
+    threshold: number;
+  } | null {
+    for (const e of this.enemies) {
+      if (!e.chargeCfg || !e.alive || e.chargeMs <= 0) continue;
+      return {
+        id: e.id,
+        windupMsLeft: e.chargeMs,
+        windupTotalMs: e.chargeCfg.windupMs,
+        poise: e.poise,
+        threshold: POISE_THRESHOLD,
+      };
+    }
+    return null;
+  }
+
+  /** Whether this fight has a charging enemy AT ALL, wound up or resting.
+   *
+   *  Separate from `chargeStatus` because a pilot banking its interrupts needs to know
+   *  the fight is one worth banking for BEFORE the first wind-up — holding Smash back on
+   *  a raid that never charges is pure loss. */
+  hasCharge(): boolean {
+    return this.enemies.some((e) => !!e.chargeCfg && e.alive);
+  }
+
+  /** Stop the cast that is charging. Returns false — a REFUSAL the transcript records —
+   *  when nothing is charging or the budget is spent.
+   *
+   *  The saucer does not lose the action, it loses the TEMPO: it sulks for
+   *  `cancelRecoveryMs` and then moves on to the next thing in the cycle. Long at the
+   *  bottom of the ladder (a cancel buys real time) and short at the top (a cancel buys
+   *  only the action). */
+  cancelCast(): boolean {
+    const cfg = this.bubbleCfg;
+    if (!cfg || this.finished) return false;
+    if (!this.bubbleAction() || this.cancels <= 0) return false;
+    this.cancels--;
+    this.bubbleCastMs = 0;
+    this.bubbleGapMs = cfg.cancelRecoveryMs;
+    this.bubbleIndex++;
+    this.bubbleCancelSeq++;
+    return true;
+  }
+
+  /** Run the bubble's clock: quiet, then a charge, then the thing happens.
+   *
+   *  Gated on a LIVE BOSS rather than on its perch, unlike every other boss action. The
+   *  saucer never comes down — it is a sky perch — but even if a future rung landed it,
+   *  a bubble is something it is thinking, not something it is standing up to do. */
+  private stepBubble(dtMs: number) {
+    const cfg = this.bubbleCfg;
+    if (!cfg || !cfg.cycle.length) return;
+    if (!this.boss || !this.boss.alive) return;
+    if (this.bubbleGapMs > 0) {
+      this.bubbleGapMs -= dtMs;
+      if (this.bubbleGapMs <= 0) this.bubbleCastMs = cfg.castMs;
+      return;
+    }
+    if (this.bubbleCastMs <= 0) { this.bubbleCastMs = cfg.castMs; return; }
+    this.bubbleCastMs -= dtMs;
+    if (this.bubbleCastMs > 0) return;
+    this.bubbleCastMs = 0;
+    this.fireBubble(cfg, cfg.cycle[this.bubbleIndex % cfg.cycle.length]);
+    this.bubbleIndex++;
+    this.bubbleGapMs = cfg.gapMs;
+    this.bubbleFireSeq++;
+  }
+
+  /** The five disasters. Each one is deliberately small — the fight's difficulty is in
+   *  choosing which to eat, not in any single one being unanswerable. */
+  private fireBubble(cfg: BubbleConfig, action: BubbleAction) {
+    switch (action) {
+      case "wall": {
+        // The same blocker the boss specials drop, at the same place and with the same
+        // "already past it" latch — see the `wall` case in stepBossActions. It lands at
+        // `supportX`, INSIDE the player's half, so it cuts reinforcements off rather than
+        // barring the line that has already gone by.
+        const wt = this.bubbleWall;
+        if (!wt || this.enemies.some((e) => e.alive && e.isWall)) break;
+        const wall = this.spawnEnemy(wt);
+        wall.isWall = true;
+        wall.isBlocker = true;
+        wall.state = "hold";
+        wall.x = this.supportX;
+        wall.y = CENTER_Y;
+        wall.prevX = wall.x;
+        wall.prevY = wall.y;
+        wall.vx = 0;
+        wall.vy = 0;
+        for (const p of this.players) {
+          if (p.alive && p.x > wall.x + 0.5) p.passedBlockers.push(wall.id);
+        }
+        break;
+      }
+      case "aoe": {
+        // Everything that has left the staging area, at once. Through `dealDamage` so the
+        // one-shot floor still applies: this is meant to hurt an army, not delete one.
+        for (const p of this.players) {
+          if (!p.alive || p.taken || p.state === "waiting" || p.state === "charging") continue;
+          this.dealDamage(p, cfg.aoeDamage, false);
+        }
+        break;
+      }
+      case "swap": {
+        // A QUEUE SWAP, not a summon: the next alien still waiting at the doorway is
+        // re-statted into something much worse. It adds no body, so it can neither hold
+        // the boss on its perch nor spend the settle budget — and it punishes low damage
+        // specifically, because a tough body occupies the field and denies the 450 ms
+        // emerge gaps that let a tank breathe.
+        const queued = this.enemies.filter(
+          (e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon && !e.isCopy &&
+            e.state === "queued"
+        );
+        const next = queued.find((e) => !e.swapped);
+        if (!next) break;
+        // IT REPLACES, IT DOES NOT ADD. The hit points come OUT OF THE REST OF THE QUEUE:
+        // the saucer feeds the aliens still waiting at the doorway into the one at the
+        // front of it. Total wave weight is unchanged, which is not a nicety — the first
+        // cut simply multiplied, and four swaps took a 130,003-point tier-10 fight to
+        // 254,827, past anything that can be cleared inside the settle cap. Measured in
+        // the Raid Lab: the army survived and the fight hung at 240 s with four aliens
+        // still standing. See DUAL_SETTLE_REFERENCE_DPS.
+        //
+        // Self-limiting, too: with the queue nearly empty there is little to take, so a
+        // late swap is a small one and the action quietly stops mattering rather than
+        // running away.
+        const donors = queued.filter((e) => e !== next);
+        const want = next.maxHp * (cfg.swapMult - 1);
+        let taken = 0;
+        for (const donor of donors) {
+          if (taken >= want) break;
+          // Never all of one: a donor left on 1 hit point is a body that still walks on
+          // and still occupies a slot, which is what keeps the wave's SHAPE intact.
+          const spare = Math.max(0, donor.maxHp - 1);
+          const give = Math.min(spare, want - taken);
+          donor.maxHp = Math.max(1, Math.round(donor.maxHp - give));
+          donor.hp = Math.min(donor.hp, donor.maxHp);
+          taken += give;
+        }
+        if (taken <= 0) break;
+        const grew = (next.maxHp + taken) / Math.max(1, next.maxHp);
+        next.swapped = true;
+        next.maxHp = Math.max(1, Math.round(next.maxHp + taken));
+        next.hp = next.maxHp;
+        next.damage = Math.max(1, Math.round(next.damage * grew));
+        next.power = Math.max(1, Math.round(next.power * grew));
+        break;
+      }
+      case "stunAll": {
+        // Nothing on its own. Everything when a wall is standing, or when the portal just
+        // put half the army at the back — which is the overlap the design asked for.
+        for (const p of this.players) {
+          if (!p.alive || p.taken) continue;
+          p.stunMs = Math.max(p.stunMs, cfg.stunMs);
+        }
+        break;
+      }
+      case "portal": {
+        // Half the deployed line, back to the staging slot. Taken from the FRONT, because
+        // the front is what the player spent the fight building — and because sending the
+        // back half backwards would do nothing at all.
+        //
+        // They keep their place in the queue (`inLine` goes, `formOrder` stays), so they
+        // walk back up rather than re-charging: the cost is the walk, and the wall that is
+        // now between them and the fight.
+        const out = this.players
+          .filter((p) => p.alive && !p.taken && (p.state === "advance" || p.state === "fight"))
+          .sort((a, b) => b.x - a.x);
+        const take = Math.floor(out.length * PORTAL_FRACTION);
+        for (const p of out.slice(0, take)) {
+          p.x = CHARGE_X;
+          p.y = CENTER_Y;
+          p.prevX = p.x;
+          p.prevY = p.y;
+          p.vx = 0;
+          p.vy = 0;
+          p.inLine = false;
+          p.state = "advance";
+          // Everything it had walked past is behind it again — including the wall this
+          // action exists to make matter.
+          p.passedBlockers.length = 0;
+        }
+        if (take > 0) this.portalSeq++;
+        break;
+      }
+    }
+  }
+
+  /** Whether the objection is running at all: a raid that has one, with its lawyer still
+   *  on the perch. THE OBJECTION COMES DOWN WITH THE BOSS — boss actions are perch-gated,
+   *  and this is the Lawyer boss's: once its wave is cleared and it climbs down to fight,
+   *  the bubbles stop and the whole army is back. That is the intended finale, the
+   *  pressure lifting at exactly the moment the last thing standing is the lawyer. */
+  private signRunning(): boolean {
+    const cfg = this.signCfg;
+    if (!cfg || !cfg.offers.length || cfg.dwellMs <= 0) return false;
+    const boss = this.boss;
+    return !!boss && boss.alive && boss.state === "structure";
+  }
+
+  /** Close every slot the clock has run past, taking the player's pick where they made
+   *  one and the pinned auto-pick where they did not.
+   *
+   *  Driven off `elapsed` and NOT off the boss's perch: the offers keep turning over
+   *  underneath a descended lawyer even though nothing is barred, so a boss that comes
+   *  down and (in some future fight) climbs back up resumes on the slot the clock is on
+   *  rather than on the one it left. A `while` rather than an `if` because nothing
+   *  promises a step is shorter than a dwell. */
+  private stepSign(): void {
+    const cfg = this.signCfg;
+    if (!cfg || !cfg.offers.length || cfg.dwellMs <= 0) return;
+    const slot = Math.floor(this.elapsed / cfg.dwellMs);
+    while (this.signResolved.length < slot) {
+      this.signResolved.push(this.signPending ?? autoPickFor(cfg, this.signResolved.length));
+      this.signPending = null;
+    }
+  }
+
+  /** The two bubbles on the table right now, or null when the objection is not running.
+   *  Presentation and input both read this, so there is one answer to "what is being
+   *  asked" rather than one per caller. */
+  signOffer(): SignOffer | null {
+    const cfg = this.signCfg;
+    if (!cfg || !this.signRunning()) return null;
+    return cfg.offers[this.signResolved.length % cfg.offers.length];
+  }
+
+  /** Which offer is on the table, or null when the objection is not running. The number a
+   *  `signPick` input has to carry, so the pick can only answer the question it was shown. */
+  signOfferIndex(): number | null {
+    return this.signOffer() ? this.signResolved.length : null;
+  }
+
+  /** Which bubble the player has committed to for the offer on the table, or null while
+   *  they have not chosen. A pick is final — see `pickSign`. */
+  signPick(): number | null {
+    return this.signOffer() ? this.signPending : null;
+  }
+
+  /** Ms left to choose. Zero when nothing is being asked. */
+  signChooseMsLeft(): number {
+    const cfg = this.signCfg;
+    if (!cfg || !this.signOffer()) return 0;
+    return Math.max(0, cfg.dwellMs - (this.elapsed % cfg.dwellMs));
+  }
+
+  /** The same countdown as a fraction (1 just posted → 0 about to resolve), so the HUD
+   *  draws the clock the sim is actually keeping rather than one of its own. */
+  signChooseFrac(): number {
+    const cfg = this.signCfg;
+    if (!cfg || cfg.dwellMs <= 0) return 0;
+    return Math.max(0, Math.min(1, this.signChooseMsLeft() / cfg.dwellMs));
+  }
+
+  /** Commit the player's choice. Returns false — a REFUSAL the transcript records — when
+   *  there is nothing to choose, when the offer named is not the one on the table, or when
+   *  this offer has already been answered.
+   *
+   *  NO TAKE-BACKS, on purpose. A changeable pick would be a dial the player spins to the
+   *  last possible tick rather than a decision, and it would let one offer write an
+   *  unbounded number of transcript entries. */
+  pickSign(offer: number, option: number): boolean {
+    if (!this.signOffer()) return false;
+    if (!Number.isInteger(offer) || offer !== this.signResolved.length) return false;
+    if (option !== 0 && option !== 1) return false;
+    if (this.signPending !== null) return false;
+    this.signPending = option;
+    return true;
+  }
+
+  /** The classes barred right now, or [] when nothing is.
+   *
+   *  What is in force during slot s is the pick that RESOLVED at the end of slot s-1, so
+   *  slot 0 bars nobody: the fight opens with the first two bubbles up and a free dwell to
+   *  read them in. See the TIMING note in dualInvasion.ts. */
+  signedGroups(): readonly string[] {
+    const cfg = this.signCfg;
+    if (!cfg || !this.signRunning()) return NO_GROUPS;
+    const slot = this.signResolved.length;
+    if (slot === 0) return NO_GROUPS;
+    const offer = cfg.offers[(slot - 1) % cfg.offers.length];
+    return offer[this.signResolved[slot - 1] === 1 ? 1 : 0] ?? NO_GROUPS;
+  }
+
+  /** Whether this zombie is currently benched by the placard. Enemies never are. */
+  private isSigned(u: SimUnit): boolean {
+    if (u.team !== "player" || !u.group) return false;
+    const groups = this.signedGroups();
+    return groups.length > 0 && groups.includes(u.group);
+  }
+
+  /** A benched zombie's walk-off: it gives up its place in the line and trudges back
+   *  toward the staging slot.
+   *
+   *  It RETREATS rather than standing still, which is the difference between "this class
+   *  is disabled" and "this class has left", and it is the whole read of the mechanic —
+   *  the hole in the line is visible from across the field. Bounded at CHARGE_X so nobody
+   *  walks off the map, and slow (SIGN_RETREAT_SPEED) so a five-second bench does not
+   *  teleport the front rank to the back and cost more than it is meant to. */
+  private walkOffSigned(u: SimUnit, dtMs: number) {
+    u.inLine = false;
+    u.walkingThisTick = true;
+    const step = (SIGN_RETREAT_SPEED * dtMs) / 1000;
+    u.x = Math.max(CHARGE_X, u.x - step);
+    const dy = u.homeY - u.y;
+    if (Math.abs(dy) > 1) u.y += Math.sign(dy) * Math.min(Math.abs(dy), step);
+  }
+
   private wallInWay(u: SimUnit): SimUnit | null {
-    if (u.passedWall) return null;
-    const blocker = this.enemies.find(
-      (e) => e.alive && (e.isWall || e.isSummon) && !e.isTurned && u.x <= e.x + 0.5
-    ) ?? null;
+    // NEAREST blocker ahead, not the first one spawned: with two standing, the one behind
+    // the other must not be what this zombie fixes on. Ties keep array order, so a single
+    // blocker resolves exactly as it always did.
+    let blocker: SimUnit | null = null;
+    for (const e of this.enemies) {
+      if (!e.alive || !e.isBlocker || u.x > e.x + 0.5) continue;
+      if (u.passedBlockers.includes(e.id)) continue;
+      if (!blocker || e.x < blocker.x) blocker = e;
+    }
     if (!blocker) return null;
     // A blocker only intercepts a zombie that was going to WALK PAST it. A Garden zombie
     // holds at GARDEN_STATION_X, a fixed station far behind the line and far behind either
@@ -2007,9 +2713,23 @@ export class BattleSim {
    *  met — the fight would run to the four-minute cap every time Zedzox landed one. It is
    *  a hazard standing on the field, not a member of the wave, and it dies to taps rather
    *  than to the army. Clearing the wave and the boss therefore still wins; a zombie still
-   *  captive at that point comes home the same way a crab's passenger does. */
+   *  captive at that point comes home the same way a crab's passenger does.
+   *
+   *  A BLOCKER is excluded for the same reason, found the hard way. A boss's `wall` is not
+   *  a member of the wave either — it is scenery the army pushes past and the player taps
+   *  down — and a zombie only fights one that is AHEAD of it (`wallInWay`, and
+   *  `passedBlockers` remembers the ones it has already gone around). So a wall the line
+   *  has walked past is a wall nothing will ever attack again. While the win still required
+   *  killing it, the result was a fight that could not end: measured on raid 13, every
+   *  enemy including the boss dead at 120 s, one orphaned 1,800-point wall behind the line,
+   *  and the army standing at attention until the four-minute cap turned a clean victory
+   *  into `truncated_transcript` — no result, no reward, no explanation.
+   *
+   *  Latent before the dual invasions and reachable now: with the wave trickling one body
+   *  at a time the line rarely advanced past a blocker, and the lined-up wave
+   *  (dualInvasion.dualWaveCadence) pushes it past them constantly. */
   private anyAlive(side: SimUnit[]): boolean {
-    return side.some((u) => u.alive && !u.taken && !u.isTurned);
+    return side.some((u) => u.alive && !u.taken && !u.isTurned && !u.isBlocker);
   }
 
   /** Replay-safe equivalent of `(arc4random() % 100)`. Multiplication by 37
@@ -2124,7 +2844,18 @@ export class BattleSim {
     const dmg =
       u.team === "player"
         ? Math.max(1, Math.round(u.damage * lineupDamageBand(u.lineupIndex)))
-        : u.damage;
+        // A circus stack hits for as many midgets as are still standing on each other's
+        // shoulders. Multiplied here rather than baked into `damage`, because the height
+        // changes every time the tower takes a pool's worth and the swing has to follow it
+        // down within the same tick.
+        //
+        // Guarded on BEING a stack rather than relying on a height of 1, because an enemy's
+        // `damage` is not an integer and rounding it unconditionally moves every other
+        // raid: the first cut of this line changed a burn total by one point and the
+        // pixelFire test caught it.
+        : u.stackBaseHp > 0
+          ? Math.max(1, Math.round(u.damage * this.stackHeight(u)))
+          : u.damage;
     if (u.team === "enemy") {
       this.dealEnemyDamage(foe, dmg);
     } else {
@@ -2143,7 +2874,7 @@ export class BattleSim {
         this.attacksLanded++;
       }
       if (u.abilities.includes("stun") && this.abilityRoll(u) > 95 && foe.alive) {
-        foe.stunMs = Math.max(foe.stunMs, 1000);
+        this.stunEnemy(foe, 1000, "stun");
       }
     }
     u.struckThisTick = true;
@@ -2306,12 +3037,16 @@ export class BattleSim {
     defeated.frontPriority = defeated.isHeadless;
     defeated.inLine = false;
     // Sent back to the charge slot means sent back BEHIND anything standing mid-lane —
-    // the alien boss's abductee, or a boss wall. `passedWall` latches "already ahead of
+    // the alien boss's abductee, or a boss wall. `passedBlockers` records "already ahead of
     // that blocker when it appeared", and a corpse carried back to x=CHARGE_X plainly is
     // not: leaving it latched let a revived zombie walk straight through the abductee it
     // had marched past in its first life and never trade a blow with it. It re-enters the
     // lane like any other zombie, so it re-earns the latch (or fights the blocker).
-    defeated.passedWall = false;
+    //
+    // ANY backwards carry is this same case, not just a revive — a teleport that throws the
+    // line back down the lane has to clear this too, or half the army walks through a wall
+    // it is standing behind.
+    defeated.passedBlockers = [];
     defeated.timerMs = this.cycleMs(defeated, null);
     defeated.windupKey = null;
     defeated.windupMs = 0;
@@ -2467,6 +3202,100 @@ export class BattleSim {
     p.formOrder = this.releaseSeq++; // claim a formation slot on release
     p.distracted = false;
     p.awaitRelease = false;
+    this.spawnCopy(p);
+  }
+
+  /** The trapeze drops a copy of the zombie that just deployed, behind the line (raid 14).
+   *
+   *  PER DEPLOYMENT, not on a timer, and that is the game: the player controls the queue,
+   *  so they choose what the circus gets to copy. Sending the brute out first means
+   *  fighting a brute in your own rear; holding it back means the front waits for it.
+   *  A timer would pick for them, and pick their best, which is a worse question.
+   *
+   *  Deterministic for the usual reason and worth stating because this is the first thing
+   *  in the sim that creates a unit out of a PLAYER's: release order is sim state driven
+   *  by `promote` and by the focus-bubble taps, and those taps are transcribed, so both
+   *  sides release the same zombie on the same tick and therefore copy the same one. */
+  private spawnCopy(p: SimUnit) {
+    const cfg = this.copyCfg;
+    if (!cfg || !p.alive) return;
+    // The trapeze needs a LINE to drop behind: somebody has to be past the drop point
+    // already, or the copy simply walls the army into its staging area. See the note in
+    // dualInvasion.ts — this is the condition, not a delay standing in for it.
+    if (!this.players.some((o) => o.alive && !o.taken && o.x > COPY_STATION_X + 0.5)) return;
+    const alive = this.enemies.filter((e) => e.isCopy && e.alive).length;
+    if (alive >= cfg.maxAlive) return;
+
+    // Cloned from the BUILT unit rather than rebuilt from a template, because the built
+    // unit is the only thing the sim has: `SimUnit` is flattened to damage / maxHp /
+    // cooldownMs, with the species stats, the level ramp, the farmer multipliers and any
+    // mutations already folded in and no way back to them. So a copy is exactly as strong
+    // as the zombie it copied, which is the point — and it is also why `keepMutations` is
+    // not one of the rung's dials (see CopyConfig): the copy cannot NOT have them.
+    const maxHp = Math.max(1, Math.round(p.maxHp * cfg.hpFraction));
+    const copy: SimUnit = {
+      ...p,
+      id: `copy${this.spawnSeq++}`,
+      team: "enemy",
+      abilities: cfg.keepPassives
+        ? p.abilities.filter((key) => COPY_PASSIVE_ABILITIES.includes(key))
+        : [],
+      color: [...COPY_TINT] as [number, number, number],
+      maxHp,
+      hp: maxHp,
+      // The aura is dropped for the reason PvP drops it on a defender: it is re-derived
+      // from "deployed carriers", and a copy standing on the enemy side would otherwise
+      // start reading the PLAYER's team for buffs.
+      teamAuraStats: null,
+      stationX: COPY_STATION_X,
+      stationY: CENTER_Y,
+      // See the note on the mechanic in dualInvasion.ts: a copy is a BLOCKER, which is
+      // what stops the front line shooting it down from where it stands and makes the
+      // rear a fight of its own. `anchorsLine` false keeps the army's stopping line where
+      // it was — without it the whole line marches back to meet the copy.
+      anchorsLine: false,
+      isCopy: true,
+      isBlocker: true,
+      isBoss: false,
+      state: "hold",
+      x: COPY_STATION_X,
+      y: CENTER_Y,
+      prevX: COPY_STATION_X,
+      prevY: CENTER_Y,
+      vx: 0,
+      vy: 0,
+      // Everything the ORIGINAL was carrying that belongs to the original and not to its
+      // reflection: its place in the line, its charge, its passengers, whatever is
+      // currently happening to it. A copy of a burning, stunned, mid-wind-up zombie that
+      // arrived burning, stunned and mid-wind-up would be a copy of a moment.
+      passedBlockers: [],
+      inLine: false,
+      formOrder: 0,
+      lineupIndex: 0,
+      windupKey: null,
+      windupMs: 0,
+      buddyId: null,
+      buddyMountMs: 0,
+      burnMs: 0,
+      stunMs: 0,
+      knockBackSpeed: 0,
+      taken: false,
+      isTurned: false,
+      turnedFromId: null,
+      chargeCfg: null,
+      chargeMs: 0,
+      poise: 0,
+      timerMs: 0,
+    };
+    // The same latch the wall and the abductee use: whoever is already past this spot
+    // does not turn round for it. Applied to the copy's ORIGINAL too — it has just been
+    // released and is standing behind the drop point, so without this it would about-face
+    // and fight itself on the spot instead of marching.
+    for (const other of this.players) {
+      if (other.alive && other.x > copy.x + 0.5) other.passedBlockers.push(copy.id);
+    }
+    this.enemies.push(copy);
+    this.units.push(copy);
   }
 
   /** Player tapped the focus bubble over the charging zombie: a butterfly
@@ -2590,10 +3419,31 @@ export class BattleSim {
           e.defenseRole !== "support" &&
           (e.state !== "queued" || isLineRole(e.defenseRole)))
       : normalsLeft || activeMelee > 0;
-    if (this.boss && this.boss.alive && this.boss.state === "structure" && !bruteHolds) {
+    // THE RINGMASTER DOES NOT WAIT (raid 14, rung 5+). Every other boss comes down when
+    // its wave is gone, which means the player meets it on an empty field — and this one
+    // fight is about not being able to be in two places at once, so a boss that politely
+    // queues behind its own minions removes the whole point. His clock overrides the
+    // gate; nothing else in the game sets one.
+    const dropsOnTheClock = this.bossDropAtMs !== null && this.elapsed >= this.bossDropAtMs;
+    if (this.boss && this.boss.alive && this.boss.state === "structure"
+        && (!bruteHolds || dropsOnTheClock)) {
       // Climb down, exit out the back, then re-enter. An authored PERCH is dropped
       // here: from now on this is a ground unit, and keeping the station would walk
       // it back to a spot up in the air.
+      //
+      // …unless the fight names a GROUND station for it, which the ringmaster does: he
+      // lands mid-lane and fights there rather than joining the line, and `anchorsLine`
+      // stays false so the army does not march back to meet him.
+      if (this.bossGroundStationX !== null) {
+        this.boss.stationX = this.bossGroundStationX;
+        this.boss.stationY = CENTER_Y;
+        this.boss.anchorsLine = false;
+        this.boss.state = "descending";
+        for (const e of this.enemies) {
+          if (e.deployWithBoss && e.alive && e.state === "queued") e.state = "emerging";
+        }
+        return;
+      }
       this.boss.stationX = null;
       this.boss.stationY = null;
       this.boss.state = "descending";
@@ -2628,6 +3478,9 @@ export class BattleSim {
       if (!e.alive || e.isSummon || e.isTurned || e.isBoss) continue;
       // Same reasoning as the perched brute: a mini still in the barn is unreachable.
       if (e.deployWithBoss && e.state === "queued") continue;
+      // A hazard parked mid-lane is not a line to be met — walking the army up to it would
+      // undo the distance it was dropped at. See SimUnit.anchorsLine.
+      if (!e.anchorsLine) continue;
       front = Math.min(front, e.stationX ?? holdX);
     }
     this.frontX = front - this.engageDistance;
@@ -2699,6 +3552,18 @@ export class BattleSim {
    *  earlier one. */
   private assignFormation() {
     const order = this.armyOrder();
+    // KNOWN STALL, NOT FIXED HERE. A Garden zombie holds GARDEN_STATION_X out of the
+    // combat zone, which is right while it has somebody to support — and a dead end when
+    // the healers are the only survivors: measured on raid 15, four Gardens stood at x 250
+    // from second 120 to the four-minute cap while twelve enemies stood at the doorway,
+    // neither side able to touch the other. Not a loss, a `truncated_transcript`.
+    //
+    // The obvious fix — let a Garden take an ordinary slot once every survivor is a Garden
+    // — was tried and reverted: it walks the last medic into a blocker, and `stepResurrect`
+    // refuses a healer with a wall in its way, so the army loses the revives that were its
+    // way back. alienStage.test.ts catches exactly that. The real answer is probably in
+    // `wallInWay`'s treatment of a stationed healer rather than in the formation, and it
+    // belongs to the balance pass with a measurement behind it.
 
     // Lineup index = index in the army array. It drives the damage and cadence falloff
     // bands (combatStats), and now the formation reads from the SAME index, so the visible
@@ -2770,6 +3635,13 @@ export class BattleSim {
       u.prevY = u.y;
     }
     for (const g of this.grabbers) g.struckThisTick = false;
+    // Before anything moves: the clock may just have closed an objection slot, and a
+    // zombie barred by it has to start walking off on this tick rather than the next.
+    this.stepSign();
+    // Towers climb (and record a topple) before anything swings, so a stack that just
+    // lost a level swings at its new height on the same tick it lost it.
+    this.stepStacks(dtMs);
+    this.stepBubble(dtMs);
 
     this.promote(dtMs);
     this.refreshTeamAuras();
@@ -2875,6 +3747,14 @@ export class BattleSim {
             p.timerMs = this.cycleMs(p, null);
             break;
           }
+          // Benched by the placard: no advance, no attack, no laser — it is walking away.
+          // Same shape as the panic above, and for the same reason: everything this branch
+          // skips is everything a zombie out of the fight should not be doing.
+          if (this.isSigned(p)) {
+            this.walkOffSigned(p, dtMs);
+            p.timerMs = this.cycleMs(p, null);
+            break;
+          }
           // Move to the assigned formation slot (never past the enemy).
           //
           // …EXCEPT while carrying a Mini Buddy, which is a RAM and not a march. A brute
@@ -2971,6 +3851,11 @@ export class BattleSim {
       // standing on, while it is walking to that station, and while it is fighting. What
       // gates it is whether anyone is still WALKING IN, not what this unit is doing.
       this.stepDefenderLaser(e, dtMs);
+      // The pirate captain's slam charge, likewise before the state branches: it is his own
+      // clock, and it has to keep running through the ticks his ordinary attack cycle does
+      // nothing on. No-op for every unit without a charge config, which is all of them
+      // outside raid 13.
+      this.stepSlamCharge(e, dtMs);
 
       if (e.state === "falling") {
         e.y = Math.min(CENTER_Y, e.y + (EPIC_BOSS_FALL_SPEED * dtMs) / 1000);
@@ -2996,13 +3881,20 @@ export class BattleSim {
           // the generic boss route (walk out behind the structure, then re-enter).
           // Keep progress in the existing x/y fields so snapshots and replays need
           // no raid-specific animation state.
+          //
+          // He lands on his STATION rather than on the doorway, which is the same thing
+          // for raid 8 (no station, so `holdXOf` answers the doorway) and the whole point
+          // for raid 14, where the rung drops him into the middle of the field. Without
+          // it he jumped down and then stood at the doorway like any other boss, station
+          // or no station — measured in the Raid Lab at x 940 with `stationX` 640.
+          const landX = this.holdXOf(e);
           const dy = CENTER_Y - BOSS_STRUCT_Y;
           e.y = Math.min(CENTER_Y, e.y + (dy * dtMs) / BOSS_JUMP_MS);
           const t = clamp((e.y - BOSS_STRUCT_Y) / dy, 0, 1);
-          e.x = BOSS_STRUCT_X + (ENEMY_HOLD_X - BOSS_STRUCT_X) * t;
+          e.x = BOSS_STRUCT_X + (landX - BOSS_STRUCT_X) * t;
           e.timerMs = this.cycleMs(e, null);
           if (e.y >= CENTER_Y) {
-            e.x = ENEMY_HOLD_X;
+            e.x = landX;
             e.y = CENTER_Y;
             e.state = "hold";
           }
@@ -3072,7 +3964,13 @@ export class BattleSim {
       }
     }
 
-    if (!this.anyAlive(this.players) || !this.anyAlive(this.enemies) || this.elapsed >= MAX_SIM_MS) {
+    const wiped = !this.anyAlive(this.players);
+    const cleared = !this.anyAlive(this.enemies);
+    if (wiped || cleared || this.elapsed >= MAX_SIM_MS) {
+      // Decided beats expired: an army that clears the last enemy ON the final tick has
+      // won, and one wiped out on it has lost the ordinary way. Out of time is only what
+      // is left over — both sides still standing when the clock stops.
+      this.outOfTime = !wiped && !cleared;
       this.finished = true;
     }
     return !this.finished;
@@ -3194,7 +4092,12 @@ export class BattleSim {
       }
       this.launchProjectile(target, next.option.damage, next.option.sprite, next.option.spriteSize);
       this.throwCount++;
-      this.actionCd = this.bossThrow!.intervalMs;
+      // The dex tax (raid 13): the wait until the NEXT throw is re-derived from the army
+      // that is on the field right now, so it tightens as the player commits more of it.
+      // Off everywhere else — `dexTax` is false and the authored interval stands.
+      this.actionCd = this.dexTax
+        ? dexTaxedInterval(this.bossThrow!.intervalMs, this.deployedDex())
+        : this.bossThrow!.intervalMs;
       this.rollNextAction();
       return;
     }
@@ -3398,18 +4301,27 @@ export class BattleSim {
         if (template) {
           const victim = this.spawnEnemy(template);
           victim.isSummon = true;
+          victim.isBlocker = true;
           // Beamed down mid-field, not queued behind the wave at the doorway — see
           // SUMMON_SPAWN_X. Leaving it "queued" would also deadlock it, since the wave's
           // release gate deliberately ignores summons.
           victim.state = "hold";
-          victim.x = SUMMON_SPAWN_X;
+          // Raid 15 puts it immediately enemy-side of where the wall lands, so wall plus
+          // abductee is one double-thick roadblock across the player's own lane rather
+          // than two separate nuisances. Everywhere else it is the authored mid-lane spot.
+          // Keyed on THIS FIGHT HAVING a bubble wall rather than on a raid id, which is
+          // the honest coupling: the repositioning exists because of that wall, and a
+          // fight without one has nothing to stand beside.
+          victim.x = this.bubbleWall
+            ? this.supportX + ABDUCTEE_WALL_GAP
+            : SUMMON_SPAWN_X;
           victim.y = CENTER_Y;
           victim.prevX = victim.x;
           victim.prevY = victim.y;
           // Same latch the wall uses: a zombie already past the spawn point does not turn
           // round to fight something that appeared behind it.
           for (const p of this.players) {
-            if (p.alive && p.x > victim.x + 0.5) p.passedWall = true;
+            if (p.alive && p.x > victim.x + 0.5) p.passedBlockers.push(victim.id);
           }
         }
         // The refill roll: `(int)((arc4random() % 100) / 100.0f * 5.0f)`, hashed here for
@@ -3440,6 +4352,7 @@ export class BattleSim {
         if (wt && !this.enemies.some((e) => e.alive && e.sourceKey === wt.sourceKey)) {
           const wall = this.spawnEnemy(wt);
           wall.isWall = true;
+          wall.isBlocker = true;
           wall.state = "hold";
           wall.x = this.supportX;
           wall.y = CENTER_Y;
@@ -3448,7 +4361,7 @@ export class BattleSim {
           wall.vx = 0;
           wall.vy = 0;
           for (const p of this.players) {
-            if (p.alive && p.x > wall.x + 0.5) p.passedWall = true;
+            if (p.alive && p.x > wall.x + 0.5) p.passedBlockers.push(wall.id);
           }
         }
         break;
@@ -3993,6 +4906,13 @@ export class BattleSim {
     return !this.anyAlive(this.enemies);
   }
 
+  /** Ms left on the FIGHT clock — the one that ends the battle. Drives the HUD countdown,
+   *  and is simulated time, never wall clock: a stuttering frame rate must not be able to
+   *  shorten a fight the server will replay at a fixed 50 ms a tick. */
+  timeRemainingMs(): number {
+    return Math.max(0, MAX_SIM_MS - this.elapsed);
+  }
+
   /** Ms left before the boss enrages (0 once enraged / no boss). For the HUD timer. */
   roundRemainingMs(): number {
     return this.boss ? Math.max(0, this.roundLeft) : 0;
@@ -4015,6 +4935,7 @@ export class BattleSim {
       enemiesBeaten: this.enemies.filter((e) => !e.alive && !e.isTurned).length,
       playerDamage: this.playerDamage,
       escaped: this.escaped,
+      outOfTime: this.outOfTime,
       feats: {
         abilityKills: this.feats.abilityKills.map((kill) => ({ ...kill })),
         resurrections: this.feats.resurrections.map((rez) => ({ ...rez })),

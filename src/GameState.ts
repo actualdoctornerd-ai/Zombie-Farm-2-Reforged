@@ -16,12 +16,29 @@ import { mutationsOf } from "./zombie/mutations";
 import { releasedToGraveyard, trimFallen, type FallenZombie } from "./zombie/memorial";
 import type { ZombieTeam } from "./zombie/teams";
 import { mergeFarmStats, newFarmStats, type FarmStats } from "./stats";
+import { MAX_TIER, clampTier } from "./raid/dualInvasion";
 
+// Levels 1-45 are build-verified from PlayerLevels.plist. Levels 46-50 are NOT in the
+// source — they are reimpl-only content (docs/POST_45_PROGRESSION.md) and their five
+// thresholds are PLACEHOLDERS, deliberately unfitted.
+//
+// The shape is the intended one: a step that keeps steepening, 40k/50k/62k/76k/95k against
+// the 25k that buys level 45, because the four new invasions are meant to be a long
+// endgame rather than five more of the same rung. The MAGNITUDE is a guess. Fitting it
+// needs a target wall-clock per level, which needs the difficulty of the new invasions,
+// which needs the harness rebuild — so it is the last thing to be decided, not the first.
+//
+// For scale while it stands: 323,000 XP across the five, against roughly 1,666 XP/day from
+// the daily/weekly board (frozen at its level-45 value, see PERIODIC_XP_REFERENCE_LEVEL)
+// plus ~80,000 one-off XP from the forty tier first-clears. That is months, and probably
+// too many of them. Do not treat it as a balance decision that has been made.
 export const XP_THRESHOLDS = [
   0, 25, 75, 150, 250, 375, 550, 800, 1300, 1800, 2300, 2800, 3300, 3900, 4500,
   5500, 6500, 7500, 8500, 9500, 11500, 13500, 15500, 17500, 20500, 25000, 30000,
   35000, 40000, 46000, 53000, 61000, 69000, 78000, 87000, 97000, 107000, 117000,
   127000, 137000, 151000, 165000, 179000, 193000, 218000,
+  // ---- reimpl-only, PLACEHOLDER (levels 46-50) ----
+  258000, 308000, 370000, 446000, 541000,
 ];
 
 type Listener = () => void;
@@ -87,6 +104,11 @@ export class GameState {
   zombiePotBought = false;
   // ---- raids: lifetime win count per raid id (drives "first clear" + stats) ----
   raidsCompleted: Record<string, number> = {};
+  // Dual-invasion ladder position: highest TIER CLEARED per raid id. An absent raid has
+  // cleared nothing and can only play tier 1. ONLINE the server owns this exactly as it owns
+  // `raidsCompleted` — it validates the requested tier, pins it on the session and credits
+  // the pinned one — and mirrors it down (syncRaidTiers). OFFLINE the client keeps it.
+  raidTiers: Record<string, number> = {};
   // Epoch ms of the last completed invasion (drives the between-raids cooldown).
   lastRaidAt = 0;
   // OFFLINE brain pity: brain-eligible invasions (boss wins) settled since the last brain
@@ -741,6 +763,33 @@ export class GameState {
     this.raidsCompleted = { ...progress };
     this.emit();
   }
+  /** Highest tier of a dual invasion this farm has CLEARED (0 = none yet). */
+  raidTierCleared(id: string): number {
+    return Math.max(0, Math.floor(this.raidTiers[id] ?? 0));
+  }
+
+  /** Highest tier of a dual invasion this farm may PLAY: one above the highest cleared,
+   *  capped at the top of the ladder. Every unlocked tier below it is replayable. */
+  raidTierUnlocked(id: string): number {
+    return Math.min(MAX_TIER, this.raidTierCleared(id) + 1);
+  }
+
+  /** Record a cleared tier. Monotonic — replaying a rung you have already beaten cannot
+   *  move the ladder backwards, which is what makes "any unlocked tier is replayable" safe. */
+  recordRaidTier(id: string, tier: number): number {
+    const next = Math.max(this.raidTierCleared(id), clampTier(tier));
+    this.raidTiers[id] = next;
+    this.emit();
+    return next;
+  }
+
+  /** Adopt the server's authoritative ladder positions (ONLINE). Mirrored down like
+   *  syncRaidProgress — the client must not decide which rungs it has unlocked. */
+  syncRaidTiers(tiers: Record<string, number>) {
+    this.raidTiers = { ...tiers };
+    this.emit();
+  }
+
   /** Adopt the server's authoritative start time as soon as an invasion is accepted. */
   syncRaidCooldown(lastRaidAt: number) {
     this.lastRaidAt = Math.max(0, lastRaidAt);

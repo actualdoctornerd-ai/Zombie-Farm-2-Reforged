@@ -10,6 +10,7 @@ import {
   applyCommandBatch,
   applyQuestEvents,
   freshGameplayState,
+  MAX_FUNCTIONAL_OBJECTS,
   zombieDefaultMutation,
   type MutableGameplayState,
 } from "../src/v3/engine";
@@ -2101,15 +2102,61 @@ describe("protocol v3 command engine", () => {
     state.storage.received = { "Circus Tent": 1 };
     const initialGold = state.balance.gold;
     const result = applyCommandBatch(state, commands(
-      { type: "storage.claim", itemName: "Circus Tent", clientInstanceId: "reward-sale-circus-tent" },
-      { type: "object.refund", instanceId: "reward-sale-circus-tent" },
+      { type: "storage.refund", itemName: "Circus Tent" },
     ), { now: 10 });
-    expect(result.results.map((entry) => entry.status)).toEqual(["applied", "applied"]);
+    expect(result.results.map((entry) => entry.status)).toEqual(["applied"]);
     expect(result.state.storage.received["Circus Tent"]).toBe(0);
+    // Nothing was ever minted — not even for the instant between two commands, which
+    // is the whole reason this is one command and not claim-then-refund.
     expect(result.state.objects.objects).toEqual([]);
     // An invasion prize sells for its authored value (src/raidDropValue.ts), not the
     // one-gold floor a cost-0 catalog row would otherwise produce.
     expect(result.state.balance.gold).toBe(initialGold + RAID_DROP_SELL.circusTent);
+  });
+
+  it("sells a Received decoration from a farm that is AT the object cap", () => {
+    // The reported bug. A player at the cap could not place the reward (correct — the
+    // farm is full) and then could not sell it either, because selling went through
+    // storage.claim, which is capped: the claim came back "object_limit" and the refund
+    // behind it rolled back as a dependency. The reward was undisposable on exactly the
+    // farm that most needed to shed one. Selling must not consult the cap at all.
+    const state = freshGameplayState();
+    state.storage.received = { "Circus Tent": 1 };
+    state.objects.objects = Array.from({ length: MAX_FUNCTIONAL_OBJECTS }, (_, i) => ({
+      instanceId: `filler-${i}`, catalogKey: "windmill", status: "placed" as const,
+    }));
+    const initialGold = state.balance.gold;
+    const result = applyCommandBatch(state, commands(
+      { type: "storage.refund", itemName: "Circus Tent" },
+    ), { now: 10 });
+    expect(result.results[0]).toMatchObject({ status: "applied" });
+    expect(result.state.storage.received["Circus Tent"]).toBe(0);
+    expect(result.state.balance.gold).toBe(initialGold + RAID_DROP_SELL.circusTent);
+    expect(result.state.objects.objects).toHaveLength(MAX_FUNCTIONAL_OBJECTS);
+  });
+
+  it("refuses to sell a Received reward that is not a sellable object", () => {
+    const state = freshGameplayState();
+    state.storage.received = { "Insta-Plow": 1 };
+    const gold = state.balance.gold;
+    // A boost is stock, not furniture: it has no object to price, and claiming it never
+    // touched the object cap, so there is nothing here for this command to rescue.
+    const result = applyCommandBatch(state, commands(
+      { type: "storage.refund", itemName: "Insta-Plow" },
+    ), { now: 10 });
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "not_sellable" });
+    expect(result.state.storage.received["Insta-Plow"]).toBe(1);
+    expect(result.state.balance.gold).toBe(gold);
+  });
+
+  it("refuses to sell a Received reward the account does not hold", () => {
+    const state = freshGameplayState();
+    const gold = state.balance.gold;
+    const result = applyCommandBatch(state, commands(
+      { type: "storage.refund", itemName: "Circus Tent" },
+    ), { now: 10 });
+    expect(result.results[0]).toMatchObject({ status: "rejected", error: "none_owned" });
+    expect(result.state.balance.gold).toBe(gold);
   });
 
   it("can sell every Epic Boss prize, at a quarter of its brain price", () => {

@@ -35,6 +35,7 @@ const SAMPLES: Record<GameplayCommand["type"], GameplayCommand> = {
   "object.status": { type: "object.status", instanceId: "obj-1", status: "stored" },
   "object.harvest_trees": { type: "object.harvest_trees", instanceIds: ["obj-1", "obj-2"] },
   "storage.claim": { type: "storage.claim", itemName: "Gnome", clientInstanceId: "local-2" },
+  "storage.refund": { type: "storage.refund", itemName: "Gnome" },
   "storage.move": { type: "storage.move", itemKey: "carrot", direction: "store", quantity: 3 },
   "roster.sell": { type: "roster.sell", unitId: "z-1" },
   "roster.status": { type: "roster.status", unitId: "z-1", stored: true },

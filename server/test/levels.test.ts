@@ -14,12 +14,12 @@ describe("levelForXp — server XP→level curve", () => {
     expect(levelForXp(150)).toBe(4);
   });
   it("caps at the top tier", () => {
-    const top = XP_THRESHOLDS.length; // 45
+    const top = XP_THRESHOLDS.length; // 50
     expect(levelForXp(XP_THRESHOLDS[top - 1])).toBe(top);
     expect(levelForXp(9_999_999)).toBe(top);
   });
-  it("matches the client curve length (45 tiers)", () => {
-    expect(XP_THRESHOLDS.length).toBe(45);
+  it("matches the client curve length (50 tiers)", () => {
+    expect(XP_THRESHOLDS.length).toBe(50);
   });
 });
 

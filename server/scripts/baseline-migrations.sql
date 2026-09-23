@@ -82,4 +82,7 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
   -- Data repair only (empties the pinned config of already-finished raid and Epic Boss
   -- sessions); a fresh database has no finished sessions, so baselining it is a no-op.
   ('0056_release_spent_fight_configs.sql'),
-  ('0057_pvp_rework.sql');
+  ('0057_pvp_rework.sql'),
+  -- Adds raid_state_v3.tier_json (dual-invasion ladder position), which schema.sql
+  -- already declares on a fresh database.
+  ('0058_dual_invasion_tiers.sql');

@@ -418,6 +418,156 @@ def norm_stage(s):
     return out
 
 
+# ---------------------------------------------------------------------------
+# REIMPL-ONLY: the post-45 dual invasions. See docs/POST_45_PROGRESSION.md.
+# ---------------------------------------------------------------------------
+# Four invasions that do not exist in the source at all, one per new level 46-49. Each
+# pairs two shipped factions: the fight is STAGED as one of them — that raid's backdrop,
+# boss, portrait, icon, music, throw speed, hazards and loot, taken verbatim — and the
+# other faction's minions are mixed into the wave. The guest faction's boss arrives later
+# as a powerful minion rather than a second boss, because the sim has one boss slot per
+# stage; that is Stage 1-4 work and none of it is in this table yet.
+#
+# Composing rather than authoring is the whole point: every asset these four need already
+# ships, so the only new art is the per-fight tells (the sign, the bubble, the charge), and
+# the only new code is each fight's mechanic.
+#
+# PLACEHOLDERS, all of it. The wave mixes are a first guess, the first-clear XP is a round
+# number, and gold is deliberately left at 0 so RaidCatalog.winGold falls back to pricing it
+# off recommendedLevel. None of it is fitted, and it cannot be until the difficulty harness
+# is rebuilt (see the doc's Sequencing).
+#
+# `elite`: Brain Tickets are REFUSED on these four (the tier ladder is the difficulty
+# selector), so eliteRecommendedLevel is meaningless here and is pinned to the ordinary
+# recommended level rather than carrying the usual +6 advice.
+DUAL_INVASIONS = [
+    {
+        "id": 12, "level": 46, "stage": 2, "guest": 1,
+        "name": "Zombies vs Lawyers & Farmers",
+        "bossName": "CorporateVille & Old McDonnell",
+        "xp": 6000,
+        "weighted": [
+            ("CityStageActorLawyer", 40), ("CityStageActorCrazedWorker", 25),
+            ("FarmStageActorFarmhand", 25), ("FarmStageActorLumberjack", 10),
+        ],
+        "intro": "The lawyers brought the farmhands with them this time, and a stack of signs "
+                 "sayin' who's allowed to fight. Read 'em quick.",
+        "success": "Case dismissed! The suits and the straw hats both went home.",
+        "failure": "They served the papers and yer zombies just stood there lookin' sad.",
+    },
+    {
+        "id": 13, "level": 47, "stage": 4, "guest": 3,
+        "name": "Zombies vs Ninjas & Pirates",
+        "bossName": "Mr. Whiskers & Arrrnold",
+        "xp": 7000,
+        "weighted": [
+            ("NinjaStageActorBoy", 35), ("NinjaStageActorGirl", 25),
+            ("PirateStageActorScallywag", 30), ("PirateStageActorSwashbuckler", 10),
+        ],
+        "intro": "Pirates and ninjas, on the same side, in the same yard. The big one winds up "
+                 "somethin' awful — don't let him finish it.",
+        "success": "Swords down, stars grounded. Nobody agrees who won but us.",
+        "failure": "One slam and the whole line went over like skittles.",
+    },
+    {
+        "id": 14, "level": 48, "stage": 8, "guest": 9,
+        "name": "Zombies vs Circus & Video Games",
+        "bossName": "Ringmaster & Zedzox",
+        "xp": 8000,
+        "weighted": [
+            ("VideoGameStageKnightActor", 30), ("VideoGameStageGhostActor", 25),
+            ("VideoGameStageMonsterActor", 20), ("CircusStageActorMinion1", 15),
+            ("CircusStageActorMinion2", 10),
+        ],
+        "intro": "The circus is puttin' on a show with a pixel cast, and half the act is "
+                 "happenin' behind yer own line.",
+        "success": "Big finish! The tent came down on both of 'em.",
+        "failure": "They stacked up, copied yer best, and played the whole thing backwards.",
+    },
+    {
+        "id": 15, "level": 49, "stage": 6, "guest": 5,
+        "name": "Zombies vs Aliens & Robots",
+        "bossName": "The Aliens & The Bots",
+        "xp": 9000,
+        # THE ALIENS ARE THE WAVE; the robots are not in it. A BroBot is con 350 and a
+        # JunkBot con 310 against an alien minion's 60, so putting them in a twenty-strong
+        # weighted table made a 409,000-point fight — nearly four times the whole settle
+        # budget before any tier applied, and the ladder had to divide by six to keep it
+        # finishable. The guest faction arrives as ONE powerful minion on its own clock
+        # instead, exactly as the farm boss does in raid 12 and the pirate captain in 13
+        # (see dualInvasion.ROBOT_ESCORT_KEY).
+        "weighted": [("AlienStageActorMinion", 100)],
+        "population": 10,
+        "intro": "The saucer's been buildin' somethin' with the bots. Watch what it's thinkin' "
+                 "about, and stop the one you can't live through.",
+        "success": "Saucer down, scrap everywhere. Whatever they were buildin', it ain't.",
+        "failure": "It walled ye in, pulled ye back, and finished what it started.",
+    },
+]
+
+
+def dual_invasion_entries(by_id):
+    """Build the four dual invasions by composing two already-normalized raid entries.
+
+    Everything presentational and every hazard comes from the STAGE raid verbatim, so these
+    inherit a real backdrop, a real boss and (for the Lawyers and the Circus) their authored
+    grab hazard. Only the wave's composition is new.
+    """
+    out = []
+    for spec in DUAL_INVASIONS:
+        stage_raid = by_id[spec["stage"]]
+        guest_raid = by_id[spec["guest"]]
+        base_stage = stage_raid["stages"][-1]
+        entry = dict(stage_raid)  # backdrop, portrait, icon, music, throwSpeed, hazards, loot
+        entry.update({
+            "id": spec["id"],
+            "name": spec["name"],
+            "bossName": spec["bossName"],
+            "unlockLevel": spec["level"],
+            "recommendedLevel": spec["level"],
+            # Brain Tickets are refused here — see the table's note.
+            "eliteRecommendedLevel": spec["level"],
+            "introText": spec["intro"],
+            "successText": spec["success"],
+            "failureText": spec["failure"],
+            "xp": spec["xp"],
+            # 0/0 makes RaidCatalog.winGold price the fight off recommendedLevel instead of a
+            # wiki figure that does not exist for a raid the wiki never had.
+            "goldReward": 0,
+            "bonusGold": 0,
+            "seasonal": False,
+            "playable": True,
+            # WHOSE STAGE THIS IS. Everything on screen here — the backdrop, its parallax
+            # layers, the perch structure, the boss standing on it — is raid `stage`'s, so
+            # every per-raid PRESENTATION correction the client keeps for that raid has to
+            # apply to this one too. Those corrections are keyed by raid id and eyeballed
+            # against the real game (RaidScene.PERCH_TWEAK moves the Lawyer boss down a
+            # third of the screen; fightConfig.GRAB_SPRITE is what makes the Circus trapeze
+            # exist at all), so a new id silently falls through every one of them and the
+            # fight renders subtly wrong in a way no test would catch. Carrying the source
+            # id in the data is the fix: see RaidCatalog.stageRaidId, which every such
+            # table is keyed through.
+            "stageOf": spec["stage"],
+            "levelAssets": [dict(a) for a in stage_raid["levelAssets"]],
+            "stages": [{
+                **{k: v for k, v in base_stage.items() if k != "weighted"},
+                "weighted": [{"enemy": key, "frequency": freq} for key, freq in spec["weighted"]],
+                # A spec may re-size the wave as well as re-compose it (raid 15 does, to get
+                # its hit points back inside the settle budget). Absent means keep the
+                # stage's own population.
+                **({"population": spec["population"]} if "population" in spec else {}),
+            }],
+            "loot": [list(tier) for tier in stage_raid["loot"]],
+        })
+        # Sanity: every unit named in the mix must be one some shipped raid already uses, or
+        # enemy_stats will not carry a template for it and the fight cannot be built.
+        for key, _ in spec["weighted"]:
+            assert key in json.dumps(stage_raid["stages"]) or key in json.dumps(guest_raid["stages"]), \
+                f"raid {spec['id']}: {key} is in neither {stage_raid['name']} nor {guest_raid['name']}"
+        out.append(entry)
+    return out
+
+
 def main():
     os.makedirs(IMGDIR, exist_ok=True)
     enemies = load("Enemies.json")
@@ -490,6 +640,9 @@ def main():
             # strings for "grabZombie".
             "hasGrab": "grabzombie" in json.dumps(e.get("stageActors") or []).lower(),
         })
+
+    # The reimpl-only dual invasions, composed from the source raids just normalized above.
+    raids.extend(dual_invasion_entries({r["id"]: r for r in raids}))
 
     raids.sort(key=lambda r: r["id"])
 

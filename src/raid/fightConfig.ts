@@ -20,21 +20,38 @@ import type { GameAssets } from "../assets";
 import { summonConfigFor } from "./alienStage";
 import { eliteWallHp, type EliteProfile } from "./eliteInvasion";
 import { rescueHazardHp } from "./hazardTaps";
-import { bossThrowIntervalSecs, fightScaledThrow, pacedBossThrow } from "./RaidCatalog";
+import {
+  bossThrowIntervalSecs, fightScaledThrow, pacedBossThrow, stageRaidId,
+} from "./RaidCatalog";
 import type {
   BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidStage,
   SummonConfig,
 } from "./types";
 import { turnedUnitFor } from "./videoGameStage";
+import { buildUnitsForKeys } from "./CombatEngine";
+import {
+  CAPTAIN_ARRIVES_MS, chargeFor, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, farmerSquadAtMs,
+  BUBBLE_RAID_ID, ROBOT_ESCORT_AT_MS, ROBOT_ESCORT_KEY,
+  SIGN_RAID_ID, stacksFor, STACK_COUNT, STACK_FIRST_AT_MS, STACK_GAP_MS,
+  type SignConfig,
+} from "./dualInvasion";
+
+/** The pirate captain's authored unit — `str 500, dex 0.4`, the biggest single blow in the
+ *  game. He leads the Pirates' own invasion; here he is a ground minion with a charge. */
+const PIRATE_CAPTAIN_KEY = "PirateStageActorBoss";
 
 /** The slice of the asset bundle a fight config is built from. */
 export type FightAssets = Pick<GameAssets, "enemyStats" | "raidAttacks">;
 
 /** Real grab-hazard art per raid id. Circus = the trapeze girl (extracted from the
- *  stage atlas). */
+ *  stage atlas). Keyed by the STAGE's raid (see RaidCatalog.stageRaidId), so an invasion
+ *  fought on the Circus stage gets the trapeze that stage has rather than losing it to a
+ *  table lookup on an id the table never heard of. */
 const GRAB_SPRITE: Record<number, string> = {
   8: "hazard_trapeze_girl.png",
 };
+/** The authored midget stack — one tower per unit. See circusStacksFor. */
+const CIRCUS_STACK_KEY = "CircusStageActorMinion2";
 /** The Beach crab hazard: identified by the raid's own `initialSpawnClass` rather than a
  *  per-id table, since that field is exactly what the source's obstacle timer spawns. */
 const CRAB_ACTOR = "BeachStageActorCrab";
@@ -147,7 +164,16 @@ export function wallTemplateFor(
   elite: EliteProfile | null = null
 ): CombatUnit | null {
   const wall = bossActionsOf(assets, stage).find((a) => a.name === "wall");
-  if (!wall) return null;
+  return wall ? wallUnitFrom(wall, elite) : null;
+}
+
+/** One `wall` action's blocker, split out of the builder above because raid 15's wall
+ *  comes from the BUBBLE rather than from the stage's boss — the saucer has no `wall` in
+ *  its list, so that fight borrows the JunkBot's (see bubbleWallFor). */
+function wallUnitFrom(
+  wall: { hp?: number; sprite?: string },
+  elite: EliteProfile | null
+): CombatUnit {
   const hp = Math.max(1, Math.round(eliteWallHp(wall.hp ?? 1500, elite)));
   // Use the action's own wall art (Ninja carrotWall.png / Robot junkWall.png); the
   // sourceKey strips ".png" so the renderer keys its preloaded texture by it.
@@ -178,7 +204,7 @@ export function wallTemplateFor(
  *  (The Lawyers cars also `grabZombie` but ship no sprite / different motion — not wired
  *  here.) */
 export function grabberFor(raid: RaidDef): GrabberConfig | null {
-  const sprite = GRAB_SPRITE[raid.id];
+  const sprite = GRAB_SPRITE[stageRaidId(raid)];
   if (!raid.hasGrab || !sprite) return null;
   return { sprite, hp: rescueHazardHp(RESCUE_HAZARD_HP), tapDamage: 100, spawnDelayMs: 4000 };
 }
@@ -202,4 +228,148 @@ export function crabFor(raid: RaidDef): CrabConfig | null {
     limit: raid.obstacleLimit,
     holdMs: 2000,
   };
+}
+
+/** The Lawyers & Farmers squad: Old McDonnell and three farmhands, authored to walk on
+ *  together partway through the fight (see dualInvasion.ts for the timing and for why
+ *  there is only one squad).
+ *
+ *  Returned as EXTRA enemy units to append to the wave — they carry `deployAtMs`, which
+ *  takes them off the drip budget entirely, so they arrive on their own clock rather than
+ *  waiting for something to die. `anchorsLine` is left alone: they walk to the ordinary
+ *  doorway like the rest of the wave, so there is no station to drag the player's line to.
+ *
+ *  Both sides build this from the same helper, off the raid id and the pinned tier, for the
+ *  same reason every other fight config is shared: a wave the two simulations disagree
+ *  about diverges the replay from tick 0. */
+export function farmerSquadFor(
+  assets: FightAssets,
+  raid: RaidDef,
+  sign: SignConfig | null,
+  elite: EliteProfile | null = null,
+  playerLevel = 0
+): CombatUnit[] {
+  const at = farmerSquadAtMs(sign);
+  if (at === null || raid.id !== SIGN_RAID_ID) return [];
+  const keys = [
+    FARMER_SQUAD_LEADER,
+    ...Array.from({ length: FARMER_SQUAD_MINIONS }, () => FARMER_SQUAD_MINION),
+  ].filter((key) => assets.enemyStats[key]);
+  if (!keys.length) return [];
+  // Built as ORDINARY units, never as bosses: the guest faction's leader arrives as a
+  // powerful minion, because the sim has one boss slot and the lawyer is in it.
+  //
+  // AND WITHOUT McDONNELL'S SHOVE. `OldMcDonnellPunch` carries `knockBack` at frequency
+  // 100, so on his own farm every single swing throws a zombie 150 units down the lane and
+  // re-slots it last. That is a fine mechanic against a wave that trickles one body at a
+  // time — the shoved zombie walks back and rejoins. Here it is a disaster: this wave LINES
+  // UP (dualInvasion.dualWaveCadence), so a shove does not just interrupt one duel, it
+  // carries the zombie out of reach of the whole line, and McDonnell does it on every hit
+  // he lands for as long as he is standing. Owner call, 2026-09-19: off for this fight.
+  //
+  // Scoped to the squad rather than to the attack, so McDonnell keeps his shove on raid 1
+  // where it belongs and where it has always worked.
+  return buildUnitsForKeys(keys, null, assets.enemyStats, assets.raidAttacks, {
+    raidId: raid.id, playerLevel, elite,
+  }).map((unit, i) => ({
+    ...unit, id: `squad${i}`, deployAtMs: at, knockBack: false, knockBackChance: 0,
+  }));
+}
+
+/** The Ninjas & Pirates ground threat: the pirate captain, appended to the wave carrying
+ *  his charge-up slam.
+ *
+ *  He is the guest faction's boss arriving as a POWERFUL MINION — the ninja holds the one
+ *  boss slot — so he is built as an ordinary unit. He carries a `deployAtMs` like the
+ *  farmer squad, and for a sharper reason than they do: see CAPTAIN_ARRIVES_MS. */
+export function pirateCaptainFor(
+  assets: FightAssets,
+  raid: RaidDef,
+  tier: number,
+  elite: EliteProfile | null = null,
+  playerLevel = 0
+): CombatUnit[] {
+  const charge = chargeFor(raid.id, tier);
+  if (!charge || !assets.enemyStats[PIRATE_CAPTAIN_KEY]) return [];
+  const [unit] = buildUnitsForKeys(
+    [PIRATE_CAPTAIN_KEY], null, assets.enemyStats, assets.raidAttacks,
+    { raidId: raid.id, playerLevel, elite }
+  );
+  return unit ? [{ ...unit, id: "captain", charge, deployAtMs: CAPTAIN_ARRIVES_MS }] : [];
+}
+
+/** The Circus & Video Games towers: up to STACK_COUNT midget stacks, appended to the wave
+ *  on their own clocks (raid 14).
+ *
+ *  `CircusStageActorMinion2` is the authored midget stack — it swings `MidgetStackAttack`
+ *  and the ringmaster throws `projectile_midget.png` — so the art is the game's own. What
+ *  the fight adds is that each one is ONE unit carrying a height, not three bodies: see
+ *  the note in dualInvasion.ts for why the settle budget insists on that.
+ *
+ *  They walk on spaced rather than together (STACK_GAP_MS), because three towers arriving
+ *  at once is a wall and three arriving in sequence is a decision about which to topple.
+ *
+ *  `anchorsLine` is left TRUE: a stack holds at the wave's own doorway like every other
+ *  minion, so there is no mid-field station to drag the army's line forward. */
+export function circusStacksFor(
+  assets: FightAssets,
+  raid: RaidDef,
+  tier: number,
+  elite: EliteProfile | null = null,
+  playerLevel = 0
+): CombatUnit[] {
+  const cfg = stacksFor(raid.id, tier);
+  if (!cfg || !assets.enemyStats[CIRCUS_STACK_KEY]) return [];
+  const out: CombatUnit[] = [];
+  for (let i = 0; i < STACK_COUNT; i++) {
+    const [unit] = buildUnitsForKeys(
+      [CIRCUS_STACK_KEY], null, assets.enemyStats, assets.raidAttacks,
+      { raidId: raid.id, playerLevel, elite }
+    );
+    if (!unit) break;
+    out.push({
+      ...unit,
+      id: `stack${i}`,
+      deployAtMs: STACK_FIRST_AT_MS + i * STACK_GAP_MS,
+      stack: { growMs: cfg.growMs, maxHeight: cfg.maxHeight },
+    });
+  }
+  return out;
+}
+
+/** The Aliens & Robots guest heavy: one JunkBot, walking on partway through (raid 15).
+ *
+ *  The robots used to be IN the wave, and they are far too heavy for it — see the note on
+ *  ROBOT_ESCORT_KEY. One of them, on its own clock, is the same shape the farm boss takes
+ *  in raid 12 and the pirate captain in raid 13: the guest faction's heavy arrives as a
+ *  powerful minion because the sim has one boss slot and the saucer is in it.
+ *
+ *  The JunkBot specifically, because it is the wall-builder — and this is the fight whose
+ *  signature play is being walled into your own half. */
+export function robotEscortFor(
+  assets: FightAssets,
+  raid: RaidDef,
+  elite: EliteProfile | null = null,
+  playerLevel = 0
+): CombatUnit[] {
+  if (raid.id !== BUBBLE_RAID_ID || !assets.enemyStats[ROBOT_ESCORT_KEY]) return [];
+  const [unit] = buildUnitsForKeys(
+    [ROBOT_ESCORT_KEY], null, assets.enemyStats, assets.raidAttacks,
+    { raidId: raid.id, playerLevel, elite }
+  );
+  return unit ? [{ ...unit, id: "escort", deployAtMs: ROBOT_ESCORT_AT_MS }] : [];
+}
+
+/** The wall the BUBBLE puts up (raid 15). Every other raid's wall belongs to a boss action
+ *  and is built from the stage's own boss; the saucer has no `wall` in its list, so this
+ *  fight borrows the JunkBot's — which is the guest heavy standing on the field anyway. */
+export function bubbleWallFor(
+  assets: FightAssets,
+  raid: RaidDef,
+  elite: EliteProfile | null = null
+): CombatUnit | null {
+  if (raid.id !== BUBBLE_RAID_ID) return null;
+  const action = assets.enemyStats[ROBOT_ESCORT_KEY]?.bossActions?.find((a) => a.name === "wall");
+  if (!action) return null;
+  return wallUnitFrom(action, elite);
 }

@@ -196,6 +196,13 @@ export const PVP_DAILY_REWARDED_DEFENSES = 3;
  *  payload is swept, which is most of a session row's weight. */
 export const PVP_REPLAYS_KEPT = 10;
 
+/** How many finished fights the History tab lists, per role. Separate from
+ *  PVP_REPLAYS_KEPT on purpose: that number is about how much heavy replay payload is
+ *  worth storing, and reusing it as the history window silently threw away the thing
+ *  the comment above promises is kept forever — the RESULT. A player invaded eleven
+ *  times could no longer see how the first one went, though the row was still there. */
+export const PVP_HISTORY_ROWS = 40;
+
 /** Defense wave cadence: a mild swarm (up to 3 on the field, one more every 5 s), so a
  *  16-zombie defense doesn't fight one-at-a-time into the 4-minute sim cap. Pinned into
  *  the config like the alien stage's cadence, so both simulations agree by construction. */

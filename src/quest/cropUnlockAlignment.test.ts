@@ -49,18 +49,31 @@ function effectiveGate(id: string, seen = new Set<string>()): number {
   return QUESTS[prereq] ? Math.max(own, effectiveGate(prereq, seen)) : own;
 }
 
+// The top of the REGULAR crop ladder. It was the level cap until the cap went to 50 for the
+// post-45 invasions (docs/POST_45_PROGRESSION.md), and it is now deliberately below it: the
+// five new levels are bought with invasions, and no crop art exists for them yet.
+//
+// KNOWN GAP, not a settled design. The plan puts a crop at 46 / 48 / 50, because the farm
+// loop otherwise goes completely flat at exactly the point the new content begins — a player
+// climbing 46-50 plants the same Heartichoke they unlocked at 45 the whole way. When those
+// crops land this constant becomes LEVEL_CAP again and the second test below goes back to
+// asserting the cap.
+const CROP_LADDER_TOP = 45;
+
 describe("crop unlock ladder", () => {
   it("never unlocks a crop above the level cap", () => {
-    expect(LEVEL_CAP).toBe(45);
+    expect(LEVEL_CAP).toBe(50);
     for (const p of plants) {
       expect.soft(p.level, `${p.key} unlocks at ${p.level}, cap is ${LEVEL_CAP}`)
         .toBeLessThanOrEqual(LEVEL_CAP);
     }
   });
 
-  it("tops out exactly at the cap, so the last level still unlocks something", () => {
+  it("tops out at the crop ladder's own top, so that level still unlocks something", () => {
     const regular = plants.filter((p) => !p.seasonal);
-    expect(Math.max(...regular.map((p) => p.level))).toBe(LEVEL_CAP);
+    expect(Math.max(...regular.map((p) => p.level))).toBe(CROP_LADDER_TOP);
+    // The gap this leaves is the tracked one, not a silent regression.
+    expect(CROP_LADDER_TOP).toBeLessThan(LEVEL_CAP);
   });
 
   it("unlocks at most two regular crops on any one level", () => {

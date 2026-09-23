@@ -1,3 +1,5 @@
+import type { ChargeConfig } from "./dualInvasion";
+
 // Raid/invasion data shapes, normalized by tools/prep_raids.py from the source
 // Enemies.json / UnitStats.json / Attacks.json.
 //
@@ -67,6 +69,12 @@ export interface RaidDef {
   seasonal: boolean;
   /** Has playable stages (enemy data). Others show as a locked/coming-soon card. */
   playable: boolean;
+  /** The raid whose STAGE this one is fought on, when it is not its own. Only the post-45
+   *  dual invasions carry it: they borrow a shipped raid's backdrop, parallax layers,
+   *  perch structure and boss wholesale (tools/prep_raids.py DUAL_INVASIONS), so every
+   *  per-raid PRESENTATION correction keyed to that raid has to reach them too. Read it
+   *  through RaidCatalog.stageRaidId rather than directly. */
+  stageOf?: number;
   levelAssets: RaidLevelAsset[];
   stages: RaidStage[];
   /** Reward tiers: each tier is a list of possible drops (names/keys). */
@@ -177,6 +185,14 @@ export interface CombatUnit {
   /** The unit's unlocked, active ability keys (players only; [] for enemies). Used
    *  by the live scene to drive the top-left ability strip + activated moves. */
   abilities: string[];
+  /** The pirate captain's charge-up slam (raid 13 only; see raid/dualInvasion.ts). Absent
+   *  everywhere else, which is what keeps every other transcript untouched. */
+  charge?: ChargeConfig | null;
+  /** This enemy is a CIRCUS STACK (raid 14 only): one unit standing in for a tower of
+   *  midgets, which climbs another level every `growMs` up to `maxHeight` and fights at
+   *  whatever height its remaining hit points still support. Absent everywhere else,
+   *  which is what keeps every other transcript untouched. See raid/dualInvasion.ts. */
+  stack?: { growMs: number; maxHeight: number } | null;
   /** Enemy attack carries knockback (Attacks.json `knockBack`) — on hit it shoves the
    *  struck zombie back down the lane and interrupts it (see BattleSim). Players: false. */
   knockBack?: boolean;
@@ -211,6 +227,12 @@ export interface CombatUnit {
    *  instead of holding at the shared ENEMY_HOLD_X doorway. */
   stationX?: number;
   stationY?: number;
+  /** Whether a station is allowed to pull the player's line forward (BattleSim's
+   *  refreshFrontLine). Absent/true for a PvP defender, whose station IS the line the
+   *  attackers must come to. Set FALSE for a hazard dropped into the middle of the lane —
+   *  a mid-field boss, a growing stack, a copy landed behind the army — which the army
+   *  must choose to go and deal with rather than be walked into automatically. */
+  anchorsLine?: boolean;
   /** Fight-clock ms at which this defender walks on. 0 = already there when the
    *  fight opens. Present = this unit ignores the wave's drip cadence entirely. */
   deployAtMs?: number;
@@ -382,6 +404,10 @@ export interface RaidOutcome {
   playerDamage: number;
   /** Epic Boss only: the hard attempt clock elapsed while the boss still lived. */
   escaped?: boolean;
+  /** The four-minute fight clock ran out with both sides still alive. A loss, but the one
+   *  kind of loss the player's army survives, so the result panel names it. Optional for
+   *  the same reason `escaped` is: hand-built fixtures and older stored outcomes. */
+  outOfTime?: boolean;
   /** How the fight was won, for technique achievements. Optional so an outcome
    *  produced by an older client (or a hand-built test fixture) still parses. */
   feats?: RaidFeats;

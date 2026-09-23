@@ -112,6 +112,12 @@ trust one:
   `BLACK_MARKET_IMPLEMENTATION_PLAN.md`, `DECOR_RESTORATION_PLAN.md`. Kept for the *why*, not
   as a description of how the code works now. Each opens with a status banner saying so; where
   the shipped form diverged from the plan, the banner is the correction.
+- **Specs for work not yet built**, which describe an intention rather than the code:
+  `POST_45_PROGRESSION.md` (levels 46-50 and the four dual invasions). Read it as a plan under
+  construction — its mechanics are decided, its numbers are placeholders, and the open
+  questions are listed at the end. `ABILITY_IDEAS.md` is a backlog rather than a spec: endgame
+  ability proposals, none of them built. Read it before designing a new ability, and do not
+  read any of it as describing something the game does.
 
 Some **source-extraction** references (the disassembly notes, the raw mechanics
 audit, and the phased roadmap) live outside this repo under `../ZF2R_extracted/`,

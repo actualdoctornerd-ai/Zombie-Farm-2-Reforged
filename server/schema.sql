@@ -279,7 +279,12 @@ CREATE TABLE IF NOT EXISTS raid_state_v3 (
   -- Per-raid wins since that raid last dropped its rare zombie, {"<raidId>": <dryWins>}.
   -- Server-only, same deal: /raid/finish grants the zombie outright at the threshold in
   -- src/raid/zombieDrops.ts and the count is never sent to the client.
-  zombie_dry_json  TEXT NOT NULL DEFAULT '{}'
+  zombie_dry_json  TEXT NOT NULL DEFAULT '{}',
+  -- Dual-invasion ladder position, {"<raidId>": <highest tier CLEARED>}. Absent raid = has
+  -- cleared nothing, so only tier 1 is playable. Server-owned: /raid/start validates the
+  -- requested tier against this and pins it on the session, and /raid/finish credits the
+  -- PINNED tier on a win. See migration 0058.
+  tier_json        TEXT NOT NULL DEFAULT '{}'
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_raid_v3_live
   ON raid_sessions_v3(account_id) WHERE finished_at IS NULL;

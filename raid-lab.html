@@ -112,7 +112,7 @@
         <div class="pad">
           <div class="row">
             <label style="flex:0 0 52px">Level</label>
-            <input id="level" type="range" min="1" max="45" step="1" value="25" />
+            <input id="level" type="range" min="1" max="50" step="1" value="25" />
             <span id="levelV" class="mini" style="min-width:26px;text-align:right">25</span>
           </div>
           <div class="row">
@@ -129,6 +129,18 @@
             <button id="elite" class="mini" style="flex:1" title="Brain Ticket profile">Elite</button>
             <button id="conc" class="mini on" style="flex:1" title="Skip the focus-bubble minigame">Full focus</button>
           </div>
+        </div>
+        <!--
+          THE RUNG (dual invasions only). Raids 12-15 carry a ten-tier ladder in place of
+          the single difficulty every other invasion has, and the rung is what the fight's
+          MECHANIC is scheduled against — which classes the lawyer puts in a bubble, how
+          long the pirate captain's wind-up is. The whole block hides itself on every other
+          raid, where there is no ladder to pick from.
+        -->
+        <div class="slot" id="rungSlot" hidden>Rung</div>
+        <div class="pad" id="rungPad" hidden>
+          <div class="wrap" id="tierStrip"></div>
+          <div class="note" id="rungNote" style="padding:6px 0 0"></div>
         </div>
         <div class="slot">Stage</div>
         <div class="note" id="stageInfo"></div>
@@ -171,6 +183,31 @@
             <button id="pMixed" class="mini">One of each</button>
             <button id="pGarden" class="mini" title="Adds a Garden healer so Heal fires">+ Healer</button>
           </div>
+          <!--
+            ENDGAME ROSTERS. The four presets above this line are for watching ANIMATIONS —
+            a handful of zombies with every activated move granted to all of them. These
+            are for PLAYING the post-45 invasions: full 20-strong armies of the best
+            ordinary species, ability tiers all unlocked, and the lab's blanket grant
+            cleared so each zombie carries only what it would really have.
+          -->
+          <div class="slot" style="margin:10px -10px 0">Endgame rosters (L46+)</div>
+          <div class="note" id="rosterNote" style="padding:6px 0"></div>
+          <div class="wrap">
+            <button id="pMeta" class="mini" title="2 healers, 2 tanks, and a wall of dex-8 Vagabonds — the stack these invasions are designed to break">Meta stack</button>
+            <button id="pBalanced" class="mini" title="All six classes, so every bubble the lawyer offers costs something real">Balanced 20</button>
+            <button id="pGlass" class="mini" title="All damage, no tank and no heals">Glass</button>
+            <button id="pWall" class="mini" title="Tanks, weight and sustain — almost nothing that ends a fight">Brick</button>
+          </div>
+          <!--
+            Rides on TOP of whatever army is loaded rather than being a fifth roster, so any
+            line-up can be compared with and without it. Nothing in the game hands a player
+            a maxed mask — this is the ceiling, for asking whether a rung still holds at it.
+          -->
+          <div class="wrap" style="margin-top:6px">
+            <button id="pBis" class="mini" style="flex:1"
+                    title="Strongest legal mutation in every slot, chosen per species — see src/devtools/bestMutations.ts">★ Best-in-slot mutations</button>
+          </div>
+          <div class="note" id="bisNote" style="padding:6px 0 0"></div>
         </div>
 
         <h2>Abilities</h2>

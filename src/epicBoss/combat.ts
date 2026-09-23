@@ -16,6 +16,13 @@ import { EPIC_LOOT_DROP_CHANCE, EPIC_LOOT_ROLLS, epicLootWeight } from "./reward
  *  `isEpicBossKey`'s use in RaidScene. */
 export const EPIC_BOSS_KEY_PREFIX = "EpicBoss:";
 
+/** Melee line for an Epic Boss. Its art is far larger than a raid boss's, so the army
+ *  has to stand further back or the boss swallows the front rank. One constant because
+ *  the live scene, the Raid Lab and the server verifier must fight the same fight — the
+ *  verifier used to carry its own copy of this 150 inside a positional BattleSim call
+ *  (see raid/buildFight.ts for why that stopped being allowed). */
+export const EPIC_BOSS_ENGAGE = 150;
+
 /** Whether a combat `sourceKey` names an Epic Boss (and so has no shared enemy art). */
 export function isEpicBossKey(sourceKey: string): boolean {
   return sourceKey.startsWith(EPIC_BOSS_KEY_PREFIX);

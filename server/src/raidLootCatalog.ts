@@ -25,6 +25,10 @@ export const RAID_LOOT: Readonly<Record<number, readonly (readonly string[])[]>>
   9: [["Bonus Gold"], ["Pixel Block", "Pixel Floating Block"], ["Invasion Voucher", "Insta-Grow", "Insta-Plow", "Insta-Harvest"], ["Pixel Banner", "Pixel Tree"], ["Pixel Campfire"], ["Pixel Tower"]], // Zombies vs Video Games
   10: [["Bonus Gold"], ["Bunnypig Bush"], ["Invasion Voucher", "Insta-Grow", "Insta-Plow", "Insta-Harvest"], ["Cobrahawk Bush", "Mosscrab Bush"], ["Phoenix Statue"], ["Poppy's House"]], // Tree World
   11: [["Bonus Gold"], ["Invasion Voucher", "Golden Dice", "Invasion Voucher"], ["Heart Hedge"], ["Heart Candle"], ["Teddy Valentine"], ["Love Shack"]], // Valentine's Day
+  12: [["Bonus Gold"], ["Zombie Sign"], ["Insta-Harvest", "Insta-Plow", "Invasion Voucher"], ["Corporate Banner"], ["Street Light"], ["Monument"]], // Zombies vs Lawyers & Farmers
+  13: [["Bonus Gold"], ["Bamboo"], ["Invasion Voucher", "Insta-Grow", "Insta-Plow", "Insta-Harvest"], ["Ninja Banner"], ["Double Rainbow"], ["Taiko Drum"]], // Zombies vs Ninjas & Pirates
+  14: [["Bonus Gold"], ["Concentration", "Insta-Grow", "Invasion Voucher"], ["Circus Flag: Green", "Circus Flag: Yellow", "Circus Flag: Blue"], ["Bonus Gold"], ["Circus Tent"], ["Ring of Fire"]], // Zombies vs Circus & Video Games
+  15: [["Bonus Gold"], ["Bike"], ["Invasion Voucher", "Insta-Grow", "Insta-Plow", "Insta-Harvest"], ["Alien Banner", "Crashed UFO"], ["Pyramid"], ["Satellite Dish"]], // Zombies vs Aliens & Robots
   // #endregion generated:RAID_LOOT
 };
 

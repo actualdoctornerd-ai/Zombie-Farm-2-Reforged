@@ -207,6 +207,9 @@ export interface RaidProgressSave {
   /** OFFLINE rare-zombie pity, keyed by raid id: wins of that raid since it last dropped
    *  its rare zombie (see src/raid/zombieDrops.ts). Absent in older saves. */
   zombieDryWins?: Record<string, number>;
+  /** Dual-invasion ladder position: highest tier CLEARED per raid id. Absent in saves
+   *  written before the post-45 invasions, which is the same as having cleared none. */
+  tiers?: Record<string, number>;
 }
 
 // ---------------------------------------------------------------------------

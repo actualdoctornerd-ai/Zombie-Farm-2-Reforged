@@ -9,11 +9,8 @@ import { GameAssets, zombiePortrait, raidImage, raidRewardImage } from "../asset
 import { GameState } from "../GameState";
 import { ZombieField } from "../zombie/ZombieField";
 import { OwnedZombie } from "../zombie/types";
-import { buildEnemyUnits, buildPlayerUnits, resolveRaid } from "./CombatEngine";
-import {
-  bossSpecialsFor, bossThrowFor, crabFor, grabberFor, summonFor, turnedTemplateFor,
-  wallTemplateFor,
-} from "./fightConfig";
+import { buildPlayerUnits, resolveRaid } from "./CombatEngine";
+import { composeFight } from "./composeFight";
 import {
   ARMY_CAP,
   CONCENTRATION_KEY,
@@ -36,7 +33,6 @@ import {
 import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
-import { waveCadenceFor } from "./alienStage";
 import { rollLootTier } from "./LootTable";
 import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable, firstClearBrains } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
@@ -49,13 +45,12 @@ import {
 import { raidBoostBundle } from "./lootBundles";
 import { invasionWinXp, repeatInvasionXp } from "./repeatXp";
 import { compareRaidMenuOrder } from "./raidMenuOrder";
+import { BRAIN_TICKET_KEY, ELITE_BRAIN_LUCK } from "./eliteInvasion";
 import {
-  BRAIN_TICKET_KEY,
-  ELITE_BRAIN_LUCK,
-  eliteBossSpecials,
-  eliteBossThrow,
-  eliteProfile,
-} from "./eliteInvasion";
+  acceptsBrainTicket, isDualInvasion, MAX_TIER,
+  MIN_TIER, raidProfile,
+  type BubbleConfig, type CopyConfig, type SignConfig,
+} from "./dualInvasion";
 
 // ---- HUD-facing view models ----
 
@@ -109,6 +104,12 @@ export interface RaidCardView {
   unlocked: boolean; // level met AND playable
   lockReason: string; // "" when unlocked
   minArmy: number; // zombies needed to launch (eased for the first McDonnell clears)
+  /** Rungs on this invasion's tier ladder, 0 for the eleven raids that have none. The
+   *  four dual invasions carry MAX_TIER. */
+  tiers: number;
+  /** Highest rung this farm may fight here: one above the highest cleared, capped. 0 on a
+   *  raid with no ladder. Every rung below it is replayable. */
+  tierUnlocked: number;
 }
 
 export interface RaidPartyZombie {
@@ -163,7 +164,7 @@ export function lootDropLabel(drop: LootDrop): string {
 /** The end-of-raid tally, matching the real "ZOMBIES WIN" results panel. */
 export interface RaidResultView {
   win: boolean;
-  title: string; // "ZOMBIES WIN" / "ZOMBIES LOSE"
+  title: string; // "ZOMBIES WIN" / "ZOMBIES LOSE" / "OUT OF TIME"
   enemiesBeaten: number;
   zombiesLost: number;
   gold: number; // gold plundered
@@ -194,6 +195,10 @@ export interface RaidLaunchOpts {
   brainTicket?: boolean;
   /** Spend a Concentration boost so zombies fight at full focus (no distraction). */
   concentration?: boolean;
+  /** Which rung of a dual invasion's ladder to fight. 0 / absent on every other raid,
+   *  which has no ladder. ONLINE the server validates and pins it; OFFLINE this IS the
+   *  tier, checked against the local ladder the same way. */
+  tier?: number;
   /** How many Golden Dice to spend (each climbs the loot one tier rarer). */
   dice?: number;
   /** ONLINE: the server (POST /raid/start) already authorized this launch, so
@@ -258,6 +263,25 @@ export interface RaidSetup {
   /** A Brain Ticket WAS charged: the enemy line above is already scaled to this raid's
    *  elite profile, and the rare-zombie roll in finishRaid runs at elite luck. */
   elite: boolean;
+  /** Which rung of a dual invasion's ladder this fight IS. 0 on every other raid. Pinned
+   *  at launch — online by the server, offline by beginRaid — so the clear credits the
+   *  tier that was actually fought and not one named afterwards. */
+  tier: number;
+  /** The Lawyer boss's placard rotation for this fight (null when the invasion has no
+   *  sign). Derived from the raid id and the tier, exactly as the server derives the copy
+   *  it pins into the session config. */
+  sign: SignConfig | null;
+  /** The ninja's throw rate tracks the army's total attack speed (raid 13 only). */
+  dexTax: boolean;
+  /** The trapeze's copies of the player's own zombies (raid 14 only; null elsewhere). */
+  copies: CopyConfig | null;
+  /** The saucer's five-action bubble, and the wall its `wall` action drops (raid 15). */
+  bubble: BubbleConfig | null;
+  bubbleWall: CombatUnit | null;
+  /** Ms at which the boss abandons its perch regardless of its wave (the raid-14
+   *  ringmaster from rung 5; null elsewhere), and the ground station it then fights from. */
+  bossDropAtMs: number | null;
+  bossGroundStationX: number | null;
 }
 
 export class RaidManager {
@@ -356,6 +380,8 @@ export class RaidManager {
         unlocked: isUnlocked(r, level),
         lockReason: lockReason(r, level),
         minArmy: minArmyFor(r, this.state.raidWins(String(r.id))),
+        tiers: isDualInvasion(r.id) ? MAX_TIER : 0,
+        tierUnlocked: isDualInvasion(r.id) ? this.state.raidTierUnlocked(String(r.id)) : 0,
       }))
       .sort(compareRaidMenuOrder);
   }
@@ -416,10 +442,11 @@ export class RaidManager {
     // Resolve the wave BEFORE anything reads it: a random-boss stage has no bossKey
     // until this runs, and the boss decides the throws, specials and wall below.
     const authored = fightStage(raid, this.state.level);
-    const stage = authored && resolveStageWave(
-      authored,
-      seededRandom(opts.waveSeed ?? `${raidId}:${this.now()}:${Math.random()}`)
-    );
+    // ONE seed for everything this fight draws. It feeds the wave AND the Lawyer boss's
+    // auto-pick table (signFor, below), and the Worker draws both from the same session
+    // id — so hoisting it is not tidiness, it is what keeps the two in step.
+    const waveSeed = opts.waveSeed ?? `${raidId}:${this.now()}:${Math.random()}`;
+    const stage = authored && resolveStageWave(authored, seededRandom(waveSeed));
     const byId = new Map(this.deployed().map((z) => [z.id, z]));
     const party = partyIds.map((id) => byId.get(id)).filter(Boolean) as OwnedZombie[];
 
@@ -438,16 +465,35 @@ export class RaidManager {
     // ONLINE the server decided at /raid/start and PINNED its enemy wave to that
     // decision, so the only safe answer here is the one it sends back: adopt
     // `serverElite`, and never scale a wave the pinned config did not.
+    // The DUAL INVASIONS refuse a Brain Ticket outright: their ten-tier ladder is the
+    // difficulty selector, and an elite flag on top of it would be a second, unfitted one
+    // (see dualInvasion.ts). Checked HERE because this is the single point where `elite`
+    // is decided for both builds — the server refuses it too, at /raid/start, but the
+    // offline build has no server to refuse it and a UI that merely hides the button is
+    // not a rule. No ticket is spent on the way past.
+    // The TIER this fight is. ONLINE the server validated and pinned it and sends it back
+    // on the setup; OFFLINE the client is the authority, so clamp the request to the ladder
+    // this farm has actually climbed rather than trusting the caller.
+    const tier = isDualInvasion(raid.id)
+      ? Math.min(
+          this.state.raidTierUnlocked(String(raid.id)),
+          Math.max(MIN_TIER, Math.floor(opts.tier ?? MIN_TIER))
+        )
+      : 0;
+    const ticketable = acceptsBrainTicket(raid.id);
     let elite = false;
     if (opts.serverAuthorized) {
-      elite = !!opts.serverElite;
+      elite = ticketable && !!opts.serverElite;
       if (elite && !online) this.state.useBoost(BRAIN_TICKET_KEY);
-    } else if (opts.brainTicket && this.state.boostCount(BRAIN_TICKET_KEY) > 0) {
+    } else if (ticketable && opts.brainTicket && this.state.boostCount(BRAIN_TICKET_KEY) > 0) {
       elite = true;
       if (online) this.state.onInventory!({ type: "use", key: BRAIN_TICKET_KEY }, { count: -1 });
       else this.state.useBoost(BRAIN_TICKET_KEY);
     }
-    const profile = eliteProfile(raid.id, elite);
+    // THE MULTIPLIERS THIS FIGHT RUNS UNDER: the rung's profile on a dual invasion, the
+    // Brain Ticket's anywhere else. One helper, because the Worker derives the same thing
+    // from the same inputs and a disagreement desyncs the replay from tick 0.
+    const profile = raidProfile(raid.id, { elite, tier });
     const brainLuck = elite ? ELITE_BRAIN_LUCK : 1;
 
     // Cooldown gate. ONLINE (serverAuthorized): the server already decided via
@@ -490,16 +536,21 @@ export class RaidManager {
     // the raid. `party` is already in launch order and filtered to live zombies.
     this.state.raidAttackOrder = party.map((z) => z.id);
 
-    // raidId + playerLevel drive the farm raid's enemy speed-up (see buildEnemyUnits).
-    // The server's raidVerifier passes the same pair — keep them in step.
-    const enemyUnits = buildEnemyUnits(stage, this.assets.enemyStats, this.assets.raidAttacks, {
-      raidId: raid.id,
+    // Everything the opposition brings, from the ONE composer the server verifier and
+    // the difficulty harness also call (raid/composeFight.ts). Hazards on: this is the
+    // client's fight, and the trapeze and the crab are client-only by design.
+    const composed = composeFight(this.assets, raid, stage, {
       playerLevel: this.state.level,
+      tier,
       elite: profile,
+      priorWins: this.state.raidWins(String(raid.id)),
+      waveSeed,
+      hazards: true,
     });
+    const { enemyUnits } = composed;
     // OFFLINE the roll carries the silent pity floor (a long brain-less streak guarantees
     // the smallest stack). ONLINE the server rolls it — floor included — and pins it.
-    const hasBoss = enemyUnits.some((unit) => unit.isBoss);
+    const hasBoss = enemyUnits.some((unit: CombatUnit) => unit.isBoss);
     const brainDrop = hasBoss
       ? opts.serverAuthorized
         ? Math.max(0, Math.floor(opts.serverBrainDrop ?? 0))
@@ -519,30 +570,13 @@ export class RaidManager {
         farmerStrengthMult: this.state.farmerZombieStrengthMult(),
         farmerLifeMult: this.state.farmerZombieLifeMult(),
       }),
-      enemyUnits,
-      // Elite scales the boss's whole repertoire, not just its body: heavier and (on
-      // the raids whose mechanic it is) more frequent projectiles, harder specials, and
-      // a tougher wall. The verifier applies the same three helpers to the same profile.
-      bossThrow: eliteBossThrow(
-        bossThrowFor(this.assets, raid, stage, this.state.raidWins(String(raid.id))),
-        profile
-      ),
-      bossSpecials: eliteBossSpecials(bossSpecialsFor(this.assets, stage), profile),
-      grabber: grabberFor(raid),
-      crab: crabFor(raid),
-      // Alien-stage divergences (raid 6 only) — see raid/alienStage.ts. The verifier
-      // builds both from the same helpers, off the same elite/level context.
-      waveCadence: waveCadenceFor(raid.id),
-      summon: summonFor(this.assets, raid, stage, this.state.level, profile),
-      wallTemplate: wallTemplateFor(this.assets, stage, profile),
-      // Video Games divergence (raid 9 only) — see raid/videoGameStage.ts. Same shape as
-      // the alien summon: the verifier derives it from the same helper and context.
-      turnedTemplate: turnedTemplateFor(this.assets, raid, stage, this.state.level, profile),
+      ...composed,
       dice,
       concentration,
       brainDrop,
       brainEligible: hasBoss,
       elite,
+      tier,
     };
   }
 
@@ -560,7 +594,12 @@ export class RaidManager {
     /** A Brain Ticket was charged for this fight (RaidSetup.elite): the rare-zombie roll
      *  below runs at elite luck. The BRAIN award was already rolled at launch, so it does
      *  not need the flag a second time. */
-    elite = false
+    elite = false,
+    /** The LADDER rung fought (RaidSetup.tier); 0 for every raid without a ladder.
+     *  Deliberately not called `tier`: this function already uses that word for the
+     *  ABILITY tier a raid unlocks (`raidTier`, McDonnell=1 … Ninjas=4), which is an
+     *  unrelated thing that happens to share the name. */
+    ladderTier = 0
   ): RaidResultView {
     // Veterancy is earned by SURVIVING a battle — credit only the units still
     // standing (drives rank-up). A unit knocked out mid-fight, even in a win, gets
@@ -591,6 +630,10 @@ export class RaidManager {
       const wins = serverRewards
         ? this.state.raidWins(String(raid.id)) + 1
         : this.state.completeRaid(String(raid.id));
+      // The ladder. ONLINE the server credits the tier it pinned and mirrors the whole map
+      // back (syncRaidTiers), so the client must not also write it — a local guess that
+      // disagreed would be overwritten anyway, and would flicker the picker in between.
+      if (!serverRewards && ladderTier > 0) this.state.recordRaidTier(String(raid.id), ladderTier);
       // XP. The FIRST clear pays the enemy's authored `xp` (GROUND TRUTH — disassembled
       // `firstTimeBeatingEnemy` gate + "You earned %ixp for beating this enemy for the
       // first time."). One boss enemy per raid, so first-ever win (wins === 1) IS
@@ -684,7 +727,10 @@ export class RaidManager {
 
     return {
       win: outcome.win,
-      title: outcome.win ? "ZOMBIES WIN" : "ZOMBIES LOSE",
+      // Out of time is a loss, but not the loss "ZOMBIES LOSE" describes: the army is
+      // standing, most of it walked home, and nothing about the panel would otherwise
+      // explain why the fight stopped. Name the clock instead of reporting a rout.
+      title: outcome.win ? "ZOMBIES WIN" : outcome.outOfTime ? "OUT OF TIME" : "ZOMBIES LOSE",
       enemiesBeaten: outcome.enemiesBeaten,
       zombiesLost: outcome.losses.length,
       gold,
@@ -756,7 +802,7 @@ export class RaidManager {
     const outcome = resolveRaid(setup.playerUnits, setup.enemyUnits);
     return this.finishRaid(
       setup.raid, setup.party, outcome, setup.dice, false,
-      setup.brainDrop, setup.brainEligible, setup.elite
+      setup.brainDrop, setup.brainEligible, setup.elite, setup.tier
     );
   }
 }

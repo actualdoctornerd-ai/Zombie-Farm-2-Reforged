@@ -21,7 +21,7 @@ import raidsJson from "../../public/assets/raids/raids.json";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
 import attacksJson from "../../public/assets/raids/attacks.json";
 import zombiesJson from "../../public/assets/zombies.json";
-import { BattleSim } from "./BattleSim";
+import { buildFight } from "./buildFight";
 import { buildEnemyUnits, buildPlayerUnits } from "./CombatEngine";
 import { fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
 import { eliteBossSpecials, eliteBossThrow, eliteProfile, ELITE_PROFILES } from "./eliteInvasion";
@@ -32,6 +32,7 @@ import {
 } from "./fightConfig";
 import { makeOwned } from "../zombie/types";
 import type { AttackDef, CombatUnit, EnemyStat, RaidDef } from "./types";
+import { acceptsBrainTicket } from "./dualInvasion";
 
 const raids = raidsJson as RaidDef[];
 const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
@@ -71,19 +72,17 @@ function fight(raid: RaidDef, elite: boolean, size: number, power: number, seed 
   const enemyUnits = buildEnemyUnits(stage, enemyStats, attacks, {
     raidId: raid.id, playerLevel: 45, elite: profile,
   });
-  const sim = new BattleSim(
-    stickArmy(size, power),
+  const sim = buildFight({
+    playerUnits: stickArmy(size, power),
     enemyUnits,
-    eliteBossThrow(bossThrowFor(fightAssets, raid, stage, 99), profile),
-    true,
-    eliteBossSpecials(bossSpecialsFor(fightAssets, stage), profile),
-    undefined,
-    summonFor(fightAssets, raid, stage, 45, profile),
-    wallTemplateFor(fightAssets, stage, profile),
-    false, false, false, undefined, null, null,
-    waveCadenceFor(raid.id),
-    turnedTemplateFor(fightAssets, raid, stage, 45, profile)
-  );
+    bossThrow: eliteBossThrow(bossThrowFor(fightAssets, raid, stage, 99), profile),
+    concentration: true,
+    bossSpecials: eliteBossSpecials(bossSpecialsFor(fightAssets, stage), profile),
+    summon: summonFor(fightAssets, raid, stage, 45, profile),
+    wallTemplate: wallTemplateFor(fightAssets, stage, profile),
+    waveCadence: waveCadenceFor(raid.id),
+    turnedTemplate: turnedTemplateFor(fightAssets, raid, stage, 45, profile),
+  });
   let ticks = 0;
   while (!sim.finished && ticks < RAID_MAX_TICKS) {
     sim.step(RAID_TICK_MS);
@@ -136,8 +135,11 @@ describe("elite invasion balance", () => {
     p[id] = { normal: weakestWinningArmy(byId(id), false), elite: weakestWinningArmy(byId(id), true) };
   }
 
-  it("has a profile for every playable invasion", () => {
-    const playable = raids.filter((r) => r.playable).map((r) => r.id).sort((a, b) => a - b);
+  it("has a profile for every ticketable invasion", () => {
+    // Dual invasions are measured by their tier ladder, not by an elite profile.
+    const playable = raids
+      .filter((r) => r.playable && acceptsBrainTicket(r.id))
+      .map((r) => r.id).sort((a, b) => a - b);
     expect(ALL.sort((a, b) => a - b)).toEqual(playable);
   });
 

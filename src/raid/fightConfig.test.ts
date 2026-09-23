@@ -98,12 +98,18 @@ describe("fight config", () => {
     expect(elite.hp).toBeGreaterThanOrEqual(plain.hp);
   });
 
-  it("the two rescue hazards belong to exactly the raids that ship their art", () => {
+  it("the two rescue hazards belong to exactly the raids whose STAGE ships their art", () => {
     // Both are keyed off authored data (hasGrab + a sprite table; initialSpawnClass),
     // not a hand-kept list of ids, so this is a check that the data still says so.
+    //
+    // The Circus & Video Games invasion is fought ON the Circus stage — same backdrop,
+    // same big top, same trapeze rigged over the lane — so it has the trapeze too. It did
+    // not until the grab sprite was keyed through `stageRaidId`: the table was asked about
+    // raid 14, had never heard of it, and quietly deleted a hazard from a fight built
+    // around it. See borrowedStage.test.ts.
     const grabs = playable.filter((r) => grabberFor(r)).map((r) => r.name);
     const crabs = playable.filter((r) => crabFor(r)).map((r) => r.name);
-    expect(grabs).toEqual(["Zombies vs Circus"]);
+    expect(grabs).toEqual(["Zombies vs Circus", "Zombies vs Circus & Video Games"]);
     expect(crabs).toEqual(["Summer Break"]);
     for (const raid of playable) {
       const crab = crabFor(raid);
@@ -120,20 +126,30 @@ describe("fight config", () => {
       const stage = stageOf(r);
       return stage && turnedTemplateFor(assets, r, stage, 30);
     }).map((r) => r.name);
-    expect(summons).toEqual(["Zombies vs Aliens"]);
+    // Raid 15 is fought on the alien stage with the alien boss, so it gets the rota too —
+    // the abductee is part of that fight by design (positioned beside the bubble's wall).
+    expect(summons).toEqual(["Zombies vs Aliens", "Zombies vs Aliens & Robots"]);
     expect(turned).toEqual(["Zombies vs Video Games"]);
   });
 
-  it("RaidManager derives its fight config here and nowhere else", () => {
-    // The failure this guards against is a re-transcription creeping back into
-    // RaidManager — reading `bossActions` again, and drifting from what the server's
-    // verifier and the balance test measure. If a new builder genuinely belongs on the
-    // manager, put it in fightConfig.ts and call it; don't relax this.
-    const src = readFileSync(new URL("./RaidManager.ts", import.meta.url), "utf-8");
-    expect(src.includes("bossActions")).toBe(false);
+  it("every fight derives its config here and nowhere else", () => {
+    // The failure this guards against is a re-transcription creeping back — reading
+    // `bossActions` again somewhere, and drifting from what the server's verifier and
+    // the difficulty harness measure. The builders are called from ONE composer now
+    // (composeFight.ts); RaidManager, the verifier and the harness call that. If a new
+    // builder genuinely belongs in a fight, put it in fightConfig.ts and call it from
+    // the composer; don't relax this.
+    const composer = readFileSync(new URL("./composeFight.ts", import.meta.url), "utf-8");
+    expect(composer.includes("bossActions")).toBe(false);
     for (const fn of ["bossThrowFor", "bossSpecialsFor", "grabberFor", "crabFor",
-      "summonFor", "wallTemplateFor", "turnedTemplateFor"]) {
-      expect(src.includes(fn), fn).toBe(true);
+      "summonFor", "wallTemplateFor", "turnedTemplateFor", "bubbleWallFor",
+      "farmerSquadFor", "pirateCaptainFor", "circusStacksFor", "robotEscortFor"]) {
+      expect(composer.includes(fn), fn).toBe(true);
+    }
+    for (const file of ["./RaidManager.ts", "../../server/src/raidVerifier.ts"]) {
+      const src = readFileSync(new URL(file, import.meta.url), "utf-8");
+      expect(src.includes("bossActions"), file).toBe(false);
+      expect(src.includes("composeFight"), file).toBe(true);
     }
   });
 });

@@ -983,5 +983,362 @@
   ],
   "initialSpawnClass": "ValentinesDayStageActorObstacle",
   "hasGrab": false
+ },
+ {
+  "id": 12,
+  "name": "Zombies vs Lawyers & Farmers",
+  "bossName": "CorporateVille & Old McDonnell",
+  "bossPortrait": "portrait_lawyer.png",
+  "enemyIcon": "enemyIcon1.png",
+  "unlockLevel": 46,
+  "recommendedLevel": 46,
+  "eliteRecommendedLevel": 46,
+  "introText": "The lawyers brought the farmhands with them this time, and a stack of signs sayin' who's allowed to fight. Read 'em quick.",
+  "successText": "Case dismissed! The suits and the straw hats both went home.",
+  "failureText": "They served the papers and yer zombies just stood there lookin' sad.",
+  "xp": 6000,
+  "goldReward": 0,
+  "bonusGold": 0,
+  "throwSpeed": 5,
+  "music": "fightBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGCity_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGCity_mid.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   },
+   {
+    "sprite": "fightBGCity_front.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 100
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [],
+    "bossKey": "CityStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "CityStageActorLawyer",
+      "frequency": 40
+     },
+     {
+      "enemy": "CityStageActorCrazedWorker",
+      "frequency": 25
+     },
+     {
+      "enemy": "FarmStageActorFarmhand",
+      "frequency": 25
+     },
+     {
+      "enemy": "FarmStageActorLumberjack",
+      "frequency": 10
+     }
+    ]
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Zombie Sign"
+   ],
+   [
+    "Insta-Harvest",
+    "Insta-Plow",
+    "Invasion Voucher"
+   ],
+   [
+    "Corporate Banner"
+   ],
+   [
+    "Street Light"
+   ],
+   [
+    "Monument"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": true,
+  "stageOf": 2
+ },
+ {
+  "id": 13,
+  "name": "Zombies vs Ninjas & Pirates",
+  "bossName": "Mr. Whiskers & Arrrnold",
+  "bossPortrait": "portrait_ninja.png",
+  "enemyIcon": "enemyIcon3.png",
+  "unlockLevel": 47,
+  "recommendedLevel": 47,
+  "eliteRecommendedLevel": 47,
+  "introText": "Pirates and ninjas, on the same side, in the same yard. The big one winds up somethin' awful \u2014 don't let him finish it.",
+  "successText": "Swords down, stars grounded. Nobody agrees who won but us.",
+  "failureText": "One slam and the whole line went over like skittles.",
+  "xp": 7000,
+  "goldReward": 0,
+  "bonusGold": 0,
+  "throwSpeed": 2,
+  "music": "ninjaStageBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGNinja_bg.png",
+    "position": "{0,320}",
+    "anchor": "{0,1}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGNinja_mid.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   },
+   {
+    "sprite": "fightBGNinja_front.png",
+    "position": "{480,320}",
+    "anchor": "{1,1}",
+    "z": 100
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [],
+    "bossKey": "NinjaStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "NinjaStageActorBoy",
+      "frequency": 35
+     },
+     {
+      "enemy": "NinjaStageActorGirl",
+      "frequency": 25
+     },
+     {
+      "enemy": "PirateStageActorScallywag",
+      "frequency": 30
+     },
+     {
+      "enemy": "PirateStageActorSwashbuckler",
+      "frequency": 10
+     }
+    ]
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Bamboo"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Ninja Banner"
+   ],
+   [
+    "Double Rainbow"
+   ],
+   [
+    "Taiko Drum"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false,
+  "stageOf": 4
+ },
+ {
+  "id": 14,
+  "name": "Zombies vs Circus & Video Games",
+  "bossName": "Ringmaster & Zedzox",
+  "bossPortrait": "portrait_circus.png",
+  "enemyIcon": "enemy_icon_circus.png",
+  "unlockLevel": 48,
+  "recommendedLevel": 48,
+  "eliteRecommendedLevel": 48,
+  "introText": "The circus is puttin' on a show with a pixel cast, and half the act is happenin' behind yer own line.",
+  "successText": "Big finish! The tent came down on both of 'em.",
+  "failureText": "They stacked up, copied yer best, and played the whole thing backwards.",
+  "xp": 8000,
+  "goldReward": 0,
+  "bonusGold": 0,
+  "throwSpeed": 1.5,
+  "music": "fightBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGCircus_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGCircus_car_overlay.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 100
+   },
+   {
+    "sprite": "fightBGCircus_car.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [],
+    "bossKey": "CircusStageActorBoss",
+    "population": 8,
+    "weighted": [
+     {
+      "enemy": "VideoGameStageKnightActor",
+      "frequency": 30
+     },
+     {
+      "enemy": "VideoGameStageGhostActor",
+      "frequency": 25
+     },
+     {
+      "enemy": "VideoGameStageMonsterActor",
+      "frequency": 20
+     },
+     {
+      "enemy": "CircusStageActorMinion1",
+      "frequency": 15
+     },
+     {
+      "enemy": "CircusStageActorMinion2",
+      "frequency": 10
+     }
+    ]
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Concentration",
+    "Insta-Grow",
+    "Invasion Voucher"
+   ],
+   [
+    "Circus Flag: Green",
+    "Circus Flag: Yellow",
+    "Circus Flag: Blue"
+   ],
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Circus Tent"
+   ],
+   [
+    "Ring of Fire"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": true,
+  "stageOf": 8
+ },
+ {
+  "id": 15,
+  "name": "Zombies vs Aliens & Robots",
+  "bossName": "The Aliens & The Bots",
+  "bossPortrait": "portrait_alien.png",
+  "enemyIcon": "enemyIcon5.png",
+  "unlockLevel": 49,
+  "recommendedLevel": 49,
+  "eliteRecommendedLevel": 49,
+  "introText": "The saucer's been buildin' somethin' with the bots. Watch what it's thinkin' about, and stop the one you can't live through.",
+  "successText": "Saucer down, scrap everywhere. Whatever they were buildin', it ain't.",
+  "failureText": "It walled ye in, pulled ye back, and finished what it started.",
+  "xp": 9000,
+  "goldReward": 0,
+  "bonusGold": 0,
+  "throwSpeed": 0.2,
+  "music": "alienStageBGM.mp3",
+  "seasonal": false,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGAlien_bg.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [],
+    "bossKey": "AlienStageActorBoss",
+    "population": 10,
+    "weighted": [
+     {
+      "enemy": "AlienStageActorMinion",
+      "frequency": 100
+     }
+    ]
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Bike"
+   ],
+   [
+    "Invasion Voucher",
+    "Insta-Grow",
+    "Insta-Plow",
+    "Insta-Harvest"
+   ],
+   [
+    "Alien Banner",
+    "Crashed UFO"
+   ],
+   [
+    "Pyramid"
+   ],
+   [
+    "Satellite Dish"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false,
+  "stageOf": 6
  }
 ]

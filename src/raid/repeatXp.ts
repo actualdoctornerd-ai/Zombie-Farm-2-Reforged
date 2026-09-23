@@ -56,6 +56,13 @@ export const REPEAT_INVASION_XP: Readonly<Record<number, number>> = {
   9: 140, // Zombies vs Video Games — unlock 43
   10: 12, // Tree World — unlock 8
   11: 12, // Valentine's Day — unlock 6
+  // The post-45 dual invasions, derived by the same 1% rule from the new (PLACEHOLDER)
+  // thresholds. They move when those are fitted — repeatXp.test.ts derives every one of
+  // these, so a threshold change reddens this table rather than quietly disagreeing with it.
+  12: 500, // Zombies vs Lawyers & Farmers — unlock 46
+  13: 620, // Zombies vs Ninjas & Pirates — unlock 47
+  14: 760, // Zombies vs Circus & Video Games — unlock 48
+  15: 950, // Zombies vs Aliens & Robots — unlock 49
 };
 
 /** What a Brain Ticket multiplies the repeat XP by.

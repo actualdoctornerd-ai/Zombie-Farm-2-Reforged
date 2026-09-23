@@ -970,6 +970,10 @@
 #hud .pvp-scout { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; }
 #hud .pvp-claim { background: #274126; border-color: #142611; }
 #hud .pvp-stats { display: flex; flex-direction: column; gap: 2px; padding: 2px 4px; }
+/* The result, said outright and colour-coded, on both the attack and defense rows. */
+#hud .pvp-verdict { letter-spacing: .3px; }
+#hud .pvp-verdict.won { color: #b6f36a; }
+#hud .pvp-verdict.lost { color: #ff9b8a; }
 
 #hud .pvp-roles { display: flex; flex-direction: column; gap: 5px; margin-top: 3px; }
 #hud .pvp-role { display: flex; align-items: center; gap: 7px; }
@@ -1213,6 +1217,17 @@
   border-color: #3c5a10; text-shadow: none; box-shadow: 0 0 0 2px rgba(142,199,79,.4); }
 #hud .raid-boost-btn .rb-ct { font-size: 11px; opacity: .8; }
 #hud .raid-dice { display: flex; align-items: center; gap: 6px; }
+/* dual-invasion tier picker: one small button per rung, padlocked above what is unlocked */
+#hud .raid-tiers { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+#hud .raid-tier-label { font: 700 11px system-ui, sans-serif; color: #e8d5b0; opacity: .8;
+  text-shadow: 0 1px 1px #000; margin-right: 2px; }
+#hud .raid-tier-btn { min-width: 26px; cursor: pointer; border: 2px solid #1e1207;
+  border-radius: 7px; padding: 4px 6px; font: 700 12px system-ui, sans-serif;
+  color: #e8d5b0; background: #3a2612; text-shadow: 0 1px 1px #000; }
+#hud .raid-tier-btn:hover:not(:disabled) { filter: brightness(1.12); }
+#hud .raid-tier-btn.on { color: #16110a; background: linear-gradient(#8ec74f, #5c9a2e);
+  border-color: #3c5a10; text-shadow: none; box-shadow: 0 0 0 2px rgba(142,199,79,.4); }
+#hud .raid-tier-btn:disabled { cursor: default; opacity: .45; }
 #hud .raid-dice .rd-lbl { font: 700 13px system-ui, sans-serif; color: #e8d5b0; text-shadow: 0 1px 1px #000; }
 #hud .raid-dice .rd-lbl b { color: #ffcf5a; font-size: 15px; }
 #hud .raid-dice .rd-step { width: 26px; height: 26px; cursor: pointer; border: 2px solid #1e1207;

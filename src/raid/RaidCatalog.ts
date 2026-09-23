@@ -309,6 +309,25 @@ export function raidTier(raid: RaidDef): number {
   return raid.id >= 1 && raid.id <= 4 ? raid.id : 0;
 }
 
+/** WHICH RAID'S STAGE THIS FIGHT IS ON — itself for every authored invasion, and the
+ *  borrowed-from raid for a dual invasion (`stageOf`, see types.RaidDef).
+ *
+ *  Every per-raid PRESENTATION table must be keyed through this rather than through
+ *  `raid.id`. Those tables hold corrections that were eyeballed against the real game and
+ *  are substantial, not cosmetic — `RaidScene.PERCH_TWEAK` moves the Lawyer boss down a
+ *  third of the screen height and lifts Zedzox into a window — so a raid that borrows a
+ *  stage and not its corrections renders that stage visibly wrong. All four dual
+ *  invasions did exactly that until this existed: raid 12's boss floated 0.32 of the
+ *  screen above the roof he is supposed to stand behind.
+ *
+ *  It is deliberately NOT for anything that changes the FIGHT. A borrowed stage inherits
+ *  how it looks, not how it plays: the wave, the cadence, the tier ladder and the rewards
+ *  are the new invasion's own, and routing one of those through here would quietly hand a
+ *  dual invasion another raid's balance. */
+export function stageRaidId(raid: RaidDef): number {
+  return raid.stageOf ?? raid.id;
+}
+
 /** The boosts this raid's loot table can hand over, in tier order, each with the
  *  quantity ONE drop pays (`raidBoostBundle` — Insta-Grow drops ten at a time). Loot
  *  names are matched against the boost catalog, so the farm objects filling the rest

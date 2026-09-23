@@ -293,7 +293,7 @@ describe("boss wall (carrotWall / junkWall)", () => {
     m.x = 915;
 
     stepUntil(sim, () => sim.units.some((u) => u.isWall && u.alive));
-    expect(z.passedWall).toBe(true);
+    expect(z.passedBlockers).toEqual([sim.units.find((u) => u.isWall)!.id]);
     expect(b.state).toBe("structure");
 
     stepUntil(sim, () => !m.alive);
@@ -349,7 +349,7 @@ describe("boss wall (carrotWall / junkWall)", () => {
     stepUntil(sim, () => sim.units.some((u) => u.isWall));
     const wall = sim.units.find((u) => u.isWall)!;
     b.hp -= 100;
-    expect(through.passedWall).toBe(true);
+    expect(through.passedBlockers).toContain(wall.id);
     const wallHp = wall.hp;
     const enemyHp = enemy.hp;
     for (let t = 0; t < 1800; t += 16) sim.step(16);
