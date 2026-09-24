@@ -217,6 +217,48 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorMasterNinjombie:["buffAllStats",   "chivalry",          "turboSpeed", "doubleStrike"],
   ZombieActorProto:          [null,             null,                "ressurect",  "bashV2"],
   ZombieActorZombug:         [null,             null,                "ressurect",  "bashV2"],
+
+  // ---- The 2026-09-24 reshuffle (docs/ABILITY_IDEAS.md) --------------------------
+  // Fifteen prize zombies are group Regular and so ran the IDENTICAL stock ladder
+  // (buffAllStats / chivalry / laserBeam / zomBeam) — mechanically the same zombie in
+  // different art. Each entry below moves ONE scarce ability onto a body that cannot
+  // normally hold it, which is what the 50-51 reclass did and what players liked.
+  //
+  // Remember a slot does NOT set the unlock: `abilityUnlocked` keys off the ability's
+  // own tier (abilityTierOf), so a tier-2 ability parked in the tier-3 slot unlocks
+  // with the Lawyers. Every ladder here was checked to be NON-DECREASING across its
+  // four slots, so no card shows a padlock ladder that runs backwards; the test
+  // `specialAbilities.test.ts` pins that for the whole table.
+  //
+  //   - Captain / Admiral are a LINE COMMANDER: a plain body carrying four stacking
+  //     support auras and no attack ability of its own. All four are tier-2, so they
+  //     unlock together at the Lawyers rather than laddering — this zombie arrives
+  //     fully formed. Note Protect does not shield its own carrier (protectReduction),
+  //     and that Large/Small/Garden can only ever receive the Protect half: all three
+  //     stat auras are hard-keyed to Regular/Female/Headless in refreshTeamAuras.
+  //   - Old McZombie trades BOTH lasers for a Headless aura and the army heal. Stats
+  //     are deliberately UNCHANGED. There is no dead window: stock it would gain its
+  //     first laser at the Pirates, whereas Fortitude lands at the Lawyers — strictly
+  //     earlier — so the damage loss and the support gain arrive together.
+  //   - Forest Zombie is the first non-Garden single-target healer. `heal` is tier 1,
+  //     so it works from Old McDonnell onward, and it eases the all-Garden deadlock by
+  //     being a healer that is also a fighter. Its nominal HP/s is high (45 a cast on
+  //     the 2.0/dex attack cadence) but its UPTIME is not: see the gap rule in
+  //     BattleSim.healSuppressed — a Garden never fights and so heals ~always, while
+  //     this one only heals in the gaps and on its walk-in.
+  //   - Brock Coley keeps its glass-cannon stat line (str 46 / con 8) and swaps both
+  //     lasers for the same Headless aura plus Bash. Sustained damage for burst.
+  //     Rocky Rhino pays it at BOTH rung 5 and rung 10, so a player can hold two.
+  //   - Zastronaut / Cozmonaut swap the walking laser for Turbo. Both are tier 3, so
+  //     the unlock is unchanged. Turbo also beats boss throws: leadVelocity caps how
+  //     far a throw leads its target, so a fast zombie outruns the shot.
+  ZombieActorCaptain:        ["grace",          "chivalry",          "tankHitPointsBuff", "protect"],
+  ZombieActorAdmiral:        ["grace",          "chivalry",          "tankHitPointsBuff", "protect"],
+  ZombieActorOldMcZombie:    ["buffAllStats",   "chivalry",          "tankHitPointsBuff", "healAOE"],
+  ZombieActorForest:         ["heal",           "grace",             "stun",       "doubleStrike"],
+  ZombieActorBrockColey:     ["buffAllStats",   "chivalry",          "tankHitPointsBuff", "bash"],
+  ZombieActorZastronaut:     ["buffAllStats",   "chivalry",          "turboSpeed", "zomBeam"],
+  ZombieActorZosmonaut:      ["buffAllStats",   "chivalry",          "turboSpeed", "zomBeam"],
 };
 
 /** The ability a specific unit has at `tier`: a named-unique override if any,

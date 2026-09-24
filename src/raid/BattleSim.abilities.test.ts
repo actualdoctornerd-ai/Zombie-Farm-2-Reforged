@@ -1845,3 +1845,158 @@ describe("Resurrect belongs to its holder, not the Garden body (v51)", () => {
     expect(sim.resurrectsLeft()).toBe(0);
   });
 });
+
+// Ruleset v62 — a healer is whoever CARRIES a heal, not a Garden body, and an off-Garden
+// one works in the gaps: it heals while walking in and between swings, never mid-fight.
+// See BattleSim.healSuppressed and docs/ABILITY_IDEAS.md.
+describe("off-Garden healers", () => {
+  /** A Forest-Zombie-shaped healer: a Female body carrying `heal`, fighting in the line. */
+  const lineHealer = (abilities: string[]) => unit({
+    id: "healer", sourceKey: "ZombieActorForest", group: "Female", team: "player",
+    isGarden: false, abilities,
+  });
+
+  it("heals at all — the isGarden gate used to make the ability do nothing", () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const healer = lineHealer(["heal"]);
+    const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy", con: 300 });
+    const sim = new BattleSim([fighter, healer], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const h = sim.units.find((u) => u.id === "healer")!;
+    f.state = "advance";
+    h.state = "advance";
+    f.hp = 2900;
+
+    sim.step(50);
+    expect(h.state).toBe("advance"); // still walking in — not suppressed
+    expect(f.hp).toBeGreaterThan(2900);
+    expect(h.healCastSeq).toBe(1);
+    // ...and unlike a Garden it takes its place in the LINE, not the rear station.
+    expect(h.slotX).toBeGreaterThan(500);
+  });
+
+  it("stops healing once it is fighting, then BANKS the cast and spends it on the gap", () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const healer = lineHealer(["heal"]);
+    const enemy = unit({
+      id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy",
+      hp: 200_000, maxHp: 200_000, str: 0.1, attackCooldownMs: 100_000,
+    });
+    const sim = new BattleSim([fighter, healer], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const h = sim.units.find((u) => u.id === "healer")!;
+    const e = sim.units.find((u) => u.id === "enemy")!;
+    f.state = "advance";
+    h.state = "advance";
+    f.hp = 1; // permanently injured, so a candidate is always available
+
+    stepUntil(sim, () => h.state === "fight");
+    expect(h.state).toBe("fight");
+
+    // Engaged: the cast is withheld for far longer than its 400 ms cadence.
+    const castsWhenEngaged = h.healCastSeq;
+    for (let i = 0; i < 40; i++) sim.step(50);
+    expect(h.state).toBe("fight");
+    expect(h.healCastSeq).toBe(castsWhenEngaged);
+
+    // The gap opens. Re-queueing the enemy pulls it off the field without ENDING the
+    // fight (a dead last enemy would finish the round and stop the sim stepping at all).
+    // A BANKED timer fires on the very next tick; one reset each time it was withheld
+    // would still owe the full 400 ms cadence.
+    e.state = "queued";
+    sim.step(50);
+    expect(h.state).not.toBe("fight");
+    // One tick of lag: stepHealing runs BEFORE the state update inside a tick, so the
+    // first step after the gap still sees last tick's "fight". The bank is spent on the
+    // next one — 100 ms in total, against a cadence of 400 ms (2.0 / dex 5).
+    sim.step(50);
+    expect(h.healCastSeq).toBe(castsWhenEngaged + 1);
+  });
+
+  it("banks Heal All the same way — the flat 20 s timer is never restarted by the hold", () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const healer = lineHealer(["healAOE"]);
+    const enemy = unit({
+      id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy",
+      hp: 200_000, maxHp: 200_000, str: 0.1, attackCooldownMs: 100_000,
+    });
+    const sim = new BattleSim([fighter, healer], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const h = sim.units.find((u) => u.id === "healer")!;
+    const e = sim.units.find((u) => u.id === "enemy")!;
+    f.state = "advance";
+    h.state = "advance";
+    f.hp = 1;
+
+    // Run well past the 20-second cadence while engaged: nothing is cast.
+    stepUntil(sim, () => h.state === "fight");
+    stepUntil(sim, () => false, 600); // 30 s of fighting
+    expect(h.state).toBe("fight");
+    expect(h.healCastSeq).toBe(0);
+
+    e.state = "queued"; // off the field, fight still live — see the note above
+    sim.step(50);
+    sim.step(50); // +1 tick for the state update to land, as above
+    expect(h.healCastSeq).toBe(1);
+    expect(f.hp).toBeGreaterThan(1);
+  });
+
+  it("changes nothing for a Garden: it never fights, so it is never held back", () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const garden = unit({
+      id: "garden", sourceKey: "ZombieActorGardenTier1", team: "player",
+      isGarden: true, abilities: ["heal"],
+    });
+    const enemy = unit({
+      id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy",
+      hp: 200_000, maxHp: 200_000, str: 0.1, attackCooldownMs: 100_000,
+    });
+    const sim = new BattleSim([fighter, garden], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const g = sim.units.find((u) => u.id === "garden")!;
+    f.state = "advance";
+    g.state = "advance";
+    f.hp = 1;
+
+    stepUntil(sim, () => f.state === "fight");
+    const castsAtContact = g.healCastSeq;
+    for (let i = 0; i < 40; i++) sim.step(50);
+
+    expect(g.state).not.toBe("fight"); // stationed outside the combat zone
+    expect(g.healCastSeq).toBeGreaterThan(castsAtContact); // still healing through the fight
+  });
+
+  it("...including a DEFENDING Garden, which CAN be in the fight state", () => {
+    // The attacking case above passes on geometry alone: a Garden pinned at
+    // GARDEN_STATION_X never reaches anything, so it could never be held back whatever the
+    // rule said. A PvP DEFENDER is the case that needs the `isGarden` term — it stands in
+    // a formation and the enemy loop flips it to "fight" the moment `playerInRange` finds
+    // an attacker. Drop the term and every formation defense in the wild quietly stops
+    // healing under assault, which is what moved the pvp.test.ts balance band.
+    //
+    // The states are set by hand rather than fought into: which defender an attacker
+    // reaches first is formation geometry, and the thing under test is the exemption, not
+    // the approach. stepHealing runs BEFORE the enemy state update inside a tick, so the
+    // "fight" written here is exactly what the heal step sees.
+    const attacker = unit({ id: "attacker", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const defender = unit({
+      id: "defender", sourceKey: "ZombieActorHeadlessTier1", team: "enemy",
+      hp: 200_000, maxHp: 200_000, str: 0.1, attackCooldownMs: 100_000,
+    });
+    const medic = unit({
+      id: "medic", sourceKey: "ZombieActorGardenTier1", team: "enemy",
+      hp: 200_000, maxHp: 200_000, str: 0.1, attackCooldownMs: 100_000,
+      isGarden: true, abilities: ["heal"],
+    });
+    const sim = new BattleSim([attacker], [defender, medic], null, true);
+    const d = sim.units.find((u) => u.id === "defender")!;
+    const m = sim.units.find((u) => u.id === "medic")!;
+    d.state = "hold";
+    d.hp = 100_000; // damaged, and far too tough to die and leave the medic idle
+    m.state = "fight"; // engaged — the state an attacking Garden can never be in
+
+    sim.step(50);
+    expect(m.healCastSeq).toBe(1); // exempt anyway: it is a Garden
+    expect(d.hp).toBeGreaterThan(100_000);
+  });
+});

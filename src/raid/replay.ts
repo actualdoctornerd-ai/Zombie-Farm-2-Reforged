@@ -1055,7 +1055,41 @@ import type { RaidOutcome } from "./types";
 // Touches raid 15 alone — `bubbleFor` is null elsewhere, and so is the bubble wall that the
 // abductee re-homing keys on. Same cost as every bump: an invasion in flight at deploy time
 // settles as stale_ruleset and pays nothing.
-export const RAID_RULESET_VERSION = 61;
+// v62 — HEALERS ARE NO LONGER GARDENS, and the 2026-09-24 special reshuffle.
+//
+// `isHealer` demanded `p.isGarden`, which was a fact about which ladder shipped heals, not
+// a rule about bodies — the same mistake `canResurrect` shed in v51. It is gone, and what
+// replaces it is a rule about WORK: an off-Garden healer heals in the gaps between its
+// swings and on its walk-in, never while it is actually fighting (`healSuppressed`, keyed
+// on the "fight" state both sides enter when something is in range). A held cast is BANKED
+// rather than dropped — the timer parks at exactly zero and fires on the first gap, because
+// Heal All is a flat 20-second timer that would otherwise only ever land by coincidence.
+//
+// THIS IS A NO-OP FOR EVERY GARDEN, on both sides. `isGarden` keeps the rear station
+// (CombatEngine `supportsFromRear` is unchanged) and now also exempts its holder from the
+// gap rule: a station-holder heals for a living, a line-fighter heals between swings. The
+// exemption is redundant for an attacking Garden, which never enters "fight" anyway, and
+// load-bearing for a DEFENDING one — a PvP defender stands in a formation and does flip to
+// "fight" on `playerInRange`, so without it every formation defense in the wild would have
+// quietly lost its healing under assault. No existing army's transcript moves unless it
+// fields one of the seven zombies below.
+//
+// The reshuffle itself (docs/ABILITY_IDEAS.md): fifteen prize zombies were group Regular
+// and so ran the IDENTICAL stock ladder, mechanically one zombie in fifteen costumes. Seven
+// keys take a SPECIAL_ABILITIES override, each moving one scarce ability onto a body that
+// cannot normally hold it:
+//
+//   Captain / Admiral      grace + chivalry + fortitude + protect — a line commander with
+//                          no attack ability of its own; all four are tier-2, so they
+//                          unlock together at the Lawyers rather than laddering
+//   Old McZombie           fortitude + Heal All, losing BOTH lasers; stats untouched
+//   Forest Zombie          `heal` at tier 1 — the first non-Garden single-target healer
+//   Brock Coley            fortitude + Bash, losing both lasers: sustained damage for burst
+//   Zastronaut / Cozmonaut Turbo in place of the walking laser (both tier 3, same unlock)
+//
+// Same cost as every bump: an invasion in flight at deploy time settles as stale_ruleset
+// and pays nothing.
+export const RAID_RULESET_VERSION = 62;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

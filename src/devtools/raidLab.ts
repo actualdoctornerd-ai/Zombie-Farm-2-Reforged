@@ -955,8 +955,10 @@ function buildAbilityList() {
     "fight <b>does</b> — the sim reads the list every tick — but not its stats, which " +
     "were baked when the units were built, so the passive <code>+%</code> ones appear " +
     "on the card and change nothing.<br>" +
-    "<code>activated</code> waits for its button. <code>team</code> is automatic but " +
-    "gated — the heals and the revive only ever come from a Garden zombie. " +
+    "<code>activated</code> waits for its button. <code>team</code> is automatic, and no " +
+    "longer Garden-only: the revive works from any body (v51) and so do the heals (v62), " +
+    "but a non-Garden healer casts only in the gaps between its swings, so grant one to " +
+    "eight front-liners and you will see far fewer heals than the cadence suggests. " +
     "<code>self</code> is automatic and <b>ungated</b>: grant Laser Beam and all eight " +
     "zombies fire, which drowns out whatever else you were watching.";
   for (let tier = 1; tier <= 4; tier++) {

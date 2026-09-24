@@ -598,7 +598,7 @@ interface Token {
   hpKey: number;
   chargeKey: number;
   healFxSeq: number; // last heal event rendered for this unit
-  healCastSeq: number; // last heal cast rendered for this Garden zombie
+  healCastSeq: number; // last heal cast rendered for this zombie (any body)
   healPose: number; // seconds remaining in the arms-overhead healing pose
   laserFxSeq: number; // last automatic laser event rendered for this unit
   explodeFxSeq: number; // last self-destruct blast rendered for this unit
@@ -2443,8 +2443,10 @@ export class RaidScene {
           u.state === "charging" && !u.distracted && !u.awaitRelease && u.charge < 1;
         tok.actor.update(dtSec, moving, focusing);
 
-        // Garden heal: lift both arms overhead, hold through the healing burst, then
-        // lower them. This pose is visual only; healing remains simulation-owned.
+        // Heal: lift both arms overhead, hold through the healing burst, then lower
+        // them. Procedural and body-agnostic on purpose — every zombie rig has the arms
+        // for it, which is why healing could leave the Garden (v62) with no new art. This
+        // pose is visual only; healing remains simulation-owned.
         const healElapsed = HEAL_POSE_S - tok.healPose;
         const healRaise = tok.healPose <= 0 ? 0
           : healElapsed < 0.14 ? healElapsed / 0.14

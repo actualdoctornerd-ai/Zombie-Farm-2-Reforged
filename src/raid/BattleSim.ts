@@ -576,7 +576,7 @@ export interface SimUnit {
   buddyId: string | null; // Small zombie currently carried by this Large zombie
   buddyCarrierId: string | null; // Large zombie carrying this Small zombie
   buddyMountMs: number; // jump-to-carrier animation time remaining
-  healTimerMs: number; // Garden support heal cadence
+  healTimerMs: number; // support heal cadence (any body — see healSuppressed)
   healAoeTimerMs: number; // independent 20-second Heal All timer
   /** Running total of post-mitigation damage AIMED at this unit (renderer trigger).
    *  Presentation only — nothing in the simulation reads it. It is the damage the
@@ -588,7 +588,7 @@ export interface SimUnit {
    *  mitigated hit (a Block proc) adds nothing and so shows no number at all. */
   damageFxTaken: number;
   healFxSeq: number; // increments when this unit receives a heal (renderer trigger)
-  healCastSeq: number; // increments when this Garden zombie performs a heal
+  healCastSeq: number; // increments when this zombie performs a heal
   laserTimerMs: number; // automatic walking-laser cadence
   laserFxSeq: number; // increments when a walking laser fires (renderer trigger)
   laserTargetId: string | null; // target of the most recent walking laser
@@ -1448,7 +1448,39 @@ export class BattleSim {
   }
 
   private isHealer(p: SimUnit): boolean {
-    return p.isGarden && (p.abilities.includes("heal") || p.abilities.includes("healAOE"));
+    return p.abilities.includes("heal") || p.abilities.includes("healAOE");
+  }
+
+  /** Is this healer's cast HELD this instant — i.e. is it busy swinging?
+   *
+   *  The holder is whoever carries the ability, not the Garden body — the same move
+   *  `canResurrect` made in v51. `isHealer` used to demand `p.isGarden`, which was a fact
+   *  about which ladder shipped heals, not a rule about bodies; with the Forest Zombie
+   *  carrying `heal` and Old McZombie carrying `healAOE` (docs/ABILITY_IDEAS.md) that gate
+   *  would have made both abilities silently do nothing.
+   *
+   *  What replaces it is a rule about WORK, not about species: a healer heals in the gaps
+   *  between its swings and on its walk-in, never while it is actually fighting. "fight" is
+   *  precisely that state on both sides — a zombie enters it on reaching its slot with an
+   *  enemy in front (stepZombies) and an enemy/PvP defender enters it on `playerInRange`,
+   *  so the rule is symmetric for an attacking army and a defending one.
+   *
+   *  THIS IS A NO-OP FOR EVERY GARDEN, which is the point — and the `isGarden` term is
+   *  what makes that true rather than nearly true. `isGarden` is the SUPPORT flag (see
+   *  CombatEngine `supportsFromRear`): a station-holder heals for a living, a line-fighter
+   *  heals between swings. On the ATTACKING side the term is redundant, because a Garden
+   *  pinned at GARDEN_STATION_X closes on nothing and so never enters "fight" anyway (the
+   *  same fact `laserTarget` documents). It is load-bearing on the DEFENDING side: a PvP
+   *  defender stands in a formation and the enemy loop flips it to "fight" the moment
+   *  `playerInRange` finds an attacker, so without the term a defending Garden would stop
+   *  healing mid-assault — a silent nerf to every formation defense already in the wild,
+   *  which measurably moved the pvp.test.ts balance band when it was tried.
+   *
+   *  Do NOT rewrite this as `!this.targetEnemy(p)`. `targetEnemy` has no range cap — it
+   *  returns the nearest living enemy at ANY distance — so it answers "yes, there is a
+   *  target" for a Garden parked at x=250 and would stop every healer in the game. */
+  private healSuppressed(p: SimUnit): boolean {
+    return !p.isGarden && p.state === "fight";
   }
 
   /** Is another of this zombie's own side deployed AHEAD of it — walking in or fighting?
@@ -1928,9 +1960,10 @@ export class BattleSim {
     return cast;
   }
 
-  /** Authentic Garden support. Heal selects the most injured OTHER deployed
-   *  zombie with missing Life and restores 50% of the healer's Power.
-   *  Heal All independently fires every 20 seconds for the same amount. */
+  /** Authentic Garden support, now carried by whoever holds the ability. Heal selects
+   *  the most injured OTHER deployed zombie with missing Life and restores 50% of the
+   *  healer's Power. Heal All independently fires every 20 seconds for the same amount.
+   *  An off-Garden holder is held back while it is swinging — see healSuppressed. */
   private stepHealing(dtMs: number, rezCast: ReadonlySet<string>, roster: SimUnit[] = this.players) {
     const deployed = roster.filter(
       (p) => p.alive &&
@@ -1955,10 +1988,18 @@ export class BattleSim {
         continue;
       }
       const amount = Math.max(1, Math.round(healer.power * HEAL_POWER_MULT));
+      // A held cast is BANKED, not dropped: the timer still runs down, then parks at zero
+      // until the first gap and fires the moment one opens. Resetting it instead would all
+      // but silence a front-line carrier — Heal All is a flat 20-second timer, so it would
+      // only ever land when its expiry happened to coincide with a gap. Parking at exactly
+      // zero (rather than letting it run negative) keeps the held state a single value, so
+      // a checkpoint taken mid-hold replays identically however long the hold ran.
+      const held = this.healSuppressed(healer);
 
       if (healer.abilities.includes("heal")) {
         healer.healTimerMs -= dtMs;
-        if (healer.healTimerMs <= 0) {
+        if (healer.healTimerMs <= 0 && held) healer.healTimerMs = 0;
+        else if (healer.healTimerMs <= 0) {
           const candidates = deployed.filter(
             (p) => p.id !== healer.id && p.hp > 0 && p.hp < p.maxHp
           );
@@ -1978,7 +2019,8 @@ export class BattleSim {
 
       if (healer.abilities.includes("healAOE")) {
         healer.healAoeTimerMs -= dtMs;
-        if (healer.healAoeTimerMs <= 0) {
+        if (healer.healAoeTimerMs <= 0 && held) healer.healAoeTimerMs = 0;
+        else if (healer.healAoeTimerMs <= 0) {
           const damaged = deployed.filter((p) => p.hp > 0 && p.hp < p.maxHp);
           for (const target of damaged) {
             target.hp = Math.min(target.maxHp, target.hp + amount);

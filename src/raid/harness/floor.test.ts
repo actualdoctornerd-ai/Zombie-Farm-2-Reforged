@@ -79,11 +79,20 @@ describe("the party floor", () => {
     expect(enforceFloor({ Regular: 3 }, 3, 45)).not.toBeNull();
   });
 
-  it("counts a healer by its ABILITY, and finds them only in the Garden", () => {
-    // If this ever fails, the floor has stopped meaning what it says and PARTY_FLOOR needs
-    // to name whichever class took the job over.
+  it("counts a healer by its ABILITY, and only the granted few heal outside the Garden", () => {
+    // Healing LEFT the Garden on 2026-09-24 (ruleset v62, docs/ABILITY_IDEAS.md): the
+    // Forest Zombie took `heal` on a Female body and Old McZombie took Heal All on a
+    // Regular one. The floor itself is untouched and still fills its healer quota out of
+    // the Garden — what stopped being true is that the Garden is the ONLY place the job
+    // turns up. So the assertion is no longer "nowhere else", it is "nowhere else by
+    // ACCIDENT": anything outside the Garden that heals must be one of the two that were
+    // deliberately given it, or the floor has stopped meaning what it says and PARTY_FLOOR
+    // needs to name whichever class took the job over.
+    const GRANTED = ["ZombieActorForest", "ZombieActorOldMcZombie"];
     for (const group of ["Headless", "Regular", "Female", "Large", "Small"] as const) {
-      expect(appropriateAt(group, 50).filter(isHealer)).toHaveLength(0);
+      for (const stray of appropriateAt(group, 50).filter(isHealer)) {
+        expect(GRANTED, `${group}: ${stray.key}`).toContain(stray.key);
+      }
     }
     const gardens = appropriateAt("Garden", 50);
     expect(gardens.length).toBeGreaterThan(0);
