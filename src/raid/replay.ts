@@ -1089,7 +1089,24 @@ import type { RaidOutcome } from "./types";
 //
 // Same cost as every bump: an invasion in flight at deploy time settles as stale_ruleset
 // and pays nothing.
-export const RAID_RULESET_VERSION = 62;
+// v63 — LETHALITY RE-FIT on six fights that were measurably too easy.
+//
+// Win rate had saturated and was hiding it: an ordinary account playing casually cleared
+// the Lawyers, Ninjas, Aliens and Video Games elites 100% of the time while losing 0.2-1.0
+// zombies, against a target band of 1.5-5 for their level, and raids 12 and 15 lost 0.0-0.9
+// against a band of 5-10. Tuned on CASUALTIES instead, via `str` and `specialDamage` only:
+// `con` and `dex` are untouched because the fight clock is already slack (so bulk buys
+// duration, not casualties) and dex compounds with str, and `throwDamage` is untouched
+// because the elite projectile step is fitted separately and bounded to 2-4x with a
+// three-and-a-half-second floor on killing the reference healer.
+//
+// Raids 12 and 15 needed a per-raid factor (`dualInvasion.DUAL_LETHALITY`) because the tier
+// ramp is one curve for all four dual invasions and 13 and 14 are too HARD, not too easy.
+// Those two are left alone here; cutting them is a separate change.
+//
+// Every elite transcript on raids 2, 4, 6 and 9, and every raid 12 and 15 transcript at any
+// rung, replays differently from v62.
+export const RAID_RULESET_VERSION = 63;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

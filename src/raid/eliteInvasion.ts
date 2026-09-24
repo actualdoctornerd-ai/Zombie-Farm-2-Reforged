@@ -205,7 +205,26 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // 2 — Zombies vs Lawyers. The Corporate boss is the ladder's speed threat: fast
   // punches and the Double Punch stun. So this is the one profile that spends most of
   // its budget on DEX, and the stun special hits hardest of all.
-  2: { str: 1.6, con: 1.8, dex: 1.85, throwDamage: 1.48, throwRate: 1.35, wallHp: 1, specialDamage: 2.1 },
+  // LETHALITY RE-FIT, 2026-09-24. The four entries marked below were raised on measured
+  // casualties rather than on win rate, because win rate had already saturated: an ordinary
+  // account playing casually cleared every one of them 100% of the time while losing
+  // 0.2-1.0 zombies, against a target band of 1.5-5 for their level. Multipliers come from
+  // tools/lethality_table.mjs, which flies a ladder of values and picks the CHEAPEST that
+  // lands the band.
+  //
+  // `str` AND `specialDamage` ONLY. Three fields were tried and `throwDamage` had to come
+  // straight back out: the boss projectile is NOT free to scale here. Its elite step is
+  // fitted separately against the rebalanced fight (ELITE_THROW_STEP, projectileScale.test)
+  // and bounded to 2-4x, with a floor of three and a half seconds to kill the reference
+  // healer. Tripling raid 2's throw put its step at 6x and its time-to-kill at 2.5 s — an
+  // off-screen execution, which is the exact failure the ruleset-34 re-fit existed to end.
+  //
+  // `con` and `dex` are untouched for their own reasons: the fight clock is already slack
+  // (the best builds finish in 40-85 s of 240) so bulk buys duration rather than
+  // casualties, and dex compounds with str, so moving both applies the change twice.
+  //
+  // 2 — Lawyers. x3.00. The weakest lethality in the table and it showed: 0.2 casualties.
+  2: { str: 4.8, con: 1.8, dex: 1.85, throwDamage: 1.48, throwRate: 1.35, wallHp: 1, specialDamage: 6.3 },
 
   // 3 — Zombies vs Pirates. Pirates hit like a cannon and their Scallywag mirrors your
   // attack speed, so speed is explicitly NOT their lever: dex stays at 1.0 and the whole
@@ -249,7 +268,8 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // v46 FIFO RE-FIT: corrected front-line ordering made this rung overshoot its intended
   // relationship to the Video Games. Its non-projectile multipliers step down together;
   // the calibrated throw step stays exactly as authored above.
-  4: { str: 2.85, con: 1.76, dex: 1.39, throwDamage: 1.34, throwRate: 1.64, wallHp: 1.55, specialDamage: 2.31 },
+  // 4 — Ninjas. x1.75, the smallest step of the four: it was already at 0.6.
+  4: { str: 4.99, con: 1.76, dex: 1.39, throwDamage: 1.34, throwRate: 1.64, wallHp: 1.55, specialDamage: 4.04 },
 
   // 5 — Zombies vs Robots. One of each bot, a random one leading, each with its own
   // special (junk wall, telekinesis). Bots are already the tankiest wave in the game, so
@@ -306,7 +326,8 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // the look of the table: the alien boss has no `throw` and no `wall`, and its
   // `alienLaser` action carries no authored `damage`, so `specialDamage` multiplies a
   // zero and BattleSim falls through to the flat 200 the binary hard-codes.
-  6: { str: 2.56, con: 1.31, dex: 1.35, throwDamage: 2.78, throwRate: 1.51, wallHp: 1, specialDamage: 4.04 },
+  // 6 — Aliens. x1.25. Nearly in band already (1.0) and the laser was doing most of it.
+  6: { str: 3.2, con: 1.31, dex: 1.35, throwDamage: 2.78, throwRate: 1.51, wallHp: 1, specialDamage: 5.05 },
 
   // 7 — Summer Break. No signature boss mechanic (the crab is a client-side hazard and
   // is deliberately left alone — see below), so it scales broadly, with heavier beach
@@ -366,7 +387,9 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // v46 FIFO RE-FIT: the corrected line made the Aliens narrowly overtake this final rung,
   // so its non-projectile profile gets a small lift to keep the last unlocked invasion the
   // hardest elite fight. The independently calibrated projectile step stays unchanged.
-  9: { str: 1.64, con: 1.48, dex: 1.32, throwDamage: 1.72, throwRate: 1.29, wallHp: 1, specialDamage: 2.13 },
+  // 9 — Video Games. x3.00. Level 46 puts it in the 5-10 band, the toughest target in the
+  // ladder, and it was sitting at 0.3 — the largest gap in the table.
+  9: { str: 4.92, con: 1.48, dex: 1.32, throwDamage: 1.72, throwRate: 1.29, wallHp: 1, specialDamage: 6.39 },
 
   // 10 / 11 — Tree World and Valentine's Day. Seasonal, no signature mechanic, and the
   // two weakest waves after McDonnell's, so they take the same broad treatment as

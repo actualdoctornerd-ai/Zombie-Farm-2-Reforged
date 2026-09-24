@@ -79,22 +79,26 @@ export function clampTier(tier: number): number {
  *  with `str`. Raising both at the bottom of the ladder doubles a change you meant to make
  *  once.
  */
+/** See `DUAL_LETHALITY` further down: the shared ramp below is scaled per raid, because
+ *  the four dual invasions are nowhere near each other in difficulty. */
 export function tierProfile(raidId: number, tier: number): EliteProfile {
   const t = (clampTier(tier) - MIN_TIER) / (MAX_TIER - MIN_TIER); // 0 at t1, 1 at t10
   const ramp = (from: number, to: number) => from + (to - from) * t;
+  const leth = DUAL_LETHALITY[raidId];
+  const lethality = leth ? leth[0] + (leth[1] - leth[0]) * t : 1;
   // LETHALITY is one ramp for all four: a damage multiplier means the same thing whatever
   // the wave is made of. BULK cannot be — see DUAL_BASE_HP — so `con` is solved backwards
   // from the hit points this rung is supposed to field.
   const base = DUAL_BASE_HP[raidId] ?? DUAL_BASE_HP[SIGN_RAID_ID];
   return {
-    str: ramp(1.8, 4.5),
+    str: ramp(1.8, 4.5) * lethality,
     con: ramp(DUAL_WAVE_HP_AT_MIN, DUAL_WAVE_HP_AT_MAX) / base.wave,
     bossCon: ramp(DUAL_BOSS_HP_AT_MIN, DUAL_BOSS_HP_AT_MAX) / base.boss,
     dex: ramp(1, 1.45),
-    throwDamage: ramp(1.6, 3),
+    throwDamage: ramp(1.6, 3) * lethality,
     throwRate: ramp(1.15, 1.5),
     wallHp: ramp(1.2, 1.6),
-    specialDamage: ramp(1.8, 4.5),
+    specialDamage: ramp(1.8, 4.5) * lethality,
   };
 }
 
@@ -738,6 +742,51 @@ export function ringmasterDropMs(raidId: number, tier: number): number | null {
 
 /** Aliens & Robots — the invasion the bubble belongs to. */
 export const BUBBLE_RAID_ID = 15;
+
+/** PER-RAID LETHALITY, as a ramp of its own, applied on top of the shared one.
+ *
+ *  The tier ramp is a single curve for all four dual invasions, which was right while they
+ *  were being built and is wrong now they have been measured: they are nowhere near each
+ *  other. Against the casualty bands in tools/benchmark_table.mjs, an ordinary account
+ *  playing casually loses 0.0-0.9 zombies on raids 12 and 15 and 6.7-13.5 on raids 13 and
+ *  14 — for the same target of 5-10. One number cannot place both.
+ *
+ *  A PAIR, NOT A SCALAR, and the pair has a floor. These fights are too soft at t1 and t5
+ *  but very nearly right at t10 (3.2 and 4.7 casualties against a 5-10 band), so the lift
+ *  is heavy at the bottom and light at the top. Two earlier shapes were wrong and both were
+ *  caught by a test rather than by judgement:
+ *
+ *    · a FLAT multiplier scaled t10 by whatever t1 needed and pushed the top rung out of
+ *      reach — `difficulty.test` lost its loss-less clear on 12 t10 and 15 t10;
+ *    · tapering all the way to 1.0 cancelled the shared ramp outright. `str` for raid 12
+ *      came out 4.5 at BOTH ends, a ladder that does not climb — `tierLadder.test` caught
+ *      it on the rung where the product first failed to rise.
+ *
+ *  So the top end stays above 1.0. The constraint is that `ramp(1.8, 4.5) * lethality(t)`
+ *  must still increase on every rung, which bounds how far the two ends may diverge: with
+ *  the shared ramp spanning 2.5x, a taper steeper than about [2, 1.4] turns over before
+ *  t10. Raid 12's top end is gentler still, at 1.25, because 1.4 cost its tier-10 rung the
+ *  loss-less clear the whole project is aimed at (difficulty.test again).
+ *
+ *  So these two cannot be brought all the way into band from the bottom: the lift that t1
+ *  needs is the whole span of the ladder, and spending it at the bottom either flattens the
+ *  curve or raises a top rung that is already where it should be. What actually wants
+ *  fixing is the TARGET — a casualty band flat across all ten rungs treats the tutorial
+ *  rung and the capstone as the same content. See the note in tools/benchmark_table.mjs.
+ *
+ *  Damage only — `str`, `throwDamage`, `specialDamage`. Not `con`: the rungs are solved
+ *  backwards from an HP target set by the settle budget, so bulk is already spoken for and
+ *  adding to it turns a fight a player is winning into one they lose on the clock. Not
+ *  `dex`, which compounds with `str`.
+ *
+ *  13 and 14 are absent ON PURPOSE (and so default to 1.0 at both ends): they are too hard
+ *  rather than too easy, and cutting them is a separate change that wants its own
+ *  measurement rather than a sign flip on this one. */
+export const DUAL_LETHALITY: Readonly<Record<number, readonly [number, number]>> = {
+  [SIGN_RAID_ID]: [1.8, 1.25],
+  [BUBBLE_RAID_ID]: [1.5, 1.2],
+};
+
 
 /** What the saucer can be thinking about. */
 export type BubbleAction = "wall" | "aoe" | "swap" | "stunAll" | "portal";
