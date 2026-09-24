@@ -40,7 +40,7 @@ import { buildFight } from "../buildFight";
 import { flyFight } from "./pilot";
 import { EXPERT, makePilot } from "./pilots";
 import { harnessFight } from "./raidFight";
-import { appropriateAt, buildExplicit, GROUPS, type AccountSpec } from "./roster";
+import { buildExplicit, CATALOG, obtainableAt, type AccountSpec } from "./roster";
 import { pearson, ridgeSolve, spearman } from "./regression";
 import raidsJson from "../../../public/assets/raids/raids.json";
 import type { RaidDef } from "../types";
@@ -52,7 +52,7 @@ export const EFFECTIVE_SHARDS = 6;
 /** Random armies drawn in total. Has to comfortably exceed the number of species (~30
  *  after the shortlist) for the regression to be identified, with room to spare for the
  *  noise a three-seed fight carries. */
-export const PARTIES = 1_500;
+export const PARTIES = 2_500;
 export const PARTY_SIZE = 16;
 /** Ridge term. Small: the sampler is uniform over species so collinearity is mild, and the
  *  term is here to guarantee invertibility rather than to shrink anything meaningfully. */
@@ -69,6 +69,10 @@ export const EFFECTIVE_ACCOUNT: AccountSpec = {
  *  averaging them in only dilutes the fights that discriminate. These six sit where a
  *  random sixteen is genuinely uncertain. */
 export const BATTERY: readonly { raidId: number; tier?: number; elite?: boolean }[] = [
+  // An easy fight, added when the pool widened to the whole catalog: a sample full of
+  // Green armies needs somewhere they can still tell each other apart, or every weak party
+  // scores the same zero and the bottom of the range carries no information.
+  { raidId: 2 },
   { raidId: 3, elite: true },
   { raidId: 6, elite: true },
   { raidId: 12, tier: 5 },
@@ -77,11 +81,24 @@ export const BATTERY: readonly { raidId: number; tier?: number; elite?: boolean 
   { raidId: 15, tier: 5 },
 ];
 
-/** Every species a party may contain, flat. */
+/** Every species a party may contain.
+ *
+ *  THE WHOLE OBTAINABLE CATALOG, not `appropriateAt`'s shortlist. The first run of this fit
+ *  sampled only the top three species of each class — 18 of 80 — and every one of them was
+ *  a Silver or a Special. That produced weights that were right about the species they
+ *  covered and blind to everything else, and the blindness showed up twice downstream: the
+ *  grid's fourth column (74% extrapolated species, 25 of 34 rows falling entering it) and
+ *  the "ordinary account" mark on every row freezing solid from level 26, because after
+ *  that point the only thing that changes for a player IS which species they field.
+ *
+ *  So the sampler now draws from everything a level-50 account could have earned, Greens
+ *  included. Most of those parties are bad, which is the point: a metric has to be able to
+ *  tell a bad army from a good one, and it can only learn that from bad armies. */
 export function speciesPool(level = 50): ZombieDef[] {
-  const out: ZombieDef[] = [];
-  for (const g of GROUPS) out.push(...appropriateAt(g, level));
-  return out;
+  return CATALOG.filter((z) => {
+    const at = obtainableAt(z);
+    return at !== null && at <= level;
+  });
 }
 
 /** One army and how it did. */
@@ -213,6 +230,19 @@ export interface EffectiveFit {
 
 export function fitEffective(observations: readonly Observation[]): EffectiveFit {
   const pool = speciesPool(EFFECTIVE_ACCOUNT.playerLevel ?? 50);
+  // THE SAMPLE AND THE FIT MUST AGREE ON THE ALPHABET. An observation's `counts` is
+  // positional against `speciesPool()`, so if the catalog grows between the sampling pass
+  // and this one — a new colour class landing in zombies.json mid-run, which has happened —
+  // every added column reads `undefined`, the solver returns NaN for it, and the frozen
+  // weights come out `null` for species that look fine in the table. Fail here instead.
+  const stale = observations.find((o) => o.counts.length !== pool.length);
+  if (stale) {
+    throw new Error(
+      `effective fit: observations carry ${stale.counts.length} species but the catalog now ` +
+      `has ${pool.length}. The sampling pass ran against a different catalog — re-run it ` +
+      `(npm run test:effective) rather than fitting across the change.`
+    );
+  }
   // Deterministic split on index, so the held-out set is the same between runs.
   const train = observations.filter((_, i) => i % 5 !== 0);
   const test = observations.filter((_, i) => i % 5 === 0);

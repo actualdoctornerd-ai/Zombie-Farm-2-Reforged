@@ -20,6 +20,7 @@ import { composeFight } from "../composeFight";
 import { raidProfile } from "../dualInvasion";
 import { fightStage, resolveStageWave, seededRandom } from "../RaidCatalog";
 import type { FightSpec } from "../buildFight";
+import type { EliteProfile } from "../eliteInvasion";
 import type { AttackDef, CombatUnit, EnemyStat, RaidDef, RaidStage } from "../types";
 
 const raids = raidsJson as RaidDef[];
@@ -53,12 +54,60 @@ export interface HarnessFightOptions {
   concentration?: boolean;
   /** Client-only rescue hazards (trapeze, crab). See the header. */
   hazards?: boolean;
+  /** MULTIPLY THE FIGHT'S LETHALITY — and only its lethality.
+   *
+   *  Scales enemy per-hit damage, boss throw damage and boss special damage. Deliberately
+   *  NOT `con`, `bossCon` or `wallHp`: hit points are what make a fight LONG, and with the
+   *  four-minute clock already slack (the best builds finish in 40-85 s) more bulk buys
+   *  duration rather than casualties, while pushing toward the settle budget where a player
+   *  who is winning the whole way still loses on the clock. Also not `dex` or `throwRate`,
+   *  which are cadence: dex is a straight DPS multiplier that COMPOUNDS with str, so moving
+   *  both applies a change twice.
+   *
+   *  A harness knob for CALIBRATION, not a game rule. It exists so "what would this fight
+   *  cost at 1.5x damage" can be measured before anyone edits a profile — and a raid with
+   *  no profile at all (every non-elite story raid) gets a synthetic one, which is how a
+   *  story raid's lethality can be costed without first inventing a mechanism for it. */
+  lethality?: number;
+  /** Multiply the fight's BULK — enemy and boss hit points.
+   *
+   *  The counterpart to `lethality`, and present for one reason: the lethality sweep found
+   *  four story raids where TRIPLING damage moved casualties from 0.1 to 0.7. An enemy that
+   *  dies before it swings cannot be made dangerous by hitting harder. Bulk is what buys it
+   *  the time to act — so the pair has to be measurable together, even though bulk alone is
+   *  the axis that runs into the fight clock. */
+  bulk?: number;
 }
 
 export interface HarnessFight {
   raid: RaidDef;
   stage: RaidStage;
   spec: FightSpec;
+}
+
+/** Apply `HarnessFightOptions.lethality` to a profile, inventing one where the fight has
+ *  none. `eliteProfile` returns null for every non-elite raid, so a story raid's damage is
+ *  purely its authored wave — a synthetic all-ones profile is the only way to ask what that
+ *  raid would cost if it hit harder. */
+function scaleLethality(
+  profile: EliteProfile | null,
+  lethality: number | undefined,
+  bulk: number | undefined
+): EliteProfile | null {
+  const L = lethality ?? 1;
+  const B = bulk ?? 1;
+  if (L === 1 && B === 1) return profile;
+  const base: EliteProfile = profile ?? {
+    str: 1, con: 1, dex: 1, throwDamage: 1, throwRate: 1, wallHp: 1, specialDamage: 1,
+  };
+  return {
+    ...base,
+    str: base.str * L,
+    throwDamage: base.throwDamage * L,
+    specialDamage: base.specialDamage * L,
+    con: base.con * B,
+    bossCon: (base.bossCon ?? base.con) * B,
+  };
 }
 
 export function harnessFight(opts: HarnessFightOptions): HarnessFight {
@@ -78,7 +127,8 @@ export function harnessFight(opts: HarnessFightOptions): HarnessFight {
   const composed = composeFight(HARNESS_ASSETS, raid, stage, {
     playerLevel,
     tier,
-    elite: raidProfile(raid.id, { elite: !!opts.elite, tier }),
+    elite: scaleLethality(
+      raidProfile(raid.id, { elite: !!opts.elite, tier }), opts.lethality, opts.bulk),
     priorWins: opts.priorWins ?? 5,
     waveSeed,
     hazards: opts.hazards ?? true,

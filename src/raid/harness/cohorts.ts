@@ -29,7 +29,9 @@ import {
   enforceFloor, fitTo, NAMED_MIXES, orderOf, ORDER_POLICIES, sampleComposition,
   type Composition,
 } from "./composition";
-import { appropriateAt, bestCarrierOf, isHealer, type Group, type RosterSpec } from "./roster";
+import {
+  appropriateAt, bestCarrierOf, isHealer, mutationTierAt, type Group, type RosterSpec,
+} from "./roster";
 
 // "Level appropriate" lives in roster.ts (`appropriateAt`), because the difficulty grid
 // and the cohort sweep have to mean the same thing by it. It is the few strongest species
@@ -228,6 +230,12 @@ export function sampleCohort(
         size: order.length,
         species,
         mutation: cohort.mutation,
+        // What the Pot can have produced, gated by the ACCOUNT's level rather than the
+        // army's age: mutations are re-rolled on whatever you own, so an outdated roster
+        // carries current-tier heads on old bodies. Without this a level-12 "powerful"
+        // cohort wore Silver-class mutations, which on a Green body is six and a half
+        // times its own stat line — and the grid's early columns beat the whole game.
+        mutationTier: mutationTierAt(accountLevel),
         maxPerSpecies: cohort.maxPerSpecies,
         // The account is at its own level whatever the army's age — the whole point of an
         // outdated roster is that the PLAYER moved on and the zombies did not.

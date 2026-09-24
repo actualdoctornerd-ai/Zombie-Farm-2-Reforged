@@ -36,9 +36,14 @@ try {
 // Column headers come off the data so they cannot drift from the bin edges.
 const bands = rows[0].cells.map((_, i) => {
   const seen = rows.map((r) => r.cells[i]).filter((c) => c.rosters > 0);
+  const avg = (pick) => seen.length
+    ? Math.round(seen.reduce((a, c) => a + pick(c), 0) / seen.length) : 0;
   return {
     i,
-    mean: seen.length ? Math.round(seen.reduce((a, c) => a + c.meanStrength, 0) / seen.length) : 0,
+    mean: avg((c) => c.meanEffective ?? c.meanStrength),
+    // What the OLD metric said about the same rosters, shown under each header so the
+    // disagreement between the two is visible rather than asserted.
+    ladder: avg((c) => c.meanStrength),
     rosters: seen[0]?.rosters ?? 0,
   };
 });
@@ -221,6 +226,7 @@ const html = `<title>Invasion Difficulty Grid</title>
   }
   thead th.corner { z-index: 4; left: 0; text-align: left; padding-left: 12px; min-width: 232px; }
   thead th .band { display: block; font-size: 14px; color: var(--ink); font-weight: 600; }
+  thead th .wasband { display: block; font-size: 10px; color: var(--ink-3); font-weight: 400; }
   tbody th {
     position: sticky; left: 0; z-index: 2; background: var(--surface-raised);
     text-align: left; font: 400 13px/1.25 Chivo, sans-serif; color: var(--ink);
@@ -353,31 +359,52 @@ const html = `<title>Invasion Difficulty Grid</title>
     </div>
     <div>
       <h2>Columns</h2>
-      <p>The Strength Ladder, <code>√(Σ str·dex·con)</code> over the army: one number covering
-        species, mutations and veterancy together.</p>
+      <p><strong>Effective strength</strong>, fitted from play: 1,500 random armies flown over a
+        six-fight battery, the result regressed on which zombies were in them. On held-out armies
+        those weights order results at <strong>+0.64</strong> Spearman.</p>
+      <p>The small grey number is what the <em>old</em> axis &mdash; the Strength Ladder,
+        <code>√(Σ str·dex·con)</code> &mdash; said about the same rosters. Across the whole catalog
+        it scores <strong>+0.23</strong>: it does know a Silver beats a Green. Among <em>top-tier</em>
+        armies, where everything is Silver or Special and only composition is left, it scores
+        <strong>&minus;0.30</strong> &mdash; actively anti-correlated, because it rates a tank and a
+        healer far below a glass cannon. That is the half that made this grid unreadable.</p>
       <p>Every roster is <strong>sixteen zombies built at level 50</strong>, so neither army size nor
-        the stat ramp is a second hidden axis. A band is a statement about how good the zombies are.</p>
+        the stat ramp is a second hidden axis.</p>
     </div>
     <div>
       <h2>Cells</h2>
       <p>Win rate over the band's rosters, and the mean casualties out of sixteen. Fill follows the
         win rate; the digits are there so the grid never depends on colour alone.</p>
-      <p>Every fight is scaled to <strong>its own recommended level</strong> — the raid is the fixed
-        obstacle and the party is the variable. Hover a cell for the loss-less share.</p>
+      <p><strong>Invasions do not scale with player level.</strong> Each has one authored wave with
+        fixed stats &mdash; raid 5 is 94,000 enemy hit points whether you meet it at level 10 or 50.
+        A row is a fixed obstacle and the only variable is the army, which is why a strong enough
+        early army clears late content here: nothing about the fight knows your level.</p>
+      <p>Hover a cell for the loss-less share.</p>
     </div>
     <div>
       <h2>The two rings</h2>
       <p>Each row marks where the player stands when that fight opens: a <b style="color:var(--mark-ceil)">blue</b>
         ring on the strongest party the level allows, a <b style="color:var(--mark-mod)">purple</b> one on what an
         ordinary account fields. Cells to the right of blue are out of reach at that level.</p>
-      <p>Both are sixteen zombies &mdash; the base army cap, which every farm has from the start &mdash; built at
-        that level, so the stat ramp is in the number. Blue takes the best obtainable species with no duplicate
-        limit, a full Pot, Master rank and the farmer's life head; purple takes at most two of any species, nothing
-        from the Pot, and Veteran 2.</p>
+      <p>Both are sixteen zombies &mdash; the base army cap, which every farm has from the start &mdash;
+        built at that level, so the stat ramp is in the number. Blue takes the best obtainable species with
+        no duplicate limit, a full Pot, Master rank and the farmer's life head.</p>
+      <p>Purple <strong>progresses</strong>, on the two channels a real account does: veterancy reaches
+        Master around level 20, and the Pot fills one more mutation slot at 22, 30, 38 and 44. It keeps a
+        two-per-species limit throughout. Holding it fixed instead &mdash; which an earlier version did
+        &mdash; described a <em>new</em> account and made the mark stop moving at level 26, where ability
+        tiers top out and the stat ramp ends.</p>
       <p>A ring marks the <em>band</em> a party lands in, not a point inside it. A party near a band's
         lower edge does worse than its column says &mdash; hover for the exact score against the band's
         mean.</p>
-      <p id="minmaxnote"></p>
+      <p><strong>What the re-bin fixed.</strong> On the old axis, seven rows finished <em>lower</em>
+        at the strongest column than at their own peak, by 124 points in total &mdash; the inversion
+        that made the grid unreadable.</p>
+      <p>The fit behind this axis covers <strong>all 80 obtainable species</strong>, sampled over
+        2,500 random armies. An earlier version sampled only the top 18, which left the fourth
+        column unreliable and froze the purple mark solid from level 26 &mdash; after that point the
+        only thing that changes for a player is which species they field, and a fit blind to species
+        could not see it.</p>
     </div>
     <div>
       <h2>Parties</h2>
@@ -467,7 +494,8 @@ function render() {
   for (const band of DATA.bands) {
     const th = document.createElement("th");
     th.scope = "col";
-    th.innerHTML = '<span class="band">' + band.mean + "</span>strength";
+    th.innerHTML = '<span class="band">' + band.mean + "</span>effective" +
+      '<span class="wasband">was ' + band.ladder + "</span>";
     head.appendChild(th);
   }
 

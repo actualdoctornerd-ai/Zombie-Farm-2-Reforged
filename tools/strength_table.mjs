@@ -31,9 +31,14 @@ const PILOT_NOTE = {
 const anyRow = rows[0];
 const header = anyRow.cells.map((c, i) => {
   const across = rows.flatMap((r) => r.cells[i]).filter((x) => x.rosters > 0);
-  const mean = across.length
-    ? Math.round(across.reduce((a, x) => a + x.meanStrength, 0) / across.length) : 0;
-  return { i, mean, rosters: across[0]?.rosters ?? 0 };
+  const avg = (pick) => across.length
+    ? Math.round(across.reduce((a, x) => a + pick(x), 0) / across.length) : 0;
+  return {
+    i,
+    mean: avg((x) => x.meanEffective ?? x.meanStrength),
+    ladder: avg((x) => x.meanStrength),
+    rosters: across[0]?.rosters ?? 0,
+  };
 });
 
 const W = 13;
@@ -45,15 +50,25 @@ out.push("  filed at its raid's unlock plus that raid's elite-prize delay — 10
 out.push("  Ninjas, 4 at the Robots, 3 from the Aliens on — because a Brain Ticket fight is not");
 out.push("  content you meet the day the raid opens.");
 out.push("");
-out.push("  Columns are the Strength Ladder, √(Σ str·dex·con) over the army: one number covering");
-out.push("  species, size, mutations and veterancy together. Every roster is built at level 50 so");
-out.push("  the stat ramp is not a second hidden axis, and every fight is scaled to its OWN");
-out.push("  recommended level — the raid is fixed, the party is the variable.");
+out.push("  Columns are EFFECTIVE STRENGTH, fitted from play (src/raid/harness/effectiveLadder.ts):");
+out.push("  1,500 random armies flown over a six-fight battery, the result regressed on which");
+out.push("  zombies were in them. On held-out armies those weights order results at Spearman");
+out.push("  +0.78, over all 80 obtainable species. The OLD axis, the Strength Ladder, scores +0.23");
+out.push("  on the same armies — it does know a Silver beats a Green — but -0.30 among TOP-TIER");
+out.push("  armies alone, where only composition is left and it rates a tank below a glass cannon.");
+out.push("  That half is what every column of this table before 2026-09-23 was built on.");
 out.push("");
-out.push("  Every party fields AT LEAST TWO HEALERS AND ONE HEADLESS. Without that floor the top");
-out.push("  band selected for armies with neither — the ladder weights dex as heavily as con, and");
-out.push("  the healer and the tank are the two classes with the least of it — so win rate fell as");
-out.push("  strength rose. Mutations are the best-in-slot mask per species, ~x1.47 on the ladder.");
+out.push("  The 'ladder' line under the column means is what the old metric said about the SAME");
+out.push("  rosters. It is printed to be looked at: if it does not climb with the columns, that");
+out.push("  is the two metrics disagreeing, and the held-out test says which one to believe.");
+out.push("");
+out.push("  Every roster is built at level 50, fields sixteen zombies, and meets the party floor");
+out.push("  of two healers and one headless.");
+out.push("");
+out.push("  INVASIONS DO NOT SCALE WITH PLAYER LEVEL. Each has ONE authored wave with fixed stats");
+out.push("  — raid 5 is 94,000 enemy hit points whether you meet it at level 10 or 50. So a row is");
+out.push("  a fixed obstacle and the ONLY variable is the army. That is also why a strong enough");
+out.push("  early army clears late content here: nothing about the fight knows your level.");
 out.push("");
 out.push("  A cell is  win% / mean casualties.  '–' is a column with no roster in that band.");
 out.push("");
@@ -62,7 +77,8 @@ out.push("  account at that level; < > both at once. Everything right of [ ] is 
 out.push("  A bracket marks the BAND, not a point in it: a party near a band's lower edge does worse");
 out.push("  than its column says. markers.json carries the exact scores.");
 out.push("");
-out.push(`  Column means: ${header.map((h) => `${h.mean}`).join("  ")}`);
+out.push(`  Column means, effective: ${header.map((h) => `${h.mean}`).join("  ")}`);
+out.push(`                   ladder: ${header.map((h) => `${h.ladder}`).join("  ")}`);
 out.push("");
 
 const cell = (c) => {

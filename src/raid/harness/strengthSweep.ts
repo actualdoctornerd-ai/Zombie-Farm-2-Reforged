@@ -44,6 +44,9 @@ import { flights, type Target } from "./measure";
 import { PILOT_LADDER, type PilotProfile } from "./pilots";
 import { seededRandom } from "../RaidCatalog";
 import { buildRoster, eliteReachableAt, type RosterSpec } from "./roster";
+import {
+  EFFECTIVE_EDGES, effectiveBin, effectiveBinLabels, effectiveStrength,
+} from "./effectiveLadder";
 import type { RaidDef } from "../types";
 
 const raids = raidsJson as RaidDef[];
@@ -69,15 +72,16 @@ const CANDIDATES_PER_POOL = 250;
  *  but top specials — and splitting it further would leave columns of three or four. */
 export const STRENGTH_EDGES: readonly number[] = [0, 60, 110, 170, 240, 320, 410, 520, Infinity];
 
-export const binLabels = (): string[] =>
-  STRENGTH_EDGES.slice(0, -1).map((lo, i) => {
-    const hi = STRENGTH_EDGES[i + 1];
-    return hi === Infinity ? `${lo}+` : `${lo}-${hi}`;
-  });
+/** The grid's columns. Effective strength since 2026-09-23 — see effectiveLadder.ts. The
+ *  Strength Ladder is still computed and still reported per cell, as the comparison. */
+export const binLabels = (): string[] => effectiveBinLabels();
 
 export interface SweepRoster {
   spec: RosterSpec;
+  /** Strength Ladder √(Σ str·dex·con) — kept for the comparison column only. */
   strength: number;
+  /** Effective strength, fitted from play. THE axis the columns are built on. */
+  effective: number;
   bin: number;
 }
 
@@ -98,18 +102,18 @@ export function strengthPool(perBin = PER_BIN): SweepRoster[] {
     for (const cohort of COHORTS) {
       for (const sample of sampleCohort(cohort, era, CANDIDATES_PER_POOL, "cohort", SWEEP_SIZE)) {
         const spec: RosterSpec = { ...sample.spec, playerLevel: SWEEP_PLAYER_LEVEL };
-        const strength = buildRoster(spec).strength;
-        const bin = STRENGTH_EDGES.findIndex((lo, i) =>
-          strength >= lo && strength < STRENGTH_EDGES[i + 1]);
-        if (bin < 0) continue;
-        candidates.push({ spec, strength, bin });
+        const roster = buildRoster(spec);
+        const effective = effectiveStrength(roster.units);
+        candidates.push({
+          spec, effective, strength: roster.strength, bin: effectiveBin(effective),
+        });
       }
     }
   }
 
   const rand = seededRandom("strength-pool");
   const out: SweepRoster[] = [];
-  STRENGTH_EDGES.slice(0, -1).forEach((_, bin) => {
+  EFFECTIVE_EDGES.slice(0, -1).forEach((_, bin) => {
     const inBin = candidates.filter((c) => c.bin === bin);
     for (let i = inBin.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));
@@ -167,7 +171,10 @@ export function sweepFights(): SweepFight[] {
 
 export interface SweepCell {
   bin: number;
-  /** Mean Strength Ladder score of the rosters actually flown in this bin. */
+  /** Mean EFFECTIVE strength of the rosters flown in this bin — the column's own axis. */
+  meanEffective: number;
+  /** Mean Strength Ladder score of the same rosters, so the two metrics can be compared
+   *  column by column. Expect it NOT to climb with the columns: that is the point. */
   meanStrength: number;
   rosters: number;
   flights: number;
@@ -189,10 +196,13 @@ export function runStrengthShard(shard: number, shards: number): SweepRow[] {
 
   for (const fight of sweepFights().filter((_, i) => i % shards === shard)) {
     for (const profile of PILOT_LADDER as readonly PilotProfile[]) {
-      const cells: SweepCell[] = STRENGTH_EDGES.slice(0, -1).map((_, bin) => ({
-        bin, meanStrength: 0, rosters: 0, flights: 0, winRate: 0, meanLosses: 0, losslessRate: 0,
+      const cells: SweepCell[] = EFFECTIVE_EDGES.slice(0, -1).map((_, bin) => ({
+        bin, meanEffective: 0, meanStrength: 0, rosters: 0, flights: 0,
+        winRate: 0, meanLosses: 0, losslessRate: 0,
       }));
-      const tally = cells.map(() => ({ wins: 0, clean: 0, losses: 0, n: 0, strength: 0, rosters: 0 }));
+      const tally = cells.map(() => ({
+        wins: 0, clean: 0, losses: 0, n: 0, strength: 0, effective: 0, rosters: 0,
+      }));
 
       for (const roster of pool) {
         const { flights: fs } = flights(
@@ -210,6 +220,7 @@ export function runStrengthShard(shard: number, shards: number): SweepRow[] {
         const t = tally[roster.bin];
         t.rosters++;
         t.strength += roster.strength;
+        t.effective += roster.effective;
         for (const f of fs) {
           t.n++;
           if (f.win) t.wins++;
@@ -223,6 +234,7 @@ export function runStrengthShard(shard: number, shards: number): SweepRow[] {
         cell.rosters = t.rosters;
         cell.flights = t.n;
         cell.meanStrength = t.rosters ? t.strength / t.rosters : 0;
+        cell.meanEffective = t.rosters ? t.effective / t.rosters : 0;
         cell.winRate = t.n ? t.wins / t.n : 0;
         cell.losslessRate = t.n ? t.clean / t.n : 0;
         cell.meanLosses = t.n ? t.losses / t.n : 0;

@@ -34,8 +34,11 @@
 // honest reading — an early army is weaker than the same species would be later — and it
 // is why the early rows' marks sit further left than their species alone would suggest.
 import raidsJson from "../../../public/assets/raids/raids.json";
-import { buildRoster, type Group, type RosterSpec } from "./roster";
-import { STRENGTH_EDGES, SWEEP_SIZE } from "./strengthSweep";
+import { addMutation, MUTATION_LIST, SLOTS } from "../../zombie/mutations";
+import { buildRoster, mutationTierAt, type Group, type RosterSpec } from "./roster";
+import { MAX_VET_RANK } from "../../zombie/traits";
+import { SWEEP_SIZE } from "./strengthSweep";
+import { effectiveBin, effectiveStrength } from "./effectiveLadder";
 import type { RaidDef } from "../types";
 
 const raids = raidsJson as RaidDef[];
@@ -89,6 +92,72 @@ const MINMAX_SHAPE: readonly Group[] = [
 
 export type MarkKind = "ceiling" | "moderate" | "minMaxed";
 
+// ---------------------------------------------------------------------------
+// WHAT AN ORDINARY ACCOUNT LOOKS LIKE AT A GIVEN LEVEL
+// ---------------------------------------------------------------------------
+//
+// The purple mark used to be a FIXED archetype — at most two of any species, nothing from
+// the Pot, Veteran 2 — applied unchanged at every level. That is a description of a new
+// account, and using it at level 49 said an ordinary endgame player has never mutated a
+// zombie and has survived two invasions. The visible symptom was the mark freezing solid
+// from level 26: ability tiers top out there, the stat ramp ends at 25, and with mutations
+// and veterancy pinned there was nothing left that could move.
+//
+// So the ordinary account now PROGRESSES on the two channels a real one does: veterancy,
+// which saturates early, and the QUALITY of what the Pot has put in its mutation slots.
+
+/** Survived invasions an ordinary account has by `level`.
+ *
+ *  Veterancy saturates early for anyone who replays — Master is the fifth survived
+ *  invasion and the ladder stops there — so this reaches the cap around level 20 and
+ *  stays. It is the fast channel. */
+export function moderateInvasions(level: number): number {
+  return Math.max(0, Math.min(MAX_VET_RANK, Math.floor(level / 4)));
+}
+
+const statSum = (m: { stats: { str?: number; dex?: number; con?: number } }) =>
+  (m.stats.str ?? 0) + (m.stats.dex ?? 0) + (m.stats.con ?? 0);
+
+/** The best mutation TIER an ordinary account is pulling out of the Pot by `level`.
+ *
+ *  Owner, 2026-09-23: "players will typically fill their mutation slots relatively early.
+ *  Mutation progression is via getting better mutations." So the slow channel is not how
+ *  MANY slots are filled, it is what is in them — an account fills what it can almost at
+ *  once and then spends the rest of the game replacing a Cornhead with a Garlichead with a
+ *  Pumpking. An earlier version of this had it backwards and filled one slot per era.
+ *
+ *  Nothing before the Pot is worth using; tier 1 from then; and the top tier late, because
+ *  a Pumpking or a Heartichoke is the sort of thing an account has a few of rather than
+ *  sixteen. */
+export function moderateMutationTier(level: number): number {
+  const pace = level < 10 ? 0 : level < 20 ? 1 : level < 32 ? 2 : level < 42 ? 3 : 4;
+  // Never past what the account could possibly have: the tiers are colour classes and
+  // gate on level (roster.mutationTierAt — Green 1, Blue 8, Red 15, Silver 25). An
+  // ordinary player is SLOWER than that gate, never faster.
+  return Math.min(pace, mutationTierAt(level));
+}
+
+/** What the Pot has managed by `level`: EVERY slot filled, with the best mutation that slot
+ *  offers at or below the account's tier.
+ *
+ *  A slot whose cheapest option is above that tier stays empty, which is not a modelling
+ *  choice but the catalog: `body` starts at tier 2 and `neck` at tier 3, so an early
+ *  account genuinely cannot fill them however keen it is. That is why this still climbs
+ *  even though the slots "fill early" — early means the three slots that have tier-1
+ *  options, and the other two arrive with the tiers. */
+export function moderateMutation(level: number): "none" | number {
+  const maxTier = moderateMutationTier(level);
+  if (maxTier <= 0) return "none";
+  let mask = 0;
+  for (const slot of SLOTS) {
+    const best = MUTATION_LIST
+      .filter((m) => m.slot === slot && m.tier <= maxTier)
+      .sort((a, b) => statSum(b) - statSum(a))[0];
+    if (best) mask = addMutation(mask, best.bit, false);
+  }
+  return mask;
+}
+
 /** The roster one mark stands for, at one account level. */
 export function markRoster(kind: MarkKind, level: number): RosterSpec {
   const base: RosterSpec = {
@@ -99,8 +168,19 @@ export function markRoster(kind: MarkKind, level: number): RosterSpec {
     abilityTiers: abilityTiersAt(level),
   };
   return kind === "moderate"
-    ? { ...base, mutation: "none", invasions: 2, maxPerSpecies: 2 }
-    : { ...base, mutation: "best", invasions: 5, farmerLifeMult: 1.1 };
+    ? {
+        ...base,
+        mutation: moderateMutation(level),
+        invasions: moderateInvasions(level),
+        maxPerSpecies: 2,
+        // A farmer head is cheap and near-universal once the player is raiding regularly.
+        farmerLifeMult: level >= 26 ? 1.1 : undefined,
+      }
+    // The ceiling is the best an account at this level COULD field — which is not
+    // best-in-slot at every level. Mutation tiers are colour classes and gate on level
+    // like any other species; applying tier 4 at level 10 put Pumpkings on Greens and
+    // made a maxed level-10 army beat every invasion up to level 43.
+    : { ...base, mutation: "best", mutationTier: mutationTierAt(level), invasions: 5, farmerLifeMult: 1.1 };
 }
 
 export interface Mark {
@@ -111,20 +191,15 @@ export interface Mark {
   bin: number;
 }
 
-function binOf(strength: number): number {
-  const bin = STRENGTH_EDGES.findIndex(
-    (lo, i) => strength >= lo && strength < STRENGTH_EDGES[i + 1]
-  );
-  // A ladder score above the last edge is impossible (the top bin is open-ended), but a
-  // future edge table could close it — pin to the last column rather than drop the mark.
-  return bin < 0 ? STRENGTH_EDGES.length - 2 : bin;
-}
+
 
 /** Every mark for an account at `level`. */
 export function marksAt(level: number): Record<MarkKind, Mark> {
   const at = (kind: MarkKind): Mark => {
-    const strength = buildRoster(markRoster(kind, level)).strength;
-    return { kind, level, strength, bin: binOf(strength) };
+    const roster = buildRoster(markRoster(kind, level));
+    // Marks bin on the same axis the columns do, or they would point at the wrong one.
+    const strength = effectiveStrength(roster.units);
+    return { kind, level, strength, bin: effectiveBin(strength) };
   };
   return { ceiling: at("ceiling"), moderate: at("moderate"), minMaxed: at("minMaxed") };
 }

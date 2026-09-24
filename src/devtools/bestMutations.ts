@@ -49,16 +49,25 @@ function strength(str: number, dex: number, con: number): number {
 /** Every mutation this body type may WEAR, grouped by slot and in slot order. Headless
  *  zombies are missing two slots outright (they get the Pumpking and nothing else up
  *  there), and `bitAllowed` is the one place that rule lives. */
-function candidatesBySlot(isHeadless: boolean): MutationDef[][] {
+function candidatesBySlot(isHeadless: boolean, maxTier: number): MutationDef[][] {
   return SLOTS
-    .map((slot) => MUTATION_LIST.filter((m) => m.slot === slot && bitAllowed(m.bit, isHeadless)))
+    .map((slot) => MUTATION_LIST.filter(
+      (m) => m.slot === slot && m.tier <= maxTier && bitAllowed(m.bit, isHeadless)))
     .filter((options) => options.length > 0);
 }
 
 /** The strongest legal mutation mask for this species. 0 when it can wear nothing. */
-export function bestMutationMask(def: Pick<ZombieDef, "key" | "group" | "str" | "dex" | "con">): number {
+export function bestMutationMask(
+  def: Pick<ZombieDef, "key" | "group" | "str" | "dex" | "con">,
+  /** Highest mutation TIER the account can have pulled out of the Pot. A mutation's tier
+   *  is a colour class (mutations.ts: tier 1 is Green through tier 4 Silver), and those
+   *  gate on level like any other species — so "best in slot" at level 10 is not the same
+   *  mask as "best in slot" at 50. Leaving this at 4 is the old, ungated behaviour and is
+   *  right only for an endgame account. */
+  maxTier = 4,
+): number {
   const isHeadless = (def.group ?? "") === "Headless";
-  const slots = candidatesBySlot(isHeadless);
+  const slots = candidatesBySlot(isHeadless, maxTier);
   if (!slots.length) return 0;
 
   let bestMask = 0;

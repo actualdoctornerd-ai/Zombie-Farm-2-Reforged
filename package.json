@@ -19,7 +19,9 @@
     "test:builds": "vitest run --config vitest.builds.config.ts && node tools/build_table.mjs",
     "test:mechanics": "vitest run --config vitest.mechanics.config.ts && node tools/mechanic_table.mjs",
     "test:search": "vitest run --config vitest.search.config.ts && node tools/search_table.mjs",
-    "test:effective": "vitest run --config vitest.effective.config.ts && vitest run --config vitest.effectiveFit.config.ts && node tools/effective_table.mjs"
+    "test:effective": "vitest run --config vitest.effective.config.ts && vitest run --config vitest.effectiveFit.config.ts && node tools/effective_table.mjs",
+    "test:monotonic": "vitest run --config vitest.monotonic.config.ts && node tools/monotonic_table.mjs",
+    "test:lethality": "vitest run --config vitest.lethality.config.ts && node tools/lethality_table.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.6.6"

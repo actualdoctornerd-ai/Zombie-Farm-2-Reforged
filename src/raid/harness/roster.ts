@@ -176,6 +176,43 @@ export function obtainableAt(z: ZombieDef): number | null {
   return routes.length ? Math.min(...routes) : null;
 }
 
+/** THE LEVEL EACH MUTATION TIER BECOMES AVAILABLE, derived from the catalog rather than
+ *  written down here.
+ *
+ *  A mutation's tier IS a colour class — mutations.ts is explicit that the ladder runs
+ *  "tier 1 through Silver for tier 4" — and a colour class is gated by the level its
+ *  cheapest member unlocks at. So the gate falls out of zombies.json: Green 1, Blue 8,
+ *  Red 15, Silver 25.
+ *
+ *  This exists because `mutation: "best"` was being applied at EVERY level, which put
+ *  tier-4 Pumpkings and Heartichokes on level-10 armies. Mutations are flat adds, so they
+ *  matter most to the weakest bodies — a Green at 3/1/4 is ladder 3.5 and the same Green
+ *  best-in-slot is 22.8, six and a half times the number — and the result was a difficulty
+ *  grid whose early columns were Greens wearing endgame heads. A maxed level-10 army beat
+ *  every invasion in the game up to level 43. */
+const TIER_CLASS: Readonly<Record<number, string>> = {
+  1: "Green", 2: "Blue", 3: "Red", 4: "Silver",
+};
+
+export const MUTATION_TIER_LEVEL: Readonly<Record<number, number>> = (() => {
+  const out: Record<number, number> = {};
+  for (const [tier, className] of Object.entries(TIER_CLASS)) {
+    const levels = zombieDefs
+      .filter((z) => z.className === className &&
+        (z as { category?: string }).category !== "special" && (z.level ?? 0) > 0)
+      .map((z) => z.level ?? 0);
+    out[Number(tier)] = levels.length ? Math.min(...levels) : 1;
+  }
+  return out;
+})();
+
+/** Highest mutation tier an account at `level` can have obtained. */
+export function mutationTierAt(level: number): number {
+  let tier = 0;
+  for (let t = 1; t <= 4; t++) if (level >= (MUTATION_TIER_LEVEL[t] ?? 99)) tier = t;
+  return tier;
+}
+
 /** Everything of a group a player at `level` could have earned, strongest first. */
 function obtainablePool(group: Group, level: number): ZombieDef[] {
   return CATALOG
@@ -318,6 +355,10 @@ export interface RosterSpec {
   /** "none" (an unmutated line), "best" (the exhaustive best-in-slot mask per species —
    *  a CEILING nothing in the game hands a player), or an explicit mask. */
   mutation?: "none" | "best" | number;
+  /** Caps what `"best"` may reach for, as a mutation TIER (see `mutationTierAt`). Unset
+   *  means tier 4, which is only right for an endgame account — a sampler drawing an
+   *  early-era roster must set it or it will hand Greens their Silver-class heads. */
+  mutationTier?: number;
   /** The level the army fights at. Below 25 the stat ramp is still climbing. */
   playerLevel?: number;
   /** How many ability tiers are unlocked, 0..4. The real gate is per-ability within a
@@ -364,7 +405,7 @@ export function buildRoster(spec: RosterSpec): Roster {
   const party: OwnedZombie[] = [];
   const composition: Record<string, number> = {};
   const push = (def: ZombieDef, group: string) => {
-    const mask = spec.mutation === "best" ? bestMutationMask(def)
+    const mask = spec.mutation === "best" ? bestMutationMask(def, spec.mutationTier ?? 4)
       : typeof spec.mutation === "number" ? spec.mutation
       : 0;
     // Veterancy is capped by the ladder (Master at 5), so clamping here keeps
@@ -412,7 +453,8 @@ export function buildRoster(spec: RosterSpec): Roster {
  *  level-50 Master roster means. */
 export type AccountSpec = Pick<
   RosterSpec,
-  "invasions" | "mutation" | "playerLevel" | "abilityTiers" | "farmerStrengthMult" | "farmerLifeMult"
+  | "invasions" | "mutation" | "mutationTier" | "playerLevel" | "abilityTiers"
+  | "farmerStrengthMult" | "farmerLifeMult"
 >;
 
 /** Build a roster from an EXPLICIT species per slot, in order.
@@ -433,7 +475,7 @@ export function buildExplicit(species: readonly string[], account: AccountSpec =
   for (const key of species) {
     const def = CATALOG.find((z) => z.key === key);
     if (!def) throw new Error(`no species ${key}`);
-    const mask = account.mutation === "best" ? bestMutationMask(def)
+    const mask = account.mutation === "best" ? bestMutationMask(def, account.mutationTier ?? 4)
       : typeof account.mutation === "number" ? account.mutation
       : 0;
     const invasions = Math.min(account.invasions ?? 0, MAX_VET_RANK);
