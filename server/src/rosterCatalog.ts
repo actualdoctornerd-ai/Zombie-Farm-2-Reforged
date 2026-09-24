@@ -166,11 +166,13 @@ const BLACK_MARKET_COLOR_GRAVESTONES = {
   Blue: "gravestoneBlue",
   Red: "gravestoneRed",
   Silver: "gravestoneSilver",
+  Obsidian: "gravestoneObsidian",
 } as const;
 
 const BLACK_MARKET_REQUIREMENTS = new Map(
   (zombieRows as Array<{ key: string; category?: string; className?: string }>).map((zombie) => {
-    const color = zombie.className === "Blue" || zombie.className === "Red" || zombie.className === "Silver"
+    const color = zombie.className === "Blue" || zombie.className === "Red"
+      || zombie.className === "Silver" || zombie.className === "Obsidian"
       ? zombie.className
       : undefined;
     const colorLevel = color ? OBJECTS[BLACK_MARKET_COLOR_GRAVESTONES[color]].level : 0;
@@ -248,6 +250,8 @@ const GARDEN_TIER: Readonly<Record<string, number>> = {
   ZombieActorGardenTier3GreenFlower: 3,
   ZombieActorGardenTier4: 4,
   ZombieActorGardenTier5: 5,
+  // The Obsidian Nightshade Zombie, the tier above the Zombee: the top rate.
+  ZombieActorGardenTier6: 6,
   ZombieActorGardenCupid: 5,
   ZombieActorGardenCupidPink: 5,
   // The two Dr. Zombies are Garden-group specials (zombies.json, tier 5), so they
@@ -256,7 +260,7 @@ const GARDEN_TIER: Readonly<Record<string, number>> = {
   ZombieActorDrZombie: 5,
   ZombieActorOmegaDrZombie: 5,
 };
-const FERTILIZE_BY_TIER: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12 };
+const FERTILIZE_BY_TIER: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12, 6: 0.12 };
 
 /** A single Garden zombie's fertilize chance (0 for non-Garden keys). */
 export function gardenChance(key: string): number {

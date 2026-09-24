@@ -242,6 +242,13 @@ EXTRA_SHED_TIERS = [
     ("storage09", "Zombie Warehouse", 525_000, 72),
 ]
 
+# The Obsidian Grave (see its clone near the end of main()). Level 40 is the first
+# Obsidian zombie's; the brains price continues the Blue 2 / Red 4 / Silver 6 ladder.
+OBSIDIAN_GRAVE = {
+    "key": "gravestoneObsidian", "name": "Obsidian Grave", "cost": 8, "level": 40,
+    "variantOf": "gravestoneSilver", "color": [120, 95, 170],
+}
+
 # ---- Recolor variants --------------------------------------------------------
 # 17 TileProperties keys carry several Market rows that differ ONLY by display name
 # and tint: one Hedge sprite is sold as six colors, one crate as seven. The catalog
@@ -1689,6 +1696,17 @@ def main():
             tier.update({"key": key, "name": name, "cost": cost,
                          "xp": cost // 100, "storageSlots": slots})
             catalog.append(tier)
+
+    # The Obsidian Grave: a reimplementation addition with no source row. It unlocks
+    # planting the Obsidian tier (tools/obsidian_zombies.py), the gravestone zombies
+    # above the Silvers, exactly as the Silver Grave unlocks the Silvers — so it is the
+    # Silver Grave's row, sprite and footprint, recoloured by the ordinary variant
+    # tint (the same scheme as the Recolor variants above) and priced one step up.
+    base_silver = next((c for c in catalog if c["key"] == "gravestoneSilver"), None)
+    if base_silver:
+        grave = dict(base_silver)
+        grave.update(OBSIDIAN_GRAVE)
+        catalog.append(grave)
 
     # Memorial Statue: a reimplementation addition with no source row, whose art is
     # cut from the Tim Statue's plinth. Built AFTER the loop above so its source

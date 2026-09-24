@@ -47,9 +47,12 @@ function stickArmy(size: number, power: number): CombatUnit[] {
   // along with the specials: the Crazy Zombie always was (it is a special), and the
   // Video Game Zombie — Yellow but filed as a normal zombie — must not join the pool
   // either, because a new species would otherwise re-cut the stick and move every
-  // rung's measurement without any change to the fights being measured.
+  // rung's measurement without any change to the fights being measured. The Obsidian
+  // tier (levels 40-45, the gravestone zombies above the Silvers) is left out for the
+  // same reason: the rungs were tuned against the Silver ladder, and an Obsidian army
+  // clearing them faster is the tier doing its job, not the tuning drifting.
   const pool = zombieDefs
-    .filter((z) => z.category !== "special" && z.className !== "Yellow")
+    .filter((z) => z.category !== "special" && z.className !== "Yellow" && z.className !== "Obsidian")
     .sort((a, b) => ((b.str as number) + (b.con as number)) - ((a.str as number) + (a.con as number)))
     .slice(0, 6)
     .map((z) => ({ ...z, str: (z.str as number) * power, con: (z.con as number) * power }));

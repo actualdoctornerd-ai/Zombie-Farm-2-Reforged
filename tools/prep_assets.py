@@ -17,6 +17,7 @@ Run:  python tools/prep_assets.py
 import colorsys, os, re, io, json, plistlib, random, shutil
 from PIL import Image
 from atlas_stamp import stamp_frames
+import obsidian_zombies
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
@@ -1414,8 +1415,9 @@ def pack_special_zombies():
     packed = ([(stem, key) for _, stem, key in NAMED_SPECIAL_ZOMBIES] + [VIDEO_GAME_ZOMBIE]
               + [(d["stem"], d["key"]) for d in DERIVED_SPECIAL_ZOMBIES]
               + [(c["stem"], c["key"]) for c in CUT_SPECIAL_ZOMBIES]
-              # Packed LAST so no existing atlas frame moves.
-              + [(d["stem"], d["key"]) for d in DERIVED_FLIPBOOK_ZOMBIES])
+              + [(d["stem"], d["key"]) for d in DERIVED_FLIPBOOK_ZOMBIES]
+              # Packed LAST so no existing atlas frame moves (tools/obsidian_zombies.py).
+              + [(t["stem"], t["key"]) for t in obsidian_zombies.TIER])
     for stem, catalog_key in packed:
         folder = os.path.join(OUT, "zombie", stem)
         manifest = json.load(open(os.path.join(folder, "manifest.json")))
@@ -1519,6 +1521,7 @@ if __name__ == "__main__":
     derive_flipbook_zombies()
     derive_special_zombies()
     cut_special_zombies()
+    obsidian_zombies.derive()
     pack_special_zombies()
     export_rig()
     make_field(idx)

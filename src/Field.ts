@@ -176,7 +176,7 @@ export interface CropConfig {
   sell: number; // gold on harvest
   xp: number; // xp granted on harvest
   unlockLevel: number; // player level required to plant
-  unlockGrave?: "Blue" | "Red" | "Silver"; // zombie: needs this colored grave placed
+  unlockGrave?: "Blue" | "Red" | "Silver" | "Obsidian"; // zombie: needs this colored grave placed
   isZombie?: boolean; // harvest leaves a hole (vs. a dirt square)
   isMutant?: boolean; // mutant-tier zombie: grows in half the time with a Mutant Monolith
   harvestIcon?: string; // standalone produce art; full stages are farm-only
@@ -1798,7 +1798,7 @@ export class Field {
 
   // Does the player own a colored grave of this class? Colored graves gate
   // planting the matching zombie class (Blue/Red/Silver); Green needs none.
-  hasGrave(color: "Blue" | "Red" | "Silver"): boolean {
+  hasGrave(color: "Blue" | "Red" | "Silver" | "Obsidian"): boolean {
     for (const o of this.objects.values()) if (o.def.graveColor === color) return true;
     return false;
   }

@@ -142,7 +142,7 @@ interface MktEntry {
   xpHint?: string;
   timeLabel?: string; // catalog grow/regrowth time
   qty?: number; // how many units the listed price buys (boost packs)
-  graveNeeded?: "Blue" | "Red" | "Silver"; // locked until this colored grave is owned
+  graveNeeded?: "Blue" | "Red" | "Silver" | "Obsidian"; // locked until this colored grave is owned
   ownedLimit?: boolean; // "1 per farm" limit reached (gift vouchers) — can't buy
   owned?: boolean;
   equipped?: boolean;
@@ -1632,7 +1632,7 @@ export class Hud {
    *  art). Loads the art, applies it and saves. */
   onPickShedAppearance: ((key: string) => void | Promise<void>) | null = null;
   /** Whether a colored grave is placed (gates planting that zombie class). */
-  hasGrave: ((color: "Blue" | "Red" | "Silver") => boolean) | null = null;
+  hasGrave: ((color: "Blue" | "Red" | "Silver" | "Obsidian") => boolean) | null = null;
   /** Whether the Plowing Monolith is placed — it moves the plow XP onto harvests,
    *  so the per-harvest XP quoted on crop cards has to account for it. */
   hasPlowFree: (() => boolean) | null = null;

@@ -9,7 +9,8 @@ import zombieRows from "../../public/assets/zombies.json";
 const approx = (a: number, b: number) => expect(a).toBeCloseTo(b, 10);
 
 // Ground truth, as it appears in the client's ZombieField.FERTILIZE_BY_TIER.
-const TIER_CHANCE: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12 };
+// Tier 6 is the Obsidian Nightshade Zombie, above the Zombee: the top rate.
+const TIER_CHANCE: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12, 6: 0.12 };
 
 describe("gardenChance — per-unit fertilize chance by tier", () => {
   it("maps each Garden key to its ground-truth tier chance", () => {
@@ -32,7 +33,7 @@ describe("gardenChance — per-unit fertilize chance by tier", () => {
   it("covers every Garden unit in zombies.json, whatever its key is called", () => {
     const garden = (zombieRows as { key: string; group?: string; tier?: number }[])
       .filter((z) => z.group === "Garden");
-    expect(garden.length).toBe(10); // fails loudly when the roster gains one
+    expect(garden.length).toBe(11); // fails loudly when the roster gains one
     for (const z of garden) {
       expect.soft(gardenChance(z.key), z.key).toBe(TIER_CHANCE[z.tier ?? 0] ?? 0);
     }

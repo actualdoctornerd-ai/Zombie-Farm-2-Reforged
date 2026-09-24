@@ -20,7 +20,9 @@ describe("complete special-zombie roster", () => {
     // plus the Cozmonaut, a DERIVED recolour of the Zastronaut with no recovered
     // source of its own (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), plus the
     // Zombozo, CUT from the Circus clown's enemy art (CUT_SPECIAL_ZOMBIES).
-    const named = zombies.filter((zombie) => zombie.specialSprite);
+    // The Obsidian tier also draws from the dedicated sheet, but it is six ORDINARY
+    // gravestone zombies, not specials; obsidianTier.test.ts holds its rules.
+    const named = zombies.filter((zombie) => zombie.specialSprite && zombie.className !== "Obsidian");
     expect(named).toHaveLength(44);
     expect(new Set(named.map((zombie) => zombie.key)).size).toBe(44);
     expect(named.every((zombie) => zombie.category === "special")).toBe(true);

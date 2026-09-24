@@ -222,6 +222,7 @@ export const OBJECTS: Readonly<Record<string, ObjectEcon>> = {
   "gravestoneNormal": { cost: 800, brains: false, xp: 8, level: 5 },
   "gravestoneNormal_black": { cost: 1750, brains: false, xp: 17, level: 13 },
   "gravestoneNormal_pink": { cost: 1500, brains: false, xp: 15, level: 7 },
+  "gravestoneObsidian": { cost: 8, brains: true, xp: 400, level: 40, purchaseLimit: 1 },
   "gravestoneRed": { cost: 4, brains: true, xp: 400, level: 15, purchaseLimit: 1 },
   "gravestoneRound": { cost: 800, brains: false, xp: 8, level: 5 },
   "gravestoneSilver": { cost: 6, brains: true, xp: 400, level: 25, purchaseLimit: 1 },

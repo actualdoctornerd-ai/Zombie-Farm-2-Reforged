@@ -117,7 +117,8 @@ describe("boss projectile scaling", () => {
     // 96-entry zombie catalog. This re-derives it from zombies.json so a new healer, a
     // re-levelled one or a re-costed one cannot drift the two apart silently.
     const ladder = zdefs
-      .filter((z) => z.group === "Garden" && z.category === "normal" && !z.marketHidden)
+      .filter((z) => z.group === "Garden" && z.category === "normal" && !z.marketHidden
+        && z.className !== "Obsidian")
       .map((z) => ({ level: z.level as number, con: z.con as number }))
       .sort((a, b) => a.level - b.level);
     expect(ladder).toEqual(GARDEN_MARKET_LADDER.map((r) => ({ ...r })));
@@ -127,6 +128,12 @@ describe("boss projectile scaling", () => {
     const cupid = zdefs.find((z) => z.name === "Cupid Zombie")!;
     expect(cupid.group).toBe("Garden");
     expect(GARDEN_MARKET_LADDER.some((r) => r.con === cupid.con)).toBe(false);
+    // So is the Obsidian Nightshade Zombie (level 40, con 16), for the same reason: it
+    // is the tier ABOVE the ladder, and re-basing every level-40+ boss's throws on it
+    // would triple them — taking back exactly the strength the tier was bought for.
+    const nightshade = zdefs.find((z) => z.key === "ZombieActorGardenTier6")!;
+    expect(nightshade.className).toBe("Obsidian");
+    expect(GARDEN_MARKET_LADDER.some((r) => r.con === nightshade.con)).toBe(false);
   });
 
   it("sizes the reference healer off the most recently purchasable Garden zombie", () => {
@@ -322,7 +329,7 @@ describe("boss projectile scaling", () => {
   function healerFor(level: number) {
     return zdefs
       .filter((z) => z.group === "Garden" && z.category === "normal" && !z.marketHidden
-        && (z.level as number) <= level)
+        && z.className !== "Obsidian" && (z.level as number) <= level)
       .sort((a, b) => (b.level as number) - (a.level as number))[0]!;
   }
 
@@ -333,7 +340,8 @@ describe("boss projectile scaling", () => {
   function army(level: number, healerSlot: number): CombatUnit[] {
     const pool = ["Regular", "Female", "Large", "Headless", "Small"]
       .map((g) => zdefs
-        .filter((z) => z.category === "normal" && z.group === g && (z.level as number) <= level)
+        .filter((z) => z.category === "normal" && z.className !== "Obsidian"
+          && z.group === g && (z.level as number) <= level)
         .sort((a, b) => ((b.str as number) + (b.con as number)) - ((a.str as number) + (a.con as number)))[0])
       .filter(Boolean) as Array<Record<string, unknown>>;
     const party = Array.from({ length: 7 }, (_, i) =>

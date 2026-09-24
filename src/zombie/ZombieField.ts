@@ -32,7 +32,8 @@ export function joiningPatchTile(
  *  `fertilizeChance` values in UnitStats.json map 1:1 to a Garden unit's tier
  *  (t1 .04, t2 .06, t3/t4 .08, t5 .12), so we key off the tier the catalog already
  *  carries instead of re-baking the stat. Non-garden / tier-0 units never fertilize. */
-const FERTILIZE_BY_TIER: Record<number, number> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12 };
+// Tier 6 is the Obsidian Nightshade Zombie (tools/obsidian_zombies.py): the top rate.
+const FERTILIZE_BY_TIER: Record<number, number> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12, 6: 0.12 };
 
 export class ZombieField {
   private units: ZombieUnit[] = []; // deployed: wandering on the farm

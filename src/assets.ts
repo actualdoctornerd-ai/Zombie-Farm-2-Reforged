@@ -169,7 +169,10 @@ interface SpecialZombieManifest {
   /** The ordinary skeleton this delta is laid over. Absent = the Regular Tier-1 rig
    *  (Bombie: the Headless one). A Small-family actor names ZombieActorSmallTier1 so
    *  it inherits the MINI's face — the Regular face plus its eyebrow feature — rather
-   *  than the Regular's. */
+   *  than the Regular's. A manifest that names its base also takes that rig's SCALE
+   *  (not the per-group special size below): the Obsidian tier wears its body type's
+   *  ordinary rig, so a Plasmahead stands exactly as tall as the Party Zombie under it
+   *  (tools/obsidian_zombies.py). */
   base?: string;
   parts: Array<Omit<ZombieModelPart, "tint"> & { file: string }>;
   /** Frame files (same folder as `parts`) for a rig animated by texture swaps. */
@@ -265,7 +268,7 @@ export function mergeSpecialZombieModel(
   return {
     name: def.name,
     neck: replaced.has("Head") ? manifest.neck : base.neck,
-    scale: SPECIAL_GROUP_SCALE[def.group] ?? base.scale,
+    scale: manifest.base ? base.scale : SPECIAL_GROUP_SCALE[def.group] ?? base.scale,
     color: manifest.color ?? base.color,
     parts: [...inherited, ...dedicated].sort((a, b) => a.z - b.z),
     ...(flipbook ? {
@@ -467,7 +470,7 @@ export interface PlaceableDef {
   petPen?: boolean; // Pet Pen: manages up to four displayed pets
   zombieStorage?: boolean; // functional: the Mausoleum — stores owned zombies
   zombieSlots?: number; // functional: Mausoleum zombie capacity (15..60 by tier)
-  graveColor?: "Blue" | "Red" | "Silver"; // colored grave: unlocks planting that zombie class
+  graveColor?: "Blue" | "Red" | "Silver" | "Obsidian"; // colored grave: unlocks planting that zombie class
   zombiePatch?: boolean; // functional: the Zombie Patch — gathers zombies to nap on it
   plowFree?: boolean; // functional: Plowing Monolith — plowing costs no gold
   fastWork?: boolean; // functional: Speed Monolith — farming actions are instant
@@ -905,8 +908,8 @@ export async function loadAssets(): Promise<GameAssets> {
     p.tileH = Math.max(1, Math.floor(p.tileH));
     if (FENCE_OVERHANG && isFencePanel(p)) p.collideExtend = FENCE_OVERHANG;
     if (/^mausoleum/i.test(p.key)) p.zombieStorage = true;
-    const grave = /^gravestone(Blue|Red|Silver)$/.exec(p.key);
-    if (grave) p.graveColor = grave[1] as "Blue" | "Red" | "Silver";
+    const grave = /^gravestone(Blue|Red|Silver|Obsidian)$/.exec(p.key);
+    if (grave) p.graveColor = grave[1] as "Blue" | "Red" | "Silver" | "Obsidian";
     if (p.key === "soil_zombiePatch") p.zombiePatch = true;
     if (p.key === "monolithPlowing") p.plowFree = true;
     if (p.key === "monolithSpeed") p.fastWork = true;

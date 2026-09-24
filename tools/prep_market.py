@@ -134,6 +134,74 @@ AUTHORED_ZOMBIES = [
         "mutation": 0, "tier": 5, "specialSprite": "zombozo.png",
         "rewardOnly": False, "marketHidden": True,
     },
+    # The Obsidian tier: six GRAVESTONE zombies above the Silvers, one unlocking per
+    # level from 40 to 45 in the Silvers' order (Garden, Large, Small, Girl, Headless,
+    # Regular), planted once the Obsidian Grave is placed (tools/prep_placeables.py).
+    # Designed with the owner 2026-09-24; art from tools/obsidian_zombies.py. Keys say
+    # Tier6 because the source spent Tier5 on the seasonal specials (Zombotron...).
+    # Stats: each beats the strongest zombie a player can PLANT in its body type on
+    # sqrt(DPS x HP) (Cupid, Dapper, Granny, Bombie, Crazy; the Small has none, so the
+    # Imp) and stays under the Aliens' and Video Games' prizes (regular and elite),
+    # the rare drops on offer at these levels. (The Zombinator does out-score the
+    # level 25-31 prizes: Deputy, MerZombie, Zombie Bot, Omega Zombie Bot.) Dex matches the family's ordinary ladder except the Nightshade's 3: a
+    # heal is half the healer's power once per 2/dex s, and the Cupid (13.5 / 3)
+    # already out-heals every ordinary Garden, so the Nightshade needed its speed.
+    # Gold, not brains, like every ordinary gravestone zombie; roughly twice the
+    # Silver's price, with longer grows.
+    {
+        "key": "ZombieActorGardenTier6", "name": "Nightshade Zombie",
+        "cost": 450, "growMs": 86_400_000, "category": "normal", "level": 40, "xp": 2,
+        "brainsNeeded": False, "group": "Garden",
+        "className": "Obsidian", "classColor": "#9480c8",
+        "str": 14, "dex": 3, "con": 16, "focus": 75.0,
+        "mutation": 0, "tier": 6, "specialSprite": "nightshade_zombie.png",
+        "rewardOnly": False, "marketHidden": False,
+    },
+    {
+        "key": "ZombieActorLargeTier6", "name": "ZomTitan",
+        "cost": 250, "growMs": 28_800_000, "category": "normal", "level": 41, "xp": 1,
+        "brainsNeeded": False, "group": "Large",
+        "className": "Obsidian", "classColor": "#9480c8",
+        "str": 25, "dex": 1.3, "con": 18, "focus": 80.0,
+        "mutation": 0, "tier": 6, "specialSprite": "zomtitan.png",
+        "rewardOnly": False, "marketHidden": False,
+    },
+    {
+        "key": "ZombieActorSmallTier6", "name": "Zemon",
+        "cost": 170, "growMs": 1_800_000, "category": "normal", "level": 42, "xp": 1,
+        "brainsNeeded": False, "group": "Small",
+        "className": "Obsidian", "classColor": "#9480c8",
+        "str": 10.5, "dex": 4, "con": 11, "focus": 95.0,
+        "mutation": 0, "tier": 6, "specialSprite": "zemon.png",
+        "rewardOnly": False, "marketHidden": False,
+    },
+    {
+        "key": "ZombieActorGirlTier6", "name": "Zomchantress",
+        "cost": 140, "growMs": 21_600_000, "category": "normal", "level": 43, "xp": 1,
+        "brainsNeeded": False, "group": "Female",
+        "className": "Obsidian", "classColor": "#9480c8",
+        "str": 10.5, "dex": 3.5, "con": 16.5, "focus": 90.0,
+        "mutation": 0, "tier": 6, "specialSprite": "zomchantress.png",
+        "rewardOnly": False, "marketHidden": False,
+    },
+    {
+        "key": "ZombieActorHeadlessTier6", "name": "Plasmahead",
+        "cost": 125, "growMs": 21_600_000, "category": "normal", "level": 44, "xp": 1,
+        "brainsNeeded": False, "group": "Headless",
+        "className": "Obsidian", "classColor": "#9480c8",
+        "str": 12.5, "dex": 1, "con": 33, "focus": 95.0,
+        "mutation": 0, "tier": 6, "specialSprite": "plasmahead.png",
+        "rewardOnly": False, "marketHidden": False,
+    },
+    {
+        "key": "ZombieActorRegularTier6", "name": "Zombinator",
+        "cost": 110, "growMs": 21_600_000, "category": "normal", "level": 45, "xp": 1,
+        "brainsNeeded": False, "group": "Regular",
+        "className": "Obsidian", "classColor": "#9480c8",
+        "str": 20, "dex": 2, "con": 30, "focus": 85.0,
+        "mutation": 0, "tier": 6, "specialSprite": "zombinator.png",
+        "rewardOnly": False, "marketHidden": False,
+    },
 ]
 
 # Brain prices take the shared brainflation retune (see tools/reforge_economy.py).
@@ -157,6 +225,8 @@ TIER_CLASS = {
     "3": ("Red", "#ff5a4a"),
     "4": ("Silver", "#cfd4dd"),
     "5": ("Special", "#c077ff"),
+    # The gravestone tier above the Silvers (tools/obsidian_zombies.py).
+    "6": ("Obsidian", "#9480c8"),
 }
 YELLOW = ("Yellow", "#ffd24a")
 

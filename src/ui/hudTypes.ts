@@ -177,10 +177,11 @@ export interface ReceivedView {
 }
 
 /** Colored grave a zombie class needs before it can be planted (null = none). */
-export function graveNeededFor(className: string): "Blue" | "Red" | "Silver" | null {
+export function graveNeededFor(className: string): "Blue" | "Red" | "Silver" | "Obsidian" | null {
   if (className === "Blue") return "Blue";
   if (className === "Red") return "Red";
   if (className === "Silver") return "Silver";
+  if (className === "Obsidian") return "Obsidian";
   return null; // Green (T1), Special, Yellow need no grave
 }
 

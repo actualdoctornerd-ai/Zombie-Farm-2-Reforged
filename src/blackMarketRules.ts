@@ -32,6 +32,7 @@ export const BLACK_MARKET_COLOR_LEVELS = {
   Blue: 1,
   Red: 15,
   Silver: 25,
+  Obsidian: 40,
 } as const;
 
 export type BlackMarketPurchaseLock = { kind: "level"; level: number; label: string };
@@ -40,14 +41,14 @@ export interface BlackMarketZombieRequirement {
   /** Catalog key — what decides a special's own source level. */
   key?: string;
   category?: "normal" | "special" | "mutant";
-  unlockGrave?: "Blue" | "Red" | "Silver";
+  unlockGrave?: "Blue" | "Red" | "Silver" | "Obsidian";
 }
 
 export type BlackMarketComposeKind = "BUY_ZOMBIE" | "SELL_ZOMBIE";
 
 // ---- Browse filters ------------------------------------------------------
 // The catalog has two real axes, and the toolbar cuts along both: the colour class
-// (the tier ladder Green -> Blue -> Red -> Silver, then the specials) and the body
+// (the tier ladder Green -> Blue -> Red -> Silver -> Obsidian, then the specials) and the body
 // family. Beware the vocabulary crossover — the player calls the colour axis the
 // "category" and the family axis the "class", while the catalog data calls them
 // `className` and `group`. The wire values below are the DATA's words so no
@@ -68,6 +69,7 @@ export const BLACK_MARKET_CLASS_FILTERS: readonly BlackMarketFilterOption[] = [
   { value: "Blue", label: "Blue" },
   { value: "Red", label: "Red" },
   { value: "Silver", label: "Silver" },
+  { value: "Obsidian", label: "Obsidian" },
   // Yellow is the tier-less uniques (Crazy, Cupid). There is no Yellow rung on the
   // ladder and a player reads them as specials, so they file under Special.
   { value: "Special", label: "Special", also: ["Yellow"] },

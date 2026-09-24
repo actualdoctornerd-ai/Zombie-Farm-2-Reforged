@@ -16,7 +16,7 @@ export interface PlacementFarm {
   shedId(): string | null;
   mausoleumId(): string | null;
   patchId(): string | null;
-  hasGrave(color: "Blue" | "Red" | "Silver"): boolean;
+  hasGrave(color: "Blue" | "Red" | "Silver" | "Obsidian"): boolean;
   hasPlowFree(): boolean;
   hasFastWork(): boolean;
   hasMutantMonolith(): boolean;

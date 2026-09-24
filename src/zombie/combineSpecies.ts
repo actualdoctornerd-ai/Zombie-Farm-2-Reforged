@@ -67,7 +67,7 @@ const COMBINE_NEXT_CLASS: Readonly<Record<string, {
  *  combine can never hand out a colour the farm has not unlocked. Injected because
  *  neither the pot nor the shared selector can see the farm: the client passes
  *  `Field.hasGrave`, the server reads its own placed objects. */
-export type CombineGraveUnlock = (color: "Blue" | "Red" | "Silver") => boolean;
+export type CombineGraveUnlock = (color: "Blue" | "Red" | "Silver" | "Obsidian") => boolean;
 
 /** Already at the silver tier? Such a parent is its own "silver of the correct
  *  type", so a matched pair keeps it rather than flattening the mutant silvers
@@ -77,6 +77,15 @@ export type CombineGraveUnlock = (color: "Blue" | "Red" | "Silver") => boolean;
  *  `Tier<n>` token in their key (Lima Beans is a silver under a Tier2 key). */
 function isSilverKey(key: string): boolean {
   return /Tier4/.test(key);
+}
+
+/** An Obsidian parent — the gravestone tier ABOVE the Silvers (tools/obsidian_zombies.py).
+ *  It sits above every rung the Pot can reach: the tier-5 roll would trade it for a
+ *  weaker seasonal special and the silver step for a Silver, so slot 1 simply keeps
+ *  it. Obsidians are bought from their own grave, never bred. The key test covers a
+ *  job persisted without `className`, like isSilverKey. */
+function isObsidian(parent: CombineSpeciesParent): boolean {
+  return parent.className ? parent.className === "Obsidian" : /Tier6/.test(parent.key);
 }
 
 /**
@@ -159,6 +168,7 @@ export function selectCombineSpecies(
   // but retaining this symmetric fallback lets an older persisted slot-2 job
   // finish without losing its special parent.
   if (a.isSpecial !== b.isSpecial) return a.isSpecial ? a.key : b.key;
+  if (isObsidian(a)) return a.key;
 
   const matched = a.key === b.key;
   // Lower ladder steps are checked BEFORE the tier-5 roll: a Green or Blue pair

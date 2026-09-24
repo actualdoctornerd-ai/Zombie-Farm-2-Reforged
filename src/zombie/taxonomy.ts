@@ -1,22 +1,24 @@
 // Zombie taxonomy (Phase 3). Every zombie belongs to a GROUP family (Regular,
 // Female, Small, Large, Headless, Garden) and a colour CLASS derived from its
 // tier: Green (T1) -> Blue (T2) -> Red (T3) -> Silver/Combined (T4) -> Special
-// (T5); named uniques with no tier (Crazy, Cupid) are Yellow. This mirrors the
+// (T5); named uniques with no tier (Crazy, Cupid) are Yellow. Obsidian (T6) is the
+// gravestone tier ABOVE the Silvers (levels 40-45, tools/obsidian_zombies.py): its
+// key says Tier6 because the source already spent Tier5 on the seasonal specials. This mirrors the
 // Python classifier in tools/prep_market.py — the baked group/className/classColor
 // in zombies.json are authoritative; this is the runtime fallback + colour source.
 
-export type ZClass = "Green" | "Blue" | "Red" | "Silver" | "Special" | "Yellow";
+export type ZClass = "Green" | "Blue" | "Red" | "Silver" | "Special" | "Yellow" | "Obsidian";
 
 const GROUP_FAMILY: Record<string, string> = {
   Regular: "Regular", Girl: "Female", Small: "Small",
   Large: "Large", Headless: "Headless", Garden: "Garden",
 };
 const TIER_CLASS: Record<string, ZClass> = {
-  "1": "Green", "2": "Blue", "3": "Red", "4": "Silver", "5": "Special",
+  "1": "Green", "2": "Blue", "3": "Red", "4": "Silver", "5": "Special", "6": "Obsidian",
 };
 
-/** The colour class a numeric tier wears: 1 Green, 2 Blue, 3 Red, 4 Silver, 5 Special.
- *  Anything outside 1-5 falls back to Yellow, the tier-less class.
+/** The colour class a numeric tier wears: 1 Green, 2 Blue, 3 Red, 4 Silver, 5 Special,
+ *  6 Obsidian. Anything outside 1-6 falls back to Yellow, the tier-less class.
  *
  *  Exported because the Mutation Almanac ranks by a tier the zombie catalog does not
  *  carry (see MutationTier), and drawing that ladder in the same four colours as the
@@ -29,6 +31,8 @@ export function classForTier(tier: number): ZClass {
 export const CLASS_COLOR: Record<ZClass, string> = {
   Green: "#7bd84a", Blue: "#5aa8ff", Red: "#ff5a4a",
   Silver: "#cfd4dd", Special: "#c077ff", Yellow: "#ffd24a",
+  // A slate violet, kept well clear of the Special class's bright purple.
+  Obsidian: "#9480c8",
 };
 
 export function classColorHex(cls: ZClass): number {
@@ -37,10 +41,11 @@ export function classColorHex(cls: ZClass): number {
 
 // Numeric rank of a colour class, used to gate which ability tiers a zombie
 // shows: it sees ability tiers 1..rank. Green=1 (t1 only), Blue=2, Red=3,
-// Silver=4 (all four); Special (T5 mutants) and Yellow (tier-less uniques) also
-// see all four, so they clamp to the top. Unknown strings fall back to 1.
+// Silver=4 (all four); Special (T5 mutants), Yellow (tier-less uniques) and
+// Obsidian (the tier above Silver) also see all four, so they clamp to the top.
+// Unknown strings fall back to 1.
 const CLASS_RANK: Record<string, number> = {
-  Green: 1, Blue: 2, Red: 3, Silver: 4, Special: 4, Yellow: 4,
+  Green: 1, Blue: 2, Red: 3, Silver: 4, Special: 4, Yellow: 4, Obsidian: 4,
 };
 export function classTierRank(className: string): number {
   return CLASS_RANK[className] ?? 1;

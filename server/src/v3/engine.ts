@@ -170,11 +170,12 @@ const COLOR_GRAVE_KEYS = {
   Blue: "gravestoneBlue",
   Red: "gravestoneRed",
   Silver: "gravestoneSilver",
+  Obsidian: "gravestoneObsidian",
 } as const;
 
 function hasColorGrave(
   state: MutableGameplayState,
-  color: "Blue" | "Red" | "Silver"
+  color: "Blue" | "Red" | "Silver" | "Obsidian"
 ): boolean {
   const key = COLOR_GRAVE_KEYS[color];
   return state.objects.objects.some(
