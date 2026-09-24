@@ -272,8 +272,15 @@ describe("boss projectile scaling", () => {
 
   /** What each profile's `throwDamage` x `throwRate` is fitted to buy, as a multiple of the
    *  raid's own REBALANCED throw. See the projectile re-fit in eliteInvasion.ts. */
+  // Raised for four raids at ruleset 63. What did NOT move is the floor below: whatever
+  // the step, no boss may delete the reference healer inside three and a half seconds, and
+  // the absolute throw values are solved against that rather than against the step — which
+  // is why these four sit where they do and not wherever the casualty fit would have put
+  // them. Note this compares against `fightScaledThrow`, which does not carry
+  // STORY_PROFILES, so it is an elite-only step; eliteLaunch.test measures the ratio a
+  // Brain Ticket actually buys, which now does divide the two.
   const ELITE_THROW_STEP: Readonly<Record<number, number>> = {
-    1: 3.0, 2: 2.0, 3: 2.0, 4: 2.2, 5: 2.0, 7: 4.0, 8: 3.99, 9: 2.22, 10: 4.01, 11: 4.01,
+    1: 3.0, 2: 3.71, 3: 2.0, 4: 3.69, 5: 2.86, 7: 4.0, 8: 3.99, 9: 2.71, 10: 4.01, 11: 4.01,
   };
 
   it("steps an elite boss's throws off the rebalanced fight, not off the authored one", () => {

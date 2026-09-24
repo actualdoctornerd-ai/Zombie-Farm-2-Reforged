@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { RaidManager } from "./RaidManager";
 import { GameState } from "../GameState";
-import { BRAIN_TICKET_KEY, ELITE_BRAIN_LUCK, ELITE_PROFILES } from "./eliteInvasion";
+import { BRAIN_TICKET_KEY, ELITE_BRAIN_LUCK, ELITE_PROFILES, STORY_PROFILES } from "./eliteInvasion";
 import { VOUCHER_KEY, RAID_COOLDOWN_MS } from "./RaidCatalog";
 import { raidZombieDropRate, OLD_MC_ZOMBIE_KEY, NINJOMBIE_KEY, MASTER_NINJOMBIE_KEY,
   RAID_ZOMBIE_PITY_WINS, RAID_ELITE_ZOMBIE_PITY_WINS } from "./zombieDrops";
@@ -94,7 +94,15 @@ describe("spending a Brain Ticket", () => {
     const plain = raids.beginRaid(4, PARTY_IDS, {})!;
     state.addBoost(BRAIN_TICKET_KEY, 1);
     const elite = raids.beginRaid(4, PARTY_IDS, { brainTicket: true })!;
-    const profile = ELITE_PROFILES[4];
+    // Since ruleset 63 the ORDINARY fight carries a profile too on this raid, so a Brain
+    // Ticket buys the ratio between the two rather than the elite multiplier outright.
+    const story = STORY_PROFILES[4];
+    const profile = {
+      throwRate: ELITE_PROFILES[4].throwRate / (story?.throwRate ?? 1),
+      throwDamage: ELITE_PROFILES[4].throwDamage / (story?.throwDamage ?? 1),
+      specialDamage: ELITE_PROFILES[4].specialDamage / (story?.specialDamage ?? 1),
+      wallHp: ELITE_PROFILES[4].wallHp / (story?.wallHp ?? 1),
+    };
 
     for (let i = 0; i < plain.enemyUnits.length; i++) {
       expect(elite.enemyUnits[i].maxHp).toBeGreaterThan(plain.enemyUnits[i].maxHp);

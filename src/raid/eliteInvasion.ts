@@ -212,19 +212,31 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // tools/lethality_table.mjs, which flies a ladder of values and picks the CHEAPEST that
   // lands the band.
   //
-  // `str` AND `specialDamage` ONLY. Three fields were tried and `throwDamage` had to come
-  // straight back out: the boss projectile is NOT free to scale here. Its elite step is
-  // fitted separately against the rebalanced fight (ELITE_THROW_STEP, projectileScale.test)
-  // and bounded to 2-4x, with a floor of three and a half seconds to kill the reference
-  // healer. Tripling raid 2's throw put its step at 6x and its time-to-kill at 2.5 s — an
-  // off-screen execution, which is the exact failure the ruleset-34 re-fit existed to end.
+  // AN ELITE MUST STILL BE A STEP OVER ITS OWN ORDINARY FIGHT, and that constraint became
+  // load-bearing the moment STORY_PROFILES existed: raid 4's elite throw was 2.35 against
+  // an ordinary fight now on 3.0, so a Brain Ticket would have bought WEAKER projectiles.
+  // eliteLaunch.test caught it.
+  //
+  // THE STEP IS NOT UNIFORM, and a first pass that made it uniform (x1.6 everywhere) was
+  // wrong in a way only the benchmark could see: raids 5 and 6 had elites that were ALREADY
+  // in band, so lifting their ordinary fight and then holding a fixed step above it pushed
+  // the elites out the other side — Robots elite reached 8.5 casualties at a 58% win rate
+  // against a 1.5-5 target. Those two now sit just above their story profile rather than
+  // well above it. Raid 2 has no story profile at all and keeps its own numbers.
+  //
+  // `str`, `throwDamage` AND `specialDamage` all move together. The projectile was held
+  // back on the first pass because its elite step was fitted separately and bounded to
+  // 2-4x; the owner lifted that (2026-09-24) and the band moved with it. What did NOT move
+  // is the floor on how fast a boss may delete the healer it is aimed at — see
+  // projectileScale.test — because that one is about a fight being a fight rather than an
+  // off-screen execution, and it still binds.
   //
   // `con` and `dex` are untouched for their own reasons: the fight clock is already slack
   // (the best builds finish in 40-85 s of 240) so bulk buys duration rather than
   // casualties, and dex compounds with str, so moving both applies the change twice.
   //
   // 2 — Lawyers. x3.00. The weakest lethality in the table and it showed: 0.2 casualties.
-  2: { str: 4.8, con: 1.8, dex: 1.85, throwDamage: 1.48, throwRate: 1.35, wallHp: 1, specialDamage: 6.3 },
+  2: { str: 4.8, con: 1.8, dex: 1.85, throwDamage: 2.75, throwRate: 1.35, wallHp: 1, specialDamage: 6.3 },
 
   // 3 — Zombies vs Pirates. Pirates hit like a cannon and their Scallywag mirrors your
   // attack speed, so speed is explicitly NOT their lever: dex stays at 1.0 and the whole
@@ -269,7 +281,7 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // relationship to the Video Games. Its non-projectile multipliers step down together;
   // the calibrated throw step stays exactly as authored above.
   // 4 — Ninjas. x1.75, the smallest step of the four: it was already at 0.6.
-  4: { str: 4.99, con: 1.76, dex: 1.39, throwDamage: 1.34, throwRate: 1.64, wallHp: 1.55, specialDamage: 4.04 },
+  4: { str: 5.6, con: 1.76, dex: 1.39, throwDamage: 2.25, throwRate: 1.64, wallHp: 1.55, specialDamage: 5.6 },
 
   // 5 — Zombies vs Robots. One of each bot, a random one leading, each with its own
   // special (junk wall, telekinesis). Bots are already the tankiest wave in the game, so
@@ -293,7 +305,7 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // after: 1.95, inside the window the neighbouring rungs leave (Ninjas 1.67, Aliens
   // 2.24). All three boss draws sit within 0.04 of each other, so the paced Bro-Bot is
   // not the outlier the report might suggest — the whole rung was on the margin.
-  5: { str: 2.53, con: 1.87, dex: 1.41, throwDamage: 1.4, throwRate: 1.43, wallHp: 1.51, specialDamage: 2.94 },
+  5: { str: 3.8, con: 1.87, dex: 1.41, throwDamage: 2, throwRate: 1.43, wallHp: 1.51, specialDamage: 3.8 },
 
   // 6 — Zombies vs Aliens. Twenty minions, a summoning boss and the laser. Their normal
   // fight is already the longest on the ladder (over two minutes), so con barely moves —
@@ -327,7 +339,7 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // `alienLaser` action carries no authored `damage`, so `specialDamage` multiplies a
   // zero and BattleSim falls through to the flat 200 the binary hard-codes.
   // 6 — Aliens. x1.25. Nearly in band already (1.0) and the laser was doing most of it.
-  6: { str: 3.2, con: 1.31, dex: 1.35, throwDamage: 2.78, throwRate: 1.51, wallHp: 1, specialDamage: 5.05 },
+  6: { str: 3.8, con: 1.31, dex: 1.35, throwDamage: 2, throwRate: 1.51, wallHp: 1, specialDamage: 4.4 },
 
   // 7 — Summer Break. No signature boss mechanic (the crab is a client-side hazard and
   // is deliberately left alone — see below), so it scales broadly, with heavier beach
@@ -389,7 +401,7 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // hardest elite fight. The independently calibrated projectile step stays unchanged.
   // 9 — Video Games. x3.00. Level 46 puts it in the 5-10 band, the toughest target in the
   // ladder, and it was sitting at 0.3 — the largest gap in the table.
-  9: { str: 4.92, con: 1.48, dex: 1.32, throwDamage: 1.72, throwRate: 1.29, wallHp: 1, specialDamage: 6.39 },
+  9: { str: 6.3, con: 1.48, dex: 1.32, throwDamage: 2.1, throwRate: 1.29, wallHp: 1, specialDamage: 6.3 },
 
   // 10 / 11 — Tree World and Valentine's Day. Seasonal, no signature mechanic, and the
   // two weakest waves after McDonnell's, so they take the same broad treatment as
@@ -404,8 +416,47 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
 /** The multipliers this fight runs under: null for an ordinary invasion (so every
  *  caller can pass the result straight through and the non-elite path stays exactly the
  *  code it was), the raid's profile for an elite one. */
+/** ORDINARY-FIGHT LETHALITY, for the story raids that needed it.
+ *
+ *  Until now `eliteProfile` returned null for every non-elite fight, so a story raid's
+ *  difficulty was its authored wave and nothing else — there was no knob at all. That is
+ *  what blocked the pre-45 pass: raids 4, 5, 6 and 9 cost an ordinary account playing
+ *  casually 0.0-0.2 zombies against a target band of 1.5-5, and nothing in the codebase
+ *  could move them.
+ *
+ *  SAME SHAPE AS AN ELITE PROFILE, deliberately, so both sides of a raid scale through one
+ *  mechanism and `eliteEnemyStat` / `eliteBossThrow` / the specials scaler need no new
+ *  branch. Only the lethality fields are set: `con`, `dex`, `throwRate` and `wallHp` stay
+ *  at 1 because bulk makes a fight long rather than costly (the clock is already slack) and
+ *  dex compounds with str.
+ *
+ *  A raid absent from this table is unchanged — `null`, exactly as before — so this cannot
+ *  quietly move a fight nobody measured. The four here are the ones the benchmark scored
+ *  too easy; the elites are pegged to them ("X on a Brain Ticket is about as hard as Y
+ *  normally is"), so leaving the story raids soft is also what kept their elites soft.
+ *
+ *  Numbers from tools/lethality_table.mjs, EXCEPT the throws, which are solved against a
+ *  hard constraint instead: no boss may delete the reference healer in under three and a
+ *  half seconds (projectileScale.test). The first pass ignored it and put raid 9's ORDINARY
+ *  fight at 3.14 s and raid 4's elite at 1.91 s — an off-screen execution, which is the
+ *  failure the ruleset-34 projectile re-fit existed to end. Throws are set for a four-second
+ *  kill and the lethality they can no longer carry is moved into `str` and `specialDamage`,
+ *  neither of which is floored. */
+export const STORY_PROFILES: Readonly<Record<number, EliteProfile>> = {
+  // 4 — Ninjas. The most stubborn of the four: it resisted x3 damage AND x3 bulk together,
+  // which is a wave too small to be dangerous rather than one that hits too softly. This
+  // lifts what can be lifted and the rest is an enemy-count question.
+  4: { str: 2.5, con: 1, dex: 1, throwDamage: 1.4, throwRate: 1, wallHp: 1, specialDamage: 2.5 },
+  // 5 — Robots.
+  5: { str: 3.5, con: 1, dex: 1, throwDamage: 1.6, throwRate: 1, wallHp: 1, specialDamage: 3.5 },
+  // 6 — Aliens. The laser is most of its damage, hence the heavier specialDamage.
+  6: { str: 3.5, con: 1, dex: 1, throwDamage: 1.6, throwRate: 1, wallHp: 1, specialDamage: 4 },
+  // 9 — Video Games. Level 43, so the widest band to reach.
+  9: { str: 4, con: 1, dex: 1, throwDamage: 1.4, throwRate: 1, wallHp: 1, specialDamage: 4 },
+};
+
 export function eliteProfile(raidId: number, elite: boolean): EliteProfile | null {
-  if (!elite) return null;
+  if (!elite) return STORY_PROFILES[raidId] ?? null;
   return ELITE_PROFILES[raidId] ?? DEFAULT_ELITE_PROFILE;
 }
 

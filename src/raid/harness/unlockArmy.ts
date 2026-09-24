@@ -37,7 +37,7 @@ import raidsJson from "../../../public/assets/raids/raids.json";
 import { addMutation, MUTATION_LIST, SLOTS } from "../../zombie/mutations";
 import { buildRoster, mutationTierAt, type Group, type RosterSpec } from "./roster";
 import { MAX_VET_RANK } from "../../zombie/traits";
-import { SWEEP_SIZE } from "./strengthSweep";
+import { BASE_ARMY_MAX } from "../../armyCapacity";
 import { effectiveBin, effectiveStrength } from "./effectiveLadder";
 import type { RaidDef } from "../types";
 
@@ -106,6 +106,39 @@ export type MarkKind = "ceiling" | "moderate" | "minMaxed";
 // So the ordinary account now PROGRESSES on the two channels a real one does: veterancy,
 // which saturates early, and the QUALITY of what the Pot has put in its mutation slots.
 
+/** Bodies an account of this kind fields at `level`.
+ *
+ *  `BASE_ARMY_MAX` is 16 and that is what every farm starts with, but it is not the cap: a
+ *  Zombie Monolith adds +4, so a finished account fields TWENTY. Owner, 2026-09-24: "the
+ *  current harness is slightly underselling the players armies, since late game players can
+ *  have up to 20 zombies."
+ *
+ *  The Monolith unlocks at level 0 and costs brains, which is the scarce currency, so when
+ *  it arrives is a question of priorities rather than of level. A maxed account buys it as
+ *  soon as it has the brains; an ordinary one gets there later. Both end at twenty.
+ *
+ *  The grid's COLUMNS are still sixteen-zombie rosters (SWEEP_SIZE), because a column has
+ *  to mean one thing — so a late mark is a twenty-body army placed on a scale built from
+ *  sixteen-body ones. The effective metric sums over units, so that lands correctly on
+ *  score; what it cannot capture is that twenty bodies also means a longer deploy queue. */
+export function armySizeAt(_kind: MarkKind, _level: number): number {
+  // PINNED AT 16 FOR NOW, and this is a known understatement rather than a belief.
+  //
+  // Twenty was tried and reverted the same day. The marks went to twenty bodies and their
+  // scores to 575-764, but the grid's COLUMNS are built from sixteen-body rosters and their
+  // top edge is 580 — so every mark from level 35 up piled into the last column and the
+  // blue and purple marks collapsed onto each other, which destroys the one thing the two
+  // marks exist to show.
+  //
+  // The metric is not the problem; the size regime is. Doing this properly means letting
+  // the SAMPLER produce twenty-body rosters for the late and endgame eras and re-deriving
+  // EFFECTIVE_EDGES over the wider range — at which point a mark and the column it lands in
+  // are the same kind of army again. Until then the late marks sit a little left of where a
+  // real finished account stands, which makes the grid slightly PESSIMISTIC about the
+  // endgame and is the safer direction to be wrong in.
+  return BASE_ARMY_MAX;
+}
+
 /** Survived invasions an ordinary account has by `level`.
  *
  *  Veterancy saturates early for anyone who replays — Master is the fifth survived
@@ -162,7 +195,7 @@ export function moderateMutation(level: number): "none" | number {
 export function markRoster(kind: MarkKind, level: number): RosterSpec {
   const base: RosterSpec = {
     pattern: kind === "minMaxed" ? MINMAX_SHAPE : MARK_SHAPE,
-    size: SWEEP_SIZE,
+    size: armySizeAt(kind, level),
     catalogLevel: level,
     playerLevel: level,
     abilityTiers: abilityTiersAt(level),
