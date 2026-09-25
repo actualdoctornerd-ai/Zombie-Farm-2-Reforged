@@ -181,6 +181,19 @@ export interface SweepCell {
   winRate: number;
   meanLosses: number;
   losslessRate: number;
+  /** Fraction of flights that hit the four-minute cap with both sides standing.
+   *
+   *  Recorded separately from the win rate because the benchmark cannot tell the two
+   *  apart without it, and was scoring them the same. A fight that runs the clock out
+   *  settles as a loss, but it is not a HARD fight — it is an unfinishable one, and it
+   *  costs nothing: `7 Summer Break` at idle measured 84% wins with 0.00 mean casualties,
+   *  which is only possible if every one of the sixteen failures was a stall. Tuning
+   *  damage at a stall does nothing except make the fights that DO finish worse. */
+  timeoutRate: number;
+  /** Fraction that hit the cap with a LIVING army that could not advance (the all-Garden
+   *  deadlock). A subset of `timeoutRate`, reported apart because it is a rules bug
+   *  rather than a tuning number. */
+  deadlockRate: number;
 }
 
 export interface SweepRow {
@@ -198,10 +211,11 @@ export function runStrengthShard(shard: number, shards: number): SweepRow[] {
     for (const profile of PILOT_LADDER as readonly PilotProfile[]) {
       const cells: SweepCell[] = EFFECTIVE_EDGES.slice(0, -1).map((_, bin) => ({
         bin, meanEffective: 0, meanStrength: 0, rosters: 0, flights: 0,
-        winRate: 0, meanLosses: 0, losslessRate: 0,
+        winRate: 0, meanLosses: 0, losslessRate: 0, timeoutRate: 0, deadlockRate: 0,
       }));
       const tally = cells.map(() => ({
         wins: 0, clean: 0, losses: 0, n: 0, strength: 0, effective: 0, rosters: 0,
+        timeouts: 0, deadlocks: 0,
       }));
 
       for (const roster of pool) {
@@ -225,6 +239,8 @@ export function runStrengthShard(shard: number, shards: number): SweepRow[] {
           t.n++;
           if (f.win) t.wins++;
           if (f.win && f.losses === 0) t.clean++;
+          if (f.timedOut) t.timeouts++;
+          if (f.deadlocked) t.deadlocks++;
           t.losses += f.losses;
         }
       }
@@ -238,6 +254,8 @@ export function runStrengthShard(shard: number, shards: number): SweepRow[] {
         cell.winRate = t.n ? t.wins / t.n : 0;
         cell.losslessRate = t.n ? t.clean / t.n : 0;
         cell.meanLosses = t.n ? t.losses / t.n : 0;
+        cell.timeoutRate = t.n ? t.timeouts / t.n : 0;
+        cell.deadlockRate = t.n ? t.deadlocks / t.n : 0;
       });
       out.push({ label: fight.label, unlock: fight.unlock, pilot: profile.id, cells });
     }

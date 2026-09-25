@@ -74,6 +74,20 @@ export function targetBite(level: number): readonly [number, number] {
   return [5, 10];
 }
 
+/** The ceiling the same band puts on EXPERT play at the purple mark — the other half of
+ *  the pair, and the one that decides whether a recommendation is allowed to stand.
+ *
+ *  Mirrors `BANDS[].purple[1]` in tools/benchmark_table.mjs, re-cut on 2026-09-24 to
+ *  roughly half the band's BITE floor. It used to be a flat `level <= 45 ? 1 : 2` written
+ *  here by hand, which was both a duplicate of the table and out of step with it. */
+export function purpleCeiling(level: number): number {
+  if (level <= 11) return 0.2;
+  if (level <= 25) return 0.5;
+  if (level <= 39) return 1.5;
+  if (level <= 45) return 2;
+  return 3;
+}
+
 export interface LethalityPoint {
   lethality: number;
   /** Casual play at the purple mark — the BITE probe the band is stated on. */
@@ -160,7 +174,7 @@ export function runLethalityShard(shard: number, shards: number): LethalityRow[]
     // account still able to clear it. Cheapest rather than best-fit because every point of
     // added damage is a change to a shipped fight, and the smallest change that works is
     // the one to make.
-    const expertCeiling = level <= 45 ? 1 : 2;
+    const expertCeiling = purpleCeiling(level);
     const pick = curve.find((p) =>
       p.biteLosses >= target[0] && p.biteLosses <= target[1] &&
       p.expertLosses <= expertCeiling && p.expertWin >= 0.9)?.lethality ?? null;

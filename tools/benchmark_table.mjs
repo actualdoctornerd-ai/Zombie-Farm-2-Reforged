@@ -44,17 +44,30 @@ try {
 //   bite    casual play, the purple mark  — an ordinary account, half-watching
 //
 // Values are [minLosses, maxLosses]. `null` means the band is not policed there.
+// THE PURPLE CEILING WAS RE-CUT ON 2026-09-24. It used to be 0-0.5 in the mid band,
+// against a BITE floor of 1.5 at the same power — a demand that the same army, on the
+// same fight, cost three times as much played casually as played perfectly. The measured
+// casual:expert casualty ratio comes in under 3x on FOURTEEN OF THIRTY-TWO fights, so for
+// nearly half the game no damage number exists that satisfies both halves: every change
+// that lifts BITE into band lifts PURPLE out of it. Six of the pre-45 "too hard" verdicts
+// were exactly that, two of them missing by 0.04 of a zombie.
+//
+// So PURPLE is now cut at roughly HALF the band's BITE floor — a 2x skill gradient, which
+// the measured fights can actually deliver — and it is kept MONOTONIC across the bands.
+// It was not going to be: lifting the mid ceiling to 1.5 while `late` stayed at 1.0 would
+// have let a level-31 fight cost a well-played account MORE than a level-43 one, which is
+// the ladder running backwards.
 const BANDS = [
   { id: "tutorial", upto: 11, label: "0-11   tutorial",
     afk: [0, 0.2], blue: [0, 0.5], purple: [0, 0.2], bite: null,    winFloor: 0.98 },
   { id: "early",    upto: 25, label: "12-25  early",
     afk: [0, 0.5], blue: [0, 1.5], purple: [0, 0.5], bite: [0.5, 3], winFloor: 0.98 },
   { id: "mid",      upto: 39, label: "26-39  mid",
-    afk: [0, 1],   blue: [0.5, 2], purple: [0, 0.5], bite: [1.5, 5], winFloor: 0.95 },
+    afk: [0, 1],   blue: [0.5, 2], purple: [0, 1.5], bite: [1.5, 5], winFloor: 0.95 },
   { id: "late",     upto: 45, label: "40-45  late",
-    afk: [0, 2],   blue: [1, 4],   purple: [0, 1],   bite: [3, 7],   winFloor: 0.9 },
+    afk: [0, 2],   blue: [1, 4],   purple: [0, 2],   bite: [3, 7],   winFloor: 0.9 },
   { id: "dual",     upto: 99, label: "46-49  dual invasions",
-    afk: [1, 4],   blue: [2, 6],   purple: [0, 2],   bite: [5, 10],  winFloor: 0.8 },
+    afk: [1, 4],   blue: [2, 6],   purple: [0, 3],   bite: [5, 10],  winFloor: 0.8 },
 ];
 
 const bandFor = (level) => BANDS.find((b) => level <= b.upto) ?? BANDS[BANDS.length - 1];
@@ -91,13 +104,37 @@ for (const b of BANDS) {
   out.push("  " + b.label.padEnd(24) + band(b.afk) + band(b.blue) + band(b.purple) + band(b.bite));
 }
 out.push("");
-out.push("  A cell shows the measured mean casualties, then ok / HARD / EASY against the band.");
+out.push("  A cell shows the measured mean casualties, then its verdict against the band:");
+out.push("  ok / HARD (costs too much) / EASY (costs too little) / STALL (in band on cost,");
+out.push("  but running the four-minute clock out — a rules problem, not a difficulty one).");
 out.push("");
 out.push("fight".padEnd(34) + "lv   AFK         BLUE        PURPLE      BITE");
 out.push("-".repeat(92));
 
-const score = { ok: 0, hard: 0, easy: 0 };
+const score = { ok: 0, hard: 0, easy: 0, stall: 0 };
 const problems = [];
+
+/** A cell fails its win floor for one of two completely different reasons, and until
+ *  2026-09-24 this table scored them the same.
+ *
+ *  A DEFEAT is the army being killed. A STALL is the four-minute clock running out with
+ *  the army alive and unable to advance — the Garden deadlock, or a line that never
+ *  reaches the boss. Both settle as losses. Only one of them is difficulty.
+ *
+ *  The tell is that a stall is FREE: `7 Summer Break` at idle measured an 84% win rate
+ *  with 0.00 mean casualties, and there is no way to lose a fight without losing a zombie
+ *  except by never finishing it. So when the flights that failed are mostly flights that
+ *  timed out, the verdict is STALL, reported on its own rather than folded into "too
+ *  hard" — because the fix is a rules fix, and adding damage to a stalling fight only
+ *  makes the flights that DO finish worse.
+ *
+ *  Half is the threshold rather than all: a cell can hold a couple of genuine wipes
+ *  alongside a majority of stalls and still be a stalling fight. */
+const stalling = (c) => {
+  const failed = 1 - c.winRate;
+  if (failed <= 0) return false;
+  return (c.timeoutRate ?? 0) >= failed * 0.5;
+};
 
 for (const f of fights) {
   const m = MARKS.get(f.label);
@@ -118,13 +155,22 @@ for (const f of fights) {
     // A fight nobody can win any more is HARD whatever its casualty count says. The
     // tolerance is not slack: a cell is 50 flights, so it cannot resolve finer than 2pp,
     // and a literal floor would mark a perfect fight HARD for one unlucky seed.
-    const unwinnable = c.winRate < b.winFloor - 0.021;
-    const verdict = unwinnable || c.meanLosses > target[1] ? "HARD"
+    // COST IS JUDGED FIRST, and on its own. A fight that costs more than its band allows
+    // is too hard whatever its win rate says; only a cell already INSIDE its cost band
+    // lets the win floor decide anything, and there the stall test splits the two kinds
+    // of failure apart.
+    const overCost = c.meanLosses > target[1];
+    const missedFloor = c.winRate < b.winFloor - 0.021;
+    const verdict = overCost ? "HARD"
+      : missedFloor ? (stalling(c) ? "STALL" : "HARD")
       : c.meanLosses < target[0] ? "EASY" : "ok";
     if (verdict === "ok") score.ok++;
     else {
-      score[verdict === "HARD" ? "hard" : "easy"]++;
-      problems.push({ label: f.label, lv, probe: name, got: c.meanLosses, win: c.winRate, target, verdict });
+      score[verdict === "HARD" ? "hard" : verdict === "EASY" ? "easy" : "stall"]++;
+      problems.push({
+        label: f.label, lv, probe: name, got: c.meanLosses, win: c.winRate,
+        stalled: c.timeoutRate ?? 0, deadlocked: c.deadlockRate ?? 0, target, verdict,
+      });
     }
     return `${c.meanLosses.toFixed(1)} ${verdict}`.padEnd(12);
   });
@@ -133,20 +179,28 @@ for (const f of fights) {
 }
 
 out.push("");
-out.push(`SCORE   ${score.ok} on target, ${score.hard} too hard, ${score.easy} too easy`);
+out.push(`SCORE   ${score.ok} on target, ${score.hard} too hard, ${score.easy} too easy, ` +
+  `${score.stall} stalling`);
 
-for (const kind of ["EASY", "HARD"]) {
+const HEADINGS = {
+  EASY: "TOO EASY — costs less than the band asks:",
+  HARD: "TOO HARD — costs more than the band allows (or is being killed under the win floor):",
+  STALL: "STALLING — inside its cost band, but running the clock out. NOT a tuning number:",
+};
+
+for (const kind of ["EASY", "HARD", "STALL"]) {
   const list = problems.filter((p) => p.verdict === kind);
   if (!list.length) continue;
   out.push("");
-  out.push(kind === "EASY"
-    ? "TOO EASY — costs less than the band asks:"
-    : "TOO HARD — costs more than the band allows (or drops under the win floor):");
+  out.push(HEADINGS[kind]);
   out.push("");
   for (const p of list.sort((a, c) => a.lv - c.lv || a.probe.localeCompare(c.probe))) {
+    const tail = kind === "STALL"
+      ? `   ${Math.round(p.win * 100)}% win, ${Math.round(p.stalled * 100)}% timed out` +
+        (p.deadlocked > 0 ? `, ${Math.round(p.deadlocked * 100)}% deadlocked` : "")
+      : p.win < 1 ? `   (${Math.round(p.win * 100)}% win)` : "";
     out.push(`  lv ${String(p.lv).padStart(2)}  ${p.probe.padEnd(7)} ${p.label.padEnd(36)} ` +
-      `${p.got.toFixed(1)} lost vs target ${p.target[0]}-${p.target[1]}` +
-      (p.win < 1 ? `   (${Math.round(p.win * 100)}% win)` : ""));
+      `${p.got.toFixed(1)} lost vs target ${p.target[0]}-${p.target[1]}${tail}`);
   }
 }
 
