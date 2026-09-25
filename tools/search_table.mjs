@@ -41,7 +41,7 @@ out.push("  CONVERGED says whether the best candidate stopped improving before t
 out.push("  out. A row still climbing is a LOWER BOUND: the real frontier is at least this good.");
 out.push("");
 
-out.push("fight".padEnd(34) + "clean  win  losses  ladder  secs  converged");
+out.push("fight".padEnd(34) + "clean  win  losses  effect  secs  converged");
 out.push("-".repeat(88));
 for (const r of rows) {
   const f = r.best.fitness;
@@ -54,7 +54,7 @@ for (const r of rows) {
     `${f.clean}/3`.padStart(5) +
     `${f.wins}/3`.padStart(6) +
     f.meanLosses.toFixed(1).padStart(8) +
-    Math.round(f.strength).toString().padStart(8) +
+    Math.round(f.effective).toString().padStart(8) +
     (Number.isFinite(f.medianSecs) ? f.medianSecs.toFixed(0) : "–").padStart(6) +
     (converged ? "   yes" : "   STILL CLIMBING")
   );
@@ -69,7 +69,7 @@ for (const r of rows) {
   if (!r.cheapestClean) {
     out.push(`  none found in ${r.evaluations} evaluations — best was ${r.best.fitness.clean}/3 clean, ${r.best.fitness.meanLosses.toFixed(1)} lost`);
   } else {
-    out.push(`  ladder ${Math.round(r.cheapestClean.fitness.strength)}   ${shape(r.cheapestClean.genome)}`);
+    out.push(`  effective ${Math.round(r.cheapestClean.fitness.effective)}   ${shape(r.cheapestClean.genome)}`);
     out.push(`  order: ${short(r.cheapestClean.genome)}`);
   }
   out.push("");

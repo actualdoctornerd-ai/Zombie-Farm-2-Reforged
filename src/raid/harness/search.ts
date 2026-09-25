@@ -38,6 +38,7 @@ import {
   appropriateAt, buildExplicit, GROUPS, isHealer, type AccountSpec, type Group,
 } from "./roster";
 import { MIN_HEALERS, MIN_LINE } from "./composition";
+import { effectiveStrength } from "./effectiveLadder";
 import raidsJson from "../../../public/assets/raids/raids.json";
 import type { RaidDef } from "../types";
 import type { ZombieDef } from "../../assets";
@@ -165,20 +166,66 @@ export interface Fitness {
   wins: number;
   meanLosses: number;
   medianSecs: number;
-  /** Strength Ladder of the army, used only to break ties DOWNWARD: between two builds
-   *  that do the same thing, the cheaper one is the better answer. */
+  /** Strength Ladder of the army. REPORTED ONLY — it is not what ties are broken on. See
+   *  `effective`. */
   strength: number;
+  /** Fitted effective strength, and the tie-break.
+   *
+   *  THIS WAS THE STRENGTH LADDER AND THAT WAS A BUG, not a preference. The tie-break is
+   *  the last key of a lexicographic fitness, so once a fight is being cleared 3/3 clean
+   *  — which is every fight the search was pointed at — the ENTIRE remaining budget goes
+   *  into pushing this number down. Pointing that at the Strength Ladder does not find a
+   *  cheaper army, it finds an army the Strength Ladder is wrong about, and we already
+   *  measured which way it is wrong: it scores `str*dex*con`, the best Headless has
+   *  dexterity 1.0, and so it rates the game's best tank at about a seventh of a Madame.
+   *  A search told to minimise it will pile up Headless and report that as a discovery.
+   *  The first run of this did exactly that (8.2 of 16 slots) and the finding could not
+   *  be told apart from the artifact.
+   *
+   *  The fitted ladder is the one that survived held-out validation (+0.78 Spearman
+   *  against +0.23, and NEGATIVE inside the top tier), so minimising it means what the
+   *  comment always claimed: of two builds that do the same thing, prefer the one that
+   *  took less army to assemble. */
+  effective: number;
 }
 
-/** Strictly better, in the order a balance question cares about: bring everybody home
- *  first, then win at all, then lose fewer, then do it with a smaller army. Lexicographic
- *  rather than a weighted sum, because the weights would be inventing an exchange rate
- *  between "a casualty" and "a point of strength" that nobody has. */
-export function better(a: Fitness, b: Fitness): boolean {
+/** WHAT THE SEARCH IS FOR — and there are two different questions, which is why this is
+ *  a parameter rather than a constant.
+ *
+ *  The fitness is lexicographic: bring everybody home, then win at all, then lose fewer,
+ *  then break the tie. Lexicographic rather than a weighted sum because the weights would
+ *  be inventing an exchange rate between "a casualty" and "a point of strength" that
+ *  nobody has.
+ *
+ *  THE TIE-BREAK IS NOT A DETAIL. Measured on 2026-09-24: under expert play all
+ *  thirty-four fights reach 3/3 clean, most of them early, so the three primary keys
+ *  saturate and the ENTIRE remaining budget is spent on the tie-break. Whatever it is,
+ *  that is what the search actually optimises and what its "best army" actually means.
+ *
+ *    "cheap" — the smallest army that still brings everybody home. This is the balance
+ *      question: a rung is only too hard if nothing clears it, and how little it takes is
+ *      the follow-up. What it does NOT produce is a recommendation — it will happily
+ *      report a level-10 species six times over, because weak is the point.
+ *    "fast"  — of the armies that bring everybody home, the one that does it soonest.
+ *      This is the PLAYER's question, "what should I build", and the one that deserves
+ *      the name "works best". Speed is the right proxy for it: with nobody dying, there
+ *      is nothing else left to be better at, and a faster clear is strictly more margin
+ *      against the settle budget and against a seed going badly.
+ *
+ *  Both are run. Reading either one alone gets a different army and calls it the answer. */
+export type Objective = "cheap" | "fast";
+
+export function better(a: Fitness, b: Fitness, objective: Objective = "cheap"): boolean {
   if (a.clean !== b.clean) return a.clean > b.clean;
   if (a.wins !== b.wins) return a.wins > b.wins;
   if (Math.abs(a.meanLosses - b.meanLosses) > 1e-9) return a.meanLosses < b.meanLosses;
-  return a.strength < b.strength;
+  if (objective === "fast") {
+    if (Math.abs(a.medianSecs - b.medianSecs) > 1e-9) return a.medianSecs < b.medianSecs;
+    // Still prefer the cheaper of two armies that are equally fast — free, and it keeps
+    // the "fast" run from drifting into more army than it needs.
+    return a.effective < b.effective;
+  }
+  return a.effective < b.effective;
 }
 
 export function evaluate(
@@ -190,10 +237,13 @@ export function evaluate(
   let clean = 0, wins = 0, losses = 0;
   const secs: number[] = [];
   let strength = 0;
+  let effective = 0;
   for (let s = 0; s < seeds; s++) {
     // Rebuilt per flight: the sim mutates its units.
     const roster = buildExplicit(genome, SEARCH_ACCOUNT);
     strength = roster.strength;
+    // Taken before the fight, off the same units the fight is about to damage.
+    if (!effective) effective = effectiveStrength(roster.units);
     // Seeded on the GENOME, so the same army is always judged on the same fights however
     // it was arrived at — two searches that find it independently score it identically.
     const seed = `search:${target.raidId}:${target.tier ?? 0}:${genome.join(",")}:${s}`;
@@ -217,6 +267,7 @@ export function evaluate(
     meanLosses: losses / seeds,
     medianSecs: secs.length ? secs[Math.floor(secs.length / 2)] : Infinity,
     strength,
+    effective,
   };
 }
 
@@ -280,18 +331,25 @@ function mutate(genome: Genome, rand: () => number, pool: Record<Group, ZombieDe
 export interface SearchResult {
   target: Target;
   label: string;
+  /** Which question this row answers — see `better`. */
+  objective: Objective;
   best: { genome: string[]; fitness: Fitness };
   /** The cheapest genome found that cleared every seed with no casualties, if any. */
   cheapestClean: { genome: string[]; fitness: Fitness } | null;
   /** Best fitness at each generation, to show whether the search had converged or was
    *  still climbing when the budget ran out — a frontier from a search still improving is
    *  a lower bound, and should be read as one. */
-  history: { generation: number; clean: number; wins: number; losses: number; strength: number }[];
+  history: { generation: number; clean: number; wins: number; losses: number; effective: number }[];
   evaluations: number;
 }
 
-export function search(target: Target, label: string, seed = "search"): SearchResult {
-  const rand = seededRandom(seed);
+export function search(
+  target: Target,
+  label: string,
+  seed = "search",
+  objective: Objective = "cheap"
+): SearchResult {
+  const rand = seededRandom(`${seed}:${objective}`);
   const pool = alphabet(SEARCH_ACCOUNT.playerLevel ?? 50);
 
   // Memoised by genome: crossover and elitism both re-present armies that have already
@@ -316,9 +374,9 @@ export function search(target: Target, label: string, seed = "search"): SearchRe
   let cheapestClean: { genome: string[]; fitness: Fitness } | null = null;
 
   const consider = (genome: string[], f: Fitness) => {
-    if (!best || better(f, best.fitness)) best = { genome: [...genome], fitness: f };
+    if (!best || better(f, best.fitness, objective)) best = { genome: [...genome], fitness: f };
     if (f.clean === SEARCH_SEEDS &&
-        (!cheapestClean || f.strength < cheapestClean.fitness.strength)) {
+        (!cheapestClean || f.effective < cheapestClean.fitness.effective)) {
       cheapestClean = { genome: [...genome], fitness: f };
     }
   };
@@ -326,14 +384,15 @@ export function search(target: Target, label: string, seed = "search"): SearchRe
   for (let gen = 0; gen < GENERATIONS; gen++) {
     const scored = population.map((g) => ({ genome: g, fitness: fitness(g) }));
     for (const s of scored) consider(s.genome, s.fitness);
-    scored.sort((a, b) => (better(a.fitness, b.fitness) ? -1 : better(b.fitness, a.fitness) ? 1 : 0));
+    scored.sort((a, b) => (better(a.fitness, b.fitness, objective) ? -1
+      : better(b.fitness, a.fitness, objective) ? 1 : 0));
 
     const top = scored[0].fitness;
     history.push({
       generation: gen,
       clean: top.clean, wins: top.wins,
       losses: Math.round(top.meanLosses * 100) / 100,
-      strength: Math.round(top.strength),
+      effective: Math.round(top.effective),
     });
 
     if (gen === GENERATIONS - 1) break;
@@ -344,7 +403,7 @@ export function search(target: Target, label: string, seed = "search"): SearchRe
       let winner = scored[Math.floor(rand() * scored.length) % scored.length];
       for (let i = 1; i < TOURNAMENT; i++) {
         const c = scored[Math.floor(rand() * scored.length) % scored.length];
-        if (better(c.fitness, winner.fitness)) winner = c;
+        if (better(c.fitness, winner.fitness, objective)) winner = c;
       }
       return winner.genome;
     };
@@ -358,7 +417,7 @@ export function search(target: Target, label: string, seed = "search"): SearchRe
   }
 
   return {
-    target, label,
+    target, label, objective,
     best: best!,
     cheapestClean,
     history,
@@ -366,11 +425,19 @@ export function search(target: Target, label: string, seed = "search"): SearchRe
   };
 }
 
-/** The fights worth searching: the hard end of the game, where "can this be cleared at
- *  all" is still a live question. Everything below raid 12 is already cleared loss-lessly
- *  by most of the build grid, so a search there would spend its budget proving a known
- *  thing. The three elites are kept as controls — a search that cannot find a clean clear
- *  on the Pirates has a bug, not a finding. */
+/** EVERY fight, since 2026-09-24.
+ *
+ *  This used to be the hard end of the game only — raids 12-15 and two elite controls —
+ *  on the reasoning that everything below is already cleared loss-lessly by most of the
+ *  build grid, so searching there would spend budget proving a known thing. That is still
+ *  true of the QUESTION the search was built for ("can this rung be cleared at all").
+ *
+ *  It is not true of the question it is now also asked: what does a tuned army look like.
+ *  That is a claim about the game, and fourteen endgame fights are not the game — the
+ *  answer they give is an answer about raids 12-15, and the dual invasions are exactly
+ *  where the fights read the player's own army back (raid 13's throw rate tracks the
+ *  army's dex) and so are the least representative rungs on the ladder. An army shape
+ *  learned only there would be overfitted to the four strangest fights in it. */
 export function searchTargets(): { target: Target; label: string }[] {
   const out: { target: Target; label: string }[] = [];
   const at = (raidId: number, tier: number, elite: boolean) => {
@@ -378,18 +445,24 @@ export function searchTargets(): { target: Target; label: string }[] {
     if (!raid) return;
     out.push({
       target: { raidId, tier: tier || undefined, elite, fightLevel: raid.recommendedLevel },
-      label: `${raid.id} ${raid.name}${elite ? " ★" : ""}${tier ? ` t${tier}` : ""}`,
+      label: `${raid.id} ${raid.name}${elite ? " \u2605" : ""}${tier ? ` t${tier}` : ""}`,
     });
   };
+  for (const raid of raids.filter((r) => r.playable && r.id <= 11)) {
+    at(raid.id, 0, false);
+    at(raid.id, 0, true);
+  }
   for (const id of [12, 13, 14, 15]) for (const tier of [1, 5, 10]) at(id, tier, false);
-  at(3, 0, true);
-  at(9, 0, true);
   return out;
 }
 
 /** One shard of the search: every target whose index falls to this worker. */
-export function runSearchShard(shard: number, shards: number): SearchResult[] {
+export function runSearchShard(
+  shard: number,
+  shards: number,
+  objective: Objective = "cheap"
+): SearchResult[] {
   return searchTargets()
     .filter((_, i) => i % shards === shard)
-    .map(({ target, label }) => search(target, label, `search:${label}`));
+    .map(({ target, label }) => search(target, label, `search:${label}`, objective));
 }
