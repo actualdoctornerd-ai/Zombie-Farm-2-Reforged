@@ -147,8 +147,22 @@ ATTACK_OVERRIDES = {
 #   was "absolutely creamed". 4 read as too soft on the next pass — an ELITE run cleared
 #   with no losses at all — so it sits at 5: the swarm lands 300/s, still the heaviest
 #   incoming rate on the ladder and still a level-36 fight.
+#   VideoGameStageBossActor — knockback on 1 swing in 5 instead of every swing. His list
+#   is a single entry (VideoGameBossPunch, 100%) and it carries `knockBack`, so the
+#   derived share is 1.0; with dexterity 10 behind it that is a shove several times a
+#   second, and a zombie shoved to the back of the lane cannot be the zombie hitting him.
+#   Measured, it does not read as a hard fight, it reads as an unfinishable one: the
+#   elite Video Games invasion DEADLOCKED 42% of casual flights at the ordinary-account
+#   mark and 24% of a maxed one's, which is the single worst stall in the game and most
+#   of why the benchmark scored that fight as brutally over-tuned. Owner's call, and the
+#   right one — the burst is the boss's identity, the every-swing cadence is not.
+#   Authored as a `knockBackChance` on the unit rather than by splitting his attack list,
+#   because `attackName` is the FIRST entry and the lunge timing is the most frequent
+#   one, so a split would have changed what he looks and sounds like to fix how often he
+#   shoves. CombatEngine prefers an authored share over the derived one.
 UNIT_OVERRIDES = {
     "AlienStageActorMinion": {"str": 5},
+    "VideoGameStageBossActor": {"knockBackChance": 0.2},
 }
 
 # Units a raid SPAWNS but never lists in a stage. `used_units` is walked out of the

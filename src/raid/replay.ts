@@ -1106,7 +1106,26 @@ import type { RaidOutcome } from "./types";
 //
 // Every elite transcript on raids 2, 4, 6 and 9, and every raid 12 and 15 transcript at any
 // rung, replays differently from v62.
-export const RAID_RULESET_VERSION = 63;
+// v64 — ZEDZOX SHOVES ON ONE SWING IN FIVE instead of on every one.
+//
+// The Video Games boss has a single attack entry at 100% frequency and it carries
+// `knockBack`, so the derived share was 1.0; behind dexterity 10 that is a shove several
+// times a second, and a zombie shoved to the back of the lane is not a zombie hitting him.
+// The measurement is what settles it — this never showed up as damage, it showed up as the
+// fight not ENDING. His elite deadlocked 42% of casual flights at the ordinary-account mark
+// and 24% of a maxed account's, the worst stall on the ladder, and it was most of why the
+// benchmark scored that invasion as brutally over-tuned rather than as unfinishable.
+//
+// Authored as a `knockBackChance` on the unit (prep_raids UNIT_OVERRIDES) rather than by
+// splitting his attack list, because `attackName` is the first entry of that list and the
+// lunge timing is its most frequent one — a split would have changed what he looks and
+// sounds like in order to fix how often he shoves. CombatEngine now prefers an authored
+// share over the one it derives.
+//
+// The burst is untouched: same damage, same attack speed, same boss actions. Only the
+// cadence of the shove moves. Every raid 9 transcript, elite or not, replays differently
+// from v63.
+export const RAID_RULESET_VERSION = 64;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;

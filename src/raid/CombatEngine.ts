@@ -409,9 +409,18 @@ export function buildUnitsForKeys(
     u.mirrorsOpponentSpeed = MIRROR_SPEED_KEYS.has(key);
     const fx = attackEffects(st.attacks, attacks);
     u.knockBack = fx.knockBack;
-    u.knockBackChance = fx.knockBackChance;
     u.stunMs = fx.stunMs;
-    u.stunChance = fx.stunChance;
+    // AN AUTHORED SHARE WINS over the one derived from the attack list, so a unit whose
+    // cadence is a BALANCE decision can carry it without having to invent an attack entry
+    // to hide it in. `attackEffects` reads a unit's real list and is right about every
+    // unit the source authored; what it cannot express is "this enemy's list says every
+    // swing, and every swing is too many". Zedzox is the case (prep_raids UNIT_OVERRIDES):
+    // one attack at 100%, `knockBack` on it, and dexterity 10 — a shove several times a
+    // second, which is not a hard fight so much as a fight the front rank never gets to
+    // have. Splitting his list instead would have moved `attackName` and the lunge timing
+    // with it, changing how he looks and sounds to fix how often he shoves.
+    u.knockBackChance = st.knockBackChance ?? fx.knockBackChance;
+    u.stunChance = st.stunChance ?? fx.stunChance;
     u.attackDamageTiming = primaryDamageTiming(st.attacks, attacks);
     out.push(u);
   };

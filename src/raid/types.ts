@@ -121,6 +121,18 @@ export interface EnemyStat {
   bossActions?: BossAction[];
   standardGoldLoot?: boolean;
   standardBossLoot?: boolean;
+  /** AUTHORED override for how often this enemy's shove / stun lands, in place of the
+   *  share CombatEngine derives from `attacks`. Absent — which is every unit the source
+   *  authored but one — means the derived share stands.
+   *
+   *  It exists because the derivation is right about what a unit's list SAYS and cannot
+   *  say that the list is a balance problem. Zedzox has one entry at 100% carrying
+   *  knockback and dexterity 10 behind it; the cadence is a design decision, and it
+   *  belongs on the unit rather than hidden in a second attack entry added to dilute the
+   *  first. See prep_raids.py UNIT_OVERRIDES. */
+  knockBackChance?: number;
+  /** As `knockBackChance`, for the stun. Unused today; here so the pair cannot drift. */
+  stunChance?: number;
 }
 
 /** An attack definition from Attacks.json (only damageMultiplier matters to MVP). */
