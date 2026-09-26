@@ -175,7 +175,9 @@ export const DEFAULT_ELITE_PROFILE: EliteProfile = {
   str: 2, con: 1.8, dex: 1.3, throwDamage: 2, throwRate: 1.4, wallHp: 1.4, specialDamage: 2,
 };
 
-export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
+/** The elite table as fitted BEFORE the ruleset-65 pre-dual re-tune. The live table,
+ *  `ELITE_PROFILES`, is this times `PRE_DUAL_RETUNE.elite` — see that table. */
+const ELITE_BASE: Readonly<Record<number, EliteProfile>> = {
   // 1 — Old McDonnell's Farm. No signature mechanic to lean on, so it does what the
   // farmhands would do if they were any good: everything, harder.
   //
@@ -442,7 +444,9 @@ export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> = {
  *  failure the ruleset-34 projectile re-fit existed to end. Throws are set for a four-second
  *  kill and the lethality they can no longer carry is moved into `str` and `specialDamage`,
  *  neither of which is floored. */
-export const STORY_PROFILES: Readonly<Record<number, EliteProfile>> = {
+/** The story table as fitted BEFORE the ruleset-65 pre-dual re-tune. The live table,
+ *  `STORY_PROFILES`, is this times `PRE_DUAL_RETUNE.story` — see that table. */
+const STORY_BASE: Readonly<Record<number, EliteProfile>> = {
   // 4 — Ninjas. The most stubborn of the four: it resisted x3 damage AND x3 bulk together,
   // which is a wave too small to be dangerous rather than one that hits too softly. This
   // lifts what can be lifted and the rest is an enemy-count question.
@@ -454,6 +458,75 @@ export const STORY_PROFILES: Readonly<Record<number, EliteProfile>> = {
   // 9 — Video Games. Level 43, so the widest band to reach.
   9: { str: 4, con: 1, dex: 1, throwDamage: 1.4, throwRate: 1, wallHp: 1, specialDamage: 4 },
 };
+
+/** One re-tune step: multipliers ON TOP of a base profile. A field left out is x1. */
+export type RetuneStep = Partial<Record<"str" | "con" | "specialDamage", number>>;
+
+/** THE PRE-DUAL RE-TUNE (ruleset 65, 2026-09-25) — kept as MULTIPLIERS so it can be reverted.
+ *
+ *  The owner's concern: from the Robots up, difficulty flatlined. Every fight from level 31
+ *  to 44 was won 80% of the time by level-35 armies and 70-95% of the time a bracket or two
+ *  before its own level. The goal is a curve that is mostly lost a bracket early and mostly
+ *  won at the fight's own level.
+ *
+ *  Measured on the PROD GRID (src/raid/harness/prodGrid.ts — real prod parties, nobody
+ *  retreating, expert pilot), win rate before -> after at the fight's own level and the
+ *  bracket below it:
+ *
+ *    Robots (31)          L25 76 -> 46   L30 95 -> 80
+ *    Pirates ★ (31)       L25 76 -> 43   L30 91 -> 87
+ *    Aliens (36)          L30 90 -> 64   L35 95 -> 93
+ *    Ninjas ★ (36)        L30 72 -> 63   L35 93 -> 79
+ *    Robots ★ (41)        L35 95 -> 82   L40 87 -> 62
+ *    Video Games (43)     L40 73 -> 39   L45 97 -> 79
+ *    Aliens ★ (44)        L40 84 -> 49   L45 98 -> 79
+ *
+ *  Damage (`str` + `specialDamage`) is the lever everywhere except the Pirates, whose elite
+ *  already one-shots what it reaches — 6x damage barely moved it — so they take hit points
+ *  as well. Throws are NOT scaled: they are floored separately (projectileScale.test).
+ *  Video Games ★ is left alone; it was already the hardest fight on the ladder.
+ *
+ *  TO REVERT: empty both tables (or delete a line) and bump RAID_RULESET_VERSION. The base
+ *  tables above are untouched, so reverting restores ruleset 64's numbers exactly. */
+export const PRE_DUAL_RETUNE: Readonly<{
+  story: Readonly<Record<number, RetuneStep>>;
+  elite: Readonly<Record<number, RetuneStep>>;
+}> = {
+  story: {
+    5: { str: 2, specialDamage: 2 },       // Robots
+    6: { str: 2.5, specialDamage: 2.5 },   // Aliens
+    9: { str: 1.5, specialDamage: 1.5 },   // Video Games
+  },
+  elite: {
+    3: { str: 2, specialDamage: 2, con: 1.4 }, // Pirates ★ — the only one given bulk
+    4: { str: 1.5, specialDamage: 1.5 },       // Ninjas ★
+    5: { str: 1.5, specialDamage: 1.5 },       // Robots ★
+    6: { str: 2, specialDamage: 2 },           // Aliens ★
+  },
+};
+
+function applyRetune(
+  base: Readonly<Record<number, EliteProfile>>,
+  steps: Readonly<Record<number, RetuneStep>>
+): Readonly<Record<number, EliteProfile>> {
+  const out: Record<number, EliteProfile> = {};
+  for (const [id, profile] of Object.entries(base)) {
+    const step = steps[Number(id)] ?? {};
+    out[Number(id)] = {
+      ...profile,
+      str: profile.str * (step.str ?? 1),
+      con: profile.con * (step.con ?? 1),
+      ...(profile.bossCon !== undefined ? { bossCon: profile.bossCon * (step.con ?? 1) } : {}),
+      specialDamage: profile.specialDamage * (step.specialDamage ?? 1),
+    };
+  }
+  return out;
+}
+
+export const ELITE_PROFILES: Readonly<Record<number, EliteProfile>> =
+  applyRetune(ELITE_BASE, PRE_DUAL_RETUNE.elite);
+export const STORY_PROFILES: Readonly<Record<number, EliteProfile>> =
+  applyRetune(STORY_BASE, PRE_DUAL_RETUNE.story);
 
 export function eliteProfile(raidId: number, elite: boolean): EliteProfile | null {
   if (!elite) return STORY_PROFILES[raidId] ?? null;

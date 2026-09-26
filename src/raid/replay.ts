@@ -1125,7 +1125,19 @@ import type { RaidOutcome } from "./types";
 // The burst is untouched: same damage, same attack speed, same boss actions. Only the
 // cadence of the shove moves. Every raid 9 transcript, elite or not, replays differently
 // from v63.
-export const RAID_RULESET_VERSION = 64;
+// v65 — THE PRE-DUAL RE-TUNE: mid-late difficulty no longer flatlines.
+//
+// Measured on real prod parties with nobody retreating, every invasion from the Robots (31)
+// to the Aliens elite (44) was won 80% of the time by level-35 armies — a bracket or two
+// before most of them become content. Seven profiles now carry a multiplier on top of their
+// ruleset-64 numbers (eliteInvasion.PRE_DUAL_RETUNE): Robots x2, Aliens x2.5 and Video Games
+// x1.5 damage on the ordinary fight; Ninjas, Robots and Aliens elites x1.5 / x1.5 / x2 damage;
+// the Pirates elite x2 damage and x1.4 hit points. Throws untouched. The table is kept as
+// multipliers so it can be reverted by emptying it.
+//
+// Every raid 5, 6 and 9 transcript and every elite raid 3, 4, 5 and 6 transcript replays
+// differently from v64.
+export const RAID_RULESET_VERSION = 65;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;
