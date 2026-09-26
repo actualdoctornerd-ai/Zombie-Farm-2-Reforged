@@ -30,7 +30,7 @@
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
 // arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult, then the player
 // lineup-depth band (1.0/0.85/0.7/0.55; enemies ×1.0). See combatStats.lineupDamageBand.
-import type { BossActionChoice, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
+import type { BossActionChoice, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { emptyRaidFeats } from "./types";
 import { ACTIVATED_ABILITY, activatedGroupsOf, teamAbilitiesIn } from "../zombie/abilities";
 import {
@@ -406,6 +406,28 @@ const CRAB_WANDER_MS = 1400; // how long it holds one wander heading before re-p
 // middle instead of a guess at the original RNG.
 const CRAB_WANDER_MIN_X = 300;
 const CRAB_WANDER_MAX_X = 760;
+// ---- Mega-Robot background hazard (RobotStageActorGiantBot, raid 5) ----
+// Every number below is read from the disassembly unless marked otherwise; see
+// types.ts MegaBotConfig and ZF2R_extracted/docs/mechanics/GIANT_BOT_HAZARD.md.
+// The source schedules off the boss's enrage countdown T (180 s): hidden while T > 165,
+// climbs to the stage centre while 160 < T ≤ 165, stands and fires while 90 < T ≤ 160,
+// wanders and fires while T ≤ 90, and fires on a half-length fuse once enraged.
+const MEGA_RISE_AT_MS = 15_000; // round-clock time the robot starts to climb
+const MEGA_ARM_AT_MS = 20_000; // …and when it first lights its eyes
+const MEGA_WANDER_LEFT_MS = 90_000; // round time LEFT below which it wanders (state 2)
+const MEGA_CHARGE_MS = 8_000; // the fuse: the player's window to tap the eyes out
+const MEGA_ENRAGE_CHARGE_MS = 4_000; // state 7 halves it
+const MEGA_FLIGHT_MS = 1_000; // both fireballs CCMoveTo the target over 1.0 s, then boom
+const MEGA_RECOVER_MS = 1_000; // changeState: fires 2.0 s after launch → back to state 0
+const MEGA_DISABLED_MS = 5_000; // eyes destroyed → re-arms 5 s later (state 4)
+const MEGA_SPLASH = 800; // damage = 800 / (1 + d/10) inside the radius
+const MEGA_SPLASH_RADIUS_PT = 40; // f > 5 → 0, i.e. d > 40 source points
+const MEGA_KILL_SHOT = 100_000; // the one zombie nearest the blast
+// Source points → sim units. The blast is measured in the 480×320 stage's points; the sim
+// lane spans the stage's middle 80% horizontally (RaidScene FIELD_INSET_FX = 0.1) and its
+// shallow ground band maps 1 sim unit to 320 × 0.00028 points vertically (RaidScene.mapY).
+const MEGA_SIM_PER_PT_X = FIELD_W / (480 * 0.8);
+const MEGA_SIM_PER_PT_Y = 1 / (320 * 0.00028);
 
 // ---- Boss summon / wall specials ----
 /** Where an abducted human is beamed down. GROUND TRUTH (`-[ZFFightMan summonBoss:]`
@@ -751,6 +773,35 @@ export interface SimCrab {
   struckThisTick: boolean;
 }
 
+/** The Mega-Robot, consumed by the renderer. The sim owns only what decides the fight
+ *  (the schedule, the fuse, the eye HP, the target and the blast); where it wanders on
+ *  the backdrop is presentation and lives in RaidScene. */
+export interface SimMegaBot {
+  /** hidden → rising → (charge → fire → recover | charge → disabled | dark)… → gone.
+   *  `dark` is source state 6: nobody on the field to shoot, so it waits unlit. */
+  phase: "hidden" | "rising" | "charge" | "fire" | "recover" | "disabled" | "dark" | "gone";
+  /** Time left in the current timed phase (charge / fire / recover / disabled), ms. */
+  phaseMs: number;
+  /** Full length of the current fuse — 8 s, or 4 s enraged — for the glow's progress. */
+  chargeMs: number;
+  /** Presentation: 0 stands still, 1 wanders (≤ 90 s left), 2 wanders fast (enraged). */
+  restless: 0 | 1 | 2;
+  eyeHp: number;
+  eyeMaxHp: number;
+  tapDamage: number;
+  tapCdMs: number;
+  /** Bumped by every eye tap that lands (the head flashes red once per bump). */
+  eyeHits: number;
+  /** Blast point (sim units) — snapshotted from the target at launch; the shot doesn't home. */
+  targetX: number;
+  targetY: number;
+  /** Bumped at launch / at detonation, so the renderer plays each exactly once. */
+  shotSeq: number;
+  blastSeq: number;
+  /** Counts shots for the deterministic target pick. */
+  shots: number;
+}
+
 export interface SimGrabber {
   id: string;
   x: number;
@@ -847,6 +898,8 @@ export interface BattleSimSnapshot {
   crabs?: SimCrab[];
   crabTimer?: number;
   crabSeq?: number;
+  // Client-only Mega-Robot (raid 5): absent from server-built snapshots, like the crab.
+  megaBot?: SimMegaBot | null;
 }
 
 /** Deterministic stand-in for the source game's weighted random roll. Replay must be
@@ -1091,6 +1144,11 @@ export class BattleSim {
   private crabCfg: CrabConfig | null;
   private crabTimer: number; // ms until the next crab scuttles in
   private crabSeq = 0;
+  // ---- Mega-Robot hazard (client-only; see the ctor param) ----
+  /** The robot, or null on every raid that has none. Read by the renderer. */
+  megaBot: SimMegaBot | null;
+  /** The round clock's full length, so the robot can read time ELAPSED on it. */
+  private roundTotalMs: number;
   // ---- summon / wall specials ----
   private summonCfg: SummonConfig | null;
   /** `bossSummonList`, by source key. Popped from the front, pushed on the back. */
@@ -1178,13 +1236,25 @@ export class BattleSim {
     /** The blocker the bubble's `wall` action drops. Separate from `wallTemplate` because
      *  that one belongs to a BOSS ACTION and the saucer has no `wall` in its list — raid
      *  15 borrows the JunkBot's (see fightConfig.bubbleWallFor). */
-    private bubbleWall: CombatUnit | null = null
+    private bubbleWall: CombatUnit | null = null,
+    /** The Mega-Robot (raid 5; null = none). CLIENT-ONLY, like the crab: the verifier
+     *  builds without it. See types.MegaBotConfig. */
+    megaBot: MegaBotConfig | null = null
   ) {
     this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
     this.grabberCfg = grabber;
     this.grabberTimer = grabber?.spawnDelayMs ?? Infinity;
     this.crabCfg = crab;
     this.crabTimer = crab?.spawnMs ?? Infinity;
+    this.roundTotalMs = roundMs;
+    this.megaBot = megaBot
+      ? {
+          phase: "hidden", phaseMs: 0, chargeMs: MEGA_CHARGE_MS, restless: 0,
+          eyeHp: megaBot.eyeHp, eyeMaxHp: megaBot.eyeHp, tapDamage: megaBot.tapDamage,
+          tapCdMs: 0, eyeHits: 0, targetX: 0, targetY: 0,
+          shotSeq: 0, blastSeq: 0, shots: 0,
+        }
+      : null;
     const enemyHoldX = this.bossFallsFromSky ? EPIC_BOSS_HOLD_X : ENEMY_HOLD_X;
     this.frontX = enemyHoldX - this.engageDistance;
     // A formation defense does not stand at the shared doorway, so the army's line
@@ -1301,6 +1371,7 @@ export class BattleSim {
       crabs: this.crabs.map((c) => ({ ...c })),
       crabTimer: this.crabTimer,
       crabSeq: this.crabSeq,
+      megaBot: this.megaBot ? { ...this.megaBot } : null,
     };
   }
 
@@ -1435,6 +1506,8 @@ export class BattleSim {
     this.crabs.splice(0, this.crabs.length, ...(snapshot.crabs ?? []).map((c) => ({ ...c })));
     this.crabTimer = snapshot.crabTimer ?? this.crabTimer;
     this.crabSeq = snapshot.crabSeq ?? this.crabSeq;
+    // Absent (a server-built snapshot) → the local robot carries on unchanged.
+    if (snapshot.megaBot && this.megaBot) this.megaBot = { ...snapshot.megaBot };
   }
 
   // ---- activated abilities (player-triggered from the battle strip) ----
@@ -3694,6 +3767,7 @@ export class BattleSim {
     this.stepBossActions(dtMs);
     this.stepGrabbers(dtMs);
     this.stepCrabs(dtMs);
+    this.stepMegaBot(dtMs);
     this.stepProjectiles(dtMs);
 
     this.assignFormation();
@@ -4648,6 +4722,128 @@ export class BattleSim {
   /** Crabs the renderer can draw / the player can tap. */
   activeCrabs(): SimCrab[] {
     return this.crabs.filter((c) => c.state !== "gone");
+  }
+
+  /** Advance the Mega-Robot (`RobotStageActorGiantBot update:`). It keys off the boss's
+   *  enrage countdown exactly as the source does: time elapsed on the round clock
+   *  decides when it climbs and first arms, time LEFT decides whether it stands or
+   *  wanders, and enrage halves the fuse. Each armed cycle is an 8 s fuse the player can
+   *  cut short by tapping the eyes out (→ 5 s rest), else a launch at one deployed zombie,
+   *  a 1 s flight, the blast, and 1 s dark before it re-arms — one shot every 10 s. */
+  private stepMegaBot(dtMs: number) {
+    const m = this.megaBot;
+    if (!m || m.phase === "gone") return;
+    if (m.tapCdMs > 0) m.tapCdMs = Math.max(0, m.tapCdMs - dtMs);
+    const roundGone = this.roundTotalMs - this.roundLeft;
+    m.restless = this._enraged ? 2 : this.roundLeft <= MEGA_WANDER_LEFT_MS ? 1 : 0;
+
+    switch (m.phase) {
+      case "hidden":
+        // No boss → the countdown never runs → it never rises (source default T = 180).
+        // Enrage is checked first in the source (state 0 → 7), so it also wakes it.
+        if (roundGone >= MEGA_RISE_AT_MS || this._enraged) m.phase = "rising";
+        return;
+      case "rising":
+        if (roundGone >= MEGA_ARM_AT_MS || this._enraged) this.armMegaBot(m);
+        return;
+      case "dark":
+        // State 6: re-arms the moment someone is on the field to shoot at.
+        if (this.deployed().length) this.armMegaBot(m);
+        return;
+      case "charge":
+        m.phaseMs -= dtMs;
+        if (m.phaseMs > 0) return;
+        this.launchMegaBot(m);
+        return;
+      case "fire":
+        m.phaseMs -= dtMs;
+        if (m.phaseMs > 0) return;
+        this.detonateMegaBot(m);
+        m.phase = "recover";
+        m.phaseMs = MEGA_RECOVER_MS;
+        return;
+      case "recover":
+      case "disabled":
+        m.phaseMs -= dtMs;
+        if (m.phaseMs <= 0) this.armMegaBot(m);
+        return;
+    }
+  }
+
+  /** States 1/2/7: fresh eye hitbox at full HP and a new fuse — or dark if nobody's out. */
+  private armMegaBot(m: SimMegaBot) {
+    if (!this.deployed().length) {
+      m.phase = "dark";
+      return;
+    }
+    m.phase = "charge";
+    m.chargeMs = this._enraged ? MEGA_ENRAGE_CHARGE_MS : MEGA_CHARGE_MS;
+    m.phaseMs = m.chargeMs;
+    m.eyeHp = m.eyeMaxHp;
+    m.tapCdMs = 0;
+  }
+
+  /** State 3: pick one deployed zombie and send both fireballs to where it stands NOW
+   *  (they don't home). The source rolls `arc4random()%100/100 × count`; this is the same
+   *  uniform pick off the sim's deterministic hash. */
+  private launchMegaBot(m: SimMegaBot) {
+    const targets = this.deployed();
+    if (!targets.length) {
+      m.phase = "dark";
+      return;
+    }
+    const pick = Math.min(targets.length - 1, Math.floor(hash(m.shots * 7.13 + 3.7) * targets.length));
+    const t = targets[pick];
+    m.shots++;
+    m.targetX = t.x;
+    m.targetY = t.y;
+    m.shotSeq++;
+    m.phase = "fire";
+    m.phaseMs = MEGA_FLIGHT_MS;
+  }
+
+  /** `explodeAttack:` — splash every deployed zombie within 40 points for 800/(1 + d/10),
+   *  then a 100000 kill shot on the one nearest the blast.
+   *
+   *  Divergence, deliberate: the source's nearest-zombie search never updates its running
+   *  minimum, so its victim is effectively arbitrary and can even stand outside the blast.
+   *  The intent is plainly "the zombie at ground zero", so that is what this kills — and
+   *  only inside the radius, so a zombie that has walked clear of the flight survives. */
+  private detonateMegaBot(m: SimMegaBot) {
+    m.blastSeq++;
+    let nearest: SimUnit | null = null;
+    let nearestPt = Infinity;
+    for (const z of this.deployed()) {
+      const dPt = Math.hypot(
+        (z.x - m.targetX) / MEGA_SIM_PER_PT_X,
+        (z.y - m.targetY) / MEGA_SIM_PER_PT_Y
+      );
+      if (dPt > MEGA_SPLASH_RADIUS_PT) continue;
+      if (dPt < nearestPt) { nearestPt = dPt; nearest = z; }
+      this.dealDamage(z, MEGA_SPLASH / (1 + dPt / 10), false);
+    }
+    if (nearest && nearest.alive) this.dealDamage(nearest, MEGA_KILL_SHOT, false);
+  }
+
+  /** Player tapped the Mega-Robot's eyes: one tap of damage (rate-limited like the other
+   *  rescue hazards). Emptying the hitbox cancels the pending shot (state 4). Only the
+   *  lit eyes are tappable — the source releases the hitbox the instant it fires. */
+  tapMegaBotEyes(): boolean {
+    const m = this.megaBot;
+    if (!m || m.phase !== "charge" || m.tapCdMs > 0) return false;
+    m.tapCdMs = this.hazardTapCooldownMs;
+    m.eyeHp = Math.max(0, m.eyeHp - m.tapDamage);
+    m.eyeHits++;
+    if (m.eyeHp <= 0) {
+      m.phase = "disabled";
+      m.phaseMs = MEGA_DISABLED_MS;
+    }
+    return true;
+  }
+
+  /** The robot while its eyes can be tapped, else null. For HUDs and pilots. */
+  megaBotCharging(): SimMegaBot | null {
+    return this.megaBot?.phase === "charge" ? this.megaBot : null;
   }
 
   /** Prepare living zombies for the presentation-only end march. Remaining rescue

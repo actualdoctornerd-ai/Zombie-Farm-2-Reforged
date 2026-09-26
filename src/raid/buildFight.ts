@@ -1,6 +1,6 @@
 // ONE place a fight is assembled.
 //
-// `BattleSim`'s constructor takes twenty-three positional arguments, and until this file
+// `BattleSim`'s constructor takes twenty-four positional arguments, and until this file
 // existed three separate places wrote that call out by hand: the live scene
 // (RaidScene), the server verifier (raidVerifier.createPinnedSim) and the balance
 // harness (eliteInvasion.balance.test.ts). Three transcriptions of one positional
@@ -31,6 +31,7 @@ import type {
   CombatUnit,
   CrabConfig,
   GrabberConfig,
+  MegaBotConfig,
   SummonConfig,
   WaveCadence,
 } from "./types";
@@ -89,6 +90,8 @@ export interface FightSpec {
    *  because that one belongs to a BOSS ACTION and the saucer has no `wall` in its
    *  list (see fightConfig.bubbleWallFor). */
   bubbleWall?: CombatUnit | null;
+  /** The Mega-Robot (raid 5). CLIENT-ONLY, same as the grabber and the crab. */
+  megaBot?: MegaBotConfig | null;
 }
 
 /** The one call site of `new BattleSim(...)` outside tests. */
@@ -116,6 +119,7 @@ export function buildFight(spec: FightSpec): BattleSim {
     spec.bossDropAtMs ?? null,
     spec.bossGroundStationX ?? null,
     spec.bubble ?? null,
-    spec.bubbleWall ?? null
+    spec.bubbleWall ?? null,
+    spec.megaBot ?? null
   );
 }

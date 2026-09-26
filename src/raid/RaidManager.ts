@@ -32,7 +32,7 @@ import {
 } from "./RaidCatalog";
 import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { displayTotals } from "../zombie/statDisplay";
-import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
+import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { rollLootTier } from "./LootTable";
 import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable, firstClearBrains } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
@@ -251,6 +251,8 @@ export interface RaidSetup {
   grabber: GrabberConfig | null;
   /** Beach crab hazard (client-only — see fightConfig.crabFor). */
   crab: CrabConfig | null;
+  /** Mega-Robot (raid 5; client-only — see fightConfig.megaBotFor). */
+  megaBot: MegaBotConfig | null;
   /** Golden Dice spent on this fight — carried into finishRaid() for loot luck. */
   dice: number;
   /** Concentration boost spent — the live scene skips the focus-bubble minigame. */

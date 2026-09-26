@@ -15,6 +15,12 @@
 /** Keyed by raid id. One tip per raid; shown once per device (see prefs.hasSeenRaidTip). */
 export const RAID_TIPS: Record<number, string> = {
   3: "Rumors say pirates clobber anything that moves too fast. hmmmm...",
+  // The Mega-Robot (BattleSim.stepMegaBot). The shared hazard tip is once-ever and a
+  // player reaching Robots at L31 has long since spent it on the Ninjas' carrot wall,
+  // so this one rides the per-raid slot instead.
+  5: "Watch the background! Them robots built a MEGA-ROBOT that looks just like ol' me.\n" +
+    "When its eyes start glowin', tap 'em quick to shut it down —\n" +
+    "or it'll blast yer zombies with nuclear flames!",
 };
 
 /** Tim's briefing for this invasion, or null if it has nothing to warn about. */

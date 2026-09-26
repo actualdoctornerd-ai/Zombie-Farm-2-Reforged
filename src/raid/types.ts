@@ -382,6 +382,23 @@ export interface CrabConfig {
   holdMs: number; // grab -> carry delay (CCDelayTime 2.0 s)
 }
 
+/** Mega-Robot background hazard (`RobotStageActorGiantBot`, Zombies vs Robots only).
+ *  Disassembled ground truth (ZF2R_extracted/docs/mechanics/GIANT_BOT_HAZARD.md): a giant
+ *  Old-McDonnell robot rises behind the stage 15 s into the round clock and, from 20 s,
+ *  charges its eyes for 8 s (4 s once the boss enrages) and fires "nuclear flames" at one
+ *  random deployed zombie: a 40-pt splash of 800/(1 + d/10) plus a 100000 kill shot on the
+ *  zombie nearest the blast. Tapping the eyes (one 90×40 hitbox, 2400 HP, 200 per tap)
+ *  before the fuse runs out cancels the shot; it re-arms 5 s later. Ignored, it fires
+ *  every 10 s.
+ *
+ *  CLIENT-ONLY like the crab and the trapeze: the server verifier builds its sim without
+ *  it, so the authoritative replay is the un-harassed run and the robot can only make the
+ *  player's own live result worse (its casualties reach the server as `clientLosses`). */
+export interface MegaBotConfig {
+  eyeHp: number; // eye hitbox HP (source 2400; scaled per input device — see hazardTaps)
+  tapDamage: number; // RobotStageActorHitBox damage per tap (200)
+}
+
 /** The outcome of a resolved raid (fed to the Result panel + reward pipeline). */
 /** What the fight can attest to about HOW it was won, beyond who lived and died.
  *

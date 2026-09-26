@@ -24,8 +24,8 @@ import {
   bossThrowIntervalSecs, fightScaledThrow, pacedBossThrow, stageRaidId,
 } from "./RaidCatalog";
 import type {
-  BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidStage,
-  SummonConfig,
+  BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef,
+  RaidStage, SummonConfig,
 } from "./types";
 import { turnedUnitFor } from "./videoGameStage";
 import { buildUnitsForKeys } from "./CombatEngine";
@@ -228,6 +228,23 @@ export function crabFor(raid: RaidDef): CrabConfig | null {
     limit: raid.obstacleLimit,
     holdMs: 2000,
   };
+}
+
+/** Zombies vs Robots — the only invasion the Mega-Robot appears in. The source spawns it
+ *  from `ZFFightMan initialSpawn` when `currentEnemy == 5` and nowhere else. Deliberately
+ *  keyed on the raid's OWN id, not its stage: it is a mechanic, not presentation (see
+ *  RaidCatalog.stageRaidId), and no dual invasion is fought on the Robots stage anyway. */
+export const MEGA_BOT_RAID_ID = 5;
+/** Eye hitbox HP (`initWithHitBoxSize:` → 2400) and damage per tap (200): 12 taps. */
+const MEGA_BOT_EYE_HP = 2400;
+const MEGA_BOT_TAP_DAMAGE = 200;
+
+/** Mega-Robot config for raid 5, else null. The eye HP takes the same per-device scaling
+ *  as the other rescue hazards (12 taps on touch, 6 clicks with a mouse — see
+ *  hazardTaps.ts), which is safe for the same reason: CLIENT-ONLY, never transcribed. */
+export function megaBotFor(raid: RaidDef): MegaBotConfig | null {
+  if (raid.id !== MEGA_BOT_RAID_ID) return null;
+  return { eyeHp: rescueHazardHp(MEGA_BOT_EYE_HP), tapDamage: MEGA_BOT_TAP_DAMAGE };
 }
 
 /** The Lawyers & Farmers squad: Old McDonnell and three farmhands, authored to walk on

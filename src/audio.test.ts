@@ -484,8 +484,8 @@ describe("AudioManager one-shot effects", () => {
     audio.enterRaid("farmStageBGM.mp3");
     await settleDecode();
 
-    // bite / flail / poke / swipe / punch / splat / alienLaser / stun.
-    expect(context.decodeCalls).toBe(8);
+    // bite / flail / poke / swipe / punch / splat / alienLaser / stun / explosion.
+    expect(context.decodeCalls).toBe(9);
     audio.fightStrike({ team: "enemy", impact: "projectile" });
     expect(MockSource.started).toHaveLength(1);
   });

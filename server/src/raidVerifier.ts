@@ -237,9 +237,10 @@ export function createPinnedSim(config: PinnedRaidConfig): BattleSim {
     // `config.grabber` is null for every raid this build pins; it is still read rather
     // than hard-coded because a PINNED config is persisted and an older session's may
     // carry one, and a stored fight must replay under the rules it was pinned with. The
-    // crab has never been pinned at all, so it is named null.
+    // crab and the Mega-Robot have never been pinned at all, so they are named null.
     grabber: config.grabber,
     crab: null,
+    megaBot: null,
     waveCadence: config.waveCadence ?? waveCadenceFor(config.raidId),
     turnedTemplate: config.turnedTemplate,
     sign: config.sign,

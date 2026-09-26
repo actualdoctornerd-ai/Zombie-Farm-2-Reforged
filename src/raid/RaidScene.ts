@@ -22,7 +22,7 @@ import {
 import { ParticleField, ParticleConfig, starTexture } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
 import { ACTIVATED_ABILITY } from "../zombie/abilities";
-import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidLevelAsset, RaidOutcome, SummonConfig, WaveCadence } from "./types";
+import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef, RaidLevelAsset, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { ABDUCTEE_KEYS, alienTintFor } from "./alienStage";
 import { RAID_MAX_INPUTS, RAID_TICK_MS, type RaidReplayInput } from "./replay";
 import { PVP_ZOMBIE_SPRITE_PREFIX } from "./pvp";
@@ -111,6 +111,8 @@ export interface RaidSceneParams {
   grabber?: GrabberConfig | null;
   /** Beach crab hazard for this raid (null/omitted = none). Client-only — see crabOf. */
   crab?: CrabConfig | null;
+  /** The Mega-Robot (raid 5; null/omitted = none). Client-only — see megaBotFor. */
+  megaBot?: MegaBotConfig | null;
   /** Concentration boost spent — skip the focus-bubble minigame this fight. */
   concentration?: boolean;
   /** Precommitted 10/30/50 brain award. Each visible brain represents a stack of 5. */
@@ -336,6 +338,51 @@ const DAMAGE_NUMBER_MAX = 32;
 // of that is the size the player asked for (and matches the source's 0.8-scaled 86x43 art
 // sitting well below the zombies' heads).
 const CRAB_H = ENEMY_H / 3;
+// The Mega-Robot (`RobotStageActorGiantBot`), in the 480×320 stage's own points with
+// cocos Y-up, like every stage layer. Rig from RobotStageElements.plist: body pivot
+// (0.43, 0.59); head offset (+20, 0), pivot (0.65, 0.361), drawn above the body.
+const MEGA_BODY_SPRITE = "hazard_megabot_body.png";
+const MEGA_HEAD_SPRITE = "hazard_megabot_head.png";
+const MEGA_Z = 1; // between the backdrop (z 0) and the platform/floor art (z 3)
+const MEGA_HEAD_DX = 20;
+const MEGA_START = { x: 240, y: -80 }; // spawned just under the stage…
+const MEGA_HOME = { x: 240, y: 160 }; // …climbs to its centre
+const MEGA_WANDER = { x0: 50, x1: 320, y0: 120, y1: 160 }; // states 2/7 roam this box
+const MEGA_SPEED = [60, 120, 240]; // pt/s: climbing/standing, wandering, enraged
+const MEGA_SINK_PT = 200; // game over: sinks this far and keeps going
+// The eye hitbox, relative to the head pivot: 90×40 centred (−33, +50) (source), and the
+// two eye centres measured off the head art, where the fireballs swell.
+const MEGA_EYE_BOX = { cx: -33, cy: 50, w: 90, h: 40 };
+const MEGA_EYES = [{ x: -57.5, y: 50 }, { x: -7, y: 46 }];
+const MEGA_BALL_R = 9; // fireball radius at full charge (pt)
+const MEGA_FLASH_S = 0.08; // a tap flashes the head red (source 0.05 s)
+const MEGA_DARKEN_S = 1; // CCTintTo back to black over 1.0 s
+
+const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
+
+interface MegaBotView {
+  root: Container;
+  body: Sprite;
+  head: Sprite;
+  eyes: Container;
+  hint: Graphics;
+  balls: Graphics[];
+  /** Position in stage points (Y-up) and where it is walking to. */
+  x: number;
+  y: number;
+  destX: number;
+  destY: number;
+  headLight: number;
+  bodyLight: number;
+  flashT: number;
+  eyeHits: number;
+  shotSeq: number;
+  blastSeq: number;
+  /** Last sim phase seen, to catch the moment the eyes are knocked out. */
+  phase: string;
+  /** Screen points the fireballs left from, captured at launch. */
+  launchFrom: { x: number; y: number }[];
+}
 // Approximate attachment/contact point along hazard_trapeze_girl.png's 358px width.
 // The ropes occupy x=0..~280 and the artist's grabbing body is centered near x=300.
 const TRAPEZE_ARTIST_X = 300;
@@ -734,6 +781,11 @@ export class RaidScene {
   private crabTex: Texture | null = null; // beach crab hazard texture
   private crabLayer = new Container(); // crab sprites (above the field, tappable)
   private crabSprites = new Map<string, { root: Container; body: Sprite; bar: Graphics }>();
+  // Mega-Robot (raid 5): body + head live IN the stage layer, between the backdrop and
+  // the platform art, so it reads as standing behind the set; its fireballs fly in
+  // front of everything on their own layer. See syncMegaBot.
+  private megaBotView: MegaBotView | null = null;
+  private megaFxLayer = new Container();
   /** `pixelFire` flames, one per burning zombie (above the field, tappable to smother). */
   private fireLayer = new Container();
   private fires = new Map<string, PixelFire>();
@@ -981,6 +1033,7 @@ export class RaidScene {
       bossGroundStationX: params.bossGroundStationX,
       bubble: params.bubble,
       bubbleWall: params.bubbleWall,
+      megaBot: params.megaBot,
     });
     // Rescue-hazard taps are paced for a finger by default. A mouse clicks two to three
     // times faster than that gate, so most of a click-spamming player's clicks landed
@@ -1204,6 +1257,8 @@ export class RaidScene {
       this.crabTex = await loadTex(raidImage(this.crabSprite));
       this.container.addChild(this.crabLayer);
     }
+    // The Mega-Robot: body/head behind the platform art, fireballs above the field.
+    if (this.sim.megaBot) await this.buildMegaBot();
     // Flames ride above every unit: the fire has to be tappable through whatever rig is
     // burning, and it reads as sitting ON the zombie rather than behind it.
     this.container.addChild(this.fireLayer);
@@ -3005,6 +3060,7 @@ export class RaidScene {
     this.syncProjectiles();
     this.syncGrabbers();
     this.syncCrabs();
+    this.syncMegaBot(dtSec);
     this.syncFires(dtSec);
   }
 
@@ -3101,6 +3157,173 @@ export class RaidScene {
         this.crabSprites.delete(id);
       }
     }
+  }
+
+  /** Build the Mega-Robot's rig into the stage layer (between backdrop and platform) and
+   *  its two fireballs into their own layer above the field. */
+  private async buildMegaBot() {
+    const [bodyTex, headTex] = await Promise.all([
+      loadTex(raidImage(MEGA_BODY_SPRITE)),
+      loadTex(raidImage(MEGA_HEAD_SPRITE)),
+    ]);
+    if (!bodyTex || !headTex) return;
+    const root = new Container();
+    root.zIndex = MEGA_Z;
+    root.visible = false;
+    const body = new Sprite(bodyTex);
+    body.anchor.set(0.43, 1 - 0.59); // cocos Y-up pivot → Pixi Y-down anchor
+    const head = new Sprite(headTex);
+    head.anchor.set(0.65, 1 - 0.361);
+    head.position.set(MEGA_HEAD_DX, 0);
+    // The eyes: one invisible 90×40 box over both, as in the source. pointerdown rather
+    // than tap, for the same reason as the crab — the robot may be moving.
+    const eyes = new Container();
+    const box = MEGA_EYE_BOX;
+    eyes.hitArea = new Rectangle(
+      MEGA_HEAD_DX + box.cx - box.w / 2, -box.cy - box.h / 2, box.w, box.h
+    );
+    eyes.cursor = "pointer";
+    eyes.eventMode = "none";
+    eyes.on("pointerdown", () => this.sim.tapMegaBotEyes());
+    // The helper: the source points an arrow at the eyes 5 s into a fuse nobody has
+    // touched. A pulsing ring on the box says the same thing without new art.
+    const hint = new Graphics();
+    hint.visible = false;
+    root.addChild(body, head, hint, eyes);
+    this.stageLayer.addChild(root);
+
+    const balls = [0, 1].map(() => {
+      const g = new Graphics();
+      g.blendMode = "add";
+      g.circle(0, 0, 1.7).fill({ color: 0xff4a00, alpha: 0.35 });
+      g.circle(0, 0, 1).fill({ color: 0xff8a1a, alpha: 0.9 });
+      g.circle(0, 0, 0.5).fill({ color: 0xfff3b0 });
+      g.visible = false;
+      this.megaFxLayer.addChild(g);
+      return g;
+    });
+    this.container.addChild(this.megaFxLayer);
+    this.megaBotView = {
+      root, body, head, eyes, hint, balls,
+      x: MEGA_START.x, y: MEGA_START.y, destX: MEGA_HOME.x, destY: MEGA_HOME.y,
+      headLight: 0, bodyLight: 0, flashT: 0, eyeHits: 0, shotSeq: 0, blastSeq: 0,
+      phase: "hidden", launchFrom: [],
+    };
+  }
+
+  /** Mirror the Mega-Robot. The sim owns the fight (schedule, fuse, eye HP, target,
+   *  blast); this owns the look: the climb, the wander, the black-to-lit tint as the
+   *  eyes charge, the fireballs' swell and flight, and the sink when the fight ends. */
+  private syncMegaBot(dtSec: number) {
+    const v = this.megaBotView;
+    const m = this.sim.megaBot;
+    if (!v || !m) return;
+    const r = this.bgRect();
+    const s = r.scale;
+    const over = this.sim.finished;
+
+    // --- motion (stage points, Y-up) ---
+    if (m.phase !== "hidden") v.root.visible = true;
+    let speed = MEGA_SPEED[0];
+    if (over) {
+      v.destX = v.x;
+      v.destY = Math.min(v.destY, v.y - MEGA_SINK_PT);
+    } else if (m.phase === "rising" || m.restless === 0) {
+      v.destX = MEGA_HOME.x;
+      v.destY = MEGA_HOME.y;
+    } else {
+      speed = MEGA_SPEED[m.restless];
+      if (Math.hypot(v.destX - v.x, v.destY - v.y) < 1 || v.destY < MEGA_WANDER.y0) {
+        v.destX = MEGA_WANDER.x0 + (MEGA_WANDER.x1 - MEGA_WANDER.x0) * Math.random();
+        v.destY = MEGA_WANDER.y0 + (MEGA_WANDER.y1 - MEGA_WANDER.y0) * Math.random();
+      }
+    }
+    if (m.phase !== "hidden") {
+      const dx = v.destX - v.x;
+      const dy = v.destY - v.y;
+      const d = Math.hypot(dx, dy);
+      const stepPt = speed * dtSec;
+      if (d <= stepPt) { v.x = v.destX; v.y = v.destY; } else { v.x += (dx / d) * stepPt; v.y += (dy / d) * stepPt; }
+    }
+    v.root.scale.set(s);
+    v.root.position.set(r.left + v.x * s, r.top + (DESIGN_H - v.y) * s);
+
+    // --- light: black silhouette, lit up by the charge (head to white, body to 153) ---
+    if (m.phase === "charge" && !over) {
+      const C = m.chargeMs / 1000;
+      const t = C - m.phaseMs / 1000;
+      v.headLight = clamp01((t - 0.08 * C) / (0.3 * C));
+      v.bodyLight = 0.6 * clamp01((t - 0.1 * C) / (0.4 * C));
+    } else {
+      v.headLight = Math.max(0, v.headLight - dtSec / MEGA_DARKEN_S);
+      v.bodyLight = Math.max(0, v.bodyLight - (0.6 * dtSec) / MEGA_DARKEN_S);
+    }
+    if (m.eyeHits !== v.eyeHits) {
+      v.eyeHits = m.eyeHits;
+      v.flashT = MEGA_FLASH_S;
+    }
+    v.flashT = Math.max(0, v.flashT - dtSec);
+    const grey = (k: number) => {
+      const c = Math.round(255 * k);
+      return (c << 16) | (c << 8) | c;
+    };
+    v.head.tint = v.flashT > 0 ? 0xff3030 : grey(v.headLight);
+    v.body.tint = grey(v.bodyLight);
+
+    // --- the eyes: tappable only while lit ---
+    const charging = m.phase === "charge" && !over && !this.playback;
+    v.eyes.eventMode = charging ? "static" : "none";
+    const box = MEGA_EYE_BOX;
+    const hintOn = charging && m.eyeHp === m.eyeMaxHp && m.chargeMs - m.phaseMs > 2000;
+    v.hint.visible = hintOn;
+    if (hintOn) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.hoverClock * 8);
+      v.hint.clear()
+        .roundRect(MEGA_HEAD_DX + box.cx - box.w / 2, -box.cy - box.h / 2, box.w, box.h, 12)
+        .stroke({ color: 0xffe14d, width: 3 + 2 * pulse, alpha: 0.45 + 0.45 * pulse });
+    }
+
+    // --- fireballs ---
+    const eyeScreen = MEGA_EYES.map((e) => ({
+      x: v.root.x + (MEGA_HEAD_DX + e.x) * s,
+      y: v.root.y - e.y * s,
+    }));
+    // Eyes knocked out: the source puffs `smoke.plist` off the hitbox.
+    if (m.phase === "disabled" && v.phase !== "disabled" && this.smokeCfg) {
+      const cx = (eyeScreen[0].x + eyeScreen[1].x) / 2;
+      const cy = (eyeScreen[0].y + eyeScreen[1].y) / 2;
+      this.particles.burst(this.smokeCfg, cx, cy, 1.2);
+    }
+    v.phase = m.phase;
+    if (m.shotSeq !== v.shotSeq) {
+      v.shotSeq = m.shotSeq;
+      v.launchFrom = eyeScreen;
+    }
+    const target = {
+      x: this.mapX(m.targetX),
+      y: this.mapY(m.targetY) + (UNIT_GROUND_NUDGE - ZOMBIE_H * 0.4) * this.sizeScale(),
+    };
+    if (m.blastSeq !== v.blastSeq) {
+      v.blastSeq = m.blastSeq;
+      this.spawnExplosion(target.x, target.y);
+      this.onStrike?.({ team: "enemy", sfxFile: "explosion.wav" });
+    }
+    v.balls.forEach((g, i) => {
+      if (m.phase === "charge" && !over) {
+        const k = 1 - m.phaseMs / Math.max(1, m.chargeMs);
+        g.visible = k > 0.02;
+        g.position.set(eyeScreen[i].x, eyeScreen[i].y);
+        g.scale.set(MEGA_BALL_R * s * k * (1 + 0.08 * Math.sin(this.hoverClock * 20 + i)));
+      } else if (m.phase === "fire" && !over && v.launchFrom[i]) {
+        const k = 1 - m.phaseMs / 1000; // the 1.0 s flight
+        const from = v.launchFrom[i];
+        g.visible = true;
+        g.position.set(from.x + (target.x - from.x) * k, from.y + (target.y - from.y) * k);
+        g.scale.set(MEGA_BALL_R * s * (1 + 0.4 * k));
+      } else {
+        g.visible = false;
+      }
+    });
   }
 
   /** Mirror the Trapeze Artist grab hazards into tappable sprites (with an HP bar while

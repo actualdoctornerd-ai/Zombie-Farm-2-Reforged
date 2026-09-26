@@ -41,7 +41,7 @@ export interface PilotProfile {
   /** Tap the three SIMULATED hazards: the boss wall, a burning zombie, a converted
    *  pixel zombie. Every one of these taps is transcribed. */
   tapHazards: boolean;
-  /** Tap the two CLIENT-ONLY rescues (trapeze, crab). Untranscribed — see pilot.ts. */
+  /** Tap the CLIENT-ONLY rescues (trapeze, crab, Mega-Robot eyes). Untranscribed — see pilot.ts. */
   rescueGrabs: boolean;
   /** Answer the Lawyer's placard. */
   pickSigns: boolean;
@@ -266,6 +266,13 @@ export function makePilot(profile: PilotProfile): Pilot {
         const crab = sim.activeCrabs().find((c) => c.grabbedId);
         if (crab && acts(`crab:${crab.id}`, tick) && canTap(`crab:${crab.id}`, tick)) {
           return { type: "crabTap", id: crab.id };
+        }
+        // The Mega-Robot's lit eyes: a zombie dies when the fuse runs out. One fuse is one
+        // occurrence, so a miss costs that shot rather than retrying next tick.
+        const bot = sim.megaBotCharging();
+        const shot = epoch("megaBot", !!bot);
+        if (bot && acts(shot, tick) && canTap("megaBot", tick)) {
+          return { type: "megaBotTap" };
         }
       }
 

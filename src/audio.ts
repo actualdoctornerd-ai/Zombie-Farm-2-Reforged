@@ -572,6 +572,8 @@ const FIGHT_CUE_FILES = [
   "audio/swipe.wav", "audio/punch.wav", "audio/splat.wav",
   // Alien boss laser: fired on `AlienStageBullet init`, hit on `collidedWith:`.
   "audio/alienLaser.wav", "audio/stun.wav",
+  // Mega-Robot's nuclear flames (`RobotStageActorGiantBot explodeAttack:`).
+  "audio/explosion.wav",
 ];
 
 /** Web Audio voices allowed at once. Combat can fire ~20 cues/s; past this many

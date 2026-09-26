@@ -25,13 +25,13 @@ import {
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
 import {
   bossSpecialsFor, bossThrowFor, bubbleWallFor, circusStacksFor, crabFor, farmerSquadFor,
-  grabberFor, pirateCaptainFor, robotEscortFor, summonFor, turnedTemplateFor,
+  grabberFor, megaBotFor, pirateCaptainFor, robotEscortFor, summonFor, turnedTemplateFor,
   wallTemplateFor, type FightAssets,
 } from "./fightConfig";
 import { waveCadenceFor } from "./alienStage";
 import type {
-  BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, RaidDef, RaidStage,
-  SummonConfig, WaveCadence,
+  BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef,
+  RaidStage, SummonConfig, WaveCadence,
 } from "./types";
 
 /** What the caller knows that the authored data does not. */
@@ -51,7 +51,7 @@ export interface FightContext {
    *  ONLINE this MUST be the raid session id, because the client redraws from it and the
    *  pinned config is what the replay is checked against. */
   waveSeed: string;
-  /** Include the two CLIENT-ONLY rescue hazards. False on the server, which deliberately
+  /** Include the CLIENT-ONLY hazards (trapeze, crab, Mega-Robot). False on the server, which deliberately
    *  simulates the un-harassed fight so its replay is a ceiling the live game can only
    *  fall short of. See raidVerifier and pilot.ts. */
   hazards: boolean;
@@ -68,6 +68,7 @@ export interface ComposedFight {
   waveCadence: WaveCadence;
   grabber: GrabberConfig | null;
   crab: CrabConfig | null;
+  megaBot: MegaBotConfig | null;
   sign: SignConfig | null;
   dexTax: boolean;
   copies: CopyConfig | null;
@@ -112,6 +113,7 @@ export function composeFight(
     waveCadence: waveCadenceFor(raid.id),
     grabber: ctx.hazards ? grabberFor(raid) : null,
     crab: ctx.hazards ? crabFor(raid) : null,
+    megaBot: ctx.hazards ? megaBotFor(raid) : null,
     sign,
     dexTax: isDexTaxRaid(raid.id),
     copies: copiesFor(raid.id, tier),

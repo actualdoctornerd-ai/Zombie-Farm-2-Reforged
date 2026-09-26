@@ -5797,6 +5797,7 @@ async function main() {
       bossSpecials: setup.bossSpecials,
       grabber: setup.grabber,
       crab: setup.crab,
+      megaBot: setup.megaBot,
       summon: setup.summon,
       waveCadence: setup.waveCadence,
       wallTemplate: setup.wallTemplate,

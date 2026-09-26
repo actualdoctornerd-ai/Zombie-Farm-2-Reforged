@@ -52,7 +52,7 @@ export interface HarnessFightOptions {
   /** The Concentration boost: no focus-bubble minigame. Off by default — the minigame is
    *  one of the things the pilot ladder is measuring. */
   concentration?: boolean;
-  /** Client-only rescue hazards (trapeze, crab). See the header. */
+  /** Client-only hazards (trapeze, crab, Mega-Robot). See the header. */
   hazards?: boolean;
   /** MULTIPLY THE FIGHT'S LETHALITY — and only its lethality.
    *

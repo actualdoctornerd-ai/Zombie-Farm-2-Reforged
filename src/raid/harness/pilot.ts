@@ -49,7 +49,8 @@ export type TranscribedAction = Untracked<RaidReplayInput>;
  *  Beach victories. */
 export type UntranscribedAction =
   | { type: "crabTap"; id: string }
-  | { type: "grabberTap"; id: string };
+  | { type: "grabberTap"; id: string }
+  | { type: "megaBotTap" };
 
 export type PilotAction = TranscribedAction | UntranscribedAction;
 
@@ -169,6 +170,8 @@ export function flyFight(sim: BattleSim, pilot: Pilot, opts: FlightOptions = {})
         if (sim.tapCrab(action.id)) untranscribed++; else refused++;
       } else if (action.type === "grabberTap") {
         if (sim.tapGrabber(action.id)) untranscribed++; else refused++;
+      } else if (action.type === "megaBotTap") {
+        if (sim.tapMegaBotEyes()) untranscribed++; else refused++;
       } else if (seq >= budget) {
         // Over budget the client does not tap at all, so neither does the pilot: a tap
         // applied here and left out of the transcript is exactly the desync that made

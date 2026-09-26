@@ -38,7 +38,7 @@ import {
 } from "../raid/dualInvasion";
 import {
   bossSpecialsFor, bossThrowFor, bubbleWallFor, circusStacksFor, crabFor, farmerSquadFor,
-  grabberFor, pirateCaptainFor, robotEscortFor,
+  grabberFor, megaBotFor, pirateCaptainFor, robotEscortFor,
   summonFor, turnedTemplateFor, wallTemplateFor,
 } from "../raid/fightConfig";
 import { fightStage, resolveStageWave, seededRandom } from "../raid/RaidCatalog";
@@ -58,7 +58,7 @@ import { bestMutationMask, bestMutationSummary } from "./bestMutations";
 // ---------------------------------------------------------------------------
 
 /** What the lab is rebuilding the fight to show. "" = the shipped mix.
- *  `throw:<index>` / `special:<name>` / `hazard:grabber` / `hazard:crab`. */
+ *  `throw:<index>` / `special:<name>` / `hazard:grabber` / `hazard:crab` / `hazard:megaBot`. */
 type Solo = string;
 
 interface ArmyRow { key: string; count: number }
@@ -285,6 +285,7 @@ function buildParams(): RaidSceneParams | null {
   const hazard = state.solo.startsWith("hazard:") ? state.solo.slice(7) : "";
   const grabber = grabberFor(raid);
   const crab = crabFor(raid);
+  const megaBot = megaBotFor(raid);
 
   return {
     raid,
@@ -329,8 +330,9 @@ function buildParams(): RaidSceneParams | null {
     bossGroundStationX:
       ringmasterDropMs(raid.id, labTier(raid)) === null ? null : RINGMASTER_STATION_X,
     waveCadence: waveCadenceFor(raid.id),
-    grabber: hazard === "crab" ? null : grabber,
-    crab: hazard === "grabber" ? null : crab,
+    grabber: hazard && hazard !== "grabber" ? null : grabber,
+    crab: hazard && hazard !== "crab" ? null : crab,
+    megaBot: hazard && hazard !== "megaBot" ? null : megaBot,
     concentration: state.concentration,
     brainDrop: 10,
     confirmRetreat: () => Promise.resolve(true),
@@ -545,6 +547,13 @@ function actionGroups(): { title: string; actions: Action[] }[] {
     }
     if (crabFor(raid)) {
       hazards.push({ label: "Beach crab", hint: "grabs, holds 2 s, hauls left", solo: "hazard:crab" });
+    }
+    if (megaBotFor(raid)) {
+      hazards.push({
+        label: "Mega-Robot",
+        hint: "rises at 0:15, fires every 10 s from 0:20 — tap its eyes",
+        solo: "hazard:megaBot",
+      });
     }
     groups.push({
       title: hazards.length ? "Hazards (solo)" : "Hazards",
