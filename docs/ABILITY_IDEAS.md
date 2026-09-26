@@ -122,8 +122,7 @@ longer has a walking laser to fire while healing.
 **Change:** t1 `attackSpeedBuff` → `heal`. Everything else stock Female.
 
 `heal` is tier 1, so it unlocks at Old McDonnell — available immediately. This is the first
-non-Garden single-target healer, and it helps the all-Garden deadlock by giving players a
-healer that is also a fighter.
+non-Garden single-target healer: a healer that is also a fighter.
 
 **Raw throughput is high, but uptime is not.** At str 9 / dex 3.67 it heals 45 per cast on a
 545 ms cadence (`heal` reuses the attack interval, `2.0 / dex` seconds):
