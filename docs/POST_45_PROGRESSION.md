@@ -300,11 +300,11 @@ will live with. Ignoring the offer lets a coin (pre-drawn from the session seed)
 |---|---|
 | t1 | **Rulings**: one ruling per bubble, drawn from the pool below |
 | t2 | stat |
-| t3 | **The angry farmer mob** walks on at the midpoint of the fight |
+| t3 | **Contempt**: ignoring the offer applies BOTH bubbles (moved down from t7, 2026-09-27) |
 | t4 | stat |
 | t5 | Each bubble holds **two** rulings |
 | t6 | stat |
-| t7 | **Contempt**: ignoring the offer applies BOTH bubbles |
+| t7 | **The angry farmer mob** walks on at the midpoint: six farmhands, twice as tough (moved up from t3 and made harder, 2026-09-27) |
 | t8 | stat |
 | t9 | Rulings are more severe |
 | t10 | **Precedent**: each ruling lasts two slots, so two are always in force |
@@ -388,7 +388,7 @@ longer cast more.
 
 | tier | change |
 |---|---|
-| t1 | **The saucer** casts every **10 s**: walls, zombies portalled to the back, a summoned robot. The player has **5 cancels** for the whole fight, so cancelling everything runs you dry |
+| t1 | **The saucer** casts every **10 s**: walls, zombies portalled to the back, a summoned robot. The player has **3 cancels** for the whole fight (cut from 5, 2026-09-27), so cancelling everything runs you dry |
 | t2 | stat |
 | t3 | **Abductees** start appearing in the middle, as in the ordinary Alien fight |
 | t4 | stat |

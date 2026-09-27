@@ -30,7 +30,7 @@ import type {
 import { turnedUnitFor } from "./videoGameStage";
 import { buildUnitsForKeys } from "./CombatEngine";
 import {
-  chargeFor, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
+  CAPTAIN_HP_MULT, chargeFor, FARMER_MOB_HP_MULT, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
   BUBBLE_RAID_ID, BUBBLE_ROBOT_KEY,
   BIG_TOP_RAID_ID, SIGN_RAID_ID,
 } from "./dualInvasion";
@@ -291,6 +291,7 @@ export function farmerSquadFor(
     raidId: raid.id, playerLevel, elite,
   }).map((unit, i) => ({
     ...unit, id: `squad${i}`, deployAtWaveFrac: MIDPOINT_WAVE_FRAC, knockBack: false, knockBackChance: 0,
+    hp: Math.round(unit.hp * FARMER_MOB_HP_MULT), maxHp: Math.round(unit.maxHp * FARMER_MOB_HP_MULT),
   }));
 }
 
@@ -314,7 +315,12 @@ export function pirateCaptainFor(
     [PIRATE_CAPTAIN_KEY], null, assets.enemyStats, assets.raidAttacks,
     { raidId: raid.id, playerLevel, elite }
   );
-  return unit ? [{ ...unit, id: "captain", charge, deployAtWaveFrac: MIDPOINT_WAVE_FRAC }] : [];
+  return unit
+    ? [{
+      ...unit, id: "captain", charge, deployAtWaveFrac: MIDPOINT_WAVE_FRAC,
+      hp: Math.round(unit.hp * CAPTAIN_HP_MULT), maxHp: Math.round(unit.maxHp * CAPTAIN_HP_MULT),
+    }]
+    : [];
 }
 
 /** The stacking little man a bozo is built as (raid 14, t5+): the Circus fight's own midget

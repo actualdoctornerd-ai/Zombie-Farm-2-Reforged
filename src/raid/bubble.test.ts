@@ -70,12 +70,12 @@ describe("the ladder", () => {
     for (const other of [1, 6, 9, 12, 13, 14]) expect(bubbleFor(other, 1)).toBeNull();
   });
 
-  it("opens on walls, portals and robots, with five cancels, every ten seconds", () => {
+  it("opens on walls, portals and robots, with three cancels, every ten seconds", () => {
     const cfg = bubbleFor(BUBBLE_RAID_ID, MIN_TIER)!;
     expect(cfg.cycle).toEqual([...BUBBLE_CYCLE_BASE]);
     expect(cfg.cycle).toEqual(["wall", "portal", "robot"]);
     expect(cfg.cancels).toBe(BUBBLE_CANCELS);
-    expect(BUBBLE_CANCELS).toBe(5);
+    expect(BUBBLE_CANCELS).toBe(3);
     expect(cfg.castMs + cfg.gapMs).toBe(BUBBLE_INTERVAL_MS);
     expect(BUBBLE_INTERVAL_MS).toBe(10_000);
     expect(cfg.lockout).toBe(false);
@@ -106,7 +106,7 @@ describe("the ladder", () => {
     expect(bubbleFor(BUBBLE_RAID_ID, LOCKOUT_TIER)!.lockout).toBe(true);
     expect(bubbleFor(BUBBLE_RAID_ID, DUAL_CAST_TIER - 1)!.dualCast).toBe(false);
     expect(bubbleFor(BUBBLE_RAID_ID, DUAL_CAST_TIER)!.dualCast).toBe(true);
-    // The budget never moves: five for the whole fight at every rung.
+    // The budget never moves: three for the whole fight at every rung.
     for (let rung = MIN_TIER; rung <= MAX_TIER; rung++) {
       expect(bubbleFor(BUBBLE_RAID_ID, rung)!.cancels, `t${rung}`).toBe(BUBBLE_CANCELS);
     }

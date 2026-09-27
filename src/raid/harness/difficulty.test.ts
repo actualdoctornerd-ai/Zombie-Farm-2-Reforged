@@ -56,10 +56,16 @@ const FIGHTS = [
  *     now WINS at 100%, and none of them clears clean on any lineup. It is the only
  *     fight in the game like that.
  *   · raid 14 t10 — the top of that ladder, over the target as tuned, and the one rung
- *     that still reaches the Garden deadlock below. */
+ *     that still reaches the Garden deadlock below.
+ *
+ *  And from 2026-09-27, t10 of every dual invasion by design: the owner made t10 a PUSH
+ *  target that may need rewards from the lower rungs (docs/POST_45_PROGRESSION.md Part 2B),
+ *  so the era's own roster is not expected to clear it clean. */
 const NOT_YET_LOSSLESS = new Set([
+  "12 Zombies vs Lawyers & Farmers t10",
   "13 Zombies vs Ninjas & Pirates t10",
   "14 Zombies vs Circus & Video Games t10",
+  "15 Zombies vs Aliens & Robots t10",
 ]);
 
 describe("difficulty, against the loss-less target", () => {

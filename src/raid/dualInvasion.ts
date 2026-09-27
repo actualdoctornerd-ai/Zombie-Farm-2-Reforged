@@ -96,9 +96,9 @@ export const STAT_TIERS: Readonly<Record<number, "damage" | "speed">> = {
   2: "damage", 4: "speed", 6: "damage", 8: "speed",
 };
 /** What one damage step multiplies enemy damage by (str, throws and specials together). */
-export const DUAL_DAMAGE_STEP = 1.25;
+export const DUAL_DAMAGE_STEP = 1.35;
 /** What one speed step multiplies enemy attack speed by (dex and throw rate together). */
-export const DUAL_SPEED_STEP = 1.12;
+export const DUAL_SPEED_STEP = 1.18;
 
 /** How many damage and speed steps are in force at this rung. */
 export function statSteps(tier: number): { damage: number; speed: number } {
@@ -119,11 +119,11 @@ export const TIER_LADDER: Readonly<Record<number, readonly string[]>> = {
   12: [
     "Rulings: pick one of two penalties every 8 s",
     "Enemies hit harder",
-    "The angry farmer mob arrives at the midpoint",
+    "Contempt: ignore a ruling and both apply",
     "Enemies attack faster",
     "Each bubble holds two rulings",
     "Enemies hit harder",
-    "Contempt: ignore a ruling and both apply",
+    "The angry farmer mob — twice as many, twice as tough — arrives at the midpoint",
     "Enemies attack faster",
     "Rulings are more severe",
     "Precedent: two rulings are always in force",
@@ -153,7 +153,7 @@ export const TIER_LADDER: Readonly<Record<number, readonly string[]>> = {
     "Conversion comes faster",
   ],
   15: [
-    "The saucer casts every 10 s — 5 cancels for the whole fight",
+    "The saucer casts every 10 s — 3 cancels for the whole fight",
     "Enemies hit harder",
     "Abductees appear in the middle",
     "Enemies attack faster",
@@ -179,15 +179,16 @@ export function tierProfile(raidId: number, tier: number): EliteProfile {
   // BULK cannot be one multiplier across four waves this different — see DUAL_BASE_HP —
   // so `con` is solved backwards from the flat hit-point target.
   const base = DUAL_BASE_HP[raidId] ?? DUAL_BASE_HP[SIGN_RAID_ID];
+  const bulk = DUAL_BULK[raidId] ?? 1;
   return {
-    str: 1.8 * damage,
-    con: DUAL_WAVE_HP / base.wave,
-    bossCon: DUAL_BOSS_HP / base.boss,
+    str: DUAL_BASE_STR * damage,
+    con: (DUAL_WAVE_HP * bulk) / base.wave,
+    bossCon: (DUAL_BOSS_HP * bulk) / base.boss,
     dex: 1 * speed,
-    throwDamage: 1.6 * damage,
+    throwDamage: DUAL_BASE_THROW * damage,
     throwRate: 1.15 * speed,
     wallHp: 1.2,
-    specialDamage: 1.8 * damage,
+    specialDamage: DUAL_BASE_STR * damage,
   };
 }
 
@@ -195,8 +196,21 @@ export function tierProfile(raidId: number, tier: number): EliteProfile {
  *  the ladder (the rungs climb in mechanics and in damage/speed, not in bulk) and shared by
  *  all four invasions so a rung means one thing. The tuning pass sets the real value; the
  *  ceiling on it is the settle budget below. */
-export const DUAL_WAVE_HP = 70_000;
-export const DUAL_BOSS_HP = 12_000;
+export const DUAL_WAVE_HP = 175_000;
+export const DUAL_BOSS_HP = 30_000;
+
+/** The base enemy damage every rung starts from (before the per-raid base and the stat
+ *  steps). Raised 1.5x (owner, 2026-09-27): against real level-45 armies every t1 was a 100%
+ *  win and the fights ended before their mechanics had fired twice. */
+export const DUAL_BASE_STR = 2.7;
+export const DUAL_BASE_THROW = 2.4;
+
+/** Per-raid bulk on top of the flat target. Aliens & Robots is tankier (owner, 2026-09-27)
+ *  so there is time for more of the saucer's casts: the fight is ABOUT the casts, and a
+ *  wave that dies in half a minute sees four of them. */
+export const DUAL_BULK: Readonly<Record<number, number>> = {
+  15: 1.5,
+};
 
 /** WHAT EACH INVASION'S OWN WAVE WEIGHS at 1.0x, wave and boss separately.
  *
@@ -261,7 +275,15 @@ const DUAL_BASE_HP: Readonly<Record<number, { wave: number; boss: number }>> = {
  *  loss on the merits: a rung that cannot be finished. RAISING con HERE IS NOT A FREE DIAL.
  *  Re-measure that roster, and
  *  see tierLadder.test.ts, which fails before you get as far as playing it. */
-export const DUAL_SETTLE_REFERENCE_DPS = 686;
+//
+//  RE-BASED 2026-09-27. The 686 above was the slowest roster that could win at the old
+//  70k/12k target, and it capped these fights at a size a real level-45 army clears in half
+//  a minute — before most of their mechanics fire twice. The owner raised the base stats
+//  "significantly" on purpose: a weak roster is now MEANT to run out of clock on the top
+//  rungs. The reference is therefore a real endgame army instead: prod level-45 winners
+//  realise a median ~2,567 hp/s (see the army-profile memory), and this takes a conservative
+//  share of it so an ordinary finished army still settles every rung.
+export const DUAL_SETTLE_REFERENCE_DPS = 1_800;
 
 /** THE MULTIPLIERS A FIGHT RUNS UNDER, whichever kind of fight it is: the rung's profile on a
  *  dual invasion, the Brain Ticket's on any other, and null for an ordinary launch.
@@ -318,9 +340,9 @@ export function dualWaveCadence(raidId: number): WaveCadence | null {
 // THE LADDER (docs/POST_45_PROGRESSION.md Part 2B, "Rulings"):
 //
 //   t1  rulings: one per bubble, from the pool below; ignoring the offer lets a coin decide
-//   t3  the angry farmer mob walks on at the midpoint of the fight
+//   t3  contempt: ignoring the offer applies BOTH bubbles
 //   t5  each bubble holds TWO rulings
-//   t7  contempt: ignoring the offer applies BOTH bubbles
+//   t7  the angry farmer mob — six farmhands, twice as tough — walks on at the midpoint
 //   t9  the rulings are more severe
 //   t10 precedent: each ruling lasts two slots, so two are always in force
 //   (t2/t4/t6/t8 are stat steps — see tierProfile)
@@ -407,9 +429,9 @@ export function rulingKey(r: Ruling): string {
 export const SIGN_DWELL_MS = 8_000;
 
 /** The rungs at which the fight changes — see the ladder above. */
-export const FARMER_MOB_TIER = 3;
+export const CONTEMPT_TIER = 3;
 export const PAIRED_SIGN_TIER = 5;
-export const CONTEMPT_TIER = 7;
+export const FARMER_MOB_TIER = 7;
 export const SEVERE_TIER = 9;
 export const PRECEDENT_TIER = 10;
 
@@ -513,16 +535,19 @@ export function rulingsFor(offer: SignOffer, pick: number): Ruling[] {
 }
 
 // ---------------------------------------------------------------------------
-// RAID 12 — THE ANGRY FARMER MOB (t3+)
+// RAID 12 — THE ANGRY FARMER MOB (t7+)
 // ---------------------------------------------------------------------------
 // Old McDonnell and his farmhands walk on together, off the wave budget, once HALF of the
 // wave is down — the midpoint of the fight, measured in the fight rather than on a clock,
 // so a fast army meets them early and a slow one late. They hold the Lawyer on his perch
 // until they are dealt with, so the rulings keep coming while they are on the field.
-/** Who walks on together: the farm boss leading three farmhands. */
+/** Who walks on together: the farm boss leading a crowd of farmhands. The mob moved up to
+ *  t7 when contempt moved down to t3 (owner, 2026-09-27), and came back harder for it: six
+ *  farmhands instead of three, every one of them tougher. */
 export const FARMER_SQUAD_LEADER = "FarmStageActorBoss";
 export const FARMER_SQUAD_MINION = "FarmStageActorFarmhand";
-export const FARMER_SQUAD_MINIONS = 3;
+export const FARMER_SQUAD_MINIONS = 6;
+export const FARMER_MOB_HP_MULT = 2;
 /** Fraction of the wave that must be down before the mob walks on. */
 export const MIDPOINT_WAVE_FRAC = 0.5;
 
@@ -585,6 +610,10 @@ export const IRON_WILL_TIER = 10;
 export const CHARGE_WINDUP_MS = 8_000;
 export const CHARGE_RECOVERY_MS = 2_500;
 export const CHARGE_DAMAGE = 500;
+/** The captain's bulk on top of the wave's scaling. He is the phase — his slam can be
+ *  broken, so he can afford to be a wall of hit points (owner, 2026-09-27). At the old bulk a
+ *  level-45 army killed him in 3.5 s, before his first 8 s wind-up could finish. */
+export const CAPTAIN_HP_MULT = 3.5;
 /** How long a broken charge staggers him, and what he takes while staggered. */
 export const STAGGER_MS = 3_000;
 export const STAGGER_DAMAGE_MULT = 1.5;
@@ -762,7 +791,7 @@ export const BOZO_CONVERT_MS_FAST = 6_000;
 export const BOZO_CAP = 3;
 export const BOZO_CAP_HIGH = 6;
 /** One bozo's pool of hit points in the stack — knock off this much and one falls off. */
-export const BOZO_HP = 2_400;
+export const BOZO_HP = 6_000;
 /** The stack's hammers: the interval at height 1 (divided by the height), and each one's
  *  damage. The art is a placeholder until a hammer sprite exists. */
 export const HAMMER_MS = 3_000;
@@ -910,7 +939,7 @@ export const LOCKOUT_TIER = 9;
 export const DUAL_CAST_TIER = 10;
 
 /** Cancels for the whole fight, at every rung. */
-export const BUBBLE_CANCELS = 5;
+export const BUBBLE_CANCELS = 3;
 
 /** One activation every this many ms: the cast window plus the quiet before it. */
 export const BUBBLE_INTERVAL_MS = 10_000;

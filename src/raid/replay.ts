@@ -1178,6 +1178,13 @@ import type { RaidOutcome } from "./types";
 // hammers faster the taller it is. Pixel fire walks a zombie back from t7; the cap is 6 from
 // t9; conversion comes faster at t10. `copies` became the `bigTop` config.
 //
+// The first pass against real level-45 armies (2026-09-27) found the fights ending before
+// their mechanics fired twice, so, still inside v66: the flat target rose to 175,000 wave /
+// 30,000 boss (Aliens & Robots x1.5 on top), base enemy damage x1.5, the stat steps to x1.35
+// damage and x1.18 speed, the pirate captain x3.5 hit points, bozos 6,000 each, the saucer's
+// cancels 5 -> 3, and on raid 12 contempt moved to t3 with the farmer mob moved to t7 and
+// doubled (six farmhands, twice as tough).
+//
 // Every transcript on raids 12-15 at every rung replays differently from v65.
 export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;

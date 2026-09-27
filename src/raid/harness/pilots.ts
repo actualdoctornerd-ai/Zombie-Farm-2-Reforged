@@ -345,7 +345,9 @@ export function makePilot(profile: PilotProfile): Pilot {
         // Held only while the captain is ALIVE and only on a fight that has one, so this
         // never quietly benches a move on the other thirty-three fights; the wind-up
         // branch above is what spends them.
-        if (profile.interrupts && BANKED.has(key) && sim.hasCharge()) continue;
+        // …and only once he is on the field: the captain walks on at the midpoint, and a
+        // Smash held from the opening bell is a whole half-fight of damage thrown away.
+        if (profile.interrupts && BANKED.has(key) && sim.chargerOnField()) continue;
         if (key === "explode" || key === "explodeV2") {
           // The army's biggest single hit, and it kills the zombie that throws it — so
           // spending it into one enemy is a casualty bought for nothing.

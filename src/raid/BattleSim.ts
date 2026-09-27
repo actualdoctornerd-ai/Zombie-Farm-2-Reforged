@@ -2596,6 +2596,12 @@ export class BattleSim {
     return this.enemies.some((e) => !!e.chargeCfg && e.alive);
   }
 
+  /** Whether the charging enemy has actually WALKED ON (raid 13's captain arrives at the
+   *  midpoint). A player holding their stuns for him has no reason to hold them before. */
+  chargerOnField(): boolean {
+    return this.enemies.some((e) => !!e.chargeCfg && e.alive && e.state !== "queued");
+  }
+
   /** Stop a cast that is charging. `slot` picks which of a dual cast (0 or 1); a single
    *  cast only has slot 0. Returns false — a REFUSAL the transcript records — when nothing
    *  is charging, the budget is spent, the lockout holds this activation, or that slot is
