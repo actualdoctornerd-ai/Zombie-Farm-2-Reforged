@@ -49,7 +49,7 @@ function bubbleFight(tier: number, players: CombatUnit[], extraEnemies: CombatUn
   ];
   return new BattleSim(
     players, enemies, null, true, [], NO_ENRAGE_MS, null, null, false, false, false,
-    undefined, null, null, undefined, null, null, false, null, null, null,
+    undefined, null, null, undefined, null, null, null, null, null, null,
     cfgAt(tier), bubbleWallFor(assets, raid15),
   );
 }

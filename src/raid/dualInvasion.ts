@@ -468,33 +468,41 @@ export const FARMER_SQUAD_MINIONS = 3;
 export const MIDPOINT_WAVE_FRAC = 0.5;
 
 // ---------------------------------------------------------------------------
-// RAID 13 — THE CHARGE AND POISE (Ninjas & Pirates)
+// RAID 13 — THE DUEL (Ninjas & Pirates)
 // ---------------------------------------------------------------------------
-// The pirate captain fights on the ground here — the ninja holds the boss slot — and he is
-// authored `str 500, dex 0.4`, which is already the biggest single blow in the game by a
-// wide margin (the Robots' heaviest throw is 50). The charge-up slam is not an invention on
-// top of that stat block; it is that stat block, made visible: he swells and reddens through
-// a long wind-up and then lands one enormous area hit.
+// The pirate captain is the fight's PRIMARY THREAT for a phase, not a heavy that is always
+// on the field. At the midpoint (half the wave down) a smoke bomb goes off, the army is
+// pushed back to give him room, the rest of the wave STANDS DOWN — steps back to the
+// doorway and waits — and the captain walks on. While he stands it is a duel: his charged
+// slam lands on the whole deployed line unless it is stopped by filling a POISE bar with
+// stuns, and a broken charge STAGGERS him (he takes extra damage for a moment), which is the
+// window to hit him in. When he falls the wave comes back.
 //
-// POISE is what makes it a fight rather than a countdown. Stuns FILL A BAR instead of
-// overwriting one another, and filling it before the wind-up completes sends him back to
-// the start of the charge.
+// THE LADDER (docs/POST_45_PROGRESSION.md Part 2B, "The Duel"):
 //
-// WHY A BAR AND NOT A STUN. Everywhere else in the sim a stun is `Math.max`, and against a
-// charge that is an off switch rather than a counter: a Female tier-3 proc is 5% per swing
-// for a full second, so a girl-heavy front line lands one about every 1.7 s and a 2.5 s
-// wind-up would simply never complete, for the whole fight, for free. The bar keeps girls as
-// a real contribution — roughly a quarter of it across a long charge — while making the
-// ANSWER a deliberate move somebody had to hold in reserve.
+//   t1  the captain at the midpoint: smoke, pushback, the wave stands down, poise + stagger
+//   t3  the dex tax: the perched ninja throws faster the more total attack speed is deployed
+//   t5  counter: stunning the ninja boss reflects the stun, doubled, onto the zombie that did it
+//   t7  the ninja's projectiles briefly stun whoever they hit
+//   t9  smoke swap: while the captain is out, he and the ninja trade places by smoke every
+//       8 s; at low health the ninja retreats up top, stops attacking, and cannot be killed
+//       until the rest of the enemies are
+//   t10 iron will: stopping the captain takes several times the stun, and the bar drains
+//       unless it keeps being filled — the stuns have to land together
+//   (t2/t4/t6/t8 are stat steps — see tierProfile)
 //
-// Contributions are per SOURCE rather than per millisecond, because the design intent is
-// about what a move costs the player, not how long it happens to freeze someone: Smash is on
-// a 10 s cooldown, the ram and the fuse are one-use and cost the zombie.
+// POISE is what makes the charge a fight rather than a countdown. Stuns FILL A BAR instead
+// of overwriting one another, and filling it before the wind-up completes breaks the
+// charge. Everywhere else in the sim a stun is `Math.max`, and against a charge that is an
+// off switch rather than a counter: a girl-heavy front line would never let a 2.5 s wind-up
+// complete. The bar keeps girls as a real contribution while making the ANSWER a deliberate
+// move somebody had to hold in reserve. Contributions are per SOURCE: Smash is on a 10 s
+// cooldown, the ram and the fuse are one-use and cost the zombie.
 
-/** Ninjas & Pirates — the invasion the charge belongs to. */
+/** Ninjas & Pirates — the invasion the duel belongs to. */
 export const CHARGE_RAID_ID = 13;
 
-/** What each stun source puts into the poise bar, as a fraction of it. */
+/** What each stun source puts into the poise bar, in bars. */
 export const POISE_CONTRIBUTION: Readonly<Record<string, number>> = {
   stun: 0.1,        // Female tier-3 proc — a supplement, never an answer
   bashV2: 0.5,      // Smash: half the bar, but it comes back every 10 s
@@ -503,51 +511,66 @@ export const POISE_CONTRIBUTION: Readonly<Record<string, number>> = {
   explodeV2: 1.0,
 };
 
-/** The bar is always exactly one bar. The rung dials the CHARGE TIME instead (below), which
- *  keeps one banked ram or fuse always sufficient for one slam while making the slams come
- *  faster than any army can answer them all. The question the fight asks is which ones you
- *  stop, never whether you can. */
+/** One bar, below iron will. */
 export const POISE_THRESHOLD = 1;
 
-/** Wind-up at the bottom and the top of the ladder. Ten seconds is long enough to see the
- *  swell, react, and still land a move; five is long enough to do it if you were ready. */
-export const CHARGE_MS_AT_MIN_TIER = 10_000;
-export const CHARGE_MS_AT_MAX_TIER = 5_000;
+/** The rungs at which the fight changes — see the ladder above. */
+export const DEX_TAX_TIER = 3;
+export const COUNTER_STUN_TIER = 5;
+export const STUNNING_THROWS_TIER = 7;
+export const SMOKE_SWAP_TIER = 9;
+export const IRON_WILL_TIER = 10;
 
-/** How long after a broken charge before he can begin another. Without it a player holding
- *  two ready answers could deny the slam back to back for as long as the answers lasted,
- *  which is the same off switch poise exists to remove — it just costs more. */
+/** The captain's wind-up, the rest after a slam or a break, and the slam. Fixed across the
+ *  ladder — the rungs change the rules around him, and the stat steps his damage. */
+export const CHARGE_WINDUP_MS = 8_000;
 export const CHARGE_RECOVERY_MS = 2_500;
+export const CHARGE_DAMAGE = 500;
+/** How long a broken charge staggers him, and what he takes while staggered. */
+export const STAGGER_MS = 3_000;
+export const STAGGER_DAMAGE_MULT = 1.5;
 
-/** When the captain walks on. He needs his OWN clock for the same reason the farmer squad
- *  does, and for a sharper one: appended to the wave he lands at the BACK of a
- *  ten-deep queue that releases one body at a time, so the fight's centrepiece would not
- *  appear until the player had already killed everything else — and on a short fight,
- *  never. Early and off-budget instead: he arrives while the wave is still trickling, so
- *  the player meets him AND the minions, which is the pressure the fight is for. */
-export const CAPTAIN_ARRIVES_MS = 3_000;
+/** How far the smoke bomb pushes the deployed army back when the captain walks on. */
+export const SMOKE_PUSH_X = 160;
+/** How far behind the doorway the rest of the wave stands while the captain is out. */
+export const STAND_DOWN_X = 140;
+
+/** The counter's doubling, the throw stun, the swap cadence, and the ninja's retreat line. */
+export const COUNTER_STUN_MULT = 2;
+export const THROW_STUN_MS = 600;
+export const SMOKE_SWAP_MS = 8_000;
+export const NINJA_RETREAT_FRAC = 0.3;
+
+/** Iron will: the bar is this many times as deep, and drains at this many bars a second. */
+export const IRON_WILL_POISE = 3;
+export const IRON_WILL_DRAIN_PER_SEC = 0.4;
 
 export interface ChargeConfig {
-  /** Wind-up length at this rung. */
+  /** Wind-up length. */
   windupMs: number;
   /** Pause after a slam OR a broken charge before the next wind-up begins. */
   recoveryMs: number;
   /** Area damage the slam lands on every deployed zombie. */
   damage: number;
+  /** Bars of poise needed to break a charge (1; IRON_WILL_POISE at t10). */
+  poiseThreshold: number;
+  /** Bars the poise drains per second while a charge winds up (0; t10 drains). */
+  poiseDrainPerSec: number;
+  /** A broken charge staggers him for this long, taking STAGGER_DAMAGE_MULT damage. */
+  staggerMs: number;
 }
 
-/** The charge the pirate captain carries at this rung, or null for an invasion without one.
- *
- *  `damage` is NOT his authored 5,000-per-hit: that is a number for a single melee target,
- *  and this lands on the whole line at once. It is capped here, and the cap is a PLACEHOLDER
- *  like every other number in these four fights — see the OPEN item in the doc. */
+/** The charge the pirate captain carries at this rung, or null for an invasion without one. */
 export function chargeFor(raidId: number, tier: number): ChargeConfig | null {
   if (raidId !== CHARGE_RAID_ID) return null;
-  const t = (clampTier(tier) - MIN_TIER) / (MAX_TIER - MIN_TIER);
+  const ironWill = clampTier(tier) >= IRON_WILL_TIER;
   return {
-    windupMs: Math.round(CHARGE_MS_AT_MIN_TIER + (CHARGE_MS_AT_MAX_TIER - CHARGE_MS_AT_MIN_TIER) * t),
+    windupMs: CHARGE_WINDUP_MS,
     recoveryMs: CHARGE_RECOVERY_MS,
-    damage: Math.round(400 + 400 * t),
+    damage: CHARGE_DAMAGE,
+    poiseThreshold: ironWill ? IRON_WILL_POISE : POISE_THRESHOLD,
+    poiseDrainPerSec: ironWill ? IRON_WILL_DRAIN_PER_SEC : 0,
+    staggerMs: STAGGER_MS,
   };
 }
 
@@ -556,43 +579,58 @@ export function poiseFor(source: string): number {
   return POISE_CONTRIBUTION[source] ?? 0;
 }
 
+/** The fight-wide duel rules at this rung (the captain's own charge rides on his unit). */
+export interface DuelConfig {
+  /** How far the smoke pushes the army back when the captain walks on. */
+  smokePushX: number;
+  /** How far behind the doorway the wave stands down while he is out. */
+  standDownX: number;
+  /** The perched ninja's throw rate tracks the army's attack speed (t3+). */
+  dexTax: boolean;
+  /** Stunning the ninja boss reflects the stun, times this, onto the stunner (t5+; 0 = off). */
+  counterStunMult: number;
+  /** The ninja's projectiles stun for this long on hit (t7+; 0 = off). */
+  throwStunMs: number;
+  /** Swap cadence while the captain is out (t9+; 0 = off). */
+  swapMs: number;
+  /** The ninja retreats at this fraction of his health (t9+). */
+  ninjaRetreatFrac: number;
+}
+
+/** The duel at this rung, or null for an invasion without one. */
+export function duelFor(raidId: number, tier: number): DuelConfig | null {
+  if (raidId !== CHARGE_RAID_ID) return null;
+  const rung = clampTier(tier);
+  return {
+    smokePushX: SMOKE_PUSH_X,
+    standDownX: STAND_DOWN_X,
+    dexTax: rung >= DEX_TAX_TIER,
+    counterStunMult: rung >= COUNTER_STUN_TIER ? COUNTER_STUN_MULT : 0,
+    throwStunMs: rung >= STUNNING_THROWS_TIER ? THROW_STUN_MS : 0,
+    swapMs: rung >= SMOKE_SWAP_TIER ? SMOKE_SWAP_MS : 0,
+    ninjaRetreatFrac: NINJA_RETREAT_FRAC,
+  };
+}
+
 // ---------------------------------------------------------------------------
-// RAID 13 — THE DEX TAX
+// RAID 13 — THE DEX TAX (t3+)
 // ---------------------------------------------------------------------------
 // The ninja holds the perch and throws, and how OFTEN he throws is a function of the army
-// underneath him: the total attack speed of everything the player has deployed. The fight
-// opens quiet and ends as rapid fire.
-//
-// This is a ROSTER tax, not a pacing decision. The player cannot hold a zombie back —
-// `promote()` auto-charges the next whenever nobody is charging — so the lever is what you
-// BRING. Sixteen Vagabonds (dex 8, against a reference maximum of 4.4) make the sky rain;
-// a line of Large brutes (dex 1.3) keeps it quiet. It lands on exactly the two stack metas:
-// Female averages 4.18 dex and Regular tops out at 8 entirely because of the Vagabond.
-//
-// It is also the one enemy behaviour in the game that reads the player's own units, so it
-// is worth being explicit that it stays deterministic: deployed dex is sim state, both
-// sides run the same sim from the same pinned config, and nothing here touches a roll.
-
-/** Dex on the field at which the throw interval has been cut in half. Tuned as a
- *  PLACEHOLDER: 32 is sixteen dex-2 zombies, i.e. a full army of ordinary ones. */
+// underneath him: the total attack speed of everything the player has deployed. It lands on
+// exactly the two stack metas — Female averages 4.18 dex and Regular tops out at 8 entirely
+// because of the Vagabond — so the lever is what you BRING. Deterministic: deployed dex is
+// sim state, and nothing here touches a roll.
+/** Dex on the field at which the throw interval has been cut in half. 32 is sixteen dex-2
+ *  zombies, i.e. a full army of ordinary ones. */
 export const DEX_TAX_HALF_AT = 32;
-
-/** The floor on the interval, as a fraction of the authored one. Without it a maxed
- *  dex-8 army drives the interval toward zero and the fight becomes a wall of projectiles
- *  no roster can survive — the tax is meant to bite, not to be a hard cap on dex. */
+/** The floor on the interval, as a fraction of the authored one, so a maxed dex army
+ *  cannot drive it to nothing. */
 export const DEX_TAX_MIN_FRACTION = 0.25;
-
-/** The throw interval for a given authored interval and the total dex now deployed.
- *  `deployedDex` 0 (nobody out yet) returns the authored interval unchanged. */
+/** The throw interval for a given authored interval and the total dex now deployed. */
 export function dexTaxedInterval(authoredMs: number, deployedDex: number): number {
   const dex = Math.max(0, deployedDex);
   const scale = Math.max(DEX_TAX_MIN_FRACTION, DEX_TAX_HALF_AT / (DEX_TAX_HALF_AT + dex));
   return Math.max(1, Math.round(authoredMs * scale));
-}
-
-/** Whether this invasion's perched boss charges the dex tax. Raid 13 alone. */
-export function isDexTaxRaid(raidId: number): boolean {
-  return raidId === CHARGE_RAID_ID;
 }
 
 // ---------------------------------------------------------------------------

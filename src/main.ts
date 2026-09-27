@@ -5803,7 +5803,7 @@ async function main() {
       wallTemplate: setup.wallTemplate,
       turnedTemplate: setup.turnedTemplate,
       sign: setup.sign,
-      dexTax: setup.dexTax,
+      duel: setup.duel,
       copies: setup.copies,
       bubble: setup.bubble,
       bubbleWall: setup.bubbleWall,

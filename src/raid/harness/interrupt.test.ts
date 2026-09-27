@@ -69,16 +69,18 @@ describe("the charge observer", () => {
   it("sees the captain wind up, and reports poise against a real threshold", () => {
     const roster = buildRoster({ ...BASE, pattern: CARRIERS_FIRST });
     const { spec } = harnessFight({
-      raidId: CHARGE_RAID_ID, tier: 10, hazards: true, playerLevel: 47,
+      raidId: CHARGE_RAID_ID, tier: 5, hazards: true, playerLevel: 47,
       playerUnits: roster.units, waveSeed: "charge",
     });
     const sim = buildFight(spec);
     let seen = null as ReturnType<typeof sim.chargeStatus>;
-    for (let i = 0; i < 600 && !seen; i++) {
+    // The captain walks on at the MIDPOINT now, so give the army the whole clock to get him
+    // there rather than the opening half-minute.
+    for (let i = 0; i < 4_800 && !seen && !sim.finished; i++) {
       sim.step(RAID_TICK_MS);
       seen = sim.chargeStatus();
     }
-    expect(seen, "no wind-up inside 30 s of raid 13 t10").not.toBeNull();
+    expect(seen, "no wind-up at all in raid 13 t5").not.toBeNull();
     expect(sim.hasCharge()).toBe(true);
     expect(seen!.threshold).toBe(POISE_THRESHOLD);
     expect(seen!.poise).toBeGreaterThanOrEqual(0);
@@ -89,11 +91,11 @@ describe("the charge observer", () => {
   });
 
   it("is a pure read — polling it changes no outcome", () => {
-    const quiet = fly(CHARGE_RAID_ID, 10, true);
+    const quiet = fly(CHARGE_RAID_ID, 5, true);
     const roster = buildRoster({ ...BASE, pattern: CARRIERS_FIRST });
     const { spec } = harnessFight({
-      raidId: CHARGE_RAID_ID, tier: 10, hazards: true, playerLevel: 47,
-      playerUnits: roster.units, waveSeed: `interrupt:${CHARGE_RAID_ID}:10:true`,
+      raidId: CHARGE_RAID_ID, tier: 5, hazards: true, playerLevel: 47,
+      playerUnits: roster.units, waveSeed: `interrupt:${CHARGE_RAID_ID}:5:true`,
     });
     const sim = buildFight(spec);
     const pilot = makePilot({ ...EXPERT, interrupts: true, id: "expert" });
@@ -102,7 +104,7 @@ describe("the charge observer", () => {
       id: pilot.id,
       reset: (s) => pilot.reset(s),
       decide: (s, t) => { s.chargeStatus(); s.hasCharge(); s.chargeStatus(); return pilot.decide(s, t); },
-    }, { seed: `interrupt:${CHARGE_RAID_ID}:10:true` });
+    }, { seed: `interrupt:${CHARGE_RAID_ID}:5:true` });
     expect(noisy.win).toBe(quiet.flight.win);
     expect(noisy.losses).toBe(quiet.flight.losses);
     expect(noisy.ticks).toBe(quiet.flight.ticks);
@@ -111,13 +113,17 @@ describe("the charge observer", () => {
 
 describe("the interrupt policy", () => {
   it("breaks charges a pilot without it eats", () => {
-    const on = fly(CHARGE_RAID_ID, 10, true);
-    const off = fly(CHARGE_RAID_ID, 10, false);
+    // t3, below the counter: at t5+ a Smash that lands on the grounded ninja is reflected,
+    // which is a different question from whether banking beats spending.
+    const on = fly(CHARGE_RAID_ID, 3, true);
+    const off = fly(CHARGE_RAID_ID, 3, false);
     // Both see the same fight; the one that banks its Smash stops more of it. Asserted as
     // a strict improvement rather than a fixed count, because the count is a balance
     // number and this file is about the mechanism.
     expect(on.breaks).toBeGreaterThan(off.breaks);
-    expect(on.slams).toBeLessThan(off.slams);
+    // A maxed roster can now kill a lone captain inside one wind-up, so the slams may both
+    // be zero; what must hold is that banking never lets MORE through.
+    expect(on.slams).toBeLessThanOrEqual(off.slams);
     // Every broken charge is a slam that did not land, so the two have to move together.
     expect(on.breaks + on.slams).toBeGreaterThan(0);
   });

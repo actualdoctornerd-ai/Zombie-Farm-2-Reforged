@@ -30,7 +30,7 @@ import type {
 import { turnedUnitFor } from "./videoGameStage";
 import { buildUnitsForKeys } from "./CombatEngine";
 import {
-  CAPTAIN_ARRIVES_MS, chargeFor, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
+  chargeFor, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
   BUBBLE_RAID_ID, BUBBLE_ROBOT_KEY,
   SIGN_RAID_ID, stacksFor, STACK_COUNT, STACK_FIRST_AT_MS, STACK_GAP_MS,
 } from "./dualInvasion";
@@ -295,8 +295,9 @@ export function farmerSquadFor(
  *  his charge-up slam.
  *
  *  He is the guest faction's boss arriving as a POWERFUL MINION — the ninja holds the one
- *  boss slot — so he is built as an ordinary unit. He carries a `deployAtMs` like the
- *  farmer squad, and for a sharper reason than they do: see CAPTAIN_ARRIVES_MS. */
+ *  boss slot — so he is built as an ordinary unit. He walks on at the fight's MIDPOINT
+ *  (`deployAtWaveFrac`, like the farmer mob) and the rest of the wave stands down while he
+ *  is out: see the duel in dualInvasion.ts. */
 export function pirateCaptainFor(
   assets: FightAssets,
   raid: RaidDef,
@@ -310,7 +311,7 @@ export function pirateCaptainFor(
     [PIRATE_CAPTAIN_KEY], null, assets.enemyStats, assets.raidAttacks,
     { raidId: raid.id, playerLevel, elite }
   );
-  return unit ? [{ ...unit, id: "captain", charge, deployAtMs: CAPTAIN_ARRIVES_MS }] : [];
+  return unit ? [{ ...unit, id: "captain", charge, deployAtWaveFrac: MIDPOINT_WAVE_FRAC }] : [];
 }
 
 /** The Circus & Video Games towers: up to STACK_COUNT midget stacks, appended to the wave

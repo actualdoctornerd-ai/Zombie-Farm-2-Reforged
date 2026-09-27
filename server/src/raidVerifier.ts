@@ -52,7 +52,7 @@ import {
 import { parseRosterColor } from "./v3/rosterColor";
 import {
   isDualInvasion, MAX_TIER, MIN_TIER, raidProfile,
-  type BubbleConfig, type CopyConfig, type SignConfig,
+  type BubbleConfig, type CopyConfig, type DuelConfig, type SignConfig,
 } from "../../src/raid/dualInvasion";
 
 export { RAID_RULESET_VERSION };
@@ -89,8 +89,8 @@ export interface PinnedRaidConfig {
   turnedTemplate?: CombatUnit | null;
   /** The Lawyer boss's placard rotation, pinned at /raid/start (raid 12 only). */
   sign?: SignConfig | null;
-  /** The ninja's throw rate tracks the army's attack speed (raid 13 only). */
-  dexTax?: boolean;
+  /** The duel's fight-wide rules (raid 13 only). */
+  duel?: DuelConfig | null;
   /** The trapeze's copies of the player's own zombies (raid 14 only). */
   copies?: CopyConfig | null;
   /** The saucer's five-action bubble, and the wall its `wall` action drops (raid 15). */
@@ -244,7 +244,7 @@ export function createPinnedSim(config: PinnedRaidConfig): BattleSim {
     waveCadence: config.waveCadence ?? waveCadenceFor(config.raidId),
     turnedTemplate: config.turnedTemplate,
     sign: config.sign,
-    dexTax: config.dexTax,
+    duel: config.duel,
     copies: config.copies,
     bossDropAtMs: config.bossDropAtMs,
     bossGroundStationX: config.bossGroundStationX,

@@ -53,6 +53,7 @@ import {
   ABDUCTEE_WALL_GAP, autoPickFor, COPY_PASSIVE_ABILITIES, OVERRULED_ABILITIES, RULING_EMBOLDEN,
   RULING_SLOW, RULING_WEAKEN, rulingKey, rulingsFor, signOfferAt,
   COPY_STATION_X, COPY_TINT, dexTaxedInterval, poiseFor, POISE_THRESHOLD, PORTAL_FRACTION,
+  STAGGER_DAMAGE_MULT, type DuelConfig,
   type BubbleAction, type BubbleConfig, type ChargeConfig, type CopyConfig,
   type Ruling, type SignConfig, type SignOffer,
 } from "./dualInvasion";
@@ -752,6 +753,8 @@ export interface SimUnit {
   chargeBreakSeq: number;
   /** Bumped every time a slam lands, so the scene can play the impact once. */
   chargeSlamSeq: number;
+  /** Ms left on a stagger — a broken charge leaves the captain open (raid 13). */
+  staggerMs: number;
   /** Enemy that ignores its dex clock and mirrors its opponent's (both pirates). */
   mirrorsOpponentSpeed: boolean;
   /** A zombie's SPECIES BASE cycle in ms (2 s ÷ catalog dex, nothing else applied).
@@ -890,6 +893,12 @@ export interface BattleSimSnapshot {
    *  treats both as "nothing decided yet", which is what a fresh sim holds. */
   signResolved?: number[];
   signPending?: number | null;
+  /** The duel (raid 13): the swap clock, who is down, and the ninja's retreat. */
+  swapTimerMs?: number;
+  ninjaDown?: boolean;
+  duelGroundX?: number;
+  ninjaRetreated?: boolean;
+  smokeSeq?: number;
   /** The saucer's bubble (raid 15): where it is in the cycle, what is charging, how long
    *  it stays quiet, and what the player has left to spend. Absent on every other raid and
    *  on any snapshot taken before the mechanic existed — `restore` reads those as a fight
@@ -1070,6 +1079,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     chargeFrac: 0,
     chargeBreakSeq: 0,
     chargeSlamSeq: 0,
+    staggerMs: 0,
     mirrorsOpponentSpeed: !isPlayer && !!u.mirrorsOpponentSpeed,
     speciesCycleMs: u.speciesCycleMs ?? u.attackCooldownMs,
   };
@@ -1148,6 +1158,15 @@ export class BattleSim {
   private bubbleFireSeq = 0;
   private bubbleCancelSeq = 0;
   private portalSeq = 0;
+  // ---- the duel (raid 13; see dualInvasion.ts) ----
+  /** Ms to the next smoke swap, whether the ninja is the one on the ground right now, where
+   *  the swap puts whoever comes down, and whether the ninja has retreated for good. */
+  private swapTimerMs = 0;
+  private ninjaDown = false;
+  private duelGroundX = 0;
+  private ninjaRetreated = false;
+  /** Bumped on every smoke bomb (the captain's entrance and every swap), for the scene. */
+  smokeSeq = 0;
   // ---- the Lawyer boss's objection (raid 12; see dualInvasion.ts) ----
   /** Which bubble was taken for each RESOLVED slot, oldest first. Its LENGTH is the index
    *  of the offer currently on the table, which is why nothing else stores that. */
@@ -1248,9 +1267,10 @@ export class BattleSim {
     /** The Lawyer boss's placard rotation (null = this invasion has no sign). See
      *  raid/dualInvasion.ts. */
     private signCfg: SignConfig | null = null,
-    /** The ninja's throw rate tracks the army's total dex (raid 13). See the dex tax in
-     *  raid/dualInvasion.ts. */
-    private dexTax = false,
+    /** The duel's fight-wide rules (raid 13; null everywhere else): the smoke and the
+     *  stand-down around the captain, the dex tax, the counter, the stunning throws and
+     *  the smoke swap. See raid/dualInvasion.ts. */
+    private duel: DuelConfig | null = null,
     /** The trapeze's copies of the player's own zombies (raid 14; null = this invasion
      *  has none). See spawnCopy and raid/dualInvasion.ts. */
     private copyCfg: CopyConfig | null = null,
@@ -1392,6 +1412,11 @@ export class BattleSim {
       activatedKeys: [...this.activatedKeys],
       signResolved: [...this.signResolved],
       signPending: this.signPending,
+      swapTimerMs: this.swapTimerMs,
+      ninjaDown: this.ninjaDown,
+      duelGroundX: this.duelGroundX,
+      ninjaRetreated: this.ninjaRetreated,
+      smokeSeq: this.smokeSeq,
       bubbleIndex: this.bubbleIndex,
       bubbleCastMs: this.bubbleCastMs,
       bubbleGapMs: this.bubbleGapMs,
@@ -1443,6 +1468,7 @@ export class BattleSim {
       chargeFrac: u.chargeFrac ?? 0,
       chargeBreakSeq: u.chargeBreakSeq ?? 0,
       chargeSlamSeq: u.chargeSlamSeq ?? 0,
+      staggerMs: u.staggerMs ?? 0,
       isSummon: u.isSummon ?? false,
       // A checkpoint written before the split cannot reach here — the session handshake
       // rejects its ruleset — so this is the same belt-and-braces default as isTurned
@@ -1521,6 +1547,11 @@ export class BattleSim {
     this.activatedGroups.splice(0, this.activatedGroups.length, ...activatedGroupsOf(this.activatedKeys));
     this.signResolved = [...(snapshot.signResolved ?? [])];
     this.signPending = snapshot.signPending ?? null;
+    this.swapTimerMs = snapshot.swapTimerMs ?? 0;
+    this.ninjaDown = snapshot.ninjaDown ?? false;
+    this.duelGroundX = snapshot.duelGroundX ?? 0;
+    this.ninjaRetreated = snapshot.ninjaRetreated ?? false;
+    this.smokeSeq = snapshot.smokeSeq ?? 0;
     this.bubbleIndex = snapshot.bubbleIndex ?? 0;
     this.bubbleCastMs = snapshot.bubbleCastMs ?? 0;
     this.bubbleGapMs = snapshot.bubbleGapMs ?? this.bubbleCfg?.gapMs ?? 0;
@@ -1947,12 +1978,12 @@ export class BattleSim {
         if (e.isTurned) continue;
         if (e.isBoss && !ab.hitBoss && (key === "explode" || key === "explodeV2")) continue;
         this.recordAbilityKill(key, e, () => this.dealDamage(e, dmg, true));
-        if (ab.stunMs) this.stunEnemy(e, ab.stunMs, key);
+        if (ab.stunMs) this.stunEnemy(e, ab.stunMs, key, p);
         this.playerDamage += dmg;
       }
     } else if (foe) {
       this.recordAbilityKill(key, foe, () => this.dealDamage(foe, dmg, true));
-      if (ab.stunMs) this.stunEnemy(foe, ab.stunMs, key);
+      if (ab.stunMs) this.stunEnemy(foe, ab.stunMs, key, p);
       this.playerDamage += dmg;
     }
     p.struckThisTick = true;
@@ -2007,7 +2038,7 @@ export class BattleSim {
     carrier.buddyId = null;
     carrier.abilityCdMs = 0;
     carrier.stunMs = Math.max(carrier.stunMs, MINI_CARRIER_STUN_MS);
-    if (foe) this.stunEnemy(foe, MINI_ENEMY_STUN_MS, "attachMini");
+    if (foe) this.stunEnemy(foe, MINI_ENEMY_STUN_MS, "attachMini", carrier);
     if (!mini || !mini.alive) return;
     mini.buddyCarrierId = null;
     mini.buddyMountMs = 0;
@@ -2163,6 +2194,7 @@ export class BattleSim {
     for (const e of this.enemies) {
       if (!e.alive || e.state === "queued" || e.state === "structure" || e.state === "descending" ||
           e.state === "falling" || e.state === "landing" || e.isWall || e.isTurned) continue;
+      if (this.standsDown(e)) continue;
       const d = Math.abs(e.x - u.x);
       if (d < bestD) {
         bestD = d;
@@ -2218,19 +2250,127 @@ export class BattleSim {
    *  up a charge the stun does NOT land: it goes into the bar instead, and filling the bar
    *  is what stops him. That swap is the whole mechanic — a stun that both froze him and
    *  filled the bar would be the off switch poise exists to remove. */
-  private stunEnemy(foe: SimUnit, ms: number, source: string) {
+  private stunEnemy(foe: SimUnit, ms: number, source: string, by: SimUnit | null = null) {
     if (!foe.alive) return;
     // Immunity (raid 12): no stun lands, and none feeds a bar either.
     if (this.rulingFx.immune) return;
+    // The counter (raid 13, t5+): the ninja boss turns a stun round, doubled, onto the zombie
+    // that threw it. Passive procs included — that is the tax on a stun army hitting him.
+    const counter = this.duel?.counterStunMult ?? 0;
+    if (counter > 0 && foe.isBoss && by && by.alive) {
+      by.stunMs = Math.max(by.stunMs, ms * counter);
+      by.struckThisTick = true;
+      return;
+    }
     if (foe.chargeMs > 0) {
       const gain = poiseFor(source);
       if (gain > 0) {
-        foe.poise = Math.min(POISE_THRESHOLD, foe.poise + gain);
-        if (foe.poise >= POISE_THRESHOLD) this.breakCharge(foe);
+        const threshold = foe.chargeCfg?.poiseThreshold ?? POISE_THRESHOLD;
+        foe.poise = Math.min(threshold, foe.poise + gain);
+        if (foe.poise >= threshold) this.breakCharge(foe);
       }
       return;
     }
     foe.stunMs = Math.max(foe.stunMs, ms);
+  }
+
+  /** The pirate captain (raid 13), or null on every other fight. */
+  private captain(): SimUnit | null {
+    if (!this.duel) return null;
+    return this.enemies.find((e) => !!e.chargeCfg) ?? null;
+  }
+
+  /** The captain has walked on and is still standing: the duel is on. */
+  private captainOut(): boolean {
+    const c = this.captain();
+    return !!c && c.alive && c.state !== "queued";
+  }
+
+  /** Whether this enemy is standing down for the duel: an ordinary wave body while the
+   *  captain is out. Never the captain, the boss, a wall or anything summoned. */
+  private standsDown(e: SimUnit): boolean {
+    if (!this.duel || e.chargeCfg || e.isBoss || e.isWall || e.isSummon || e.isTurned) return false;
+    return this.captainOut();
+  }
+
+  /** The smoke bomb: every deployed zombie out on the lane is pushed back, clear of the
+   *  doorway. Healers at the rear station and zombies still filing out of the queue are
+   *  left where they are — this is room for a duel, not a rout. */
+  private smokeBomb() {
+    const push = this.duel?.smokePushX ?? 0;
+    this.smokeSeq++;
+    if (push <= 0) return;
+    for (const p of this.players) {
+      if (!p.alive || p.taken || (p.state !== "advance" && p.state !== "fight")) continue;
+      if (p.x <= this.supportX + 0.5) continue;
+      p.x = Math.max(this.supportX, p.x - push);
+      p.prevX = p.x;
+      p.vx = 0;
+      p.inLine = false;
+      p.state = "advance";
+      p.windupKey = null;
+      p.windupMs = 0;
+    }
+  }
+
+  /** The smoke swap (raid 13, t9+): while the captain is out, he and the ninja trade places
+   *  every `swapMs`. The ninja comes down to the captain's spot and fights; the captain goes
+   *  up to the perch, where nothing can reach him and his charge waits. */
+  private stepDuel(dtMs: number) {
+    const cfg = this.duel;
+    const boss = this.boss;
+    if (!cfg || !boss) return;
+    const cap = this.captain();
+    const capOnDuty = !!cap && cap.alive && (cap.state === "hold" || cap.state === "fight" || cap.state === "structure");
+    // The captain gone: the ninja does not stay down in his place.
+    if (!capOnDuty) {
+      if (this.ninjaDown) this.duelSwap(false);
+      return;
+    }
+    if (!cfg.swapMs || this.ninjaRetreated || !boss.alive) return;
+    if (this.swapTimerMs <= 0) this.swapTimerMs = cfg.swapMs;
+    this.swapTimerMs -= dtMs;
+    if (this.swapTimerMs > 0) return;
+    this.swapTimerMs = cfg.swapMs;
+    this.duelSwap(!this.ninjaDown);
+  }
+
+  /** Put the ninja on the ground (`down`) or back on his perch, and the captain in the
+   *  other place. */
+  private duelSwap(down: boolean) {
+    const boss = this.boss;
+    const cap = this.captain();
+    if (!boss || down === this.ninjaDown) return;
+    this.smokeSeq++;
+    if (down) {
+      if (!cap || !cap.alive) return;
+      this.duelGroundX = cap.x;
+      cap.state = "structure";
+      cap.x = BOSS_STRUCT_X;
+      cap.y = BOSS_STRUCT_Y;
+      boss.state = "hold";
+      boss.x = this.duelGroundX;
+      boss.y = CENTER_Y;
+      this.ninjaDown = true;
+    } else {
+      boss.state = "structure";
+      boss.x = boss.stationX ?? BOSS_STRUCT_X;
+      boss.y = boss.stationY ?? BOSS_STRUCT_Y;
+      if (cap && cap.alive && cap.state === "structure") {
+        cap.state = "hold";
+        cap.x = this.duelGroundX || this.holdXOf(cap);
+        cap.y = CENTER_Y;
+      }
+      this.ninjaDown = false;
+    }
+    for (const u of [boss, cap]) {
+      if (!u) continue;
+      u.prevX = u.x;
+      u.prevY = u.y;
+      u.vx = 0;
+      u.vy = 0;
+      u.timerMs = this.cycleMs(u, null);
+    }
   }
 
   /** A filled bar: the wind-up is abandoned and he has to start again, after a rest. */
@@ -2239,6 +2379,8 @@ export class BattleSim {
     u.poise = 0;
     u.chargeFrac = 0;
     u.chargeRestMs = u.chargeCfg?.recoveryMs ?? 0;
+    // A broken charge STAGGERS him: the window the duel is built around (raid 13).
+    u.staggerMs = u.chargeCfg?.staggerMs ?? 0;
     u.chargeBreakSeq++;
   }
 
@@ -2251,6 +2393,7 @@ export class BattleSim {
   private stepSlamCharge(u: SimUnit, dtMs: number) {
     const cfg = u.chargeCfg;
     if (!cfg || !u.alive) return;
+    if (u.staggerMs > 0) u.staggerMs = Math.max(0, u.staggerMs - dtMs);
     if (u.chargeRestMs > 0) {
       u.chargeRestMs = Math.max(0, u.chargeRestMs - dtMs);
       return;
@@ -2263,6 +2406,11 @@ export class BattleSim {
     }
     u.chargeMs = Math.max(0, u.chargeMs - dtMs);
     u.chargeFrac = cfg.windupMs > 0 ? 1 - u.chargeMs / cfg.windupMs : 0;
+    // Iron will (raid 13, t10): the bar drains unless it keeps being filled, so the stuns
+    // that break it have to land together.
+    if (cfg.poiseDrainPerSec > 0 && u.poise > 0) {
+      u.poise = Math.max(0, u.poise - (cfg.poiseDrainPerSec * dtMs) / 1000);
+    }
     if (u.chargeMs > 0) return;
     // The slam. It lands on every DEPLOYED zombie at once — that is what makes it worth
     // spending a one-use move to stop, and why its damage is capped well under his authored
@@ -2395,7 +2543,7 @@ export class BattleSim {
         windupMsLeft: e.chargeMs,
         windupTotalMs: e.chargeCfg.windupMs,
         poise: e.poise,
-        threshold: POISE_THRESHOLD,
+        threshold: e.chargeCfg.poiseThreshold ?? POISE_THRESHOLD,
       };
     }
     return null;
@@ -3091,7 +3239,7 @@ export class BattleSim {
         this.attacksLanded++;
       }
       if (u.abilities.includes("stun") && this.abilityRoll(u) > 95 && foe.alive) {
-        this.stunEnemy(foe, 1000, "stun");
+        this.stunEnemy(foe, 1000, "stun", u);
       }
     }
     u.struckThisTick = true;
@@ -3197,6 +3345,20 @@ export class BattleSim {
   }
 
   private dealDamage(foe: SimUnit, dmg: number, fromPlayer: boolean) {
+    // A staggered captain takes more (raid 13): the payoff for breaking his charge.
+    if (fromPlayer && foe.staggerMs > 0 && dmg > 0) dmg = Math.round(dmg * STAGGER_DAMAGE_MULT);
+    // The ninja's retreat (raid 13, t9+): on the ground he cannot be taken below his retreat
+    // line — he smokes back up to the perch instead, and stays there until the rest are down.
+    if (foe === this.boss && this.ninjaDown && !this.ninjaRetreated && this.duel?.swapMs) {
+      const floor = foe.maxHp * this.duel.ninjaRetreatFrac;
+      if (foe.hp - dmg <= floor) {
+        if (dmg > 0) foe.damageFxTaken += Math.max(0, foe.hp - floor);
+        foe.hp = Math.max(1, floor);
+        this.ninjaRetreated = true;
+        this.duelSwap(false);
+        return;
+      }
+    }
     // Weakened (raid 12): the army's blows land lighter. Taps on a wall or on a converted
     // zombie are the player's own fingers, not the army's damage, so they are left alone.
     if (fromPlayer && this.rulingFx.weaken !== 1 && dmg > 0 && foe.team === "enemy" &&
@@ -3595,7 +3757,10 @@ export class BattleSim {
     }
     for (const e of this.enemies) {
       if (e.deployAtMs === null || !e.alive || e.state !== "queued") continue;
-      if (this.elapsed >= e.deployAtMs) e.state = "emerging";
+      if (this.elapsed < e.deployAtMs) continue;
+      e.state = "emerging";
+      // The captain's entrance (raid 13): a smoke bomb pushes the army back to give him room.
+      if (e.chargeCfg && this.duel) this.smokeBomb();
     }
     // A support defender alone at the back would stand past the attackers' reach and
     // run the fight to the four-minute cap. Drop its station so it walks up to the
@@ -3627,7 +3792,8 @@ export class BattleSim {
     // un-passed zombies, and no replacement follows the boss down — every boss action is
     // perch-gated in canPerform.
 
-    if (activeMelee < this.activeTarget) {
+    // While the captain is out the wave STANDS DOWN (raid 13) — nobody new walks on.
+    if (activeMelee < this.activeTarget && !this.captainOut()) {
       const next = this.enemies.find(
         (e) => e.alive && !e.isBoss && e.deployAtMs === null && e.deployAtWaveFrac === null &&
           e.state === "queued" && !e.deployWithBoss
@@ -3880,6 +4046,7 @@ export class BattleSim {
     this.stepBubble(dtMs);
 
     this.promote(dtMs);
+    this.stepDuel(dtMs);
     this.refreshTeamAuras();
     this.stepEnrage(dtMs);
 
@@ -4167,6 +4334,15 @@ export class BattleSim {
         }
         continue;
       }
+      // The stand-down (raid 13): while the captain is out, the rest of the wave steps back
+      // behind the doorway and waits. It does not swing and is not a target.
+      if (this.standsDown(e)) {
+        const holdX = this.holdXOf(e) + (this.duel?.standDownX ?? 0);
+        e.x = Math.min(holdX, e.x + (EMERGE_SPEED * dtMs) / 1000);
+        e.state = "hold";
+        e.timerMs = this.cycleMs(e, null);
+        continue;
+      }
       // Stunned (by an Explode) — can't act; hold its attack clock.
       if (e.stunMs > 0) {
         e.stunMs -= dtMs;
@@ -4331,8 +4507,8 @@ export class BattleSim {
       this.throwCount++;
       // The dex tax (raid 13): the wait until the NEXT throw is re-derived from the army
       // that is on the field right now, so it tightens as the player commits more of it.
-      // Off everywhere else — `dexTax` is false and the authored interval stands.
-      this.actionCd = this.dexTax
+      // Off everywhere else, and below t3 — the authored interval stands.
+      this.actionCd = this.duel?.dexTax
         ? dexTaxedInterval(this.bossThrow!.intervalMs, this.deployedDex())
         : this.bossThrow!.intervalMs;
       this.rollNextAction();
@@ -4356,6 +4532,8 @@ export class BattleSim {
    *  actions once it has landed. */
   private bossCanAct(): boolean {
     if (!this.boss || !this.boss.alive) return false;
+    // The retreated ninja (raid 13, t9+) sits up top and does nothing until the rest are down.
+    if (this.ninjaRetreated) return false;
     if (this.bossFallsFromSky) return this.boss.state !== "falling";
     return this.boss.state === "structure";
   }
@@ -5239,6 +5417,10 @@ export class BattleSim {
           // (stepCrabs), not projectiles — a projectile only ever deals damage.
           this.dealEnemyDamage(p, pr.damage);
           p.struckThisTick = true;
+          // The ninja's throws stun on hit from t7 (raid 13). The only projectiles in that
+          // fight are his, so the rule needs no owner check.
+          const throwStun = this.duel?.throwStunMs ?? 0;
+          if (throwStun > 0 && p.alive) p.stunMs = Math.max(p.stunMs, throwStun);
           this.projectileImpactsThisTick++;
           this.lastProjectileImpactSprite = pr.sprite;
           pr.done = true;

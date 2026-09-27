@@ -49,7 +49,7 @@ import { BRAIN_TICKET_KEY, ELITE_BRAIN_LUCK } from "./eliteInvasion";
 import {
   acceptsBrainTicket, isDualInvasion, MAX_TIER,
   MIN_TIER, raidProfile,
-  type BubbleConfig, type CopyConfig, type SignConfig,
+  type BubbleConfig, type CopyConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
 
 // ---- HUD-facing view models ----
@@ -274,7 +274,7 @@ export interface RaidSetup {
    *  it pins into the session config. */
   sign: SignConfig | null;
   /** The ninja's throw rate tracks the army's total attack speed (raid 13 only). */
-  dexTax: boolean;
+  duel: DuelConfig | null;
   /** The trapeze's copies of the player's own zombies (raid 14 only; null elsewhere). */
   copies: CopyConfig | null;
   /** The saucer's five-action bubble, and the wall its `wall` action drops (raid 15). */

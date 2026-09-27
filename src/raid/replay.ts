@@ -1159,6 +1159,14 @@ import type { RaidOutcome } from "./types";
 // applies both) from t7; severe scalars from t9; precedent (two slots in force) at t10.
 // `signPick` is unchanged on the wire.
 //
+// Raid 13 (Ninjas & Pirates): the duel. The captain walks on at the midpoint behind a smoke
+// bomb that pushes the army back; the rest of the wave stands down (steps behind the doorway,
+// neither swings nor is targeted, and no more walk on) until he falls. A broken charge
+// staggers him (x1.5 damage taken). The dex tax from t3; the ninja counters stuns onto the
+// stunner (x2) from t5; his throws stun from t7; the captain and ninja swap places by smoke
+// every 8 s from t9, with the ninja retreating to his perch at 30% health until the rest are
+// down; iron will (a triple-depth bar that drains) at t10. `dexTax` became the `duel` config.
+//
 // Every transcript on raids 12-15 at every rung replays differently from v65.
 export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;

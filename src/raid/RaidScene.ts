@@ -77,7 +77,8 @@ type RaidInputDraft =
   | { type: "retreat" };
 import { BASE } from "../base";
 import {
-  rulingKey, type BubbleAction, type BubbleConfig, type CopyConfig, type Ruling, type SignConfig,
+  rulingKey, type BubbleAction, type BubbleConfig, type CopyConfig, type DuelConfig, type Ruling,
+  type SignConfig,
 } from "./dualInvasion";
 
 export interface RaidSceneParams {
@@ -99,8 +100,8 @@ export interface RaidSceneParams {
   turnedTemplate?: CombatUnit | null;
   /** The Lawyer boss's placard rotation (raid 12 only). */
   sign?: SignConfig | null;
-  /** The ninja's throw rate tracks the army's attack speed (raid 13 only). */
-  dexTax?: boolean;
+  /** The duel's fight-wide rules (raid 13 only). */
+  duel?: DuelConfig | null;
   /** The trapeze's copies of the player's own zombies (raid 14 only). */
   copies?: CopyConfig | null;
   /** The saucer's bubble and the wall it drops (raid 15). */
@@ -915,6 +916,8 @@ export class RaidScene {
   private bubbleBar = new Graphics();
   private bubbleRows: { root: Container; label: Text; btn: Container; btnBg: Graphics; btnText: Text }[] = [];
   private bubbleKey = "";
+  /** The last smoke bomb drawn (raid 13's captain entrance and smoke swaps). */
+  private smokeSeen = 0;
   /** The giant McDonnell bot as raid 15's t5 signal (null below it and on every other raid). */
   private bubbleBotView: { root: Container; head: Sprite; body: Sprite } | null = null;
   private pFace = new Container(); // generic zombie face badge, left of the player bar
@@ -1065,7 +1068,7 @@ export class RaidScene {
       waveCadence: params.waveCadence,
       turnedTemplate: params.turnedTemplate,
       sign: params.sign,
-      dexTax: params.dexTax,
+      duel: params.duel,
       copies: params.copies,
       bossDropAtMs: params.bossDropAtMs,
       bossGroundStationX: params.bossGroundStationX,
@@ -3111,6 +3114,19 @@ export class RaidScene {
         .fill({ color: 0x000000, alpha: 0.35 })
         .rect(-timerW / 2, timerY, timerW * left, 3)
         .fill({ color: left < 0.3 ? 0xff5a3c : 0xffd479, alpha: 0.9 });
+    }
+
+    // The duel's smoke (raid 13): a bomb when the captain walks on and on every swap. Puffed
+    // over the captain and the ninja, wherever the swap has just put them.
+    if (this.sim.smokeSeq !== this.smokeSeen) {
+      this.smokeSeen = this.sim.smokeSeq;
+      if (this.smokeCfg) {
+        for (const u of this.sim.units) {
+          if (!u.alive || (!u.chargeCfg && !(u.isBoss && u.team === "enemy"))) continue;
+          const tok = this.tokens.get(u.id);
+          if (tok) this.particles.burst(this.smokeCfg, tok.root.x, tok.root.y - 30, 2);
+        }
+      }
     }
 
     // The saucer's bubble. `bubbleCast` is null on every invasion without one, so the

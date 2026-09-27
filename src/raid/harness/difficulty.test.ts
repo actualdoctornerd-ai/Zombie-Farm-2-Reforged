@@ -58,7 +58,6 @@ const FIGHTS = [
  *   · raid 14 t10 — the top of that ladder, over the target as tuned, and the one rung
  *     that still reaches the Garden deadlock below. */
 const NOT_YET_LOSSLESS = new Set([
-  "13 Zombies vs Ninjas & Pirates t1",
   "13 Zombies vs Ninjas & Pirates t10",
   "14 Zombies vs Circus & Video Games t10",
 ]);

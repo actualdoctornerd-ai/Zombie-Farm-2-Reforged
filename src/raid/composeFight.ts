@@ -19,8 +19,8 @@
 // lets the client, the Worker and the difficulty harness all call it.
 import { buildEnemyUnits } from "./CombatEngine";
 import {
-  abducteesAt, bubbleFor, copiesFor, isDexTaxRaid, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
-  type BubbleConfig, type CopyConfig, type SignConfig,
+  abducteesAt, bubbleFor, copiesFor, duelFor, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
+  type BubbleConfig, type CopyConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
 import {
@@ -70,7 +70,7 @@ export interface ComposedFight {
   crab: CrabConfig | null;
   megaBot: MegaBotConfig | null;
   sign: SignConfig | null;
-  dexTax: boolean;
+  duel: DuelConfig | null;
   copies: CopyConfig | null;
   bubble: BubbleConfig | null;
   bubbleWall: CombatUnit | null;
@@ -114,7 +114,7 @@ export function composeFight(
     crab: ctx.hazards ? crabFor(raid) : null,
     megaBot: ctx.hazards ? megaBotFor(raid) : null,
     sign,
-    dexTax: isDexTaxRaid(raid.id),
+    duel: duelFor(raid.id, tier),
     copies: copiesFor(raid.id, tier),
     bubble: withRobot(bubbleFor(raid.id, tier), bubbleRobotFor(assets, raid, elite, playerLevel)),
     bubbleWall: bubbleWallFor(assets, raid, elite),
