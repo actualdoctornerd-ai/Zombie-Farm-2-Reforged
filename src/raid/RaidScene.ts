@@ -74,10 +74,11 @@ type RaidInputDraft =
   | { type: "turnedTap"; unitId: string }
   | { type: "signPick"; offer: number; option: number }
   | { type: "castCancel"; slot?: number }
+  | { type: "trapezeTap"; unitId: string }
   | { type: "retreat" };
 import { BASE } from "../base";
 import {
-  rulingKey, type BubbleAction, type BubbleConfig, type CopyConfig, type DuelConfig, type Ruling,
+  rulingKey, type BigTopConfig, type BubbleAction, type BubbleConfig, type DuelConfig, type Ruling,
   type SignConfig,
 } from "./dualInvasion";
 
@@ -102,8 +103,8 @@ export interface RaidSceneParams {
   sign?: SignConfig | null;
   /** The duel's fight-wide rules (raid 13 only). */
   duel?: DuelConfig | null;
-  /** The trapeze's copies of the player's own zombies (raid 14 only). */
-  copies?: CopyConfig | null;
+  /** The big top's rules (raid 14 only). */
+  bigTop?: BigTopConfig | null;
   /** The saucer's bubble and the wall it drops (raid 15). */
   bubble?: BubbleConfig | null;
   bubbleWall?: CombatUnit | null;
@@ -953,6 +954,7 @@ export class RaidScene {
       else if (input.type === "turnedTap") this.sim.tapTurned(input.unitId);
       else if (input.type === "signPick") this.sim.pickSign(input.offer, input.option);
       else if (input.type === "castCancel") this.sim.cancelCast(input.slot ?? 0);
+      else if (input.type === "trapezeTap") this.sim.tapTrapeze(input.unitId);
       else if (input.type === "retreat") this.retreatRequested = true;
     }
   }
@@ -1069,7 +1071,7 @@ export class RaidScene {
       turnedTemplate: params.turnedTemplate,
       sign: params.sign,
       duel: params.duel,
-      copies: params.copies,
+      bigTop: params.bigTop,
       bossDropAtMs: params.bossDropAtMs,
       bossGroundStationX: params.bossGroundStationX,
       bubble: params.bubble,
@@ -3537,7 +3539,17 @@ export class RaidScene {
         body.cursor = "pointer";
         // On press, not on release — see the crab above. The trapeze swings, so it is the
         // worse of the two for a click that lands and then has its target move away.
-        body.on("pointerdown", () => this.sim.tapGrabber(g.id));
+        // The raid-14 trapeze is a SIMULATED rule: a tap drops the catch where the swing is,
+        // and it is transcribed. Every other trapeze is the client-only rescue.
+        body.on("pointerdown", () => {
+          if (g.drop) {
+            if (!this.playback && !this.sim.finished && this.sim.tapTrapeze(g.id)) {
+              this.recordInput({ type: "trapezeTap", unitId: g.id });
+            }
+          } else {
+            this.sim.tapGrabber(g.id);
+          }
+        });
         this.grabLayer.addChild(root);
         entry = { root, pendulum, ropeExtension, body, bar, extensionLength: 0 };
         this.grabSprites.set(g.id, entry);

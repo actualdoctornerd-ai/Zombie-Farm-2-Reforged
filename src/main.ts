@@ -5804,7 +5804,7 @@ async function main() {
       turnedTemplate: setup.turnedTemplate,
       sign: setup.sign,
       duel: setup.duel,
-      copies: setup.copies,
+      bigTop: setup.bigTop,
       bubble: setup.bubble,
       bubbleWall: setup.bubbleWall,
       bossDropAtMs: setup.bossDropAtMs,

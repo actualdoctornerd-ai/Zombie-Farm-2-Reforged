@@ -53,13 +53,17 @@ describe("a borrowed stage", () => {
   it("inherits the grab hazard exactly where the stage has one", () => {
     // Keyed on `raid.id` this answered null for raid 14, silently deleting the trapeze
     // from a fight whose stage is built around it.
-    for (const raid of duals) {
+    //
+    // Raid 14 is the one exception, on purpose: its trapeze is a SIMULATED rule of the big
+    // top (the drop, dualInvasion.BigTopConfig), so the client-only rescue is switched off.
+    for (const raid of duals.filter((r) => r.id !== 14)) {
       const source = byId.get(stageRaidId(raid))!;
       const mine = grabberFor(raid);
       const theirs = grabberFor(source);
       expect(mine, `raid ${raid.id} vs its stage (${source.id})`).toEqual(theirs);
     }
-    expect(grabberFor(byId.get(14)!), "the Circus stage really does have one").not.toBeNull();
+    expect(grabberFor(byId.get(8)!), "the Circus stage really does have one").not.toBeNull();
+    expect(grabberFor(byId.get(14)!), "raid 14's trapeze is its own, simulated").toBeNull();
   });
 
   it("does NOT inherit anything that decides the fight", () => {

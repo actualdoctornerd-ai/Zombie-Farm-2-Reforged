@@ -136,7 +136,7 @@ export function scoreFlight(
 function enemyProgress(sim: ReturnType<typeof buildFight>): number {
   let total = 0, left = 0;
   for (const u of sim.units) {
-    if (u.team !== "enemy" || u.isCopy || u.isTurned) continue;
+    if (u.team !== "enemy" || u.isTurned) continue;
     total += u.maxHp;
     left += Math.max(0, u.hp);
   }

@@ -112,6 +112,65 @@ export function statSteps(tier: number): { damage: number; speed: number } {
   return { damage, speed };
 }
 
+/** WHAT EACH RUNG ADDS, in words, per invasion — the one table the tier picker and the Raid
+ *  Lab read, so a player can see what a rung brings before choosing it (docs Part 2B). Index
+ *  0 is t1. The stat rungs say which stat moves. */
+export const TIER_LADDER: Readonly<Record<number, readonly string[]>> = {
+  12: [
+    "Rulings: pick one of two penalties every 8 s",
+    "Enemies hit harder",
+    "The angry farmer mob arrives at the midpoint",
+    "Enemies attack faster",
+    "Each bubble holds two rulings",
+    "Enemies hit harder",
+    "Contempt: ignore a ruling and both apply",
+    "Enemies attack faster",
+    "Rulings are more severe",
+    "Precedent: two rulings are always in force",
+  ],
+  13: [
+    "The captain comes out at the midpoint — stun him to stop his slam",
+    "Enemies hit harder",
+    "Dex tax: the ninja throws faster the faster your army attacks",
+    "Enemies attack faster",
+    "Counter: stunning the ninja stuns you back, doubled",
+    "Enemies hit harder",
+    "The ninja's throws stun",
+    "Enemies attack faster",
+    "Smoke swap: the captain and ninja trade places every 8 s",
+    "Iron will: the captain takes far more stun, and it drains",
+  ],
+  14: [
+    "The ringmaster whips from the middle, stunning Gardens",
+    "Enemies hit harder",
+    "The trapeze artist: tap to drop your zombie where it swings",
+    "Enemies attack faster",
+    "Bozos: once the ringmaster falls, zombies are converted onto a stack",
+    "Enemies hit harder",
+    "Pixel fire walks a zombie backwards",
+    "Enemies attack faster",
+    "The bozo stack holds up to 6",
+    "Conversion comes faster",
+  ],
+  15: [
+    "The saucer casts every 10 s — 5 cancels for the whole fight",
+    "Enemies hit harder",
+    "Abductees appear in the middle",
+    "Enemies attack faster",
+    "The giant bot: the blast and the army stun join the cycle",
+    "Enemies hit harder",
+    "Casts come every 7 s",
+    "Enemies attack faster",
+    "Lockout: no cancelling two casts in a row",
+    "Dual cast: casts come in pairs",
+  ],
+};
+
+/** What this rung adds, in words (empty for an invasion without a ladder). */
+export function tierNote(raidId: number, tier: number): string {
+  return TIER_LADDER[raidId]?.[clampTier(tier) - 1] ?? "";
+}
+
 /** See `DUAL_LETHALITY` further down for the per-raid base. */
 export function tierProfile(raidId: number, tier: number): EliteProfile {
   const steps = statSteps(tier);
@@ -634,171 +693,135 @@ export function dexTaxedInterval(authoredMs: number, deployedDex: number): numbe
 }
 
 // ---------------------------------------------------------------------------
-// RAID 14 — THE SECOND LINE (Circus & Video Games)
+// RAID 14 — THE BIG TOP (Circus & Video Games)
 // ---------------------------------------------------------------------------
-// Everything happens BEHIND you. A line built for a one-sided fight is suddenly the wrong
-// way round: the trapeze drops copies of the player's own zombies into the army's rear,
-// where the tank isn't and the healer is, while the circus stacks build themselves up at
-// the front and the player is looking the other way.
+// The ringmaster drops into the MIDDLE of the lane early in the fight — behind the army's
+// front line, which has already walked past him and does not turn back (he is a blocker,
+// with the same "already past it" latch as a wall). From there his long whip strikes the
+// nearest zombie on his LEFT, the healer side; with nothing there he whips the front line.
+// The whip stuns GARDEN zombies only — the anti-healer-stack half of the fight.
 //
-// WHY A COPY IS A BLOCKER. It stands on a station in the player's REAR and carries
-// `isBlocker`, which is the sim's existing word for "a thing standing mid-lane that only
-// the zombies which have not already walked past it will fight" (see wallInWay /
-// passedBlockers). Three things fall out of that, and all three are the design:
+// Reaching the middle is the problem, and the counterplay is how you get there: deploy
+// order (a zombie deployed later walks out through the middle and stops to fight whatever
+// stands there), the trapeze drop (t3), and the pixel fire (t7).
 //
-//   * The front line cannot turn round and help. A zombie attacks whatever is NEAREST in
-//     x and it swings from wherever it stands, so an ordinary enemy dropped in the rear
-//     would just be shot down from the line at no positional cost and the mechanic would
-//     be free. The latch is what makes the rear a different fight.
-//   * Reinforcements have to cut their way in. A zombie deployed after the copy lands
-//     stops at it, so the copies are a toll on the queue rather than a nuisance behind it.
-//   * It can never hang the fight. Blockers sit outside the win condition (BattleSim
-//     anyAlive), which they had to anyway: a copy nobody can reach is exactly the
-//     orphaned-wall stall ruleset 59 fixed.
+// THE LADDER (docs/POST_45_PROGRESSION.md Part 2B, "The Big Top"):
 //
-// So the answers are the ones the design asked for — lasers, which fire over the line and
-// are ungated by position, and burst from whoever is still walking in. Neither is
-// something the two-healers-two-tanks-twelve-Vagabonds meta brings.
+//   t1  the ringmaster in the middle, whipping (Gardens stunned, everyone else hit)
+//   t3  the trapeze artist grabs a zombie and swings with it; tapping drops it WHERE THE
+//       SWING IS, so the player places it — next to the ringmaster, into the middle, clear
+//   t5  bozos: once the ringmaster falls, the Video Games boss converts zombies into bozos,
+//       the stacking little men from the Circus fight. They stack in the middle and throw
+//       hammers, more the taller the stack. Knocking a bozo off frees your zombie. Cap 3
+//   t7  pixel fire: a burning zombie walks BACK until it is put out, and if it gets far
+//       enough it engages the ringmaster or the stack
+//   t9  the bozo cap rises to 6
+//   t10 conversion comes faster
+//   (t2/t4/t6/t8 are stat steps — see tierProfile)
 //
-// THE PLAN HAD A FOURTH DIAL, "copy keeps mutations", and it is not here. A copy is cloned
-// from the BUILT unit, which is the only thing the sim has: `SimUnit` is flattened to
-// damage / maxHp / cooldownMs with the species stats, the level ramp, the farmer
-// multipliers and any mutations already folded in, and there is no way back to the parts.
-// So a copy is exactly as strong as the zombie it copied and cannot be anything else. The
-// three dials that remain — how many, how much life, and whether it keeps its passives —
-// carry the ladder on their own.
+// Zombies still trapped as bozos when the fight ends COME HOME (they are `taken`, like a
+// crab's passenger or a pixel zombie's captive): not casualties. The stack is a blocker, so
+// it sits outside the win condition and can never hang the fight.
 
-/** Circus & Video Games — the invasion the second line belongs to. */
-export const COPY_RAID_ID = 14;
+/** Circus & Video Games — the invasion the big top belongs to. */
+export const BIG_TOP_RAID_ID = 14;
 
-/** Where a copy is dropped: behind the combat line, level with the support station, in
- *  among the healers and the zombies still filing forward. Not so far back that it lands
- *  on the staging slot, where it would meet the army one at a time as they charge. */
-export const COPY_STATION_X = 430;
+/** The rungs at which the fight changes — see the ladder above. */
+export const TRAPEZE_TIER = 3;
+export const BOZO_TIER = 5;
+export const FIRE_WALK_TIER = 7;
+export const BOZO_CAP_TIER = 9;
+export const FAST_CONVERT_TIER = 10;
 
-// THE TRAPEZE NEEDS A LINE TO DROP BEHIND, and at the opening bell there is not one. A
-// copy lands in front of everyone still filing forward, so the very first deployment made
-// one that walled the whole army into its own staging area — measured in
-// secondLine.test.ts, where the lead zombie parked at 370 and never reached the front at
-// all. So no copy is dropped until somebody has marched PAST the drop point (see
-// BattleSim.spawnCopy).
-//
-// That gate rather than a fixed delay, because a delay is a guess about army size: twenty
-// zombies take over a minute to file out and two are gone in seven seconds. "Is there a
-// line yet" is the actual condition, and it reads the field instead of the clock.
-
-/** The copy's tint, so a zombie fighting its own reflection can be told from it at a
- *  glance. `CombatUnit.color` already rides through to the rig on both sides. */
-export const COPY_TINT: readonly [number, number, number] = [150, 120, 210];
-
-export interface CopyConfig {
-  /** How many copies may stand at once. The cap is what bounds the toll on the queue. */
-  maxAlive: number;
-  /** Fraction of the original's hit points the copy carries. */
-  hpFraction: number;
-  /** Whether it keeps the SELF/PASSIVE abilities — the lasers, the blocks, the double
-   *  strikes. Never the activated ones at any rung: those are taps, and a copy has nobody
-   *  to tap them (the same reason PvP strips them from a defender). */
-  keepPassives: boolean;
-}
-
-/** The copies at this rung, or null for an invasion without them. Every dial is on the
- *  COPIES and none on the statline — the tier ladder's stat ramp already does that job,
- *  and this fight's difficulty is meant to be the second line rather than bigger numbers
- *  on the first one. */
-export function copiesFor(raidId: number, tier: number): CopyConfig | null {
-  if (raidId !== COPY_RAID_ID) return null;
-  const rung = clampTier(tier);
-  const t = (rung - MIN_TIER) / (MAX_TIER - MIN_TIER);
-  return {
-    maxAlive: rung >= 8 ? 4 : rung >= 5 ? 2 : 1,
-    hpFraction: 0.6 + 0.4 * t,
-    keepPassives: rung >= MAX_TIER,
-  };
-}
-
-/** The self/passive abilities a copy may keep. Deliberately PvP's formation-defense list
- *  minus the heals: a copy of your Garden zombie healing the OTHER copies turns the rear
- *  into a fight the player cannot finish from where they are standing. */
-export const COPY_PASSIVE_ABILITIES: readonly string[] = [
-  "laserBeam", "zomBeam", "block", "doubleStrike", "turbo",
-];
-
-// ---------------------------------------------------------------------------
-// RAID 14 — THE STACKS
-// ---------------------------------------------------------------------------
-// `CircusStageActorMinion2` swings `MidgetStackAttack` and the ringmaster throws
-// `projectile_midget.png`, so a tower of circus midgets is authored art, not an invention.
-//
-// ONE UNIT WITH A HEIGHT, never three units. Three stacks at three tall is nine extra
-// bodies on top of the wave, the copies and the boss, and the fight still has to settle
-// inside four minutes (see DUAL_SETTLE_REFERENCE_DPS). It also makes toppling legible:
-// burst knocks a level off something the player can see, rather than killing one of three
-// identical figures.
-//
-// HEIGHT IS DERIVED FROM HIT POINTS, which is the whole trick. A stack that has climbed to
-// `stackMax` carries that many of its own base pools, and the height it FIGHTS at is how
-// many of those pools are still standing — so a hit worth one pool topples one level, and
-// the thing gets weaker as it comes apart without needing a second state machine.
-
-/** How many stacks the ring holds, and how tall each may grow. */
-export const STACK_COUNT = 3;
-export const STACK_MAX_HEIGHT = 3;
-
-/** How long a stack takes to climb another level. Faster up the ladder: the fight is a
- *  race between the player's burst and the tower, and this is the clock they race. */
-export const STACK_GROW_MS_AT_MIN_TIER = 12_000;
-export const STACK_GROW_MS_AT_MAX_TIER = 6_000;
-
-/** When the stacks walk on, spaced so they do not arrive as one wall. */
-export const STACK_FIRST_AT_MS = 6_000;
-export const STACK_GAP_MS = 9_000;
-
-export interface StackConfig {
-  /** Ms between one level and the next, while the stack is left alone. */
-  growMs: number;
-  /** Tallest it may get. */
-  maxHeight: number;
-}
-
-/** The stack rules at this rung, or null for an invasion without them. */
-export function stacksFor(raidId: number, tier: number): StackConfig | null {
-  if (raidId !== COPY_RAID_ID) return null;
-  const t = (clampTier(tier) - MIN_TIER) / (MAX_TIER - MIN_TIER);
-  return {
-    growMs: Math.round(
-      STACK_GROW_MS_AT_MIN_TIER + (STACK_GROW_MS_AT_MAX_TIER - STACK_GROW_MS_AT_MIN_TIER) * t,
-    ),
-    maxHeight: STACK_MAX_HEIGHT,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// RAID 14 — THE RINGMASTER
-// ---------------------------------------------------------------------------
-// From rung 5 he stops waiting for his wave. He drops out of the car into the MIDDLE of
-// the field and fights there, which matters for one reason beyond the flavour: a boss that
-// waits is a boss the player meets once the field is already clear, and this fight is
-// about not being able to be in two places at once. Arriving early is what makes that bite.
-//
-// He lands on a station with `anchorsLine` false. Without that flag `refreshFrontLine`
-// re-derives the army's stopping line from the front-most authored station, so anything
-// dropped mid-field drags the whole line forward to meet it — and the army would simply
-// re-form around him, which is the opposite of the intent.
-
-/** The rung from which the ringmaster stops waiting for his wave. */
-export const RINGMASTER_EARLY_TIER = 5;
-
-/** When he drops, and where he stands. Mid-lane: far enough forward that the line has
- *  formed in front of him, far enough back that walking to him means leaving it. */
-export const RINGMASTER_DROPS_AT_MS = 25_000;
+/** When the ringmaster drops, and the mid-lane station he fights from. Early enough that
+ *  he is on the field for the whole fight, late enough that the first zombies are past. */
+export const RINGMASTER_DROPS_AT_MS = 12_000;
 export const RINGMASTER_STATION_X = 640;
+/** How far his whip reaches either way, and how long it holds a Garden zombie. */
+export const WHIP_REACH = 380;
+export const WHIP_STUN_MS = 1_500;
 
-/** Ms after which the ringmaster abandons his perch whatever the wave is doing, or null
- *  when this fight does not do that (every other raid, and the rungs below the fifth). */
+/** The trapeze: how often an artist comes for a zombie, and how long it swings before it
+ *  gives up and drops its catch back at the staging slot. */
+export const TRAPEZE_EVERY_MS = 15_000;
+export const TRAPEZE_HOLD_MS = 8_000;
+/** The swing the catch rides, in lane x: centre, half-width, and one full back-and-forth. */
+export const TRAPEZE_SWING_CENTRE_X = 620;
+export const TRAPEZE_SWING_HALF_X = 300;
+export const TRAPEZE_SWING_PERIOD_MS = 3_000;
+/** The trapeze artist's art — the Circus stage's own (see fightConfig.GRAB_SPRITE). */
+export const TRAPEZE_SPRITE = "hazard_trapeze_girl.png";
+
+/** Bozos: how often the Video Games boss converts one, the caps, and what each is worth. */
+export const BOZO_CONVERT_MS = 10_000;
+export const BOZO_CONVERT_MS_FAST = 6_000;
+export const BOZO_CAP = 3;
+export const BOZO_CAP_HIGH = 6;
+/** One bozo's pool of hit points in the stack — knock off this much and one falls off. */
+export const BOZO_HP = 2_400;
+/** The stack's hammers: the interval at height 1 (divided by the height), and each one's
+ *  damage. The art is a placeholder until a hammer sprite exists. */
+export const HAMMER_MS = 3_000;
+export const HAMMER_DAMAGE = 120;
+export const HAMMER_SPRITE = "pixel_debris_boulder.png";
+/** Pixel fire (t7+): how often Zedzox sets a zombie alight, and how fast it walks back. */
+export const FIRE_EVERY_MS = 12_000;
+export const FIRE_WALK_SPEED = 90;
+
+export interface BigTopConfig {
+  ringmasterDropMs: number;
+  stationX: number;
+  whipReach: number;
+  /** How long the whip stuns a Garden zombie. Everything else it only hits. */
+  whipGardenStunMs: number;
+  /** The trapeze drop (t3+). */
+  trapeze: boolean;
+  trapezeEveryMs: number;
+  trapezeHoldMs: number;
+  /** Bozos (t5+): whether they happen, the cap, and the conversion cadence. */
+  bozos: boolean;
+  bozoCap: number;
+  convertMs: number;
+  bozoHp: number;
+  hammerMs: number;
+  hammerDamage: number;
+  /** Pixel fire that walks the zombie back (t7+). */
+  fire: boolean;
+  fireEveryMs: number;
+  /** The stacking little man a bozo is drawn and built as, attached by composeFight from
+   *  the catalog (this module has no asset access). */
+  bozo: CombatUnit | null;
+}
+
+/** The big top at this rung, or null for an invasion without one. `bozo` comes back null;
+ *  composeFight fills it in. */
+export function bigTopFor(raidId: number, tier: number): BigTopConfig | null {
+  if (raidId !== BIG_TOP_RAID_ID) return null;
+  const rung = clampTier(tier);
+  return {
+    ringmasterDropMs: RINGMASTER_DROPS_AT_MS,
+    stationX: RINGMASTER_STATION_X,
+    whipReach: WHIP_REACH,
+    whipGardenStunMs: WHIP_STUN_MS,
+    trapeze: rung >= TRAPEZE_TIER,
+    trapezeEveryMs: TRAPEZE_EVERY_MS,
+    trapezeHoldMs: TRAPEZE_HOLD_MS,
+    bozos: rung >= BOZO_TIER,
+    bozoCap: rung >= BOZO_CAP_TIER ? BOZO_CAP_HIGH : BOZO_CAP,
+    convertMs: rung >= FAST_CONVERT_TIER ? BOZO_CONVERT_MS_FAST : BOZO_CONVERT_MS,
+    bozoHp: BOZO_HP,
+    hammerMs: HAMMER_MS,
+    hammerDamage: HAMMER_DAMAGE,
+    fire: rung >= FIRE_WALK_TIER,
+    fireEveryMs: FIRE_EVERY_MS,
+    bozo: null,
+  };
+}
+
+/** Ms at which this invasion's boss abandons its perch whatever the wave is doing, or null
+ *  when it does not (every raid but this one). */
 export function ringmasterDropMs(raidId: number, tier: number): number | null {
-  if (raidId !== COPY_RAID_ID) return null;
-  return clampTier(tier) >= RINGMASTER_EARLY_TIER ? RINGMASTER_DROPS_AT_MS : null;
+  return bigTopFor(raidId, tier)?.ringmasterDropMs ?? null;
 }
 
 // ---------------------------------------------------------------------------

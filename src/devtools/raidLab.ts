@@ -31,12 +31,10 @@ import type { EpicBossDef, EpicBossRun } from "../epicBoss/types";
 import { buildEnemyUnits, buildPlayerUnits } from "../raid/CombatEngine";
 import { eliteBossSpecials, eliteBossThrow } from "../raid/eliteInvasion";
 import {
-  acceptsBrainTicket, bubbleFor, copiesFor, isDualInvasion, MAX_TIER,
-  raidProfile, ringmasterDropMs, signFor, stacksFor,
-  STACK_MAX_HEIGHT,
+  acceptsBrainTicket, isDualInvasion, MAX_TIER, raidProfile, TIER_LADDER,
 } from "../raid/dualInvasion";
 import {
-  bossSpecialsFor, bossThrowFor, crabFor, grabberFor, megaBotFor, pirateCaptainFor,
+  bossSpecialsFor, bossThrowFor, crabFor, grabberFor, megaBotFor,
 } from "../raid/fightConfig";
 import { composeFight } from "../raid/composeFight";
 import { fightStage, resolveStageWave, seededRandom } from "../raid/RaidCatalog";
@@ -190,13 +188,6 @@ const tiersOf = (raid: RaidDef | null): number =>
 function labTier(raid: RaidDef): number {
   const rungs = tiersOf(raid);
   return rungs > 0 ? Math.max(1, Math.min(rungs, state.tier)) : 0;
-}
-
-/** The Lawyer boss's objection for the lab. Seeded off the wave slider like everything
- *  else here, so a given slider position always brings the same auto-picks back — which
- *  is what makes "did my choice do that, or the coin?" answerable. */
-function labSign(raid: RaidDef) {
-  return signFor(raid.id, labTier(raid), `lab:${raid.id}:${state.wave}`);
 }
 
 function currentStage(raid: RaidDef): RaidStage | null {
@@ -667,28 +658,9 @@ function buildTierStrip() {
 
   // Say plainly what the rung does, mechanic and numbers both: a silent picker tells you
   // nothing about which of the two you just moved.
-  const sign = labSign(raid);
-  const bits: string[] = [];
-  if (sign) {
-    bits.push(sign.offers[0].every((bubble) => bubble.length > 1)
-      ? "the lawyer offers a PAIR of classes per bubble"
-      : "the lawyer offers one class per bubble");
-  }
-  const captain = pirateCaptainFor(assets, raid, state.tier)[0];
-  if (captain?.charge) bits.push(`captain wind-up ${(captain.charge.windupMs / 1000).toFixed(1)} s`);
-  const copies = copiesFor(raid.id, state.tier);
-  if (copies) {
-    bits.push(`${copies.maxAlive} cop${copies.maxAlive === 1 ? "y" : "ies"} at `
-      + `${Math.round(copies.hpFraction * 100)}% life${copies.keepPassives ? ", passives kept" : ""}`);
-  }
-  const stacks = stacksFor(raid.id, state.tier);
-  if (stacks) bits.push(`stacks climb every ${(stacks.growMs / 1000).toFixed(0)} s`);
-  if (ringmasterDropMs(raid.id, state.tier) !== null) bits.push("ringmaster drops early");
-  const bubble = bubbleFor(raid.id, state.tier);
-  if (bubble) {
-    bits.push(`${bubble.cycle.length}-action bubble, ${(bubble.castMs / 1000).toFixed(1)} s to react`
-      + ` · ${bubble.cancels} cancels`);
-  }
+  // Everything in force at this rung, from the ladder table the game's tier picker reads.
+  const ladder = TIER_LADDER[raid.id] ?? [];
+  const bits = ladder.slice(0, Math.max(0, state.tier)).map((line, i) => `t${i + 1} ${line}`);
   // …and what the rung is worth in hit points, which is the other half of a rung and the
   // half you cannot read off the field. The HP figure is also the one to watch against the
   // settle cap — see DUAL_SETTLE_REFERENCE_DPS.
@@ -698,7 +670,7 @@ function buildTierStrip() {
     ? composeFight(assets, raid, stage, {
       playerLevel: state.level, tier: state.tier, elite: profile, priorWins: 99,
       waveSeed: `lab:${raid.id}:${state.wave}`, hazards: false,
-    }).enemyUnits.map((u) => (u.stack ? { ...u, maxHp: u.maxHp * STACK_MAX_HEIGHT } : u))
+    }).enemyUnits
     : [];
   const hp = Math.round(enemies.reduce((sum, unit) => sum + unit.maxHp, 0));
   const numbers = `${hp.toLocaleString()} enemy HP · ×${(profile?.str ?? 1).toFixed(2)} damage`;

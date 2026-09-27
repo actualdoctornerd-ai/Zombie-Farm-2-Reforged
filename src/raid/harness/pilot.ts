@@ -230,6 +230,7 @@ function apply(sim: BattleSim, action: TranscribedAction): boolean {
     case "turnedTap": return sim.tapTurned(action.unitId);
     case "signPick": return sim.pickSign(action.offer, action.option);
     case "castCancel": return sim.cancelCast(action.slot ?? 0);
+    case "trapezeTap": return sim.tapTrapeze(action.unitId);
     case "retreat": return true;
   }
 }

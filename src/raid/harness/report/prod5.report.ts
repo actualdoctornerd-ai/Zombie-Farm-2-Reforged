@@ -1,0 +1,13 @@
+// Shard 5 of the prod grid. See ../prodGrid.ts.
+import { writeFileSync, mkdirSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { runProdShard, PROD_SHARDS } from "../prodGrid";
+
+describe("prod grid", () => {
+  it("measures shard 5", () => {
+    const rows = runProdShard(5, PROD_SHARDS);
+    mkdirSync("tmp/prodgrid", { recursive: true });
+    writeFileSync("tmp/prodgrid/shard5.json", JSON.stringify(rows, null, 1));
+    expect(rows.length).toBeGreaterThan(0);
+  }, 14_400_000);
+});

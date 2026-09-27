@@ -44,7 +44,7 @@ import { harnessFight } from "./raidFight";
 import { buildRoster } from "./roster";
 import { strengthPool, type SweepRoster } from "./strengthSweep";
 import {
-  BUBBLE_RAID_ID, CHARGE_RAID_ID, COPY_RAID_ID, SIGN_RAID_ID,
+  BUBBLE_RAID_ID, CHARGE_RAID_ID, BIG_TOP_RAID_ID, SIGN_RAID_ID,
 } from "../dualInvasion";
 import raidsJson from "../../../public/assets/raids/raids.json";
 import type { RaidDef } from "../types";
@@ -103,7 +103,7 @@ export function ownChannel(raidId: number): Channel | null {
   if (raidId === SIGN_RAID_ID) return "objection";
   if (raidId === CHARGE_RAID_ID) return "interrupt";
   if (raidId === BUBBLE_RAID_ID) return "cancels";
-  if (raidId === COPY_RAID_ID) return "rescues";
+  if (raidId === BIG_TOP_RAID_ID) return "rescues";
   return null;
 }
 
@@ -140,7 +140,7 @@ export function mechanicFights(): MechanicFight[] {
       own: ownChannel(raidId),
     });
   };
-  for (const id of [SIGN_RAID_ID, CHARGE_RAID_ID, COPY_RAID_ID, BUBBLE_RAID_ID]) {
+  for (const id of [SIGN_RAID_ID, CHARGE_RAID_ID, BIG_TOP_RAID_ID, BUBBLE_RAID_ID]) {
     for (const tier of [1, 5, 10]) at(id, tier, false);
   }
   // Controls. Two hazard raids and one that has none, so the table shows what the metric

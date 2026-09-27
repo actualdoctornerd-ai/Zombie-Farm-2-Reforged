@@ -50,11 +50,12 @@ import {
 } from "./combatStats";
 import { isLineRole } from "./pvp";
 import {
-  ABDUCTEE_WALL_GAP, autoPickFor, COPY_PASSIVE_ABILITIES, OVERRULED_ABILITIES, RULING_EMBOLDEN,
+  ABDUCTEE_WALL_GAP, autoPickFor, FIRE_WALK_SPEED, HAMMER_SPRITE, OVERRULED_ABILITIES, RULING_EMBOLDEN,
   RULING_SLOW, RULING_WEAKEN, rulingKey, rulingsFor, signOfferAt,
-  COPY_STATION_X, COPY_TINT, dexTaxedInterval, poiseFor, POISE_THRESHOLD, PORTAL_FRACTION,
+  TRAPEZE_SPRITE, TRAPEZE_SWING_CENTRE_X, TRAPEZE_SWING_HALF_X, TRAPEZE_SWING_PERIOD_MS,
+  dexTaxedInterval, poiseFor, POISE_THRESHOLD, PORTAL_FRACTION,
   STAGGER_DAMAGE_MULT, type DuelConfig,
-  type BubbleAction, type BubbleConfig, type ChargeConfig, type CopyConfig,
+  type BubbleAction, type BubbleConfig, type BigTopConfig, type ChargeConfig,
   type Ruling, type SignConfig, type SignOffer,
 } from "./dualInvasion";
 import {
@@ -717,10 +718,10 @@ export interface SimUnit {
   /** Already re-statted by the bubble's queue swap (raid 15), so a later cast picks a
    *  different body instead of stacking multipliers on the same one. */
   swapped: boolean;
-  /** A copy of one of the player's own zombies, dropped in behind their line (raid 14).
-   *  Only used to count them against the rung's cap and to tell the renderer to draw it
-   *  as a mirror rather than as a circus act. */
-  isCopy: boolean;
+  /** The bozo stack (raid 14, t5+): the one enemy unit the converted zombies stand in. */
+  isBozoStack: boolean;
+  /** A pixel fire that WALKS the zombie back instead of pacing it on the spot (raid 14, t7+). */
+  burnWalk: boolean;
   /** A robot the saucer's bubble beamed down (raid 15) — counted against its cap. */
   isBubbleRobot: boolean;
   /** Ids of the blockers this unit was ALREADY PAST when they appeared, and therefore does
@@ -830,6 +831,12 @@ export interface SimGrabber {
   swingTotalMs: number;
   targetId: string | null; // intended contact target while swooping
   struckThisTick: boolean; // a tap landed this step (renderer feedback)
+  /** The raid-14 trapeze (a SIMULATED, transcribed rule): a tap DROPS the zombie where the
+   *  swing is rather than whittling the artist down. Absent on the client-only rescue. */
+  drop?: boolean;
+  /** Ms the catch has been swinging (drives the swing position), and how long it may. */
+  swingMs?: number;
+  holdMs?: number;
 }
 
 /** A boss projectile in flight, consumed by the renderer. Ballistic throws use the
@@ -893,6 +900,12 @@ export interface BattleSimSnapshot {
    *  treats both as "nothing decided yet", which is what a fresh sim holds. */
   signResolved?: number[];
   signPending?: number | null;
+  /** The big top (raid 14): its clocks, and who is standing in the bozo stack. */
+  trapezeTimerMs?: number;
+  convertTimerMs?: number;
+  fireTimerMs?: number;
+  hammerTimerMs?: number;
+  bozoIds?: string[];
   /** The duel (raid 13): the swap clock, who is down, and the ninja's retreat. */
   swapTimerMs?: number;
   ninjaDown?: boolean;
@@ -1063,7 +1076,8 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stackSeen: 1,
     stackToppleSeq: 0,
     swapped: false,
-    isCopy: false,
+    isBozoStack: false,
+    burnWalk: false,
     isBubbleRobot: false,
     isTurned: false,
     turnedFromId: null,
@@ -1158,6 +1172,14 @@ export class BattleSim {
   private bubbleFireSeq = 0;
   private bubbleCancelSeq = 0;
   private portalSeq = 0;
+  // ---- the big top (raid 14; see dualInvasion.ts) ----
+  /** Ms to the next trapeze, bozo conversion, pixel fire and hammer. */
+  private trapezeTimerMs = 0;
+  private convertTimerMs = 0;
+  private fireTimerMs = 0;
+  private hammerTimerMs = 0;
+  /** The zombies standing in the bozo stack, in the order they were converted. */
+  private bozoIds: string[] = [];
   // ---- the duel (raid 13; see dualInvasion.ts) ----
   /** Ms to the next smoke swap, whether the ninja is the one on the ground right now, where
    *  the swap puts whoever comes down, and whether the ninja has retreated for good. */
@@ -1271,9 +1293,9 @@ export class BattleSim {
      *  stand-down around the captain, the dex tax, the counter, the stunning throws and
      *  the smoke swap. See raid/dualInvasion.ts. */
     private duel: DuelConfig | null = null,
-    /** The trapeze's copies of the player's own zombies (raid 14; null = this invasion
-     *  has none). See spawnCopy and raid/dualInvasion.ts. */
-    private copyCfg: CopyConfig | null = null,
+    /** The big top's rules (raid 14; null everywhere else): the ringmaster's whip, the
+     *  trapeze drop, the bozos and the walking fire. See raid/dualInvasion.ts. */
+    private bigTop: BigTopConfig | null = null,
     /** Ms at which this invasion's boss abandons its perch whatever the wave is doing
      *  (the raid-14 ringmaster from rung 5; null everywhere else), and the ground station
      *  it fights from once it is down. */
@@ -1413,6 +1435,11 @@ export class BattleSim {
       signResolved: [...this.signResolved],
       signPending: this.signPending,
       swapTimerMs: this.swapTimerMs,
+      trapezeTimerMs: this.trapezeTimerMs,
+      convertTimerMs: this.convertTimerMs,
+      fireTimerMs: this.fireTimerMs,
+      hammerTimerMs: this.hammerTimerMs,
+      bozoIds: [...this.bozoIds],
       ninjaDown: this.ninjaDown,
       duelGroundX: this.duelGroundX,
       ninjaRetreated: this.ninjaRetreated,
@@ -1490,7 +1517,8 @@ export class BattleSim {
       stackSeen: u.stackSeen ?? 1,
       stackToppleSeq: u.stackToppleSeq ?? 0,
       swapped: u.swapped ?? false,
-      isCopy: u.isCopy ?? false,
+      isBozoStack: u.isBozoStack ?? false,
+      burnWalk: u.burnWalk ?? false,
       isBubbleRobot: u.isBubbleRobot ?? false,
       // A checkpoint from before the conversion / burn can only exist on a ruleset the
       // session handshake already rejects, so these defaults are belt-and-braces: they
@@ -1548,6 +1576,11 @@ export class BattleSim {
     this.signResolved = [...(snapshot.signResolved ?? [])];
     this.signPending = snapshot.signPending ?? null;
     this.swapTimerMs = snapshot.swapTimerMs ?? 0;
+    this.trapezeTimerMs = snapshot.trapezeTimerMs ?? 0;
+    this.convertTimerMs = snapshot.convertTimerMs ?? 0;
+    this.fireTimerMs = snapshot.fireTimerMs ?? 0;
+    this.hammerTimerMs = snapshot.hammerTimerMs ?? 0;
+    this.bozoIds = [...(snapshot.bozoIds ?? [])];
     this.ninjaDown = snapshot.ninjaDown ?? false;
     this.duelGroundX = snapshot.duelGroundX ?? 0;
     this.ninjaRetreated = snapshot.ninjaRetreated ?? false;
@@ -1568,6 +1601,7 @@ export class BattleSim {
         contactDeg: g.contactDeg ?? GRABBER_CONTACT_DEG,
         swingTotalMs: g.swingTotalMs ?? Math.max(1, g.pauseMs),
         targetId: g.targetId ?? null,
+        swingMs: g.swingMs ?? 0,
       }))
     );
     this.grabberTimer = snapshot.grabberTimer ?? this.grabberTimer;
@@ -2447,7 +2481,11 @@ export class BattleSim {
     for (const e of this.enemies) {
       if (e.stackBaseHp <= 0) continue;
       const height = this.stackHeight(e);
-      if (height < e.stackSeen) e.stackToppleSeq++;
+      if (height < e.stackSeen) {
+        e.stackToppleSeq++;
+        // A bozo knocked off the stack is one of yours coming back (raid 14).
+        if (e.isBozoStack) this.freeBozos(e, height);
+      }
       e.stackSeen = height;
       if (!e.alive || e.state === "queued" || e.stackGrowMs <= 0) continue;
       if (e.stackMax >= e.stackCeiling) continue;
@@ -3093,7 +3131,9 @@ export class BattleSim {
    *  at a time the line rarely advanced past a blocker, and the lined-up wave
    *  (dualInvasion.dualWaveCadence) pushes it past them constantly. */
   private anyAlive(side: SimUnit[]): boolean {
-    return side.some((u) => u.alive && !u.taken && !u.isTurned && !u.isBlocker);
+    // A blocker sits outside the win condition (a wall, an abductee, the bozo stack) — except
+    // a BOSS standing as one (raid 14's ringmaster), who still has to be beaten.
+    return side.some((u) => u.alive && !u.taken && !u.isTurned && (!u.isBlocker || u.isBoss));
   }
 
   /** Replay-safe equivalent of `(arc4random() % 100)`. Multiplication by 37
@@ -3244,6 +3284,10 @@ export class BattleSim {
     }
     u.struckThisTick = true;
     this.attacksLanded++;
+    // The ringmaster's whip stuns GARDEN zombies (raid 14) — the healer stack's tax.
+    if (this.bigTop && u === this.boss && foe.alive && foe.isGarden) {
+      foe.stunMs = Math.max(foe.stunMs, this.bigTop.whipGardenStunMs);
+    }
     if (u.team === "enemy" && foe.alive && foe.team === "player") {
       // Enemy attack effects on the struck zombie — BOTH of which `-[Actor damageIn:]`
       // (0x37738) refuses while the victim's `fightData.canInterrupt` is NO. See
@@ -3395,6 +3439,11 @@ export class BattleSim {
       this.releaseTurned(foe);
       return; // …and it is not wave population, so it does not gate the next emergence.
     }
+    // The bozo stack broken open: everyone standing in it comes back (raid 14).
+    if (foe.isBozoStack) {
+      this.freeBozos(foe, 0);
+      return;
+    }
     // Only an enemy reaches here. A downed one opens the gate for the next to emerge.
     if (fromPlayer) this.emergeCooldown = ENEMY_EMERGE_GAP_MS;
   }
@@ -3504,6 +3553,7 @@ export class BattleSim {
     p.burnMs -= dtMs;
     if (p.burnMs <= 0) {
       p.burnMs = 0;
+      p.burnWalk = false;
       p.timerMs = this.cycleMs(p, null); // it comes out of the fire mid-swing, not primed
     }
     this.dealEnemyDamage(p, (p.maxHp * BURN_MAX_HP_FRACTION_PER_SEC * burnt) / 1000);
@@ -3589,100 +3639,325 @@ export class BattleSim {
     p.formOrder = this.releaseSeq++; // claim a formation slot on release
     p.distracted = false;
     p.awaitRelease = false;
-    this.spawnCopy(p);
   }
 
-  /** The trapeze drops a copy of the zombie that just deployed, behind the line (raid 14).
-   *
-   *  PER DEPLOYMENT, not on a timer, and that is the game: the player controls the queue,
-   *  so they choose what the circus gets to copy. Sending the brute out first means
-   *  fighting a brute in your own rear; holding it back means the front waits for it.
-   *  A timer would pick for them, and pick their best, which is a worse question.
-   *
-   *  Deterministic for the usual reason and worth stating because this is the first thing
-   *  in the sim that creates a unit out of a PLAYER's: release order is sim state driven
-   *  by `promote` and by the focus-bubble taps, and those taps are transcribed, so both
-   *  sides release the same zombie on the same tick and therefore copy the same one. */
-  private spawnCopy(p: SimUnit) {
-    const cfg = this.copyCfg;
-    if (!cfg || !p.alive) return;
-    // The trapeze needs a LINE to drop behind: somebody has to be past the drop point
-    // already, or the copy simply walls the army into its staging area. See the note in
-    // dualInvasion.ts — this is the condition, not a delay standing in for it.
-    if (!this.players.some((o) => o.alive && !o.taken && o.x > COPY_STATION_X + 0.5)) return;
-    const alive = this.enemies.filter((e) => e.isCopy && e.alive).length;
-    if (alive >= cfg.maxAlive) return;
-
-    // Cloned from the BUILT unit rather than rebuilt from a template, because the built
-    // unit is the only thing the sim has: `SimUnit` is flattened to damage / maxHp /
-    // cooldownMs, with the species stats, the level ramp, the farmer multipliers and any
-    // mutations already folded in and no way back to them. So a copy is exactly as strong
-    // as the zombie it copied, which is the point — and it is also why `keepMutations` is
-    // not one of the rung's dials (see CopyConfig): the copy cannot NOT have them.
-    const maxHp = Math.max(1, Math.round(p.maxHp * cfg.hpFraction));
-    const copy: SimUnit = {
-      ...p,
-      id: `copy${this.spawnSeq++}`,
-      team: "enemy",
-      abilities: cfg.keepPassives
-        ? p.abilities.filter((key) => COPY_PASSIVE_ABILITIES.includes(key))
-        : [],
-      color: [...COPY_TINT] as [number, number, number],
-      maxHp,
-      hp: maxHp,
-      // The aura is dropped for the reason PvP drops it on a defender: it is re-derived
-      // from "deployed carriers", and a copy standing on the enemy side would otherwise
-      // start reading the PLAYER's team for buffs.
-      teamAuraStats: null,
-      stationX: COPY_STATION_X,
-      stationY: CENTER_Y,
-      // See the note on the mechanic in dualInvasion.ts: a copy is a BLOCKER, which is
-      // what stops the front line shooting it down from where it stands and makes the
-      // rear a fight of its own. `anchorsLine` false keeps the army's stopping line where
-      // it was — without it the whole line marches back to meet the copy.
-      anchorsLine: false,
-      isCopy: true,
-      isBlocker: true,
-      isBoss: false,
-      state: "hold",
-      x: COPY_STATION_X,
-      y: CENTER_Y,
-      prevX: COPY_STATION_X,
-      prevY: CENTER_Y,
-      vx: 0,
-      vy: 0,
-      // Everything the ORIGINAL was carrying that belongs to the original and not to its
-      // reflection: its place in the line, its charge, its passengers, whatever is
-      // currently happening to it. A copy of a burning, stunned, mid-wind-up zombie that
-      // arrived burning, stunned and mid-wind-up would be a copy of a moment.
-      passedBlockers: [],
-      inLine: false,
-      formOrder: 0,
-      lineupIndex: 0,
-      windupKey: null,
-      windupMs: 0,
-      buddyId: null,
-      buddyMountMs: 0,
-      burnMs: 0,
-      stunMs: 0,
-      knockBackSpeed: 0,
-      taken: false,
-      isTurned: false,
-      turnedFromId: null,
-      chargeCfg: null,
-      chargeMs: 0,
-      poise: 0,
-      timerMs: 0,
-    };
-    // The same latch the wall and the abductee use: whoever is already past this spot
-    // does not turn round for it. Applied to the copy's ORIGINAL too — it has just been
-    // released and is standing behind the drop point, so without this it would about-face
-    // and fight itself on the spot instead of marching.
-    for (const other of this.players) {
-      if (other.alive && other.x > copy.x + 0.5) other.passedBlockers.push(copy.id);
+  /** Who the ringmaster's whip strikes (raid 14): the nearest zombie on his LEFT — the healer
+   *  side — within reach, and only with nothing there the nearest on his right, the front
+   *  line. Null when nobody is in reach either way. */
+  private whipTarget(e: SimUnit): SimUnit | null {
+    const reach = this.bigTop?.whipReach ?? 0;
+    let left: SimUnit | null = null;
+    let right: SimUnit | null = null;
+    for (const p of this.players) {
+      if (!p.alive || p.taken || (p.state !== "advance" && p.state !== "fight")) continue;
+      const d = Math.abs(p.x - e.x);
+      if (d > reach) continue;
+      if (p.x < e.x - 0.5) {
+        if (!left || p.x > left.x) left = p;
+      } else if (!right || p.x < right.x) {
+        right = p;
+      }
     }
-    this.enemies.push(copy);
-    this.units.push(copy);
+    return left ?? right;
+  }
+
+  /** The zombies on the lane the big top can reach: deployed, not carried, not converted. */
+  private onLane(): SimUnit[] {
+    return this.players.filter((p) =>
+      p.alive && !p.taken && (p.state === "advance" || p.state === "fight"));
+  }
+
+  /** The bozo stack standing in the middle, or null. */
+  private bozoStack(): SimUnit | null {
+    return this.enemies.find((e) => e.isBozoStack && e.alive) ?? null;
+  }
+
+  /** Run the big top's clocks (raid 14): the trapeze, the bozos and their hammers, and the
+   *  pixel fire. The whip lives in the enemy loop and the ringmaster's drop in promote. */
+  private stepBigTop(dtMs: number) {
+    const cfg = this.bigTop;
+    if (!cfg || !this.anyAlive(this.players)) return;
+
+    // THE TRAPEZE (t3+). One artist at a time; she comes for the rearmost zombie on the
+    // lane, swings with it, and drops it where the swing is when tapped — or back at the
+    // staging slot when she gives up.
+    if (cfg.trapeze) {
+      const active = this.grabbers.some((g) => g.drop && g.state !== "gone");
+      if (!active) {
+        this.trapezeTimerMs += dtMs;
+        const lane = this.onLane();
+        if (this.trapezeTimerMs >= cfg.trapezeEveryMs && lane.length > 1) {
+          this.trapezeTimerMs = 0;
+          this.spawnTrapeze(lane.sort((a, b) => a.x - b.x)[0], cfg);
+        }
+      }
+      this.stepTrapezes(dtMs);
+    }
+
+    // BOZOS (t5+): once the ringmaster is down, the Video Games boss starts converting.
+    const stack = this.bozoStack();
+    if (cfg.bozos && cfg.bozo && this.boss && !this.boss.alive) {
+      this.convertTimerMs += dtMs;
+      if (this.convertTimerMs >= cfg.convertMs) {
+        this.convertTimerMs = 0;
+        if (this.bozoIds.length < cfg.bozoCap) this.convertToBozo(cfg);
+      }
+    }
+    // The stack's hammers, faster the taller it is.
+    if (stack) {
+      const height = this.stackHeight(stack);
+      this.hammerTimerMs += dtMs * height;
+      if (this.hammerTimerMs >= cfg.hammerMs) {
+        this.hammerTimerMs = 0;
+        const target = this.throwTarget();
+        if (target) {
+          this.launchProjectile(target, cfg.hammerDamage, HAMMER_SPRITE, 28, {
+            originDx: stack.x - BOSS_STRUCT_X,
+            originDy: stack.y - 40 - BOSS_STRUCT_Y,
+          });
+        }
+      }
+    }
+
+    // PIXEL FIRE (t7+): a burning zombie walks BACK — see walkBurning.
+    if (cfg.fire) {
+      this.fireTimerMs += dtMs;
+      if (this.fireTimerMs >= cfg.fireEveryMs) {
+        this.fireTimerMs = 0;
+        const lane = this.onLane().filter((p) => p.burnMs <= 0);
+        if (lane.length) {
+          const victim = lane[Math.floor(hash(this.elapsed * 0.013 + 29) * lane.length) % lane.length];
+          victim.windupKey = null;
+          victim.windupMs = 0;
+          victim.burnMs = PIXEL_FIRE_BURN_MS;
+          victim.burnWalk = true;
+          victim.burnAnchorX = victim.x;
+          victim.burnDir = -1;
+          victim.struckThisTick = true;
+        }
+      }
+    }
+  }
+
+  /** A burning zombie on the big top walks BACK toward the staging slot until the fire goes
+   *  out. Whatever blocker it walks back past is ahead of it again, so if it gets far enough
+   *  it turns and fights the ringmaster or the bozo stack — the fire is a penalty that
+   *  doubles as the way into the middle. */
+  private walkBurning(p: SimUnit, dtMs: number) {
+    p.inLine = false;
+    p.walkingThisTick = true;
+    p.x = Math.max(CHARGE_X, p.x - (FIRE_WALK_SPEED * dtMs) / 1000);
+    p.y = p.slotY;
+    if (p.passedBlockers.length) {
+      p.passedBlockers = p.passedBlockers.filter((id) => {
+        const b = this.enemies.find((e) => e.id === id);
+        return !!b && b.alive && b.x < p.x;
+      });
+    }
+  }
+
+  /** A trapeze artist for the raid-14 drop. Swoops like the rescue hazard, then SWINGS. */
+  private spawnTrapeze(victim: SimUnit, cfg: BigTopConfig) {
+    const seq = this.grabSeq++;
+    const swingStartDeg = seq % 2 === 0 ? 0 : 180;
+    const targetDx = clamp((victim.x - GRABBER_PIVOT_X) / GRABBER_SWING_RADIUS_X, -1, 1);
+    const contactDeg = Math.acos(targetDx) * 180 / Math.PI;
+    const swingTotalMs = Math.max(1, GRABBER_FULL_ARC_MS * Math.abs(contactDeg - swingStartDeg) / 180);
+    this.grabbers.push({
+      id: `trap${seq}`,
+      x: GRABBER_PIVOT_X,
+      y: GRABBER_PIVOT_Y,
+      state: "swoop",
+      hp: 1,
+      maxHp: 1,
+      tapDamage: 1,
+      grabbedId: null,
+      pauseMs: swingTotalMs,
+      tapCdMs: 0,
+      sprite: TRAPEZE_SPRITE,
+      rot: swingStartDeg,
+      swingStartDeg,
+      contactDeg,
+      swingTotalMs,
+      targetId: victim.id,
+      struckThisTick: false,
+      drop: true,
+      swingMs: 0,
+      holdMs: cfg.trapezeHoldMs,
+    });
+  }
+
+  /** Swoop, grab, swing — and let go at the staging slot if nobody taps in time. */
+  private stepTrapezes(dtMs: number) {
+    for (const g of this.grabbers) {
+      if (!g.drop || g.state === "gone") continue;
+      if (g.state === "swoop") {
+        g.pauseMs = Math.max(0, g.pauseMs - dtMs);
+        const t = 1 - g.pauseMs / g.swingTotalMs;
+        const eased = t * t * (3 - 2 * t);
+        g.rot = g.swingStartDeg + (g.contactDeg - g.swingStartDeg) * eased;
+        if (g.pauseMs > 0) continue;
+        const victim = g.targetId ? this.players.find((p) => p.id === g.targetId) : null;
+        if (!victim || !victim.alive || victim.taken ||
+            (victim.state !== "advance" && victim.state !== "fight")) {
+          g.state = "gone";
+          continue;
+        }
+        g.grabbedId = victim.id;
+        g.targetId = null;
+        g.state = "carry";
+        g.swingMs = 0;
+        victim.state = "grabbed";
+        victim.windupKey = null;
+        victim.windupMs = 0;
+        victim.stunMs = 0;
+        victim.burnMs = 0;
+        victim.burnWalk = false;
+        continue;
+      }
+      // carry: the catch rides a pendulum across the middle of the lane.
+      const z = g.grabbedId ? this.players.find((p) => p.id === g.grabbedId) : null;
+      if (!z || !z.alive) {
+        g.grabbedId = null;
+        g.state = "gone";
+        continue;
+      }
+      g.swingMs = (g.swingMs ?? 0) + dtMs;
+      const phase = (2 * Math.PI * g.swingMs) / TRAPEZE_SWING_PERIOD_MS;
+      g.x = TRAPEZE_SWING_CENTRE_X + TRAPEZE_SWING_HALF_X * Math.sin(phase);
+      g.y = CENTER_Y - GRABBER_ZOMBIE_OFFSET_Y - 70;
+      g.rot = 90 + 30 * Math.cos(phase);
+      z.x = g.x;
+      z.y = g.y + GRABBER_ZOMBIE_OFFSET_Y;
+      z.prevX = z.x;
+      z.prevY = z.y;
+      if (g.swingMs >= (g.holdMs ?? 0)) this.dropTrapeze(g, CHARGE_X);
+    }
+    for (let i = this.grabbers.length - 1; i >= 0; i--) {
+      if (this.grabbers[i].drop && this.grabbers[i].state === "gone") this.grabbers.splice(i, 1);
+    }
+  }
+
+  /** Put the trapeze's catch down at lane `x`. Everything behind that point it is past;
+   *  everything ahead — the ringmaster, the stack — it will stop and fight. */
+  private dropTrapeze(g: SimGrabber, x: number) {
+    const z = g.grabbedId ? this.players.find((p) => p.id === g.grabbedId) : null;
+    g.grabbedId = null;
+    g.state = "gone";
+    if (!z || !z.alive) return;
+    z.state = "advance";
+    z.x = clamp(x, CHARGE_X, this.frontX);
+    z.y = CENTER_Y;
+    z.prevX = z.x;
+    z.prevY = z.y;
+    z.vx = 0;
+    z.vy = 0;
+    z.timerMs = this.cycleMs(z, null);
+    z.formOrder = this.releaseSeq++;
+    z.frontPriority = false;
+    z.inLine = false;
+    z.passedBlockers = this.enemies.filter((e) => e.alive && e.isBlocker && e.x < z.x).map((e) => e.id);
+  }
+
+  /** Player tapped the raid-14 trapeze: drop the catch where the swing is RIGHT NOW. The
+   *  position is sim state on both sides, so the transcript carries only which artist.
+   *  Returns false — a refusal the transcript records — when there is nothing to drop. */
+  tapTrapeze(id: string): boolean {
+    if (this.finished) return false;
+    const g = this.grabbers.find((x) => x.id === id && x.drop && x.state === "carry");
+    if (!g) return false;
+    g.struckThisTick = true;
+    this.dropTrapeze(g, g.x);
+    return true;
+  }
+
+  /** The raid-14 trapeze carrying a zombie right now, or null. */
+  activeTrapeze(): SimGrabber | null {
+    return this.grabbers.find((g) => g.drop && g.state === "carry") ?? null;
+  }
+
+  /** Where the middle of the lane is being held right now (the ringmaster on the ground, or
+   *  the bozo stack), for a player deciding where to drop — null when nothing is. */
+  bigTopMiddle(): SimUnit | null {
+    if (!this.bigTop) return null;
+    const boss = this.boss;
+    if (boss && boss.alive && boss.isBlocker) return boss;
+    return this.bozoStack();
+  }
+
+  /** How many zombies are standing in the bozo stack, and the cap. */
+  bozoStatus(): { count: number; cap: number } | null {
+    if (!this.bigTop?.bozos) return null;
+    return { count: this.bozoIds.length, cap: this.bigTop.bozoCap };
+  }
+
+  /** The Video Games boss turns a zombie into a bozo: it leaves the lane (`taken` — alive,
+   *  a survivor, NOT a loss) and climbs onto the stack in the middle. */
+  private convertToBozo(cfg: BigTopConfig) {
+    const lane = this.onLane();
+    if (!lane.length || !cfg.bozo) return;
+    const victim = lane[Math.floor(hash(this.elapsed * 0.017 + 41) * lane.length) % lane.length];
+    victim.taken = true;
+    victim.windupKey = null;
+    victim.windupMs = 0;
+    victim.burnMs = 0;
+    victim.burnWalk = false;
+    victim.struckThisTick = true;
+    this.bozoIds.push(victim.id);
+    let stack = this.bozoStack();
+    if (!stack) {
+      stack = this.spawnEnemy(cfg.bozo);
+      stack.isBozoStack = true;
+      stack.isBlocker = true;
+      stack.isSummon = true;
+      stack.anchorsLine = false;
+      stack.state = "hold";
+      stack.x = cfg.stationX;
+      stack.y = CENTER_Y;
+      stack.stationX = cfg.stationX;
+      stack.stationY = CENTER_Y;
+      stack.prevX = stack.x;
+      stack.prevY = stack.y;
+      stack.stackBaseHp = cfg.bozoHp;
+      stack.stackGrowMs = 0;
+      stack.stackCeiling = cfg.bozoCap;
+      stack.hp = 0;
+      stack.maxHp = 0;
+      for (const p of this.players) {
+        if (p.alive && p.x > stack.x + 0.5) p.passedBlockers.push(stack.id);
+      }
+    }
+    const count = this.bozoIds.length;
+    stack.stackMax = count;
+    stack.maxHp = count * cfg.bozoHp;
+    stack.hp = Math.min(stack.maxHp, stack.hp + cfg.bozoHp);
+    stack.stackSeen = this.stackHeight(stack);
+  }
+
+  /** Knock bozos off until the stack is `height` tall, most recent first — each one is a
+   *  zombie coming back, put down just in front of the stack (so it is past it). */
+  private freeBozos(stack: SimUnit, height: number) {
+    const cfg = this.bigTop;
+    while (this.bozoIds.length > height) {
+      const id = this.bozoIds.pop()!;
+      const z = this.players.find((p) => p.id === id);
+      if (!z || !z.alive) continue;
+      z.taken = false;
+      z.state = "advance";
+      z.x = stack.x + 30;
+      z.y = CENTER_Y;
+      z.prevX = z.x;
+      z.prevY = z.y;
+      z.timerMs = this.cycleMs(z, null);
+      z.formOrder = this.releaseSeq++;
+      z.inLine = false;
+      z.passedBlockers = this.enemies.filter((e) => e.alive && e.isBlocker && e.x < z.x).map((e) => e.id);
+    }
+    if (cfg && stack.alive) {
+      stack.stackMax = Math.max(1, this.bozoIds.length);
+      stack.maxHp = Math.max(1, this.bozoIds.length * cfg.bozoHp);
+      stack.hp = Math.min(stack.hp, stack.maxHp);
+    }
   }
 
   /** Player tapped the focus bubble over the charging zombie: a butterfly
@@ -4054,6 +4329,7 @@ export class BattleSim {
     // single weighted pick over `bossActions` per cycle — see stepBossActions).
     this.stepBossActions(dtMs);
     this.stepGrabbers(dtMs);
+    this.stepBigTop(dtMs);
     this.stepCrabs(dtMs);
     this.stepMegaBot(dtMs);
     this.stepProjectiles(dtMs);
@@ -4147,7 +4423,8 @@ export class BattleSim {
           // or the player taps it out. Checked after the shove and the stun so neither is
           // swallowed by the fire (a burning zombie can still be knocked back or held).
           if (p.burnMs > 0) {
-            this.pacePanicked(p, dtMs);
+            if (p.burnWalk) this.walkBurning(p, dtMs);
+            else this.pacePanicked(p, dtMs);
             p.timerMs = this.cycleMs(p, null);
             break;
           }
@@ -4301,6 +4578,14 @@ export class BattleSim {
             e.x = landX;
             e.y = CENTER_Y;
             e.state = "hold";
+            // Raid 14: he stands in the MIDDLE as a blocker. Whoever is already past him does
+            // not turn round; whoever walks out later stops and fights him.
+            if (this.bigTop && e === this.boss) {
+              e.isBlocker = true;
+              for (const p of this.players) {
+                if (p.alive && p.x > e.x + 0.5) p.passedBlockers.push(e.id);
+              }
+            }
           }
           continue;
         }
@@ -4349,7 +4634,7 @@ export class BattleSim {
         e.timerMs = this.cycleMs(e, null);
         continue;
       }
-      const foe = this.playerInRange(e);
+      const foe = this.bigTop && e === this.boss ? this.whipTarget(e) : this.playerInRange(e);
       if (foe) {
         e.state = "fight";
         this.tryAttack(e, foe, dtMs);
@@ -5237,7 +5522,8 @@ export class BattleSim {
    *  Killing it frees (drops) the zombie it carried back onto the lane. Returns true if a
    *  tap registered (drives tap feedback). */
   tapGrabber(id: string): boolean {
-    const g = this.grabbers.find((x) => x.id === id && x.state !== "gone");
+    // The raid-14 trapeze is not a rescue: its tap is `tapTrapeze`, and it is transcribed.
+    const g = this.grabbers.find((x) => x.id === id && x.state !== "gone" && !x.drop);
     if (!g || g.tapCdMs > 0) return false;
     g.tapCdMs = this.hazardTapCooldownMs;
     g.hp -= g.tapDamage;
@@ -5263,7 +5549,7 @@ export class BattleSim {
 
   /** The live Trapeze Artist currently carrying a zombie (renderer taps it), or null. */
   activeGrabber(): SimGrabber | null {
-    return this.grabbers.find((g) => g.state === "carry") ?? null;
+    return this.grabbers.find((g) => g.state === "carry" && !g.drop) ?? null;
   }
 
   /** Player tapped a converted PIXEL ZOMBIE: beat one tap's worth out of it. Sized off its

@@ -270,6 +270,18 @@ export function makePilot(profile: PilotProfile): Pilot {
         epoch("charge", false);
       }
 
+      // 3b. The raid-14 trapeze: drop the catch just short of whatever holds the middle (the
+      //     ringmaster, then the bozo stack), so it walks into it and fights. With nothing in
+      //     the middle, put it down near the front line rather than let it be carried back.
+      if (profile.tapHazards) {
+        const trap = sim.activeTrapeze();
+        if (trap && acts(`trap:${trap.id}`, tick)) {
+          const mid = sim.bigTopMiddle();
+          const want = mid ? mid.x - 50 : 820;
+          if (Math.abs(trap.x - want) < 30) return { type: "trapezeTap", unitId: trap.id };
+        }
+      }
+
       // 4. The two client-only rescues. A zombie in a trapeze or a crab is out of the
       //    fight and on its way to being lost.
       if (profile.rescueGrabs) {

@@ -52,7 +52,7 @@ import {
 import { parseRosterColor } from "./v3/rosterColor";
 import {
   isDualInvasion, MAX_TIER, MIN_TIER, raidProfile,
-  type BubbleConfig, type CopyConfig, type DuelConfig, type SignConfig,
+  type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "../../src/raid/dualInvasion";
 
 export { RAID_RULESET_VERSION };
@@ -91,8 +91,8 @@ export interface PinnedRaidConfig {
   sign?: SignConfig | null;
   /** The duel's fight-wide rules (raid 13 only). */
   duel?: DuelConfig | null;
-  /** The trapeze's copies of the player's own zombies (raid 14 only). */
-  copies?: CopyConfig | null;
+  /** The big top's rules (raid 14 only). */
+  bigTop?: BigTopConfig | null;
   /** The saucer's five-action bubble, and the wall its `wall` action drops (raid 15). */
   bubble?: BubbleConfig | null;
   bubbleWall?: CombatUnit | null;
@@ -245,7 +245,7 @@ export function createPinnedSim(config: PinnedRaidConfig): BattleSim {
     turnedTemplate: config.turnedTemplate,
     sign: config.sign,
     duel: config.duel,
-    copies: config.copies,
+    bigTop: config.bigTop,
     bossDropAtMs: config.bossDropAtMs,
     bossGroundStationX: config.bossGroundStationX,
     bubble: config.bubble,

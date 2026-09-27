@@ -1167,6 +1167,17 @@ import type { RaidOutcome } from "./types";
 // every 8 s from t9, with the ninja retreating to his perch at 30% health until the rest are
 // down; iron will (a triple-depth bar that drains) at t10. `dexTax` became the `duel` config.
 //
+// Raid 14 (Circus & Video Games): the big top. The trapeze copies and the growing towers are
+// gone. The ringmaster drops into the middle at 12 s on every rung and stands there as a
+// blocker (still part of the win condition), whipping the nearest zombie on his left, and
+// stunning Garden zombies only. From t3 a SIMULATED trapeze grabs the rearmost zombie and
+// swings it; a new input, `trapezeTap` (the artist's id), drops it where the swing is — the
+// point is sim state, so the input carries no position. Once the ringmaster falls, from t5,
+// zombies are converted into a bozo stack in the middle (a blocker outside the win
+// condition; knocking one off frees a zombie; captives come home as `taken`), which throws
+// hammers faster the taller it is. Pixel fire walks a zombie back from t7; the cap is 6 from
+// t9; conversion comes faster at t10. `copies` became the `bigTop` config.
+//
 // Every transcript on raids 12-15 at every rung replays differently from v65.
 export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;
@@ -1182,6 +1193,7 @@ export type RaidReplayInput =
   | { seq: number; tick: number; type: "turnedTap"; unitId: string }
   | { seq: number; tick: number; type: "signPick"; offer: number; option: number }
   | { seq: number; tick: number; type: "castCancel"; slot?: number }
+  | { seq: number; tick: number; type: "trapezeTap"; unitId: string }
   | { seq: number; tick: number; type: "retreat" };
 
 /** How far the server's replay had to depart from the client's account of the fight.
@@ -1342,6 +1354,16 @@ export function advanceRaidSegment(
         }
         if (!sim.cancelCast(input.slot ?? 0)) {
           const fatal = refuse("illegal_cancel");
+          if (fatal) return fatal;
+        }
+      } else if (input.type === "trapezeTap") {
+        // Dropping the raid-14 trapeze's catch where the swing is. The drop point is sim
+        // state on both sides, so the input names only the artist; `tapTrapeze` refuses
+        // anything that is not a trapeze carrying a zombie. One-way like the taps above: a
+        // refused drop is a placement the server's player never got.
+        if (typeof input.unitId !== "string") return { ok: false, error: "illegal_trapeze_tap" };
+        if (!sim.tapTrapeze(input.unitId)) {
+          const fatal = refuse("illegal_trapeze_tap");
           if (fatal) return fatal;
         }
       } else if (input.type === "retreat") {

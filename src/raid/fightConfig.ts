@@ -32,7 +32,7 @@ import { buildUnitsForKeys } from "./CombatEngine";
 import {
   chargeFor, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
   BUBBLE_RAID_ID, BUBBLE_ROBOT_KEY,
-  SIGN_RAID_ID, stacksFor, STACK_COUNT, STACK_FIRST_AT_MS, STACK_GAP_MS,
+  BIG_TOP_RAID_ID, SIGN_RAID_ID,
 } from "./dualInvasion";
 
 /** The pirate captain's authored unit — `str 500, dex 0.4`, the biggest single blow in the
@@ -49,7 +49,7 @@ export type FightAssets = Pick<GameAssets, "enemyStats" | "raidAttacks">;
 const GRAB_SPRITE: Record<number, string> = {
   8: "hazard_trapeze_girl.png",
 };
-/** The authored midget stack — one tower per unit. See circusStacksFor. */
+/** The authored midget stack — what a bozo is built as. See bozoFor. */
 const CIRCUS_STACK_KEY = "CircusStageActorMinion2";
 /** The Beach crab hazard: identified by the raid's own `initialSpawnClass` rather than a
  *  per-id table, since that field is exactly what the source's obstacle timer spawns. */
@@ -203,6 +203,9 @@ function wallUnitFrom(
  *  (The Lawyers cars also `grabZombie` but ship no sprite / different motion — not wired
  *  here.) */
 export function grabberFor(raid: RaidDef): GrabberConfig | null {
+  // Raid 14 fights on the Circus stage but its trapeze is a SIMULATED rule of the big top
+  // (the drop — see BigTopConfig), not this client-only rescue, so it never gets this one.
+  if (raid.id === BIG_TOP_RAID_ID) return null;
   const sprite = GRAB_SPRITE[stageRaidId(raid)];
   if (!raid.hasGrab || !sprite) return null;
   return { sprite, hp: rescueHazardHp(RESCUE_HAZARD_HP), tapDamage: 100, spawnDelayMs: 4000 };
@@ -314,43 +317,21 @@ export function pirateCaptainFor(
   return unit ? [{ ...unit, id: "captain", charge, deployAtWaveFrac: MIDPOINT_WAVE_FRAC }] : [];
 }
 
-/** The Circus & Video Games towers: up to STACK_COUNT midget stacks, appended to the wave
- *  on their own clocks (raid 14).
- *
- *  `CircusStageActorMinion2` is the authored midget stack — it swings `MidgetStackAttack`
- *  and the ringmaster throws `projectile_midget.png` — so the art is the game's own. What
- *  the fight adds is that each one is ONE unit carrying a height, not three bodies: see
- *  the note in dualInvasion.ts for why the settle budget insists on that.
- *
- *  They walk on spaced rather than together (STACK_GAP_MS), because three towers arriving
- *  at once is a wall and three arriving in sequence is a decision about which to topple.
- *
- *  `anchorsLine` is left TRUE: a stack holds at the wave's own doorway like every other
- *  minion, so there is no mid-field station to drag the army's line forward. */
-export function circusStacksFor(
+/** The stacking little man a bozo is built as (raid 14, t5+): the Circus fight's own midget
+ *  stack, at the rung's profile. The sim grows ONE stack unit a bozo at a time from it — see
+ *  BattleSim's bozo stack. Null on every other raid. */
+export function bozoFor(
   assets: FightAssets,
   raid: RaidDef,
-  tier: number,
   elite: EliteProfile | null = null,
   playerLevel = 0
-): CombatUnit[] {
-  const cfg = stacksFor(raid.id, tier);
-  if (!cfg || !assets.enemyStats[CIRCUS_STACK_KEY]) return [];
-  const out: CombatUnit[] = [];
-  for (let i = 0; i < STACK_COUNT; i++) {
-    const [unit] = buildUnitsForKeys(
-      [CIRCUS_STACK_KEY], null, assets.enemyStats, assets.raidAttacks,
-      { raidId: raid.id, playerLevel, elite }
-    );
-    if (!unit) break;
-    out.push({
-      ...unit,
-      id: `stack${i}`,
-      deployAtMs: STACK_FIRST_AT_MS + i * STACK_GAP_MS,
-      stack: { growMs: cfg.growMs, maxHeight: cfg.maxHeight },
-    });
-  }
-  return out;
+): CombatUnit | null {
+  if (raid.id !== BIG_TOP_RAID_ID || !assets.enemyStats[CIRCUS_STACK_KEY]) return null;
+  const [unit] = buildUnitsForKeys(
+    [CIRCUS_STACK_KEY], null, assets.enemyStats, assets.raidAttacks,
+    { raidId: raid.id, playerLevel, elite }
+  );
+  return unit ? { ...unit, id: "bozo" } : null;
 }
 
 /** The robot the saucer's bubble beams down (raid 15), built at the rung's profile like

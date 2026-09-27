@@ -24,7 +24,7 @@
 // already resolved. It is a keyword-to-positional adapter and nothing more, which is why
 // it can be trusted to sit underneath the client, the server and the harness at once.
 import { BattleSim } from "./BattleSim";
-import type { BubbleConfig, CopyConfig, DuelConfig, SignConfig } from "./dualInvasion";
+import type { BigTopConfig, BubbleConfig, DuelConfig, SignConfig } from "./dualInvasion";
 import type {
   BossSpecial,
   BossThrowConfig,
@@ -80,8 +80,9 @@ export interface FightSpec {
   /** The duel's fight-wide rules: the smoke and stand-down around the captain, the dex
    *  tax, the counter, the stunning throws and the smoke swap (raid 13). */
   duel?: DuelConfig | null;
-  /** The trapeze's copies of the player's own zombies (raid 14). */
-  copies?: CopyConfig | null;
+  /** The big top's rules: the whip, the trapeze drop, the bozos and the walking fire
+   *  (raid 14). */
+  bigTop?: BigTopConfig | null;
   /** The ringmaster's early drop and the station he then fights from (raid 14, rung 5+). */
   bossDropAtMs?: number | null;
   bossGroundStationX?: number | null;
@@ -116,7 +117,7 @@ export function buildFight(spec: FightSpec): BattleSim {
     spec.turnedTemplate ?? null,
     spec.sign ?? null,
     spec.duel ?? null,
-    spec.copies ?? null,
+    spec.bigTop ?? null,
     spec.bossDropAtMs ?? null,
     spec.bossGroundStationX ?? null,
     spec.bubble ?? null,

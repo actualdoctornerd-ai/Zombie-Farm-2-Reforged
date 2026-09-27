@@ -109,7 +109,9 @@ describe("fight config", () => {
     // around it. See borrowedStage.test.ts.
     const grabs = playable.filter((r) => grabberFor(r)).map((r) => r.name);
     const crabs = playable.filter((r) => crabFor(r)).map((r) => r.name);
-    expect(grabs).toEqual(["Zombies vs Circus", "Zombies vs Circus & Video Games"]);
+    // Not raid 14: its trapeze is a simulated rule of the big top (BigTopConfig), so the
+    // client-only rescue is off there on purpose.
+    expect(grabs).toEqual(["Zombies vs Circus"]);
     expect(crabs).toEqual(["Summer Break"]);
     for (const raid of playable) {
       const crab = crabFor(raid);
@@ -143,7 +145,7 @@ describe("fight config", () => {
     expect(composer.includes("bossActions")).toBe(false);
     for (const fn of ["bossThrowFor", "bossSpecialsFor", "grabberFor", "crabFor",
       "summonFor", "wallTemplateFor", "turnedTemplateFor", "bubbleWallFor",
-      "farmerSquadFor", "pirateCaptainFor", "circusStacksFor", "bubbleRobotFor"]) {
+      "farmerSquadFor", "pirateCaptainFor", "bozoFor", "bubbleRobotFor"]) {
       expect(composer.includes(fn), fn).toBe(true);
     }
     for (const file of ["./RaidManager.ts", "../../server/src/raidVerifier.ts"]) {

@@ -34,7 +34,7 @@ import { effectiveStrength } from "./effectiveLadder";
 import { pearson, spearman } from "./regression";
 import { scoreFlight } from "./effectiveStrength";
 import { strengthPool, sweepFights, SWEEP_SIZE } from "./strengthSweep";
-import { CHARGE_RAID_ID, COPY_RAID_ID } from "../dualInvasion";
+import { CHARGE_RAID_ID, BIG_TOP_RAID_ID } from "../dualInvasion";
 
 export const MONOTONIC_SHARDS = 6;
 /** Wave seeds per roster. Two, averaged, so one unlucky draw does not read as the army. */
@@ -43,7 +43,7 @@ export const MONOTONIC_SEEDS = 2;
 /** Fights whose own mechanic reads the player's army and turns it against them. A dip here
  *  is a design decision, not a defect — see the header. */
 export function expectedNonMonotone(raidId: number): boolean {
-  return raidId === CHARGE_RAID_ID || raidId === COPY_RAID_ID;
+  return raidId === CHARGE_RAID_ID || raidId === BIG_TOP_RAID_ID;
 }
 
 export interface MonotonicRow {
@@ -68,7 +68,7 @@ export interface MonotonicRow {
 function enemyProgress(sim: ReturnType<typeof buildFight>): number {
   let total = 0, left = 0;
   for (const u of sim.units) {
-    if (u.team !== "enemy" || u.isCopy || u.isTurned) continue;
+    if (u.team !== "enemy" || u.isTurned) continue;
     total += u.maxHp;
     left += Math.max(0, u.hp);
   }

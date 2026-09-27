@@ -19,12 +19,12 @@
 // lets the client, the Worker and the difficulty harness all call it.
 import { buildEnemyUnits } from "./CombatEngine";
 import {
-  abducteesAt, bubbleFor, copiesFor, duelFor, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
-  type BubbleConfig, type CopyConfig, type DuelConfig, type SignConfig,
+  abducteesAt, bigTopFor, bubbleFor, duelFor, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
+  type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
 import {
-  bossSpecialsFor, bossThrowFor, bubbleWallFor, circusStacksFor, crabFor, farmerSquadFor,
+  bossSpecialsFor, bossThrowFor, bozoFor, bubbleWallFor, crabFor, farmerSquadFor,
   bubbleRobotFor, grabberFor, megaBotFor, pirateCaptainFor, summonFor, turnedTemplateFor,
   wallTemplateFor, type FightAssets,
 } from "./fightConfig";
@@ -71,7 +71,7 @@ export interface ComposedFight {
   megaBot: MegaBotConfig | null;
   sign: SignConfig | null;
   duel: DuelConfig | null;
-  copies: CopyConfig | null;
+  bigTop: BigTopConfig | null;
   bubble: BubbleConfig | null;
   bubbleWall: CombatUnit | null;
   bossDropAtMs: number | null;
@@ -96,7 +96,6 @@ export function composeFight(
   // which is the entire reason this sequence now lives in one place.
   enemyUnits.push(...farmerSquadFor(assets, raid, tier, elite, playerLevel));
   enemyUnits.push(...pirateCaptainFor(assets, raid, tier, elite, playerLevel));
-  enemyUnits.push(...circusStacksFor(assets, raid, tier, elite, playerLevel));
 
   const dropAtMs = ringmasterDropMs(raid.id, tier);
   return {
@@ -115,7 +114,7 @@ export function composeFight(
     megaBot: ctx.hazards ? megaBotFor(raid) : null,
     sign,
     duel: duelFor(raid.id, tier),
-    copies: copiesFor(raid.id, tier),
+    bigTop: withBozo(bigTopFor(raid.id, tier), bozoFor(assets, raid, elite, playerLevel)),
     bubble: withRobot(bubbleFor(raid.id, tier), bubbleRobotFor(assets, raid, elite, playerLevel)),
     bubbleWall: bubbleWallFor(assets, raid, elite),
     bossDropAtMs: dropAtMs,
@@ -128,4 +127,10 @@ export function composeFight(
  *  where both halves are in hand. */
 function withRobot(bubble: BubbleConfig | null, robot: CombatUnit | null): BubbleConfig | null {
   return bubble ? { ...bubble, robot } : null;
+}
+
+/** The rung's big top with the bozo it converts zombies into attached — joined here for the
+ *  same reason as the saucer's robot: dualInvasion has no asset access. */
+function withBozo(bigTop: BigTopConfig | null, bozo: CombatUnit | null): BigTopConfig | null {
+  return bigTop ? { ...bigTop, bozo } : null;
 }
