@@ -2,6 +2,10 @@
 
 SPEC — hand-off draft. All four invasions are BUILT (Stages 0-4) bar their art; next is the balance pass.
 
+> **REDESIGNED 2026-09-27: read "Part 2B — The tier ladders, redesigned" first.** It supersedes
+> the tier dials in Part 3, the tuning rule in "The eight permanent unlocks" and the prestige
+> split. Part 3 is kept as the record of what is BUILT today.
+
 The mechanics in Parts 2 and 3 are **decided**; the numbers in them are **placeholders**. The
 difficulty harness cannot currently measure three of these four fights, so every profile,
 threshold and reward gets re-derived after it is rebuilt (see Sequencing). Build the
@@ -25,7 +29,8 @@ raise is the broader mandate and prestige is the enthusiast path. **This documen
 level path only.**
 
 **Prestige is being reworked and is out of scope for this document** (Part 5 is kept only
-as a record and is ON HOLD). One rule survives whatever it becomes: **levels 46-50 are tuned
+as a record and is ON HOLD). **Update 2026-09-27: prestige is being relegated to ECONOMY, so the tier ladders may grant army
+power (see Part 2B).** One rule survives whatever it becomes: **levels 46-50 are tuned
 at no-prestige power.** A fight that needs a prestige upgrade is a fight that has quietly
 made prestige mandatory.
 
@@ -221,7 +226,9 @@ Three constraints on whatever gets chosen:
 2. **Prefer capability that only cashes out in hard fights.** A flat stat bonus makes levels
    1-45 trivial for anyone who has these; an extra ability charge, an extra army slot, a
    per-fight revive or a sixth mutation slot only matter where the fight is tight.
-3. **Watch the self-reference.** If t10's unlock is what makes t10 of the next invasion
+3. **SUPERSEDED 2026-09-27 (owner): the tuning rule below is wrong.** t10 does NOT have to be
+   tuned against an account holding none of the unlocks; it may lean on rewards from earlier
+   tiers. Kept as the record. **Watch the self-reference.** If t10's unlock is what makes t10 of the next invasion
    approachable, the ladder tunes itself into a required order and the last one is balanced
    for a player who has all eight. Tune every tier against an account holding **none** of
    them, and let the unlocks be the cushion.
@@ -251,6 +258,156 @@ One thing to watch once it is live: the top tiers are also a **brain** sink, bec
 zombies costs six brains to repair, against a win that pays four — a tier that is
 net-negative to attempt is a tier nobody replays. Check the two numbers against each other
 once the harness can say how often a good army actually loses.
+
+---
+
+## Part 2B — The tier ladders, redesigned (owner, 2026-09-26/27)
+
+This part supersedes the tier dials in Part 3. What Part 3 describes is what is built today;
+what follows is what the four fights are being rebuilt into.
+
+### Goals
+
+- **Decisions made during the fight win it.** These are not four more fights you can win without thinking.
+- **No single army clears every t10.** Each fight's mechanics favour different builds.
+- **t1 ≈ the ordinary Video Games invasion (raid 9). t5 is farmable. t10 is a push target**
+  that needs a highly tuned army and may need rewards from earlier tiers.
+- **Substantial first-clear rewards at t5 and t10** (e.g. Master+k veterancy, or another
+  meaningful unlock); small first-clear rewards on the other tiers. Prestige now owns only the
+  economy, so army power is the ladders' to give.
+
+### One change per tier
+
+| tier | kind |
+|---|---|
+| t1 | the fight's base mechanic |
+| t2, t4, t6, t8 | a **stat** step: enemy damage or attack speed, never hit points (the four-minute clock owns bulk) |
+| t3 | a new mechanic, or the base one strengthened |
+| t5 | milestone: a new mechanic |
+| t7 | a mechanic strengthened, or a new one |
+| t9 | the mechanics made more severe |
+| t10 | capstone |
+
+The tier-select screen should show what each rung adds, so a player can bring the answer.
+Hit points per rung and the transcript input cap are measured AFTER the build.
+
+### 46 — Lawyers & Farmers: Rulings
+
+Every 8 s the Lawyer offers two rulings in thought bubbles and the player taps the one they
+will live with. Ignoring the offer lets a coin (pre-drawn from the session seed) decide.
+
+| tier | change |
+|---|---|
+| t1 | **Rulings**: one ruling per bubble, drawn from the pool below |
+| t2 | stat |
+| t3 | **The angry farmer mob** walks on at the midpoint of the fight |
+| t4 | stat |
+| t5 | Each bubble holds **two** rulings |
+| t6 | stat |
+| t7 | **Contempt**: ignoring the offer applies BOTH bubbles |
+| t8 | stat |
+| t9 | Rulings are more severe |
+| t10 | **Precedent**: each ruling lasts two slots, so two are always in force |
+
+The Lawyer is always the boss that descends.
+
+**The ruling pool is deliberately small: every ruling must read as one icon.**
+
+| ruling | effect | icon | hurts most |
+|---|---|---|---|
+| Slowed | ally attack speed down | down arrow by the speed symbol | fast attackers |
+| Weakened | ally damage down | down arrow by the strength symbol | glass-cannon damage |
+| Overruled: Bash/Smash | that ability disabled | X over its ability icon | tap-driven armies |
+| Overruled: Explode | that ability disabled | X over its ability icon | tap-driven armies |
+| Overruled: Mini Buddy | that ability disabled | X over its ability icon | tap-driven armies |
+| Barred: (class), x6 | that class leaves the line | X over the class face (the existing bubble faces) | stacks of one class |
+| Emboldened | enemies deal more damage | up arrow by the Lawyer | no tank / low health |
+| Immunity | enemies cannot be stunned | X over the stun stars | stun-reliant armies |
+| Order in Court | no healing | X over the heal icon | healer stacks |
+
+**The design work is in the PAIRING:** the two bubbles offered should hurt DIFFERENT kinds of
+army, so the right pick depends on what the player brought. Never offer two rulings that punish
+the same build.
+
+Constraints: a ruling that repeats or overlaps REFRESHES, it does not stack; a class is never
+barred in two consecutive slots (under Precedent that would bench it for 16 s).
+
+### 47 — Pirates & Ninjas: The Duel
+
+| tier | change |
+|---|---|
+| t1 | **The captain** comes out at the fight's midpoint. A smoke bomb pushes the army back so he has room; the other enemies wait while he is fought. His large area attack must be stopped by filling a poise bar with stuns |
+| t2 | stat |
+| t3 | **Dex tax**: the ninja's throw speed scales with the total dex deployed |
+| t4 | stat |
+| t5 | **Counter**: the ninja boss reflects a stun back at the zombie that hit it, doubled |
+| t6 | stat |
+| t7 | The ninja's projectiles briefly stun on hit |
+| t8 | stat |
+| t9 | **Smoke swap**: while the captain is out, the two bosses trade places by smoke bomb every 8 s. At low health the ninja retreats up top, stops attacking, and cannot be killed until the rest of the enemies are |
+| t10 | **Iron Will**: stopping the captain needs several times more stun, and the poise bar drains unless it keeps being filled, so the stuns must land together |
+
+The smoke-bomb pushback must not throw healers at the rear station, or zombies still in the
+deploy queue, off the lane.
+
+OPEN: most stuns are passive procs (a Female's 5%) that a player cannot hold back, so t5's
+reflection punishes them without offering a choice, and t3's dex tax falls hardest on the
+Females who carry them. Consider reflecting only ACTIVATED stuns (Smash, the Mini ram,
+Explode).
+
+### 48 — Circus & Video Games: The Big Top
+
+The ringmaster stands in the middle of the lane, BEHIND the army's front line: zombies that
+have walked past him do not turn back. Reaching the middle is the problem, and the
+counterplay is how you get there: deploy order (later zombies walk out through the middle and
+stop to fight whatever stands there), the trapeze drop, and the pixel fire.
+
+| tier | change |
+|---|---|
+| t1 | **The ringmaster** in the middle. His whip strikes the nearest zombie on his LEFT (the healer side); with nothing there, he whips the front line. The whip stuns **Garden zombies only**, and merely damages anything else |
+| t2 | stat |
+| t3 | **The trapeze artist** grabs a zombie and swings with it. Tapping the artist drops the zombie wherever the swing is, so the player picks the position |
+| t4 | stat |
+| t5 | **Bozos**: once the ringmaster falls, the Video Games boss converts zombies into bozos, the stacking little men from the Circus fight. They stack in the middle and throw hammers, more the taller the stack. Knocking a bozo off frees your zombie. Cap 3 |
+| t6 | stat |
+| t7 | **Pixel fire**: a burning zombie walks BACK until it is put out; if it gets far enough it engages the ringmaster or the stack |
+| t8 | stat |
+| t9 | The bozo cap rises to **6** |
+| t10 | **Conversion comes faster**: zombies are lost to the stack faster, so dealing with it becomes the fight |
+
+Zombies still trapped as bozos when the fight ends COME HOME: they are not casualties. The
+trapeze grab and the drop point must be simulated fight rules (today's Circus trapeze runs
+only in the client); the drop tap is transcribed with its position. The stacks and trapeze
+copies of Part 3 are dropped from this fight.
+
+### 49 — Aliens & Robots: Interference
+
+This fight does not punish one build. It is about the interrupt: which casts you cancel is
+decided by your own army's weak points, and it favours damage, because enemies that live
+longer cast more.
+
+| tier | change |
+|---|---|
+| t1 | **The saucer** casts every **10 s**: walls, zombies portalled to the back, a summoned robot. The player has **5 cancels** for the whole fight, so cancelling everything runs you dry |
+| t2 | stat |
+| t3 | **Abductees** start appearing in the middle, as in the ordinary Alien fight |
+| t4 | stat |
+| t5 | **The giant McDonnell bot** appears at the back. It is a signal: from here the massive area hit and the full-army stun are in the cycle |
+| t6 | stat |
+| t7 | Casts come every **7 s** |
+| t8 | stat |
+| t9 | **Lockout**: a cancel cannot be used on two activations in a row |
+| t10 | **Dual cast**: casts come in pairs and one cancel stops one of the pair (for the lockout, the pair is one activation) |
+
+The giant bot is presentation only; its abilities are ordinary cycle actions in the sim.
+Summoned robots need a cap (hit points outside the settle budget).
+
+### Across all four
+
+- **The harness pilots must learn every new decision** (rulings, stun dumping, the trapeze
+  drop, cancels), or tuning t1/t5/t10 is guesswork.
+- **The clock.** Midpoint phases, an unkillable-until-last ninja and summoned bodies add time
+  or hit points. Cap every summon, and check that a strong army finishes with time to spare.
 
 ---
 
