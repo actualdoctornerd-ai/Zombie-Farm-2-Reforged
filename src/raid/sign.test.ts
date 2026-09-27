@@ -1,15 +1,19 @@
-// The Lawyer boss's OBJECTION (raid 12). See docs/POST_45_PROGRESSION.md and dualInvasion.ts.
+// The Lawyer boss's RULINGS (raid 12). See docs/POST_45_PROGRESSION.md Part 2B and
+// dualInvasion.ts.
 //
-// What these pin is the MECHANIC, not its numbers: that the fight asks a question rather
-// than announcing an answer, that the player's tap decides which class goes, that ignoring
-// the question still costs something, that a barred zombie leaves the fight rather than
-// standing in it, that its support work stops with it, and that the whole thing ends when
-// the boss climbs down. The dwell and the offer pairings are tuning and will move.
+// What these pin is the MECHANIC and the LADDER, not the numbers: that the fight asks a
+// question rather than announcing an answer, that the two bubbles never punish the same
+// build, that the player's tap decides which comes into force, that each ruling does the
+// one thing it names, that ignoring the question costs something (a coin; both bubbles
+// under contempt), that precedent keeps two in force, and that the whole thing ends when
+// the lawyer climbs down.
 import { describe, expect, it } from "vitest";
 import { BattleSim } from "./BattleSim";
 import {
-  autoPickFor, FARMER_SQUAD_MINIONS, farmerSquadAtMs, PAIRED_SIGN_TIER, SIGN_DAMAGE_GROUPS,
-  SIGN_DWELL_MS, SIGN_MAX_SLOTS, SIGN_OFFERS, SIGN_PAIRED_OFFERS, SIGN_RAID_ID, signFor,
+  autoPickFor, CONTEMPT_TIER, FARMER_MOB_TIER, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
+  PAIRED_SIGN_TIER, PRECEDENT_TIER, RULING_POOL, RULING_SLOW, RULING_WEAKEN, rulingKey, rulingTag,
+  SEVERE_TIER, SIGN_BOTH, SIGN_DWELL_MS, SIGN_GROUPS, SIGN_MAX_SLOTS, SIGN_RAID_ID, signFor,
+  type Ruling,
 } from "./dualInvasion";
 import { farmerSquadFor } from "./fightConfig";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
@@ -26,38 +30,28 @@ const unit = (over: Partial<CombatUnit>): CombatUnit => ({
 } as CombatUnit);
 
 const SEED = "sign-test";
+const NO_ENRAGE_MS = 10 * 60 * 1000;
 
-/** A fight with one zombie of each named class and a perched lawyer filing motions. */
-function signedFight(
-  groups: string[], tier = 1, extraEnemies: CombatUnit[] = [], seed = SEED
-) {
+/** A fight with one zombie of each named class and a perched lawyer handing down rulings.
+ *  The enemies are PUNCHBAGS (huge HP, str 0) so these tests are about what the rulings do
+ *  and never about whether somebody died. */
+function signedFight(groups: string[], tier = 1, extraEnemies: CombatUnit[] = [], seed = SEED) {
   const players = groups.map((group, i) => unit({
     id: `z${i}`, name: group, group,
     isGarden: group === "Garden", isHeadless: group === "Headless",
   }));
-  // The enemies are PUNCHBAGS: huge HP so the fight never ends, and str 0 so they hit for
-  // the minimum. These tests are about what the objection does, and an enemy that can kill
-  // the patient turns "was it healed?" into "did it survive?" — which is how the first
-  // draft of the healer test below came out green for the wrong reason.
   const enemies = [
     unit({ id: "minion", sourceKey: "CityStageActorLawyer", team: "enemy", str: 0, hp: 1e6, maxHp: 1e6 }),
     unit({ id: "boss", sourceKey: "CityStageActorBoss", team: "enemy", isBoss: true, str: 0, hp: 1e6, maxHp: 1e6 }),
     ...extraEnemies,
   ];
-  // A round length longer than any test here. The default one ENRAGES the boss part way
-  // through, which killed the patient in the healer test below and made it look as though
-  // the bar had done it — these tests want a fight that just keeps going.
-  const NO_ENRAGE_MS = 10 * 60 * 1000;
-  const sim = new BattleSim(
+  return new BattleSim(
     players, enemies, null, true, [], NO_ENRAGE_MS, null, null, false, false, false,
     undefined, null, null, undefined, null, signFor(SIGN_RAID_ID, tier, seed)
   );
-  return sim;
 }
 
-const run = (sim: BattleSim, ms: number) => {
-  for (let t = 0; t < ms; t += 50) sim.step(50);
-};
+const run = (sim: BattleSim, ms: number) => { for (let t = 0; t < ms; t += 50) sim.step(50); };
 
 /** Advance to the end of the offer on the table, so whatever was picked is now in force. */
 function resolveOffer(sim: BattleSim): void {
@@ -65,15 +59,14 @@ function resolveOffer(sim: BattleSim): void {
   for (let i = 0; i < 400 && sim.signOfferIndex() === index; i++) sim.step(50);
 }
 
-/** Take the next offer that lets us choose a bubble which does (or does not) name `group`,
- *  and advance until that choice is the one in force. This is how a test says "now bar the
- *  Garden zombie" without hard-coding which slot of which rotation that happens to be. */
-function chooseBar(sim: BattleSim, group: string, want: boolean): void {
-  for (let guard = 0; guard < 400; guard++) {
+/** Take the next offer with a bubble that does (or does not) contain a ruling matching
+ *  `match`, pick it, and advance until it is in force. */
+function choose(sim: BattleSim, match: (r: Ruling) => boolean, want = true): void {
+  for (let guard = 0; guard < 2_000; guard++) {
     const offer = sim.signOffer();
     const index = sim.signOfferIndex();
     if (offer && index !== null && sim.signPick() === null) {
-      const option = offer.findIndex((bubble) => bubble.includes(group) === want);
+      const option = offer.findIndex((bubble) => bubble.some(match) === want);
       if (option >= 0 && sim.pickSign(index, option)) {
         resolveOffer(sim);
         return;
@@ -81,277 +74,267 @@ function chooseBar(sim: BattleSim, group: string, want: boolean): void {
     }
     sim.step(50);
   }
-  throw new Error(`never got the chance to ${want ? "bar" : "spare"} ${group}`);
+  throw new Error("never got the chance");
 }
+const kind = (k: string) => (r: Ruling) => r.kind === k;
+const barredGroup = (g: string) => (r: Ruling) => r.kind === "barred" && r.group === g;
 
 describe("the offer", () => {
-  it("only exists on the invasion that has one", () => {
-    expect(signFor(SIGN_RAID_ID, 1, SEED)).not.toBeNull();
-    for (const other of [1, 6, 9, 13, 14, 15]) expect(signFor(other, 1, SEED)).toBeNull();
+  it("only exists on the invasion that has it", () => {
+    for (const other of [1, 2, 9, 13, 14, 15]) expect(signFor(other, 1, SEED)).toBeNull();
   });
 
-  it("is always two bubbles, one class each low down and a pair from the paired rung", () => {
-    const low = signFor(SIGN_RAID_ID, 1, SEED)!;
-    expect(low.offers).toEqual(SIGN_OFFERS);
-    expect(low.offers.every((o) => o.length === 2 && o.every((b) => b.length === 1))).toBe(true);
-    expect(signFor(SIGN_RAID_ID, PAIRED_SIGN_TIER - 1, SEED)!.offers).toEqual(SIGN_OFFERS);
-    const paired = signFor(SIGN_RAID_ID, PAIRED_SIGN_TIER, SEED)!;
-    expect(paired.offers).toEqual(SIGN_PAIRED_OFFERS);
-    expect(paired.offers.every((o) => o.length === 2 && o.every((b) => b.length === 2))).toBe(true);
+  it("draws from a small pool of icon-sized rulings", () => {
+    const kinds = new Set(RULING_POOL.map((r) => r.kind));
+    expect([...kinds].sort()).toEqual(
+      ["barred", "emboldened", "immunity", "orderInCourt", "overruled", "slowed", "weakened"]);
+    expect(RULING_POOL.filter((r) => r.kind === "barred").map((r) => r.group).sort())
+      .toEqual([...SIGN_GROUPS].sort());
   });
 
-  it("never offers the same thing in both bubbles", () => {
-    // A dilemma with one answer is not a dilemma. This is the one property of the tables
-    // that a future re-pairing must not quietly break.
-    for (const table of [SIGN_OFFERS, SIGN_PAIRED_OFFERS]) {
-      for (const offer of table) expect(offer[0].join("+")).not.toBe(offer[1].join("+"));
+  it("is always two bubbles, one ruling each low down and two each from the paired rung", () => {
+    const low = signFor(SIGN_RAID_ID, PAIRED_SIGN_TIER - 1, SEED)!;
+    const high = signFor(SIGN_RAID_ID, PAIRED_SIGN_TIER, SEED)!;
+    expect(low.offers).toHaveLength(SIGN_MAX_SLOTS);
+    for (const offer of low.offers) {
+      expect(offer).toHaveLength(2);
+      for (const bubble of offer) expect(bubble).toHaveLength(1);
+    }
+    for (const offer of high.offers) for (const bubble of offer) expect(bubble).toHaveLength(2);
+  });
+
+  it("never offers two rulings that punish the same build", () => {
+    for (const tier of [1, PAIRED_SIGN_TIER, PRECEDENT_TIER]) {
+      for (const seed of ["a", "b", "c", "d"]) {
+        for (const offer of signFor(SIGN_RAID_ID, tier, seed)!.offers) {
+          const tags = [...offer[0], ...offer[1]].map(rulingTag);
+          expect(new Set(tags).size, `t${tier} ${seed}: ${tags}`).toBe(tags.length);
+        }
+      }
     }
   });
 
-  it("puts every class on the table, so nothing is permanently safe", () => {
-    const named = new Set(SIGN_OFFERS.flatMap((offer) => offer.flatMap((bubble) => bubble)));
-    expect([...named].sort()).toEqual(
-      [...new Set(SIGN_PAIRED_OFFERS.flatMap((o) => o.flatMap((b) => b)))].sort()
-    );
-    expect(named.size).toBe(6);
-  });
-
-  it("walks the offers in the same order every fight, and wraps", () => {
-    const sim = signedFight(["Regular"]);
-    const seen: string[] = [];
-    for (let i = 0; i < SIGN_OFFERS.length + 1; i++) {
-      seen.push(sim.signOffer()!.map((b) => b.join("+")).join(" vs "));
-      run(sim, SIGN_DWELL_MS);
+  it("never offers a class in two consecutive slots", () => {
+    for (const seed of ["a", "b", "c", "d"]) {
+      const offers = signFor(SIGN_RAID_ID, PRECEDENT_TIER, seed)!.offers;
+      for (let s = 1; s < offers.length; s++) {
+        const classes = (i: number) => new Set(
+          [...offers[i][0], ...offers[i][1]].filter((r) => r.kind === "barred").map((r) => r.group));
+        for (const g of classes(s)) expect(classes(s - 1).has(g), `${seed} slot ${s}: ${g}`).toBe(false);
+      }
     }
-    const expected = SIGN_OFFERS.map((o) => o.map((b) => b.join("+")).join(" vs "));
-    expect(seen).toEqual([...expected, expected[0]]);
   });
 
-  it("bars nobody in the opening slot, with the first question already up", () => {
+  it("pre-draws everything once, from the session seed", () => {
+    const a = signFor(SIGN_RAID_ID, 1, "session-a")!;
+    expect(signFor(SIGN_RAID_ID, 1, "session-a")).toEqual(a);
+    expect(signFor(SIGN_RAID_ID, 1, "session-b")).not.toEqual(a);
+    expect([0, 1]).toContain(autoPickFor(a, SIGN_MAX_SLOTS + 3));
+  });
+
+  it("puts nothing in force in the opening slot, with the first question already up", () => {
     const sim = signedFight(["Headless", "Regular"]);
-    expect(sim.signOfferIndex(), "askable from the first tick").toBe(0);
-    expect(sim.signedGroups(), "and free until it is answered").toEqual([]);
-    run(sim, SIGN_DWELL_MS - 100);
-    expect(sim.signedGroups()).toEqual([]);
-    run(sim, 200);
-    expect(sim.signedGroups().length, "then the first bar lands").toBe(1);
+    sim.step(50);
+    expect(sim.signOffer()).not.toBeNull();
+    expect(sim.activeRulings()).toEqual([]);
   });
 });
 
 describe("the choice", () => {
-  it("bars what the player picked, and not the other one", () => {
-    const sim = signedFight(["Headless", "Garden"]);
+  it("brings in what the player picked, and not the other one", () => {
+    const sim = signedFight(["Headless", "Regular"]);
+    sim.step(50);
     const offer = sim.signOffer()!;
     expect(sim.pickSign(0, 1)).toBe(true);
-    expect(sim.signPick(), "and the panel can still show it").toBe(1);
-    expect(sim.signedGroups(), "not yet — the pick lands on the NEXT slot").toEqual([]);
-
     resolveOffer(sim);
-    expect(sim.signedGroups()).toEqual(offer[1]);
-    expect(sim.signPick(), "the new offer starts unanswered").toBeNull();
-    expect(sim.signOfferIndex()).toBe(1);
+    expect(sim.activeRulings().map(rulingKey)).toEqual(offer[1].map(rulingKey));
   });
 
-  it("falls through to the pinned auto-pick when nobody chooses", () => {
+  it("falls through to the pinned coin when nobody chooses, below contempt", () => {
     const sign = signFor(SIGN_RAID_ID, 1, SEED)!;
-    const sim = signedFight(["Headless", "Garden"]);
+    const sim = signedFight(["Headless", "Regular"]);
     run(sim, SIGN_DWELL_MS + 100);
-    expect(sim.signedGroups()).toEqual(SIGN_OFFERS[0][autoPickFor(sign, 0)]);
+    const expected = sign.offers[0][autoPickFor(sign, 0)];
+    expect(sim.activeRulings().map(rulingKey)).toEqual(expected.map(rulingKey));
   });
 
-  it("pre-draws the auto-picks once, from the session seed", () => {
-    // Pinned rather than rolled: the client and the verifier have to agree about an
-    // unattended slot without exchanging anything (see replay.ts v58).
-    const a = signFor(SIGN_RAID_ID, 1, "session-a")!;
-    expect(a.autoPicks).toHaveLength(SIGN_MAX_SLOTS);
-    expect(a.autoPicks.every((p) => p === 0 || p === 1)).toBe(true);
-    expect(signFor(SIGN_RAID_ID, 1, "session-a")!.autoPicks).toEqual(a.autoPicks);
-    // A different fight is a different coin. Over 64 draws an identical table would be a
-    // 1-in-2^64 coincidence, so this is a real assertion about the seed being used.
-    expect(signFor(SIGN_RAID_ID, 1, "session-b")!.autoPicks).not.toEqual(a.autoPicks);
-    // And the answer is defined past the end of the table rather than undefined.
-    expect([0, 1]).toContain(autoPickFor(a, SIGN_MAX_SLOTS + 3));
+  it("applies BOTH bubbles to a player who ignores it, from contempt", () => {
+    const sign = signFor(SIGN_RAID_ID, CONTEMPT_TIER, SEED)!;
+    expect(autoPickFor(sign, 0)).toBe(SIGN_BOTH);
+    expect(signFor(SIGN_RAID_ID, CONTEMPT_TIER - 1, SEED)!.contempt).toBe(false);
+    const sim = signedFight(["Headless", "Regular"], CONTEMPT_TIER);
+    run(sim, SIGN_DWELL_MS + 100);
+    const both = [...sign.offers[0][0], ...sign.offers[0][1]].map(rulingKey);
+    expect(sim.activeRulings().map(rulingKey).sort()).toEqual([...new Set(both)].sort());
+  });
+
+  it("keeps two slots in force at once under precedent, and only there", () => {
+    expect(signFor(SIGN_RAID_ID, PRECEDENT_TIER - 1, SEED)!.inForce).toBe(1);
+    const sign = signFor(SIGN_RAID_ID, PRECEDENT_TIER, SEED)!;
+    expect(sign.inForce).toBe(2);
+    const sim = signedFight(["Headless", "Regular"], PRECEDENT_TIER);
+    sim.step(50);
+    sim.pickSign(0, 0);
+    resolveOffer(sim);
+    sim.pickSign(1, 1);
+    resolveOffer(sim);
+    const expected = new Set([...sign.offers[0][0], ...sign.offers[1][1]].map(rulingKey));
+    expect(new Set(sim.activeRulings().map(rulingKey))).toEqual(expected);
   });
 
   it("refuses a pick that is not an answer to the question on the table", () => {
-    const sim = signedFight(["Headless", "Garden"]);
-    expect(sim.pickSign(1, 0), "an offer that is not up").toBe(false);
-    expect(sim.pickSign(0, 2), "a bubble that does not exist").toBe(false);
-    expect(sim.pickSign(0, -1)).toBe(false);
-    expect(sim.pickSign(0, 0), "…and the real one still lands").toBe(true);
+    const sim = signedFight(["Headless"]);
+    sim.step(50);
+    expect(sim.pickSign(1, 0), "a future offer").toBe(false);
+    expect(sim.pickSign(0, 2), "a third bubble").toBe(false);
+    expect(sim.pickSign(0, 0)).toBe(true);
     expect(sim.pickSign(0, 1), "no take-backs").toBe(false);
-    expect(sim.signPick()).toBe(0);
-
-    resolveOffer(sim);
-    expect(sim.pickSign(0, 1), "and the closed offer stays closed").toBe(false);
   });
 
-  it("refuses everything on an invasion that has no objection", () => {
+  it("refuses everything on an invasion that has no rulings", () => {
     const sim = new BattleSim(
       [unit({ id: "z0", group: "Regular" })],
       [unit({ id: "boss", team: "enemy", isBoss: true, hp: 1e6, maxHp: 1e6 })],
     );
+    run(sim, SIGN_DWELL_MS * 2);
     expect(sim.signOffer()).toBeNull();
-    expect(sim.signOfferIndex()).toBeNull();
     expect(sim.pickSign(0, 0)).toBe(false);
-    expect(sim.signedGroups()).toEqual([]);
+    expect(sim.activeRulings()).toEqual([]);
+    expect(sim.hasSign()).toBe(false);
   });
 
-  it("survives a checkpoint — a restored fight remembers what it barred", () => {
+  it("survives a checkpoint — a restored fight remembers what is in force", () => {
     const sim = signedFight(["Headless", "Garden"]);
+    sim.step(50);
     expect(sim.pickSign(0, 1)).toBe(true);
     resolveOffer(sim);
-    expect(sim.pickSign(1, 0)).toBe(true); // committed but not yet resolved
-    const barred = sim.signedGroups();
-    const snapshot = sim.snapshot();
-
+    expect(sim.pickSign(1, 0)).toBe(true);
+    const inForce = sim.activeRulings().map(rulingKey);
     const resumed = signedFight(["Headless", "Garden"]);
-    resumed.restore(snapshot);
-    expect(resumed.signedGroups(), "the bar in force").toEqual(barred);
-    expect(resumed.signPick(), "and the pick already committed").toBe(0);
-    // A checkpoint that dropped either would resume barring the wrong class from here.
+    resumed.restore(sim.snapshot());
+    expect(resumed.activeRulings().map(rulingKey)).toEqual(inForce);
+    expect(resumed.signPick()).toBe(0);
     resolveOffer(sim);
     resolveOffer(resumed);
-    expect(resumed.signedGroups()).toEqual(sim.signedGroups());
+    expect(resumed.activeRulings().map(rulingKey)).toEqual(sim.activeRulings().map(rulingKey));
   });
 });
 
-describe("being barred", () => {
-  it("sends the named class backwards and leaves everyone else fighting", () => {
+describe("what each ruling does", () => {
+  it("Barred sends the named class backwards and leaves everyone else fighting", () => {
     const sim = signedFight(["Headless", "Regular"]);
-    run(sim, 8_000); // let both deploy and reach the line
-    const barredUnit = sim.units.find((u) => u.id === "z0")!;
+    run(sim, 8_000);
+    const barred = sim.units.find((u) => u.id === "z0")!;
     const free = sim.units.find((u) => u.id === "z1")!;
-    chooseBar(sim, "Headless", true);
-    expect(sim.signedGroups()).toEqual(["Headless"]);
-
-    const barredBefore = barredUnit.x;
+    choose(sim, barredGroup("Headless"));
+    expect(sim.signedGroups()).toContain("Headless");
+    const before = barred.x;
     const freeBefore = free.x;
     run(sim, 1_500);
-
-    expect(barredUnit.x, "the barred zombie walks away from the line").toBeLessThan(barredBefore);
-    expect(barredUnit.inLine, "and gives up its place in it").toBe(false);
-    expect(free.x, "the class that was not named holds its ground").toBeGreaterThanOrEqual(freeBefore - 1);
+    expect(barred.x, "the barred zombie walks away from the line").toBeLessThan(before);
+    expect(barred.inLine).toBe(false);
+    expect(free.x).toBeGreaterThanOrEqual(freeBefore - 1);
   });
 
-  it("stops a barred healer from healing, and only while it is barred", () => {
-    // The Garden zombie needs the ability for any of this to mean anything — `isHealer`
-    // is `isGarden && has heal`, so a Garden with no abilities heals nobody whether it is
-    // barred or not, and a test built on one would pass without testing anything.
+  it("Order in Court stops healing, and only while it stands", () => {
     const sim = signedFight(["Garden", "Regular"]);
     const hurt = sim.units.find((u) => u.id === "z1")!;
-    const healer = sim.units.find((u) => u.id === "z0")!;
-    healer.abilities = ["heal"];
+    sim.units.find((u) => u.id === "z0")!.abilities = ["heal"];
     run(sim, 8_000);
-
-    // Both halves measure a span that fits INSIDE one slot. A choice lands at a slot
-    // boundary, so a span of a whole dwell spills into the next one — which is how an
-    // earlier draft of this test "failed": the bar worked, and then the slot turned over
-    // and the healer got back to work before the measurement ended.
     const SPAN = 1_500;
-
-    // Wound to HALF, not to a sliver. Below ONE_SHOT_FLOOR (10% of maxHp) the next hit of
-    // any size trips the one-shot protection and parks the zombie at exactly 1 HP — which
-    // an earlier draft of this test mistook for the bar doing something.
     const WOUND = hurt.maxHp / 2;
-
-    // FREE: deliberately spare the Garden and confirm the healer works at all. Without
-    // this control the barred assertion below passes for any number of reasons that have
-    // nothing to do with the objection.
-    chooseBar(sim, "Garden", false);
-    expect(sim.signedGroups()).not.toContain("Garden");
+    choose(sim, (r) => r.kind === "orderInCourt" || (r.kind === "barred" && r.group === "Garden"), false);
     hurt.hp = WOUND;
     run(sim, SPAN);
     expect(hurt.hp, "a free healer heals").toBeGreaterThan(WOUND);
-
-    // BARRED: same wound, same span. `toBeLessThanOrEqual` rather than an exact figure
-    // because the punchbag still lands its minimum-damage tick — what is being asserted is
-    // that nothing HEALED, and the control above is what gives that assertion teeth.
-    chooseBar(sim, "Garden", true);
-    expect(sim.signedGroups()).toContain("Garden");
+    choose(sim, kind("orderInCourt"));
     hurt.hp = WOUND;
     run(sim, SPAN);
-    expect(hurt.hp, "a barred healer heals nobody").toBeLessThanOrEqual(WOUND);
+    expect(hurt.hp, "nobody heals under the ruling").toBeLessThanOrEqual(WOUND);
+  });
+
+  it("Slowed and Weakened stretch the swing and soften the blow, harder when severe", () => {
+    expect(RULING_SLOW.severe).toBeGreaterThan(RULING_SLOW.normal);
+    expect(RULING_WEAKEN.severe).toBeLessThan(RULING_WEAKEN.normal);
+    expect(signFor(SIGN_RAID_ID, SEVERE_TIER - 1, SEED)!.severe).toBe(false);
+    expect(signFor(SIGN_RAID_ID, SEVERE_TIER, SEED)!.severe).toBe(true);
+    // Measured in the fight: damage dealt to the minion over a span, with and without.
+    const dealt = (pick: (r: Ruling) => boolean, want: boolean) => {
+      const sim = signedFight(["Regular"]);
+      run(sim, 8_000);
+      choose(sim, pick, want);
+      const minion = sim.units.find((u) => u.id === "minion")!;
+      const before = minion.hp;
+      run(sim, 3_000);
+      return before - minion.hp;
+    };
+    const offense = (r: Ruling) => r.kind === "slowed" || r.kind === "weakened";
+    expect(dealt(kind("weakened"), true)).toBeLessThan(dealt(offense, false));
+    expect(dealt(kind("slowed"), true)).toBeLessThan(dealt(offense, false));
+  });
+
+  it("Overruled takes the move off the strip", () => {
+    const sim = signedFight(["Small", "Regular"]);
+    sim.units.find((u) => u.id === "z0")!.abilities = ["explode"];
+    run(sim, 8_000);
+    choose(sim, (r) => r.kind === "overruled" && r.ability === "explode");
+    expect(sim.activate("explode"), "refused while it stands").toBe(false);
   });
 
   it("comes down with the boss", () => {
     const sim = signedFight(["Headless"]);
     run(sim, SIGN_DWELL_MS + 100);
-    expect(sim.signedGroups().length).toBe(1);
-    expect(sim.signOffer()).not.toBeNull();
-
-    // Clear the wave: the boss leaves its perch to fight, and the motions go with it.
+    expect(sim.activeRulings().length).toBeGreaterThan(0);
     for (const e of sim.units) if (e.team === "enemy" && !e.isBoss) { e.alive = false; e.hp = 0; }
     run(sim, 3_000);
     expect(sim.units.find((u) => u.id === "boss")!.state).not.toBe("structure");
-    expect(sim.signedGroups()).toEqual([]);
+    expect(sim.activeRulings()).toEqual([]);
     expect(sim.signOffer(), "and there is nothing left to choose").toBeNull();
-    expect(sim.pickSign(0, 0)).toBe(false);
   });
 });
 
-describe("the farmer squad", () => {
+describe("the angry farmer mob", () => {
   const assets = {
     enemyStats: enemyStatsJson as Record<string, EnemyStat>,
     raidAttacks: attacksJson as Record<string, AttackDef>,
   };
   const raid12 = (raidsJson as RaidDef[]).find((r) => r.id === SIGN_RAID_ID)!;
-  const sign = (tier: number) => signFor(SIGN_RAID_ID, tier, SEED);
 
-  it("lands on the slot the damage question decides, not at a hard-coded moment", () => {
-    // Singles: [Regular] vs [Female] is the third offer, so its bar is in force from the
-    // fourth slot. Paired: the damage pair first appears in the second offer.
-    for (const tier of [1, PAIRED_SIGN_TIER]) {
-      const cfg = sign(tier)!;
-      const offer = cfg.offers.findIndex((o) =>
-        o.some((bubble) => bubble.some((g) => SIGN_DAMAGE_GROUPS.includes(g))));
-      expect(offer, `tier ${tier}: a damage offer exists`).toBeGreaterThanOrEqual(0);
-      expect(farmerSquadAtMs(cfg)).toBe((offer + 1) * SIGN_DWELL_MS);
-    }
-    expect(farmerSquadAtMs(null)).toBeNull();
+  it("is the t3 rung, and absent below it", () => {
+    expect(farmerSquadFor(assets, raid12, FARMER_MOB_TIER - 1)).toEqual([]);
+    expect(farmerSquadFor(assets, raid12, FARMER_MOB_TIER)).toHaveLength(FARMER_SQUAD_MINIONS + 1);
   });
 
-  it("arrives while the question it is timed against is still on the table", () => {
-    // The whole point of the timing: the farmers are visibly walking in WHILE the player
-    // decides which half of their damage to give up. One dwell earlier or later and it is
-    // just four more enemies.
-    const cfg = sign(1)!;
-    const at = farmerSquadAtMs(cfg)!;
-    const sim = signedFight(["Regular"]);
-    run(sim, at - 100);
-    const offer = sim.signOffer()!;
-    expect(offer.some((bubble) => bubble.some((g) => SIGN_DAMAGE_GROUPS.includes(g)))).toBe(true);
-  });
-
-  it("is a leader plus three farmhands, all on the same clock and none of them a boss", () => {
-    const squad = farmerSquadFor(assets, raid12, sign(1));
-    expect(squad).toHaveLength(FARMER_SQUAD_MINIONS + 1);
-    const at = farmerSquadAtMs(sign(1));
+  it("is a leader plus three farmhands, waiting on the midpoint, none of them a boss", () => {
+    const squad = farmerSquadFor(assets, raid12, FARMER_MOB_TIER);
     for (const member of squad) {
-      expect(member.deployAtMs, "off the drip: it walks on by the clock").toBe(at);
-      expect(member.isBoss, "the guest leader is a minion — the lawyer holds the boss slot").toBeFalsy();
+      expect(member.deployAtWaveFrac).toBe(MIDPOINT_WAVE_FRAC);
+      expect(member.isBoss).toBeFalsy();
     }
     expect(squad.filter((u) => u.sourceKey === "FarmStageActorBoss")).toHaveLength(1);
   });
 
   it("belongs to this invasion alone", () => {
     for (const other of (raidsJson as RaidDef[]).filter((r) => r.id !== SIGN_RAID_ID)) {
-      expect(farmerSquadFor(assets, other, signFor(other.id, 1, SEED))).toEqual([]);
+      expect(farmerSquadFor(assets, other, FARMER_MOB_TIER)).toEqual([]);
     }
   });
 
-  it("walks on together, and not before its moment", () => {
-    const squad = farmerSquadFor(assets, raid12, sign(1));
-    // The squad goes in with the wave at construction, which is how a real fight gets it.
-    const withSquad = signedFight(["Regular"], 1, squad);
-    const at = farmerSquadAtMs(sign(1))!;
-    const deployed = () => withSquad.units.filter(
-      (u) => u.id.startsWith("squad") && u.state !== "queued"
-    ).length;
-
-    run(withSquad, at - 1_000);
-    expect(deployed(), "nothing before its moment").toBe(0);
-    run(withSquad, 2_000);
+  it("walks on together once half the wave is down, and not before", () => {
+    const squad = farmerSquadFor(assets, raid12, FARMER_MOB_TIER);
+    const wave = Array.from({ length: 4 }, (_, i) => unit({
+      id: `w${i}`, sourceKey: "CityStageActorLawyer", team: "enemy", str: 0, hp: 1e6, maxHp: 1e6,
+    }));
+    const sim = signedFight(["Regular"], FARMER_MOB_TIER, [...wave, ...squad]);
+    const deployed = () => sim.units.filter((u) => u.id.startsWith("squad") && u.state !== "queued").length;
+    run(sim, 20_000);
+    expect(deployed(), "nothing before the midpoint").toBe(0);
+    // Five wave bodies (the minion + four): down three and the midpoint is past.
+    for (const id of ["minion", "w0", "w1"]) {
+      const e = sim.units.find((u) => u.id === id)!;
+      e.alive = false; e.hp = 0; e.state = "dead";
+    }
+    run(sim, 1_000);
     expect(deployed(), "then all four at once").toBe(FARMER_SQUAD_MINIONS + 1);
   });
 });

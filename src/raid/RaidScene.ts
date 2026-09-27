@@ -76,7 +76,9 @@ type RaidInputDraft =
   | { type: "castCancel"; slot?: number }
   | { type: "retreat" };
 import { BASE } from "../base";
-import type { BubbleAction, BubbleConfig, CopyConfig, SignConfig } from "./dualInvasion";
+import {
+  rulingKey, type BubbleAction, type BubbleConfig, type CopyConfig, type Ruling, type SignConfig,
+} from "./dualInvasion";
 
 export interface RaidSceneParams {
   raid: RaidDef;
@@ -264,6 +266,31 @@ const SIGN_BENCH_H = 18;
 /** Box one class's face is drawn into inside a bubble. Two of them fit side by side from
  *  PAIRED_SIGN_TIER, where a bubble names a pair. */
 const SIGN_ICON_BOX = 38;
+/** The ability art each non-class ruling is drawn from, and the mark laid over it: a red
+ *  down arrow (less of it), a red up arrow (the enemy gets more), or a red X (none of it).
+ *  Every ruling reads as ONE icon (docs/POST_45_PROGRESSION.md Part 2B). */
+const RULING_ART: Readonly<Record<string, { icon: string; mark: "down" | "up" | "x" }>> = {
+  slowed: { icon: "attackSpeedBuff", mark: "down" },
+  weakened: { icon: "powerBuff", mark: "down" },
+  emboldened: { icon: "powerBuff", mark: "up" },
+  immunity: { icon: "stun", mark: "x" },
+  orderInCourt: { icon: "heal", mark: "x" },
+  "overruled:bash": { icon: "bashV2", mark: "x" },
+  "overruled:explode": { icon: "explode", mark: "x" },
+  "overruled:attachMini": { icon: "attachMini", mark: "x" },
+};
+/** The ruling, in two or three words, for the IN FORCE line above the bubbles. */
+function rulingLabel(r: Ruling): string {
+  switch (r.kind) {
+    case "slowed": return "Slowed";
+    case "weakened": return "Weakened";
+    case "emboldened": return "Enemies emboldened";
+    case "immunity": return "Stun immunity";
+    case "orderInCourt": return "No healing";
+    case "barred": return `${r.group} barred`;
+    case "overruled": return `${ABILITY_POOL[r.ability === "bash" ? "bashV2" : r.ability ?? ""]?.label ?? r.ability} overruled`;
+  }
+}
 /** How close enrage has to be before it is worth putting beside the fight clock. Far enough
  *  out it is noise; this is roughly one exchange's warning. */
 const ENRAGE_WARN_MS = 20_000;
@@ -878,6 +905,8 @@ export class RaidScene {
   private signBubbles: { root: Container; bg: Graphics; faces: Container }[] = [];
   /** Last drawn state of the panel, so it redraws on a change rather than every frame. */
   private signKey = "";
+  /** The ability art the ruling icons are drawn from, by ability key (loaded once). */
+  private rulingTex = new Map<string, Texture | null>();
   /** The saucer's bubble (raid 15): what is charging (one row per action — two under the
    *  t10 dual cast, each with its own cancel), the budget and lockout, and the bar. */
   private bubblePanel = new Container();
@@ -1268,6 +1297,14 @@ export class RaidScene {
     }
     // The Mega-Robot: body/head behind the platform art, fireballs above the field.
     if (this.sim.megaBot) await this.buildMegaBot();
+    // Raid 12: the ability art the ruling icons are drawn from.
+    if (this.sim.hasSign()) {
+      await Promise.all(Object.values(RULING_ART).map(async ({ icon }) => {
+        if (this.rulingTex.has(icon)) return;
+        const src = ABILITY_POOL[icon]?.icon;
+        this.rulingTex.set(icon, src ? await loadTex(src) : null);
+      }));
+    }
     // Raid 15 from t5: the giant bot at the back, as a signal (see buildBubbleBot).
     if (this.sim.bubbleGiantBot()) await this.buildBubbleBot();
     // Flames ride above every unit: the fire has to be tappable through whatever rig is
@@ -1895,6 +1932,51 @@ export class RaidScene {
     }
     this.bubblePanel.visible = false;
     this.container.addChild(this.bubblePanel);
+  }
+
+  /** One ruling as one icon, centred on (0, 0) inside SIGN_ICON_BOX: a class face for a
+   *  Barred ruling, the ability art for everything else, and the mark that says what the
+   *  ruling does to it. Null only when the art is missing, which leaves the bubble blank
+   *  rather than crashing the fight. */
+  private buildRulingIcon(r: Ruling): Container | null {
+    const root = new Container();
+    const half = SIGN_ICON_BOX / 2;
+    let mark: "down" | "up" | "x" = "x";
+    if (r.kind === "barred") {
+      const face = buildSignIcon(this.assets, r.group ?? "", SIGN_ICON_BOX);
+      if (!face) return null;
+      root.addChild(face);
+    } else {
+      const art = RULING_ART[r.kind === "overruled" ? `overruled:${r.ability}` : r.kind];
+      const tex = art ? this.rulingTex.get(art.icon) : null;
+      if (!art || !tex) return null;
+      const sprite = new Sprite(tex);
+      sprite.anchor.set(0.5);
+      sprite.scale.set((SIGN_ICON_BOX * 0.9) / Math.max(tex.width, tex.height, 1));
+      root.addChild(sprite);
+      mark = art.mark;
+    }
+    const g = new Graphics();
+    if (mark === "x") {
+      g.moveTo(-half * 0.8, -half * 0.8).lineTo(half * 0.8, half * 0.8)
+        .moveTo(half * 0.8, -half * 0.8).lineTo(-half * 0.8, half * 0.8)
+        .stroke({ width: 5, color: 0x2a0000, alpha: 0.8 })
+        .moveTo(-half * 0.8, -half * 0.8).lineTo(half * 0.8, half * 0.8)
+        .moveTo(half * 0.8, -half * 0.8).lineTo(-half * 0.8, half * 0.8)
+        .stroke({ width: 3, color: 0xff3b30 });
+    } else {
+      // An arrow in the bottom-right corner: down = the army gets less, up = the enemy
+      // gets more (and is drawn in the lawyer's gold so it reads as THEIR gain).
+      const x = half * 0.55;
+      const up = mark === "up";
+      const tip = up ? -half * 0.1 : half * 0.95;
+      const base = up ? half * 0.95 : -half * 0.1;
+      const colour = up ? 0xffc83a : 0xff3b30;
+      g.poly([x - 9, base + (up ? -4 : 4), x + 9, base + (up ? -4 : 4), x, tip])
+        .fill({ color: colour }).stroke({ width: 2, color: 0x2a0000, alpha: 0.8 });
+    }
+    root.addChild(g);
+    return root;
   }
 
   /** Spend a cancel on one action. Transcribed like every other tap the verifier cannot
@@ -2968,25 +3050,28 @@ export class RaidScene {
       : leftS <= 60 ? 0xffcc33
       : this.sim.enraged ? 0xffb0a0 : 0xffffff;
 
-    // The objection. `signOffer` is null on every invasion without one, so the panel
+    // The rulings. `signOffer` is null on every invasion without one, so the panel
     // simply never appears anywhere else.
     const offer = this.sim.signOffer();
     this.signPanel.visible = !!offer;
     if (offer) {
-      const barred = this.sim.signedGroups();
+      const inForce = this.sim.activeRulings();
       const picked = this.sim.signPick();
-      const key = `${offer[0].join("+")}|${offer[1].join("+")}|${barred.join("+")}|${picked}`;
+      const key = `${offer.map((b) => b.map(rulingKey).join("+")).join("|")}|` +
+        `${inForce.map(rulingKey).join("+")}|${picked}`;
       if (key !== this.signKey) {
         this.signKey = key;
-        this.signBench.text = barred.length
-          ? `⚖ BARRED: ${barred.join(" + ")}`
-          : "⚖ OBJECTION — CHOOSE ONE";
+        this.signBench.text = inForce.length
+          ? `⚖ IN FORCE: ${inForce.map(rulingLabel).join(" · ")}`
+          : this.sim.signContempt()
+            ? "⚖ RULING — CHOOSE ONE, OR BOTH APPLY"
+            : "⚖ RULING — CHOOSE ONE";
         for (let i = 0; i < 2; i++) {
           const bubble = this.signBubbles[i];
           // Three looks, and the middle one earns its keep: once a choice is made the
           // panel has to keep SHOWING it, because the consequence does not arrive until
           // the next slot and a player who cannot see what they picked learns nothing
-          // from what happens to them five seconds later.
+          // from what happens to them eight seconds later.
           const chosen = picked === i;
           const spent = picked !== null && !chosen;
           bubble.bg.clear()
@@ -2997,15 +3082,15 @@ export class RaidScene {
               color: chosen ? 0xffd479 : 0xc7b78b,
               alpha: spent ? 0.3 : 0.85,
             });
-          // THE FACES, not the words. One per class this bubble names — one below the
-          // paired rung, two from it — spaced evenly across the bubble's width.
+          // ONE ICON PER RULING — one below the paired rung, two from it — spaced evenly
+          // across the bubble's width.
           bubble.faces.removeChildren().forEach((child) => child.destroy({ children: true }));
-          const names = offer[i];
-          names.forEach((group, slot) => {
-            const icon = buildSignIcon(this.assets, group, SIGN_ICON_BOX);
+          const rulings = offer[i];
+          rulings.forEach((ruling, slot) => {
+            const icon = this.buildRulingIcon(ruling);
             if (!icon) return;
             icon.position.set(
-              (SIGN_BUBBLE_W * (slot + 1)) / (names.length + 1),
+              (SIGN_BUBBLE_W * (slot + 1)) / (rulings.length + 1),
               SIGN_BUBBLE_H / 2,
             );
             bubble.faces.addChild(icon);

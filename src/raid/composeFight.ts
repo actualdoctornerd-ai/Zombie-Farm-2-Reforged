@@ -94,7 +94,7 @@ export function composeFight(
   // because they are authored rather than drawn: the same units at the same moment every
   // fight, each on its own clock. Order matters only in that it is the same everywhere,
   // which is the entire reason this sequence now lives in one place.
-  enemyUnits.push(...farmerSquadFor(assets, raid, sign, elite, playerLevel));
+  enemyUnits.push(...farmerSquadFor(assets, raid, tier, elite, playerLevel));
   enemyUnits.push(...pirateCaptainFor(assets, raid, tier, elite, playerLevel));
   enemyUnits.push(...circusStacksFor(assets, raid, tier, elite, playerLevel));
 

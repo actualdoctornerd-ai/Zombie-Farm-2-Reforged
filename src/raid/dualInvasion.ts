@@ -148,23 +148,22 @@ export const DUAL_BOSS_HP = 12_000;
  *  raid 12 put raid 13's tier 10 at 408,000 points, three times what any roster can clear
  *  inside the cap.
  *
- *  So the ladder names a TARGET and divides. The numbers here are measured from what the
- *  builders actually produce (`buildEnemyUnits` + the guest squad), not estimated from the
- *  stage table — and `tierLadder.test.ts` re-derives them from the catalog and fails if a
- *  wave is ever re-composed underneath them.
+ *  So the ladder names a TARGET and divides. The numbers here are the wave's OWN bodies as
+ *  the builders produce them — not the units a mechanic brings on (the farmer mob, the
+ *  captain, the towers, anything summoned), which ride on top of the target — and
+ *  `tierLadder.test.ts` re-derives them from the catalog and fails if a wave is ever
+ *  re-composed underneath them.
  *
  *  A number here far above the 70,000 the bottom rung wants is a WAVE THAT NEEDS
  *  RE-COMPOSING, not a datum to live with: the ladder then spends itself shrinking the
  *  fight instead of building it, and the rung stops meaning anything. Raid 15 was exactly
  *  that at 409,000 until Stage 4 fixed the composition rather than the multiplier. */
 const DUAL_BASE_HP: Readonly<Record<number, { wave: number; boss: number }>> = {
-  12: { wave: 21_400, boss: 4_500 },   // City wave + Old McDonnell's squad
-  13: { wave: 58_500, boss: 25_000 },  // Ninja wave + the pirate captain
-  // Circus wave + the three towers AT FULL HEIGHT. A stack grows to STACK_MAX_HEIGHT if
-  // it is left alone, so its grown weight is what the settle budget has to carry — count
-  // one and the fight quietly overruns the curve by two thirds of a tower each. The
-  // Ringmaster himself is tiny, which is why his multiplier is the largest in the table.
-  14: { wave: 82_600, boss: 1_500 },
+  12: { wave: 18_500, boss: 4_500 },   // the City wave
+  13: { wave: 46_500, boss: 25_000 },  // the Ninja wave
+  // The Circus wave. The Ringmaster himself is tiny, which is why his multiplier is the
+  // largest in the table.
+  14: { wave: 77_200, boss: 1_500 },
   // The alien wave (10 minions) alone. This used to be 409,000 — the alien stage's twenty
   // minions cloned wholesale WITH the robots in the weighted table, four times the whole
   // settle budget. The robots now arrive only when the saucer summons one (capped at one
@@ -249,125 +248,164 @@ export function dualWaveCadence(raidId: number): WaveCadence | null {
 }
 
 // ---------------------------------------------------------------------------
-// RAID 12 — THE OBJECTION (Lawyers & Farmers)
+// RAID 12 — RULINGS (Lawyers & Farmers)
 // ---------------------------------------------------------------------------
-// The Lawyer boss files a motion to bar a zombie CLASS from the field. A barred class goes
-// sad: it stops attacking, drops its place in the line and walks slowly backwards out of
-// the fight. The point is not to stall the battle — it is to open a hole in it. Bar the
-// Headless and the Garden and the damage dealers are suddenly standing in the open with no
-// tank and no heals; bar the Regulars and the Females and the tanks hold a line they cannot
-// end.
+// Every SIGN_DWELL_MS the Lawyer boss offers two RULINGS in thought bubbles and the player
+// taps the one they will live with for the next dwell. Each ruling hurts a different KIND
+// of army — slower attacks, less damage, an ability disabled, a class benched, enemies
+// hitting harder, enemies that cannot be stunned, no healing — so the right pick depends
+// on what the player brought, and the wrong one for their army is what costs them.
 //
-// THE PLAYER CHOOSES WHICH (owner decision, superseding the original fixed placard). Two
-// thought bubbles hover over the lawyer naming two different classes, and a tap picks the
-// one that goes. So the fight never asks "can you survive what is coming" — it asks "which
-// of your two legs do you want to stand on for the next five seconds", over and over, with
-// the answer changing as the field does. From PAIRED_SIGN_TIER each bubble holds TWO
-// classes, so the same question is asked about whole layers of the army.
+// THE LADDER (docs/POST_45_PROGRESSION.md Part 2B, "Rulings"):
 //
-// IF YOU DO NOT CHOOSE, ONE IS CHOSEN FOR YOU, from `autoPicks` below. That is what makes
-// the tap worth making: the default is not the lesser evil, it is a coin the fight tosses.
+//   t1  rulings: one per bubble, from the pool below; ignoring the offer lets a coin decide
+//   t3  the angry farmer mob walks on at the midpoint of the fight
+//   t5  each bubble holds TWO rulings
+//   t7  contempt: ignoring the offer applies BOTH bubbles
+//   t9  the rulings are more severe
+//   t10 precedent: each ruling lasts two slots, so two are always in force
+//   (t2/t4/t6/t8 are stat steps — see tierProfile)
 //
-// THE OFFER ORDER IS STILL FIXED AND IDENTICAL EVERY FIGHT — the *pairings* are learnable,
-// which is what keeps this a planning puzzle. What is not learnable is what happens when
-// you ignore it.
+// THE PAIRING IS THE DESIGN. The two bubbles offered never punish the same build (see
+// RULING_TAG), and a class is never offered in two consecutive slots — under precedent that
+// would bench it for two dwells running. A ruling that is in force twice (precedent, or
+// contempt handing over both bubbles) REFRESHES rather than stacking.
 //
-// TIMING. One dwell is one SLOT. During slot s the two bubbles for offer s are up and
-// nothing new is barred by them; the bar actually in force is the pick that resolved at the
-// end of slot s-1. So slot 0 is a free opening window with the first offer already on
-// screen, and from then on the player is always choosing one bar ahead while living with
-// the last one. See BattleSim.signedGroups / pickSign.
+// TIMING. One dwell is one SLOT. During slot s the two bubbles for offer s are up and the
+// rulings actually in force are the pick(s) that resolved at the end of slot s-1 (and s-2
+// under precedent). So slot 0 is a free opening window with the first offer already on
+// screen, and from then on the player is always choosing one ruling ahead while living
+// with the last one. See BattleSim.activeRulings / pickSign.
 //
-// ANTI-STALL. No class is barred for longer than one dwell and the offers always move on,
-// so even an army that is entirely one class is only ever out of the fight for
-// SIGN_DWELL_MS at a time. That is what keeps a mono-class roster from being benched into
-// the four-minute clock and losing a fight it was never allowed to fight.
-// At the current 8 s that is a thirtieth of the budget per bar and the worst case — a
-// mono-class army barred every other offer — still spends half the fight swinging. Re-check
-// the argument before raising it much past a quarter of a minute.
-//
-// DETERMINISM. A pick is player input, so it is TRANSCRIBED (`signPick`) exactly as a wall
-// tap is, and the auto-pick is drawn ONCE at config time from the raid session seed and
-// pinned — never rolled mid-fight. Both sides therefore replay the same fight whether the
-// player tapped or not. See replay.ts v58 for why a refused pick is the one refusal in the
-// transcript that is not self-harm.
+// THE OFFERS ARE PRE-DRAWN from the session seed, like the auto-picks: a pick is player
+// input and is TRANSCRIBED (`signPick`), and everything else about the table is pinned into
+// the config at /raid/start, so both sides replay the same fight whether the player tapped
+// or not. The rulings only run while the Lawyer is on his perch — he is always the boss that
+// descends, and the pressure lifts when he does.
 
-/** Lawyers & Farmers — the invasion the objection belongs to. */
+/** Lawyers & Farmers — the invasion the rulings belong to. */
 export const SIGN_RAID_ID = 12;
 
-/** The six zombie classes an objection can name. */
+/** The six zombie classes a Barred ruling can name. */
 export const SIGN_GROUPS = ["Headless", "Garden", "Small", "Large", "Regular", "Female"] as const;
 
-/** How long one offer stays up — and so how long the pick it resolves into stays barred.
- *
- *  Eight seconds, raised from five (owner, 2026-09-19). Five was long enough to READ the two
- *  bubbles and not long enough to think about them, which made the choice reflexive; and it
- *  ran the whole six-offer cycle in half a minute, so a rung the player had not learned went
- *  past faster than it taught anything. The ANTI-STALL argument below survives the change
- *  with room to spare. */
+/** The activated moves an Overruled ruling can disable, by the button family each names. */
+export const OVERRULED_ABILITIES: Readonly<Record<string, readonly string[]>> = {
+  bash: ["bash", "bashV2"],
+  explode: ["explode", "explodeV2"],
+  attachMini: ["attachMini"],
+};
+
+/** What a ruling can be. Every one reads as a single icon (see RaidScene's sign panel). */
+export type RulingKind =
+  | "slowed"       // ally attack speed down
+  | "weakened"     // ally damage down
+  | "overruled"    // one activated ability disabled (`ability`)
+  | "barred"       // one class benched — it walks off the line (`group`)
+  | "emboldened"   // enemies deal more damage
+  | "immunity"     // enemies cannot be stunned
+  | "orderInCourt"; // no healing
+
+export interface Ruling {
+  kind: RulingKind;
+  /** The class a Barred ruling benches. */
+  group?: string;
+  /** The OVERRULED_ABILITIES family an Overruled ruling disables. */
+  ability?: string;
+}
+
+/** The whole pool. Deliberately small: a player has eight seconds to read two bubbles. */
+export const RULING_POOL: readonly Ruling[] = [
+  { kind: "slowed" },
+  { kind: "weakened" },
+  ...Object.keys(OVERRULED_ABILITIES).map((ability): Ruling => ({ kind: "overruled", ability })),
+  ...SIGN_GROUPS.map((group): Ruling => ({ kind: "barred", group })),
+  { kind: "emboldened" },
+  { kind: "immunity" },
+  { kind: "orderInCourt" },
+];
+
+/** Which kind of army a ruling hurts. Two rulings with the same tag are never on opposite
+ *  sides of one offer, or inside one bubble: slower attacks and less damage both land on the
+ *  army that wins by hitting, so offering them as a choice is not a choice. */
+export function rulingTag(r: Ruling): string {
+  switch (r.kind) {
+    case "slowed":
+    case "weakened": return "offense";
+    case "overruled": return `taps:${r.ability}`;
+    case "barred": return `class:${r.group}`;
+    default: return r.kind;
+  }
+}
+
+/** A stable name for a ruling — for equality, dedupe and the icon cache. */
+export function rulingKey(r: Ruling): string {
+  return r.kind === "barred" ? `barred:${r.group}` : r.kind === "overruled" ? `overruled:${r.ability}` : r.kind;
+}
+
+/** How long one offer stays up, and so how long the ruling it resolves into is in force.
+ *  Eight seconds (owner, 2026-09-19): long enough to read two bubbles and think about them. */
 export const SIGN_DWELL_MS = 8_000;
 
-/** From this rung each bubble holds TWO classes, in the pairs below. A pair takes a whole
- *  layer off the army rather than one class: the safety net, the burst, or the damage. The
- *  enemies are meant to be eased to compensate — that is a profile change, and profiles are
- *  fitted after the harness rebuild, so it is not done here. */
-export const PAIRED_SIGN_TIER = 6;
+/** The rungs at which the fight changes — see the ladder above. */
+export const FARMER_MOB_TIER = 3;
+export const PAIRED_SIGN_TIER = 5;
+export const CONTEMPT_TIER = 7;
+export const SEVERE_TIER = 9;
+export const PRECEDENT_TIER = 10;
 
-/** The three layers the paired bubbles are built from, between them all six classes. */
-export const SIGN_PAIRS: readonly (readonly string[])[] = [
-  ["Headless", "Garden"], // the safety net — no tank, no heals landing
-  ["Small", "Large"],     // the burst — nothing gets deleted on demand
-  ["Regular", "Female"],  // the damage — the line holds but cannot end anything
-];
+/** What the scalar rulings do, ordinary and severe (t9+). Placeholders until tuning. */
+export const RULING_SLOW = { normal: 1.35, severe: 1.6 };      // ally attack interval x
+export const RULING_WEAKEN = { normal: 0.75, severe: 0.6 };    // ally damage x
+export const RULING_EMBOLDEN = { normal: 1.3, severe: 1.5 };   // enemy damage x
 
-/** What one bubble contains: the class, or classes, that go if the player picks it. */
-export type SignOption = readonly string[];
-
-/** One offer — the two bubbles a player chooses between. Always exactly two: the mechanic
- *  is a dilemma, and a third bubble makes it a menu. */
+/** What one bubble contains: the ruling(s) that come into force if the player picks it. */
+export type SignOption = readonly Ruling[];
+/** One offer — the two bubbles a player chooses between. Always exactly two: the mechanic is
+ *  a dilemma, and a third bubble makes it a menu. */
 export type SignOffer = readonly [SignOption, SignOption];
 
-/** The singles offers (below PAIRED_SIGN_TIER). Every class appears in exactly two of the
- *  six, and no offer repeats a pairing, so over one full cycle the player has been made to
- *  give up each class at least once and has had a genuine choice about it every time. The
- *  first three are the "same layer" dilemmas — the hardest to answer, because whichever you
- *  keep is the one doing that job alone — and the last three cross layers. */
-export const SIGN_OFFERS: readonly SignOffer[] = [
-  [["Headless"], ["Garden"]], // the safety net: the body, or the healing on it
-  [["Small"], ["Large"]],     // the burst: the fuse, or the weight behind it
-  [["Regular"], ["Female"]],  // the damage: the volume, or the procs
-  [["Headless"], ["Regular"]],// the front: who stands there, or who kills from it
-  [["Garden"], ["Small"]],    // sustain, or the move you were saving
-  [["Large"], ["Female"]],    // the anchor, or the stuns holding the flank
-];
-
-/** The paired offers (from PAIRED_SIGN_TIER). Three layers, each set against the next, so
- *  every offer costs the army a whole job and the question is only which one. */
-export const SIGN_PAIRED_OFFERS: readonly SignOffer[] = [
-  [SIGN_PAIRS[0], SIGN_PAIRS[1]], // safety net, or burst
-  [SIGN_PAIRS[1], SIGN_PAIRS[2]], // burst, or damage
-  [SIGN_PAIRS[2], SIGN_PAIRS[0]], // damage, or safety net
-];
-
-/** How many slots of auto-pick to pre-draw. A fight is capped at four minutes
- *  (replay.RAID_MAX_TICKS) which is 48 dwells, and this is not imported from there because
- *  replay.ts already depends on this module. Sized with headroom, and the sim wraps the
+/** How many slots of offers and auto-picks to pre-draw. A fight is capped at four minutes
+ *  (replay.RAID_MAX_TICKS) which is 30 dwells; sized with headroom, and the sim wraps the
  *  index anyway, so a shorter dwell can never run the table dry. */
-export const SIGN_MAX_SLOTS = 64;
+export const SIGN_MAX_SLOTS = 40;
+
+/** The value a resolved slot holds when contempt applied BOTH bubbles. */
+export const SIGN_BOTH = 2;
 
 export interface SignConfig {
-  /** The offers, in order. The fight cycles through them. */
+  /** One offer PER SLOT, pre-drawn. The fight reads slot s's offer at index s. */
   offers: readonly SignOffer[];
   /** How long each offer stays up before it resolves. */
   dwellMs: number;
   /** Which bubble is taken when the player does not choose, one per slot, PRE-DRAWN from
-   *  the session seed. Pinned into the fight config rather than rolled during the fight:
-   *  the client and the verifier must agree about an unattended slot without exchanging
-   *  anything, and a pinned table is the cheapest way to be certain they do. */
+   *  the session seed. Unused from CONTEMPT_TIER, where ignoring the offer takes both. */
   autoPicks: readonly number[];
+  /** Ignoring the offer applies both bubbles (t7+). */
+  contempt: boolean;
+  /** The scalar rulings bite harder (t9+). */
+  severe: boolean;
+  /** How many resolved slots are in force at once: 1, or 2 under precedent (t10). */
+  inForce: number;
 }
 
-/** The objection config for a fight, or null for an invasion that has none.
+/** Draw one bubble's worth of rulings that shares no tag with `avoid`. */
+function drawOption(
+  rand: () => number, size: number, avoid: Set<string>, barredLast: Set<string>
+): Ruling[] {
+  const out: Ruling[] = [];
+  for (let n = 0; n < size; n++) {
+    const pool = RULING_POOL.filter((r) =>
+      !avoid.has(rulingTag(r)) &&
+      !(r.kind === "barred" && barredLast.has(r.group!)));
+    const pick = pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
+    out.push(pick);
+    avoid.add(rulingTag(pick));
+  }
+  return out;
+}
+
+/** The ruling table for a fight, or null for an invasion that has none.
  *
  *  `seed` MUST be the raid session id online — the verifier pins the config it builds from
  *  the same seed at /raid/start, and the client redraws from it, exactly as the Robots'
@@ -376,69 +414,58 @@ export function signFor(raidId: number, tier: number, seed: string): SignConfig 
   if (raidId !== SIGN_RAID_ID) return null;
   const rung = clampTier(tier);
   const rand = seededRandom(`sign:${seed}:${raidId}:${rung}`);
+  const size = rung >= PAIRED_SIGN_TIER ? 2 : 1;
+  const offers: SignOffer[] = [];
+  let barredLast = new Set<string>();
+  for (let slot = 0; slot < SIGN_MAX_SLOTS; slot++) {
+    const avoid = new Set<string>();
+    const a = drawOption(rand, size, avoid, barredLast);
+    const b = drawOption(rand, size, avoid, barredLast);
+    offers.push([a, b]);
+    barredLast = new Set([...a, ...b].filter((r) => r.kind === "barred").map((r) => r.group!));
+  }
   return {
-    offers: rung >= PAIRED_SIGN_TIER ? SIGN_PAIRED_OFFERS : SIGN_OFFERS,
+    offers,
     dwellMs: SIGN_DWELL_MS,
     autoPicks: Array.from({ length: SIGN_MAX_SLOTS }, () => (rand() < 0.5 ? 0 : 1)),
+    contempt: rung >= CONTEMPT_TIER,
+    severe: rung >= SEVERE_TIER,
+    inForce: rung >= PRECEDENT_TIER ? 2 : 1,
   };
 }
 
-/** Which bubble an unattended slot takes. Wraps, so a slot beyond the pre-drawn table
- *  still answers — it cannot happen inside the settle cap, and a fight that somehow got
- *  there must not crash on it. */
+/** Which bubble an unattended slot takes: the pinned coin, or both under contempt. Wraps,
+ *  so a slot beyond the pre-drawn table still answers. */
 export function autoPickFor(sign: SignConfig, slot: number): number {
+  if (sign.contempt) return SIGN_BOTH;
   if (!sign.autoPicks.length) return 0;
   const pick = sign.autoPicks[Math.max(0, slot) % sign.autoPicks.length];
   return pick === 1 ? 1 : 0;
 }
 
-// ---------------------------------------------------------------------------
-// RAID 12 — THE FARMER SQUAD
-// ---------------------------------------------------------------------------
-// Every other invasion trickles: `activeTarget` sits at 1 and the field only refills when
-// something dies, each death buying ENEMY_EMERGE_GAP_MS of dead air before the next walks
-// in. High damage therefore buys BREATHING SPACE, 450 ms at a time, and that dead air is
-// most of what keeps a Headless alive.
-//
-// The squad is the moment that stops being true. Old McDonnell and three farmhands walk on
-// TOGETHER, off the wave budget, and they are timed to land on the slot whose bar came out
-// of the DAMAGE offer — so they arrive on a line that has just lost part of its ability to
-// make gaps at all. That timing is the whole mechanic; a squad at any other moment is just
-// four more enemies.
-//
-// Since the player now chooses, the squad no longer lands on a KNOWN hole — it lands on
-// whichever of the two damage classes the player decided they could do without, and the
-// bubbles are up while the farmers are already walking in. That is the intended shape of
-// the decision: the cost of the choice is visible before it is paid.
-//
-// ONE SQUAD, and the reason is the settle cap rather than taste. A squad member waiting on
-// its `deployAtMs` is alive and queued, which counts toward `normalsLeft` and so HOLDS THE
-// BOSS ON ITS PERCH: the fight cannot end before the last squad has walked on. Three squads
-// spread across the rotation would put a hard floor of ~80 s under every fight, on a
-// four-minute budget that also has to cover the wave, the boss and its descent. If more
-// squads are ever wanted, that floor is the thing to solve first.
+/** The offer for a slot, wrapping past the pre-drawn table. */
+export function signOfferAt(sign: SignConfig, slot: number): SignOffer {
+  return sign.offers[Math.max(0, slot) % sign.offers.length];
+}
 
+/** The rulings a resolved slot put in force: one bubble, or both. */
+export function rulingsFor(offer: SignOffer, pick: number): Ruling[] {
+  return pick === SIGN_BOTH ? [...offer[0], ...offer[1]] : [...offer[pick === 1 ? 1 : 0]];
+}
+
+// ---------------------------------------------------------------------------
+// RAID 12 — THE ANGRY FARMER MOB (t3+)
+// ---------------------------------------------------------------------------
+// Old McDonnell and his farmhands walk on together, off the wave budget, once HALF of the
+// wave is down — the midpoint of the fight, measured in the fight rather than on a clock,
+// so a fast army meets them early and a slow one late. They hold the Lawyer on his perch
+// until they are dealt with, so the rulings keep coming while they are on the field.
 /** Who walks on together: the farm boss leading three farmhands. */
 export const FARMER_SQUAD_LEADER = "FarmStageActorBoss";
 export const FARMER_SQUAD_MINION = "FarmStageActorFarmhand";
 export const FARMER_SQUAD_MINIONS = 3;
-
-/** The classes whose absence is what the squad is timed against: the army's ability to
- *  END things, and so to buy itself dead air between bodies. */
-export const SIGN_DAMAGE_GROUPS: readonly string[] = ["Regular", "Female"];
-
-/** When the squad arrives: the start of the slot barred by the first offer that puts a
- *  damage class on the table. `+ 1` because an offer made during slot s is what is barred
- *  during slot s+1 (see the TIMING note above).
- *
- *  Derived from the offers rather than hard-coded, so both offer tables (singles low down,
- *  pairs from PAIRED_SIGN_TIER) get the right moment without a second table. */
-export function farmerSquadAtMs(sign: SignConfig | null): number | null {
-  if (!sign) return null;
-  const index = sign.offers.findIndex((offer) =>
-    offer.some((option) => option.some((group) => SIGN_DAMAGE_GROUPS.includes(group))));
-  return index < 0 ? null : (index + 1) * sign.dwellMs;
-}
+/** Fraction of the wave that must be down before the mob walks on. */
+export const MIDPOINT_WAVE_FRAC = 0.5;
 
 // ---------------------------------------------------------------------------
 // RAID 13 — THE CHARGE AND POISE (Ninjas & Pirates)

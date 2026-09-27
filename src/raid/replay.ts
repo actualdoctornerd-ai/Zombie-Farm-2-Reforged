@@ -1150,6 +1150,15 @@ import type { RaidOutcome } from "./types";
 // the activation straight after a cancelled one; the t10 dual cast casts in pairs and a
 // cancel names which of the pair (`castCancel.slot`, absent = 0). The queue swap is gone.
 //
+// Raid 12 (Lawyers & Farmers): the objection became RULINGS. Each 8 s offer is two bubbles
+// drawn per slot from a small icon pool — Slowed, Weakened, Overruled (Bash/Smash, Explode,
+// Mini Buddy), Barred (a class), Emboldened, Immunity, Order in Court — pre-drawn from the
+// session seed so the two bubbles never punish the same build and no class is offered in
+// two slots running. The farmer mob walks on at the fight's midpoint (half the wave down,
+// `deployAtWaveFrac`) from t3; two rulings per bubble from t5; contempt (ignoring the offer
+// applies both) from t7; severe scalars from t9; precedent (two slots in force) at t10.
+// `signPick` is unchanged on the wire.
+//
 // Every transcript on raids 12-15 at every rung replays differently from v65.
 export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;

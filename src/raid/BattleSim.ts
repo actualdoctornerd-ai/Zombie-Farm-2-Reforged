@@ -50,10 +50,11 @@ import {
 } from "./combatStats";
 import { isLineRole } from "./pvp";
 import {
-  ABDUCTEE_WALL_GAP, autoPickFor, COPY_PASSIVE_ABILITIES,
+  ABDUCTEE_WALL_GAP, autoPickFor, COPY_PASSIVE_ABILITIES, OVERRULED_ABILITIES, RULING_EMBOLDEN,
+  RULING_SLOW, RULING_WEAKEN, rulingKey, rulingsFor, signOfferAt,
   COPY_STATION_X, COPY_TINT, dexTaxedInterval, poiseFor, POISE_THRESHOLD, PORTAL_FRACTION,
   type BubbleAction, type BubbleConfig, type ChargeConfig, type CopyConfig,
-  type SignConfig, type SignOffer,
+  type Ruling, type SignConfig, type SignOffer,
 } from "./dualInvasion";
 import {
   PIXEL_FIRE_BURN_MS,
@@ -117,7 +118,6 @@ const CIRCUS_BOSS_KEY = "CircusStageActorBoss";
  *  spend the rest of the fight walking forward again. */
 const SIGN_RETREAT_SPEED = 70;
 /** Shared empty answer for `signedGroups`, so the common case allocates nothing. */
-const NO_GROUPS: readonly string[] = [];
 const BOSS_JUMP_MS = 650; // Circus Ringmaster drops directly from the car to the lane
 const ENEMY_EMERGE_GAP_MS = 450; // beat before the next enemy emerges
 /** Default wave cadence: strictly one enemy at a time. GROUND TRUTH — every stage owns a
@@ -676,6 +676,11 @@ export interface SimUnit {
   stationY: number | null;
   /** Fight-clock ms at which this unit walks on, ignoring the wave's drip budget. */
   deployAtMs: number | null;
+  /** Walks on once this fraction of the wave is down (see CombatUnit.deployAtWaveFrac). */
+  deployAtWaveFrac: number | null;
+  /** One of the wave's own bodies — what `deployAtWaveFrac` counts against. Set once, at
+   *  construction, on every ordinary enemy that walks on through the drip. */
+  waveBody: boolean;
   /** Held in reserve until the perched boss descends (PvP formation mini). */
   deployWithBoss: boolean;
   /** The job this defender holds in the farm's defense. */
@@ -1033,6 +1038,8 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stationX: u.stationX ?? null,
     stationY: u.stationY ?? null,
     deployAtMs: u.deployAtMs ?? null,
+    deployAtWaveFrac: u.deployAtWaveFrac ?? null,
+    waveBody: false,
     deployWithBoss: u.deployWithBoss ?? false,
     defenseRole: u.defenseRole ?? null,
     anchorsLine: u.anchorsLine ?? true,
@@ -1148,6 +1155,13 @@ export class BattleSim {
   /** The player's committed pick for the offer on the table, or null while they have not
    *  chosen. Cleared when the slot resolves. */
   private signPending: number | null = null;
+  /** The rulings in force and what they add up to — DERIVED each tick from the resolved
+   *  picks (see refreshRulings), so neither is in the snapshot. */
+  private rulings: Ruling[] = [];
+  private rulingFx: {
+    slow: number; weaken: number; embolden: number; immune: boolean; noHeal: boolean;
+    overruled: Set<string>; barred: string[];
+  } = { slow: 1, weaken: 1, embolden: 1, immune: false, noHeal: false, overruled: new Set(), barred: [] };
   // ---- carried-grab hazard (Trapeze Artist) ----
   readonly grabbers: SimGrabber[] = [];
   private grabberCfg: GrabberConfig | null;
@@ -1291,6 +1305,9 @@ export class BattleSim {
     const ordered = [...enemyUnits].sort((a, b) => Number(a.isBoss) - Number(b.isBoss));
     this.players = playerUnits.map((u, i) => toSim(u, i));
     this.enemies = ordered.map((u, i) => toSim(u, i));
+    for (const e of this.enemies) {
+      e.waveBody = !e.isBoss && e.deployAtMs === null && e.deployAtWaveFrac === null && !e.deployWithBoss;
+    }
     this.units = [...this.players, ...this.enemies];
     this.refreshFrontLine();
 
@@ -1434,6 +1451,8 @@ export class BattleSim {
       stationX: u.stationX ?? null,
       stationY: u.stationY ?? null,
       deployAtMs: u.deployAtMs ?? null,
+      deployAtWaveFrac: u.deployAtWaveFrac ?? null,
+      waveBody: u.waveBody ?? false,
     deployWithBoss: u.deployWithBoss ?? false,
       defenseRole: u.defenseRole ?? null,
       anchorsLine: u.anchorsLine ?? true,
@@ -1529,6 +1548,8 @@ export class BattleSim {
     this.crabSeq = snapshot.crabSeq ?? this.crabSeq;
     // Absent (a server-built snapshot) → the local robot carries on unchanged.
     if (snapshot.megaBot && this.megaBot) this.megaBot = { ...snapshot.megaBot };
+    // Derived from the resolved picks, so re-derived rather than restored.
+    this.refreshRulings();
   }
 
   // ---- activated abilities (player-triggered from the battle strip) ----
@@ -1647,6 +1668,9 @@ export class BattleSim {
    *  move you most want to pre-time the one move you could not. */
   private readyToActivate(p: SimUnit, key: string): boolean {
     if (p.usedAbilities.includes(key)) return false;
+    // Overruled (raid 12): the move is off the table while the ruling stands. Here rather
+    // than at the tap so the strip's button goes dark with it.
+    if (this.rulingFx.overruled.has(key)) return false;
     // A benched zombie offers no button. Checked here rather than at the tap so the strip's
     // ready-count drops with it — a button that lights up and then refuses is worse than a
     // button that visibly goes away.
@@ -2059,6 +2083,9 @@ export class BattleSim {
    *  healer's Power. Heal All independently fires every 20 seconds for the same amount.
    *  An off-Garden holder is held back while it is swinging — see healSuppressed. */
   private stepHealing(dtMs: number, rezCast: ReadonlySet<string>, roster: SimUnit[] = this.players) {
+    // Order in Court (raid 12): no healing lands on the army while the ruling stands.
+    // Resurrect is stepped separately and is untouched — the ruling is about healing.
+    if (roster === this.players && this.rulingFx.noHeal) return;
     const deployed = roster.filter(
       (p) => p.alive &&
         // "hold" is the enemy side's standing state; no player is ever in it, so this
@@ -2193,6 +2220,8 @@ export class BattleSim {
    *  filled the bar would be the off switch poise exists to remove. */
   private stunEnemy(foe: SimUnit, ms: number, source: string) {
     if (!foe.alive) return;
+    // Immunity (raid 12): no stun lands, and none feeds a bar either.
+    if (this.rulingFx.immune) return;
     if (foe.chargeMs > 0) {
       const gain = poiseFor(source);
       if (gain > 0) {
@@ -2531,11 +2560,11 @@ export class BattleSim {
     }
   }
 
-  /** Whether the objection is running at all: a raid that has one, with its lawyer still
-   *  on the perch. THE OBJECTION COMES DOWN WITH THE BOSS — boss actions are perch-gated,
-   *  and this is the Lawyer boss's: once its wave is cleared and it climbs down to fight,
-   *  the bubbles stop and the whole army is back. That is the intended finale, the
-   *  pressure lifting at exactly the moment the last thing standing is the lawyer. */
+  /** Whether the rulings are running at all: a raid that has them, with its lawyer still on
+   *  the perch. THEY COME DOWN WITH THE BOSS — boss actions are perch-gated, and this is the
+   *  Lawyer boss's: once its wave is cleared and it climbs down to fight, the bubbles stop
+   *  and every ruling lifts. That is the intended finale, the pressure lifting at exactly the
+   *  moment the last thing standing is the lawyer. */
   private signRunning(): boolean {
     const cfg = this.signCfg;
     if (!cfg || !cfg.offers.length || cfg.dwellMs <= 0) return false;
@@ -2544,13 +2573,12 @@ export class BattleSim {
   }
 
   /** Close every slot the clock has run past, taking the player's pick where they made
-   *  one and the pinned auto-pick where they did not.
+   *  one and the pinned auto-pick (both bubbles, under contempt) where they did not — then
+   *  re-derive what is in force.
    *
    *  Driven off `elapsed` and NOT off the boss's perch: the offers keep turning over
-   *  underneath a descended lawyer even though nothing is barred, so a boss that comes
-   *  down and (in some future fight) climbs back up resumes on the slot the clock is on
-   *  rather than on the one it left. A `while` rather than an `if` because nothing
-   *  promises a step is shorter than a dwell. */
+   *  underneath a descended lawyer even though nothing is in force. A `while` rather than an
+   *  `if` because nothing promises a step is shorter than a dwell. */
   private stepSign(): void {
     const cfg = this.signCfg;
     if (!cfg || !cfg.offers.length || cfg.dwellMs <= 0) return;
@@ -2559,18 +2587,19 @@ export class BattleSim {
       this.signResolved.push(this.signPending ?? autoPickFor(cfg, this.signResolved.length));
       this.signPending = null;
     }
+    this.refreshRulings();
   }
 
-  /** The two bubbles on the table right now, or null when the objection is not running.
+  /** The two bubbles on the table right now, or null when the rulings are not running.
    *  Presentation and input both read this, so there is one answer to "what is being
    *  asked" rather than one per caller. */
   signOffer(): SignOffer | null {
     const cfg = this.signCfg;
     if (!cfg || !this.signRunning()) return null;
-    return cfg.offers[this.signResolved.length % cfg.offers.length];
+    return signOfferAt(cfg, this.signResolved.length);
   }
 
-  /** Which offer is on the table, or null when the objection is not running. The number a
+  /** Which offer is on the table, or null when the rulings are not running. The number a
    *  `signPick` input has to carry, so the pick can only answer the question it was shown. */
   signOfferIndex(): number | null {
     return this.signOffer() ? this.signResolved.length : null;
@@ -2580,6 +2609,16 @@ export class BattleSim {
    *  they have not chosen. A pick is final — see `pickSign`. */
   signPick(): number | null {
     return this.signOffer() ? this.signPending : null;
+  }
+
+  /** Whether this fight has rulings at all (raid 12), whatever the lawyer is doing. */
+  hasSign(): boolean {
+    return !!this.signCfg && this.signCfg.offers.length > 0;
+  }
+
+  /** Ignoring this offer applies both bubbles (contempt, t7+). Presentation reads it. */
+  signContempt(): boolean {
+    return !!this.signCfg?.contempt;
   }
 
   /** Ms left to choose. Zero when nothing is being asked. */
@@ -2613,24 +2652,54 @@ export class BattleSim {
     return true;
   }
 
-  /** The classes barred right now, or [] when nothing is.
+  /** The rulings in force right now, deduplicated — a ruling in force twice (precedent, or
+   *  contempt handing over both bubbles) REFRESHES rather than stacking. [] when nothing is.
    *
-   *  What is in force during slot s is the pick that RESOLVED at the end of slot s-1, so
-   *  slot 0 bars nobody: the fight opens with the first two bubbles up and a free dwell to
-   *  read them in. See the TIMING note in dualInvasion.ts. */
-  signedGroups(): readonly string[] {
-    const cfg = this.signCfg;
-    if (!cfg || !this.signRunning()) return NO_GROUPS;
-    const slot = this.signResolved.length;
-    if (slot === 0) return NO_GROUPS;
-    const offer = cfg.offers[(slot - 1) % cfg.offers.length];
-    return offer[this.signResolved[slot - 1] === 1 ? 1 : 0] ?? NO_GROUPS;
+   *  What is in force during slot s is what RESOLVED at the end of slot s-1 (and s-2 under
+   *  precedent), so slot 0 has nothing in force: the fight opens with the first two bubbles
+   *  up and a free dwell to read them in. See the TIMING note in dualInvasion.ts. */
+  activeRulings(): readonly Ruling[] {
+    return this.rulings;
   }
 
-  /** Whether this zombie is currently benched by the placard. Enemies never are. */
+  /** Re-derive `rulings` and the effects they add up to. Pure function of the resolved
+   *  picks, the clock and the lawyer's perch, so it needs no snapshot slot of its own. */
+  private refreshRulings(): void {
+    const cfg = this.signCfg;
+    const out: Ruling[] = [];
+    if (cfg && this.signRunning()) {
+      const slot = this.signResolved.length;
+      for (let back = 1; back <= Math.max(1, cfg.inForce) && slot - back >= 0; back++) {
+        const resolved = slot - back;
+        for (const r of rulingsFor(signOfferAt(cfg, resolved), this.signResolved[resolved])) {
+          if (!out.some((o) => rulingKey(o) === rulingKey(r))) out.push(r);
+        }
+      }
+    }
+    this.rulings = out;
+    const severe = !!cfg?.severe;
+    const has = (kind: string) => out.some((r) => r.kind === kind);
+    this.rulingFx = {
+      slow: has("slowed") ? (severe ? RULING_SLOW.severe : RULING_SLOW.normal) : 1,
+      weaken: has("weakened") ? (severe ? RULING_WEAKEN.severe : RULING_WEAKEN.normal) : 1,
+      embolden: has("emboldened") ? (severe ? RULING_EMBOLDEN.severe : RULING_EMBOLDEN.normal) : 1,
+      immune: has("immunity"),
+      noHeal: has("orderInCourt"),
+      overruled: new Set(out.filter((r) => r.kind === "overruled")
+        .flatMap((r) => OVERRULED_ABILITIES[r.ability ?? ""] ?? [])),
+      barred: out.filter((r) => r.kind === "barred").map((r) => r.group!),
+    };
+  }
+
+  /** The classes benched right now, or [] when nothing is. */
+  signedGroups(): readonly string[] {
+    return this.rulingFx.barred;
+  }
+
+  /** Whether this zombie is currently benched by a Barred ruling. Enemies never are. */
   private isSigned(u: SimUnit): boolean {
     if (u.team !== "player" || !u.group) return false;
-    const groups = this.signedGroups();
+    const groups = this.rulingFx.barred;
     return groups.length > 0 && groups.includes(u.group);
   }
 
@@ -2972,7 +3041,8 @@ export class BattleSim {
  *     and Arrrnold does the same against that opponent's SPECIES BASE cycle.
    *  Everything that re-arms an attack timer goes through here. */
   private cycleMs(u: SimUnit, foe: SimUnit | null): number {
-    if (u.team === "player") return u.cooldownMs * lineupSpeedBand(u.lineupIndex);
+    // Slowed (raid 12): the ruling stretches every zombie's attack interval.
+    if (u.team === "player") return u.cooldownMs * lineupSpeedBand(u.lineupIndex) * this.rulingFx.slow;
     if (u.mirrorsOpponentSpeed && foe && foe.team === "player") {
       const foeSec = (foe.cooldownMs * lineupSpeedBand(foe.lineupIndex)) / 1000;
       return mirrorIntervalSec(u.sourceKey, foeSec, foe.speciesCycleMs / 1000) * 1000;
@@ -3127,6 +3197,12 @@ export class BattleSim {
   }
 
   private dealDamage(foe: SimUnit, dmg: number, fromPlayer: boolean) {
+    // Weakened (raid 12): the army's blows land lighter. Taps on a wall or on a converted
+    // zombie are the player's own fingers, not the army's damage, so they are left alone.
+    if (fromPlayer && this.rulingFx.weaken !== 1 && dmg > 0 && foe.team === "enemy" &&
+        !foe.isWall && !foe.isTurned) {
+      dmg = Math.max(1, Math.round(dmg * this.rulingFx.weaken));
+    }
     // Publish the hit at its full post-mitigation size BEFORE the HP subtraction clamps
     // it. `hp` is what the fight runs on; `damageFxTaken` is what the numbers report.
     if (dmg > 0) foe.damageFxTaken += dmg;
@@ -3231,6 +3307,8 @@ export class BattleSim {
 
   /** Apply an ordinary enemy hit through the recovered player-zombie one-shot floor. */
   private dealEnemyDamage(foe: SimUnit, dmg: number) {
+    // Emboldened (raid 12): everything the enemy lands on a zombie lands harder.
+    if (foe.team === "player" && this.rulingFx.embolden !== 1) dmg *= this.rulingFx.embolden;
     if (dmg > 0 && foe.abilities.includes("block") && this.abilityRoll(foe) > 90) return;
     const applied = applyDamage(dmg, 0, foe.team === "player" ? foe.damageReduction ?? 0 : 0);
     if (
@@ -3504,6 +3582,17 @@ export class BattleSim {
     // each walks on when its own clock says so, and none of them counts toward or
     // competes for `activeTarget`. Absent `deployAtMs` this loop does nothing, which
     // is every raid.
+    // The fight's MIDPOINT (raid 12's farmer mob, raid 13's captain): a unit waiting on a
+    // share of the wave gets its clock set the moment that share is down, and from then on
+    // it is an ordinary `deployAtMs` unit — off the drip, on its own beat.
+    if (this.enemies.some((e) => e.deployAtWaveFrac !== null && e.deployAtMs === null && e.alive)) {
+      const body = this.enemies.filter((e) => e.waveBody);
+      const frac = body.length ? body.filter((e) => !e.alive).length / body.length : 1;
+      for (const e of this.enemies) {
+        if (e.deployAtWaveFrac === null || e.deployAtMs !== null || !e.alive) continue;
+        if (frac >= e.deployAtWaveFrac) e.deployAtMs = this.elapsed;
+      }
+    }
     for (const e of this.enemies) {
       if (e.deployAtMs === null || !e.alive || e.state !== "queued") continue;
       if (this.elapsed >= e.deployAtMs) e.state = "emerging";
@@ -3540,8 +3629,8 @@ export class BattleSim {
 
     if (activeMelee < this.activeTarget) {
       const next = this.enemies.find(
-        (e) => e.alive && !e.isBoss && e.deployAtMs === null && e.state === "queued" &&
-          !e.deployWithBoss
+        (e) => e.alive && !e.isBoss && e.deployAtMs === null && e.deployAtWaveFrac === null &&
+          e.state === "queued" && !e.deployWithBoss
       );
       if (next) next.state = "emerging";
     }

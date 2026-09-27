@@ -27,9 +27,9 @@ const duals = raids.filter((r) => (DUAL_INVASION_IDS as readonly number[]).inclu
 /** What the measured base table says each wave weighs at 1.0x, mirrored here so the test
  *  is asserting against a written-down number rather than against the code under test. */
 const DUAL_BASE_HP_FOR_TEST: Record<number, { wave: number; boss: number }> = {
-  12: { wave: 21_400, boss: 4_500 },
-  13: { wave: 58_500, boss: 25_000 },
-  14: { wave: 82_600, boss: 1_500 },
+  12: { wave: 18_500, boss: 4_500 },
+  13: { wave: 46_500, boss: 25_000 },
+  14: { wave: 77_200, boss: 1_500 },
   15: { wave: 60_000, boss: 25_000 }, // the alien wave; robots are summoned, not scheduled
 };
 
@@ -48,6 +48,11 @@ function fightAt(raid: RaidDef, tier: number, override?: null): CombatUnit[] {
 }
 
 const totalHp = (units: CombatUnit[]) => units.reduce((sum, u) => sum + u.maxHp, 0);
+/** A unit a MECHANIC brings on (the farmer mob, the captain, the towers) rather than one of
+ *  the wave's own bodies. The flat hit-point target is the wave's; these ride on top of it. */
+const isArrival = (u: CombatUnit) =>
+  u.deployAtMs !== undefined || u.deployAtWaveFrac !== undefined || !!u.stack;
+const waveOnly = (units: CombatUnit[]) => units.filter((u) => !isArrival(u));
 
 describe("the tier ladder", () => {
   it("puts the stat steps on t2, t4, t6 and t8, alternating damage and speed", () => {
@@ -81,7 +86,7 @@ describe("the tier ladder", () => {
   it("lands every invasion on the SAME flat hit points, so a rung means one thing", () => {
     for (const raid of duals) {
       for (const rung of [MIN_TIER, 5, MAX_TIER]) {
-        const units = fightAt(raid, rung);
+        const units = waveOnly(fightAt(raid, rung));
         const bossHp = units.filter((u) => u.isBoss).reduce((sum, u) => sum + u.maxHp, 0);
         expect(totalHp(units) - bossHp, `raid ${raid.id} t${rung} wave`)
           .toBeCloseTo(DUAL_WAVE_HP, -3.7); // within ~2,500 points
@@ -94,7 +99,7 @@ describe("the tier ladder", () => {
     // DUAL_BASE_HP is measured, and the whole ladder divides by it — so a wave that is
     // re-composed silently moves every rung of that invasion until this fails.
     for (const raid of duals) {
-      const base = fightAt(raid, MIN_TIER, null);
+      const base = waveOnly(fightAt(raid, MIN_TIER, null));
       const bossHp = base.filter((u) => u.isBoss).reduce((sum, u) => sum + u.maxHp, 0);
       const declared = DUAL_BASE_HP_FOR_TEST[raid.id];
       expect(totalHp(base) - bossHp, `raid ${raid.id} base wave`)

@@ -20,6 +20,7 @@ import { seededRandom } from "../RaidCatalog";
 import { RAID_TICK_MS } from "../replay";
 import { TOUCH_TAPS } from "../hazardTaps";
 import type { Pilot, PilotAction } from "./pilot";
+import { OVERRULED_ABILITIES, type Ruling, type SignOffer } from "../dualInvasion";
 
 export interface PilotProfile {
   id: string;
@@ -357,16 +358,33 @@ export function makePilot(profile: PilotProfile): Pilot {
   };
 }
 
-/** Which bubble to take: the one that benches the classes this army leans on least.
+/** Which bubble to take: the one whose rulings cost THIS army least.
  *
- *  Counted over LIVE zombies rather than the whole roster, because a class that has
- *  already been wiped out costs nothing to give up — and weighted by remaining health,
- *  so benching three zombies on their last legs beats benching one that is untouched.
- *  Ties go to option 0, which is arbitrary and has to be: the mechanic is a dilemma. */
-function cheaperBench(sim: BattleSim, offer: readonly [readonly string[], readonly string[]]): 0 | 1 {
-  const cost = (groups: readonly string[]): number =>
-    sim.units.reduce((sum, p) =>
-      p.team === "player" && p.alive && p.group && groups.includes(p.group)
-        ? sum + Math.max(0, p.hp) : sum, 0);
+ *  Each ruling is priced as a rough share of the army's effectiveness it removes, from what
+ *  is actually on the field: a benched class by the live health it takes off the line, the
+ *  two offense rulings by how much they slow or soften every swing, a disabled move only if
+ *  somebody still holds it, no-healing only if there are healers and wounds, immunity only
+ *  if the army has stuns to lose. Crude on purpose — the harness wants a player who reads
+ *  the bubbles, not an oracle. Ties go to option 0: the mechanic is a dilemma. */
+function cheaperBench(sim: BattleSim, offer: SignOffer): 0 | 1 {
+  const army = sim.units.filter((p) => p.team === "player" && p.alive);
+  const totalHp = army.reduce((sum, p) => sum + Math.max(0, p.hp), 0) || 1;
+  const has = (keys: readonly string[]) =>
+    army.some((p) => p.abilities.some((k) => keys.includes(k) && !p.usedAbilities.includes(k)));
+  const price = (r: Ruling): number => {
+    switch (r.kind) {
+      case "barred":
+        return army.filter((p) => p.group === r.group).reduce((sum, p) => sum + Math.max(0, p.hp), 0) / totalHp;
+      case "slowed": return 0.25;
+      case "weakened": return 0.25;
+      case "emboldened": return 0.15;
+      case "overruled": return has(OVERRULED_ABILITIES[r.ability ?? ""] ?? []) ? 0.12 : 0;
+      case "immunity": return has(["stun", "bash", "bashV2", "explode", "explodeV2", "attachMini"]) ? 0.1 : 0;
+      case "orderInCourt":
+        return army.some((p) => p.abilities.includes("heal") || p.abilities.includes("healAOE")) &&
+          army.some((p) => p.hp < p.maxHp) ? 0.2 : 0;
+    }
+  };
+  const cost = (option: readonly Ruling[]) => option.reduce((sum, r) => sum + price(r), 0);
   return cost(offer[1]) < cost(offer[0]) ? 1 : 0;
 }

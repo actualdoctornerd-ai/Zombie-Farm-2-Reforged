@@ -30,10 +30,9 @@ import type {
 import { turnedUnitFor } from "./videoGameStage";
 import { buildUnitsForKeys } from "./CombatEngine";
 import {
-  CAPTAIN_ARRIVES_MS, chargeFor, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, farmerSquadAtMs,
+  CAPTAIN_ARRIVES_MS, chargeFor, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
   BUBBLE_RAID_ID, BUBBLE_ROBOT_KEY,
   SIGN_RAID_ID, stacksFor, STACK_COUNT, STACK_FIRST_AT_MS, STACK_GAP_MS,
-  type SignConfig,
 } from "./dualInvasion";
 
 /** The pirate captain's authored unit — `str 500, dex 0.4`, the biggest single blow in the
@@ -247,14 +246,13 @@ export function megaBotFor(raid: RaidDef): MegaBotConfig | null {
   return { eyeHp: rescueHazardHp(MEGA_BOT_EYE_HP), tapDamage: MEGA_BOT_TAP_DAMAGE };
 }
 
-/** The Lawyers & Farmers squad: Old McDonnell and three farmhands, authored to walk on
- *  together partway through the fight (see dualInvasion.ts for the timing and for why
- *  there is only one squad).
+/** The angry farmer mob (raid 12, t3+): Old McDonnell and three farmhands, walking on
+ *  together once half the wave is down — the fight's midpoint (see dualInvasion.ts).
  *
- *  Returned as EXTRA enemy units to append to the wave — they carry `deployAtMs`, which
- *  takes them off the drip budget entirely, so they arrive on their own clock rather than
- *  waiting for something to die. `anchorsLine` is left alone: they walk to the ordinary
- *  doorway like the rest of the wave, so there is no station to drag the player's line to.
+ *  Returned as EXTRA enemy units to append to the wave. They carry `deployAtWaveFrac`, which
+ *  keeps them off the drip budget: they arrive together at the midpoint rather than waiting
+ *  for something to die. `anchorsLine` is left alone: they walk to the ordinary doorway like
+ *  the rest of the wave, so there is no station to drag the player's line to.
  *
  *  Both sides build this from the same helper, off the raid id and the pinned tier, for the
  *  same reason every other fight config is shared: a wave the two simulations disagree
@@ -262,12 +260,12 @@ export function megaBotFor(raid: RaidDef): MegaBotConfig | null {
 export function farmerSquadFor(
   assets: FightAssets,
   raid: RaidDef,
-  sign: SignConfig | null,
+  tier: number,
   elite: EliteProfile | null = null,
   playerLevel = 0
 ): CombatUnit[] {
-  const at = farmerSquadAtMs(sign);
-  if (at === null || raid.id !== SIGN_RAID_ID) return [];
+  // The angry farmer mob is the t3 rung (docs/POST_45_PROGRESSION.md Part 2B): absent below.
+  if (raid.id !== SIGN_RAID_ID || tier < FARMER_MOB_TIER) return [];
   const keys = [
     FARMER_SQUAD_LEADER,
     ...Array.from({ length: FARMER_SQUAD_MINIONS }, () => FARMER_SQUAD_MINION),
@@ -289,7 +287,7 @@ export function farmerSquadFor(
   return buildUnitsForKeys(keys, null, assets.enemyStats, assets.raidAttacks, {
     raidId: raid.id, playerLevel, elite,
   }).map((unit, i) => ({
-    ...unit, id: `squad${i}`, deployAtMs: at, knockBack: false, knockBackChance: 0,
+    ...unit, id: `squad${i}`, deployAtWaveFrac: MIDPOINT_WAVE_FRAC, knockBack: false, knockBackChance: 0,
   }));
 }
 

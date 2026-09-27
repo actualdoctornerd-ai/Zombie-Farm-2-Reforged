@@ -248,6 +248,10 @@ export interface CombatUnit {
   /** Fight-clock ms at which this defender walks on. 0 = already there when the
    *  fight opens. Present = this unit ignores the wave's drip cadence entirely. */
   deployAtMs?: number;
+  /** Walks on once this fraction of the WAVE is down — the fight's midpoint, measured in
+   *  the fight rather than on a clock (raid 12's farmer mob, raid 13's captain). Like
+   *  `deployAtMs` it ignores the drip budget once it walks on. */
+  deployAtWaveFrac?: number;
   /** Held off-field until the perched boss climbs down, then released with it. The
    *  formation defense's MINI is the brute's ammunition: it waits in the barn between
    *  throws rather than standing in the line, so it neither holds the boss on its
