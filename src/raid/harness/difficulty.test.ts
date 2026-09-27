@@ -115,6 +115,8 @@ describe("difficulty, against the loss-less target", () => {
       "10 Tree World",
       "11 Valentine's Day",
       "14 Zombies vs Circus & Video Games t10",
+      // Owner ruling 2026-09-26: a healer-only clock-out is an ordinary loss, not a bug.
+      "12 Zombies vs Lawyers & Farmers t10",
     ]);
     const deadlocked = cells
       .filter((c) => c.expert.deadlockRate > 0 && !KNOWN_GARDEN_DEADLOCK.has(c.label))

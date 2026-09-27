@@ -1183,7 +1183,10 @@ import type { RaidOutcome } from "./types";
 // 30,000 boss (Aliens & Robots x1.5 on top), base enemy damage x1.5, the stat steps to x1.35
 // damage and x1.18 speed, the pirate captain x3.5 hit points, bozos 6,000 each, the saucer's
 // cancels 5 -> 3, and on raid 12 contempt moved to t3 with the farmer mob moved to t7 and
-// doubled (six farmhands, twice as tough).
+// doubled (six farmhands, twice as tough). Then the bulk moved to where each fight is: the
+// wave target down to 110,000, and the key unit carrying it instead — the Lawyer 40,000,
+// the ringmaster 60,000, the saucer 80,000 (replacing the fight-wide x1.5), and the pirate
+// captain a flat 150,000 of his own.
 //
 // Every transcript on raids 12-15 at every rung replays differently from v65.
 export const RAID_RULESET_VERSION = 66;

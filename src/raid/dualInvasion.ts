@@ -179,11 +179,10 @@ export function tierProfile(raidId: number, tier: number): EliteProfile {
   // BULK cannot be one multiplier across four waves this different — see DUAL_BASE_HP —
   // so `con` is solved backwards from the flat hit-point target.
   const base = DUAL_BASE_HP[raidId] ?? DUAL_BASE_HP[SIGN_RAID_ID];
-  const bulk = DUAL_BULK[raidId] ?? 1;
   return {
     str: DUAL_BASE_STR * damage,
-    con: (DUAL_WAVE_HP * bulk) / base.wave,
-    bossCon: (DUAL_BOSS_HP * bulk) / base.boss,
+    con: DUAL_WAVE_HP / base.wave,
+    bossCon: dualBossHp(raidId) / base.boss,
     dex: 1 * speed,
     throwDamage: DUAL_BASE_THROW * damage,
     throwRate: 1.15 * speed,
@@ -196,8 +195,25 @@ export function tierProfile(raidId: number, tier: number): EliteProfile {
  *  the ladder (the rungs climb in mechanics and in damage/speed, not in bulk) and shared by
  *  all four invasions so a rung means one thing. The tuning pass sets the real value; the
  *  ceiling on it is the settle budget below. */
-export const DUAL_WAVE_HP = 175_000;
+export const DUAL_WAVE_HP = 110_000;
 export const DUAL_BOSS_HP = 30_000;
+
+/** THE BULK GOES WHERE THE FIGHT IS (owner, 2026-09-27). The minions are the filler, so the
+ *  shared wave target stays modest; the hit points go into the unit each fight is ABOUT, so
+ *  its mechanic has time to play out:
+ *    · 12 — the Lawyer: the rulings run while he is up
+ *    · 13 — the pirate captain (CAPTAIN_HP, his own figure) — the ninja keeps the default
+ *    · 14 — the ringmaster, the middle of the lane
+ *    · 15 — the saucer: its casts run until it dies, so its own pool is what buys the casts
+ *  Flat across the ladder like the wave. */
+export const DUAL_KEY_BOSS_HP: Readonly<Record<number, number>> = {
+  12: 40_000,
+  14: 60_000,
+  15: 80_000,
+};
+export function dualBossHp(raidId: number): number {
+  return DUAL_KEY_BOSS_HP[raidId] ?? DUAL_BOSS_HP;
+}
 
 /** The base enemy damage every rung starts from (before the per-raid base and the stat
  *  steps). Raised 1.5x (owner, 2026-09-27): against real level-45 armies every t1 was a 100%
@@ -205,12 +221,6 @@ export const DUAL_BOSS_HP = 30_000;
 export const DUAL_BASE_STR = 2.7;
 export const DUAL_BASE_THROW = 2.4;
 
-/** Per-raid bulk on top of the flat target. Aliens & Robots is tankier (owner, 2026-09-27)
- *  so there is time for more of the saucer's casts: the fight is ABOUT the casts, and a
- *  wave that dies in half a minute sees four of them. */
-export const DUAL_BULK: Readonly<Record<number, number>> = {
-  15: 1.5,
-};
 
 /** WHAT EACH INVASION'S OWN WAVE WEIGHS at 1.0x, wave and boss separately.
  *
@@ -610,10 +620,11 @@ export const IRON_WILL_TIER = 10;
 export const CHARGE_WINDUP_MS = 8_000;
 export const CHARGE_RECOVERY_MS = 2_500;
 export const CHARGE_DAMAGE = 500;
-/** The captain's bulk on top of the wave's scaling. He is the phase — his slam can be
- *  broken, so he can afford to be a wall of hit points (owner, 2026-09-27). At the old bulk a
- *  level-45 army killed him in 3.5 s, before his first 8 s wind-up could finish. */
-export const CAPTAIN_HP_MULT = 3.5;
+/** The captain's hit points, his own figure rather than the wave's scaling. He is the phase —
+ *  his slam can be broken, so he can afford to be a wall of hit points (owner, 2026-09-27). At
+ *  the old bulk a level-45 army killed him in 3.5 s, before his first 8 s wind-up finished.
+ *  Flat across the ladder. */
+export const CAPTAIN_HP = 150_000;
 /** How long a broken charge staggers him, and what he takes while staggered. */
 export const STAGGER_MS = 3_000;
 export const STAGGER_DAMAGE_MULT = 1.5;
