@@ -23,7 +23,7 @@
 // answers live in fightConfig.ts / alienStage.ts / dualInvasion.ts and reach here
 // already resolved. It is a keyword-to-positional adapter and nothing more, which is why
 // it can be trusted to sit underneath the client, the server and the harness at once.
-import { BattleSim } from "./BattleSim";
+import { BattleSim, RAID_TIME_LIMIT_MS } from "./BattleSim";
 import type { BigTopConfig, BubbleConfig, DuelConfig, SignConfig } from "./dualInvasion";
 import type {
   BossSpecial,
@@ -94,6 +94,8 @@ export interface FightSpec {
   bubbleWall?: CombatUnit | null;
   /** The Mega-Robot (raid 5). CLIENT-ONLY, same as the grabber and the crab. */
   megaBot?: MegaBotConfig | null;
+  /** This fight's clock. Omit for the ordinary four minutes; the dual invasions carry six. */
+  timeLimitMs?: number;
 }
 
 /** The one call site of `new BattleSim(...)` outside tests. */
@@ -122,6 +124,7 @@ export function buildFight(spec: FightSpec): BattleSim {
     spec.bossGroundStationX ?? null,
     spec.bubble ?? null,
     spec.bubbleWall ?? null,
-    spec.megaBot ?? null
+    spec.megaBot ?? null,
+    spec.timeLimitMs ?? RAID_TIME_LIMIT_MS
   );
 }

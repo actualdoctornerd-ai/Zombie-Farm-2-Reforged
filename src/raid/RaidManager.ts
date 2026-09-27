@@ -286,6 +286,8 @@ export interface RaidSetup {
   /** The saucer's five-action bubble, and the wall its `wall` action drops (raid 15). */
   bubble: BubbleConfig | null;
   bubbleWall: CombatUnit | null;
+  /** This fight's clock (six minutes on a dual invasion). */
+  timeLimitMs: number;
   /** Ms at which the boss abandons its perch regardless of its wave (the raid-14
    *  ringmaster from rung 5; null elsewhere), and the ground station it then fights from. */
   bossDropAtMs: number | null;

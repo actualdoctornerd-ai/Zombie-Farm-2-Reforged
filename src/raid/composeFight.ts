@@ -19,7 +19,7 @@
 // lets the client, the Worker and the difficulty harness all call it.
 import { buildEnemyUnits } from "./CombatEngine";
 import {
-  abducteesAt, bigTopFor, bubbleFor, duelFor, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
+  abducteesAt, bigTopFor, bubbleFor, duelFor, fightTimeLimitMs, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
@@ -76,6 +76,8 @@ export interface ComposedFight {
   bubbleWall: CombatUnit | null;
   bossDropAtMs: number | null;
   bossGroundStationX: number | null;
+  /** This fight's clock (six minutes on a dual invasion, four everywhere else). */
+  timeLimitMs: number;
 }
 
 export function composeFight(
@@ -119,6 +121,7 @@ export function composeFight(
     bubbleWall: bubbleWallFor(assets, raid, elite),
     bossDropAtMs: dropAtMs,
     bossGroundStationX: dropAtMs === null ? null : RINGMASTER_STATION_X,
+    timeLimitMs: fightTimeLimitMs(raid.id),
   };
 }
 

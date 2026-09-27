@@ -18,6 +18,16 @@ import { eliteProfile, type EliteProfile } from "./eliteInvasion";
 import { seededRandom } from "./RaidCatalog";
 import type { CombatUnit, WaveCadence } from "./types";
 
+/** The dual invasions' fight clock: SIX minutes against every other fight's four (owner,
+ *  2026-09-27). Their mechanics run on 7-15 s timers and their key units carry most of the
+ *  bulk, so they need the room; a clock-out is still an ordinary, settled loss. */
+export const DUAL_TIME_LIMIT_MS = 6 * 60 * 1000;
+
+/** The clock a fight runs under: six minutes on a dual invasion, four everywhere else. */
+export function fightTimeLimitMs(raidId: number): number {
+  return isDualInvasion(raidId) ? DUAL_TIME_LIMIT_MS : 4 * 60 * 1000;
+}
+
 /** Raid ids of the four dual invasions, in ladder order (levels 46-49). */
 export const DUAL_INVASION_IDS = [12, 13, 14, 15] as const;
 

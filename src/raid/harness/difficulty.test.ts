@@ -17,11 +17,10 @@ import raidsJson from "../../../public/assets/raids/raids.json";
 import { eraForLevel, ERA_BY_ID, gridFor } from "./archetypes";
 import { measure, type Target } from "./measure";
 import { EXPERT, IDLE } from "./pilots";
-import { RAID_MAX_TICKS, RAID_TICK_MS } from "../replay";
+import { fightTimeLimitMs } from "../dualInvasion";
 import type { RaidDef } from "../types";
 
 const raids = (raidsJson as RaidDef[]).filter((r) => r.playable);
-const CAP_SECS = (RAID_MAX_TICKS * RAID_TICK_MS) / 1000;
 
 /** Two seeds and the era's own grid — enough for a relation, far short of the report. */
 const SEEDS = 2;
@@ -131,7 +130,9 @@ describe("difficulty, against the loss-less target", () => {
     // meant to have.
     for (const c of cells) {
       if (c.expert.medianWinSecs === null) continue;
-      expect(c.expert.medianWinSecs, c.label).toBeLessThan(CAP_SECS * 0.75);
+      // Each fight's OWN clock: six minutes on the dual invasions, four everywhere else.
+      const capSecs = fightTimeLimitMs(c.target.raidId) / 1000;
+      expect(c.expert.medianWinSecs, c.label).toBeLessThan(capSecs * 0.75);
     }
   });
 

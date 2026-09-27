@@ -139,7 +139,10 @@ const SOLO_WAVE: WaveCadence = { maxActive: 1, dripMs: 0 };
  *  and a drift is how a fight would start coming back `truncated_transcript`, with the
  *  player's session voided and nothing to tell them. */
 export const RAID_TIME_LIMIT_MS = 4 * 60 * 1000;
-const MAX_SIM_MS = RAID_TIME_LIMIT_MS;
+/** The longest clock any fight may carry: the dual invasions' six minutes (owner,
+ *  2026-09-27 — their mechanics need the room). A fight's own `timeLimitMs` is clamped to
+ *  this, and the replay's absolute ceiling is the same instant. */
+export const RAID_MAX_TIME_LIMIT_MS = 6 * 60 * 1000;
 
 // ---- Front formation (GROUND TRUTH: `-[ZombieActor calculateDestinationPoint]` 0x4c9d4)
 // The army's ORDER *is* the formation — there is no separate layout pass. A zombie's index
@@ -1101,6 +1104,8 @@ function toSim(u: CombatUnit, i: number): SimUnit {
 
 export class BattleSim {
   readonly units: SimUnit[];
+  /** This fight's clock, in simulated ms. */
+  readonly timeLimitMs: number;
   readonly projectiles: SimProjectile[] = [];
   /** Presentation-only count; reset at the start of every fixed simulation step. */
   projectileImpactsThisTick = 0;
@@ -1309,8 +1314,13 @@ export class BattleSim {
     private bubbleWall: CombatUnit | null = null,
     /** The Mega-Robot (raid 5; null = none). CLIENT-ONLY, like the crab: the verifier
      *  builds without it. See types.MegaBotConfig. */
-    megaBot: MegaBotConfig | null = null
+    megaBot: MegaBotConfig | null = null,
+    /** THIS fight's clock (see RAID_TIME_LIMIT_MS): four minutes for every ordinary fight,
+     *  six for the dual invasions. Part of the pinned config, so both sides stop on the same
+     *  tick. */
+    timeLimitMs: number = RAID_TIME_LIMIT_MS
   ) {
+    this.timeLimitMs = Math.max(1, Math.min(RAID_MAX_TIME_LIMIT_MS, Math.round(timeLimitMs)));
     this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
     this.grabberCfg = grabber;
     this.grabberTimer = grabber?.spawnDelayMs ?? Infinity;
@@ -4675,7 +4685,7 @@ export class BattleSim {
 
     const wiped = !this.anyAlive(this.players);
     const cleared = !this.anyAlive(this.enemies);
-    if (wiped || cleared || this.elapsed >= MAX_SIM_MS) {
+    if (wiped || cleared || this.elapsed >= this.timeLimitMs) {
       // Decided beats expired: an army that clears the last enemy ON the final tick has
       // won, and one wiped out on it has lost the ordinary way. Out of time is only what
       // is left over — both sides still standing when the clock stops.
@@ -5748,7 +5758,7 @@ export class BattleSim {
    *  and is simulated time, never wall clock: a stuttering frame rate must not be able to
    *  shorten a fight the server will replay at a fixed 50 ms a tick. */
   timeRemainingMs(): number {
-    return Math.max(0, MAX_SIM_MS - this.elapsed);
+    return Math.max(0, this.timeLimitMs - this.elapsed);
   }
 
   /** Ms left before the boss enrages (0 once enraged / no boss). For the HUD timer. */

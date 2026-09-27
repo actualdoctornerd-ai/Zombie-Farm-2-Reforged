@@ -11,10 +11,12 @@
 // running out of time is an ordinary LOSS. It settles, it verifies, it pays a loss's
 // rewards. It is not an unverifiable fight, and the four-minute cap is not a hole.
 import { describe, expect, it } from "vitest";
-import { BattleSim, RAID_TIME_LIMIT_MS } from "./BattleSim";
+import { BattleSim, RAID_MAX_TIME_LIMIT_MS, RAID_TIME_LIMIT_MS } from "./BattleSim";
+import { buildFight } from "./buildFight";
+import { DUAL_INVASION_IDS, DUAL_TIME_LIMIT_MS, fightTimeLimitMs } from "./dualInvasion";
 import { GameState } from "../GameState";
 import { RaidManager } from "./RaidManager";
-import { replayRaid, RAID_MAX_TICKS, RAID_TICK_MS } from "./replay";
+import { advanceRaidSegment, maxTicksFor, replayRaid, RAID_ABSOLUTE_MAX_TICKS, RAID_MAX_TICKS, RAID_TICK_MS } from "./replay";
 import type { CombatUnit, RaidDef, RaidOutcome } from "./types";
 
 const unit = (over: Partial<CombatUnit>): CombatUnit => ({
@@ -39,9 +41,54 @@ const stalemate = () => new BattleSim(
  *  rather than hanging the suite). */
 function runOut(sim: BattleSim): number {
   let ticks = 0;
-  while (sim.step(RAID_TICK_MS) && ticks < RAID_MAX_TICKS * 4) ticks++;
+  while (sim.step(RAID_TICK_MS) && ticks < RAID_ABSOLUTE_MAX_TICKS * 4) ticks++;
   return ticks;
 }
+
+describe("the dual invasions' six-minute clock", () => {
+  const dualStalemate = () => buildFight({
+    playerUnits: [unit({ id: "p1" }), unit({ id: "p2" })],
+    enemyUnits: [unit({ id: "e1", team: "enemy", sourceKey: "AlienStageActorMinion" })],
+    concentration: true, roundMs: NO_ENRAGE_MS, timeLimitMs: DUAL_TIME_LIMIT_MS,
+  });
+
+  it("is six minutes on the four dual invasions and four everywhere else", () => {
+    expect(DUAL_TIME_LIMIT_MS).toBe(6 * 60 * 1000);
+    for (const id of DUAL_INVASION_IDS) expect(fightTimeLimitMs(id), `raid ${id}`).toBe(DUAL_TIME_LIMIT_MS);
+    for (const id of [1, 5, 9, 11]) expect(fightTimeLimitMs(id), `raid ${id}`).toBe(RAID_TIME_LIMIT_MS);
+    expect(RAID_MAX_TIME_LIMIT_MS).toBe(DUAL_TIME_LIMIT_MS);
+    expect(RAID_ABSOLUTE_MAX_TICKS * RAID_TICK_MS).toBe(RAID_MAX_TIME_LIMIT_MS);
+  });
+
+  it("runs a dual fight past four minutes and stops it at six, on the same tick as the verifier", () => {
+    const sim = dualStalemate();
+    expect(maxTicksFor(sim)).toBe(DUAL_TIME_LIMIT_MS / RAID_TICK_MS);
+    expect(sim.timeRemainingMs()).toBe(DUAL_TIME_LIMIT_MS);
+    const ticks = runOut(sim);
+    expect(sim.finished).toBe(true);
+    expect(ticks).toBeGreaterThan(RAID_MAX_TICKS);
+    expect(ticks).toBeLessThanOrEqual(maxTicksFor(sim));
+    expect(sim.outcome().outOfTime).toBe(true);
+  });
+
+  it("lets the verifier accept a dual transcript past four minutes, and no further than six", () => {
+    const past4 = advanceRaidSegment(dualStalemate(), 0, RAID_MAX_TICKS + 100, 0, [], false);
+    expect(past4.ok, "a 4:05 dual finish is legal").toBe(true);
+    const past6 = advanceRaidSegment(dualStalemate(), 0, RAID_ABSOLUTE_MAX_TICKS + 1, 0, [], false);
+    expect(past6.ok).toBe(false);
+    // …and an ordinary fight still refuses anything past its four minutes.
+    expect(advanceRaidSegment(stalemate(), 0, RAID_MAX_TICKS + 1, 0, [], false).ok).toBe(false);
+  });
+
+  it("clamps a clock longer than six minutes", () => {
+    const sim = buildFight({
+      playerUnits: [unit({ id: "p1" })],
+      enemyUnits: [unit({ id: "e1", team: "enemy", sourceKey: "AlienStageActorMinion" })],
+      timeLimitMs: 60 * 60 * 1000,
+    });
+    expect(sim.timeLimitMs).toBe(RAID_MAX_TIME_LIMIT_MS);
+  });
+});
 
 describe("the fight clock", () => {
   it("is the same instant for the sim and for the verifier", () => {

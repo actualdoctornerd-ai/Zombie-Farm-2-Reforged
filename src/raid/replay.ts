@@ -1188,12 +1188,28 @@ import type { RaidOutcome } from "./types";
 // the ringmaster 60,000, the saucer 80,000 (replacing the fight-wide x1.5), and the pirate
 // captain a flat 150,000 of his own.
 //
+// THE DUAL INVASIONS' CLOCK IS SIX MINUTES (every other fight keeps four). The limit is now
+// part of the fight config (`timeLimitMs`, pinned like the rest), `BattleSim` stops on it,
+// and the replay bounds a transcript by the SIM's own clock (`maxTicksFor`) under an
+// absolute six-minute ceiling. The input cap rose 512 -> 768 and the transcript byte cap
+// 32 KB -> 48 KB for the longer fights.
+//
 // Every transcript on raids 12-15 at every rung replays differently from v65.
 export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;
+/** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
+ *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
-export const RAID_MAX_INPUTS = 512;
-export const RAID_MAX_TRANSCRIPT_BYTES = 32 * 1024;
+/** The longest any fight may run, in ticks — the dual invasions' six minutes. */
+export const RAID_ABSOLUTE_MAX_TICKS = 6 * 60 * 1000 / RAID_TICK_MS;
+/** A fight's own clock in ticks. */
+export function maxTicksFor(sim: BattleSim): number {
+  return Math.min(RAID_ABSOLUTE_MAX_TICKS, Math.round(sim.timeLimitMs / RAID_TICK_MS));
+}
+/** Raised with the six-minute clock (from 512 / 32 KB): a longer fight with rulings, cancels,
+ *  trapeze drops and fire taps transcribes more inputs. */
+export const RAID_MAX_INPUTS = 768;
+export const RAID_MAX_TRANSCRIPT_BYTES = 48 * 1024;
 
 export type RaidReplayInput =
   | { seq: number; tick: number; type: "bubble"; unitId: string }
@@ -1265,7 +1281,8 @@ export function advanceRaidSegment(
   allowRetreat: boolean,
   runToCompletion = false
 ): SegmentResult {
-  if (!Number.isInteger(startTick) || !Number.isInteger(finalTick) || finalTick < startTick || finalTick > RAID_MAX_TICKS) {
+  const maxTicks = maxTicksFor(sim);
+  if (!Number.isInteger(startTick) || !Number.isInteger(finalTick) || finalTick < startTick || finalTick > maxTicks) {
     return { ok: false, error: "bad_final_tick" };
   }
   if (!Array.isArray(inputs) || inputs.length > RAID_MAX_INPUTS) return { ok: false, error: "too_many_inputs" };
@@ -1388,11 +1405,11 @@ export function advanceRaidSegment(
   if (runToCompletion) inputsAfterFinish += inputs.length - cursor;
   // Past `finalTick` the transcript is exhausted (an input beyond it is `bad_input_tick`
   // above), so this is the server finishing its own unattended fight — no player help
-  // reaches it. RAID_MAX_TICKS still caps it at four minutes, and `future_finish` still
+  // reaches it. The fight's own clock (maxTicksFor) still caps it, and `future_finish` still
   // bounds what the client may CLAIM about elapsed wall-clock time.
   let overrunTicks = 0;
   if (runToCompletion && !retreated && !sim.finished) {
-    while (!sim.finished && finalTick + overrunTicks < RAID_MAX_TICKS) {
+    while (!sim.finished && finalTick + overrunTicks < maxTicks) {
       sim.step(RAID_TICK_MS);
       overrunTicks++;
     }

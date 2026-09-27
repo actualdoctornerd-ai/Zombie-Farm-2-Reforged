@@ -31,7 +31,7 @@
 // taps; both are mirrored here, because a pilot that out-taps the transcript is
 // measuring a ceiling no player can reach.
 import type { BattleSim } from "../BattleSim";
-import { RAID_MAX_INPUTS, RAID_TICK_MS, RAID_MAX_TICKS, type RaidReplayInput } from "../replay";
+import { maxTicksFor, RAID_MAX_INPUTS, RAID_TICK_MS, type RaidReplayInput } from "../replay";
 import type { RaidOutcome } from "../types";
 
 /** `RaidReplayInput` without the bookkeeping the driver owns. */
@@ -144,7 +144,7 @@ const PROGRESS_SAMPLE_TICKS = 20;
  *  only an action the sim ACCEPTS is transcribed — RaidScene records on the return value
  *  of every tap, so a refused tap is a tap that never happened. */
 export function flyFight(sim: BattleSim, pilot: Pilot, opts: FlightOptions = {}): Flight {
-  const maxTicks = opts.maxTicks ?? RAID_MAX_TICKS;
+  const maxTicks = opts.maxTicks ?? maxTicksFor(sim);
   if (opts.hazardTapCooldownMs !== undefined) sim.hazardTapCooldownMs = opts.hazardTapCooldownMs;
   pilot.reset(opts.seed ?? "flight");
 

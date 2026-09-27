@@ -51,7 +51,7 @@ import {
 } from "../../src/raid/pvp";
 import { parseRosterColor } from "./v3/rosterColor";
 import {
-  isDualInvasion, MAX_TIER, MIN_TIER, raidProfile,
+  fightTimeLimitMs, isDualInvasion, MAX_TIER, MIN_TIER, raidProfile,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "../../src/raid/dualInvasion";
 import { effectiveUnlockLevel, isPracticeRaid } from "../../src/raid/practice";
@@ -101,6 +101,8 @@ export interface PinnedRaidConfig {
    *  rung 5+). Pinned like everything else the rung decides. */
   bossDropAtMs?: number | null;
   bossGroundStationX?: number | null;
+  /** This fight's clock, pinned like everything else (six minutes on a dual invasion). */
+  timeLimitMs?: number;
   grabber: GrabberConfig | null;
   concentration: boolean;
   /** A Brain Ticket was charged at /raid/start: every combat value above is already
@@ -251,6 +253,7 @@ export function createPinnedSim(config: PinnedRaidConfig): BattleSim {
     bossGroundStationX: config.bossGroundStationX,
     bubble: config.bubble,
     bubbleWall: config.bubbleWall,
+    timeLimitMs: config.timeLimitMs ?? fightTimeLimitMs(config.raidId),
   });
 }
 

@@ -8,10 +8,9 @@ import { describe, expect, it } from "vitest";
 import { composeFight } from "./composeFight";
 import {
   dualBossHp, DUAL_DAMAGE_STEP, DUAL_INVASION_IDS, DUAL_SETTLE_REFERENCE_DPS, DUAL_SPEED_STEP,
-  DUAL_WAVE_HP, MAX_TIER, MIN_TIER, raidProfile, STAT_TIERS, statSteps, tierProfile,
+  DUAL_TIME_LIMIT_MS, DUAL_WAVE_HP, MAX_TIER, MIN_TIER, raidProfile, STAT_TIERS, statSteps, tierProfile,
 } from "./dualInvasion";
 import { fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
-import { RAID_MAX_TICKS, RAID_TICK_MS } from "./replay";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
 import attacksJson from "../../public/assets/raids/attacks.json";
 import raidsJson from "../../public/assets/raids/raids.json";
@@ -111,7 +110,7 @@ describe("the tier ladder", () => {
   it("leaves the slowest winning roster room to finish inside the settle cap", () => {
     // The binding case is the WEAKEST roster that still wins. DUAL_SETTLE_REFERENCE_DPS is
     // its measured wall-clock rate; 0.85 is the margin on top.
-    const capMs = RAID_MAX_TICKS * RAID_TICK_MS;
+    const capMs = DUAL_TIME_LIMIT_MS;
     for (const raid of duals) {
       const secondsToClear = totalHp(fightAt(raid, MAX_TIER)) / DUAL_SETTLE_REFERENCE_DPS;
       expect(secondsToClear * 1000, `raid ${raid.id} at t${MAX_TIER} must still settle`)

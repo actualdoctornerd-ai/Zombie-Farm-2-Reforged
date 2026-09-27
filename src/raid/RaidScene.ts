@@ -105,6 +105,8 @@ export interface RaidSceneParams {
   duel?: DuelConfig | null;
   /** The big top's rules (raid 14 only). */
   bigTop?: BigTopConfig | null;
+  /** This fight's clock (six minutes on a dual invasion; omitted = four). */
+  timeLimitMs?: number;
   /** The saucer's bubble and the wall it drops (raid 15). */
   bubble?: BubbleConfig | null;
   bubbleWall?: CombatUnit | null;
@@ -1077,6 +1079,7 @@ export class RaidScene {
       bubble: params.bubble,
       bubbleWall: params.bubbleWall,
       megaBot: params.megaBot,
+      timeLimitMs: params.timeLimitMs,
     });
     // Rescue-hazard taps are paced for a finger by default. A mouse clicks two to three
     // times faster than that gate, so most of a click-spamming player's clicks landed

@@ -5809,6 +5809,7 @@ async function main() {
       bigTop: setup.bigTop,
       bubble: setup.bubble,
       bubbleWall: setup.bubbleWall,
+      timeLimitMs: setup.timeLimitMs,
       bossDropAtMs: setup.bossDropAtMs,
       bossGroundStationX: setup.bossGroundStationX,
       brainDrop: setup.brainDrop,

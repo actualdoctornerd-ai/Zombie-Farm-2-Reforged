@@ -291,6 +291,10 @@ what follows is what the four fights are being rebuilt into.
 The tier-select screen should show what each rung adds, so a player can bring the answer.
 Hit points per rung and the transcript input cap are measured AFTER the build.
 
+**The dual invasions run on a SIX-minute clock** (owner, 2026-09-27); every other fight keeps
+four. Their mechanics run on 7-15 s timers and their key units carry most of the bulk, so
+they need the room. A clock-out is still an ordinary, settled loss.
+
 ### 46 — Lawyers & Farmers: Rulings
 
 Every 8 s the Lawyer offers two rulings in thought bubbles and the player taps the one they
