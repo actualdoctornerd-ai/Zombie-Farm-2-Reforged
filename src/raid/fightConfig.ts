@@ -31,7 +31,7 @@ import { turnedUnitFor } from "./videoGameStage";
 import { buildUnitsForKeys } from "./CombatEngine";
 import {
   CAPTAIN_ARRIVES_MS, chargeFor, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, farmerSquadAtMs,
-  BUBBLE_RAID_ID, ROBOT_ESCORT_AT_MS, ROBOT_ESCORT_KEY,
+  BUBBLE_RAID_ID, BUBBLE_ROBOT_KEY,
   SIGN_RAID_ID, stacksFor, STACK_COUNT, STACK_FIRST_AT_MS, STACK_GAP_MS,
   type SignConfig,
 } from "./dualInvasion";
@@ -354,27 +354,22 @@ export function circusStacksFor(
   return out;
 }
 
-/** The Aliens & Robots guest heavy: one JunkBot, walking on partway through (raid 15).
- *
- *  The robots used to be IN the wave, and they are far too heavy for it — see the note on
- *  ROBOT_ESCORT_KEY. One of them, on its own clock, is the same shape the farm boss takes
- *  in raid 12 and the pirate captain in raid 13: the guest faction's heavy arrives as a
- *  powerful minion because the sim has one boss slot and the saucer is in it.
- *
- *  The JunkBot specifically, because it is the wall-builder — and this is the fight whose
- *  signature play is being walled into your own half. */
-export function robotEscortFor(
+/** The robot the saucer's bubble beams down (raid 15), built at the rung's profile like
+ *  the rest of the wave. The robots used to be IN the wave, and then a single escort on a
+ *  clock; now they arrive when the saucer summons one (dualInvasion.BUBBLE_ROBOT_KEY), and
+ *  only one may stand at a time. Null on every other raid. */
+export function bubbleRobotFor(
   assets: FightAssets,
   raid: RaidDef,
   elite: EliteProfile | null = null,
   playerLevel = 0
-): CombatUnit[] {
-  if (raid.id !== BUBBLE_RAID_ID || !assets.enemyStats[ROBOT_ESCORT_KEY]) return [];
+): CombatUnit | null {
+  if (raid.id !== BUBBLE_RAID_ID || !assets.enemyStats[BUBBLE_ROBOT_KEY]) return null;
   const [unit] = buildUnitsForKeys(
-    [ROBOT_ESCORT_KEY], null, assets.enemyStats, assets.raidAttacks,
+    [BUBBLE_ROBOT_KEY], null, assets.enemyStats, assets.raidAttacks,
     { raidId: raid.id, playerLevel, elite }
   );
-  return unit ? [{ ...unit, id: "escort", deployAtMs: ROBOT_ESCORT_AT_MS }] : [];
+  return unit ? { ...unit, id: "robot" } : null;
 }
 
 /** The wall the BUBBLE puts up (raid 15). Every other raid's wall belongs to a boss action
@@ -386,7 +381,7 @@ export function bubbleWallFor(
   elite: EliteProfile | null = null
 ): CombatUnit | null {
   if (raid.id !== BUBBLE_RAID_ID) return null;
-  const action = assets.enemyStats[ROBOT_ESCORT_KEY]?.bossActions?.find((a) => a.name === "wall");
+  const action = assets.enemyStats[BUBBLE_ROBOT_KEY]?.bossActions?.find((a) => a.name === "wall");
   if (!action) return null;
   return wallUnitFrom(action, elite);
 }

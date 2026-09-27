@@ -1137,7 +1137,21 @@ import type { RaidOutcome } from "./types";
 //
 // Every raid 5, 6 and 9 transcript and every elite raid 3, 4, 5 and 6 transcript replays
 // differently from v64.
-export const RAID_RULESET_VERSION = 65;
+// v66 — THE DUAL INVASION TIER LADDERS, REBUILT (docs/POST_45_PROGRESSION.md Part 2B).
+//
+// One change per tier. The rungs used to be a straight-line ramp on every stat at once; now
+// the odd rungs add or sharpen a MECHANIC and t2/t4/t6/t8 are the only STAT steps (damage on
+// t2/t6, attack speed on t4/t8). Hit points are flat across the ladder until the tuning pass.
+//
+// Raid 15 (Aliens & Robots): the saucer casts every 10 s (7 s from t7) — walls, zombies
+// portalled to the back, a summoned JunkBot (one standing at a time; the scheduled robot
+// escort is gone) — against 5 cancels for the whole fight. Abductees from t3; the giant bot
+// appears at t5 and with it the blast and the army stun; the t9 lockout refuses a cancel on
+// the activation straight after a cancelled one; the t10 dual cast casts in pairs and a
+// cancel names which of the pair (`castCancel.slot`, absent = 0). The queue swap is gone.
+//
+// Every transcript on raids 12-15 at every rung replays differently from v65.
+export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 export const RAID_MAX_INPUTS = 512;
@@ -1150,7 +1164,7 @@ export type RaidReplayInput =
   | { seq: number; tick: number; type: "fireTap"; unitId: string }
   | { seq: number; tick: number; type: "turnedTap"; unitId: string }
   | { seq: number; tick: number; type: "signPick"; offer: number; option: number }
-  | { seq: number; tick: number; type: "castCancel" }
+  | { seq: number; tick: number; type: "castCancel"; slot?: number }
   | { seq: number; tick: number; type: "retreat" };
 
 /** How far the server's replay had to depart from the client's account of the fight.
@@ -1304,7 +1318,12 @@ export function advanceRaidSegment(
         // ordinary sense — a refused cancel is help the server's player never receives,
         // and the server then eats a disaster the client stopped — so it is dropped and
         // counted like the taps above rather than failing the finish.
-        if (!sim.cancelCast()) {
+        // `slot` picks which of a t10 dual cast; absent means 0, which is the only slot a
+        // single cast has. Anything else structurally wrong is a broken transcript.
+        if (input.slot !== undefined && input.slot !== 0 && input.slot !== 1) {
+          return { ok: false, error: "illegal_cancel" };
+        }
+        if (!sim.cancelCast(input.slot ?? 0)) {
           const fatal = refuse("illegal_cancel");
           if (fatal) return fatal;
         }

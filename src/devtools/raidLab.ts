@@ -28,19 +28,17 @@ import { EPIC_BOSSES, epicBossHp } from "../epicBoss/catalog";
 import { buildEpicBossSetup, EPIC_BOSS_ENGAGE } from "../epicBoss/combat";
 import { epicAsset } from "../epicBoss/lootImage";
 import type { EpicBossDef, EpicBossRun } from "../epicBoss/types";
-import { waveCadenceFor } from "../raid/alienStage";
 import { buildEnemyUnits, buildPlayerUnits } from "../raid/CombatEngine";
 import { eliteBossSpecials, eliteBossThrow } from "../raid/eliteInvasion";
 import {
-  acceptsBrainTicket, bubbleFor, copiesFor, isDexTaxRaid, isDualInvasion, MAX_TIER,
-  raidProfile, ringmasterDropMs, RINGMASTER_STATION_X, signFor, stacksFor,
+  acceptsBrainTicket, bubbleFor, copiesFor, isDualInvasion, MAX_TIER,
+  raidProfile, ringmasterDropMs, signFor, stacksFor,
   STACK_MAX_HEIGHT,
 } from "../raid/dualInvasion";
 import {
-  bossSpecialsFor, bossThrowFor, bubbleWallFor, circusStacksFor, crabFor, farmerSquadFor,
-  grabberFor, megaBotFor, pirateCaptainFor, robotEscortFor,
-  summonFor, turnedTemplateFor, wallTemplateFor,
+  bossSpecialsFor, bossThrowFor, crabFor, grabberFor, megaBotFor, pirateCaptainFor,
 } from "../raid/fightConfig";
+import { composeFight } from "../raid/composeFight";
 import { fightStage, resolveStageWave, seededRandom } from "../raid/RaidCatalog";
 import { compareRaidMenuOrder } from "../raid/raidMenuOrder";
 import { RaidScene, type RaidSceneParams } from "../raid/RaidScene";
@@ -277,62 +275,32 @@ function buildParams(): RaidSceneParams | null {
   if (!stage) return null;
 
   const profile = raidProfile(raid.id, { elite: eliteFor(raid), tier: labTier(raid) });
-  const fightAssets = assets;
-  const shippedThrow = eliteBossThrow(bossThrowFor(fightAssets, raid, stage, 99), profile);
-  const shippedSpecials = eliteBossSpecials(bossSpecialsFor(fightAssets, stage), profile);
-  const { bossThrow, specials } = soloed(shippedThrow, shippedSpecials);
-
+  // THE SAME COMPOSER THE GAME AND THE WORKER USE. Everything the opposition brings — the
+  // wave, the guest squads, the templates its actions stand up, the dual-invasion rung's
+  // mechanics — comes from composeFight, so the lab cannot quietly watch a different battle
+  // from the one the game plays. Only two things are the lab's own: the soloed action and
+  // the soloed hazard.
+  const composed = composeFight(assets, raid, stage, {
+    playerLevel: state.level,
+    tier: labTier(raid),
+    elite: profile,
+    priorWins: 99,
+    waveSeed: `lab:${raid.id}:${state.wave}`,
+    hazards: true,
+  });
+  const { bossThrow, specials } = soloed(composed.bossThrow, composed.bossSpecials);
   const hazard = state.solo.startsWith("hazard:") ? state.solo.slice(7) : "";
-  const grabber = grabberFor(raid);
-  const crab = crabFor(raid);
-  const megaBot = megaBotFor(raid);
 
   return {
     raid,
     assets,
     playerUnits: playerUnits(),
-    enemyUnits: [
-      ...buildEnemyUnits(stage, assets.enemyStats, assets.raidAttacks, {
-        raidId: raid.id, playerLevel: state.level, elite: profile,
-      }),
-      // The Lawyers & Farmers squad walks on mid-fight on its own clock. Appended here for
-      // the same reason the templates below travel with the fight: leave it out and the
-      // lab is quietly watching a different battle from the one the game plays.
-      ...farmerSquadFor(fightAssets, raid, labSign(raid), profile, state.level),
-      // …and the Ninjas & Pirates captain with his charge, for the same reason. The rung
-      // is what sets his wind-up (10 s at the bottom of the ladder, 5 s at the top).
-      ...pirateCaptainFor(fightAssets, raid, labTier(raid), profile, state.level),
-      // …and the Circus towers, on their own clocks.
-      ...circusStacksFor(fightAssets, raid, labTier(raid), profile, state.level),
-      // …and the Aliens & Robots guest heavy.
-      ...robotEscortFor(fightAssets, raid, profile, state.level),
-    ],
+    ...composed,
     bossThrow,
     bossSpecials: specials,
-    // The wall / summon / pixel-zombie templates are what their actions STAND UP, so
-    // they travel with the fight whether or not that action is the one being soloed —
-    // withhold one and its action becomes a silent no-op rather than an animation.
-    wallTemplate: wallTemplateFor(fightAssets, stage, profile),
-    summon: summonFor(fightAssets, raid, stage, state.level, profile),
-    turnedTemplate: turnedTemplateFor(fightAssets, raid, stage, state.level, profile),
-    // The Lawyer boss's objection. Raid 12 only; `signFor` answers null everywhere else,
-    // which is exactly what the scene wants.
-    sign: labSign(raid),
-    // The ninja's throw rate tracks the army's attack speed (raid 13).
-    dexTax: isDexTaxRaid(raid.id),
-    // The Circus & Video Games second line (raid 14): the copy rule, and the ringmaster's
-    // early drop with the mid-lane station he fights from.
-    copies: copiesFor(raid.id, labTier(raid)),
-    // The saucer's bubble and the wall it drops (raid 15).
-    bubble: bubbleFor(raid.id, labTier(raid)),
-    bubbleWall: bubbleWallFor(fightAssets, raid, profile),
-    bossDropAtMs: ringmasterDropMs(raid.id, labTier(raid)),
-    bossGroundStationX:
-      ringmasterDropMs(raid.id, labTier(raid)) === null ? null : RINGMASTER_STATION_X,
-    waveCadence: waveCadenceFor(raid.id),
-    grabber: hazard && hazard !== "grabber" ? null : grabber,
-    crab: hazard && hazard !== "crab" ? null : crab,
-    megaBot: hazard && hazard !== "megaBot" ? null : megaBot,
+    grabber: hazard && hazard !== "grabber" ? null : composed.grabber,
+    crab: hazard && hazard !== "crab" ? null : composed.crab,
+    megaBot: hazard && hazard !== "megaBot" ? null : composed.megaBot,
     concentration: state.concentration,
     brainDrop: 10,
     confirmRetreat: () => Promise.resolve(true),
@@ -727,17 +695,10 @@ function buildTierStrip() {
   const profile = raidProfile(raid.id, { tier: state.tier });
   const stage = currentStage(raid);
   const enemies = stage
-    ? [
-      ...buildEnemyUnits(stage, assets.enemyStats, assets.raidAttacks, {
-        raidId: raid.id, playerLevel: state.level, elite: profile,
-      }),
-      ...farmerSquadFor(assets, raid, labSign(raid), profile, state.level),
-      ...pirateCaptainFor(assets, raid, state.tier, profile, state.level),
-      // The towers count at FULL height — that is the weight the settle budget carries.
-      ...circusStacksFor(assets, raid, state.tier, profile, state.level)
-        .map((u) => ({ ...u, maxHp: u.maxHp * STACK_MAX_HEIGHT })),
-      ...robotEscortFor(assets, raid, profile, state.level),
-    ]
+    ? composeFight(assets, raid, stage, {
+      playerLevel: state.level, tier: state.tier, elite: profile, priorWins: 99,
+      waveSeed: `lab:${raid.id}:${state.wave}`, hazards: false,
+    }).enemyUnits.map((u) => (u.stack ? { ...u, maxHp: u.maxHp * STACK_MAX_HEIGHT } : u))
     : [];
   const hp = Math.round(enemies.reduce((sum, unit) => sum + unit.maxHp, 0));
   const numbers = `${hp.toLocaleString()} enemy HP · ×${(profile?.str ?? 1).toFixed(2)} damage`;

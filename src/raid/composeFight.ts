@@ -19,13 +19,13 @@
 // lets the client, the Worker and the difficulty harness all call it.
 import { buildEnemyUnits } from "./CombatEngine";
 import {
-  bubbleFor, copiesFor, isDexTaxRaid, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
+  abducteesAt, bubbleFor, copiesFor, isDexTaxRaid, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
   type BubbleConfig, type CopyConfig, type SignConfig,
 } from "./dualInvasion";
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
 import {
   bossSpecialsFor, bossThrowFor, bubbleWallFor, circusStacksFor, crabFor, farmerSquadFor,
-  grabberFor, megaBotFor, pirateCaptainFor, robotEscortFor, summonFor, turnedTemplateFor,
+  bubbleRobotFor, grabberFor, megaBotFor, pirateCaptainFor, summonFor, turnedTemplateFor,
   wallTemplateFor, type FightAssets,
 } from "./fightConfig";
 import { waveCadenceFor } from "./alienStage";
@@ -97,7 +97,6 @@ export function composeFight(
   enemyUnits.push(...farmerSquadFor(assets, raid, sign, elite, playerLevel));
   enemyUnits.push(...pirateCaptainFor(assets, raid, tier, elite, playerLevel));
   enemyUnits.push(...circusStacksFor(assets, raid, tier, elite, playerLevel));
-  enemyUnits.push(...robotEscortFor(assets, raid, elite, playerLevel));
 
   const dropAtMs = ringmasterDropMs(raid.id, tier);
   return {
@@ -107,7 +106,7 @@ export function composeFight(
     // boss's own pace first, elite last (see brobot-throw-pace).
     bossThrow: eliteBossThrow(bossThrowFor(assets, raid, stage, priorWins), elite),
     bossSpecials: eliteBossSpecials(bossSpecialsFor(assets, stage), elite),
-    summon: summonFor(assets, raid, stage, playerLevel, elite),
+    summon: abducteesAt(raid.id, tier) ? summonFor(assets, raid, stage, playerLevel, elite) : null,
     wallTemplate: wallTemplateFor(assets, stage, elite),
     turnedTemplate: turnedTemplateFor(assets, raid, stage, playerLevel, elite),
     waveCadence: waveCadenceFor(raid.id),
@@ -117,9 +116,16 @@ export function composeFight(
     sign,
     dexTax: isDexTaxRaid(raid.id),
     copies: copiesFor(raid.id, tier),
-    bubble: bubbleFor(raid.id, tier),
+    bubble: withRobot(bubbleFor(raid.id, tier), bubbleRobotFor(assets, raid, elite, playerLevel)),
     bubbleWall: bubbleWallFor(assets, raid, elite),
     bossDropAtMs: dropAtMs,
     bossGroundStationX: dropAtMs === null ? null : RINGMASTER_STATION_X,
   };
+}
+
+/** The rung's bubble with the robot its `robot` action beams down attached. `bubbleFor`
+ *  cannot build that unit itself (dualInvasion has no asset access), so it is joined here,
+ *  where both halves are in hand. */
+function withRobot(bubble: BubbleConfig | null, robot: CombatUnit | null): BubbleConfig | null {
+  return bubble ? { ...bubble, robot } : null;
 }

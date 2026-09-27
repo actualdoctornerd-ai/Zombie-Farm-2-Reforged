@@ -229,7 +229,7 @@ function apply(sim: BattleSim, action: TranscribedAction): boolean {
     case "fireTap": return sim.tapFire(action.unitId);
     case "turnedTap": return sim.tapTurned(action.unitId);
     case "signPick": return sim.pickSign(action.offer, action.option);
-    case "castCancel": return sim.cancelCast();
+    case "castCancel": return sim.cancelCast(action.slot ?? 0);
     case "retreat": return true;
   }
 }

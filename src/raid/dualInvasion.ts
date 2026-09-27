@@ -16,7 +16,7 @@
 // tier: bump RAID_RULESET_VERSION in the same commit (see replay.ts).
 import { eliteProfile, type EliteProfile } from "./eliteInvasion";
 import { seededRandom } from "./RaidCatalog";
-import type { WaveCadence } from "./types";
+import type { CombatUnit, WaveCadence } from "./types";
 
 /** Raid ids of the four dual invasions, in ladder order (levels 46-49). */
 export const DUAL_INVASION_IDS = [12, 13, 14, 15] as const;
@@ -79,38 +79,65 @@ export function clampTier(tier: number): number {
  *  with `str`. Raising both at the bottom of the ladder doubles a change you meant to make
  *  once.
  */
-/** See `DUAL_LETHALITY` further down: the shared ramp below is scaled per raid, because
- *  the four dual invasions are nowhere near each other in difficulty. */
+/** ONE CHANGE PER TIER (owner, 2026-09-26; docs/POST_45_PROGRESSION.md Part 2B).
+ *
+ *  The ladder used to be a straight-line ramp on every stat at once, so every rung was a
+ *  little of everything and none of them meant anything in particular. Now the rungs take
+ *  turns: the odd ones add or sharpen a MECHANIC (see each raid's section below) and the
+ *  even ones below t10 are STAT steps, which are all this table does. Between two stat
+ *  steps the profile does not move at all.
+ *
+ *  The stat steps alternate: t2 and t6 raise enemy DAMAGE, t4 and t8 raise enemy ATTACK
+ *  SPEED. Never hit points — the four-minute clock owns bulk (see DUAL_SETTLE_REFERENCE_DPS),
+ *  so `con` is solved from one flat hit-point target at every rung.
+ *
+ *  The step sizes and the flat target are placeholders until the tuning pass. */
+export const STAT_TIERS: Readonly<Record<number, "damage" | "speed">> = {
+  2: "damage", 4: "speed", 6: "damage", 8: "speed",
+};
+/** What one damage step multiplies enemy damage by (str, throws and specials together). */
+export const DUAL_DAMAGE_STEP = 1.25;
+/** What one speed step multiplies enemy attack speed by (dex and throw rate together). */
+export const DUAL_SPEED_STEP = 1.12;
+
+/** How many damage and speed steps are in force at this rung. */
+export function statSteps(tier: number): { damage: number; speed: number } {
+  const rung = clampTier(tier);
+  let damage = 0;
+  let speed = 0;
+  for (const [at, kind] of Object.entries(STAT_TIERS)) {
+    if (rung < Number(at)) continue;
+    if (kind === "damage") damage++; else speed++;
+  }
+  return { damage, speed };
+}
+
+/** See `DUAL_LETHALITY` further down for the per-raid base. */
 export function tierProfile(raidId: number, tier: number): EliteProfile {
-  const t = (clampTier(tier) - MIN_TIER) / (MAX_TIER - MIN_TIER); // 0 at t1, 1 at t10
-  const ramp = (from: number, to: number) => from + (to - from) * t;
-  const leth = DUAL_LETHALITY[raidId];
-  const lethality = leth ? leth[0] + (leth[1] - leth[0]) * t : 1;
-  // LETHALITY is one ramp for all four: a damage multiplier means the same thing whatever
-  // the wave is made of. BULK cannot be — see DUAL_BASE_HP — so `con` is solved backwards
-  // from the hit points this rung is supposed to field.
+  const steps = statSteps(tier);
+  const damage = (DUAL_LETHALITY[raidId] ?? 1) * DUAL_DAMAGE_STEP ** steps.damage;
+  const speed = DUAL_SPEED_STEP ** steps.speed;
+  // BULK cannot be one multiplier across four waves this different — see DUAL_BASE_HP —
+  // so `con` is solved backwards from the flat hit-point target.
   const base = DUAL_BASE_HP[raidId] ?? DUAL_BASE_HP[SIGN_RAID_ID];
   return {
-    str: ramp(1.8, 4.5) * lethality,
-    con: ramp(DUAL_WAVE_HP_AT_MIN, DUAL_WAVE_HP_AT_MAX) / base.wave,
-    bossCon: ramp(DUAL_BOSS_HP_AT_MIN, DUAL_BOSS_HP_AT_MAX) / base.boss,
-    dex: ramp(1, 1.45),
-    throwDamage: ramp(1.6, 3) * lethality,
-    throwRate: ramp(1.15, 1.5),
-    wallHp: ramp(1.2, 1.6),
-    specialDamage: ramp(1.8, 4.5) * lethality,
+    str: 1.8 * damage,
+    con: DUAL_WAVE_HP / base.wave,
+    bossCon: DUAL_BOSS_HP / base.boss,
+    dex: 1 * speed,
+    throwDamage: 1.6 * damage,
+    throwRate: 1.15 * speed,
+    wallHp: 1.2,
+    specialDamage: 1.8 * damage,
   };
 }
 
-/** THE HIT POINTS A RUNG FIELDS, which is what the `con` multipliers above are solved for.
- *
- *  A shared curve rather than four, because the rungs have to mean the same thing across
- *  the four invasions: tier 7 should be tier 7 wherever you fight it. The top of the curve
- *  is set by the settle budget below and nothing else — see DUAL_SETTLE_REFERENCE_DPS. */
-const DUAL_WAVE_HP_AT_MIN = 70_000;
-const DUAL_WAVE_HP_AT_MAX = 110_000;
-const DUAL_BOSS_HP_AT_MIN = 12_000;
-const DUAL_BOSS_HP_AT_MAX = 20_000;
+/** THE HIT POINTS EVERY RUNG FIELDS, which is what `con` above is solved for. Flat across
+ *  the ladder (the rungs climb in mechanics and in damage/speed, not in bulk) and shared by
+ *  all four invasions so a rung means one thing. The tuning pass sets the real value; the
+ *  ceiling on it is the settle budget below. */
+export const DUAL_WAVE_HP = 70_000;
+export const DUAL_BOSS_HP = 12_000;
 
 /** WHAT EACH INVASION'S OWN WAVE WEIGHS at 1.0x, wave and boss separately.
  *
@@ -138,13 +165,11 @@ const DUAL_BASE_HP: Readonly<Record<number, { wave: number; boss: number }>> = {
   // one and the fight quietly overruns the curve by two thirds of a tower each. The
   // Ringmaster himself is tiny, which is why his multiplier is the largest in the table.
   14: { wave: 82_600, boss: 1_500 },
-  // Alien wave (10 minions) + the ONE robot heavy that escorts it. This used to be
-  // 409,000 — the alien stage's twenty minions cloned wholesale WITH the robots in the
-  // weighted table, where a BroBot's con 350 against a minion's 60 made a fight nearly
-  // four times the whole settle budget, and the ladder had to divide by six to keep it
-  // finishable. Stage 4 re-composed it: the aliens are the wave and the robots send one
-  // powerful minion, exactly as raids 12 and 13 do with their guest factions.
-  15: { wave: 91_000, boss: 25_000 },
+  // The alien wave (10 minions) alone. This used to be 409,000 — the alien stage's twenty
+  // minions cloned wholesale WITH the robots in the weighted table, four times the whole
+  // settle budget. The robots now arrive only when the saucer summons one (capped at one
+  // standing), so they are outside this figure, like the abductees.
+  15: { wave: 60_000, boss: 25_000 },
 };
 
 /** THE SETTLE BUDGET THESE HIT POINTS ARE FITTED TO, written down because the number that
@@ -714,200 +739,175 @@ export function ringmasterDropMs(raidId: number, tier: number): number | null {
 // ---------------------------------------------------------------------------
 // RAID 15 — THE BUBBLE (Aliens & Robots)
 // ---------------------------------------------------------------------------
-// The hardest of the four, and the only one whose mechanic is a DECISION ABOUT THE FUTURE.
 // A thought bubble appears over the saucer with a charging bar and an icon naming what is
-// coming. The player holds a limited number of cancels and must choose which disasters to
-// stop and which to eat.
+// coming. The player holds a handful of cancels for the whole fight and must choose which
+// casts to stop and which to eat.
 //
-// THE ORDER IS FIXED AND IDENTICAL EVERY FIGHT, like the objection's offers and for the
-// same reasons: it is a planning puzzle rather than a slot machine, and it costs the replay
-// no randomness at all. What keeps the decision live is not surprise, it is SCARCITY —
-// fewer charges than actions means a fixed order produces a fixed MENU rather than a fixed
-// answer, and which items you can afford depends on how the fight has gone.
+// THE ORDER IS FIXED AND IDENTICAL EVERY FIGHT: a planning puzzle rather than a slot
+// machine, and it costs the replay no randomness at all. What keeps the decision live is
+// SCARCITY — far fewer cancels than casts, so a fixed order produces a menu, and which
+// items you can afford depends on your own army and on how the fight has gone.
 //
-// The five overlap on purpose, so no roster has a standing answer:
-//
-//   wall     splits the line          — punishes low burst
-//   aoe      chunks the whole army    — punishes low HP, and worse if a swap took a healer
-//   swap     the next queued alien becomes a much tougher one — punishes low DPS
-//   stunAll  a free window for whatever else is standing — trivial UNLESS a wall is up
-//   portal   half the army to the back of the lane — and it makes the wall matter again
+//   wall     a blocker inside the player's own half — punishes low burst
+//   portal   half the deployed line back to the staging slot, behind the wall
+//   robot    the saucer beams down a JunkBot — punishes low damage
+//   aoe      (t5+, the giant bot) chunks the whole deployed army — punishes low HP
+//   stunAll  (t5+, the giant bot) holds the whole army — worst when a wall is up
 //
 // THE WALL SITS INSIDE THE PLAYER'S OWN HALF (`supportX`, halfway between the staging slot
-// and the front line), which is counter-intuitive and load-bearing: it does not bar the
-// front line, which has already walked past it. It cuts REINFORCEMENTS off. So wall plus
-// abductee is a double-thick roadblock across the player's own lane, and wall + portal is
-// the fight's signature play — half the army thrown to the back and then walled in behind
-// two blockers while the other half fights alone.
+// and the front line): it does not bar the front line, which has already walked past it.
+// It cuts REINFORCEMENTS off. Wall + portal is the fight's signature play — half the army
+// thrown to the back and walled in while the other half fights alone.
 
 /** Aliens & Robots — the invasion the bubble belongs to. */
 export const BUBBLE_RAID_ID = 15;
 
-/** PER-RAID LETHALITY, as a ramp of its own, applied on top of the shared one.
+/** PER-RAID BASE LETHALITY: one flat damage multiplier per invasion, under the shared stat
+ *  steps (see tierProfile).
  *
- *  The tier ramp is a single curve for all four dual invasions, which was right while they
- *  were being built and is wrong now they have been measured: they are nowhere near each
- *  other. Against the casualty bands in tools/benchmark_table.mjs, an ordinary account
- *  playing casually loses 0.0-0.9 zombies on raids 12 and 15 and 6.7-13.5 on raids 13 and
- *  14 — for the same target of 5-10. One number cannot place both.
+ *  The four fights are nowhere near each other in how much of their danger lives in the
+ *  enemies' own swings, so one damage number cannot place all four. This used to be a
+ *  [t1, t10] PAIR tapering across a straight-line ramp; the ramp is gone (rungs now take
+ *  turns, see STAT_TIERS), so what is left is the bottom of each pair — the lift the t1
+ *  fight needed. Placeholders until the tuning pass.
  *
- *  A PAIR, NOT A SCALAR, and the pair has a floor. These fights are too soft at t1 and t5
- *  but very nearly right at t10 (3.2 and 4.7 casualties against a 5-10 band), so the lift
- *  is heavy at the bottom and light at the top. Two earlier shapes were wrong and both were
- *  caught by a test rather than by judgement:
- *
- *    · a FLAT multiplier scaled t10 by whatever t1 needed and pushed the top rung out of
- *      reach — `difficulty.test` lost its loss-less clear on 12 t10 and 15 t10;
- *    · tapering all the way to 1.0 cancelled the shared ramp outright. `str` for raid 12
- *      came out 4.5 at BOTH ends, a ladder that does not climb — `tierLadder.test` caught
- *      it on the rung where the product first failed to rise.
- *
- *  So the top end stays above 1.0. The constraint is that `ramp(1.8, 4.5) * lethality(t)`
- *  must still increase on every rung, which bounds how far the two ends may diverge: with
- *  the shared ramp spanning 2.5x, a taper steeper than about [2, 1.4] turns over before
- *  t10. Raid 12's top end is gentler still, at 1.25, because 1.4 cost its tier-10 rung the
- *  loss-less clear the whole project is aimed at (difficulty.test again).
- *
- *  So these two cannot be brought all the way into band from the bottom: the lift that t1
- *  needs is the whole span of the ladder, and spending it at the bottom either flattens the
- *  curve or raises a top rung that is already where it should be. What actually wants
- *  fixing is the TARGET — a casualty band flat across all ten rungs treats the tutorial
- *  rung and the capstone as the same content. See the note in tools/benchmark_table.mjs.
- *
- *  Damage only — `str`, `throwDamage`, `specialDamage`. Not `con`: the rungs are solved
- *  backwards from an HP target set by the settle budget, so bulk is already spoken for and
- *  adding to it turns a fight a player is winning into one they lose on the clock. Not
- *  `dex`, which compounds with `str`.
- *
- *  13 and 14 are absent ON PURPOSE (and so default to 1.0 at both ends): they are too hard
- *  rather than too easy, and cutting them is a separate change that wants its own
- *  measurement rather than a sign flip on this one. */
-export const DUAL_LETHALITY: Readonly<Record<number, readonly [number, number]>> = {
-  [SIGN_RAID_ID]: [1.8, 1.25],
-  [BUBBLE_RAID_ID]: [1.5, 1.2],
+ *  Damage only — `str`, `throwDamage`, `specialDamage`. Not `con` (the flat hit-point target
+ *  owns bulk) and not `dex` (it compounds with `str`). Raids 13 and 14 default to 1.0. */
+export const DUAL_LETHALITY: Readonly<Record<number, number>> = {
+  [SIGN_RAID_ID]: 1.8,
+  [BUBBLE_RAID_ID]: 1.5,
 };
 
+// THE LADDER (docs/POST_45_PROGRESSION.md Part 2B, "Interference"):
+//
+//   t1  the saucer casts every 10 s: walls, zombies portalled to the back, a summoned
+//       robot. 5 cancels for the whole fight.
+//   t3  abductees start appearing in the middle, as in the ordinary Alien fight
+//   t5  the giant McDonnell bot appears at the back — a SIGNAL, drawn by the scene: from
+//       here the massive area hit and the full-army stun are in the cycle
+//   t7  a cast every 7 s
+//   t9  lockout: a cancel cannot be used on two activations in a row
+//   t10 dual cast: casts come in pairs, and one cancel stops one of the pair
+//   (t2/t4/t6/t8 are stat steps — see tierProfile)
+//
+// This fight punishes no one build. It is about the interrupt: which casts you stop is
+// decided by your own army's weak points, and it favours damage, because enemies that live
+// longer cast more. Five cancels against a cast every ten seconds is the design — pressing
+// every time runs you dry by the second minute.
 
 /** What the saucer can be thinking about. */
-export type BubbleAction = "wall" | "aoe" | "swap" | "stunAll" | "portal";
+export type BubbleAction = "wall" | "portal" | "robot" | "aoe" | "stunAll";
 
-/** The cycle, in order. The swap is deliberately NOT last: it needs a non-empty wave queue
- *  to have anything to replace, and a cancel spent on an action that would have fizzled is
- *  a cancel the player was cheated out of. Ending on the portal also puts the signature
- *  play at the end of the loop, where the wall it re-enables is already standing. */
-export const BUBBLE_CYCLE: readonly BubbleAction[] = ["wall", "aoe", "swap", "stunAll", "portal"];
+/** The cycle below the giant bot, in order. */
+export const BUBBLE_CYCLE_BASE: readonly BubbleAction[] = ["wall", "portal", "robot"];
+/** The cycle once the giant bot is up. The two big ones are spaced apart so they never land
+ *  back to back, and the portal sits after the wall so the wall it throws people behind is
+ *  already standing. */
+export const BUBBLE_CYCLE: readonly BubbleAction[] = ["wall", "aoe", "portal", "stunAll", "robot"];
 
-/** The portal appears only from this rung — it is the action that makes the whole set
- *  compound, so it is the last thing the ladder teaches. Below it the cycle is four long. */
-export const PORTAL_TIER = 6;
+/** The rungs at which the fight changes — see the ladder above. */
+export const ABDUCTEE_TIER = 3;
+export const GIANT_BOT_TIER = 5;
+export const FAST_CAST_TIER = 7;
+export const LOCKOUT_TIER = 9;
+export const DUAL_CAST_TIER = 10;
+
+/** Cancels for the whole fight, at every rung. */
+export const BUBBLE_CANCELS = 5;
+
+/** One activation every this many ms: the cast window plus the quiet before it. */
+export const BUBBLE_INTERVAL_MS = 10_000;
+export const BUBBLE_INTERVAL_MS_FAST = 7_000;
+/** The reaction window inside that interval: long enough to read the icon and decide. */
+export const BUBBLE_CAST_MS = 4_000;
+export const BUBBLE_CAST_MS_FAST = 3_000;
 
 /** How much of the deployed army the portal throws back to the staging slot. */
 export const PORTAL_FRACTION = 0.5;
 
-/** Cast length: the reaction window, and the single most important dial on this fight.
- *  Eight seconds is long enough to read the icon, look at the field and decide; four is
- *  long enough only if you already knew what you were going to do. */
-export const BUBBLE_CAST_MS_AT_MIN_TIER = 8_000;
-export const BUBBLE_CAST_MS_AT_MAX_TIER = 4_000;
-
-/** Quiet between one cast resolving and the next beginning. */
-export const BUBBLE_GAP_MS_AT_MIN_TIER = 7_000;
-export const BUBBLE_GAP_MS_AT_MAX_TIER = 3_000;
-
-/** Cancels the player starts with. Fewer than the cycle at every rung — that is what makes
- *  a fixed order a menu instead of an answer — and fewer still up the ladder. */
-export const BUBBLE_CANCELS_AT_MIN_TIER = 4;
-export const BUBBLE_CANCELS_AT_MAX_TIER = 2;
-
-/** A cancelled cast does not vanish: the saucer goes quiet for this long and then moves on
- *  to the NEXT action in the cycle. Long at the bottom (a cancel buys real time), short at
- *  the top (a cancel buys only the action). */
-export const BUBBLE_CANCEL_RECOVERY_MS_AT_MIN_TIER = 9_000;
-export const BUBBLE_CANCEL_RECOVERY_MS_AT_MAX_TIER = 2_000;
-
-/** What the AoE takes off every deployed zombie, and how long stun-all holds them. */
-export const BUBBLE_AOE_DAMAGE_AT_MIN_TIER = 220;
-export const BUBBLE_AOE_DAMAGE_AT_MAX_TIER = 700;
+/** What the giant bot's area hit takes off every deployed zombie, and how long its stun-all
+ *  holds them. Placeholders until the tuning pass. */
+export const BUBBLE_AOE_DAMAGE = 450;
 export const BUBBLE_STUN_MS = 3_000;
 
-/** What the queue swap multiplies the replaced alien's body and blow by. A swap adds NO
- *  body to the field — it re-stats one that was already queued — so it can neither stall
- *  the boss's descent nor spend the settle budget. */
-export const BUBBLE_SWAP_MULT_AT_MIN_TIER = 2.5;
-export const BUBBLE_SWAP_MULT_AT_MAX_TIER = 4.5;
+/** The robot the saucer beams down, and how many of them may stand at once. A summoned
+ *  robot is hit points outside the settle budget, so the cap is not optional. */
+export const BUBBLE_ROBOT_KEY = "RobotStageActorJunkBot";
+export const BUBBLE_ROBOT_MAX_ALIVE = 1;
 
 export interface BubbleConfig {
   /** The actions, in the order they are cast. */
   cycle: readonly BubbleAction[];
   /** The reaction window on each cast. */
   castMs: number;
-  /** Quiet between casts. */
+  /** Quiet between one activation resolving and the next beginning (interval - castMs).
+   *  A cancelled activation waits the same gap: a cancel stops the action, it does not
+   *  buy extra time. */
   gapMs: number;
-  /** How long the saucer sulks after a cancelled cast. */
-  cancelRecoveryMs: number;
   /** Cancels the player starts the fight holding. */
   cancels: number;
-  /** Damage the AoE lands on every deployed zombie. */
+  /** Damage the area hit lands on every deployed zombie. */
   aoeDamage: number;
   /** How long stun-all holds the army. */
   stunMs: number;
-  /** What the queue swap multiplies its victim by. */
-  swapMult: number;
+  /** A cancel cannot be spent on the activation straight after a cancelled one (t9+). */
+  lockout: boolean;
+  /** Each activation casts TWO actions at once, and one cancel stops one of them (t10). */
+  dualCast: boolean;
+  /** Presentation: the giant McDonnell bot stands at the back (t5+). The sim never reads
+   *  it — the area hit and the stun are in the cycle or they are not. */
+  giantBot: boolean;
+  /** How many summoned robots may stand at once. */
+  robotMaxAlive: number;
+  /** The robot the `robot` action beams down, attached by composeFight from the catalog
+   *  (this module has no asset access). Null means the action does nothing. */
+  robot: CombatUnit | null;
 }
 
-/** The bubble at this rung, or null for an invasion without one. */
+/** The bubble at this rung, or null for an invasion without one. `robot` comes back null;
+ *  composeFight fills it in. */
 export function bubbleFor(raidId: number, tier: number): BubbleConfig | null {
   if (raidId !== BUBBLE_RAID_ID) return null;
   const rung = clampTier(tier);
-  const t = (rung - MIN_TIER) / (MAX_TIER - MIN_TIER);
-  const ramp = (from: number, to: number) => from + (to - from) * t;
-  const cycle = rung >= PORTAL_TIER ? BUBBLE_CYCLE : BUBBLE_CYCLE.filter((a) => a !== "portal");
+  const fast = rung >= FAST_CAST_TIER;
+  const castMs = fast ? BUBBLE_CAST_MS_FAST : BUBBLE_CAST_MS;
+  const intervalMs = fast ? BUBBLE_INTERVAL_MS_FAST : BUBBLE_INTERVAL_MS;
   return {
-    cycle,
-    castMs: Math.round(ramp(BUBBLE_CAST_MS_AT_MIN_TIER, BUBBLE_CAST_MS_AT_MAX_TIER)),
-    gapMs: Math.round(ramp(BUBBLE_GAP_MS_AT_MIN_TIER, BUBBLE_GAP_MS_AT_MAX_TIER)),
-    cancelRecoveryMs: Math.round(
-      ramp(BUBBLE_CANCEL_RECOVERY_MS_AT_MIN_TIER, BUBBLE_CANCEL_RECOVERY_MS_AT_MAX_TIER),
-    ),
-    // ALWAYS at least one short of the cycle. The budget is what turns a fixed order into
-    // a menu rather than an answer, and the cycle is SHORTER below PORTAL_TIER — so the
-    // straight ramp handed the bottom rung four cancels for four actions and the player
-    // could simply switch the mechanic off. Caught by bubble.test.ts, which is the only
-    // place that would have noticed.
-    cancels: Math.max(1, Math.min(
-      cycle.length - 1,
-      Math.round(ramp(BUBBLE_CANCELS_AT_MIN_TIER, BUBBLE_CANCELS_AT_MAX_TIER)),
-    )),
-    aoeDamage: Math.round(ramp(BUBBLE_AOE_DAMAGE_AT_MIN_TIER, BUBBLE_AOE_DAMAGE_AT_MAX_TIER)),
+    cycle: rung >= GIANT_BOT_TIER ? BUBBLE_CYCLE : BUBBLE_CYCLE_BASE,
+    castMs,
+    gapMs: intervalMs - castMs,
+    cancels: BUBBLE_CANCELS,
+    aoeDamage: BUBBLE_AOE_DAMAGE,
     stunMs: BUBBLE_STUN_MS,
-    swapMult: ramp(BUBBLE_SWAP_MULT_AT_MIN_TIER, BUBBLE_SWAP_MULT_AT_MAX_TIER),
+    lockout: rung >= LOCKOUT_TIER,
+    dualCast: rung >= DUAL_CAST_TIER,
+    giantBot: rung >= GIANT_BOT_TIER,
+    robotMaxAlive: BUBBLE_ROBOT_MAX_ALIVE,
+    robot: null,
   };
 }
 
+/** Whether the saucer abducts humans at this rung (t3+). Below it the summon is off, so the
+ *  fight's roadblocks are the wall alone. */
+export function abducteesAt(raidId: number, tier: number): boolean {
+  return raidId !== BUBBLE_RAID_ID || clampTier(tier) >= ABDUCTEE_TIER;
+}
+
 // ---------------------------------------------------------------------------
-// RAID 15 — THE ROBOT ESCORT, AND WHY THE ALIEN WAVE WAS RE-COMPOSED
+// RAID 15 — WHY THE ALIEN WAVE WAS RE-COMPOSED
 // ---------------------------------------------------------------------------
 // The first cut of this invasion cloned the alien stage's weighted table wholesale, which
 // put the ROBOTS in it as ordinary minions. They are not ordinary minions: a BroBot is
 // con 350 and a JunkBot con 310, against an alien minion's 60. Five of them in a
 // twenty-strong wave made a 409,000-point fight — nearly four times the entire settle
-// budget before any rung applied — and the tier ladder had to divide by SIX to keep it
-// finishable, which made the rung meaningless (see DUAL_BASE_HP).
-//
-// So the robots do here what the farm boss does in raid 12 and the pirate captain in 13:
-// the guest faction arrives as ONE powerful minion on its own clock, and the wave is the
-// host faction's. The JunkBot specifically, because it is the wall-builder, and this is
-// the fight whose signature play is being walled into your own half.
-
-/** The guest heavy, and when it walks on. */
-export const ROBOT_ESCORT_KEY = "RobotStageActorJunkBot";
-export const ROBOT_ESCORT_AT_MS = 20_000;
+// budget before any rung applied. So the wave is the aliens alone, and the robots arrive
+// one at a time when the saucer summons them (BUBBLE_ROBOT_KEY), capped. The JunkBot,
+// because the bubble's wall is borrowed from its own `wall` action.
 
 /** Where an abducted human is put down on this raid: immediately enemy-side of where the
  *  wall materialises, rather than at the authored mid-lane spawn. Wall plus abductee is
  *  then a double-thick roadblock across the player's own lane instead of two separate
- *  nuisances — which is the whole reason the abduction stays in a fight that already has
- *  five other things going on. */
+ *  nuisances. */
 export const ABDUCTEE_WALL_GAP = 70;
 
 // (The sim keys the re-homing on THIS FIGHT HAVING a bubble wall rather than on a raid id —

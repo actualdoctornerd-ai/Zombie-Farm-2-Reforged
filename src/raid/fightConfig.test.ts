@@ -143,7 +143,7 @@ describe("fight config", () => {
     expect(composer.includes("bossActions")).toBe(false);
     for (const fn of ["bossThrowFor", "bossSpecialsFor", "grabberFor", "crabFor",
       "summonFor", "wallTemplateFor", "turnedTemplateFor", "bubbleWallFor",
-      "farmerSquadFor", "pirateCaptainFor", "circusStacksFor", "robotEscortFor"]) {
+      "farmerSquadFor", "pirateCaptainFor", "circusStacksFor", "bubbleRobotFor"]) {
       expect(composer.includes(fn), fn).toBe(true);
     }
     for (const file of ["./RaidManager.ts", "../../server/src/raidVerifier.ts"]) {

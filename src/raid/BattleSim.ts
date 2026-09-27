@@ -715,6 +715,8 @@ export interface SimUnit {
    *  Only used to count them against the rung's cap and to tell the renderer to draw it
    *  as a mirror rather than as a circus act. */
   isCopy: boolean;
+  /** A robot the saucer's bubble beamed down (raid 15) — counted against its cap. */
+  isBubbleRobot: boolean;
   /** Ids of the blockers this unit was ALREADY PAST when they appeared, and therefore does
    *  not turn round to fight (see wallInWay).
    *
@@ -891,6 +893,11 @@ export interface BattleSimSnapshot {
   bubbleCastMs?: number;
   bubbleGapMs?: number;
   cancels?: number;
+  /** Activations resolved so far, which of the current dual cast was cancelled, and the
+   *  activation the last cancel was spent on (the t9 lockout reads it). */
+  bubbleActivation?: number;
+  bubbleCancelledSlot?: number | null;
+  lastCancelActivation?: number;
   grabbers: SimGrabber[];
   grabberTimer: number;
   grabSeq: number;
@@ -1041,6 +1048,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stackToppleSeq: 0,
     swapped: false,
     isCopy: false,
+    isBubbleRobot: false,
     isTurned: false,
     turnedFromId: null,
     burnMs: 0,
@@ -1122,6 +1130,12 @@ export class BattleSim {
   private bubbleGapMs = 0;
   /** Cancels the player has left. Seeded from the rung's budget at construction. */
   private cancels = 0;
+  /** How many activations have resolved (fired or cancelled). The t9 lockout compares the
+   *  activation the last cancel went on against this. */
+  private bubbleActivation = 0;
+  /** Which of the current dual cast the player cancelled, or null. */
+  private bubbleCancelledSlot: number | null = null;
+  private lastCancelActivation = -2;
   /** Bumped when a cast lands, when one is cancelled, and when the portal actually moves
    *  somebody — three things the renderer wants to react to and cannot infer. */
   private bubbleFireSeq = 0;
@@ -1365,6 +1379,9 @@ export class BattleSim {
       bubbleCastMs: this.bubbleCastMs,
       bubbleGapMs: this.bubbleGapMs,
       cancels: this.cancels,
+      bubbleActivation: this.bubbleActivation,
+      bubbleCancelledSlot: this.bubbleCancelledSlot,
+      lastCancelActivation: this.lastCancelActivation,
       grabbers: this.grabbers.map((g) => ({ ...g })),
       grabberTimer: this.grabberTimer,
       grabSeq: this.grabSeq,
@@ -1429,6 +1446,7 @@ export class BattleSim {
       stackToppleSeq: u.stackToppleSeq ?? 0,
       swapped: u.swapped ?? false,
       isCopy: u.isCopy ?? false,
+      isBubbleRobot: u.isBubbleRobot ?? false,
       // A checkpoint from before the conversion / burn can only exist on a ruleset the
       // session handshake already rejects, so these defaults are belt-and-braces: they
       // restore a fight in which nobody is on fire and nobody has been turned, which is
@@ -1488,6 +1506,9 @@ export class BattleSim {
     this.bubbleCastMs = snapshot.bubbleCastMs ?? 0;
     this.bubbleGapMs = snapshot.bubbleGapMs ?? this.bubbleCfg?.gapMs ?? 0;
     this.cancels = snapshot.cancels ?? this.bubbleCfg?.cancels ?? 0;
+    this.bubbleActivation = snapshot.bubbleActivation ?? 0;
+    this.bubbleCancelledSlot = snapshot.bubbleCancelledSlot ?? null;
+    this.lastCancelActivation = snapshot.lastCancelActivation ?? -2;
     this.grabbers.splice(
       0,
       this.grabbers.length,
@@ -2270,24 +2291,48 @@ export class BattleSim {
   // THE SAUCER'S BUBBLE (raid 15) — see dualInvasion.ts
   // ---------------------------------------------------------------------------
 
-  /** Which action the saucer is charging, or null when nothing is up. */
-  bubbleAction(): BubbleAction | null {
+  /** What the saucer is charging right now — one action, or two under the t10 dual cast —
+   *  and which of the pair has been cancelled. Null when nothing is up. The one read the
+   *  scene, the pilot and `bubbleAction` all go through. */
+  bubbleCast(): { actions: BubbleAction[]; cancelled: number | null } | null {
     const cfg = this.bubbleCfg;
     if (!cfg || !cfg.cycle.length || this.bubbleCastMs <= 0) return null;
     if (!this.boss || !this.boss.alive) return null;
-    return cfg.cycle[this.bubbleIndex % cfg.cycle.length];
+    const n = cfg.dualCast ? 2 : 1;
+    const actions: BubbleAction[] = [];
+    for (let k = 0; k < n; k++) actions.push(cfg.cycle[(this.bubbleIndex + k) % cfg.cycle.length]);
+    return { actions, cancelled: this.bubbleCancelledSlot };
+  }
+
+  /** The first action still coming, or null when nothing is up (or everything is cancelled). */
+  bubbleAction(): BubbleAction | null {
+    const cast = this.bubbleCast();
+    if (!cast) return null;
+    const i = cast.actions.findIndex((_, k) => k !== cast.cancelled);
+    return i < 0 ? null : cast.actions[i];
   }
 
   /** How far the charge has filled, 0..1. Presentation only; 0 when nothing is charging. */
   bubbleProgress(): number {
     const cfg = this.bubbleCfg;
-    if (!cfg || !this.bubbleAction() || cfg.castMs <= 0) return 0;
+    if (!cfg || !this.bubbleCast() || cfg.castMs <= 0) return 0;
     return Math.max(0, Math.min(1, 1 - this.bubbleCastMs / cfg.castMs));
   }
 
   /** Cancels the player has left. */
   cancelsLeft(): number {
     return this.bubbleCfg ? this.cancels : 0;
+  }
+
+  /** Presentation: the giant bot stands at the back (raid 15, t5+). */
+  bubbleGiantBot(): boolean {
+    return !!this.bubbleCfg?.giantBot;
+  }
+
+  /** The t9 lockout is holding this activation: the one before it was cancelled. */
+  cancelLocked(): boolean {
+    const cfg = this.bubbleCfg;
+    return !!cfg && cfg.lockout && this.lastCancelActivation === this.bubbleActivation - 1;
   }
 
   /** The charge the pirate captain is winding up, or null when nobody is (raid 13).
@@ -2336,30 +2381,46 @@ export class BattleSim {
     return this.enemies.some((e) => !!e.chargeCfg && e.alive);
   }
 
-  /** Stop the cast that is charging. Returns false — a REFUSAL the transcript records —
-   *  when nothing is charging or the budget is spent.
+  /** Stop a cast that is charging. `slot` picks which of a dual cast (0 or 1); a single
+   *  cast only has slot 0. Returns false — a REFUSAL the transcript records — when nothing
+   *  is charging, the budget is spent, the lockout holds this activation, or that slot is
+   *  not there to cancel.
    *
-   *  The saucer does not lose the action, it loses the TEMPO: it sulks for
-   *  `cancelRecoveryMs` and then moves on to the next thing in the cycle. Long at the
-   *  bottom of the ladder (a cancel buys real time) and short at the top (a cancel buys
-   *  only the action). */
-  cancelCast(): boolean {
+   *  A cancel stops the ACTION, not the clock: the saucer waits its ordinary gap and goes
+   *  on to the next thing in the cycle. Under the dual cast one cancel stops one of the
+   *  pair and the other still lands when the charge fills. */
+  cancelCast(slot = 0): boolean {
     const cfg = this.bubbleCfg;
     if (!cfg || this.finished) return false;
-    if (!this.bubbleAction() || this.cancels <= 0) return false;
+    const cast = this.bubbleCast();
+    if (!cast || this.cancels <= 0 || this.cancelLocked()) return false;
+    if (!Number.isInteger(slot) || slot < 0 || slot >= cast.actions.length) return false;
+    if (cast.cancelled !== null) return false; // one cancel per activation
     this.cancels--;
-    this.bubbleCastMs = 0;
-    this.bubbleGapMs = cfg.cancelRecoveryMs;
-    this.bubbleIndex++;
+    this.lastCancelActivation = this.bubbleActivation;
     this.bubbleCancelSeq++;
+    if (cast.actions.length > 1) {
+      this.bubbleCancelledSlot = slot;
+      return true;
+    }
+    this.endActivation(cfg);
     return true;
+  }
+
+  /** Close the activation on the table: the cycle moves past it and the quiet begins. */
+  private endActivation(cfg: BubbleConfig) {
+    this.bubbleCastMs = 0;
+    this.bubbleIndex += cfg.dualCast ? 2 : 1;
+    this.bubbleActivation++;
+    this.bubbleCancelledSlot = null;
+    this.bubbleGapMs = cfg.gapMs;
   }
 
   /** Run the bubble's clock: quiet, then a charge, then the thing happens.
    *
    *  Gated on a LIVE BOSS rather than on its perch, unlike every other boss action. The
-   *  saucer never comes down — it is a sky perch — but even if a future rung landed it,
-   *  a bubble is something it is thinking, not something it is standing up to do. */
+   *  saucer never comes down — it is a sky perch — and a bubble is something it is
+   *  thinking, not something it is standing up to do. */
   private stepBubble(dtMs: number) {
     const cfg = this.bubbleCfg;
     if (!cfg || !cfg.cycle.length) return;
@@ -2372,20 +2433,22 @@ export class BattleSim {
     if (this.bubbleCastMs <= 0) { this.bubbleCastMs = cfg.castMs; return; }
     this.bubbleCastMs -= dtMs;
     if (this.bubbleCastMs > 0) return;
-    this.bubbleCastMs = 0;
-    this.fireBubble(cfg, cfg.cycle[this.bubbleIndex % cfg.cycle.length]);
-    this.bubbleIndex++;
-    this.bubbleGapMs = cfg.gapMs;
+    const n = cfg.dualCast ? 2 : 1;
+    for (let k = 0; k < n; k++) {
+      if (k === this.bubbleCancelledSlot) continue;
+      this.fireBubble(cfg, cfg.cycle[(this.bubbleIndex + k) % cfg.cycle.length]);
+    }
+    this.endActivation(cfg);
     this.bubbleFireSeq++;
   }
 
-  /** The five disasters. Each one is deliberately small — the fight's difficulty is in
+  /** What each cast does. Each one is deliberately modest — the fight's difficulty is in
    *  choosing which to eat, not in any single one being unanswerable. */
   private fireBubble(cfg: BubbleConfig, action: BubbleAction) {
     switch (action) {
       case "wall": {
         // The same blocker the boss specials drop, at the same place and with the same
-        // "already past it" latch — see the `wall` case in stepBossActions. It lands at
+        // "already past it" latch — see the `wall` case in runSpecial. It lands at
         // `supportX`, INSIDE the player's half, so it cuts reinforcements off rather than
         // barring the line that has already gone by.
         const wt = this.bubbleWall;
@@ -2414,49 +2477,18 @@ export class BattleSim {
         }
         break;
       }
-      case "swap": {
-        // A QUEUE SWAP, not a summon: the next alien still waiting at the doorway is
-        // re-statted into something much worse. It adds no body, so it can neither hold
-        // the boss on its perch nor spend the settle budget — and it punishes low damage
-        // specifically, because a tough body occupies the field and denies the 450 ms
-        // emerge gaps that let a tank breathe.
-        const queued = this.enemies.filter(
-          (e) => e.alive && !e.isBoss && !e.isWall && !e.isSummon && !e.isCopy &&
-            e.state === "queued"
-        );
-        const next = queued.find((e) => !e.swapped);
-        if (!next) break;
-        // IT REPLACES, IT DOES NOT ADD. The hit points come OUT OF THE REST OF THE QUEUE:
-        // the saucer feeds the aliens still waiting at the doorway into the one at the
-        // front of it. Total wave weight is unchanged, which is not a nicety — the first
-        // cut simply multiplied, and four swaps took a 130,003-point tier-10 fight to
-        // 254,827, past anything that can be cleared inside the settle cap. Measured in
-        // the Raid Lab: the army survived and the fight hung at 240 s with four aliens
-        // still standing. See DUAL_SETTLE_REFERENCE_DPS.
-        //
-        // Self-limiting, too: with the queue nearly empty there is little to take, so a
-        // late swap is a small one and the action quietly stops mattering rather than
-        // running away.
-        const donors = queued.filter((e) => e !== next);
-        const want = next.maxHp * (cfg.swapMult - 1);
-        let taken = 0;
-        for (const donor of donors) {
-          if (taken >= want) break;
-          // Never all of one: a donor left on 1 hit point is a body that still walks on
-          // and still occupies a slot, which is what keeps the wave's SHAPE intact.
-          const spare = Math.max(0, donor.maxHp - 1);
-          const give = Math.min(spare, want - taken);
-          donor.maxHp = Math.max(1, Math.round(donor.maxHp - give));
-          donor.hp = Math.min(donor.hp, donor.maxHp);
-          taken += give;
-        }
-        if (taken <= 0) break;
-        const grew = (next.maxHp + taken) / Math.max(1, next.maxHp);
-        next.swapped = true;
-        next.maxHp = Math.max(1, Math.round(next.maxHp + taken));
-        next.hp = next.maxHp;
-        next.damage = Math.max(1, Math.round(next.damage * grew));
-        next.power = Math.max(1, Math.round(next.power * grew));
+      case "robot": {
+        // A JunkBot beamed down at the doorway. It walks on at once (its own `deployAtMs`,
+        // like the farmer squad), and it is a real minion: it holds the saucer's wave open
+        // until it is killed. Capped, because every one is hit points outside the settle
+        // budget.
+        const template = cfg.robot;
+        if (!template) break;
+        const alive = this.enemies.filter((e) => e.alive && e.isBubbleRobot).length;
+        if (alive >= cfg.robotMaxAlive) break;
+        const bot = this.spawnEnemy(template);
+        bot.isBubbleRobot = true;
+        bot.deployAtMs = this.elapsed;
         break;
       }
       case "stunAll": {

@@ -73,7 +73,7 @@ type RaidInputDraft =
   | { type: "fireTap"; unitId: string }
   | { type: "turnedTap"; unitId: string }
   | { type: "signPick"; offer: number; option: number }
-  | { type: "castCancel" }
+  | { type: "castCancel"; slot?: number }
   | { type: "retreat" };
 import { BASE } from "../base";
 import type { BubbleAction, BubbleConfig, CopyConfig, SignConfig } from "./dualInvasion";
@@ -271,16 +271,24 @@ const ENRAGE_WARN_MS = 20_000;
 // The saucer's bubble (raid 15): what it is charging, how far along, and how many cancels
 // are left — sharing the objection panel's slot under the top HUD, since no fight has both.
 const BUBBLE_PANEL_W = 236;
-const BUBBLE_PANEL_H = 46;
-/** What the saucer is thinking about, in words. Placeholder for the five action icons,
- *  and the thing that makes the fight playable until they exist. */
+/** Header (cancels left / lockout), then one row per action being cast, then the bar. */
+const BUBBLE_HEAD_H = 22;
+const BUBBLE_ROW_H = 30;
+const BUBBLE_FOOT_H = 14;
+const BUBBLE_CANCEL_W = 74;
+/** What the saucer is thinking about, in words. Placeholder for the action icons, and the
+ *  thing that makes the fight playable until they exist. */
 const BUBBLE_LABEL: Readonly<Record<BubbleAction, string>> = {
-  wall: "WALL incoming",
-  aoe: "SHOCKWAVE incoming",
-  swap: "REINFORCEMENT incoming",
-  stunAll: "STUN incoming",
-  portal: "PORTAL incoming",
+  wall: "WALL",
+  portal: "PORTAL",
+  robot: "ROBOT",
+  aoe: "BLAST",
+  stunAll: "STUN ALL",
 };
+/** Where the giant McDonnell bot stands when it is the raid-15 signal (stage points, Y-up):
+ *  up at the back, behind the platform art like the raid-5 hazard it borrows its rig from. */
+const BUBBLE_BOT_POS = { x: 300, y: 150 };
+const BUBBLE_BOT_SCALE = 0.8;
 // Activated buttons hold their slot for the whole fight and signal availability by
 // darkening instead of vanishing. Tint (not alpha) keeps them solid over a busy
 // battlefield, so a dark button still reads as a button.
@@ -870,15 +878,16 @@ export class RaidScene {
   private signBubbles: { root: Container; bg: Graphics; faces: Container }[] = [];
   /** Last drawn state of the panel, so it redraws on a change rather than every frame. */
   private signKey = "";
-  /** The saucer's bubble (raid 15): the charging action, its bar, and the cancel button. */
+  /** The saucer's bubble (raid 15): what is charging (one row per action — two under the
+   *  t10 dual cast, each with its own cancel), the budget and lockout, and the bar. */
   private bubblePanel = new Container();
   private bubbleBg = new Graphics();
-  private bubbleLabel!: Text;
+  private bubbleHead!: Text;
   private bubbleBar = new Graphics();
-  private cancelBtn = new Container();
-  private cancelBg = new Graphics();
-  private cancelLabel!: Text;
+  private bubbleRows: { root: Container; label: Text; btn: Container; btnBg: Graphics; btnText: Text }[] = [];
   private bubbleKey = "";
+  /** The giant McDonnell bot as raid 15's t5 signal (null below it and on every other raid). */
+  private bubbleBotView: { root: Container; head: Sprite; body: Sprite } | null = null;
   private pFace = new Container(); // generic zombie face badge, left of the player bar
   private eFace = new Container(); // boss face badge, right of the enemy bar
   private retreatBtn = new Container();
@@ -911,7 +920,7 @@ export class RaidScene {
       else if (input.type === "fireTap") this.sim.tapFire(input.unitId);
       else if (input.type === "turnedTap") this.sim.tapTurned(input.unitId);
       else if (input.type === "signPick") this.sim.pickSign(input.offer, input.option);
-      else if (input.type === "castCancel") this.sim.cancelCast();
+      else if (input.type === "castCancel") this.sim.cancelCast(input.slot ?? 0);
       else if (input.type === "retreat") this.retreatRequested = true;
     }
   }
@@ -1259,6 +1268,8 @@ export class RaidScene {
     }
     // The Mega-Robot: body/head behind the platform art, fireballs above the field.
     if (this.sim.megaBot) await this.buildMegaBot();
+    // Raid 15 from t5: the giant bot at the back, as a signal (see buildBubbleBot).
+    if (this.sim.bubbleGiantBot()) await this.buildBubbleBot();
     // Flames ride above every unit: the fire has to be tappable through whatever rig is
     // burning, and it reads as sitting ON the zombie rather than behind it.
     this.container.addChild(this.fireLayer);
@@ -1840,45 +1851,99 @@ export class RaidScene {
   }
 
   /** THE SAUCER'S BUBBLE (raid 15): what it is charging, a bar for how long you have left
-   *  to decide, and the cancel button with its remaining charges.
+   *  to decide, and a cancel button per action with the budget above them.
    *
-   *  Drawn text and boxes rather than the thought-bubble art and the five action icons,
-   *  which do not exist yet — and this is the fight where that matters most, because the
-   *  whole decision is "which of these five do I stop". The words carry it until the icons
-   *  land; a player who cannot read the bubble is playing a random number generator. */
+   *  Drawn text and boxes rather than thought-bubble art and action icons, which do not
+   *  exist yet — and this is the fight where that matters most, because the whole decision
+   *  is "which of these do I stop". The words carry it until the icons land. */
   private buildBubblePanel() {
-    this.bubbleLabel = new Text({
+    this.bubbleHead = new Text({
       text: "",
-      style: { fontFamily: "sans-serif", fontSize: 14, fontWeight: "800", fill: 0xffffff },
+      style: { fontFamily: "sans-serif", fontSize: 12, fontWeight: "800", fill: 0xbfe6ff },
     });
-    this.bubbleLabel.anchor.set(0.5, 0.5);
-    this.bubbleLabel.position.set(BUBBLE_PANEL_W / 2, 15);
-    this.bubblePanel.addChild(this.bubbleBg, this.bubbleLabel, this.bubbleBar);
-
-    this.cancelLabel = new Text({
-      text: "",
-      style: { fontFamily: "sans-serif", fontSize: 13, fontWeight: "800", fill: 0xffffff },
-    });
-    this.cancelLabel.anchor.set(0.5, 0.5);
-    this.cancelLabel.position.set(46, 14);
-    this.cancelBtn.addChild(this.cancelBg, this.cancelLabel);
-    this.cancelBtn.position.set(BUBBLE_PANEL_W / 2 - 46, BUBBLE_PANEL_H + 6);
-    this.cancelBtn.eventMode = "static";
-    this.cancelBtn.cursor = "pointer";
-    // An explicit hit area for the same reason the objection's bubbles carry one: a bare
-    // static Container is tested against `hitArea` and otherwise only recurses into
-    // interactive children, so without this it draws perfectly and takes no taps.
-    this.cancelBtn.hitArea = new Rectangle(0, 0, 92, 28);
-    this.cancelBtn.on("pointertap", () => this.tapCancel());
-    this.bubblePanel.addChild(this.cancelBtn);
+    this.bubbleHead.anchor.set(0.5, 0.5);
+    this.bubbleHead.position.set(BUBBLE_PANEL_W / 2, BUBBLE_HEAD_H / 2 + 2);
+    this.bubblePanel.addChild(this.bubbleBg, this.bubbleHead, this.bubbleBar);
+    for (let slot = 0; slot < 2; slot++) {
+      const root = new Container();
+      root.position.set(0, BUBBLE_HEAD_H + slot * BUBBLE_ROW_H);
+      const label = new Text({
+        text: "",
+        style: { fontFamily: "sans-serif", fontSize: 14, fontWeight: "800", fill: 0xffffff },
+      });
+      label.anchor.set(0, 0.5);
+      label.position.set(12, BUBBLE_ROW_H / 2);
+      const btnBg = new Graphics();
+      const btnText = new Text({
+        text: "",
+        style: { fontFamily: "sans-serif", fontSize: 12, fontWeight: "800", fill: 0xffffff },
+      });
+      btnText.anchor.set(0.5, 0.5);
+      btnText.position.set(BUBBLE_CANCEL_W / 2, 12);
+      const btn = new Container();
+      btn.addChild(btnBg, btnText);
+      btn.position.set(BUBBLE_PANEL_W - BUBBLE_CANCEL_W - 8, (BUBBLE_ROW_H - 24) / 2);
+      btn.cursor = "pointer";
+      // An explicit hit area for the same reason the objection's bubbles carry one: a bare
+      // static Container is tested against `hitArea` and otherwise only recurses into
+      // interactive children, so without this it draws perfectly and takes no taps.
+      btn.hitArea = new Rectangle(0, 0, BUBBLE_CANCEL_W, 24);
+      btn.on("pointertap", () => this.tapCancel(slot));
+      root.addChild(label, btn);
+      this.bubblePanel.addChild(root);
+      this.bubbleRows.push({ root, label, btn, btnBg, btnText });
+    }
     this.bubblePanel.visible = false;
     this.container.addChild(this.bubblePanel);
   }
 
-  /** Spend a cancel. Transcribed like every other tap the verifier cannot derive. */
-  private tapCancel() {
+  /** Spend a cancel on one action. Transcribed like every other tap the verifier cannot
+   *  derive; the slot rides along only when it is not the default, so a single-cast
+   *  transcript reads exactly as it always has. */
+  private tapCancel(slot = 0) {
     if (this.sim.finished || this.playback) return;
-    if (this.sim.cancelCast()) this.recordInput({ type: "castCancel" });
+    if (this.sim.cancelCast(slot)) {
+      this.recordInput(slot ? { type: "castCancel", slot } : { type: "castCancel" });
+    }
+  }
+
+  /** Raid 15 from t5: the giant McDonnell bot standing at the back. A SIGNAL, not a unit —
+   *  its arrival says the blast and the army stun are now in the saucer's cycle, and its
+   *  eyes light while one of them is charging. The sim knows nothing about it. */
+  private async buildBubbleBot() {
+    const [bodyTex, headTex] = await Promise.all([
+      loadTex(raidImage(MEGA_BODY_SPRITE)),
+      loadTex(raidImage(MEGA_HEAD_SPRITE)),
+    ]);
+    if (!bodyTex || !headTex) return;
+    const root = new Container();
+    root.zIndex = MEGA_Z;
+    const body = new Sprite(bodyTex);
+    body.anchor.set(0.43, 1 - 0.59);
+    const head = new Sprite(headTex);
+    head.anchor.set(0.65, 1 - 0.361);
+    head.position.set(MEGA_HEAD_DX, 0);
+    root.addChild(body, head);
+    this.stageLayer.addChild(root);
+    this.bubbleBotView = { root, head, body };
+  }
+
+  private syncBubbleBot() {
+    const v = this.bubbleBotView;
+    if (!v) return;
+    const r = this.bgRect();
+    const s = r.scale * BUBBLE_BOT_SCALE;
+    v.root.scale.set(s);
+    v.root.position.set(r.left + BUBBLE_BOT_POS.x * r.scale, r.top + (DESIGN_H - BUBBLE_BOT_POS.y) * r.scale);
+    // Lit while one of ITS casts is charging, dark otherwise — the same black-to-lit read
+    // the raid-5 hazard uses, so a player who knows that robot knows this one.
+    const cast = this.sim.bubbleCast();
+    const mine = !!cast && cast.actions.some((a, k) => k !== cast.cancelled && (a === "aoe" || a === "stunAll"));
+    const k = mine ? 0.35 + 0.65 * this.sim.bubbleProgress() : 0.12;
+    const c = Math.round(255 * k);
+    v.head.tint = (c << 16) | (c << 8) | c;
+    const b = Math.round(255 * Math.min(0.6, k));
+    v.body.tint = (b << 16) | (b << 8) | b;
   }
 
   /** Commit a choice. TRANSCRIBED for the reason every simulated tap is: the verifier
@@ -2963,40 +3028,57 @@ export class RaidScene {
         .fill({ color: left < 0.3 ? 0xff5a3c : 0xffd479, alpha: 0.9 });
     }
 
-    // The saucer's bubble. `bubbleAction` is null on every invasion without one, so the
+    // The saucer's bubble. `bubbleCast` is null on every invasion without one, so the
     // panel simply never appears anywhere else.
-    const incoming = this.sim.bubbleAction();
-    this.bubblePanel.visible = !!incoming;
-    if (incoming) {
+    const cast = this.sim.bubbleCast();
+    this.bubblePanel.visible = !!cast;
+    if (cast) {
       const left = this.sim.cancelsLeft();
-      const key = `${incoming}|${left}`;
+      const locked = this.sim.cancelLocked();
+      const rows = cast.actions.length;
+      const key = `${cast.actions.join(",")}|${cast.cancelled}|${left}|${locked}`;
       if (key !== this.bubbleKey) {
         this.bubbleKey = key;
-        this.bubbleLabel.text = `☄ ${BUBBLE_LABEL[incoming]}`;
+        const panelH = BUBBLE_HEAD_H + rows * BUBBLE_ROW_H + BUBBLE_FOOT_H;
         this.bubbleBg.clear()
-          .roundRect(0, 0, BUBBLE_PANEL_W, BUBBLE_PANEL_H, 8)
+          .roundRect(0, 0, BUBBLE_PANEL_W, panelH, 8)
           .fill({ color: 0x1b2430, alpha: 0.92 })
           .stroke({ width: 2, color: 0x8fd0ff, alpha: 0.85 });
-        // Greyed rather than hidden when the budget is gone: "you have none left" is a
-        // thing the player needs to see, and a button that vanishes mid-fight reads as a
-        // bug rather than as a consequence.
-        this.cancelLabel.text = left > 0 ? `✖ Cancel  ${left}` : "✖ spent";
-        this.cancelBg.clear()
-          .roundRect(0, 0, 92, 28, 6)
-          .fill({ color: left > 0 ? 0x2a4a63 : 0x2a2a2a, alpha: 0.92 })
-          .stroke({ width: 2, color: left > 0 ? 0x8fd0ff : 0x555555, alpha: 0.8 });
-        this.cancelBtn.eventMode = left > 0 ? "static" : "none";
-        this.cancelBtn.alpha = left > 0 ? 1 : 0.55;
+        this.bubbleHead.text = locked
+          ? "🔒 LOCKED — you cancelled the last one"
+          : left > 0 ? `☄ INCOMING · ${left} cancel${left === 1 ? "" : "s"} left` : "☄ INCOMING · no cancels left";
+        const canCancel = left > 0 && !locked && cast.cancelled === null;
+        for (let slot = 0; slot < this.bubbleRows.length; slot++) {
+          const row = this.bubbleRows[slot];
+          row.root.visible = slot < rows;
+          if (slot >= rows) continue;
+          const cancelled = cast.cancelled === slot;
+          row.label.text = `${BUBBLE_LABEL[cast.actions[slot]]}${cancelled ? "  ✖" : ""}`;
+          row.label.alpha = cancelled ? 0.45 : 1;
+          const live = canCancel && !this.playback;
+          row.btnText.text = cancelled ? "stopped" : "✖ Cancel";
+          // Greyed rather than hidden when a cancel is not available: "you cannot stop this
+          // one" is a thing the player needs to see, and a button that vanishes mid-fight
+          // reads as a bug rather than as a consequence.
+          row.btnBg.clear()
+            .roundRect(0, 0, BUBBLE_CANCEL_W, 24, 6)
+            .fill({ color: live ? 0x2a4a63 : 0x2a2a2a, alpha: 0.92 })
+            .stroke({ width: 2, color: live ? 0x8fd0ff : 0x555555, alpha: 0.8 });
+          row.btn.eventMode = live ? "static" : "none";
+          row.btn.alpha = live ? 1 : 0.55;
+        }
       }
       // The charge bar runs every frame — it is the reaction window, and the only part of
       // the panel that moves.
       const filled = this.sim.bubbleProgress();
+      const barY = BUBBLE_HEAD_H + rows * BUBBLE_ROW_H + 4;
       this.bubbleBar.clear()
-        .rect(10, BUBBLE_PANEL_H - 12, BUBBLE_PANEL_W - 20, 5)
+        .rect(10, barY, BUBBLE_PANEL_W - 20, 5)
         .fill({ color: 0x000000, alpha: 0.4 })
-        .rect(10, BUBBLE_PANEL_H - 12, (BUBBLE_PANEL_W - 20) * filled, 5)
+        .rect(10, barY, (BUBBLE_PANEL_W - 20) * filled, 5)
         .fill({ color: filled > 0.7 ? 0xff5a3c : 0x8fd0ff, alpha: 0.95 });
     }
+    this.syncBubbleBot();
 
     // Retreat occupies the bottom-right action slot used by the farm quest control,
     // which is hidden while a battle owns the screen.

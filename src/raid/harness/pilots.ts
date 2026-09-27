@@ -106,11 +106,15 @@ export const EXPERT: PilotProfile = {
 
 export const PILOT_LADDER: readonly PilotProfile[] = [IDLE, CASUAL, COMPETENT, EXPERT];
 
-/** What the saucer's five casts cost an army that is trying not to lose anybody, worst
- *  first. `aoe` takes a slice off every deployed zombie and `portal` throws half the army
- *  back to the staging slot, so those are the two worth a cancel; the other three cost
- *  tempo, and tempo is cheaper than a casualty. See dualInvasion.BUBBLE_CYCLE. */
-const CANCEL_WORTH_IT = new Set(["aoe", "portal"]);
+/** What the saucer's casts cost an army that is trying not to lose anybody, worst first.
+ *  The blast takes a slice off every deployed zombie, the army stun and the portal hand the
+ *  wave free time or throw half the line to the back; the wall and the robot cost tempo,
+ *  and tempo is cheaper than a casualty. `worst` spends only on the first three — with five
+ *  cancels for the whole fight, that is what holding them back means. */
+const CAST_COST: Readonly<Record<string, number>> = {
+  aoe: 5, stunAll: 4, portal: 3, robot: 2, wall: 1,
+};
+const CANCEL_WORTH_IT = new Set(["aoe", "stunAll", "portal"]);
 
 /** THE INTERRUPT MENU (raid 13), cheapest answer first.
  *
@@ -229,10 +233,19 @@ export function makePilot(profile: PilotProfile): Pilot {
       // 2. The saucer's cast. Also a hard window, and `aoe`/`portal` are the two casts
       //    that can turn a clean fight into a lossy one.
       if (profile.cancels !== "never" && sim.cancelsLeft() > 0) {
-        const action = sim.bubbleAction();
-        const id = epoch("cast", !!action);
-        if (action && (profile.cancels === "always" || CANCEL_WORTH_IT.has(action))) {
-          if (acts(id, tick)) return { type: "castCancel" };
+        const cast = sim.bubbleCast();
+        const id = epoch("cast", !!cast);
+        // One cancel per activation, never into the t9 lockout (the sim would refuse it),
+        // and under the t10 dual cast on whichever of the pair costs the army more.
+        if (cast && cast.cancelled === null && !sim.cancelLocked()) {
+          let slot = 0;
+          for (let k = 1; k < cast.actions.length; k++) {
+            if ((CAST_COST[cast.actions[k]] ?? 0) > (CAST_COST[cast.actions[slot]] ?? 0)) slot = k;
+          }
+          const action = cast.actions[slot];
+          if (profile.cancels === "always" || CANCEL_WORTH_IT.has(action)) {
+            if (acts(id, tick)) return slot ? { type: "castCancel", slot } : { type: "castCancel" };
+          }
         }
       }
 

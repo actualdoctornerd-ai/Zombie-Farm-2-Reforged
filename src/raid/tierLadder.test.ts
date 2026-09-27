@@ -1,24 +1,15 @@
 // The dual invasions' tier ladder, and the budget it has to live inside.
 //
-// `tierProfile` is a placeholder and its numbers will move, so this does not pin them. It
-// pins the two things that must hold whatever they become: that the ladder actually climbs,
-// and that the top of it can still SETTLE.
-//
-// The settle one is not theoretical. An earlier cut of this table ramped `con` to 8.5 and
-// measured beautifully on every roster that kills quickly — then hung a 20-strong wall
-// roster at exactly 240 s in the Raid Lab, with the whole 181,900-point wave cleared and the
-// boss still untouched on its perch. That fight LOSES on the clock — cleanly, and the player
-// is told so (see timeLimit.test.ts) — but losing a fight you were winning the whole way, to
-// an arithmetic you cannot go faster than, is a broken rung rather than a hard one.
+// `tierProfile` is placeholder numbers, so this does not pin them. It pins the SHAPE agreed
+// in docs/POST_45_PROGRESSION.md Part 2B — one change per tier, the stat steps on t2/t4/t6/t8
+// only, hit points flat — and the one thing that must hold whatever the numbers become:
+// that the fight can still SETTLE inside the four-minute clock.
 import { describe, expect, it } from "vitest";
-import { buildEnemyUnits } from "./CombatEngine";
+import { composeFight } from "./composeFight";
 import {
-  DUAL_INVASION_IDS, DUAL_SETTLE_REFERENCE_DPS, MAX_TIER, MIN_TIER, raidProfile, signFor,
-  STACK_MAX_HEIGHT,
+  DUAL_BOSS_HP, DUAL_DAMAGE_STEP, DUAL_INVASION_IDS, DUAL_SETTLE_REFERENCE_DPS, DUAL_SPEED_STEP,
+  DUAL_WAVE_HP, MAX_TIER, MIN_TIER, raidProfile, STAT_TIERS, statSteps, tierProfile,
 } from "./dualInvasion";
-import {
-  circusStacksFor, farmerSquadFor, pirateCaptainFor, robotEscortFor,
-} from "./fightConfig";
 import { fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
 import { RAID_MAX_TICKS, RAID_TICK_MS } from "./replay";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
@@ -38,57 +29,70 @@ const duals = raids.filter((r) => (DUAL_INVASION_IDS as readonly number[]).inclu
 const DUAL_BASE_HP_FOR_TEST: Record<number, { wave: number; boss: number }> = {
   12: { wave: 21_400, boss: 4_500 },
   13: { wave: 58_500, boss: 25_000 },
-  14: { wave: 82_600, boss: 1_500 }, // Circus wave + three towers at full height
-  15: { wave: 91_000, boss: 25_000 }, // alien wave + the one robot heavy
+  14: { wave: 82_600, boss: 1_500 },
+  15: { wave: 60_000, boss: 25_000 }, // the alien wave; robots are summoned, not scheduled
 };
 
-/** Everything the fight fields at this rung, built exactly as both sides build it.
- *  Pass `null` for the profile to see the raid's own wave, unscaled. */
+/** Everything the fight fields at this rung, built exactly as both sides build it. Pass
+ *  `null` for the profile to see the raid's own wave, unscaled. Counted at FULL HEIGHT for
+ *  anything that grows, which is the weight the settle budget has to carry. */
 function fightAt(raid: RaidDef, tier: number, override?: null): CombatUnit[] {
   const profile = override === null ? null : raidProfile(raid.id, { tier });
   const stage = resolveStageWave(
     fightStage(raid, raid.recommendedLevel)!, seededRandom(`ladder:${raid.id}`)
   );
-  return [
-    ...buildEnemyUnits(stage, assets.enemyStats, assets.raidAttacks, {
-      raidId: raid.id, playerLevel: raid.recommendedLevel, elite: profile,
-    }),
-    ...farmerSquadFor(assets, raid, signFor(raid.id, tier, "ladder"), profile, raid.recommendedLevel),
-    ...pirateCaptainFor(assets, raid, tier, profile, raid.recommendedLevel),
-    // Counted AT FULL HEIGHT: a tower left alone climbs to STACK_MAX_HEIGHT, and it is
-    // the grown weight the settle budget has to carry. Counting the unit as built would
-    // understate raid 14 by two thirds of every tower.
-    ...circusStacksFor(assets, raid, tier, profile, raid.recommendedLevel)
-      .map((u) => ({ ...u, maxHp: u.maxHp * STACK_MAX_HEIGHT })),
-    ...robotEscortFor(assets, raid, profile, raid.recommendedLevel),
-  ];
+  return composeFight(assets, raid, stage, {
+    playerLevel: raid.recommendedLevel, tier, elite: profile, priorWins: 5,
+    waveSeed: "ladder", hazards: false,
+  }).enemyUnits.map((u) => (u.stack ? { ...u, maxHp: u.maxHp * u.stack.maxHeight } : u));
 }
 
 const totalHp = (units: CombatUnit[]) => units.reduce((sum, u) => sum + u.maxHp, 0);
-const totalStr = (units: CombatUnit[]) => units.reduce((sum, u) => sum + u.str, 0);
 
 describe("the tier ladder", () => {
-  it("lands every invasion on the SAME curve, so a rung means one thing", () => {
-    // The four borrow four stages that are nowhere near each other in bulk, so the rung
-    // names a hit-point target and solves `con` backwards from each raid's own wave. If
-    // that ever stops holding, tier 7 means something different in each fight.
+  it("puts the stat steps on t2, t4, t6 and t8, alternating damage and speed", () => {
+    expect(STAT_TIERS).toEqual({ 2: "damage", 4: "speed", 6: "damage", 8: "speed" });
+    expect(statSteps(1)).toEqual({ damage: 0, speed: 0 });
+    expect(statSteps(2)).toEqual({ damage: 1, speed: 0 });
+    expect(statSteps(4)).toEqual({ damage: 1, speed: 1 });
+    expect(statSteps(8)).toEqual({ damage: 2, speed: 2 });
+    expect(statSteps(10)).toEqual({ damage: 2, speed: 2 });
+  });
+
+  it("moves the profile on a stat rung and ONLY on a stat rung", () => {
     for (const raid of duals) {
-      for (const [rung, wave, boss] of [[MIN_TIER, 70_000, 12_000], [MAX_TIER, 110_000, 20_000]] as const) {
+      for (let rung = MIN_TIER + 1; rung <= MAX_TIER; rung++) {
+        const prev = tierProfile(raid.id, rung - 1);
+        const here = tierProfile(raid.id, rung);
+        const kind = STAT_TIERS[rung];
+        if (kind === "damage") {
+          expect(here.str / prev.str, `raid ${raid.id} t${rung}`).toBeCloseTo(DUAL_DAMAGE_STEP, 6);
+          expect(here.dex, `raid ${raid.id} t${rung}`).toBe(prev.dex);
+        } else if (kind === "speed") {
+          expect(here.dex / prev.dex, `raid ${raid.id} t${rung}`).toBeCloseTo(DUAL_SPEED_STEP, 6);
+          expect(here.str, `raid ${raid.id} t${rung}`).toBe(prev.str);
+        } else {
+          expect(here, `raid ${raid.id} t${rung} is a mechanic rung`).toEqual(prev);
+        }
+      }
+    }
+  });
+
+  it("lands every invasion on the SAME flat hit points, so a rung means one thing", () => {
+    for (const raid of duals) {
+      for (const rung of [MIN_TIER, 5, MAX_TIER]) {
         const units = fightAt(raid, rung);
         const bossHp = units.filter((u) => u.isBoss).reduce((sum, u) => sum + u.maxHp, 0);
         expect(totalHp(units) - bossHp, `raid ${raid.id} t${rung} wave`)
-          .toBeCloseTo(wave, -3.7); // within ~2,500 points
-        expect(bossHp, `raid ${raid.id} t${rung} boss`).toBeCloseTo(boss, -3.4);
+          .toBeCloseTo(DUAL_WAVE_HP, -3.7); // within ~2,500 points
+        expect(bossHp, `raid ${raid.id} t${rung} boss`).toBeCloseTo(DUAL_BOSS_HP, -3.4);
       }
     }
   });
 
   it("knows what each wave really weighs, and notices when one is re-composed", () => {
     // DUAL_BASE_HP is measured, and the whole ladder divides by it — so a wave that is
-    // re-composed (a weight changed, a unit swapped, a guest squad resized) silently moves
-    // every rung of that invasion until this fails. Raid 15 is the cautionary one: it was
-    // 409,000 points of cloned alien swarm — four times the settle budget — until Stage 4
-    // re-composed the wave rather than letting the ladder divide the problem away.
+    // re-composed silently moves every rung of that invasion until this fails.
     for (const raid of duals) {
       const base = fightAt(raid, MIN_TIER, null);
       const bossHp = base.filter((u) => u.isBoss).reduce((sum, u) => sum + u.maxHp, 0);
@@ -99,26 +103,9 @@ describe("the tier ladder", () => {
     }
   });
 
-  it("climbs on every rung, in both bulk and lethality", () => {
-    for (const raid of duals) {
-      for (let rung = MIN_TIER; rung < MAX_TIER; rung++) {
-        const here = fightAt(raid, rung);
-        const next = fightAt(raid, rung + 1);
-        expect(totalHp(next), `raid ${raid.id}: t${rung + 1} hp`).toBeGreaterThan(totalHp(here));
-        expect(totalStr(next), `raid ${raid.id}: t${rung + 1} damage`).toBeGreaterThan(totalStr(here));
-      }
-    }
-  });
-
   it("leaves the slowest winning roster room to finish inside the settle cap", () => {
-    // The binding case is the WEAKEST roster that still wins — bodies and sustain with
-    // almost nothing that ends anything. DUAL_SETTLE_REFERENCE_DPS is its measured
-    // wall-clock rate, so it already carries the walk-in, the drip, the boss's descent and
-    // the objection benching part of the army off and on; 0.85 is the margin on top.
-    //
-    // Calibration: raid 12 at t10 is 128,940 points, which this predicts at 188 s. The real
-    // run in the Raid Lab took 188 s. Keep them honest — if a change here makes the
-    // prediction and the measurement disagree, the model is wrong and not just the numbers.
+    // The binding case is the WEAKEST roster that still wins. DUAL_SETTLE_REFERENCE_DPS is
+    // its measured wall-clock rate; 0.85 is the margin on top.
     const capMs = RAID_MAX_TICKS * RAID_TICK_MS;
     for (const raid of duals) {
       const secondsToClear = totalHp(fightAt(raid, MAX_TIER)) / DUAL_SETTLE_REFERENCE_DPS;
@@ -128,9 +115,6 @@ describe("the tier ladder", () => {
   });
 
   it("is the same ladder on both sides, from the rung alone", () => {
-    // `raidProfile` is what the client, the Worker and the Raid Lab all call. If it ever
-    // read anything but the raid id and the rung, the two simulations would build different
-    // fights from the same pinned config and diverge on tick 0.
     for (const raid of duals) {
       for (const rung of [MIN_TIER, 4, MAX_TIER]) {
         expect(raidProfile(raid.id, { tier: rung })).toEqual(raidProfile(raid.id, { tier: rung }));
