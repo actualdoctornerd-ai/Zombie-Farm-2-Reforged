@@ -316,8 +316,8 @@ const BUBBLE_LABEL: Readonly<Record<BubbleAction, string>> = {
 };
 /** Where the giant McDonnell bot stands when it is the raid-15 signal (stage points, Y-up):
  *  up at the back, behind the platform art like the raid-5 hazard it borrows its rig from. */
-const BUBBLE_BOT_POS = { x: 300, y: 150 };
-const BUBBLE_BOT_SCALE = 0.8;
+const BUBBLE_BOT_POS = { x: 400, y: 175 };
+const BUBBLE_BOT_SCALE = 0.5;
 // Activated buttons hold their slot for the whole fight and signal availability by
 // darkening instead of vanishing. Tint (not alpha) keeps them solid over a busy
 // battlefield, so a dark button still reads as a button.

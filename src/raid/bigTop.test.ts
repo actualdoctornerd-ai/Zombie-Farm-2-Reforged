@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
 import { buildFight } from "./buildFight";
 import {
   BIG_TOP_RAID_ID, bigTopFor, BOZO_CAP, BOZO_CAP_HIGH, BOZO_CAP_TIER, BOZO_CONVERT_MS,
-  BOZO_CONVERT_MS_FAST, BOZO_TIER, FAST_CONVERT_TIER, FIRE_WALK_TIER, RINGMASTER_DROPS_AT_MS,
+  BOZO_CONVERT_MS_FAST, BOZO_TIER, FAST_CONVERT_TIER, FIRE_WALK_TIER, RINGMASTER_DROP_AFTER_PAST, RINGMASTER_DROP_LATEST_MS,
+  RINGMASTER_DROPS_AT_MS,
   RINGMASTER_STATION_X, TRAPEZE_TIER, WHIP_STUN_MS, type BigTopConfig,
 } from "./dualInvasion";
 import { bozoFor, grabberFor } from "./fightConfig";
@@ -91,9 +92,19 @@ describe("the ladder", () => {
 });
 
 describe("the ringmaster", () => {
+  it("waits for the front line to form behind his station before he drops", () => {
+    // Too few zombies to ever get RINGMASTER_DROP_AFTER_PAST past him: he holds his perch
+    // until the backstop.
+    const few = bigTopFight(1, zombies(RINGMASTER_DROP_AFTER_PAST - 1));
+    run(few, RINGMASTER_DROPS_AT_MS + 3_000);
+    expect(byId(few, "boss").state).toBe("structure");
+    run(few, RINGMASTER_DROP_LATEST_MS - RINGMASTER_DROPS_AT_MS);
+    expect(byId(few, "boss").state).not.toBe("structure");
+  });
+
   it("drops into the middle as a blocker the army that is already past does not turn for", () => {
     const sim = bigTopFight(1, zombies(2));
-    run(sim, RINGMASTER_DROPS_AT_MS + 3_000);
+    run(sim, RINGMASTER_DROP_LATEST_MS + 3_000);
     const boss = byId(sim, "boss");
     expect(boss.state).not.toBe("structure");
     expect(boss.x).toBeCloseTo(RINGMASTER_STATION_X, 0);
@@ -116,7 +127,7 @@ describe("the ringmaster", () => {
 
   it("whips the nearest zombie on his LEFT, and stuns Gardens only", () => {
     const sim = bigTopFight(1, zombies(1));
-    run(sim, RINGMASTER_DROPS_AT_MS + 3_000);
+    run(sim, RINGMASTER_DROP_LATEST_MS + 3_000);
     const boss = byId(sim, "boss");
     const whip = (sim as unknown as { whipTarget: (e: unknown) => { id: string } | null });
     const left = byId(sim, "z0");

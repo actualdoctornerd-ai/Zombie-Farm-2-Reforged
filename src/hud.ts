@@ -39,7 +39,7 @@ import {
 } from "./prefs";
 import { fmtCooldown, MCDONNELL_ID, VOUCHER_KEY } from "./raid/RaidCatalog";
 import { BRAIN_TICKET_KEY } from "./raid/eliteInvasion";
-import { acceptsBrainTicket } from "./raid/dualInvasion";
+import { acceptsBrainTicket, tierNote } from "./raid/dualInvasion";
 import { marketPageSize } from "./marketPageSize";
 import { veterancy } from "./zombie/traits";
 import { COMBINE_SPECIAL_LEVEL } from "./zombie/combineSpecies";
@@ -6424,10 +6424,8 @@ export class Hud {
     // because it is a difficulty choice rather than a consumable — it spends nothing, and
     // unlike the Brain Ticket beside it, it can be changed freely before every launch.
     //
-    // NOTE while the ladder is flat: every rung currently builds an IDENTICAL fight
-    // (dualInvasion.tierProfile is a placeholder). Picking tier 7 changes what a win
-    // credits, not what you fight. That is deliberate for now — the mechanics and their
-    // per-rung schedule come first, and the profiles are fitted last.
+    // Under the buttons, what the chosen rung ADDS (dualInvasion.TIER_LADDER) — every rung
+    // brings one change, and a player who can see it coming can bring the answer.
     if (raid.tiers > 0) {
       const tierWrap = document.createElement("div");
       tierWrap.className = "raid-tiers";
@@ -6436,15 +6434,19 @@ export class Hud {
       label.textContent = "Tier";
       tierWrap.appendChild(label);
       const tierBtns: HTMLButtonElement[] = [];
+      const tierNoteEl = document.createElement("div");
+      tierNoteEl.className = "raid-tier-note";
       const drawTiers = () => {
         tierBtns.forEach((btn, i) => {
           const rung = i + 1;
           btn.classList.toggle("on", rung === tierChosen);
           btn.disabled = rung > raid.tierUnlocked;
           btn.title = rung > raid.tierUnlocked
-            ? `Clear tier ${raid.tierUnlocked} to unlock this one.`
-            : `Fight tier ${rung} of ${raid.tiers}.`;
+            ? `Clear tier ${raid.tierUnlocked} to unlock this one. Tier ${rung}: ${tierNote(raid.id, rung)}.`
+            : `Tier ${rung} of ${raid.tiers}: ${tierNote(raid.id, rung)}.`;
         });
+        const note = tierNote(raid.id, tierChosen);
+        tierNoteEl.textContent = note ? `Tier ${tierChosen} adds: ${note}` : "";
       };
       for (let rung = 1; rung <= raid.tiers; rung++) {
         const btn = document.createElement("button");
@@ -6454,6 +6456,7 @@ export class Hud {
         tierBtns.push(btn);
         tierWrap.appendChild(btn);
       }
+      tierWrap.appendChild(tierNoteEl);
       drawTiers();
       boostRow.appendChild(tierWrap);
     }

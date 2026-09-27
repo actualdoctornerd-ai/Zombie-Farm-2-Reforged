@@ -4101,7 +4101,12 @@ export class BattleSim {
     // fight is about not being able to be in two places at once, so a boss that politely
     // queues behind its own minions removes the whole point. His clock overrides the
     // gate; nothing else in the game sets one.
-    const dropsOnTheClock = this.bossDropAtMs !== null && this.elapsed >= this.bossDropAtMs;
+    let dropsOnTheClock = this.bossDropAtMs !== null && this.elapsed >= this.bossDropAtMs;
+    // Raid 14: and only once the front line has formed behind his station (or at the latest).
+    if (dropsOnTheClock && this.bigTop && this.elapsed < this.bigTop.dropLatestMs) {
+      const past = this.players.filter((p) => p.alive && !p.taken && p.x > this.bigTop!.stationX).length;
+      dropsOnTheClock = past >= this.bigTop.dropAfterPast;
+    }
     if (this.boss && this.boss.alive && this.boss.state === "structure"
         && (!bruteHolds || dropsOnTheClock)) {
       // Climb down, exit out the back, then re-enter. An authored PERCH is dropped

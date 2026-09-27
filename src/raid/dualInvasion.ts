@@ -733,9 +733,13 @@ export const FIRE_WALK_TIER = 7;
 export const BOZO_CAP_TIER = 9;
 export const FAST_CONVERT_TIER = 10;
 
-/** When the ringmaster drops, and the mid-lane station he fights from. Early enough that
- *  he is on the field for the whole fight, late enough that the first zombies are past. */
+/** When the ringmaster drops, and the mid-lane station he fights from. Not before
+ *  RINGMASTER_DROPS_AT_MS, and then only once RINGMASTER_DROP_AFTER_PAST zombies are past his
+ *  station — the front line has to have formed BEHIND him, or he is just a gate the whole
+ *  army queues at — with RINGMASTER_DROP_LATEST_MS as the backstop. */
 export const RINGMASTER_DROPS_AT_MS = 12_000;
+export const RINGMASTER_DROP_AFTER_PAST = 3;
+export const RINGMASTER_DROP_LATEST_MS = 30_000;
 export const RINGMASTER_STATION_X = 640;
 /** How far his whip reaches either way, and how long it holds a Garden zombie. */
 export const WHIP_REACH = 380;
@@ -770,6 +774,9 @@ export const FIRE_WALK_SPEED = 90;
 
 export interface BigTopConfig {
   ringmasterDropMs: number;
+  /** Zombies that must be past his station before he drops, and the latest he waits. */
+  dropAfterPast: number;
+  dropLatestMs: number;
   stationX: number;
   whipReach: number;
   /** How long the whip stuns a Garden zombie. Everything else it only hits. */
@@ -800,6 +807,8 @@ export function bigTopFor(raidId: number, tier: number): BigTopConfig | null {
   const rung = clampTier(tier);
   return {
     ringmasterDropMs: RINGMASTER_DROPS_AT_MS,
+    dropAfterPast: RINGMASTER_DROP_AFTER_PAST,
+    dropLatestMs: RINGMASTER_DROP_LATEST_MS,
     stationX: RINGMASTER_STATION_X,
     whipReach: WHIP_REACH,
     whipGardenStunMs: WHIP_STUN_MS,
