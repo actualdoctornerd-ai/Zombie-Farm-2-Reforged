@@ -46,6 +46,7 @@ import { raidBoostBundle } from "./lootBundles";
 import { invasionWinXp, repeatInvasionXp } from "./repeatXp";
 import { compareRaidMenuOrder } from "./raidMenuOrder";
 import { BRAIN_TICKET_KEY, ELITE_BRAIN_LUCK } from "./eliteInvasion";
+import { effectiveUnlockLevel, isPracticeRaid } from "./practice";
 import {
   acceptsBrainTicket, isDualInvasion, MAX_TIER,
   MIN_TIER, raidProfile,
@@ -110,6 +111,8 @@ export interface RaidCardView {
   /** Highest rung this farm may fight here: one above the highest cleared, capped. 0 on a
    *  raid with no ladder. Every rung below it is replayable. */
   tierUnlocked: number;
+  /** PRACTICE (raid/practice.ts): this invasion costs and pays nothing right now. */
+  practice: boolean;
 }
 
 export interface RaidPartyZombie {
@@ -182,6 +185,9 @@ export interface RaidResultView {
    *  reward was credited locally like before. Bonus gold / brains / loot are always
    *  credited locally (bounded economy + inventory). */
   serverReward?: { gold: number; xp: number; survivalFrac: number };
+  /** PRACTICE (raid/practice.ts): nothing was paid and nobody was really lost —
+   *  `zombiesLost` is what the fight WOULD have cost. */
+  practice?: boolean;
 }
 
 /** Battle consumables chosen on the Invade screens. All optional; each is spent
@@ -354,7 +360,7 @@ export class RaidManager {
         portrait: r.bossPortrait ? raidImage(r.bossPortrait) : "",
         recommendedLevel: r.recommendedLevel,
         eliteRecommendedLevel: r.eliteRecommendedLevel,
-        unlockLevel: r.unlockLevel,
+        unlockLevel: effectiveUnlockLevel(r),
         xp: r.xp,
         firstClearXp: this.state.hasClearedRaid(String(r.id)) ? 0 : r.xp,
         repeatXp: repeatInvasionXp(r.id),
@@ -383,7 +389,10 @@ export class RaidManager {
         lockReason: lockReason(r, level),
         minArmy: minArmyFor(r, this.state.raidWins(String(r.id))),
         tiers: isDualInvasion(r.id) ? MAX_TIER : 0,
-        tierUnlocked: isDualInvasion(r.id) ? this.state.raidTierUnlocked(String(r.id)) : 0,
+        tierUnlocked: isDualInvasion(r.id)
+          ? isPracticeRaid(r.id) ? MAX_TIER : this.state.raidTierUnlocked(String(r.id))
+          : 0,
+        practice: isPracticeRaid(r.id),
       }))
       .sort(compareRaidMenuOrder);
   }
@@ -476,9 +485,12 @@ export class RaidManager {
     // The TIER this fight is. ONLINE the server validated and pinned it and sends it back
     // on the setup; OFFLINE the client is the authority, so clamp the request to the ladder
     // this farm has actually climbed rather than trusting the caller.
+    // PRACTICE (raid/practice.ts): every rung is open, and the fight costs nothing — no
+    // cooldown, voucher, dice, Concentration or ticket below.
+    const practice = isPracticeRaid(raid.id);
     const tier = isDualInvasion(raid.id)
       ? Math.min(
-          this.state.raidTierUnlocked(String(raid.id)),
+          practice ? MAX_TIER : this.state.raidTierUnlocked(String(raid.id)),
           Math.max(MIN_TIER, Math.floor(opts.tier ?? MIN_TIER))
         )
       : 0;
@@ -503,7 +515,9 @@ export class RaidManager {
     // bypassed a cooldown, so there's nothing to spend here (main.ts refreshes the
     // inventory). OFFLINE: the client is authoritative — wait it out, or spend a
     // voucher (or the Brain Ticket just charged) to skip.
-    if (opts.serverAuthorized) {
+    if (practice) {
+      // No cooldown to honour and nothing to spend.
+    } else if (opts.serverAuthorized) {
       // An elite launch already paid for the bypass with the ticket spent above.
       if (opts.bypassed && !elite && !online) this.state.useBoost(VOUCHER_KEY);
     } else if (this.onCooldown() && !elite) {
@@ -514,7 +528,8 @@ export class RaidManager {
     // (fight at full focus) needs at most one; Golden Dice stack for loot luck,
     // capped by both the player's stock and the raid's rare-tier depth.
     let concentration = false;
-    if (opts.serverAuthorized) concentration = !!opts.concentration;
+    if (practice) concentration = false;
+    else if (opts.serverAuthorized) concentration = !!opts.concentration;
     else if (opts.concentration && this.state.boostCount(CONCENTRATION_KEY) > 0) {
       concentration = true;
       if (online) this.state.onInventory!({ type: "use", key: CONCENTRATION_KEY }, { count: -1 });
@@ -528,7 +543,9 @@ export class RaidManager {
     let dice = 0;
     const wantDice = Math.max(0, Math.floor(opts.dice ?? 0));
     const diceCap = Math.min(wantDice, this.diceCount(), maxLuckTiers(raid));
-    if (opts.serverAuthorized) {
+    if (practice) {
+      dice = 0;
+    } else if (opts.serverAuthorized) {
       dice = Math.max(0, Math.floor(opts.serverDice ?? 0));
     } else {
       for (let i = 0; i < diceCap && this.state.useBoost(DICE_KEY); i++) dice++;
@@ -553,7 +570,7 @@ export class RaidManager {
     // OFFLINE the roll carries the silent pity floor (a long brain-less streak guarantees
     // the smallest stack). ONLINE the server rolls it — floor included — and pins it.
     const hasBoss = enemyUnits.some((unit: CombatUnit) => unit.isBoss);
-    const brainDrop = hasBoss
+    const brainDrop = hasBoss && !practice
       ? opts.serverAuthorized
         ? Math.max(0, Math.floor(opts.serverBrainDrop ?? 0))
         : rollBrainDropWithPity(raid.recommendedLevel, this.state.brainDryStreak, Math.random, brainLuck)
@@ -603,6 +620,23 @@ export class RaidManager {
      *  unrelated thing that happens to share the name. */
     ladderTier = 0
   ): RaidResultView {
+    // PRACTICE (raid/practice.ts): nothing happens to the farm — no veterancy, no casualty,
+    // no cooldown, no statistic, no reward. The panel reports what the fight WOULD have cost.
+    if (isPracticeRaid(raid.id)) {
+      return {
+        win: outcome.win,
+        title: outcome.win ? "PRACTICE WIN" : outcome.outOfTime ? "PRACTICE — OUT OF TIME" : "PRACTICE LOSS",
+        enemiesBeaten: outcome.enemiesBeaten,
+        zombiesLost: outcome.losses.length,
+        gold: 0,
+        brains: 0,
+        xp: 0,
+        firstClear: false,
+        loot: [],
+        abilityUnlock: "",
+        practice: true,
+      };
+    }
     // Veterancy is earned by SURVIVING a battle — credit only the units still
     // standing (drives rank-up). A unit knocked out mid-fight, even in a win, gets
     // nothing; a total loss credits no one.

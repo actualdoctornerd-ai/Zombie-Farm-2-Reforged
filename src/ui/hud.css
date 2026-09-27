@@ -1229,6 +1229,12 @@
   border-color: #3c5a10; text-shadow: none; box-shadow: 0 0 0 2px rgba(142,199,79,.4); }
 #hud .raid-tier-btn:disabled { cursor: default; opacity: .45; }
 #hud .raid-tier-note { flex-basis: 100%; font: 600 11px system-ui, sans-serif; color: #e8d5b0; opacity: .9; }
+#hud .raid-tier-listwrap { flex-basis: 100%; }
+#hud .raid-tier-list { margin: 4px 0 0; padding: 0 0 0 4px; list-style: none; font: 500 11px/1.45 system-ui, sans-serif; color: #e8d5b0; }
+#hud .raid-tier-list li { opacity: .55; }
+#hud .raid-tier-list li.in { opacity: 1; }
+#hud .raid-tier-list li.chosen { color: #b8f07a; font-weight: 700; }
+#hud .rd-drops .raid-tier-list li { opacity: .9; }
 #hud .raid-dice .rd-lbl { font: 700 13px system-ui, sans-serif; color: #e8d5b0; text-shadow: 0 1px 1px #000; }
 #hud .raid-dice .rd-lbl b { color: #ffcf5a; font-size: 15px; }
 #hud .raid-dice .rd-step { width: 26px; height: 26px; cursor: pointer; border: 2px solid #1e1207;

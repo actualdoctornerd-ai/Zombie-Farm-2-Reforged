@@ -14,6 +14,7 @@ import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidCon
 import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak, firstClearBrains } from "../../../src/raid/brainDrops";
 import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
 import { acceptsBrainTicket } from "../../../src/raid/dualInvasion";
+import { effectiveUnlockLevel, isPracticeRaid } from "../../../src/raid/practice";
 import { settleRaidZombieDrop, RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
 import { raidFeatQuestEvents } from "../../../src/raid/featQuestEvents";
 import objectRows from "../../../public/assets/placeables.json";
@@ -197,7 +198,11 @@ export async function startRaid(
     return { status: 426, body: { ok: false, error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
   }
   await db.prepare("INSERT OR IGNORE INTO raid_state_v3(account_id) VALUES (?)").bind(accountId).run();
-  const concentration = body.concentration === true;
+  // PRACTICE (src/raid/practice.ts): the dual invasions cost and pay nothing while the
+  // ladders are tuned — no cooldown, no voucher, no dice, no Concentration. Refusing the
+  // consumables here (rather than charging them) is what keeps practice free.
+  const practice = isPracticeRaid(raidId);
+  const concentration = body.concentration === true && !practice;
   // Minted before the wave is pinned: it doubles as the seed for any per-fight
   // randomness in the wave (the Robots' random boss), and the client redraws the same
   // wave from the session id this response returns.
@@ -249,11 +254,14 @@ export async function startRaid(
   ]);
   if (!balance || !coreRow || !raidState) return { status: 409, body: { ok: false, error: "state_conflict" } };
   if (live || liveEpic) return { status: 409, body: { ok: false, error: "raid_in_progress" } };
-  if (!raidUnlocked(econ, levelForXp(balance.xp))) return { status: 403, body: { ok: false, error: "locked", unlockLevel: econ.unlockLevel } };
+  if (!raidUnlocked(econ, levelForXp(balance.xp), raidId)) {
+    return { status: 403, body: { ok: false, error: "locked",
+      unlockLevel: effectiveUnlockLevel({ id: raidId, unlockLevel: econ.unlockLevel }) } };
+  }
   if ((roster.results ?? []).length !== requested.length) return { status: 409, body: { ok: false, error: "bad_roster" } };
   const core = parse<CoreState>(coreRow.current_json, { inventory: {}, storage: { received: {}, stored: {} } });
   const activeCooldownMs = farmerCooldownMs(cooldownMs, activeBonusHeadId(core.farmerHeadId ?? 1, core.farmerBonusHeadId));
-  const remaining = Math.max(0, raidState.last_started_at + activeCooldownMs - now);
+  const remaining = practice ? 0 : Math.max(0, raidState.last_started_at + activeCooldownMs - now);
   const useVoucher = body.useVoucher === true;
   // A Brain Ticket covers the wait as well as the difficulty — charging a voucher on top
   // of it would bill the player twice for one bypass.
@@ -261,7 +269,7 @@ export async function startRaid(
   const voucherBypass = remaining > 0 && !elite;
   if (remaining && !useVoucher && !elite) return { status: 429, body: { ok: false, error: "cooldown", cooldownRemaining: remaining } };
   if (voucherBypass && (core.inventory[VOUCHER_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_voucher" } };
-  const dice = Math.max(0, Math.min(10, Math.trunc(Number(body.dice) || 0)));
+  const dice = practice ? 0 : Math.max(0, Math.min(10, Math.trunc(Number(body.dice) || 0)));
   if ((core.inventory[DICE_KEY] ?? 0) < dice) return { status: 409, body: { ok: false, error: "insufficient_dice" } };
   if (concentration && (core.inventory[CONCENTRATION_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_concentration" } };
   // Re-read from `core` rather than trusting the count taken before the pin: this is the
@@ -271,7 +279,7 @@ export async function startRaid(
   if (voucherBypass) core.inventory[VOUCHER_KEY]--;
   if (dice) core.inventory[DICE_KEY] -= dice;
   if (concentration) core.inventory[CONCENTRATION_KEY]--;
-  const brainDrop = rollPinnedBrainDrop(
+  const brainDrop = practice ? 0 : rollPinnedBrainDrop(
     econ.recLevel,
     pinned.config.enemyUnits.some((unit) => unit.isBoss),
     raidState.brain_dry_streak ?? 0,
@@ -283,14 +291,18 @@ export async function startRaid(
     db.prepare(`INSERT INTO raid_sessions_v3
       (id, account_id, raid_id, roster_json, boosts_json, config_json, ruleset_version, started_at, earliest_finish_at, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(sessionId, accountId, String(raidId), JSON.stringify(requested), JSON.stringify({ dice, concentration, brainDrop, elite, tier }),
+      .bind(sessionId, accountId, String(raidId), JSON.stringify(requested),
+        JSON.stringify({ dice, concentration, brainDrop, elite, tier, ...(practice ? { practice: true } : {}) }),
         JSON.stringify(pinned.config), RAID_RULESET_VERSION, now, earliestFinishAt, expiresAt),
-    db.prepare("UPDATE raid_state_v3 SET last_started_at = ? WHERE account_id = ?").bind(now, accountId),
-    db.prepare("UPDATE gameplay_documents_v3 SET current_json = ?, updated_at = ? WHERE account_id = ?")
-      .bind(JSON.stringify(core), now, accountId),
+    // Practice starts no cooldown and spends nothing, so neither row is touched.
+    ...(practice ? [] : [
+      db.prepare("UPDATE raid_state_v3 SET last_started_at = ? WHERE account_id = ?").bind(now, accountId),
+      db.prepare("UPDATE gameplay_documents_v3 SET current_json = ?, updated_at = ? WHERE account_id = ?")
+        .bind(JSON.stringify(core), now, accountId),
+    ]),
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       VALUES(?,?, 'raid_start', ?, ?)`)
-      .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId, raidId, roster: requested, dice, concentration, elite, tier, bypassed: remaining > 0 }), now),
+      .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId, raidId, roster: requested, dice, concentration, elite, tier, bypassed: remaining > 0, ...(practice ? { practice: true } : {}) }), now),
   ];
   // One statement for the whole army. `locked_by_raid IS NULL` still gates each row
   // individually, so a unit locked between the pre-check above and this write is skipped
@@ -309,8 +321,10 @@ export async function startRaid(
     throw error;
   }
   return { status: 200, body: { ok: true, sessionId, bypassed: remaining > 0, dice,
-    concentration, elite, brainDrop, inventory: core.inventory, lastRaidAt: now, expiresAt, earliestFinishAt,
-    serverTime: now,
+    concentration, elite, brainDrop, inventory: core.inventory,
+    // Practice leaves the player's cooldown exactly where it was.
+    lastRaidAt: practice ? raidState.last_started_at : now, expiresAt, earliestFinishAt,
+    serverTime: now, ...(practice ? { practice: true } : {}),
     rulesetVersion: RAID_RULESET_VERSION } };
 }
 
@@ -481,6 +495,11 @@ export async function finishRaid(
     : retreated ? replaySurvivors.filter((id) => !concededDeaths.includes(id)) : escaped;
   // AND, never OR: the client may only drag a win down to a loss (see `conceded` above).
   const win = !retreated && replayOutcome.win && !conceded;
+  // PRACTICE (src/raid/practice.ts): the fight was verified above like any other, and now
+  // settles for nothing either way — see settlePractice.
+  if (parse<{ practice?: boolean }>(session.boosts_json, {}).practice) {
+    return settlePractice(db, accountId, session, locked, { ...replayOutcome, win, survivors, losses }, now);
+  }
   const raidId = Number(session.raid_id);
   const econ = raidEcon(raidId);
   if (!econ) return { status: 409, body: { error: "bad_raid" } };
@@ -801,6 +820,64 @@ export async function finishRaid(
   const committed = await db.batch(statements);
   if ((committed[0]?.meta.changes ?? 0) !== 1) {
     const raced = await db.prepare("SELECT result_json FROM raid_sessions_v3 WHERE id = ?").bind(session.id).first<{ result_json: string | null }>();
+    return raced?.result_json
+      ? { status: 200, body: { ...parse<Record<string, unknown>>(raced.result_json, {}), serverTime: now } }
+      : { status: 409, body: { error: "state_conflict" } };
+  }
+  return { status: 200, body: result };
+}
+
+/** Settle a PRACTICE fight (src/raid/practice.ts): verified like any other, and then it
+ *  costs and pays nothing. No gold, XP, brains, loot, rare zombie or veterancy; no quest,
+ *  pity or tier progress; no cooldown; and nobody dies for real — every zombie comes home,
+ *  so there is no graveyard entry and no revival offer. The losses the fight WOULD have
+ *  cost are reported back as `practiceLosses`, because that number is the feedback. */
+async function settlePractice(
+  db: D1Database,
+  accountId: string,
+  session: SessionRow,
+  locked: string[],
+  outcome: RaidOutcome,
+  now: number
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const [balance, raidState] = await Promise.all([
+    db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId)
+      .first<{ gold: number; brains: number; xp: number }>(),
+    db.prepare("SELECT last_started_at, progress_json, tier_json FROM raid_state_v3 WHERE account_id = ?")
+      .bind(accountId).first<Pick<RaidStateRow, "last_started_at" | "progress_json" | "tier_json">>(),
+  ]);
+  if (!balance || !raidState) return { status: 409, body: { error: "state_conflict" } };
+  const settlementId = crypto.randomUUID();
+  const result = {
+    settlementId, practice: true, lastRaidAt: raidState.last_started_at, serverTime: now,
+    balance: { gold: balance.gold, brains: balance.brains, xp: balance.xp },
+    gold: 0, brains: 0, xp: 0, firstClear: false, loot: null, newZombie: null,
+    // Everyone comes home: the outcome the client applies has no losses. What the fight
+    // would have cost rides separately, for the result panel.
+    outcome: { ...outcome, survivors: [...locked], losses: [] },
+    practiceLosses: outcome.losses,
+    raidProgress: parse<Record<string, number>>(raidState.progress_json, {}),
+    raidTiers: parse<Record<string, number>>(raidState.tier_json ?? "{}", {}),
+    revival: null, rulesetVersion: RAID_RULESET_VERSION,
+  };
+  const resultJson = JSON.stringify(result);
+  const guard = "EXISTS (SELECT 1 FROM raid_sessions_v3 s WHERE s.id = ? AND s.result_json = ?)";
+  const committed = await db.batch([
+    db.prepare(`UPDATE raid_sessions_v3 SET finished_at = ?, result_json = ?, config_json = ${CONFIG_SPENT}
+      WHERE id = ? AND finished_at IS NULL`)
+      .bind(now, resultJson, session.id),
+    // Home unchanged: the lock comes off and NOTHING else moves — no veterancy.
+    db.prepare(`UPDATE roster_v3 SET locked_by_raid = NULL
+      WHERE account_id = ? AND locked_by_raid = ? AND ${guard}`)
+      .bind(accountId, session.id, session.id, resultJson),
+    db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
+      SELECT ?, ?, 'raid_finish', ?, ? WHERE ${guard}`)
+      .bind(settlementId, accountId, JSON.stringify({ sessionId: session.id, raidId: Number(session.raid_id),
+        practice: true, win: outcome.win, wouldHaveLost: outcome.losses }), now, session.id, resultJson),
+  ]);
+  if ((committed[0]?.meta.changes ?? 0) !== 1) {
+    const raced = await db.prepare("SELECT result_json FROM raid_sessions_v3 WHERE id = ?").bind(session.id)
+      .first<{ result_json: string | null }>();
     return raced?.result_json
       ? { status: 200, body: { ...parse<Record<string, unknown>>(raced.result_json, {}), serverTime: now } }
       : { status: 409, body: { error: "state_conflict" } };

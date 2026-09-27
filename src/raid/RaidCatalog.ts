@@ -4,6 +4,7 @@
 // only as a test/dev utility. No side effects — RaidManager applies these.
 import type { BossThrowConfig, RaidDef, RaidStage } from "./types";
 import { raidBoostBundle } from "./lootBundles";
+import { effectiveUnlockLevel } from "./practice";
 import { deriveMaxHp, levelScaleStat } from "./combatStats";
 
 /** Minimum army to launch an invasion (Help.json: "at least 8, best with 16"). */
@@ -276,13 +277,14 @@ export function power(z: { str: number; dex: number; con: number; focus: number 
 
 /** A raid is enterable when it has playable stages and the level gate is met. */
 export function isUnlocked(raid: RaidDef, level: number): boolean {
-  return raid.playable && level >= raid.unlockLevel;
+  // Practice (raid/practice.ts) opens the dual invasions early; everything else is authored.
+  return raid.playable && level >= effectiveUnlockLevel(raid);
 }
 
 /** Why the player can't enter a raid ("" when they can). */
 export function lockReason(raid: RaidDef, level: number): string {
   if (!raid.playable) return "Coming soon";
-  if (level < raid.unlockLevel) return `Requires level ${raid.unlockLevel}`;
+  if (level < effectiveUnlockLevel(raid)) return `Requires level ${effectiveUnlockLevel(raid)}`;
   return "";
 }
 

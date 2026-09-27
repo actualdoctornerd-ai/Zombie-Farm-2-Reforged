@@ -7,11 +7,13 @@
 import { describe, expect, it } from "vitest";
 import { RAID_RULESET_VERSION } from "../../../src/raid/replay";
 import { DUAL_INVASION_IDS, MAX_TIER } from "../../../src/raid/dualInvasion";
+import { DUAL_PRACTICE, PRACTICE_UNLOCK_LEVEL } from "../../../src/raid/practice";
 import { call, grantLevel, grantRoster, signIn, uniqueSub } from "./helpers";
 
-/** Raid 12 (Lawyers & Farmers) unlocks at level 46 and needs eight zombies. */
+/** Raid 12 (Lawyers & Farmers) unlocks at level 46 — 40 while practice is on — and needs
+ *  eight zombies. */
 const DUAL_RAID = DUAL_INVASION_IDS[0];
-const UNLOCK_LEVEL = 46;
+const UNLOCK_LEVEL = DUAL_PRACTICE ? PRACTICE_UNLOCK_LEVEL : 46;
 const ARMY = Array.from({ length: 8 }, (_, i) => ({
   id: `dual-z${i}`, key: "ZombieActorRegularTier1", stored: false,
 }));
@@ -47,7 +49,7 @@ describe("dual invasions — Brain Tickets and the tier ladder", () => {
     expect(ordinary.status, JSON.stringify(ordinary.body)).toBe(200);
   });
 
-  it("refuses a tier above the one this farm has climbed to", async () => {
+  it.skipIf(DUAL_PRACTICE)("refuses a tier above the one this farm has climbed to", async () => {
     const session = await readyFarm("dual-tier-locked");
 
     const tooHigh = await call<any>("POST", "/raid/start", session.token,
@@ -64,7 +66,7 @@ describe("dual invasions — Brain Tickets and the tier ladder", () => {
     expect(topRung.status).toBe(403);
   });
 
-  it("advances the ladder by one on a win, and only on a win", async () => {
+  it.skipIf(DUAL_PRACTICE)("advances the ladder by one on a win, and only on a win", async () => {
     const session = await readyFarm("dual-ladder");
 
     // A LOSS first: the fight was fought at tier 1, but retreating from it must not
@@ -84,5 +86,54 @@ describe("dual invasions — Brain Tickets and the tier ladder", () => {
 
     const stillLocked = await call<any>("POST", "/raid/start", session.token, startBody({ tier: 2 }));
     expect(stillLocked.body.error).toBe("tier_locked");
+  });
+});
+
+// PRACTICE (src/raid/practice.ts): while the ladders are tuned the four dual invasions are a
+// no-stakes prototype. These pin that the WORKER owns it — no cooldown, no cost, no reward,
+// no veterancy, nobody lost, every tier open from level 40.
+describe.skipIf(!DUAL_PRACTICE)("dual invasions — practice", () => {
+  it("opens every tier at level 40", async () => {
+    const session = await readyFarm("dual-practice-open");
+    const top = await call<any>("POST", "/raid/start", session.token, startBody({ tier: MAX_TIER }));
+    expect(top.status, JSON.stringify(top.body)).toBe(200);
+    expect(top.body.practice).toBe(true);
+  });
+
+  it("starts no cooldown and pays and costs nothing", async () => {
+    const session = await readyFarm("dual-practice-free");
+    const before = await call<any>("POST", "/bootstrap", session.token, {});
+    const first = await call<any>("POST", "/raid/start", session.token, startBody({ tier: 3 }));
+    expect(first.status, JSON.stringify(first.body)).toBe(200);
+    const finished = await call<any>("POST", "/raid/finish", session.token, {
+      sessionId: first.body.sessionId, finalTick: 0,
+      inputs: [{ seq: 1, tick: 0, type: "retreat" }], clientWin: false,
+    });
+    expect(finished.status, JSON.stringify(finished.body)).toBe(200);
+    expect(finished.body.practice).toBe(true);
+    expect(finished.body.gold).toBe(0);
+    expect(finished.body.xp).toBe(0);
+    expect(finished.body.brains).toBe(0);
+    expect(finished.body.revival).toBeNull();
+    expect(finished.body.outcome.losses).toEqual([]);
+
+    // No cooldown: straight into another one, with no voucher.
+    const second = await call<any>("POST", "/raid/start", session.token, startBody({ tier: MAX_TIER }));
+    expect(second.status, JSON.stringify(second.body)).toBe(200);
+
+    const after = await call<any>("POST", "/bootstrap", session.token, {});
+    expect(before.body.gameplay.balance).toBeDefined();
+    expect(after.body.gameplay.balance).toEqual(before.body.gameplay.balance);
+    // Home unchanged — not even a veterancy point for surviving.
+    for (const unit of after.body.gameplay.roster.filter((u: any) => ARMY.some((a) => a.id === u.id))) {
+      expect(unit.invasions ?? 0, unit.id).toBe(0);
+    }
+  });
+
+  it("still refuses a Brain Ticket", async () => {
+    const session = await readyFarm("dual-practice-ticket");
+    const started = await call<any>("POST", "/raid/start", session.token,
+      startBody({ brainTicket: true, tier: 1 }));
+    expect(started.body.error).toBe("elite_unavailable");
   });
 });

@@ -54,6 +54,7 @@ import {
   isDualInvasion, MAX_TIER, MIN_TIER, raidProfile,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "../../src/raid/dualInvasion";
+import { effectiveUnlockLevel, isPracticeRaid } from "../../src/raid/practice";
 
 export { RAID_RULESET_VERSION };
 export type { RaidReplayInput };
@@ -153,7 +154,7 @@ export async function buildPinnedRaid(
     .bind(accountId)
     .first<{ xp: number }>();
   const level = levelForXp(balance?.xp ?? 0);
-  if (level < raid.unlockLevel) return { ok: false, error: "locked" };
+  if (level < effectiveUnlockLevel(raid)) return { ok: false, error: "locked" };
   const authored = fightStage(raid, level);
   if (!authored) return { ok: false, error: "bad_stage" };
   const stage = resolveStageWave(authored, seededRandom(waveSeed));
@@ -295,7 +296,7 @@ export async function buildPinnedV3Raid(
       .bind(accountId).first<{ current_json: string }>(),
   ]);
   const level = levelForXp(balance?.xp ?? 0);
-  if (level < raid.unlockLevel) return { ok: false, error: "locked" };
+  if (level < effectiveUnlockLevel(raid)) return { ok: false, error: "locked" };
   const rows = owned.results ?? [];
   if (rows.length !== ids.length) return { ok: false, error: "unit_not_owned" };
   const byId = new Map(rows.map((row) => [row.unit_id, row]));
@@ -314,7 +315,10 @@ export async function buildPinnedV3Raid(
       try { return JSON.parse(raidState?.tier_json ?? "{}") as Record<string, number>; }
       catch { return {}; }
     })();
-    const unlocked = Math.min(MAX_TIER, Math.max(0, Math.floor(cleared[String(raidId)] ?? 0)) + 1);
+    // Practice opens every rung (src/raid/practice.ts); otherwise the climbed ladder decides.
+    const unlocked = isPracticeRaid(raidId)
+      ? MAX_TIER
+      : Math.min(MAX_TIER, Math.max(0, Math.floor(cleared[String(raidId)] ?? 0)) + 1);
     const wanted = Number.isFinite(Number(requestedTier)) ? Math.floor(Number(requestedTier)) : MIN_TIER;
     if (wanted < MIN_TIER || wanted > unlocked) {
       return { ok: false, error: "tier_locked", unlockedTier: unlocked };

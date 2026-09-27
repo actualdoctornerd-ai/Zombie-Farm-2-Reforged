@@ -27,6 +27,7 @@ import { buildStatsView } from "./statsView";
 import { mutationAlmanacEntries } from "./zombie/mutationAlmanac";
 import { almanacGuide } from "./zombie/almanacGuide";
 import { RAID_ZOMBIE_DROPS } from "./raid/zombieDrops";
+import { effectiveUnlockLevel } from "./raid/practice";
 import { fallenToInfo, snapshotFallen } from "./zombie/memorial";
 import { POT_DURATION_MS } from "./zombie/ZombiePot";
 import { isCombinePromotion } from "./zombie/combineSpecies";
@@ -394,7 +395,8 @@ async function main() {
   const presentLevelUp = (from: number, to: number) => {
     const unlocks: LevelUpUnlock[] = [];
     for (const r of assets.raids) {
-      if (r.unlockLevel > from && r.unlockLevel <= to) {
+      const unlockAt = effectiveUnlockLevel(r);
+      if (unlockAt > from && unlockAt <= to) {
         const f = r.bossPortrait || r.enemyIcon;
         unlocks.push({ icon: f ? raidImg(f) : "", name: r.name, kind: "Invasion" });
       }
@@ -5832,7 +5834,10 @@ async function main() {
           setup.raid, setup.party, outcome, setup.dice, online,
           setup.brainDrop, setup.brainEligible, setup.elite, setup.tier
         );
-        const casualtyParty = setup.party.filter((zombie) => outcome.losses.includes(zombie.id));
+        // Practice (raid/practice.ts) loses nobody for real, so there is nobody to revive.
+        const casualtyParty = view.practice
+          ? []
+          : setup.party.filter((zombie) => outcome.losses.includes(zombie.id));
         let settlementPromise: Promise<api.RaidFinishResult> | null = null;
         if (online) {
           const sid = raidSessionId!;
@@ -5953,12 +5958,15 @@ async function main() {
           // sim outcome rather than through RaidResultView — the result PANEL has no use
           // for either, and widening its view type to carry quest plumbing would be the
           // wrong seam.
-          postRaidWinQuests(
-            questBus,
-            { ...view, elite: setup.elite, feats: outcome.feats },
-            setup.raid.name,
-            onlineFarm
-          );
+          // Practice advances no quest.
+          if (!view.practice) {
+            postRaidWinQuests(
+              questBus,
+              { ...view, elite: setup.elite, feats: outcome.feats },
+              setup.raid.name,
+              onlineFarm
+            );
+          }
           tutorial?.onRaidResolved(); // finish post-win if the quest event did not
           // Any quest that completed during the battle celebrates now, on the farm.
           flushQuestCompletions();

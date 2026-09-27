@@ -1,3 +1,4 @@
+import { effectiveUnlockLevel } from "../../src/raid/practice";
 // Server-side raid reward economics. Mirrors the reward-relevant fields of
 // public/assets/raids/raids.json and the client's winGold() (src/raid/RaidCatalog.ts),
 // so the SERVER computes the base win gold + first-clear XP instead of trusting the
@@ -70,8 +71,10 @@ export const MAX_RAID_WINS = 100_000;
  *  derived from server-owned xp, never client-sent — without this a level-1 account could
  *  invade raid 9 (5000 gold + 1200 bonus + 5500 first-clear XP, unlock level 43) and,
  *  since XP drives level-up brains, convert a fabricated win into premium currency. */
-export function raidUnlocked(r: RaidEcon, level: number): boolean {
-  return r.playable && level >= r.unlockLevel;
+export function raidUnlocked(r: RaidEcon, level: number, raidId?: number): boolean {
+  // Practice (src/raid/practice.ts) opens the four dual invasions early.
+  const unlock = raidId === undefined ? r.unlockLevel : effectiveUnlockLevel({ id: raidId, unlockLevel: r.unlockLevel });
+  return r.playable && level >= unlock;
 }
 
 function clamp01(n: number): number {

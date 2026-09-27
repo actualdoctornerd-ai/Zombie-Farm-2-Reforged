@@ -39,7 +39,7 @@ import {
 } from "./prefs";
 import { fmtCooldown, MCDONNELL_ID, VOUCHER_KEY } from "./raid/RaidCatalog";
 import { BRAIN_TICKET_KEY } from "./raid/eliteInvasion";
-import { acceptsBrainTicket, tierNote } from "./raid/dualInvasion";
+import { acceptsBrainTicket, TIER_LADDER, tierNote } from "./raid/dualInvasion";
 import { marketPageSize } from "./marketPageSize";
 import { veterancy } from "./zombie/traits";
 import { COMBINE_SPECIAL_LEVEL } from "./zombie/combineSpecies";
@@ -6063,11 +6063,13 @@ export class Hud {
         // The XP the NEXT win pays: the big one-time first-clear bonus while it is still
         // unclaimed, then the per-raid repeat trickle from then on. Only ever one of the
         // two — they never stack, so advertising both would overstate the reward.
-        (c.firstClearXp > 0
-          ? ` · First clear: ${c.firstClearXp} XP`
-          : c.repeatXp > 0
-            ? ` · ${c.repeatXp} XP per win`
-            : "") +
+        (c.practice
+          ? " · <b>Practice</b>: no rewards, no losses, no cooldown"
+          : c.firstClearXp > 0
+            ? ` · First clear: ${c.firstClearXp} XP`
+            : c.repeatXp > 0
+              ? ` · ${c.repeatXp} XP per win`
+              : "") +
         `</div>`;
       hero.append(por, info);
 
@@ -6098,13 +6100,21 @@ export class Hud {
         return v;
       };
 
+      // PRACTICE (raid/practice.ts): nothing to win, so show what the fight IS instead —
+      // every rung of the ladder, in words.
+      if (c.practice) {
+        dropRow("Practice").textContent =
+          "A test run with your real army. Nobody is lost, nothing is paid, and it does not " +
+          "use your invasion cooldown. Every tier is open — pick one on the next screen.";
+        rewards.appendChild(tierLadderList(c.id, 0));
+      }
       const tiers = c.brainOdds.tiers
         .map((t) => `${t.amount} ${t.amount === 1 ? "brain" : "brains"} ${pctOdds(t.chance)}`)
         .join(" · ");
-      dropRow("Brains").textContent =
+      if (!c.practice) dropRow("Brains").textContent =
         `${pctOdds(c.brainOdds.chance)} per boss win (${tiers})` +
         (acceptsBrainTicket(c.id) ? ` · ${pctOdds(c.eliteBrainOdds.chance)} on a Brain Ticket` : "");
-      if (c.zombieDrop) {
+      if (c.zombieDrop && !c.practice) {
         // A story invasion adds a promoted prize on a Brain Ticket (Deputy -> Sheriff), so
         // the elite half quotes both: this zombie at 4x, PLUS the rarer one. Everywhere else
         // there is only the one zombie, at 4x.
@@ -6114,7 +6124,7 @@ export class Hud {
           (promoted ? ` plus ${c.zombieDrop.eliteName} ${pctOdds(c.zombieDrop.eliteRate)} on a` : " on a") +
           " Brain Ticket · Golden Dice raise it";
       }
-      const boostVal = dropRow("Boosts");
+      const boostVal = c.practice ? document.createElement("span") : dropRow("Boosts");
       if (!c.boostDrops.length) {
         boostVal.textContent = "None";
       } else {
@@ -6162,6 +6172,10 @@ export class Hud {
         if (!c.unlocked) {
           go.textContent = c.lockReason || "Locked";
           go.disabled = true;
+        } else if (c.practice) {
+          // Practice uses no cooldown and spends nothing.
+          go.textContent = "Practice";
+          go.disabled = !canFight;
         } else if (cd > 0) {
           // A dual invasion refuses a Brain Ticket (dualInvasion.ts), so it can never be
           // the cooldown door here either — the voucher branch below is the only skip.
@@ -6241,7 +6255,9 @@ export class Hud {
       if (c.portrait) thumb.style.backgroundImage = `url(${c.portrait})`;
       const txt = document.createElement("div");
       const sub = c.unlocked
-        ? `<div class="rd-cl">Rec. Lv ${c.recommendedLevel}${eliteAdvice(c, false)}</div>`
+        ? c.practice
+          ? `<div class="rd-cl">Practice · every tier open</div>`
+          : `<div class="rd-cl">Rec. Lv ${c.recommendedLevel}${eliteAdvice(c, false)}</div>`
         : `<div class="rd-cl lock">${c.lockReason}</div>`;
       txt.innerHTML = `<div class="rd-cn">${c.name}</div>${sub}`;
       card.append(thumb, txt);
@@ -6335,7 +6351,8 @@ export class Hud {
     // Battle consumables for this raid: Concentration (skip the focus minigame) +
     // Golden Dice (each raises the loot to a rarer tier, capped by the raid's tier depth)
     // + the Brain Ticket (elite invasion, quadrupled brain odds).
-    const boosts = this.getRaidBoosts
+    // Practice (raid/practice.ts) spends nothing, so it offers no consumables at all.
+    const boosts = this.getRaidBoosts && !raid.practice
       ? this.getRaidBoosts(raid.id)
       : { concentration: 0, dice: 0, maxDice: 0, brainTickets: 0 };
     const diceMax = Math.min(boosts.dice, boosts.maxDice);
@@ -6344,7 +6361,8 @@ export class Hud {
     let useBrainTicket = armElite && boosts.brainTickets > 0 && acceptsBrainTicket(raid.id);
     // A dual invasion opens on the highest rung this farm has reached, which is the one a
     // returning player wants nine times out of ten. Every rung below it stays selectable.
-    let tierChosen = raid.tiers > 0 ? Math.max(1, raid.tierUnlocked) : 0;
+    // Practice opens on the bottom rung: every rung is open, and a tester should climb.
+    let tierChosen = raid.tiers > 0 ? (raid.practice ? 1 : Math.max(1, raid.tierUnlocked)) : 0;
     const launchOpts = (): RaidLaunchOpts => ({
       useVoucher,
       concentration: useConcentration,
@@ -6436,6 +6454,8 @@ export class Hud {
       const tierBtns: HTMLButtonElement[] = [];
       const tierNoteEl = document.createElement("div");
       tierNoteEl.className = "raid-tier-note";
+      const tierListEl = document.createElement("div");
+      tierListEl.className = "raid-tier-listwrap";
       const drawTiers = () => {
         tierBtns.forEach((btn, i) => {
           const rung = i + 1;
@@ -6447,6 +6467,8 @@ export class Hud {
         });
         const note = tierNote(raid.id, tierChosen);
         tierNoteEl.textContent = note ? `Tier ${tierChosen} adds: ${note}` : "";
+        // The whole ladder, with every rung in force at the chosen tier marked.
+        tierListEl.replaceChildren(tierLadderList(raid.id, tierChosen));
       };
       for (let rung = 1; rung <= raid.tiers; rung++) {
         const btn = document.createElement("button");
@@ -6456,7 +6478,7 @@ export class Hud {
         tierBtns.push(btn);
         tierWrap.appendChild(btn);
       }
-      tierWrap.appendChild(tierNoteEl);
+      tierWrap.append(tierNoteEl, tierListEl);
       drawTiers();
       boostRow.appendChild(tierWrap);
     }
@@ -6723,12 +6745,19 @@ export class Hud {
 
     const GOLD_ICON = `<img class="rr-i" src="${UI("topbar_money_icon.png")}">`;
     const BRAIN_ICON = `<img class="rr-i" src="${UI("topbar_brain_icon.png")}">`;
-    const rows: [string, string, string][] = [
-      ["Enemies Beaten", String(view.enemiesBeaten), ""],
-      ["Zombies Lost", String(view.zombiesLost), ""],
-      ["Gold Plundered", String(view.gold), GOLD_ICON],
-      ["Brains Plundered", String(view.brains), BRAIN_ICON],
-    ];
+    // Practice (raid/practice.ts) pays nothing and loses nobody, so its panel reports only
+    // what the fight WOULD have cost — that number is the feedback it exists to collect.
+    const rows: [string, string, string][] = view.practice
+      ? [
+        ["Enemies Beaten", String(view.enemiesBeaten), ""],
+        ["Would Have Lost", String(view.zombiesLost), ""],
+      ]
+      : [
+        ["Enemies Beaten", String(view.enemiesBeaten), ""],
+        ["Zombies Lost", String(view.zombiesLost), ""],
+        ["Gold Plundered", String(view.gold), GOLD_ICON],
+        ["Brains Plundered", String(view.brains), BRAIN_ICON],
+      ];
     // XP, under whichever of the two rules paid it: the one-time first-clear bonus
     // ("You earned Nxp for beating this enemy for the first time.") or the per-raid
     // trickle every later win pays. Labelled apart because the amounts overlap — the
@@ -6754,11 +6783,13 @@ export class Hud {
             })
             .join("")}</div>`
         : `<div class="rr-loot-none">—</div>`);
-    const extra = view.abilityUnlock ? `<div class="rr-unlock">${view.abilityUnlock}</div>` : "";
+    const extra = view.practice
+      ? `<div class="rr-unlock">Practice run — every zombie came home, and nothing was paid or spent.</div>`
+      : view.abilityUnlock ? `<div class="rr-unlock">${view.abilityUnlock}</div>` : "";
 
     panel.innerHTML =
       `<div class="rr-title ${view.win ? "win" : "lose"}">${view.title}</div>` +
-      `<div class="rr-body">${rowHtml}${lootHtml}${extra}</div>`;
+      `<div class="rr-body">${rowHtml}${view.practice ? "" : lootHtml}${extra}</div>`;
 
     const done = document.createElement("button");
     done.className = "rr-go";
@@ -7130,4 +7161,21 @@ export function deleteRefusalCopy(code: string): string {
         ? "The server couldn't delete the farm. The error has been recorded — try again later."
         : "Couldn't delete the farm. Try again in a moment.";
   }
+}
+
+/** A dual invasion's whole tier ladder as a list: what every rung adds, with the rungs in
+ *  force at `chosen` marked (0 marks none). Read by the invasion card and the Army screen's
+ *  tier picker, from dualInvasion.TIER_LADDER. */
+function tierLadderList(raidId: number, chosen: number): HTMLElement {
+  const list = document.createElement("ol");
+  list.className = "raid-tier-list";
+  (TIER_LADDER[raidId] ?? []).forEach((line, i) => {
+    const item = document.createElement("li");
+    const rung = i + 1;
+    if (chosen > 0 && rung <= chosen) item.classList.add("in");
+    if (rung === chosen) item.classList.add("chosen");
+    item.textContent = `T${rung} — ${line}`;
+    list.appendChild(item);
+  });
+  return list;
 }
