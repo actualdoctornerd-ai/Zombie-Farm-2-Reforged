@@ -1198,7 +1198,7 @@ import type { RaidOutcome } from "./types";
 // nearest un-stunned Garden on the ringmaster's left (the lash still lands on the nearest
 // zombie there) and his reach is 440 (was 380, which left the healer line at x~250 just out
 // of it); iron will is 1.5 bars draining 0.1/s (was 3 at 0.4/s, which no army ever broke);
-// the captain carries 120,000 from t9; Aliens & Robots' bulk is x0.85 from t6; and raid 12's
+// the captain carries 120,000 from t9; and raid 12's
 // severe rulings (1.5 / 0.65 / 1.4) and farmer mob (x1.5) are softer.
 //
 // AN ARMY DOWN TO ITS GARDENS HAS LOST, on EVERY fight (owner, 2026-09-27): once nothing

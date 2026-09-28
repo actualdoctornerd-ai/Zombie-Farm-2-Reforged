@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { composeFight } from "./composeFight";
 import {
-  dualBossHp, dualBulk, DUAL_DAMAGE_STEP, DUAL_INVASION_IDS, DUAL_SETTLE_REFERENCE_DPS, DUAL_SPEED_STEP,
+  dualBossHp, DUAL_DAMAGE_STEP, DUAL_INVASION_IDS, DUAL_SETTLE_REFERENCE_DPS, DUAL_SPEED_STEP,
   DUAL_TIME_LIMIT_MS, DUAL_WAVE_HP, MAX_TIER, MIN_TIER, raidProfile, STAT_TIERS, statSteps, tierProfile,
 } from "./dualInvasion";
 import { fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
@@ -88,9 +88,8 @@ describe("the tier ladder", () => {
         const units = waveOnly(fightAt(raid, rung));
         const bossHp = units.filter((u) => u.isBoss).reduce((sum, u) => sum + u.maxHp, 0);
         expect(totalHp(units) - bossHp, `raid ${raid.id} t${rung} wave`)
-          .toBeCloseTo(DUAL_WAVE_HP * dualBulk(raid.id, rung), -3.7); // within ~2,500 points
-        expect(bossHp, `raid ${raid.id} t${rung} boss`)
-          .toBeCloseTo(dualBossHp(raid.id) * dualBulk(raid.id, rung), -3.4);
+          .toBeCloseTo(DUAL_WAVE_HP, -3.7); // within ~2,500 points
+        expect(bossHp, `raid ${raid.id} t${rung} boss`).toBeCloseTo(dualBossHp(raid.id), -3.4);
       }
     }
   });

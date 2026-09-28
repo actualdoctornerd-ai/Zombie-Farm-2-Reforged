@@ -189,11 +189,10 @@ export function tierProfile(raidId: number, tier: number): EliteProfile {
   // BULK cannot be one multiplier across four waves this different — see DUAL_BASE_HP —
   // so `con` is solved backwards from the flat hit-point target.
   const base = DUAL_BASE_HP[raidId] ?? DUAL_BASE_HP[SIGN_RAID_ID];
-  const bulk = dualBulk(raidId, tier);
   return {
     str: DUAL_BASE_STR * damage,
-    con: (DUAL_WAVE_HP * bulk) / base.wave,
-    bossCon: (dualBossHp(raidId) * bulk) / base.boss,
+    con: DUAL_WAVE_HP / base.wave,
+    bossCon: dualBossHp(raidId) / base.boss,
     dex: 1 * speed,
     throwDamage: DUAL_BASE_THROW * damage,
     throwRate: 1.15 * speed,
@@ -224,20 +223,6 @@ export const DUAL_KEY_BOSS_HP: Readonly<Record<number, number>> = {
 };
 export function dualBossHp(raidId: number): number {
   return DUAL_KEY_BOSS_HP[raidId] ?? DUAL_BOSS_HP;
-}
-
-/** A per-invasion trim on the flat bulk from a rung up (2026-09-27 tuning). Aliens & Robots
- *  clocked out 25-47% of the time on t6-t10 against real level-45 armies even on the six-
- *  minute clock, while its casts were already landing (all 3 cancels spent by t5, ~29 casts a
- *  fight at t10) — so the bulk there bought clock-outs, not casts. Lands on t6, a stat rung,
- *  alongside its damage step. */
-export const DUAL_UPPER_TRIM: Readonly<Record<number, { fromTier: number; mult: number }>> = {
-  15: { fromTier: 6, mult: 0.85 },
-};
-/** The bulk multiplier on the flat target at this rung (1 below any trim). */
-export function dualBulk(raidId: number, tier: number): number {
-  const trim = DUAL_UPPER_TRIM[raidId];
-  return trim && clampTier(tier) >= trim.fromTier ? trim.mult : 1;
 }
 
 /** The base enemy damage every rung starts from (before the per-raid base and the stat
