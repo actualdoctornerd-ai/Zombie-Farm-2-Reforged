@@ -5473,13 +5473,19 @@ export class BattleSim {
     if (nearest && nearest.alive) this.dealDamage(nearest, MEGA_KILL_SHOT, false);
   }
 
-  /** Player tapped the Mega-Robot's eyes: one tap of damage (rate-limited like the other
-   *  rescue hazards). Emptying the hitbox cancels the pending shot (state 4). Only the
-   *  lit eyes are tappable — the source releases the hitbox the instant it fires. */
+  /** Player tapped the Mega-Robot's eyes: one tap of damage. Emptying the hitbox cancels
+   *  the pending shot (state 4). Only the lit eyes are tappable — the source releases the
+   *  hitbox the instant it fires.
+   *
+   *  NOT rate-limited. The source's eye box takes every `ccTouchEnded:` (no `tapDelay` —
+   *  that belongs to the trapeze and crab), and borrowing their 250 ms gate made the robot
+   *  near-unbeatable on a phone: a finger tapping a little faster than 4/s has every
+   *  other tap land inside the gate, so 12 taps took ~5 s of an 8 s fuse whose eyes only
+   *  light up ~3 s in — and could not fit the 4 s enraged fuse at all. Player report
+   *  2026-09-28: "tapping quite a bit" and the blast still fires. */
   tapMegaBotEyes(): boolean {
     const m = this.megaBot;
-    if (!m || m.phase !== "charge" || m.tapCdMs > 0) return false;
-    m.tapCdMs = this.hazardTapCooldownMs;
+    if (!m || m.phase !== "charge") return false;
     m.eyeHp = Math.max(0, m.eyeHp - m.tapDamage);
     m.eyeHits++;
     if (m.eyeHp <= 0) {

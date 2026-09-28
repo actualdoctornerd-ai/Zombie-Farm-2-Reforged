@@ -85,12 +85,14 @@ describe("Mega-Robot hazard", () => {
     expect(dead(sim)).toBe(0);
   });
 
-  it("the eyes can only be tapped while they are charging, at the rescue-tap pace", () => {
+  it("the eyes can only be tapped while they are charging, and every tap counts", () => {
     const sim = fight(EYES);
     expect(sim.tapMegaBotEyes()).toBe(false); // still hidden
     run(sim, 20_100);
     expect(sim.tapMegaBotEyes()).toBe(true);
-    expect(sim.tapMegaBotEyes()).toBe(false); // inside the 250 ms tap gate
+    // No rescue-hazard tap gate: the source's eye box takes every touch.
+    expect(sim.tapMegaBotEyes()).toBe(true);
+    expect(sim.megaBot!.eyeHp).toBe(2400 - 2 * 200);
     run(sim, 8_000); // fuse ran out → in flight
     expect(sim.megaBot!.phase).toBe("fire");
     expect(sim.tapMegaBotEyes()).toBe(false);
