@@ -349,7 +349,7 @@ barred in two consecutive slots (under Precedent that would bench it for 16 s).
 | t7 | The ninja's projectiles briefly stun on hit |
 | t8 | stat |
 | t9 | **Smoke swap**: while the captain is out, the two bosses trade places by smoke bomb every 8 s. At low health the ninja retreats up top, stops attacking, and cannot be killed until the rest of the enemies are |
-| t10 | **Iron Will**: stopping the captain needs several times more stun, and the poise bar drains unless it keeps being filled, so the stuns must land together |
+| t10 | **Iron Will**: stopping the captain needs 1.5x the stun (first tuned at 3x, which no army broke), and the poise bar drains unless it keeps being filled, so the stuns must land together |
 
 The smoke-bomb pushback must not throw healers at the rear station, or zombies still in the
 deploy queue, off the lane.
@@ -368,7 +368,7 @@ stop to fight whatever stands there), the trapeze drop, and the pixel fire.
 
 | tier | change |
 |---|---|
-| t1 | **The ringmaster** in the middle. His whip strikes the nearest zombie on his LEFT (the healer side); with nothing there, he whips the front line. The whip stuns **Garden zombies only**, and merely damages anything else |
+| t1 | **The ringmaster** in the middle. His whip strikes the nearest zombie on his LEFT (the healer side); with nothing there, he whips the front line. The whip stuns **Garden zombies only**, and merely damages anything else. Its crack stuns the nearest Garden on his left within reach even when the lash lands on someone else — otherwise the healers at the back are never touched |
 | t2 | stat |
 | t3 | **The trapeze artist** grabs a zombie and swings with it. Tapping the artist drops the zombie wherever the swing is, so the player picks the position |
 | t4 | stat |

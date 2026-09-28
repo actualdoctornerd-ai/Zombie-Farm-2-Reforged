@@ -189,10 +189,11 @@ export function tierProfile(raidId: number, tier: number): EliteProfile {
   // BULK cannot be one multiplier across four waves this different — see DUAL_BASE_HP —
   // so `con` is solved backwards from the flat hit-point target.
   const base = DUAL_BASE_HP[raidId] ?? DUAL_BASE_HP[SIGN_RAID_ID];
+  const bulk = dualBulk(raidId, tier);
   return {
     str: DUAL_BASE_STR * damage,
-    con: DUAL_WAVE_HP / base.wave,
-    bossCon: dualBossHp(raidId) / base.boss,
+    con: (DUAL_WAVE_HP * bulk) / base.wave,
+    bossCon: (dualBossHp(raidId) * bulk) / base.boss,
     dex: 1 * speed,
     throwDamage: DUAL_BASE_THROW * damage,
     throwRate: 1.15 * speed,
@@ -223,6 +224,20 @@ export const DUAL_KEY_BOSS_HP: Readonly<Record<number, number>> = {
 };
 export function dualBossHp(raidId: number): number {
   return DUAL_KEY_BOSS_HP[raidId] ?? DUAL_BOSS_HP;
+}
+
+/** A per-invasion trim on the flat bulk from a rung up (2026-09-27 tuning). Aliens & Robots
+ *  clocked out 25-47% of the time on t6-t10 against real level-45 armies even on the six-
+ *  minute clock, while its casts were already landing (all 3 cancels spent by t5, ~29 casts a
+ *  fight at t10) — so the bulk there bought clock-outs, not casts. Lands on t6, a stat rung,
+ *  alongside its damage step. */
+export const DUAL_UPPER_TRIM: Readonly<Record<number, { fromTier: number; mult: number }>> = {
+  15: { fromTier: 6, mult: 0.85 },
+};
+/** The bulk multiplier on the flat target at this rung (1 below any trim). */
+export function dualBulk(raidId: number, tier: number): number {
+  const trim = DUAL_UPPER_TRIM[raidId];
+  return trim && clampTier(tier) >= trim.fromTier ? trim.mult : 1;
 }
 
 /** The base enemy damage every rung starts from (before the per-raid base and the stat
@@ -456,9 +471,11 @@ export const SEVERE_TIER = 9;
 export const PRECEDENT_TIER = 10;
 
 /** What the scalar rulings do, ordinary and severe (t9+). Placeholders until tuning. */
-export const RULING_SLOW = { normal: 1.35, severe: 1.6 };      // ally attack interval x
-export const RULING_WEAKEN = { normal: 0.75, severe: 0.6 };    // ally damage x
-export const RULING_EMBOLDEN = { normal: 1.3, severe: 1.5 };   // enemy damage x
+// Severe softened 2026-09-27 (was 1.6 / 0.6 / 1.5): Lawyers fell off faster than the other
+// three from t7, down to 31% at t9 and 4-6% loss-less, with t10 still to come.
+export const RULING_SLOW = { normal: 1.35, severe: 1.5 };      // ally attack interval x
+export const RULING_WEAKEN = { normal: 0.75, severe: 0.65 };   // ally damage x
+export const RULING_EMBOLDEN = { normal: 1.3, severe: 1.4 };   // enemy damage x
 
 /** What one bubble contains: the ruling(s) that come into force if the player picks it. */
 export type SignOption = readonly Ruling[];
@@ -567,7 +584,8 @@ export function rulingsFor(offer: SignOffer, pick: number): Ruling[] {
 export const FARMER_SQUAD_LEADER = "FarmStageActorBoss";
 export const FARMER_SQUAD_MINION = "FarmStageActorFarmhand";
 export const FARMER_SQUAD_MINIONS = 6;
-export const FARMER_MOB_HP_MULT = 2;
+/** 1.5x since 2026-09-27 (was 2x) — the t7 cliff, see RULING_SLOW. */
+export const FARMER_MOB_HP_MULT = 1.5;
 /** Fraction of the wave that must be down before the mob walks on. */
 export const MIDPOINT_WAVE_FRAC = 0.5;
 
@@ -635,6 +653,13 @@ export const CHARGE_DAMAGE = 500;
  *  the old bulk a level-45 army killed him in 3.5 s, before his first 8 s wind-up finished.
  *  Flat across the ladder. */
 export const CAPTAIN_HP = 150_000;
+/** From the swap rung (t9) up he is lighter (2026-09-27): t9-t10 clocked out a third of the
+ *  time on the six-minute clock, with smoke swaps and iron will stretching his phase. */
+export const CAPTAIN_HP_UPPER = 120_000;
+/** The captain's hit points at this rung. */
+export function captainHpFor(tier: number): number {
+  return clampTier(tier) >= SMOKE_SWAP_TIER ? CAPTAIN_HP_UPPER : CAPTAIN_HP;
+}
 /** How long a broken charge staggers him, and what he takes while staggered. */
 export const STAGGER_MS = 3_000;
 export const STAGGER_DAMAGE_MULT = 1.5;
@@ -651,8 +676,12 @@ export const SMOKE_SWAP_MS = 8_000;
 export const NINJA_RETREAT_FRAC = 0.3;
 
 /** Iron will: the bar is this many times as deep, and drains at this many bars a second. */
-export const IRON_WILL_POISE = 3;
-export const IRON_WILL_DRAIN_PER_SEC = 0.4;
+// 2026-09-27 (was 3 bars, draining 0.4/s): at 3 bars with the drain eating 3.2 of them over
+// the 8 s wind-up, no level-45 army broke a single t10 charge (7.6 slams, 0 breaks a fight).
+// 1.5 bars at 0.1/s: three Smashes, or a Smash and a fuse or ram — a build decision, not a
+// wall. (2 bars at 0.15/s still broke only 0.1 charges a fight.)
+export const IRON_WILL_POISE = 1.5;
+export const IRON_WILL_DRAIN_PER_SEC = 0.1;
 
 export interface ChargeConfig {
   /** Wind-up length. */
@@ -792,7 +821,9 @@ export const RINGMASTER_DROP_AFTER_PAST = 3;
 export const RINGMASTER_DROP_LATEST_MS = 30_000;
 export const RINGMASTER_STATION_X = 640;
 /** How far his whip reaches either way, and how long it holds a Garden zombie. */
-export const WHIP_REACH = 380;
+// 440 since 2026-09-27 (was 380): deployed Gardens hold at x~250, 390 behind his station at
+// 640, so at 380 the whole healer line stood just outside the lash.
+export const WHIP_REACH = 440;
 export const WHIP_STUN_MS = 1_500;
 
 /** The trapeze: how often an artist comes for a zombie, and how long it swings before it

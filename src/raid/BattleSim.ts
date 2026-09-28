@@ -3300,9 +3300,14 @@ export class BattleSim {
     }
     u.struckThisTick = true;
     this.attacksLanded++;
-    // The ringmaster's whip stuns GARDEN zombies (raid 14) — the healer stack's tax.
-    if (this.bigTop && u === this.boss && foe.alive && foe.isGarden) {
-      foe.stunMs = Math.max(foe.stunMs, this.bigTop.whipGardenStunMs);
+    // The ringmaster's whip stuns GARDEN zombies (raid 14) — the healer stack's tax. The lash
+    // lands on the nearest zombie on his left (whipTarget); its CRACK stuns a Garden within
+    // reach on that side — the one struck if it is one, else the nearest not already held.
+    // Measured 2026-09-27: keyed on the struck zombie alone, Gardens spent 0-1.5 s a fight
+    // stunned, because the nearest zombie on his left is almost never the healer at the back.
+    if (this.bigTop && u === this.boss) {
+      const garden = foe.alive && foe.isGarden ? foe : this.whipGarden(u);
+      if (garden) garden.stunMs = Math.max(garden.stunMs, this.bigTop.whipGardenStunMs);
     }
     if (u.team === "enemy" && foe.alive && foe.team === "player") {
       // Enemy attack effects on the struck zombie — BOTH of which `-[Actor damageIn:]`
@@ -3675,6 +3680,20 @@ export class BattleSim {
       }
     }
     return left ?? right;
+  }
+
+  /** The Garden the whip's crack holds (raid 14): the nearest one on the ringmaster's LEFT,
+   *  within reach, that is not already stunned. Null when there is none. */
+  private whipGarden(e: SimUnit): SimUnit | null {
+    const reach = this.bigTop?.whipReach ?? 0;
+    let best: SimUnit | null = null;
+    for (const p of this.players) {
+      if (!p.alive || !p.isGarden || p.taken || p.stunMs > 0) continue;
+      if (p.state !== "advance" && p.state !== "fight") continue;
+      if (p.x >= e.x - 0.5 || e.x - p.x > reach) continue;
+      if (!best || p.x > best.x) best = p;
+    }
+    return best;
   }
 
   /** The zombies on the lane the big top can reach: deployed, not carried, not converted. */

@@ -1194,6 +1194,13 @@ import type { RaidOutcome } from "./types";
 // absolute six-minute ceiling. The input cap rose 512 -> 768 and the transcript byte cap
 // 32 KB -> 48 KB for the longer fights.
 //
+// The second pass on the six-minute clock (2026-09-27): the whip's CRACK now stuns the
+// nearest un-stunned Garden on the ringmaster's left (the lash still lands on the nearest
+// zombie there) and his reach is 440 (was 380, which left the healer line at x~250 just out
+// of it); iron will is 1.5 bars draining 0.1/s (was 3 at 0.4/s, which no army ever broke);
+// the captain carries 120,000 from t9; Aliens & Robots' bulk is x0.85 from t6; and raid 12's
+// severe rulings (1.5 / 0.65 / 1.4) and farmer mob (x1.5) are softer.
+//
 // Every transcript on raids 12-15 at every rung replays differently from v65.
 export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;

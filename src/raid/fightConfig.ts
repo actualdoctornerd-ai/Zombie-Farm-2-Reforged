@@ -30,7 +30,7 @@ import type {
 import { turnedUnitFor } from "./videoGameStage";
 import { buildUnitsForKeys } from "./CombatEngine";
 import {
-  CAPTAIN_HP, chargeFor, FARMER_MOB_HP_MULT, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
+  captainHpFor, chargeFor, FARMER_MOB_HP_MULT, FARMER_MOB_TIER, FARMER_SQUAD_LEADER, FARMER_SQUAD_MINION, FARMER_SQUAD_MINIONS, MIDPOINT_WAVE_FRAC,
   BUBBLE_RAID_ID, BUBBLE_ROBOT_KEY,
   BIG_TOP_RAID_ID, SIGN_RAID_ID,
 } from "./dualInvasion";
@@ -318,7 +318,7 @@ export function pirateCaptainFor(
   return unit
     ? [{
       ...unit, id: "captain", charge, deployAtWaveFrac: MIDPOINT_WAVE_FRAC,
-      hp: CAPTAIN_HP, maxHp: CAPTAIN_HP, con: Math.round(CAPTAIN_HP / 100),
+      hp: captainHpFor(tier), maxHp: captainHpFor(tier), con: Math.round(captainHpFor(tier) / 100),
     }]
     : [];
 }
