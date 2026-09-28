@@ -16,6 +16,7 @@ import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
 import { acceptsBrainTicket } from "../../../src/raid/dualInvasion";
 import { effectiveUnlockLevel, isPracticeRaid } from "../../../src/raid/practice";
 import { settleRaidZombieDrop, RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
+import { settleBossStatue } from "../../../src/raid/bossStatues";
 import { raidFeatQuestEvents } from "../../../src/raid/featQuestEvents";
 import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
@@ -599,7 +600,15 @@ export async function finishRaid(
     // once (see ownedLootCounter) and the rarest tier walks down to a repeatable one
     // afterwards. Reading Received alone made every unique re-droppable the moment it was
     // claimed, which is exactly when it leaves Received.
-    const name = rollLoot(raidId, boosts.dice ?? 0, ownedLootCounter(core.storage, objects), Math.random(), Math.random());
+    //
+    // A Boss Statue settles first and REPLACES the drop when it pays (src/raid/bossStatues.ts):
+    // handed over at the 15th / 50th win, then a 2% / 1% chance. Its "handed over" flags ride
+    // in zombieDry (written back below with the rare-zombie streaks), and the win count is
+    // the server's own progress, already advanced for this win above.
+    const statue = settleBossStatue(raidId, progress[String(raidId)], zombieDry, Math.random(), Math.random());
+    Object.assign(zombieDry, statue.flags);
+    const name = statue.drop
+      ?? rollLoot(raidId, boosts.dice ?? 0, ownedLootCounter(core.storage, objects), Math.random(), Math.random());
     const grant = resolveLoot(name, econ.recLevel);
     if (grant.kind === "gold") { lootGold = grant.gold; loot = { name: grant.name, kind: "gold" }; }
     else if (grant.kind === "boost") {

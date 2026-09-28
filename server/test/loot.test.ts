@@ -4,6 +4,11 @@ import { EPIC_BOSSES } from "../../src/epicBoss/catalog";
 import { RAID_LOOT, dropEcon, raidLoot } from "../src/raidLootCatalog";
 import { rollLootTier } from "../../src/raid/LootTable";
 import { raidBoostBundle } from "../../src/raid/lootBundles";
+import {
+  BOSS_STATUES, BOSS_STATUE_RATE, BOSS_STATUE_WINS, GOLDEN_STATUE_RATE, GOLDEN_STATUE_WINS,
+  bossStatueFor, settleBossStatue, statueFlagKey,
+} from "../../src/raid/bossStatues";
+import placeables from "../../public/assets/placeables.json";
 
 const none = () => 0;
 
@@ -157,6 +162,111 @@ describe("rollLoot — server roll over the raid's tiers", () => {
   });
 });
 
+describe("faction banners — repeatable, rarer once owned", () => {
+  const BANNERS = ["Farmer Banner", "Corporate Banner", "Pirate Banner", "Ninja Banner",
+    "Robot Banner", "Alien Banner", "Pixel Banner"];
+  const ownBanner = (n: string) => (n.endsWith(" Banner") ? 1 : 0);
+
+  it("are no longer unique, and carry a repeat weight", () => {
+    for (const name of BANNERS) {
+      expect(dropEcon(name), name).toMatchObject({ unique: false, repeatWeight: 0.25 });
+      expect(lootEligible(name, ownBanner), name).toBe(true);
+    }
+  });
+
+  it("drops the FIRST banner exactly as before", () => {
+    // raid 1 tier 3 = ["Farmer Banner"]; roll 0.85 lands in tier 3 at B=0.
+    expect(rollLoot(1, 0, none, 0.85, 0.9)).toBe("Farmer Banner");
+  });
+
+  it("keeps only a quarter of a pick once owned; the rest walks down a tier", () => {
+    expect(rollLoot(1, 0, ownBanner, 0.85, 0.1)).toBe("Farmer Banner");
+    // Past the banner's quarter the pick is rescaled onto tier 2 (Insta-Plow / -Harvest).
+    expect(rollLoot(1, 0, ownBanner, 0.85, 0.5)).toBe("Insta-Plow");
+    expect(rollLoot(1, 0, ownBanner, 0.85, 0.9)).toBe("Insta-Harvest");
+  });
+
+  it("shares a mixed tier by weight: an owned banner is 1 in 5 beside a full entry", () => {
+    // raid 5 tier 3 = ["Robot Banner", "Broken Tractor"] -> weights 0.25 : 1.
+    expect(rollLoot(5, 0, ownBanner, 0.85, 0.1)).toBe("Robot Banner");
+    expect(rollLoot(5, 0, ownBanner, 0.85, 0.3)).toBe("Broken Tractor");
+    expect(rollLoot(5, 0, none, 0.85, 0.3)).toBe("Robot Banner"); // un-owned: an even split
+  });
+});
+
+describe("Boss Statues — 15-win stone, 50-win golden, then 2% / 1%", () => {
+  const byKey = new Set((placeables as { key: string }[]).map((row) => row.key));
+  const MISS = 0.999;
+  const HIT = 0; // lands inside any positive rate
+
+  it("has a claimable drop and a real placeable for both kinds, on raids 1-11", () => {
+    for (let id = 1; id <= 11; id++) {
+      const s = BOSS_STATUES[id];
+      expect(s, `raid ${id}`).toBeDefined();
+      for (const [name, tile] of [[s.name, s.tile], [s.goldenName, s.goldenTile]]) {
+        expect(dropEcon(name), name).toMatchObject({ unique: false, tile });
+        expect(byKey.has(tile), tile).toBe(true);
+      }
+    }
+  });
+
+  it("carves nothing for the dual invasions yet", () => {
+    for (const id of [12, 13, 14, 15]) {
+      expect(bossStatueFor(id)).toBeNull();
+      expect(settleBossStatue(id, 99, {}, HIT, HIT).drop).toBeNull();
+    }
+  });
+
+  it("pays nothing, not even by chance, before the 15th win", () => {
+    for (let wins = 1; wins < BOSS_STATUE_WINS; wins++)
+      expect(settleBossStatue(1, wins, {}, HIT, HIT).drop).toBeNull();
+  });
+
+  it("hands the stone statue over on the 15th win, and flags it", () => {
+    const s = settleBossStatue(1, BOSS_STATUE_WINS, {}, MISS, MISS);
+    expect(s.drop).toBe("Old McDonnell Statue");
+    expect(s.flags[statueFlagKey(1, false)]).toBe(1);
+  });
+
+  it("then pays it at 2% a win — and never re-grants the milestone, even if sold", () => {
+    const flags = { [statueFlagKey(1, false)]: 1 };
+    expect(settleBossStatue(1, 16, flags, MISS, BOSS_STATUE_RATE - 0.001).drop).toBe("Old McDonnell Statue");
+    expect(settleBossStatue(1, 16, flags, MISS, BOSS_STATUE_RATE).drop).toBeNull();
+  });
+
+  it("hands the golden statue over on the 50th win, then pays it at 1%", () => {
+    const stone = { [statueFlagKey(1, false)]: 1 };
+    const g = settleBossStatue(1, GOLDEN_STATUE_WINS, stone, MISS, MISS);
+    expect(g.drop).toBe("Golden Old McDonnell Statue");
+    expect(g.flags[statueFlagKey(1, true)]).toBe(1);
+    expect(settleBossStatue(1, 51, g.flags, GOLDEN_STATUE_RATE - 0.001, MISS).drop)
+      .toBe("Golden Old McDonnell Statue");
+    expect(settleBossStatue(1, 51, g.flags, GOLDEN_STATUE_RATE, MISS).drop).toBeNull();
+  });
+
+  it("catches up a veteran one statue per win, stone first", () => {
+    const first = settleBossStatue(3, 120, {}, MISS, MISS);
+    expect(first.drop).toBe("Arrrnold Statue");
+    const second = settleBossStatue(3, 121, first.flags, MISS, MISS);
+    expect(second.drop).toBe("Golden Arrrnold Statue");
+    expect(settleBossStatue(3, 122, second.flags, MISS, MISS).drop).toBeNull();
+  });
+
+  it("keeps the rare-zombie streaks it shares the map with", () => {
+    const s = settleBossStatue(1, BOSS_STATUE_WINS, { "1": 7 }, MISS, MISS);
+    expect(s.flags).toEqual({ "1": 7, [statueFlagKey(1, false)]: 1 });
+  });
+
+  it("stays off the binary's six loot tiers", () => {
+    const statues = new Set(Object.values(BOSS_STATUES).flatMap((s) => [s.name, s.goldenName]));
+    for (const tiers of Object.values(RAID_LOOT))
+      for (const tier of tiers) for (const name of tier) expect(statues.has(name), name).toBe(false);
+  });
+
+  it("resolves to an ordinary Received item", () => {
+    expect(resolveLoot("Golden Zedzox Statue", 43)).toEqual({ kind: "item", name: "Golden Zedzox Statue" });
+  });
+});
 describe("resolveLoot — what a drop becomes", () => {
   it("pays bonus gold for the Bonus Gold entry, scaled by the raid's level", () => {
     expect(bonusGoldFor(5)).toBe(500);

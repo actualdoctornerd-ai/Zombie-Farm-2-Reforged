@@ -11,7 +11,7 @@
 // placeable), so a client naming its own prize is a mint. Note it was ALSO simply broken
 // online — the client's grants routed through the spend-only economy and the removed
 // inventory `grant`, so raid loot silently evaporated. This fixes both.
-import { rollLootTier } from "../../src/raid/LootTable";
+import { rollLootTier, pickLootEntry, lootEntryWeight } from "../../src/raid/LootTable";
 import { raidLoot, dropEcon } from "./raidLootCatalog";
 import { boostKeyForName } from "./boostCatalog";
 import { raidBoostBundle } from "../../src/raid/lootBundles";
@@ -73,25 +73,29 @@ export function ownedLootCounter(
     (tile ? owned.get(tile) ?? 0 : 0);
 }
 
-/** Is this loot entry still allowed to drop? Mirrors the client's eligibleIn(): a
- *  `unique` entry is filtered out once owned at all, and a `limit`ed one once the cap is
- *  reached. An entry with no drops.json metadata is allowed (fail-open matches the
- *  client, and every real entry has metadata). */
-export function lootEligible(name: string, owned: OwnedCount): boolean {
-  if (!name) return false;
+/** An entry's share of an ordinary pick (see LootTable.lootEntryWeight): 0 = may not
+ *  drop (a `unique` owned, a `limit` reached), 1 = normal, a fraction = a REPEAT (an
+ *  owned banner). An entry with no drops.json metadata is allowed (fail-open matches
+ *  the client, and every real entry has metadata). */
+export function lootWeight(name: string, owned: OwnedCount): number {
+  if (!name) return 0;
   const d = dropEcon(name);
-  if (!d) return true;
-  if (d.unique && owned(name) > 0) return false;
-  if (d.limit > 0 && owned(name) >= d.limit) return false;
-  return true;
+  return d ? lootEntryWeight(d, owned(name)) : 1;
+}
+
+/** Is this loot entry still allowed to drop at all? Mirrors the client's filter. */
+export function lootEligible(name: string, owned: OwnedCount): boolean {
+  return lootWeight(name, owned) > 0;
 }
 
 /** Roll one drop for a win of `raidId` with `dice` loot-luck (Golden Dice spent).
  *
  *  `roll` and `pick` are injected uniform [0,1) samples — the caller supplies the SERVER's
- *  RNG (and tests supply fixed values). Mirrors RaidManager.rollLoot: choose the tier,
- *  then pick uniformly among that tier's eligible entries, walking down to commoner tiers
- *  when a tier is exhausted. Returns null when nothing at all is eligible. */
+ *  RNG (and tests supply fixed values). Mirrors RaidManager.rollLoot: choose the tier, then
+ *  pick by weight among that tier's entries, walking down to commoner tiers when a tier is
+ *  exhausted (LootTable.pickLootEntry). Returns null when nothing at all is eligible.
+ *  (A Boss Statue is settled by the caller BEFORE this and replaces the roll — see
+ *  src/raid/bossStatues.ts.) */
 export function rollLoot(
   raidId: number,
   dice: number,
@@ -101,12 +105,7 @@ export function rollLoot(
 ): string | null {
   const table = raidLoot(raidId);
   if (!table) return null;
-  let tier = rollLootTier(roll, dice);
-  for (; tier >= 0; tier--) {
-    const items = (table[tier] ?? []).filter((n) => lootEligible(n, owned));
-    if (items.length) return items[Math.min(items.length - 1, Math.floor(pick * items.length))];
-  }
-  return null;
+  return pickLootEntry(table, rollLootTier(roll, dice), (n) => lootWeight(n, owned), pick);
 }
 
 /** Resolve a rolled drop name into the grant it produces. Order mirrors the client:

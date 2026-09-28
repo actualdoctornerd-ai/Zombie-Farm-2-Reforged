@@ -14,6 +14,8 @@ import json
 import os
 import shutil
 
+import boss_statues
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)                      # zombiefarm/
 EXTRACT = os.path.join(ROOT, "..", "ZF2R_extracted")
@@ -25,6 +27,14 @@ ASSET_DIRS = [
 OUT_DIR = os.path.join(ROOT, "public", "assets", "raids")
 LOOT_DIR = os.path.join(OUT_DIR, "loot")
 EPIC_DIR = os.path.join(ROOT, "public", "assets", "epic-bosses")
+
+# The seven invasion faction banners the source drops only once (see the banner
+# note in main()), and the pick share each keeps after the first copy.
+REPEATABLE_BANNERS = {
+    "Farmer Banner", "Corporate Banner", "Pirate Banner", "Ninja Banner",
+    "Robot Banner", "Alien Banner", "Pixel Banner",
+}
+BANNER_REPEAT_WEIGHT = 0.25
 
 
 def build_index():
@@ -69,6 +79,13 @@ def main():
                      "tile": info.get("tile", ""),
                      "unique": bool(info.get("unique", False)),
                      "limit": int(info.get("limit", 0))}
+        # Design change (not the source's rule): an invasion's faction banner is no
+        # longer one-and-done. After the first it stays on the table as a RARER
+        # repeat — `repeatWeight` is the share of a normal pick it keeps once owned
+        # (see pickLootEntry in src/raid/LootTable.ts).
+        if name in REPEATABLE_BANNERS:
+            out[name]["unique"] = False
+            out[name]["repeatWeight"] = BANNER_REPEAT_WEIGHT
 
     # ---- Epic-boss prizes ---------------------------------------------------
     # Drops.json covers RAID loot only, but an epic-boss prize is claimed through the
@@ -94,6 +111,18 @@ def main():
             out[name] = {"icon": "", "brains": False, "gold": False, "tile": tile,
                          "unique": bool(entry.get("unique", False)), "limit": 0}
             epic += 1
+
+    # ---- Boss Statues --------------------------------------------------------
+    # A reimplementation addition: an invasion milestone prize, stone and golden
+    # (src/raid/bossStatues.ts),
+    # claimed through the same Received -> storage.claim path as any other loot, so
+    # it needs the same drops metadata. Repeatable, and like an epic prize its art
+    # is the placeable its `tile` names (tools/boss_statues.py).
+    for tile, name, _source in boss_statues.STATUES:
+        for t, n in ((tile, name),
+                     (boss_statues.golden_key(tile), boss_statues.golden_name(name))):
+            out[n] = {"icon": "", "brains": False, "gold": False, "tile": t,
+                      "unique": False, "limit": 0}
 
     with open(os.path.join(OUT_DIR, "drops.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)

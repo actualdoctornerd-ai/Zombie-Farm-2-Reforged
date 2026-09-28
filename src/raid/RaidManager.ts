@@ -33,7 +33,8 @@ import {
 import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
-import { rollLootTier } from "./LootTable";
+import { rollLootTier, pickLootEntry, lootEntryWeight } from "./LootTable";
+import { settleBossStatue } from "./bossStatues";
 import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable, firstClearBrains } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
 import {
@@ -702,7 +703,7 @@ export class RaidManager {
       // spend-only economy and the removed inventory `grant`, so loot evaporated.
       // OFFLINE: roll and grant locally, exactly as before.
       if (!serverRewards) {
-        const drop = this.rollLoot(raid, dice);
+        const drop = this.rollLoot(raid, dice, wins);
         if (drop === "Bonus Gold") {
           const bonusGold = raid.recommendedLevel * 100; // getBonusGoldLootForStageLevel:
           gold += bonusGold;
@@ -782,12 +783,17 @@ export class RaidManager {
   }
 
   /** Roll a single item drop for a win (source `rollForDrop:` + `lootTableFromCategory:`).
-   *  Picks a rarity tier from the luck bracket, then a uniform eligible alternative
-   *  within it. Eligibility drops `unique` items already owned and `limit`-capped
-   *  items at their cap. If the chosen tier has no eligible items, the roll walks
+   *  First the Boss Statue (bossStatues.ts: the 15th / 50th win's milestone, then a
+   *  2% / 1% chance), which replaces the drop when it pays. Otherwise picks a rarity tier from the luck bracket, then an eligible alternative
+   *  within it by weight (LootTable.pickLootEntry): `unique` items already owned and
+   *  `limit`-capped items at their cap are out, an owned banner stays in at its
+   *  reduced `repeatWeight`. If the chosen tier has nothing to give, the roll walks
    *  DOWN to commoner tiers (as the binary does). Returns null if nothing is
-   *  eligible (e.g. every tier already collected). */
-  private rollLoot(raid: RaidDef, bonus: number): string | null {
+   *  eligible (e.g. every tier already collected). Same rules as the server's
+   *  loot.rollLoot, which is what decides online. */
+  private rollLoot(raid: RaidDef, bonus: number, wins: number): string | null {
+    // No loot table, no drop — not even a statue (the server's `if (!table)` twin).
+    if (!raid.loot.some((tier) => tier.length)) return null;
     // Owned = unclaimed raid loot + the shed + the object it becomes once PLACED
     // (`drops.json` tile → hooks.placedCount). All three matter: claiming a drop is how
     // it gets used and that empties Received, so counting anything less puts a `unique`
@@ -800,21 +806,13 @@ export class RaidManager {
       if (tile) n += this.hooks.placedCount?.(tile) ?? 0;
       return n;
     };
-    const eligibleIn = (tierIdx: number): string[] =>
-      (raid.loot[tierIdx] ?? []).filter((name) => {
-        if (!name) return false;
-        const d = this.assets.drops[name];
-        if (d?.unique && ownedCount(name) > 0) return false;
-        if (d && d.limit > 0 && ownedCount(name) >= d.limit) return false;
-        return true;
-      });
-
-    let tier = rollLootTier(Math.random(), bonus);
-    for (; tier >= 0; tier--) {
-      const items = eligibleIn(tier);
-      if (items.length) return items[Math.floor(Math.random() * items.length)];
-    }
-    return null;
+    // The milestone flags live in the rare-zombie pity map, as they do on the server.
+    const statue = settleBossStatue(raid.id, wins, this.state.zombieDryWins, Math.random(), Math.random());
+    this.state.zombieDryWins = statue.flags;
+    if (statue.drop) return statue.drop;
+    const weightOf = (name: string): number =>
+      lootEntryWeight(this.assets.drops[name], ownedCount(name));
+    return pickLootEntry(raid.loot, rollLootTier(Math.random(), bonus), weightOf, Math.random());
   }
 
   /** Resolve a loot item's picture URL ("" when there's no art). Boost loot

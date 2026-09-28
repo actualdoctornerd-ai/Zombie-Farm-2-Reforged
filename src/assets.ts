@@ -718,6 +718,9 @@ export interface DropDef {
   tile: string; // linked placeable key ("" = none); maps a reward to its placeable
   unique: boolean; // drops only once — filtered out of the loot roll once owned
   limit: number; // max copies that can ever drop (0 = unlimited; only Rusty Fragment: 3)
+  /** Share of a normal pick kept once owned — the faction banners repeat, rarer
+   *  (absent = no change). See LootTable.pickLootEntry. */
+  repeatWeight?: number;
 }
 /** URL of a loot item's picture. */
 export const lootImage = (file: string) => `${BASE}assets/raids/loot/${file}`;

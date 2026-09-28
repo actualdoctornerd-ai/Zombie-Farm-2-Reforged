@@ -30,6 +30,7 @@ import re
 from reforge_economy import brain_price
 import contributed_art
 import memorial_statue
+import boss_statues
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
@@ -1712,7 +1713,13 @@ def main():
     # cut from the Tim Statue's plinth. Built AFTER the loop above so its source
     # sprite is already in OBJDIR, and BEFORE the orphan sweep so its own PNG counts
     # as referenced. See tools/memorial_statue.py.
-    catalog.append(memorial_statue.build(OBJDIR))
+    memorial = memorial_statue.build(OBJDIR)
+    catalog.append(memorial)
+
+    # Boss Statues: the memorial's plinth + stone look, baked per invasion boss
+    # (rare invasion prizes). After the memorial, whose sprite they are built on.
+    # See tools/boss_statues.py.
+    catalog.extend(boss_statues.build(OBJDIR, memorial))
 
     # Art drawn for this project rather than extracted from the source atlases, so
     # it has neither a Market row nor an atlas frame — both halves are authored in

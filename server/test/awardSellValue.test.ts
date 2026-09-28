@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { RAID_DROP_SELL, EPIC_PRIZE_SELL, QUEST_REWARD_SELL } from "../../src/awardSellValue";
+import { RAID_DROP_SELL, EPIC_PRIZE_SELL, QUEST_REWARD_SELL, BOSS_STATUE_SELL } from "../../src/awardSellValue";
+import { BOSS_STATUES } from "../../src/raid/bossStatues";
 import { RAID_LOOT, DROPS } from "../src/raidLootCatalog";
 import { objectEcon, objectSellGold } from "../src/objectCatalog";
 import { EPIC_BOSSES } from "../../src/epicBoss/catalog";
@@ -29,7 +30,9 @@ const sellOf = (tile: string): number => {
 
 describe("award-only prize sell values", () => {
   it("names only real placeables, and only ones that cannot be bought", () => {
-    for (const [key, value] of Object.entries({ ...RAID_DROP_SELL, ...EPIC_PRIZE_SELL, ...QUEST_REWARD_SELL })) {
+    for (const [key, value] of Object.entries({
+      ...RAID_DROP_SELL, ...EPIC_PRIZE_SELL, ...QUEST_REWARD_SELL, ...BOSS_STATUE_SELL,
+    })) {
       expect(byKey.has(key), `${key} is not in placeables.json`).toBe(true);
       // A purchasable item already has a price, and its sell-back is a fraction of
       // that price. Overriding one here would quietly change Market economics.
@@ -124,6 +127,14 @@ describe("award-only prize sell values", () => {
         .toBeGreaterThanOrEqual(500);
       expect(value).toBeLessThanOrEqual(1_000);
     }
+  });
+
+  it("prices every Boss Statue above every invasion's ordinary loot", () => {
+    const statueTiles = new Set(Object.values(BOSS_STATUES).flatMap((s) => [s.tile, s.goldenTile]));
+    expect(Object.keys(BOSS_STATUE_SELL).sort()).toEqual([...statueTiles].sort());
+    const dearestLoot = Math.max(...lootTiles().map((row) => sellOf(row.tile))
+      .filter((gold) => gold < 40_000)); // the Pyramid outlier, see above
+    for (const tile of statueTiles) expect(sellOf(tile)).toBeGreaterThan(dearestLoot);
   });
 
   it("still refunds an ordinary purchase as a fraction of its price", () => {

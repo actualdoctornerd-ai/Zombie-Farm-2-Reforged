@@ -12,8 +12,9 @@
   "brains": false,
   "gold": false,
   "tile": "alienBanner",
-  "unique": true,
-  "limit": 0
+  "unique": false,
+  "limit": 0,
+  "repeatWeight": 0.25
  },
  "Bamboo": {
   "icon": "tex1028.png",
@@ -156,8 +157,9 @@
   "brains": false,
   "gold": false,
   "tile": "corporatevilleBanner",
-  "unique": true,
-  "limit": 0
+  "unique": false,
+  "limit": 0,
+  "repeatWeight": 0.25
  },
  "Crashed UFO": {
   "icon": "tex1068.png",
@@ -188,8 +190,9 @@
   "brains": false,
   "gold": false,
   "tile": "oldMcDonnellBanner",
-  "unique": true,
-  "limit": 0
+  "unique": false,
+  "limit": 0,
+  "repeatWeight": 0.25
  },
  "Gallows": {
   "icon": "tex1053.png",
@@ -356,8 +359,9 @@
   "brains": false,
   "gold": false,
   "tile": "ninjaBanner",
-  "unique": true,
-  "limit": 0
+  "unique": false,
+  "limit": 0,
+  "repeatWeight": 0.25
  },
  "Parrot": {
   "icon": "tex1079.png",
@@ -380,16 +384,18 @@
   "brains": false,
   "gold": false,
   "tile": "pirateBanner",
-  "unique": true,
-  "limit": 0
+  "unique": false,
+  "limit": 0,
+  "repeatWeight": 0.25
  },
  "Pixel Banner": {
   "icon": "",
   "brains": false,
   "gold": false,
   "tile": "pixelBanner",
-  "unique": true,
-  "limit": 0
+  "unique": false,
+  "limit": 0,
+  "repeatWeight": 0.25
  },
  "Pixel Block": {
   "icon": "",
@@ -484,8 +490,9 @@
   "brains": false,
   "gold": false,
   "tile": "robotBanner",
-  "unique": true,
-  "limit": 0
+  "unique": false,
+  "limit": 0,
+  "repeatWeight": 0.25
  },
  "Rock Lobster": {
   "icon": "tex1085.png",
@@ -1036,6 +1043,182 @@
   "brains": false,
   "gold": false,
   "tile": "jewelHome",
+  "unique": false,
+  "limit": 0
+ },
+ "Old McDonnell Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueOldMcDonnell",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Old McDonnell Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueOldMcDonnellGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "CorporateVille Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueCorporateVille",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden CorporateVille Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueCorporateVilleGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Arrrnold Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueArrrnold",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Arrrnold Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueArrrnoldGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Mr. Whiskers Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueMrWhiskers",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Mr. Whiskers Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueMrWhiskersGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Bro-Bot Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueBroBot",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Bro-Bot Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueBroBotGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Alien Overlord Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueAlien",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Alien Overlord Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueAlienGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "SquiDude Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueSquiDude",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden SquiDude Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueSquiDudeGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Ringmaster Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueRingmaster",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Ringmaster Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueRingmasterGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Zedzox Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueZedzox",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Zedzox Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueZedzoxGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Goffy Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueGoffy",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Goffy Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueGoffyGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Felix Wonky Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueFelixWonky",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Felix Wonky Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueFelixWonkyGolden",
   "unique": false,
   "limit": 0
  }

@@ -59,3 +59,69 @@ export function rollLootTier(roll: number, bonus: number): number {
   if (rp < 0.79 * decay) return 4;
   return 5;
 }
+
+/** Pick one entry from a raid's 6-tier loot table, starting at `tier` (from
+ *  rollLootTier) and walking DOWN to commoner tiers when a tier has nothing to give.
+ *  `pick` is a uniform [0,1) sample; both sides inject their own (the server's RNG
+ *  online, Math.random offline), so this is the ONE definition of the pick.
+ *
+ *  `weightOf` is each entry's share of an ordinary pick: 1 for a normal entry, 0 for
+ *  one that may not drop (a `unique` already owned, a `limit` reached), and a
+ *  fraction for a REPEAT — an owned banner keeps `repeatWeight` of a normal pick.
+ *  With every weight 1 this is exactly the binary's uniform pick. When a tier's
+ *  weights sum to less than one whole pick (a tier holding only an owned banner),
+ *  the unclaimed share falls through to the next tier down, so the repeat really is
+ *  rarer rather than guaranteed whenever its tier comes up. Returns null only when
+ *  nothing at all can drop. */
+export function pickLootEntry(
+  table: readonly (readonly string[])[],
+  tier: number,
+  weightOf: (name: string) => number,
+  pick: number,
+): string | null {
+  let p = Math.min(Math.max(pick, 0), 1 - Number.EPSILON);
+  let fallback: string | null = null;
+  for (let t = Math.min(tier, table.length - 1); t >= 0; t--) {
+    const entries: [string, number][] = [];
+    let total = 0;
+    for (const name of table[t] ?? []) {
+      const w = name ? Math.max(0, weightOf(name)) : 0;
+      if (w > 0) { entries.push([name, w]); total += w; }
+    }
+    if (!entries.length) continue;
+    fallback ??= entries[0][0];
+    const span = Math.max(1, total);
+    let x = p * span;
+    for (const [name, w] of entries) {
+      if (x < w) return name;
+      x -= w;
+    }
+    // A whole-pick tier always pays out; this only catches float rounding at its end.
+    if (total >= 1) return entries[entries.length - 1][0];
+    // Only reachable when total < 1: the rest of the pick walks down a tier, rescaled
+    // so the sample stays uniform there.
+    p = (p - total) / (1 - total);
+  }
+  // Every tier below came up empty: better the rare repeat than nothing at all.
+  return fallback;
+}
+
+/** Drop metadata the pick weight depends on (drops.json / the server's DROPS). */
+export interface LootEntryRule {
+  unique: boolean;
+  limit: number;
+  /** Share of a normal pick an entry keeps once owned (0/absent = no change). */
+  repeatWeight?: number;
+}
+
+/** An entry's weight for pickLootEntry, given how many the player already owns.
+ *  Unknown entries (no metadata) are allowed — fail-open, as both sides always were. */
+export function lootEntryWeight(rule: LootEntryRule | undefined, owned: number): number {
+  if (!rule) return 1;
+  if (rule.limit > 0 && owned >= rule.limit) return 0;
+  if (owned > 0) {
+    if (rule.unique) return 0;
+    if (rule.repeatWeight && rule.repeatWeight > 0) return Math.min(1, rule.repeatWeight);
+  }
+  return 1;
+}

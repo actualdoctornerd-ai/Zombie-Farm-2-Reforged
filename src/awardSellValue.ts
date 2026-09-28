@@ -181,6 +181,20 @@ export const QUEST_REWARD_SELL: Readonly<Record<string, number>> = {
   iceCreamTruck: 1_000,
 };
 
+/** Boss Statues (src/raid/bossStatues.ts): an invasion's 15-win (stone) and 50-win
+ *  (golden) milestone prizes, then a 2% / 1% chance per win. One flat price per kind,
+ *  because the milestones are the same everywhere: the stone statue out-sells every
+ *  invasion's own tier-5 showpiece (the dearest is 4,500), the golden one triples it.
+ *  Kept modest against the rate: after the milestones a statue is a 1-in-50 win. */
+const STATUE_TILES = [
+  "bossStatueOldMcDonnell", "bossStatueCorporateVille", "bossStatueArrrnold",
+  "bossStatueMrWhiskers", "bossStatueBroBot", "bossStatueAlien", "bossStatueSquiDude",
+  "bossStatueRingmaster", "bossStatueZedzox", "bossStatueGoffy", "bossStatueFelixWonky",
+];
+export const BOSS_STATUE_SELL: Readonly<Record<string, number>> = Object.fromEntries(
+  STATUE_TILES.flatMap((tile) => [[tile, 5_000], [`${tile}Golden`, 15_000]])
+);
+
 /** The authored sell price of an award-only prize, or undefined for anything that
  *  isn't one (every purchasable item, and every reward with no authored value — both
  *  keep the ordinary cost-derived refund). */
@@ -188,5 +202,6 @@ export function awardedSellValue(key: string): number | undefined {
   if (Object.prototype.hasOwnProperty.call(RAID_DROP_SELL, key)) return RAID_DROP_SELL[key];
   if (Object.prototype.hasOwnProperty.call(EPIC_PRIZE_SELL, key)) return EPIC_PRIZE_SELL[key];
   if (Object.prototype.hasOwnProperty.call(QUEST_REWARD_SELL, key)) return QUEST_REWARD_SELL[key];
+  if (Object.prototype.hasOwnProperty.call(BOSS_STATUE_SELL, key)) return BOSS_STATUE_SELL[key];
   return undefined;
 }
