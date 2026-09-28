@@ -486,6 +486,11 @@ export type RetuneStep = Partial<Record<"str" | "con" | "specialDamage", number>
  *  as well. Throws are NOT scaled: they are floored separately (projectileScale.test).
  *  Video Games ★ is left alone; it was already the hardest fight on the ladder.
  *
+ *  PARTIAL REVERT (ruleset 67, owner 2026-09-28): the v65 steps above were too steep. Each
+ *  damage increase is cut to ~1/9 of its v65 size (x2 -> x1.12, x2.5 -> x1.17, x1.5 ->
+ *  x1.06) and a little of it moves to hit points instead: x1.1 con on all seven fights
+ *  (Pirates ★ down from x1.4). The win-rate table above is v65's and no longer current.
+ *
  *  TO REVERT: empty both tables (or delete a line) and bump RAID_RULESET_VERSION. The base
  *  tables above are untouched, so reverting restores ruleset 64's numbers exactly. */
 export const PRE_DUAL_RETUNE: Readonly<{
@@ -493,15 +498,15 @@ export const PRE_DUAL_RETUNE: Readonly<{
   elite: Readonly<Record<number, RetuneStep>>;
 }> = {
   story: {
-    5: { str: 2, specialDamage: 2 },       // Robots
-    6: { str: 2.5, specialDamage: 2.5 },   // Aliens
-    9: { str: 1.5, specialDamage: 1.5 },   // Video Games
+    5: { str: 1.12, specialDamage: 1.12, con: 1.1 }, // Robots       (v65: x2 damage)
+    6: { str: 1.17, specialDamage: 1.17, con: 1.1 }, // Aliens       (v65: x2.5 damage)
+    9: { str: 1.06, specialDamage: 1.06, con: 1.1 }, // Video Games  (v65: x1.5 damage)
   },
   elite: {
-    3: { str: 2, specialDamage: 2, con: 1.4 }, // Pirates ★ — the only one given bulk
-    4: { str: 1.5, specialDamage: 1.5 },       // Ninjas ★
-    5: { str: 1.5, specialDamage: 1.5 },       // Robots ★
-    6: { str: 2, specialDamage: 2 },           // Aliens ★
+    3: { str: 1.12, specialDamage: 1.12, con: 1.1 }, // Pirates ★  (v65: x2 damage, x1.4 HP)
+    4: { str: 1.06, specialDamage: 1.06, con: 1.1 }, // Ninjas ★   (v65: x1.5 damage)
+    5: { str: 1.06, specialDamage: 1.06, con: 1.1 }, // Robots ★   (v65: x1.5 damage)
+    6: { str: 1.12, specialDamage: 1.12, con: 1.1 }, // Aliens ★   (v65: x2 damage)
   },
 };
 

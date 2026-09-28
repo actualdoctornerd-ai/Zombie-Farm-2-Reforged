@@ -1210,7 +1210,17 @@ import type { RaidOutcome } from "./types";
 //
 // Every transcript on raids 12-15 at every rung replays differently from v65, and so does
 // any fight on any raid that reached a Gardens-only army.
-export const RAID_RULESET_VERSION = 66;
+// v67 — THE PRE-DUAL RE-TUNE, MOSTLY TAKEN BACK (owner, 2026-09-28).
+//
+// v65's damage steps on the mid-late invasions were too steep. Each one is cut to about a
+// ninth of its v65 increase — Robots x1.12, Aliens x1.17, Video Games x1.06 on the ordinary
+// fight; Pirates, Ninjas, Robots and Aliens elites x1.12 / x1.06 / x1.06 / x1.12 — and every
+// one of those seven fights now takes x1.1 hit points (the Pirates elite down from x1.4).
+// Throws still untouched. Same table: eliteInvasion.PRE_DUAL_RETUNE.
+//
+// Every raid 5, 6 and 9 transcript and every elite raid 3, 4, 5 and 6 transcript replays
+// differently from v66.
+export const RAID_RULESET_VERSION = 67;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
