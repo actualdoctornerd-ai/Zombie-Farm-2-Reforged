@@ -21,6 +21,7 @@
     "test:search": "vitest run --config vitest.search.config.ts && node tools/search_table.mjs && node tools/army_structure.mjs",
     "test:effective": "vitest run --config vitest.effective.config.ts && vitest run --config vitest.effectiveFit.config.ts && node tools/effective_table.mjs",
     "test:monotonic": "vitest run --config vitest.monotonic.config.ts && node tools/monotonic_table.mjs",
+    "test:prodgrid": "vitest run --config vitest.prodgrid.config.ts && node tools/prod_grid_page.mjs",
     "test:lethality": "vitest run --config vitest.lethality.config.ts && node tools/lethality_table.mjs",
     "test:search-fast": "node tools/search_fast.mjs"
   },
