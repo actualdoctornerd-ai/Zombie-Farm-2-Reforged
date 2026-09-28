@@ -37,8 +37,12 @@ export const XP_THRESHOLDS = [
   5500, 6500, 7500, 8500, 9500, 11500, 13500, 15500, 17500, 20500, 25000, 30000,
   35000, 40000, 46000, 53000, 61000, 69000, 78000, 87000, 97000, 107000, 117000,
   127000, 137000, 151000, 165000, 179000, 193000, 218000,
-  // ---- reimpl-only, PLACEHOLDER (levels 46-50) ----
-  258000, 308000, 370000, 446000, 541000,
+  // Levels 46-50 are WITHHELD from this build (owner, 2026-09-27). XP has never been capped,
+  // so shipping their placeholder thresholds would promote every account already past
+  // 258,000 XP on its next load — irreversibly, since taking a level back later is a
+  // visible demotion. The dual invasions ship as practice (src/raid/practice.ts) instead.
+  // The intended placeholders, for when the curve is fitted: 258000, 308000, 370000, 446000,
+  // 541000. KEEP IN SYNC with server/src/levels.ts.
 ];
 
 type Listener = () => void;

@@ -39,6 +39,10 @@ describe("repeat-invasion XP table", () => {
   it("derives each un-set rung as 1% of the unlock level's XP requirement, floored at 10", () => {
     for (const raid of RAIDS) {
       if (HAND_SET[raid.id] !== undefined) continue;
+      // The dual invasions unlock at 46-49, above the level cap while levels 46-50 are
+      // withheld (see XP_THRESHOLDS); their rungs were derived from the withheld curve and
+      // are unused meanwhile — practice pays no XP.
+      if (raid.unlockLevel > XP_THRESHOLDS.length) continue;
       const derived = Math.max(REPEAT_XP_FLOOR, Math.round(xpToNext(raid.unlockLevel) / 100));
       expect(REPEAT_INVASION_XP[raid.id], `${raid.name} (unlock ${raid.unlockLevel})`).toBe(derived);
     }
