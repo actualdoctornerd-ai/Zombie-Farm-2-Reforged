@@ -7,6 +7,8 @@ import {
   brainDropTable,
   FIRST_CLEAR_BRAIN_DOUBLE_LEVEL,
   firstClearBrains,
+  HIGH_TIER_BRAIN_RATE_LEVEL,
+  HIGH_TIER_BRAIN_RATE_MULTIPLIER,
   nextBrainDryStreak,
   rollBrainDrop,
   rollBrainDropWithPity,
@@ -65,8 +67,32 @@ describe("brain odds keep climbing past the ramp level", () => {
     // tier by the same amount — i.e. one straight line, no knee at BRAIN_RAMP_LEVEL.
     const commonest = (level: number) => brainDropTable(level)[2].chance;
     const below = commonest(BRAIN_RAMP_LEVEL) - commonest(BRAIN_RAMP_LEVEL - 10);
-    const above = commonest(BRAIN_RAMP_LEVEL + 10) - commonest(BRAIN_RAMP_LEVEL);
+    // Remove the intentional 12.5% Pirates-and-up premium before comparing slopes.
+    const above = commonest(BRAIN_RAMP_LEVEL + 10) / HIGH_TIER_BRAIN_RATE_MULTIPLIER
+      - commonest(BRAIN_RAMP_LEVEL);
     expect(above).toBeCloseTo(below, 12);
+  });
+
+  it("raises every Pirates-and-up tier by 12.5% and leaves lower raids unchanged", () => {
+    expect(HIGH_TIER_BRAIN_RATE_LEVEL).toBe(21);
+    expect(HIGH_TIER_BRAIN_RATE_MULTIPLIER).toBe(1.125);
+    expect(brainDropTable(20)).toEqual([
+      { amount: 5, chance: 0.02 },
+      { amount: 3, chance: 0.04 },
+      { amount: 1, chance: 0.1 },
+    ]);
+
+    const level = 43;
+    const frac = level / BRAIN_RAMP_LEVEL;
+    const previousRates = [
+      (0.005 + (0.01 - 0.005) * frac) * 2,
+      (0.01 + (0.02 - 0.01) * frac) * 2,
+      (0.025 + (0.05 - 0.025) * frac) * 2,
+    ];
+    const current = brainDropTable(level);
+    for (let i = 0; i < current.length; i++) {
+      expect(current[i].chance).toBeCloseTo(previousRates[i] * 1.125, 12);
+    }
   });
 
   it("stays stingy at the top of the ladder", () => {

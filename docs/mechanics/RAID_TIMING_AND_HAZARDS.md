@@ -151,18 +151,20 @@ items — see below.)
 | **3 brains** | 30 | 2% → **4%** |
 | **5 brains** | 50 | 1% → **2%** |
 
-The chance scales with the raid's level from the lower limit up to the upper ("optimal")
-limit, reaching it at `epicBossLootLevelWithOptimalChances` = **level 20**. These are the
-recovered base rates with the live game's 2× invasion-brain multiplier applied
-(`BRAIN_DROP_RATE_MULTIPLIER = 2`, `BRAIN_OPTIMAL_LEVEL = 20` in `src/raid/brainDrops.ts`).
+The chance scales with the raid's recommended level, reaching the recovered upper rate at
+**level 20** and continuing up the same linear slope for harder invasions. These are the
+recovered base rates with the live game's 2× invasion-brain multiplier applied. Pirates
+(recommended level 21) and every harder invasion then receive a **12.5% relative premium**
+across all three tiers (`HIGH_TIER_BRAIN_RATE_MULTIPLIER` in `src/raid/brainDrops.ts`).
 
 **Amounts diverge from the recovered source on purpose.** The brainflation revert made a brain
 ~10x more valuable, so the shipped stacks are 1/10 of the recovered 10/30/50 — the drop
 *chances* are untouched. Tiers roll rarest-first, so a boss awards at most one stack. Online
 rolls are pinned at start and credited only after replay verifies that the boss was defeated.
 
-**Pity floor — a second deliberate divergence (no ZF2 equivalent).** At the top of the table
-a boss win pays brains only ~15% of the time, so ordinary bad luck can run very long. After
+**Pity floor — a second deliberate divergence (no ZF2 equivalent).** At the top of the
+shipped ladder a boss win pays brains about 26% of the time, so ordinary bad luck can still
+run very long. After
 `BRAIN_PITY_INVASIONS = 8` brain-eligible invasions with no brain, the next one's zero roll is
 floored to **1 brain** (`rollBrainDropWithPity` in `src/raid/brainDrops.ts`). Only a WIN against
 a boss counts toward the streak — a loss pays nothing, and the low-level McDonnell's stages

@@ -11,6 +11,13 @@ export const BRAIN_DROP_RATE_MULTIPLIER = 2;
  *  invade anything harder. */
 export const BRAIN_RAMP_LEVEL = 20;
 
+/** Pirates and every harder shipped invasion get a small premium over the recovered
+ *  linear table. These are the same raids whose first-clear award steps up to two brains:
+ *  their recommended levels start at 21. A relative multiplier keeps the 5/3/1 tiers in
+ *  the same proportion instead of quietly making only the common drop more generous. */
+export const HIGH_TIER_BRAIN_RATE_LEVEL = 21;
+export const HIGH_TIER_BRAIN_RATE_MULTIPLIER = 1.125;
+
 // Post-brainflation revert: amounts are 1/10 of the old 50/30/10 stacks (a brain is now
 // ~10x more valuable). Drop CHANCES are unchanged — only the stack sizes shrank.
 const BASE_BRAIN_DROP_TABLE = [
@@ -29,14 +36,18 @@ const MAX_TIER_CHANCE = 0.95;
  *  `recommendedLevel` drives a LINEAR ramp with no upper clamp: each tier starts at its
  *  `lower` rate and gains `(upper - lower)` for every BRAIN_RAMP_LEVEL of recommended
  *  level, so a harder invasion always pays better than an easier one. The rates stay
- *  deliberately stingy — the Video Games' 1-brain tier lands near 16% — but they no
+ *  deliberately stingy — the Video Games' 1-brain tier lands near 18% after the small
+ *  high-tier premium — but they no
  *  longer flatline halfway up the ladder.
  *
  *  `luck` multiplies every tier (1 = ordinary invasion, ELITE_BRAIN_LUCK for a Brain
  *  Ticket run). */
 export function brainDropTable(recommendedLevel: number, luck = 1) {
   const frac = Math.max(0, recommendedLevel / BRAIN_RAMP_LEVEL);
-  const scale = BRAIN_DROP_RATE_MULTIPLIER * Math.max(0, luck);
+  const highTier = recommendedLevel >= HIGH_TIER_BRAIN_RATE_LEVEL
+    ? HIGH_TIER_BRAIN_RATE_MULTIPLIER
+    : 1;
+  const scale = BRAIN_DROP_RATE_MULTIPLIER * highTier * Math.max(0, luck);
   return BASE_BRAIN_DROP_TABLE.map((tier) => ({
     amount: tier.amount,
     chance: Math.min(MAX_TIER_CHANCE, (tier.lower + (tier.upper - tier.lower) * frac) * scale),
@@ -74,8 +85,9 @@ export function firstClearBrains(unlockLevel: number): number {
 }
 
 /** Brain-eligible invasions a player may settle without a single brain before the next
- *  one is guaranteed to pay. At the top of the table a win drops something ~24% of the
- *  time, so an unlucky-but-perfectly-ordinary player can otherwise go a very long dry
+ *  one is guaranteed to pay. At the top of the shipped ladder a win drops something
+ *  ~26% of the time after the high-tier premium, so an
+ *  unlucky-but-perfectly-ordinary player can otherwise go a very long dry
  *  spell; this puts a floor under it.
  *
  *  DELIBERATELY INVISIBLE. Nothing in the UI counts this out, names it, or hints that a
