@@ -392,6 +392,12 @@ const MEGA_SINK_PT = 200; // game over: sinks this far and keeps going
 // The eye hitbox, relative to the head pivot: 90×40 centred (−33, +50) (source), and the
 // two eye centres measured off the head art, where the fireballs swell.
 const MEGA_EYE_BOX = { cx: -33, cy: 50, w: 90, h: 40 };
+// On a phone the TAP target is wider and much taller than the source box, still centred on
+// the eyes and still inside the 228×170 head. At phone stage scales the authored 40 pt is
+// ~30 CSS px tall — under a fingertip — and the robot wanders, so honest taps landed just
+// off it. Client-only hazard, so its hit area is a control, not a rule (as hazardTaps.ts).
+// The hint ring keeps drawing the source box: it marks the eyes, not the slop.
+const MEGA_EYE_TOUCH_BOX = { ...MEGA_EYE_BOX, w: 140, h: 80 };
 const MEGA_EYES = [{ x: -57.5, y: 50 }, { x: -7, y: 46 }];
 const MEGA_BALL_R = 9; // fireball radius at full charge (pt)
 const MEGA_FLASH_S = 0.08; // a tap flashes the head red (source 0.05 s)
@@ -3366,7 +3372,7 @@ export class RaidScene {
     // The eyes: one invisible 90×40 box over both, as in the source. pointerdown rather
     // than tap, for the same reason as the crab — the robot may be moving.
     const eyes = new Container();
-    const box = MEGA_EYE_BOX;
+    const box = isMobile() ? MEGA_EYE_TOUCH_BOX : MEGA_EYE_BOX;
     eyes.hitArea = new Rectangle(
       MEGA_HEAD_DX + box.cx - box.w / 2, -box.cy - box.h / 2, box.w, box.h
     );
