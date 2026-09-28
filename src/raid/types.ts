@@ -441,6 +441,9 @@ export interface RaidOutcome {
    *  kind of loss the player's army survives, so the result panel names it. Optional for
    *  the same reason `escaped` is: hand-built fixtures and older stored outcomes. */
   outOfTime?: boolean;
+  /** The fight ended with only station Gardens standing — nothing left that could hurt the
+   *  enemy. An ordinary loss; the Gardens come home. Optional like `outOfTime`. */
+  healersOnly?: boolean;
   /** How the fight was won, for technique achievements. Optional so an outcome
    *  produced by an older client (or a hand-built test fixture) still parses. */
   feats?: RaidFeats;

@@ -1201,7 +1201,15 @@ import type { RaidOutcome } from "./types";
 // the captain carries 120,000 from t9; Aliens & Robots' bulk is x0.85 from t6; and raid 12's
 // severe rulings (1.5 / 0.65 / 1.4) and farmer mob (x1.5) are softer.
 //
-// Every transcript on raids 12-15 at every rung replays differently from v65.
+// AN ARMY DOWN TO ITS GARDENS HAS LOST, on EVERY fight (owner, 2026-09-27): once nothing
+// is alive on the army's side but station Gardens — none waiting to deploy, none carried
+// off to come home, no Resurrect banked for a fallen zombie — the sim ends the fight there
+// as an ordinary loss (`outcome.healersOnly`) instead of letting it run to the clock. A
+// station Garden's laser needs a zombie ahead to fire over, so nothing it does can change
+// the result. Traced on the dual invasions: every clock-out at the top rungs was this.
+//
+// Every transcript on raids 12-15 at every rung replays differently from v65, and so does
+// any fight on any raid that reached a Gardens-only army.
 export const RAID_RULESET_VERSION = 66;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own

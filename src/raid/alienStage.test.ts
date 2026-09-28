@@ -421,20 +421,16 @@ describe("the saucer shoots whatever is on the lane", () => {
     };
   };
 
-  it("fires at the healers when they are the only zombies on the field", () => {
-    const { bolts, total, states } = shootAt(gardens());
-    // They are never engaged and never will be — that is what made this field unreachable.
-    expect(states.every((st) => st === "advance")).toBe(true);
-    expect(bolts).toBeGreaterThan(0);
-    expect(total).toBeGreaterThan(0);
-  });
-
-  it("fires at a LONE healer too — one Garden is still a field it must be able to reach", () => {
-    // The one-zombie case is the stalemate at its purest: nothing else can ever deploy,
-    // so an empty candidate list here is an empty candidate list for the whole raid.
-    const { bolts, total } = shootAt(gardens().slice(0, 1));
-    expect(bolts).toBeGreaterThan(0);
-    expect(total).toBeGreaterThan(0);
+  it("never has to break a healers-only field — the fight ends there", () => {
+    // These two cases (the healers alone, and one lone healer) used to be the stalemate the
+    // saucer had to be able to shoot its way out of. Since ruleset 66 an army down to its
+    // station Gardens has simply lost, so the field never stands long enough to be shot at.
+    for (const field of [gardens(), gardens().slice(0, 1)]) {
+      const sim = laserSaucer(field);
+      sim.step(50);
+      expect(sim.finished).toBe(true);
+      expect(sim.outcome().healersOnly).toBe(true);
+    }
   });
 
   it("spreads the fire when an ordinary body is out there with them", () => {

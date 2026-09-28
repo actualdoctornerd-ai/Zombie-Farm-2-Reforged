@@ -1150,6 +1150,10 @@ export class BattleSim {
    *  from being wiped out, and the only one the player can still be holding an army in —
    *  so the result panel names it rather than reporting a defeat that never happened. */
   outOfTime = false;
+  /** The fight ended because nothing left on the army's side could hurt the enemy — only
+   *  station Gardens standing (see `healersOnly`). An ordinary loss, and the Gardens come
+   *  home like any survivor. */
+  healersOnlyEnd = false;
   // ---- boss actions (throws AND specials share ONE budget — see stepBossActions) ----
   private specials: BossSpecial[];
   private actions: BossActionChoice[] = []; // the merged weighted roll table
@@ -3146,6 +3150,21 @@ export class BattleSim {
    *  Latent before the dual invasions and reachable now: with the wave trickling one body
    *  at a time the line rarely advanced past a blocker, and the lined-up wave
    *  (dualInvasion.dualWaveCadence) pushes it past them constantly. */
+  /** Is everything still standing on the army's side a station Garden with nothing left to
+   *  do but heal? Waiting and carried-off zombies count as fighters (they will deploy or come
+   *  home); one converted into a bozo does not, since only damage frees it. A Garden with a
+   *  Resurrect banked while a corpse waits can still bring a fighter back, so it counts. */
+  private healersOnly(): boolean {
+    let standing = false;
+    for (const p of this.players) {
+      if (!p.alive || p.isTurned || this.bozoIds.includes(p.id)) continue;
+      standing = true;
+      if (!p.isGarden) return false;
+      if (this.fallen.length && p.abilities.includes("ressurect") && !p.resurrectUsed) return false;
+    }
+    return standing;
+  }
+
   private anyAlive(side: SimUnit[]): boolean {
     // A blocker sits outside the win condition (a wall, an abductee, the bozo stack) — except
     // a BOSS standing as one (raid 14's ringmaster), who still has to be beaten.
@@ -4704,11 +4723,16 @@ export class BattleSim {
 
     const wiped = !this.anyAlive(this.players);
     const cleared = !this.anyAlive(this.enemies);
-    if (wiped || cleared || this.elapsed >= this.timeLimitMs) {
+    // Only healers left (owner, 2026-09-27): a station Garden cannot damage anything — its
+    // laser needs a zombie ahead to fire over — so an army down to its Gardens has lost; it
+    // used to stand at the station until the clock ran out, minutes later.
+    const healersOnly = !wiped && !cleared && this.healersOnly();
+    if (healersOnly) this.healersOnlyEnd = true;
+    if (wiped || cleared || healersOnly || this.elapsed >= this.timeLimitMs) {
       // Decided beats expired: an army that clears the last enemy ON the final tick has
       // won, and one wiped out on it has lost the ordinary way. Out of time is only what
       // is left over — both sides still standing when the clock stops.
-      this.outOfTime = !wiped && !cleared;
+      this.outOfTime = !wiped && !cleared && !healersOnly;
       this.finished = true;
     }
     return !this.finished;
@@ -5803,6 +5827,7 @@ export class BattleSim {
       playerDamage: this.playerDamage,
       escaped: this.escaped,
       outOfTime: this.outOfTime,
+      healersOnly: this.healersOnlyEnd,
       feats: {
         abilityKills: this.feats.abilityKills.map((kill) => ({ ...kill })),
         resurrections: this.feats.resurrections.map((rez) => ({ ...rez })),

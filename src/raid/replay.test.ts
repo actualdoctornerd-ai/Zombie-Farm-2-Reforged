@@ -26,7 +26,8 @@ function worstCaseSim(): BattleSim {
 /** A Ninja-shaped fight whose perched boss immediately drops a carrotWall. The minion is
  *  what keeps it perched — a descended boss stops walling. */
 function wallSim(): BattleSim {
-  const player = unit("p0", "player", 0);
+  // A fighter, not a station Garden: an army of one Garden ends at once (healers-only).
+  const player = { ...unit("p0", "player", 0), isGarden: false };
   const minion = { ...unit("e0", "enemy", 0), con: 3000, hp: 9000, maxHp: 9000 };
   const boss = { ...unit("e1", "enemy", 1), isBoss: true, con: 3000, hp: 9000, maxHp: 9000 };
   const wallTemplate = {

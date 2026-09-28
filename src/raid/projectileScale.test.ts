@@ -370,7 +370,7 @@ describe("boss projectile scaling", () => {
    *  in front of it — the only window the front-line rule claims anything about. */
   function projectilePressure(
     raid: RaidDef, healerSlot = 4
-  ): { dealt: number; dealtWhileGuarded: number; maxHp: number } {
+  ): { dealt: number; dealtWhileGuarded: number; maxHp: number; finished: boolean; outcome: ReturnType<BattleSim["outcome"]> } {
     const level = Math.max(8, raid.unlockLevel);
     const stage = resolveStageWave(fightStage(raid, level)!, seededRandom(`proj:${raid.id}`));
     const elite = null;
@@ -406,10 +406,10 @@ describe("boss projectile scaling", () => {
     for (let t = 0; t < RAID_MAX_TICKS && sim.step(RAID_TICK_MS); t++) {
       // fight it out
     }
-    return { dealt, dealtWhileGuarded, maxHp: healer.maxHp };
+    return { dealt, dealtWhileGuarded, maxHp: healer.maxHp, finished: sim.finished, outcome: sim.outcome() };
   }
 
-  it("takes a lone level-appropriate healer from full to dead, on every throwing boss", () => {
+  it("decides every throwing-boss fight with a lone healer before the clock", () => {
     // This is the whole rebalance, measured rather than asserted about. Before it, the same
     // fights took 0% (Pirates), 1% (Lawyers), 37% (Ninjas) and 47% (Robots) off that healer.
     //
@@ -441,10 +441,15 @@ describe("boss projectile scaling", () => {
     // 105% -> 84% without touching a throw number: the fight ran two seconds longer and
     // something else got to the healer sooner. Held at the Robots' 0.8 for the same reason
     // — it is a fight-timing artefact, not the projectile budget.
+    //
+    // SINCE RULESET 66 the fight ends the moment the healer is alone (an army down to its
+    // Gardens has lost — see BattleSim.healersOnly), so the throws only get the time the
+    // healer spends behind a living army. What this now pins is that nothing stalls: every
+    // one of these fights is over well before the clock, one way or the other.
     for (const { raid } of throwers) {
-      const { dealt, maxHp } = projectilePressure(raid);
-      expect(dealt / maxHp, `${raid.name} projectile damage on a solo healer`)
-        .toBeGreaterThanOrEqual(raid.id === 5 || raid.id === 9 ? 0.8 : 0.9);
+      const { finished, outcome } = projectilePressure(raid);
+      expect(finished, `${raid.name} is decided before the clock`).toBe(true);
+      expect(outcome.outOfTime, `${raid.name} did not run out of time`).toBe(false);
     }
   });
 
