@@ -251,8 +251,10 @@ describe("a resurrected zombie rejoins the line", () => {
       if (roster.every((u) => u.state !== "waiting" && u.state !== "charging")) break;
     }
     settle(20_000);
+    // The fighting line first, then the stationed supports (they are numbered apart, v68).
     const rank = () => roster.slice()
-      .sort((a, b) => a.lineupIndex - b.lineupIndex).map((u) => u.id);
+      .sort((a, b) => Number(a.isGarden) - Number(b.isGarden) || a.lineupIndex - b.lineupIndex)
+      .map((u) => u.id);
     const before = rank();
     const victim = sim.units.find((u) => u.id === victimId)!;
     (sim as any).dealDamage(victim, victim.maxHp, false);
@@ -323,6 +325,33 @@ describe("a resurrected zombie rejoins the line", () => {
       [regular("r0"), regular("r1"), regular("r2"), medic("g")], "r0"
     );
     expect(before[0]).toBe("r0");
-    expect(after).toEqual(["r1", "r2", "g", "r0"]);
+    expect(after).toEqual(["r1", "r2", "r0", "g"]);
+  });
+});
+
+// Issue 10: five Gardens sent FIRST took array indices 0-4, so every fighter behind them
+// landed in band 1 — the damage/cadence falloff, and out of the front band the enemy can
+// reach. Stationed supports keep their own count now; the line counts only fighters.
+describe("stationed supports do not take places in the fighting line (v68)", () => {
+  const garden = (id: string) =>
+    unit({ id, sourceKey: "ZombieActorGardenTier1", group: "Garden", team: "player", isGarden: true });
+
+  it("puts the first fighter in band 0 even behind five Gardens", () => {
+    const sim = deployed([
+      garden("g0"), garden("g1"), garden("g2"), garden("g3"), garden("g4"),
+      regular("r0"), regular("r1"),
+    ]);
+    const idx = (id: string) => sim.units.find((u) => u.id === id)!.lineupIndex;
+    expect([idx("r0"), idx("r1")]).toEqual([0, 1]);
+    expect([0, 1, 2, 3, 4].map((i) => idx(`g${i}`))).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("numbers a sixth Garden into its own second band, not the line's", () => {
+    const sim = deployed([
+      garden("g0"), garden("g1"), garden("g2"), garden("g3"), garden("g4"), garden("g5"),
+      regular("r0"),
+    ]);
+    expect(sim.units.find((u) => u.id === "g5")!.lineupIndex).toBe(5);
+    expect(sim.units.find((u) => u.id === "r0")!.lineupIndex).toBe(0);
   });
 });

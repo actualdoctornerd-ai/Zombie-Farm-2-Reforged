@@ -4304,6 +4304,24 @@ export class BattleSim {
     // Lineup index = index in the army array. It drives the damage and cadence falloff
     // bands (combatStats), and now the formation reads from the SAME index, so the visible
     // rank and the band a zombie is punished for finally agree.
+    //
+    // v68: the stationed supports (`isGarden`) are NOT part of that count. They hold
+    // GARDEN_STATION_X out of the combat zone and never stand in a row, but they used to
+    // take array indices all the same — so five Gardens sent first filled band 0 and
+    // pushed every fighter behind them into band 1: the damage/cadence falloff, and (v40)
+    // the enemy's reach of last resort, which only touches the front band. "The Gardens
+    // occupy the first five front-row positions" (issue 10). The line now counts only its
+    // own fighters, and the supports are numbered among themselves.
+    const line = order.filter((p) => !p.isGarden);
+    const supports = order.filter((p) => p.isGarden);
+    this.placeRows(line);
+    this.placeRows(supports);
+  }
+
+  /** Number one group front to back (`lineupIndex`, the damage band) and stand it in
+   *  rows of BAND_SIZE. See assignFormation, which calls this once for the fighting line
+   *  and once for the stationed supports. */
+  private placeRows(order: SimUnit[]) {
     order.forEach((p, i) => {
       p.lineupIndex = i;
     });

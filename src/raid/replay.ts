@@ -1220,7 +1220,18 @@ import type { RaidOutcome } from "./types";
 //
 // Every raid 5, 6 and 9 transcript and every elite raid 3, 4, 5 and 6 transcript replays
 // differently from v66.
-export const RAID_RULESET_VERSION = 67;
+// v68 — STATIONED SUPPORTS NO LONGER TAKE PLACES IN THE FIGHTING LINE (issue 10, 2026-09-29).
+//
+// The army array is the formation and `index / 5` is the damage/cadence band — and a
+// Garden (`isGarden`, the support flag) counted in that array although it never stands in
+// a row. Five Gardens sent first filled band 0 and pushed every fighter behind them into
+// band 1, which takes the falloff AND falls outside the front band the enemy's reach of
+// last resort touches (v40), so a Garden-first army was hit by nothing and hit softly.
+// The line now numbers only its fighters and the supports are numbered among themselves.
+//
+// Any fight whose army had a Garden ahead of a fighter in deploy order replays differently
+// from v67; an army with its Gardens last is unchanged.
+export const RAID_RULESET_VERSION = 68;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
