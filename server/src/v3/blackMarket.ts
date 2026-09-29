@@ -24,6 +24,7 @@ import { levelForXp, XP_THRESHOLDS } from "../levels";
 import {
   blackMarketFilterKeys,
   blackMarketPurchaseRequirement,
+  inherentMutation,
   isTradableZombie,
   type BlackMarketPurchaseRequirement,
 } from "../rosterCatalog";
@@ -196,12 +197,18 @@ const validPrice = (value: unknown): value is number =>
 const validMutationRequirement = (value: unknown): value is number | undefined =>
   value === undefined || (Number.isSafeInteger(value) && Number(value) > 0 &&
     maskWithout(Number(value), REQUESTABLE_MUTATION_MASK) === 0);
+/** `inherent` is the mutation the SPECIES is minted with (the 15 Market mutants: an
+ *  Eyebiscus Zombie always wears Eyebiscus). A "No mutation" post on such a species can
+ *  only mean "nothing beyond its own", or it could never be filled. */
 export const matchesMutationRequirement = (
   mutation: number,
   mutated: number,
-  mutationRequired: number | null
+  mutationRequired: number | null,
+  inherent = 0
 ): boolean => {
-  if (mutationRequired === null) return (mutation !== 0) === !!mutated;
+  if (mutationRequired === null) {
+    return mutated ? mutation !== 0 : maskWithout(mutation, inherent) === 0;
+  }
   return SLOTS.every((slot) => {
     const requestedInSlot = maskIntersect(mutationRequired, SLOT_MASK[slot]);
     return requestedInSlot === 0 || maskIntersect(mutation, requestedInSlot) !== 0;
@@ -209,11 +216,19 @@ export const matchesMutationRequirement = (
 };
 // SQLite's `&` is 64-bit, unlike JavaScript's — these predicates stay correct for
 // every bit the mask can hold, so only the JS-side arithmetic above had to change.
-const mutationRequirementSql = (mutationRequired: number | null): {
+const mutationRequirementSql = (
+  mutationRequired: number | null,
+  mutated: number,
+  inherent: number
+): {
   sql: string;
   binds: number[];
 } => {
-  if (mutationRequired === null) return { sql: "(mutation!=0)=?", binds: [] };
+  if (mutationRequired === null) {
+    return mutated
+      ? { sql: "mutation!=0", binds: [] }
+      : { sql: "(mutation & ~?)=0", binds: [inherent] };
+  }
   const slotMasks = SLOTS
     .map((slot) => maskIntersect(mutationRequired, SLOT_MASK[slot]))
     .filter((mask) => mask !== 0);
@@ -1127,7 +1142,8 @@ export async function fulfill(
     const mutationMatches = !!unit && matchesMutationRequirement(
       unit.mutation,
       row.mutated_required,
-      row.mutation_required
+      row.mutation_required,
+      inherentMutation(row.zombie_key)
     );
     if (!unit || unit.zombie_key !== row.zombie_key || !mutationMatches)
       return { status: 409, error: "zombie_mismatch" };
@@ -1148,7 +1164,8 @@ export async function fulfill(
   if (creatorRuntime?.active_batch_id && creatorRuntime.active_batch_expires_at > now)
     return { status: 409, error: "counterparty_busy" };
 
-  const mutationAsset = mutationRequirementSql(row.mutation_required);
+  const mutationAsset = mutationRequirementSql(
+    row.mutation_required, row.mutated_required, inherentMutation(row.zombie_key));
   const actorAsset = row.kind === "SELL_ZOMBIE"
     ? `EXISTS(SELECT 1 FROM balances WHERE account_id=? AND ${wallet}>=?)`
     : `EXISTS(SELECT 1 FROM roster_v3 WHERE account_id=? AND unit_id=? AND zombie_key=?
@@ -1160,7 +1177,7 @@ export async function fulfill(
         accountId,
         offered!.unitId,
         row.zombie_key,
-        ...(row.mutation_required === null ? [row.mutated_required] : mutationAsset.binds),
+        ...mutationAsset.binds,
       ];
   // Stamp the actually-traded unit on the order so trade history can show it —
   // a request's escrow columns hold brains, so the offered unit has nowhere

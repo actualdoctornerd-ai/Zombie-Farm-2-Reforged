@@ -94,6 +94,10 @@ describe("Black Market purchase requirements", () => {
       .toBe("Broccohair or Cauli-hair + Turnip-Arm");
     expect(matchesBlackMarketMutation(4, true)).toBe(true);
     expect(matchesBlackMarketMutation(0, false)).toBe(true);
+    // A Market mutant (Eyebiscus Zombie, bit 16384) is minted mutated: "none" means none extra.
+    expect(matchesBlackMarketMutation(16384, false, undefined, 16384)).toBe(true);
+    expect(matchesBlackMarketMutation(16384 | 4, false, undefined, 16384)).toBe(false);
+    expect(matchesBlackMarketMutation(16384, false)).toBe(false);
   });
 
   it("makes every catalogued mutation requestable, including ones added later", () => {

@@ -154,6 +154,19 @@ export function legalMutation(key: string, mask: number): number {
   return applyBodyTypeRestriction(upgradeVariantMutations(key, mask), isHeadlessZombie(key));
 }
 
+/** The mutation a species is MINTED with: the 15 Market mutants (Carrot Zombie ...
+ *  Eyebiscus Zombie) carry their crop's bit from the moment they exist. 0 for the rest.
+ *  The Black Market reads it so "No mutation" on such a species means "no extra ones". */
+const INHERENT_MUTATION = new Map(
+  (zombieRows as Array<{ key: string; mutation?: number }>)
+    .filter((zombie) => (zombie.mutation ?? 0) !== 0)
+    .map((zombie) => [zombie.key, zombie.mutation as number])
+);
+
+export function inherentMutation(key: string): number {
+  return INHERENT_MUTATION.get(key) ?? 0;
+}
+
 const TRADABLE_ZOMBIES = new Set(
   (zombieRows as Array<{ key: string }>).map((zombie) => zombie.key)
 );

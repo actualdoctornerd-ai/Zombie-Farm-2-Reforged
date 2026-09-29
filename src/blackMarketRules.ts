@@ -143,13 +143,20 @@ export function blackMarketPurchaseLock(
 export const REQUESTABLE_MUTATION_MASK = ALL_MUTATIONS_MASK;
 
 /** A specific request matches when the bit is present, even if the zombie carries
- * other mutations too. Without a specific bit, preserve the any/none behavior. */
+ * other mutations too. Without a specific bit, preserve the any/none behavior.
+ *
+ * `inherent` is the mutation the species is MINTED with (the Market mutants: an Eyebiscus
+ * Zombie always wears Eyebiscus), so "none" means "nothing beyond its own". Without
+ * that, a "No mutation" post on such a species could never be filled. */
 export function matchesBlackMarketMutation(
   mutationMask: number,
   mutated: boolean,
-  mutationRequired?: number
+  mutationRequired?: number,
+  inherent = 0
 ): boolean {
-  if (mutationRequired === undefined) return (mutationMask !== 0) === mutated;
+  if (mutationRequired === undefined) {
+    return mutated ? mutationMask !== 0 : maskWithout(mutationMask, inherent) === 0;
+  }
   return SLOTS.every((slot) => {
     const requestedInSlot = maskIntersect(mutationRequired, SLOT_MASK[slot]);
     return requestedInSlot === 0 || maskIntersect(mutationMask, requestedInSlot) !== 0;
@@ -168,5 +175,5 @@ export function blackMarketMutationRequirementLabel(mask: number): string {
     .join(" + ");
 }
 import { ALL_MUTATIONS_MASK, MUTATION_LIST, SLOTS, SLOT_MASK } from "./zombie/mutations";
-import { maskHas, maskIntersect } from "./zombie/mutationMask";
+import { maskHas, maskIntersect, maskWithout } from "./zombie/mutationMask";
 import { specialZombieSourceLevel } from "./zombie/specialUnlock";

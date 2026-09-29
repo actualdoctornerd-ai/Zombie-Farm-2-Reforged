@@ -20,6 +20,8 @@ describe("Black Market mutation matching", () => {
   it("preserves broad any-mutation and no-mutation requests", () => {
     expect(matchesMutationRequirement(4, 1, null)).toBe(true);
     expect(matchesMutationRequirement(0, 0, null)).toBe(true);
+    expect(matchesMutationRequirement(16384, 0, null, 16384)).toBe(true);
+    expect(matchesMutationRequirement(16384 | 4, 0, null, 16384)).toBe(false);
     expect(matchesMutationRequirement(0, 1, null)).toBe(false);
   });
 });

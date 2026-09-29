@@ -3907,6 +3907,10 @@ export class Hud {
       const selling = composeKind.value === "SELL_ZOMBIE";
       const purchaseLock = selling ? null : purchaseLockFor(asset.value);
       syncMutationChoices(selling); // before the mask is read below
+      // A Market mutant is minted wearing its own mutation, so "none" can only mean
+      // "nothing on top of it" (matchesBlackMarketMutation) and the label says so.
+      mutationMode.options[0].text = cardFor(asset.value)?.zombie?.mutation
+        ? "No extra mutations" : "No mutation";
       const missingMutation = !selling && mutationMode.value === "specific" &&
         selectedMutationMask() === 0;
       mutationChoices.hidden = selling || mutationMode.value !== "specific";
@@ -4228,7 +4232,8 @@ export class Hud {
           const mutationText = order.kind === "BUY_ZOMBIE"
             ? order.mutationRequired
               ? `Requested mutations: ${blackMarketMutationRequirementLabel(order.mutationRequired)}`
-              : `Requested mutation: ${order.mutated ? "Any mutation" : "None"}`
+              : `Requested mutation: ${order.mutated ? "Any mutation"
+                : cardFor(order.zombieKey)?.zombie?.mutation ? "No extra mutations" : "None"}`
             : `Mutated: ${order.mutated
               ? `Yes${order.mutation ? ` — ${mutationLabelFor(order.zombieKey, order.mutation)}` : ""}`
               : "No"}${order.invasions ? ` · ${veterancy(order.invasions)}` : ""}`;
@@ -4483,7 +4488,8 @@ export class Hud {
    * player explicitly chooses. */
   private chooseBlackMarketZombie(order: BlackMarketOrderView): Promise<RosterEntry | null> {
     const matches = (this.getRoster?.() ?? []).filter((zombie) => zombie.key === order.zombieKey &&
-      matchesBlackMarketMutation(zombie.mutation, order.mutated, order.mutationRequired));
+      matchesBlackMarketMutation(zombie.mutation, order.mutated, order.mutationRequired,
+        this.blackMarketCardFor(order.zombieKey)?.zombie?.mutation ?? 0));
     if (!matches.length) return Promise.resolve(null);
     return new Promise((resolve) => {
       let settled = false;
