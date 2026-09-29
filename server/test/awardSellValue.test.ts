@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RAID_DROP_SELL, EPIC_PRIZE_SELL, QUEST_REWARD_SELL, BOSS_STATUE_SELL } from "../../src/awardSellValue";
-import { BOSS_STATUES } from "../../src/raid/bossStatues";
+import { BOSS_STATUES, EPIC_BOSS_STATUES } from "../../src/raid/bossStatues";
 import { RAID_LOOT, DROPS } from "../src/raidLootCatalog";
 import { objectEcon, objectSellGold } from "../src/objectCatalog";
 import { EPIC_BOSSES } from "../../src/epicBoss/catalog";
@@ -130,7 +130,8 @@ describe("award-only prize sell values", () => {
   });
 
   it("prices every Boss Statue above every invasion's ordinary loot", () => {
-    const statueTiles = new Set(Object.values(BOSS_STATUES).flatMap((s) => [s.tile, s.goldenTile]));
+    const statueTiles = new Set([...Object.values(BOSS_STATUES), ...Object.values(EPIC_BOSS_STATUES)]
+      .flatMap((s) => [s.tile, s.goldenTile]));
     expect(Object.keys(BOSS_STATUE_SELL).sort()).toEqual([...statueTiles].sort());
     const dearestLoot = Math.max(...lootTiles().map((row) => sellOf(row.tile))
       .filter((gold) => gold < 40_000)); // the Pyramid outlier, see above

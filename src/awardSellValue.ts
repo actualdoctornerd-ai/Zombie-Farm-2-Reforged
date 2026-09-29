@@ -190,6 +190,10 @@ const STATUE_TILES = [
   "bossStatueOldMcDonnell", "bossStatueCorporateVille", "bossStatueArrrnold",
   "bossStatueMrWhiskers", "bossStatueBroBot", "bossStatueAlien", "bossStatueSquiDude",
   "bossStatueRingmaster", "bossStatueZedzox", "bossStatueGoffy", "bossStatueFelixWonky",
+  // The epic bosses' statues (tools/boss_statues.py EPIC_STATUES) — items only for now, no drop yet.
+  "epicStatueDrGroundhog", "epicStatueBullyFrog", "epicStatueRockyRhino",
+  "epicStatueGeneralLarvaelus", "epicStatueMysticalMamba", "epicStatueFoulOwl",
+  "epicStatueSkunkarella", "epicStatueLocoLocust",
 ];
 export const BOSS_STATUE_SELL: Readonly<Record<string, number>> = Object.fromEntries(
   STATUE_TILES.flatMap((tile) => [[tile, 5_000], [`${tile}Golden`, 15_000]])

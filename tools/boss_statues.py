@@ -39,6 +39,7 @@ PROJ = os.path.dirname(HERE)
 OUT = os.path.join(PROJ, "public", "assets")
 OBJDIR = os.path.join(OUT, "objects")
 ENEMIES = os.path.join(OUT, "raids", "enemies")
+EPIC_BOSSES = os.path.join(OUT, "epic-bosses")
 
 # (placeable key, display name, raid composite). The display name is also the
 # drops.json name the prize is granted under, so it is what Received shows. Each
@@ -57,6 +58,21 @@ STATUES = [
     ("bossStatueGoffy", "Goffy Statue", "TreeWorldStageBossActor"),
     ("bossStatueFelixWonky", "Felix Wonky Statue", "ValentinesDayStageActorBoss"),
 ]
+# The EPIC bosses' statues (src/epicBoss/catalog.ts). Same recipe, but the figure is the
+# boss's first IDLE frame ("epic:<id>" below; the source is public/assets/epic-bosses/<id>/).
+# Wired in as ITEMS only — nothing drops them yet.
+# KEEP IN SYNC with EPIC_BOSS_STATUES in src/raid/bossStatues.ts.
+EPIC_STATUES = [
+    ("epicStatueDrGroundhog", "Dr. Groundhog Statue", "epic:dr-groundhog"),
+    ("epicStatueBullyFrog", "Bully Frog Statue", "epic:bully-frog"),
+    ("epicStatueRockyRhino", "Rocky Rhino Statue", "epic:rocky-rhino"),
+    ("epicStatueGeneralLarvaelus", "General Larvaelus Statue", "epic:general-larvaelus"),
+    ("epicStatueMysticalMamba", "Mystical Mamba Statue", "epic:mystical-mamba"),
+    ("epicStatueFoulOwl", "Foul Owl Statue", "epic:foul-owl"),
+    ("epicStatueSkunkarella", "Skunkarella Statue", "epic:skunkarella"),
+    ("epicStatueLocoLocust", "Loco Locust Statue", "epic:loco-locust"),
+]
+STATUES = STATUES + EPIC_STATUES
 # Pixel art is scaled without smoothing, or Zedzox turns to mush.
 PIXEL_ART = {"VideoGameStageBossActor"}
 
@@ -175,10 +191,20 @@ def _band_center(img, y0, y1):
     return (box[0] + box[2]) / 2 if box else img.width / 2
 
 
+def _epic_idle_frame(boss_id):
+    """The epic boss's first idle frame (its catalog.json names the strip and cell)."""
+    d = os.path.join(EPIC_BOSSES, boss_id)
+    idle = json.load(open(os.path.join(d, "catalog.json"), encoding="utf-8"))["animations"]["idle"]
+    strip = Image.open(os.path.join(d, idle["file"])).convert("RGBA")
+    return strip.crop((0, 0, idle["cellWidth"], idle["cellHeight"]))
+
+
 def _figure(source):
     """The stone figure, and the x (in its own pixels) to stand on the mount point."""
     tweak = FIGURE_TWEAKS.get(source, {})
-    if "pose" in tweak:
+    if source.startswith("epic:"):
+        im = _epic_idle_frame(source[len("epic:"):])
+    elif "pose" in tweak:
         im = _posed_rig(source, tweak["pose"])
     else:
         im = Image.open(os.path.join(ENEMIES, f"{source}.png")).convert("RGBA")

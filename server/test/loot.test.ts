@@ -5,7 +5,7 @@ import { RAID_LOOT, dropEcon, raidLoot } from "../src/raidLootCatalog";
 import { rollLootTier } from "../../src/raid/LootTable";
 import { raidBoostBundle } from "../../src/raid/lootBundles";
 import {
-  BOSS_STATUES, BOSS_STATUE_RATE, BOSS_STATUE_WINS, GOLDEN_STATUE_RATE, GOLDEN_STATUE_WINS,
+  BOSS_STATUES, EPIC_BOSS_STATUES, BOSS_STATUE_RATE, BOSS_STATUE_WINS, GOLDEN_STATUE_RATE, GOLDEN_STATUE_WINS,
   bossStatueFor, settleBossStatue, statueFlagKey,
 } from "../../src/raid/bossStatues";
 import placeables from "../../public/assets/placeables.json";
@@ -258,7 +258,8 @@ describe("Boss Statues — 15-win stone, 50-win golden, then 2% / 1%", () => {
   });
 
   it("stays off the binary's six loot tiers", () => {
-    const statues = new Set(Object.values(BOSS_STATUES).flatMap((s) => [s.name, s.goldenName]));
+    const statues = new Set([...Object.values(BOSS_STATUES), ...Object.values(EPIC_BOSS_STATUES)]
+      .flatMap((s) => [s.name, s.goldenName]));
     for (const tiers of Object.values(RAID_LOOT))
       for (const tier of tiers) for (const name of tier) expect(statues.has(name), name).toBe(false);
   });

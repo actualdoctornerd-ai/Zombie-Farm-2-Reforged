@@ -1221,5 +1221,133 @@
   "tile": "bossStatueFelixWonkyGolden",
   "unique": false,
   "limit": 0
+ },
+ "Dr. Groundhog Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueDrGroundhog",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Dr. Groundhog Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueDrGroundhogGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Bully Frog Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueBullyFrog",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Bully Frog Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueBullyFrogGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Rocky Rhino Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueRockyRhino",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Rocky Rhino Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueRockyRhinoGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "General Larvaelus Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueGeneralLarvaelus",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden General Larvaelus Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueGeneralLarvaelusGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Mystical Mamba Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueMysticalMamba",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Mystical Mamba Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueMysticalMambaGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Foul Owl Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueFoulOwl",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Foul Owl Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueFoulOwlGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Skunkarella Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueSkunkarella",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Skunkarella Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueSkunkarellaGolden",
+  "unique": false,
+  "limit": 0
+ },
+ "Loco Locust Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueLocoLocust",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Loco Locust Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "epicStatueLocoLocustGolden",
+  "unique": false,
+  "limit": 0
  }
 }

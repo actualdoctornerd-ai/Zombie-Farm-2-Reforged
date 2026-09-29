@@ -21,6 +21,11 @@
 //
 // The dual invasions (12-15) carve nothing yet.
 //
+// The eight EPIC bosses (src/epicBoss/catalog.ts) have statues too, wired in as plain
+// ITEMS ONLY: baked by tools/boss_statues.py EPIC_STATUES (`epicStatue*` tiles, drops.json,
+// the server catalogs, the shared sell price) but nothing grants them yet — settleBossStatue
+// never looks at EPIC_BOSS_STATUES and no loot table names them. Their drop rules come later.
+//
 // Imported by BOTH sides — the server settles it online (v3/raid.ts), RaidManager
 // offline — so the rules have one definition.
 
@@ -51,6 +56,19 @@ export const BOSS_STATUES: Readonly<Record<number, BossStatue>> = {
   9: statue("Zedzox", "bossStatueZedzox"),
   10: statue("Goffy", "bossStatueGoffy"),
   11: statue("Felix Wonky", "bossStatueFelixWonky"),
+};
+
+/** The eight epic bosses' statues, by epic boss id (src/epicBoss/catalog.ts). Items only —
+ *  NOTHING GRANTS THESE YET. KEEP IN SYNC with EPIC_STATUES in tools/boss_statues.py. */
+export const EPIC_BOSS_STATUES: Readonly<Record<string, BossStatue>> = {
+  "dr-groundhog": statue("Dr. Groundhog", "epicStatueDrGroundhog"),
+  "bully-frog": statue("Bully Frog", "epicStatueBullyFrog"),
+  "rocky-rhino": statue("Rocky Rhino", "epicStatueRockyRhino"),
+  "general-larvaelus": statue("General Larvaelus", "epicStatueGeneralLarvaelus"),
+  "mystical-mamba": statue("Mystical Mamba", "epicStatueMysticalMamba"),
+  "foul-owl": statue("Foul Owl", "epicStatueFoulOwl"),
+  "skunkarella": statue("Skunkarella", "epicStatueSkunkarella"),
+  "loco-locust": statue("Loco Locust", "epicStatueLocoLocust"),
 };
 
 /** Wins of one invasion that hand over its stone / golden statue. */
