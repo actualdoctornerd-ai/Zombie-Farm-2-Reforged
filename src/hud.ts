@@ -120,6 +120,9 @@ import type {
   Mode, ObjCard, MenuCard, EpicBossMarketView, ZombieInfo, ObjectActions,
   AlmanacEntryView, LevelUpView, QuestCompleteView, ReceivedView, ShedAppearanceView,
 } from "./ui/hudTypes";
+
+/** viewState key: the story invasion last selected/launched, so the list reopens on it. */
+const LAST_RAID_KEY = "raids.last";
 export { graveNeededFor } from "./ui/hudTypes";
 export type {
   Mode, ObjCard, MenuCard, EpicBossMarketView, ZombieInfo, ObjectActions,
@@ -5996,7 +5999,12 @@ export class Hud {
     this.el.appendChild(bg);
 
     // Default selection: first unlocked raid, else the first card.
+    // ...unless the player already picked one this session: the invasion they keep
+    // repeating stays selected (and scrolled into view below) rather than sending them
+    // back down the list every time.
     let selId = (cards.find((c) => c.unlocked) ?? cards[0])?.id ?? -1;
+    const lastRaid = recallNumber(LAST_RAID_KEY, -1);
+    if (cards.some((c) => c.id === lastRaid && c.unlocked)) selId = lastRaid;
 
     // Whether to advertise each raid's ELITE recommended level. Same visibility rule as
     // the Brain Ticket button on the army screen: a player who cannot buy one and holds
@@ -6221,6 +6229,7 @@ export class Hud {
           });
         };
         go.onclick = () => {
+          remember(LAST_RAID_KEY, c.id);
           if (buyVoucher) {
             beginVoucherBuy();
             return;
@@ -6247,6 +6256,7 @@ export class Hud {
       detail.append(hero, intro, rewards, foot);
     };
 
+    let selCard: HTMLElement | null = null;
     for (const c of cards) {
       const card = document.createElement("button");
       card.className = "rd-card" + (c.unlocked ? "" : " locked");
@@ -6263,11 +6273,12 @@ export class Hud {
       card.append(thumb, txt);
       card.onclick = () => {
         selId = c.id;
+        remember(LAST_RAID_KEY, c.id);
         for (const el of list.querySelectorAll(".rd-card")) el.classList.remove("sel");
         card.classList.add("sel");
         renderDetail();
       };
-      if (c.id === selId) card.classList.add("sel");
+      if (c.id === selId) { card.classList.add("sel"); selCard = card; }
       list.appendChild(card);
     }
     if (!tutorialRaid && this.bossActive) {
@@ -6287,6 +6298,13 @@ export class Hud {
       }
     }
     renderDetail();
+    if (selCard) {
+      // Centre the remembered card in the list itself (scrollIntoView could also drag
+      // the page behind the modal).
+      const at = selCard.getBoundingClientRect();
+      const box = list.getBoundingClientRect();
+      list.scrollTop += at.top - box.top - (box.height - at.height) / 2;
+    }
     // Live-update the countdown only if a cooldown is currently active. The ticker
     // touches the FOOTER only — rebuilding the whole pane once a second is what made
     // the drop-rate text pulse (see refreshFoot).
