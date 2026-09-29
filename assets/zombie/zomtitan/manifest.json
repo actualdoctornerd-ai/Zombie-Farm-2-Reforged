@@ -1,0 +1,26 @@
+{
+ "name": "zomtitan",
+ "base": "ZombieActorLargeTier4",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  95,
+  92,
+  110
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "barbarianHair.png",
+   "group": "head",
+   "px": 2,
+   "py": -52,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  }
+ ]
+}
