@@ -1114,6 +1114,12 @@ export class RaidScene {
       if (!tex) continue;
       const sp = new Sprite(tex);
       sp.zIndex = asset.z;
+      // Scenery never takes a tap. The game's root stage is `static`, and Pixi hands that
+      // mode down to every descendant, so a plain sprite counts as a hit anywhere inside
+      // its bounding RECTANGLE, transparent pixels included, and swallows the tap. Raid 5's
+      // floor art (z 3) covers the Mega-Robot's eyes (z 1) that way, which made them
+      // untappable in the game even though they worked in the Raid Lab (passive stage).
+      sp.eventMode = "none";
       this.stageLayers.push({ sp, asset });
       this.stageLayer.addChild(sp);
     }
