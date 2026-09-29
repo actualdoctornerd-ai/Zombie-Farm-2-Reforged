@@ -1229,4 +1229,43 @@ describe("Black Market gold pricing", () => {
     });
     expect(fresh.status, JSON.stringify(fresh.body)).toBe(200);
   });
+
+  // Issue 11: an Eyebiscus Zombie is minted wearing Eyebiscus, so a "No mutation" request
+  // for one could never be filled. "None" now means nothing BEYOND the species' own.
+  it("fills a 'no mutation' request for a Market mutant with its own mutation", async () => {
+    const key = "ZombieActorRegularTier4Eyebiscus";
+    const EYEBISCUS = 16384, LIMA_BEAN = 1024;
+    const requester = await signIn(uniqueSub("market-inherent-req"));
+    const filler = await signIn(uniqueSub("market-inherent-fill"));
+    // Silver is a level-25 class, and the recipient must clear it.
+    await grantBalance(requester, { brains: 50, xp: xpForLevel(25) });
+    await grantLevel(filler, 25);
+    const plainId = `market-inherent-plain-${crypto.randomUUID()}`;
+    const extraId = `market-inherent-extra-${crypto.randomUUID()}`;
+    await grantRoster(filler, [
+      { id: plainId, key, mutation: EYEBISCUS },
+      { id: extraId, key, mutation: EYEBISCUS | LIMA_BEAN },
+    ]);
+
+    const before = await bootstrap(requester);
+    const posted = await call<any>("POST", "/black-market/orders", requester.token, {
+      operationId: operation("inherent-create"), expectedAccountVersion: before.accountVersion,
+      kind: "BUY_ZOMBIE", zombieKey: key, mutated: false, price: 1, currency: "BRAINS",
+    });
+    expect(posted.status, JSON.stringify(posted.body)).toBe(200);
+
+    // A second mutation on top of its own is NOT "no mutation".
+    const fillerBoot = await bootstrap(filler);
+    const refused = await call<any>(
+      "POST", `/black-market/orders/${posted.body.order.id}/fulfill`, filler.token,
+      { operationId: operation("inherent-extra"), expectedAccountVersion: fillerBoot.accountVersion, unitId: extraId }
+    );
+    expect(refused).toMatchObject({ status: 409, body: { error: "zombie_mismatch" } });
+
+    const filled = await call<any>(
+      "POST", `/black-market/orders/${posted.body.order.id}/fulfill`, filler.token,
+      { operationId: operation("inherent-plain"), expectedAccountVersion: fillerBoot.accountVersion, unitId: plainId }
+    );
+    expect(filled.status, JSON.stringify(filled.body)).toBe(200);
+  });
 });
