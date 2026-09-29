@@ -1782,6 +1782,12 @@ export class Hud {
   onStoreReceived: ((index: number) => Promise<boolean> | boolean) | null = null;
   /** Permanently sell a sellable decoration directly from Received. */
   onSellReceived: ((index: number) => Promise<boolean> | boolean) | null = null;
+  /** Sell several Received decorations in one go (Received -> Sell Multiple), by
+   *  Received index. Returns the gold paid, or null when the player backed out or
+   *  nothing could be sold. */
+  onSellReceivedMany: ((indices: number[]) => Promise<number | null>) | null = null;
+  /** What that same selection would pay, for the live total on the select bar. */
+  getReceivedSellTotal: ((indices: number[]) => number) | null = null;
 
   // ---- Zombie Pot (combiner) hooks (set by main) ----
   /** Current combine status for the combiner panel. */

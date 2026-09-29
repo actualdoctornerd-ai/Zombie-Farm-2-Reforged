@@ -6581,6 +6581,63 @@ async function main() {
     return true;
   };
 
+  // The multi-select sale behind Storage -> Received -> Sell Multiple. Same shape as
+  // the shed's: one price, one confirm, one toast, but one refund per reward (the
+  // same single `storage.refund` command a lone sale uses).
+  const receivedSaleLots = (indices: number[]) => {
+    const lots: { index: number; entry: string; refund: number }[] = [];
+    for (const index of new Set(indices)) {
+      const entry = state.received[index];
+      const def = entry ? receivedDef(entry) : undefined;
+      if (!entry || !def || def.category === "functional") continue;
+      lots.push({ index, entry, refund: sellRefund(def) });
+    }
+    return lots;
+  };
+  hud.getReceivedSellTotal = (indices) => receivedSaleLots(indices).reduce((a, l) => a + l.refund, 0);
+  hud.onSellReceivedMany = async (indices) => {
+    if (onlineGameplayBlocked()) return null;
+    const lots = receivedSaleLots(indices);
+    if (!lots.length) {
+      hud.showToast("Those rewards are no longer in Received.");
+      return null;
+    }
+    const total = lots.reduce((a, l) => a + l.refund, 0);
+    const tally = new Map<string, number>();
+    for (const l of lots) tally.set(l.entry, (tally.get(l.entry) ?? 0) + 1);
+    const what = [...tally].map(([name, n]) => (n > 1 ? `${n} × ${name}` : name)).join(", ");
+    if (!await hud.confirmInGame(
+      `Sell ${lots.length} reward${lots.length === 1 ? "" : "s"}?`,
+      `${what} — for ${total.toLocaleString()} gold. This cannot be undone.`,
+      `Sell +${total.toLocaleString()}g`,
+    )) return null;
+    // Highest index first so each removal leaves the lower ones where they were, and
+    // each is re-checked against the bucket (the dialog was open long enough for it
+    // to move); a reward that has gone is skipped rather than refunded.
+    let gold = 0;
+    let sold = 0;
+    for (const lot of [...lots].sort((a, b) => b.index - a.index)) {
+      if (state.received[lot.index] !== lot.entry) continue;
+      if (economy) {
+        if (!economy.submitStorageRefund(lot.entry, lot.refund)) continue;
+      } else state.addGold(lot.refund);
+      state.takeReceivedAt(lot.index);
+      gold += lot.refund;
+      sold++;
+    }
+    if (!sold) {
+      hud.showToast("Those rewards could not be sold.");
+      return null;
+    }
+    audio.play("sell");
+    const short = lots.length - sold;
+    hud.showToast(
+      `Sold ${sold} reward${sold === 1 ? "" : "s"} for ${gold.toLocaleString()} gold.` +
+      (short ? ` ${short} could not be sold.` : "")
+    );
+    return gold;
+  };
+
   // Store a placed object in the shed (returns it to inventory for free re-placing
   // later). Reverses any functional effect; the shed must have a free slot.
   const storeObject = (id: string): boolean => {

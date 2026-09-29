@@ -65,6 +65,9 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
   // decision, and reopening Storage should never find the shed pre-armed to sell.
   let picking = false;
   const picked = new Set<number>();
+  // The same for the Received tab, keyed by Received index. Also never remembered.
+  let rcvPicking = false;
+  const rcvPicked = new Set<number>();
   const render = () => {
     body.innerHTML = "";
     remember("storage.tab", tab);
@@ -357,14 +360,102 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
         e.textContent = "Rewards from raids and quests appear here.";
         body.appendChild(e);
       } else {
+        const sellableIdx = views.filter((v) => v.sellable).map((v) => v.index);
+        const canBulk = !!hud.onSellReceivedMany && sellableIdx.length > 0;
+        // Indices shift when a reward leaves, so drop any that are gone or unsellable.
+        if (!canBulk) rcvPicking = false;
+        for (const i of [...rcvPicked]) if (!sellableIdx.includes(i)) rcvPicked.delete(i);
+
         const hint = document.createElement("div");
         hint.className = "st-hint";
-        hint.textContent = "Claim rewards, move zombies into the Mausoleum, place decorations, or sell decorations.";
+        hint.textContent = rcvPicking
+          ? "Tap decorations to select them, then sell the lot in one go."
+          : "Claim rewards, move zombies into the Mausoleum, place decorations, or sell decorations.";
         body.appendChild(hint);
+
+        let updateBar = () => {};
+        if (canBulk) {
+          const bar = document.createElement("div");
+          bar.className = "st-selbar";
+          if (!rcvPicking) {
+            const start = document.createElement("button");
+            start.className = "st-use";
+            start.textContent = "Sell Multiple";
+            start.title = "Pick several received decorations and sell them together";
+            start.onclick = () => { rcvPicking = true; rcvPicked.clear(); render(); };
+            bar.appendChild(start);
+          } else {
+            const tally = document.createElement("div");
+            tally.className = "st-seltally";
+            const all = document.createElement("button");
+            all.className = "st-use st-quiet";
+            const sell = document.createElement("button");
+            sell.className = "st-use st-sell";
+            const cancel = document.createElement("button");
+            cancel.className = "st-use st-quiet";
+            cancel.textContent = "Cancel";
+            cancel.onclick = () => { rcvPicking = false; rcvPicked.clear(); render(); };
+            updateBar = () => {
+              const n = rcvPicked.size;
+              const gold = n ? hud.getReceivedSellTotal?.([...rcvPicked]) ?? 0 : 0;
+              tally.innerHTML = n
+                ? `${n} selected <span class="g">+${gold.toLocaleString()}g</span>`
+                : "Nothing selected";
+              const every = n >= sellableIdx.length;
+              all.textContent = every ? "Clear" : "Select All";
+              all.title = every ? "Unselect everything" : "Select every decoration that can be sold";
+              sell.textContent = n ? `Sell ${n}` : "Sell";
+              sell.disabled = !n;
+            };
+            all.onclick = () => {
+              const every = rcvPicked.size >= sellableIdx.length;
+              rcvPicked.clear();
+              if (!every) for (const i of sellableIdx) rcvPicked.add(i);
+              render();
+            };
+            sell.onclick = async () => {
+              if (!rcvPicked.size) return;
+              sell.disabled = true; // no second submission while the dialog is up
+              const gold = await hud.onSellReceivedMany?.([...rcvPicked]);
+              // Backing out keeps the selection; a completed sale ends the mode.
+              if (gold !== null && gold !== undefined) { rcvPicking = false; rcvPicked.clear(); }
+              render();
+            };
+            bar.append(tally, all, sell, cancel);
+          }
+          body.appendChild(bar);
+        }
+
         const grid = document.createElement("div");
         grid.className = "rcv-grid";
-        for (const v of views) grid.appendChild(receivedCard(hud, v, bg, render));
+        for (const v of views) {
+          if (!rcvPicking) { grid.appendChild(receivedCard(hud, v, bg, render)); continue; }
+          const card = receivedCard(hud, v, bg, render, true);
+          if (v.sellable) {
+            const tick = document.createElement("span");
+            tick.className = "st-tick";
+            card.appendChild(tick);
+            const paint = () => {
+              const on = rcvPicked.has(v.index);
+              card.classList.toggle("picked", on);
+              tick.textContent = on ? "✓" : "";
+              card.title = on ? `${v.name} — tap to unselect` : `Select ${v.name} to sell`;
+            };
+            paint();
+            card.onclick = () => {
+              if (rcvPicked.has(v.index)) rcvPicked.delete(v.index);
+              else rcvPicked.add(v.index);
+              paint();
+              updateBar();
+            };
+          } else {
+            card.classList.add("unpickable");
+            card.title = `${v.name} can't be sold.`;
+          }
+          grid.appendChild(card);
+        }
         body.appendChild(grid);
+        updateBar();
       }
     }
     // Each tab keeps its own place, so selling from a long Items grid or claiming a
@@ -381,7 +472,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
       hud.audio.play("menuClick");
       // Switching tabs abandons a bulk selection: it is scoped to the Items grid,
       // and coming back to a shed still armed to sell would be a nasty surprise.
-      if (name !== tab) { picking = false; picked.clear(); }
+      if (name !== tab) { picking = false; picked.clear(); rcvPicking = false; rcvPicked.clear(); }
       tab = name;
       Object.values(tabBtns).forEach((x) => x.classList.remove("sel"));
       b.classList.add("sel");
@@ -401,7 +492,9 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
 // Build one Received-tab reward card. Placeables enter placement (closing the
 // panel); boosts/currency claim in place (re-rendering the tab); trophies —
 // loot decor with no placeable form in this build — are display-only.
-function receivedCard(hud: Hud, v: ReceivedView, bg: HTMLElement, rerender: () => void): HTMLElement {
+function receivedCard(
+  hud: Hud, v: ReceivedView, bg: HTMLElement, rerender: () => void, selecting = false,
+): HTMLElement {
   const card = document.createElement("div");
   card.className = "rcv-card" + (v.actionLabel ? "" : " trophy");
   const por = document.createElement("div");
@@ -415,6 +508,8 @@ function receivedCard(hud: Hud, v: ReceivedView, bg: HTMLElement, rerender: () =
   nm.className = "rcv-nm";
   nm.textContent = v.name;
   card.append(por, nm);
+  // Mid-select the card is only a tick target; its own buttons would fight the tap.
+  if (selecting) return card;
   if (v.actionLabel) {
     const actions = document.createElement("div");
     actions.className = "rcv-actions";

@@ -1817,6 +1817,13 @@
    grid lie about what the shed holds — but it is plainly out of the sale. */
 #hud .st-slot.unpickable { opacity: .45; filter: grayscale(.85); cursor: default; }
 #hud .st-slot.unpickable:hover { filter: grayscale(.85); }
+/* The Received tab's Sell Multiple reuses the same tick/frame/dim vocabulary. */
+#hud .rcv-card { position: relative; }
+#hud .rcv-card.picked { outline: 3px solid #f0c04a; outline-offset: -3px; border-radius: 6px;
+  filter: brightness(1.1) drop-shadow(0 0 4px rgba(255,220,120,.9)); cursor: pointer; }
+#hud .rcv-card.picked .st-tick { background: linear-gradient(#70a91e,#527d13);
+  border: 1px solid #3c5a10; border-radius: 50%; text-shadow: 0 1px 1px rgba(0,0,0,.5); }
+#hud .rcv-card.unpickable { opacity: .45; filter: grayscale(.85); cursor: default; }
 /* Shed appearance picker: taller slots, since each one is captioned with the shed's
    name — "Wood Hut" and "Bone Hut" are the same silhouette in different paint. */
 #hud .shed-skin-bg { z-index: 23; } /* above the Storage panel (21) that opens it */
