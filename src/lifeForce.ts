@@ -28,6 +28,9 @@ export const HARVEST_FAIL_PER_LEVEL = 0.2;
 /** The highest tier a zombie counts as, whatever its catalog tier (Obsidian is tier 6). */
 export const MAX_HARVEST_TIER = 5;
 
+/** A zombie has at most four ability slots (its colour-class tiers 1..4). */
+export const MAX_ABILITY_SLOTS = 4;
+
 /** The farm's Life Force level for a total. */
 export function lifeForceLevel(total: number): number {
   let level = 0;
@@ -106,6 +109,25 @@ export function harvestFailureChance(tier: number, level: number): number {
 export function harvestFails(tier: number, level: number, random: () => number): boolean {
   const chance = harvestFailureChance(tier, level);
   return chance > 0 && random() < chance;
+}
+
+/** What a Life Force level currently gives, for the HUD popover. */
+export interface LifeForceEffects {
+  /** Mutation chance per adjacent crop. */
+  mutationChance: number;
+  /** Highest tier whose harvests never fail (0 = none yet, 5 = every zombie). */
+  safeTier: number;
+  /** Ability slots that work (0..4). */
+  abilitySlots: number;
+}
+
+export function lifeForceEffects(level: number): LifeForceEffects {
+  const l = Math.min(MAX_LIFE_FORCE_LEVEL, Math.max(0, Math.floor(level)));
+  return {
+    mutationChance: cropMutationChance(l),
+    safeTier: Math.min(MAX_HARVEST_TIER, l),
+    abilitySlots: Math.min(MAX_ABILITY_SLOTS, l),
+  };
 }
 
 /** Ability slot `slot` (1..4: the zombie's colour-class tiers) works from Life Force

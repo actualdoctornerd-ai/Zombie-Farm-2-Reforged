@@ -36,6 +36,34 @@
 #hud .level-chip:focus-visible .xp-details,
 #hud .level-chip.xp-details-open .xp-details { opacity: 1; visibility: visible;
   translate: -50% 0; transition-delay: 0s; }
+/* Life Force chip: a level badge with a bar toward the next level; tap opens the
+   popover. Portrait phones swap the bar for a ring around the badge (see the portrait
+   block near the end of the top-bar rules). */
+#hud .lf-chip { position: relative; display: flex; align-items: center; flex: 0 0 auto;
+  margin-left: 4px; cursor: pointer; }
+#hud .lf-chip:focus-visible { outline: 2px solid #d9ff9b; outline-offset: 2px; border-radius: 13px; }
+#hud .lf-ring { display: none; }
+#hud .lf-badge { z-index: 1; width: 26px; height: 26px; box-sizing: border-box; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #b6f36a, #4fae2a); border: 2px solid #2f1d0d;
+  color: #fff; font: 800 13px system-ui, sans-serif; text-shadow: 0 1px 1px #000;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+#hud .lf-track { box-sizing: border-box; width: 60px; height: 11px; margin-left: -8px;
+  border: 1px solid #2f1d0d; border-radius: 0 6px 6px 0; background: rgba(0,0,0,.55); overflow: hidden; }
+#hud .lf-fill { height: 100%; width: 0%; background: linear-gradient(#b6f36a, #5fbf2f); }
+#hud .lf-details { position: absolute; top: calc(100% + 8px); left: 50%; z-index: 3;
+  translate: calc(-50% + var(--pop-dx, 0px)) -3px; width: max-content; max-width: 230px; padding: 8px 11px;
+  border: 1px solid #2f1d0d; border-radius: 7px; background: rgba(47,29,13,.97);
+  box-shadow: 0 2px 5px rgba(0,0,0,.4); color: #fff4c7; font-size: 12px; font-weight: 700;
+  line-height: 1.35; text-shadow: none; pointer-events: none; opacity: 0; visibility: hidden;
+  transition: opacity .12s ease, translate .12s ease, visibility 0s linear .12s; }
+#hud .lf-details::before { content: ""; position: absolute; bottom: 100%; left: calc(50% - var(--pop-dx, 0px));
+  translate: -50% 0; border: 5px solid transparent; border-bottom-color: #2f1d0d; }
+#hud .lf-chip.lf-details-open .lf-details { opacity: 1; visibility: visible;
+  translate: calc(-50% + var(--pop-dx, 0px)) 0; transition-delay: 0s; }
+#hud .lf-d-title { font-size: 14px; font-weight: 800; color: #d9ff9b; }
+#hud .lf-d-title img { height: 15px; width: auto; vertical-align: -2px; margin-right: 4px; }
+#hud .lf-d-sub { color: #d8c78f; margin-bottom: 5px; }
+#hud .lf-d-hint { margin-top: 6px; font-size: 11px; font-weight: 600; color: #b9a877; }
 #hud .spacer { flex: 1 1 auto; }
 #hud .nameplate { border-style: solid; border-width: 9px 16px;
   border-image: url("/assets/ui/button_bg.png") 14 fill / 9px 16px stretch;
@@ -1968,6 +1996,7 @@
   #hud .chip { flex: 1 0 auto; font-size: 12px; border-width: 8px 8px; }
   #hud .chip img { height: 17px; }
   #hud .chip .xpbar { width: 42px; }
+  #hud .lf-track { width: 44px; }
   #hud .nameplate { display: none; }
   #hud .gear { width: 40px; height: 40px; }
   #hud .touch-cancel.active { display: block; }
@@ -2272,6 +2301,16 @@
   #hud .play-status { position: absolute; right: 5px; top: 4px; z-index: 1; flex: none;
     width: 16px; height: 16px; margin: 0; }
   #hud .play-status::before { width: 8px; height: 8px; }
+
+  /* Life Force: the same bare-medallion treatment as the level star, a ring around the
+     number that fills toward the next level (--lf is set by Hud.update). */
+  #hud .lf-chip { display: block; width: 30px; height: 30px; margin-left: 2px; }
+  #hud .lf-track { display: none; }
+  #hud .lf-ring { display: block; position: absolute; left: 0; top: 0; width: 30px; height: 30px;
+    border-radius: 50%; background: conic-gradient(#8be04a 0 var(--lf, 0%), #1c1109 var(--lf, 0%) 100%); }
+  #hud .lf-badge { position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border: 0;
+    background: radial-gradient(circle at 35% 30%, #3d2a18, #24160b); color: #c8f59a; font-size: 12px;
+    box-shadow: none; }
 }
 /* From 360px up there is room for 12px chips. Text that still does not fit is
    shrunk by fitTexts() (src/ui/fitText.ts), so numbers never truncate. */

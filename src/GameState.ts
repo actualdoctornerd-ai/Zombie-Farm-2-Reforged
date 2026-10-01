@@ -55,6 +55,9 @@ export class GameState {
   xp = 0;
   zombieCount = 1;
   zombieMax = 16;
+  /** The farm's Life Force total (src/lifeForce.ts). DERIVED from the placed objects by
+   *  main.ts, never saved: like the army cap, a stored copy could only drift. */
+  lifeForce = 0;
   // ---- storage (the tool shed) ----
   storageItemCap = 8; // Shabby Shed default; a bigger shed raises it (+8/tier)
   storedItems: { key: string; count: number }[] = [];
@@ -432,6 +435,13 @@ export class GameState {
     const next = Math.max(1, zombieMax);
     if (next === this.zombieMax) return;
     this.zombieMax = next;
+    this.emit();
+  }
+  /** Adopt a freshly derived Life Force total (the sum over the placed objects). */
+  syncLifeForce(total: number) {
+    const next = Math.max(0, Math.floor(total));
+    if (next === this.lifeForce) return;
+    this.lifeForce = next;
     this.emit();
   }
   /** Adopt server base capacity plus authoritative placed-object effects. */

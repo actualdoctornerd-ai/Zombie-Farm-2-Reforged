@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   LIFE_FORCE_THRESHOLDS, MAX_LIFE_FORCE_LEVEL, abilitySlotRequirement, abilitySlotUnlocked,
   cropMutationChance, farmLifeForce, harvestFailureChance, harvestFails, lifeForceLevel,
-  lifeForceProgress, zombieHarvestTier,
+  lifeForceEffects, lifeForceProgress, zombieHarvestTier,
 } from "./lifeForce";
 import zombies from "../public/assets/zombies.json";
 
@@ -137,5 +137,18 @@ describe("ability slots", () => {
   });
   it("names the Life Force each slot needs", () => {
     expect([1, 2, 3, 4].map(abilitySlotRequirement)).toEqual([30, 65, 105, 150]);
+  });
+});
+
+describe("lifeForceEffects", () => {
+  it("summarises what a level gives, for the popover", () => {
+    expect(lifeForceEffects(0)).toEqual({ mutationChance: 0.05, safeTier: 0, abilitySlots: 0 });
+    expect(lifeForceEffects(3)).toMatchObject({ safeTier: 3, abilitySlots: 3 });
+    expect(lifeForceEffects(3).mutationChance).toBeCloseTo(0.35);
+  });
+  it("caps safe tiers at 5, ability slots at 4 and mutation at 100%", () => {
+    expect(lifeForceEffects(7)).toMatchObject({ safeTier: 5, abilitySlots: 4 });
+    expect(lifeForceEffects(10)).toEqual({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
+    expect(lifeForceEffects(99)).toEqual({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
   });
 });

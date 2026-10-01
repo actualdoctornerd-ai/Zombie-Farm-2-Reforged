@@ -10,6 +10,7 @@ import { pickPiece, type PathSpec, type RoadSpec, type SceneryPiece, type Skylin
 import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
 import { armyCapacityOf, BASE_ARMY_MAX } from "./armyCapacity";
+import { farmLifeForce } from "./lifeForce";
 import { shedCapacityOf } from "./shedCapacity";
 import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
@@ -534,6 +535,13 @@ async function main() {
       field.placedKeys(),
       (key) => placeCatalog.get(key)?.armyMax,
     ));
+    refreshLifeForce(); // every place / store / sell path already lands here
+  };
+  /** The farm's Life Force, re-derived from the objects standing on it (lifeForce.ts).
+   *  Derived like the army cap, so a placement path that forgets to announce itself
+   *  can only be late, never permanently wrong. */
+  const refreshLifeForce = () => {
+    state.syncLifeForce(farmLifeForce(field.placedKeys(), (key) => placeCatalog.get(key)?.lifeForce ?? 0));
   };
   /** The same for the shed: re-derive its capacity from the shed actually standing on
    *  the farm rather than trusting the number the save carries (see shedCapacity.ts).
@@ -2807,6 +2815,7 @@ async function main() {
         armyCapacityOf(serverArmyBase, placed, (key) => placeCatalog.get(key)?.armyMax),
         shedCapacityOf(placed, (key) => placeCatalog.get(key)?.storageSlots),
       );
+      refreshLifeForce();
       return true; // aliases consumed — EconomyClient may drop them
     };
     economy.onRosterState = (roster, aliases, settled) => {
