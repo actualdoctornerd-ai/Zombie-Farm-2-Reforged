@@ -1,6 +1,7 @@
 // Client-side live game state. Persistence may be local-only (localStorage) or
 // synchronized through the online save service (see save/SaveManager). Levels/XP
 // curve is build-verified from PlayerLevels.plist.
+import { abilitySlotUnlocked, lifeForceLevel } from "./lifeForce";
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
 import { ABILITY_TIER, abilityTierOf } from "./zombie/traits";
 import { TutorialSave } from "./save/schema";
@@ -436,6 +437,15 @@ export class GameState {
     if (next === this.zombieMax) return;
     this.zombieMax = next;
     this.emit();
+  }
+  /** The farm's Life Force level (0..10), from the derived total. */
+  get lifeForceLevel(): number {
+    return lifeForceLevel(this.lifeForce);
+  }
+  /** Whether ability slot `slot` (1..4) works at the farm's Life Force level. The gate is
+   *  the slot, not the ability, and it replaced the old "beat the tier's boss" rule. */
+  abilitySlotUnlocked(slot: number): boolean {
+    return abilitySlotUnlocked(slot, this.lifeForceLevel);
   }
   /** Adopt a freshly derived Life Force total (the sum over the placed objects). */
   syncLifeForce(total: number) {

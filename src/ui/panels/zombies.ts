@@ -16,8 +16,9 @@ import { MAX_ZOMBIE_NAME_LENGTH, RosterEntry } from "../../zombie/types";
 import { mutationBonus } from "../../zombie/mutations";
 import {
   STATS, veterancy, STAT_TILE, VALUE_FILL, VALUE_END, ABILITY_FRAME, MUTATION_FRAME,
-  ABILITY_POOL, unitAbilityAt, TIER_BOSS, MAX_ABILITY_TIER, abilityTierOf,
+  ABILITY_POOL, unitAbilityAt, MAX_ABILITY_TIER,
 } from "../../zombie/traits";
+import { abilitySlotRequirement } from "../../lifeForce";
 import { mutationEntries, mutationTipText } from "../../zombie/mutationDisplay";
 import {
   isMutationHidden, pruneMutationVisibility, setMutationHidden, visibleMutations,
@@ -271,7 +272,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
   // A zombie shows its GROUP's one ability per tier, for tiers 1..(colour-class
   // rank): Green=t1, Blue=t1-2, Red=t1-3, Silver+ = t1-4 (so never more than 4).
   // An ability that's been unlocked shows the real icon; still-locked ones show a
-  // padlock naming the boss. Some groups (Small) have no ability at low tiers, so
+  // padlock naming the Life Force the farm needs. Some groups (Small) have no ability at low tiers, so
   // their abilities only appear on higher-class units.
   const rank = Math.min(MAX_ABILITY_TIER, classTierRank(info.className));
   for (let t = 1; t <= rank; t++) {
@@ -281,7 +282,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     if (!meta) continue;
     const cell = document.createElement("button");
     cell.style.backgroundImage = `url(${ABILITY_FRAME})`;
-    if (hud.state.abilityUnlocked(key)) {
+    if (hud.state.abilitySlotUnlocked(t)) {
       cell.className = "zabil";
       cell.innerHTML = `<img src="${meta.icon}" alt="">`;
       cell.onclick = (e) => {
@@ -295,13 +296,15 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     } else {
       cell.className = "zabil locked";
       cell.innerHTML = `<span class="zlock">🔒</span>`;
-      // The gate is the ABILITY's tier, not the slot's: a named special may carry a
-      // higher-tier move in a lower slot (the Doctors' Laser Ver.2 at tier 3 unlocks
-      // with the Ninjas, not the Pirates) — GameState.abilityUnlocked keys off the same.
-      const boss = TIER_BOSS[abilityTierOf(key) || t];
+      // The gate is the SLOT's Life Force level (slot t works from level t), not the
+      // ability's own tier: a named special's higher-tier move in a lower slot unlocks
+      // with that slot. GameState.abilitySlotUnlocked keys off the same.
+      const need = abilitySlotRequirement(t);
       cell.onclick = (e) => {
         e.stopPropagation();
-        showTip(cell, meta.label, `Defeat ${boss} to unlock this ability.`);
+        showTip(cell, meta.label,
+          `Needs ${need} Life Force (level ${t}) to unlock. Your farm has ${hud.state.lifeForce}. `
+          + "Place decorations to raise it.");
       };
     }
     abilRow.appendChild(cell);

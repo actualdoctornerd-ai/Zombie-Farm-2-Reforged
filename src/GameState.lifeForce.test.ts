@@ -39,4 +39,14 @@ describe("GameState life force", () => {
     s.syncLifeForce(farmLifeForce(["crate"], of)); // the gazebo was stored away
     expect(s.lifeForce).toBe(1);
   });
+
+  it("unlocks ability slot k from Life Force level k, not from boss wins", () => {
+    const s = new GameState();
+    expect([1, 2, 3, 4].map((k) => s.abilitySlotUnlocked(k))).toEqual([false, false, false, false]);
+    s.syncLifeForce(30); // level 1
+    expect([1, 2, 3, 4].map((k) => s.abilitySlotUnlocked(k))).toEqual([true, false, false, false]);
+    s.syncLifeForce(150); // level 4
+    expect([1, 2, 3, 4].map((k) => s.abilitySlotUnlocked(k))).toEqual([true, true, true, true]);
+    expect(s.lifeForceLevel).toBe(4);
+  });
 });
