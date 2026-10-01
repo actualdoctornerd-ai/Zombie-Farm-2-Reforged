@@ -111,7 +111,36 @@ export function harvestFails(tier: number, level: number, random: () => number):
   return chance > 0 && random() < chance;
 }
 
-/** What a Life Force level currently gives, for the HUD popover. */
+/** Display names for harvest tiers 1..5, in order. */
+export const HARVEST_TIER_NAMES: readonly string[] = ["Green", "Blue", "Red", "Silver", "Obsidian and special"];
+
+/** One level of the ladder as the Life Force panel lists it. */
+export interface LifeForceLevelRow {
+  level: number;
+  /** Total Life Force needed to reach this level. */
+  need: number;
+  mutationChance: number;
+  /** The tier whose harvests stop failing at this level (levels 1..5), else null. */
+  safeTierGained: number | null;
+  /** The ability slot that starts working at this level (levels 1..4), else null. */
+  abilitySlotGained: number | null;
+}
+
+/** Levels 1..10, each with what it adds. */
+export function lifeForceLevelRows(): LifeForceLevelRow[] {
+  return LIFE_FORCE_THRESHOLDS.map((need, i) => {
+    const level = i + 1;
+    return {
+      level,
+      need,
+      mutationChance: cropMutationChance(level),
+      safeTierGained: level <= MAX_HARVEST_TIER ? level : null,
+      abilitySlotGained: level <= MAX_ABILITY_SLOTS ? level : null,
+    };
+  });
+}
+
+/** What a Life Force level currently gives, for the HUD panel. */
 export interface LifeForceEffects {
   /** Mutation chance per adjacent crop. */
   mutationChance: number;

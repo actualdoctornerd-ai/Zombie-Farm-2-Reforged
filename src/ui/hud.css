@@ -50,20 +50,32 @@
 #hud .lf-track { box-sizing: border-box; width: 60px; height: 11px; margin-left: -8px;
   border: 1px solid #2f1d0d; border-radius: 0 6px 6px 0; background: rgba(0,0,0,.55); overflow: hidden; }
 #hud .lf-fill { height: 100%; width: 0%; background: linear-gradient(#b6f36a, #5fbf2f); }
-#hud .lf-details { position: absolute; top: calc(100% + 8px); left: 50%; z-index: 3;
-  translate: calc(-50% + var(--pop-dx, 0px)) -3px; width: max-content; max-width: 230px; padding: 8px 11px;
-  border: 1px solid #2f1d0d; border-radius: 7px; background: rgba(47,29,13,.97);
-  box-shadow: 0 2px 5px rgba(0,0,0,.4); color: #fff4c7; font-size: 12px; font-weight: 700;
-  line-height: 1.35; text-shadow: none; pointer-events: none; opacity: 0; visibility: hidden;
-  transition: opacity .12s ease, translate .12s ease, visibility 0s linear .12s; }
-#hud .lf-details::before { content: ""; position: absolute; bottom: 100%; left: calc(50% - var(--pop-dx, 0px));
-  translate: -50% 0; border: 5px solid transparent; border-bottom-color: #2f1d0d; }
-#hud .lf-chip.lf-details-open .lf-details { opacity: 1; visibility: visible;
-  translate: calc(-50% + var(--pop-dx, 0px)) 0; transition-delay: 0s; }
-#hud .lf-d-title { font-size: 14px; font-weight: 800; color: #d9ff9b; }
-#hud .lf-d-title img { height: 15px; width: auto; vertical-align: -2px; margin-right: 4px; }
-#hud .lf-d-sub { color: #d8c78f; margin-bottom: 5px; }
-#hud .lf-d-hint { margin-top: 6px; font-size: 11px; font-weight: 600; color: #b9a877; }
+/* The Life Force panel (tap the chip): current level, then every level and what it adds. */
+#hud .lf-panel { width: min(440px, 94vw); max-width: none; max-height: min(660px, calc(100dvh - 28px));
+  display: flex; flex-direction: column; overflow: hidden; }
+#hud .lf-p-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+#hud .lf-p-head img { width: 30px; height: 30px; image-rendering: auto; }
+#hud .lf-p-head h2 { margin: 0; font-size: 20px; line-height: 1.1; }
+#hud .lf-p-level { font-size: 15px; font-weight: 800; color: #d9ff9b; }
+#hud .lf-p-bar { height: 12px; border: 1px solid #2f1d0d; border-radius: 7px; background: rgba(0,0,0,.55);
+  overflow: hidden; }
+#hud .lf-p-fill { height: 100%; width: 0%; background: linear-gradient(#b6f36a, #5fbf2f); }
+#hud .lf-p-count { margin: 4px 0 8px; font-size: 13px; font-weight: 700; color: #f1e3b5; }
+#hud .lf-p-intro { font-size: 13px; line-height: 1.4; color: #e8dcc0; margin-bottom: 8px; }
+#hud .lf-levels { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -8px; padding: 0 8px 2px; }
+#hud .lf-row { display: flex; gap: 10px; padding: 7px 8px; margin-bottom: 5px; border-radius: 10px;
+  background: rgba(0,0,0,.2); border: 1px solid transparent; }
+#hud .lf-row.lf-done { opacity: .62; }
+#hud .lf-row.lf-cur { background: rgba(130,200,60,.18); border-color: #86b94b; }
+#hud .lf-rb { flex: 0 0 auto; width: 30px; height: 30px; box-sizing: border-box; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3d2a18, #24160b); border: 2px solid #2f1d0d;
+  color: #c8f59a; font: 800 14px system-ui, sans-serif; display: flex; align-items: center; justify-content: center; }
+#hud .lf-row.lf-cur .lf-rb { background: radial-gradient(circle at 35% 30%, #b6f36a, #4fae2a); color: #fff; }
+#hud .lf-rbody { min-width: 0; }
+#hud .lf-need { font-size: 14px; font-weight: 800; }
+#hud .lf-here { margin-left: 8px; padding: 1px 7px; border-radius: 9px; background: #86b94b; color: #17240a;
+  font-size: 11px; font-weight: 800; text-shadow: none; }
+#hud .lf-rbody ul { margin: 2px 0 0; padding-left: 16px; font-size: 13px; line-height: 1.35; color: #f1e3b5; }
 #hud .spacer { flex: 1 1 auto; }
 #hud .nameplate { border-style: solid; border-width: 9px 16px;
   border-image: url("/assets/ui/button_bg.png") 14 fill / 9px 16px stretch;

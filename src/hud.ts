@@ -115,7 +115,8 @@ import type { StatSection } from "./statsView";
 import { showTimNotice } from "./ui/TimNotice";
 import { fitRow, fitTexts } from "./ui/fitText";
 import { compactGold } from "./ui/compactNumber";
-import { lifeForceEffects, lifeForceProgress } from "./lifeForce";
+import { lifeForceProgress } from "./lifeForce";
+import { openLifeForce as openLifeForcePanel } from "./ui/panels/lifeForce";
 // View-model types + the grave classifier live in hudTypes so panel modules can
 // import them without depending on the whole Hud class. Re-exported below for the
 // existing `from "./hud"` importers (main.ts).
@@ -340,11 +341,10 @@ export class Hud {
   private xpFill!: HTMLElement;
   private levelChip!: HTMLElement;
   /** Life Force chip: a level badge + progress bar (a ring on portrait phones) whose tap
-   *  opens the popover. Filled in by buildTopBar, refreshed by update(). */
+   *  opens the Life Force panel. Filled in by buildTopBar, refreshed by update(). */
   private lfChip!: HTMLElement;
   private lfBadge!: HTMLElement;
   private lfFill!: HTMLElement;
-  private lfDetails!: HTMLElement;
   private xpDetails!: HTMLElement;
   private nameEl!: HTMLElement;
   /** Top-bar text that shrinks to fit: the chip values as one row, the nameplate alone. */
@@ -629,15 +629,14 @@ export class Hud {
     return [c, val];
   }
 
-  /** The Life Force chip: badge with the level, a bar toward the next level, and a tap
-   *  popover with the exact numbers and what the level currently gives. Portrait phones
-   *  hide the bar and ring the badge instead (hud.css). */
+  /** The Life Force chip: a badge with the level and a bar toward the next level (a ring
+   *  on portrait phones, see hud.css). Tapping it opens the Life Force panel, which lists
+   *  what every level gives. */
   private buildLifeForceChip(): HTMLElement {
     const chip = document.createElement("div");
     chip.className = "lf-chip";
     chip.tabIndex = 0;
     chip.setAttribute("role", "button");
-    chip.setAttribute("aria-expanded", "false");
     const ring = document.createElement("div");
     ring.className = "lf-ring";
     this.lfBadge = document.createElement("div");
@@ -647,78 +646,33 @@ export class Hud {
     this.lfFill = document.createElement("div");
     this.lfFill.className = "lf-fill";
     track.appendChild(this.lfFill);
-    this.lfDetails = document.createElement("div");
-    this.lfDetails.className = "lf-details";
-    this.lfDetails.setAttribute("role", "tooltip");
-    chip.append(ring, this.lfBadge, track, this.lfDetails);
+    chip.append(ring, this.lfBadge, track);
     this.lfChip = chip;
-    const toggle = () => {
-      const open = chip.classList.toggle("lf-details-open");
-      chip.setAttribute("aria-expanded", String(open));
-      this.levelChip?.classList.remove("xp-details-open"); // one popover at a time
-      if (open) this.clampPopover(this.lfDetails);
+    const open = () => {
+      this.levelChip?.classList.remove("xp-details-open");
+      openLifeForcePanel(this.el, this.state.lifeForce);
     };
-    chip.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
+    chip.addEventListener("click", (e) => { e.stopPropagation(); open(); });
     chip.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
-      toggle();
-    });
-    document.addEventListener("click", () => {
-      chip.classList.remove("lf-details-open");
-      chip.setAttribute("aria-expanded", "false");
+      open();
     });
     return chip;
-  }
-
-  /** Keep a popover that is centred on its chip fully on screen: a chip near the right
-   *  edge of a phone would otherwise push it off the side. */
-  private clampPopover(el: HTMLElement) {
-    el.style.setProperty("--pop-dx", "0px");
-    const r = el.getBoundingClientRect();
-    const margin = 6;
-    let dx = 0;
-    if (r.right > window.innerWidth - margin) dx = window.innerWidth - margin - r.right;
-    else if (r.left < margin) dx = margin - r.left;
-    el.style.setProperty("--pop-dx", `${Math.round(dx)}px`);
   }
 
   /** Redraw the Life Force chip from the derived total (GameState.lifeForce). */
   private refreshLifeForceChip() {
     if (!this.lfChip) return;
     const p = lifeForceProgress(this.state.lifeForce);
-    const fx = lifeForceEffects(p.level);
     const pct = Math.round(p.progress * 100);
     this.lfBadge.textContent = String(p.level);
     this.lfFill.style.width = `${pct}%`;
     this.lfChip.style.setProperty("--lf", `${pct}%`);
-    const tierNames = ["Green", "Blue", "Red", "Silver", "Obsidian and specials"];
-    const safe = fx.safeTier === 0 ? "none yet"
-      : fx.safeTier >= 5 ? "every zombie" : tierNames.slice(0, fx.safeTier).join(", ");
-    const nextLine = p.next === null ? "Max level" : `${p.toNext} to level ${p.level + 1}`;
-    const head = `Life Force: ${p.total.toLocaleString()}${p.next === null ? "" : ` / ${p.next.toLocaleString()}`}`;
-    this.lfDetails.replaceChildren(
-      ...[
-        ["lf-d-title", `Level ${p.level}`],
-        ["lf-d-sub", `${head} · ${nextLine}`],
-        ["lf-d-row", `Mutation chance: ${Math.round(fx.mutationChance * 100)}%`],
-        ["lf-d-row", `Zombies safe to harvest: ${safe}`],
-        ["lf-d-row", fx.abilitySlots === 0 ? "Ability slots: none yet" : `Ability slots: 1-${fx.abilitySlots} of 4`],
-        ["lf-d-hint", "Place decorations to raise it. Stored ones don't count."],
-      ].map(([cls, text]) => {
-        const d = document.createElement("div");
-        d.className = cls;
-        if (cls === "lf-d-title") {
-          const leaf = document.createElement("img");
-          leaf.src = UI("lifeForce.png");
-          leaf.alt = "";
-          d.appendChild(leaf);
-        }
-        d.append(text);
-        return d;
-      })
+    this.lfChip.setAttribute(
+      "aria-label",
+      `Life Force level ${p.level}: ${p.total.toLocaleString()}${p.next === null ? "" : ` of ${p.next.toLocaleString()}`}. Opens details.`
     );
-    this.lfChip.setAttribute("aria-label", `Life Force level ${p.level}: ${head}`);
   }
 
   private buildTopBar() {

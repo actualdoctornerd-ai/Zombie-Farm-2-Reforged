@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   LIFE_FORCE_THRESHOLDS, MAX_LIFE_FORCE_LEVEL, abilitySlotRequirement, abilitySlotUnlocked,
   cropMutationChance, farmLifeForce, harvestFailureChance, harvestFails, lifeForceLevel,
-  lifeForceEffects, lifeForceProgress, zombieHarvestTier,
+  lifeForceEffects, lifeForceLevelRows, lifeForceProgress, zombieHarvestTier, HARVEST_TIER_NAMES,
 } from "./lifeForce";
 import zombies from "../public/assets/zombies.json";
 
@@ -150,5 +150,23 @@ describe("lifeForceEffects", () => {
     expect(lifeForceEffects(7)).toMatchObject({ safeTier: 5, abilitySlots: 4 });
     expect(lifeForceEffects(10)).toEqual({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
     expect(lifeForceEffects(99)).toEqual({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
+  });
+});
+
+describe("lifeForceLevelRows", () => {
+  const rows = lifeForceLevelRows();
+  it("lists levels 1 to 10 with their thresholds", () => {
+    expect(rows.map((r) => r.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(rows.map((r) => r.need)).toEqual([30, 65, 105, 150, 200, 250, 300, 350, 400, 450]);
+  });
+  it("says what each level adds", () => {
+    expect(rows[0]).toMatchObject({ safeTierGained: 1, abilitySlotGained: 1 });
+    expect(rows[3]).toMatchObject({ safeTierGained: 4, abilitySlotGained: 4 });
+    expect(rows[4]).toMatchObject({ safeTierGained: 5, abilitySlotGained: null });
+    expect(rows[5]).toMatchObject({ safeTierGained: null, abilitySlotGained: null });
+    expect(rows[9].mutationChance).toBe(1);
+  });
+  it("names every harvest tier", () => {
+    expect(HARVEST_TIER_NAMES).toHaveLength(5);
   });
 });
