@@ -1,0 +1,176 @@
+{
+ "_about": "Life Force per placed object (Zombie Farm 1 mechanic restored). Read by tools/life_force.py, which writes lifeForce + lifeForceSource onto every public/assets/placeables.json row. Edit THIS file, then run `python tools/life_force.py`; do not hand-edit the catalog fields.",
+ "_resolution": "documented > override > variantOf (a recolour takes its base item's value) > producingTree > tree > footprint. Footprint = tileW x tileH. Only documented and override values may exceed footprintCap.",
+ "footprintCap": 16,
+ "treeBonus": 2,
+ "producingTreeValue": 2,
+ "producingTrees": [
+  "fruitTreeApple",
+  "fruitTreeLemon",
+  "fruitTreeOrange",
+  "oliveTreeOlive"
+ ],
+ "trees": [
+  "bambooTree",
+  "beechTree",
+  "coconutTree",
+  "cottonCandyTree",
+  "cypressTree",
+  "evergreenTree",
+  "fancyUmbrellaTree",
+  "newYearTree",
+  "oakTree",
+  "palmTree",
+  "pixelTree",
+  "sakuraTree",
+  "sakuraTreeFlowering",
+  "sakuraTreeWeeping",
+  "tallCactus",
+  "treeAmiable",
+  "treeAutumn1",
+  "treeAutumn2",
+  "treeAutumn3",
+  "treeFriendly",
+  "treeNeighborly",
+  "treeSpooky",
+  "treeWorldCobraHawk",
+  "treeWorldMossCrab",
+  "treeWorldPhoenix",
+  "treeWorldPigling",
+  "treeWorldPoppyHouse",
+  "xmasTree"
+ ],
+ "overrides": {
+  "coolerLarge": {
+   "value": 3,
+   "reason": "ZF1 footprint was 1x3; the catalog row is 1x2, so the footprint rule would under-count it."
+  }
+ },
+ "documented": {
+  "barbWireFence_01": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Barb_Wire_Fence"
+  },
+  "bike": {
+   "value": 3,
+   "source": "https://zombiefarm.fandom.com/wiki/Bike"
+  },
+  "cameraNormal": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Zombie_Camera"
+  },
+  "circusFlagYellow": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Yellow_Circus_Flag",
+   "sourceName": "Yellow Circus Flag"
+  },
+  "crate": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Crate"
+  },
+  "dinosaurFern": {
+   "value": 16,
+   "source": "https://zombiefarm.fandom.com/wiki/Fern"
+  },
+  "eggTree": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Egg_Tree"
+  },
+  "fenceGate_01_closed": {
+   "value": 5,
+   "source": "https://zombiefarm.fandom.com/wiki/Fence_Gate"
+  },
+  "fenceGate_01_open": {
+   "value": 5,
+   "source": "https://zombiefarm.fandom.com/wiki/Fence_Gate"
+  },
+  "gallows": {
+   "value": 6,
+   "source": "https://zombiefarm.fandom.com/wiki/Gallows"
+  },
+  "gazeboNormal": {
+   "value": 16,
+   "source": "https://zombiefarm.fandom.com/wiki/Gazebo"
+  },
+  "giantClamClosed": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Giant_Clam"
+  },
+  "glowMushroomDay": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Glow_Mushroom"
+  },
+  "gravestoneBlue": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Blue_Grave"
+  },
+  "gravestoneRed": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Red_Grave"
+  },
+  "monolithMutation": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Mutant_Monolith"
+  },
+  "monolithSpeed": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Speed_Monolith"
+  },
+  "monolithZombie": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Zombie_Monolith"
+  },
+  "pen_01": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Fence"
+  },
+  "rocks": {
+   "value": 0,
+   "source": "https://zombiefarm.fandom.com/wiki/Rocks"
+  },
+  "rubberTree": {
+   "value": 3,
+   "source": "https://zombiefarm.fandom.com/wiki/Rubber_Tree"
+  },
+  "shellScallop": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Scallop_Shell"
+  },
+  "smallCactus": {
+   "value": 4,
+   "source": "https://zombiefarmguide.fandom.com/wiki/Basic_gameplay"
+  },
+  "spaceSolarSystem": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Solar_System"
+  },
+  "storage07": {
+   "value": 9,
+   "source": "https://zombiefarm.fandom.com/wiki/Abandoned_Barn"
+  },
+  "storage08": {
+   "value": 9,
+   "source": "https://zombiefarm.fandom.com/wiki/McDonnell%27s_Barn"
+  },
+  "tentNormal_pink": {
+   "value": 16,
+   "source": "https://zombiefarm.fandom.com/wiki/Pink_Tent"
+  },
+  "treeHostile": {
+   "value": 1,
+   "source": "https://zombiefarm.fandom.com/wiki/Hostile_Tree"
+  },
+  "willowTree": {
+   "value": 3,
+   "source": "https://zombiefarm.fandom.com/wiki/Willow_Tree"
+  },
+  "windmill": {
+   "value": 4,
+   "source": "https://zombiefarm.fandom.com/wiki/Windmill"
+  },
+  "zombieCombiner": {
+   "value": 9,
+   "source": "https://zombiefarm.fandom.com/wiki/Zombie_Pot"
+  }
+ }
+}

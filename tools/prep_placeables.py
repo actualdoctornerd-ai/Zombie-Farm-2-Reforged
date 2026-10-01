@@ -31,6 +31,7 @@ from reforge_economy import brain_price
 import contributed_art
 import memorial_statue
 import boss_statues
+import life_force
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
@@ -1726,6 +1727,10 @@ def main():
     # tools/contributed_art.py. Appended here for the same reason as the Memorial
     # Statue: before the orphan sweep, so its PNGs count as referenced.
     catalog.extend(contributed_art.build(OBJDIR))
+
+    # Life Force: every row gets lifeForce + lifeForceSource from tools/life_force.json.
+    # Last, so contributed and generated rows are covered by the same rules.
+    life_force.apply(catalog)
 
     catalog.sort(key=lambda c: (c["category"], c["level"], c["cost"]))
 

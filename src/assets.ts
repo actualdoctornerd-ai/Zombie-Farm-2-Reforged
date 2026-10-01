@@ -407,6 +407,12 @@ export interface PlaceableDef {
    *  Absent on ordinary items and on the family's base row. Quest objectives treat
    *  a whole family as one item (see quest/objectVariants). */
   variantOf?: string;
+  /** Life Force one placed copy adds to the farm total (authored in tools/life_force.json,
+   *  written onto every row by tools/life_force.py). Present on every catalog row. */
+  lifeForce?: number;
+  /** How lifeForce was reached: a documented ZF1 value, an override, a recolour of its
+   *  base, or an estimate (producing-tree, tree, footprint). The UI may mark estimates. */
+  lifeForceSource?: "documented" | "override" | "variant" | "producing-tree" | "tree" | "footprint";
   /** Seasonal label (christmas, easter, …). Absent = evergreen, always on sale.
    *  A labelled row is buyable only while its label is on the market allow-list;
    *  see src/decorThemes.ts. */

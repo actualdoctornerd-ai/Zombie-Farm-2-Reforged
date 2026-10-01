@@ -23,7 +23,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spookyStrawmanRight",
@@ -49,7 +51,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "candleAltarDay",
@@ -75,7 +79,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "xmasTree",
@@ -101,7 +107,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "hauntedHouse",
@@ -128,7 +136,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "tapSound": "GnomeKingLaugh.mp3"
+  "tapSound": "GnomeKingLaugh.mp3",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "skeletonCouple",
@@ -859,7 +869,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "boxoLantern",
@@ -900,7 +912,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "zombieGift",
@@ -940,7 +954,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "candelabra",
@@ -966,7 +982,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "festiveFence",
@@ -992,7 +1010,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "sugarSkull",
@@ -1018,7 +1038,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "xmasArch",
@@ -1044,7 +1066,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "tentNormal",
@@ -1073,7 +1097,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "umbrellaYellow",
@@ -1099,7 +1125,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "umbrellaOrange",
@@ -1125,7 +1153,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "surfboardBlue",
@@ -1151,7 +1181,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "beachBall",
@@ -1177,7 +1209,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "tikiHeadLarge",
@@ -1203,7 +1237,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "sleigh",
@@ -1229,7 +1265,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "tikiHeadSmall",
@@ -1255,7 +1293,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "surfboardRed",
@@ -1281,7 +1321,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowMan",
@@ -1307,7 +1349,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "lifeguardChair",
@@ -1333,7 +1377,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "sandCastle",
@@ -1359,7 +1405,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "birthdayCakeThirdYearRight",
@@ -1398,7 +1446,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "heartFountain",
@@ -1436,7 +1486,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "heartGravestone",
@@ -1462,7 +1514,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cupidStatueA",
@@ -1488,7 +1542,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cupidStatueB",
@@ -1514,7 +1570,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "easterEggWhite",
@@ -1540,7 +1598,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "easterEggBlue",
@@ -1566,7 +1626,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "easterEggGreen",
@@ -1592,7 +1654,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "easterEggPink",
@@ -1618,7 +1682,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "easterEggPurple",
@@ -1644,7 +1710,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "peepPink",
@@ -1670,7 +1738,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "peepYellow",
@@ -1696,7 +1766,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "easterGrass",
@@ -1722,7 +1794,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pailAndShovel",
@@ -1748,7 +1822,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cupidTopiary",
@@ -1774,7 +1850,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "heartHedge",
@@ -1800,7 +1878,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "heartCandle",
@@ -1826,7 +1906,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bigEasterEggBlue",
@@ -1852,7 +1934,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bigEasterEggGreen",
@@ -1878,7 +1962,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bigEasterEggPink",
@@ -1904,7 +1990,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "eggBush",
@@ -1930,7 +2018,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "powderKeg",
@@ -1956,7 +2046,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pirateCrate",
@@ -1982,7 +2074,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drinksCooler",
@@ -2008,7 +2102,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bbqGrill",
@@ -2034,7 +2130,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "yellowSatchet",
@@ -2060,7 +2158,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "blueSatchet",
@@ -2086,7 +2186,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "redSatchet",
@@ -2112,7 +2214,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayBalloonWhite",
@@ -2138,7 +2242,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayBalloonYellow",
@@ -2164,7 +2270,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "shipWheel",
@@ -2190,7 +2298,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bigDragonBoat",
@@ -2216,7 +2326,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "chocolateBunnyA",
@@ -2242,7 +2354,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "chocolateBunnyB",
@@ -2268,7 +2382,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "monolithEgg",
@@ -2294,7 +2410,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "giantPeep",
@@ -2320,7 +2438,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "easterBasket",
@@ -2346,7 +2466,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cannon",
@@ -2372,7 +2494,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cursedChest",
@@ -2398,7 +2522,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "libertySnareDrum",
@@ -2424,7 +2550,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "redLantern",
@@ -2450,7 +2578,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "lotusLantern",
@@ -2476,7 +2606,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "smallDragonBoat",
@@ -2502,7 +2634,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeAutumn2",
@@ -2528,7 +2662,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "treeAutumn3",
@@ -2554,7 +2690,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "enormoPumpkin",
@@ -2580,7 +2718,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "winterSnowWoman",
@@ -2606,7 +2746,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "stPatricksClover",
@@ -2632,7 +2774,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "stPatricksPotOfGold",
@@ -2658,7 +2802,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "eggTree",
@@ -2684,7 +2830,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "eggLamp",
@@ -2710,7 +2858,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gibbetCage",
@@ -2736,7 +2886,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "stoneLion",
@@ -2762,7 +2914,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "riceDumplingPile",
@@ -2788,7 +2942,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "igloo",
@@ -2814,7 +2970,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "iceSculpture",
@@ -2840,7 +2998,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayRoseBushWhite",
@@ -2866,7 +3026,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayRoseBushYellow",
@@ -2892,7 +3054,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spaceWormHoleA",
@@ -2929,7 +3093,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spaceWormHoleB",
@@ -2966,7 +3132,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyFireplace",
@@ -3002,7 +3170,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "patioTable",
@@ -3028,7 +3198,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "dragonStatue",
@@ -3054,7 +3226,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "goldEgg",
@@ -3119,7 +3293,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "sculptureOfLiberty",
@@ -3145,7 +3321,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "libertyBell",
@@ -3172,7 +3350,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "tapSound": "belltoll.mp3"
+  "tapSound": "belltoll.mp3",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mayflower",
@@ -3198,7 +3378,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "xmasGingerbreadHouse",
@@ -3224,7 +3406,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowCannon",
@@ -3250,7 +3434,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "stPatricksFountain",
@@ -3288,7 +3474,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spaceSolarSystem",
@@ -3325,7 +3513,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "pagoda",
@@ -3351,7 +3541,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "birthdayTimStatue",
@@ -3377,7 +3569,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayChocolateFountain",
@@ -3415,7 +3609,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "glowStoneDay",
@@ -3439,7 +3635,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeFriendly",
@@ -3463,7 +3661,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "graveFlat",
@@ -3487,7 +3687,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "birthdayBalloonsRight",
@@ -3513,7 +3715,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "patioBench",
@@ -3539,7 +3743,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "luckPlant",
@@ -3565,7 +3771,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pumpkin",
@@ -3591,7 +3799,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "appleBobbing",
@@ -3617,7 +3827,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "xmasWreath",
@@ -3643,7 +3855,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "newYearBannerLeft",
@@ -3670,7 +3884,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "newYearBannerRight",
@@ -3697,7 +3913,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowBalls",
@@ -3723,7 +3941,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pirateCratePlain",
@@ -3749,7 +3969,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rumBarrel",
@@ -3775,7 +3997,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rope",
@@ -3801,7 +4025,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pirateSack",
@@ -3827,7 +4053,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pirateBag",
@@ -3853,7 +4081,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeAutumn1",
@@ -3879,7 +4109,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "cornucopia",
@@ -3905,7 +4137,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "xmasGifts",
@@ -3931,7 +4165,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "newYearTree",
@@ -3957,7 +4193,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "xmasCandle",
@@ -3983,7 +4221,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "giftBasket",
@@ -4009,7 +4249,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "starTopiary",
@@ -4035,7 +4277,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "urn",
@@ -4061,7 +4305,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "newYearBallLeft",
@@ -4087,7 +4333,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "newYearBallRight",
@@ -4113,7 +4361,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "xmasFence",
@@ -4139,7 +4389,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cannonBalls",
@@ -4165,7 +4417,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayBalloonRed",
@@ -4191,7 +4445,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayHeartTopiary",
@@ -4217,7 +4473,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowFort",
@@ -4243,7 +4501,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pirateBarrel",
@@ -4269,7 +4529,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "barrelOfFireworks",
@@ -4295,7 +4557,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "riceDumpling",
@@ -4321,7 +4585,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "stPatricksIrishFlag",
@@ -4359,7 +4625,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "stPatricksShamrock",
@@ -4385,7 +4653,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "holidayRoseBushRed",
@@ -4411,7 +4681,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "islandRelic",
@@ -4437,7 +4709,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "libertyMonument",
@@ -4463,7 +4737,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pen_01",
@@ -4487,7 +4763,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "fenceGate_01_closed",
@@ -4511,7 +4789,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 5,
+  "lifeForceSource": "documented"
  },
  {
   "key": "fenceGate_01_open",
@@ -4535,7 +4815,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 5,
+  "lifeForceSource": "documented"
  },
  {
   "key": "shellScallop",
@@ -4559,7 +4841,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "cypressTree",
@@ -4583,7 +4867,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "pen_01_pink",
@@ -4613,7 +4899,9 @@
    255,
    153,
    153
-  ]
+  ],
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fenceGate_01_closed_pink",
@@ -4643,7 +4931,9 @@
    255,
    153,
    153
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fenceGate_01_open_pink",
@@ -4673,7 +4963,9 @@
    255,
    153,
    153
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "barrelNormal",
@@ -4702,7 +4994,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pen_01_blue",
@@ -4732,7 +5026,9 @@
    0,
    0,
    255
-  ]
+  ],
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fenceGate_01_closed_blue",
@@ -4762,7 +5058,9 @@
    0,
    0,
    255
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fenceGate_01_open_blue",
@@ -4792,7 +5090,9 @@
    0,
    0,
    255
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "candle",
@@ -4816,7 +5116,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "column",
@@ -4840,7 +5142,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "temple",
@@ -4864,7 +5168,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "trojanHorse",
@@ -4888,7 +5194,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "colossus",
@@ -4912,7 +5220,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "barrelNormal_pink",
@@ -4942,7 +5252,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "barrelNormal"
+  "variantOf": "barrelNormal",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "aqueduct",
@@ -4966,7 +5278,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gravestoneNormal",
@@ -4990,7 +5304,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gravestoneRound",
@@ -5014,7 +5330,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "oakTree",
@@ -5038,7 +5356,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "chariot",
@@ -5062,7 +5382,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "daisy",
@@ -5086,7 +5408,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "shellTrumpet",
@@ -5110,7 +5434,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "barrelNormal_blue",
@@ -5140,7 +5466,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "barrelNormal"
+  "variantOf": "barrelNormal",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "shamrocks",
@@ -5164,7 +5492,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hedge_01",
@@ -5193,7 +5523,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 5,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cottonCandyTree",
@@ -5217,7 +5549,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "gravestoneNormal_pink",
@@ -5247,7 +5581,9 @@
    255,
    153,
    153
-  ]
+  ],
+  "lifeForce": 4,
+  "lifeForceSource": "variant"
  },
  {
   "key": "totemPole",
@@ -5271,7 +5607,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "barbWireFence_01",
@@ -5295,7 +5633,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "roadStraight",
@@ -5322,7 +5662,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "roadBend_01",
@@ -5381,7 +5723,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "roadIntersection",
@@ -5408,7 +5752,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mailboxNormal",
@@ -5432,7 +5778,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hedge_01_red",
@@ -5462,7 +5810,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "hedge_01"
+  "variantOf": "hedge_01",
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "bunchOfCandles",
@@ -5486,7 +5836,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "starfish",
@@ -5510,7 +5862,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "flowerBed",
@@ -5539,7 +5893,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "flowerBedViolet",
@@ -5569,7 +5925,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "flowerBed"
+  "variantOf": "flowerBed",
+  "lifeForce": 2,
+  "lifeForceSource": "variant"
  },
  {
   "key": "flowerBedYellow",
@@ -5599,7 +5957,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "flowerBed"
+  "variantOf": "flowerBed",
+  "lifeForce": 2,
+  "lifeForceSource": "variant"
  },
  {
   "key": "flowerBed_white",
@@ -5624,7 +5984,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "flowerBed"
+  "variantOf": "flowerBed",
+  "lifeForce": 2,
+  "lifeForceSource": "variant"
  },
  {
   "key": "barrelNormal_red",
@@ -5654,7 +6016,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "barrelNormal"
+  "variantOf": "barrelNormal",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "coconutTree",
@@ -5678,7 +6042,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "glowMushroomDay",
@@ -5702,7 +6068,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "pen_01_red",
@@ -5732,7 +6100,9 @@
    255,
    0,
    0
-  ]
+  ],
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "treeNeighborly",
@@ -5756,7 +6126,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "graveOld",
@@ -5780,7 +6152,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fenceGate_01_closed_red",
@@ -5810,7 +6184,9 @@
    255,
    0,
    0
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fenceGate_01_open_red",
@@ -5840,7 +6216,9 @@
    255,
    0,
    0
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "hedge_01_blue",
@@ -5870,7 +6248,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "hedge_01"
+  "variantOf": "hedge_01",
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "tentNormal_plain",
@@ -5900,7 +6280,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "tentNormal"
+  "variantOf": "tentNormal",
+  "lifeForce": 16,
+  "lifeForceSource": "variant"
  },
  {
   "key": "leafPile",
@@ -5924,7 +6306,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "haystack",
@@ -5948,7 +6332,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "coolerSmall",
@@ -5972,7 +6358,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rocks",
@@ -5999,7 +6387,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 0,
+  "lifeForceSource": "documented"
  },
  {
   "key": "pen_01_black",
@@ -6029,7 +6419,9 @@
    30,
    30,
    30
-  ]
+  ],
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fenceGate_01_closed_black",
@@ -6059,7 +6451,9 @@
    30,
    30,
    30
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fenceGate_01_open_black",
@@ -6089,7 +6483,9 @@
    30,
    30,
    30
-  ]
+  ],
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "sakuraTree",
@@ -6114,7 +6510,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "credit": "Art by LennyFaze"
+  "credit": "Art by LennyFaze",
+  "lifeForce": 6,
+  "lifeForceSource": "tree"
  },
  {
   "key": "smallCactus",
@@ -6138,7 +6536,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "pond7",
@@ -6165,7 +6565,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gravestoneNormal_black",
@@ -6195,7 +6597,9 @@
    128,
    128,
    128
-  ]
+  ],
+  "lifeForce": 4,
+  "lifeForceSource": "variant"
  },
  {
   "key": "bonfire",
@@ -6219,7 +6623,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "outhouseNormal",
@@ -6248,7 +6654,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pond5",
@@ -6275,7 +6683,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hedge_01_white",
@@ -6300,7 +6710,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "hedge_01"
+  "variantOf": "hedge_01",
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "tentNormal_pink",
@@ -6330,7 +6742,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "tentNormal"
+  "variantOf": "tentNormal",
+  "lifeForce": 16,
+  "lifeForceSource": "documented"
  },
  {
   "key": "coolerLarge",
@@ -6354,7 +6768,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "override"
  },
  {
   "key": "zombieXingSign",
@@ -6378,7 +6794,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "zombieTopiaryNormal",
@@ -6402,7 +6820,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "beechTree",
@@ -6426,7 +6846,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "outhouseNormal_pink",
@@ -6456,7 +6878,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "outhouseNormal"
+  "variantOf": "outhouseNormal",
+  "lifeForce": 9,
+  "lifeForceSource": "variant"
  },
  {
   "key": "fountain",
@@ -6480,7 +6904,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pond3",
@@ -6507,7 +6933,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "tentNormal_blue",
@@ -6537,7 +6965,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "tentNormal"
+  "variantOf": "tentNormal",
+  "lifeForce": 16,
+  "lifeForceSource": "variant"
  },
  {
   "key": "pond",
@@ -6561,7 +6991,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pond1",
@@ -6588,7 +7020,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pond4",
@@ -6615,7 +7049,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "picnicNormal",
@@ -6639,7 +7075,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "outhouseNormal_blue",
@@ -6669,7 +7107,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "outhouseNormal"
+  "variantOf": "outhouseNormal",
+  "lifeForce": 9,
+  "lifeForceSource": "variant"
  },
  {
   "key": "tallCactus",
@@ -6693,7 +7133,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "pond6",
@@ -6720,7 +7162,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hedge_01_black",
@@ -6750,7 +7194,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "hedge_01"
+  "variantOf": "hedge_01",
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "sakuraTreeWeeping",
@@ -6775,7 +7221,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "credit": "Art by LennyFaze"
+  "credit": "Art by LennyFaze",
+  "lifeForce": 6,
+  "lifeForceSource": "tree"
  },
  {
   "key": "scarecrowNormal",
@@ -6799,7 +7247,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "soilDivider",
@@ -6823,7 +7273,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "stoneDivider",
@@ -6847,7 +7299,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "dinosaurSkull",
@@ -6871,7 +7325,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pond2",
@@ -6898,7 +7354,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "outhouseNormal_red",
@@ -6928,7 +7386,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "outhouseNormal"
+  "variantOf": "outhouseNormal",
+  "lifeForce": 9,
+  "lifeForceSource": "variant"
  },
  {
   "key": "carecrowNormal",
@@ -6952,7 +7412,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "glowFlowerDay",
@@ -6976,7 +7438,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeAmiable",
@@ -7000,7 +7464,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "graveAngel",
@@ -7024,7 +7490,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cobblestoneRoadStraight_01",
@@ -7051,7 +7519,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cobblestoneRoadBend_01",
@@ -7110,7 +7580,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cobblestoneRoadIntersection",
@@ -7137,7 +7609,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hedge_01_pink",
@@ -7167,7 +7641,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "hedge_01"
+  "variantOf": "hedge_01",
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "rubberTree",
@@ -7191,7 +7667,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "documented"
  },
  {
   "key": "gazeboNormal",
@@ -7215,7 +7693,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "documented"
  },
  {
   "key": "treasureChest",
@@ -7239,7 +7719,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gallows",
@@ -7263,7 +7745,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "documented"
  },
  {
   "key": "baloon",
@@ -7292,7 +7776,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "underwaterCoral",
@@ -7316,7 +7802,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spaceCrater",
@@ -7340,7 +7828,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "lollipop",
@@ -7364,7 +7854,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spaceLunarLander",
@@ -7388,7 +7880,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyCoatOfArms",
@@ -7412,7 +7906,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyTeacup",
@@ -7436,7 +7932,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "crate",
@@ -7465,7 +7963,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "baloon_white",
@@ -7490,7 +7990,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "baloon"
+  "variantOf": "baloon",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "boulder",
@@ -7514,7 +8016,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "crate_blue",
@@ -7544,7 +8048,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "crate"
+  "variantOf": "crate",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "baloon_pink",
@@ -7574,7 +8080,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "baloon"
+  "variantOf": "baloon",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "cemeteryFence_01",
@@ -7603,7 +8111,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "ironGate_01_closed",
@@ -7632,7 +8142,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 5,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "ironGate_01_open",
@@ -7661,7 +8173,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 5,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "willowTree",
@@ -7685,7 +8199,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "documented"
  },
  {
   "key": "crate_red",
@@ -7715,7 +8231,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "crate"
+  "variantOf": "crate",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "baloon_black",
@@ -7745,7 +8263,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "baloon"
+  "variantOf": "baloon",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "cemeteryFence_01_pink",
@@ -7775,7 +8295,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "cemeteryFence_01"
+  "variantOf": "cemeteryFence_01",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "cityLamp",
@@ -7799,7 +8321,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "ironGate_01_closed_pink",
@@ -7829,7 +8353,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "ironGate_01_closed"
+  "variantOf": "ironGate_01_closed",
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "ironGate_01_open_pink",
@@ -7859,7 +8385,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "ironGate_01_open"
+  "variantOf": "ironGate_01_open",
+  "lifeForce": 5,
+  "lifeForceSource": "variant"
  },
  {
   "key": "sakuraTreeFlowering",
@@ -7884,7 +8412,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "credit": "Art by LennyFaze"
+  "credit": "Art by LennyFaze",
+  "lifeForce": 6,
+  "lifeForceSource": "tree"
  },
  {
   "key": "monolithBusted",
@@ -7908,7 +8438,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "underwaterMermaid",
@@ -7932,7 +8464,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "dinosaurRaptor",
@@ -7956,7 +8490,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spaceRocketShip",
@@ -7980,7 +8516,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "crate_black",
@@ -8010,7 +8548,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "crate"
+  "variantOf": "crate",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "blueBox",
@@ -8034,7 +8574,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "dinosaurFootprint",
@@ -8058,7 +8600,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "giantCandyCane",
@@ -8084,7 +8628,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "doubleRainbow_01",
@@ -8108,7 +8654,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 10,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyUmbrellaTree",
@@ -8132,7 +8680,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 11,
+  "lifeForceSource": "tree"
  },
  {
   "key": "crate_white",
@@ -8157,7 +8707,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "crate"
+  "variantOf": "crate",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "desertSkull",
@@ -8181,7 +8733,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "chocolateTile",
@@ -8205,7 +8759,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bambooTree",
@@ -8229,7 +8785,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "dinosaurJeep",
@@ -8253,7 +8811,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 12,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "crate_pink",
@@ -8283,7 +8843,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "crate"
+  "variantOf": "crate",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "telephonePole",
@@ -8307,7 +8869,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "skullWithSnake",
@@ -8331,7 +8895,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "underwaterTreasure",
@@ -8355,7 +8921,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyTeakettle",
@@ -8379,7 +8947,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "crate_yellow",
@@ -8409,7 +8979,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "variantOf": "crate"
+  "variantOf": "crate",
+  "lifeForce": 1,
+  "lifeForceSource": "variant"
  },
  {
   "key": "streetLight",
@@ -8433,7 +9005,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "skullCandle",
@@ -8457,7 +9031,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "dinosaurFern",
@@ -8481,7 +9057,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "documented"
  },
  {
   "key": "tikiTorch",
@@ -8517,7 +9095,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "underwaterShip",
@@ -8541,7 +9121,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "dinosaurTriceratops",
@@ -8565,7 +9147,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pumpkinHappy",
@@ -8589,7 +9173,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "palmTree",
@@ -8613,7 +9199,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "glowSkullDay",
@@ -8637,7 +9225,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeHostile",
@@ -8661,7 +9251,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "graveGargoyle",
@@ -8685,7 +9277,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowHedge_01",
@@ -8711,7 +9305,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyMustache",
@@ -8735,7 +9331,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pumpkinMan",
@@ -8759,7 +9357,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pumpkinAngry",
@@ -8783,7 +9383,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "spaceMoon",
@@ -8807,7 +9409,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyChair",
@@ -8831,7 +9435,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "evergreenTree",
@@ -8855,7 +9461,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "grainSilo",
@@ -8879,7 +9487,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "well",
@@ -8903,7 +9513,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "geyser",
@@ -8940,7 +9552,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "redTractor",
@@ -8964,7 +9578,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 15,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pyramid",
@@ -8988,7 +9604,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bike",
@@ -9012,7 +9630,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "documented"
  },
  {
   "key": "logCabin",
@@ -9038,7 +9658,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "sundial",
@@ -9062,7 +9684,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "butterChurn",
@@ -9086,7 +9710,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "lemonadeStand",
@@ -9110,7 +9736,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "swingSet",
@@ -9134,7 +9762,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 12,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "postalMailBox",
@@ -9158,7 +9788,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "monkeyBars",
@@ -9182,7 +9814,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "birdhouse",
@@ -9206,7 +9840,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "brokenWagon",
@@ -9230,7 +9866,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bullseye",
@@ -9254,7 +9892,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "croquet",
@@ -9278,7 +9918,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treehouse",
@@ -9302,7 +9944,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gnomeStatue",
@@ -9326,7 +9970,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "zenGarden",
@@ -9350,7 +9996,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "koiPond",
@@ -9386,7 +10034,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "olympus",
@@ -9423,7 +10073,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "lawnmower",
@@ -9447,7 +10099,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hotdogCart",
@@ -9471,7 +10125,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pettingZoo",
@@ -9497,7 +10153,9 @@
   "petPen": true,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cameraNormal",
@@ -9521,7 +10179,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "gravestoneBlue",
@@ -9545,7 +10205,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "soil_zombiePatch",
@@ -9572,7 +10234,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum4",
@@ -9596,7 +10260,9 @@
   "zombieSlots": 20,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum5",
@@ -9620,7 +10286,9 @@
   "zombieSlots": 25,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum6",
@@ -9644,7 +10312,9 @@
   "zombieSlots": 30,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum7",
@@ -9668,7 +10338,9 @@
   "zombieSlots": 35,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum8",
@@ -9692,7 +10364,9 @@
   "zombieSlots": 40,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum9",
@@ -9716,7 +10390,9 @@
   "zombieSlots": 45,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum10",
@@ -9740,7 +10416,9 @@
   "zombieSlots": 50,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum11",
@@ -9764,7 +10442,9 @@
   "zombieSlots": 55,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mausoleum12",
@@ -9788,7 +10468,9 @@
   "zombieSlots": 60,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "monolithMutation",
@@ -9817,7 +10499,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "mausoleum3",
@@ -9841,7 +10525,9 @@
   "zombieSlots": 15,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "monolithZombie",
@@ -9865,7 +10551,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "monolithPlowing",
@@ -9894,7 +10582,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "monolithSpeed",
@@ -9923,7 +10613,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "storage01",
@@ -9947,7 +10639,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "memorialStatue",
@@ -9973,7 +10667,9 @@
   "harvestValue": 0,
   "growingSprite": "",
   "mountX": 0.5052,
-  "mountY": 0.8152
+  "mountY": 0.8152,
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "storage02",
@@ -9997,7 +10693,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "storage03",
@@ -10021,7 +10719,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "storage04",
@@ -10045,7 +10745,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "storage05",
@@ -10069,7 +10771,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "storage06",
@@ -10093,7 +10797,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "storage07",
@@ -10117,7 +10823,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "documented"
  },
  {
   "key": "storage08",
@@ -10141,7 +10849,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "documented"
  },
  {
   "key": "storage09",
@@ -10165,7 +10875,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "zombieCombiner",
@@ -10191,7 +10903,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "documented"
  },
  {
   "key": "gravestoneRed",
@@ -10215,7 +10929,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "gravestoneSilver",
@@ -10239,7 +10955,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "monolithCombine",
@@ -10268,7 +10986,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gravestoneObsidian",
@@ -10298,7 +11018,9 @@
    120,
    95,
    170
-  ]
+  ],
+  "lifeForce": 4,
+  "lifeForceSource": "variant"
  },
  {
   "key": "rockBunny",
@@ -10324,7 +11046,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "loveShack",
@@ -10350,7 +11074,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "greenGift",
@@ -10376,7 +11102,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "redGift",
@@ -10402,7 +11130,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "yellowGift",
@@ -10428,7 +11158,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "teddyBear",
@@ -10454,7 +11186,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogTricycle",
@@ -10478,7 +11212,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogNutStash",
@@ -10502,7 +11238,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogEvilDevice",
@@ -10526,7 +11264,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogLabShelves",
@@ -10550,7 +11290,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogLabTable",
@@ -10574,7 +11316,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "cactusTarget",
@@ -10598,7 +11342,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "saddle",
@@ -10622,7 +11368,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rockingHorse",
@@ -10646,7 +11394,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "boots",
@@ -10670,7 +11420,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "banjo",
@@ -10695,7 +11447,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "tapSound": "locolocustbanjo.mp3"
+  "tapSound": "locolocustbanjo.mp3",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "squirmyWorms",
@@ -10731,7 +11485,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fireflies",
@@ -10882,7 +11638,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "lilyJukebox",
@@ -10906,7 +11664,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "toadStool",
@@ -10930,7 +11690,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowFarmhand",
@@ -10954,7 +11716,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowLumberjack",
@@ -10978,7 +11742,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowOlMcDonnell",
@@ -11002,7 +11768,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowZombie",
@@ -11026,7 +11794,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bedazzledGravestone",
@@ -11050,7 +11820,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fancyFountain",
@@ -11092,7 +11864,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "evilMirror",
@@ -11116,7 +11890,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fashionableScarecrow",
@@ -11140,7 +11916,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "perfumeVat",
@@ -11164,7 +11942,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rockyRhinosBanner",
@@ -11188,7 +11968,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "generalLarvaelusBanner",
@@ -11212,7 +11994,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mysticalMambaBanner",
@@ -11236,7 +12020,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogDistillery",
@@ -11260,7 +12046,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "gunRack",
@@ -11284,7 +12072,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mossyCouch",
@@ -11308,7 +12098,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "muddyPool",
@@ -11332,7 +12124,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 12,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "diamondCar",
@@ -11356,7 +12150,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rockyRhinosGong",
@@ -11381,7 +12177,9 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "tapSound": "rockyrhinogong.mp3"
+  "tapSound": "rockyrhinogong.mp3",
+  "lifeForce": 3,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rockyRhinosSculpture",
@@ -11405,7 +12203,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "generalLarvaelusTeleporterA",
@@ -11429,7 +12229,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "generalLarvaelusTeleporterB",
@@ -11453,7 +12255,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogEvilLab",
@@ -11477,7 +12281,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "drgroundhogBurrow",
@@ -11501,7 +12307,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hideout",
@@ -11525,7 +12333,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "saloon",
@@ -11549,7 +12359,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "carnivorousPlants",
@@ -11573,7 +12385,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 12,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "swamp_Cabin",
@@ -11597,7 +12411,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "antiHolidayIncinerator",
@@ -11621,7 +12437,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "evilCarriage",
@@ -11645,7 +12463,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "antiHolidayVault",
@@ -11669,7 +12489,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "snowOwl",
@@ -11693,7 +12515,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "crystalGazebo",
@@ -11717,7 +12541,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 9,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "jewelHome",
@@ -11741,7 +12567,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rockyRhinosCave",
@@ -11765,7 +12593,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "teleporter",
@@ -11802,7 +12632,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mysticalMambasWishMachineLeft",
@@ -11838,7 +12670,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "alienBanner",
@@ -11862,7 +12696,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "brokenTractor",
@@ -11886,7 +12722,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 12,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeWorldPigling",
@@ -11910,7 +12748,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "iceCreamConeChocolate",
@@ -11934,7 +12774,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "circusFlagBlue",
@@ -11958,7 +12800,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "circusFlagGreen",
@@ -11982,7 +12826,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "circusFlagYellow",
@@ -12006,7 +12852,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "circusPopcorn",
@@ -12030,7 +12878,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "circusTent",
@@ -12054,7 +12904,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeWorldCobraHawk",
@@ -12078,7 +12930,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "coffin1",
@@ -12102,7 +12956,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "coffin2",
@@ -12126,7 +12982,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "coffin3",
@@ -12150,7 +13008,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "corporatevilleBanner",
@@ -12174,7 +13034,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "crashedUFO",
@@ -12198,7 +13060,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "oldMcDonnellBanner",
@@ -12222,7 +13086,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "giantClamClosed",
@@ -12246,7 +13112,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "documented"
  },
  {
   "key": "hauntedClocktower",
@@ -12270,7 +13138,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "hazardFence",
@@ -12294,7 +13164,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "iceCreamStand",
@@ -12319,7 +13191,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 2,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "iceCreamTruck",
@@ -12414,7 +13288,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 12,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "mechanicalBull",
@@ -12515,7 +13391,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "monument",
@@ -12552,7 +13430,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeWorldMossCrab",
@@ -12576,7 +13456,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 3,
+  "lifeForceSource": "tree"
  },
  {
   "key": "ninjaBanner",
@@ -12600,7 +13482,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "parrot",
@@ -12639,7 +13523,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeWorldPhoenix",
@@ -12663,7 +13549,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "tree"
  },
  {
   "key": "pirateBanner",
@@ -12687,7 +13575,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pixelBanner",
@@ -12711,7 +13601,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pixelBrick",
@@ -12735,7 +13627,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pixelCampfire",
@@ -12771,7 +13665,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pixelBrickFloating",
@@ -12795,7 +13691,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pixelTower",
@@ -12819,7 +13717,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 16,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "pixelTree",
@@ -12843,7 +13743,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "tree"
  },
  {
   "key": "treeWorldPoppyHouse",
@@ -12867,7 +13769,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 8,
+  "lifeForceSource": "tree"
  },
  {
   "key": "fireRing",
@@ -12903,7 +13807,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "robotBanner",
@@ -12927,7 +13833,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "rockLobster",
@@ -12951,7 +13859,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "sandDollar",
@@ -12975,7 +13885,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "setiDish",
@@ -13076,7 +13988,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "treeSpooky",
@@ -13100,7 +14014,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 11,
+  "lifeForceSource": "tree"
  },
  {
   "key": "iceCreamConeStrawberry",
@@ -13124,7 +14040,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "taikoDrum",
@@ -13173,7 +14091,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 6,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "teddyValentine",
@@ -13197,7 +14117,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "toxicDrum",
@@ -13221,7 +14143,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "iceCreamConeVanilla",
@@ -13245,7 +14169,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "windmill",
@@ -13281,7 +14207,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "documented"
  },
  {
   "key": "witchsCauldron",
@@ -13317,7 +14245,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 1,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueOldMcDonnell",
@@ -13341,7 +14271,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueOldMcDonnellGolden",
@@ -13365,7 +14297,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueCorporateVille",
@@ -13389,7 +14323,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueCorporateVilleGolden",
@@ -13413,7 +14349,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueArrrnold",
@@ -13437,7 +14375,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueArrrnoldGolden",
@@ -13461,7 +14401,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueMrWhiskers",
@@ -13485,7 +14427,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueMrWhiskersGolden",
@@ -13509,7 +14453,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueBroBot",
@@ -13533,7 +14479,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueBroBotGolden",
@@ -13557,7 +14505,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueAlien",
@@ -13581,7 +14531,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueAlienGolden",
@@ -13605,7 +14557,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueSquiDude",
@@ -13629,7 +14583,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueSquiDudeGolden",
@@ -13653,7 +14609,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueRingmaster",
@@ -13677,7 +14635,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueRingmasterGolden",
@@ -13701,7 +14661,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueZedzox",
@@ -13725,7 +14687,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueZedzoxGolden",
@@ -13749,7 +14713,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueGoffy",
@@ -13773,7 +14739,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueGoffyGolden",
@@ -13797,7 +14765,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueFelixWonky",
@@ -13821,7 +14791,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "bossStatueFelixWonkyGolden",
@@ -13845,7 +14817,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueDrGroundhog",
@@ -13869,7 +14843,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueDrGroundhogGolden",
@@ -13893,7 +14869,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueBullyFrog",
@@ -13917,7 +14895,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueBullyFrogGolden",
@@ -13941,7 +14921,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueRockyRhino",
@@ -13965,7 +14947,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueRockyRhinoGolden",
@@ -13989,7 +14973,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueGeneralLarvaelus",
@@ -14013,7 +14999,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueGeneralLarvaelusGolden",
@@ -14037,7 +15025,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueMysticalMamba",
@@ -14061,7 +15051,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueMysticalMambaGolden",
@@ -14085,7 +15077,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueFoulOwl",
@@ -14109,7 +15103,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueFoulOwlGolden",
@@ -14133,7 +15129,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueSkunkarella",
@@ -14157,7 +15155,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueSkunkarellaGolden",
@@ -14181,7 +15181,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueLocoLocust",
@@ -14205,7 +15207,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "epicStatueLocoLocustGolden",
@@ -14229,7 +15233,9 @@
   "zombieSlots": 0,
   "growMs": 0,
   "harvestValue": 0,
-  "growingSprite": ""
+  "growingSprite": "",
+  "lifeForce": 4,
+  "lifeForceSource": "footprint"
  },
  {
   "key": "fruitTreeApple",
@@ -14253,7 +15259,9 @@
   "zombieSlots": 0,
   "growMs": 45000,
   "harvestValue": 5,
-  "growingSprite": "fruitTreeApple_growing.png"
+  "growingSprite": "fruitTreeApple_growing.png",
+  "lifeForce": 2,
+  "lifeForceSource": "producing-tree"
  },
  {
   "key": "oliveTreeOlive",
@@ -14277,7 +15285,9 @@
   "zombieSlots": 0,
   "growMs": 90000,
   "harvestValue": 15,
-  "growingSprite": "oliveTreeOlive_growing.png"
+  "growingSprite": "oliveTreeOlive_growing.png",
+  "lifeForce": 2,
+  "lifeForceSource": "producing-tree"
  },
  {
   "key": "fruitTreeLemon",
@@ -14301,7 +15311,9 @@
   "zombieSlots": 0,
   "growMs": 300000,
   "harvestValue": 35,
-  "growingSprite": "fruitTreeLemon_growing.png"
+  "growingSprite": "fruitTreeLemon_growing.png",
+  "lifeForce": 2,
+  "lifeForceSource": "producing-tree"
  },
  {
   "key": "fruitTreeOrange",
@@ -14325,6 +15337,8 @@
   "zombieSlots": 0,
   "growMs": 90000,
   "harvestValue": 18,
-  "growingSprite": "fruitTreeOrange_growing.png"
+  "growingSprite": "fruitTreeOrange_growing.png",
+  "lifeForce": 2,
+  "lifeForceSource": "producing-tree"
  }
 ]

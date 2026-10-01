@@ -170,6 +170,17 @@ const MIRRORS = [
   },
 
   {
+    file: "objectCatalog.ts",
+    region: "LIFE_FORCE",
+    from: "placeables.json",
+    build: () =>
+      record(
+        asset("placeables.json").map((r) => ({ k: r.key, v: r.lifeForce })),
+        { scalar: true }
+      ),
+  },
+
+  {
     file: "shopCatalog.ts",
     region: "SIZE_TIERS",
     from: "upgrades.json",
