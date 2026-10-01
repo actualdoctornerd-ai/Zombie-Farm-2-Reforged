@@ -1,3 +1,4 @@
+import { cropMutationChance } from "../lifeForce";
 import { addMutation, bitGrowable, resolveMutationBit, type MutationRef } from "./mutations";
 
 /** A crop table: which mutations each crop key grows. One name, or a list of them. */
@@ -54,7 +55,10 @@ export function cropMutationBits(
   return out;
 }
 
-export const CROP_MUTATION_CHANCE = 0.25;
+/** Chance one adjacent crop grows its mutation at Life Force level 0. The live value is
+ *  `cropMutationChance(level)` (src/lifeForce.ts), passed in as `chancePerCrop`: 5% +
+ *  10% per level, so a farm with no Life Force grows mutations rarely. */
+const DEFAULT_CHANCE_PER_CROP = cropMutationChance(0);
 
 /** Do two plot footprints of `plotSize` tiles square touch along an edge or a corner?
  *
@@ -77,6 +81,9 @@ export function plotsTouch(
 export interface CropMutationOptions {
   guaranteed?: boolean;
   headless?: boolean;
+  /** Chance each adjacent crop adds to its mutation, from the farm's Life Force level
+   *  (`cropMutationChance`). Defaults to the level-0 chance. */
+  chancePerCrop?: number;
   random?: () => number;
   /** Crop table to roll against. Defaults to CROP_MUTATIONS; overridden by tests and
    *  by anything that wants to try a table without editing the shipped one. */
@@ -85,7 +92,7 @@ export interface CropMutationOptions {
 
 /** Resolve all crop-adjacency mutations for one harvested zombie.
  *
- * Each adjacent crop adds 25 percentage points to its mutation's chance, capped
+ * Each adjacent crop adds `chancePerCrop` (5% + 10% per Life Force level) to its mutation's chance, capped
  * at 100%. Different non-conflicting mutations roll independently. If multiple
  * successful crops target the same anatomical slot, the lowest random roll wins;
  * this prevents plot iteration order from deciding the conflict. */
@@ -104,6 +111,7 @@ export function resolveCropMutations(
   }
 
   const random = options.random ?? Math.random;
+  const perCrop = options.chancePerCrop ?? DEFAULT_CHANCE_PER_CROP;
   const successes: { bit: number; roll: number }[] = [];
   for (const [bit, count] of counts) {
     // cropMutationBits has already dropped anything the catalog doesn't know, so every
@@ -111,7 +119,7 @@ export function resolveCropMutations(
     // wasted roll, and no dependence on addMutation to refuse it further down.
     if (!bitGrowable(bit, !!options.headless)) continue;
     const roll = random();
-    const chance = options.guaranteed ? 1 : Math.min(1, count * CROP_MUTATION_CHANCE);
+    const chance = options.guaranteed ? 1 : Math.min(1, count * perCrop);
     if (chance >= 1 || roll < chance) successes.push({ bit, roll });
   }
 

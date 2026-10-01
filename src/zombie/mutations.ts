@@ -31,6 +31,7 @@
 // mutationMask.ts throws rather than corrupting a neighbouring bit.
 // ---------------------------------------------------------------------------
 
+import { PRIZE_CROPS } from "../cropUnlocks";
 import {
   bitValue, isMaskBit, MAX_MASK_BITS, maskBits, maskHas,
   maskIntersect, maskUnion, maskWithout,
@@ -109,7 +110,7 @@ const STAT_ORDER: Stat[] = ["str", "dex", "con"];
 //   { key: "cornhead", name: "Cornhead", slot: "head", stats: { con: 8, dex: -2 } }
 // Penalties apply to the RAW stat and are floored where the stat becomes combat
 // behaviour, not here — see MIN_COMBAT_STAT in raid/CombatEngine.
-const CATALOG: readonly MutationSpec[] = [
+const BASE_CATALOG: readonly MutationSpec[] = [
   { key: "tomato", name: "Tomatohead", slot: "head", stats: { str: 1 }, tier: 1 },
   { key: "onion", name: "Onionhead", slot: "head", stats: { con: 1 }, tier: 1 },
   { key: "carrot", name: "Carrot-eyed", slot: "hair_eye", stats: { dex: 1 }, tier: 1 },
@@ -157,6 +158,36 @@ const CATALOG: readonly MutationSpec[] = [
   { key: "eyebiscus", name: "Eyebiscus", slot: "hair_eye", stats: { str: 1, dex: 2 }, tier: 4 },
   { key: "heartichoke", name: "Heartichoke", slot: "body", stats: { con: 5 }, tier: 4 },
 ];
+
+// THE SIX PRIZE MUTATIONS (docs/PRIZE_CROPS.md) — written, tested, and NOT in the game.
+//
+// Each is the late-game upgrade of a base crop's mutation, grown by a prize crop that a
+// dual-invasion tier clear unlocks (src/cropUnlocks.ts). They are appended to the catalog
+// ONLY when PRIZE_CROPS.live — read once, at module load — so while it is off no bit is
+// assigned, and the almanac, the Pot, the Black Market, the roster validators and the
+// difficulty harness all behave exactly as they did before these existed.
+//
+// Shape (owner, 2026-10-01): ONE significant stat plus ONE minor one, a total only a
+// little above the old best in the slot (Pumpking 4, Cauli-hair 4, Dragon-arm 4,
+// Heartichoke 5), and the two crops that share a slot fill DIFFERENT roles: Brainato is
+// the attack head, Cosmic Potatohead the tank head; Golden Carrot-eyed is the quick,
+// hard-hitting eye, Cauliglower the tough one. DEX is deliberately rare: today's best
+// dex is already 4 (Coffeehead 2 + Eyebiscus 2), and these keep that ceiling.
+//
+// APPEND-ONLY applies from the day this ships: once live, these keys' positions are
+// persisted bits like any other, so never reorder this list afterwards.
+export const PRIZE_MUTATIONS: readonly MutationSpec[] = [
+  { key: "goldencarrot", name: "Golden Carrot-eyed", slot: "hair_eye", stats: { str: 2, dex: 2 }, tier: 4 },
+  { key: "goldenturnip", name: "Golden Turnip-Arm", slot: "arm", stats: { str: 4, con: 1 }, tier: 4 },
+  { key: "obsidibeans", name: "Obsidibeans", slot: "body", stats: { con: 5, str: 1 }, tier: 4 },
+  { key: "cauliglower", name: "Cauliglower", slot: "hair_eye", stats: { con: 4, str: 1 }, tier: 4 },
+  { key: "cosmicpotato", name: "Cosmic Potatohead", slot: "head", stats: { con: 3, str: 2 }, tier: 4 },
+  { key: "brainato", name: "Brainato", slot: "head", stats: { str: 3, dex: 2 }, tier: 4 },
+];
+
+const CATALOG: readonly MutationSpec[] = PRIZE_CROPS.live
+  ? [...BASE_CATALOG, ...PRIZE_MUTATIONS]
+  : BASE_CATALOG;
 
 // The order that has already shipped. A row inserted, removed, or moved in CATALOG
 // shifts the bit of every row below it, which would re-label every mutated zombie in

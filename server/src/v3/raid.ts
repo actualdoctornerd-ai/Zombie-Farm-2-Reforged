@@ -13,6 +13,7 @@ import { activeBonusHeadId, farmerCooldownMs } from "../../../src/farmer";
 import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
 import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak, firstClearBrains } from "../../../src/raid/brainDrops";
 import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
+import { newlyUnlockedCrops } from "../../../src/cropUnlocks";
 import { acceptsBrainTicket } from "../../../src/raid/dualInvasion";
 import { effectiveUnlockLevel, isPracticeRaid } from "../../../src/raid/practice";
 import { settleRaidZombieDrop, RARE_INVASION_ZOMBIE_SUBJECT } from "../../../src/raid/zombieDrops";
@@ -591,9 +592,13 @@ export async function finishRaid(
   // cannot move the ladder, which is what makes every unlocked tier freely replayable.
   const tiers = parse<Record<string, number>>(raidState.tier_json ?? "{}", {});
   const pinnedTier = Math.max(0, Math.floor(boosts.tier ?? 0));
+  const tiersBefore = { ...tiers };
   if (win && pinnedTier > 0) {
     tiers[String(raidId)] = Math.max(Math.floor(tiers[String(raidId)] ?? 0), pinnedTier);
   }
+  // Crops this clear just opened (src/cropUnlocks.ts). Derived from the ladder itself, so
+  // a replayed tier — which cannot move the ladder — never announces anything twice.
+  const cropUnlocks = newlyUnlockedCrops(tiersBefore, tiers);
   if (win) {
     progress[String(raidId)] = (progress[String(raidId)] ?? 0) + 1;
     // Ownership spans Received + the shed + placed objects, so a `unique` really does drop
@@ -752,7 +757,7 @@ export async function finishRaid(
   const settlementId = crypto.randomUUID();
   const result = { settlementId, lastRaidAt, serverTime: now, balance: nextBalance, gold: baseGold + lootGold,
     brains, xp: nextBalance.xp - balance.xp, firstClear, loot, newZombie, outcome, questChanges,
-    inventory: core.inventory, storage: core.storage, raidProgress: progress, raidTiers: tiers, revival,
+    inventory: core.inventory, storage: core.storage, raidProgress: progress, raidTiers: tiers, cropUnlocks, revival,
     periodicQuests, rulesetVersion: RAID_RULESET_VERSION };
   const resultJson = JSON.stringify(result);
   const guard = "EXISTS (SELECT 1 FROM raid_sessions_v3 s WHERE s.id = ? AND s.result_json = ?)";

@@ -65,7 +65,9 @@ describe("crop unlock ladder", () => {
 
   it("unlocks at most two regular crops on any one level", () => {
     const perLevel = new Map<number, string[]>();
-    for (const p of plants.filter((x) => !x.seasonal)) {
+    // The prize crops (src/cropUnlocks.ts) are plantable at the cap but unlocked by a dual
+    // invasion tier, not by level, so they are exempt from the one-level-ladder rule.
+    for (const p of plants.filter((x) => !x.seasonal && !(x as { prize?: boolean }).prize)) {
       perLevel.set(p.level, [...(perLevel.get(p.level) ?? []), p.key]);
     }
     for (const [level, keys] of perLevel) {

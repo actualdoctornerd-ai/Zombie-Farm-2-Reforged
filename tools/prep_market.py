@@ -29,7 +29,7 @@ import sys
 from reforge_economy import (
     CROP_REBALANCE, MUTANT_BIT_REBALANCE, MUTANT_CLASS_REBALANCE, MUTANT_REBALANCE,
     SPECIAL_STAT_REBALANCE,
-    brain_price, rebalance_crop, rebalance_mutant, rebalance_mutant_bit,
+    brain_price, merge_prize_crops, rebalance_crop, rebalance_mutant, rebalance_mutant_bit,
     rebalance_mutant_class, rebalance_special_stats,
 )
 
@@ -272,7 +272,9 @@ def main():
     missing = []
 
     # ---- plants: join by display name ----
-    plants = load(PLANTS)
+    # The prize crops (reforge_economy.PRIZE_CROPS) are not in Market.json, so they skip
+    # the join; they are merged back from their own table just before the sort below.
+    plants = [p for p in load(PLANTS) if not p.get("prize")]
     rebalanced = 0
     for p in plants:
         s = plant_src.get(p["name"])
@@ -485,6 +487,7 @@ def main():
 
     # Permanent crops first, then holiday/seasonal crops; unlock level orders each
     # group. Python's stable sort retains authored order for complete ties.
+    plants = merge_prize_crops(plants)  # also applies the sort below
     plants.sort(key=lambda p: (bool(p.get("seasonal", False)), p.get("level", 1)))
     zombies.sort(key=lambda z: z.get("level", 1))
 

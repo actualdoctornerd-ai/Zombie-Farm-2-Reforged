@@ -10,7 +10,7 @@ import { pickPiece, type PathSpec, type RoadSpec, type SceneryPiece, type Skylin
 import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
 import { armyCapacityOf, BASE_ARMY_MAX } from "./armyCapacity";
-import { farmLifeForce } from "./lifeForce";
+import { cropMutationChance, farmLifeForce } from "./lifeForce";
 import { shedCapacityOf } from "./shedCapacity";
 import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
@@ -334,6 +334,7 @@ async function main() {
     return resolveCropMutations(def.mutation ?? 0, context.cropKeys, {
       guaranteed: context.guaranteed,
       headless: def.group === "Headless",
+      chancePerCrop: cropMutationChance(state.lifeForceLevel),
     });
   };
   const allZombieCards = assets.zombies.map((z) => {

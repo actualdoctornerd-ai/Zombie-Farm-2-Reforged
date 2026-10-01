@@ -19,7 +19,8 @@ import { boostEcon, boostKeyForName, MAX_STACK } from "../boostCatalog";
 import { cropEcon } from "../catalog";
 import { dropEcon } from "../raidLootCatalog";
 import { XP_THRESHOLDS, levelForXp, levelUpBrains } from "../levels";
-import { BASE_SHED_SLOTS, objectBuyXp, objectEcon, objectSellGold } from "../objectCatalog";
+import { BASE_SHED_SLOTS, lifeForceOf, objectBuyXp, objectEcon, objectSellGold } from "../objectCatalog";
+import { cropMutationChance, farmLifeForce, lifeForceLevel } from "../../../src/lifeForce";
 import { planClaim } from "../storage";
 import { QUEST_DEFINITIONS, QUEST_REWARD } from "../questCatalog";
 import { isHeadlessZombie, legalMutation, zombieSell } from "../rosterCatalog";
@@ -423,6 +424,15 @@ function hasPlowingMonolith(state: MutableGameplayState): boolean {
   );
 }
 
+/** The farm's Life Force level, derived from the objects PLACED on it (stored ones do not
+ *  count). The server reads its own object list, never a client-supplied number. */
+function placedLifeForceLevel(state: MutableGameplayState): number {
+  const placed = state.objects.objects
+    .filter((object) => object.status === "placed")
+    .map((object) => object.catalogKey);
+  return lifeForceLevel(farmLifeForce(placed, lifeForceOf));
+}
+
 function hasMutationMonolith(state: MutableGameplayState): boolean {
   return state.objects.objects.some(
     (object) => object.status === "placed" && object.catalogKey === "monolithMutation"
@@ -518,6 +528,7 @@ function rewardHarvest(
     const mutation = resolveCropMutations(zombieDefaultMutation(key), mutationCropKeys, {
       guaranteed: hasMutationMonolith(state),
       headless: rule?.group === "Headless",
+      chancePerCrop: cropMutationChance(placedLifeForceLevel(state)),
       random,
     });
     state.roster.push({ id, key, mutation, invasions: 0, stored: active >= cap.army });

@@ -48,6 +48,7 @@ import { invasionWinXp, repeatInvasionXp } from "./repeatXp";
 import { compareRaidMenuOrder } from "./raidMenuOrder";
 import { BRAIN_TICKET_KEY, ELITE_BRAIN_LUCK } from "./eliteInvasion";
 import { effectiveUnlockLevel, isPracticeRaid } from "./practice";
+import { newlyUnlockedCrops } from "../cropUnlocks";
 import {
   acceptsBrainTicket, isDualInvasion, MAX_TIER,
   MIN_TIER, raidProfile,
@@ -180,6 +181,8 @@ export interface RaidResultView {
   firstClear: boolean;
   loot: LootDrop[]; // item drops (with pictures)
   abilityUnlock: string; // "" unless a tier unlocked on this clear
+  /** Display names of crops this clear unlocked (a dual-invasion tier � src/cropUnlocks.ts). */
+  cropUnlocks?: string[];
   /** ONLINE only: the base win gold + first-clear XP the SERVER must credit — NOT
    *  applied locally (main.ts submits it to /raid/finish, which prices it from the
    *  server catalog; the balance client reconciles). Absent offline, where the base
@@ -664,6 +667,7 @@ export class RaidManager {
     let firstClear = false;
     const loot: LootDrop[] = [];
     let abilityUnlock = "";
+    let cropUnlocks: string[] = [];
     let serverReward: RaidResultView["serverReward"];
     if (outcome.win) {
       const wins = serverRewards
@@ -672,7 +676,13 @@ export class RaidManager {
       // The ladder. ONLINE the server credits the tier it pinned and mirrors the whole map
       // back (syncRaidTiers), so the client must not also write it — a local guess that
       // disagreed would be overwritten anyway, and would flicker the picker in between.
+      const tiersBefore = { ...this.state.raidTiers };
       if (!serverRewards && ladderTier > 0) this.state.recordRaidTier(String(raid.id), ladderTier);
+      // Offline the ladder just moved here; online the server announces it (see main.ts).
+      if (!serverRewards) {
+        cropUnlocks = newlyUnlockedCrops(tiersBefore, this.state.raidTiers).map(
+          (key) => this.assets.plants.find((p) => p.key === key)?.name ?? key);
+      }
       // XP. The FIRST clear pays the enemy's authored `xp` (GROUND TRUTH — disassembled
       // `firstTimeBeatingEnemy` gate + "You earned %ixp for beating this enemy for the
       // first time."). One boss enemy per raid, so first-ever win (wins === 1) IS
@@ -778,6 +788,7 @@ export class RaidManager {
       firstClear,
       loot,
       abilityUnlock,
+      cropUnlocks,
       serverReward,
     };
   }

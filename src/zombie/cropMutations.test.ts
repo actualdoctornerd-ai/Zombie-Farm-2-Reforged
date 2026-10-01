@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { cropMutationBits, resolveCropMutations, plotsTouch } from "./cropMutations";
+import { cropMutationChance } from "../lifeForce";
+
+/** The old flat 25% per adjacent crop. Most of these tests are about HOW rolls combine
+ *  (stacking, slot conflicts, pooling), which a round per-crop chance keeps readable;
+ *  the Life Force levels that set the real chance are covered at the bottom. */
+const QUARTER = { chancePerCrop: 0.25 };
 
 describe("crop-adjacency mutations", () => {
   it("touches all eight lattice neighbours and not the plot itself", () => {
@@ -28,18 +34,20 @@ describe("crop-adjacency mutations", () => {
   });
 
   it("gives one adjacent crop a 25% roll", () => {
-    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.249 })).toBe(4);
-    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.25 })).toBe(0);
+    expect(resolveCropMutations(0, ["carrot"], { ...QUARTER, random: () => 0.249 })).toBe(4);
+    expect(resolveCropMutations(0, ["carrot"], { ...QUARTER, random: () => 0.25 })).toBe(0);
   });
 
   it("stacks matching adjacent crops linearly to 100%", () => {
     expect(resolveCropMutations(0, ["carrot", "carrot", "carrot", "carrot"], {
+      ...QUARTER,
       random: () => 1,
     })).toBe(4);
   });
 
   it("can grant every independently rolled non-conflicting mutation", () => {
     expect(resolveCropMutations(0, ["tomato", "carrot", "celery", "lima_beans"], {
+      ...QUARTER,
       random: () => 0.1,
     })).toBe(1 | 4 | 64 | 1024);
   });
@@ -47,7 +55,7 @@ describe("crop-adjacency mutations", () => {
   it("never creates illegal same-slot or headless mutations", () => {
     // Onion wins the head conflict because its roll is lower than Tomato's.
     const rolls = [0.2, 0.1];
-    expect(resolveCropMutations(0, ["tomato", "onion"], { random: () => rolls.shift()! })).toBe(2);
+    expect(resolveCropMutations(0, ["tomato", "onion"], { ...QUARTER, random: () => rolls.shift()! })).toBe(2);
     expect(resolveCropMutations(0, ["tomato", "carrot", "celery"], {
       guaranteed: true,
       headless: true,
@@ -111,23 +119,52 @@ describe("crop -> mutation wiring", () => {
     // must clear the 25%-per-plot threshold together — one roll, not two.
     const crops = { carrot: "carrot", baby_carrot: "carrot" };
     const random = () => 0.4; // beats 2 x 25%, would fail a single plot's 25%
-    expect(resolveCropMutations(0, ["carrot", "baby_carrot"], { crops, random })).toBe(4);
-    expect(resolveCropMutations(0, ["carrot"], { crops, random })).toBe(0);
+    expect(resolveCropMutations(0, ["carrot", "baby_carrot"], { ...QUARTER, crops, random })).toBe(4);
+    expect(resolveCropMutations(0, ["carrot"], { ...QUARTER, crops, random })).toBe(0);
   });
 
   it("no longer makes a Tier-4 crop grow the Tier-1 mutation beside it", () => {
     // The reported balance hole: an eyebiscus plot cost several times a carrot plot
     // and granted the identical +1 speed, and two of them pooled into carrot's roll.
     const random = () => 0.4;
-    expect(resolveCropMutations(0, ["carrot", "eyebiscus"], { random })).toBe(0);
-    expect(resolveCropMutations(0, ["eyebiscus", "eyebiscus"], { random })).toBe(16384);
-    expect(resolveCropMutations(0, ["cauliflower", "heartichoke"], { random })).toBe(0);
-    expect(resolveCropMutations(0, ["heartichoke", "heartichoke"], { random })).toBe(32768);
+    expect(resolveCropMutations(0, ["carrot", "eyebiscus"], { ...QUARTER, random })).toBe(0);
+    expect(resolveCropMutations(0, ["eyebiscus", "eyebiscus"], { ...QUARTER, random })).toBe(16384);
+    expect(resolveCropMutations(0, ["cauliflower", "heartichoke"], { ...QUARTER, random })).toBe(0);
+    expect(resolveCropMutations(0, ["heartichoke", "heartichoke"], { ...QUARTER, random })).toBe(32768);
   });
 
   it("ignores a mutation name the catalog does not have", () => {
     const crops = { corn: "cornhead" };
     expect(cropMutationBits("corn", crops)).toEqual([]);
     expect(resolveCropMutations(0, ["corn"], { crops, guaranteed: true })).toBe(0);
+  });
+});
+
+describe("Life Force sets the mutation chance", () => {
+  it("defaults to the level-0 chance, 5% per adjacent crop", () => {
+    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.049 })).toBe(4);
+    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.05 })).toBe(0);
+  });
+
+  it("follows cropMutationChance(level): 15% at level 1, 55% at level 5", () => {
+    const at = (level: number, roll: number) =>
+      resolveCropMutations(0, ["carrot"], { chancePerCrop: cropMutationChance(level), random: () => roll });
+    expect(at(1, 0.149)).toBe(4);
+    expect(at(1, 0.151)).toBe(0);
+    expect(at(5, 0.549)).toBe(4);
+    expect(at(5, 0.551)).toBe(0);
+  });
+
+  it("is certain at level 10, even for a single adjacent crop", () => {
+    expect(resolveCropMutations(0, ["carrot"], {
+      chancePerCrop: cropMutationChance(10), random: () => 0.999999,
+    })).toBe(4);
+  });
+
+  it("still stacks adjacent crops on top of the per-crop chance", () => {
+    const chancePerCrop = cropMutationChance(1); // 15% each
+    const two = ["carrot", "carrot"]; // 30% together
+    expect(resolveCropMutations(0, two, { chancePerCrop, random: () => 0.29 })).toBe(4);
+    expect(resolveCropMutations(0, two, { chancePerCrop, random: () => 0.31 })).toBe(0);
   });
 });

@@ -897,6 +897,8 @@ export interface RaidFinishResult {
   raidProgress?: Record<string, number>;
   /** Dual-invasion ladder after this settlement: highest tier CLEARED per raid id. */
   raidTiers?: Record<string, number>;
+  /** Crop keys this settlement unlocked (a dual-invasion tier clear — see src/cropUnlocks.ts). */
+  cropUnlocks?: string[];
   /** Daily/weekly quest state after this settlement â€” an invasion win advances it, and
    *  /raid/finish is the only path a win travels. Absent on a Worker predating them. */
   periodicQuests?: PeriodicQuestProjection | null;

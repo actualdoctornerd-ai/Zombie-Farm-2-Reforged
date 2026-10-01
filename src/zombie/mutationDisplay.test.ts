@@ -101,8 +101,11 @@ describe("mutation art", () => {
     const shipped = new Set(
       readdirSync(new URL("../../public/assets/ui/mutation", import.meta.url))
     );
+    // MUTATION_ICON also carries the prize mutations' icons (not in the catalog until the
+    // prize crops are live); only the catalogued ones count toward "every bit".
+    const catalogued = new Set(ALL_BITS.map((bit) => mutationOf(bit)!.key));
     const icons = [
-      ...Object.values(MUTATION_ICON),
+      ...Object.entries(MUTATION_ICON).filter(([key]) => catalogued.has(key)).map(([, icon]) => icon),
       ...Object.values(MUTATION_VARIANTS).flatMap((v) => Object.values(v).map((m) => m.icon)),
     ];
     expect(icons.length).toBe(ALL_BITS.length + 2); // every bit + the two variants

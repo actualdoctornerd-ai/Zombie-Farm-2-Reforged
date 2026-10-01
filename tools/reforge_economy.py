@@ -74,6 +74,59 @@ CROP_REBALANCE = {
     "heartichoke":   (45, 125, 213, 8),
 }
 
+# ---- Prize crops (late-game rewards; docs/PRIZE_CROPS.md) -----------------------------
+# Six recoloured crops unlocked by clearing t5/t10 of the post-45 dual invasions. They are
+# NOT in the game yet: src/cropUnlocks.ts PRIZE_CROPS.live is false, which hides them
+# everywhere (these rows carry `prize: true`).
+#
+# Rule (owner, 2026-10-01): each takes TWICE its base crop's grow time and is only
+# 50-75% stronger than a regular crop of the same duration at level 40 (gold crops lean
+# gold, XP crops lean XP). The baseline is a fit over the 25 regular crops above:
+#     net  = e^(1.28 + 0.019*L) * h^0.725      (net = sell - cost - 10 plow)
+#     xp+1 = e^(0.88 + 0.012*L) * h^0.22       (h = grow hours)
+# Seed costs are set from the sell/net ratio of the comparable crops, NOT picked freely:
+# a Garden-fertilized harvest pays `sell` twice, so a cheap-seed fast crop must keep the
+# high sell/net ratio its peers (Skellyberry, Meat Flower) have or fertilizing erodes its
+# lead. Golden Carrot is 90/108 for that reason.
+#
+# key -> (display name, base crop key, grow hours, cost, sell, xp). The base crop is the
+# one whose art is recoloured (tools/prize_crops.py) and whose mutation the prize
+# mutation upgrades. `level` is the cap: the unlock is the dual-invasion tier, not level.
+PRIZE_CROPS = {
+    "golden_carrot": ("Golden Carrots",  "carrot",      0.5,  90, 108,  4),
+    "golden_turnip": ("Golden Turnips",  "turnip",     24,   230, 375, 11),
+    "obsidibeans":   ("Obsidibeans",     "lima_beans", 48,   330, 530, 13),
+    "cauliglower":   ("Cauliglower",     "cauliflower", 24,  190, 315, 11),
+    "cosmic_potato": ("Cosmic Potatoes", "potato",     48,   320, 520, 15),
+    "brainato":      ("Brainatoes",      "tomato",      8,    90, 152, 10),
+}
+
+
+def prize_crop_rows(level_cap=None):
+    """The plants.json rows for PRIZE_CROPS, in table order. Files are the ones
+    tools/prize_crops.py installs; `prize: true` is what hides them while not live."""
+    level = LEVEL_CAP if level_cap is None else level_cap
+    rows = []
+    for key, (name, _base, hours, cost, sell, xp) in PRIZE_CROPS.items():
+        rows.append({
+            "key": key, "name": name, "cost": cost, "sell": sell,
+            "growMs": int(round(hours * 3_600_000)),
+            "stage1": f"{key}_stage1.png", "stage2": f"{key}_stage2.png",
+            "level": level, "xp": xp, "icon": f"{key}_icon.png", "prize": True,
+        })
+    return rows
+
+
+def merge_prize_crops(plants):
+    """`plants` (a plants.json list) with any previous prize rows replaced by the current
+    table, in the catalog's order: permanent crops first, then seasonal, level within each.
+    Idempotent, so prep_market.py can call it on every run."""
+    kept = [p for p in plants if not p.get("prize")]
+    merged = kept + prize_crop_rows()
+    merged.sort(key=lambda p: (bool(p.get("seasonal", False)), p.get("level", 1)))
+    return merged
+
+
 # Nothing may unlock past the top XP tier. src/GameState.ts XP_THRESHOLDS and
 # server/src/levels.ts both stop at 45, so a crop above it would be unplantable.
 LEVEL_CAP = 45

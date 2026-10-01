@@ -105,7 +105,9 @@ trust one:
   the one switch that launches it, and what remains), `PVP_DEFENSE_FORMATION.md` (Half A of
   the friend-invasion defense rework — built, and one of the two modes `PVP_DEFENSE_MODE`
   picks between; the sections describe what was built, with deviations called out inline),
-  and
+  `PRIZE_CROPS.md` (the six late-game crops and their mutations: fully built and switched
+  off behind `PRIZE_CROPS.live` — what exists, the rules behind the numbers, and how to ship
+  it), and
   everything under `docs/mechanics/` (behaviour recovered from the original binary, with the
   derivation — these win over intuition, see CONTRIBUTING; `mechanics/README.md` indexes them).
 - **Historical design plans** for features that have since shipped:

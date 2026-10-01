@@ -607,7 +607,7 @@ def slice_crop_icons():
     n = 0
     for plant in plants:
         name = plant.get("icon")
-        if not name:
+        if not name or plant.get("prize"):  # prize icons come from tools/prize_crops.py
             continue
         src = os.path.join(APP, name)
         if not os.path.isfile(src):

@@ -15,6 +15,7 @@ interface CropRow {
   level: number;
   growMs: number;
   seasonal?: boolean;
+  prize?: boolean;
 }
 
 const HOUR_MS = 3_600_000;

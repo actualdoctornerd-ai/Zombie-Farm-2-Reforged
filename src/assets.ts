@@ -1,6 +1,7 @@
 // Loads the prepped data (JSON) and textures produced by tools/prep_assets.py.
 import { Assets, Rectangle, Texture } from "pixi.js";
 import { makeCropTopTexture } from "./cropTop";
+import { PRIZE_CROPS } from "./cropUnlocks";
 import type { QuestDef } from "./quest/types";
 import type { RaidDef, EnemyStat, AttackDef } from "./raid/types";
 import { setZombieNames } from "./zombie/names";
@@ -156,6 +157,8 @@ export interface PlantDef {
   stage2: string;
   icon: string; // standalone produce sprite for Market cards and harvest pickups
   seasonal?: boolean;
+  /** A late-game prize crop (src/cropUnlocks.ts). Dropped at load unless PRIZE_CROPS.live. */
+  prize?: boolean;
 }
 
 interface SpecialZombieManifest {
@@ -847,7 +850,7 @@ export async function loadAssets(): Promise<GameAssets> {
     retryDelay: 350,
   };
 
-  const [field, groundIndex, rig, plants, zombies, placeables, boosts, importedQuests,
+  const [field, groundIndex, rig, allPlants, zombies, placeables, boosts, importedQuests,
     reforgedQuests,
     raids, enemyStats, raidAttacks, zombieNames, drops, upgrades, farmer, pets] = await Promise.all([
     json<FieldData>(BASE + "assets/field_default.json"),
@@ -954,6 +957,10 @@ export async function loadAssets(): Promise<GameAssets> {
     },
   );
 
+  // The prize crops are in plants.json but not in the game: while PRIZE_CROPS.live is false
+  // they are dropped here, before anything below can fetch their art or list them.
+  const plants = allPlants.filter((p) => !p.prize || PRIZE_CROPS.live);
+
   // Load crop-stage textures: every plant's two stages + the generic grown zombie.
   // The shared seed stage reuses the "planted" soil texture (set below).
   const crop: Record<string, Texture> = {};
@@ -988,7 +995,7 @@ export async function loadAssets(): Promise<GameAssets> {
 
   // Per-type zombie models: one shared atlas (ZombieSheet.png) sliced into part
   // sub-textures via frames.json, plus models.json (composition per unit type).
-  const [zombieModels, zombieFrameTable, mutationParts, enemyModels,
+  const [zombieModels, zombieFrameTable, baseMutationParts, enemyModels,
     specialModels, specialFrameTable, enemyClips, zombieClips, zombieTops] = await Promise.all([
     json<Record<string, ZombieModel>>(BASE + "assets/zombie/models.json"),
     json<FrameTable>(BASE + "assets/zombie/frames.json"),
@@ -1028,6 +1035,11 @@ export async function loadAssets(): Promise<GameAssets> {
       frame: new Rectangle(f.x, f.y, f.w, f.h),
     });
   }
+  // The prize mutations' rig parts, only when the prize crops are live (see cropUnlocks.ts).
+  const mutationParts = PRIZE_CROPS.live
+    ? { ...baseMutationParts,
+      ...await json<Record<string, MutationPart>>(BASE + "assets/zombie/prize_mutations.json") }
+    : baseMutationParts;
   await loadLooseMutationParts(mutationParts, zombiePartTex);
 
   // A named special's plist contains only the attachments it replaces. Load those

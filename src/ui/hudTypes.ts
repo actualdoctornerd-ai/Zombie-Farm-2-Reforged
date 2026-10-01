@@ -27,6 +27,9 @@ export interface MenuCard {
   sell?: number; // plants only (harvest value)
   timeLabel: string; // "15m", "4h", "1d"
   level: number; // player level required to unlock
+  /** Prize crops (src/cropUnlocks.ts): the requirement as card text, and whether this
+   *  account has met it. A card with an unmet tier unlock is locked like a level lock. */
+  tierUnlock?: { hint: string; met: () => boolean };
   seasonal?: boolean; // holiday crops are grouped after the permanent catalog
   portrait: string; // full image url
   category?: "normal" | "special" | "mutant"; // zombies only

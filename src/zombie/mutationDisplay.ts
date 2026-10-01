@@ -41,6 +41,11 @@ export const MUTATION_ICON: Record<string, string> = {
   cauli: iconFile("cauliflower"), limabean: iconFile("limabean"), flytrap: iconFile("flytrap"),
   dragon: iconFile("dragonfruit"), pumpking: iconFile("pumpking"),
   eyebiscus: iconFile("eyebiscus"), heartichoke: iconFile("heartichoke"),
+  // The prize mutations (src/zombie/mutations.ts PRIZE_MUTATIONS). Harmless while they
+  // are not in the catalog: nothing looks an absent mutation up.
+  goldencarrot: iconFile("goldencarrot"), goldenturnip: iconFile("goldenturnip"),
+  obsidibeans: iconFile("obsidibeans"), cauliglower: iconFile("cauliglower"),
+  cosmicpotato: iconFile("cosmicpotato"), brainato: iconFile("brainato"),
 };
 
 /** One species' replacement art and name for a mutation it shares with others. */

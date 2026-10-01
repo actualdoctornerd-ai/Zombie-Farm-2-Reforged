@@ -140,6 +140,8 @@ interface MktEntry {
   portrait: string;
   cost: number;
   level: number;
+  /** Set while a prize crop's dual-invasion tier clear is still outstanding (shows the hint). */
+  tierLock?: string;
   brains?: boolean; // priced in brains rather than gold
   sell?: number; // harvest value (plants and fruit trees)
   // Experience the card is advertising. Two different things wear the same badge:
@@ -312,6 +314,12 @@ function giftRewardLabel(reward: GiftReward): string {
 }
 
 
+
+/** "New crop unlocked: Golden Carrot, Golden Turnip" — empty when nothing unlocked. */
+function cropUnlockHtml(names: string[]): string {
+  if (!names.length) return "";
+  return `<div class="rr-unlock rr-crop-unlock">New crop unlocked: ${names.join(", ")} — plant it from the Market.</div>`;
+}
 
 export class Hud {
   mode: Mode = "walk";
@@ -2317,6 +2325,7 @@ export class Hud {
       if (tab === "Crops" && sub === "Plants")
         return this.plantCards.map((c) => ({
           name: c.name, portrait: c.portrait, cost: c.cost, level: c.level, sell: c.sell,
+          tierLock: c.tierUnlock && !c.tierUnlock.met() ? c.tierUnlock.hint : undefined,
           xp: this.cropXp(c.cfg), xpHint: "Experience each time you harvest it",
           timeLabel: c.timeLabel,
           onPick: () => { this.setPlanting(c.cfg); bg.remove(); },
@@ -2941,7 +2950,7 @@ export class Hud {
   }
 
   private buildMarketCard(en: MktEntry): HTMLElement {
-    const locked = this.state.level < en.level;
+    const locked = this.state.level < en.level || !!en.tierLock;
     // Colored-grave gate: this zombie class can't be planted until you own it.
     const graveLock = !locked && !!en.graveNeeded && !!this.hasGrave && !this.hasGrave(en.graveNeeded);
     // "1 per farm" gift-voucher limit: already own that zombie (or hold the voucher).
@@ -3011,7 +3020,7 @@ export class Hud {
       : en.owned
         ? `Equip`
       : locked
-      ? `🔒 Lvl ${en.level}`
+      ? (en.tierLock ? `🔒 ${en.tierLock}` : `🔒 Lvl ${en.level}`)
       : graveLock
         ? `🔒 ${en.graveNeeded} Grave`
         : limitLock
@@ -3364,7 +3373,8 @@ export class Hud {
   }
 
   private buildCard(c: MenuCard, onPick: (c: MenuCard) => void, forceLock = false): HTMLElement {
-    const levelLocked = this.state.level < c.level;
+    const tierLocked = !!c.tierUnlock && !c.tierUnlock.met();
+    const levelLocked = this.state.level < c.level || tierLocked;
     // Colored-grave gate for zombie crops (Blue/Red/Silver need the grave placed).
     const graveLock = !levelLocked && !!c.cfg.unlockGrave && !!this.hasGrave &&
       !this.hasGrave(c.cfg.unlockGrave);
@@ -3415,7 +3425,7 @@ export class Hud {
     cost.className = "pm-cost";
     // Locked cards show the requirement (level or grave) instead of a buyable cost.
     cost.innerHTML = levelLocked
-      ? `<span class="pm-lock">🔒 Lvl ${c.level}</span>`
+      ? `<span class="pm-lock">🔒 ${tierLocked ? c.tierUnlock!.hint : `Lvl ${c.level}`}</span>`
       : graveLock
         ? `<span class="pm-lock">🔒 ${c.cfg.unlockGrave} Grave</span>`
         : `${c.cost}<img src="${UI(c.brains ? "topbar_brain_icon.png" : "topbar_money_icon.png")}">`;
@@ -6890,7 +6900,8 @@ export class Hud {
         : `<div class="rr-loot-none">—</div>`);
     const extra = view.practice
       ? `<div class="rr-unlock">Practice run — every zombie came home, and nothing was paid or spent.</div>`
-      : view.abilityUnlock ? `<div class="rr-unlock">${view.abilityUnlock}</div>` : "";
+      : (view.abilityUnlock ? `<div class="rr-unlock">${view.abilityUnlock}</div>` : "") +
+        cropUnlockHtml(view.cropUnlocks ?? []);
 
     panel.innerHTML =
       `<div class="rr-title ${view.win ? "win" : "lose"}">${view.title}</div>` +
@@ -7052,6 +7063,14 @@ export class Hud {
     notice.className = "rr-notice";
     notice.textContent = message;
     body.appendChild(notice);
+  }
+
+  /** ONLINE: the server's settlement says which crops this clear unlocked, after the panel
+   *  has opened — add the same line the offline path renders up front. */
+  setRaidResultCropUnlocks(names: string[]) {
+    const body = this.el.querySelector(".raid-res-panel .rr-body");
+    if (!body || !names.length || body.querySelector(".rr-crop-unlock")) return;
+    body.insertAdjacentHTML("beforeend", cropUnlockHtml(names));
   }
 
   /** Patch the server-authoritative brain award into an already-open victory panel. */

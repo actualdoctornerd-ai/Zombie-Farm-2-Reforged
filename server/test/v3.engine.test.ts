@@ -19,6 +19,18 @@ import { QUEST_DEFINITIONS } from "../src/questCatalog";
 const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] =>
   values.map((command, index) => ({ sequence: index + 1, command }));
 
+/** Place enough decor to give the farm `total` Life Force (a Gazebo is 16, a Crate 1).
+ *  Crop mutation chance now comes from the farm's Life Force level, so a test that needs
+ *  a mutation to land gives its farm a level first. */
+const giveLifeForce = (state: MutableGameplayState, total: number) => {
+  for (let i = 0; i < Math.floor(total / 16); i++) {
+    state.objects.objects.push({ instanceId: `lf-gazebo-${i}`, catalogKey: "gazeboNormal", status: "placed" });
+  }
+  for (let i = 0; i < total % 16; i++) {
+    state.objects.objects.push({ instanceId: `lf-crate-${i}`, catalogKey: "crate", status: "placed" });
+  }
+};
+
 const rareCombinePairIds = (): [string, string] => {
   for (let index = 0; index < 10_000; index++) {
     const ids: [string, string] = [`rare-a-${index}`, `rare-b-${index}`];
@@ -690,6 +702,7 @@ describe("protocol v3 command engine", () => {
 
   it("authoritatively stacks touching mutation crops to 100% at zombie harvest", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 105); // level 3: 35% per crop, so four carrots clear 100%
     state.farm.plots = {
       "4:4": { state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 0, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true },
       // Different plantedAt values represent different growth stages; all still count.
@@ -715,6 +728,7 @@ describe("protocol v3 command engine", () => {
 
   it("allows mutation crops on all four diagonal plots", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30); // level 1: 15% per crop
     state.farm.plots = {
       "4:4": { state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 0, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true },
       "0:0": { state: "planted", cropKey: "tomato", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
@@ -733,6 +747,7 @@ describe("protocol v3 command engine", () => {
 
   it("mutates from crops that touch off the zombie plot's lattice", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30);
     // Plots plowed in a second stroke share no lattice with the zombie's: these four
     // sit flush against its footprint at origins that are not (±4, ±4) away.
     state.farm.plots = {
@@ -754,6 +769,7 @@ describe("protocol v3 command engine", () => {
 
   it("rolls multiple non-conflicting adjacent crops independently", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30);
     state.farm.plots = {
       "4:4": { state: "planted", cropKey: "ZombieActorRegularTier1", plantedAt: 0, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true },
       "0:4": { state: "planted", cropKey: "tomato", plantedAt: 999, growMs: 99_999, sell: 1, xp: 1, fertilized: false, zombie: false },
@@ -783,6 +799,7 @@ describe("protocol v3 command engine", () => {
 
   it("snapshots adjacency for atomic Insta-Harvest before removing ripe crops", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30);
     state.inventory.insta_harvest = 1;
     state.farm.plots = {
       "0:4": { state: "planted", cropKey: "carrot", plantedAt: 0, growMs: 1, sell: 16, xp: 1, fertilized: false, zombie: false },
@@ -797,6 +814,7 @@ describe("protocol v3 command engine", () => {
 
   it("snapshots diagonal mutation crops for atomic Insta-Harvest", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30);
     state.inventory.insta_harvest = 1;
     state.farm.plots = {
       "0:0": { state: "planted", cropKey: "carrot", plantedAt: 0, growMs: 1, sell: 16, xp: 1, fertilized: false, zombie: false },
