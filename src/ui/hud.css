@@ -15,12 +15,13 @@
   border-style: solid; border-width: 9px 13px;
   border-image: url("/assets/ui/button_bg.png") 14 fill / 9px 13px stretch;
   color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000;
-  min-height: 22px; margin: 0 -2px; min-width: 0; }
-#hud .chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  min-height: 22px; margin: 0 -2px; min-width: 0; flex: 0 0 auto; }
+#hud .chip > span { flex: 0 0 auto; white-space: nowrap; }
 #hud .chip img { height: 20px; width: auto; }
 #hud .chip .xpbar { width: 60px; height: 8px; background: rgba(0,0,0,.55);
   border: 1px solid #2f1d0d; border-radius: 5px; overflow: hidden; margin-left: 2px; }
 #hud .chip .xpfill { height: 100%; width: 0%; background: linear-gradient(#b6f36a,#5fbf2f); }
+#hud .lvl-star-lit { display: none; }
 #hud .level-chip { position: relative; cursor: pointer; overflow: visible; }
 #hud .level-chip:focus-visible { outline: 2px solid #d9ff9b; outline-offset: 2px; }
 #hud .xp-details { position: absolute; top: calc(100% + 8px); left: 50%; z-index: 2;
@@ -41,6 +42,8 @@
   color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 1px #000;
   pointer-events: auto; cursor: pointer; user-select: none; }
 #hud .nameplate:hover { filter: brightness(1.12); }
+/* One line, shrunk by fitTexts() when the box is tight, rather than wrapping to two. */
+#hud .nameplate { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
 #hud .play-status {
   align-self: center; padding: 4px 8px; border: 1px solid #102109;
   border-radius: 999px; color: #efffdf; background: #335e20;
@@ -685,7 +688,8 @@
 #hud .set-tabs { margin: 2px 0 6px; }
 #hud .set-body { min-height: 240px; }
 #hud .set-row { display: flex; align-items: center; justify-content: space-between;
-  gap: 24px; min-width: 240px; padding: 8px 2px; font-size: 15px; font-weight: 700; }
+  gap: 24px; row-gap: 6px; flex-wrap: wrap; min-width: 240px; padding: 8px 2px;
+  font-size: 15px; font-weight: 700; }
 #hud .set-row + .set-row { border-top: 1px solid rgba(255,255,255,.15); }
 #hud .set-volume-controls { display: flex; align-items: center; gap: 8px; }
 #hud .set-volume input[type="range"] { width: 120px; accent-color: #76ad3c; cursor: pointer; }
@@ -704,7 +708,9 @@
   background: #2a1c0c; color: #ffe9a8; font: 400 11px/1.35 ui-monospace, Menlo, Consolas, monospace;
   white-space: pre; overflow: auto; resize: vertical; }
 #hud .set-username { margin: 4px 0 8px; }
-#hud .set-username-controls { display: flex; gap: 7px; }
+/* Wrap rather than push the last button off a narrow panel (Export / Import / Reset). */
+#hud .set-username-controls { display: flex; flex-wrap: wrap; justify-content: flex-start;
+  gap: 7px; max-width: 100%; }
 #hud .set-username-input { width: 150px; box-sizing: border-box; padding: 6px 8px;
   border: 2px solid #1e1207; border-radius: 7px; background: #2a1c0c; color: #ffe9a8;
   font: 700 14px system-ui, sans-serif; outline: none; }
@@ -1712,17 +1718,18 @@
    gets the full panel. */
 @media (max-width: 700px), (max-height: 560px) {
   #hud .bm-content { grid-template-columns: 1fr; }
-  #hud .bm-list { grid-template-columns: repeat(2,minmax(130px,1fr)); }
+  #hud .bm-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
   #hud .bm-summary { width: 100%; margin-left: 0; }
   #hud .bm-tab-compose { display: block; }
   #hud .bm .bm-compose { display: none; max-height: none; }
   #hud .bm.bm-composing .bm-compose { display: flex; }
   #hud .bm.bm-composing .bm-list,
   #hud .bm.bm-composing .bm-toolbar { display: none; }
-  /* Three tabs on a phone: let the row shrink each label rather than overflow. */
-  #hud .bm .mkt-tabs { flex-wrap: nowrap; }
-  #hud .bm .mkt-tab { flex: 0 1 auto; min-width: 0; border-width: 6px 9px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Four tabs on a phone: keep every label whole and wrap to a second row when they
+     do not fit, rather than ellipsising them to "Req…" / "Zombi…" / "Hi…". */
+  #hud .bm .mkt-tabs { flex-wrap: wrap; justify-content: center; gap: 4px 5px;
+    overflow: visible; }
+  #hud .bm .mkt-tab { flex: 0 0 auto; border-width: 6px 9px; white-space: nowrap; }
   /* The wrapped filter bar ate the list. Tighten it wherever it wraps. */
   #hud .bm-toolbar { gap: 5px; margin: 2px 0 6px; }
   #hud .bm-toolbar select { min-width: 0; }
@@ -1734,6 +1741,9 @@
    them up deliberately instead of leaving one select stranded per line. */
 @media (max-width: 700px) {
   #hud .bm-toolbar select { flex: 1 1 45%; }
+  /* The title board hangs ~24px into the panel; on a narrow panel the wallet row
+     runs under it, so start the wallet below the board. */
+  #hud .bm .mkt-cur { margin-top: 24px; }
 }
 
 /* ---- Item info popup (opened by a Market card's magnifier) ---- */
@@ -1879,10 +1889,11 @@
 #hud .pm-close { position: absolute; top: -14px; right: -14px; width: 40px; height: 40px;
   border: none; background: none; cursor: pointer; padding: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
 #hud .pm-close img { width: 100%; height: 100%; }
-#hud .pm-screens { display: flex; gap: 6px; justify-content: center; margin: 0 0 8px; }
+#hud .pm-screens { display: flex; flex-wrap: wrap; gap: 4px 6px; justify-content: center; margin: 0 0 8px; }
 #hud .pm-screen { border-style: solid; border-width: 6px 16px;
   border-image: url("/assets/ui/market/tab.png") 16 fill / 6px 16px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 14px; cursor: pointer; min-width: 60px;
+  flex: 0 0 auto; text-align: center; white-space: nowrap;
   text-shadow: 0 1px 1px rgba(0,0,0,.45); }
 #hud .pm-screen.sel { border-image-source: url("/assets/ui/market/tab.png"); filter: brightness(.72);
   color: #f6ecc8; text-shadow: 0 1px 1px rgba(0,0,0,.55); }
@@ -1954,7 +1965,7 @@
   /* top bar: shrink chips + drop the name plate so currencies fit a phone. */
   #hud .topbar { gap: 5px; padding: 4px 6px; border-radius: 13px; }
   #hud .chips { flex: 1 1 auto; gap: 2px; }
-  #hud .chip { flex: 1 1 auto; font-size: 12px; border-width: 8px 8px; }
+  #hud .chip { flex: 1 0 auto; font-size: 12px; border-width: 8px 8px; }
   #hud .chip img { height: 17px; }
   #hud .chip .xpbar { width: 42px; }
   #hud .nameplate { display: none; }
@@ -2194,6 +2205,14 @@
 @media (max-width: 430px) {
   #hud .mkt-grid { grid-template-columns: repeat(2, 1fr); }
 
+  /* Settings: tabs a little tighter so four fit on one row, and a row's button group
+     takes its own full-width line, buttons sharing it equally, so Export / Import /
+     Reset read left to right instead of two on top and one stranded on the right. */
+  #hud .pm-screen { border-width: 6px 10px; font-size: 13px; min-width: 0; padding-inline: 3px; }
+  #hud .set-row:has(.set-username-controls) { align-items: flex-start; }
+  #hud .set-username-controls { flex: 1 1 100%; }
+  #hud .set-username-controls .set-action { flex: 1 1 0; min-width: 0; padding-inline: 6px; }
+
   #hud .topbar { gap: 2px; padding-inline: 3px; }
   #hud .gear { width: 36px; height: 36px; }
   #hud .profbtn { width: 32px; height: 32px; padding: 2px; }
@@ -2225,6 +2244,41 @@
    to protect the currency chips on genuinely tight screens. */
 @media (orientation: portrait) and (min-width: 370px) and (max-width: 430px) {
   #hud .level-chip .xpbar { display: block; width: 30px; flex: 0 1 30px; }
+}
+
+/* Portrait phone top bar: let the chips use the whole row. The spacer only exists
+   to push the (hidden here) nameplate right, and it was taking a slice of the row
+   while the chips shrank to 10px text. The dev-only hotspot gets a sliver for the
+   same reason. */
+@media (orientation: portrait) and (max-width: 430px) {
+  #hud .spacer { display: none; }
+  #hud .devhot { width: 10px; }
+
+  /* Level is a bare star, not a framed chip: the number sits inside it and the star
+     fills from the bottom as XP progresses (--xp is set by Hud.update). The tooltip
+     still opens on tap with the exact XP. */
+  #hud .level-chip { border: 0; border-image: none; background: none; width: 30px; height: 30px;
+    min-height: 0; margin: 0 0 0 2px; padding: 0; flex: 0 0 auto; display: block; }
+  #hud .level-chip .lvl-star, #hud .level-chip .lvl-star-lit { position: absolute; left: 0; top: 0;
+    width: 30px; height: 30px !important; object-fit: contain; display: block; }
+  #hud .level-chip .lvl-star { filter: grayscale(1) brightness(.35); }
+  #hud .level-chip .lvl-star-lit { clip-path: inset(calc(100% - var(--xp, 0%)) 0 0 0); }
+  #hud .level-chip > span { position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+    text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+  #hud .level-chip .xpbar { display: none !important; }
+
+  /* Online/offline status: a dot on the profile button's corner instead of its own slot. */
+  #hud .play-status { position: absolute; right: 5px; top: 4px; z-index: 1; flex: none;
+    width: 16px; height: 16px; margin: 0; }
+  #hud .play-status::before { width: 8px; height: 8px; }
+}
+/* From 360px up there is room for 12px chips. Text that still does not fit is
+   shrunk by fitTexts() (src/ui/fitText.ts), so numbers never truncate. */
+@media (orientation: portrait) and (min-width: 360px) and (max-width: 430px) {
+  #hud .chip { font-size: 12px; border-width: 7px 6px; }
+  #hud .chip img { height: 16px; }
+  #hud .level-chip .xpbar { flex: 0 1 22px; width: 22px; min-width: 10px; }
 }
 
 /* On portrait phones the fixed 210px raid list left too little room for the raid

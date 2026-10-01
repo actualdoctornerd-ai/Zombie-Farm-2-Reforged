@@ -113,6 +113,8 @@ import { openFarmersGuide } from "./ui/panels/farmersGuide";
 import { openStats } from "./ui/panels/stats";
 import type { StatSection } from "./statsView";
 import { showTimNotice } from "./ui/TimNotice";
+import { fitRow, fitTexts } from "./ui/fitText";
+import { compactGold } from "./ui/compactNumber";
 // View-model types + the grave classifier live in hudTypes so panel modules can
 // import them without depending on the whole Hud class. Re-exported below for the
 // existing `from "./hud"` importers (main.ts).
@@ -338,6 +340,13 @@ export class Hud {
   private levelChip!: HTMLElement;
   private xpDetails!: HTMLElement;
   private nameEl!: HTMLElement;
+  /** Top-bar text that shrinks to fit: the chip values as one row, the nameplate alone. */
+  private fitChips: HTMLElement | null = null;
+  private fitVals: HTMLElement[] = [];
+  private fitKey = "";
+  /** Phone portrait: long gold counts abbreviate (100k, 1.2mil). Same query as the
+   *  portrait top-bar rules in hud.css. */
+  private compactMq: MediaQueryList | null = null;
   private playStatusEl!: HTMLElement;
   private questCol!: HTMLElement;
   private questViews: QuestView[] = [];
@@ -640,6 +649,12 @@ export class Hud {
     const star = document.createElement("img");
     star.src = UI("topbar_level_icon.png");
     star.style.height = "18px";
+    // Portrait phones draw the level as a bare star that fills with XP (hud.css): a
+    // dimmed copy underneath, the lit copy clipped to the progress.
+    const starLit = document.createElement("img");
+    starLit.src = UI("topbar_level_icon.png");
+    starLit.className = "lvl-star-lit";
+    star.className = "lvl-star";
     this.levelEl = document.createElement("span");
     const track = document.createElement("div");
     track.className = "xpbar";
@@ -649,7 +664,7 @@ export class Hud {
     this.xpDetails = document.createElement("div");
     this.xpDetails.className = "xp-details";
     this.xpDetails.setAttribute("role", "tooltip");
-    lv.append(star, this.levelEl, track, this.xpDetails);
+    lv.append(star, starLit, this.levelEl, track, this.xpDetails);
     const toggleXpDetails = () => {
       const open = lv.classList.toggle("xp-details-open");
       lv.setAttribute("aria-expanded", String(open));
@@ -718,6 +733,13 @@ export class Hud {
 
     bar.append(gear, chips, spacer, ...(devHot ? [devHot] : []), this.playStatusEl, name, prof);
     this.el.appendChild(bar);
+    this.fitChips = chips;
+    this.fitVals = [this.goldEl, this.brainsEl, this.zombiesEl];
+    if (typeof matchMedia === "function") {
+      this.compactMq = matchMedia("(orientation: portrait) and (max-width: 430px)");
+      this.compactMq.addEventListener("change", () => this.update());
+    }
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => this.fitTopBar(true)).observe(bar);
     this.refreshName();
   }
 
@@ -7140,11 +7162,15 @@ export class Hud {
   }
 
   update() {
-    this.goldEl.textContent = String(this.state.gold);
+    const compact = this.compactMq?.matches && this.state.gold >= 100_000;
+    this.goldEl.textContent = compact ? compactGold(this.state.gold) : String(this.state.gold);
+    if (this.goldEl.parentElement) this.goldEl.parentElement.title = compact ? this.state.gold.toLocaleString() : "";
     this.brainsEl.textContent = String(this.state.brains);
     this.zombiesEl.textContent = `${this.state.zombieCount}/${this.state.zombieMax}`;
     this.levelEl.textContent = String(this.state.level);
+    this.fitTopBar();
     this.xpFill.style.width = `${Math.round(this.state.levelProgress * 100)}%`;
+    this.levelChip.style.setProperty("--xp", `${Math.round(this.state.levelProgress * 100)}%`);
     const levelXp = this.state.levelXp;
     const xpText = levelXp
       ? `${levelXp.current.toLocaleString()} / ${levelXp.required.toLocaleString()} XP`
@@ -7153,6 +7179,17 @@ export class Hud {
     this.levelChip.setAttribute("aria-label", `Level ${this.state.level}: ${xpText}`);
     this.refreshBoostBadge(); // keep the equipped-boost uses badge in sync
     this.refreshName();
+  }
+
+  /** Re-fit the top-bar text. update() runs often, so skip unless the text or the bar
+   *  width changed; the ResizeObserver forces a pass when the width does. */
+  private fitTopBar(force = false) {
+    if (!this.fitChips) return;
+    const key = [...this.fitVals, this.nameEl].map((el) => el.textContent).join("|") + "@" + Math.round(this.el.clientWidth);
+    if (!force && key === this.fitKey) return;
+    this.fitKey = key;
+    fitRow(this.fitChips, this.fitVals);
+    fitTexts([this.nameEl]);
   }
 
   /** Re-read the signed-in account name into the nameplate. Called by main once the
@@ -7170,6 +7207,7 @@ export class Hud {
     if (!this.nameEl) return;
     const acct = this.myAccount?.();
     this.nameEl.textContent = acct?.name || "Zombie Farmer";
+    this.fitTopBar();
   }
 }
 
