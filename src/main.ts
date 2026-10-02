@@ -76,6 +76,8 @@ import { farmerHeadXp } from "./farmer";
 import { purchaseXpFeedback } from "./purchaseFeedback";
 import { harvestXp, plowXp } from "./farmRewards";
 import { cropUnlockOf, cropUnlocked } from "./cropUnlocks";
+import { startAnnouncementWatcher } from "./net/announcements";
+import { openAnnouncement, openAnnouncementHistory } from "./ui/panels/announcements";
 import {
   DEFAULT_FARM_BACKGROUND, getFarmBackground, isFarmBackground, setFarmBackground,
   FARM_BG_DENSITY, type FarmBackground, getDayNightMode, setDayNightMode,
@@ -7893,6 +7895,20 @@ async function main() {
     saveManager.flushCritical();
   });
   window.addEventListener("focus", () => advanceFarmJobsToNow(true));
+
+  // Operator announcements (server/scripts/announce.mjs): shown once per device, one at a
+  // time, whenever the player is not mid-raid, in the tutorial, visiting a friend or looking
+  // at another dialog. An offline build has no service to ask, so it neither checks nor
+  // offers the Settings row.
+  if (api.isConfigured()) {
+    const announcements = startAnnouncementWatcher({
+      show: (announcement, index, total) => openAnnouncement(hud.el, announcement, index, total),
+      isBusy: () => raidActive || tutorial.active || visiting || !!hud.el.querySelector(".panelbg"),
+    });
+    hud.onOpenAnnouncements = () => {
+      void announcements.refresh().then((list) => openAnnouncementHistory(hud.el, list));
+    };
+  }
 
   // Live game-state handle + mutation helpers for local testing (instant raids,
   // boost grants, zombie spawning, placement, combine, raid wins). DEV BUILDS

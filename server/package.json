@@ -16,6 +16,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "typecheck": "tsc --noEmit",
     "migrations:check": "node scripts/check-migrations.mjs",
+    "announce": "node scripts/announce.mjs",
     "catalogs": "node scripts/gen-catalogs.mjs",
     "catalogs:check": "node scripts/gen-catalogs.mjs --check"
   },

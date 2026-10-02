@@ -85,4 +85,6 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
   ('0057_pvp_rework.sql'),
   -- Adds raid_state_v3.tier_json (dual-invasion ladder position), which schema.sql
   -- already declares on a fresh database.
-  ('0058_dual_invasion_tiers.sql');
+  ('0058_dual_invasion_tiers.sql'),
+  -- Creates `announcements`, which schema.sql already declares on a fresh database.
+  ('0059_announcements.sql');

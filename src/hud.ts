@@ -1974,6 +1974,9 @@ export class Hud {
   /** Download this farm's progress as a file. Set in BOTH modes: the file is a plain
    *  SaveGame either way, and Local Farm's Import is the only thing that reads one. */
   onExportSave: (() => void) | null = null;
+  /** Settings' "Announcements → Read": reopen the posted announcements. Null in an offline
+   *  build, where there is no service to post any (see main.ts). */
+  onOpenAnnouncements: (() => void) | null = null;
   onImportLocal: ((raw: string) => boolean) | null = null;
   onResetLocal: (() => void) | null = null;
   /** Settings' "Check for Updates": poll the service worker on demand. Null where

@@ -1417,6 +1417,25 @@
   cursor: pointer; text-shadow: 0 1px 1px rgba(0,0,0,.4); }
 #hud .lvl-go:hover { filter: brightness(1.08); }
 
+/* ---- Announcements (operator-authored messages; src/ui/panels/announcements.ts) ---- */
+#hud .ann-bg { z-index: 26; }
+#hud .ann-panel { width: min(460px, 94vw); max-width: none; max-height: min(640px, calc(100dvh - 28px));
+  display: flex; flex-direction: column; overflow-y: auto; }
+#hud .ann-panel h2 { margin: 0 0 2px; font-size: 21px; line-height: 1.15; overflow-wrap: anywhere; }
+#hud .ann-date { font-size: 12px; font-weight: 700; color: #f1e3b5; opacity: .8; margin-bottom: 8px; }
+#hud .ann-body { font-size: 14px; line-height: 1.45; color: #f1e8d0; overflow-wrap: anywhere; }
+#hud .ann-body p { margin: 0 0 9px; }
+#hud .ann-body ul { margin: 0 0 9px; padding-left: 20px; }
+#hud .ann-body li { margin-bottom: 4px; }
+#hud .ann-go { align-self: center; margin: 10px 0 2px; border: 2px solid #1e1207; border-radius: 10px;
+  padding: 11px 38px; background: linear-gradient(#8ec74f, #5c9a2e); color: #fff; font-weight: 900;
+  font-size: 16px; cursor: pointer; text-shadow: 0 1px 1px rgba(0,0,0,.4); }
+#hud .ann-go:hover { filter: brightness(1.08); }
+#hud .ann-item { padding: 10px 0; border-top: 1px solid rgba(0,0,0,.35); }
+#hud .ann-item:first-of-type { border-top: 0; padding-top: 0; }
+#hud .ann-item h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+#hud .ann-none { font-size: 14px; color: #e8dcc0; padding: 10px 0; text-align: center; }
+
 /* ---- Quest-complete popup (mirrors the level-up celebration) ---- */
 #hud .qc-bg { z-index: 24; }
 #hud .questdone { width: min(420px, 90vw); display: flex; flex-direction: column; align-items: center;

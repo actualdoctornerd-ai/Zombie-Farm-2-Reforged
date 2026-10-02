@@ -460,6 +460,20 @@ CREATE TABLE IF NOT EXISTS service_state (
 );
 INSERT OR IGNORE INTO service_state (id, mode, notice, updated_at) VALUES (1, 'open', NULL, 0);
 
+-- In-game announcements (see migrations/0059_announcements.sql). Operator-authored,
+-- served unauthenticated by GET /announcements, posted over D1 with no deploy.
+CREATE TABLE IF NOT EXISTS announcements (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  title        TEXT    NOT NULL,
+  body         TEXT    NOT NULL,
+  published_at INTEGER NOT NULL,
+  expires_at   INTEGER,
+  min_ruleset  INTEGER,
+  active       INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+  created_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_announcements_live ON announcements(active, published_at DESC);
+
 -- Friend invasions (PvP) — see migrations/0055_pvp_invasions.sql for the field notes.
 CREATE TABLE IF NOT EXISTS pvp_sessions_v3 (
   id TEXT PRIMARY KEY,

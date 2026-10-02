@@ -31,6 +31,7 @@ import {
   signInAllowed,
   signupsAllowed,
 } from "./serviceState";
+import { readAnnouncements } from "./announcements";
 import {
   dayBucket,
   deviceLabel,
@@ -120,6 +121,15 @@ app.get("/", async (c) => {
     serviceMode: state.mode,
     serviceNotice: state.notice,
   });
+});
+
+// Operator-authored announcements the client shows once per device (see announcements.ts).
+// Unauthenticated and public like `/`: nothing here is per player, so it can be read before
+// sign-in and by Local Farm players. Cacheable for a minute — a post can wait that long.
+app.get("/announcements", async (c) => {
+  const announcements = await readAnnouncements(c.env.DB);
+  c.header("Cache-Control", "public, max-age=60");
+  return c.json({ announcements });
 });
 
 // Hard body ceiling on EVERY route, applied before any handler parses. Blocks multi-MB

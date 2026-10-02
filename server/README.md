@@ -18,6 +18,7 @@ Core routes:
 
 - `GET /` — unauthenticated health probe
 - `POST /auth` — Google ID token → session JWT
+- `GET /announcements` — unauthenticated; operator-posted messages the client shows once per device (`announcements` table, migration 0059; see RUNBOOK §4 "Posting an announcement")
 - `POST /bootstrap` — gameplay + presentation + writer + social + resumable-raid projection
 - `POST /commands` — allowlisted semantic command batch (account-version CAS)
 - `PUT /presentation` — versioned presentation-only document

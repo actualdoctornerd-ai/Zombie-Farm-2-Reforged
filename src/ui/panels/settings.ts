@@ -518,6 +518,18 @@ export function openSettings(hud: Hud): void {
   };
   updates.append(updatesLabel, updatesButton);
 
+  // Announcements: reread what the operator has posted. Only where the game can reach a
+  // service to ask (main.ts leaves this unset in an offline build).
+  const announcements = document.createElement("div");
+  announcements.className = "set-row";
+  const announcementsLabel = document.createElement("span");
+  announcementsLabel.textContent = "Announcements";
+  const announcementsButton = document.createElement("button");
+  announcementsButton.className = "set-action";
+  announcementsButton.textContent = "Read";
+  announcementsButton.onclick = () => hud.onOpenAnnouncements?.();
+  announcements.append(announcementsLabel, announcementsButton);
+
   // The tab bar (the Market's screen-toggle look) and the body it swaps. Every
   // block above is built once; showing a tab just re-parents its elements, so
   // controls keep their state and handlers across switches.
@@ -537,6 +549,7 @@ export function openSettings(hud: Hud): void {
       noteEl("Copies this build's id, your browser, a short list of what the game has just been doing, and any recorded errors. No save data, no account details, nothing you have typed. Nothing is sent anywhere — paste it into a bug report."),
       updates,
       updatesNote,
+      ...(hud.onOpenAnnouncements ? [announcements] : []),
     ],
     audio: [
       row("All Audio", hud.audio.masterOn, (v) => hud.audio.setMaster(v)),

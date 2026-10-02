@@ -172,6 +172,35 @@ server load without breaking play: raise the client save cadence (increase
 `SaveManager` debounce / max-dirty), and/or tighten write-route rate limits. No data
 loss — the local save keeps the player whole until writes resume.
 
+### Posting an announcement
+
+Players see each announcement ONCE per device, as a dialog the next time they load an updated
+client (never during a raid, the tutorial, a friend visit or another dialog). It is a row in the
+`announcements` D1 table (migration 0059), published unauthenticated by `GET /announcements`
+and cached for about a minute, so **posting needs no deploy**. Offline builds never show any.
+
+```sh
+cd server
+npm run announce -- post --title "Life Force is here" --body-file notes.txt --min-ruleset 70 --dry-run
+npm run announce -- post --title "..." --body-file notes.txt --min-ruleset 70      # staging (default)
+npm run announce -- post --title "..." --body-file notes.txt --prod --yes          # production
+npm run announce -- list [--prod]
+npm run announce -- retire 3 [--prod --yes]
+```
+
+- `--min-ruleset N` only shows it to clients whose raid ruleset is at least N. Use it for "what
+  changed" notes so only players who have actually UPDATED see them: post it any time before the
+  deploy and it waits for the update. Without it, every client that has the feature shows it.
+- `--publish-at <ISO date>` schedules it; `--expires 7d|12h|30m|<ISO date>` ends it (default: until
+  retired). `retire` hides it without deleting the row.
+- Plain text only. A blank line starts a paragraph; lines starting `- ` become bullets. Title 80
+  characters, body 2000 (the Worker trims). The client renders it as text, never HTML.
+- A new player who finishes the tutorial sees every announcement still live, so set `--expires`
+  on anything that only matters to existing players.
+- Staging is the default; production needs `--prod --yes`. Needs `wrangler` logged in with D1
+  access. The table can also be edited from the admin console (it holds the same D1-only token).
+- A Worker deployed before migration 0059 is applied simply serves an empty list.
+
 ---
 
 ## 5. After any incident
