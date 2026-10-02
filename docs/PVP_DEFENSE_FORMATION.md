@@ -1,8 +1,9 @@
 # PvP Defense Formation — Half A spec
 
-**Status: BUILT (Half A), LIVE ON STAGING.** Shipped as one of TWO defense modes —
-`PVP_DEFENSE_MODE` picks which one a Worker fields, and exactly one is reachable in
-game at a time (`"formation"` on staging and in dev, `"classic"` in production).
+**Status: BUILT (Half A), LIVE IN PRODUCTION (since the 2026-09-09 launch).** Shipped as
+one of TWO defense modes — `PVP_DEFENSE_MODE` picks which one a Worker fields, and
+exactly one is reachable in game at a time (`"formation"` on staging and in production,
+per `server/wrangler.toml`; `"classic"` is the code default and remains selectable).
 Measured after the build: break-even moved from **1.24x to 1.05x**, inside the target
 band below, with no four-minute timeouts. The section headings below describe what was
 built; deviations are called out inline.
@@ -95,7 +96,7 @@ bit in front of the barn" is structural, not decorative.
 
 | Station | x | Notes |
 |---|---|---|
-| `DEF_TANK_X` | **820** | ~1 sprite in front of the barn face. Attackers close to ~760. |
+| `DEF_TANK_X` | **770** | ~1 sprite in front of the barn face. Attackers close to ~760. |
 | `DEF_LINE_X` | **890** | Brute, Mini, and the Regular/Girl reinforcements — behind the tank, in front of the doorway. |
 | `DEF_SUPPORT_X` | **950** | Healer, in the doorway: deepest, out of the combat band. |
 
@@ -279,7 +280,7 @@ version of it — and record:
 - **Determinism**: same pinned config plus transcript gives an identical outcome (the
   existing PvP determinism test, extended to the new fields).
 - **Stations and schedule**: each role holds its authored x; Regular and Girl arrive at
-  15 s and 30 s; the tank is the front-most defender for the whole fight.
+  10 s and 20 s; the tank is the front-most defender for the whole fight.
 - **The healer heals**: defender HP recovers mid-fight — the assertion that would have
   caught today's silent no-op.
 - **Reachability**: a lone surviving healer advances, and the fight ends inside the cap.

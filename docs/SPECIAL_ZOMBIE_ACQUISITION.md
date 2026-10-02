@@ -1,12 +1,14 @@
 # Special zombie acquisition
 
-The runtime catalog contains 60 zombies in the Special category. Every one has a
-reachable acquisition route; Epic-event rewards and voucher gifts are deliberately
-excluded from the plantable zombie Market.
+The runtime catalog contains 60 zombies in the Special category. 58 have a live
+acquisition route; **Pink Cupid Zombie and Green Flower Zombie have none** (see "Market
+vouchers" below). Epic-event rewards and voucher gifts are deliberately excluded from the
+plantable zombie Market.
 
 The routes below account for all 60: 15 Epic Boss rewards, 5 plantable Market crops,
-2 voucher-exclusive, 6 combine-only, and the remaining **32 obtainable only through the
-Black Market** — every one of those is `marketHidden: true` and has no planting route at all.
+2 voucher-only (currently unobtainable), 6 combine-only, and the remaining **32 obtainable
+only through the Black Market** — every one of those is `marketHidden: true` and has no
+planting route at all.
 
 ## Epic Boss events (15)
 
@@ -66,10 +68,10 @@ The mutations count for stats but draw no art on an Epic prize yet
 ## Market: Special zombie crops (5)
 
 These five permanent specials cost **5 brains** to plant (the 50-brain figure predates the
-brainflation revert). Their unlock levels are **not** uniform, and are not the Black Market's
-level-20 floor — that figure is the *delivery* gate below, not the planting gate. Per `zombies.json`,
-most `Tier5` crops unlock at level **1**; `ZombieActorRegularTier5` at **15** and
-`ZombieActorLargeTier5` at **20**.
+brainflation revert). All five plant at level **20** per `zombies.json` — the same number as the
+Black Market's level-20 floor, though that figure is the *delivery* gate below, not the planting
+gate. (The `Tier5` keys, which carry other levels such as Regular at 15, are combine-only and
+`marketHidden`, so they are never planted.)
 
 Selling one now pays **gold, not brains**: a brain-priced zombie sells for 1,000 gold per brain
 of its cost, so a 5-brain special returns 5,000 gold.
@@ -96,10 +98,14 @@ no mutation art (the mutation and its stat bonus still apply). Authored in
 `tools/prep_market.py` (`AUTHORED_ZOMBIES`) and `tools/prep_assets.py`
 (`export_video_game_zombie`).
 
-## Market vouchers (4)
+## Market vouchers (4) — not currently purchasable
 
-These can also be obtained by buying and using a boost rather than planting the
-zombie (Crazy and Cupid retain both routes):
+The original Market sold these as gift boosts, but `tools/prep_boosts.py` skips every
+`gift` boost (the zombies were meant to stay on the ordinary zombie Market) and
+`public/assets/boosts.json` ships only seven consumables, none of them a voucher. So no voucher
+can be bought today. Crazy and Cupid are still plantable (above); **Pink Cupid and Green Flower
+Zombie are `marketHidden`, in no Pot, Epic, invasion or Black Market list, and have no live route.**
+The original table, kept for reference:
 
 | Market item | Zombie |
 |---|---|
@@ -158,8 +164,10 @@ the fulfillment transaction (`server/src/rosterCatalog.ts`, `server/src/v3/black
 
   An elite prize gates with its raid, not above it: an elite win is a harder fight of the same
   invasion, not a later one. A zombie with more than one route takes the **earliest** of them.
-- **Player level 1/15/25** for the Blue/Red/Silver colored classes (29 units across the catalog
-  carry a `className`), matching the level that unlocks each class's gravestone. The gravestone
+- **Player level 1/15/25/40** for the Blue/Red/Silver/Obsidian colored classes
+  (`BLACK_MARKET_COLOR_LEVELS`; 34 units across the catalog carry one of those four classes — 6 Blue,
+  11 Red, 11 Silver, 6 Obsidian — the 6 Obsidian being the L40-45 gravestone zombies),
+  matching the level that unlocks each class's gravestone. The gravestone
   does not need to be owned or placed. A failure returns `403 black_market_level_locked`.
 
 Note the framing difference from the rest of this document: the Black Market **bypasses ordinary

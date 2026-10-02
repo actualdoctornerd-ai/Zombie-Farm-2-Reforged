@@ -164,7 +164,7 @@ in `initActorSpecificAbilities`, so tag 11 is a generic boss effect, not an alie
 
 ## 6. Not changed (in the 2026-08-09 pass)
 
-* `SUMMON_CAP = 3` in `BattleSim` is still a reimpl invention. The source draws from a
+* (Historical, 2026-08-09; resolved in ruleset 27, see §7.3) `SUMMON_CAP = 3` in `BattleSim` was then a reimpl invention. The source draws from a
   `bossSummonList` populated at load and pops one entry per `summonBoss:`; the cap was not
   pinned in this pass. **Pinned in §7.3 below.**
 * `AlienStageActorMinion colorFromSubType:` (0xc70c4) is a 3-byte `memcpy` out of a table —
@@ -469,9 +469,12 @@ The rest of the cast, for presentation:
 * `UnitStats.json` frequencies: `summonBoss` 50, `alienLaser` 30 — so ~5 casts in 8 rolls are
   summons.
 
-`RaidManager.summonWallTemplatesOf` currently clones the wave's own minion, and
-`BattleSim.SUMMON_CAP = 3` caps it. Both are wrong: it should be the human queue above,
-uncapped, one alive at a time, off-budget.
+*Historical (2026-08-09 audit; fixed in ruleset 27):* the reimplementation then cloned the
+wave's own minion and capped it at 3 (`RaidManager.summonWallTemplatesOf` and
+`BattleSim.SUMMON_CAP`; neither symbol exists any more). It now follows the human queue above,
+uncapped, off-budget: `fightConfig.summonFor` builds the abductee queue and `BattleSim`
+keeps it as `summonQueue` (see the "deliberately NO summon cap" note beside
+`SUMMON_SPAWN_X`).
 
 ## 7.6 → symptom 6: "lasers are still fired after the boss descends" — REAL BUG
 

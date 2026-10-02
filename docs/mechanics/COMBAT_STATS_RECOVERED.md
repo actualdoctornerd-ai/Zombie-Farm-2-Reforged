@@ -113,8 +113,10 @@ HP came from the CombatUnit (`con × 100`) — an HP-inflated, ~10× too-slow fi
 to `deriveHitDamage(str×10, mult) × 0.7` (matching `resolveRaid`); the flat `× 0.7` was then
 replaced by the faithful lineup-depth band (players 1.0/0.85/0.7/0.55, enemies ×1.0). Boss throw / special /
 hazard chip damage (heuristic, no source value) was scaled ×7 to stay proportional to the
-corrected melee/HP scale (`PROJ_DMG_SCALE`/`SPECIAL_DMG_SCALE` 0.25→1.75 in `BattleSim.ts`;
-`HAZARD_DAMAGE` 4→28, which lives in `RaidManager.ts`, not `BattleSim`).
+corrected melee/HP scale (historical: this was `PROJ_DMG_SCALE`/`SPECIAL_DMG_SCALE` 0.25→1.75 in
+`BattleSim.ts` and `HAZARD_DAMAGE` 4→28 in `RaidManager.ts`. Those constants no longer exist as
+of 2026-10-02: boss throw damage is now sized per fight by `RaidCatalog.fightScaledThrow`, and the
+old crossing-hazard chip damage was retired with that hazard, see RAID_TIMING_AND_HAZARDS.md).
 Verified headlessly: a 5v5 even fight resolves in ~38 s (player wins 4/5) instead of stalling.
 
 The sim LOOP is otherwise still an approximation (attack scheduling, positioning, hazards). The

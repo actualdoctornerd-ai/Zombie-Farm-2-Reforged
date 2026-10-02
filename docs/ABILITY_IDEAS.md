@@ -19,6 +19,7 @@ goal is endgame texture that rewards **party composition**, **well-timed activat
 - The base 6-groups × 4-tiers matrix in `src/zombie/traits.ts` is closed: every one of the
   22 ability icons is used **exactly once**. Changes live in `SPECIAL_ABILITIES` as
   per-unit overrides, not in `GROUP_ABILITIES`.
+- **NOTE (2026-10-02):** boss-win gating (`abilityUnlocked` / `abilityTierOf` in `src/GameState.ts`) is still what the raid sim uses today. Life Force slot gating (`abilitySlotUnlocked` in `src/lifeForce.ts`: slot k works from Life Force level k) is built and planned to replace it once wired into the raid sim, which needs a ruleset bump and a harness re-run. When that lands, the "unlock bosses non-decreasing" rule below becomes moot and the padlock text in this file's per-unit notes goes stale.
 - A tier slot may hold an ability from a *different* tier. `abilityUnlocked` keys off the
   ability's own tier (`abilityTierOf`), **not the slot's** — so a tier-2 ability parked in a
   tier-3 slot unlocks with the Lawyers, and the card's padlock names that boss. Keep each

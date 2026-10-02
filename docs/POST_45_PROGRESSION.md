@@ -2,6 +2,18 @@
 
 SPEC — hand-off draft. All four invasions are BUILT (Stages 0-4) bar their art; next is the balance pass.
 
+> **STATE AS OF 2026-10-02 (read this before the rest; the body below is a dated record).**
+> The raid ruleset is **69** (`RAID_RULESET_VERSION`, `src/raid/replay.ts`); this document cites
+> rulesets only up to 61. The difficulty harness HAS been rebuilt (`src/raid/harness/`). The dual
+> invasions ship as **no-reward PRACTICE** (`DUAL_PRACTICE = true`, `src/raid/practice.ts`): every
+> tier is open from **level 40**, a fight costs and pays nothing, and no tier clear is recorded.
+> **Rewards are NOT built.** **Levels 46-50 are NOT shipped**: `XP_THRESHOLDS` (`src/GameState.ts`)
+> ends at level 45, the 46-50 placeholders live only in a comment (owner, 2026-09-27: XP is
+> uncapped, so shipping them would have promoted existing accounts). Dual invasions use a SIX
+> minute clock (`DUAL_TIME_LIMIT_MS`, `src/raid/dualInvasion.ts`); other raids keep four. Where the
+> body says levels 46-49, a level cap of 50, or a four-minute budget for these fights, read it
+> against this note.
+
 > **REDESIGNED 2026-09-27: read "Part 2B — The tier ladders, redesigned" first.** It supersedes
 > the tier dials in Part 3, the tuning rule in "The eight permanent unlocks" and the prestige
 > split. Part 3 is kept as the record of what is BUILT today.
@@ -75,7 +87,12 @@ top of the array, `xpToNextLevel(45)` meant "the final step reused", i.e. 218,00
 to. Clamping at 44 keeps the 25,000 the shipped board has always been paid from, which is also
 what `generate.test.ts:323` already asserts.
 
-**DONE.** Thresholds extended on both sides (client `XP_THRESHOLDS`, server mirror,
+**CORRECTED 2026-10-02: NOT SHIPPED.** The paragraph below describes what was built and then
+withheld. The shipped `XP_THRESHOLDS` ends at level 45; levels 46-50 are held back (owner,
+2026-09-27) and the placeholders sit in a comment beside the table, so the cap is still 45 in
+the build.
+
+~~**DONE.**~~ Thresholds extended on both sides (client `XP_THRESHOLDS`, server mirror,
 `server/test/levels.test.ts` length pin), and the board frozen. The five new thresholds are
 40k/50k/62k/76k/95k steps — **placeholders**, marked as such in both files, carrying the
 intended SHAPE (a step that keeps steepening) and a guessed magnitude. At 323,000 XP total
@@ -98,7 +115,8 @@ board income above, purchase XP, and ~40 tier first-clears.
 
 ### What the five levels unlock
 
-One dual invasion per level at 46-49, each with its own ten-rung tier ladder. Level 50 is
+One dual invasion per level at 46-49, each with its own ten-rung tier ladder. (As shipped, all four
+open at level 40 as no-reward practice, `DUAL_PRACTICE`; the 46-49 gating is the intended end state.) Level 50 is
 reserved — a capstone fight, or the prestige on-ramp, or both. Also worth placing here:
 
 - A crop at 46 / 48 / 50. The crop ladder currently stops at 45 (Heartichoke), which means
@@ -133,7 +151,15 @@ also why the existing p* harness cannot grade these ladders as they stand. A run
 difficulty is a timing window is invisible to a harness that never taps. See "The harness,
 and what it cannot see".
 
-### The hard constraint: four minutes
+### The hard constraint: four minutes (six on the dual invasions)
+
+**UPDATED 2026-10-02.** The dual invasions run a SIX minute clock (`DUAL_TIME_LIMIT_MS`,
+`src/raid/dualInvasion.ts`; owner, 2026-09-27). `BattleSim.RAID_TIME_LIMIT_MS` is still four
+minutes for every other raid; a fight's own `timeLimitMs` is clamped to `RAID_MAX_TIME_LIMIT_MS`
+(six), and `replay.maxTicksFor` reads that limit, with `RAID_ABSOLUTE_MAX_TICKS` the six-minute
+ceiling (`RAID_MAX_TICKS` is the four-minute ordinary figure). Everywhere this document says
+"four minutes" about the dual invasions, read six; the argument (bulk is capped by the clock) is
+unchanged, only the budget grew.
 
 **CORRECTED 2026-09-21.** Earlier drafts of this section said a fight that outlives the cap
 "cannot settle at all" and comes back `truncated_transcript`. That was wrong, and the error
@@ -176,6 +202,9 @@ not a correctness one — it is on the list for the pass, not fixed here.
 
 ### Rewards
 
+> **NOT BUILT (2026-10-02).** Everything in this section is a draft. The dual invasions run as
+> no-reward practice (`DUAL_PRACTICE`): no brains, unlocks or tier clears are paid or recorded.
+
 These four are **the hardest content in the game** and their rewards should say so. Two
 draws carry them: brains, and eight permanent unlocks.
 
@@ -210,6 +239,11 @@ registered in `RAID_ZOMBIE_DROPS` — without one, that raid is also a hole in t
 pity system, which is per prize. Whether the rate ladder climbs past 2% is OPEN.
 
 ### The eight permanent unlocks
+
+> **Pointer (2026-10-02):** `docs/PRIZE_CROPS.md` and `src/cropUnlocks.ts` define six crop+mutation
+> unlocks on t5/t10 of raids 12, 13 and 15 (raid 14 has none yet). They are built but switched off
+> (`PRIZE_CROPS.live = false`). They are economy/mutation items, not army capability, so the
+> question below (what owns permanent account-wide power) is still OPEN.
 
 **Clearing t5 and t10 of each invasion grants a permanent, account-wide unlock — eight in
 total.** What they are is OPEN; the leaning is towards substantial bonuses that make the whole
@@ -513,8 +547,8 @@ the closing phase.
   replaced. It is drawn per session instead (below), so not answering is a genuine coin.
 - **Mind the stall.** A retreating zombie does not fight, so an army that is mostly one class
   stops dealing damage entirely while that class is barred. If it stops dealing damage while
-  the enemy also cannot reach it, the fight runs to the four-minute cap and **cannot settle** —
-  not a loss, a broken fight. That exact stalemate has happened here before: raid 6's saucer
+  the enemy also cannot reach it, the fight runs to the clock (six minutes on these raids) and ends as a plain settled LOSS (corrected 2026-10-02: it was first written as **cannot settle**; see the 2026-09-21 note and `src/raid/timeLimit.test.ts`) —
+  [struck: not a loss, a broken fight.] That exact stalemate has happened here before: raid 6's saucer
   drew its laser target only from engaged zombies, and an all-healer army ran the cap with
   neither side able to touch the other (see the ruleset notes in `src/raid/replay.ts`). Two
   cheap guarantees, both worth having: a sad zombie that is caught still swings back, and the
@@ -786,8 +820,8 @@ farm's defense while its owner rebuilds.
 
 1. **Build the four invasions** — mechanics, not numbers. Tier profiles ship as
    placeholders.
-2. **Rebuild the difficulty harness.**
-3. **Fit the tier profiles**, then set rewards against what t5 and t10 actually cost.
+2. **Rebuild the difficulty harness.** DONE (`src/raid/harness/`: prod-army grid, cohorts, best-builds search, mechanic price, monotonicity; see git log).
+3. **Fit the tier profiles**, then set rewards against what t5 and t10 actually cost. Profiles have been re-fitted repeatedly (ruleset 69 now); **rewards are NOT built**, the fights run as no-reward practice.
 
 Rewards are deliberately last: what a fight should pay cannot be decided before anyone knows
 what it takes to win. The brain ladder and the eight unlocks in Part 2 are drafts held open
@@ -816,9 +850,9 @@ re-derived. Build the mechanic, give the tier ladder a flat placeholder profile,
 
 **DONE so far in Stage 0**, beyond the sim spine above:
 
-- **The level cap is 50.** Thresholds extended on both sides, board frozen at the level-44
+- **The level cap is 50.** [CORRECTED 2026-10-02: withheld; shipped thresholds end at 45, see Part 1.] Thresholds extended on both sides, board frozen at the level-44
   step (see Part 1), `server/test/levels.test.ts` length pin updated.
-- **The four raids exist**: ids **12-15** at levels 46-49, generated by a new reimpl-only
+- **The four raids exist**: ids **12-15** at levels 46-49 (as shipped, open from level 40 as practice), generated by a new reimpl-only
   `DUAL_INVASIONS` table in `tools/prep_raids.py` that COMPOSES them from two shipped raids
   apiece. Each takes its stage faction's backdrop, boss, portrait, icon, music, throw speed,
   hazards and loot verbatim, and mixes the guest faction's minions into the wave:
@@ -866,7 +900,7 @@ a ladder position of 4; asking `beginRaid` for an elite dual returns `elite:fals
 tickets spent while the Aliens still go elite and spend one; and a requested tier of 99 clamps
 to the unlocked rung. Server rules pinned by `server/test/integration/dualInvasion.spec.ts`.
 
-Still to do in Stage 0: nothing — Stage 1 (the objection) is next.
+Still to do in Stage 0: nothing. (Written before Stages 1-4 were built; all four are marked DONE below.)
 
 **p\* is not a gate for any of this work** (owner, 2026-09-18). The harness is known to be
 inadequate and is being rebuilt after the raids are built, so `eliteInvasion.balance.test.ts`
@@ -1092,8 +1126,8 @@ actions, and abduction repositioned beside the wall.
 **A STALL RAID 15 MAKES EASY TO REACH, and did not cause.** When every surviving zombie is a
 Garden, the fight can hang: healers hold `GARDEN_STATION_X` out of the combat zone, so four
 of them stood at x 250 from second 120 to the four-minute cap while twelve enemies stood at
-the doorway — neither side able to touch the other, and a `truncated_transcript` rather than
-a loss. This is the raid-6 all-healer stalemate from ruleset 40 reached by a different road,
+the doorway — neither side able to touch the other, and (as first written) a `truncated_transcript` rather than
+a loss. [Corrected: it is a plain settled loss; owner ruling, `timeLimit.test.ts`.] This is the raid-6 all-healer stalemate from ruleset 40 reached by a different road,
 and the Brick roster reaches it reliably because its healers outlive everything else.
 
 The obvious fix — let a Garden take an ordinary formation slot once every survivor is a
@@ -1226,7 +1260,10 @@ settleable rather than quietly unplayable.
 
 #### The settle budget, and the two things that broke it
 
-`RAID_MAX_TICKS` is four minutes, and a fight that outlives it does not lose — it returns
+**CORRECTED 2026-10-02: this paragraph is the superseded 2026-09-21-era claim.** The clock is six
+minutes on the dual invasions, and a fight that outlives it is a settled LOSS, not
+`truncated_transcript` (see the correction under "The hard constraint"). The original text
+follows as history: `RAID_MAX_TICKS` is four minutes, and a fight that outlives it does not lose — it returns
 `truncated_transcript`: no result, no reward, nothing to tell the player. The binding case is
 not the strongest roster but the **weakest one that still wins**, measured at ~686 hit points
 a second of wall-clock (the Brick roster, which clears raid 12 t10's 128,940 points in 188 s).
@@ -1382,11 +1419,14 @@ Collected here so the rework has a target rather than a grievance:
 ## Open items
 
 1. **What the eight t5/t10 unlocks are**, and which system owns permanent account-wide power
-   once prestige is reworked (see Part 2).
+   once prestige is reworked (see Part 2). PARTLY ANSWERED 2026-10-02: `docs/PRIZE_CROPS.md` and
+   `src/cropUnlocks.ts` define six crop+mutation unlocks on t5/t10 of raids 12, 13 and 15 (raid 14
+   has none yet), built but OFF (`PRIZE_CROPS.live = false`). Those are economy/mutation items, not
+   army capability; the account-wide-power question is still open.
 2. **The brain ladder's final numbers**, set after the harness rework measures t10.
 3. **Level thresholds for 46-50** — fit once a target wall-clock per level is chosen.
 4. **What level 50 unlocks** — capstone fight, prestige on-ramp, or both.
-5. **Prize pairs for the four new invasions**, and whether the rate ladder climbs past 2%.
+5. **Prize pairs for the four new invasions**, and whether the rate ladder climbs past 2%. STILL OPEN (checked 2026-10-02): `RAID_ZOMBIE_DROPS` / `RAID_ELITE_ZOMBIE_DROPS` in `src/raid/zombieDrops.ts` have no entries for raids 12-15, so they pay no rare zombie.
 6. ~~**Circus copies: per-deployment or on a timer.**~~ SETTLED: per deployment, at
    ruleset 60. The queue order is the player's, so the choice of what gets copied is too.
 7. **The pirate slam's damage ceiling**, independent of the authored str 500.
@@ -1399,12 +1439,14 @@ Collected here so the rework has a target rather than a grievance:
    `waveCadenceFor` at 59.
 10. ~~**Raid 15's wave is 409,000 hit points.**~~ RE-COMPOSED at ruleset 61: ten aliens
     plus one robot heavy, base 91,000, and the rung scales up from there.
-12. **An all-Garden army can still stall out a fight** (see Stage 4 above). Not new, and
+11. **An all-Garden army can still stall out a fight** (see Stage 4 above). Not new, and
     now easy to reach. Downgraded 2026-09-21 from "the one thing the four invasions leave
     broken": since the clock ends the fight as an ordinary loss, and now says so on screen,
     the stall costs the player a raid rather than voiding one. Still worth fixing — losing
     to a formation rule is a bad loss — but it is no longer a correctness hole, and it no
     longer has to be settled before the rating rebuild can measure anything.
-11. **The crop ladder stops at 45** while the cap is 50, so a player climbing 46-50 plants
+12. **The crop ladder stops at 45** while the cap is 50, so a player climbing 46-50 plants
     the same Heartichoke the whole way. The plan is a crop at 46 / 48 / 50; tracked by
-    `cropUnlockAlignment.test.ts`, which asserts the gap rather than the cap.
+    `cropUnlockAlignment.test.ts`, which asserts the gap rather than the cap. See also
+    `docs/PRIZE_CROPS.md`: six late-game prize crops unlocked by dual-invasion tier clears are built
+    but OFF (`PRIZE_CROPS.live = false`), a different route to the same flat-farm problem.

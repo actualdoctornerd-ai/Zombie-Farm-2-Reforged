@@ -101,10 +101,10 @@ trust one:
 
 - **Current behaviour**, kept in step with the code: `FEATURES.md`, `EPIC_BOSS_MECHANICS.md`,
   `PROTOCOL_V3_ROLLOUT.md`, `SPECIAL_ZOMBIE_ACQUISITION.md`, `EPIC_BOSS_ASSET_AUDIT.md`,
-  `FRIEND_INVASIONS.md` (reworked, live on staging and parked in production: what exists,
+  `FRIEND_INVASIONS.md` (reworked, live in production and staging: what exists,
   the one switch that launches it, and what remains), `PVP_DEFENSE_FORMATION.md` (Half A of
-  the friend-invasion defense rework — built, and one of the two modes `PVP_DEFENSE_MODE`
-  picks between; the sections describe what was built, with deviations called out inline),
+  the friend-invasion defense rework — built, and the mode production runs (`PVP_DEFENSE_MODE = "formation"`; the older
+  `"classic"` mode is still selectable); the sections describe what was built, with deviations called out inline),
   `PRIZE_CROPS.md` (the six late-game crops and their mutations: fully built and switched
   off behind `PRIZE_CROPS.live` — what exists, the rules behind the numbers, and how to ship
   it), and
@@ -115,7 +115,9 @@ trust one:
   as a description of how the code works now. Each opens with a status banner saying so; where
   the shipped form diverged from the plan, the banner is the correction.
 - **Specs for work not yet built**, which describe an intention rather than the code:
-  `POST_45_PROGRESSION.md` (levels 46-50 and the four dual invasions). Read it as a plan under
+  `POST_45_PROGRESSION.md` (levels 46-50 and the four dual invasions: the invasions are built and
+  run as no-reward practice, `DUAL_PRACTICE` in `src/raid/practice.ts`; the rewards and levels
+  46-50 are not built). Read it as a plan under
   construction — its mechanics are decided, its numbers are placeholders, and the open
   questions are listed at the end. `ABILITY_IDEAS.md` is a backlog rather than a spec: endgame
   ability proposals, none of them built. Read it before designing a new ability, and do not
@@ -196,7 +198,7 @@ Qualifiers: *implemented*, *partially implemented*, *placeholder*, *disabled*, *
 ## Run It Locally
 
 The four commands are in [Quick start](#quick-start-run-it-yourself) above; this section
-is the detail behind them. Requires [Node.js](https://nodejs.org) 18+ (CI runs 20). Python
+is the detail behind them. Requires [Node.js](https://nodejs.org) 18+ (CI runs 20 and 22). Python
 is only needed to regenerate assets, and the server only if you're changing the online layer.
 
 ### Local Farm (no account, no server)

@@ -21,7 +21,7 @@ game and already scoped.
 
 ## Setup
 
-Requires [Node.js](https://nodejs.org) 18+ (CI runs 20). Python 3 is only needed if you
+Requires [Node.js](https://nodejs.org) 18+ (CI runs 20 and 22). Python 3 is only needed if you
 regenerate assets.
 
 ```bash

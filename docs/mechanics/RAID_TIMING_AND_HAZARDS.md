@@ -320,17 +320,16 @@ configs and threads them to the scene.
   unreachable; 5 dice put tier 5 at ~56 %; owned uniques never re-drop and force a
   walk-down. (Divergence: decorations already *placed on the farm* aren't tracked as
   inventory, so a placed unique can still re-drop — only received/stored copies filter.)
-- **`summonBoss`** — the boss reinforces with a copy of the wave's minion (capped at 3 per
-  fight), which emerges through the normal queue while the boss stays perched behind it.
+- **`summonBoss`** — the boss reinforces the fight. *(Superseded 2026-10-02: the original note here said a copy of the wave's minion capped at 3 per fight. That was the pre-ruleset-27 reimplementation; the alien boss now summons the abducted-human queue, uncapped, see `ALIEN_RAID_RECOVERED.md` §7 and `fightConfig.summonFor`.)*
 - **`wall` (carrotWall / junkWall)** — REWORKED 2026-07-17 to be faithful. The boss drops a
   1500-HP blocker (`carrotWall` Ninja / `junkWall` Robot); zombies attack it AND the player can
   **tap it to chip 75/tap** (ground truth `ZFFightWall ccTouchEnded → damage: ≈ maxHp/20`), and it
-  **shrinks as its HP drops** to a 0.5 floor (`setScale`). `RaidManager.summonWallTemplatesOf` +
-  `bossSpecialsOf` now scan the whole stage roster for the `wall` action, so the Robot **junkWall**
+  **shrinks as its HP drops** to a 0.5 floor (`setScale`). `fightConfig.wallTemplateFor` +
+  `fightConfig.bossSpecialsFor` (formerly `RaidManager.summonWallTemplatesOf` / `bossSpecialsOf`) now scan the whole stage roster for the `wall` action, so the Robot **junkWall**
   (which lives on the JunkBot minion, not the BrainBot boss) is found and cast; the wall template
   uses the action's own sprite. Sim: `SimUnit.isWall` + `BattleSim.tapWall`.
 - **Trapeze Artist grab (Circus)** — REWRITTEN 2026-07-17 as the real carried-grab minigame
-  (`BattleSim` `SimGrabber` / `stepGrabbers` / `tapGrabber`, config from `RaidManager.grabberOf`).
+  (`BattleSim` `SimGrabber` / `stepGrabbers` / `tapGrabber`, config from `fightConfig.grabberFor`).
   It swings in across the combat band, seizes a selected zombie (→ `grabbed` state, inactive),
   holds ~1 s, then RISES to carry it off. Successive appearances **alternate the entry side**
   (`swingStartDeg` 0°/180° by sequence) and aim at a chosen victim rather than always the
@@ -342,21 +341,34 @@ configs and threads them to the scene.
   NOTE: the old crossing-`HazardConfig` "grab" (a ~2.5 s stun + knockback dot) was an agent-added
   fabrication — NOT in the base game — and is retired. The Lawyers cars
   (`hasGrab`, no shipped sprite) reuse `grabZombie` but different motion and are NOT wired.
-- **Beach crab carry-off (Summer Break)** — WIRED (`RaidManager.crabOf`, `BattleSim` `SimCrab` /
+- **Beach crab carry-off (Summer Break)** — WIRED (`fightConfig.crabFor`, `BattleSim` `SimCrab` /
   `stepCrabs` / `tapCrab`, `RaidScene.syncCrabs`, sprite `hazard_beach_crab.png`). The
   `BeachStageActorCrab` wanders the lane, grabs a zombie, holds 2 s, then hauls it off-screen.
   Same tap-to-rescue economy as the trapeze (667 HP, 100/tap → 7 taps); `spawnMs` and `limit`
   come from the raid's `obstacleSpawnSecs` / `obstacleLimit` (5 s, 2). A zombie carried off is
   **alive but out of the fight**, not killed. Tests: `BattleSim.hazards.test.ts`.
+- **Mega-Robot (Zombies vs Robots, raid 5)** — added 2026-09-25, client-only. A background
+  robot (`RobotStageActorGiantBot`; source spawns it from `ZFFightMan initialSpawn` when
+  `currentEnemy == 5`) that climbs in, lights its eyes, and after a fuse fires a fireball at one
+  deployed zombie. The player **taps its eyes** to cancel the shot. Config
+  `fightConfig.megaBotFor` / `MEGA_BOT_RAID_ID` (keyed on the raid's own id; eye HP 2400, 200 per
+  tap = 12 taps, scaled per input device via `hazardTaps.ts`); sim `BattleSim` `SimMegaBot` /
+  `stepMegaBot` / `tapMegaBotEyes`; view `RaidScene.buildMegaBot` / `syncMegaBot`; tests
+  `src/raid/megaBot.test.ts`. Timing constants are the `MEGA_*` block in `BattleSim.ts` (rises at
+  15 s round time, arms at 20 s, 8 s fuse or 4 s once enraged, 1 s flight, blast, 5 s rest after
+  the eyes are destroyed). Because the verifier names `megaBot: null` it is never in the
+  authoritative replay; its casualties reach the server only as `clientLosses`.
 
-**CLIENT-ONLY (important):** the crab and the trapeze run only on the client. Since raid ruleset
-version 6 `raidVerifier.grabberOf` returns `null`, so the server replays the *un-harassed* fight
+**CLIENT-ONLY (important):** the crab, the trapeze and the Mega-Robot run only on the client.
+Since raid ruleset version 6 the verifier does not simulate the trapeze (`server/src/raidVerifier.ts`
+`createPinnedSim` reads `grabber` from the pinned config, null for every raid this build pins, and
+names `crab: null` and `megaBot: null`), so the server replays the *un-harassed* fight
 as an optimistic ceiling and the player concedes the difference via `clientWin`/`clientLosses`.
 Those concessions are merged one-way and can only worsen the submitting player's own result.
 See `../../SECURITY.md`.
 
 **THE WALL IS NOT CLIENT-ONLY.** It is a real enemy unit in the pinned config
-(`raidVerifier.summonWallTemplatesOf` → `createPinnedSim`), so BOTH simulations spawn it and both
+(`wallTemplate` in the pinned config → `raidVerifier.createPinnedSim`), so BOTH simulations spawn it and both
 must agree on its hit points. Until ruleset 14 the player's 75-per-tap chip was applied on the
 client and never transcribed: one tap and the verifier was fighting a wall the player had already
 knocked down. The concession path only absorbs that on a conceded LOSS, so a **won** Ninja or Robot

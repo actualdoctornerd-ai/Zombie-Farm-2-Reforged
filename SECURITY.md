@@ -221,8 +221,8 @@ them reaches the trail.
   (`1 … 10,000,000`, enforced in the Worker and again by a column CHECK), and a request fingerprint
   so a retried create is idempotent. Both caps are checked twice — pre-flight, and again in the
   insert's `WHERE` clause so a race cannot exceed them.
-- Buy orders may demand **specific mutations** (`mutation_required`, migration `0030`): a 13-bit
-  mask, legal only on `BUY_ZOMBIE` with `mutated: true`, validated bit-by-bit. Every anatomical
+- Buy orders may demand **specific mutations** (`mutation_required`, migration `0030`): a
+  bitmask over the full mutation catalog (widened in migration `0044`), legal only on `BUY_ZOMBIE` with `mutated: true`, validated bit-by-bit. Every anatomical
   slot in the mask must be satisfied; bits within one slot are OR-alternatives; unrequested extra
   mutations are allowed. The match is compiled into SQL and re-checked inside the fulfillment
   transaction, not merely pre-flight.

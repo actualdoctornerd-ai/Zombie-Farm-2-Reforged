@@ -102,9 +102,10 @@ write by `MUTATIONS_DISABLED=1` or an `export_only`/`closed` service mode.
 - Player-to-player trading now ships as the Black Market, which makes value transferable
   between accounts. Keep it behind `BLACK_MARKET_ENABLED` in any environment where the
   release gates in `../SECURITY.md` have not been confirmed.
-- Paid currency, competitive rankings, and PvP must remain disabled until those gates pass.
+- Paid currency and competitive rankings must remain disabled until those gates pass.
   Friend invasions (zero-stakes PvP-lite) are gated behind the `PVP_ENABLED` Worker var —
-  "1" on staging for playtesting, "0" in production. The client's surfaces follow the
+  "1" in both staging and production (live in production since 2026-09-09, fielding
+  `PVP_DEFENSE_MODE = "formation"`). The client's surfaces follow the
   bootstrap's `pvpEnabled` capability, so that one var is the whole launch switch —
   see `../docs/FRIEND_INVASIONS.md`.
 - A raid and an Epic Boss fight are mutually exclusive: `/raid/start` rejects with

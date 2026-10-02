@@ -1,11 +1,12 @@
 # Friend Invasions (PvP)
 
-**Status: REWORKED, LIVE ON STAGING, PARKED IN PRODUCTION.** The v1 feature shipped and
+**Status: REWORKED, LIVE IN PRODUCTION (since 2026-09-09).** The v1 feature shipped and
 was parked on 2026-08-23; the interface/progression rework landed the same week: a
 dedicated Invasions panel (Social → Invasions), defender-authored defenses, a level-7
 gate, daily income caps, lifetime + weekly stats, an accumulate-forever claim backlog
-with Claim-all, and a watch-the-replay viewer. The staging Worker runs it ON for
-playtesting and reward tuning; production keeps it OFF. This document is the record of
+with Claim-all, and a watch-the-replay viewer. Both the staging and production Workers
+now run it ON (`PVP_ENABLED = "1"`), fielding the FORMATION defense
+(`PVP_DEFENSE_MODE = "formation"`); rewards remain untuned on purpose. This document is the record of
 what exists, why it is shaped the way it is, and what remains.
 
 ## How to turn it on (and off)
@@ -38,15 +39,17 @@ Asymmetries built into the off state, on purpose:
     arranged-vs-auto defense, the line-up's portraits, and the reward tier beating it
     pays, all BEFORE committing. Invade opens the exactly-8 ordered army picker
     (`Hud.openPvpArmy`) and launches. The tab shows today's rewarded-wins pips.
-  - **Defense** — the defender AUTHORS their defense: any owned zombies (crypt-resting
-    ones included — a defense is a plan, not who stands on the lawn), in an explicit
-    order where **slot 1 emerges first** (teams-style numbered picker). The defense
-    fields **6 zombies base** (`PVP_DEFENSE_CAP`); the customization shop will sell
-    slot upgrades toward the **10-slot ceiling** (`PVP_DEFENSE_CAP_MAX`). Accounts
-    that never arrange one fall back to the automatic strongest-6 pick, weakest
-    emerging first. The tab shows your defense as attackers will meet it.
-  - **History** — the last 10 attacks and 10 defenses (rewarded/unrewarded marked,
-    **▶ Watch** where the recording survives), lifetime + trailing-7-day win/loss
+  - **Defense** — production runs the **FORMATION** defense (`PVP_DEFENSE_MODE =
+    "formation"`; see `PVP_DEFENSE_FORMATION.md`): the defender fields one zombie per
+    class (the strongest of each), with no defense upgrades. The tab shows your defense
+    as attackers will meet it. The older **classic** mode (still selectable via
+    `PVP_DEFENSE_MODE = "classic"`, the code default, but not what production runs) let
+    the defender AUTHOR an explicit order where slot 1 emerges first, fielding
+    **6 zombies** (`PVP_DEFENSE_CAP`), with accounts that never arranged one falling
+    back to an automatic strongest-6 pick, weakest emerging first.
+  - **History** — the last 40 attacks and defenses (`PVP_HISTORY_ROWS`; rewarded/unrewarded
+    marked, **▶ Watch** where the recording survives — only the newest 10 replays are
+    kept, `PVP_REPLAYS_KEPT`), lifetime + trailing-7-day win/loss
     stats for both roles, and the claim backlog banner with **Claim all**.
 - **Level gate**: both sides must be **level 7+** (`PVP_MIN_LEVEL`) — new farms are
   neither attackers nor targets. The Social hub shows the Invasions entry greyed with
