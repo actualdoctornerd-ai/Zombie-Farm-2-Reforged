@@ -73,6 +73,7 @@ import { awardedSellValue } from "./awardSellValue";
 import { farmerHeadXp } from "./farmer";
 import { purchaseXpFeedback } from "./purchaseFeedback";
 import { harvestXp, plowXp } from "./farmRewards";
+import { cropUnlockOf, cropUnlocked } from "./cropUnlocks";
 import {
   DEFAULT_FARM_BACKGROUND, getFarmBackground, isFarmBackground, setFarmBackground,
   FARM_BG_DENSITY, type FarmBackground, getDayNightMode, setDayNightMode,
@@ -294,9 +295,16 @@ async function main() {
       unlockLevel: p.level, harvestIcon: p.icon,
     };
     catalog.set(cfg.key, cfg);
+    // Prize crops (src/cropUnlocks.ts) are opened by clearing a dual-invasion tier.
+    const need = cropUnlockOf(p.key);
+    const raidName = need ? assets.raids.find((r) => r.id === need.raidId)?.name : undefined;
     return {
       name: p.name, cost: p.cost, sell: p.sell, timeLabel: fmtTime(p.growMs),
       level: p.level, seasonal: p.seasonal,
+      ...(need ? { tierUnlock: {
+        hint: `Clear ${raidName ?? `Invasion ${need.raidId}`} T${need.tier}`,
+        met: () => cropUnlocked(p.key, state.raidTiers),
+      } } : {}),
       portrait: `${BASE}assets/crop-icons/${p.icon}`, cfg,
     };
   });
@@ -5896,6 +5904,10 @@ async function main() {
             }
             hud.setRaidResultLoot(drops, res.gold);
             hud.setRaidResultBrains(res.brains ?? 0);
+            if (res.cropUnlocks?.length) {
+              hud.setRaidResultCropUnlocks(res.cropUnlocks.map(
+                (key) => assets.plants.find((p) => p.key === key)?.name ?? key));
+            }
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
           settlementPromise = economy!.submitRaid(sid, finalTick, inputs, outcome, {

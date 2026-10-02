@@ -33,6 +33,7 @@ import { combineMasks } from "../../../src/zombie/mutations";
 import { resolveCropMutations, plotsTouch } from "../../../src/zombie/cropMutations";
 import { createCombineRandom, isCombinePromotion, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
 import { harvestXp, plowXp } from "../../../src/farmRewards";
+import { cropUnlocked } from "../../../src/cropUnlocks";
 import { epicBossById, epicBossHp, epicBossUnlockLevel } from "../../../src/epicBoss/catalog";
 import { bossForFavoriteCrop, luresEpicBoss } from "../../../src/epicBoss/favoriteCrops";
 import { reopenEpicQuests } from "../../../src/epicBoss/rewards";
@@ -779,6 +780,8 @@ function applyOne(
       if (!veg && !zombie) return reject(sequence, "bad_crop");
       const required = veg?.level ?? zombie?.level ?? 0;
       if (level < required) return reject(sequence, "locked");
+      // Prize crops are opened by clearing a dual-invasion tier, on top of their level.
+      if (!cropUnlocked(command.cropKey, state.raids.tiers)) return reject(sequence, "locked");
       const currency = zombie?.brains ? "brains" : "gold";
       const cost = veg?.cost ?? zombie?.cost ?? 0;
       if (state.balance[currency] < cost) return reject(sequence, "insufficient");

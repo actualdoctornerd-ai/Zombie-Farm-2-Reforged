@@ -6,6 +6,7 @@ import { COMBINE_SPECIAL_CHANCE, createCombineRandom } from "../../src/zombie/co
 import { encodeReceivedZombie } from "../../src/zombie/receivedReward";
 import { EPIC_PRIZE_SELL, RAID_DROP_SELL } from "../../src/awardSellValue";
 import plantRows from "../../public/assets/plants.json";
+import { CROP_UNLOCKS, PRIZE_CROPS, type CropUnlock } from "../../src/cropUnlocks";
 import {
   applyCommandBatch,
   applyQuestEvents,
@@ -446,6 +447,49 @@ describe("protocol v3 command engine", () => {
       growMs: 900_000,
       sell: 16,
     });
+  });
+
+  it("refuses a prize crop until its dual-invasion tier is cleared", () => {
+    // Gate carrot (level 1) behind raid 12 tier 5 for the length of this test.
+    const table = CROP_UNLOCKS as Record<string, CropUnlock>;
+    table.carrot = { raidId: 12, tier: 5 };
+    PRIZE_CROPS.live = true;
+    try {
+      const plant = (tiers?: Record<string, number>) => {
+        const state = freshGameplayState();
+        if (tiers) state.raids.tiers = tiers;
+        return applyCommandBatch(state, commands(
+          { type: "farm.plow", oc: 0, or: 0 },
+          { type: "farm.plant", oc: 0, or: 0, cropKey: "carrot" },
+        ), { now: 1_000_000, random: () => 1, id: () => "unit" });
+      };
+      expect(plant().results[1]).toMatchObject({ status: "rejected", error: "locked" });
+      expect(plant({ "12": 4 }).results[1]).toMatchObject({ status: "rejected", error: "locked" });
+      expect(plant({ "13": 10 }).results[1]).toMatchObject({ status: "rejected", error: "locked" });
+      expect(plant({ "12": 5 }).results[1].status).toBe("applied");
+    } finally {
+      delete table.carrot;
+      PRIZE_CROPS.live = false;
+    }
+  });
+
+  it("refuses every real prize crop while they are not live, whatever the ladder says", () => {
+    expect(PRIZE_CROPS.live).toBe(false);
+    const attempt = (cropKey: string) => {
+      const state = freshGameplayState();
+      state.balance.xp = 10_000_000; // far past level 45
+      state.balance.gold = 1_000_000;
+      state.raids.tiers = { "12": 10, "13": 10, "14": 10, "15": 10 };
+      return applyCommandBatch(state, commands(
+        { type: "farm.plow", oc: 0, or: 0 },
+        { type: "farm.plant", oc: 0, or: 0, cropKey },
+      ), { now: 1_000_000, random: () => 1, id: () => "unit" }).results[1];
+    };
+    for (const key of Object.keys(CROP_UNLOCKS)) {
+      expect(attempt(key), key).toMatchObject({ status: "rejected", error: "locked" });
+    }
+    // The same account plants the ordinary level-45 crop without trouble.
+    expect(attempt("heartichoke").status).toBe("applied");
   });
 
   it("persists the client fertilization result for vegetables only", () => {

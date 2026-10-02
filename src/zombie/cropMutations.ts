@@ -1,3 +1,4 @@
+import { PRIZE_CROPS } from "../cropUnlocks";
 import { cropMutationChance } from "../lifeForce";
 import { addMutation, bitGrowable, resolveMutationBit, type MutationRef } from "./mutations";
 
@@ -16,7 +17,7 @@ export type CropMutationTable =
  * Tier-4 pair used to do that — eyebiscus grew carrot's mutation and heartichoke grew
  * cauli's — which made the game's two priciest mutation crops grant a Tier-1 bonus.
  * They grow their own now; nothing shipped shares a mutation any more.) */
-export const CROP_MUTATIONS: CropMutationTable = {
+const BASE_CROP_MUTATIONS: CropMutationTable = {
   tomato: "tomato",
   onion: "onion",
   carrot: "carrot",
@@ -37,6 +38,24 @@ export const CROP_MUTATIONS: CropMutationTable = {
   // one in the Zombie Pot — that is the only route to a Regular wearing it.
   pumpking: "pumpking",
 };
+
+/** The prize crops (src/cropUnlocks.ts) and the mutation each grows. NOT in the game: the
+ *  names resolve only once PRIZE_CROPS.live appends their mutations to the catalog, and
+ *  until then this table is not merged in at all. Each upgrades its base crop's mutation —
+ *  carrot -> goldencarrot, turnip -> goldenturnip, lima -> obsidibeans, cauliflower ->
+ *  cauliglower, potato -> cosmicpotato, tomato -> brainato. */
+export const PRIZE_CROP_MUTATIONS: CropMutationTable = {
+  golden_carrot: "goldencarrot",
+  golden_turnip: "goldenturnip",
+  obsidibeans: "obsidibeans",
+  cauliglower: "cauliglower",
+  cosmic_potato: "cosmicpotato",
+  brainato: "brainato",
+};
+
+export const CROP_MUTATIONS: CropMutationTable = PRIZE_CROPS.live
+  ? { ...BASE_CROP_MUTATIONS, ...PRIZE_CROP_MUTATIONS }
+  : BASE_CROP_MUTATIONS;
 
 /** The mutations one crop grows, resolved to bits. Unknown names are dropped, so a
  *  typo costs that crop its mutation rather than mutating the wrong slot. */
