@@ -20,7 +20,7 @@
 // Title max 80 characters, body max 2000 (longer is trimmed by the Worker).
 //
 // Needs `npx wrangler` logged in with D1 access, same as the migrations workflow.
-import { execFileSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,6 +69,23 @@ export function parseWhen(text, now = Date.now()) {
   return at;
 }
 
+/** wrangler prints warnings (and colour codes) before its --json output, so parse from the first
+ *  line that opens a JSON document rather than the whole stream. Returns the raw text if none does. */
+export function parseWranglerJson(out) {
+  const clean = String(out).replace(/\u001b\[[0-9;]*m/g, "");
+  const lines = clean.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*[\[{]/.test(lines[i])) {
+      try {
+        return JSON.parse(lines.slice(i).join("\n"));
+      } catch {
+        // keep looking: a warning line can also start with a bracket
+      }
+    }
+  }
+  return clean;
+}
+
 const sqlText = (value) => `'${String(value).replaceAll("'", "''")}'`;
 
 /** The INSERT for a validated announcement. Throws on anything the Worker would drop. */
@@ -92,19 +109,22 @@ export function buildInsert({ title, body, publishAt, expiresAt, minRuleset, now
   );
 }
 
-function runSql(sql, { prod }) {
+/** Run SQL against D1. Writes go through --file (a body can span lines and hold quotes) but
+ *  --file only reports a summary, so a SELECT must use --command to get its rows back. */
+function runSql(sql, { prod, rows = false }) {
   const dir = mkdtempSync(join(tmpdir(), "announce-"));
-  const file = join(dir, "q.sql");
   try {
-    writeFileSync(file, sql, "utf8");
-    const args = ["wrangler", "d1", "execute", prod ? PROD_DB : STAGING_DB, "--remote", "--file", file, "--json"];
-    if (prod) args.push("--env", "production");
-    const out = execFileSync("npx", args, { encoding: "utf8", shell: process.platform === "win32" });
-    try {
-      return JSON.parse(out);
-    } catch {
-      return out;
+    let source;
+    if (rows) {
+      source = `--command "${sql.replaceAll('"', '\\"')}"`;
+    } else {
+      const file = join(dir, "q.sql");
+      writeFileSync(file, sql, "utf8");
+      source = `--file "${file}"`;
     }
+    const env = prod ? " --env production" : "";
+    const cmd = `npx wrangler d1 execute ${prod ? PROD_DB : STAGING_DB} --remote ${source} --json${env}`;
+    return parseWranglerJson(execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -123,7 +143,7 @@ function main() {
   if (command === "list") {
     const result = runSql(
       "SELECT id, title, published_at, expires_at, min_ruleset, active FROM announcements ORDER BY id DESC LIMIT 20;",
-      { prod }
+      { prod, rows: true }
     );
     const rows = result?.[0]?.results ?? [];
     console.log(`Announcements on ${target} (newest first):`);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 // The CLI is plain Node (.mjs); its pure helpers are exported so the SQL it writes is tested.
 // @ts-ignore
-import { buildInsert, parseArgs, parseWhen } from "../scripts/announce.mjs";
+import { buildInsert, parseArgs, parseWhen, parseWranglerJson } from "../scripts/announce.mjs";
 
 describe("announce.mjs helpers", () => {
   it("parses flags, bare flags and positionals", () => {
@@ -30,6 +30,13 @@ describe("announce.mjs helpers", () => {
   it("carries a schedule, an expiry and a minimum ruleset", () => {
     const sql = buildInsert({ title: "T", body: "B", publishAt: 100, expiresAt: 900, minRuleset: 70, now: 5 });
     expect(sql).toContain("100, 900, 70, 1, 5");
+  });
+
+  it("reads wrangler's JSON even with warnings and colour codes in front of it", () => {
+    const out = "\u001b[33m\u25b2 [WARNING] Processing wrangler.toml\u001b[0m\n\n    - \"unsafe\" fields\n\n" +
+      JSON.stringify([{ results: [{ id: 1, title: "T" }], success: true }], null, 2) + "\n";
+    expect(parseWranglerJson(out)).toEqual([{ results: [{ id: 1, title: "T" }], success: true }]);
+    expect(parseWranglerJson("no json here")).toBe("no json here");
   });
 
   it("refuses what the Worker would drop or mangle", () => {
