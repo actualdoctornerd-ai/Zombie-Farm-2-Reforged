@@ -30,7 +30,7 @@ the Garden family, cast from the line.
 
 | Level | Boss | Brains | Best prize | str / dex / con | DPS | HP |
 |---|---|---:|---|---|---:|---:|
-| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 15 / 2.65 / 25 | 199 | 2,500 |
+| 24 | Dr. Groundhog | 3 | Omega Dr. Zombie | 12 / 2.2 / 20 | 199 | 2,500 |
 | 28 | Bully Frog | 3 | Admiral Zombie | 18 / 2.9 / 41 | 261 | 4,100 |
 | 30 | Rocky Rhino | 4 | Brock Coley | 46 / 3 / 8 | 690 | 800 |
 | 32 | General Larvaelus | 4 | Zombug | 15 / 7 / 15 | 525 | 1,500 |

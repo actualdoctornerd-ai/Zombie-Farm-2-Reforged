@@ -69,15 +69,15 @@ describe("reclassed special pairs (2026-09-08)", () => {
     expect(throughTier(4)).toEqual(["heal", "tankHitPointsBuff", "zomBeam", "healAOE"]);
   });
 
-  it("the Doctors are healers held a step over the Cupid Zombie, not tanks", () => {
+  it("the Doctors are healers around the Cupid Zombie after the 2026-10-01 nerf, not tanks", () => {
     const cupid = strength(def("ZombieActorGardenCupid"));
     const dr = strength(def("ZombieActorDrZombie"));
     const omega = strength(def("ZombieActorOmegaDrZombie"));
-    expect(dr).toBeGreaterThan(cupid);
+    expect(dr).toBeLessThan(cupid); // x0.8 str/con: owner found them a bit strong
     expect(omega).toBeGreaterThan(dr);
-    expect(omega / cupid).toBeLessThan(1.35); // "not too much higher than cupid zombies"
-    expect(def("ZombieActorDrZombie")).toMatchObject({ str: 14, dex: 2.4, con: 22 });
-    expect(def("ZombieActorOmegaDrZombie")).toMatchObject({ str: 15, dex: 2.65, con: 25 });
+    expect(omega / cupid).toBeLessThan(1.1);
+    expect(def("ZombieActorDrZombie")).toMatchObject({ str: 11, dex: 2.0, con: 18 });
+    expect(def("ZombieActorOmegaDrZombie")).toMatchObject({ str: 12, dex: 2.2, con: 20 });
   });
 
   it("the Bots wear a Headless stat line — dex 1, tank-line con, their old strength", () => {

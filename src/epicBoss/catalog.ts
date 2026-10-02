@@ -40,7 +40,7 @@ const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
 // left that fit on 2026-09-08: they are GARDEN healers now (heal / Heal All, Laser
 // Ver.2 from the station), held a step over the Cupid Zombie rather than on a line,
 // and Larvaelus's pair are MINIS (their fitted str/con x0.86):
-//   24  Dr. Groundhog     Omega Dr. Zombie   15 / 2.65 / 25   (entry boss, 3 brains)
+//   24  Dr. Groundhog     Omega Dr. Zombie   12 / 2.2 / 20   (entry boss, 3 brains)
 //   28  Bully Frog        Admiral Zombie     18 / 2.9  / 41
 //   30  Rocky Rhino       Brock Coley        46 / 3    /  8
 //   32  General Larvaelus Zombug             15 / 7    / 15   (Mini)

@@ -384,8 +384,8 @@ SPECIAL_STAT_REBALANCE = {
     # Ver.2 from the support station instead of Resurrect). No longer tanks: held
     # a step over the Cupid Zombie (13.5/3/15 -> plain strength 551, damage set
     # 1,162, life-set HP 3,000): Dr. +10% / +8% / 3,700, Omega +28% / +19% / 4,000.
-    "ZombieActorDrZombie":       {"str": 14, "con": 22},  # 19.9/35.5  Garden healer, over the Cupid
-    "ZombieActorOmegaDrZombie":  {"str": 15, "con": 25},  # 21/38.5    Garden healer, over the Cupid
+    "ZombieActorDrZombie":       {"str": 11, "dex": 2.0, "con": 18},  # 2026-10-01: x0.8 str/con, dex 2.4->2.0 (was 14/2.4/22), Garden healer
+    "ZombieActorOmegaDrZombie":  {"str": 12, "dex": 2.2, "con": 20},  # 2026-10-01: x0.8 str/con, dex 2.65->2.2 (was 15/2.65/25), Garden healer
     "ZombieActorCaptain":        {"str": 17, "con": 37},  # 21/38.5    str x0.79; TANK
     "ZombieActorAdmiral":        {"str": 18, "dex": 2.9, "con": 41},  # 21/40.5 str x0.85; TANK
     "ZombieActorBrockColey":     {"str": 46, "con": 8},   # 40/7       x1.15 (cap)

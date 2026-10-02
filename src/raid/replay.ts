@@ -1231,7 +1231,9 @@ import type { RaidOutcome } from "./types";
 //
 // Any fight whose army had a Garden ahead of a fighter in deploy order replays differently
 // from v67; an army with its Gardens last is unchanged.
-export const RAID_RULESET_VERSION = 68;
+// v69: Dr. Zombie 14/2.4/22 -> 11/2.0/18 and Omega Dr. Zombie 15/2.65/25 -> 12/2.2/20 (x0.8 str and con, dex down,
+// owner 2026-10-01: "a bit strong"). Any fight fielding either Doctor replays differently from v68.
+export const RAID_RULESET_VERSION = 69;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
