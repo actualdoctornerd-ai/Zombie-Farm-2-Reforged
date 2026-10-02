@@ -114,6 +114,7 @@ import { openStats } from "./ui/panels/stats";
 import type { StatSection } from "./statsView";
 import { showTimNotice } from "./ui/TimNotice";
 import { fitRow, fitTexts } from "./ui/fitText";
+import { lifeForceBadge } from "./ui/lifeForceBadge";
 import { compactGold } from "./ui/compactNumber";
 import { lifeForceProgress } from "./lifeForce";
 import { openLifeForce as openLifeForcePanel } from "./ui/panels/lifeForce";
@@ -150,6 +151,8 @@ interface MktEntry {
   xp?: number;
   xpHint?: string;
   timeLabel?: string; // catalog grow/regrowth time
+  /** Life Force one placed copy adds to the farm (objects only): shown as a leaf badge. */
+  lifeForce?: number;
   qty?: number; // how many units the listed price buys (boost packs)
   graveNeeded?: "Blue" | "Red" | "Silver" | "Obsidian"; // locked until this colored grave is owned
   ownedLimit?: boolean; // "1 per farm" limit reached (gift vouchers) — can't buy
@@ -2394,6 +2397,7 @@ export class Hud {
               c.def.category,
             ) || undefined,
             xpHint: "Experience for buying it",
+            lifeForce: c.def.lifeForce,
             timeLabel: c.category === "tree" && c.def.growMs
               ? fmtCooldown(c.def.growMs)
               : undefined,
@@ -3029,6 +3033,9 @@ export class Hud {
     body.appendChild(cost);
 
     card.append(hd, body);
+    // Life Force: what this object adds to the farm while it is placed. On the card itself
+    // (not the stats grid) so every object shows it, trees and decor alike.
+    if (en.lifeForce !== undefined) card.appendChild(lifeForceBadge(en.lifeForce));
     // Magnifier: a small "what is this?" button. Zombies open their inspect card;
     // everything else pops the description parchment. Present even on locked cards so
     // players can study an item — or a zombie's stats — before they unlock it.

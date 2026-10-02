@@ -134,6 +134,8 @@ export interface ObjectActions {
    *  this sheet would be the only way to store it and the only way to lose the panel. */
   manageLabel?: string;
   onManage?: () => void;
+  /** Life Force this object adds while placed (shown under its portrait). */
+  lifeForce?: number;
 }
 
 /** One thing a new level opened up, shown as a framed tile in the level-up popup. */

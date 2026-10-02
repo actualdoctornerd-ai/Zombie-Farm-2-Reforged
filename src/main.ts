@@ -6761,6 +6761,7 @@ async function main() {
       canSell: canSellObject(def),
       sellRefund: sellRefund(def),
       sellBrains: false,
+      lifeForce: def.lifeForce,
       // The pen's own collection, which used to be all a tap on it could reach.
       ...(def.petPen
         ? { manageLabel: "Pets", onManage: () => hud.openStorage("Pets", true) }

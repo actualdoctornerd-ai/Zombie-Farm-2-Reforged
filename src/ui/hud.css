@@ -1566,6 +1566,21 @@
 #hud .mkt-xp { font-size: 11px; font-weight: 700; color: #2f5f9a; display: flex;
   grid-area: xp; align-items: center; gap: 2px; }
 #hud .mkt-xp img { height: 12px; max-height: 12px; }
+/* Life Force badge: a leaf and the number one placed copy adds to the farm. Always a small
+   dark-green pill; where it sits depends on what holds it. */
+#hud .lf-mini { display: inline-flex; align-items: center; gap: 2px; box-sizing: border-box;
+  height: 16px; padding: 0 5px 0 3px; border-radius: 8px; border: 1px solid #1d3a0c;
+  background: linear-gradient(#3f6e22, #2c5016); color: #d9ff9b; font: 800 11px/14px system-ui, sans-serif;
+  text-shadow: 0 1px 1px rgba(0,0,0,.6); white-space: nowrap; pointer-events: auto; }
+#hud .lf-mini img { height: 11px; width: auto; max-height: 11px; }
+/* Market card: bottom-left, just above the price strip, clear of the stat column. */
+#hud .mkt-card > .lf-mini { position: absolute; left: 4px; bottom: 34px; z-index: 1; }
+/* Storage slot: tucked into the bottom-left corner of the frame. */
+#hud .st-slot > .lf-mini { position: absolute; left: -2px; bottom: -3px; z-index: 1; height: 14px;
+  padding: 0 4px 0 2px; font-size: 10px; line-height: 12px; }
+#hud .st-slot > .lf-mini img { height: 9px; max-height: 9px; }
+/* Object sheet: centred under the portrait. */
+#hud .obj-actions > .lf-mini { align-self: center; margin: 2px auto 6px; display: flex; width: max-content; }
 /* Pack size ("x20"): how many uses the price below buys. Shares the sell chip's
    cell — only boost cards set it, and those carry no sell/xp/time stats. */
 #hud .mkt-qty { grid-area: sell; justify-self: end; align-self: start;

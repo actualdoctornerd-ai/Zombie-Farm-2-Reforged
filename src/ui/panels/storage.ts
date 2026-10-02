@@ -8,6 +8,7 @@ import { BASE } from "../../base";
 import { canSellPlaceable, objectTint } from "../../assets";
 import type { ReceivedView } from "../hudTypes";
 import { setTintedSrc } from "../tintedSprite";
+import { lifeForceBadge } from "../lifeForceBadge";
 import { storageBoostRows } from "../storageBoosts";
 import { openShedAppearance } from "./shedAppearance";
 import { keepScroll, recallOneOf, remember } from "../viewState";
@@ -195,6 +196,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
           if (card) setTintedSrc(img, card.portrait, objectTint(card.def.color));
           slot.appendChild(img);
           slot.classList.add("filled");
+          if (card?.def.lifeForce !== undefined) slot.appendChild(lifeForceBadge(card.def.lifeForce));
           if (picking && sellable(key)) {
             const tick = document.createElement("span");
             tick.className = "st-tick";

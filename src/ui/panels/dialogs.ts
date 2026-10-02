@@ -6,6 +6,7 @@
 import { markPrimary, openModal } from "../Modal";
 import { setTintedSrc, tintedImage } from "../tintedSprite";
 import { UI } from "../uiAsset";
+import { lifeForceBadge } from "../lifeForceBadge";
 import type { LevelUpView, QuestCompleteView, ObjectActions } from "../hudTypes";
 
 /** Celebratory "LEVEL UP" popup listing what the new level unlocked. `onClose`
@@ -130,7 +131,9 @@ export function renderObjectActions(host: HTMLElement, o: ObjectActions): void {
   if (o.canSell) btns.append(
     mk(`Sell +${o.sellRefund}${o.sellBrains ? "b" : "g"}`, "sell", true, o.onSell)
   );
-  panel.append(por, btns);
+  panel.append(por);
+  if (o.lifeForce !== undefined) panel.append(lifeForceBadge(o.lifeForce));
+  panel.append(btns);
 }
 
 /** Generic titled info panel (title + one paragraph of body text). */

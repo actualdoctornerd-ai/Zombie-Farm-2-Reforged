@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { FARMERS_GUIDE_PAGES } from "./farmersGuide";
+import {
+  HARVEST_FAIL_PER_LEVEL, LIFE_FORCE_THRESHOLDS, MUTATION_BASE_CHANCE, MUTATION_CHANCE_PER_LEVEL,
+  abilitySlotRequirement,
+} from "../../lifeForce";
 
 describe("Farmer's Guide", () => {
   it("has unique, navigable pages for every requested topic", () => {
     expect(FARMERS_GUIDE_PAGES.map((page) => page.id)).toEqual([
-      "welcome", "saves", "install", "currency", "mutations", "combat", "social", "privacy", "project",
+      "welcome", "saves", "install", "currency", "mutations", "lifeforce", "combat", "social", "privacy", "project",
     ]);
     expect(new Set(FARMERS_GUIDE_PAGES.map((page) => page.id)).size)
       .toBe(FARMERS_GUIDE_PAGES.length);
@@ -12,7 +16,7 @@ describe("Farmer's Guide", () => {
     const copy = FARMERS_GUIDE_PAGES
       .flatMap((page) => [page.title, page.intro, ...page.sections.flatMap((section) => [section.title, section.body])])
       .join(" ");
-    for (const topic of ["Local Farm", "Online Farm", "Gold", "Brains", "Mutations", "Raids", "Epic Bosses", "Discord", "GitHub", "alpha tester", "Add to Home Screen"])
+    for (const topic of ["Local Farm", "Online Farm", "Gold", "Brains", "Mutations", "Life Force", "Raids", "Epic Bosses", "Discord", "GitHub", "alpha tester", "Add to Home Screen"])
       expect(copy.toLowerCase()).toContain(topic.toLowerCase());
   });
 
@@ -45,5 +49,27 @@ describe("Farmer's Guide", () => {
       "export",             // the data-portability route
     ])
       expect(copy, `privacy page must still address "${promise}"`).toContain(promise);
+  });
+
+  // The Life Force page quotes numbers, so each is held to the constants that decide the
+  // rule. Change a threshold or a percentage and this fails until the page is rewritten.
+  it("quotes the Life Force numbers the game actually uses", () => {
+    const page = FARMERS_GUIDE_PAGES.find((p) => p.id === "lifeforce");
+    expect(page, "the Life Force page must exist").toBeDefined();
+    const copy = [page!.title, page!.intro, ...page!.sections.flatMap((s) => [s.title, s.body])].join(" ");
+
+    // Every level's threshold is listed, in order.
+    let at = 0;
+    for (const need of LIFE_FORCE_THRESHOLDS) {
+      const found = copy.indexOf(String(need), at);
+      expect(found, `threshold ${need}`).toBeGreaterThanOrEqual(at);
+      at = found + 1;
+    }
+    expect(copy).toContain(`${Math.round(MUTATION_BASE_CHANCE * 100)}%`);
+    expect(copy).toContain(`${Math.round(MUTATION_CHANCE_PER_LEVEL * 100)}%`);
+    expect(copy).toContain(`${Math.round(HARVEST_FAIL_PER_LEVEL * 100)}%`);
+    // Slot 1 and slot 4 are quoted with the Life Force they need.
+    expect(copy).toContain(`slot 1 needs ${abilitySlotRequirement(1)} Life Force`);
+    expect(copy).toContain(`slot 4 needs ${abilitySlotRequirement(4)} Life Force`);
   });
 });

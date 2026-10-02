@@ -89,7 +89,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
     sections: [
       {
         title: "Obtaining Mutations",
-        body: "Plant vegetables directly beside a zombie plot to give the harvested zombie a chance at developing the mutation associated with them. Any plot touching the zombie's counts — edge or corner — even if the two were plowed in different passes and don't line up. If you want to ensure that a specific mutation is obtained, then plant a mutated zombie directly instead.",
+        body: "Plant vegetables directly beside a zombie plot to give the harvested zombie a chance at developing the mutation associated with them. Any plot touching the zombie's counts — edge or corner — even if the two were plowed in different passes and don't line up. If you want to ensure that a specific mutation is obtained, then plant a mutated zombie directly instead. How likely each crop is to take depends on your farm's Life Force; see that page.",
       },
       {
         title: "Headless Zombies",
@@ -98,6 +98,34 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       {
         title: "Zombie Pot",
         body: "The Zombie Pot can also combine two zombies and inherit compatible traits. It draws on your whole roster — a zombie resting in the Mausoleum can go straight in without being deployed first, and the finished zombie can be collected into the Mausoleum instead of onto the farm. The zombie you place in Slot 1 decides what type comes out — Slot 2 only donates its mutations, and where two mutations compete for the same body part the stronger one wins. Special zombies fit in Slot 1 only, and are always passed on. Combining two zombies of the same type breeds them up a colour: two Greens become the Blue of that type once you own the Blue Grave, two Blues become the Red once you own the Red Grave, and at higher levels two Reds become a Silver. Every eligible pairing also comes with a low chance of mutating into powerful special zombies instead.",
+      },
+    ],
+  },
+  {
+    id: "lifeforce",
+    label: "Life Force",
+    title: "Life Force",
+    intro: "Everything you place on your farm gives it life. The more Life Force your farm has, the better your crops and zombies do.",
+    sections: [
+      {
+        title: "What it is",
+        body: "Every decoration, tree and building carries a Life Force value, shown as a small leaf and number on its card in the Market and Storage and on its sheet when you tap it on the farm. Your farm's total is the sum of everything placed. Items resting in Storage don't count, so putting something away takes its Life Force with it, and placing it again gives it back.",
+      },
+      {
+        title: "Levels",
+        body: "Your total sets your Life Force level, from 0 to 10, shown by the leaf badge in the top bar. Level 1 takes 30 Life Force, then 65, 105, 150, 200, 250, 300, 350 and 400, with level 10 at 450. Tap the badge to see every level and what it gives. Bigger decorations are generally worth more: a Gazebo gives 16, a tree only a few, and a fruit tree a little less than that.",
+      },
+      {
+        title: "Mutations",
+        body: "A crop planted beside a zombie plot has a chance to give it its mutation of 5% plus 10% for every level, so a bare farm mutates rarely and a level 10 farm mutates every time. Several matching crops stack, and the Mutant Monolith still guarantees the roll.",
+      },
+      {
+        title: "Growing zombies",
+        body: "A zombie can fail to grow when its colour is above your level. Green zombies need level 1, Blue level 2, Red level 3, Silver level 4, and Obsidian and special zombies level 5. Each level you are short adds a 20% chance that the harvest fails: the crop is spent and you still earn its experience, but no zombie appears, so you must plow and plant again. At level 0 even a Green fails one time in five. The first zombie on a new farm always grows.",
+      },
+      {
+        title: "Abilities",
+        body: "A zombie has up to four ability slots: Green zombies have one, Blue two, Red three and Silver four. Slot 1 works at level 1, slot 2 at level 2, slot 3 at level 3 and slot 4 at level 4, whatever the ability is, so slot 1 needs 30 Life Force and slot 4 needs 150 Life Force. A locked slot shows a padlock on the zombie's card that says how much Life Force it needs. Beating an invasion boss no longer unlocks abilities.",
       },
     ],
   },
