@@ -10,7 +10,7 @@ import { pickPiece, type PathSpec, type RoadSpec, type SceneryPiece, type Skylin
 import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
 import { armyCapacityOf, BASE_ARMY_MAX } from "./armyCapacity";
-import { cropMutationChance, farmLifeForce } from "./lifeForce";
+import { cropMutationChance, farmLifeForce, harvestFails, zombieHarvestTier } from "./lifeForce";
 import { shedCapacityOf } from "./shedCapacity";
 import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
@@ -334,6 +334,13 @@ async function main() {
     const a = subjectsOf(pot.keyA, pot.maskA);
     const b = subjectsOf(pot.keyB, pot.maskB);
     return { subject: combineSubject(a[0] ?? "", b[0] ?? ""), aliases: combineSubjectAliases(a, b) };
+  };
+  /** Life Force: does this zombie crop fail to grow a zombie? OFFLINE only; online the
+   *  server rolls it and reports failures back (economy.onZombieHarvestFailed). A farm with
+   *  no zombies yet never fails, which covers the tutorial's first zombie. */
+  const zombieHarvestFailsLocally = (zombieKey: string): boolean => {
+    if (state.onFarm || zombies.total === 0) return false;
+    return harvestFails(zombieHarvestTier(zombieDefs.get(zombieKey) ?? {}), state.lifeForceLevel, Math.random);
   };
   const offlineHarvestMutation = (key: string, context: { cropKeys: string[]; guaranteed: boolean }): number | undefined => {
     if (state.onFarm) return undefined; // online mutation rolls are server-owned
@@ -1821,7 +1828,8 @@ async function main() {
       currency === "gold" ? "Not enough coins." : `Not enough brains (need ${needed}).`
     ),
     popHarvestIcon,
-    () => zombies.zombieHarvestRoom()
+    () => zombies.zombieHarvestRoom(),
+    zombieHarvestFailsLocally
   );
 
   // `raidActive` is declared up here (ahead of both the celebration queue and the raid
@@ -2170,9 +2178,12 @@ async function main() {
         if (pl.isZombie && !zombies.canHarvestZombie()) continue;
         const r = field.harvestAt(pl.oc, pl.or);
         if (!r) continue;
-        state.recordHarvest(r.key, !!r.zombieKey);
+        // Life Force: a zombie above the farm's level can fail to grow (offline roll; the
+        // server rolls it online). The crop is spent and pays its XP, but nothing spawns.
+        const failed = !!r.zombieKey && zombieHarvestFailsLocally(r.zombieKey);
+        state.recordHarvest(r.key, !!r.zombieKey && !failed);
         const cropCenter = field.plotCenterOf(pl.oc, pl.or);
-        popHarvestIcon(r, cropCenter.x, cropCenter.y);
+        if (!failed) popHarvestIcon(r, cropCenter.x, cropCenter.y);
         // Every plot pays exactly what harvesting it by hand would (see JobSystem):
         // farmer-adjusted gold for a vegetable, XP for both kinds.
         const gold = r.zombieKey ? 0 : state.farmerHarvestGold(r.sell);
@@ -2193,7 +2204,7 @@ async function main() {
         } else {
           if (gold) state.addGold(gold);
           state.addXp(xp);
-          if (r.zombieKey) {
+          if (r.zombieKey && !failed) {
             const context = mutationContexts.get(`${pl.oc}:${pl.or}`) ?? r.mutationContext!;
             // spawnVerified, not spawn: the army may be full with the Mausoleum still
             // open (canHarvestZombie above passes on either), and plain spawn would
@@ -2206,10 +2217,12 @@ async function main() {
         }
         powerGold += gold;
         powerXp += xp;
-        questBus.post(
-          r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested,
-          r.name, 1, harvestAliases
-        );
+        if (!failed) {
+          questBus.post(
+            r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested,
+            r.name, 1, harvestAliases
+          );
+        }
         // Same hook the farmer's own harvests use, so an Insta-Harvest can lure a boss
         // too. The first plot to hit takes it: every later roll in this sweep sees an
         // event already running and stops.
@@ -2220,6 +2233,7 @@ async function main() {
         // reads as having been harvested all at once (as the original game did).
         if (r.zombieKey) {
           floatText(cropCenter.x, cropCenter.y, `+${xp}xp`);
+          if (failed) floatText(cropCenter.x, cropCenter.y, "It didn't make it!", 0.42);
         } else {
           floatText(cropCenter.x, cropCenter.y, `+${gold}g${r.fertilized ? " ×2" : ""}`);
           if (xp) floatText(cropCenter.x, cropCenter.y, `+${xp}xp`, 0.42);
@@ -3032,6 +3046,22 @@ async function main() {
       };
       hud.showToast(
         `${plots} plot${plots === 1 ? "" : "s"} skipped: ${reason[error] ?? error.replace(/_/g, " ")}.`
+      );
+    };
+    // The server rolled the Life Force harvest and some zombies did not grow. The client
+    // showed each one optimistically, so unbook what the harvest counted and say why; the
+    // roster reconcile that follows removes the spawned unit.
+    economy.onZombieHarvestFailed = (failed) => {
+      for (const item of failed) {
+        const unit = zombies.roster().find((u) => u.id === item.id);
+        if (unit) state.unrecordZombieGrown(unit.key);
+        const at = field.plotCenterOf(item.oc, item.or);
+        floatText(at.x, at.y, "It didn't make it!", 0.42);
+      }
+      hud.showToast(
+        failed.length === 1
+          ? "A zombie didn't make it. Raise your Life Force to protect your harvests."
+          : `${failed.length} zombies didn't make it. Raise your Life Force to protect your harvests.`
       );
     };
     void economy.start();

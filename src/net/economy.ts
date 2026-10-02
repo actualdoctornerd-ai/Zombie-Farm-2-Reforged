@@ -159,6 +159,9 @@ export class EconomyClient {
   onCommandRejected: ((command: GameplayCommand | undefined, error: string) => void) | null = null;
   /** Some — not all — of a bulk plow/plant's plots were refused. */
   onBulkFarmPartial: ((plots: number, error: string) => void) | null = null;
+  /** Zombie crops the server harvested but did not grow a zombie from (Life Force too low).
+   *  Each carries the local unit the client spawned optimistically, so it can unbook it. */
+  onZombieHarvestFailed: ((failed: { id: string; oc: number; or: number }[]) => void) | null = null;
   onAuthoritativeSettled: ((serverTime: number) => void) | null = null;
   /** Fired once the boot bootstrap has been adopted, so callers that read its
    *  capability/social fields (`serverPvpEnabled`, `serverLastInvadedAt`) know when
@@ -1319,6 +1322,11 @@ export class EconomyClient {
       if (pending?.localUnitId && result.status === "applied" && result.createdIds?.[0]) {
         aliases[result.createdIds[0]] = pending.localUnitId;
         this.authoritativeUnitIds.set(pending.localUnitId, result.createdIds[0]);
+      }
+      if (pending?.localZombieHarvests?.length && result.failedZombiePlots?.length) {
+        const failedPlots = new Set(result.failedZombiePlots.map((plot) => `${plot.oc}:${plot.or}`));
+        const failed = pending.localZombieHarvests.filter((item) => failedPlots.has(`${item.oc}:${item.or}`));
+        if (failed.length) this.onZombieHarvestFailed?.(failed);
       }
       if (pending?.localZombieHarvests?.length && result.createdZombieSources?.length) {
         const localByPlot = new Map(pending.localZombieHarvests.map((item) => [`${item.oc}:${item.or}`, item.id]));

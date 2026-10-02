@@ -33,6 +33,10 @@ export interface CommandResult {
   /** Source plots for zombies created by a farm/power command. This avoids pairing
    * bulk-harvest identities by two different iteration orders. */
   createdZombieSources?: { id: string; oc: number; or: number }[];
+  /** Zombie crops a farm/power command harvested but that failed to grow a zombie, because
+   *  the farm's Life Force level was below the zombie's tier. The harvest itself applied
+   *  (crop spent, XP paid); the client showed a zombie optimistically and takes it back. */
+  failedZombiePlots?: { oc: number; or: number }[];
   /** For a bulk farm command that partly succeeded: how many of its plots the server
    *  refused, and why the first of them was refused. A whole-command rejection still
    *  uses `status: "rejected"` + `error`; this is the middle case, where the player

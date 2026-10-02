@@ -20,7 +20,9 @@ import { cropEcon } from "../catalog";
 import { dropEcon } from "../raidLootCatalog";
 import { XP_THRESHOLDS, levelForXp, levelUpBrains } from "../levels";
 import { BASE_SHED_SLOTS, lifeForceOf, objectBuyXp, objectEcon, objectSellGold } from "../objectCatalog";
-import { cropMutationChance, farmLifeForce, lifeForceLevel } from "../../../src/lifeForce";
+import {
+  cropMutationChance, farmLifeForce, harvestFails, lifeForceLevel, zombieHarvestTier,
+} from "../../../src/lifeForce";
 import { planClaim } from "../storage";
 import { QUEST_DEFINITIONS, QUEST_REWARD } from "../questCatalog";
 import { isHeadlessZombie, legalMutation, zombieSell } from "../rosterCatalog";
@@ -514,7 +516,7 @@ function rewardHarvest(
   created: string[],
   random: () => number,
   mutationCropKeys: readonly string[] = []
-): { ok: true; event: QuestEvent } | { ok: false; error: string } {
+): { ok: true; event: QuestEvent; failed?: true } | { ok: false; error: string } {
   if (plot.zombie) {
     // A grown zombie enters the active army first, then an available Mausoleum.
     // If both are full, the ripe crop remains planted.
@@ -524,8 +526,23 @@ function rewardHarvest(
     if (active >= cap.army && stored >= cap.storage) {
       return { ok: false, error: "capacity_full" };
     }
-    const id = makeId();
+    // Life Force: a zombie whose colour tier is above the farm's level can fail to grow,
+    // 20% for each level short. The harvest still goes through (the crop is spent and pays
+    // its XP) but no zombie is made, so the plot has to be replowed and replanted. A farm
+    // with no zombies at all is exempt, which covers the tutorial's first zombie.
     const rule = zombieRuleByKey.get(key);
+    if (state.roster.length > 0 &&
+        harvestFails(zombieHarvestTier(rule ?? {}), placedLifeForceLevel(state), random)) {
+      state.balance.xp += harvestXp(zombieCropEcon(key)?.xp ?? 0, hasPlowingMonolith(state));
+      return {
+        ok: true,
+        failed: true,
+        // Not a kCropHarvestedZombieNotification: nothing was grown, so "harvest a
+        // zombie" objectives must not count it.
+        event: { type: "kZombieHarvestFailedNotification", subject: zombieNames.get(key) ?? key },
+      };
+    }
+    const id = makeId();
     const mutation = resolveCropMutations(zombieDefaultMutation(key), mutationCropKeys, {
       guaranteed: hasMutationMonolith(state),
       headless: rule?.group === "Headless",
@@ -707,19 +724,26 @@ function applyBulkFarm(
   // createdZombieSources — never by position, which two iteration orders would break.
   const createdIds: string[] = [];
   const createdZombieSources: { id: string; oc: number; or: number }[] = [];
+  const failedZombiePlots: { oc: number; or: number }[] = [];
   for (const command of commands) {
     const result = applyOne(state, { sequence, command }, options, events, created);
     if (result.status === "applied") {
       applied++;
       if (result.createdIds?.length) createdIds.push(...result.createdIds);
       if (result.createdZombieSources?.length) createdZombieSources.push(...result.createdZombieSources);
+      if (result.failedZombiePlots?.length) failedZombiePlots.push(...result.failedZombiePlots);
     } else {
       rejectedPlots++;
       firstError ||= result.error ?? "no_effect";
     }
   }
   if (!applied && rejectedPlots) return reject(sequence, firstError);
-  const grown = createdIds.length ? { createdIds, createdZombieSources } : {};
+  const grown = {
+    ...(createdIds.length ? { createdIds, createdZombieSources } : {}),
+    // Zombie crops that were harvested but failed to grow (Life Force): the client
+    // already showed a zombie optimistically and has to take it back.
+    ...(failedZombiePlots.length ? { failedZombiePlots } : {}),
+  };
   return rejectedPlots
     ? { sequence, status: "applied", ...grown, rejectedPlots, rejectedPlotError: firstError }
     : { sequence, status: "applied", ...grown };
@@ -824,7 +848,8 @@ function applyOne(
       events.push(harvest.event);
       const createdIds = created.slice(createdBefore);
       return { sequence, status: "applied", createdIds,
-        createdZombieSources: createdIds.map((id) => ({ id, oc: command.oc, or: command.or })) };
+        createdZombieSources: createdIds.map((id) => ({ id, oc: command.oc, or: command.or })),
+        ...(harvest.failed ? { failedZombiePlots: [{ oc: command.oc, or: command.or }] } : {}) };
     }
     case "farm.remove": {
       const key = plotKey(command.oc, command.or);
@@ -888,6 +913,7 @@ function applyOne(
       let effects = 0;
       const createdBefore = created.length;
       const createdZombieSources: { id: string; oc: number; or: number }[] = [];
+      const failedZombiePlots: { oc: number; or: number }[] = [];
       if (command.key === "insta_plow") {
         for (const [key, plot] of Object.entries(state.farm.plots)) {
           if (plot.state !== "spent") continue;
@@ -912,6 +938,7 @@ function applyOne(
           const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created,
             options.random, adjacentCropKeys(mutationPlots, oc, or));
           if (!harvest.ok) continue; // capacity-full zombie crops remain planted
+          if (harvest.failed) failedZombiePlots.push({ oc, or });
           // One sweep can pull dozens of favourite crops. Each rolls, but the first to
           // hit leaves an event running, and maybeLureEpicBoss refuses from then on —
           // so a field-wide Insta-Harvest can start one event, never a queue of them.
@@ -963,7 +990,9 @@ function applyOne(
       state.inventory[command.key] = have - 1;
       const createdIds = created.slice(createdBefore);
       return { sequence, status: "applied", createdIds,
-        ...(command.key === "insta_harvest" ? { createdZombieSources } : {}) };
+        ...(command.key === "insta_harvest"
+          ? { createdZombieSources, ...(failedZombiePlots.length ? { failedZombiePlots } : {}) }
+          : {}) };
     }
     case "object.buy": {
       const econ = objectEcon(command.catalogKey);

@@ -706,6 +706,7 @@ describe("protocol v3 command engine", () => {
 
   it("keeps all four zombie plots when Insta-Harvest has only two army slots", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30); // level 1: tier-1 zombies never fail, so the slots decide
     state.inventory.insta_harvest = 1;
     state.zombieMax = 2;
     state.farm.plots = {
@@ -912,6 +913,7 @@ describe("protocol v3 command engine", () => {
 
   it("stores a ripe zombie in the Mausoleum when the active army is full", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30); // level 1: the tier-1 harvest cannot fail
     state.zombieMax = 1;
     state.objects.objects.push({ instanceId: "mausoleum", catalogKey: "mausoleum3", status: "placed" });
     state.roster.push({ id: "active", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false });
@@ -1401,6 +1403,7 @@ describe("protocol v3 command engine", () => {
 
   it("consumes both active parent slots when a timed Pot starts", () => {
     const state = freshGameplayState();
+    giveLifeForce(state, 30); // level 1: the harvested tier-1 zombie cannot fail
     state.zombieMax = 2;
     state.roster = [
       { id: "a", key: "ZombieActorRegularTier1", mutation: 1, invasions: 0, stored: false },

@@ -109,7 +109,10 @@ export class JobSystem {
     // free Mausoleum slots. Read at three points — enqueue, arrival, and the instant
     // before the crop is consumed — because capacity moves under a queued harvest
     // (an earlier queued crop lands, a combine is collected, a raid party returns).
-    private zombieHarvestRoom: () => number = () => Number.POSITIVE_INFINITY
+    private zombieHarvestRoom: () => number = () => Number.POSITIVE_INFINITY,
+    // OFFLINE Life Force roll: true when this zombie crop fails to grow a zombie. Online
+    // the server rolls it and reports the failure back, so the callback says false there.
+    private zombieHarvestFails: (zombieKey: string) => boolean = () => false
   ) {}
 
   private key(kind: JobKind, oc: number, or: number) {
@@ -636,14 +639,17 @@ export class JobSystem {
       }
       const r = this.field.harvestAt(job.oc, job.or);
       if (r) {
-        this.onHarvestFx(r, job.cx, job.cy);
+        // Life Force: the harvest goes through (the crop is spent, the XP paid) but a
+        // zombie above the farm's level can fail to grow, so nothing is spawned.
+        const failed = !!r.zombieKey && this.zombieHarvestFails(r.zombieKey);
+        if (!failed) this.onHarvestFx(r, job.cx, job.cy);
         if (!r.zombieKey) r.sell = this.state.farmerHarvestGold(r.sell);
         const xp = harvestXp(r.xp, this.field.hasPlowFree());
         const online = !!this.state.onFarm;
         // Spawn the harvested zombie FIRST (if any) so an online harvest can hand the
         // server the exact verified unit id it should record. spawnVerified suppresses
         // the generic onGrant — the server grants the unit via this farm harvest instead.
-        const spawned = r.zombieKey
+        const spawned = r.zombieKey && !failed
           ? this.onZombieHarvest(r.zombieKey, job.oc, job.or, r.mutationContext!)
           : null;
 
@@ -669,20 +675,24 @@ export class JobSystem {
         // Zombie crops pay no gold — they yield an owned zombie unit instead.
         if (r.zombieKey) {
           this.float(job.cx, job.cy, `+${xp}xp`);
+          if (failed) this.float(job.cx, job.cy, "It didn't make it!", 0.42);
         } else {
           this.float(job.cx, job.cy, `+${r.sell}g${r.fertilized ? " ×2" : ""}`);
           if (xp) this.float(job.cx, job.cy, `+${xp}xp`, 0.42);
           if (bossToken) this.float(job.cx, job.cy, "+1 Boss Token!", xp ? 0.84 : 0.42);
         }
-        this.state.recordHarvest(r.key, !!r.zombieKey);
+        this.state.recordHarvest(r.key, !!r.zombieKey && !failed);
         // A harvested zombie "resurrects"; a plain crop gives the reward chime.
-        this.playSfx(r.isZombie ? "harvestZombie" : "xp");
-        this.quest.post(
-          r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested,
-          r.name,
-          1,
-          spawned?.subjectAliases
-        );
+        this.playSfx(failed ? "till" : r.isZombie ? "harvestZombie" : "xp");
+        // A failed zombie harvest grew nothing, so "harvest a zombie" must not count it.
+        if (!failed) {
+          this.quest.post(
+            r.isZombie ? QuestEvent.ZombieHarvested : QuestEvent.CropHarvested,
+            r.name,
+            1,
+            spawned?.subjectAliases
+          );
+        }
       }
     }
     return true;

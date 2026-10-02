@@ -159,6 +159,11 @@ describe("bulk farm commands", () => {
 
   it("pairs the zombies a bulk harvest grows to the plots they grew on", () => {
     const state = richFarm();
+    // Level 4 Life Force (150): no zombie in this field can fail to grow, so the pairing
+    // is the only thing under test.
+    for (let i = 0; i < 10; i++) {
+      state.objects.objects.push({ instanceId: `lf-${i}`, catalogKey: "gazeboNormal", status: "placed" });
+    }
     state.balance.brains = 500;
     state.balance.xp = 20_500; // level 25: every crop here is unlocked
     const planted = applyCommandBatch(state, commands(

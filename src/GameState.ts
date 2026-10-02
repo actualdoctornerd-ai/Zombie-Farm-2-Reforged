@@ -420,6 +420,15 @@ export class GameState {
     if (cropKey) this.stats.harvested[cropKey] = (this.stats.harvested[cropKey] ?? 0) + 1;
     if (zombieCrop) this.stats.zombiesGrown++;
   }
+  /** Take back the zombie a harvest was booked as growing: the server (or the offline
+   *  roll) found the harvest failed for lack of Life Force, so no zombie was made. */
+  unrecordZombieGrown(zombieKey: string) {
+    if (this.stats.zombiesGrown > 0) this.stats.zombiesGrown--;
+    const seen = this.zombieDiscovered[zombieKey] ?? 0;
+    if (seen > 1) this.zombieDiscovered[zombieKey] = seen - 1;
+    else delete this.zombieDiscovered[zombieKey];
+    this.emit();
+  }
   recordPlanted() { this.stats.planted++; }
   recordPlowed() { this.stats.plowed++; }
   recordTreeHarvest() { this.stats.treesHarvested++; }

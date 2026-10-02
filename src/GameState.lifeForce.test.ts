@@ -49,4 +49,27 @@ describe("GameState life force", () => {
     expect([1, 2, 3, 4].map((k) => s.abilitySlotUnlocked(k))).toEqual([true, true, true, true]);
     expect(s.lifeForceLevel).toBe(4);
   });
+
+  it("takes back the zombie a failed harvest had booked as grown and discovered", () => {
+    const s = new GameState();
+    s.recordHarvest("ZombieActorRegularTier1", true);
+    s.recordZombieDiscovered("ZombieActorRegularTier1", 0);
+    expect(s.stats.zombiesGrown).toBe(1);
+    expect(s.zombieDiscovered.ZombieActorRegularTier1).toBe(1);
+
+    s.unrecordZombieGrown("ZombieActorRegularTier1");
+    expect(s.stats.zombiesGrown).toBe(0);
+    expect(s.zombieDiscovered.ZombieActorRegularTier1).toBeUndefined();
+  });
+
+  it("only takes back one of several of the same species, and never goes below zero", () => {
+    const s = new GameState();
+    s.recordZombieDiscovered("ZombieActorRegularTier1", 0);
+    s.recordZombieDiscovered("ZombieActorRegularTier1", 0);
+    s.unrecordZombieGrown("ZombieActorRegularTier1");
+    expect(s.zombieDiscovered.ZombieActorRegularTier1).toBe(1);
+    s.unrecordZombieGrown("ZombieActorGardenTier1"); // never discovered: nothing to go negative
+    expect(s.stats.zombiesGrown).toBe(0);
+    expect(s.zombieDiscovered.ZombieActorGardenTier1).toBeUndefined();
+  });
 });

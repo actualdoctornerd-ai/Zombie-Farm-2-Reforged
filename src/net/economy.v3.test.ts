@@ -730,6 +730,37 @@ describe("v3 raid dependency ids", () => {
     expect(aliases).toEqual({ "server-a": "local-a", "server-b": "local-b" });
   });
 
+  it("reports the zombie crops the server harvested but did not grow, by plot", () => {
+    const economy = new EconomyClient(new GameState(), "lf-failed-harvest-account");
+    (economy as any).optimistic.set(9, {
+      gold: 0, brains: 0, xp: 0,
+      localZombieHarvests: [
+        { id: "local-a", oc: 1, or: 2 },
+        { id: "local-b", oc: 8, or: 4 },
+      ],
+    });
+    let failed: { id: string; oc: number; or: number }[] = [];
+    economy.onZombieHarvestFailed = (items) => { failed = items; };
+    const response: CommandBatchResponse = {
+      protocolVersion: 3, batchId: "lf", accountVersion: 1, writerGeneration: 1, serverTime: 1,
+      // Plot 8:4 grew a zombie; plot 1:2 failed for lack of Life Force.
+      results: [{ sequence: 9, status: "applied", createdIds: ["server-b"],
+        createdZombieSources: [{ id: "server-b", oc: 8, or: 4 }],
+        failedZombiePlots: [{ oc: 1, or: 2 }] }],
+      gameplay: {
+        balance: { gold: 0, brains: 0, xp: 0 }, farm: { version: 1, plots: {} },
+        objects: { version: 0, objects: [] }, quests: { version: 0, completed: [], progress: [] },
+        inventory: {}, storage: { received: {}, stored: {} }, roster: [], farmSize: 30,
+        climates: ["grass"], farmerHeads: [], farmerHeadId: 1, ownedPets: [], activePet: null,
+        penPets: [], zombieMax: 16, tutorialRewarded: false, raids: { progress: {}, lastRaidAt: 0 },
+      },
+      farmVersionBefore: 0, farmVersionAfter: 1, netDelta: { gold: 0, brains: 0, xp: 0 },
+      questChanges: [], createdZombieIds: ["server-b"],
+    };
+    (economy as any).adoptCommandResponse(response);
+    expect(failed).toEqual([{ id: "local-a", oc: 1, or: 2 }]);
+  });
+
   it("does not let an older batch overwrite a newer pending farm projection", () => {
     const economy = new EconomyClient(new GameState(), "pending-farm-account");
     (economy as any).commandsBySequence.set(2, {
