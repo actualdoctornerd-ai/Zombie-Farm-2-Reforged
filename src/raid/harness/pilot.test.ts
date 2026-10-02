@@ -40,7 +40,7 @@ function army(size = 16): CombatUnit[] {
     .slice(0, 6);
   const party = Array.from({ length: size }, (_, i) =>
     makeOwned(`z${i}`, pool[i % pool.length] as unknown as Parameters<typeof makeOwned>[1], 0, 0, 5, 0));
-  return buildPlayerUnits(party, { abilityUnlocked: () => true, playerLevel: 45 });
+  return buildPlayerUnits(party, { abilitySlotUnlocked: () => true, playerLevel: 45 });
 }
 
 /** Raids with something for each half of the ladder to do: the tutorial, a mid rung, the

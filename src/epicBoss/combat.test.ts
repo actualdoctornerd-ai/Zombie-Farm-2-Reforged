@@ -172,7 +172,7 @@ function line(front: string, backer = "Zomtar"): CombatUnit[] {
       makeOwned(`b${i}`, defByName(backer), 0, 0, 0, 0)),
   ];
   return buildPlayerUnits(owned, {
-    concentration: true, abilityUnlocked: () => true, playerLevel: 45,
+    concentration: true, abilitySlotUnlocked: () => true, playerLevel: 45,
   });
 }
 
@@ -211,7 +211,7 @@ function supportedTank(unlockLevel: number, healers = 2): CombatUnit[] {
       makeOwned(`b${i}`, defByName("Zomtar"), 0, 0, 5, FULL_MUTATIONS)),
   ];
   return buildPlayerUnits(owned, {
-    concentration: true, abilityUnlocked: () => true, playerLevel: 45,
+    concentration: true, abilitySlotUnlocked: () => true, playerLevel: 45,
   });
 }
 
@@ -225,7 +225,7 @@ function mutated(front: string, backer = "Zomtar"): CombatUnit[] {
       makeOwned(`b${i}`, defByName(backer), 0, 0, 0, 0)),
   ];
   return buildPlayerUnits(owned, {
-    concentration: true, abilityUnlocked: () => true, playerLevel: 45,
+    concentration: true, abilitySlotUnlocked: () => true, playerLevel: 45,
   });
 }
 
@@ -458,7 +458,7 @@ describe("an Epic Boss is drawn from its own folder, never the shared enemy art"
         },
         [],
         { farmer: {} } as never,
-        { level: 1, abilityUnlocked: () => true, farmerZombieStrengthMult: () => 1,
+        { level: 1, abilitySlotUnlocked: () => true, farmerZombieStrengthMult: () => 1,
           farmerZombieLifeMult: () => 1 } as never,
       );
       const bossUnit = units.enemyUnits.find((unit) => unit.isBoss)!;

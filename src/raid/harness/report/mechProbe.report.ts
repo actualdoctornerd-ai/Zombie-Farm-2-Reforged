@@ -12,7 +12,7 @@ import { flyFight, type Pilot } from "../pilot";
 import { EXPERT, makePilot } from "../pilots";
 import { harnessFight } from "../raidFight";
 import { makeOwned } from "../../../zombie/types";
-import { ABILITY_TIER, abilityTierOf, MAX_VET_RANK } from "../../../zombie/traits";
+import { MAX_VET_RANK } from "../../../zombie/traits";
 
 import { loadProdPools, prodPools, type ProdArmy } from "../prodGrid";
 const BY_KEY = new Map((zombiesJson as { key: string }[]).map((z) => [z.key, z]));
@@ -23,7 +23,7 @@ const SEEDS = 1;
 function unitsFor(army: ProdArmy, level: number) {
   return buildPlayerUnits(army.units.map((u, i) =>
     makeOwned(`z${i}`, BY_KEY.get(u[0]) as never, 0, 0, Math.min(u[2], MAX_VET_RANK), u[1])), {
-    abilityUnlocked: (key) => { const t = abilityTierOf(key); return t > 0 && t <= 4 && ABILITY_TIER[t].includes(key); },
+    abilitySlotUnlocked: (slot) => slot >= 1 && slot <= 4,
     playerLevel: level,
   });
 }

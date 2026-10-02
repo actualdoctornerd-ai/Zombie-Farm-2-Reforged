@@ -11,6 +11,7 @@
 // Every mode falls back to name, then id, so the order is total and re-rendering
 // the panel never reshuffles equal rows.
 import { STATS } from "./traits";
+import type { AbilitySlotGate } from "./abilities";
 import { statBreakdown, type StatSource } from "./statDisplay";
 
 export type ZombieSort = "default" | "str" | "dex" | "con" | "focus" | "invasions" | "name";
@@ -58,7 +59,7 @@ function byValueDesc<T extends SortableZombie>(rows: T[], value: (row: T) => num
 export function sortZombies<T extends SortableZombie>(
   roster: readonly T[],
   sort: ZombieSort,
-  abilityUnlocked: (key: string) => boolean
+  slotUnlocked: AbilitySlotGate
 ): T[] {
   const rows = [...roster];
   switch (sort) {
@@ -70,7 +71,7 @@ export function sortZombies<T extends SortableZombie>(
     case "dex":
     case "con":
     case "focus":
-      return byValueDesc(rows, (z) => statBreakdown(z, sort, abilityUnlocked).total);
+      return byValueDesc(rows, (z) => statBreakdown(z, sort, slotUnlocked).total);
     case "default":
     default:
       return rows; // creation order, exactly as the roster is held

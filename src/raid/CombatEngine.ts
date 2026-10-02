@@ -15,7 +15,7 @@
 import type { OwnedZombie } from "../zombie/types";
 import { veterancyMultiplier } from "../zombie/traits";
 import { mutationBonus } from "../zombie/mutations";
-import { activeAbilities, combatEffect } from "../zombie/abilities";
+import { activeAbilities, combatEffect, type AbilitySlotGate } from "../zombie/abilities";
 import { eliteEnemyStat, type EliteProfile } from "./eliteInvasion";
 import { weightedPopulation } from "./RaidCatalog";
 import {
@@ -146,9 +146,9 @@ export function focusFactor(focus: number, concentration: boolean): number {
  *   0. Player-level scale — the level-8→25 ramp, applied to the UNMUTATED base stat.
  *   1. Veterancy — +5%/rank from survived invasions (all stats).
  *   2. Its own unlocked ABILITIES (abilities.ts) — self buffs to damage / HP /
- *      speed / all-stats, gated exactly like the detail card (tier ≤ class rank
- *      AND that ability unlocked). Pass `abilityUnlocked` so combat matches the UI;
- *      omit it (tests) to run with abilities off.
+ *      speed / all-stats, gated exactly like the detail card (slot ≤ class rank
+ *      AND that slot working at the farm's Life Force level). Pass `abilitySlotUnlocked`
+ *      so combat matches the UI; omit it (tests) to run with abilities off.
  *   3. Original type-targeted auras — Chivalry buffs Girl zombies, Grace buffs
  *      Regular zombies, Protect reduces damage to non-Headless types, and
  *      Fortitude buffs Headless Life.
@@ -173,7 +173,7 @@ export function buildPlayerUnits(
   party: OwnedZombie[],
   opts: {
     concentration?: boolean;
-    abilityUnlocked?: (key: string) => boolean;
+    abilitySlotUnlocked?: AbilitySlotGate;
     /** Current player level. When given, str/con/dex are level-scaled per the
      *  binary's `modifyStatWithLevelScale:` (a zombie doesn't fight at full stats
      *  until level 25). Omit to fight at full base stats (tests / no-scale). */
@@ -182,15 +182,15 @@ export function buildPlayerUnits(
     farmerLifeMult?: number;
   } = {}
 ): CombatUnit[] {
-  // Abilities are off unless the caller supplies the per-ability unlock gate.
-  const abilityUnlocked = opts.abilityUnlocked ?? (() => false);
+  // Abilities are off unless the caller supplies the per-slot unlock gate.
+  const slotUnlocked = opts.abilitySlotUnlocked ?? (() => false);
   const conc = !!opts.concentration;
   const lvl = opts.playerLevel;
 
   // Resolve each unit's ability set once, then count the original group auras.
   // ZFActorFightEffect accumulates percentage changes additively.
   const rows = party.map((z) => {
-    const keys = activeAbilities(z, abilityUnlocked);
+    const keys = activeAbilities(z, slotUnlocked);
     return { z, keys, eff: combatEffect(keys) };
   });
   const auraCount = (key: string) => rows.filter((r) => r.keys.includes(key)).length;

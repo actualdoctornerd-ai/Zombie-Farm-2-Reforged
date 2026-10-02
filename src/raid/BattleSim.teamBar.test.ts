@@ -44,7 +44,7 @@ function auraParty(): CombatUnit[] {
       owned({ id: "girl1", key: "ZombieActorFemaleTier1", group: "Female" }),
       owned({ id: "girl2", key: "ZombieActorFemaleTier1", group: "Female" }),
     ],
-    { abilityUnlocked: () => true, playerLevel: 45 },
+    { abilitySlotUnlocked: () => true, playerLevel: 45 },
   );
 }
 

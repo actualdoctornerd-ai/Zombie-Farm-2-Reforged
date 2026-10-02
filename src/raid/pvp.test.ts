@@ -62,7 +62,7 @@ function army(size: number, power: number, idPrefix = "z"): CombatUnit[] {
   const party = Array.from({ length: size }, (_, i) =>
     makeOwned(`${idPrefix}${i}`, pool[i % pool.length] as Parameters<typeof makeOwned>[1], 0, 0, 3, 0)
   );
-  return buildPlayerUnits(party, { concentration: true, abilityUnlocked: () => true, playerLevel: 30 });
+  return buildPlayerUnits(party, { concentration: true, abilitySlotUnlocked: () => true, playerLevel: 30 });
 }
 
 describe("toDefenseUnits", () => {
@@ -180,7 +180,7 @@ describe("group tiers read the ACTUAL fight stats — owner's calibration rules"
   const buildGroup = (keys: string[], level: number, mask = 0) =>
     buildPlayerUnits(
       keys.map((k, i) => makeOwned(`u${i}`, defOf(k), 0, 0, 0, mask)),
-      { concentration: true, abilityUnlocked: () => true, playerLevel: level }
+      { concentration: true, abilitySlotUnlocked: () => true, playerLevel: level }
     );
   const tierOf = (units: CombatUnit[], base = PVP_DEFENSE_CAP) =>
     pvpTierForPoints(groupTierPoints(units, base));
@@ -247,8 +247,8 @@ describe("a Garden zombie only stations when it can actually support (ruleset v4
   it("keeps isGarden only for units carrying a healing-type ability", () => {
     const def = zombieDefs.find((z) => z.group === "Garden")!;
     const party = [makeOwned("g", def as unknown as Parameters<typeof makeOwned>[1], 0, 0, 0, 0)];
-    const locked = buildPlayerUnits(party, { abilityUnlocked: () => false });
-    const unlocked = buildPlayerUnits(party, { abilityUnlocked: () => true });
+    const locked = buildPlayerUnits(party, { abilitySlotUnlocked: () => false });
+    const unlocked = buildPlayerUnits(party, { abilitySlotUnlocked: () => true });
     expect(locked[0].isGarden).toBe(false); // no heal yet — it fights in the line
     expect(unlocked[0].isGarden).toBe(true); // a real healer keeps the station
     expect(locked[0].group).toBe("Garden"); // the body type itself is untouched
@@ -264,7 +264,7 @@ describe("formation defense mode", () => {
   ];
   const build = (keys: string[], prefix: string, unlocked = true) => buildPlayerUnits(
     keys.map((k, i) => makeOwned(`${prefix}${i}`, defOf(k), 0, 0, 0, 0)),
-    { concentration: true, abilityUnlocked: () => unlocked, playerLevel: 30 }
+    { concentration: true, abilitySlotUnlocked: () => unlocked, playerLevel: 30 }
   );
   const formation = (unlocked = true) =>
     formationDefenseUnits(selectFormationDefense(build(ONE_PER_CLASS, "d", unlocked)));
@@ -701,7 +701,7 @@ describe("formation defense mode", () => {
           con: (base.con as number) * power } as unknown as Parameters<typeof makeOwned>[1],
           0, 0, 0, 0);
       }),
-      { concentration: true, abilityUnlocked: () => true, playerLevel: 30 }
+      { concentration: true, abilitySlotUnlocked: () => true, playerLevel: 30 }
     );
     const attackerWins = (defPower: number) => {
       const defense = formationDefenseUnits(selectFormationDefense(scaled(ONE_PER_CLASS, defPower, "d")));

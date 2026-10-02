@@ -834,6 +834,9 @@ export const raidStart = (
     /** Server-pinned 1/3/5 brain award. It is visualized during combat but is
      * credited only if raidFinish verifies a boss-defeating win. */
     brainDrop?: number;
+    /** The Life Force level the server opened this fight's ability slots with. The client
+     *  fights with the same number so both simulations agree on which abilities work. */
+    lifeForceLevel?: number;
     concentration?: boolean;
     /** Whether the server actually charged a Brain Ticket and pinned this session as an
      *  ELITE invasion. The client MUST adopt this rather than its own request: the pinned
@@ -1186,6 +1189,9 @@ export const epicBossStart = (
   inventory?: Record<string, number>;
   /** True when this re-entered an already-open session instead of opening one. */
   resumed?: boolean;
+  /** The Life Force level the session's ability slots were pinned with (resumes echo the
+   *  pinned one). Absent on a session opened before slots followed Life Force. */
+  lifeForceLevel?: number;
 }>("POST", "/epic-boss/start", {
   orderedUnitIds, payment, rulesetVersion: RAID_RULESET_VERSION,
   ...(concentration ? { concentration: true } : {}),

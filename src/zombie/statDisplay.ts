@@ -21,7 +21,9 @@
 // Type-only where the import IS a type: prefs -> rosterSort -> here drags this module
 // into the Worker's compile graph, and the server tsconfig runs verbatimModuleSyntax.
 import { STATS, displayStat, veterancyMultiplier, veterancy, ABILITY_POOL, type StatMeta } from "./traits";
-import { ABILITY_KIND, ABILITY_COMBAT, activeAbilities, type AbilityCombatEffect } from "./abilities";
+import {
+  ABILITY_KIND, ABILITY_COMBAT, activeAbilities, type AbilityCombatEffect, type AbilitySlotGate,
+} from "./abilities";
 import { mutationBonus } from "./mutations";
 
 /** The minimum a zombie must carry to resolve its displayed stats. */
@@ -66,12 +68,12 @@ function affectsSelfStat(e: AbilityCombatEffect): boolean {
 
 /** The zombie's active, always-on, self-affecting stat abilities — the SAME gated set
  *  the detail card / CombatEngine use, minus team buffs, activated moves, and abilities
- *  whose only effect is army-wide. `abilityUnlocked` gates by beaten-boss tier. */
+ *  whose only effect is army-wide. `slotUnlocked` gates by the farm's Life Force level. */
 export function selfStatAbilities(
   z: Pick<StatSource, "key" | "group" | "className">,
-  abilityUnlocked: (key: string) => boolean
+  slotUnlocked: AbilitySlotGate
 ): string[] {
-  return activeAbilities(z, abilityUnlocked).filter(
+  return activeAbilities(z, slotUnlocked).filter(
     (k) => ABILITY_KIND[k] === "self" && affectsSelfStat(ABILITY_COMBAT[k] ?? {})
   );
 }
@@ -98,13 +100,13 @@ function rawStat(z: StatSource, stat: StatMeta["key"]): number {
 export function statBreakdown(
   z: StatSource,
   stat: StatMeta["key"],
-  abilityUnlocked: (key: string) => boolean
+  slotUnlocked: AbilitySlotGate
 ): StatBreakdown {
   const raw = rawStat(z, stat); // already includes the mutation bonus (makeOwned)
   const mut = stat === "focus" ? 0 : mutationBonus(z.mutation)[stat as "str" | "con" | "dex"];
   const baseRaw = raw - mut;
   const v = veterancyMultiplier(z.invasions);
-  const abilities = selfStatAbilities(z, abilityUnlocked);
+  const abilities = selfStatAbilities(z, slotUnlocked);
 
   // Mutations are the LAST link of the source's stat chain (see buildPlayerUnits), so
   // the percentage modifiers compound on the UNMUTATED stat and the flat mutation bonus
@@ -226,9 +228,9 @@ export function describeMutationGains(gains: MutationDisplayGain[]): string | un
  *  that show the numbers without the hover breakdown (e.g. the compact army list). */
 export function displayTotals(
   z: StatSource,
-  abilityUnlocked: (key: string) => boolean
+  slotUnlocked: AbilitySlotGate
 ): Record<StatMeta["key"], number> {
   const out = {} as Record<StatMeta["key"], number>;
-  for (const k of STAT_KEYS) out[k] = statBreakdown(z, k, abilityUnlocked).total;
+  for (const k of STAT_KEYS) out[k] = statBreakdown(z, k, slotUnlocked).total;
   return out;
 }

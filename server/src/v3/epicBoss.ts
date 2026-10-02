@@ -12,7 +12,8 @@ import { buildFight } from "../../../src/raid/buildFight";
 import { replayRaid, type RaidReplayInput } from "../../../src/raid/replay";
 import type { CombatUnit } from "../../../src/raid/types";
 import { makeOwned } from "../../../src/zombie/types";
-import { ABILITY_TIER, abilityTierOf } from "../../../src/zombie/traits";
+import { abilitySlotUnlocked } from "../../../src/lifeForce";
+import { loadLifeForceLevel } from "../raidVerifier";
 import { activeBonusHeadId, farmerMultiplier } from "../../../src/farmer";
 import { levelForXp } from "../levels";
 import { EPIC_LOOT_DROP_CHANCE, EPIC_LOOT_ROLLS, epicBrainTicketChance, epicBossCurrencyReward, epicLootWeight, epicQuestZombieReward, reopenEpicQuests, shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
@@ -45,6 +46,10 @@ interface EpicCombatConfig {
    *  claim a charge pace it never paid for. Absent on sessions opened before the boost
    *  reached epic bosses, which read as `false` and replay exactly as they always did. */
   concentration?: boolean;
+  /** The Life Force level the player units were built with (ability slot k works from level
+   *  k). Echoed to the client at start so it fights with the same abilities. Absent on
+   *  sessions opened before ability slots followed Life Force. */
+  lifeForceLevel?: number;
 }
 const zombies = new Map((zombieRows as Array<{key:string}>).map((z) => [z.key, z]));
 const objectArmyCapacity = new Map((objectRows as Array<{key:string;armyMax?:number}>).map((o) => [o.key, o.armyMax ?? 0]));
@@ -233,7 +238,7 @@ export async function start(
   if (rulesetVersion !== RAID_RULESET_VERSION) {
     return { status: 426, body: { error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
   }
-  const [row, raid, epic, roster, balance, coreRow, raidState] = await Promise.all([
+  const [row, raid, epic, roster, balance, coreRow, lifeForce] = await Promise.all([
     db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=?").bind(accountId).first<RunRow>().then(clampRun),
     db.prepare("SELECT id FROM raid_sessions_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     db.prepare("SELECT * FROM epic_boss_sessions_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<SessionRow>(),
@@ -242,7 +247,7 @@ export async function start(
       .all<{ unit_id: string; zombie_key: string; mutation: number; invasions: number }>(),
     db.prepare("SELECT gold,brains,xp FROM balances WHERE account_id=?").bind(accountId).first<{gold:number;brains:number;xp:number}>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").bind(accountId).first<{current_json:string}>(),
-    db.prepare("SELECT progress_json FROM raid_state_v3 WHERE account_id=?").bind(accountId).first<{progress_json:string}>(),
+    loadLifeForceLevel(db, accountId),
   ]);
   if (!row || row.completed_at || row.expires_at <= now) return { status: 409, body: { error: "inactive" } };
   const def = defFor(row.boss_id);
@@ -259,7 +264,9 @@ export async function start(
       const resumedConfig = parse<EpicCombatConfig | null>(epic.config_json, null);
       return { status: 200, body: { ok: true, resumed: true, sessionId: epic.id,
         event: projectRun(row), balance, expiresAt: epic.expires_at,
-        concentration: resumedConfig?.concentration === true } };
+        concentration: resumedConfig?.concentration === true,
+        // The level the resumed fight was pinned with (absent on an older session).
+        ...(resumedConfig?.lifeForceLevel != null ? { lifeForceLevel: resumedConfig.lifeForceLevel } : {}) } };
     }
     return { status: 409, body: { error: "battle_in_progress" } };
   }
@@ -278,15 +285,9 @@ export async function start(
   const sessionId = crypto.randomUUID();
   const encounterStartedAt = row.encounter_started_at || now;
   const expiresAt = Math.min(row.expires_at + def.fightMs, now + 2 * 60_000);
-  if (!balance || !coreRow || !raidState) return { status: 409, body: { error: "state_conflict" } };
+  if (!balance || !coreRow) return { status: 409, body: { error: "state_conflict" } };
   const byId = new Map((roster.results ?? []).map((unit) => [unit.unit_id, unit]));
   const core = parse<CoreState>(coreRow.current_json, { inventory:{},storage:{received:{},stored:{}},ownedPets:[],zombieMax:16 });
-  const wins = parse<Record<string,number>>(raidState.progress_json, {});
-  const abilityUnlocked = (key: string) => {
-    const tier = abilityTierOf(key), pool = ABILITY_TIER[tier] ?? [];
-    const index = pool.indexOf(key);
-    return index >= 0 && index < Math.min(pool.length, wins[String(tier)] ?? 0);
-  };
   const party = ids.map((id) => {
     const unit = byId.get(id)!;
     return makeOwned(id, zombies.get(unit.zombie_key)! as Parameters<typeof makeOwned>[1], 0, 0, unit.invasions, unit.mutation);
@@ -294,7 +295,8 @@ export async function start(
   // The head supplying bonuses is the pinned one, else whatever is being worn.
   const bonusHead = activeBonusHeadId(Number(core.farmerHeadId ?? 1), core.farmerBonusHeadId);
   const playerUnits = buildPlayerUnits(party, {
-    concentration: true, abilityUnlocked, playerLevel: levelForXp(balance.xp),
+    concentration: true, abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForce),
+    playerLevel: levelForXp(balance.xp),
     farmerStrengthMult: farmerMultiplier(bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
   });
@@ -318,6 +320,7 @@ export async function start(
   const config: EpicCombatConfig = {
     rulesetVersion: RAID_RULESET_VERSION, playerUnits, enemyUnits:[boss],
     ...(concentration ? { concentration: true } : {}),
+    lifeForceLevel: lifeForce,
   };
   const statements: D1PreparedStatement[] = [
     db.prepare(`INSERT INTO epic_boss_sessions_v3
@@ -359,6 +362,7 @@ export async function start(
   }, balance, expiresAt,
     // Echoed so the client adopts the debited stock rather than guessing at it, the
     // same handshake /raid/start uses. Only sent when a boost was actually spent.
+    lifeForceLevel: lifeForce,
     ...(concentration ? { concentration: true, inventory: core.inventory } : {}) } };
 }
 

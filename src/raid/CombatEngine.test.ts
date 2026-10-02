@@ -258,8 +258,8 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
   it("Chivalry buffs Girl stats but not its Regular carrier", () => {
     const girl = owned("girl", "Female", "Green");
     const carrier = owned("knight", "Regular", "Blue");
-    const solo = buildPlayerUnits([girl], { abilityUnlocked: unlocked })[0];
-    const [buffed, regular] = buildPlayerUnits([girl, carrier], { abilityUnlocked: unlocked });
+    const solo = buildPlayerUnits([girl], { abilitySlotUnlocked: unlocked })[0];
+    const [buffed, regular] = buildPlayerUnits([girl, carrier], { abilitySlotUnlocked: unlocked });
     expect(buffed.str).toBeCloseTo(solo.str * 1.10);
     expect(buffed.dex).toBeCloseTo(solo.dex * 1.10);
     expect(buffed.maxHp).toBeCloseTo(solo.maxHp * 1.10);
@@ -269,8 +269,8 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
   it("Grace buffs Regular zombies", () => {
     const regular = owned("regular", "Regular", "Green");
     const carrier = owned("grace", "Female", "Blue");
-    const solo = buildPlayerUnits([regular], { abilityUnlocked: unlocked })[0];
-    const [buffed] = buildPlayerUnits([regular, carrier], { abilityUnlocked: unlocked });
+    const solo = buildPlayerUnits([regular], { abilitySlotUnlocked: unlocked })[0];
+    const [buffed] = buildPlayerUnits([regular, carrier], { abilitySlotUnlocked: unlocked });
     expect(buffed.str).toBeCloseTo(solo.str * 1.10);
     expect(buffed.dex).toBeCloseTo(solo.dex * 1.10);
     expect(buffed.maxHp).toBeCloseTo(solo.maxHp * 1.10);
@@ -283,10 +283,10 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
     const regular = owned("regular", "Regular", "Green");
     const graceA = owned("grace-a", "Female", "Blue");
     const graceB = owned("grace-b", "Female", "Blue");
-    const girlSolo = buildPlayerUnits([girl], { abilityUnlocked: unlocked })[0];
-    const regularSolo = buildPlayerUnits([regular], { abilityUnlocked: unlocked })[0];
-    const [buffedGirl] = buildPlayerUnits([girl, knightA, knightB], { abilityUnlocked: unlocked });
-    const [buffedRegular] = buildPlayerUnits([regular, graceA, graceB], { abilityUnlocked: unlocked });
+    const girlSolo = buildPlayerUnits([girl], { abilitySlotUnlocked: unlocked })[0];
+    const regularSolo = buildPlayerUnits([regular], { abilitySlotUnlocked: unlocked })[0];
+    const [buffedGirl] = buildPlayerUnits([girl, knightA, knightB], { abilitySlotUnlocked: unlocked });
+    const [buffedRegular] = buildPlayerUnits([regular, graceA, graceB], { abilitySlotUnlocked: unlocked });
     expect(buffedGirl.str).toBeCloseTo(girlSolo.str * 1.20);
     expect(buffedGirl.dex).toBeCloseTo(girlSolo.dex * 1.20);
     expect(buffedGirl.maxHp).toBeCloseTo(girlSolo.maxHp * 1.20);
@@ -303,14 +303,14 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
     // zombie gives the OTHERS, so one carrier alone is still worth nothing to itself.
     const regular = owned("regular", "Regular", "Green");
     const headless = owned("protector", "Headless", "Blue");
-    const one = buildPlayerUnits([regular, headless], { abilityUnlocked: unlocked });
+    const one = buildPlayerUnits([regular, headless], { abilitySlotUnlocked: unlocked });
     expect(one[0].damageReduction).toBeCloseTo(0.20); // shielded by the carrier
     expect(one[1].damageReduction).toBe(0); // …which does not shield itself
 
     // A second carrier shields the first — the case the old exclusion could never reach.
     const built = buildPlayerUnits(
       [regular, headless, owned("protector-2", "Headless", "Blue")],
-      { abilityUnlocked: unlocked }
+      { abilitySlotUnlocked: unlocked }
     );
     expect(built[0].damageReduction).toBeCloseTo(0.40); // both carriers
     expect(built[1].damageReduction).toBeCloseTo(0.20); // the other one
@@ -321,15 +321,15 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
     const regular = owned("regular", "Regular", "Green");
     const protectA = owned("protector-a", "Headless", "Blue");
     const protectB = owned("protector-b", "Headless", "Blue");
-    const [buffed] = buildPlayerUnits([regular, protectA, protectB], { abilityUnlocked: unlocked });
+    const [buffed] = buildPlayerUnits([regular, protectA, protectB], { abilitySlotUnlocked: unlocked });
     expect(buffed.damageReduction).toBeCloseTo(0.40);
   });
 
   it("Fortitude gives Headless zombies 10% Life", () => {
     const headless = owned("headless", "Headless", "Green");
     const garden = owned("garden", "Garden", "Blue");
-    const solo = buildPlayerUnits([headless], { abilityUnlocked: unlocked })[0];
-    const [buffed] = buildPlayerUnits([headless, garden], { abilityUnlocked: unlocked });
+    const solo = buildPlayerUnits([headless], { abilitySlotUnlocked: unlocked })[0];
+    const [buffed] = buildPlayerUnits([headless, garden], { abilitySlotUnlocked: unlocked });
     expect(buffed.maxHp).toBeCloseTo(solo.maxHp * 1.10);
   });
 
@@ -337,16 +337,16 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
     const headless = owned("headless", "Headless", "Green");
     const gardenA = owned("garden-a", "Garden", "Blue");
     const gardenB = owned("garden-b", "Garden", "Blue");
-    const solo = buildPlayerUnits([headless], { abilityUnlocked: unlocked })[0];
-    const [buffed] = buildPlayerUnits([headless, gardenA, gardenB], { abilityUnlocked: unlocked });
+    const solo = buildPlayerUnits([headless], { abilitySlotUnlocked: unlocked })[0];
+    const [buffed] = buildPlayerUnits([headless, gardenA, gardenB], { abilitySlotUnlocked: unlocked });
     expect(buffed.maxHp).toBeCloseTo(solo.maxHp * 1.20);
   });
 
   it("Turbo doubles walking only, without changing DEX or attack cadence", () => {
     const turbo = owned("turbo", "Headless", "Red");
     const base = owned("base", "Headless", "Green");
-    const [fast] = buildPlayerUnits([turbo], { abilityUnlocked: unlocked });
-    const [normal] = buildPlayerUnits([base], { abilityUnlocked: unlocked });
+    const [fast] = buildPlayerUnits([turbo], { abilitySlotUnlocked: unlocked });
+    const [normal] = buildPlayerUnits([base], { abilitySlotUnlocked: unlocked });
     expect(fast.dex).toBeCloseTo(normal.dex);
     expect(fast.attackCooldownMs).toBeCloseTo(normal.attackCooldownMs);
     expect(fast.walkingSpeedMult).toBe(2);

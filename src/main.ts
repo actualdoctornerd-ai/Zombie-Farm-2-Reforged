@@ -10,7 +10,9 @@ import { pickPiece, type PathSpec, type RoadSpec, type SceneryPiece, type Skylin
 import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
 import { armyCapacityOf, BASE_ARMY_MAX } from "./armyCapacity";
-import { cropMutationChance, farmLifeForce, harvestFails, zombieHarvestTier } from "./lifeForce";
+import {
+  abilitySlotUnlocked, cropMutationChance, farmLifeForce, harvestFails, zombieHarvestTier,
+} from "./lifeForce";
 import { shedCapacityOf } from "./shedCapacity";
 import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
@@ -4984,6 +4986,8 @@ async function main() {
     const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
     let party: ReturnType<typeof zombies.roster> = [];
     let epicSessionId: string | null = null;
+    // ONLINE: the Life Force level the server pinned the fight with (see epicBossStart).
+    let epicLifeForceLevel: number | undefined;
     // Concentration on an epic fight. The epic shape already runs with no butterflies,
     // so what the boost buys here is the auto-release: the brain bubble fills and goes
     // on its own. Re-checked against the real stock rather than trusted from the
@@ -5012,6 +5016,7 @@ async function main() {
         if (!party.length) return false;
         const opened = await api.epicBossStart(partyIds, payment, spendConcentration);
         epicSessionId = opened.sessionId;
+        epicLifeForceLevel = opened.lifeForceLevel;
         // The server is authoritative about this, not the toggle: re-entering a live
         // session adopts the fight ALREADY pinned to it, which may have been paid for
         // on an earlier launch. Simulating at a different charge pace than the verifier
@@ -5062,7 +5067,14 @@ async function main() {
       }
     }
     const paidRun = state.epicBossRun ?? gate.run;
-    const setup = buildEpicBossSetup(def, paidRun, party, assets, state);
+    // Online, fight with the Life Force level the server pinned; its replay opens the same
+    // ability slots. Offline the farm's own level decides.
+    const setup = buildEpicBossSetup(def, paidRun, party, assets, epicLifeForceLevel == null ? state : {
+      level: state.level,
+      abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, epicLifeForceLevel!),
+      farmerZombieStrengthMult: () => state.farmerZombieStrengthMult(),
+      farmerZombieLifeMult: () => state.farmerZombieLifeMult(),
+    });
     pauseFarmJobs();
     raidActive = true;
     world.visible = false;
@@ -5158,7 +5170,7 @@ async function main() {
           // An epic-boss rung pays no XP at all (prizes and currency only), so the
           // first-clear flag has nothing to label — the XP row never renders.
           gold: currency.gold, brains: currency.brains, xp: 0, firstClear: false,
-          loot: drops, abilityUnlock: "",
+          loot: drops,
         };
         hud.openRaidResult(view, () => {
           if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
@@ -5332,7 +5344,6 @@ async function main() {
             zombiesLost: 0,
             gold: 0, brains: 0, xp: 0, firstClear: false,
             loot: [],
-            abilityUnlock: "",
           };
           hud.openRaidResult(view, () => {
             if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
@@ -5366,7 +5377,6 @@ async function main() {
               icon: `${BASE}assets/boosts/${boostDefOf(r.key)?.icon ?? `${r.key}.png`}`,
               qty: r.qty,
             })),
-            abilityUnlock: "",
           };
           hud.openRaidResult(view, () => {
             if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
@@ -5752,6 +5762,8 @@ async function main() {
           bypassed: !!gate.bypassed,
           serverDice: gate.dice ?? 0,
           serverBrainDrop: gate.brainDrop ?? 0,
+          // The server opened the pinned fight's ability slots with this Life Force level.
+          serverLifeForceLevel: gate.lifeForceLevel,
           serverElite: !!gate.elite,
           // The server pinned its wave from this same id, so a raid with per-fight
           // randomness (the Robots' random boss) resolves identically on both sides.

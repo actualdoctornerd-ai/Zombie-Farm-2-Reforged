@@ -45,7 +45,7 @@ import type {
   BossSpecial, BossThrowConfig, BossThrowOption, CombatUnit, RaidDef, RaidStage,
 } from "../raid/types";
 import { ABILITY_KIND } from "../zombie/abilities";
-import { abilityTierOf, ABILITY_POOL, ABILITY_TIER } from "../zombie/traits";
+import { ABILITY_POOL, ABILITY_TIER } from "../zombie/traits";
 import { makeOwned } from "../zombie/types";
 import { bestMutationMask, bestMutationSummary } from "./bestMutations";
 
@@ -214,13 +214,13 @@ function party() {
   return out;
 }
 
-/** The game's unlock gate, driven by the Tiers slider rather than by raid wins. */
-const unlocked = (key: string) => abilityTierOf(key) <= state.tierCap;
+/** The game's unlock gate, driven by the Tiers slider rather than by Life Force. */
+const unlocked = (slot: number) => slot <= state.tierCap;
 
 function playerUnits(): CombatUnit[] {
   const units = buildPlayerUnits(party(), {
     concentration: state.concentration,
-    abilityUnlocked: unlocked,
+    abilitySlotUnlocked: unlocked,
     playerLevel: state.level,
   });
   // The granted set is ADDITIVE and applied after the build, so it changes what the sim
@@ -315,7 +315,7 @@ function epicParams(def: EpicBossDef): RaidSceneParams {
   };
   const setup = buildEpicBossSetup(def, run, party(), assets, {
     level: state.level,
-    abilityUnlocked: unlocked,
+    abilitySlotUnlocked: unlocked,
     farmerZombieStrengthMult: () => 1,
     farmerZombieLifeMult: () => 1,
   });

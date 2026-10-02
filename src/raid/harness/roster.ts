@@ -25,7 +25,7 @@
 import zombiesJson from "../../../public/assets/zombies.json";
 import { bestMutationMask } from "../../devtools/bestMutations";
 import { buildPlayerUnits } from "../CombatEngine";
-import { ABILITY_TIER, abilityTierOf, MAX_VET_RANK } from "../../zombie/traits";
+import { MAX_VET_RANK } from "../../zombie/traits";
 import raidsJson from "../../../public/assets/raids/raids.json";
 import { activeAbilities } from "../../zombie/abilities";
 import { epicBossUnlockLevel, EPIC_BOSSES } from "../../epicBoss/catalog";
@@ -431,10 +431,7 @@ export function buildRoster(spec: RosterSpec): Roster {
 
   const tiers = spec.abilityTiers ?? 4;
   const units = buildPlayerUnits(party, {
-    abilityUnlocked: (key) => {
-      const tier = abilityTierOf(key);
-      return tier > 0 && tier <= tiers && ABILITY_TIER[tier].includes(key);
-    },
+    abilitySlotUnlocked: (slot) => slot <= tiers,
     playerLevel: spec.playerLevel ?? 45,
     farmerStrengthMult: spec.farmerStrengthMult,
     farmerLifeMult: spec.farmerLifeMult,
@@ -486,10 +483,7 @@ export function buildExplicit(species: readonly string[], account: AccountSpec =
 
   const tiers = account.abilityTiers ?? 4;
   const units = buildPlayerUnits(party, {
-    abilityUnlocked: (key) => {
-      const tier = abilityTierOf(key);
-      return tier > 0 && tier <= tiers && ABILITY_TIER[tier].includes(key);
-    },
+    abilitySlotUnlocked: (slot) => slot <= tiers,
     playerLevel: account.playerLevel ?? 45,
     farmerStrengthMult: account.farmerStrengthMult,
     farmerLifeMult: account.farmerLifeMult,

@@ -129,13 +129,12 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
 // ---------------------------------------------------------------------------
 // Ability tiers (t1-t4) — the REAL game structure (user-supplied, 2026-07-06)
 // ---------------------------------------------------------------------------
-// Each tier is gated behind an invasion boss: beating that tier's boss (winning
-// its raid) unlocks the whole tier GLOBALLY, so every zombie whose colour class
-// reaches that tier can use its group's ability there (Green=t1, Blue=t1-2,
-// Red=t1-3, Silver/"Combined"+ = t1-4). Which ability a unit gets at each tier is
-// fixed by its group (GROUP_ABILITIES), not random. A locked tier shows a padlock
-// + "Defeat <boss> to unlock". (The game also had a Life Force requirement per
-// tier, but that mechanic is intentionally dropped.)
+// A zombie shows its group's ability for slots 1..(its colour-class rank): Green=1,
+// Blue=1-2, Red=1-3, Silver/"Combined"+ = 1-4. Which ability a unit gets in each slot is
+// fixed by its group (GROUP_ABILITIES), not random. A slot works from the farm's Life Force
+// level (slot k from level k, lifeForce.ts abilitySlotUnlocked); a locked slot shows a
+// padlock naming the Life Force it needs. This REPLACED the original "beat the tier's
+// invasion boss" gate (ruleset 70) — TIER_BOSS below is now only the tier's boss name.
 
 /** Which invasion boss must be beaten (its raid won) to unlock a tier's pool. */
 export const TIER_BOSS: Record<number, string> = {
@@ -192,8 +191,8 @@ export function groupAbilityAt(group: string, tier: number): string | null {
 // and the sim all read the same four keys:
 //   - Dr. Zombie / Omega Dr. Zombie are GARDEN healers whose tier-3 move is Laser Beam
 //     Ver.2 instead of Resurrect. It is a TIER-4 ability sitting in the tier-3 slot, so
-//     it unlocks with the Ninjas (abilityUnlocked keys off the ability's own tier), and
-//     the card's padlock names that boss (abilityTierOf), not the slot's. In the sim a
+//     it opens with that SLOT, at Life Force level 3 (the gate is the slot, not the
+//     ability's own tier, abilityTierOf). In the sim a
 //     Garden fires its laser from the support station while it heals, but only while
 //     another zombie is ahead of it (BattleSim.zombieAhead) — see replay.ts v50.
 //   - Zombie Bot / Omega Zombie Bot are HEADLESS with Laser Beam in place of Turbo.
@@ -224,10 +223,9 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   // different art. Each entry below moves ONE scarce ability onto a body that cannot
   // normally hold it, which is what the 50-51 reclass did and what players liked.
   //
-  // Remember a slot does NOT set the unlock: `abilityUnlocked` keys off the ability's
-  // own tier (abilityTierOf), so a tier-2 ability parked in the tier-3 slot unlocks
-  // with the Lawyers. Every ladder here was checked to be NON-DECREASING across its
-  // four slots, so no card shows a padlock ladder that runs backwards; the test
+  // The gate is the SLOT (Life Force level k opens slot k), not the ability's own tier
+  // (abilityTierOf), so a tier-2 ability parked in the tier-3 slot opens with slot 3.
+  // Slots open in order, so no card can show a padlock ladder that runs backwards;
   // `specialAbilities.test.ts` pins that for the whole table.
   //
   //   - Captain / Admiral are a LINE COMMANDER: a plain body carrying four stacking

@@ -1233,7 +1233,17 @@ import type { RaidOutcome } from "./types";
 // from v67; an army with its Gardens last is unchanged.
 // v69: Dr. Zombie 14/2.4/22 -> 11/2.0/18 and Omega Dr. Zombie 15/2.65/25 -> 12/2.2/20 (x0.8 str and con, dex down,
 // owner 2026-10-01: "a bit strong"). Any fight fielding either Doctor replays differently from v68.
-export const RAID_RULESET_VERSION = 69;
+// v70 — ABILITY SLOTS FOLLOW LIFE FORCE (owner, 2026-10-02).
+//
+// A zombie's ability slot k now works when the farm's Life Force level is at least k; beating
+// the matching invasion boss no longer unlocks anything. The gate is the SLOT, not the
+// ability's own tier. The server derives the level from the objects it holds as placed, pins
+// the resulting abilities into the fight's player units, and hands the same level to the
+// client at /raid/start and /epic-boss/start, so both simulations open the same slots.
+//
+// Any fight whose army carried an ability replays differently from v69 unless the farm's
+// Life Force level happens to open exactly the slots the old boss wins had.
+export const RAID_RULESET_VERSION = 70;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

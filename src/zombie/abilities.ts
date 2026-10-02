@@ -154,19 +154,23 @@ export const ABILITY_COMBAT: Record<string, AbilityCombatEffect> = {
   healAOE: {},
 };
 
+/** Does ability slot `slot` (1..4: a zombie's colour-class tiers) work? Decided by the
+ *  farm's Life Force level (lifeForce.ts abilitySlotUnlocked): slot k works from level k.
+ *  The gate is the SLOT, never the ability's own tier. */
+export type AbilitySlotGate = (slot: number) => boolean;
+
 /** The gated, currently-active ability keys for one owned zombie — the SAME set
- *  the detail card shows: for each tier up to its class rank, the tier's ability
- *  applies only if that specific ability has been unlocked (its tier's invasion
- *  boss beaten enough times to reach it — see GameState.abilityUnlocked). */
+ *  the detail card shows: for each ability slot up to its class rank, the slot's
+ *  ability applies only if that slot works at the farm's Life Force level. */
 export function activeAbilities(
   z: Pick<OwnedZombie, "key" | "group" | "className">,
-  abilityUnlocked: (key: string) => boolean
+  slotUnlocked: AbilitySlotGate
 ): string[] {
   const rank = Math.min(MAX_ABILITY_TIER, classTierRank(z.className));
   const out: string[] = [];
   for (let t = 1; t <= rank; t++) {
     const key = unitAbilityAt(z.key, z.group, t);
-    if (key && abilityUnlocked(key)) out.push(key);
+    if (key && slotUnlocked(t)) out.push(key);
   }
   return out;
 }

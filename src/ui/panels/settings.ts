@@ -13,7 +13,6 @@ import {
   getShowDamageNumbers, setShowDamageNumbers,
 } from "../../prefs";
 import { recallOneOf, remember } from "../viewState";
-import { ABILITY_POOL, ABILITY_TIER, TIER_BOSS } from "../../zombie/traits";
 import { otherPlayMode, playModeDestinationLabel } from "../../playMode";
 import { updateCheckMessage, type UpdateCheckResult } from "../../updateCheck";
 import { usernameRefusalMessage } from "../../net/serviceStatus";
@@ -624,41 +623,11 @@ export function openDevMenu(hud: Hud): void {
     hud.onSetNight?.(v)
   );
 
-  // Dev: beat a tier boss once — each win unlocks the NEXT still-locked ability of
-  // that tier across the roster (not the whole tier at once).
-  const raidWrap = document.createElement("div");
-  const raidStatus = document.createElement("div");
-  raidStatus.className = "dev-status";
-  raidStatus.textContent = "Beat a tier boss to unlock its next ability:";
-  const raidBtns = document.createElement("div");
-  raidBtns.className = "dev-raid-btns";
-  for (let t = 1; t <= 4; t++) {
-    const b = document.createElement("button");
-    b.className = "dev-btn";
-    b.textContent = `Win T${t} — ${TIER_BOSS[t]}`;
-    b.onclick = () => {
-      const pool = ABILITY_TIER[t] ?? [];
-      const before = hud.state.tierAbilitiesUnlocked(t);
-      hud.state.completeRaid(String(t));
-      const after = hud.state.tierAbilitiesUnlocked(t);
-      if (after > before) {
-        const label = ABILITY_POOL[pool[after - 1]]?.label ?? pool[after - 1];
-        raidStatus.textContent =
-          `Unlocked ${label} — Tier ${t} ${after}/${pool.length} (beat ${TIER_BOSS[t]}).`;
-      } else {
-        raidStatus.textContent = `All Tier ${t} abilities already unlocked.`;
-      }
-    };
-    raidBtns.appendChild(b);
-  }
-  raidWrap.append(raidStatus, raidBtns);
-
   panel.append(
     nightRow,
     numRow("Level", hud.state.level, (n) => hud.state.setLevel(n)),
     numRow("Gold", hud.state.gold, (n) => hud.state.setGold(n)),
-    numRow("Brains", hud.state.brains, (n) => hud.state.setBrains(n)),
-    raidWrap
+    numRow("Brains", hud.state.brains, (n) => hud.state.setBrains(n))
   );
 }
 

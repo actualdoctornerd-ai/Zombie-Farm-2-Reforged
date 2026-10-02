@@ -60,13 +60,14 @@ describe("reclassed special pairs (2026-09-08)", () => {
       }
     });
 
-  it("the Doctors' Laser Ver.2 is gated by ITS tier (the Ninjas), not the slot it sits in", () => {
+  it("the Doctors' Laser Ver.2 is gated by the SLOT it sits in (3), not its own tier (4)", () => {
     expect(abilityTierOf("zomBeam")).toBe(4);
     const doctor = def("ZombieActorDrZombie");
-    const throughTier = (max: number) =>
-      activeAbilities(doctor, (key) => abilityTierOf(key) <= max);
-    expect(throughTier(3)).toEqual(["heal", "tankHitPointsBuff"]); // Pirates beaten, no beam yet
-    expect(throughTier(4)).toEqual(["heal", "tankHitPointsBuff", "zomBeam", "healAOE"]);
+    const throughSlot = (max: number) => activeAbilities(doctor, (slot) => slot <= max);
+    // Life Force level 3 opens slot 3, which holds the beam even though the beam is a tier-4 move.
+    expect(throughSlot(2)).toEqual(["heal", "tankHitPointsBuff"]);
+    expect(throughSlot(3)).toEqual(["heal", "tankHitPointsBuff", "zomBeam"]);
+    expect(throughSlot(4)).toEqual(["heal", "tankHitPointsBuff", "zomBeam", "healAOE"]);
   });
 
   it("the Doctors are healers around the Cupid Zombie after the 2026-10-01 nerf, not tanks", () => {
@@ -122,26 +123,32 @@ describe("reshuffled specials (2026-09-24)", () => {
     expect(ladder(key), key).toEqual(expected);
   });
 
-  // THE INVARIANT THAT MAKES CROSS-TIER PLACEMENT SAFE. A slot does not set the unlock —
-  // `abilityUnlocked` keys off the ability's OWN tier — so an override can park a tier-2
-  // ability in the tier-3 slot. That is fine as long as the four unlock bosses never run
-  // BACKWARDS down the card, which would show a player a later slot unlocking before an
-  // earlier one. Checked over the whole table, not just the new rows.
-  it("no override's unlock bosses run backwards down its four slots", () => {
-    for (const [key, row] of Object.entries(SPECIAL_ABILITIES)) {
-      const tiers = row.map((ability) => (ability ? abilityTierOf(ability) : 0));
-      const present = tiers.filter((t) => t > 0);
-      expect([...present].sort((a, b) => a - b), `${key}: ${row.join("/")}`).toEqual(present);
+  // Abilities unlock by SLOT (Life Force level k opens slot k), so an override that parks
+  // a higher-tier move in a lower slot simply unlocks it with that slot. What must hold is
+  // that opening more slots never takes an ability away, and that all four slots, opened,
+  // show every ability the unit carries. Checked over the whole table.
+  it("every override unlocks slot by slot and shows its whole ladder once all four are open", () => {
+    for (const key of Object.keys(SPECIAL_ABILITIES)) {
+      const unit = def(key);
+      let previous = 0;
+      for (let slots = 0; slots <= 4; slots++) {
+        const shown = activeAbilities(unit, (slot) => slot <= slots).length;
+        expect(shown, `${key} with ${slots} slots`).toBeGreaterThanOrEqual(previous);
+        previous = shown;
+      }
+      expect(activeAbilities(unit, () => true), key).toEqual(ladder(key).filter((a) => a !== null).slice(0, previous));
     }
   });
 
   it("the Admiral is a support body: four stacking auras and no attack ability", () => {
     const auras = ["grace", "chivalry", "tankHitPointsBuff", "protect"];
-    // All four are tier 2, so they unlock TOGETHER at the Lawyers rather than laddering.
+    // All four are tier-2 abilities, but they sit in four different slots, so they now
+    // unlock one per Life Force level instead of all together.
     for (const aura of auras) expect(abilityTierOf(aura), aura).toBe(2);
     const admiral = def("ZombieActorAdmiral");
-    expect(activeAbilities(admiral, (key) => abilityTierOf(key) <= 1)).toEqual([]);
-    expect(activeAbilities(admiral, (key) => abilityTierOf(key) <= 2)).toEqual(auras);
+    expect(activeAbilities(admiral, () => false)).toEqual([]);
+    expect(activeAbilities(admiral, (slot) => slot <= 2)).toEqual(auras.slice(0, 2));
+    expect(activeAbilities(admiral, (slot) => slot <= 4)).toEqual(auras);
   });
 
   it("Old McZombie and Brock Coley trade BOTH lasers away, and keep their stat lines", () => {

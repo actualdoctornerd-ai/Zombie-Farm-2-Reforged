@@ -360,7 +360,7 @@ describe("boss projectile scaling", () => {
     party.splice(healerSlot, 0,
       makeOwned("healer", healerFor(level) as unknown as Parameters<typeof makeOwned>[1], 0, 0, 0, 0));
     return buildPlayerUnits(party, {
-      concentration: true, abilityUnlocked: () => true, playerLevel: level,
+      concentration: true, abilitySlotUnlocked: () => true, playerLevel: level,
     });
   }
 

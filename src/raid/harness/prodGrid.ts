@@ -30,7 +30,7 @@ import { flyFight, type Flight } from "./pilot";
 import { EXPERT, COMPETENT, makePilot, type PilotProfile } from "./pilots";
 import { harnessFight } from "./raidFight";
 import { makeOwned, type OwnedZombie } from "../../zombie/types";
-import { ABILITY_TIER, abilityTierOf, MAX_VET_RANK } from "../../zombie/traits";
+import { MAX_VET_RANK } from "../../zombie/traits";
 import zombiesJson from "../../../public/assets/zombies.json";
 import type { RaidDef } from "../types";
 import type { ZombieDef } from "../../assets";
@@ -165,10 +165,7 @@ function unitsFor(army: ProdArmy, playerLevel: number) {
     return makeOwned(`z${i}`, def, 0, 0, Math.min(u[2], MAX_VET_RANK), u[1]);
   });
   return buildPlayerUnits(party, {
-    abilityUnlocked: (key) => {
-      const tier = abilityTierOf(key);
-      return tier > 0 && tier <= 4 && ABILITY_TIER[tier].includes(key);
-    },
+    abilitySlotUnlocked: (slot) => slot >= 1 && slot <= 4,
     playerLevel,
   });
 }

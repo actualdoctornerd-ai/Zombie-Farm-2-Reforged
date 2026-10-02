@@ -7,6 +7,7 @@
 // ZF.runRaid dev hook and tests — it is not wired to any player-facing control.
 import { GameAssets, zombiePortrait, raidImage, raidRewardImage } from "../assets";
 import { GameState } from "../GameState";
+import { abilitySlotUnlocked } from "../lifeForce";
 import { ZombieField } from "../zombie/ZombieField";
 import { OwnedZombie } from "../zombie/types";
 import { buildPlayerUnits, resolveRaid } from "./CombatEngine";
@@ -25,12 +26,10 @@ import {
   lockReason,
   maxLuckTiers,
   power,
-  raidTier,
   resolveStageWave,
   boostDrops,
   seededRandom,
 } from "./RaidCatalog";
-import { ABILITY_TIER, ABILITY_POOL } from "../zombie/traits";
 import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { rollLootTier, pickLootEntry, lootEntryWeight } from "./LootTable";
@@ -180,7 +179,6 @@ export interface RaidResultView {
    *  told apart (McDonnell's first clear is 100, an elite repeat of the Aliens is 400). */
   firstClear: boolean;
   loot: LootDrop[]; // item drops (with pictures)
-  abilityUnlock: string; // "" unless a tier unlocked on this clear
   /** Display names of crops this clear unlocked (a dual-invasion tier � src/cropUnlocks.ts). */
   cropUnlocks?: string[];
   /** ONLINE only: the base win gold + first-clear XP the SERVER must credit — NOT
@@ -224,6 +222,9 @@ export interface RaidLaunchOpts {
   /** ONLINE: server-pinned brain award, revealed at start for the boss-death visual
    * but credited only after the deterministic replay verifies the win. */
   serverBrainDrop?: number;
+  /** ONLINE: the Life Force level the server used when it pinned this fight. The client
+   *  gates ability slots with it instead of its own derived level. */
+  serverLifeForceLevel?: number;
   /** ONLINE: whether the server actually charged a Brain Ticket and pinned this session
    *  as ELITE. The client must adopt this rather than its own `brainTicket` request —
    *  the pinned enemy wave is scaled (or not) to match, and a disagreement desyncs the
@@ -406,10 +407,10 @@ export class RaidManager {
   /** Eligible army + default selection for a raid's Army screen. */
   partyView(): RaidPartyView {
     const cap = Math.min(ARMY_CAP, this.state.zombieMax);
-    const abilityUnlocked = (k: string) => this.state.abilityUnlocked(k);
+    const slotUnlocked = (slot: number) => this.state.abilitySlotUnlocked(slot);
     const harvestOrdered: RaidPartyZombie[] = this.deployed()
       .map((z) => {
-        const disp = displayTotals(z, abilityUnlocked);
+        const disp = displayTotals(z, slotUnlocked);
         return {
           id: z.id,
           key: z.key,
@@ -573,6 +574,9 @@ export class RaidManager {
       hazards: true,
     });
     const { enemyUnits } = composed;
+    const abilityLevel = opts.serverAuthorized && opts.serverLifeForceLevel != null
+      ? opts.serverLifeForceLevel
+      : this.state.lifeForceLevel;
     // OFFLINE the roll carries the silent pity floor (a long brain-less streak guarantees
     // the smallest stack). ONLINE the server rolls it — floor included — and pins it.
     const hasBoss = enemyUnits.some((unit: CombatUnit) => unit.isBoss);
@@ -586,9 +590,11 @@ export class RaidManager {
       party,
       playerUnits: buildPlayerUnits(party, {
         concentration,
-        // Gate abilities exactly like the detail card: an ability applies only once
-        // it has been unlocked (its tier's boss beaten enough times to reach it).
-        abilityUnlocked: (k) => this.state.abilityUnlocked(k),
+        // Gate abilities exactly like the detail card: an ability slot works from the
+        // farm's Life Force level. ONLINE the level is the one the server pinned this
+        // fight with (it derives it from the objects it holds as placed), so the two
+        // simulations cannot disagree about a decoration placed a moment ago.
+        abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, abilityLevel),
         // Level-scale str/con/dex: zombies don't fight at full stats until L25
         // (binary modifyStatWithLevelScale:).
         playerLevel: this.state.level,
@@ -639,7 +645,6 @@ export class RaidManager {
         xp: 0,
         firstClear: false,
         loot: [],
-        abilityUnlock: "",
         practice: true,
       };
     }
@@ -666,7 +671,6 @@ export class RaidManager {
     let xp = 0;
     let firstClear = false;
     const loot: LootDrop[] = [];
-    let abilityUnlock = "";
     let cropUnlocks: string[] = [];
     let serverReward: RaidResultView["serverReward"];
     if (outcome.win) {
@@ -759,17 +763,6 @@ export class RaidManager {
           loot.push({ name: zombieDrop.name, icon: zombiePortrait(zombieDrop.key) });
         }
       }
-      // Beating a tier boss unlocks ONE still-locked ability of that tier (the next
-      // in canonical order) across the roster — so `wins` maps to the wins-th pool
-      // entry. Once every ability in the tier is unlocked, further wins add none.
-      const tier = raidTier(raid);
-      if (tier > 0) {
-        const pool = ABILITY_TIER[tier] ?? [];
-        if (wins >= 1 && wins <= pool.length) {
-          const label = ABILITY_POOL[pool[wins - 1]]?.label ?? pool[wins - 1];
-          abilityUnlock = `Ability unlocked: ${label}!`;
-        }
-      }
     }
 
     this.hooks.save();
@@ -787,7 +780,6 @@ export class RaidManager {
       xp,
       firstClear,
       loot,
-      abilityUnlock,
       cropUnlocks,
       serverReward,
     };

@@ -176,11 +176,11 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
   // Each tile shows the stat's 0–100 bar with EVERY always-on bonus folded in
   // (mutation + veterancy + the zombie's own passive stat abilities); hovering opens
   // the per-modifier breakdown. See zombie/statDisplay.statBreakdown.
-  const abilityUnlocked = (k: string) => hud.state.abilityUnlocked(k);
+  const slotUnlocked = (slot: number) => hud.state.abilitySlotUnlocked(slot);
   // Which stats a mutation is boosting — those tiles render green (permanent species bonus).
   const mutBonus = mutationBonus(info.mutation);
   for (const s of STATS) {
-    const bd = statBreakdown(info, s.key, abilityUnlocked);
+    const bd = statBreakdown(info, s.key, slotUnlocked);
     const boosted = ((mutBonus as Record<string, number>)[s.key] ?? 0) > 0;
     const cell = document.createElement("button");
     cell.className = "zstat";
@@ -700,7 +700,7 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
     // Sort the INSPECT views, not the raw roster: those carry the farmer's
     // strength/life multipliers, so the list ranks by the number each card shows.
     const infos = shown.map((z) => rosterInfo(hud, z));
-    for (const info of sortZombies(infos, rosterSort, (k) => hud.state.abilityUnlocked(k))) {
+    for (const info of sortZombies(infos, rosterSort, (slot) => hud.state.abilitySlotUnlocked(slot))) {
       const row = document.createElement("div");
       // Use the exact same panel/card composition as the single-zombie modal;
       // the Zombies menu only adds the vertically scrolling list around it.

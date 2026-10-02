@@ -34,7 +34,8 @@ export function isEpicBossKey(sourceKey: string): boolean {
  *  the boss's attack strip should not have to construct a save first. */
 export interface EpicBossPlayerContext {
   level: number;
-  abilityUnlocked(key: string): boolean;
+  /** Whether ability slot `slot` works at the farm's Life Force level. */
+  abilitySlotUnlocked(slot: number): boolean;
   farmerZombieStrengthMult(): number;
   farmerZombieLifeMult(): number;
 }
@@ -55,7 +56,7 @@ export function buildEpicBossSetup(
 ): EpicBossSetup {
   const playerUnits = buildPlayerUnits(party, {
     concentration: true, // full focus throughput; BattleSim still uses manual brain release
-    abilityUnlocked: (key) => state.abilityUnlocked(key),
+    abilitySlotUnlocked: (slot) => state.abilitySlotUnlocked(slot),
     playerLevel: state.level,
     farmerStrengthMult: state.farmerZombieStrengthMult(),
     farmerLifeMult: state.farmerZombieLifeMult(),

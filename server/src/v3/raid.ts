@@ -327,6 +327,9 @@ export async function startRaid(
     // Practice leaves the player's cooldown exactly where it was.
     lastRaidAt: practice ? raidState.last_started_at : now, expiresAt, earliestFinishAt,
     serverTime: now, ...(practice ? { practice: true } : {}),
+    // The Life Force level the pinned fight's ability slots were opened with; the client
+    // fights with the same number (see RaidSetupOpts.serverLifeForceLevel).
+    lifeForceLevel: pinned.lifeForceLevel,
     rulesetVersion: RAID_RULESET_VERSION } };
 }
 

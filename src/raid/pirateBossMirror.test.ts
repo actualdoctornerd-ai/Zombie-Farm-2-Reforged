@@ -208,7 +208,7 @@ describe("buildPlayerUnits derives the species cycle from the catalog body", () 
   const build = (def: Record<string, unknown>, invasions: number, mutation: number, level?: number) =>
     buildPlayerUnits(
       [makeOwned("z0", def as unknown as Parameters<typeof makeOwned>[1], 0, 0, invasions, mutation)],
-      { concentration: true, abilityUnlocked: () => true, playerLevel: level }
+      { concentration: true, abilitySlotUnlocked: () => true, playerLevel: level }
     )[0];
 
   it("sets it to 2 s / CATALOG dex, for every body in the roster", () => {

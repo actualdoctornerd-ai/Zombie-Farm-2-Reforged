@@ -6900,8 +6900,7 @@ export class Hud {
         : `<div class="rr-loot-none">—</div>`);
     const extra = view.practice
       ? `<div class="rr-unlock">Practice run — every zombie came home, and nothing was paid or spent.</div>`
-      : (view.abilityUnlock ? `<div class="rr-unlock">${view.abilityUnlock}</div>` : "") +
-        cropUnlockHtml(view.cropUnlocks ?? []);
+      : cropUnlockHtml(view.cropUnlocks ?? []);
 
     panel.innerHTML =
       `<div class="rr-title ${view.win ? "win" : "lose"}">${view.title}</div>` +

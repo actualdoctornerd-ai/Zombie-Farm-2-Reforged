@@ -14,7 +14,8 @@ import {
   ARMY_CAP,
 } from "../../src/raid/RaidCatalog";
 import { makeOwned } from "../../src/zombie/types";
-import { ABILITY_TIER, abilityTierOf } from "../../src/zombie/traits";
+import { abilitySlotUnlocked, farmLifeForce, lifeForceLevel } from "../../src/lifeForce";
+import { lifeForceOf } from "./objectCatalog";
 import { advanceRaidSegment, replayRaid, RAID_RULESET_VERSION, type RaidReplayInput, type ReplayResult } from "../../src/raid/replay";
 import type {
   AttackDef,
@@ -124,8 +125,29 @@ const attacks = attacksJson as Record<string, AttackDef>;
 const zombieDefs = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
 
 export type BuildPinnedResult =
-  | { ok: true; config: PinnedRaidConfig }
+  | { ok: true; config: PinnedRaidConfig; lifeForceLevel: number }
   | { ok: false; error: string; unlockedTier?: number };
+
+/** The Life Force level of an account's farm, from the objects it holds as PLACED.
+ *  Ability slots work from this level (slot k from level k), so every fight the server pins
+ *  derives it here from its own object document, never from anything the client sends. */
+export function lifeForceLevelOfObjects(objectsJson: string | null | undefined): number {
+  let objects: { catalogKey?: unknown; status?: unknown }[] = [];
+  try {
+    const parsed = JSON.parse(objectsJson ?? "[]");
+    if (Array.isArray(parsed)) objects = parsed;
+  } catch { /* a bad blob counts as an empty farm */ }
+  const placed = objects
+    .filter((object) => object?.status === "placed" && typeof object.catalogKey === "string")
+    .map((object) => object.catalogKey as string);
+  return lifeForceLevel(farmLifeForce(placed, lifeForceOf));
+}
+
+export async function loadLifeForceLevel(db: D1Database, accountId: string): Promise<number> {
+  const row = await db.prepare("SELECT current_json FROM object_documents_v3 WHERE account_id = ?")
+    .bind(accountId).first<{ current_json: string }>();
+  return lifeForceLevelOfObjects(row?.current_json);
+}
 
 /** Build combat exclusively from the owned roster and server catalogs. */
 export async function buildPinnedRaid(
@@ -192,12 +214,7 @@ export async function buildPinnedRaid(
     if (!def) throw new Error(`unknown roster catalog key ${row.key}`);
     return makeOwned(id, def as Parameters<typeof makeOwned>[1], 0, 0, row.invasions, row.mutation);
   });
-  const abilityUnlocked = (key: string): boolean => {
-    const tier = abilityTierOf(key);
-    const pool = ABILITY_TIER[tier] ?? [];
-    const idx = pool.indexOf(key);
-    return idx >= 0 && idx < Math.min(pool.length, wins.get(tier) ?? 0);
-  };
+  const lifeForce = await loadLifeForceLevel(db, accountId);
   // raidId + playerLevel drive the farm raid's enemy speed-up; the client passes the
   // same pair in RaidManager.beginRaid — they MUST match or the replay diverges.
   const profile = eliteProfile(raidId, elite);
@@ -218,11 +235,16 @@ export async function buildPinnedRaid(
       raidId,
       raidName: raid.name,
       rosterIds: ids,
-      playerUnits: buildPlayerUnits(party, { concentration, abilityUnlocked, playerLevel: level }),
+      playerUnits: buildPlayerUnits(party, {
+        concentration,
+        abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForce),
+        playerLevel: level,
+      }),
       ...composed,
       concentration,
       elite,
     },
+    lifeForceLevel: lifeForce,
   };
 }
 
@@ -288,7 +310,7 @@ export async function buildPinnedV3Raid(
   if (!raid) return { ok: false, error: "bad_raid" };
 
   const placeholders = ids.map(() => "?").join(",");
-  const [balance, owned, raidState, coreRow] = await Promise.all([
+  const [balance, owned, raidState, coreRow, lifeForce] = await Promise.all([
     db.prepare("SELECT xp FROM balances WHERE account_id = ?").bind(accountId).first<{ xp: number }>(),
     db.prepare(`SELECT unit_id,zombie_key,mutation,invasions FROM roster_v3
       WHERE account_id=? AND stored=0 AND locked_by_raid IS NULL AND unit_id IN (${placeholders})`)
@@ -297,6 +319,7 @@ export async function buildPinnedV3Raid(
       .bind(accountId).first<{ progress_json: string; tier_json: string }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?")
       .bind(accountId).first<{ current_json: string }>(),
+    loadLifeForceLevel(db, accountId),
   ]);
   const level = levelForXp(balance?.xp ?? 0);
   if (level < effectiveUnlockLevel(raid)) return { ok: false, error: "locked" };
@@ -348,12 +371,7 @@ export async function buildPinnedV3Raid(
     return makeOwned(id, def as Parameters<typeof makeOwned>[1], 0, 0, row.invasions, row.mutation);
   });
   if (party.some((unit) => unit === null)) return { ok: false, error: "bad_roster" };
-  const abilityUnlocked = (key: string): boolean => {
-    const tier = abilityTierOf(key);
-    const pool = ABILITY_TIER[tier] ?? [];
-    const index = pool.indexOf(key);
-    return index >= 0 && index < Math.min(pool.length, winsObject[String(tier)] ?? 0);
-  };
+
   // raidId + playerLevel drive the farm raid's enemy speed-up; the client passes the
   // same pair in RaidManager.beginRaid — they MUST match or the replay diverges.
   // The multipliers this fight runs under: the pinned rung's profile on a dual invasion,
@@ -380,7 +398,10 @@ export async function buildPinnedV3Raid(
       rosterIds: ids,
       playerUnits: buildPlayerUnits(party as ReturnType<typeof makeOwned>[], {
         concentration,
-        abilityUnlocked,
+        // Slot k works from Life Force level k, derived above from this account's own
+        // placed objects. The client is handed this same number at /raid/start and fights
+        // with it, so the two simulations cannot disagree about decor placed a moment ago.
+        abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForce),
         playerLevel: level,
         farmerStrengthMult: farmerMultiplier(bonusHead, "zombieStrength"),
         farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
@@ -393,6 +414,7 @@ export async function buildPinnedV3Raid(
       elite,
       tier,
     },
+    lifeForceLevel: lifeForce,
   };
 }
 
@@ -429,20 +451,15 @@ async function rosterNames(db: D1Database, accountId: string): Promise<Map<strin
   return names;
 }
 
-/** One account's fight-relevant context: level, ability unlocks, farmer-head bonuses. */
+/** One account's fight-relevant context: level, ability slots (from Life Force), farmer-head bonuses. */
 async function accountFightContext(db: D1Database, accountId: string) {
-  const [balance, raidState, coreRow] = await Promise.all([
+  const [balance, coreRow, lifeForce] = await Promise.all([
     db.prepare("SELECT xp FROM balances WHERE account_id = ?").bind(accountId).first<{ xp: number }>(),
-    db.prepare("SELECT progress_json FROM raid_state_v3 WHERE account_id = ?")
-      .bind(accountId).first<{ progress_json: string }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id = ?")
       .bind(accountId).first<{ current_json: string }>(),
+    loadLifeForceLevel(db, accountId),
   ]);
   const level = levelForXp(balance?.xp ?? 0);
-  const wins = (() => {
-    try { return JSON.parse(raidState?.progress_json ?? "{}") as Record<string, number>; }
-    catch { return {}; }
-  })();
   const core = (() => {
     try {
       return JSON.parse(coreRow?.current_json ?? "{}") as
@@ -450,13 +467,8 @@ async function accountFightContext(db: D1Database, accountId: string) {
     } catch { return {}; }
   })();
   const bonusHead = activeBonusHeadId(Number(core.farmerHeadId ?? 1), core.farmerBonusHeadId);
-  const abilityUnlocked = (key: string): boolean => {
-    const tier = abilityTierOf(key);
-    const pool = ABILITY_TIER[tier] ?? [];
-    const index = pool.indexOf(key);
-    return index >= 0 && index < Math.min(pool.length, wins[String(tier)] ?? 0);
-  };
-  return { level, abilityUnlocked, bonusHead };
+  const slotUnlocked = (slot: number): boolean => abilitySlotUnlocked(slot, lifeForce);
+  return { level, abilitySlotUnlocked: slotUnlocked, bonusHead };
 }
 
 const toParty = (rows: PvpRosterRow[], names: Map<string, string>) => rows.map((row) => {
@@ -553,7 +565,7 @@ export async function buildDefenseSnapshot(
 
   const built = buildPlayerUnits(party, {
     concentration: true,
-    abilityUnlocked: context.abilityUnlocked,
+    abilitySlotUnlocked: context.abilitySlotUnlocked,
     playerLevel: context.level,
     farmerStrengthMult: farmerMultiplier(context.bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(context.bonusHead, "zombieLife"),
@@ -631,7 +643,7 @@ export async function buildPinnedPvpRaid(
   // and a snapshot defense has nobody home to pop bubbles for it anyway.
   const playerUnits = buildPlayerUnits(attackers, {
     concentration: true,
-    abilityUnlocked: attacker.abilityUnlocked,
+    abilitySlotUnlocked: attacker.abilitySlotUnlocked,
     playerLevel: attacker.level,
     farmerStrengthMult: farmerMultiplier(attacker.bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(attacker.bonusHead, "zombieLife"),
