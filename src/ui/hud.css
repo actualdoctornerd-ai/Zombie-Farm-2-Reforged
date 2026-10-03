@@ -2412,8 +2412,7 @@
    (42) too, so Tim can never cover the confirm's own buttons. */
 #hud.tutorial .game-confirm-bg, #hud.tutorial .info-bg { z-index: 43; }
 /* The celebrations a tutorial beat triggers (the first invasion's Quest Complete and Level
-   Up) arrive while Tim's tap-blocker is up. Under it their OK could not be tapped: every
-   tap landed on the blocker and moved Tim on instead, so the popup stayed up behind him. */
+   Up) sit above Tim's layer, so their OK is always reachable. */
 #hud.tutorial .qc-bg, #hud.tutorial .lvl-bg { z-index: 43; }
 #hud .tut-layer.invade-step .tut-tim {
   left: auto; right: max(12px, env(safe-area-inset-right)); bottom: 0;
@@ -2425,11 +2424,7 @@
 /* Raid select and army select carry their own instructions and launch control.
    Remove Tim once either panel opens so he cannot cover Start Invasion. */
 #hud .tut-layer.invasion-menu-open .tut-tim { display: none; }
-/* Full-screen tap blocker: only present while a step gates input. It swallows
-   every DOM tap so nothing but the highlighted element is reachable. */
-#hud.tutorial .tut-blocker { position: fixed; inset: 0; pointer-events: auto;
-  background: transparent; }
-/* The single element a gating step allows through: raised above the blocker with
+/* The single element a gating step allows through: raised above the layer with
    its own stacking context + a pulsing glow ring. */
 #hud .tut-highlight { position: relative; z-index: 41 !important; pointer-events: auto !important;
   border-radius: 12px; box-shadow: 0 0 0 3px #ffe27a, 0 0 16px 4px rgba(255,210,80,.9);

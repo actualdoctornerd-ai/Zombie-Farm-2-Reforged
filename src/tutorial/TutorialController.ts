@@ -29,6 +29,13 @@ const ARROW_PLOT_GAP = 24;
 /** The right-hand menu buttons the tour walks down, top to bottom. */
 const SIDE_BUTTONS = ["Zombies", "Boosts", "Storage", "Market", "Social", "Guide"];
 
+/** A press counts as a tap if it is this quick and moves less than this. */
+const TAP_MAX_MS = 500;
+const TAP_MAX_MOVE_PX = 10;
+/** Things a tap on must not also advance Tim: the skip button, his own bubble (which
+ *  advances itself) and the popups a beat can trigger (Quest Complete, Level Up, ...). */
+const TAP_IGNORED = ".tut-skip, .tut-bubble, .qc-bg, .lvl-bg, .game-confirm-bg, .info-bg, .tim-notice-bg";
+
 const SKIP_LABEL = "Skip tutorial";
 const SKIP_CONFIRM_LABEL = "Tap again to skip";
 const SKIP_CONFIRM_MS = 4000;
@@ -71,7 +78,8 @@ export class TutorialController {
   private bubble!: HTMLDivElement;
   private arrow!: HTMLImageElement;
   private skip!: HTMLButtonElement;
-  private blocker: HTMLDivElement | null = null;
+  /** Removes the narrative beat's tap listeners. */
+  private stopTapListener: (() => void) | null = null;
   /** The skip button asks once before it ends the run. */
   private skipArmed = false;
   private skipDisarm = 0;
@@ -545,25 +553,42 @@ export class TutorialController {
     requestAnimationFrame(() => this.tim.classList.add("in"));
   }
 
-  // ---- input blocker (narrative beats) ----
+  // ---- tap to continue (narrative beats) ----
 
+  /** Narrative beats continue on any tap. This used to be a full-screen overlay that
+   *  swallowed every pointer event, which also stopped the player moving the camera. It is
+   *  now a listener: a quick press that barely moved counts as a tap, while a drag falls
+   *  through to the farm and pans it (the farm's own input gate freezes everything else). */
   private addBlocker(def: StepDef) {
     this.removeBlocker();
-    const b = document.createElement("div");
-    b.className = "tut-blocker";
-    // Narrative beats advance on any tap.
-    if (def.kind === "narrative") b.onclick = () => this.onNarrativeTap();
-    // Insert the blocker BELOW Tim so the bubble/buttons stay clickable.
-    this.layer.insertBefore(b, this.tim);
-    this.blocker = b;
     // The bubble itself also advances narrative beats when tapped.
-    if (def.kind === "narrative") this.bubble.onclick = () => this.onNarrativeTap();
-    else this.bubble.onclick = null;
+    if (def.kind !== "narrative") { this.bubble.onclick = null; return; }
+    this.bubble.onclick = () => this.onNarrativeTap();
+    let down: { id: number; x: number; y: number; at: number } | null = null;
+    const ignored = (target: EventTarget | null) =>
+      target instanceof Element && !!target.closest(TAP_IGNORED);
+    const onDown = (e: PointerEvent) => {
+      down = ignored(e.target) ? null : { id: e.pointerId, x: e.clientX, y: e.clientY, at: e.timeStamp };
+    };
+    const onUp = (e: PointerEvent) => {
+      const press = down;
+      down = null;
+      if (!press || press.id !== e.pointerId || ignored(e.target)) return;
+      const quick = e.timeStamp - press.at < TAP_MAX_MS;
+      const still = Math.hypot(e.clientX - press.x, e.clientY - press.y) < TAP_MAX_MOVE_PX;
+      if (quick && still) this.onNarrativeTap();
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("pointerup", onUp, true);
+    this.stopTapListener = () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("pointerup", onUp, true);
+    };
   }
 
   private removeBlocker() {
-    this.blocker?.remove();
-    this.blocker = null;
+    this.stopTapListener?.();
+    this.stopTapListener = null;
     this.bubble.onclick = null;
   }
 }

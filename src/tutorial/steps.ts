@@ -206,7 +206,7 @@ export const STEPS: Record<TutStep, StepDef> = {
   [TutStep.Mutation]: {
     step: TutStep.Mutation,
     kind: "narrative",
-    say: "WOAH! That's one bizarre zombie!\nThanks to that carrot, your zombie got some traits from the plants next to him. Some mutations increase speed, others increase power or defense. Visit the market to unlock more mutations.",
+    say: "WOAH! That's one bizarre zombie!\nThanks to that carrot, your zombie got some traits from the plants next to him when he's harvested.",
     hint: "Tap to continue",
   },
   [TutStep.Plow]: {
@@ -242,14 +242,14 @@ export const STEPS: Record<TutStep, StepDef> = {
     kind: "narrative",
     pointAt: "LifeForce",
     arrowSide: "below",
-    say: "That's yer Life Force! All decorative items give it, but trees give the most.\nLife Force is important for preventing lifeless zombies and good for zombie mutations.",
+    say: "That's yer Life Force! All decorative items give it, but trees give the most. Life Force is important for preventing lifeless zombies and good for zombie mutations. Tap the life force icon up top to see more details.",
     hint: "Tap to continue",
   },
   [TutStep.TourZombies]: {
     step: TutStep.TourZombies,
     kind: "narrative",
     pointAt: "Zombies",
-    say: "Tap Zombies to see yer army.\nThe Zombie Almanac in there keeps record of every zombie and mutation ya find.",
+    say: "Tap Zombies to see yer army.\nThe Zombie Almanac in there keeps record of every zombie and mutation ya find, and tell ya where to find new types",
     hint: "Tap to continue",
   },
   [TutStep.TourBoosts]: {
@@ -270,27 +270,27 @@ export const STEPS: Record<TutStep, StepDef> = {
     step: TutStep.TourMarket,
     kind: "narrative",
     pointAt: "Market",
-    say: "The Market is where ya select stuff to plant, and buy decor and more.",
+    say: "The Market is where ya purchase decor, functional items, boosts, pets, and much more. Take some time to look around it when you have a chance!",
     hint: "Tap to continue",
   },
   [TutStep.TourSocial]: {
     step: TutStep.TourSocial,
     kind: "narrative",
     pointAt: "Social",
-    say: "Welcome to the Social Menu! You can play with yer friends from here.",
+    say: "Here's the Social Menu! You can play with yer friends from here.",
     hint: "Tap to continue",
   },
   [TutStep.TourGuide]: {
     step: TutStep.TourGuide,
     kind: "narrative",
     pointAt: "Guide",
-    say: "Got a question? The Guide has the answer.\nYee-Haw, you're a real Zombie Farmer now! Here's 200 gold to get ya started.",
+    say: "Got a question? The Guide has the answer.",
     hint: "Tap to finish",
   },
   [TutStep.Done]: {
     step: TutStep.Done,
     kind: "narrative",
-    say: "Yee-Haw, you're a real Zombie Farmer now!\nHere's 200 gold to get ya started. The Guide's always in the menu if ya need it.",
+    say: "You're a real Zombie Farmer now!\nHere's 200 gold to get ya started.",
     hint: "Tap to finish",
   },
 };

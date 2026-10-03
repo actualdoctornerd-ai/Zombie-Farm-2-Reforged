@@ -5831,10 +5831,10 @@ async function main() {
             "Keep at it and it'll go away!"
       );
     }
-    // The tutorial's fight: Tim says where the two things a first-timer has to find are —
-    // the thought bubble that sends a zombie out, and the special-move buttons. Before the
-    // scene mounts, like the tips around it, so nothing in the fight is waiting on a tap.
-    if (tutorial?.inFirstFight) await hud.timSays(TUTORIAL_BATTLE_TIP, "Let's go!");
+    // The tutorial's fight: Tim says where the two things a first-timer has to find are, the
+    // thought bubble that sends a zombie out and the special-move buttons. He speaks once the
+    // scene is on screen (below), so the player can see what he is talking about.
+    const tutorialFightTip = !!tutorial?.inFirstFight;
     // Some invasions run on a rule nothing on the battlefield states — the Pirates'
     // Scallywag mirrors whatever attack speed you bring it. Tim gives that warning
     // once, before the first attempt, instead of the game only admitting it in the
@@ -6081,6 +6081,7 @@ async function main() {
       if (!raidActive || !launchGate.isCurrent(epoch)) return scene.destroy(); // finished/aborted before load done
       raidScene = scene;
       app.stage.addChild(scene.container);
+      if (tutorialFightTip) void hud.timSays(TUTORIAL_BATTLE_TIP, "Let's go!");
       // Debug handle — dev builds only (window.ZF doesn't exist in prod). Guarded
       // so the missing global can't throw in production.
       if (import.meta.env.DEV) {
@@ -7078,8 +7079,16 @@ async function main() {
     );
     // Tutorial world gate: while the guided tutorial is active, freeze every farm
     // tap except the current beat's target plot (so nothing collapses the menu or
-    // acts out of turn). Menu/narrative beats freeze the farm entirely.
-    if (tutorial.active && !tutorial.allowsTile(col, row)) return;
+    // acts out of turn). Menu/narrative beats freeze the farm's TAPS entirely, but the
+    // camera stays free: a press anywhere else is a plain pan, never a tool action.
+    if (tutorial.active && !tutorial.allowsTile(col, row)) {
+      temporaryPanGesture = true;
+      touchOutsideFarmPan = true; // lets the move handler pan whatever tool is equipped
+      dragging = true;
+      moved = false;
+      last.copyFrom(e.global);
+      return;
+    }
     hud.collapse(); // any tap on the field collapses the bars into the corner fab
     // Plow remains equipped after making a plot. On touch, tapping that newly
     // plantable soil is selection intent: return to the Multi-tool so pointer-up
@@ -7489,6 +7498,7 @@ async function main() {
     }
     if (temporaryPanGesture) {
       temporaryPanGesture = false;
+      touchOutsideFarmPan = false;
       dragging = false;
       moved = false;
       lastPlot = "";
