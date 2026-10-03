@@ -113,6 +113,7 @@ import { openFarmersGuide } from "./ui/panels/farmersGuide";
 import { openStats } from "./ui/panels/stats";
 import type { StatSection } from "./statsView";
 import { showTimNotice } from "./ui/TimNotice";
+import { TUTORIAL_FLOWER_KEY } from "./tutorial/steps";
 import { fitRow, fitTexts } from "./ui/fitText";
 import { lifeForceBadge } from "./ui/lifeForceBadge";
 import { compactGold } from "./ui/compactNumber";
@@ -2174,6 +2175,9 @@ export class Hud {
   tutorialTarget(label: string | null): HTMLElement | null {
     if (!label) return null;
     if (label === "Invade") return this.el.querySelector<HTMLElement>(".invade-shortcut");
+    // The tools live in the bottom-right corner button while collapsed, in the bar once out.
+    if (label === "Tools") return this.collapsed ? this.fab : this.toolsBar;
+    if (label === "LifeForce") return this.lfChip ?? null;
     return this.menuCol?.querySelector<HTMLElement>(`[data-menu="${label}"]`) ?? null;
   }
   /** Whether the mobile FAB currently hides the menu column (arrow needs expand). */
@@ -2217,11 +2221,11 @@ export class Hud {
   // whichever shelf it was last left on.
   openMarket(initialTab?: string) {
     this.closeMarket();
-    const tutorialBoostMarket = this.el.classList.contains("tutorial") &&
+    const tutorialMarket = this.el.classList.contains("tutorial") &&
       this.tutorialMenuTarget === "Market";
-    if (tutorialBoostMarket) initialTab = "Boosts";
+    if (tutorialMarket) initialTab = "Items";
     const bg = document.createElement("div");
-    bg.className = "mkt-bg" + (tutorialBoostMarket ? " tut-market" : "");
+    bg.className = "mkt-bg" + (tutorialMarket ? " tut-market" : "");
     const mkt = document.createElement("div");
     mkt.className = "mkt";
 
@@ -2235,7 +2239,7 @@ export class Hud {
     ci.src = UI("button_close.png");
     close.appendChild(ci);
     close.onclick = () => bg.remove();
-    if (tutorialBoostMarket) close.style.display = "none";
+    if (tutorialMarket) close.style.display = "none";
 
     const cur = document.createElement("div");
     cur.className = "mkt-cur";
@@ -2312,6 +2316,7 @@ export class Hud {
       : recallOneOf("market.tab", Object.keys(SUBTABS), "Crops");
     const firstSub = subsFor(tab);
     let sub = firstSub.length ? recallOneOf(`market.sub.${tab}`, firstSub, firstSub[0]) : "";
+    if (tutorialMarket) sub = "Decors"; // the scripted Market shows one Daisy and nothing else
 
     // One key per (tab, sub-tab, search) view: the page the player was on and how far
     // that page was scrolled are remembered per shelf, so page 15 of Decors is still
@@ -2320,12 +2325,12 @@ export class Hud {
     const viewKey = () => `${tab}|${sub}|${search.trim().toLowerCase()}`;
     const pageKey = () => `market.page.${viewKey()}`;
     const scrollKey = () => `market.scroll.${viewKey()}|${page}`;
-    const recordView = tutorialBoostMarket ? () => {} : () => {
+    const recordView = tutorialMarket ? () => {} : () => {
       remember("market.tab", tab);
       if (sub) remember(`market.sub.${tab}`, sub);
       remember(pageKey(), page);
     };
-    if (!tutorialBoostMarket) page = recallNumber(pageKey(), 0);
+    if (!tutorialMarket) page = recallNumber(pageKey(), 0);
 
     const entriesFor = (): MktEntry[] => {
       if (tab === "Crops" && sub === "Plants")
@@ -2351,6 +2356,7 @@ export class Hud {
         // server enforces the same rule on the buy, so a hidden card cannot be
         // bought by other means either. Owning one is never affected.
         cards = cards.filter((c) => decorAvailable(c.def));
+        if (tutorialMarket) cards = cards.filter((c) => c.def.key === TUTORIAL_FLOWER_KEY);
         if (sub === "Decors")
           cards = [...cards].sort((a, b) => compareItemMarketOrder(a.def, b.def));
         // Limited functional items leave the Market once the player owns the
@@ -2434,7 +2440,7 @@ export class Hud {
         // — how many uses the listed price buys — not how many you already own; the
         // owned count lives in Storage's Boosts tab, and appending it to the name
         // only put it under the magnifier button.
-        return this.boosts.filter((b) => !tutorialBoostMarket || b.key === "insta_grow").map((b) => {
+        return this.boosts.map((b) => {
           // Gift vouchers are "1 per farm": lock once you own that zombie or hold
           // the voucher (main supplies the predicate; it spans both Cupid vouchers).
           const ownedLimit = b.effect === "gift" && !!this.giftLimitReached?.(b.key);
@@ -2606,7 +2612,7 @@ export class Hud {
       grid.classList.toggle("mkt-grid--upgrade", tab === "Upgrade" && sub === "Farm Size");
       grid.classList.toggle("mkt-grid--epic", tab === "Epic Boss");
       // Search + pager only ride the card-list tabs.
-      const canSearch = searchable() && !tutorialBoostMarket;
+      const canSearch = searchable() && !tutorialMarket;
       searchRow.style.display = canSearch ? "flex" : "none";
       if (tab === "Upgrade") {
         pager.style.display = "none";
@@ -2717,7 +2723,7 @@ export class Hud {
 
     const renderSubs = () => {
       subsEl.innerHTML = "";
-      const list = subsFor(tab);
+      const list = tutorialMarket ? [] : subsFor(tab); // the scripted Market has one shelf
       subsEl.style.display = list.length ? "flex" : "none";
       for (const s of list) {
         const b = document.createElement("button");
@@ -2760,12 +2766,12 @@ export class Hud {
     }
 
     mkt.append(title, close, cur, tabsEl, subsEl, grid, pager);
-    if (tutorialBoostMarket) {
+    if (tutorialMarket) {
       tabsEl.style.display = "none";
       subsEl.style.display = "none";
     }
     bg.appendChild(mkt);
-    if (!tutorialBoostMarket) bindBackdropDismiss(bg, () => bg.remove());
+    if (!tutorialMarket) bindBackdropDismiss(bg, () => bg.remove());
     this.el.appendChild(bg);
     renderSubs();
     renderGrid();
@@ -3361,11 +3367,16 @@ export class Hud {
     this.el.appendChild(bg);
 
     if (onlyKey) {
-      // Tutorial: skip the Plants/Zombies chrome — show only the Zombies list
-      // (with everything but the target locked) and hide the toggles/subtabs.
+      // Tutorial: skip the Plants/Zombies chrome — show only the list holding the target
+      // (the Zombie, or the Carrot beside it), everything else locked, and hide the
+      // toggles/subtabs.
       screens.style.display = "none";
-      zcat = "normal";
-      showZombies();
+      if (this.plantCards.some((c) => c.cfg.key === onlyKey)) {
+        showPlants();
+      } else {
+        zcat = "normal";
+        showZombies();
+      }
       subtabs.style.display = "none";
       return;
     }

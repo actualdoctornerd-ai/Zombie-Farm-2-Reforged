@@ -92,7 +92,8 @@ import { requestPersistentStorage } from "./storagePersistence";
 import { raidTip } from "./raid/raidTips";
 import { BASE } from "./base";
 import { TutorialController } from "./tutorial/TutorialController";
-import { reconcileTutorialCompletion, TutStep, TUTORIAL_ZOMBIE_KEY } from "./tutorial/steps";
+import { reconcileTutorialCompletion, TutStep, TUTORIAL_BATTLE_TIP } from "./tutorial/steps";
+import { TUTORIAL_GROW_BOOST, TUTORIAL_GROW_USES, TUTORIAL_PLOTS } from "./tutorial/freshFarm";
 import { timUnlockNoticesFor } from "./tutorial/unlockNotices";
 import { initPlatform, isMobile, isTouch } from "./platform";
 import { initPwa, promptReload, checkForUpdate } from "./pwa";
@@ -351,7 +352,8 @@ async function main() {
     const def = zombieDefs.get(key);
     if (!def) return undefined;
     return resolveCropMutations(def.mutation ?? 0, context.cropKeys, {
-      guaranteed: context.guaranteed,
+      // The tutorial's first zombie always takes the carrot planted beside it.
+      guaranteed: context.guaranteed || !!tutorial?.guaranteesMutation(),
       headless: def.group === "Headless",
       chancePerCrop: cropMutationChance(state.lifeForceLevel),
     });
@@ -1826,7 +1828,7 @@ async function main() {
     },
     questBus,
     (oc, or) => zombies.tryFertilize(oc, or),
-    (oc, or) => tutorial?.onPlotPlowed(oc, or),
+    undefined, // onPlotPlowed: the tutorial no longer teaches plowing, so nothing needs the origin
     onCropHarvested,
     (currency, needed) => hud.showToast(
       currency === "gold" ? "Not enough coins." : `Not enough brains (need ${needed}).`
@@ -2027,7 +2029,7 @@ async function main() {
 
   hud.onBuyBoost = (def, qty = 1) => {
     if (onlineGameplayBlocked()) return 0;
-    if (tutorial && !tutorial.allowsBoostPurchase(def.key)) return 0;
+    if (tutorial && !tutorial.allowsBoostPurchase()) return 0;
     if (def.effect === "gift" && giftLimitReached(def.key)) return 0; // 1 per farm
     if (def.effect === "gift") qty = 1; // a voucher run makes no sense — 1 per farm
     // Each pack is bought as its own atomic step with a fresh funds check, so a
@@ -3082,6 +3084,17 @@ async function main() {
   // (Restored farms rebuild their own roster; a visited farm shows the friend's.)
   if (!visiting && !restored) {
     state.setZombieCount(0); // no starter; sync the HUD count off the default 1
+    // The Worker gives a new ONLINE account its four starting plots and two Insta-Grows
+    // (v3/engine.newAccountGameplayState); an offline farm seeds the same ones here, so both
+    // start identically. Skipped online, where the server's projection is the truth.
+    if (!onlineFarm) {
+      field.restore(
+        TUTORIAL_PLOTS.map((p) => ({ oc: p.oc, or: p.or, state: "plowed" as const })),
+        () => undefined
+      );
+      state.addBoost(TUTORIAL_GROW_BOOST, TUTORIAL_GROW_USES);
+      saveManager.save();
+    }
   }
 
   // Visit mode UI: hide the farm-editing chrome, show a "Visiting X — Exit" banner.
@@ -4398,41 +4411,24 @@ async function main() {
       const g = world.toGlobal(new Point(c.x, c.y));
       return { x: g.x, y: g.y };
     },
-    // Reuse the tutorial zombie's plot when restoring an older in-progress save;
-    // otherwise find empty ground near the farmer. This only selects a target —
-    // the tutorial's Plow step creates the soil through the real job/backend path.
-    findTutorialPlot: (preferExisting = false) => {
-      const plots = field.serialize();
-      if (preferExisting) {
-        const existing = plots.find((p) => p.crop?.key === TUTORIAL_ZOMBIE_KEY)
-          ?? plots.find((p) => p.state === "plowed" && !p.crop);
-        if (existing) return { col: existing.oc, row: existing.or };
-      }
-      const anchors: [number, number][] = [
-        [start.col + 4, start.row + 1], [start.col + 4, start.row - 3],
-        [start.col - 5, start.row + 1], [start.col + 1, start.row + 5],
-        [start.col + 1, start.row - 5], [start.col - 5, start.row - 3],
-      ];
-      for (const [c, r] of anchors) {
-        const t = field.resolveTill(c, r);
-        if (t.valid) return { col: t.oc, row: t.or };
-      }
-      return null;
-    },
     isRaidActive: () => raidActive,
     // Plant and Insta-Grow are causally dependent server mutations. Confirm the
-    // tutorial crop before the boost beat so an older plant projection cannot
+    // tutorial crops before Tim speeds them up so an older plant projection cannot
     // overwrite the optimistic ripe timestamp from the first power use.
     settlePlant: () => economy?.settleBeforeDependency() ?? Promise.resolve(),
+    // Tim's Insta-Grow: the same call a tap with the tool makes, minus the tap.
+    speedUpPlot: (oc, or) => applyInstaGrowTarget({ kind: "crop", oc, or }),
     grantCompletionBonus: () => {
       state.addGold(200);
       economy?.submitTutorialCompletion();
     },
   });
   // Kick off on a brand-new farm (never while visiting a friend); restore mid-run
-  // otherwise. The fresh-farm detection (restored/visiting) happened at load above.
+  // otherwise. The fresh-farm detection (restored/visiting) happened at load above. A
+  // new online farm arrives with its four plots, so "untouched" is not "never started":
+  // a tutorial record that exists (finished or skipped included) always wins.
   if (!visiting) {
-    if (!restored) tutorial.start();
+    if (!restored && !state.tutorial) tutorial.start();
     else tutorial.restore(state.tutorial);
   }
 
@@ -5826,15 +5822,19 @@ async function main() {
       const verb = isTouch() ? "Tap" : "Click";
       await hud.timSays(
         setup.turnedTemplate
-          ? "Careful now — this one FIGHTS DIRTY. He'll set your zombies alight,\n" +
-            "and he'll turn one right around against you.\n" +
-            `${verb} the fire to beat it out, and ${verb.toLowerCase()} the pixel one\n` +
-            "till it breaks — that's how you get your zombie back!"
-          : "Careful now — this invasion's got HAZARDS. They'll grab your zombies\n" +
-            `right off the field, or block the way forward.\n${verb} one to damage it — ` +
-            "keep at it and it'll go away!"
+          ? "Careful now! This one fights DIRTY. He'll set yer zombies alight,\n" +
+            "and he'll turn one right around against ya.\n" +
+            `${verb} the fire to beat it out. ${verb} the pixel one\n` +
+            "till it breaks, and ya get yer zombie back!"
+          : "Careful now! This invasion's got HAZARDS. They'll grab yer zombies\n" +
+            `right off the field, or block the way forward.\n${verb} one to damage it. ` +
+            "Keep at it and it'll go away!"
       );
     }
+    // The tutorial's fight: Tim says where the two things a first-timer has to find are —
+    // the thought bubble that sends a zombie out, and the special-move buttons. Before the
+    // scene mounts, like the tips around it, so nothing in the fight is waiting on a tap.
+    if (tutorial?.inFirstFight) await hud.timSays(TUTORIAL_BATTLE_TIP, "Let's go!");
     // Some invasions run on a rule nothing on the battlefield states — the Pirates'
     // Scallywag mirrors whatever attack speed you bring it. Tim gives that warning
     // once, before the first attempt, instead of the game only admitting it in the
@@ -7447,9 +7447,9 @@ async function main() {
             hud.setPlanting(cfg); // keep planting this crop on further taps
             jobs.enqueue("plant", col, row, cfg);
           };
-          // During the tutorial's plant beat, constrain the menu to the base Zombie.
-          if (tutorial.wantsLockedPlant(col, row))
-            hud.openPlantMenu(onPick, { onlyKey: TUTORIAL_ZOMBIE_KEY });
+          // During the tutorial's plant beats, constrain the menu to the beat's own crop.
+          const lockedKey = tutorial.lockedPlantKey(col, row);
+          if (lockedKey) hud.openPlantMenu(onPick, { onlyKey: lockedKey });
           else hud.openPlantMenu(onPick);
         } else if (field.isSpent(col, row)) {
           const origin = field.plotOriginAt(col, row);

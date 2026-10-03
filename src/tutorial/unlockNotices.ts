@@ -29,7 +29,7 @@ export const TIM_UNLOCK_NOTICES: readonly UnlockNotice[] = [
   {
     level: 10,
     message:
-      "Big news — the Black Market's open! You'll find it under Social.\n" +
+      "Big news! The Black Market's open. Ya can find it under Social.\n" +
       "Post yer zombies for sale, or put up a request and let yer fellow farmers " +
       "fill it.",
     onlineOnly: true,
@@ -38,8 +38,8 @@ export const TIM_UNLOCK_NOTICES: readonly UnlockNotice[] = [
     level: 20,
     message:
       "Brain Tickets are up for sale in the Market! One ticket starts " +
-      "an invasion right away, with way better brain luck.\nFair warnin' — the " +
-      "fight turns ELITE, so bring yer toughest army.",
+      "an invasion right away, with way better brain luck.\nFair warnin', the " +
+      "fight turns ELITE. Bring yer toughest army.",
   },
 ];
 

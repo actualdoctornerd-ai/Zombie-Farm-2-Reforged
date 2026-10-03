@@ -35,6 +35,7 @@ import { combineMasks } from "../../../src/zombie/mutations";
 import { resolveCropMutations, plotsTouch } from "../../../src/zombie/cropMutations";
 import { createCombineRandom, isCombinePromotion, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
 import { harvestXp, plowXp } from "../../../src/farmRewards";
+import { TUTORIAL_GROW_BOOST, TUTORIAL_GROW_USES, TUTORIAL_PLOTS } from "../../../src/tutorial/freshFarm";
 import { cropUnlocked } from "../../../src/cropUnlocks";
 import { epicBossById, epicBossHp, epicBossUnlockLevel } from "../../../src/epicBoss/catalog";
 import { bossForFavoriteCrop, luresEpicBoss } from "../../../src/epicBoss/favoriteCrops";
@@ -543,8 +544,14 @@ function rewardHarvest(
       };
     }
     const id = makeId();
+    // The tutorial's first zombie always takes the mutation of the crop planted beside it
+    // (Tim has the player plant a carrot there). One-shot: a farm that has grown its first
+    // zombie never gets it again, and an account created before the tutorial rework has the
+    // flag off from the start.
+    const tutorialMutation = state.tutorialMutation === true;
+    if (tutorialMutation) state.tutorialMutation = false;
     const mutation = resolveCropMutations(zombieDefaultMutation(key), mutationCropKeys, {
-      guaranteed: hasMutationMonolith(state),
+      guaranteed: hasMutationMonolith(state) || tutorialMutation,
       headless: rule?.group === "Headless",
       chancePerCrop: cropMutationChance(placedLifeForceLevel(state)),
       random,
@@ -1637,6 +1644,9 @@ export function applyCommandBatch(
   };
 }
 
+/** A blank farm: no plots, no stock, nothing granted. The base every other state is built
+ *  from, and what a missing field in a stored account falls back to — so it must stay
+ *  blank. A brand-new account starts from `newAccountGameplayState` instead. */
 export function freshGameplayState(): MutableGameplayState {
   return {
     balance: { gold: 400, brains: 1, xp: 0 },
@@ -1659,8 +1669,24 @@ export function freshGameplayState(): MutableGameplayState {
     zombieMax: 16,
     zombiePotBought: false,
     tutorialRewarded: false,
+    tutorialMutation: false,
     potSlots: {},
     raids: { progress: {}, lastRaidAt: 0 },
     epicBoss: null,
   };
+}
+
+/** What a brand-new account is created with: the blank farm plus the tutorial's head start
+ *  (src/tutorial/freshFarm.ts) — four plowed plots at the centre, free; two Insta-Grows
+ *  for Tim to spend on the first zombie and carrot; and the one-time guarantee that the
+ *  first zombie takes the carrot's mutation. Applied only at creation, so no existing
+ *  account is touched. The offline build seeds the same plots and boosts itself. */
+export function newAccountGameplayState(): MutableGameplayState {
+  const state = freshGameplayState();
+  state.farm.plots = Object.fromEntries(
+    TUTORIAL_PLOTS.map((p) => [plotKey(p.oc, p.or), { state: "plowed" as const }])
+  );
+  state.inventory = { [TUTORIAL_GROW_BOOST]: TUTORIAL_GROW_USES };
+  state.tutorialMutation = true;
+  return state;
 }

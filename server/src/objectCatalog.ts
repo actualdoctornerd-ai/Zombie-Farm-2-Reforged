@@ -154,7 +154,7 @@ export const OBJECTS: Readonly<Record<string, ObjectEcon>> = {
   "cupidTopiary": { cost: 5000, brains: false, xp: 100, level: 1 },
   "cursedChest": { cost: 2, brains: true, xp: 0, level: 1 },
   "cypressTree": { cost: 500, brains: false, xp: 5, level: 3 },
-  "daisy": { cost: 10, brains: false, xp: 0, level: 6 },
+  "daisy": { cost: 10, brains: false, xp: 0, level: 1 },
   "desertSkull": { cost: 3000, brains: false, xp: 30, level: 26 },
   "diamondCar": { cost: 0, brains: false, xp: 0, level: -1 },
   "dinosaurFern": { cost: 5000, brains: false, xp: 50, level: 28 },

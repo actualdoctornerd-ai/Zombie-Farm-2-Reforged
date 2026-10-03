@@ -107,7 +107,8 @@ trust one:
   `"classic"` mode is still selectable); the sections describe what was built, with deviations called out inline),
   `PRIZE_CROPS.md` (the six late-game crops and their mutations: fully built and switched
   off behind `PRIZE_CROPS.live` — what exists, the rules behind the numbers, and how to ship
-  it), and
+  it), `TUTORIAL_ORIGINAL_LINES.md` (the original game's Tim Buckwheat tutorial lines, by beat, as a
+  reference for the voice: a source list, not a description of what the tutorial says now), and
   everything under `docs/mechanics/` (behaviour recovered from the original binary, with the
   derivation — these win over intuition, see CONTRIBUTING; `mechanics/README.md` indexes them).
 - **Historical design plans** for features that have since shipped:

@@ -89,7 +89,7 @@ export class JobSystem {
     // Fired after a veggie crop is planted, to let Garden zombies roll to fertilize
     // it. Returns the fertilizing zombie's name (for a toast) or null.
     private onCropPlanted: (oc: number, or: number, cfg: CropConfig) => string | null = () => null,
-    // Carries the exact free-placement origin into the tutorial's next beat.
+    // Told the exact free-placement origin of each plot as it is plowed (nothing listens now).
     private onPlotPlowed: (oc: number, or: number) => void = () => {},
     // Epic Boss token roll, performed HERE in both modes and returning whether this
     // crop yielded one. Online it is reported to the server rather than checked by it.

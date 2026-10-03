@@ -71,7 +71,8 @@ const MAX_INBOX = 200; // unclaimed gifts we'll hold / return
 // receives. A client can never declare its own starting balance — that was the
 // self-seed exploit. Mirrors the client's fresh-game values (GameState defaults) so a
 // legitimately new player starts identically.
-// The tutorial spends the fresh player's one brain on Insta-Grow.
+// A new account's one brain is theirs to spend; the tutorial's Insta-Grows come as free
+// inventory instead (v3/engine.freshGameplayState).
 // KEEP IN SYNC with GameState.brains and v3/engine.freshGameplayState.
 const STARTER_BALANCE = { gold: 400, brains: 1, xp: 0 } as const;
 

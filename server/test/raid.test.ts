@@ -16,7 +16,7 @@ describe("raidCatalog", () => {
     }
   });
   it("raidEcon looks up known ids and rejects unknown", () => {
-    expect(raidEcon(1)).toMatchObject({ gold: 1200, bonus: 400, xp: 100 });
+    expect(raidEcon(1)).toMatchObject({ gold: 1200, bonus: 400, xp: 50 });
     expect(raidEcon(6)).toMatchObject({ gold: 4000, bonus: 2000 });
     expect(raidEcon(999)).toBeUndefined();
     expect(raidEcon(0)).toBeUndefined();

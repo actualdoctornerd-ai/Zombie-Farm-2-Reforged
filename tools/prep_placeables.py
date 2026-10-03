@@ -1667,6 +1667,10 @@ def main():
         "oliveTreeOlive": {"level": 5},
         "fruitTreeLemon": {"harvestValue": 35},
         "fruitTreeOrange": {"harvestValue": 18},
+        # The tutorial's Market beat has the player buy a Daisy: the cheapest flower there
+        # is (10 gold, 1 Life Force). Its source level of 6 would put it out of reach of a
+        # level-1 player, so it opens with the shop.
+        "daisy": {"level": 1},
     }
     for c in catalog:
         c.update(tree_balance.get(c["key"], {}))

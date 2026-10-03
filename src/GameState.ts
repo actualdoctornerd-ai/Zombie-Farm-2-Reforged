@@ -50,7 +50,7 @@ type Listener = () => void;
 export class GameState {
   name = "Zombie Farmer";
   gold = 400;
-  // The tutorial spends the fresh player's one brain on Insta-Grow.
+  // A new farm's one brain is the player's to spend (the tutorial's Insta-Grows are free).
   brains = 1;
   xp = 0;
   zombieCount = 1;

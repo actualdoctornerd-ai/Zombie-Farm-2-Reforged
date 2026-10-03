@@ -1,11 +1,13 @@
-// The Tim Buckwheat guided tutorial — a first-run presentation layer
-// that leads the player through the core farm loop (plow → plant → speed up →
-// harvest → invade). It COEXISTS with the quest engine: it subscribes
-// to the same QuestBus and polls live state, and never mutates gameplay systems.
+// The Tim Buckwheat guided tutorial — a first-run presentation layer that leads the
+// player through the core loop: plant a zombie and a carrot beside it, grow them (Tim
+// spends the two Insta-Grows a new farm starts with), harvest the mutated zombie, re-plow
+// its hole, win the first invasion, buy a Daisy, learn Life Force, and tour the side buttons. It COEXISTS
+// with the quest engine: it subscribes to the same QuestBus and polls live state, and
+// never mutates gameplay systems — the one thing it does for the player is the
+// Insta-Grow, which goes through the same path as a tap on the tool.
 //
-// Faithful to the original iOS binary's TutorialManager (a gflags state machine
-// with slide-up Tim popups + a pulsing arrow + input gating). See steps.ts for the
-// decoded dialogue and the tutorial-ground-truth memory for the RE provenance.
+// Faithful in spirit to the original iOS binary's TutorialManager (slide-up Tim popups
+// + a pulsing arrow + input gating). See steps.ts for the dialogue and the flow.
 import { BASE } from "../base";
 import { GameState } from "../GameState";
 import { Field } from "../Field";
@@ -13,21 +15,27 @@ import { ZombieField } from "../zombie/ZombieField";
 import { Hud } from "../hud";
 import { QuestBus, QuestEvent } from "../quest/events";
 import { TutorialSave } from "../save/schema";
+import { TUTORIAL_CARROT_PLOT, TUTORIAL_ZOMBIE_PLOT, type TutorialPlot } from "./freshFarm";
 import {
-  nextTutorialStep, recoverTutorialCropStep, recoverTutorialInvadeStep, STEPS, StepDef,
-  TutStep, TUTORIAL_GROW_BOOST_KEY, tutorialBoostPurchaseAllowed, tutorialStepNeedsTarget,
+  migrateTutorialSave, nextTutorialStep, recoverTutorialCropStep, STEPS, StepDef, TutStep,
+  TUTORIAL_CARROT_KEY, TUTORIAL_FLOWER_KEY, TUTORIAL_LOST_TIP, TUTORIAL_ZOMBIE_KEY,
+  tutorialInvadeLost, tutorialPlotFor, type TutorialFarmView,
 } from "./steps";
 
 const ARROW_SIZE = 27;
-const ARROW_MENU_GAP = 6;
+const ARROW_GAP = 6;
 const ARROW_PLOT_GAP = 24;
+
+/** The right-hand menu buttons the tour walks down, top to bottom. */
+const SIDE_BUTTONS = ["Zombies", "Boosts", "Storage", "Market", "Social", "Guide"];
 
 const SKIP_LABEL = "Skip tutorial";
 const SKIP_CONFIRM_LABEL = "Tap again to skip";
 const SKIP_CONFIRM_MS = 4000;
 
-/** The Insta-Grow boost key (mirrors GROW_BOOST_KEY in main.ts). */
-const GROW_BOOST_KEY = TUTORIAL_GROW_BOOST_KEY;
+/** Tim's word when the farm cannot give him two Insta-Grows to spend. */
+const SLOW_GROWERS_TIP =
+  "Looks like these two are slow growers.\nGive 'em a few minutes, then harvest 'em yerself!";
 
 export interface TutorialDeps {
   hud: Hud;
@@ -37,30 +45,25 @@ export interface TutorialDeps {
   questBus: QuestBus;
   /** Screen-pixel center of a plot origin (world → global projection). */
   plotScreenPos: (col: number, row: number) => { x: number; y: number };
-  /** Find a suitable tutorial plot without mutating the field. */
-  findTutorialPlot: (preferExisting?: boolean) => { col: number; row: number } | null;
   /** Whether a live raid currently owns the screen (hide the overlay then). */
   isRaidActive: () => boolean;
   /** Apply the visible bonus and, online, enqueue its one-time semantic grant. */
   grantCompletionBonus?: () => void;
-  /** Confirm the planted tutorial zombie before exposing a dependent power use. */
+  /** Confirm the planted crops before the Insta-Grows that depend on them. */
   settlePlant?: () => Promise<void>;
+  /** Spend one Insta-Grow on the crop at this plot, exactly as tapping it would.
+   *  Returns false when there was nothing to grow or nothing to spend. */
+  speedUpPlot: (oc: number, or: number) => boolean;
 }
 
 export class TutorialController {
   private d: TutorialDeps;
   active = false;
   private current: TutStep = TutStep.Welcome;
-  /** The plot targeted by the plow/plant/ripen/harvest beats (plot origin). */
-  private plotTarget: { col: number; row: number } | null = null;
   private unsubBus: (() => void) | null = null;
   private raf = 0;
-  private settlingPlant = false;
-  /** OpenGuide beat: the player has had the Farmer's Guide open this beat. The
-   *  beat completes when the guide CLOSES again, so Tim's farewell (and the gold)
-   *  waits until they are back on the farm rather than popping over the pages. */
-  private guideSeen = false;
-
+  /** Grow beat: Tim is mid-way through speeding the crops up (awaiting the plant sync). */
+  private growing = false;
   // DOM
   private layer!: HTMLDivElement;
   private tim!: HTMLDivElement;
@@ -83,44 +86,30 @@ export class TutorialController {
   /** Begin the tutorial on a brand-new farm. */
   start() {
     if (this.active) return;
-    this.plotTarget = this.d.findTutorialPlot();
-    // Persist immediately so the tutorial survives a reload mid-Welcome: once a
-    // save exists, load() reports restored=true, and only a saved {done:false}
-    // record (not an absent one) tells restore() to resume vs. stay inert.
+    // The farm starts with the four plowed plots. A farm that somehow has not got them
+    // (an account made before the starting plots existed) cannot run these beats, and a
+    // frozen overlay is worse than no tutorial — so it is closed out, once.
+    const view = this.farmView();
+    if (!view.zombie.canPlant || !view.carrot.canPlant) { this.endQuietly(); return; }
+    // Persist immediately so the tutorial survives a reload mid-Welcome: only a saved
+    // {done:false} record (not an absent one) tells restore() to resume vs. stay inert.
     this.persist(TutStep.Welcome, false);
     this.begin(TutStep.Welcome);
   }
 
   /** Restore from a save: stay inert if done, else re-enter the saved beat. */
   restore(save: TutorialSave | undefined) {
-    if (!save || save.done) return; // never started or finished
-    this.plotTarget = save.target ?? this.d.findTutorialPlot(
-      save.step !== TutStep.Welcome && save.step !== TutStep.Plow
-    );
-    // Saves from the previous tutorial used 6/7 for post-raid narrative beats.
-    // Resume those at the final message. Older saves did not persist a target; if
-    // their client-only starter soil vanished during server reconciliation, restart
-    // at the real plow step rather than leaving the player stuck on bare ground.
-    let step = save.step === 6 || save.step === 7 ? TutStep.Done : save.step as TutStep;
-    // A step this build does not know (a save from a future/edited build) would crash
-    // enterStep on an undefined beat. Start over rather than mount a broken overlay.
+    const migrated = migrateTutorialSave(save);
+    // A save from the previous tutorial is closed out rather than resumed (see
+    // migrateTutorialSave); the closed record is written back so it stays closed.
+    if (migrated !== save && migrated) this.persist(migrated.step as TutStep, migrated.done);
+    if (!migrated || migrated.done) return; // never started or finished
+    let step = migrated.step as TutStep;
     if (!STEPS[step]) step = TutStep.Welcome;
-    // A beat that needs a target but has none can reach nothing; Plow needs none, so
-    // land there instead of mounting the overlay on a frozen screen.
-    if (!this.plotTarget && tutorialStepNeedsTarget(step)) step = TutStep.Plow;
-    if (step === TutStep.PlantZombie && this.plotTarget &&
-        !this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)) {
-      step = TutStep.Plow;
-    } else if (this.plotTarget) {
-      step = recoverTutorialCropStep(
-        step,
-        this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row),
-        this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row),
-        this.d.field.isRipe(this.plotTarget.col, this.plotTarget.row)
-      );
-    }
-    this.persist(step, false);
-    this.begin(step);
+    const recovered = recoverTutorialCropStep(step, this.farmView());
+    if (recovered === null) { this.endQuietly(); return; }
+    this.persist(recovered, false);
+    this.begin(recovered);
   }
 
   private begin(step: TutStep) {
@@ -149,6 +138,13 @@ export class TutorialController {
     if (this.active) this.dispose();
   }
 
+  /** End the run without the bonus (the reward is for finishing it) and hand the farm
+   *  back. Used whenever the tutorial cannot continue and must not leave a frozen game. */
+  private endQuietly() {
+    this.persist(TutStep.Done, true);
+    if (this.active) this.dispose();
+  }
+
   private dispose() {
     this.active = false;
     if (this.raf) cancelAnimationFrame(this.raf);
@@ -162,7 +158,7 @@ export class TutorialController {
   }
 
   private persist(step: TutStep, done: boolean) {
-    this.d.state.setTutorial({ done, step, target: this.plotTarget ?? undefined });
+    this.d.state.setTutorial({ done, step });
   }
 
   // ---- dev hooks (window.ZF.tut) ----
@@ -175,7 +171,7 @@ export class TutorialController {
   }
   /** Jump the overlay to a given beat (loose — doesn't force game preconditions). */
   jumpTo(step: TutStep) {
-    if (!this.active) { this.plotTarget = this.d.findTutorialPlot(); this.begin(step); return; }
+    if (!this.active) { this.begin(step); return; }
     this.advanceTo(step);
   }
   /** Wipe persisted tutorial progress (so a reload replays it). */
@@ -187,34 +183,43 @@ export class TutorialController {
   // ---- world input gate (consulted by main's pointerdown handler) ----
 
   /** True when farm taps on (col,row) should be allowed. Only the current beat's
-   *  target plot is tappable; every other farm tap (and all taps during menu /
-   *  narrative beats) is frozen. */
+   *  target plot is tappable (and, while the Daisy is armed, any open ground); every
+   *  other farm tap — and all taps during menu / narrative beats — is frozen. */
   allowsTile(col: number, row: number): boolean {
     if (!this.active) return false;
     const def = STEPS[this.current];
+    if (def.kind === "place") return this.d.hud.placing?.key === TUTORIAL_FLOWER_KEY;
     if (def.kind !== "plot") return false;
-    if (this.current === TutStep.Plow) {
-      return this.d.field.resolveTill(col, row).valid;
-    }
-    if (!this.plotTarget) return false;
+    const target = tutorialPlotFor(this.current);
+    if (!target) return false;
     const at = this.d.field.plotOriginAt(col, row);
-    return !!at && at.oc === this.plotTarget.col && at.or === this.plotTarget.row;
+    return !!at && at.oc === target.oc && at.or === target.or;
   }
 
-  /** True when a plant tap here should open the Zombie-locked plant menu. */
-  wantsLockedPlant(col: number, row: number): boolean {
-    return this.active && this.current === TutStep.PlantZombie && this.allowsTile(col, row);
+  /** The one plantable the plant menu may offer on this tap, or null for an ordinary
+   *  (unlocked) menu. Both plant beats lock the picker to their own target. */
+  lockedPlantKey(col: number, row: number): string | null {
+    if (!this.active || !this.allowsTile(col, row)) return null;
+    if (this.current === TutStep.PlantZombie) return TUTORIAL_ZOMBIE_KEY;
+    if (this.current === TutStep.PlantCarrot) return TUTORIAL_CARROT_KEY;
+    return null;
   }
 
-  /** The JobSystem supplies the exact freely chosen origin after a successful plow. */
-  onPlotPlowed(oc: number, or: number) {
-    if (!this.active || this.current !== TutStep.Plow) return;
-    this.plotTarget = { col: oc, row: or };
-    this.advance();
+  /** On the tutorial's Invade beat, i.e. the player is about to fight the first fight. */
+  get inFirstFight(): boolean {
+    return this.active && this.current === TutStep.Invade;
   }
 
-  allowsBoostPurchase(key: string): boolean {
-    return tutorialBoostPurchaseAllowed(this.active, this.current, key);
+  /** Whether the zombie being harvested right now is the tutorial's, which always takes
+   *  the mutation of the crop beside it. OFFLINE only: online the Worker owns the roll
+   *  (v3/engine rewardHarvest) and grants the same guarantee. */
+  guaranteesMutation(): boolean {
+    return this.active && this.current === TutStep.Harvest;
+  }
+
+  /** No boost can be bought while the tutorial runs: the Market it opens is scripted. */
+  allowsBoostPurchase(): boolean {
+    return !this.active;
   }
 
   /** Called by main right after a raid resolves back on the farm. */
@@ -232,34 +237,45 @@ export class TutorialController {
     const def = STEPS[step];
     this.removeBlocker();
     this.disarmSkip(); // a half-tapped skip must not carry into the next beat
-    this.guideSeen = false;
+    this.growing = false;
     this.layer.classList.toggle("invade-step", step === TutStep.Invade);
     // Only a narrative beat wants a clickable bubble; on every other beat Tim floats
-    // above the boost market and must not intercept taps meant for it.
+    // above the market and must not intercept taps meant for it.
     this.layer.classList.toggle("narrative-step", def.kind === "narrative");
     this.layer.classList.remove("invasion-menu-open");
-    // The boost market deliberately has no close button, so leaving its beat for ANY
-    // reason — including recoverTutorialCropStep's skip when the crop ripened on its
-    // own — has to take the panel with it, or the player is left holding a panel
-    // nothing can dismiss.
-    if (step !== TutStep.BuyInstaGrow) this.d.hud.closeMarket();
-    this.d.hud.setTutorialMenuTarget(def.kind === "menu" ? (def.menuLabel ?? null) : null);
+    // The scripted Market has no close button, so leaving its beat for ANY reason has
+    // to take the panel with it, or the player is left holding one nothing can dismiss.
+    if (step !== TutStep.Market) this.d.hud.closeMarket();
+    // A beat that is not placing must not leave the Daisy armed.
+    if (step !== TutStep.PlaceFlower && this.d.hud.placing?.key === TUTORIAL_FLOWER_KEY) {
+      this.d.hud.setPlacing(null);
+    }
+    this.d.hud.setTutorialMenuTarget(def.kind === "menu" ? (def.pointAt ?? null) : null);
+    // A tour stop for a button this build does not have (Social, offline) is skipped.
+    if (def.pointAt && SIDE_BUTTONS.includes(def.pointAt) && !this.d.hud.tutorialTarget(def.pointAt)) {
+      this.advance();
+      return;
+    }
 
-    // Menu beats need the (mobile) menu column visible to anchor the arrow —
-    // except Invade, whose target is the fixed bottom-left shortcut, not a menu
-    // button, so expanding buys nothing (and used to leave portrait phones in the
-    // chrome-expanded state that hid that very shortcut).
-    if (def.kind === "menu" && def.menuLabel !== "Invade" && this.d.hud.isCollapsed) {
+    // Menu beats need the (mobile) menu column visible to anchor the arrow — except
+    // Invade, whose target is the fixed bottom-left shortcut, not a menu button, so
+    // expanding buys nothing (and used to leave portrait phones in the chrome-expanded
+    // state that hid that very shortcut).
+    if ((def.kind === "menu" || (def.pointAt && SIDE_BUTTONS.includes(def.pointAt))) &&
+        def.pointAt !== "Invade" && this.d.hud.isCollapsed) {
       this.d.hud.expand();
     }
-    // Each plot beat equips the tool its target expects.
-    if (step === TutStep.Plow && this.d.hud.mode !== "till") this.d.hud.setMode("till");
-    if (step === TutStep.PlantZombie && this.d.hud.mode !== "walk") this.d.hud.setMode("walk");
-    if (step === TutStep.RipenCrop) this.equipInstaGrow();
-    if (step === TutStep.Harvest) this.d.hud.setMode("walk");
+    // The tools tuck into the corner button; a beat that points at it needs it showing.
+    if (def.pointAt === "Tools" && !this.d.hud.isCollapsed) this.d.hud.collapse();
+    // Each plot beat equips the tool its target expects: the select tool opens the plant
+    // picker, and a leftover "keep planting" mode would plant the wrong crop outright.
+    if ((step === TutStep.PlantZombie || step === TutStep.PlantCarrot || step === TutStep.Grow ||
+         step === TutStep.Harvest || step === TutStep.Plow) && this.d.hud.mode !== "walk") {
+      this.d.hud.setMode("walk");
+    }
 
     this.showBubble(def);
-    this.arrow.style.display = (def.kind === "plot" && step !== TutStep.Plow) || def.kind === "menu" ? "block" : "none";
+    this.arrow.style.display = def.kind === "plot" || def.pointAt ? "block" : "none";
 
     if (def.kind === "narrative") this.addBlocker(def);
   }
@@ -275,23 +291,45 @@ export class TutorialController {
     this.advanceTo(next);
   }
 
-  private equipInstaGrow() {
-    // setMode toggles; only switch in if not already equipped.
-    if (this.d.hud.mode !== "instagrow") this.d.hud.setMode("instagrow");
+  // ---- the Grow beat ----
+
+  /** A tap on a narrative beat. Every one just continues, except Grow, where the tap is
+   *  Tim's cue to spend the Insta-Grows. */
+  private onNarrativeTap() {
+    if (this.current === TutStep.Grow) void this.runGrow();
+    else this.advance();
+  }
+
+  /** Tim speeds both crops up. The planted crops must exist server-side first, or an
+   *  earlier plant projection can overwrite the optimistic ripening — so wait for the
+   *  shared command lane to settle, then spend one Insta-Grow per crop. */
+  private async runGrow() {
+    if (this.growing) return;
+    this.growing = true;
+    try { await this.d.settlePlant?.(); } catch { /* the economy client surfaces its own state */ }
+    if (!this.active || this.current !== TutStep.Grow) { this.growing = false; return; }
+    for (const plot of [TUTORIAL_ZOMBIE_PLOT, TUTORIAL_CARROT_PLOT]) {
+      if (!this.d.field.isRipe(plot.oc, plot.or)) this.d.speedUpPlot(plot.oc, plot.or);
+    }
+    this.growing = false;
+    const view = this.farmView();
+    if (view.zombie.ripe && view.carrot.ripe) { this.advance(); return; }
+    // Nothing left to spend (or the crops were refused): say so and let them play.
+    void this.d.hud.timSays(SLOW_GROWERS_TIP);
+    this.endQuietly();
   }
 
   // ---- event-driven advancement (single lifetime subscription) ----
 
   private onEvent(nid: string, object: string) {
     if (!this.active) return;
+    const name = object.toLowerCase();
     switch (this.current) {
-      case TutStep.Plow:
-        // JobSystem.onPlotPlowed owns this transition because it carries the freely
-        // chosen coordinates needed by the following planting step.
-        break;
       case TutStep.PlantZombie:
-        if (nid === QuestEvent.CropPlanted && object.toLowerCase() === "zombie")
-          this.confirmPlantThenAdvance();
+        if (nid === QuestEvent.CropPlanted && name === "zombie") this.advance();
+        break;
+      case TutStep.PlantCarrot:
+        if (nid === QuestEvent.CropPlanted && name === "carrot") this.advance();
         break;
       case TutStep.Harvest:
         if (nid === QuestEvent.ZombieHarvested) this.advance();
@@ -299,25 +337,12 @@ export class TutorialController {
       case TutStep.Invade:
         if (nid === QuestEvent.InvasionSuccessful) this.advance();
         break;
+      case TutStep.PlaceFlower:
+        if (nid === QuestEvent.ItemBought && name === "daisy") this.advance();
+        break;
       default:
         break;
     }
-  }
-
-  /** A power use depends on the planted crop already existing server-side. Await
-   * the shared ordered command lane before letting the tutorial buy/use the power,
-   * otherwise an earlier plant projection can overwrite the optimistic ripening. */
-  private confirmPlantThenAdvance() {
-    if (this.settlingPlant) return;
-    const settle = this.d.settlePlant;
-    if (!settle) { this.advance(); return; }
-    this.settlingPlant = true;
-    void settle()
-      .then(() => {
-        if (this.active && this.current === TutStep.PlantZombie) this.advance();
-      })
-      .catch(() => { /* the economy client surfaces its own unavailable state */ })
-      .finally(() => { this.settlingPlant = false; });
   }
 
   // ---- poll-driven advancement + arrow reposition (rAF loop) ----
@@ -336,63 +361,31 @@ export class TutorialController {
       this.current === TutStep.Invade &&
         !!document.querySelector("#hud .raid-bg, #hud .army-bg")
     );
-    // Likewise, the open Farmer's Guide owns the screen: Tim steps aside while
-    // the player reads (the arrow already hides itself behind any .panelbg).
-    const guideOpen =
-      this.current === TutStep.OpenGuide && !!document.querySelector("#hud .guide-bg");
-    this.layer.classList.toggle("guide-open", guideOpen);
+    // Keep the crop beats honest against the live farm: a crop the server refused, a
+    // ripening it has not confirmed, a plot that is gone. Null means the tutorial has
+    // lost something it cannot continue without — hand the farm back.
+    const recovered = recoverTutorialCropStep(this.current, this.farmView());
+    if (recovered === null) { this.endQuietly(); return; }
+    if (recovered !== this.current && !this.growing) { this.advanceTo(recovered); return; }
 
-    // A plot beat with no target reaches NOTHING: allowsTile() refuses every tile and
-    // a plot beat highlights no menu, so the overlay would sit there with the whole
-    // game frozen behind it (and the freeze is persisted, so a reload does not help).
-    if (!this.ensurePlotTarget()) return;
-    // Losing the army during the invasion beat is the other dead end — every farm tap
-    // is gated, so the player could never grow a replacement zombie to invade with.
-    const afterInvade = recoverTutorialInvadeStep(this.current, this.hasArmy(), this.canPlantTarget());
-    if (afterInvade !== this.current) { this.advanceTo(afterInvade); return; }
-
-    // If an old client-only tutorial plot disappears when authoritative farm state
-    // arrives, rewind to the earliest real action the surviving state supports.
-    if (!this.settlingPlant && this.plotTarget && this.current === TutStep.PlantZombie &&
-        !this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row)) {
-      this.advanceTo(TutStep.Plow);
+    // The fight is the one beat that cannot be retried: lose the only zombie and every
+    // farm tap and menu but Invade is gated, so there would be nothing left to do.
+    if (tutorialInvadeLost(this.current, this.hasArmy())) {
+      void this.d.hud.timSays(TUTORIAL_LOST_TIP);
+      this.endQuietly();
       return;
-    }
-    if (this.plotTarget) {
-      const recovered = recoverTutorialCropStep(
-        this.current,
-        this.d.field.hasCrop(this.plotTarget.col, this.plotTarget.row),
-        this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row),
-        this.d.field.isRipe(this.plotTarget.col, this.plotTarget.row)
-      );
-      if (recovered !== this.current) { this.advanceTo(recovered); return; }
     }
 
     // Poll the beats that have no game event to listen to.
     switch (this.current) {
-      case TutStep.BuyInstaGrow:
-        if (this.d.state.boostCount(GROW_BOOST_KEY) >= 1) {
-          this.d.hud.closeMarket();
-          this.advance();
-          return;
-        }
+      case TutStep.Market:
+        // The Daisy card arms placement and closes the Market: that is the buy.
+        if (this.d.hud.placing?.key === TUTORIAL_FLOWER_KEY) { this.advance(); return; }
         break;
-      case TutStep.RipenCrop:
-        if (this.plotTarget && this.d.field.isRipe(this.plotTarget.col, this.plotTarget.row)) {
-          this.advance(); return;
-        }
-        break;
-      case TutStep.OpenGuide:
-        // Complete once the guide has been opened AND closed again, so the
-        // farewell (and its gold) greets the player back on the farm instead of
-        // popping up over the pages they were sent to read.
-        if (guideOpen) {
-          // The highlighted Guide button sits at z 41, above the guide's own
-          // backdrop (20) — drop the glow while the panel is open. No restore
-          // needed: closing the guide is what completes the beat.
-          if (!this.guideSeen) this.d.hud.setTutorialMenuTarget(null);
-          this.guideSeen = true;
-        } else if (this.guideSeen) { this.advance(); return; }
+      case TutStep.PlaceFlower:
+        // Placement was cancelled (Escape / right click) before the Daisy went down:
+        // back to the Market so there is a way to arm it again.
+        if (this.d.hud.placing?.key !== TUTORIAL_FLOWER_KEY) { this.advanceTo(TutStep.Market); return; }
         break;
       default:
         break;
@@ -407,33 +400,26 @@ export class TutorialController {
     return this.d.zombies.roster().some((zombie) => !zombie.stored);
   }
 
-  private canPlantTarget(): boolean {
-    return !!this.plotTarget && this.d.field.canPlant(this.plotTarget.col, this.plotTarget.row);
+  /** What the farm shows about the two tutorial plots. */
+  private farmView(): TutorialFarmView {
+    const view = (p: TutorialPlot) => {
+      const exists = !!this.d.field.plotOriginAt(p.oc, p.or);
+      return {
+        exists,
+        canPlant: exists && this.d.field.canPlant(p.oc, p.or),
+        hasCrop: exists && this.d.field.hasCrop(p.oc, p.or),
+        ripe: exists && this.d.field.isRipe(p.oc, p.or),
+      };
+    };
+    return { zombie: view(TUTORIAL_ZOMBIE_PLOT), carrot: view(TUTORIAL_CARROT_PLOT) };
   }
 
-  /**
-   * Guarantee the current beat has something to point at. Returns false when it
-   * rewound (the caller should stop this frame).
-   *
-   * Plow is exempt: it accepts any tillable ground, so it is the safe landing spot
-   * whenever no target can be found at all.
-   */
-  private ensurePlotTarget(): boolean {
-    if (!tutorialStepNeedsTarget(this.current) || this.plotTarget) return true;
-    this.plotTarget = this.d.findTutorialPlot(true);
-    if (this.plotTarget) {
-      this.persist(this.current, false);
-      return true;
-    }
-    this.advanceTo(TutStep.Plow);
-    return false;
-  }
+  // ---- arrow ----
 
   private positionArrow() {
     const def = STEPS[this.current];
-    if (this.current === TutStep.Plow) { this.arrow.style.display = "none"; return; }
-    const menuLabel = def.kind === "menu" ? def.menuLabel : undefined;
-    if (def.kind !== "plot" && !menuLabel) { this.arrow.style.display = "none"; return; }
+    const label = def.pointAt;
+    if (def.kind !== "plot" && !label) { this.arrow.style.display = "none"; return; }
     // A large panel (market/storage/plant/raid) is open: the arrow's target is
     // behind it, so hide the arrow rather than let it float over the panel.
     if (document.querySelector("#hud .mkt-bg, #hud .st-bg, #hud .pm-bg, #hud .panelbg")) {
@@ -441,29 +427,37 @@ export class TutorialController {
       return;
     }
     this.arrow.style.display = "block";
-    if (menuLabel) {
-      const btn = this.d.hud.tutorialTarget(menuLabel);
-      if (!btn) { this.arrow.style.display = "none"; return; }
-      const r = btn.getBoundingClientRect();
-      if (r.left >= ARROW_SIZE + ARROW_MENU_GAP) {
-        // Sit just left of the button, pointing right (arrow_right.png is 0°).
-        this.arrow.style.left = `${r.left - ARROW_SIZE - ARROW_MENU_GAP}px`;
-        this.arrow.style.top = `${r.top + r.height / 2 - ARROW_SIZE / 2}px`;
-        this.arrow.style.transform = "rotate(0deg)";
+    if (label) {
+      const target = this.d.hud.tutorialTarget(label);
+      if (!target || target.getClientRects().length === 0) { this.arrow.style.display = "none"; return; }
+      const r = target.getBoundingClientRect();
+      if (def.arrowSide === "below") {
+        // Sit under the target, pointing up (the top bar has no room above it).
+        this.placeArrow(r.left + r.width / 2 - ARROW_SIZE / 2, r.bottom + ARROW_GAP, -90);
+      } else if (def.arrowSide === "above") {
+        this.placeArrow(r.left + r.width / 2 - ARROW_SIZE / 2, r.top - ARROW_SIZE - ARROW_GAP, 90);
+      } else if (r.left >= ARROW_SIZE + ARROW_GAP) {
+        // Just left of the target, pointing right (arrow_right.png is 0°).
+        this.placeArrow(r.left - ARROW_SIZE - ARROW_GAP, r.top + r.height / 2 - ARROW_SIZE / 2, 0);
       } else {
-        // No room on the left — the Invade shortcut hugs the screen edge, which
-        // used to push this arrow off-screen entirely. Sit above, pointing down.
-        this.arrow.style.left = `${r.left + r.width / 2 - ARROW_SIZE / 2}px`;
-        this.arrow.style.top = `${r.top - ARROW_SIZE - ARROW_MENU_GAP}px`;
-        this.arrow.style.transform = "rotate(90deg)";
+        // No room on the left — the Invade shortcut hugs the screen edge, which used to
+        // push this arrow off-screen entirely. Sit above, pointing down.
+        this.placeArrow(r.left + r.width / 2 - ARROW_SIZE / 2, r.top - ARROW_SIZE - ARROW_GAP, 90);
       }
-    } else if (def.kind === "plot" && this.plotTarget) {
-      const p = this.d.plotScreenPos(this.plotTarget.col, this.plotTarget.row);
-      // Sit above the plot, pointing down (rotate the right-arrow 90°).
-      this.arrow.style.left = `${p.x - ARROW_SIZE / 2}px`;
-      this.arrow.style.top = `${p.y - ARROW_SIZE - ARROW_PLOT_GAP}px`;
-      this.arrow.style.transform = "rotate(90deg)";
+      return;
     }
+    const plot = tutorialPlotFor(this.current);
+    if (plot) {
+      const p = this.d.plotScreenPos(plot.oc, plot.or);
+      // Sit above the plot, pointing down (rotate the right-arrow 90°).
+      this.placeArrow(p.x - ARROW_SIZE / 2, p.y - ARROW_SIZE - ARROW_PLOT_GAP, 90);
+    }
+  }
+
+  private placeArrow(left: number, top: number, degrees: number) {
+    this.arrow.style.left = `${left}px`;
+    this.arrow.style.top = `${top}px`;
+    this.arrow.style.transform = `rotate(${degrees}deg)`;
   }
 
   // ---- DOM construction ----
@@ -520,8 +514,7 @@ export class TutorialController {
     // Persist as done WITHOUT the completion bonus: the bonus is the reward for
     // finishing, and a one-tap 200 gold would be an exploit. dispose() releases the
     // input gate, so the farm is fully playable again immediately.
-    this.persist(TutStep.Done, true);
-    this.dispose();
+    this.endQuietly();
   }
 
   private disarmSkip() {
@@ -559,12 +552,12 @@ export class TutorialController {
     const b = document.createElement("div");
     b.className = "tut-blocker";
     // Narrative beats advance on any tap.
-    if (def.kind === "narrative") b.onclick = () => this.advance();
+    if (def.kind === "narrative") b.onclick = () => this.onNarrativeTap();
     // Insert the blocker BELOW Tim so the bubble/buttons stay clickable.
     this.layer.insertBefore(b, this.tim);
     this.blocker = b;
     // The bubble itself also advances narrative beats when tapped.
-    if (def.kind === "narrative") this.bubble.onclick = () => this.advance();
+    if (def.kind === "narrative") this.bubble.onclick = () => this.onNarrativeTap();
     else this.bubble.onclick = null;
   }
 

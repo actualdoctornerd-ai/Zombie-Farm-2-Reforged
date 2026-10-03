@@ -26,6 +26,7 @@ import { sanitizeTeams } from "../zombie/teams";
 import { sanitizeFarmStats } from "../stats";
 import type { PlayMode } from "../playMode";
 import type { JobSystem } from "../JobSystem";
+import { isUntouchedFreshFarm } from "../tutorial/freshFarm";
 
 export type FarmLoadResult =
   | { kind: "local-existing" }
@@ -517,8 +518,12 @@ export class SaveManager {
         await this.applySave(snapshot);
         try { localStorage.setItem(this.cacheKey(), this.lastPresentation); } catch { /* ignore */ }
         this.writeOnlineSnapshot(snapshot);
-        const restored = Object.keys(boot.gameplay.farm.plots).length > 0 ||
-          boot.gameplay.objects.objects.length > 0 || boot.gameplay.roster.length > 0;
+        // A new account arrives with the four tutorial plots already plowed, so owning
+        // plots no longer means the farm has been played: it counts as fresh until
+        // something other than those bare plots (or an object, or a zombie) exists.
+        const restored = !isUntouchedFreshFarm(
+          boot.gameplay.farm.plots, boot.gameplay.objects.objects.length, boot.gameplay.roster.length
+        );
         return { kind: "online-authoritative", restored };
       } catch (error) {
         console.warn("[bootstrap] authoritative load failed; trying cached snapshot", error);

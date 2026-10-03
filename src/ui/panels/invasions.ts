@@ -33,11 +33,10 @@ import { setBadge } from "../badge";
  *  (one zombie per class, and nothing is ever lost) are said out loud once rather than
  *  left to be inferred from a screen of empty jobs. See prefs.hasSeenPvpTip. */
 const PVP_INTRO_TIP =
-  "Now then — invadin' a neighbour is one thing, but defendin' yer OWN patch works " +
-  "a mite different. Ye don't march an army out; the farm holds the line without ye. " +
-  "So pick yer strongest of EACH kind — they've each got their own job to do.\n" +
-  "And don't ye fret. It's all in good fun: no zombie's ever lost defendin' the " +
-  "place. They get right back up and dust themselves off!";
+  "Invadin' a neighbor is one thing, but defendin' yer OWN patch works a little different.\n" +
+  "Yer army doesn't march out. The farm holds the line without ya, so pick yer strongest of EACH kind.\n" +
+  "Don't fret, it's all in good fun. No zombie's ever lost defendin' the place. " +
+  "They get right back up and dust themselves off!";
 
 // ---- view types (structurally matched by net/api's results; main.ts passes the
 // server payloads straight through) --------------------------------------------
@@ -240,7 +239,7 @@ export function openInvasionsPanel(hud: Hud) {
   // awaited — the tabs stay usable behind him and the notice dismisses itself.
   if (!hasSeenPvpTip()) {
     markPvpTipSeen();
-    void hud.timSays(PVP_INTRO_TIP, "Right ye are");
+    void hud.timSays(PVP_INTRO_TIP, "Got it!");
   }
 
   // The overview backs the Attack pips AND the whole History tab; fetched once per

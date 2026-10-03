@@ -10,7 +10,7 @@ import { GAMEPLAY_PROTOCOL } from "../../../src/net/protocol";
 import type { WriterProjection } from "./writer";
 import * as legacyDb from "../db";
 import {
-  applyCommandBatch, freshGameplayState, zombieDefaultMutation,
+  applyCommandBatch, freshGameplayState, newAccountGameplayState, zombieDefaultMutation,
   MEMORIAL_GRAVEYARD_CAP, MAX_FUNCTIONAL_OBJECTS,
 } from "./engine";
 import { XP_THRESHOLDS, levelForXp } from "../levels";
@@ -103,6 +103,7 @@ const coreFrom = (state: GameplayProjection) => ({
   zombieMax: state.zombieMax,
   zombiePotBought: state.zombiePotBought,
   tutorialRewarded: state.tutorialRewarded,
+  tutorialMutation: state.tutorialMutation ?? false,
   // Which parent is in slot 1 of each running Pot. It has to outlive the request that
   // started the combine — the collect arrives an hour later — and it deliberately lives
   // HERE rather than in the roster's reservation marker: the marker is projected to
@@ -112,7 +113,7 @@ const coreFrom = (state: GameplayProjection) => ({
 });
 
 async function ensureV3(db: D1Database, accountId: string, now: number): Promise<void> {
-  const fresh = freshGameplayState();
+  const fresh = newAccountGameplayState();
   await db.batch([
     db.prepare(`INSERT OR IGNORE INTO account_runtime_v3
       (account_id, updated_at) VALUES (?, ?)`).bind(accountId, now),
@@ -299,6 +300,9 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     zombieMax: core.zombieMax ?? 16,
     zombiePotBought: core.zombiePotBought ?? false,
     tutorialRewarded: core.tutorialRewarded ?? false,
+    // Absent from every account created before the tutorial rework: those never get the
+    // one-time guaranteed crop mutation.
+    tutorialMutation: core.tutorialMutation ?? false,
     potSlots: core.potSlots ?? {},
     roster,
     fallen,
