@@ -69,12 +69,11 @@
       .boot-stack { position: relative; z-index: 5; display: flex; flex-direction: column;
         align-items: center; width: 100%; max-width: 560px; padding: 0 24px;
         transform: translateY(8vh); }
-      .boot-logo { width: min(82vw, 430px); height: auto;
+      .boot-logo { width: min(80vw, 400px, 58vh); height: auto;
         filter: drop-shadow(0 12px 20px rgba(0,0,0,.45)); }
-      .boot-plate { position: relative; overflow: hidden; isolation: isolate; margin-top: -1.5%;
-        font: 900 clamp(16px, 5vw, 26px)/1 "Arial Black", "Trebuchet MS", sans-serif;
-        letter-spacing: .34em; text-transform: uppercase; color: #f3ecd2; text-indent: .34em;
-        background: linear-gradient(#2a1c12, #160e08); padding: .55em 1.3em; border-radius: 8px;
+      .boot-plate { position: relative; overflow: hidden; isolation: isolate; margin-top: 14px;
+        width: min(62vw, 300px); height: 14px;
+        background: linear-gradient(#2a1c12, #160e08); border-radius: 8px;
         border: 2px solid rgba(243,236,210,.85);
         box-shadow: 0 6px 0 rgba(0,0,0,.3), 0 10px 18px rgba(0,0,0,.35); }
       .boot-plate .pfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; z-index: 0;
@@ -86,6 +85,14 @@
         letter-spacing: .06em; color: #f3ecd2; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
       .boot-status.ready { letter-spacing: .14em; cursor: pointer;
         animation: bootpulse 1.15s ease-in-out infinite; }
+      /* Large screens: the illustration has an undrawn patch under the tractor and
+         above the fence, so the logo is scaled up and dropped to cover it. */
+      @media (min-width: 1000px) and (min-height: 600px) {
+        .boot-stack { transform: translateY(13vh); max-width: 760px; }
+        .boot-logo { width: min(48vw, 680px, 62vh); }
+        .boot-plate { width: min(34vw, 380px); height: 16px; margin-top: 18px; }
+        .boot-status { font-size: 18px; }
+      }
       @keyframes bootpulse { 0%,100% { opacity: .6; transform: scale(1); }
         50% { opacity: 1; transform: scale(1.05); } }
       @media (prefers-reduced-motion: reduce) {
@@ -106,8 +113,8 @@
       <div class="boot-bg-art"></div>
       <div class="boot-scrim"></div>
       <div class="boot-stack">
-        <img class="boot-logo" src="assets/title/logo-cleaned.png" alt="Zombie Farm" />
-        <div class="boot-plate"><div class="pfill" id="bootFill"></div><span>Reforged</span></div>
+        <img class="boot-logo" src="assets/title/logo-reforged.png" alt="Zombie Farm Reforged" />
+        <div class="boot-plate"><div class="pfill" id="bootFill"></div></div>
         <div class="boot-status" id="bootStatus">Gathering Zombies…</div>
       </div>
     </div>
