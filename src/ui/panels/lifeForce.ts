@@ -56,9 +56,7 @@ export function openLifeForce(host: HTMLElement, total: number): void {
 
   const intro = document.createElement("div");
   intro.className = "lf-p-intro";
-  intro.textContent = "Every decoration you place adds Life Force; stored ones don't count. Your level sets "
-    + "how often crops grow their mutation, which zombies can fail to harvest (20% for each level their "
-    + "colour is above yours, and a failed harvest grows no zombie), and which of a zombie's four ability slots work.";
+  intro.textContent = "Mutation chance is percent per adjacent crop.";
 
   // Intro and levels scroll together beneath the fixed header, so a short phone still
   // shows the levels; it opens scrolled to the player's own level.
