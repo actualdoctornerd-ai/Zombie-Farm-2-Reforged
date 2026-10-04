@@ -102,6 +102,16 @@ describe("an orphaned operation marker cannot wedge the command lane", () => {
     expect(result).toMatchObject({ status: 409, error: "batch_in_progress" });
   });
 
+  it("tells the client how long to wait, so a busy lock is retried rather than re-synced", async () => {
+    const { db } = fakeDb(tables(runtimeRow({
+      active_batch_id: "presentation-save", active_batch_expires_at: NOW + 30_000,
+    })));
+
+    const result = await applyBatch(db, "acct", batchBody() as never, NOW);
+
+    expect(result).toMatchObject({ status: 409, error: "batch_in_progress", body: { retryAfterMs: 250 } });
+  });
+
   it("applies a batch once the marker is past its TTL", async () => {
     const { db, batched } = fakeDb(tables(runtimeRow({
       active_batch_id: "killed-mid-request", active_batch_expires_at: NOW - 1,

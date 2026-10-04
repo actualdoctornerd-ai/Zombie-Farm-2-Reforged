@@ -436,7 +436,10 @@ export async function applyBatch(
   // perfectly healthy. The CAS below carries the same clause; relaxing only one of them
   // just changes which 409 the player is stuck behind.
   if (runtime.active_batch_id && runtime.active_batch_expires_at > now) {
-    return { status: 409, error: "batch_in_progress" };
+    // A short wait, not a conflict: the marker is shared with presentation saves, raids and
+    // the like, so a batch that lands while one of those is mid-flight is simply early.
+    // The hint lets the client retry the same batch instead of re-syncing the farm.
+    return { status: 409, error: "batch_in_progress", body: { retryAfterMs: 250 } };
   }
   if (body.expectedAccountVersion !== runtime.account_version) {
     return { status: 409, error: "state_conflict", body: { accountVersion: runtime.account_version, writerGeneration: runtime.writer_generation } };

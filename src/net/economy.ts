@@ -914,7 +914,10 @@ export class EconomyClient {
   }
 
   submitTutorialCompletion(): void {
-    this.enqueue({ type: "tutorial.complete" }, { gold: 200 });
+    // Sent at once, not left to the batch window: the reward is the last thing the player
+    // does, and a reload inside that window used to drop it (see CommandQueue.adoptBootstrap).
+    const sequence = this.enqueue({ type: "tutorial.complete" }, { gold: 200 });
+    if (sequence !== null) void this.queue.flush();
   }
 
   /** Report a Boss Token the client rolled on a harvest. The token is already showing

@@ -178,6 +178,56 @@ describe("protocol v3 command queue", () => {
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
+  // `batch_in_progress` means the account's shared operation lock is held for a moment (a
+  // presentation save, a raid), not that anything is stale. It used to pause the queue and
+  // re-sync the whole farm; the same batch, a beat later, goes through untouched.
+  it("retries the same batch in place when the account lock is momentarily busy", async () => {
+    vi.useFakeTimers();
+    const seen: any[] = [];
+    vi.spyOn(api, "sendCommandBatch")
+      .mockImplementationOnce(async (batch) => {
+        seen.push(batch);
+        throw new api.ApiError(409, "batch_in_progress", { retryAfterMs: 250 });
+      })
+      .mockImplementationOnce(async (batch) => {
+        seen.push(batch);
+        return responseFor(batch);
+      });
+    const queue = new CommandQueue("busy-lock-test", { random: () => 0.5 });
+    const conflict = vi.fn();
+    queue.onStateConflict = conflict;
+    queue.adoptBootstrap(bootstrap);
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    const flushing = queue.flush();
+    await vi.advanceTimersByTimeAsync(300);
+    await flushing;
+
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toEqual(seen[0]); // the identical batch, so it stays idempotent
+    expect(conflict).not.toHaveBeenCalled();
+    expect(queue.available).toBe(true);
+    expect(queue.size).toBe(0);
+  });
+
+  it("still treats a lock that never frees as a conflict once the retries give out", async () => {
+    vi.useFakeTimers();
+    const send = vi.spyOn(api, "sendCommandBatch")
+      .mockRejectedValue(new api.ApiError(409, "batch_in_progress", { retryAfterMs: 250 }));
+    const queue = new CommandQueue("busy-lock-stuck", { random: () => 0.5 });
+    const conflict = vi.fn();
+    queue.onStateConflict = conflict;
+    queue.adoptBootstrap(bootstrap);
+    queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
+    const flushing = queue.flush();
+    await vi.advanceTimersByTimeAsync(5_000);
+    await flushing;
+
+    expect(send).toHaveBeenCalledTimes(3); // the send + two in-place retries
+    expect(conflict).toHaveBeenCalledOnce();
+    expect(queue.pauseReason).toBe("state_conflict");
+    expect(queue.size).toBe(1);
+  });
+
   it("rebases an unapplied conflict only after authoritative bootstrap", async () => {
     vi.spyOn(api, "deviceId").mockReturnValue("device-aaaaaaaa");
     const seen: any[] = [];

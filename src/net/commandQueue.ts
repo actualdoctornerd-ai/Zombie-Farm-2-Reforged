@@ -31,6 +31,12 @@ const OUTBOX_PREFIX = "zf2r.online.outbox.v1";
 const LEGACY_OUTBOX_PREFIX = "zf2r.v3.commands";
 // The Worker accepts at most 120 semantic commands per rolling minute. Sending
 // 60 per 30-second window leaves rapid optimistic purchases below that limit.
+/** First wait before retrying a batch the server refused as `batch_in_progress`, doubling
+ *  each time, and how many times. Two covers a presentation save overlapping a batch
+ *  (about 0.75 s in all; the collisions seen on staging cleared on the first retry) and
+ *  keeps a lock that really is stuck from costing a request storm. */
+const BUSY_RETRY_MS = 250;
+const BUSY_RETRIES = 2;
 const COMMAND_SEND_LIMIT = Math.min(COMMAND_BATCH_LIMIT, 60);
 const uuid = (): string => crypto.randomUUID();
 
@@ -308,6 +314,18 @@ export class CommandQueue {
         return await api.sendCommandBatch(batch);
       } catch (error) {
         if (!(error instanceof api.ApiError)) return this.pause("unexpected_error");
+        // The shared operation lock is held by something else on this account (a
+        // presentation save, a raid) right now. That is not a state conflict: nothing is
+        // stale, the batch just arrived early. Retry the same batch with a growing wait
+        // rather than pausing and re-syncing the whole farm. If the lock outlasts the
+        // retries, fall through to the old conflict handling.
+        if (error.status === 409 && error.code === "batch_in_progress" && attempt < BUSY_RETRIES) {
+          crumb("queue:retry", `${error.status} ${error.code}`);
+          const hint = Number((error.body as { retryAfterMs?: unknown } | undefined)?.retryAfterMs);
+          const base = (Number.isFinite(hint) && hint > 0 ? hint : BUSY_RETRY_MS) * 2 ** attempt;
+          await new Promise<void>((resolve) => setTimeout(resolve, Math.round(base * (0.8 + this.random() * 0.4))));
+          continue;
+        }
         if (error.status === 409) {
           this.setPaused("state_conflict");
           this.onStateConflict?.();

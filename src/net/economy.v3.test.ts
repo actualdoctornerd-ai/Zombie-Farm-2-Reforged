@@ -253,6 +253,19 @@ describe("v3 raid dependency ids", () => {
     expect(flush).toHaveBeenCalledOnce();
   });
 
+  // The tutorial's reward is the last thing the player does. Left in the 30 s window, a
+  // reload straight after the farewell dropped it (CommandQueue.adoptBootstrap discards
+  // unsent work when the writer lease was released and re-taken in between).
+  it("flushes the tutorial completion immediately instead of waiting out the window", () => {
+    const economy = new EconomyClient(new GameState(), "tutorial-complete-flush");
+    const flush = vi.spyOn((economy as any).queue, "flush").mockResolvedValue(undefined);
+
+    economy.submitTutorialCompletion();
+
+    expect((economy as any).queue.pending[0].command).toEqual({ type: "tutorial.complete" });
+    expect(flush).toHaveBeenCalledOnce();
+  });
+
   it("keeps ordinary crop harvests in the batching window", () => {
     const economy = new EconomyClient(new GameState(), "crop-harvest-batch");
     const flush = vi.spyOn((economy as any).queue, "flush").mockResolvedValue(undefined);
@@ -1504,12 +1517,18 @@ describe("recovery never stops", () => {
     const bootstrap = vi.spyOn(api, "bootstrap").mockResolvedValue(bootstrapFixture());
 
     queue.enqueue({ type: "farm.plow", oc: 0, or: 0 });
-    await queue.flush();
+    // A refused-as-busy batch is first retried in place (250 ms, doubling, twice:
+    // about 0.75 s), WITHOUT touching the farm. Only once that gives out does it count as a
+    // standing conflict and take the reload-and-rebase road below.
+    const flushing = queue.flush();
+    await vi.advanceTimersByTimeAsync(1_000); // the two waits total at most 900 ms with jitter
+    await flushing;
     await vi.advanceTimersByTimeAsync(1);
+    expect(send.mock.calls.length).toBeGreaterThanOrEqual(3); // 1 + 2 in-place retries
 
-    // The immediate burst is bounded. A genuine CAS race clears in ONE reload, so a
-    // handful is already generous before the conflict is read as standing.
-    expect(send.mock.calls.length).toBeLessThanOrEqual(5);
+    // The reload burst after that is bounded. A genuine CAS race clears in ONE reload, so
+    // a handful is already generous before the conflict is read as standing.
+    expect(send.mock.calls.length).toBeLessThanOrEqual(15);
     expect(bootstrap.mock.calls.length).toBeLessThanOrEqual(5);
 
     // Two full minutes of a conflict that never clears, paced by the recovery ladder
@@ -1518,7 +1537,7 @@ describe("recovery never stops", () => {
     // account frozen at one version looks like from the server while its client
     // appears busy and perfectly healthy.
     await vi.advanceTimersByTimeAsync(120_000);
-    expect(send.mock.calls.length).toBeLessThan(15);
+    expect(send.mock.calls.length).toBeLessThan(25);
     expect(queue.pauseReason).toBe("state_conflict_loop");
     expect(queue.size).toBe(1); // and the player's plow is still safe
   });
