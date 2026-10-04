@@ -273,7 +273,7 @@ const GARDEN_TIER: Readonly<Record<string, number>> = {
   ZombieActorDrZombie: 5,
   ZombieActorOmegaDrZombie: 5,
 };
-const FERTILIZE_BY_TIER: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12, 6: 0.12 };
+const FERTILIZE_BY_TIER: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12, 6: 0.13 };
 
 /** A single Garden zombie's fertilize chance (0 for non-Garden keys). */
 export function gardenChance(key: string): number {

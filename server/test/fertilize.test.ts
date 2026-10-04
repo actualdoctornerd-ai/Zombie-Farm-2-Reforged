@@ -10,7 +10,7 @@ const approx = (a: number, b: number) => expect(a).toBeCloseTo(b, 10);
 
 // Ground truth, as it appears in the client's ZombieField.FERTILIZE_BY_TIER.
 // Tier 6 is the Obsidian Nightshade Zombie, above the Zombee: the top rate.
-const TIER_CHANCE: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12, 6: 0.12 };
+const TIER_CHANCE: Readonly<Record<number, number>> = { 1: 0.04, 2: 0.06, 3: 0.08, 4: 0.08, 5: 0.12, 6: 0.13 };
 
 describe("gardenChance — per-unit fertilize chance by tier", () => {
   it("maps each Garden key to its ground-truth tier chance", () => {
