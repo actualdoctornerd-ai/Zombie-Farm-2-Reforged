@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rollLootTier, pickLootEntry, lootEntryWeight } from "./LootTable";
+import { rollLootTier, pickLootEntry, lootEntryWeight, extraDropsFor } from "./LootTable";
 
 // Ground truth: -[ZFFightSummary rollForDrop:] cumulative threshold ladder, with a
 // distinct bracket per Golden Dice spent (docs/mechanics/COMBAT_STATS_RECOVERED.md).
@@ -91,7 +91,18 @@ describe("lootEntryWeight", () => {
     expect(lootEntryWeight({ unique: true, limit: 0 }, 0)).toBe(1);
     expect(lootEntryWeight({ unique: true, limit: 0 }, 1)).toBe(0);
     expect(lootEntryWeight({ unique: false, limit: 3 }, 3)).toBe(0);
-    expect(lootEntryWeight({ unique: false, limit: 0, repeatWeight: 0.25 }, 0)).toBe(1);
-    expect(lootEntryWeight({ unique: false, limit: 0, repeatWeight: 0.25 }, 2)).toBe(0.25);
+    // An extraRate entry (a banner) rolls on its own and never takes a slot in the pick.
+    expect(lootEntryWeight({ unique: false, limit: 0, extraRate: 0.1 }, 0)).toBe(0);
+  });
+});
+
+describe("extraDropsFor", () => {
+  const table = [["Bonus Gold"], ["Banner"], ["Banner", "Other"]];
+  const rateOf = (n: string) => (n === "Banner" ? 0.1 : 0);
+  it("rolls each extra entry once, at its own rate", () => {
+    let calls = 0;
+    expect(extraDropsFor(table, rateOf, () => { calls++; return 0.05; })).toEqual(["Banner"]);
+    expect(calls).toBe(1); // the duplicate listing and the rate-less entries never roll
+    expect(extraDropsFor(table, rateOf, () => 0.1)).toEqual([]);
   });
 });

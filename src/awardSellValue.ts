@@ -24,24 +24,26 @@
  *  recommended level instead, so a level-43 invasion pays better than a level-8 one. */
 export const RAID_DROP_SELL: Readonly<Record<string, number>> = {
   // --- 1 · Old McDonnell's Farm (rec 5; Haystack 500, Scarecrow 2,400) --------
-  oldMcDonnellBanner: 900,
+  // The seven faction banners sell for a flat 25: they drop on their own roll beside the
+  // ordinary item (extraDropsFor, src/raid/LootTable.ts), so repeats are common.
+  oldMcDonnellBanner: 25,
   windmill: 3_000,
 
   // --- 2 · Zombies vs Lawyers (rec 16; Zombie Sign 1,000, Street Light 600) ---
-  corporatevilleBanner: 900,
+  corporatevilleBanner: 25,
   monument: 2_500,
 
   // --- 3 · Zombies vs Pirates (rec 21; Treasure Chest 1,000, Gallows 2,000) ---
-  pirateBanner: 1_200,
+  pirateBanner: 25,
   parrot: 3_000,
 
   // --- 4 · Zombies vs Ninjas (rec 26; Bamboo 2,260, Double Rainbow 2,000) -----
-  ninjaBanner: 1_800,
+  ninjaBanner: 25,
   taikoDrum: 3_500,
 
   // --- 5 · Zombies vs Robots (rec 31; nothing priced) ------------------------
   hazardFence: 1_000,
-  robotBanner: 1_800,
+  robotBanner: 25,
   brokenTractor: 1_800,
   toxicDrum: 2_400,
   mechanicalBull: 3_600,
@@ -50,7 +52,7 @@ export const RAID_DROP_SELL: Readonly<Record<string, number>> = {
   // The Pyramid is a 200,000-gold Market showpiece that happens to sit on this
   // table; it is an outlier, not the raid's rate. The Dish is priced above the
   // raid's ordinary drops, not above that.
-  alienBanner: 1_800,
+  alienBanner: 25,
   crashedUFO: 1_800,
   setiDish: 4_500,
 
@@ -70,7 +72,7 @@ export const RAID_DROP_SELL: Readonly<Record<string, number>> = {
   // --- 9 · Zombies vs Video Games (rec 43) -----------------------------------
   pixelBrick: 1_500,
   pixelBrickFloating: 1_500,
-  pixelBanner: 2_400,
+  pixelBanner: 25,
   pixelTree: 2_400,
   pixelCampfire: 3_000,
   pixelTower: 4_500,

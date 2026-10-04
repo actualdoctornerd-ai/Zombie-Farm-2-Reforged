@@ -24,7 +24,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -52,7 +52,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -80,7 +80,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 23,
   "lifeForceSource": "footprint"
  },
  {
@@ -108,7 +108,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 5,
   "lifeForceSource": "tree"
  },
  {
@@ -137,7 +137,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "tapSound": "GnomeKingLaugh.mp3",
-  "lifeForce": 16,
+  "lifeForce": 23,
   "lifeForceSource": "footprint"
  },
  {
@@ -870,7 +870,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 11,
   "lifeForceSource": "footprint"
  },
  {
@@ -913,7 +913,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -955,7 +955,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -1011,7 +1011,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -1039,7 +1039,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -1067,7 +1067,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -1098,7 +1098,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -1126,7 +1126,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -1154,7 +1154,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -1182,7 +1182,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -1210,7 +1210,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -1238,7 +1238,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -1266,7 +1266,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 8,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -1294,7 +1294,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -1322,7 +1322,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -1350,7 +1350,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -1378,7 +1378,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -1406,7 +1406,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 12,
   "lifeForceSource": "footprint"
  },
  {
@@ -1487,7 +1487,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -1515,7 +1515,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -1543,7 +1543,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -1571,7 +1571,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -1823,7 +1823,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -1851,7 +1851,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -1879,7 +1879,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -1907,7 +1907,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -1935,7 +1935,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -1963,7 +1963,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -1991,7 +1991,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -2019,7 +2019,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2047,7 +2047,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2075,7 +2075,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2103,7 +2103,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2131,7 +2131,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2159,7 +2159,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2187,7 +2187,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2215,7 +2215,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2243,7 +2243,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2271,7 +2271,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -2299,7 +2299,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -2327,7 +2327,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -2355,7 +2355,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2383,7 +2383,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2411,7 +2411,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2439,7 +2439,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2467,7 +2467,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2495,7 +2495,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -2523,7 +2523,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -2551,7 +2551,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -2579,7 +2579,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -2607,7 +2607,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2635,7 +2635,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -2663,7 +2663,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 5,
   "lifeForceSource": "tree"
  },
  {
@@ -2691,7 +2691,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 5,
   "lifeForceSource": "tree"
  },
  {
@@ -2719,7 +2719,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2747,7 +2747,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2775,7 +2775,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -2803,7 +2803,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2859,7 +2859,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -2887,7 +2887,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2915,7 +2915,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -2943,7 +2943,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2971,7 +2971,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -2999,7 +2999,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -3027,7 +3027,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -3055,7 +3055,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -3094,7 +3094,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -3133,7 +3133,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -3171,7 +3171,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 8,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -3199,7 +3199,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 8,
+  "lifeForce": 11,
   "lifeForceSource": "footprint"
  },
  {
@@ -3227,7 +3227,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 9,
   "lifeForceSource": "footprint"
  },
  {
@@ -3294,7 +3294,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -3322,7 +3322,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -3351,7 +3351,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "tapSound": "belltoll.mp3",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -3379,7 +3379,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 8,
+  "lifeForce": 11,
   "lifeForceSource": "footprint"
  },
  {
@@ -3407,7 +3407,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 12,
   "lifeForceSource": "footprint"
  },
  {
@@ -3435,7 +3435,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -3475,7 +3475,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -3542,7 +3542,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -3570,7 +3570,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -3610,7 +3610,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -3996,7 +3996,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4024,7 +4024,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4052,7 +4052,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -4080,7 +4080,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4108,7 +4108,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4136,7 +4136,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -4164,7 +4164,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4192,7 +4192,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -4220,7 +4220,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -4248,7 +4248,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4276,7 +4276,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4304,7 +4304,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4332,7 +4332,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4360,7 +4360,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -4388,7 +4388,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -4416,7 +4416,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4444,7 +4444,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4472,7 +4472,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4500,7 +4500,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -4528,7 +4528,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -4556,7 +4556,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -4584,7 +4584,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -4612,7 +4612,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -4652,7 +4652,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -4680,7 +4680,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -4708,7 +4708,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -4736,7 +4736,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -4764,7 +4764,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -5169,7 +5169,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -5195,7 +5195,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -5221,7 +5221,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -5247,7 +5247,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -5608,7 +5608,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -5837,7 +5837,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -6043,7 +6043,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -6281,7 +6281,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "variantOf": "tentNormal",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "variant"
  },
  {
@@ -6333,7 +6333,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -6359,7 +6359,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -6511,7 +6511,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "credit": "Art by LennyFaze",
-  "lifeForce": 6,
+  "lifeForce": 7,
   "lifeForceSource": "tree"
  },
  {
@@ -6624,7 +6624,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -6655,7 +6655,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -6795,7 +6795,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -6847,7 +6847,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -6879,7 +6879,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "variantOf": "outhouseNormal",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "variant"
  },
  {
@@ -6905,7 +6905,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -6966,7 +6966,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "variantOf": "tentNormal",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "variant"
  },
  {
@@ -6992,7 +6992,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 22,
   "lifeForceSource": "footprint"
  },
  {
@@ -7076,7 +7076,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -7108,7 +7108,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "variantOf": "outhouseNormal",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "variant"
  },
  {
@@ -7134,7 +7134,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -7222,7 +7222,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "credit": "Art by LennyFaze",
-  "lifeForce": 6,
+  "lifeForce": 7,
   "lifeForceSource": "tree"
  },
  {
@@ -7248,7 +7248,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -7274,7 +7274,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -7300,7 +7300,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -7326,7 +7326,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -7387,7 +7387,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "variantOf": "outhouseNormal",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "variant"
  },
  {
@@ -7413,7 +7413,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -7720,7 +7720,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -7881,7 +7881,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 11,
   "lifeForceSource": "footprint"
  },
  {
@@ -7907,7 +7907,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -7933,7 +7933,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -8413,7 +8413,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "credit": "Art by LennyFaze",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "tree"
  },
  {
@@ -8439,7 +8439,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -8465,7 +8465,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -8491,7 +8491,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -8517,7 +8517,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -8575,7 +8575,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -8601,7 +8601,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -8629,7 +8629,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -8655,7 +8655,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 10,
+  "lifeForce": 12,
   "lifeForceSource": "footprint"
  },
  {
@@ -8681,7 +8681,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 11,
+  "lifeForce": 13,
   "lifeForceSource": "tree"
  },
  {
@@ -8734,7 +8734,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -8760,7 +8760,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -8786,7 +8786,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 5,
   "lifeForceSource": "tree"
  },
  {
@@ -8812,7 +8812,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 12,
+  "lifeForce": 16,
   "lifeForceSource": "footprint"
  },
  {
@@ -8870,7 +8870,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -8896,7 +8896,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -8922,7 +8922,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -8948,7 +8948,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -9006,7 +9006,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -9032,7 +9032,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -9096,7 +9096,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -9122,7 +9122,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9148,7 +9148,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 23,
   "lifeForceSource": "footprint"
  },
  {
@@ -9174,7 +9174,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9200,7 +9200,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 5,
   "lifeForceSource": "tree"
  },
  {
@@ -9306,7 +9306,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -9332,7 +9332,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9358,7 +9358,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9384,7 +9384,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9410,7 +9410,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9436,7 +9436,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9462,7 +9462,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 5,
   "lifeForceSource": "tree"
  },
  {
@@ -9488,7 +9488,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -9514,7 +9514,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9553,7 +9553,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9579,7 +9579,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 15,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -9605,7 +9605,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -9659,7 +9659,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -9685,7 +9685,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9711,7 +9711,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -9737,7 +9737,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -9763,7 +9763,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 12,
+  "lifeForce": 14,
   "lifeForceSource": "footprint"
  },
  {
@@ -9789,7 +9789,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -9815,7 +9815,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 8,
+  "lifeForce": 9,
   "lifeForceSource": "footprint"
  },
  {
@@ -9841,7 +9841,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -9867,7 +9867,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 20,
   "lifeForceSource": "footprint"
  },
  {
@@ -9893,7 +9893,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -9919,7 +9919,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -9945,7 +9945,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 11,
   "lifeForceSource": "footprint"
  },
  {
@@ -9971,7 +9971,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -9997,7 +9997,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 23,
   "lifeForceSource": "footprint"
  },
  {
@@ -10035,7 +10035,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 31,
   "lifeForceSource": "footprint"
  },
  {
@@ -10074,7 +10074,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 27,
   "lifeForceSource": "footprint"
  },
  {
@@ -10100,7 +10100,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -10126,7 +10126,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -10154,7 +10154,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 24,
   "lifeForceSource": "footprint"
  },
  {
@@ -10235,7 +10235,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -10261,7 +10261,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10287,7 +10287,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10313,7 +10313,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10339,7 +10339,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10365,7 +10365,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10391,7 +10391,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10417,7 +10417,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10443,7 +10443,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10469,7 +10469,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10526,7 +10526,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -10583,7 +10583,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -10668,7 +10668,7 @@
   "growingSprite": "",
   "mountX": 0.5052,
   "mountY": 0.8152,
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -10694,7 +10694,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 11,
   "lifeForceSource": "footprint"
  },
  {
@@ -10720,7 +10720,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 12,
   "lifeForceSource": "footprint"
  },
  {
@@ -10746,7 +10746,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -10772,7 +10772,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -10798,7 +10798,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -10876,7 +10876,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -10956,7 +10956,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -10987,7 +10987,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -11019,7 +11019,7 @@
    95,
    170
   ],
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "variant"
  },
  {
@@ -11047,7 +11047,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -11075,7 +11075,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 11,
   "lifeForceSource": "footprint"
  },
  {
@@ -11103,7 +11103,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -11131,7 +11131,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -11159,7 +11159,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -11187,7 +11187,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -12047,7 +12047,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -12073,7 +12073,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -12099,7 +12099,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -12125,7 +12125,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 12,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -12151,7 +12151,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 8,
+  "lifeForce": 9,
   "lifeForceSource": "footprint"
  },
  {
@@ -12178,7 +12178,7 @@
   "harvestValue": 0,
   "growingSprite": "",
   "tapSound": "rockyrhinogong.mp3",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "footprint"
  },
  {
@@ -12204,7 +12204,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -12230,7 +12230,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -12256,7 +12256,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -12282,7 +12282,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -12308,7 +12308,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -12334,7 +12334,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -12360,7 +12360,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 20,
   "lifeForceSource": "footprint"
  },
  {
@@ -12386,7 +12386,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 12,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -12412,7 +12412,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 20,
   "lifeForceSource": "footprint"
  },
  {
@@ -12438,7 +12438,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -12464,7 +12464,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 19,
   "lifeForceSource": "footprint"
  },
  {
@@ -12490,7 +12490,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 20,
   "lifeForceSource": "footprint"
  },
  {
@@ -12516,7 +12516,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -12542,7 +12542,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 9,
+  "lifeForce": 10,
   "lifeForceSource": "footprint"
  },
  {
@@ -12568,7 +12568,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 18,
   "lifeForceSource": "footprint"
  },
  {
@@ -12594,7 +12594,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 23,
   "lifeForceSource": "footprint"
  },
  {
@@ -12633,7 +12633,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -12671,7 +12671,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -12723,7 +12723,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 12,
+  "lifeForce": 14,
   "lifeForceSource": "footprint"
  },
  {
@@ -12749,7 +12749,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -12775,7 +12775,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -12801,7 +12801,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -12827,7 +12827,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -12879,7 +12879,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -12905,7 +12905,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -12931,7 +12931,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -12957,7 +12957,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -12983,7 +12983,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -13009,7 +13009,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -13061,7 +13061,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -13139,7 +13139,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 5,
   "lifeForceSource": "footprint"
  },
  {
@@ -13165,7 +13165,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -13192,7 +13192,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 2,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -13289,7 +13289,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 12,
+  "lifeForce": 13,
   "lifeForceSource": "footprint"
  },
  {
@@ -13392,7 +13392,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -13431,7 +13431,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -13457,7 +13457,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 3,
+  "lifeForce": 4,
   "lifeForceSource": "tree"
  },
  {
@@ -13524,7 +13524,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -13550,7 +13550,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "tree"
  },
  {
@@ -13628,7 +13628,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -13666,7 +13666,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -13692,7 +13692,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -13718,7 +13718,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 16,
+  "lifeForce": 21,
   "lifeForceSource": "footprint"
  },
  {
@@ -13744,7 +13744,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "tree"
  },
  {
@@ -13770,7 +13770,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 8,
+  "lifeForce": 10,
   "lifeForceSource": "tree"
  },
  {
@@ -13808,7 +13808,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -13860,7 +13860,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 6,
   "lifeForceSource": "footprint"
  },
  {
@@ -13886,7 +13886,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -13989,7 +13989,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14015,7 +14015,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 11,
+  "lifeForce": 12,
   "lifeForceSource": "tree"
  },
  {
@@ -14041,7 +14041,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -14092,7 +14092,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 6,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14118,7 +14118,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -14144,7 +14144,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 3,
   "lifeForceSource": "footprint"
  },
  {
@@ -14170,7 +14170,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -14246,7 +14246,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 1,
+  "lifeForce": 2,
   "lifeForceSource": "footprint"
  },
  {
@@ -14272,7 +14272,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14298,7 +14298,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14324,7 +14324,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14350,7 +14350,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14376,7 +14376,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14402,7 +14402,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14428,7 +14428,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14454,7 +14454,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14480,7 +14480,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14506,7 +14506,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14532,7 +14532,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14558,7 +14558,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14584,7 +14584,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14610,7 +14610,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14636,7 +14636,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14662,7 +14662,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14688,7 +14688,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14714,7 +14714,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14740,7 +14740,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14766,7 +14766,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14792,7 +14792,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14818,7 +14818,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14844,7 +14844,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14870,7 +14870,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14896,7 +14896,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14922,7 +14922,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -14948,7 +14948,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -14974,7 +14974,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -15000,7 +15000,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -15026,7 +15026,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -15052,7 +15052,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -15078,7 +15078,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -15104,7 +15104,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -15130,7 +15130,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -15156,7 +15156,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -15182,7 +15182,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -15208,7 +15208,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 7,
   "lifeForceSource": "footprint"
  },
  {
@@ -15234,7 +15234,7 @@
   "growMs": 0,
   "harvestValue": 0,
   "growingSprite": "",
-  "lifeForce": 4,
+  "lifeForce": 8,
   "lifeForceSource": "footprint"
  },
  {
@@ -15312,7 +15312,7 @@
   "growMs": 300000,
   "harvestValue": 35,
   "growingSprite": "fruitTreeLemon_growing.png",
-  "lifeForce": 2,
+  "lifeForce": 3,
   "lifeForceSource": "producing-tree"
  },
  {

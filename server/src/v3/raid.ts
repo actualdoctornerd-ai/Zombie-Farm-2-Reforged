@@ -1,6 +1,6 @@
 import { BRAIN_TICKET_KEY, DICE_KEY, CONCENTRATION_KEY, VOUCHER_KEY, MAX_STACK } from "../boostCatalog";
 import { XP_THRESHOLDS, levelForXp, levelUpBrains } from "../levels";
-import { ownedLootCounter, resolveLoot, rollLoot } from "../loot";
+import { ownedLootCounter, resolveLoot, rollExtraLoot, rollLoot } from "../loot";
 import { raidEcon, raidUnlocked, winGold } from "../raidCatalog";
 import { invasionWinXp } from "../../../src/raid/repeatXp";
 import { applyQuestEvents, CONFIG_SPENT, MEMORIAL_GRAVEYARD_CAP } from "./engine";
@@ -590,6 +590,8 @@ export async function finishRaid(
   let newZombie: { id: string; key: string; stored: boolean; received?: boolean } | null = null;
   let newZombieName: string | null = null;
   let lootGold = 0;
+  // Faction banners ride ALONGSIDE the ordinary drop (rollExtraLoot), so they get their own list.
+  const extraLoot: { name: string; kind: "item" }[] = [];
   // The ladder. A win at the PINNED tier (never one the finish request names) advances the
   // rung, and only upwards: replaying a tier already cleared pays its rewards again but
   // cannot move the ladder, which is what makes every unlocked tier freely replayable.
@@ -626,6 +628,10 @@ export async function finishRaid(
       loot = { name: grant.name, kind: "boost", qty: grant.qty };
     }
     else if (grant.kind === "item") { core.storage.received[grant.name] = (core.storage.received[grant.name] ?? 0) + 1; loot = { name: grant.name, kind: "item" }; }
+    for (const banner of rollExtraLoot(raidId, Math.random)) {
+      core.storage.received[banner] = (core.storage.received[banner] ?? 0) + 1;
+      extraLoot.push({ name: banner, kind: "item" });
+    }
     // Same PINNED dice the item roll uses: they widen the rare-zombie chance too, and the
     // count came from /raid/start (already charged), never from this request. The SESSION's
     // elite flag picks the fight: on a story invasion a Brain Ticket rolls for BOTH prizes and
@@ -672,6 +678,7 @@ export async function finishRaid(
     // "a rare zombie from an invasion" without naming which of the four. A blank subject
     // would not do: it is the format's wildcard and would count Bonus Gold as well.
     ...(loot ? [{ type: "kLootItemWonNotification", subject: loot.name }] : []),
+    ...extraLoot.map((entry) => ({ type: "kLootItemWonNotification", subject: entry.name })),
     ...(newZombieName
       ? [{ type: "kLootItemWonNotification", subject: newZombieName, aliases: [RARE_INVASION_ZOMBIE_SUBJECT] }]
       : []),
@@ -759,7 +766,7 @@ export async function finishRaid(
     : null;
   const settlementId = crypto.randomUUID();
   const result = { settlementId, lastRaidAt, serverTime: now, balance: nextBalance, gold: baseGold + lootGold,
-    brains, xp: nextBalance.xp - balance.xp, firstClear, loot, newZombie, outcome, questChanges,
+    brains, xp: nextBalance.xp - balance.xp, firstClear, loot, extraLoot, newZombie, outcome, questChanges,
     inventory: core.inventory, storage: core.storage, raidProgress: progress, raidTiers: tiers, cropUnlocks, revival,
     periodicQuests, rulesetVersion: RAID_RULESET_VERSION };
   const resultJson = JSON.stringify(result);

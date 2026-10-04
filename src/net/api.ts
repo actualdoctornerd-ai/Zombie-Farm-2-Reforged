@@ -891,6 +891,8 @@ export interface RaidFinishResult {
    *  the drop's name + what it became, plus `qty` for a bundled boost drop (Insta-Grow
    *  pays ten). Null when nothing dropped, on a loss, or on a replayed finish. */
   loot?: { name: string; kind: "gold" | "boost" | "item"; qty?: number } | null;
+  /** Drops paid IN ADDITION to `loot` (the faction banners). Absent on a stored pre-banner result. */
+  extraLoot?: { name: string; kind: "item" }[];
   /** Extremely rare roster reward, placed on the farm or protected in the Mausoleum. */
   newZombie?: { id: string; key: string; stored: boolean; received?: boolean } | null;
   outcome?: RaidOutcome;

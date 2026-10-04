@@ -2,6 +2,33 @@
  "_about": "Life Force per placed object (Zombie Farm 1 mechanic restored). Read by tools/life_force.py, which writes lifeForce + lifeForceSource onto every public/assets/placeables.json row. Edit THIS file, then run `python tools/life_force.py`; do not hand-edit the catalog fields.",
  "_resolution": "documented > override > variantOf (a recolour takes its base item's value) > producingTree > tree > footprint. Footprint = tileW x tileH. Only documented and override values may exceed footprintCap.",
  "footprintCap": 16,
+ "worthCurve": {
+  "_about": "Later-game / dearer items give more Life Force. Estimated values (footprint, tree, producing tree) gain the bonus of the highest band their WORTH reaches; documented ZF1 values and overrides never change, and a recolour takes its base item's final value. Worth is in purchase-equivalent gold: a gold price as is; a brain price x brainGold/sellBack; an award-only prize its authored sell value (src/awardSellValue.ts) / sellBack. A band is [worthFloor, flatBonus, percentBonus]: the bonus is the LARGER of the flat amount (so small items still notice) and percent x the item's base (so big items scale instead of a flat +4 vanishing on 16). The bonus is added after the size cap.",
+  "sellBack": 0.2,
+  "brainGold": 1000,
+  "bands": [
+   [
+    2000,
+    1,
+    0.1
+   ],
+   [
+    6000,
+    2,
+    0.2
+   ],
+   [
+    20000,
+    3,
+    0.3
+   ],
+   [
+    60000,
+    4,
+    0.4
+   ]
+  ]
+ },
  "treeBonus": 2,
  "producingTreeValue": 2,
  "producingTrees": [
@@ -172,5 +199,8 @@
    "value": 9,
    "source": "https://zombiefarm.fandom.com/wiki/Zombie_Pot"
   }
- }
+ },
+ "overCapStep": 4,
+ "overCapMax": 8,
+ "_overCap": "Area beyond footprintCap still counts, gently: +1 per overCapStep tiles over the cap, at most overCapMax extra, so a 6x6 outranks a 4x4 without a 64-tile pond outweighing a farm."
 }

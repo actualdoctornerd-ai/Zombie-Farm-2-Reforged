@@ -29,12 +29,12 @@ LOOT_DIR = os.path.join(OUT_DIR, "loot")
 EPIC_DIR = os.path.join(ROOT, "public", "assets", "epic-bosses")
 
 # The seven invasion faction banners the source drops only once (see the banner
-# note in main()), and the pick share each keeps after the first copy.
+# note in main()), and the per-win chance each has of dropping on top of the ordinary roll.
 REPEATABLE_BANNERS = {
     "Farmer Banner", "Corporate Banner", "Pirate Banner", "Ninja Banner",
     "Robot Banner", "Alien Banner", "Pixel Banner",
 }
-BANNER_REPEAT_WEIGHT = 0.25
+BANNER_EXTRA_RATE = 0.10
 
 
 def build_index():
@@ -80,12 +80,12 @@ def main():
                      "unique": bool(info.get("unique", False)),
                      "limit": int(info.get("limit", 0))}
         # Design change (not the source's rule): an invasion's faction banner is no
-        # longer one-and-done. After the first it stays on the table as a RARER
-        # repeat — `repeatWeight` is the share of a normal pick it keeps once owned
-        # (see pickLootEntry in src/raid/LootTable.ts).
+        # longer one-and-done, and no longer a slot in the pick. It rolls on its own,
+        # `extraRate` per win, IN ADDITION to the ordinary drop (see extraDropsFor in
+        # src/raid/LootTable.ts).
         if name in REPEATABLE_BANNERS:
             out[name]["unique"] = False
-            out[name]["repeatWeight"] = BANNER_REPEAT_WEIGHT
+            out[name]["extraRate"] = BANNER_EXTRA_RATE
 
     # ---- Epic-boss prizes ---------------------------------------------------
     # Drops.json covers RAID loot only, but an epic-boss prize is claimed through the

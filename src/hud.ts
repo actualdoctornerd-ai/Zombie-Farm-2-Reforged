@@ -119,6 +119,7 @@ import { lifeForceBadge } from "./ui/lifeForceBadge";
 import { compactGold } from "./ui/compactNumber";
 import { lifeForceProgress } from "./lifeForce";
 import { openLifeForce as openLifeForcePanel } from "./ui/panels/lifeForce";
+import { openDropTable } from "./ui/panels/dropTable";
 // View-model types + the grave classifier live in hudTypes so panel modules can
 // import them without depending on the whole Hud class. Re-exported below for the
 // existing `from "./hud"` importers (main.ts).
@@ -6260,6 +6261,15 @@ export class Hud {
           chip.textContent = b.qty > 1 ? `${b.name} ×${b.qty}` : b.name;
           boostVal.appendChild(chip);
         }
+      }
+
+      // The full numbers behind the summary above: every item, tier and rare drop.
+      if (!c.practice && c.unlocked) {
+        const full = document.createElement("button");
+        full.className = "rd-droptable";
+        full.textContent = "Full drop table";
+        full.onclick = () => openDropTable(this.el, c);
+        rewards.appendChild(full);
       }
 
       const foot = document.createElement("div");

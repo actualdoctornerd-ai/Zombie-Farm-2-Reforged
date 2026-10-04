@@ -32,7 +32,7 @@ import {
 } from "./RaidCatalog";
 import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
-import { rollLootTier, pickLootEntry, lootEntryWeight } from "./LootTable";
+import { rollLootTier, pickLootEntry, lootEntryWeight, extraDropsFor } from "./LootTable";
 import { settleBossStatue } from "./bossStatues";
 import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable, firstClearBrains } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
@@ -101,6 +101,17 @@ export interface RaidCardView {
   } | null;
   /** Boosts on this raid's loot table, with the quantity one drop pays. */
   boostDrops: { key: string; name: string; qty: number }[];
+  /** What the "Drop table" panel needs to lay out the loot roll (raid/dropTable.ts): the
+   *  six loot tiers, each entry's separate-roll chance (banners) and bundle size (boosts),
+   *  what "Bonus Gold" pays, the flawless-win gold, and the most Golden Dice worth spending. */
+  lootTable: {
+    tiers: string[][];
+    extraRates: Record<string, number>;
+    bundles: Record<string, number>;
+    bonusGold: number;
+    winGold: number;
+    maxDice: number;
+  };
   introText: string;
   seasonal: boolean;
   unlocked: boolean; // level met AND playable
@@ -390,6 +401,7 @@ export class RaidManager {
             }
           : null,
         boostDrops: boostDrops(r, this.assets.boosts),
+        lootTable: this.lootTableView(r),
         introText: r.introText.replace(/\\n/g, "\n"),
         seasonal: r.seasonal,
         unlocked: isUnlocked(r, level),
@@ -402,6 +414,26 @@ export class RaidManager {
         practice: isPracticeRaid(r.id),
       }))
       .sort(compareRaidMenuOrder);
+  }
+
+  /** The loot facts the Drop table panel lays out for one raid. */
+  private lootTableView(r: RaidDef): RaidCardView["lootTable"] {
+    const extraRates: Record<string, number> = {};
+    const bundles: Record<string, number> = {};
+    for (const name of new Set(r.loot.flat())) {
+      const extra = this.assets.drops[name]?.extraRate ?? 0;
+      if (extra > 0) extraRates[name] = extra;
+      const boost = this.assets.boosts.find((b) => b.name === name);
+      if (boost) bundles[name] = raidBoostBundle(boost.key);
+    }
+    return {
+      tiers: r.loot.map((tier) => [...tier]),
+      extraRates,
+      bundles,
+      bonusGold: r.recommendedLevel * 100, // getBonusGoldLootForStageLevel:
+      winGold: winGold(r),
+      maxDice: maxLuckTiers(r),
+    };
   }
 
   /** Eligible army + default selection for a raid's Army screen. */
@@ -732,6 +764,13 @@ export class RaidManager {
           else this.state.receiveItem(drop);
           loot.push({ name: drop, icon: this.lootIcon(drop), qty });
         }
+        // Faction banners drop IN ADDITION to the ordinary item (drops.json `extraRate`).
+        for (const banner of extraDropsFor(
+          raid.loot, (n) => this.assets.drops[n]?.extraRate ?? 0, Math.random,
+        )) {
+          this.state.receiveItem(banner);
+          loot.push({ name: banner, icon: this.lootIcon(banner), qty: 1 });
+        }
         // Brains drop in addition to loot. Offline credit is local; online credit is
         // applied by the server only after deterministic replay verifies the boss win.
         // The FIRST clear of an invasion pays a guaranteed brain on top of the roll
@@ -789,8 +828,8 @@ export class RaidManager {
    *  First the Boss Statue (bossStatues.ts: the 15th / 50th win's milestone, then a
    *  2% / 1% chance), which replaces the drop when it pays. Otherwise picks a rarity tier from the luck bracket, then an eligible alternative
    *  within it by weight (LootTable.pickLootEntry): `unique` items already owned and
-   *  `limit`-capped items at their cap are out, an owned banner stays in at its
-   *  reduced `repeatWeight`. If the chosen tier has nothing to give, the roll walks
+   *  `limit`-capped items at their cap are out, and the faction banners take no
+   *  slot (they roll separately, see extraDropsFor). If the chosen tier has nothing to give, the roll walks
    *  DOWN to commoner tiers (as the binary does). Returns null if nothing is
    *  eligible (e.g. every tier already collected). Same rules as the server's
    *  loot.rollLoot, which is what decides online. */

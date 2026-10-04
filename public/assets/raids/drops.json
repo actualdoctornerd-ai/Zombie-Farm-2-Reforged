@@ -14,7 +14,7 @@
   "tile": "alienBanner",
   "unique": false,
   "limit": 0,
-  "repeatWeight": 0.25
+  "extraRate": 0.1
  },
  "Bamboo": {
   "icon": "tex1028.png",
@@ -159,7 +159,7 @@
   "tile": "corporatevilleBanner",
   "unique": false,
   "limit": 0,
-  "repeatWeight": 0.25
+  "extraRate": 0.1
  },
  "Crashed UFO": {
   "icon": "tex1068.png",
@@ -192,7 +192,7 @@
   "tile": "oldMcDonnellBanner",
   "unique": false,
   "limit": 0,
-  "repeatWeight": 0.25
+  "extraRate": 0.1
  },
  "Gallows": {
   "icon": "tex1053.png",
@@ -361,7 +361,7 @@
   "tile": "ninjaBanner",
   "unique": false,
   "limit": 0,
-  "repeatWeight": 0.25
+  "extraRate": 0.1
  },
  "Parrot": {
   "icon": "tex1079.png",
@@ -386,7 +386,7 @@
   "tile": "pirateBanner",
   "unique": false,
   "limit": 0,
-  "repeatWeight": 0.25
+  "extraRate": 0.1
  },
  "Pixel Banner": {
   "icon": "",
@@ -395,7 +395,7 @@
   "tile": "pixelBanner",
   "unique": false,
   "limit": 0,
-  "repeatWeight": 0.25
+  "extraRate": 0.1
  },
  "Pixel Block": {
   "icon": "",
@@ -492,7 +492,7 @@
   "tile": "robotBanner",
   "unique": false,
   "limit": 0,
-  "repeatWeight": 0.25
+  "extraRate": 0.1
  },
  "Rock Lobster": {
   "icon": "tex1085.png",

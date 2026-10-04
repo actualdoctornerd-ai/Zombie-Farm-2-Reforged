@@ -5931,6 +5931,9 @@ async function main() {
             const drops: LootDrop[] = res.loot
               ? [{ name: res.loot.name, icon: raids.lootIconFor(res.loot.name), qty: res.loot.qty ?? 1 }]
               : [];
+            for (const extra of res.extraLoot ?? []) {
+              drops.push({ name: extra.name, icon: raids.lootIconFor(extra.name), qty: 1 });
+            }
             if (res.newZombie) {
               if (!res.newZombie.received) {
                 zombies.grantReward(

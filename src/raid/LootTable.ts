@@ -60,19 +60,41 @@ export function rollLootTier(roll: number, bonus: number): number {
   return 5;
 }
 
+/** The chance of each rarity tier (index 0-5, summing to 1) at a luck bracket — the closed
+ *  form of rollLootTier, for DISPLAY (the drop table). Pinned against rollLootTier itself by
+ *  LootTable.test.ts, so the two cannot drift. */
+export function lootTierChances(bonus: number): number[] {
+  const b = Math.max(0, Math.floor(bonus));
+  const out = [0, 0, 0, 0, 0, 0];
+  const table = b === 0 ? BRACKET_0 : b === 1 ? BRACKET_1 : b === 2 ? BRACKET_2 : null;
+  if (table) {
+    let prev = 0;
+    for (const [cum, tier] of table) { out[tier] += cum - prev; prev = cum; }
+    out[b === 0 ? 4 : 5] += 1 - prev;
+    return out;
+  }
+  const n = b - 3;
+  const decay = Math.pow(0.9, n);
+  const clamp = (x: number) => Math.min(1, Math.max(0, x));
+  const c3 = clamp(0.39 * decay - 0.1 * n);
+  const c4 = clamp(0.79 * decay - 0.1 * n);
+  out[3] = c3;
+  out[4] = c4 - c3;
+  out[5] = 1 - c4;
+  return out;
+}
+
 /** Pick one entry from a raid's 6-tier loot table, starting at `tier` (from
  *  rollLootTier) and walking DOWN to commoner tiers when a tier has nothing to give.
  *  `pick` is a uniform [0,1) sample; both sides inject their own (the server's RNG
  *  online, Math.random offline), so this is the ONE definition of the pick.
  *
  *  `weightOf` is each entry's share of an ordinary pick: 1 for a normal entry, 0 for
- *  one that may not drop (a `unique` already owned, a `limit` reached), and a
- *  fraction for a REPEAT — an owned banner keeps `repeatWeight` of a normal pick.
- *  With every weight 1 this is exactly the binary's uniform pick. When a tier's
- *  weights sum to less than one whole pick (a tier holding only an owned banner),
- *  the unclaimed share falls through to the next tier down, so the repeat really is
- *  rarer rather than guaranteed whenever its tier comes up. Returns null only when
- *  nothing at all can drop. */
+ *  one that may not drop (a `unique` already owned, a `limit` reached, an `extraRate`
+ *  entry that rolls on its own), and a fraction for a partial share. With every weight
+ *  1 this is exactly the binary's uniform pick. When a tier's weights sum to less than
+ *  one whole pick, the unclaimed share falls through to the next tier down. Returns
+ *  null only when nothing at all can drop. */
 export function pickLootEntry(
   table: readonly (readonly string[])[],
   tier: number,
@@ -110,18 +132,40 @@ export function pickLootEntry(
 export interface LootEntryRule {
   unique: boolean;
   limit: number;
-  /** Share of a normal pick an entry keeps once owned (0/absent = no change). */
-  repeatWeight?: number;
+  /** Per-win chance of an EXTRA drop on top of the ordinary roll (the faction banners).
+   *  An entry with one never takes a slot in the pick. */
+  extraRate?: number;
 }
 
 /** An entry's weight for pickLootEntry, given how many the player already owns.
  *  Unknown entries (no metadata) are allowed — fail-open, as both sides always were. */
 export function lootEntryWeight(rule: LootEntryRule | undefined, owned: number): number {
   if (!rule) return 1;
+  if (rule.extraRate && rule.extraRate > 0) return 0; // rolls on its own — see extraDropsFor
   if (rule.limit > 0 && owned >= rule.limit) return 0;
-  if (owned > 0) {
-    if (rule.unique) return 0;
-    if (rule.repeatWeight && rule.repeatWeight > 0) return Math.min(1, rule.repeatWeight);
-  }
+  if (owned > 0 && rule.unique) return 0;
   return 1;
+}
+
+/** The EXTRA drops of a win: every entry in the raid's loot table that carries an
+ *  `extraRate` (the faction banners) rolls independently at that chance and pays on top of
+ *  the ordinary drop, however often it has dropped before. `roll` supplies a fresh uniform
+ *  [0,1) sample per entry (the server's RNG online, Math.random offline), so this is the
+ *  ONE definition of the rule for both sides. An entry listed twice in a table rolls once. */
+export function extraDropsFor(
+  table: readonly (readonly string[])[],
+  rateOf: (name: string) => number,
+  roll: () => number,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const tier of table) {
+    for (const name of tier) {
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      const rate = rateOf(name);
+      if (rate > 0 && roll() < rate) out.push(name);
+    }
+  }
+  return out;
 }

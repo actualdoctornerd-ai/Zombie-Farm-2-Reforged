@@ -11,7 +11,7 @@
 // placeable), so a client naming its own prize is a mint. Note it was ALSO simply broken
 // online — the client's grants routed through the spend-only economy and the removed
 // inventory `grant`, so raid loot silently evaporated. This fixes both.
-import { rollLootTier, pickLootEntry, lootEntryWeight } from "../../src/raid/LootTable";
+import { rollLootTier, pickLootEntry, lootEntryWeight, extraDropsFor } from "../../src/raid/LootTable";
 import { raidLoot, dropEcon } from "./raidLootCatalog";
 import { boostKeyForName } from "./boostCatalog";
 import { raidBoostBundle } from "../../src/raid/lootBundles";
@@ -74,8 +74,8 @@ export function ownedLootCounter(
 }
 
 /** An entry's share of an ordinary pick (see LootTable.lootEntryWeight): 0 = may not
- *  drop (a `unique` owned, a `limit` reached), 1 = normal, a fraction = a REPEAT (an
- *  owned banner). An entry with no drops.json metadata is allowed (fail-open matches
+ *  drop (a `unique` owned, a `limit` reached, or an `extraRate` entry that rolls on its
+ *  own), 1 = normal. An entry with no drops.json metadata is allowed (fail-open matches
  *  the client, and every real entry has metadata). */
 export function lootWeight(name: string, owned: OwnedCount): number {
   if (!name) return 0;
@@ -106,6 +106,14 @@ export function rollLoot(
   const table = raidLoot(raidId);
   if (!table) return null;
   return pickLootEntry(table, rollLootTier(roll, dice), (n) => lootWeight(n, owned), pick);
+}
+
+/** The EXTRA drops of a win — the faction banners, each rolling on its own `extraRate`
+ *  (drops.json) in ADDITION to the ordinary drop, owned or not. `roll` is the SERVER's RNG
+ *  (tests pass a fixed value). Each name is an item for the Received bucket. */
+export function rollExtraLoot(raidId: number, roll: () => number): string[] {
+  const table = raidLoot(raidId);
+  return table ? extraDropsFor(table, (n) => dropEcon(n)?.extraRate ?? 0, roll) : [];
 }
 
 /** Resolve a rolled drop name into the grant it produces. Order mirrors the client:

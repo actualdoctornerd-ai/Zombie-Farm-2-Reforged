@@ -277,7 +277,7 @@ const MIRRORS = [
             gold: !!d.gold,
             unique: !!d.unique,
             limit: d.limit ?? 0,
-            repeatWeight: d.repeatWeight ?? 0,
+            extraRate: d.extraRate ?? 0,
             tile: d.tile ?? "",
           },
         })),

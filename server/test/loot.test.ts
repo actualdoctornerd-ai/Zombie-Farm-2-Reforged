@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rollLoot, resolveLoot, lootEligible, ownedLootCounter, bonusGoldFor, BONUS_GOLD } from "../src/loot";
+import { rollLoot, rollExtraLoot, resolveLoot, lootEligible, ownedLootCounter, bonusGoldFor, BONUS_GOLD } from "../src/loot";
 import { EPIC_BOSSES } from "../../src/epicBoss/catalog";
 import { RAID_LOOT, dropEcon, raidLoot } from "../src/raidLootCatalog";
 import { rollLootTier } from "../../src/raid/LootTable";
@@ -162,35 +162,31 @@ describe("rollLoot — server roll over the raid's tiers", () => {
   });
 });
 
-describe("faction banners — repeatable, rarer once owned", () => {
+describe("faction banners — an extra roll beside the ordinary drop", () => {
   const BANNERS = ["Farmer Banner", "Corporate Banner", "Pirate Banner", "Ninja Banner",
     "Robot Banner", "Alien Banner", "Pixel Banner"];
-  const ownBanner = (n: string) => (n.endsWith(" Banner") ? 1 : 0);
 
-  it("are no longer unique, and carry a repeat weight", () => {
+  it("are not unique, carry a 10% extraRate, and take no slot in the pick", () => {
     for (const name of BANNERS) {
-      expect(dropEcon(name), name).toMatchObject({ unique: false, repeatWeight: 0.25 });
-      expect(lootEligible(name, ownBanner), name).toBe(true);
+      expect(dropEcon(name), name).toMatchObject({ unique: false, extraRate: 0.1 });
+      expect(lootEligible(name, none), name).toBe(false);
     }
   });
 
-  it("drops the FIRST banner exactly as before", () => {
-    // raid 1 tier 3 = ["Farmer Banner"]; roll 0.85 lands in tier 3 at B=0.
-    expect(rollLoot(1, 0, none, 0.85, 0.9)).toBe("Farmer Banner");
+  it("never come out of the ordinary pick; the emptied tier walks down", () => {
+    // raid 1 tier 3 was ["Farmer Banner"]; roll 0.85 lands there at B=0 and now falls to tier 2.
+    expect(rollLoot(1, 0, none, 0.85, 0.1)).toBe("Insta-Plow");
+    expect(rollLoot(1, 0, none, 0.85, 0.9)).toBe("Insta-Harvest");
+    // a mixed tier (raid 5: Robot Banner + Broken Tractor) now always pays the other entry.
+    expect(rollLoot(5, 0, none, 0.85, 0.1)).toBe("Broken Tractor");
   });
 
-  it("keeps only a quarter of a pick once owned; the rest walks down a tier", () => {
-    expect(rollLoot(1, 0, ownBanner, 0.85, 0.1)).toBe("Farmer Banner");
-    // Past the banner's quarter the pick is rescaled onto tier 2 (Insta-Plow / -Harvest).
-    expect(rollLoot(1, 0, ownBanner, 0.85, 0.5)).toBe("Insta-Plow");
-    expect(rollLoot(1, 0, ownBanner, 0.85, 0.9)).toBe("Insta-Harvest");
-  });
-
-  it("shares a mixed tier by weight: an owned banner is 1 in 5 beside a full entry", () => {
-    // raid 5 tier 3 = ["Robot Banner", "Broken Tractor"] -> weights 0.25 : 1.
-    expect(rollLoot(5, 0, ownBanner, 0.85, 0.1)).toBe("Robot Banner");
-    expect(rollLoot(5, 0, ownBanner, 0.85, 0.3)).toBe("Broken Tractor");
-    expect(rollLoot(5, 0, none, 0.85, 0.3)).toBe("Robot Banner"); // un-owned: an even split
+  it("roll independently per win, owned or not", () => {
+    expect(rollExtraLoot(1, () => 0.05)).toEqual(["Farmer Banner"]);
+    expect(rollExtraLoot(1, () => 0.1)).toEqual([]); // < rate, exactly on it misses
+    expect(rollExtraLoot(1, () => 0.99)).toEqual([]);
+    expect(rollExtraLoot(5, () => 0.05)).toEqual(["Robot Banner"]);
+    expect(rollExtraLoot(999, () => 0)).toEqual([]); // unknown raid
   });
 });
 

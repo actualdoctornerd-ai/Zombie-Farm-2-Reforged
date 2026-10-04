@@ -2568,3 +2568,29 @@
 #hud .alm-guide { max-width: 520px; max-height: 78vh; overflow-y: auto; text-align: left; }
 #hud .alm-guide h2 { margin: 0 0 8px; font-size: 20px; color: #ffd76a; }
 #hud .alm-guide p { margin: 0 0 10px; font-size: 13px; line-height: 1.5; opacity: .92; }
+/* The invasion Drop table (raid select -> "Full drop table"): every drop with its odds. */
+#hud .rd-droptable { align-self: flex-start; margin-top: 4px; padding: 4px 12px; cursor: pointer;
+  border: 2px solid #1e1207; border-radius: 9px; background: #4a3017; color: #ffd76a;
+  font: 800 12px system-ui, sans-serif; }
+#hud .rd-droptable:hover { filter: brightness(1.2); }
+#hud .dt-panel { width: min(460px, 94vw); max-width: none; max-height: min(680px, calc(100dvh - 28px));
+  display: flex; flex-direction: column; overflow: hidden; text-align: left; }
+#hud .dt-head h2 { margin: 0; font-size: 19px; line-height: 1.15; padding-right: 28px; overflow-wrap: anywhere; }
+#hud .dt-sub { font-size: 12px; opacity: .85; margin: 2px 0 8px; }
+#hud .dt-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  margin: 0 -8px; padding: 0 8px 2px; }
+#hud .dt-sec { margin-bottom: 10px; padding: 7px 9px; border-radius: 10px; background: rgba(0,0,0,.2); }
+#hud .dt-sec h3 { margin: 0 0 3px; font-size: 14px; color: #ffcf5a; }
+#hud .dt-note { margin: 0 0 5px; font-size: 11.5px; line-height: 1.35; opacity: .8; }
+#hud .dt-foot { margin: 2px 0 6px; }
+#hud .dt-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12.5px; padding: 1px 0; }
+#hud .dt-k { min-width: 0; overflow-wrap: anywhere; }
+#hud .dt-v { flex: 0 1 auto; text-align: right; font-weight: 700; overflow-wrap: anywhere; }
+#hud .dt-tier { margin-top: 4px; }
+#hud .dt-tier-h { font-weight: 800; border-bottom: 1px solid rgba(255,255,255,.12); }
+#hud .dt-item { padding-left: 10px; opacity: .95; }
+#hud .dt-sum { margin-top: 2px; border-top: 1px solid rgba(255,255,255,.12); font-weight: 800; }
+#hud .dt-luck { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12.5px; font-weight: 700; }
+#hud .dt-die { min-width: 30px; padding: 3px 8px; cursor: pointer; border: 2px solid #1e1207; border-radius: 8px;
+  background: #24160a; color: inherit; font: 800 12px system-ui, sans-serif; }
+#hud .dt-die.sel { background: #b8861f; color: #fff; }
