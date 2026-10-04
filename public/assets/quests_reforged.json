@@ -158,7 +158,7 @@
         "notificationID": "kZombieResurrectedNotification",
         "notificationObject": "",
         "countTotal": 1,
-        "text": "Revive a zombie during an invasion",
+        "text": "Resurrect a zombie during an invasion",
         "type": 1,
         "sprite": ""
       }
@@ -207,7 +207,7 @@
     "id": "20008",
     "title": "Heavy Machinery",
     "messageComplete": "The boss never saw the big one coming.",
-    "tip": "A Bash hits harder; Smash trades damage for a 1-second stun. Either counts.",
+    "tip": "Bash hits harder; Smash adds a 1-second stun. Either one counts.",
     "sprite": "Icon_Quest_Invasion.png",
     "levelRequired": 24,
     "prerequisiteQuest": -1,
@@ -216,7 +216,7 @@
         "notificationID": "kBossDefeatedByAbilityNotification",
         "notificationObject": "Smash",
         "countTotal": 1,
-        "text": "Land the killing blow on a boss with a Smash",
+        "text": "Land the killing blow on a boss with Bash or Smash",
         "type": 1,
         "sprite": ""
       }
@@ -295,7 +295,7 @@
     "id": "20011",
     "title": "Nine Lives",
     "messageComplete": "Twenty-five zombies who were, briefly, no longer with us.",
-    "tip": "One Garden zombie can only revive once per invasion, and only a win counts.",
+    "tip": "One Resurrect holder can only use it once per invasion, and only a win counts.",
     "sprite": "Icon_Quest_HarvestZombies.png",
     "levelRequired": 30,
     "prerequisiteQuest": 20006,
@@ -304,7 +304,7 @@
         "notificationID": "kZombieResurrectedNotification",
         "notificationObject": "",
         "countTotal": 25,
-        "text": "Revive 25 zombies during invasions",
+        "text": "Resurrect 25 zombies during invasions",
         "type": 2,
         "sprite": ""
       }
@@ -324,7 +324,7 @@
     "id": "20012",
     "title": "Recycled",
     "messageComplete": "It blew itself to pieces and came back for seconds.",
-    "tip": "Bring a Garden zombie AND a Small one: revive the mini that just exploded, and win.",
+    "tip": "Bring a Garden zombie AND a Small one: Resurrect the mini that just exploded, and win.",
     "sprite": "Icon_Quest_HarvestZombies.png",
     "levelRequired": 33,
     "prerequisiteQuest": 20007,
@@ -333,7 +333,7 @@
         "notificationID": "kZombieResurrectedNotification",
         "notificationObject": "Exploded Mini",
         "countTotal": 1,
-        "text": "Revive a mini zombie that blew itself up",
+        "text": "Resurrect a mini zombie that blew itself up",
         "type": 1,
         "sprite": ""
       }
