@@ -1,5 +1,6 @@
 import { Application, Assets, Container, FederatedPointerEvent, Graphics, Point, Sprite, Text, TextStyle, Texture, TilingSprite } from "pixi.js";
 import { choosePlowOrigin } from "./plowSelection";
+import { wheelZoomFactor } from "./wheelZoom";
 // Patch Pixi's renderer to use no-eval polyfills for its shader/UBO/uniform/particle
 // codegen (it otherwise uses `new Function`, which the production CSP's script-src
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
@@ -1617,7 +1618,7 @@ async function main() {
     "wheel",
     (e: WheelEvent) => {
       e.preventDefault();
-      zoomAt(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+      zoomAt(e.offsetX, e.offsetY, wheelZoomFactor(e.deltaY, e.deltaMode));
     },
     { passive: false }
   );
