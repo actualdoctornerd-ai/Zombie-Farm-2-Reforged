@@ -7089,7 +7089,9 @@ async function main() {
       last.copyFrom(e.global);
       return;
     }
-    hud.collapse(); // any tap on the field collapses the bars into the corner fab
+    // On the compact HUD any tap on the field tucks the bars into the corner fab, the
+    // same tuck a tool pick makes there. Desktop keeps the full chrome on screen.
+    if (isMobile()) hud.collapse();
     // Plow remains equipped after making a plot. On touch, tapping that newly
     // plantable soil is selection intent: return to the Multi-tool so pointer-up
     // opens the same left-side Plants/Zombies picker as a desktop click.
