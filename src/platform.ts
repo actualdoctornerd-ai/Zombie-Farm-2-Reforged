@@ -23,6 +23,16 @@ export function isTouch(): boolean {
   return coarsePointer() || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
 }
 
+/** True on a device whose only pointer is a finger or stylus: the primary pointer is
+ *  coarse and no fine one (a mouse or trackpad) is attached. The HUD's menu column and
+ *  tool bar tuck into the corner button only on these. A mouse keeps the full chrome
+ *  whatever the window size, and so does a touch laptop with a mouse beside it: nothing
+ *  about a mouse needs the bars out of the way of a thumb. */
+export function isTouchOnly(): boolean {
+  return coarsePointer()
+    && !(typeof matchMedia === "function" && matchMedia("(any-pointer: fine)").matches);
+}
+
 /** True when we should present the compact, touch-friendly layout. A width of 0
  *  (a not-yet-measured viewport) is treated as unknown, not mobile, so a transient
  *  during boot can't wrongly collapse the desktop HUD. */
