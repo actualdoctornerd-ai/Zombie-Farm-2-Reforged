@@ -532,7 +532,8 @@ export class Hud {
   }
 
   // Farm shortcuts. Menu keys only act from the unobstructed farm view; Escape
-  // closes the top overlay, then opens Settings on an unobstructed desktop farm.
+  // closes the top overlay, then drops whatever is in hand back to Select, and only
+  // then opens Settings on an idle desktop farm.
   // Holding Space temporarily borrows Select/pan without discarding a crop,
   // placement, or carried object.
   private wireActionHotkeys() {
@@ -554,14 +555,16 @@ export class Hud {
         if (this.el.classList.contains("tutorial")) { e.preventDefault(); return; }
         if (document.fullscreenElement) return; // preserve native fullscreen exit
         if (this.closeTopOverlay()) { e.preventDefault(); return; }
+        // A held tool, crop, placement or carried object drops back to Select before
+        // anything else: the cancel reflex and the menu key share this one key, so
+        // Settings only opens from an idle desktop farm.
+        this.endTemporaryPan();
+        if (this.mode !== "walk") { e.preventDefault(); this.setMode("walk"); return; }
         if (!e.repeat && !isMobile() && !this.el.classList.contains("raiding") &&
             !this.el.classList.contains("visiting")) {
           e.preventDefault();
           this.openSettings();
-          return;
         }
-        this.endTemporaryPan();
-        if (this.mode !== "walk") { e.preventDefault(); this.setMode("walk"); }
         return;
       }
 
