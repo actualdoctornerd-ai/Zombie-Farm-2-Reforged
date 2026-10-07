@@ -3,10 +3,12 @@ import {
   DEFAULT_FARM_BACKGROUND,
   getDayNightMode,
   getFarmBackground,
+  getRightClickMode,
   hasSeenHazardTip,
   isLocalNight,
   setDayNightMode,
   setPrefStorageErrorHandler,
+  setRightClickMode,
   setShowZombieMutations,
   setZombieBodyColorMode,
   zombieAppearancePrefs,
@@ -25,6 +27,14 @@ describe("environment preferences", () => {
     expect(getDayNightMode()).toBe("auto");
     setDayNightMode("night");
     expect(getDayNightMode()).toBe("night");
+  });
+
+  it("defaults right-click to the Select tool, with the tool menu opt-in", () => {
+    expect(getRightClickMode()).toBe("select");
+    setRightClickMode("menu");
+    expect(getRightClickMode()).toBe("menu");
+    setRightClickMode("select");
+    expect(getRightClickMode()).toBe("select");
   });
 
   it("defaults zombies to their inherited colours with mutations shown", () => {

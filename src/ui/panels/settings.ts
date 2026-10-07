@@ -329,13 +329,13 @@ export function openSettings(hud: Hud): void {
     settingChoiceRow(
       "Right-Click",
       [
-        { id: "menu", label: "Tool Menu" },
         { id: "select", label: "Select Tool" },
+        { id: "menu", label: "Tool Menu" },
       ],
       getRightClickMode(),
       (v) => setRightClickMode(v),
     ),
-    noteEl("Tool Menu opens the quick-switch tool menu at the cursor. Select Tool goes straight back to the Select tool, like it used to."),
+    noteEl("Select Tool drops whatever is in hand and goes back to the Select tool. Tool Menu opens the quick-switch tool menu at the cursor instead."),
   ];
   // Whether the farmer himself is a lantern switch. Only offered alongside the
   // lantern feature itself — on its own it would read as a setting for a feature
