@@ -429,6 +429,7 @@ export class Hud {
     this.wireUiToggle();
     this.wireFullscreenToggle();
     this.wireActionHotkeys();
+    this.wireRightClickCancel();
     state.onChange(() => this.update());
     this.update();
     // Mobile (esp. landscape) starts with the menu + tools tucked into the corner
@@ -604,6 +605,24 @@ export class Hud {
       if (e.code === "Space") this.endTemporaryPan();
     });
     window.addEventListener("blur", () => this.endTemporaryPan());
+  }
+
+  // Right-click over the HUD's own surfaces (a panel, its backdrop, the chrome) is the
+  // same cancel as over the farm, so the browser's menu never appears over the game.
+  // Text fields keep it (paste), a touch long-press keeps its own meaning, the tool
+  // wheel has already handled its own right-click by the time this runs, and the
+  // tutorial owns its panels (its constrained picker must not be dismissed).
+  private wireRightClickCancel() {
+    this.el.addEventListener("contextmenu", (e) => {
+      if (e.defaultPrevented) return;
+      const pointerType = (e as PointerEvent).pointerType;
+      if (pointerType === "touch" || pointerType === "pen") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || t.matches("input, textarea, select"))) return;
+      e.preventDefault();
+      if (this.el.classList.contains("tutorial")) return;
+      this.cancelFromRightClick();
+    });
   }
 
   private beginTemporaryPan() {
@@ -1598,10 +1617,9 @@ export class Hud {
     this.refreshTouchCancel();
   }
 
-  /** Consume one mobile Back action. The topmost closeable overlay wins, followed
-   * by the expanded chrome and then the active farm tool. Returns false only when
-   * the browser should perform its normal navigation. */
-  private closeTopOverlay(): boolean {
+  /** Close the topmost closeable overlay (a panel, picker or dialog). Returns whether
+   *  one was open; a mandatory screen (no close button) counts as open and stays. */
+  closeTopOverlay(): boolean {
     const overlays = Array.from(this.el.querySelectorAll<HTMLElement>(
       ".panelbg, .mkt-bg, .info-bg, .st-bg, .pm-bg, .raid-res-bg, .revive-bg"
     )).filter((el) => el.isConnected && getComputedStyle(el).display !== "none");
@@ -1620,6 +1638,18 @@ export class Hud {
     return true;
   }
 
+  /** The desktop cancel reflex. A right-click closes the topmost panel, or, with none
+   *  open, drops whatever is in hand (a tool, a crop, a placement, a carried object)
+   *  back to Select. Shared by the farm canvas (main.ts) and the HUD's own surfaces. */
+  cancelFromRightClick(): void {
+    if (this.closeTopOverlay()) return;
+    this.endTemporaryPan();
+    if (this.mode !== "walk") this.setMode("walk");
+  }
+
+  /** Consume one mobile Back action. The topmost closeable overlay wins, followed
+   * by the expanded chrome and then the active farm tool. Returns false only when
+   * the browser should perform its normal navigation. */
   handleMobileBack(): boolean {
     if (this.el.classList.contains("tutorial")) return true;
     if (this.el.classList.contains("visiting") && this.visitExit) {

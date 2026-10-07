@@ -7648,8 +7648,10 @@ async function main() {
     if (toolWheel) { closeToolWheel(); return; }
     // Settings → Controls picks what right-click means: the tool menu (default) or
     // the older reflex of jumping straight back to the Select tool. Read per event
-    // so a change in Settings applies to the very next right-click.
-    if (getRightClickMode() === "select") { equipTool("walk"); return; }
+    // so a change in Settings applies to the very next right-click. A panel standing
+    // over the farm closes first in either mode.
+    if (getRightClickMode() === "select") { hud.cancelFromRightClick(); return; }
+    if (hud.closeTopOverlay()) return;
     toolWheel = openToolWheel(hud.el, {
       x: e.clientX, y: e.clientY, items: toolWheelItems(),
       onSound: () => audio.play("menuClick"),
