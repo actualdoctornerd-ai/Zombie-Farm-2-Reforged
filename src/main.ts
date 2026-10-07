@@ -7646,9 +7646,9 @@ async function main() {
     // instead, so never let a synthesized contextmenu open the menu there.
     if (isTouchPointer(pressPointerType)) return;
     if (toolWheel) { closeToolWheel(); return; }
-    // Settings → Controls picks what right-click means: the tool menu (default) or
-    // the older reflex of jumping straight back to the Select tool. Read per event
-    // so a change in Settings applies to the very next right-click.
+    // Settings → Controls picks what right-click means: back to the Select tool (the
+    // default) or the quick-switch tool menu. Read per event so a change in Settings
+    // applies to the very next right-click.
     if (getRightClickMode() === "select") { equipTool("walk"); return; }
     toolWheel = openToolWheel(hud.el, {
       x: e.clientX, y: e.clientY, items: toolWheelItems(),
