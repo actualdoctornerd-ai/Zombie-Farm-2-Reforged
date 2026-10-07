@@ -95,7 +95,7 @@ import { TutorialController } from "./tutorial/TutorialController";
 import { reconcileTutorialCompletion, TutStep, TUTORIAL_BATTLE_TIP } from "./tutorial/steps";
 import { TUTORIAL_GROW_BOOST, TUTORIAL_GROW_USES, TUTORIAL_PLOTS } from "./tutorial/freshFarm";
 import { timUnlockNoticesFor } from "./tutorial/unlockNotices";
-import { initPlatform, isMobile, isTouch } from "./platform";
+import { initPlatform, isMobile, isTouch, isTouchOnly } from "./platform";
 import { initPwa, promptReload, checkForUpdate } from "./pwa";
 import { initDiagnostics, recordDiagnostic } from "./diagnostics";
 import { crumb } from "./breadcrumbs";
@@ -7089,7 +7089,10 @@ async function main() {
       last.copyFrom(e.global);
       return;
     }
-    hud.collapse(); // any tap on the field collapses the bars into the corner fab
+    // On a touch-only device any tap on the field tucks the bars into the corner fab.
+    // With a mouse they stay out: the default tool is a click away on the bar, not
+    // behind a button that only shows which tool is held.
+    if (isTouchOnly()) hud.collapse();
     // Plow remains equipped after making a plot. On touch, tapping that newly
     // plantable soil is selection intent: return to the Multi-tool so pointer-up
     // opens the same left-side Plants/Zombies picker as a desktop click.

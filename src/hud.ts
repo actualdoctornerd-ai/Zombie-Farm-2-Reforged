@@ -32,7 +32,7 @@ import {
   socialBadge, type SocialBadges,
 } from "./social/badges";
 import { setBadge } from "./ui/badge";
-import { isMobile } from "./platform";
+import { isMobile, isTouchOnly } from "./platform";
 import {
   getFriendSort, setFriendSort, invadedSeenAt, markInvadedSeen,
   type DayNightMode, type FarmBackground, type ZombieAppearancePrefs,
@@ -431,10 +431,10 @@ export class Hud {
     this.wireActionHotkeys();
     state.onChange(() => this.update());
     this.update();
-    // Mobile (esp. landscape) starts with the menu + tools tucked into the corner
-    // fab. The capped quest rail remains visible on every farm view.
-    // Desktop keeps the full chrome on screen.
-    if (isMobile()) {
+    // A touch-only device (esp. a landscape phone) starts with the menu + tools tucked
+    // into the corner fab. The capped quest rail remains visible on every farm view.
+    // Anything with a mouse keeps the full chrome on screen, whatever the window size.
+    if (isTouchOnly()) {
       this.collapse();
     }
   }
@@ -1470,10 +1470,10 @@ export class Hud {
       const previousMode = this.mode;
       this.audio.play("menuClick");
       onClick();
-      // On the compact HUD, choosing a tool should finish the toolbar interaction.
+      // On a touch-only device, choosing a tool should finish the toolbar interaction.
       // Otherwise the next farm tap both closes the toolbar and performs the newly
       // selected action, which makes that first action easy to trigger by accident.
-      if (isMobile() && this.mode !== previousMode) this.collapse();
+      if (isTouchOnly() && this.mode !== previousMode) this.collapse();
     };
     this.tools[id] = btn;
     return btn;
@@ -2158,10 +2158,10 @@ export class Hud {
     if (!on) {
       this.setTutorialMenuTarget(null);
       // The tutorial's menu beats expand the chrome, and nothing during the run can
-      // collapse it again (the fab is pointer-events-gated). Return mobile to its
-      // collapsed baseline so the player is not left with the tool bar out and — on
-      // portrait — the invade shortcut the tutorial just taught hidden beneath it.
-      if (isMobile()) this.collapse();
+      // collapse it again (the fab is pointer-events-gated). Return a touch-only device
+      // to its collapsed baseline so the player is not left with the tool bar out and —
+      // on portrait — the invade shortcut the tutorial just taught hidden beneath it.
+      if (isTouchOnly()) this.collapse();
     }
   }
   /** Select the sole menu control allowed by the current tutorial beat. Invade
