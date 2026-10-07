@@ -13,7 +13,7 @@ stops resolving, the bullet is stale.
 
 
 ### Farming and economy
-- 30x30 isometric farm rendered from generated field data with camera pan/zoom.
+- 30x30 isometric farm rendered from generated field data with camera pan/zoom. Wheel zoom is sized by how far the wheel turned (`src/wheelZoom.ts`), so a free-spinning or high-resolution wheel that splits one notch into a burst of events zooms the same amount as a classic notch, and one event can never zoom more than a few notches.
 - Modular farmer, walk/work animation, click-to-walk, pathing around placed objects.
 - **Terrain-priced pathfinding**: walkers weigh the ground instead of treating every placed object as a wall. Roads and cobbles are cheaper than grass, so the farmer and wandering zombies drift onto a path that runs their way; ponds cost three times bare ground, so a small one is walked around and a wide one waded through. See `src/pathCosts.ts`.
 - **Fences hold**: hedges, fences and shut gates are searched as solid walls, so a pen keeps its zombies in and a wall is walked around, never through. They are only ever crossed when no barrier-free route exists at all *and* the walker is under orders — the farmer sent to a spot fenced off with no way in gets there, by the shut gate rather than the hedge, since a gate is priced below the run it sits in. Anything choosing its own destination simply stays put, and a walker that a hedge was built around can always step off it, so nothing is ever stuck for good.
