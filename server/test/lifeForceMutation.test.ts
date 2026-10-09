@@ -3,7 +3,7 @@ import type { SequencedCommand } from "../../src/net/protocol";
 import { applyCommandBatch, freshGameplayState, type MutableGameplayState } from "../src/v3/engine";
 
 // A crop's mutation chance on a zombie harvest is set by the farm's Life Force level:
-// 5% + 10% per level per adjacent crop. The server derives the level from the objects it
+// 10% + 10% per level per adjacent crop. The server derives the level from the objects it
 // holds as PLACED, so a stored decoration adds nothing and a client cannot claim a level.
 
 const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] =>
@@ -29,25 +29,25 @@ function harvestBesideOneCarrot(state: MutableGameplayState, roll: number): numb
 }
 
 describe("Life Force sets the server's crop mutation chance", () => {
-  it("is 5% with no Life Force", () => {
-    expect(harvestBesideOneCarrot(freshGameplayState(), 0.049)).toBe(4);
-    expect(harvestBesideOneCarrot(freshGameplayState(), 0.05)).toBe(0);
+  it("is 10% with no Life Force", () => {
+    expect(harvestBesideOneCarrot(freshGameplayState(), 0.099)).toBe(4);
+    expect(harvestBesideOneCarrot(freshGameplayState(), 0.1)).toBe(0);
   });
 
-  it("rises 10 points a level: 15% at level 1, 55% at level 5", () => {
+  it("rises 10 points a level: 20% at level 1, 60% at level 5", () => {
     const level1 = freshGameplayState();
     gazebos(level1, 2); // 32 Life Force
-    expect(harvestBesideOneCarrot(level1, 0.149)).toBe(4);
+    expect(harvestBesideOneCarrot(level1, 0.199)).toBe(4);
     const level1b = freshGameplayState();
     gazebos(level1b, 2);
-    expect(harvestBesideOneCarrot(level1b, 0.151)).toBe(0);
+    expect(harvestBesideOneCarrot(level1b, 0.201)).toBe(0);
 
     const level5 = freshGameplayState();
     gazebos(level5, 13); // 208 Life Force
-    expect(harvestBesideOneCarrot(level5, 0.549)).toBe(4);
+    expect(harvestBesideOneCarrot(level5, 0.599)).toBe(4);
     const level5b = freshGameplayState();
     gazebos(level5b, 13);
-    expect(harvestBesideOneCarrot(level5b, 0.551)).toBe(0);
+    expect(harvestBesideOneCarrot(level5b, 0.601)).toBe(0);
   });
 
   it("is certain from level 10", () => {

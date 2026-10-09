@@ -78,7 +78,7 @@ planting check is what keeps them closed.
    ceiling and the lossless-difficulty targets before shipping.
 5. Deploy the Worker (the planting gate and the catalog), no migration needed (an unlock is
    derived from the existing `raid_state_v3.tier_json`).
-6. **Re-check mutation growth odds.** A crop's chance to grow its mutation is now Life Force based (`cropMutationChance` in `src/lifeForce.ts`: 5% + 10% per Life Force level), not the old flat 25%. Check prize-mutation growth feels right at typical farm Life Force levels (the production median farm sits around Life Force level 2-3, i.e. roughly 25-35%).
+6. **Re-check mutation growth odds.** A crop's chance to grow its mutation is now Life Force based (`cropMutationChance` in `src/lifeForce.ts`: 10% + 10% per Life Force level), not the old flat 25%. Check prize-mutation growth feels right at typical farm Life Force levels (the production median farm sits around Life Force level 2-3, i.e. roughly 30-40%).
 7. Check `MutationTier` (1-4 only, presentation) and Black Market / almanac copy for the new
    names, and whether a first clear of t5/t10 should also pay anything else.
 

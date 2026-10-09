@@ -6,6 +6,7 @@ import type { Container } from "pixi.js";
 import { GameAssets, ZombieDef } from "../assets";
 import { Field } from "../Field";
 import { GameState } from "../GameState";
+import { fertilizeMultiplier } from "../lifeForce";
 import { OwnedZombieSave, ZombiePotSave } from "../save/schema";
 import { findEscape } from "../pathfind";
 import { addMutation } from "./mutations";
@@ -192,8 +193,10 @@ export class ZombieField {
     const gardens = this.units.filter((u) => u.group === "Garden");
     if (!gardens.length) return null;
     let winner: (typeof gardens)[number] | null = null;
+    // Life Force makes every Garden zombie's own chance 3% higher per level (x1.3 at 10).
+    const boost = fertilizeMultiplier(this.state.lifeForceLevel);
     for (const u of gardens) {
-      const chance = FERTILIZE_BY_TIER[this.resolve(u.typeKey)?.tier ?? 0] ?? 0;
+      const chance = (FERTILIZE_BY_TIER[this.resolve(u.typeKey)?.tier ?? 0] ?? 0) * boost;
       if (Math.random() < chance) { winner = u; break; }
     }
     if (!winner || !this.field.markFertilized(oc, or)) return null;

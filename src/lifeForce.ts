@@ -16,14 +16,18 @@ export const LIFE_FORCE_THRESHOLDS: readonly number[] = [30, 65, 105, 150, 200, 
 /** The highest level. The raw total keeps counting past it; nothing more happens. */
 export const MAX_LIFE_FORCE_LEVEL = LIFE_FORCE_THRESHOLDS.length;
 
-/** Mutation chance per adjacent crop at level 0, and what each level adds. Level 10
- *  reaches 105%, capped at 100%. */
-export const MUTATION_BASE_CHANCE = 0.05;
+/** Mutation chance per adjacent crop at level 0, and what each level adds. Level 9
+ *  reaches 100%; level 10 would be 110%, capped. */
+export const MUTATION_BASE_CHANCE = 0.1;
 export const MUTATION_CHANCE_PER_LEVEL = 0.1;
 
-/** A zombie fails its harvest 20 points more often for every level its tier is above the
- *  farm's Life Force level. */
-export const HARVEST_FAIL_PER_LEVEL = 0.2;
+/** A zombie comes out lifeless 10 points more often for every colour tier above Green,
+ *  and 10 points less often for every Life Force level. Green is never lifeless. */
+export const HARVEST_FAIL_PER_LEVEL = 0.1;
+
+/** Each Life Force level multiplies a Garden zombie's fertilize chance by this much more
+ *  (3% of the chance, not 3 points: level 10 is x1.3). */
+export const FERTILIZE_BOOST_PER_LEVEL = 0.03;
 
 /** The highest tier a zombie counts as, whatever its catalog tier (Obsidian is tier 6). */
 export const MAX_HARVEST_TIER = 5;
@@ -97,12 +101,18 @@ export function zombieHarvestTier(def: { category?: string; tier?: number }): nu
   return Math.min(MAX_HARVEST_TIER, Math.max(1, def.tier ?? 1));
 }
 
-/** Chance a harvest of a `tier` zombie fails at a Life Force level: 20% per level the
- *  tier is above the level. A tier-1 zombie is safe from level 1; a tier-5 zombie
- *  always fails at level 0 and is safe from level 5. */
+/** Chance a harvest of a `tier` zombie comes out lifeless at a Life Force level: 10% for
+ *  every tier above Green, less 10% for every level. Green (tier 1) is never lifeless;
+ *  tier t is safe from level t - 1, so Blue needs level 1 and Obsidian level 4. */
 export function harvestFailureChance(tier: number, level: number): number {
-  const gap = Math.floor(tier) - Math.floor(level);
+  const gap = Math.floor(tier) - 1 - Math.floor(level);
   return Math.min(1, Math.max(0, HARVEST_FAIL_PER_LEVEL * gap));
+}
+
+/** Multiplier on a Garden zombie's fertilize chance at a Life Force level: 1 + 3% a level. */
+export function fertilizeMultiplier(level: number): number {
+  const l = Math.min(MAX_LIFE_FORCE_LEVEL, Math.max(0, Math.floor(level)));
+  return 1 + FERTILIZE_BOOST_PER_LEVEL * l;
 }
 
 /** Roll a harvest failure. `random` is [0, 1), so a chance of 1 always fails and 0 never. */
@@ -120,7 +130,9 @@ export interface LifeForceLevelRow {
   /** Total Life Force needed to reach this level. */
   need: number;
   mutationChance: number;
-  /** The tier whose harvests stop failing at this level (levels 1..5), else null. */
+  /** Multiplier on Garden zombies' fertilize chance. */
+  fertilizeMultiplier: number;
+  /** The tier whose harvests stop failing at this level (levels 1..4), else null. */
   safeTierGained: number | null;
   /** The ability slot that starts working at this level (levels 1..4), else null. */
   abilitySlotGained: number | null;
@@ -134,7 +146,8 @@ export function lifeForceLevelRows(): LifeForceLevelRow[] {
       level,
       need,
       mutationChance: cropMutationChance(level),
-      safeTierGained: level <= MAX_HARVEST_TIER ? level : null,
+      fertilizeMultiplier: fertilizeMultiplier(level),
+      safeTierGained: level < MAX_HARVEST_TIER ? level + 1 : null,
       abilitySlotGained: level <= MAX_ABILITY_SLOTS ? level : null,
     };
   });
@@ -144,7 +157,9 @@ export function lifeForceLevelRows(): LifeForceLevelRow[] {
 export interface LifeForceEffects {
   /** Mutation chance per adjacent crop. */
   mutationChance: number;
-  /** Highest tier whose harvests never fail (0 = none yet, 5 = every zombie). */
+  /** Multiplier on Garden zombies' fertilize chance. */
+  fertilizeMultiplier: number;
+  /** Highest tier whose harvests never fail (1 = Green only, 5 = every zombie). */
   safeTier: number;
   /** Ability slots that work (0..4). */
   abilitySlots: number;
@@ -154,7 +169,8 @@ export function lifeForceEffects(level: number): LifeForceEffects {
   const l = Math.min(MAX_LIFE_FORCE_LEVEL, Math.max(0, Math.floor(level)));
   return {
     mutationChance: cropMutationChance(l),
-    safeTier: Math.min(MAX_HARVEST_TIER, l),
+    fertilizeMultiplier: fertilizeMultiplier(l),
+    safeTier: Math.min(MAX_HARVEST_TIER, l + 1),
     abilitySlots: Math.min(MAX_ABILITY_SLOTS, l),
   };
 }

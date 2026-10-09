@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LIFE_FORCE_THRESHOLDS, MAX_LIFE_FORCE_LEVEL, abilitySlotRequirement, abilitySlotUnlocked,
-  cropMutationChance, farmLifeForce, harvestFailureChance, harvestFails, lifeForceLevel,
+  cropMutationChance, farmLifeForce, fertilizeMultiplier, harvestFailureChance, harvestFails, lifeForceLevel,
   lifeForceEffects, lifeForceLevelRows, lifeForceProgress, zombieHarvestTier, HARVEST_TIER_NAMES,
 } from "./lifeForce";
 import zombies from "../public/assets/zombies.json";
@@ -57,53 +57,63 @@ describe("farmLifeForce", () => {
 });
 
 describe("cropMutationChance", () => {
-  it("is 5% at level 0 and gains 10 points a level", () => {
-    expect(cropMutationChance(0)).toBeCloseTo(0.05);
-    expect(cropMutationChance(1)).toBeCloseTo(0.15);
-    expect(cropMutationChance(5)).toBeCloseTo(0.55);
-    expect(cropMutationChance(9)).toBeCloseTo(0.95);
+  it("is 10% at level 0 and gains 10 points a level", () => {
+    expect(cropMutationChance(0)).toBeCloseTo(0.1);
+    expect(cropMutationChance(1)).toBeCloseTo(0.2);
+    expect(cropMutationChance(5)).toBeCloseTo(0.6);
+    expect(cropMutationChance(8)).toBeCloseTo(0.9);
   });
-  it("reaches 100% at level 10 and never exceeds it", () => {
+  it("reaches 100% at level 9 and never exceeds it", () => {
+    expect(cropMutationChance(9)).toBe(1);
     expect(cropMutationChance(10)).toBe(1);
     expect(cropMutationChance(50)).toBe(1);
-    expect(cropMutationChance(-3)).toBeCloseTo(0.05);
+    expect(cropMutationChance(-3)).toBeCloseTo(0.1);
   });
 });
 
 describe("harvestFailureChance", () => {
-  it("is 20 points per level the tier is above the level", () => {
-    expect(harvestFailureChance(1, 0)).toBeCloseTo(0.2);
-    expect(harvestFailureChance(3, 1)).toBeCloseTo(0.4);
-    expect(harvestFailureChance(4, 0)).toBeCloseTo(0.8);
+  it("is 10 points per tier above Green, less 10 per level", () => {
+    expect(harvestFailureChance(2, 0)).toBeCloseTo(0.1);
+    expect(harvestFailureChance(3, 0)).toBeCloseTo(0.2);
+    expect(harvestFailureChance(4, 1)).toBeCloseTo(0.2);
+    expect(harvestFailureChance(5, 0)).toBeCloseTo(0.4);
   });
-  it("makes a tier-1 zombie safe from level 1", () => {
-    for (let level = 1; level <= 10; level++) expect(harvestFailureChance(1, level)).toBe(0);
+  it("never makes a Green zombie lifeless, at any level", () => {
+    for (let level = 0; level <= 10; level++) expect(harvestFailureChance(1, level)).toBe(0);
   });
-  it("makes a tier-5 zombie fail always at level 0 and be safe from level 5", () => {
-    expect(harvestFailureChance(5, 0)).toBe(1);
-    expect(harvestFailureChance(5, 4)).toBeCloseTo(0.2);
-    expect(harvestFailureChance(5, 5)).toBe(0);
+  it("makes a tier-5 zombie safe from level 4", () => {
+    expect(harvestFailureChance(5, 3)).toBeCloseTo(0.1);
+    expect(harvestFailureChance(5, 4)).toBe(0);
   });
-  it("is safe whenever the level reaches the tier, and never goes negative or above 1", () => {
+  it("is safe once the level reaches tier - 1, and never goes negative or above 1", () => {
     for (let tier = 1; tier <= 5; tier++) {
       for (let level = 0; level <= 10; level++) {
         const c = harvestFailureChance(tier, level);
         expect(c).toBeGreaterThanOrEqual(0);
         expect(c).toBeLessThanOrEqual(1);
-        if (level >= tier) expect(c).toBe(0);
+        if (level >= tier - 1) expect(c).toBe(0);
       }
     }
   });
 });
 
+describe("fertilizeMultiplier", () => {
+  it("adds 3% of the chance per level: x1 at level 0, x1.3 at level 10", () => {
+    expect(fertilizeMultiplier(0)).toBe(1);
+    expect(fertilizeMultiplier(1)).toBeCloseTo(1.03);
+    expect(fertilizeMultiplier(10)).toBeCloseTo(1.3);
+    expect(fertilizeMultiplier(99)).toBeCloseTo(1.3);
+  });
+});
+
 describe("harvestFails", () => {
   it("never fails at chance 0 and always fails at chance 1", () => {
-    expect(harvestFails(1, 1, () => 0)).toBe(false);
-    expect(harvestFails(5, 0, () => 0.999999)).toBe(true);
+    expect(harvestFails(1, 0, () => 0)).toBe(false);
+    expect(harvestFails(5, 0, () => 0.399999)).toBe(true);
   });
   it("fails exactly when the roll is under the chance", () => {
-    expect(harvestFails(2, 0, () => 0.39)).toBe(true); // chance 0.4
-    expect(harvestFails(2, 0, () => 0.4)).toBe(false);
+    expect(harvestFails(2, 0, () => 0.09)).toBe(true); // chance 0.1
+    expect(harvestFails(2, 0, () => 0.1)).toBe(false);
   });
 });
 
@@ -142,14 +152,14 @@ describe("ability slots", () => {
 
 describe("lifeForceEffects", () => {
   it("summarises what a level gives, for the popover", () => {
-    expect(lifeForceEffects(0)).toEqual({ mutationChance: 0.05, safeTier: 0, abilitySlots: 0 });
-    expect(lifeForceEffects(3)).toMatchObject({ safeTier: 3, abilitySlots: 3 });
-    expect(lifeForceEffects(3).mutationChance).toBeCloseTo(0.35);
+    expect(lifeForceEffects(0)).toEqual({ mutationChance: 0.1, fertilizeMultiplier: 1, safeTier: 1, abilitySlots: 0 });
+    expect(lifeForceEffects(3)).toMatchObject({ safeTier: 4, abilitySlots: 3 });
+    expect(lifeForceEffects(3).mutationChance).toBeCloseTo(0.4);
   });
   it("caps safe tiers at 5, ability slots at 4 and mutation at 100%", () => {
     expect(lifeForceEffects(7)).toMatchObject({ safeTier: 5, abilitySlots: 4 });
-    expect(lifeForceEffects(10)).toEqual({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
-    expect(lifeForceEffects(99)).toEqual({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
+    expect(lifeForceEffects(10)).toMatchObject({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
+    expect(lifeForceEffects(99)).toMatchObject({ mutationChance: 1, safeTier: 5, abilitySlots: 4 });
   });
 });
 
@@ -160,10 +170,9 @@ describe("lifeForceLevelRows", () => {
     expect(rows.map((r) => r.need)).toEqual([30, 65, 105, 150, 200, 250, 300, 350, 400, 450]);
   });
   it("says what each level adds", () => {
-    expect(rows[0]).toMatchObject({ safeTierGained: 1, abilitySlotGained: 1 });
-    expect(rows[3]).toMatchObject({ safeTierGained: 4, abilitySlotGained: 4 });
-    expect(rows[4]).toMatchObject({ safeTierGained: 5, abilitySlotGained: null });
-    expect(rows[5]).toMatchObject({ safeTierGained: null, abilitySlotGained: null });
+    expect(rows[0]).toMatchObject({ safeTierGained: 2, abilitySlotGained: 1 });
+    expect(rows[3]).toMatchObject({ safeTierGained: 5, abilitySlotGained: 4 });
+    expect(rows[4]).toMatchObject({ safeTierGained: null, abilitySlotGained: null });
     expect(rows[9].mutationChance).toBe(1);
   });
   it("names every harvest tier", () => {

@@ -75,7 +75,7 @@ export function cropMutationBits(
 }
 
 /** Chance one adjacent crop grows its mutation at Life Force level 0. The live value is
- *  `cropMutationChance(level)` (src/lifeForce.ts), passed in as `chancePerCrop`: 5% +
+ *  `cropMutationChance(level)` (src/lifeForce.ts), passed in as `chancePerCrop`: 10% +
  *  10% per level, so a farm with no Life Force grows mutations rarely. */
 const DEFAULT_CHANCE_PER_CROP = cropMutationChance(0);
 
@@ -111,7 +111,7 @@ export interface CropMutationOptions {
 
 /** Resolve all crop-adjacency mutations for one harvested zombie.
  *
- * Each adjacent crop adds `chancePerCrop` (5% + 10% per Life Force level) to its mutation's chance, capped
+ * Each adjacent crop adds `chancePerCrop` (10% + 10% per Life Force level) to its mutation's chance, capped
  * at 100%. Different non-conflicting mutations roll independently. If multiple
  * successful crops target the same anatomical slot, the lowest random roll wins;
  * this prevents plot iteration order from deciding the conflict. */

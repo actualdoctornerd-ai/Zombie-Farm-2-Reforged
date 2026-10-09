@@ -117,11 +117,15 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       },
       {
         title: "Mutations",
-        body: "A crop planted beside a zombie plot has a chance to give it its mutation of 5% plus 10% for every level, so a bare farm mutates rarely and a level 10 farm mutates every time. Several matching crops stack, and the Mutant Monolith still guarantees the roll.",
+        body: "A crop planted beside a zombie plot has a chance to give it its mutation of 10% plus 10% for every level, so a bare farm mutates one time in ten and a level 9 farm mutates every time. Several matching crops stack, and the Mutant Monolith still guarantees the roll.",
+      },
+      {
+        title: "Fertilizing",
+        body: "Garden zombies can fertilize a freshly planted vegetable for a double harvest. Each Life Force level makes that chance 3% higher than it was, so a level 10 farm fertilizes 1.3 times as often.",
       },
       {
         title: "Growing zombies",
-        body: "A zombie can fail to grow when its colour is above your level. Green zombies need level 1, Blue level 2, Red level 3, Silver level 4, and Obsidian and special zombies level 5. Each level you are short adds a 20% chance that the harvest fails: the crop is spent and you still earn its experience, but no zombie appears, so you must plow and plant again. At level 0 even a Green fails one time in five. The first zombie on a new farm always grows.",
+        body: "A zombie can come out lifeless when its colour is above Green. Green zombies are never lifeless. Every colour after that adds a 10% chance, and every Life Force level takes 10% away, so at level 0 a Blue is lifeless 10% of the time. Blue is safe from level 1, Red from level 2, Silver from level 3, and Obsidian and special zombies from level 4. A lifeless harvest spends the crop and still earns its experience, but no zombie appears, so you must plow and plant again. The first zombie on a new farm always grows.",
       },
       {
         title: "Abilities",

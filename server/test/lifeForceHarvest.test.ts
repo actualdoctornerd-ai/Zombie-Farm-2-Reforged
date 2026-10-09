@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { SequencedCommand } from "../../src/net/protocol";
 import { applyCommandBatch, freshGameplayState, type MutableGameplayState } from "../src/v3/engine";
 
-// A zombie harvest can fail: 20% for each Life Force level the zombie's colour tier is
-// above the farm's level. The harvest still goes through (the crop is spent and pays its
+// A zombie harvest can come out lifeless: 10% for each colour tier above Green, less 10%
+// for each Life Force level. Green never fails. The harvest still goes through (the crop is spent and pays its
 // XP) but no zombie is made. A farm with no zombies yet never fails.
 
 const commands = (...values: SequencedCommand["command"][]): SequencedCommand[] =>
@@ -40,10 +40,10 @@ const harvest = (state: MutableGameplayState, roll: number) =>
   });
 
 describe("zombie harvest failure from Life Force", () => {
-  it("fails a tier-1 zombie 20% of the time at level 0, and still spends the crop and pays XP", () => {
-    const state = withRipe(level0(), TIER1);
+  it("fails a tier-2 zombie 10% of the time at level 0, and still spends the crop and pays XP", () => {
+    const state = withRipe(level0(), TIER2);
     const xpBefore = state.balance.xp;
-    const result = harvest(state, 0.19);
+    const result = harvest(state, 0.09);
     expect(result.results[0]).toMatchObject({
       status: "applied", failedZombiePlots: [{ oc: 0, or: 0 }],
     });
@@ -55,7 +55,7 @@ describe("zombie harvest failure from Life Force", () => {
   });
 
   it("succeeds when the roll is at or above the chance", () => {
-    const result = harvest(withRipe(level0(), TIER1), 0.2);
+    const result = harvest(withRipe(level0(), TIER2), 0.1);
     expect(result.results[0]).toMatchObject({ status: "applied", createdIds: ["new-zombie"] });
     expect(result.results[0].failedZombiePlots).toBeUndefined();
     expect(result.state.roster.map((u) => u.id)).toEqual(["owned", "new-zombie"]);
@@ -70,17 +70,23 @@ describe("zombie harvest failure from Life Force", () => {
     expect(result.results[0]).toMatchObject({ status: "applied", createdIds: ["new-zombie"] });
   });
 
-  it("is safe once the level reaches the tier: level 1 for tier 1, level 2 for tier 2", () => {
-    expect(harvest(withRipe(level1(), TIER1), 0).results[0].failedZombiePlots).toBeUndefined();
-    expect(harvest(withRipe(level1(), TIER2), 0.199).results[0].failedZombiePlots).toEqual([{ oc: 0, or: 0 }]); // 20%
-    const level2 = level1(); gazebos(level2, 3); // 80 Life Force
-    expect(harvest(withRipe(level2, TIER2), 0).results[0].failedZombiePlots).toBeUndefined();
+  it("never fails a Green zombie, at any level, whatever the roll", () => {
+    for (const make of [level0, level1, level5]) {
+      expect(harvest(withRipe(make(), TIER1), 0).results[0].failedZombiePlots).toBeUndefined();
+    }
   });
 
-  it("counts Obsidian and special zombies as tier 5: always fail at level 0, safe from level 5", () => {
+  it("is safe once the level reaches tier - 1: level 1 for a Blue", () => {
+    expect(harvest(withRipe(level0(), TIER2), 0).results[0].failedZombiePlots).toEqual([{ oc: 0, or: 0 }]);
+    expect(harvest(withRipe(level1(), TIER2), 0).results[0].failedZombiePlots).toBeUndefined();
+  });
+
+  it("counts Obsidian and special zombies as tier 5: 40% at level 0, safe from level 4", () => {
+    const level4 = () => { const s = freshGameplayState(); gazebos(s, 9); return s; }; // 144 + 9 shed = 153
     for (const key of [OBSIDIAN, SPECIAL]) {
-      expect(harvest(withRipe(level0(), key), 0.999).results[0].failedZombiePlots).toEqual([{ oc: 0, or: 0 }]);
-      expect(harvest(withRipe(level5(), key), 0).results[0].failedZombiePlots).toBeUndefined();
+      expect(harvest(withRipe(level0(), key), 0.399).results[0].failedZombiePlots).toEqual([{ oc: 0, or: 0 }]);
+      expect(harvest(withRipe(level0(), key), 0.4).results[0].failedZombiePlots).toBeUndefined();
+      expect(harvest(withRipe(level4(), key), 0).results[0].failedZombiePlots).toBeUndefined();
     }
   });
 
@@ -89,7 +95,7 @@ describe("zombie harvest failure from Life Force", () => {
     for (let i = 0; i < 4; i++) {
       state.objects.objects.push({ instanceId: `s-${i}`, catalogKey: "gazeboNormal", status: "stored" });
     }
-    expect(harvest(withRipe(state, TIER1), 0).results[0].failedZombiePlots).toEqual([{ oc: 0, or: 0 }]);
+    expect(harvest(withRipe(state, TIER2), 0).results[0].failedZombiePlots).toEqual([{ oc: 0, or: 0 }]);
   });
 
   it("reports the failed plots of a bulk harvest and an Insta-Harvest", () => {
@@ -98,7 +104,7 @@ describe("zombie harvest failure from Life Force", () => {
       state.roster.push({ id: "owned", key: TIER1, mutation: 0, invasions: 0, stored: false });
       for (const [i, oc] of [0, 4].entries()) {
         state.farm.plots[`${oc}:0`] = {
-          state: "planted", cropKey: TIER1, plantedAt: i, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true,
+          state: "planted", cropKey: TIER2, plantedAt: i, growMs: 1, sell: 0, xp: 1, fertilized: false, zombie: true,
         };
       }
       return state;

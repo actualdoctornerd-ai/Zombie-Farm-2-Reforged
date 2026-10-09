@@ -9,10 +9,13 @@ import {
 
 /** What one level adds, as short lines. Pure, so the wording is testable. */
 export function levelEffectLines(row: ReturnType<typeof lifeForceLevelRows>[number]): string[] {
-  const lines = [`Mutation chance ${Math.round(row.mutationChance * 100)}%`];
+  const lines = [
+    `Mutation chance ${Math.round(row.mutationChance * 100)}%`,
+    `Garden fertilize chance x${row.fertilizeMultiplier.toFixed(2)}`,
+  ];
   if (row.safeTierGained !== null) {
     const name = HARVEST_TIER_NAMES[row.safeTierGained - 1];
-    lines.push(`${name} zombies never fail to harvest`);
+    lines.push(`${name} zombies are never lifeless`);
   }
   if (row.abilitySlotGained !== null) lines.push(`Ability slot ${row.abilitySlotGained} works`);
   if (row.level === MAX_LIFE_FORCE_LEVEL) lines.push("Maximum level");
@@ -65,7 +68,8 @@ export function openLifeForce(host: HTMLElement, total: number): void {
   const base = document.createElement("div");
   base.className = `lf-row${p.level === 0 ? " lf-cur" : " lf-done"}`;
   base.innerHTML = '<div class="lf-rb">0</div><div class="lf-rbody"><div class="lf-need">Under 30 Life Force</div>'
-    + "<ul><li>Mutation chance 5%</li><li>Green zombies fail 20% of harvests, higher colours more</li>"
+    + "<ul><li>Mutation chance 10%</li><li>Garden fertilize chance x1.00</li>"
+    + "<li>Green zombies are never lifeless; Blue 10%, higher colours more</li>"
     + "<li>No ability slots work</li></ul></div>";
   levels.appendChild(base);
   for (const row of lifeForceLevelRows()) {

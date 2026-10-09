@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cropMutationBits, resolveCropMutations, plotsTouch } from "./cropMutations";
 import { cropMutationChance } from "../lifeForce";
 
-/** The old flat 25% per adjacent crop. Most of these tests are about HOW rolls combine
+/** The old flat 210% per adjacent crop. Most of these tests are about HOW rolls combine
  *  (stacking, slot conflicts, pooling), which a round per-crop chance keeps readable;
  *  the Life Force levels that set the real chance are covered at the bottom. */
 const QUARTER = { chancePerCrop: 0.25 };
@@ -141,30 +141,30 @@ describe("crop -> mutation wiring", () => {
 });
 
 describe("Life Force sets the mutation chance", () => {
-  it("defaults to the level-0 chance, 5% per adjacent crop", () => {
-    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.049 })).toBe(4);
-    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.05 })).toBe(0);
+  it("defaults to the level-0 chance, 10% per adjacent crop", () => {
+    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.099 })).toBe(4);
+    expect(resolveCropMutations(0, ["carrot"], { random: () => 0.1 })).toBe(0);
   });
 
-  it("follows cropMutationChance(level): 15% at level 1, 55% at level 5", () => {
+  it("follows cropMutationChance(level): 20% at level 1, 60% at level 5", () => {
     const at = (level: number, roll: number) =>
       resolveCropMutations(0, ["carrot"], { chancePerCrop: cropMutationChance(level), random: () => roll });
-    expect(at(1, 0.149)).toBe(4);
-    expect(at(1, 0.151)).toBe(0);
-    expect(at(5, 0.549)).toBe(4);
-    expect(at(5, 0.551)).toBe(0);
+    expect(at(1, 0.199)).toBe(4);
+    expect(at(1, 0.201)).toBe(0);
+    expect(at(5, 0.599)).toBe(4);
+    expect(at(5, 0.601)).toBe(0);
   });
 
-  it("is certain at level 10, even for a single adjacent crop", () => {
+  it("is certain at level 9, even for a single adjacent crop", () => {
     expect(resolveCropMutations(0, ["carrot"], {
-      chancePerCrop: cropMutationChance(10), random: () => 0.999999,
+      chancePerCrop: cropMutationChance(9), random: () => 0.999999,
     })).toBe(4);
   });
 
   it("still stacks adjacent crops on top of the per-crop chance", () => {
-    const chancePerCrop = cropMutationChance(1); // 15% each
-    const two = ["carrot", "carrot"]; // 30% together
-    expect(resolveCropMutations(0, two, { chancePerCrop, random: () => 0.29 })).toBe(4);
-    expect(resolveCropMutations(0, two, { chancePerCrop, random: () => 0.31 })).toBe(0);
+    const chancePerCrop = cropMutationChance(1); // 20% each
+    const two = ["carrot", "carrot"]; // 40% together
+    expect(resolveCropMutations(0, two, { chancePerCrop, random: () => 0.39 })).toBe(4);
+    expect(resolveCropMutations(0, two, { chancePerCrop, random: () => 0.41 })).toBe(0);
   });
 });
