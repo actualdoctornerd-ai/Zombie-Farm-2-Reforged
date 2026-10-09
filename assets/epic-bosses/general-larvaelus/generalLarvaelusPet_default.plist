@@ -1,0 +1,626 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>genlarvaelus_pet_blink_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 23}, {53, 54}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -10}</string>
+			<key>spriteSize</key>
+			<string>{53, 54}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{389, 178}, {53, 54}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 26}, {53, 52}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -12}</string>
+			<key>spriteSize</key>
+			<string>{53, 52}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{391, 116}, {53, 52}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 21}, {53, 56}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -9}</string>
+			<key>spriteSize</key>
+			<string>{53, 56}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{440, 0}, {53, 56}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 11}, {53, 66}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -4}</string>
+			<key>spriteSize</key>
+			<string>{53, 66}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{165, 0}, {53, 66}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 14}, {53, 64}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 64}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{224, 66}, {53, 64}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 14}, {53, 64}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 64}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{275, 0}, {53, 64}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 10}, {53, 68}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -4}</string>
+			<key>spriteSize</key>
+			<string>{53, 68}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{110, 0}, {53, 68}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 6}, {53, 72}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -2}</string>
+			<key>spriteSize</key>
+			<string>{53, 72}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{55, 78}, {53, 72}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 2}, {53, 76}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -0}</string>
+			<key>spriteSize</key>
+			<string>{53, 76}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 78}, {53, 76}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr10.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 1}, {53, 76}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, 1}</string>
+			<key>spriteSize</key>
+			<string>{53, 76}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 156}, {53, 76}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr11.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 2}, {53, 76}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -0}</string>
+			<key>spriteSize</key>
+			<string>{53, 76}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{55, 0}, {53, 76}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr12.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 1}, {53, 76}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, 1}</string>
+			<key>spriteSize</key>
+			<string>{53, 76}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 0}, {53, 76}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr13.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 14}, {53, 64}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 64}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{220, 0}, {53, 64}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr14.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 14}, {53, 64}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 64}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{169, 68}, {53, 64}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr15.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 20}, {53, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -9}</string>
+			<key>spriteSize</key>
+			<string>{53, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{334, 190}, {53, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr16.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 21}, {53, 56}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -9}</string>
+			<key>spriteSize</key>
+			<string>{53, 56}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{385, 0}, {53, 56}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr17.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 19}, {53, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -8}</string>
+			<key>spriteSize</key>
+			<string>{53, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{330, 0}, {53, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr18.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 15}, {53, 62}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 62}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{171, 134}, {53, 62}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_blink_fr19.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 19}, {53, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -8}</string>
+			<key>spriteSize</key>
+			<string>{53, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{334, 60}, {53, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 21}, {53, 56}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -9}</string>
+			<key>spriteSize</key>
+			<string>{53, 56}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{336, 120}, {53, 56}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 19}, {53, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -8}</string>
+			<key>spriteSize</key>
+			<string>{53, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{281, 130}, {53, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 15}, {53, 62}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 62}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{226, 132}, {53, 62}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 19}, {53, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -8}</string>
+			<key>spriteSize</key>
+			<string>{53, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{224, 198}, {53, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 20}, {53, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -9}</string>
+			<key>spriteSize</key>
+			<string>{53, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{169, 198}, {53, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 21}, {53, 56}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -9}</string>
+			<key>spriteSize</key>
+			<string>{53, 56}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{389, 58}, {53, 56}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 17}, {53, 60}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -7}</string>
+			<key>spriteSize</key>
+			<string>{53, 60}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{279, 196}, {53, 60}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_idle_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 15}, {53, 62}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 62}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{279, 66}, {53, 62}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_walk_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{6, 19}, {53, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -8}</string>
+			<key>spriteSize</key>
+			<string>{53, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{114, 198}, {53, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_walk_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 17}, {55, 62}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -8}</string>
+			<key>spriteSize</key>
+			<string>{55, 62}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{114, 134}, {55, 62}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_walk_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{4, 15}, {57, 64}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -7}</string>
+			<key>spriteSize</key>
+			<string>{57, 64}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{55, 152}, {57, 64}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>genlarvaelus_pet_walk_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 16}, {57, 62}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -7}</string>
+			<key>spriteSize</key>
+			<string>{57, 62}</string>
+			<key>spriteSourceSize</key>
+			<string>{65, 80}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{110, 70}, {57, 62}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>generalLarvaelusPet</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+		<key>size</key>
+		<string>{512, 256}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>generalLarvaelusPet_default</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<false/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>generalLarvaelusPet_default</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>

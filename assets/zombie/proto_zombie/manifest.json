@@ -1,0 +1,85 @@
+{
+ "name": "proto_zombie",
+ "neck": {
+  "x": 7,
+  "y": -43
+ },
+ "color": [
+  255,
+  255,
+  255
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "EyeL.png",
+   "group": "head",
+   "px": -21,
+   "py": -56,
+   "ax": 0.21874988824129105,
+   "ay": 0.5777529180049896,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "Head.png",
+   "group": "head",
+   "px": 7,
+   "py": -43,
+   "ax": 0.72,
+   "ay": 0.8200000000000001,
+   "z": 4,
+   "scale": 1
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 19,
+   "py": -10,
+   "ax": 0.75,
+   "ay": 0.09999999999999998,
+   "z": 2,
+   "scale": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 11,
+   "py": -34,
+   "ax": 0.688326358795166,
+   "ay": 0.22383077815175056,
+   "z": 7,
+   "scale": 1
+  },
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": -4,
+   "py": -30,
+   "ax": 0.8466666340827942,
+   "ay": 0.24,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 12,
+   "py": -16,
+   "ax": 0.63,
+   "ay": 0.6599999999999999,
+   "z": 3,
+   "scale": 1
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -1,
+   "py": -10,
+   "ax": 0.5294743776321411,
+   "ay": 0.14771205186843872,
+   "z": 1,
+   "scale": 1
+  }
+ ]
+}
