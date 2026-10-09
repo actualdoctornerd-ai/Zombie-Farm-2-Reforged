@@ -31,6 +31,11 @@ describe("itemLootTable", () => {
     expect(t.tiers.find((x) => x.tier === 5)).toBeUndefined(); // unreachable with no dice
   });
 
+  it("names the signature tier as locked until a die is spent, then drops the lock", () => {
+    expect(itemLootTable(base).locked).toEqual([{ tier: 5, names: ["Windmill"], dice: 1 }]);
+    expect(itemLootTable({ ...base, dice: 1 }).locked).toEqual([]);
+  });
+
   it("hands an all-extra tier's share to the tier below and lists the extra on its own", () => {
     const t = itemLootTable({ ...base, extraRateOf: (n) => (n === "Farmer Banner" ? 0.1 : 0) });
     expect(t.extras).toEqual([{ name: "Farmer Banner", chance: 0.1, qty: 1 }]);

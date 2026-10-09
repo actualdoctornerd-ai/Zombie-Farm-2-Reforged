@@ -27,6 +27,9 @@ export function formatOdds(chance: number): string {
   return `${s.includes(".") ? s.replace(/\.?0+$/, "") : s}%`;
 }
 
+/** Past this many dice no bracket changes the odds' shape (zombieDrops.ZOMBIE_LUCK_DICE_CAP). */
+const LUCK_SCAN_MAX = 10;
+
 export interface LootRow {
   /** The drop's name as the loot table spells it ("Bonus Gold" is the gold bonus). */
   name: string;
@@ -60,9 +63,21 @@ export interface DropTableInput {
   bonusGold: number;
 }
 
+/** A tier that cannot be rolled at the chosen luck but can with more Golden Dice — at no dice
+ *  the rarest tier (the raid's signature decoration) is out of reach, so the panel names it
+ *  rather than leaving it off the table. */
+export interface LockedTier {
+  tier: number;
+  names: string[];
+  /** The fewest Golden Dice at which this tier can drop. */
+  dice: number;
+}
+
 export interface ItemLootTable {
   /** Tiers a win can land on at this luck, rarest first; zero-chance tiers are left out. */
   tiers: LootTierRow[];
+  /** Populated tiers this luck can't reach but more dice can, rarest first. */
+  locked: LockedTier[];
   /** Entries that roll separately on top of the ordinary drop, each at its own chance. */
   extras: LootRow[];
 }
@@ -116,7 +131,15 @@ export function itemLootTable(input: DropTableInput): ItemLootTable {
     }));
     tiers.push({ tier: t, chance: share[t], rows });
   }
-  return { tiers, extras };
+
+  const locked: LockedTier[] = [];
+  for (let t = ordinary.length - 1; t >= 0; t--) {
+    if (!ordinary[t].length || share[t] > 1e-9) continue;
+    let need = dice + 1;
+    while (need <= LUCK_SCAN_MAX && (lootTierChances(need)[t] ?? 0) <= 1e-9) need++;
+    if (need <= LUCK_SCAN_MAX) locked.push({ tier: t, names: [...new Set(ordinary[t])], dice: need });
+  }
+  return { tiers, locked, extras };
 }
 
 export interface StatueRule {

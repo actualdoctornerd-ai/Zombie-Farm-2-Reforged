@@ -2587,6 +2587,7 @@
 #hud .dt-k { min-width: 0; overflow-wrap: anywhere; }
 #hud .dt-v { flex: 0 1 auto; text-align: right; font-weight: 700; overflow-wrap: anywhere; }
 #hud .dt-tier { margin-top: 4px; }
+#hud .dt-locked { opacity: .6; }
 #hud .dt-tier-h { font-weight: 800; border-bottom: 1px solid rgba(255,255,255,.12); }
 #hud .dt-item { padding-left: 10px; opacity: .95; }
 #hud .dt-sum { margin-top: 2px; border-top: 1px solid rgba(255,255,255,.12); font-weight: 800; }

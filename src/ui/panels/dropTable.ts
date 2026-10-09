@@ -115,6 +115,17 @@ export function openDropTable(host: HTMLElement, card: RaidCardView): void {
       for (const row of tier.rows) t.appendChild(line(rowLabel(row), formatOdds(row.chance), "dt-item"));
       loot.appendChild(t);
     }
+    for (const lk of items.locked) {
+      const t = document.createElement("div");
+      t.className = "dt-tier dt-locked";
+      t.appendChild(line(
+        LOOT_TIER_LABELS[lk.tier] ?? `Tier ${lk.tier + 1}`,
+        `needs ${lk.dice}+ Golden ${lk.dice === 1 ? "Die" : "Dice"}`,
+        "dt-tier-h",
+      ));
+      for (const name of lk.names) t.appendChild(line(name, "—", "dt-item"));
+      loot.appendChild(t);
+    }
     body.appendChild(loot);
 
     if (items.extras.length) {
