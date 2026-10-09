@@ -67,7 +67,7 @@ export function openLifeForce(host: HTMLElement, total: number): void {
   levels.className = "lf-levels";
   const base = document.createElement("div");
   base.className = `lf-row${p.level === 0 ? " lf-cur" : " lf-done"}`;
-  base.innerHTML = '<div class="lf-rb">0</div><div class="lf-rbody"><div class="lf-need">Under 30 Life Force</div>'
+  base.innerHTML = '<div class="lf-rb">0</div><div class="lf-rbody"><div class="lf-need">Under 20 Life Force</div>'
     + "<ul><li>Mutation chance 10%</li><li>Garden fertilize chance x1.00</li>"
     + "<li>Green zombies are never lifeless; Blue 10%, higher colours more</li>"
     + "<li>No ability slots work</li></ul></div>";

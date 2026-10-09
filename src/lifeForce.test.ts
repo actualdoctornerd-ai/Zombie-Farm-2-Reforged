@@ -8,9 +8,9 @@ import zombies from "../public/assets/zombies.json";
 
 describe("lifeForceLevel", () => {
   it("steps up exactly at each threshold", () => {
-    expect(LIFE_FORCE_THRESHOLDS).toEqual([30, 65, 105, 150, 200, 250, 300, 350, 400, 450]);
+    expect(LIFE_FORCE_THRESHOLDS).toEqual([20, 45, 75, 110, 155, 250, 300, 350, 400, 450]);
     expect(lifeForceLevel(0)).toBe(0);
-    expect(lifeForceLevel(29)).toBe(0);
+    expect(lifeForceLevel(19)).toBe(0);
     LIFE_FORCE_THRESHOLDS.forEach((need, i) => {
       expect(lifeForceLevel(need - 1)).toBe(i);
       expect(lifeForceLevel(need)).toBe(i + 1);
@@ -26,10 +26,10 @@ describe("lifeForceLevel", () => {
 
 describe("lifeForceProgress", () => {
   it("reports progress through the current level", () => {
-    expect(lifeForceProgress(0)).toMatchObject({ level: 0, floor: 0, next: 30, toNext: 30, progress: 0 });
-    expect(lifeForceProgress(15).progress).toBeCloseTo(0.5);
-    const p = lifeForceProgress(85); // level 2 is 65..105
-    expect(p).toMatchObject({ level: 2, floor: 65, next: 105, toNext: 20 });
+    expect(lifeForceProgress(0)).toMatchObject({ level: 0, floor: 0, next: 20, toNext: 20, progress: 0 });
+    expect(lifeForceProgress(10).progress).toBeCloseTo(0.5);
+    const p = lifeForceProgress(60); // level 2 is 45..75
+    expect(p).toMatchObject({ level: 2, floor: 45, next: 75, toNext: 15 });
     expect(p.progress).toBeCloseTo(0.5);
   });
 
@@ -40,7 +40,7 @@ describe("lifeForceProgress", () => {
 
   it("treats a negative or fractional total sensibly", () => {
     expect(lifeForceProgress(-5).total).toBe(0);
-    expect(lifeForceProgress(29.9).level).toBe(0);
+    expect(lifeForceProgress(19.9).level).toBe(0);
   });
 });
 
@@ -146,7 +146,7 @@ describe("ability slots", () => {
     expect(abilitySlotUnlocked(4, 4)).toBe(true);
   });
   it("names the Life Force each slot needs", () => {
-    expect([1, 2, 3, 4].map(abilitySlotRequirement)).toEqual([30, 65, 105, 150]);
+    expect([1, 2, 3, 4].map(abilitySlotRequirement)).toEqual([20, 45, 75, 110]);
   });
 });
 
@@ -167,7 +167,7 @@ describe("lifeForceLevelRows", () => {
   const rows = lifeForceLevelRows();
   it("lists levels 1 to 10 with their thresholds", () => {
     expect(rows.map((r) => r.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    expect(rows.map((r) => r.need)).toEqual([30, 65, 105, 150, 200, 250, 300, 350, 400, 450]);
+    expect(rows.map((r) => r.need)).toEqual([20, 45, 75, 110, 155, 250, 300, 350, 400, 450]);
   });
   it("says what each level adds", () => {
     expect(rows[0]).toMatchObject({ safeTierGained: 2, abilitySlotGained: 1 });

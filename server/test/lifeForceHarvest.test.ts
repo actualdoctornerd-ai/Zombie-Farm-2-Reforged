@@ -14,7 +14,7 @@ const TIER2 = "ZombieActorSmallTier2";     // Blue, tier 2
 const OBSIDIAN = "ZombieActorGardenTier6"; // Obsidian, counts as tier 5
 const SPECIAL = "ZombieActorZomBetty";     // special, counts as tier 5
 
-/** `levels` Life Force levels worth of decor: 30, 65, 105, 150, 200, ... */
+/** `levels` Life Force levels worth of decor: 20, 45, 75, 110, 155, ... */
 const gazebos = (state: MutableGameplayState, count: number) => {
   for (let i = 0; i < count; i++) {
     state.objects.objects.push({ instanceId: `g-${i}`, catalogKey: "gazeboNormal", status: "placed" });

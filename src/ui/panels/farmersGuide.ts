@@ -113,7 +113,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       },
       {
         title: "Levels",
-        body: "Your total sets your Life Force level, from 0 to 10, shown by the leaf badge in the top bar. Level 1 takes 30 Life Force, then 65, 105, 150, 200, 250, 300, 350 and 400, with level 10 at 450. Tap the badge to see every level and what it gives. Bigger decorations are generally worth more: a Gazebo gives 16, a tree only a few, and a fruit tree a little less than that.",
+        body: "Your total sets your Life Force level, from 0 to 10, shown by the leaf badge in the top bar. Level 1 takes 20 Life Force, then 45, 75, 110, 155, 250, 300, 350 and 400, with level 10 at 450. Tap the badge to see every level and what it gives. Bigger decorations are generally worth more: a Gazebo gives 16, a tree only a few, and a fruit tree a little less than that.",
       },
       {
         title: "Mutations",
@@ -129,7 +129,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       },
       {
         title: "Abilities",
-        body: "A zombie has up to four ability slots: Green zombies have one, Blue two, Red three and Silver four. Slot 1 works at level 1, slot 2 at level 2, slot 3 at level 3 and slot 4 at level 4, whatever the ability is, so slot 1 needs 30 Life Force and slot 4 needs 150 Life Force. A locked slot shows a padlock on the zombie's card that says how much Life Force it needs. Beating an invasion boss no longer unlocks abilities.",
+        body: "A zombie has up to four ability slots: Green zombies have one, Blue two, Red three and Silver four. Slot 1 works at level 1, slot 2 at level 2, slot 3 at level 3 and slot 4 at level 4, whatever the ability is, so slot 1 needs 20 Life Force and slot 4 needs 110 Life Force. A locked slot shows a padlock on the zombie's card that says how much Life Force it needs. Beating an invasion boss no longer unlocks abilities.",
       },
     ],
   },

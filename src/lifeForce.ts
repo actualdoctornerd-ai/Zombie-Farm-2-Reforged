@@ -11,7 +11,7 @@
 // The numbers are the owner's design, decided 2026-10-01.
 
 /** Total Life Force needed for level 1, 2, ... 10. Level 0 is anything below the first. */
-export const LIFE_FORCE_THRESHOLDS: readonly number[] = [30, 65, 105, 150, 200, 250, 300, 350, 400, 450];
+export const LIFE_FORCE_THRESHOLDS: readonly number[] = [20, 45, 75, 110, 155, 250, 300, 350, 400, 450];
 
 /** The highest level. The raw total keeps counting past it; nothing more happens. */
 export const MAX_LIFE_FORCE_LEVEL = LIFE_FORCE_THRESHOLDS.length;
