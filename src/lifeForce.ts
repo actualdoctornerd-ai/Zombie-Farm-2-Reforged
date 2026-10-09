@@ -28,7 +28,7 @@ export const HARVEST_FAIL_PER_LEVEL = 0.1;
 /** Reaching Life Force level n adds n x this to a Garden zombie's fertilize multiplier
  *  (+1% at level 1, +2% at level 2 ... +10% at level 10), and the bonuses stack: the
  *  multiplier is 1 + 1% x (1 + 2 + ... + level), so x1.55 at level 10. It scales the
- *  zombie's chance (3% of 4%), it is not points added to it. */
+ *  zombie's chance (a 4% Garden becomes 6.2%), it is not points added to it. */
 export const FERTILIZE_BOOST_STEP = 0.01;
 
 /** The highest tier a zombie counts as, whatever its catalog tier (Obsidian is tier 6). */
