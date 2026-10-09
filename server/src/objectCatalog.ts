@@ -1147,6 +1147,25 @@ export function lifeForceOf(key: string): number {
   return Object.prototype.hasOwnProperty.call(LIFE_FORCE, key) ? LIFE_FORCE[key] : 0;
 }
 
+/** The catalog keys that count toward the farm's Life Force: every PLACED object, plus the
+ *  free starter shed (`storage01`) while no bought shed has replaced it. The starter shed
+ *  stands on every farm and the client counts its Life Force, but it is presentation-only
+ *  and never an object in the server's document, so leaving it out made the server's total
+ *  9 short of the player's — a farm showing level 10 could be level 9 here. */
+export function lifeForceKeysOf(
+  objects: Iterable<{ catalogKey?: unknown; status?: unknown }>
+): string[] {
+  const keys: string[] = [];
+  let hasShed = false;
+  for (const object of objects) {
+    if (object?.status !== "placed" || typeof object.catalogKey !== "string") continue;
+    keys.push(object.catalogKey);
+    if (/^storage\d+$/.test(object.catalogKey)) hasShed = true;
+  }
+  if (!hasShed) keys.push("storage01");
+  return keys;
+}
+
 /** The starter shed's capacity — what an account holds before buying a bigger one. Every
  *  farm starts with a Shabby Shed (free, so never server-tracked; see planObjectUpgrade). */
 export const BASE_SHED_SLOTS = 8;

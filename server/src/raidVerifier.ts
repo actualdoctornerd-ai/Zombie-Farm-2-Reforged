@@ -15,7 +15,7 @@ import {
 } from "../../src/raid/RaidCatalog";
 import { makeOwned } from "../../src/zombie/types";
 import { abilitySlotUnlocked, farmLifeForce, lifeForceLevel } from "../../src/lifeForce";
-import { lifeForceOf } from "./objectCatalog";
+import { lifeForceKeysOf, lifeForceOf } from "./objectCatalog";
 import { advanceRaidSegment, replayRaid, RAID_RULESET_VERSION, type RaidReplayInput, type ReplayResult } from "../../src/raid/replay";
 import type {
   AttackDef,
@@ -137,10 +137,7 @@ export function lifeForceLevelOfObjects(objectsJson: string | null | undefined):
     const parsed = JSON.parse(objectsJson ?? "[]");
     if (Array.isArray(parsed)) objects = parsed;
   } catch { /* a bad blob counts as an empty farm */ }
-  const placed = objects
-    .filter((object) => object?.status === "placed" && typeof object.catalogKey === "string")
-    .map((object) => object.catalogKey as string);
-  return lifeForceLevel(farmLifeForce(placed, lifeForceOf));
+  return lifeForceLevel(farmLifeForce(lifeForceKeysOf(objects), lifeForceOf));
 }
 
 export async function loadLifeForceLevel(db: D1Database, accountId: string): Promise<number> {

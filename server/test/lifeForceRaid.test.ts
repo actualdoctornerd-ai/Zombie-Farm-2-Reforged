@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lifeForceLevelOfObjects } from "../src/raidVerifier";
+import { lifeForceKeysOf, lifeForceOf } from "../src/objectCatalog";
 
 // The server derives the Life Force level that opens a fight's ability slots from the
 // objects it holds as PLACED. A stored decoration adds nothing, and a bad blob is an
@@ -30,5 +31,23 @@ describe("lifeForceLevelOfObjects", () => {
   it("treats a corrupt document as an empty farm", () => {
     expect(lifeForceLevelOfObjects("{not json")).toBe(0);
     expect(lifeForceLevelOfObjects('{"a":1}')).toBe(0);
+  });
+});
+
+// The starter shed (storage01, 9 Life Force) is never a server object, but the client
+// counts it, so the server must too or a farm the player sees at one level is a level
+// lower here.
+describe("the starter shed counts toward Life Force", () => {
+  const gazebo = { catalogKey: "gazeboNormal", status: "placed" };
+
+  it("lifts a farm over a threshold: 4 gazebos are 64, short of 65, until the shed adds 9", () => {
+    expect(lifeForceOf("gazeboNormal")).toBe(16);
+    expect(lifeForceLevelOfObjects(objects(gazebo, gazebo, gazebo, gazebo))).toBe(2);
+    expect(lifeForceKeysOf([gazebo])).toEqual(["gazeboNormal", "storage01"]);
+  });
+
+  it("stops adding it once a bought shed is placed, which replaces it on the client", () => {
+    const bought = { catalogKey: "storage02", status: "placed" };
+    expect(lifeForceKeysOf([gazebo, bought])).toEqual(["gazeboNormal", "storage02"]);
   });
 });

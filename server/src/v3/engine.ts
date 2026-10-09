@@ -19,7 +19,7 @@ import { boostEcon, boostKeyForName, MAX_STACK } from "../boostCatalog";
 import { cropEcon } from "../catalog";
 import { dropEcon } from "../raidLootCatalog";
 import { XP_THRESHOLDS, levelForXp, levelUpBrains } from "../levels";
-import { BASE_SHED_SLOTS, lifeForceOf, objectBuyXp, objectEcon, objectSellGold } from "../objectCatalog";
+import { BASE_SHED_SLOTS, lifeForceKeysOf, lifeForceOf, objectBuyXp, objectEcon, objectSellGold } from "../objectCatalog";
 import {
   cropMutationChance, farmLifeForce, harvestFails, lifeForceLevel, zombieHarvestTier,
 } from "../../../src/lifeForce";
@@ -431,10 +431,7 @@ function hasPlowingMonolith(state: MutableGameplayState): boolean {
 /** The farm's Life Force level, derived from the objects PLACED on it (stored ones do not
  *  count). The server reads its own object list, never a client-supplied number. */
 function placedLifeForceLevel(state: MutableGameplayState): number {
-  const placed = state.objects.objects
-    .filter((object) => object.status === "placed")
-    .map((object) => object.catalogKey);
-  return lifeForceLevel(farmLifeForce(placed, lifeForceOf));
+  return lifeForceLevel(farmLifeForce(lifeForceKeysOf(state.objects.objects), lifeForceOf));
 }
 
 function hasMutationMonolith(state: MutableGameplayState): boolean {
