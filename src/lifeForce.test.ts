@@ -98,11 +98,13 @@ describe("harvestFailureChance", () => {
 });
 
 describe("fertilizeMultiplier", () => {
-  it("adds 3% of the chance per level: x1 at level 0, x1.3 at level 10", () => {
+  it("adds n% at level n, stacking: x1 at level 0, x1.55 at level 10", () => {
     expect(fertilizeMultiplier(0)).toBe(1);
-    expect(fertilizeMultiplier(1)).toBeCloseTo(1.03);
-    expect(fertilizeMultiplier(10)).toBeCloseTo(1.3);
-    expect(fertilizeMultiplier(99)).toBeCloseTo(1.3);
+    expect(fertilizeMultiplier(1)).toBeCloseTo(1.01);
+    expect(fertilizeMultiplier(2)).toBeCloseTo(1.03);
+    expect(fertilizeMultiplier(5)).toBeCloseTo(1.15);
+    expect(fertilizeMultiplier(10)).toBeCloseTo(1.55);
+    expect(fertilizeMultiplier(99)).toBeCloseTo(1.55);
   });
 });
 

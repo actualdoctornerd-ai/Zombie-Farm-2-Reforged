@@ -25,9 +25,11 @@ export const MUTATION_CHANCE_PER_LEVEL = 0.1;
  *  and 10 points less often for every Life Force level. Green is never lifeless. */
 export const HARVEST_FAIL_PER_LEVEL = 0.1;
 
-/** Each Life Force level multiplies a Garden zombie's fertilize chance by this much more
- *  (3% of the chance, not 3 points: level 10 is x1.3). */
-export const FERTILIZE_BOOST_PER_LEVEL = 0.03;
+/** Reaching Life Force level n adds n x this to a Garden zombie's fertilize multiplier
+ *  (+1% at level 1, +2% at level 2 ... +10% at level 10), and the bonuses stack: the
+ *  multiplier is 1 + 1% x (1 + 2 + ... + level), so x1.55 at level 10. It scales the
+ *  zombie's chance (3% of 4%), it is not points added to it. */
+export const FERTILIZE_BOOST_STEP = 0.01;
 
 /** The highest tier a zombie counts as, whatever its catalog tier (Obsidian is tier 6). */
 export const MAX_HARVEST_TIER = 5;
@@ -109,10 +111,10 @@ export function harvestFailureChance(tier: number, level: number): number {
   return Math.min(1, Math.max(0, HARVEST_FAIL_PER_LEVEL * gap));
 }
 
-/** Multiplier on a Garden zombie's fertilize chance at a Life Force level: 1 + 3% a level. */
+/** Multiplier on a Garden zombie's fertilize chance at a Life Force level: 1 + 1% x the triangle number of the level. */
 export function fertilizeMultiplier(level: number): number {
   const l = Math.min(MAX_LIFE_FORCE_LEVEL, Math.max(0, Math.floor(level)));
-  return 1 + FERTILIZE_BOOST_PER_LEVEL * l;
+  return 1 + FERTILIZE_BOOST_STEP * (l * (l + 1)) / 2;
 }
 
 /** Roll a harvest failure. `random` is [0, 1), so a chance of 1 always fails and 0 never. */

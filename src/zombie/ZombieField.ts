@@ -193,7 +193,7 @@ export class ZombieField {
     const gardens = this.units.filter((u) => u.group === "Garden");
     if (!gardens.length) return null;
     let winner: (typeof gardens)[number] | null = null;
-    // Life Force makes every Garden zombie's own chance 3% higher per level (x1.3 at 10).
+    // Life Force makes every Garden zombie's own chance higher with Life Force (x1.55 at level 10).
     const boost = fertilizeMultiplier(this.state.lifeForceLevel);
     for (const u of gardens) {
       const chance = (FERTILIZE_BY_TIER[this.resolve(u.typeKey)?.tier ?? 0] ?? 0) * boost;

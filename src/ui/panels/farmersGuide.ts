@@ -121,7 +121,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       },
       {
         title: "Fertilizing",
-        body: "Garden zombies can fertilize a freshly planted vegetable for a double harvest. Each Life Force level makes that chance 3% higher than it was, so a level 10 farm fertilizes 1.3 times as often.",
+        body: "Garden zombies can fertilize a freshly planted vegetable for a double harvest. Each Life Force level adds its own number in percent to that chance, so level 1 adds 1%, level 2 another 2%, and so on up to 10%, and the bonuses stack. A level 10 farm adds up to 55% and fertilizes 1.55 times as often.",
       },
       {
         title: "Growing zombies",
