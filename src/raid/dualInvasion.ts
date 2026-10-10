@@ -205,8 +205,8 @@ export function tierProfile(raidId: number, tier: number): EliteProfile {
  *  the ladder (the rungs climb in mechanics and in damage/speed, not in bulk) and shared by
  *  all four invasions so a rung means one thing. The tuning pass sets the real value; the
  *  ceiling on it is the settle budget below. */
-export const DUAL_WAVE_HP = 110_000;
-export const DUAL_BOSS_HP = 30_000;
+export const DUAL_WAVE_HP = 82_000;
+export const DUAL_BOSS_HP = 22_000;
 
 /** THE BULK GOES WHERE THE FIGHT IS (owner, 2026-09-27). The minions are the filler, so the
  *  shared wave target stays modest; the hit points go into the unit each fight is ABOUT, so
@@ -217,9 +217,9 @@ export const DUAL_BOSS_HP = 30_000;
  *    · 15 — the saucer: its casts run until it dies, so its own pool is what buys the casts
  *  Flat across the ladder like the wave. */
 export const DUAL_KEY_BOSS_HP: Readonly<Record<number, number>> = {
-  12: 40_000,
-  14: 60_000,
-  15: 80_000,
+  12: 30_000,
+  14: 45_000,
+  15: 60_000,
 };
 export function dualBossHp(raidId: number): number {
   return DUAL_KEY_BOSS_HP[raidId] ?? DUAL_BOSS_HP;
@@ -228,8 +228,8 @@ export function dualBossHp(raidId: number): number {
 /** The base enemy damage every rung starts from (before the per-raid base and the stat
  *  steps). Raised 1.5x (owner, 2026-09-27): against real level-45 armies every t1 was a 100%
  *  win and the fights ended before their mechanics had fired twice. */
-export const DUAL_BASE_STR = 2.7;
-export const DUAL_BASE_THROW = 2.4;
+export const DUAL_BASE_STR = 3.5;
+export const DUAL_BASE_THROW = 3.1;
 
 
 /** WHAT EACH INVASION'S OWN WAVE WEIGHS at 1.0x, wave and boss separately.
@@ -637,10 +637,10 @@ export const CHARGE_DAMAGE = 500;
  *  his slam can be broken, so he can afford to be a wall of hit points (owner, 2026-09-27). At
  *  the old bulk a level-45 army killed him in 3.5 s, before his first 8 s wind-up finished.
  *  Flat across the ladder. */
-export const CAPTAIN_HP = 150_000;
+export const CAPTAIN_HP = 112_000;
 /** From the swap rung (t9) up he is lighter (2026-09-27): t9-t10 clocked out a third of the
  *  time on the six-minute clock, with smoke swaps and iron will stretching his phase. */
-export const CAPTAIN_HP_UPPER = 120_000;
+export const CAPTAIN_HP_UPPER = 90_000;
 /** The captain's hit points at this rung. */
 export function captainHpFor(tier: number): number {
   return clampTier(tier) >= SMOKE_SWAP_TIER ? CAPTAIN_HP_UPPER : CAPTAIN_HP;
@@ -939,6 +939,7 @@ export const BUBBLE_RAID_ID = 15;
 export const DUAL_LETHALITY: Readonly<Record<number, number>> = {
   [SIGN_RAID_ID]: 1.8,
   [BUBBLE_RAID_ID]: 1.5,
+  13: 1.25,
 };
 
 // THE LADDER (docs/POST_45_PROGRESSION.md Part 2B, "Interference"):

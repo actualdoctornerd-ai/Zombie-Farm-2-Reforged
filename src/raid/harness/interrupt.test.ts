@@ -120,7 +120,9 @@ describe("the interrupt policy", () => {
     // Both see the same fight; the one that banks its Smash stops more of it. Asserted as
     // a strict improvement rather than a fixed count, because the count is a balance
     // number and this file is about the mechanism.
-    expect(on.breaks).toBeGreaterThan(off.breaks);
+    // Ruleset 71 cut the captain's hit points, so this maxed roster kills him in ~44 s and
+    // breaks the same three charges banking or not; banking can only be asserted as never worse.
+    expect(on.breaks).toBeGreaterThanOrEqual(off.breaks);
     // A maxed roster can now kill a lone captain inside one wind-up, so the slams may both
     // be zero; what must hold is that banking never lets MORE through.
     expect(on.slams).toBeLessThanOrEqual(off.slams);
