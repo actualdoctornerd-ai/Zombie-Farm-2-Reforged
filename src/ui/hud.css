@@ -1969,15 +1969,18 @@
   color: #f6ecc8; font-weight: 700; font-size: 14px; cursor: pointer; min-width: 60px;
   flex: 0 0 auto; text-align: center; white-space: nowrap;
   text-shadow: 0 1px 1px rgba(0,0,0,.45); }
-#hud .pm-screen.sel { border-image-source: url("/assets/ui/market/tab.png"); filter: brightness(.72);
-  color: #f6ecc8; text-shadow: 0 1px 1px rgba(0,0,0,.55); }
+/* The chosen tab wears the Market's selected art (light paper, dark text), the same
+   way .mkt-tab.sel does. It used to darken the ordinary art instead, which read as the
+   OTHER tab being chosen. Shared by the crop picker, Settings and the Zombies panel. */
+#hud .pm-screen.sel { border-image-source: url("/assets/ui/market/tab_sel.png");
+  color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 #hud .pm-subtabs { display: flex; gap: 4px; justify-content: center; margin-bottom: 8px; }
 #hud .pm-subtab { border-style: solid; border-width: 5px 11px;
   border-image: url("/assets/ui/market/subtab.png") 12 fill / 5px 11px stretch;
   color: #f6ecc8; font-weight: 700; font-size: 11px; cursor: pointer; letter-spacing: .3px;
   text-shadow: 0 1px 1px rgba(0,0,0,.4); }
-#hud .pm-subtab.sel { border-image-source: url("/assets/ui/market/subtab.png"); filter: brightness(.72);
-  color: #f6ecc8; text-shadow: 0 1px 1px rgba(0,0,0,.55); }
+#hud .pm-subtab.sel { border-image-source: url("/assets/ui/market/subtab_sel.png");
+  color: #5a3a12; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 #hud .pm-list { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column;
   gap: 8px; padding: 2px; min-height: 0; scrollbar-width: none; -ms-overflow-style: none; }
 #hud .pm-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
