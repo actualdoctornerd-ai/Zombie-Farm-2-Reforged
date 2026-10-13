@@ -229,6 +229,10 @@ MAUSOLEUM_TIERS = [
     ("mausoleum10", "Mausoleum VIII", MAUSOLEUM_BASE_SLOTS + 35),
     ("mausoleum11", "Mausoleum IX", MAUSOLEUM_BASE_SLOTS + 40),
     ("mausoleum12", "Mausoleum X", MAUSOLEUM_BASE_SLOTS + 45),
+    ("mausoleum13", "Mausoleum XI", MAUSOLEUM_BASE_SLOTS + 50),
+    ("mausoleum14", "Mausoleum XII", MAUSOLEUM_BASE_SLOTS + 55),
+    ("mausoleum15", "Mausoleum XIII", MAUSOLEUM_BASE_SLOTS + 60),
+    ("mausoleum16", "Mausoleum XIV", MAUSOLEUM_BASE_SLOTS + 65),
 ]
 
 # ---- Extra storage-shed rungs (design override, NOT source data) -------------

@@ -1828,7 +1828,7 @@ describe("protocol v3 command engine", () => {
     expect(rest.results.map((r) => r.status)).toEqual(["applied", "applied", "applied"]);
     expect(rest.state.balance.brains).toBe(84);
 
-    // The ladder runs five rungs further, at the same price, to Mausoleum X.
+    // The ladder runs five rungs further, at the same price, to Mausoleum X...
     const top = applyCommandBatch(rest.state, commands(
       { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum8" },
       { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum9" },
@@ -1841,6 +1841,16 @@ describe("protocol v3 command engine", () => {
     expect(top.state.objects.objects).toContainEqual(
       expect.objectContaining({ instanceId: "tomb", catalogKey: "mausoleum12" })
     );
+
+    // ...and four further rungs, still 4 brains each, to the 80-slot Mausoleum XIV.
+    const apex = applyCommandBatch(top.state, commands(
+      { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum13" },
+      { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum14" },
+      { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum15" },
+      { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum16" },
+    ), { now: 4 });
+    expect(apex.results.map((r) => r.status)).toEqual(Array(4).fill("applied"));
+    expect(apex.state.balance.brains).toBe(48);
   });
 
   it("refuses to skip a rung, to climb from a non-Mausoleum, or to buy a tier outright", () => {
@@ -1850,9 +1860,9 @@ describe("protocol v3 command engine", () => {
     expect(skipped.results[0]).toMatchObject({ status: "rejected", error: "bad_tier" });
     expect(skipped.state.balance.brains).toBe(100);
 
-    // Nothing sits above Mausoleum X, so the top rung has no upgrade of its own.
-    const topped = applyCommandBatch(withMausoleum("mausoleum12"), commands(
-      { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum12" },
+    // Nothing sits above Mausoleum XIV, so the top rung has no upgrade of its own.
+    const topped = applyCommandBatch(withMausoleum("mausoleum16"), commands(
+      { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum16" },
     ), { now: 1 });
     expect(topped.results[0]).toMatchObject({ status: "rejected", error: "bad_tier" });
 

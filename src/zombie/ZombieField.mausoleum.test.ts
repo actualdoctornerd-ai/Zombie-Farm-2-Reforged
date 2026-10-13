@@ -43,6 +43,10 @@ describe("Mausoleum upgrade ladder", () => {
       ["mausoleum10", 4, 50],
       ["mausoleum11", 4, 55],
       ["mausoleum12", 4, 60],
+      ["mausoleum13", 4, 65],
+      ["mausoleum14", 4, 70],
+      ["mausoleum15", 4, 75],
+      ["mausoleum16", 4, 80],
     ]);
     // Every tier is a brain-priced functional building sharing the base art, so an
     // upgrade swaps capacity in place without changing how the farm looks.
@@ -59,7 +63,7 @@ describe("Mausoleum upgrade ladder", () => {
     expect(withMausoleum(tombs[0]).mausoleumCap).toBe(15);
     expect(withMausoleum(tombs[1]).mausoleumCap).toBe(20);
     expect(withMausoleum(tombs[4]).mausoleumCap).toBe(35);
-    expect(withMausoleum(tombs[tombs.length - 1]).mausoleumCap).toBe(60);
+    expect(withMausoleum(tombs[tombs.length - 1]).mausoleumCap).toBe(80);
   });
 
   it("frees five more slots as soon as the building is upgraded", () => {
