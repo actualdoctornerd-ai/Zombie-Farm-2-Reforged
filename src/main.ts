@@ -5115,6 +5115,7 @@ async function main() {
         : { x: 32, y: def.id === "loco-locust" ? 8 : 24 },
       onStrike: (strike) => audio.fightStrike(strike),
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
+      onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from battle?", `This attempt will end and ${def.name} will escape.`, "Retreat"
       ),
@@ -5322,6 +5323,7 @@ async function main() {
       concentration: true,
       onStrike: (strike) => audio.fightStrike(strike),
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
+      onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
       confirmRetreat: () => hud.confirmInGame(
         practice ? "Stop the test?" : "Retreat from the invasion?",
@@ -5641,6 +5643,7 @@ async function main() {
       playback: { finalTick, inputs },
       onStrike: (strike) => audio.fightStrike(strike),
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
+      onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
       // onFinish fires DURING scene.update (the outro's last frame); destroying the
       // scene synchronously there leaves the rest of that frame touching destroyed
@@ -5878,6 +5881,7 @@ async function main() {
       concentration: setup.concentration,
       onStrike: (strike) => audio.fightStrike(strike),
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
+      onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
       confirmRetreat: () => hud.confirmInGame(
         "Retreat from invasion?", "This invasion will count as a loss.", "Retreat"

@@ -145,6 +145,8 @@ export interface RaidSceneParams {
   onStrike?: (strike: RaidStrikePresentation) => void;
   /** Presentation-only zombie bark when its full-focus brain bubble sends it forward. */
   onBrainRelease?: (sourceKey: string) => void;
+  /** Presentation-only "Brains…" bark the moment a zombie actually joins the battle (released from the charge). */
+  onZombieDeploy?: (sourceKey: string) => void;
   /** Presentation-only callback on the decisive victory tick, before the outro march. */
   onVictory?: () => void;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
@@ -774,6 +776,8 @@ export class RaidScene {
   private onCheckpoint: ((finalTick: number, inputs: RaidReplayInput[]) => Promise<void>) | null;
   private onStrike: ((strike: RaidStrikePresentation) => void) | null;
   private onBrainRelease: ((sourceKey: string) => void) | null;
+  private onZombieDeploy: ((sourceKey: string) => void) | null;
+  private deployBarked = new Set<string>();
   private onVictory: (() => void) | null;
   private lastCheckpointTick = 0;
   private checkpointing = false;
@@ -1044,6 +1048,7 @@ export class RaidScene {
     this.onCheckpoint = params.onCheckpoint ?? null;
     this.onStrike = params.onStrike ?? null;
     this.onBrainRelease = params.onBrainRelease ?? null;
+    this.onZombieDeploy = params.onZombieDeploy ?? null;
     this.onVictory = params.onVictory ?? null;
     this.bossThrow = params.bossThrow;
     this.wallTemplate = params.wallTemplate ?? null;
@@ -2310,6 +2315,11 @@ export class RaidScene {
       if (!tok) {
         tok = this.makeToken(u);
         this.tokens.set(u.id, tok);
+      }
+
+      if (u.team === "player" && (u.state === "advance" || u.state === "fight") && !this.deployBarked.has(u.id)) {
+        this.deployBarked.add(u.id);
+        this.onZombieDeploy?.(u.sourceKey);
       }
 
       // Queued enemies haven't emerged yet — keep them hidden off the field.

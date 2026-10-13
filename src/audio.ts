@@ -634,7 +634,7 @@ export class AudioManager {
 
   constructor() {
     this.bgm = this.track("dayFarmBGM.mp3", true);
-    this.bgm.volume = 0.4;
+    this.bgm.volume = 0.32;
 
     this.ambBed = this.track(AMBIENCE_BED, true);
     this.ambBed.volume = 0.25;
@@ -972,8 +972,8 @@ export class AudioManager {
   // The looping channels' final element volumes: authored base level × per-channel
   // slider × the master slider. One-shots apply the same product in playOneShot.
   private applyLoopVolumes() {
-    this.bgm.volume = 0.4 * this.musicVolume * this.masterVolume;
-    if (this.raidBgm) this.raidBgm.volume = 0.4 * this.musicVolume * this.masterVolume;
+    this.bgm.volume = 0.32 * this.musicVolume * this.masterVolume;
+    if (this.raidBgm) this.raidBgm.volume = 0.32 * this.musicVolume * this.masterVolume;
     this.ambBed.volume = 0.25 * this.ambienceVolume * this.masterVolume;
   }
 
@@ -1056,7 +1056,7 @@ export class AudioManager {
       // re-decodes on the way out, behind the element that starts streaming at once.
       this.bgm.dispose();
       const a = this.track(file, true);
-      a.volume = 0.4 * this.musicVolume * this.masterVolume;
+      a.volume = 0.32 * this.musicVolume * this.masterVolume;
       this.raidBgm = a;
       this.raidFile = file;
     }
@@ -1079,7 +1079,7 @@ export class AudioManager {
       // hide, so decoding it would buy nothing for 4 MB.
       const audio = this.track(file, false);
       audio.rewind();
-      audio.volume = 0.4 * this.musicVolume * this.masterVolume;
+      audio.volume = 0.32 * this.musicVolume * this.masterVolume;
       this.raidBgm = audio;
       this.raidFile = file;
     }
@@ -1120,7 +1120,9 @@ export class AudioManager {
   /** Play the attack cue authored for the side/type that landed a raid strike. */
   fightStrike(strike: FightStrike) {
     if (!this.sfxOn || !this.canPlay()) return;
-    this.playOneShot(fightStrikeFile(strike), strike.team === "player" ? 0.55 : 0.42);
+    const file = fightStrikeFile(strike);
+    const splat = file === "audio/splat.wav" ? 0.6 : 1; // thrown-debris splats sit lower
+    this.playOneShot(file, (strike.team === "player" ? 0.55 : 0.42) * splat);
   }
 
   // A zombie's "Brains…" bark when it's tapped on the farm, chosen by its group.
