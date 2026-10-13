@@ -146,7 +146,7 @@ describe("AudioManager focus muting", () => {
     const audio = new AudioManager();
     const [music, ambience] = MockAudio.instances;
 
-    expect(music.volume).toBeCloseTo(0.2);
+    expect(music.volume).toBeCloseTo(0.16);
     expect(ambience.volume).toBeCloseTo(0.1);
 
     audio.play("buy");
@@ -155,7 +155,7 @@ describe("AudioManager focus muting", () => {
     audio.setMusicVolume(0.75);
     audio.setSfxVolume(0.6);
     audio.setAmbienceVolume(0.8);
-    expect(music.volume).toBeCloseTo(0.3);
+    expect(music.volume).toBeCloseTo(0.24);
     expect(ambience.volume).toBeCloseTo(0.2);
     expect(JSON.parse(storage.get(SETTINGS_KEY)!)).toMatchObject({
       musicVolume: 0.75, sfxVolume: 0.6, ambienceVolume: 0.8,
@@ -169,7 +169,7 @@ describe("AudioManager focus muting", () => {
     const audio = new AudioManager();
     const [music, ambience] = MockAudio.instances;
 
-    expect(music.volume).toBeCloseTo(0.4 * 0.5 * 0.5);
+    expect(music.volume).toBeCloseTo(0.32 * 0.5 * 0.5);
     expect(ambience.volume).toBeCloseTo(0.25 * 0.4 * 0.5);
 
     audio.play("buy");
@@ -177,7 +177,7 @@ describe("AudioManager focus muting", () => {
       .toBeCloseTo(0.55 * 0.25 * 0.5);
 
     audio.setMasterVolume(1);
-    expect(music.volume).toBeCloseTo(0.2);
+    expect(music.volume).toBeCloseTo(0.16);
     expect(ambience.volume).toBeCloseTo(0.1);
     expect(JSON.parse(storage.get(SETTINGS_KEY)!)).toMatchObject({ masterVolume: 1 });
   });
