@@ -1,7 +1,7 @@
 // Life Force: the Zombie Farm 1 farm stat, restored.
 //
 // Every placed object adds its catalog `lifeForce` (tools/life_force.json) to the farm's
-// total. The total maps to a LEVEL, 0..10, and the level drives three things:
+// total. The total maps to a LEVEL, 0..20, and the level drives the farm bonuses:
 //   - how likely a crop is to grow its mutation       (cropMutationChance)
 //   - how likely a zombie harvest is to fail          (harvestFailureChance)
 //   - which of a zombie's four ability slots work     (abilitySlotUnlocked)
@@ -10,11 +10,22 @@
 // offline build and the HUD all call these, so the rules live in exactly one place.
 // The numbers are the owner's design, decided 2026-10-01.
 
-/** Total Life Force needed for level 1, 2, ... 10. Level 0 is anything below the first. */
-export const LIFE_FORCE_THRESHOLDS: readonly number[] = [20, 45, 75, 110, 155, 250, 300, 350, 400, 450];
+/** Total Life Force needed for levels 1..20. Level 0 is anything below the first. */
+export const LIFE_FORCE_THRESHOLDS: readonly number[] = [
+  20, 45, 75, 110, 155, 250, 300, 350, 400, 450,
+  600, 750, 900, 1050, 1200, 1360, 1520, 1680, 1840, 2000,
+];
 
-/** The highest level. The raw total keeps counting past it; nothing more happens. */
+/** The highest level. The raw total keeps counting past it; bonuses stop at this level. */
 export const MAX_LIFE_FORCE_LEVEL = LIFE_FORCE_THRESHOLDS.length;
+
+/** Existing effects stop at their original limits; late-game bonuses add to brain drop
+ *  chance from level 10 and fertilized crop payout from level 5. */
+export const LEGACY_LIFE_FORCE_LEVEL_CAP = 10;
+export const BRAIN_DROP_BOOST_START_LEVEL = 10;
+export const BRAIN_DROP_BOOST_PER_LEVEL = 0.025;
+export const FERTILIZED_CROP_VALUE_BOOST_START_LEVEL = 5;
+export const FERTILIZED_CROP_VALUE_BOOST_PER_LEVEL = 0.025;
 
 /** Mutation chance per adjacent crop at level 0, and what each level adds. Level 9
  *  reaches 100%; level 10 would be 110%, capped. */
@@ -113,8 +124,28 @@ export function harvestFailureChance(tier: number, level: number): number {
 
 /** Multiplier on a Garden zombie's fertilize chance at a Life Force level: 1 + 1% x the triangle number of the level. */
 export function fertilizeMultiplier(level: number): number {
-  const l = Math.min(MAX_LIFE_FORCE_LEVEL, Math.max(0, Math.floor(level)));
+  const l = Math.min(LEGACY_LIFE_FORCE_LEVEL_CAP, Math.max(0, Math.floor(level)));
   return 1 + FERTILIZE_BOOST_STEP * (l * (l + 1)) / 2;
+}
+
+/** Relative multiplier on invasion brain drop chances. Level 10 has no bonus; each
+ *  level above it adds 2.5% of the original chance (level 20 = 1.25x). */
+export function brainDropLifeForceMultiplier(level: number): number {
+  const l = Math.min(MAX_LIFE_FORCE_LEVEL, Math.max(0, Math.floor(level)));
+  return 1 + Math.max(0, l - BRAIN_DROP_BOOST_START_LEVEL) * BRAIN_DROP_BOOST_PER_LEVEL;
+}
+
+/** Relative multiplier on the existing doubled payout of a fertilized crop. Level 5
+ *  has no added value; each later level adds 2.5%, reaching 1.375x at level 20. */
+export function fertilizedCropValueMultiplier(level: number): number {
+  const l = Math.min(MAX_LIFE_FORCE_LEVEL, Math.max(0, Math.floor(level)));
+  return 1 + Math.max(0, l - FERTILIZED_CROP_VALUE_BOOST_START_LEVEL)
+    * FERTILIZED_CROP_VALUE_BOOST_PER_LEVEL;
+}
+
+/** Add the Life Force value bonus to a fertilized crop's already-doubled gold value. */
+export function fertilizedCropPayout(doubledBaseValue: number, level: number): number {
+  return Math.round(doubledBaseValue * fertilizedCropValueMultiplier(level));
 }
 
 /** Roll a harvest failure. `random` is [0, 1), so a chance of 1 always fails and 0 never. */
@@ -134,6 +165,10 @@ export interface LifeForceLevelRow {
   mutationChance: number;
   /** Multiplier on Garden zombies' fertilize chance. */
   fertilizeMultiplier: number;
+  /** Relative brain drop chance multiplier gained at this level. */
+  brainDropMultiplier: number;
+  /** Relative multiplier on fertilized crop payout gained at this level. */
+  fertilizedCropValueMultiplier: number;
   /** The tier whose harvests stop failing at this level (levels 1..4), else null. */
   safeTierGained: number | null;
   /** The ability slot that starts working at this level (levels 1..4), else null. */
@@ -149,6 +184,8 @@ export function lifeForceLevelRows(): LifeForceLevelRow[] {
       need,
       mutationChance: cropMutationChance(level),
       fertilizeMultiplier: fertilizeMultiplier(level),
+      brainDropMultiplier: brainDropLifeForceMultiplier(level),
+      fertilizedCropValueMultiplier: fertilizedCropValueMultiplier(level),
       safeTierGained: level < MAX_HARVEST_TIER ? level + 1 : null,
       abilitySlotGained: level <= MAX_ABILITY_SLOTS ? level : null,
     };

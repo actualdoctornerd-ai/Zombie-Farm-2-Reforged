@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   LIFE_FORCE_THRESHOLDS, MAX_LIFE_FORCE_LEVEL, abilitySlotRequirement, abilitySlotUnlocked,
-  cropMutationChance, farmLifeForce, fertilizeMultiplier, harvestFailureChance, harvestFails, lifeForceLevel,
+  brainDropLifeForceMultiplier, cropMutationChance, farmLifeForce, fertilizeMultiplier,
+  fertilizedCropPayout, fertilizedCropValueMultiplier, harvestFailureChance, harvestFails, lifeForceLevel,
   lifeForceEffects, lifeForceLevelRows, lifeForceProgress, zombieHarvestTier, HARVEST_TIER_NAMES,
 } from "./lifeForce";
 import zombies from "../public/assets/zombies.json";
 
 describe("lifeForceLevel", () => {
   it("steps up exactly at each threshold", () => {
-    expect(LIFE_FORCE_THRESHOLDS).toEqual([20, 45, 75, 110, 155, 250, 300, 350, 400, 450]);
+    expect(LIFE_FORCE_THRESHOLDS).toEqual([
+      20, 45, 75, 110, 155, 250, 300, 350, 400, 450,
+      600, 750, 900, 1050, 1200, 1360, 1520, 1680, 1840, 2000,
+    ]);
     expect(lifeForceLevel(0)).toBe(0);
     expect(lifeForceLevel(19)).toBe(0);
     LIFE_FORCE_THRESHOLDS.forEach((need, i) => {
@@ -17,10 +21,10 @@ describe("lifeForceLevel", () => {
     });
   });
 
-  it("caps at level 10 however much Life Force there is", () => {
-    expect(MAX_LIFE_FORCE_LEVEL).toBe(10);
-    expect(lifeForceLevel(450)).toBe(10);
-    expect(lifeForceLevel(5_000)).toBe(10);
+  it("caps at level 20 however much Life Force there is", () => {
+    expect(MAX_LIFE_FORCE_LEVEL).toBe(20);
+    expect(lifeForceLevel(2_000)).toBe(20);
+    expect(lifeForceLevel(5_000)).toBe(20);
   });
 });
 
@@ -34,8 +38,9 @@ describe("lifeForceProgress", () => {
   });
 
   it("is full with nothing to go at the cap", () => {
-    expect(lifeForceProgress(450)).toMatchObject({ level: 10, next: null, toNext: null, progress: 1 });
-    expect(lifeForceProgress(900)).toMatchObject({ level: 10, next: null, progress: 1 });
+    expect(lifeForceProgress(450)).toMatchObject({ level: 10, next: 600, toNext: 150 });
+    expect(lifeForceProgress(2_000)).toMatchObject({ level: 20, next: null, toNext: null, progress: 1 });
+    expect(lifeForceProgress(5_000)).toMatchObject({ level: 20, next: null, progress: 1 });
   });
 
   it("treats a negative or fractional total sensibly", () => {
@@ -108,6 +113,27 @@ describe("fertilizeMultiplier", () => {
   });
 });
 
+describe("late-game Life Force bonuses", () => {
+  it("raises brain drop odds by 2.5% of the original chance per level above 10", () => {
+    expect(brainDropLifeForceMultiplier(10)).toBe(1);
+    expect(brainDropLifeForceMultiplier(11)).toBeCloseTo(1.025);
+    expect(brainDropLifeForceMultiplier(20)).toBeCloseTo(1.25);
+    expect(0.04 * brainDropLifeForceMultiplier(20)).toBeCloseTo(0.05); // 4% becomes 5%.
+    expect(brainDropLifeForceMultiplier(99)).toBeCloseTo(1.25);
+    expect(brainDropLifeForceMultiplier(-2)).toBe(1);
+  });
+
+  it("raises only fertilized crop payouts by 2.5% per level above 5", () => {
+    expect(fertilizedCropValueMultiplier(5)).toBe(1);
+    expect(fertilizedCropValueMultiplier(6)).toBeCloseTo(1.025);
+    expect(fertilizedCropValueMultiplier(20)).toBeCloseTo(1.375);
+    expect(fertilizedCropValueMultiplier(99)).toBeCloseTo(1.375);
+    // The input is the crop's already-doubled fertilized harvest value.
+    expect(fertilizedCropPayout(32, 20)).toBe(44);
+    expect(fertilizedCropPayout(32, 5)).toBe(32);
+  });
+});
+
 describe("harvestFails", () => {
   it("never fails at chance 0 and always fails at chance 1", () => {
     expect(harvestFails(1, 0, () => 0)).toBe(false);
@@ -167,9 +193,9 @@ describe("lifeForceEffects", () => {
 
 describe("lifeForceLevelRows", () => {
   const rows = lifeForceLevelRows();
-  it("lists levels 1 to 10 with their thresholds", () => {
-    expect(rows.map((r) => r.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    expect(rows.map((r) => r.need)).toEqual([20, 45, 75, 110, 155, 250, 300, 350, 400, 450]);
+  it("lists levels 1 to 20 with their thresholds", () => {
+    expect(rows.map((r) => r.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+    expect(rows.map((r) => r.need)).toEqual([20, 45, 75, 110, 155, 250, 300, 350, 400, 450, 600, 750, 900, 1050, 1200, 1360, 1520, 1680, 1840, 2000]);
   });
   it("says what each level adds", () => {
     expect(rows[0]).toMatchObject({ safeTierGained: 2, abilitySlotGained: 1 });

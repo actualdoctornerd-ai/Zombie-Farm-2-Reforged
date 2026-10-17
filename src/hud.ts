@@ -642,9 +642,8 @@ export class Hud {
     return [c, val];
   }
 
-  /** The Life Force chip: a badge with the level and a bar toward the next level (a ring
-   *  on portrait phones, see hud.css). Tapping it opens the Life Force panel, which lists
-   *  what every level gives. */
+  /** The Life Force chip: a level badge and progress bar on wide layouts, with a compact
+   *  symbol and value in portrait (see hud.css). Tapping it opens the Life Force panel. */
   private buildLifeForceChip(): HTMLElement {
     const chip = document.createElement("div");
     chip.className = "lf-chip";

@@ -12,6 +12,7 @@ import raidRows from "../../../public/assets/raids/raids.json";
 import { activeBonusHeadId, farmerCooldownMs } from "../../../src/farmer";
 import { buildPinnedV3Raid, verifyRaid, RAID_RULESET_VERSION, type PinnedRaidConfig, type RaidReplayInput } from "../raidVerifier";
 import { rollBrainDrop, rollBrainDropWithPity, nextBrainDryStreak, firstClearBrains } from "../../../src/raid/brainDrops";
+import { brainDropLifeForceMultiplier } from "../../../src/lifeForce";
 import { ELITE_BRAIN_LUCK } from "../../../src/raid/eliteInvasion";
 import { newlyUnlockedCrops } from "../../../src/cropUnlocks";
 import { acceptsBrainTicket } from "../../../src/raid/dualInvasion";
@@ -285,7 +286,7 @@ export async function startRaid(
     econ.recLevel,
     pinned.config.enemyUnits.some((unit) => unit.isBoss),
     raidState.brain_dry_streak ?? 0,
-    elite ? ELITE_BRAIN_LUCK : 1
+    (elite ? ELITE_BRAIN_LUCK : 1) * brainDropLifeForceMultiplier(pinned.lifeForceLevel)
   );
   const expiresAt = now + RAID_TTL_MS;
   const earliestFinishAt = now + EARLIEST_FINISH_MS;

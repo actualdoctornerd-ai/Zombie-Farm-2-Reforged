@@ -68,6 +68,10 @@ describe("Farmer's Guide", () => {
     expect(copy).toContain(`${Math.round(MUTATION_BASE_CHANCE * 100)}%`);
     expect(copy).toContain(`${Math.round(MUTATION_CHANCE_PER_LEVEL * 100)}%`);
     expect(copy).toContain(`${Math.round(HARVEST_FAIL_PER_LEVEL * 100)}%`);
+    expect(copy).toContain("2.5% to the value of fertilized harvests");
+    expect(copy).toContain("37.5% more at level 20");
+    expect(copy).toContain("25% more at level 20");
+    expect(copy).toContain("a 4% chance becomes 5%");
     // Slot 1 and slot 4 are quoted with the Life Force they need.
     expect(copy).toContain(`slot 1 needs ${abilitySlotRequirement(1)} Life Force`);
     expect(copy).toContain(`slot 4 needs ${abilitySlotRequirement(4)} Life Force`);

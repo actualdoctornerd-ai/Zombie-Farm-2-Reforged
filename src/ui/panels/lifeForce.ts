@@ -13,6 +13,14 @@ export function levelEffectLines(row: ReturnType<typeof lifeForceLevelRows>[numb
     `Mutation chance ${Math.round(row.mutationChance * 100)}%`,
     `Garden fertilize chance x${row.fertilizeMultiplier.toFixed(2)}`,
   ];
+  if (row.brainDropMultiplier > 1) {
+    const percent = ((row.brainDropMultiplier - 1) * 100).toFixed(1).replace(/\.0$/, "");
+    lines.push(`Invasion brain drop chance +${percent}%`);
+  }
+  if (row.fertilizedCropValueMultiplier > 1) {
+    const percent = ((row.fertilizedCropValueMultiplier - 1) * 100).toFixed(1).replace(/\.0$/, "");
+    lines.push(`Fertilized crop value +${percent}%`);
+  }
   if (row.safeTierGained !== null) {
     const name = HARVEST_TIER_NAMES[row.safeTierGained - 1];
     lines.push(`${name} zombies are never lifeless`);

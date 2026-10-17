@@ -21,6 +21,8 @@ describe("lifeForceLevelOfObjects", () => {
     expect(lifeForceLevelOfObjects(gazebos(3))).toBe(2); // 48 + 9 = 57
     expect(lifeForceLevelOfObjects(gazebos(5))).toBe(3); // 80 + 9 = 89
     expect(lifeForceLevelOfObjects(gazebos(29))).toBe(10); // 464, past the 450 cap
+    expect(lifeForceLevelOfObjects(gazebos(125))).toBe(20); // 2,009 including the starter shed
+    expect(lifeForceLevelOfObjects(gazebos(200))).toBe(20); // hard cap
   });
 
   it("ignores stored objects and unknown keys", () => {

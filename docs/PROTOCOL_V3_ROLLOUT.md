@@ -8,8 +8,9 @@
 > `clientWin`/`clientLosses` concessions that can only worsen the submitting player's own
 > result; see the concession-fallback limitation in `../SECURITY.md`. Fertilization remains
 > client-asserted by design so its animation is immediate without another server request. This
-> accepted exception can only inflate time-gated vegetable gold; it cannot directly award brains,
-> XP, zombies, premium inventory, or combat rewards. Before enabling valuable/competitive
+> accepted exception can only inflate time-gated vegetable gold; Life Force raises the fertilized
+> payout to at most 2.75x ordinary crop value at level 20. It cannot directly award brains, XP,
+> zombies, premium inventory, or combat rewards. Before enabling valuable/competitive
 > features, complete the deployment-time release gates in `../SECURITY.md` (notably
 > `WRITER_LEASE_MODE=enforce`, `MIN_PROTOCOL_VERSION=3`, `SESSION_SECRET` rotation, and confirming
 > the live commit/D1 schema).

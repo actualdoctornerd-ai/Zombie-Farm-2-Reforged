@@ -1,7 +1,7 @@
 // Client-side live game state. Persistence may be local-only (localStorage) or
 // synchronized through the online save service (see save/SaveManager). Levels/XP
 // curve is build-verified from PlayerLevels.plist.
-import { abilitySlotUnlocked, lifeForceLevel } from "./lifeForce";
+import { abilitySlotUnlocked, fertilizedCropPayout, lifeForceLevel } from "./lifeForce";
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
 import { TutorialSave } from "./save/schema";
 import type { FarmerCatalog } from "./assets";
@@ -739,7 +739,10 @@ export class GameState {
   /** Whether the player owns any head with a bonus at all. Until they do, the
    *  function slot is meaningless and stays out of the Market entirely. */
   hasBonusHead(): boolean { return this.ownedFarmerHeads.some(farmerHeadHasEffect); }
-  farmerHarvestGold(value: number): number { return farmerGold(value, this.bonusHeadId()); }
+  farmerHarvestGold(value: number, fertilized = false): number {
+    const cropValue = fertilized ? fertilizedCropPayout(value, this.lifeForceLevel) : value;
+    return farmerGold(cropValue, this.bonusHeadId());
+  }
   farmerZombieGrowMs(value: number): number { return farmerZombieGrowMs(value, this.bonusHeadId()); }
   farmerZombieStrengthMult(): number { return farmerMultiplier(this.bonusHeadId(), "zombieStrength"); }
   farmerZombieLifeMult(): number { return farmerMultiplier(this.bonusHeadId(), "zombieLife"); }

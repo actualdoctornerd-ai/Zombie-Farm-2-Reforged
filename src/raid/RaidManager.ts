@@ -7,7 +7,7 @@
 // ZF.runRaid dev hook and tests — it is not wired to any player-facing control.
 import { GameAssets, zombiePortrait, raidImage, raidRewardImage } from "../assets";
 import { GameState } from "../GameState";
-import { abilitySlotUnlocked } from "../lifeForce";
+import { abilitySlotUnlocked, brainDropLifeForceMultiplier } from "../lifeForce";
 import { ZombieField } from "../zombie/ZombieField";
 import { OwnedZombie } from "../zombie/types";
 import { buildPlayerUnits, resolveRaid } from "./CombatEngine";
@@ -384,12 +384,12 @@ export class RaidManager {
         repeatXp: repeatInvasionXp(r.id),
         eliteRepeatXp: repeatInvasionXp(r.id, true),
         brainOdds: {
-          chance: brainDropChance(r.recommendedLevel),
-          tiers: brainDropTable(r.recommendedLevel),
+          chance: brainDropChance(r.recommendedLevel, brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
+          tiers: brainDropTable(r.recommendedLevel, brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
         },
         eliteBrainOdds: {
-          chance: brainDropChance(r.recommendedLevel, ELITE_BRAIN_LUCK),
-          tiers: brainDropTable(r.recommendedLevel, ELITE_BRAIN_LUCK),
+          chance: brainDropChance(r.recommendedLevel, ELITE_BRAIN_LUCK * brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
+          tiers: brainDropTable(r.recommendedLevel, ELITE_BRAIN_LUCK * brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
         },
         zombieDrop: RAID_ZOMBIE_DROPS[r.id]
           ? {
@@ -615,7 +615,12 @@ export class RaidManager {
     const brainDrop = hasBoss && !practice
       ? opts.serverAuthorized
         ? Math.max(0, Math.floor(opts.serverBrainDrop ?? 0))
-        : rollBrainDropWithPity(raid.recommendedLevel, this.state.brainDryStreak, Math.random, brainLuck)
+        : rollBrainDropWithPity(
+          raid.recommendedLevel,
+          this.state.brainDryStreak,
+          Math.random,
+          brainLuck * brainDropLifeForceMultiplier(this.state.lifeForceLevel)
+        )
       : 0;
     return {
       raid,

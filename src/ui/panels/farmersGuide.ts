@@ -113,7 +113,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       },
       {
         title: "Levels",
-        body: "Your total sets your Life Force level, from 0 to 10, shown by the leaf badge in the top bar. Level 1 takes 20 Life Force, then 45, 75, 110, 155, 250, 300, 350 and 400, with level 10 at 450. Tap the badge to see every level and what it gives. Bigger decorations are generally worth more: a Gazebo gives 16, a tree only a few, and a fruit tree a little less than that.",
+        body: "Your total sets your Life Force level, from 0 to 20, shown by the leaf badge in the top bar. Level 1 takes 20 Life Force; the next levels take 45, 75, 110, 155, 250, 300, 350, 400, 450, 600, 750, 900, 1050, 1200, 1360, 1520, 1680, 1840 and 2000. Tap the badge to see every level and what it gives. Bigger decorations are generally worth more: a Gazebo gives 16, a tree only a few, and a fruit tree a little less than that.",
       },
       {
         title: "Mutations",
@@ -121,7 +121,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       },
       {
         title: "Fertilizing",
-        body: "Garden zombies can fertilize a freshly planted vegetable for a double harvest. Each Life Force level adds its own number in percent to that chance, so level 1 adds 1%, level 2 another 2%, and so on up to 10%, and the bonuses stack. A level 10 farm adds up to 55% and fertilizes 1.55 times as often.",
+        body: "Garden zombies can fertilize a freshly planted vegetable for a double harvest. Each Life Force level adds its own number in percent to that chance, so level 1 adds 1%, level 2 another 2%, and so on up to 10%, and the bonuses stack. A level 10 farm adds up to 55% and fertilizes 1.55 times as often. Starting above level 5, each Life Force level also adds 2.5% to the value of fertilized harvests, reaching 37.5% more at level 20. Ordinary crop harvests keep their base value.",
       },
       {
         title: "Growing zombies",
@@ -130,6 +130,10 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       {
         title: "Abilities",
         body: "A zombie has up to four ability slots: Green zombies have one, Blue two, Red three and Silver four. Slot 1 works at level 1, slot 2 at level 2, slot 3 at level 3 and slot 4 at level 4, whatever the ability is, so slot 1 needs 20 Life Force and slot 4 needs 110 Life Force. A locked slot shows a padlock on the zombie's card that says how much Life Force it needs. Beating an invasion boss no longer unlocks abilities.",
+      },
+      {
+        title: "Brain drops",
+        body: "Life Force above level 10 slightly improves the chance of finding brains after an invasion. Each level adds 2.5% of the original drop chance, up to 25% more at level 20. For example, a 4% chance becomes 5%.",
       },
     ],
   },

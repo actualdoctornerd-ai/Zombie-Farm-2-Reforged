@@ -138,9 +138,11 @@ const PETAL_SPAWN_HEADROOM = 0.25;
 // makes the transparent space beside one trunk cover its neighbours. Keep a broad
 // canopy target, inset just inside the art, and narrow the lower target to the trunk.
 /** Washes laid over the object a tool is pointing at (multiplied onto its own tint,
- *  so a recoloured placeable keeps its colour). Red reads "this goes away"; green
- *  reads "this is where it lands" — the Move tool's drop-on-the-shed gesture. */
+ *  so a recoloured placeable keeps its colour). Red reads "this goes away"; blue
+ *  reads "this is the item Move will pick up"; green reads "this is where it lands"
+ *  — the Move tool's drop-on-the-shed gesture. */
 export const OBJECT_WASH_REMOVE = 0xff7a6a;
+export const OBJECT_WASH_MOVE = 0x8ecbff;
 export const OBJECT_WASH_STORE = 0x8fe39a;
 
 const TREE_CANOPY_HEIGHT_RATIO = 0.65;

@@ -2111,6 +2111,22 @@
    account-menu hit target, but reduce the visible status to a small dot: green
    when fully synced and blue whenever work may still need to reach the server. */
 @media (orientation: portrait) and (max-width: 760px) {
+  /* Keep the quest rail below the compact top bar and its settings gear. The
+     previous narrow-phone override put it at the bar edge, so button shadows and
+     mobile safe-area rounding could make the first quest card cover the gear. */
+  #hud .questcol { top: calc(72px + env(safe-area-inset-top)); }
+
+  /* The bar/ring crowds network status on portrait screens. Keep the Life Force
+     symbol and level value compact; the chip remains tappable for exact progress. */
+  #hud .lf-chip { display: flex; align-items: center; gap: 2px; width: auto;
+    height: 30px; margin-left: 2px; }
+  #hud .lf-chip::before { content: ""; display: block; flex: 0 0 20px;
+    width: 20px; height: 20px; background: url("/assets/ui/lifeForce.png") center / contain no-repeat; }
+  #hud .lf-ring, #hud .lf-track { display: none; }
+  #hud .lf-badge { position: static; width: auto; min-width: 16px; height: 24px;
+    padding: 0 2px; border: 0; border-radius: 0; background: none;
+    color: #c8f59a; font-size: 12px; box-shadow: none; }
+
   #hud .play-status {
     display: grid; place-items: center; flex: 0 0 28px;
     width: 28px; height: 32px; padding: 0; border: 0;
@@ -2151,6 +2167,18 @@
      one allowed control is this very shortcut — hiding it froze portrait players
      on that beat with nothing to tap. */
   #hud.chrome-expanded:not(.tutorial) .invade-shortcut { display: none; }
+}
+
+/* Preserve the quest log through its More card, while trimming portrait cards on
+   shorter screens before the rail runs into the bottom-left controls. */
+@media (orientation: portrait) and (max-width: 760px) and (max-height: 600px) {
+  #hud .questcol > .quest-entry:nth-child(n + 5) { display: none; }
+}
+@media (orientation: portrait) and (max-width: 760px) and (max-height: 520px) {
+  #hud .questcol > .quest-entry:nth-child(n + 4) { display: none; }
+}
+@media (orientation: portrait) and (max-width: 760px) and (max-height: 440px) {
+  #hud .questcol > .quest-entry:nth-child(n + 3) { display: none; }
 }
 
 /* Landscape phone: the six-item dock, stacked one-per-row, is taller than the
@@ -2294,7 +2322,7 @@
   #hud .chip { font-size: 10px; border-width: 6px 5px; gap: 1px; margin: 0; }
   #hud .chip img { height: 14px; }
   #hud .chip .xpbar { display: none; }
-  #hud .questcol { top: calc(58px + env(safe-area-inset-top)); }
+  #hud .questcol { top: calc(72px + env(safe-area-inset-top)); }
 
   #hud .st-header img.flank { height: 36px; }
   #hud .st-banner { width: 142px; height: 44px; font-size: 17px; }
@@ -2348,15 +2376,6 @@
     width: 16px; height: 16px; margin: 0; }
   #hud .play-status::before { width: 8px; height: 8px; }
 
-  /* Life Force: the same bare-medallion treatment as the level star, a ring around the
-     number that fills toward the next level (--lf is set by Hud.update). */
-  #hud .lf-chip { display: block; width: 30px; height: 30px; margin-left: 2px; }
-  #hud .lf-track { display: none; }
-  #hud .lf-ring { display: block; position: absolute; left: 0; top: 0; width: 30px; height: 30px;
-    border-radius: 50%; background: conic-gradient(#8be04a 0 var(--lf, 0%), #1c1109 var(--lf, 0%) 100%); }
-  #hud .lf-badge { position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border: 0;
-    background: radial-gradient(circle at 35% 30%, #3d2a18, #24160b); color: #c8f59a; font-size: 12px;
-    box-shadow: none; }
 }
 /* From 360px up there is room for 12px chips. Text that still does not fit is
    shrunk by fitTexts() (src/ui/fitText.ts), so numbers never truncate. */

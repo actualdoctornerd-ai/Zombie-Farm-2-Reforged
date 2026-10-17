@@ -643,7 +643,7 @@ export class JobSystem {
         // zombie above the farm's level can fail to grow, so nothing is spawned.
         const failed = !!r.zombieKey && this.zombieHarvestFails(r.zombieKey);
         if (!failed) this.onHarvestFx(r, job.cx, job.cy);
-        if (!r.zombieKey) r.sell = this.state.farmerHarvestGold(r.sell);
+        if (!r.zombieKey) r.sell = this.state.farmerHarvestGold(r.sell, r.fertilized);
         const xp = harvestXp(r.xp, this.field.hasPlowFree());
         const online = !!this.state.onFarm;
         // Spawn the harvested zombie FIRST (if any) so an online harvest can hand the

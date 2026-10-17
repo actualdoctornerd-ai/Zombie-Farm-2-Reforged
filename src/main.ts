@@ -16,7 +16,7 @@ import {
 import { shedCapacityOf } from "./shedCapacity";
 import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
-  Field, CARROT, CropConfig, objectFootprint, OBJECT_WASH_STORE, PLOT, savedTurn,
+  Field, CARROT, CropConfig, objectFootprint, OBJECT_WASH_MOVE, OBJECT_WASH_STORE, PLOT, savedTurn,
 } from "./Field";
 import { storeBlock, storeBlockLabel, storeBlockMessage } from "./storeRules";
 import { Actor } from "./Actor";
@@ -2192,7 +2192,7 @@ async function main() {
         if (!failed) popHarvestIcon(r, cropCenter.x, cropCenter.y);
         // Every plot pays exactly what harvesting it by hand would (see JobSystem):
         // farmer-adjusted gold for a vegetable, XP for both kinds.
-        const gold = r.zombieKey ? 0 : state.farmerHarvestGold(r.sell);
+        const gold = r.zombieKey ? 0 : state.farmerHarvestGold(r.sell, r.fertilized);
         const xp = harvestXp(r.xp, field.hasPlowFree());
         let harvestAliases: readonly string[] = [];
         if (state.onFarm) {
@@ -6470,6 +6470,7 @@ async function main() {
     const def = id ? field.objectDefOf(id) : null;
     if (id && def) {
       carrying = { id, def, turn: field.objectTurnOf(id) };
+      field.setObjectHighlight(null, OBJECT_WASH_MOVE);
       field.setObjectCursor(def, col, row, id, carrying.turn);
       return;
     }
@@ -6482,6 +6483,7 @@ async function main() {
       return;
     }
     carryingPlot = plot;
+    field.setObjectHighlight(null, OBJECT_WASH_MOVE);
     field.setPlotMoveCursor(col, row, plot.oc, plot.or);
   };
 
@@ -7249,7 +7251,19 @@ async function main() {
         if (overShed) { field.hideObjectCursor(); field.hideCursor(); }
         else field.setObjectCursor(carrying.def, col, row, carrying.id, carrying.turn);
       }
-      else if (carryingPlot) field.setPlotMoveCursor(col, row, carryingPlot.oc, carryingPlot.or);
+      else if (carryingPlot) {
+        field.setObjectHighlight(null, OBJECT_WASH_MOVE);
+        field.setPlotMoveCursor(col, row, carryingPlot.oc, carryingPlot.or);
+      }
+      else {
+        // Show exactly which sprite the Move tap will pick up. Placeable hitboxes
+        // follow their art (which can extend well beyond the footprint), so this
+        // wash makes a large target obvious before the player commits to it.
+        const id = field.objectAtPoint(wx, wy);
+        field.setObjectHighlight(id, OBJECT_WASH_MOVE);
+        if (id) field.hideCursor();
+        else field.hideObjectCursor();
+      }
       return;
     }
     if (hud.mode === "remove") {

@@ -2,6 +2,9 @@
 
 ## Unreleased (working tree)
 
+### Life Force reaches level 20
+- Life Force now caps at 2,000. From level 11 onward, each level raises invasion brain drop chances by 2.5% relative to their original rate, reaching 25% at level 20. Above level 5, each level also adds 2.5% to fertilized crop payouts, reaching 37.5% at level 20; unfertilized crop payouts stay unchanged. The Life Force panel and Farmer's Guide explain both bonuses, and online rewards remain server-authoritative.
+
 ### The first-run tutorial
 - **The tutorial is rebuilt around the original game's Tim Buckwheat.** A new farm starts with four plowed plots in the middle and two free Insta-Grows. Tim has the player plant a Zombie and a Carrot beside it, spends the Insta-Grows on both, and the harvested zombie always takes the carrot's mutation (once; the Worker owns the roll online). The player then re-plows the hole it left, wins Old McDonnell's Farm with that one zombie, buys a Daisy (a cheap decoration, now level 1), meets Life Force, and is walked down the side buttons (Zombies and its Almanac, Boosts, Storage, Market, Social, Guide) before the 200-gold reward. Lines reuse the original game's own strings wherever they exist (`docs/TUTORIAL_ORIGINAL_LINES.md` lists them by beat). An in-progress save from the old tutorial is closed out with no bonus rather than resumed; a finished one is untouched.
 - **The camera moves during the tutorial.** A quick tap anywhere still continues Tim; a drag pans the farm. Off-target presses on plot and menu beats start a plain pan instead of being swallowed, and the Quest Complete and Level Up popups sit above Tim so their OK is always reachable.

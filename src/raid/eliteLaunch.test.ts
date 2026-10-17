@@ -159,6 +159,20 @@ describe("spending a Brain Ticket", () => {
 });
 
 describe("what an elite invasion pays", () => {
+  it("applies Life Force brain-drop odds above level 10", () => {
+    const { raids, state } = makeManager();
+    const random = Math.random;
+    try {
+      Math.random = () => 0.11; // Above the ordinary 10% common-tier chance, below 12.5%.
+      state.syncLifeForce(450); // Level 10: no extra brain-drop multiplier.
+      expect(raids.beginRaid(4, PARTY_IDS, {})!.brainDrop).toBe(0);
+      state.syncLifeForce(2_000); // Level 20: all drop odds rise by 25% relatively.
+      expect(raids.beginRaid(4, PARTY_IDS, {})!.brainDrop).toBe(1);
+    } finally {
+      Math.random = random;
+    }
+  });
+
   it("rolls brains at the elite multiplier", () => {
     const { raids, state } = makeManager();
     // 12% misses every ordinary tier at rec 20 (2/4/10%) and lands on the elite

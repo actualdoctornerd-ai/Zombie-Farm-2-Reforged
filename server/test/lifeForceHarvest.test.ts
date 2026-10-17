@@ -133,3 +133,23 @@ describe("zombie harvest failure from Life Force", () => {
     expect(result.state.balance.gold).toBeGreaterThan(state.balance.gold);
   });
 });
+
+describe("fertilized crop value from Life Force", () => {
+  function veggieFarm(level20: boolean, fertilized: boolean): MutableGameplayState {
+    const state = freshGameplayState();
+    if (level20) gazebos(state, 125); // 2,000 Life Force, before the starter shed is added
+    state.farm.plots["0:0"] = {
+      state: "planted", cropKey: "carrot", plantedAt: 0, growMs: 1,
+      sell: 16, xp: 1, fertilized, zombie: false,
+    };
+    return state;
+  }
+
+  it("keeps ordinary crops unchanged and pays +37.5% on a fertilized crop at level 20", () => {
+    const ordinary = harvest(veggieFarm(true, false), 0);
+    const fertilized = harvest(veggieFarm(true, true), 0);
+    // Carrots sell for 16; fertilizing doubles to 32, then level 20 pays 1.375x = 44.
+    expect(ordinary.state.balance.gold).toBe(400 + 16);
+    expect(fertilized.state.balance.gold).toBe(400 + 44);
+  });
+});

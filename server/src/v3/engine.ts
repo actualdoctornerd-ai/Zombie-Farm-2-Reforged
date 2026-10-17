@@ -21,7 +21,7 @@ import { dropEcon } from "../raidLootCatalog";
 import { XP_THRESHOLDS, levelForXp, levelUpBrains } from "../levels";
 import { BASE_SHED_SLOTS, lifeForceKeysOf, lifeForceOf, objectBuyXp, objectEcon, objectSellGold } from "../objectCatalog";
 import {
-  cropMutationChance, farmLifeForce, harvestFails, lifeForceLevel, zombieHarvestTier,
+  cropMutationChance, farmLifeForce, fertilizedCropPayout, harvestFails, lifeForceLevel, zombieHarvestTier,
 } from "../../../src/lifeForce";
 import { planClaim } from "../storage";
 import { QUEST_DEFINITIONS, QUEST_REWARD } from "../questCatalog";
@@ -567,7 +567,9 @@ function rewardHarvest(
       },
     };
   }
-  const harvestValue = plot.sell * (plot.fertilized ? 2 : 1);
+  const harvestValue = plot.fertilized
+    ? fertilizedCropPayout(plot.sell * 2, placedLifeForceLevel(state))
+    : plot.sell;
   state.balance.gold += farmerGold(harvestValue, bonusHeadOf(state));
   state.balance.xp += harvestXp(plot.xp, hasPlowingMonolith(state));
   // Boss Tokens are NOT rolled here. The client rolls them at the moment it harvests

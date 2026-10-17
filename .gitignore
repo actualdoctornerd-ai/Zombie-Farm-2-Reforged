@@ -27,3 +27,6 @@ dist-offline/
 # committing it would add another 11 MB blob on every art change. Rebuild it with
 #   python tools/build_rig_studio.py        (--no-epic for a ~6 MB one)
 tools/rig_studio.html
+
+# Local API credentials (never commit).
+.secrets/

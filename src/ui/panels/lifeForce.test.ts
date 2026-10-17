@@ -18,8 +18,10 @@ describe("levelEffectLines", () => {
       "Ability slot 4 works",
     ]);
   });
-  it("lists only the mutation and fertilize lines on the levels that add nothing else, and flags the max", () => {
-    expect(levelEffectLines(rows[5])).toEqual(["Mutation chance 70%", "Garden fertilize chance x1.21"]);
-    expect(levelEffectLines(rows[9])).toEqual(["Mutation chance 100%", "Garden fertilize chance x1.55", "Maximum level"]);
+  it("shows the late-game crop and brain bonuses, and flags the max", () => {
+    expect(levelEffectLines(rows[5])).toEqual(["Mutation chance 70%", "Garden fertilize chance x1.21", "Fertilized crop value +2.5%"]);
+    expect(levelEffectLines(rows[9])).toEqual(["Mutation chance 100%", "Garden fertilize chance x1.55", "Fertilized crop value +12.5%"]);
+    expect(levelEffectLines(rows[10])).toEqual(["Mutation chance 100%", "Garden fertilize chance x1.55", "Invasion brain drop chance +2.5%", "Fertilized crop value +15%"]);
+    expect(levelEffectLines(rows[19])).toEqual(["Mutation chance 100%", "Garden fertilize chance x1.55", "Invasion brain drop chance +25%", "Fertilized crop value +37.5%", "Maximum level"]);
   });
 });

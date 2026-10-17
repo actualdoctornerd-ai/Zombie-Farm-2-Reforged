@@ -332,11 +332,13 @@ leaf effect appear immediately. `farm.plant` now carries an optional `fertilized
 `fertilizeProbability` in `server/src/rosterCatalog.ts` no longer has a caller.
 
 A modified client can therefore set `fertilized: true` on every vegetable plant and collect the
-2x harvest every time, with no adjacency requirement and no probability gate. The gain is bounded
-(2x on vegetable harvests only, still time-gated by grow timers, and it cannot touch zombie
-crops), so this is yield inflation rather than arbitrary value creation — but unlike the raid
-concession it is a strict *upward* client assertion, which is the property the rest of this
-document otherwise excludes. This is the explicit exception to that general guarantee.
+fertilized payout every time, with no adjacency requirement and no probability gate. Life Force
+adds up to 37.5% to that payout at level 20, so the maximum is 2.75x the ordinary crop value
+(2x from fertilization, then the Life Force multiplier). The gain remains bounded to vegetable
+gold and time-gated by grow timers; it cannot touch zombie crops. This is yield inflation rather
+than arbitrary value creation — but unlike the raid concession it is a strict *upward* client
+assertion, which is the property the rest of this document otherwise excludes. This is the
+explicit exception to that general guarantee.
 
 Fertilization does not multiply XP and cannot directly create brains, zombies, premium inventory,
 raid/Epic Boss rewards, or Black Market escrow. This exception is intentionally accepted so

@@ -50,6 +50,13 @@ describe("GameState life force", () => {
     expect(s.lifeForceLevel).toBe(4);
   });
 
+  it("adds the late-game value bonus only to already-doubled fertilized harvests", () => {
+    const s = new GameState();
+    s.syncLifeForce(2_000);
+    expect(s.farmerHarvestGold(16)).toBe(16);
+    expect(s.farmerHarvestGold(32, true)).toBe(44);
+  });
+
   it("takes back the zombie a failed harvest had booked as grown and discovered", () => {
     const s = new GameState();
     s.recordHarvest("ZombieActorRegularTier1", true);
