@@ -1,0 +1,64 @@
+{
+ "name": "zombozo",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  194,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "base": "ZombieActorSmallTier1",
+ "parts": [
+  {
+   "file": "Hat.png",
+   "group": "head",
+   "px": 0,
+   "py": -60,
+   "ax": 0.5,
+   "ay": 0.8,
+   "z": 7,
+   "scale": 1.25
+  },
+  {
+   "file": "Features.png",
+   "group": "head",
+   "px": -11.455,
+   "py": -41.248,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 6,
+   "scale": 1.1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 10,
+   "py": -13,
+   "ax": 0.63,
+   "ay": 0.66,
+   "z": 3,
+   "scale": 1.8
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 16,
+   "py": -8,
+   "ax": 0.75,
+   "ay": 0.1,
+   "z": 2
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -1,
+   "py": -8,
+   "ax": 0.75,
+   "ay": 0.1,
+   "z": 1
+  }
+ ]
+}

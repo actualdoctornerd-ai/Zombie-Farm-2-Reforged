@@ -1,0 +1,26 @@
+{
+ "name": "zemon",
+ "base": "ZombieActorSmallTier4",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  95,
+  92,
+  110
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "cupidWings.png",
+   "group": "root",
+   "px": 4,
+   "py": -38,
+   "ax": 0,
+   "ay": 0,
+   "z": 1,
+   "scale": 1
+  }
+ ]
+}
