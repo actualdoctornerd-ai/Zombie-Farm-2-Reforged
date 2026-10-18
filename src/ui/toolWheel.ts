@@ -1,11 +1,12 @@
-// Right-click tool menu: a small scrollable list of the farm tools that opens at
-// the cursor. The mouse wheel moves the highlight, Enter (or a click) equips the
-// highlighted tool, Escape / right-click / a click outside cancels.
+// The right-click tool menu (Settings → Controls → Right-Click → Tool Menu): a small
+// scrollable list of the farm tools that opens at the cursor. The mouse wheel moves
+// the highlight, Enter (or a click) equips the highlighted tool, Escape / right-click
+// / a click outside cancels.
 //
-// It deliberately opens on Select, because right-click used to mean "back to the
-// Select tool" — so the old muscle memory (right-click, Enter) still lands on
-// Select, and everything else is a scroll away. The tool that is actually
-// equipped is marked separately, so the highlight never lies about the state.
+// It deliberately opens on Select, because right-click means "back to the Select
+// tool" by default — so a player who switched to the menu keeps that muscle memory
+// (right-click, Enter), and everything else is a scroll away. The tool that is
+// actually equipped is marked separately, so the highlight never lies about the state.
 import { UI } from "./uiAsset";
 
 export interface ToolWheelItem {
