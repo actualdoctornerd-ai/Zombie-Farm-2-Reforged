@@ -50,6 +50,16 @@ export function objectFootprint(
     : { w: def.tileW, h: def.tileH };
 }
 
+/** Hedge art and pathfinding keep their full footprint, while the leaves at either
+ *  end are soft enough to overlap a neighbouring object. Keep one tile of placement
+ *  clearance at each end of long hedge runs. */
+function placementInset(def: Pick<PlaceableDef, "key">, fp: { w: number; h: number }) {
+  if (!/hedge/i.test(def.key)) return { dc: 0, dr: 0, w: fp.w, h: fp.h };
+  if (fp.h >= 4) return { dc: 0, dr: 1, w: fp.w, h: fp.h - 2 };
+  if (fp.w >= 4) return { dc: 1, dr: 0, w: fp.w - 2, h: fp.h };
+  return { dc: 0, dr: 0, w: fp.w, h: fp.h };
+}
+
 /** The orientation a saved object comes back in.
  *
  *  Two fields, because they mean different things: `rotation` is the old mirror flag
@@ -422,6 +432,9 @@ export class Field {
   private reserved = new Set<string>(); // tiles reserved by queued (not-yet-done) tills
   private objects = new Map<string, FarmObject>(); // id -> object
   private tileObject = new Map<string, string>(); // tile "col,row" -> object id (placement occupancy)
+  // Full movement footprint, separate because long hedge ends may overlap objects
+  // for placement while remaining solid at their original pathfinding size.
+  private pathObject = new Map<string, Set<string>>();
   // Extra MOVEMENT-only blocks beyond an object's placement footprint (fence panels
   // that overhang into a neighbour tile). Keyed tile -> set of object ids blocking it,
   // so overlapping overhangs (two fences meeting) and removal stay correct.
@@ -592,9 +605,18 @@ export class Field {
   tileCost(col: number, row: number): number {
     if (!this.inBounds(col, row)) return Infinity;
     const k = `${col},${row}`;
-    const own = this.tileObject.get(k);
-    const def = own ? this.objects.get(own)?.def : undefined;
-    const cost = def ? objectWalkCost(def) : COST_GROUND;
+    const owners = this.pathObject.get(k);
+    let cost: number | undefined;
+    let gateAtTile = false;
+    if (owners) for (const owner of owners) {
+      const def = this.objects.get(owner)?.def;
+      if (def) {
+        const objectCost = objectWalkCost(def);
+        cost = cost === undefined ? objectCost : Math.max(cost, objectCost);
+        gateAtTile ||= isGate(def);
+      }
+    }
+    cost ??= COST_GROUND;
     if (!Number.isFinite(cost)) return Infinity;
     // A fence panel overhanging from a neighbour tile is as hard to cross as the
     // fence it belongs to, even though nothing "owns" this tile for placement.
@@ -603,7 +625,7 @@ export class Field {
     // bridges into the gate's tile (see objectAnchor) — so a gate keeps its own
     // price. Otherwise sealing a pen would seal its door too.
     const ext = this.fenceBlock.get(k);
-    if (ext?.size && !(def && isGate(def))) {
+    if (ext?.size && !gateAtTile) {
       let worst = cost;
       for (const oid of ext) {
         const o = this.objects.get(oid);
@@ -733,6 +755,22 @@ export class Field {
     if (this.tilePlot.has(k) || this.reserved.has(k)) return true;
     const oid = this.tileObject.get(k);
     return oid !== undefined && oid !== ignoreObj;
+  }
+  private setPathFootprint(id: string, oc: number, or: number, w: number, h: number, add: boolean) {
+    this.forEachFootprint(oc, or, w, h, (k) => {
+      let owners = this.pathObject.get(k);
+      if (add) {
+        if (!owners) this.pathObject.set(k, (owners = new Set()));
+        owners.add(id);
+      } else if (owners) {
+        owners.delete(id);
+        if (!owners.size) this.pathObject.delete(k);
+      }
+    });
+  }
+  private placementBounds(def: PlaceableDef, flipped: boolean, oc: number, or: number) {
+    const inset = placementInset(def, objectFootprint(def, flipped));
+    return { oc: oc + inset.dc, or: or + inset.dr, w: inset.w, h: inset.h };
   }
   // None of the plot's 16 tiles are already occupied.
   private areaFree(oc: number, or: number): boolean {
@@ -1699,9 +1737,10 @@ export class Field {
   }
   canPlaceObject(oc: number, or: number, def: PlaceableDef, ignoreId?: string, flipped = false): boolean {
     const fp = objectFootprint(def, flipped);
+    const place = this.placementBounds(def, flipped, oc, or);
     return (
       this.footprintFits(oc, or, fp.w, fp.h) &&
-      this.footprintFree(oc, or, fp.w, fp.h, ignoreId)
+      this.footprintFree(place.oc, place.or, place.w, place.h, ignoreId)
     );
   }
 
@@ -1755,7 +1794,9 @@ export class Field {
     this.attachObjectLight(obj);
     if (memorial) this.setMemorialOccupant(oid, memorial); // restoring an enshrined statue
     const fp = objectFootprint(def, flipped);
-    this.forEachFootprint(oc, or, fp.w, fp.h, (t) => this.tileObject.set(t, oid));
+    const placement = this.placementBounds(def, flipped, oc, or);
+    this.forEachFootprint(placement.oc, placement.or, placement.w, placement.h, (t) => this.tileObject.set(t, oid));
+    this.setPathFootprint(oid, oc, or, fp.w, fp.h, true);
     this.setExtensionBlocks(oid, def, oc, or, flipped, true);
     return oid;
   }
@@ -1908,13 +1949,16 @@ export class Field {
     if (!o) return false;
     const was = objectFootprint(o.def, o.flipped);
     const now = objectFootprint(def, o.flipped);
-    this.forEachFootprint(o.oc, o.or, was.w, was.h, (t) => this.tileObject.delete(t));
+    const wasPlace = this.placementBounds(o.def, o.flipped, o.oc, o.or);
+    const nowPlace = this.placementBounds(def, o.flipped, o.oc, o.or);
+    this.forEachFootprint(wasPlace.oc, wasPlace.or, wasPlace.w, wasPlace.h, (t) => this.tileObject.delete(t));
     if (!this.footprintFits(o.oc, o.or, now.w, now.h) ||
-        !this.footprintFree(o.oc, o.or, now.w, now.h, id)) {
+        !this.footprintFree(nowPlace.oc, nowPlace.or, nowPlace.w, nowPlace.h, id)) {
       // restore the old footprint occupancy and bail
-      this.forEachFootprint(o.oc, o.or, was.w, was.h, (t) => this.tileObject.set(t, id));
+      this.forEachFootprint(wasPlace.oc, wasPlace.or, wasPlace.w, wasPlace.h, (t) => this.tileObject.set(t, id));
       return false;
     }
+    this.setPathFootprint(id, o.oc, o.or, was.w, was.h, false);
     this.setExtensionBlocks(id, o.def, o.oc, o.or, o.flipped, false);
     o.def = def;
     // An upgrade shows what was bought. A skin chosen for the old tier is dropped
@@ -1924,7 +1968,8 @@ export class Field {
     o.skin = undefined;
     o.ready = def.growMs ? o.ready : false;
     this.fitObjectSprite(o.sprite, def, o.oc, o.or, true, o.flipped, o);
-    this.forEachFootprint(o.oc, o.or, now.w, now.h, (t) => this.tileObject.set(t, id));
+    this.forEachFootprint(nowPlace.oc, nowPlace.or, nowPlace.w, nowPlace.h, (t) => this.tileObject.set(t, id));
+    this.setPathFootprint(id, o.oc, o.or, now.w, now.h, true);
     this.setExtensionBlocks(id, def, o.oc, o.or, o.flipped, true);
     return true;
   }
@@ -1964,7 +2009,9 @@ export class Field {
     const next = obj ? turnFlip(obj.def, nextTurn) : false;
     if (!obj || !this.canPlaceObject(oc, or, obj.def, id, next)) return false;
     const was = objectFootprint(obj.def, obj.flipped);
-    this.forEachFootprint(obj.oc, obj.or, was.w, was.h, (t) => this.tileObject.delete(t));
+    const wasPlace = this.placementBounds(obj.def, obj.flipped, obj.oc, obj.or);
+    this.forEachFootprint(wasPlace.oc, wasPlace.or, wasPlace.w, wasPlace.h, (t) => this.tileObject.delete(t));
+    this.setPathFootprint(id, obj.oc, obj.or, was.w, was.h, false);
     this.setExtensionBlocks(id, obj.def, obj.oc, obj.or, obj.flipped, false);
     obj.oc = oc;
     obj.or = or;
@@ -1974,7 +2021,9 @@ export class Field {
     this.fitMemorialRig(obj);
     this.positionObjectLight(obj);
     const fp = objectFootprint(obj.def, obj.flipped);
-    this.forEachFootprint(oc, or, fp.w, fp.h, (t) => this.tileObject.set(t, id));
+    const placement = this.placementBounds(obj.def, obj.flipped, oc, or);
+    this.forEachFootprint(placement.oc, placement.or, placement.w, placement.h, (t) => this.tileObject.set(t, id));
+    this.setPathFootprint(id, oc, or, fp.w, fp.h, true);
     this.setExtensionBlocks(id, obj.def, oc, or, obj.flipped, true);
     return true;
   }
@@ -2048,7 +2097,9 @@ export class Field {
     // Remove tool, and anything added later — is covered by construction.
     if (obj.memorial) this.onMemorialReleased?.(obj.memorial);
     const fp = objectFootprint(obj.def, obj.flipped);
-    this.forEachFootprint(obj.oc, obj.or, fp.w, fp.h, (t) => this.tileObject.delete(t));
+    const placement = this.placementBounds(obj.def, obj.flipped, obj.oc, obj.or);
+    this.forEachFootprint(placement.oc, placement.or, placement.w, placement.h, (t) => this.tileObject.delete(t));
+    this.setPathFootprint(id, obj.oc, obj.or, fp.w, fp.h, false);
     this.setExtensionBlocks(id, obj.def, obj.oc, obj.or, obj.flipped, false);
     this.destroyObjectSprites(obj);
     this.destroyObjectLight(obj);
@@ -2488,6 +2539,7 @@ export class Field {
     }
     this.objects.clear();
     this.tileObject.clear();
+    this.pathObject.clear();
     this.fenceBlock.clear();
     this.topologyChanged();
     const restored: string[] = [];

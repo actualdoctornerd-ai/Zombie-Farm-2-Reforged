@@ -3,6 +3,7 @@ import type { PlaceableDef } from "./assets";
 import { Field } from "./Field";
 import { TILE_H, TILE_W } from "./iso";
 import { COST_BARRIER, COST_GATE_CLOSED, COST_GATE_OPEN, COST_GROUND, COST_PATH, COST_POND } from "./pathCosts";
+import { findPath } from "./pathfind";
 
 // Same trick as Field.objectWork.test.ts: skip the Pixi constructor, since only the
 // occupancy bookkeeping matters for what a tile costs to walk on.
@@ -15,12 +16,20 @@ function makeField(placed: Placed[], overhangs: Record<string, string[]> = {}, w
   const field: Field = Object.create(Field.prototype);
   const objects = new Map<string, unknown>();
   const tileObject = new Map<string, string>();
+  const pathObject = new Map<string, Set<string>>();
   placed.forEach((p, i) => {
     const id = `o${i}`;
     const d = def(p.key, p.tileW ?? 1, p.tileH ?? 1);
     objects.set(id, { id, def: d, oc: p.oc, or: p.or, flipped: false });
-    for (let r = p.or; r < p.or + (p.tileH ?? 1); r++)
-      for (let c = p.oc; c < p.oc + (p.tileW ?? 1); c++) tileObject.set(`${c},${r}`, id);
+    const w = p.tileW ?? 1, h = p.tileH ?? 1;
+    for (let r = p.or; r < p.or + h; r++) for (let c = p.oc; c < p.oc + w; c++) {
+      const k = `${c},${r}`;
+      const inset = /hedge/i.test(p.key) ? (h >= 4 ? (r === p.or || r === p.or + h - 1) : w >= 4 ? (c === p.oc || c === p.oc + w - 1) : false) : false;
+      if (!inset) tileObject.set(k, id);
+      let owners = pathObject.get(k);
+      if (!owners) pathObject.set(k, (owners = new Set()));
+      owners.add(id);
+    }
   });
   const fenceBlock = new Map<string, Set<string>>();
   for (const [tile, ids] of Object.entries(overhangs)) fenceBlock.set(tile, new Set(ids));
@@ -29,7 +38,7 @@ function makeField(placed: Placed[], overhangs: Record<string, string[]> = {}, w
   // as a `null`: the getters test for null, so leaving one out makes that getter answer
   // `undefined` forever instead of computing anything.
   Object.assign(field, {
-    w, h, objects, tileObject, fenceBlock, portals: null, paths: null, walkOpts: null,
+    w, h, objects, tileObject, pathObject, tilePlot: new Map(), reserved: new Set(), fenceBlock, portals: null, paths: null, walkOpts: null,
   });
   return field;
 }
@@ -40,12 +49,20 @@ function place(field: Field, p: Placed, id: string) {
   const inner = field as unknown as {
     objects: Map<string, unknown>;
     tileObject: Map<string, string>;
+    pathObject: Map<string, Set<string>>;
     topologyChanged(): void;
   };
   const d = def(p.key, p.tileW ?? 1, p.tileH ?? 1);
   inner.objects.set(id, { id, def: d, oc: p.oc, or: p.or, flipped: false });
-  for (let r = p.or; r < p.or + (p.tileH ?? 1); r++)
-    for (let c = p.oc; c < p.oc + (p.tileW ?? 1); c++) inner.tileObject.set(`${c},${r}`, id);
+  const w = p.tileW ?? 1, h = p.tileH ?? 1;
+  for (let r = p.or; r < p.or + h; r++) for (let c = p.oc; c < p.oc + w; c++) {
+    const k = `${c},${r}`;
+    const inset = /hedge/i.test(p.key) ? (h >= 4 ? (r === p.or || r === p.or + h - 1) : w >= 4 ? (c === p.oc || c === p.oc + w - 1) : false) : false;
+    if (!inset) inner.tileObject.set(k, id);
+    let owners = inner.pathObject.get(k);
+    if (!owners) inner.pathObject.set(k, (owners = new Set()));
+    owners.add(id);
+  }
   inner.topologyChanged();
 }
 
@@ -73,6 +90,25 @@ describe("Field.tileCost", () => {
     // A pond, by contrast, is somewhere a walker may perfectly well end up.
     const pond = makeField([{ key: "pond1", oc: 4, or: 4 }]);
     expect(pond.isOpenGround(4, 4)).toBe(true);
+  });
+
+  it("lets long hedge ends overlap while keeping both full hedge footprints in pathfinding", () => {
+    const field = makeField([]);
+    const hedge = def("hedge_01", 1, 5);
+    place(field, { key: "hedge_01", oc: 5, or: 5, tileW: 1, tileH: 5 }, "first");
+    // The second hedge starts two tiles before the first ends. Their soft ends
+    // overlap, but their central placement hitboxes remain separate.
+    expect(field.canPlaceObject(5, 8, hedge)).toBe(true);
+    place(field, { key: "hedge_01", oc: 5, or: 8, tileW: 1, tileH: 5 }, "second");
+    for (let row = 5; row <= 12; row++)
+      expect(field.tileCost(5, row), `hedge path cost at row ${row}`).toBe(COST_BARRIER);
+    expect(field.pathOptions().cost?.(5, 5)).toBe(COST_BARRIER);
+    expect(field.canPlaceObject(5, 7, def("smallStatue"))).toBe(false);
+    const opts = field.pathOptions();
+    const path = findPath({ col: 4, row: 8 }, { col: 6, row: 8 },
+      (c, r) => field.isPassable(c, r), opts);
+    expect(path.length).toBeGreaterThan(0);
+    expect(path.some(({ col, row }) => field.tileCost(col, row) >= COST_BARRIER)).toBe(false);
   });
 
   it("charges a fence panel's overhang at the fence's own price", () => {
