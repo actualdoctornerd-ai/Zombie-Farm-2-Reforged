@@ -1,0 +1,26 @@
+{
+ "name": "zombinator",
+ "base": "ZombieActorRegularTier4",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  125,
+  125,
+  140
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "cyborgFeature.png",
+   "group": "head",
+   "px": 4,
+   "py": -49,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  }
+ ]
+}

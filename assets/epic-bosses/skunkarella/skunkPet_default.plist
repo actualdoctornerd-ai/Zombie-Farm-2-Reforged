@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>pet_skunk_blink_01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 12}, {53, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{165, 208}, {53, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_blink_02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 10}, {51, 48}}</string>
+			<key>spriteOffset</key>
+			<string>{-7, -5}</string>
+			<key>spriteSize</key>
+			<string>{51, 48}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{120, 110}, {51, 48}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_blink_03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 10}, {55, 48}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -5}</string>
+			<key>spriteSize</key>
+			<string>{55, 48}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{53, 168}, {55, 48}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_blink_04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 12}, {57, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-5, -6}</string>
+			<key>spriteSize</key>
+			<string>{57, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{124, 0}, {57, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_blink_05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 8}, {61, 50}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -4}</string>
+			<key>spriteSize</key>
+			<string>{61, 50}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 116}, {61, 50}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_blink_06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 4}, {63, 54}}</string>
+			<key>spriteOffset</key>
+			<string>{-2, -2}</string>
+			<key>spriteSize</key>
+			<string>{63, 54}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 60}, {63, 54}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_blink_07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 0}, {65, 58}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -0}</string>
+			<key>spriteSize</key>
+			<string>{65, 58}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 0}, {65, 58}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_blink_08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 12}, {53, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -6}</string>
+			<key>spriteSize</key>
+			<string>{53, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{165, 160}, {53, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 12}, {49, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-8, -6}</string>
+			<key>spriteSize</key>
+			<string>{49, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{226, 96}, {49, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 12}, {49, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-8, -6}</string>
+			<key>spriteSize</key>
+			<string>{49, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{228, 48}, {49, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 10}, {51, 48}}</string>
+			<key>spriteOffset</key>
+			<string>{-7, -5}</string>
+			<key>spriteSize</key>
+			<string>{51, 48}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{122, 50}, {51, 48}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 10}, {55, 48}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -5}</string>
+			<key>spriteSize</key>
+			<string>{55, 48}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{65, 60}, {55, 48}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 10}, {55, 48}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -5}</string>
+			<key>spriteSize</key>
+			<string>{55, 48}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{63, 116}, {55, 48}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 10}, {55, 48}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -5}</string>
+			<key>spriteSize</key>
+			<string>{55, 48}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{67, 0}, {55, 48}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 10}, {53, 48}}</string>
+			<key>spriteOffset</key>
+			<string>{-7, -5}</string>
+			<key>spriteSize</key>
+			<string>{53, 48}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{110, 166}, {53, 48}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_idle_08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 12}, {51, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-7, -6}</string>
+			<key>spriteSize</key>
+			<string>{51, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{183, 0}, {51, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_walk_01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 8}, {51, 50}}</string>
+			<key>spriteOffset</key>
+			<string>{-8, -4}</string>
+			<key>spriteSize</key>
+			<string>{51, 50}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 168}, {51, 50}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_walk_02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 12}, {49, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-8, -6}</string>
+			<key>spriteSize</key>
+			<string>{49, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{220, 148}, {49, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_walk_03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 10}, {51, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-7, -4}</string>
+			<key>spriteSize</key>
+			<string>{51, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{173, 100}, {51, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_walk_04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 11}, {51, 44}}</string>
+			<key>spriteOffset</key>
+			<string>{-7, -4}</string>
+			<key>spriteSize</key>
+			<string>{51, 44}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{236, 0}, {51, 44}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>pet_skunk_walk_05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{1, 9}, {51, 46}}</string>
+			<key>spriteOffset</key>
+			<string>{-7, -3}</string>
+			<key>spriteSize</key>
+			<string>{51, 46}</string>
+			<key>spriteSourceSize</key>
+			<string>{67, 58}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{175, 48}, {51, 46}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>skunkPet</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+		<key>size</key>
+		<string>{512, 256}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>skunkPet_default</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<false/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>skunkPet_default</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>
