@@ -26,7 +26,7 @@ const makeField = (tier = "storage07"): Field => {
   Object.assign(field, {
     w: 12, h: 12,
     plots: new Map(), tilePlot: new Map(), reserved: new Set(),
-    tileObject: new Map(), fenceBlock: new Map(), objects: new Map(),
+    tileObject: new Map(), pathObject: new Map(), fenceBlock: new Map(), objects: new Map(),
     nextObjId: 1,
     entityLayer: new Container(), groundObjectLayer: new Container(),
     objectLights: new Container(),

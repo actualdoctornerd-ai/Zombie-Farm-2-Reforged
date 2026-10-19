@@ -28,6 +28,7 @@ const makeField = (w = 12, h = 12): Field => {
     tilePlot: new Map(),
     reserved: new Set(),
     tileObject: new Map(),
+    pathObject: new Map(),
     fenceBlock: new Map(),
     objects: new Map(),
     nextObjId: 1,
@@ -39,9 +40,9 @@ const makeField = (w = 12, h = 12): Field => {
   return field;
 };
 
-/** Every tile the field currently hands out to an object, as "col,row". */
+/** Every tile still blocked for movement by an object, as "col,row". */
 const blocked = (field: Field): string[] =>
-  [...(field as unknown as { tileObject: Map<string, string> }).tileObject.keys()].sort();
+  [...(field as unknown as { pathObject: Map<string, Set<string>> }).pathObject.keys()].sort();
 
 const footprintOf = (oc: number, or: number, w: number, h: number): string[] => {
   const out: string[] = [];
@@ -71,8 +72,12 @@ describe("Field: a turned object blocks the tiles it is drawn over", () => {
     // invisible barrier from the report. A glow flower goes there now.
     expect(field.canPlaceObject(3, 7, TILE)).toBe(true);
     expect(field.placeObject(TILE, 3, 7, "flower")).toBe("flower");
-    // ...and the tiles it really does cover stay blocked.
-    expect(field.canPlaceObject(7, 3, TILE)).toBe(false);
+    // The soft end can overlap for placement, while the hedge keeps blocking the
+    // whole run for movement.
+    expect(field.canPlaceObject(7, 3, TILE)).toBe(true);
+    expect(field.placeObject(TILE, 7, 3, "flower")).toBe("flower");
+    expect((field as unknown as { pathObject: Map<string, Set<string>> })
+      .pathObject.get("7,3")?.has("hedge")).toBe(true);
   });
 
   it("mirrors the art about the origin tile, so art and footprint agree", () => {

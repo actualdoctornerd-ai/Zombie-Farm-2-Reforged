@@ -30,7 +30,7 @@ const makeField = (w = 12, h = 12): Field => {
   Object.assign(field, {
     w, h,
     plots: new Map(), tilePlot: new Map(), reserved: new Set(),
-    tileObject: new Map(), fenceBlock: new Map(), objects: new Map(), nextObjId: 1,
+    tileObject: new Map(), pathObject: new Map(), fenceBlock: new Map(), objects: new Map(), nextObjId: 1,
     entityLayer: new Container(), groundObjectLayer: new Container(),
     objectLights: new Container(),
     assets: {

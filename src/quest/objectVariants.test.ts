@@ -55,10 +55,9 @@ describe("the shipped catalog's recolour families", () => {
   });
 
   it("has every variant share its base's art and footprint", () => {
-    // The one exception is deliberate: no multiply can turn the magenta flowerbed
-    // petals white, so the White Flower Bed carries a de-coloured sprite of its own
-    // (see NEUTRALIZED_VARIANT_SPRITES in tools/prep_placeables.py).
-    const OWN_ART = new Set(["flowerBed_white"]);
+    // These variants deliberately carry their own art: the White Flower Bed needs
+    // de-coloured petals, and the Obsidian Grave has a dark-purple sprite with glints.
+    const OWN_ART = new Set(["flowerBed_white", "gravestoneObsidian"]);
     const byKey = new Map(catalog.map((entry) => [entry.key, entry]));
     const wrong: string[] = [];
     for (const entry of catalog) {
