@@ -252,7 +252,7 @@ EXTRA_SHED_TIERS = [
 # Obsidian zombie's; the brains price continues the Blue 2 / Red 4 / Silver 6 ladder.
 OBSIDIAN_GRAVE = {
     "key": "gravestoneObsidian", "name": "Obsidian Grave", "cost": 8, "level": 40,
-    "variantOf": "gravestoneSilver", "color": [120, 95, 170],
+    "sprite": "gravestoneObsidian.png", "variantOf": "gravestoneSilver",
 }
 
 # ---- Recolor variants --------------------------------------------------------
@@ -1710,8 +1710,8 @@ def main():
     # The Obsidian Grave: a reimplementation addition with no source row. It unlocks
     # planting the Obsidian tier (tools/obsidian_zombies.py), the gravestone zombies
     # above the Silvers, exactly as the Silver Grave unlocks the Silvers — so it is the
-    # Silver Grave's row, sprite and footprint, recoloured by the ordinary variant
-    # tint (the same scheme as the Recolor variants above) and priced one step up.
+    # Silver Grave's row and footprint, with its own dark-purple obsidian sprite,
+    # and priced one step up.
     base_silver = next((c for c in catalog if c["key"] == "gravestoneSilver"), None)
     if base_silver:
         grave = dict(base_silver)

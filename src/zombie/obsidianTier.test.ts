@@ -117,13 +117,16 @@ describe("Obsidian Grave", () => {
   const grave = placeables.find((entry) => entry.key === "gravestoneObsidian")!;
   const silver = placeables.find((entry) => entry.key === "gravestoneSilver")!;
 
-  it("is the Silver Grave recoloured, one per farm, on sale at the tier's first level", () => {
+  it("uses its own Obsidian sprite, is one per farm, and is on sale at the tier's first level", () => {
     expect(grave).toBeDefined();
     expect(grave.name).toBe("Obsidian Grave");
     expect(grave.category).toBe("functional");
     expect(grave.variantOf).toBe("gravestoneSilver");
-    expect(grave.sprite).toBe(silver.sprite);
-    expect(grave.color).toBeDefined();
+    expect(grave.sprite).toBe("gravestoneObsidian.png");
+    expect(grave.sprite).not.toBe(silver.sprite);
+    expect(existsSync(new URL("../../public/assets/objects/gravestoneObsidian.png", import.meta.url)))
+      .toBe(true);
+    expect(grave.color).toBeUndefined();
     expect(grave.level).toBe(Math.min(...tier.map((zombie) => zombie.level)));
     expect(grave.brainsNeeded).toBe(true);
     expect(grave.cost).toBeGreaterThan(silver.cost);

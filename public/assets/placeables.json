@@ -11106,7 +11106,7 @@
   "tileH": 2,
   "movable": true,
   "rotations": 1,
-  "sprite": "gravestoneSilver.png",
+  "sprite": "gravestoneObsidian.png",
   "nativeW": 56,
   "nativeH": 105,
   "pivotX": 0.12,
@@ -11118,11 +11118,6 @@
   "harvestValue": 0,
   "growingSprite": "",
   "variantOf": "gravestoneSilver",
-  "color": [
-   120,
-   95,
-   170
-  ],
   "lifeForce": 7,
   "lifeForceSource": "variant"
  },
