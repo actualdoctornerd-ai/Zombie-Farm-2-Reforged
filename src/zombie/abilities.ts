@@ -34,12 +34,12 @@ export const ABILITY_KIND: Record<string, AbilityKind> = {
   // self (hidden from the strip)
   buffAllStats: "self", attackSpeedBuff: "self", powerBuff: "self",
   hitPointsBuff: "self", turboSpeed: "self",
-  laserBeam: "self", zomBeam: "self", stun: "self", doubleStrike: "self", block: "self",
+  laserBeam: "self", zomBeam: "self", stun: "self", doubleStrike: "self",
   // team (shown, automatic)
   heal: "team", healAOE: "team", protect: "team", tankHitPointsBuff: "team", ressurect: "team",
   chivalry: "team", grace: "team",
   // activated (shown, tappable — one zombie per tap)
-  attachMini: "activated", bash: "activated", bashV2: "activated",
+  attachMini: "activated", bash: "activated", bashV2: "activated", block: "activated",
   explode: "activated", explodeV2: "activated",
 };
 
@@ -78,6 +78,11 @@ export interface ActivatedAbility {
 }
 
 export const ACTIVATED_ABILITY: Record<string, ActivatedAbility> = {
+  // Block is an instant team guard. Each active carrier adds to the army's short
+  // reduction window; the duration and cooldown live on the performer.
+  block: {
+    speedMultiplier: 0, damageTiming: 0, damageFactor: 0, cooldownMs: 12_000,
+  },
   bash: {
     speedMultiplier: 2.5, damageTiming: 0.975,
     damageFactor: 2.75, aoe: true, cooldownMs: 10_000, cantInterrupt: true,

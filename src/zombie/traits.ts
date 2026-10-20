@@ -122,7 +122,7 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   doubleStrike: { label: "Double Strike", effect: "29% chance of a bonus strike", desc: "Small chance to hit twice", icon: `${AB}ability_doubleStrike.png` },
   explodeV2: { label: "Explode Ver.2", effect: "One 10× area hit and 3-second stun; hits bosses; the zombie is destroyed", desc: "Can hit and stun the boss (use when fighting)", icon: `${AB}ability_explodeV2.png` },
   bashV2: { label: "Smash", effect: "1.8× attack and 1-second stun; 10-second recharge", desc: "Smashes the enemy when activated (use when fighting)", icon: `${AB}ability_bashV2.png` },
-  block: { label: "Block", effect: "9% chance to block an attack", desc: "Small chance to block any attack", icon: `${AB}ability_block.png` },
+  block: { label: "Block", effect: "1-second guard for all fielded zombies; 20% per blocker, up to 100%", desc: "Tap to guard all zombies in the battle area. Each active Block zombie adds 20% reduction; 12-second cooldown", icon: `${AB}ability_block.png` },
   healAOE: { label: "Heal All", effect: "50% Power to all injured zombies every 20 seconds", desc: "Heal all zombies every once in awhile", icon: `${AB}ability_healAOE.png` },
 };
 

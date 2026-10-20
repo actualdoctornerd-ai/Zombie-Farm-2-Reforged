@@ -1247,7 +1247,7 @@ import type { RaidOutcome } from "./types";
 // 80-140 s against 30-70 s for the base and elite fights. Hit points cut ~25% (wave 110k->82k,
 // key bosses and the captain likewise); base damage raised ~30% (DUAL_BASE_STR/THROW) plus a
 // 1.25 lift on raid 13 so its shorter captain did not make it easier.
-export const RAID_RULESET_VERSION = 71;
+export const RAID_RULESET_VERSION = 72;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

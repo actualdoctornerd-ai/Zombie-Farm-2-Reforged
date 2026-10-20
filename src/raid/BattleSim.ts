@@ -600,6 +600,7 @@ export interface SimUnit {
   windupMs: number; // ms left in the current wind-up
   windupTotal: number; // full wind-up duration (for the charge bar)
   abilityCdMs: number; // cooldown before this unit can be activated again
+  blockMs: number; // remaining duration of this zombie's team Block activation
   buddyId: string | null; // Small zombie currently carried by this Large zombie
   buddyCarrierId: string | null; // Large zombie carrying this Small zombie
   buddyMountMs: number; // jump-to-carrier animation time remaining
@@ -1031,6 +1032,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     windupMs: 0,
     windupTotal: 0,
     abilityCdMs: 0,
+    blockMs: 0,
     buddyId: null,
     buddyCarrierId: null,
     buddyMountMs: 0,
@@ -1491,6 +1493,7 @@ export class BattleSim {
       laserTargetId: u.laserTargetId ?? null,
       walkingThisTick: u.walkingThisTick ?? false,
       abilityRollSeq: u.abilityRollSeq ?? 0,
+      blockMs: u.blockMs ?? 0,
       usedAbilities: [...(u.usedAbilities ?? [])],
       resurrectUsed: u.resurrectUsed ?? false,
       power: u.power ?? u.damage,
@@ -1984,6 +1987,11 @@ export class BattleSim {
       mini.distracted = false;
       mini.awaitRelease = false;
       pick.usedAbilities.push(key);
+      return true;
+    }
+    if (key === "block") {
+      pick.blockMs = 1000;
+      pick.abilityCdMs = ab.cooldownMs;
       return true;
     }
     pick.windupKey = key;
@@ -3560,8 +3568,14 @@ export class BattleSim {
   private dealEnemyDamage(foe: SimUnit, dmg: number) {
     // Emboldened (raid 12): everything the enemy lands on a zombie lands harder.
     if (foe.team === "player" && this.rulingFx.embolden !== 1) dmg *= this.rulingFx.embolden;
-    if (dmg > 0 && foe.abilities.includes("block") && this.abilityRoll(foe) > 90) return;
-    const applied = applyDamage(dmg, 0, foe.team === "player" ? foe.damageReduction ?? 0 : 0);
+    // Team Block adds 20% per carrier whose one-second window is live, up to 100%.
+    // Protect remains additive, with the combined reduction capped below.
+    const blockers = this.players.filter((p) => p.alive && p.blockMs > 0).length;
+    const blockReduction = Math.min(1, blockers * 0.2);
+    const reduction = foe.team === "player"
+      ? Math.min(1, (foe.damageReduction ?? 0) + blockReduction)
+      : 0;
+    const applied = applyDamage(dmg, 0, reduction);
     if (
       applied > 0 &&
       foe.team === "player" &&
@@ -4432,6 +4446,7 @@ export class BattleSim {
       // it here keeps the burn bit-identical on both sides whatever the hazards do.
       this.stepBurn(p, dtMs);
       if (!p.alive) continue; // the burn can be the killing blow
+      if (p.blockMs > 0) p.blockMs = Math.max(0, p.blockMs - dtMs);
       if (p.state === "grabbed") continue; // seized by the trapeze — position driven by stepGrabbers
       if (p.abilityCdMs > 0) p.abilityCdMs -= dtMs; // activated-move recharge
       switch (p.state) {
