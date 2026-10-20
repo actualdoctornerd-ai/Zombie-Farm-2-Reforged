@@ -5,6 +5,8 @@ export type FarmerEffectKey =
   | "zombieGrowTime"
   | "zombieLife"
   | "zombieStrength"
+  | "zombieDex"
+  | "mutationStrength"
   | "invasionCooldown"
   | "farmerSpeed";
 
@@ -17,6 +19,10 @@ const HEAD_EFFECTS: Partial<Record<number, { key: FarmerEffectKey; amount: numbe
   6: { key: "zombieLife", amount: 0.10 },
   3: { key: "zombieStrength", amount: 0.10 },
   7: { key: "zombieStrength", amount: 0.10 },
+  17: { key: "zombieDex", amount: 0.10 }, // Astronaut Male
+  16: { key: "zombieDex", amount: 0.10 }, // Astronaut Female
+  19: { key: "mutationStrength", amount: 0.10 }, // Dino Male
+  18: { key: "mutationStrength", amount: 0.10 }, // Dino Female
   8: { key: "invasionCooldown", amount: -0.25 },
   9: { key: "invasionCooldown", amount: -0.25 },
   // The ninja masks. ZF2 shipped them (and every head after the Zombie Queen) as pure

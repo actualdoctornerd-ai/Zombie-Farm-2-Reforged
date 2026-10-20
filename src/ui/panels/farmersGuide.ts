@@ -117,7 +117,7 @@ export const FARMERS_GUIDE_PAGES: GuidePage[] = [
       },
       {
         title: "Mutations",
-        body: "A crop planted beside a zombie plot has a chance to give it its mutation of 10% plus 10% for every level, so a bare farm mutates one time in ten and a level 9 farm mutates every time. Several matching crops stack, and the Mutant Monolith still guarantees the roll.",
+        body: "A crop planted beside a zombie plot has a chance to give it its mutation of 10% plus 10% for every level, so a bare farm mutates one time in ten and a level 9 farm mutates every time. Several matching crops stack. The Mutant Monolith guarantees the roll, boosts mutation stat bonuses by 10%, and halves mutant-zombie grow time.",
       },
       {
         title: "Fertilizing",

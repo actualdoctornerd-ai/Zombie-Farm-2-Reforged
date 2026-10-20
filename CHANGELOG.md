@@ -2,6 +2,10 @@
 
 ## Unreleased (working tree)
 
+### Mutant Monolith mutation strength
+- A placed Mutant Monolith now boosts the stat bonuses from every mutation by 10%, on top of its guaranteed crop mutations and half-time mutant growth. Client and Worker raid simulations use the same farm-owned effect.
+- Astronaut Farmer heads now grant +10% zombie Dexterity, and Dino Farmer heads grant +10% mutation stat bonuses. No Con head bonus was added because the Skeleton heads' existing +10% Zombie Life bonus already boosts the Con-derived health stat.
+
 ### Life Force reaches level 20
 - Life Force now caps at 2,000. From level 11 onward, each level raises invasion brain drop chances by 2.5% relative to their original rate, reaching 25% at level 20. Above level 5, each level also adds 2.5% to fertilized crop payouts, reaching 37.5% at level 20; unfertilized crop payouts stay unchanged. The Life Force panel and Farmer's Guide explain both bonuses, and online rewards remain server-authoritative.
 

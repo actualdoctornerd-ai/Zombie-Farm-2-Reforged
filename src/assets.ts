@@ -483,7 +483,7 @@ export interface PlaceableDef {
   zombiePatch?: boolean; // functional: the Zombie Patch — gathers zombies to nap on it
   plowFree?: boolean; // functional: Plowing Monolith — plowing costs no gold
   fastWork?: boolean; // functional: Speed Monolith — farming actions are instant
-  mutantMonolith?: boolean; // functional: Mutant Monolith — halves mutant-zombie grow times
+  mutantMonolith?: boolean; // functional: Mutant Monolith — guarantees mutations, boosts mutation stats, and halves mutant-zombie grow times
   combineFast?: boolean; // functional: Clay Monolith — Zombie Pot combines in 15 min (0.25x)
   zombiePot?: boolean; // functional: Zombie Pot — enables combining two zombies
   /** functional: Memorial Statue — one perished zombie can be enshrined on it,

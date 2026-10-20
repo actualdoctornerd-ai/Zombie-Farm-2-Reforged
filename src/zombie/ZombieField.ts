@@ -101,6 +101,9 @@ export class ZombieField {
     private farmerTile: () => { col: number; row: number } = () => ({ col: 0, row: 0 })
   ) {}
 
+  /** Whether the Mutant Monolith is currently placed on this farm. */
+  hasMutantMonolith(): boolean { return this.field.hasMutantMonolith(); }
+
   /** Where to put a zombie that has no position to restore: on the farmer, so the
    *  player sees it arrive, snapped to the nearest walkable tile if he happens to
    *  be standing in a doorway or under an object. The old fallback was (0,0) —

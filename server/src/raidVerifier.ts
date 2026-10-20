@@ -140,6 +140,24 @@ export function lifeForceLevelOfObjects(objectsJson: string | null | undefined):
   return lifeForceLevel(farmLifeForce(lifeForceKeysOf(objects), lifeForceOf));
 }
 
+/** Whether a Mutant Monolith is placed, from the server-owned farm object document. */
+export function mutationStrengthMultiplierOfObjects(objectsJson: string | null | undefined): number {
+  try {
+    const parsed: unknown = JSON.parse(objectsJson ?? "[]");
+    if (Array.isArray(parsed) && parsed.some((object) =>
+      object && typeof object === "object" &&
+      (object as { catalogKey?: unknown }).catalogKey === "monolithMutation" &&
+      (object as { status?: unknown }).status === "placed")) return 1.1;
+  } catch { /* a bad blob counts as an empty farm */ }
+  return 1;
+}
+
+export async function loadMutationStrengthMultiplier(db: D1Database, accountId: string): Promise<number> {
+  const row = await db.prepare("SELECT current_json FROM object_documents_v3 WHERE account_id = ?")
+    .bind(accountId).first<{ current_json: string }>();
+  return mutationStrengthMultiplierOfObjects(row?.current_json);
+}
+
 export async function loadLifeForceLevel(db: D1Database, accountId: string): Promise<number> {
   const row = await db.prepare("SELECT current_json FROM object_documents_v3 WHERE account_id = ?")
     .bind(accountId).first<{ current_json: string }>();
@@ -211,7 +229,9 @@ export async function buildPinnedRaid(
     if (!def) throw new Error(`unknown roster catalog key ${row.key}`);
     return makeOwned(id, def as Parameters<typeof makeOwned>[1], 0, 0, row.invasions, row.mutation);
   });
-  const lifeForce = await loadLifeForceLevel(db, accountId);
+  const [lifeForce, mutationStrengthMult] = await Promise.all([
+    loadLifeForceLevel(db, accountId), loadMutationStrengthMultiplier(db, accountId),
+  ]);
   // raidId + playerLevel drive the farm raid's enemy speed-up; the client passes the
   // same pair in RaidManager.beginRaid — they MUST match or the replay diverges.
   const profile = eliteProfile(raidId, elite);
@@ -236,6 +256,7 @@ export async function buildPinnedRaid(
         concentration,
         abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForce),
         playerLevel: level,
+        mutationStrengthMult,
       }),
       ...composed,
       concentration,
@@ -307,7 +328,7 @@ export async function buildPinnedV3Raid(
   if (!raid) return { ok: false, error: "bad_raid" };
 
   const placeholders = ids.map(() => "?").join(",");
-  const [balance, owned, raidState, coreRow, lifeForce] = await Promise.all([
+  const [balance, owned, raidState, coreRow, lifeForce, mutationStrengthMult] = await Promise.all([
     db.prepare("SELECT xp FROM balances WHERE account_id = ?").bind(accountId).first<{ xp: number }>(),
     db.prepare(`SELECT unit_id,zombie_key,mutation,invasions FROM roster_v3
       WHERE account_id=? AND stored=0 AND locked_by_raid IS NULL AND unit_id IN (${placeholders})`)
@@ -317,6 +338,7 @@ export async function buildPinnedV3Raid(
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?")
       .bind(accountId).first<{ current_json: string }>(),
     loadLifeForceLevel(db, accountId),
+    loadMutationStrengthMultiplier(db, accountId),
   ]);
   const level = levelForXp(balance?.xp ?? 0);
   if (level < effectiveUnlockLevel(raid)) return { ok: false, error: "locked" };
@@ -402,6 +424,8 @@ export async function buildPinnedV3Raid(
         playerLevel: level,
         farmerStrengthMult: farmerMultiplier(bonusHead, "zombieStrength"),
         farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
+        farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
+        mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
       }),
       // Everything below comes from the composer, PINNED rather than recomputed at
       // replay time so the verifier reads back the exact wave, placard rotation, rung
@@ -450,11 +474,12 @@ async function rosterNames(db: D1Database, accountId: string): Promise<Map<strin
 
 /** One account's fight-relevant context: level, ability slots (from Life Force), farmer-head bonuses. */
 async function accountFightContext(db: D1Database, accountId: string) {
-  const [balance, coreRow, lifeForce] = await Promise.all([
+  const [balance, coreRow, lifeForce, mutationStrengthMult] = await Promise.all([
     db.prepare("SELECT xp FROM balances WHERE account_id = ?").bind(accountId).first<{ xp: number }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id = ?")
       .bind(accountId).first<{ current_json: string }>(),
     loadLifeForceLevel(db, accountId),
+    loadMutationStrengthMultiplier(db, accountId),
   ]);
   const level = levelForXp(balance?.xp ?? 0);
   const core = (() => {
@@ -465,7 +490,11 @@ async function accountFightContext(db: D1Database, accountId: string) {
   })();
   const bonusHead = activeBonusHeadId(Number(core.farmerHeadId ?? 1), core.farmerBonusHeadId);
   const slotUnlocked = (slot: number): boolean => abilitySlotUnlocked(slot, lifeForce);
-  return { level, abilitySlotUnlocked: slotUnlocked, bonusHead };
+  return {
+    level, abilitySlotUnlocked: slotUnlocked, bonusHead,
+    farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
+    mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
+  };
 }
 
 const toParty = (rows: PvpRosterRow[], names: Map<string, string>) => rows.map((row) => {
@@ -566,6 +595,8 @@ export async function buildDefenseSnapshot(
     playerLevel: context.level,
     farmerStrengthMult: farmerMultiplier(context.bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(context.bonusHead, "zombieLife"),
+    farmerDexMult: context.farmerDexMult,
+    mutationStrengthMult: context.mutationStrengthMult,
   });
   // MODE decides how the defense is composed AND how it fights. In "formation" the
   // saved loadout narrows the pool (the defender's chosen zombies) and the builder
@@ -644,6 +675,8 @@ export async function buildPinnedPvpRaid(
     playerLevel: attacker.level,
     farmerStrengthMult: farmerMultiplier(attacker.bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(attacker.bonusHead, "zombieLife"),
+    farmerDexMult: attacker.farmerDexMult,
+    mutationStrengthMult: attacker.mutationStrengthMult,
   });
   const enemyUnits = defense.units;
   const attackScore = armyScore(playerUnits);

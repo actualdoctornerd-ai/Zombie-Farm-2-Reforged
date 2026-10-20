@@ -38,6 +38,9 @@ export interface EpicBossPlayerContext {
   abilitySlotUnlocked(slot: number): boolean;
   farmerZombieStrengthMult(): number;
   farmerZombieLifeMult(): number;
+  farmerZombieDexMult?(): number;
+  farmerMutationStrengthMult?(): number;
+  mutationStrengthMult?(): number;
 }
 
 export interface EpicBossSetup {
@@ -60,6 +63,9 @@ export function buildEpicBossSetup(
     playerLevel: state.level,
     farmerStrengthMult: state.farmerZombieStrengthMult(),
     farmerLifeMult: state.farmerZombieLifeMult(),
+    farmerDexMult: state.farmerZombieDexMult?.() ?? 1,
+    mutationStrengthMult: (state.mutationStrengthMult?.() ?? 1) *
+      (state.farmerMutationStrengthMult?.() ?? 1),
   });
   const boss: CombatUnit = {
     id: `epic:${run.runId}:${run.level}`,

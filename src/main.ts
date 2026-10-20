@@ -5067,11 +5067,16 @@ async function main() {
     const paidRun = state.epicBossRun ?? gate.run;
     // Online, fight with the Life Force level the server pinned; its replay opens the same
     // ability slots. Offline the farm's own level decides.
-    const setup = buildEpicBossSetup(def, paidRun, party, assets, epicLifeForceLevel == null ? state : {
+    const setup = buildEpicBossSetup(def, paidRun, party, assets, {
       level: state.level,
-      abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, epicLifeForceLevel!),
+      abilitySlotUnlocked: (slot) => epicLifeForceLevel == null
+        ? state.abilitySlotUnlocked(slot)
+        : abilitySlotUnlocked(slot, epicLifeForceLevel),
       farmerZombieStrengthMult: () => state.farmerZombieStrengthMult(),
       farmerZombieLifeMult: () => state.farmerZombieLifeMult(),
+      farmerZombieDexMult: () => state.farmerZombieDexMult(),
+      farmerMutationStrengthMult: () => state.farmerMutationStrengthMult(),
+      mutationStrengthMult: () => zombies.hasMutantMonolith() ? 1.1 : 1,
     });
     pauseFarmJobs();
     raidActive = true;

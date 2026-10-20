@@ -1247,7 +1247,11 @@ import type { RaidOutcome } from "./types";
 // 80-140 s against 30-70 s for the base and elite fights. Hit points cut ~25% (wave 110k->82k,
 // key bosses and the captain likewise); base damage raised ~30% (DUAL_BASE_STR/THROW) plus a
 // 1.25 lift on raid 13 so its shorter captain did not make it easier.
-export const RAID_RULESET_VERSION = 72;
+// v73 — GALACTIC GROUNDHOG'S AREA BLAST now damages, reorders, and throws nearby zombies
+// through an airborne recovery; Headless units stay aloft longer. Hidden until enabled.
+// v74 — a placed Mutant Monolith increases every mutation's combat stat bonus by 10%.
+// v75 — Astronaut heads boost zombie Dex and Dino heads boost mutation stat bonuses.
+export const RAID_RULESET_VERSION = 75;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

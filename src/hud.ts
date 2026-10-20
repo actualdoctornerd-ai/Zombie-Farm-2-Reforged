@@ -225,7 +225,7 @@ function functionalDescription(def: PlaceableDef): string | undefined {
   if (def.fastWork)
     return "Farming is instant — plowing, planting, and harvesting finish with no waiting.";
   if (def.mutantMonolith)
-    return "Nearby mutation crops always mutate harvested zombies. Mutant zombies also grow in half the time.";
+    return "Nearby mutation crops always mutate harvested zombies. Mutations boost zombie stats by 10%, and mutant zombies grow in half the time.";
   if (def.combineFast)
     return "Speeds up the Zombie Pot: combining finishes in 15 minutes instead of an hour.";
   if (def.zombiePot)

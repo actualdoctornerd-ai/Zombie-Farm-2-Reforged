@@ -153,7 +153,8 @@ export function focusFactor(focus: number, concentration: boolean): number {
  *      Regular zombies, Protect reduces damage to non-Headless types, and
  *      Fortitude buffs Headless Life.
  *   4. MUTATIONS LAST — a flat +str/+con/+dex added on top of everything above, never
- *      scaled or multiplied. `OwnedZombie.str/con/dex` already INCLUDE the mutation
+ *      level-scaled. The Mutant Monolith and Dino head may scale this final bonus.
+ *      `OwnedZombie.str/con/dex` already INCLUDE the mutation
  *      bonus (makeOwned bakes it in so the detail card shows the listed stat), so the
  *      bonus is peeled off here, the rest of the chain runs, and it is added back.
  *      Baking it in before the level ramp — the old behaviour — let the lerp toward the
@@ -180,6 +181,9 @@ export function buildPlayerUnits(
     playerLevel?: number;
     farmerStrengthMult?: number;
     farmerLifeMult?: number;
+    farmerDexMult?: number;
+    /** Multiplier for mutation stat bonuses from the Monolith and farmer-head effects. */
+    mutationStrengthMult?: number;
   } = {}
 ): CombatUnit[] {
   // Abilities are off unless the caller supplies the per-slot unlock gate.
@@ -202,14 +206,21 @@ export function buildPlayerUnits(
   return rows.map(({ z, keys, eff }) => {
     const v = veterancyMultiplier(z.invasions);
     const base = z.focus ?? 0;
-    // Mutations are the LAST link of the source's stat chain, so peel them off the
-    // listed stat here and add them back untouched once everything else has applied.
-    const mut = mutationBonus(z.mutation);
+    // Mutations are the LAST link of the source's stat chain, so peel their original
+    // values off the listed stat, then add them back after everything else. The Mutant
+    // Monolith and Dino head scale only that final mutation bonus.
+    const rawMutation = mutationBonus(z.mutation);
+    const mutationMult = opts.mutationStrengthMult ?? 1;
+    const mut = {
+      str: rawMutation.str * mutationMult,
+      dex: rawMutation.dex * mutationMult,
+      con: rawMutation.con * mutationMult,
+    };
     // Player-level stat ramp (binary modifyStatWithLevelScale:) — str/con/dex only,
     // NOT focus. Skipped (full base stats) when no playerLevel is supplied.
-    const rawStr = z.str - mut.str;
-    const rawDex = z.dex - mut.dex;
-    const rawCon = z.con - mut.con;
+    const rawStr = z.str - rawMutation.str;
+    const rawDex = z.dex - rawMutation.dex;
+    const rawCon = z.con - rawMutation.con;
     const bStr = lvl == null ? rawStr : levelScaleStat(z.group, "str", rawStr, lvl);
     const bDex = lvl == null ? rawDex : levelScaleStat(z.group, "dex", rawDex, lvl);
     const bCon = lvl == null ? rawCon : levelScaleStat(z.group, "con", rawCon, lvl);
@@ -217,7 +228,8 @@ export function buildPlayerUnits(
     const lifeAura = statAura + (z.group === "Headless" ? fortitude : 0);
     const auraBaseStr = bStr * v * eff.allStatsMult * eff.selfDamageMult *
       (opts.farmerStrengthMult ?? 1);
-    const auraBaseDex = bDex * v * eff.allStatsMult * eff.selfSpeedMult;
+    const auraBaseDex = bDex * v * eff.allStatsMult * eff.selfSpeedMult *
+      (opts.farmerDexMult ?? 1);
     const auraBaseCon = bCon * v * eff.allStatsMult * eff.selfHpMult *
       (opts.farmerLifeMult ?? 1);
     // A mutation may carry a PENALTY (mutations.ts MutationStats), so the flat term

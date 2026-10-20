@@ -746,6 +746,8 @@ export class GameState {
   farmerZombieGrowMs(value: number): number { return farmerZombieGrowMs(value, this.bonusHeadId()); }
   farmerZombieStrengthMult(): number { return farmerMultiplier(this.bonusHeadId(), "zombieStrength"); }
   farmerZombieLifeMult(): number { return farmerMultiplier(this.bonusHeadId(), "zombieLife"); }
+  farmerZombieDexMult(): number { return farmerMultiplier(this.bonusHeadId(), "zombieDex"); }
+  farmerMutationStrengthMult(): number { return farmerMultiplier(this.bonusHeadId(), "mutationStrength"); }
   farmerInvasionCooldownMs(value: number): number { return farmerCooldownMs(value, this.bonusHeadId()); }
   farmerWalkSpeedPx(value: number): number { return farmerSpeedPx(value, this.bonusHeadId()); }
   syncObjectStorage(stored: Record<string, number>) {

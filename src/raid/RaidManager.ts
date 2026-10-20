@@ -637,6 +637,9 @@ export class RaidManager {
         playerLevel: this.state.level,
         farmerStrengthMult: this.state.farmerZombieStrengthMult(),
         farmerLifeMult: this.state.farmerZombieLifeMult(),
+        farmerDexMult: this.state.farmerZombieDexMult(),
+        mutationStrengthMult: (this.zombies.hasMutantMonolith() ? 1.1 : 1) *
+          this.state.farmerMutationStrengthMult(),
       }),
       ...composed,
       dice,

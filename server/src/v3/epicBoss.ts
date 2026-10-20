@@ -13,7 +13,7 @@ import { replayRaid, type RaidReplayInput } from "../../../src/raid/replay";
 import type { CombatUnit } from "../../../src/raid/types";
 import { makeOwned } from "../../../src/zombie/types";
 import { abilitySlotUnlocked } from "../../../src/lifeForce";
-import { loadLifeForceLevel } from "../raidVerifier";
+import { loadLifeForceLevel, loadMutationStrengthMultiplier } from "../raidVerifier";
 import { activeBonusHeadId, farmerMultiplier } from "../../../src/farmer";
 import { levelForXp } from "../levels";
 import { EPIC_LOOT_DROP_CHANCE, EPIC_LOOT_ROLLS, epicBrainTicketChance, epicBossCurrencyReward, epicLootWeight, epicQuestZombieReward, reopenEpicQuests, shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
@@ -238,7 +238,7 @@ export async function start(
   if (rulesetVersion !== RAID_RULESET_VERSION) {
     return { status: 426, body: { error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
   }
-  const [row, raid, epic, roster, balance, coreRow, lifeForce] = await Promise.all([
+  const [row, raid, epic, roster, balance, coreRow, lifeForce, mutationStrengthMult] = await Promise.all([
     db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id=?").bind(accountId).first<RunRow>().then(clampRun),
     db.prepare("SELECT id FROM raid_sessions_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     db.prepare("SELECT * FROM epic_boss_sessions_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<SessionRow>(),
@@ -248,6 +248,7 @@ export async function start(
     db.prepare("SELECT gold,brains,xp FROM balances WHERE account_id=?").bind(accountId).first<{gold:number;brains:number;xp:number}>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").bind(accountId).first<{current_json:string}>(),
     loadLifeForceLevel(db, accountId),
+    loadMutationStrengthMultiplier(db, accountId),
   ]);
   if (!row || row.completed_at || row.expires_at <= now) return { status: 409, body: { error: "inactive" } };
   const def = defFor(row.boss_id);
@@ -299,6 +300,8 @@ export async function start(
     playerLevel: levelForXp(balance.xp),
     farmerStrengthMult: farmerMultiplier(bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
+    farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
+    mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
   });
   const boss: CombatUnit = {
     id:`epic:${row.run_id}:${row.level}`,sourceKey:`EpicBoss:${def.id}`,team:"enemy",name:def.name,
