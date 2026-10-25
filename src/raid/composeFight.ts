@@ -56,7 +56,7 @@ export interface FightContext {
   /** The Halloween night STAGE this fight is scaled at (halloweenNights.nightStage: the
    *  night, plus two on a Brain Ticket run); 1, or absent, for every ordinary invasion. Its
    *  bulk and damage arrive through `elite` (raidProfile); the one thing it decides here
-   *  is the clock, three minutes from stage 2. */
+   *  is the clock, two minutes from stage 2. */
   nightStage?: number;
   /** Include the CLIENT-ONLY hazards (trapeze, crab, Mega-Robot). False on the server, which deliberately
    *  simulates the un-harassed fight so its replay is a ceiling the live game can only

@@ -112,7 +112,7 @@ export interface PinnedRaidConfig {
    *  and explained without re-deriving it. */
   elite?: boolean;
   /** The Halloween night this fight is (src/raid/halloweenNights.ts), from 2 up; absent on
-   *  every ordinary invasion. Its bulk, damage and three-minute clock are already in the
+   *  every ordinary invasion. Its bulk, damage and two-minute clock are already in the
    *  values above. */
   night?: number;
 }

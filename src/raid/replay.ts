@@ -1264,7 +1264,10 @@ import type { RaidOutcome } from "./types";
 // every Halloween fight replays differently.
 // v79 — Halloween hours hit harder: damage +125% an hour (was +100%), and with it the
 // Count's slam. Any Halloween hour past the first replays differently from v78.
-export const RAID_RULESET_VERSION = 79;
+// v80 — Halloween hours re-curved for a two-minute clock: hit points two thirds of the old
+// curve at a slower difficulty (Hour 12 = old rung 6.85), damage on the same slow step.
+// Every Halloween hour past the first replays differently from v79.
+export const RAID_RULESET_VERSION = 80;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

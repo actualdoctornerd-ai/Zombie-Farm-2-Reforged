@@ -4,7 +4,7 @@ import { raidProfile } from "./dualInvasion";
 import { RAID_TIME_LIMIT_MS } from "./BattleSim";
 import {
   ELITE_NIGHT_OFFSET, FIRST_NIGHT, MAX_NIGHT, NIGHT_TIME_LIMIT_MS, clampNight, hasNights,
-  nightBrainLuck, nightDamageMult, nightGoldShare, nightHpMult, nightLabel, nightProfile, nightPrompt, nightStage,
+  nightBrainLuck, nightDamageMult, nightDifficulty, nightGoldShare, nightHpMult, nightLabel, nightProfile, nightPrompt, nightStage,
   nightTimeLimitMs, nightZombieLuck,
 } from "./halloweenNights";
 import { flyFight } from "./harness/pilot";
@@ -26,15 +26,18 @@ describe("Halloween nights: the rules", () => {
     expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, 1, RAID_TIME_LIMIT_MS)).toBe(RAID_TIME_LIMIT_MS);
   });
 
-  it("scale chiefly by hit points, and damage by less", () => {
-    for (let night = 2; night <= 6; night++) {
+  it("scale hit points and damage up every hour, hit points fastest late on", () => {
+    for (let night = 2; night <= MAX_NIGHT; night++) {
       const p = nightProfile(night, null)!;
       expect(p.con).toBeCloseTo(nightHpMult(night));
       expect(p.bossCon).toBeCloseTo(nightHpMult(night));
       expect(p.str).toBeCloseTo(nightDamageMult(night));
-      expect(p.con).toBeGreaterThan(p.str); // HP-led: nights are lost on the clock
       expect(nightHpMult(night)).toBeGreaterThan(nightHpMult(night - 1));
       expect(nightDamageMult(night)).toBeGreaterThan(nightDamageMult(night - 1));
+    }
+    // From Hour 5 on the curve is HP-led again: the late hours are lost on the clock.
+    for (let night = 5; night <= MAX_NIGHT; night++) {
+      expect(nightHpMult(night)).toBeGreaterThan(nightDamageMult(night));
     }
   });
 
@@ -47,37 +50,51 @@ describe("Halloween nights: the rules", () => {
     expect(p.throwRate).toBe(1.2);
   });
 
-  it("run on a three-minute clock from night 2", () => {
-    expect(NIGHT_TIME_LIMIT_MS).toBe(180_000);
-    expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, 2, RAID_TIME_LIMIT_MS)).toBe(180_000);
+  it("run on a two-minute clock from hour 2", () => {
+    expect(NIGHT_TIME_LIMIT_MS).toBe(120_000);
+    expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, 2, RAID_TIME_LIMIT_MS)).toBe(120_000);
     expect(nightTimeLimitMs(10, 2, RAID_TIME_LIMIT_MS)).toBe(RAID_TIME_LIMIT_MS);
   });
 
-  it("follow the owner's curve: HP 1, 2.4, 5.76, 12.1 ...; damage x1, x2.25, x3.5 ...", () => {
+  it("climb the old curve slowly: Hour 12 at old rung 6.85, two thirds of its hit points", () => {
+    expect(nightDifficulty(1)).toBe(1);
+    expect(nightDifficulty(12)).toBeCloseTo(6.85);
+    for (let n = 2; n <= 12; n++) {
+      expect(nightDifficulty(n) - nightDifficulty(n - 1)).toBeCloseTo(5.85 / 11);
+    }
+    const oldHp = (s: number) => (1 + (s * (s - 1)) / 2) * Math.pow(1.2, s - 1);
     expect(nightHpMult(1)).toBe(1);
-    expect(nightHpMult(2)).toBeCloseTo(2 * 1.2);
-    expect(nightHpMult(3)).toBeCloseTo(4 * 1.44);
-    expect(nightHpMult(4)).toBeCloseTo(7 * 1.728);
-    expect(nightHpMult(5)).toBeCloseTo(11 * 2.0736);
-    for (let n = 1; n <= 8; n++) expect(nightDamageMult(n)).toBeCloseTo(1 + 1.25 * (n - 1));
+    for (let n = 2; n <= 12; n++) expect(nightHpMult(n)).toBeCloseTo((2 / 3) * oldHp(nightDifficulty(n)));
+    // The table the owner signed off on (2026-10-25).
+    expect(nightHpMult(2)).toBeCloseTo(1.03, 1);
+    expect(nightHpMult(6)).toBeCloseTo(6.3, 0);
+    expect(nightHpMult(12)).toBeCloseTo(40.7, 0);
+    expect(nightDamageMult(2)).toBeCloseTo(1.66, 1);
+    expect(nightDamageMult(6)).toBeCloseTo(4.32, 1);
+    expect(nightDamageMult(12)).toBeCloseTo(8.31, 1);
   });
 
-  it("pay a quarter of the win gold on hour 2, rising 5 points an hour", () => {
+  it("pay a quarter of the win gold from hour 2, rising with the difficulty, never below", () => {
     expect(nightGoldShare(1)).toBe(1);
-    expect(nightGoldShare(2)).toBeCloseTo(0.25);
-    expect(nightGoldShare(3)).toBeCloseTo(0.30);
-    expect(nightGoldShare(6)).toBeCloseTo(0.45);
-    expect(nightGoldShare(12)).toBeCloseTo(0.75);
-    for (let n = 3; n <= 12; n++) expect(nightGoldShare(n)).toBeGreaterThan(nightGoldShare(n - 1));
+    expect(nightGoldShare(2)).toBe(0.25); // floored: hour 2 sits below old rung 2
+    expect(nightGoldShare(6)).toBeCloseTo(0.333, 2);
+    expect(nightGoldShare(12)).toBeCloseTo(0.4925, 3);
+    for (let n = 3; n <= 12; n++) {
+      expect(nightGoldShare(n)).toBeGreaterThanOrEqual(nightGoldShare(n - 1));
+      expect(nightGoldShare(n)).toBeGreaterThanOrEqual(0.25);
+    }
+    expect(nightGoldShare(12)).toBeGreaterThan(nightGoldShare(6));
   });
 
-  it("make the rare zombie x1.5 likelier every night, and brains gently likelier", () => {
+  it("make the rare zombie and brains likelier on the same slow step as the fight", () => {
     expect(nightZombieLuck(1)).toBe(1);
     expect(nightBrainLuck(1)).toBe(0.5); // half the rung's odds, from night 1
-    for (let night = 2; night <= 8; night++) {
-      expect(nightZombieLuck(night) / nightZombieLuck(night - 1)).toBeCloseTo(1.5);
-      expect(nightBrainLuck(night) / nightBrainLuck(night - 1)).toBeCloseTo(1.1);
+    const step = 5.85 / 11;
+    for (let night = 2; night <= MAX_NIGHT; night++) {
+      expect(nightZombieLuck(night) / nightZombieLuck(night - 1)).toBeCloseTo(Math.pow(1.5, step));
+      expect(nightBrainLuck(night) / nightBrainLuck(night - 1)).toBeCloseTo(Math.pow(1.1, step));
     }
+    expect(nightZombieLuck(12)).toBeCloseTo(Math.pow(1.5, 5.85)); // ~10.7x by Hour 12
   });
 
   it("start a Brain Ticket run two nights in, and keep counting from 1 on the label", () => {
@@ -88,6 +105,9 @@ describe("Halloween nights: the rules", () => {
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 1, elite: true })).toEqual(nightProfile(3, null));
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 2, elite: true })).toEqual(raidProfile(HALLOWEEN_RAID_ID, { night: 4 }));
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 1, elite: false })).toBeNull();
+    // Capped at Hour 12: Elite Hours 10, 11 and 12 are all Hour 12's fight.
+    for (const n of [10, 11, 12]) expect(nightStage(n, true)).toBe(MAX_NIGHT);
+    expect(raidProfile(HALLOWEEN_RAID_ID, { night: 11, elite: true })).toEqual(nightProfile(12, null));
     expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, nightStage(1, true), RAID_TIME_LIMIT_MS)).toBe(NIGHT_TIME_LIMIT_MS);
     expect(nightLabel(1, true)).toBe("Elite Hour 1");
     expect(nightLabel(3, false)).toBe("Hour 3");
@@ -118,8 +138,10 @@ describe("Halloween nights: the rules", () => {
   });
 });
 
-// The design target, measured in the real simulation (see NIGHT_HP_GROWTH for the table):
-// night 5 is a strain on a maxed level-45 army, and the night after it runs the clock out.
+// The design target, measured in the real simulation (see NIGHT_LAST_DIFFICULTY for the
+// tables): a maxed-but-not-optimised level-45 army (16 bodies, no Concentration) earns the
+// Hour 6 statue easily and still wins Hour 10 near the clock, but Hour 12 is beyond it.
+// Hour 12 is for the best real armies, played well; see the constant's comment.
 describe("Halloween nights: the curve, in the sim", () => {
   const fly = (night: number, seed: number) => {
     const roster = buildRoster(markRoster("ceiling", 45));
@@ -130,20 +152,23 @@ describe("Halloween nights: the curve, in the sim", () => {
     return flyFight(buildFight(spec), makePilot(EXPERT), { seed: waveSeed });
   };
 
-  // Pinned loosely enough to hold whatever the base wave's own tuning is doing: night 5 is a
-  // real fight and night 8 is past the wall (measured: unbuffed wave clears 7, buffed 6).
-  it("lets a maxed level-45 army through night 5, but only after a long fight", () => {
+  // Measured 2026-10-25: Hour 6 in 63-64 s, Hour 10 in 114 s, Hours 11-12 out of time with
+  // all 16 standing. Pinned loosely enough to survive small wave retunes.
+  it("lets a maxed level-45 army through Hour 10, but only near the two-minute clock", () => {
     for (const seed of [0, 1]) {
-      const flight = fly(5, seed);
+      const statue = fly(6, seed);
+      expect(statue.win).toBe(true);
+      expect(statue.secs).toBeLessThan(90);
+      const flight = fly(10, seed);
       expect(flight.win).toBe(true);
-      expect(flight.secs).toBeGreaterThan(80);
+      expect(flight.secs).toBeGreaterThan(90);
       expect(flight.secs).toBeLessThan(NIGHT_TIME_LIMIT_MS / 1000);
     }
   }, 120_000);
 
-  it("runs that army out of time on night 8, without wiping it", () => {
+  it("runs that army out of time on Hour 12, without wiping it", () => {
     for (const seed of [0, 1]) {
-      const flight = fly(8, seed);
+      const flight = fly(12, seed);
       expect(flight.win).toBe(false);
       expect(flight.timedOut).toBe(true);
       expect(flight.survivors).toBeGreaterThan(0);
