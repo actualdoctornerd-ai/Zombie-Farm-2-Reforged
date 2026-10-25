@@ -53,13 +53,13 @@ describe("Halloween nights: the rules", () => {
     expect(nightTimeLimitMs(10, 2, RAID_TIME_LIMIT_MS)).toBe(RAID_TIME_LIMIT_MS);
   });
 
-  it("follow the owner's curve: HP 1, 2.4, 5.76, 12.1 ...; damage x1, x2, x3 ...", () => {
+  it("follow the owner's curve: HP 1, 2.4, 5.76, 12.1 ...; damage x1, x1.75, x2.5 ...", () => {
     expect(nightHpMult(1)).toBe(1);
     expect(nightHpMult(2)).toBeCloseTo(2 * 1.2);
     expect(nightHpMult(3)).toBeCloseTo(4 * 1.44);
     expect(nightHpMult(4)).toBeCloseTo(7 * 1.728);
     expect(nightHpMult(5)).toBeCloseTo(11 * 2.0736);
-    for (let n = 1; n <= 8; n++) expect(nightDamageMult(n)).toBeCloseTo(n);
+    for (let n = 1; n <= 8; n++) expect(nightDamageMult(n)).toBeCloseTo(1 + 0.75 * (n - 1));
   });
 
   it("pay a quarter of the win gold from night 2", () => {
