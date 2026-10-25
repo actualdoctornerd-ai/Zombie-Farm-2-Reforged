@@ -498,12 +498,12 @@
   "key": "candy_corn",
   "name": "Candy Corn",
   "cost": 124,
-  "sell": 142,
+  "sell": 162,
   "growMs": 7200000,
   "stage1": "candycorn_stage1.png",
   "stage2": "candycorn_stage2.png",
   "level": 13,
-  "xp": 1,
+  "xp": 3,
   "seasonal": true,
   "icon": "stex0046.png"
  }

@@ -39,7 +39,8 @@ BRAIN_COST_DIVISOR = 10
 # key -> (level, cost, sell, xp). `sell` is the model's target harvest value
 # (cost + 10 plow + target profit) and `xp` is its total cycle XP minus the one plow
 # XP that farmRewards.ts already awards. Seasonal crops are deliberately absent —
-# they are outliers and keep their source values until they get their own pass.
+# they are outliers and keep their source values until they get their own pass —
+# except the ones listed at the end, which have had theirs.
 CROP_REBALANCE = {
     "carrot":        (1,    5,  16, 1),
     "onion":         (1,   20,  60, 4),
@@ -72,6 +73,11 @@ CROP_REBALANCE = {
     # 45 the equations give 73 profit / 8 total XP, and it keeps 78 / 9 by decision.
     # Re-derive it by hand if the profit slope is ever retuned.
     "heartichoke":   (45, 125, 213, 8),
+    # SEASONAL. Candy Corn (sold while Halloween is, src/marketOrder.ts) is a treat on
+    # purpose (owner, 2026-10-25): it keeps its level-13 unlock and 124g seed but nets
+    # a level-25 crop's harvest (Garlic's 28 after the plow) every two hours, the best
+    # gold per hour in the Market, and 3 XP, one over the curve for a 2-hour crop.
+    "candy_corn":    (13, 124, 162, 3),
 }
 
 # ---- Prize crops (late-game rewards; docs/PRIZE_CROPS.md) -----------------------------

@@ -73,7 +73,7 @@ export const CROPS: Readonly<Record<string, CropEcon>> = {
   kelp: { cost: 75, sell: 100, xp: 1, growMs: 1800000, level: 1 },
   marigold: { cost: 90, sell: 140, xp: 1, growMs: 43200000, level: 3 },
   hollyberry: { cost: 30, sell: 43, xp: 1, growMs: 3600000, level: 5 },
-  candy_corn: { cost: 124, sell: 142, xp: 1, growMs: 7200000, level: 13 },
+  candy_corn: { cost: 124, sell: 162, xp: 3, growMs: 7200000, level: 13 },
   // #endregion generated:CROPS
 };
 
