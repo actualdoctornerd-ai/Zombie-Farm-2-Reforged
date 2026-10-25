@@ -3,9 +3,14 @@
 // A won Halloween invasion offers to keep going. Each further NIGHT is the same fight again,
 // fought by the survivors at full health, against an opposition that is much bulkier and
 // somewhat harder-hitting than the last; and the further the chain goes, the likelier the
-// rare zombie. A night pays like any other win the moment it is won, so fleeing (or losing)
-// a night costs only that night: everything the earlier ones paid is already banked.
-// Owner design, 2026-10-24.
+// rare zombie (x1.5 a night) and, gently, the brains (x1.1 a night). A night pays like any
+// other win the moment it is won, so fleeing (or losing) a night costs only that night:
+// everything the earlier ones paid is already banked. Owner design, 2026-10-24.
+//
+// A BRAIN TICKET starts the chain two nights in: "Elite Night 1" is fought at night 3's
+// strength, Elite Night 2 at night 4's, and so on, with the usual elite 4x on brains and
+// rare zombies on every night of it. The NIGHT a player sees (and the drop curve) counts
+// from 1 either way; the STAGE (nightStage) is what the fight is scaled by.
 //
 // THE CURVE IS MOSTLY HIT POINTS. A night is meant to be lost on the CLOCK, not by watching
 // the army die, so the scaling is chiefly bulk, with a smaller damage step so the later
@@ -52,6 +57,14 @@ export const NIGHT_TIME_LIMIT_MS = 3 * 60 * 1000;
  *  because a chain is one sitting, not a standing pass around the cooldown. */
 export const NIGHT_CONTINUE_WINDOW_MS = 15 * 60 * 1000;
 
+/** How many nights ahead a Brain Ticket starts the chain: Elite Night 1 is night 3's fight. */
+export const ELITE_NIGHT_OFFSET = 2;
+/** Rare-zombie odds multiply by this each night (1%, 1.5%, 2.25%, ... on an ordinary run). */
+export const NIGHT_ZOMBIE_GROWTH = 1.5;
+/** Brain odds multiply by this each night: a gentle climb from the raid's own rung, which
+ *  sits just under the Pirates'. */
+export const NIGHT_BRAIN_GROWTH = 1.1;
+
 /** Does this invasion offer further nights? */
 export function hasNights(raidId: number): boolean {
   return raidId === HALLOWEEN_RAID_ID;
@@ -97,39 +110,46 @@ export function nightTimeLimitMs(raidId: number, night: number | undefined, ordi
   return hasNights(raidId) && clampNight(night) > FIRST_NIGHT ? NIGHT_TIME_LIMIT_MS : ordinaryMs;
 }
 
-/** Rare-zombie luck on `night`: night n rolls at n times the raid's rate. */
-export function nightZombieLuck(night: number | undefined): number {
-  return clampNight(night);
+/** The difficulty STAGE a night is fought at: the night itself, or two nights further on a
+ *  Brain Ticket run (ELITE_NIGHT_OFFSET). Scaling and the clock read the stage; the label and
+ *  the drop curve read the night. */
+export function nightStage(night: number | undefined, elite: boolean): number {
+  return Math.min(MAX_NIGHT, clampNight(night) + (elite ? ELITE_NIGHT_OFFSET : 0));
 }
 
-/** What the "keep going?" prompt says before `nextNight`. The first is the original line;
- *  the rest climb towards midnight. */
-export function nightPrompt(nextNight: number): { title: string; body: string } {
+/** Rare-zombie luck on `night`: x1.5 a night, compounding (elite's 4x is applied apart). */
+export function nightZombieLuck(night: number | undefined): number {
+  return Math.pow(NIGHT_ZOMBIE_GROWTH, clampNight(night) - 1);
+}
+
+/** Brain luck on `night`: x1.1 a night, compounding (elite's 4x is applied apart). */
+export function nightBrainLuck(night: number | undefined): number {
+  return Math.pow(NIGHT_BRAIN_GROWTH, clampNight(night) - 1);
+}
+
+/** "Night 3" / "Elite Night 1". */
+export function nightLabel(night: number, elite: boolean): string {
+  return `${elite ? "Elite Night" : "Night"} ${clampNight(night)}`;
+}
+
+/** The line before each night, darker as the chain goes on. Indexed by the night being
+ *  offered (2 = after the first win); past the end the last line repeats. */
+const NIGHT_LINES: readonly { title: string; line: string }[] = [
+  { title: "The Count is beaten... for now.", line: "His guests are already climbing back out of their coffins." },
+  { title: "Something stirs in the cellar.", line: "Whatever the Count keeps down there is waking up." },
+  { title: "The moon turns red.", line: "The graveyard is emptying, and it's all headed your way." },
+  { title: "Midnight. The bells won't stop.", line: "Few zombies come back from a night like this." },
+  { title: "There will be no dawn.", line: "The house wants you to stay. Forever." },
+];
+
+/** What the "keep going?" prompt says before `nextNight`. Short, darker each night, and
+ *  always clear that losing the next one costs none of what was already won. */
+export function nightPrompt(nextNight: number, elite = false): { title: string; body: string } {
   const night = clampNight(nextNight);
-  const luck = `Rare zombies are ${night}x as likely tonight.`;
-  const keep = "Head home now and you keep everything you've won.";
-  if (night <= 2) {
-    return {
-      title: "The night is still young...",
-      body: `The Count's guests are just getting started. Fight on into Night ${night}? ` +
-        `They'll be a whole lot tougher. ${luck} ${keep}`,
-    };
-  }
-  if (night === 3) {
-    return {
-      title: "The moon climbs higher...",
-      body: `Something's stirring in the cellar. Night ${night} will be meaner still. ${luck} ${keep}`,
-    };
-  }
-  if (night === 4) {
-    return {
-      title: "The witching hour approaches...",
-      body: `The whole graveyard's awake now. Night ${night} is no place for the faint of heart. ` +
-        `${luck} ${keep}`,
-    };
-  }
+  const { title, line } = NIGHT_LINES[Math.min(NIGHT_LINES.length - 1, Math.max(0, night - 2))];
   return {
-    title: night === 5 ? "Midnight strikes..." : "The night never ends...",
-    body: `Night ${night}. Only the bravest zombies dance till dawn. ${luck} ${keep}`,
+    title,
+    body: `${line} Fight ${nightLabel(night, elite)}? ` +
+      "Win or lose, you keep everything you've already won.",
   };
 }

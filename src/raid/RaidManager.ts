@@ -53,7 +53,7 @@ import {
   MIN_TIER, raidProfile,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
-import { FIRST_NIGHT, clampNight, hasNights, nightZombieLuck } from "./halloweenNights";
+import { FIRST_NIGHT, clampNight, hasNights, nightBrainLuck, nightLabel, nightStage, nightZombieLuck } from "./halloweenNights";
 
 // ---- HUD-facing view models ----
 
@@ -99,6 +99,8 @@ export interface RaidCardView {
      *  raid that promotes, this is the second of the ticket's two rolls; elsewhere it is
      *  `eliteRate` itself, the one roll there is. */
     eliteBaseRate: number;
+    /** The odds climb night by night (Halloween's night chain, halloweenNights.ts). */
+    climbsByNight?: boolean;
   } | null;
   /** Boosts on this raid's loot table, with the quantity one drop pays. */
   boostDrops: { key: string; name: string; qty: number }[];
@@ -230,6 +232,9 @@ export interface RaidLaunchOpts {
   /** ONLINE: the won session a night continues (sent to /raid/start, which derives the
    *  night from it). main.ts plumbing only; beginRaid reads `night`. */
   continueFrom?: string;
+  /** OFFLINE: the chain being continued was a Brain Ticket run, so this night is elite too
+   *  (no ticket is spent; night 1 paid it). Online the server says so (serverElite). */
+  chainElite?: boolean;
   /** ONLINE: the server (POST /raid/start) already authorized this launch, so
    *  beginRaid must NOT re-run the client cooldown gate. The server owns the clock. */
   serverAuthorized?: boolean;
@@ -405,11 +410,14 @@ export class RaidManager {
         },
         zombieDrop: RAID_ZOMBIE_DROPS[r.id]
           ? {
-              name: RAID_ZOMBIE_DROPS[r.id].name,
+              // A prize with alternates is quoted under every name it can pay out as.
+              name: [RAID_ZOMBIE_DROPS[r.id].name, ...(RAID_ZOMBIE_DROPS[r.id].alternates ?? []).map((a) => a.name)]
+                .join(" / "),
               rate: raidZombieDropRate(r.id),
               eliteName: raidZombieDropFor(r.id, true)!.name,
               eliteRate: raidZombieDropRate(r.id, 0, ELITE_BRAIN_LUCK, true),
               eliteBaseRate: raidZombieDropRate(r.id, 0, ELITE_BRAIN_LUCK, false),
+              ...(hasNights(r.id) ? { climbsByNight: true } : {}),
             }
           : null,
         boostDrops: boostDrops(r, this.assets.boosts),
@@ -552,7 +560,8 @@ export class RaidManager {
     const ticketable = acceptsBrainTicket(raid.id);
     let elite = false;
     if (continuing) {
-      elite = false;
+      // A Brain Ticket chain stays elite all the way down; nothing more is spent.
+      elite = ticketable && !!(opts.serverAuthorized ? opts.serverElite : opts.chainElite);
     } else if (opts.serverAuthorized) {
       elite = ticketable && !!opts.serverElite;
       if (elite && !online) this.state.useBoost(BRAIN_TICKET_KEY);
@@ -624,7 +633,7 @@ export class RaidManager {
       priorWins: this.state.raidWins(String(raid.id)),
       waveSeed,
       hazards: true,
-      night,
+      nightStage: nightStage(night, elite),
     });
     const { enemyUnits } = composed;
     const abilityLevel = opts.serverAuthorized && opts.serverLifeForceLevel != null
@@ -640,7 +649,8 @@ export class RaidManager {
           raid.recommendedLevel,
           this.state.brainDryStreak,
           Math.random,
-          brainLuck * brainDropLifeForceMultiplier(this.state.lifeForceLevel)
+          brainLuck * brainDropLifeForceMultiplier(this.state.lifeForceLevel) *
+            (hasNights(raid.id) ? nightBrainLuck(night) : 1)
         )
       : 0;
     return {
@@ -826,7 +836,9 @@ export class RaidManager {
           roll: Math.random(),
           baseRoll: Math.random(),
           dice,
-          luck: (elite ? ELITE_BRAIN_LUCK : 1) * nightZombieLuck(night),
+          luck: elite ? ELITE_BRAIN_LUCK : 1,
+          stageLuck: nightZombieLuck(night),
+          pickRoll: Math.random(),
         });
         this.state.zombieDryWins = settled.dry;
         const zombieDrop = settled.drop;
@@ -844,7 +856,7 @@ export class RaidManager {
       // Out of time is a loss, but not the loss "ZOMBIES LOSE" describes: the army is
       // standing, most of it walked home, and nothing about the panel would otherwise
       // explain why the fight stopped. Name the clock instead of reporting a rout.
-      title: (night > FIRST_NIGHT ? `NIGHT ${night} · ` : "") +
+      title: (hasNights(raid.id) && (night > FIRST_NIGHT || elite) ? `${nightLabel(night, elite).toUpperCase()} · ` : "") +
         (outcome.win ? "ZOMBIES WIN" : outcome.outOfTime ? "OUT OF TIME" : "ZOMBIES LOSE"),
       enemiesBeaten: outcome.enemiesBeaten,
       zombiesLost: outcome.losses.length,

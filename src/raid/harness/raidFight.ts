@@ -13,6 +13,7 @@
 // Beach victories. Difficulty is a question about the fight the player has, so the
 // harness defaults to hazards ON; a flight whose transcript is meant to be replayed
 // against the server's rules turns them off. Both are available because both are real.
+import { nightStage } from "../halloweenNights";
 import raidsJson from "../../../public/assets/raids/raids.json";
 import enemyStatsJson from "../../../public/assets/raids/enemy_stats.json";
 import attacksJson from "../../../public/assets/raids/attacks.json";
@@ -135,7 +136,7 @@ export function harnessFight(opts: HarnessFightOptions): HarnessFight {
     priorWins: opts.priorWins ?? 5,
     waveSeed,
     hazards: opts.hazards ?? true,
-    night: opts.night,
+    nightStage: nightStage(opts.night, !!opts.elite),
   });
 
   return {

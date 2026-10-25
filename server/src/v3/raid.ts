@@ -24,7 +24,7 @@ import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { isLiveSessionCollision } from "./liveSessionRace";
-import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, clampNight, hasNights, nightZombieLuck } from "../../../src/raid/halloweenNights";
+import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, clampNight, hasNights, nightBrainLuck, nightZombieLuck } from "../../../src/raid/halloweenNights";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 /** How long an invasion session may sit open before it is treated as ABANDONED and
@@ -195,7 +195,7 @@ async function resolveNightContinuation(
   continueFrom: unknown,
   requested: string[],
   now: number
-): Promise<{ ok: true; sessionId: string; night: number } | { ok: false; status: number; error: string }> {
+): Promise<{ ok: true; sessionId: string; night: number; elite: boolean } | { ok: false; status: number; error: string }> {
   if (typeof continueFrom !== "string" || !continueFrom || !hasNights(raidId)) {
     return { ok: false, status: 400, error: "bad_continue" };
   }
@@ -204,7 +204,7 @@ async function resolveNightContinuation(
     .bind(continueFrom, accountId)
     .first<{ raid_id: string; boosts_json: string; result_json: string | null; finished_at: number | null }>();
   if (!previous || Number(previous.raid_id) !== raidId) return { ok: false, status: 404, error: "bad_continue" };
-  const boosts = parse<{ night?: number; continuedBy?: string; practice?: boolean }>(previous.boosts_json, {});
+  const boosts = parse<{ night?: number; continuedBy?: string; practice?: boolean; elite?: boolean }>(previous.boosts_json, {});
   const result = parse<{ outcome?: { win?: boolean; survivors?: string[] } }>(previous.result_json ?? "", {});
   if (!previous.result_json || previous.finished_at == null || result.outcome?.win !== true || boosts.practice) {
     return { ok: false, status: 409, error: "night_unavailable" };
@@ -215,7 +215,8 @@ async function resolveNightContinuation(
   if (night > MAX_NIGHT) return { ok: false, status: 409, error: "night_unavailable" };
   const survivors = new Set(result.outcome.survivors ?? []);
   if (requested.some((id) => !survivors.has(id))) return { ok: false, status: 409, error: "bad_roster" };
-  return { ok: true, sessionId: continueFrom, night };
+  // A Brain Ticket run stays elite all the way down: the ticket was paid once, at night 1.
+  return { ok: true, sessionId: continueFrom, night, elite: boosts.elite === true };
 }
 
 export async function startRaid(
@@ -243,12 +244,14 @@ export async function startRaid(
   // Ticket (the night's own scaling is the difficulty).
   let night = FIRST_NIGHT;
   let chainFrom: string | null = null;
+  let chainElite = false;
   if (body.continueFrom !== undefined) {
     const continued = await resolveNightContinuation(db, accountId, raidId, body.continueFrom, requested, now);
     if (!continued.ok) return { status: continued.status, body: { ok: false, error: continued.error } };
     if (body.brainTicket === true) return { status: 409, body: { ok: false, error: "elite_unavailable" } };
     night = continued.night;
     chainFrom = continued.sessionId;
+    chainElite = continued.elite;
   }
   // PRACTICE (src/raid/practice.ts): the dual invasions cost and pay nothing while the
   // ladders are tuned — no cooldown, no voucher, no dice, no Concentration. Refusing the
@@ -275,7 +278,7 @@ export async function startRaid(
   }
   const ticketsOwned = parse<CoreState>(coreRow?.current_json ?? "", { inventory: {}, storage: { received: {}, stored: {} } })
     .inventory[BRAIN_TICKET_KEY] ?? 0;
-  const elite = wantsElite && ticketsOwned >= 1;
+  const elite = chainFrom ? chainElite : wantsElite && ticketsOwned >= 1;
   const pinned = await buildPinnedV3Raid(
     db, accountId, raidId, body.orderedUnitIds, concentration, sessionId, elite, body.tier, night
   );
@@ -326,8 +329,9 @@ export async function startRaid(
   if (concentration && (core.inventory[CONCENTRATION_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_concentration" } };
   // Re-read from `core` rather than trusting the count taken before the pin: this is the
   // copy that gets written back, so the debit has to come off it.
-  if (elite && (core.inventory[BRAIN_TICKET_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_brain_ticket" } };
-  if (elite) core.inventory[BRAIN_TICKET_KEY]--;
+  // A night of an elite chain inherits the ticket night 1 paid for; it spends none.
+  if (elite && !chainFrom && (core.inventory[BRAIN_TICKET_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_brain_ticket" } };
+  if (elite && !chainFrom) core.inventory[BRAIN_TICKET_KEY]--;
   if (voucherBypass) core.inventory[VOUCHER_KEY]--;
   if (dice) core.inventory[DICE_KEY] -= dice;
   if (concentration) core.inventory[CONCENTRATION_KEY]--;
@@ -335,7 +339,8 @@ export async function startRaid(
     econ.recLevel,
     pinned.config.enemyUnits.some((unit) => unit.isBoss),
     raidState.brain_dry_streak ?? 0,
-    (elite ? ELITE_BRAIN_LUCK : 1) * brainDropLifeForceMultiplier(pinned.lifeForceLevel)
+    (elite ? ELITE_BRAIN_LUCK : 1) * brainDropLifeForceMultiplier(pinned.lifeForceLevel) *
+      (hasNights(raidId) ? nightBrainLuck(night) : 1)
   );
   const expiresAt = now + RAID_TTL_MS;
   const earliestFinishAt = now + EARLIEST_FINISH_MS;
@@ -716,7 +721,7 @@ export async function finishRaid(
     // client's offline one stay identical; raids with no rare zombie never get a key at all.
     const settled = settleRaidZombieDrop(raidId, !!boosts.elite, zombieDry, {
       roll: Math.random(), baseRoll: Math.random(), dice: boosts.dice ?? 0,
-      luck: eliteLuck * nightZombieLuck(night),
+      luck: eliteLuck, stageLuck: nightZombieLuck(night), pickRoll: Math.random(),
     });
     const zombieDrop = settled.drop;
     Object.assign(zombieDry, settled.dry);
@@ -846,7 +851,7 @@ export async function finishRaid(
   // "The night is still young": a won Halloween night that brought anyone home may go on.
   // The offer is advisory; /raid/start re-checks every condition when it is taken up.
   const nightOffer = win && hasNights(raidId) && survivors.length > 0 && night < MAX_NIGHT
-    ? { night: night + 1, sessionId: session.id }
+    ? { night: night + 1, sessionId: session.id, elite: !!boosts.elite }
     : null;
   const result = { settlementId, lastRaidAt, serverTime: now, balance: nextBalance, gold: baseGold + lootGold,
     brains, xp: nextBalance.xp - balance.xp, firstClear, loot, extraLoot, newZombie, outcome, questChanges,

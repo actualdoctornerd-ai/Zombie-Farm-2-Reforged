@@ -1,3 +1,4 @@
+import { hasNights } from "./halloweenNights";
 import { describe, expect, it } from "vitest";
 import raidsJson from "../../public/assets/raids/raids.json";
 import {
@@ -173,8 +174,10 @@ describe("brain ticket wiring", () => {
   it("has a profile for every ticketable invasion, and none for anything else", () => {
     // The dual invasions are playable but refuse Brain Tickets — their ten-tier ladder is the
     // difficulty selector (see dualInvasion.ts), so they must NOT carry an elite profile.
+    // Halloween takes a ticket but has no profile either: its ticket starts the night chain
+    // two nights in (halloweenNights.ts), and raidProfile scales it from the night.
     const playable = raids
-      .filter((r) => r.playable && acceptsBrainTicket(r.id))
+      .filter((r) => r.playable && acceptsBrainTicket(r.id) && !hasNights(r.id))
       .map((r) => r.id).sort((a, b) => a - b);
     expect(Object.keys(ELITE_PROFILES).map(Number).sort((a, b) => a - b)).toEqual(playable);
   });

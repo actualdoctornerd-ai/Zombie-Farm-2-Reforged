@@ -10,6 +10,7 @@
 // runs the REAL BattleSim headlessly and measures how much of that healer's health the
 // throws actually take off, because "the numbers are bigger" is not the property the
 // rebalance exists to produce.
+import { hasNights } from "./halloweenNights";
 import { describe, expect, it } from "vitest";
 import raidsJson from "../../public/assets/raids/raids.json";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
@@ -101,7 +102,9 @@ const throwers = raids
  *  from the faction that stages them, so they belong in the ORDINARY throw checks — but they
  *  carry no elite profile at all (their tier ladder is the difficulty selector), so they are
  *  not part of anything measuring an elite step. See dualInvasion.ts. */
-const ticketableThrowers = throwers.filter((t) => acceptsBrainTicket(t.raid.id));
+// Halloween's ticket buys a later NIGHT, not an elite profile (halloweenNights.ts), so it has
+// no elite projectile step to fit.
+const ticketableThrowers = throwers.filter((t) => acceptsBrainTicket(t.raid.id) && !hasNights(t.raid.id));
 
 describe("boss projectile scaling", () => {
   it("covers every invasion whose boss throws", () => {
@@ -281,7 +284,6 @@ describe("boss projectile scaling", () => {
   // Brain Ticket actually buys, which now does divide the two.
   const ELITE_THROW_STEP: Readonly<Record<number, number>> = {
     1: 3.0, 2: 3.71, 3: 2.0, 4: 3.69, 5: 2.86, 7: 4.0, 8: 3.99, 9: 2.71, 10: 4.01, 11: 4.01,
-    16: 4.01,
   };
 
   it("steps an elite boss's throws off the rebalanced fight, not off the authored one", () => {

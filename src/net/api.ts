@@ -918,7 +918,7 @@ export interface RaidFinishResult {
   night?: number;
   /** "The night is still young": a won Halloween night may be continued into `night`,
    *  by its survivors, from this `sessionId` (src/raid/halloweenNights.ts). */
-  nightOffer?: { night: number; sessionId: string } | null;
+  nightOffer?: { night: number; sessionId: string; elite?: boolean } | null;
   rulesetVersion?: number;
   revival?: {
     sessionId: string;

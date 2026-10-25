@@ -10,6 +10,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import { startRaid } from "../src/v3/raid";
 import { RAID_RULESET_VERSION } from "../src/raidVerifier";
 import { levelForXp } from "../src/levels";
+import { BRAIN_TICKET_KEY } from "../src/boostCatalog";
 import {
   NIGHT_CONTINUE_WINDOW_MS, NIGHT_TIME_LIMIT_MS, nightHpMult,
 } from "../../src/raid/halloweenNights";
@@ -192,6 +193,26 @@ describe("continuing a won Halloween invasion into the next night", () => {
   it("takes no Brain Ticket", async () => {
     const { db } = seed();
     expect(await start(db, { brainTicket: true })).toMatchObject({ status: 409, body: { error: "elite_unavailable" } });
+  });
+
+  it("keeps a Brain Ticket run elite, two nights stronger, without spending another ticket", async () => {
+    const { db, raw } = seed({ boosts: { elite: true } }); // Elite Night 1 was won
+    raw.prepare("UPDATE gameplay_documents_v3 SET current_json = ?").run(JSON.stringify({
+      inventory: { [BRAIN_TICKET_KEY]: 1 }, storage: { received: {}, stored: {} },
+    }));
+    const res = await start(db);
+    expect(res.body).toMatchObject({ ok: true, night: 2, elite: true });
+    expect(sessionBoosts(raw, res.body.sessionId as string)).toMatchObject({ night: 2, elite: true });
+    const core = JSON.parse((raw.prepare("SELECT current_json FROM gameplay_documents_v3").get() as { current_json: string }).current_json);
+    expect(core.inventory[BRAIN_TICKET_KEY]).toBe(1); // night 1 paid; this night spends none
+    // Elite Night 2 is fought at night 4's strength.
+    const ordinary = seed();
+    ordinary.raw.prepare("UPDATE raid_state_v3 SET last_started_at = 0").run();
+    const plain = await startRaid(ordinary.db, ME, { raidId: HALLOWEEN, orderedUnitIds: ARMY, rulesetVersion: RAID_RULESET_VERSION }, NOW);
+    const bossHp = (r: DatabaseSync, id: string) => (JSON.parse((r.prepare("SELECT config_json FROM raid_sessions_v3 WHERE id = ?")
+      .get(id) as { config_json: string }).config_json).enemyUnits as { isBoss?: boolean; maxHp: number }[]).find((u) => u.isBoss)!.maxHp;
+    expect(bossHp(raw, res.body.sessionId as string) / bossHp(ordinary.raw, plain.body.sessionId as string))
+      .toBeCloseTo(nightHpMult(4), 1);
   });
 
   it("belongs to Halloween only", async () => {

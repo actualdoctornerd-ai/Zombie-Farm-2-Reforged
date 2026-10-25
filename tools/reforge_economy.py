@@ -457,6 +457,15 @@ SPECIAL_STAT_REBALANCE = {
     "ZombieActorZombieBot":        {"str": 19, "dex": 1, "con": 41},  # 24/25  L31; TANK, on the tank line
     "ZombieActorOmegaZombieBot":   {"str": 22, "dex": 1, "con": 46},  # 28/30  L31 elite; TANK, +500 HP
     "ZombieActorZastronaut":       {"str": 19, "con": 30},  # 8.71/14.3  x2.14  L36; held under the VGZ
+    # HALLOWEEN (raid 16, a level-20 fight; owner 2026-10-24). JackoZombie and Zcarecrow
+    # are the ordinary prizes, the Mummy the elite-only one. Lifted off their seasonal
+    # stats (Strength Ladder sqrt(str*dex*con) ~22-23 / 18, under both Yellows) onto
+    # the level-20 rung: the ordinary pair ~29.5, between the Deputy (16) and the
+    # MerZombie (21); the Mummy ~38, above the Crazy Zombie (32.6) as an elite prize
+    # should be. Str and con scale together; dex is the source's.
+    "ZombieActorRegular2Tier5":    {"str": 16, "con": 26},  # 12.6/19.8  x1.29  L20  JackoZombie, ladder 29.6
+    "ZombieActorLarge2Tier5":      {"str": 31, "con": 22},  # 23.3/16.5  x1.32  L20  Zcarecrow, ladder 29.8
+    "ZombieActorMummy":            {"str": 29, "con": 25},  # 14/12      x2.1   L20 elite  Mummy, ladder 38.1
     # The Cozmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows
     # (prep_market.py AUTHORED_ZOMBIES) and are fitted there.
 }

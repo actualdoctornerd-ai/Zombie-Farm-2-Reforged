@@ -3,6 +3,9 @@ export interface RaidZombieDrop {
   key: string;
   name: string;
   rate: number;
+  /** Other zombies the same hit may hand over instead, picked evenly (Halloween pays a
+   *  JackoZombie or a Zcarecrow). They share the prize's rate, streak and pity floor. */
+  alternates?: readonly { key: string; name: string }[];
 }
 
 export const OLD_MC_ZOMBIE_KEY = "ZombieActorOldMcZombie";
@@ -61,14 +64,20 @@ export const TEDDY_ZOMBIE_KEY = "ZombieActorRegular4Tier5";
 export const TEDDY_ZOMBIE_NAME = "Teddy Zombie";
 export const VALENTINES_DAY_RAID_ID = 11;
 
-/** A special the source shipped with no way to win it (market-hidden, no reward). The
- *  Halloween invasion fields a mummy, so its prize is the Mummy Zombie. Halloween is
- *  seasonal but sized for level 20, so it sits on the ladder by that rung, between the
- *  Lawyers and the Pirates, rather than on the seasonal floor. */
+/** HALLOWEEN's three prizes, all specials the source shipped with no way to win them. An
+ *  ordinary win pays a JackoZombie or a Zcarecrow; the Mummy Zombie is the elite (Brain
+ *  Ticket) prize. Both start at 1% and climb x1.5 a night down the night chain
+ *  (halloweenNights.nightZombieLuck); a ticket makes both 4x, the Mummy's rate being that
+ *  4x already (owner, 2026-10-24) rather than the usual promoted 2.5x. */
+export const JACKO_ZOMBIE_KEY = "ZombieActorRegular2Tier5";
+export const ZCARECROW_KEY = "ZombieActorLarge2Tier5";
 export const MUMMY_ZOMBIE_KEY = "ZombieActorMummy";
 export const MUMMY_ZOMBIE_NAME = "Mummy Zombie";
 export const HALLOWEEN_RAID_ID = 16;
-export const HALLOWEEN_ZOMBIE_DROP_RATE = pct(1.3);
+export const HALLOWEEN_ZOMBIE_DROP_RATE = pct(1);
+/** A Brain Ticket's 4x, kept here so this module imports nothing; zombieDrops.test pins it
+ *  to eliteInvasion.ELITE_BRAIN_LUCK. */
+export const ELITE_LUCK_FOR_PRIZES = 4;
 
 // ---- The story invasions' prize pairs ---------------------------------------------
 // In the source these eight were ALTERNATE Epic Boss prizes for events that were never
@@ -162,9 +171,10 @@ export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
     rate: EVENT_ZOMBIE_DROP_RATE,
   },
   [HALLOWEEN_RAID_ID]: {
-    key: MUMMY_ZOMBIE_KEY,
-    name: MUMMY_ZOMBIE_NAME,
+    key: JACKO_ZOMBIE_KEY,
+    name: "JackoZombie",
     rate: HALLOWEEN_ZOMBIE_DROP_RATE,
+    alternates: [{ key: ZCARECROW_KEY, name: "Zcarecrow" }],
   },
 };
 
@@ -179,6 +189,7 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
   [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Cozmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
   [VIDEO_GAMES_RAID_ID]: { key: FINAL_BOSS_ZOMBIE_KEY, name: "Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID) },
+  [HALLOWEEN_RAID_ID]: { key: MUMMY_ZOMBIE_KEY, name: MUMMY_ZOMBIE_NAME, rate: HALLOWEEN_ZOMBIE_DROP_RATE * ELITE_LUCK_FOR_PRIZES },
 };
 
 /** The prize a win of `raidId` is CHARACTERISED by: the promoted one when this was an
@@ -190,12 +201,26 @@ export function raidZombieDropFor(raidId: number, elite = false): RaidZombieDrop
   return (elite ? RAID_ELITE_ZOMBIE_DROPS[raidId] : undefined) ?? RAID_ZOMBIE_DROPS[raidId] ?? null;
 }
 
-/** Every rare invasion zombie with where it comes from — ordinary and elite prizes alike. */
+/** Every rare invasion zombie with where it comes from — ordinary and elite prizes alike,
+ *  one row per zombie (a prize's alternates get rows of their own, at the prize's rate). */
 export interface RaidZombieSource { raidId: number; elite: boolean; drop: RaidZombieDrop }
+const sourcesOf = (drops: Readonly<Record<number, RaidZombieDrop>>, elite: boolean): RaidZombieSource[] =>
+  Object.entries(drops).flatMap(([id, drop]) => [
+    { raidId: Number(id), elite, drop },
+    ...(drop.alternates ?? []).map((alt) => ({ raidId: Number(id), elite, drop: { ...alt, rate: drop.rate } })),
+  ]);
 export const RAID_ZOMBIE_SOURCES: readonly RaidZombieSource[] = [
-  ...Object.entries(RAID_ZOMBIE_DROPS).map(([id, drop]) => ({ raidId: Number(id), elite: false, drop })),
-  ...Object.entries(RAID_ELITE_ZOMBIE_DROPS).map(([id, drop]) => ({ raidId: Number(id), elite: true, drop })),
+  ...sourcesOf(RAID_ZOMBIE_DROPS, false),
+  ...sourcesOf(RAID_ELITE_ZOMBIE_DROPS, true),
 ];
+
+/** The zombie a hit on `drop` hands over: the prize itself, or one of its alternates,
+ *  picked evenly by `pick` (a draw in [0, 1)). A prize without alternates is itself. */
+export function pickRaidZombie(drop: RaidZombieDrop, pick: number): RaidZombieDrop {
+  const options = [{ key: drop.key, name: drop.name }, ...(drop.alternates ?? [])];
+  const index = Number.isFinite(pick) ? Math.min(options.length - 1, Math.max(0, Math.floor(pick * options.length))) : 0;
+  return { ...options[index], rate: drop.rate };
+}
 
 /** The pity-streak key for the prize `elite` names. A raid whose elite fight adds a promoted
  *  zombie keeps two streaks, one per prize, so the ordinary floor guarantees the deputy — not a
@@ -252,12 +277,17 @@ export const ZOMBIE_LUCK_DICE_CAP = 10;
  *  would make the sheriff ten times as common as the deputy. Passing `elite` false gives the
  *  ordinary prize at `luck` times its rate, which is what an elite fight rolls that prize at
  *  as well. A raid with a single prize answers the same either way. Never exceeds 1. */
-export function raidZombieDropRate(raidId: number, dice = 0, luck = 1, elite = false): number {
+export function raidZombieDropRate(
+  raidId: number, dice = 0, luck = 1, elite = false,
+  /** A multiplier on BOTH prizes, promoted included: the Halloween night chain's climb
+   *  (halloweenNights.nightZombieLuck). 1 everywhere else. */
+  stageLuck = 1
+): number {
   const promoted = elite ? RAID_ELITE_ZOMBIE_DROPS[raidId] : undefined;
   const drop = promoted ?? RAID_ZOMBIE_DROPS[raidId];
   if (drop == null) return 0;
   const spent = Math.max(0, Math.min(ZOMBIE_LUCK_DICE_CAP, Math.trunc(Number(dice) || 0)));
-  const multiplier = promoted ? 1 : Math.max(0, Number(luck) || 0);
+  const multiplier = (promoted ? 1 : Math.max(0, Number(luck) || 0)) * Math.max(0, Number(stageLuck) || 0);
   return Math.min(1, drop.rate * (1 + ZOMBIE_LUCK_PER_DIE * spent) * multiplier);
 }
 
@@ -288,17 +318,18 @@ export function rollRaidZombieDrop(
   dice = 0,
   luck = 1,
   elite = false,
-  baseRoll = roll
+  baseRoll = roll,
+  stageLuck = 1
 ): RaidZombieDrop | null {
   if (!won) return null;
   const promoted = elite ? RAID_ELITE_ZOMBIE_DROPS[raidId] : undefined;
-  if (promoted != null && hits(roll, raidZombieDropRate(raidId, dice, luck, true))) return promoted;
+  if (promoted != null && hits(roll, raidZombieDropRate(raidId, dice, luck, true, stageLuck))) return promoted;
   const ordinary = RAID_ZOMBIE_DROPS[raidId];
   if (ordinary == null) return null;
   // The ordinary prize's own draw — the second one when a promoted prize just missed on the
   // first, and `roll` itself everywhere else. Its rate is the `elite` false one either way:
   // that IS `luck` times the rung, which is what an elite fight pays it at.
-  return hits(promoted != null ? baseRoll : roll, raidZombieDropRate(raidId, dice, luck, false))
+  return hits(promoted != null ? baseRoll : roll, raidZombieDropRate(raidId, dice, luck, false, stageLuck))
     ? ordinary
     : null;
 }
@@ -361,9 +392,10 @@ export function rollRaidZombieDropWithPity(
   luck = 1,
   elite = false,
   baseRoll = roll,
-  baseDryWins = dryWins
+  baseDryWins = dryWins,
+  stageLuck = 1
 ): RaidZombieDrop | null {
-  const rolled = rollRaidZombieDrop(raidId, won, roll, dice, luck, elite, baseRoll);
+  const rolled = rollRaidZombieDrop(raidId, won, roll, dice, luck, elite, baseRoll, stageLuck);
   if (rolled) return rolled;
   if (!won) return null;
   const own = raidZombieDropFor(raidId, elite);
@@ -389,7 +421,9 @@ export function resetsRaidZombieDry(
   elite: boolean,
   dropped: RaidZombieDrop | null
 ): boolean {
-  return dropped != null && dropped.key === raidZombieDropFor(raidId, elite)?.key;
+  const prize = raidZombieDropFor(raidId, elite);
+  return dropped != null && prize != null &&
+    [prize.key, ...(prize.alternates ?? []).map((alt) => alt.key)].includes(dropped.key);
 }
 
 /** Advance one prize's dry-win streak for a settled WIN that rolled for it. Receiving that
@@ -424,6 +458,10 @@ export interface RaidZombieRolls {
   dice?: number;
   /** The elite multiplier: ELITE_BRAIN_LUCK on a Brain Ticket run, 1 otherwise. */
   luck?: number;
+  /** A multiplier on both prizes — the Halloween night chain's climb. 1 / absent elsewhere. */
+  stageLuck?: number;
+  /** Which of a prize's alternates a hit hands over (pickRaidZombie). A third draw. */
+  pickRoll?: number;
 }
 
 export interface RaidZombieSettlement {
@@ -456,10 +494,11 @@ export function settleRaidZombieDrop(
 
   const ownKey = raidZombieDryKey(raidId, elite);
   const baseKey = raidZombieDryKey(raidId, false);
-  const drop = rollRaidZombieDropWithPity(
+  const hit = rollRaidZombieDropWithPity(
     raidId, true, rolls.roll, dry[ownKey] ?? 0, rolls.dice ?? 0, rolls.luck ?? 1, elite,
-    rolls.baseRoll, dry[baseKey] ?? 0
+    rolls.baseRoll, dry[baseKey] ?? 0, rolls.stageLuck ?? 1
   );
+  const drop = hit && pickRaidZombie(hit, rolls.pickRoll ?? 0);
 
   next[ownKey] = nextRaidZombieDryWins(
     dry[ownKey] ?? 0, resetsRaidZombieDry(raidId, elite, drop), raidZombiePityWins(raidId, elite)

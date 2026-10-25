@@ -54,7 +54,7 @@ import { QuestSystem } from "./quest/QuestSystem";
 import { PeriodicQuestSystem } from "./quest/periodic/PeriodicQuestSystem";
 import { QuestDef, questBonusRewardInfo, questRewardInfo } from "./quest/types";
 import { RaidManager, RaidResultView, type LootDrop, type RaidSetup } from "./raid/RaidManager";
-import { FIRST_NIGHT, hasNights, nightPrompt } from "./raid/halloweenNights";
+import { FIRST_NIGHT, hasNights, nightLabel, nightPrompt } from "./raid/halloweenNights";
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
@@ -5682,6 +5682,7 @@ async function main() {
   // night launches from that close, once the last battle is torn down.
   let nightContinue: {
     raidId: number; night: number; sessionId?: string; partyIds: string[]; concentration: boolean;
+    elite: boolean;
   } | null = null;
   // Casualties of a sitting's nights, held back while the chain goes on and offered
   // together once it ends, so a revival dialog never sits on top of the next battle. The
@@ -5747,18 +5748,20 @@ async function main() {
     night: next.night,
     continueFrom: next.sessionId,
     concentration: next.concentration && raids.concentrationCount() > 0,
+    chainElite: next.elite,
   });
   /** Put the next night to the player. Accepting closes the result panel (which tears the
    *  battle down and then launches the night); if the player already closed it, the night
    *  launches straight away. */
   const offerNight = (
-    raidId: number, night: number, partyIds: string[], concentration: boolean, sessionId?: string
+    raidId: number, night: number, partyIds: string[], concentration: boolean, elite: boolean,
+    sessionId?: string
   ) => {
     if (!partyIds.length) return;
-    const prompt = nightPrompt(night);
-    void hud.offerNight(prompt.title, prompt.body, night).then((onward) => {
+    const prompt = nightPrompt(night, elite);
+    void hud.offerNight(prompt.title, prompt.body, nightLabel(night, elite)).then((onward) => {
       if (!onward) return;
-      const next = { raidId, night, sessionId, partyIds, concentration };
+      const next = { raidId, night, sessionId, partyIds, concentration, elite };
       if (raidActive && hud.raidResultOpen()) {
         nightContinue = next;
         hud.closeRaidResult();
@@ -5957,7 +5960,9 @@ async function main() {
     raidActive = true;
     world.visible = false;
     hud.setRaiding(true); // battle scene takes over the screen
-    const battleName = setup.night > FIRST_NIGHT ? `${setup.raid.name}: Night ${setup.night}` : setup.raid.name;
+    const battleName = hasNights(setup.raid.id) && (setup.night > FIRST_NIGHT || setup.elite)
+      ? `${setup.raid.name}: ${nightLabel(setup.night, setup.elite)}`
+      : setup.raid.name;
     hud.setBattleLoading(true, `Loading ${battleName}…`); // ...which is blank until it lands
     crumb("battle:launch", `${setup.raid.name} · ${setup.playerUnits.length} zombies`);
     audio.enterRaid(setup.raid.music); // swap farm bed for this stage's battle BGM
@@ -5992,7 +5997,7 @@ async function main() {
       onVictory: () => audio.playRaidVictory(),
       confirmRetreat: () => setup.night > FIRST_NIGHT
         ? hud.confirmInGame(
-          `Retreat from Night ${setup.night}?`,
+          `Retreat from ${nightLabel(setup.night, setup.elite)}?`,
           "This night will count as a loss. Everything the earlier nights paid is already yours.",
           "Retreat"
         )
@@ -6077,7 +6082,7 @@ async function main() {
             // says who came home to fight it.
             if (res.nightOffer && res.outcome) {
               offerNight(setup.raid.id, res.nightOffer.night, survivorOrder(res.outcome.survivors),
-                setup.concentration, res.nightOffer.sessionId);
+                setup.concentration, res.nightOffer.elite ?? setup.elite, res.nightOffer.sessionId);
             }
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
@@ -6131,7 +6136,7 @@ async function main() {
         // OFFLINE the client is the authority, so it makes the night offer itself.
         if (!online && !view.practice && outcome.win && hasNights(setup.raid.id) && outcome.survivors.length) {
           queueMicrotask(() => offerNight(
-            setup.raid.id, setup.night + 1, survivorOrder(outcome.survivors), setup.concentration));
+            setup.raid.id, setup.night + 1, survivorOrder(outcome.survivors), setup.concentration, setup.elite));
         }
         hud.openRaidResult(view, () => {
           if (raidScene) {

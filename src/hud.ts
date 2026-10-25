@@ -1391,7 +1391,7 @@ export class Hud {
   /** "The night is still young": offer to carry a won Halloween invasion on into `night`
    *  (src/raid/halloweenNights.ts). Resolves true to fight on, false to head home; closing
    *  the prompt any other way heads home, which is always the safe answer. */
-  offerNight(title: string, message: string, night: number): Promise<boolean> {
+  offerNight(title: string, message: string, nightLabel: string): Promise<boolean> {
     return new Promise((resolve) => {
       let settled = false;
       const finish = (value: boolean) => {
@@ -1414,7 +1414,7 @@ export class Hud {
       home.onclick = () => close();
       const onward = document.createElement("button");
       onward.className = "zbtn sell";
-      onward.textContent = `Fight on: Night ${night}`;
+      onward.textContent = `Fight on: ${nightLabel}`;
       markPrimary(onward);
       onward.onclick = () => { finish(true); close(); };
       buttons.append(home, onward);
@@ -6293,7 +6293,8 @@ export class Hud {
         dropRow(c.zombieDrop.name).textContent =
           `${pctOdds(c.zombieDrop.rate)} per win · ${pctOdds(c.zombieDrop.eliteBaseRate)}` +
           (promoted ? ` plus ${c.zombieDrop.eliteName} ${pctOdds(c.zombieDrop.eliteRate)} on a` : " on a") +
-          " Brain Ticket · Golden Dice raise it";
+          " Brain Ticket · Golden Dice raise it" +
+          (c.zombieDrop.climbsByNight ? " · x1.5 every night you fight on" : "");
       }
       const boostVal = c.practice ? document.createElement("span") : dropRow("Boosts");
       if (!c.boostDrops.length) {

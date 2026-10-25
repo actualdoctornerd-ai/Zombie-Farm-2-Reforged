@@ -15,7 +15,7 @@
 // the session's tier and NOTHING else. Editing a profile changes every transcript at that
 // tier: bump RAID_RULESET_VERSION in the same commit (see replay.ts).
 import { eliteProfile, type EliteProfile } from "./eliteInvasion";
-import { hasNights, nightProfile } from "./halloweenNights";
+import { FIRST_NIGHT, hasNights, nightProfile, nightStage } from "./halloweenNights";
 import { seededRandom } from "./RaidCatalog";
 import type { CombatUnit, WaveCadence } from "./types";
 
@@ -318,10 +318,12 @@ export function raidProfile(
   opts: { elite?: boolean; tier?: number; night?: number } = {}
 ): EliteProfile | null {
   if (isDualInvasion(raidId)) return tierProfile(raidId, opts.tier ?? MIN_TIER);
-  // A Halloween night layers its own bulk and damage over the ordinary fight's profile
-  // (halloweenNights.ts); night 1, the ordinary invasion, comes back unchanged.
-  if (hasNights(raidId) && (opts.night ?? 1) > 1) {
-    return nightProfile(opts.night!, eliteProfile(raidId, !!opts.elite));
+  // Halloween is scaled by its NIGHT STAGE alone (halloweenNights.ts): night 1 is the
+  // ordinary invasion, each further night bulkier, and a Brain Ticket starts two nights in
+  // instead of applying an elite profile.
+  if (hasNights(raidId)) {
+    const stage = nightStage(opts.night, !!opts.elite);
+    return stage > FIRST_NIGHT ? nightProfile(stage, null) : eliteProfile(raidId, false);
   }
   return eliteProfile(raidId, !!opts.elite);
 }

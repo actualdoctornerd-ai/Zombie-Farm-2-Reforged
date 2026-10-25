@@ -14,6 +14,9 @@ import {
   rollRaidZombieDropWithPity,
   TEDDY_ZOMBIE_KEY,
   MUMMY_ZOMBIE_KEY,
+  JACKO_ZOMBIE_KEY,
+  ZCARECROW_KEY,
+  ELITE_LUCK_FOR_PRIZES,
   HALLOWEEN_RAID_ID,
   ZOMBIE_LUCK_DICE_CAP,
   RAID_ZOMBIE_DROPS,
@@ -66,9 +69,34 @@ describe("rare raid zombie drops", () => {
     expect(rollRaidZombieDrop(raidId, true, 0.01)).toBeNull();
   });
 
-  it("drops the Mummy Zombie from Halloween at its level-20 rung, 1.3%", () => {
-    expect(rollRaidZombieDrop(HALLOWEEN_RAID_ID, true, 0.012999999)?.key).toBe(MUMMY_ZOMBIE_KEY);
-    expect(rollRaidZombieDrop(HALLOWEEN_RAID_ID, true, 0.0131)).toBeNull();
+  it("pays Halloween's JackoZombie or Zcarecrow at 1%, and the Mummy only on a ticket at 4%", () => {
+    const settle = (elite: boolean, roll: number, baseRoll: number, pickRoll: number, stageLuck = 1) =>
+      settleRaidZombieDrop(HALLOWEEN_RAID_ID, elite, {}, { roll, baseRoll, pickRoll, stageLuck,
+        luck: elite ? ELITE_BRAIN_LUCK : 1 }).drop?.key ?? null;
+    expect(settle(false, 0.0099, 0.9, 0)).toBe(JACKO_ZOMBIE_KEY);
+    expect(settle(false, 0.0099, 0.9, 0.99)).toBe(ZCARECROW_KEY);
+    expect(settle(false, 0.0101, 0.9, 0)).toBeNull();
+    // An ordinary win never pays the Mummy, however lucky.
+    expect(settle(false, 0, 0, 0)).not.toBe(MUMMY_ZOMBIE_KEY);
+    // A ticket: the Mummy at 4%, and the ordinary pair at 4x as well on the second draw.
+    expect(settle(true, 0.0399, 0.9, 0)).toBe(MUMMY_ZOMBIE_KEY);
+    expect(settle(true, 0.0401, 0.9, 0)).toBeNull();
+    expect(settle(true, 0.9, 0.0399, 0.99)).toBe(ZCARECROW_KEY);
+    // The night chain lifts both prizes: night 3 is x2.25.
+    expect(settle(false, 0.0224, 0.9, 0, 2.25)).toBe(JACKO_ZOMBIE_KEY);
+    expect(settle(true, 0.0899, 0.9, 0, 2.25)).toBe(MUMMY_ZOMBIE_KEY);
+    expect(settle(true, 0.0901, 0.9, 0, 2.25)).toBeNull();
+  });
+
+  it("keeps the prize multiplier in step with the elite brain luck", () => {
+    expect(ELITE_LUCK_FOR_PRIZES).toBe(ELITE_BRAIN_LUCK);
+  });
+
+  it("resets the ordinary streak on either of Halloween's pair", () => {
+    const dry = { [String(HALLOWEEN_RAID_ID)]: 10 };
+    const won = settleRaidZombieDrop(HALLOWEEN_RAID_ID, false, dry, { roll: 0, baseRoll: 0, pickRoll: 0.99 });
+    expect(won.drop?.key).toBe(ZCARECROW_KEY);
+    expect(won.dry[String(HALLOWEEN_RAID_ID)]).toBe(0);
   });
 
   it("never drops from a loss, an unrelated invasion, or an invalid roll", () => {
@@ -435,8 +463,10 @@ describe("the story invasions' prize pairs", () => {
     expect(byKey.get(ZOMBOZO_KEY)).toMatchObject({ raidId: CIRCUS_RAID_ID, elite: false });
     expect(byKey.get(VIDEO_GAME_ZOMBIE_KEY)).toMatchObject({ raidId: VIDEO_GAMES_RAID_ID, elite: false });
     expect(byKey.get(FINAL_BOSS_ZOMBIE_KEY)).toMatchObject({ raidId: VIDEO_GAMES_RAID_ID, elite: true });
-    expect(byKey.get(MUMMY_ZOMBIE_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: false });
-    expect(byKey.size).toBe(18);
+    expect(byKey.get(JACKO_ZOMBIE_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: false });
+    expect(byKey.get(ZCARECROW_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: false });
+    expect(byKey.get(MUMMY_ZOMBIE_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: true });
+    expect(byKey.size).toBe(20);
     // Every source key is a distinct zombie: no prize is reachable from two places.
     expect(new Set(RAID_ZOMBIE_SOURCES.map((s) => s.drop.key)).size).toBe(RAID_ZOMBIE_SOURCES.length);
   });
@@ -454,7 +484,9 @@ describe("the story invasions' prize pairs", () => {
 describe("the rare-zombie rate ladder", () => {
   const recLevel = new Map((raidRows as { id: number; recommendedLevel: number }[])
     .map((raid) => [raid.id, raid.recommendedLevel]));
+  // Halloween's rate is the start of a night-by-night climb (halloweenNights.ts), not a rung.
   const ordinary = Object.entries(RAID_ZOMBIE_DROPS)
+    .filter(([id]) => Number(id) !== HALLOWEEN_RAID_ID)
     .map(([id, drop]) => ({ raidId: Number(id), rec: recLevel.get(Number(id))!, rate: drop.rate }))
     .sort((a, b) => a.rec - b.rec);
 
@@ -486,13 +518,15 @@ describe("the rare-zombie rate ladder", () => {
   });
 
   it("prices every promoted prize at the multiplier times its raid's ordinary rate, under the cap", () => {
-    for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS)) {
+    // Halloween's Mummy is priced apart: the owner's flat elite 4x, climbing with the nights.
+    for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS).filter(([id]) => Number(id) !== HALLOWEEN_RAID_ID)) {
       const uncapped = ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[Number(id)].rate;
       expect(drop.rate).toBeCloseTo(Math.min(ELITE_PRIZE_RATE_CAP, uncapped), 12);
     }
     // Only the top of the ladder is actually held down by the cap; the other four land
     // inside the band on the multiplier alone (Robots sits exactly ON the cap, uncapped).
     const capped = Object.keys(RAID_ELITE_ZOMBIE_DROPS).map(Number)
+      .filter((id) => id !== HALLOWEEN_RAID_ID)
       .filter((id) => ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[id].rate > ELITE_PRIZE_RATE_CAP + 1e-12);
     // The Aliens and the Video Games: both on the 2% rung, both held at 4.5%.
     expect(capped).toEqual([6, 9]);

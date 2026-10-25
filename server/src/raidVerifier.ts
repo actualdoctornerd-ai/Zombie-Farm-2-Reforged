@@ -1,3 +1,4 @@
+import { nightStage } from "../../src/raid/halloweenNights";
 import raidsJson from "../../public/assets/raids/raids.json";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
 import attacksJson from "../../public/assets/raids/attacks.json";
@@ -416,7 +417,7 @@ export async function buildPinnedV3Raid(
     priorWins: winsObject[String(raidId)] ?? 0,
     waveSeed,
     hazards: false,
-    night,
+    nightStage: nightStage(night, elite),
   });
   return {
     ok: true,

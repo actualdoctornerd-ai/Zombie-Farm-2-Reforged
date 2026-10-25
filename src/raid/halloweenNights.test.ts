@@ -3,8 +3,9 @@ import { buildFight } from "./buildFight";
 import { raidProfile } from "./dualInvasion";
 import { RAID_TIME_LIMIT_MS } from "./BattleSim";
 import {
-  FIRST_NIGHT, MAX_NIGHT, NIGHT_TIME_LIMIT_MS, clampNight, hasNights, nightDamageMult,
-  nightHpMult, nightProfile, nightPrompt, nightTimeLimitMs, nightZombieLuck,
+  ELITE_NIGHT_OFFSET, FIRST_NIGHT, MAX_NIGHT, NIGHT_TIME_LIMIT_MS, clampNight, hasNights,
+  nightBrainLuck, nightDamageMult, nightHpMult, nightLabel, nightProfile, nightPrompt, nightStage,
+  nightTimeLimitMs, nightZombieLuck,
 } from "./halloweenNights";
 import { flyFight } from "./harness/pilot";
 import { EXPERT, makePilot } from "./harness/pilots";
@@ -52,9 +53,26 @@ describe("Halloween nights: the rules", () => {
     expect(nightTimeLimitMs(10, 2, RAID_TIME_LIMIT_MS)).toBe(RAID_TIME_LIMIT_MS);
   });
 
-  it("make the rare zombie likelier the further the night goes", () => {
+  it("make the rare zombie x1.5 likelier every night, and brains gently likelier", () => {
     expect(nightZombieLuck(1)).toBe(1);
-    for (let night = 2; night <= 8; night++) expect(nightZombieLuck(night)).toBeGreaterThan(nightZombieLuck(night - 1));
+    expect(nightBrainLuck(1)).toBe(1);
+    for (let night = 2; night <= 8; night++) {
+      expect(nightZombieLuck(night) / nightZombieLuck(night - 1)).toBeCloseTo(1.5);
+      expect(nightBrainLuck(night) / nightBrainLuck(night - 1)).toBeCloseTo(1.1);
+    }
+  });
+
+  it("start a Brain Ticket run two nights in, and keep counting from 1 on the label", () => {
+    expect(ELITE_NIGHT_OFFSET).toBe(2);
+    expect(nightStage(1, true)).toBe(3);
+    expect(nightStage(2, true)).toBe(4);
+    expect(nightStage(1, false)).toBe(1);
+    expect(raidProfile(HALLOWEEN_RAID_ID, { night: 1, elite: true })).toEqual(nightProfile(3, null));
+    expect(raidProfile(HALLOWEEN_RAID_ID, { night: 2, elite: true })).toEqual(raidProfile(HALLOWEEN_RAID_ID, { night: 4 }));
+    expect(raidProfile(HALLOWEEN_RAID_ID, { night: 1, elite: false })).toBeNull();
+    expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, nightStage(1, true), RAID_TIME_LIMIT_MS)).toBe(NIGHT_TIME_LIMIT_MS);
+    expect(nightLabel(1, true)).toBe("Elite Night 1");
+    expect(nightLabel(3, false)).toBe("Night 3");
   });
 
   it("clamp a night off the wire", () => {
@@ -65,11 +83,17 @@ describe("Halloween nights: the rules", () => {
     expect(clampNight(9999)).toBe(MAX_NIGHT);
   });
 
-  it("open with the line the night is still young", () => {
-    expect(nightPrompt(2).title).toBe("The night is still young...");
-    expect(nightPrompt(2).body).toContain("Night 2");
-    expect(nightPrompt(3).title).not.toBe(nightPrompt(2).title);
-    for (let night = 2; night <= 7; night++) expect(nightPrompt(night).body).toContain("keep everything");
+  it("say a different, darker thing before each night, and that nothing won is lost", () => {
+    const titles = [2, 3, 4, 5, 6].map((night) => nightPrompt(night).title);
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(nightPrompt(2).title).toBe("The Count is beaten... for now.");
+    for (let night = 2; night <= 9; night++) {
+      const { body } = nightPrompt(night);
+      expect(body).toContain(`Night ${night}`);
+      expect(body).toContain("Win or lose, you keep everything you've already won.");
+      expect(body.length).toBeLessThan(160); // short
+    }
+    expect(nightPrompt(2, true).body).toContain("Elite Night 2");
   });
 });
 

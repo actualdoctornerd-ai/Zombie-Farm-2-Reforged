@@ -1251,7 +1251,11 @@ import type { RaidOutcome } from "./types";
 // through an airborne recovery; Headless units stay aloft longer. Hidden until enabled.
 // v74 — a placed Mutant Monolith increases every mutation's combat stat bonus by 10%.
 // v75 — Astronaut heads boost zombie Dex and Dino heads boost mutation stat bonuses.
-export const RAID_RULESET_VERSION = 75;
+// v76 — Halloween's prizes lifted to its level-20 rung: JackoZombie 12.6/2.1/19.8 -> 16/2.1/26,
+// Zcarecrow 23.3/1.3/16.5 -> 31/1.3/22, Mummy 14/2/12 -> 29/2/25. Any fight fielding one replays
+// differently from v75 (old saves can hold the first two). A Halloween Brain Ticket now starts
+// the night chain at night 3's strength instead of applying an elite profile.
+export const RAID_RULESET_VERSION = 76;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

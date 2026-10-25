@@ -413,10 +413,8 @@ const ELITE_BASE: Readonly<Record<number, EliteProfile>> = {
   // stay duds — an elite multiplier on zero is still zero.
   10: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
   11: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
-  // 16 — Halloween. The same step as 10 and 11, but over a level-20 wave (see
-  // tools/prep_raids.py HALLOWEEN_UNITS), which measured between Lawyers* and Pirates*:
-  // a moderate level-26 account loses ~4.5 zombies casually, ~1 from level 28.
-  16: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
+  // 16 — Halloween has no elite profile: a Brain Ticket starts its night chain two nights
+  // in (halloweenNights.ELITE_NIGHT_OFFSET), and raidProfile scales it from there.
 };
 
 /** The multipliers this fight runs under: null for an ordinary invasion (so every
