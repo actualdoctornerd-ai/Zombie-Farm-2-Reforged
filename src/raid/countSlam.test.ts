@@ -26,7 +26,7 @@ function unitsOf(raidId: number, night = 1): CombatUnit[] {
 }
 
 describe("the Count's slam", () => {
-  it("is a 3 s wind-up for ten of his hits on the front zombie, on the Count alone", () => {
+  it("is a 3 s wind-up for eight of his hits on the front zombie, on the Count alone", () => {
     const units = unitsOf(HALLOWEEN_RAID_ID);
     const count = units.find((u) => u.sourceKey === COUNT_KEY)!;
     expect(count.charge).toBeTruthy();
@@ -34,7 +34,7 @@ describe("the Count's slam", () => {
     expect(COUNT_SLAM_WINDUP_MS).toBe(3_000);
     expect(count.charge!.recoveryMs).toBe(COUNT_SLAM_RECOVERY_MS);
     expect(count.charge!.damage).toBe(Math.round(COUNT_SLAM_MULT * countHitDamage(count)));
-    expect(COUNT_SLAM_MULT).toBe(10);
+    expect(COUNT_SLAM_MULT).toBe(8);
     expect(count.charge!.target).toBe("front-deployed");
     expect(units.filter((u) => u.charge)).toHaveLength(1);
   });
