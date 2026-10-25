@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import plants from "../public/assets/plants.json";
+import { ACTIVE_THEMES } from "./decorThemes";
 import {
-  compareCropMarketOrder, compareItemMarketOrder, cropAvailableInMarket,
+  compareCropMarketOrder, compareItemMarketOrder, cropAvailableInMarket, SEASONAL_CROP_THEMES,
 } from "./marketOrder";
 
 describe("crop market ordering", () => {
@@ -12,6 +14,21 @@ describe("crop market ordering", () => {
     ];
     expect(rows.filter(cropAvailableInMarket).map((row) => row.name))
       .toEqual(["Carrot", "Potato"]);
+  });
+
+  it("sells a seasonal seed while its holiday's theme is on, and only that one", () => {
+    const rows = plants as { key: string; seasonal?: boolean; prize?: boolean }[];
+    const sold = rows.filter((row) => row.seasonal && cropAvailableInMarket(row)).map((row) => row.key);
+    const expected = Object.entries(SEASONAL_CROP_THEMES)
+      .filter(([, theme]) => ACTIVE_THEMES.includes(theme)).map(([key]) => key);
+    expect(sold.sort()).toEqual(expected.sort());
+    // Halloween is on: Candy Corn is in the market, the year's other holiday seeds are not.
+    expect(sold).toContain("candy_corn");
+    expect(sold).not.toContain("marigold");
+    // Every themed seed is a real seasonal row, so a typo cannot silently sell nothing.
+    for (const key of Object.keys(SEASONAL_CROP_THEMES)) {
+      expect(rows.find((row) => row.key === key)?.seasonal, key).toBe(true);
+    }
   });
 
   it("puts regular crops before holiday crops regardless of unlock level", () => {

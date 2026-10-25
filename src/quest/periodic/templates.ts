@@ -20,14 +20,15 @@ interface CropRow {
 
 const HOUR_MS = 3_600_000;
 
-/** Crops a periodic quest may name. Two exclusions, and they are the same rule twice
- *  over — you cannot buy the seed. Level -4 rows in plants.json are hidden entries
- *  with no shop card at all, and seasonal crops are withheld from every purchase
- *  surface (marketOrder.ts cropAvailableInMarket). A quest naming either is
- *  uncompletable, and because the board ROTATES its pool rather than rolling it, an
- *  ineligible crop is not a rare unlucky day: it comes round on a schedule. */
+/** Crops a periodic quest may name. Three exclusions, all the same rule — you must be
+ *  able to buy the seed whenever the quest is up. Level -4 rows in plants.json are hidden
+ *  entries with no shop card at all, prize crops wait on PRIZE_CROPS.live, and seasonal
+ *  crops are left out ALWAYS, even while their holiday sells them (marketOrder.ts): the
+ *  board ROTATES its pool rather than rolling it, so a seed that comes and goes would
+ *  shift everyone's rotation twice a season and could leave a quest up for a seed the
+ *  market has just stopped selling. */
 const CROPS: CropRow[] = (plantRows as CropRow[])
-  .filter((crop) => crop.level >= 1 && cropAvailableInMarket(crop))
+  .filter((crop) => crop.level >= 1 && !crop.seasonal && cropAvailableInMarket(crop))
   .map((crop) => ({ key: crop.key, name: crop.name, level: crop.level, growMs: crop.growMs }));
 
 /** Level bands the counts step through: 5-9, 10-19, 20-29, 30-39, 40+. */
