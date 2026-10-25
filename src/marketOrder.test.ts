@@ -31,6 +31,14 @@ describe("crop market ordering", () => {
     }
   });
 
+  it("reads a Market card's key from its crop config, which is what the Market filters", () => {
+    // MenuCard has no top-level key (main.ts builds it; the key rides on `cfg`). Filtering
+    // cards on `key` alone hid Candy Corn from the live Market on release day.
+    const card = (key: string) => ({ name: key, level: 13, seasonal: true, cfg: { key } });
+    expect(cropAvailableInMarket(card("candy_corn"))).toBe(true);
+    expect(cropAvailableInMarket(card("marigold"))).toBe(false);
+  });
+
   it("puts regular crops before holiday crops regardless of unlock level", () => {
     const entries = [
       { name: "Holiday L1", level: 1, seasonal: true },

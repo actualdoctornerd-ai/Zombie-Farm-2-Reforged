@@ -10,10 +10,15 @@ export const SEASONAL_CROP_THEMES: Readonly<Record<string, string>> = {
 };
 
 /** Whether a seed is on sale. Seasonal seeds follow their theme (SEASONAL_CROP_THEMES);
- *  planted crops still use the complete asset catalog for save restore and harvest. */
-export function cropAvailableInMarket(crop: { key?: string; seasonal?: boolean; prize?: boolean }): boolean {
+ *  planted crops still use the complete asset catalog for save restore and harvest.
+ *  Takes a plants.json row (`key`) or a Market card (MenuCard, whose key is on `cfg`): the
+ *  Market filters its CARDS, and a card has no top-level key. */
+export function cropAvailableInMarket(
+  crop: { key?: string; cfg?: { key: string }; seasonal?: boolean; prize?: boolean },
+): boolean {
   if (crop.seasonal) {
-    const theme = crop.key ? SEASONAL_CROP_THEMES[crop.key] : undefined;
+    const key = crop.key ?? crop.cfg?.key;
+    const theme = key ? SEASONAL_CROP_THEMES[key] : undefined;
     return !!theme && themeAvailable(theme);
   }
   // A prize crop (src/cropUnlocks.ts) has no shop card at all until the prize crops are
