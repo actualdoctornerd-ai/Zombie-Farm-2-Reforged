@@ -124,6 +124,9 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   bashV2: { label: "Smash", effect: "1.8× attack and 1-second stun; 10-second recharge", desc: "Smashes the enemy when activated (use when fighting)", icon: `${AB}ability_bashV2.png` },
   block: { label: "Block", effect: "1-second guard for all fielded zombies; 20% per blocker, up to 100%", desc: "Tap to guard all zombies in the battle area. Each active Block zombie adds 20% reduction; 12-second cooldown", icon: `${AB}ability_block.png` },
   healAOE: { label: "Heal All", effect: "50% Power to all injured zombies every 20 seconds", desc: "Heal all zombies every once in awhile", icon: `${AB}ability_healAOE.png` },
+  // ---- Prize-only (no group ladder holds these; see SPECIAL_ABILITIES) ----
+  unwrapped: { label: "Unwrapped", effect: "The first time it falls, it gets back up at 50% Life; once per fight", desc: "Too stubborn to stay down", icon: `${AB}ability_ressurect.png` },
+  lastLaugh: { label: "Last Laugh", effect: "When it falls, every zombie heals 20% of its Life", desc: "Goes out cackling, and the army feels better for it", icon: `${AB}ability_healAOE.png` },
 };
 
 // ---------------------------------------------------------------------------
@@ -151,8 +154,8 @@ export const MAX_ABILITY_TIER = 4;
 export const ABILITY_TIER: Record<number, string[]> = {
   1: ["buffAllStats", "attackSpeedBuff", "powerBuff", "hitPointsBuff", "heal"],
   2: ["chivalry", "grace", "attachMini", "protect", "tankHitPointsBuff"],
-  3: ["laserBeam", "stun", "explode", "bash", "turboSpeed", "ressurect"],
-  4: ["zomBeam", "doubleStrike", "explodeV2", "bashV2", "block", "healAOE"],
+  3: ["laserBeam", "stun", "explode", "bash", "turboSpeed", "ressurect", "unwrapped"],
+  4: ["zomBeam", "doubleStrike", "explodeV2", "bashV2", "block", "healAOE", "lastLaugh"],
 };
 
 /** The tier an ability belongs to (0 if it isn't assigned to any tier). */
@@ -257,6 +260,17 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorBrockColey:     ["buffAllStats",   "chivalry",          "tankHitPointsBuff", "bash"],
   ZombieActorZastronaut:     ["buffAllStats",   "chivalry",          "turboSpeed", "zomBeam"],
   ZombieActorZosmonaut:      ["buffAllStats",   "chivalry",          "turboSpeed", "zomBeam"],
+  // ---- Halloween's prizes (owner, 2026-10-24) -------------------------------------
+  //   - JackoZombie is a Regular that carries a Mini's Explode Ver.2 (it hits the boss)
+  //     and LAST LAUGH: whenever it falls — blown up by its own fuse included — every
+  //     zombie heals 20% of its Life. Exploding is a planned sacrifice that pays twice.
+  //   - Zcarecrow is a brute that guards the line: Block (a Headless move) in place of
+  //     Bash, keeping Mini Buddy and the stunning Smash.
+  //   - The Mummy (elite prize) is UNWRAPPED: the first killing blow of a fight leaves it
+  //     standing at 50% Life, once. Random Stun takes the other laser's slot.
+  ZombieActorRegular2Tier5:  ["buffAllStats",   "chivalry",          "explodeV2",  "lastLaugh"],
+  ZombieActorLarge2Tier5:    ["powerBuff",      "attachMini",        "block",      "bashV2"],
+  ZombieActorMummy:          ["buffAllStats",   "chivalry",          "unwrapped",  "stun"],
 };
 
 /** The ability a specific unit has at `tier`: a named-unique override if any,

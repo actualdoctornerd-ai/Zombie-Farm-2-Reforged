@@ -701,6 +701,8 @@ interface Token {
   healPose: number; // seconds remaining in the arms-overhead healing pose
   laserFxSeq: number; // last automatic laser event rendered for this unit
   explodeFxSeq: number; // last self-destruct blast rendered for this unit
+  unwrapFxSeq: number; // last Unwrapped get-up rendered for this unit (the Mummy)
+  lastLaughFxSeq: number; // last Last Laugh burst rendered for this unit (JackoZombie)
   fuseT: number; // seconds accumulated toward the next Explode wind-up spark
   stunT: number; // seconds accumulated toward the next stun star
 }
@@ -1816,7 +1818,7 @@ export class RaidScene {
       hitFlash: 0, chargeSwell: 0, deathAnim: -1, emerged: false, hpKey: -1, chargeKey: -1,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
       healFxSeq: 0, healCastSeq: 0, healPose: 0, laserFxSeq: 0,
-      explodeFxSeq: 0, fuseT: 0, stunT: STUN_PRIMED,
+      explodeFxSeq: 0, unwrapFxSeq: 0, lastLaughFxSeq: 0, fuseT: 0, stunT: STUN_PRIMED,
     };
   }
 
@@ -2579,6 +2581,19 @@ export class RaidScene {
       if (u.explodeFxSeq > tok.explodeFxSeq) {
         tok.explodeFxSeq = u.explodeFxSeq;
         this.spawnExplosion(sx, sy + tok.topY * 0.5 * szs);
+      }
+      // Unwrapped: the bandages burst off in a puff of old linen and the Mummy stands back up.
+      if (u.unwrapFxSeq > tok.unwrapFxSeq) {
+        tok.unwrapFxSeq = u.unwrapFxSeq;
+        this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, 0xefe3c2);
+        this.spawnCallout(u, "Unwrapped!", 0xf3e6c4);
+      }
+      // Last Laugh: the pumpkin head bursts with a cackle; the army's heal sparkles come
+      // from their own healFxSeq bumps on the same tick.
+      if (u.lastLaughFxSeq > tok.lastLaughFxSeq) {
+        tok.lastLaughFxSeq = u.lastLaughFxSeq;
+        this.spawnPoof(sx, sy + tok.topY * 0.6 * szs, 0xff9a2e);
+        this.spawnCallout(u, "Last Laugh!", 0xffb347);
       }
       if (u.healFxSeq > tok.healFxSeq) {
         tok.healFxSeq = u.healFxSeq;
@@ -3789,6 +3804,30 @@ export class RaidScene {
     // into one unreadable smudge.
     const x = tok.root.x + (Math.random() * 2 - 1) * 14 * szs;
     const y = tok.root.y + tok.topY * 0.75 * szs;
+    text.position.set(x, y);
+    this.fxLayer.addChild(text);
+    this.damageNumbers.push({ text, t: 0, x, y });
+  }
+
+  /** A floating word over a unit (an ability going off), riding the damage-number float so
+   *  it rises, fades and is pooled the same way. */
+  private spawnCallout(u: SimUnit, label: string, color: number) {
+    const tok = this.tokens.get(u.id);
+    if (!tok) return;
+    const szs = this.sizeScale();
+    if (this.damageNumbers.length >= DAMAGE_NUMBER_MAX) this.damageNumbers.shift()?.text.destroy();
+    const text = new Text({
+      text: label,
+      style: {
+        fill: color,
+        fontSize: Math.max(12, Math.round(18 * szs)),
+        fontWeight: "bold",
+        stroke: { color: 0x14181f, width: 4 },
+      },
+    });
+    text.anchor.set(0.5, 1);
+    const x = tok.root.x;
+    const y = tok.root.y + tok.topY * 1.05 * szs;
     text.position.set(x, y);
     this.fxLayer.addChild(text);
     this.damageNumbers.push({ text, t: 0, x, y });

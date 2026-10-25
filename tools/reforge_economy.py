@@ -463,7 +463,7 @@ SPECIAL_STAT_REBALANCE = {
     # the level-20 rung: the ordinary pair ~29.5, between the Deputy (16) and the
     # MerZombie (21); the Mummy ~38, above the Crazy Zombie (32.6) as an elite prize
     # should be. Str and con scale together; dex is the source's.
-    "ZombieActorRegular2Tier5":    {"str": 16, "con": 26},  # 12.6/19.8  x1.29  L20  JackoZombie, ladder 29.6
+    "ZombieActorRegular2Tier5":    {"str": 15, "con": 24},  # 12.6/19.8  x1.21  L20  JackoZombie, ladder 27.5 (trimmed 2026-10-24: it carries Explode Ver.2 + Last Laugh)
     "ZombieActorLarge2Tier5":      {"str": 31, "con": 22},  # 23.3/16.5  x1.32  L20  Zcarecrow, ladder 29.8
     "ZombieActorMummy":            {"str": 29, "con": 25},  # 14/12      x2.1   L20 elite  Mummy, ladder 38.1
     # The Cozmonaut (Aliens elite) and the Zombozo (Circus) are AUTHORED rows

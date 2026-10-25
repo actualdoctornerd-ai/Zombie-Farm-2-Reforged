@@ -34,10 +34,10 @@ export const ABILITY_KIND: Record<string, AbilityKind> = {
   // self (hidden from the strip)
   buffAllStats: "self", attackSpeedBuff: "self", powerBuff: "self",
   hitPointsBuff: "self", turboSpeed: "self",
-  laserBeam: "self", zomBeam: "self", stun: "self", doubleStrike: "self",
+  laserBeam: "self", zomBeam: "self", stun: "self", doubleStrike: "self", unwrapped: "self",
   // team (shown, automatic)
   heal: "team", healAOE: "team", protect: "team", tankHitPointsBuff: "team", ressurect: "team",
-  chivalry: "team", grace: "team",
+  chivalry: "team", grace: "team", lastLaugh: "team",
   // activated (shown, tappable — one zombie per tap)
   attachMini: "activated", bash: "activated", bashV2: "activated", block: "activated",
   explode: "activated", explodeV2: "activated",
@@ -157,6 +157,10 @@ export const ABILITY_COMBAT: Record<string, AbilityCombatEffect> = {
   bashV2: {},
   block: {},
   healAOE: {},
+
+  // ---- Prize-only: both are death-time effects BattleSim performs itself ----
+  unwrapped: {},
+  lastLaugh: {},
 };
 
 /** Does ability slot `slot` (1..4: a zombie's colour-class tiers) work? Decided by the

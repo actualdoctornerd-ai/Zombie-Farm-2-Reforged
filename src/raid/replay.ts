@@ -1255,7 +1255,10 @@ import type { RaidOutcome } from "./types";
 // Zcarecrow 23.3/1.3/16.5 -> 31/1.3/22, Mummy 14/2/12 -> 29/2/25. Any fight fielding one replays
 // differently from v75 (old saves can hold the first two). A Halloween Brain Ticket now starts
 // the night chain at night 3's strength instead of applying an elite profile.
-export const RAID_RULESET_VERSION = 76;
+// v77 — Halloween prize abilities: JackoZombie Explode Ver.2 + Last Laugh (heal all 20% on
+// death), Zcarecrow Block in place of Bash, Mummy Unwrapped (once-per-fight 50% get-up) +
+// Random Stun; JackoZombie 16/2.1/26 -> 15/2.1/24. Fights fielding any of the three change.
+export const RAID_RULESET_VERSION = 77;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

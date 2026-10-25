@@ -281,6 +281,10 @@ const HEAL_POWER_MULT = 0.5;
 /** No revive ever happens on the defender pass, so it shares one frozen empty set. */
 const EMPTY_CAST: ReadonlySet<string> = new Set<string>();
 const HEAL_AOE_MS = 20_000;
+/** Unwrapped (the Mummy Zombie): the Life it gets back up with, as a share of its max. */
+export const UNWRAP_HP_FRAC = 0.5;
+/** Last Laugh (JackoZombie): what every zombie heals when it falls, as a share of max Life. */
+export const LAST_LAUGH_HEAL_FRAC = 0.2;
 
 // Ballistic throws.
 const GRAVITY = 820; // sim px/s^2 pulling projectiles down
@@ -624,6 +628,9 @@ export interface SimUnit {
   abilityRollSeq: number; // replay-safe proc sequence (Block/Stun/Double Strike)
   usedAbilities: string[]; // one-use activated abilities already consumed
   resurrectUsed: boolean; // one-use automatic Resurrect latch
+  unwrapUsed: boolean; // Unwrapped spent: the next killing blow is final
+  unwrapFxSeq: number; // increments when this unit gets back up from Unwrapped (renderer trigger)
+  lastLaughFxSeq: number; // increments when this unit's Last Laugh goes off (renderer trigger)
   stunMs: number; // ms of stun left — can't act while > 0 (enemies AND zombies)
   /** Live knockback slide (`ActorFightData knockBackPoint` / `knockBackSpeed`). While
    *  `knockBackMs > 0` the zombie is being shoved and is NOT in melee — it can't attack,
@@ -1048,6 +1055,9 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     abilityRollSeq: 0,
     usedAbilities: [],
     resurrectUsed: false,
+    unwrapUsed: false,
+    unwrapFxSeq: 0,
+    lastLaughFxSeq: 0,
     stunMs: 0,
     knockBackToX: 0,
     knockBackSpeed: 0,
@@ -1496,6 +1506,9 @@ export class BattleSim {
       blockMs: u.blockMs ?? 0,
       usedAbilities: [...(u.usedAbilities ?? [])],
       resurrectUsed: u.resurrectUsed ?? false,
+      unwrapUsed: u.unwrapUsed ?? false,
+      unwrapFxSeq: u.unwrapFxSeq ?? 0,
+      lastLaughFxSeq: u.lastLaughFxSeq ?? 0,
       power: u.power ?? u.damage,
       // An old checkpoint parked at the 1-HP floor has necessarily consumed
       // its protection. New checkpoints persist the explicit latch.
@@ -3462,6 +3475,16 @@ export class BattleSim {
     if (dmg > 0) foe.damageFxTaken += dmg;
     foe.hp -= dmg;
     if (foe.hp > 0) return;
+    // UNWRAPPED (the Mummy Zombie): the first killing blow of the fight leaves it standing
+    // at half Life instead. Here, at the one choke point every death passes through, so no
+    // damage path can skip it. Spent for good: Resurrect does not hand it back.
+    if (foe.team === "player" && !foe.unwrapUsed && foe.abilities.includes("unwrapped")) {
+      foe.unwrapUsed = true;
+      foe.hp = Math.max(1, Math.round(foe.maxHp * UNWRAP_HP_FRAC));
+      foe.unwrapFxSeq++;
+      foe.healFxSeq++;
+      return;
+    }
     foe.hp = 0;
     foe.alive = false;
     foe.state = "dead";
@@ -3477,6 +3500,7 @@ export class BattleSim {
     // which may be long after this death, and may be a holder not yet deployed.
     if (foe.team === "player") {
       this.fallen.push(foe.id);
+      if (foe.abilities.includes("lastLaugh")) this.lastLaugh(foe);
       return;
     }
     // A pixel zombie broken open hands its captive back. Done HERE rather than in
@@ -3494,6 +3518,19 @@ export class BattleSim {
     }
     // Only an enemy reaches here. A downed one opens the gate for the next to emerge.
     if (fromPlayer) this.emergeCooldown = ENEMY_EMERGE_GAP_MS;
+  }
+
+  /** LAST LAUGH (JackoZombie): it falls, and every zombie still standing heals a fifth of
+   *  its Life — deployed or still waiting, since the waiting ones are part of the army too
+   *  (they are at full Life anyway). Fires on ANY death, its own Explode included, which
+   *  is what makes the fuse a planned sacrifice rather than just a blast. */
+  private lastLaugh(fallen: SimUnit): void {
+    fallen.lastLaughFxSeq++;
+    for (const p of this.players) {
+      if (!p.alive || p.taken || p.hp >= p.maxHp) continue;
+      p.hp = Math.min(p.maxHp, p.hp + Math.max(1, Math.round(p.maxHp * LAST_LAUGH_HEAL_FRAC)));
+      p.healFxSeq++;
+    }
   }
 
   /** Resurrect is automatic and one-use. A living Garden holder revives the
