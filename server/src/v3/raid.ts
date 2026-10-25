@@ -195,7 +195,10 @@ async function resolveNightContinuation(
   continueFrom: unknown,
   requested: string[],
   now: number
-): Promise<{ ok: true; sessionId: string; night: number; elite: boolean } | { ok: false; status: number; error: string }> {
+): Promise<
+  | { ok: true; sessionId: string; night: number; elite: boolean; dice: number; concentration: boolean }
+  | { ok: false; status: number; error: string }
+> {
   if (typeof continueFrom !== "string" || !continueFrom || !hasNights(raidId)) {
     return { ok: false, status: 400, error: "bad_continue" };
   }
@@ -204,7 +207,9 @@ async function resolveNightContinuation(
     .bind(continueFrom, accountId)
     .first<{ raid_id: string; boosts_json: string; result_json: string | null; finished_at: number | null }>();
   if (!previous || Number(previous.raid_id) !== raidId) return { ok: false, status: 404, error: "bad_continue" };
-  const boosts = parse<{ night?: number; continuedBy?: string; practice?: boolean; elite?: boolean }>(previous.boosts_json, {});
+  const boosts = parse<{
+    night?: number; continuedBy?: string; practice?: boolean; elite?: boolean; dice?: number; concentration?: boolean;
+  }>(previous.boosts_json, {});
   const result = parse<{ outcome?: { win?: boolean; survivors?: string[] } }>(previous.result_json ?? "", {});
   if (!previous.result_json || previous.finished_at == null || result.outcome?.win !== true || boosts.practice) {
     return { ok: false, status: 409, error: "night_unavailable" };
@@ -216,7 +221,13 @@ async function resolveNightContinuation(
   const survivors = new Set(result.outcome.survivors ?? []);
   if (requested.some((id) => !survivors.has(id))) return { ok: false, status: 409, error: "bad_roster" };
   // A Brain Ticket run stays elite all the way down: the ticket was paid once, at night 1.
-  return { ok: true, sessionId: continueFrom, night, elite: boosts.elite === true };
+  // So do the Golden Dice and Concentration night 1 was launched with: they were paid for the
+  // whole invasion, and every night re-pins them (owner, 2026-10-24).
+  return {
+    ok: true, sessionId: continueFrom, night, elite: boosts.elite === true,
+    dice: Math.max(0, Math.min(10, Math.trunc(Number(boosts.dice) || 0))),
+    concentration: boosts.concentration === true,
+  };
 }
 
 export async function startRaid(
@@ -240,11 +251,13 @@ export async function startRaid(
   await db.prepare("INSERT OR IGNORE INTO raid_state_v3(account_id) VALUES (?)").bind(accountId).run();
   // A HALLOWEEN NIGHT (src/raid/halloweenNights.ts): the next round of a won Halloween
   // invasion, fought by its survivors. It is part of the sitting the first fight paid the
-  // cooldown for, so it waits on no cooldown, spends no voucher or dice, and takes no Brain
-  // Ticket (the night's own scaling is the difficulty).
+  // cooldown for, so it waits on no cooldown and spends nothing: the voucher, ticket, Golden
+  // Dice and Concentration night 1 was launched with carry through the whole chain.
   let night = FIRST_NIGHT;
   let chainFrom: string | null = null;
   let chainElite = false;
+  let chainDice = 0;
+  let chainConcentration = false;
   if (body.continueFrom !== undefined) {
     const continued = await resolveNightContinuation(db, accountId, raidId, body.continueFrom, requested, now);
     if (!continued.ok) return { status: continued.status, body: { ok: false, error: continued.error } };
@@ -252,12 +265,14 @@ export async function startRaid(
     night = continued.night;
     chainFrom = continued.sessionId;
     chainElite = continued.elite;
+    chainDice = continued.dice;
+    chainConcentration = continued.concentration;
   }
   // PRACTICE (src/raid/practice.ts): the dual invasions cost and pay nothing while the
   // ladders are tuned — no cooldown, no voucher, no dice, no Concentration. Refusing the
   // consumables here (rather than charging them) is what keeps practice free.
   const practice = isPracticeRaid(raidId);
-  const concentration = body.concentration === true && !practice;
+  const concentration = chainFrom ? chainConcentration : body.concentration === true && !practice;
   // Minted before the wave is pinned: it doubles as the seed for any per-fight
   // randomness in the wave (the Robots' random boss), and the client redraws the same
   // wave from the session id this response returns.
@@ -324,17 +339,18 @@ export async function startRaid(
   const voucherBypass = remaining > 0 && !elite;
   if (remaining && !useVoucher && !elite) return { status: 429, body: { ok: false, error: "cooldown", cooldownRemaining: remaining } };
   if (voucherBypass && (core.inventory[VOUCHER_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_voucher" } };
-  const dice = practice || chainFrom ? 0 : Math.max(0, Math.min(10, Math.trunc(Number(body.dice) || 0)));
-  if ((core.inventory[DICE_KEY] ?? 0) < dice) return { status: 409, body: { ok: false, error: "insufficient_dice" } };
-  if (concentration && (core.inventory[CONCENTRATION_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_concentration" } };
+  const dice = practice ? 0 : chainFrom ? chainDice : Math.max(0, Math.min(10, Math.trunc(Number(body.dice) || 0)));
+  // A night re-pins what night 1 paid for; only a fresh launch is charged.
+  if (!chainFrom && (core.inventory[DICE_KEY] ?? 0) < dice) return { status: 409, body: { ok: false, error: "insufficient_dice" } };
+  if (!chainFrom && concentration && (core.inventory[CONCENTRATION_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_concentration" } };
   // Re-read from `core` rather than trusting the count taken before the pin: this is the
   // copy that gets written back, so the debit has to come off it.
   // A night of an elite chain inherits the ticket night 1 paid for; it spends none.
   if (elite && !chainFrom && (core.inventory[BRAIN_TICKET_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_brain_ticket" } };
   if (elite && !chainFrom) core.inventory[BRAIN_TICKET_KEY]--;
   if (voucherBypass) core.inventory[VOUCHER_KEY]--;
-  if (dice) core.inventory[DICE_KEY] -= dice;
-  if (concentration) core.inventory[CONCENTRATION_KEY]--;
+  if (dice && !chainFrom) core.inventory[DICE_KEY] -= dice;
+  if (concentration && !chainFrom) core.inventory[CONCENTRATION_KEY]--;
   const brainDrop = practice ? 0 : rollPinnedBrainDrop(
     econ.recLevel,
     pinned.config.enemyUnits.some((unit) => unit.isBoss),

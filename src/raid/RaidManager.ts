@@ -235,6 +235,9 @@ export interface RaidLaunchOpts {
   /** OFFLINE: the chain being continued was a Brain Ticket run, so this night is elite too
    *  (no ticket is spent; night 1 paid it). Online the server says so (serverElite). */
   chainElite?: boolean;
+  /** OFFLINE: the Golden Dice and Concentration night 1 was launched with. A night carries
+   *  them without spending more; online the server re-pins them (serverDice / concentration). */
+  chainDice?: number;
   /** ONLINE: the server (POST /raid/start) already authorized this launch, so
    *  beginRaid must NOT re-run the client cooldown gate. The server owns the clock. */
   serverAuthorized?: boolean;
@@ -603,6 +606,8 @@ export class RaidManager {
     let concentration = false;
     if (practice) concentration = false;
     else if (opts.serverAuthorized) concentration = !!opts.concentration;
+    // A night carries night 1's Concentration; nothing more is spent.
+    else if (continuing) concentration = !!opts.concentration;
     else if (opts.concentration && this.state.boostCount(CONCENTRATION_KEY) > 0) {
       concentration = true;
       if (online) this.state.onInventory!({ type: "use", key: CONCENTRATION_KEY }, { count: -1 });
@@ -616,10 +621,13 @@ export class RaidManager {
     let dice = 0;
     const wantDice = Math.max(0, Math.floor(opts.dice ?? 0));
     const diceCap = Math.min(wantDice, this.diceCount(), maxLuckTiers(raid));
-    if (practice || continuing) {
+    if (practice) {
       dice = 0;
     } else if (opts.serverAuthorized) {
       dice = Math.max(0, Math.floor(opts.serverDice ?? 0));
+    } else if (continuing) {
+      // Night 1's dice, carried through the chain without spending more.
+      dice = Math.max(0, Math.min(maxLuckTiers(raid), Math.floor(opts.chainDice ?? 0)));
     } else {
       for (let i = 0; i < diceCap && this.state.useBoost(DICE_KEY); i++) dice++;
     }

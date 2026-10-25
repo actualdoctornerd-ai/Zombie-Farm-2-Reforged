@@ -215,6 +215,18 @@ describe("continuing a won Halloween invasion into the next night", () => {
       .toBeCloseTo(nightHpMult(4), 1);
   });
 
+  it("carries night 1's Golden Dice and Concentration through the chain, charging nothing", async () => {
+    const { db, raw } = seed({ boosts: { dice: 3, concentration: true } });
+    const res = await start(db); // owns no dice and no Concentration, and asks for neither
+    expect(res.body).toMatchObject({ ok: true, night: 2, dice: 3, concentration: true });
+    expect(sessionBoosts(raw, res.body.sessionId as string)).toMatchObject({ dice: 3, concentration: true });
+    const config = JSON.parse((raw.prepare("SELECT config_json FROM raid_sessions_v3 WHERE id = ?")
+      .get(res.body.sessionId as string) as { config_json: string }).config_json);
+    expect(config.concentration).toBe(true);
+    const core = JSON.parse((raw.prepare("SELECT current_json FROM gameplay_documents_v3").get() as { current_json: string }).current_json);
+    expect(core.inventory).toEqual({});
+  });
+
   it("belongs to Halloween only", async () => {
     const { db } = seed();
     expect(await start(db, { raidId: 10 })).toMatchObject({ status: 400, body: { error: "bad_continue" } });

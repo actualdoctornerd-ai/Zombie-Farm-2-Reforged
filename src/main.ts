@@ -5682,7 +5682,7 @@ async function main() {
   // night launches from that close, once the last battle is torn down.
   let nightContinue: {
     raidId: number; night: number; sessionId?: string; partyIds: string[]; concentration: boolean;
-    elite: boolean;
+    elite: boolean; dice: number;
   } | null = null;
   // Casualties of a sitting's nights, held back while the chain goes on and offered
   // together once it ends, so a revival dialog never sits on top of the next battle. The
@@ -5742,26 +5742,27 @@ async function main() {
       });
     }
   };
-  /** The launch options for a night. A fight fought under Concentration carries it on
-   *  while the player still owns one; it is a boost like any other, spent per fight. */
+  /** The launch options for a night. The Golden Dice and Concentration night 1 was launched
+   *  with last the whole invasion: carried, not spent again (the server re-pins them too). */
   const nightLaunchOpts = (next: NonNullable<typeof nightContinue>) => ({
     night: next.night,
     continueFrom: next.sessionId,
-    concentration: next.concentration && raids.concentrationCount() > 0,
+    concentration: next.concentration,
     chainElite: next.elite,
+    chainDice: next.dice,
   });
   /** Put the next night to the player. Accepting closes the result panel (which tears the
    *  battle down and then launches the night); if the player already closed it, the night
    *  launches straight away. */
   const offerNight = (
-    raidId: number, night: number, partyIds: string[], concentration: boolean, elite: boolean,
+    raidId: number, night: number, partyIds: string[], concentration: boolean, elite: boolean, dice: number,
     sessionId?: string
   ) => {
     if (!partyIds.length) return;
     const prompt = nightPrompt(night, elite);
     void hud.offerNight(prompt.title, prompt.body, nightLabel(night, elite)).then((onward) => {
       if (!onward) return;
-      const next = { raidId, night, sessionId, partyIds, concentration, elite };
+      const next = { raidId, night, sessionId, partyIds, concentration, elite, dice };
       if (raidActive && hud.raidResultOpen()) {
         nightContinue = next;
         hud.closeRaidResult();
@@ -6082,7 +6083,7 @@ async function main() {
             // says who came home to fight it.
             if (res.nightOffer && res.outcome) {
               offerNight(setup.raid.id, res.nightOffer.night, survivorOrder(res.outcome.survivors),
-                setup.concentration, res.nightOffer.elite ?? setup.elite, res.nightOffer.sessionId);
+                setup.concentration, res.nightOffer.elite ?? setup.elite, setup.dice, res.nightOffer.sessionId);
             }
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
@@ -6136,7 +6137,7 @@ async function main() {
         // OFFLINE the client is the authority, so it makes the night offer itself.
         if (!online && !view.practice && outcome.win && hasNights(setup.raid.id) && outcome.survivors.length) {
           queueMicrotask(() => offerNight(
-            setup.raid.id, setup.night + 1, survivorOrder(outcome.survivors), setup.concentration, setup.elite));
+            setup.raid.id, setup.night + 1, survivorOrder(outcome.survivors), setup.concentration, setup.elite, setup.dice));
         }
         hud.openRaidResult(view, () => {
           if (raidScene) {
