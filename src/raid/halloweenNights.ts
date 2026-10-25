@@ -150,9 +150,9 @@ export function nightLabel(night: number, elite: boolean): string {
 const NIGHT_LINES: readonly { title: string; line: string }[] = [
   { title: "The night is still young.", line: "The Count and his guests are just getting started." },
   { title: "It's getting late.", line: "The party's getting rowdier, and his guests are getting stronger." },
-  { title: "The moon turns red.", line: "The night grows darker, and something out there is howling." },
-  { title: "Midnight.", line: "The darkest hour. Few zombies come back from a night like this." },
-  { title: "There will be no dawn.", line: "The house wants you to stay. Forever." },
+  { title: "Midnight approaches.", line: "The night grows darker, and something out there is howling." },
+  { title: "Midnight.", line: "Few zombies come back from a night like this." },
+  { title: "The witching hour has arrived.", line: "The party is in full swing, and his guests have never been stronger." },
 ];
 
 /** What the "keep going?" prompt says before `nextNight`. Short, darker each night, and
