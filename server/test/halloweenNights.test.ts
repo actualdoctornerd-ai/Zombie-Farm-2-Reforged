@@ -106,6 +106,8 @@ describe("continuing a won Halloween invasion into the next night", () => {
     // A night rides the cooldown its first fight started: the clock does not move.
     expect((raw.prepare("SELECT last_started_at FROM raid_state_v3").get() as { last_started_at: number })
       .last_started_at).toBe(NOW - 60_000);
+    // ...and tells the client so, rather than a fresh stamp it would show as a new cooldown.
+    expect(res.body.lastRaidAt).toBe(NOW - 60_000);
     const locked = raw.prepare("SELECT unit_id FROM roster_v3 WHERE locked_by_raid = ? ORDER BY unit_id").all(id)
       .map((row) => (row as { unit_id: string }).unit_id);
     expect(locked).toEqual(survivors);

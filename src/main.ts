@@ -54,7 +54,7 @@ import { QuestSystem } from "./quest/QuestSystem";
 import { PeriodicQuestSystem } from "./quest/periodic/PeriodicQuestSystem";
 import { QuestDef, questBonusRewardInfo, questRewardInfo } from "./quest/types";
 import { RaidManager, RaidResultView, type LootDrop, type RaidSetup } from "./raid/RaidManager";
-import { FIRST_NIGHT, hasNights, nightLabel, nightPrompt } from "./raid/halloweenNights";
+import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, hasNights, nightLabel, nightPrompt } from "./raid/halloweenNights";
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
@@ -5692,6 +5692,9 @@ async function main() {
     settlementPromise: Promise<api.RaidFinishResult> | null;
   }
   let deferredRevivals: PendingRevival[] = [];
+  /** A night offer is on screen: whoever answers it decides whether the chain ends, and
+   *  with it whether the deferred revivals are offered now. */
+  let nightOfferOpen = false;
   const offerRevivals = (entries: PendingRevival[]) => {
     const withDead = entries.filter((entry) => entry.casualtyParty.length);
     if (!withDead.length) return;
@@ -5758,16 +5761,31 @@ async function main() {
     raidId: number, night: number, partyIds: string[], concentration: boolean, elite: boolean, dice: number,
     sessionId?: string
   ) => {
-    if (!partyIds.length) return;
+    if (!partyIds.length || night > MAX_NIGHT) return;
     const prompt = nightPrompt(night, elite);
+    // Online the server refuses a night started after the window; offline nothing else
+    // would, so the prompt itself goes stale.
+    const offeredAt = Date.now();
+    nightOfferOpen = true;
     void hud.offerNight(prompt.title, prompt.body, nightLabel(night, elite)).then((onward) => {
-      if (!onward) return;
+      nightOfferOpen = false;
+      const stale = !sessionId && Date.now() - offeredAt > NIGHT_CONTINUE_WINDOW_MS;
+      if (stale) hud.showToast("The night has passed. Your zombies headed home.");
+      if (!onward || stale) {
+        // Heading home ends the chain. With the result panel still up its close offers the
+        // revivals; with it already closed, nobody else will.
+        if (!raidActive) offerRevivals(deferredRevivals.splice(0));
+        return;
+      }
       const next = { raidId, night, sessionId, partyIds, concentration, elite, dice };
       if (raidActive && hud.raidResultOpen()) {
         nightContinue = next;
         hud.closeRaidResult();
       } else if (!raidActive) {
-        void launchGate.run(async () => launchRaid(raidId, partyIds, nightLaunchOpts(next)), false);
+        void launchGate.run(async () => launchRaid(raidId, partyIds, nightLaunchOpts(next)), false)
+          .then((launched) => {
+            if (!launched) offerRevivals(deferredRevivals.splice(0));
+          });
       }
     });
   };
@@ -6187,6 +6205,16 @@ async function main() {
               .then((launched) => {
                 if (!launched) offerRevivals(deferredRevivals.splice(0));
               });
+            return;
+          }
+          // Online, a won Halloween night closed before its settlement landed does not know
+          // yet whether a next night is on offer. Wait for it, so the revival dialog cannot
+          // open under a night that launches straight after; an offer that does appear
+          // takes the revivals over (offerNight).
+          if (settlementPromise && outcome.win && hasNights(setup.raid.id)) {
+            void settlementPromise.catch(() => null).then(() => {
+              if (!nightOfferOpen && !raidActive) offerRevivals(deferredRevivals.splice(0));
+            });
             return;
           }
           offerRevivals(deferredRevivals.splice(0));

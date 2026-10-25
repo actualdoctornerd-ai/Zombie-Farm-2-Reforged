@@ -21,6 +21,14 @@ export const RAID_TIPS: Record<number, string> = {
   5: "Watch the background! Them robots built a MEGA-ROBOT that looks just like ol' me.\n" +
     "When its eyes start glowin', tap 'em quick to shut it down,\n" +
     "or it'll blast yer zombies with nuclear flames!",
+  // Halloween (raid 16): the night chain and the Count's slam (halloweenNights.ts,
+  // countSlam.ts) are both rules nothing on the field explains. Shown before the first
+  // Halloween fight, which is always a night 1 (or an Elite Night 1).
+  16: "Halloween's a long night! Win, and ya can keep on fightin' into the next one,\n" +
+    "and every night gets meaner than the last. Head home whenever ya like.\n" +
+    "Even if ya have to retreat, ya keep everything the earlier nights paid!\n\n" +
+    "And watch the Count. When he swells up red, he's windin' up a big slam.\n" +
+    "Hit him with stunnin' moves to stop it. The flashier the move, the more it counts!",
 };
 
 /** Tim's briefing for this invasion, or null if it has nothing to warn about. */

@@ -21,6 +21,13 @@ describe("raid tips", () => {
     expect(pirates.failureText).toContain(tip);
   });
 
+  it("briefs Halloween on the night chain and the Count's slam", () => {
+    const tip = raidTip(16)!;
+    expect(tip).toContain("keep everything the earlier nights paid");
+    expect(tip).toContain("slam");
+    expect(tip).toContain("stunnin' moves");
+  });
+
   it("has nothing to say about an invasion with no hidden rule", () => {
     expect(raidTip(1)).toBeNull();
   });

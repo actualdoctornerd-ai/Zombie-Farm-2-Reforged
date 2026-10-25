@@ -418,8 +418,9 @@ export async function startRaid(
   }
   return { status: 200, body: { ok: true, sessionId, bypassed: remaining > 0, dice,
     concentration, elite, brainDrop, inventory: core.inventory,
-    // Practice leaves the player's cooldown exactly where it was.
-    lastRaidAt: practice ? raidState.last_started_at : now, expiresAt, earliestFinishAt,
+    // Practice leaves the player's cooldown exactly where it was, and so does a Halloween
+    // night: the chain runs on night 1's cooldown, which the night never re-stamps.
+    lastRaidAt: practice || chainFrom ? raidState.last_started_at : now, expiresAt, earliestFinishAt,
     serverTime: now, ...(practice ? { practice: true } : {}),
     // The Life Force level the pinned fight's ability slots were opened with; the client
     // fights with the same number (see RaidSetupOpts.serverLifeForceLevel).
