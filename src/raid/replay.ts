@@ -1268,16 +1268,20 @@ import type { RaidOutcome } from "./types";
 // curve at a slower difficulty (Hour 12 = old rung 6.85), damage on the same slow step.
 // Every Halloween hour past the first replays differently from v79. Also v80: a Brain Ticket
 // chain's stage climbs past Hour 12 (Elite Hours 11-12 are stages 13-14).
-export const RAID_RULESET_VERSION = 80;
+// v81 — DO OR DIE (owner, 2026-10-25). A Halloween fight whose clock runs out plays one more
+// minute (`doOrDieMs`, pinned) with every enemy at twice its dex and the boss's action clock
+// at double speed; only running THAT out is the out-of-time loss. Every Halloween fight that
+// reached its clock replays differently from v80.
+export const RAID_RULESET_VERSION = 81;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
 export const RAID_MAX_TICKS = 4 * 60 * 1000 / RAID_TICK_MS;
 /** The longest any fight may run, in ticks — the dual invasions' six minutes. */
 export const RAID_ABSOLUTE_MAX_TICKS = 6 * 60 * 1000 / RAID_TICK_MS;
-/** A fight's own clock in ticks. */
+/** A fight's own clock in ticks, Do or Die overtime included. */
 export function maxTicksFor(sim: BattleSim): number {
-  return Math.min(RAID_ABSOLUTE_MAX_TICKS, Math.round(sim.timeLimitMs / RAID_TICK_MS));
+  return Math.min(RAID_ABSOLUTE_MAX_TICKS, Math.round(sim.fightClockMs / RAID_TICK_MS));
 }
 /** Raised with the six-minute clock (from 512 / 32 KB): a longer fight with rulings, cancels,
  *  trapeze drops and fire taps transcribes more inputs. */

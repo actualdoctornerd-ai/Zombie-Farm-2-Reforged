@@ -24,7 +24,7 @@ import {
 } from "./dualInvasion";
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
 import { attachCountSlam } from "./countSlam";
-import { nightTimeLimitMs } from "./halloweenNights";
+import { doOrDieMs, nightTimeLimitMs } from "./halloweenNights";
 import {
   bossSpecialsFor, bossThrowFor, bozoFor, bubbleWallFor, crabFor, farmerSquadFor,
   bubbleRobotFor, grabberFor, megaBotFor, pirateCaptainFor, summonFor, turnedTemplateFor,
@@ -85,6 +85,8 @@ export interface ComposedFight {
   bossGroundStationX: number | null;
   /** This fight's clock (six minutes on a dual invasion, four everywhere else). */
   timeLimitMs: number;
+  /** Overtime after the clock: Halloween's Do or Die minute, 0 everywhere else. */
+  doOrDieMs: number;
 }
 
 export function composeFight(
@@ -131,6 +133,7 @@ export function composeFight(
     bossDropAtMs: dropAtMs,
     bossGroundStationX: dropAtMs === null ? null : RINGMASTER_STATION_X,
     timeLimitMs: nightTimeLimitMs(raid.id, ctx.nightStage, fightTimeLimitMs(raid.id)),
+    doOrDieMs: doOrDieMs(raid.id),
   };
 }
 

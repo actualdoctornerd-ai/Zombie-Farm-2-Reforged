@@ -88,6 +88,17 @@ describe("Halloween's hour statues", () => {
     expect((await settle(6, fresh.flags)).drop).toBe(STONE);
   });
 
+  it("pays a Brain Ticket run two hours early: stone on Elite Hour 4, golden on Elite Hour 10", async () => {
+    const { settleBossStatue } = await import("./bossStatues");
+    const elite = (night: number, flags: Record<string, number> = {}) =>
+      settleBossStatue(16, 1, flags, 0.5, 0.5, night, true);
+    for (let night = 1; night <= 3; night++) expect(elite(night).drop).toBeNull();
+    const stone = elite(4);
+    expect(stone.drop).toBe(STONE);
+    for (let night = 5; night <= 9; night++) expect(elite(night, stone.flags).drop).toBeNull();
+    expect(elite(10, stone.flags).drop).toBe(GOLDEN);
+  });
+
   it("ignores the win count: 50 wins on Hour 1 earn nothing", async () => {
     expect((await settle(1, {}, 0.5, 0.5, 50)).drop).toBeNull();
   });

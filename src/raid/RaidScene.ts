@@ -108,6 +108,8 @@ export interface RaidSceneParams {
   bigTop?: BigTopConfig | null;
   /** This fight's clock (six minutes on a dual invasion; omitted = four). */
   timeLimitMs?: number;
+  /** Do or Die overtime after the clock (Halloween's minute; omitted = none). */
+  doOrDieMs?: number;
   /** The saucer's bubble and the wall it drops (raid 15). */
   bubble?: BubbleConfig | null;
   bubbleWall?: CombatUnit | null;
@@ -303,6 +305,10 @@ function rulingLabel(r: Ruling): string {
 /** How close enrage has to be before it is worth putting beside the fight clock. Far enough
  *  out it is noise; this is roughly one exchange's warning. */
 const ENRAGE_WARN_MS = 20_000;
+/** How long the centre-screen "DO OR DIE" stays up as the overtime starts, and the fade
+ *  at the end of it (sim ms). */
+const DO_OR_DIE_BANNER_MS = 2500;
+const DO_OR_DIE_FADE_MS = 700;
 
 // The saucer's bubble (raid 15): what it is charging, how far along, and how many cancels
 // are left — sharing the objection panel's slot under the top HUD, since no fight has both.
@@ -934,6 +940,8 @@ export class RaidScene {
   private pLabel!: Text;
   private eLabel!: Text;
   private roundLabel!: Text; // top-center countdown → "ENRAGED" when it expires
+  /** "DO OR DIE", centre screen, as Halloween's overtime minute starts (then fades). */
+  private doOrDieBanner!: Text;
   /** The Lawyer boss's objection (raid 12): what is barred now, and the two bubbles the
    *  player chooses the next bar from. See buildSignPanel. */
   private signPanel = new Container();
@@ -1114,6 +1122,7 @@ export class RaidScene {
       bubbleWall: params.bubbleWall,
       megaBot: params.megaBot,
       timeLimitMs: params.timeLimitMs,
+      doOrDieMs: params.doOrDieMs,
     });
     // Rescue-hazard taps are paced for a finger by default. A mouse clicks two to three
     // times faster than that gate, so most of a click-spamming player's clicks landed
@@ -1889,6 +1898,16 @@ export class RaidScene {
     });
     this.roundLabel.anchor.set(0.5, 0);
     this.container.addChild(this.roundLabel);
+    this.doOrDieBanner = new Text({
+      text: "DO OR DIE",
+      style: {
+        fontFamily: "sans-serif", fontSize: 64, fontWeight: "900", fill: 0xff2a2a,
+        stroke: { color: 0x14181f, width: 8 }, letterSpacing: 4,
+      },
+    });
+    this.doOrDieBanner.anchor.set(0.5);
+    this.doOrDieBanner.visible = false;
+    this.container.addChild(this.doOrDieBanner);
     this.buildSignPanel();
     this.buildBubblePanel();
     this.buildRetreatButton();
@@ -3044,6 +3063,8 @@ export class RaidScene {
       this.pFace.visible = !hudLayout.hidePortraits;
       this.eFace.visible = !hudLayout.hidePortraits;
       this.roundLabel.position.set(W / 2, topY);
+      this.doOrDieBanner.position.set(W / 2, H * 0.42);
+      this.doOrDieBanner.scale.set(Math.min(1, (W * 0.6) / Math.max(1, this.doOrDieBanner.width / this.doOrDieBanner.scale.x)));
       // Below the whole top block, not 22px under the countdown: at that height it landed
       // on top of the enemy's name label, which sits under the right-hand bar.
       this.signPanel.position.set(W / 2, hudLayout.topHudHeight + 4);
@@ -3103,20 +3124,43 @@ export class RaidScene {
     // health bars and the clock is the half that matters.
     const leftMs = this.sim.timeRemainingMs();
     const leftS = Math.ceil(leftMs / 1000);
-    const clock = `⏱ ${Math.floor(leftS / 60)}:${String(leftS % 60).padStart(2, "0")}`;
-    const enrageMs = this.sim.roundRemainingMs();
-    let warn = "";
-    if (!hudLayout.hidePortraits) {
-      if (this.sim.enraged) warn = "   ⚠ ENRAGED";
-      else if (enrageMs > 0 && enrageMs <= ENRAGE_WARN_MS) {
-        warn = `   ⚠ ${Math.ceil(enrageMs / 1000)}s`;
-      }
+    const mmss = `${Math.floor(leftS / 60)}:${String(leftS % 60).padStart(2, "0")}`;
+    // DO OR DIE (Halloween): the clock ran out and the overtime minute is counting down
+    // with the enemy at double speed. "DO OR DIE" lands centre screen in bold and fades;
+    // the clock slot keeps just the time, flashing red, so it never spills onto the bars.
+    // The banner is timed on SIM time, so a paused or replayed fight shows it the same way.
+    const overtimeMs = this.sim.doOrDie ? this.sim.doOrDieMs - leftMs : -1;
+    const bannerAlpha = overtimeMs < 0 || overtimeMs > DO_OR_DIE_BANNER_MS
+      ? 0
+      : Math.min(1, (DO_OR_DIE_BANNER_MS - overtimeMs) / DO_OR_DIE_FADE_MS);
+    if (bannerAlpha > 0 && !this.doOrDieBanner.visible) {
+      // Re-added so it draws over everything built after it (the ability strip, panels).
+      this.container.addChild(this.doOrDieBanner);
     }
-    this.roundLabel.text = clock + warn;
-    this.roundLabel.style.fill = leftS <= 15
-      ? 0xff5a3c
-      : leftS <= 60 ? 0xffcc33
-      : this.sim.enraged ? 0xffb0a0 : 0xffffff;
+    this.doOrDieBanner.visible = bannerAlpha > 0;
+    this.doOrDieBanner.alpha = bannerAlpha;
+    if (this.sim.doOrDie) {
+      const on = Math.floor(performance.now() / 300) % 2 === 0;
+      this.roundLabel.text = `⏱ ${mmss}`;
+      this.roundLabel.style.fill = on ? 0xff2a2a : 0x8a0000;
+      this.roundLabel.scale.set(on ? 1.15 : 1);
+    } else {
+      this.roundLabel.scale.set(1);
+      const clock = `⏱ ${mmss}`;
+      const enrageMs = this.sim.roundRemainingMs();
+      let warn = "";
+      if (!hudLayout.hidePortraits) {
+        if (this.sim.enraged) warn = "   ⚠ ENRAGED";
+        else if (enrageMs > 0 && enrageMs <= ENRAGE_WARN_MS) {
+          warn = `   ⚠ ${Math.ceil(enrageMs / 1000)}s`;
+        }
+      }
+      this.roundLabel.text = clock + warn;
+      this.roundLabel.style.fill = leftS <= 15
+        ? 0xff5a3c
+        : leftS <= 60 ? 0xffcc33
+        : this.sim.enraged ? 0xffb0a0 : 0xffffff;
+    }
 
     // The rulings. `signOffer` is null on every invasion without one, so the panel
     // simply never appears anywhere else.

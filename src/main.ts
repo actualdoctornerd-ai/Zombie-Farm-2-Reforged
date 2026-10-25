@@ -6006,6 +6006,7 @@ async function main() {
       bubble: setup.bubble,
       bubbleWall: setup.bubbleWall,
       timeLimitMs: setup.timeLimitMs,
+      doOrDieMs: setup.doOrDieMs,
       bossDropAtMs: setup.bossDropAtMs,
       bossGroundStationX: setup.bossGroundStationX,
       brainDrop: setup.brainDrop,

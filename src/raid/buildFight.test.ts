@@ -63,8 +63,9 @@ function constructorParams(): string[] {
 /** The expressions `buildFight` passes, in order. */
 function buildFightArgs(): string[] {
   const src = read("buildFight.ts");
-  const start = src.indexOf("return new BattleSim(") + "return new BattleSim(".length;
-  expect(start).toBeGreaterThan("return new BattleSim(".length - 1);
+  const marker = "const sim = new BattleSim(";
+  const start = src.indexOf(marker) + marker.length;
+  expect(start).toBeGreaterThan(marker.length - 1);
   const end = src.indexOf("\n  );", start);
   const body = src.slice(start, end);
   const parts: string[] = [];

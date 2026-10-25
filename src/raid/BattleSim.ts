@@ -143,6 +143,12 @@ export const RAID_TIME_LIMIT_MS = 4 * 60 * 1000;
  *  2026-09-27 — their mechanics need the room). A fight's own `timeLimitMs` is clamped to
  *  this, and the replay's absolute ceiling is the same instant. */
 export const RAID_MAX_TIME_LIMIT_MS = 6 * 60 * 1000;
+/** DO OR DIE (Halloween, owner 2026-10-25): a fight armed with overtime (`armDoOrDie`) does not
+ *  end when its clock runs out. It plays on for that much longer, and for that last stretch
+ *  every enemy swings at this multiple of its dex and the boss's action clock (its throws)
+ *  runs this much faster. The overtime is part of the pinned config, so the replay plays the
+ *  same extra minute; running it out too is the ordinary out-of-time loss. */
+export const DO_OR_DIE_HASTE = 2;
 
 // ---- Front formation (GROUND TRUTH: `-[ZombieActor calculateDestinationPoint]` 0x4c9d4)
 // The army's ORDER *is* the formation — there is no separate layout pass. A zombie's index
@@ -1118,6 +1124,8 @@ export class BattleSim {
   readonly units: SimUnit[];
   /** This fight's clock, in simulated ms. */
   readonly timeLimitMs: number;
+  /** Overtime played once `timeLimitMs` runs out (DO_OR_DIE_HASTE); 0 = none. */
+  private _doOrDieMs = 0;
   readonly projectiles: SimProjectile[] = [];
   /** Presentation-only count; reset at the start of every fixed simulation step. */
   projectileImpactsThisTick = 0;
@@ -3293,11 +3301,13 @@ export class BattleSim {
   private cycleMs(u: SimUnit, foe: SimUnit | null): number {
     // Slowed (raid 12): the ruling stretches every zombie's attack interval.
     if (u.team === "player") return u.cooldownMs * lineupSpeedBand(u.lineupIndex) * this.rulingFx.slow;
+    // Do or Die: every enemy at twice its dex, which is half its cycle.
+    const haste = this.doOrDie ? DO_OR_DIE_HASTE : 1;
     if (u.mirrorsOpponentSpeed && foe && foe.team === "player") {
       const foeSec = (foe.cooldownMs * lineupSpeedBand(foe.lineupIndex)) / 1000;
-      return mirrorIntervalSec(u.sourceKey, foeSec, foe.speciesCycleMs / 1000) * 1000;
+      return (mirrorIntervalSec(u.sourceKey, foeSec, foe.speciesCycleMs / 1000) * 1000) / haste;
     }
-    return u.cooldownMs;
+    return u.cooldownMs / haste;
   }
 
   /** Land a hit from `u` on `foe` when its clock is ready; else re-arm. An enemy
@@ -4804,7 +4814,7 @@ export class BattleSim {
     // used to stand at the station until the clock ran out, minutes later.
     const healersOnly = !wiped && !cleared && this.healersOnly();
     if (healersOnly) this.healersOnlyEnd = true;
-    if (wiped || cleared || healersOnly || this.elapsed >= this.timeLimitMs) {
+    if (wiped || cleared || healersOnly || this.elapsed >= this.fightClockMs) {
       // Decided beats expired: an army that clears the last enemy ON the final tick has
       // won, and one wiped out on it has lost the ordinary way. Out of time is only what
       // is left over — both sides still standing when the clock stops.
@@ -4910,7 +4920,8 @@ export class BattleSim {
       this.actionCd = THROW_WINDUP_MS;
       return;
     }
-    this.actionCd -= dtMs;
+    // Do or Die: the boss's action clock runs fast, so it throws twice as often.
+    this.actionCd -= this.doOrDie ? dtMs * DO_OR_DIE_HASTE : dtMs;
     if (this.actionCd > 0) return;
     // The source checks each action's `allowedTo…` gate AFTER the roll but BEFORE arming
     // any timer, so an action it cannot perform right now (a second wall, an exhausted
@@ -5883,7 +5894,31 @@ export class BattleSim {
    *  and is simulated time, never wall clock: a stuttering frame rate must not be able to
    *  shorten a fight the server will replay at a fixed 50 ms a tick. */
   timeRemainingMs(): number {
-    return Math.max(0, this.timeLimitMs - this.elapsed);
+    // Once Do or Die starts the countdown is its own minute, not the spent clock's 0:00.
+    return Math.max(0, (this.doOrDie ? this.fightClockMs : this.timeLimitMs) - this.elapsed);
+  }
+
+  /** Arm DO OR DIE: `ms` of overtime after the clock, clamped so the whole fight stays inside
+   *  RAID_MAX_TIME_LIMIT_MS (the replay's ceiling). Set once, by buildFight, before the first
+   *  step; it is pinned config, not state, so snapshots do not carry it. */
+  armDoOrDie(ms: number): void {
+    const room = RAID_MAX_TIME_LIMIT_MS - this.timeLimitMs;
+    this._doOrDieMs = Math.max(0, Math.min(room, Math.round(Number.isFinite(ms) ? ms : 0)));
+  }
+
+  /** The overtime this fight carries (0 on every fight but Halloween's). */
+  get doOrDieMs(): number {
+    return this._doOrDieMs;
+  }
+
+  /** The clock has run out and the fight is in its Do or Die overtime. */
+  get doOrDie(): boolean {
+    return this._doOrDieMs > 0 && this.elapsed >= this.timeLimitMs;
+  }
+
+  /** When the fight actually stops: the clock plus any Do or Die overtime. */
+  get fightClockMs(): number {
+    return this.timeLimitMs + this._doOrDieMs;
   }
 
   /** Ms left before the boss enrages (0 once enraged / no boss). For the HUD timer. */

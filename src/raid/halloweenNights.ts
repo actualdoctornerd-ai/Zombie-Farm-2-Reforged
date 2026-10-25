@@ -66,6 +66,17 @@ export const NIGHT_GOLD_STEP = 0.05;
 /** Every hour after the first is on a two-minute clock (owner, 2026-10-25; was three).
  *  Clocking out is an ordinary loss. A full Hour 1-12 run is ~13 minutes of fighting. */
 export const NIGHT_TIME_LIMIT_MS = 2 * 60 * 1000;
+/** DO OR DIE (owner, 2026-10-25): when a Halloween fight's clock runs out it is not lost yet.
+ *  One more minute plays, with every enemy at twice its dex and the boss throwing twice as
+ *  fast (BattleSim.DO_OR_DIE_HASTE), under a flashing red countdown; only running that out
+ *  is the loss. Every hour, Hour 1 included. */
+export const DO_OR_DIE_MS = 60 * 1000;
+
+/** This fight's Do or Die overtime: a minute on Halloween, none anywhere else. */
+export function doOrDieMs(raidId: number): number {
+  return hasNights(raidId) ? DO_OR_DIE_MS : 0;
+}
+
 /** How long after a won night the next one may still be started. Generous, because the
  *  result panel, the revival offer and a phone call all happen in between; bounded,
  *  because a chain is one sitting, not a standing pass around the cooldown. */

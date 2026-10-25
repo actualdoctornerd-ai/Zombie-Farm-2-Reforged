@@ -3,7 +3,7 @@ import { buildFight } from "./buildFight";
 import { raidProfile } from "./dualInvasion";
 import { RAID_TIME_LIMIT_MS } from "./BattleSim";
 import {
-  ELITE_NIGHT_OFFSET, FIRST_NIGHT, MAX_NIGHT, MAX_STAGE, NIGHT_TIME_LIMIT_MS, clampNight, hasNights,
+  DO_OR_DIE_MS, ELITE_NIGHT_OFFSET, FIRST_NIGHT, MAX_NIGHT, MAX_STAGE, NIGHT_TIME_LIMIT_MS, clampNight, hasNights,
   nightBrainLuck, nightDamageMult, nightDifficulty, nightGoldShare, nightHpMult, nightLabel, nightProfile, nightPrompt, nightStage,
   nightTimeLimitMs, nightZombieLuck,
 } from "./halloweenNights";
@@ -178,12 +178,15 @@ describe("Halloween nights: the curve, in the sim", () => {
     }
   }, 120_000);
 
-  it("runs that army out of time on Hour 12, without wiping it", () => {
+  // Do or Die (ruleset 81) changed this: that army used to clock out of Hour 12 at two
+  // minutes; it now finishes it in the overtime minute (~155 s, all 16 standing; Hour 11
+  // ~133 s). It still cannot do it inside the two-minute clock.
+  it("only gets through Hour 12 in the Do or Die minute", () => {
     for (const seed of [0, 1]) {
       const flight = fly(12, seed);
-      expect(flight.win).toBe(false);
-      expect(flight.timedOut).toBe(true);
-      expect(flight.survivors).toBeGreaterThan(0);
+      expect(flight.win).toBe(true);
+      expect(flight.secs).toBeGreaterThan(NIGHT_TIME_LIMIT_MS / 1000);
+      expect(flight.secs).toBeLessThan((NIGHT_TIME_LIMIT_MS + DO_OR_DIE_MS) / 1000);
     }
   }, 120_000);
 });

@@ -65,7 +65,7 @@ describe("statueRule / formatOdds", () => {
     expect(statueRule(12)).toBeNull();
     // Halloween's are earned on the hour won, and the card says so.
     expect(statueRule(16)).toMatchObject({
-      name: "Count von Uberbiss Statue", stoneWhen: "first Hour 6 win", goldenWhen: "first Hour 12 win",
+      name: "Count von Uberbiss Statue", stoneWhen: "first Hour 6 (Elite Hour 4) win", goldenWhen: "first Hour 12 (Elite Hour 10) win",
       stoneRate: 0.02, goldenRate: 0.01,
     });
     expect(statueRule(1)).toMatchObject({ stoneWhen: "win #15", goldenWhen: "win #50" });

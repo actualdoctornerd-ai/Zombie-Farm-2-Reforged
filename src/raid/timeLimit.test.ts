@@ -15,6 +15,8 @@ import { BattleSim, RAID_MAX_TIME_LIMIT_MS, RAID_TIME_LIMIT_MS } from "./BattleS
 import { buildFight } from "./buildFight";
 import { DUAL_INVASION_IDS, DUAL_TIME_LIMIT_MS, fightTimeLimitMs } from "./dualInvasion";
 import { GameState } from "../GameState";
+import { doOrDieMs } from "./halloweenNights";
+import { HALLOWEEN_RAID_ID } from "./zombieDrops";
 import { RaidManager } from "./RaidManager";
 import { advanceRaidSegment, maxTicksFor, replayRaid, RAID_ABSOLUTE_MAX_TICKS, RAID_MAX_TICKS, RAID_TICK_MS } from "./replay";
 import type { CombatUnit, RaidDef, RaidOutcome } from "./types";
@@ -87,6 +89,66 @@ describe("the dual invasions' six-minute clock", () => {
       timeLimitMs: 60 * 60 * 1000,
     });
     expect(sim.timeLimitMs).toBe(RAID_MAX_TIME_LIMIT_MS);
+  });
+});
+
+describe("Do or Die (Halloween's overtime minute)", () => {
+  const OVERTIME = 60 * 1000;
+  const clock = 2 * 60 * 1000;
+  const fight = (doOrDieMs: number, enemy: Partial<CombatUnit> = {}) => buildFight({
+    playerUnits: [unit({ id: "p1" }), unit({ id: "p2" })],
+    enemyUnits: [unit({ id: "e1", team: "enemy", sourceKey: "AlienStageActorMinion", ...enemy })],
+    concentration: true, roundMs: NO_ENRAGE_MS, timeLimitMs: clock, doOrDieMs,
+  });
+
+  it("is a minute on Halloween and nothing anywhere else", () => {
+    expect(doOrDieMs(HALLOWEEN_RAID_ID)).toBe(OVERTIME);
+    for (const id of [1, 9, 11, 12, 15]) expect(doOrDieMs(id), `raid ${id}`).toBe(0);
+  });
+
+  it("plays one more minute after the clock, then is an ordinary out-of-time loss", () => {
+    const sim = fight(OVERTIME);
+    expect(maxTicksFor(sim)).toBe((clock + OVERTIME) / RAID_TICK_MS);
+    for (let t = 0; t < clock / RAID_TICK_MS; t++) sim.step(RAID_TICK_MS);
+    expect(sim.finished).toBe(false);
+    expect(sim.doOrDie).toBe(true);
+    expect(sim.timeRemainingMs()).toBe(OVERTIME);
+    const more = runOut(sim);
+    expect(more).toBeLessThanOrEqual(OVERTIME / RAID_TICK_MS);
+    expect(sim.outcome().outOfTime).toBe(true);
+  });
+
+  it("replays to the same loss on the verifier", () => {
+    const played = fight(OVERTIME);
+    const finalTick = runOut(played);
+    expect(finalTick).toBeGreaterThan(clock / RAID_TICK_MS);
+    const verdict = replayRaid(fight(OVERTIME), finalTick, []);
+    expect(verdict.ok).toBe(true);
+    if (verdict.ok) expect(verdict.outcome.outOfTime).toBe(true);
+  });
+
+  it("doubles the enemy's swings once it starts", () => {
+    // Players with no armour to speak of, so every enemy swing shows as lost hit points.
+    const swingsIn = (fromMs: number, sim: BattleSim) => {
+      for (let t = 0; t < fromMs / RAID_TICK_MS; t++) sim.step(RAID_TICK_MS);
+      const hp = () => sim.units.filter((u) => u.team === "player").reduce((n, u) => n + u.hp, 0);
+      const before = hp();
+      for (let t = 0; t < 10_000 / RAID_TICK_MS; t++) sim.step(RAID_TICK_MS);
+      return before - hp();
+    };
+    const regulation = swingsIn(clock - 20_000, fight(OVERTIME, { str: 1 }));
+    const overtime = swingsIn(clock, fight(OVERTIME, { str: 1 }));
+    expect(regulation).toBeGreaterThan(0);
+    expect(overtime / regulation).toBeCloseTo(2, 0);
+  });
+
+  it("never stretches a fight past the six-minute ceiling", () => {
+    const sim = buildFight({
+      playerUnits: [unit({ id: "p1" })],
+      enemyUnits: [unit({ id: "e1", team: "enemy", sourceKey: "AlienStageActorMinion" })],
+      timeLimitMs: DUAL_TIME_LIMIT_MS, doOrDieMs: OVERTIME,
+    });
+    expect(sim.fightClockMs).toBe(RAID_MAX_TIME_LIMIT_MS);
   });
 });
 

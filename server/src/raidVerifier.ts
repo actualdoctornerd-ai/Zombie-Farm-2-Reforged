@@ -105,6 +105,8 @@ export interface PinnedRaidConfig {
   bossGroundStationX?: number | null;
   /** This fight's clock, pinned like everything else (six minutes on a dual invasion). */
   timeLimitMs?: number;
+  /** Do or Die overtime after the clock (Halloween's minute); absent = none. */
+  doOrDieMs?: number;
   grabber: GrabberConfig | null;
   concentration: boolean;
   /** A Brain Ticket was charged at /raid/start: every combat value above is already
@@ -299,6 +301,7 @@ export function createPinnedSim(config: PinnedRaidConfig): BattleSim {
     bubble: config.bubble,
     bubbleWall: config.bubbleWall,
     timeLimitMs: config.timeLimitMs ?? fightTimeLimitMs(config.raidId),
+    doOrDieMs: config.doOrDieMs ?? 0,
   });
 }
 

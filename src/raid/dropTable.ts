@@ -10,6 +10,7 @@
 // invisible by design (see brainDrops.BRAIN_PITY_INVASIONS) — a floored drop must be
 // indistinguishable from a lucky one.
 import { lootTierChances } from "./LootTable";
+import { ELITE_NIGHT_OFFSET } from "./halloweenNights";
 import {
   BOSS_STATUE_RATE, BOSS_STATUE_WINS, EVENT_STATUE_HOURS, GOLDEN_STATUE_RATE, GOLDEN_STATUE_WINS, bossStatueFor,
   eventStatueFor,
@@ -150,7 +151,7 @@ export interface StatueRule {
   goldenWins: number;
   stoneRate: number;
   goldenRate: number;
-  /** When each milestone pays, as card text: "win #15", or "first Hour 6 win". */
+  /** When each milestone pays, as card text: "win #15", or "first Hour 6 (Elite Hour 4) win". */
   stoneWhen: string;
   goldenWhen: string;
 }
@@ -171,7 +172,8 @@ export function statueRule(raidId: number): StatueRule | null {
       goldenWhen: `win #${GOLDEN_STATUE_WINS}`,
     };
   }
-  // An event invasion's statues are earned on the hour won (bossStatues EVENT_STATUE_HOURS).
+  // An event invasion's statues are earned on the hour won (bossStatues EVENT_STATUE_HOURS),
+  // which a Brain Ticket run reaches ELITE_NIGHT_OFFSET hours early.
   const e = eventStatueFor(raidId);
   const hours = EVENT_STATUE_HOURS[raidId];
   return e && hours ? {
@@ -181,7 +183,7 @@ export function statueRule(raidId: number): StatueRule | null {
     goldenWins: 0,
     stoneRate: BOSS_STATUE_RATE,
     goldenRate: GOLDEN_STATUE_RATE,
-    stoneWhen: `first Hour ${hours.stone} win`,
-    goldenWhen: `first Hour ${hours.golden} win`,
+    stoneWhen: `first Hour ${hours.stone} (Elite Hour ${hours.stone - ELITE_NIGHT_OFFSET}) win`,
+    goldenWhen: `first Hour ${hours.golden} (Elite Hour ${hours.golden - ELITE_NIGHT_OFFSET}) win`,
   } : null;
 }

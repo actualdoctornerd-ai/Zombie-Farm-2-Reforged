@@ -120,6 +120,7 @@ describe("continuing a won Halloween invasion into the next night", () => {
       .get(res.body.sessionId as string) as { config_json: string }).config_json);
     expect(config.night).toBe(2);
     expect(config.timeLimitMs).toBe(NIGHT_TIME_LIMIT_MS);
+    expect(config.doOrDieMs).toBe(60_000); // Do or Die: one more minute, pinned
     // Against the same account's ORDINARY fight, launched once its cooldown is over.
     const ordinary = seed();
     ordinary.raw.prepare("UPDATE raid_state_v3 SET last_started_at = 0").run();

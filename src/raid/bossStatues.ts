@@ -24,7 +24,9 @@
 // HALLOWEEN (raid 16) carves on the HOUR won instead of the win count (EVENT_BOSS_STATUES,
 // owner 2026-10-25): the stone Count on the first win of Hour 6 or later, the golden one on
 // the first win of Hour 12; after that the same 2% / 1% on any Halloween win. The hour is
-// the one the player sees (halloweenNights' label), so an Elite Hour 6 counts too.
+// the STAGE the fight was scaled at (halloweenNights.nightStage), so a Brain Ticket run earns
+// them two hours early: the stone on Elite Hour 4, the golden on Elite Hour 10 (owner,
+// 2026-10-25; was the label, which made the elite chain wait for Elite Hours 6 and 12).
 //
 // The eight EPIC bosses (src/epicBoss/catalog.ts) have statues too, wired in as plain
 // ITEMS ONLY: baked by tools/boss_statues.py EPIC_STATUES (`epicStatue*` tiles, drops.json,
@@ -33,6 +35,8 @@
 //
 // Imported by BOTH sides — the server settles it online (v3/raid.ts), RaidManager
 // offline — so the rules have one definition.
+
+import { nightStage } from "./halloweenNights";
 
 export interface BossStatue {
   name: string; // drop name (drops.json / Received)
@@ -82,7 +86,8 @@ export const EPIC_BOSS_STATUES: Readonly<Record<string, BossStatue>> = {
 export const EVENT_BOSS_STATUES: Readonly<Record<number, BossStatue>> = {
   16: statue("Count von Uberbiss", "bossStatueCountVonUberbiss"),
 };
-/** The hour whose first win hands over each event statue (owner, 2026-10-25). */
+/** The STAGE whose first win hands over each event statue (owner, 2026-10-25): Hour 6 and
+ *  Hour 12 on an ordinary run, Elite Hour 4 and Elite Hour 10 on a Brain Ticket one. */
 export const EVENT_STATUE_HOURS: Readonly<Record<number, { stone: number; golden: number }>> = {
   16: { stone: 6, golden: 12 },
 };
@@ -116,7 +121,8 @@ export interface BossStatueSettlement {
 /** Settle one WIN's statue. `wins` is this invasion's win count INCLUDING this one;
  *  `flags` the stored pity map; `goldenRoll` / `roll` two independent uniform [0,1)
  *  draws from the caller's RNG; `night` the Halloween hour this win cleared (1 for every
- *  other fight). At most one statue per win: a due milestone first, then the golden chance,
+ *  other fight) and `elite` whether it was a Brain Ticket run, which together give the
+ *  stage the statue hours are read against. At most one statue per win: a due milestone first, then the golden chance,
  *  then the stone chance. A story invasion's milestones go stone first (its mark comes
  *  first anyway); an event invasion's go GOLDEN first, so a Hour 12 win always pays the
  *  golden statue even to a player who passed Hour 6 before the statues existed. */
@@ -127,6 +133,7 @@ export function settleBossStatue(
   goldenRoll: number,
   roll: number,
   night = 1,
+  elite = false,
 ): BossStatueSettlement {
   const next: Record<string, number> = { ...flags };
   const event = eventStatueFor(raidId);
@@ -138,11 +145,12 @@ export function settleBossStatue(
   const hasGolden = (flags[goldenKey] ?? 0) > 0;
   if (event) {
     const hours = EVENT_STATUE_HOURS[raidId];
-    if (!hasGolden && night >= hours.golden) {
+    const stage = nightStage(night, elite);
+    if (!hasGolden && stage >= hours.golden) {
       next[goldenKey] = 1;
       return { drop: s.goldenName, flags: next };
     }
-    if (!hasStone && night >= hours.stone) {
+    if (!hasStone && stage >= hours.stone) {
       next[stoneKey] = 1;
       return { drop: s.name, flags: next };
     }

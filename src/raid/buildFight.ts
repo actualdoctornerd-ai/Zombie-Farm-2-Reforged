@@ -96,11 +96,13 @@ export interface FightSpec {
   megaBot?: MegaBotConfig | null;
   /** This fight's clock. Omit for the ordinary four minutes; the dual invasions carry six. */
   timeLimitMs?: number;
+  /** Do or Die overtime after the clock (Halloween's minute). Omit for none. */
+  doOrDieMs?: number;
 }
 
 /** The one call site of `new BattleSim(...)` outside tests. */
 export function buildFight(spec: FightSpec): BattleSim {
-  return new BattleSim(
+  const sim = new BattleSim(
     spec.playerUnits,
     spec.enemyUnits,
     spec.bossThrow ?? null,
@@ -127,4 +129,6 @@ export function buildFight(spec: FightSpec): BattleSim {
     spec.megaBot ?? null,
     spec.timeLimitMs ?? RAID_TIME_LIMIT_MS
   );
+  if (spec.doOrDieMs) sim.armDoOrDie(spec.doOrDieMs);
+  return sim;
 }
