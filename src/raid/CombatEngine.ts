@@ -150,7 +150,7 @@ export function focusFactor(focus: number, concentration: boolean): number {
  *      AND that slot working at the farm's Life Force level). Pass `abilitySlotUnlocked`
  *      so combat matches the UI; omit it (tests) to run with abilities off.
  *   3. Original type-targeted auras — Chivalry buffs Girl zombies, Grace buffs
- *      Regular zombies, Protect reduces damage to non-Headless types, and
+ *      Regular zombies, Protect reduces damage to every zombie but its carrier, and
  *      Fortitude buffs Headless Life.
  *   4. MUTATIONS LAST — a flat +str/+con/+dex added on top of everything above, never
  *      level-scaled. The Mutant Monolith and Dino head may scale this final bonus.

@@ -108,7 +108,7 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   chivalry: { label: "Chivalry", effect: "+10% Damage/Life and +10% Speed to nearby Girl zombies", desc: "Girl zombies are stronger around you", icon: `${AB}ability_chivalry.png` },
   grace: { label: "Grace", effect: "+10% Damage/Life and +10% Speed to nearby Regular zombies", desc: "Regular zombies are stronger around you", icon: `${AB}ability_grace.png` },
   attachMini: { label: "Mini Buddy", effect: "One pre-deployment mini ram", desc: "Carry a mini zombie and ram the enemy (use before sending zombie)", icon: `${AB}ability_attachMini.png` },
-  protect: { label: "Protect", effect: "20% less damage to nearby non-Headless zombies", desc: "Other zombie types take less damage when you're near", icon: `${AB}ability_protect.png` },
+  protect: { label: "Protect", effect: "Every other zombie takes 20% less damage", desc: "Shields the rest of your army, Headless included, but not itself", icon: `${AB}ability_protect.png` },
   tankHitPointsBuff: { label: "Fortitude", effect: "+10% Life to Headless zombies", desc: "Headless zombies are a little tougher", icon: `${AB}ability_tankHitPointsBuff.png` },
   // ---- Tier 3 ----
   laserBeam: { label: "Laser Beam", effect: "Automatic shots for 20% Power", desc: "Shoot a laser beam while you're walking!", icon: `${AB}ability_laserBeam.png` },
