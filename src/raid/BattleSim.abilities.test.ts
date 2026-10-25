@@ -974,7 +974,9 @@ describe("Garden healing and formation depth", () => {
 });
 
 describe("binary-authentic ability procs", () => {
-  it("blocks exactly the nine >90 integer results in each 100-roll cycle", () => {
+  // Block is a TAPPED team ability since "Activate zombie Block ability": no passive roll,
+  // and a live one-second window takes 20% off every hit the army takes.
+  it("blocks nothing passively, and 20% of each hit while a Block window is live", () => {
     const blocker = unit({
       id: "blocker", sourceKey: "ZombieActorHeadlessTier4", team: "player",
       hp: 10_000, maxHp: 10_000, abilities: ["block"],
@@ -983,7 +985,10 @@ describe("binary-authentic ability procs", () => {
     const sim = new BattleSim([blocker], [enemy], null, true);
     const live = sim.units.find((u) => u.id === "blocker")!;
     for (let i = 0; i < 100; i++) (sim as any).dealEnemyDamage(live, 1);
-    expect(live.hp).toBe(10_000 - 91);
+    expect(live.hp).toBe(10_000 - 100);
+    live.blockMs = 1000;
+    (sim as any).dealEnemyDamage(live, 100);
+    expect(live.hp).toBe(10_000 - 100 - 80);
   });
 
   it("adds 29 quarter-Power strikes per 100 attacks", () => {

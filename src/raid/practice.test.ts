@@ -36,6 +36,7 @@ function makeManager(level: number) {
     roster: () => roster,
     recordInvasion: (ids: string[]) => { recorded.push(ids); },
     removeCasualties: (ids: string[]) => { removed.push(ids); },
+    hasMutantMonolith: () => false,
   } as never;
   const assets = {
     raids, enemyStats: enemyStatsJson, raidAttacks: attacksJson, boosts: [], drops: {},

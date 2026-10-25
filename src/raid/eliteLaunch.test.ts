@@ -53,6 +53,7 @@ function makeManager(now = NOW) {
     roster: () => roster,
     recordInvasion: () => {},
     removeCasualties: () => {},
+    hasMutantMonolith: () => false,
   } as never;
   const granted: string[] = [];
   const assets = {
