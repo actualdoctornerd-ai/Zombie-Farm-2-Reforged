@@ -137,7 +137,7 @@ export function nightLabel(night: number, elite: boolean): string {
 const NIGHT_LINES: readonly { title: string; line: string }[] = [
   { title: "The Count is beaten... for now.", line: "His guests are already climbing back out of their coffins." },
   { title: "Something stirs in the cellar.", line: "Whatever the Count keeps down there is waking up." },
-  { title: "The moon turns red.", line: "The graveyard is emptying, and it's all headed your way." },
+  { title: "The moon turns red.", line: "Something out there is howling, and it isn't the wind." },
   { title: "Midnight. The bells won't stop.", line: "Few zombies come back from a night like this." },
   { title: "There will be no dawn.", line: "The house wants you to stay. Forever." },
 ];
