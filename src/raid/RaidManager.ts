@@ -32,7 +32,7 @@ import {
 } from "./RaidCatalog";
 import { displayTotals } from "../zombie/statDisplay";
 import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef, RaidOutcome, SummonConfig, WaveCadence } from "./types";
-import { rollLootTier, pickLootEntry, lootEntryWeight, extraDropsFor } from "./LootTable";
+import { lootTierFor, pickLootEntry, lootEntryWeight, extraDropsFor } from "./LootTable";
 import { settleBossStatue } from "./bossStatues";
 import { rollBrainDropWithPity, nextBrainDryStreak, brainDropChance, brainDropTable, firstClearBrains } from "./brainDrops";
 import { orderPartyRoster } from "./partySelection";
@@ -53,7 +53,7 @@ import {
   MIN_TIER, raidProfile,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
-import { FIRST_NIGHT, clampNight, hasNights, nightBrainLuck, nightLabel, nightStage, nightZombieLuck } from "./halloweenNights";
+import { FIRST_NIGHT, clampNight, hasNights, nightBrainLuck, nightGoldShare, nightLabel, nightStage, nightZombieLuck } from "./halloweenNights";
 
 // ---- HUD-facing view models ----
 
@@ -784,7 +784,8 @@ export class RaidManager {
       firstClear = wins === 1;
       xp = invasionWinXp(raid.id, raid.xp, firstClear, elite);
       const survivalFrac = party.length ? outcome.survivors.length / party.length : 0;
-      gold = winGold(raid, survivalFrac);
+      // A Halloween night 2+ pays a quarter of it (halloweenNights.nightGoldShare).
+      gold = Math.round(winGold(raid, survivalFrac) * nightGoldShare(night));
       // ONLINE: the base win gold + the win's XP (either rule) are SERVER-authoritative
       // — hand them off (main.ts → /raid/finish) instead of crediting locally, so the
       // server prices them and can't be out-fabricated. The figures here are only a
@@ -806,7 +807,7 @@ export class RaidManager {
       // spend-only economy and the removed inventory `grant`, so loot evaporated.
       // OFFLINE: roll and grant locally, exactly as before.
       if (!serverRewards) {
-        const drop = this.rollLoot(raid, dice, wins);
+        const drop = this.rollLoot(raid, dice, wins, night > FIRST_NIGHT);
         if (drop === "Bonus Gold") {
           const bonusGold = raid.recommendedLevel * 100; // getBonusGoldLootForStageLevel:
           gold += bonusGold;
@@ -894,7 +895,7 @@ export class RaidManager {
    *  DOWN to commoner tiers (as the binary does). Returns null if nothing is
    *  eligible (e.g. every tier already collected). Same rules as the server's
    *  loot.rollLoot, which is what decides online. */
-  private rollLoot(raid: RaidDef, bonus: number, wins: number): string | null {
+  private rollLoot(raid: RaidDef, bonus: number, wins: number, noBonusGold = false): string | null {
     // No loot table, no drop — not even a statue (the server's `if (!table)` twin).
     if (!raid.loot.some((tier) => tier.length)) return null;
     // Owned = unclaimed raid loot + the shed + the object it becomes once PLACED
@@ -915,7 +916,7 @@ export class RaidManager {
     if (statue.drop) return statue.drop;
     const weightOf = (name: string): number =>
       lootEntryWeight(this.assets.drops[name], ownedCount(name));
-    return pickLootEntry(raid.loot, rollLootTier(Math.random(), bonus), weightOf, Math.random());
+    return pickLootEntry(raid.loot, lootTierFor(Math.random(), bonus, noBonusGold), weightOf, Math.random());
   }
 
   /** Resolve a loot item's picture URL ("" when there's no art). Boost loot

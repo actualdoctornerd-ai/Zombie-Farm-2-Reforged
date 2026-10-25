@@ -88,6 +88,16 @@ describe("rare raid zombie drops", () => {
     expect(settle(true, 0.0901, 0.9, 0, 2.25)).toBeNull();
   });
 
+  it("caps Halloween's prizes per night: the pair at 15%, the Mummy at 25%, whatever stacks", () => {
+    // Five dice, a ticket and a late night would otherwise be certain.
+    expect(raidZombieDropRate(HALLOWEEN_RAID_ID, 5, ELITE_BRAIN_LUCK, false, 7.6)).toBeCloseTo(0.15, 12);
+    expect(raidZombieDropRate(HALLOWEEN_RAID_ID, 5, ELITE_BRAIN_LUCK, true, 7.6)).toBeCloseTo(0.25, 12);
+    // Under the caps nothing changes.
+    expect(raidZombieDropRate(HALLOWEEN_RAID_ID, 0, 1, false, 2.25)).toBeCloseTo(0.0225, 12);
+    // Other raids are uncapped.
+    expect(raidZombieDropRate(1, 5, ELITE_BRAIN_LUCK)).toBeCloseTo(0.24, 12);
+  });
+
   it("keeps the prize multiplier in step with the elite brain luck", () => {
     expect(ELITE_LUCK_FOR_PRIZES).toBe(ELITE_BRAIN_LUCK);
   });

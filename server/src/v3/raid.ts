@@ -24,7 +24,7 @@ import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { isLiveSessionCollision } from "./liveSessionRace";
-import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, clampNight, hasNights, nightBrainLuck, nightZombieLuck } from "../../../src/raid/halloweenNights";
+import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, clampNight, hasNights, nightBrainLuck, nightGoldShare, nightZombieLuck } from "../../../src/raid/halloweenNights";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 /** How long an invasion session may sit open before it is treated as ABANDONED and
@@ -650,11 +650,13 @@ export async function finishRaid(
   // keys, and a story invasion's elite prize keeps its own key (raidZombieDryKey).
   const zombieDry = parse<Record<string, number>>(raidState.zombie_dry_json, {});
   const firstClear = win && !(progress[String(raidId)] > 0);
-  const baseGold = win ? winGold(econ, survivors.length / locked.length) : 0;
   const boosts = parse<{ dice?: number; brainDrop?: number; elite?: boolean; tier?: number; night?: number }>(session.boosts_json, {});
   // The Halloween night this was (1 for every ordinary fight): the rare zombie is that many
   // times likelier, and a won Halloween night offers the next one (halloweenNights.ts).
   const night = clampNight(boosts.night ?? FIRST_NIGHT);
+  // Nights 2+ pay a quarter of the win gold and roll no Bonus Gold (halloweenNights.ts).
+  const laterNight = night > FIRST_NIGHT;
+  const baseGold = win ? Math.round(winGold(econ, survivors.length / locked.length) * nightGoldShare(night)) : 0;
   // Elite is read back from the SESSION, not from this request: the ticket was charged
   // and the wave scaled at /raid/start, so that is where the fact lives.
   const eliteLuck = boosts.elite ? ELITE_BRAIN_LUCK : 1;
@@ -716,7 +718,7 @@ export async function finishRaid(
     const statue = settleBossStatue(raidId, progress[String(raidId)], zombieDry, Math.random(), Math.random());
     Object.assign(zombieDry, statue.flags);
     const name = statue.drop
-      ?? rollLoot(raidId, boosts.dice ?? 0, ownedLootCounter(core.storage, objects), Math.random(), Math.random());
+      ?? rollLoot(raidId, boosts.dice ?? 0, ownedLootCounter(core.storage, objects), Math.random(), Math.random(), laterNight);
     const grant = resolveLoot(name, econ.recLevel);
     if (grant.kind === "gold") { lootGold = grant.gold; loot = { name: grant.name, kind: "gold" }; }
     else if (grant.kind === "boost") {

@@ -11,7 +11,7 @@
 // placeable), so a client naming its own prize is a mint. Note it was ALSO simply broken
 // online — the client's grants routed through the spend-only economy and the removed
 // inventory `grant`, so raid loot silently evaporated. This fixes both.
-import { rollLootTier, pickLootEntry, lootEntryWeight, extraDropsFor } from "../../src/raid/LootTable";
+import { pickLootEntry, lootEntryWeight, extraDropsFor, lootTierFor } from "../../src/raid/LootTable";
 import { raidLoot, dropEcon } from "./raidLootCatalog";
 import { boostKeyForName } from "./boostCatalog";
 import { raidBoostBundle } from "../../src/raid/lootBundles";
@@ -101,11 +101,13 @@ export function rollLoot(
   dice: number,
   owned: OwnedCount,
   roll: number,
-  pick: number
+  pick: number,
+  /** A Halloween night 2+: its tier-0 result (Bonus Gold) becomes tier 1 instead. */
+  noBonusGold = false
 ): string | null {
   const table = raidLoot(raidId);
   if (!table) return null;
-  return pickLootEntry(table, rollLootTier(roll, dice), (n) => lootWeight(n, owned), pick);
+  return pickLootEntry(table, lootTierFor(roll, dice, noBonusGold), (n) => lootWeight(n, owned), pick);
 }
 
 /** The EXTRA drops of a win — the faction banners, each rolling on its own `extraRate`

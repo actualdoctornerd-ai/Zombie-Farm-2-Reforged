@@ -316,3 +316,14 @@ describe("raidLoot lookup", () => {
     expect(raidLoot(999)).toBeUndefined();
   });
 });
+
+describe("Halloween nights 2+ roll no Bonus Gold", () => {
+  const none = ownedLootCounter({ received: {}, stored: {} }, []);
+  it("lifts the bottom (gold) tier to the next one up, and leaves every other roll alone", () => {
+    // roll 0.05 lands in tier 0 on a dice-less fight: Bonus Gold on night 1 ...
+    expect(rollLoot(16, 0, none, 0.05, 0)).toBe(BONUS_GOLD);
+    // ... and a tier-1 boost on a later night.
+    expect(rollLoot(16, 0, none, 0.05, 0, true)).not.toBe(BONUS_GOLD);
+    expect(rollLoot(16, 0, none, 0.5, 0, true)).toBe(rollLoot(16, 0, none, 0.5, 0));
+  });
+});

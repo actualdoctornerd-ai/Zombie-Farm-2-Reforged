@@ -60,6 +60,14 @@ export function rollLootTier(roll: number, bonus: number): number {
   return 5;
 }
 
+/** rollLootTier, with the bottom tier (the "Bonus Gold" a loot table opens with) lifted to
+ *  tier 1 when `noBonusGold` — a Halloween night 2+ pays no gold drop (halloweenNights.ts).
+ *  Shared by the client's offline roll and the Worker's, so the two cannot drift. */
+export function lootTierFor(roll: number, bonus: number, noBonusGold: boolean): number {
+  const tier = rollLootTier(roll, bonus);
+  return noBonusGold && tier === 0 ? 1 : tier;
+}
+
 /** The chance of each rarity tier (index 0-5, summing to 1) at a luck bracket — the closed
  *  form of rollLootTier, for DISPLAY (the drop table). Pinned against rollLootTier itself by
  *  LootTable.test.ts, so the two cannot drift. */

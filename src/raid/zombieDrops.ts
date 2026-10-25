@@ -6,6 +6,9 @@ export interface RaidZombieDrop {
   /** Other zombies the same hit may hand over instead, picked evenly (Halloween pays a
    *  JackoZombie or a Zcarecrow). They share the prize's rate, streak and pity floor. */
   alternates?: readonly { key: string; name: string }[];
+  /** A ceiling on this prize's per-win chance, whatever dice, tickets and night luck stack
+   *  on it (Halloween's night chain would otherwise make its prizes certain). */
+  maxRate?: number;
 }
 
 export const OLD_MC_ZOMBIE_KEY = "ZombieActorOldMcZombie";
@@ -78,6 +81,11 @@ export const HALLOWEEN_ZOMBIE_DROP_RATE = pct(1);
 /** A Brain Ticket's 4x, kept here so this module imports nothing; zombieDrops.test pins it
  *  to eliteInvasion.ELITE_BRAIN_LUCK. */
 export const ELITE_LUCK_FOR_PRIZES = 4;
+/** Per-night ceilings on Halloween's prizes (owner, 2026-10-24): the night chain's x1.5 a
+ *  night, a ticket's 4x and up to five carried Golden Dice would otherwise reach certainty.
+ *  The JackoZombie/Zcarecrow roll is one roll for the pair. */
+export const HALLOWEEN_PAIR_MAX_RATE = pct(15);
+export const HALLOWEEN_MUMMY_MAX_RATE = pct(25);
 
 // ---- The story invasions' prize pairs ---------------------------------------------
 // In the source these eight were ALTERNATE Epic Boss prizes for events that were never
@@ -175,6 +183,7 @@ export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
     name: "JackoZombie",
     rate: HALLOWEEN_ZOMBIE_DROP_RATE,
     alternates: [{ key: ZCARECROW_KEY, name: "Zcarecrow" }],
+    maxRate: HALLOWEEN_PAIR_MAX_RATE,
   },
 };
 
@@ -189,7 +198,10 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
   [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Cozmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
   [VIDEO_GAMES_RAID_ID]: { key: FINAL_BOSS_ZOMBIE_KEY, name: "Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID) },
-  [HALLOWEEN_RAID_ID]: { key: MUMMY_ZOMBIE_KEY, name: MUMMY_ZOMBIE_NAME, rate: HALLOWEEN_ZOMBIE_DROP_RATE * ELITE_LUCK_FOR_PRIZES },
+  [HALLOWEEN_RAID_ID]: {
+    key: MUMMY_ZOMBIE_KEY, name: MUMMY_ZOMBIE_NAME,
+    rate: HALLOWEEN_ZOMBIE_DROP_RATE * ELITE_LUCK_FOR_PRIZES, maxRate: HALLOWEEN_MUMMY_MAX_RATE,
+  },
 };
 
 /** The prize a win of `raidId` is CHARACTERISED by: the promoted one when this was an
@@ -288,7 +300,7 @@ export function raidZombieDropRate(
   if (drop == null) return 0;
   const spent = Math.max(0, Math.min(ZOMBIE_LUCK_DICE_CAP, Math.trunc(Number(dice) || 0)));
   const multiplier = (promoted ? 1 : Math.max(0, Number(luck) || 0)) * Math.max(0, Number(stageLuck) || 0);
-  return Math.min(1, drop.rate * (1 + ZOMBIE_LUCK_PER_DIE * spent) * multiplier);
+  return Math.min(1, drop.maxRate ?? 1, drop.rate * (1 + ZOMBIE_LUCK_PER_DIE * spent) * multiplier);
 }
 
 /** Whether a draw landed inside a rate. A draw outside [0, 1) — NaN, negative, a stray

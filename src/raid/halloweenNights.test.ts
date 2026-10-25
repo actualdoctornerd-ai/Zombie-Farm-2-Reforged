@@ -4,7 +4,7 @@ import { raidProfile } from "./dualInvasion";
 import { RAID_TIME_LIMIT_MS } from "./BattleSim";
 import {
   ELITE_NIGHT_OFFSET, FIRST_NIGHT, MAX_NIGHT, NIGHT_TIME_LIMIT_MS, clampNight, hasNights,
-  nightBrainLuck, nightDamageMult, nightHpMult, nightLabel, nightProfile, nightPrompt, nightStage,
+  nightBrainLuck, nightDamageMult, nightGoldShare, nightHpMult, nightLabel, nightProfile, nightPrompt, nightStage,
   nightTimeLimitMs, nightZombieLuck,
 } from "./halloweenNights";
 import { flyFight } from "./harness/pilot";
@@ -51,6 +51,20 @@ describe("Halloween nights: the rules", () => {
     expect(NIGHT_TIME_LIMIT_MS).toBe(180_000);
     expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, 2, RAID_TIME_LIMIT_MS)).toBe(180_000);
     expect(nightTimeLimitMs(10, 2, RAID_TIME_LIMIT_MS)).toBe(RAID_TIME_LIMIT_MS);
+  });
+
+  it("follow the owner's curve: HP 1, 2.4, 5.76, 12.1 ...; damage x1, x2, x3 ...", () => {
+    expect(nightHpMult(1)).toBe(1);
+    expect(nightHpMult(2)).toBeCloseTo(2 * 1.2);
+    expect(nightHpMult(3)).toBeCloseTo(4 * 1.44);
+    expect(nightHpMult(4)).toBeCloseTo(7 * 1.728);
+    expect(nightHpMult(5)).toBeCloseTo(11 * 2.0736);
+    for (let n = 1; n <= 8; n++) expect(nightDamageMult(n)).toBeCloseTo(n);
+  });
+
+  it("pay a quarter of the win gold from night 2", () => {
+    expect(nightGoldShare(1)).toBe(1);
+    for (let n = 2; n <= 8; n++) expect(nightGoldShare(n)).toBe(0.25);
   });
 
   it("make the rare zombie x1.5 likelier every night, and brains gently likelier", () => {
@@ -109,18 +123,20 @@ describe("Halloween nights: the curve, in the sim", () => {
     return flyFight(buildFight(spec), makePilot(EXPERT), { seed: waveSeed });
   };
 
+  // Pinned loosely enough to hold whatever the base wave's own tuning is doing: night 5 is a
+  // real fight and night 8 is past the wall (measured: unbuffed wave clears 7, buffed 6).
   it("lets a maxed level-45 army through night 5, but only after a long fight", () => {
     for (const seed of [0, 1]) {
       const flight = fly(5, seed);
       expect(flight.win).toBe(true);
-      expect(flight.secs).toBeGreaterThan(120);
+      expect(flight.secs).toBeGreaterThan(80);
       expect(flight.secs).toBeLessThan(NIGHT_TIME_LIMIT_MS / 1000);
     }
   }, 120_000);
 
-  it("runs that army out of time on night 6, without wiping it", () => {
+  it("runs that army out of time on night 8, without wiping it", () => {
     for (const seed of [0, 1]) {
-      const flight = fly(6, seed);
+      const flight = fly(8, seed);
       expect(flight.win).toBe(false);
       expect(flight.timedOut).toBe(true);
       expect(flight.survivors).toBeGreaterThan(0);

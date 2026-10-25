@@ -26,29 +26,29 @@ import { HALLOWEEN_RAID_ID } from "./zombieDrops";
 /** The ordinary fight is night 1; every continuation is the next night up. */
 export const FIRST_NIGHT = 1;
 /** A ceiling on the chain, only so a number can never grow without bound. Night 7 is
- *  already past anything an army can clear (see NIGHT_HP_GROWTH). */
+ *  already past anything an army can clear (see nightHpMult). */
 export const MAX_NIGHT = 30;
 
-/** Hit-point growth per night, compounding: night n fields `NIGHT_HP_GROWTH^(n-1)` times
- *  the ordinary bulk (x2.75, x7.6, x20.8, x57.2 for nights 2-5).
+/** Hit points on night n: a base step that grows each night (+100% of base, then +200%,
+ *  +300%, ...: 1, 2, 4, 7, 11, 16 ...) times a gentle x1.2 compounding. Owner's curve,
+ *  2026-10-24, replacing a flat x2.75 compounding that read as a wall at night 5-6.
  *
- *  It has to be steep because an endgame clear is mostly WALKING: a maxed level-45 army
- *  spends ~35 s of a 39 s night 1 deploying and closing in, so x8 bulk only took that clear
- *  to 69 s. Measured with the difficulty harness (unlockArmy marks, real BattleSim, six
- *  wave seeds), winning clears in seconds, 180 s cap:
+ *  Measured with the difficulty harness against the owner's buffed wave (Count con 100 /
+ *  str 30, minions con 28-40), four seeds, winning clears in seconds on the 180 s clock:
  *
- *                              night 2   night 3   night 4   night 5    night 6
- *      level 45, maxed          43-49     58-67     86-99    145-157   out of time
- *      level 45, ordinary       45-51     63-72    96-110    176 expert / out of time
- *      level 30, ordinary       55-65     76-89   118-131   out of time
- *      level 20, ordinary      90-115   149-175  out of time
+ *                              n2       n3       n4       n5        n6         n7
+ *      level 45, maxed        47-54    63-72    84-94   114-129   158-172   out of time
+ *      level 45, ordinary     50-57    69-75   94-106   133-147  out of time
+ *      level 30, ordinary     61-72    82-94  112-132   161-177  out of time
+ *      level 20, ordinary    102-138   wiped
  *
- *  Night 5 is the owner's "extremely difficult for an endgame army"; past it the clock
- *  wins. Nearly every loss on that curve is a clock-out, not a wipe. */
-export const NIGHT_HP_GROWTH = 2.75;
-/** Damage growth per night, linear and deliberately smaller: night n hits `1 + step*(n-1)`
- *  times as hard (x1.3 ... x2.2 at night 5), so long nights still cost the odd zombie. */
-export const NIGHT_DAMAGE_STEP = 0.3;
+ *  Damage is what bites the lower levels: they are worn down rather than run out of time. */
+export const NIGHT_HP_COMPOUND = 1.2;
+/** Damage on night n: +100% of base a night (x1, x2, x3 ...). */
+export const NIGHT_DAMAGE_STEP = 1;
+/** The win gold a night pays from night 2 on, as a share of the invasion's: the nights are a
+ *  brains-and-zombies chase, not a gold farm (owner, 2026-10-24). Night 1 pays in full. */
+export const NIGHT_GOLD_SHARE = 0.25;
 /** Every night after the first is on a three-minute clock. Clocking out is an ordinary
  *  loss, which is the whole intent of an HP-led curve. */
 export const NIGHT_TIME_LIMIT_MS = 3 * 60 * 1000;
@@ -82,7 +82,8 @@ export function clampNight(night: unknown): number {
 
 /** Enemy hit-point multiplier on `night`. */
 export function nightHpMult(night: number): number {
-  return Math.pow(NIGHT_HP_GROWTH, clampNight(night) - 1);
+  const n = clampNight(night);
+  return (1 + (n * (n - 1)) / 2) * Math.pow(NIGHT_HP_COMPOUND, n - 1);
 }
 
 /** Enemy damage multiplier on `night`. */
@@ -124,6 +125,11 @@ export function nightStage(night: number | undefined, elite: boolean): number {
 /** Rare-zombie luck on `night`: x1.5 a night, compounding (elite's 4x is applied apart). */
 export function nightZombieLuck(night: number | undefined): number {
   return Math.pow(NIGHT_ZOMBIE_GROWTH, clampNight(night) - 1);
+}
+
+/** The share of the invasion's win gold `night` pays: all of it on night 1, a quarter after. */
+export function nightGoldShare(night: number | undefined): number {
+  return clampNight(night) > FIRST_NIGHT ? NIGHT_GOLD_SHARE : 1;
 }
 
 /** Brain luck on `night`: half the rung's, then x1.1 a night, compounding (elite's 4x is
