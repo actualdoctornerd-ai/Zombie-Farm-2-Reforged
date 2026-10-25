@@ -716,7 +716,8 @@ export async function finishRaid(
     // handed over at the 15th / 50th win, then a 2% / 1% chance. Its "handed over" flags ride
     // in zombieDry (written back below with the rare-zombie streaks), and the win count is
     // the server's own progress, already advanced for this win above.
-    const statue = settleBossStatue(raidId, progress[String(raidId)], zombieDry, Math.random(), Math.random());
+    // Halloween's are earned on the HOUR (night) won instead (bossStatues EVENT_STATUE_HOURS).
+    const statue = settleBossStatue(raidId, progress[String(raidId)], zombieDry, Math.random(), Math.random(), night);
     Object.assign(zombieDry, statue.flags);
     const name = statue.drop
       ?? rollLoot(raidId, boosts.dice ?? 0, ownedLootCounter(core.storage, objects), Math.random(), Math.random(), laterNight);

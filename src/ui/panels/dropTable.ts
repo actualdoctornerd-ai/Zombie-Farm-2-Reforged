@@ -189,8 +189,8 @@ export function openDropTable(host: HTMLElement, card: RaidCardView): void {
         "Boss statues",
         "A statue takes the place of that win's item drop, and is a milestone reward.",
       );
-      s.appendChild(line(statue.name, `win #${statue.stoneWins}, then ${formatOdds(statue.stoneRate)} per win`, "dt-item"));
-      s.appendChild(line(statue.goldenName, `win #${statue.goldenWins}, then ${formatOdds(statue.goldenRate)} per win`, "dt-item"));
+      s.appendChild(line(statue.name, `${statue.stoneWhen}, then ${formatOdds(statue.stoneRate)} per win`, "dt-item"));
+      s.appendChild(line(statue.goldenName, `${statue.goldenWhen}, then ${formatOdds(statue.goldenRate)} per win`, "dt-item"));
       body.appendChild(s);
     }
 

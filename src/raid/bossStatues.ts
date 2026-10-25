@@ -21,6 +21,11 @@
 //
 // The dual invasions (12-15) carve nothing yet.
 //
+// HALLOWEEN (raid 16) carves on the HOUR won instead of the win count (EVENT_BOSS_STATUES,
+// owner 2026-10-25): the stone Count on the first win of Hour 6 or later, the golden one on
+// the first win of Hour 12; after that the same 2% / 1% on any Halloween win. The hour is
+// the one the player sees (halloweenNights' label), so an Elite Hour 6 counts too.
+//
 // The eight EPIC bosses (src/epicBoss/catalog.ts) have statues too, wired in as plain
 // ITEMS ONLY: baked by tools/boss_statues.py EPIC_STATUES (`epicStatue*` tiles, drops.json,
 // the server catalogs, the shared sell price) but nothing grants them yet — settleBossStatue
@@ -71,13 +76,20 @@ export const EPIC_BOSS_STATUES: Readonly<Record<string, BossStatue>> = {
   "loco-locust": statue("Loco Locust", "epicStatueLocoLocust"),
 };
 
-/** Event invasions' boss statues, by raid id. Items only, like the epic ones — NOTHING
- *  GRANTS THESE YET, and they are deliberately NOT in BOSS_STATUES, which would start the
- *  15- and 50-win milestones (owner, 2026-10-25: Halloween's will pay on Hours 6 and 12, rules
- *  to come). KEEP IN SYNC with EVENT_STATUES in tools/boss_statues.py. */
+/** Event invasions' boss statues, by raid id. Deliberately NOT in BOSS_STATUES: they are
+ *  earned on the HOUR won (EVENT_STATUE_HOURS), not on the 15th / 50th win. KEEP IN SYNC
+ *  with EVENT_STATUES in tools/boss_statues.py. */
 export const EVENT_BOSS_STATUES: Readonly<Record<number, BossStatue>> = {
   16: statue("Count von Uberbiss", "bossStatueCountVonUberbiss"),
 };
+/** The hour whose first win hands over each event statue (owner, 2026-10-25). */
+export const EVENT_STATUE_HOURS: Readonly<Record<number, { stone: number; golden: number }>> = {
+  16: { stone: 6, golden: 12 },
+};
+
+export function eventStatueFor(raidId: number): BossStatue | null {
+  return Object.prototype.hasOwnProperty.call(EVENT_BOSS_STATUES, raidId) ? EVENT_BOSS_STATUES[raidId] : null;
+}
 
 /** Wins of one invasion that hand over its stone / golden statue. */
 export const BOSS_STATUE_WINS = 15;
@@ -103,30 +115,46 @@ export interface BossStatueSettlement {
 
 /** Settle one WIN's statue. `wins` is this invasion's win count INCLUDING this one;
  *  `flags` the stored pity map; `goldenRoll` / `roll` two independent uniform [0,1)
- *  draws from the caller's RNG. At most one statue per win: a due milestone first
- *  (stone before golden — the stone mark comes first anyway), then the golden chance,
- *  then the stone chance. */
+ *  draws from the caller's RNG; `night` the Halloween hour this win cleared (1 for every
+ *  other fight). At most one statue per win: a due milestone first, then the golden chance,
+ *  then the stone chance. A story invasion's milestones go stone first (its mark comes
+ *  first anyway); an event invasion's go GOLDEN first, so a Hour 12 win always pays the
+ *  golden statue even to a player who passed Hour 6 before the statues existed. */
 export function settleBossStatue(
   raidId: number,
   wins: number,
   flags: Readonly<Record<string, number>>,
   goldenRoll: number,
   roll: number,
+  night = 1,
 ): BossStatueSettlement {
   const next: Record<string, number> = { ...flags };
-  const s = bossStatueFor(raidId);
+  const event = eventStatueFor(raidId);
+  const s = bossStatueFor(raidId) ?? event;
   if (!s) return { drop: null, flags: next };
   const stoneKey = statueFlagKey(raidId, false);
   const goldenKey = statueFlagKey(raidId, true);
   const hasStone = (flags[stoneKey] ?? 0) > 0;
   const hasGolden = (flags[goldenKey] ?? 0) > 0;
-  if (!hasStone && wins >= BOSS_STATUE_WINS) {
-    next[stoneKey] = 1;
-    return { drop: s.name, flags: next };
-  }
-  if (!hasGolden && wins >= GOLDEN_STATUE_WINS) {
-    next[goldenKey] = 1;
-    return { drop: s.goldenName, flags: next };
+  if (event) {
+    const hours = EVENT_STATUE_HOURS[raidId];
+    if (!hasGolden && night >= hours.golden) {
+      next[goldenKey] = 1;
+      return { drop: s.goldenName, flags: next };
+    }
+    if (!hasStone && night >= hours.stone) {
+      next[stoneKey] = 1;
+      return { drop: s.name, flags: next };
+    }
+  } else {
+    if (!hasStone && wins >= BOSS_STATUE_WINS) {
+      next[stoneKey] = 1;
+      return { drop: s.name, flags: next };
+    }
+    if (!hasGolden && wins >= GOLDEN_STATUE_WINS) {
+      next[goldenKey] = 1;
+      return { drop: s.goldenName, flags: next };
+    }
   }
   if (hasGolden && goldenRoll < GOLDEN_STATUE_RATE) return { drop: s.goldenName, flags: next };
   if (hasStone && roll < BOSS_STATUE_RATE) return { drop: s.name, flags: next };

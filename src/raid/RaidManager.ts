@@ -807,7 +807,7 @@ export class RaidManager {
       // spend-only economy and the removed inventory `grant`, so loot evaporated.
       // OFFLINE: roll and grant locally, exactly as before.
       if (!serverRewards) {
-        const drop = this.rollLoot(raid, dice, wins, night > FIRST_NIGHT);
+        const drop = this.rollLoot(raid, dice, wins, night > FIRST_NIGHT, night);
         if (drop === "Bonus Gold") {
           const bonusGold = raid.recommendedLevel * 100; // getBonusGoldLootForStageLevel:
           gold += bonusGold;
@@ -895,7 +895,7 @@ export class RaidManager {
    *  DOWN to commoner tiers (as the binary does). Returns null if nothing is
    *  eligible (e.g. every tier already collected). Same rules as the server's
    *  loot.rollLoot, which is what decides online. */
-  private rollLoot(raid: RaidDef, bonus: number, wins: number, noBonusGold = false): string | null {
+  private rollLoot(raid: RaidDef, bonus: number, wins: number, noBonusGold = false, night = FIRST_NIGHT): string | null {
     // No loot table, no drop — not even a statue (the server's `if (!table)` twin).
     if (!raid.loot.some((tier) => tier.length)) return null;
     // Owned = unclaimed raid loot + the shed + the object it becomes once PLACED
@@ -911,7 +911,7 @@ export class RaidManager {
       return n;
     };
     // The milestone flags live in the rare-zombie pity map, as they do on the server.
-    const statue = settleBossStatue(raid.id, wins, this.state.zombieDryWins, Math.random(), Math.random());
+    const statue = settleBossStatue(raid.id, wins, this.state.zombieDryWins, Math.random(), Math.random(), night);
     this.state.zombieDryWins = statue.flags;
     if (statue.drop) return statue.drop;
     const weightOf = (name: string): number =>

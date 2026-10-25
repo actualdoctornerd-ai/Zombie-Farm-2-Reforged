@@ -11,7 +11,8 @@
 // indistinguishable from a lucky one.
 import { lootTierChances } from "./LootTable";
 import {
-  BOSS_STATUE_RATE, BOSS_STATUE_WINS, GOLDEN_STATUE_RATE, GOLDEN_STATUE_WINS, bossStatueFor,
+  BOSS_STATUE_RATE, BOSS_STATUE_WINS, EVENT_STATUE_HOURS, GOLDEN_STATUE_RATE, GOLDEN_STATUE_WINS, bossStatueFor,
+  eventStatueFor,
 } from "./bossStatues";
 
 /** What the six rarity tiers are called on screen. The source names none of them. */
@@ -149,18 +150,38 @@ export interface StatueRule {
   goldenWins: number;
   stoneRate: number;
   goldenRate: number;
+  /** When each milestone pays, as card text: "win #15", or "first Hour 6 win". */
+  stoneWhen: string;
+  goldenWhen: string;
 }
 
 /** The invasion's boss statues (bossStatues.ts), or null where it carves none — the four
  *  dual invasions and the epic bosses. */
 export function statueRule(raidId: number): StatueRule | null {
   const s = bossStatueFor(raidId);
-  return s ? {
-    name: s.name,
-    goldenName: s.goldenName,
-    stoneWins: BOSS_STATUE_WINS,
-    goldenWins: GOLDEN_STATUE_WINS,
+  if (s) {
+    return {
+      name: s.name,
+      goldenName: s.goldenName,
+      stoneWins: BOSS_STATUE_WINS,
+      goldenWins: GOLDEN_STATUE_WINS,
+      stoneRate: BOSS_STATUE_RATE,
+      goldenRate: GOLDEN_STATUE_RATE,
+      stoneWhen: `win #${BOSS_STATUE_WINS}`,
+      goldenWhen: `win #${GOLDEN_STATUE_WINS}`,
+    };
+  }
+  // An event invasion's statues are earned on the hour won (bossStatues EVENT_STATUE_HOURS).
+  const e = eventStatueFor(raidId);
+  const hours = EVENT_STATUE_HOURS[raidId];
+  return e && hours ? {
+    name: e.name,
+    goldenName: e.goldenName,
+    stoneWins: 0,
+    goldenWins: 0,
     stoneRate: BOSS_STATUE_RATE,
     goldenRate: GOLDEN_STATUE_RATE,
+    stoneWhen: `first Hour ${hours.stone} win`,
+    goldenWhen: `first Hour ${hours.golden} win`,
   } : null;
 }
