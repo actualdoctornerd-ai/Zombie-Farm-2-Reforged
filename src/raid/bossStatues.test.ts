@@ -44,3 +44,21 @@ describe("offline Boss Statue milestones", () => {
     expect(statuesIn(state)).toEqual([]);
   });
 });
+
+// Halloween's Count statues exist as ITEMS (placeables, drop names, sell price) but nothing
+// grants them yet: they must stay out of BOSS_STATUES, which would start the win milestones.
+describe("event boss statues", () => {
+  it("are real placeables and drop names, with no milestone attached", async () => {
+    const { BOSS_STATUES, EVENT_BOSS_STATUES, bossStatueFor } = await import("./bossStatues");
+    const placeables = (await import("../../public/assets/placeables.json")).default as { key: string; sprite: string }[];
+    const drops = (await import("../../public/assets/raids/drops.json")).default as Record<string, { tile: string }>;
+    const count = EVENT_BOSS_STATUES[16];
+    expect(count.name).toBe("Count von Uberbiss Statue");
+    expect(bossStatueFor(16)).toBeNull();
+    expect(Object.keys(BOSS_STATUES)).not.toContain("16");
+    for (const [name, tile] of [[count.name, count.tile], [count.goldenName, count.goldenTile]]) {
+      expect(placeables.find((p) => p.key === tile)?.sprite).toBe(`${tile}.png`);
+      expect(drops[name]?.tile).toBe(tile);
+    }
+  });
+});

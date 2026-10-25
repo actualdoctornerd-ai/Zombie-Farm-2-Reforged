@@ -196,6 +196,7 @@ const STATUE_TILES = [
   "epicStatueDrGroundhog", "epicStatueBullyFrog", "epicStatueRockyRhino",
   "epicStatueGeneralLarvaelus", "epicStatueMysticalMamba", "epicStatueFoulOwl",
   "epicStatueSkunkarella", "epicStatueLocoLocust",
+  "bossStatueCountVonUberbiss",
 ];
 export const BOSS_STATUE_SELL: Readonly<Record<string, number>> = Object.fromEntries(
   STATUE_TILES.flatMap((tile) => [[tile, 5_000], [`${tile}Golden`, 15_000]])

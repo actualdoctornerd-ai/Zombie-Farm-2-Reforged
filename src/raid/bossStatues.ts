@@ -71,6 +71,14 @@ export const EPIC_BOSS_STATUES: Readonly<Record<string, BossStatue>> = {
   "loco-locust": statue("Loco Locust", "epicStatueLocoLocust"),
 };
 
+/** Event invasions' boss statues, by raid id. Items only, like the epic ones — NOTHING
+ *  GRANTS THESE YET, and they are deliberately NOT in BOSS_STATUES, which would start the
+ *  15- and 50-win milestones (owner, 2026-10-25: Halloween's will pay on Hours 6 and 12, rules
+ *  to come). KEEP IN SYNC with EVENT_STATUES in tools/boss_statues.py. */
+export const EVENT_BOSS_STATUES: Readonly<Record<number, BossStatue>> = {
+  16: statue("Count von Uberbiss", "bossStatueCountVonUberbiss"),
+};
+
 /** Wins of one invasion that hand over its stone / golden statue. */
 export const BOSS_STATUE_WINS = 15;
 export const GOLDEN_STATUE_WINS = 50;

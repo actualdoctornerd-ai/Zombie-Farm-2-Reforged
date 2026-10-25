@@ -72,7 +72,14 @@ EPIC_STATUES = [
     ("epicStatueSkunkarella", "Skunkarella Statue", "epic:skunkarella"),
     ("epicStatueLocoLocust", "Loco Locust Statue", "epic:loco-locust"),
 ]
-STATUES = STATUES + EPIC_STATUES
+# EVENT statues: an event invasion's boss (Halloween's Count von Uberbiss). Same recipe as the
+# story bosses, but wired in as ITEMS only like the epic ones: the milestone rules in
+# src/raid/bossStatues.ts never name them. (Owner, 2026-10-25: the Hour 6 / Hour 12 rules
+# come later.) KEEP IN SYNC with EVENT_BOSS_STATUES in src/raid/bossStatues.ts.
+EVENT_STATUES = [
+    ("bossStatueCountVonUberbiss", "Count von Uberbiss Statue", "HalloweenStageActorBoss"),
+]
+STATUES = STATUES + EPIC_STATUES + EVENT_STATUES
 # Pixel art is scaled without smoothing, or Zedzox turns to mush.
 PIXEL_ART = {"VideoGameStageBossActor"}
 
@@ -85,7 +92,8 @@ PIXEL_ART = {"VideoGameStageBossActor"}
 #   nudge         — a final shift right (+) / left (-), in plinth pixels;
 #   pose          — build from the enemy's part RIG (raids/enemies/models.json)
 #                   instead of the flat composite, with these parts re-rotated
-#                   (part index -> radians). The composite is an action pose.
+#                   (part index -> radians). The composite is an action pose;
+#   drop          — sink the figure this many extra plinth pixels into the top face.
 FIGURE_TWEAKS = {
     # Old McDonnell's composite has his arm raised; the rig at rest, with the far arm
     # swung down beside his overalls, stands like a statue.
@@ -95,6 +103,9 @@ FIGURE_TWEAKS = {
     "ValentinesDayStageActorBoss": {"center": "feet"},
     "CircusStageActorBoss": {"center": "head", "nudge": 10},
     "VideoGameStageBossActor": {"scale": 0.8},
+    # The Count's cape flares far to his left in screen terms and his collar stands tall;
+    # set by eye with the owner (2026-10-25): 12% smaller, 6 px left, 5 px lower.
+    "HalloweenStageActorBoss": {"scale": 0.88, "nudge": -6, "drop": 5},
 }
 # Share of the figure's height counted as its feet / head band for centring.
 FEET_BAND = 0.10
@@ -228,13 +239,13 @@ def _figure(source):
     return fig, anchor - tweak.get("nudge", 0)
 
 
-def _compose(plinth, mount_x, mount_y, figure, anchor_x):
+def _compose(plinth, mount_x, mount_y, figure, anchor_x, sink=FEET_SINK):
     """Plinth bottom-centred (as the renderer anchors every object), figure's feet on
     the mount point, `anchor_x` of the figure over it. The canvas grows symmetrically
     about the plinth's centre so the bottom-centre anchor still lands under the plinth."""
     pw, ph = plinth.size
     mx = mount_x * pw
-    my = ph * (1 - mount_y) + FEET_SINK
+    my = ph * (1 - mount_y) + sink
     fx0 = round(mx - anchor_x)
     fy0 = round(my - figure.height)
     half = max(pw / 2, pw / 2 - fx0, fx0 + figure.width - pw / 2)
@@ -256,7 +267,8 @@ def build(objdir=OBJDIR, memorial=None):
     rows = []
     variants = []
     for key, name, source in STATUES:
-        art = _compose(plinth, memorial["mountX"], memorial["mountY"], *_figure(source))
+        sink = FEET_SINK + FIGURE_TWEAKS.get(source, {}).get("drop", 0)
+        art = _compose(plinth, memorial["mountX"], memorial["mountY"], *_figure(source), sink=sink)
         variants.append((key, name, art))
         variants.append((golden_key(key), golden_name(name), _gild(art)))
     for key, name, art in variants:

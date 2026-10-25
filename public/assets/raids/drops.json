@@ -1349,5 +1349,21 @@
   "tile": "epicStatueLocoLocustGolden",
   "unique": false,
   "limit": 0
+ },
+ "Count von Uberbiss Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueCountVonUberbiss",
+  "unique": false,
+  "limit": 0
+ },
+ "Golden Count von Uberbiss Statue": {
+  "icon": "",
+  "brains": false,
+  "gold": false,
+  "tile": "bossStatueCountVonUberbissGolden",
+  "unique": false,
+  "limit": 0
  }
 }
