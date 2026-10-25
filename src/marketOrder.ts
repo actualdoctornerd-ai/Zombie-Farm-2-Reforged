@@ -1,5 +1,5 @@
 import { PRIZE_CROPS } from "./cropUnlocks";
-import { themeAvailable } from "./decorThemes";
+import { EVERGREEN, themeAvailable } from "./decorThemes";
 
 /** The holiday a seasonal seed belongs to. A seasonal crop is sold while its theme is on
  *  decorThemes.ACTIVE_THEMES, the same switch that puts that holiday's decor in the
@@ -26,21 +26,35 @@ export function cropAvailableInMarket(
   return !crop.prize || PRIZE_CROPS.live;
 }
 
-/** Market crop order: permanent catalog first, holiday/seasonal catalog last;
- * unlock level orders entries within each group. Stable sort preserves authored
- * order for entries tied on both keys. */
-export function compareCropMarketOrder(
-  a: { seasonal?: boolean; level: number },
-  b: { seasonal?: boolean; level: number }
-): number {
-  return Number(!!a.seasonal) - Number(!!b.seasonal) || a.level - b.level;
+/** A Market entry, crop or item: a plants.json row or crop card (key on `key` or `cfg`), or
+ *  a placeable def (its holiday on `theme`). */
+interface MarketEntry {
+  seasonal?: boolean;
+  level: number;
+  theme?: string;
+  key?: string;
+  cfg?: { key: string };
 }
 
-/** Market item order: permanent items first, seasonal/event items last; unlock
- * level orders entries within each group. */
-export function compareItemMarketOrder(
-  a: { seasonal?: boolean; level: number },
-  b: { seasonal?: boolean; level: number }
-): number {
-  return Number(!!a.seasonal) - Number(!!b.seasonal) || a.level - b.level;
+/** 0 = in season (its holiday is on ACTIVE_THEMES), 1 = the permanent catalog, 2 = any
+ *  other seasonal entry. The holiday's own goods lead the tab while it runs, so they are
+ *  not twenty pages deep (owner, 2026-10-25); out of season they drop back to the end. */
+function seasonRank(entry: MarketEntry): number {
+  const key = entry.key ?? entry.cfg?.key;
+  const theme = entry.theme ?? (key ? SEASONAL_CROP_THEMES[key] : undefined);
+  if (theme && theme !== EVERGREEN && themeAvailable(theme)) return 0;
+  return entry.seasonal ? 2 : 1;
+}
+
+/** Market crop order: in-season holiday crops first, then the permanent catalog, then any
+ * other holiday crop; unlock level orders entries within each group. Stable sort
+ * preserves authored order for entries tied on both keys. */
+export function compareCropMarketOrder(a: MarketEntry, b: MarketEntry): number {
+  return seasonRank(a) - seasonRank(b) || a.level - b.level;
+}
+
+/** Market item order: in-season holiday items first, then permanent items, then other
+ * seasonal/event items; unlock level orders entries within each group. */
+export function compareItemMarketOrder(a: MarketEntry, b: MarketEntry): number {
+  return seasonRank(a) - seasonRank(b) || a.level - b.level;
 }

@@ -52,6 +52,29 @@ describe("crop market ordering", () => {
   });
 });
 
+describe("in-season goods lead their tab", () => {
+  it("puts Candy Corn before the permanent crops while Halloween runs", () => {
+    const entries = [
+      { name: "Carrot", level: 1, cfg: { key: "carrot" } },
+      { name: "Candy Corn", level: 13, seasonal: true, cfg: { key: "candy_corn" } },
+      { name: "Marigold", level: 3, seasonal: true, cfg: { key: "marigold" } },
+    ];
+    expect(entries.sort(compareCropMarketOrder).map((entry) => entry.name))
+      .toEqual(["Candy Corn", "Carrot", "Marigold"]);
+  });
+
+  it("puts the Halloween decor before the permanent items, other holidays after", () => {
+    const entries = [
+      { name: "Gravestone", level: 5 },
+      { name: "Christmas Candle", level: 1, seasonal: true, theme: "christmas" },
+      { name: "Sugar Skull", level: -1, seasonal: true, theme: "halloween" },
+      { name: "Organ", level: -1, seasonal: true, theme: "halloween" },
+    ];
+    expect(entries.sort(compareItemMarketOrder).map((entry) => entry.name))
+      .toEqual(["Sugar Skull", "Organ", "Gravestone", "Christmas Candle"]);
+  });
+});
+
 describe("item market ordering", () => {
   it("puts normal decor before seasonal decor regardless of unlock level", () => {
     const entries = [
