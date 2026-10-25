@@ -2481,13 +2481,19 @@ export class BattleSim {
       u.poise = Math.max(0, u.poise - (cfg.poiseDrainPerSec * dtMs) / 1000);
     }
     if (u.chargeMs > 0) return;
-    // The slam. It lands on every DEPLOYED zombie at once — that is what makes it worth
-    // spending a one-use move to stop, and why its damage is capped well under his authored
-    // per-target hit (see chargeFor).
-    for (const p of this.players) {
-      if (!p.alive || p.taken) continue;
-      if (p.state === "waiting" || p.state === "charging" || p.state === "dead") continue;
-      this.dealEnemyDamage(p, cfg.damage);
+    if (cfg.target === "front-deployed") {
+      const target = this.players
+        .filter((p) => p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "dead")
+        .sort((a, b) => b.x - a.x)[0];
+      if (target) this.dealEnemyDamage(target, cfg.damage);
+    } else {
+      // Pirate's standard slam hits every deployed zombie; Endless bruisers can opt into
+      // a telegraphed single-target hit to produce focused casualties instead of a wipe.
+      for (const p of this.players) {
+        if (!p.alive || p.taken) continue;
+        if (p.state === "waiting" || p.state === "charging" || p.state === "dead") continue;
+        this.dealEnemyDamage(p, cfg.damage);
+      }
     }
     u.chargeFrac = 0;
     u.poise = 0;

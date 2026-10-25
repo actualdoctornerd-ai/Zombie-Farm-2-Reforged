@@ -689,6 +689,8 @@ export interface ChargeConfig {
   poiseDrainPerSec: number;
   /** A broken charge staggers him for this long, taking STAGGER_DAMAGE_MULT damage. */
   staggerMs: number;
+  /** Endless bruisers can telegraph a single-target hit without changing pirate rules. */
+  target?: "all-deployed" | "front-deployed";
 }
 
 /** The charge the pirate captain carries at this rung, or null for an invasion without one. */

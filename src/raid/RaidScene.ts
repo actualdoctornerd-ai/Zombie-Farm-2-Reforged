@@ -10,6 +10,7 @@
 // are later phases (see IMPLEMENTATION_RAIDS_PLAN.md). Tokens are placeholder
 // portraits, not side-view stage actors.
 import { AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
+import { COUNT_KEY } from "./countSlam";
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
 import { isEpicBossKey } from "../epicBoss/combat";
 import { noteAssetFailure } from "../assetFailures";
@@ -232,6 +233,8 @@ const EPIC_BOSS_EXIT_MS = 800; // reverse the sky entry before the result panel 
 const DEATH_FADE = 0.45; // seconds for a fallen unit to poof + fade out
 /** How much bigger the pirate captain gets at a full wind-up (raid 13). */
 const CHARGE_SWELL = 0.22;
+/** Per-unit overrides: the Count (raid 16) only grows slightly into his slam. */
+const CHARGE_SWELL_BY_KEY: Record<string, number> = { [COUNT_KEY]: 0.1 };
 /** White → deep red as a charge fills. Matches hitFlashTint's shape so the two washes read
  *  as the same language: this one just does not fade, it ARRIVES. */
 function chargeTint(frac: number): number {
@@ -2779,7 +2782,7 @@ export class RaidScene {
           tok.enemyActor.container.tint = tok.chargeSwell > 0
             ? chargeTint(tok.chargeSwell)
             : NO_TINT;
-          tok.root.scale.set(szs * (1 + CHARGE_SWELL * tok.chargeSwell));
+          tok.root.scale.set(szs * (1 + (CHARGE_SWELL_BY_KEY[u.sourceKey] ?? CHARGE_SWELL) * tok.chargeSwell));
         }
         // The Ringmaster's direct hop travels slightly right from the circus car.
         // Using that delta as his facing mirrors the asymmetric rig, leaving his

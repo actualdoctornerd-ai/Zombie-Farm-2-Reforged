@@ -23,6 +23,7 @@ import {
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
+import { attachCountSlam } from "./countSlam";
 import { nightTimeLimitMs } from "./halloweenNights";
 import {
   bossSpecialsFor, bossThrowFor, bozoFor, bubbleWallFor, crabFor, farmerSquadFor,
@@ -104,6 +105,8 @@ export function composeFight(
   // which is the entire reason this sequence now lives in one place.
   enemyUnits.push(...farmerSquadFor(assets, raid, tier, elite, playerLevel));
   enemyUnits.push(...pirateCaptainFor(assets, raid, tier, elite, playerLevel));
+  // Halloween's Count winds up the captain's slam (countSlam.ts).
+  attachCountSlam(raid.id, enemyUnits);
 
   const dropAtMs = ringmasterDropMs(raid.id, tier);
   return {
