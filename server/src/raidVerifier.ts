@@ -110,6 +110,10 @@ export interface PinnedRaidConfig {
    *  scaled by this raid's elite profile. Stored so a settled session can be read back
    *  and explained without re-deriving it. */
   elite?: boolean;
+  /** The Halloween night this fight is (src/raid/halloweenNights.ts), from 2 up; absent on
+   *  every ordinary invasion. Its bulk, damage and three-minute clock are already in the
+   *  values above. */
+  night?: number;
 }
 
 interface V3RosterRow {
@@ -317,7 +321,11 @@ export async function buildPinnedV3Raid(
    *  own ladder, because this function already reads `raid_state_v3` and because what it
    *  validates is part of the config it pins — splitting the two would let a caller pin a
    *  fight at one rung and then record another. Ignored for raids without a ladder. */
-  requestedTier: unknown = 0
+  requestedTier: unknown = 0,
+  /** The Halloween night to pin (1 = the ordinary invasion). The CALLER validated it
+   *  against the won session it continues; this only fights it. A night is fought by
+   *  whoever survived the last one, so it waives the minimum army size. */
+  night = 1
 ): Promise<BuildPinnedResult> {
   if (!Array.isArray(orderedIds) || orderedIds.length > ARMY_CAP || orderedIds.length === 0) {
     return { ok: false, error: "bad_roster" };
@@ -349,7 +357,7 @@ export async function buildPinnedV3Raid(
     try { return JSON.parse(raidState?.progress_json ?? "{}") as Record<string, number>; }
     catch { return {}; }
   })();
-  if (ids.length < minArmyFor(raid, winsObject[String(raidId)] ?? 0)) return { ok: false, error: "army_too_small" };
+  if (night <= 1 && ids.length < minArmyFor(raid, winsObject[String(raidId)] ?? 0)) return { ok: false, error: "army_too_small" };
   // THE RUNG. A dual invasion is fought at a chosen tier; everything else is tier 0. The
   // ladder is progression and therefore server state — the client's picker is a
   // convenience, not the rule — so the request is checked against what this account has
@@ -395,7 +403,7 @@ export async function buildPinnedV3Raid(
   // same pair in RaidManager.beginRaid — they MUST match or the replay diverges.
   // The multipliers this fight runs under: the pinned rung's profile on a dual invasion,
   // the Brain Ticket's anywhere else. Same helper the client calls, off the same inputs.
-  const profile = raidProfile(raidId, { elite, tier });
+  const profile = raidProfile(raidId, { elite, tier, night });
   // The whole opposition, from the ONE composer the client's RaidManager and the
   // difficulty harness also call (src/raid/composeFight.ts). `hazards: false` is the
   // verifier's standing decision: it simulates the UN-HARASSED fight, so its replay is a
@@ -408,6 +416,7 @@ export async function buildPinnedV3Raid(
     priorWins: winsObject[String(raidId)] ?? 0,
     waveSeed,
     hazards: false,
+    night,
   });
   return {
     ok: true,
@@ -434,6 +443,7 @@ export async function buildPinnedV3Raid(
       concentration,
       elite,
       tier,
+      ...(night > 1 ? { night } : {}),
     },
     lifeForceLevel: lifeForce,
   };

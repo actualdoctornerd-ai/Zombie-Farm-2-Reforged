@@ -53,6 +53,7 @@ import {
   MIN_TIER, raidProfile,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
+import { FIRST_NIGHT, clampNight, hasNights, nightZombieLuck } from "./halloweenNights";
 
 // ---- HUD-facing view models ----
 
@@ -198,6 +199,8 @@ export interface RaidResultView {
    *  reward was credited locally like before. Bonus gold / brains / loot are always
    *  credited locally (bounded economy + inventory). */
   serverReward?: { gold: number; xp: number; survivalFrac: number };
+  /** The Halloween night this was (2 and up); absent on an ordinary fight. */
+  night?: number;
   /** PRACTICE (raid/practice.ts): nothing was paid and nobody was really lost —
    *  `zombiesLost` is what the fight WOULD have cost. */
   practice?: boolean;
@@ -220,6 +223,13 @@ export interface RaidLaunchOpts {
   tier?: number;
   /** How many Golden Dice to spend (each climbs the loot one tier rarer). */
   dice?: number;
+  /** A Halloween NIGHT (halloweenNights.ts): 2 and up continues a won Halloween fight with
+   *  its survivors. No cooldown, voucher, dice or ticket, and no minimum army. ONLINE the
+   *  server validated it and this is the night it pinned; absent on every other launch. */
+  night?: number;
+  /** ONLINE: the won session a night continues (sent to /raid/start, which derives the
+   *  night from it). main.ts plumbing only; beginRaid reads `night`. */
+  continueFrom?: string;
   /** ONLINE: the server (POST /raid/start) already authorized this launch, so
    *  beginRaid must NOT re-run the client cooldown gate. The server owns the clock. */
   serverAuthorized?: boolean;
@@ -291,6 +301,8 @@ export interface RaidSetup {
    *  at launch — online by the server, offline by beginRaid — so the clear credits the
    *  tier that was actually fought and not one named afterwards. */
   tier: number;
+  /** The Halloween night this fight is (halloweenNights.ts); 1 on every ordinary fight. */
+  night: number;
   /** The Lawyer boss's placard rotation for this fight (null when the invasion has no
    *  sign). Derived from the raid id and the tier, exactly as the server derives the copy
    *  it pins into the session config. */
@@ -500,7 +512,11 @@ export class RaidManager {
     const byId = new Map(this.deployed().map((z) => [z.id, z]));
     const party = partyIds.map((id) => byId.get(id)).filter(Boolean) as OwnedZombie[];
 
-    const minArmy = minArmyFor(raid, this.state.raidWins(String(raid.id)));
+    // A Halloween night is fought by whoever came home from the last one, so it waives the
+    // minimum army and every consumable below (halloweenNights.ts).
+    const night = hasNights(raid.id) ? clampNight(opts.night ?? FIRST_NIGHT) : FIRST_NIGHT;
+    const continuing = night > FIRST_NIGHT;
+    const minArmy = continuing ? 1 : minArmyFor(raid, this.state.raidWins(String(raid.id)));
     if (!stage || party.length < minArmy) return null;
 
     // ONLINE: boost COUNTS are server-owned (state.onInventory present). Consumption
@@ -535,7 +551,9 @@ export class RaidManager {
       : 0;
     const ticketable = acceptsBrainTicket(raid.id);
     let elite = false;
-    if (opts.serverAuthorized) {
+    if (continuing) {
+      elite = false;
+    } else if (opts.serverAuthorized) {
       elite = ticketable && !!opts.serverElite;
       if (elite && !online) this.state.useBoost(BRAIN_TICKET_KEY);
     } else if (ticketable && opts.brainTicket && this.state.boostCount(BRAIN_TICKET_KEY) > 0) {
@@ -546,7 +564,7 @@ export class RaidManager {
     // THE MULTIPLIERS THIS FIGHT RUNS UNDER: the rung's profile on a dual invasion, the
     // Brain Ticket's anywhere else. One helper, because the Worker derives the same thing
     // from the same inputs and a disagreement desyncs the replay from tick 0.
-    const profile = raidProfile(raid.id, { elite, tier });
+    const profile = raidProfile(raid.id, { elite, tier, night });
     const brainLuck = elite ? ELITE_BRAIN_LUCK : 1;
 
     // Cooldown gate. ONLINE (serverAuthorized): the server already decided via
@@ -554,8 +572,9 @@ export class RaidManager {
     // bypassed a cooldown, so there's nothing to spend here (main.ts refreshes the
     // inventory). OFFLINE: the client is authoritative — wait it out, or spend a
     // voucher (or the Brain Ticket just charged) to skip.
-    if (practice) {
-      // No cooldown to honour and nothing to spend.
+    if (practice || continuing) {
+      // No cooldown to honour and nothing to spend: practice is free, and a night rides
+      // the cooldown its first fight already started.
     } else if (opts.serverAuthorized) {
       // An elite launch already paid for the bypass with the ticket spent above.
       if (opts.bypassed && !elite && !online) this.state.useBoost(VOUCHER_KEY);
@@ -582,7 +601,7 @@ export class RaidManager {
     let dice = 0;
     const wantDice = Math.max(0, Math.floor(opts.dice ?? 0));
     const diceCap = Math.min(wantDice, this.diceCount(), maxLuckTiers(raid));
-    if (practice) {
+    if (practice || continuing) {
       dice = 0;
     } else if (opts.serverAuthorized) {
       dice = Math.max(0, Math.floor(opts.serverDice ?? 0));
@@ -592,7 +611,8 @@ export class RaidManager {
 
     // Remember the chosen attack order so the Army screen reopens with it after
     // the raid. `party` is already in launch order and filtered to live zombies.
-    this.state.raidAttackOrder = party.map((z) => z.id);
+    // A night is fought by the survivors only, so it leaves the saved order alone.
+    if (!continuing) this.state.raidAttackOrder = party.map((z) => z.id);
 
     // Everything the opposition brings, from the ONE composer the server verifier and
     // the difficulty harness also call (raid/composeFight.ts). Hazards on: this is the
@@ -604,6 +624,7 @@ export class RaidManager {
       priorWins: this.state.raidWins(String(raid.id)),
       waveSeed,
       hazards: true,
+      night,
     });
     const { enemyUnits } = composed;
     const abilityLevel = opts.serverAuthorized && opts.serverLifeForceLevel != null
@@ -648,6 +669,7 @@ export class RaidManager {
       brainEligible: hasBoss,
       elite,
       tier,
+      night,
     };
   }
 
@@ -670,7 +692,10 @@ export class RaidManager {
      *  Deliberately not called `tier`: this function already uses that word for the
      *  ABILITY tier a raid unlocks (`raidTier`, McDonnell=1 … Ninjas=4), which is an
      *  unrelated thing that happens to share the name. */
-    ladderTier = 0
+    ladderTier = 0,
+    /** The Halloween night fought (RaidSetup.night): the rare zombie is that many times
+     *  likelier, and a night leaves the cooldown where its first fight set it. */
+    night = FIRST_NIGHT
   ): RaidResultView {
     // PRACTICE (raid/practice.ts): nothing happens to the farm — no veterancy, no casualty,
     // no cooldown, no statistic, no reward. The panel reports what the fight WOULD have cost.
@@ -700,7 +725,7 @@ export class RaidManager {
     // roster persists via hooks.save() below.
     if (!serverRewards) this.zombies.removeCasualties(outcome.losses);
 
-    if (!serverRewards) this.state.lastRaidAt = this.now();
+    if (!serverRewards && night <= FIRST_NIGHT) this.state.lastRaidAt = this.now();
     // Lifetime tally (Statistics panel). Counted here rather than beside the win
     // rewards below so a LOSS is counted too — and a retreat, which arrives as an
     // ordinary un-won outcome.
@@ -801,7 +826,7 @@ export class RaidManager {
           roll: Math.random(),
           baseRoll: Math.random(),
           dice,
-          luck: elite ? ELITE_BRAIN_LUCK : 1,
+          luck: (elite ? ELITE_BRAIN_LUCK : 1) * nightZombieLuck(night),
         });
         this.state.zombieDryWins = settled.dry;
         const zombieDrop = settled.drop;
@@ -819,7 +844,8 @@ export class RaidManager {
       // Out of time is a loss, but not the loss "ZOMBIES LOSE" describes: the army is
       // standing, most of it walked home, and nothing about the panel would otherwise
       // explain why the fight stopped. Name the clock instead of reporting a rout.
-      title: outcome.win ? "ZOMBIES WIN" : outcome.outOfTime ? "OUT OF TIME" : "ZOMBIES LOSE",
+      title: (night > FIRST_NIGHT ? `NIGHT ${night} · ` : "") +
+        (outcome.win ? "ZOMBIES WIN" : outcome.outOfTime ? "OUT OF TIME" : "ZOMBIES LOSE"),
       enemiesBeaten: outcome.enemiesBeaten,
       zombiesLost: outcome.losses.length,
       gold,
@@ -829,6 +855,7 @@ export class RaidManager {
       loot,
       cropUnlocks,
       serverReward,
+      ...(night > FIRST_NIGHT ? { night } : {}),
     };
   }
 

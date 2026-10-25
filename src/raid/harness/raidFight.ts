@@ -69,6 +69,9 @@ export interface HarnessFightOptions {
    *  no profile at all (every non-elite story raid) gets a synthetic one, which is how a
    *  story raid's lethality can be costed without first inventing a mechanism for it. */
   lethality?: number;
+  /** The Halloween night to fight (src/raid/halloweenNights.ts); 1 / absent for the
+   *  ordinary invasion and for every other raid. */
+  night?: number;
   /** Multiply the fight's BULK — enemy and boss hit points.
    *
    *  The counterpart to `lethality`, and present for one reason: the lethality sweep found
@@ -128,10 +131,11 @@ export function harnessFight(opts: HarnessFightOptions): HarnessFight {
     playerLevel,
     tier,
     elite: scaleLethality(
-      raidProfile(raid.id, { elite: !!opts.elite, tier }), opts.lethality, opts.bulk),
+      raidProfile(raid.id, { elite: !!opts.elite, tier, night: opts.night }), opts.lethality, opts.bulk),
     priorWins: opts.priorWins ?? 5,
     waveSeed,
     hazards: opts.hazards ?? true,
+    night: opts.night,
   });
 
   return {

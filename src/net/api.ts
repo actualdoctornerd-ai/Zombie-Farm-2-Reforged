@@ -817,7 +817,11 @@ export const raidStart = (
   /** Which rung of a dual invasion's ladder to fight (1..MAX_TIER). Ignored for every
    *  other raid, which has no ladder. The server validates it against what this account
    *  has unlocked and answers `tier_locked` if it is above that. */
-  tier = 0
+  tier = 0,
+  /** A Halloween NIGHT (src/raid/halloweenNights.ts): the won session this fight continues.
+   *  The server derives the night from it, checks the army came home from it, and skips
+   *  the cooldown. Absent on every ordinary launch. */
+  continueFrom?: string
 ) =>
   req<{
     ok: boolean;
@@ -853,6 +857,8 @@ export const raidStart = (
      *  client has to watch this itself: the battle runs on the ticker, which stops
      *  while the page is hidden, and the TTL does not. */
     expiresAt?: number;
+    /** The Halloween night the server pinned (continuations only). */
+    night?: number;
   }>("POST", "/raid/start", {
     useVoucher,
     raidId,
@@ -861,6 +867,7 @@ export const raidStart = (
     dice,
     brainTicket,
     tier,
+    ...(continueFrom ? { continueFrom } : {}),
     rulesetVersion: RAID_RULESET_VERSION,
   });
 
@@ -907,6 +914,11 @@ export interface RaidFinishResult {
   /** Daily/weekly quest state after this settlement — an invasion win advances it, and
    *  /raid/finish is the only path a win travels. Absent on a Worker predating them. */
   periodicQuests?: PeriodicQuestProjection | null;
+  /** The Halloween night this settlement was (2 and up; absent on an ordinary fight). */
+  night?: number;
+  /** "The night is still young": a won Halloween night may be continued into `night`,
+   *  by its survivors, from this `sessionId` (src/raid/halloweenNights.ts). */
+  nightOffer?: { night: number; sessionId: string } | null;
   rulesetVersion?: number;
   revival?: {
     sessionId: string;

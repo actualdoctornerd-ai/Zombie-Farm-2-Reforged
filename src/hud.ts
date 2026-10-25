@@ -1388,6 +1388,51 @@ export class Hud {
     });
   }
 
+  /** "The night is still young": offer to carry a won Halloween invasion on into `night`
+   *  (src/raid/halloweenNights.ts). Resolves true to fight on, false to head home; closing
+   *  the prompt any other way heads home, which is always the safe answer. */
+  offerNight(title: string, message: string, night: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      const { panel, close } = openModal({
+        host: this.el, bgClass: "game-confirm-bg", panelClass: "confirm-panel night-offer",
+        title, replaceSelector: ".game-confirm-bg", onClose: () => finish(false),
+      });
+      const copy = document.createElement("p");
+      copy.className = "confirm-msg";
+      copy.textContent = message;
+      const buttons = document.createElement("div");
+      buttons.className = "zbtns";
+      const home = document.createElement("button");
+      home.className = "zbtn locate";
+      home.textContent = "Head home";
+      home.onclick = () => close();
+      const onward = document.createElement("button");
+      onward.className = "zbtn sell";
+      onward.textContent = `Fight on: Night ${night}`;
+      markPrimary(onward);
+      onward.onclick = () => { finish(true); close(); };
+      buttons.append(home, onward);
+      panel.append(copy, buttons);
+    });
+  }
+
+  /** Whether an invasion result panel is on screen. */
+  raidResultOpen(): boolean {
+    return !!this.el.querySelector(".raid-res-bg");
+  }
+
+  /** Close an open result panel exactly as its Finish button does, running the caller's
+   *  onClose (the battle teardown). No-op when none is open. */
+  closeRaidResult(): void {
+    this.el.querySelector<HTMLButtonElement>(".raid-res-panel .rr-go")?.click();
+  }
+
   /** One-off guidance in Tim Buckwheat's voice, outside the first-run tutorial.
    *  Resolves once the player acknowledges it, so a caller can await it before
    *  moving on. See ui/TimNotice.ts. */

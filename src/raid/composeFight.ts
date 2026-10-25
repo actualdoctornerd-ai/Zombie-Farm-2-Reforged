@@ -23,6 +23,7 @@ import {
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
 import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
+import { nightTimeLimitMs } from "./halloweenNights";
 import {
   bossSpecialsFor, bossThrowFor, bozoFor, bubbleWallFor, crabFor, farmerSquadFor,
   bubbleRobotFor, grabberFor, megaBotFor, pirateCaptainFor, summonFor, turnedTemplateFor,
@@ -51,6 +52,10 @@ export interface FightContext {
    *  ONLINE this MUST be the raid session id, because the client redraws from it and the
    *  pinned config is what the replay is checked against. */
   waveSeed: string;
+  /** The Halloween night this fight is (halloweenNights.ts): 1, or absent, for every
+   *  ordinary invasion. Its bulk and damage arrive through `elite` (raidProfile); the one
+   *  thing it decides here is the clock, three minutes from night 2. */
+  night?: number;
   /** Include the CLIENT-ONLY hazards (trapeze, crab, Mega-Robot). False on the server, which deliberately
    *  simulates the un-harassed fight so its replay is a ceiling the live game can only
    *  fall short of. See raidVerifier and pilot.ts. */
@@ -121,7 +126,7 @@ export function composeFight(
     bubbleWall: bubbleWallFor(assets, raid, elite),
     bossDropAtMs: dropAtMs,
     bossGroundStationX: dropAtMs === null ? null : RINGMASTER_STATION_X,
-    timeLimitMs: fightTimeLimitMs(raid.id),
+    timeLimitMs: nightTimeLimitMs(raid.id, ctx.night, fightTimeLimitMs(raid.id)),
   };
 }
 

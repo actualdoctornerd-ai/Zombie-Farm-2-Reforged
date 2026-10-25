@@ -53,7 +53,8 @@ import { objectQuestAliases } from "./quest/objectVariants";
 import { QuestSystem } from "./quest/QuestSystem";
 import { PeriodicQuestSystem } from "./quest/periodic/PeriodicQuestSystem";
 import { QuestDef, questBonusRewardInfo, questRewardInfo } from "./quest/types";
-import { RaidManager, RaidResultView, type LootDrop } from "./raid/RaidManager";
+import { RaidManager, RaidResultView, type LootDrop, type RaidSetup } from "./raid/RaidManager";
+import { FIRST_NIGHT, hasNights, nightPrompt } from "./raid/halloweenNights";
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
@@ -5675,6 +5676,98 @@ async function main() {
     });
   };
 
+  // ---- Halloween nights (src/raid/halloweenNights.ts) ----
+  // A won Halloween invasion offers to go on into the next night with its survivors.
+  // `nightContinue` is the accepted offer, waiting for the result panel to close; the next
+  // night launches from that close, once the last battle is torn down.
+  let nightContinue: {
+    raidId: number; night: number; sessionId?: string; partyIds: string[]; concentration: boolean;
+  } | null = null;
+  // Casualties of a sitting's nights, held back while the chain goes on and offered
+  // together once it ends, so a revival dialog never sits on top of the next battle. The
+  // server's offers do not expire, so nothing is lost by waiting.
+  interface PendingRevival {
+    casualtyParty: RaidSetup["party"];
+    settlementPromise: Promise<api.RaidFinishResult> | null;
+  }
+  let deferredRevivals: PendingRevival[] = [];
+  const offerRevivals = (entries: PendingRevival[]) => {
+    const withDead = entries.filter((entry) => entry.casualtyParty.length);
+    if (!withDead.length) return;
+    const viewOf = (zombie: RaidSetup["party"][number]) => ({
+      id: zombie.id,
+      key: zombie.key,
+      name: zombie.name,
+      typeName: zombie.typeName,
+      portrait: zombiePortrait(zombie.key),
+      mutation: zombie.mutation,
+      color: zombie.color,
+    });
+    if (economy && withDead.every((entry) => entry.settlementPromise)) {
+      // The battle is gone and the farm is visible before this event opens. Settlement
+      // captured each casualty server-side, so resolving the offer remains safe even if a
+      // finish response arrived after the player tapped.
+      void Promise.all(withDead.map((entry) => entry.settlementPromise!
+        .then((settled) => ({ entry, settled }))
+        .catch(() => null))).then((rows) => {
+        // Both come from a settlement that actually replayed the fight: an expired one
+        // offers no revival and reports no balance to spend from.
+        const live = rows.filter((row): row is NonNullable<typeof row> =>
+          !!row && !!row.settled.revival && !!row.settled.balance);
+        if (!live.length) return;
+        const party = live.flatMap((row) => row.entry.casualtyParty);
+        const brains = live[live.length - 1].settled.balance!.brains;
+        hud.openZombieRevival(party.map(viewOf), brains, async (reviveIds) => {
+          const chosen = new Set(reviveIds);
+          // One server offer per fight: settle each with its own share of the choice.
+          for (const { entry, settled } of live) {
+            const mine = entry.casualtyParty.filter((zombie) => chosen.has(zombie.id)).map((zombie) => zombie.id);
+            const revived = await economy!.resolveRaidRevival(settled.revival!.sessionId, mine);
+            const accepted = new Set(revived.revivedIds);
+            zombies.reviveCasualties(entry.casualtyParty.filter((zombie) => accepted.has(zombie.id)));
+          }
+          saveManager.save();
+          return true;
+        });
+      }).catch(() => { /* the settlement observer already recovered/reported */ });
+    } else if (!onlineFarm) {
+      const party = withDead.flatMap((entry) => entry.casualtyParty);
+      hud.openZombieRevival(party.map(viewOf), state.brains, (reviveIds) => {
+        if (!state.spendBrains(reviveIds.length, "zombie_revive")) return false;
+        const accepted = new Set(reviveIds);
+        zombies.reviveCasualties(party.filter((zombie) => accepted.has(zombie.id)));
+        saveManager.save();
+        return true;
+      });
+    }
+  };
+  /** The launch options for a night. A fight fought under Concentration carries it on
+   *  while the player still owns one; it is a boost like any other, spent per fight. */
+  const nightLaunchOpts = (next: NonNullable<typeof nightContinue>) => ({
+    night: next.night,
+    continueFrom: next.sessionId,
+    concentration: next.concentration && raids.concentrationCount() > 0,
+  });
+  /** Put the next night to the player. Accepting closes the result panel (which tears the
+   *  battle down and then launches the night); if the player already closed it, the night
+   *  launches straight away. */
+  const offerNight = (
+    raidId: number, night: number, partyIds: string[], concentration: boolean, sessionId?: string
+  ) => {
+    if (!partyIds.length) return;
+    const prompt = nightPrompt(night);
+    void hud.offerNight(prompt.title, prompt.body, night).then((onward) => {
+      if (!onward) return;
+      const next = { raidId, night, sessionId, partyIds, concentration };
+      if (raidActive && hud.raidResultOpen()) {
+        nightContinue = next;
+        hud.closeRaidResult();
+      } else if (!raidActive) {
+        void launchGate.run(async () => launchRaid(raidId, partyIds, nightLaunchOpts(next)), false);
+      }
+    });
+  };
+
   hud.onLaunchRaid = (raidId, partyIds, opts) =>
     launchGate.run(async () => launchRaid(raidId, partyIds, opts), false);
   const launchRaid: NonNullable<Hud["onLaunchRaid"]> = async (raidId, partyIds, opts) => {
@@ -5715,7 +5808,8 @@ async function main() {
           !!opts.concentration,
           Math.max(0, Math.floor(opts.dice ?? 0)),
           !!opts.brainTicket,
-          Math.max(0, Math.floor(opts.tier ?? 0))
+          Math.max(0, Math.floor(opts.tier ?? 0)),
+          opts.continueFrom
         );
         if (!gate.ok) {
           // Distinguish the server's refusals: the client already hides locked raids and
@@ -5733,6 +5827,8 @@ async function main() {
             hud.showToast("This invasion has tiers instead of Brain Tickets.");
           } else if (gate.error === "tier_locked") {
             hud.showToast(`Tier ${gate.unlockedTier ?? 1} is as far as you have climbed here.`);
+          } else if (gate.error?.startsWith("night_") || gate.error === "bad_continue") {
+            hud.showToast("The night has passed. Invade again to start a new one.");
           } else {
             const mins = Math.ceil((gate.cooldownRemaining ?? 0) / 60000);
             hud.showToast(`Invasion on cooldown — about ${mins} min left.`);
@@ -5771,6 +5867,8 @@ async function main() {
           // The server opened the pinned fight's ability slots with this Life Force level.
           serverLifeForceLevel: gate.lifeForceLevel,
           serverElite: !!gate.elite,
+          // The Halloween night the server pinned (continuations only).
+          night: gate.night ?? opts.night,
           // The server pinned its wave from this same id, so a raid with per-fight
           // randomness (the Robots' random boss) resolves identically on both sides.
           waveSeed: raidSessionId ?? undefined,
@@ -5786,6 +5884,9 @@ async function main() {
           else if (error.code === "no_brain_ticket") hud.showToast("No Brain Ticket for an elite invasion.");
           else if (error.code === "elite_unavailable") hud.showToast("This invasion has tiers instead of Brain Tickets.");
           else if (error.code === "tier_locked") hud.showToast("You have not unlocked that tier yet.");
+          else if (error.code.startsWith("night_") || error.code === "bad_continue") {
+            hud.showToast("The night has passed. Invade again to start a new one.");
+          }
           else if (error.code === "stale_ruleset") {
             // This tab predates the deployed Worker, so the server refuses to pin a fight
             // it and the client would simulate differently. Nothing is consumed and no
@@ -5856,7 +5957,8 @@ async function main() {
     raidActive = true;
     world.visible = false;
     hud.setRaiding(true); // battle scene takes over the screen
-    hud.setBattleLoading(true, `Loading ${setup.raid.name}…`); // ...which is blank until it lands
+    const battleName = setup.night > FIRST_NIGHT ? `${setup.raid.name}: Night ${setup.night}` : setup.raid.name;
+    hud.setBattleLoading(true, `Loading ${battleName}…`); // ...which is blank until it lands
     crumb("battle:launch", `${setup.raid.name} · ${setup.playerUnits.length} zombies`);
     audio.enterRaid(setup.raid.music); // swap farm bed for this stage's battle BGM
     const epoch = launchGate.stamp();
@@ -5888,9 +5990,13 @@ async function main() {
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
-      confirmRetreat: () => hud.confirmInGame(
-        "Retreat from invasion?", "This invasion will count as a loss.", "Retreat"
-      ),
+      confirmRetreat: () => setup.night > FIRST_NIGHT
+        ? hud.confirmInGame(
+          `Retreat from Night ${setup.night}?`,
+          "This night will count as a loss. Everything the earlier nights paid is already yours.",
+          "Retreat"
+        )
+        : hud.confirmInGame("Retreat from invasion?", "This invasion will count as a loss.", "Retreat"),
       onCheckpoint: undefined,
       onFinish: (outcome, finalTick, inputs) => {
         // The fight is over, so the TTL has nothing left to warn about: whatever the
@@ -5904,8 +6010,11 @@ async function main() {
         const online = onlineFarm && !!raidSessionId && !!economy;
         const view = raids.finishRaid(
           setup.raid, setup.party, outcome, setup.dice, online,
-          setup.brainDrop, setup.brainEligible, setup.elite, setup.tier
+          setup.brainDrop, setup.brainEligible, setup.elite, setup.tier, setup.night
         );
+        // The survivors in formation order: who fights the next night, if there is one.
+        const survivorOrder = (survivors: string[]) =>
+          setup.party.map((zombie) => zombie.id).filter((id) => survivors.includes(id));
         // Practice (raid/practice.ts) loses nobody for real, so there is nobody to revive.
         const casualtyParty = view.practice
           ? []
@@ -5964,6 +6073,12 @@ async function main() {
               hud.setRaidResultCropUnlocks(res.cropUnlocks.map(
                 (key) => assets.plants.find((p) => p.key === key)?.name ?? key));
             }
+            // "The night is still young": offered only on the server's word, which also
+            // says who came home to fight it.
+            if (res.nightOffer && res.outcome) {
+              offerNight(setup.raid.id, res.nightOffer.night, survivorOrder(res.outcome.survivors),
+                setup.concentration, res.nightOffer.sessionId);
+            }
           };
           // Submit win OR loss: a loss still finishes the session to start the cooldown.
           settlementPromise = economy!.submitRaid(sid, finalTick, inputs, outcome, {
@@ -6013,6 +6128,11 @@ async function main() {
             })
             .catch(() => {});
         }
+        // OFFLINE the client is the authority, so it makes the night offer itself.
+        if (!online && !view.practice && outcome.win && hasNights(setup.raid.id) && outcome.survivors.length) {
+          queueMicrotask(() => offerNight(
+            setup.raid.id, setup.night + 1, survivorOrder(outcome.survivors), setup.concentration));
+        }
         hud.openRaidResult(view, () => {
           if (raidScene) {
             app.stage.removeChild(raidScene.container);
@@ -6050,41 +6170,20 @@ async function main() {
           // Any quest that completed during the battle celebrates now, on the farm.
           flushQuestCompletions();
 
-          if (!casualtyParty.length) return;
-          const revivalViews = casualtyParty.map((zombie) => ({
-            id: zombie.id,
-            key: zombie.key,
-            name: zombie.name,
-            typeName: zombie.typeName,
-            portrait: zombiePortrait(zombie.key),
-            mutation: zombie.mutation,
-            color: zombie.color,
-          }));
-          if (settlementPromise && economy) {
-            // The battle is gone and the farm is visible before this event opens.
-            // Settlement captured each casualty server-side, so resolving the offer
-            // remains safe even if the finish response arrived after the player tapped.
-            void settlementPromise.then((settled) => {
-              // Both come from a settlement that actually replayed the fight: an
-              // expired one offers no revival and reports no balance to spend from.
-              if (!settled.revival || !settled.balance) return;
-              hud.openZombieRevival(revivalViews, settled.balance.brains, async (reviveIds) => {
-                const revived = await economy!.resolveRaidRevival(settled.revival!.sessionId, reviveIds);
-                const accepted = new Set(revived.revivedIds);
-                zombies.reviveCasualties(casualtyParty.filter((zombie) => accepted.has(zombie.id)));
-                saveManager.save();
-                return true;
+          // This fight's casualties join any the sitting's earlier nights left behind.
+          deferredRevivals.push({ casualtyParty, settlementPromise });
+          const next = nightContinue;
+          nightContinue = null;
+          if (next) {
+            // On into the next night; the revival offer waits for the chain to end. If the
+            // launch is refused (the night passed, a zombie went missing), end it here.
+            void launchGate.run(async () => launchRaid(next.raidId, next.partyIds, nightLaunchOpts(next)), false)
+              .then((launched) => {
+                if (!launched) offerRevivals(deferredRevivals.splice(0));
               });
-            }).catch(() => { /* the settlement observer above already recovered/reported */ });
-          } else if (!onlineFarm) {
-            hud.openZombieRevival(revivalViews, state.brains, (reviveIds) => {
-              if (!state.spendBrains(reviveIds.length, "zombie_revive")) return false;
-              const accepted = new Set(reviveIds);
-              zombies.reviveCasualties(casualtyParty.filter((zombie) => accepted.has(zombie.id)));
-              saveManager.save();
-              return true;
-            });
+            return;
           }
+          offerRevivals(deferredRevivals.splice(0));
         });
       },
     })).then((scene) => {

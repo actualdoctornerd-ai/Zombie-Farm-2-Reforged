@@ -24,6 +24,7 @@ import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { isLiveSessionCollision } from "./liveSessionRace";
+import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, clampNight, hasNights, nightZombieLuck } from "../../../src/raid/halloweenNights";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 /** How long an invasion session may sit open before it is treated as ABANDONED and
@@ -182,10 +183,45 @@ export async function expireLiveRaid(db: D1Database, accountId: string, now: num
   ]);
 }
 
+/** A Halloween night's continuation, checked against the WON session it follows
+ *  (src/raid/halloweenNights.ts). Everything that makes a night legal is server state:
+ *  the earlier session must be this account's, this raid's, settled as a win, not yet
+ *  continued, and recent; and the army must be drawn from the zombies that settlement
+ *  brought home. The claim itself happens atomically inside startRaid's batch. */
+async function resolveNightContinuation(
+  db: D1Database,
+  accountId: string,
+  raidId: number,
+  continueFrom: unknown,
+  requested: string[],
+  now: number
+): Promise<{ ok: true; sessionId: string; night: number } | { ok: false; status: number; error: string }> {
+  if (typeof continueFrom !== "string" || !continueFrom || !hasNights(raidId)) {
+    return { ok: false, status: 400, error: "bad_continue" };
+  }
+  const previous = await db.prepare(`SELECT raid_id, boosts_json, result_json, finished_at
+    FROM raid_sessions_v3 WHERE id = ? AND account_id = ?`)
+    .bind(continueFrom, accountId)
+    .first<{ raid_id: string; boosts_json: string; result_json: string | null; finished_at: number | null }>();
+  if (!previous || Number(previous.raid_id) !== raidId) return { ok: false, status: 404, error: "bad_continue" };
+  const boosts = parse<{ night?: number; continuedBy?: string; practice?: boolean }>(previous.boosts_json, {});
+  const result = parse<{ outcome?: { win?: boolean; survivors?: string[] } }>(previous.result_json ?? "", {});
+  if (!previous.result_json || previous.finished_at == null || result.outcome?.win !== true || boosts.practice) {
+    return { ok: false, status: 409, error: "night_unavailable" };
+  }
+  if (boosts.continuedBy) return { ok: false, status: 409, error: "night_taken" };
+  if (now - previous.finished_at > NIGHT_CONTINUE_WINDOW_MS) return { ok: false, status: 409, error: "night_expired" };
+  const night = clampNight(boosts.night ?? FIRST_NIGHT) + 1;
+  if (night > MAX_NIGHT) return { ok: false, status: 409, error: "night_unavailable" };
+  const survivors = new Set(result.outcome.survivors ?? []);
+  if (requested.some((id) => !survivors.has(id))) return { ok: false, status: 409, error: "bad_roster" };
+  return { ok: true, sessionId: continueFrom, night };
+}
+
 export async function startRaid(
   db: D1Database,
   accountId: string,
-  body: { raidId?: unknown; orderedUnitIds?: unknown; useVoucher?: unknown; brainTicket?: unknown; concentration?: unknown; dice?: unknown; rulesetVersion?: unknown; tier?: unknown },
+  body: { raidId?: unknown; orderedUnitIds?: unknown; useVoucher?: unknown; brainTicket?: unknown; concentration?: unknown; dice?: unknown; rulesetVersion?: unknown; tier?: unknown; continueFrom?: unknown },
   now: number,
   cooldownMs = DEFAULT_COOLDOWN_MS
 ): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -201,6 +237,19 @@ export async function startRaid(
     return { status: 426, body: { ok: false, error: "stale_ruleset", rulesetVersion: RAID_RULESET_VERSION } };
   }
   await db.prepare("INSERT OR IGNORE INTO raid_state_v3(account_id) VALUES (?)").bind(accountId).run();
+  // A HALLOWEEN NIGHT (src/raid/halloweenNights.ts): the next round of a won Halloween
+  // invasion, fought by its survivors. It is part of the sitting the first fight paid the
+  // cooldown for, so it waits on no cooldown, spends no voucher or dice, and takes no Brain
+  // Ticket (the night's own scaling is the difficulty).
+  let night = FIRST_NIGHT;
+  let chainFrom: string | null = null;
+  if (body.continueFrom !== undefined) {
+    const continued = await resolveNightContinuation(db, accountId, raidId, body.continueFrom, requested, now);
+    if (!continued.ok) return { status: continued.status, body: { ok: false, error: continued.error } };
+    if (body.brainTicket === true) return { status: 409, body: { ok: false, error: "elite_unavailable" } };
+    night = continued.night;
+    chainFrom = continued.sessionId;
+  }
   // PRACTICE (src/raid/practice.ts): the dual invasions cost and pay nothing while the
   // ladders are tuned — no cooldown, no voucher, no dice, no Concentration. Refusing the
   // consumables here (rather than charging them) is what keeps practice free.
@@ -228,7 +277,7 @@ export async function startRaid(
     .inventory[BRAIN_TICKET_KEY] ?? 0;
   const elite = wantsElite && ticketsOwned >= 1;
   const pinned = await buildPinnedV3Raid(
-    db, accountId, raidId, body.orderedUnitIds, concentration, sessionId, elite, body.tier
+    db, accountId, raidId, body.orderedUnitIds, concentration, sessionId, elite, body.tier, night
   );
   if (!pinned.ok) {
     const status = pinned.error === "locked" || pinned.error === "tier_locked" ? 403
@@ -264,7 +313,7 @@ export async function startRaid(
   if ((roster.results ?? []).length !== requested.length) return { status: 409, body: { ok: false, error: "bad_roster" } };
   const core = parse<CoreState>(coreRow.current_json, { inventory: {}, storage: { received: {}, stored: {} } });
   const activeCooldownMs = farmerCooldownMs(cooldownMs, activeBonusHeadId(core.farmerHeadId ?? 1, core.farmerBonusHeadId));
-  const remaining = practice ? 0 : Math.max(0, raidState.last_started_at + activeCooldownMs - now);
+  const remaining = practice || chainFrom ? 0 : Math.max(0, raidState.last_started_at + activeCooldownMs - now);
   const useVoucher = body.useVoucher === true;
   // A Brain Ticket covers the wait as well as the difficulty — charging a voucher on top
   // of it would bill the player twice for one bypass.
@@ -272,7 +321,7 @@ export async function startRaid(
   const voucherBypass = remaining > 0 && !elite;
   if (remaining && !useVoucher && !elite) return { status: 429, body: { ok: false, error: "cooldown", cooldownRemaining: remaining } };
   if (voucherBypass && (core.inventory[VOUCHER_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_voucher" } };
-  const dice = practice ? 0 : Math.max(0, Math.min(10, Math.trunc(Number(body.dice) || 0)));
+  const dice = practice || chainFrom ? 0 : Math.max(0, Math.min(10, Math.trunc(Number(body.dice) || 0)));
   if ((core.inventory[DICE_KEY] ?? 0) < dice) return { status: 409, body: { ok: false, error: "insufficient_dice" } };
   if (concentration && (core.inventory[CONCENTRATION_KEY] ?? 0) < 1) return { status: 409, body: { ok: false, error: "no_concentration" } };
   // Re-read from `core` rather than trusting the count taken before the pin: this is the
@@ -290,22 +339,41 @@ export async function startRaid(
   );
   const expiresAt = now + RAID_TTL_MS;
   const earliestFinishAt = now + EARLIEST_FINISH_MS;
+  // A night CLAIMS the session it continues, once: stamp it with this session's id, and let
+  // every other write in the batch go through only if that stamp is this session's. Two
+  // continuations of one win can both pass resolveNightContinuation's read; only one stamp
+  // lands, and the loser's batch writes nothing.
+  const nightGuard = chainFrom
+    ? " AND EXISTS (SELECT 1 FROM raid_sessions_v3 c WHERE c.id = ? AND json_extract(c.boosts_json, '$.continuedBy') = ?)"
+    : "";
+  const nightBinds = chainFrom ? [chainFrom, sessionId] : [];
+  const sessionBoosts = {
+    dice, concentration, brainDrop, elite, tier, ...(practice ? { practice: true } : {}),
+    ...(chainFrom ? { night, chainFrom } : {}),
+  };
   const statements: D1PreparedStatement[] = [
+    ...(chainFrom ? [db.prepare(`UPDATE raid_sessions_v3
+      SET boosts_json = json_set(boosts_json, '$.continuedBy', ?)
+      WHERE id = ? AND account_id = ? AND json_extract(boosts_json, '$.continuedBy') IS NULL`)
+      .bind(sessionId, chainFrom, accountId)] : []),
     db.prepare(`INSERT INTO raid_sessions_v3
       (id, account_id, raid_id, roster_json, boosts_json, config_json, ruleset_version, started_at, earliest_finish_at, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE 1${nightGuard}`)
       .bind(sessionId, accountId, String(raidId), JSON.stringify(requested),
-        JSON.stringify({ dice, concentration, brainDrop, elite, tier, ...(practice ? { practice: true } : {}) }),
-        JSON.stringify(pinned.config), RAID_RULESET_VERSION, now, earliestFinishAt, expiresAt),
-    // Practice starts no cooldown and spends nothing, so neither row is touched.
+        JSON.stringify(sessionBoosts),
+        JSON.stringify(pinned.config), RAID_RULESET_VERSION, now, earliestFinishAt, expiresAt, ...nightBinds),
+    // Practice starts no cooldown and spends nothing, so neither row is touched. A night
+    // rides the cooldown its first fight started, so it leaves the clock alone too.
     ...(practice ? [] : [
-      db.prepare("UPDATE raid_state_v3 SET last_started_at = ? WHERE account_id = ?").bind(now, accountId),
-      db.prepare("UPDATE gameplay_documents_v3 SET current_json = ?, updated_at = ? WHERE account_id = ?")
-        .bind(JSON.stringify(core), now, accountId),
+      ...(chainFrom ? [] : [
+        db.prepare("UPDATE raid_state_v3 SET last_started_at = ? WHERE account_id = ?").bind(now, accountId),
+      ]),
+      db.prepare(`UPDATE gameplay_documents_v3 SET current_json = ?, updated_at = ? WHERE account_id = ?${nightGuard}`)
+        .bind(JSON.stringify(core), now, accountId, ...nightBinds),
     ]),
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
-      VALUES(?,?, 'raid_start', ?, ?)`)
-      .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId, raidId, roster: requested, dice, concentration, elite, tier, bypassed: remaining > 0, ...(practice ? { practice: true } : {}) }), now),
+      SELECT ?,?, 'raid_start', ?, ? WHERE 1${nightGuard}`)
+      .bind(crypto.randomUUID(), accountId, JSON.stringify({ sessionId, raidId, roster: requested, dice, concentration, elite, tier, bypassed: remaining > 0, ...(practice ? { practice: true } : {}), ...(chainFrom ? { night, chainFrom } : {}) }), now, ...nightBinds),
   ];
   // One statement for the whole army. `locked_by_raid IS NULL` still gates each row
   // individually, so a unit locked between the pre-check above and this write is skipped
@@ -313,10 +381,14 @@ export async function startRaid(
   // unchanged, only the number of round trips inside the batch.
   statements.push(db.prepare(`UPDATE roster_v3 SET locked_by_raid = ?
     WHERE account_id = ? AND locked_by_raid IS NULL
-      AND unit_id IN (${requested.map(() => "?").join(",")})`)
-    .bind(sessionId, accountId, ...requested));
+      AND unit_id IN (${requested.map(() => "?").join(",")})${nightGuard}`)
+    .bind(sessionId, accountId, ...requested, ...nightBinds));
   try {
-    await db.batch(statements);
+    const committed = await db.batch(statements);
+    // The claim (statement 0) did not land: another continuation already took this win.
+    if (chainFrom && (committed[0]?.meta.changes ?? 0) !== 1) {
+      return { status: 409, body: { ok: false, error: "night_taken" } };
+    }
   } catch (error) {
     // Two starts tied: both read "no live session" above, and idx_raid_v3_live refused
     // the second insert. The same answer the read gives, not a 500 (liveSessionRace.ts).
@@ -331,6 +403,7 @@ export async function startRaid(
     // The Life Force level the pinned fight's ability slots were opened with; the client
     // fights with the same number (see RaidSetupOpts.serverLifeForceLevel).
     lifeForceLevel: pinned.lifeForceLevel,
+    ...(chainFrom ? { night } : {}),
     rulesetVersion: RAID_RULESET_VERSION } };
 }
 
@@ -557,7 +630,10 @@ export async function finishRaid(
   const zombieDry = parse<Record<string, number>>(raidState.zombie_dry_json, {});
   const firstClear = win && !(progress[String(raidId)] > 0);
   const baseGold = win ? winGold(econ, survivors.length / locked.length) : 0;
-  const boosts = parse<{ dice?: number; brainDrop?: number; elite?: boolean; tier?: number }>(session.boosts_json, {});
+  const boosts = parse<{ dice?: number; brainDrop?: number; elite?: boolean; tier?: number; night?: number }>(session.boosts_json, {});
+  // The Halloween night this was (1 for every ordinary fight): the rare zombie is that many
+  // times likelier, and a won Halloween night offers the next one (halloweenNights.ts).
+  const night = clampNight(boosts.night ?? FIRST_NIGHT);
   // Elite is read back from the SESSION, not from this request: the ticket was charged
   // and the wave scaled at /raid/start, so that is where the fact lives.
   const eliteLuck = boosts.elite ? ELITE_BRAIN_LUCK : 1;
@@ -639,7 +715,8 @@ export async function finishRaid(
     // feeds BOTH dry-win streaks. One shared helper settles all of it, so this path and the
     // client's offline one stay identical; raids with no rare zombie never get a key at all.
     const settled = settleRaidZombieDrop(raidId, !!boosts.elite, zombieDry, {
-      roll: Math.random(), baseRoll: Math.random(), dice: boosts.dice ?? 0, luck: eliteLuck,
+      roll: Math.random(), baseRoll: Math.random(), dice: boosts.dice ?? 0,
+      luck: eliteLuck * nightZombieLuck(night),
     });
     const zombieDrop = settled.drop;
     Object.assign(zombieDry, settled.dry);
@@ -766,10 +843,16 @@ export async function finishRaid(
     ? { sessionId: session.id, zombies: casualties, costPerZombie: 1 }
     : null;
   const settlementId = crypto.randomUUID();
+  // "The night is still young": a won Halloween night that brought anyone home may go on.
+  // The offer is advisory; /raid/start re-checks every condition when it is taken up.
+  const nightOffer = win && hasNights(raidId) && survivors.length > 0 && night < MAX_NIGHT
+    ? { night: night + 1, sessionId: session.id }
+    : null;
   const result = { settlementId, lastRaidAt, serverTime: now, balance: nextBalance, gold: baseGold + lootGold,
     brains, xp: nextBalance.xp - balance.xp, firstClear, loot, extraLoot, newZombie, outcome, questChanges,
     inventory: core.inventory, storage: core.storage, raidProgress: progress, raidTiers: tiers, cropUnlocks, revival,
-    periodicQuests, rulesetVersion: RAID_RULESET_VERSION };
+    periodicQuests, ...(night > FIRST_NIGHT ? { night } : {}), ...(nightOffer ? { nightOffer } : {}),
+    rulesetVersion: RAID_RULESET_VERSION };
   const resultJson = JSON.stringify(result);
   const guard = "EXISTS (SELECT 1 FROM raid_sessions_v3 s WHERE s.id = ? AND s.result_json = ?)";
   const statements: D1PreparedStatement[] = [
@@ -796,7 +879,7 @@ export async function finishRaid(
     db.prepare(`INSERT INTO audit_events_v3(id,account_id,kind,detail_json,created_at)
       SELECT ?, ?, 'raid_finish', ?, ? WHERE ${guard}`)
       .bind(settlementId, accountId, JSON.stringify({ sessionId: session.id, raidId, win, survivors, losses,
-        gold: baseGold + lootGold, brains, xp, ...(concessionFallbackError ? { concessionFallbackError } : {}),
+        gold: baseGold + lootGold, brains, xp, ...(night > FIRST_NIGHT ? { night } : {}), ...(concessionFallbackError ? { concessionFallbackError } : {}),
         ...(divergence ? { divergence } : {}) }), now,
         session.id, resultJson),
   ];
