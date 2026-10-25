@@ -85,8 +85,11 @@ describe("Halloween nights: the rules", () => {
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 2, elite: true })).toEqual(raidProfile(HALLOWEEN_RAID_ID, { night: 4 }));
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 1, elite: false })).toBeNull();
     expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, nightStage(1, true), RAID_TIME_LIMIT_MS)).toBe(NIGHT_TIME_LIMIT_MS);
-    expect(nightLabel(1, true)).toBe("Elite Night 1");
-    expect(nightLabel(3, false)).toBe("Night 3");
+    expect(nightLabel(1, true)).toBe("Elite Hour 1");
+    expect(nightLabel(3, false)).toBe("Hour 3");
+    // Twelve hours make the night: Hour 12 is the last, and nothing labels past it.
+    expect(MAX_NIGHT).toBe(12);
+    expect(nightLabel(99, false)).toBe("Hour 12");
   });
 
   it("clamp a night off the wire", () => {
@@ -103,11 +106,11 @@ describe("Halloween nights: the rules", () => {
     expect(nightPrompt(2).title).toBe("The night is still young.");
     for (let night = 2; night <= 9; night++) {
       const { body } = nightPrompt(night);
-      expect(body).toContain(`Night ${night}`);
+      expect(body).toContain(`Hour ${night}`);
       expect(body).toContain("Win or lose, you keep everything you've already won.");
       expect(body.length).toBeLessThan(160); // short
     }
-    expect(nightPrompt(2, true).body).toContain("Elite Night 2");
+    expect(nightPrompt(2, true).body).toContain("Elite Hour 2");
   });
 });
 

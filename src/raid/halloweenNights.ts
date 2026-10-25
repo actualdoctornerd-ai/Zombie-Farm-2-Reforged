@@ -25,9 +25,12 @@ import { HALLOWEEN_RAID_ID } from "./zombieDrops";
 
 /** The ordinary fight is night 1; every continuation is the next night up. */
 export const FIRST_NIGHT = 1;
-/** A ceiling on the chain, only so a number can never grow without bound. Night 7 is
- *  already past anything an army can clear (see nightHpMult). */
-export const MAX_NIGHT = 30;
+/** The chain's hard cap. Players see each night as an HOUR of the Count's party (see
+ *  nightLabel), and twelve hours is a whole night, so Hour 12 is the last one offered
+ *  (owner, 2026-10-24). Hour 7 is already past anything an army can clear (nightHpMult),
+ *  so the cap is about the story, not the balance. A Brain Ticket run's stage is clamped
+ *  here too, so Elite Hours 11 and 12 are both fought at Hour 12's strength. */
+export const MAX_NIGHT = 12;
 
 /** Hit points on night n: a base step that grows each night (+100% of base, then +200%,
  *  +300%, ...: 1, 2, 4, 7, 11, 16 ...) times a gentle x1.2 compounding. Owner's curve,
@@ -138,9 +141,10 @@ export function nightBrainLuck(night: number | undefined): number {
   return HALLOWEEN_BRAIN_SCALE * Math.pow(NIGHT_BRAIN_GROWTH, clampNight(night) - 1);
 }
 
-/** "Night 3" / "Elite Night 1". */
+/** "Hour 3" / "Elite Hour 1". The code says NIGHT throughout; the player sees hours of
+ *  one long night, which is what makes "midnight approaches" read right. */
 export function nightLabel(night: number, elite: boolean): string {
-  return `${elite ? "Elite Night" : "Night"} ${clampNight(night)}`;
+  return `${elite ? "Elite Hour" : "Hour"} ${clampNight(night)}`;
 }
 
 /** The line before each night. The chain is one night of the party wearing on: later,
@@ -150,7 +154,7 @@ export function nightLabel(night: number, elite: boolean): string {
 const NIGHT_LINES: readonly { title: string; line: string }[] = [
   { title: "The night is still young.", line: "The Count and his guests are just getting started." },
   { title: "It's getting late.", line: "The party's getting rowdier, and his guests are getting stronger." },
-  { title: "Midnight approaches.", line: "The night grows darker, and something out there is howling." },
+  { title: "Midnight approaches.", line: "It's getting darker, and the vibe at this party is starting to feel a little off." },
   { title: "Midnight.", line: "Few zombies come back from a night like this." },
   { title: "The witching hour has arrived.", line: "The party is in full swing, and his guests have never been stronger." },
 ];

@@ -5770,7 +5770,7 @@ async function main() {
     void hud.offerNight(prompt.title, prompt.body, nightLabel(night, elite)).then((onward) => {
       nightOfferOpen = false;
       const stale = !sessionId && Date.now() - offeredAt > NIGHT_CONTINUE_WINDOW_MS;
-      if (stale) hud.showToast("The night has passed. Your zombies headed home.");
+      if (stale) hud.showToast("The party's over. Your zombies headed home.");
       if (!onward || stale) {
         // Heading home ends the chain. With the result panel still up its close offers the
         // revivals; with it already closed, nobody else will.
@@ -5850,7 +5850,7 @@ async function main() {
           } else if (gate.error === "tier_locked") {
             hud.showToast(`Tier ${gate.unlockedTier ?? 1} is as far as you have climbed here.`);
           } else if (gate.error?.startsWith("night_") || gate.error === "bad_continue") {
-            hud.showToast("The night has passed. Invade again to start a new one.");
+            hud.showToast("The party's over. Invade again to start a new one.");
           } else {
             const mins = Math.ceil((gate.cooldownRemaining ?? 0) / 60000);
             hud.showToast(`Invasion on cooldown — about ${mins} min left.`);
@@ -5907,7 +5907,7 @@ async function main() {
           else if (error.code === "elite_unavailable") hud.showToast("This invasion has tiers instead of Brain Tickets.");
           else if (error.code === "tier_locked") hud.showToast("You have not unlocked that tier yet.");
           else if (error.code.startsWith("night_") || error.code === "bad_continue") {
-            hud.showToast("The night has passed. Invade again to start a new one.");
+            hud.showToast("The party's over. Invade again to start a new one.");
           }
           else if (error.code === "stale_ruleset") {
             // This tab predates the deployed Worker, so the server refuses to pin a fight
@@ -6017,7 +6017,7 @@ async function main() {
       confirmRetreat: () => setup.night > FIRST_NIGHT
         ? hud.confirmInGame(
           `Retreat from ${nightLabel(setup.night, setup.elite)}?`,
-          "This night will count as a loss. Everything the earlier nights paid is already yours.",
+          "This hour will count as a loss. Everything the earlier hours paid is already yours.",
           "Retreat"
         )
         : hud.confirmInGame("Retreat from invasion?", "This invasion will count as a loss.", "Retreat"),

@@ -26,9 +26,9 @@ export const RAID_TIPS: Record<number, string> = {
   // Halloween fight, which is always a night 1 (or an Elite Night 1).
   // One line break, between the two paragraphs: the bubble wraps the rest itself, and
   // hard breaks inside a paragraph left ragged half-lines at its width.
-  16: "Halloween's a long night! Win, and ya can keep on fightin' into the next one, " +
-    "and every night gets meaner than the last. Head home whenever ya like. Even if ya " +
-    "have to retreat, ya keep everything the earlier nights paid!\n\n" +
+  16: "Halloween's a long night! Win, and ya can keep on fightin' into the next hour, " +
+    "and every hour gets meaner than the last. Head home whenever ya like. Even if ya " +
+    "have to retreat, ya keep everything the earlier hours paid!\n\n" +
     "And watch the Count. When he swells up red, he's windin' up a big slam. Hit him " +
     "with stunnin' moves to stop it. The flashier the move, the more it counts!",
 };

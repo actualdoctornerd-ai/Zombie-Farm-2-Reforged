@@ -6294,7 +6294,7 @@ export class Hud {
           `${pctOdds(c.zombieDrop.rate)} per win · ${pctOdds(c.zombieDrop.eliteBaseRate)}` +
           (promoted ? ` plus ${c.zombieDrop.eliteName} ${pctOdds(c.zombieDrop.eliteRate)} on a` : " on a") +
           " Brain Ticket · Golden Dice raise it" +
-          (c.zombieDrop.climbsByNight ? " · x1.5 every night you fight on" : "");
+          (c.zombieDrop.climbsByNight ? " · x1.5 every hour you fight on" : "");
       }
       const boostVal = c.practice ? document.createElement("span") : dropRow("Boosts");
       if (!c.boostDrops.length) {

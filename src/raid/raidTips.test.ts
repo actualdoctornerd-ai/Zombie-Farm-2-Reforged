@@ -23,7 +23,7 @@ describe("raid tips", () => {
 
   it("briefs Halloween on the night chain and the Count's slam", () => {
     const tip = raidTip(16)!;
-    expect(tip).toContain("keep everything the earlier nights paid");
+    expect(tip).toContain("keep everything the earlier hours paid");
     expect(tip).toContain("slam");
     expect(tip).toContain("stunnin' moves");
   });
