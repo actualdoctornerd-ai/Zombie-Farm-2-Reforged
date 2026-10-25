@@ -59,12 +59,16 @@ describe("rare raid zombie drops", () => {
     [7, DIVER_ZOMBIE_KEY],
     [10, FOREST_ZOMBIE_KEY],
     [11, TEDDY_ZOMBIE_KEY],
-    [HALLOWEEN_RAID_ID, MUMMY_ZOMBIE_KEY],
   ])("drops the configured event zombie from raid %i at exactly 1%%", (raidId, key) => {
     expect(EVENT_ZOMBIE_DROP_RATE).toBe(0.01);
     expect(rollRaidZombieDrop(raidId, true, 0)?.key).toBe(key);
     expect(rollRaidZombieDrop(raidId, true, 0.009999999)?.key).toBe(key);
     expect(rollRaidZombieDrop(raidId, true, 0.01)).toBeNull();
+  });
+
+  it("drops the Mummy Zombie from Halloween at its level-20 rung, 1.3%", () => {
+    expect(rollRaidZombieDrop(HALLOWEEN_RAID_ID, true, 0.012999999)?.key).toBe(MUMMY_ZOMBIE_KEY);
+    expect(rollRaidZombieDrop(HALLOWEEN_RAID_ID, true, 0.0131)).toBeNull();
   });
 
   it("never drops from a loss, an unrelated invasion, or an invalid roll", () => {

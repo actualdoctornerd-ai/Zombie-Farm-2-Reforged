@@ -413,8 +413,9 @@ const ELITE_BASE: Readonly<Record<number, EliteProfile>> = {
   // stay duds — an elite multiplier on zero is still zero.
   10: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
   11: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
-  // 16 — Halloween. Reconstructed on the same seasonal template as 10 and 11 (identical
-  // stats, wave and throw split; see tools/prep_raids.py HALLOWEEN_ENEMY), so the same step.
+  // 16 — Halloween. The same step as 10 and 11, but over a level-20 wave (see
+  // tools/prep_raids.py HALLOWEEN_UNITS), which measured between Lawyers* and Pirates*:
+  // a moderate level-26 account loses ~4.5 zombies casually, ~1 from level 28.
   16: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
 };
 

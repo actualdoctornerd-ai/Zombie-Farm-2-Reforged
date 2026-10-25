@@ -2308,7 +2308,7 @@
   "messageComplete": "You beat Count von Uberbiss 3 times!",
   "tip": "Break down the pumpkin!",
   "sprite": "Icon_Quest_Halloween.png",
-  "levelRequired": 8,
+  "levelRequired": 20,
   "prerequisiteQuest": -1,
   "requirements": [
    {
@@ -2337,7 +2337,7 @@
   "messageComplete": "You collected all 3 coffins!",
   "tip": "Invade Count von Uberbiss to win these!",
   "sprite": "Icon_Quest_Halloween.png",
-  "levelRequired": 8,
+  "levelRequired": 20,
   "prerequisiteQuest": -1,
   "requirements": [
    {
@@ -2366,7 +2366,7 @@
    }
   ],
   "rewardType": 0,
-  "rewardValue": 200,
+  "rewardValue": 800,
   "rewardItem": "",
   "rewardItemKey": "",
   "tutorialQuest": false,
@@ -2419,7 +2419,7 @@
   "messageComplete": "You completed Uber Loser!",
   "tip": "Don't lose a single zombie in the fight.",
   "sprite": "Icon_Quest_Halloween.png",
-  "levelRequired": 8,
+  "levelRequired": 20,
   "prerequisiteQuest": -1,
   "requirements": [
    {
@@ -2432,7 +2432,7 @@
    }
   ],
   "rewardType": 0,
-  "rewardValue": 200,
+  "rewardValue": 800,
   "rewardItem": "",
   "rewardItemKey": "",
   "tutorialQuest": false,

@@ -9,11 +9,10 @@ describe("invasion menu order", () => {
       .filter((raid) => raid.playable)
       .sort(compareRaidMenuOrder)
       .map((raid) => raid.name);
-    expect(names.slice(0, 6)).toEqual([
+    expect(names.slice(0, 5)).toEqual([
       "Old McDonnell's Farm",
       "Valentine's Day",
       "Tree World",
-      "Halloween",
       "Summer Break",
       "Zombies vs Circus",
     ]);

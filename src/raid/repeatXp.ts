@@ -56,7 +56,7 @@ export const REPEAT_INVASION_XP: Readonly<Record<number, number>> = {
   9: 140, // Zombies vs Video Games — unlock 43
   10: 12, // Tree World — unlock 8
   11: 12, // Valentine's Day — unlock 6
-  16: 12, // Halloween — unlock 8 (seasonal, same as Tree World)
+  16: 20, // Halloween — unlock 20 (seasonal, but a level-20 fight)
   // The post-45 dual invasions, derived by the same 1% rule from the new (PLACEHOLDER)
   // thresholds. They move when those are fitted — repeatXp.test.ts derives every one of
   // these, so a threshold change reddens this table rather than quietly disagreeing with it.

@@ -106,7 +106,9 @@ QUEST_COUNT_OVERRIDES = {
 # "Seasonal : Halloween". The reconstructed invasion (prep_raids.HALLOWEEN_ENEMY)
 # settles as "Halloween", and like the other seasonal invasions it is always on, so
 # these become ordinary quests aimed at that name — the way Tree World's 51/52 are.
+# The invasion is sized for level 20, so their level-8 gate moves with it.
 HALLOWEEN_QUESTS = ("48", "49", "50")
+HALLOWEEN_QUEST_LEVEL = 20
 HALLOWEEN_SOURCE_SUBJECT = "Seasonal : Halloween"
 HALLOWEEN_RAID_NAME = "Halloween"
 
@@ -335,6 +337,7 @@ def main():
         if qid not in out:
             raise SystemExit(f"Halloween quest {qid} is missing")
         out[qid]["seasonal"] = False
+        out[qid]["levelRequired"] = HALLOWEEN_QUEST_LEVEL
         for r in out[qid]["requirements"]:
             if r["notificationObject"] == HALLOWEEN_SOURCE_SUBJECT:
                 r["notificationObject"] = HALLOWEEN_RAID_NAME

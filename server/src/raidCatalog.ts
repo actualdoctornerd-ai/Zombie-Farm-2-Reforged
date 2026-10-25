@@ -54,7 +54,7 @@ export const RAIDS: Readonly<Record<number, RaidEcon>> = {
   13: { gold: 0, bonus: 0, xp: 7000, recLevel: 47, unlockLevel: 47, playable: true }, // Zombies vs Ninjas & Pirates
   14: { gold: 0, bonus: 0, xp: 8000, recLevel: 48, unlockLevel: 48, playable: true }, // Zombies vs Circus & Video Games
   15: { gold: 0, bonus: 0, xp: 9000, recLevel: 49, unlockLevel: 49, playable: true }, // Zombies vs Aliens & Robots
-  16: { gold: 1200, bonus: 600, xp: 250, recLevel: 8, unlockLevel: 8, playable: true }, // Halloween
+  16: { gold: 1800, bonus: 750, xp: 1200, recLevel: 20, unlockLevel: 20, playable: true }, // Halloween
   // #endregion generated:RAIDS
 };
 

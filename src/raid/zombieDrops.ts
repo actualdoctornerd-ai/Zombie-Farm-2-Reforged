@@ -19,10 +19,10 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 //   rec  5  Old McDonnell's   Old McZombie      1.0%
 //   rec  6  Valentine's Day   Teddy Zombie      1.0%
 //   rec  8  Tree World        Forest Zombie     1.0%
-//   rec  8  Halloween         Mummy Zombie      1.0%
 //   rec 10  Summer Break      Diver Zombie      1.0%
 //   rec 12  Circus            Zombozo           1.0%   (single prize: x4 on a ticket)
 //   rec 16  Lawyers           Deputy Zombie     1.2%   (Sheriff 3.0% on a ticket)
+//   rec 20  Halloween         Mummy Zombie      1.3%   (seasonal, but a level-20 fight)
 //   rec 21  Pirates           MerZombie         1.4%   (Poseidon 3.5%)
 //   rec 26  Ninjas            Ninjombie         1.6%   (Master Ninjombie 4.0%)
 //   rec 31  Robots            Zombie Bot        1.8%   (Omega Zombie Bot 4.5%)
@@ -39,14 +39,14 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 // rolled ONLY the promoted prize, which left the Deputy unobtainable on a ticket and made
 // the Sheriff — at 2.5x the Deputy's rate — the easier of the pair to farm.
 //
-// The six easy invasions share the floor on purpose — four of them are seasonal and
+// The five easy invasions share the floor on purpose — three of them are seasonal and
 // unlock at level 6-10, Old McDonnell's is the tutorial raid, and the Circus (rec 12) is
 // the first story invasion after it; none is harder than another in a way a rate should
 // reward. The climb starts at the Lawyers. zombieDrops.test.ts pins the ladder to the
 // recommended-level order so a re-tune cannot quietly invert it.
 const pct = (percent: number): number => percent / 100;
 export const OLD_MC_ZOMBIE_DROP_RATE = pct(1);
-/** The four seasonal invasions' zombies — the ladder's floor, same as Old McZombie. */
+/** The three early seasonal invasions' zombies — the ladder's floor, same as Old McZombie. */
 export const EVENT_ZOMBIE_DROP_RATE = pct(1);
 
 export const DIVER_ZOMBIE_KEY = "ZombieActorHeadless2Tier5";
@@ -62,10 +62,13 @@ export const TEDDY_ZOMBIE_NAME = "Teddy Zombie";
 export const VALENTINES_DAY_RAID_ID = 11;
 
 /** A special the source shipped with no way to win it (market-hidden, no reward). The
- *  Halloween invasion fields a mummy, so its prize is the Mummy Zombie. */
+ *  Halloween invasion fields a mummy, so its prize is the Mummy Zombie. Halloween is
+ *  seasonal but sized for level 20, so it sits on the ladder by that rung, between the
+ *  Lawyers and the Pirates, rather than on the seasonal floor. */
 export const MUMMY_ZOMBIE_KEY = "ZombieActorMummy";
 export const MUMMY_ZOMBIE_NAME = "Mummy Zombie";
 export const HALLOWEEN_RAID_ID = 16;
+export const HALLOWEEN_ZOMBIE_DROP_RATE = pct(1.3);
 
 // ---- The story invasions' prize pairs ---------------------------------------------
 // In the source these eight were ALTERNATE Epic Boss prizes for events that were never
@@ -161,7 +164,7 @@ export const RAID_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> = {
   [HALLOWEEN_RAID_ID]: {
     key: MUMMY_ZOMBIE_KEY,
     name: MUMMY_ZOMBIE_NAME,
-    rate: EVENT_ZOMBIE_DROP_RATE,
+    rate: HALLOWEEN_ZOMBIE_DROP_RATE,
   },
 };
 

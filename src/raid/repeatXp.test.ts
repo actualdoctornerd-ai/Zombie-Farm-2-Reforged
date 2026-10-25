@@ -28,7 +28,7 @@ function xpToNext(level: number): number {
 /** The four values placed by hand because the 1% formula collapsed onto the floor for
  *  every raid unlocking between levels 8 and 16. Everything NOT listed here must still
  *  come out of the formula exactly. */
-const HAND_SET: Readonly<Record<number, number>> = { 7: 12, 10: 12, 11: 12, 16: 12, 8: 14, 2: 16 };
+const HAND_SET: Readonly<Record<number, number>> = { 7: 12, 10: 12, 11: 12, 8: 14, 2: 16 };
 
 describe("repeat-invasion XP table", () => {
   it("covers every playable raid, and nothing else", () => {
