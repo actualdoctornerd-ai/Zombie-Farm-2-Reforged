@@ -34,22 +34,18 @@ export const MAX_NIGHT = 30;
  *  2026-10-24, replacing a flat x2.75 compounding that read as a wall at night 5-6.
  *
  *  Measured with the difficulty harness against the owner's buffed wave (Count con 100 /
- *  str 30, minions con 28-40), four seeds, damage +75% a night, winning clears in seconds
- *  on the 180 s clock (expert-casual pilot):
+ *  str 30, minions con 28-40), four seeds, winning clears in seconds on the 180 s clock:
  *
  *                              n2       n3       n4       n5        n6         n7
- *      level 45, maxed        47-54    63-72    84-94   114-128   159-174   out of time
- *      level 45, ordinary     50-57    69-75   94-106   134-147  out of time
- *      level 30, ordinary     61-72    82-94  112-131   161-177  out of time
- *      level 20, ordinary    102-138   mostly lost (11-12 of 16 down), wiped from n4
+ *      level 45, maxed        47-54    63-72    84-94   114-129   158-172   out of time
+ *      level 45, ordinary     50-57    69-75   94-106   133-147  out of time
+ *      level 30, ordinary     61-72    82-94  112-132   161-177  out of time
+ *      level 20, ordinary    102-138   wiped
  *
- *  Damage is what bites the lower levels: they are worn down rather than run out of time.
- *  A level-45 army that runs out of time loses ~0-1.5 zombies; level 30 ~1-2, more by n8. */
+ *  Damage is what bites the lower levels: they are worn down rather than run out of time. */
 export const NIGHT_HP_COMPOUND = 1.2;
-/** Damage on night n: +75% of base a night (x1, x1.75, x2.5, x3.25 ...). Toned down from
- *  +100% (owner, 2026-10-24): losing zombies is part of the chain, deciding when to leave
- *  is the player's call, but +100% bled a little too hard. */
-export const NIGHT_DAMAGE_STEP = 0.75;
+/** Damage on night n: +100% of base a night (x1, x2, x3 ...). */
+export const NIGHT_DAMAGE_STEP = 1;
 /** The win gold a night pays from night 2 on, as a share of the invasion's: the nights are a
  *  brains-and-zombies chase, not a gold farm (owner, 2026-10-24). Night 1 pays in full. */
 export const NIGHT_GOLD_SHARE = 0.25;
