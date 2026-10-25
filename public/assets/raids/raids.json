@@ -1340,5 +1340,88 @@
   "initialSpawnClass": "",
   "hasGrab": false,
   "stageOf": 6
+ },
+ {
+  "id": 16,
+  "name": "Halloween",
+  "bossName": "Count von Uberbiss",
+  "bossPortrait": "portrait_count.png",
+  "enemyIcon": "enemy_icon_count.png",
+  "unlockLevel": 8,
+  "recommendedLevel": 8,
+  "eliteRecommendedLevel": 18,
+  "introText": "The mean ol' vampire, Count von Uberbiss, is throwing a Halloween party and your zombies ain't invited! It's time to crash that party!",
+  "successText": "Party's over, Count! Yer zombies ate the punch bowl, the candy and most of the guests.",
+  "failureText": "Your zombies are no match for the geriatric might of Count von Uberbiss! Get off his lawn!",
+  "xp": 250,
+  "goldReward": 1200,
+  "bonusGold": 600,
+  "throwSpeed": 0,
+  "music": "fightBGM.mp3",
+  "seasonal": true,
+  "playable": true,
+  "levelAssets": [
+   {
+    "sprite": "fightBGHalloween2011.png",
+    "position": "{0,0}",
+    "anchor": "{0,0}",
+    "z": 0
+   },
+   {
+    "sprite": "fightBGHalloween2011_front.png",
+    "position": "{480,0}",
+    "anchor": "{1,0}",
+    "z": 3
+   }
+  ],
+  "stages": [
+   {
+    "enemyKeys": [],
+    "bossKey": "HalloweenStageActorBoss",
+    "population": 8,
+    "throwSpeed": 1.5,
+    "weighted": [
+     {
+      "enemy": "HalloweenStageActorMinion1",
+      "frequency": 34
+     },
+     {
+      "enemy": "HalloweenStageActorMinion2",
+      "frequency": 33
+     },
+     {
+      "enemy": "HalloweenStageActorMinion3",
+      "frequency": 33
+     }
+    ]
+   }
+  ],
+  "loot": [
+   [
+    "Bonus Gold"
+   ],
+   [
+    "Invasion Voucher",
+    "Golden Dice",
+    "Invasion Voucher"
+   ],
+   [
+    "Coffin 1"
+   ],
+   [
+    "Coffin 2"
+   ],
+   [
+    "Coffin 3"
+   ],
+   [
+    "Spooky Tree"
+   ]
+  ],
+  "obstacleLimit": 0,
+  "obstacleSpawnSecs": 0.0,
+  "obstacleActors": [],
+  "initialSpawnClass": "",
+  "hasGrab": false
  }
 ]

@@ -49,7 +49,7 @@ const THEME_LABELS: Record<string, string> = {
  * Gating applies to BUYING only. An owned seasonal decor still places, stores and
  * re-places whatever the season, so nobody loses a farm they built.
  */
-export const ACTIVE_THEMES: readonly string[] = [EVERGREEN];
+export const ACTIVE_THEMES: readonly string[] = [EVERGREEN, "halloween"];
 
 /** This row's label, defaulting to evergreen when the field is absent. */
 export function themeOf(def: { theme?: string } | undefined | null): string {

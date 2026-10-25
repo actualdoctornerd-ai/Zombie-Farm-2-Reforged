@@ -39,8 +39,115 @@ IMGDIR = os.path.join(OUT, "images")
 # Event/seasonal invasions: shown in the catalog but not part of the level ladder.
 # NB: Circus (ID 8) is a CORE ladder invasion (level 12), not seasonal — confirmed
 # against the public wiki's normal-invasion list. Only Summer Break (7), Tree World
-# (10), and Valentine's Day (11) are the limited/seasonal events here.
-SEASONAL_IDS = {7, 10, 11}
+# (10), and Valentine's Day (11) are the limited/seasonal events here, plus the
+# reconstructed Halloween invasion (16, see HALLOWEEN_ENEMY).
+SEASONAL_IDS = {7, 10, 11, 16}
+
+# First-clear XP for the early invasions, trimmed by hand when the tutorial was rebuilt
+# around Tim's original lines (9611375) so the first few clears do not rocket a new
+# farm through the opening levels. Kept here so a regeneration does not undo it.
+FIRST_CLEAR_XP = {
+    1: 50,    # Old McDonnell's Farm   100 -> 50
+    7: 300,   # Summer Break           500 -> 300
+    8: 350,   # Zombies vs Circus      500 -> 350
+    10: 250,  # Tree World             500 -> 250
+    11: 200,  # Valentine's Day        500 -> 200
+    16: 250,  # Halloween — level 8 like Tree World, so the same first clear
+}
+
+# ---------------------------------------------------------------------------
+# RECONSTRUCTED: the Halloween invasion, "Count von Uberbiss".
+# ---------------------------------------------------------------------------
+# The originals shipped everything for this fight EXCEPT its Enemies/UnitStats rows, which
+# were server-pushed and so are in no IPA (checked: ZF1 1.19, ZF2R 0.60/1.0, ZF2 2.08/2.25).
+# What does ship, and is used verbatim:
+#   * the stage: fightBGHalloween2011.png + _front.png (the haunted house and its balcony)
+#   * the cast: Halloween2011Stage.png/.plist + Halloween2011StageSkeleton — the Count
+#     (halloween_boss_*), a mummy, a Frankenstein flower pot and a devil-winged angel
+#   * the text: the Count's intro and failure lines (Localizable.strings)
+#   * the loot: Coffin 1/2/3 and the Spooky Tree (Drops.json, Market.json)
+#   * the quests: 48 Down for the Count, 49 Six Feet Under, 50 Uber Loser (level 8)
+# The missing rows are authored to the shape every other seasonal invasion shares — Tree
+# World and Valentine's Day are stat-for-stat identical (boss con 15 / dex 4 / str 3
+# throwing 12 / 0 / 36; Minion1 con 6 str 4; Minion2-3 con 8 str 3; a population-8 wave),
+# so Halloween is the third member of that family rather than a new balance point. Level 8
+# is the source's own seasonal level and the quests' gate. The success line and the throw
+# art are the only invented pieces: no success string survives, and the stage sheet has
+# no debris, so the Count lobs the shipped pumpkin art.
+HALLOWEEN_ID = 16
+HALLOWEEN_ENEMY = {
+    "ID": HALLOWEEN_ID,
+    "name": "Halloween",
+    "bossName": "Count von Uberbiss",
+    "boss": "HalloweenStageActorBoss",
+    # No portrait or icon ships for the Count; make_halloween_portraits cuts both from
+    # his own body sprite.
+    "bossHeadPortrait": "portrait_count.png",
+    "enemyIcon": "enemy_icon_count.png",
+    "level": 8,
+    "reccomendedLevel": "8",
+    "introText": "The mean ol' vampire, Count von Uberbiss, is throwing a Halloween party and "
+                 "your zombies ain't invited! It's time to crash that party!",
+    "invasionSuccessText": "Party's over, Count! Yer zombies ate the punch bowl, the "
+                           "candy and most of the guests.",
+    "invasionFailedText": "Your zombies are no match for the geriatric might of Count von "
+                          "Uberbiss! Get off his lawn!",
+    "xp": 500,
+    # The front layer is the house's balcony and roof. Right-anchored at z 3 it is the
+    # perch STRUCTURE (RaidScene.computePerch), so the Count stands behind the balcony rail
+    # and the ground wave walks out of the green door beneath him.
+    "levelAssets": [
+        {"anchor": "{0,0}", "position": "{0,0}", "sprite": "fightBGHalloween2011.png", "z": 0},
+        {"anchor": "{1,0}", "position": "{480,0}", "sprite": "fightBGHalloween2011_front.png", "z": 3},
+    ],
+    "loot": [
+        ["Bonus Gold"],
+        ["Invasion Voucher", "Golden Dice", "Invasion Voucher"],
+        ["Coffin 1"],
+        ["Coffin 2"],
+        ["Coffin 3"],
+        ["Spooky Tree"],
+    ],
+    "stageSettings": [{
+        "bossKey": "HalloweenStageActorBoss",
+        "enemies": [
+            {"enemy": "HalloweenStageActorMinion1", "frequency": 34},
+            {"enemy": "HalloweenStageActorMinion2", "frequency": 33},
+            {"enemy": "HalloweenStageActorMinion3", "frequency": 33},
+        ],
+        "population": 8,
+        "stageActorsDisabled": True,
+        "throwSpeed": 1.5,
+    }],
+}
+# UnitStats rows for the cast, copied from the Valentine's/Tree World template (see above).
+# Minion1 is the angel (the glass cannon), Minion2 the mummy, Minion3 the flower pot.
+HALLOWEEN_UNITS = {
+    "HalloweenStageActorBoss": {
+        "attacks": [{"frequency": 100, "name": "SpecialBossAttack"}],
+        "bossActions": [
+            {"damage": 12, "frequency": 40, "name": "throw", "sprite": "thanksgiving_pumpkin.png"},
+            {"damage": 0, "frequency": 30, "name": "throw", "sprite": "icon_marketitems_happypumpkin.png"},
+            {"damage": 36, "frequency": 30, "name": "throw", "sprite": "icon_marketitems_angrypumpkin.png"},
+        ],
+        "con": 15, "dex": 4, "standardBossLoot": True, "str": 3,
+        "throwOffset": "{-20,120}", "throwTiming": 0.1,
+    },
+    "HalloweenStageActorMinion1": {
+        "attacks": [{"frequency": 100, "name": "SpecialMinion1Attack"}],
+        "con": 6, "dex": 1, "standardGoldLoot": True, "str": 4,
+    },
+    "HalloweenStageActorMinion2": {
+        "attacks": [{"frequency": 50, "name": "SpecialMinion2Attack1"},
+                    {"frequency": 50, "name": "SpecialMinion2Attack2"}],
+        "con": 8, "dex": 1, "standardGoldLoot": True, "str": 3,
+    },
+    "HalloweenStageActorMinion3": {
+        "attacks": [{"frequency": 50, "name": "SpecialMinion3Attack1"},
+                    {"frequency": 50, "name": "SpecialMinion3Attack2"}],
+        "con": 8, "dex": 1, "standardGoldLoot": True, "str": 3,
+    },
+}
 
 # DELIBERATE DIVERGENCE from Enemies.json: the three seasonal invasions all ship
 # stacked at level 8 (`level` and `reccomendedLevel` alike, so all three landed at
@@ -82,6 +189,7 @@ LEVEL_OVERRIDES = {
 ELITE_RECOMMENDED_LEVELS = {
     1: 20,   # Old McDonnell's — winnable elite at any level; this is just the ticket gate
     11: 18,  # Valentine's Day
+    16: 18,  # Halloween — the same seasonal fight as Valentine's and Tree World
     10: 18,  # Tree World
     7: 18,   # Summer Break
     8: 20,   # Circus
@@ -121,6 +229,7 @@ WIKI_GOLD = {
     9: (6300, 1200),   # Zombies vs Video Games
     10: (1200, 600),   # Tree World
     11: (1200, 600),   # Valentine's Day (filled — not in wiki)
+    16: (1200, 600),   # Halloween (filled — the seasonal pattern)
 }
 
 # DELIBERATE DIVERGENCE from Attacks.json. Applied to the emitted attacks.json after
@@ -196,6 +305,7 @@ STAGE_FAMILY = {
     9: "VideoGameStage",
     10: "TreeWorldStage",
     11: "ValentinesDayStageActor",
+    16: "HalloweenStageActor",
 }
 # Battle BGM per raid. The binary ships exactly FIVE themed stage tracks —
 # farm/pirate/ninja/robot/alien StageBGM (confirmed by the only *StageBGM strings in
@@ -405,6 +515,8 @@ def copy_img(name, missing):
     if os.path.exists(src):
         shutil.copy(src, os.path.join(IMGDIR, name))
         return name
+    if name in GENERATED_IMAGES:
+        return name
     missing.add(name)
     return name  # keep the reference so the runtime can decide a fallback
 
@@ -582,10 +694,32 @@ def dual_invasion_entries(by_id):
     return out
 
 
+# Images this script draws itself rather than copying from the bundle.
+GENERATED_IMAGES = {"portrait_count.png", "enemy_icon_count.png"}
+
+
+def make_halloween_portraits():
+    """Cut the Count's portrait (72x66, like portrait_cook) and invasion icon (43x43, like
+    enemy_icon_cook) from his body sprite: the head, collar and bow tie sit in its top-left
+    64x58 of halloween_boss_body.png in the Halloween2011Stage atlas."""
+    from PIL import Image
+    sheet = os.path.normpath(os.path.join(
+        PROJ, "..", "ZF2R_extracted", "assets", "spritesheets", "stages"))
+    atlas = Image.open(os.path.join(sheet, "Halloween2011Stage.png")).convert("RGBA")
+    head = atlas.crop((40, 1, 40 + 64, 1 + 58))
+    for name, (w, h) in (("portrait_count.png", (72, 66)), ("enemy_icon_count.png", (43, 43))):
+        k = min(w / head.width, h / head.height)
+        fit = head.resize((round(head.width * k), round(head.height * k)), Image.LANCZOS)
+        out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        out.paste(fit, ((w - fit.width) // 2, h - fit.height), fit)
+        out.save(os.path.join(IMGDIR, name))
+
+
 def main():
     os.makedirs(IMGDIR, exist_ok=True)
-    enemies = load("Enemies.json")
-    unit_stats = load("UnitStats.json")
+    make_halloween_portraits()
+    enemies = load("Enemies.json") + [HALLOWEEN_ENEMY]
+    unit_stats = {**load("UnitStats.json"), **HALLOWEEN_UNITS}
     attacks = load("Attacks.json")
 
     missing = set()
@@ -627,7 +761,7 @@ def main():
             "introText": e.get("introText", ""),
             "successText": e.get("invasionSuccessText", ""),
             "failureText": e.get("invasionFailedText", ""),
-            "xp": as_int(e.get("xp")),
+            "xp": FIRST_CLEAR_XP.get(rid, as_int(e.get("xp"))),
             # Wiki-sourced (see WIKI_GOLD note) — approximate, verify vs real ZF2R.
             "goldReward": WIKI_GOLD.get(rid, (0, 0))[0],
             "bonusGold": WIKI_GOLD.get(rid, (0, 0))[1],

@@ -211,6 +211,19 @@ TRIM_SHEETS = [
             "TreeWorldStageZobraActor": "zobra",
         },
     },
+    {   # The reconstructed Halloween invasion (prep_raids.HALLOWEEN_ENEMY): the Count,
+        # the devil-winged angel, the mummy and the Frankenstein flower pot.
+        "png": os.path.join(SHEETDIR, "Halloween2011Stage.png"),
+        "frames": os.path.join(SHEETDIR, "Halloween2011Stage.plist"),
+        "skeleton": os.path.join(MISCDIR, "Halloween2011StageSkeleton.json"),
+        "actors": {
+            "HalloweenStageActorBoss": "halloween_boss",
+            # angel_body only: angel_attack.png is her strike's beam, not a body part.
+            "HalloweenStageActorMinion1": "angel_body",
+            "HalloweenStageActorMinion2": "mummy",
+            "HalloweenStageActorMinion3": "pot",
+        },
+    },
 ]
 
 # Bare-fisted PUNCHERS: the business-suited City lawyers + office boss rest their arms at

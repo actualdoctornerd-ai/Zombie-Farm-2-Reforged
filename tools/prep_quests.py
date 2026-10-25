@@ -99,6 +99,17 @@ QUEST_COUNT_OVERRIDES = {
     "59": ((50, 50), "25 + 25 for 3750 XP at the level cap was 75 XP/harvest"),
 }
 
+# ---- The Halloween invasion's quests -----------------------------------------
+# 48 Down for the Count, 49 Six Feet Under and 50 Uber Loser ship `seasonal`, which
+# keeps them off the rail (QuestSystem.eligible / the server engine skip seasonal
+# quests), and 48 and 50 listen for the invasion under its source quest subject
+# "Seasonal : Halloween". The reconstructed invasion (prep_raids.HALLOWEEN_ENEMY)
+# settles as "Halloween", and like the other seasonal invasions it is always on, so
+# these become ordinary quests aimed at that name — the way Tree World's 51/52 are.
+HALLOWEEN_QUESTS = ("48", "49", "50")
+HALLOWEEN_SOURCE_SUBJECT = "Seasonal : Halloween"
+HALLOWEEN_RAID_NAME = "Halloween"
+
 
 def recolor_families():
     """Display name -> base tile, for every color of a multi-color decor item."""
@@ -318,6 +329,15 @@ def main():
         for r, n in zip(reqs, counts):
             r["countTotal"] = n
             r["text"] = LEADING_COUNT.sub(str(n), r["text"], count=1)
+
+    # Wake the Halloween quests and point them at the invasion (see HALLOWEEN_QUESTS).
+    for qid in HALLOWEEN_QUESTS:
+        if qid not in out:
+            raise SystemExit(f"Halloween quest {qid} is missing")
+        out[qid]["seasonal"] = False
+        for r in out[qid]["requirements"]:
+            if r["notificationObject"] == HALLOWEEN_SOURCE_SUBJECT:
+                r["notificationObject"] = HALLOWEEN_RAID_NAME
 
     # Bully Frog's only surviving quest definitions are embedded in its
     # EpicEventEnemy row rather than Quests.plist. Import the unambiguous 3xxx

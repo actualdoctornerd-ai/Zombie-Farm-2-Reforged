@@ -29,6 +29,7 @@ export const RAID_LOOT: Readonly<Record<number, readonly (readonly string[])[]>>
   13: [["Bonus Gold"], ["Bamboo"], ["Invasion Voucher", "Insta-Grow", "Insta-Plow", "Insta-Harvest"], ["Ninja Banner"], ["Double Rainbow"], ["Taiko Drum"]], // Zombies vs Ninjas & Pirates
   14: [["Bonus Gold"], ["Concentration", "Insta-Grow", "Invasion Voucher"], ["Circus Flag: Green", "Circus Flag: Yellow", "Circus Flag: Blue"], ["Bonus Gold"], ["Circus Tent"], ["Ring of Fire"]], // Zombies vs Circus & Video Games
   15: [["Bonus Gold"], ["Bike"], ["Invasion Voucher", "Insta-Grow", "Insta-Plow", "Insta-Harvest"], ["Alien Banner", "Crashed UFO"], ["Pyramid"], ["Satellite Dish"]], // Zombies vs Aliens & Robots
+  16: [["Bonus Gold"], ["Invasion Voucher", "Golden Dice", "Invasion Voucher"], ["Coffin 1"], ["Coffin 2"], ["Coffin 3"], ["Spooky Tree"]], // Halloween
   // #endregion generated:RAID_LOOT
 };
 

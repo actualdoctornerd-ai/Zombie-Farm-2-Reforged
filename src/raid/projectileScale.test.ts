@@ -109,7 +109,7 @@ describe("boss projectile scaling", () => {
     // laser, an authored flat 200 that already clears the floor (see below). 12/13/14 are the
     // dual invasions, which inherit the City, Ninja and Circus bosses; 15 is staged as the
     // Aliens and inherits their lack of a throw table for the same reason raid 6 has none.
-    expect(throwers.map((t) => t.raid.id)).toEqual([1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14]);
+    expect(throwers.map((t) => t.raid.id)).toEqual([1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 16]);
   });
 
   it("mirrors the market's Garden ladder, specials excluded", () => {
@@ -281,6 +281,7 @@ describe("boss projectile scaling", () => {
   // Brain Ticket actually buys, which now does divide the two.
   const ELITE_THROW_STEP: Readonly<Record<number, number>> = {
     1: 3.0, 2: 3.71, 3: 2.0, 4: 3.69, 5: 2.86, 7: 4.0, 8: 3.99, 9: 2.71, 10: 4.01, 11: 4.01,
+    16: 4.01,
   };
 
   it("steps an elite boss's throws off the rebalanced fight, not off the authored one", () => {

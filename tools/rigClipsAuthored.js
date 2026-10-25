@@ -175,7 +175,7 @@ function genericTracks(model, key, damageTiming, uToT, uMax) {
     (u) => round((offset || 0) + scale * env.thrust(u)), [0, env.c, 1], uToT, uMax);
   // The half-sine wind-up is never smoothstep, so it is sampled and read back linearly.
   const cockKeys = (scale) => ({
-    ease: "linear", keys: sampleKeys((u) => round(scale * env.cock(u)), uToT, uMax, 32),
+    ease: "linear", keys: sampleKeys((u) => round(scale * env.cock(u)), uToT, uMax, 64),
   });
 
   // Whole-body lunge: cock back a touch, then step into the blow. The rig faces

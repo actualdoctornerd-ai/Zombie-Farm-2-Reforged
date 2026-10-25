@@ -13,6 +13,8 @@ import {
   rollRaidZombieDrop,
   rollRaidZombieDropWithPity,
   TEDDY_ZOMBIE_KEY,
+  MUMMY_ZOMBIE_KEY,
+  HALLOWEEN_RAID_ID,
   ZOMBIE_LUCK_DICE_CAP,
   RAID_ZOMBIE_DROPS,
   RAID_ELITE_ZOMBIE_DROPS,
@@ -57,6 +59,7 @@ describe("rare raid zombie drops", () => {
     [7, DIVER_ZOMBIE_KEY],
     [10, FOREST_ZOMBIE_KEY],
     [11, TEDDY_ZOMBIE_KEY],
+    [HALLOWEEN_RAID_ID, MUMMY_ZOMBIE_KEY],
   ])("drops the configured event zombie from raid %i at exactly 1%%", (raidId, key) => {
     expect(EVENT_ZOMBIE_DROP_RATE).toBe(0.01);
     expect(rollRaidZombieDrop(raidId, true, 0)?.key).toBe(key);
@@ -428,7 +431,8 @@ describe("the story invasions' prize pairs", () => {
     expect(byKey.get(ZOMBOZO_KEY)).toMatchObject({ raidId: CIRCUS_RAID_ID, elite: false });
     expect(byKey.get(VIDEO_GAME_ZOMBIE_KEY)).toMatchObject({ raidId: VIDEO_GAMES_RAID_ID, elite: false });
     expect(byKey.get(FINAL_BOSS_ZOMBIE_KEY)).toMatchObject({ raidId: VIDEO_GAMES_RAID_ID, elite: true });
-    expect(byKey.size).toBe(17);
+    expect(byKey.get(MUMMY_ZOMBIE_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: false });
+    expect(byKey.size).toBe(18);
     // Every source key is a distinct zombie: no prize is reachable from two places.
     expect(new Set(RAID_ZOMBIE_SOURCES.map((s) => s.drop.key)).size).toBe(RAID_ZOMBIE_SOURCES.length);
   });

@@ -2313,7 +2313,7 @@
   "requirements": [
    {
     "notificationID": "kInvasionSuccessfulNotification",
-    "notificationObject": "Seasonal : Halloween",
+    "notificationObject": "Halloween",
     "countTotal": 3,
     "text": "Beat the Count 3x",
     "type": 2,
@@ -2326,7 +2326,7 @@
   "rewardItemKey": "Spooky Tree",
   "tutorialQuest": false,
   "epicEvent": false,
-  "seasonal": true,
+  "seasonal": false,
   "seasonalDate": "",
   "removeQuest": true,
   "ignoreCheckQuest": false
@@ -2371,7 +2371,7 @@
   "rewardItemKey": "",
   "tutorialQuest": false,
   "epicEvent": false,
-  "seasonal": true,
+  "seasonal": false,
   "seasonalDate": "",
   "removeQuest": true,
   "ignoreCheckQuest": false
@@ -2424,7 +2424,7 @@
   "requirements": [
    {
     "notificationID": "kInvasionPerfectGameNotification",
-    "notificationObject": "Seasonal : Halloween",
+    "notificationObject": "Halloween",
     "countTotal": 1,
     "text": "Defeat the Count unscathed",
     "type": 2,
@@ -2437,7 +2437,7 @@
   "rewardItemKey": "",
   "tutorialQuest": false,
   "epicEvent": false,
-  "seasonal": true,
+  "seasonal": false,
   "seasonalDate": "",
   "removeQuest": true,
   "ignoreCheckQuest": false

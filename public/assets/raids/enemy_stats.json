@@ -291,6 +291,84 @@
   "standardGoldLoot": true,
   "str": 1.5
  },
+ "HalloweenStageActorBoss": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialBossAttack"
+   }
+  ],
+  "bossActions": [
+   {
+    "damage": 12,
+    "frequency": 40,
+    "name": "throw",
+    "sprite": "thanksgiving_pumpkin.png"
+   },
+   {
+    "damage": 0,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "icon_marketitems_happypumpkin.png"
+   },
+   {
+    "damage": 36,
+    "frequency": 30,
+    "name": "throw",
+    "sprite": "icon_marketitems_angrypumpkin.png"
+   }
+  ],
+  "con": 15,
+  "dex": 4,
+  "standardBossLoot": true,
+  "str": 3,
+  "throwOffset": "{-20,120}",
+  "throwTiming": 0.1
+ },
+ "HalloweenStageActorMinion1": {
+  "attacks": [
+   {
+    "frequency": 100,
+    "name": "SpecialMinion1Attack"
+   }
+  ],
+  "con": 6,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 4
+ },
+ "HalloweenStageActorMinion2": {
+  "attacks": [
+   {
+    "frequency": 50,
+    "name": "SpecialMinion2Attack1"
+   },
+   {
+    "frequency": 50,
+    "name": "SpecialMinion2Attack2"
+   }
+  ],
+  "con": 8,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 3
+ },
+ "HalloweenStageActorMinion3": {
+  "attacks": [
+   {
+    "frequency": 50,
+    "name": "SpecialMinion3Attack1"
+   },
+   {
+    "frequency": 50,
+    "name": "SpecialMinion3Attack2"
+   }
+  ],
+  "con": 8,
+  "dex": 1,
+  "standardGoldLoot": true,
+  "str": 3
+ },
  "NinjaStageActorBoss": {
   "attacks": [
    {

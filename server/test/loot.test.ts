@@ -13,8 +13,8 @@ import placeables from "../../public/assets/placeables.json";
 const none = () => 0;
 
 describe("raidLootCatalog — mirror of raids.json loot", () => {
-  it("has a 6-tier table for all 15 raids", () => {
-    expect(Object.keys(RAID_LOOT)).toHaveLength(15);
+  it("has a 6-tier table for all 16 raids", () => {
+    expect(Object.keys(RAID_LOOT)).toHaveLength(16);
     for (const [id, tiers] of Object.entries(RAID_LOOT)) {
       expect(tiers.length, id).toBe(6);
       expect(tiers[0], id).toContain(BONUS_GOLD); // tier 0 is always the gold pity drop

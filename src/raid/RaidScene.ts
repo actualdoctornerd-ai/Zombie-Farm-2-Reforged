@@ -517,6 +517,11 @@ const PERCH_TWEAK: Record<number, { dx?: number; dy?: number }> = {
   // sky perch (PERCH_FY 0.2) puts him near the ceiling; 0.45 landed him at the table but
   // still floating a little above it — the extra 0.038 is a tenth of his rendered height.
   11: { dy: 0.488 },
+  // Halloween: the Count stands on the haunted house's balcony, behind its rail. The front
+  // layer is the whole 480-wide frame (the house is only its right edge), so the computed
+  // structure perch lands far left and at the frame's top; this walks him over to the
+  // balcony and down onto its floor.
+  16: { dx: 0.64, dy: 0.26 },
 };
 // Alien boss rides a UFO (AlienStageElements bossShip/bossShipBack): the saucer + glass
 // dome sit IN FRONT of the alien (its transparent centre shows the pilot), the small back

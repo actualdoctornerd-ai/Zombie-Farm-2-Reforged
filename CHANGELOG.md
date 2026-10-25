@@ -2,6 +2,13 @@
 
 ## Unreleased (working tree)
 
+### Halloween: Count von Uberbiss
+- **The original game's Halloween invasion is back, at level 8.** The mean ol' vampire Count von Uberbiss throws a party from the balcony of his haunted house, lobbing pumpkins while a mummy, a Frankenstein flower pot and a devil-winged angel walk out of the green door. The stage, the cast, the intro and failure lines, the loot (Coffins 1-3 and the Spooky Tree) and the three quests all come from the original files. The fight's stats never shipped in any copy (they were server-pushed), so it uses the stats Tree World and Valentine's Day share, stat for stat; the victory line and the pumpkin throws are new. Like the other seasonal invasions it is always available.
+- **Its rare zombie is the Mummy Zombie** (1% a win, with the usual pity), a special that shipped in the files with no way to earn it.
+- **The Halloween quests are live:** Down for the Count (beat the Count 3 times, Spooky Tree), Six Feet Under (win all three coffins) and Uber Loser (beat him without losing a zombie).
+- **Halloween decorations are back in the Market** (Haunted House, Candelabra, Organ, Spooky Strawman, Candle Altar, Festive Divider, Sugar Skull, Skeleton Couple, Box o' Lantern). Remove `"halloween"` from `ACTIVE_THEMES` in `src/decorThemes.ts` to take them off sale after the season; owned pieces stay placed either way.
+- No ruleset bump: no existing fight changes. **Deploy the Worker before the client**, since it has to know raid 16 to start and settle it, and it gates decoration buying.
+
 ### Mutant Monolith mutation strength
 - A placed Mutant Monolith now boosts the stat bonuses from every mutation by 10%, on top of its guaranteed crop mutations and half-time mutant growth. Client and Worker raid simulations use the same farm-owned effect.
 - Astronaut Farmer heads now grant +10% zombie Dexterity, and Dino Farmer heads grant +10% mutation stat bonuses. No Con head bonus was added because the Skeleton heads' existing +10% Zombie Life bonus already boosts the Con-derived health stat.

@@ -413,6 +413,9 @@ const ELITE_BASE: Readonly<Record<number, EliteProfile>> = {
   // stay duds — an elite multiplier on zero is still zero.
   10: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
   11: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
+  // 16 — Halloween. Reconstructed on the same seasonal template as 10 and 11 (identical
+  // stats, wave and throw split; see tools/prep_raids.py HALLOWEEN_ENEMY), so the same step.
+  16: { str: 3.8, con: 3.8, dex: 1.6, throwDamage: 2.11, throwRate: 1.9, wallHp: 1, specialDamage: 3.8 },
 };
 
 /** The multipliers this fight runs under: null for an ordinary invasion (so every
