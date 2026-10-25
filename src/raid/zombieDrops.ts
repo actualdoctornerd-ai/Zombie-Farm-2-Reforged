@@ -81,11 +81,13 @@ export const HALLOWEEN_ZOMBIE_DROP_RATE = pct(1);
 /** A Brain Ticket's 4x, kept here so this module imports nothing; zombieDrops.test pins it
  *  to eliteInvasion.ELITE_BRAIN_LUCK. */
 export const ELITE_LUCK_FOR_PRIZES = 4;
-/** Per-night ceilings on Halloween's prizes (owner, 2026-10-24): the night chain's x1.5 a
- *  night, a ticket's 4x and up to five carried Golden Dice would otherwise reach certainty.
- *  The JackoZombie/Zcarecrow roll is one roll for the pair. */
+/** Per-hour ceilings on Halloween's prizes (owner, 2026-10-24): the chain's climb, a
+ *  ticket's 4x and up to five carried Golden Dice would otherwise reach certainty. The
+ *  JackoZombie/Zcarecrow roll is one roll for the pair. The Mummy's was 25% until
+ *  2026-10-25, when a 5-dice ticket run paid ~3 Mummies; at 11% a full twelve-hour ticket
+ *  run pays ~1.3 with 5 dice and ~1.1 with none (measured with settleRaidZombieDrop). */
 export const HALLOWEEN_PAIR_MAX_RATE = pct(15);
-export const HALLOWEEN_MUMMY_MAX_RATE = pct(25);
+export const HALLOWEEN_MUMMY_MAX_RATE = pct(11);
 
 // ---- The story invasions' prize pairs ---------------------------------------------
 // In the source these eight were ALTERNATE Epic Boss prizes for events that were never

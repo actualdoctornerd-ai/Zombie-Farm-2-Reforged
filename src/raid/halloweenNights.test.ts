@@ -88,7 +88,7 @@ describe("Halloween nights: the rules", () => {
 
   it("make the rare zombie and brains likelier on the same slow step as the fight", () => {
     expect(nightZombieLuck(1)).toBe(1);
-    expect(nightBrainLuck(1)).toBe(0.5); // half the rung's odds, from night 1
+    expect(nightBrainLuck(1)).toBe(0.294); // ~0.29 of the rung's odds, from night 1
     const step = 5.85 / 11;
     for (let night = 2; night <= MAX_NIGHT; night++) {
       expect(nightZombieLuck(night) / nightZombieLuck(night - 1)).toBeCloseTo(Math.pow(1.5, step));

@@ -78,11 +78,13 @@ export const ELITE_NIGHT_OFFSET = 2;
 export const NIGHT_ZOMBIE_GROWTH = 1.5;
 /** Brain odds multiply by this per rung of difficulty: a gentle climb from a halved start. */
 export const NIGHT_BRAIN_GROWTH = 1.1;
-/** Halloween's brain odds are HALF its rung's (which sits just under the Pirates'), on every
- *  night and on a Brain Ticket too. A long night chain is quick for a strong army, and the
- *  full rate paid ~7 brains a ticketed run (owner, 2026-10-24): the rare zombies and the
- *  coffins are meant to be the prize, the brains a good bonus. */
-export const HALLOWEEN_BRAIN_SCALE = 0.5;
+/** Halloween's brain odds as a share of its rung's (which sits just under the Pirates'), on
+ *  every hour and on a Brain Ticket too. Set so a full twelve-hour run pays ~1.5 brains on
+ *  average, and a full Brain Ticket run ~5.8 (owner, 2026-10-25; was 0.5, ~2.5 / ~9.6): the
+ *  rare zombies and the coffins are the prize, the brains a bonus. Before the brain pity
+ *  (brainDrops.BRAIN_PITY_INVASIONS), which is account-wide and lifts a run from a clean
+ *  streak to ~2.2. */
+export const HALLOWEEN_BRAIN_SCALE = 0.294;
 
 /** Does this invasion offer further nights? */
 export function hasNights(raidId: number): boolean {
