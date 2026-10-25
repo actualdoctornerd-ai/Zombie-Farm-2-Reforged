@@ -64,9 +64,62 @@ function sanitise(clips: ClipSet): ClipSet {
       }
       kept[name] = tracks.length === clip.tracks.length ? clip : { ...clip, tracks };
     }
+    for (const name of Object.keys(kept)) {
+      const why = variantProblem(kept, name);
+      if (why) {
+        console.warn(`[clips] ${key}/${name}: dropped — ${why}`);
+        delete kept[name];
+      }
+    }
     if (Object.keys(kept).length) out[key] = kept;
   }
   return out;
+}
+
+// ---- cosmetic variants ----------------------------------------------------
+// A swing can have alternates: `attack:Foo~2`, `attack:Foo~3`, ... (likewise `attack~2`,
+// `throw~2`) sit beside the clip they vary, and the actor rolls one of them per swing so a
+// crowd of the same minion does not move in lockstep. The SIM still swings one attack —
+// which alternate draws it is pure presentation.
+//
+// The roll happens where the clip's own timeline wraps, so every alternate has to agree
+// with its base on what that timeline IS: same timeBase, same damageTiming, same
+// windup mapping. Otherwise the hit frame moves between variants, and the wrap the actor
+// re-rolls on is not the wrap the next variant starts from.
+const VARIANT_SEP = "~";
+
+/** "attack:Foo~2" -> "attack:Foo"; a name with no suffix is its own base. */
+export function variantBase(name: string): string {
+  const i = name.lastIndexOf(VARIANT_SEP);
+  return i > 0 && /^\d+$/.test(name.slice(i + 1)) ? name.slice(0, i) : name;
+}
+
+/** Why a variant clip cannot run beside its base, or "" when it can (or is no variant). */
+export function variantProblem(set: Record<string, Clip>, name: string): string {
+  const baseName = variantBase(name);
+  if (baseName === name) return "";
+  const base = set[baseName];
+  if (!base) return `variant of "${baseName}", which this rig has no clip for`;
+  const clip = set[name];
+  if ((clip.timeBase || "free") !== (base.timeBase || "free")) {
+    return `timeBase "${clip.timeBase}" differs from its base's "${base.timeBase}"`;
+  }
+  if ((clip.damageTiming ?? null) !== (base.damageTiming ?? null)) {
+    return `damageTiming ${clip.damageTiming} differs from its base's ${base.damageTiming}`;
+  }
+  if (JSON.stringify(clip.simProgress ?? null) !== JSON.stringify(base.simProgress ?? null)) {
+    return "simProgress differs from its base's";
+  }
+  return "";
+}
+
+/** The base clip or one of its `~n` alternates, chosen by `roll` in [0, 1). */
+function pickVariant(forKey: Record<string, Clip>, name: string, base: Clip, roll: number): Clip {
+  let n = 1;
+  while (forKey[name + VARIANT_SEP + (n + 1)]) n++;
+  if (n === 1) return base;
+  const i = Math.min(n - 1, Math.max(0, Math.floor(roll * n)));
+  return i === 0 ? base : forKey[name + VARIANT_SEP + (i + 1)];
 }
 
 /** Has anything been authored for this rig at all? Cheap enough to ask every frame,
@@ -142,20 +195,50 @@ export function attackClipTimeBase(
   return clip ? (clip.timeBase || "free") : null;
 }
 
+/** The clip name a frame resolves to (before any variant roll), or null for none. */
+function resolveClipName(
+  kind: RigKind, key: string, moving: boolean, attackName: string | undefined,
+  attacking: boolean, explicit?: string,
+): string | null {
+  const name = clipNameFor(moving, attackName, attacking, explicit);
+  if (rigClipFor(kind, key, name)) return name;
+  if (attacking && attackName && rigClipFor(kind, key, "attack")) return "attack";
+  return null;
+}
+
+/**
+ * Where on its own 0..1 timeline the attack clip for this swing is, or null when no
+ * authored clip covers it. Every variant shares its base's timeline (see
+ * `variantProblem`), so this is the phase whichever variant is drawing — the actor
+ * watches it wrap to know when one swing has ended and the next may roll a new variant.
+ */
+export function attackClipPhase(
+  kind: RigKind, key: string, attackName: string | undefined, atkProg: number,
+  wallT: number, explicit?: string,
+): number | null {
+  if (!hasRigClips(kind, key)) return null;
+  const name = resolveClipName(kind, key, false, attackName, true, explicit);
+  const clip = name ? rigClipFor(kind, key, name) : null;
+  return clip ? clipTimeFor(clip, wallT, atkProg) : null;
+}
+
 /**
  * Resolve and evaluate the clip for one actor frame, or null to run the procedural pose.
  * A named attack clip falls back to the un-suffixed "attack" the studio writes when a rig
  * has only one, so a rig with a single swing can be edited under either name.
+ *
+ * `variantRoll` in [0, 1) picks among the clip's `~n` alternates; 0 is always the base.
  */
 export function poseForFrame(
   kind: RigKind, key: string, model: ClipModel,
   moving: boolean, attackName: string | undefined, atkProg: number | null,
-  wallT: number, explicit?: string,
+  wallT: number, explicit?: string, variantRoll = 0,
 ): ClipPose | null {
   if (!hasRigClips(kind, key)) return null;
   const attacking = atkProg != null;
-  let clip = rigClipFor(kind, key, clipNameFor(moving, attackName, attacking, explicit));
-  if (!clip && attacking && attackName) clip = rigClipFor(kind, key, "attack");
-  if (!clip) return null;
+  const name = resolveClipName(kind, key, moving, attackName, attacking, explicit);
+  const base = name ? rigClipFor(kind, key, name) : null;
+  if (!name || !base) return null;
+  const clip = attacking ? pickVariant(SETS[kind][key], name, base, variantRoll) : base;
   return poseAt(kind, model, clip, clipTimeFor(clip, wallT, atkProg), wallT);
 }

@@ -452,6 +452,18 @@ const ENEMY_FORWARD_FX: Record<string, number> = {
   ValentinesDayStageActorMinion1: 0.4,
   ValentinesDayStageActorMinion2: 0.4,
   ValentinesDayStageActorMinion3: 0.4,
+  // Halloween's flying demon: a 122x71 rig whose art starts 55 px into model space, so
+  // at the hold spot she drew from ~100 to ~320 px right of her feet — almost wholly
+  // off the right edge. 0.7 (with her ENEMY_H_SCALE) puts her right edge level with the
+  // flower hulk's, and keeps her a little back from the line (owner 2026-10-24).
+  HalloweenStageActorMinion1: 0.7,
+};
+// Per-enemy multiplier on ENEMY_H, for a minion that reads too big at the shared height.
+// Mirrored in tools/build_rig_studio.py SCENE.enemyHScale.
+const ENEMY_H_SCALE: Record<string, number> = {
+  // Halloween's succubus: fitted to the full enemy height her wide, flying silhouette
+  // dwarfed the mummy and the hulk. Owner 2026-10-24: 30% smaller, then 10% more.
+  HalloweenStageActorMinion1: 0.63,
 };
 const BOSS_H_SCALE: Record<string, number> = {
   FarmStageActorBoss: 0.8, // Old McDonnell — 20% smaller
@@ -461,6 +473,7 @@ const BOSS_H_SCALE: Record<string, number> = {
   // giant. 0.85 takes him just under the shared size and pulls his robe hem in off the
   // castle wall, which the sink below finishes.
   VideoGameStageBossActor: 0.85,
+  HalloweenStageActorBoss: 0.9, // Count von Uberbiss — owner 2026-10-24: 10% smaller
 };
 // The contain-fit scale at which the *_H heights above render 1:1. Raise this to make
 // all units smaller across the board, lower it to make them bigger.
@@ -1618,7 +1631,9 @@ export class RaidScene {
       actorBaseScale = s;
       actorBaseY = actor.container.y;
     } else {
-      const targetH = (u.isBoss ? BOSS_H : ENEMY_H) * (u.isBoss ? BOSS_H_SCALE[u.sourceKey] ?? 1 : 1);
+      const targetH = u.isBoss
+        ? BOSS_H * (BOSS_H_SCALE[u.sourceKey] ?? 1)
+        : ENEMY_H * (ENEMY_H_SCALE[u.sourceKey] ?? 1);
       const initialEpicAnim = u.state === "falling" && this.bossFrames.has("fly") ? "fly" : "enter";
       epicAnim = initialEpicAnim;
       const epicFrames = u.isBoss ? this.bossFrames.get(initialEpicAnim) ?? this.bossFrames.get("idle") : undefined;

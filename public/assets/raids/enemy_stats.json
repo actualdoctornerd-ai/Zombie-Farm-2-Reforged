@@ -318,10 +318,10 @@
     "sprite": "icon_marketitems_angrypumpkin.png"
    }
   ],
-  "con": 45,
-  "dex": 4,
+  "con": 100,
+  "dex": 2,
   "standardBossLoot": true,
-  "str": 14,
+  "str": 30,
   "throwOffset": "{-20,120}",
   "throwTiming": 0.1
  },
@@ -332,10 +332,10 @@
     "name": "SpecialMinion1Attack"
    }
   ],
-  "con": 18,
+  "con": 28,
   "dex": 1.5,
   "standardGoldLoot": true,
-  "str": 12
+  "str": 14
  },
  "HalloweenStageActorMinion2": {
   "attacks": [
@@ -348,10 +348,10 @@
     "name": "SpecialMinion2Attack2"
    }
   ],
-  "con": 24,
+  "con": 32,
   "dex": 1.5,
   "standardGoldLoot": true,
-  "str": 8
+  "str": 10
  },
  "HalloweenStageActorMinion3": {
   "attacks": [
@@ -364,10 +364,10 @@
     "name": "SpecialMinion3Attack2"
    }
   ],
-  "con": 24,
-  "dex": 1.5,
+  "con": 40,
+  "dex": 1,
   "standardGoldLoot": true,
-  "str": 8
+  "str": 16
  },
  "NinjaStageActorBoss": {
   "attacks": [

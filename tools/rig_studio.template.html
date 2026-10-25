@@ -282,7 +282,7 @@
           <div class="row" style="margin-top:8px">
             <button class="mini primary" id="aStore" title="Save every clip to your browser">💾 Store</button>
             <button class="mini" id="aDownload" title="Download clips.json">⬇</button>
-            <button class="mini danger" id="aRevert" title="Throw this rig's clips away and rebuild them from the game's own animation code">↺</button>
+            <button class="mini danger" id="aRevert" title="Throw this rig's stored clips away and go back to what the game ships">↺</button>
           </div>
           <div class="hint" id="aStatus" style="min-height:14px;margin-top:4px"></div>
         </div>
@@ -584,7 +584,7 @@ const ZF = (() => {
     RIGS[name] = {
       kind: d.kind, label: d.label || name, models: live, original: clone(shipped),
       frames: d.frames || {}, atlas: d.atlas || null, strips: d.strips || null,
-      combat: d.combat || {}, autosave: !!stored,
+      combat: d.combat || {}, autosave: !!stored, clips: d.clips || {},
     };
   }
 
@@ -2042,10 +2042,23 @@ const CLIPS = {
   let placement = null;
 
   // ---- clip storage -------------------------------------------------------
-  // Edits live per dataset under zfrs:clips:<dataset>, keyed by rig then clip. A
-  // stored clip wins over the built-in of the same name; a stored clip with a NEW
-  // name simply appears alongside them.
+  // Edits live per dataset under zfrs:clips:<dataset>, keyed by rig then clip. Three
+  // layers, later wins: the built-ins, the clips the game SHIPS (public/assets/**/
+  // clips.json, inlined at build time), then this browser's stored edits. A clip with a
+  // NEW name simply appears alongside the rest — that is how `attack:Foo~2` variants
+  // are added.
   const STORE = {};
+  const shippedClips = (ds) => (ZF.RIGS[ds] && ZF.RIGS[ds].clips) || {};
+  /** What the game should ship: the shipped file with this browser's edits laid over it,
+   *  rig by rig and clip by clip — so a Download never drops a clip it was not edited in. */
+  function mergedClips(ds) {
+    const out = clone(shippedClips(ds));
+    const stored = STORE[ds] || {};
+    for (const key of Object.keys(stored)) {
+      out[key] = Object.assign(out[key] || {}, clone(stored[key]));
+    }
+    return out;
+  }
   for (const ds of Object.keys(ZF.RIGS)) STORE[ds] = ZF.readJSON(ZF.clipStoreKey(ds), {}) || {};
   let saveTimer = null;
   function persist(quiet) {
@@ -2065,6 +2078,8 @@ const CLIPS = {
 
   function loadClips() {
     const base = CLIPS.defaults(dsName, modelKey, model);
+    const shipped = shippedClips(dsName)[modelKey] || {};
+    for (const k of Object.keys(shipped)) base[k] = clone(shipped[k]);
     const stored = (STORE[dsName] || {})[modelKey] || {};
     for (const k of Object.keys(stored)) base[k] = clone(stored[k]);
     clips = base;
@@ -2122,9 +2137,11 @@ const CLIPS = {
     for (const name of Object.keys(clips)) {
       const c = clips[name];
       const stored = !!((STORE[dsName] || {})[modelKey] || {})[name];
+      const shipped = !!(shippedClips(dsName)[modelKey] || {})[name];
       const row = el("div", "layer" + (name === clipName ? " sel" : ""));
       row.innerHTML = '<span class="nm">' + name + "</span>" +
         (c.authored ? '<span class="tag auth" title="' + (c.note || "") + '">authored</span>' : "") +
+        (shipped && !stored ? '<span class="tag" title="shipped in the game\'s clips.json">game</span>' : "") +
         (stored ? '<span class="tag" title="edited in this tool">✎</span>' : "") +
         '<span class="z">' + (c.tracks || []).length + "t</span>";
       row.addEventListener("click", () => selectClip(name));
@@ -2642,7 +2659,7 @@ const CLIPS = {
 
     const b = ZF.rigBounds(dsName, model);
     const bossScale = (ZF.SCENE.bossHScale || {})[modelKey] || 1;
-    const targetH = role === "zombie" ? ZF.ZOMBIE_H : role === "boss" ? ZF.BOSS_H * bossScale : ZF.ENEMY_H;
+    const targetH = role === "zombie" ? ZF.ZOMBIE_H : role === "boss" ? ZF.BOSS_H * bossScale : ZF.ENEMY_H * ((ZF.SCENE.enemyHScale || {})[modelKey] || 1);
     const zoomMul = parseFloat($("#aZoom").value) || 1;
     // Enemy art faces screen-LEFT (toward the zombie line); zombie art is mirrored to
     // face right. The checkbox flips whichever is the default for this dataset.
@@ -3079,17 +3096,17 @@ const CLIPS = {
     ZF.status("aStatus", ok ? "💾 Stored — will auto-restore" : "⚠ Could not store (quota?)", ok ? "#3fb950" : "#f85149");
   });
   $("#aDownload").addEventListener("click", () => {
-    ZF.download(dsName + "-clips.json", JSON.stringify(STORE[dsName], null, 1));
+    ZF.download(dsName + "-clips.json", JSON.stringify(mergedClips(dsName), null, 1));
     ZF.status("aStatus", "⬇ Downloaded " + dsName + "-clips.json", "#58a6ff");
   });
   $("#aRevert").addEventListener("click", () => {
     if (!modelKey) return;
-    if (!confirm("Throw away every stored clip for " + modelKey + " and rebuild them from the game's own animation code?")) return;
+    if (!confirm("Throw away every stored clip for " + modelKey + " and go back to what the game ships?")) return;
     delete (STORE[dsName] || {})[modelKey];
     persist(false);
     loadClips();
     selectClip(Object.keys(clips)[0]);
-    ZF.status("aStatus", "↺ Rebuilt from the engine's animations", "#8b98a5");
+    ZF.status("aStatus", "↺ Back to what the game ships", "#8b98a5");
   });
   $("#aCopy").addEventListener("click", () => ZF.copyText($("#animExport").value, $("#aCopy"), "Copy clips"));
 
@@ -3730,7 +3747,7 @@ const CLIPS = {
     const b = ZF.rigBounds(u.ds, u.model);
     const role = u.team === "player" ? "zombie" : (/Boss/i.test(u.key) ? "boss" : "enemy");
     const bossScale = (ZF.SCENE.bossHScale || {})[u.key] || 1;
-    const targetH = role === "zombie" ? ZF.ZOMBIE_H : role === "boss" ? ZF.BOSS_H * bossScale : ZF.ENEMY_H;
+    const targetH = role === "zombie" ? ZF.ZOMBIE_H : role === "boss" ? ZF.BOSS_H * bossScale : ZF.ENEMY_H * ((ZF.SCENE.enemyHScale || {})[u.key] || 1);
     const s = (targetH / Math.max(1, ZF.sizingBounds(u.ds, u.model).h)) * r.sizeScale;
     const forwardX = (ZF.SCENE.enemyForwardFX || {})[u.key] ? (ZF.SCENE.enemyForwardFX[u.key] * b.w * s) : 0;
     const x = ZF.laneX(r, u.laneF) - forwardX;

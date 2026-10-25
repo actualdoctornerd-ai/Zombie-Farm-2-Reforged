@@ -64,7 +64,8 @@ SCENE = {
     "groundNudgeF": 0.2,
     "unitGroundNudgeF": 0.22,
     "fieldInsetFX": 0.1,
-    "bossHScale": {"FarmStageActorBoss": 0.8},
+    "bossHScale": {"FarmStageActorBoss": 0.8, "HalloweenStageActorBoss": 0.9},
+    "enemyHScale": {"HalloweenStageActorMinion1": 0.63},
     # Where a unit actually STANDS in an invasion, from src/raid/BattleSim.ts. The lane is
     # FIELD_W wide and RaidScene.mapX insets it by fieldInsetFX at each end.
     "fieldW": 1000,
@@ -91,8 +92,16 @@ SCENE = {
         "ValentinesDayStageActorMinion1": 0.4,
         "ValentinesDayStageActorMinion2": 0.4,
         "ValentinesDayStageActorMinion3": 0.4,
+        "HalloweenStageActorMinion1": 0.7,
     },
 }
+
+
+def shipped_clips(path: pathlib.Path) -> dict:
+    """The clips the game ships for a dataset. The studio layers them between its built-ins
+    and the browser's stored edits, and folds them into every Download — otherwise a clip
+    authored in the repo is invisible here, and the next export overwrites it."""
+    return load_json(path) if path.exists() else {}
 
 
 def data_uri(path: pathlib.Path) -> str:
@@ -149,6 +158,7 @@ def build_enemy() -> dict:
     return {
         "kind": "enemy", "label": "Enemies", "models": models,
         "strips": strips, "combat": rig_attacks,
+        "clips": shipped_clips(edir / "clips.json"),
     }
 
 
@@ -229,6 +239,7 @@ def build_zombie() -> dict:
         "models": models,
         "frames": frames,
         "atlas": "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii"),
+        "clips": shipped_clips(zdir / "clips.json"),
     }
 
 

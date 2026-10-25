@@ -14,7 +14,7 @@
 //   wing  — flaps (mirrored back/front)
 import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { EnemyModel } from "../assets";
-import { poseForFrame } from "./clipRuntime";
+import { attackClipPhase, poseForFrame } from "./clipRuntime";
 
 const TILT_AMP_MOVE = 0.09;
 const TILT_AMP_IDLE = 0.045;
@@ -184,6 +184,10 @@ export class EnemyActor {
   private tiltPhase = 0;
   private stepPhase = 0;
   private t = 0;
+  /** Where the authored attack clip was last frame (null = not swinging one), and the
+   *  roll that picked this swing's variant. Cosmetic only — Math.random is fine here. */
+  private swingPhase: number | null = null;
+  private variantRoll = 0;
   /** Parts that take the actor's runtime colour — everything except the rig's own
    *  `noTint` parts (the source's `setInheritColor: NO`). See applyTint. */
   private tintable: Sprite[] = [];
@@ -280,9 +284,18 @@ export class EnemyActor {
    * the previous frame's procedural code happened to leave it.
    */
   private applyAuthoredClip(moving: boolean, attack: EnemyAttackPose | null): boolean {
+    // A new swing — the clip's timeline wrapped, or a swing began from rest — rolls which
+    // of the clip's cosmetic alternates draws it (see clipRuntime `variantProblem`).
+    const phase = attack
+      ? attackClipPhase("enemy", this.sourceKey, attack.attackName, attack.atkProg, this.t, attack.clip)
+      : null;
+    if (phase != null && (this.swingPhase == null || phase < this.swingPhase - 0.5)) {
+      this.variantRoll = Math.random();
+    }
+    this.swingPhase = phase;
     const pose = poseForFrame(
       "enemy", this.sourceKey, this.model, moving,
-      attack?.attackName, attack ? attack.atkProg : null, this.t, attack?.clip,
+      attack?.attackName, attack ? attack.atkProg : null, this.t, attack?.clip, this.variantRoll,
     );
     if (!pose) return false;
     for (let i = 0; i < this.partSprites.length; i++) {

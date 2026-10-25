@@ -137,6 +137,9 @@ HALLOWEEN_ENEMY = {
 # 100-second fight that still cost almost nothing, the same finding as the lethality re-fit.
 # The elite profile is the seasonal one (eliteInvasion.ts), which on this wave lands
 # Halloween* between Lawyers* and Pirates*: 4.5 lost at level 26, about 1 from 28.
+# Owner 2026-10-24 buff: every Halloween unit +20 damage per hit (+2 str), and base HP
+# succubus 2,800 / mummy 3,200 / hulk 4,000 / Count 10,000. The measured level-20 fit
+# described above predates this and the earlier hulk/Count changes — re-measure.
 HALLOWEEN_UNITS = {
     "HalloweenStageActorBoss": {
         "attacks": [{"frequency": 100, "name": "SpecialBossAttack"}],
@@ -145,22 +148,26 @@ HALLOWEEN_UNITS = {
             {"damage": 0, "frequency": 30, "name": "throw", "sprite": "icon_marketitems_happypumpkin.png"},
             {"damage": 36, "frequency": 30, "name": "throw", "sprite": "icon_marketitems_angrypumpkin.png"},
         ],
-        "con": 45, "dex": 4, "standardBossLoot": True, "str": 14,
+        # Owner 2026-10-24: half as fast, twice as hard (was dex 4 / str 14) — same melee
+        # DPS, but each cane blow lands like a boss blow. HP/damage since: see the buff note.
+        "con": 100, "dex": 2, "standardBossLoot": True, "str": 30,
         "throwOffset": "{-20,120}", "throwTiming": 0.1,
     },
     "HalloweenStageActorMinion1": {
         "attacks": [{"frequency": 100, "name": "SpecialMinion1Attack"}],
-        "con": 18, "dex": 1.5, "standardGoldLoot": True, "str": 12,
+        "con": 28, "dex": 1.5, "standardGoldLoot": True, "str": 14,
     },
     "HalloweenStageActorMinion2": {
         "attacks": [{"frequency": 50, "name": "SpecialMinion2Attack1"},
                     {"frequency": 50, "name": "SpecialMinion2Attack2"}],
-        "con": 24, "dex": 1.5, "standardGoldLoot": True, "str": 8,
+        "con": 32, "dex": 1.5, "standardGoldLoot": True, "str": 10,
     },
     "HalloweenStageActorMinion3": {
         "attacks": [{"frequency": 50, "name": "SpecialMinion3Attack1"},
                     {"frequency": 50, "name": "SpecialMinion3Attack2"}],
-        "con": 24, "dex": 1.5, "standardGoldLoot": True, "str": 8,
+        # The flower hulk, owner 2026-10-24: +50% HP over the mummy it used to mirror
+        # (con 24), and a slow heavy swing every 1 s (dex 1, was 1.5). See the buff note.
+        "con": 40, "dex": 1, "standardGoldLoot": True, "str": 16,
     },
 }
 

@@ -13,6 +13,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { pivotsOf, resolveTarget } from "./raid/rigClips.js";
+import { variantProblem } from "./raid/clipRuntime";
 import type { Clip, ClipModel, RigKind } from "./raid/rigClips.js";
 
 const read = (p: string) => JSON.parse(readFileSync(new URL(p, import.meta.url), "utf-8"));
@@ -41,6 +42,10 @@ function problemsIn(kind: RigKind, models: Record<string, ClipModel>, clips: Rec
     for (const [name, clip] of Object.entries(set)) {
       const at = `${key}/${name}`;
       if (!clip || !Array.isArray(clip.tracks)) { bad.push(`${at}: no tracks`); continue; }
+      // The runtime drops a mismatched `~n` alternate silently (with a console warning);
+      // here it is a failure, so it never ships.
+      const variant = variantProblem(set, name);
+      if (variant) bad.push(`${at}: ${variant}`);
       if (!(clip.duration > 0)) bad.push(`${at}: duration is ${clip.duration}`);
       clip.tracks.forEach((t, i) => {
         const w = `${at} track ${i} "${t.name ?? ""}"`;

@@ -95,16 +95,27 @@ describe("a swing between blows stands at rest", () => {
     const broken: string[] = [];
     for (const { key, attack } of attackPairs()) {
       if (attackClipTimeBase("enemy", key, attack) !== "source") continue;
-      const clip = CLIPS[key]["attack:" + attack] ?? CLIPS[key].attack;
+      const name = CLIPS[key]["attack:" + attack] ? "attack:" + attack : "attack";
+      // Every cosmetic `~n` alternate too: the actor re-rolls which one draws exactly on
+      // this wrap, so each must close its own loop AND start where the others do.
+      const names = Object.keys(CLIPS[key]).filter((n) => n === name || n.startsWith(name + "~"));
       // A fixed wall clock so the free-running bob and head rock — which are NOT on the
       // clip's timeline and are meant to keep going — contribute equally to both.
       const WALL = 1.234;
-      const end = poseNumbers(MODELS[key], clip, 1, WALL);
-      const start = poseNumbers(MODELS[key], clip, 0, WALL);
-      for (let i = 0; i < end.length; i++) {
-        if (Math.abs(end[i] - start[i]) > 1e-6) {
-          broken.push(`${key}/${attack}: clip time 1 and 0 differ (channel ${i})`);
-          break;
+      const rest = poseNumbers(MODELS[key], CLIPS[key][name], 0, WALL);
+      for (const n of names) {
+        const clip = CLIPS[key][n];
+        const end = poseNumbers(MODELS[key], clip, 1, WALL);
+        const start = poseNumbers(MODELS[key], clip, 0, WALL);
+        for (let i = 0; i < end.length; i++) {
+          if (Math.abs(end[i] - start[i]) > 1e-6) {
+            broken.push(`${key}/${n}: clip time 1 and 0 differ (channel ${i})`);
+            break;
+          }
+          if (Math.abs(start[i] - rest[i]) > 1e-6) {
+            broken.push(`${key}/${n}: does not start where ${name} does (channel ${i})`);
+            break;
+          }
         }
       }
     }
