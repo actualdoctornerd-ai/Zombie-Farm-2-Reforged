@@ -24,11 +24,13 @@ export const RAID_TIPS: Record<number, string> = {
   // Halloween (raid 16): the night chain and the Count's slam (halloweenNights.ts,
   // countSlam.ts) are both rules nothing on the field explains. Shown before the first
   // Halloween fight, which is always a night 1 (or an Elite Night 1).
-  16: "Halloween's a long night! Win, and ya can keep on fightin' into the next one,\n" +
-    "and every night gets meaner than the last. Head home whenever ya like.\n" +
-    "Even if ya have to retreat, ya keep everything the earlier nights paid!\n\n" +
-    "And watch the Count. When he swells up red, he's windin' up a big slam.\n" +
-    "Hit him with stunnin' moves to stop it. The flashier the move, the more it counts!",
+  // One line break, between the two paragraphs: the bubble wraps the rest itself, and
+  // hard breaks inside a paragraph left ragged half-lines at its width.
+  16: "Halloween's a long night! Win, and ya can keep on fightin' into the next one, " +
+    "and every night gets meaner than the last. Head home whenever ya like. Even if ya " +
+    "have to retreat, ya keep everything the earlier nights paid!\n\n" +
+    "And watch the Count. When he swells up red, he's windin' up a big slam. Hit him " +
+    "with stunnin' moves to stop it. The flashier the move, the more it counts!",
 };
 
 /** Tim's briefing for this invasion, or null if it has nothing to warn about. */
