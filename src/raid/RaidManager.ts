@@ -784,7 +784,7 @@ export class RaidManager {
       firstClear = wins === 1;
       xp = invasionWinXp(raid.id, raid.xp, firstClear, elite);
       const survivalFrac = party.length ? outcome.survivors.length / party.length : 0;
-      // A Halloween night 2+ pays a quarter of it (halloweenNights.nightGoldShare).
+      // A Halloween hour 2+ pays a share of it, rising each hour (halloweenNights.nightGoldShare).
       gold = Math.round(winGold(raid, survivalFrac) * nightGoldShare(night));
       // ONLINE: the base win gold + the win's XP (either rule) are SERVER-authoritative
       // — hand them off (main.ts → /raid/finish) instead of crediting locally, so the

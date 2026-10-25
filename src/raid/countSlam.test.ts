@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { composeFight } from "./composeFight";
 import { COUNT_KEY, COUNT_SLAM_MULT, COUNT_SLAM_RECOVERY_MS, COUNT_SLAM_WINDUP_MS, countHitDamage } from "./countSlam";
 import { raidProfile } from "./dualInvasion";
+import { nightDamageMult } from "./halloweenNights";
 import { fightStage, resolveStageWave, seededRandom } from "./RaidCatalog";
 import { HALLOWEEN_RAID_ID } from "./zombieDrops";
 import enemyStatsJson from "../../public/assets/raids/enemy_stats.json";
@@ -42,7 +43,7 @@ describe("the Count's slam", () => {
   it("scales with the night chain, because it is priced off his scaled hit", () => {
     const n1 = unitsOf(HALLOWEEN_RAID_ID, 1).find((u) => u.sourceKey === COUNT_KEY)!;
     const n3 = unitsOf(HALLOWEEN_RAID_ID, 3).find((u) => u.sourceKey === COUNT_KEY)!;
-    expect(n3.charge!.damage / n1.charge!.damage).toBeCloseTo(3, 1);
+    expect(n3.charge!.damage / n1.charge!.damage).toBeCloseTo(nightDamageMult(3), 1);
   });
 
   it("leaves every other invasion alone", () => {

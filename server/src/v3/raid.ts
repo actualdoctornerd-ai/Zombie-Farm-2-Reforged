@@ -655,7 +655,7 @@ export async function finishRaid(
   // The Halloween night this was (1 for every ordinary fight): the rare zombie is that many
   // times likelier, and a won Halloween night offers the next one (halloweenNights.ts).
   const night = clampNight(boosts.night ?? FIRST_NIGHT);
-  // Nights 2+ pay a quarter of the win gold and roll no Bonus Gold (halloweenNights.ts).
+  // Hours 2+ pay a rising share of the win gold and roll no Bonus Gold (halloweenNights.ts).
   const laterNight = night > FIRST_NIGHT;
   const baseGold = win ? Math.round(winGold(econ, survivors.length / locked.length) * nightGoldShare(night)) : 0;
   // Elite is read back from the SESSION, not from this request: the ticket was charged

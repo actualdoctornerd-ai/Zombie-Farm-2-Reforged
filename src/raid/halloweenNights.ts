@@ -47,11 +47,19 @@ export const MAX_NIGHT = 12;
  *
  *  Damage is what bites the lower levels: they are worn down rather than run out of time. */
 export const NIGHT_HP_COMPOUND = 1.2;
-/** Damage on night n: +100% of base a night (x1, x2, x3 ...). */
-export const NIGHT_DAMAGE_STEP = 1;
-/** The win gold a night pays from night 2 on, as a share of the invasion's: the nights are a
- *  brains-and-zombies chase, not a gold farm (owner, 2026-10-24). Night 1 pays in full. */
+/** Damage on night n: +125% of base a night (x1, x2.25, x3.5, x4.75 ...). Was +100% until
+ *  2026-10-25, when the owner asked for it "slightly" harder. Measured (four seeds, casual
+ *  pilot): a 16-zombie maxed level-45 army now loses 10-12 zombies on the hours it runs out
+ *  of time on (was 2-4); an ordinary level-30 army still wins Hour 4 but no longer Hour 5;
+ *  level 20 still wins Hour 2, losing ~5 (was ~2.5). A 20-zombie Monolith + Concentration
+ *  level-45 army does not notice. +150% was too much: level 20 then lost Hour 2. */
+export const NIGHT_DAMAGE_STEP = 1.25;
+/** The win gold an hour pays from hour 2 on, as a share of the invasion's: the hours are a
+ *  brains-and-zombies chase, not a gold farm (owner, 2026-10-24), but going further should
+ *  still pay better (owner, 2026-10-25). Hour 2 pays NIGHT_GOLD_SHARE and each hour after
+ *  it NIGHT_GOLD_STEP more: 25%, 30%, 35% ... 75% at Hour 12. Night 1 pays in full. */
 export const NIGHT_GOLD_SHARE = 0.25;
+export const NIGHT_GOLD_STEP = 0.05;
 /** Every night after the first is on a three-minute clock. Clocking out is an ordinary
  *  loss, which is the whole intent of an HP-led curve. */
 export const NIGHT_TIME_LIMIT_MS = 3 * 60 * 1000;
@@ -130,9 +138,11 @@ export function nightZombieLuck(night: number | undefined): number {
   return Math.pow(NIGHT_ZOMBIE_GROWTH, clampNight(night) - 1);
 }
 
-/** The share of the invasion's win gold `night` pays: all of it on night 1, a quarter after. */
+/** The share of the invasion's win gold `night` pays: all of it on night 1, then a quarter
+ *  on night 2 rising NIGHT_GOLD_STEP a night. */
 export function nightGoldShare(night: number | undefined): number {
-  return clampNight(night) > FIRST_NIGHT ? NIGHT_GOLD_SHARE : 1;
+  const n = clampNight(night);
+  return n > FIRST_NIGHT ? NIGHT_GOLD_SHARE + NIGHT_GOLD_STEP * (n - 2) : 1;
 }
 
 /** Brain luck on `night`: half the rung's, then x1.1 a night, compounding (elite's 4x is

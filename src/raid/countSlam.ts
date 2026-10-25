@@ -8,9 +8,9 @@
 // 6,000 on night 2, past the hit points of every deployed zombie from night 2, so the
 // all-army version measured as "nothing, or a wipe" (level 20 wiped on night 2, an
 // ordinary level-45 army on night 5). Aimed at the front it is a tank-buster. At 8x it is
-// 2,400 x the night: a maxed, mutated Plasmahead (5,438) takes night 2's 4,800 and dies to
-// night 3's 7,200 unless Protect covers it; a Party Zombie (4,613) needs a Life head or
-// Protect to live through night 2.
+// 2,400 on hour 1, then x the hour's damage step (halloweenNights: 5,400 on hour 2, 8,400
+// on hour 3): a maxed, mutated Plasmahead (5,438) just takes hour 2's and dies to hour 3's
+// unless Protect covers it; a Party Zombie (4,613) needs Protect to live through hour 2.
 //
 // The slam is priced off his OWN hit as composed, so whatever already scales that hit
 // (level ramp, Brain Ticket, the night chain's damage step) scales the slam with it.

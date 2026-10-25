@@ -1262,7 +1262,9 @@ import type { RaidOutcome } from "./types";
 // HP, +30% damage). Any Halloween night past the first replays differently from v77. Also
 // v78: the Count winds up a 3 s slam for 8x his hit on the front zombie (countSlam.ts), so
 // every Halloween fight replays differently.
-export const RAID_RULESET_VERSION = 78;
+// v79 — Halloween hours hit harder: damage +125% an hour (was +100%), and with it the
+// Count's slam. Any Halloween hour past the first replays differently from v78.
+export const RAID_RULESET_VERSION = 79;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

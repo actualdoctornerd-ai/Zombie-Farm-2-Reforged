@@ -53,18 +53,22 @@ describe("Halloween nights: the rules", () => {
     expect(nightTimeLimitMs(10, 2, RAID_TIME_LIMIT_MS)).toBe(RAID_TIME_LIMIT_MS);
   });
 
-  it("follow the owner's curve: HP 1, 2.4, 5.76, 12.1 ...; damage x1, x2, x3 ...", () => {
+  it("follow the owner's curve: HP 1, 2.4, 5.76, 12.1 ...; damage x1, x2.25, x3.5 ...", () => {
     expect(nightHpMult(1)).toBe(1);
     expect(nightHpMult(2)).toBeCloseTo(2 * 1.2);
     expect(nightHpMult(3)).toBeCloseTo(4 * 1.44);
     expect(nightHpMult(4)).toBeCloseTo(7 * 1.728);
     expect(nightHpMult(5)).toBeCloseTo(11 * 2.0736);
-    for (let n = 1; n <= 8; n++) expect(nightDamageMult(n)).toBeCloseTo(n);
+    for (let n = 1; n <= 8; n++) expect(nightDamageMult(n)).toBeCloseTo(1 + 1.25 * (n - 1));
   });
 
-  it("pay a quarter of the win gold from night 2", () => {
+  it("pay a quarter of the win gold on hour 2, rising 5 points an hour", () => {
     expect(nightGoldShare(1)).toBe(1);
-    for (let n = 2; n <= 8; n++) expect(nightGoldShare(n)).toBe(0.25);
+    expect(nightGoldShare(2)).toBeCloseTo(0.25);
+    expect(nightGoldShare(3)).toBeCloseTo(0.30);
+    expect(nightGoldShare(6)).toBeCloseTo(0.45);
+    expect(nightGoldShare(12)).toBeCloseTo(0.75);
+    for (let n = 3; n <= 12; n++) expect(nightGoldShare(n)).toBeGreaterThan(nightGoldShare(n - 1));
   });
 
   it("make the rare zombie x1.5 likelier every night, and brains gently likelier", () => {
