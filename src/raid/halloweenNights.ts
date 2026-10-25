@@ -61,9 +61,13 @@ export const NIGHT_CONTINUE_WINDOW_MS = 15 * 60 * 1000;
 export const ELITE_NIGHT_OFFSET = 2;
 /** Rare-zombie odds multiply by this each night (1%, 1.5%, 2.25%, ... on an ordinary run). */
 export const NIGHT_ZOMBIE_GROWTH = 1.5;
-/** Brain odds multiply by this each night: a gentle climb from the raid's own rung, which
- *  sits just under the Pirates'. */
+/** Brain odds multiply by this each night: a gentle climb from a halved start. */
 export const NIGHT_BRAIN_GROWTH = 1.1;
+/** Halloween's brain odds are HALF its rung's (which sits just under the Pirates'), on every
+ *  night and on a Brain Ticket too. A long night chain is quick for a strong army, and the
+ *  full rate paid ~7 brains a ticketed run (owner, 2026-10-24): the rare zombies and the
+ *  coffins are meant to be the prize, the brains a good bonus. */
+export const HALLOWEEN_BRAIN_SCALE = 0.5;
 
 /** Does this invasion offer further nights? */
 export function hasNights(raidId: number): boolean {
@@ -122,9 +126,10 @@ export function nightZombieLuck(night: number | undefined): number {
   return Math.pow(NIGHT_ZOMBIE_GROWTH, clampNight(night) - 1);
 }
 
-/** Brain luck on `night`: x1.1 a night, compounding (elite's 4x is applied apart). */
+/** Brain luck on `night`: half the rung's, then x1.1 a night, compounding (elite's 4x is
+ *  applied apart). Every Halloween brain roll goes through this, night 1 included. */
 export function nightBrainLuck(night: number | undefined): number {
-  return Math.pow(NIGHT_BRAIN_GROWTH, clampNight(night) - 1);
+  return HALLOWEEN_BRAIN_SCALE * Math.pow(NIGHT_BRAIN_GROWTH, clampNight(night) - 1);
 }
 
 /** "Night 3" / "Elite Night 1". */

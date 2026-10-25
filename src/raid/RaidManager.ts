@@ -385,6 +385,12 @@ export class RaidManager {
   }
 
   /** All invasions as cards for the select screen, at their unlock positions. */
+  /** The brain luck a raid card quotes: Life Force, and on Halloween its halved first night
+   *  (halloweenNights.nightBrainLuck) — the odds the fight the card launches really rolls. */
+  private cardBrainLuck(raidId: number): number {
+    return brainDropLifeForceMultiplier(this.state.lifeForceLevel) * (hasNights(raidId) ? nightBrainLuck(FIRST_NIGHT) : 1);
+  }
+
   raidCards(): RaidCardView[] {
     const level = this.state.level;
     return this.assets.raids
@@ -401,12 +407,12 @@ export class RaidManager {
         repeatXp: repeatInvasionXp(r.id),
         eliteRepeatXp: repeatInvasionXp(r.id, true),
         brainOdds: {
-          chance: brainDropChance(r.recommendedLevel, brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
-          tiers: brainDropTable(r.recommendedLevel, brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
+          chance: brainDropChance(r.recommendedLevel, this.cardBrainLuck(r.id)),
+          tiers: brainDropTable(r.recommendedLevel, this.cardBrainLuck(r.id)),
         },
         eliteBrainOdds: {
-          chance: brainDropChance(r.recommendedLevel, ELITE_BRAIN_LUCK * brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
-          tiers: brainDropTable(r.recommendedLevel, ELITE_BRAIN_LUCK * brainDropLifeForceMultiplier(this.state.lifeForceLevel)),
+          chance: brainDropChance(r.recommendedLevel, ELITE_BRAIN_LUCK * this.cardBrainLuck(r.id)),
+          tiers: brainDropTable(r.recommendedLevel, ELITE_BRAIN_LUCK * this.cardBrainLuck(r.id)),
         },
         zombieDrop: RAID_ZOMBIE_DROPS[r.id]
           ? {
