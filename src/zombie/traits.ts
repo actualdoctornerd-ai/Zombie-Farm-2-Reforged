@@ -126,7 +126,7 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   healAOE: { label: "Heal All", effect: "50% Power to all injured zombies every 20 seconds", desc: "Heal all zombies every once in awhile", icon: `${AB}ability_healAOE.png` },
   // ---- Prize-only (no group ladder holds these; see SPECIAL_ABILITIES) ----
   unwrapped: { label: "Unwrapped", effect: "The first time it falls, it gets back up at 50% Life; once per fight", desc: "Too stubborn to stay down", icon: `${AB}ability_ressurect.png` },
-  lastLaugh: { label: "Last Laugh", effect: "When it falls, every zombie heals 20% of its Life", desc: "Goes out cackling, and the army feels better for it", icon: `${AB}ability_healAOE.png` },
+  lastLaugh: { label: "Treat", effect: "When it falls, every zombie heals 20% of its Life", desc: "Goes out with a treat for everyone", icon: `${AB}ability_healAOE.png` },
 };
 
 // ---------------------------------------------------------------------------
@@ -262,7 +262,7 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorZosmonaut:      ["buffAllStats",   "chivalry",          "turboSpeed", "zomBeam"],
   // ---- Halloween's prizes (owner, 2026-10-24) -------------------------------------
   //   - JackoZombie is a Regular that carries a Mini's Explode Ver.2 (it hits the boss)
-  //     and LAST LAUGH: whenever it falls — blown up by its own fuse included — every
+  //     and TREAT (key `lastLaugh`): whenever it falls — blown up by its own fuse included — every
   //     zombie heals 20% of its Life. Exploding is a planned sacrifice that pays twice.
   //   - Zcarecrow is a brute that guards the line: Block (a Headless move) in place of
   //     Bash, keeping Mini Buddy and the stunning Smash.

@@ -4,7 +4,7 @@ import { unitAbilityAt } from "../zombie/traits";
 import type { CombatUnit } from "./types";
 
 // Halloween's prize abilities (owner, 2026-10-24): the Mummy's Unwrapped and JackoZombie's
-// Last Laugh, both death-time effects at BattleSim.dealDamage's single death choke point.
+// Treat (key `lastLaugh`), both death-time effects at BattleSim.dealDamage's single death choke point.
 
 function unit(over: Partial<CombatUnit> & Pick<CombatUnit, "id" | "sourceKey" | "team">): CombatUnit {
   return {
@@ -19,7 +19,7 @@ const kill = (sim: BattleSim, u: { maxHp: number }) => (sim as any).dealDamage(u
 
 describe("Halloween prize kits", () => {
   const ladder = (key: string, group: string) => [1, 2, 3, 4].map((t) => unitAbilityAt(key, group, t));
-  it("JackoZombie: Explode Ver.2 and Last Laugh on a Regular", () => {
+  it("JackoZombie: Explode Ver.2 and Treat on a Regular", () => {
     expect(ladder("ZombieActorRegular2Tier5", "Regular")).toEqual(["buffAllStats", "chivalry", "explodeV2", "lastLaugh"]);
   });
   it("Zcarecrow: Block in place of Bash on a brute, keeping Mini Buddy and Smash", () => {
@@ -74,7 +74,7 @@ describe("Unwrapped (Mummy Zombie)", () => {
   });
 });
 
-describe("Last Laugh (JackoZombie)", () => {
+describe("Treat (JackoZombie)", () => {
   const party = () => {
     const jacko = unit({ id: "jacko", sourceKey: "ZombieActorRegular2Tier5", team: "player", abilities: ["explodeV2", "lastLaugh"] });
     const a = unit({ id: "a", sourceKey: "ZombieActorRegularTier1", team: "player" });

@@ -2588,12 +2588,12 @@ export class RaidScene {
         this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, 0xefe3c2);
         this.spawnCallout(u, "Unwrapped!", 0xf3e6c4);
       }
-      // Last Laugh: the pumpkin head bursts with a cackle; the army's heal sparkles come
+      // Treat (key `lastLaugh`): the pumpkin head bursts open; the army's heal sparkles come
       // from their own healFxSeq bumps on the same tick.
       if (u.lastLaughFxSeq > tok.lastLaughFxSeq) {
         tok.lastLaughFxSeq = u.lastLaughFxSeq;
         this.spawnPoof(sx, sy + tok.topY * 0.6 * szs, 0xff9a2e);
-        this.spawnCallout(u, "Last Laugh!", 0xffb347);
+        this.spawnCallout(u, "Treat!", 0xffb347);
       }
       if (u.healFxSeq > tok.healFxSeq) {
         tok.healFxSeq = u.healFxSeq;
