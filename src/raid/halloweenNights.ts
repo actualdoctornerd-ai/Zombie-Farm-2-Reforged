@@ -28,8 +28,8 @@ import { HALLOWEEN_RAID_ID } from "./zombieDrops";
 export const FIRST_NIGHT = 1;
 /** The chain's hard cap. Players see each night as an HOUR of the Count's party (see
  *  nightLabel), and twelve hours is a whole night, so Hour 12 is the last one offered
- *  (owner, 2026-10-24), and the curve is built to end there (NIGHT_LAST_DIFFICULTY). A Brain
- *  Ticket run's stage is clamped here too (nightStage). */
+ *  (owner, 2026-10-24), and the ordinary curve is built to end there (NIGHT_LAST_DIFFICULTY).
+ *  A Brain Ticket run's STAGE runs two past it (MAX_STAGE). */
 export const MAX_NIGHT = 12;
 
 /** Where Hour 12 sits on the OLD hour curve (one old rung per hour: HP (1 + n(n-1)/2) x
@@ -73,6 +73,12 @@ export const NIGHT_CONTINUE_WINDOW_MS = 15 * 60 * 1000;
 
 /** How many nights ahead a Brain Ticket starts the chain: Elite Night 1 is night 3's fight. */
 export const ELITE_NIGHT_OFFSET = 2;
+/** The highest STAGE a fight is scaled at: Elite Hour 12, two past the ordinary Hour 12. The
+ *  elite chain is NOT capped at Hour 12's strength (owner, 2026-10-25): Hour 12 is the
+ *  achievement to clear, Elite Hour 12 something harder that today's best armies may not
+ *  manage until builds and content catch up. Elite Hours 11 and 12 climb the same line on
+ *  to stage 13 (~x52 hit points) and 14 (~x67), against Hour 12's ~x41. */
+export const MAX_STAGE = MAX_NIGHT + ELITE_NIGHT_OFFSET;
 /** Rare-zombie odds multiply by this per rung of difficulty (nightDifficulty): 1% on Hour 1,
  *  ~2.9% on Hour 6, ~10.7% on Hour 12 on an ordinary run, before the caps in zombieDrops. */
 export const NIGHT_ZOMBIE_GROWTH = 1.5;
@@ -97,17 +103,24 @@ export function clampNight(night: unknown): number {
   return Number.isFinite(n) ? Math.max(FIRST_NIGHT, Math.min(MAX_NIGHT, n)) : FIRST_NIGHT;
 }
 
-/** How far up the old one-rung-per-hour curve `night` sits: 1 on Hour 1, rising in a
- *  straight line to NIGHT_LAST_DIFFICULTY on Hour 12. Fractional; every curve below reads it. */
+/** A fight STAGE off a session or the wire: an integer in [FIRST_NIGHT, MAX_STAGE]. */
+export function clampStage(stage: unknown): number {
+  const n = Math.floor(Number(stage));
+  return Number.isFinite(n) ? Math.max(FIRST_NIGHT, Math.min(MAX_STAGE, n)) : FIRST_NIGHT;
+}
+
+/** How far up the old one-rung-per-hour curve a STAGE sits: 1 on Hour 1, rising in a
+ *  straight line to NIGHT_LAST_DIFFICULTY on Hour 12, and on past it for the elite chain's
+ *  stages 13-14. Fractional; every curve below reads it. */
 export function nightDifficulty(night: number | undefined): number {
-  const n = clampNight(night);
+  const n = clampStage(night);
   return 1 + ((NIGHT_LAST_DIFFICULTY - 1) * (n - FIRST_NIGHT)) / (MAX_NIGHT - FIRST_NIGHT);
 }
 
 /** Enemy hit-point multiplier on `night`: 1 on Hour 1, then NIGHT_HP_SCALE of the old curve
  *  at nightDifficulty (x1.0 on Hour 2, ~x6.3 on Hour 6, ~x40.7 on Hour 12). */
 export function nightHpMult(night: number): number {
-  if (clampNight(night) <= FIRST_NIGHT) return 1;
+  if (clampStage(night) <= FIRST_NIGHT) return 1;
   const s = nightDifficulty(night);
   return NIGHT_HP_SCALE * (1 + (s * (s - 1)) / 2) * Math.pow(NIGHT_HP_COMPOUND, s - 1);
 }
@@ -121,7 +134,7 @@ export function nightDamageMult(night: number): number {
 /** The multipliers a night runs under, layered over the fight's own profile (`base`, null
  *  for an ordinary Halloween invasion). Night 1 is the ordinary fight, untouched. */
 export function nightProfile(night: number, base: EliteProfile | null): EliteProfile | null {
-  if (clampNight(night) <= FIRST_NIGHT) return base;
+  if (clampStage(night) <= FIRST_NIGHT) return base;
   const hp = nightHpMult(night);
   const dmg = nightDamageMult(night);
   const b: EliteProfile = base ?? {
@@ -139,35 +152,34 @@ export function nightProfile(night: number, base: EliteProfile | null): ElitePro
 
 /** This fight's clock: two minutes from hour 2, else whatever the raid uses. */
 export function nightTimeLimitMs(raidId: number, night: number | undefined, ordinaryMs: number): number {
-  return hasNights(raidId) && clampNight(night) > FIRST_NIGHT ? NIGHT_TIME_LIMIT_MS : ordinaryMs;
+  return hasNights(raidId) && clampStage(night) > FIRST_NIGHT ? NIGHT_TIME_LIMIT_MS : ordinaryMs;
 }
 
 /** The difficulty STAGE a night is fought at: the night itself, or two hours further on a
- *  Brain Ticket run (ELITE_NIGHT_OFFSET), capped at Hour 12 (so Elite Hours 10-12 are all
- *  fought at Hour 12's strength). Scaling and the clock read the stage; the label and the
- *  drop curve read the night. */
+ *  Brain Ticket run (ELITE_NIGHT_OFFSET), so Elite Hour 12 is stage 14 (MAX_STAGE). Scaling
+ *  and the clock read the stage; the label and the drop curve read the night. */
 export function nightStage(night: number | undefined, elite: boolean): number {
-  return Math.min(MAX_NIGHT, clampNight(night) + (elite ? ELITE_NIGHT_OFFSET : 0));
+  return Math.min(MAX_STAGE, clampNight(night) + (elite ? ELITE_NIGHT_OFFSET : 0));
 }
 
 /** Rare-zombie luck on `night`: x1.5 per rung of difficulty, compounding (elite's 4x is
  *  applied apart). */
 export function nightZombieLuck(night: number | undefined): number {
-  return Math.pow(NIGHT_ZOMBIE_GROWTH, nightDifficulty(night) - 1);
+  return Math.pow(NIGHT_ZOMBIE_GROWTH, nightDifficulty(clampNight(night)) - 1);
 }
 
 /** The share of the invasion's win gold `night` pays: all of it on night 1, then a quarter
  *  rising NIGHT_GOLD_STEP per rung of difficulty past the second, never below a quarter. */
 export function nightGoldShare(night: number | undefined): number {
   if (clampNight(night) <= FIRST_NIGHT) return 1;
-  return Math.max(NIGHT_GOLD_SHARE, NIGHT_GOLD_SHARE + NIGHT_GOLD_STEP * (nightDifficulty(night) - 2));
+  return Math.max(NIGHT_GOLD_SHARE, NIGHT_GOLD_SHARE + NIGHT_GOLD_STEP * (nightDifficulty(clampNight(night)) - 2));
 }
 
 /** Brain luck on `night`: half the rung's, then x1.1 per rung of difficulty, compounding
  *  (elite's 4x is applied apart). Every Halloween brain roll goes through this, night 1
  *  included. */
 export function nightBrainLuck(night: number | undefined): number {
-  return HALLOWEEN_BRAIN_SCALE * Math.pow(NIGHT_BRAIN_GROWTH, nightDifficulty(night) - 1);
+  return HALLOWEEN_BRAIN_SCALE * Math.pow(NIGHT_BRAIN_GROWTH, nightDifficulty(clampNight(night)) - 1);
 }
 
 /** "Hour 3" / "Elite Hour 1". The code says NIGHT throughout; the player sees hours of

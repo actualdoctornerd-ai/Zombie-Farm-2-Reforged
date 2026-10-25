@@ -1266,7 +1266,8 @@ import type { RaidOutcome } from "./types";
 // Count's slam. Any Halloween hour past the first replays differently from v78.
 // v80 — Halloween hours re-curved for a two-minute clock: hit points two thirds of the old
 // curve at a slower difficulty (Hour 12 = old rung 6.85), damage on the same slow step.
-// Every Halloween hour past the first replays differently from v79.
+// Every Halloween hour past the first replays differently from v79. Also v80: a Brain Ticket
+// chain's stage climbs past Hour 12 (Elite Hours 11-12 are stages 13-14).
 export const RAID_RULESET_VERSION = 80;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own

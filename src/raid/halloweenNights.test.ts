@@ -3,7 +3,7 @@ import { buildFight } from "./buildFight";
 import { raidProfile } from "./dualInvasion";
 import { RAID_TIME_LIMIT_MS } from "./BattleSim";
 import {
-  ELITE_NIGHT_OFFSET, FIRST_NIGHT, MAX_NIGHT, NIGHT_TIME_LIMIT_MS, clampNight, hasNights,
+  ELITE_NIGHT_OFFSET, FIRST_NIGHT, MAX_NIGHT, MAX_STAGE, NIGHT_TIME_LIMIT_MS, clampNight, hasNights,
   nightBrainLuck, nightDamageMult, nightDifficulty, nightGoldShare, nightHpMult, nightLabel, nightProfile, nightPrompt, nightStage,
   nightTimeLimitMs, nightZombieLuck,
 } from "./halloweenNights";
@@ -105,9 +105,21 @@ describe("Halloween nights: the rules", () => {
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 1, elite: true })).toEqual(nightProfile(3, null));
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 2, elite: true })).toEqual(raidProfile(HALLOWEEN_RAID_ID, { night: 4 }));
     expect(raidProfile(HALLOWEEN_RAID_ID, { night: 1, elite: false })).toBeNull();
-    // Capped at Hour 12: Elite Hours 10, 11 and 12 are all Hour 12's fight.
-    for (const n of [10, 11, 12]) expect(nightStage(n, true)).toBe(MAX_NIGHT);
-    expect(raidProfile(HALLOWEEN_RAID_ID, { night: 11, elite: true })).toEqual(nightProfile(12, null));
+    // NOT capped at Hour 12: Elite Hour 10 is Hour 12's fight, Elite 11 and 12 climb past it.
+    expect(MAX_STAGE).toBe(MAX_NIGHT + ELITE_NIGHT_OFFSET);
+    expect(nightStage(10, true)).toBe(12);
+    expect(nightStage(11, true)).toBe(13);
+    expect(nightStage(12, true)).toBe(14);
+    expect(raidProfile(HALLOWEEN_RAID_ID, { night: 10, elite: true })).toEqual(nightProfile(12, null));
+    expect(nightHpMult(13)).toBeGreaterThan(nightHpMult(12));
+    expect(nightHpMult(14)).toBeGreaterThan(nightHpMult(13));
+    expect(nightHpMult(14)).toBeCloseTo(66.7, 0);
+    expect(nightDamageMult(14)).toBeGreaterThan(nightDamageMult(12));
+    expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, 14, RAID_TIME_LIMIT_MS)).toBe(NIGHT_TIME_LIMIT_MS);
+    // ...while the LOOT still reads the hour the player is on, which tops out at 12.
+    expect(nightZombieLuck(99)).toBe(nightZombieLuck(12));
+    expect(nightBrainLuck(99)).toBe(nightBrainLuck(12));
+    expect(nightGoldShare(99)).toBe(nightGoldShare(12));
     expect(nightTimeLimitMs(HALLOWEEN_RAID_ID, nightStage(1, true), RAID_TIME_LIMIT_MS)).toBe(NIGHT_TIME_LIMIT_MS);
     expect(nightLabel(1, true)).toBe("Elite Hour 1");
     expect(nightLabel(3, false)).toBe("Hour 3");
