@@ -155,7 +155,7 @@ const NIGHT_LINES: readonly { title: string; line: string }[] = [
   { title: "The night is still young.", line: "The Count and his guests are just getting started." },
   { title: "It's getting late.", line: "The party's getting rowdier, and his guests are getting stronger." },
   { title: "Midnight approaches.", line: "It's getting darker, and the vibe at this party is starting to feel a little off." },
-  { title: "Midnight.", line: "Few zombies come back from a night like this." },
+  { title: "Midnight.", line: "Right on cue, the Count's guests are getting their second wind." },
   { title: "The witching hour has arrived.", line: "The party is in full swing, and his guests have never been stronger." },
 ];
 
