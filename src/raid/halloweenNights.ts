@@ -143,13 +143,15 @@ export function nightLabel(night: number, elite: boolean): string {
   return `${elite ? "Elite Night" : "Night"} ${clampNight(night)}`;
 }
 
-/** The line before each night, darker as the chain goes on. Indexed by the night being
- *  offered (2 = after the first win); past the end the last line repeats. */
+/** The line before each night. The chain is one night of the party wearing on: later,
+ *  darker, and the Count's guests stronger each time (owner, 2026-10-24: time and strength,
+ *  not new monsters). Indexed by the night being offered (2 = after the first win); past
+ *  the end the last line repeats. */
 const NIGHT_LINES: readonly { title: string; line: string }[] = [
-  { title: "The Count is beaten... for now.", line: "His guests are already climbing back out of their coffins." },
-  { title: "Something stirs in the cellar.", line: "Whatever the Count keeps down there is waking up." },
-  { title: "The moon turns red.", line: "Something out there is howling, and it isn't the wind." },
-  { title: "Midnight. The bells won't stop.", line: "Few zombies come back from a night like this." },
+  { title: "The night is still young.", line: "The Count and his guests are just getting started." },
+  { title: "It's getting late.", line: "The party's getting rowdier, and his guests are getting stronger." },
+  { title: "The moon turns red.", line: "The night grows darker, and something out there is howling." },
+  { title: "Midnight.", line: "The darkest hour. Few zombies come back from a night like this." },
   { title: "There will be no dawn.", line: "The house wants you to stay. Forever." },
 ];
 

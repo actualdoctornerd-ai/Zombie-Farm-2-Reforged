@@ -100,7 +100,7 @@ describe("Halloween nights: the rules", () => {
   it("say a different, darker thing before each night, and that nothing won is lost", () => {
     const titles = [2, 3, 4, 5, 6].map((night) => nightPrompt(night).title);
     expect(new Set(titles).size).toBe(titles.length);
-    expect(nightPrompt(2).title).toBe("The Count is beaten... for now.");
+    expect(nightPrompt(2).title).toBe("The night is still young.");
     for (let night = 2; night <= 9; night++) {
       const { body } = nightPrompt(night);
       expect(body).toContain(`Night ${night}`);
