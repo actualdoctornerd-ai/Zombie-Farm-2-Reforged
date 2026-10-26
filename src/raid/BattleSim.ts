@@ -2000,7 +2000,11 @@ export class BattleSim {
       const dex = stats.baseDex + stats.dexPerCarrier * statCarriers;
       const con = stats.baseCon + stats.conPerCarrier * lifeCarriers;
       p.maxHp = Math.max(1, Math.round(deriveMaxHp(con)));
-      p.hp = Math.max(0, Math.min(p.maxHp, p.hp + (p.maxHp - oldMaxHp)));
+      // The dead stay at 0: a Fortitude carrier arriving used to hand every fallen Headless the
+      // Life difference, which the army bar (teamTotals) then counted as ghost health. The
+      // living keep at least 1: a carrier FALLING takes the bonus back, and that could leave a
+      // zombie standing at 0 Life (alive, and fighting) until the next hit of any size.
+      if (p.alive) p.hp = Math.max(1, Math.min(p.maxHp, p.hp + (p.maxHp - oldMaxHp)));
       p.power = str * POWER_PER_STR;
       p.damage = Math.max(1, Math.round(deriveHitDamage(p.power, p.attackMultiplier)));
       p.cooldownMs = deriveAttackIntervalMs(dex, "player");
@@ -3653,6 +3657,8 @@ export class BattleSim {
     defeated.state = "advance";
     defeated.teleportPending = defeated.abilities.includes("teleport");
     defeated.x = CHARGE_X;
+    // Stale until the next formation pass; a Teleport holder must not jump to it.
+    if (defeated.teleportPending) defeated.slotX = CHARGE_X;
     defeated.y = CENTER_Y;
     defeated.prevX = defeated.x;
     defeated.prevY = defeated.y;
@@ -3714,17 +3720,22 @@ export class BattleSim {
   /** Apply an ordinary enemy hit through the recovered player-zombie one-shot floor. */
   private dealEnemyDamage(foe: SimUnit, dmg: number, shared = false) {
     if (foe.team === "player" && foe.phaseMs > 0) return;
-    // Support (the Mega Boss Zombie): every holder on the field takes SUPPORT_SHARE of a blow
-    // aimed at the front zombie, through its own mitigation. Split before the raid's damage
-    // multipliers, which each share then picks up on its own way through.
+    // Support (the Mega Boss Zombie): every holder on the field takes SUPPORT_SHARE of the
+    // ORIGINAL blow aimed at the front zombie (two holders take a tenth each, not a tenth and
+    // then a tenth of the rest), through its own mitigation. Split before the raid's damage
+    // multipliers, which each share then picks up on its own way through. Ten holders would
+    // share out the whole blow, and the front takes nothing.
     if (!shared && foe.team === "player" && !foe.isGarden && foe.lineupIndex === 0 && dmg > 0) {
+      const share = dmg * SUPPORT_SHARE;
       for (const p of this.players) {
+        if (dmg <= 0) break;
         if (p === foe || !p.alive || p.taken || !p.abilities.includes("support")) continue;
         if (p.state !== "advance" && p.state !== "fight") continue;
-        const share = dmg * SUPPORT_SHARE;
-        dmg -= share;
-        this.dealEnemyDamage(p, share, true);
+        const taken = Math.min(share, dmg);
+        dmg -= taken;
+        this.dealEnemyDamage(p, taken, true);
       }
+      if (dmg <= 0) return;
     }
     // Emboldened (raid 12): everything the enemy lands on a zombie lands harder.
     if (foe.team === "player" && this.rulingFx.embolden !== 1) dmg *= this.rulingFx.embolden;
@@ -4711,7 +4722,13 @@ export class BattleSim {
           // Teleport (the Secret Boss Zombie): the walk in is skipped. It appears at its place
           // in the line, past any wall on the way. Deploying is otherwise ordinary: it waited
           // its turn and charged like everyone else. A Mini Buddy carrier rams instead.
-          if (p.teleportPending) {
+          //
+          // It waits for a slot AHEAD of it: a revive lands after this tick's formation pass
+          // (stepResurrect runs after assignFormation), so on that tick the slot is the one it
+          // died in, or the charge slot a revive resets it to. It jumps on the next tick, once
+          // the formation has placed it. Reaching the line any other way disarms it.
+          if (p.teleportPending && p.inLine) p.teleportPending = false;
+          if (p.teleportPending && p.slotX > p.x + 1) {
             p.teleportPending = false;
             if (!p.buddyId) {
               p.x = p.slotX;

@@ -1277,8 +1277,12 @@ import type { RaidOutcome } from "./types";
 // BattleSim: Rage (+25% damage and speed under half Life), Berserk (+20% damage, 5% of own
 // Life a second of swinging), Shield Bar (2% Life a second, soaked before Life), Support (10% of every blow
 // on the front zombie), Phase (once, 1 Life and 3 s untouchable) and Teleport (skip the walk
-// in). No existing zombie carries one, so only fights fielding an Omega, Mega or Secret Boss
-// Zombie change, but a v81 Worker would replay those without them.
+// in). No existing zombie carries one, so those only change fights fielding an Omega, Mega or
+// Secret Boss Zombie, but a v81 Worker would replay those without them. Also v82, found by
+// bossVariants.stress.test: a Fortitude carrier arriving or falling no longer rescales a DEAD
+// Headless's Life (ghost health on the army bar) and no longer leaves a living one at 0 Life
+// (it keeps 1), so fights where a Fortitude carrier changes while a Headless is low replay
+// differently from v81.
 export const RAID_RULESET_VERSION = 82;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
