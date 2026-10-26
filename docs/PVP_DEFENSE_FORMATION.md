@@ -170,6 +170,21 @@ mobbing the first zombie to arrive.
 
 ## Abilities on defense
 
+**Ruleset 82 (owner, 2026-10-25): a formation defender keeps EVERY ability** ("all zombie
+abilities should work on PvP"; `pvp.toEnemyCopy`), and BattleSim runs the passives for the
+defending side, gated on the fight having authored stations, which no raid has:
+
+- heal / healAOE (as before), the lasers (`stepDefenderLaser`, as before);
+- **Resurrect**, from the defenders' own corpse backlog (`fallenDefenders`,
+  `stepDefenderResurrect`): the revived defender walks back in to its station;
+- **Protect**: its reduction is folded into every defender's `damageReduction` at build, but
+  the sim never applied it to blows on the enemy side. It does now;
+- Random Stun, Double Strike, Turbo and Teleport on the walk to the station, Unwrapped,
+  Treat (heals the defense), and Rage / Berserk / Shield Bar / Support / Phase;
+- the taps (Bash, Smash, Explode, Block, Mini Buddy) are kept on the card but never fire.
+
+The history below is the ruleset-42 design this replaced.
+
 Today: `abilities: []` for every defender. Change to a **passive allowlist**:
 
 - **Restored**: `heal`, `healAOE`. These run themselves — nobody needs to tap them, so

@@ -158,23 +158,16 @@ export const PVP_PERCH_Y = -250;
  *  still resolves through the raid image folder. */
 export const PVP_ZOMBIE_SPRITE_PREFIX = "zombie:";
 
-/** Abilities a DEFENDER keeps. These run themselves — nobody has to tap them, so
- *  "nobody is home" was never a reason to strip them. Everything else (bash,
- *  explode, Mini Buddy) is a tap and stays stripped: a defender cannot tap.
+/** A FORMATION defender keeps EVERY ability it has (owner, 2026-10-25: "all zombie abilities
+ *  should work on PvP"). The sim runs each passive on the defending side the way it runs it
+ *  for the attackers: heals and Resurrect (from the defenders' own corpse backlog), Protect's
+ *  reduction, Random Stun, Double Strike, the lasers (see BattleSim.stepDefenderLaser for
+ *  the defender's trigger), Turbo and Teleport on the walk to its station, Unwrapped, Treat,
+ *  and the Boss Zombie variants' Rage, Berserk, Shield Bar, Support and Phase. The TAPPED
+ *  moves (Bash, Smash, Explode, Block, Mini Buddy) are kept too, but nobody is home to tap
+ *  them, so they do not fire. Classic mode still strips everything.
  *
- *  The WALKING LASER is here for the same reason as heal: nobody has to tap it. It needed
- *  a trigger of its own, though — an attacker's beam fires while the firer walks, and a
- *  defender stands on a station and never does. BattleSim.stepDefenderLaser takes the
- *  mirror on the other side of the same moment: a defender fires while the ATTACKERS are
- *  walking in. Without it the beam was the one ability a buff could only ever hand to the
- *  attacking side, which is why every player-side damage change used to tilt the mode.
- *
- *  `ressurect` is deliberately NOT here yet. Reviving reads the player-side corpse
- *  backlog (BattleSim.fallen), so a defending Garden would need a backlog of its own
- *  — its own piece of work, and one that interacts with the win condition, so it is
- *  left for later rather than half-done. A defending healer HEALS, which is the job
- *  the design gives it. */
-export const PVP_DEFENSE_PASSIVE_ABILITIES: readonly string[] = ["heal", "healAOE", "laserBeam", "zomBeam"];
+ *  (Until ruleset 82 a defender kept only heal / healAOE / laserBeam / zomBeam.) */
 
 /** Both sides of a friend invasion must be past the opening arc of the game: level 7
  *  keeps brand-new farms out of the matchmaking pool in either role. */
@@ -245,16 +238,13 @@ export function armyScore(units: CombatUnit[]): number {
  *  - ids are re-minted `d0..dN` like a wave's so nothing downstream confuses them
  *    with the attacker's roster ids.
  */
-function toEnemyCopy(u: CombatUnit, i: number, keepPassives = false): CombatUnit {
+function toEnemyCopy(u: CombatUnit, i: number, keepAbilities = false): CombatUnit {
   const copy: CombatUnit = {
     ...u,
     id: `d${i}`,
     team: "enemy",
-    // Classic mode strips every ability. Formation mode keeps the ones that run
-    // themselves, which is what lets a defending healer actually heal.
-    abilities: keepPassives
-      ? u.abilities.filter((key) => PVP_DEFENSE_PASSIVE_ABILITIES.includes(key))
-      : [],
+    // Classic mode strips every ability. Formation mode keeps them all; see above.
+    abilities: keepAbilities ? [...u.abilities] : [],
   };
   delete copy.teamAuraStats;
   delete copy.walkingSpeedMult;

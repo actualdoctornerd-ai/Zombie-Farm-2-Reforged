@@ -926,6 +926,8 @@ export interface BattleSimSnapshot {
    *  Optional only so a snapshot that predates the backlog still restores — `restore`
    *  rebuilds it from the units in that case rather than losing every corpse. */
   fallen?: string[];
+  /** The PvP defenders' corpse backlog (fallenDefenders); absent before ruleset 82. */
+  fallenDefenders?: string[];
   roundLeft: number;
   enraged: boolean;
   specialCast: number;
@@ -1195,6 +1197,8 @@ export class BattleSim {
    *  is why a Garden zombie deployed AFTER a casualty can still bring that casualty back.
    *  Ids, not references, so the list survives snapshot/restore intact. */
   private fallen: string[] = [];
+  /** The PvP DEFENDERS' corpse backlog, which a defending Resurrect draws on. */
+  private fallenDefenders: string[] = [];
   finished = false;
   // ---- round timer + enrage ----
   private roundLeft: number;
@@ -1491,6 +1495,7 @@ export class BattleSim {
         resurrections: this.feats.resurrections.map((rez) => ({ ...rez })),
       },
       fallen: [...this.fallen],
+      fallenDefenders: [...this.fallenDefenders],
       roundLeft: this.roundLeft,
       enraged: this._enraged,
       specialCast: this.specialCast,
@@ -1635,6 +1640,7 @@ export class BattleSim {
     this.fallen = snapshot.fallen
       ? [...snapshot.fallen]
       : this.players.filter((p) => !p.alive && !p.taken).map((p) => p.id);
+    this.fallenDefenders = [...(snapshot.fallenDefenders ?? [])];
     this.roundLeft = snapshot.roundLeft;
     this._enraged = snapshot.enraged;
     this.specialCast = snapshot.specialCast;
@@ -2225,6 +2231,39 @@ export class BattleSim {
         continue;
       }
       this.resurrect(healer, corpse);
+      cast.add(healer.id);
+    }
+    return cast;
+  }
+
+  /** A PvP DEFENDER's Resurrect: a living defending holder brings back the most recent
+   *  fallen defender at full Life. It walks back in from the edge to its station (or
+   *  Teleports there), with its one-use moves spent, exactly like a revived attacker. */
+  private stepDefenderResurrect(): Set<string> {
+    const cast = new Set<string>();
+    if (!this.fallenDefenders.length) return cast;
+    for (const healer of this.enemies) {
+      if (!this.fallenDefenders.length) break;
+      if (!healer.alive || healer.resurrectUsed || !healer.abilities.includes("ressurect")) continue;
+      if (healer.state !== "hold" && healer.state !== "fight") continue;
+      const corpseId = this.fallenDefenders.pop()!;
+      const corpse = this.enemies.find((e) => e.id === corpseId);
+      if (!corpse || corpse.alive) continue;
+      healer.resurrectUsed = true;
+      corpse.alive = true;
+      corpse.hp = corpse.maxHp;
+      corpse.state = "emerging";
+      corpse.x = ENEMY_SPAWN_X;
+      corpse.y = corpse.stationY ?? CENTER_Y;
+      corpse.prevX = corpse.x;
+      corpse.prevY = corpse.y;
+      corpse.stunMs = 0;
+      corpse.shield = 0;
+      for (const key of corpse.abilities) {
+        if (ACTIVATED_ABILITY[key]?.useOnce && !corpse.usedAbilities.includes(key)) corpse.usedAbilities.push(key);
+      }
+      if (corpse.abilities.includes("ressurect")) corpse.resurrectUsed = true;
+      corpse.healFxSeq++;
       cast.add(healer.id);
     }
     return cast;
@@ -3302,7 +3341,7 @@ export class BattleSim {
    *     roll and one-shot floor all apply, the same as any other blow it takes.
    *
    *  Raids cannot reach this: every authored raid enemy carries `abilities: []`, and PvP
-   *  only lets a formation defense keep the beam (pvp.PVP_DEFENSE_PASSIVE_ABILITIES). */
+   *  only lets a formation defense keep its abilities (see pvp.toEnemyCopy). */
   private stepDefenderLaser(u: SimUnit, dtMs: number) {
     const interval = laserInterval(u.abilities, u.cooldownMs);
     if (interval <= 0) return;
@@ -3310,7 +3349,8 @@ export class BattleSim {
     if (u.laserTimerMs > 0) return;
     const foe = this.closestAdvancingPlayer(u);
     if (foe) {
-      this.dealEnemyDamage(foe, laserHitDamage(u.power));
+      const mult = this.outgoingMult(u);
+      this.dealEnemyDamage(foe, mult === 1 ? laserHitDamage(u.power) : Math.max(1, Math.round(laserHitDamage(u.power) * mult)));
       u.laserTargetId = foe.id;
       u.laserFxSeq++;
       u.struckThisTick = true;
@@ -3355,7 +3395,8 @@ export class BattleSim {
       const foeSec = (foe.cooldownMs * lineupSpeedBand(foe.lineupIndex)) / 1000;
       return (mirrorIntervalSec(u.sourceKey, foeSec, foe.speciesCycleMs / 1000) * 1000) / haste;
     }
-    return u.cooldownMs / haste;
+    // A PvP defender's Rage (raid enemies carry no abilities, so this is 1 for every raid).
+    return u.cooldownMs / haste / (this.raging(u) ? RAGE_SPEED_MULT : 1);
   }
 
   /** Land a hit from `u` on `foe` when its clock is ready; else re-arm. An enemy
@@ -3382,7 +3423,11 @@ export class BattleSim {
           ? Math.max(1, Math.round(u.damage * this.stackHeight(u)))
           : u.damage;
     if (u.team === "enemy") {
-      this.dealEnemyDamage(foe, dmg);
+      // A PvP defender's own damage abilities. Raid enemies carry none, so `mult` is exactly
+      // 1 and the swing is untouched for every raid.
+      const mult = this.outgoingMult(u);
+      this.dealEnemyDamage(foe, mult === 1 ? dmg : Math.max(1, Math.round(dmg * mult)));
+      if (u.abilities.length) this.defenderSwingProcs(u, foe);
     } else {
       this.dealDamage(foe, dmg, true);
       this.playerDamage += dmg;
@@ -3516,6 +3561,35 @@ export class BattleSim {
     return true;
   }
 
+  /** A PvP defender's swing procs, mirroring the attacker's: Double Strike's bonus strike,
+   *  Random Stun (held for a second, unless the zombie is mid-move and cannot be
+   *  interrupted), and Berserk's self-cost. Only ever reached by a unit that carries
+   *  abilities on the enemy side, which no raid enemy does. */
+  private defenderSwingProcs(u: SimUnit, foe: SimUnit): void {
+    const mult = this.outgoingMult(u);
+    if (u.abilities.includes("doubleStrike") && this.abilityRoll(u) > 70 && foe.alive) {
+      this.dealEnemyDamage(foe, Math.max(1, Math.round(u.power * 0.25 * mult)));
+      this.attacksLanded++;
+    }
+    if (u.abilities.includes("stun") && this.abilityRoll(u) > 95 && foe.alive && !this.uninterruptible(foe)) {
+      foe.stunMs = Math.max(foe.stunMs, 1000);
+    }
+    // `fromPlayer` false: its own side's blow, so its shield and Phase do not apply.
+    if (u.abilities.includes("berserk") && u.alive) this.dealDamage(u, this.berserkCost(u), false);
+  }
+
+  /** The front of a PvP formation defense: the live line defender on the forward-most
+   *  station. Support takes its share of blows aimed at this one. */
+  private frontDefender(): SimUnit | null {
+    let front: SimUnit | null = null;
+    for (const e of this.enemies) {
+      if (!e.alive || e.isGarden || e.stationX === null) continue;
+      if (e.state !== "hold" && e.state !== "fight") continue;
+      if (!front || e.stationX < (front.stationX ?? Infinity)) front = e;
+    }
+    return front;
+  }
+
   /** Rage: true while a holder is under RAGE_HP_FRAC of its Life (Life only; a shield is
    *  not Life). */
   private raging(u: SimUnit): boolean {
@@ -3546,10 +3620,33 @@ export class BattleSim {
     return dmg - soak;
   }
 
-  private dealDamage(foe: SimUnit, dmg: number, fromPlayer: boolean) {
+  private dealDamage(foe: SimUnit, dmg: number, fromPlayer: boolean, shared = false) {
     if (foe.team === "player" && !fromPlayer && dmg > 0) {
       // Phase: nothing lands on it while the window is open.
       if (foe.phaseMs > 0) return;
+      dmg = this.absorbShield(foe, dmg);
+      if (dmg <= 0) return;
+    }
+    // A PvP DEFENDER struck by the army: the same defensive abilities the attacking side
+    // has. Gated on a formation defense (authored stations), which no raid has, so raids are
+    // untouched. Not on the struck unit's own abilities: Support and Protect protect OTHERS.
+    if (foe.team === "enemy" && fromPlayer && dmg > 0 && this.authoredStations) {
+      if (foe.phaseMs > 0) return;
+      // Support: every defending holder takes a tenth of a blow aimed at the front defender.
+      if (!shared && foe === this.frontDefender()) {
+        const share = dmg * SUPPORT_SHARE;
+        for (const e of this.enemies) {
+          if (dmg <= 0) break;
+          if (e === foe || !e.alive || !e.abilities.includes("support")) continue;
+          if (e.state !== "hold" && e.state !== "fight") continue;
+          const taken = Math.min(share, dmg);
+          dmg -= taken;
+          this.dealDamage(e, taken, true, true);
+        }
+        if (dmg <= 0) return;
+      }
+      // Protect: folded into the defender's damageReduction when the defense was built.
+      if (foe.damageReduction > 0) dmg = applyDamage(dmg, 0, Math.min(1, foe.damageReduction));
       dmg = this.absorbShield(foe, dmg);
       if (dmg <= 0) return;
     }
@@ -3581,7 +3678,7 @@ export class BattleSim {
     // PHASE (the Secret Boss Zombie): the first killing blow leaves it on 1 Life and out of
     // reach for PHASE_INVULN_MS, long enough for a healer to find it. Same choke point as
     // Unwrapped, and spent for good the same way.
-    if (foe.team === "player" && !foe.phaseUsed && foe.abilities.includes("phase")) {
+    if (!foe.phaseUsed && foe.abilities.includes("phase")) {
       foe.phaseUsed = true;
       foe.hp = 1;
       foe.phaseMs = PHASE_INVULN_MS;
@@ -3591,7 +3688,7 @@ export class BattleSim {
     // UNWRAPPED (the Mummy Zombie): the first killing blow of the fight leaves it standing
     // at half Life instead. Here, at the one choke point every death passes through, so no
     // damage path can skip it. Spent for good: Resurrect does not hand it back.
-    if (foe.team === "player" && !foe.unwrapUsed && foe.abilities.includes("unwrapped")) {
+    if (!foe.unwrapUsed && foe.abilities.includes("unwrapped")) {
       foe.unwrapUsed = true;
       foe.hp = Math.max(1, Math.round(foe.maxHp * UNWRAP_HP_FRAC));
       foe.unwrapFxSeq++;
@@ -3616,6 +3713,13 @@ export class BattleSim {
       if (foe.abilities.includes("lastLaugh")) this.lastLaugh(foe);
       return;
     }
+    // A fallen PvP defender joins its own side's corpse backlog (a defending Resurrect draws
+    // on it) and sets off its Treat. Keyed on the defense having stations, not this unit:
+    // the brute's perch is cleared when it climbs down. No raid authors a station.
+    if (this.authoredStations) {
+      this.fallenDefenders.push(foe.id);
+      if (foe.abilities.includes("lastLaugh")) this.lastLaugh(foe);
+    }
     // A pixel zombie broken open hands its captive back. Done HERE rather than in
     // `tapTurned` so it cannot be bypassed: this is the one choke point every death goes
     // through, and a captive stranded by some other damage path would sit `taken` with
@@ -3639,7 +3743,7 @@ export class BattleSim {
    *  is what makes the fuse a planned sacrifice rather than just a blast. */
   private lastLaugh(fallen: SimUnit): void {
     fallen.lastLaughFxSeq++;
-    for (const p of this.players) {
+    for (const p of fallen.team === "player" ? this.players : this.enemies) {
       if (!p.alive || p.taken || p.hp >= p.maxHp) continue;
       p.hp = Math.min(p.maxHp, p.hp + Math.max(1, Math.round(p.maxHp * LAST_LAUGH_HEAL_FRAC)));
       p.healFxSeq++;
@@ -4608,7 +4712,7 @@ export class BattleSim {
     // abilities on the enemy side (raid enemies are authored with none), so this is a
     // no-op everywhere else. Resurrect is deliberately NOT mirrored: it draws on the
     // player-side corpse backlog, and a defender backlog is its own piece of work.
-    this.stepHealing(dtMs, EMPTY_CAST, this.enemies);
+    this.stepHealing(dtMs, this.fallenDefenders.length ? this.stepDefenderResurrect() : EMPTY_CAST, this.enemies);
     const frontX = this.frontX;
 
     // Zombies.
@@ -4815,6 +4919,11 @@ export class BattleSim {
     // Enemies (emerge / boss descends, then stand and strike; never move otherwise).
     for (const e of this.enemies) {
       if (!e.alive || e.state === "queued" || e.state === "structure") continue;
+      // A PvP defender's timed abilities (raid enemies carry none).
+      if (e.phaseMs > 0) e.phaseMs = Math.max(0, e.phaseMs - dtMs);
+      if (e.abilities.includes("shieldBar") && (e.state === "hold" || e.state === "fight")) {
+        e.shield = Math.min(e.maxHp, e.shield + (e.maxHp * SHIELD_REGEN_FRAC_PER_SEC * dtMs) / 1000);
+      }
       if (e.isWall) {
         e.state = "hold";
         e.timerMs = this.cycleMs(e, null);
@@ -4900,7 +5009,13 @@ export class BattleSim {
         // exactly where the normal enemies attack from, unless this defender was
         // authored a station of its own (PvP formation defense).
         const holdX = this.holdXOf(e);
-        const sx = (EMERGE_SPEED * dtMs) / 1000;
+        // A PvP defender's Teleport skips the walk to its station; Turbo doubles it.
+        if (e.abilities.includes("teleport") && e.x > holdX) {
+          e.x = holdX;
+          e.prevX = e.x;
+          e.teleportFxSeq++;
+        }
+        const sx = (EMERGE_SPEED * (e.abilities.includes("turboSpeed") ? 2 : 1) * dtMs) / 1000;
         e.x = Math.max(holdX, e.x - sx);
         e.y = e.stationY ?? CENTER_Y;
         e.timerMs = this.cycleMs(e, null);

@@ -1282,7 +1282,13 @@ import type { RaidOutcome } from "./types";
 // bossVariants.stress.test: a Fortitude carrier arriving or falling no longer rescales a DEAD
 // Headless's Life (ghost health on the army bar) and no longer leaves a living one at 0 Life
 // (it keeps 1), so fights where a Fortitude carrier changes while a Headless is low replay
-// differently from v81.
+// differently from v81. And v82 (owner: "all zombie abilities should work on PvP"): a
+// FORMATION defender now keeps every ability (it kept heal/healAOE/laserBeam/zomBeam), and
+// the sim runs the passives for the defending side too: Protect's reduction (carried since
+// v41 but never applied), Random Stun, Double Strike, Turbo/Teleport on the walk in, Unwrapped,
+// Treat, a defenders' own Resurrect backlog, and Rage/Berserk/Shield Bar/Support/Phase. Taps
+// are kept but never fire. Every formation PvP fight replays differently from v81; raids do
+// not (no raid enemy carries an ability or a station).
 export const RAID_RULESET_VERSION = 82;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own

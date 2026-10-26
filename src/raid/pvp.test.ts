@@ -22,7 +22,6 @@ import {
   DEF_SUPPORT_X,
   DEF_TANK_X,
   PVP_DEFENSE_DRIP_MS,
-  PVP_DEFENSE_PASSIVE_ABILITIES,
   PVP_PERCH_X,
   PVP_PERCH_Y,
   PVP_THROW_INTERVAL_MS,
@@ -314,7 +313,7 @@ describe("formation defense mode", () => {
     // tilted the mode — see the balance target below.
     const defense = formation();
     const regular = defense.find((u) => u.sourceKey === "ZombieActorRegularTier3")!;
-    expect(regular.abilities).toContain("laserBeam"); // kept by PVP_DEFENSE_PASSIVE_ABILITIES
+    expect(regular.abilities).toContain("laserBeam"); // a formation defender keeps every ability
     const attackers = build(["ZombieActorHeadlessTier4", "ZombieActorHeadlessTier4"], "a");
     const sim = new BattleSim(attackers, defense, null, true, [], undefined, null, null,
       false, false, false, undefined, null, null, { maxActive: 1, dripMs: 0 }, null);
@@ -571,15 +570,13 @@ describe("formation defense mode", () => {
     expect(hit(brute)).toBeGreaterThan(hit(mini));
   });
 
-  it("keeps the abilities that run themselves and strips every tap", () => {
+  it("keeps EVERY ability a formation defender has, taps included (ruleset 82)", () => {
     const units = formation();
     const support = units.find((u) => u.defenseRole === "support")!;
     expect(support.abilities).toContain("heal");
-    for (const unit of units) {
-      for (const key of unit.abilities) {
-        expect(PVP_DEFENSE_PASSIVE_ABILITIES).toContain(key);
-      }
-    }
+    // Nothing is filtered: some defender keeps a tapped move (they simply never fire).
+    expect(units.some((u) => u.abilities.some((k) => !["heal", "healAOE", "laserBeam", "zomBeam"].includes(k))))
+      .toBe(true);
     // Classic mode is unchanged: it strips everything, healer included.
     expect(toDefenseUnits(build(ONE_PER_CLASS, "c")).every((u) => u.abilities.length === 0))
       .toBe(true);
