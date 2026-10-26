@@ -168,13 +168,13 @@ export function setFarmerLanternTap(on: boolean): void {
 }
 
 /** What right-clicking the farm does.
- *  • "menu"   — opens the quick-switch tool menu (the default).
- *  • "select" — equips the Select tool, the pre-menu reflex some players kept.
+ *  • "select" — drops whatever is in hand and equips the Select tool (the default).
+ *  • "menu"   — opens the quick-switch tool menu at the cursor instead.
  *  Either way the browser's own context menu stays suppressed. */
 export type RightClickMode = "menu" | "select";
 
 export function getRightClickMode(): RightClickMode {
-  return readPref(RIGHT_CLICK_KEY) === "select" ? "select" : "menu";
+  return readPref(RIGHT_CLICK_KEY) === "menu" ? "menu" : "select";
 }
 
 export function setRightClickMode(mode: RightClickMode): void {
