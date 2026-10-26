@@ -67,9 +67,11 @@ export const NIGHT_GOLD_STEP = 0.05;
  *  Clocking out is an ordinary loss. A full Hour 1-12 run is ~13 minutes of fighting. */
 export const NIGHT_TIME_LIMIT_MS = 2 * 60 * 1000;
 /** DO OR DIE (owner, 2026-10-25): when a Halloween fight's clock runs out it is not lost yet.
- *  One more minute plays, with every enemy at twice its dex and the boss throwing twice as
- *  fast (BattleSim.DO_OR_DIE_HASTE), under a flashing red countdown; only running that out
- *  is the loss. Every hour, Hour 1 included. */
+ *  One more minute plays, with every enemy at twice its dex, every enemy blow doubled (~4x
+ *  damage a second) and the boss throwing twice as fast (BattleSim.DO_OR_DIE_HASTE /
+ *  DO_OR_DIE_DAMAGE), under a flashing red countdown; only running that out is the loss.
+ *  The point is a choice: retreat with what you won, or push on and risk the army. Every
+ *  hour, Hour 1 included. */
 export const DO_OR_DIE_MS = 60 * 1000;
 
 /** This fight's Do or Die overtime: a minute on Halloween, none anywhere else. */

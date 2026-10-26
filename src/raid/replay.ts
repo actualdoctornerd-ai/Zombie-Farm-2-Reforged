@@ -1269,8 +1269,9 @@ import type { RaidOutcome } from "./types";
 // Every Halloween hour past the first replays differently from v79. Also v80: a Brain Ticket
 // chain's stage climbs past Hour 12 (Elite Hours 11-12 are stages 13-14).
 // v81 — DO OR DIE (owner, 2026-10-25). A Halloween fight whose clock runs out plays one more
-// minute (`doOrDieMs`, pinned) with every enemy at twice its dex and the boss's action clock
-// at double speed; only running THAT out is the out-of-time loss. Every Halloween fight that
+// minute (`doOrDieMs`, pinned) with every enemy at twice its dex, every enemy blow on a zombie
+// doubled (~4x damage a second) and the boss's action clock at double speed; only running THAT
+// out is the out-of-time loss. Every Halloween fight that
 // reached its clock replays differently from v80.
 export const RAID_RULESET_VERSION = 81;
 export const RAID_TICK_MS = 50;

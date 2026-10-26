@@ -127,7 +127,7 @@ describe("Do or Die (Halloween's overtime minute)", () => {
     if (verdict.ok) expect(verdict.outcome.outOfTime).toBe(true);
   });
 
-  it("doubles the enemy's swings once it starts", () => {
+  it("quadruples the enemy's damage once it starts: twice the swings, each twice as hard", () => {
     // Players with no armour to speak of, so every enemy swing shows as lost hit points.
     const swingsIn = (fromMs: number, sim: BattleSim) => {
       for (let t = 0; t < fromMs / RAID_TICK_MS; t++) sim.step(RAID_TICK_MS);
@@ -139,7 +139,7 @@ describe("Do or Die (Halloween's overtime minute)", () => {
     const regulation = swingsIn(clock - 20_000, fight(OVERTIME, { str: 1 }));
     const overtime = swingsIn(clock, fight(OVERTIME, { str: 1 }));
     expect(regulation).toBeGreaterThan(0);
-    expect(overtime / regulation).toBeCloseTo(2, 0);
+    expect(overtime / regulation).toBeCloseTo(4, 0);
   });
 
   it("never stretches a fight past the six-minute ceiling", () => {

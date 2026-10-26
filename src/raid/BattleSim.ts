@@ -149,6 +149,10 @@ export const RAID_MAX_TIME_LIMIT_MS = 6 * 60 * 1000;
  *  runs this much faster. The overtime is part of the pinned config, so the replay plays the
  *  same extra minute; running it out too is the ordinary out-of-time loss. */
 export const DO_OR_DIE_HASTE = 2;
+/** …and every enemy blow on a zombie hits this much harder, so the overtime deals ~4x the
+ *  damage a second: pushing on should cost an army that never loses anyone in regulation
+ *  (owner, 2026-10-25: retreat, or risk massive losses). */
+export const DO_OR_DIE_DAMAGE = 2;
 
 // ---- Front formation (GROUND TRUTH: `-[ZombieActor calculateDestinationPoint]` 0x4c9d4)
 // The army's ORDER *is* the formation — there is no separate layout pass. A zombie's index
@@ -3621,6 +3625,9 @@ export class BattleSim {
   private dealEnemyDamage(foe: SimUnit, dmg: number) {
     // Emboldened (raid 12): everything the enemy lands on a zombie lands harder.
     if (foe.team === "player" && this.rulingFx.embolden !== 1) dmg *= this.rulingFx.embolden;
+    // Do or Die: every blow on a zombie lands at DO_OR_DIE_DAMAGE — swings, throws, the
+    // Count's slam, burns — on top of the doubled swing rate, so ~4x the damage a second.
+    if (foe.team === "player" && this.doOrDie) dmg *= DO_OR_DIE_DAMAGE;
     // Team Block adds 20% per carrier whose one-second window is live, up to 100%.
     // Protect remains additive, with the combined reduction capped below.
     const blockers = this.players.filter((p) => p.alive && p.blockMs > 0).length;
