@@ -100,6 +100,43 @@ AUTHORED_ZOMBIES = [
         "mutation": 0, "tier": 5, "specialSprite": "final_boss_zombie.png",
         "rewardOnly": False, "marketHidden": True,
     },
+    # The Boss Zombie's three uncommon colour variants (owner, 2026-10-25): each is a 1-in-7
+    # roll of the Boss Zombie's own drop (src/raid/zombieDrops.ts), a palette swap of it
+    # (tools/prep_assets.py DERIVED_FLIPBOOK_ZOMBIES) and a SIDEGRADE of the Vagabond, reshaped
+    # around its abilities (src/zombie/traits.ts SPECIAL_ABILITIES). Priced as the Boss Zombie.
+    # On the damage-set yardstick (videoGameZombie.test.ts; the Vagabond ~2,085):
+    #   Omega (red)    glass cannon, ~2,110: low con, a lot of str; Rage + Berserk.
+    #   Mega (blue)    tank, ~1,870: high con, low str; Shield Bar + Support. Held ~10% under
+    #                  because the shield is worth more than a stat line — at 46 con it still
+    #                  out-survived every other candidate in the harness (fitted 2026-10-25).
+    #   Secret (silver) fast, ~2,055: low str and con, twice the dex; Teleport + Phase.
+    {
+        "key": "ZombieActorRegularOmegaBoss", "name": "Omega Boss Zombie",
+        "cost": 12, "growMs": 86_400_000, "category": "special", "level": 43, "xp": 2,
+        "brainsNeeded": True, "group": "Regular",
+        "className": "Special", "classColor": "#c077ff",
+        "str": 55, "dex": 2.1, "con": 25, "focus": 100.0,
+        "mutation": 0, "tier": 5, "specialSprite": "omega_boss_zombie.png",
+        "rewardOnly": False, "marketHidden": True,
+    },
+    {
+        "key": "ZombieActorRegularMegaBoss", "name": "Mega Boss Zombie",
+        "cost": 12, "growMs": 86_400_000, "category": "special", "level": 43, "xp": 2,
+        "brainsNeeded": True, "group": "Regular",
+        "className": "Special", "classColor": "#c077ff",
+        "str": 22, "dex": 2.1, "con": 46, "focus": 100.0,
+        "mutation": 0, "tier": 5, "specialSprite": "mega_boss_zombie.png",
+        "rewardOnly": False, "marketHidden": True,
+    },
+    {
+        "key": "ZombieActorRegularSecretBoss", "name": "Secret Boss Zombie",
+        "cost": 12, "growMs": 86_400_000, "category": "special", "level": 43, "xp": 2,
+        "brainsNeeded": True, "group": "Regular",
+        "className": "Special", "classColor": "#c077ff",
+        "str": 25, "dex": 4.2, "con": 31, "focus": 100.0,
+        "mutation": 0, "tier": 5, "specialSprite": "secret_boss_zombie.png",
+        "rewardOnly": False, "marketHidden": True,
+    },
     # The Aliens' promoted invasion prize: a derived recolour of the Zastronaut
     # (tools/prep_assets.py DERIVED_SPECIAL_ZOMBIES), so it has no source row. Priced
     # and levelled like the other promoted prizes (Sheriff: twice the base zombie).

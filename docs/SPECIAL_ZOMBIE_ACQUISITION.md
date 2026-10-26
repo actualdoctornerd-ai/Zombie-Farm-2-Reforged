@@ -117,16 +117,32 @@ The original table, kept for reference:
 Each voucher is limited to one owned copy of its exact result. The 2012 gift uses
 the distinct pink Cupid actor, not the ordinary Cupid actor.
 
-## Black Market (32)
+### The Boss Zombie's colour variants
 
-The only route for the 32 `marketHidden` specials — ZomBetty, ZomBloke, George Washington,
+A Boss Zombie hit pays one of four colours (`pickRaidZombie`, weights 4 : 1 : 1 : 1): the purple
+Boss Zombie 4 times in 7, and the **Omega** (red), **Mega** (blue) and **Secret** (silver) Boss
+Zombies once in 7 each, about 0.64% of a ticket win apiece. All three are palette swaps of the
+same frames (`DERIVED_FLIPBOOK_ZOMBIES`, packed after the Obsidian tier), priced and gated like
+the Boss Zombie, share its forty-win floor, and are sidegrades of the Vagabond with an ability
+pair of their own in place of the two lasers (`SPECIAL_ABILITIES`, ruleset 82):
+
+| Variant | str / dex / con | Slot 3 | Slot 4 |
+|---|---|---|---|
+| Omega (red) | 55 / 2.1 / 25 | Rage: under half Life, +25% damage and speed | Berserk: +20% damage; swinging costs 5% of its Life a second |
+| Mega (blue) | 22 / 2.1 / 46 | Shield Bar: 2% of its Life a second on the field, up to its full Life | Support: takes 10% of every blow aimed at the front zombie |
+| Secret (silver) | 25 / 4.2 / 31 | Teleport: appears at its place in the line on deploy, past walls | Phase: once, the killing blow leaves it on 1 Life, untouchable for 3 s |
+
+## Black Market (35)
+
+The only route for the 35 `marketHidden` specials — ZomBetty, ZomBloke, George Washington,
 John Hancock, Mummy Zombie, ZomHelga, Zombeach Bum, Zula Girl, Skittles, Zwamp Thing,
 Zcarecrow, Zanta Clause, Diver, JackoZombie, Reindeer, Teddy, Forest, Medusa, Old McZombie,
-Zastronaut, Cozmonaut, Zombozo, Video Game Zombie, Boss Zombie, Deputy, Master Ninjombie, MerZombie, Ninjombie, Omega Zombie
+Zastronaut, Cozmonaut, Zombozo, Video Game Zombie, Boss Zombie, Omega Boss Zombie, Mega Boss
+Zombie, Secret Boss Zombie, Deputy, Master Ninjombie, MerZombie, Ninjombie, Omega Zombie
 Bot, Poseidon, Sheriff, and Zombie Bot. Another player escrows the zombie as a `SELL_ZOMBIE` order, or fills
 a `BUY_ZOMBIE` request.
 
-**Seventeen of those 32 also drop from invasions** and are therefore reachable solo: Old McZombie
+**Twenty of those 35 also drop from invasions** and are therefore reachable solo: Old McZombie
 (Old McDonnell's), Diver (Summer Break), Forest (Tree World) and Teddy (Valentine's Day) at 1%
 each; Deputy / MerZombie / Ninjombie / Zombie Bot from an ordinary win of the Lawyers / Pirates /
 Ninjas / Robots (1.2 / 1.4 / 1.6 / 1.8%), with Sheriff / Poseidon / Master Ninjombie / Omega
@@ -137,7 +153,7 @@ the Circus clown's enemy art (`CUT_SPECIAL_ZOMBIES` in `tools/prep_assets.py`) �
 (1%, a single prize like the seasonals); and the Video Game Zombie — the Video Games' own pixel zombie
 as a flipbook rig — from the Video Games at the ladder's 2% top, with the **Boss Zombie** — its
 palette swap, purple and gold (`DERIVED_FLIPBOOK_ZOMBIES` in `tools/prep_assets.py`) — on an
-elite win at the 4.5% cap. An elite win draws the pair **independently**, the promoted zombie at the
+elite win at the 4.5% cap, three hits in seven of which pay one of its colour variants instead. An elite win draws the pair **independently**, the promoted zombie at the
 rate above and the ordinary one at 4x its rung (Deputy 4.8% … Zastronaut 8.0%), so a ticket is the
 best way to farm *either* half and the promoted one is still the rarer of the two. See `src/raid/zombieDrops.ts` and the rare-zombie section of
 `docs/mechanics/RAID_TIMING_AND_HAZARDS.md`. A hidden per-prize pity makes that route bounded:

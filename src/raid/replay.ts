@@ -1273,7 +1273,13 @@ import type { RaidOutcome } from "./types";
 // doubled (~4x damage a second) and the boss's action clock at double speed; only running THAT
 // out is the out-of-time loss. Every Halloween fight that
 // reached its clock replays differently from v80.
-export const RAID_RULESET_VERSION = 81;
+// v82 — THE BOSS ZOMBIE'S COLOUR VARIANTS (owner, 2026-10-25). Six new abilities, all in
+// BattleSim: Rage (+25% damage and speed under half Life), Berserk (+20% damage, 5% of own
+// Life a second of swinging), Shield Bar (2% Life a second, soaked before Life), Support (10% of every blow
+// on the front zombie), Phase (once, 1 Life and 3 s untouchable) and Teleport (skip the walk
+// in). No existing zombie carries one, so only fights fielding an Omega, Mega or Secret Boss
+// Zombie change, but a v81 Worker would replay those without them.
+export const RAID_RULESET_VERSION = 82;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

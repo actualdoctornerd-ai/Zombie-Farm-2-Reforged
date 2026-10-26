@@ -3,9 +3,12 @@ export interface RaidZombieDrop {
   key: string;
   name: string;
   rate: number;
-  /** Other zombies the same hit may hand over instead, picked evenly (Halloween pays a
-   *  JackoZombie or a Zcarecrow). They share the prize's rate, streak and pity floor. */
-  alternates?: readonly { key: string; name: string }[];
+  /** Other zombies the same hit may hand over instead (Halloween pays a JackoZombie or a
+   *  Zcarecrow). They share the prize's rate, streak and pity floor. Picked by `weight`,
+   *  evenly when none is given (see pickRaidZombie). */
+  alternates?: readonly { key: string; name: string; weight?: number }[];
+  /** The prize's own share of a hit against its alternates' `weight`s. Default 1. */
+  weight?: number;
   /** A ceiling on this prize's per-win chance, whatever dice, tickets and night luck stack
    *  on it (Halloween's night chain would otherwise make its prizes certain). */
   maxRate?: number;
@@ -127,6 +130,13 @@ export const VIDEO_GAME_ZOMBIE_KEY = "ZombieActorRegularVideoGame";
  *  final boss is the same sprite in a stronger colour — a derived flipbook
  *  (tools/prep_assets.py DERIVED_FLIPBOOK_ZOMBIES). */
 export const FINAL_BOSS_ZOMBIE_KEY = "ZombieActorRegularFinalBoss";
+/** The Boss Zombie's three uncommon colour variants (owner, 2026-10-25): a Boss Zombie hit
+ *  pays the purple one 4 times in 7 and each colour once in 7, i.e. each colour at a quarter
+ *  of the purple's rate. Same palette-swap art, an ability pair of their own (traits.ts). */
+export const OMEGA_BOSS_ZOMBIE_KEY = "ZombieActorRegularOmegaBoss";
+export const MEGA_BOSS_ZOMBIE_KEY = "ZombieActorRegularMegaBoss";
+export const SECRET_BOSS_ZOMBIE_KEY = "ZombieActorRegularSecretBoss";
+export const BOSS_ZOMBIE_WEIGHT = 4;
 
 /** Each story invasion's ordinary-prize rate: its rung of the ladder above. The Video
  *  Games invasion (recommended level 43) sits past the Aliens at the ladder's top and
@@ -199,7 +209,15 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   [NINJAS_RAID_ID]: { key: MASTER_NINJOMBIE_KEY, name: "Master Ninjombie", rate: elitePrizeRate(NINJAS_RAID_ID) },
   [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
   [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Cozmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
-  [VIDEO_GAMES_RAID_ID]: { key: FINAL_BOSS_ZOMBIE_KEY, name: "Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID) },
+  [VIDEO_GAMES_RAID_ID]: {
+    key: FINAL_BOSS_ZOMBIE_KEY, name: "Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID),
+    weight: BOSS_ZOMBIE_WEIGHT,
+    alternates: [
+      { key: OMEGA_BOSS_ZOMBIE_KEY, name: "Omega Boss Zombie", weight: 1 },
+      { key: MEGA_BOSS_ZOMBIE_KEY, name: "Mega Boss Zombie", weight: 1 },
+      { key: SECRET_BOSS_ZOMBIE_KEY, name: "Secret Boss Zombie", weight: 1 },
+    ],
+  },
   [HALLOWEEN_RAID_ID]: {
     key: MUMMY_ZOMBIE_KEY, name: MUMMY_ZOMBIE_NAME,
     rate: HALLOWEEN_ZOMBIE_DROP_RATE * ELITE_LUCK_FOR_PRIZES, maxRate: HALLOWEEN_MUMMY_MAX_RATE,
@@ -229,11 +247,24 @@ export const RAID_ZOMBIE_SOURCES: readonly RaidZombieSource[] = [
 ];
 
 /** The zombie a hit on `drop` hands over: the prize itself, or one of its alternates,
- *  picked evenly by `pick` (a draw in [0, 1)). A prize without alternates is itself. */
+ *  picked by `pick` (a draw in [0, 1)) in proportion to their weights (1 each by default,
+ *  which is the even pick Halloween's pair always had). A prize without alternates is
+ *  itself. */
 export function pickRaidZombie(drop: RaidZombieDrop, pick: number): RaidZombieDrop {
-  const options = [{ key: drop.key, name: drop.name }, ...(drop.alternates ?? [])];
-  const index = Number.isFinite(pick) ? Math.min(options.length - 1, Math.max(0, Math.floor(pick * options.length))) : 0;
-  return { ...options[index], rate: drop.rate };
+  const options = [{ key: drop.key, name: drop.name, weight: drop.weight }, ...(drop.alternates ?? [])];
+  const weights = options.map((o) => Math.max(0, o.weight ?? 1));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let index = 0;
+  if (Number.isFinite(pick) && total > 0) {
+    const at = Math.max(0, pick) * total;
+    let cum = 0;
+    index = options.length - 1;
+    for (let i = 0; i < options.length; i++) {
+      cum += weights[i];
+      if (at < cum) { index = i; break; }
+    }
+  }
+  return { key: options[index].key, name: options[index].name, rate: drop.rate };
 }
 
 /** The pity-streak key for the prize `elite` names. A raid whose elite fight adds a promoted

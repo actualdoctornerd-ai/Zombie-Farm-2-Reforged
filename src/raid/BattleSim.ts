@@ -295,6 +295,24 @@ const HEAL_AOE_MS = 20_000;
 export const UNWRAP_HP_FRAC = 0.5;
 /** Last Laugh (JackoZombie): what every zombie heals when it falls, as a share of max Life. */
 export const LAST_LAUGH_HEAL_FRAC = 0.2;
+// The Boss Zombie's colour variants (owner, 2026-10-25). See SPECIAL_ABILITIES in traits.ts.
+/** Rage (Omega): below this share of its Life it hits harder and swings faster. */
+export const RAGE_HP_FRAC = 0.5;
+export const RAGE_DAMAGE_MULT = 1.25;
+export const RAGE_SPEED_MULT = 1.25;
+/** Berserk (Omega): what it deals extra, and what swinging costs its own Life, as a share of
+ *  max Life per second of its base attack cycle. Charged on each swing, but sized by the
+ *  cycle, so a dex-mutated veteran (a ~0.3 s swing at level 45) bleeds at the same RATE as
+ *  a fresh one instead of three times as fast. */
+export const BERSERK_DAMAGE_MULT = 1.2;
+export const BERSERK_SELF_DRAIN_PER_SEC = 0.05;
+/** Shield Bar (Mega): shield gained per second on the field, as a share of max Life; it
+ *  never holds more than the zombie's full Life. */
+export const SHIELD_REGEN_FRAC_PER_SEC = 0.02;
+/** Support (Mega): the share of a blow aimed at the front zombie each holder takes instead. */
+export const SUPPORT_SHARE = 0.1;
+/** Phase (Secret): how long it cannot be hurt after the killing blow that left it at 1. */
+export const PHASE_INVULN_MS = 3000;
 
 // Ballistic throws.
 const GRAVITY = 820; // sim px/s^2 pulling projectiles down
@@ -641,6 +659,12 @@ export interface SimUnit {
   unwrapUsed: boolean; // Unwrapped spent: the next killing blow is final
   unwrapFxSeq: number; // increments when this unit gets back up from Unwrapped (renderer trigger)
   lastLaughFxSeq: number; // increments when this unit's Last Laugh goes off (renderer trigger)
+  shield: number; // Shield Bar: damage it soaks before Life (never above maxHp; healers ignore it)
+  phaseUsed: boolean; // Phase spent: the next killing blow is final
+  phaseMs: number; // Phase: ms left of the untouchable window
+  phaseFxSeq: number; // increments when Phase saves this unit (renderer trigger)
+  teleportPending: boolean; // Teleport: jump to its line slot on its next walking tick
+  teleportFxSeq: number; // increments when this unit teleports (renderer trigger)
   stunMs: number; // ms of stun left — can't act while > 0 (enemies AND zombies)
   /** Live knockback slide (`ActorFightData knockBackPoint` / `knockBackSpeed`). While
    *  `knockBackMs > 0` the zombie is being shoved and is NOT in melee — it can't attack,
@@ -1068,6 +1092,12 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     unwrapUsed: false,
     unwrapFxSeq: 0,
     lastLaughFxSeq: 0,
+    shield: 0,
+    phaseUsed: false,
+    phaseMs: 0,
+    phaseFxSeq: 0,
+    teleportPending: false,
+    teleportFxSeq: 0,
     stunMs: 0,
     knockBackToX: 0,
     knockBackSpeed: 0,
@@ -1521,6 +1551,12 @@ export class BattleSim {
       unwrapUsed: u.unwrapUsed ?? false,
       unwrapFxSeq: u.unwrapFxSeq ?? 0,
       lastLaughFxSeq: u.lastLaughFxSeq ?? 0,
+      shield: u.shield ?? 0,
+      phaseUsed: u.phaseUsed ?? false,
+      phaseMs: u.phaseMs ?? 0,
+      phaseFxSeq: u.phaseFxSeq ?? 0,
+      teleportPending: u.teleportPending ?? false,
+      teleportFxSeq: u.teleportFxSeq ?? 0,
       power: u.power ?? u.damage,
       // An old checkpoint parked at the 1-HP floor has necessarily consumed
       // its protection. New checkpoints persist the explicit latch.
@@ -3229,7 +3265,8 @@ export class BattleSim {
     if (u.laserTimerMs > 0) return;
     const foe = this.targetEnemy(u);
     if (foe) {
-      const dmg = laserHitDamage(u.power);
+      const mult = this.outgoingMult(u);
+      const dmg = mult === 1 ? laserHitDamage(u.power) : Math.max(1, Math.round(laserHitDamage(u.power) * mult));
       this.dealDamage(foe, dmg, true);
       u.laserTargetId = foe.id;
       u.laserFxSeq++;
@@ -3304,7 +3341,10 @@ export class BattleSim {
    *  Everything that re-arms an attack timer goes through here. */
   private cycleMs(u: SimUnit, foe: SimUnit | null): number {
     // Slowed (raid 12): the ruling stretches every zombie's attack interval.
-    if (u.team === "player") return u.cooldownMs * lineupSpeedBand(u.lineupIndex) * this.rulingFx.slow;
+    if (u.team === "player") {
+      const cycle = u.cooldownMs * lineupSpeedBand(u.lineupIndex) * this.rulingFx.slow;
+      return this.raging(u) ? cycle / RAGE_SPEED_MULT : cycle;
+    }
     // Do or Die: every enemy at twice its dex, which is half its cycle.
     const haste = this.doOrDie ? DO_OR_DIE_HASTE : 1;
     if (u.mirrorsOpponentSpeed && foe && foe.team === "player") {
@@ -3324,7 +3364,7 @@ export class BattleSim {
     // enemies always hit at band 1.0. See combatStats.lineupDamageBand (ground truth).
     const dmg =
       u.team === "player"
-        ? Math.max(1, Math.round(u.damage * lineupDamageBand(u.lineupIndex)))
+        ? Math.max(1, Math.round(u.damage * lineupDamageBand(u.lineupIndex) * this.outgoingMult(u)))
         // A circus stack hits for as many midgets as are still standing on each other's
         // shoulders. Multiplied here rather than baked into `damage`, because the height
         // changes every time the tower takes a pool's worth and the swing has to follow it
@@ -3348,7 +3388,7 @@ export class BattleSim {
       if (u.abilities.includes("doubleStrike") && this.abilityRoll(u) > 70 && foe.alive) {
         const bonus = Math.max(
           1,
-          Math.round(u.power * 0.25 * lineupDamageBand(u.lineupIndex))
+          Math.round(u.power * 0.25 * lineupDamageBand(u.lineupIndex) * this.outgoingMult(u))
         );
         this.dealDamage(foe, bonus, true);
         this.playerDamage += bonus;
@@ -3357,6 +3397,9 @@ export class BattleSim {
       if (u.abilities.includes("stun") && this.abilityRoll(u) > 95 && foe.alive) {
         this.stunEnemy(foe, 1000, "stun", u);
       }
+      // Berserk: the swing costs its own Life. Straight through dealDamage, so nothing
+      // softens it (not Protect, not Block, not the one-shot floor) and it can kill.
+      if (u.abilities.includes("berserk")) this.dealDamage(u, this.berserkCost(u), false);
     }
     u.struckThisTick = true;
     this.attacksLanded++;
@@ -3469,7 +3512,43 @@ export class BattleSim {
     return true;
   }
 
+  /** Rage: true while a holder is under RAGE_HP_FRAC of its Life (Life only; a shield is
+   *  not Life). */
+  private raging(u: SimUnit): boolean {
+    return u.hp < u.maxHp * RAGE_HP_FRAC && u.abilities.includes("rage");
+  }
+
+  /** What one Berserk swing costs its swinger (see BERSERK_SELF_DRAIN_PER_SEC). */
+  private berserkCost(u: SimUnit): number {
+    return Math.max(1, Math.round(u.maxHp * BERSERK_SELF_DRAIN_PER_SEC * u.cooldownMs / 1000));
+  }
+
+  /** What this zombie's own damage is multiplied by: Berserk always, Rage while raging. */
+  private outgoingMult(u: SimUnit): number {
+    let mult = 1;
+    if (u.abilities.includes("berserk")) mult *= BERSERK_DAMAGE_MULT;
+    if (this.raging(u)) mult *= RAGE_DAMAGE_MULT;
+    return mult;
+  }
+
+  /** Shield Bar soaks a blow before Life; returns what is left of it. The soaked part is
+   *  still published as damage taken, so the numbers read the whole hit. Healers never see
+   *  the shield (they pick by Life), so a shielded zombie at full Life reads as full. */
+  private absorbShield(foe: SimUnit, dmg: number): number {
+    if (foe.shield <= 0 || dmg <= 0) return dmg;
+    const soak = Math.min(foe.shield, dmg);
+    foe.shield -= soak;
+    foe.damageFxTaken += soak;
+    return dmg - soak;
+  }
+
   private dealDamage(foe: SimUnit, dmg: number, fromPlayer: boolean) {
+    if (foe.team === "player" && !fromPlayer && dmg > 0) {
+      // Phase: nothing lands on it while the window is open.
+      if (foe.phaseMs > 0) return;
+      dmg = this.absorbShield(foe, dmg);
+      if (dmg <= 0) return;
+    }
     // A staggered captain takes more (raid 13): the payoff for breaking his charge.
     if (fromPlayer && foe.staggerMs > 0 && dmg > 0) dmg = Math.round(dmg * STAGGER_DAMAGE_MULT);
     // The ninja's retreat (raid 13, t9+): on the ground he cannot be taken below his retreat
@@ -3495,6 +3574,16 @@ export class BattleSim {
     if (dmg > 0) foe.damageFxTaken += dmg;
     foe.hp -= dmg;
     if (foe.hp > 0) return;
+    // PHASE (the Secret Boss Zombie): the first killing blow leaves it on 1 Life and out of
+    // reach for PHASE_INVULN_MS, long enough for a healer to find it. Same choke point as
+    // Unwrapped, and spent for good the same way.
+    if (foe.team === "player" && !foe.phaseUsed && foe.abilities.includes("phase")) {
+      foe.phaseUsed = true;
+      foe.hp = 1;
+      foe.phaseMs = PHASE_INVULN_MS;
+      foe.phaseFxSeq++;
+      return;
+    }
     // UNWRAPPED (the Mummy Zombie): the first killing blow of the fight leaves it standing
     // at half Life instead. Here, at the one choke point every death passes through, so no
     // damage path can skip it. Spent for good: Resurrect does not hand it back.
@@ -3562,6 +3651,7 @@ export class BattleSim {
     defeated.alive = true;
     defeated.hp = defeated.maxHp;
     defeated.state = "advance";
+    defeated.teleportPending = defeated.abilities.includes("teleport");
     defeated.x = CHARGE_X;
     defeated.y = CENTER_Y;
     defeated.prevX = defeated.x;
@@ -3622,7 +3712,20 @@ export class BattleSim {
   }
 
   /** Apply an ordinary enemy hit through the recovered player-zombie one-shot floor. */
-  private dealEnemyDamage(foe: SimUnit, dmg: number) {
+  private dealEnemyDamage(foe: SimUnit, dmg: number, shared = false) {
+    if (foe.team === "player" && foe.phaseMs > 0) return;
+    // Support (the Mega Boss Zombie): every holder on the field takes SUPPORT_SHARE of a blow
+    // aimed at the front zombie, through its own mitigation. Split before the raid's damage
+    // multipliers, which each share then picks up on its own way through.
+    if (!shared && foe.team === "player" && !foe.isGarden && foe.lineupIndex === 0 && dmg > 0) {
+      for (const p of this.players) {
+        if (p === foe || !p.alive || p.taken || !p.abilities.includes("support")) continue;
+        if (p.state !== "advance" && p.state !== "fight") continue;
+        const share = dmg * SUPPORT_SHARE;
+        dmg -= share;
+        this.dealEnemyDamage(p, share, true);
+      }
+    }
     // Emboldened (raid 12): everything the enemy lands on a zombie lands harder.
     if (foe.team === "player" && this.rulingFx.embolden !== 1) dmg *= this.rulingFx.embolden;
     // Do or Die: every blow on a zombie lands at DO_OR_DIE_DAMAGE — swings, throws, the
@@ -3635,7 +3738,9 @@ export class BattleSim {
     const reduction = foe.team === "player"
       ? Math.min(1, (foe.damageReduction ?? 0) + blockReduction)
       : 0;
-    const applied = applyDamage(dmg, 0, reduction);
+    const applied = foe.team === "player"
+      ? this.absorbShield(foe, applyDamage(dmg, 0, reduction))
+      : applyDamage(dmg, 0, reduction);
     if (
       applied > 0 &&
       foe.team === "player" &&
@@ -3750,6 +3855,7 @@ export class BattleSim {
   /** Release a fully-charged zombie to advance to the front line. */
   private releaseCharger(p: SimUnit) {
     p.state = "advance";
+    p.teleportPending = p.abilities.includes("teleport");
     p.formOrder = this.releaseSeq++; // claim a formation slot on release
     p.distracted = false;
     p.awaitRelease = false;
@@ -4507,6 +4613,10 @@ export class BattleSim {
       this.stepBurn(p, dtMs);
       if (!p.alive) continue; // the burn can be the killing blow
       if (p.blockMs > 0) p.blockMs = Math.max(0, p.blockMs - dtMs);
+      if (p.phaseMs > 0) p.phaseMs = Math.max(0, p.phaseMs - dtMs);
+      if (p.abilities.includes("shieldBar") && (p.state === "advance" || p.state === "fight")) {
+        p.shield = Math.min(p.maxHp, p.shield + (p.maxHp * SHIELD_REGEN_FRAC_PER_SEC * dtMs) / 1000);
+      }
       if (p.state === "grabbed") continue; // seized by the trapeze — position driven by stepGrabbers
       if (p.abilityCdMs > 0) p.abilityCdMs -= dtMs; // activated-move recharge
       switch (p.state) {
@@ -4598,6 +4708,19 @@ export class BattleSim {
           // real party: it halted 72 units behind its own front rank and stunned a knight
           // 162 units away that it had never reached. The stun looked like it fired at
           // random from across the field, because effectively it did.
+          // Teleport (the Secret Boss Zombie): the walk in is skipped. It appears at its place
+          // in the line, past any wall on the way. Deploying is otherwise ordinary: it waited
+          // its turn and charged like everyone else. A Mini Buddy carrier rams instead.
+          if (p.teleportPending) {
+            p.teleportPending = false;
+            if (!p.buddyId) {
+              p.x = p.slotX;
+              p.y = p.slotY;
+              p.prevX = p.x;
+              p.prevY = p.y;
+              p.teleportFxSeq++;
+            }
+          }
           const blockingWall = this.wallInWay(p);
           const ramTarget = p.buddyId ? this.ramTargetFor(p) : null;
           const slotX = ramTarget ? ramTarget.x - this.engageDistance : p.slotX;

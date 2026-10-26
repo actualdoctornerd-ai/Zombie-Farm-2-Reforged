@@ -252,6 +252,8 @@ const PILLAR_DESIGN_W = 100;
 const PILLAR_OPEN_S = 0.2;
 const PILLAR_CLOSE_S = 1.3;
 const PILLAR_TOTAL_S = PILLAR_OPEN_S + PILLAR_CLOSE_S;
+/** Shield Bar's strip over the Life bar (Mega Boss Zombie). */
+const SHIELD_COLOR = 0x4fb4ff;
 const PLAYER_COLOR = 0x8bc34a;
 const ENEMY_COLOR = 0xef5350;
 const BOSS_COLOR = 0xffc107;
@@ -725,6 +727,8 @@ interface Token {
   explodeFxSeq: number; // last self-destruct blast rendered for this unit
   unwrapFxSeq: number; // last Unwrapped get-up rendered for this unit (the Mummy)
   lastLaughFxSeq: number; // last Last Laugh burst rendered for this unit (JackoZombie)
+  phaseFxSeq: number; // last Phase save rendered (Secret Boss Zombie)
+  teleportFxSeq: number; // last Teleport arrival rendered (Secret Boss Zombie)
   fuseT: number; // seconds accumulated toward the next Explode wind-up spark
   stunT: number; // seconds accumulated toward the next stun star
 }
@@ -1845,7 +1849,7 @@ export class RaidScene {
       hitFlash: 0, chargeSwell: 0, deathAnim: -1, emerged: false, hpKey: -1, chargeKey: -1,
       smashSlam: -1, wasSmashWindup: 0, actorBaseScale, actorBaseY,
       healFxSeq: 0, healCastSeq: 0, healPose: 0, laserFxSeq: 0,
-      explodeFxSeq: 0, unwrapFxSeq: 0, lastLaughFxSeq: 0, fuseT: 0, stunT: STUN_PRIMED,
+      explodeFxSeq: 0, unwrapFxSeq: 0, lastLaughFxSeq: 0, phaseFxSeq: 0, teleportFxSeq: 0, fuseT: 0, stunT: STUN_PRIMED,
     };
   }
 
@@ -2582,7 +2586,8 @@ export class RaidScene {
         // to a 0.5 floor at 0 HP — a clear "keep hitting it" cue.
         const wallShrink = u.isWall ? 0.5 + 0.5 * Math.max(0, u.hp / u.maxHp) : 1;
         tok.root.scale.set(szs * wallShrink);
-        tok.root.alpha = 1;
+        // Phase: a flickering ghost for as long as nothing can touch it.
+        tok.root.alpha = u.phaseMs > 0 ? 0.35 + 0.25 * Math.abs(Math.sin(u.phaseMs / 70)) : 1;
       } else {
         // On death: puff a dust cloud once, then fade + settle out over DEATH_FADE
         // (was a lingering 18%-alpha ghost).
@@ -2627,6 +2632,16 @@ export class RaidScene {
       }
       // Treat (key `lastLaugh`): the pumpkin head bursts open; the army's heal sparkles come
       // from their own healFxSeq bumps on the same tick.
+      if (u.phaseFxSeq > tok.phaseFxSeq) {
+        tok.phaseFxSeq = u.phaseFxSeq;
+        this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, 0xd8dcff);
+        this.spawnCallout(u, "Phase!", 0xc9d2ff);
+      }
+      // Teleport: a pop where it lands, at its place in the line.
+      if (u.teleportFxSeq > tok.teleportFxSeq) {
+        tok.teleportFxSeq = u.teleportFxSeq;
+        this.spawnPoof(sx, sy + tok.topY * 0.5 * szs, 0xb48cff);
+      }
       if (u.lastLaughFxSeq > tok.lastLaughFxSeq) {
         tok.lastLaughFxSeq = u.lastLaughFxSeq;
         this.spawnPoof(sx, sy + tok.topY * 0.6 * szs, 0xff9a2e);
@@ -2961,8 +2976,12 @@ export class RaidScene {
       // only when the drawn width changes (HP moves on 20 Hz sim ticks, not per
       // render frame), because clear()+redraw re-uploads geometry to the GPU.
       const frac = Math.max(0, u.hp / u.maxHp);
-      const hpShown = u.alive && u.state !== "carried" && (u.team === "enemy" || frac < 1);
-      const hpKey = hpShown ? Math.round(frac * 400) : -1;
+      // Shield Bar: a blue strip over the top of the Life bar, its own quantity. It brings
+      // an owned zombie's bar up even at full Life, since there is something to read.
+      const shieldFrac = Math.min(1, Math.max(0, (u.shield ?? 0) / u.maxHp));
+      const hpShown = u.alive && u.state !== "carried" &&
+        (u.team === "enemy" || frac < 1 || shieldFrac > 0);
+      const hpKey = hpShown ? Math.round(frac * 400) + 401 * Math.round(shieldFrac * 100) : -1;
       if (hpKey !== tok.hpKey) {
         tok.hpKey = hpKey;
         tok.hp.clear();
@@ -2979,6 +2998,7 @@ export class RaidScene {
           tok.hp
             .rect(-halfW, 0, w, 5).fill({ color: 0x000000, alpha: 0.55 })
             .rect(-halfW, 0, w * frac, 5).fill(fill);
+          if (shieldFrac > 0) tok.hp.rect(-halfW, 0, w * shieldFrac, 2.5).fill(SHIELD_COLOR);
         }
       }
 

@@ -127,6 +127,14 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   // ---- Prize-only (no group ladder holds these; see SPECIAL_ABILITIES) ----
   unwrapped: { label: "Unwrapped", effect: "The first time it falls, it gets back up at 50% Life; once per fight", desc: "Too stubborn to stay down", icon: `${AB}ability_ressurect.png` },
   lastLaugh: { label: "Treat", effect: "When it falls, every zombie heals 20% of its Life", desc: "Goes out with a treat for everyone", icon: `${AB}ability_healAOE.png` },
+  // The Boss Zombie's three colour variants (owner, 2026-10-25): each trades both lasers
+  // for a pair of its own, so the four Video Games elites play four different ways.
+  rage: { label: "Rage", effect: "Below 50% Life: +25% Damage and +25% Speed", desc: "Gets angrier the more it is hurt", icon: `${AB}ability_powerBuff.png` },
+  berserk: { label: "Berserk", effect: "+20% Damage; swinging costs it 5% of its own Life a second", desc: "Hits hard, hurts itself doing it", icon: `${AB}ability_bash.png` },
+  shieldBar: { label: "Shield Bar", effect: "Gains a shield of 2% of its Life every second on the field, up to its full Life", desc: "A blue bar that soaks hits before its Life does", icon: `${AB}ability_protect.png` },
+  support: { label: "Support", effect: "Takes 10% of every blow aimed at the front zombie", desc: "Shoulders some of the front line's punishment", icon: `${AB}ability_tankHitPointsBuff.png` },
+  phase: { label: "Phase", effect: "The first time it would fall, it drops to 1 Life and can't be hurt for 3 seconds; once per fight", desc: "Blinks out of the killing blow", icon: `${AB}ability_ressurect.png` },
+  teleport: { label: "Teleport", effect: "Appears at its place in the line the moment it deploys, past any wall", desc: "Skips the walk", icon: `${AB}ability_turboSpeed.png` },
 };
 
 // ---------------------------------------------------------------------------
@@ -154,8 +162,8 @@ export const MAX_ABILITY_TIER = 4;
 export const ABILITY_TIER: Record<number, string[]> = {
   1: ["buffAllStats", "attackSpeedBuff", "powerBuff", "hitPointsBuff", "heal"],
   2: ["chivalry", "grace", "attachMini", "protect", "tankHitPointsBuff"],
-  3: ["laserBeam", "stun", "explode", "bash", "turboSpeed", "ressurect", "unwrapped"],
-  4: ["zomBeam", "doubleStrike", "explodeV2", "bashV2", "block", "healAOE", "lastLaugh"],
+  3: ["laserBeam", "stun", "explode", "bash", "turboSpeed", "ressurect", "unwrapped", "rage", "shieldBar", "teleport"],
+  4: ["zomBeam", "doubleStrike", "explodeV2", "bashV2", "block", "healAOE", "lastLaugh", "berserk", "support", "phase"],
 };
 
 /** The tier an ability belongs to (0 if it isn't assigned to any tier). */
@@ -271,6 +279,19 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorRegular2Tier5:  ["buffAllStats",   "chivalry",          "explodeV2",  "lastLaugh"],
   ZombieActorLarge2Tier5:    ["powerBuff",      "attachMini",        "block",      "bashV2"],
   ZombieActorMummy:          ["buffAllStats",   "chivalry",          "unwrapped",  "stun"],
+  // ---- The Boss Zombie's colour variants (owner, 2026-10-25) ------------------------
+  // Each is an uncommon roll of the Boss Zombie's own drop (zombieDrops.ts) and a
+  // sidegrade of the Vagabond, so each keeps the stock t1-t2 and swaps BOTH lasers:
+  //   - Omega (red) is a glass cannon: Rage below half Life, and Berserk, whose swings
+  //     cost it its own Life — which is what drives it into Rage. Without a healer it
+  //     kills itself.
+  //   - Mega (blue) is a tank in a Regular body: a Shield Bar that refills on the field
+  //     and Support, which takes a tenth of every blow aimed at the front zombie.
+  //   - Secret (silver) is fast and slippery: Teleport skips the walk in (and the walls on
+  //     it), and Phase cheats one death.
+  ZombieActorRegularOmegaBoss:  ["buffAllStats", "chivalry",          "rage",       "berserk"],
+  ZombieActorRegularMegaBoss:   ["buffAllStats", "chivalry",          "shieldBar",  "support"],
+  ZombieActorRegularSecretBoss: ["buffAllStats", "chivalry",          "teleport",   "phase"],
 };
 
 /** The ability a specific unit has at `tier`: a named-unique override if any,

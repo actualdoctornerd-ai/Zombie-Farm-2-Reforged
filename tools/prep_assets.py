@@ -882,6 +882,36 @@ DERIVED_FLIPBOOK_ZOMBIES = [
             (99, 63, 0): (52, 42, 72),         # brown trousers -> charcoal
         },
     },
+    # The Boss Zombie's three uncommon colour variants (owner, 2026-10-25): each is a roll of
+    # the Boss Zombie's own drop (src/raid/zombieDrops.ts) with an ability pair of its own.
+    # `late`: packed after the Obsidian tier so no existing atlas frame moves.
+    {
+        "stem": "omega_boss_zombie", "key": "ZombieActorRegularOmegaBoss",
+        "base": "video_game_zombie", "late": True,
+        "palette": {
+            (0, 192, 0): (206, 34, 40),        # body green -> crimson
+            (254, 223, 150): (255, 226, 80),   # cream eyes / teeth -> hot yellow
+            (99, 63, 0): (58, 18, 22),         # brown trousers -> oxblood
+        },
+    },
+    {
+        "stem": "mega_boss_zombie", "key": "ZombieActorRegularMegaBoss",
+        "base": "video_game_zombie", "late": True,
+        "palette": {
+            (0, 192, 0): (38, 108, 232),       # body green -> cobalt
+            (254, 223, 150): (176, 242, 255),  # cream eyes / teeth -> ice
+            (99, 63, 0): (26, 34, 88),         # brown trousers -> navy
+        },
+    },
+    {
+        "stem": "secret_boss_zombie", "key": "ZombieActorRegularSecretBoss",
+        "base": "video_game_zombie", "late": True,
+        "palette": {
+            (0, 192, 0): (192, 198, 212),      # body green -> silver
+            (254, 223, 150): (238, 40, 58),    # cream eyes / teeth -> red glow
+            (99, 63, 0): (70, 72, 86),         # brown trousers -> gunmetal
+        },
+    },
 ]
 
 
@@ -1415,9 +1445,11 @@ def pack_special_zombies():
     packed = ([(stem, key) for _, stem, key in NAMED_SPECIAL_ZOMBIES] + [VIDEO_GAME_ZOMBIE]
               + [(d["stem"], d["key"]) for d in DERIVED_SPECIAL_ZOMBIES]
               + [(c["stem"], c["key"]) for c in CUT_SPECIAL_ZOMBIES]
-              + [(d["stem"], d["key"]) for d in DERIVED_FLIPBOOK_ZOMBIES]
+              + [(d["stem"], d["key"]) for d in DERIVED_FLIPBOOK_ZOMBIES if not d.get("late")]
               # Packed LAST so no existing atlas frame moves (tools/obsidian_zombies.py).
-              + [(t["stem"], t["key"]) for t in obsidian_zombies.TIER])
+              + [(t["stem"], t["key"]) for t in obsidian_zombies.TIER]
+              # ...and the Boss Zombie's colour variants after them, for the same reason.
+              + [(d["stem"], d["key"]) for d in DERIVED_FLIPBOOK_ZOMBIES if d.get("late")])
     for stem, catalog_key in packed:
         folder = os.path.join(OUT, "zombie", stem)
         manifest = json.load(open(os.path.join(folder, "manifest.json")))

@@ -44,7 +44,8 @@ import {
   CIRCUS_RAID_ID,
   ELITE_PRIZE_RATE_CAP,
   isRareInvasionZombieName,
-  VIDEO_GAMES_RAID_ID, VIDEO_GAME_ZOMBIE_KEY, FINAL_BOSS_ZOMBIE_KEY, ALIENS_RAID_ID,
+  VIDEO_GAMES_RAID_ID, VIDEO_GAME_ZOMBIE_KEY, FINAL_BOSS_ZOMBIE_KEY,
+  OMEGA_BOSS_ZOMBIE_KEY, MEGA_BOSS_ZOMBIE_KEY, SECRET_BOSS_ZOMBIE_KEY, ALIENS_RAID_ID,
 } from "./zombieDrops";
 import { ELITE_BRAIN_LUCK } from "./eliteInvasion";
 import raidRows from "../../public/assets/raids/raids.json";
@@ -476,7 +477,11 @@ describe("the story invasions' prize pairs", () => {
     expect(byKey.get(JACKO_ZOMBIE_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: false });
     expect(byKey.get(ZCARECROW_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: false });
     expect(byKey.get(MUMMY_ZOMBIE_KEY)).toMatchObject({ raidId: HALLOWEEN_RAID_ID, elite: true });
-    expect(byKey.size).toBe(20);
+    // The Boss Zombie's three colour variants ride its elite prize as weighted alternates.
+    for (const key of [OMEGA_BOSS_ZOMBIE_KEY, MEGA_BOSS_ZOMBIE_KEY, SECRET_BOSS_ZOMBIE_KEY]) {
+      expect(byKey.get(key)).toMatchObject({ raidId: VIDEO_GAMES_RAID_ID, elite: true });
+    }
+    expect(byKey.size).toBe(23);
     // Every source key is a distinct zombie: no prize is reachable from two places.
     expect(new Set(RAID_ZOMBIE_SOURCES.map((s) => s.drop.key)).size).toBe(RAID_ZOMBIE_SOURCES.length);
   });
