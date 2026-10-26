@@ -152,8 +152,8 @@ describe("Halloween nights: the rules", () => {
 
 // The design target, measured in the real simulation (see NIGHT_LAST_DIFFICULTY for the
 // tables): a maxed-but-not-optimised level-45 army (16 bodies, no Concentration) earns the
-// Hour 6 statue easily and still wins Hour 10 near the clock, but Hour 12 is beyond it.
-// Hour 12 is for the best real armies, played well; see the constant's comment.
+// Hour 6 statue easily and still wins Hour 10 near the clock, but not Hours 11-12 inside it:
+// those it only finishes by pushing into Do or Die (ruleset 81). See the constant's comment.
 describe("Halloween nights: the curve, in the sim", () => {
   const fly = (night: number, seed: number) => {
     const roster = buildRoster(markRoster("ceiling", 45));
@@ -164,8 +164,9 @@ describe("Halloween nights: the curve, in the sim", () => {
     return flyFight(buildFight(spec), makePilot(EXPERT), { seed: waveSeed });
   };
 
-  // Measured 2026-10-25: Hour 6 in 63-64 s, Hour 10 in 114 s, Hours 11-12 out of time with
-  // all 16 standing. Pinned loosely enough to survive small wave retunes.
+  // Measured 2026-10-25: Hour 6 in 63-64 s, Hour 10 in 114 s; Hours 11-12 clock out at two
+  // minutes and are won in Do or Die (~133 s / ~155 s). Pinned loosely enough to survive
+  // small wave retunes.
   it("lets a maxed level-45 army through Hour 10, but only near the two-minute clock", () => {
     for (const seed of [0, 1]) {
       const statue = fly(6, seed);

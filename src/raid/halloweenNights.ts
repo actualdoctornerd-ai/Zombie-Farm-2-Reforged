@@ -48,7 +48,12 @@ export const MAX_NIGHT = 12;
  *
  *  The full ladder at 6.85, two-minute clock, real armies (last hour won): level-45 top
  *  accounts 12 (116-119 s), #8 account 11, median 9, bottom quarter 4; level-40 strong 8,
- *  median 5; level-30 median 6 (Hour 7 half the time), strong 5; level-20 2. */
+ *  median 5; level-30 median 6 (Hour 7 half the time), strong 5; level-20 2.
+ *
+ *  All of that was measured BEFORE Do or Die (ruleset 81): the minute of overtime lets an army
+ *  that clocks out push on, at ~4x enemy damage, so these are now the hours won INSIDE the
+ *  clock. Kept on purpose (owner, 2026-10-25): the overtime is a risk-for-reach choice, and it
+ *  is meant to open the late hours to slower, sturdier armies, not to be balanced away. */
 export const NIGHT_LAST_DIFFICULTY = 6.85;
 /** Hit points from hour 2 are this share of the old curve's at the same difficulty: the
  *  clock is two minutes, not three (owner, 2026-10-25). */
