@@ -152,6 +152,8 @@ export interface RaidSceneParams {
   onZombieDeploy?: (sourceKey: string) => void;
   /** Presentation-only callback on the decisive victory tick, before the outro march. */
   onVictory?: () => void;
+  /** Presentation-only callback, once, as the Do or Die overtime starts (ZF2 swaps in enrageBGM). */
+  onDoOrDie?: () => void;
   onFinish: (outcome: RaidOutcome, finalTick: number, inputs: RaidReplayInput[]) => void;
 }
 
@@ -812,6 +814,8 @@ export class RaidScene {
   private onZombieDeploy: ((sourceKey: string) => void) | null;
   private deployBarked = new Set<string>();
   private onVictory: (() => void) | null;
+  private onDoOrDie: (() => void) | null;
+  private doOrDieAnnounced = false;
   private lastCheckpointTick = 0;
   private checkpointing = false;
   private checkpointRetryAt = 0;
@@ -1085,6 +1089,7 @@ export class RaidScene {
     this.onBrainRelease = params.onBrainRelease ?? null;
     this.onZombieDeploy = params.onZombieDeploy ?? null;
     this.onVictory = params.onVictory ?? null;
+    this.onDoOrDie = params.onDoOrDie ?? null;
     this.bossThrow = params.bossThrow;
     this.wallTemplate = params.wallTemplate ?? null;
     this.summon = params.summon ?? null;
@@ -3159,6 +3164,10 @@ export class RaidScene {
     }
     this.doOrDieBanner.visible = bannerAlpha > 0;
     this.doOrDieBanner.alpha = bannerAlpha;
+    if (this.sim.doOrDie && !this.sim.finished && !this.doOrDieAnnounced) {
+      this.doOrDieAnnounced = true;
+      this.onDoOrDie?.();
+    }
     if (this.sim.doOrDie) {
       const on = Math.floor(performance.now() / 300) % 2 === 0;
       this.roundLabel.text = `⏱ ${mmss}`;

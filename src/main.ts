@@ -6015,6 +6015,8 @@ async function main() {
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
+      // ZF2's startEnrage puts up doOrDieSprite and swaps the battle bed for enrageBGM.
+      onDoOrDie: () => audio.enterRaid("enrageBGM.mp3"),
       confirmRetreat: () => setup.night > FIRST_NIGHT
         ? hud.confirmInGame(
           `Retreat from ${nightLabel(setup.night, setup.elite)}?`,
