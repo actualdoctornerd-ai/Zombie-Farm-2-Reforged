@@ -81,17 +81,17 @@ describe("the Boss Zombie's colour variants: catalog and kits", () => {
 describe("the Boss Zombie's drop splits 4 : 1 : 1 : 1", () => {
   const drop = RAID_ELITE_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID];
 
-  it("pays the purple 4/7 of hits and each colour 1/7", () => {
+  it("pays the purple and each colour a quarter of hits", () => {
     const counts = new Map<string, number>();
-    const N = 7000;
+    const N = 8000;
     for (let i = 0; i < N; i++) {
       const key = pickRaidZombie(drop, (i + 0.5) / N).key;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    expect(BOSS_ZOMBIE_WEIGHT).toBe(4);
-    expect(counts.get(FINAL_BOSS_ZOMBIE_KEY)).toBe(4000);
+    expect(BOSS_ZOMBIE_WEIGHT).toBe(1);
+    expect(counts.get(FINAL_BOSS_ZOMBIE_KEY)).toBe(2000);
     for (const key of [OMEGA_BOSS_ZOMBIE_KEY, MEGA_BOSS_ZOMBIE_KEY, SECRET_BOSS_ZOMBIE_KEY]) {
-      expect(counts.get(key), key).toBe(1000);
+      expect(counts.get(key), key).toBe(2000);
     }
   });
 

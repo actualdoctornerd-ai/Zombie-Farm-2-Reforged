@@ -136,7 +136,12 @@ export const FINAL_BOSS_ZOMBIE_KEY = "ZombieActorRegularFinalBoss";
 export const OMEGA_BOSS_ZOMBIE_KEY = "ZombieActorRegularOmegaBoss";
 export const MEGA_BOSS_ZOMBIE_KEY = "ZombieActorRegularMegaBoss";
 export const SECRET_BOSS_ZOMBIE_KEY = "ZombieActorRegularSecretBoss";
-export const BOSS_ZOMBIE_WEIGHT = 4;
+export const BOSS_ZOMBIE_WEIGHT = 1;
+/** Owner, 2026-10-27: players found the colours too hard to get, so the four Boss Zombies are now
+ *  weighted EQUALLY (1.5% each): one 6% roll per elite win, split evenly among them. One roll,
+ *  not four, so a win pays at most one and the pity floor still counts a colour as the Boss Zombie. */
+export const BOSS_VARIANT_WEIGHT = 1;
+export const BOSS_PRIZE_RATE = pct(6);
 
 /** Each story invasion's ordinary-prize rate: its rung of the ladder above. The Video
  *  Games invasion (recommended level 43) sits past the Aliens at the ladder's top and
@@ -210,12 +215,13 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   [ROBOTS_RAID_ID]: { key: OMEGA_ZOMBIE_BOT_KEY, name: "Omega Zombie Bot", rate: elitePrizeRate(ROBOTS_RAID_ID) },
   [ALIENS_RAID_ID]: { key: ZOSMONAUT_KEY, name: "Cozmonaut", rate: elitePrizeRate(ALIENS_RAID_ID) },
   [VIDEO_GAMES_RAID_ID]: {
-    key: FINAL_BOSS_ZOMBIE_KEY, name: "Boss Zombie", rate: elitePrizeRate(VIDEO_GAMES_RAID_ID),
+    key: FINAL_BOSS_ZOMBIE_KEY, name: "Boss Zombie",
+    rate: BOSS_PRIZE_RATE,
     weight: BOSS_ZOMBIE_WEIGHT,
     alternates: [
-      { key: OMEGA_BOSS_ZOMBIE_KEY, name: "Omega Boss Zombie", weight: 1 },
-      { key: MEGA_BOSS_ZOMBIE_KEY, name: "Mega Boss Zombie", weight: 1 },
-      { key: SECRET_BOSS_ZOMBIE_KEY, name: "Secret Boss Zombie", weight: 1 },
+      { key: OMEGA_BOSS_ZOMBIE_KEY, name: "Omega Boss Zombie", weight: BOSS_VARIANT_WEIGHT },
+      { key: MEGA_BOSS_ZOMBIE_KEY, name: "Mega Boss Zombie", weight: BOSS_VARIANT_WEIGHT },
+      { key: SECRET_BOSS_ZOMBIE_KEY, name: "Secret Boss Zombie", weight: BOSS_VARIANT_WEIGHT },
     ],
   },
   [HALLOWEEN_RAID_ID]: {

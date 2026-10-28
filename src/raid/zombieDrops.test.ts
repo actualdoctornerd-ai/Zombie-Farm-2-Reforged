@@ -42,7 +42,7 @@ import {
   ZOSMONAUT_KEY,
   ZOMBOZO_KEY,
   CIRCUS_RAID_ID,
-  ELITE_PRIZE_RATE_CAP,
+  ELITE_PRIZE_RATE_CAP, BOSS_PRIZE_RATE,
   isRareInvasionZombieName,
   VIDEO_GAMES_RAID_ID, VIDEO_GAME_ZOMBIE_KEY, FINAL_BOSS_ZOMBIE_KEY,
   OMEGA_BOSS_ZOMBIE_KEY, MEGA_BOSS_ZOMBIE_KEY, SECRET_BOSS_ZOMBIE_KEY, ALIENS_RAID_ID,
@@ -278,7 +278,8 @@ describe("the story invasions' prize pairs", () => {
     expect(ELITE_PRIZE_RATE_CAP).toBeCloseTo(0.045, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[6].rate).toBeCloseTo(0.045, 12);
     expect(RAID_ELITE_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID]).toMatchObject({ key: FINAL_BOSS_ZOMBIE_KEY });
-    expect(RAID_ELITE_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID].rate).toBeCloseTo(0.045, 12);
+    // The Boss Zombie prize is a flat 6% roll, split evenly four ways (1.5% each).
+    expect(RAID_ELITE_ZOMBIE_DROPS[VIDEO_GAMES_RAID_ID].rate).toBeCloseTo(0.06, 12);
   });
 
   it.each(PAIRS)("raid %i pays its base zombie on an ordinary win at its rung", (raidId, base, _p, rung) => {
@@ -516,7 +517,9 @@ describe("the rare-zombie rate ladder", () => {
   it("keeps every promoted prize inside 3-4.5%", () => {
     for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS)) {
       expect(drop.rate, `raid ${id}`).toBeGreaterThanOrEqual(0.03 - 1e-12);
-      expect(drop.rate, `raid ${id}`).toBeLessThanOrEqual(0.045 + 1e-12);
+      // The Boss Zombie's prize is a flat 6% (BOSS_PRIZE_RATE), past the 4.5% band.
+      const ceiling = Number(id) === VIDEO_GAMES_RAID_ID ? BOSS_PRIZE_RATE : 0.045;
+      expect(drop.rate, `raid ${id}`).toBeLessThanOrEqual(ceiling + 1e-12);
     }
   });
 
@@ -536,7 +539,7 @@ describe("the rare-zombie rate ladder", () => {
     // Halloween's Mummy is priced apart: the owner's flat elite 4x, climbing with the nights.
     for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS).filter(([id]) => Number(id) !== HALLOWEEN_RAID_ID)) {
       const uncapped = ELITE_PRIZE_RATE_MULTIPLIER * RAID_ZOMBIE_DROPS[Number(id)].rate;
-      expect(drop.rate).toBeCloseTo(Math.min(ELITE_PRIZE_RATE_CAP, uncapped), 12);
+      expect(drop.rate).toBeCloseTo((Number(id) === VIDEO_GAMES_RAID_ID ? BOSS_PRIZE_RATE : Math.min(ELITE_PRIZE_RATE_CAP, uncapped)), 12);
     }
     // Only the top of the ladder is actually held down by the cap; the other four land
     // inside the band on the multiplier alone (Robots sits exactly ON the cap, uncapped).
