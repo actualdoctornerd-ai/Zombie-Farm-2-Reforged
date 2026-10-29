@@ -147,8 +147,9 @@ export function createCombineRandom(parentAId: string, parentBId: string): () =>
  *
  * `legacySpecialFromSlot2` keeps the rule older jobs were started under, when a lone
  * special won from EITHER slot (and two specials could not be combined). The server
- * passes it for a job that predates its slot-1 record (state.potSlots), so a pot
- * started back then still hands its special back. The result is null only there.
+ * passes it for a job that predates its slot-1 record (state.potSlots), the client
+ * for a saved job without `anySlot`, so a pot started back then still hands its
+ * special back. The result is null only there.
  *
  * The matched-pair ladder (two parents of the SAME species) runs
  * Green -> Blue -> Red -> Silver:
@@ -162,12 +163,6 @@ export function createCombineRandom(parentAId: string, parentBId: string): () =>
  * Event/reward-only eligibility is intentionally enforced by the caller because
  * that catalog flag is not part of a persisted combine job.
  */
-/** Pot jobs started before this (epoch ms, 2026-08-04 UTC — when the server began
- *  recording slot 1 in state.potSlots) were started under the old rule; the client
- *  collects them with `legacySpecialFromSlot2`, as the server does for a job it has
- *  no slot-1 record for. */
-export const SLOT1_RECORD_SINCE_MS = Date.UTC(2026, 7, 4);
-
 export function selectCombineSpecies(
   a: CombineSpeciesParent,
   b: CombineSpeciesParent,

@@ -849,6 +849,9 @@ export class ZombieField {
           maskB: b.mutation,
           playerLevel: this.state.level,
           reserved: true,
+          // A job the server still holds was started after it began recording slot 1,
+          // so it is under the current rule (see ZombiePotSave.anySlot).
+          anySlot: true,
           startedAt: 0,
           finishAt: 0,
         }));

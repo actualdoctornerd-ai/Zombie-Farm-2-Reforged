@@ -424,6 +424,10 @@ export interface ZombiePotSave {
   classB?: string;
   specialA?: boolean;
   specialB?: boolean;
+  /** True on a job started once any zombie could go in slot 2 (2026-10-29). Absent
+   *  on older jobs, which collect under the rule they began with: a lone special won
+   *  from either slot (`legacySpecialFromSlot2` in selectCombineSpecies). */
+  anySlot?: boolean;
   /** Player level captured when the combine began. Optional for old saves. */
   playerLevel?: number;
   /** True when this job was started against a server that RESERVES both parents

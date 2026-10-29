@@ -124,7 +124,7 @@ describe("species selection (determineBaseClass)", () => {
     expect(collectKey(a, b, 0.6)).toBe("A");
   });
 
-  it("allows a special only in slot 1 and always preserves it", () => {
+  it("allows a special in either slot and always keeps slot 1's species", () => {
     const { pot } = makePot();
     expect(pot.start(
       snap("A", { isSpecial: true }),
@@ -134,9 +134,24 @@ describe("species selection (determineBaseClass)", () => {
     pot.finishNow();
     expect(pot.collect()?.key).toBe("A");
 
+    // A special in slot 2 only donates: slot 1's species comes out.
     const second = makePot().pot;
-    expect(second.start(snap("A"), snap("B", { isSpecial: true }), false)).toBe(false);
-    expect(second.busy).toBe(false);
+    expect(second.start(snap("A"), snap("B", { isSpecial: true }), false)).toBe(true);
+    second.finishNow();
+    expect(second.collect()?.key).toBe("A");
+
+    // A job saved before the change (no anySlot) keeps the old either-slot rule.
+    const legacy = makePot().pot;
+    legacy.restore({
+      keyA: "A", keyB: "B", maskA: 0, maskB: 0, specialA: false, specialB: true,
+      startedAt: 0, finishAt: 0,
+    });
+    expect(legacy.collect()?.key).toBe("B");
+
+    const both = makePot().pot;
+    expect(both.start(snap("A", { isSpecial: true }), snap("B", { isSpecial: true }), false)).toBe(true);
+    both.finishNow();
+    expect(both.collect()?.key).toBe("A");
   });
 
   it("persists the level and type needed for the rare-special roll", () => {

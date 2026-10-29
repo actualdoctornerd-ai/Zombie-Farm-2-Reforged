@@ -33,7 +33,7 @@
 import { OwnedZombieSave, ZombiePotSave } from "../save/schema";
 import { combineMasks } from "./mutations";
 import {
-  createCombineRandom, selectCombineSpecies, SLOT1_RECORD_SINCE_MS, type CombineGraveUnlock,
+  createCombineRandom, selectCombineSpecies, type CombineGraveUnlock,
 } from "./combineSpecies";
 
 /** Default combine duration: 1 hour, in ms (binary: getCombineTime = 3600.0 s). */
@@ -160,7 +160,8 @@ export class ZombiePot {
     playerLevel = 1,
     reserved = false
   ): boolean {
-    if (this.job || b.isSpecial) return false;
+    // Any zombie fits slot 2 (see selectCombineSpecies): only a busy pot refuses.
+    if (this.job) return false;
     const startedAt = this.now();
     const duration = baseDurationMs * (hasMonolith ? MONOLITH_MULT : 1);
     this.job = {
@@ -182,6 +183,7 @@ export class ZombiePot {
       classB: b.className,
       specialA: a.isSpecial,
       specialB: b.isSpecial,
+      anySlot: true,
       playerLevel,
       ...(reserved ? { reserved: true } : {}),
       startedAt,
@@ -249,7 +251,7 @@ export class ZombiePot {
       j.playerLevel ?? 1,
       random,
       this.hasGrave,
-      j.startedAt < SLOT1_RECORD_SINCE_MS
+      !j.anySlot
     );
   }
 

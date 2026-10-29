@@ -383,6 +383,27 @@ describe("Zombie Pot and the Mausoleum", () => {
     expect(full.zombies.potFor("pot").ready).toBe(true);
   });
 
+  it("starts a combine with a special in slot 2 and keeps slot 1's species", () => {
+    const special = { ...green, key: "ZombieActorBombie", category: "special" } as ZombieDef;
+    const state = new GameState();
+    state.zombieMax = 2;
+    const zombies = new ZombieField(
+      renderableAssets(green.key), cryptField(5), state,
+      (key) => (key === green.key ? green : key === special.key ? special : undefined)
+    );
+    zombies.restore([
+      { id: "z1", key: green.key, stored: true },
+      { id: "z2", key: special.key, stored: true },
+    ]);
+
+    // The parents are consumed as the job starts, so the Pot must take the job.
+    expect(zombies.combine("z1", "z2", 0, "pot")).toBe(true);
+    expect(zombies.potFor("pot").pending).toMatchObject({
+      keyA: green.key, keyB: special.key, anySlot: true,
+    });
+    expect(zombies.collectCombine(0, 0, "pot", { stored: true })!.key).toBe(green.key);
+  });
+
   it("hands the child slot 1's name", () => {
     const { zombies } = fieldWith(5);
     zombies.restore([
