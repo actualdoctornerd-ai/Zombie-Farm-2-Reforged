@@ -92,6 +92,51 @@ describe("protocol v3 API", () => {
     expect(child).toMatchObject({ key: "ZombieActorGardenTier1", mutation: 8 });
   });
 
+  it("takes any zombie in Zombie Pot slot 2 and keeps slot 1's species", async () => {
+    const session = await signIn(uniqueSub("pot-any-slot"));
+    await grantRoster(session, [
+      { id: "pot-any-regular", key: "ZombieActorRegularTier1", mutation: 0, stored: false },
+      { id: "pot-any-bombie", key: "ZombieActorBombie", mutation: 8, stored: false },
+      { id: "pot-any-crazy", key: "ZombieActorRegularCrazy", mutation: 0, stored: false },
+      { id: "pot-any-bombie2", key: "ZombieActorBombie", mutation: 0, stored: false },
+    ]);
+
+    // A special in slot 2 is a mutation donor: slot 1's ordinary species comes out.
+    const before = await call<any>("POST", "/bootstrap", session.token, {});
+    const started = await call<any>("POST", "/commands", session.token,
+      commandBody(before.body, "pot-any-start", 1, [
+        { type: "roster.combine_start", potId: "o1", parentAId: "pot-any-regular", parentBId: "pot-any-bombie" },
+      ]));
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+    expect(started.body.results[0].status).toBe("applied");
+    const mid = await call<any>("POST", "/bootstrap", session.token, {});
+    const collected = await call<any>("POST", "/commands", session.token,
+      commandBody(mid.body, "pot-any-collect", 2, [
+        { type: "roster.combine", potId: "o1", parentAId: "pot-any-regular", parentBId: "pot-any-bombie" },
+      ]));
+    expect(collected.status, JSON.stringify(collected.body)).toBe(200);
+    const childId = collected.body.results[0].createdIds[0];
+    const child = collected.body.gameplay.roster.find((unit: any) => unit.id === childId);
+    expect(child).toMatchObject({ key: "ZombieActorRegularTier1", mutation: 8 });
+
+    // Two specials combine too: slot 1's special comes back out.
+    const again = await call<any>("POST", "/bootstrap", session.token, {});
+    const pair = await call<any>("POST", "/commands", session.token,
+      commandBody(again.body, "pot-any-pair", 3, [
+        { type: "roster.combine_start", potId: "o1", parentAId: "pot-any-crazy", parentBId: "pot-any-bombie2" },
+      ]));
+    expect(pair.body.results[0].status, JSON.stringify(pair.body)).toBe("applied");
+    const late = await call<any>("POST", "/bootstrap", session.token, {});
+    const pairDone = await call<any>("POST", "/commands", session.token,
+      commandBody(late.body, "pot-any-pair-collect", 4, [
+        { type: "roster.combine", potId: "o1", parentAId: "pot-any-crazy", parentBId: "pot-any-bombie2" },
+      ]));
+    expect(pairDone.body.results[0].status, JSON.stringify(pairDone.body)).toBe("applied");
+    const pairChildId = pairDone.body.results[0].createdIds[0];
+    expect(pairDone.body.gameplay.roster.find((unit: any) => unit.id === pairChildId))
+      .toMatchObject({ key: "ZombieActorRegularCrazy" });
+  });
+
   it("makes two gifts free, charges 100 gold after that, and imposes NO per-day ceiling", async () => {
     const sender = await signIn(uniqueSub("gift-xp-sender"));
     await grantBalance(sender, { gold: 1300 });
