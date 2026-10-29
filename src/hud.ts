@@ -619,12 +619,21 @@ export class Hud {
   private wireRightClickCancel() {
     this.el.addEventListener("contextmenu", (e) => {
       if (e.defaultPrevented) return;
+      // A browser that fires contextmenu as a plain MouseEvent has no pointerType;
+      // there, a touch-only device means the press was a long-press.
       const pointerType = (e as PointerEvent).pointerType;
       if (pointerType === "touch" || pointerType === "pen") return;
+      if (!pointerType && isTouchOnly()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || t.matches("input, textarea, select"))) return;
       e.preventDefault();
       if (this.el.classList.contains("tutorial")) return;
+      // A raid or a friend's farm has no farm tool to drop (the canvas handler skips
+      // both too); a right-click there only closes the panel on top.
+      if (this.el.classList.contains("raiding") || this.el.classList.contains("visiting")) {
+        this.closeTopOverlay();
+        return;
+      }
       this.cancelFromRightClick();
     });
   }

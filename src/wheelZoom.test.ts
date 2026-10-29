@@ -21,6 +21,12 @@ describe("wheel zoom", () => {
     expect(wheelZoomFactor(-1, 2)).toBeCloseTo(wheelZoomFactor(-500, 0), 10);
   });
 
+  it("reads macOS's ~4 px wheel notch as a full notch, not as trackpad drift", () => {
+    expect(wheelZoomFactor(4.000244140625, 0)).toBeCloseTo(wheelZoomFactor(100, 0), 10);
+    expect(wheelZoomFactor(-8.00048828125, 0)).toBeCloseTo(wheelZoomFactor(-200, 0), 10);
+    expect(wheelZoomFactor(4, 0)).toBeCloseTo(Math.pow(ZOOM_PER_NOTCH, -0.04), 10);
+  });
+
   it("caps what one event may do, so a fast spin runs rather than jumps", () => {
     expect(wheelZoomFactor(100_000, 0)).toBeCloseTo(Math.pow(ZOOM_PER_NOTCH, -3), 10);
     expect(wheelZoomFactor(-100_000, 0)).toBeCloseTo(Math.pow(ZOOM_PER_NOTCH, 3), 10);

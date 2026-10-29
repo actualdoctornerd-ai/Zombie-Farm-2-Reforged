@@ -16,6 +16,11 @@ const PX_PER_PAGE = NOTCH_PX * 5;
  *  deltas per event; past this the next event carries on, so speed shows as a smooth
  *  run rather than a jump. */
 const MAX_NOTCHES_PER_EVENT = 3;
+/** macOS (Safari, and Firefox in pixel mode) reports a notched mouse wheel as pixel
+ *  deltas in exact multiples of this, about 4 px per notch. Read as plain pixels, a
+ *  notch there would zoom 1/25 of a step. A trackpad's deltas are never exact
+ *  multiples (the same test mapbox-gl's scroll zoom uses). */
+const MAC_WHEEL_NOTCH_PX = 4.000244140625;
 
 /** The factor to scale the camera by for one wheel event. Wheel up (a negative
  *  deltaY) zooms in; a notch split across many events multiplies to the same factor
@@ -23,6 +28,7 @@ const MAX_NOTCHES_PER_EVENT = 3;
 export function wheelZoomFactor(deltaY: number, deltaMode: number): number {
   const px = deltaMode === 1 ? deltaY * PX_PER_LINE
     : deltaMode === 2 ? deltaY * PX_PER_PAGE
+    : deltaY !== 0 && deltaY % MAC_WHEEL_NOTCH_PX === 0 ? (deltaY / MAC_WHEEL_NOTCH_PX) * NOTCH_PX
     : deltaY;
   const notches = Math.max(-MAX_NOTCHES_PER_EVENT, Math.min(MAX_NOTCHES_PER_EVENT, px / NOTCH_PX));
   return Math.pow(ZOOM_PER_NOTCH, -notches);
