@@ -33,6 +33,7 @@ import {
 } from "./social/badges";
 import { setBadge } from "./ui/badge";
 import { isMobile, isTouchOnly } from "./platform";
+import { withFarmerBonuses, type FarmerStatMults } from "./zombie/statDisplay";
 import {
   getFriendSort, setFriendSort, invadedSeenAt, markInvadedSeen,
   type DayNightMode, type FarmBackground, type ZombieAppearancePrefs,
@@ -433,10 +434,10 @@ export class Hud {
     this.wireRightClickCancel();
     state.onChange(() => this.update());
     this.update();
-    // A touch-only device (esp. a landscape phone) starts with the menu + tools tucked
-    // into the corner fab. The capped quest rail remains visible on every farm view.
-    // Anything with a mouse keeps the full chrome on screen, whatever the window size.
-    if (isTouchOnly()) {
+    // Mobile (esp. landscape) starts with the menu + tools tucked into the corner
+    // fab. The capped quest rail remains visible on every farm view.
+    // Desktop keeps the full chrome on screen.
+    if (isMobile()) {
       this.collapse();
     }
   }
@@ -1546,10 +1547,10 @@ export class Hud {
       const previousMode = this.mode;
       this.audio.play("menuClick");
       onClick();
-      // On a touch-only device, choosing a tool should finish the toolbar interaction.
+      // On the compact HUD, choosing a tool should finish the toolbar interaction.
       // Otherwise the next farm tap both closes the toolbar and performs the newly
       // selected action, which makes that first action easy to trigger by accident.
-      if (isTouchOnly() && this.mode !== previousMode) this.collapse();
+      if (isMobile() && this.mode !== previousMode) this.collapse();
     };
     this.tools[id] = btn;
     return btn;
@@ -1845,6 +1846,19 @@ export class Hud {
   getStats: (() => StatSection[]) | null = null;
   /** Portrait image URL for a zombie type key (per-type composite). */
   zombiePortraitOf: ((key: string) => string) | null = null;
+  /** Set by main: whether a Mutant Monolith stands on this farm (it scales mutation
+   *  stat bonuses by 1.1, like a Dino head). */
+  hasMutantMonolith: (() => boolean) | null = null;
+
+  /** The farm's always-on stat multipliers, as raids apply them, for stat cards. */
+  farmerStatMults(): FarmerStatMults {
+    return {
+      str: this.state.farmerZombieStrengthMult(),
+      dex: this.state.farmerZombieDexMult(),
+      con: this.state.farmerZombieLifeMult(),
+      mutation: this.state.farmerMutationStrengthMult() * (this.hasMutantMonolith?.() ? 1.1 : 1),
+    };
+  }
   /** Render one owned zombie with its complete individual mutation mask. `wanted`
    *  reports whether the tile that asked still needs it: each render blocks the main
    *  thread on a GPU readback, and they are queued one per frame, so a panel the
@@ -2245,10 +2259,10 @@ export class Hud {
     if (!on) {
       this.setTutorialMenuTarget(null);
       // The tutorial's menu beats expand the chrome, and nothing during the run can
-      // collapse it again (the fab is pointer-events-gated). Return a touch-only device
-      // to its collapsed baseline so the player is not left with the tool bar out and —
-      // on portrait — the invade shortcut the tutorial just taught hidden beneath it.
-      if (isTouchOnly()) this.collapse();
+      // collapse it again (the fab is pointer-events-gated). Return mobile to its
+      // collapsed baseline so the player is not left with the tool bar out and — on
+      // portrait — the invade shortcut the tutorial just taught hidden beneath it.
+      if (isMobile()) this.collapse();
     }
   }
   /** Select the sole menu control allowed by the current tutorial beat. Invade
@@ -4734,15 +4748,15 @@ export class Hud {
     if (!card || !zombie) return;
     const mask = order.kind === "SELL_ZOMBIE" ? order.mutation ?? 0 : order.mutationRequired ?? 0;
     const bonus = mutationBonus(mask);
-    const info: ZombieInfo = {
+    const info: ZombieInfo = withFarmerBonuses({
       name: card.name, typeName: card.name, key: card.cfg.key,
       group: zombie.group, className: zombie.className, classColor: zombie.classColor,
-      str: (zombie.str + bonus.str) * this.state.farmerZombieStrengthMult(),
+      str: zombie.str + bonus.str,
       dex: zombie.dex + bonus.dex,
-      con: (zombie.con + bonus.con) * this.state.farmerZombieLifeMult(),
+      con: zombie.con + bonus.con,
       focus: zombie.focus, mutation: mask, invasions: order.invasions ?? 0,
       portrait: card.portrait,
-    };
+    }, this.farmerStatMults());
     const { panel, close } = openModal({
       host: this.el, bgClass: "bm-zombie-bg", panelClass: "zpanel",
     });

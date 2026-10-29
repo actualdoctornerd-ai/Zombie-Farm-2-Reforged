@@ -234,3 +234,30 @@ export function displayTotals(
   for (const k of STAT_KEYS) out[k] = statBreakdown(z, k, slotUnlocked).total;
   return out;
 }
+
+/** The farm's always-on multipliers on a zombie's stats: the bonus head's Strength,
+ *  Dex (Astronaut) and Life multipliers, and the mutation-bonus multiplier (Dino head
+ *  times the Mutant Monolith). */
+export interface FarmerStatMults {
+  str: number;
+  dex: number;
+  con: number;
+  mutation: number;
+}
+
+/** Apply the farm's multipliers to stats that already INCLUDE the mutation bonus, the
+ *  way raid/CombatEngine.buildPlayerUnits does: the species stat takes the head
+ *  multiplier and the mutation bonus takes the mutation multiplier, so a stat card
+ *  shows what this farm fields. */
+export function withFarmerBonuses<T extends { str: number; dex: number; con: number; mutation: number }>(
+  z: T,
+  m: FarmerStatMults,
+): T {
+  const b = mutationBonus(z.mutation);
+  return {
+    ...z,
+    str: (z.str - b.str) * m.str + b.str * m.mutation,
+    dex: (z.dex - b.dex) * m.dex + b.dex * m.mutation,
+    con: (z.con - b.con) * m.con + b.con * m.mutation,
+  };
+}

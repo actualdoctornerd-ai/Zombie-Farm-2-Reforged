@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { statBreakdown, displayTotals, selfStatAbilities } from "./statDisplay";
+import { statBreakdown, displayTotals, selfStatAbilities, withFarmerBonuses } from "./statDisplay";
+import { bitOf, mutationBonus } from "./mutations";
 import type { StatSource } from "./statDisplay";
 
 // The displayed stat = (base + mutation) × veterancy × Π(self passive stat abilities),
@@ -108,5 +109,31 @@ describe("displayTotals", () => {
   it("returns the four tile values with every bonus folded in", () => {
     const t = displayTotals(z({ str: 23.32, con: 16.5, dex: 1.3, focus: 100, group: "Large" }), ALL);
     expect(t).toEqual({ str: 110, dex: 30, con: 56, focus: 100 });
+  });
+});
+
+describe("withFarmerBonuses", () => {
+  const PUMPKING = bitOf("pumpking"); // a flat +str mutation
+  const NONE = { str: 1, dex: 1, con: 1, mutation: 1 };
+
+  it("leaves stats alone with no head and no Monolith", () => {
+    const z = { str: 50, dex: 30, con: 40, mutation: PUMPKING };
+    expect(withFarmerBonuses(z, NONE)).toEqual(z);
+  });
+
+  it("scales Dex with an Astronaut head", () => {
+    const z = { str: 50, dex: 30, con: 40, mutation: 0 };
+    expect(withFarmerBonuses(z, { ...NONE, dex: 1.1 }).dex).toBeCloseTo(33, 10);
+  });
+
+  it("scales only the mutation bonus with a Dino head, as combat does", () => {
+    const bonus = mutationBonus(PUMPKING).str;
+    expect(bonus).toBeGreaterThan(0);
+    const z = { str: 50 + bonus, dex: 30, con: 40, mutation: PUMPKING };
+    const out = withFarmerBonuses(z, { ...NONE, mutation: 1.1 });
+    expect(out.str).toBeCloseTo(50 + bonus * 1.1, 10);
+    expect(out.dex).toBe(30);
+    // A Strength head scales the species stat, not the mutation on top of it.
+    expect(withFarmerBonuses(z, { ...NONE, str: 1.1 }).str).toBeCloseTo(55 + bonus, 10);
   });
 });

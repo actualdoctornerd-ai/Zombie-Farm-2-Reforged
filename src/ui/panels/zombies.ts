@@ -23,7 +23,7 @@ import { mutationEntries, mutationTipText } from "../../zombie/mutationDisplay";
 import {
   isMutationHidden, pruneMutationVisibility, setMutationHidden, visibleMutations,
 } from "../../zombie/mutationVisibility";
-import { statBreakdown } from "../../zombie/statDisplay";
+import { statBreakdown, withFarmerBonuses } from "../../zombie/statDisplay";
 import { classTierRank } from "../../zombie/taxonomy";
 import type { AlmanacGuideTopic } from "../../zombie/almanacGuide";
 import { statEffectText, type MutationAlmanacEntry } from "../../zombie/mutationAlmanac";
@@ -455,15 +455,15 @@ export function openCatalogZombieCard(hud: Hud, card: MenuCard) {
   const zombie = card.zombie;
   if (!zombie) return;
   const bonus = mutationBonus(zombie.mutation);
-  const info: ZombieInfo = {
+  const info: ZombieInfo = withFarmerBonuses({
     name: card.name, typeName: card.name, key: card.cfg.key,
     group: zombie.group, className: zombie.className, classColor: zombie.classColor,
-    str: (zombie.str + bonus.str) * hud.state.farmerZombieStrengthMult(),
+    str: zombie.str + bonus.str,
     dex: zombie.dex + bonus.dex,
-    con: (zombie.con + bonus.con) * hud.state.farmerZombieLifeMult(),
+    con: zombie.con + bonus.con,
     focus: zombie.focus, mutation: zombie.mutation, invasions: 0,
     portrait: card.portrait,
-  };
+  }, hud.farmerStatMults());
   const { panel } = openModal({
     host: hud.el, bgClass: "zpreview-bg", panelClass: "zpanel", replaceSelector: ".zpreview-bg",
   });
@@ -478,16 +478,15 @@ export function openCatalogZombieCard(hud: Hud, card: MenuCard) {
 
 /** Convert a roster entry into the inspectable ZombieInfo shape. */
 export function rosterInfo(hud: Hud, z: RosterEntry): ZombieInfo {
-  return {
+  return withFarmerBonuses({
     name: z.name, typeName: z.typeName, key: z.key, group: z.group,
     className: z.className, classColor: z.classColor,
-    str: z.str * hud.state.farmerZombieStrengthMult(), dex: z.dex,
-    con: z.con * hud.state.farmerZombieLifeMult(), focus: z.focus, mutation: z.mutation,
+    str: z.str, dex: z.dex, con: z.con, focus: z.focus, mutation: z.mutation,
     invasions: z.invasions,
     portrait: hud.zombiePortraitOf ? hud.zombiePortraitOf(z.key) : "",
     color: z.color,
     id: z.id, stored: z.stored,
-  };
+  }, hud.farmerStatMults());
 }
 
 /** A compact framed roster tile (portrait + name + class pill). Used by the

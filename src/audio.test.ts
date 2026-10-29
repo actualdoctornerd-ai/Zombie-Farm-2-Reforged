@@ -318,6 +318,22 @@ describe("AudioManager focus muting", () => {
     expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/brainRobot.mp3");
   });
 
+  it("reads a raid zombie's group from the catalog when its key names none", () => {
+    const audio = new AudioManager();
+    const catalog: Record<string, string> = {
+      ZombieActorDiva: "Female", ZombieActorMadame: "Female", ZombieActorZulaGirl: "Female",
+    };
+    audio.setZombieGroupResolver((key) => catalog[key]);
+
+    for (const key of Object.keys(catalog)) {
+      audio.brainForZombie(key);
+      expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/brainGirl.mp3");
+    }
+    // A key the catalog lacks still falls back to the key pattern.
+    audio.brainForZombie("ZombieActorGardenTier1");
+    expect(MockAudio.instances[MockAudio.instances.length - 1]?.src).toContain("assets/audio/brainGarden.mp3");
+  });
+
   it("reclaims a stalled fallback element instead of allocating a new one", () => {
     const audio = new AudioManager();
     const before = MockAudio.instances.length;

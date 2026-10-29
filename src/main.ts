@@ -97,7 +97,7 @@ import { TutorialController } from "./tutorial/TutorialController";
 import { reconcileTutorialCompletion, TutStep, TUTORIAL_BATTLE_TIP } from "./tutorial/steps";
 import { TUTORIAL_GROW_BOOST, TUTORIAL_GROW_USES, TUTORIAL_PLOTS } from "./tutorial/freshFarm";
 import { timUnlockNoticesFor } from "./tutorial/unlockNotices";
-import { initPlatform, isMobile, isTouch, isTouchOnly } from "./platform";
+import { initPlatform, isMobile, isTouch } from "./platform";
 import { initPwa, promptReload, checkForUpdate } from "./pwa";
 import { initDiagnostics, recordDiagnostic } from "./diagnostics";
 import { crumb } from "./breadcrumbs";
@@ -111,7 +111,7 @@ import {
 } from "./harvestStroke";
 import { appendInstaGrowTarget, type InstaGrowTarget } from "./instaGrowStroke";
 import { appendCancelTarget, cancelTargetKey, type CancelTarget } from "./cancelStroke";
-import { mutationMarketDescription } from "./zombie/statDisplay";
+import { mutationMarketDescription, withFarmerBonuses } from "./zombie/statDisplay";
 import {
   combineSubject, combineSubjectAliases, mutantSubjectIndex, unitQuestSubjects,
   unitSubjectAliases,
@@ -1260,6 +1260,7 @@ async function main() {
     () => walk.tile // where a unit with no saved position of its own arrives
   );
   audio.setZombieBarkSource(() => zombies.randomBrainBark());
+  audio.setZombieGroupResolver((key) => zombieDefs.get(key)?.group);
   // The graveyard. Wired here (not in the online block) because both the offline
   // and the server-verified raid paths funnel their dead through removeCasualties,
   // and a Memorial Statue is a purely local, cosmetic keepsake either way.
@@ -3933,6 +3934,7 @@ async function main() {
     });
   };
   hud.zombiePortraitOf = (key) => zombiePortrait(key);
+  hud.hasMutantMonolith = () => zombies.hasMutantMonolith();
   hud.getMausoleumCap = () => zombies.mausoleumCap;
   // The Mausoleum upgrade ladder: each tier is an ordinary catalog placeable that
   // replaces the placed one (see upgradeBuilding), so the next tier is simply the
@@ -7100,16 +7102,15 @@ async function main() {
     // the tap's feedback for those.
     if (d.group !== "Headless") floatText(wp.x, wp.y - 44, "Brains…");
     audio.brain(d.group, d.key);
-    hud.openZombieInfo({
+    hud.openZombieInfo(withFarmerBonuses({
       name: d.name, typeName: d.typeName, key: d.key, group: d.group,
       className: d.className, classColor: d.classColor,
-      str: d.str * state.farmerZombieStrengthMult(), dex: d.dex,
-      con: d.con * state.farmerZombieLifeMult(), focus: d.focus, mutation: d.mutation,
+      str: d.str, dex: d.dex, con: d.con, focus: d.focus, mutation: d.mutation,
       invasions: d.invasions,
       portrait: zombiePortrait(d.key), color: d.color,
       // Friend-farm visits are inspect-only, so omit action-bearing unit IDs.
       id: visiting ? undefined : d.id, stored: false,
-    });
+    }, hud.farmerStatMults()));
   };
 
   /** Tap the farmer to switch his lantern on or off. Returns whether the tap landed.
@@ -7240,10 +7241,7 @@ async function main() {
       last.copyFrom(e.global);
       return;
     }
-    // On a touch-only device any tap on the field tucks the bars into the corner fab.
-    // With a mouse they stay out: the default tool is a click away on the bar, not
-    // behind a button that only shows which tool is held.
-    if (isTouchOnly()) hud.collapse();
+    hud.collapse(); // any tap on the field collapses the bars into the corner fab
     // Plow remains equipped after making a plot. On touch, tapping that newly
     // plantable soil is selection intent: return to the Multi-tool so pointer-up
     // opens the same left-side Plants/Zombies picker as a desktop click.

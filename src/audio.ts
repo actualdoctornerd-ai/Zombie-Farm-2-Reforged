@@ -631,6 +631,7 @@ export class AudioManager {
   private raidBgm: LoopTrack | null = null;
   private raidFile = "";
   private zombieBarkSource: (() => { group: string; key: string } | null) | null = null;
+  private zombieGroupOf: ((key: string) => string | undefined) | null = null;
 
   constructor() {
     this.bgm = this.track("dayFarmBGM.mp3", true);
@@ -1132,10 +1133,17 @@ export class AudioManager {
     if (file) this.playOneShot(file, 0.7);
   }
 
-  // Raid combat carries the actor key rather than the farm catalog group. Derive
-  // the same group from that key so brain-bubble releases use the farm tap bark.
+  // Raid combat carries the actor key rather than the farm catalog group. Look the
+  // group up in the catalog so brain-bubble releases use the farm tap bark: the key
+  // alone misreads species whose key names no group (ZombieActorDiva, …Madame and
+  // …ZulaGirl are Female). The key pattern covers anything the catalog lacks.
   brainForZombie(key: string) {
-    this.brain(zombieGroupFromKey(key), key);
+    this.brain(this.zombieGroupOf?.(key) ?? zombieGroupFromKey(key), key);
+  }
+
+  /** Supply the zombie catalog's group for an actor key (zombies.json `group`). */
+  setZombieGroupResolver(resolve: (key: string) => string | undefined) {
+    this.zombieGroupOf = resolve;
   }
 
   /** Supply deployed owned zombies for occasional, group-correct farm barks. */
