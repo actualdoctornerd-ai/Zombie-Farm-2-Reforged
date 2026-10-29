@@ -7074,7 +7074,7 @@ async function main() {
       const napping = zombies.toggleGather(field.patchRestTiles());
       const wp = field.objectWorkPoint(objId);
       saveManager.flushCritical();
-      if (wp) floatText(wp.x, wp.y - 24, napping ? "Zzzâ€¦" : "Awake!");
+      if (wp) floatText(wp.x, wp.y - 24, napping ? "Zzz…" : "Awake!");
     } else if (objDef.zombiePot) {
       activePotId = objId;
       hud.openCombiner();

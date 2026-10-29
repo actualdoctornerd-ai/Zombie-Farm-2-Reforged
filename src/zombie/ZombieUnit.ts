@@ -469,8 +469,27 @@ export class ZombieUnit {
     return true;
   }
 
+  /** Nap on the Zombie Patch: walk to `preferred`, or failing that to whichever other
+   *  patch tile it can reach, and lie down there. A route to one tile can fail where
+   *  the next works (a fence run along the patch's edge prices those tiles as a
+   *  barrier), and a single failed tile used to leave the zombie wandering the farm
+   *  while the rest of the army slept. With no patch tile in reach at all (the patch
+   *  fenced off, or the zombie shut in a pen) it lies down where it stands: the player
+   *  asked the army to sleep, and a zombie that cannot get to bed still should. */
+  napOnPatch(preferred: { col: number; row: number }, tiles: readonly { col: number; row: number }[]) {
+    if (this.sleepAt(preferred.col, preferred.row)) return;
+    for (const tile of tiles) {
+      if (tile.col === preferred.col && tile.row === preferred.row) continue;
+      if (this.sleepAt(tile.col, tile.row)) return;
+    }
+    this.walker.clear();
+    this.sleeping = true;
+  }
+
   // Wake up and resume wandering.
   wake() {
+    // A fertilize cast in progress would otherwise send it back to bed once it ends.
+    this.fertilizeReturn = null;
     this.sleeping = false;
     this.setEyesClosed(false);
     this.pauseMs = this.nextIdlePause();
@@ -636,10 +655,8 @@ export class ZombieUnit {
         for (const arm of this.arms) arm.sp.rotation = arm.baseRotation;
         const home = this.fertilizeReturn;
         this.fertilizeReturn = null;
-        // Walk back to the nap. sleepAt only fails when the patch is unreachable
-        // (built over, or the crop is walled off); settle where it stands rather
-        // than wander, so it still reads as part of a sleeping army.
-        if (home && !this.sleepAt(home.col, home.row)) this.sleeping = true;
+        // Walk back to the nap: its own patch tile, or any other it can reach.
+        if (home) this.napOnPatch(home, this.field.patchRestTiles() ?? []);
       }
     } else if (this.walker.walking) {
       this.walker.advance(SPEED_PX * dt);

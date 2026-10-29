@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { joiningPatchTile, ZombieField } from "./ZombieField";
 
 type UnitStub = {
-  sleepAt: ReturnType<typeof vi.fn>;
+  napOnPatch: ReturnType<typeof vi.fn>;
   wake: ReturnType<typeof vi.fn>;
 };
 
@@ -22,22 +22,23 @@ describe("Zombie Patch persistence", () => {
 
   it("restores gathered zombies to sleep across the patch tiles", () => {
     const units = [
-      { sleepAt: vi.fn(), wake: vi.fn() },
-      { sleepAt: vi.fn(), wake: vi.fn() },
-      { sleepAt: vi.fn(), wake: vi.fn() },
+      { napOnPatch: vi.fn(), wake: vi.fn() },
+      { napOnPatch: vi.fn(), wake: vi.fn() },
+      { napOnPatch: vi.fn(), wake: vi.fn() },
     ];
     const zombies = subject(units);
+    const tiles = [{ col: 4, row: 5 }, { col: 6, row: 7 }];
 
-    zombies.restoreGathered(true, [{ col: 4, row: 5 }, { col: 6, row: 7 }]);
+    zombies.restoreGathered(true, tiles);
 
     expect(zombies.isGathered).toBe(true);
-    expect(units[0].sleepAt).toHaveBeenCalledWith(4, 5);
-    expect(units[1].sleepAt).toHaveBeenCalledWith(6, 7);
-    expect(units[2].sleepAt).toHaveBeenCalledWith(4, 5);
+    expect(units[0].napOnPatch).toHaveBeenCalledWith({ col: 4, row: 5 }, tiles);
+    expect(units[1].napOnPatch).toHaveBeenCalledWith({ col: 6, row: 7 }, tiles);
+    expect(units[2].napOnPatch).toHaveBeenCalledWith({ col: 4, row: 5 }, tiles);
   });
 
   it("defaults old saves to awake and ignores a stale nap without a patch", () => {
-    const unit = { sleepAt: vi.fn(), wake: vi.fn() };
+    const unit = { napOnPatch: vi.fn(), wake: vi.fn() };
     const zombies = subject([unit]);
 
     zombies.restoreGathered(undefined, [{ col: 4, row: 5 }]);
@@ -46,6 +47,6 @@ describe("Zombie Patch persistence", () => {
 
     zombies.restoreGathered(true, null);
     expect(zombies.isGathered).toBe(false);
-    expect(unit.sleepAt).not.toHaveBeenCalled();
+    expect(unit.napOnPatch).not.toHaveBeenCalled();
   });
 });

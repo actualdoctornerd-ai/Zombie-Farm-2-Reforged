@@ -266,8 +266,9 @@ export class ZombieField {
     this.units.push(unit);
     // Gathering at the Zombie Patch is farm-wide state. A zombie that arrives
     // after the patch was tapped should join the existing nap immediately.
-    const tile = joiningPatchTile(this.gathered, this.field.patchRestTiles(), this.units.length - 1);
-    if (tile) unit.sleepAt(tile.col, tile.row);
+    const tiles = this.field.patchRestTiles();
+    const tile = joiningPatchTile(this.gathered, tiles, this.units.length - 1);
+    if (tile) unit.napOnPatch(tile, tiles!);
     if (this.rosterLive && !this.combining && !this.harvesting) {
       this.onGrant?.({ id: data.id, key: data.key, mutation: data.mutation, invasions: data.invasions });
     }
@@ -724,10 +725,7 @@ export class ZombieField {
   // Call every deployed unit to nap on the patch (distribute across its tiles).
   gatherTo(tiles: { col: number; row: number }[]) {
     if (!tiles.length) return;
-    this.units.forEach((u, i) => {
-      const t = tiles[i % tiles.length];
-      u.sleepAt(t.col, t.row);
-    });
+    this.units.forEach((u, i) => u.napOnPatch(tiles[i % tiles.length], tiles));
     this.gathered = true;
   }
   // Wake every unit so they resume wandering.
