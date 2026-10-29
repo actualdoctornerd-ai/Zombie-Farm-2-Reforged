@@ -16,7 +16,7 @@ function makePot(rng = 0) {
 }
 
 const snap = (key: string, extra: Partial<{
-  mutation: number; tier: number; isBaseClass: boolean; group: string; isSpecial: boolean;
+  mutation: number; tier: number; isBaseClass: boolean; group: string; className: string; isSpecial: boolean;
 }> = {}) => ({
   key,
   mutation: extra.mutation ?? 0,
@@ -124,7 +124,7 @@ describe("species selection (determineBaseClass)", () => {
     expect(collectKey(a, b, 0.6)).toBe("A");
   });
 
-  it("allows a special only in slot 1 and always preserves it", () => {
+  it("preserves slot-1 specials and lets pot-bred specials donate from slot 2", () => {
     const { pot } = makePot();
     expect(pot.start(
       snap("A", { isSpecial: true }),
@@ -137,6 +137,15 @@ describe("species selection (determineBaseClass)", () => {
     const second = makePot().pot;
     expect(second.start(snap("A"), snap("B", { isSpecial: true }), false)).toBe(false);
     expect(second.busy).toBe(false);
+
+    const donor = makePot().pot;
+    expect(donor.start(
+      snap("ZombieActorRegularTier1", { mutation: 1, group: "Regular" }),
+      snap("ZombieActorRegularTier5", { mutation: 8, group: "Regular", className: "Special", isSpecial: true }),
+      false
+    )).toBe(true);
+    donor.finishNow();
+    expect(donor.collect()).toMatchObject({ key: "ZombieActorRegularTier1", mutation: 9 });
   });
 
   it("persists the level and type needed for the rare-special roll", () => {

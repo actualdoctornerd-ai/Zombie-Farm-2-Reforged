@@ -33,7 +33,7 @@ import {
 } from "../../../src/farmer";
 import { combineMasks } from "../../../src/zombie/mutations";
 import { resolveCropMutations, plotsTouch } from "../../../src/zombie/cropMutations";
-import { createCombineRandom, isCombinePromotion, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
+import { createCombineRandom, isCombinePromotion, isCombineSpecialKey, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
 import { harvestXp, plowXp } from "../../../src/farmRewards";
 import { TUTORIAL_GROW_BOOST, TUTORIAL_GROW_USES, TUTORIAL_PLOTS } from "../../../src/tutorial/freshFarm";
 import { cropUnlocked } from "../../../src/cropUnlocks";
@@ -1215,8 +1215,9 @@ function applyOne(
       // gets mutated at all — it is never planted beside a crop.
       const specialA = zombieRuleByKey.get(a.key)?.category === "special";
       const specialB = zombieRuleByKey.get(b.key)?.category === "special";
-      if (specialA && specialB) return reject(sequence, "special_pair");
-      if (specialB) return reject(sequence, "special_slot");
+      const potSpecialB = specialB && isCombineSpecialKey(b.key);
+      if (specialA && specialB && !potSpecialB) return reject(sequence, "special_pair");
+      if (specialB && !potSpecialB) return reject(sequence, "special_slot");
       const requestedLevel = Number.isInteger(command.playerLevel) && command.playerLevel! >= 1
         ? command.playerLevel!
         : level;

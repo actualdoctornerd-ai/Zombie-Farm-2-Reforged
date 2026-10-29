@@ -110,8 +110,9 @@ function potTopic(facts: AlmanacGuideFacts): AlmanacGuideTopic {
         `.The jump is rolled after the colour step, so a Green or Blue matched pair ` +
         `climbs its ladder rung first rather than leaping past it.`,
 
-      `Named Specials are the one restriction. One can only go in slot 1, where it is ` +
-        `always inherited, and two of them cannot be combined at all.`,
+      `Reward and event Specials can only go in slot 1, where they are always inherited. ` +
+        `The tier-5 Specials bred by the Pot can also go in slot 2 to donate mutations. ` +
+        `Two reward or event Specials cannot be combined.`,
     ],
   };
 }

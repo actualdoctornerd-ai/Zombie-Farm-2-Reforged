@@ -1953,13 +1953,24 @@ describe("protocol v3 command engine", () => {
     return state;
   };
 
-  it("refuses to START a combine with the special in Zombie Pot slot 2", () => {
+  it("refuses reward specials in slot 2 but accepts a pot-bred special donor", () => {
     const state = specialPair();
     const result = applyCommandBatch(state, commands(
       { type: "roster.combine_start", potId: "pot-1", parentAId: "regular", parentBId: "bombie" }
     ), { now: 1 });
     expect(result.results[0]).toMatchObject({ status: "rejected", error: "special_slot" });
     expect(result.state.roster.every((unit) => !unit.lockedByRaid)).toBe(true);
+
+    const donor = freshGameplayState();
+    donor.roster = [
+      { id: "regular", key: "ZombieActorRegularTier1", mutation: 1, invasions: 0, stored: false },
+      { id: "bred-special", key: "ZombieActorRegularTier5", mutation: 8, invasions: 0, stored: false },
+    ];
+    const accepted = applyCommandBatch(donor, commands(
+      { type: "roster.combine_start", potId: "pot-1", parentAId: "regular", parentBId: "bred-special" }
+    ), { now: 2 });
+    expect(accepted.results[0]).toMatchObject({ status: "applied" });
+    expect(accepted.state.roster.every((unit) => unit.lockedByRaid === "pot:pot-1")).toBe(true);
   });
 
   it("still collects a slot-2 special from a job started before the rule", () => {

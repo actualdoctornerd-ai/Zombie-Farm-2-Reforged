@@ -18,6 +18,11 @@ export const COMBINE_SPECIAL_BY_GROUP: Readonly<Record<string, string>> = {
   Headless: "ZombieActorHeadlessTier5",   // Skull Head
 };
 
+/** Pot-bred tier-5 specials can donate mutations from slot 2. */
+export function isCombineSpecialKey(key: string): boolean {
+  return Object.values(COMBINE_SPECIAL_BY_GROUP).includes(key);
+}
+
 /** The silver (tier-4) representative for each zombie body type — what a pair of
  * identical RED parents breeds up into at COMBINE_SPECIAL_LEVEL+. */
 export const COMBINE_SILVER_BY_GROUP: Readonly<Record<string, string>> = {
@@ -163,11 +168,15 @@ export function selectCombineSpecies(
   random: () => number = Math.random,
   hasGrave: CombineGraveUnlock = () => false
 ): string | null {
-  if (a.isSpecial && b.isSpecial) return null;
+  // Pot-bred tier-5 specials can donate from slot 2 without taking over the
+  // output species; slot 1 continues to decide what comes out.
+  const parentAIsSpecial = !!a.isSpecial;
+  const permanentSpecialB = !!b.isSpecial && !isCombineSpecialKey(b.key);
+  if (parentAIsSpecial && permanentSpecialB) return null;
   // Named special species are permanent. New combines only allow them in slot 1,
   // but retaining this symmetric fallback lets an older persisted slot-2 job
   // finish without losing its special parent.
-  if (a.isSpecial !== b.isSpecial) return a.isSpecial ? a.key : b.key;
+  if (parentAIsSpecial !== permanentSpecialB) return parentAIsSpecial ? a.key : b.key;
   if (isObsidian(a)) return a.key;
 
   const matched = a.key === b.key;

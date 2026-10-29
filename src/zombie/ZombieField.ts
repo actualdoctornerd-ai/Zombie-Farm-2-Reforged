@@ -14,6 +14,7 @@ import { newMutationBits } from "./mutationMask";
 import { makeOwned, normalizeZombieName, OwnedZombie, RosterEntry } from "./types";
 import { ZombieUnit } from "./ZombieUnit";
 import { ZombiePot } from "./ZombiePot";
+import { isCombineSpecialKey } from "./combineSpecies";
 
 /** Mausoleum storage-slot capacity of the BASE building. Every tier above it is
  *  authored in placeables.json (`zombieSlots`), so the live cap comes from the
@@ -466,7 +467,7 @@ export class ZombieField {
     // first (output-species) slot. The Epic Boss prizes are specials too: a reward
     // zombie in slot 1 comes back out as itself, wearing slot 2's mutations — that is
     // the one way it can be mutated, since it is never planted beside a crop.
-    if (defB?.category === "special") return false;
+    if (defB?.category === "special" && !isCombineSpecialKey(defB.key)) return false;
     const a = this.takeOwned(idA)!;
     const b = this.takeOwned(idB)!;
     // Both parents are consumed. ONLINE: the server records them as a combine job
