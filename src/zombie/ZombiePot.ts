@@ -33,7 +33,7 @@
 import { OwnedZombieSave, ZombiePotSave } from "../save/schema";
 import { combineMasks } from "./mutations";
 import {
-  createCombineRandom, selectCombineSpecies, type CombineGraveUnlock,
+  createCombineRandom, selectCombineSpecies, SLOT1_RECORD_SINCE_MS, type CombineGraveUnlock,
 } from "./combineSpecies";
 
 /** Default combine duration: 1 hour, in ms (binary: getCombineTime = 3600.0 s). */
@@ -248,7 +248,8 @@ export class ZombiePot {
       },
       j.playerLevel ?? 1,
       random,
-      this.hasGrave
+      this.hasGrave,
+      j.startedAt < SLOT1_RECORD_SINCE_MS
     );
   }
 

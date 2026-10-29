@@ -110,8 +110,8 @@ function potTopic(facts: AlmanacGuideFacts): AlmanacGuideTopic {
         `.The jump is rolled after the colour step, so a Green or Blue matched pair ` +
         `climbs its ladder rung first rather than leaping past it.`,
 
-      `Named Specials are the one restriction. One can only go in slot 1, where it is ` +
-        `always inherited, and two of them cannot be combined at all.`,
+      `Any zombie can go in either slot, Named Specials included. A Special in slot 1 ` +
+        `always comes back out as itself; one in slot 2 only gives its mutations and is used up.`,
     ],
   };
 }

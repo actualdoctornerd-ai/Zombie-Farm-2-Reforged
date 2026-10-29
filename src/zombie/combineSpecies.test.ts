@@ -37,12 +37,21 @@ describe("Zombie Pot species selection", () => {
     expect(selectCombineSpecies(large, garden, 24, missesPromotion)).toBe("large");
   });
 
-  it("rejects two specials", () => {
+  it("combines two specials into slot 1's", () => {
     expect(selectCombineSpecies(
       parent("special-a", { isSpecial: true }),
       parent("special-b", { isSpecial: true }),
       45,
       () => 0
+    )).toBe("special-a");
+    // A job started under the old rule still refuses the pair.
+    expect(selectCombineSpecies(
+      parent("special-a", { isSpecial: true }),
+      parent("special-b", { isSpecial: true }),
+      45,
+      () => 0,
+      () => false,
+      true
     )).toBeNull();
   });
 
@@ -55,13 +64,22 @@ describe("Zombie Pot species selection", () => {
       evolutionRoll
     )).toBe("ZombieActorRegularCrazy");
     expect(evolutionRoll).not.toHaveBeenCalled();
-    // Backward compatibility for a combine persisted before specials were
-    // restricted to slot 1.
+    // A special in slot 2 is only a donor: slot 1's species comes out.
     expect(selectCombineSpecies(
       parent("ordinary"),
       parent("ZombieActorBombie", { isSpecial: true, group: "Headless" }),
       45,
       missesPromotion
+    )).toBe("ordinary");
+    // A combine started before the slot-1 record keeps the old either-slot rule, so
+    // its slot-2 special is not lost.
+    expect(selectCombineSpecies(
+      parent("ordinary"),
+      parent("ZombieActorBombie", { isSpecial: true, group: "Headless" }),
+      45,
+      missesPromotion,
+      () => false,
+      true
     )).toBe("ZombieActorBombie");
   });
 
@@ -141,9 +159,9 @@ describe("Zombie Pot species selection", () => {
       .toBe("ZombieActorRegularTier4Eyebiscus");
   });
 
-  it("keeps a matched special pair prohibited", () => {
+  it("re-cooks a matched special pair as itself", () => {
     const bombie = parent("ZombieActorBombie", { group: "Headless", isSpecial: true });
-    expect(selectCombineSpecies(bombie, { ...bombie }, 45, missesPromotion)).toBeNull();
+    expect(selectCombineSpecies(bombie, { ...bombie }, 45, () => 0)).toBe("ZombieActorBombie");
   });
 
   it("only breeds a matched pair up to silver from the RED step", () => {

@@ -1684,17 +1684,23 @@ describe("protocol v3 command engine", () => {
     ]);
   });
 
-  it("keeps an Epic reward zombie out of slot 2, like every other special", () => {
+  it("lets an Epic reward zombie go in slot 2 as a donor, like every other special", () => {
     const state = freshGameplayState();
     state.roster = [
       { id: "base", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false },
-      { id: "epic", key: "ZombieActorBandido", mutation: 0, invasions: 0, stored: false },
+      { id: "epic", key: "ZombieActorBandido", mutation: 1, invasions: 0, stored: false },
     ];
-    const result = applyCommandBatch(state, commands(
+    const started = applyCommandBatch(state, commands(
       { type: "roster.combine_start", potId: "pot1", parentAId: "base", parentBId: "epic" }
     ), { now: 1 });
-    expect(result.results[0]).toMatchObject({ status: "rejected", error: "special_slot" });
-    expect(result.state.roster).toHaveLength(2);
+    expect(started.results[0]).toMatchObject({ status: "applied" });
+    const collected = applyCommandBatch(started.state, commands(
+      { type: "roster.combine", potId: "pot1", parentAId: "base", parentBId: "epic" }
+    ), { now: 2, random: () => 0.99, id: () => "child" });
+    expect(collected.results[0]).toMatchObject({ status: "applied" });
+    expect(collected.state.roster).toEqual([
+      { id: "child", key: "ZombieActorRegularTier1", mutation: 1, invasions: 0, stored: false },
+    ]);
   });
 
   it("rejects a pair of otherwise-combinable specials", () => {
@@ -1953,13 +1959,38 @@ describe("protocol v3 command engine", () => {
     return state;
   };
 
-  it("refuses to START a combine with the special in Zombie Pot slot 2", () => {
+  it("starts a combine with a special in Zombie Pot slot 2 and keeps slot 1's species", () => {
     const state = specialPair();
-    const result = applyCommandBatch(state, commands(
+    const started = applyCommandBatch(state, commands(
       { type: "roster.combine_start", potId: "pot-1", parentAId: "regular", parentBId: "bombie" }
     ), { now: 1 });
-    expect(result.results[0]).toMatchObject({ status: "rejected", error: "special_slot" });
-    expect(result.state.roster.every((unit) => !unit.lockedByRaid)).toBe(true);
+    expect(started.results[0]).toMatchObject({ status: "applied" });
+    // Even a collect that names the parents the other way round keeps slot 1.
+    const collected = applyCommandBatch(started.state, commands(
+      { type: "roster.combine", potId: "pot-1", parentAId: "bombie", parentBId: "regular" }
+    ), { now: 2, random: () => 0.99, id: () => "child" });
+    expect(collected.results[0]).toMatchObject({ status: "applied" });
+    expect(collected.state.roster).toEqual([
+      expect.objectContaining({ id: "child", key: "ZombieActorRegularTier1" }),
+    ]);
+  });
+
+  it("combines two specials started in the Pot into slot 1's", () => {
+    const state = freshGameplayState();
+    state.roster = [
+      { id: "crazy", key: "ZombieActorRegularCrazy", mutation: 0, invasions: 0, stored: false },
+      { id: "bombie", key: "ZombieActorBombie", mutation: 0, invasions: 0, stored: false },
+    ];
+    const started = applyCommandBatch(state, commands(
+      { type: "roster.combine_start", potId: "pot-1", parentAId: "crazy", parentBId: "bombie" }
+    ), { now: 1 });
+    expect(started.results[0]).toMatchObject({ status: "applied" });
+    const collected = applyCommandBatch(started.state, commands(
+      { type: "roster.combine", potId: "pot-1", parentAId: "crazy", parentBId: "bombie" }
+    ), { now: 2, id: () => "child" });
+    expect(collected.state.roster).toEqual([
+      expect.objectContaining({ id: "child", key: "ZombieActorRegularCrazy" }),
+    ]);
   });
 
   it("still collects a slot-2 special from a job started before the rule", () => {

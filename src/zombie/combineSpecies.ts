@@ -142,7 +142,13 @@ export function createCombineRandom(parentAId: string, parentBId: string): () =>
 /**
  * Choose the Zombie Pot's output species: slot 1's, except that a matched pair
  * climbs the colour ladder and any eligible pair can rarely promote to the tier-5
- * special. The result is null only for the prohibited special + special pairing.
+ * special. Any zombie may go in slot 2, a named special included: slot 2 only donates
+ * its mutations, so a special there is consumed like any other donor.
+ *
+ * `legacySpecialFromSlot2` keeps the rule older jobs were started under, when a lone
+ * special won from EITHER slot (and two specials could not be combined). The server
+ * passes it for a job that predates its slot-1 record (state.potSlots), so a pot
+ * started back then still hands its special back. The result is null only there.
  *
  * The matched-pair ladder (two parents of the SAME species) runs
  * Green -> Blue -> Red -> Silver:
@@ -156,18 +162,27 @@ export function createCombineRandom(parentAId: string, parentBId: string): () =>
  * Event/reward-only eligibility is intentionally enforced by the caller because
  * that catalog flag is not part of a persisted combine job.
  */
+/** Pot jobs started before this (epoch ms, 2026-08-04 UTC — when the server began
+ *  recording slot 1 in state.potSlots) were started under the old rule; the client
+ *  collects them with `legacySpecialFromSlot2`, as the server does for a job it has
+ *  no slot-1 record for. */
+export const SLOT1_RECORD_SINCE_MS = Date.UTC(2026, 7, 4);
+
 export function selectCombineSpecies(
   a: CombineSpeciesParent,
   b: CombineSpeciesParent,
   playerLevel: number,
   random: () => number = Math.random,
-  hasGrave: CombineGraveUnlock = () => false
+  hasGrave: CombineGraveUnlock = () => false,
+  legacySpecialFromSlot2 = false
 ): string | null {
-  if (a.isSpecial && b.isSpecial) return null;
-  // Named special species are permanent. New combines only allow them in slot 1,
-  // but retaining this symmetric fallback lets an older persisted slot-2 job
-  // finish without losing its special parent.
-  if (a.isSpecial !== b.isSpecial) return a.isSpecial ? a.key : b.key;
+  if (legacySpecialFromSlot2) {
+    if (a.isSpecial && b.isSpecial) return null;
+    if (b.isSpecial) return b.key;
+  }
+  // A named special in slot 1 is a permanent output species: it comes back out as
+  // itself, wearing slot 2's mutations.
+  if (a.isSpecial) return a.key;
   if (isObsidian(a)) return a.key;
 
   const matched = a.key === b.key;

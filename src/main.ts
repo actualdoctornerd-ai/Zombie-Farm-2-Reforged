@@ -4125,13 +4125,6 @@ async function main() {
     const def = potId ? field.objectDefOf(potId) : null;
     if (potId && def) openObjectActionsFor(potId, def);
   };
-  // Every special — the Epic Boss prizes included, since they became mutable — may
-  // go in the Pot, but only in slot 1: the child is always slot 1's species, so a
-  // special is the thing being mutated, never a donor.
-  hud.canCombineZombie = (key, slot) => {
-    const def = zombieDefs.get(key);
-    return !(slot === "B" && def?.category === "special");
-  };
   hud.onCombine = async (idA, idB) => {
     if (onlineGameplayBlocked()) return false;
     if (!activePotId) return false;

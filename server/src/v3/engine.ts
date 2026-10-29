@@ -189,12 +189,14 @@ function hasColorGrave(
 }
 
 /** Use the same slot-1 species, permanent-special, colour-ladder and rare-promotion
- * rules as the timed client Zombie Pot. */
+ * rules as the timed client Zombie Pot. `legacy` is a job started before this pot
+ * recorded its slot 1 (see selectCombineSpecies). */
 function combinedSpecies(
   state: MutableGameplayState,
   a: RosterUnitProjection,
   b: RosterUnitProjection,
-  playerLevel: number
+  playerLevel: number,
+  legacy = false
 ): string | null {
   const ar = zombieRuleByKey.get(a.key);
   const br = zombieRuleByKey.get(b.key);
@@ -209,7 +211,8 @@ function combinedSpecies(
     },
     playerLevel,
     createCombineRandom(a.id, b.id),
-    (color) => hasColorGrave(state, color)
+    (color) => hasColorGrave(state, color),
+    legacy
   );
 }
 
@@ -1210,13 +1213,9 @@ function applyOne(
       const a = state.roster.find((unit) => unit.id === command.parentAId && !unit.lockedByRaid);
       const b = state.roster.find((unit) => unit.id === command.parentBId && !unit.lockedByRaid);
       if (!a || !b) return reject(sequence, "not_owned");
-      // Reward-only prizes are specials, so the slot rules below already say what
-      // they may do: slot 1 only, and never two of them. A prize in slot 1 is how it
-      // gets mutated at all — it is never planted beside a crop.
-      const specialA = zombieRuleByKey.get(a.key)?.category === "special";
-      const specialB = zombieRuleByKey.get(b.key)?.category === "special";
-      if (specialA && specialB) return reject(sequence, "special_pair");
-      if (specialB) return reject(sequence, "special_slot");
+      // Any zombie may go in either slot, specials and reward-only prizes included:
+      // slot 1 is the child's species and slot 2 only donates its mutations. A prize
+      // in slot 1 is how it gets mutated at all — it is never planted beside a crop.
       const requestedLevel = Number.isInteger(command.playerLevel) && command.playerLevel! >= 1
         ? command.playerLevel!
         : level;
@@ -1256,18 +1255,17 @@ function applyOne(
       // recorded its slots has nothing to consult, so it keeps trusting the command.
       const startedSlotOne = command.potId ? state.potSlots?.[command.potId] : undefined;
       const [a, b] = startedSlotOne === second.id ? [second, first] : [first, second];
-      // The slot-1 restriction is enforced when a job STARTS (combine_start). Collection
-      // deliberately does not re-check it: a job persisted before the rule — reserved or
-      // not — has already consumed both parents client-side, and selectCombineSpecies
-      // preserves the special from either slot, so rejecting here would only destroy the
-      // result. Two specials remain impossible (combinedSpecies returns null below).
+      // A job with no slot-1 record predates it, and was started when a lone special
+      // won from EITHER slot (and two specials were refused at start): it collects
+      // under that rule, so a special put in slot 2 back then is not lost now.
+      const legacy = !startedSlotOne;
       // Older clients omit the start level and retain collection-time behavior.
       // New clients send the persisted start level; capping it at the authoritative
       // current level prevents a forged value from unlocking the rare roll early.
       const requestedLevel = Number.isInteger(command.playerLevel) && command.playerLevel! >= 1
         ? command.playerLevel!
         : level;
-      const resultKey = combinedSpecies(state, a, b, Math.min(requestedLevel, level));
+      const resultKey = combinedSpecies(state, a, b, Math.min(requestedLevel, level), legacy);
       if (!resultKey) return reject(sequence, "special_pair");
       const capacity = placedCapacity(state);
       const activeAfterParents = activeUnits(state) - Number(!a.stored) - Number(!b.stored);

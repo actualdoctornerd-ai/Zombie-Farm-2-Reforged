@@ -59,8 +59,8 @@ deployed army is full the reward is filed in **Received** instead: it is not in 
 roster yet, and claiming it from the Storage panel takes a real Mausoleum slot, so a
 player with no Mausoleum (or a full one) must make room before the unit can join. The
 reward is never destroyed — it waits in Received indefinitely. They cannot be bought,
-planted or seeded by migration. They CAN go in the Zombie Pot, in slot 1 only like every
-other special: the prize comes back out as itself wearing slot 2's mutations, both parents
+planted or seeded by migration. They CAN go in the Zombie Pot like every
+other special: in slot 1 the prize comes back out as itself wearing slot 2's mutations, both parents
 consumed, which is the one way a zombie that is never planted beside a crop can be mutated.
 The mutations count for stats but draw no art on an Epic prize yet
 (`mutationBitsForRendering`) — their authored actors have no vegetable art of their own.
@@ -87,7 +87,7 @@ promoted prize, rolled alongside it on an elite win, is the **Boss Zombie**: the
 above the prize line and then, like the base, a fifth off its con (~2,030 with the damage set, a
 hair under the Vagabond), and at 4.5% on a ticket win of the hardest invasion the rarest zombie
 in the game. A special like the other prizes — `category: "special"`, the
-Special class, group Regular — so Zombie Pot slot 1 only, and a level-40 Black Market gate (three
+Special class, group Regular — so it keeps its species in Zombie Pot slot 1, and a level-40 Black Market gate (three
 under the invasion's own level-43 unlock, the highest gate in the game);
 never planted (`marketHidden`), its **6 brain** cost is its sell / trade value. Level **43** is
 the invasion's own unlock level. Its
@@ -232,10 +232,13 @@ special), and the roll then takes precedence over the Red -> Silver step, so a m
 Flamehead pair usually yields a Party Zombie and rarely a Skull Head. A failed roll
 falls through to the ordinary rules.
 
-A named special is a permanent output type: it may only be placed in **slot 1** (the
-Pot refuses to start otherwise, client and server), and it is always inherited. Two
-specials cannot be combined. Epic/event `rewardOnly` zombies are specials and follow the
-same slot-1 rule (they used to be barred from the Pot entirely).
+Any zombie may go in either slot (since 2026-10-29; until then named specials were
+slot 1 only and two specials could not be combined). A named special in **slot 1** is a
+permanent output type and always comes back out as itself, wearing slot 2's mutations.
+In slot 2 it is a donor like any other: it gives its mutations and is consumed. Epic/event
+`rewardOnly` zombies are specials and follow the same rules. A job with no slot-1 record
+(`state.potSlots`; started before 2026-08-04) still collects under the old rule, where a
+lone special won from either slot (`legacySpecialFromSlot2` in `selectCombineSpecies`).
 
 > Note: this replaces the recovered `determineBaseClass` rules (non-veggie parent wins,
 > then higher combat tier, then a coin flip on a tie — see the zombie-pot disassembly

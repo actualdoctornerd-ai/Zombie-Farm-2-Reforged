@@ -2002,8 +2002,6 @@ export class Hud {
     | null = null;
   /** Start combining two owned zombies by id. */
   onCombine: ((idA: string, idB: string) => boolean | Promise<boolean>) | null = null;
-  /** Reward-only actors cannot be consumed or cloned; specials only fit slot 1. */
-  canCombineZombie: ((key: string, slot?: "A" | "B") => boolean) | null = null;
   /** Collect a finished combine; returns the new zombie's name (or null).
    *  `stored` sends the child straight to the Mausoleum instead of the farm. */
   onCollectCombine: ((stored?: boolean) => string | null | Promise<string | null>) | null = null;
@@ -5966,11 +5964,9 @@ export class Hud {
       // deployed first (it is consumed either way, and deploying it just to combine it
       // needed a free army slot the player often did not have). Each stored tile is
       // badged so it is clear where the zombie is coming from.
-      const roster = (this.getRoster?.() ?? []).filter((zombie) =>
-        this.canCombineZombie?.(zombie.key) ?? true
-      );
-      const canUseInSlot = (key: string, slot: "A" | "B") =>
-        this.canCombineZombie?.(key, slot) ?? true;
+      // Any zombie fits either slot: slot 1 is the child's species, slot 2 a mutation
+      // donor that is used up.
+      const roster = this.getRoster?.() ?? [];
       const head = document.createElement("div");
       head.className = "cmb-head";
       head.innerHTML = `<h2>Zombie Pot</h2>`;
@@ -6003,7 +5999,7 @@ export class Hud {
         } else {
           const h = document.createElement("div");
           h.className = "cmb-hint";
-          h.textContent = which === "A" ? "Slot 1 (output type)" : "Slot 2";
+          h.textContent = which === "A" ? "Slot 1: keeps its species" : "Slot 2: gives its mutations";
           d.appendChild(h);
         }
         return d;
@@ -6015,7 +6011,7 @@ export class Hud {
 
       const ruleNote = document.createElement("div");
       ruleNote.className = "cmb-rule-note";
-      ruleNote.textContent = `Slot 1 sets the zombie type; mutations can come from both. Two zombies of the same type breed up a colour: Green to Blue, then Blue to Red, once you own that grave — and two Reds become a Silver at level ${COMBINE_SPECIAL_LEVEL}+. Special zombies only fit Slot 1 and always remain the same species.`;
+      ruleNote.textContent = `The new zombie is always Slot 1's species, Specials included; Slot 2 only passes on its mutations and is used up. Two zombies of the same type breed up a colour: Green to Blue, then Blue to Red, once you own that grave — and two Reds become a Silver at level ${COMBINE_SPECIAL_LEVEL}+.`;
 
       const list = document.createElement("div");
       list.className = "cmb-list";
@@ -6027,10 +6023,8 @@ export class Hud {
       } else {
         for (const z of roster) {
           const chosen = z.id === pickA || z.id === pickB;
-          const nextSlot: "A" | "B" = pickA ? "B" : "A";
-          const eligible = canUseInSlot(z.key, nextSlot);
           const c = document.createElement("div");
-          c.className = "cmb-z" + (chosen ? " chosen" : "") + (!chosen && !eligible ? " disabled" : "");
+          c.className = "cmb-z" + (chosen ? " chosen" : "");
           const p = document.createElement("div");
           p.className = "cmb-zpor";
           showPortrait(p, z.key, z.mutation, z.color);
@@ -6049,14 +6043,12 @@ export class Hud {
             m.title = mutationLabelFor(z.key, z.mutation);
             c.appendChild(m);
           }
-          if (!chosen && eligible) {
+          if (!chosen) {
             c.onclick = () => {
               if (!pickA) pickA = z.id;
               else if (!pickB) pickB = z.id;
               renderIdle();
             };
-          } else if (!chosen && !eligible) {
-            c.title = "Special zombies can only be placed in Slot 1.";
           }
           list.appendChild(c);
         }
