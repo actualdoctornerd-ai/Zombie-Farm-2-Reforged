@@ -1,0 +1,56 @@
+{
+ "name": "zomchantress",
+ "base": "ZombieActorGirlTier5",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  95,
+  92,
+  110
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "bellydancerFeature.png",
+   "group": "head",
+   "px": 13,
+   "py": -52,
+   "ax": 0.73,
+   "ay": 0.75,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "bellydancerBody.png",
+   "group": "root",
+   "px": 10,
+   "py": -13,
+   "ax": 0.63,
+   "ay": 0.6599999999999999,
+   "z": 3,
+   "scale": 1
+  },
+  {
+   "file": "EyeL.png",
+   "group": "head",
+   "px": -19,
+   "py": -49,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "EyeR.png",
+   "group": "head",
+   "px": 2,
+   "py": -50,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  }
+ ]
+}
