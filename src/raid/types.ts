@@ -217,6 +217,9 @@ export interface CombatUnit {
   stunMs?: number;
   /** Frequency share of the stunning entries, exactly as `knockBackChance`. */
   stunChance?: number;
+  /** Endless curse proc: damages deployed zombies when this enemy dies. */
+  deathExplosion?: { chance: number; damagePercent: number };
+  knockBackHeadlessOnly?: boolean;
   /** Fraction (0..1) of the attack animation at which the strike connects — Attacks.json
    *  `damageTiming` of the enemy's primary attack (Farmhand poke 0.33, Lumberjack slice
    *  0.75, boss punch 0.4). Purely cosmetic: shapes the enemy's lunge/thrust in the raid
@@ -325,6 +328,8 @@ export interface WaveCadence {
   maxActive: number;
   /** Reinforcement clock in ms (0 = none) — the alien stage's `spawnTimer`. */
   dripMs: number;
+  /** Initial simultaneous enemies; defaults to one. Used by Endless paired waves. */
+  openingActive?: number;
 }
 
 /** The alien boss's `summonBoss` queue. GROUND TRUTH: `bossSummonList` is seeded in
@@ -337,6 +342,23 @@ export interface SummonConfig {
   queue: CombatUnit[];
   /** The five candidates a completed summon pushes back on (uniform roll). */
   pool: CombatUnit[];
+}
+
+/** Timed location mechanics used by Endless fights. Effects are scheduled by the shared
+ *  BattleSim so they participate in ordinary targeting, damage, death and replay state. */
+export interface EndlessStageMechanics {
+  cooldownsMs: Readonly<Record<string, number>>;
+  /** Run boons, consumed by BattleSim only when this Endless context is present. */
+  deploymentSpeedBonus?: number;
+  openingDeploy?: number;
+  /** Basic line enemy moved behind the army by the Ninja smoke bomb. */
+  flankerTemplate?: CombatUnit | null;
+  /** Reinforcement released by Alien summons or Pirate speed pressure. */
+  reinforcementTemplate?: CombatUnit | null;
+  /** Pixel enemy body used when Video Game turnZombie converts a player zombie. */
+  turnedTemplate?: CombatUnit | null;
+  /** Carrot wall dropped during the Ninja section. */
+  wallTemplate?: CombatUnit | null;
 }
 
 /** One entry in a boss's merged action budget. GROUND TRUTH: the source keeps throws and

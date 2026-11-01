@@ -2,6 +2,7 @@
 // here is unit-tested (test/logic.test.ts) and reused by the route handlers.
 import type { SaveGame } from "./env";
 import { refuseName, type NameRefusal } from "./nameFilter";
+import { normalizePenSlots } from "../../src/petPens";
 
 /** Milliseconds in a day — the gift cooldown window. Server owns this clock. */
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -195,8 +196,8 @@ export function importEligible(createdAt: number, cutoffMs: number): boolean {
  *  raids, and the entire social block (their friends list). */
 export function projectFriendSave(save: SaveGame): SaveGame {
   const active = save.player?.petCollection?.active ?? null;
-  const pen = [...new Set(save.player?.petCollection?.pen ?? [])].slice(0, 4);
-  const visiblePets = [...new Set([...(active ? [active] : []), ...pen])];
+  const pen = normalizePenSlots(save.player?.petCollection?.pen ?? []);
+  const visiblePets = [...new Set([...(active ? [active] : []), ...pen.filter(Boolean)])];
   return {
     version: save.version,
     savedAt: save.savedAt,

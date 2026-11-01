@@ -73,8 +73,12 @@ export type GameplayCommand =
   /** Relocate a plot and whatever is growing on it. Layout only — the crop,
    *  its timers and its value are carried across untouched. */
   | { type: "farm.move"; oc: number; or: number; toOc: number; toOr: number }
-  | { type: "power.buy"; key: string }
-  | { type: "power.use"; key: string; oc?: number; or?: number; target?: "zombie_pot" }
+  /** `count` buys that many packs in one atomic step (1..MAX_BOOST_BUY_COUNT);
+   *  omitted means one. */
+  | { type: "power.buy"; key: string; count?: number }
+  /** `skipZombies`: Insta-Harvest leaves ripe zombie crops planted (a player
+   *  setting). Ignored by every other power. */
+  | { type: "power.use"; key: string; oc?: number; or?: number; target?: "zombie_pot"; skipZombies?: boolean }
   | { type: "object.buy"; catalogKey: string; clientInstanceId?: string }
   | { type: "object.refund"; instanceId: string }
   | { type: "object.upgrade"; instanceId: string; catalogKey: string }
@@ -103,6 +107,9 @@ export type GameplayCommand =
   | { type: "farmer.bonus"; headId: number | null }
   | { type: "pet.buy"; petKey: string }
   | { type: "pet.equip"; petKey: string | null }
+  /** The pen SLOTS, PETS_PER_PEN per pen in order: pen i owns
+   *  `petKeys[i * PETS_PER_PEN ..]`. "" is an empty slot, so emptying one pen never
+   *  shifts the pets of the next into it. */
   | { type: "pet.pen"; petKeys: string[] }
   /** Carve a fallen zombie onto a placed Memorial Statue. Server-owned because a
    *  friend visiting the farm renders the statue from the authoritative object
@@ -407,6 +414,8 @@ export interface BootstrapResponse {
    *  no client redeploy, no dead button while the feature is parked. Optional —
    *  an older Worker simply doesn't send it, which reads as "off". */
   pvpEnabled?: boolean;
+  /** Whether this Worker serves Endless Mode (ENDLESS_ENABLED). Absent = off. */
+  endlessEnabled?: boolean;
   mutationsEnabled: boolean;
   accountVersion: number;
   writerGeneration: number;
@@ -634,3 +643,12 @@ export interface BlackMarketHistoryResponse {
   /** Most recent completed trades, newest first (capped server-side). */
   entries: BlackMarketHistoryEntry[];
 }
+
+/** Pet Pens a farm may own, and the pets each one holds. A pet lives in at most one
+ *  pen; `pet.pen` carries every pen's slots at once (see the command above). */
+export const MAX_PET_PENS = 4;
+export const PETS_PER_PEN = 4;
+export const MAX_PEN_SLOTS = MAX_PET_PENS * PETS_PER_PEN;
+
+/** Most boost packs one `power.buy` may buy at once. */
+export const MAX_BOOST_BUY_COUNT = 100;

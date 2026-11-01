@@ -60,25 +60,28 @@ describe("cosmetic pet catalog and client ownership", () => {
     expect(state.activePet).toBeNull();
   });
 
-  it("deploys up to four owned pets in the pen separately from the follower", () => {
+  it("deploys owned pets into pen slots separately from the follower", () => {
     const state = new GameState();
     state.syncPetOwnership(["a", "b", "c", "d", "e"], "a");
 
+    // Pen 0 holds b-e; a fifth pet goes to pen 1's first slot.
     expect(state.setPenPets(["b", "c", "d", "e"])).toBe(true);
     expect(state.penPets).toEqual(["b", "c", "d", "e"]);
     expect(state.activePet).toBe("a");
-    expect(state.setPenPets(["a", "b", "c", "d", "e"])).toBe(false);
+    expect(state.setPenPets(["b", "c", "d", "e", "b"])).toBe(false); // one pen per pet
+    expect(state.setPenPets(Array.from({ length: 17 }, () => ""))).toBe(false);
     expect(state.setPenPets(["missing"])).toBe(false);
 
-    expect(state.setPenPets(["a", "b"])).toBe(true);
+    expect(state.setPenPets(["a", "b", "", "", "c"])).toBe(true);
     expect(state.activePet).toBeNull();
+    // Following b out of pen 0 leaves a blank, so c stays in pen 1.
     expect(state.equipPet("b")).toBe(true);
-    expect(state.penPets).toEqual(["a"]);
+    expect(state.penPets).toEqual(["a", "", "", "", "c"]);
   });
 
-  it("sanitizes persisted pen selections against ownership and the four-pet cap", () => {
+  it("sanitizes persisted pen slots against ownership, duplicates and the follower", () => {
     const state = new GameState();
     state.syncPetOwnership(["a", "b", "c", "d", "e"], "a", ["a", "b", "b", "c", "d", "e", "missing"]);
-    expect(state.penPets).toEqual(["b", "c", "d", "e"]);
+    expect(state.penPets).toEqual(["", "b", "", "c", "d", "e"]);
   });
 });

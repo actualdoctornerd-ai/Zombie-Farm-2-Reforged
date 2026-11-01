@@ -6,6 +6,7 @@ import skunkRaw from "../../public/assets/epic-bosses/skunkarella/catalog.json";
 import rhinoRaw from "../../public/assets/epic-bosses/rocky-rhino/catalog.json";
 import larvaRaw from "../../public/assets/epic-bosses/general-larvaelus/catalog.json";
 import mambaRaw from "../../public/assets/epic-bosses/mystical-mamba/catalog.json";
+import galacticGroundhogRaw from "../../public/assets/epic-bosses/galactic-groundhog/catalog.json";
 import type { EpicBossDef } from "./types";
 
 export const DR_GROUNDHOG = groundhogRaw as EpicBossDef;
@@ -16,11 +17,12 @@ export const SKUNKARELLA = skunkRaw as EpicBossDef;
 export const ROCKY_RHINO = rhinoRaw as EpicBossDef;
 export const GENERAL_LARVAELUS = larvaRaw as EpicBossDef;
 export const MYSTICAL_MAMBA = mambaRaw as EpicBossDef;
+export const GALACTIC_GROUNDHOG = galacticGroundhogRaw as EpicBossDef;
 export const EPIC_BOSSES: readonly EpicBossDef[] = [
   DR_GROUNDHOG, LOCO_LOCUST, BULLY_FROG, FOUL_OWL, SKUNKARELLA,
   ROCKY_RHINO, GENERAL_LARVAELUS, MYSTICAL_MAMBA,
 ];
-const BY_ID = new Map(EPIC_BOSSES.map((boss) => [boss.id, boss]));
+const BY_ID = new Map([...EPIC_BOSSES, GALACTIC_GROUNDHOG].map((boss) => [boss.id, boss]));
 
 // Per-boss unlock level, ordered by HOW STRONG THE PRIZE ZOMBIES ARE — the eight
 // events are not interchangeable, so gating them all at one level put Loco Locust's
@@ -63,6 +65,10 @@ export const DEFAULT_EPIC_BOSS_UNLOCK_LEVEL = 32;
 
 export function epicBossById(id: string | null | undefined): EpicBossDef | null {
   return id ? BY_ID.get(id) ?? null : null;
+}
+export function epicBossAvailableInGame(id: string | null | undefined): boolean {
+  const boss = id ? BY_ID.get(id) : null;
+  return !!boss && boss.availableInGame !== false;
 }
 export function epicBossUnlockLevel(boss: EpicBossDef | string): number {
   const id = typeof boss === "string" ? boss : boss.id;

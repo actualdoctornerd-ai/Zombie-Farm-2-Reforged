@@ -51,6 +51,7 @@ const DAMAGE_NUMBERS_KEY = "zf2r.showDamageNumbers";
 const LANTERN_KEY = "zf2r.farmerLantern";
 const LANTERN_TAP_KEY = "zf2r.farmerLanternTap";
 const RIGHT_CLICK_KEY = "zf2r.rightClick";
+const INSTA_HARVEST_ZOMBIES_KEY = "zf2r.instaHarvestZombies";
 
 /** Raised the first time this device refuses to KEEP a preference, so a player whose
  *  settings quietly reset is told why instead of re-making the same change every
@@ -165,6 +166,19 @@ export function getFarmerLanternTap(): boolean {
 
 export function setFarmerLanternTap(on: boolean): void {
   writePref(LANTERN_TAP_KEY, on ? "1" : "0");
+}
+
+/** Whether Insta-Harvest also harvests ripe zombie crops. Defaults to on (what it
+ *  has always done). Off, it takes vegetables and fruit trees only and leaves every
+ *  zombie crop planted — for players who would rather pick their zombies by hand
+ *  than have a full army or Mausoleum fill up behind their back. Read when the boost
+ *  is used, and sent with the power command so the server's sweep matches. */
+export function getInstaHarvestZombies(): boolean {
+  return readPref(INSTA_HARVEST_ZOMBIES_KEY) !== "0";
+}
+
+export function setInstaHarvestZombies(on: boolean): void {
+  writePref(INSTA_HARVEST_ZOMBIES_KEY, on ? "1" : "0");
 }
 
 /** What right-clicking the farm does.

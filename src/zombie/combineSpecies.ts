@@ -18,6 +18,11 @@ export const COMBINE_SPECIAL_BY_GROUP: Readonly<Record<string, string>> = {
   Headless: "ZombieActorHeadlessTier5",   // Skull Head
 };
 
+/** Pot-bred tier-5 specials can donate mutations from slot 2. */
+export function isCombineSpecialKey(key: string): boolean {
+  return Object.values(COMBINE_SPECIAL_BY_GROUP).includes(key);
+}
+
 /** The silver (tier-4) representative for each zombie body type — what a pair of
  * identical RED parents breeds up into at COMBINE_SPECIAL_LEVEL+. */
 export const COMBINE_SILVER_BY_GROUP: Readonly<Record<string, string>> = {

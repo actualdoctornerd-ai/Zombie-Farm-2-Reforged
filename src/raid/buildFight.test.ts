@@ -93,6 +93,23 @@ function unit(id: string, team: "player" | "enemy", over: Partial<CombatUnit> = 
 }
 
 describe("buildFight is the only way a fight is assembled", () => {
+  it("applies Endless opening deployment and faster focus without changing ordinary fights", () => {
+    const party = [unit("p0", "player"), unit("p1", "player"), unit("p2", "player")];
+    const enemy = unit("e0", "enemy");
+    const normal = buildFight({ playerUnits: party, enemyUnits: [enemy], concentration: true });
+    const endless = buildFight({
+      playerUnits: party, enemyUnits: [enemy], concentration: true,
+      endlessMechanics: { cooldownsMs: {}, deploymentSpeedBonus: 0.6, openingDeploy: 2 },
+    });
+    const playerStates = (sim: ReturnType<typeof buildFight>) => sim.snapshot().units
+      .filter((u) => u.team === "player").map((u) => u.state);
+    expect(playerStates(normal)).toEqual(["waiting", "waiting", "waiting"]);
+    expect(playerStates(endless)).toEqual(["advance", "advance", "waiting"]);
+    for (let t = 0; t < 90; t++) { normal.step(50); endless.step(50); }
+    expect(playerStates(normal)[0]).toBe("charging");
+    expect(playerStates(endless)[2]).toBe("advance");
+  });
+
   it("passes every constructor parameter, in order, under its own name", () => {
     // THE drift guard. A new mechanic appended to BattleSim's constructor and forgotten
     // in FightSpec defaults to off for every caller — which is exactly how the balance

@@ -58,6 +58,7 @@ const srcPath = (p) => resolve(ROOT, "server/src", p);
  *  entry here, not a code change. */
 const PURCHASE_LIMITS = {
   zombieCombiner: 3,     // the Zombie Pot: three combines in flight at once
+  pettingZoo: 4,         // Pet Pens: four per farm, each with its own pets (MAX_PET_PENS)
   memorialStatue: null,  // one statue remembers one zombie — as many as you have lost
 };
 

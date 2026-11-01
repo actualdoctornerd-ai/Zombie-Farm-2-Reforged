@@ -9,7 +9,8 @@ import type {
   FallenUnitProjection,
   SequencedCommand,
 } from "../../../src/net/protocol";
-import { EPIC_BOSS_TOKEN_GRANT_LIMIT } from "../../../src/net/protocol";
+import { EPIC_BOSS_TOKEN_GRANT_LIMIT, MAX_BOOST_BUY_COUNT, MAX_PEN_SLOTS, MAX_PET_PENS } from "../../../src/net/protocol";
+import { normalizePenSlots, withoutPenPet } from "../../../src/petPens";
 import plantRows from "../../../public/assets/plants.json";
 import zombieRows from "../../../public/assets/zombies.json";
 import farmerRows from "../../../public/assets/farmer.json";
@@ -895,12 +896,18 @@ function applyOne(
       const boost = boostEcon(command.key);
       if (!boost) return reject(sequence, "bad_item");
       if (level < boost.level) return reject(sequence, "locked");
+      // `count` packs in one all-or-nothing step: the player can afford and stack
+      // every one of them, or none is bought.
+      const count = command.count ?? 1;
+      if (!Number.isSafeInteger(count) || count < 1 || count > MAX_BOOST_BUY_COUNT) {
+        return reject(sequence, "bad_item");
+      }
       const currency = boost.brains ? "brains" : "gold";
-      if (state.balance[currency] < boost.cost) return reject(sequence, "insufficient");
+      if (state.balance[currency] < boost.cost * count) return reject(sequence, "insufficient");
       const have = state.inventory[command.key] ?? 0;
-      if (have + boost.perPurchase > MAX_STACK) return reject(sequence, "stack_full");
-      state.balance[currency] -= boost.cost;
-      state.inventory[command.key] = have + boost.perPurchase;
+      if (have + boost.perPurchase * count > MAX_STACK) return reject(sequence, "stack_full");
+      state.balance[currency] -= boost.cost * count;
+      state.inventory[command.key] = have + boost.perPurchase * count;
       return { sequence, status: "applied" };
     }
     case "power.use": {
@@ -942,6 +949,8 @@ function applyOne(
           .filter((entry): entry is [string, Extract<FarmPlotProjection, { state: "planted" }>] => entry[1].state === "planted" && isRipe(entry[1], options.now))
           .sort((a, b) => a[1].plantedAt - b[1].plantedAt || a[0].localeCompare(b[0]));
         for (const [key, plot] of ripe) {
+          // The player's "Insta-Harvest Zombies" setting off: zombie crops stay planted.
+          if (command.skipZombies && plot.zombie) continue;
           const createdAt = created.length;
           const [oc, or] = key.split(":").map(Number);
           const harvest = rewardHarvest(state, plot.cropKey, plot, options.id, created,
@@ -1021,6 +1030,7 @@ function applyOne(
       // three, and the Memorial Statue, which has no cap at all — it is bought once
       // per zombie the player wants to remember. Mirrors placeablePurchaseLimit.
       const purchaseLimit = isZombiePot ? 3
+        : command.catalogKey === "pettingZoo" ? MAX_PET_PENS
         : isMemorial(command.catalogKey) ? undefined
         : objectRules.get(command.catalogKey)?.category === "functional" ? 1 : undefined;
       if (purchaseLimit !== undefined && state.objects.objects.filter((object) =>
@@ -1389,15 +1399,18 @@ function applyOne(
         return reject(sequence, "not_owned");
       }
       state.activePet = command.petKey;
-      if (command.petKey !== null) state.penPets = state.penPets.filter((key) => key !== command.petKey);
+      if (command.petKey !== null) state.penPets = withoutPenPet(state.penPets, command.petKey);
       return { sequence, status: "applied" };
     }
     case "pet.pen": {
-      const unique = [...new Set(command.petKeys)];
-      if (unique.length !== command.petKeys.length || unique.length > 4) return reject(sequence, "bad_selection");
-      if (unique.some((key) => !state.ownedPets.includes(key))) return reject(sequence, "not_owned");
-      state.penPets = unique;
-      if (state.activePet && unique.includes(state.activePet)) state.activePet = null;
+      // Pen SLOTS (src/petPens.ts): "" is an empty slot, every pet at most once.
+      const pets = command.petKeys.filter(Boolean);
+      if (command.petKeys.length > MAX_PEN_SLOTS || new Set(pets).size !== pets.length) {
+        return reject(sequence, "bad_selection");
+      }
+      if (pets.some((key) => !state.ownedPets.includes(key))) return reject(sequence, "not_owned");
+      state.penPets = normalizePenSlots(command.petKeys);
+      if (state.activePet && pets.includes(state.activePet)) state.activePet = null;
       return { sequence, status: "applied" };
     }
     case "storage.claim": {

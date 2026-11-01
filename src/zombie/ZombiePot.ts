@@ -10,8 +10,9 @@
 //     tooltip is literally "Zombie Pots combine in 15 minutes". The Mutant Monolith
 //     (flag 15) is a SEPARATE item that halves mutant-zombie GROW times, not this.)
 //   * SPECIES IS A DELIBERATE DIVERGENCE, not recovered behavior. Slot 1 determines
-//     the result species, so the player picks the outcome. Named Specials are
-//     restricted to slot 1 and are always inherited; a pair of the SAME species climbs
+//     the result species, so the player picks the outcome. Reward/event Specials are
+//     restricted to slot 1 and are always inherited; pot-bred tier-5 Specials may also
+//     donate mutations from slot 2. A pair of the SAME species climbs
 //     the colour ladder — Green -> Blue -> Red once the matching grave is owned, then
 //     Red -> that body type's Silver (tier-4) at level 25+ — and level-25+ non-special
 //     pairs retain their chance to promote the slot-1 body type to its tier-5

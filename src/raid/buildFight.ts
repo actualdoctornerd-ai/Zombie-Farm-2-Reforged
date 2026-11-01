@@ -30,6 +30,7 @@ import type {
   BossThrowConfig,
   CombatUnit,
   CrabConfig,
+  EndlessStageMechanics,
   GrabberConfig,
   MegaBotConfig,
   SummonConfig,
@@ -98,6 +99,8 @@ export interface FightSpec {
   timeLimitMs?: number;
   /** Do or Die overtime after the clock (Halloween's minute). Omit for none. */
   doOrDieMs?: number;
+  /** Timed terrain actions for Endless Mode. */
+  endlessMechanics?: EndlessStageMechanics | null;
 }
 
 /** The one call site of `new BattleSim(...)` outside tests. */
@@ -127,7 +130,8 @@ export function buildFight(spec: FightSpec): BattleSim {
     spec.bubble ?? null,
     spec.bubbleWall ?? null,
     spec.megaBot ?? null,
-    spec.timeLimitMs ?? RAID_TIME_LIMIT_MS
+    spec.timeLimitMs ?? RAID_TIME_LIMIT_MS,
+    spec.endlessMechanics ?? null
   );
   if (spec.doOrDieMs) sim.armDoOrDie(spec.doOrDieMs);
   return sim;

@@ -11,6 +11,7 @@ import {
   getRightClickMode, setRightClickMode,
   getShowHealthNumbers, setShowHealthNumbers,
   getShowDamageNumbers, setShowDamageNumbers,
+  getInstaHarvestZombies, setInstaHarvestZombies,
 } from "../../prefs";
 import { recallOneOf, remember } from "../viewState";
 import { otherPlayMode, playModeDestinationLabel } from "../../playMode";
@@ -543,6 +544,8 @@ export function openSettings(hud: Hud): void {
     game: [
       farmMode,
       farmModeNote,
+      settingRow("Insta-Harvest Zombies", getInstaHarvestZombies(), setInstaHarvestZombies),
+      noteEl("Off, Insta-Harvest picks your crops and fruit trees but leaves ripe zombies in the ground for you to harvest by hand."),
       ...localStorageControls,
       ...accountBlock,
       diagnostics,

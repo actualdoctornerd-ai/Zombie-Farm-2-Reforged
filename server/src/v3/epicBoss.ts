@@ -1,5 +1,5 @@
 import type { EpicBossProjection, QuestProjection } from "../../../src/net/protocol";
-import { epicBossById, epicBossDamage, epicBossDamageTiming, epicBossHp, epicBossUnlockLevel } from "../../../src/epicBoss/catalog";
+import { epicBossAvailableInGame, epicBossById, epicBossDamage, epicBossDamageTiming, epicBossHp, epicBossUnlockLevel } from "../../../src/epicBoss/catalog";
 import type { EpicBossDef } from "../../../src/epicBoss/types";
 import { ownedLootCounter } from "../loot";
 import { pickByFrequency } from "../../../src/raid/combatStats";
@@ -116,6 +116,7 @@ export async function activate(
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const def = bossId === undefined ? DEFAULT_DEF : typeof bossId === "string" ? defFor(bossId) : null;
   if (!def) return { status: 400, body: { error: "unknown_boss" } };
+  if (!epicBossAvailableInGame(def.id)) return { status: 404, body: { error: "boss_unavailable" } };
   const [balance, current, questRow] = await Promise.all([
     db.prepare("SELECT gold, brains, xp FROM balances WHERE account_id = ?").bind(accountId)
       .first<{ gold: number; brains: number; xp: number }>(),
@@ -253,6 +254,7 @@ export async function start(
   if (!row || row.completed_at || row.expires_at <= now) return { status: 409, body: { error: "inactive" } };
   const def = defFor(row.boss_id);
   if (!def) return { status: 409, body: { error: "unknown_boss" } };
+  if (!epicBossAvailableInGame(def.id)) return { status: 409, body: { error: "boss_unavailable" } };
   if (epic) {
     const pinned = parse<string[]>(epic.roster_json, []);
     if (pinned.length === ids.length && pinned.every((id, index) => id === ids[index])) {
@@ -414,6 +416,7 @@ export async function finish(
   const verified = replayRaid(buildFight({
     playerUnits: config.playerUnits,
     enemyUnits: config.enemyUnits,
+    bossSpecials: def.specials ?? [],
     roundMs: def.fightMs,
     // The Epic Boss shape: no butterflies (the brain bubble still gates release), the
     // round running out ENDS the attempt instead of enraging, the boss falls onto the

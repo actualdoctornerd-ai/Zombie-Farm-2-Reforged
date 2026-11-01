@@ -166,6 +166,68 @@ export interface FriendLeaderboardRow {
   stats_json: string | null;
 }
 
+export type EndlessLeaderboardMode = "endless" | "nightmare";
+export interface EndlessLeaderboardArmyMember {
+  species: string;
+  mutation: number;
+  veterancy: number;
+}
+export interface EndlessLeaderboardRow {
+  username: string | null;
+  deepest_floor: number;
+  duration_ms: number;
+  army_json: string;
+  achieved_at: number;
+}
+
+/** Public top 25, separated by mode. Player ids and account data stay server-side. */
+export async function listEndlessLeaderboard(
+  db: D1Database,
+  mode: EndlessLeaderboardMode
+): Promise<EndlessLeaderboardRow[]> {
+  const res = await db.prepare(
+    `SELECT a.username, l.deepest_floor, l.duration_ms, l.army_json, l.achieved_at
+     FROM endless_leaderboard l JOIN accounts a ON a.id = l.account_id
+     WHERE l.mode = ?
+     ORDER BY l.deepest_floor DESC, l.duration_ms ASC, l.achieved_at ASC
+     LIMIT 25`
+  ).bind(mode).all<EndlessLeaderboardRow>();
+  return res.results ?? [];
+}
+
+/** Prepare a leaderboard upsert for an atomic batch with its run-completion update.
+ * `completionGuard` is an internal SQL predicate (currently `changes()=1`),
+ * so a stale/replayed completion cannot publish a score. */
+export function recordEndlessLeaderboardStatement(
+  db: D1Database,
+  input: {
+    accountId: string;
+    mode: EndlessLeaderboardMode;
+    deepestFloor: number;
+    durationMs: number;
+    army: readonly EndlessLeaderboardArmyMember[];
+    achievedAt: number;
+  },
+  completionGuard?: string,
+): D1PreparedStatement {
+  const source = completionGuard ? `SELECT ?, ?, ?, ?, ?, ? WHERE ${completionGuard}` :
+    `SELECT ?, ?, ?, ?, ?, ?`;
+  return db.prepare(
+    `INSERT INTO endless_leaderboard
+       (account_id, mode, deepest_floor, duration_ms, army_json, achieved_at)
+     ${source}
+     ON CONFLICT(account_id, mode) DO UPDATE SET
+       deepest_floor = excluded.deepest_floor,
+       duration_ms = excluded.duration_ms,
+       army_json = excluded.army_json,
+       achieved_at = excluded.achieved_at
+     WHERE excluded.deepest_floor > endless_leaderboard.deepest_floor
+        OR (excluded.deepest_floor = endless_leaderboard.deepest_floor
+            AND excluded.duration_ms < endless_leaderboard.duration_ms)`
+  ).bind(input.accountId, input.mode, input.deepestFloor, input.durationMs,
+    JSON.stringify(input.army), input.achievedAt);
+}
+
 /** The caller and every accepted friend, in one indexed query — the friend-only
  *  leaderboard's roster. Shaped like listFriends' pulls: xp from balances,
  *  head/stats lifted with json_extract rather than by shipping whole documents,

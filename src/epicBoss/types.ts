@@ -47,6 +47,10 @@ export interface EpicBossDef {
      *  baked in by the prep tool. Absent only if an attack is missing from that file. */
     attacks: { name: string; frequency: number; mult?: number; damageTiming?: number }[];
   };
+  /** Optional non-throw boss actions, shared by the live client and replay verifier. */
+  specials?: { name: string; weight: number; castMs: number; cooldownMs: number; damage: number }[];
+  /** Hidden catalog entry used for development; it cannot be activated through the game. */
+  availableInGame?: boolean;
   animations: Record<string, EpicBossAnimation>;
   levelAssets: { anchor: string; position: string; sprite: string; z: number }[];
   loot: EpicBossLoot[];

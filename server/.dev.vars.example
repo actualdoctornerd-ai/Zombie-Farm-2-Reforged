@@ -3,6 +3,8 @@
 SESSION_SECRET="dev-only-secret-change-me"
 # DEV_AUTH=1 enables the no-Google sign-in bypass (POST /auth {devSub}). Local only.
 DEV_AUTH="1"
+# wrangler.toml makes staging demand a DEV_AUTH_KEY; locally no key is needed.
+DEV_AUTH_REQUIRE_KEY="0"
 ALLOWED_ORIGIN="http://localhost:5173"
 GOOGLE_CLIENT_ID="dev.apps.googleusercontent.com"
 # Server-owned raid cooldown (ms). Default is 2h; use a short value locally so

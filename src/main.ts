@@ -58,6 +58,9 @@ import { RaidManager, RaidResultView, type LootDrop, type RaidSetup } from "./ra
 import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, hasNights, nightLabel, nightPrompt } from "./raid/halloweenNights";
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
+import { endlessWavePlan, type EndlessMode } from "./raid/endless";
+import type { EndlessBossLoot } from "./raid/endlessLoot";
+import type { RaidSceneParams } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
 import { PVP_ARMY_SIZE, PVP_UI_ENABLED, buildPvpRaidDef } from "./raid/pvp";
 import { reconcilePartySelection } from "./raid/partySelection";
@@ -88,8 +91,9 @@ import {
   hasSeenHazardTip, markHazardTipSeen,
   hasSeenRaidTip, markRaidTipSeen,
   zombieAppearancePrefs, setZombieBodyColorMode, setShowZombieMutations,
-  setPrefStorageErrorHandler,
+  setPrefStorageErrorHandler, getInstaHarvestZombies,
 } from "./prefs";
+import { PETS_PER_PEN, MAX_BOOST_BUY_COUNT } from "./net/protocol";
 import { requestPersistentStorage } from "./storagePersistence";
 import { raidTip } from "./raid/raidTips";
 import { BASE } from "./base";
@@ -111,6 +115,8 @@ import {
 } from "./harvestStroke";
 import { appendInstaGrowTarget, type InstaGrowTarget } from "./instaGrowStroke";
 import { appendCancelTarget, cancelTargetKey, type CancelTarget } from "./cancelStroke";
+import { installGhostClickGuard } from "./ghostClick";
+import { captureLayout, cleanLayoutName, isLayout, layoutsSynced, loadLayouts, markLayoutsSynced, MAX_LAYOUTS, planLayout, saveLayouts, type LayoutItem, type PlacedNow, type SavedLayout } from "./farmLayouts";
 import { mutationMarketDescription, withFarmerBonuses } from "./zombie/statDisplay";
 import {
   combineSubject, combineSubjectAliases, mutantSubjectIndex, unitQuestSubjects,
@@ -1213,7 +1219,8 @@ async function main() {
   state.onChange(applyActivePet);
   applyActivePet();
 
-  let penPetActors: PetActor[] = [];
+  // Each occupant remembers which pen it belongs to (its slot group, petPens.ts).
+  let penPetActors: { pet: PetActor; pen: number }[] = [];
   let appliedPenPets = "";
   let penPetLoadGeneration = 0;
   const applyPenPets = () => {
@@ -1221,18 +1228,19 @@ async function main() {
     if (signature === appliedPenPets) return;
     appliedPenPets = signature;
     const generation = ++penPetLoadGeneration;
-    penPetActors.forEach((pet) => pet.destroy());
+    penPetActors.forEach(({ pet }) => pet.destroy());
     penPetActors = [];
-    void Promise.all(state.penPets.flatMap((key) => {
-      const def = assets.pets.pets.find((pet) => pet.key === key);
-      return def ? [PetActor.load(def)] : [];
+    void Promise.all(state.penPets.flatMap((key, slot) => {
+      const def = key ? assets.pets.pets.find((pet) => pet.key === key) : undefined;
+      const pen = Math.floor(slot / PETS_PER_PEN);
+      return def ? [PetActor.load(def).then((pet) => ({ pet, pen }))] : [];
     })).then((loaded) => {
       if (generation !== penPetLoadGeneration || state.penPets.join("\0") !== signature) {
-        loaded.forEach((pet) => pet.destroy());
+        loaded.forEach(({ pet }) => pet.destroy());
         return;
       }
       penPetActors = loaded;
-      for (const pet of loaded) field.entityLayer.addChild(pet.container);
+      for (const { pet } of loaded) field.entityLayer.addChild(pet.container);
     }).catch((error) => console.warn("[pet-pen] failed to load occupants", error));
   };
   state.onChange(applyPenPets);
@@ -2035,28 +2043,29 @@ async function main() {
     if (tutorial && !tutorial.allowsBoostPurchase()) return 0;
     if (def.effect === "gift" && giftLimitReached(def.key)) return 0; // 1 per farm
     if (def.effect === "gift") qty = 1; // a voucher run makes no sense — 1 per farm
-    // Each pack is bought as its own atomic step with a fresh funds check, so a
-    // balance that moved underneath the confirm dialog (harvests landing, the
-    // farmer spending) shortens the run rather than overdrafting. Returns how many
-    // packs were actually paid for.
+    // The run is trimmed to what the balance covers right now, so one that moved
+    // underneath the confirm dialog (harvests landing, the farmer spending)
+    // shortens rather than overdrafts. Returns how many packs were actually paid for.
+    qty = Math.min(qty, MAX_BOOST_BUY_COUNT);
+    if (state.onInventory) {
+      // ONLINE: ONE command for the whole run — the server prices the boost (exact
+      // catalog cost), debits currency and grants perPurchase × count atomically.
+      // A pack per command would spend the Worker's per-minute command budget.
+      const funds = def.brainsNeeded ? state.brains : state.gold;
+      const count = def.cost > 0 ? Math.min(qty, Math.floor(funds / def.cost)) : qty;
+      if (count < 1) return 0;
+      const optimistic = def.brainsNeeded
+        ? { count: def.perPurchase * count, brains: -def.cost * count }
+        : { count: def.perPurchase * count, gold: -def.cost * count };
+      state.onInventory({ type: "buy", key: def.key, qty: count }, optimistic);
+      audio.play("buy");
+      return count;
+    }
     let bought = 0;
     for (let i = 0; i < qty; i++) {
-      if (state.onInventory) {
-        // ONLINE: the server prices the boost (exact catalog cost), debits currency,
-        // and grants perPurchase — atomically, one command per pack. Affordability is
-        // checked against the optimistically-updated balance first for instant
-        // feedback; the server is the gate.
-        const funds = def.brainsNeeded ? state.brains : state.gold;
-        if (funds < def.cost) break;
-        const optimistic = def.brainsNeeded
-          ? { count: def.perPurchase, brains: -def.cost }
-          : { count: def.perPurchase, gold: -def.cost };
-        state.onInventory({ type: "buy", key: def.key }, optimistic);
-      } else {
-        const paid = def.brainsNeeded ? state.spendBrains(def.cost) : state.spendGold(def.cost);
-        if (!paid) break;
-        state.addBoost(def.key, def.perPurchase); // a purchase grants `perPurchase` uses
-      }
+      const paid = def.brainsNeeded ? state.spendBrains(def.cost) : state.spendGold(def.cost);
+      if (!paid) break;
+      state.addBoost(def.key, def.perPurchase); // a purchase grants `perPurchase` uses
       bought++;
     }
     if (bought > 0) audio.play("buy"); // once per run, not per pack
@@ -2080,13 +2089,15 @@ async function main() {
         : growTarget
           ? { type: "use" as const, key: def.key, oc: growTarget.oc, or: growTarget.or }
           : { type: "use" as const, key: def.key };
-      state.onInventory(action, { count: -1, gold: powerGold, xp: powerXp });
+      state.onInventory(def.effect === "harvest" && powerSkipZombies
+        ? { ...action, skipZombies: true } : action, { count: -1, gold: powerGold, xp: powerXp });
     } else state.useBoost(def.key);
     giftUnitId = null;
     powerUnitIds = [];
     growTarget = null;
     powerGold = 0;
     powerXp = 0;
+    powerSkipZombies = false;
   };
   hud.canUseBoost = (def) =>
     def.effect !== "plow" ||
@@ -2166,6 +2177,9 @@ async function main() {
   // per-plot popups instead of a beat later, on reconcile.
   let powerGold = 0;
   let powerXp = 0;
+  // The Insta-Harvest just applied left zombie crops alone (the Settings switch).
+  // Sent with the power command so the server's sweep skips them too.
+  let powerSkipZombies = false;
 
   // Apply a farm-usable boost's effect. Returns true if it actually did anything
   // (so a no-op — e.g. Insta-Harvest with nothing ripe — doesn't waste the boost).
@@ -2179,12 +2193,13 @@ async function main() {
     }
     if (def.effect === "harvest") {
       let harvested = 0;
+      powerSkipZombies = !getInstaHarvestZombies();
       // Insta-Harvest is one atomic action: snapshot every zombie's neighbours so
       // harvesting a ripe adjacent vegetable earlier in this loop cannot erase it.
       const mutationContexts = new Map(field.ripePlots().filter((plot) => plot.isZombie)
         .map((plot) => [`${plot.oc}:${plot.or}`, field.zombieMutationContextAt(plot.oc, plot.or)]));
       for (const pl of field.ripePlots()) {
-        if (pl.isZombie && !zombies.canHarvestZombie()) continue;
+        if (pl.isZombie && (powerSkipZombies || !zombies.canHarvestZombie())) continue;
         const r = field.harvestAt(pl.oc, pl.or);
         if (!r) continue;
         // Life Force: a zombie above the farm's level can fail to grow (offline roll; the
@@ -2592,10 +2607,9 @@ async function main() {
     if (economy && !economy.submitPetEquip(key)) return;
     state.equipPet(key);
   };
-  hud.onSetPenPets = (pets) => {
-    const keys = pets.map((pet) => pet.key);
-    if (economy && !economy.submitPenPets(keys)) return;
-    state.setPenPets(keys);
+  hud.onSetPenPets = (slots) => {
+    if (economy && !economy.submitPenPets(slots)) return;
+    state.setPenPets(slots);
   };
   hud.onBuyPet = (pet) => {
     if (visiting || state.level < pet.level || !pet.brains || state.brains < pet.cost) return false;
@@ -4693,6 +4707,7 @@ async function main() {
   // The friend leaderboard (Social → Leaderboard). A plain passthrough: the panel
   // owns its loading/error states, and the ranking is pure (social/leaderboard.ts).
   hud.getFriendLeaderboard = () => api.getFriendLeaderboard();
+  hud.getEndlessLeaderboard = (mode) => api.getEndlessLeaderboard(mode);
   hud.onAddFriendCode = async (code) => {
     try {
       await api.addFriend(code);
@@ -5092,6 +5107,7 @@ async function main() {
       playerUnits: setup.playerUnits,
       enemyUnits: setup.enemyUnits,
       bossThrow: null,
+      bossSpecials: setup.bossSpecials,
       roundMs: def.fightMs,
       escapeOnRoundEnd: true,
       noDistractions: true,
@@ -5521,6 +5537,7 @@ async function main() {
   };
   // ---- Invasions panel hooks (ui/panels/invasions.ts) ----
   hud.pvpAvailable = () => !!economy?.serverPvpEnabled;
+  hud.endlessAvailable = () => !!economy?.serverEndlessEnabled;
   hud.getLastInvadedAt = () => economy?.serverLastInvadedAt ?? null;
   hud.getPlayerLevel = () => state.level;
   // The last of the hooks socialBadges() reads. `onBootstrapped` above covers a
@@ -5672,6 +5689,124 @@ async function main() {
     });
   };
 
+  let endlessSessionId: string | null = null;
+  const endlessLocationRaid: Record<string, number> = {
+    farm: 1, ninja: 3, alien: 6, "video-game": 9, pirate: 4,
+  };
+  const closeEndlessScene = () => {
+    if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
+    raidActive = false;
+    resumeFarmJobs();
+    world.visible = true;
+    hud.setRaiding(false);
+    audio.exitRaid();
+  };
+  const endEndlessRun = async () => {
+    const sid = endlessSessionId;
+    if (!sid) return;
+    try {
+      const result = await api.endlessAbandon(sid);
+      endlessSessionId = null;
+      await economy?.refreshAuthoritative();
+      hud.showToast(`Run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 7000);
+    } catch (error) {
+      hud.showToast(error instanceof api.ApiError ? `Could not end run: ${error.code}` : "Could not end the Endless run. Reconnect and try again.", 7000);
+    }
+  };
+  const chooseEndlessBoss = async (draft: { boons: unknown[]; curses: unknown[] }, mode: EndlessMode, loot: EndlessBossLoot[] = []) => {
+    const sid = endlessSessionId;
+    if (!sid) return;
+    hud.openEndlessBossChoice(draft, loot, (boon, curse) => {
+      void api.endlessChooseBossReward(sid, boon, curse).then((result) => {
+        if (result.fight) launchEndlessFight(sid, result.fight, mode);
+      }).catch((error) => hud.showToast(error instanceof api.ApiError ? `Could not save choices: ${error.code}` : "Could not save the boss choices. Your run is still saved.", 7000));
+    }, () => { void endEndlessRun(); });
+  };
+  const launchEndlessFight = (sessionId: string, rawFight: Record<string, unknown>, mode: EndlessMode) => {
+    const wave = Number(rawFight.wave ?? 1);
+    const location = endlessWavePlan(mode, wave).location;
+    const raid = assets.raids.find((item) => item.id === endlessLocationRaid[location]) ?? assets.raids[0];
+    if (!raid) { hud.showToast("Endless terrain could not be loaded."); return; }
+    const config = rawFight as unknown as Omit<RaidSceneParams, "raid" | "assets" | "onFinish">;
+    endlessSessionId = sessionId;
+    pauseFarmJobs(); raidActive = true; world.visible = false;
+    hud.setRaiding(true); hud.setBattleLoading(true, `Loading Endless floor ${wave}…`);
+    audio.enterRaid(raid.music);
+    const epoch = launchGate.stamp();
+    withBattleLoadTimeout(RaidScene.create(app, {
+      ...config,
+      raid,
+      assets,
+      bossThrow: null,
+      onStrike: (strike) => audio.fightStrike(strike),
+      onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
+      onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
+      onVictory: () => audio.playRaidVictory(),
+      confirmRetreat: () => hud.confirmInGame("End this Endless run?", "Retreating ends the run. Gold for every cleared floor will be paid.", "End Run"),
+      onFinish: (outcome, finalTick, inputs) => {
+        void outcome; // The server independently verifies the transcript and determines the result.
+        setTimeout(() => {
+          void api.endlessFinish(sessionId, wave, finalTick, inputs).then(async (result) => {
+            closeEndlessScene();
+            if (result.runFinished) {
+              endlessSessionId = null;
+              await economy?.refreshAuthoritative();
+              hud.showToast(`Endless run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 8000);
+            } else if (result.awaitingBossChoice && result.bossDraft) {
+              await economy?.refreshAuthoritative().catch(() => undefined);
+              chooseEndlessBoss(result.bossDraft as { boons: unknown[]; curses: unknown[] }, mode, (result.bossLoot ?? []) as EndlessBossLoot[]);
+            } else if (result.fight) {
+              hud.openEndlessHub(
+                { sessionId, mode, wave: Number(result.nextWave ?? wave + 1), stage: "battle" },
+                () => launchEndlessFight(sessionId, result.fight!, mode), () => launchEndlessFight(sessionId, result.fight!, mode), () => { void endEndlessRun(); },
+              );
+            }
+          }).catch((error) => {
+            closeEndlessScene();
+            hud.showToast(error instanceof api.ApiError ? `Endless result could not be saved (${error.code}). Resume to retry this floor.` : "Endless result could not be saved. Resume to retry this floor.", 8000);
+          });
+        }, 0);
+      },
+    })).then((scene) => {
+      hud.setBattleLoading(false);
+      if (!raidActive || !launchGate.isCurrent(epoch)) return scene.destroy();
+      raidScene = scene; app.stage.addChild(scene.container);
+    }).catch((error) => {
+      closeEndlessScene();
+      recordDiagnostic({ at: Date.now(), kind: "error", where: "endless-battle", message: error instanceof Error ? error.message : String(error) });
+      hud.showToast("Endless floor could not be loaded. Your saved run is ready to resume.", 7000);
+    });
+  };
+  const openEndless = async () => {
+    if (!onlineFarm) { hud.showToast("Endless Mode requires an online account."); return; }
+    let active: Awaited<ReturnType<typeof api.endlessActive>> | null = null;
+    try { active = await api.endlessActive(); } catch (error) {
+      if (!(error instanceof api.ApiError) || error.status !== 404) {
+        hud.showToast("Endless Mode is unavailable right now."); return;
+      }
+    }
+    const hasActive = !!active?.sessionId && !!active.mode && !!active.wave && !!active.stage;
+    endlessSessionId = hasActive ? active!.sessionId! : null;
+    hud.openEndlessHub(hasActive ? {
+      sessionId: active!.sessionId!, mode: active!.mode!, wave: active!.wave!, stage: active!.stage!,
+    } : null, async (mode, ids) => {
+      await economy?.settleBeforeDependency();
+      const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
+      const settled = reconcilePartySelection(ids, zombies.roster().filter((z) => !z.stored),
+        (id) => economy?.authoritativeUnitId(id) ?? id, raids.partyView().cap);
+      if (settled.missingIds.length) { hud.showToast(`${settled.missingIds.map((id) => selectedNames.get(id) ?? "A zombie").join(", ")} is no longer available. Choose your army again.`); return; }
+      try {
+        const started = await api.endlessStart(mode, settled.ids);
+        if (!started.ok || !started.sessionId || !started.fight) { hud.showToast(`Could not start Endless (${started.error ?? "unknown_error"}).`); return; }
+        launchEndlessFight(started.sessionId, started.fight, mode);
+      } catch (error) { hud.showToast(error instanceof api.ApiError ? `Could not start Endless (${error.code}).` : "Could not start Endless."); }
+    }, () => {
+      if (!active?.sessionId) return;
+      if (active.stage === "boss-choice" && active.bossDraft) chooseEndlessBoss(active.bossDraft as { boons: unknown[]; curses: unknown[] }, active.mode!, (active.bossLoot ?? []) as EndlessBossLoot[]);
+      else if (active.fight) launchEndlessFight(active.sessionId!, active.fight, active.mode!);
+    }, () => { void endEndlessRun(); });
+  };
+  hud.onOpenEndless = () => { void openEndless(); };
   // ---- Halloween nights (src/raid/halloweenNights.ts) ----
   // A won Halloween invasion offers to go on into the next night with its survivors.
   // `nightContinue` is the accepted offer, waiting for the result panel to close; the next
@@ -6419,6 +6554,7 @@ async function main() {
   const cancelCarry = () => {
     carrying = null;
     carryingPlot = null;
+    hud.refreshHeldTool(); // the Store slot stops offering "Turn"
     field.setObjectHighlight(null); // drop any "this drop shelves it" wash on the shed
     field.hideObjectCursor();
     field.hideCursor();
@@ -6453,6 +6589,8 @@ async function main() {
     }
   };
   hud.onRotateTool = rotateCurrent;
+  hud.isHoldingObject = () =>
+    (hud.mode === "place" && !!hud.placing) || (hud.mode === "move" && !!carrying);
 
   // Place the selected object at the pointer tile if the footprint is valid,
   // unlocked, and affordable. Stays in placement mode to place several — except
@@ -6607,6 +6745,7 @@ async function main() {
     const def = id ? field.objectDefOf(id) : null;
     if (id && def) {
       carrying = { id, def, turn: field.objectTurnOf(id) };
+      hud.refreshHeldTool();
       field.setObjectHighlight(null, OBJECT_WASH_MOVE);
       field.setObjectCursor(def, col, row, id, carrying.turn);
       return;
@@ -6893,6 +7032,206 @@ async function main() {
   const canStoreObject = (id: string, def: PlaceableDef) =>
     objectStoreRefusal(id, def) === null;
 
+  // ---- saved farm layouts (Storage → Farm Layouts; rules in farmLayouts.ts) ----
+  // A load is only shed moves: off-layout objects are stored, the layout's own come
+  // back out. Interleaved — after each store, everything that now fits is placed —
+  // so the shed never has to hold the whole farm at once. Every move goes through
+  // storeObject / takeStoredObject, the same doors the Store button and the shed use,
+  // so a load can only ever move objects the farm owns between the farm and the shed.
+  const layoutFarmId = () =>
+    onlineFarm ? `online:${api.getSession()?.accountId ?? "anon"}` : `local:${profiles.activeSaveKey()}`;
+  const placedForLayout = (): PlacedNow[] => field.serializeObjects().flatMap((o) => {
+    const def = field.objectDefOf(o.id);
+    if (!def) return [];
+    const block = objectStoreRefusal(o.id, def);
+    // An enshrined statue stays put: shelving it would send its zombie back to the
+    // graveyard, which a layout swap should never do behind the player's back.
+    const fixed = block === "holds" || block === "potInUse" ||
+      (!!def.memorial && !!field.memorialOccupant(o.id));
+    return [{ id: o.id, key: def.key, oc: o.oc, or: o.or, turn: field.objectTurnOf(o.id), fixed }];
+  });
+  const isFixedLayoutKey = (key: string) => {
+    const def = placeCatalog.get(key);
+    return !def || !!def.storageSlots || !!def.zombieStorage;
+  };
+  const planFor = (layout: SavedLayout) => planLayout(
+    layout.items, placedForLayout(),
+    Object.fromEntries(state.storedItems.map((i) => [i.key, i.count])),
+    state.storedItemTotal(), isFixedLayoutKey,
+  );
+  const footprintTiles = (item: LayoutItem): { col: number; row: number }[] => {
+    const def = placeCatalog.get(item.key);
+    if (!def) return [];
+    const fp = objectFootprint(def, turnFlip(def, item.turn));
+    const tiles: { col: number; row: number }[] = [];
+    for (let r = item.or; r < item.or + fp.h; r++)
+      for (let c = item.oc; c < item.oc + fp.w; c++) tiles.push({ col: c, row: r });
+    return tiles;
+  };
+  const layoutTargetsOverlap = (id: string, targets: readonly LayoutItem[]) => {
+    const o = field.objectOriginOf(id);
+    const def = field.objectDefOf(id);
+    if (!o || !def) return false;
+    const fp = objectFootprint(def, turnFlip(def, field.objectTurnOf(id)));
+    return targets.some((t) => footprintTiles(t).some(({ col, row }) =>
+      col >= o.oc && col < o.oc + fp.w && row >= o.or && row < o.or + fp.h));
+  };
+  /** Put one layout entry down from the shed, if a copy is there and its spot is free.
+   *  The object goes down FIRST and only then leaves the shed's books; a placement
+   *  that fails takes nothing out, and one whose shed copy has gone is taken back up.
+   *  Either way the object ends up in exactly one place. */
+  const placeLayoutItem = (item: LayoutItem): boolean => {
+    const def = placeCatalog.get(item.key);
+    if (!def) return false;
+    const ids = storedInstanceIds(item.key);
+    const instanceId = item.id && ids.includes(item.id) ? item.id : ids[0];
+    if (!instanceId) return false;
+    if (!field.canPlaceObject(item.oc, item.or, def, undefined, turnFlip(def, item.turn))) return false;
+    const placedId = field.placeObject(def, item.oc, item.or, instanceId, undefined, item.turn);
+    if (!placedId) return false;
+    if (!takeStoredObject(state, storedObjectIds, { key: item.key, instanceId })) {
+      field.removeObject(placedId);
+      return false;
+    }
+    economy?.submitObjectStatus(instanceId, "placed");
+    return true;
+  };
+  let layoutLoading = false;
+  const loadFarmLayout = async (layout: SavedLayout): Promise<string> => {
+    if (layoutLoading) return "A layout is already loading.";
+    if (onlineGameplayBlocked()) return "Can't change the farm right now.";
+    layoutLoading = true;
+    try {
+      hud.setMode("walk"); // drop anything in hand or armed for placement first
+      // Art first: an object placed before its texture has loaded stands there
+      // invisible until the next reload.
+      const defs = [...new Set(layout.items.map((i) => i.key))]
+        .map((key) => placeCatalog.get(key)).filter((d): d is PlaceableDef => !!d);
+      await Promise.all(defs.map((def) => ensureObjectTextures(assets, def).catch(() => undefined)));
+      // Planned AFTER the await, against the farm as it is now.
+      const plan = planFor(layout);
+      if (plan.shedAfter > state.storageItemCap) return "Not enough shed room for that swap.";
+      const pending = plan.place.slice();
+      // Shelve what is in the way of the layout first, so its spots open soonest.
+      const toStore = plan.store.slice().sort((a, b) =>
+        Number(layoutTargetsOverlap(b, pending)) - Number(layoutTargetsOverlap(a, pending)));
+      let stored = 0;
+      let placed = 0;
+      const placeWhatFits = () => {
+        for (let i = 0; i < pending.length; ) {
+          if (placeLayoutItem(pending[i])) { pending.splice(i, 1); placed++; }
+          else i++;
+        }
+      };
+      placeWhatFits();
+      while (toStore.length) {
+        const id = toStore.shift()!;
+        if (storeObject(id)) stored++;
+        else if (state.storedItemTotal() >= state.storageItemCap) break; // shed full: stop
+        placeWhatFits();
+      }
+      placeWhatFits();
+      refreshArmyCap();
+      audio.play("place");
+      saveManager.save();
+      // What did not go down stays safely in the shed. Say why: a plot standing on
+      // its spot (plots stay where they are), or something else in the way.
+      const onPlot = pending.filter((item) =>
+        footprintTiles(item).some(({ col, row }) => !!field.plotOriginAt(col, row))).length;
+      const blocked = pending.length - onPlot;
+      const skipped = plan.missing.length + plan.stuck.length;
+      return `Loaded "${layout.name}": ${placed} placed, ${stored} stored` +
+        (onPlot ? ` · ${onPlot} left in the shed — a plot covers their spot` : "") +
+        (blocked ? ` · ${blocked} left in the shed — something else is in the way` +
+          (toStore.length ? " (the shed filled up)" : "") : "") +
+        (skipped ? ` · ${skipped} skipped (no longer owned, or can't move)` : "") + ".";
+    } finally {
+      layoutLoading = false;
+    }
+  };
+
+  // The list itself. Online the server holds it (GET/PUT /farm-layouts) so every device
+  // shares one list; this device keeps a copy that stands in when the server can't be
+  // reached. Every write re-reads the server's list first and edits THAT, so a layout
+  // saved on another device since this panel opened is not overwritten.
+  let layoutCache: SavedLayout[] = [];
+  const fetchLayouts = async (): Promise<{ list: SavedLayout[]; server: boolean }> => {
+    const farmId = layoutFarmId();
+    const local = loadLayouts(farmId);
+    if (!onlineFarm) return { list: local, server: false };
+    try {
+      const remote = (await api.farmLayoutsGet()).layouts.filter(isLayout);
+      if (!layoutsSynced(farmId)) {
+        // First contact: hand over what this device saved on its own, merged by id.
+        const merged = [...remote, ...local.filter((l) => !remote.some((r) => r.id === l.id))]
+          .slice(0, MAX_LAYOUTS);
+        if (merged.length !== remote.length) await api.farmLayoutsPut(merged);
+        markLayoutsSynced(farmId);
+        saveLayouts(farmId, merged);
+        return { list: merged, server: true };
+      }
+      saveLayouts(farmId, remote);
+      return { list: remote, server: true };
+    } catch {
+      return { list: local, server: false };
+    }
+  };
+  /** Apply `edit` to the freshest list and store it. Returns an error, or null. */
+  const writeLayouts = async (edit: (list: SavedLayout[]) => SavedLayout[] | string): Promise<string | null> => {
+    const farmId = layoutFarmId();
+    const { list, server } = await fetchLayouts();
+    const next = edit(list.slice());
+    if (typeof next === "string") return next;
+    layoutCache = next;
+    const kept = saveLayouts(farmId, next);
+    if (!onlineFarm) return kept ? null : "This device refused to save the layout.";
+    if (!server) return "Couldn't reach the server — saved on this device only for now.";
+    try {
+      await api.farmLayoutsPut(next);
+      return null;
+    } catch {
+      return "Couldn't reach the server — saved on this device only for now.";
+    }
+  };
+  if (!visiting) hud.farmLayouts = {
+    sync: async () => {
+      const { list, server } = await fetchLayouts();
+      layoutCache = list;
+      return onlineFarm && !server ? "Showing this device's copy — the server can't be reached." : null;
+    },
+    list: () => layoutCache.map((l) =>
+      ({ id: l.id, name: l.name, savedAt: l.savedAt, count: l.items.length })),
+    placedCount: () => field.serializeObjects().length,
+    preview: (id) => {
+      const layout = layoutCache.find((l) => l.id === id);
+      if (!layout) return null;
+      const p = planFor(layout);
+      return { keep: p.keep.length, store: p.store.length, place: p.place.length,
+        missing: p.missing.length, stuck: p.stuck.length,
+        shedAfter: p.shedAfter, shedCap: state.storageItemCap };
+    },
+    save: (name, replaceId) => {
+      const items = captureLayout(placedForLayout());
+      return writeLayouts((layouts) => {
+        const clean = cleanLayoutName(name) || `Layout ${layouts.length + 1}`;
+        const entry: SavedLayout = { id: replaceId ?? crypto.randomUUID(), name: clean, savedAt: Date.now(), items };
+        const at = replaceId ? layouts.findIndex((l) => l.id === replaceId) : -1;
+        if (at >= 0) layouts[at] = entry;
+        else if (layouts.length >= MAX_LAYOUTS) return `You can keep ${MAX_LAYOUTS} layouts — overwrite or delete one.`;
+        else layouts.push(entry);
+        return layouts;
+      });
+    },
+    load: async (id) => {
+      const layout = layoutCache.find((l) => l.id === id);
+      return layout ? loadFarmLayout(layout) : "That layout is gone.";
+    },
+    remove: async (id) => {
+      const err = await writeLayouts((layouts) => layouts.filter((l) => l.id !== id));
+      if (err) hud.showToast(err);
+    },
+  };
+
 
   // The Move / Rotate / Store / Sell sheet for a placed object. Both entry points
   // (desktop tap and touch long-press) go through here so every object reachable
@@ -6913,11 +7252,13 @@ async function main() {
       lifeForce: def.lifeForce,
       // The pen's own collection, which used to be all a tap on it could reach.
       ...(def.petPen
-        ? { manageLabel: "Pets", onManage: () => hud.openStorage("Pets", true) }
+        ? { manageLabel: "Pets", onManage: () => hud.openStorage("Pets",
+          Math.max(0, field.petPens().findIndex((pen) => pen.id === oid))) }
         : {}),
       onMove: () => {
         hud.setMode("move"); // fires onModeChange (clears carry) FIRST...
         carrying = { id: oid, def, turn: field.objectTurnOf(oid) }; // ...then pick up this object
+        hud.refreshHeldTool();
         const o = field.objectOriginOf(oid);
         // Aim the ghost at the tile the object is already centered on, in the
         // orientation it is standing in — a turned object's footprint is transposed.
@@ -7011,6 +7352,19 @@ async function main() {
     else if (mode === "move") handleMoveTap(col, row, wx, wy);
     else if (mode === "remove") void tryRemove(col, row, wx, wy);
     else if (mode === "instagrow") tryInstaGrow(col, row, wx, wy);
+    else if (mode === "store") {
+      // Store tool: one tap shelves whatever object is under it. Plots are not
+      // objects and stay put; anything the shed refuses says why.
+      const id = field.objectAtPoint(wx, wy);
+      const storeDef = id ? field.objectDefOf(id) : null;
+      if (!id || !storeDef) return;
+      const block = objectStoreRefusal(id, storeDef);
+      if (block) { hud.showToast(storeBlockMessage(block, storeDef.name)); return; }
+      if (storeObject(id)) {
+        field.setObjectHighlight(null);
+        saveManager.save();
+      }
+    }
     else if (mode === "rotate") {
       const id = field.objectAtPoint(wx, wy);
       if (!id) return;
@@ -7402,6 +7756,12 @@ async function main() {
       }
       return;
     }
+    if (hud.mode === "store") {
+      // Wash the object a tap would shelve; bare ground and plots show nothing.
+      field.hideCursor();
+      field.setObjectHighlight(field.objectAtPoint(wx, wy), OBJECT_WASH_STORE);
+      return;
+    }
     if (hud.mode === "remove") {
       // Highlight the object under the pointer; else show the red plot cursor.
       const id = field.objectAtPoint(wx, wy);
@@ -7791,11 +8151,15 @@ async function main() {
         active: hud.mode === "till", onPick: () => equipTool("till") },
       { id: "remove", label: "Remove", icon: "button_sell.png", hint: "5",
         active: hud.mode === "remove", onPick: () => equipTool("remove") },
+      { id: "store", label: "Store", icon: "button_storage.png", hint: "6",
+        active: hud.mode === "store", onPick: () => equipTool("store") },
       { id: "plant", label: "Plant…", icon: "button_plant.png", hint: "P",
         active: hud.mode === "plant",
         onPick: () => hud.openPlantMenu((cfg) => hud.setPlanting(cfg)) },
     ];
   };
+  // A tap that opens a panel must not also click what the panel put under the finger.
+  installGhostClickGuard(app.canvas);
   app.canvas.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     if (tutorial.active || visiting || raidActive) return;
@@ -7954,14 +8318,21 @@ async function main() {
       bossTokenFx.splice(i, 1);
     }
     petActor?.update(dt, actor.container.x, actor.container.y);
-    const penBounds = field.petPenBounds();
-    for (const pet of penPetActors) {
-      pet.container.visible = !!penBounds;
-      if (penBounds) pet.updateInPen(dt, penBounds);
+    // A pet whose pen is not on the farm (never bought, or put in storage) hides.
+    const pens = field.petPens();
+    const insideByPen = new Map<string, Container[]>();
+    for (const { pet, pen } of penPetActors) {
+      const home = pens[pen];
+      pet.container.visible = !!home;
+      if (!home) continue;
+      pet.updateInPen(dt, home.bounds);
+      const inside = insideByPen.get(home.id);
+      if (inside) inside.push(pet.container);
+      else insideByPen.set(home.id, [pet.container]);
     }
     zombies.update(dt);
     zombies.setInvasionReady(!raidActive && raids.cooldownRemaining() <= 0);
-    field.updatePetPenOcclusion(penPetActors.map((pet) => pet.container));
+    field.updatePetPenOcclusion(insideByPen);
     // What the camera can see, in world coordinates. The Sakura skin's falling
     // blossom is seeded across this rather than across the farm, so its on-screen
     // density stays the same however much land you own and however far you zoom.

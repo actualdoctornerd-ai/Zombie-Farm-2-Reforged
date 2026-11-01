@@ -1155,6 +1155,10 @@
 #hud .st-hint { text-align: center; color: #6e4a1e; font-size: 12px; font-style: italic; margin: 0 0 8px; }
 #hud .st-slot.filled { cursor: pointer; }
 #hud .st-slot.filled:hover { filter: brightness(1.08) drop-shadow(0 0 3px rgba(255,220,120,.8)); }
+/* Pets tab while managing a pen: the pen a pet already lives in. */
+#hud .st-petpen { position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
+  white-space: nowrap; padding: 1px 4px; border-radius: 6px; pointer-events: none;
+  color: #fff; background: rgba(70,45,15,.85); font: 700 9px/1.2 Georgia, serif; }
 
 /* ---- Raid / Invasion panels ---- */
 #hud .raidsel { display: flex; gap: 14px; width: min(700px, 92vw); }
@@ -1251,7 +1255,11 @@
 #hud .army-ty { font-size: 9px; font-weight: 700; opacity: .6; max-width: 84px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; }
 #hud .army-st { font-size: 10px; font-weight: 700; opacity: .85; }
-#hud .army-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+/* Wraps: with flex-end and no wrap, a footer wider than a phone (the Epic Boss picker's
+   Concentrate + payment dropdown + Pick + Fight) overflowed off the panel's LEFT edge. */
+#hud .army-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  flex-wrap: wrap; }
+#hud .army-foot > select { min-width: 0; max-width: 100%; }
 /* battle-consumable controls (Concentration toggle + Golden Dice stepper) */
 #hud .raid-boosts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 8px 2px 2px; border-top: 1px solid rgba(255,255,255,.15); }
@@ -1695,6 +1703,74 @@
 #hud .lb-value { flex: 0 0 auto; font: 800 14px system-ui, sans-serif; color: #ffd98a; }
 #hud .lb-value.lb-novalue { font: italic 600 12px Georgia, serif; color: #b6a986; }
 #hud .lb-signin { margin: 10px 0 8px; font-size: 14px; color: #e9ffd8; }
+#hud .endless-lb-open { align-self: center; margin: 0 0 8px; }
+#hud .endless-lb-panel { width: min(900px, 96vw); height: min(720px, calc(100dvh - 28px));
+  display: flex; flex-direction: column; gap: 7px; padding: 22px 22px 16px; }
+#hud .endless-lb-panel h2 { flex: 0 0 auto; padding-right: 42px; }
+#hud .endless-lb-subtitle { flex: 0 0 auto; color: #e7d8b8; font-size: 12px !important; text-align: center; }
+#hud .endless-lb-tabs { display: flex; justify-content: center; gap: 8px; flex: 0 0 auto; }
+#hud .endless-lb-tab { min-width: 130px; border: 2px solid #6d4b24; border-radius: 9px; padding: 7px 14px;
+  cursor: pointer; background: linear-gradient(#f3e5bd, #d7bc7d); color: #4a3014; font: 700 13px Georgia, serif; }
+#hud .endless-lb-tab.selected { border-color: #2f5b12; background: linear-gradient(#79c247, #55972a); color: #fff;
+  text-shadow: 0 1px 1px #000; }
+#hud .endless-lb-status { flex: 0 0 auto; min-height: 17px; text-align: center; color: #e5d6b7;
+  font: 700 12px Georgia, serif; }
+#hud .endless-lb-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; padding: 2px 4px 8px; scrollbar-color: #a8793e #3d2818; }
+#hud .endless-lb-headings, #hud .endless-lb-row { display: grid;
+  grid-template-columns: 56px minmax(120px, 1fr) minmax(145px, auto) minmax(88px, auto) 88px;
+  align-items: center; gap: 8px; }
+#hud .endless-lb-headings { position: sticky; top: 0; z-index: 1; padding: 8px 10px; border-bottom: 1px solid #a8793e;
+  background: #3e2818; color: #d6c49f; font: 700 11px system-ui, sans-serif; text-transform: uppercase; letter-spacing: .06em; }
+#hud .endless-lb-headings span:nth-child(n+3), #hud .endless-lb-row > :nth-child(n+3) { text-align: center; }
+#hud .endless-lb-entry { margin: 5px 0; border: 1px solid rgba(198,158,96,.55); border-radius: 9px;
+  background: linear-gradient(110deg, rgba(111,70,37,.9), rgba(69,43,25,.92)); overflow: hidden; }
+#hud .endless-lb-row { min-height: 48px; padding: 5px 10px; }
+#hud .endless-lb-podium-1 { border-color: #e6c568; background: linear-gradient(110deg, rgba(119,83,28,.95), rgba(73,48,24,.96)); }
+#hud .endless-lb-podium-2 { border-color: #b8c0be; }
+#hud .endless-lb-podium-3 { border-color: #bd815c; }
+#hud .endless-lb-rank { color: #f4e9cf; text-align: center; font: 800 14px system-ui, sans-serif; }
+#hud .endless-lb-podium-1 .endless-lb-rank, #hud .endless-lb-podium-2 .endless-lb-rank,
+#hud .endless-lb-podium-3 .endless-lb-rank { font-size: 19px; }
+#hud .endless-lb-name { min-width: 0; overflow: hidden; color: #f4e9cf; font-size: 15px; font-weight: 800;
+  text-overflow: ellipsis; white-space: nowrap; }
+#hud .endless-lb-depth { color: #ffd98a; font: 800 13px system-ui, sans-serif; white-space: nowrap; }
+#hud .endless-lb-time { color: #e7d8b8; font: 700 12px system-ui, sans-serif; white-space: nowrap; }
+#hud .endless-lb-army-toggle, #hud .endless-lb-retry { border: 1px solid #d1ad70; border-radius: 7px; padding: 6px 8px;
+  background: linear-gradient(#8d5b2e, #623d20); color: #fff2d5; font: 700 11px system-ui, sans-serif; cursor: pointer; }
+#hud .endless-lb-army-toggle:hover, #hud .endless-lb-retry:hover { filter: brightness(1.12); }
+#hud .endless-lb-army { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 5px;
+  padding: 8px 10px 10px; border-top: 1px solid rgba(198,158,96,.35); background: rgba(20,13,8,.24); }
+#hud .endless-lb-army[hidden] { display: none; }
+#hud .endless-lb-unit { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 7px;
+  border-radius: 6px; background: rgba(255,244,218,.08); }
+#hud .endless-lb-position { flex: 0 0 22px; color: #d4bd8e; font: 700 11px system-ui, sans-serif; }
+#hud .endless-lb-unit-details { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+#hud .endless-lb-unit-details strong { overflow: hidden; color: #fff0cd; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+#hud .endless-lb-unit-details > span { overflow: hidden; color: #d9c7a4; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+#hud .endless-lb-retry { display: block; margin: 8px auto; padding: 8px 18px; }
+@media (max-width: 700px) {
+  #hud .endless-lb-panel { width: 100%; max-width: none; min-width: 0; height: calc(100dvh - 20px); padding: 18px 12px 12px; gap: 6px; }
+  #hud .endless-lb-panel h2 { font-size: 18px; }
+  #hud .endless-lb-subtitle { max-width: 34ch; align-self: center; line-height: 1.35; }
+  #hud .endless-lb-tab { min-width: 0; flex: 1 1 0; max-width: 180px; padding: 7px 8px; }
+  #hud .endless-lb-headings { display: none; }
+  #hud .endless-lb-row { grid-template-columns: 38px minmax(0, 1fr) auto; grid-template-rows: auto auto;
+    gap: 3px 7px; padding: 8px; }
+  #hud .endless-lb-rank { grid-column: 1; grid-row: 1 / span 2; }
+  #hud .endless-lb-name { grid-column: 2; grid-row: 1; font-size: 14px; }
+  #hud .endless-lb-depth { grid-column: 3; grid-row: 1; font-size: 11px; }
+  #hud .endless-lb-time { grid-column: 2; grid-row: 2; text-align: left !important; font-size: 11px; }
+  #hud .endless-lb-army-toggle { grid-column: 3; grid-row: 2; padding: 5px 7px; }
+  #hud .endless-lb-army { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 560px) and (orientation: landscape) {
+  #hud .endless-lb-panel { width: min(96vw, 1000px); height: calc(100dvh - 16px); padding: 12px 18px 8px; gap: 4px; }
+  #hud .endless-lb-panel h2 { margin-bottom: 2px; font-size: 17px; }
+  #hud .endless-lb-subtitle { font-size: 11px !important; }
+  #hud .endless-lb-tab { padding-block: 4px; }
+  #hud .endless-lb-row { min-height: 38px; }
+}
 #hud .bm { width: min(900px, 96vw); height: min(610px, 94vh); }
 #hud .bm-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; }
 #hud .bm-toolbar select, #hud .bm-compose select, #hud .bm-compose input {
@@ -1911,6 +1987,12 @@
 /* Shed appearance picker: taller slots, since each one is captioned with the shed's
    name — "Wood Hut" and "Bone Hut" are the same silhouette in different paint. */
 #hud .shed-skin-bg { z-index: 23; } /* above the Storage panel (21) that opens it */
+/* Farm Layouts (opened from Storage, same raised layer as the shed picker) */
+#hud .farm-layouts-panel { max-width: 560px; width: min(560px, calc(100vw - 32px)); box-sizing: border-box; }
+#hud .farm-layout-save { margin-top: 10px; justify-content: flex-start; }
+#hud .farm-layout-name { flex: 1 1 140px; min-width: 0; padding: 7px 9px; border-radius: 8px;
+  border: 2px solid #1e1207; font: 700 13px/1.2 inherit; }
+#hud .rd-wins { opacity: .85; }
 #hud .shed-skin-blurb { max-width: 430px; margin: 0 0 10px; font-style: italic; }
 #hud .shed-skin-slot { width: 78px; height: 84px; flex-direction: column; gap: 2px;
   border: none; padding: 2px; cursor: pointer; font: inherit; }

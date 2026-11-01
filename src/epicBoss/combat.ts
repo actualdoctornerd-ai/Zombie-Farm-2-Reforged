@@ -48,6 +48,7 @@ export interface EpicBossSetup {
   party: OwnedZombie[];
   playerUnits: CombatUnit[];
   enemyUnits: CombatUnit[];
+  bossSpecials: import("../raid/types").BossSpecial[];
 }
 
 export function buildEpicBossSetup(
@@ -122,7 +123,7 @@ export function buildEpicBossSetup(
     hasGrab: false,
   };
   void assets; // retained in the signature alongside raid setup call sites
-  return { raid, party, playerUnits, enemyUnits: [boss] };
+  return { raid, party, playerUnits, enemyUnits: [boss], bossSpecials: def.specials ?? [] };
 }
 
 /** Documented fallback when the exact binary loot selector is unavailable.

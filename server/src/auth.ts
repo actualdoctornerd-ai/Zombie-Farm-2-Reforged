@@ -35,6 +35,31 @@ export async function verifyGoogleIdToken(
   return { sub };
 }
 
+/** May this request use the dev bypass (devSub sign-in, `/dev/*` fixtures)? The caller
+ *  has already checked DEV_AUTH=1. Staging runs on the public internet, so it sets
+ *  DEV_AUTH_KEY (a Worker secret) and every dev request must present it; with
+ *  DEV_AUTH_REQUIRE_KEY=1 a missing secret refuses everything rather than opening the
+ *  door. Local dev and the integration harness set neither, so no key is asked for. */
+export async function devKeyAccepted(
+  env: { DEV_AUTH_KEY?: string; DEV_AUTH_REQUIRE_KEY?: string },
+  presented: string | undefined
+): Promise<boolean> {
+  const expected = env.DEV_AUTH_KEY;
+  if (!expected) return env.DEV_AUTH_REQUIRE_KEY !== "1";
+  if (typeof presented !== "string" || !presented) return false;
+  // Compare fixed-length digests with no early exit, so timing reveals nothing.
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(presented)),
+    crypto.subtle.digest("SHA-256", enc.encode(expected)),
+  ]);
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
 // Shorter than the old 30d. The access token is now backed by a server-side
 // session row (sessions table): sign-out, "log out everywhere", or a leaked token
 // can be revoked immediately, and a live session is renewed via /session/refresh.

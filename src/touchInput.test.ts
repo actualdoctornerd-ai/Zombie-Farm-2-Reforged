@@ -57,7 +57,7 @@ describe("farm touch gesture classification", () => {
   });
 
   it("defers every irreversible edit tool until a touch is confirmed", () => {
-    for (const mode of ["place", "move", "remove", "rotate"])
+    for (const mode of ["place", "move", "remove", "rotate", "store"])
       expect(isDeferredTouchMode(mode), mode).toBe(true);
     // Insta-Grow owns a reversible pending stroke on touch and commits it on release,
     // just like Plant and Plow, so the generic tap-only deferral must not intercept it.

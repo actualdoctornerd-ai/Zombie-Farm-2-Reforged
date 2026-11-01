@@ -23,7 +23,7 @@ import {
 import { ParticleField, ParticleConfig, starTexture } from "./Particles";
 import { ABILITY_POOL } from "../zombie/traits";
 import { ACTIVATED_ABILITY } from "../zombie/abilities";
-import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidDef, RaidLevelAsset, RaidOutcome, SummonConfig, WaveCadence } from "./types";
+import { BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, EndlessStageMechanics, GrabberConfig, MegaBotConfig, RaidDef, RaidLevelAsset, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { ABDUCTEE_KEYS, alienTintFor } from "./alienStage";
 import { RAID_MAX_INPUTS, RAID_TICK_MS, type RaidReplayInput } from "./replay";
 import { PVP_ZOMBIE_SPRITE_PREFIX } from "./pvp";
@@ -110,6 +110,8 @@ export interface RaidSceneParams {
   timeLimitMs?: number;
   /** Do or Die overtime after the clock (Halloween's minute; omitted = none). */
   doOrDieMs?: number;
+  /** Endless terrain actions shared with the deterministic battle simulator. */
+  endlessMechanics?: EndlessStageMechanics | null;
   /** The saucer's bubble and the wall it drops (raid 15). */
   bubble?: BubbleConfig | null;
   bubbleWall?: CombatUnit | null;
@@ -912,7 +914,9 @@ export class RaidScene {
     g: Graphics; targetId: string; holdS: number; ageS: number; upgraded: boolean;
     smokeS: number; // countdown to the next impact-smoke wisp
   }>();
-  private blastFx: { g: Graphics; t: number; scale: number }[] = [];
+  private blastFx: { g: Graphics; t: number; scale: number; simple: boolean }[] = [];
+  private galacticPortalFx: { g: Graphics; t: number; x: number; y: number; firing: boolean }[] = [];
+  private galacticBeamFx: { g: Graphics; t: number; x0: number; y: number; x1: number }[] = [];
   private shakeT = 0; // seconds left in the blast shake (0 = still)
   /** Sim x each shoved zombie was standing at when its current shove began, by unit id.
    *  Easing the slide needs where it came FROM and the simulation carries only where it
@@ -1091,9 +1095,9 @@ export class RaidScene {
     this.onVictory = params.onVictory ?? null;
     this.onDoOrDie = params.onDoOrDie ?? null;
     this.bossThrow = params.bossThrow;
-    this.wallTemplate = params.wallTemplate ?? null;
+    this.wallTemplate = params.wallTemplate ?? params.endlessMechanics?.wallTemplate ?? null;
     this.summon = params.summon ?? null;
-    this.turnedTemplate = params.turnedTemplate ?? null;
+    this.turnedTemplate = params.turnedTemplate ?? params.endlessMechanics?.turnedTemplate ?? null;
     this.grabberSprite = params.grabber?.sprite ?? "";
     this.crabSprite = params.crab?.sprite ?? "";
     this.imageBase = params.imageBase ?? null;
@@ -1132,6 +1136,7 @@ export class RaidScene {
       megaBot: params.megaBot,
       timeLimitMs: params.timeLimitMs,
       doOrDieMs: params.doOrDieMs,
+      endlessMechanics: params.endlessMechanics,
     });
     // Rescue-hazard taps are paced for a finger by default. A mouse clicks two to three
     // times faster than that gate, so most of a click-spamming player's clicks landed
@@ -2744,7 +2749,16 @@ export class RaidScene {
         // A zombie mid-shove is travelling fast, but not under its own power: running the
         // walk cycle over it is the single biggest reason a knockback read as strolling
         // backwards. Hold the standing pose and let the slide move it.
-        const moving = u.alive && !(u.knockBackSpeed > 0) && (simMoving || exitMarch);
+        const moving = u.alive && !(u.knockBackSpeed > 0) && u.blastAirMs <= 0 &&
+          (simMoving || exitMarch);
+        if (tok.actor) {
+          const airProgress = u.blastAirTotalMs > 0
+            ? (u.blastAirTotalMs - u.blastAirMs) / u.blastAirTotalMs
+            : 0;
+          tok.actor.container.rotation = u.blastAirMs > 0
+            ? airProgress * Math.PI * 4 * u.blastSpin
+            : 0;
+        }
         // The source focus pose narrows the eyes while the gold bar is advancing.
         // A distracted zombie or one waiting on the full-bar brain bubble is no
         // longer actively focusing, so its eyes relax.
@@ -3169,7 +3183,7 @@ export class RaidScene {
       this.onDoOrDie?.();
     }
     if (this.sim.doOrDie) {
-      const on = Math.floor(performance.now() / 300) % 2 === 0;
+      const on =Math.floor(performance.now() / 300) % 2 === 0;
       this.roundLabel.text = `⏱ ${mmss}`;
       this.roundLabel.style.fill = on ? 0xff2a2a : 0x8a0000;
       this.roundLabel.scale.set(on ? 1.15 : 1);
@@ -3260,7 +3274,7 @@ export class RaidScene {
       this.smokeSeen = this.sim.smokeSeq;
       if (this.smokeCfg) {
         for (const u of this.sim.units) {
-          if (!u.alive || (!u.chargeCfg && !(u.isBoss && u.team === "enemy"))) continue;
+          if (!u.alive || (!u.chargeCfg && !u.isFlanker && !(u.isBoss && u.team === "enemy"))) continue;
           const tok = this.tokens.get(u.id);
           if (tok) this.particles.burst(this.smokeCfg, tok.root.x, tok.root.y - 30, 2);
         }
@@ -3782,15 +3796,92 @@ export class RaidScene {
    *  just sacrificed itself. Four layers land at once — sparks and smoke through the
    *  particle field, the fireball + shockwave as one additive Graphics, and a shake of
    *  the combat layers — because any one of them alone reads as another dust puff. */
-  private spawnExplosion(x: number, y: number) {
+  private spawnExplosion(x: number, y: number, size = 1, simple = false) {
     const g = new Graphics();
     g.position.set(x, y);
     g.blendMode = "add"; // fire glows through whatever it overlaps
     this.fxLayer.addChild(g);
-    this.blastFx.push({ g, t: 0, scale: this.sizeScale() });
-    this.particles.burst(BLAST_SPARKS, x, y, 1);
-    if (this.smokeCfg) this.particles.burst(this.smokeCfg, x, y, 1.6);
-    this.shakeT = BLAST_SHAKE_S;
+    this.blastFx.push({ g, t: 0, scale: this.sizeScale() * size, simple });
+    this.particles.burst(BLAST_SPARKS, x, y, simple ? 0.18 * size : size);
+    if (!simple && this.smokeCfg) this.particles.burst(this.smokeCfg, x, y, 1.6 * size);
+    this.shakeT = simple ? BLAST_SHAKE_S * 0.8 : BLAST_SHAKE_S;
+  }
+
+  /** A purple rift swells through the Galactic Groundhog's long cast and keeps rotating
+   *  while its death beam fires. */
+  private spawnGalacticPortal(x: number, y: number) {
+    const g = new Graphics();
+    g.position.set(x, y);
+    g.blendMode = "add";
+    this.fxLayer.addChild(g);
+    this.galacticPortalFx.push({ g, t: 0, x, y, firing: false });
+  }
+
+  private stepGalacticPortals(dtSec: number) {
+    for (const portal of this.galacticPortalFx) {
+      portal.t += dtSec;
+      const open = Math.min(1, portal.t / 0.6);
+      const flicker = 0.82 + 0.18 * Math.sin(portal.t * (portal.firing ? 37 : 19));
+      const rx = (12 + 31 * open) * flicker * this.sizeScale();
+      const ry = (8 + 20 * open) * flicker * this.sizeScale();
+      const collapseStart = portal.firing ? 2.75 : 2.1;
+      const collapse = portal.t > collapseStart
+        ? Math.max(0, (collapseStart + 0.25 - portal.t) / 0.25)
+        : 1;
+      portal.g.rotation = portal.t * (portal.firing ? 2.8 : 1.7);
+      portal.g.clear()
+        .ellipse(0, 0, rx + 8 * this.sizeScale(), ry + 8 * this.sizeScale())
+        .stroke({ width: 9 * this.sizeScale(), color: 0x8c35ff, alpha: 0.32 * collapse })
+        .ellipse(0, 0, rx, ry)
+        .stroke({ width: 5 * this.sizeScale(), color: 0xe4a4ff, alpha: 0.95 * collapse })
+        .ellipse(0, 0, rx * 0.9, ry * 0.9)
+        .stroke({ width: 2 * this.sizeScale(), color: 0x8deaff, alpha: (0.45 + 0.35 * flicker) * collapse })
+        .ellipse(0, 0, rx * 0.78, ry * 0.78)
+        .fill({ color: 0x6321b8, alpha: 0.36 * collapse });
+    }
+    const done = this.galacticPortalFx.filter((portal) => portal.t >= (portal.firing ? 3 : 2.35));
+    for (const portal of done) portal.g.destroy();
+    this.galacticPortalFx = this.galacticPortalFx.filter((portal) => portal.t < (portal.firing ? 3 : 2.35));
+  }
+
+  private fireGalacticBeam(x1: number, y: number) {
+    const portal = this.galacticPortalFx[this.galacticPortalFx.length - 1];
+    if (portal) {
+      portal.firing = true;
+      portal.y = y;
+      portal.g.position.set(portal.x, y);
+    }
+    const g = new Graphics();
+    g.blendMode = "add";
+    this.fxLayer.addChild(g);
+    this.galacticBeamFx.push({ g, t: 0, x0: portal?.x ?? x1, x1: this.mapX(0), y });
+  }
+
+  private stepGalacticBeams(dtSec: number) {
+    const s = this.sizeScale();
+    for (const beam of this.galacticBeamFx) {
+      beam.t += dtSec;
+      const fadeIn = Math.min(1, beam.t / 0.06);
+      const fadeOut = Math.min(1, Math.max(0, (0.82 - beam.t) / 0.14));
+      const pulse = 0.78 + 0.22 * Math.sin(beam.t * 36);
+      const alpha = fadeIn * fadeOut;
+      const width = s * pulse;
+      beam.g.clear()
+        .moveTo(beam.x0, beam.y).lineTo(beam.x1, beam.y)
+        .stroke({ width: 42 * width, color: 0x68ffad, alpha: 0.16 * alpha })
+        .moveTo(beam.x0, beam.y).lineTo(beam.x1, beam.y)
+        .stroke({ width: 19 * width, color: 0x91ff4d, alpha: 0.48 * alpha })
+        .moveTo(beam.x0, beam.y).lineTo(beam.x1, beam.y)
+        .stroke({ width: 7 * width, color: 0xc8ff91, alpha: 0.82 * alpha })
+        .moveTo(beam.x0, beam.y).lineTo(beam.x1, beam.y)
+        .stroke({ width: 2.5 * width, color: 0xffffff, alpha: alpha })
+        .circle(beam.x0, beam.y, 18 * width).fill({ color: 0xeaffdc, alpha: 0.72 * alpha })
+        .circle(beam.x1, beam.y, 27 * width * pulse).fill({ color: 0x8dff45, alpha: 0.5 * alpha })
+        .circle(beam.x1, beam.y, 8 * width).fill({ color: 0xffffff, alpha: alpha });
+    }
+    const done = this.galacticBeamFx.filter((beam) => beam.t >= 0.82);
+    for (const beam of done) beam.g.destroy();
+    this.galacticBeamFx = this.galacticBeamFx.filter((beam) => beam.t < 0.82);
   }
 
   /** Offset the combat layers (not the HUD, and not the stage art behind them) by a
@@ -3826,6 +3917,14 @@ export class RaidScene {
       const ballR = (24 + BLAST_BALL_R * (1 - (1 - ballK) ** 2)) * s;
       const ballA = k < 0.45 ? 1 : Math.max(0, 1 - (k - 0.45) / 0.55) ** 1.3;
       const coreA = Math.max(0, 1 - k / 0.28); // white-hot centre, gone almost at once
+      if (b.simple) {
+        b.g.clear()
+          .circle(0, 0, ringR).stroke({ width: ringW, color: 0xffd489, alpha: (1 - k) ** 2 * 0.8 })
+          .circle(0, 0, ballR).fill({ color: 0xff781c, alpha: 0.62 * ballA })
+          .circle(0, -8 * s * ballK, ballR * 0.48).fill({ color: 0xffdf86, alpha: 0.82 * ballA })
+          .circle(0, -11 * s * ballK, ballR * 0.2).fill({ color: 0xffffff, alpha: coreA });
+        continue;
+      }
       b.g.clear()
         .circle(0, 0, ringR).stroke({ width: ringW, color: 0xffd489, alpha: (1 - k) ** 2 * 0.8 })
         .circle(0, 0, ballR).fill({ color: 0xff6a12, alpha: 0.5 * ballA })
@@ -3944,6 +4043,8 @@ export class RaidScene {
 
   private stepFx(dtSec: number) {
     this.stepBlasts(dtSec);
+    this.stepGalacticPortals(dtSec);
+    this.stepGalacticBeams(dtSec);
     this.stepDamageNumbers(dtSec);
     for (const e of this.fx) {
       e.t += dtSec;
@@ -4339,6 +4440,18 @@ export class RaidScene {
           this.applyPlaybackInputs();
           if (this.retreatRequested) break;
           this.sim.step(RAID_TICK_MS);
+          for (const effect of this.sim.drainBossSpecialEffects()) {
+            if (effect.name === "galacticBeamCharge") {
+              this.spawnGalacticPortal(this.mapX(effect.x), this.mapY(effect.y) - 36 * this.sizeScale());
+            } else if (effect.name === "galacticBeam") {
+              const y = this.mapY(effect.y) - 36 * this.sizeScale();
+              this.fireGalacticBeam(this.mapX(effect.x), y);
+              // Reuse the Mini Explode Ver. 2 fireball / shockwave, scaled up for the
+              // death beam's impact, with fewer sparks and no smoke for a cleaner read.
+              this.spawnExplosion(this.mapX(effect.x), y, 2.6, true);
+              this.onStrike?.({ team: "enemy", sfxFile: "explosion.wav" });
+            }
+          }
           this.simAccumulatorMs -= RAID_TICK_MS;
           this.simTick++;
           stepped = true;

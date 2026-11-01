@@ -147,10 +147,13 @@ export async function refreshIfSignedIn(): Promise<void> {
 // Dev-only sign-in: bypasses the Google popup so the flow can be automated
 // locally. Only works when the SERVER has DEV_AUTH=1 (it rejects otherwise), and
 // is only exposed when a server URL is configured. Never a security risk in prod
-// because the server gates it.
+// because the server gates it. Staging also wants its dev key: set it once per
+// browser with localStorage.setItem("zf2r.dev-key.v1", "<key>").
 if (api.isConfigured()) {
   window.zfDevSignIn = async (sub: string, name?: string) => {
-    await api.authenticate({ devSub: sub, devName: name });
+    let devKey: string | undefined;
+    try { devKey = localStorage.getItem("zf2r.dev-key.v1") ?? undefined; } catch { /* no storage */ }
+    await api.authenticate({ devSub: sub, devName: name, devKey });
     emit();
   };
 }

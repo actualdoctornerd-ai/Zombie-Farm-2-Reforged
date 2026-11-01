@@ -1852,30 +1852,32 @@ export class Field {
     return null;
   }
 
-  /** The first placed pen's tile bounds. Normal actors still see its full object
-   * footprint as solid; only cosmetic pen pets use this interior. */
-  petPenBounds(): { oc: number; or: number; tileW: number; tileH: number } | null {
+  /** Every placed Pet Pen with its tile bounds, in pen order: pen i shows the pets
+   * in slot group i (see petPens.ts). Ordered by instance id so the numbering holds
+   * across a reload and a move. Normal actors still see each full object footprint
+   * as solid; only cosmetic pen pets use these interiors. */
+  petPens(): { id: string; bounds: { oc: number; or: number; tileW: number; tileH: number } }[] {
+    const pens: { id: string; bounds: { oc: number; or: number; tileW: number; tileH: number } }[] = [];
     for (const o of this.objects.values()) {
-      if (o.def.petPen) {
-        const fp = objectFootprint(o.def, o.flipped);
-        return { oc: o.oc, or: o.or, tileW: fp.w, tileH: fp.h };
-      }
+      if (!o.def.petPen) continue;
+      const fp = objectFootprint(o.def, o.flipped);
+      pens.push({ id: o.id, bounds: { oc: o.oc, or: o.or, tileW: fp.w, tileH: fp.h } });
     }
-    return null;
+    return pens.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   }
 
-  /** Rebuild the Pet Pen's near-wall mask from the pets standing inside it. A
-   * rectangle per pet is enough: transparent pixels in the wall art stay
-   * transparent, so only actual rail pixels over a pet come forward. The far wall
-   * needs no mask at all — pets are south of it and the depth sort already puts
-   * them in front. */
-  updatePetPenOcclusion(inside: Container[]) {
+  /** Rebuild each Pet Pen's near-wall mask from the pets standing inside IT
+   * (`insideByPen` is keyed by pen id). A rectangle per pet is enough: transparent
+   * pixels in the wall art stay transparent, so only actual rail pixels over a pet
+   * come forward. The far wall needs no mask at all — pets are south of it and the
+   * depth sort already puts them in front. */
+  updatePetPenOcclusion(insideByPen: ReadonlyMap<string, Container[]>) {
     for (const o of this.objects.values()) {
       const mask = o.def.petPen ? o.frontMask : undefined;
       if (!mask) continue;
       mask.clear();
       let any = false;
-      for (const actor of inside) {
+      for (const actor of insideByPen.get(o.id) ?? []) {
         if (!actor.visible || !actor.renderable) continue;
         const b = actor.getLocalBounds();
         if (!(b.width > 0 && b.height > 0)) continue;

@@ -22,6 +22,7 @@ import {
   verifyGoogleIdToken,
   mintSession,
   verifySession,
+  devKeyAccepted,
   type GoogleIdentity,
 } from "./auth";
 import * as db from "./db";
@@ -32,6 +33,7 @@ import {
   signupsAllowed,
 } from "./serviceState";
 import { readAnnouncements } from "./announcements";
+import { runUsageBreaker } from "./usageBreaker";
 import {
   dayBucket,
   deviceLabel,
@@ -48,14 +50,17 @@ import { MAX_FUNCTIONAL_OBJECTS } from "./v3/engine";
 import {
   MAX_PRESENTATION_BYTES, MAX_PRESENTATION_FALLEN, REQUEST_ENVELOPE_BYTES,
 } from "./presentationLimits";
-import { CLIENT_INTEGRITY_VERSION, COMMAND_BATCH_LIMIT, EPIC_BOSS_TOKEN_GRANT_LIMIT, FARM_BULK_LIMIT, GAMEPLAY_PROTOCOL, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
+import { readFarmLayouts, writeFarmLayouts } from "./farmLayouts";
+import { CLIENT_INTEGRITY_VERSION, COMMAND_BATCH_LIMIT, EPIC_BOSS_TOKEN_GRANT_LIMIT, FARM_BULK_LIMIT, GAMEPLAY_PROTOCOL, MAX_BOOST_BUY_COUNT, MAX_PEN_SLOTS, type CommandBatchRequest, type GameplayCommand, type PresentationRequest } from "../../src/net/protocol";
 import * as v3 from "./v3/db";
 import * as v3Raid from "./v3/raid";
 import * as v3EpicBoss from "./v3/epicBoss";
 import * as v3Pvp from "./v3/pvp";
+import * as v3Endless from "./v3/endless";
 import {
   PVP_DEFENSE_MODE_DEFAULT, isPvpDefenseMode, type PvpDefenseMode,
 } from "../../src/raid/pvp";
+import { normalizePenSlots } from "../../src/petPens";
 import * as writer from "./v3/writer";
 import * as blackMarket from "./v3/blackMarket";
 
@@ -146,20 +151,25 @@ app.use("*", bodyLimit({
 // ---- rate limiting ------------------------------------------------------
 type RLTier = "RL_AUTH" | "RL_WRITE" | "RL_READ";
 
-/** Rate-limit middleware. Prefers the Cloudflare Rate Limiting binding for the
- *  given tier (no D1 write — cheapest on the free tier); falls back to a D1
- *  fixed-window counter when the binding isn't configured (local dev / offline).
- *  Keys by the authenticated account when available, else the caller IP — so place
- *  AFTER requireAuth on protected routes, or standalone (pre-auth, IP-keyed) on
- *  /auth. `fallbackMax`/`windowMs` only shape the D1 fallback; the binding's own
- *  limit/period come from wrangler.toml.
+/** Rate-limit middleware: at most `max` requests per minute on this route, per
+ *  account. Uses the Cloudflare Rate Limiting binding named for the limit (`RL_<max>`,
+ *  no D1 write); falls back to a D1 fixed-window counter at the same limit when that
+ *  binding isn't configured (offline / degraded). Keys by the authenticated account
+ *  when available, else the caller IP — so place AFTER requireAuth on protected
+ *  routes, or standalone (pre-auth, IP-keyed) on /auth.
+ *
+ *  Every `max` used here needs a matching `RL_<max>` binding in BOTH wrangler.toml
+ *  environments, with period 60 — rateLimitBindings.test.ts fails otherwise. Until
+ *  2026-10-31 each tier had ONE binding (60/120/300) and `max` shaped only the D1
+ *  fallback, so in prod e.g. /presentation took 120/min, not the 5 written here.
+ *  `tier` now only selects the local-test override below.
  *
  *  NOTE: rate limiting is a throttle, never a correctness control — security
  *  invariants (gift uniqueness, grants, save CAS) stay enforced by D1 constraints. */
 export function rateLimit(
   tier: RLTier,
   name: string,
-  fallbackMax: number,
+  max: number,
   windowMs: number
 ): MiddlewareHandler<{ Bindings: Bindings; Variables: Vars }> {
   return async (c, next) => {
@@ -172,15 +182,15 @@ export function rateLimit(
     // isolated sign-ins from one IP run un-throttled. Prod never sets these vars, so prod
     // always uses the binding below and the real limits are untouched.
     const override = c.env[`${tier}_MAX` as keyof typeof c.env] as string | undefined;
-    const binding = override ? undefined : (c.env[tier] as RateLimiter | undefined);
+    const binding = override ? undefined : (c.env[`RL_${max}`] as RateLimiter | undefined);
     let ok: boolean;
     let retryAfterMs = windowMs;
     if (binding) {
       ok = (await binding.limit({ key })).success;
     } else {
       const windowStart = Math.floor(Date.now() / windowMs) * windowMs;
-      const max = override ? Number(override) : fallbackMax;
-      ok = (await db.bumpRateLimit(c.env.DB, key, windowStart)) <= max;
+      const cap = override ? Number(override) : max;
+      ok = (await db.bumpRateLimit(c.env.DB, key, windowStart)) <= cap;
       retryAfterMs = Math.max(1, windowStart + windowMs - Date.now());
     }
     if (!ok) {
@@ -193,15 +203,15 @@ export function rateLimit(
 }
 
 // ---- POST /auth: Google (or dev) sign-in -> our session token -----------
-// 60/min/IP (kept in step with the RL_AUTH binding in wrangler.toml, which governs
-// in prod — this number only shapes the D1 fallback used in local/degraded mode).
-// Tolerates a shared NAT/CGNAT egress; Google-token verification is the real gate;
-// dev sign-in is off in prod (DEV_AUTH unset).
+// 60/min/IP (the RL_60 binding in prod). Tolerates a shared NAT/CGNAT egress;
+// Google-token verification is the real gate; dev sign-in is off in prod (DEV_AUTH
+// unset) and needs DEV_AUTH_KEY on staging (see devKeyAccepted).
 app.post("/auth", rateLimit("RL_AUTH", "auth", 60, 60_000), async (c) => {
   const body = await c.req.json<{
     idToken?: string;
     devSub?: string;
     devName?: string;
+    devKey?: string;
   }>().catch(() => ({}) as Record<string, never>);
 
   let who: GoogleIdentity;
@@ -215,7 +225,11 @@ app.post("/auth", rateLimit("RL_AUTH", "auth", 60, 60_000), async (c) => {
   } else if (c.env.DEV_AUTH === "1" && body.devSub) {
     // Local/dev only: skip Google so the flow can be automated end-to-end. The
     // server is the gate — a prod Worker has DEV_AUTH unset, so this is unreachable
-    // regardless of what any client sends.
+    // regardless of what any client sends; staging also demands its DEV_AUTH_KEY.
+    if (!await devKeyAccepted(c.env, body.devKey ?? c.req.header("X-Dev-Key"))) {
+      slog("dev_key_rejected", { route: "auth" }, "alert");
+      return c.json({ error: "dev_key_required" }, 401);
+    }
     who = { sub: `dev:${body.devSub}` };
   } else if (body.devSub) {
     // A devSub sent to a non-dev server = someone probing the dev bypass. High signal.
@@ -290,10 +304,22 @@ app.use("/friends/*", requireAuth);
 app.use("/gifts", requireAuth);
 app.use("/gifts/*", requireAuth);
 app.use("/raid/*", requireAuth);
+app.use("/endless/*", requireAuth);
+// Endless Mode is parked unless ENDLESS_ENABLED is "1" (see wrangler.toml): the routes
+// answer as if they did not exist, so a hand-made request reaches nothing.
+app.use("/endless/*", async (c, next) => {
+  if (!endlessEnabled(c.env)) return c.json({ error: "not_found" }, 404);
+  await next();
+});
+app.use("/leaderboard/endless", async (c, next) => {
+  if (!endlessEnabled(c.env)) return c.json({ error: "not_found" }, 404);
+  await next();
+});
 app.use("/epic-boss/*", requireAuth);
 app.use("/bootstrap", requireAuth);
 app.use("/commands", requireAuth);
 app.use("/presentation", requireAuth);
+app.use("/farm-layouts", requireAuth);
 app.use("/writer/*", requireAuth);
 app.use("/black-market", requireAuth);
 app.use("/black-market/*", requireAuth);
@@ -334,6 +360,10 @@ for (const path of retiredV2) {
  *  invisible to the unit suite and caught only by the integration harness. */
 app.use("/dev/*", async (c, next) => {
   if (c.env.DEV_AUTH !== "1") return c.json({ error: "not_found" }, 404);
+  if (!await devKeyAccepted(c.env, c.req.header("X-Dev-Key"))) {
+    slog("dev_key_rejected", { route: "dev" }, "alert");
+    return c.json({ error: "not_found" }, 404);
+  }
   await next();
 });
 
@@ -528,6 +558,11 @@ app.use("/friends/code/rotate", rateLimit("RL_WRITE", "code_rotate", 5, 60_000))
 app.use("/gifts", rateLimit("RL_WRITE", "gift_send", 60, 60_000));
 app.use("/gifts/claim", rateLimit("RL_WRITE", "gift_claim", 120, 60_000));
 app.use("/raid/start", rateLimit("RL_WRITE", "raid_start", 60, 60_000));
+app.use("/endless/start", rateLimit("RL_WRITE", "endless_start", 10, 60_000));
+app.use("/endless/finish", rateLimit("RL_WRITE", "endless_finish", 60, 60_000));
+app.use("/endless/choose", rateLimit("RL_WRITE", "endless_choose", 30, 60_000));
+app.use("/endless/abandon", rateLimit("RL_WRITE", "endless_abandon", 30, 60_000));
+app.use("/endless/active", rateLimit("RL_READ", "endless_active", 60, 60_000));
 app.use("/raid/pvp/start", rateLimit("RL_WRITE", "pvp_start", 30, 60_000));
 app.use("/raid/pvp/finish", rateLimit("RL_WRITE", "pvp_finish", 30, 60_000));
 app.use("/raid/pvp/abandon", rateLimit("RL_WRITE", "pvp_abandon", 30, 60_000));
@@ -551,7 +586,9 @@ app.use("/session/list", rateLimit("RL_READ", "session_list", 120, 60_000));
 app.use("/bootstrap", rateLimit("RL_READ", "bootstrap_v3", 30, 60_000));
 app.use("/writer/status", rateLimit("RL_READ", "writer_status", 60, 60_000));
 app.use("/commands", rateLimit("RL_WRITE", "commands_v3", 30, 60_000));
-app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 4, 60_000));
+app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 5, 60_000));
+// Read on opening the Farm Layouts panel, written on save/overwrite/delete.
+app.use("/farm-layouts", rateLimit("RL_WRITE", "farm_layouts", 30, 60_000));
 app.use("/writer/*", rateLimit("RL_WRITE", "writer_v3", 20, 60_000));
 const blackMarketReadLimit = rateLimit("RL_READ", "black_market_read", 180, 60_000);
 const blackMarketWriteLimit = rateLimit("RL_WRITE", "black_market_write", 60, 60_000);
@@ -564,6 +601,7 @@ app.use("/friends", rateLimit("RL_READ", "friends_list", 300, 60_000));
 app.use("/friends/requests", rateLimit("RL_READ", "friends_reqs", 300, 60_000));
 app.use("/friends/:id/save", rateLimit("RL_READ", "friend_farm", 120, 60_000));
 app.use("/leaderboard/friends", rateLimit("RL_READ", "leaderboard", 120, 60_000));
+app.use("/leaderboard/endless", rateLimit("RL_READ", "endless_leaderboard", 120, 60_000));
 app.use("/gifts/inbox", rateLimit("RL_READ", "inbox", 300, 60_000));
 app.use("/session/refresh", rateLimit("RL_READ", "refresh", 60, 60_000));
 
@@ -710,14 +748,15 @@ app.get("/writer/status", async (c) => c.json(await writer.projection(
  *  credential to send — are precisely the ones the fence refuses. Fencing it made the
  *  route answer 423 in exactly the situation it exists for, leaving the session stuck
  *  for the full TTL. Same reasoning as /writer/release, which was never fenced either. */
-const WRITER_FENCE_EXEMPT = new Set(["/raid/pvp/abandon"]);
+const WRITER_FENCE_EXEMPT = new Set(["/raid/pvp/abandon", "/endless/abandon"]);
 
 const writerProtectedMutation = (method: string, path: string): boolean => {
   if (method === "PUT" && path === "/presentation") return true;
   if (method !== "POST") return false;
   if (WRITER_FENCE_EXEMPT.has(path)) return false;
   return path === "/commands" || path === "/gifts" ||
-    path.startsWith("/raid/") || path.startsWith("/epic-boss/") || path.startsWith("/black-market/");
+    path.startsWith("/raid/") || path.startsWith("/epic-boss/") || path.startsWith("/black-market/") ||
+    (path.startsWith("/endless/") && path !== "/endless/active");
 };
 
 // Activity-triggered exclusive writer fencing. Legacy clients remain usable only
@@ -823,11 +862,14 @@ export const validGameplayCommand = (value: unknown): value is GameplayCommand =
           return commandInt(plot.oc) && commandInt(plot.or) &&
             (plot.fertilized === undefined || typeof plot.fertilized === "boolean");
         });
-    case "power.buy": return commandString(command.key);
+    case "power.buy":
+      return commandString(command.key) && (command.count === undefined ||
+        (commandInt(command.count) && command.count >= 1 && command.count <= MAX_BOOST_BUY_COUNT));
     case "power.use":
       return commandString(command.key) && (command.oc === undefined || commandInt(command.oc)) &&
         (command.or === undefined || commandInt(command.or)) &&
-        (command.target === undefined || command.target === "zombie_pot");
+        (command.target === undefined || command.target === "zombie_pot") &&
+        (command.skipZombies === undefined || typeof command.skipZombies === "boolean");
     case "object.buy":
       return commandString(command.catalogKey) &&
         (command.clientInstanceId === undefined || commandString(command.clientInstanceId));
@@ -864,8 +906,9 @@ export const validGameplayCommand = (value: unknown): value is GameplayCommand =
     case "pet.buy": return commandString(command.petKey);
     case "pet.equip": return command.petKey === null || commandString(command.petKey);
     case "pet.pen":
-      return Array.isArray(command.petKeys) && command.petKeys.length <= 4 &&
-        command.petKeys.every((key) => commandString(key));
+      // "" is an empty pen slot (src/petPens.ts).
+      return Array.isArray(command.petKeys) && command.petKeys.length <= MAX_PEN_SLOTS &&
+        command.petKeys.every((key) => key === "" || commandString(key));
     case "memorial.enshrine":
       return commandString(command.instanceId) && commandString(command.unitId) &&
         (command.name === undefined || commandString(command.name, 64));
@@ -1027,6 +1070,7 @@ app.post("/bootstrap", async (c) => {
   const payload = {
     ...response,
     pvpEnabled: pvpOn,
+    endlessEnabled: endlessEnabled(c.env),
     social: { ...response.social, lastInvadedAt },
   };
   metric("bootstrap", accountId, started, { payloadBytes: JSON.stringify(payload).length });
@@ -1197,6 +1241,30 @@ app.put("/presentation", async (c) => {
   return c.json(saved);
 });
 
+// Saved farm layouts (farmLayouts.ts). Whole-list replace: the client fetches, edits,
+// and writes the list back. A Worker deployed ahead of migration 0061 has no table, so
+// both routes answer 503 `layouts_unavailable` and the client keeps a local copy.
+app.get("/farm-layouts", async (c) => {
+  try {
+    return c.json({ layouts: await readFarmLayouts(c.env.DB, c.get("accountId")) });
+  } catch {
+    return c.json({ error: "layouts_unavailable" }, 503);
+  }
+});
+
+app.put("/farm-layouts", async (c) => {
+  if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<{ layouts?: unknown }>().catch(() => null);
+  try {
+    if (!body || !await writeFarmLayouts(c.env.DB, c.get("accountId"), body.layouts, Date.now())) {
+      return c.json({ error: "bad_layouts" }, 400);
+    }
+  } catch {
+    return c.json({ error: "layouts_unavailable" }, 503);
+  }
+  return c.json({ ok: true });
+});
+
 const marketEnabled = (env: Bindings): boolean => env.BLACK_MARKET_ENABLED === "1";
 
 // Posts expire after three days. The board hides a stale one from everybody the
@@ -1345,11 +1413,49 @@ app.post("/raid/revive", async (c) => {
   return c.json(result.body, 409);
 });
 
+// ---- Endless run lifecycle. The score write is coupled to the verified terminal
+// transition in v3/endless; clients never submit a floor or army as score data. ----
+app.post("/endless/start", async (c) => {
+  if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const result = await v3Endless.startEndless(c.env.DB, c.get("accountId"), body, Date.now());
+  return c.json(result.body, result.status as 200);
+});
+
+app.post("/endless/finish", async (c) => {
+  if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const result = await v3Endless.finishEndlessWave(c.env.DB, c.get("accountId"), body, Date.now());
+  return c.json(result.body, result.status as 200);
+});
+
+app.post("/endless/choose", async (c) => {
+  if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const result = await v3Endless.chooseEndlessBossReward(c.env.DB, c.get("accountId"), body, Date.now());
+  return c.json(result.body, result.status as 200);
+});
+
+app.post("/endless/abandon", async (c) => {
+  if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
+  const body = await c.req.json<{ sessionId?: unknown }>().catch(() => ({} as { sessionId?: unknown }));
+  const result = await v3Endless.abandonEndless(c.env.DB, c.get("accountId"), body.sessionId, Date.now());
+  return c.json(result.body, result.status as 200);
+});
+
+app.get("/endless/active", async (c) => {
+  const result = await v3Endless.activeEndless(c.env.DB, c.get("accountId"));
+  return c.json(result.body, result.status as 200);
+});
+
 // ---- Friend invasions (PvP). Under /raid/ so requireAuth + writer fencing apply.
 // PARKED behind PVP_ENABLED while the interface is redesigned (docs/FRIEND_INVASIONS.md):
 // same shape as the Black Market's opt-in, and the client hides its surfaces behind
 // PVP_UI_ENABLED (src/raid/pvp.ts) — flip both to bring it back.
 const pvpEnabled = (env: Bindings): boolean => env.PVP_ENABLED === "1";
+function endlessEnabled(env: Bindings): boolean {
+  return env.ENDLESS_ENABLED === "1";
+}
 /** Which defense a friend invasion fights. Exactly one mode is live at a time and the
  *  WORKER decides: it authors the pinned config to match, so no client redeploy is
  *  involved in switching. Unset or unrecognised falls back to the shipped behaviour. */
@@ -1702,6 +1808,35 @@ app.get("/leaderboard/friends", async (c) => {
   });
 });
 
+// ---- GET /leaderboard/endless: global top 25 per mode ------------------
+// Public top-25 data is written only from server-verified Endless completions;
+// the Endless hub presents this route separately for each mode.
+app.get("/leaderboard/endless", async (c) => {
+  const requested = c.req.query("mode") ?? "endless";
+  if (requested !== "endless" && requested !== "nightmare") {
+    return c.json({ error: "bad_mode" }, 400);
+  }
+  const rows = await db.listEndlessLeaderboard(c.env.DB, requested);
+  return c.json({
+    mode: requested,
+    entries: rows.map((row, i) => ({
+      rank: i + 1,
+      name: row.username ?? "Player",
+      deepestFloor: row.deepest_floor,
+      durationMs: row.duration_ms,
+      army: (() => {
+        try {
+          const parsed = JSON.parse(row.army_json) as unknown;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })(),
+      achievedAt: row.achieved_at,
+    })),
+  });
+});
+
 // ---- GET /friends/requests: pending incoming friend requests ------------
 app.get("/friends/requests", async (c) => {
   const reqs = await db.incomingRequests(c.env.DB, c.get("accountId"), MAX_PENDING_REQUESTS);
@@ -1740,8 +1875,8 @@ app.get("/friends/:id/save", async (c) => {
     ? background
     : "woodland";
   const activePet = boot.gameplay.activePet;
-  const penPets = boot.gameplay.penPets.slice(0, 4);
-  const visiblePets = [...new Set([...(activePet ? [activePet] : []), ...penPets])];
+  const penPets = normalizePenSlots(boot.gameplay.penPets);
+  const visiblePets = [...new Set([...(activePet ? [activePet] : []), ...penPets.filter(Boolean)])];
   const save: SaveGame = {
     version: 1,
     savedAt: boot.serverTime,
@@ -2006,11 +2141,16 @@ async function runCleanup(env: Bindings, now: number): Promise<void> {
   slog("cleanup", { sessions, buckets, requests, raidSessions: raidSessions.meta.changes ?? 0 }, "info");
 }
 
+/** The daily cleanup cron, as written in wrangler.toml [triggers]. Every other cron
+ *  (the hourly one) runs only the usage breaker. */
+const CLEANUP_CRON = "17 3 * * *";
+
 // Export both the HTTP handler and the cron handler. Cloudflare calls `scheduled`
-// on the wrangler.toml cron; everything else is the Hono app.
+// on the wrangler.toml crons; everything else is the Hono app.
 export default {
   fetch: (req: Request, env: Bindings, ctx: ExecutionContext) => app.fetch(req, env, ctx),
-  scheduled: (_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) => {
-    ctx.waitUntil(runCleanup(env, Date.now()));
+  scheduled: (event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) => {
+    if (event.cron === CLEANUP_CRON) ctx.waitUntil(runCleanup(env, Date.now()));
+    else ctx.waitUntil(runUsageBreaker(env, Date.now(), slog).then(() => undefined));
   },
 };

@@ -5,7 +5,7 @@ const context = (success: boolean) => {
   const headers = new Map<string, string>();
   const limit = vi.fn().mockResolvedValue({ success });
   const c = {
-    env: { RL_WRITE: { limit } },
+    env: { RL_60: { limit } },
     get: vi.fn().mockReturnValue("account-123"),
     req: { header: vi.fn().mockReturnValue(undefined) },
     header: (name: string, value: string) => { headers.set(name, value); },

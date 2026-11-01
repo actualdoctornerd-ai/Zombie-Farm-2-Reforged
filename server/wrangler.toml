@@ -44,6 +44,9 @@ head_sampling_rate = 1
 #
 # Migrations:  npx wrangler d1 migrations apply zombiefarm-staging --remote
 # Secrets:     npx wrangler secret put SESSION_SECRET
+#              npx wrangler secret put DEV_AUTH_KEY   (staging is on the public
+#              internet: every dev sign-in and /dev/* call must present this key,
+#              and with DEV_AUTH_REQUIRE_KEY=1 a missing secret refuses them all)
 # The staging DB was initialized via the fresh path (schema.sql + baseline
 # ledger — see migrations/README.md); its data is disposable.
 
@@ -57,6 +60,7 @@ migrations_dir = "migrations"
 GOOGLE_CLIENT_ID = "249211577622-cmqa6so9re0hgh2lti4mpe40nlcm3l4k.apps.googleusercontent.com"
 ALLOWED_ORIGIN = "http://localhost:5173"
 DEV_AUTH = "1"
+DEV_AUTH_REQUIRE_KEY = "1"
 MIN_PROTOCOL_VERSION = "3"
 MUTATIONS_DISABLED = "0"
 BLACK_MARKET_ENABLED = "1"
@@ -70,32 +74,71 @@ PVP_ENABLED = "1"
 # authors the pinned config to match, so switching needs no client redeploy.
 PVP_DEFENSE_MODE = "formation"
 WRITER_LEASE_MODE = "enforce"
+# Endless Mode: ON for staging testing. The client's Endless card follows the bootstrap's
+# `endlessEnabled` capability, so this var is the ONE launch switch (prod: see below).
+ENDLESS_ENABLED = "1"
+USAGE_BREAKER_MODE = "off"
 
-# Staging rate limiters use distinct namespace_ids from prod (1001-1003):
-# ratelimit namespaces are account-scoped, so sharing ids would share throttle
-# buckets across environments. `period` must be 10 or 60 (seconds). If these
-# bindings are removed the server falls back to a D1 counter automatically.
+# One limiter per per-minute LIMIT: a route declared as rateLimit(..., 30, ...) in
+# src/index.ts uses RL_30, so the number in the code is the number enforced. Every
+# limit the code uses needs a binding here AND under [env.production] —
+# test/rateLimitBindings.test.ts fails otherwise. Staging ids are 2001-2008, prod
+# 1001-1008: ratelimit namespaces are account-scoped, so sharing ids would share
+# throttle buckets across environments. `period` must be 10 or 60 (seconds). If a
+# binding is missing the server falls back to a D1 counter at the same limit.
 [[unsafe.bindings]]
-name = "RL_AUTH"
+name = "RL_5"
+type = "ratelimit"
+namespace_id = "2004"
+simple = { limit = 5, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_10"
+type = "ratelimit"
+namespace_id = "2005"
+simple = { limit = 10, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_20"
+type = "ratelimit"
+namespace_id = "2006"
+simple = { limit = 20, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_30"
+type = "ratelimit"
+namespace_id = "2007"
+simple = { limit = 30, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_60"
 type = "ratelimit"
 namespace_id = "2001"
 simple = { limit = 60, period = 60 }
 
 [[unsafe.bindings]]
-name = "RL_WRITE"
+name = "RL_120"
 type = "ratelimit"
 namespace_id = "2002"
 simple = { limit = 120, period = 60 }
 
 [[unsafe.bindings]]
-name = "RL_READ"
+name = "RL_180"
+type = "ratelimit"
+namespace_id = "2008"
+simple = { limit = 180, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_300"
 type = "ratelimit"
 namespace_id = "2003"
 simple = { limit = 300, period = 60 }
 
-# Same daily cleanup sweep as prod, on staging's own database.
+# Same daily cleanup sweep as prod, on staging's own database. The hourly cron runs
+# the usage breaker, which staging keeps OFF: it reads the whole ACCOUNT's usage, so
+# production's copy already covers staging.
 [triggers]
-crons = ["17 3 * * *"]
+crons = ["17 3 * * *", "47 * * * *"]
 
 # ---- PRODUCTION (--env production only) ------------------------------------
 # Deploy:      npx wrangler deploy --env production   (or `npm run deploy:prod`)
@@ -144,39 +187,87 @@ PVP_ENABLED = "1"
 # the shipped barn-doorway wave and stays available as the fallback.
 PVP_DEFENSE_MODE = "formation"
 WRITER_LEASE_MODE = "enforce"
+# Endless Mode: NOT launched. Off, every /endless/* route and the Endless leaderboard
+# answer 404 and the client hides the Endless card (bootstrap `endlessEnabled`).
+# Launching is flipping this to "1" and deploying this Worker -- no client release.
+ENDLESS_ENABLED = "0"
 # Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
 # raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
 # RAID_COOLDOWN_MS = "7200000"
+# Usage breaker (src/usageBreaker.ts) — the spending cap Cloudflare does not offer.
+# Hourly, it estimates this billing cycle's overage for the WHOLE account and checks
+# the last hour for a D1 write spike. "observe" only logs (usage_breaker every hour,
+# usage_breaker_would_trip as an alert); "enforce" flips service_state to export_only
+# (sign-in and farm loading still work, gameplay writes stop) and never reopens.
+# Needs the secret:  npx wrangler secret put USAGE_BREAKER_TOKEN --env production
+# (an API token with Account Analytics:Read ONLY). Without it the breaker just logs
+# usage_breaker_unconfigured. Switch to "enforce" only after the logs look right.
+USAGE_BREAKER_MODE = "observe"
+USAGE_BREAKER_MONTHLY_USD = "50"
+USAGE_BREAKER_HOURLY_ROWS_WRITTEN = "1000000"
+USAGE_BREAKER_CYCLE_DAY = "1"
+CF_ACCOUNT_ID = "a389a14338b237a5313e5e198220b938"
 # There is no save-import path any more: the protocol-v2 seed routes and their
 # MIGRATION_CUTOFF_MS gate were removed on 2026-09-03 (the tables went in migration
 # 0020). Every account starts from the fixed server defaults in v3/engine.
 
-# Cloudflare's native per-key limiter. Throttling only — the D1 constraints
-# (gift uniqueness, grants, save CAS) remain the real correctness controls. These
-# do NOT write to D1, so they don't consume the free-tier D1 write allowance.
+# Cloudflare's native per-key limiter, one binding per limit (see the staging block
+# above for the scheme). Throttling only — the D1 constraints (gift uniqueness,
+# grants, save CAS) remain the real correctness controls. These do NOT write to D1.
+# RL_60 also carries sign-in at 60/min/IP: it stops token-verification cost
+# amplification but tolerates a shared NAT/CGNAT egress. 1001-1003 keep their old
+# ids (they were RL_AUTH/RL_WRITE/RL_READ at the same limits).
 [[env.production.unsafe.bindings]]
-name = "RL_AUTH"                       # sign-in (per IP): tight, but NAT-tolerant
+name = "RL_5"
+type = "ratelimit"
+namespace_id = "1004"
+simple = { limit = 5, period = 60 }
+
+[[env.production.unsafe.bindings]]
+name = "RL_10"
+type = "ratelimit"
+namespace_id = "1005"
+simple = { limit = 10, period = 60 }
+
+[[env.production.unsafe.bindings]]
+name = "RL_20"
+type = "ratelimit"
+namespace_id = "1006"
+simple = { limit = 20, period = 60 }
+
+[[env.production.unsafe.bindings]]
+name = "RL_30"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 30, period = 60 }
+
+[[env.production.unsafe.bindings]]
+name = "RL_60"
 type = "ratelimit"
 namespace_id = "1001"
-# 60/min/IP: still stops sign-in brute-force / token-verification cost amplification,
-# but tolerates a shared NAT/CGNAT egress (offices, schools, mobile carriers) where
-# many legitimate users share one IP. Google-token verification is the real gate.
 simple = { limit = 60, period = 60 }
 
 [[env.production.unsafe.bindings]]
-name = "RL_WRITE"                      # mutations (per account): moderate
+name = "RL_120"
 type = "ratelimit"
 namespace_id = "1002"
 simple = { limit = 120, period = 60 }
 
 [[env.production.unsafe.bindings]]
-name = "RL_READ"                       # reads / polling (per account): loose
+name = "RL_180"
+type = "ratelimit"
+namespace_id = "1008"
+simple = { limit = 180, period = 60 }
+
+[[env.production.unsafe.bindings]]
+name = "RL_300"
 type = "ratelimit"
 namespace_id = "1003"
 simple = { limit = 300, period = 60 }
 
 # Daily sweep (03:17 UTC) of expired/revoked sessions, stale rate-limit buckets,
-# and old pending friend requests — keeps D1 small on the free tier. Handler:
-# the `scheduled` export in src/index.ts.
+# and old pending friend requests — keeps D1 small on the free tier. The hourly one
+# (:47) runs the usage breaker. Handler: the `scheduled` export in src/index.ts,
+# which tells them apart by the cron string — keep "17 3 * * *" in step with it.
 [env.production.triggers]
-crons = ["17 3 * * *"]
+crons = ["17 3 * * *", "47 * * * *"]

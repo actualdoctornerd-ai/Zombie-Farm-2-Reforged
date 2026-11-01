@@ -17,6 +17,8 @@ import { releasedToGraveyard, trimFallen, type FallenZombie } from "./zombie/mem
 import type { ZombieTeam } from "./zombie/teams";
 import { mergeFarmStats, newFarmStats, type FarmStats } from "./stats";
 import { MAX_TIER, clampTier } from "./raid/dualInvasion";
+import { normalizePenSlots, withoutPenPet } from "./petPens";
+import { MAX_PEN_SLOTS } from "./net/protocol";
 
 // Levels 1-45 are build-verified from PlayerLevels.plist. Levels 46-50 are NOT in the
 // source — they are reimpl-only content (docs/POST_45_PROGRESSION.md) and their five
@@ -96,7 +98,7 @@ export class GameState {
   // ---- cosmetic pets (server authoritative while signed in) ----
   ownedPets: string[] = [];
   activePet: string | null = null;
-  penPets: string[] = [];
+  penPets: string[] = []; // pen SLOTS, "" = empty (petPens.ts)
   // ---- consumable boosts (bought from the Market Boosts tab) ----
   boostInv: { key: string; count: number }[] = [];
   // ---- zombie abilities ----
@@ -216,7 +218,7 @@ export class GameState {
    *  purely local. */
   onInventory:
     | ((
-        action: { type: "buy" | "use" | "grant"; key: string; qty?: number; unitId?: string; localZombieHarvests?: { id: string; oc: number; or: number }[]; oc?: number; or?: number; target?: "zombie_pot" },
+        action: { type: "buy" | "use" | "grant"; key: string; qty?: number; unitId?: string; localZombieHarvests?: { id: string; oc: number; or: number }[]; oc?: number; or?: number; target?: "zombie_pot"; skipZombies?: boolean },
         optimistic: { count: number; gold?: number; brains?: number; xp?: number }
       ) => void)
     | null = null;
@@ -705,9 +707,8 @@ export class GameState {
   syncPetOwnership(keys: string[], active: string | null, pen: string[] = this.penPets) {
     this.ownedPets = [...new Set(keys.filter((key) => typeof key === "string" && key.length > 0))];
     this.activePet = active !== null && this.ownedPets.includes(active) ? active : null;
-    this.penPets = [...new Set(pen)].filter((key) =>
-      this.ownedPets.includes(key) && key !== this.activePet
-    ).slice(0, 4);
+    this.penPets = normalizePenSlots(pen, (key) =>
+      this.ownedPets.includes(key) && key !== this.activePet);
     this.emit();
   }
 
@@ -720,15 +721,17 @@ export class GameState {
   equipPet(key: string | null): boolean {
     if (key !== null && !this.ownedPets.includes(key)) return false;
     this.activePet = key;
-    if (key !== null) this.penPets = this.penPets.filter((pet) => pet !== key);
+    if (key !== null) this.penPets = withoutPenPet(this.penPets, key);
     this.emit();
     return true;
   }
 
-  setPenPets(keys: string[]): boolean {
-    const pets = [...new Set(keys)];
-    if (pets.length > 4 || pets.some((key) => !this.ownedPets.includes(key))) return false;
-    this.penPets = pets;
+  /** Replace every pen's slots at once (see petPens.ts for the layout). */
+  setPenPets(slots: string[]): boolean {
+    const pets = slots.filter(Boolean);
+    if (slots.length > MAX_PEN_SLOTS || new Set(pets).size !== pets.length ||
+        pets.some((key) => !this.ownedPets.includes(key))) return false;
+    this.penPets = normalizePenSlots(slots);
     if (this.activePet && pets.includes(this.activePet)) this.activePet = null;
     this.emit();
     return true;

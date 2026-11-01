@@ -87,4 +87,8 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
   -- already declares on a fresh database.
   ('0058_dual_invasion_tiers.sql'),
   -- Creates `announcements`, which schema.sql already declares on a fresh database.
-  ('0059_announcements.sql');
+  ('0059_announcements.sql'),
+  -- Creates endless_leaderboard, which schema.sql already creates on a fresh database.
+  ('0060_endless_leaderboard.sql'),
+  -- Creates farm_layouts, which schema.sql already declares on a fresh database.
+  ('0061_farm_layouts.sql');

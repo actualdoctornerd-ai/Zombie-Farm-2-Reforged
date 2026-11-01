@@ -7,6 +7,9 @@ const BASE = process.env.IT_BASE ?? "http://127.0.0.1:8799";
 const writerByToken = new Map<string, { clientId: string; generation: number; token: string }>();
 export const currentIntegrityHeaders = {
   "x-integrity-version": String(CLIENT_INTEGRITY_VERSION),
+  // Staging's DEV_AUTH_KEY, for runs with IT_BASE pointed at it. The local harness
+  // sets no key, so none is sent or needed.
+  ...(process.env.IT_DEV_KEY ? { "x-dev-key": process.env.IT_DEV_KEY } : {}),
 };
 
 let counter = 0;

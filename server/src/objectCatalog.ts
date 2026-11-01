@@ -379,7 +379,7 @@ export const OBJECTS: Readonly<Record<string, ObjectEcon>> = {
   "pen_01_pink": { cost: 500, brains: false, xp: 5, level: 3 },
   "pen_01_red": { cost: 500, brains: false, xp: 5, level: 10 },
   "perfumeVat": { cost: 0, brains: false, xp: 0, level: -1 },
-  "pettingZoo": { cost: 200, brains: false, xp: 2, level: -1, purchaseLimit: 1 },
+  "pettingZoo": { cost: 200, brains: false, xp: 2, level: -1, purchaseLimit: 4 },
   "picnicNormal": { cost: 4000, brains: false, xp: 40, level: 17 },
   "pirateBag": { cost: 2000, brains: false, xp: 20, level: 1 },
   "pirateBanner": { cost: 0, brains: false, xp: 0, level: -1 },

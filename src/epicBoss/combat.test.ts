@@ -312,7 +312,9 @@ describe("Epic Boss damage ramp", () => {
       const unlock = epicBossUnlockLevel(boss);
       expect(fight(supportedTank(unlock), bossOf(boss)).losses, boss.name).toBe(0);
     }
-  });
+  // Simulates every event's whole fight: past vitest's 5 s default under a
+  // parallel suite run, though it takes about a second alone.
+  }, 30_000);
 
   it("makes that same wall FAIL without its healers, from mid-ladder up", () => {
     // The other half of the rule, and the reason the ramp crosses the unaided wall's
@@ -372,7 +374,7 @@ describe("Epic Boss damage ramp", () => {
       expect(fight(supportedTank(epicBossUnlockLevel(boss)), bossOf(boss, boss.maxLevel)).losses,
         boss.name).toBe(0);
     }
-  });
+  }, 30_000);
 
   it("would break that rule if the ramp climbed far enough", () => {
     // The guard rail, measured: the supported wall finally dies at 800 DPS, ten times the

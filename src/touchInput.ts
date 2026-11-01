@@ -41,7 +41,7 @@ export function shouldRecoverTouchPointerUp(
     releasedPointerId === activePointerId;
 }
 
-const DEFERRED_TOUCH_MODES = new Set(["place", "move", "remove", "rotate"]);
+const DEFERRED_TOUCH_MODES = new Set(["place", "move", "remove", "rotate", "store"]);
 
 /** Mutating tools that must wait for finger-up because their effects cannot be
  * reliably rolled back if a second finger begins a pinch. */

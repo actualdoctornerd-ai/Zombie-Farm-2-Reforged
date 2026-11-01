@@ -13,6 +13,7 @@ import { atlasUrl, frameRects, type FrameTable } from "./atlasVersion";
 import { noteAssetFailure } from "./assetFailures";
 import { isFencePanel } from "./pathCosts";
 import { MAX_ZOMBIE_POTS } from "./placementLimit";
+import { MAX_PET_PENS } from "./net/protocol";
 import { setRigClips } from "./raid/clipRuntime";
 import type { ClipSet } from "./raid/clipRuntime";
 
@@ -476,7 +477,7 @@ export interface PlaceableDef {
   turns?: TurnState[];
   armyMax?: number; // functional: increases zombie army cap by this on placement
   storageSlots?: number; // functional: storage shed item capacity (8..64)
-  petPen?: boolean; // Pet Pen: manages up to four displayed pets
+  petPen?: boolean; // Pet Pen: holds PETS_PER_PEN pets of its own; MAX_PET_PENS per farm
   zombieStorage?: boolean; // functional: the Mausoleum — stores owned zombies
   zombieSlots?: number; // functional: Mausoleum zombie capacity (15..60 by tier)
   graveColor?: "Blue" | "Red" | "Silver" | "Obsidian"; // colored grave: unlocks planting that zombie class
@@ -590,12 +591,13 @@ export function multiplyObjectTint(a: number, b: number): number {
 }
 
 /** Maximum simultaneously-owned copies of a Market placeable. Functional items
- * default to one; the Zombie Pot is the explicit higher-limit exception, and the
+ * default to one; the Zombie Pot and the Pet Pen are the higher-limit exceptions, and the
  * Memorial Statue has no limit at all (one per zombie you want to remember).
  * Stored objects still count as owned. Undefined means no special purchase limit. */
 export function placeablePurchaseLimit(def: Pick<PlaceableDef, "key" | "category">): number | undefined {
   if (def.category !== "functional") return undefined;
   if (def.key === "memorialStatue") return undefined;
+  if (def.key === "pettingZoo") return MAX_PET_PENS;
   return def.key === "zombieCombiner" ? MAX_ZOMBIE_POTS : 1;
 }
 

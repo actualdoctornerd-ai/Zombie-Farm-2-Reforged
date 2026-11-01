@@ -17,8 +17,9 @@ export const OWNERSHIP_POLL_IDLE_MS = 3 * 60_000;
 export interface InventoryInput {
   type: "buy" | "use" | "grant";
   key: string;
-  qty?: number;
+  qty?: number; // "buy": packs bought in this one command
   unitId?: string;
+  skipZombies?: boolean; // Insta-Harvest leaves zombie crops planted
   localZombieHarvests?: { id: string; oc: number; or: number }[];
   oc?: number;
   or?: number;
@@ -236,6 +237,8 @@ export class EconomyClient {
       // boot only — the client's Invasions surfaces follow the Worker's PVP_ENABLED
       // flag, so launching (or parking) PvP never needs a client redeploy.
       this.serverPvpEnabled = bootstrap.pvpEnabled === true;
+      // Same for Endless Mode: the card shows only while the Worker serves it.
+      this.serverEndlessEnabled = bootstrap.endlessEnabled === true;
       // When this farm was last invaded, for the Social dots (social/badges.ts). Read
       // at boot only: the badge answers "anything happened while I was away?", and a
       // fight that settles mid-session is one the player is present for.
@@ -264,6 +267,10 @@ export class EconomyClient {
   /** Whether the deployed Worker accepts friend invasions (bootstrap `pvpEnabled`).
    *  False until the first successful bootstrap. */
   serverPvpEnabled = false;
+
+  /** Whether the deployed Worker serves Endless Mode (bootstrap `endlessEnabled`).
+   *  False until the first successful bootstrap, and on every Worker that parks it. */
+  serverEndlessEnabled = false;
 
   /** When the newest settled invasion against this farm finished, on the SERVER clock
    *  (bootstrap `social.lastInvadedAt`). Null until the first successful bootstrap,
@@ -733,8 +740,9 @@ export class EconomyClient {
   ): void {
     if (input.type === "grant") return; // grants are emitted only by server subsystems
     const command: GameplayCommand = input.type === "buy"
-      ? { type: "power.buy", key: input.key }
-      : { type: "power.use", key: input.key, oc: input.oc, or: input.or, target: input.target };
+      ? { type: "power.buy", key: input.key, ...(input.qty && input.qty > 1 ? { count: input.qty } : {}) }
+      : { type: "power.use", key: input.key, oc: input.oc, or: input.or, target: input.target,
+          ...(input.skipZombies ? { skipZombies: true } : {}) };
     const sequence = this.enqueue(command, {
       gold: optimistic.gold,
       brains: optimistic.brains,

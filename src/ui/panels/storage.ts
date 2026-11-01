@@ -11,7 +11,10 @@ import { setTintedSrc } from "../tintedSprite";
 import { lifeForceBadge } from "../lifeForceBadge";
 import { storageBoostRows } from "../storageBoosts";
 import { openShedAppearance } from "./shedAppearance";
+import { openFarmLayouts } from "./farmLayouts";
 import { keepScroll, recallOneOf, remember } from "../viewState";
+import { penOccupants, penOf, withPenPet, withoutPenPet } from "../../petPens";
+import { PETS_PER_PEN } from "../../net/protocol";
 
 const INSTA_PLOW_DELAY_MS = 500;
 
@@ -19,7 +22,8 @@ const TABS = ["Items", "Pets", "Boosts", "Received"];
 
 // `initialTab` is a deliberate destination (the Boosts hotkey, the Pet Pen's
 // "Pets"); opening Storage with no argument returns to the tab last used.
-export function openStorage(hud: Hud, initialTab?: string, managePen = false): void {
+// `managePen` is the index of the Pet Pen whose occupants the Pets tab picks.
+export function openStorage(hud: Hud, initialTab?: string, managePen: number | false = false): void {
   document.querySelector("#hud .st-bg")?.remove();
   const bg = document.createElement("div");
   bg.className = "st-bg";
@@ -118,6 +122,20 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
         skinBtn.title = "Wear the look of any shed you've owned";
         skinBtn.onclick = () => openShedAppearance(hud, appearance, render);
         body.appendChild(skinBtn);
+      }
+      // Saved decoration layouts. Lives here because loading one is nothing but shed
+      // moves; redrawn after, since a load changes what the shed holds.
+      if (!picking && hud.farmLayouts) {
+        const layoutsBtn = document.createElement("button");
+        layoutsBtn.className = "st-use";
+        layoutsBtn.textContent = "Farm Layouts";
+        layoutsBtn.title = "Save and swap where your decorations stand";
+        const hooks = hud.farmLayouts;
+        layoutsBtn.onclick = () => openFarmLayouts(hud, {
+          ...hooks,
+          load: async (id) => { const m = await hooks.load(id); render(); return m; },
+        });
+        body.appendChild(layoutsBtn);
       }
 
       // The multi-select bar: the way in when idle, and the tally + actions while
@@ -245,18 +263,21 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
       body.appendChild(grid);
       updateBar();
     } else if (tab === "Pets") {
-      count.textContent = managePen
-        ? `${hud.state.penPets.length} / 4 in pen`
+      // Pen 0 is falsy, so every test below is against null, never truthiness.
+      const pen = managePen === false ? null : managePen;
+      const slots = hud.state.penPets;
+      count.textContent = pen !== null
+        ? `${penOccupants(slots, pen).length} / ${PETS_PER_PEN} in Pen ${pen + 1}`
         : `${hud.state.ownedPets.length} pet${hud.state.ownedPets.length === 1 ? "" : "s"}`;
       const hint = document.createElement("div");
       hint.className = "st-hint";
       hint.textContent = hud.state.ownedPets.length
-        ? managePen
-          ? "Choose up to four pets to wander inside this pen."
+        ? pen !== null
+          ? `Choose up to ${PETS_PER_PEN} pets to wander inside this pen. A pet from another pen moves here.`
           : "Tap a pet to make it your active companion."
         : "Adopt pets from the Market's Pets tab.";
       body.appendChild(hint);
-      if (!managePen && hud.state.activePet) {
+      if (pen === null && hud.state.activePet) {
         const hide = document.createElement("button");
         hide.className = "st-use";
         hide.textContent = "Hide Active Pet";
@@ -269,25 +290,33 @@ export function openStorage(hud: Hud, initialTab?: string, managePen = false): v
         const pet = hud.pets.pets.find((candidate) => candidate.key === key);
         if (!pet) continue;
         const slot = document.createElement("button");
-        const selected = managePen ? hud.state.penPets.includes(key) : hud.state.activePet === key;
+        const home = penOf(slots, key);
+        const selected = pen !== null ? home === pen : hud.state.activePet === key;
         slot.className = "st-slot st-petslot" + (selected ? " filled" : "");
-        slot.title = managePen
-          ? selected ? `Remove ${pet.name} from pen` : `Deploy ${pet.name} in pen`
+        slot.title = pen !== null
+          ? selected ? `Remove ${pet.name} from pen`
+            : home >= 0 ? `Move ${pet.name} here from Pen ${home + 1}` : `Deploy ${pet.name} in pen`
           : selected ? `${pet.name} (active)` : `Activate ${pet.name}`;
         const img = document.createElement("img");
         img.src = `${BASE}assets/pets/${pet.portrait}`;
         img.alt = pet.name;
         slot.appendChild(img);
+        // Which pen a pet already lives in, so the player can see why picking it
+        // takes it out of somewhere else.
+        if (home >= 0 && !selected) {
+          const where = document.createElement("span");
+          where.className = "st-petpen";
+          where.textContent = `Pen ${home + 1}`;
+          slot.appendChild(where);
+        }
         slot.onclick = () => {
-          if (managePen) {
-            const next = selected
-              ? hud.state.penPets.filter((candidate) => candidate !== key)
-              : hud.state.penPets.length < 4 ? [...hud.state.penPets, key] : null;
-            if (!next) return;
-            hud.onSetPenPets?.(next.flatMap((petKey) => {
-              const found = hud.pets.pets.find((candidate) => candidate.key === petKey);
-              return found ? [found] : [];
-            }));
+          if (pen !== null) {
+            const next = selected ? withoutPenPet(slots, key) : withPenPet(slots, pen, key);
+            if (!next) {
+              hud.showToast(`This pen is full — it holds ${PETS_PER_PEN} pets.`);
+              return;
+            }
+            hud.onSetPenPets?.(next);
           } else hud.onEquipPet?.(pet);
           render();
         };

@@ -102,7 +102,37 @@ the Cloudflare dashboard:
 
 Rate-limit counters use the Cloudflare Rate Limiting **binding** (no D1 writes); the
 D1 fallback only runs if the binding is unavailable. So throttling does not itself
-consume the write budget.
+consume the write budget. Each route's limit is enforced by the binding named for it
+(`RL_<max>`; `test/rateLimitBindings.test.ts` keeps the two in step).
+
+### Usage breaker (the spending cap)
+
+Cloudflare has no hard spend cap, and its budget alerts email a day late. The hourly cron
+(:47 UTC) runs `src/usageBreaker.ts`: it reads the whole account's billable usage from the
+GraphQL analytics API, estimates this billing cycle's overage in dollars, and checks the last
+hour's D1 rows written. Settings are the `USAGE_BREAKER_*` vars in `wrangler.toml`
+(production: $50 cycle overage, 1,000,000 rows written in an hour).
+
+| log line (`sec`) | lvl | meaning |
+|---|---|---|
+| `usage_breaker` | info | hourly estimate (overageUsd, lastHourRowsWritten, cycle totals) |
+| `usage_breaker_would_trip` | alert | over a limit in **observe** mode — nothing was changed |
+| `usage_breaker_tripped` | alert | **enforce** mode set service_state to `export_only` |
+| `usage_breaker_unconfigured` | warn | the token secret or account id is missing |
+| `usage_breaker_error` | warn | the analytics query failed; the run did nothing (fails open) |
+
+**Setup (once):** create an API token with only *Account → Account Analytics → Read* for this
+account, then `npx wrangler secret put USAGE_BREAKER_TOKEN --env production`. Deploy. After the
+next :47, Workers Logs should show a `usage_breaker` line whose numbers match the dashboard.
+
+**Arming it:** it ships as `USAGE_BREAKER_MODE = "observe"`, which never touches the game. Once
+a week or so of `usage_breaker` lines looks right, set `"enforce"` and deploy. Set
+`USAGE_BREAKER_CYCLE_DAY` to the day your Cloudflare invoice cycle starts.
+
+**After it trips:** players can still sign in and load their farm; every gameplay write stops.
+It never reopens on its own. Find the cause (section 4), then reopen with the admin console or
+`UPDATE service_state SET mode='open', notice=NULL WHERE id=1`. If it is real growth rather
+than abuse, raise the limits first, or it will trip again at the next :47.
 
 ---
 

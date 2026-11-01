@@ -41,6 +41,12 @@ export const TIM_UNLOCK_NOTICES: readonly UnlockNotice[] = [
       "an invasion right away, with way better brain luck.\nFair warnin', the " +
       "fight turns ELITE. Bring yer toughest army.",
   },
+  {
+    level: 30,
+    message:
+      "Endless Mode is unlocked! Find it in Invasions and see how far your army " +
+      "can go. The deeper you get, the better the rewards.",
+  },
 ];
 
 /** The Tim messages to show after a level-up popup spanning (from, to], in

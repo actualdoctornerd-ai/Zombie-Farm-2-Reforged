@@ -30,7 +30,7 @@
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
 // arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult, then the player
 // lineup-depth band (1.0/0.85/0.7/0.55; enemies ×1.0). See combatStats.lineupDamageBand.
-import type { BossActionChoice, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, GrabberConfig, MegaBotConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
+import type { BossActionChoice, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, EndlessStageMechanics, GrabberConfig, MegaBotConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { emptyRaidFeats } from "./types";
 import { ACTIVATED_ABILITY, activatedGroupsOf, teamAbilitiesIn } from "../zombie/abilities";
 import {
@@ -671,6 +671,11 @@ export interface SimUnit {
    *  can't be targeted as an engaged unit, and doesn't walk. 0 = no slide. */
   knockBackToX: number;
   knockBackSpeed: number; // sim px/s of the slide (0 = not sliding)
+  /** Galactic Groundhog blast flight; these timers pause units until they land. */
+  blastAirMs: number;
+  blastAirTotalMs: number;
+  blastAirHeight: number;
+  blastSpin: number;
   // ---- enemy attack effects inflicted on a struck zombie ----
   knockBack: boolean; // this enemy's attack shoves the zombie back down the lane
   /** Share of this enemy's swings that actually carry the shove — one attack is rolled
@@ -679,6 +684,8 @@ export interface SimUnit {
   knockBackChance: number;
   stunInflictMs: number; // stun this enemy applies to a zombie on hit (ms)
   stunChance: number; // …and the same share for the stun.
+  deathExplosion: { chance: number; damagePercent: number } | null;
+  knockBackHeadlessOnly: boolean;
   attackDamageTiming: number; // 0..1 fraction of the swing when it connects (enemy anim)
   isWall: boolean; // boss-summoned blocker (carrotWall / junkWall) — tappable, no attacks
   /** Abducted human beamed in by the alien boss's `summonBoss`. It fights like any other
@@ -687,6 +694,8 @@ export interface SimUnit {
    *  counts toward the wave nor holds the boss on its perch. Without that exclusion an
    *  uncapped summon would deadlock the descent. */
   isSummon: boolean;
+  /** Enemy moved to the garden line by Endless Ninja smoke-bomb teleports. */
+  isFlanker: boolean;
   /** A stationary mid-lane ROADBLOCK: something that bars a zombie which has not already
    *  walked past it (see wallInWay). True for a boss wall and for an abductee, false for
    *  everything else — including the converted pixel zombie, which is off-budget like an
@@ -981,6 +990,9 @@ export interface BattleSimSnapshot {
   crabSeq?: number;
   // Client-only Mega-Robot (raid 5): absent from server-built snapshots, like the crab.
   megaBot?: SimMegaBot | null;
+  /** Endless location event clock state; absent on ordinary invasions. */
+  endlessMechanicTimers?: Record<string, number>;
+  endlessMechanicCount?: number;
 }
 
 /** Deterministic stand-in for the source game's weighted random roll. Replay must be
@@ -1103,6 +1115,10 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stunMs: 0,
     knockBackToX: 0,
     knockBackSpeed: 0,
+    blastAirMs: 0,
+    blastAirTotalMs: 0,
+    blastAirHeight: 0,
+    blastSpin: 0,
     knockBack: !isPlayer && !!u.knockBack,
     // Absent chance = "every swing carries it", but only where the effect exists at
     // all: defaulting a unit with no stun to stunChance 1 would open the shared roll
@@ -1110,9 +1126,12 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     knockBackChance: isPlayer ? 0 : u.knockBackChance ?? (u.knockBack ? 1 : 0),
     stunInflictMs: isPlayer ? 0 : u.stunMs ?? 0,
     stunChance: isPlayer ? 0 : u.stunChance ?? ((u.stunMs ?? 0) > 0 ? 1 : 0),
+    deathExplosion: isPlayer ? null : u.deathExplosion ?? null,
+    knockBackHeadlessOnly: !isPlayer && !!u.knockBackHeadlessOnly,
     attackDamageTiming: u.attackDamageTiming ?? 0.5,
     isWall: false,
     isSummon: false,
+    isFlanker: false,
     isBlocker: false,
     stationX: u.stationX ?? null,
     stationY: u.stationY ?? null,
@@ -1220,6 +1239,7 @@ export class BattleSim {
   private actionCount = 0; // deterministic roll counter
   private specialCast = 0; // wind-up left on the pending special
   private pendingSpecial: BossSpecial | null = null;
+  private bossSpecialEffects: { name: string; x: number; y: number }[] = [];
   // ---- the saucer's bubble (raid 15; see dualInvasion.ts) ----
   /** Where in the cycle the saucer is, how much charge is left on the thing it is doing,
    *  and how long it stays quiet before starting the next one. */
@@ -1293,6 +1313,8 @@ export class BattleSim {
   /** The pixel zombie `turnZombie` stands up (null = this boss can't turn anyone). */
   private turnedTemplate: CombatUnit | null;
   private spawnSeq = 0;
+  private endlessMechanicTimers: Record<string, number> = {};
+  private endlessMechanicCount = 0;
   // ---- wave cadence (see types.WaveCadence) ----
   private cadence: WaveCadence;
   private dripLeft: number;
@@ -1300,6 +1322,8 @@ export class BattleSim {
    *  to `cadence.maxActive`, which is how the source's swarm actually builds: the drip
    *  can only ever fill ONE free `enemySlots` entry per tick. */
   private activeTarget = 1;
+  /** Endless deployment boon; normal fights retain the authored focus duration. */
+  private focusChargeMs = CHARGE_MS;
   private engageDistance: number;
   private rowXFit = 1; // fraction of the recovered in-row depth that fits inside contact
   private frontX: number;
@@ -1380,7 +1404,8 @@ export class BattleSim {
     /** THIS fight's clock (see RAID_TIME_LIMIT_MS): four minutes for every ordinary fight,
      *  six for the dual invasions. Part of the pinned config, so both sides stop on the same
      *  tick. */
-    timeLimitMs: number = RAID_TIME_LIMIT_MS
+    timeLimitMs: number = RAID_TIME_LIMIT_MS,
+    private endlessMechanics: EndlessStageMechanics | null = null
   ) {
     this.timeLimitMs = Math.max(1, Math.min(RAID_MAX_TIME_LIMIT_MS, Math.round(timeLimitMs)));
     this.engageDistance = Math.max(ENGAGE, Math.min(300, engageDistance));
@@ -1419,6 +1444,10 @@ export class BattleSim {
     const ordered = [...enemyUnits].sort((a, b) => Number(a.isBoss) - Number(b.isBoss));
     this.players = playerUnits.map((u, i) => toSim(u, i));
     this.enemies = ordered.map((u, i) => toSim(u, i));
+    this.focusChargeMs = Math.max(1_000, CHARGE_MS / (1 + Math.max(0, endlessMechanics?.deploymentSpeedBonus ?? 0)));
+    for (const player of this.players.slice(0, Math.max(0, Math.min(3, Math.floor(endlessMechanics?.openingDeploy ?? 0))))) {
+      this.releaseCharger(player);
+    }
     for (const e of this.enemies) {
       e.waveBody = !e.isBoss && e.deployAtMs === null && e.deployAtWaveFrac === null && !e.deployWithBoss;
     }
@@ -1453,12 +1482,17 @@ export class BattleSim {
     this.roundLeft = roundMs;
     this.summonCfg = this.boss ? summonCfg : null;
     this.summonQueue = this.summonCfg ? this.summonCfg.queue.map((u) => u.sourceKey) : [];
-    this.wallTemplate = this.boss ? wallTemplate : null;
-    this.turnedTemplate = this.boss ? turnedTemplate : null;
+    this.wallTemplate = this.boss || this.endlessMechanics ? (this.endlessMechanics?.wallTemplate ?? wallTemplate) : null;
+    this.turnedTemplate = this.boss || this.endlessMechanics ? (this.endlessMechanics?.turnedTemplate ?? turnedTemplate) : null;
+    for (const [key, cooldown] of Object.entries(this.endlessMechanics?.cooldownsMs ?? {})) {
+      this.endlessMechanicTimers[key] = Math.max(1_000, Math.round(cooldown));
+    }
     this.cadence = {
       maxActive: Math.max(1, Math.round(cadence.maxActive)),
       dripMs: Math.max(0, Math.round(cadence.dripMs)),
+      openingActive: Math.max(1, Math.min(Math.round(cadence.maxActive), Math.round(cadence.openingActive ?? 1))),
     };
+    this.activeTarget = this.cadence.openingActive ?? 1;
     this.dripLeft = this.cadence.dripMs;
     // Keep every activated move represented. In particular, Mini Buddy remains
     // available on a veteran Large zombie even when it also owns Bash/Smash.
@@ -1531,6 +1565,8 @@ export class BattleSim {
       crabTimer: this.crabTimer,
       crabSeq: this.crabSeq,
       megaBot: this.megaBot ? { ...this.megaBot } : null,
+      endlessMechanicTimers: { ...this.endlessMechanicTimers },
+      endlessMechanicCount: this.endlessMechanicCount,
     };
   }
 
@@ -1551,6 +1587,10 @@ export class BattleSim {
       walkingThisTick: u.walkingThisTick ?? false,
       abilityRollSeq: u.abilityRollSeq ?? 0,
       blockMs: u.blockMs ?? 0,
+      blastAirMs: u.blastAirMs ?? 0,
+      blastAirTotalMs: u.blastAirTotalMs ?? 0,
+      blastAirHeight: u.blastAirHeight ?? 0,
+      blastSpin: u.blastSpin ?? 0,
       usedAbilities: [...(u.usedAbilities ?? [])],
       resurrectUsed: u.resurrectUsed ?? false,
       unwrapUsed: u.unwrapUsed ?? false,
@@ -1608,6 +1648,7 @@ export class BattleSim {
       // restore a fight in which nobody is on fire and nobody has been turned, which is
       // exactly what such a snapshot described.
       isTurned: u.isTurned ?? false,
+      isFlanker: u.isFlanker ?? false,
       turnedFromId: u.turnedFromId ?? null,
       burnMs: u.burnMs ?? 0,
       burnDir: u.burnDir ?? 1,
@@ -1697,6 +1738,8 @@ export class BattleSim {
     this.crabSeq = snapshot.crabSeq ?? this.crabSeq;
     // Absent (a server-built snapshot) → the local robot carries on unchanged.
     if (snapshot.megaBot && this.megaBot) this.megaBot = { ...snapshot.megaBot };
+    this.endlessMechanicTimers = { ...(snapshot.endlessMechanicTimers ?? {}) };
+    this.endlessMechanicCount = snapshot.endlessMechanicCount ?? 0;
     // Derived from the resolved picks, so re-derived rather than restored.
     this.refreshRulings();
   }
@@ -2347,6 +2390,10 @@ export class BattleSim {
 
   /** Nearest enemy a zombie can reach (on the ground, not queued/perched). */
   private targetEnemy(u: SimUnit): SimUnit | null {
+    // A Ninja smoke bomb sends a basic enemy into the Garden line. Ordinary zombies
+    // turn to intercept it before resuming the enemy wave.
+    const flanker = this.enemies.find((e) => e.alive && e.isFlanker);
+    if (flanker && !u.isGarden) return flanker;
     const wall = this.wallInWay(u);
     if (wall) return wall;
     let best: SimUnit | null = null;
@@ -3118,6 +3165,7 @@ export class BattleSim {
     *    a beamed-in abductee stands MID-LANE, usually with an empty melee ring of its
     *    own, and the reach let it shred the army from behind the line all fight long. */
   private playerInRange(e: SimUnit): SimUnit | null {
+    if (e.isFlanker) return this.backlineTarget();
     // A zombie mid-shove is not a melee target: `-[ZombieActor isInMeleeRange]` returns
     // false for the whole time `knockBackPoint` is live, and every melee set the fight
     // manager builds is filtered through it. Without this the shove is a pure penalty —
@@ -3167,6 +3215,17 @@ export class BattleSim {
       }
     }
     return best;
+  }
+
+  /** Backline target for the Ninja smoke-bomb flank. Gardens are preferred; if the
+   *  player brought no Garden zombies, the rear-most deployed zombie takes the hit. */
+  private backlineTarget(): SimUnit | null {
+    const deployed = this.players.filter((p) =>
+      p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "grabbed"
+    );
+    const gardens = deployed.filter((p) => p.isGarden);
+    const candidates = gardens.length ? gardens : deployed;
+    return candidates.reduce<SimUnit | null>((rear, p) => !rear || p.x < rear.x ? p : rear, null);
   }
 
   /** Whom the boss aims at: the FARTHEST-BACK deployed zombie (min x), so lobbed
@@ -3475,7 +3534,7 @@ export class BattleSim {
         if (special && u.stunInflictMs > 0 && u.stunChance > 0) {
           foe.stunMs = Math.max(foe.stunMs, u.stunInflictMs);
         }
-        if (special && u.knockBack && u.knockBackChance > 0) this.knockBackZombie(foe);
+        if (special && u.knockBack && u.knockBackChance > 0 && (!u.knockBackHeadlessOnly || foe.isHeadless)) this.knockBackZombie(foe);
       }
     }
   }
@@ -3516,13 +3575,13 @@ export class BattleSim {
    *  The shove itself is a SLIDE, not a teleport: `knockBackPoint` is parked at
    *  `(x + distance, y)` and `-[Actor movementUpdate:]` moves the zombie toward it at
    *  `force * 60` px/s, clearing the point on arrival (see stepKnockBack). */
-  private knockBackZombie(p: SimUnit) {
+  private knockBackZombie(p: SimUnit): boolean {
     // `damageIn:` gates BOTH the stun and the shove on `[fightData canInterrupt]` (0x37738)
     // and on `!invincible`. What writes `canInterrupt` was not pinned in this pass, so only
     // the narrowest reading is applied: a zombie already mid-shove is not shoved again.
     // Without it a fast knockback attacker re-parks the point every hit and its victim
     // never lands — which is a compounding buff the source's gate plainly exists to stop.
-    if (p.knockBackSpeed > 0) return;
+    if (p.knockBackSpeed > 0 || p.blastAirMs > 0) return false;
     p.windupKey = null;
     p.windupMs = 0;
     // Replay-safe stand-in for `arc4random() % 100`: the victim's id and the current tick
@@ -3541,21 +3600,40 @@ export class BattleSim {
     p.inLine = false; // it is walking back in; it holds no place until it gets there
     p.state = "advance";
     p.timerMs = this.cycleMs(p, null);
+    return true;
   }
 
   /** Advance a live knockback slide. Returns true while the zombie is still being shoved,
    *  in which case it neither walks nor fights this step (source: `movementUpdate:` returns
    *  early, and a non-zero `knockBackPoint` makes `isInMeleeRange` false). */
   private stepKnockBack(p: SimUnit, dtMs: number): boolean {
-    if (p.knockBackSpeed <= 0) return false;
-    const step = (p.knockBackSpeed * dtMs) / 1000;
-    const dx = p.knockBackToX - p.x;
-    if (Math.abs(dx) <= step) {
-      p.x = p.knockBackToX;
-      p.knockBackSpeed = 0;
-    } else {
-      p.x += Math.sign(dx) * step;
+    let active = false;
+    if (p.knockBackSpeed > 0) {
+      const step = (p.knockBackSpeed * dtMs) / 1000;
+      const dx = p.knockBackToX - p.x;
+      if (Math.abs(dx) <= step) {
+        p.x = p.knockBackToX;
+        p.knockBackSpeed = 0;
+      } else {
+        p.x += Math.sign(dx) * step;
+      }
+      active = true;
     }
+    if (p.blastAirMs > 0) {
+      p.blastAirMs = Math.max(0, p.blastAirMs - dtMs);
+      const progress = 1 - p.blastAirMs / Math.max(1, p.blastAirTotalMs);
+      const lift = 4 * progress * (1 - progress);
+      p.y = p.slotY - lift * p.blastAirHeight;
+      if (p.blastAirMs === 0) {
+        p.y = p.slotY;
+        p.blastAirTotalMs = 0;
+        p.blastAirHeight = 0;
+        p.blastSpin = 0;
+      } else {
+        active = true;
+      }
+    }
+    if (!active) return false;
     p.state = "advance";
     p.timerMs = this.cycleMs(p, null);
     return true;
@@ -3732,6 +3810,13 @@ export class BattleSim {
     if (foe.isBozoStack) {
       this.freeBozos(foe, 0);
       return;
+    }
+    if (foe.deathExplosion && this.abilityRoll(foe) < foe.deathExplosion.chance * 100) {
+      for (const player of this.players) {
+        if (player.alive && !player.taken) {
+          this.dealDamage(player, Math.max(1, Math.round(player.maxHp * foe.deathExplosion.damagePercent / 100)), false);
+        }
+      }
     }
     // Only an enemy reaches here. A downed one opens the gate for the next to emerge.
     if (fromPlayer) this.emergeCooldown = ENEMY_EMERGE_GAP_MS;
@@ -3914,7 +3999,7 @@ export class BattleSim {
    *  threshold so a big frame can't skip a distraction. */
   private stepCharge(p: SimUnit, dtMs: number) {
     if (this.concentration) {
-      p.charge = Math.min(1, p.charge + dtMs / CHARGE_MS);
+      p.charge = Math.min(1, p.charge + dtMs / this.focusChargeMs);
       if (p.charge >= 1) this.releaseCharger(p);
       return;
     }
@@ -3924,7 +4009,7 @@ export class BattleSim {
         if (p.bubbleMs <= 0) this.releaseCharger(p);
         return;
       }
-      p.charge = Math.min(1, p.charge + dtMs / CHARGE_MS);
+      p.charge = Math.min(1, p.charge + dtMs / this.focusChargeMs);
       if (p.charge >= 1) { p.awaitRelease = true; p.bubbleMs = BRAIN_AUTO_MS; }
       return;
     }
@@ -3939,7 +4024,7 @@ export class BattleSim {
       return;
     }
     const next = CHARGE_STEPS[p.distractStep] ?? 1;
-    p.charge = Math.min(next, p.charge + dtMs / CHARGE_MS);
+    p.charge = Math.min(next, p.charge + dtMs / this.focusChargeMs);
     if (p.charge >= next) {
       p.distractStep++;
       if (next >= 1) {
@@ -4700,6 +4785,7 @@ export class BattleSim {
     // Throws and specials draw from ONE action budget (ground truth: the boss rolls a
     // single weighted pick over `bossActions` per cycle — see stepBossActions).
     this.stepBossActions(dtMs);
+    this.stepEndlessMechanics(dtMs);
     this.stepGrabbers(dtMs);
     this.stepBigTop(dtMs);
     this.stepCrabs(dtMs);
@@ -5215,6 +5301,64 @@ export class BattleSim {
     // A special: wind up now, resolve when the cast completes (above).
     this.pendingSpecial = next.special;
     this.specialCast = Math.max(0, next.special.castMs);
+    if (next.special.name === "galacticBlast") {
+      if (this.boss) {
+        this.bossSpecialEffects.push({
+          name: "galacticBeamCharge",
+          x: Math.min(FIELD_W - 20, this.boss.x + 95),
+          y: CENTER_Y,
+        });
+      }
+    }
+  }
+
+  /** Endless location actions share the ordinary special implementations, while their
+   *  independent clocks and counters remain part of snapshots for deterministic replay. */
+  private stepEndlessMechanics(dtMs: number) {
+    const mechanics = this.endlessMechanics;
+    if (!mechanics || !this.anyAlive(this.players)) return;
+    for (const [key, cooldown] of Object.entries(mechanics.cooldownsMs)) {
+      const remaining = (this.endlessMechanicTimers[key] ?? cooldown) - dtMs;
+      if (remaining > 0) {
+        this.endlessMechanicTimers[key] = remaining;
+        continue;
+      }
+      this.endlessMechanicTimers[key] = Math.max(1_000, cooldown);
+      this.endlessMechanicCount++;
+      this.actionCount++;
+      if (key === "smoke-bomb-teleport") {
+        this.endlessNinjaFlank();
+      } else if (key === "laser") {
+        this.runSpecial({ name: "alienLaser", weight: 1, castMs: 0, damage: ALIEN_LASER_DAMAGE, cooldownMs: 0 });
+      } else if (key === "summons") {
+        const template = mechanics.reinforcementTemplate;
+        if (template && this.enemies.filter((e) => e.alive && !e.isBoss).length < 10) this.spawnEnemy(template);
+      } else if (key === "pixel-fire") {
+        this.runSpecial({ name: "pixelFire", weight: 1, castMs: 0, damage: 0, cooldownMs: 0 });
+      } else if (key === "turn-zombie") {
+        this.runSpecial({ name: "turnZombie", weight: 1, castMs: 0, damage: 0, cooldownMs: 0 });
+      } else if (key === "carrot-wall") {
+        this.runSpecial({ name: "wall", weight: 1, castMs: 0, damage: 0, cooldownMs: 0 });
+      }
+    }
+  }
+
+  /** A Ninja smoke bomb takes one still-queued basic enemy and beams it into the
+   *  formation's Garden line. */
+  private endlessNinjaFlank() {
+    const unit = this.enemies.find((e) => e.alive && !e.isBoss && !e.isSummon && e.state === "queued")
+      ?? (this.endlessMechanics?.flankerTemplate ? this.spawnEnemy(this.endlessMechanics.flankerTemplate) : null);
+    if (!unit) return;
+    const target = this.backlineTarget();
+    unit.isFlanker = true;
+    unit.state = "fight";
+    unit.x = Math.max(35, target?.x ?? 130);
+    unit.y = target?.y ?? CENTER_Y;
+    unit.prevX = unit.x;
+    unit.prevY = unit.y;
+    unit.vx = 0;
+    unit.vy = 0;
+    this.smokeSeq++;
   }
 
   /** Is the boss in its action posture at all?
@@ -5400,6 +5544,37 @@ export class BattleSim {
         }
         break;
       }
+      case "galacticBlast": {
+        // Galactic Groundhog's special: one charged death beam sweeps across the
+        // deployed line. Its broad deterministic damage and knockback resolve together
+        // on the live client and replay worker; the sustained beam is presentation-only.
+        const center = this.frontFighter();
+        if (center) {
+          this.bossSpecialEffects.push({ name: "galacticBeam", x: center.x, y: center.y });
+          const radius = 190;
+          const targets = this.players.filter((victim) => {
+            if (!victim.alive || victim.taken) return false;
+            if (victim.state !== "advance" && victim.state !== "fight" && victim.state !== "hold") return false;
+            const dx = victim.x - center.x;
+            const dy = victim.y - center.y;
+            return dx * dx + dy * dy <= radius * radius;
+          }).sort((a, b) =>
+            hash(stringSeed(a.id) * 31 + this.actionCount * 17 + 3) -
+            hash(stringSeed(b.id) * 31 + this.actionCount * 17 + 3)
+          );
+          for (const victim of targets) {
+            this.dealDamage(victim, sp.damage, false);
+            if (victim.alive && this.knockBackZombie(victim)) {
+              const airMs = victim.isHeadless ? 1650 : 900;
+              victim.blastAirMs = airMs;
+              victim.blastAirTotalMs = airMs;
+              victim.blastAirHeight = victim.isHeadless ? 108 : 84;
+              victim.blastSpin = (stringSeed(victim.id) & 1) === 0 ? 1 : -1;
+            }
+          }
+        }
+        break;
+      }
       case "summonBoss": {
         // GROUND TRUTH (`-[ZFFightMan summonBoss:]` 0x5ee2c): the alien boss abducts a
         // HUMAN. It pops `bossSummonList[0]`, spawns it at `enemyPosition`, and then
@@ -5461,7 +5636,8 @@ export class BattleSim {
         // Re-check the perch here as well as in canPerform: with no wall standing and
         // the last minion dead, promote() can start the boss's descent DURING the 3 s
         // cast, and a wall that lands after that would sit behind the boss forever.
-        const wt = this.boss?.state === "structure" ? this.wallTemplate : null;
+        const wt = this.endlessMechanics ? this.wallTemplate
+          : this.boss?.state === "structure" ? this.wallTemplate : null;
         if (wt && !this.enemies.some((e) => e.alive && e.sourceKey === wt.sourceKey)) {
           const wall = this.spawnEnemy(wt);
           wall.isWall = true;
@@ -5483,6 +5659,12 @@ export class BattleSim {
       default:
         break;
     }
+  }
+
+  /** Presentation cues produced by resolved boss specials; draining them does not alter
+   *  simulation state or replay outcomes. */
+  drainBossSpecialEffects(): { name: string; x: number; y: number }[] {
+    return this.bossSpecialEffects.splice(0);
   }
 
   /** Spawn a new enemy from a template mid-fight (abductee / wall). It joins the enemy

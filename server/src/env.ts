@@ -18,6 +18,13 @@ export interface Bindings {
   ALLOWED_ORIGIN: string;
   /** "1" enables the no-Google dev sign-in path. MUST be unset/"0" in prod. */
   DEV_AUTH?: string;
+  /** Shared secret a dev sign-in and every `/dev/*` call must present (`X-Dev-Key`
+   *  header, or `devKey` in the /auth body). A Worker secret on staging, which is on
+   *  the public internet; unset locally, where no key is asked for. */
+  DEV_AUTH_KEY?: string;
+  /** "1" = refuse every dev path unless DEV_AUTH_KEY is set. Staging sets it so a
+   *  missing secret fails CLOSED instead of leaving the bypass open to anyone. */
+  DEV_AUTH_REQUIRE_KEY?: string;
   /** Server-owned between-raids cooldown in ms (string var). Defaults to 2h when
    *  unset. Set small in .dev.vars (e.g. "60000") so local play isn't gated.
    *  NOTE: skipping this with an Invasion Voucher is intended play, so it is NOT a rate
@@ -33,6 +40,9 @@ export interface Bindings {
   /** Friend invasions (PvP). Fully built and verified, PARKED ("0") while the interface
    *  is redesigned — see docs/FRIEND_INVASIONS.md for the feature and how to re-enable. */
   PVP_ENABLED?: string;
+  /** Endless Mode launch switch: "1" serves /endless/* and its leaderboard and tells the
+   *  client (bootstrap `endlessEnabled`) to show the Endless card. Anything else parks it. */
+  ENDLESS_ENABLED?: string;
   /** Which defense a friend invasion fights: "classic" (the shipped wave out of the
    *  barn doorway) or "formation" (one zombie per class, each with a job and a
    *  station). Exactly one is live at a time; the Worker AUTHORS the pinned config to
@@ -42,13 +52,25 @@ export interface Bindings {
   /** Exclusive-writer rollout: observe accepts legacy clients; enforce requires the
    * authenticated writer credential on every gameplay mutation. */
   WRITER_LEASE_MODE?: "observe" | "enforce";
-  /** Rate-limit tiers (optional; see wrangler.toml). Tight for sign-in, moderate
-   *  for writes, loose for reads. When unset the middleware uses the D1 fallback. */
-  RL_AUTH?: RateLimiter;
-  RL_WRITE?: RateLimiter;
-  RL_READ?: RateLimiter;
-  /** Optional per-tier overrides for the D1-fallback limit (local/degraded mode only;
-   *  prod uses the CF binding above, so these never apply in prod). Set e.g.
+  /** Usage breaker (usageBreaker.ts): "off" | "observe" | "enforce". Unset = off. */
+  USAGE_BREAKER_MODE?: string;
+  /** Estimated billing-cycle overage, in dollars, that trips it. Default 50. */
+  USAGE_BREAKER_MONTHLY_USD?: string;
+  /** D1 rows written (whole account) in one hour that trips it. Default 1,000,000. */
+  USAGE_BREAKER_HOURLY_ROWS_WRITTEN?: string;
+  /** Day of the month (1-28) the Cloudflare billing cycle starts. Default 1. */
+  USAGE_BREAKER_CYCLE_DAY?: string;
+  /** Worker secret: an API token with Account Analytics:Read ONLY. */
+  USAGE_BREAKER_TOKEN?: string;
+  /** The Cloudflare account the breaker reads usage for. */
+  CF_ACCOUNT_ID?: string;
+  /** Rate limiters, one per per-minute LIMIT (RL_5, RL_30, RL_300, ...; see
+   *  wrangler.toml). A route's `rateLimit(..., max, ...)` uses the binding named for its
+   *  `max`, so the number in the code is the number enforced. When a route's binding is
+   *  absent the middleware uses the D1 fallback at that same limit. */
+  [limiter: `RL_${number}`]: RateLimiter | undefined;
+  /** Optional per-tier overrides for the D1-fallback limit (local/test only; they
+   *  force the D1 path, bypassing the bindings above, so they never apply in prod). Set e.g.
    *  RL_AUTH_MAX="100000" in .dev.vars so the integration suite's many isolated sign-ins
    *  from one IP aren't throttled. Unset → the middleware's coded fallback is used. */
   RL_AUTH_MAX?: string;

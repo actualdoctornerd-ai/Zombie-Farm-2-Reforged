@@ -298,7 +298,7 @@ const writerProtectedRequest = (method: string, path: string): boolean => {
   if (method === "PUT" && (path === "/presentation" || path === "/save")) return true;
   if (method !== "POST") return false;
   return path === "/commands" || path === "/gifts" ||
-    path.startsWith("/raid/") || path.startsWith("/epic-boss/") || path.startsWith("/black-market/");
+    path.startsWith("/raid/") || (path.startsWith("/endless/") && path !== "/endless/abandon") || path.startsWith("/epic-boss/") || path.startsWith("/black-market/");
 };
 
 async function req<T>(
@@ -356,7 +356,7 @@ async function req<T>(
 // ---- auth (called by auth.ts) -------------------------------------------
 /** Exchange a Google ID token (or a dev sub) for our session. Stores + returns it. */
 export async function authenticate(
-  cred: { idToken: string } | { devSub: string; devName?: string }
+  cred: { idToken: string } | { devSub: string; devName?: string; devKey?: string }
 ): Promise<Session> {
   const s = await req<Session>("POST", "/auth", cred, false);
   setSession(s);
@@ -677,6 +677,25 @@ export interface FriendLeaderboardEntry {
 /** You + your accepted friends, with the numbers the leaderboard ranks. Unordered:
  *  rank depends on which stat is ranked, so sorting is the caller's job
  *  (social/leaderboard.ts rankLeaderboard). */
+export interface EndlessLeaderboardArmyMember {
+  species: string;
+  mutation: number;
+  veterancy: number;
+}
+export interface EndlessLeaderboardEntry {
+  rank: number;
+  name: string;
+  deepestFloor: number;
+  durationMs: number;
+  army: EndlessLeaderboardArmyMember[];
+  achievedAt: number;
+}
+
+/** Public top-25 personal bests for one Endless ruleset. */
+export const getEndlessLeaderboard = (mode: "endless" | "nightmare") =>
+  req<{ mode: "endless" | "nightmare"; entries: EndlessLeaderboardEntry[] }>(
+    "GET", `/leaderboard/endless?mode=${mode}`,
+  ).then((r) => r.entries);
 export const getFriendLeaderboard = () =>
   req<{ entries: FriendLeaderboardEntry[] }>("GET", "/leaderboard/friends")
     .then((r) => r.entries);
@@ -871,6 +890,45 @@ export const raidStart = (
     rulesetVersion: RAID_RULESET_VERSION,
   });
 
+/** Start an account-owned Endless run. The returned fight is server-pinned and must
+ *  be adopted wholesale by the combat scene. */
+export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: string[]) =>
+  req<{
+    ok: boolean; sessionId?: string; mode?: "endless" | "nightmare"; wave?: number;
+    fight?: Record<string, unknown>; brainCost?: number;
+    rulesetVersion?: number; error?: string;
+  }>("POST", "/endless/start", { mode, orderedUnitIds, rulesetVersion: RAID_RULESET_VERSION });
+
+/** Submit a transcript for one pinned Endless encounter. Boss reward choices are
+ *  committed through a separate durable checkpoint after a verified boss win. */
+export const endlessFinish = (
+  sessionId: string, wave: number, finalTick: number, inputs: RaidReplayInput[],
+) => req<{
+  ok: boolean; runFinished: boolean; won?: boolean; clearedWave?: number;
+  nextWave?: number; deepestFloor?: number; durationMs?: number; fight?: Record<string, unknown>;
+  awaitingBossChoice?: boolean; bossDraft?: { boons: unknown[]; curses: unknown[] };
+  bossLoot?: Array<{ kind: string; name: string; quantity: number; key?: string }>;
+  gold?: number; abandoned?: boolean; error?: string;
+}>("POST", "/endless/finish", { sessionId, wave, finalTick, inputs });
+
+/** Persist a boon and curse selection at a boss checkpoint, then open the next fight. */
+export const endlessChooseBossReward = (sessionId: string, boon: unknown, curse: unknown) =>
+  req<{ ok: boolean; runFinished: boolean; nextWave?: number; fight?: Record<string, unknown>; error?: string }>(
+    "POST", "/endless/choose", { sessionId, boon, curse },
+  );
+
+/** Resume the server's authoritative battle or pending boss-choice checkpoint after a reload. */
+export const endlessActive = () => req<{
+  ok: boolean; sessionId?: string; mode?: "endless" | "nightmare"; wave?: number;
+  stage?: "battle" | "boss-choice"; fight?: Record<string, unknown>;
+  bossDraft?: { boons: unknown[]; curses: unknown[] }; bossLoot?: Array<{ kind: string; name: string; quantity: number; key?: string }>; run?: unknown; error?: string;
+}>("GET", "/endless/active");
+
+/** Close the run at its last fully cleared floor and settle its earned depth gold. */
+export const endlessAbandon = (sessionId: string) => req<{
+  ok: boolean; runFinished: boolean; deepestFloor?: number; durationMs?: number;
+  gold?: number; abandoned?: boolean; error?: string;
+}>("POST", "/endless/abandon", { sessionId });
 /** The server's authoritative raid-finish result: the cooldown clock, the resulting
  *  balance, and the amounts CREDITED this call (0 on a loss / idempotent replay).
  *
@@ -1104,6 +1162,14 @@ export const pvpDefenseGet = () =>
     defense: PvpDefenseView | null;
     error?: string;
   }>("GET", "/raid/pvp/defense");
+
+/** This account's saved farm layouts (Storage -> Farm Layouts), shared across devices. */
+export const farmLayoutsGet = () =>
+  req<{ layouts: unknown[] }>("GET", "/farm-layouts");
+
+/** Replace this account's whole layout list. */
+export const farmLayoutsPut = (layouts: unknown[]) =>
+  req<{ ok: boolean }>("PUT", "/farm-layouts", { layouts });
 
 /** Save (or clear, with []) the authored defense order. */
 export const pvpDefenseSet = (unitIds: string[]) =>

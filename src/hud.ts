@@ -2,6 +2,7 @@
 // player name across the top, an ACTIVE-QUESTS column on the left (toggled by the
 // bottom-left button), menu buttons on the right, and a farming-tool bar at the
 // bottom-center. Resize-safe (fixed positioning).
+import type { FarmLayoutsHooks } from "./ui/panels/farmLayouts";
 import { GameState } from "./GameState";
 import { farmerHeadHasEffect, farmerHeadXp } from "./farmer";
 import { CropConfig } from "./Field";
@@ -22,6 +23,7 @@ import { maskHas } from "./zombie/mutationMask";
 import { visibleMutations } from "./zombie/mutationVisibility";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
+import type { EndlessBossLoot } from "./raid/endlessLoot";
 import { lootDropLabel } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
 import { canGiftBrain, type Friend } from "./social/friends";
@@ -58,7 +60,8 @@ import {
 import { PVP_ARMY_SIZE, PVP_MIN_LEVEL, PVP_UI_ENABLED } from "./raid/pvp";
 import { openInvasionsPanel } from "./ui/panels/invasions";
 import { openLeaderboardPanel } from "./ui/panels/leaderboard";
-import type { FriendLeaderboardEntry } from "./net/api";
+import { openEndlessLeaderboardPanel } from "./ui/panels/endlessLeaderboard";
+import type { EndlessLeaderboardEntry, FriendLeaderboardEntry } from "./net/api";
 import type {
   PvpDefenseInfoView, PvpOverviewView, PvpRewardView, PvpScoutView,
 } from "./ui/panels/invasions";
@@ -70,7 +73,7 @@ import type {
   BlackMarketMutationResponse, BlackMarketOrderKind, BlackMarketOrderView, ClaimedUnit,
   FriendActivity, GiftReward,
 } from "./net/protocol";
-import { FREE_DAILY_GIFTS, GIFT_GOLD_COST, GIFT_XP_REWARD, MAX_FRIENDS } from "./net/protocol";
+import { FREE_DAILY_GIFTS, GIFT_GOLD_COST, GIFT_XP_REWARD, MAX_BOOST_BUY_COUNT, MAX_FRIENDS } from "./net/protocol";
 import {
   BLACK_MARKET_CLASS_FILTERS,
   BLACK_MARKET_GROUP_FILTERS,
@@ -278,10 +281,49 @@ const MARKET_COIN: Record<BlackMarketCurrency, string> = {
   GOLD: "topbar_money_icon.png",
 };
 const MARKET_MAX_PRICE = 10_000_000;
-/** Most boost packs one confirmation will buy. Online every pack is a separate
- *  atomic `inventory buy` command (the server prices and debits each one), so this
- *  also bounds a single tap's command burst against the Worker's rate budget. */
-const BOOST_BUY_LIMIT = 10;
+/** Most boost packs one confirmation will buy. Online the whole run is ONE
+ *  `power.buy` command with a count, which the server caps at the same number. */
+const BOOST_BUY_LIMIT = MAX_BOOST_BUY_COUNT;
+/** How long a quantity button must be held before it starts repeating, and how
+ *  fast it repeats after that. */
+const HOLD_DELAY_MS = 450;
+const HOLD_REPEAT_MS = 160;
+
+/** A tap runs `tap`; holding the button down runs `repeat` once HOLD_DELAY_MS has
+ *  passed and again every HOLD_REPEAT_MS until it is let go. The click that ends a
+ *  hold is swallowed, so a hold never adds a stray single step on release. Keyboard
+ *  activation fires no pointerdown, so Enter/Space always count as a tap. */
+function holdToRepeat(button: HTMLButtonElement, tap: () => void, repeat: () => void): void {
+  let delay: ReturnType<typeof setTimeout> | undefined;
+  let interval: ReturnType<typeof setInterval> | undefined;
+  let held = false;
+  const stop = () => {
+    clearTimeout(delay);
+    clearInterval(interval);
+    delay = interval = undefined;
+  };
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || button.disabled) return;
+    held = false;
+    stop();
+    delay = setTimeout(() => {
+      held = true;
+      repeat();
+      interval = setInterval(() => {
+        // A button that hit its limit is disabled and never sees the pointerup.
+        if (button.disabled || !button.isConnected) stop();
+        else repeat();
+      }, HOLD_REPEAT_MS);
+    }, HOLD_DELAY_MS);
+  });
+  for (const type of ["pointerup", "pointerleave", "pointercancel"]) button.addEventListener(type, stop);
+  // A touch long-press would otherwise open the browser's context menu mid-hold.
+  button.addEventListener("contextmenu", (event) => event.preventDefault());
+  button.addEventListener("click", () => {
+    if (held) { held = false; return; }
+    tap();
+  });
+}
 
 /** The Concentrate toggle's face. Shared by the raid picker and the Epic Boss picker
  *  so the two cannot drift into describing the same consumable differently. */
@@ -336,6 +378,12 @@ export class Hud {
   // Rotate tool tap: main handles it contextually (flip the placement ghost / the
   // carried object / enter the standalone rotate mode). Null falls back to setMode.
   onRotateTool: (() => void) | null = null;
+  /** Whether an object is in hand (being placed, or carried by Move). The toolbar's
+   *  Store slot turns into "Turn" while it is, so rotating before you drop something
+   *  never needed a toolbar button of its own. Main calls refreshHeldTool on change. */
+  isHoldingObject: (() => boolean) | null = null;
+  /** Saved farm layouts (Storage → Farm Layouts). Unset while visiting. */
+  farmLayouts: FarmLayoutsHooks | null = null;
   /** Extra lines for the diagnostics report — the online layer's live state, which is
    *  otherwise invisible in a paste. "Gameplay paused" and "a healthy pause" look
    *  identical without it. Null offline: there is nothing to say. */
@@ -584,7 +632,7 @@ export class Hud {
       if (e.repeat || hasOverlay()) return;
 
       const key = e.key.toLowerCase();
-      if (!new Set(["1", "2", "3", "4", "5", "p", "m", "i", "z", "b", "r", "q"]).has(key)) return;
+      if (!new Set(["1", "2", "3", "4", "5", "6", "p", "m", "i", "z", "b", "r", "q"]).has(key)) return;
       this.endTemporaryPan();
       const handled = () => { e.preventDefault(); this.audio.play("menuClick"); };
       if (key === "1") { handled(); activate("walk"); }
@@ -595,6 +643,7 @@ export class Hud {
       }
       else if (key === "4") { handled(); activate("till"); }
       else if (key === "5") { handled(); activate("remove"); }
+      else if (key === "6") { handled(); activate("store"); }
       else if (key === "p") {
         handled();
         this.openPlantMenu((cfg) => this.setPlanting(cfg));
@@ -1343,13 +1392,13 @@ export class Hud {
       const minus = document.createElement("button");
       minus.className = "zbtn";
       minus.textContent = "−";
-      minus.setAttribute("aria-label", "Buy one fewer");
+      minus.setAttribute("aria-label", "Buy fewer (hold for tens)");
       const count = document.createElement("span");
       count.className = "confirm-qty";
       const plus = document.createElement("button");
       plus.className = "zbtn";
       plus.textContent = "+";
-      plus.setAttribute("aria-label", "Buy one more");
+      plus.setAttribute("aria-label", "Buy more (hold for tens)");
       row.append(minus, count, plus);
       const total = document.createElement("p");
       total.className = "confirm-msg confirm-qty-total";
@@ -1379,8 +1428,16 @@ export class Hud {
         accept.disabled = funds() < qty * b.cost;
         accept.textContent = qty > 1 ? `Buy ${qty}` : "Buy";
       };
-      minus.onclick = () => { if (qty > 1) { qty--; refresh(); } };
-      plus.onclick = () => { if (qty < maxQty()) { qty++; refresh(); } };
+      // A tap steps by one; holding steps by ten, snapping to the tens (1 → 10 → 20,
+      // and 37 → 30 → 20) so a held run lands on round numbers.
+      const step = (direction: 1 | -1, tens: boolean) => {
+        const next = !tens ? qty + direction
+          : direction > 0 ? Math.floor(qty / 10) * 10 + 10 : Math.ceil(qty / 10) * 10 - 10;
+        qty = Math.max(1, Math.min(maxQty(), next));
+        refresh();
+      };
+      holdToRepeat(minus, () => step(-1, false), () => step(-1, true));
+      holdToRepeat(plus, () => step(1, false), () => step(1, true));
       ticker = setInterval(refresh, 400);
       refresh();
     });
@@ -1563,8 +1620,13 @@ export class Hud {
     bar.append(
       this.toolBtn("select", "button_multitool.png", "Select", "1", () => this.setMode("walk")),
       this.toolBtn("move", "button_move.png", "Move", "2", () => this.setMode("move")),
-      this.toolBtn("rotate", "button_rotate.png", "Rotate", "3", () =>
-        this.onRotateTool ? this.onRotateTool() : this.setMode("rotate")),
+      // Store took Rotate's slot: shelving things one tap each is what a big redecorate
+      // needs. Turning is still everywhere it is used — this same slot while something
+      // is in hand, the object's own action sheet, the tool wheel, and the 3 key.
+      this.toolBtn("store", "button_storage.png", "Store", "6", () => {
+        if (this.isHoldingObject?.()) this.onRotateTool?.();
+        else this.setMode("store");
+      }),
       this.toolBtn("till", "button_plow.png", "Plow", "4", () => this.setMode("till")),
       this.toolBtn("remove", "button_sell.png", "Remove", "5", () => this.setMode("remove"))
     );
@@ -1583,10 +1645,25 @@ export class Hud {
     this.fabCt.style.display = "flex";
   }
 
+  /** Re-read isHoldingObject (an object was picked up, dropped or armed). */
+  refreshHeldTool() {
+    this.refreshTools();
+  }
+
   private refreshTools() {
     for (const [id, btn] of Object.entries(this.tools)) {
       const active = (id === "select" && this.mode === "walk") || id === this.mode;
       btn.classList.toggle("sel", active);
+    }
+    const slot = this.tools["store"];
+    if (slot) {
+      const turn = !!this.isHoldingObject?.();
+      const img = slot.querySelector("img");
+      const lbl = slot.querySelector(".lbl");
+      const icon = UI(turn ? "button_rotate.png" : "button_storage.png");
+      if (img && img.getAttribute("src") !== icon) img.src = icon;
+      if (lbl) lbl.textContent = turn ? "Turn" : "Store";
+      slot.title = turn ? "Turn (3)" : "Store (6)";
     }
     if (this.fabImg) this.fabImg.src = this.fabIconSrc();
     this.refreshTouchCancel();
@@ -1604,6 +1681,7 @@ export class Hud {
       : m === "plant" ? "button_plant.png"
       : m === "remove" ? "button_sell.png"
       : m === "rotate" ? "button_rotate.png"
+      : m === "store" ? "button_storage.png"
       : m === "move" || m === "place" ? "button_move.png"
       : "button_multitool.png";
   }
@@ -1787,7 +1865,8 @@ export class Hud {
   onEquipFarmerBonusHead: ((headId: number | null) => void) | null = null;
   onBuyPet: ((pet: PetDef) => boolean) | null = null;
   onEquipPet: ((pet: PetDef | null) => void) | null = null;
-  onSetPenPets: ((pets: PetDef[]) => void) | null = null;
+  /** Every pen's slots at once (petPens.ts): "" is an empty slot. */
+  onSetPenPets: ((slots: string[]) => void) | null = null;
   // Buy `qty` packs of a boost into inventory (default 1). Returns how many packs
   // were actually paid for — each pack re-checks funds, so a background spend or
   // harvest between confirm and buy shortens the run instead of overdrafting.
@@ -2045,6 +2124,10 @@ export class Hud {
    *  a raid already running). There is no instant/auto-resolve fallback. `opts` carries
    *  the voucher/concentration/dice choices. */
   onLaunchRaid: ((raidId: number, partyIds: string[], opts: RaidLaunchOpts) => boolean | Promise<boolean>) | null = null;
+  onOpenEndless: (() => void) | null = null;
+  /** Whether Endless Mode is launched (the Worker's bootstrap `endlessEnabled`). The
+   *  Invade list shows its card only while this says yes. */
+  endlessAvailable: (() => boolean) | null = null;
   // ---- limited Epic Boss hooks ----
   getEpicBossView: (() => EpicBossMarketView[]) | null = null;
   onActivateEpicBoss: ((bossId: string) => boolean | Promise<boolean>) | null = null;
@@ -2127,6 +2210,7 @@ export class Hud {
   /** You + your accepted friends with the numbers the friend leaderboard ranks
    *  (Social → Leaderboard, ui/panels/leaderboard.ts). One server round trip. */
   getFriendLeaderboard: (() => Promise<FriendLeaderboardEntry[]>) | null = null;
+  getEndlessLeaderboard: ((mode: "endless" | "nightmare") => Promise<EndlessLeaderboardEntry[]>) | null = null;
   // ---- Invasions panel hooks (online only; see ui/panels/invasions.ts) ----
   /** Whether the deployed Worker accepts friend invasions (bootstrap capability).
    *  The Social hub shows the Invasions entry only when this is true, so the whole
@@ -3362,7 +3446,8 @@ export class Hud {
   // comes from the placed shed's tier; pets and received are unlimited.
   // Opened by clicking the shed, Pet Pen, or the Storage button.
   // Storage panel (Items/Pets/Boosts/Received) lives in ui/panels/storage.ts.
-  openStorage(initialTab?: string, managePen = false) {
+  // `managePen`: the index of the Pet Pen being managed (Field.petPens order).
+  openStorage(initialTab?: string, managePen: number | false = false) {
     openStoragePanel(this, initialTab, managePen);
   }
 
@@ -6258,6 +6343,16 @@ export class Hud {
      *  second, so a long drop list could not be read at all. Set by renderDetail. */
     let refreshFoot: (() => void) | null = null;
 
+    // How many times each invasion has been beaten — the lifetime tally that already
+    // drives the eased first-clear minimums (raidsCompleted), now shown on the card.
+    const winsOf = (c: RaidCardView) => this.state.raidWins(String(c.id));
+    const winsText = (c: RaidCardView) => {
+      const n = winsOf(c);
+      return n ? `Won ${n.toLocaleString()} time${n === 1 ? "" : "s"}` : "Not beaten yet";
+    };
+    const winsBadge = (c: RaidCardView) =>
+      winsOf(c) ? ` <span class="rd-wins" title="${winsText(c)}">· ${winsOf(c).toLocaleString()}× won</span>` : "";
+
     const renderDetail = () => {
       const c = cards.find((r) => r.id === selId);
       detail.innerHTML = "";
@@ -6279,6 +6374,7 @@ export class Hud {
         (c.bossName ? `<div class="rd-boss">${c.bossName}</div>` : "") +
         `<div class="rd-meta">Recommended level ${c.recommendedLevel}` +
         eliteAdvice(c, true) +
+        (c.practice ? "" : ` · ${winsText(c)}`) +
         // The XP the NEXT win pays: the big one-time first-clear bonus while it is still
         // unclaimed, then the per-raid repeat trickle from then on. Only ever one of the
         // two — they never stack, so advertising both would overstate the reward.
@@ -6488,7 +6584,7 @@ export class Hud {
       const sub = c.unlocked
         ? c.practice
           ? `<div class="rd-cl">Practice · every tier open</div>`
-          : `<div class="rd-cl">Rec. Lv ${c.recommendedLevel}${eliteAdvice(c, false)}</div>`
+          : `<div class="rd-cl">Rec. Lv ${c.recommendedLevel}${eliteAdvice(c, false)}${winsBadge(c)}</div>`
         : `<div class="rd-cl lock">${c.lockReason}</div>`;
       txt.innerHTML = `<div class="rd-cn">${c.name}</div>${sub}`;
       card.append(thumb, txt);
@@ -6501,6 +6597,16 @@ export class Hud {
       };
       if (c.id === selId) { card.classList.add("sel"); selCard = card; }
       list.appendChild(card);
+    }
+    if (!tutorialRaid && this.onOpenEndless && this.endlessAvailable?.()) {
+      const card = document.createElement("button");
+      card.className = "rd-card";
+      const thumb = document.createElement("div"); thumb.className = "rd-thumb";
+      const txt = document.createElement("div");
+      txt.innerHTML = `<div class="rd-cn">Endless Mode</div><div class="rd-cl">Harder invasions · Epic Boss every four floors</div>`;
+      card.append(thumb, txt);
+      card.onclick = () => { close(); this.onOpenEndless?.(); };
+      list.prepend(card);
     }
     if (!tutorialRaid && this.bossActive) {
       const epic = this.getEpicBossView?.().find((view) => view.active);
@@ -6974,6 +7080,125 @@ export class Hud {
       "Stronger defenders give more boosts.";
     foot.append(note, pick, start);
     refresh();
+  }
+
+  /** Endless hub: a saved run can resume at its pinned fight or boss draft, or be
+   *  ended for its full depth payout. New runs reuse the same ordered army snapshot. */
+  openEndlessHub(
+    active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice" } | null,
+    onStart: (mode: "endless" | "nightmare", orderedIds: string[]) => void,
+    onResume: () => void,
+    onEnd: () => void,
+  ) {
+    const party = this.getRaidParty?.();
+    const bg = document.createElement("div"); bg.className = "panelbg raid-bg";
+    const panel = document.createElement("div"); panel.className = "panel";
+    const close = document.createElement("button"); close.className = "panelclose";
+    const closeImg = document.createElement("img"); closeImg.src = UI("button_close.png"); close.appendChild(closeImg);
+    close.onclick = () => bg.remove();
+    panel.appendChild(close);
+    const title = document.createElement("h2"); title.textContent = "Endless Mode"; panel.appendChild(title);
+    const leaderboard = document.createElement("button");
+    leaderboard.className = "btn-secondary endless-lb-open";
+    leaderboard.textContent = "View Leaderboard";
+    leaderboard.onclick = () => openEndlessLeaderboardPanel(this);
+    panel.appendChild(leaderboard);
+    const content = document.createElement("div"); content.className = "rd-detail"; panel.appendChild(content);
+    bg.appendChild(panel); this.el.appendChild(bg);
+    if (active) {
+      const p = document.createElement("p");
+      p.textContent = `${active.mode === "nightmare" ? "Nightmare Endless" : "Endless"} · ${active.stage === "battle" ? `Floor ${active.wave}` : `Floor ${active.wave} boss cleared · choose rewards`}`;
+      content.appendChild(p);
+      const resume = document.createElement("button"); resume.className = "btn-primary"; resume.textContent = active.stage === "battle" ? "Resume Run" : "Choose Rewards";
+      resume.onclick = () => { bg.remove(); onResume(); }; content.appendChild(resume);
+      const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = "End Run and Claim Gold";
+      end.onclick = async () => {
+        if (!await this.confirmInGame("End this Endless run?", "You will receive the full gold reward for every floor already cleared.", "End Run")) return;
+        bg.remove(); onEnd();
+      }; content.appendChild(end);
+      return;
+    }
+    const p = document.createElement("p");
+    p.textContent = "Face increasingly difficult invasions, with an Epic Boss every four floors. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Each run costs brains; end whenever you like to claim gold for every floor cleared.";
+    content.appendChild(p);
+    const selected = new Set(party?.orderedSelectedIds.length ? party.orderedSelectedIds : party?.defaultSelectedIds ?? []);
+    const max = party?.cap ?? 0;
+    const list = document.createElement("div"); list.className = "army-grid"; content.appendChild(list);
+    for (const zombie of party?.eligible ?? []) {
+      const row = document.createElement("button"); row.className = "rd-card";
+      row.textContent = `${selected.has(zombie.id) ? "✓ " : ""}${zombie.name} · ${zombie.typeName}`;
+      row.onclick = () => {
+        if (selected.has(zombie.id)) selected.delete(zombie.id);
+        else if (selected.size < max) selected.add(zombie.id);
+        updateStatus();
+        list.querySelectorAll("button").forEach((button, i) => {
+          const unit = party?.eligible[i]; if (unit) button.textContent = `${selected.has(unit.id) ? "✓ " : ""}${unit.name} · ${unit.typeName}`;
+        });
+      };
+      list.appendChild(row);
+    }
+    const status = document.createElement("p"); content.appendChild(status);
+    const updateStatus = () => { status.textContent = `${selected.size}/${max} zombies selected`; };
+    updateStatus();
+    for (const [mode, label, level] of [["endless", "Start Endless · 1 brain", 30], ["nightmare", "Start Nightmare · 3 brains", 45]] as const) {
+      const button = document.createElement("button"); button.className = "btn-primary"; button.textContent = label;
+      button.disabled = (this.state.level ?? 1) < level || selected.size < (party?.min ?? 1);
+      button.onclick = () => { bg.remove(); onStart(mode, [...selected]); }; content.appendChild(button);
+    }
+  }
+
+  openEndlessBossChoice(
+    draft: { boons: unknown[]; curses: unknown[] },
+    loot: EndlessBossLoot[],
+    onChoose: (boon: unknown, curse: unknown) => void,
+    onEnd: () => void,
+  ) {
+    const bg = document.createElement("div"); bg.className = "panelbg raid-bg";
+    const panel = document.createElement("div"); panel.className = "panel";
+    const title = document.createElement("h2"); title.textContent = "Boss defeated · choose a boon and a curse";
+    panel.appendChild(title);
+    if (loot.length) {
+      const lootNote = document.createElement("p");
+      const totals = new Map<string, number>();
+      for (const item of loot) totals.set(item.name, (totals.get(item.name) ?? 0) + item.quantity);
+      lootNote.textContent = `Boss loot: ${[...totals].map(([name, quantity]) => `${name}${quantity > 1 ? ` ×${quantity}` : ""}`).join(", ")}`;
+      panel.appendChild(lootNote);
+    }
+    const describeChoice = (choice: unknown): string => {
+      if (!choice || typeof choice !== "object") return String(choice);
+      const value = choice as Record<string, unknown>;
+      const pct = typeof value.percent === "number" ? ` ${value.percent}%` : "";
+      switch (value.kind) {
+        case "revive": return `Recover ${value.count} fallen zombies`;
+        case "revive-headless": return "Revive fallen headless zombies after each battle";
+        case "damage": return `Zombies deal${pct} more damage`;
+        case "deployment": return `Zombies deploy${pct} faster`;
+        case "opening-deploy": return `Start with ${value.count} zombies deployed`;
+        case "enemy-health": return `Enemies have${pct} more health`;
+        case "enemy-damage": return `Enemies deal${pct} more damage`;
+        case "enemy-attack-speed": return `Enemies attack${pct} faster`;
+        case "enemy-stun": return "Enemies can stun zombies on hit";
+        case "enemy-explosion": return "Some enemies explode when defeated";
+        case "enemy-knockback-headless": return "Enemies can knock back headless zombies";
+        case "headless-stat": return `Headless zombies have${pct} less ${String(value.stat)} power`;
+        default: return String(value.kind ?? "Choice");
+      }
+    };
+    const select = (label: string, options: unknown[]) => {
+      const wrap = document.createElement("label"); wrap.textContent = label;
+      const el = document.createElement("select");
+      options.forEach((value, index) => { const option = document.createElement("option"); option.value = String(index); option.textContent = describeChoice(value); el.appendChild(option); });
+      wrap.appendChild(el); panel.appendChild(wrap); return el;
+    };
+    const boon = select("Boon", draft.boons); const curse = select("Curse", draft.curses);
+    const choose = document.createElement("button"); choose.className = "btn-primary"; choose.textContent = "Continue";
+    choose.onclick = () => { bg.remove(); onChoose(draft.boons[Number(boon.value)], draft.curses[Number(curse.value)]); };
+    const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = "End Run and Claim Gold";
+    end.onclick = async () => {
+      if (!await this.confirmInGame("End this Endless run?", "You will receive the full gold reward for every floor already cleared.", "End Run")) return;
+      bg.remove(); onEnd();
+    };
+    panel.append(choose, end); bg.appendChild(panel); this.el.appendChild(bg);
   }
 
   openRaidResult(view: RaidResultView, onClose?: () => void) {

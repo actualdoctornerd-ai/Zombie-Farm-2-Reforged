@@ -6,7 +6,7 @@ import { PlaceableDef } from "../assets";
 import { CropConfig } from "../Field";
 import type { EpicBossRun } from "../epicBoss/types";
 
-export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow" | "rotate";
+export type Mode = "walk" | "till" | "plant" | "move" | "place" | "remove" | "instagrow" | "rotate" | "store";
 
 // A card in the object buy menu (tree / decor / functional).
 export interface ObjCard {

@@ -6,7 +6,7 @@ const messageAt = (level: number) =>
 
 describe("Tim unlock notices", () => {
   it("covers exactly the system-opening levels", () => {
-    expect(TIM_UNLOCK_NOTICES.map((n) => n.level)).toEqual([3, 5, 10, 20]);
+    expect(TIM_UNLOCK_NOTICES.map((n) => n.level)).toEqual([3, 5, 10, 20, 30]);
   });
 
   it("fires only for the level a jump actually crossed", () => {
@@ -14,10 +14,12 @@ describe("Tim unlock notices", () => {
     expect(timUnlockNoticesFor(4, 5, true)).toEqual([messageAt(5)]);
     expect(timUnlockNoticesFor(9, 10, true)).toEqual([messageAt(10)]);
     expect(timUnlockNoticesFor(19, 20, true)).toEqual([messageAt(20)]);
+    expect(timUnlockNoticesFor(29, 30, true)).toEqual([messageAt(30)]);
     // Item-only levels stay quiet.
     expect(timUnlockNoticesFor(3, 4, true)).toEqual([]);
     expect(timUnlockNoticesFor(5, 9, true)).toEqual([]);
     expect(timUnlockNoticesFor(10, 19, true)).toEqual([]);
+    expect(timUnlockNoticesFor(20, 29, true)).toEqual([]);
     // The boundary is exclusive at `from`: re-presenting a level says nothing.
     expect(timUnlockNoticesFor(3, 3, true)).toEqual([]);
   });
@@ -25,6 +27,9 @@ describe("Tim unlock notices", () => {
   it("delivers every notice a multi-level jump crossed, in level order", () => {
     expect(timUnlockNoticesFor(2, 20, true)).toEqual([
       messageAt(3), messageAt(5), messageAt(10), messageAt(20),
+    ]);
+    expect(timUnlockNoticesFor(2, 30, true)).toEqual([
+      messageAt(3), messageAt(5), messageAt(10), messageAt(20), messageAt(30),
     ]);
   });
 
@@ -34,5 +39,6 @@ describe("Tim unlock notices", () => {
     expect(timUnlockNoticesFor(2, 20, false)).toEqual([
       messageAt(3), messageAt(5), messageAt(20),
     ]);
+    expect(timUnlockNoticesFor(29, 30, false)).toEqual([messageAt(30)]);
   });
 });
