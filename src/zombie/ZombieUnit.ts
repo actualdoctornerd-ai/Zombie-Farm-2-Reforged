@@ -454,12 +454,15 @@ export class ZombieUnit {
   /** Walk to a specific tile and stay there — the Zombie Patch "calls" units to nap
    *  on it. Stops wandering until woken. Returns false, and stays where it is, when
    *  the patch cannot be walked to: a unit fenced away from it used to answer the
-   *  call by cutting a straight line to the patch, fences and all. */
-  sleepAt(col: number, row: number): boolean {
+   *  call by cutting a straight line to the patch, fences and all. `crossBarriers`
+   *  lets the route go through a shut gate or a hedge when nothing else gets there —
+   *  the farmer's rule for a walker under orders (see findPath). */
+  sleepAt(col: number, row: number, crossBarriers = false): boolean {
     const g = screenToGrid(this.wx, this.wy);
     const from = { col: Math.round(g.col), row: Math.round(g.row) };
+    const opts = crossBarriers ? { ...this.pathOpts(), crossBarriers: true } : this.pathOpts();
     const cells = findPath(
-      from, { col, row }, (c, r) => this.field.isPassable(c, r), this.pathOpts()
+      from, { col, row }, (c, r) => this.field.isPassable(c, r), opts
     );
     if (!cells.length && (from.col !== col || from.row !== row)) return false;
     this.sleeping = true;
@@ -473,14 +476,22 @@ export class ZombieUnit {
    *  patch tile it can reach, and lie down there. A route to one tile can fail where
    *  the next works (a fence run along the patch's edge prices those tiles as a
    *  barrier), and a single failed tile used to leave the zombie wandering the farm
-   *  while the rest of the army slept. With no patch tile in reach at all (the patch
-   *  fenced off, or the zombie shut in a pen) it lies down where it stands: the player
-   *  asked the army to sleep, and a zombie that cannot get to bed still should. */
+   *  while the rest of the army slept.
+   *
+   *  The tap is the player's order, so a patch behind a fence or a shut gate, or a
+   *  zombie in a pen, is not a reason to stay away: with no open route to any tile it
+   *  goes the cheapest way through, a gate before a hedge, as the farmer does. Lying
+   *  down where it stands used to be the answer, and on a fenced patch that left all
+   *  but the zombies already inside asleep out in the field. Only a tile nothing can
+   *  reach (walled in by solid objects) still leaves it napping in place. */
   napOnPatch(preferred: { col: number; row: number }, tiles: readonly { col: number; row: number }[]) {
-    if (this.sleepAt(preferred.col, preferred.row)) return;
-    for (const tile of tiles) {
-      if (tile.col === preferred.col && tile.row === preferred.row) continue;
-      if (this.sleepAt(tile.col, tile.row)) return;
+    const order = [preferred, ...tiles.filter((t) => t.col !== preferred.col || t.row !== preferred.row)];
+    for (const tile of order) if (this.sleepAt(tile.col, tile.row)) return;
+    // Through the fence, then: to a patch tile clear of it first, so it does not
+    // bed down on the hedge that a fence run along the patch's edge prices onto it.
+    const open = (t: { col: number; row: number }) => this.field.isOpenGround(t.col, t.row);
+    for (const tile of [...order.filter(open), ...order.filter((t) => !open(t))]) {
+      if (this.sleepAt(tile.col, tile.row, true)) return;
     }
     this.walker.clear();
     this.sleeping = true;
