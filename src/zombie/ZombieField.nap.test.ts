@@ -104,6 +104,45 @@ describe("the Zombie Patch nap", () => {
     expect(zombies.randomBrainBark()).toBeNull();
   });
 
+  it("follows the patch when it is moved mid-nap, and wakes when it is gone", () => {
+    // Player report: zombies asleep in the middle of a field. Moving the patch (or
+    // storing it, or applying a farm layout) left the army asleep where it had been.
+    const zombies = farm(none, [{ col: 2, row: 15 }, { col: 15, row: 2 }]);
+    const field = (zombies as unknown as { field: { patchRestTiles: () => Tile[] | null; topologyVersion: number } }).field;
+    field.topologyVersion = 1;
+    zombies.toggleGather(PATCH);
+    tick(zombies, 20_000);
+    expect(tiles(zombies).every(isPatch)).toBe(true);
+
+    const moved: Tile[] = [{ col: 3, row: 3 }, { col: 4, row: 3 }];
+    field.patchRestTiles = () => moved;
+    field.topologyVersion++;
+    tick(zombies, 20_000);
+    expect(tiles(zombies).every((t) => moved.some((m) => m.col === t.col && m.row === t.row))).toBe(true);
+    expect(zombies.randomBrainBark()).toBeNull();
+
+    field.patchRestTiles = () => null;
+    field.topologyVersion++;
+    tick(zombies, 100);
+    expect(zombies.isGathered).toBe(false);
+    expect(zombies.randomBrainBark()).not.toBeNull();
+  });
+
+  it("leaves a sleeping army alone when something else is placed", () => {
+    const zombies = farm(none, [{ col: 2, row: 15 }]);
+    const field = (zombies as unknown as { field: { topologyVersion: number } }).field;
+    field.topologyVersion = 1;
+    zombies.toggleGather(PATCH);
+    tick(zombies, 20_000);
+    const before = tiles(zombies);
+
+    field.topologyVersion++; // a fence went down somewhere; the patch did not move
+    tick(zombies, 5_000);
+
+    expect(tiles(zombies)).toEqual(before);
+    expect(zombies.isGathered).toBe(true);
+  });
+
   it("lies a zombie down where it stands when no patch tile can be reached", () => {
     // A closed ring of solid objects round the whole patch: nobody outside can get in.
     const ring = (c: number, r: number) =>

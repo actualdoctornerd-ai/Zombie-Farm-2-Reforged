@@ -29,6 +29,11 @@ export function joiningPatchTile(
   return gathered && tiles?.length ? tiles[unitIndex % tiles.length] : null;
 }
 
+/** Identity of a patch footprint: the same tiles, whichever object id now holds them. */
+function patchKey(tiles: readonly { col: number; row: number }[]): string {
+  return tiles.map((t) => `${t.col},${t.row}`).join(" ");
+}
+
 /** Per-combat-tier fertilize chance for Garden zombies. GROUND TRUTH: the exact
  *  `fertilizeChance` values in UnitStats.json map 1:1 to a Garden unit's tier
  *  (t1 .04, t2 .06, t3/t4 .08, t5 .12), so we key off the tier the catalog already
@@ -714,11 +719,16 @@ export class ZombieField {
   }
 
   update(dt: number) {
+    this.followPatch();
     for (const u of this.units) u.update(dt);
   }
 
   // ---- Zombie Patch: gather units to nap / wake them ----
   private gathered = false;
+  // Where the nap was called to (patchKey of its tiles), and the placement version
+  // that was last checked against it.
+  private napPatch = "";
+  private seenTopology = -1;
   get isGathered(): boolean {
     return this.gathered;
   }
@@ -727,6 +737,20 @@ export class ZombieField {
     if (!tiles.length) return;
     this.units.forEach((u, i) => u.napOnPatch(tiles[i % tiles.length], tiles));
     this.gathered = true;
+    this.napPatch = patchKey(tiles);
+  }
+  /** A napping army goes where the patch goes. Moving, storing or selling the patch
+   *  (or applying a farm layout) used to leave every zombie asleep on the ground it
+   *  had covered, by then often a field, with no patch left to tap to wake them. A
+   *  moved patch calls them to its new spot; a patch that is gone wakes them. */
+  private followPatch() {
+    const version = this.field.topologyVersion;
+    if (version === undefined || version === this.seenTopology) return;
+    this.seenTopology = version;
+    if (!this.gathered) return;
+    const tiles = this.field.patchRestTiles();
+    if (!tiles?.length) this.wakeAll();
+    else if (patchKey(tiles) !== this.napPatch) this.gatherTo(tiles);
   }
   // Wake every unit so they resume wandering.
   wakeAll() {

@@ -446,6 +446,12 @@ export class Field {
   private paths: boolean | null = null;
   // The shared search options handed to every walker. Same lifetime again.
   private walkOpts: PathOptions | null = null;
+  // Bumped on every placement change, so a reader can tell cheaply that something
+  // moved without being told what (the napping army watches the Zombie Patch by it).
+  private topology = 0;
+  get topologyVersion(): number {
+    return this.topology;
+  }
   private nextObjId = 1;
   private highlightedObj: string | null = null;
   // Which wash the highlighted object is currently wearing, so a change of MEANING
@@ -734,6 +740,7 @@ export class Field {
   // Placement changed, so what is derived from it may have. Called from the one
   // place every add / move / rotate / remove funnels through.
   private topologyChanged() {
+    this.topology++;
     this.portals = null;
     this.paths = null;
     // Whether the shared options carry a `portal` is derived from the pads, so the
