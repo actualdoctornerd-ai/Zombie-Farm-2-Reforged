@@ -1266,7 +1266,8 @@
 #hud .raid-boost-btn { display: flex; align-items: center; gap: 5px; cursor: pointer;
   border: 2px solid #1e1207; border-radius: 9px; padding: 6px 12px; font: 700 13px system-ui, sans-serif;
   color: #e8d5b0; background: #3a2612; text-shadow: 0 1px 1px #000; }
-#hud .raid-boost-btn:hover { filter: brightness(1.12); }
+#hud .raid-boost-btn:hover:not(:disabled) { filter: brightness(1.12); }
+#hud .raid-boost-btn:disabled { cursor: default; opacity: .5; }
 #hud .raid-boost-btn.on { color: #16110a; background: linear-gradient(#8ec74f, #5c9a2e);
   border-color: #3c5a10; text-shadow: none; box-shadow: 0 0 0 2px rgba(142,199,79,.4); }
 #hud .raid-boost-btn .rb-ct { font-size: 11px; opacity: .8; }

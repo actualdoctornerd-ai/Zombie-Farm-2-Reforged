@@ -329,6 +329,25 @@ function holdToRepeat(button: HTMLButtonElement, tap: () => void, repeat: () => 
  *  so the two cannot drift into describing the same consumable differently. */
 const CONCENTRATE_LABEL = (owned: number) =>
   `🧠 Concentrate <span class="rb-ct">x${owned}</span>`;
+
+/** The Concentrate toggle itself. Always offered, owned or not: hidden at zero stock it
+ *  simply vanished from the picker the moment the last one was spent, which players
+ *  read as the button being broken. With none owned it shows x0, greyed, and says
+ *  where to get more. `onToggle` gets the new armed state. */
+function concentrateButton(owned: number, title: string, onToggle: (on: boolean) => void): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.className = "raid-boost-btn";
+  btn.innerHTML = CONCENTRATE_LABEL(owned);
+  if (owned <= 0) {
+    btn.disabled = true;
+    btn.title = "You have no Concentration. Buy more in the Market's Boosts tab.";
+    return btn;
+  }
+  btn.title = title;
+  let on = false;
+  btn.onclick = () => { on = !on; btn.classList.toggle("on", on); onToggle(on); };
+  return btn;
+}
 function marketPrice(amount: number, currency: BlackMarketCurrency): string {
   if (currency === "GOLD") return `${amount.toLocaleString()} gold`;
   return `${amount.toLocaleString()} brain${amount === 1 ? "" : "s"}`;
@@ -3110,17 +3129,9 @@ export class Hud {
     // version buys: the brain bubble fills and goes on its own.
     const concStock = this.getEpicBossConcentration?.() ?? 0;
     let useConcentration = false;
-    if (concStock > 0) {
-      const cBtn = document.createElement("button");
-      cBtn.className = "raid-boost-btn";
-      cBtn.innerHTML = CONCENTRATE_LABEL(concStock);
-      cBtn.title = "Skip the brain bubble: zombies charge and advance on their own.";
-      cBtn.onclick = () => {
-        useConcentration = !useConcentration;
-        cBtn.classList.toggle("on", useConcentration);
-      };
-      foot.appendChild(cBtn);
-    }
+    foot.appendChild(concentrateButton(concStock,
+      "Skip the brain bubble: zombies charge and advance on their own.",
+      (on) => { useConcentration = on; }));
     pay.onchange = () => { payment = pay.value as EpicBossPayment; refresh(); };
     pick.onclick = () => {
       order = fillSlots(order, preferred, eligible.map((z) => z.id), party.cap);
@@ -6827,16 +6838,11 @@ export class Hud {
       drawTiers();
       boostRow.appendChild(tierWrap);
     }
-    if (boosts.concentration > 0) {
-      const cBtn = document.createElement("button");
-      cBtn.className = "raid-boost-btn";
-      cBtn.innerHTML = CONCENTRATE_LABEL(boosts.concentration);
-      cBtn.title = "Skip the focus minigame: zombies charge and advance on their own.";
-      cBtn.onclick = () => {
-        useConcentration = !useConcentration;
-        cBtn.classList.toggle("on", useConcentration);
-      };
-      boostRow.appendChild(cBtn);
+    // Practice spends nothing and the tutorial raid has no use for it, so neither offers it.
+    if (!raid.practice && !tutorialRaid) {
+      boostRow.appendChild(concentrateButton(boosts.concentration,
+        "Skip the focus minigame: zombies charge and advance on their own.",
+        (on) => { useConcentration = on; }));
     }
     if (diceMax > 0) {
       const stepper = document.createElement("div");
