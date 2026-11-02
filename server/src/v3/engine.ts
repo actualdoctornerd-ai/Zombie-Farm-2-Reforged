@@ -242,6 +242,10 @@ const mausoleumTiers = [...objectRules.entries()]
 const baseMausoleumSlots = mausoleumTiers[0]?.slots ?? 0;
 /** The tier that follows a building with `slots` capacity (undefined at the top). */
 const nextMausoleumTier = (slots: number) => mausoleumTiers.find((tier) => tier.slots > slots);
+/** The Zombie Warehouse's capacity: the sheds above it are its expansion ladder. */
+const WAREHOUSE_SLOTS = 72;
+/** Slots each shed rung adds over the one below it. */
+const SHED_STEP_SLOTS = 8;
 
 /** The Memorial Statue: the one functional object bought in quantity, sellable, and
  *  able to hold a fallen zombie. Keyed off the catalog so the rule follows the item
@@ -1025,6 +1029,10 @@ function applyOne(
       // through object.upgrade, one rung at a time.
       const buySlots = objectRules.get(command.catalogKey)?.zombieSlots ?? 0;
       if (buySlots > 0 && buySlots !== baseMausoleumSlots) return reject(sequence, "bad_item");
+      // Likewise a Warehouse expansion is an upgrade only (see object.upgrade).
+      if ((objectRules.get(command.catalogKey)?.storageSlots ?? 0) > WAREHOUSE_SLOTS) {
+        return reject(sequence, "bad_item");
+      }
       const isZombiePot = command.catalogKey === "zombieCombiner";
       // `functional` normally means one per farm. Two exceptions: the Zombie Pot's
       // three, and the Memorial Statue, which has no cap at all — it is bought once
@@ -1116,6 +1124,16 @@ function applyOne(
         if (fromSlots <= 0 || nextMausoleumTier(fromSlots)?.key !== command.catalogKey) {
           return reject(sequence, "bad_tier");
         }
+      }
+      // The Warehouse expansions (above the 72-slot Zombie Warehouse) are a ladder too:
+      // priced to be climbed, 9.6M for all eight, so each is bought only over the shed
+      // one rung below it. Without this an edited client could jump straight from the
+      // Warehouse to the top for the price of the last rung. The sheds below keep the
+      // source's rule: any bigger shed may be bought outright.
+      const shedSlots = objectRules.get(command.catalogKey)?.storageSlots ?? 0;
+      if (shedSlots > WAREHOUSE_SLOTS) {
+        const fromSlots = obj ? objectRules.get(obj.catalogKey)?.storageSlots ?? 0 : 0;
+        if (fromSlots !== shedSlots - SHED_STEP_SLOTS) return reject(sequence, "bad_tier");
       }
       const currency = econ.brains ? "brains" : "gold";
       if (state.balance[currency] < econ.cost) return reject(sequence, "insufficient");

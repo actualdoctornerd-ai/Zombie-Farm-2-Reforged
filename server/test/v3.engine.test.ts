@@ -1859,6 +1859,41 @@ describe("protocol v3 command engine", () => {
     expect(apex.state.balance.brains).toBe(48);
   });
 
+  it("climbs the Warehouse expansions one rung at a time, in gold", () => {
+    const shed = (catalogKey: string, gold: number) => {
+      const state = freshGameplayState();
+      state.balance.gold = gold;
+      state.balance.xp = 50_000;
+      state.objects.objects.push({ instanceId: "shed", catalogKey, status: "placed" });
+      return state;
+    };
+    const up = (state: MutableGameplayState, ...keys: string[]) => applyCommandBatch(state, commands(
+      ...keys.map((catalogKey) => ({ type: "object.upgrade" as const, instanceId: "shed", catalogKey })),
+    ), { now: 1 });
+
+    // Warehouse -> II -> III: each rung charges its own price.
+    const climbed = up(shed("storage09", 2_000_000), "storage10", "storage11");
+    expect(climbed.results.map((r) => r.status)).toEqual(["applied", "applied"]);
+    expect(climbed.state.balance.gold).toBe(2_000_000 - 675_000 - 825_000);
+    expect(climbed.state.objects.objects).toContainEqual(
+      expect.objectContaining({ instanceId: "shed", catalogKey: "storage11" }));
+
+    // Skipping from the Warehouse to the top, or from the Barn into the expansions, is refused.
+    for (const [from, to] of [["storage09", "storage17"], ["storage08", "storage10"], ["storage09", "storage11"]]) {
+      const skipped = up(shed(from, 10_000_000), to);
+      expect(skipped.results[0]).toMatchObject({ status: "rejected", error: "bad_tier" });
+      expect(skipped.state.balance.gold).toBe(10_000_000);
+    }
+    // Warehouse IX is the top: nothing sits above it.
+    expect(up(shed("storage17", 10_000_000), "storage17").results[0].status).toBe("rejected");
+
+    // An expansion cannot be bought outright either.
+    const bought = applyCommandBatch(shed("storage01", 10_000_000), commands(
+      { type: "object.buy", catalogKey: "storage12", clientInstanceId: "cheap-shed" },
+    ), { now: 1 });
+    expect(bought.results[0]).toMatchObject({ status: "rejected", error: "bad_item" });
+  });
+
   it("refuses to skip a rung, to climb from a non-Mausoleum, or to buy a tier outright", () => {
     const skipped = applyCommandBatch(withMausoleum("mausoleum3"), commands(
       { type: "object.upgrade", instanceId: "tomb", catalogKey: "mausoleum7" },

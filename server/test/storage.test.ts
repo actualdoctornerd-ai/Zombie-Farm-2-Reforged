@@ -88,7 +88,11 @@ describe("planStore / planRetrieve — the shed", () => {
 describe("shed capacity catalog", () => {
   it("mirrors placeables.json storageSlots, 8 per tier", () => {
     expect(SHED_SLOTS.storage01).toBe(BASE_SHED_SLOTS); // the free starter shed
-    expect(SHED_SLOTS.storage09).toBe(72); // the biggest (a Reforged rung above the source ladder)
-    expect(Object.keys(SHED_SLOTS)).toHaveLength(9);
+    expect(SHED_SLOTS.storage09).toBe(72); // the Warehouse: the first Reforged rung above the source ladder
+    expect(SHED_SLOTS.storage17).toBe(136); // Warehouse IX, the top of the expansion ladder
+    expect(Object.keys(SHED_SLOTS)).toHaveLength(17);
+    // Every rung is exactly 8 above the one below it.
+    const ladder = Object.values(SHED_SLOTS).sort((a, b) => a - b);
+    expect(ladder.every((slots, i) => slots === BASE_SHED_SLOTS + 8 * i)).toBe(true);
   });
 });

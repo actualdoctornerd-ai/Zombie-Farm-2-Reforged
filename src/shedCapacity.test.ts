@@ -15,6 +15,7 @@ describe("shedCapacityOf", () => {
     expect(shedCapacityOf(["daisy", "storage01"], slotsOf)).toBe(8);
     expect(shedCapacityOf(["daisy", "storage08"], slotsOf)).toBe(64);
     expect(shedCapacityOf(["storage09"], slotsOf)).toBe(72);
+    expect(shedCapacityOf(["storage17"], slotsOf)).toBe(136);
   });
 
   // The bug this replaced: the capacity was a second record of something the farm
