@@ -2100,6 +2100,8 @@ export class Hud {
     | null = null;
   /** Start combining two owned zombies by id. */
   onCombine: ((idA: string, idB: string) => boolean | Promise<boolean>) | null = null;
+  /** Is this species a Special? The Pot asks before using one up in slot 2. */
+  isSpecialZombie: ((key: string) => boolean) | null = null;
   /** Collect a finished combine; returns the new zombie's name (or null).
    *  `stored` sends the child straight to the Mausoleum instead of the farm. */
   onCollectCombine: ((stored?: boolean) => string | null | Promise<string | null>) | null = null;
@@ -6157,6 +6159,15 @@ export class Hud {
       go.onclick = async () => {
         if (!pickA || !pickB) return;
         go.disabled = true;
+        // Slot 2 is used up, and a Special there is almost always a mis-tap on a rare
+        // zombie the player meant to keep (or meant for slot 1, where it survives as
+        // the child's species). Ask before it goes.
+        const donor = roster.find((z) => z.id === pickB);
+        if (donor && this.isSpecialZombie?.(donor.key) && !await this.confirmInGame(
+          `Use up ${donor.name}?`,
+          `${donor.name} is a Special ${donor.typeName}. In Slot 2 it only passes on its mutations and is gone for good. Put it in Slot 1 to keep its species.`,
+          "Combine anyway"
+        )) { go.disabled = false; return; }
         const ok = await this.onCombine?.(pickA, pickB);
         if (ok) { pickA = pickB = null; renderBusy(); }
         else renderIdle();

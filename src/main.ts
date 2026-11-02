@@ -3860,6 +3860,7 @@ async function main() {
   // Zombies are stored in the Mausoleum (capped at mausoleumCap slots); the army
   // cap limits only the count deployed on the farm.
   hud.getRoster = () => zombies.roster();
+  hud.isSpecialZombie = (key) => zombieDefs.get(key)?.category === "special";
   // Zombie Almanac: every obtainable species with its lifetime-obtained count.
   // Base catalog stats only — deliberately no farmer/veterancy/mutation modifiers.
   const almanacSources = {
