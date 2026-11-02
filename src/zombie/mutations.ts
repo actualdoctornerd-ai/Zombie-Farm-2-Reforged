@@ -439,22 +439,26 @@ export function mutationBonus(mask: number): { str: number; con: number; dex: nu
  * Zombie Pot slot-inheritance: combine two parent masks into a child mask.
  *   - Non-conflicting slot (only one parent has it): child inherits it.
  *   - Same mutation on both: child inherits it.
- *   - Different mutations in the same slot: the one LATER IN THE CATALOG wins.
- * One-per-slot always holds. This is DETERMINISTIC — no RNG.
+ *   - Different mutations in the same slot: a coin flip from `random`, one draw per
+ *     contested slot in SLOTS order. Without `random`, the one LATER IN THE CATALOG wins.
+ * One-per-slot always holds.
  *
- * GROUND TRUTH (from the shipped iOS binary — `ZFZombieCombiner
- * combineZombieMutationFlag:withZombieFlag:` + `randMutation:flag1:flag2:controlFlag:`;
- * see docs/mechanics/BINARY_RE_METHODOLOGY.md): the real `randMutation:` contains no
- * `rand`/`arc4random` call. A same-slot conflict resolves via `cmp; movle` = MAX of the
- * two mutation bits. ZF2 numbered its bits in TIER order — Tomatohead first, Dragon-arm
- * last — so "higher bit" meant "higher tier", and the better mutation always won its
- * slot. (Earlier builds guessed a 50/50 coin flip here; that was wrong.)
+ * DELIBERATE DIVERGENCE (owner, 2026-11-02): the Pot passes `random` — a stream seeded
+ * by the two parent ids (createMutationRandom), so the client's preview, the collected
+ * zombie and the server's record always agree — and contested slots are a 50/50. The
+ * shipped game let the higher tier win every time, which made the best mutation a sure
+ * thing; the owner wants it to be a gamble.
  *
- * CATALOG preserves that: position sets the bit, so a mutation appended later beats
- * every earlier one in its slot. Author a new mutation knowing it lands at the TOP of
- * its slot's tier ladder — that is the one design consequence of append-only ordering.
+ * GROUND TRUTH, kept as the no-`random` fallback (a saved job with no parent ids, whose
+ * preview must not change between looks): the shipped iOS binary's
+ * `ZFZombieCombiner randMutation:flag1:flag2:controlFlag:` contains no `rand` call. A
+ * same-slot conflict resolves via `cmp; movle` = MAX of the two mutation bits, and ZF2
+ * numbered its bits in TIER order, so the better mutation always won its slot. CATALOG
+ * preserves that order: a mutation appended later beats every earlier one in its slot.
  */
-export function combineMasks(a: number, b: number, isHeadlessChild = false): number {
+export function combineMasks(
+  a: number, b: number, isHeadlessChild = false, random?: () => number,
+): number {
   // Each parent first loses what the CHILD's body type can't wear, so a mutation the
   // child could keep never loses its slot to one that is about to be stripped (a
   // headless child must keep a Pumpking parent's head rather than lose the slot to
@@ -472,7 +476,12 @@ export function combineMasks(a: number, b: number, isHeadlessChild = false): num
     if (am === 0 && bm === 0) continue; // neither -> empty slot
     if (am === 0) { child = maskUnion(child, bm); continue; } // only B
     if (bm === 0) { child = maskUnion(child, am); continue; } // only A
-    child = maskUnion(child, Math.max(am, bm)); // both -> higher-tier bit wins
+    if (am === bm) { child = maskUnion(child, am); continue; } // the same mutation
+    // Both, and different: a coin flip, or (no random) the higher-tier bit. The flip
+    // picks lower/higher rather than A/B, so it cannot depend on which parent a caller
+    // happens to list first (the server's collect command is not in slot order).
+    const high = Math.max(am, bm);
+    child = maskUnion(child, random && random() < 0.5 ? Math.min(am, bm) : high);
   }
   return child;
 }

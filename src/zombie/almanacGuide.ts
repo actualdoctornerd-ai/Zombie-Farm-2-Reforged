@@ -94,8 +94,8 @@ function potTopic(facts: AlmanacGuideFacts): AlmanacGuideTopic {
         `and its colour come along, its species does not.`,
 
       `Mutations stack per body part. Any mutation the input zombies do not both occupy carries ` +
-        `over to the new zombie; where two land on the same part, the higher-tier one wins. ` +
-        `There is no roll in this — the two zombies of the same type always breed the same type, ` +
+        `over to the new zombie; where two land on the same part, it is a coin flip which one ` +
+        `the new zombie keeps. The species has no roll in it — two zombies of the same type always breed the same type, ` +
         `with the following exceptions `,
 
       `TO BREED A NEW SPECIES, put in two of the SAME species. A matched pair climbs a ` +

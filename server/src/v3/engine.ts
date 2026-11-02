@@ -34,7 +34,7 @@ import {
 } from "../../../src/farmer";
 import { combineMasks } from "../../../src/zombie/mutations";
 import { resolveCropMutations, plotsTouch } from "../../../src/zombie/cropMutations";
-import { createCombineRandom, isCombinePromotion, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
+import { createCombineRandom, createMutationRandom, isCombinePromotion, selectCombineSpecies } from "../../../src/zombie/combineSpecies";
 import { harvestXp, plowXp } from "../../../src/farmRewards";
 import { TUTORIAL_GROW_BOOST, TUTORIAL_GROW_USES, TUTORIAL_PLOTS } from "../../../src/tutorial/freshFarm";
 import { cropUnlocked } from "../../../src/cropUnlocks";
@@ -1315,12 +1315,14 @@ function applyOne(
       }
       const id = options.id();
       // Mutation inheritance never invents a new bit. It carries one mutation per
-      // anatomical slot and deterministically resolves a same-slot conflict. A
+      // anatomical slot and settles a same-slot conflict with a coin flip seeded by the
+      // parent pair, the same flip the client's Pot previews (createMutationRandom). A
       // headless child then drops the head/hair-eye bits it cannot wear — the client
       // strips them in makeOwned, so storing them here would diverge (e.g. a
       // carrot-eyed slot-2 parent giving a Party Zombie eyes it can't show).
       const mutation = legalMutation(
-        resultKey, combineMasks(a.mutation, b.mutation, isHeadlessZombie(resultKey))
+        resultKey, combineMasks(a.mutation, b.mutation, isHeadlessZombie(resultKey),
+          createMutationRandom(a.id, b.id))
       );
       state.roster = state.roster.filter((u) => u.id !== a.id && u.id !== b.id);
       if (command.potId && state.potSlots?.[command.potId]) {

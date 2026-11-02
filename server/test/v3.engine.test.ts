@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { RosterUnitProjection, SequencedCommand } from "../../src/net/protocol";
 import { DR_GROUNDHOG, EPIC_BOSSES } from "../../src/epicBoss/catalog";
 import { XP_THRESHOLDS } from "../src/levels";
-import { COMBINE_SPECIAL_CHANCE, createCombineRandom } from "../../src/zombie/combineSpecies";
+import { COMBINE_SPECIAL_CHANCE, createCombineRandom, createMutationRandom } from "../../src/zombie/combineSpecies";
+import { combineMasks } from "../../src/zombie/mutations";
 import { encodeReceivedZombie } from "../../src/zombie/receivedReward";
 import { EPIC_PRIZE_SELL, RAID_DROP_SELL } from "../../src/awardSellValue";
 import plantRows from "../../public/assets/plants.json";
@@ -51,6 +52,10 @@ const commonCombinePairIds = (): [string, string] => {
   throw new Error("could not find deterministic common-combine test pair");
 };
 
+
+/** The child mask for parents "a" (mask 1) and "b" (mask 2), which contest the head
+ *  slot: whatever the shared seeded flip gives that pair. */
+const HEAD_FLIP_AB = combineMasks(1, 2, false, createMutationRandom("a", "b"));
 describe("protocol v3 command engine", () => {
   it("starts fresh players with the tutorial's one-brain balance", () => {
     expect(freshGameplayState().balance).toEqual({ gold: 400, brains: 1, xp: 0 });
@@ -1397,7 +1402,9 @@ describe("protocol v3 command engine", () => {
     });
     expect(result.results[0]).toMatchObject({ status: "applied", createdIds: ["server-child"] });
     expect(result.state.roster).toEqual([
-      { id: "server-child", key: "ZombieActorRegularTier1", mutation: 2, invasions: 0, stored: false },
+      // Masks 1 and 2 both want the head: a coin flip seeded by the pair, the same one
+      // the client's Pot previews.
+      { id: "server-child", key: "ZombieActorRegularTier1", mutation: HEAD_FLIP_AB, invasions: 0, stored: false },
     ]);
   });
 
@@ -1525,7 +1532,7 @@ describe("protocol v3 command engine", () => {
 
     expect(result.results[0]).toMatchObject({ status: "applied", createdIds: ["child"] });
     expect(result.state.roster).toEqual([
-      { id: "child", key: "ZombieActorRegularTier1", mutation: 2, invasions: 0, stored: false },
+      { id: "child", key: "ZombieActorRegularTier1", mutation: HEAD_FLIP_AB, invasions: 0, stored: false },
     ]);
   });
 

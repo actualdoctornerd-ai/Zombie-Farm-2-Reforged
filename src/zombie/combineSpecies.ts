@@ -144,6 +144,13 @@ export function createCombineRandom(parentAId: string, parentBId: string): () =>
   };
 }
 
+/** The stream that settles contested mutation slots (combineMasks), for the same
+ *  unordered parent pair. Kept apart from the species stream so adding the coin flips
+ *  did not move a single species roll. */
+export function createMutationRandom(parentAId: string, parentBId: string): () => number {
+  return createCombineRandom(`${parentAId}\u0001mutations`, `${parentBId}\u0001mutations`);
+}
+
 /**
  * Choose the Zombie Pot's output species: slot 1's, except that a matched pair
  * climbs the colour ladder and any eligible pair can rarely promote to the tier-5

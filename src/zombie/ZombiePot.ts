@@ -22,8 +22,10 @@
 //     See docs/SPECIAL_ZOMBIE_ACQUISITION.md. Everything else in this list IS
 //     ground truth.
 //   * The result's color is the mixed parent color; identical colors lighten.
-//   * Mutations inherit per-slot (combineMasks): non-conflicting slots carry over; a
-//     same-slot conflict keeps the HIGHER-tier bit — DETERMINISTIC, no RNG.
+//   * Mutations inherit per-slot (combineMasks): non-conflicting slots carry over. The
+//     binary keeps the HIGHER-tier bit on a same-slot conflict; Reforged flips a coin
+//     instead (owner, 2026-11-02), seeded by the parent ids so it never changes between
+//     looks and the server derives the same child.
 //   * Both parents are consumed when the combine STARTS (they leave the roster and
 //     stop counting toward the army cap); the result appears when it finishes.
 //   * Offline-safe: the finish time is an absolute epoch, so a combine completes
@@ -34,7 +36,7 @@
 import { OwnedZombieSave, ZombiePotSave } from "../save/schema";
 import { combineMasks } from "./mutations";
 import {
-  createCombineRandom, selectCombineSpecies, type CombineGraveUnlock,
+  createCombineRandom, createMutationRandom, selectCombineSpecies, type CombineGraveUnlock,
 } from "./combineSpecies";
 
 /** Default combine duration: 1 hour, in ms (binary: getCombineTime = 3600.0 s). */
@@ -223,7 +225,10 @@ export class ZombiePot {
     if (!key) return null;
     return {
       key,
-      mutation: combineMasks(j.maskA, j.maskB, this.isHeadlessKey(key)),
+      // A job saved without its parent ids keeps the higher-tier rule: with nothing to
+      // seed a flip from, a fresh roll per look would change the preview under the player.
+      mutation: combineMasks(j.maskA, j.maskB, this.isHeadlessKey(key),
+        j.parentAId && j.parentBId ? createMutationRandom(j.parentAId, j.parentBId) : undefined),
       color: mixColors(j.colorA, j.colorB),
       // Slot 1 supplies the species; it supplies the name with it, so the zombie the
       // player chose to keep still answers to the same name after the combine.

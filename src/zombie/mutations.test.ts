@@ -8,6 +8,7 @@ import {
 import {
   bitValue, maskHas, maskIntersect, maskUnion, maskWithout, MAX_MASK_BITS,
 } from "./mutationMask";
+import { createMutationRandom } from "./combineSpecies";
 
 // Mutations are named, never numbered: bitOf resolves a key to the bit it persists as,
 // so these read as the rules they encode rather than as arithmetic. The bit VALUES
@@ -51,6 +52,40 @@ describe("combineMasks — deterministic per-slot inheritance", () => {
     const a = 1 | 8 | 1024; // head + arm + body
     const b = 256 | 4 | 2048; // head + hair_eye + neck
     expect(combineMasks(a, b)).toBe(combineMasks(b, a));
+  });
+});
+
+// The Pot itself flips a coin on a contested slot (owner, 2026-11-02), seeded by the
+// parent pair so the preview, the collected child and the server's record agree.
+describe("combineMasks — the Pot's coin flip", () => {
+  const always = (value: number) => () => value;
+
+  it("can hand either contender the slot", () => {
+    expect(combineMasks(TOMATO, GARLIC, false, always(0))).toBe(TOMATO); // the lower tier
+    expect(combineMasks(TOMATO, GARLIC, false, always(0.99))).toBe(GARLIC); // the higher
+  });
+
+  it("does not depend on which parent is listed first", () => {
+    for (const roll of [0, 0.99]) {
+      expect(combineMasks(GARLIC, TOMATO, false, always(roll)))
+        .toBe(combineMasks(TOMATO, GARLIC, false, always(roll)));
+    }
+  });
+
+  it("spends no roll on a slot only one parent fills, or on the same mutation twice", () => {
+    let rolls = 0;
+    const counting = () => { rolls++; return 0; };
+    expect(combineMasks(maskUnion(TOMATO, TURNIP), maskUnion(TOMATO, CARROT), false, counting))
+      .toBe(maskUnion(maskUnion(TOMATO, TURNIP), CARROT));
+    expect(rolls).toBe(0);
+  });
+
+  it("is the same answer every time for one parent pair, and differs across pairs", () => {
+    const child = (x: string, y: string) => combineMasks(TOMATO, GARLIC, false, createMutationRandom(x, y));
+    expect(child("z1", "z2")).toBe(child("z1", "z2"));
+    expect(child("z1", "z2")).toBe(child("z2", "z1")); // the pair is unordered
+    const outcomes = new Set(Array.from({ length: 40 }, (_, i) => child(`p${i}`, `q${i}`)));
+    expect(outcomes).toEqual(new Set([TOMATO, GARLIC])); // both happen
   });
 });
 
