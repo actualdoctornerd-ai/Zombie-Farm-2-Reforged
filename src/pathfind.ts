@@ -185,9 +185,17 @@ class OpenSet {
   }
 }
 
-// Weighted A* between two walkable tiles.
-function search(start: Cell, goal: Cell, passable: Passable, opts: PathOptions): Cell[] {
-  if (start.col === goal.col && start.row === goal.row) return [];
+/** One goal tile, or a set of them: the search stops at whichever it reaches first. */
+type Goal = Cell | readonly Cell[];
+
+const goalList = (goal: Goal): readonly Cell[] => (Array.isArray(goal) ? goal : [goal as Cell]);
+const isGoal = (goals: readonly Cell[], c: number, r: number) =>
+  goals.some((g) => g.col === c && g.row === r);
+
+// Weighted A* from a walkable tile to the nearest of one or more walkable goal tiles.
+function search(start: Cell, goalOrGoals: Goal, passable: Passable, opts: PathOptions): Cell[] {
+  const goals = goalList(goalOrGoals);
+  if (!goals.length || isGoal(goals, start.col, start.row)) return [];
 
   const cost = opts.cost ?? (() => 1);
   const portal = opts.portal;
@@ -199,12 +207,19 @@ function search(start: Cell, goal: Cell, passable: Passable, opts: PathOptions):
   // Octile rather than Chebyshev: a diagonal step really does cover 1.4142 of the
   // remaining distance, and saying so is both admissible and tighter, so the search
   // opens fewer cells. (It does NOT make the route look straight — see straighten.)
+  // With several goals, the distance to the nearest one: a minimum of consistent
+  // heuristics is itself consistent, so the settle-once rule below still holds.
   const h = (c: number, r: number) => {
-    const dc = Math.abs(c - goal.col);
-    const dr = Math.abs(r - goal.row);
-    const lo = Math.min(dc, dr);
-    return scale * (Math.max(dc, dr) - lo + DIAGONAL * lo);
+    let best = Infinity;
+    for (const goal of goals) {
+      const dc = Math.abs(c - goal.col);
+      const dr = Math.abs(r - goal.row);
+      const lo = Math.min(dc, dr);
+      best = Math.min(best, Math.max(dc, dr) - lo + DIAGONAL * lo);
+    }
+    return scale * best;
   };
+  const goalKeys = new Set(goals.map((goal) => key(goal.col, goal.row)));
 
   const startK = key(start.col, start.row);
   const cells = new Map<number, Cell>([[startK, start]]);
@@ -233,9 +248,7 @@ function search(start: Cell, goal: Cell, passable: Passable, opts: PathOptions):
     if (closed.has(bestK)) continue; // a stale copy of an already-settled cell
     closed.add(bestK);
     const best = cells.get(bestK)!;
-    if (best.col === goal.col && best.row === goal.row) {
-      return reconstruct(came, startK, bestK);
-    }
+    if (goalKeys.has(bestK)) return reconstruct(came, startK, bestK);
     const bestG = g.get(bestK)!;
 
     for (const [dc, dr] of NEIGHBORS) {
@@ -373,7 +386,9 @@ export function isWarpStep(a: Cell, b: Cell): boolean {
 }
 
 /** Route from `start` to `goal` as tile waypoints (excluding `start`). Empty when
- *  the goal is blocked or unreachable.
+ *  the goal is blocked or unreachable. `goal` may be several tiles: the route then
+ *  ends at whichever is cheapest to reach, in ONE search — a caller trying each of a
+ *  set in turn pays a whole failed search per tile when none is reachable.
  *
  *  Barriers (`opts.avoidCost`) are searched in TWO passes: once with them treated as
  *  solid, and only if that finds nothing — and only for a caller that set
@@ -390,20 +405,21 @@ export function isWarpStep(a: Cell, b: Cell): boolean {
  *  and it can pick a fresh destination from there. */
 export function findPath(
   start: Cell,
-  goal: Cell,
+  goal: Goal,
   passable: Passable,
   opts: PathOptions = {}
 ): Cell[] {
-  if (!passable(goal.col, goal.row)) return [];
-  if (start.col === goal.col && start.row === goal.row) return [];
+  const goals = goalList(goal).filter((g) => passable(g.col, g.row));
+  if (!goals.length) return [];
+  if (isGoal(goals, start.col, start.row)) return [];
   const cost = opts.cost ?? (() => 1);
 
   if (!passable(start.col, start.row)) {
     const escape = findEscape(start, passable, opts);
     if (!escape.length) return [];
     const exit = escape[escape.length - 1];
-    if (exit.col === goal.col && exit.row === goal.row) return escape;
-    const rest = search(exit, goal, passable, opts);
+    if (isGoal(goals, exit.col, exit.row)) return escape;
+    const rest = search(exit, goals, passable, opts);
     if (!rest.length) return escape;
     return [...escape, ...straighten(exit, rest, passable, cost)];
   }
@@ -413,12 +429,13 @@ export function findPath(
   // hedge was dropped on top of always gets to step off, whoever it is.
   if (avoid !== undefined && cost(start.col, start.row) < avoid) {
     const solid: Passable = (c, r) => passable(c, r) && cost(c, r) < avoid;
-    if (solid(goal.col, goal.row)) {
-      const route = search(start, goal, solid, opts);
+    const open = goals.filter((g) => solid(g.col, g.row));
+    if (open.length) {
+      const route = search(start, open, solid, opts);
       if (route.length) return straighten(start, route, solid, cost);
     }
     if (!opts.crossBarriers) return [];
   }
 
-  return straighten(start, search(start, goal, passable, opts), passable, cost);
+  return straighten(start, search(start, goals, passable, opts), passable, cost);
 }

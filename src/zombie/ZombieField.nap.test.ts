@@ -143,19 +143,36 @@ describe("the Zombie Patch nap", () => {
     expect(zombies.isGathered).toBe(true);
   });
 
-  it("lies a zombie down where it stands when no patch tile can be reached", () => {
-    // A closed ring of solid objects round the whole patch: nobody outside can get in.
+  it("climbs out of a field walled in by solid decor", () => {
+    // Player report: a crop field bordered with flower beds walled in every zombie
+    // harvested inside it; they lay down in the field, after a multi-second freeze.
+    // Here a closed ring of solid objects encloses the zombie, the patch outside it.
     const ring = (c: number, r: number) =>
-      (c >= 7 && c <= 14 && (r === 7 || r === 11)) || ((c === 7 || c === 14) && r >= 7 && r <= 11);
-    const zombies = farm(ring, [{ col: 2, row: 15 }]);
-    tick(zombies, 2_000);
-    const before = tiles(zombies)[0];
+      (c >= 1 && c <= 6 && (r === 1 || r === 6)) || ((c === 1 || c === 6) && r >= 1 && r <= 6);
+    const zombies = farm(ring, [{ col: 3, row: 3 }]);
 
     zombies.toggleGather(PATCH);
-    tick(zombies, 20_000);
+    tick(zombies, 30_000);
 
-    expect(zombies.randomBrainBark()).toBeNull(); // asleep, not wandering
-    expect(tiles(zombies)[0]).toEqual(before);
+    expect(tiles(zombies).every(isPatch)).toBe(true);
+    expect(zombies.randomBrainBark()).toBeNull();
+  });
+
+  it("goes round a wall it can go round rather than over it", () => {
+    // An open-ended wall between the zombie and the patch: walking round is cheaper
+    // than any climb, so the route never enters a solid tile.
+    const wall = (c: number, r: number) => c === 6 && r >= 3 && r <= 16;
+    const zombies = farm(wall, [{ col: 2, row: 9 }]);
+    const unit = (zombies as unknown as { units: { walker: { route?: unknown } }[] }).units[0];
+    zombies.toggleGather(PATCH);
+    const visited: Tile[] = [];
+    for (let elapsed = 0; elapsed < 30_000; elapsed += 16) {
+      zombies.update(0.016);
+      visited.push(tiles(zombies)[0]);
+    }
+    expect(unit).toBeDefined();
+    expect(tiles(zombies).every(isPatch)).toBe(true);
+    expect(visited.some((t) => wall(t.col, t.row))).toBe(false);
   });
 
   it("brings a fertilizing zombie home to any patch tile it can reach", () => {

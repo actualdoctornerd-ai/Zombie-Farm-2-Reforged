@@ -33,6 +33,12 @@ export const COST_GATE_OPEN = 1;
 export const COST_GATE_CLOSED = 9000;
 /** Hedges, fences, dividers: the thing you are not supposed to walk through. */
 export const COST_BARRIER = 10000;
+/** A SOLID object (a tree, a statue, a flower bed), for the one walker allowed to
+ *  climb over one: a zombie called to the Zombie Patch from a field the player has
+ *  walled in with decor. Far above COST_BARRIER, so that walk goes round anything it
+ *  can, through a gate or a fence before anything solid, and over solid decor only
+ *  where nothing else gets out — at the thinnest point. No other walker uses it. */
+export const COST_CLIMB = 100000;
 /** At or above this a tile reads as a wall to everything except the pathfinder
  *  itself: straight-line walks re-route around it, and nothing picks it as a
  *  destination or a spawn point. The pathfinder alone may still cross one, as a

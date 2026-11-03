@@ -12,6 +12,7 @@ import { Field } from "../Field";
 import { depth, screenToGrid, tileCenter } from "../iso";
 import { setFootprint } from "../depthSort";
 import { findEscape, findPath, type Cell } from "../pathfind";
+import { COST_CLIMB } from "../pathCosts";
 import { RouteWalker, walkRoute, type Waypoint } from "../walkRoute";
 import { OwnedZombie } from "./types";
 import { slotOf } from "./mutations";
@@ -451,50 +452,57 @@ export class ZombieUnit {
     return depth(g.col, g.row);
   }
 
-  /** Walk to a specific tile and stay there — the Zombie Patch "calls" units to nap
-   *  on it. Stops wandering until woken. Returns false, and stays where it is, when
-   *  the patch cannot be walked to: a unit fenced away from it used to answer the
-   *  call by cutting a straight line to the patch, fences and all. `crossBarriers`
-   *  lets the route go through a shut gate or a hedge when nothing else gets there —
-   *  the farmer's rule for a walker under orders (see findPath). */
-  sleepAt(col: number, row: number, crossBarriers = false): boolean {
+  /** Nap on the Zombie Patch: walk to it and lie down. Stops wandering until woken.
+   *
+   *  At most TWO route searches, each aimed at every patch tile at once:
+   *    1. the ordinary walk, to the nearest patch tile clear of any fence, then on to
+   *       `preferred` (its own spot, so the army spreads over the patch) if it can;
+   *    2. failing that, a walk that may climb: fences and shut gates are dear, solid
+   *       objects dearer still (COST_CLIMB), so it goes round whatever it can and
+   *       over solid decor only where nothing else gets out.
+   *  The tap is the player's order. A player who borders a field with flower beds or
+   *  trees walls in every zombie harvested inside it; those used to lie down where
+   *  they stood, and finding that out cost a failed search per patch tile, each
+   *  exploring the whole walled-in field — a 70x70 farm froze for ~5 s per tap. */
+  napOnPatch(preferred: Cell, tiles: readonly Cell[]) {
     const g = screenToGrid(this.wx, this.wy);
     const from = { col: Math.round(g.col), row: Math.round(g.row) };
-    const opts = crossBarriers ? { ...this.pathOpts(), crossBarriers: true } : this.pathOpts();
-    const cells = findPath(
-      from, { col, row }, (c, r) => this.field.isPassable(c, r), opts
-    );
-    if (!cells.length && (from.col !== col || from.row !== row)) return false;
+    const at = (list: readonly Cell[], c: Cell) => list.some((t) => t.col === c.col && t.row === c.row);
+    const goals = tiles.length ? tiles : [preferred];
+    // Never bed down on a fence a run along the patch's edge prices onto it.
+    const clear = goals.filter((t) => this.field.isOpenGround(t.col, t.row));
+    const targets = clear.length ? clear : goals;
     this.sleeping = true;
     // Stay awake for the walk over; the eyes close once the final tile is reached.
     this.setEyesClosed(false);
-    this.walker.setRoute(this.route(from, cells));
-    return true;
-  }
+    if (at(targets, from) || at(goals, from)) { this.walker.clear(); return; }
 
-  /** Nap on the Zombie Patch: walk to `preferred`, or failing that to whichever other
-   *  patch tile it can reach, and lie down there. A route to one tile can fail where
-   *  the next works (a fence run along the patch's edge prices those tiles as a
-   *  barrier), and a single failed tile used to leave the zombie wandering the farm
-   *  while the rest of the army slept.
-   *
-   *  The tap is the player's order, so a patch behind a fence or a shut gate, or a
-   *  zombie in a pen, is not a reason to stay away: with no open route to any tile it
-   *  goes the cheapest way through, a gate before a hedge, as the farmer does. Lying
-   *  down where it stands used to be the answer, and on a fenced patch that left all
-   *  but the zombies already inside asleep out in the field. Only a tile nothing can
-   *  reach (walled in by solid objects) still leaves it napping in place. */
-  napOnPatch(preferred: { col: number; row: number }, tiles: readonly { col: number; row: number }[]) {
-    const order = [preferred, ...tiles.filter((t) => t.col !== preferred.col || t.row !== preferred.row)];
-    for (const tile of order) if (this.sleepAt(tile.col, tile.row)) return;
-    // Through the fence, then: to a patch tile clear of it first, so it does not
-    // bed down on the hedge that a fence run along the patch's edge prices onto it.
-    const open = (t: { col: number; row: number }) => this.field.isOpenGround(t.col, t.row);
-    for (const tile of [...order.filter(open), ...order.filter((t) => !open(t))]) {
-      if (this.sleepAt(tile.col, tile.row, true)) return;
+    const passable = (c: number, r: number) => this.field.isPassable(c, r);
+    let cells = findPath(from, targets, passable, this.pathOpts());
+    let end = cells[cells.length - 1];
+    if (end && at(goals, end)) {
+      // Reached the patch; finish on its own tile when that is a short walk away.
+      if ((end.col !== preferred.col || end.row !== preferred.row) && at(targets, preferred)) {
+        const rest = findPath(end, preferred, passable, this.pathOpts());
+        if (rest.length) cells = [...cells, ...rest];
+      }
+      this.walker.setRoute(this.route(from, cells));
+      return;
     }
-    this.walker.clear();
-    this.sleeping = true;
+
+    const base = this.pathOpts();
+    cells = findPath(from, targets, (c, r) => this.field.inBounds(c, r), {
+      ...base,
+      avoidCost: undefined,
+      cost: (c, r) => {
+        const cost = this.field.tileCost(c, r);
+        return Number.isFinite(cost) ? cost : COST_CLIMB;
+      },
+    });
+    end = cells[cells.length - 1];
+    if (end && at(goals, end)) this.walker.setRoute(this.route(from, cells));
+    // Only a patch off the farm itself leaves nothing to walk to: lie down here.
+    else this.walker.clear();
   }
 
   // Wake up and resume wandering.
