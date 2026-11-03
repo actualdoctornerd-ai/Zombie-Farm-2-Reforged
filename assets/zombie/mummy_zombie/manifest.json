@@ -1,0 +1,85 @@
+{
+ "name": "mummy_zombie",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  159,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "Features.png",
+   "group": "head",
+   "px": 7,
+   "py": -36,
+   "ax": 0.7131483554840088,
+   "ay": 0.8174715787172318,
+   "z": 6,
+   "scale": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 15,
+   "py": -22,
+   "ax": 0.7490530014038086,
+   "ay": 0.39555932581424713,
+   "z": 9,
+   "scale": 1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 0,
+   "py": 0,
+   "ax": 0.24443361163139343,
+   "ay": 0.9561767578125,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "JawFeature.png",
+   "group": "head",
+   "px": 7,
+   "py": -36,
+   "ax": 0.7591796759516001,
+   "ay": -0.02161407470703125,
+   "z": 8,
+   "scale": 1
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": 2,
+   "py": 0,
+   "ax": 0.5625,
+   "ay": 0.5,
+   "z": -1,
+   "scale": 1
+  },
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": 2,
+   "py": -19,
+   "ax": 0.9892580322921276,
+   "ay": 0.3662109375,
+   "z": -2,
+   "scale": 1
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 0,
+   "py": 0,
+   "ax": -0.16455078125,
+   "ay": 0.4755859375,
+   "z": -1,
+   "scale": 1
+  }
+ ]
+}

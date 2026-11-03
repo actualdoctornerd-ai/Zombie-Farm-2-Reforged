@@ -1,0 +1,759 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>locolocust_attack_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{60, 116}, {145, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{-5, -57}</string>
+			<key>spriteSize</key>
+			<string>{145, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{690, 813}, {145, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{87, 102}, {147, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{23, -50}</string>
+			<key>spriteSize</key>
+			<string>{147, 171}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{485, 173}, {147, 171}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 122}, {173, 151}}</string>
+			<key>spriteOffset</key>
+			<string>{-18, -60}</string>
+			<key>spriteSize</key>
+			<string>{173, 151}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{837, 807}, {173, 151}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{3, 120}, {203, 153}}</string>
+			<key>spriteOffset</key>
+			<string>{-33, -59}</string>
+			<key>spriteSize</key>
+			<string>{203, 153}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1018, 0}, {203, 153}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{9, 116}, {197, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{-30, -57}</string>
+			<key>spriteSize</key>
+			<string>{197, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{634, 161}, {197, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{37, 118}, {169, 155}}</string>
+			<key>spriteOffset</key>
+			<string>{-16, -58}</string>
+			<key>spriteSize</key>
+			<string>{169, 155}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{730, 479}, {169, 155}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{37, 118}, {169, 155}}</string>
+			<key>spriteOffset</key>
+			<string>{-16, -58}</string>
+			<key>spriteSize</key>
+			<string>{169, 155}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{702, 650}, {169, 155}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{37, 118}, {169, 155}}</string>
+			<key>spriteOffset</key>
+			<string>{-16, -58}</string>
+			<key>spriteSize</key>
+			<string>{169, 155}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{519, 868}, {169, 155}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_attack_fr09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{59, 117}, {145, 155}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -57}</string>
+			<key>spriteSize</key>
+			<string>{145, 155}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{980, 159}, {145, 155}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_defeat_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{77, 33}, {165, 239}}</string>
+			<key>spriteOffset</key>
+			<string>{22, -15}</string>
+			<key>spriteSize</key>
+			<string>{165, 239}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{171, 765}, {165, 239}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_defeat_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{78, 32}, {169, 241}}</string>
+			<key>spriteOffset</key>
+			<string>{25, -15}</string>
+			<key>spriteSize</key>
+			<string>{169, 241}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 765}, {169, 241}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_defeat_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{80, 32}, {173, 241}}</string>
+			<key>spriteOffset</key>
+			<string>{29, -15}</string>
+			<key>spriteSize</key>
+			<string>{173, 241}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{161, 263}, {173, 241}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_defeat_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{80, 32}, {181, 241}}</string>
+			<key>spriteOffset</key>
+			<string>{33, -15}</string>
+			<key>spriteSize</key>
+			<string>{181, 241}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 522}, {181, 241}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{45, 58}, {183, 197}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -19}</string>
+			<key>spriteSize</key>
+			<string>{183, 197}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{171, 0}, {183, 197}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{27, 130}, {203, 143}}</string>
+			<key>spriteOffset</key>
+			<string>{-9, -64}</string>
+			<key>spriteSize</key>
+			<string>{203, 143}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{509, 346}, {203, 143}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{36, 175}, {171, 97}}</string>
+			<key>spriteOffset</key>
+			<string>{-16, -86}</string>
+			<key>spriteSize</key>
+			<string>{171, 97}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1127, 155}, {171, 97}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{34, 178}, {171, 95}}</string>
+			<key>spriteOffset</key>
+			<string>{-18, -88}</string>
+			<key>spriteSize</key>
+			<string>{171, 95}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1074, 415}, {171, 95}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{38, 154}, {171, 119}}</string>
+			<key>spriteOffset</key>
+			<string>{-14, -76}</string>
+			<key>spriteSize</key>
+			<string>{171, 119}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{336, 372}, {171, 119}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{60, 116}, {145, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{-5, -57}</string>
+			<key>spriteSize</key>
+			<string>{145, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{833, 159}, {145, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{87, 102}, {147, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{23, -50}</string>
+			<key>spriteSize</key>
+			<string>{147, 171}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{356, 0}, {147, 171}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{106, 12}, {169, 261}}</string>
+			<key>spriteOffset</key>
+			<string>{53, -5}</string>
+			<key>spriteSize</key>
+			<string>{169, 261}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 0}, {169, 261}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{99, 16}, {159, 257}}</string>
+			<key>spriteOffset</key>
+			<string>{41, -7}</string>
+			<key>spriteSize</key>
+			<string>{159, 257}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 263}, {159, 257}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr10.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{87, 102}, {147, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{23, -50}</string>
+			<key>spriteSize</key>
+			<string>{147, 171}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{336, 199}, {147, 171}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr11.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{59, 117}, {145, 155}}</string>
+			<key>spriteOffset</key>
+			<string>{-6, -57}</string>
+			<key>spriteSize</key>
+			<string>{145, 155}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{895, 318}, {145, 155}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_enter_fr12.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{60, 116}, {145, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{-5, -57}</string>
+			<key>spriteSize</key>
+			<string>{145, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{871, 0}, {145, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_escape_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{38, 154}, {171, 119}}</string>
+			<key>spriteOffset</key>
+			<string>{-14, -76}</string>
+			<key>spriteSize</key>
+			<string>{171, 119}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{901, 475}, {171, 119}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_escape_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{34, 178}, {171, 95}}</string>
+			<key>spriteOffset</key>
+			<string>{-18, -88}</string>
+			<key>spriteSize</key>
+			<string>{171, 95}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1223, 0}, {171, 95}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_escape_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{36, 175}, {171, 97}}</string>
+			<key>spriteOffset</key>
+			<string>{-16, -86}</string>
+			<key>spriteSize</key>
+			<string>{171, 97}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{1042, 316}, {171, 97}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_escape_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{27, 131}, {203, 141}}</string>
+			<key>spriteOffset</key>
+			<string>{-9, -64}</string>
+			<key>spriteSize</key>
+			<string>{203, 141}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{873, 636}, {203, 141}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_fly_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{34, 48}, {183, 199}}</string>
+			<key>spriteOffset</key>
+			<string>{-12, -10}</string>
+			<key>spriteSize</key>
+			<string>{183, 199}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{183, 506}, {183, 199}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{47, 117}, {179, 155}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -57}</string>
+			<key>spriteSize</key>
+			<string>{179, 155}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{338, 868}, {179, 155}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{48, 115}, {179, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -56}</string>
+			<key>spriteSize</key>
+			<string>{179, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{549, 491}, {179, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{48, 115}, {179, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -56}</string>
+			<key>spriteSize</key>
+			<string>{179, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{690, 0}, {179, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{47, 114}, {179, 159}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -56}</string>
+			<key>spriteSize</key>
+			<string>{179, 159}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{368, 493}, {179, 159}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{47, 114}, {181, 159}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -56}</string>
+			<key>spriteSize</key>
+			<string>{181, 159}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{338, 707}, {181, 159}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{46, 114}, {183, 159}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -56}</string>
+			<key>spriteSize</key>
+			<string>{183, 159}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{505, 0}, {183, 159}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{48, 115}, {179, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -56}</string>
+			<key>spriteSize</key>
+			<string>{179, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{521, 654}, {179, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>locolocust_idle_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{48, 115}, {179, 157}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -56}</string>
+			<key>spriteSize</key>
+			<string>{179, 157}</string>
+			<key>spriteSourceSize</key>
+			<string>{275, 275}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{714, 320}, {179, 157}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>locolocust</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+		<key>size</key>
+		<string>{2048, 1024}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>locolocust</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<false/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>locolocust</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>

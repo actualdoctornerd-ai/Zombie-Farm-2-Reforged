@@ -1,0 +1,39 @@
+{
+ "name": "final_boss_zombie",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  146,
+  46,
+  214
+ ],
+ "complete": true,
+ "parts": [
+  {
+   "file": "idle-0.png",
+   "group": "root",
+   "px": 0,
+   "py": 0,
+   "ax": 0.538,
+   "ay": 1.0,
+   "z": 3,
+   "scale": 0.87
+  }
+ ],
+ "flipbook": {
+  "idle": [
+   "idle-0.png",
+   "idle-1.png",
+   "idle-2.png",
+   "idle-3.png"
+  ],
+  "attack": [
+   "attack-0.png",
+   "attack-1.png",
+   "attack-2.png"
+  ],
+  "fps": 4
+ }
+}
