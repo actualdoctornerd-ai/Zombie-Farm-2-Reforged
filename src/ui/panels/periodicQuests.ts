@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // The Daily & Weekly quests panel.
 //
 // Deliberately NOT part of the catalog quest rail. Those are a progression chain that
@@ -51,7 +52,7 @@ function questRow(
   body.className = "pq-body";
   const text = document.createElement("div");
   text.className = "pq-text";
-  text.textContent = quest.text;
+  text.textContent = tr(quest.text);
   const meter = document.createElement("div");
   meter.className = "pq-meter";
   const fill = document.createElement("span");
@@ -59,7 +60,7 @@ function questRow(
   meter.appendChild(fill);
   const count = document.createElement("div");
   count.className = "pq-count";
-  count.textContent = `${quest.count} / ${quest.total}`;
+  count.textContent = trMsg`${quest.count} / ${quest.total}`;
   body.append(text, meter, count);
 
   const reward = document.createElement("div");
@@ -69,7 +70,7 @@ function questRow(
   rewardIcon.alt = "";
   rewardIcon.onerror = () => { rewardIcon.style.visibility = "hidden"; };
   const rewardLabel = document.createElement("span");
-  rewardLabel.textContent = `+${quest.xp} XP`;
+  rewardLabel.textContent = trMsg`+${quest.xp} XP`;
   reward.append(rewardIcon, rewardLabel);
 
   const action = document.createElement("div");
@@ -77,21 +78,21 @@ function questRow(
   if (quest.claimed) {
     const claimed = document.createElement("span");
     claimed.className = "pq-claimed";
-    claimed.textContent = "✓ Claimed";
+    claimed.textContent = tr("✓ Claimed");
     action.appendChild(claimed);
   } else if (quest.done && quest.pending) {
     // Finished by this client's own events, not yet by the server's count. The bar is
     // full; the Claim waits for the confirmation that is already on its way.
     const confirming = document.createElement("span");
     confirming.className = "pq-confirming";
-    confirming.textContent = "Confirming…";
-    confirming.title = "Waiting for the server to confirm this quest";
+    confirming.textContent = tr("Confirming…");
+    confirming.title = tr("Waiting for the server to confirm this quest");
     action.appendChild(confirming);
   } else if (quest.done) {
     const claim = markPrimary(document.createElement("button"));
     claim.className = "zbtn pq-claim";
     claim.type = "button";
-    claim.textContent = "Claim";
+    claim.textContent = tr("Claim");
     claim.onclick = () => view.onClaim(quest.scope, quest.id);
     action.appendChild(claim);
   }
@@ -107,10 +108,10 @@ function scopeSection(scope: PeriodicScopeView, view: PeriodicQuestPanelView, no
   heading.className = "pq-heading";
   const title = document.createElement("span");
   title.className = "pq-title";
-  title.textContent = SCOPE_TITLE[scope.scope];
+  title.textContent = tr(SCOPE_TITLE[scope.scope]);
   const timer = document.createElement("span");
   timer.className = "pq-timer";
-  timer.textContent = `Resets in ${formatPeriodRemaining(scope.endsAt - now)}`;
+  timer.textContent = trMsg`Resets in ${tr(formatPeriodRemaining(scope.endsAt - now))}`;
   heading.append(title, timer);
   section.appendChild(heading);
   for (const quest of scope.quests) section.appendChild(questRow(quest, view));
@@ -132,7 +133,7 @@ export function renderPeriodicQuests(
     empty.className = "pq-empty";
     // Both unlock levels live in quest/periodic/generate; the copy stays vague rather
     // than repeating a number that would then have two homes.
-    empty.textContent = "Daily and weekly quests unlock as you level up your farm.";
+    empty.textContent = tr("Daily and weekly quests unlock as you level up your farm.");
     list.appendChild(empty);
   }
   for (const scope of view.scopes) list.appendChild(scopeSection(scope, view, now));
@@ -148,7 +149,7 @@ export function openPeriodicQuests(
     host,
     panelClass: "periodicquests",
     replaceSelector: ".panel.periodicquests",
-    title: "Daily & Weekly",
+    title: tr("Daily & Weekly"),
     onClose,
   });
   renderPeriodicQuests(handle.panel, view);

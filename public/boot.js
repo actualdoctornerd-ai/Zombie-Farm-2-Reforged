@@ -15,11 +15,12 @@
     "Zombies Getting Dressed…", "Zombies Marching…", "Zombies Going to Work…"];
   var li = 0, cur = 0, tgt = 0.12, phase = "load", auto = true;
   var onDismiss = null;
+  var translate = function (source) { return source; };
 
   // Cycle the status line while loading.
   var cycle = setInterval(function () {
     if (phase === "load" || phase === "readywait") {
-      li = (li + 1) % LINES.length; statusEl.textContent = LINES[li];
+      li = (li + 1) % LINES.length; statusEl.textContent = translate(LINES[li]);
     }
   }, 1500);
   // Creep the bar forward on its own until main.ts starts reporting real
@@ -40,7 +41,7 @@
   function enterReady() {
     phase = "ready";
     clearInterval(cycle);
-    statusEl.textContent = "Click to Start";
+    statusEl.textContent = translate("Click to Start");
     statusEl.classList.add("ready");
   }
   function dismiss() {
@@ -64,6 +65,12 @@
   }
 
   window.__ZFBoot = {
+    localize: function (fn) {
+      translate = fn;
+      statusEl.textContent = translate(phase === "ready" ? "Click to Start" : LINES[li]);
+      var plate = boot.querySelector(".boot-plate span");
+      if (plate) plate.textContent = translate("REFORGED");
+    },
     // Report a real load milestone (0..1); stops the auto-creep.
     progress: function (p) { auto = false; clearInterval(creep); if (p > tgt) tgt = p; },
     // Boot finished building the game: fill to 100%, then flip to "Click to Start".

@@ -75,6 +75,15 @@ are hard to test and largely untested — a well-argued "not practically testabl
 description is accepted for those. Logic, economy, save, and server changes are
 expected to come with tests.
 
+## Localization
+
+Read [docs/LOCALIZATION.md](docs/LOCALIZATION.md) when adding player-visible text.
+Use the translation helpers at the display boundary, keep identifiers and saved
+state in their original form, and include Chinese copy in the same change.
+`npm test` checks the Chinese message inventory before running the test suite.
+IPA-derived catalogs are kept separate from authored translations and retain
+original asset provenance; do not commit the IPA itself.
+
 ## Areas with extra rules
 
 **Assets.** Do not commit new art or audio extracted from the original game beyond

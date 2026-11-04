@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // The Memorial Statue's panel.
 //
 // Two states, one entry point:
@@ -42,7 +43,7 @@ export interface MemorialView {
 function objectOptionsButton(view: MemorialView, close: () => void): HTMLButtonElement {
   const button = document.createElement("button");
   button.className = "zbtn locate memorial-options";
-  button.textContent = "Move / Store / Sell statue";
+  button.textContent = tr("Move / Store / Sell statue");
   button.onclick = () => { close(); view.onObjectOptions(); };
   return button;
 }
@@ -78,9 +79,7 @@ function openEnshrined(hud: Hud, view: MemorialView, occupant: FallenZombie) {
   const epitaph = document.createElement("div");
   epitaph.className = "memorial-epitaph";
   const date = fallenDateLabel(occupant);
-  epitaph.textContent = date
-    ? `In memory of ${info.name} — fell ${date}`
-    : `In memory of ${info.name}`;
+  epitaph.textContent = date ? trMsg`In memory of ${info.name} — fell ${date}` : trMsg`In memory of ${info.name}`;
 
   panel.append(epitaph, buildZombieCard(hud, info, panel));
 
@@ -88,8 +87,8 @@ function openEnshrined(hud: Hud, view: MemorialView, occupant: FallenZombie) {
   actions.className = "zbtns";
   const clear = document.createElement("button");
   clear.className = "zbtn locate";
-  clear.textContent = "Take off the plinth";
-  clear.title = "Return them to the graveyard so this statue can remember someone else";
+  clear.textContent = tr("Take off the plinth");
+  clear.title = tr("Return them to the graveyard so this statue can remember someone else");
   clear.onclick = () => { close(); view.onClear(); };
   actions.append(clear, objectOptionsButton(view, close));
   panel.appendChild(actions);
@@ -98,7 +97,7 @@ function openEnshrined(hud: Hud, view: MemorialView, occupant: FallenZombie) {
 /** The graveyard list, shown when the plinth is bare. */
 function openGraveyardPicker(hud: Hud, view: MemorialView) {
   const { panel, close } = openModal({
-    host: hud.el, panelClass: "memorial-panel", title: "Memorial Statue",
+    host: hud.el, panelClass: "memorial-panel", title: tr("Memorial Statue"),
   });
 
   const blurb = document.createElement("p");
@@ -109,13 +108,12 @@ function openGraveyardPicker(hud: Hud, view: MemorialView) {
   footer.appendChild(objectOptionsButton(view, close));
 
   if (!view.fallen.length) {
-    blurb.textContent = "No zombie of yours has been lost. Nothing to remember yet.";
+    blurb.textContent = tr("No zombie of yours has been lost. Nothing to remember yet.");
     panel.append(blurb, footer);
     return;
   }
 
-  blurb.textContent = "Choose a zombie to carve in stone. They cannot come back — "
-    + "the statue is only so you remember them.";
+  blurb.textContent = trMsg`Choose a zombie to carve in stone. They cannot come back — the statue is only so you remember them.`;
   panel.appendChild(blurb);
 
   const list = document.createElement("div");
@@ -131,11 +129,11 @@ function openGraveyardPicker(hud: Hud, view: MemorialView) {
     const meta = document.createElement("div");
     meta.className = "memorial-meta";
     const date = fallenDateLabel(fallen);
-    meta.textContent = date ? `${info.typeName} · fell ${date}` : info.typeName;
+    meta.textContent = date ? trMsg`${tr(info.typeName)} · fell ${date}` : tr(info.typeName);
     label.append(name, meta);
     const pick = document.createElement("button");
     pick.className = "memorial-pick";
-    pick.textContent = "Enshrine";
+    pick.textContent = tr("Enshrine");
     pick.onclick = () => {
       pick.disabled = true;
       if (view.onEnshrine(fallen.id)) close();

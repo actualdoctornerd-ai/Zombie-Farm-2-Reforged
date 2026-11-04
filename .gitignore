@@ -4,6 +4,7 @@ dist/
 .DS_Store
 __pycache__/
 *.pyc
+*.ipa
 
 # Scratch space: rig captures written by /zombie-review.html via the dev-only
 # /__capture endpoint, console-setup dumps, working files. Ignored wholesale — put

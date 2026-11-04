@@ -740,6 +740,9 @@
   text-shadow: 0 1px 1px #000; background: linear-gradient(#7ea63a, #55972a); }
 #hud .set-action:hover { filter: brightness(1.1); }
 #hud .set-action:disabled { opacity: .5; cursor: default; filter: none; }
+#hud .set-language { max-width: 100%; min-width: 140px; padding: 6px 8px;
+  border: 2px solid #14240a; border-radius: 8px; color: #fff;
+  background: #416c25; font: inherit; cursor: pointer; }
 #hud .set-note { margin: 2px 2px 4px; font-size: 12px; color: #cbe6a0; opacity: .85; }
 /* Manual-copy fallback for Diagnostics when the clipboard API is unavailable
    (insecure context or a phone browser that refuses permission). */

@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../i18n";
 // Right-click tool menu: a small scrollable list of the farm tools that opens at
 // the cursor. The mouse wheel moves the highlight, Enter (or a click) equips the
 // highlighted tool, Escape / right-click / a click outside cancels.
@@ -62,7 +63,7 @@ export function heldObjectName(
  *  Naming the row after the thing it turns settles both — it cannot be mistaken for a
  *  tool switch, and Select, the row the menu opens on, is still the way out. */
 export function rotateRowFor(heldName: string | null): { id: string; label: string } {
-  return heldName ? { id: "turn", label: `Turn ${heldName}` } : { id: "rotate", label: "Rotate" };
+  return heldName ? { id: "turn", label: trMsg`Turn ${heldName}` } : { id: "rotate", label: "Rotate" };
 }
 
 /** Trackpads emit many tiny wheel events; a notch-per-row menu needs a
@@ -106,7 +107,7 @@ export function openToolWheel(host: HTMLElement, opts: ToolWheelOpts): ToolWheel
 
   const title = document.createElement("div");
   title.className = "tw-title";
-  title.textContent = "Tools";
+  title.textContent = tr("Tools");
   menu.appendChild(title);
 
   const rows: HTMLButtonElement[] = [];
@@ -119,16 +120,16 @@ export function openToolWheel(host: HTMLElement, opts: ToolWheelOpts): ToolWheel
     img.alt = "";
     const label = document.createElement("span");
     label.className = "tw-lbl";
-    label.textContent = item.label;
+    label.textContent = tr(item.label);
     const key = document.createElement("span");
     key.className = "tw-key";
-    key.textContent = item.hint;
+    key.textContent = tr(item.hint);
     row.append(img, label, key);
     if (item.active) {
       row.classList.add("equipped");
       const dot = document.createElement("span");
       dot.className = "tw-dot";
-      dot.title = "Currently equipped";
+      dot.title = tr("Currently equipped");
       row.appendChild(dot);
     }
     // Hovering is the mouse's own way of aiming: keep it in sync with the wheel
@@ -141,7 +142,7 @@ export function openToolWheel(host: HTMLElement, opts: ToolWheelOpts): ToolWheel
 
   const legend = document.createElement("div");
   legend.className = "tw-legend";
-  legend.textContent = "Scroll to choose · Enter to select · Esc to cancel";
+  legend.textContent = tr("Scroll to choose · Enter to select · Esc to cancel");
   menu.appendChild(legend);
 
   bg.appendChild(menu);

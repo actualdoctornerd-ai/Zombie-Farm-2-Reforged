@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // The Invasions panel (Social → Invasions): friend PvP's home.
 //
 // Three tabs, market-styled:
@@ -110,14 +111,14 @@ const TIER_STARS = (tier: number) => "★".repeat(Math.max(1, Math.min(5, tier))
 
 function ago(ms: number): string {
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  if (s < 60) return tr("just now");
+  if (s < 3600) return trMsg`${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return trMsg`${Math.floor(s / 3600)}h ago`;
+  return trMsg`${Math.floor(s / 86400)}d ago`;
 }
 
 function rewardLabel(hud: Hud, rewards: PvpRewardView[]): string {
-  const name = (key: string) => hud.boosts.find((b) => b.key === key)?.name ?? key;
+  const name = (key: string) => tr(hud.boosts.find((b) => b.key === key)?.name ?? key);
   return rewards.map((r) => (r.qty > 1 ? `${name(r.key)} ×${r.qty}` : name(r.key))).join(", ");
 }
 
@@ -130,7 +131,7 @@ function defenseStrip(hud: Hud, defenders: PvpDefenderPreviewView[]): HTMLElemen
   for (const d of defenders) {
     const pip = document.createElement("div");
     pip.className = "zteam-pip";
-    pip.title = d.name;
+    pip.title = tr(d.name);
     const portrait = hud.zombiePortraitOf?.(d.key) ?? "";
     if (portrait) pip.style.backgroundImage = `url(${portrait})`;
     strip.appendChild(pip);
@@ -181,10 +182,10 @@ function formationList(hud: Hud, defenders: PvpDefenderPreviewView[]): HTMLEleme
     text.className = "pvp-role-text";
     const who = document.createElement("div");
     who.className = "pvp-role-name";
-    who.textContent = d.name;
+    who.textContent = tr(d.name);
     const job = document.createElement("div");
     job.className = "zteam-sub";
-    job.textContent = ROLE_LABEL[d.role ?? ""] ?? "Defender";
+    job.textContent = tr(ROLE_LABEL[d.role ?? ""] ?? "Defender");
     text.append(who, job);
     row.append(pip, text);
     wrap.appendChild(row);
@@ -209,13 +210,13 @@ function paintPortrait(el: HTMLElement, hud: Hud, z: RosterEntry): void {
 export function openInvasionsPanel(hud: Hud) {
   const { panel, close } = openModal({
     host: hud.el, bgClass: "pvp-bg", panelClass: "pvp-panel",
-    title: "Invasions", replaceSelector: ".pvp-bg",
+    title: tr("Invasions"), replaceSelector: ".pvp-bg",
   });
 
   if (!hud.socialOnline?.()) {
     const note = document.createElement("p");
     note.className = "rd-intro";
-    note.textContent = "Friend invasions are an online feature — sign in from the Friends panel to take part.";
+    note.textContent = tr("Friend invasions are an online feature — sign in from the Friends panel to take part.");
     panel.appendChild(note);
     return;
   }
@@ -223,7 +224,7 @@ export function openInvasionsPanel(hud: Hud) {
   if (myLevel < PVP_MIN_LEVEL) {
     const note = document.createElement("p");
     note.className = "rd-intro";
-    note.textContent = `Friend invasions open at level ${PVP_MIN_LEVEL} — get the farm going first!`;
+    note.textContent = trMsg`Friend invasions open at level ${PVP_MIN_LEVEL} — get the farm going first!`;
     panel.appendChild(note);
     return;
   }
@@ -261,7 +262,7 @@ export function openInvasionsPanel(hud: Hud) {
   for (const name of ["Attack", "Defense", "History"] as const) {
     const tab = document.createElement("button");
     tab.className = "mkt-tab";
-    tab.textContent = name;
+    tab.textContent = tr(name);
     tab.onclick = () => { current = name; render(); };
     tabButtons.set(name, tab);
     tabs.appendChild(tab);
@@ -293,12 +294,11 @@ export function openInvasionsPanel(hud: Hud) {
     pips.className = "pvp-pips";
     body.appendChild(pips);
     const paintPips = () => {
-      if (!overview) { pips.textContent = "Loading…"; return; }
+      if (!overview) { pips.textContent = tr("Loading…"); return; }
       pips.textContent =
-        `Rewarded wins today: ${overview.rewardedWinsToday}/${overview.rewardedWinsPerDay}` +
-        (overview.rewardedWinsToday >= overview.rewardedWinsPerDay
+        trMsg`Rewarded wins today: ${overview.rewardedWinsToday}/${overview.rewardedWinsPerDay}${tr((overview.rewardedWinsToday >= overview.rewardedWinsPerDay
           ? " — the rest are for bragging rights."
-          : "");
+          : ""))}`;
     };
     paintPips();
     void loadOverview().then(() => { if (pips.isConnected) paintPips(); });
@@ -310,7 +310,7 @@ export function openInvasionsPanel(hud: Hud) {
     if (!friends.length) {
       const empty = document.createElement("div");
       empty.className = "zr-empty";
-      empty.textContent = "No friends yet — add some in the Friends panel, then come invade them (kindly).";
+      empty.textContent = tr("No friends yet — add some in the Friends panel, then come invade them (kindly).");
       body.appendChild(empty);
       return;
     }
@@ -328,7 +328,7 @@ export function openInvasionsPanel(hud: Hud) {
       info.appendChild(nm);
       const sub = document.createElement("div");
       sub.className = "zteam-sub";
-      sub.textContent = f.level != null ? `Level ${f.level}` : "";
+      sub.textContent = f.level != null ? trMsg`Level ${f.level}` : "";
       info.appendChild(sub);
       const detail = document.createElement("div");
       detail.className = "pvp-scout";
@@ -339,39 +339,34 @@ export function openInvasionsPanel(hud: Hud) {
       const locked = f.level != null && f.level < PVP_MIN_LEVEL;
       const scout = document.createElement("button");
       scout.className = "zbtn store";
-      scout.textContent = "Scout";
+      scout.textContent = tr("Scout");
       const invade = document.createElement("button");
       invade.className = "zbtn deploy";
-      invade.textContent = "Invade ⚔";
-      invade.title = `Send ${PVP_ARMY_SIZE} zombies at ${f.name}'s defense. ` +
-        "Nobody gets hurt for real — stronger defenders give more boosts.";
+      invade.textContent = tr("Invade ⚔");
+      invade.title = trMsg`Send ${PVP_ARMY_SIZE} zombies at ${f.name}'s defense. Nobody gets hurt for real — stronger defenders give more boosts.`;
       if (locked) {
         scout.disabled = true;
         invade.disabled = true;
-        sub.textContent = `Level ${f.level} — their farm opens for invasions at level ${PVP_MIN_LEVEL}.`;
+        sub.textContent = trMsg`Level ${f.level} — their farm opens for invasions at level ${PVP_MIN_LEVEL}.`;
       }
       scout.onclick = async () => {
         scout.disabled = true;
-        detail.textContent = "Scouting…";
+        detail.textContent = tr("Scouting…");
         const view = await (hud.onScoutPvpDefense?.(f.id) ?? Promise.resolve(null));
         scout.disabled = false;
         detail.innerHTML = "";
         if (!view || view.error) {
           detail.textContent =
-            view?.error === "no_defense" ? "No zombies on their farm — nothing to fight!"
-            : view?.error === "defender_level" ? `Their farm opens for invasions at level ${PVP_MIN_LEVEL}.`
-            : "Scouting failed — try again in a moment.";
+            view?.error === "no_defense" ? tr("No zombies on their farm — nothing to fight!") : view?.error === "defender_level" ? trMsg`Their farm opens for invasions at level ${PVP_MIN_LEVEL}.` : tr("Scouting failed — try again in a moment.");
           return;
         }
         const tier = view.attackerTier ?? 1;
         const line = document.createElement("div");
         line.className = "zteam-sub";
         line.textContent =
-          `Tier ${tier} ${TIER_STARS(tier)} defense · ${view.defenders?.length ?? 0} defenders · ` +
-          `${view.authored ? "arranged" : "auto"}` +
-          ((view.pairAttacksToday ?? 0) > 0
+          trMsg`Tier ${tier} ${TIER_STARS(tier)} defense · ${view.defenders?.length ?? 0} defenders · ${view.authored ? tr("arranged") : tr("auto")}${tr(((view.pairAttacksToday ?? 0) > 0
             ? ` · ${view.pairAttacksToday}/${view.pairAttackLimit} attacks today`
-            : "");
+            : ""))}`;
         detail.appendChild(line);
         if (view.defenders?.length) detail.appendChild(defenseStrip(hud, view.defenders));
       };
@@ -390,31 +385,26 @@ export function openInvasionsPanel(hud: Hud) {
   const renderDefense = () => {
     const holder = document.createElement("div");
     holder.className = "pvp-list";
-    holder.textContent = "Loading your defense…";
+    holder.textContent = tr("Loading your defense…");
     body.appendChild(holder);
     void (async () => {
       const view = await (hud.getPvpDefense?.() ?? Promise.resolve(null));
       if (!holder.isConnected) return;
       holder.innerHTML = "";
       if (!view) {
-        holder.textContent = "Couldn't load your defense — try again in a moment.";
+        holder.textContent = tr("Couldn't load your defense — try again in a moment.");
         return;
       }
       const formation = view.mode === "formation";
       const note = document.createElement("p");
       note.className = "rd-intro";
-      note.textContent = formation
-        ? "When a friend invades, these zombies defend your farm — one of each kind, " +
-          "each with a job. Zombies play nice with each other, so no losses are permanent."
-        : "When a friend invades, these zombies defend your farm. " +
-          "Zombies play nice with each other, so no losses are permanent. " +
-          "Arrange your own line-up, or let the farm field its strongest automatically.";
+      note.textContent = formation ? trMsg`When a friend invades, these zombies defend your farm — one of each kind, each with a job. Zombies play nice with each other, so no losses are permanent.` : trMsg`When a friend invades, these zombies defend your farm. Zombies play nice with each other, so no losses are permanent. Arrange your own line-up, or let the farm field its strongest automatically.`;
       holder.appendChild(note);
 
       if (view.error === "no_defense") {
         const empty = document.createElement("div");
         empty.className = "zr-empty";
-        empty.textContent = "You need at least one zombie before anyone can invade you.";
+        empty.textContent = tr("You need at least one zombie before anyone can invade you.");
         holder.appendChild(empty);
         return;
       }
@@ -425,16 +415,11 @@ export function openInvasionsPanel(hud: Hud) {
         info.className = "zteam-info";
         const head = document.createElement("div");
         head.className = "zteam-nm";
-        head.textContent = formation
-          ? `Your farm's defenders (${view.defense.defenders.length})`
-          : view.defense.authored
-            ? `Your arranged defense (${view.defense.defenders.length})`
-            : `Auto defense: your strongest ${view.defense.defenders.length}`;
+        head.textContent = formation ? trMsg`Your farm's defenders (${view.defense.defenders.length})` : view.defense.authored ? trMsg`Your arranged defense (${view.defense.defenders.length})` : trMsg`Auto defense: your strongest ${view.defense.defenders.length}`;
         const sub = document.createElement("div");
         sub.className = "zteam-sub";
         sub.textContent =
-          `Tier ${view.defense.tier} ${TIER_STARS(view.defense.tier)} defense. ` +
-          "Stronger defenders give more boosts — hold the farm and the reward is yours.";
+          trMsg`Tier ${view.defense.tier} ${TIER_STARS(view.defense.tier)} defense. Stronger defenders give more boosts — hold the farm and the reward is yours.`;
         info.append(head, sub, formation
           ? formationList(hud, view.defense.defenders)
           : defenseStrip(hud, view.defense.defenders));
@@ -446,9 +431,7 @@ export function openInvasionsPanel(hud: Hud) {
       actions.className = "zbtns";
       const edit = document.createElement("button");
       edit.className = "zbtn deploy";
-      edit.textContent = formation
-        ? (view.defense?.authored ? "Choose defenders" : "Pick your defenders")
-        : (view.defense?.authored ? "Edit line-up" : "Arrange a line-up");
+      edit.textContent = formation ? tr((view.defense?.authored ? "Choose defenders" : "Pick your defenders")) : tr((view.defense?.authored ? "Edit line-up" : "Arrange a line-up"));
       edit.onclick = () => openDefenseEditor(hud, view.unitIds, formation, () => {
         body.innerHTML = "";
         renderDefense();
@@ -459,7 +442,7 @@ export function openInvasionsPanel(hud: Hud) {
       if (view.defense && hud.onTestPvpDefense) {
         const test = document.createElement("button");
         test.className = "zbtn store";
-        test.textContent = "⚔ Test your defense";
+        test.textContent = tr("⚔ Test your defense");
         test.onclick = () => {
           close();
           hud.onTestPvpDefense?.();
@@ -469,12 +452,12 @@ export function openInvasionsPanel(hud: Hud) {
       if (view.defense?.authored) {
         const auto = document.createElement("button");
         auto.className = "zbtn store";
-        auto.textContent = "Use strongest automatically";
+        auto.textContent = tr("Use strongest automatically");
         auto.onclick = async () => {
           auto.disabled = true;
           const err = await (hud.onSavePvpDefense?.([]) ?? Promise.resolve("offline"));
-          if (err) { hud.showToast("Couldn't update the defense."); auto.disabled = false; return; }
-          hud.showToast("Defense set to automatic — your strongest stand guard.");
+          if (err) { hud.showToast(tr("Couldn't update the defense.")); auto.disabled = false; return; }
+          hud.showToast(tr("Defense set to automatic — your strongest stand guard."));
           body.innerHTML = "";
           renderDefense();
         };
@@ -528,15 +511,13 @@ export function openInvasionsPanel(hud: Hud) {
     }
 
     const title = document.createElement("h2");
-    title.textContent = "Arrange your defense";
+    title.textContent = tr("Arrange your defense");
     const counter = document.createElement("span");
     counter.className = "army-count";
     head.append(title, counter);
     const blurb = document.createElement("p");
     blurb.className = "zteam-note";
-    blurb.textContent = formation
-      ? "One of each class — they each fill their own job."
-      : "They walk out in the order you pick.";
+    blurb.textContent = formation ? tr("One of each class — they each fill their own job.") : tr("They walk out in the order you pick.");
     head.append(blurb);
 
     const save = document.createElement("button");
@@ -546,15 +527,11 @@ export function openInvasionsPanel(hud: Hud) {
     const refresh = () => {
       const n = selectedCount(order);
       const filled = new Set(order.filter(Boolean).map((id) => roleOf(id!)));
-      counter.textContent = formation ? `${n} / ${cap} jobs filled` : `${n} / ${cap} standing`;
+      counter.textContent = formation ? trMsg`${n} / ${cap} jobs filled` : trMsg`${n} / ${cap} standing`;
       counter.classList.toggle("short", !n);
       const empty = DEFENSE_ROLES.filter((role) => !filled.has(role));
       if (formation) {
-        blurb.textContent = empty.length === DEFENSE_ROLES.length
-          ? "One of each class — they each fill their own job."
-          : empty.length
-            ? `No one on: ${empty.map((role) => ROLE_NAME[role]).join(", ")}.`
-            : "Every job filled — a full formation.";
+        blurb.textContent = empty.length === DEFENSE_ROLES.length ? tr("One of each class — they each fill their own job.") : empty.length ? trMsg`No one on: ${empty.map((role) => ROLE_NAME[role]).join(", ")}.` : tr("Every job filled — a full formation.");
       }
       for (const card of grid.querySelectorAll<HTMLElement>(".army-card")) {
         const id = card.dataset.id!;
@@ -565,16 +542,16 @@ export function openInvasionsPanel(hud: Hud) {
         // as taken so the one-per-class rule is visible before the click, not after.
         card.classList.toggle("taken", formation && at < 0 && !!role && filled.has(role));
         const tick = card.querySelector<HTMLElement>(".tick");
-        if (tick) tick.textContent = at >= 0 ? String(at + 1) : "";
+        if (tick) tick.textContent = at >= 0 ? tr(String(at + 1)) : "";
       }
-      save.textContent = n ? `Save defense of ${n}` : "Pick at least one";
+      save.textContent = n ? trMsg`Save defense of ${n}` : tr("Pick at least one");
       save.disabled = !n;
     };
 
     if (!roster.length) {
       const empty = document.createElement("div");
       empty.className = "zr-empty";
-      empty.textContent = "You do not own any zombies yet.";
+      empty.textContent = tr("You do not own any zombies yet.");
       grid.appendChild(empty);
     }
     // Any owned zombie can stand in the defense — resting ones included: the
@@ -600,14 +577,14 @@ export function openInvasionsPanel(hud: Hud) {
       nm.textContent = z.name;
       const ty = document.createElement("div");
       ty.className = "army-ty";
-      ty.textContent = z.typeName;
+      ty.textContent = tr(z.typeName);
       const job = document.createElement("div");
       job.className = "army-st pvp-job";
       const role = roleForGroup(z.group);
-      job.textContent = formation ? (role ? ROLE_NAME[role] : "No job") : "";
+      job.textContent = formation ? tr((role ? ROLE_NAME[role] : "No job")) : "";
       const where = document.createElement("div");
       where.className = "army-st zteam-where";
-      where.textContent = z.stored ? "Resting" : "On farm";
+      where.textContent = z.stored ? tr("Resting") : tr("On farm");
       const tick = document.createElement("span");
       tick.className = "tick";
       card.append(tick, por, nm, ty, job, where);
@@ -626,7 +603,7 @@ export function openInvasionsPanel(hud: Hud) {
 
     const strongest = document.createElement("button");
     strongest.className = "raid-quick";
-    strongest.textContent = formation ? "One of each class" : "Fill with current farm";
+    strongest.textContent = formation ? tr("One of each class") : tr("Fill with current farm");
     strongest.onclick = () => {
       if (!formation) {
         order = roster.filter((z) => !z.stored).slice(0, cap).map((z) => z.id);
@@ -645,7 +622,7 @@ export function openInvasionsPanel(hud: Hud) {
     };
     const clear = document.createElement("button");
     clear.className = "raid-quick";
-    clear.textContent = "Clear";
+    clear.textContent = tr("Clear");
     clear.onclick = () => { order = []; refresh(); };
 
     save.onclick = async () => {
@@ -654,13 +631,11 @@ export function openInvasionsPanel(hud: Hud) {
       save.disabled = true;
       const err = await (hudRef.onSavePvpDefense?.(ids) ?? Promise.resolve("offline"));
       if (err) {
-        hudRef.showToast(err === "duplicate_class"
-          ? "Only one zombie of each class can stand — they each fill their own job."
-          : "Couldn't save the defense — try again in a moment.");
+        hudRef.showToast(err === "duplicate_class" ? tr("Only one zombie of each class can stand — they each fill their own job.") : tr("Couldn't save the defense — try again in a moment."));
         save.disabled = false;
         return;
       }
-      hudRef.showToast("Defense saved — that's the order they'll stand in.");
+      hudRef.showToast(tr("Defense saved — that's the order they'll stand in."));
       closeEditor();
       afterSave();
     };
@@ -674,13 +649,13 @@ export function openInvasionsPanel(hud: Hud) {
   const renderHistory = () => {
     const holder = document.createElement("div");
     holder.className = "pvp-list";
-    holder.textContent = "Loading…";
+    holder.textContent = tr("Loading…");
     body.appendChild(holder);
     void loadOverview().then(() => {
       if (!holder.isConnected) return;
       holder.innerHTML = "";
       if (!overview) {
-        holder.textContent = "Couldn't load the invasion history — try again in a moment.";
+        holder.textContent = tr("Couldn't load the invasion history — try again in a moment.");
         return;
       }
       const view = overview;
@@ -693,24 +668,24 @@ export function openInvasionsPanel(hud: Hud) {
         info.className = "zteam-info";
         const head = document.createElement("div");
         head.className = "zteam-nm";
-        head.textContent = `🛡 ${view.claim.count} defense${view.claim.count === 1 ? "" : "s"} held — reward waiting`;
+        head.textContent = trMsg`🛡 ${view.claim.count} defense${view.claim.count === 1 ? "" : tr("s")} held — reward waiting`;
         const sub = document.createElement("div");
         sub.className = "zteam-sub";
-        sub.textContent = rewardLabel(hud, view.claim.rewards) || "Boost bundle";
+        sub.textContent = tr(rewardLabel(hud, view.claim.rewards) || "Boost bundle");
         info.append(head, sub);
         const claim = document.createElement("button");
         claim.className = "zbtn deploy";
-        claim.textContent = "Claim all";
+        claim.textContent = tr("Claim all");
         markPrimary(claim);
         claim.onclick = async () => {
           claim.disabled = true;
           const got = await (hud.onClaimAllPvpDefense?.() ?? Promise.resolve(null));
           if (!got || !got.claimed) {
-            hud.showToast("Nothing could be claimed just now.");
+            hud.showToast(tr("Nothing could be claimed just now."));
             claim.disabled = false;
             return;
           }
-          hud.showToast(`Defense rewards claimed: ${rewardLabel(hud, got.rewards)}!`, 6000);
+          hud.showToast(trMsg`Defense rewards claimed: ${rewardLabel(hud, got.rewards)}!`, 6000);
           await loadOverview(true);
           body.innerHTML = "";
           renderHistory();
@@ -726,24 +701,22 @@ export function openInvasionsPanel(hud: Hud) {
         `${label}: attacks ${s.attackWins}W–${s.attackLosses}L · defenses ${s.defenseWins}W–${s.defenseLosses}L`;
       const lifetime = document.createElement("div");
       lifetime.className = "zteam-sub";
-      lifetime.textContent = line("All time", view.stats.lifetime);
+      lifetime.textContent = tr(line("All time", view.stats.lifetime));
       const week = document.createElement("div");
       week.className = "zteam-sub";
-      week.textContent = line("Last 7 days", view.stats.week);
+      week.textContent = tr(line("Last 7 days", view.stats.week));
       stats.append(lifetime, week);
       holder.appendChild(stats);
 
       const section = (label: string, rows: PvpFightRowView[], role: "attacker" | "defender") => {
         const hd = document.createElement("div");
         hd.className = "fr-inbox-h";
-        hd.textContent = label;
+        hd.textContent = tr(label);
         holder.appendChild(hd);
         if (!rows.length) {
           const empty = document.createElement("div");
           empty.className = "zr-empty";
-          empty.textContent = role === "attacker"
-            ? "No attacks yet — scout a friend in the Attack tab."
-            : "Nobody has invaded your farm yet.";
+          empty.textContent = role === "attacker" ? tr("No attacks yet — scout a friend in the Attack tab.") : tr("Nobody has invaded your farm yet.");
           holder.appendChild(empty);
           return;
         }
@@ -765,11 +738,11 @@ export function openInvasionsPanel(hud: Hud) {
           const verdict = document.createElement("b");
           verdict.className = `pvp-verdict ${youWon ? "won" : "lost"}`;
           if (role === "attacker") {
-            verdict.textContent = row.attackerWon ? "VICTORY" : "REPELLED";
-            nm.append("⚔ You invaded ", who, " — ", verdict);
+            verdict.textContent = row.attackerWon ? tr("VICTORY") : tr("REPELLED");
+            nm.append(tr("⚔ You invaded "), who, " — ", verdict);
           } else {
-            verdict.textContent = row.attackerWon ? "DEFENSE LOST" : "DEFENSE HELD";
-            nm.append("🛡 ", who, " invaded you — ", verdict);
+            verdict.textContent = row.attackerWon ? tr("DEFENSE LOST") : tr("DEFENSE HELD");
+            nm.append("🛡 ", who, tr(" invaded you — "), verdict);
           }
           const sub = document.createElement("div");
           sub.className = "zteam-sub";
@@ -779,14 +752,14 @@ export function openInvasionsPanel(hud: Hud) {
           // The two scores come down with every row and were being dropped on the
           // floor. They are the only thing that says HOW close it was, and the only
           // way to see that without them was to sit through the replay.
-          const score = `⚔ ${row.attackScore} vs 🛡 ${row.defenseScore}`;
-          sub.textContent = [ago(row.finishedAt), score, paid].filter(Boolean).join(" · ");
+          const score = trMsg`⚔ ${row.attackScore} vs 🛡 ${row.defenseScore}`;
+          sub.textContent = tr([ago(row.finishedAt), score, tr(paid)].filter(Boolean).join(" · "));
           info.append(nm, sub);
           el.appendChild(info);
           if (row.replayAvailable) {
             const watch = document.createElement("button");
             watch.className = "zbtn store";
-            watch.textContent = "▶ Watch";
+            watch.textContent = tr("▶ Watch");
             watch.onclick = () => {
               close();
               hud.onWatchPvpReplay?.(row.sessionId);

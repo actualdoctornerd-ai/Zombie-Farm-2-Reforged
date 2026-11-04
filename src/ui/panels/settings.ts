@@ -1,3 +1,5 @@
+import { html as trHtml, msg as trMsg, t as tr } from "../../i18n";
+import { getLanguage, LANGUAGES, type Language } from "../../i18n";
 // Settings + Developer menus and the account/devices blocks. Extracted from the
 // Hud class: these functions take the Hud instance and render into it, exactly as
 // the former methods did. buildAccountBlock/buildDevicesBlock are also used by
@@ -29,9 +31,9 @@ export async function confirmLocalFarmReset(
   hud: Pick<Hud, "confirmInGame" | "onResetLocal">,
 ): Promise<void> {
   const confirmed = await hud.confirmInGame(
-    "Reset Local Farm?",
-    "This permanently deletes the current Local Farm and its automatic recovery copy from this browser. Downloaded export files and your Online Farm will not be affected.",
-    "Reset Farm",
+    tr("Reset Local Farm?"),
+    tr("This permanently deletes the current Local Farm and its automatic recovery copy from this browser. Downloaded export files and your Online Farm will not be affected."),
+    tr("Reset Farm"),
   );
   if (confirmed) hud.onResetLocal?.();
 }
@@ -41,10 +43,10 @@ function settingRow(label: string, on: boolean, set: (v: boolean) => void) {
   const r = document.createElement("div");
   r.className = "set-row";
   const lbl = document.createElement("span");
-  lbl.textContent = label;
+  lbl.textContent = tr(label);
   const t = document.createElement("button");
   t.className = "toggle" + (on ? " on" : "");
-  t.innerHTML = `<span class="txt l">ON</span><span class="txt r">OFF</span><span class="knob"></span>`;
+  t.innerHTML = trHtml`<span class="txt l">ON</span><span class="txt r">OFF</span><span class="knob"></span>`;
   t.onclick = () => {
     const now = !t.classList.contains("on");
     t.classList.toggle("on", now);
@@ -58,7 +60,7 @@ function volumeRow(label: string, value: number, set: (v: number) => void) {
   const r = document.createElement("label");
   r.className = "set-row set-volume";
   const lbl = document.createElement("span");
-  lbl.textContent = label;
+  lbl.textContent = tr(label);
   const controls = document.createElement("span");
   controls.className = "set-volume-controls";
   const slider = document.createElement("input");
@@ -67,7 +69,7 @@ function volumeRow(label: string, value: number, set: (v: number) => void) {
   slider.max = "100";
   slider.step = "1";
   slider.value = String(Math.round(value * 100));
-  slider.setAttribute("aria-label", `${label} volume`);
+  slider.setAttribute("aria-label", trMsg`${tr(label)} volume`);
   const amount = document.createElement("span");
   amount.className = "set-volume-value";
   amount.textContent = `${slider.value}%`;
@@ -90,13 +92,13 @@ function settingChoiceRow<T extends string>(
   const r = document.createElement("div");
   r.className = "set-row set-row-choice";
   const lbl = document.createElement("span");
-  lbl.textContent = label;
+  lbl.textContent = tr(label);
   const seg = document.createElement("div");
   seg.className = "set-choice";
   const btns = options.map((o) => {
     const b = document.createElement("button");
     b.className = "choice" + (o.id === current ? " on" : "");
-    b.textContent = o.label;
+    b.textContent = tr(o.label);
     b.onclick = () => {
       if (b.classList.contains("on")) return;
       for (const other of btns) other.classList.remove("on");
@@ -113,12 +115,12 @@ function settingChoiceRow<T extends string>(
 /** Short "active N ago" for the device list. Coarse on purpose. */
 function relTime(ts: number): string {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (s < 90) return "just now";
+  if (s < 90) return tr("just now");
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return trMsg`${m}m ago`;
   const h = Math.floor(m / 60);
-  if (h < 48) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 48) return trMsg`${h}h ago`;
+  return trMsg`${Math.floor(h / 24)}d ago`;
 }
 
 /** The Settings tabs, in display order. Grown past one screenful, the panel is
@@ -139,12 +141,12 @@ export function openSettings(hud: Hud): void {
   // The fullscreen listener is torn down via onClose so it detaches whether the
   // panel is dismissed by the close button or a backdrop click.
   const { panel } = openModal({
-    host: hud.el, title: "Settings", panelClass: "settings-panel",
+    host: hud.el, title: tr("Settings"), panelClass: "settings-panel",
     onClose: () => document.removeEventListener("fullscreenchange", refreshFullscreen),
   });
 
   const row = (label: string, on: boolean, set: (v: boolean) => void) =>
-    settingRow(label, on, set);
+    settingRow(tr(label), on, set);
 
   // (Account + Sign out moved to the Profile menu — opened by the top-right
   // nameplate. See openProfiles / buildAccountBlock.)
@@ -153,7 +155,7 @@ export function openSettings(hud: Hud): void {
   const noteEl = (text: string) => {
     const n = document.createElement("div");
     n.className = "set-note";
-    n.textContent = text;
+    n.textContent = tr(text);
     return n;
   };
 
@@ -163,15 +165,14 @@ export function openSettings(hud: Hud): void {
   const fullscreenRow = document.createElement("div");
   fullscreenRow.className = "set-row";
   const fullscreenLabel = document.createElement("span");
-  fullscreenLabel.textContent = "Fullscreen";
+  fullscreenLabel.textContent = tr("Fullscreen");
   const fullscreenButton = document.createElement("button");
   fullscreenButton.className = "set-action";
   const canFullscreen = document.fullscreenEnabled &&
     typeof document.documentElement.requestFullscreen === "function";
   const refreshFullscreen = () => {
     const active = document.fullscreenElement !== null;
-    fullscreenButton.textContent = active ? "Exit Fullscreen" :
-      canFullscreen ? "Enter Fullscreen" : "Unavailable";
+    fullscreenButton.textContent = active ? tr("Exit Fullscreen") : canFullscreen ? tr("Enter Fullscreen") : tr("Unavailable");
     fullscreenButton.disabled = !canFullscreen;
   };
   fullscreenButton.onclick = async () => {
@@ -179,9 +180,9 @@ export function openSettings(hud: Hud): void {
     try {
       await hud.toggleFullscreen();
     } catch {
-      fullscreenButton.textContent = "Couldn't Open";
+      fullscreenButton.textContent = tr("Couldn't Open");
     } finally {
-      if (fullscreenButton.textContent !== "Couldn't Open") refreshFullscreen();
+      if (fullscreenButton.textContent !== tr("Couldn't Open")) refreshFullscreen();
       else fullscreenButton.disabled = false;
     }
   };
@@ -211,7 +212,7 @@ export function openSettings(hud: Hud): void {
     const r = document.createElement("div");
     r.className = "set-row";
     const label = document.createElement("span");
-    label.textContent = "Username";
+    label.textContent = tr("Username");
     const controls = document.createElement("div");
     controls.className = "set-username-controls";
     const input = document.createElement("input");
@@ -220,10 +221,10 @@ export function openSettings(hud: Hud): void {
     input.maxLength = 20;
     input.autocomplete = "off";
     input.value = acct.name;
-    input.setAttribute("aria-label", "Username");
+    input.setAttribute("aria-label", tr("Username"));
     const save = document.createElement("button");
     save.className = "set-username-save";
-    save.textContent = "Save";
+    save.textContent = tr("Save");
     const status = document.createElement("div");
     status.className = "set-username-status";
     const submit = async () => {
@@ -232,17 +233,17 @@ export function openSettings(hud: Hud): void {
       save.disabled = true;
       input.disabled = true;
       status.classList.remove("error");
-      status.textContent = "Saving…";
+      status.textContent = tr("Saving…");
       const error = await hud.onSetUsername!(name).catch(() => ({ code: "error" }));
       save.disabled = false;
       input.disabled = false;
       if (error) {
         status.classList.add("error");
-        status.textContent = usernameRefusalMessage(error);
+        status.textContent = tr(usernameRefusalMessage(error));
         return;
       }
       input.value = hud.myAccount?.()?.name ?? name;
-      status.textContent = "Username updated.";
+      status.textContent = tr("Username updated.");
     };
     save.onclick = () => void submit();
     input.onkeydown = (e) => { if (e.key === "Enter") void submit(); };
@@ -257,9 +258,9 @@ export function openSettings(hud: Hud): void {
   const bgBlock: HTMLElement[] = [];
   if (hud.getFarmBackground && hud.onSetFarmBackground) {
     bgBlock.push(
-      settingChoiceRow("Farm Background", FARM_BACKGROUNDS, hud.getFarmBackground(),
+      settingChoiceRow(tr("Farm Background"), FARM_BACKGROUNDS, hud.getFarmBackground(),
         (v) => hud.onSetFarmBackground?.(v)),
-      noteEl("How many trees surround your farm.")
+      noteEl(tr("How many trees surround your farm."))
     );
   }
 
@@ -273,7 +274,7 @@ export function openSettings(hud: Hud): void {
     const current = hud.getZombieAppearance();
     appearanceBlock.push(
       settingChoiceRow(
-        "Zombie Colour",
+        tr("Zombie Colour"),
         [
           { id: "inherited", label: "Inherited" },
           { id: "species", label: "By Type" },
@@ -281,10 +282,10 @@ export function openSettings(hud: Hud): void {
         current.bodyColor,
         (v) => hud.onSetZombieAppearance?.({ ...hud.getZombieAppearance!(), bodyColor: v }),
       ),
-      noteEl("Inherited keeps the mixed skin a Zombie Pot child was born with. By Type gives every zombie its own species' colour — a silver looks silver however it was bred."),
-      settingRow("Show Mutations", current.showMutations,
+      noteEl(tr("Inherited keeps the mixed skin a Zombie Pot child was born with. By Type gives every zombie its own species' colour — a silver looks silver however it was bred.")),
+      settingRow(tr("Show Mutations"), current.showMutations,
         (v) => hud.onSetZombieAppearance?.({ ...hud.getZombieAppearance!(), showMutations: v })),
-      noteEl("Off hides crop mutations (onion heads, celery arms) on every zombie. They keep the mutations and their stat bonuses — this only changes how they look."),
+      noteEl(tr("Off hides crop mutations (onion heads, celery arms) on every zombie. They keep the mutations and their stat bonuses — this only changes how they look.")),
     );
   }
 
@@ -292,17 +293,17 @@ export function openSettings(hud: Hud): void {
   // neither, and the bars alone are the look most players expect — so this is opt-in
   // detail for anyone who wants to see the arithmetic. Neither changes the fight.
   const combatBlock: HTMLElement[] = [
-    settingRow("Health Bar Numbers", getShowHealthNumbers(), (v) => setShowHealthNumbers(v)),
-    noteEl("Prints the HP left over each health bar in a raid, like “27/40”."),
-    settingRow("Damage Numbers", getShowDamageNumbers(), (v) => setShowDamageNumbers(v)),
-    noteEl("Floats the damage of each hit off the unit that took it. Both apply from your next invasion, and neither changes the fight."),
+    settingRow(tr("Health Bar Numbers"), getShowHealthNumbers(), (v) => setShowHealthNumbers(v)),
+    noteEl(tr("Prints the HP left over each health bar in a raid, like “27/40”.")),
+    settingRow(tr("Damage Numbers"), getShowDamageNumbers(), (v) => setShowDamageNumbers(v)),
+    noteEl(tr("Floats the damage of each hit off the unit that took it. Both apply from your next invasion, and neither changes the fight.")),
   ];
 
   const ambienceBlock: HTMLElement[] = [];
   if (hud.getDayNightMode && hud.onSetDayNightMode) {
     ambienceBlock.push(
       settingChoiceRow(
-        "Day / Night",
+        tr("Day / Night"),
         [
           { id: "auto", label: "Auto" },
           { id: "day", label: "Day" },
@@ -313,14 +314,14 @@ export function openSettings(hud: Hud): void {
           hud.onSetDayNightMode?.(v);
         }
       ),
-      noteEl("Auto follows this device's local clock (night from 7pm to 7am).")
+      noteEl(tr("Auto follows this device's local clock (night from 7pm to 7am)."))
     );
   }
   if (hud.getFarmerLantern && hud.onSetFarmerLantern) {
     ambienceBlock.push(
-      settingRow("Farmer's Lantern", hud.getFarmerLantern(),
+      settingRow(tr("Farmer's Lantern"), hud.getFarmerLantern(),
         (v) => hud.onSetFarmerLantern?.(v)),
-      noteEl("Off puts the lamp away and leaves the farm dark after sunset, lit only by whatever you have placed."),
+      noteEl(tr("Off puts the lamp away and leaves the farm dark after sunset, lit only by whatever you have placed.")),
     );
   }
   // What the inputs do, as opposed to what things look like. The right-click row is
@@ -328,7 +329,7 @@ export function openSettings(hud: Hud): void {
   // a tablet with a mouse attached is a real player.
   const controlsBlock: HTMLElement[] = [
     settingChoiceRow(
-      "Right-Click",
+      tr("Right-Click"),
       [
         { id: "menu", label: "Tool Menu" },
         { id: "select", label: "Select Tool" },
@@ -336,7 +337,7 @@ export function openSettings(hud: Hud): void {
       getRightClickMode(),
       (v) => setRightClickMode(v),
     ),
-    noteEl("Tool Menu opens the quick-switch tool menu at the cursor. Select Tool goes straight back to the Select tool, like it used to."),
+    noteEl(tr("Tool Menu opens the quick-switch tool menu at the cursor. Select Tool goes straight back to the Select tool, like it used to.")),
   ];
   // Whether the farmer himself is a lantern switch. Only offered alongside the
   // lantern feature itself — on its own it would read as a setting for a feature
@@ -344,24 +345,22 @@ export function openSettings(hud: Hud): void {
   if (hud.getFarmerLantern && hud.onSetFarmerLantern
       && hud.getFarmerLanternTap && hud.onSetFarmerLanternTap) {
     controlsBlock.push(
-      settingRow("Tap Farmer for Lantern", hud.getFarmerLanternTap(),
+      settingRow(tr("Tap Farmer for Lantern"), hud.getFarmerLanternTap(),
         (v) => hud.onSetFarmerLanternTap?.(v)),
-      noteEl("On, tapping the farmer at night switches his lantern. Off, that tap goes to the ground under him instead — the Display tab's Farmer's Lantern row still switches it."),
+      noteEl(tr("On, tapping the farmer at night switches his lantern. Off, that tap goes to the ground under him instead — the Display tab's Farmer's Lantern row still switches it.")),
     );
   }
   const farmMode = document.createElement("div");
   farmMode.className = "set-row";
   const farmModeLabel = document.createElement("span");
-  farmModeLabel.textContent = hud.playMode === "local" ? "Local Farm" : "Online Farm";
+  farmModeLabel.textContent = hud.playMode === "local" ? tr("Local Farm") : tr("Online Farm");
   const switchFarm = document.createElement("button");
   switchFarm.className = "set-action";
   const destination = otherPlayMode(hud.playMode);
-  switchFarm.textContent = playModeDestinationLabel(hud.playMode);
+  switchFarm.textContent = tr(playModeDestinationLabel(hud.playMode));
   switchFarm.onclick = () => hud.onSwitchFarm?.(destination);
   farmMode.append(farmModeLabel, switchFarm);
-  const farmModeNote = noteEl(hud.playMode === "local"
-    ? "Saved on this device only. Online Farm has separate progress."
-    : "Saved to your account. Local Farm has separate progress.");
+  const farmModeNote = noteEl(hud.playMode === "local" ? tr("Saved on this device only. Online Farm has separate progress.") : tr("Saved to your account. Local Farm has separate progress."));
   // Save file controls. Both farms export the same thing — a plain save file — but
   // only Local Farm can read one back, so Import/Reset stay local-only.
   const localStorageControls: HTMLElement[] = [];
@@ -369,16 +368,16 @@ export function openSettings(hud: Hud): void {
     const actions = document.createElement("div");
     actions.className = "set-row";
     const label = document.createElement("span");
-    label.textContent = "Local Save";
+    label.textContent = tr("Local Save");
     const controls = document.createElement("div");
     controls.className = "set-username-controls";
     const exportButton = document.createElement("button");
     exportButton.className = "set-action";
-    exportButton.textContent = "Export";
+    exportButton.textContent = tr("Export");
     exportButton.onclick = () => hud.onExportSave?.();
     const importButton = document.createElement("button");
     importButton.className = "set-action";
-    importButton.textContent = "Import";
+    importButton.textContent = tr("Import");
     const picker = document.createElement("input");
     picker.type = "file";
     picker.accept = "application/json,.json";
@@ -388,18 +387,18 @@ export function openSettings(hud: Hud): void {
       const file = picker.files?.[0];
       if (!file) return;
       if (!hud.onImportLocal?.(await file.text())) {
-        hud.showToast("That file is not a valid Local Farm backup.");
+        hud.showToast(tr("That file is not a valid Local Farm backup."));
       }
     };
     const resetButton = document.createElement("button");
     resetButton.className = "set-action";
-    resetButton.textContent = "Reset";
+    resetButton.textContent = tr("Reset");
     resetButton.onclick = () => void confirmLocalFarmReset(hud);
     controls.append(exportButton, importButton, resetButton, picker);
     actions.append(label, controls);
     localStorageControls.push(
       actions,
-      noteEl("Clearing browser data can remove Local Farm. Export a backup to keep it safe. Import also accepts an Online Farm export."),
+      noteEl(tr("Clearing browser data can remove Local Farm. Export a backup to keep it safe. Import also accepts an Online Farm export.")),
     );
   } else {
     // Online Farm export: a one-way copy out to a file. There is no Import here —
@@ -408,18 +407,18 @@ export function openSettings(hud: Hud): void {
     const actions = document.createElement("div");
     actions.className = "set-row";
     const label = document.createElement("span");
-    label.textContent = "Online Save";
+    label.textContent = tr("Online Save");
     const controls = document.createElement("div");
     controls.className = "set-username-controls";
     const exportButton = document.createElement("button");
     exportButton.className = "set-action";
-    exportButton.textContent = "Export";
+    exportButton.textContent = tr("Export");
     exportButton.onclick = () => hud.onExportSave?.();
     controls.append(exportButton);
     actions.append(label, controls);
     localStorageControls.push(
       actions,
-      noteEl("Downloads a copy of this farm. Load it with Local Farm's Import — it can't be imported back into an Online Farm."),
+      noteEl(tr("Downloads a copy of this farm. Load it with Local Farm's Import — it can't be imported back into an Online Farm.")),
     );
   }
   // Diagnostics: available in BOTH farm modes, because crashes happen in both. Copying
@@ -428,18 +427,18 @@ export function openSettings(hud: Hud): void {
   const diagnostics = document.createElement("div");
   diagnostics.className = "set-row";
   const diagLabel = document.createElement("span");
-  diagLabel.textContent = "Diagnostics";
+  diagLabel.textContent = tr("Diagnostics");
   const diagControls = document.createElement("div");
   diagControls.className = "set-username-controls";
   const copyButton = document.createElement("button");
   copyButton.className = "set-action";
   const captured = diagnosticsCount();
-  copyButton.textContent = captured ? `Copy (${captured})` : "Copy";
+  copyButton.textContent = captured ? trMsg`Copy (${captured})` : tr("Copy");
   copyButton.onclick = async () => {
     const text = diagnosticsReport({ mode: hud.playMode, ...hud.getDiagnosticExtras?.() });
     try {
       await navigator.clipboard.writeText(text);
-      hud.showToast("Diagnostics copied. Paste them into your bug report.");
+      hud.showToast(tr("Diagnostics copied. Paste them into your bug report."));
     } catch {
       // Clipboard needs a secure context and permission; neither is guaranteed on a
       // phone browser. Fall back to selectable text the player can copy by hand.
@@ -450,16 +449,16 @@ export function openSettings(hud: Hud): void {
       diagnostics.after(box);
       box.focus();
       box.select();
-      hud.showToast("Couldn't reach the clipboard — copy the text shown instead.", 6000);
+      hud.showToast(tr("Couldn't reach the clipboard — copy the text shown instead."), 6000);
     }
   };
   const clearButton = document.createElement("button");
   clearButton.className = "set-action";
-  clearButton.textContent = "Clear";
+  clearButton.textContent = tr("Clear");
   clearButton.onclick = () => {
     clearDiagnostics();
-    copyButton.textContent = "Copy";
-    hud.showToast("Diagnostics cleared.");
+    copyButton.textContent = tr("Copy");
+    hud.showToast(tr("Diagnostics cleared."));
   };
   diagControls.append(copyButton, clearButton);
   diagnostics.append(diagLabel, diagControls);
@@ -471,36 +470,34 @@ export function openSettings(hud: Hud): void {
   const updates = document.createElement("div");
   updates.className = "set-row";
   const updatesLabel = document.createElement("span");
-  updatesLabel.textContent = "Updates";
+  updatesLabel.textContent = tr("Updates");
   const updatesButton = document.createElement("button");
   updatesButton.className = "set-action";
-  updatesButton.textContent = "Check for Updates";
+  updatesButton.textContent = tr("Check for Updates");
   // In a downloaded package there is no service worker to ask (it is disabled so
   // it can't mask modded files), so the shell that serves the game tells us which
   // repository it came from and we ask that for its newest release.
   const shell = shellInfo();
-  const updatesNote = noteEl(shell
-    ? `Ask ${shell.repo} whether a newer version has been released. Nothing is downloaded or changed without asking you.`
-    : "Look for a newer version of the game.");
+  const updatesNote = noteEl(shell ? trMsg`Ask ${shell.repo} whether a newer version has been released. Nothing is downloaded or changed without asking you.` : tr("Look for a newer version of the game."));
   updatesButton.onclick = async () => {
     updatesButton.disabled = true;
-    updatesButton.textContent = "Checking…";
-    updatesNote.textContent = "Checking for updates…";
+    updatesButton.textContent = tr("Checking…");
+    updatesNote.textContent = tr("Checking for updates…");
     try {
       if (shell) {
         const result = await checkShellUpdate(shell);
-        updatesNote.textContent = shellUpdateMessage(result);
+        updatesNote.textContent = tr(shellUpdateMessage(result));
         if (result.status === "update-available") {
           // Deliberately a question, and deliberately the end of our involvement:
           // replacing game/ would delete the player's mods, so accepting opens the
           // download page and leaves the files alone.
           const wanted = await hud.confirmInGame(
-            `${result.latest} is available`,
-            `You're playing ${result.current}. Opening the download page won't change anything on this PC — you'll get a new zip to extract yourself, and your current copy, saves and mods stay exactly as they are.`,
-            "Open download page",
+            trMsg`${result.latest} is available`,
+            trMsg`You're playing ${result.current}. Opening the download page won't change anything on this PC — you'll get a new zip to extract yourself, and your current copy, saves and mods stay exactly as they are.`,
+            tr("Open download page"),
           );
           if (wanted && !(await openReleasePage(shell))) {
-            updatesNote.textContent = `Couldn't open a browser. The download is at ${releasesUrl(shell)}`;
+            updatesNote.textContent = trMsg`Couldn't open a browser. The download is at ${releasesUrl(shell)}`;
           }
         }
       } else {
@@ -510,10 +507,10 @@ export function openSettings(hud: Hud): void {
         } catch {
           result = "error";
         }
-        updatesNote.textContent = updateCheckMessage(result);
+        updatesNote.textContent = tr(updateCheckMessage(result));
       }
     } finally {
-      updatesButton.textContent = "Check for Updates";
+      updatesButton.textContent = tr("Check for Updates");
       updatesButton.disabled = false;
     }
   };
@@ -524,10 +521,10 @@ export function openSettings(hud: Hud): void {
   const announcements = document.createElement("div");
   announcements.className = "set-row";
   const announcementsLabel = document.createElement("span");
-  announcementsLabel.textContent = "Announcements";
+  announcementsLabel.textContent = tr("Announcements");
   const announcementsButton = document.createElement("button");
   announcementsButton.className = "set-action";
-  announcementsButton.textContent = "Read";
+  announcementsButton.textContent = tr("Read");
   announcementsButton.onclick = () => hud.onOpenAnnouncements?.();
   announcements.append(announcementsLabel, announcementsButton);
 
@@ -542,37 +539,36 @@ export function openSettings(hud: Hud): void {
 
   const tabContent: Record<SettingsTab, HTMLElement[]> = {
     game: [
+      languageRow(hud),
       farmMode,
       farmModeNote,
-      settingRow("Insta-Harvest Zombies", getInstaHarvestZombies(), setInstaHarvestZombies),
-      noteEl("Off, Insta-Harvest picks your crops and fruit trees but leaves ripe zombies in the ground for you to harvest by hand."),
+      settingRow(tr("Insta-Harvest Zombies"), getInstaHarvestZombies(), setInstaHarvestZombies),
+      noteEl(tr("Off, Insta-Harvest picks your crops and fruit trees but leaves ripe zombies in the ground for you to harvest by hand.")),
       ...localStorageControls,
       ...accountBlock,
       diagnostics,
-      noteEl("Copies this build's id, your browser, a short list of what the game has just been doing, and any recorded errors. No save data, no account details, nothing you have typed. Nothing is sent anywhere — paste it into a bug report."),
+      noteEl(tr("Copies this build's id, your browser, a short list of what the game has just been doing, and any recorded errors. No save data, no account details, nothing you have typed. Nothing is sent anywhere — paste it into a bug report.")),
       updates,
       updatesNote,
       ...(hud.onOpenAnnouncements ? [announcements] : []),
     ],
     audio: [
       row("All Audio", hud.audio.masterOn, (v) => hud.audio.setMaster(v)),
-      volumeRow("Master Volume", hud.audio.masterVolume, (v) => hud.audio.setMasterVolume(v)),
+      volumeRow(tr("Master Volume"), hud.audio.masterVolume, (v) => hud.audio.setMasterVolume(v)),
       row("Music", hud.audio.musicOn, (v) => hud.audio.setMusic(v)),
-      volumeRow("Music Volume", hud.audio.musicVolume, (v) => hud.audio.setMusicVolume(v)),
+      volumeRow(tr("Music Volume"), hud.audio.musicVolume, (v) => hud.audio.setMusicVolume(v)),
       row("Sound Effects", hud.audio.sfxOn, (v) => hud.audio.setSfx(v)),
-      volumeRow("Effects Volume", hud.audio.sfxVolume, (v) => hud.audio.setSfxVolume(v)),
+      volumeRow(tr("Effects Volume"), hud.audio.sfxVolume, (v) => hud.audio.setSfxVolume(v)),
       row("Ambience", hud.audio.ambienceOn, (v) => hud.audio.setAmbience(v)),
-      volumeRow("Ambience Volume", hud.audio.ambienceVolume,
+      volumeRow(tr("Ambience Volume"), hud.audio.ambienceVolume,
         (v) => hud.audio.setAmbienceVolume(v)),
       row("Mute When Unfocused", hud.audio.muteWhenUnfocused,
         (v) => hud.audio.setMuteWhenUnfocused(v)),
-      noteEl("Silence the game while its tab or window is in the background."),
+      noteEl(tr("Silence the game while its tab or window is in the background.")),
     ],
     display: [
       fullscreenRow,
-      noteEl(canFullscreen
-        ? "Press F to toggle fullscreen. Escape also exits."
-        : "This browser doesn't support app-controlled fullscreen."),
+      noteEl(canFullscreen ? tr("Press F to toggle fullscreen. Escape also exits.") : tr("This browser doesn't support app-controlled fullscreen.")),
       ...ambienceBlock,
       ...bgBlock,
       ...appearanceBlock,
@@ -591,7 +587,7 @@ export function openSettings(hud: Hud): void {
   for (const t of SETTINGS_TABS) {
     const b = document.createElement("button");
     b.className = "pm-screen";
-    b.textContent = t.label;
+    b.textContent = tr(t.label);
     b.onclick = () => show(t.id);
     tabButtons[t.id] = b;
     tabs.appendChild(b);
@@ -600,25 +596,56 @@ export function openSettings(hud: Hud): void {
 
   const version = document.createElement("div");
   version.className = "set-version";
-  version.textContent = `Version ${BUILD_ID}`;
+  version.textContent = trMsg`Version ${BUILD_ID}`;
   panel.append(version);
+}
+
+function languageRow(hud: Hud): HTMLElement {
+  const row = document.createElement("label");
+  row.className = "set-row";
+  const label = document.createElement("span");
+  label.textContent = tr("Language");
+  const select = document.createElement("select");
+  select.className = "set-language";
+  select.setAttribute("aria-label", tr("Language"));
+  select.title = tr("Changing language saves your farm and reloads the game.");
+  for (const language of LANGUAGES) {
+    const option = document.createElement("option");
+    option.value = language.id;
+    option.textContent = language.name;
+    select.appendChild(option);
+  }
+  select.value = getLanguage();
+  select.onchange = async () => {
+    select.disabled = true;
+    try {
+      await hud.onSetLanguage?.(select.value as Language);
+    } catch {
+      select.value = getLanguage();
+      hud.showToast(tr("Couldn't change language. Please try again."));
+    } finally {
+      select.disabled = false;
+    }
+  };
+  row.append(label, select);
+  return row;
 }
 
 // Developer menu: hidden from normal play, opened only via the invisible hotspot
 // beside the nameplate. Holds the Night-lighting toggle,
 // level/gold/brains overrides, and the per-tier raid ability unlocks.
 export function openDevMenu(hud: Hud): void {
-  const { panel } = openModal({ host: hud.el, title: "Developer" });
+  const { panel } = openModal({ host: hud.el, title: tr("Developer") });
 
   const row = (label: string, on: boolean, set: (v: boolean) => void) =>
-    settingRow(label, on, set);
+    settingRow(tr(label), on, set);
 
   // Developer number field: label + numeric input applied on change.
   const numRow = (label: string, value: number, apply: (n: number) => void) => {
     const r = document.createElement("div");
     r.className = "set-row";
     const lbl = document.createElement("span");
-    lbl.textContent = label;
+    lbl.textContent = tr(label);
     const inp = document.createElement("input");
     inp.type = "number";
     inp.className = "dev-input";
@@ -667,11 +694,11 @@ export function buildAccountBlock(hud: Hud): HTMLElement | null {
   // away with it; the safety then lived in a regex three modules away rather than here.
   const whoName = document.createElement("b");
   whoName.textContent = acct.name;
-  who.append("Signed in as ", whoName);
+  who.append(tr("Signed in as "), whoName);
   info.append(who);
   const out = document.createElement("button");
   out.className = "set-signout";
-  out.textContent = "Sign out";
+  out.textContent = tr("Sign out");
   out.onclick = () => hud.onSignOut?.();
   block.append(info, out);
   return block;
@@ -686,10 +713,10 @@ export function buildDevicesBlock(hud: Hud): HTMLElement | null {
   const block = document.createElement("div");
   block.className = "set-devices";
   const h = document.createElement("h3");
-  h.textContent = "Devices";
+  h.textContent = tr("Devices");
   const list = document.createElement("div");
   list.className = "set-dev-list";
-  list.textContent = "Loading…";
+  list.textContent = tr("Loading…");
   block.append(h, list);
 
   const render = async () => {
@@ -697,11 +724,11 @@ export function buildDevicesBlock(hud: Hud): HTMLElement | null {
     try {
       rows = await hud.onListSessions!();
     } catch {
-      list.textContent = "Couldn't load your devices.";
+      list.textContent = tr("Couldn't load your devices.");
       return;
     }
     list.innerHTML = "";
-    if (!rows.length) { list.textContent = "No active devices."; return; }
+    if (!rows.length) { list.textContent = tr("No active devices."); return; }
     for (const r of rows) {
       const row = document.createElement("div");
       row.className = "set-dev-row";
@@ -710,21 +737,21 @@ export function buildDevicesBlock(hud: Hud): HTMLElement | null {
       const name = document.createElement("div");
       name.className = "set-dev-name";
       // textContent — the label is server-derived, but never build markup from it.
-      name.textContent = r.label ?? "Unknown device";
+      name.textContent = tr(r.label ?? "Unknown device");
       const when = document.createElement("div");
       when.className = "set-dev-when";
-      when.textContent = r.current ? "This device" : `Active ${relTime(r.lastUsedAt)}`;
+      when.textContent = r.current ? tr("This device") : trMsg`Active ${relTime(r.lastUsedAt)}`;
       meta.append(name, when);
       row.append(meta);
       if (!r.current) {
         const rev = document.createElement("button");
         rev.className = "set-dev-revoke";
-        rev.textContent = "Sign out";
+        rev.textContent = tr("Sign out");
         rev.onclick = async () => {
           rev.disabled = true;
           const ok = await hud.onRevokeSession?.(r.id).catch(() => false);
           if (ok) row.remove();
-          else { rev.disabled = false; hud.showToast("Couldn't sign that device out."); }
+          else { rev.disabled = false; hud.showToast(tr("Couldn't sign that device out.")); }
         };
         row.append(rev);
       }

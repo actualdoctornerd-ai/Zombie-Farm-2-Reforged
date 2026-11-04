@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n";
 // The Tim Buckwheat guided tutorial — a first-run presentation layer that leads the
 // player through the core loop: plant a zombie and a carrot beside it, grow them (Tim
 // spends the two Insta-Grows a new farm starts with), harvest the mutated zombie, re-plow
@@ -496,7 +497,7 @@ export class TutorialController {
     const skip = document.createElement("button");
     skip.className = "tut-skip";
     skip.type = "button";
-    skip.textContent = SKIP_LABEL;
+    skip.textContent = tr(SKIP_LABEL);
     skip.onclick = (e) => { e.stopPropagation(); this.onSkipTapped(); };
 
     layer.append(tim, arrow, skip);
@@ -513,7 +514,7 @@ export class TutorialController {
     if (this.skipDisarm) { clearTimeout(this.skipDisarm); this.skipDisarm = 0; }
     if (!this.skipArmed) {
       this.skipArmed = true;
-      this.skip.textContent = SKIP_CONFIRM_LABEL;
+      this.skip.textContent = tr(SKIP_CONFIRM_LABEL);
       this.skip.classList.add("armed");
       this.skipDisarm = window.setTimeout(() => this.disarmSkip(), SKIP_CONFIRM_MS);
       return;
@@ -528,7 +529,7 @@ export class TutorialController {
   private disarmSkip() {
     if (this.skipDisarm) { clearTimeout(this.skipDisarm); this.skipDisarm = 0; }
     this.skipArmed = false;
-    this.skip.textContent = SKIP_LABEL;
+    this.skip.textContent = tr(SKIP_LABEL);
     this.skip.classList.remove("armed");
   }
 
@@ -536,13 +537,13 @@ export class TutorialController {
     this.timSprite.src = `${BASE}assets/tutorial/farmer.png`;
     this.bubble.innerHTML = "";
     const text = document.createElement("span");
-    text.textContent = def.say;
+    text.textContent = tr(def.say);
     this.bubble.appendChild(text);
 
     if (def.hint) {
       const hint = document.createElement("span");
       hint.className = "tut-hint";
-      hint.textContent = def.hint;
+      hint.textContent = tr(def.hint);
       this.bubble.appendChild(hint);
     }
 

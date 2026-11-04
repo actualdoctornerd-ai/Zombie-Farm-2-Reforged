@@ -1,3 +1,4 @@
+import { html as trHtml, t as tr } from "./i18n";
 import {
   canPlayOnline, canSignIn, isExportOnly, OPEN_STATUS, type ServiceStatus,
 } from "./net/serviceStatus";
@@ -11,7 +12,7 @@ export function otherPlayMode(mode: PlayMode): PlayMode {
 }
 
 export function playModeDestinationLabel(mode: PlayMode): string {
-  return mode === "local" ? "Go to Online Farm" : "Go to Local Farm";
+  return mode === "local" ? tr("Go to Online Farm") : tr("Go to Local Farm");
 }
 
 /** The selected farm—not a retained auth session—owns the gameplay boundary. */
@@ -44,19 +45,17 @@ export function onlineFarmTile(status: ServiceStatus): {
 } {
   if (!canSignIn(status)) {
     return {
-      title: "Online Farm — Closed",
-      body: status.notice
-        ?? "Online Farm is closed while we get ready for the full release. Local Farm is unaffected.",
-      note: "Sign-in unavailable · Your online progress is kept",
+      title: tr("Online Farm — Closed"),
+      body: status.notice ?? tr("Online Farm is closed while we get ready for the full release. Local Farm is unaffected."),
+      note: tr("Sign-in unavailable · Your online progress is kept"),
       disabled: true,
     };
   }
   if (isExportOnly(status)) {
     return {
-      title: "Export My Online Farm",
-      body: status.notice
-        ?? "The beta is over and Online Farm is closed for now. Sign in once to download a copy of your farm, then play it in Local Farm.",
-      note: "Sign in to export · No online play until the full release",
+      title: tr("Export My Online Farm"),
+      body: status.notice ?? tr("The beta is over and Online Farm is closed for now. Sign in once to download a copy of your farm, then play it in Local Farm."),
+      note: tr("Sign in to export · No online play until the full release"),
       disabled: false,
     };
   }
@@ -64,18 +63,16 @@ export function onlineFarmTile(status: ServiceStatus): {
     // Not currently reachable: every mode that forbids play also forbids sign-in or is
     // export_only. Kept so a future mode cannot silently present itself as playable.
     return {
-      title: "Online Farm — Limited",
-      body: status.notice ?? "Online Farm is not accepting gameplay right now.",
-      note: "Read-only",
+      title: tr("Online Farm — Limited"),
+      body: status.notice ?? tr("Online Farm is not accepting gameplay right now."),
+      note: tr("Read-only"),
       disabled: false,
     };
   }
   return {
-    title: "Play Online",
-    body: "Sign in to save across devices and use online features.",
-    note: status.mode === "signups_closed"
-      ? "Cloud saved · New accounts are paused — existing players can sign in"
-      : "Cloud saved · Internet required for gameplay",
+    title: tr("Play Online"),
+    body: tr("Sign in to save across devices and use online features."),
+    note: status.mode === "signups_closed" ? tr("Cloud saved · New accounts are paused — existing players can sign in") : tr("Cloud saved · Internet required for gameplay"),
     disabled: false,
   };
 }
@@ -121,7 +118,7 @@ export function choosePlayMode(
   const online = onlineFarmTile(status);
   const root = document.createElement("div");
   root.className = "zf-mode-gate";
-  root.innerHTML = `
+  root.innerHTML = trHtml`
     <main class="zf-mode-card" aria-labelledby="zf-mode-title">
       <h1 id="zf-mode-title">Choose Your Farm</h1>
       <p class="zf-mode-intro">Local Farm and Online Farm have completely separate progress.</p>
@@ -157,7 +154,7 @@ export function showOnlineUnavailable(
 ): Promise<void> {
   const root = document.createElement("div");
   root.className = "zf-mode-gate";
-  root.innerHTML = `
+  root.innerHTML = trHtml`
     <main class="zf-mode-card zf-online-unavailable" aria-labelledby="zf-online-title">
       <h1 id="zf-online-title">Can’t Reach Your Online Farm</h1>
       <p>Your cloud progress is safe, but Online Farm requires an internet connection.</p>
@@ -175,13 +172,13 @@ export function showOnlineUnavailable(
     retryButton.onclick = async () => {
       retryButton.disabled = true;
       localButton.disabled = true;
-      status.textContent = "Connecting…";
+      status.textContent = tr("Connecting…");
       if (await retry()) {
         root.remove();
         resolve();
         return;
       }
-      status.textContent = "Still unable to connect. Your Online Farm remains safe.";
+      status.textContent = tr("Still unable to connect. Your Online Farm remains safe.");
       retryButton.disabled = false;
       localButton.disabled = false;
     };
@@ -195,7 +192,7 @@ export function showLocalUnavailable(
 ): Promise<void> {
   const root = document.createElement("div");
   root.className = "zf-mode-gate";
-  root.innerHTML = `
+  root.innerHTML = trHtml`
     <main class="zf-mode-card zf-online-unavailable" aria-labelledby="zf-local-save-title">
       <h1 id="zf-local-save-title">Can’t Open Your Local Farm</h1>
       <p>Your saved farm has not been overwritten. Browser storage may be temporarily unavailable, or the latest save may be damaged.</p>
@@ -214,21 +211,21 @@ export function showLocalUnavailable(
     retryButton.onclick = async () => {
       retryButton.disabled = true;
       resetButton.disabled = true;
-      status.textContent = "Opening saved farm…";
+      status.textContent = tr("Opening saved farm…");
       if (await retry()) {
         root.remove();
         resolve();
         return;
       }
-      status.textContent = "The saved farm still could not be opened. It has not been changed.";
+      status.textContent = tr("The saved farm still could not be opened. It has not been changed.");
       retryButton.disabled = false;
       resetButton.disabled = false;
     };
     resetButton.onclick = () => {
       if (!resetArmed) {
         resetArmed = true;
-        resetButton.textContent = "Confirm Start New Farm";
-        status.textContent = "This permanently deletes the saved Local Farm and its backup.";
+        resetButton.textContent = tr("Confirm Start New Farm");
+        status.textContent = tr("This permanently deletes the saved Local Farm and its backup.");
         return;
       }
       retryButton.disabled = true;

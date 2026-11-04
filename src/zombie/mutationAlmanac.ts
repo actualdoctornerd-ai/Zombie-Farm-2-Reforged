@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../i18n/translate";
 // Mutation Almanac: the collection behind the Zombies menu's third tab.
 //
 // The Zombie Almanac collects SPECIES; this collects the sixteen mutations that can be
@@ -94,7 +95,7 @@ const CROPS_BY_MUTATION = ((): Readonly<Record<string, string[]>> => {
 
 /** English list: "a, b or c". */
 const orList = (items: readonly string[]): string =>
-  items.length <= 1 ? items[0] ?? "" : `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
+  items.length <= 1 ? items[0] ?? "" : trMsg`${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
 
 /** One-line "how do I get this?", shown on an undiscovered entry.
  *
@@ -105,9 +106,9 @@ const orList = (items: readonly string[]): string =>
 export function mutationObtainHint(def: MutationDef, sources: MutationAlmanacSources): string {
   const crops = (CROPS_BY_MUTATION[def.key] ?? [])
     .map((cropKey) => sources.cropName(cropKey))
-    .filter((name): name is string => !!name);
-  if (!crops.length) return "Found on a bought or combined zombie.";
-  return `Grow a zombie crop beside ${orList(crops)}.`;
+    .filter((name): name is string => !!name).map(name => tr(name));
+  if (!crops.length) return tr("Found on a bought or combined zombie.");
+  return trMsg`Grow a zombie crop beside ${orList(crops)}.`;
 }
 
 /**
@@ -138,7 +139,7 @@ export function mutationAlmanacEntries(
       icon: MUTATION_ICON[def.key] ?? "",
       statEffects: statEffectsOf(def),
       obtained: Math.max(0, Math.floor(discovered[def.key] ?? 0)),
-      hint: mutationObtainHint(def, sources),
+      hint: tr(mutationObtainHint(def, sources)),
     };
   });
 }
@@ -150,7 +151,7 @@ export const STAT_LABELS: Readonly<Record<Stat, string>> = {
   con: "Life",
 };
 export function statEffectText(effect: { stat: Stat; amount: number }): string {
-  return `${effect.amount > 0 ? "+" : ""}${effect.amount} ${STAT_LABELS[effect.stat]}`;
+  return `${effect.amount > 0 ? "+" : ""}${effect.amount} ${tr(STAT_LABELS[effect.stat])}`;
 }
 
 /** Seed the map from an existing roster — the first run after this tab ships, or a save

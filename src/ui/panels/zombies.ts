@@ -1,3 +1,4 @@
+import { html as trHtml, msg as trMsg, t as tr } from "../../i18n";
 // The Zombies menu (right bar) and the zombie inspect-card cluster, extracted
 // from the Hud class: these functions take the Hud instance and render into it,
 // exactly as the former methods did. The menu now has two tabs:
@@ -51,16 +52,16 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     closeTip();
     tip = document.createElement("div");
     tip.className = "ztip";
-    tip.innerHTML = `<b>${title}</b><span>${body}</span>`;
+    tip.innerHTML = trHtml`<b>${tr(title)}</b><span>${body}</span>`;
     // On compact layouts the panel itself scrolls. Put the popup beside the
     // panel in its full-viewport backdrop so it can extend beyond the card.
     const portal = host.parentElement ?? host;
     portal.appendChild(tip);
     const ar = anchor.getBoundingClientRect();
-    const tr = tip.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
     const edge = 8;
     const gap = 8;
-    const halfWidth = tr.width / 2;
+    const halfWidth = tipRect.width / 2;
     const anchorCenter = ar.left + ar.width / 2;
     const left = Math.min(
       window.innerWidth - edge - halfWidth,
@@ -73,14 +74,14 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     // to keep the whole popup inside the viewport.
     const roomAbove = ar.top - gap - edge;
     const roomBelow = window.innerHeight - ar.bottom - gap - edge;
-    const below = roomAbove < tr.height;
+    const below = roomAbove < tipRect.height;
     tip.classList.toggle("below", below);
     if (!below) {
       tip.style.top = `${ar.top - gap}px`;
-    } else if (roomBelow >= tr.height) {
+    } else if (roomBelow >= tipRect.height) {
       tip.style.top = `${ar.bottom + gap}px`;
     } else {
-      tip.style.top = `${Math.max(edge, window.innerHeight - edge - tr.height)}px`;
+      tip.style.top = `${Math.max(edge, window.innerHeight - edge - tipRect.height)}px`;
     }
     // The NEXT pointer-down anywhere closes it (this click's down already fired).
     document.addEventListener("pointerdown", closeTip, { capture: true, once: true });
@@ -102,7 +103,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
   card.append(nailL, nailR, board);
   if (info.id && hud.onZombieRename) {
     board.classList.add("renameable");
-    board.title = "Click to rename";
+    board.title = tr("Click to rename");
     board.tabIndex = 0;
     const edit = () => {
       if (!board.isConnected) return;
@@ -159,9 +160,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
   const meta = document.createElement("div");
   meta.className = "zcard-meta";
   meta.innerHTML =
-    `<div class="zvet">${veterancy(info.invasions)}</div>` +
-    `<div class="ztype">${info.typeName}</div>` +
-    `<div class="zinv">Invasions: ${info.invasions}</div>`;
+    trHtml`<div class="zvet">${tr(veterancy(info.invasions))}</div><div class="ztype">${tr(info.typeName)}</div><div class="zinv">Invasions: ${info.invasions}</div>`;
   card.append(port, meta);
 
   // ---- RIGHT: stats (top) + abilities (bottom), both horizontal ----
@@ -170,7 +169,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
 
   const statsHdr = document.createElement("div");
   statsHdr.className = "zsec-h";
-  statsHdr.textContent = "Stats";
+  statsHdr.textContent = tr("Stats");
   const statsRow = document.createElement("div");
   statsRow.className = "zrow zstats";
   // Each tile shows the stat's 0–100 bar with EVERY always-on bonus folded in
@@ -185,23 +184,20 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     const cell = document.createElement("button");
     cell.className = "zstat";
     cell.innerHTML =
-      `<span class="zstat-tile" style="background-image:url(${STAT_TILE})">` +
-      `<img src="${s.icon}" alt=""></span>` +
-      `<span class="zstat-val${boosted ? " boosted" : ""}" style="background-image:url(${VALUE_END}),url(${VALUE_FILL})">` +
-      `${bd.total}</span>`;
+      trHtml`<span class="zstat-tile" style="background-image:url(${STAT_TILE})"><img src="${s.icon}" alt=""></span><span class="zstat-val${boosted ? " boosted" : ""}" style="background-image:url(${VALUE_END}),url(${VALUE_FILL})">${bd.total}</span>`;
     cell.onclick = (e) => {
       e.stopPropagation();
       // desc, then Base → each modifier (dim if +0) → Total, as aligned rows.
-      const rows = [`<span class="zbd-row"><span>Base</span><span>${bd.base}</span></span>`]
+      const rows = [trHtml`<span class="zbd-row"><span>Base</span><span>${bd.base}</span></span>`]
         .concat(
           bd.lines.map(
             (l) =>
-              `<span class="zbd-row${l.zero ? " zbd-zero" : ""}"><span>${l.label}</span><span>${l.amount}</span></span>`
+              trHtml`<span class="zbd-row${l.zero ? " zbd-zero" : ""}"><span>${tr(l.label)}</span><span>${l.amount}</span></span>`
           )
         )
-        .concat(`<span class="zbd-row zbd-total"><span>Total</span><span>${bd.total}</span></span>`)
+        .concat(trHtml`<span class="zbd-row zbd-total"><span>Total</span><span>${bd.total}</span></span>`)
         .join("");
-      showTip(cell, s.label, `${s.desc}<span class="zbd">${rows}</span>`);
+      showTip(cell, s.label, trHtml`${tr(s.desc)}<span class="zbd">${rows}</span>`);
     };
     statsRow.appendChild(cell);
   }
@@ -213,7 +209,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
   const mutations = mutationEntries(info);
   const mutHdr = document.createElement("div");
   mutHdr.className = "zsec-h";
-  mutHdr.textContent = mutations.length > 1 ? `Mutations (${mutations.length}/5)` : "Mutation";
+  mutHdr.textContent = mutations.length > 1 ? trMsg`Mutations (${mutations.length}/5)` : tr("Mutation");
   const mutRow = document.createElement("div");
   mutRow.className = "zrow zmuts";
   // An owned zombie can also be told which of its mutations to WEAR. The eye badge
@@ -228,8 +224,8 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     const cell = document.createElement("button");
     cell.className = "zmut";
     cell.style.backgroundImage = `url(${MUTATION_FRAME})`;
-    cell.title = mutation.name; // the name is a tap away, like the stat/ability tiles
-    cell.innerHTML = `<img src="${mutation.icon}" alt="${mutation.name}">`;
+    cell.title = tr(mutation.name); // the name is a tap away, like the stat/ability tiles
+    cell.innerHTML = trHtml`<img src="${mutation.icon}" alt="${tr(mutation.name)}">`;
     cell.onclick = (e) => {
       e.stopPropagation();
       showTip(cell, mutation.name, mutationTipText(mutation));
@@ -244,10 +240,8 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
         eye.classList.toggle("off", hidden);
         eye.textContent = hidden ? "🚫" : "👁";
         eye.setAttribute("aria-pressed", String(!hidden));
-        eye.title = hidden
-          ? `Show ${mutation.name} on ${info.name}`
-          : `Hide ${mutation.name} on ${info.name}`;
-        eye.setAttribute("aria-label", eye.title);
+        eye.title = hidden ? trMsg`Show ${tr(mutation.name)} on ${info.name}` : trMsg`Hide ${tr(mutation.name)} on ${info.name}`;
+        eye.setAttribute("aria-label", tr(eye.title));
       };
       paint();
       eye.onclick = (e) => {
@@ -266,7 +260,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
 
   const abilHdr = document.createElement("div");
   abilHdr.className = "zsec-h";
-  abilHdr.textContent = "Abilities";
+  abilHdr.textContent = tr("Abilities");
   const abilRow = document.createElement("div");
   abilRow.className = "zrow zabils";
   // A zombie shows its GROUP's one ability per tier, for tiers 1..(colour-class
@@ -284,18 +278,18 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
     cell.style.backgroundImage = `url(${ABILITY_FRAME})`;
     if (hud.state.abilitySlotUnlocked(t)) {
       cell.className = "zabil";
-      cell.innerHTML = `<img src="${meta.icon}" alt="">`;
+      cell.innerHTML = trHtml`<img src="${meta.icon}" alt="">`;
       cell.onclick = (e) => {
         e.stopPropagation();
         // Skip the effect line when it just repeats the name (stat buffs).
         const body = meta.effect && meta.effect !== meta.label
-          ? `<span class="zeff">${meta.effect}</span> ${meta.desc}`
-          : meta.desc;
+          ? trHtml`<span class="zeff">${tr(meta.effect)}</span> ${tr(meta.desc)}`
+          : tr(meta.desc);
         showTip(cell, meta.label, body);
       };
     } else {
       cell.className = "zabil locked";
-      cell.innerHTML = `<span class="zlock">🔒</span>`;
+      cell.innerHTML = trHtml`<span class="zlock">🔒</span>`;
       // The gate is the SLOT's Life Force level (slot t works from level t), not the
       // ability's own tier: a named special's higher-tier move in a lower slot unlocks
       // with that slot. GameState.abilitySlotUnlocked keys off the same.
@@ -312,7 +306,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
   if (!abilRow.childElementCount) {
     const none = document.createElement("div");
     none.className = "zabil-none";
-    none.textContent = "No abilities at this rank.";
+    none.textContent = tr("No abilities at this rank.");
     abilRow.appendChild(none);
   }
 
@@ -337,7 +331,7 @@ function buildZombieActions(hud: Hud, info: ZombieInfo, close: () => void, refre
   const mk = (label: string, cls: string, enabled: boolean, fn: () => void | Promise<void>, reopen = true) => {
     const button = document.createElement("button");
     button.className = `zbtn ${cls}`;
-    button.textContent = label;
+    button.textContent = tr(label);
     button.disabled = !enabled;
     button.onclick = async () => {
       button.disabled = true;
@@ -363,7 +357,7 @@ function buildZombieActions(hud: Hud, info: ZombieInfo, close: () => void, refre
   );
   const sell = document.createElement("button");
   sell.className = "zbtn sell";
-  sell.textContent = "Sell";
+  sell.textContent = tr("Sell");
   sell.onclick = () => {
     close();
     openZombieSellChoices(hud, info, value, refresh);
@@ -381,19 +375,19 @@ function openZombieSellChoices(hud: Hud, info: ZombieInfo, value: number, refres
     confirmSellZombie(hud, info, value, refresh);
     return;
   }
-  const { panel, close } = openModal({ host: hud.el, panelClass: "confirm-panel", title: "Sell this zombie" });
+  const { panel, close } = openModal({ host: hud.el, panelClass: "confirm-panel", title: tr("Sell this zombie") });
   const message = document.createElement("p");
   message.className = "confirm-msg";
-  message.textContent = "Sell immediately for gold, or create a Black Market post for brains.";
+  message.textContent = tr("Sell immediately for gold, or create a Black Market post for brains.");
   const actions = document.createElement("div");
   actions.className = "zbtns";
   const gold = document.createElement("button");
   gold.className = "zbtn sell";
-  gold.textContent = `Sell now +${value}g`;
+  gold.textContent = trMsg`Sell now +${value}g`;
   gold.onclick = () => { close(); confirmSellZombie(hud, info, value, refresh); };
   const market = document.createElement("button");
   market.className = "zbtn deploy";
-  market.textContent = "Sell on Black Market";
+  market.textContent = tr("Sell on Black Market");
   market.onclick = () => { close(); hud.openBlackMarket("SELL_ZOMBIE", info.id); };
   actions.append(gold, market);
   panel.append(message, actions);
@@ -403,31 +397,31 @@ function openZombieSellChoices(hud: Hud, info: ZombieInfo, value: number, refres
 // fetches, and warns that the sale is permanent — so a valuable zombie is not
 // sold by a single stray tap. Confirm sells; Cancel backs out to the roster.
 function confirmSellZombie(hud: Hud, info: ZombieInfo, value: number, refresh?: () => void) {
-  const { panel, close } = openModal({ host: hud.el, panelClass: "confirm-panel", title: "Sell this zombie?" });
+  const { panel, close } = openModal({ host: hud.el, panelClass: "confirm-panel", title: tr("Sell this zombie?") });
 
   const por = document.createElement("div");
   por.className = "obj-por";
   if (info.portrait) por.style.backgroundImage = `url(${info.portrait})`;
   const msg = document.createElement("p");
   msg.className = "confirm-msg";
-  msg.append("Sell ");
+  msg.append(tr("Sell "));
   const zombieName = document.createElement("b"); zombieName.textContent = info.name;
-  const valueText = document.createElement("b"); valueText.textContent = `+${value}g`;
-  msg.append(zombieName, ` (${info.typeName}) for `, valueText, "?", document.createElement("br"));
+  const valueText = document.createElement("b"); valueText.textContent = trMsg`+${value}g`;
+  msg.append(zombieName, trMsg` (${tr(info.typeName)}) for `, valueText, "?", document.createElement("br"));
   const warning = document.createElement("span");
   warning.className = "confirm-warn";
-  warning.textContent = "This is permanent — the zombie is gone for good.";
+  warning.textContent = tr("This is permanent — the zombie is gone for good.");
   msg.appendChild(warning);
 
   const btns = document.createElement("div");
   btns.className = "zbtns";
   const cancel = document.createElement("button");
   cancel.className = "zbtn locate";
-  cancel.textContent = "Cancel";
+  cancel.textContent = tr("Cancel");
   cancel.onclick = () => close();
   const confirm = document.createElement("button");
   confirm.className = "zbtn sell";
-  confirm.textContent = `Sell +${value}g`;
+  confirm.textContent = trMsg`Sell +${value}g`;
   markPrimary(confirm); // Enter confirms this already-explicit sale
   confirm.onclick = async () => {
     confirm.disabled = true;
@@ -471,7 +465,7 @@ export function openCatalogZombieCard(hud: Hud, card: MenuCard) {
   if (card.description) {
     const note = document.createElement("p");
     note.className = "alm-hint";
-    note.textContent = card.description;
+    note.textContent = tr(card.description);
     panel.appendChild(note);
   }
 }
@@ -520,7 +514,7 @@ export function buildRosterCard(hud: Hud, z: RosterEntry, onClick: () => void): 
   name.textContent = z.name;
   const cls = document.createElement("span");
   cls.className = "zr-cls";
-  cls.textContent = z.className;
+  cls.textContent = tr(z.className);
   cls.style.background = z.classColor;
   card.append(por, name, cls);
   card.onclick = onClick;
@@ -553,13 +547,13 @@ export function buildRosterFilterBar(
   ) => {
     const wrap = document.createElement("label");
     wrap.className = "zl-sort";
-    wrap.append(label);
+    wrap.append(tr(label));
     const select = document.createElement("select");
     select.className = "prof-input zl-sort-select";
-    select.setAttribute("aria-label", `Filter zombies by ${label.toLowerCase()}`);
-    select.append(new Option(allLabel, ""));
+    select.setAttribute("aria-label", trMsg`Filter zombies by ${tr(label.toLowerCase())}`);
+    select.append(new Option(tr(allLabel), ""));
     for (const o of options) {
-      const item = new Option(`${o.label} (${o.count})`, o.value);
+      const item = new Option(trMsg`${tr(o.label)} (${o.count})`, o.value);
       item.selected = o.value === value;
       select.appendChild(item);
     }
@@ -576,7 +570,7 @@ export function buildRosterFilterBar(
   if (isFiltered(filter)) {
     const clear = document.createElement("button");
     clear.className = "zl-filter-clear";
-    clear.textContent = "Clear";
+    clear.textContent = tr("Clear");
     clear.onclick = () => onChange({ group: "", species: "" });
     bar.appendChild(clear);
   }
@@ -619,7 +613,7 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
   const mkTab = (tab: ZombiesPanelTab, label: string) => {
     const b = document.createElement("button");
     b.className = "pm-screen";
-    b.textContent = label;
+    b.textContent = tr(label);
     b.onclick = () => show(tab);
     tabButtons[tab] = b;
     tabs.appendChild(b);
@@ -646,14 +640,14 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
     const shown = filterZombies(roster, filter);
     head.innerHTML = "";
     const title = document.createElement("h2");
-    title.textContent = "Your Zombies";
+    title.textContent = tr("Your Zombies");
     const cnt = document.createElement("span");
     cnt.className = "zr-total";
-    cnt.textContent = `${onFarm} on farm${stored ? ` · ${stored} stored` : ""}`;
+    cnt.textContent = trMsg`${onFarm} on farm${stored ? trMsg` · ${stored} stored` : ""}`;
     if (isFiltered(filter)) {
       const sub = document.createElement("span");
       sub.className = "zr-sub";
-      sub.textContent = ` · ${shown.length} shown`;
+      sub.textContent = trMsg` · ${shown.length} shown`;
       cnt.appendChild(sub);
     }
     head.append(title, cnt);
@@ -661,7 +655,7 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
     if (!roster.length) {
       const e = document.createElement("div");
       e.className = "zr-empty";
-      e.textContent = "You do not own any zombies yet.";
+      e.textContent = tr("You do not own any zombies yet.");
       body.appendChild(e);
       return;
     }
@@ -670,12 +664,12 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
     if (roster.length > 1) {
       const label = document.createElement("label");
       label.className = "zl-sort";
-      label.append("Sort");
+      label.append(tr("Sort"));
       const select = document.createElement("select");
       select.className = "prof-input zl-sort-select";
-      select.setAttribute("aria-label", "Sort zombies");
+      select.setAttribute("aria-label", tr("Sort zombies"));
       for (const option of ZOMBIE_SORTS) {
-        const item = new Option(option.label, option.id);
+        const item = new Option(tr(option.label), option.id);
         item.selected = option.id === rosterSort;
         select.appendChild(item);
       }
@@ -715,10 +709,10 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
     const found = entries.filter((entry) => entry.obtained > 0).length;
     head.innerHTML = "";
     const title = document.createElement("h2");
-    title.textContent = "Zombie Almanac";
+    title.textContent = tr("Zombie Almanac");
     const cnt = document.createElement("span");
     cnt.className = "zr-total";
-    cnt.textContent = `${found} / ${entries.length} discovered`;
+    cnt.textContent = trMsg`${found} / ${entries.length} discovered`;
     head.append(title, cnt);
 
     // Field notes sit ABOVE the collection: the three systems that actually hand out
@@ -731,15 +725,15 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
       notes.className = "alm-notes";
       const label = document.createElement("div");
       label.className = "alm-notes-label";
-      label.textContent = "How to find new zombies";
+      label.textContent = tr("How to find new zombies");
       notes.appendChild(label);
       for (const topic of topics) {
         const chip = document.createElement("button");
         chip.className = "alm-note";
         const title = document.createElement("b");
-        title.textContent = topic.title;
+        title.textContent = tr(topic.title);
         const blurb = document.createElement("span");
-        blurb.textContent = topic.blurb;
+        blurb.textContent = tr(topic.blurb);
         chip.append(title, blurb);
         chip.onclick = () => openAlmanacGuide(hud, topic);
         notes.appendChild(chip);
@@ -762,7 +756,7 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
         lastSection = section;
         const header = document.createElement("div");
         header.className = "alm-section";
-        header.textContent = section;
+        header.textContent = tr(section);
         grid.appendChild(header);
       }
       grid.appendChild(buildAlmanacCard(hud, entry));
@@ -777,15 +771,15 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
     const found = entries.filter((entry) => entry.obtained > 0).length;
     head.innerHTML = "";
     const title = document.createElement("h2");
-    title.textContent = "Mutations";
+    title.textContent = tr("Mutations");
     const cnt = document.createElement("span");
     cnt.className = "zr-total";
-    cnt.textContent = `${found} / ${entries.length} discovered`;
+    cnt.textContent = trMsg`${found} / ${entries.length} discovered`;
     head.append(title, cnt);
 
     const note = document.createElement("div");
     note.className = "alm-notes-label mut-note";
-    note.textContent = "Grown by planting a crop beside a zombie crop";
+    note.textContent = tr("Grown by planting a crop beside a zombie crop");
     body.appendChild(note);
 
     const grid = document.createElement("div");
@@ -802,7 +796,7 @@ export function openZombiesPanel(hud: Hud, initialTab?: ZombiesPanelTab) {
         lastSlot = entry.slot;
         const header = document.createElement("div");
         header.className = "alm-section";
-        header.textContent = entry.slotLabel;
+        header.textContent = tr(entry.slotLabel);
         grid.appendChild(header);
       }
       grid.appendChild(buildMutationCard(hud, entry));
@@ -833,7 +827,7 @@ function silhouetteOf(url: string): Promise<string> {
         ctx.fillRect(0, 0, c.width, c.height);
         resolve(c.toDataURL("image/png"));
       };
-      img.onerror = () => reject(new Error(`portrait load failed: ${url}`));
+      img.onerror = () => reject(new Error(trMsg`portrait load failed: ${url}`));
       img.src = url;
     });
     silhouetteCache.set(url, p);
@@ -870,23 +864,23 @@ function buildAlmanacCard(hud: Hud, entry: AlmanacEntryView): HTMLElement {
   if (entry.obtained) {
     const count = document.createElement("span");
     count.className = "alm-count";
-    count.textContent = `×${entry.obtained}`;
+    count.textContent = trMsg`×${entry.obtained}`;
     por.appendChild(count);
   }
   const name = document.createElement("div");
   name.className = "zr-name";
-  name.textContent = entry.name;
+  name.textContent = tr(entry.name);
   card.append(por, name);
   if (entry.obtained) {
     const cls = document.createElement("span");
     cls.className = "zr-cls";
-    cls.textContent = entry.className;
+    cls.textContent = tr(entry.className);
     cls.style.background = entry.classColor;
     card.appendChild(cls);
   } else {
     const unknown = document.createElement("span");
     unknown.className = "zr-cls alm-unknown";
-    unknown.textContent = "Not found";
+    unknown.textContent = tr("Not found");
     card.appendChild(unknown);
   }
   card.onclick = () => openAlmanacEntry(hud, entry);
@@ -908,11 +902,11 @@ function openAlmanacEntry(hud: Hud, entry: AlmanacEntryView) {
     panel.appendChild(buildZombieCard(hud, info, panel));
     const meta = document.createElement("div");
     meta.className = "alm-meta";
-    meta.innerHTML = `<b>Lifetime obtained: ${entry.obtained}</b>`;
+    meta.innerHTML = trHtml`<b>Lifetime obtained: ${entry.obtained}</b>`;
     panel.appendChild(meta);
     const hint = document.createElement("p");
     hint.className = "alm-hint";
-    hint.textContent = entry.hint;
+    hint.textContent = tr(entry.hint);
     panel.appendChild(hint);
     return;
   }
@@ -923,13 +917,13 @@ function openAlmanacEntry(hud: Hud, entry: AlmanacEntryView) {
   por.className = "zr-por alm-detail-por";
   por.appendChild(silhouetteImg(entry.portrait));
   const title = document.createElement("h2");
-  title.textContent = entry.name;
+  title.textContent = tr(entry.name);
   const status = document.createElement("div");
   status.className = "alm-meta";
-  status.textContent = "Not yet obtained";
+  status.textContent = tr("Not yet obtained");
   const hint = document.createElement("p");
   hint.className = "alm-hint";
-  hint.textContent = entry.hint;
+  hint.textContent = tr(entry.hint);
   wrap.append(por, title, status, hint);
   panel.appendChild(wrap);
 }
@@ -1005,22 +999,22 @@ function buildMutationCard(hud: Hud, entry: MutationAlmanacEntry): HTMLElement {
   if (entry.obtained) {
     const count = document.createElement("span");
     count.className = "alm-count";
-    count.textContent = `×${entry.obtained}`;
+    count.textContent = trMsg`×${entry.obtained}`;
     por.appendChild(count);
   }
   const name = document.createElement("div");
   name.className = "zr-name";
-  name.textContent = entry.obtained ? entry.name : "???";
+  name.textContent = entry.obtained ? tr(entry.name) : "???";
   card.append(por, name);
   if (entry.obtained) {
     const stats = document.createElement("div");
     stats.className = "mut-stats";
-    stats.textContent = entry.statEffects.map(statEffectText).join(", ");
+    stats.textContent = tr(entry.statEffects.map(statEffectText).join(", "));
     card.appendChild(stats);
   }
   const chip = document.createElement("span");
   chip.className = entry.obtained ? "zr-cls" : "zr-cls alm-unknown";
-  chip.textContent = entry.obtained ? entry.className : "Not found";
+  chip.textContent = entry.obtained ? tr(entry.className) : tr("Not found");
   if (entry.obtained) chip.style.background = entry.classColor;
   card.appendChild(chip);
   card.onclick = () => openMutationEntry(hud, entry);
@@ -1040,16 +1034,16 @@ function openMutationEntry(hud: Hud, entry: MutationAlmanacEntry) {
   por.className = "zr-por alm-detail-por";
   paintMutationPortrait(hud, por, entry);
   const title = document.createElement("h2");
-  title.textContent = entry.obtained ? entry.name : "Undiscovered mutation";
+  title.textContent = entry.obtained ? tr(entry.name) : tr("Undiscovered mutation");
   wrap.append(por, title);
 
   if (!entry.obtained) {
     const status = document.createElement("div");
     status.className = "alm-meta";
-    status.textContent = "Not yet obtained";
+    status.textContent = tr("Not yet obtained");
     const hint = document.createElement("p");
     hint.className = "alm-hint";
-    hint.textContent = entry.hint;
+    hint.textContent = tr(entry.hint);
     wrap.append(status, hint);
     panel.appendChild(wrap);
     return;
@@ -1057,31 +1051,29 @@ function openMutationEntry(hud: Hud, entry: MutationAlmanacEntry) {
 
   const cls = document.createElement("span");
   cls.className = "zr-cls mut-detail-cls";
-  cls.textContent = `${entry.className} · Tier ${entry.tier}`;
+  cls.textContent = trMsg`${entry.className} · Tier ${entry.tier}`;
   cls.style.background = entry.classColor;
   wrap.appendChild(cls);
   panel.appendChild(wrap);
 
   const meta = document.createElement("div");
   meta.className = "alm-meta";
-  meta.innerHTML = `<b>Slot: ${entry.slotLabel}</b>`;
+  meta.innerHTML = trHtml`<b>Slot: ${tr(entry.slotLabel)}</b>`;
   panel.appendChild(meta);
 
   const stats = document.createElement("p");
   stats.className = "mut-detail-stats";
-  stats.textContent = entry.statEffects.map(statEffectText).join("   ");
+  stats.textContent = tr(entry.statEffects.map(statEffectText).join("   "));
   panel.appendChild(stats);
 
   const slotNote = document.createElement("p");
   slotNote.className = "alm-hint";
-  slotNote.textContent = `A zombie wears one mutation per slot, so this competes with `
-    + `every other ${entry.slotLabel} mutation — growing or combining a second one `
-    + `replaces it.`;
+  slotNote.textContent = trMsg`A zombie wears one mutation per slot, so this competes with every other ${tr(entry.slotLabel)} mutation — growing or combining a second one replaces it.`;
   panel.appendChild(slotNote);
 
   const found = document.createElement("div");
   found.className = "alm-meta";
-  found.textContent = `Lifetime obtained: ${entry.obtained}`;
+  found.textContent = trMsg`Lifetime obtained: ${entry.obtained}`;
   panel.appendChild(found);
 }
 
@@ -1093,11 +1085,11 @@ function openAlmanacGuide(hud: Hud, topic: AlmanacGuideTopic) {
     host: hud.el, panelClass: "zpanel alm-guide", bgClass: "alm-bg", replaceSelector: ".alm-bg",
   });
   const title = document.createElement("h2");
-  title.textContent = topic.title;
+  title.textContent = tr(topic.title);
   panel.appendChild(title);
   for (const paragraph of topic.paragraphs) {
     const p = document.createElement("p");
-    p.textContent = paragraph;
+    p.textContent = tr(paragraph);
     panel.appendChild(p);
   }
 }

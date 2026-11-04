@@ -1,3 +1,4 @@
+import { html as trHtml, msg as trMsg, t as tr } from "../../i18n";
 import type { Hud } from "../../hud";
 import type { EndlessLeaderboardEntry } from "../../net/api";
 import { mutationLabelFor } from "../../zombie/mutationDisplay";
@@ -27,13 +28,13 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
     host: hud.el,
     bgClass: "raid-bg endless-lb-bg",
     panelClass: "endless-lb-panel",
-    title: "Endless Leaderboard",
+    title: tr("Endless Leaderboard"),
     replaceSelector: ".endless-lb-bg",
   });
 
   const subtitle = document.createElement("p");
   subtitle.className = "endless-lb-subtitle";
-  subtitle.textContent = "Top 25 personal bests · deepest floor ranks first · time breaks ties";
+  subtitle.textContent = tr("Top 25 personal bests · deepest floor ranks first · time breaks ties");
   const modeTabs = document.createElement("div");
   modeTabs.className = "endless-lb-tabs";
   const status = document.createElement("div");
@@ -41,7 +42,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
   status.setAttribute("role", "status");
   const list = document.createElement("div");
   list.className = "endless-lb-list";
-  list.setAttribute("aria-label", "Endless leaderboard entries");
+  list.setAttribute("aria-label", tr("Endless leaderboard entries"));
   panel.append(subtitle, modeTabs, status, list);
 
   let mode: Mode = "endless";
@@ -51,7 +52,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
   let requestSerial = 0;
 
   const showEmpty = (message: string) => {
-    status.textContent = message;
+    status.textContent = tr(message);
     list.replaceChildren();
   };
 
@@ -63,17 +64,17 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       const retry = document.createElement("button");
       retry.type = "button";
       retry.className = "endless-lb-retry";
-      retry.textContent = "Try again";
+      retry.textContent = tr("Try again");
       retry.onclick = () => { void load(); };
       list.appendChild(retry);
       return;
     }
-    status.textContent = entries.length ? `${entries.length} of 25 records` : "No completed runs yet. Be the first to set a record!";
+    status.textContent = entries.length ? trMsg`${entries.length} of 25 records` : tr("No completed runs yet. Be the first to set a record!");
     if (!entries.length) return;
 
     const headings = document.createElement("div");
     headings.className = "endless-lb-headings";
-    headings.innerHTML = "<span>Rank</span><span>Player</span><span>Best</span><span>Time</span><span>Army</span>";
+    headings.innerHTML = trHtml`<span>Rank</span><span>Player</span><span>Best</span><span>Time</span><span>Army</span>`;
     list.appendChild(headings);
 
     for (const entry of entries) {
@@ -85,22 +86,22 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       row.className = "endless-lb-row";
       const rank = document.createElement("span");
       rank.className = "endless-lb-rank";
-      rank.textContent = medal(entry.rank);
+      rank.textContent = tr(medal(entry.rank));
       const name = document.createElement("span");
       name.className = "endless-lb-name";
-      name.textContent = entry.name.trim() || "Player";
+      name.textContent = entry.name.trim() || tr("Player");
       const depth = document.createElement("span");
       depth.className = "endless-lb-depth";
       const tier = Math.ceil(Math.max(0, entry.deepestFloor) / 4);
-      depth.textContent = `T${tier} · Floor ${entry.deepestFloor}`;
+      depth.textContent = trMsg`T${tier} · Floor ${entry.deepestFloor}`;
       const time = document.createElement("span");
       time.className = "endless-lb-time";
-      time.textContent = formatDuration(entry.durationMs);
-      time.title = "Run time · tie-breaker";
+      time.textContent = tr(formatDuration(entry.durationMs));
+      time.title = tr("Run time · tie-breaker");
       const armyToggle = document.createElement("button");
       armyToggle.type = "button";
       armyToggle.className = "endless-lb-army-toggle";
-      armyToggle.textContent = `Army (${entry.army.length})`;
+      armyToggle.textContent = trMsg`Army (${entry.army.length})`;
       armyToggle.setAttribute("aria-expanded", "false");
       row.append(rank, name, depth, time, armyToggle);
 
@@ -109,7 +110,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       army.hidden = true;
       if (!entry.army.length) {
         const empty = document.createElement("p");
-        empty.textContent = "Army details unavailable for this record.";
+        empty.textContent = tr("Army details unavailable for this record.");
         army.appendChild(empty);
       } else {
         entry.army.forEach((member, index) => {
@@ -117,14 +118,14 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
           unit.className = "endless-lb-unit";
           const position = document.createElement("span");
           position.className = "endless-lb-position";
-          position.textContent = String(index + 1).padStart(2, "0");
+          position.textContent = tr(String(index + 1).padStart(2, "0"));
           const details = document.createElement("span");
           details.className = "endless-lb-unit-details";
           const species = document.createElement("strong");
-          species.textContent = friendlySpecies(member.species);
+          species.textContent = tr(friendlySpecies(member.species));
           const traits = document.createElement("span");
           const mutations = mutationLabelFor(member.species, member.mutation);
-          traits.textContent = `${mutations || "No mutations"} · ${VET_RANKS[Math.max(0, Math.min(VET_RANKS.length - 1, Math.floor(member.veterancy)))]}`;
+          traits.textContent = trMsg`${mutations || tr("No mutations")} · ${tr(VET_RANKS[Math.max(0, Math.min(VET_RANKS.length - 1, Math.floor(member.veterancy)))])}`;
           details.append(species, traits);
           unit.append(position, details);
           army.appendChild(unit);
@@ -133,7 +134,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       armyToggle.onclick = () => {
         const expanded = armyToggle.getAttribute("aria-expanded") === "true";
         armyToggle.setAttribute("aria-expanded", String(!expanded));
-        armyToggle.textContent = expanded ? `Army (${entry.army.length})` : "Hide army";
+        armyToggle.textContent = expanded ? trMsg`Army (${entry.army.length})` : tr("Hide army");
         army.hidden = expanded;
       };
       card.append(row, army);
@@ -162,7 +163,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       const tab = document.createElement("button");
       tab.type = "button";
       tab.className = "endless-lb-tab";
-      tab.textContent = label;
+      tab.textContent = tr(label);
       tab.setAttribute("aria-pressed", String(value === mode));
       if (value === mode) tab.classList.add("selected");
       tab.onclick = () => {

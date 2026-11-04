@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../i18n/translate";
 // ---------------------------------------------------------------------------
 // Displayed-stat resolution — the number the detail card / army list shows for a
 // zombie's Damage / Speed / Life / Focus, and the per-modifier breakdown behind it.
@@ -128,7 +129,7 @@ export function statBreakdown(
     const without = mult === 0 ? effective : (effective - mut) / mult + mut;
     const delta = displayStat(stat, effective) - displayStat(stat, without);
     lines.push({
-      label: ABILITY_POOL[k]?.label ?? k,
+      label: tr(ABILITY_POOL[k]?.label ?? k),
       amount: `${delta >= 0 ? "+" : ""}${delta}`,
       zero: delta === 0,
     });
@@ -137,7 +138,7 @@ export function statBreakdown(
   const withoutVeterancy = v === 0 ? effective : (effective - mut) / v + mut;
   const veterancyDelta = displayStat(stat, effective) - displayStat(stat, withoutVeterancy);
   lines.push({
-    label: `Veterancy (${veterancy(z.invasions)})`,
+    label: trMsg`Veterancy (${veterancy(z.invasions)})`,
     amount: `${veterancyDelta >= 0 ? "+" : ""}${veterancyDelta}`,
     zero: veterancyDelta === 0,
   });
@@ -195,7 +196,7 @@ export function statDisplayGains(
     const raw = bonus[stat];
     if (!raw) continue;
     const delta = displayStat(stat, base[stat] + raw) - displayStat(stat, base[stat]);
-    if (delta) gains.push({ stat, label: meta.label, delta });
+    if (delta) gains.push({ stat, label: tr(meta.label), delta });
   }
   return gains;
 }
@@ -220,7 +221,7 @@ export function describeMutationGains(gains: MutationDisplayGain[]): string | un
   // Always signed: a mutation may trade one stat for another, and a card that wrote
   // "+8 Life, 12 Speed" for a -12 would sell the penalty as a bonus.
   const effects = gains.map((g) => `${g.delta >= 0 ? "+" : ""}${g.delta} ${g.label}`).join(", ");
-  return `Starts with a guaranteed mutation: ${effects}. Mutations carry into Zombie Pot combinations.`;
+  return trMsg`Starts with a guaranteed mutation: ${effects}. Mutations carry into Zombie Pot combinations.`;
 }
 
 /** The four displayed totals (Damage/Speed/Life/Focus) for a zombie — the value each

@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n";
 // Tim Buckwheat delivering a one-off piece of guidance OUTSIDE the first-run
 // tutorial — today, the hazard warning before the player's first invasion that
 // fields one.
@@ -40,11 +41,11 @@ export function showTimNotice(host: HTMLElement, message: string, buttonLabel = 
     const bubble = document.createElement("div");
     bubble.className = "tut-bubble";
     const text = document.createElement("span");
-    text.textContent = message;
+    text.textContent = tr(message);
     const ok = document.createElement("button");
     ok.className = "zbtn sell tim-notice-ok";
     ok.type = "button";
-    ok.textContent = buttonLabel;
+    ok.textContent = tr(buttonLabel);
     bubble.append(text, ok);
     tim.append(sprite, bubble);
     bg.appendChild(tim);

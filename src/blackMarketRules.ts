@@ -165,12 +165,12 @@ export function matchesBlackMarketMutation(
 
 /** Human-readable grouped expression: alternatives within one anatomical slot use
  * "or", while requirements spanning separate slots use "+". */
-export function blackMarketMutationRequirementLabel(mask: number): string {
+export function blackMarketMutationRequirementLabel(mask: number, label: (text: string) => string = text => text): string {
   return SLOTS
     .map((slot) => MUTATION_LIST
       .filter((mutation) => mutation.slot === slot && maskHas(mask, mutation.bit))
-      .map((mutation) => mutation.name)
-      .join(" or "))
+      .map((mutation) => label(mutation.name))
+      .join(label(" or ")))
     .filter(Boolean)
     .join(" + ");
 }

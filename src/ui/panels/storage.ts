@@ -1,3 +1,4 @@
+import { html as trHtml, msg as trMsg, t as tr } from "../../i18n";
 // The Storage panel (Items / Pets / Boosts / Received tabs) and its Received-tab
 // reward cards. Uses the bespoke themed .st-bg / .st scaffold (not the shared
 // Modal), preserved verbatim from the former Hud methods. Takes the Hud instance
@@ -44,7 +45,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
   fl.src = BASE + "assets/ui/storage/board_items_left.png";
   const banner = document.createElement("div");
   banner.className = "st-banner";
-  banner.textContent = "Storage";
+  banner.textContent = tr("Storage");
   const fr = document.createElement("img");
   fr.className = "flank";
   fr.src = BASE + "assets/ui/storage/board_item_right.png";
@@ -78,7 +79,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
     remember("storage.tab", tab);
     if (tab === "Items") {
       const used = hud.state.storedItemTotal();
-      count.textContent = `${used} / ${hud.state.storageItemCap} slots`;
+      count.textContent = trMsg`${used} / ${hud.state.storageItemCap} slots`;
       // One slot per stored copy (stacks repeated by count), padded to capacity.
       // Built before anything else on the tab: what the grid holds decides whether
       // a bulk sale is offered at all, and which slots a selection may cover.
@@ -102,11 +103,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
 
       const hint = document.createElement("div");
       hint.className = "st-hint";
-      hint.textContent = picking
-        ? "Tap items to select them, then sell the lot in one go."
-        : used
-          ? "Tap a stored item to place it back on the farm."
-          : "Tap an item on the farm to store it, or drop it on the shed with the Move tool.";
+      hint.textContent = picking ? tr("Tap items to select them, then sell the lot in one go.") : used ? tr("Tap a stored item to place it back on the farm.") : tr("Tap an item on the farm to store it, or drop it on the shed with the Move tool.");
       body.appendChild(hint);
       // The shed's own look. This tab IS the shed — tapping it on the farm opens
       // exactly here — and the other three tabs belong to the pen, the boosts and
@@ -118,8 +115,8 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
       if (appearance && appearance.options.length > 1) {
         const skinBtn = document.createElement("button");
         skinBtn.className = "st-use";
-        skinBtn.textContent = "Shed Appearance";
-        skinBtn.title = "Wear the look of any shed you've owned";
+        skinBtn.textContent = tr("Shed Appearance");
+        skinBtn.title = tr("Wear the look of any shed you've owned");
         skinBtn.onclick = () => openShedAppearance(hud, appearance, render);
         body.appendChild(skinBtn);
       }
@@ -128,8 +125,8 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
       if (!picking && hud.farmLayouts) {
         const layoutsBtn = document.createElement("button");
         layoutsBtn.className = "st-use";
-        layoutsBtn.textContent = "Farm Layouts";
-        layoutsBtn.title = "Save and swap where your decorations stand";
+        layoutsBtn.textContent = tr("Farm Layouts");
+        layoutsBtn.title = tr("Save and swap where your decorations stand");
         const hooks = hud.farmLayouts;
         layoutsBtn.onclick = () => openFarmLayouts(hud, {
           ...hooks,
@@ -148,8 +145,8 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
         if (!picking) {
           const start = document.createElement("button");
           start.className = "st-use";
-          start.textContent = "Sell Multiple";
-          start.title = "Pick several stored items and sell them together";
+          start.textContent = tr("Sell Multiple");
+          start.title = tr("Pick several stored items and sell them together");
           start.onclick = () => { picking = true; picked.clear(); render(); };
           bar.appendChild(start);
         } else {
@@ -161,7 +158,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
           sell.className = "st-use st-sell";
           const cancel = document.createElement("button");
           cancel.className = "st-use st-quiet";
-          cancel.textContent = "Cancel";
+          cancel.textContent = tr("Cancel");
           cancel.onclick = () => { picking = false; picked.clear(); render(); };
 
           // Tap to tap, the bar is refreshed in place rather than re-rendering the
@@ -170,13 +167,11 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
           updateBar = () => {
             const keys = [...picked].map((i) => flat[i]);
             const gold = keys.length ? hud.getStoredSellTotal?.(keys) ?? 0 : 0;
-            tally.innerHTML = keys.length
-              ? `${keys.length} selected <span class="g">+${gold.toLocaleString()}g</span>`
-              : "Nothing selected";
+            tally.innerHTML = keys.length ? trHtml`${keys.length} selected <span class="g">+${gold.toLocaleString()}g</span>` : tr("Nothing selected");
             const every = picked.size >= sellableSlots.length;
-            all.textContent = every ? "Clear" : "Select All";
-            all.title = every ? "Unselect everything" : "Select every item that can be sold";
-            sell.textContent = keys.length ? `Sell ${keys.length}` : "Sell";
+            all.textContent = every ? tr("Clear") : tr("Select All");
+            all.title = every ? tr("Unselect everything") : tr("Select every item that can be sold");
+            sell.textContent = keys.length ? trMsg`Sell ${keys.length}` : tr("Sell");
             sell.disabled = !keys.length;
           };
           all.onclick = () => {
@@ -222,9 +217,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
               const on = picked.has(i);
               slot.classList.toggle("picked", on);
               tick.textContent = on ? "\u2713" : "";
-              slot.title = on
-                ? `${card?.def.name ?? "Selected"} \u2014 tap to unselect`
-                : `Select ${card?.def.name ?? "this item"} to sell`;
+              slot.title = on ? trMsg`${card?.def.name ?? "Selected"} \u2014 tap to unselect` : trMsg`Select ${card?.def.name ?? "this item"} to sell`;
             };
             slot.appendChild(tick);
             paint();
@@ -238,9 +231,9 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
             // Still shown, just out of the sale: hiding it would make the grid lie
             // about what the shed is holding.
             slot.classList.add("unpickable");
-            slot.title = `${card?.def.name ?? "This item"} can't be sold.`;
+            slot.title = trMsg`${tr(card?.def.name ?? "This item")} can't be sold.`;
           } else {
-            slot.title = "Place on farm";
+            slot.title = tr("Place on farm");
             slot.onclick = () => {
               bg.remove();
               hud.onRetrieveItem?.(key);
@@ -248,8 +241,8 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
             if (sellable(key)) {
               const sell = document.createElement("button");
               sell.className = "st-slot-sell";
-              sell.textContent = "Sell";
-              sell.title = "Sell from storage";
+              sell.textContent = tr("Sell");
+              sell.title = tr("Sell from storage");
               sell.onclick = async (event) => {
                 event.stopPropagation();
                 if (await hud.onSellStoredItem?.(key)) render();
@@ -266,21 +259,15 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
       // Pen 0 is falsy, so every test below is against null, never truthiness.
       const pen = managePen === false ? null : managePen;
       const slots = hud.state.penPets;
-      count.textContent = pen !== null
-        ? `${penOccupants(slots, pen).length} / ${PETS_PER_PEN} in Pen ${pen + 1}`
-        : `${hud.state.ownedPets.length} pet${hud.state.ownedPets.length === 1 ? "" : "s"}`;
+      count.textContent = pen !== null ? trMsg`${penOccupants(slots, pen).length} / ${PETS_PER_PEN} in Pen ${pen + 1}` : trMsg`${hud.state.ownedPets.length} pet${hud.state.ownedPets.length === 1 ? "" : tr("s")}`;
       const hint = document.createElement("div");
       hint.className = "st-hint";
-      hint.textContent = hud.state.ownedPets.length
-        ? pen !== null
-          ? `Choose up to ${PETS_PER_PEN} pets to wander inside this pen. A pet from another pen moves here.`
-          : "Tap a pet to make it your active companion."
-        : "Adopt pets from the Market's Pets tab.";
+      hint.textContent = hud.state.ownedPets.length ? pen !== null ? trMsg`Choose up to ${PETS_PER_PEN} pets to wander inside this pen. A pet from another pen moves here.` : tr("Tap a pet to make it your active companion.") : tr("Adopt pets from the Market's Pets tab.");
       body.appendChild(hint);
       if (pen === null && hud.state.activePet) {
         const hide = document.createElement("button");
         hide.className = "st-use";
-        hide.textContent = "Hide Active Pet";
+        hide.textContent = tr("Hide Active Pet");
         hide.onclick = () => { hud.onEquipPet?.(null); render(); };
         body.appendChild(hide);
       }
@@ -293,27 +280,24 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
         const home = penOf(slots, key);
         const selected = pen !== null ? home === pen : hud.state.activePet === key;
         slot.className = "st-slot st-petslot" + (selected ? " filled" : "");
-        slot.title = pen !== null
-          ? selected ? `Remove ${pet.name} from pen`
-            : home >= 0 ? `Move ${pet.name} here from Pen ${home + 1}` : `Deploy ${pet.name} in pen`
-          : selected ? `${pet.name} (active)` : `Activate ${pet.name}`;
+        slot.title = pen !== null ? selected ? trMsg`Remove ${tr(pet.name)} from pen` : home >= 0 ? trMsg`Move ${tr(pet.name)} here from Pen ${home + 1}` : trMsg`Deploy ${tr(pet.name)} in pen` : selected ? trMsg`${tr(pet.name)} (active)` : trMsg`Activate ${tr(pet.name)}`;
         const img = document.createElement("img");
         img.src = `${BASE}assets/pets/${pet.portrait}`;
-        img.alt = pet.name;
+        img.alt = tr(pet.name);
         slot.appendChild(img);
         // Which pen a pet already lives in, so the player can see why picking it
         // takes it out of somewhere else.
         if (home >= 0 && !selected) {
           const where = document.createElement("span");
           where.className = "st-petpen";
-          where.textContent = `Pen ${home + 1}`;
+          where.textContent = trMsg`Pen ${home + 1}`;
           slot.appendChild(where);
         }
         slot.onclick = () => {
           if (pen !== null) {
             const next = selected ? withoutPenPet(slots, key) : withPenPet(slots, pen, key);
             if (!next) {
-              hud.showToast(`This pen is full — it holds ${PETS_PER_PEN} pets.`);
+              hud.showToast(trMsg`This pen is full — it holds ${PETS_PER_PEN} pets.`);
               return;
             }
             hud.onSetPenPets?.(next);
@@ -325,12 +309,12 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
       body.appendChild(grid);
     } else if (tab === "Boosts") {
       const total = hud.state.boostInv.reduce((a, b) => a + b.count, 0);
-      count.textContent = `${total} boosts`;
+      count.textContent = trMsg`${total} boosts`;
       const rows = storageBoostRows(hud.boosts, hud.state.boostInv);
       if (!rows.length) {
         const e = document.createElement("div");
         e.className = "st-empty";
-        e.textContent = "No boosts are available.";
+        e.textContent = tr("No boosts are available.");
         body.appendChild(e);
       } else {
         const list = document.createElement("div");
@@ -343,23 +327,22 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
           const info = document.createElement("div");
           info.className = "st-boost-info";
           info.innerHTML =
-            `<div class="nm">${def.name} <span class="ct">x${owned}</span></div>` +
-            `<div class="ds">${def.info || def.flavorText}</div>`;
+            trHtml`<div class="nm">${tr(def.name)} <span class="ct">x${owned}</span></div><div class="ds">${tr(def.info || def.flavorText || "")}</div>`;
           const btn = document.createElement("button");
           btn.className = "st-use";
           if (!owned) {
-            btn.textContent = "Buy";
+            btn.textContent = tr("Buy");
             btn.onclick = () => { bg.remove(); hud.openMarket("Boosts"); };
           } else if (def.effect === "grow") {
             // Insta-Grow is a manual tool, not an auto-apply: equip it so the
             // player taps each crop to ripen (rather than auto-growing nearby ones).
-            btn.textContent = "Equip";
+            btn.textContent = tr("Equip");
             btn.onclick = () => { bg.remove(); hud.setMode("instagrow"); };
           } else if (def.usableOnFarm) {
-            btn.textContent = "Use";
+            btn.textContent = tr("Use");
             const usable = hud.canUseBoost?.(def) ?? true;
             btn.disabled = !usable;
-            if (!usable && def.effect === "plow") btn.title = "There are no unplowed dirt tiles.";
+            if (!usable && def.effect === "plow") btn.title = tr("There are no unplowed dirt tiles.");
             btn.onclick = () => {
               if (!(hud.canUseBoost?.(def) ?? true)) return;
               if (def.effect === "plow") {
@@ -374,7 +357,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
           } else {
             // Battle boosts (Invasion Voucher / Concentration / Golden Dice) are all
             // chosen on the Invade screens, not from Storage — so just label them.
-            btn.textContent = "At Invade";
+            btn.textContent = tr("At Invade");
             btn.disabled = true;
           }
           row.append(img, info, btn);
@@ -384,11 +367,11 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
       }
     } else {
       const views = hud.getReceived?.() ?? [];
-      count.textContent = `${views.length} item${views.length === 1 ? "" : "s"}`;
+      count.textContent = trMsg`${views.length} item${views.length === 1 ? "" : tr("s")}`;
       if (!views.length) {
         const e = document.createElement("div");
         e.className = "st-empty";
-        e.textContent = "Rewards from raids and quests appear here.";
+        e.textContent = tr("Rewards from raids and quests appear here.");
         body.appendChild(e);
       } else {
         const sellableIdx = views.filter((v) => v.sellable).map((v) => v.index);
@@ -399,9 +382,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
 
         const hint = document.createElement("div");
         hint.className = "st-hint";
-        hint.textContent = rcvPicking
-          ? "Tap decorations to select them, then sell the lot in one go."
-          : "Claim rewards, move zombies into the Mausoleum, place decorations, or sell decorations.";
+        hint.textContent = rcvPicking ? tr("Tap decorations to select them, then sell the lot in one go.") : tr("Claim rewards, move zombies into the Mausoleum, place decorations, or sell decorations.");
         body.appendChild(hint);
 
         let updateBar = () => {};
@@ -411,8 +392,8 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
           if (!rcvPicking) {
             const start = document.createElement("button");
             start.className = "st-use";
-            start.textContent = "Sell Multiple";
-            start.title = "Pick several received decorations and sell them together";
+            start.textContent = tr("Sell Multiple");
+            start.title = tr("Pick several received decorations and sell them together");
             start.onclick = () => { rcvPicking = true; rcvPicked.clear(); render(); };
             bar.appendChild(start);
           } else {
@@ -424,18 +405,16 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
             sell.className = "st-use st-sell";
             const cancel = document.createElement("button");
             cancel.className = "st-use st-quiet";
-            cancel.textContent = "Cancel";
+            cancel.textContent = tr("Cancel");
             cancel.onclick = () => { rcvPicking = false; rcvPicked.clear(); render(); };
             updateBar = () => {
               const n = rcvPicked.size;
               const gold = n ? hud.getReceivedSellTotal?.([...rcvPicked]) ?? 0 : 0;
-              tally.innerHTML = n
-                ? `${n} selected <span class="g">+${gold.toLocaleString()}g</span>`
-                : "Nothing selected";
+              tally.innerHTML = n ? trHtml`${n} selected <span class="g">+${gold.toLocaleString()}g</span>` : tr("Nothing selected");
               const every = n >= sellableIdx.length;
-              all.textContent = every ? "Clear" : "Select All";
-              all.title = every ? "Unselect everything" : "Select every decoration that can be sold";
-              sell.textContent = n ? `Sell ${n}` : "Sell";
+              all.textContent = every ? tr("Clear") : tr("Select All");
+              all.title = every ? tr("Unselect everything") : tr("Select every decoration that can be sold");
+              sell.textContent = n ? trMsg`Sell ${n}` : tr("Sell");
               sell.disabled = !n;
             };
             all.onclick = () => {
@@ -470,7 +449,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
               const on = rcvPicked.has(v.index);
               card.classList.toggle("picked", on);
               tick.textContent = on ? "✓" : "";
-              card.title = on ? `${v.name} — tap to unselect` : `Select ${v.name} to sell`;
+              card.title = on ? trMsg`${tr(v.name)} — tap to unselect` : trMsg`Select ${tr(v.name)} to sell`;
             };
             paint();
             card.onclick = () => {
@@ -481,7 +460,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
             };
           } else {
             card.classList.add("unpickable");
-            card.title = `${v.name} can't be sold.`;
+            card.title = trMsg`${tr(v.name)} can't be sold.`;
           }
           grid.appendChild(card);
         }
@@ -498,7 +477,7 @@ export function openStorage(hud: Hud, initialTab?: string, managePen: number | f
   for (const name of ["Items", "Pets", "Boosts", "Received"]) {
     const b = document.createElement("button");
     b.className = "st-tab" + (name === tab ? " sel" : "");
-    b.textContent = name;
+    b.textContent = tr(name);
     b.onclick = () => {
       hud.audio.play("menuClick");
       // Switching tabs abandons a bulk selection: it is scoped to the Items grid,
@@ -537,7 +516,7 @@ function receivedCard(
   }
   const nm = document.createElement("div");
   nm.className = "rcv-nm";
-  nm.textContent = v.name;
+  nm.textContent = tr(v.name);
   card.append(por, nm);
   // Mid-select the card is only a tick target; its own buttons would fight the tap.
   if (selecting) return card;
@@ -546,7 +525,7 @@ function receivedCard(
     actions.className = "rcv-actions";
     const btn = document.createElement("button");
     btn.className = "st-use rcv-act";
-    btn.textContent = v.actionLabel;
+    btn.textContent = tr(v.actionLabel);
     if (v.kind === "placeable") {
       btn.onclick = () => { bg.remove(); hud.onPlaceReceived?.(v.index); };
     } else {
@@ -560,8 +539,8 @@ function receivedCard(
     if (v.kind === "placeable" && v.storable) {
       const store = document.createElement("button");
       store.className = "st-use rcv-act";
-      store.textContent = "Store";
-      store.title = "Put it straight into the shed";
+      store.textContent = tr("Store");
+      store.title = tr("Put it straight into the shed");
       store.onclick = async () => {
         if (await hud.onStoreReceived?.(v.index)) rerender();
       };
@@ -570,7 +549,7 @@ function receivedCard(
     if (v.sellable) {
       const sell = document.createElement("button");
       sell.className = "st-use st-sell rcv-act";
-      sell.textContent = "Sell";
+      sell.textContent = tr("Sell");
       sell.onclick = async () => {
         if (await hud.onSellReceived?.(v.index)) rerender();
       };
@@ -580,7 +559,7 @@ function receivedCard(
   } else {
     const tag = document.createElement("div");
     tag.className = "rcv-trophy";
-    tag.textContent = "Trophy";
+    tag.textContent = tr("Trophy");
     card.appendChild(tag);
   }
   return card;

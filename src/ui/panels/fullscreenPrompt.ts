@@ -1,3 +1,4 @@
+import { t as tr } from "../../i18n";
 import type { Hud } from "../../hud";
 import { openModal } from "../Modal";
 
@@ -46,7 +47,7 @@ export function offerFullscreenPrompt(hud: Hud, mobile: boolean, signedIn: boole
     host: hud.el,
     bgClass: "fullscreen-prompt-bg",
     panelClass: "fullscreen-prompt-panel",
-    title: "Play Fullscreen?",
+    title: tr("Play Fullscreen?"),
     replaceSelector: ".fullscreen-prompt-bg",
   });
 
@@ -59,7 +60,7 @@ export function offerFullscreenPrompt(hud: Hud, mobile: boolean, signedIn: boole
 
   const copy = document.createElement("p");
   copy.textContent =
-    "Fullscreen gives your farm more room and hides the browser controls. You can toggle it anytime in Settings.";
+    tr("Fullscreen gives your farm more room and hides the browser controls. You can toggle it anytime in Settings.");
 
   const status = document.createElement("div");
   status.className = "fullscreen-prompt-status";
@@ -69,12 +70,12 @@ export function offerFullscreenPrompt(hud: Hud, mobile: boolean, signedIn: boole
 
   const dismiss = document.createElement("button");
   dismiss.className = "zbtn locate";
-  dismiss.textContent = "Not Now";
+  dismiss.textContent = tr("Not Now");
   dismiss.onclick = close;
 
   const enter = document.createElement("button");
   enter.className = "zbtn sell";
-  enter.textContent = "Go Fullscreen";
+  enter.textContent = tr("Go Fullscreen");
   enter.onclick = async () => {
     enter.disabled = true;
     status.textContent = "";
@@ -83,8 +84,8 @@ export function offerFullscreenPrompt(hud: Hud, mobile: boolean, signedIn: boole
       close();
     } catch {
       enter.disabled = false;
-      enter.textContent = "Try Again";
-      status.textContent = "Your browser couldn't enter fullscreen.";
+      enter.textContent = tr("Try Again");
+      status.textContent = tr("Your browser couldn't enter fullscreen.");
     }
   };
 

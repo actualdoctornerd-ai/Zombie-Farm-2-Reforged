@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "./i18n/translate";
 // Turning the lifetime tally (stats.ts) plus the farm's current standing into the
 // rows the Statistics panel prints. Pure: the panel does no arithmetic and no
 // name-resolution of its own, so what a player reads is testable here.
@@ -59,7 +60,7 @@ export function daysBetween(from: number, to: number): number {
 }
 
 const DAY_LABEL = (days: number): string =>
-  days === 0 ? "Today" : days === 1 ? "1 day" : `${formatCount(days)} days`;
+  days === 0 ? tr("Today") : days === 1 ? tr("1 day") : trMsg`${formatCount(days)} days`;
 
 /** Every row the Statistics panel shows, in the order it shows them. */
 export function buildStatsView(input: StatsViewInput): StatSection[] {
@@ -81,7 +82,7 @@ export function buildStatsView(input: StatsViewInput): StatSection[] {
       label: "Favourite crop",
       // The key is the fallback on purpose: a crop the catalog has dropped is still
       // the one this farm grew most, and "—" would read as "you have no favourite".
-      value: favourite ? input.cropName(favourite.key) ?? favourite.key : "—",
+      value: favourite ? tr(input.cropName(favourite.key) ?? favourite.key) : "—",
       note: favourite ? `${formatCount(favourite.count)} harvested` : "Nothing harvested yet",
     },
     { label: "Crops planted", value: formatCount(s.planted) },
@@ -131,15 +132,15 @@ export function buildStatsView(input: StatsViewInput): StatSection[] {
     {
       label: "Win rate",
       value: raids > 0 ? `${Math.round((s.raidsWon / raids) * 100)}%` : "—",
-      note: raids > 0 ? `${formatCount(raids)} fought` : "No invasions fought yet",
+      note: raids > 0 ? trMsg`${formatCount(raids)} fought` : "No invasions fought yet",
     },
   ];
 
   return [
-    { title: "Farm", rows: farm },
-    { title: "Farming", rows: farming },
-    { title: "Wealth", rows: wealth },
-    { title: "Zombies", rows: zombies },
-    { title: "Invasions", rows: invasions },
+    { title: tr("Farm"), rows: farm },
+    { title: tr("Farming"), rows: farming },
+    { title: tr("Wealth"), rows: wealth },
+    { title: tr("Zombies"), rows: zombies },
+    { title: tr("Invasions"), rows: invasions },
   ];
 }

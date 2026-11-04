@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../i18n";
 import { UI } from "./uiAsset";
 
 /** A small leaf-and-number badge: the Life Force one placed copy of an object adds to the
@@ -5,9 +6,7 @@ import { UI } from "./uiAsset";
 export function lifeForceBadge(value: number): HTMLElement {
   const badge = document.createElement("span");
   badge.className = "lf-mini";
-  badge.title = value > 0
-    ? `Adds ${value} Life Force while placed on your farm`
-    : "Adds no Life Force";
+  badge.title = value > 0 ? trMsg`Adds ${value} Life Force while placed on your farm` : tr("Adds no Life Force");
   const leaf = document.createElement("img");
   leaf.src = UI("lifeForce.png");
   leaf.alt = "";
@@ -17,5 +16,5 @@ export function lifeForceBadge(value: number): HTMLElement {
 
 /** The text a screen reader / test sees for a badge. */
 export function lifeForceBadgeText(value: number): string {
-  return `Life Force ${value}`;
+  return trMsg`Life Force ${value}`;
 }

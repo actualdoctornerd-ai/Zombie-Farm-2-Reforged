@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // In-game announcements: the dialog a player sees once after an update, and the list they can
 // reopen from Settings. The messages are operator-authored (server/scripts/announce.mjs) and
 // arrive over the network, so every character is rendered with textContent — never as HTML.
@@ -78,6 +79,7 @@ export function openAnnouncement(
       bgClass: "ann-bg",
       panelClass: "ann-panel",
       title: announcement.title,
+      literalTitle: true,
       replaceSelector: ".ann-bg",
       onClose: () => resolve(),
     });
@@ -90,7 +92,7 @@ export function openAnnouncement(
     const done = document.createElement("button");
     done.className = "ann-go";
     const more = total - index - 1;
-    done.textContent = more > 0 ? `Next (${index + 1} of ${total})` : "Got it";
+    done.textContent = more > 0 ? trMsg`Next (${index + 1} of ${total})` : tr("Got it");
     markPrimary(done); // Enter dismisses
     done.onclick = () => close();
     panel.append(date, body, done);
@@ -104,13 +106,13 @@ export function openAnnouncementHistory(host: HTMLElement, list: readonly Announ
     host,
     bgClass: "ann-bg",
     panelClass: "ann-panel ann-history",
-    title: "Announcements",
+    title: tr("Announcements"),
     replaceSelector: ".ann-bg",
   });
   if (!list.length) {
     const none = document.createElement("div");
     none.className = "ann-none";
-    none.textContent = "No announcements right now.";
+    none.textContent = tr("No announcements right now.");
     panel.appendChild(none);
     return;
   }

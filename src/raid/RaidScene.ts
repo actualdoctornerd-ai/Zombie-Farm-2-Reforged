@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../i18n";
 // The live raid battle scene (Phase 1). A full-screen Pixi layer that renders a
 // BattleSim: a cover-fit stage background, a token per combatant (zombie
 // portrait / enemy icon / boss portrait) with a health bar, and top-corner team
@@ -299,13 +300,13 @@ const RULING_ART: Readonly<Record<string, { icon: string; mark: "down" | "up" | 
 /** The ruling, in two or three words, for the IN FORCE line above the bubbles. */
 function rulingLabel(r: Ruling): string {
   switch (r.kind) {
-    case "slowed": return "Slowed";
-    case "weakened": return "Weakened";
-    case "emboldened": return "Enemies emboldened";
-    case "immunity": return "Stun immunity";
-    case "orderInCourt": return "No healing";
-    case "barred": return `${r.group} barred`;
-    case "overruled": return `${ABILITY_POOL[r.ability === "bash" ? "bashV2" : r.ability ?? ""]?.label ?? r.ability} overruled`;
+    case "slowed": return tr("Slowed");
+    case "weakened": return tr("Weakened");
+    case "emboldened": return tr("Enemies emboldened");
+    case "immunity": return tr("Stun immunity");
+    case "orderInCourt": return tr("No healing");
+    case "barred": return trMsg`${tr(r.group)} barred`;
+    case "overruled": return trMsg`${tr(ABILITY_POOL[r.ability === "bash" ? "bashV2" : r.ability ?? ""]?.label ?? r.ability ?? "")} overruled`;
   }
 }
 /** How close enrage has to be before it is worth putting beside the fight clock. Far enough
@@ -1913,7 +1914,7 @@ export class RaidScene {
     this.roundLabel.anchor.set(0.5, 0);
     this.container.addChild(this.roundLabel);
     this.doOrDieBanner = new Text({
-      text: "DO OR DIE",
+      text: tr("DO OR DIE"),
       style: {
         fontFamily: "sans-serif", fontSize: 64, fontWeight: "900", fill: 0xff2a2a,
         stroke: { color: 0x14181f, width: 8 }, letterSpacing: 4,
@@ -2127,7 +2128,7 @@ export class RaidScene {
    *  In playback it is "End Replay": close the viewer, nothing to concede. */
   private buildRetreatButton() {
     const label = new Text({
-      text: this.playback ? "✕ End Replay" : "⚑ Retreat",
+      text: this.playback ? tr("✕ End Replay") : tr("⚑ Retreat"),
       style: { fontFamily: "sans-serif", fontSize: 14, fontWeight: "700", fill: 0xffffff },
     });
     label.position.set(12, 6);
@@ -3008,7 +3009,7 @@ export class RaidScene {
         // ticks, so re-laying out the text every render frame would be pure waste.
         if (tok.hpText) {
           tok.hpText.visible = hpShown;
-          if (hpShown) tok.hpText.text = formatHealthNumbers(u.hp, u.maxHp);
+          if (hpShown) tok.hpText.text = tr(formatHealthNumbers(u.hp, u.maxHp));
         }
         if (hpShown) {
           const halfW = u.team === "player" ? ZOMBIE_HP_HALF_W : tok.base;
@@ -3144,8 +3145,8 @@ export class RaidScene {
       this.eBar, this.eFill, barW, barH,
       totals.enemyHp / totals.enemyMax, PLAYER_COLOR, this.eBarState,
     );
-    this.pLabel.text = `Zombies  ${totals.playerAlive}`;
-    this.eLabel.text = `${this.raid.bossName || "Enemies"}  ${totals.enemyAlive}`;
+    this.pLabel.text = trMsg`Zombies  ${totals.playerAlive}`;
+    this.eLabel.text = trMsg`${tr(this.raid.bossName || "Enemies")}  ${totals.enemyAlive}`;
     this.eLabel.x = barW - this.eLabel.width;
 
     // THE FIGHT CLOCK, and the enrage warning beside it.
@@ -3184,7 +3185,7 @@ export class RaidScene {
     }
     if (this.sim.doOrDie) {
       const on =Math.floor(performance.now() / 300) % 2 === 0;
-      this.roundLabel.text = `⏱ ${mmss}`;
+      this.roundLabel.text = trMsg`⏱ ${mmss}`;
       this.roundLabel.style.fill = on ? 0xff2a2a : 0x8a0000;
       this.roundLabel.scale.set(on ? 1.15 : 1);
     } else {
@@ -3193,9 +3194,9 @@ export class RaidScene {
       const enrageMs = this.sim.roundRemainingMs();
       let warn = "";
       if (!hudLayout.hidePortraits) {
-        if (this.sim.enraged) warn = "   ⚠ ENRAGED";
+        if (this.sim.enraged) warn = tr("   ⚠ ENRAGED");
         else if (enrageMs > 0 && enrageMs <= ENRAGE_WARN_MS) {
-          warn = `   ⚠ ${Math.ceil(enrageMs / 1000)}s`;
+          warn = `   ⚠ ${tr(`${Math.ceil(enrageMs / 1000)}s`)}`;
         }
       }
       this.roundLabel.text = clock + warn;
@@ -3216,11 +3217,7 @@ export class RaidScene {
         `${inForce.map(rulingKey).join("+")}|${picked}`;
       if (key !== this.signKey) {
         this.signKey = key;
-        this.signBench.text = inForce.length
-          ? `⚖ IN FORCE: ${inForce.map(rulingLabel).join(" · ")}`
-          : this.sim.signContempt()
-            ? "⚖ RULING — CHOOSE ONE, OR BOTH APPLY"
-            : "⚖ RULING — CHOOSE ONE";
+        this.signBench.text = inForce.length ? trMsg`⚖ IN FORCE: ${inForce.map(rulingLabel).join(" · ")}` : this.sim.signContempt() ? tr("⚖ RULING — CHOOSE ONE, OR BOTH APPLY") : tr("⚖ RULING — CHOOSE ONE");
         for (let i = 0; i < 2; i++) {
           const bubble = this.signBubbles[i];
           // Three looks, and the middle one earns its keep: once a choice is made the
@@ -3297,19 +3294,17 @@ export class RaidScene {
           .roundRect(0, 0, BUBBLE_PANEL_W, panelH, 8)
           .fill({ color: 0x1b2430, alpha: 0.92 })
           .stroke({ width: 2, color: 0x8fd0ff, alpha: 0.85 });
-        this.bubbleHead.text = locked
-          ? "🔒 LOCKED — you cancelled the last one"
-          : left > 0 ? `☄ INCOMING · ${left} cancel${left === 1 ? "" : "s"} left` : "☄ INCOMING · no cancels left";
+        this.bubbleHead.text = locked ? tr("🔒 LOCKED — you cancelled the last one") : left > 0 ? trMsg`☄ INCOMING · ${left} cancel${left === 1 ? "" : tr("s")} left` : tr("☄ INCOMING · no cancels left");
         const canCancel = left > 0 && !locked && cast.cancelled === null;
         for (let slot = 0; slot < this.bubbleRows.length; slot++) {
           const row = this.bubbleRows[slot];
           row.root.visible = slot < rows;
           if (slot >= rows) continue;
           const cancelled = cast.cancelled === slot;
-          row.label.text = `${BUBBLE_LABEL[cast.actions[slot]]}${cancelled ? "  ✖" : ""}`;
+          row.label.text = trMsg`${tr(BUBBLE_LABEL[cast.actions[slot]])}${cancelled ? "  ✖" : ""}`;
           row.label.alpha = cancelled ? 0.45 : 1;
           const live = canCancel && !this.playback;
-          row.btnText.text = cancelled ? "stopped" : "✖ Cancel";
+          row.btnText.text = cancelled ? tr("stopped") : tr("✖ Cancel");
           // Greyed rather than hidden when a cancel is not available: "you cannot stop this
           // one" is a thing the player needs to see, and a button that vanishes mid-fight
           // reads as a bug rather than as a consequence.
@@ -3382,7 +3377,7 @@ export class RaidScene {
         // needs to see. It keeps its badge all the way down to 1.
         const showBadge = count > 1 || (c.key === "ressurect" && count > 0);
         if (c.badge) {
-          c.badge.text = String(count);
+          c.badge.text = tr(String(count));
           c.badge.visible = showBadge;
         }
         if (c.badgeDot) c.badgeDot.visible = showBadge;
@@ -4007,7 +4002,7 @@ export class RaidScene {
     const szs = this.sizeScale();
     if (this.damageNumbers.length >= DAMAGE_NUMBER_MAX) this.damageNumbers.shift()?.text.destroy();
     const text = new Text({
-      text: label,
+      text: tr(label),
       style: {
         fill: color,
         fontSize: Math.max(12, Math.round(18 * szs)),
