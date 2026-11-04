@@ -1,0 +1,23 @@
+{
+  "app": "Payload/ZombieFarm 2.app",
+  "artifact": "Zombie_Farm_2_2.25.ipa",
+  "copyright": "Original game translations belong to their respective owners; excluded from the code's MIT license.",
+  "entries": {
+    "de": 2878,
+    "en": 2860,
+    "es": 2878,
+    "fr": 2878,
+    "it": 2878,
+    "ja": 2846,
+    "ko": 2226,
+    "nl": 2879,
+    "zh-CN": 1792
+  },
+  "identicalChineseTables": [
+    "zh-Hans",
+    "zh",
+    "zh-Hant"
+  ],
+  "sha256": "c05fb526505c0f69c75c921f2184b4f3031cb9cbe1f472f08e376b57207c52ab",
+  "table": "<language>.lproj/Localizable.strings (binary plist)"
+}

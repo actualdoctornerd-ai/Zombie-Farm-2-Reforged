@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // The shed appearance picker.
 //
 // Upgrading the shed is one-way, and the earlier tiers are the ones a lot of farms
@@ -19,7 +20,7 @@ export function openShedAppearance(
   // perfectly and is never seen.
   const { panel, close } = openModal({
     host: hud.el, panelClass: "shed-skin-panel", bgClass: "shed-skin-bg",
-    title: "Shed Appearance",
+    title: tr("Shed Appearance"),
   });
 
   // A plain <p>: the shared modal is dark brown with white text, and the Storage
@@ -29,7 +30,7 @@ export function openShedAppearance(
   // Say the split out loud. A player who dresses their barn as a Shabby Shed has to
   // be able to tell at a glance that they did not just throw away 56 slots.
   blurb.textContent =
-    `Pick any shed you've owned. This changes the look only — it stays a ${view.realName}, holding ${view.slots} items.`;
+    trMsg`Pick any shed you've owned. This changes the look only — it stays a ${view.realName}, holding ${view.slots} items.`;
   panel.appendChild(blurb);
 
   const grid = document.createElement("div");
@@ -38,12 +39,12 @@ export function openShedAppearance(
     const slot = document.createElement("button");
     const active = option.key === view.current;
     slot.className = "st-slot shed-skin-slot" + (active ? " filled" : "");
-    slot.title = active ? `${option.name} (current look)` : `Look like the ${option.name}`;
+    slot.title = active ? trMsg`${tr(option.name)} (current look)` : trMsg`Look like the ${tr(option.name)}`;
     const img = document.createElement("img");
     setTintedSrc(img, option.portrait, option.tint);
     const label = document.createElement("span");
     label.className = "shed-skin-name";
-    label.textContent = option.name;
+    label.textContent = tr(option.name);
     slot.append(img, label);
     slot.onclick = async () => {
       if (active) { close(); return; }

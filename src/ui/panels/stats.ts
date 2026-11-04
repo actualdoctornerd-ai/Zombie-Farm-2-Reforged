@@ -1,3 +1,4 @@
+import { t as tr } from "../../i18n";
 // The Statistics panel: the account's lifetime tally, opened from the Account menu.
 //
 // Rendering only. Every figure — and every word of every label — arrives already
@@ -11,7 +12,7 @@ export function openStats(host: HTMLElement, sections: StatSection[]): void {
     host,
     bgClass: "stats-bg",
     panelClass: "stats-panel",
-    title: "Statistics",
+    title: tr("Statistics"),
     replaceSelector: ".stats-bg",
   });
 
@@ -23,14 +24,14 @@ export function openStats(host: HTMLElement, sections: StatSection[]): void {
     block.className = "stats-section";
     const heading = document.createElement("h3");
     heading.className = "stats-heading";
-    heading.textContent = section.title;
+    heading.textContent = tr(section.title);
     block.appendChild(heading);
     for (const row of section.rows) {
       const line = document.createElement("div");
       line.className = "stats-row";
       const label = document.createElement("span");
       label.className = "stats-label";
-      label.textContent = row.label;
+      label.textContent = tr(row.label);
       const right = document.createElement("span");
       right.className = "stats-figure";
       const value = document.createElement("span");
@@ -40,7 +41,7 @@ export function openStats(host: HTMLElement, sections: StatSection[]): void {
       if (row.note) {
         const note = document.createElement("span");
         note.className = "stats-note";
-        note.textContent = row.note;
+        note.textContent = tr(row.note);
         right.appendChild(note);
       }
       line.append(label, right);

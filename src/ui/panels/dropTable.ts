@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // The invasion DROP TABLE: opened from the "Drop table" button on an invasion's detail
 // pane. Lists everything a win can pay with its odds — the gold and XP, the single item
 // drop by rarity tier, the separate-roll banners, brains (ordinary and Brain Ticket), the
@@ -17,8 +18,8 @@ import {
 
 /** "Insta-Grow ×10", "Bonus Gold (900 gold)", or just the name. */
 function rowLabel(row: LootRow): string {
-  if (row.name === "Bonus Gold") return `Bonus Gold (${row.qty.toLocaleString()} gold)`;
-  return row.qty > 1 ? `${row.name} ×${row.qty}` : row.name;
+  if (row.name === "Bonus Gold") return trMsg`Bonus Gold (${row.qty.toLocaleString()} gold)`;
+  return row.qty > 1 ? `${tr(row.name)} ×${row.qty}` : tr(row.name);
 }
 
 function line(label: string, value: string, cls = ""): HTMLElement {
@@ -26,10 +27,10 @@ function line(label: string, value: string, cls = ""): HTMLElement {
   row.className = `dt-row ${cls}`.trim();
   const k = document.createElement("span");
   k.className = "dt-k";
-  k.textContent = label;
+  k.textContent = tr(label);
   const v = document.createElement("span");
   v.className = "dt-v";
-  v.textContent = value;
+  v.textContent = tr(value);
   row.append(k, v);
   return row;
 }
@@ -38,12 +39,12 @@ function section(title: string, note?: string): HTMLElement {
   const sec = document.createElement("section");
   sec.className = "dt-sec";
   const h = document.createElement("h3");
-  h.textContent = title;
+  h.textContent = tr(title);
   sec.appendChild(h);
   if (note) {
     const p = document.createElement("p");
     p.className = "dt-note";
-    p.textContent = note;
+    p.textContent = tr(note);
     sec.appendChild(p);
   }
   return sec;
@@ -61,10 +62,10 @@ export function openDropTable(host: HTMLElement, card: RaidCardView): void {
   const head = document.createElement("div");
   head.className = "dt-head";
   const h = document.createElement("h2");
-  h.textContent = `${card.name} — drop table`;
+  h.textContent = trMsg`${tr(card.name)} — drop table`;
   const sub = document.createElement("div");
   sub.className = "dt-sub";
-  sub.textContent = "Everything a win can pay. Odds are per win.";
+  sub.textContent = tr("Everything a win can pay. Odds are per win.");
   head.append(h, sub);
 
   const body = document.createElement("div");
@@ -87,12 +88,12 @@ export function openDropTable(host: HTMLElement, card: RaidCardView): void {
       const luck = document.createElement("div");
       luck.className = "dt-luck";
       const label = document.createElement("span");
-      label.textContent = "Golden Dice spent:";
+      label.textContent = tr("Golden Dice spent:");
       luck.appendChild(label);
       for (let n = 0; n <= lt.maxDice; n++) {
         const b = document.createElement("button");
         b.className = "dt-die" + (n === dice ? " sel" : "");
-        b.textContent = String(n);
+        b.textContent = tr(String(n));
         b.onclick = () => { dice = n; render(); };
         luck.appendChild(b);
       }
@@ -141,13 +142,13 @@ export function openDropTable(host: HTMLElement, card: RaidCardView): void {
       "Only a boss win can pay these. Tiers roll rarest first; the first hit pays.",
     );
     const brainFirst = firstClearBrains(card.unlockLevel);
-    brains.appendChild(line("First clear", `${brainFirst} ${brainFirst === 1 ? "brain" : "brains"}, guaranteed`));
+    brains.appendChild(line("First clear", trMsg`${brainFirst} ${brainFirst === 1 ? tr("brain") : tr("brains")}, guaranteed`));
     const ticketBy = new Map(card.eliteBrainOdds.tiers.map((t) => [t.amount, t.chance]));
     for (const t of card.brainOdds.tiers) {
       const tk = ticketBy.get(t.amount);
       brains.appendChild(line(
         `${t.amount} ${t.amount === 1 ? "brain" : "brains"}`,
-        formatOdds(t.chance) + (ticket && tk !== undefined ? `  ·  ${formatOdds(tk)} with a Brain Ticket` : ""),
+        formatOdds(t.chance) + (ticket && tk !== undefined ? trMsg`  ·  ${formatOdds(tk)} with a Brain Ticket` : ""),
         "dt-item",
       ));
     }
@@ -167,7 +168,7 @@ export function openDropTable(host: HTMLElement, card: RaidCardView): void {
       if (ticket) {
         const promoted = z.eliteName !== z.name;
         rare.appendChild(line(
-          `${z.name} (Brain Ticket)`,
+          trMsg`${tr(z.name)} (Brain Ticket)`,
           formatOdds(raidZombieDropRate(card.id, dice, ELITE_BRAIN_LUCK, false)),
           "dt-item",
         ));
@@ -197,8 +198,7 @@ export function openDropTable(host: HTMLElement, card: RaidCardView): void {
     const foot = document.createElement("p");
     foot.className = "dt-note dt-foot";
     foot.textContent =
-      "Item odds assume a farm that owns none of them yet. A decoration you already own " +
-      "that can't be had twice drops out, and its share goes to the tier's other items.";
+      trMsg`Item odds assume a farm that owns none of them yet. A decoration you already own that can't be had twice drops out, and its share goes to the tier's other items.`;
     body.appendChild(foot);
   };
 

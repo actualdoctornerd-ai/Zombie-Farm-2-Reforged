@@ -12,6 +12,7 @@ import { HH, HW, TILE_W } from "./iso";
 import { QuestBus, QuestEvent } from "./quest/events";
 import { Sfx } from "./audio";
 import { harvestXp, plowXp } from "./farmRewards";
+import { t as tr } from "./i18n/translate";
 import type { FarmJobQueueSave, FarmJobSave } from "./save/schema";
 
 export type JobKind = "till" | "plant" | "harvest";
@@ -733,7 +734,7 @@ export class JobSystem {
     fill.position.set(-BAR_W / 2 + BAR_PAD, -BAR_H / 2 + BAR_PAD);
     fill.scale.x = 0; // starts empty
     const label = new Text({
-      text: labelText,
+      text: tr(labelText),
       style: {
         fontFamily: "system-ui, sans-serif", fontSize: 15, fontWeight: "700",
         fill: 0xffffff, stroke: { color: 0x0a1406, width: 3 },

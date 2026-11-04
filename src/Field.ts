@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 // The isometric terrain. The ground is a fine 30x30 grid of small tiles; farming
 // happens on PLOTS — 4x4 tile blocks that can be placed FREELY anywhere a 4x4 area
 // is available (not on a fixed lattice). A plot cycles through soil states:
@@ -944,7 +945,7 @@ export class Field {
     this.cursorGreen.visible = valid;
     this.cursorRed.visible = !valid;
     this.cursorLabel.visible = true;
-    this.cursorLabel.text = "Move";
+    this.cursorLabel.text = tr("Move");
     this.cursor.visible = true;
     return { oc, or, valid };
   }
@@ -1361,8 +1362,7 @@ export class Field {
     this.cursorGreen.visible = showGreen;
     this.cursorRed.visible = !showGreen;
     this.cursorLabel.visible = true;
-    this.cursorLabel.text = tool === "till" ? "Plow" : tool === "plant" ? "Plant"
-      : tool === "grow" ? "Grow" : "Remove";
+    this.cursorLabel.text = tool === "till" ? tr("Plow") : tool === "plant" ? tr("Plant") : tool === "grow" ? tr("Grow") : tr("Remove");
     this.cursor.visible = true;
   }
 

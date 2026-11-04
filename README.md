@@ -195,8 +195,30 @@ Qualifiers: *implemented*, *partially implemented*, *placeholder*, *disabled*, *
 - **Epic Bosses (eight recovered bosses):** Market → Epic Boss offers eight repeatable 14-day runs, listed and gated in unlock order — **Dr. Groundhog 24, Bully Frog 28, Rocky Rhino 30, General Larvaelus 32, Mystical Mamba 34, Foul Owl 38, Skunkarella 40, Loco Locust 42** — ordered by how strong each one's prize zombies are (Groundhog's Omega first, Loco Locust's Vagabond last) and server-enforced. Activation **ramps 3–5 brains** along the same ladder. Every event is a **10-rung** ladder carrying exactly the HP it always did (645x `baseHp`; each rung merges two of ZF2's authored multipliers), fought in **60-second** manual-focus attempts. `baseHp` ramps ±25% with the unlock ladder, and boss damage **compounds 5% per rung climbed** so the deep rungs demand a real front-line tank rather than more attempts — HP only ever buys attempts, since the fight is capped and damage carries over. Plus permanent casualties, retained damage, crop-harvested fight tokens (or 1 brain per attempt), rolled brain/gold victory rewards, namespaced loot, pets, and deterministic online replay. All eight now animate: five play exact authored combat strips, and Rocky Rhino, General Larvaelus and Mystical Mamba (`reconstructed: true`) play strips cut from their atlases by geometry with hand-authored frame ordering, because those sheets shipped with no metadata. See `docs/EPIC_BOSS_MECHANICS.md`.
 - **Sprite set — ZF1 art pack (missing):** the game renders ZF2 art only. The **ZF2 Sprites** switch that used to sit in Settings → Display was removed before release, because it persisted a preference and changed no pixels; the preference and its accessors survive in `src/prefs.ts`, read by nothing. What is missing is the ZF1 art pack (`tools/extract_zf1_ipa.py` is the groundwork) and a runtime swap keyed off `getSpriteSet()`. Wire those, then restore the switch.
 - **QoL/UI (partially implemented):** Storage's Received tab now renders reward cards and can place or claim from them; fuller settings controls are still missing. The Farmer's Guide and the Almanac's field notes provide the in-game help pages, with more detailed topics still to come.
-- **Assets (partially wired):** raid particle FX and raid/combat audio (per-stage BGM + attack-keyed strike SFX) are wired, but most other particles/VFX, title/loading/news/social promo art, most localization/fonts, many terrain tiles, and many stage assets are extracted but not wired. Specific unwired audio: `enrageBGM`, `locolocustbanjo`, `rockyrhinogong`, `taiko`, `resurrect`, `parrot`, `rain`.
+- **Assets (partially wired):** raid particle FX and raid/combat audio (per-stage BGM + attack-keyed strike SFX) are wired, but most other particles/VFX, title/loading/news/social promo art, some localized artwork/fonts, many terrain tiles, and many stage assets are extracted but not wired. Specific unwired audio: `enrageBGM`, `locolocustbanjo`, `rockyrhinogong`, `taiko`, `resurrect`, `parrot`, `rain`.
 - **Tests/CI (partially implemented):** Vitest suites exist for client and server; pull requests are gated by `.github/workflows/ci.yml` (client tests + build, server tests + integration + typecheck + migration check), and both deployment workflows are test-gated. Coverage remains incomplete — notably the HUD/DOM layer, which is largely untested.
+
+## Languages
+
+Settings → Game → Language offers English, German, Spanish, French, Italian,
+Japanese, Korean, Dutch and Simplified Chinese. The first launch follows the
+browser's language; an explicit choice is saved on this device. Changing it saves
+the current farm and reloads the client. It does not change the save format or
+require a Worker deployment/database migration.
+
+Original translations come from the main app's `Localizable.strings` tables in
+Zombie Farm 2 2.25. The IPA's `zh`, `zh-Hans` and `zh-Hant` tables are identical
+Simplified Chinese, so those browser tags use the same Chinese option; this does
+not claim a separate Traditional Chinese translation. Reforged's added Chinese
+copy is maintained separately and follows the original terminology, with explicit
+display corrections such as 胡萝卜 and 雏菊. Missing text
+in the other languages falls back to English. Player names and operator
+announcements retain their authored text; original artwork/logos are unchanged.
+
+See [docs/LOCALIZATION.md](docs/LOCALIZATION.md) for resource provenance,
+translation conventions and the Chinese coverage check. Run `npm run i18n:check`
+when adding UI copy; `npm test` includes this check. The checked-in language
+catalogs let a normal checkout build without an IPA.
 
 ## Run It Locally
 

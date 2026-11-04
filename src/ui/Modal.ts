@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n";
 // Shared modal/panel scaffold. Nearly every HUD dialog hand-built the same
 // `.panelbg > .panel > .panelclose` structure with a backdrop-click-to-close
 // handler; that boilerplate was copied ~25 times. `openModal` builds exactly
@@ -140,6 +141,8 @@ export interface ModalOpts {
   bgClass?: string;
   /** Optional `<h2>` heading rendered right after the close button. */
   title?: string;
+  /** Operator/user-authored headings must remain verbatim. */
+  literalTitle?: boolean;
   /** Render the corner close button (default true). */
   closeButton?: boolean;
   /** Close when the backdrop (outside the panel) is clicked (default true). */
@@ -206,7 +209,7 @@ export function openModal(opts: ModalOpts): ModalHandle {
 
   if (opts.title != null) {
     const h = document.createElement("h2");
-    h.textContent = opts.title;
+    h.textContent = opts.literalTitle ? opts.title : tr(opts.title);
     panel.appendChild(h);
   }
 

@@ -1,3 +1,4 @@
+import { html as trHtml, t as tr } from "../i18n";
 // Online Farm auth gate. Local Farm never calls this module. Online Farm is locked
 // behind Google sign-in so account data remains reachable across devices. requireAuth() renders a
 // full-screen wall and resolves only once the player is signed in AND has chosen a
@@ -45,7 +46,7 @@ let styled = false;
 function injectStyle() {
   if (styled) return;
   const s = document.createElement("style");
-  s.textContent = STYLE;
+  s.textContent = tr(STYLE);
   document.head.appendChild(s);
   styled = true;
 }
@@ -88,31 +89,16 @@ export function requireAuth(): Promise<void> {
           + "zombies, and friends live on your account.";
       const refusal = signInRefusalMessage(auth.lastSignInError());
       root.innerHTML =
-        `<div class="zf-gate-card">` +
-        `<h1 class="zf-gate-title">${exporting ? "Export Your Farm" : "Zombie Farm"}</h1>` +
-        `<p class="zf-gate-sub">${sub}</p>` +
-        `<div class="zf-gate-gsi"></div>` +
-        (refusal ? `<p class="zf-gate-refusal"></p>` : "") +
-        `<div class="zf-gate-hint">We only use your Google account for sign-in.</div>` +
-        `</div>`;
+        trHtml`<div class="zf-gate-card"><h1 class="zf-gate-title">${exporting ? "Export Your Farm" : "Zombie Farm"}</h1><p class="zf-gate-sub">${sub}</p><div class="zf-gate-gsi"></div>${(refusal ? `<p class="zf-gate-refusal"></p>` : "")}<div class="zf-gate-hint">We only use your Google account for sign-in.</div></div>`;
       if (refusal) {
-        (root.querySelector(".zf-gate-refusal") as HTMLElement).textContent = refusal;
+        (root.querySelector(".zf-gate-refusal") as HTMLElement).textContent = tr(refusal);
       }
       void auth.renderSignInButton(root.querySelector(".zf-gate-gsi") as HTMLElement);
     };
 
     const showUsername = () => {
       root.innerHTML =
-        `<div class="zf-gate-card">` +
-        `<h1 class="zf-gate-title">Pick a name</h1>` +
-        `<p class="zf-gate-sub">This is how friends will see you. You can use letters, ` +
-        `numbers and spaces.</p>` +
-        `<label class="zf-gate-label" for="zf-uname">Username</label>` +
-        `<input class="zf-gate-input" id="zf-uname" maxlength="20" autocomplete="off" ` +
-        `placeholder="e.g. CaptainZombie" />` +
-        `<div class="zf-gate-err"></div>` +
-        `<button class="zf-gate-start">Start playing</button>` +
-        `</div>`;
+        trHtml`<div class="zf-gate-card"><h1 class="zf-gate-title">Pick a name</h1><p class="zf-gate-sub">This is how friends will see you. You can use letters, numbers and spaces.</p><label class="zf-gate-label" for="zf-uname">Username</label><input class="zf-gate-input" id="zf-uname" maxlength="20" autocomplete="off" placeholder="e.g. CaptainZombie" /><div class="zf-gate-err"></div><button class="zf-gate-start">Start playing</button></div>`;
       const input = root.querySelector(".zf-gate-input") as HTMLInputElement;
       const btn = root.querySelector(".zf-gate-start") as HTMLButtonElement;
       const err = root.querySelector(".zf-gate-err") as HTMLElement;
@@ -133,12 +119,10 @@ export function requireAuth(): Promise<void> {
           // work — the same name is refused every time, and the player has no way to
           // learn that the name is the problem. The server sends `reason` for exactly
           // this, and usernameRefusalMessage owns the wording for both surfaces.
-          err.textContent = e instanceof api.ApiError
-            ? usernameRefusalMessage({
+          err.textContent = e instanceof api.ApiError ? tr(usernameRefusalMessage({
                 code: e.code,
                 reason: (e.body as { reason?: string } | null)?.reason,
-              })
-            : "Couldn't save that — check your connection and try again.";
+              })) : tr("Couldn't save that — check your connection and try again.");
         }
       };
       btn.onclick = () => void submit();

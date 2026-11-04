@@ -175,8 +175,9 @@ export interface LootDrop {
 }
 
 /** The results-panel label for a drop: bare name, or "name x10" for a bundle. */
-export function lootDropLabel(drop: LootDrop): string {
-  return (drop.qty ?? 1) > 1 ? `${drop.name} x${drop.qty}` : drop.name;
+export function lootDropLabel(drop: LootDrop, displayName: (name: string) => string = name => name): string {
+  const name = displayName(drop.name);
+  return (drop.qty ?? 1) > 1 ? `${name} x${drop.qty}` : name;
 }
 
 /** The end-of-raid tally, matching the real "ZOMBIES WIN" results panel. */

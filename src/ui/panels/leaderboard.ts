@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // The friend leaderboard (Social → Leaderboard): you + your accepted friends,
 // ranked by one stat at a time — Level plus the Statistics panel's headline
 // counters. Rendering only: the ordering lives in social/leaderboard.ts
@@ -24,7 +25,7 @@ const medal = (rank: number): string =>
 export function openLeaderboardPanel(hud: Hud): void {
   const { panel } = openModal({
     host: hud.el, bgClass: "lb-bg", panelClass: "lb-panel",
-    title: "Leaderboard", replaceSelector: ".lb-bg",
+    title: tr("Leaderboard"), replaceSelector: ".lb-bg",
   });
 
   // Signed out: the board is account state, so mirror the Friends panel's gate —
@@ -32,7 +33,7 @@ export function openLeaderboardPanel(hud: Hud): void {
   if (!(hud.socialOnline?.() ?? false)) {
     const prompt = document.createElement("div");
     prompt.className = "lb-signin";
-    prompt.textContent = "Sign in to see how you rank among your friends:";
+    prompt.textContent = tr("Sign in to see how you rank among your friends:");
     const mount = document.createElement("div");
     mount.className = "fr-gsi";
     panel.append(prompt, mount);
@@ -59,7 +60,7 @@ export function openLeaderboardPanel(hud: Hud): void {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "lb-chip";
-      chip.textContent = c.label;
+      chip.textContent = tr(c.label);
       chip.setAttribute("aria-pressed", String(c.key === category.key));
       if (c.key === category.key) chip.classList.add("active");
       chip.onclick = () => {
@@ -74,14 +75,10 @@ export function openLeaderboardPanel(hud: Hud): void {
   const renderList = () => {
     list.replaceChildren();
     if (entries === null) {
-      status.textContent = failed
-        ? "Couldn't load the leaderboard. Close and try again."
-        : "Loading…";
+      status.textContent = failed ? tr("Couldn't load the leaderboard. Close and try again.") : tr("Loading…");
       return;
     }
-    status.textContent = entries.length <= 1
-      ? "It's just you so far — add friends to see how you stack up!"
-      : "";
+    status.textContent = entries.length <= 1 ? tr("It's just you so far — add friends to see how you stack up!") : "";
     for (const row of rankLeaderboard(entries, category)) {
       const line = document.createElement("div");
       line.className = "prof-row lb-row";
@@ -90,7 +87,7 @@ export function openLeaderboardPanel(hud: Hud): void {
       const rank = document.createElement("span");
       rank.className = "lb-rank";
       if (row.rank !== null && row.rank <= 3) rank.classList.add("lb-medal");
-      rank.textContent = row.rank === null ? "–" : medal(row.rank);
+      rank.textContent = row.rank === null ? "–" : tr(medal(row.rank));
 
       // The head they're wearing, same as their friends-list row — absent for an
       // account with no materialized farm, which simply renders face-less.
@@ -101,24 +98,24 @@ export function openLeaderboardPanel(hud: Hud): void {
         facePic.src = `${BASE}assets/player/${face.part}`;
         facePic.alt = "";
         facePic.decoding = "async";
-        facePic.title = `Wearing: ${face.name}`;
+        facePic.title = trMsg`Wearing: ${tr(face.name)}`;
       }
 
       const name = document.createElement("span");
       name.className = "lb-name";
       // textContent, never innerHTML, for the account-controlled display name
       // (defense in depth, see SECURITY.md A9).
-      name.textContent = row.entry.self ? "You" : (row.entry.name.trim() || "Unnamed friend");
+      name.textContent = row.entry.self ? tr("You") : (row.entry.name.trim() || tr("Unnamed friend"));
 
       const value = document.createElement("span");
       value.className = "lb-value";
       if (row.value === null) {
-        value.textContent = "no stats yet";
+        value.textContent = tr("no stats yet");
         value.classList.add("lb-novalue");
-        value.title = "They haven't played on a version that keeps count.";
+        value.title = tr("They haven't played on a version that keeps count.");
       } else {
         value.textContent = category.key === "level"
-          ? `Level ${formatCount(row.value)}`
+          ? trMsg`Level ${formatCount(row.value)}`
           : formatCount(row.value);
       }
 

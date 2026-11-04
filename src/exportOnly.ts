@@ -1,3 +1,4 @@
+import { html as trHtml, msg as trMsg, t as tr } from "./i18n";
 // The closedown screen: what an Online Farm player sees while the service is in
 // `export_only`, after their farm has loaded read-only from the server.
 //
@@ -56,7 +57,7 @@ let styled = false;
 function injectStyle() {
   if (styled) return;
   const s = document.createElement("style");
-  s.textContent = STYLE;
+  s.textContent = tr(STYLE);
   document.head.appendChild(s);
   styled = true;
 }
@@ -65,7 +66,7 @@ export function showExportOnly(actions: ExportOnlyActions): Promise<never> {
   injectStyle();
   const root = document.createElement("div");
   root.className = "zf-export-gate";
-  root.innerHTML = `
+  root.innerHTML = trHtml`
     <main class="zf-export-card" aria-labelledby="zf-export-title">
       <h1 id="zf-export-title">Export Your Online Farm</h1>
       <p class="zf-export-intro"></p>
@@ -83,9 +84,8 @@ export function showExportOnly(actions: ExportOnlyActions): Promise<never> {
   document.body.appendChild(root);
 
   const intro = root.querySelector<HTMLElement>(".zf-export-intro")!;
-  intro.textContent = actions.notice
-    ?? "Online Farm is closed while we prepare the full release. Download a copy of your "
-      + "farm and you can carry on playing it in Local Farm.";
+  intro.textContent = tr(actions.notice
+    ?? trMsg`Online Farm is closed while we prepare the full release. Download a copy of your farm and you can carry on playing it in Local Farm.`);
 
   // Warn BEFORE they export, not after. An export taken from the cached snapshot can be
   // missing recent progress, and the player is about to treat it as their whole farm.
@@ -96,16 +96,14 @@ export function showExportOnly(actions: ExportOnlyActions): Promise<never> {
     stale.hidden = cachedFrom === null;
     if (cachedFrom === null) return;
     staleText.textContent =
-      `We couldn't reach the server, so this is the copy saved on this device on `
-      + `${new Date(cachedFrom).toLocaleString()}. Anything you did after that is not in `
-      + `it. Your online farm is safe either way — try again for the up-to-date one.`;
+      trMsg`We couldn't reach the server, so this is the copy saved on this device on ${new Date(cachedFrom).toLocaleString()}. Anything you did after that is not in it. Your online farm is safe either way — try again for the up-to-date one.`;
   };
   renderStale();
 
   const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-action]")];
   const status = root.querySelector<HTMLElement>(".zf-export-status")!;
   const setStatus = (text: string, bad = false) => {
-    status.textContent = text;
+    status.textContent = tr(text);
     status.classList.toggle("bad", bad);
   };
   const setBusy = (busy: boolean) => buttons.forEach((b) => { b.disabled = busy; });

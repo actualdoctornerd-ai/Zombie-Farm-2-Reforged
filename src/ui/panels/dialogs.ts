@@ -1,3 +1,4 @@
+import { html as trHtml, t as tr } from "../../i18n";
 // Self-contained HUD popups: the level-up and quest-complete celebrations, the
 // object action sheet, and the generic info panel. These render pure view-model
 // data into `host` (the HUD root) and need nothing else from the Hud class, so
@@ -21,20 +22,18 @@ export function renderLevelUp(host: HTMLElement, view: LevelUpView, onClose?: ()
   });
 
   const unlockHtml = view.unlocks.length
-    ? `<div class="lvl-sub">Unlocked</div><div class="lvl-unlocks">${view.unlocks
+    ? trHtml`<div class="lvl-sub">Unlocked</div><div class="lvl-unlocks">${view.unlocks
         .map(
           (u, i) =>
-            `<span class="lvl-slot" title="${u.name}"><span class="lvl-frame">` +
-            `<img data-unlock="${i}" src="${u.icon}" onerror="this.style.visibility='hidden'"></span>` +
-            `<span class="lvl-nm">${u.name}</span><span class="lvl-tag">${u.kind}</span></span>`
+            trHtml`<span class="lvl-slot" title="${tr(u.name)}"><span class="lvl-frame">` +
+            trHtml`<img data-unlock="${i}" src="${u.icon}" onerror="this.style.visibility='hidden'"></span>` +
+            trHtml`<span class="lvl-nm">${tr(u.name)}</span><span class="lvl-tag">${tr(u.kind)}</span></span>`
         )
         .join("")}</div>`
-    : `<div class="lvl-none">Nothing new this level — keep going!</div>`;
+    : trHtml`<div class="lvl-none">Nothing new this level — keep going!</div>`;
 
   panel.innerHTML =
-    `<div class="lvl-burst">LEVEL UP!</div>` +
-    `<div class="lvl-num">You reached level ${view.level}</div>` +
-    unlockHtml;
+    trHtml`<div class="lvl-burst">LEVEL UP!</div><div class="lvl-num">You reached level ${view.level}</div>${unlockHtml}`;
 
   // Unlocked decor is announced in the colour it will be on the farm. The markup
   // is built as a string, so the tints are applied to the <img>s afterwards.
@@ -45,7 +44,7 @@ export function renderLevelUp(host: HTMLElement, view: LevelUpView, onClose?: ()
 
   const done = document.createElement("button");
   done.className = "lvl-go";
-  done.textContent = "Continue";
+  done.textContent = tr("Continue");
   markPrimary(done); // Enter dismisses the celebration
   done.onclick = () => close();
   panel.appendChild(done);
@@ -66,25 +65,21 @@ export function renderQuestComplete(
   });
 
   const rewardHtml = view.rewards.length
-    ? `<div class="qc-sub">Reward</div><div class="qc-rewards">${view.rewards
+    ? trHtml`<div class="qc-sub">Reward</div><div class="qc-rewards">${view.rewards
         .map(
           (r) =>
-            `<span class="qc-reward"><img src="${r.icon}" onerror="this.style.visibility='hidden'">` +
-            `${r.label}</span>`
+            trHtml`<span class="qc-reward"><img src="${r.icon}" onerror="this.style.visibility='hidden'">` +
+            trHtml`${tr(r.label)}</span>`
         )
         .join("")}</div>`
     : "";
 
   panel.innerHTML =
-    `<div class="qc-icon"><img src="${UI(view.icon)}" onerror="this.style.visibility='hidden'"></div>` +
-    `<div class="qc-burst">QUEST COMPLETE!</div>` +
-    `<div class="qc-title">${view.title}</div>` +
-    (view.message ? `<div class="qc-msg">${view.message}</div>` : "") +
-    rewardHtml;
+    trHtml`<div class="qc-icon"><img src="${UI(view.icon)}" onerror="this.style.visibility='hidden'"></div><div class="qc-burst">QUEST COMPLETE!</div><div class="qc-title">${tr(view.title)}</div>${(view.message ? trHtml`<div class="qc-msg">${tr(view.message)}</div>` : "")}${rewardHtml}`;
 
   const done = document.createElement("button");
   done.className = "lvl-go";
-  done.textContent = "OK";
+  done.textContent = tr("OK");
   // Quest completions may appear while the player is mid-action; the explicit OK
   // button (or Enter) is the only way to acknowledge and advance the queue.
   markPrimary(done);
@@ -95,7 +90,7 @@ export function renderQuestComplete(
 
 /** Compact Move / Rotate / Store / Sell action sheet for a tapped farm object. */
 export function renderObjectActions(host: HTMLElement, o: ObjectActions): void {
-  const { panel, close } = openModal({ host, panelClass: "obj-actions", title: o.name });
+  const { panel, close } = openModal({ host, panelClass: "obj-actions", title: tr(o.name) });
 
   const por = document.createElement("div");
   por.className = "obj-por";
@@ -114,7 +109,7 @@ export function renderObjectActions(host: HTMLElement, o: ObjectActions): void {
   const mk = (label: string, cls: string, enabled: boolean, fn: () => void) => {
     const b = document.createElement("button");
     b.className = `zbtn ${cls}`;
-    b.textContent = label;
+    b.textContent = tr(label);
     b.disabled = !enabled;
     b.onclick = () => { close(); fn(); };
     return b;
@@ -140,6 +135,6 @@ export function renderObjectActions(host: HTMLElement, o: ObjectActions): void {
 export function renderInfoPanel(host: HTMLElement, title: string, body: string): void {
   const { panel } = openModal({ host, title });
   const p = document.createElement("p");
-  p.textContent = body;
+  p.textContent = tr(body);
   panel.append(p);
 }

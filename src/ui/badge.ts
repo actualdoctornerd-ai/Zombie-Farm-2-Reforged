@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../i18n";
 // The red dot. One implementation, used by every surface that can carry one, so a
 // badge on the menu dock and a badge on a panel tab are literally the same element
 // with the same clearing rule.
@@ -20,7 +21,7 @@ export function setBadge(host: HTMLElement, on: boolean, label: string): void {
     // Only ever restores a title this helper replaced: a call site with its own
     // tooltip gets it back, one without keeps having none.
     if (host.dataset.badgeTitle !== undefined) {
-      host.title = host.dataset.badgeTitle;
+      host.title = tr(host.dataset.badgeTitle);
       delete host.dataset.badgeTitle;
     }
     return;
@@ -35,7 +36,7 @@ export function setBadge(host: HTMLElement, on: boolean, label: string): void {
     host.dataset.badgeTitle = host.title;
     host.appendChild(dot);
   }
-  dot.querySelector<HTMLElement>(".ui-badge-text")!.textContent = label;
+  dot.querySelector<HTMLElement>(".ui-badge-text")!.textContent = tr(label);
   const own = host.dataset.badgeTitle;
-  host.title = own ? `${own} — ${label}` : label;
+  host.title = own ? trMsg`${own} — ${label}` : tr(label);
 }

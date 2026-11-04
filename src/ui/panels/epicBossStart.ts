@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../../i18n";
 // The announcement that an Epic Boss event has begun.
 //
 // It exists mainly for the events the player did NOT ask for. A favourite crop can lure
@@ -83,7 +84,7 @@ export function showEpicBossStart(host: HTMLElement, notice: EpicBossStartNotice
       host,
       bgClass: "epic-start-bg",
       panelClass: "epic-start-panel",
-      title: `${notice.name} has arrived!`,
+      title: trMsg`${tr(notice.name)} has arrived!`,
       replaceSelector: ".epic-start-bg",
       onClose: finish,
     });
@@ -95,20 +96,16 @@ export function showEpicBossStart(host: HTMLElement, notice: EpicBossStartNotice
 
     const lede = document.createElement("p");
     lede.className = "epic-start-lede";
-    lede.textContent = notice.luredBy
-      ? `Your ${notice.luredBy} harvest drew ${notice.name} onto the farm. The event is yours — you paid nothing for it.`
-      : `${notice.name} has set up on the farm.`;
+    lede.textContent = notice.luredBy ? trMsg`Your ${tr(notice.luredBy)} harvest drew ${tr(notice.name)} onto the farm. The event is yours — you paid nothing for it.` : trMsg`${tr(notice.name)} has set up on the farm.`;
 
     const detail = document.createElement("p");
-    detail.textContent = `You have ${notice.days} day${notice.days === 1 ? "" : "s"} to fight through all `
-      + `${notice.maxLevel} levels. Damage carries between attempts, and harvesting crops during the event `
-      + `earns Boss Tokens to pay for them.`;
+    detail.textContent = trMsg`You have ${notice.days} day${notice.days === 1 ? "" : tr("s")} to fight through all ${notice.maxLevel} levels. Damage carries between attempts, and harvesting crops during the event earns Boss Tokens to pay for them.`;
 
     const buttons = document.createElement("div");
     buttons.className = "zbtns";
     const view = document.createElement("button");
     view.className = "zbtn sell";
-    view.textContent = "View Event";
+    view.textContent = tr("View Event");
     markPrimary(view); // Enter opens it
     view.onclick = () => {
       finish();
@@ -117,7 +114,7 @@ export function showEpicBossStart(host: HTMLElement, notice: EpicBossStartNotice
     };
     const later = document.createElement("button");
     later.className = "zbtn locate";
-    later.textContent = "Later";
+    later.textContent = tr("Later");
     later.onclick = () => close();
     buttons.append(later, view);
 

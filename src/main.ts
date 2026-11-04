@@ -1,3 +1,4 @@
+import { initLanguage, saveLanguage, html as trHtml, msg as trMsg, t as tr } from "./i18n";
 import { Application, Assets, Container, FederatedPointerEvent, Graphics, Point, Sprite, Text, TextStyle, Texture, TilingSprite } from "pixi.js";
 import { choosePlowOrigin } from "./plowSelection";
 import { wheelZoomFactor } from "./wheelZoom";
@@ -164,6 +165,7 @@ const boot = (window as unknown as {
     /** Retire the overlay because a full-screen flow other than the game takes over. */
     close(): void;
     fail(): void;
+    localize(translate: (source: string) => string): void;
   };
 }).__ZFBoot;
 
@@ -180,6 +182,9 @@ function downloadSaveFile(raw: string, name: string): void {
 }
 
 async function main() {
+  await initLanguage();
+  document.title = tr("Zombie Farm Reforged");
+  boot?.localize(tr);
   // Capture crashes before anything else runs, so a failure during boot (asset load,
   // save decode, mode chooser) still lands in the diagnostics buffer. Local-only.
   initDiagnostics();
@@ -1674,7 +1679,7 @@ async function main() {
       .replace(/([+-]\d+)b\b/g, "$1 brains")
       .replace(/([+-]\d+)xp\b/g, "$1 XP");
     const f = floatPool.pop() ?? makeFloat();
-    f.text.text = readable;
+    f.text.text = tr(readable);
     if (currency) {
       f.icon.texture = feedbackIcons[currency];
       f.icon.width = f.icon.height = FLOAT_ICON;
@@ -1701,8 +1706,8 @@ async function main() {
   const showPurchaseXp = (xp: number, at?: { x: number; y: number }) => {
     const feedback = purchaseXpFeedback(xp);
     if (!feedback) return;
-    if (at) floatText(at.x, at.y, feedback.floating, 0.42);
-    else hud.showToast(feedback.toast);
+    if (at) floatText(at.x, at.y, tr(feedback.floating), 0.42);
+    else hud.showToast(tr(feedback.toast));
   };
 
   // The harvested crop itself pops free and flies upward, echoing the original
@@ -1842,7 +1847,7 @@ async function main() {
     undefined, // onPlotPlowed: the tutorial no longer teaches plowing, so nothing needs the origin
     onCropHarvested,
     (currency, needed) => hud.showToast(
-      currency === "gold" ? "Not enough coins." : `Not enough brains (need ${needed}).`
+      currency === "gold" ? tr("Not enough coins.") : trMsg`Not enough brains (need ${needed}).`
     ),
     popHarvestIcon,
     () => zombies.zombieHarvestRoom(),
@@ -1997,7 +2002,7 @@ async function main() {
       requestConfirmation: () => {
         queueMicrotask(() => { void economy?.settleBeforeDependency().catch(() => {}); });
       },
-      claimed: (text, xp) => hud.showToast(`${text} — +${xp} XP`),
+      claimed: (text, xp) => hud.showToast(trMsg`${text} — +${xp} XP`),
       render: (views) => hud.setPeriodicQuests(views),
     }
   );
@@ -2143,7 +2148,7 @@ async function main() {
       else state.useBoost(def.key);
       audio.play("instaGrow");
       const p = field.objectWorkPoint(target.instanceId);
-      if (p) floatText(p.x, p.y - 48, "Ready!");
+      if (p) floatText(p.x, p.y - 48, tr("Ready!"));
       saveManager.save();
       if (state.boostCount(def.key) <= 0) hud.setMode("walk");
       return true;
@@ -2155,7 +2160,7 @@ async function main() {
     else state.useBoost(def.key);
     audio.play("instaGrow");
     const c = field.plotCenterOf(grown.oc, grown.or);
-    floatText(c.x, c.y, "Grew!");
+    floatText(c.x, c.y, tr("Grew!"));
     if (state.boostCount(def.key) <= 0) hud.setMode("walk"); // used up -> unequip
     return true;
   };
@@ -2188,7 +2193,7 @@ async function main() {
     if (def.effect === "grow") {
       const grown = field.growSomeCrops(def.amount || 1); // single-use: grows one crop
       growTarget = grown[0] ?? null;
-      if (grown.length) { audio.play("instaGrow"); floatText(c.x, c.y, `Grew ${grown.length}!`); }
+      if (grown.length) { audio.play("instaGrow"); floatText(c.x, c.y, trMsg`Grew ${grown.length}!`); }
       return grown.length > 0;
     }
     if (def.effect === "harvest") {
@@ -2256,12 +2261,12 @@ async function main() {
         // Each plot pops its OWN reward numbers, in this one frame, so the farm
         // reads as having been harvested all at once (as the original game did).
         if (r.zombieKey) {
-          floatText(cropCenter.x, cropCenter.y, `+${xp}xp`);
-          if (failed) floatText(cropCenter.x, cropCenter.y, "It didn't make it!", 0.42);
+          floatText(cropCenter.x, cropCenter.y, trMsg`+${xp}xp`);
+          if (failed) floatText(cropCenter.x, cropCenter.y, tr("It didn't make it!"), 0.42);
         } else {
-          floatText(cropCenter.x, cropCenter.y, `+${gold}g${r.fertilized ? " ×2" : ""}`);
-          if (xp) floatText(cropCenter.x, cropCenter.y, `+${xp}xp`, 0.42);
-          if (bossToken) floatText(cropCenter.x, cropCenter.y, "+1 Boss Token!", xp ? 0.84 : 0.42);
+          floatText(cropCenter.x, cropCenter.y, trMsg`+${gold}g${r.fertilized ? " ×2" : ""}`);
+          if (xp) floatText(cropCenter.x, cropCenter.y, trMsg`+${xp}xp`, 0.42);
+          if (bossToken) floatText(cropCenter.x, cropCenter.y, tr("+1 Boss Token!"), xp ? 0.84 : 0.42);
         }
         harvested++;
       }
@@ -2278,10 +2283,10 @@ async function main() {
         if (!state.onFarm) state.addGold(gold);
         powerGold += gold;
         questBus.post(QuestEvent.CropHarvested, treeDef.name);
-        if (treeAt) floatText(treeAt.x, treeAt.y, `+${gold}g`);
+        if (treeAt) floatText(treeAt.x, treeAt.y, trMsg`+${gold}g`);
         harvested++;
       }
-      if (harvested) floatText(c.x, c.y, `Harvested ${harvested}!`);
+      if (harvested) floatText(c.x, c.y, trMsg`Harvested ${harvested}!`);
       return harvested > 0;
     }
     if (def.effect === "plow") {
@@ -2298,16 +2303,16 @@ async function main() {
         questBus.post(QuestEvent.NewSoilPlowed, "Plow");
         // Same as harvest: every plot shows its own reward in this one frame.
         const at = field.plotCenterOf(pl.oc, pl.or);
-        floatText(at.x, at.y, "Plowed!");
-        if (xp) floatText(at.x, at.y, `+${xp}xp`, 0.42);
+        floatText(at.x, at.y, tr("Plowed!"));
+        if (xp) floatText(at.x, at.y, trMsg`+${xp}xp`, 0.42);
       }
-      if (plowed.length) floatText(c.x, c.y, `Plowed ${plowed.length}!`);
+      if (plowed.length) floatText(c.x, c.y, trMsg`Plowed ${plowed.length}!`);
       return plowed.length > 0;
     }
     if (def.effect === "gift") {
       if (!def.giftZombieKey) return false;
       // 1 per farm: don't spawn a duplicate of a gift zombie you already own.
-      if (ownsGiftZombie(def.giftZombieKey)) { floatText(c.x, c.y, `Already have ${def.name}!`); return false; }
+      if (ownsGiftZombie(def.giftZombieKey)) { floatText(c.x, c.y, trMsg`Already have ${tr(def.name)}!`); return false; }
       if (!zombieDefs.has(def.giftZombieKey)) return false;
       // ONLINE, the voucher `use` grants this unit server-side, so spawn it verified
       // (no onGrant) and hand its id to onUseBoost to send. A full active farm files
@@ -2316,11 +2321,11 @@ async function main() {
       // The server re-checks the catalog key, voucher count, and 1-per-farm rule.
       const unit = grantEarnedZombie(def.giftZombieKey);
       giftUnitId = unit?.id ?? null;
-      floatText(c.x, c.y, unit ? `Got ${def.name}!` : `${def.name} sent to Received!`);
+      floatText(c.x, c.y, unit ? trMsg`Got ${tr(def.name)}!` : trMsg`${tr(def.name)} sent to Received!`);
       return true;
     }
     // concentration / dice are spent on the Invade screens, not on the farm.
-    floatText(c.x, c.y, "Used during invasions");
+    floatText(c.x, c.y, tr("Used during invasions"));
     return false;
   };
 
@@ -2334,13 +2339,13 @@ async function main() {
     jobs,
   );
   saveManager.periodicQuests = periodicQuests;
-  saveManager.onStorageError = (message) => hud.showToast(message);
+  saveManager.onStorageError = (message) => hud.showToast(tr(message));
   // Same treatment for the audio settings: a device that won't keep them is the one
   // thing that makes a volume change look like it worked and silently undoes it.
-  audio.onStorageError = (message) => hud.showToast(message);
+  audio.onStorageError = (message) => hud.showToast(tr(message));
   // ...and for the display/controls preferences, which are the ones a player is most
   // likely to change and least likely to notice reverting until the next launch.
-  setPrefStorageErrorHandler((message) => hud.showToast(message));
+  setPrefStorageErrorHandler((message) => hud.showToast(tr(message)));
   // The online layer's live state, for the diagnostics report. A paused farm and a
   // healthy one look identical in a paste without this — which is exactly what made the
   // two "Gameplay paused — reconnect to continue" reports so expensive: the account data
@@ -2680,8 +2685,8 @@ async function main() {
     // requests; the badge itself is the feedback (SAVING (n) → SYNCED as it lands).
     hud.onSyncRequested = () => {
       const outcome = economy!.syncNow();
-      if (outcome === "idle") hud.showToast("Everything is synced.");
-      else if (outcome === "paused") hud.showToast("Reconnecting to your farm…");
+      if (outcome === "idle") hud.showToast(tr("Everything is synced."));
+      else if (outcome === "paused") hud.showToast(tr("Reconnecting to your farm…"));
     };
     // This tab's JS and the deployed Worker disagree about the raid ruleset, so every
     // invasion would be refused at /raid/start. Tell the player up front — the fix is a
@@ -2706,7 +2711,7 @@ async function main() {
       if (field.markFertilized(oc, or)) {
         zombies.animateFertilize(oc, or);
         const c = tileCenter(oc, or);
-        floatText(c.x, c.y - 18, "Fertilized!");
+        floatText(c.x, c.y - 18, tr("Fertilized!"));
       }
     };
     economy.onFarmState = (farmState) => {
@@ -2842,7 +2847,7 @@ async function main() {
         if (!spot) {
           if (!rehomeWarned.has(orphan.instanceId)) {
             rehomeWarned.add(orphan.instanceId);
-            hud.showToast(`No room to put your ${orphan.def.name} back — clear a space and it will reappear.`);
+            hud.showToast(trMsg`No room to put your ${orphan.def.name} back — clear a space and it will reappear.`);
           }
           continue;
         }
@@ -2873,9 +2878,7 @@ async function main() {
         // The job was a local fiction: the server holds no reservation for it, so its
         // parents are ordinary roster units again and the reconcile below will show
         // them. Persist immediately so a reload cannot resurrect the phantom Pot.
-        hud.showToast(pots.retired.length > 1
-          ? "Some Zombie Pot combines could not be confirmed — those zombies are back on your farm."
-          : "That Zombie Pot combine could not be confirmed — your zombies are back on your farm.");
+        hud.showToast(pots.retired.length > 1 ? tr("Some Zombie Pot combines could not be confirmed — those zombies are back on your farm.") : tr("That Zombie Pot combine could not be confirmed — your zombies are back on your farm."));
         saveManager.flushCritical();
       }
       const hidden = new Set(zombies.pendingPotParents().flatMap((pot) => [pot.parentAId, pot.parentBId]));
@@ -2968,7 +2971,7 @@ async function main() {
     // and on the console so a screenshot names the branch.
     economy.onGameplayUnavailable = (reason) => {
       hud.setPlayStatus("online", "reconnecting");
-      hud.showToast(`Online gameplay paused (${reason}) — reconnecting to your farm.`);
+      hud.showToast(trMsg`Online gameplay paused (${reason}) — reconnecting to your farm.`);
       console.warn(`[zf] gameplay paused: ${reason} | ${economy?.unavailableReason}`);
       // Also into the diagnostics buffer, which is what Settings > Diagnostics > Copy
       // hands to a bug report. The console line above is gone the moment the tab is
@@ -3054,7 +3057,7 @@ async function main() {
         insufficient: "there are not enough funds", no_effect: "the game state changed",
         prior_command_failed: "an earlier related action failed",
       };
-      hud.showToast(`${subject} was rolled back: ${reason[error] ?? error.replace(/_/g, " ")}.`);
+      hud.showToast(trMsg`${subject} was rolled back: ${reason[error] ?? error.replace(/_/g, " ")}.`);
     };
     // A drag-paint stroke travels as ONE command, so a stroke the server only partly
     // accepted has no per-plot rejection to report. Summarise it instead — otherwise the
@@ -3068,7 +3071,7 @@ async function main() {
         farm_full: "the farm has no room for more plots", bad_coord: "the plots were off the farm",
       };
       hud.showToast(
-        `${plots} plot${plots === 1 ? "" : "s"} skipped: ${reason[error] ?? error.replace(/_/g, " ")}.`
+        trMsg`${plots} plot${plots === 1 ? "" : tr("s")} skipped: ${reason[error] ?? error.replace(/_/g, " ")}.`
       );
     };
     // The server rolled the Life Force harvest and some zombies did not grow. The client
@@ -3079,12 +3082,10 @@ async function main() {
         const unit = zombies.roster().find((u) => u.id === item.id);
         if (unit) state.unrecordZombieGrown(unit.key);
         const at = field.plotCenterOf(item.oc, item.or);
-        floatText(at.x, at.y, "It didn't make it!", 0.42);
+        floatText(at.x, at.y, tr("It didn't make it!"), 0.42);
       }
       hud.showToast(
-        failed.length === 1
-          ? "A zombie didn't make it. Raise your Life Force to protect your harvests."
-          : `${failed.length} zombies didn't make it. Raise your Life Force to protect your harvests.`
+        failed.length === 1 ? tr("A zombie didn't make it. Raise your Life Force to protect your harvests.") : trMsg`${failed.length} zombies didn't make it. Raise your Life Force to protect your harvests.`
       );
     };
     void economy.start();
@@ -3121,9 +3122,7 @@ async function main() {
     hud.setVisiting(true, visitTarget.name, () => exitVisit());
   } else if (visitError) {
     hud.showToast(
-      visitError === "not_friends" ? "You're no longer friends with that player."
-        : visitError === "no_save" ? "That player hasn't started a farm yet."
-        : "Couldn't open that farm right now."
+      visitError === "not_friends" ? tr("You're no longer friends with that player.") : visitError === "no_save" ? tr("That player hasn't started a farm yet.") : tr("Couldn't open that farm right now.")
     );
   }
 
@@ -3748,7 +3747,7 @@ async function main() {
     }
     audio.play("buy");
     saveManager.save(); // persist the new size (server owns it; blob is an offline cache)
-    hud.showToast(`Farm expanded to ${size}×${size}!`);
+    hud.showToast(trMsg`Farm expanded to ${size}×${size}!`);
     questBus.post(QuestEvent.ItemBought, up.name);
     return true;
   };
@@ -3777,7 +3776,7 @@ async function main() {
     }
     field.setClimate(c.terrain);
     saveManager.save();
-    hud.showToast(`${c.name} applied!`);
+    hud.showToast(trMsg`${tr(c.name)} applied!`);
     questBus.post(QuestEvent.ItemBought, c.name);
     audio.play("buy");
     return true;
@@ -3821,7 +3820,7 @@ async function main() {
     const o = field.objectOriginOf(id);
     if (o) {
       const c = tileCenter(o.oc, o.or);
-      floatText(c.x, c.y, `-${def.cost}${def.brainsNeeded ? "b" : "g"}`);
+      floatText(c.x, c.y, trMsg`-${def.cost}${def.brainsNeeded ? tr("b") : tr("g")}`);
       showPurchaseXp(xp, c);
     }
     questBus.post(QuestEvent.ItemBought, def.name, 1, objectAliases.get(def.key) ?? []);
@@ -3984,13 +3983,13 @@ async function main() {
   hud.onZombieStore = async (id) => {
     if (onlineGameplayBlocked()) return;
     try { if (economy) [id] = await economy.settleUnitIds([id]); }
-    catch { hud.showToast("Could not confirm that zombie. Please reconnect."); return; }
+    catch { hud.showToast(tr("Could not confirm that zombie. Please reconnect.")); return; }
     if (field.mausoleumId() && !zombies.mausoleumFull && zombies.store(id)) economy?.submitRosterStatus(id, true);
   };
   hud.onZombieDeploy = async (id) => {
     if (onlineGameplayBlocked()) return;
     try { if (economy) [id] = await economy.settleUnitIds([id]); }
-    catch { hud.showToast("Could not confirm that zombie. Please reconnect."); return; }
+    catch { hud.showToast(tr("Could not confirm that zombie. Please reconnect.")); return; }
     if (zombies.deploy(id)) economy?.submitRosterStatus(id, false);
   };
   hud.onZombieLocate = (id) => {
@@ -4024,7 +4023,7 @@ async function main() {
         if (settledTeams) state.zombieTeams = settled;
       }
     } catch {
-      hud.showToast("Could not confirm your zombies. Please reconnect.");
+      hud.showToast(tr("Could not confirm your zombies. Please reconnect."));
       return null;
     }
     const plan = planTeamAssembly(members, zombies.roster(), state.zombieMax, zombies.mausoleumCap);
@@ -4069,9 +4068,9 @@ async function main() {
   hud.onZombieSell = async (id) => {
     if (onlineGameplayBlocked()) return;
     try { if (economy) [id] = await economy.settleUnitIds([id]); }
-    catch { hud.showToast("Could not confirm that zombie. Please reconnect."); return; }
+    catch { hud.showToast(tr("Could not confirm that zombie. Please reconnect.")); return; }
     const z = zombies.roster().find((r) => r.id === id);
-    if (!z) { hud.showToast("That zombie is no longer available."); return; }
+    if (!z) { hud.showToast(tr("That zombie is no longer available.")); return; }
     const def = zombieDefs.get(z.key);
     const value = zombieSellValue(def?.cost ?? 0, !!def?.brainsNeeded);
     const p = zombies.selectById(id); // deployed unit's world pos (null if stored)
@@ -4083,7 +4082,7 @@ async function main() {
     // locally as before.
     if (state.onRosterSell) state.onRosterSell(id, value);
     else state.addGold(value);
-    if (p) floatText(p.x, p.y, `+${value}g`);
+    if (p) floatText(p.x, p.y, trMsg`+${value}g`);
   };
 
   // ---- Zombie Pot (combiner) ----
@@ -4128,7 +4127,7 @@ async function main() {
     } else state.useBoost(def.key);
     audio.play("instaGrow");
     const point = field.objectWorkPoint(potId);
-    if (point) floatText(point.x, point.y - 48, "Ready!");
+    if (point) floatText(point.x, point.y - 48, tr("Ready!"));
     saveManager.save();
     return true;
   };
@@ -4144,7 +4143,7 @@ async function main() {
     if (onlineGameplayBlocked()) return false;
     if (!activePotId) return false;
     try { if (economy) [idA, idB] = await economy.settleUnitIds([idA, idB]); }
-    catch { hud.showToast("Could not confirm those zombies. Please reconnect."); return false; }
+    catch { hud.showToast(tr("Could not confirm those zombies. Please reconnect.")); return false; }
     const ok = zombies.combine(idA, idB, potBaseMs(), activePotId);
     if (ok) {
       saveManager.flushCritical();
@@ -4174,11 +4173,11 @@ async function main() {
         questBus.post(QuestEvent.CombinerHarvested, z.typeName, 1, unitSubjectAliasesOf(z));
       }
       const c = tileCenter(z.col, z.row);
-      floatText(c.x, c.y, z.mutation ? `${z.name}!` : z.name);
+      floatText(c.x, c.y, z.mutation ? trMsg`${z.name}!` : z.name);
       // No toast naming the result: the Pot's ready view already shows the finished
       // zombie — portrait, name and inherited mutations — before it is collected.
       try { await economy?.settleBeforeDependency(); }
-      catch { hud.showToast("The combine result is waiting for the server to reconnect."); }
+      catch { hud.showToast(tr("The combine result is waiting for the server to reconnect.")); }
       zombies.confirmCombineCollection(targetPotId);
       saveManager.flushCritical();
     } else if (zombies.combineReadyFor(targetPotId) &&
@@ -4187,7 +4186,7 @@ async function main() {
       // ordinary "wait for a slot" refusal — the collection could not be handed to the
       // server (or its species no longer resolves). collectCombine has already put the
       // job back; say so rather than letting the button appear dead.
-      hud.showToast("That combine could not be confirmed just now — it is still in the Pot. Try again in a moment.");
+      hud.showToast(tr("That combine could not be confirmed just now — it is still in the Pot. Try again in a moment."));
     }
     return z ? z.name : null;
   };
@@ -4208,9 +4207,7 @@ async function main() {
       save: () => { saveManager.save(); void economy?.flush(); },
       grantZombie: (key) => {
         const name = zombieDefs.get(key)?.name ?? "Rare zombie";
-        hud.showToast(grantEarnedZombie(key)
-          ? `${name} joined your farm!`
-          : `${name} was sent to Received.`);
+        hud.showToast(grantEarnedZombie(key) ? trMsg`${name} joined your farm!` : trMsg`${name} was sent to Received.`);
       },
       placedCount: (key) => field.placedCount(key),
     },
@@ -4338,7 +4335,7 @@ async function main() {
     const def = selectEpicBoss(bossId);
     const unlockLevel = epicBossUnlockLevel(def);
     if (state.level < unlockLevel) {
-      hud.showToast(`${def.name} unlocks at level ${unlockLevel}.`);
+      hud.showToast(trMsg`${tr(def.name)} unlocks at level ${unlockLevel}.`);
       return false;
     }
     if (onlineFarm) {
@@ -4361,10 +4358,7 @@ async function main() {
         return true;
       } catch (error) {
         const code = errCode(error);
-        hud.showToast(code === "locked" ? `${def.name} unlocks at level ${unlockLevel}.`
-          : code === "insufficient_brains" ? `You need ${def.costBrains} brains.`
-          : code === "gameplay_unavailable" || code === "offline" ? "Reconnecting to the farm serverâ€¦"
-          : "The Epic Boss event could not be started.");
+        hud.showToast(code === "locked" ? trMsg`${tr(def.name)} unlocks at level ${unlockLevel}.` : code === "insufficient_brains" ? trMsg`You need ${def.costBrains} brains.` : code === "gameplay_unavailable" || code === "offline" ? tr("Reconnecting to the farm serverâ€¦") : tr("The Epic Boss event could not be started."));
         return false;
       }
     }
@@ -4392,8 +4386,7 @@ async function main() {
         state.setEpicBossRun(epicBossRunToClient(ended.event, ended.serverTime ?? Date.now()));
       } catch (error) {
         const code = errCode(error);
-        hud.showToast(code === "inactive" ? "That Epic Boss event has already ended."
-          : "The Epic Boss event could not be ended.");
+        hud.showToast(code === "inactive" ? tr("That Epic Boss event has already ended.") : tr("The Epic Boss event could not be ended."));
         return false;
       }
     } else {
@@ -4472,6 +4465,14 @@ async function main() {
     setPreferredPlayMode(destination);
     location.reload();
   };
+  hud.onSetLanguage = async (selected) => {
+    // Settle commands before reloading. Language is a device preference.
+    await economy?.flush();
+    saveManager.flushCritical();
+    if (!saveLanguage(selected)) throw new Error("Language preference could not be saved.");
+    saveManager.suspend();
+    location.reload();
+  };
   // Online has no full blob on this device (only presentation), so the file is
   // serialised from the live server-hydrated game. Settle the outbox first, or a
   // just-spent balance / just-harvested zombie would be missing from the copy.
@@ -4480,21 +4481,21 @@ async function main() {
     saveManager.flushCritical();
     const raw = saveManager.exportOnline();
     if (!raw) {
-      hud.showToast("Online Farm could not be exported.");
+      hud.showToast(tr("Online Farm could not be exported."));
       return;
     }
     downloadSaveFile(raw, "online");
-    hud.showToast("Online Farm exported. Load it with Local Farm's Import.");
+    hud.showToast(tr("Online Farm exported. Load it with Local Farm's Import."));
   };
   hud.onExportSave = playMode === "local" ? () => {
     saveManager.flushCritical();
     const raw = saveManager.exportLocal();
     if (!raw) {
-      hud.showToast("Local Farm could not be exported.");
+      hud.showToast(tr("Local Farm could not be exported."));
       return;
     }
     downloadSaveFile(raw, "local");
-    hud.showToast("Local Farm backup exported.");
+    hud.showToast(tr("Local Farm backup exported."));
   } : () => { void exportOnlineFarm(); };
   hud.onImportLocal = playMode === "local" ? (raw) => {
     if (!saveManager.importLocal(raw)) return false;
@@ -4814,12 +4815,12 @@ async function main() {
     // and inbox data remains on-demand when those menus open.
     void hud.refreshInbox?.().then(() => {
       const n = hud.getInbox?.().length ?? 0;
-      if (n) hud.showToast(`You have ${n} gift${n === 1 ? "" : "s"} waiting! 🎁`);
+      if (n) hud.showToast(trMsg`You have ${n} gift${n === 1 ? "" : tr("s")} waiting! 🎁`);
       hud.refreshSocialBadges();
     }).catch(() => { /* best-effort toast; offline boot must not surface an error */ });
     void hud.refreshRequests?.().then(() => {
       const n = hud.getRequests?.().length ?? 0;
-      if (n) hud.showToast(`You have ${n} friend request${n === 1 ? "" : "s"}! 👋`);
+      if (n) hud.showToast(trMsg`You have ${n} friend request${n === 1 ? "" : tr("s")}! 👋`);
       hud.refreshSocialBadges();
     }).catch(() => { /* best-effort toast; offline boot must not surface an error */ });
     void hud.getBlackMarketFulfillments?.().then((rows) => {
@@ -4828,9 +4829,7 @@ async function main() {
       // A zombie waiting to be claimed is the more urgent of the two — it is not on the
       // farm yet — so it names the toast whenever the batch contains one.
       const zombies = rows.filter((row) => row.awaitingClaim).length;
-      if (zombies) hud.showToast(zombies === 1
-        ? "A Black Market zombie is waiting for you! Visit the market to collect. 🧟"
-        : `${zombies} Black Market zombies are waiting for you! Visit the market to collect. 🧟`);
+      if (zombies) hud.showToast(zombies === 1 ? tr("A Black Market zombie is waiting for you! Visit the market to collect. 🧟") : trMsg`${zombies} Black Market zombies are waiting for you! Visit the market to collect. 🧟`);
       else {
         // Name the money when the market is holding some: this toast used to promise a
         // "collect" that only dismissed a notice, because the payment had already landed.
@@ -4845,11 +4844,7 @@ async function main() {
           .map((entry) => entry.currency === "GOLD"
             ? `${entry.amount.toLocaleString()} gold`
             : `${entry.amount.toLocaleString()} brain${entry.amount === 1 ? "" : "s"}`);
-        hud.showToast(owed.length
-          ? `${owed.join(" and ")} from your Black Market sales are waiting! Visit the market to collect. 💰`
-          : n === 1
-            ? "One of your Black Market posts was fulfilled! Visit the market to collect. 💰"
-            : `${n} of your Black Market posts were fulfilled! Visit the market to collect. 💰`);
+        hud.showToast(owed.length ? trMsg`${owed.join(" and ")} from your Black Market sales are waiting! Visit the market to collect. 💰` : n === 1 ? tr("One of your Black Market posts was fulfilled! Visit the market to collect. 💰") : trMsg`${n} of your Black Market posts were fulfilled! Visit the market to collect. 💰`);
       }
     }).catch(() => { /* best-effort toast; a market-disabled server must not surface an error */ });
   }
@@ -4989,7 +4984,7 @@ async function main() {
     const def = selectEpicBoss(state.epicBossRun?.bossId);
     const gate = epicBoss.start(state.epicBossRun, partyIds);
     if (!gate.ok) {
-      hud.showToast("That Epic Boss event is no longer active.");
+      hud.showToast(tr("That Epic Boss event is no longer active."));
       syncEpicBossUi();
       return false;
     }
@@ -5018,7 +5013,7 @@ async function main() {
         );
         if (settled.missingIds.length) {
           const names = settled.missingIds.map((id) => selectedNames.get(id) ?? "A selected zombie");
-          hud.showToast(`${names.join(", ")} ${names.length === 1 ? "is" : "are"} no longer available. Your army was refreshed.`);
+          hud.showToast(trMsg`${names.join(", ")} ${names.length === 1 ? tr("is") : tr("are")} no longer available. Your army was refreshed.`);
           hud.refreshEpicBossArmy();
           return false;
         }
@@ -5040,20 +5035,20 @@ async function main() {
         state.setEpicBossRun(epicBossRunToClient(opened.event, opened.serverTime ?? Date.now()));
       } catch (error) {
         const code = errCode(error);
-        if (code === "insufficient_tokens") hud.showToast("You need a Boss Token.");
-        else if (code === "insufficient_brains") hud.showToast(`You need ${EPIC_BOSS_FIGHT_BRAIN_COST} brains.`);
-        else if (code === "battle_in_progress") hud.showToast("Another battle is already in progress.");
-        else if (code === "bad_roster") hud.showToast("One of those zombies is unavailable. Please choose your army again.");
-        else if (code === "no_concentration") hud.showToast("You don't have a Concentration to spend.");
+        if (code === "insufficient_tokens") hud.showToast(tr("You need a Boss Token."));
+        else if (code === "insufficient_brains") hud.showToast(trMsg`You need ${EPIC_BOSS_FIGHT_BRAIN_COST} brains.`);
+        else if (code === "battle_in_progress") hud.showToast(tr("Another battle is already in progress."));
+        else if (code === "bad_roster") hud.showToast(tr("One of those zombies is unavailable. Please choose your army again."));
+        else if (code === "no_concentration") hud.showToast(tr("You don't have a Concentration to spend."));
         else if (code === "stale_ruleset") {
           // Same refusal, same remedy as an invasion (see the raid launch path): this tab
           // predates the deployed Worker, so it would simulate the fight under different
           // rules than the replay. Nothing was charged — no token, no brain, no session —
           // and only a reload fixes it, so say so instead of "please reconnect".
-          hud.showToast("The game has updated. Reload to keep fighting.", 6000);
+          hud.showToast(tr("The game has updated. Reload to keep fighting."), 6000);
           promptReload("The game has updated. Reload to keep fighting.");
         }
-        else hud.showToast("The Epic Boss fight could not be started. Please reconnect and try again.");
+        else hud.showToast(tr("The Epic Boss fight could not be started. Please reconnect and try again."));
         return false;
       }
     } else {
@@ -5067,11 +5062,11 @@ async function main() {
       // it at /epic-boss/start and echoed the result.
       if (spendConcentration) state.useBoost(CONCENTRATION_KEY);
       if (payment === "token") {
-        if ((gate.run.tokenCount ?? 0) < 1) { hud.showToast("You need a Boss Token."); return false; }
+        if ((gate.run.tokenCount ?? 0) < 1) { hud.showToast(tr("You need a Boss Token.")); return false; }
         state.setEpicBossRun({ ...gate.run, tokenCount: gate.run.tokenCount - 1 });
       } else {
         if (!state.spendBrains(EPIC_BOSS_FIGHT_BRAIN_COST, "epic_boss_fight")) {
-          hud.showToast(`You need ${EPIC_BOSS_FIGHT_BRAIN_COST} brains.`);
+          hud.showToast(trMsg`You need ${EPIC_BOSS_FIGHT_BRAIN_COST} brains.`);
           return false;
         }
         state.setEpicBossRun(gate.run);
@@ -5136,7 +5131,7 @@ async function main() {
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       confirmRetreat: () => hud.confirmInGame(
-        "Retreat from battle?", `This attempt will end and ${def.name} will escape.`, "Retreat"
+        tr("Retreat from battle?"), trMsg`This attempt will end and ${tr(def.name)} will escape.`, tr("Retreat")
       ),
       onFinish: (outcome, finalTick, inputs) => {
         // `granted` is supplied ONLINE, where the server has already rolled the brain and
@@ -5209,7 +5204,7 @@ async function main() {
             for (const unit of server.newZombies) {
               if (!unit.received) zombies.grantReward(unit.key, walk.tile.col, walk.tile.row, unit.id, unit.stored);
               rewardDrops.push(rewardZombieDrop(unit));
-              hud.showToast(`${zombieDefs.get(unit.key)?.name ?? "Epic reward zombie"} joined your ${unit.received ? "Received storage" : unit.stored ? "Mausoleum" : "farm"}!`);
+              hud.showToast(trMsg`${zombieDefs.get(unit.key)?.name ?? "Epic reward zombie"} joined your ${unit.received ? tr("Received storage") : unit.stored ? tr("Mausoleum") : tr("farm")}!`);
             }
             economy?.adoptEpicBossResult(server);
             void economy?.refreshAuthoritative().catch(() => { /* reconcile again on next settle */ });
@@ -5242,7 +5237,7 @@ async function main() {
               ...rewardDrops,
             ], server.currency ?? { brains: 0, gold: 0 });
           }).catch(() => {
-            hud.showToast("The fight result could not be verified. Reconnecting will recover it.");
+            hud.showToast(tr("The fight result could not be verified. Reconnecting will recover it."));
             abandonBattle();
             flushQuestCompletions();
           });
@@ -5282,7 +5277,7 @@ async function main() {
       console.warn("[epic boss] battle scene failed to load", error);
       crumb("battle:failed", def.name);
       abandonBattle();
-      hud.showToast("The battle could not be loaded. This attempt was lost — reload and try again.", 6000);
+      hud.showToast(tr("The battle could not be loaded. This attempt was lost — reload and try again."), 6000);
       void economy?.refreshAuthoritative().catch(() => { /* recovered on the next sync */ });
     });
     return true;
@@ -5345,9 +5340,9 @@ async function main() {
       onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
       confirmRetreat: () => hud.confirmInGame(
-        practice ? "Stop the test?" : "Retreat from the invasion?",
-        practice ? "The test ends. Nothing was at stake." : "The fight ends and their defense holds.",
-        practice ? "Stop" : "Retreat"
+        practice ? tr("Stop the test?") : tr("Retreat from the invasion?"),
+        practice ? tr("The test ends. Nothing was at stake.") : tr("The fight ends and their defense holds."),
+        practice ? tr("Stop") : tr("Retreat")
       ),
       onCheckpoint: undefined,
       onFinish: (outcome, finalTick, inputs) => {
@@ -5372,7 +5367,7 @@ async function main() {
             hud.setRaiding(false);
             audio.exitRaid();
           });
-          hud.showToast("Practice run — no rewards, and nothing was lost.", 5000);
+          hud.showToast(tr("Practice run — no rewards, and nothing was lost."), 5000);
           return;
         }
         void api.pvpFinish(sessionId, finalTick, inputs, outcome).then((res) => {
@@ -5407,14 +5402,12 @@ async function main() {
           });
           // A win past the daily rewarded-wins cap counts everywhere except the wallet.
           if (res.win && res.rewarded === false) {
-            hud.showToast("Past today's rewarded wins — that one was for glory.", 6000);
+            hud.showToast(tr("Past today's rewarded wins — that one was for glory."), 6000);
           }
         }).catch((error) => {
           const code = error instanceof api.ApiError ? error.code : "unknown_error";
           hud.showToast(
-            code === "stale_ruleset"
-              ? "The game was updated during this invasion, so its result could not be settled. Nothing was lost."
-              : "The invasion result could not be verified. Nothing was lost.",
+            code === "stale_ruleset" ? tr("The game was updated during this invasion, so its result could not be settled. Nothing was lost.") : tr("The invasion result could not be verified. Nothing was lost."),
             6000
           );
           abandonBattle();
@@ -5438,12 +5431,12 @@ async function main() {
       console.warn("[pvp] battle scene failed to load", error);
       crumb("battle:failed", raidDef.name);
       abandonBattle();
-      hud.showToast("The invasion could not be loaded. Nothing was lost — try again.", 6000);
+      hud.showToast(tr("The invasion could not be loaded. Nothing was lost — try again."), 6000);
     });
   };
   hud.onInvadeFriend = (friendId, friendName) => {
     if (!PVP_UI_ENABLED) return; // parked — see docs/FRIEND_INVASIONS.md
-    if (!onlineFarm) { hud.showToast("Friend invasions need an online farm."); return; }
+    if (!onlineFarm) { hud.showToast(tr("Friend invasions need an online farm.")); return; }
     if (raidActive || launchGate.busy || Date.now() < raidLaunchLockedUntil) return;
     hud.openPvpArmy(friendName, (orderedIds) => void launchGate.run(async () => {
       try {
@@ -5455,22 +5448,14 @@ async function main() {
           PVP_ARMY_SIZE
         );
         if (settled.missingIds.length || settled.ids.length !== PVP_ARMY_SIZE) {
-          hud.showToast("Some chosen zombies are no longer available. Please pick your army again.");
+          hud.showToast(tr("Some chosen zombies are no longer available. Please pick your army again."));
           return;
         }
         const gate = await api.pvpStart(friendId, settled.ids);
         if (!gate.ok || !gate.sessionId || !gate.config) {
           const err = gate.error ?? "unknown";
           hud.showToast(
-            err === "pair_limit"
-              ? `You've already invaded ${friendName} ${gate.limit ?? 3} times today — try again tomorrow.`
-              : err === "no_defense"
-                ? `${friendName} has no zombies on their farm to defend it.`
-                : err === "not_friends"
-                  ? "You can only invade friends."
-                  : err === "raid_in_progress"
-                    ? "Another invasion is already in progress."
-                    : "The invasion could not be started."
+            err === "pair_limit" ? trMsg`You've already invaded ${friendName} ${gate.limit ?? 3} times today — try again tomorrow.` : err === "no_defense" ? trMsg`${friendName} has no zombies on their farm to defend it.` : err === "not_friends" ? tr("You can only invade friends.") : err === "raid_in_progress" ? tr("Another invasion is already in progress.") : tr("The invasion could not be started.")
           );
           return;
         }
@@ -5480,18 +5465,18 @@ async function main() {
         if (error instanceof api.ApiError) {
           const body = (error.body ?? {}) as { limit?: number };
           if (error.code === "stale_ruleset") {
-            hud.showToast("The game has updated. Reload to invade friends.", 6000);
+            hud.showToast(tr("The game has updated. Reload to invade friends."), 6000);
             promptReload("The game has updated. Reload to keep playing.");
           } else if (error.code === "pair_limit") {
-            hud.showToast(`You've already invaded ${friendName} ${body.limit ?? 3} times today — try again tomorrow.`);
+            hud.showToast(trMsg`You've already invaded ${friendName} ${body.limit ?? 3} times today — try again tomorrow.`);
           } else if (error.code === "no_defense") {
-            hud.showToast(`${friendName} has no zombies on their farm to defend it.`);
+            hud.showToast(trMsg`${friendName} has no zombies on their farm to defend it.`);
           } else if (error.code === "not_friends") {
-            hud.showToast("You can only invade friends.");
+            hud.showToast(tr("You can only invade friends."));
           } else if (error.code === "raid_in_progress") {
-            hud.showToast("Another invasion is already in progress.");
-          } else hud.showToast("The invasion could not be started.");
-        } else hud.showToast("Gameplay is paused until the server reconnects.");
+            hud.showToast(tr("Another invasion is already in progress."));
+          } else hud.showToast(tr("The invasion could not be started."));
+        } else hud.showToast(tr("Gameplay is paused until the server reconnects."));
       }
     }, undefined));
   };
@@ -5501,7 +5486,7 @@ async function main() {
   // anywhere would be answering a different question than the one being asked.
   hud.onTestPvpDefense = () => {
     if (!PVP_UI_ENABLED) return;
-    if (!onlineFarm) { hud.showToast("Testing your defense needs an online farm."); return; }
+    if (!onlineFarm) { hud.showToast(tr("Testing your defense needs an online farm.")); return; }
     if (raidActive || launchGate.busy || Date.now() < raidLaunchLockedUntil) return;
     hud.openPvpArmy("your own defense", (orderedIds) => void launchGate.run(async () => {
       try {
@@ -5513,14 +5498,12 @@ async function main() {
           PVP_ARMY_SIZE
         );
         if (settled.missingIds.length || settled.ids.length !== PVP_ARMY_SIZE) {
-          hud.showToast("Some chosen zombies are no longer available. Please pick your army again.");
+          hud.showToast(tr("Some chosen zombies are no longer available. Please pick your army again."));
           return;
         }
         const gate = await api.pvpPractice(settled.ids);
         if (!gate.ok || !gate.config) {
-          hud.showToast(gate.error === "no_defense"
-            ? "Set a defense line-up first, then you can test it."
-            : "The test could not be started.");
+          hud.showToast(gate.error === "no_defense" ? tr("Set a defense line-up first, then you can test it.") : tr("The test could not be started."));
           return;
         }
         // No raidLaunchLockedUntil stamp: that cooldown exists to space out attacks
@@ -5528,11 +5511,11 @@ async function main() {
         launchPvpBattle(null, gate.config, gate.config.pvp.defenderName);
       } catch (error) {
         if (error instanceof api.ApiError && error.code === "stale_ruleset") {
-          hud.showToast("The game has updated. Reload to test your defense.", 6000);
+          hud.showToast(tr("The game has updated. Reload to test your defense."), 6000);
           promptReload("The game has updated. Reload to keep playing.");
         } else if (error instanceof api.ApiError && error.code === "no_defense") {
-          hud.showToast("Set a defense line-up first, then you can test it.");
-        } else hud.showToast("The test could not be started.");
+          hud.showToast(tr("Set a defense line-up first, then you can test it."));
+        } else hud.showToast(tr("The test could not be started."));
       }
     }, undefined));
   };
@@ -5607,16 +5590,14 @@ async function main() {
       try {
         const res = await api.pvpReplay(sessionId);
         if (!res.ok || !res.config) {
-          hud.showToast("That recording is no longer available.");
+          hud.showToast(tr("That recording is no longer available."));
           return;
         }
         launchPvpReplay(res.config, res.finalTick ?? 0, res.inputs ?? [], res.attackerName ?? "A friend");
       } catch (error) {
         const code = error instanceof api.ApiError ? error.code : null;
         hud.showToast(
-          code === "replay_expired" ? "That recording has been retired — only the last 10 fights keep theirs."
-          : code === "stale_replay" ? "That fight was recorded under an older game version and can't be replayed."
-          : "That recording could not be loaded."
+          code === "replay_expired" ? tr("That recording has been retired — only the last 10 fights keep theirs.") : code === "stale_replay" ? tr("That fight was recorded under an older game version and can't be replayed.") : tr("That recording could not be loaded.")
         );
       }
     }, undefined);
@@ -5686,7 +5667,7 @@ async function main() {
       });
       crumb("battle:failed", `replay:${raidDef.name}`);
       closeReplay();
-      hud.showToast("The recording could not be loaded.", 6000);
+      hud.showToast(tr("The recording could not be loaded."), 6000);
     });
   };
 
@@ -5709,9 +5690,9 @@ async function main() {
       const result = await api.endlessAbandon(sid);
       endlessSessionId = null;
       await economy?.refreshAuthoritative();
-      hud.showToast(`Run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 7000);
+      hud.showToast(trMsg`Run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 7000);
     } catch (error) {
-      hud.showToast(error instanceof api.ApiError ? `Could not end run: ${error.code}` : "Could not end the Endless run. Reconnect and try again.", 7000);
+      hud.showToast(error instanceof api.ApiError ? trMsg`Could not end run: ${error.code}` : tr("Could not end the Endless run. Reconnect and try again."), 7000);
     }
   };
   const chooseEndlessBoss = async (draft: { boons: unknown[]; curses: unknown[] }, mode: EndlessMode, loot: EndlessBossLoot[] = []) => {
@@ -5720,14 +5701,14 @@ async function main() {
     hud.openEndlessBossChoice(draft, loot, (boon, curse) => {
       void api.endlessChooseBossReward(sid, boon, curse).then((result) => {
         if (result.fight) launchEndlessFight(sid, result.fight, mode);
-      }).catch((error) => hud.showToast(error instanceof api.ApiError ? `Could not save choices: ${error.code}` : "Could not save the boss choices. Your run is still saved.", 7000));
+      }).catch((error) => hud.showToast(error instanceof api.ApiError ? trMsg`Could not save choices: ${error.code}` : tr("Could not save the boss choices. Your run is still saved."), 7000));
     }, () => { void endEndlessRun(); });
   };
   const launchEndlessFight = (sessionId: string, rawFight: Record<string, unknown>, mode: EndlessMode) => {
     const wave = Number(rawFight.wave ?? 1);
     const location = endlessWavePlan(mode, wave).location;
     const raid = assets.raids.find((item) => item.id === endlessLocationRaid[location]) ?? assets.raids[0];
-    if (!raid) { hud.showToast("Endless terrain could not be loaded."); return; }
+    if (!raid) { hud.showToast(tr("Endless terrain could not be loaded.")); return; }
     const config = rawFight as unknown as Omit<RaidSceneParams, "raid" | "assets" | "onFinish">;
     endlessSessionId = sessionId;
     pauseFarmJobs(); raidActive = true; world.visible = false;
@@ -5743,7 +5724,7 @@ async function main() {
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
-      confirmRetreat: () => hud.confirmInGame("End this Endless run?", "Retreating ends the run. Gold for every cleared floor will be paid.", "End Run"),
+      confirmRetreat: () => hud.confirmInGame(tr("End this Endless run?"), tr("Retreating ends the run. Gold for every cleared floor will be paid."), tr("End Run")),
       onFinish: (outcome, finalTick, inputs) => {
         void outcome; // The server independently verifies the transcript and determines the result.
         setTimeout(() => {
@@ -5752,7 +5733,7 @@ async function main() {
             if (result.runFinished) {
               endlessSessionId = null;
               await economy?.refreshAuthoritative();
-              hud.showToast(`Endless run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 8000);
+              hud.showToast(trMsg`Endless run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 8000);
             } else if (result.awaitingBossChoice && result.bossDraft) {
               await economy?.refreshAuthoritative().catch(() => undefined);
               chooseEndlessBoss(result.bossDraft as { boons: unknown[]; curses: unknown[] }, mode, (result.bossLoot ?? []) as EndlessBossLoot[]);
@@ -5764,7 +5745,7 @@ async function main() {
             }
           }).catch((error) => {
             closeEndlessScene();
-            hud.showToast(error instanceof api.ApiError ? `Endless result could not be saved (${error.code}). Resume to retry this floor.` : "Endless result could not be saved. Resume to retry this floor.", 8000);
+            hud.showToast(error instanceof api.ApiError ? trMsg`Endless result could not be saved (${error.code}). Resume to retry this floor.` : tr("Endless result could not be saved. Resume to retry this floor."), 8000);
           });
         }, 0);
       },
@@ -5775,15 +5756,15 @@ async function main() {
     }).catch((error) => {
       closeEndlessScene();
       recordDiagnostic({ at: Date.now(), kind: "error", where: "endless-battle", message: error instanceof Error ? error.message : String(error) });
-      hud.showToast("Endless floor could not be loaded. Your saved run is ready to resume.", 7000);
+      hud.showToast(tr("Endless floor could not be loaded. Your saved run is ready to resume."), 7000);
     });
   };
   const openEndless = async () => {
-    if (!onlineFarm) { hud.showToast("Endless Mode requires an online account."); return; }
+    if (!onlineFarm) { hud.showToast(tr("Endless Mode requires an online account.")); return; }
     let active: Awaited<ReturnType<typeof api.endlessActive>> | null = null;
     try { active = await api.endlessActive(); } catch (error) {
       if (!(error instanceof api.ApiError) || error.status !== 404) {
-        hud.showToast("Endless Mode is unavailable right now."); return;
+        hud.showToast(tr("Endless Mode is unavailable right now.")); return;
       }
     }
     const hasActive = !!active?.sessionId && !!active.mode && !!active.wave && !!active.stage;
@@ -5795,12 +5776,12 @@ async function main() {
       const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
       const settled = reconcilePartySelection(ids, zombies.roster().filter((z) => !z.stored),
         (id) => economy?.authoritativeUnitId(id) ?? id, raids.partyView().cap);
-      if (settled.missingIds.length) { hud.showToast(`${settled.missingIds.map((id) => selectedNames.get(id) ?? "A zombie").join(", ")} is no longer available. Choose your army again.`); return; }
+      if (settled.missingIds.length) { hud.showToast(trMsg`${settled.missingIds.map((id) => selectedNames.get(id) ?? "A zombie").join(", ")} is no longer available. Choose your army again.`); return; }
       try {
         const started = await api.endlessStart(mode, settled.ids);
-        if (!started.ok || !started.sessionId || !started.fight) { hud.showToast(`Could not start Endless (${started.error ?? "unknown_error"}).`); return; }
+        if (!started.ok || !started.sessionId || !started.fight) { hud.showToast(trMsg`Could not start Endless (${started.error ?? "unknown_error"}).`); return; }
         launchEndlessFight(started.sessionId, started.fight, mode);
-      } catch (error) { hud.showToast(error instanceof api.ApiError ? `Could not start Endless (${error.code}).` : "Could not start Endless."); }
+      } catch (error) { hud.showToast(error instanceof api.ApiError ? trMsg`Could not start Endless (${error.code}).` : tr("Could not start Endless.")); }
     }, () => {
       if (!active?.sessionId) return;
       if (active.stage === "boss-choice" && active.bossDraft) chooseEndlessBoss(active.bossDraft as { boons: unknown[]; curses: unknown[] }, active.mode!, (active.bossLoot ?? []) as EndlessBossLoot[]);
@@ -5902,7 +5883,7 @@ async function main() {
     void hud.offerNight(prompt.title, prompt.body, nightLabel(night, elite)).then((onward) => {
       nightOfferOpen = false;
       const stale = !sessionId && Date.now() - offeredAt > NIGHT_CONTINUE_WINDOW_MS;
-      if (stale) hud.showToast("The party's over. Your zombies headed home.");
+      if (stale) hud.showToast(tr("The party's over. Your zombies headed home."));
       if (!onward || stale) {
         // Heading home ends the chain. With the result panel still up its close offers the
         // revivals; with it already closed, nobody else will.
@@ -5949,7 +5930,7 @@ async function main() {
         );
         if (settled.missingIds.length) {
           const names = settled.missingIds.map((id) => selectedNames.get(id) ?? "A selected zombie");
-          hud.showToast(`${names.join(", ")} ${names.length === 1 ? "is" : "are"} no longer available. Please choose your army again.`);
+          hud.showToast(trMsg`${names.join(", ")} ${names.length === 1 ? tr("is") : tr("are")} no longer available. Please choose your army again.`);
           return false;
         }
         partyIds = settled.ids;
@@ -5970,22 +5951,22 @@ async function main() {
           // blocks a second launch, so `locked` / `raid_in_progress` mean the client and
           // server disagree — say so plainly rather than blaming the cooldown.
           if (gate.error === "locked") {
-            hud.showToast(`That invasion unlocks at level ${gate.unlockLevel ?? "?"}.`);
+            hud.showToast(trMsg`That invasion unlocks at level ${gate.unlockLevel ?? "?"}.`);
           } else if (gate.error === "raid_in_progress") {
-            hud.showToast("Another invasion is already in progress.");
+            hud.showToast(tr("Another invasion is already in progress."));
           } else if (gate.error === "no_voucher") {
-            hud.showToast("No Invasion Voucher to skip the cooldown.");
+            hud.showToast(tr("No Invasion Voucher to skip the cooldown."));
           } else if (gate.error === "no_brain_ticket") {
-            hud.showToast("No Brain Ticket for an elite invasion.");
+            hud.showToast(tr("No Brain Ticket for an elite invasion."));
           } else if (gate.error === "elite_unavailable") {
-            hud.showToast("This invasion has tiers instead of Brain Tickets.");
+            hud.showToast(tr("This invasion has tiers instead of Brain Tickets."));
           } else if (gate.error === "tier_locked") {
-            hud.showToast(`Tier ${gate.unlockedTier ?? 1} is as far as you have climbed here.`);
+            hud.showToast(trMsg`Tier ${gate.unlockedTier ?? 1} is as far as you have climbed here.`);
           } else if (gate.error?.startsWith("night_") || gate.error === "bad_continue") {
-            hud.showToast("The party's over. Invade again to start a new one.");
+            hud.showToast(tr("The party's over. Invade again to start a new one."));
           } else {
             const mins = Math.ceil((gate.cooldownRemaining ?? 0) / 60000);
-            hud.showToast(`Invasion on cooldown — about ${mins} min left.`);
+            hud.showToast(trMsg`Invasion on cooldown — about ${mins} min left.`);
           }
           return false;
         }
@@ -6031,26 +6012,26 @@ async function main() {
         if (error instanceof api.ApiError) {
           const body = (error.body ?? {}) as { cooldownRemaining?: number; unlockLevel?: number };
           if (error.code === "cooldown") {
-            hud.showToast(`Invasion on cooldown — about ${Math.ceil((body.cooldownRemaining ?? 0) / 60000)} min left.`);
-          } else if (error.code === "locked") hud.showToast(`That invasion unlocks at level ${body.unlockLevel ?? "?"}.`);
-          else if (error.code === "raid_in_progress") hud.showToast("Another invasion is already in progress.");
-          else if (error.code === "no_voucher") hud.showToast("No Invasion Voucher to skip the cooldown.");
-          else if (error.code === "no_brain_ticket") hud.showToast("No Brain Ticket for an elite invasion.");
-          else if (error.code === "elite_unavailable") hud.showToast("This invasion has tiers instead of Brain Tickets.");
-          else if (error.code === "tier_locked") hud.showToast("You have not unlocked that tier yet.");
+            hud.showToast(trMsg`Invasion on cooldown — about ${Math.ceil((body.cooldownRemaining ?? 0) / 60000)} min left.`);
+          } else if (error.code === "locked") hud.showToast(trMsg`That invasion unlocks at level ${body.unlockLevel ?? "?"}.`);
+          else if (error.code === "raid_in_progress") hud.showToast(tr("Another invasion is already in progress."));
+          else if (error.code === "no_voucher") hud.showToast(tr("No Invasion Voucher to skip the cooldown."));
+          else if (error.code === "no_brain_ticket") hud.showToast(tr("No Brain Ticket for an elite invasion."));
+          else if (error.code === "elite_unavailable") hud.showToast(tr("This invasion has tiers instead of Brain Tickets."));
+          else if (error.code === "tier_locked") hud.showToast(tr("You have not unlocked that tier yet."));
           else if (error.code.startsWith("night_") || error.code === "bad_continue") {
-            hud.showToast("The party's over. Invade again to start a new one.");
+            hud.showToast(tr("The party's over. Invade again to start a new one."));
           }
           else if (error.code === "stale_ruleset") {
             // This tab predates the deployed Worker, so the server refuses to pin a fight
             // it and the client would simulate differently. Nothing is consumed and no
             // cooldown starts — but without this branch the player just sees "could not
             // start that invasion" and has no way to know a reload fixes it.
-            hud.showToast("The game has updated. Reload to keep raiding.", 6000);
+            hud.showToast(tr("The game has updated. Reload to keep raiding."), 6000);
             promptReload("The game has updated. Reload to keep raiding.");
           }
-          else hud.showToast("The server could not start that invasion.");
-        } else hud.showToast("Gameplay is paused until the server reconnects.");
+          else hud.showToast(tr("The server could not start that invasion."));
+        } else hud.showToast(tr("Gameplay is paused until the server reconnects."));
         return false;
       }
     }
@@ -6151,11 +6132,11 @@ async function main() {
       onDoOrDie: () => audio.enterRaid("enrageBGM.mp3"),
       confirmRetreat: () => setup.night > FIRST_NIGHT
         ? hud.confirmInGame(
-          `Retreat from ${nightLabel(setup.night, setup.elite)}?`,
-          "This hour will count as a loss. Everything the earlier hours paid is already yours.",
-          "Retreat"
+          trMsg`Retreat from ${nightLabel(setup.night, setup.elite)}?`,
+          tr("This hour will count as a loss. Everything the earlier hours paid is already yours."),
+          tr("Retreat")
         )
-        : hud.confirmInGame("Retreat from invasion?", "This invasion will count as a loss.", "Retreat"),
+        : hud.confirmInGame(tr("Retreat from invasion?"), tr("This invasion will count as a loss."), tr("Retreat")),
       onCheckpoint: undefined,
       onFinish: (outcome, finalTick, inputs) => {
         // The fight is over, so the TTL has nothing left to warn about: whatever the
@@ -6198,7 +6179,7 @@ async function main() {
             const settlement = invasionSettlementNotice(outcome, res);
             if (settlement) {
               hud.setRaidResultNotice(settlement.notice);
-              hud.showToast(settlement.toast, 8000);
+              hud.showToast(tr(settlement.toast), 8000);
             }
             if (res.outcome) zombies.applyServerRaidOutcome(res.outcome.survivors, res.outcome.losses);
             // Online the tutorial's invade beat no longer rides the local quest event,
@@ -6223,7 +6204,7 @@ async function main() {
               }
               drops.push(rewardZombieDrop(res.newZombie));
               hud.showToast(
-                `${zombieDefs.get(res.newZombie.key)?.name ?? "Rare zombie"} joined your ${res.newZombie.received ? "Received storage" : res.newZombie.stored ? "Mausoleum" : "farm"}!`
+                trMsg`${zombieDefs.get(res.newZombie.key)?.name ?? "Rare zombie"} joined your ${res.newZombie.received ? tr("Received storage") : res.newZombie.stored ? tr("Mausoleum") : tr("farm")}!`
               );
             }
             hud.setRaidResultLoot(drops, res.gold);
@@ -6260,12 +6241,10 @@ async function main() {
                 : null;
             try {
               await economy!.refreshAuthoritative();
-              hud.showToast(verificationMessage ?? `Invasion settlement failed (${code}). Your farm was resynced.`, 6000);
+              hud.showToast(tr(verificationMessage ?? `Invasion settlement failed (${code}). Your farm was resynced.`), 6000);
             } catch {
               hud.showToast(
-                verificationMessage
-                  ? `${verificationMessage} Reconnecting will resync your farm.`
-                  : `Invasion settlement failed (${code}). Reconnecting will resync your farm.`,
+                verificationMessage ? trMsg`${verificationMessage} Reconnecting will resync your farm.` : trMsg`Invasion settlement failed (${code}). Reconnecting will resync your farm.`,
                 6000
               );
             }
@@ -6390,7 +6369,7 @@ async function main() {
       clearRaidExpiry();
       economy?.setLiveRaid(null);
       hud.showToast(
-        "The battle could not be loaded. Your army is released when you next invade.",
+        tr("The battle could not be loaded. Your army is released when you next invade."),
         6000
       );
     });
@@ -6410,7 +6389,7 @@ async function main() {
     // back off, which reads as the panel closing and nothing happening.
     const instanceId = storedInstanceId(key);
     if (!instanceId) {
-      hud.showToast("That item is no longer in your shed.");
+      hud.showToast(tr("That item is no longer in your shed."));
       return;
     }
     await ensureObjectTextures(assets, def);
@@ -6475,8 +6454,8 @@ async function main() {
       // placed army bonus online). A full crypt must not strand an earned reward
       // while there is a free army slot standing empty.
       const deploy = zombies.canAdd();
-      if (!deploy && !field.mausoleumId()) { hud.showToast("Place a Mausoleum before claiming this zombie."); return; }
-      if (!deploy && zombies.mausoleumFull) { hud.showToast("Make room in the Mausoleum first."); return; }
+      if (!deploy && !field.mausoleumId()) { hud.showToast(tr("Place a Mausoleum before claiming this zombie.")); return; }
+      if (!deploy && zombies.mausoleumFull) { hud.showToast(tr("Make room in the Mausoleum first.")); return; }
       if (economy && !economy.submitStorageClaim(entry, {})) return;
       // The Almanac counted this species when the reward was EARNED; claiming only
       // moves it, so counting again here would inflate the lifetime tally.
@@ -6530,7 +6509,7 @@ async function main() {
     // Re-checked here rather than trusted from the card: the shed can fill up between
     // the panel rendering and the tap (a second reward stored, a reconcile landing).
     if (!entry || !def || !canStore(def)) {
-      if (def) hud.showToast("Your shed is full.");
+      if (def) hud.showToast(tr("Your shed is full."));
       return false;
     }
     if (economy) {
@@ -6574,7 +6553,7 @@ async function main() {
   /** Say why an object refuses to turn. See `canMirrorObject`: turning is a mirror, and
    *  a mirrored sign reads backwards, so art with writing on it does not turn at all. */
   const sayCannotRotate = (def: PlaceableDef) =>
-    hud.showToast(`The ${def.name}'s sign would read backwards, so it can't be turned.`);
+    hud.showToast(trMsg`The ${tr(def.name)}'s sign would read backwards, so it can't be turned.`);
 
   const rotateCurrent = () => {
     if (hud.mode === "place" && hud.placing) {
@@ -6601,7 +6580,7 @@ async function main() {
     if (!def) return;
     if (!retrieving && receiving === null && hud.objectLimitReached?.(def)) return;
     if (def.zombiePot && field.zombiePotCount() >= MAX_ZOMBIE_POTS) {
-      hud.showToast(`You can place at most ${MAX_ZOMBIE_POTS} Zombie Pots.`);
+      hud.showToast(trMsg`You can place at most ${MAX_ZOMBIE_POTS} Zombie Pots.`);
       return;
     }
     if (noRoomForAnother(def, field)) return;
@@ -6690,7 +6669,7 @@ async function main() {
     refreshArmyCap(); // functional effect — no-ops when the placement did not land
     if (def.storageSlots && placedId) refreshShedCap(); // shed capacity
     const c = tileCenter(col, row);
-    floatText(c.x, c.y, `-${cost}${useBrains ? "b" : "g"}`);
+    floatText(c.x, c.y, trMsg`-${cost}${useBrains ? tr("b") : tr("g")}`);
     showPurchaseXp(xp, c);
     questBus.post(QuestEvent.ItemBought, def.name, 1, objectAliases.get(def.key) ?? []);
     // That may have been the last copy the player is allowed: a Blue Grave, a
@@ -6713,7 +6692,7 @@ async function main() {
         field.objectAtPoint(wx, wy, id) === shed;
       if (onShed && canStoreObject(id, def) && storeObject(id)) {
         cancelCarry(); // only once the object is really off the farm
-        hud.showToast(`${def.name} packed away in your shed.`);
+        hud.showToast(trMsg`${tr(def.name)} packed away in your shed.`);
         return;
       }
       const { oc, or } = field.resolveObjectOrigin(
@@ -6756,7 +6735,7 @@ async function main() {
     if (!field.canMovePlot(plot.oc, plot.or)) {
       // Say why rather than silently ignoring the tap — an unresponsive plot reads
       // as a broken tool.
-      hud.showToast("Only bare tilled plots can be moved.");
+      hud.showToast(tr("Only bare tilled plots can be moved."));
       return;
     }
     carryingPlot = plot;
@@ -6803,7 +6782,7 @@ async function main() {
     }
     const c = tileCenter(o.oc, o.or);
     objectPurchases.delete(id);
-    floatText(c.x, c.y, `+${refund}g`);
+    floatText(c.x, c.y, trMsg`+${refund}g`);
   };
 
   /** Gold ONE stored copy pays. Priced from what that exact copy cost — two Hedges
@@ -6855,14 +6834,14 @@ async function main() {
     // the graveyard when it was stored), so selling it from here frees nothing.
     if (!def || !canSellObject(def)) return false;
     if (!instanceId) {
-      hud.showToast("That item is no longer in your shed.");
+      hud.showToast(tr("That item is no longer in your shed."));
       return false;
     }
     const refund = storedRefund(key, instanceId);
     if (!await hud.confirmInGame(
-      `Sell ${def.name}?`,
-      `Sell this stored item for ${refund} gold? This cannot be undone.`,
-      `Sell +${refund}g`,
+      trMsg`Sell ${tr(def.name)}?`,
+      trMsg`Sell this stored item for ${refund} gold? This cannot be undone.`,
+      trMsg`Sell +${refund}g`,
     )) return false;
     if (!sellStoredLot({ key, instanceId, refund })) return false;
     audio.play("sell");
@@ -6878,14 +6857,14 @@ async function main() {
     if (onlineGameplayBlocked()) return null;
     const plan = planShedSale(keys);
     if (!plan.lots.length) {
-      hud.showToast("Those items are no longer in your shed.");
+      hud.showToast(tr("Those items are no longer in your shed."));
       return null;
     }
     const what = describeStoredSale(plan.lots, (key) => placeCatalog.get(key)?.name ?? key);
     if (!await hud.confirmInGame(
-      `Sell ${plan.lots.length} stored item${plan.lots.length === 1 ? "" : "s"}?`,
-      `${what} — for ${plan.gold.toLocaleString()} gold. This cannot be undone.`,
-      `Sell +${plan.gold.toLocaleString()}g`,
+      trMsg`Sell ${plan.lots.length} stored item${plan.lots.length === 1 ? "" : tr("s")}?`,
+      trMsg`${what} — for ${plan.gold.toLocaleString()} gold. This cannot be undone.`,
+      trMsg`Sell +${plan.gold.toLocaleString()}g`,
     )) return null;
     // Each copy is re-checked against the shed as it is consumed — the dialog was
     // open long enough for a reconcile or another panel to move things — and a copy
@@ -6898,14 +6877,13 @@ async function main() {
       sold++;
     }
     if (!sold) {
-      hud.showToast("Those items are no longer in your shed.");
+      hud.showToast(tr("Those items are no longer in your shed."));
       return null;
     }
     audio.play("sell");
     const short = plan.lots.length - sold + plan.missing;
     hud.showToast(
-      `Sold ${sold} item${sold === 1 ? "" : "s"} for ${gold.toLocaleString()} gold.` +
-      (short ? ` ${short} ${short === 1 ? "was" : "were"} no longer in your shed.` : "")
+      trMsg`Sold ${sold} item${sold === 1 ? "" : tr("s")} for ${gold.toLocaleString()} gold.${tr((short ? ` ${short} ${short === 1 ? "was" : "were"} no longer in your shed.` : ""))}`
     );
     return gold;
   };
@@ -6917,9 +6895,9 @@ async function main() {
     if (!entry || !def || def.category === "functional") return false;
     const refund = sellRefund(def);
     if (!await hud.confirmInGame(
-      `Sell ${def.name}?`,
-      `Sell this reward directly from Received for ${refund} gold? This cannot be undone.`,
-      `Sell +${refund}g`,
+      trMsg`Sell ${tr(def.name)}?`,
+      trMsg`Sell this reward directly from Received for ${refund} gold? This cannot be undone.`,
+      trMsg`Sell +${refund}g`,
     )) return false;
     if (economy) {
       // One command, and deliberately not the claim-then-refund pair this used to be.
@@ -6952,7 +6930,7 @@ async function main() {
     if (onlineGameplayBlocked()) return null;
     const lots = receivedSaleLots(indices);
     if (!lots.length) {
-      hud.showToast("Those rewards are no longer in Received.");
+      hud.showToast(tr("Those rewards are no longer in Received."));
       return null;
     }
     const total = lots.reduce((a, l) => a + l.refund, 0);
@@ -6960,9 +6938,9 @@ async function main() {
     for (const l of lots) tally.set(l.entry, (tally.get(l.entry) ?? 0) + 1);
     const what = [...tally].map(([name, n]) => (n > 1 ? `${n} × ${name}` : name)).join(", ");
     if (!await hud.confirmInGame(
-      `Sell ${lots.length} reward${lots.length === 1 ? "" : "s"}?`,
-      `${what} — for ${total.toLocaleString()} gold. This cannot be undone.`,
-      `Sell +${total.toLocaleString()}g`,
+      trMsg`Sell ${lots.length} reward${lots.length === 1 ? "" : tr("s")}?`,
+      trMsg`${what} — for ${total.toLocaleString()} gold. This cannot be undone.`,
+      trMsg`Sell +${total.toLocaleString()}g`,
     )) return null;
     // Highest index first so each removal leaves the lower ones where they were, and
     // each is re-checked against the bucket (the dialog was open long enough for it
@@ -6979,14 +6957,13 @@ async function main() {
       sold++;
     }
     if (!sold) {
-      hud.showToast("Those rewards could not be sold.");
+      hud.showToast(tr("Those rewards could not be sold."));
       return null;
     }
     audio.play("sell");
     const short = lots.length - sold;
     hud.showToast(
-      `Sold ${sold} reward${sold === 1 ? "" : "s"} for ${gold.toLocaleString()} gold.` +
-      (short ? ` ${short} could not be sold.` : "")
+      trMsg`Sold ${sold} reward${sold === 1 ? "" : tr("s")} for ${gold.toLocaleString()} gold.${tr((short ? ` ${short} could not be sold.` : ""))}`
     );
     return gold;
   };
@@ -7141,11 +7118,8 @@ async function main() {
         footprintTiles(item).some(({ col, row }) => !!field.plotOriginAt(col, row))).length;
       const blocked = pending.length - onPlot;
       const skipped = plan.missing.length + plan.stuck.length;
-      return `Loaded "${layout.name}": ${placed} placed, ${stored} stored` +
-        (onPlot ? ` · ${onPlot} left in the shed — a plot covers their spot` : "") +
-        (blocked ? ` · ${blocked} left in the shed — something else is in the way` +
-          (toStore.length ? " (the shed filled up)" : "") : "") +
-        (skipped ? ` · ${skipped} skipped (no longer owned, or can't move)` : "") + ".";
+      return trMsg`Loaded "${layout.name}": ${placed} placed, ${stored} stored${(onPlot ? trMsg` · ${onPlot} left in the shed — a plot covers their spot` : "")}${(blocked ? trMsg` · ${blocked} left in the shed — something else is in the way` +
+          (toStore.length ? tr(" (the shed filled up)") : "") : "")}${(skipped ? trMsg` · ${skipped} skipped (no longer owned, or can't move)` : "")}.`;
     } finally {
       layoutLoading = false;
     }
@@ -7229,7 +7203,7 @@ async function main() {
     },
     remove: async (id) => {
       const err = await writeLayouts((layouts) => layouts.filter((l) => l.id !== id));
-      if (err) hud.showToast(err);
+      if (err) hud.showToast(tr(err));
     },
   };
 
@@ -7270,7 +7244,7 @@ async function main() {
       onRotate: () => {
         if (!canMirrorObject(def)) { sayCannotRotate(def); return; }
         if (!field.flipObject(oid)) {
-          hud.showToast("No room to turn that — move it somewhere clearer first.");
+          hud.showToast(tr("No room to turn that — move it somewhere clearer first."));
           return;
         }
         saveManager.save();
@@ -7289,12 +7263,11 @@ async function main() {
     const occupant = field.memorialOccupant(oid);
     const refund = sellRefund(def);
     const confirmed = await hud.confirmInGame(
-      `Sell ${def.name}?`,
-      `Sell this statue for ${refund} gold?`
-      + (occupant
-        ? ` ${occupant.name} is not lost with it — they return to the graveyard and can be enshrined on another statue.`
+      trMsg`Sell ${tr(def.name)}?`,
+      trMsg`Sell this statue for ${refund} gold?` + (occupant
+        ? trMsg` ${occupant.name} is not lost with it — they return to the graveyard and can be enshrined on another statue.`
         : ""),
-      `Sell +${refund}g`,
+      trMsg`Sell +${refund}g`,
     );
     // The farm may have changed while the confirmation was open.
     if (confirmed && field.objectDefOf(oid) === def) sellObject(oid);
@@ -7314,10 +7287,9 @@ async function main() {
       // warning reads as "this deletes your dead zombie" and nobody ever taps it.
       const occupant = d.memorial ? field.memorialOccupant(id) : null;
       const confirmed = await hud.confirmInGame(
-        `Sell ${d.name}?`,
-        `The Remove tool will permanently sell this item for ${refund} gold. This cannot be undone.`
-        + (occupant ? ` ${occupant.name} returns to the graveyard and can be enshrined again.` : ""),
-        `Sell +${refund}g`
+        trMsg`Sell ${d.name}?`,
+        trMsg`The Remove tool will permanently sell this item for ${refund} gold. This cannot be undone.` + tr((occupant ? ` ${occupant.name} returns to the graveyard and can be enshrined again.` : "")),
+        trMsg`Sell +${refund}g`
       );
       // The farm may have changed while the confirmation was open.
       if (!confirmed || field.objectDefOf(id) !== d) return;
@@ -7331,9 +7303,9 @@ async function main() {
       // farmer actually plants), so removing it is a plain tap — no confirmation.
       if (crop) {
         const confirmed = await hud.confirmInGame(
-          "Remove this plot?",
-          `Remove this plot and discard the ${crop.name} growing on it? You will receive no refund.`,
-          "Remove Plot"
+          tr("Remove this plot?"),
+          trMsg`Remove this plot and discard the ${tr(crop.name)} growing on it? You will receive no refund.`,
+          tr("Remove Plot")
         );
         const current = field.plotOriginAt(col, row);
         if (!confirmed || !current || current.oc !== origin.oc || current.or !== origin.or) return;
@@ -7374,7 +7346,7 @@ async function main() {
       // A long object turns across the diagonal it was lying on, so the tiles it
       // needs change: say why nothing happened instead of eating the tap.
       if (!field.flipObject(id)) {
-        hud.showToast("No room to turn that — move it somewhere clearer first.");
+        hud.showToast(tr("No room to turn that — move it somewhere clearer first."));
         return;
       }
       audio.play("place");
@@ -7429,7 +7401,7 @@ async function main() {
       const napping = zombies.toggleGather(field.patchRestTiles());
       const wp = field.objectWorkPoint(objId);
       saveManager.flushCritical();
-      if (wp) floatText(wp.x, wp.y - 24, napping ? "Zzz…" : "Awake!");
+      if (wp) floatText(wp.x, wp.y - 24, napping ? tr("Zzz…") : tr("Awake!"));
     } else if (objDef.zombiePot) {
       activePotId = objId;
       hud.openCombiner();
@@ -7448,7 +7420,7 @@ async function main() {
     // A Headless zombie has nothing to say it with: no bark (audio.brain already
     // returns null for the group) and no "Brains…" bubble either. The info panel is
     // the tap's feedback for those.
-    if (d.group !== "Headless") floatText(wp.x, wp.y - 44, "Brains…");
+    if (d.group !== "Headless") floatText(wp.x, wp.y - 44, tr("Brains…"));
     audio.brain(d.group, d.key);
     hud.openZombieInfo(withFarmerBonuses({
       name: d.name, typeName: d.typeName, key: d.key, group: d.group,
@@ -7479,7 +7451,7 @@ async function main() {
     if (!actor.containsPoint(wx, wy)) return false;
     setLantern(!lanternOn);
     audio.play("menuClick");
-    floatText(actor.container.x, actor.container.y - 70, lanternOn ? "Lantern on" : "Lantern off");
+    floatText(actor.container.x, actor.container.y - 70, lanternOn ? tr("Lantern on") : tr("Lantern off"));
     return true;
   };
 
@@ -7509,7 +7481,7 @@ async function main() {
       // Name the cause. "reconnect to continue" on its own sends players chasing a
       // network problem they don't have.
       const why = economy.unavailableReason;
-      hud.showToast(`Gameplay paused (${why}) — reconnect to continue.`);
+      hud.showToast(trMsg`Gameplay paused (${why}) — reconnect to continue.`);
       console.warn(`[zf] tap while paused: ${why}`);
       // The tap path can be the FIRST place a pause is noticed: several branches set
       // `paused` without emitting onGameplayUnavailable (a 409 rebase, a bootstrap
@@ -7949,7 +7921,7 @@ async function main() {
           const napping = zombies.toggleGather(field.patchRestTiles());
           const wp = field.objectWorkPoint(objId);
           saveManager.flushCritical();
-          if (wp) floatText(wp.x, wp.y - 24, napping ? "Zzz…" : "Awake!");
+          if (wp) floatText(wp.x, wp.y - 24, napping ? tr("Zzz…") : tr("Awake!"));
         } else if (objId && objDef && objDef.zombiePot) {
           activePotId = objId;
           hud.openCombiner(); // pick two zombies to combine, or collect a finished one
@@ -8260,7 +8232,7 @@ async function main() {
     if (expiry === raidExpiryAnnounced) return;
     raidExpiryAnnounced = expiry;
     const message = invasionExpiryMessage(expiry, raidExpiresAt - Date.now());
-    if (message) hud.showToast(message, 8000);
+    if (message) hud.showToast(tr(message), 8000);
   };
 
   app.ticker.add((ticker) => {
@@ -8373,7 +8345,7 @@ async function main() {
       view.bar.position.set(wp.x, wp.y - 92);
       view.fill.scale.x = pot.ready ? 1 : pot.progress();
       const secs = Math.ceil(pot.remainingMs() / 1000);
-      view.label.text = pot.ready ? "Ready!" : secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m`;
+      view.label.text = pot.ready ? tr("Ready!") : secs < 60 ? trMsg`${secs}s` : trMsg`${Math.floor(secs / 60)}m`;
     }
     // animate floating popups (rise + fade)
     for (let i = floats.length - 1; i >= 0; i--) {
@@ -8550,5 +8522,5 @@ main().catch((err) => {
   console.error(err);
   boot?.fail(); // drop the start screen so the error below is visible
   const hud = document.getElementById("hud");
-  if (hud) hud.innerHTML = `<b style="color:#ffb0b0">Error:</b> ${err}`;
+  if (hud) hud.innerHTML = trHtml`<b style="color:#ffb0b0">Error:</b> ${err}`;
 });

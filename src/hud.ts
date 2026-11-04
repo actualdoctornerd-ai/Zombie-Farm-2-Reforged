@@ -1,3 +1,5 @@
+import { html as trHtml, msg as trMsg, t as tr, matchesLocalizedText } from "./i18n";
+import type { Language } from "./i18n";
 // DOM overlay HUD laid out like the iPad game: settings gear + currency bar +
 // player name across the top, an ACTIVE-QUESTS column on the left (toggled by the
 // bottom-left button), menu buttons on the right, and a farming-tool bar at the
@@ -184,12 +186,10 @@ function magnifierButton(ariaLabel: string, title: string, onClick: () => void):
   const info = document.createElement("button");
   info.className = "mkt-info";
   info.type = "button";
-  info.title = title;
-  info.setAttribute("aria-label", ariaLabel);
+  info.title = tr(title);
+  info.setAttribute("aria-label", tr(ariaLabel));
   info.innerHTML =
-    `<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" ` +
-    `stroke-width="2" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="4.3"/>` +
-    `<line x1="9.7" y1="9.7" x2="14" y2="14"/></svg>`;
+    trHtml`<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="4.3"/><line x1="9.7" y1="9.7" x2="14" y2="14"/></svg>`;
   info.onclick = (e) => { e.stopPropagation(); onClick(); };
   return info;
 }
@@ -328,7 +328,7 @@ function holdToRepeat(button: HTMLButtonElement, tap: () => void, repeat: () => 
 /** The Concentrate toggle's face. Shared by the raid picker and the Epic Boss picker
  *  so the two cannot drift into describing the same consumable differently. */
 const CONCENTRATE_LABEL = (owned: number) =>
-  `🧠 Concentrate <span class="rb-ct">x${owned}</span>`;
+  trHtml`🧠 Concentrate <span class="rb-ct">x${owned}</span>`;
 
 /** The Concentrate toggle itself. Always offered, owned or not: hidden at zero stock it
  *  simply vanished from the picker the moment the last one was spent, which players
@@ -340,17 +340,17 @@ function concentrateButton(owned: number, title: string, onToggle: (on: boolean)
   btn.innerHTML = CONCENTRATE_LABEL(owned);
   if (owned <= 0) {
     btn.disabled = true;
-    btn.title = "You have no Concentration. Buy more in the Market's Boosts tab.";
+    btn.title = tr("You have no Concentration. Buy more in the Market's Boosts tab.");
     return btn;
   }
-  btn.title = title;
+  btn.title = tr(title);
   let on = false;
   btn.onclick = () => { on = !on; btn.classList.toggle("on", on); onToggle(on); };
   return btn;
 }
 function marketPrice(amount: number, currency: BlackMarketCurrency): string {
-  if (currency === "GOLD") return `${amount.toLocaleString()} gold`;
-  return `${amount.toLocaleString()} brain${amount === 1 ? "" : "s"}`;
+  if (currency === "GOLD") return trMsg`${amount.toLocaleString()} gold`;
+  return trMsg`${amount.toLocaleString()} brain${amount === 1 ? "" : "s"}`;
 }
 
 /** "2d 4h" / "5h 12m" / "18m" — how long until a Black Market post expires, or until
@@ -358,10 +358,10 @@ function marketPrice(amount: number, currency: BlackMarketCurrency): string {
  *  to tick down a two-hour raid timer and would render three days as "71h 59m". */
 function fmtMarketWait(ms: number): string {
   const minutes = Math.max(0, Math.ceil(ms / 60_000));
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return tr(`${minutes}m`);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${String(minutes % 60).padStart(2, "0")}m`;
-  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  if (hours < 24) return tr(`${hours}h ${String(minutes % 60).padStart(2, "0")}m`);
+  return tr(`${Math.floor(hours / 24)}d ${hours % 24}h`);
 }
 
 /** A 0..1 chance as a short percentage. Drop rates run from 0.8% to ~15%, so keep enough
@@ -375,9 +375,9 @@ function pctOdds(chance: number): string {
 /** Player-facing wording for what a gift paid out ("a brain 🧠", "300 gold 💰"). */
 function giftRewardLabel(reward: GiftReward): string {
   if (reward.kind === "brain") {
-    return reward.amount === 1 ? "a brain 🧠" : `${reward.amount} brains 🧠`;
+    return reward.amount === 1 ? tr("a brain 🧠") : trMsg`${reward.amount} brains 🧠`;
   }
-  return `${reward.amount.toLocaleString()} gold 💰`;
+  return trMsg`${reward.amount.toLocaleString()} gold 💰`;
 }
 
 
@@ -385,7 +385,7 @@ function giftRewardLabel(reward: GiftReward): string {
 /** "New crop unlocked: Golden Carrot, Golden Turnip" — empty when nothing unlocked. */
 function cropUnlockHtml(names: string[]): string {
   if (!names.length) return "";
-  return `<div class="rr-unlock rr-crop-unlock">New crop unlocked: ${names.join(", ")} — plant it from the Market.</div>`;
+  return trHtml`<div class="rr-unlock rr-crop-unlock">New crop unlocked: ${names.map(name => tr(name)).join(", ")} — plant it from the Market.</div>`;
 }
 
 export class Hud {
@@ -778,12 +778,12 @@ export class Hud {
     if (!this.lfChip) return;
     const p = lifeForceProgress(this.state.lifeForce);
     const pct = Math.round(p.progress * 100);
-    this.lfBadge.textContent = String(p.level);
+    this.lfBadge.textContent = tr(String(p.level));
     this.lfFill.style.width = `${pct}%`;
     this.lfChip.style.setProperty("--lf", `${pct}%`);
     this.lfChip.setAttribute(
       "aria-label",
-      `Life Force level ${p.level}: ${p.total.toLocaleString()}${p.next === null ? "" : ` of ${p.next.toLocaleString()}`}. Opens details.`
+      trMsg`Life Force level ${p.level}: ${p.total.toLocaleString()}${p.next === null ? "" : trMsg` of ${p.next.toLocaleString()}`}. Opens details.`
     );
   }
 
@@ -865,8 +865,8 @@ export class Hud {
     }
     const name = document.createElement("div");
     name.className = "nameplate";
-    name.textContent = "Zombie Farmer";
-    name.title = this.playMode === "local" ? "Local Farm" : "Account";
+    name.textContent = tr("Zombie Farmer");
+    name.title = this.playMode === "local" ? tr("Local Farm") : tr("Account");
     name.setAttribute("role", "button");
     // Clicking your name opens the Account menu (who you're signed in as + Sign
     // out). Profile SWITCHING is intentionally not exposed here for now (see
@@ -875,10 +875,10 @@ export class Hud {
     this.nameEl = name;
     this.playStatusEl = document.createElement("button");
     this.playStatusEl.className = "play-status local";
-    this.playStatusEl.textContent = "LOCAL FARM";
+    this.playStatusEl.textContent = tr("LOCAL FARM");
     this.playStatusEl.setAttribute("type", "button");
-    this.playStatusEl.setAttribute("aria-label", "Current farm: Local Farm. Choose Local or Online.");
-    this.playStatusEl.title = "Choose Local or Online";
+    this.playStatusEl.setAttribute("aria-label", tr("Current farm: Local Farm. Choose Local or Online."));
+    this.playStatusEl.title = tr("Choose Local or Online");
     this.playStatusEl.onclick = () => {
       if (this.playMode === "online" && this.onSyncRequested) this.onSyncRequested();
       else this.openProfiles();
@@ -889,7 +889,7 @@ export class Hud {
     // Sign out is reachable on every platform.
     const prof = document.createElement("button");
     prof.className = "profbtn";
-    prof.title = this.playMode === "local" ? "Local Farm" : "Account";
+    prof.title = this.playMode === "local" ? tr("Local Farm") : tr("Account");
     prof.setAttribute("aria-label", prof.title);
     const profImg = document.createElement("img");
     profImg.src = UI("Icon_Quest_Social.png");
@@ -936,7 +936,7 @@ export class Hud {
     const card = document.createElement("button");
     card.className = "quest quest-entry";
     const done = q.objectives.filter((o) => o.done).length;
-    card.title = `${q.title} (${done}/${q.objectives.length})`; // hover summary
+    card.title = trMsg`${tr(q.title)} (${done}/${q.objectives.length})`; // hover summary
     const img = document.createElement("img");
     img.src = UI(q.icon);
     img.onerror = () => { img.style.visibility = "hidden"; }; // tolerate missing art
@@ -944,7 +944,7 @@ export class Hud {
     // Progress badge: completed objectives out of total.
     const badge = document.createElement("span");
     badge.className = "qbadge";
-    badge.textContent = `${done}/${q.objectives.length}`;
+    badge.textContent = trMsg`${done}/${q.objectives.length}`;
     card.appendChild(badge);
     card.onclick = () => this.openQuestDetail(q);
     return card;
@@ -961,11 +961,11 @@ export class Hud {
     if (this.questViews.length) {
       const more = document.createElement("button");
       more.className = "quest qmore";
-      more.title = "View all quests (Q)";
-      more.innerHTML = `<span class="qmore-glyph">☰</span>`;
+      more.title = tr("View all quests (Q)");
+      more.innerHTML = trHtml`<span class="qmore-glyph">☰</span>`;
       const badge = document.createElement("span");
       badge.className = "qbadge";
-      badge.textContent = String(this.questViews.length);
+      badge.textContent = tr(String(this.questViews.length));
       more.appendChild(badge);
       more.onclick = () => this.openQuestLog();
       this.questCol.appendChild(more);
@@ -985,9 +985,8 @@ export class Hud {
       (total, scope) => total + scope.quests.filter((q) => q.done && !q.claimed).length, 0);
     const button = document.createElement("button");
     button.className = "quest qperiodic" + (claimable ? " ready" : "");
-    button.title = claimable ? `${claimable} quest reward${claimable === 1 ? "" : "s"} to collect`
-      : "Daily & weekly quests";
-    button.setAttribute("aria-label", button.title);
+    button.title = claimable ? trMsg`${claimable} quest reward${claimable === 1 ? "" : tr("s")} to collect` : tr("Daily & weekly quests");
+    button.setAttribute("aria-label", tr(button.title));
     const glyph = document.createElement("span");
     glyph.className = "qperiodic-glyph";
     glyph.textContent = "★";
@@ -998,7 +997,7 @@ export class Hud {
     if (claimable) {
       const badge = document.createElement("span");
       badge.className = "qbadge";
-      badge.textContent = String(claimable);
+      badge.textContent = tr(String(claimable));
       button.appendChild(badge);
     }
     button.onclick = () => this.openPeriodicQuests();
@@ -1032,7 +1031,7 @@ export class Hud {
     this.questLogModal?.close();
     let handle!: ModalHandle;
     handle = openModal({
-      host: this.el, panelClass: "questlog", title: "Quests",
+      host: this.el, panelClass: "questlog", title: tr("Quests"),
       onClose: () => { if (this.questLogModal === handle) this.questLogModal = null; },
     });
     this.questLogModal = handle;
@@ -1041,14 +1040,14 @@ export class Hud {
 
   private renderQuestLog(panel: HTMLElement) {
     const heading = panel.querySelector("h2");
-    if (heading) heading.textContent = `Quests (${this.questViews.length})`;
+    if (heading) heading.textContent = trMsg`Quests (${this.questViews.length})`;
     panel.querySelector(".qlog-list")?.remove();
     const list = document.createElement("div");
     list.className = "qlog-list";
     if (!this.questViews.length) {
       const empty = document.createElement("div");
       empty.className = "qlog-empty";
-      empty.textContent = "No active quests right now.";
+      empty.textContent = tr("No active quests right now.");
       list.appendChild(empty);
     }
     for (const q of this.questViews) {
@@ -1062,12 +1061,12 @@ export class Hud {
       body.className = "qlog-body";
       const title = document.createElement("div");
       title.className = "qlog-title";
-      title.innerHTML = `<span>${q.title}</span><span class="qlog-prog">${done}/${q.objectives.length}</span>`;
+      title.innerHTML = trHtml`<span>${tr(q.title)}</span><span class="qlog-prog">${done}/${q.objectives.length}</span>`;
       body.appendChild(title);
       for (const o of q.objectives) {
         const row = document.createElement("div");
         row.className = "qlog-obj" + (o.done ? " done" : "");
-        row.textContent = `${o.done ? "✓" : "◆"} ${o.text}  (${Math.min(o.count, o.total)}/${o.total})`;
+        row.textContent = trMsg`${o.done ? "✓" : "◆"} ${tr(o.text)}  (${Math.min(o.count, o.total)}/${o.total})`;
         body.appendChild(row);
       }
       if (q.reward) {
@@ -1078,7 +1077,7 @@ export class Hud {
         rewardIcon.alt = "";
         rewardIcon.onerror = () => { rewardIcon.style.visibility = "hidden"; };
         const rewardLabel = document.createElement("span");
-        rewardLabel.textContent = `Reward: ${q.reward.label}`;
+        rewardLabel.textContent = trMsg`Reward: ${tr(q.reward.label)}`;
         reward.append(rewardIcon, rewardLabel);
         // A few achievements pay a brain ON TOP of their XP. Shown as a second chip so
         // the headline reward keeps its usual shape.
@@ -1088,7 +1087,7 @@ export class Hud {
           bonusIcon.alt = "";
           bonusIcon.onerror = () => { bonusIcon.style.visibility = "hidden"; };
           const bonusLabel = document.createElement("span");
-          bonusLabel.textContent = q.bonus.label;
+          bonusLabel.textContent = tr(q.bonus.label);
           reward.append(bonusIcon, bonusLabel);
         }
         body.appendChild(reward);
@@ -1106,7 +1105,7 @@ export class Hud {
     handle = openModal({
       host: this.el,
       panelClass: "qdetail",
-      title: q.title,
+      title: tr(q.title),
       onClose: () => {
         if (this.questDetailModal?.handle === handle) this.questDetailModal = null;
       },
@@ -1117,25 +1116,25 @@ export class Hud {
 
   private renderQuestDetail(panel: HTMLElement, q: QuestView) {
     const heading = panel.querySelector("h2");
-    if (heading) heading.textContent = q.title;
+    if (heading) heading.textContent = tr(q.title);
     panel.querySelectorAll(".qobj, .qtip, .qreward-title, .qreward").forEach((node) => node.remove());
     for (const o of q.objectives) {
       const row = document.createElement("div");
       row.className = "qobj" + (o.done ? " done" : "");
       const mark = o.done ? "✓" : "◆";
-      row.textContent = `${mark} ${o.text}  (${Math.min(o.count, o.total)}/${o.total})`;
+      row.textContent = trMsg`${mark} ${tr(o.text)}  (${Math.min(o.count, o.total)}/${o.total})`;
       panel.appendChild(row);
     }
     if (q.tip) {
       const tip = document.createElement("p");
       tip.className = "qtip";
-      tip.textContent = q.tip;
+      tip.textContent = tr(q.tip);
       panel.appendChild(tip);
     }
     if (q.reward) {
       const heading = document.createElement("div");
       heading.className = "qreward-title";
-      heading.textContent = "Reward";
+      heading.textContent = tr("Reward");
       const reward = document.createElement("div");
       reward.className = "qreward";
       const icon = document.createElement("img");
@@ -1143,7 +1142,7 @@ export class Hud {
       icon.alt = "";
       icon.onerror = () => { icon.style.visibility = "hidden"; };
       const label = document.createElement("span");
-      label.textContent = q.reward.label;
+      label.textContent = tr(q.reward.label);
       reward.append(icon, label);
       // The brain a few achievements pay alongside their XP (see questBonusRewardInfo).
       if (q.bonus) {
@@ -1152,7 +1151,7 @@ export class Hud {
         bonusIcon.alt = "";
         bonusIcon.onerror = () => { bonusIcon.style.visibility = "hidden"; };
         const bonusLabel = document.createElement("span");
-        bonusLabel.textContent = q.bonus.label;
+        bonusLabel.textContent = tr(q.bonus.label);
         reward.append(bonusIcon, bonusLabel);
       }
       panel.append(heading, reward);
@@ -1167,31 +1166,25 @@ export class Hud {
     const statusLabel = mode === "local"
       ? "Saved on this device"
       : state === "synced" ? "Everything synced"
-      : state === "saving" ? `${pending || "Some"} change${pending === 1 ? "" : "s"} waiting to sync`
-      : state === "working" ? `The farmer still has ${pending || "some"} job${pending === 1 ? "" : "s"} to finish; if you leave now they are done on your next visit`
+      : state === "saving" ? trMsg`${pending || tr("Some")} change${pending === 1 ? "" : tr("s")} waiting to sync`
+      : state === "working" ? trMsg`The farmer still has ${pending || tr("some")} job${pending === 1 ? "" : tr("s")} to finish; if you leave now they are done on your next visit`
       : state === "reconnecting" ? "Reconnecting; changes may be waiting to sync"
       : "Offline view; changes may be waiting to sync";
     this.playStatusEl.className = `play-status ${mode} ${state}`;
-    this.playStatusEl.textContent = mode === "local"
-      ? "LOCAL FARM"
-      : state === "cached" ? "ONLINE · OFFLINE VIEW"
-      : state === "reconnecting" ? "ONLINE · RECONNECTING"
-      : state === "saving" ? `ONLINE · SAVING${pending ? ` (${pending})` : ""}`
-      : state === "working" ? `ONLINE · WORKING${pending ? ` (${pending})` : ""}`
-      : "ONLINE · SYNCED";
-    const action = mode === "online" && this.onSyncRequested ? "Press to sync now." : "Choose Local or Online.";
+    this.playStatusEl.textContent = mode === "local" ? tr("LOCAL FARM") : state === "cached" ? tr("ONLINE · OFFLINE VIEW") : state === "reconnecting" ? tr("ONLINE · RECONNECTING") : state === "saving" ? trMsg`ONLINE · SAVING${pending ? trMsg` (${pending})` : ""}` : state === "working" ? trMsg`ONLINE · WORKING${pending ? trMsg` (${pending})` : ""}` : tr("ONLINE · SYNCED");
+    const action = mode === "online" && this.onSyncRequested ? tr("Press to sync now.") : tr("Choose Local or Online.");
     this.playStatusEl.setAttribute(
       "aria-label",
-      `${mode === "local" ? "Local Farm" : "Online Farm"}: ${statusLabel}. ${action}`
+      trMsg`${mode === "local" ? tr("Local Farm") : tr("Online Farm")}: ${tr(statusLabel)}. ${action}`
     );
-    this.playStatusEl.title = `${statusLabel}. ${action}`;
+    this.playStatusEl.title = trMsg`${tr(statusLabel)}. ${action}`;
   }
 
   // Brief top-center banner for quest completion (messageComplete).
   showToast(msg: string, durationMs = 2600) {
     const t = document.createElement("div");
     t.className = "qtoast";
-    t.textContent = msg;
+    t.textContent = tr(msg);
     this.el.appendChild(t);
     window.setTimeout(() => t.classList.add("show"), 10);
     window.setTimeout(() => {
@@ -1206,7 +1199,7 @@ export class Hud {
   // Falls back to just highlighting if the clipboard API is unavailable/blocked.
   private makeCopyable(el: HTMLElement, text: string) {
     el.classList.add("copyable");
-    el.title = "Click to copy";
+    el.title = tr("Click to copy");
     el.onclick = async () => {
       const sel = window.getSelection();
       if (sel) {
@@ -1217,9 +1210,9 @@ export class Hud {
       }
       try {
         await navigator.clipboard.writeText(text);
-        this.showToast("Friend code copied! 📋");
+        this.showToast(tr("Friend code copied! 📋"));
       } catch {
-        this.showToast("Highlighted — press Ctrl+C to copy");
+        this.showToast(tr("Highlighted — press Ctrl+C to copy"));
       }
     };
   }
@@ -1329,14 +1322,14 @@ export class Hud {
       const btn = document.createElement("button");
       btn.className = "mbtn";
       btn.dataset.menu = m.label; // stable anchor for the tutorial arrow (menuButton())
-      btn.title = m.shortcut ? `${m.label} (${m.shortcut})` : m.label;
+      btn.title = m.shortcut ? trMsg`${tr(m.label)} (${m.shortcut})` : tr(m.label);
       const icon = document.createElement("img");
       icon.className = "micon";
       icon.src = m.icon;
       icon.alt = "";
       const g = document.createElement("span");
       g.className = "gbtn";
-      g.textContent = m.label;
+      g.textContent = tr(m.label);
       btn.append(icon, g);
       btn.onclick = () =>
         m.label === "Market"
@@ -1372,9 +1365,9 @@ export class Hud {
   private confirmPurchase(name: string, cost: number, brains = false): Promise<boolean> {
     if (cost <= 0) return Promise.resolve(true);
     return this.confirmInGame(
-      `Buy ${name}?`,
-      `This costs ${cost.toLocaleString()} ${brains ? "brains" : "gold"}.`,
-      "Buy"
+      trMsg`Buy ${name}?`,
+      trMsg`This costs ${cost.toLocaleString()} ${brains ? tr("brains") : tr("gold")}.`,
+      tr("Buy")
     );
   }
 
@@ -1398,26 +1391,24 @@ export class Hud {
       };
       const { panel, close } = openModal({
         host: this.el, bgClass: "game-confirm-bg", panelClass: "confirm-panel",
-        title: `Buy ${b.name}?`, replaceSelector: ".game-confirm-bg", onClose: () => finish(0),
+        title: trMsg`Buy ${tr(b.name)}?`, replaceSelector: ".game-confirm-bg", onClose: () => finish(0),
       });
       const coin = b.brainsNeeded ? "brains" : "gold";
       const copy = document.createElement("p");
       copy.className = "confirm-msg";
-      copy.textContent = b.perPurchase > 1
-        ? `Each purchase gives ${b.perPurchase} uses and costs ${b.cost.toLocaleString()} ${coin}.`
-        : `Each one costs ${b.cost.toLocaleString()} ${coin}.`;
+      copy.textContent = b.perPurchase > 1 ? trMsg`Each purchase gives ${b.perPurchase} uses and costs ${b.cost.toLocaleString()} ${tr(coin)}.` : trMsg`Each one costs ${b.cost.toLocaleString()} ${tr(coin)}.`;
       const row = document.createElement("div");
       row.className = "confirm-qty-row";
       const minus = document.createElement("button");
       minus.className = "zbtn";
       minus.textContent = "−";
-      minus.setAttribute("aria-label", "Buy fewer (hold for tens)");
+      minus.setAttribute("aria-label", tr("Buy fewer (hold for tens)"));
       const count = document.createElement("span");
       count.className = "confirm-qty";
       const plus = document.createElement("button");
       plus.className = "zbtn";
       plus.textContent = "+";
-      plus.setAttribute("aria-label", "Buy more (hold for tens)");
+      plus.setAttribute("aria-label", tr("Buy more (hold for tens)"));
       row.append(minus, count, plus);
       const total = document.createElement("p");
       total.className = "confirm-msg confirm-qty-total";
@@ -1425,7 +1416,7 @@ export class Hud {
       buttons.className = "zbtns";
       const cancel = document.createElement("button");
       cancel.className = "zbtn locate";
-      cancel.textContent = "Cancel";
+      cancel.textContent = tr("Cancel");
       cancel.onclick = () => close();
       const accept = document.createElement("button");
       accept.className = "zbtn sell";
@@ -1439,13 +1430,13 @@ export class Hud {
       const maxQty = () => Math.max(1, Math.min(BOOST_BUY_LIMIT, Math.floor(funds() / b.cost)));
       const refresh = () => {
         qty = Math.min(qty, maxQty());
-        count.textContent = String(qty);
+        count.textContent = tr(String(qty));
         minus.disabled = qty <= 1;
         plus.disabled = qty >= maxQty();
         total.textContent =
-          `Total: ${(qty * b.cost).toLocaleString()} ${coin} — you have ${funds().toLocaleString()}.`;
+          trMsg`Total: ${(qty * b.cost).toLocaleString()} ${tr(coin)} — you have ${funds().toLocaleString()}.`;
         accept.disabled = funds() < qty * b.cost;
-        accept.textContent = qty > 1 ? `Buy ${qty}` : "Buy";
+        accept.textContent = qty > 1 ? trMsg`Buy ${qty}` : tr("Buy");
       };
       // A tap steps by one; holding steps by ten, snapping to the tens (1 → 10 → 20,
       // and 37 → 30 → 20) so a held run lands on round numbers.
@@ -1479,16 +1470,16 @@ export class Hud {
       });
       const copy = document.createElement("p");
       copy.className = "confirm-msg";
-      copy.textContent = message;
+      copy.textContent = tr(message);
       const buttons = document.createElement("div");
       buttons.className = "zbtns";
       const cancel = document.createElement("button");
       cancel.className = "zbtn locate";
-      cancel.textContent = "Cancel";
+      cancel.textContent = tr("Cancel");
       cancel.onclick = () => close();
       const accept = document.createElement("button");
       accept.className = "zbtn sell";
-      accept.textContent = confirmLabel;
+      accept.textContent = tr(confirmLabel);
       markPrimary(accept); // Enter confirms
       accept.onclick = () => { finish(true); close(); };
       buttons.append(cancel, accept);
@@ -1513,16 +1504,16 @@ export class Hud {
       });
       const copy = document.createElement("p");
       copy.className = "confirm-msg";
-      copy.textContent = message;
+      copy.textContent = tr(message);
       const buttons = document.createElement("div");
       buttons.className = "zbtns";
       const home = document.createElement("button");
       home.className = "zbtn locate";
-      home.textContent = "Head home";
+      home.textContent = tr("Head home");
       home.onclick = () => close();
       const onward = document.createElement("button");
       onward.className = "zbtn sell";
-      onward.textContent = `Fight on: ${nightLabel}`;
+      onward.textContent = trMsg`Fight on: ${tr(nightLabel)}`;
       markPrimary(onward);
       onward.onclick = () => { finish(true); close(); };
       buttons.append(home, onward);
@@ -1545,7 +1536,7 @@ export class Hud {
    *  Resolves once the player acknowledges it, so a caller can await it before
    *  moving on. See ui/TimNotice.ts. */
   timSays(message: string, buttonLabel = "OK"): Promise<void> {
-    return showTimNotice(this.el, message, buttonLabel);
+    return showTimNotice(this.el, tr(message), buttonLabel);
   }
 
   showWriterLock(onTakeover: () => Promise<boolean>): void {
@@ -1555,35 +1546,35 @@ export class Hud {
     // A takeover gate, not a dismissible dialog: no close button, no backdrop close.
     const { bg, panel } = openModal({
       host: this.el, bgClass: "writer-lock-bg", panelClass: "writer-lock-panel",
-      title: "Farm active elsewhere", closeButton: false, backdropClose: false,
+      title: tr("Farm active elsewhere"), closeButton: false, backdropClose: false,
     });
     const copy = document.createElement("p");
-    copy.textContent = "This farm is controlled by another browser or device. You can view it here, or take over and make this the active game.";
+    copy.textContent = tr("This farm is controlled by another browser or device. You can view it here, or take over and make this the active game.");
     const buttons = document.createElement("div");
     buttons.className = "zbtns";
     const view = document.createElement("button");
     view.className = "zbtn locate";
-    view.textContent = "View only";
+    view.textContent = tr("View only");
     view.onclick = () => {
       bg.remove();
       this.writerLock = null;
       const banner = document.createElement("button");
       banner.className = "writer-lock-banner";
-      banner.textContent = "Read-only — tap to take control";
+      banner.textContent = tr("Read-only — tap to take control");
       banner.onclick = () => this.writerTakeover && this.showWriterLock(this.writerTakeover);
       this.el.appendChild(banner);
       this.writerBanner = banner;
     };
     const take = document.createElement("button");
     take.className = "zbtn sell";
-    take.textContent = "Take over here";
+    take.textContent = tr("Take over here");
     take.onclick = async () => {
       take.disabled = true;
-      take.textContent = "Taking over…";
+      take.textContent = tr("Taking over…");
       const ok = await onTakeover();
       if (!ok) {
         take.disabled = false;
-        take.textContent = "Try again";
+        take.textContent = tr("Try again");
       }
     };
     buttons.append(view, take);
@@ -1603,21 +1594,21 @@ export class Hud {
     this.bossActive = active;
     const invade = this.el.querySelector<HTMLButtonElement>(".invade-shortcut");
     if (invade) {
-      if (active) invade.dataset.bossTitle = `${label} active — open raids for details (I)`;
+      if (active) invade.dataset.bossTitle = trMsg`${label} active — open raids for details (I)`;
       else delete invade.dataset.bossTitle;
-      invade.title = invade.dataset.bossTitle ?? "Invade (I)";
+      invade.title = tr(invade.dataset.bossTitle ?? "Invade (I)");
     }
   }
 
   private toolBtn(id: string, icon: string, label: string, shortcut: string, onClick: () => void) {
     const btn = document.createElement("button");
     btn.className = "tool";
-    btn.title = `${label} (${shortcut})`;
+    btn.title = trMsg`${tr(label)} (${shortcut})`;
     const img = document.createElement("img");
     img.src = UI(icon);
     const lbl = document.createElement("span");
     lbl.className = "lbl";
-    lbl.textContent = label;
+    lbl.textContent = tr(label);
     btn.append(img, lbl);
     btn.onclick = () => {
       const previousMode = this.mode;
@@ -1660,7 +1651,7 @@ export class Hud {
     if (!this.fabCt) return;
     const b = this.mode === "instagrow" ? (this.getSpeedGrowBoost?.() ?? null) : null;
     if (!b) { this.fabCt.style.display = "none"; return; }
-    this.fabCt.textContent = `${b.count()}x`;
+    this.fabCt.textContent = trMsg`${b.count()}x`;
     this.fabCt.style.display = "flex";
   }
 
@@ -1681,8 +1672,8 @@ export class Hud {
       const lbl = slot.querySelector(".lbl");
       const icon = UI(turn ? "button_rotate.png" : "button_storage.png");
       if (img && img.getAttribute("src") !== icon) img.src = icon;
-      if (lbl) lbl.textContent = turn ? "Turn" : "Store";
-      slot.title = turn ? "Turn (3)" : "Store (6)";
+      if (lbl) lbl.textContent = turn ? tr("Turn") : tr("Store");
+      slot.title = turn ? tr("Turn (3)") : tr("Store (6)");
     }
     if (this.fabImg) this.fabImg.src = this.fabIconSrc();
     this.refreshTouchCancel();
@@ -1737,8 +1728,8 @@ export class Hud {
     const b = document.createElement("button");
     b.className = "touch-cancel";
     b.type = "button";
-    b.setAttribute("aria-label", "Cancel current tool and select the Multi-tool");
-    b.title = "Cancel tool";
+    b.setAttribute("aria-label", tr("Cancel current tool and select the Multi-tool"));
+    b.title = tr("Cancel tool");
     b.textContent = "×";
     b.onclick = () => { this.audio.play("menuClick"); this.setMode("walk"); };
     this.touchCancel = b;
@@ -2175,6 +2166,7 @@ export class Hud {
   /** Current independent farm mode and direct switch to the other farm. */
   playMode: PlayMode = "local";
   onSwitchFarm: ((mode: PlayMode) => void) | null = null;
+  onSetLanguage: ((language: Language) => Promise<void>) | null = null;
   /** Download this farm's progress as a file. Set in BOTH modes: the file is a plain
    *  SaveGame either way, and Local Farm's Import is the only thing that reads one. */
   onExportSave: (() => void) | null = null;
@@ -2348,7 +2340,7 @@ export class Hud {
       this.el.appendChild(this.battleLoading);
     }
     const text = this.battleLoading.querySelector(".battle-loading-label");
-    if (text) text.textContent = label;
+    if (text) text.textContent = tr(label);
   }
 
   // ---- Tim Buckwheat guided tutorial seams (used by TutorialController) ----
@@ -2401,13 +2393,13 @@ export class Hud {
     banner.className = "visit-banner";
     const eye = document.createElement("span");
     eye.className = "vb-eye";
-    eye.textContent = "👁 Visiting";
+    eye.textContent = tr("👁 Visiting");
     const who = document.createElement("span");
     who.className = "vb-name";
-    who.textContent = name ? `${name}'s farm` : "a friend's farm";
+    who.textContent = name ? trMsg`${name}'s farm` : tr("a friend's farm");
     const exit = document.createElement("button");
     exit.className = "vb-exit";
-    exit.textContent = "Exit";
+    exit.textContent = tr("Exit");
     exit.onclick = () => onExit?.();
     banner.append(eye, who, exit);
     this.el.appendChild(banner);
@@ -2435,7 +2427,7 @@ export class Hud {
 
     const title = document.createElement("div");
     title.className = "mkt-title";
-    title.textContent = "Market";
+    title.textContent = tr("Market");
 
     const close = document.createElement("button");
     close.className = "mkt-close";
@@ -2448,8 +2440,7 @@ export class Hud {
     const cur = document.createElement("div");
     cur.className = "mkt-cur";
     cur.innerHTML =
-      `<span><img src="${UI("topbar_money_icon.png")}">${this.state.gold}</span>` +
-      `<span><img src="${UI("topbar_brain_icon.png")}">${this.state.brains}</span>`;
+      trHtml`<span><img src="${UI("topbar_money_icon.png")}">${this.state.gold}</span><span><img src="${UI("topbar_brain_icon.png")}">${this.state.brains}</span>`;
 
     const tabsEl = document.createElement("div");
     tabsEl.className = "mkt-tabs";
@@ -2463,16 +2454,16 @@ export class Hud {
     const searchInput = document.createElement("input");
     searchInput.className = "mkt-search";
     searchInput.type = "search";
-    searchInput.placeholder = "Search…";
-    searchInput.setAttribute("aria-label", "Search the market");
+    searchInput.placeholder = tr("Search…");
+    searchInput.setAttribute("aria-label", tr("Search the market"));
     const searchToggle = document.createElement("button");
     searchToggle.className = "mkt-search-toggle";
     searchToggle.type = "button";
-    searchToggle.title = "Search the market";
-    searchToggle.setAttribute("aria-label", "Search the market");
+    searchToggle.title = tr("Search the market");
+    searchToggle.setAttribute("aria-label", tr("Search the market"));
     searchToggle.setAttribute("aria-expanded", "false");
     searchToggle.innerHTML =
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg>';
+      trHtml`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg>`;
     searchRow.append(searchInput, searchToggle);
     title.appendChild(searchRow);
 
@@ -2487,10 +2478,10 @@ export class Hud {
     pager.className = "mkt-pager";
     const prevBtn = document.createElement("button");
     prevBtn.className = "mkt-page-arrow left";
-    prevBtn.innerHTML = `<img src="${UI("market/arrow_right.png")}" alt="Previous">`;
+    prevBtn.innerHTML = trHtml`<img src="${UI("market/arrow_right.png")}" alt="Previous">`;
     const nextBtn = document.createElement("button");
     nextBtn.className = "mkt-page-arrow";
-    nextBtn.innerHTML = `<img src="${UI("market/arrow_right.png")}" alt="Next">`;
+    nextBtn.innerHTML = trHtml`<img src="${UI("market/arrow_right.png")}" alt="Next">`;
     const pageInfo = document.createElement("span");
     pageInfo.className = "mkt-pageinfo";
     pager.append(prevBtn, pageInfo, nextBtn);
@@ -2550,7 +2541,7 @@ export class Hud {
           name: c.name, portrait: c.portrait, cost: c.cost, level: c.level, brains: c.brains,
           timeLabel: c.timeLabel,
           graveNeeded: c.cfg.unlockGrave,
-          description: c.description,
+          description: tr(c.description),
           inspect: () => openCatalogZombieCard(this, c),
           onPick: () => { this.setPlanting(c.cfg); bg.remove(); },
         }));
@@ -2614,7 +2605,7 @@ export class Hud {
             timeLabel: c.category === "tree" && c.def.growMs
               ? fmtCooldown(c.def.growMs)
               : undefined,
-            description: functionalDescription(c.def), credit: c.def.credit,
+            description: tr(functionalDescription(c.def)), credit: c.def.credit,
             tint: c.def.color,
             theme: themeLabel(themeOf(c.def)),
             onPick: async () => {
@@ -2652,7 +2643,7 @@ export class Hud {
             name: b.name,
             qty: b.perPurchase,
             portrait: `${BASE}assets/boosts/${b.icon}`, cost: b.cost, level: b.level, brains: b.brainsNeeded,
-            description: [b.info, b.flavorText].filter(Boolean).join(" ") || undefined,
+            description: tr([b.info, b.flavorText].filter(Boolean).join(" ") || undefined),
             ownedLimit,
             onPick: async () => {
               // Gift vouchers are 1-per-farm, so they keep the plain yes/no confirm;
@@ -2666,7 +2657,7 @@ export class Hud {
               // Funds moved while the dialog was up and the run came up short — say
               // so, since the player asked for a specific number.
               if (bought < qty) {
-                this.showToast(`Bought ${bought} of ${qty} — not enough ${b.brainsNeeded ? "brains" : "gold"}.`);
+                this.showToast(trMsg`Bought ${bought} of ${qty} — not enough ${b.brainsNeeded ? tr("brains") : tr("gold")}.`);
               }
             },
           };
@@ -2683,9 +2674,7 @@ export class Hud {
             brains: head.brains,
             // A head with a bonus can be WORN and USED separately, so its blurb says
             // where the bonus comes from rather than implying wearing it is required.
-            description: head.description
-              ? `${head.description} (assign it under Bonus)`
-              : undefined,
+            description: head.description ? trMsg`${tr(head.description)} (assign it under Bonus)` : undefined,
             // Unowned heads advertise the XP the purchase itself pays out, the same
             // way a crop card advertises its harvest XP.
             xp: owned ? undefined : farmerHeadXp(head) || undefined,
@@ -2717,9 +2706,7 @@ export class Hud {
           cost: 0,
           level: 1,
           owned: true,
-          description: farmerHeadHasEffect(this.state.farmerHeadId)
-            ? `Use whichever head you are wearing. Right now: ${worn?.description ?? "no bonus"}.`
-            : "Use whichever head you are wearing. The one you have on has no bonus.",
+          description: farmerHeadHasEffect(this.state.farmerHeadId) ? trMsg`Use whichever head you are wearing. Right now: ${tr(worn?.description ?? "no bonus")}.` : tr("Use whichever head you are wearing. The one you have on has no bonus."),
           equipped: this.state.farmerBonusHeadId === null,
           onPick: () => { this.onEquipFarmerBonusHead?.(null); renderGrid(); },
         };
@@ -2731,7 +2718,7 @@ export class Hud {
             cost: 0,
             level: 1,
             owned: true,
-            description: head.description,
+            description: tr(head.description),
             equipped: this.state.farmerBonusHeadId === head.id,
             onPick: () => { this.onEquipFarmerBonusHead?.(head.id); renderGrid(); },
           }));
@@ -2758,7 +2745,7 @@ export class Hud {
             cost: pet.cost,
             level: pet.level,
             brains: pet.brains,
-            description: pet.description,
+            description: tr(pet.description),
             // What buying it pays out, on the card rather than after the fact. An
             // owned pet has nothing left to earn, so it shows none (same rule the
             // Farmer heads use).
@@ -2784,8 +2771,7 @@ export class Hud {
     // Keep the currency line in sync after an in-panel purchase.
     const refreshCur = () => {
       cur.innerHTML =
-        `<span><img src="${UI("topbar_money_icon.png")}">${this.state.gold}</span>` +
-        `<span><img src="${UI("topbar_brain_icon.png")}">${this.state.brains}</span>`;
+        trHtml`<span><img src="${UI("topbar_money_icon.png")}">${this.state.gold}</span><span><img src="${UI("topbar_brain_icon.png")}">${this.state.brains}</span>`;
     };
 
     // Search + pagination apply only to the card-list tabs; Upgrade and Epic Boss
@@ -2835,7 +2821,7 @@ export class Hud {
       }
       const all = entriesFor();
       const q = search.trim().toLowerCase();
-      const entries = q ? all.filter((en) => en.name.toLowerCase().includes(q)) : all;
+      const entries = q ? all.filter((en) => matchesLocalizedText(en.name, q)) : all;
 
       // Size each page to exactly the rows that fit the visible grid, so the grid
       // itself never has to scroll (the whole point of paginating). Measured from the
@@ -2852,9 +2838,7 @@ export class Hud {
         const e = document.createElement("div");
         e.className = "mkt-empty";
         // Distinguish "no search hits" from a genuinely empty tab.
-        e.textContent = q
-          ? `No items match “${search.trim()}”.`
-          : "Coming soon.";
+        e.textContent = q ? trMsg`No items match “${search.trim()}”.` : tr("Coming soon.");
         grid.appendChild(e);
       } else {
         for (const en of shown) grid.appendChild(this.buildMarketCard(en));
@@ -2864,7 +2848,7 @@ export class Hud {
       const showPager = canSearch && pages > 1;
       pager.style.display = showPager ? "flex" : "none";
       if (showPager) {
-        pageInfo.textContent = `${page + 1} / ${pages}`;
+        pageInfo.textContent = trMsg`${page + 1} / ${pages}`;
         prevBtn.disabled = page <= 0;
         nextBtn.disabled = page >= pages - 1;
       }
@@ -2932,7 +2916,7 @@ export class Hud {
       for (const s of list) {
         const b = document.createElement("button");
         b.className = "mkt-subtab" + (s === sub ? " sel" : "");
-        b.textContent = s;
+        b.textContent = tr(s);
         b.onclick = () => {
           this.audio.play("menuClick");
           sub = s;
@@ -2949,7 +2933,7 @@ export class Hud {
       const b = document.createElement("button");
       b.className = "mkt-tab" + (name === tab ? " sel" : "");
       if (name === tab) selectedTabButton = b;
-      b.textContent = name;
+      b.textContent = tr(name);
       b.onclick = () => {
         this.audio.play("menuClick");
         tab = name;
@@ -2988,59 +2972,48 @@ export class Hud {
 
   private renderEpicBossGrid(grid: HTMLElement, refreshCur: () => void, rerender: () => void) {
     const views = this.getEpicBossView?.() ?? [];
-    if (!views.length) { grid.innerHTML = `<div class="mkt-empty">Coming soon.</div>`; return; }
+    if (!views.length) { grid.innerHTML = trHtml`<div class="mkt-empty">Coming soon.</div>`; return; }
     const fmt = (ms: number) => {
       const total = Math.max(0, Math.ceil(ms / 1000));
       const days = Math.floor(total / 86400), hours = Math.floor(total % 86400 / 3600);
       const mins = Math.floor(total % 3600 / 60), secs = total % 60;
-      return days ? `${days}d ${hours}h` : hours ? `${hours}h ${mins}m` : `${mins}:${String(secs).padStart(2, "0")}`;
+      return days ? tr(`${days}d ${hours}h`) : hours ? tr(`${hours}h ${mins}m`) : `${mins}:${String(secs).padStart(2, "0")}`;
     };
     for (const view of views) {
     const run = view.run;
     const card = document.createElement("div");
     card.className = "epic-market-card";
-    card.innerHTML = `<img class="epic-market-portrait" src="${view.portrait}" alt="">` +
-      `<div class="epic-market-copy"><h2><img src="${view.questIcon}" alt=""> ${view.name}</h2>` +
-      (view.active && run
-        ? `<b>Level ${run.level}/${view.maxLevel}</b><div>Event: ${fmt(view.eventRemainingMs)}</div>` +
-          `<div class="epic-hp"><span style="width:${Math.max(0, Math.min(100, run.currentHp / Math.max(1, run.maxHp) * 100))}%"></span></div>` +
-          `<div>${run.currentHp.toLocaleString()} / ${run.maxHp.toLocaleString()} life</div>` +
-          `<div><b>${run.tokenCount}</b> Boss Token${run.tokenCount === 1 ? "" : "s"}</div>` +
-          (view.encounterRemainingMs ? `<div>HP resets in ${fmt(view.encounterRemainingMs)}</div>` : "")
-        : `<p>Start a 14-day, ${view.maxLevel}-level Epic Boss event.</p>` +
-          `<p class="${view.levelLocked ? "epic-wait" : ""}">Available at player level ${view.unlockLevel}.</p>` +
-          (view.reconstructed ? `<p class="epic-wait">Recovered static battle art.</p>` : "") +
-          (view.completed ? "<p>Previous run completed!</p>" : view.expired ? "<p>Previous run expired.</p>" : "")) +
-      // Every boss has one crop it cannot leave alone (epicBoss/favoriteCrops.ts). Shown
-      // on the active card too — during the event that crop is where the extra Boss
-      // Tokens come from, which is exactly when the player wants to be told.
-      (view.favoriteCrop
-        ? `<p class="epic-market-favorite">Favourite crop: <b>${view.favoriteCrop}</b>` +
+    card.innerHTML = trHtml`<img class="epic-market-portrait" src="${view.portrait}" alt=""><div class="epic-market-copy"><h2><img src="${view.questIcon}" alt=""> ${tr(view.name)}</h2>${(view.active && run
+        ? trHtml`<b>Level ${run.level}/${view.maxLevel}</b><div>Event: ${fmt(view.eventRemainingMs)}</div>` +
+          trHtml`<div class="epic-hp"><span style="width:${Math.max(0, Math.min(100, run.currentHp / Math.max(1, run.maxHp) * 100))}%"></span></div>` +
+          trHtml`<div>${run.currentHp.toLocaleString()} / ${run.maxHp.toLocaleString()} life</div>` +
+          trHtml`<div><b>${run.tokenCount}</b> Boss Token${run.tokenCount === 1 ? "" : "s"}</div>` +
+          (view.encounterRemainingMs ? trHtml`<div>HP resets in ${fmt(view.encounterRemainingMs)}</div>` : "")
+        : trHtml`<p>Start a 14-day, ${view.maxLevel}-level Epic Boss event.</p>` +
+          trHtml`<p class="${view.levelLocked ? "epic-wait" : ""}">Available at player level ${view.unlockLevel}.</p>` +
+          (view.reconstructed ? trHtml`<p class="epic-wait">Recovered static battle art.</p>` : "") +
+          (view.completed ? "<p>Previous run completed!</p>" : view.expired ? "<p>Previous run expired.</p>" : ""))}${(view.favoriteCrop
+        ? trHtml`<p class="epic-market-favorite">Favourite crop: <b>${tr(view.favoriteCrop)}</b>` +
           (view.active
-            ? " — harvest it during the event for more Boss Tokens.</p>"
-            : " — harvesting it may lure this boss to the farm.</p>")
-        : "") +
-      `<details><summary>Possible rewards</summary><div>${view.rewards.join("<br>")}</div>` +
-        (view.zombieRewards.length
-          ? `<p class="epic-zombie-rewards"><b>Special zombie milestones</b><br>${view.zombieRewards.join("<br>")}</p>`
-          : "") +
-      `</details></div>`;
+            ? trHtml` — harvest it during the event for more Boss Tokens.</p>`
+            : trHtml` — harvesting it may lure this boss to the farm.</p>`)
+        : "")}<details><summary>Possible rewards</summary><div>${view.rewards.map((reward) => tr(reward)).join("<br>")}</div>${(view.zombieRewards.length
+          ? trHtml`<p class="epic-zombie-rewards"><b>Special zombie milestones</b><br>${view.zombieRewards.map((reward) => tr(reward)).join("<br>")}</p>`
+          : "")}</details></div>`;
     const action = document.createElement("button");
     action.className = "raid-go epic-market-action";
     if (view.active) {
-      action.textContent = `Fight · 1 Token or ${EPIC_BOSS_FIGHT_BRAIN_COST} Brains`;
+      action.textContent = trMsg`Fight · 1 Token or ${EPIC_BOSS_FIGHT_BRAIN_COST} Brains`;
       action.disabled = !(run?.tokenCount) && this.state.brains < EPIC_BOSS_FIGHT_BRAIN_COST;
       action.onclick = () => this.openEpicBossArmy();
     } else {
-      action.innerHTML = view.blocked ? "Another boss event is active" :
-        view.levelLocked ? `Requires Level ${view.unlockLevel}` :
-        `Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
+      action.innerHTML = view.blocked ? tr("Another boss event is active") : view.levelLocked ? trHtml`Requires Level ${view.unlockLevel}` : trHtml`Start Event · ${view.costBrains} <img src="${UI("topbar_brain_icon.png")}" alt="brains">`;
       action.disabled = view.blocked || view.levelLocked || this.state.brains < view.costBrains;
       action.onclick = async () => {
         if (!await this.confirmInGame(
-          `Start ${view.name}?`,
-          `Spend ${view.costBrains} brains to start ${view.name} for 14 days?`,
-          "Start Event"
+          trMsg`Start ${tr(view.name)}?`,
+          trMsg`Spend ${view.costBrains} brains to start ${tr(view.name)} for 14 days?`,
+          tr("Start Event")
         )) return;
         if (await this.onActivateEpicBoss?.(view.id)) { refreshCur(); rerender(); }
       };
@@ -3051,12 +3024,12 @@ export class Hud {
     if (view.active) {
       const end = document.createElement("button");
       end.className = "raid-quick";
-      end.textContent = "End Event";
+      end.textContent = tr("End Event");
       end.onclick = async () => {
         if (!await this.confirmInGame(
-          `End ${view.name}?`,
-          "This ends the event immediately. Current boss progress will be lost and the activation cost will not be refunded.",
-          "End Event"
+          trMsg`End ${tr(view.name)}?`,
+          tr("This ends the event immediately. Current boss progress will be lost and the activation cost will not be refunded."),
+          tr("End Event")
         )) return;
         action.disabled = true;
         end.disabled = true;
@@ -3075,7 +3048,7 @@ export class Hud {
     const { panel, close } = openModal({
       host: this.el, bgClass: "army-bg", replaceSelector: ".army-bg", backdropClose: false,
     });
-    if (!party?.eligible.length) { panel.insertAdjacentHTML("beforeend", `<h2>Choose your army</h2><p>You have no deployed zombies.</p>`); return; }
+    if (!party?.eligible.length) { panel.insertAdjacentHTML("beforeend", trHtml`<h2>Choose your army</h2><p>You have no deployed zombies.</p>`); return; }
     // Slotted attack order, same as the invasion picker: un-picking leaves the slot
     // empty and the next tap fills the lowest one (see raid/attackOrderSlots).
     let order: OrderSlots = [];
@@ -3093,17 +3066,16 @@ export class Hud {
     const refresh = () => {
       const bossName = this.getEpicBossView?.().find((view) => view.active)?.name ?? "Epic Boss";
       const tokens = this.getEpicBossView?.().find((view) => view.active)?.run?.tokenCount ?? 0;
-      pay.innerHTML = `<option value="token"${tokens < 1 ? " disabled" : ""}>Use Boss Token (${tokens})</option>` +
-        `<option value="brains"${this.state.brains < EPIC_BOSS_FIGHT_BRAIN_COST ? " disabled" : ""}>Use ${EPIC_BOSS_FIGHT_BRAIN_COST} Brains (${this.state.brains})</option>`;
+      pay.innerHTML = trHtml`<option value="token"${tokens < 1 ? " disabled" : ""}>Use Boss Token (${tokens})</option><option value="brains"${this.state.brains < EPIC_BOSS_FIGHT_BRAIN_COST ? " disabled" : ""}>Use ${EPIC_BOSS_FIGHT_BRAIN_COST} Brains (${this.state.brains})</option>`;
       if (payment === "token" && tokens < 1) payment = "brains";
       if (payment === "brains" && this.state.brains < EPIC_BOSS_FIGHT_BRAIN_COST && tokens > 0) payment = "token";
       pay.value = payment;
       const canPay = payment === "token" ? tokens > 0 : this.state.brains >= EPIC_BOSS_FIGHT_BRAIN_COST;
       const n = selectedCount(order);
-      head.innerHTML = `<h2>Send your army — ${bossName}</h2><span class="army-count">${n}/${party.cap} · min 1</span>`;
-      start.textContent = n ? `Fight with ${n}` : "Choose a zombie";
+      head.innerHTML = trHtml`<h2>Send your army — ${tr(bossName)}</h2><span class="army-count">${n}/${party.cap} · min 1</span>`;
+      start.textContent = n ? trMsg`Fight with ${n}` : tr("Choose a zombie");
       start.disabled = !n || !canPay || launching;
-      cards.querySelectorAll<HTMLElement>(".army-card").forEach((el) => { const at = order.indexOf(el.dataset.id!); el.classList.toggle("sel", at >= 0); const tick = el.querySelector<HTMLElement>(".tick"); if (tick) tick.textContent = at >= 0 ? String(at + 1) : ""; });
+      cards.querySelectorAll<HTMLElement>(".army-card").forEach((el) => { const at = order.indexOf(el.dataset.id!); el.classList.toggle("sel", at >= 0); const tick = el.querySelector<HTMLElement>(".tick"); if (tick) tick.textContent = at >= 0 ? tr(String(at + 1)) : ""; });
     };
     for (const z of eligible) {
       const card = document.createElement("div"); card.className = "army-card"; card.dataset.id = z.id;
@@ -3120,12 +3092,12 @@ export class Hud {
         });
       }
       const name = document.createElement("div"); name.className = "army-nm"; name.textContent = z.name;
-      const type = document.createElement("div"); type.className = "army-ty"; type.textContent = z.typeName;
+      const type = document.createElement("div"); type.className = "army-ty"; type.textContent = tr(z.typeName);
       card.append(tick, portrait, name, type);
       card.onclick = () => { order = toggleSlot(order, z.id, party.cap); refresh(); };
       cards.appendChild(card);
     }
-    const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = "Pick for me";
+    const pick = document.createElement("button"); pick.className = "raid-quick"; pick.textContent = tr("Pick for me");
     // Concentration, the one battle consumable an epic fight can take. The fight
     // already runs with no butterflies, so what this buys here is what the raid
     // version buys: the brain bubble fills and goes on its own.
@@ -3172,7 +3144,7 @@ export class Hud {
 
     const hd = document.createElement("div");
     hd.className = "hd";
-    hd.textContent = en.name;
+    hd.textContent = tr(en.name);
 
     const body = document.createElement("div");
     body.className = "mkt-body";
@@ -3181,7 +3153,7 @@ export class Hud {
     if (en.theme) {
       const badge = document.createElement("div");
       badge.className = "mkt-theme";
-      badge.textContent = en.theme;
+      badge.textContent = tr(en.theme);
       body.appendChild(badge);
     }
     const img = document.createElement("img");
@@ -3194,7 +3166,7 @@ export class Hud {
     if (en.sell !== undefined) {
       const s = document.createElement("div");
       s.className = "mkt-sell";
-      s.innerHTML = `<img src="${UI("topbar_money_icon.png")}">+${en.sell}`;
+      s.innerHTML = trHtml`<img src="${UI("topbar_money_icon.png")}">+${en.sell}`;
       body.appendChild(s);
     }
     // XP, so a card's payoff can be judged on level progress and not just gold: a
@@ -3203,38 +3175,28 @@ export class Hud {
     if (en.xp) {
       const x = document.createElement("div");
       x.className = "mkt-xp";
-      x.innerHTML = `<img src="${UI("topbar_exp_icon.png")}">+${en.xp}`;
-      x.title = en.xpHint ?? "Experience";
+      x.innerHTML = trHtml`<img src="${UI("topbar_exp_icon.png")}">+${en.xp}`;
+      x.title = tr(en.xpHint ?? "Experience");
       body.appendChild(x);
     }
     // Pack size: how many uses the price below buys (Insta-Grow sells 20 at a time).
     if (en.qty !== undefined) {
       const q = document.createElement("div");
       q.className = "mkt-qty";
-      q.textContent = `x${en.qty}`;
-      q.title = `${en.qty} per purchase`;
+      q.textContent = trMsg`x${en.qty}`;
+      q.title = trMsg`${en.qty} per purchase`;
       body.appendChild(q);
     }
     if (en.timeLabel) {
       const t = document.createElement("div");
       t.className = "mkt-time";
-      t.innerHTML = `<img src="${UI("icon_time.png")}">${en.timeLabel}`;
+      t.innerHTML = trHtml`<img src="${UI("icon_time.png")}">${tr(en.timeLabel)}`;
       body.appendChild(t);
     }
     const cost = document.createElement("div");
     cost.className = "mkt-cost";
     const coin = en.brains ? "topbar_brain_icon.png" : "topbar_money_icon.png";
-    cost.innerHTML = en.equipped
-      ? `✓ Equipped`
-      : en.owned
-        ? `Equip`
-      : locked
-      ? (en.tierLock ? `🔒 ${en.tierLock}` : `🔒 Lvl ${en.level}`)
-      : graveLock
-        ? `🔒 ${en.graveNeeded} Grave`
-        : limitLock
-          ? `✓ Owned`
-          : `${en.cost}<img src="${UI(coin)}">`;
+    cost.innerHTML = en.equipped ? tr(`✓ Equipped`) : en.owned ? tr(`Equip`) : locked ? (en.tierLock ? trMsg`🔒 ${tr(en.tierLock)}` : trMsg`🔒 Lvl ${en.level}`) : graveLock ? trHtml`🔒 ${tr(en.graveNeeded)} Grave` : limitLock ? tr(`✓ Owned`) : trHtml`${en.cost}<img src="${UI(coin)}">`;
     body.appendChild(cost);
 
     card.append(hd, body);
@@ -3246,14 +3208,14 @@ export class Hud {
     // players can study an item — or a zombie's stats — before they unlock it.
     if (en.inspect) {
       card.appendChild(magnifierButton(
-        `See ${en.name}'s card`, "See this zombie's card", en.inspect));
+        trMsg`See ${tr(en.name)}'s card`, "See this zombie's card", en.inspect));
     } else if (en.description || en.credit) {
       // A credited item may have no description at all (decor never does), so the
       // label asks about the item rather than about what it does.
       card.appendChild(en.description
-        ? magnifierButton(`What does ${en.name} do?`, "What does this do?",
+        ? magnifierButton(trMsg`What does ${tr(en.name)} do?`, "What does this do?",
           () => this.showItemInfo(en))
-        : magnifierButton(`About ${en.name}`, "About this item",
+        : magnifierButton(trMsg`About ${tr(en.name)}`, "About this item",
           () => this.showItemInfo(en)));
     }
     if (!en.equipped && !locked && !poor && !graveLock && !limitLock) card.onclick = en.onPick;
@@ -3278,14 +3240,14 @@ export class Hud {
     img.src = en.portrait;
     const name = document.createElement("div");
     name.className = "info-name";
-    name.textContent = en.name;
+    name.textContent = tr(en.name);
     box.append(close, img, name);
     // Decor carries a credit but no blurb; an empty .info-desc would still spend a
     // row of the box's flex gap, so it is only added when there is something in it.
     if (en.description) {
       const desc = document.createElement("div");
       desc.className = "info-desc";
-      desc.textContent = en.description;
+      desc.textContent = tr(en.description);
       box.appendChild(desc);
     }
     // Artist credit for contributed art. Its own line under the blurb rather than
@@ -3293,7 +3255,7 @@ export class Hud {
     if (en.credit) {
       const credit = document.createElement("div");
       credit.className = "info-credit";
-      credit.textContent = en.credit;
+      credit.textContent = tr(en.credit);
       box.appendChild(credit);
     }
     bg.appendChild(box);
@@ -3313,7 +3275,7 @@ export class Hud {
     if (maxed) {
       const status = document.createElement("div");
       status.className = "mkt-upgrade-status";
-      status.textContent = "Your farm is as big as it gets!";
+      status.textContent = tr("Your farm is as big as it gets!");
       grid.appendChild(status);
     }
     // Next buyable tier = smallest size still larger than the current farm.
@@ -3345,7 +3307,7 @@ export class Hud {
 
     const hd = document.createElement("div");
     hd.className = "hd";
-    hd.textContent = u.name;
+    hd.textContent = tr(u.name);
 
     const body = document.createElement("div");
     body.className = "mkt-body";
@@ -3355,26 +3317,26 @@ export class Hud {
     img.src = upgradeIcon(u.icon);
     const size = document.createElement("div");
     size.className = "mkt-upgrade-size";
-    size.textContent = `${u.size}×${u.size}`;
+    size.textContent = trMsg`${u.size}×${u.size}`;
     body.append(img, size);
 
     const cost = document.createElement("div");
     cost.className = "mkt-cost";
     if (owned) {
-      cost.textContent = "✓ Owned";
+      cost.textContent = tr("✓ Owned");
     } else if (!levelOk) {
-      cost.innerHTML = `🔒 Lvl ${u.level}`;
+      cost.innerHTML = trHtml`🔒 Lvl ${u.level}`;
     } else if (!isNext) {
-      cost.innerHTML = `🔒 Get ${next?.info ?? "previous"} first`;
+      cost.innerHTML = trHtml`🔒 Get ${next?.info ? tr(next.info) : tr("previous upgrade")} first`;
     } else {
-      cost.innerHTML = `${price.toLocaleString()}<img src="${UI(coin)}">`;
+      cost.innerHTML = trHtml`${price.toLocaleString()}<img src="${UI(coin)}">`;
     }
     body.appendChild(cost);
 
     card.append(hd, body);
     if (buyable)
       card.onclick = async () => {
-        if (!await this.confirmPurchase(`${u.name} (${u.size}×${u.size})`, price, currency === "brains")) return;
+        if (!await this.confirmPurchase(`${tr(u.name)} (${u.size}×${u.size})`, price, currency === "brains")) return;
         card.style.pointerEvents = "none";
         if (this.onBuyUpgrade && await this.onBuyUpgrade(u.size, currency)) {
           refreshCur();
@@ -3391,7 +3353,7 @@ export class Hud {
     const status = document.createElement("div");
     status.className = "mkt-upgrade-status";
     const cur = this.climates.find((c) => c.terrain === current);
-    status.innerHTML = `Current ground <b>${cur?.name ?? "Grassy Ground"}</b>`;
+    status.innerHTML = trHtml`Current ground <b>${tr(cur?.name ?? "Grassy Ground")}</b>`;
     grid.appendChild(status);
     for (const c of this.climates) grid.appendChild(this.buildClimateCard(c, refreshCur, rerender));
   }
@@ -3412,7 +3374,7 @@ export class Hud {
 
     const hd = document.createElement("div");
     hd.className = "hd";
-    hd.textContent = c.name;
+    hd.textContent = tr(c.name);
 
     const body = document.createElement("div");
     body.className = "mkt-body";
@@ -3428,13 +3390,13 @@ export class Hud {
     const cost = document.createElement("div");
     cost.className = "mkt-cost";
     if (applied) {
-      cost.textContent = "✓ In Use";
+      cost.textContent = tr("✓ In Use");
     } else if (owned) {
-      cost.textContent = "Apply";
+      cost.textContent = tr("Apply");
     } else if (!levelOk) {
-      cost.innerHTML = `🔒 Lvl ${c.level}`;
+      cost.innerHTML = trHtml`🔒 Lvl ${c.level}`;
     } else {
-      cost.innerHTML = `${price.toLocaleString()}<img src="${UI("topbar_money_icon.png")}">`;
+      cost.innerHTML = trHtml`${price.toLocaleString()}<img src="${UI("topbar_money_icon.png")}">`;
     }
     body.appendChild(cost);
 
@@ -3535,7 +3497,7 @@ export class Hud {
     const mkScreen = (label: string, on: () => void) => {
       const b = document.createElement("button");
       b.className = "pm-screen";
-      b.textContent = label;
+      b.textContent = tr(label);
       b.onclick = () => {
         Object.values(screenBtns).forEach((x) => x.classList.remove("sel"));
         b.classList.add("sel");
@@ -3551,7 +3513,7 @@ export class Hud {
       const b = document.createElement("button");
       b.className = "pm-subtab";
       b.dataset.cat = cat;
-      b.textContent = cat.toUpperCase();
+      b.textContent = tr(cat.toUpperCase());
       b.onclick = () => { zcat = cat; showZombies(); };
       subtabs.appendChild(b);
     });
@@ -3602,12 +3564,12 @@ export class Hud {
 
     const name = document.createElement("div");
     name.className = "pm-name";
-    name.textContent = c.name;
+    name.textContent = tr(c.name);
     // Zombies carry the same magnifier as their Market cards, so the picker opened
     // from a plot can show what a gravestone grows into before it is planted. It sits
     // beside the name here: this card's corners already hold the time/cost readouts.
     if (c.cfg.isZombie && c.zombie) {
-      const info = magnifierButton(`See ${c.name}'s card`, "See this zombie's card",
+      const info = magnifierButton(trMsg`See ${tr(c.name)}'s card`, "See this zombie's card",
         () => openCatalogZombieCard(this, c));
       info.classList.add("pm-info");
       name.appendChild(info);
@@ -3623,7 +3585,7 @@ export class Hud {
     right.className = "pm-right";
     if (c.sell !== undefined) {
       const s = document.createElement("span");
-      s.innerHTML = `<img src="${UI("topbar_money_icon.png")}">+${c.sell}`;
+      s.innerHTML = trHtml`<img src="${UI("topbar_money_icon.png")}">+${c.sell}`;
       right.appendChild(s);
     }
     // Plants only: zombie crops earn XP too, but growing one is about the unit you
@@ -3632,21 +3594,17 @@ export class Hud {
     if (cardXp) {
       const x = document.createElement("span");
       x.className = "pm-xp";
-      x.innerHTML = `<img src="${UI("topbar_exp_icon.png")}">+${cardXp}`;
+      x.innerHTML = trHtml`<img src="${UI("topbar_exp_icon.png")}">+${cardXp}`;
       right.appendChild(x);
     }
     const t = document.createElement("span");
-    t.innerHTML = `<img src="${UI("icon_time.png")}">${c.timeLabel}`;
+    t.innerHTML = trHtml`<img src="${UI("icon_time.png")}">${tr(c.timeLabel)}`;
     right.appendChild(t);
 
     const cost = document.createElement("div");
     cost.className = "pm-cost";
     // Locked cards show the requirement (level or grave) instead of a buyable cost.
-    cost.innerHTML = levelLocked
-      ? `<span class="pm-lock">🔒 ${tierLocked ? c.tierUnlock!.hint : `Lvl ${c.level}`}</span>`
-      : graveLock
-        ? `<span class="pm-lock">🔒 ${c.cfg.unlockGrave} Grave</span>`
-        : `${c.cost}<img src="${UI(c.brains ? "topbar_brain_icon.png" : "topbar_money_icon.png")}">`;
+    cost.innerHTML = levelLocked ? trHtml`<span class="pm-lock">🔒 ${tierLocked ? tr(c.tierUnlock!.hint) : trHtml`Lvl ${c.level}`}</span>` : graveLock ? trHtml`<span class="pm-lock">🔒 ${tr(c.cfg.unlockGrave)} Grave</span>` : trHtml`${c.cost}<img src="${UI(c.brains ? "topbar_brain_icon.png" : "topbar_money_icon.png")}">`;
 
     card.append(name, port, right, cost);
     if (!locked) card.onclick = () => onPick(c);
@@ -3668,7 +3626,7 @@ export class Hud {
   openProfiles() {
     const { panel, close } = openModal({
       host: this.el, bgClass: "prof-bg", panelClass: "profiles",
-      title: this.playMode === "local" ? "Local Farm" : "Account", replaceSelector: ".prof-bg",
+      title: this.playMode === "local" ? tr("Local Farm") : tr("Account"), replaceSelector: ".prof-bg",
     });
 
     const acctBlock = buildAccountBlock(this);
@@ -3680,7 +3638,7 @@ export class Hud {
       // Local Farm has no account or social state.
       const note = document.createElement("div");
       note.className = "fr-empty";
-      note.textContent = "Local Farm is saved on this device. Online Farm has separate progress.";
+      note.textContent = tr("Local Farm is saved on this device. Online Farm has separate progress.");
       panel.append(note);
     }
 
@@ -3691,7 +3649,7 @@ export class Hud {
     if (this.getStats) {
       const stats = document.createElement("button");
       stats.className = "zbtn locate";
-      stats.textContent = "Statistics";
+      stats.textContent = tr("Statistics");
       stats.onclick = () => {
         close();
         openStats(this.el, this.getStats!());
@@ -3701,7 +3659,7 @@ export class Hud {
     const switchFarm = document.createElement("button");
     switchFarm.className = "zbtn locate";
     const destination = otherPlayMode(this.playMode);
-    switchFarm.textContent = playModeDestinationLabel(this.playMode);
+    switchFarm.textContent = tr(playModeDestinationLabel(this.playMode));
     switchFarm.onclick = () => {
       close();
       this.onSwitchFarm?.(destination);
@@ -3717,7 +3675,7 @@ export class Hud {
       dangerRow.className = "zbtns acct-danger";
       const del = document.createElement("button");
       del.className = "zbtn sell";
-      del.textContent = this.playMode === "local" ? "Delete Local Farm" : "Delete Account";
+      del.textContent = this.playMode === "local" ? tr("Delete Local Farm") : tr("Delete Account");
       del.onclick = () => {
         close();
         this.confirmDeleteAccount();
@@ -3739,47 +3697,45 @@ export class Hud {
    *  Neither step is skippable and there is no "don't ask again". */
   private confirmDeleteAccount(): void {
     const online = this.playMode !== "local";
-    const noun = online ? "account" : "local farm";
+    const noun = online ? tr("account") : tr("local farm");
 
     const { panel, close } = openModal({
       host: this.el, bgClass: "fr-confirm-bg", panelClass: "confirm-panel",
-      title: online ? "Delete your account?" : "Delete this farm?",
+      title: online ? tr("Delete your account?") : tr("Delete this farm?"),
       replaceSelector: ".fr-confirm-bg",
     });
 
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
-    msg.append(online
+    msg.append(tr(online
       ? "This deletes your account and everything on it — your farm, your zombies, your gold and brains, your quests and invasion progress, your friends and your Almanacs."
-      : "This deletes this farm and everything on it — your zombies, your gold and brains, your quests and invasion progress, and your Almanacs.");
+      : "This deletes this farm and everything on it — your zombies, your gold and brains, your quests and invasion progress, and your Almanacs."));
 
     const warn = document.createElement("span");
     warn.className = "confirm-warn";
-    warn.textContent = "This cannot be undone. There is no backup and no way to recover it.";
+    warn.textContent = tr("This cannot be undone. There is no backup and no way to recover it.");
     msg.append(document.createElement("br"), warn);
 
     const after = document.createElement("span");
     after.className = "confirm-warn";
-    after.textContent = online
-      ? "Signing in again will start you a brand-new farm from the beginning."
-      : "Playing again will start you a brand-new farm from the beginning.";
+    after.textContent = online ? tr("Signing in again will start you a brand-new farm from the beginning.") : tr("Playing again will start you a brand-new farm from the beginning.");
     msg.append(document.createElement("br"), after);
 
     // Only worth saying while there is still something to export.
     const escape = document.createElement("span");
     escape.className = "confirm-warn";
-    escape.textContent = "If you only want a copy, cancel and use Settings → Export first.";
+    escape.textContent = tr("If you only want a copy, cancel and use Settings → Export first.");
     msg.append(document.createElement("br"), escape);
 
     const btns = document.createElement("div");
     btns.className = "zbtns";
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
-    cancel.textContent = "Cancel";
+    cancel.textContent = tr("Cancel");
     cancel.onclick = () => close();
     const next = document.createElement("button");
     next.className = "zbtn sell";
-    next.textContent = "Continue";
+    next.textContent = tr("Continue");
     // Deliberately NOT markPrimary: Enter should not confirm a step whose only
     // purpose is to make the player stop and read.
     next.onclick = () => {
@@ -3794,22 +3750,22 @@ export class Hud {
   private confirmDeleteAccountFinal(noun: string): void {
     const { panel, close } = openModal({
       host: this.el, bgClass: "fr-confirm-bg", panelClass: "confirm-panel",
-      title: "Are you sure?", replaceSelector: ".fr-confirm-bg",
+      title: tr("Are you sure?"), replaceSelector: ".fr-confirm-bg",
     });
 
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
-    msg.append(`Last chance — deleting your ${noun} is permanent.`);
+    msg.append(trMsg`Last chance — deleting your ${noun} is permanent.`);
     panel.appendChild(msg);
 
     const btns = document.createElement("div");
     btns.className = "zbtns";
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
-    cancel.textContent = "Keep my farm";
+    cancel.textContent = tr("Keep my farm");
     const confirm = document.createElement("button");
     confirm.className = "zbtn sell";
-    confirm.textContent = `Yes, delete my ${noun}`;
+    confirm.textContent = trMsg`Yes, delete my ${noun}`;
     // No markPrimary here either — the confirming button must be pressed on
     // purpose, never by an Enter left over from another dialog.
 
@@ -3817,11 +3773,11 @@ export class Hud {
     confirm.onclick = async () => {
       confirm.disabled = true;
       cancel.disabled = true;
-      confirm.textContent = "Deleting…";
+      confirm.textContent = tr("Deleting…");
       const error = await this.onDeleteAccount?.().catch(() => "failed");
       if (!error) return; // the farm is gone; the implementation is reloading
       close();
-      this.showToast(deleteRefusalCopy(error), 4200);
+      this.showToast(tr(deleteRefusalCopy(error)), 4200);
     };
     btns.append(cancel, confirm);
     panel.appendChild(btns);
@@ -3841,16 +3797,16 @@ export class Hud {
   }) {
     const { panel, close } = openModal({
       host: this.el, bgClass: "fr-confirm-bg", panelClass: "confirm-panel",
-      title: opts.title, replaceSelector: ".fr-confirm-bg",
+      title: tr(opts.title), replaceSelector: ".fr-confirm-bg",
     });
 
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
-    msg.append(opts.lead);
+    msg.append(tr(opts.lead));
     for (const line of opts.lines) {
       const detail = document.createElement("span");
       detail.className = "confirm-warn";
-      detail.textContent = line;
+      detail.textContent = tr(line);
       msg.append(document.createElement("br"), detail);
     }
 
@@ -3858,11 +3814,11 @@ export class Hud {
     btns.className = "zbtns";
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
-    cancel.textContent = "Cancel";
+    cancel.textContent = tr("Cancel");
     cancel.onclick = () => close();
     const confirm = document.createElement("button");
     confirm.className = "zbtn sell";
-    confirm.textContent = opts.confirmLabel;
+    confirm.textContent = tr(opts.confirmLabel);
     markPrimary(confirm); // Enter confirms
     confirm.onclick = async () => {
       confirm.disabled = true;
@@ -3871,7 +3827,7 @@ export class Hud {
       // dead modal over the panel while they run reads as a hang.
       close();
       try { await opts.onConfirm(); }
-      catch { this.showToast(opts.failToast); }
+      catch { this.showToast(tr(opts.failToast)); }
     };
     btns.append(cancel, confirm);
     panel.append(msg, btns);
@@ -3885,7 +3841,7 @@ export class Hud {
   ) {
     const { panel, close } = openModal({
       host: this.el, bgClass: "fr-confirm-bg", panelClass: "confirm-panel",
-      title: action === "block" ? "Block this friend?" : "Remove this friend?",
+      title: action === "block" ? tr("Block this friend?") : tr("Remove this friend?"),
       replaceSelector: ".fr-confirm-bg",
     });
 
@@ -3893,23 +3849,21 @@ export class Hud {
     msg.className = "confirm-msg";
     const name = document.createElement("b");
     name.textContent = friend.name;
-    msg.append(action === "block" ? "Block " : "Remove ", name, "?");
+    msg.append(action === "block" ? tr("Block friend ") : tr("Remove friend "), name, "?");
     const warning = document.createElement("span");
     warning.className = "confirm-warn";
-    warning.textContent = action === "block"
-      ? "They will be removed and prevented from sending future friend requests or gifts."
-      : "They will be removed from your friends list.";
+    warning.textContent = action === "block" ? tr("They will be removed and prevented from sending future friend requests or gifts.") : tr("They will be removed from your friends list.");
     msg.append(document.createElement("br"), warning);
 
     const btns = document.createElement("div");
     btns.className = "zbtns";
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
-    cancel.textContent = "Cancel";
+    cancel.textContent = tr("Cancel");
     cancel.onclick = () => close();
     const confirm = document.createElement("button");
     confirm.className = "zbtn sell";
-    confirm.textContent = action === "block" ? "Block" : "Remove";
+    confirm.textContent = action === "block" ? tr("Block friend") : tr("Remove friend");
     markPrimary(confirm); // Enter confirms
     confirm.onclick = async () => {
       confirm.disabled = true;
@@ -3920,7 +3874,7 @@ export class Hud {
       } catch {
         confirm.disabled = false;
         cancel.disabled = false;
-        this.showToast(action === "block" ? "Couldn't block that friend." : "Couldn't remove that friend.");
+        this.showToast(action === "block" ? tr("Couldn't block that friend.") : tr("Couldn't remove that friend."));
       }
     };
     btns.append(cancel, confirm);
@@ -3930,7 +3884,7 @@ export class Hud {
   private openSocial() {
     const { panel, close } = openModal({
       host: this.el, bgClass: "social-bg", panelClass: "social-hub",
-      title: "Social", replaceSelector: ".social-bg",
+      title: tr("Social"), replaceSelector: ".social-bg",
     });
     const choices = document.createElement("div");
     choices.className = "social-choices";
@@ -3951,15 +3905,15 @@ export class Hud {
     ): HTMLButtonElement => {
       const btn = document.createElement("button");
       btn.className = "social-choice";
-      btn.append(title);
+      btn.append(tr(title));
       const sub = document.createElement("span");
       const locked = level < minLevel;
-      sub.textContent = locked ? `Unlocks at level ${minLevel}` : note;
+      sub.textContent = locked ? trMsg`Unlocks at level ${minLevel}` : tr(note);
       btn.appendChild(sub);
       if (locked) {
         btn.classList.add("locked");
         btn.disabled = true;
-        btn.title = `${title} opens at level ${minLevel}.`;
+        btn.title = trMsg`${tr(title)} opens at level ${minLevel}.`;
       } else {
         // A locked tile carries no dot: it cannot be opened, so a dot on it would be a
         // notification with nowhere to go.
@@ -4003,10 +3957,10 @@ export class Hud {
     panel.className = "mkt bm";
     const title = document.createElement("div");
     title.className = "mkt-title";
-    title.textContent = "Black Market";
+    title.textContent = tr("Black Market");
     const close = document.createElement("button");
     close.className = "mkt-close";
-    close.innerHTML = `<img src="${UI("button_close.png")}">`;
+    close.innerHTML = trHtml`<img src="${UI("button_close.png")}">`;
     close.onclick = () => bg.remove();
     const balance = document.createElement("div");
     balance.className = "mkt-cur";
@@ -4027,8 +3981,8 @@ export class Hud {
         if (held[currency] <= 0) continue;
         const waiting = document.createElement("span");
         waiting.className = "bm-held";
-        waiting.textContent = `+${held[currency].toLocaleString()} held`;
-        waiting.title = `${currency === "GOLD" ? "Gold" : "Brains"} your settled sales are holding. Collect them above.`;
+        waiting.textContent = trMsg`+${held[currency].toLocaleString()} held`;
+        waiting.title = trMsg`${currency === "GOLD" ? tr("Gold") : tr("Brains")} your settled sales are holding. Collect them above.`;
         balance.appendChild(waiting);
       }
     };
@@ -4040,16 +3994,16 @@ export class Hud {
     const salesTab = document.createElement("button");
     const historyTab = document.createElement("button");
     requestTab.className = salesTab.className = historyTab.className = "mkt-tab";
-    requestTab.textContent = "Requests";
-    salesTab.textContent = "Zombie Sales";
-    historyTab.textContent = "History";
+    requestTab.textContent = tr("Requests");
+    salesTab.textContent = tr("Zombie Sales");
+    historyTab.textContent = tr("History");
     // Compact screens cannot show the browse list AND the compose form at once —
     // side by side they leave the list about three cards tall. There the form
     // becomes a third tab; on a roomy screen this button is hidden by CSS and the
     // form stays permanently docked beside the list.
     const composeTab = document.createElement("button");
     composeTab.className = "mkt-tab bm-tab-compose";
-    composeTab.textContent = "Create Post";
+    composeTab.textContent = tr("Create Post");
     tabs.append(requestTab, salesTab, historyTab, composeTab);
 
     const toolbar = document.createElement("div");
@@ -4059,34 +4013,34 @@ export class Hud {
     // Browsing cuts the catalog along its two axes rather than by single type: the
     // colour class (shown as "category") and the body family (shown as "class").
     const categoryFilter = document.createElement("select");
-    categoryFilter.setAttribute("aria-label", "Zombie category filter");
-    categoryFilter.append(new Option("All categories", ""));
+    categoryFilter.setAttribute("aria-label", tr("Zombie category filter"));
+    categoryFilter.append(new Option(tr("All categories"), ""));
     for (const option of BLACK_MARKET_CLASS_FILTERS) {
-      categoryFilter.append(new Option(option.label, option.value));
+      categoryFilter.append(new Option(tr(option.label), option.value));
     }
     const classFilter = document.createElement("select");
-    classFilter.setAttribute("aria-label", "Zombie class filter");
-    classFilter.append(new Option("All classes", ""));
+    classFilter.setAttribute("aria-label", tr("Zombie class filter"));
+    classFilter.append(new Option(tr("All classes"), ""));
     for (const option of BLACK_MARKET_GROUP_FILTERS) {
-      classFilter.append(new Option(option.label, option.value));
+      classFilter.append(new Option(tr(option.label), option.value));
     }
     // Prices in gold and prices in brains are not comparable, so "Lowest price" over a
     // mixed board would be meaningless — this narrows it to one currency.
     const currencyFilter = document.createElement("select");
-    currencyFilter.setAttribute("aria-label", "Currency filter");
-    currencyFilter.append(new Option("Gold & brains", ""), new Option("Gold only", "GOLD"),
-      new Option("Brains only", "BRAINS"));
+    currencyFilter.setAttribute("aria-label", tr("Currency filter"));
+    currencyFilter.append(new Option(tr("Gold & brains"), ""), new Option(tr("Gold only"), "GOLD"),
+      new Option(tr("Brains only"), "BRAINS"));
     const sort = document.createElement("select");
-    sort.setAttribute("aria-label", "Sort orders");
-    sort.append(new Option("Newest", "newest"), new Option("Lowest price", "price_asc"),
-      new Option("Highest price", "price_desc"));
+    sort.setAttribute("aria-label", tr("Sort orders"));
+    sort.append(new Option(tr("Newest"), "newest"), new Option(tr("Lowest price"), "price_asc"),
+      new Option(tr("Highest price"), "price_desc"));
     const mineLabel = document.createElement("label");
     const mine = document.createElement("input");
     mine.type = "checkbox";
-    mineLabel.append(mine, " My Posts");
+    mineLabel.append(mine, tr(" My Posts"));
     const refresh = document.createElement("button");
     refresh.className = "prof-btn play";
-    refresh.textContent = "Refresh";
+    refresh.textContent = tr("Refresh");
     toolbar.append(categoryFilter, classFilter, currencyFilter, sort, mineLabel, refresh);
 
     // Fulfilled posts awaiting collection. The trade already settled server-side
@@ -4109,9 +4063,9 @@ export class Hud {
     const compose = document.createElement("div");
     compose.className = "bm-compose";
     const composeTitle = document.createElement("h3");
-    composeTitle.textContent = "Create Post";
+    composeTitle.textContent = tr("Create Post");
     const composeKind = document.createElement("select");
-    composeKind.append(new Option("Request a Zombie", "BUY_ZOMBIE"), new Option("Sell a Zombie", "SELL_ZOMBIE"));
+    composeKind.append(new Option(tr("Request a Zombie"), "BUY_ZOMBIE"), new Option(tr("Sell a Zombie"), "SELL_ZOMBIE"));
     const composeDefaults = blackMarketComposeDefaults(
       initialKind,
       selectedUnitId,
@@ -4123,12 +4077,12 @@ export class Hud {
     const asset = document.createElement("select");
     assetLabel.append(assetCaption, asset);
     const mutationLabelEl = document.createElement("label");
-    mutationLabelEl.append("Mutation requirement");
+    mutationLabelEl.append(tr("Mutation requirement"));
     const mutationMode = document.createElement("select");
     mutationMode.append(
-      new Option("No mutation", "false"),
-      new Option("Any mutation", "true"),
-      new Option("Specific mutations…", "specific")
+      new Option(tr("No mutation"), "false"),
+      new Option(tr("Any mutation"), "true"),
+      new Option(tr("Specific mutations…"), "specific")
     );
     const mutationChoices = document.createElement("div");
     mutationChoices.className = "bm-mutation-choices";
@@ -4140,7 +4094,7 @@ export class Hud {
       // The bit rides on the checkbox because that is what the order stores; the form
       // itself is built from the catalog, so a new mutation appears here for free.
       input.value = String(mutation.bit);
-      label.append(input, mutation.name);
+      label.append(input, tr(mutation.name));
       mutationChoices.appendChild(label);
       return input;
     });
@@ -4156,8 +4110,8 @@ export class Hud {
     // and the one this ceiling is scaled for. Brains posts stay available for anyone
     // who wants to trade in the scarce currency instead.
     const currencyPicker = document.createElement("select");
-    currencyPicker.setAttribute("aria-label", "Price currency");
-    currencyPicker.append(new Option("Gold", "GOLD"), new Option("Brains", "BRAINS"));
+    currencyPicker.setAttribute("aria-label", tr("Price currency"));
+    currencyPicker.append(new Option(tr("Gold"), "GOLD"), new Option(tr("Brains"), "BRAINS"));
     priceRow.append(price, currencyPicker);
     priceLabel.appendChild(priceRow);
     const composeCurrency = (): BlackMarketCurrency =>
@@ -4165,7 +4119,7 @@ export class Hud {
     const escrowNote = document.createElement("div");
     escrowNote.className = "bm-meta";
     const submit = document.createElement("button");
-    submit.textContent = "Post Request";
+    submit.textContent = tr("Post Request");
     compose.append(composeTitle, composeKind, assetLabel, mutationLabelEl, priceLabel, escrowNote, submit);
     content.append(list, compose);
 
@@ -4201,9 +4155,7 @@ export class Hud {
         const label = input.parentElement as HTMLLabelElement | null;
         label?.classList.toggle("bm-choice-off", blocked);
         if (!label) continue;
-        label.title = wearable
-          ? (storable ? "" : "This mutation can't be requested on the Black Market yet.")
-          : "A headless zombie can't wear this mutation.";
+        label.title = wearable ? tr((storable ? "" : "This mutation can't be requested on the Black Market yet.")) : tr("A headless zombie can't wear this mutation.");
       }
     };
     const refreshComposeStatus = () => {
@@ -4212,36 +4164,35 @@ export class Hud {
       syncMutationChoices(selling); // before the mask is read below
       // A Market mutant is minted wearing its own mutation, so "none" can only mean
       // "nothing on top of it" (matchesBlackMarketMutation) and the label says so.
-      mutationMode.options[0].text = cardFor(asset.value)?.zombie?.mutation
-        ? "No extra mutations" : "No mutation";
+      mutationMode.options[0].text = cardFor(asset.value)?.zombie?.mutation ? tr("No extra mutations") : tr("No mutation");
       const missingMutation = !selling && mutationMode.value === "specific" &&
         selectedMutationMask() === 0;
       mutationChoices.hidden = selling || mutationMode.value !== "specific";
-      priceCaption.textContent = composeCurrency() === "GOLD" ? "Price in gold" : "Price in brains";
+      priceCaption.textContent = composeCurrency() === "GOLD" ? tr("Price in gold") : tr("Price in brains");
       escrowNote.textContent = selling
-        ? "This zombie leaves your roster while the post is open."
-        : purchaseLock?.label ??
+        ? tr("This zombie leaves your roster while the post is open.")
+        : (purchaseLock?.label ? tr(purchaseLock.label) : undefined) ??
           (missingMutation
-            ? "Select at least one specific mutation."
+            ? tr("Select at least one specific mutation.")
             : mutationMode.value === "specific"
-              ? "Same-slot choices are alternatives; choices in different slots are all required."
-              : `The full ${composeCurrency() === "GOLD" ? "gold" : "brain"} offer is removed while the request is open.`);
+              ? tr("Same-slot choices are alternatives; choices in different slots are all required.")
+              : trMsg`The full ${composeCurrency() === "GOLD" ? tr("gold") : tr("brain")} offer is removed while the request is open.`);
       escrowNote.classList.toggle("bm-lock", !!purchaseLock || missingMutation);
       submit.disabled = !asset.value || !!purchaseLock || missingMutation || !this.socialOnline?.();
     };
     const updateCompose = () => {
       const selling = composeKind.value === "SELL_ZOMBIE";
       asset.replaceChildren();
-      assetCaption.textContent = selling ? "Owned zombie" : "Zombie type";
+      assetCaption.textContent = selling ? tr("Owned zombie") : tr("Zombie type");
       if (selling) {
         for (const zombie of this.getRoster?.() ?? []) {
-          const option = new Option(`${zombie.name} — ${zombie.typeName}${zombie.mutation ? " (Mutated)" : ""}`, zombie.id);
+          const option = new Option(trMsg`${zombie.name} — ${tr(zombie.typeName)}${zombie.mutation ? tr(" (Mutated)") : ""}`, zombie.id);
           asset.appendChild(option);
         }
       } else {
         for (const card of catalog) {
           const lock = purchaseLockFor(card.cfg.key);
-          const option = new Option(lock ? `${card.name} — ${lock.label}` : card.name, card.cfg.key);
+          const option = new Option(lock ? trMsg`${tr(card.name)} — ${tr(lock.label)}` : tr(card.name), card.cfg.key);
           asset.append(option);
         }
       }
@@ -4250,7 +4201,7 @@ export class Hud {
         asset.value = composeDefaults.assetId;
       }
       mutationLabelEl.style.display = selling ? "none" : "flex";
-      submit.textContent = selling ? "Post Zombie Sale" : "Post Request";
+      submit.textContent = selling ? tr("Post Zombie Sale") : tr("Post Request");
       refreshComposeStatus();
     };
 
@@ -4286,11 +4237,7 @@ export class Hud {
         .map((currency) => marketPrice(held[currency], currency));
       const header = document.createElement("div");
       header.className = "bm-fulfill-title";
-      header.textContent = waiting.length
-        ? `Trades settled! The market is holding ${waiting.join(" and ")} for you — collect it.`
-        : rows.some((row) => row.awaitingClaim)
-          ? "Trades settled! Collect to take delivery."
-          : "Your posts went through! Collect to dismiss.";
+      header.textContent = waiting.length ? trMsg`Trades settled! The market is holding ${waiting.join(tr(" and "))} for you — collect it.` : rows.some((row) => row.awaitingClaim) ? tr("Trades settled! Collect to take delivery.") : tr("Your posts went through! Collect to dismiss.");
       const rail = document.createElement("div");
       rail.className = "bm-fulfill-rail";
       fulfillStrip.append(header, rail);
@@ -4302,7 +4249,7 @@ export class Hud {
         const claiming = !!entry.awaitingClaim;
         const paying = !!entry.awaitingPayout;
         const sold = entry.kind === "SELL_ZOMBIE" && !claiming;
-        const zombieName = cardFor(entry.zombieKey)?.name ?? entry.zombieKey;
+        const zombieName = tr(cardFor(entry.zombieKey)?.name ?? entry.zombieKey);
         const card = document.createElement("div");
         card.className = "bm-card bm-fulfilled";
         const portrait = document.createElement("img");
@@ -4322,15 +4269,13 @@ export class Hud {
         const body = document.createElement("div");
         const name = document.createElement("div");
         name.className = "bm-name";
-        name.textContent = sold ? `${zombieName} — Sold!`
-          : entry.kind === "SELL_ZOMBIE" ? `${zombieName} — Purchased!`
-          : `${zombieName} — Request filled!`;
+        name.textContent = sold ? trMsg`${zombieName} — Sold!` : entry.kind === "SELL_ZOMBIE" ? trMsg`${zombieName} — Purchased!` : trMsg`${zombieName} — Request filled!`;
         const traits = document.createElement("div");
         traits.className = "bm-fulfill-traits";
         if (entry.mutation !== undefined) {
-          const bits = [mutationLabelFor(entry.zombieKey, entry.mutation) || "No mutations"];
-          if (entry.invasions) bits.push(veterancy(entry.invasions));
-          traits.textContent = bits.join(" · ");
+          const bits = [mutationLabelFor(entry.zombieKey, entry.mutation) || tr("No mutations")];
+          if (entry.invasions) bits.push(tr(veterancy(entry.invasions)));
+          traits.textContent = tr(bits.join(" · "));
         } else {
           traits.hidden = true;
         }
@@ -4338,15 +4283,7 @@ export class Hud {
         meta.className = "bm-meta";
         const when = new Date(entry.fulfilledAt).toLocaleDateString();
         const room = this.canTakeZombieDelivery?.() ?? true;
-        meta.textContent = sold
-          ? `Bought by ${entry.fulfilledBy} · ${when}\n${paying
-            ? `The market is holding ${marketPrice(entry.price, entry.currency)} — collect to bank it.`
-            : `${entry.currency === "GOLD" ? "The gold is" : "The brains are"} already in your balance.`}`
-          : claiming
-            ? `From ${entry.fulfilledBy} · ${when}\n${room
-              ? "Waiting for you — collect to bring it home."
-              : "Your farm and Mausoleum are full. Free a slot, then collect."}`
-            : `Delivered by ${entry.fulfilledBy} · ${when}\nThe zombie is already on your farm.`;
+        meta.textContent = sold ? trMsg`Bought by ${entry.fulfilledBy} · ${when}\n${paying ? trMsg`The market is holding ${marketPrice(entry.price, entry.currency)} — collect to bank it.` : trMsg`${entry.currency === "GOLD" ? tr("The gold is") : tr("The brains are")} already in your balance.`}` : claiming ? trMsg`From ${entry.fulfilledBy} · ${when}\n${room ? tr("Waiting for you — collect to bring it home.") : tr("Your farm and Mausoleum are full. Free a slot, then collect.")}` : trMsg`Delivered by ${entry.fulfilledBy} · ${when}\nThe zombie is already on your farm.`;
         const cost = document.createElement("div");
         cost.className = "bm-price";
         cost.append(entry.price.toLocaleString());
@@ -4355,7 +4292,7 @@ export class Hud {
         cost.appendChild(coin);
         body.append(name, traits, meta, cost);
         const action = document.createElement("button");
-        action.textContent = "Collect";
+        action.textContent = tr("Collect");
         action.onclick = async () => {
           action.disabled = true;
           try {
@@ -4366,20 +4303,12 @@ export class Hud {
             held[entry.currency] = Math.max(0, held[entry.currency] - (result?.paid ?? 0));
             refreshBalance();
             const coinEmoji = entry.currency === "GOLD" ? "💰" : "🧠";
-            this.showToast(sold
-              ? result?.paid
-                ? `Cha-ching! ${marketPrice(result.paid, entry.currency)} collected — ${zombieName} sold to ${entry.fulfilledBy}. ${coinEmoji}`
-                : `Cha-ching! ${zombieName} sold to ${entry.fulfilledBy} for ${marketPrice(entry.price, entry.currency)}. ${coinEmoji}`
-              : claimed?.stored
-                ? `${zombieName} is resting in your Mausoleum — deploy it when there's room. 🧟`
-                : `${zombieName} has joined your horde! 🧟`);
+            this.showToast(sold ? result?.paid ? trMsg`Cha-ching! ${marketPrice(result.paid, entry.currency)} collected — ${zombieName} sold to ${entry.fulfilledBy}. ${coinEmoji}` : trMsg`Cha-ching! ${zombieName} sold to ${entry.fulfilledBy} for ${marketPrice(entry.price, entry.currency)}. ${coinEmoji}` : claimed?.stored ? trMsg`${zombieName} is resting in your Mausoleum — deploy it when there's room. 🧟` : trMsg`${zombieName} has joined your horde! 🧟`);
           } catch (error) {
             // The delivery is never lost: refused for room, it keeps waiting on the
             // card, so say what to do instead of the generic retry line.
             const code = error instanceof Error ? error.message : "";
-            this.showToast(code.startsWith("no_room")
-              ? "No room! Free a farm slot (or a Mausoleum slot) and collect again."
-              : "Could not collect that just now. Try again in a moment.");
+            this.showToast(code.startsWith("no_room") ? tr("No room! Free a farm slot (or a Mausoleum slot) and collect again.") : tr("Could not collect that just now. Try again in a moment."));
             action.disabled = false;
           }
         };
@@ -4389,27 +4318,27 @@ export class Hud {
     };
 
     const renderHistory = async () => {
-      historyView.innerHTML = `<div class="bm-empty">Opening the ledger…</div>`;
+      historyView.innerHTML = trHtml`<div class="bm-empty">Opening the ledger…</div>`;
       if (!this.socialOnline?.() || !this.getBlackMarketHistory) {
-        historyView.innerHTML = `<div class="bm-empty">Sign in to see your trade history.</div>`;
+        historyView.innerHTML = trHtml`<div class="bm-empty">Sign in to see your trade history.</div>`;
         return;
       }
       let result: BlackMarketHistoryResponse;
       try { result = await this.getBlackMarketHistory(); }
       catch {
-        historyView.innerHTML = `<div class="bm-empty">The ledger is unavailable right now.</div>`;
+        historyView.innerHTML = trHtml`<div class="bm-empty">The ledger is unavailable right now.</div>`;
         return;
       }
       if (!bg.isConnected) return;
       historyView.replaceChildren();
-      const nameOf = (key: string) => cardFor(key)?.name ?? key;
+      const nameOf = (key: string) => tr(cardFor(key)?.name ?? key);
 
       const statsRow = document.createElement("div");
       statsRow.className = "bm-stats";
       const stat = (text: string) => {
         const chip = document.createElement("div");
         chip.className = "bm-stat";
-        chip.textContent = text;
+        chip.textContent = tr(text);
         statsRow.appendChild(chip);
       };
       const { sold, bought, mostTraded } = result.stats;
@@ -4433,7 +4362,7 @@ export class Hud {
       if (!result.entries.length) {
         const empty = document.createElement("div");
         empty.className = "bm-empty";
-        empty.textContent = "No completed trades yet. Post something on the market!";
+        empty.textContent = tr("No completed trades yet. Post something on the market!");
         historyView.appendChild(empty);
         return;
       }
@@ -4459,18 +4388,12 @@ export class Hud {
         title.className = "bm-name";
         // Four trade shapes: my sale sold / I bought their sale / my request was
         // filled / I filled their request.
-        title.textContent = entry.earned
-          ? entry.mine
-            ? `Sold ${nameOf(entry.zombieKey)} to ${entry.counterparty}`
-            : `Filled ${entry.counterparty}'s request — ${nameOf(entry.zombieKey)}`
-          : entry.mine
-            ? `${entry.counterparty} filled your request — ${nameOf(entry.zombieKey)}`
-            : `Bought ${nameOf(entry.zombieKey)} from ${entry.counterparty}`;
+        title.textContent = entry.earned ? entry.mine ? trMsg`Sold ${nameOf(entry.zombieKey)} to ${entry.counterparty}` : trMsg`Filled ${entry.counterparty}'s request — ${nameOf(entry.zombieKey)}` : entry.mine ? trMsg`${entry.counterparty} filled your request — ${nameOf(entry.zombieKey)}` : trMsg`Bought ${nameOf(entry.zombieKey)} from ${entry.counterparty}`;
         const detailBits = [new Date(entry.fulfilledAt).toLocaleDateString()];
         if (entry.mutation) detailBits.push(mutationLabelFor(entry.zombieKey, entry.mutation));
-        if (entry.invasions) detailBits.push(veterancy(entry.invasions));
+        if (entry.invasions) detailBits.push(tr(veterancy(entry.invasions)));
         const detail = document.createElement("div");
-        detail.textContent = detailBits.join(" · ");
+        detail.textContent = tr(detailBits.join(" · "));
         body.append(title, detail);
         const delta = document.createElement("div");
         delta.className = entry.earned ? "bm-ledger-gain" : "bm-ledger-loss";
@@ -4485,9 +4408,9 @@ export class Hud {
 
     const renderOrders = async () => {
       const generation = ++renderGeneration;
-      list.innerHTML = `<div class="bm-empty">Refreshing market…</div>`;
+      list.innerHTML = trHtml`<div class="bm-empty">Refreshing market…</div>`;
       if (!this.socialOnline?.() || !this.getBlackMarketOrders) {
-        list.innerHTML = `<div class="bm-empty">Sign in to use the Black Market.</div>`;
+        list.innerHTML = trHtml`<div class="bm-empty">Sign in to use the Black Market.</div>`;
         return;
       }
       try {
@@ -4505,7 +4428,7 @@ export class Hud {
         list.replaceChildren();
         if (!result.orders.length) {
           const empty = document.createElement("div"); empty.className = "bm-empty";
-          empty.textContent = "No matching posts yet."; list.appendChild(empty); return;
+          empty.textContent = tr("No matching posts yet."); list.appendChild(empty); return;
         }
         for (const order of result.orders) {
           const marketCard = document.createElement("div");
@@ -4530,16 +4453,16 @@ export class Hud {
           }
           const body = document.createElement("div");
           const name = document.createElement("div"); name.className = "bm-name";
-          name.textContent = cardFor(order.zombieKey)?.name ?? order.zombieKey;
+          name.textContent = tr(cardFor(order.zombieKey)?.name ?? order.zombieKey);
           const meta = document.createElement("div"); meta.className = "bm-meta";
           const mutationText = order.kind === "BUY_ZOMBIE"
             ? order.mutationRequired
-              ? `Requested mutations: ${blackMarketMutationRequirementLabel(order.mutationRequired)}`
-              : `Requested mutation: ${order.mutated ? "Any mutation"
-                : cardFor(order.zombieKey)?.zombie?.mutation ? "No extra mutations" : "None"}`
-            : `Mutated: ${order.mutated
-              ? `Yes${order.mutation ? ` — ${mutationLabelFor(order.zombieKey, order.mutation)}` : ""}`
-              : "No"}${order.invasions ? ` · ${veterancy(order.invasions)}` : ""}`;
+              ? trMsg`Requested mutations: ${blackMarketMutationRequirementLabel(order.mutationRequired, tr)}`
+              : trMsg`Requested mutation: ${order.mutated ? tr("Any mutation")
+                : cardFor(order.zombieKey)?.zombie?.mutation ? tr("No extra mutations") : tr("None")}`
+            : trMsg`Mutated: ${order.mutated
+              ? `${tr("Yes")}${order.mutation ? ` — ${mutationLabelFor(order.zombieKey, order.mutation)}` : ""}`
+              : tr("No")}${order.invasions ? ` · ${tr(veterancy(order.invasions))}` : ""}`;
           // Every post now has a shelf life, so every card says how much of it is
           // left — a listing quietly vanishing three days on would otherwise look
           // like it had been taken down. An older Worker sends no `expiresAt`, and
@@ -4552,13 +4475,13 @@ export class Hud {
           const expiresIn = order.expiresAt === undefined
             ? ""
             : order.expiresAt <= serverNow
-              ? " · EXPIRED — free a farm or Mausoleum slot to take this zombie back"
-              : ` · expires in ${fmtMarketWait(order.expiresAt - serverNow)}`;
+              ? tr(" · EXPIRED — free a farm or Mausoleum slot to take this zombie back")
+              : trMsg` · expires in ${fmtMarketWait(order.expiresAt - serverNow)}`;
           marketCard.classList.toggle(
             "bm-expired", order.expiresAt !== undefined && order.expiresAt <= serverNow
           );
           meta.textContent =
-            `${mutationText}\n${order.mine ? "Your post" : order.creatorName}${expiresIn}`;
+            trMsg`${mutationText}\n${order.mine ? tr("Your post") : order.creatorName}${expiresIn}`;
           const cost = document.createElement("div"); cost.className = "bm-price";
           cost.append(order.price.toLocaleString());
           const coin = document.createElement("img"); coin.src = UI(MARKET_COIN[order.currency]); cost.appendChild(coin);
@@ -4578,36 +4501,34 @@ export class Hud {
               const wait = order.repostableAt - serverNow;
               const bump = document.createElement("button");
               bump.className = "bm-repost";
-              bump.textContent = wait > 0 ? `Bump in ${fmtMarketWait(wait)}` : "Bump to Top";
+              bump.textContent = wait > 0 ? trMsg`Bump in ${fmtMarketWait(wait)}` : tr("Bump to Top");
               bump.disabled = wait > 0;
-              bump.title = "Move this post back to the top of Newest and restart its three days.";
+              bump.title = tr("Move this post back to the top of Newest and restart its three days.");
               bump.onclick = async (event) => {
                 event.stopPropagation();
                 bump.disabled = true;
                 try {
                   await this.onRepostBlackMarketOrder?.(order.id);
-                  this.showToast("Post bumped to the top — it has three more days.");
+                  this.showToast(tr("Post bumped to the top — it has three more days."));
                   await renderOrders();
                 } catch (error) {
                   const code = error instanceof Error ? error.message : "";
-                  this.showToast(code.startsWith("repost_cooldown")
-                    ? "That post was bumped too recently — try again later."
-                    : "Could not bump that post. Refresh and try again.");
+                  this.showToast(code.startsWith("repost_cooldown") ? tr("That post was bumped too recently — try again later.") : tr("Could not bump that post. Refresh and try again."));
                   await renderOrders();
                 }
               };
               marketCard.appendChild(bump);
             }
             const action = document.createElement("button");
-            action.className = "cancel"; action.textContent = "Cancel Post";
+            action.className = "cancel"; action.textContent = tr("Cancel Post");
             action.onclick = async (event) => {
               event.stopPropagation();
-              if (!await this.confirmInGame("Cancel this post?", "The escrowed zombie or payment will be returned.", "Cancel Post")) return;
+              if (!await this.confirmInGame(tr("Cancel this post?"), tr("The escrowed zombie or payment will be returned."), tr("Cancel Post"))) return;
               action.disabled = true;
               try {
                 await this.onCancelBlackMarketOrder?.(order.id);
                 refreshBalance();
-                this.showToast("Post cancelled — your escrow was returned.");
+                this.showToast(tr("Post cancelled — your escrow was returned."));
                 await renderOrders();
               }
               catch (error) {
@@ -4615,9 +4536,7 @@ export class Hud {
                 // card to hold it — so it is refused outright when there is nowhere to
                 // put it. The post survives, so say what to free rather than "try again".
                 const code = error instanceof Error ? error.message : "";
-                this.showToast(code.startsWith("no_room")
-                  ? "Your farm and Mausoleum are full — free a slot before taking this zombie back."
-                  : "Could not cancel that post. Refresh and try again.");
+                this.showToast(code.startsWith("no_room") ? tr("Your farm and Mausoleum are full — free a slot before taking this zombie back.") : tr("Could not cancel that post. Refresh and try again."));
                 action.disabled = false;
               }
             };
@@ -4628,34 +4547,32 @@ export class Hud {
               marketCard.classList.add("locked");
               const lockNote = document.createElement("div");
               lockNote.className = "bm-lock";
-              lockNote.textContent = purchaseLock.label;
+              lockNote.textContent = tr(purchaseLock.label);
               body.appendChild(lockNote);
             }
             const completeTrade = async (rowAction?: HTMLButtonElement) => {
-              if (purchaseLock) { this.showToast(purchaseLock.label); return; }
+              if (purchaseLock) { this.showToast(tr(purchaseLock.label)); return; }
               let unitId: string | undefined;
               const asking = marketPrice(order.price, order.currency);
-              let detail = `Spend ${asking} for this zombie?`;
+              let detail = trMsg`Spend ${asking} for this zombie?`;
               // Buying with nowhere to put it is allowed — the zombie waits on the
               // Collect card rather than being forced somewhere — but say so up front
               // instead of letting it look like the purchase went nowhere.
               if (order.kind === "SELL_ZOMBIE" && this.canTakeZombieDelivery?.() === false) {
-                detail += "\n\nYour farm and Mausoleum are full, so it will wait to be collected until you free a slot.";
+                detail += "\n\n" + tr("Your farm and Mausoleum are full, so it will wait to be collected until you free a slot.");
               }
               if (order.kind === "BUY_ZOMBIE") {
                 const match = await this.chooseBlackMarketZombie(order);
-                if (!match) { this.showToast("You do not own a matching available zombie."); return; }
-                unitId = match.id; detail = `Trade ${match.name} for ${asking}?`;
+                if (!match) { this.showToast(tr("You do not own a matching available zombie.")); return; }
+                unitId = match.id; detail = trMsg`Trade ${match.name} for ${asking}?`;
               }
-              if (!await this.confirmInGame("Complete this trade?", detail, "Trade")) return;
+              if (!await this.confirmInGame(tr("Complete this trade?"), tr(detail), tr("Trade"))) return;
               if (rowAction) rowAction.disabled = true;
               try {
                 await this.onFulfillBlackMarketOrder?.(order, unitId);
                 refreshBalance();
-                const zombieName = cardFor(order.zombieKey)?.name ?? order.zombieKey;
-                this.showToast(order.kind === "SELL_ZOMBIE"
-                  ? `Bought ${zombieName} for ${asking} — collect it above! 🧟`
-                  : `Sold your ${zombieName} for ${asking}! ${order.currency === "GOLD" ? "💰" : "🧠"}`);
+                const zombieName = tr(cardFor(order.zombieKey)?.name ?? order.zombieKey);
+                this.showToast(order.kind === "SELL_ZOMBIE" ? trMsg`Bought ${zombieName} for ${asking} — collect it above! 🧟` : trMsg`Sold your ${zombieName} for ${asking}! ${order.currency === "GOLD" ? "💰" : "🧠"}`);
                 await renderOrders();
                 // The purchase now waits as a collectable delivery, so surface its card
                 // straight away rather than at the next time the panel opens.
@@ -4664,14 +4581,14 @@ export class Hud {
               catch (error) {
                 const code = error instanceof Error ? error.message : "";
                 if (code.startsWith("insufficient_brains") || code.startsWith("insufficient_gold"))
-                  this.showToast(`You need ${asking} to buy this zombie.`);
+                  this.showToast(trMsg`You need ${asking} to buy this zombie.`);
                 else if (code.startsWith("black_market_locked"))
-                  this.showToast(`The Black Market opens at level ${BLACK_MARKET_MIN_LEVEL}.`);
+                  this.showToast(trMsg`The Black Market opens at level ${BLACK_MARKET_MIN_LEVEL}.`);
                 else if (code.startsWith("black_market_level_locked"))
-                  this.showToast("Reach the required level before purchasing this zombie.");
+                  this.showToast(tr("Reach the required level before purchasing this zombie."));
                 else if (code.startsWith("counterparty_busy"))
-                  this.showToast("The seller is syncing. Try the trade again in a moment.");
-                else this.showToast("That trade is no longer available. Market refreshed.");
+                  this.showToast(tr("The seller is syncing. Try the trade again in a moment."));
+                else this.showToast(tr("That trade is no longer available. Market refreshed."));
                 await renderOrders();
               }
             };
@@ -4680,7 +4597,7 @@ export class Hud {
             // their row action.
             if (order.kind === "BUY_ZOMBIE") {
               const action = document.createElement("button");
-              action.textContent = "Sell Matching Zombie";
+              action.textContent = tr("Sell Matching Zombie");
               action.onclick = (event) => { event.stopPropagation(); void completeTrade(action); };
               marketCard.appendChild(action);
             }
@@ -4703,7 +4620,7 @@ export class Hud {
           list.appendChild(marketCard);
         }
       } catch {
-        if (generation === renderGeneration) list.innerHTML = `<div class="bm-empty">Black Market is unavailable right now.</div>`;
+        if (generation === renderGeneration) list.innerHTML = trHtml`<div class="bm-empty">Black Market is unavailable right now.</div>`;
       }
     };
 
@@ -4722,18 +4639,18 @@ export class Hud {
       const amount = Number(price.value);
       const currency = composeCurrency();
       if (!Number.isSafeInteger(amount) || amount < 1 || amount > MARKET_MAX_PRICE) {
-        this.showToast(`Enter a whole ${currency === "GOLD" ? "gold" : "brain"} price between 1 and ${MARKET_MAX_PRICE.toLocaleString()}.`);
+        this.showToast(trMsg`Enter a whole ${currency === "GOLD" ? tr("gold") : tr("brain")} price between 1 and ${MARKET_MAX_PRICE.toLocaleString()}.`);
         return;
       }
       const selling = composeKind.value === "SELL_ZOMBIE";
       if (!selling) {
         const purchaseLock = purchaseLockFor(asset.value);
-        if (purchaseLock) { this.showToast(purchaseLock.label); return; }
+        if (purchaseLock) { this.showToast(tr(purchaseLock.label)); return; }
       }
       const warning = selling
         ? "The selected zombie will be held in escrow."
-        : `${marketPrice(amount, currency)} will be held in escrow.`;
-      if (!await this.confirmInGame("Create Black Market post?", warning, "Create Post")) return;
+        : trMsg`${marketPrice(amount, currency)} will be held in escrow.`;
+      if (!await this.confirmInGame(tr("Create Black Market post?"), tr(warning), tr("Create Post"))) return;
       submit.disabled = true;
       try {
         const mutationRequired = mutationMode.value === "specific"
@@ -4754,27 +4671,27 @@ export class Hud {
         composing = false;
         viewingHistory = false;
         kind = selling ? "SELL_ZOMBIE" : "BUY_ZOMBIE";
-        this.showToast(selling ? "Sale posted to the Black Market!" : "Request posted to the Black Market!");
+        this.showToast(selling ? tr("Sale posted to the Black Market!") : tr("Request posted to the Black Market!"));
         setTabs(); updateCompose(); refreshBalance(); price.value = ""; await renderOrders();
       } catch (error) {
         const code = error instanceof Error ? error.message : "";
         if (code.startsWith("zombie_not_tradable"))
-          this.showToast("That zombie type cannot be traded.");
+          this.showToast(tr("That zombie type cannot be traded."));
         else if (code.startsWith("zombie_unavailable"))
-          this.showToast("That zombie is no longer available or is busy.");
+          this.showToast(tr("That zombie is no longer available or is busy."));
         else if (code.startsWith("active_post_limit"))
-          this.showToast("You can't have more than 10 active Black Market posts.");
+          this.showToast(tr("You can't have more than 10 active Black Market posts."));
         else if (code.startsWith("daily_post_limit"))
-          this.showToast("You have reached today's limit of 50 Black Market posts.");
+          this.showToast(tr("You have reached today's limit of 50 Black Market posts."));
         else if (code.startsWith("insufficient_brains"))
-          this.showToast("You do not have enough brains for that request.");
+          this.showToast(tr("You do not have enough brains for that request."));
         else if (code.startsWith("insufficient_gold"))
-          this.showToast("You do not have enough gold for that request.");
+          this.showToast(tr("You do not have enough gold for that request."));
         else if (code.startsWith("black_market_locked"))
-          this.showToast(`The Black Market opens at level ${BLACK_MARKET_MIN_LEVEL}.`);
+          this.showToast(trMsg`The Black Market opens at level ${BLACK_MARKET_MIN_LEVEL}.`);
         else if (code.startsWith("black_market_level_locked"))
-          this.showToast("Reach the required level before requesting this zombie.");
-        else this.showToast("Could not create that post. Refresh and try again.");
+          this.showToast(tr("Reach the required level before requesting this zombie."));
+        else this.showToast(tr("Could not create that post. Refresh and try again."));
       }
       finally { refreshComposeStatus(); }
     };
@@ -4805,7 +4722,7 @@ export class Hud {
       };
       const modal = openModal({
         host: this.el, bgClass: "bm-pick-bg", panelClass: "zl-panel",
-        title: "Choose a zombie to sell", onClose: () => finish(null),
+        title: tr("Choose a zombie to sell"), onClose: () => finish(null),
       });
       closeModal = modal.close;
       const list = document.createElement("div");
@@ -4816,7 +4733,7 @@ export class Hud {
         row.appendChild(buildZombieCard(this, rosterInfo(this, zombie), modal.panel));
         const choose = document.createElement("button");
         choose.className = "zbtn sell";
-        choose.textContent = `Sell this zombie for ${marketPrice(order.price, order.currency)}`;
+        choose.textContent = trMsg`Sell this zombie for ${marketPrice(order.price, order.currency)}`;
         choose.onclick = () => finish(zombie);
         row.appendChild(choose);
         list.appendChild(row);
@@ -4859,12 +4776,12 @@ export class Hud {
     panel.appendChild(buildZombieCard(this, info, panel));
     const note = document.createElement("div");
     note.className = lockLabel ? "bm-lock" : "bm-meta";
-    note.textContent = lockLabel ?? `${marketPrice(order.price, order.currency)} · ${order.creatorName}`;
+    note.textContent = tr(lockLabel ?? `${marketPrice(order.price, order.currency)} · ${order.creatorName}`);
     panel.appendChild(note);
     if (!order.mine && trade) {
       const action = document.createElement("button");
       action.className = "zbtn sell";
-      action.textContent = order.kind === "SELL_ZOMBIE" ? "Buy this zombie" : "Sell a matching zombie";
+      action.textContent = order.kind === "SELL_ZOMBIE" ? tr("Buy this zombie") : tr("Sell a matching zombie");
       action.disabled = !!lockLabel;
       action.onclick = () => { close(); void trade(); };
       panel.appendChild(action);
@@ -4891,7 +4808,7 @@ export class Hud {
     x.appendChild(xi);
     x.onclick = () => bg.remove();
     const h = document.createElement("h2");
-    h.textContent = "Friends";
+    h.textContent = tr("Friends");
     // One note, not two: the old pair overlapped and one of them still promised a
     // brain per gift, which stopped being true when contents became a roll.
     const note = document.createElement("div");
@@ -4917,7 +4834,7 @@ export class Hud {
       e === null ? null
         : e === "already_gifted_today" ? "You already gifted them today."
         : e === "gift_pending" ? "They haven't opened your last gift yet."
-        : e === "insufficient_gold" ? `You need ${GIFT_GOLD_COST} gold to send another gift today.`
+        : e === "insufficient_gold" ? trMsg`You need ${GIFT_GOLD_COST} gold to send another gift today.`
         : e === "not_friends" ? "You're not friends yet."
         : e === "recipient_inbox_full" ? "Their gift inbox is full right now."
         : e === "rate_limited" ? "Slow down a moment, then try again."
@@ -4943,26 +4860,26 @@ export class Hud {
         // textContent (not innerHTML) for the display name: never build markup from
         // account-controlled strings, even though usernames are server-validated to
         // exclude markup chars. Defense in depth (see SECURITY.md A9).
-        who.append("Signed in as ");
+        who.append(tr("Signed in as "));
         const b = document.createElement("b");
-        b.textContent = acct?.name ?? "Player";
+        b.textContent = acct?.name ?? tr("Player");
         who.appendChild(b);
         const code = document.createElement("span");
         code.className = "fr-code";
-        code.textContent = acct?.friendCode ?? "";
+        code.textContent = tr(acct?.friendCode ?? "");
         this.makeCopyable(code, acct?.friendCode ?? "");
         who.appendChild(code);
         // Rotate the friend code (invalidate an over-shared/leaked one).
         if (this.onRotateCode) {
           const rot = document.createElement("button");
           rot.className = "prof-btn fr-rotate";
-          rot.textContent = "New code";
-          rot.title = "Get a fresh friend code (your old one stops working)";
+          rot.textContent = tr("New code");
+          rot.title = tr("Get a fresh friend code (your old one stops working)");
           rot.onclick = async () => {
             rot.disabled = true;
             const nc = await this.onRotateCode?.();
-            if (nc) { this.showToast("New friend code generated."); renderAcct(); }
-            else { this.showToast("Couldn't rotate your code."); rot.disabled = false; }
+            if (nc) { this.showToast(tr("New friend code generated.")); renderAcct(); }
+            else { this.showToast(tr("Couldn't rotate your code.")); rot.disabled = false; }
           };
           who.appendChild(rot);
         }
@@ -4972,7 +4889,7 @@ export class Hud {
       } else {
         const prompt = document.createElement("div");
         prompt.className = "fr-who";
-        prompt.textContent = "Sign in to add friends and send brains online:";
+        prompt.textContent = tr("Sign in to add friends and send brains online:");
         const mount = document.createElement("div");
         mount.className = "fr-gsi";
         acctBar.append(prompt, mount);
@@ -5029,29 +4946,29 @@ export class Hud {
       }
       await refresh();
       if (!sent) {
-        this.showToast(giftErr(failure) ?? "Nobody could receive a gift right now.");
+        this.showToast(tr(giftErr(failure) ?? "Nobody could receive a gift right now."));
         return;
       }
       // Report the gold the balance ACTUALLY moved by, not the quoted estimate.
       const spent = Math.max(0, goldBefore - this.state.gold);
-      const parts = [`Sent ${sent} gift${sent === 1 ? "" : "s"}!`];
-      if (online()) parts.push(`+${sent * GIFT_XP_REWARD} XP`);
+      const parts = [trMsg`Sent ${sent} gift${sent === 1 ? "" : tr("s")}!`];
+      if (online()) parts.push(trMsg`+${sent * GIFT_XP_REWARD} XP`);
       if (spent > 0) parts.push(`−${spent.toLocaleString()} gold`);
       const missed = plan.targets.length - sent;
-      if (missed > 0) parts.push(`${missed} couldn't be delivered`);
-      this.showToast(parts.join(" · "));
+      if (missed > 0) parts.push(trMsg`${missed} couldn't be delivered`);
+      this.showToast(tr(parts.join(" · ")));
     };
 
     const confirmGiftAll = () => {
       const eligible = giftableFriends();
       if (!eligible.length) {
-        this.showToast("Every friend has already had a gift from you today.");
+        this.showToast(tr("Every friend has already had a gift from you today."));
         return;
       }
       if (!online()) {
         // The local list has no economy behind it: gifting costs the player nothing.
         this.confirmBulkAction({
-          title: "Gift all friends?",
+          title: tr("Gift all friends?"),
           lead: `Send a gift to ${eligible.length} friend${eligible.length === 1 ? "" : "s"}?`,
           lines: [],
           confirmLabel: "Send",
@@ -5072,7 +4989,7 @@ export class Hud {
         eligibleIds: eligible.map((f) => f.id), sentToday, gold: this.state.gold,
       });
       if (!plan.targets.length) {
-        this.showToast(`You need ${GIFT_GOLD_COST} gold to send another gift today.`);
+        this.showToast(trMsg`You need ${GIFT_GOLD_COST} gold to send another gift today.`);
         return;
       }
       const cost = plan.paidCount === 0
@@ -5085,7 +5002,7 @@ export class Hud {
         lines.push(`${plan.skippedForGold} friend${plan.skippedForGold === 1 ? "" : "s"} left out — not enough gold for them.`);
       }
       this.confirmBulkAction({
-        title: "Gift all friends?",
+        title: tr("Gift all friends?"),
         lead: `Send a gift to ${plan.targets.length} friend${plan.targets.length === 1 ? "" : "s"}?`,
         lines,
         confirmLabel: plan.goldCost > 0 ? `Send (${plan.goldCost.toLocaleString()} gold)` : "Send",
@@ -5113,23 +5030,23 @@ export class Hud {
       }
       await refresh();
       if (!opened) {
-        this.showToast(failure ?? (emptied ? "Those gifts had already been opened." : "No gifts to open."));
+        this.showToast(tr(failure ?? (emptied ? "Those gifts had already been opened." : "No gifts to open.")));
         return;
       }
       const haul = [
-        brains > 0 ? `${brains} brain${brains === 1 ? "" : "s"} 🧠` : null,
+        brains > 0 ? trMsg`${brains} brain${brains === 1 ? "" : tr("s")} 🧠` : null,
         gold > 0 ? `${gold.toLocaleString()} gold 💰` : null,
       ].filter(Boolean).join(" and ");
-      this.showToast(`Opened ${opened} gift${opened === 1 ? "" : "s"}: ${haul}!`);
+      this.showToast(trMsg`Opened ${opened} gift${opened === 1 ? "" : tr("s")}: ${haul}!`);
       // A stopped batch leaves the rest in the inbox; say so rather than going quiet.
-      if (failure) this.showToast(failure);
+      if (failure) this.showToast(tr(failure));
     };
 
     const confirmOpenAll = () => {
       const gifts = this.getInbox?.() ?? [];
       if (!gifts.length) return;
       this.confirmBulkAction({
-        title: "Open all gifts?",
+        title: tr("Open all gifts?"),
         lead: `Open all ${gifts.length} gift${gifts.length === 1 ? "" : "s"} in your inbox?`,
         // Deliberately no preview of the haul: contents stay sealed until opened.
         lines: ["You'll see what each one held once they're open."],
@@ -5144,7 +5061,7 @@ export class Hud {
     const bulkButton = (label: string, busyLabel: string, run: () => void) => {
       const btn = document.createElement("button");
       btn.className = "prof-btn play fr-bulk";
-      btn.textContent = bulkBusy ? busyLabel : label;
+      btn.textContent = bulkBusy ? tr(busyLabel) : tr(label);
       btn.disabled = bulkBusy;
       btn.onclick = run;
       return btn;
@@ -5163,7 +5080,7 @@ export class Hud {
       const shown = inboxExpanded ? gifts : gifts.slice(0, INBOX_PREVIEW);
       const hd = document.createElement("div");
       hd.className = "fr-inbox-h fr-sticky-h";
-      hd.textContent = `🎁 Gifts for you (${gifts.length})`;
+      hd.textContent = trMsg`🎁 Gifts for you (${gifts.length})`;
       if (gifts.length > 1) {
         hd.appendChild(bulkButton("Open all", "Opening…", confirmOpenAll));
       }
@@ -5175,25 +5092,23 @@ export class Hud {
         nm.className = "prof-name";
         // The contents were fixed when the gift was sent, but they stay sealed until
         // it's opened — the inbox never says what's inside.
-        nm.append("🎁 Gift from ");
+        nm.append(tr("🎁 Gift from "));
         const bfrom = document.createElement("b");
         bfrom.textContent = g.fromName; // textContent: no markup from account strings
         nm.appendChild(bfrom);
         const claim = document.createElement("button");
         claim.className = "prof-btn play";
-        claim.textContent = "Open";
+        claim.textContent = tr("Open");
         claim.onclick = async () => {
           claim.disabled = true;
           const result = await (this.onClaimGift?.(g.id) ?? Promise.resolve("Couldn't claim that gift."));
           if (typeof result === "string") {
-            this.showToast(result);
+            this.showToast(tr(result));
             claim.disabled = false;
           } else {
             // null = already opened elsewhere: drop it from the inbox, but don't
             // pretend it paid out something the player never received.
-            this.showToast(result
-              ? `${g.fromName} sent you ${giftRewardLabel(result)}!`
-              : "That gift had already been opened.");
+            this.showToast(result ? trMsg`${g.fromName} sent you ${giftRewardLabel(result)}!` : tr("That gift had already been opened."));
             await refresh();
           }
         };
@@ -5205,9 +5120,7 @@ export class Hud {
         more.className = "prof-row fr-inbox-row fr-inbox-more";
         const toggle = document.createElement("button");
         toggle.className = "prof-btn fr-inbox-toggle";
-        toggle.textContent = inboxExpanded
-          ? "Show fewer"
-          : `Show all ${gifts.length} gifts`;
+        toggle.textContent = inboxExpanded ? tr("Show fewer") : trMsg`Show all ${gifts.length} gifts`;
         toggle.onclick = () => { inboxExpanded = !inboxExpanded; renderInbox(); };
         more.appendChild(toggle);
         inboxWrap.appendChild(more);
@@ -5221,7 +5134,7 @@ export class Hud {
       if (!reqs.length) return;
       const hd = document.createElement("div");
       hd.className = "fr-inbox-h";
-      hd.textContent = `👋 Friend requests (${reqs.length})`;
+      hd.textContent = trMsg`👋 Friend requests (${reqs.length})`;
       requestsWrap.appendChild(hd);
       for (const r of reqs) {
         const row = document.createElement("div");
@@ -5233,7 +5146,7 @@ export class Hud {
         acts.className = "prof-actions";
         const accept = document.createElement("button");
         accept.className = "prof-btn play";
-        accept.textContent = "Accept";
+        accept.textContent = tr("Accept");
         accept.onclick = async () => {
           accept.disabled = true;
           const err = await (this.onAcceptRequest?.(r.fromAccountId) ?? Promise.resolve("offline"));
@@ -5241,18 +5154,15 @@ export class Hud {
           // side is full — otherwise the request just sits there looking broken.
           if (err) {
             this.showToast(
-              err === "friends_full"
-                ? `Your friends list is full (${MAX_FRIENDS}). Remove someone to accept.`
-                : err === "requester_full" ? `${r.name}'s friends list is full.`
-                : "Couldn't accept that request."
+              err === "friends_full" ? trMsg`Your friends list is full (${MAX_FRIENDS}). Remove someone to accept.` : err === "requester_full" ? trMsg`${r.name}'s friends list is full.` : tr("Couldn't accept that request.")
             );
             accept.disabled = false;
           }
-          else { this.showToast(`You and ${r.name} are now friends! 🧟`); await refresh(); }
+          else { this.showToast(trMsg`You and ${r.name} are now friends! 🧟`); await refresh(); }
         };
         const reject = document.createElement("button");
         reject.className = "prof-btn del";
-        reject.textContent = "Ignore";
+        reject.textContent = tr("Ignore");
         reject.onclick = async () => {
           reject.disabled = true;
           await this.onRejectRequest?.(r.fromAccountId);
@@ -5270,7 +5180,7 @@ export class Hud {
       if (friends.length < 2) return; // one friend — nothing to sort or batch
       const label = document.createElement("label");
       label.className = "fr-sort";
-      label.append("Sort");
+      label.append(tr("Sort"));
       const select = document.createElement("select");
       select.className = "prof-input fr-sort-select";
       for (const option of FRIEND_SORTS) {
@@ -5278,7 +5188,7 @@ export class Hud {
         if (option.id === "giftsReceived" && !online()) continue;
         const item = document.createElement("option");
         item.value = option.id;
-        item.textContent = option.label;
+        item.textContent = tr(option.label);
         item.selected = option.id === sort;
         select.appendChild(item);
       }
@@ -5290,12 +5200,10 @@ export class Hud {
       };
       label.appendChild(select);
       const ready = giftableFriends().length;
-      const btn = bulkButton(`Gift all 🎁${ready ? ` (${ready})` : ""}`, "Sending…", confirmGiftAll);
+      const btn = bulkButton(trMsg`Gift all 🎁${ready ? trMsg` (${ready})` : ""}`, "Sending…", confirmGiftAll);
       btn.classList.add("fr-gift");
       btn.disabled = btn.disabled || !ready;
-      btn.title = ready
-        ? "Send a gift to every friend who can still receive one today"
-        : "Everyone has already had a gift from you today.";
+      btn.title = ready ? tr("Send a gift to every friend who can still receive one today") : tr("Everyone has already had a gift from you today.");
       toolbar.append(label, btn);
     };
 
@@ -5305,9 +5213,7 @@ export class Hud {
       if (!friends.length) {
         const empty = document.createElement("div");
         empty.className = "fr-empty";
-        empty.textContent = online()
-          ? "No friends yet. Add one by their code below."
-          : "No friends yet. Add one below to get started.";
+        empty.textContent = online() ? tr("No friends yet. Add one by their code below.") : tr("No friends yet. Add one below to get started.");
         list.appendChild(empty);
       }
       for (const f of sortFriends(friends, sort, canGiftNow)) {
@@ -5324,8 +5230,8 @@ export class Hud {
         // opening every friend in turn to compare.
         const lvl = document.createElement("span");
         lvl.className = `fr-lvl ${levelTier(f.level)}`;
-        lvl.textContent = f.level == null ? "–" : String(f.level);
-        lvl.title = f.level == null ? "Level unavailable" : `Level ${f.level}`;
+        lvl.textContent = f.level == null ? "–" : tr(String(f.level));
+        lvl.title = f.level == null ? tr("Level unavailable") : trMsg`Level ${f.level}`;
         // The head they're wearing, beside their name — the list is how players
         // recognise each other, and a chosen face does that faster than a name does.
         // Absent for local entries and for anyone on an older Worker: the row simply
@@ -5340,13 +5246,13 @@ export class Hud {
           // head sprites already in the bundle, so deferring them saves nothing and
           // only risks a row rendering face-less.
           facePic.decoding = "async";
-          facePic.title = `Wearing: ${face.name}`;
+          facePic.title = trMsg`Wearing: ${tr(face.name)}`;
         }
         const nm = document.createElement("span");
         nm.className = "fr-friend-name-wrap";
         const nameText = document.createElement("span");
         nameText.className = "fr-friend-name";
-        nameText.textContent = f.name?.trim() || "Unnamed friend";
+        nameText.textContent = f.name?.trim() || tr("Unnamed friend");
         const meta = document.createElement("span");
         meta.className = "fr-friend-meta";
         // Online: how generous they've been to me + how recently they played.
@@ -5361,14 +5267,11 @@ export class Hud {
             f.activity ? ACTIVITY_LABEL[f.activity] : null,
           ]
           : [f.giftsSent ? `🎁 ${f.giftsSent}${isMobile() ? "" : " sent"}` : null];
-        meta.textContent = bits.filter(Boolean).join(" · ");
+        meta.textContent = tr(bits.filter(Boolean).join(" · "));
         // The line ellipsises on a narrow phone, so keep the unabbreviated reading
         // available on the row itself.
         if (meta.textContent) {
-          meta.title = online()
-            ? `${f.giftsReceived ?? 0} gift${f.giftsReceived === 1 ? "" : "s"} sent to you`
-              + (f.activity ? ` · ${ACTIVITY_LABEL[f.activity]}` : "")
-            : `${f.giftsSent} gift${f.giftsSent === 1 ? "" : "s"} sent`;
+          meta.title = online() ? trMsg`${f.giftsReceived ?? 0} gift${f.giftsReceived === 1 ? "" : tr("s")} sent to you` + tr((f.activity ? ` · ${ACTIVITY_LABEL[f.activity]}` : "")) : trMsg`${f.giftsSent} gift${f.giftsSent === 1 ? "" : tr("s")} sent`;
         }
         nm.append(nameText);
         if (meta.textContent) nm.appendChild(meta);
@@ -5376,7 +5279,7 @@ export class Hud {
         more.className = "fr-friend-more";
         more.type = "button";
         more.textContent = "⋯";
-        more.setAttribute("aria-label", `More actions for ${f.name}`);
+        more.setAttribute("aria-label", trMsg`More actions for ${f.name}`);
         more.setAttribute("aria-expanded", "false");
         const menu = document.createElement("div");
         menu.className = "fr-friend-menu";
@@ -5395,25 +5298,21 @@ export class Hud {
         gift.disabled = giftCoolingDown;
         // Two different reasons to be blocked, and the player can act on one of them
         // (wait for tomorrow) but not the other (wait for THEM), so name which it is.
-        gift.textContent = giftCoolingDown ? (f.giftPending ? "Waiting 🎁" : "Gifted 🎁") : "Gift 🎁";
-        gift.title = !giftCoolingDown
-          ? "Send this friend a gift"
-          : f.giftPending
-            ? "They haven't opened your last gift yet — you can send another once they do."
-            : "You already gifted this friend today.";
+        gift.textContent = giftCoolingDown ? tr((f.giftPending ? "Waiting 🎁" : "Gifted 🎁")) : tr("Gift 🎁");
+        gift.title = !giftCoolingDown ? tr("Send this friend a gift") : f.giftPending ? tr("They haven't opened your last gift yet — you can send another once they do.") : tr("You already gifted this friend today.");
         gift.onclick = async () => {
           if (online()) {
             gift.disabled = true;
             const err = giftErr(await (this.onGiftBrainOnline?.(f.id) ?? Promise.resolve("offline")));
-            if (err) { this.showToast(err); gift.disabled = false; }
+            if (err) { this.showToast(tr(err)); gift.disabled = false; }
             else {
               f.giftOnCooldown = true;
-              this.showToast(`Sent a gift to ${f.name}! +5 XP`);
+              this.showToast(trMsg`Sent a gift to ${f.name}! +5 XP`);
               renderFriends();
             }
           } else {
             if (this.onGiftBrain?.(f.id)) {
-              this.showToast(`Sent a gift to ${f.name}! 🎁`);
+              this.showToast(trMsg`Sent a gift to ${f.name}! 🎁`);
               renderFriends();
             }
           }
@@ -5423,8 +5322,8 @@ export class Hud {
         if (online()) {
           const visit = document.createElement("button");
           visit.className = "prof-btn play fr-visit";
-          visit.textContent = "Visit 👁";
-          visit.title = `Look around ${f.name}'s farm (read-only)`;
+          visit.textContent = tr("Visit 👁");
+          visit.title = trMsg`Look around ${f.name}'s farm (read-only)`;
           visit.onclick = () => this.onVisitFriend?.(f.id, f.name);
           acts.appendChild(visit);
           // Friend invasions launch from the Invasions panel (Social → Invasions),
@@ -5433,18 +5332,18 @@ export class Hud {
           // prevents re-adding and future gifts.
           const del = document.createElement("button");
           del.className = "prof-btn del";
-          del.textContent = "Remove";
+          del.textContent = tr("Remove");
           del.onclick = () => this.confirmFriendAction(f, "remove", async () => {
             await this.onRemoveFriend?.(f.id);
             await refresh();
           });
           const block = document.createElement("button");
           block.className = "prof-btn del fr-block";
-          block.textContent = "Block";
-          block.title = `Block ${f.name} (removes them and stops future requests/gifts)`;
+          block.textContent = tr("Block");
+          block.title = trMsg`Block ${f.name} (removes them and stops future requests/gifts)`;
           block.onclick = () => this.confirmFriendAction(f, "block", async () => {
             await this.onBlockFriend?.(f.id);
-            this.showToast(`Blocked ${f.name}.`);
+            this.showToast(trMsg`Blocked ${f.name}.`);
             await refresh();
           });
           acts.append(del, block);
@@ -5452,7 +5351,7 @@ export class Hud {
         if (!online()) {
           const del = document.createElement("button");
           del.className = "prof-btn del";
-          del.textContent = "Remove";
+          del.textContent = tr("Remove");
           del.onclick = () => this.confirmFriendAction(f, "remove", async () => {
             await this.onRemoveFriend?.(f.id);
             renderFriends();
@@ -5479,21 +5378,21 @@ export class Hud {
       newRow.className = "prof-row prof-new";
       const inp = document.createElement("input");
       inp.className = "prof-input";
-      inp.placeholder = online() ? "Friend code (ZF-XXXX)" : "Friend name";
+      inp.placeholder = online() ? tr("Friend code (ZF-XXXX)") : tr("Friend name");
       inp.maxLength = 24;
       const add = document.createElement("button");
       add.className = "prof-btn play";
-      add.textContent = "Add";
+      add.textContent = tr("Add");
       const commit = async () => {
         const v = inp.value.trim();
         if (!v) return;
         if (online()) {
           add.disabled = true;
           const err = addErr(await (this.onAddFriendCode?.(v) ?? Promise.resolve("offline")));
-          if (err) { this.showToast(err); add.disabled = false; return; }
+          if (err) { this.showToast(tr(err)); add.disabled = false; return; }
           // Consent-based: this sends a request they must accept (or, if they'd
           // already requested you, you become friends immediately).
-          this.showToast("Friend request sent!");
+          this.showToast(tr("Friend request sent!"));
           inp.value = "";
           add.disabled = false;
           await refresh();
@@ -5509,11 +5408,7 @@ export class Hud {
     };
 
     const renderNote = () => {
-      note.textContent = !canOnline
-        ? "Send each friend a gift a day. (Local list — sign-in isn't set up on this build.)"
-        : online()
-          ? `One gift per friend a day (once they've opened the last one). ${FREE_DAILY_GIFTS} free, then ${GIFT_GOLD_COST} gold each — and ${GIFT_XP_REWARD} XP every time.`
-          : "Sign in to connect with friends online. You can still keep a local list below.";
+      note.textContent = !canOnline ? tr("Send each friend a gift a day. (Local list — sign-in isn't set up on this build.)") : online() ? trMsg`One gift per friend a day (once they've opened the last one). ${FREE_DAILY_GIFTS} free, then ${GIFT_GOLD_COST} gold each — and ${GIFT_XP_REWARD} XP every time.` : tr("Sign in to connect with friends online. You can still keep a local list below.");
     };
 
     // (Friend-invasion history and defense claims moved to the Invasions panel —
@@ -5578,7 +5473,7 @@ export class Hud {
     // The live countdown timer is cleared via onClose so it stops on the close
     // button, a backdrop click, or a programmatic close() below.
     const { panel, close } = openModal({
-      host: this.el, panelClass: "crop-info", title: first.name,
+      host: this.el, panelClass: "crop-info", title: tr(first.name),
       onClose: () => { if (timer !== undefined) clearInterval(timer); },
     });
 
@@ -5602,13 +5497,13 @@ export class Hud {
       label.className = "crop-grow-label";
       const nm = document.createElement("span");
       nm.className = "nm";
-      nm.textContent = boost.name;
+      nm.textContent = tr(boost.name);
       growCount = document.createElement("span");
       growCount.className = "ct";
       label.append(nm, growCount);
       growBtn = document.createElement("button");
       growBtn.className = "zbtn deploy crop-grow-btn";
-      growBtn.textContent = "Equip";
+      growBtn.textContent = tr("Equip");
       growBtn.onclick = () => {
         close();
         // None owned -> Market's Boosts tab to buy; otherwise equip the Insta-Grow
@@ -5621,35 +5516,31 @@ export class Hud {
 
     const fmt = (ms: number) => {
       const s = Math.ceil(ms / 1000);
-      if (s < 60) return `${s}s`;
-      if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
-      return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+      if (s < 60) return tr(`${s}s`);
+      if (s < 3600) return tr(`${Math.floor(s / 60)}m ${s % 60}s`);
+      return tr(`${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`);
     };
     const tick = () => {
       const cur = getInfo();
       if (!cur) { close(); return; } // crop harvested/removed elsewhere
-      kind.textContent = cur.isZombie
-        ? (cur.ripe ? "Ripe zombie" : "Growing zombie")
-        : (cur.ripe ? "Ripe crop" : "Growing crop");
+      kind.textContent = cur.isZombie ? tr((cur.ripe ? "Ripe zombie" : "Growing zombie")) : tr((cur.ripe ? "Ripe crop" : "Growing crop"));
       if (cur.ripe) {
-        time.textContent = "Ready to harvest!";
+        time.textContent = tr("Ready to harvest!");
         time.classList.add("ripe");
       } else {
-        time.textContent = `Ready in ${fmt(cur.remainingMs)}`;
+        time.textContent = trMsg`Ready in ${fmt(cur.remainingMs)}`;
         time.classList.remove("ripe");
       }
       if (boost && growCount && growBtn) {
         const n = boost.count();
-        growCount.textContent = `x${n}`;
+        growCount.textContent = trMsg`x${n}`;
         // Nothing to speed up once ripe; no uses left -> point to the Market.
         grow.style.display = cur.ripe ? "none" : "flex";
         // At 0 uses the button becomes a "Buy" shortcut to the Market's Boosts tab;
         // otherwise it equips the Insta-Grow tool.
         growBtn.disabled = false;
-        growBtn.textContent = n <= 0 ? "Buy" : "Equip";
-        growBtn.title = n <= 0
-          ? "Buy Insta-Grow in the Market's Boosts tab"
-          : "Equip the Insta-Grow tool, then tap crops to ripen them";
+        growBtn.textContent = n <= 0 ? tr("Buy") : tr("Equip");
+        growBtn.title = n <= 0 ? tr("Buy Insta-Grow in the Market's Boosts tab") : tr("Equip the Insta-Grow tool, then tap crops to ripen them");
       }
     };
     tick();
@@ -5689,10 +5580,10 @@ export class Hud {
       const cap = this.getMausoleumCap?.() ?? 0;
       head.innerHTML = "";
       const title = document.createElement("h2");
-      title.textContent = "Mausoleum";
+      title.textContent = tr("Mausoleum");
       const cnt = document.createElement("span");
       cnt.className = "zr-total";
-      cnt.textContent = `${stored.length} / ${cap} stored`;
+      cnt.textContent = trMsg`${stored.length} / ${cap} stored`;
       head.append(title, cnt);
       const filter = recallRosterFilter(MAUSOLEUM_FILTER_KEY, stored);
       const filtered = isFiltered(filter);
@@ -5700,7 +5591,7 @@ export class Hud {
       if (filtered) {
         const sub = document.createElement("span");
         sub.className = "zr-sub";
-        sub.textContent = ` · ${shown.length} shown`;
+        sub.textContent = trMsg` · ${shown.length} shown`;
         cnt.appendChild(sub);
       }
       if (stored.length > 1) {
@@ -5725,9 +5616,8 @@ export class Hud {
           const slot = document.createElement("div");
           slot.className = "zr-card zr-slot-empty";
           slot.innerHTML =
-            `<div class="zr-por zr-por-empty"><span class="zr-plus">+</span></div>` +
-            `<div class="zr-name">Empty</div>`;
-          slot.title = "Store a zombie from the farm";
+            trHtml`<div class="zr-por zr-por-empty"><span class="zr-plus">+</span></div><div class="zr-name">Empty</div>`;
+          slot.title = tr("Store a zombie from the farm");
           slot.onclick = () => this.pickZombieToStore(render);
           grid.appendChild(slot);
         }
@@ -5739,8 +5629,8 @@ export class Hud {
       const teams = document.createElement("button");
       teams.className = "zbtn store";
       const savedTeams = this.getTeams?.().length ?? 0;
-      teams.textContent = savedTeams ? `Teams (${savedTeams})` : "Teams";
-      teams.title = "Save and swap farm line-ups";
+      teams.textContent = savedTeams ? trMsg`Teams (${savedTeams})` : tr("Teams");
+      teams.title = tr("Save and swap farm line-ups");
       teams.onclick = () => openTeamsPanel(this, render);
       foot.appendChild(teams);
 
@@ -5749,7 +5639,7 @@ export class Hud {
       if (next) {
         const button = document.createElement("button");
         button.className = "zbtn deploy";
-        button.textContent = `Upgrade to ${next.slots} slots — ${next.cost}${next.brains ? "b" : "g"}`;
+        button.textContent = trMsg`Upgrade to ${next.slots} slots — ${next.cost}${next.brains ? tr("b") : tr("g")}`;
         button.onclick = async () => {
           button.disabled = true;
           if (await this.confirmPurchase(next.name, next.cost, next.brains)) {
@@ -5776,7 +5666,7 @@ export class Hud {
     wrap.className = "zroster";
     const head = document.createElement("div");
     head.className = "zr-head";
-    head.innerHTML = `<h2>Store a Zombie</h2><span class="zr-total">Tap one to store</span>`;
+    head.innerHTML = trHtml`<h2>Store a Zombie</h2><span class="zr-total">Tap one to store</span>`;
     const grid = document.createElement("div");
     grid.className = "zr-grid";
     wrap.append(head, grid);
@@ -5785,7 +5675,7 @@ export class Hud {
     if (!onFarm.length) {
       const e = document.createElement("div");
       e.className = "zr-empty";
-      e.textContent = "No zombies on the farm to store.";
+      e.textContent = tr("No zombies on the farm to store.");
       grid.appendChild(e);
       return;
     }
@@ -5835,7 +5725,7 @@ export class Hud {
     const typeLine = (text: string) => {
       const el = document.createElement("div");
       el.className = "cmb-sty";
-      el.textContent = text;
+      el.textContent = tr(text);
       return el;
     };
     // Marks a tile whose zombie is resting in the Mausoleum rather than on the farm.
@@ -5843,8 +5733,8 @@ export class Hud {
     const storedTag = () => {
       const el = document.createElement("div");
       el.className = "cmb-zstored";
-      el.textContent = "Stored";
-      el.title = "Resting in the Mausoleum";
+      el.textContent = tr("Stored");
+      el.title = tr("Resting in the Mausoleum");
       return el;
     };
     // The same corner magnifier the Market cards carry: it opens this individual's
@@ -5853,7 +5743,7 @@ export class Hud {
     // omitted) — acting on a zombie from inside the picker would leave it selected in
     // a slot while it left the roster.
     const inspectButton = (z: RosterEntry) =>
-      magnifierButton(`See ${z.name}'s card`, "See this zombie's card",
+      magnifierButton(trMsg`See ${z.name}'s card`, "See this zombie's card",
         () => this.openZombieInfo({ ...rosterInfo(this, z), id: undefined }));
     const showPortrait = (
       el: HTMLElement,
@@ -5876,9 +5766,9 @@ export class Hud {
     };
     const fmt = (ms: number) => {
       const s = Math.ceil(ms / 1000);
-      if (s < 60) return `${s}s`;
-      if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
-      return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+      if (s < 60) return tr(`${s}s`);
+      if (s < 3600) return tr(`${Math.floor(s / 60)}m ${s % 60}s`);
+      return tr(`${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`);
     };
 
     // Selection state for the idle (pick-two) view.
@@ -5899,7 +5789,7 @@ export class Hud {
     const objectOptionsButton = () => {
       const b = document.createElement("button");
       b.className = "zbtn locate cmb-options";
-      b.textContent = "Move / Store pot";
+      b.textContent = tr("Move / Store pot");
       b.onclick = () => { stop(); bg.remove(); this.onPotObjectOptions?.(); };
       return b;
     };
@@ -5915,7 +5805,7 @@ export class Hud {
       wrap.innerHTML = "";
       const head = document.createElement("div");
       head.className = "cmb-head";
-      head.innerHTML = `<h2>Zombie Pot</h2>`;
+      head.innerHTML = trHtml`<h2>Zombie Pot</h2>`;
       const t = document.createElement("span");
       t.className = "cmb-time";
       head.appendChild(t);
@@ -5938,13 +5828,13 @@ export class Hud {
       };
       const go = document.createElement("button");
       go.className = "cmb-go";
-      go.textContent = "Collect";
+      go.textContent = tr("Collect");
       go.onclick = () => void collect(go, false);
       // The Mausoleum is a real destination for the child, so a full farm no longer
       // strands a finished combine. Only shown while a crypt slot is actually free.
       const toCrypt = document.createElement("button");
       toCrypt.className = "cmb-go cmb-store";
-      toCrypt.textContent = "To Mausoleum";
+      toCrypt.textContent = tr("To Mausoleum");
       toCrypt.onclick = () => void collect(toCrypt, true);
 
       // Finish the wait from the panel you are already looking at. The Insta-Grow tool
@@ -5972,7 +5862,7 @@ export class Hud {
         n.textContent = st.result!.name;
         const mut = document.createElement("div");
         mut.className = "cmb-rm";
-        mut.textContent = mutationLabelFor(st.result!.key, st.result!.mutation) || "no mutations";
+        mut.textContent = tr(mutationLabelFor(st.result!.key, st.result!.mutation) || "no mutations");
         result.append(p, n, typeLine(typeNameOf(st.result!.key)), mut);
         const buttons = document.createElement("div");
         buttons.className = "cmb-actions";
@@ -5991,7 +5881,7 @@ export class Hud {
           showPortrait(p, key, mask, color);
           const mut = document.createElement("div");
           mut.className = "cmb-sm";
-          mut.textContent = mutationLabelFor(key, mask) || "no mutations";
+          mut.textContent = tr(mutationLabelFor(key, mask) || "no mutations");
           d.append(p, typeLine(typeNameOf(key)), mut);
           return d;
         };
@@ -6022,14 +5912,10 @@ export class Hud {
           const prog = s.totalMs > 0 ? (s.totalMs - s.remainingMs) / s.totalMs : 1;
           fill.style.width = `${Math.min(100, prog * 100)}%`;
         }
-        t.textContent = s.ready ? "Ready!" : fmt(s.remainingMs);
-        note.textContent = s.ready
-          ? "The combine is done — collect your new zombie."
-          : `Combining… ${fmt(s.remainingMs)} left` + (s.monolith ? " (Monolith: ×½)" : "");
+        t.textContent = s.ready ? tr("Ready!") : tr(fmt(s.remainingMs));
+        note.textContent = s.ready ? tr("The combine is done — collect your new zombie.") : trMsg`Combining… ${fmt(s.remainingMs)} left${tr((s.monolith ? " (Monolith: ×½)" : ""))}`;
         if (s.ready && !s.canCollect) {
-          note.textContent = s.canStore
-            ? "Farm full — send your new zombie to the Mausoleum."
-            : "Farm and Mausoleum full — free a zombie slot to collect.";
+          note.textContent = s.canStore ? tr("Farm full — send your new zombie to the Mausoleum.") : tr("Farm and Mausoleum full — free a zombie slot to collect.");
         }
         go.disabled = collecting || !s.ready || !s.canCollect;
         // Hidden rather than disabled with no Mausoleum: an always-dead second button
@@ -6041,9 +5927,8 @@ export class Hud {
           // button rather than leaving an offer the player can no longer take.
           const held = growBoost.count();
           hurry.innerHTML =
-            `<img class="cmb-hurry-i" src="${growBoost.icon}" alt=""> ${growBoost.name}` +
-            `<span class="cmb-hurry-ct">x${held}</span>`;
-          hurry.title = `Finish this combine now for one ${growBoost.name}.`;
+            trHtml`<img class="cmb-hurry-i" src="${growBoost.icon}" alt=""> ${tr(growBoost.name)}<span class="cmb-hurry-ct">x${held}</span>`;
+          hurry.title = trMsg`Finish this combine now for one ${tr(growBoost.name)}.`;
           hurry.style.display = held > 0 && !s.ready ? "" : "none";
         }
       };
@@ -6067,10 +5952,10 @@ export class Hud {
       const roster = this.getRoster?.() ?? [];
       const head = document.createElement("div");
       head.className = "cmb-head";
-      head.innerHTML = `<h2>Zombie Pot</h2>`;
+      head.innerHTML = trHtml`<h2>Zombie Pot</h2>`;
       const time = document.createElement("span");
       time.className = "cmb-time";
-      time.textContent = st?.monolith ? "15 min · Monolith ×¼" : "1 hour";
+      time.textContent = st?.monolith ? tr("15 min · Monolith ×¼") : tr("1 hour");
       head.appendChild(time);
 
       const slots = document.createElement("div");
@@ -6089,15 +5974,15 @@ export class Hud {
           n.textContent = z.name;
           const mut = document.createElement("div");
           mut.className = "cmb-sm";
-          mut.textContent = mutationLabelFor(z.key, z.mutation) || "no mutations";
+          mut.textContent = tr(mutationLabelFor(z.key, z.mutation) || "no mutations");
           d.append(p, n, typeLine(z.typeName), mut, inspectButton(z));
           if (z.stored) d.appendChild(storedTag());
-          d.title = "Tap to remove";
+          d.title = tr("Tap to remove");
           d.onclick = () => { if (which === "A") pickA = null; else pickB = null; renderIdle(); };
         } else {
           const h = document.createElement("div");
           h.className = "cmb-hint";
-          h.textContent = which === "A" ? "Slot 1: keeps its species" : "Slot 2: gives its mutations";
+          h.textContent = which === "A" ? tr("Slot 1: keeps its species") : tr("Slot 2: gives its mutations");
           d.appendChild(h);
         }
         return d;
@@ -6109,14 +5994,14 @@ export class Hud {
 
       const ruleNote = document.createElement("div");
       ruleNote.className = "cmb-rule-note";
-      ruleNote.textContent = `The new zombie is always Slot 1's species, Specials included; Slot 2 only passes on its mutations and is used up. Two zombies of the same type breed up a colour: Green to Blue, then Blue to Red, once you own that grave — and two Reds become a Silver at level ${COMBINE_SPECIAL_LEVEL}+.`;
+      ruleNote.textContent = trMsg`The new zombie is always Slot 1's species, Specials included; Slot 2 only passes on its mutations and is used up. Two zombies of the same type breed up a colour: Green to Blue, then Blue to Red, once you own that grave — and two Reds become a Silver at level ${COMBINE_SPECIAL_LEVEL}+.`;
 
       const list = document.createElement("div");
       list.className = "cmb-list";
       if (roster.length < 2) {
         const e = document.createElement("div");
         e.className = "cmb-empty";
-        e.textContent = "You need at least two zombies to combine. Grow more first!";
+        e.textContent = tr("You need at least two zombies to combine. Grow more first!");
         list.appendChild(e);
       } else {
         for (const z of roster) {
@@ -6131,14 +6016,14 @@ export class Hud {
           n.textContent = z.name;
           const ty = document.createElement("div");
           ty.className = "cmb-zty";
-          ty.textContent = z.typeName;
+          ty.textContent = tr(z.typeName);
           c.append(p, n, ty, inspectButton(z));
           if (z.stored) c.appendChild(storedTag());
           if (z.mutation) {
             const m = document.createElement("div");
             m.className = "cmb-zmut";
-            m.textContent = "M";
-            m.title = mutationLabelFor(z.key, z.mutation);
+            m.textContent = tr("M");
+            m.title = tr(mutationLabelFor(z.key, z.mutation));
             c.appendChild(m);
           }
           if (!chosen) {
@@ -6154,7 +6039,7 @@ export class Hud {
 
       const go = document.createElement("button");
       go.className = "cmb-go";
-      go.textContent = "Combine";
+      go.textContent = tr("Combine");
       go.disabled = !(pickA && pickB);
       go.onclick = async () => {
         if (!pickA || !pickB) return;
@@ -6164,9 +6049,9 @@ export class Hud {
         // the child's species). Ask before it goes.
         const donor = roster.find((z) => z.id === pickB);
         if (donor && this.isSpecialZombie?.(donor.key) && !await this.confirmInGame(
-          `Use up ${donor.name}?`,
-          `${donor.name} is a Special ${donor.typeName}. In Slot 2 it only passes on its mutations and is gone for good. Put it in Slot 1 to keep its species.`,
-          "Combine anyway"
+          trMsg`Use up ${donor.name}?`,
+          trMsg`${donor.name} is a Special ${tr(donor.typeName)}. In Slot 2 it only passes on its mutations and is gone for good. Put it in Slot 1 to keep its species.`,
+          tr("Combine anyway")
         )) { go.disabled = false; return; }
         const ok = await this.onCombine?.(pickA, pickB);
         if (ok) { pickA = pickB = null; renderBusy(); }
@@ -6193,30 +6078,30 @@ export class Hud {
   private openRaidTicketPrompt(cooldownMs: number, voucher: BoostDef, onBought: () => void) {
     const { panel, close } = openModal({
       host: this.el, bgClass: "raid-ticket-bg", panelClass: "confirm-panel",
-      title: "Skip the invasion wait?", replaceSelector: ".raid-ticket-bg",
+      title: tr("Skip the invasion wait?"), replaceSelector: ".raid-ticket-bg",
     });
 
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
-    msg.textContent = `This invasion is ready in ${fmtCooldown(cooldownMs)}.`;
+    msg.textContent = trMsg`This invasion is ready in ${tr(fmtCooldown(cooldownMs))}.`;
     const warning = document.createElement("span");
     warning.className = "confirm-warn";
-    warning.textContent = `Buy an Invasion Voucher for ${voucher.cost.toLocaleString()} gold to invade now?`;
+    warning.textContent = trMsg`Buy an Invasion Voucher for ${voucher.cost.toLocaleString()} gold to invade now?`;
     msg.append(document.createElement("br"), warning);
 
     const btns = document.createElement("div");
     btns.className = "zbtns";
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
-    cancel.textContent = "Cancel";
+    cancel.textContent = tr("Cancel");
     cancel.onclick = () => close();
     const buy = document.createElement("button");
     buy.className = "zbtn sell";
-    buy.textContent = `Buy Ticket · ${voucher.cost.toLocaleString()} Gold`;
+    buy.textContent = trMsg`Buy Ticket · ${voucher.cost.toLocaleString()} Gold`;
     markPrimary(buy); // Enter buys
     buy.onclick = () => {
       if (!this.onBuyBoost?.(voucher)) {
-        this.showToast(`You need ${voucher.cost.toLocaleString()} gold for an Invasion Voucher.`);
+        this.showToast(trMsg`You need ${voucher.cost.toLocaleString()} gold for an Invasion Voucher.`);
         return;
       }
       close();
@@ -6233,37 +6118,37 @@ export class Hud {
   private openBrainTicketPrompt(onBought: () => void) {
     const ticket = this.boosts.find((boost) => boost.key === BRAIN_TICKET_KEY);
     if (!ticket) {
-      this.showToast("Brain Tickets are unavailable right now.");
+      this.showToast(tr("Brain Tickets are unavailable right now."));
       return;
     }
     const { panel, close } = openModal({
       host: this.el, bgClass: "raid-ticket-bg", panelClass: "confirm-panel",
-      title: "Buy a Brain Ticket?", replaceSelector: ".raid-ticket-bg",
+      title: tr("Buy a Brain Ticket?"), replaceSelector: ".raid-ticket-bg",
     });
 
     const msg = document.createElement("p");
     msg.className = "confirm-msg";
     msg.textContent =
-      "Quadruples this invasion's brain and rare-zombie odds, and skips the wait.";
+      tr("Quadruples this invasion's brain and rare-zombie odds, and skips the wait.");
     const warning = document.createElement("span");
     warning.className = "confirm-warn";
     warning.textContent =
-      "It also makes the invasion ELITE — far stronger than usual. Zombies lost are gone for good.";
+      tr("It also makes the invasion ELITE — far stronger than usual. Zombies lost are gone for good.");
     msg.append(document.createElement("br"), warning);
 
     const btns = document.createElement("div");
     btns.className = "zbtns";
     const cancel = document.createElement("button");
     cancel.className = "zbtn locate";
-    cancel.textContent = "Cancel";
+    cancel.textContent = tr("Cancel");
     cancel.onclick = () => close();
     const buy = document.createElement("button");
     buy.className = "zbtn sell";
-    buy.textContent = `Buy Ticket · ${ticket.cost.toLocaleString()} Gold`;
+    buy.textContent = trMsg`Buy Ticket · ${ticket.cost.toLocaleString()} Gold`;
     markPrimary(buy); // Enter buys
     buy.onclick = () => {
       if (!this.onBuyBoost?.(ticket)) {
-        this.showToast(`You need ${ticket.cost.toLocaleString()} gold for a Brain Ticket.`);
+        this.showToast(trMsg`You need ${ticket.cost.toLocaleString()} gold for a Brain Ticket.`);
         return;
       }
       close();
@@ -6349,9 +6234,9 @@ export class Hud {
           "this end of the ladder that means a mutated, veteran army as much as a level."
         : `A Brain Ticket run here is fitted for level ${c.eliteRecommendedLevel}.`;
       const text = long
-        ? `Elite level ${c.eliteRecommendedLevel}${geared ? "+" : ""}`
-        : `Elite ${c.eliteRecommendedLevel}${geared ? "+" : ""}`;
-      return ` <span class="rd-elite-lv" title="${title}">· ${text}</span>`;
+        ? trMsg`Elite level ${c.eliteRecommendedLevel}${geared ? "+" : ""}`
+        : trMsg`Elite ${c.eliteRecommendedLevel}${geared ? "+" : ""}`;
+      return trHtml` <span class="rd-elite-lv" title="${tr(title)}">· ${text}</span>`;
     };
 
     /** Redraw ONLY the cooldown-dependent footer of the mounted detail pane.
@@ -6370,17 +6255,17 @@ export class Hud {
     const winsOf = (c: RaidCardView) => this.state.raidWins(String(c.id));
     const winsText = (c: RaidCardView) => {
       const n = winsOf(c);
-      return n ? `Won ${n.toLocaleString()} time${n === 1 ? "" : "s"}` : "Not beaten yet";
+      return n ? trMsg`Won ${n.toLocaleString()} time${n === 1 ? "" : "s"}` : tr("Not beaten yet");
     };
     const winsBadge = (c: RaidCardView) =>
-      winsOf(c) ? ` <span class="rd-wins" title="${winsText(c)}">· ${winsOf(c).toLocaleString()}× won</span>` : "";
+      winsOf(c) ? trHtml` <span class="rd-wins" title="${winsText(c)}">· ${winsOf(c).toLocaleString()}× won</span>` : "";
 
     const renderDetail = () => {
       const c = cards.find((r) => r.id === selId);
       detail.innerHTML = "";
       refreshFoot = null;
       if (!c) {
-        detail.innerHTML = `<p class="rd-intro">No invasions available.</p>`;
+        detail.innerHTML = trHtml`<p class="rd-intro">No invasions available.</p>`;
         return;
       }
       const hero = document.createElement("div");
@@ -6392,31 +6277,20 @@ export class Hud {
       const minN = c.minArmy; // per-raid: eased for the first McDonnell clears
       const canFight = c.unlocked && haveN >= minN;
       info.innerHTML =
-        `<div class="rd-title">${c.name}</div>` +
-        (c.bossName ? `<div class="rd-boss">${c.bossName}</div>` : "") +
-        `<div class="rd-meta">Recommended level ${c.recommendedLevel}` +
-        eliteAdvice(c, true) +
-        (c.practice ? "" : ` · ${winsText(c)}`) +
-        // The XP the NEXT win pays: the big one-time first-clear bonus while it is still
-        // unclaimed, then the per-raid repeat trickle from then on. Only ever one of the
-        // two — they never stack, so advertising both would overstate the reward.
-        (c.practice
+        trHtml`<div class="rd-title">${tr(c.name)}</div>${(c.bossName ? trHtml`<div class="rd-boss">${tr(c.bossName)}</div>` : "")}<div class="rd-meta">Recommended level ${c.recommendedLevel}${eliteAdvice(c, true)}${(c.practice ? "" : trMsg` · ${winsText(c)}`)}${(c.practice
           ? " · <b>Practice</b>: no rewards, no losses, no cooldown"
           : c.firstClearXp > 0
-            ? ` · First clear: ${c.firstClearXp} XP`
+            ? trMsg` · First clear: ${c.firstClearXp} XP`
             : c.repeatXp > 0
-              ? ` · ${c.repeatXp} XP per win`
-              : "") +
-        `</div>`;
+              ? trMsg` · ${c.repeatXp} XP per win`
+              : "")}</div>`;
       hero.append(por, info);
 
       const intro = document.createElement("p");
       intro.className = "rd-intro";
-      intro.textContent = c.lockReason && !c.unlocked
-        ? (c.lockReason === "Coming soon"
+      intro.textContent = c.lockReason && !c.unlocked ? tr((c.lockReason === "Coming soon"
             ? "This invasion isn't available yet — its battlefield is still being built."
-            : `${c.introText}`)
-        : c.introText;
+            : `${c.introText}`)) : tr(c.introText);
 
       // What a win here is actually worth, in numbers: the brain odds, this raid's own
       // rare zombie, and the boosts on its loot table. The old one-of-each-tier item
@@ -6429,7 +6303,7 @@ export class Hud {
         row.className = "rd-drop";
         const k = document.createElement("span");
         k.className = "rd-drop-k";
-        k.textContent = label;
+        k.textContent = tr(label);
         const v = document.createElement("span");
         v.className = "rd-drop-v";
         row.append(k, v);
@@ -6441,35 +6315,32 @@ export class Hud {
       // every rung of the ladder, in words.
       if (c.practice) {
         dropRow("Practice").textContent =
-          "A test run with your real army. Nobody is lost, nothing is paid, and it does not " +
-          "use your invasion cooldown. Every tier is open — pick one on the next screen.";
+          trMsg`A test run with your real army. Nobody is lost, nothing is paid, and it does not use your invasion cooldown. Every tier is open — pick one on the next screen.`;
         rewards.appendChild(tierLadderList(c.id, 0));
       }
       const tiers = c.brainOdds.tiers
-        .map((t) => `${t.amount} ${t.amount === 1 ? "brain" : "brains"} ${pctOdds(t.chance)}`)
+        .map((t) => trMsg`${t.amount} ${t.amount === 1 ? tr("brain") : tr("brains")} ${pctOdds(t.chance)}`)
         .join(" · ");
       if (!c.practice) dropRow("Brains").textContent =
-        `${pctOdds(c.brainOdds.chance)} per boss win (${tiers})` +
-        (acceptsBrainTicket(c.id) ? ` · ${pctOdds(c.eliteBrainOdds.chance)} on a Brain Ticket` : "");
+        trMsg`${pctOdds(c.brainOdds.chance)} per boss win (${tiers})` +
+        (acceptsBrainTicket(c.id) ? trMsg` · ${pctOdds(c.eliteBrainOdds.chance)} with a Brain Ticket` : "");
       if (c.zombieDrop && !c.practice) {
-        // A story invasion adds a promoted prize on a Brain Ticket (Deputy -> Sheriff), so
-        // the elite half quotes both: this zombie at 4x, PLUS the rarer one. Everywhere else
-        // there is only the one zombie, at 4x.
         const promoted = c.zombieDrop.eliteName !== c.zombieDrop.name;
-        dropRow(c.zombieDrop.name).textContent =
-          `${pctOdds(c.zombieDrop.rate)} per win · ${pctOdds(c.zombieDrop.eliteBaseRate)}` +
-          (promoted ? ` plus ${c.zombieDrop.eliteName} ${pctOdds(c.zombieDrop.eliteRate)} on a` : " on a") +
-          " Brain Ticket · Golden Dice raise it" +
-          (c.zombieDrop.climbsByNight ? " · x1.5 every hour you fight on" : "");
+        const ordinary = trMsg`${pctOdds(c.zombieDrop.rate)} per win · ${pctOdds(c.zombieDrop.eliteBaseRate)} with a Brain Ticket`;
+        const elite = promoted
+          ? trMsg` · ${tr(c.zombieDrop.eliteName)}: ${pctOdds(c.zombieDrop.eliteRate)} with a Brain Ticket`
+          : "";
+        dropRow(c.zombieDrop.name).textContent = ordinary + elite + tr(" · Golden Dice raise it") +
+          (c.zombieDrop.climbsByNight ? tr(" · x1.5 every hour you fight on") : "");
       }
       const boostVal = c.practice ? document.createElement("span") : dropRow("Boosts");
       if (!c.boostDrops.length) {
-        boostVal.textContent = "None";
+        boostVal.textContent = tr("None");
       } else {
         for (const b of c.boostDrops) {
           const chip = document.createElement("span");
           chip.className = "rd-chip";
-          chip.textContent = b.qty > 1 ? `${b.name} ×${b.qty}` : b.name;
+          chip.textContent = b.qty > 1 ? trMsg`${tr(b.name)} ×${b.qty}` : tr(b.name);
           boostVal.appendChild(chip);
         }
       }
@@ -6478,7 +6349,7 @@ export class Hud {
       if (!c.practice && c.unlocked) {
         const full = document.createElement("button");
         full.className = "rd-droptable";
-        full.textContent = "Full drop table";
+        full.textContent = tr("Full drop table");
         full.onclick = () => openDropTable(this.el, c);
         rewards.appendChild(full);
       }
@@ -6498,7 +6369,7 @@ export class Hud {
 
         const army = document.createElement("span");
         army.className = "rd-army" + (haveN < minN ? " short" : "");
-        army.textContent = `Zombies ready: ${haveN} (need ${minN})`;
+        army.textContent = trMsg`Zombies ready: ${haveN} (need ${minN})`;
         const go = document.createElement("button");
         go.className = "raid-go";
 
@@ -6517,49 +6388,48 @@ export class Hud {
         let offerVoucherBuy = false;
         const voucherCost = this.boosts.find((b) => b.key === VOUCHER_KEY)?.cost ?? 2000;
         if (!c.unlocked) {
-          go.textContent = c.lockReason || "Locked";
+          go.textContent = tr(c.lockReason || "Locked");
           go.disabled = true;
         } else if (c.practice) {
           // Practice uses no cooldown and spends nothing.
-          go.textContent = "Practice";
+          go.textContent = tr("Practice");
           go.disabled = !canFight;
         } else if (cd > 0) {
           // A dual invasion refuses a Brain Ticket (dualInvasion.ts), so it can never be
           // the cooldown door here either — the voucher branch below is the only skip.
           if (st.brainTicketCount > 0 && st.voucherCount <= 0 && acceptsBrainTicket(c.id)) {
-            go.textContent = "Use Brain Ticket & Invade";
+            go.textContent = tr("Use Brain Ticket & Invade");
             go.disabled = !canFight;
             armElite = true;
             offerVoucherBuy = true;
             army.textContent =
-              `${st.brainTicketCount} Brain Ticket${st.brainTicketCount > 1 ? "s" : ""}` +
-              ` · skips the ${fmtCooldown(cd)} wait, but the invasion turns ELITE`;
+              trMsg`${st.brainTicketCount} Brain Ticket${st.brainTicketCount > 1 ? tr("s") : ""} · skips the ${tr(fmtCooldown(cd))} wait, but the invasion turns ELITE`;
           } else if (st.voucherCount > 0) {
-            go.textContent = "Use Voucher & Invade";
+            go.textContent = tr("Use Voucher & Invade");
             go.disabled = !canFight;
             useVoucher = true;
-            army.textContent = `${st.voucherCount} voucher${st.voucherCount > 1 ? "s" : ""} · skips the ${fmtCooldown(cd)} wait`;
+            army.textContent = trMsg`${st.voucherCount} voucher${st.voucherCount > 1 ? tr("s") : ""} · skips the ${tr(fmtCooldown(cd))} wait`;
           } else {
             // Buying a voucher is available from every unlocked invasion. Do not gate
             // the purchase on army size: McDonnell's eased minimum (1/4 zombies) made
             // this look tutorial-only while every other invasion normally needs 8.
             // The Army screen still enforces the selected raid's real launch minimum.
-            go.textContent = "Buy Ticket & Invade";
+            go.textContent = tr("Buy Ticket & Invade");
             go.disabled = false;
             buyVoucher = true;
             army.className = "rd-army short";
             army.textContent =
-              `Ready in ${fmtCooldown(cd)} · raid ticket: ${voucherCost.toLocaleString()} gold`;
+              trMsg`Ready in ${tr(fmtCooldown(cd))} · raid ticket: ${voucherCost.toLocaleString()} gold`;
           }
         } else {
-          go.textContent = "Invade";
+          go.textContent = tr("Invade");
           go.disabled = !canFight;
         }
         // Buy an Invasion Voucher, then straight on to the Army screen with it armed.
         const beginVoucherBuy = () => {
           const voucher = this.boosts.find((boost) => boost.key === VOUCHER_KEY);
           if (!voucher) {
-            this.showToast("Invasion Vouchers are unavailable right now.");
+            this.showToast(tr("Invasion Vouchers are unavailable right now."));
             return;
           }
           this.openRaidTicketPrompt(cd, voucher, () => {
@@ -6581,8 +6451,8 @@ export class Hud {
         if (offerVoucherBuy) {
           const alt = document.createElement("button");
           alt.className = "raid-quick";
-          alt.textContent = `Buy Voucher · ${voucherCost.toLocaleString()}g`;
-          alt.title = "Skip the wait the normal way — no elite wave.";
+          alt.textContent = trMsg`Buy Voucher · ${voucherCost.toLocaleString()}g`;
+          alt.title = tr("Skip the wait the normal way — no elite wave.");
           alt.onclick = beginVoucherBuy;
           acts.appendChild(alt);
         }
@@ -6605,10 +6475,10 @@ export class Hud {
       const txt = document.createElement("div");
       const sub = c.unlocked
         ? c.practice
-          ? `<div class="rd-cl">Practice · every tier open</div>`
-          : `<div class="rd-cl">Rec. Lv ${c.recommendedLevel}${eliteAdvice(c, false)}${winsBadge(c)}</div>`
-        : `<div class="rd-cl lock">${c.lockReason}</div>`;
-      txt.innerHTML = `<div class="rd-cn">${c.name}</div>${sub}`;
+          ? trHtml`<div class="rd-cl">Practice · every tier open</div>`
+          : trHtml`<div class="rd-cl">Rec. Lv ${c.recommendedLevel}${eliteAdvice(c, false)}${winsBadge(c)}</div>`
+        : trHtml`<div class="rd-cl lock">${c.lockReason}</div>`;
+      txt.innerHTML = trHtml`<div class="rd-cn">${tr(c.name)}</div>${sub}`;
       card.append(thumb, txt);
       card.onclick = () => {
         selId = c.id;
@@ -6625,7 +6495,7 @@ export class Hud {
       card.className = "rd-card";
       const thumb = document.createElement("div"); thumb.className = "rd-thumb";
       const txt = document.createElement("div");
-      txt.innerHTML = `<div class="rd-cn">Endless Mode</div><div class="rd-cl">Harder invasions · Epic Boss every four floors</div>`;
+      txt.innerHTML = trHtml`<div class="rd-cn">Endless Mode</div><div class="rd-cl">Harder invasions · Epic Boss every four floors</div>`;
       card.append(thumb, txt);
       card.onclick = () => { close(); this.onOpenEndless?.(); };
       list.prepend(card);
@@ -6639,8 +6509,8 @@ export class Hud {
         thumb.className = "rd-thumb";
         thumb.style.backgroundImage = `url(${epic.portrait})`;
         const txt = document.createElement("div");
-        const name = document.createElement("div"); name.className = "rd-cn"; name.textContent = epic.name;
-        const sub = document.createElement("div"); sub.className = "rd-cl"; sub.textContent = "Epic Boss Active";
+        const name = document.createElement("div"); name.className = "rd-cn"; name.textContent = tr(epic.name);
+        const sub = document.createElement("div"); sub.className = "rd-cl"; sub.textContent = tr("Epic Boss Active");
         txt.append(name, sub); card.append(thumb, txt);
         card.onclick = () => { close(); this.openMarket("Epic Boss"); };
         list.prepend(card);
@@ -6689,7 +6559,7 @@ export class Hud {
 
     if (!party || !party.eligible.length) {
       panel.insertAdjacentHTML("beforeend",
-        `<h2>Choose your army</h2><p class="rd-intro">You have no zombies to send. Grow some from zombie crops first.</p>`);
+        trHtml`<h2>Choose your army</h2><p class="rd-intro">You have no zombies to send. Grow some from zombie crops first.</p>`);
       return;
     }
 
@@ -6751,15 +6621,14 @@ export class Hud {
     const refresh = () => {
       const n = selectedCount(order);
       head.innerHTML =
-        `<h2>Send your army — ${raid.name}</h2>` +
-        `<span class="army-count${n < min ? " short" : ""}">${n}/${cap} · min ${min}</span>`;
-      start.textContent = n < min ? `Need ${min - n} more` : `Invade with ${n}`;
+        trHtml`<h2>Send your army — ${tr(raid.name)}</h2><span class="army-count${n < min ? " short" : ""}">${n}/${cap} · min ${min}</span>`;
+      start.textContent = n < min ? trMsg`Need ${min - n} more` : trMsg`Invade with ${n}`;
       start.disabled = n < min || launching;
       for (const el of grid.querySelectorAll<HTMLElement>(".army-card")) {
         const pos = order.indexOf(el.dataset.id!);
         el.classList.toggle("sel", pos >= 0);
         const tick = el.querySelector<HTMLElement>(".tick");
-        if (tick) tick.textContent = pos >= 0 ? String(pos + 1) : "";
+        if (tick) tick.textContent = pos >= 0 ? tr(String(pos + 1)) : "";
       }
     };
 
@@ -6784,12 +6653,12 @@ export class Hud {
       nm.textContent = z.name;
       const ty = document.createElement("div");
       ty.className = "army-ty";
-      ty.textContent = z.typeName;
+      ty.textContent = tr(z.typeName);
       const st = document.createElement("div");
       st.className = "army-st";
       // Normalized 0–100 bars with all bonuses folded in: P(ower)/S(peed)/L(ife),
       // matching the detail card's tiles (see statDisplay.displayTotals).
-      st.textContent = `P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
+      st.textContent = trMsg`P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
       const tick = document.createElement("span");
       tick.className = "tick"; // order number, filled in by refresh()
       card.append(tick, por, nm, ty, st);
@@ -6816,7 +6685,7 @@ export class Hud {
       tierWrap.className = "raid-tiers";
       const label = document.createElement("span");
       label.className = "raid-tier-label";
-      label.textContent = "Tier";
+      label.textContent = tr("Tier");
       tierWrap.appendChild(label);
       const tierBtns: HTMLButtonElement[] = [];
       const tierNoteEl = document.createElement("div");
@@ -6828,19 +6697,17 @@ export class Hud {
           const rung = i + 1;
           btn.classList.toggle("on", rung === tierChosen);
           btn.disabled = rung > raid.tierUnlocked;
-          btn.title = rung > raid.tierUnlocked
-            ? `Clear tier ${raid.tierUnlocked} to unlock this one. Tier ${rung}: ${tierNote(raid.id, rung)}.`
-            : `Tier ${rung} of ${raid.tiers}: ${tierNote(raid.id, rung)}.`;
+          btn.title = rung > raid.tierUnlocked ? trMsg`Clear tier ${raid.tierUnlocked} to unlock this one. Tier ${rung}: ${tierNote(raid.id, rung)}.` : trMsg`Tier ${rung} of ${raid.tiers}: ${tierNote(raid.id, rung)}.`;
         });
         const note = tierNote(raid.id, tierChosen);
-        tierNoteEl.textContent = note ? `Tier ${tierChosen} adds: ${note}` : "";
+        tierNoteEl.textContent = note ? trMsg`Tier ${tierChosen} adds: ${note}` : "";
         // The whole ladder, with every rung in force at the chosen tier marked.
         tierListEl.replaceChildren(tierLadderList(raid.id, tierChosen));
       };
       for (let rung = 1; rung <= raid.tiers; rung++) {
         const btn = document.createElement("button");
         btn.className = "raid-tier-btn";
-        btn.textContent = rung > raid.tierUnlocked ? "🔒" : String(rung);
+        btn.textContent = rung > raid.tierUnlocked ? "🔒" : tr(String(rung));
         btn.onclick = () => { tierChosen = rung; drawTiers(); };
         tierBtns.push(btn);
         tierWrap.appendChild(btn);
@@ -6866,7 +6733,7 @@ export class Hud {
       const inc = document.createElement("button");
       inc.className = "rd-step";
       inc.textContent = "+";
-      const drawDice = () => { lbl.innerHTML = `🎲 Golden Dice <b>${diceChosen}</b>/${diceMax}`; };
+      const drawDice = () => { lbl.innerHTML = trHtml`🎲 Golden Dice <b>${diceChosen}</b>/${diceMax}`; };
       dec.onclick = () => { diceChosen = Math.max(0, diceChosen - 1); drawDice(); };
       inc.onclick = () => { diceChosen = Math.min(diceMax, diceChosen + 1); drawDice(); };
       drawDice();
@@ -6891,19 +6758,12 @@ export class Hud {
     const eliteNote = document.createElement("p");
     eliteNote.className = "raid-elite-note";
     const drawElite = () => {
-      eliteBtn.innerHTML = ticketsHeld > 0
-        ? `🎟 Brain Ticket <span class="rb-ct">x${ticketsHeld}</span>`
-        : `🎟 Brain Ticket <span class="rb-ct">buy · ${(this.boosts.find((b) => b.key === BRAIN_TICKET_KEY)?.cost ?? 0).toLocaleString()}g</span>`;
+      eliteBtn.innerHTML = ticketsHeld > 0 ? trHtml`🎟 Brain Ticket <span class="rb-ct">x${ticketsHeld}</span>` : trHtml`🎟 Brain Ticket <span class="rb-ct">buy · ${(this.boosts.find((b) => b.key === BRAIN_TICKET_KEY)?.cost ?? 0).toLocaleString()}g</span>`;
       eliteBtn.classList.toggle("on", useBrainTicket);
-      eliteNote.textContent = useBrainTicket
-        ? "ELITE invasion: 4x brain and rare-zombie odds — and enemies far above this " +
-          `invasion's usual strength. Fitted for level ${raid.eliteRecommendedLevel}` +
-          `${raid.eliteRecommendedLevel > 30 ? " and a mutated, veteran army" : ""}.`
-        : "";
+      eliteNote.textContent = useBrainTicket ? trMsg`ELITE invasion: 4x brain and rare-zombie odds — and enemies far above this invasion's usual strength. Fitted for level ${raid.eliteRecommendedLevel}${raid.eliteRecommendedLevel > 30 ? " and a mutated, veteran army" : ""}.` : "";
     };
     eliteBtn.title =
-      "Spend a Brain Ticket: skips the wait and quadruples the brain and rare-zombie " +
-      "odds, but the invasion turns ELITE and hits much harder.";
+      tr("Spend a Brain Ticket: skips the wait and quadruples the brain and rare-zombie ") + tr("odds, but the invasion turns ELITE and hits much harder.");
     eliteBtn.onclick = () => {
       if (useBrainTicket) { useBrainTicket = false; drawElite(); return; }
       if (ticketsHeld > 0) { useBrainTicket = true; drawElite(); return; }
@@ -6934,7 +6794,7 @@ export class Hud {
     // reproduces the previous order behind them, instead of wiping the selection.
     const pick = document.createElement("button");
     pick.className = "raid-quick";
-    pick.textContent = "Pick for me";
+    pick.textContent = tr("Pick for me");
     pick.onclick = () => {
       order = fillSlots(
         order, party.orderedSelectedIds, party.eligible.map((z) => z.id), cap,
@@ -6959,11 +6819,9 @@ export class Hud {
       // to be a post-launch Tim notice with an OK button: by the time it was read the
       // army was already on the field. See main.ts.)
       if (useBrainTicket && !await this.confirmInGame(
-        "Start an ELITE invasion?",
-        `This spends a Brain Ticket. ${raid.name} will be fought at ELITE strength — ` +
-        "far above its usual line — for 4x brain and rare-zombie odds. Zombies lost " +
-        "are gone for good.",
-        "Invade (Elite)"
+        tr("Start an ELITE invasion?"),
+        trMsg`This spends a Brain Ticket. ${tr(raid.name)} will be fought at ELITE strength — ` + tr("far above its usual line — for 4x brain and rare-zombie odds. Zombies lost ") + tr("are gone for good."),
+        tr("Invade (Elite)")
       )) return;
       launching = true;
       refresh();
@@ -7003,8 +6861,8 @@ export class Hud {
     const cap = PVP_ARMY_SIZE;
     if (!party || party.eligible.length < cap) {
       panel.insertAdjacentHTML("beforeend",
-        `<h2>Invade ${friendName}'s farm</h2><p class="rd-intro">A friend invasion needs ` +
-        `${cap} zombies on your farm. Grow a bigger army first.</p>`);
+        trHtml`<h2>Invade ${friendName}'s farm</h2><p class="rd-intro">A friend invasion needs ` +
+        trHtml`${cap} zombies on your farm. Grow a bigger army first.</p>`);
       return;
     }
 
@@ -7026,15 +6884,14 @@ export class Hud {
     const refresh = () => {
       const n = selectedCount(order);
       head.innerHTML =
-        `<h2>Invade ${friendName}'s farm</h2>` +
-        `<span class="army-count${n < cap ? " short" : ""}">${n}/${cap}</span>`;
-      start.textContent = n < cap ? `Pick ${cap - n} more` : `Invade with ${cap}`;
+        trHtml`<h2>Invade ${friendName}'s farm</h2><span class="army-count${n < cap ? " short" : ""}">${n}/${cap}</span>`;
+      start.textContent = n < cap ? trMsg`Pick ${cap - n} more` : trMsg`Invade with ${cap}`;
       start.disabled = n < cap;
       for (const el of grid.querySelectorAll<HTMLElement>(".army-card")) {
         const pos = order.indexOf(el.dataset.id!);
         el.classList.toggle("sel", pos >= 0);
         const tick = el.querySelector<HTMLElement>(".tick");
-        if (tick) tick.textContent = pos >= 0 ? String(pos + 1) : "";
+        if (tick) tick.textContent = pos >= 0 ? tr(String(pos + 1)) : "";
       }
     };
 
@@ -7059,10 +6916,10 @@ export class Hud {
       nm.textContent = z.name;
       const ty = document.createElement("div");
       ty.className = "army-ty";
-      ty.textContent = z.typeName;
+      ty.textContent = tr(z.typeName);
       const st = document.createElement("div");
       st.className = "army-st";
-      st.textContent = `P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
+      st.textContent = trMsg`P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
       const tick = document.createElement("span");
       tick.className = "tick";
       card.append(tick, por, nm, ty, st);
@@ -7075,7 +6932,7 @@ export class Hud {
 
     const pick = document.createElement("button");
     pick.className = "raid-quick";
-    pick.textContent = "Pick for me";
+    pick.textContent = tr("Pick for me");
     pick.onclick = () => {
       order = fillSlots(
         order, party.orderedSelectedIds, party.eligible.map((z) => z.id), cap,
@@ -7093,8 +6950,7 @@ export class Hud {
     const note = document.createElement("p");
     note.className = "rd-intro";
     note.textContent =
-      "Friendly fight — nobody loses zombies, no cooldown. " +
-      "Stronger defenders give more boosts.";
+      trMsg`Friendly fight — nobody loses zombies, no cooldown. Stronger defenders give more boosts.`;
     foot.append(note, pick, start);
     refresh();
   }
@@ -7114,51 +6970,51 @@ export class Hud {
     const closeImg = document.createElement("img"); closeImg.src = UI("button_close.png"); close.appendChild(closeImg);
     close.onclick = () => bg.remove();
     panel.appendChild(close);
-    const title = document.createElement("h2"); title.textContent = "Endless Mode"; panel.appendChild(title);
+    const title = document.createElement("h2"); title.textContent = tr("Endless Mode"); panel.appendChild(title);
     const leaderboard = document.createElement("button");
     leaderboard.className = "btn-secondary endless-lb-open";
-    leaderboard.textContent = "View Leaderboard";
+    leaderboard.textContent = tr("View Leaderboard");
     leaderboard.onclick = () => openEndlessLeaderboardPanel(this);
     panel.appendChild(leaderboard);
     const content = document.createElement("div"); content.className = "rd-detail"; panel.appendChild(content);
     bg.appendChild(panel); this.el.appendChild(bg);
     if (active) {
       const p = document.createElement("p");
-      p.textContent = `${active.mode === "nightmare" ? "Nightmare Endless" : "Endless"} · ${active.stage === "battle" ? `Floor ${active.wave}` : `Floor ${active.wave} boss cleared · choose rewards`}`;
+      p.textContent = trMsg`${active.mode === "nightmare" ? tr("Nightmare Endless") : tr("Endless")} · ${active.stage === "battle" ? trMsg`Floor ${active.wave}` : trMsg`Floor ${active.wave} boss cleared · choose rewards`}`;
       content.appendChild(p);
-      const resume = document.createElement("button"); resume.className = "btn-primary"; resume.textContent = active.stage === "battle" ? "Resume Run" : "Choose Rewards";
+      const resume = document.createElement("button"); resume.className = "btn-primary"; resume.textContent = active.stage === "battle" ? tr("Resume Run") : tr("Choose Rewards");
       resume.onclick = () => { bg.remove(); onResume(); }; content.appendChild(resume);
-      const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = "End Run and Claim Gold";
+      const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = tr("End Run and Claim Gold");
       end.onclick = async () => {
-        if (!await this.confirmInGame("End this Endless run?", "You will receive the full gold reward for every floor already cleared.", "End Run")) return;
+        if (!await this.confirmInGame(tr("End this Endless run?"), tr("You will receive the full gold reward for every floor already cleared."), tr("End Run"))) return;
         bg.remove(); onEnd();
       }; content.appendChild(end);
       return;
     }
     const p = document.createElement("p");
-    p.textContent = "Face increasingly difficult invasions, with an Epic Boss every four floors. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Each run costs brains; end whenever you like to claim gold for every floor cleared.";
+    p.textContent = tr("Face increasingly difficult invasions, with an Epic Boss every four floors. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Each run costs brains; end whenever you like to claim gold for every floor cleared.");
     content.appendChild(p);
     const selected = new Set(party?.orderedSelectedIds.length ? party.orderedSelectedIds : party?.defaultSelectedIds ?? []);
     const max = party?.cap ?? 0;
     const list = document.createElement("div"); list.className = "army-grid"; content.appendChild(list);
     for (const zombie of party?.eligible ?? []) {
       const row = document.createElement("button"); row.className = "rd-card";
-      row.textContent = `${selected.has(zombie.id) ? "✓ " : ""}${zombie.name} · ${zombie.typeName}`;
+      row.textContent = trMsg`${selected.has(zombie.id) ? "✓ " : ""}${zombie.name} · ${tr(zombie.typeName)}`;
       row.onclick = () => {
         if (selected.has(zombie.id)) selected.delete(zombie.id);
         else if (selected.size < max) selected.add(zombie.id);
         updateStatus();
         list.querySelectorAll("button").forEach((button, i) => {
-          const unit = party?.eligible[i]; if (unit) button.textContent = `${selected.has(unit.id) ? "✓ " : ""}${unit.name} · ${unit.typeName}`;
+          const unit = party?.eligible[i]; if (unit) button.textContent = trMsg`${selected.has(unit.id) ? "✓ " : ""}${unit.name} · ${tr(unit.typeName)}`;
         });
       };
       list.appendChild(row);
     }
     const status = document.createElement("p"); content.appendChild(status);
-    const updateStatus = () => { status.textContent = `${selected.size}/${max} zombies selected`; };
+    const updateStatus = () => { status.textContent = trMsg`${selected.size}/${max} zombies selected`; };
     updateStatus();
     for (const [mode, label, level] of [["endless", "Start Endless · 1 brain", 30], ["nightmare", "Start Nightmare · 3 brains", 45]] as const) {
-      const button = document.createElement("button"); button.className = "btn-primary"; button.textContent = label;
+      const button = document.createElement("button"); button.className = "btn-primary"; button.textContent = tr(label);
       button.disabled = (this.state.level ?? 1) < level || selected.size < (party?.min ?? 1);
       button.onclick = () => { bg.remove(); onStart(mode, [...selected]); }; content.appendChild(button);
     }
@@ -7172,13 +7028,13 @@ export class Hud {
   ) {
     const bg = document.createElement("div"); bg.className = "panelbg raid-bg";
     const panel = document.createElement("div"); panel.className = "panel";
-    const title = document.createElement("h2"); title.textContent = "Boss defeated · choose a boon and a curse";
+    const title = document.createElement("h2"); title.textContent = tr("Boss defeated · choose a boon and a curse");
     panel.appendChild(title);
     if (loot.length) {
       const lootNote = document.createElement("p");
       const totals = new Map<string, number>();
       for (const item of loot) totals.set(item.name, (totals.get(item.name) ?? 0) + item.quantity);
-      lootNote.textContent = `Boss loot: ${[...totals].map(([name, quantity]) => `${name}${quantity > 1 ? ` ×${quantity}` : ""}`).join(", ")}`;
+      lootNote.textContent = trMsg`Boss loot: ${[...totals].map(([name, quantity]) => `${tr(name)}${quantity > 1 ? ` ×${quantity}` : ""}`).join(", ")}`;
       panel.appendChild(lootNote);
     }
     const describeChoice = (choice: unknown): string => {
@@ -7186,33 +7042,33 @@ export class Hud {
       const value = choice as Record<string, unknown>;
       const pct = typeof value.percent === "number" ? ` ${value.percent}%` : "";
       switch (value.kind) {
-        case "revive": return `Recover ${value.count} fallen zombies`;
+        case "revive": return trMsg`Recover ${value.count} fallen zombies`;
         case "revive-headless": return "Revive fallen headless zombies after each battle";
-        case "damage": return `Zombies deal${pct} more damage`;
-        case "deployment": return `Zombies deploy${pct} faster`;
-        case "opening-deploy": return `Start with ${value.count} zombies deployed`;
-        case "enemy-health": return `Enemies have${pct} more health`;
-        case "enemy-damage": return `Enemies deal${pct} more damage`;
-        case "enemy-attack-speed": return `Enemies attack${pct} faster`;
+        case "damage": return trMsg`Zombies deal${pct} more damage`;
+        case "deployment": return trMsg`Zombies deploy${pct} faster`;
+        case "opening-deploy": return trMsg`Start with ${value.count} zombies deployed`;
+        case "enemy-health": return trMsg`Enemies have${pct} more health`;
+        case "enemy-damage": return trMsg`Enemies deal${pct} more damage`;
+        case "enemy-attack-speed": return trMsg`Enemies attack${pct} faster`;
         case "enemy-stun": return "Enemies can stun zombies on hit";
         case "enemy-explosion": return "Some enemies explode when defeated";
         case "enemy-knockback-headless": return "Enemies can knock back headless zombies";
-        case "headless-stat": return `Headless zombies have${pct} less ${String(value.stat)} power`;
+        case "headless-stat": return trMsg`Headless zombies have${pct} less ${tr(String(value.stat))} power`;
         default: return String(value.kind ?? "Choice");
       }
     };
     const select = (label: string, options: unknown[]) => {
-      const wrap = document.createElement("label"); wrap.textContent = label;
+      const wrap = document.createElement("label"); wrap.textContent = tr(label);
       const el = document.createElement("select");
-      options.forEach((value, index) => { const option = document.createElement("option"); option.value = String(index); option.textContent = describeChoice(value); el.appendChild(option); });
+      options.forEach((value, index) => { const option = document.createElement("option"); option.value = String(index); option.textContent = tr(describeChoice(value)); el.appendChild(option); });
       wrap.appendChild(el); panel.appendChild(wrap); return el;
     };
     const boon = select("Boon", draft.boons); const curse = select("Curse", draft.curses);
-    const choose = document.createElement("button"); choose.className = "btn-primary"; choose.textContent = "Continue";
+    const choose = document.createElement("button"); choose.className = "btn-primary"; choose.textContent = tr("Continue");
     choose.onclick = () => { bg.remove(); onChoose(draft.boons[Number(boon.value)], draft.curses[Number(curse.value)]); };
-    const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = "End Run and Claim Gold";
+    const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = tr("End Run and Claim Gold");
     end.onclick = async () => {
-      if (!await this.confirmInGame("End this Endless run?", "You will receive the full gold reward for every floor already cleared.", "End Run")) return;
+      if (!await this.confirmInGame(tr("End this Endless run?"), tr("You will receive the full gold reward for every floor already cleared."), tr("End Run"))) return;
       bg.remove(); onEnd();
     };
     panel.append(choose, end); bg.appendChild(panel); this.el.appendChild(bg);
@@ -7224,8 +7080,8 @@ export class Hud {
     const panel = document.createElement("div");
     panel.className = "raid-res-panel";
 
-    const GOLD_ICON = `<img class="rr-i" src="${UI("topbar_money_icon.png")}">`;
-    const BRAIN_ICON = `<img class="rr-i" src="${UI("topbar_brain_icon.png")}">`;
+    const GOLD_ICON = trHtml`<img class="rr-i" src="${UI("topbar_money_icon.png")}">`;
+    const BRAIN_ICON = trHtml`<img class="rr-i" src="${UI("topbar_brain_icon.png")}">`;
     // Practice (raid/practice.ts) pays nothing and loses nobody, so its panel reports only
     // what the fight WOULD have cost — that number is the feedback it exists to collect.
     const rows: [string, string, string][] = view.practice
@@ -7247,34 +7103,33 @@ export class Hud {
     const rowHtml = rows
       .map(
         ([label, val, icon]) =>
-          `<div class="rr-row"><span class="rr-l">${label}</span>` +
-          `<span class="rr-v">${val}${icon}</span></div>`
+          trHtml`<div class="rr-row"><span class="rr-l">${label}</span>` +
+          trHtml`<span class="rr-v">${val}${icon}</span></div>`
       )
       .join("");
     const lootHtml =
-      `<div class="rr-row rr-loot"><span class="rr-l">Loot</span></div>` +
+      trHtml`<div class="rr-row rr-loot"><span class="rr-l">Loot</span></div>` +
       (view.loot.length
-        ? `<div class="rr-loot-items">${view.loot
+        ? trHtml`<div class="rr-loot-items">${view.loot
             .map((l) => {
-              const note = l.note ? `<em class="rr-loot-note">${l.note}</em>` : "";
-              const title = l.note ? `${lootDropLabel(l)} — ${l.note}` : lootDropLabel(l);
+              const note = l.note ? trHtml`<em class="rr-loot-note">${tr(l.note)}</em>` : "";
+              const title = l.note ? `${lootDropLabel(l, tr)} — ${tr(l.note)}` : lootDropLabel(l, tr);
               return l.icon
-                ? `<span class="rr-loot-i" title="${title}"><img src="${l.icon}"><span>${lootDropLabel(l)}</span>${note}</span>`
-                : `<span class="rr-loot-i rr-loot-noimg" title="${title}">${lootDropLabel(l)}${note}</span>`;
+                ? trHtml`<span class="rr-loot-i" title="${title}"><img src="${l.icon}"><span>${lootDropLabel(l, tr)}</span>${note}</span>`
+                : trHtml`<span class="rr-loot-i rr-loot-noimg" title="${title}">${lootDropLabel(l, tr)}${note}</span>`;
             })
             .join("")}</div>`
-        : `<div class="rr-loot-none">—</div>`);
+        : trHtml`<div class="rr-loot-none">—</div>`);
     const extra = view.practice
-      ? `<div class="rr-unlock">Practice run — every zombie came home, and nothing was paid or spent.</div>`
+      ? trHtml`<div class="rr-unlock">Practice run — every zombie came home, and nothing was paid or spent.</div>`
       : cropUnlockHtml(view.cropUnlocks ?? []);
 
     panel.innerHTML =
-      `<div class="rr-title ${view.win ? "win" : "lose"}">${view.title}</div>` +
-      `<div class="rr-body">${rowHtml}${view.practice ? "" : lootHtml}${extra}</div>`;
+      trHtml`<div class="rr-title ${view.win ? "win" : "lose"}">${tr(view.title)}</div><div class="rr-body">${rowHtml}${view.practice ? "" : lootHtml}${extra}</div>`;
 
     const done = document.createElement("button");
     done.className = "rr-go";
-    done.textContent = "Finish";
+    done.textContent = tr("Finish");
     done.onclick = () => { bg.remove(); onClose?.(); };
     panel.appendChild(done);
     bg.appendChild(panel);
@@ -7305,9 +7160,7 @@ export class Hud {
     const panel = document.createElement("div");
     panel.className = "revive-panel";
     panel.innerHTML =
-      `<div class="revive-title">Revive Your Zombies</div>` +
-      `<div class="revive-warning">Warning: zombies you do not revive will be permanently lost.</div>` +
-      `<div class="revive-balance">Available: ${brains} <img src="${UI("topbar_brain_icon.png")}" alt="brains"> · Each revival costs 1 brain.</div>`;
+      trHtml`<div class="revive-title">Revive Your Zombies</div><div class="revive-warning">Warning: zombies you do not revive will be permanently lost.</div><div class="revive-balance">Available: ${brains} <img src="${UI("topbar_brain_icon.png")}" alt="brains"> · Each revival costs 1 brain.</div>`;
     const selected = new Set<string>();
     const list = document.createElement("div");
     list.className = "revive-list";
@@ -7319,12 +7172,10 @@ export class Hud {
         rows.get(zombie.id)?.classList.toggle("selected", chosen);
         const button = buttons.get(zombie.id)!;
         button.classList.toggle("selected", chosen);
-        button.textContent = chosen ? "Undo" : "Revive · 1";
+        button.textContent = chosen ? tr("Undo") : tr("Revive · 1");
         button.disabled = !chosen && selected.size >= brains;
       }
-      confirm.textContent = selected.size
-        ? `Revive ${selected.size} · Spend ${selected.size} Brain${selected.size === 1 ? "" : "s"}`
-        : `Leave All ${zombies.length} Behind`;
+      confirm.textContent = selected.size ? trMsg`Revive ${selected.size} · Spend ${selected.size} Brain${selected.size === 1 ? "" : tr("s")}` : trMsg`Leave All ${zombies.length} Behind`;
     };
     for (const zombie of zombies) {
       const row = document.createElement("div");
@@ -7347,7 +7198,7 @@ export class Hud {
       name.textContent = zombie.name;
       const type = document.createElement("div");
       type.className = "revive-type";
-      type.textContent = zombie.typeName;
+      type.textContent = tr(zombie.typeName);
       label.append(name, type);
       const pick = document.createElement("button");
       pick.className = "revive-pick";
@@ -7372,9 +7223,9 @@ export class Hud {
       error.textContent = "";
       try {
         if (await onResolve([...selected])) bg.remove();
-        else error.textContent = "The revival could not be completed. Please try again.";
+        else error.textContent = tr("The revival could not be completed. Please try again.");
       } catch {
-        error.textContent = "The revival could not be completed. Please try again.";
+        error.textContent = tr("The revival could not be completed. Please try again.");
       } finally {
         confirm.disabled = false;
       }
@@ -7396,7 +7247,7 @@ export class Hud {
     const goldRow = panel.querySelectorAll(".rr-row")[2]?.querySelector(".rr-v");
     if (goldRow) {
       goldRow.innerHTML =
-        `${gold}<img class="rr-i" src="${UI("topbar_money_icon.png")}">`;
+        trHtml`${gold}<img class="rr-i" src="${UI("topbar_money_icon.png")}">`;
     }
     const items = panel.querySelector(".rr-loot-items");
     const none = panel.querySelector(".rr-loot-none");
@@ -7404,8 +7255,8 @@ export class Hud {
     const html = loot
       .map((l) =>
         l.icon
-          ? `<span class="rr-loot-i" title="${lootDropLabel(l)}"><img src="${l.icon}"><span>${lootDropLabel(l)}</span></span>`
-          : `<span class="rr-loot-i rr-loot-noimg">${lootDropLabel(l)}</span>`
+          ? trHtml`<span class="rr-loot-i" title="${lootDropLabel(l, tr)}"><img src="${l.icon}"><span>${lootDropLabel(l, tr)}</span></span>`
+          : trHtml`<span class="rr-loot-i rr-loot-noimg">${lootDropLabel(l, tr)}</span>`
       )
       .join("");
     if (items) items.innerHTML = html;
@@ -7426,7 +7277,7 @@ export class Hud {
     if (!body || body.querySelector(".rr-notice")) return;
     const notice = document.createElement("div");
     notice.className = "rr-notice";
-    notice.textContent = message;
+    notice.textContent = tr(message);
     body.appendChild(notice);
   }
 
@@ -7445,7 +7296,7 @@ export class Hud {
     const brainRow = panel.querySelectorAll(".rr-row")[3]?.querySelector(".rr-v");
     if (brainRow) {
       brainRow.innerHTML =
-        `${brains}<img class="rr-i" src="${UI("topbar_brain_icon.png")}">`;
+        trHtml`${brains}<img class="rr-i" src="${UI("topbar_brain_icon.png")}">`;
     }
   }
 
@@ -7484,15 +7335,15 @@ export class Hud {
     img.src = UI("button_invade.png");
     const label = document.createElement("span");
     label.className = "invade-label";
-    label.textContent = "Invade";
+    label.textContent = tr("Invade");
     const timer = document.createElement("span");
     timer.className = "invade-timer";
     const refresh = () => {
       const ms = this.getRaidStatus?.().cooldownMs ?? 0;
       timer.hidden = ms <= 0;
-      timer.textContent = ms > 0 ? fmtCooldown(ms) : "";
-      btn.title = btn.dataset.bossTitle
-        ?? (ms > 0 ? `Next invasion in ${fmtCooldown(ms)} (I)` : "Invade now (I)");
+      timer.textContent = ms > 0 ? tr(fmtCooldown(ms)) : "";
+      btn.title = tr(btn.dataset.bossTitle
+        ?? (ms > 0 ? `Next invasion in ${tr(fmtCooldown(ms))} (I)` : "Invade now (I)"));
     };
     refresh();
     window.setInterval(refresh, 1000);
@@ -7528,17 +7379,17 @@ export class Hud {
     if (!info) return;
     const remainingMs = Math.max(0, info.remainingMs - (Date.now() - this.cropHoverShownAt));
     const ripe = info.ripe || remainingMs <= 0;
-    const time = ripe ? "Ready to harvest" : `Time remaining: ${fmtCooldown(remainingMs)}`;
+    const time = ripe ? "Ready to harvest" : trMsg`Time remaining: ${tr(fmtCooldown(remainingMs))}`;
     this.cropHover.replaceChildren();
     const name = document.createElement("strong");
-    name.textContent = info.name;
+    name.textContent = tr(info.name);
     const remaining = document.createElement("span");
-    remaining.textContent = time;
+    remaining.textContent = tr(time);
     this.cropHover.append(name, remaining);
     if (info.fertilized) {
       const fertilized = document.createElement("span");
       fertilized.className = "fertilized";
-      fertilized.textContent = "🍃 Fertilized";
+      fertilized.textContent = tr("🍃 Fertilized");
       this.cropHover.append(fertilized);
     }
     this.cropHover.style.left = `${Math.min(window.innerWidth - 170, this.cropHoverX + 16)}px`;
@@ -7568,7 +7419,7 @@ export class Hud {
     if (def) {
       this.plantingCrop = null;
       this.mode = "place";
-      this.plantLabel.textContent = `Placing: ${def.name}`;
+      this.plantLabel.textContent = trMsg`Placing: ${tr(def.name)}`;
       this.plantLabel.style.display = "flex";
     } else {
       if (this.mode === "place") this.mode = "walk";
@@ -7588,7 +7439,7 @@ export class Hud {
     this.plantingCrop = cfg;
     if (cfg) {
       this.mode = "plant";
-      this.plantLabel.textContent = `Planting: ${cfg.name}`;
+      this.plantLabel.textContent = trMsg`Planting: ${tr(cfg.name)}`;
       this.plantLabel.style.display = "flex";
     } else {
       if (this.mode === "plant") this.mode = "walk";
@@ -7600,21 +7451,21 @@ export class Hud {
 
   update() {
     const compact = this.compactMq?.matches && this.state.gold >= 100_000;
-    this.goldEl.textContent = compact ? compactGold(this.state.gold) : String(this.state.gold);
-    if (this.goldEl.parentElement) this.goldEl.parentElement.title = compact ? this.state.gold.toLocaleString() : "";
-    this.brainsEl.textContent = String(this.state.brains);
-    this.zombiesEl.textContent = `${this.state.zombieCount}/${this.state.zombieMax}`;
-    this.levelEl.textContent = String(this.state.level);
+    this.goldEl.textContent = compact ? tr(compactGold(this.state.gold)) : tr(String(this.state.gold));
+    if (this.goldEl.parentElement) this.goldEl.parentElement.title = compact ? tr(this.state.gold.toLocaleString()) : "";
+    this.brainsEl.textContent = tr(String(this.state.brains));
+    this.zombiesEl.textContent = trMsg`${this.state.zombieCount}/${this.state.zombieMax}`;
+    this.levelEl.textContent = tr(String(this.state.level));
     this.fitTopBar();
     this.xpFill.style.width = `${Math.round(this.state.levelProgress * 100)}%`;
     this.levelChip.style.setProperty("--xp", `${Math.round(this.state.levelProgress * 100)}%`);
     this.refreshLifeForceChip();
     const levelXp = this.state.levelXp;
     const xpText = levelXp
-      ? `${levelXp.current.toLocaleString()} / ${levelXp.required.toLocaleString()} XP`
-      : "Max level";
-    this.xpDetails.textContent = xpText;
-    this.levelChip.setAttribute("aria-label", `Level ${this.state.level}: ${xpText}`);
+      ? trMsg`${levelXp.current.toLocaleString()} / ${levelXp.required.toLocaleString()} XP`
+      : tr("Max level");
+    this.xpDetails.textContent = tr(xpText);
+    this.levelChip.setAttribute("aria-label", trMsg`Level ${this.state.level}: ${xpText}`);
     this.refreshBoostBadge(); // keep the equipped-boost uses badge in sync
     this.refreshName();
   }
@@ -7644,7 +7495,7 @@ export class Hud {
   private refreshName() {
     if (!this.nameEl) return;
     const acct = this.myAccount?.();
-    this.nameEl.textContent = acct?.name || "Zombie Farmer";
+    this.nameEl.textContent = acct?.name || tr("Zombie Farmer");
     this.fitTopBar();
   }
 }
@@ -7680,7 +7531,7 @@ function tierLadderList(raidId: number, chosen: number): HTMLElement {
     const rung = i + 1;
     if (chosen > 0 && rung <= chosen) item.classList.add("in");
     if (rung === chosen) item.classList.add("chosen");
-    item.textContent = `T${rung} — ${line}`;
+    item.textContent = trMsg`T${rung} — ${line}`;
     list.appendChild(item);
   });
   return list;

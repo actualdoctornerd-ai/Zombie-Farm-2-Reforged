@@ -1,3 +1,4 @@
+import { html as trHtml, msg as trMsg, t as tr } from "../../i18n";
 // The Life Force panel: opened by tapping the Life Force chip in the top bar. Shows the
 // farm's current level and progress, what each level gives (including the levels still
 // ahead), and how to raise it.
@@ -15,15 +16,15 @@ export function levelEffectLines(row: ReturnType<typeof lifeForceLevelRows>[numb
   ];
   if (row.brainDropMultiplier > 1) {
     const percent = ((row.brainDropMultiplier - 1) * 100).toFixed(1).replace(/\.0$/, "");
-    lines.push(`Invasion brain drop chance +${percent}%`);
+    lines.push(trMsg`Invasion brain drop chance +${percent}%`);
   }
   if (row.fertilizedCropValueMultiplier > 1) {
     const percent = ((row.fertilizedCropValueMultiplier - 1) * 100).toFixed(1).replace(/\.0$/, "");
-    lines.push(`Fertilized crop value +${percent}%`);
+    lines.push(trMsg`Fertilized crop value +${percent}%`);
   }
   if (row.safeTierGained !== null) {
     const name = HARVEST_TIER_NAMES[row.safeTierGained - 1];
-    lines.push(`${name} zombies are never lifeless`);
+    lines.push(trMsg`${name} zombies are never lifeless`);
   }
   if (row.abilitySlotGained !== null) lines.push(`Ability slot ${row.abilitySlotGained} works`);
   if (row.level === MAX_LIFE_FORCE_LEVEL) lines.push("Maximum level");
@@ -46,10 +47,10 @@ export function openLifeForce(host: HTMLElement, total: number): void {
   leaf.alt = "";
   const title = document.createElement("div");
   const h = document.createElement("h2");
-  h.textContent = "Life Force";
+  h.textContent = tr("Life Force");
   const sub = document.createElement("div");
   sub.className = "lf-p-level";
-  sub.textContent = `Level ${p.level}${p.level === MAX_LIFE_FORCE_LEVEL ? " (max)" : ""}`;
+  sub.textContent = trMsg`Level ${p.level}${p.level === MAX_LIFE_FORCE_LEVEL ? " (max)" : ""}`;
   title.append(h, sub);
   header.append(leaf, title);
 
@@ -61,13 +62,11 @@ export function openLifeForce(host: HTMLElement, total: number): void {
   bar.appendChild(fill);
   const count = document.createElement("div");
   count.className = "lf-p-count";
-  count.textContent = p.next === null
-    ? `${p.total.toLocaleString()} Life Force`
-    : `${p.total.toLocaleString()} / ${p.next.toLocaleString()} Life Force · ${p.toNext} to level ${p.level + 1}`;
+  count.textContent = p.next === null ? trMsg`${p.total.toLocaleString()} Life Force` : trMsg`${p.total.toLocaleString()} / ${p.next.toLocaleString()} Life Force · ${p.toNext} to level ${p.level + 1}`;
 
   const intro = document.createElement("div");
   intro.className = "lf-p-intro";
-  intro.textContent = "Mutation chance is percent per adjacent crop.";
+  intro.textContent = tr("Mutation chance is percent per adjacent crop.");
 
   // Intro and levels scroll together beneath the fixed header, so a short phone still
   // shows the levels; it opens scrolled to the player's own level.
@@ -75,32 +74,29 @@ export function openLifeForce(host: HTMLElement, total: number): void {
   levels.className = "lf-levels";
   const base = document.createElement("div");
   base.className = `lf-row${p.level === 0 ? " lf-cur" : " lf-done"}`;
-  base.innerHTML = '<div class="lf-rb">0</div><div class="lf-rbody"><div class="lf-need">Under 20 Life Force</div>'
-    + "<ul><li>Mutation chance 10%</li><li>Garden fertilize chance x1.00</li>"
-    + "<li>Green zombies are never lifeless; Blue 10%, higher colours more</li>"
-    + "<li>No ability slots work</li></ul></div>";
+  base.innerHTML = trHtml`<div class="lf-rb">0</div><div class="lf-rbody"><div class="lf-need">Under 20 Life Force</div><ul><li>Mutation chance 10%</li><li>Garden fertilize chance x1.00</li><li>Green zombies are never lifeless; Blue 10%, higher colours more</li><li>No ability slots work</li></ul></div>`;
   levels.appendChild(base);
   for (const row of lifeForceLevelRows()) {
     const el = document.createElement("div");
     el.className = `lf-row${row.level === p.level ? " lf-cur" : row.level < p.level ? " lf-done" : ""}`;
     const badge = document.createElement("div");
     badge.className = "lf-rb";
-    badge.textContent = String(row.level);
+    badge.textContent = tr(String(row.level));
     const body = document.createElement("div");
     body.className = "lf-rbody";
     const need = document.createElement("div");
     need.className = "lf-need";
-    need.textContent = `${row.need.toLocaleString()} Life Force`;
+    need.textContent = trMsg`${row.need.toLocaleString()} Life Force`;
     if (row.level === p.level) {
       const here = document.createElement("span");
       here.className = "lf-here";
-      here.textContent = "You are here";
+      here.textContent = tr("You are here");
       need.appendChild(here);
     }
     const ul = document.createElement("ul");
     for (const line of levelEffectLines(row)) {
       const li = document.createElement("li");
-      li.textContent = line;
+      li.textContent = tr(line);
       ul.appendChild(li);
     }
     body.append(need, ul);

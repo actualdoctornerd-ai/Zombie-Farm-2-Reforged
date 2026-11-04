@@ -1,0 +1,235 @@
+// English source content. Translation happens only when the guide is rendered.
+export interface GuidePage {
+  id: string;
+  label: string;
+  eyebrow?: string;
+  title: string;
+  intro: string;
+  sections: Array<{
+    title: string;
+    body: string;
+  }>;
+}
+
+export const FARMERS_GUIDE_PAGES: GuidePage[] = [
+  {
+    id: "welcome",
+    label: "Welcome",
+    title: "Welcome to Zombie Farm Reforged",
+    intro: "A field guide for zombie farmers.",
+    sections: [
+      {
+        title: "Zombie Farm Reforged",
+        body: "Zombie Farm Reforged is a fan remake of the Zombie Farm games, which were removed from the App Store in 2017. This version incorporates elements from both Zombie Farm 1 and Zombie Farm 2 into a format that is playable on any device that can run a browser. The project is open source and nonprofit.",
+      },
+    ],
+  },
+  {
+    id: "saves",
+    label: "Your saves",
+    title: "Local vs. Online Farms",
+    intro: "Local Farm and Online Farm are deliberately separate. Progress never transfers or merges between them.",
+    sections: [
+      {
+        title: "Local Farm",
+        body: "Saved only in this browser. It works without an account or gameplay server, but clearing browser data or changing devices can remove access to the save. Use Settings to export a backup, which can be imported to any device. A local farm allows you to have full control of your own data and play the game without an internet connection.",
+      },
+      {
+        title: "Online Farm",
+        body: "Tied to your signed-in account and saved by the game server. You can continue on another device and use online features. Only one browser or device can control the farm at a time. This is the recommended way to play.",
+      },
+    ],
+  },
+  {
+    id: "install",
+    label: "Install",
+    title: "Installing the App",
+    intro: "Zombie Farm Reforged can be installed straight from your browser, no app store required.",
+    sections: [
+      {
+        title: "Why Install",
+        body: "Installing puts a Zombie Farm icon on your desktop, dock, or home screen, so the game opens in one tap instead of through a bookmark. It also runs in its own window with no address bar or browser tabs taking up space, which leaves more room for your farm. The game files are cached on your device after the first visit, so later launches start faster.",
+      },
+      {
+        title: "On Desktop",
+        body: "In Chrome or Edge, open the game and look for the install icon at the right-hand end of the address bar, or find Install in the browser menu. In Safari on macOS, choose File and then Add to Dock. Once installed, the game behaves like any other app and can be pinned, uninstalled, or launched normally.",
+      },
+      {
+        title: "On Phones and Tablets",
+        body: "In Safari on iPhone or iPad, tap the Share button and choose Add to Home Screen. In Chrome on Android, open the browser menu and choose Install app or Add to Home screen. The installed app runs fullscreen, which is the most comfortable way to play on a small display.",
+      },
+      {
+        title: "Saves and Updates",
+        body: "An installed app can keep its own separate browser storage, so a Local Farm played in a browser tab may not appear inside the installed app. Export a backup from Settings before installing, then import it once the app is open. A Local Farm can be played without an internet connection once its artwork has been cached, while an Online Farm always needs a connection. New versions arrive automatically: when one is ready, a small prompt appears so you can reload at a safe moment rather than in the middle of an invasion.",
+      },
+    ],
+  },
+  {
+    id: "currency",
+    label: "Currency",
+    title: "Currency",
+    intro: "Gold and Brains",
+    sections: [
+      {
+        title: "Gold",
+        body: "Gold is the base currency in this game. It is obtained primarily from harvesting crops and completing invasions.",
+      },
+      {
+        title: "Brains",
+        body: "Brains are highly valuable on a zombie farm and are used to purchase powerful functional items. Brains may be obtained through invasions and Epic Bosses or received as gifts. Brains are also the primary currency for the Black Market, where farmers may trade zombies. Because there are no in-app purchases, drop rates for brains across the board have been approximately doubled.",
+      },
+    ],
+  },
+  {
+    id: "mutations",
+    label: "Mutations",
+    title: "Mutations",
+    intro: "Zombies can mutate to take on the characteristics of various plants from your farm!",
+    sections: [
+      {
+        title: "Obtaining Mutations",
+        body: "Plant vegetables directly beside a zombie plot to give the harvested zombie a chance at developing the mutation associated with them. Any plot touching the zombie's counts — edge or corner — even if the two were plowed in different passes and don't line up. If you want to ensure that a specific mutation is obtained, then plant a mutated zombie directly instead. How likely each crop is to take depends on your farm's Life Force; see that page.",
+      },
+      {
+        title: "Headless Zombies",
+        body: "A headless zombie has no head to mutate, so head and hair mutations never take on one — plant beside its arms, body and neck crops instead. Pumpking is the exception, and it runs the other way: the pumpkin becomes the head it never had, so only a headless zombie can grow one. Any zombie can wear one, mind — put a Pumpking-headed zombie in the Zombie Pot and the pumpkin passes to the result, whatever comes out.",
+      },
+      {
+        title: "Zombie Pot",
+        body: "The Zombie Pot can also combine two zombies and inherit compatible traits. It draws on your whole roster — a zombie resting in the Mausoleum can go straight in without being deployed first, and the finished zombie can be collected into the Mausoleum instead of onto the farm. The zombie you place in Slot 1 decides what type comes out — Slot 2 only donates its mutations, and where two mutations compete for the same body part the stronger one wins. Special zombies fit in Slot 1 only, and are always passed on. Combining two zombies of the same type breeds them up a colour: two Greens become the Blue of that type once you own the Blue Grave, two Blues become the Red once you own the Red Grave, and at higher levels two Reds become a Silver. Every eligible pairing also comes with a low chance of mutating into powerful special zombies instead.",
+      },
+    ],
+  },
+  {
+    id: "lifeforce",
+    label: "Life Force",
+    title: "Life Force",
+    intro: "Everything you place on your farm gives it life. The more Life Force your farm has, the better your crops and zombies do.",
+    sections: [
+      {
+        title: "What it is",
+        body: "Every decoration, tree and building carries a Life Force value, shown as a small leaf and number on its card in the Market and Storage and on its sheet when you tap it on the farm. Your farm's total is the sum of everything placed. Items resting in Storage don't count, so putting something away takes its Life Force with it, and placing it again gives it back.",
+      },
+      {
+        title: "Levels",
+        body: "Your total sets your Life Force level, from 0 to 20, shown by the leaf badge in the top bar. Level 1 takes 20 Life Force; the next levels take 45, 75, 110, 155, 250, 300, 350, 400, 450, 600, 750, 900, 1050, 1200, 1360, 1520, 1680, 1840 and 2000. Tap the badge to see every level and what it gives. Bigger decorations are generally worth more: a Gazebo gives 16, a tree only a few, and a fruit tree a little less than that.",
+      },
+      {
+        title: "Mutations",
+        body: "A crop planted beside a zombie plot has a chance to give it its mutation of 10% plus 10% for every level, so a bare farm mutates one time in ten and a level 9 farm mutates every time. Several matching crops stack. The Mutant Monolith guarantees the roll, boosts mutation stat bonuses by 10%, and halves mutant-zombie grow time.",
+      },
+      {
+        title: "Fertilizing",
+        body: "Garden zombies can fertilize a freshly planted vegetable for a double harvest. Each Life Force level adds its own number in percent to that chance, so level 1 adds 1%, level 2 another 2%, and so on up to 10%, and the bonuses stack. A level 10 farm adds up to 55% and fertilizes 1.55 times as often. Starting above level 5, each Life Force level also adds 2.5% to the value of fertilized harvests, reaching 37.5% more at level 20. Ordinary crop harvests keep their base value.",
+      },
+      {
+        title: "Growing zombies",
+        body: "A zombie can come out lifeless when its colour is above Green. Green zombies are never lifeless. Every colour after that adds a 10% chance, and every Life Force level takes 10% away, so at level 0 a Blue is lifeless 10% of the time. Blue is safe from level 1, Red from level 2, Silver from level 3, and Obsidian and special zombies from level 4. A lifeless harvest spends the crop and still earns its experience, but no zombie appears, so you must plow and plant again. The first zombie on a new farm always grows.",
+      },
+      {
+        title: "Abilities",
+        body: "A zombie has up to four ability slots: Green zombies have one, Blue two, Red three and Silver four. Slot 1 works at level 1, slot 2 at level 2, slot 3 at level 3 and slot 4 at level 4, whatever the ability is, so slot 1 needs 20 Life Force and slot 4 needs 110 Life Force. A locked slot shows a padlock on the zombie's card that says how much Life Force it needs. Beating an invasion boss no longer unlocks abilities.",
+      },
+      {
+        title: "Brain drops",
+        body: "Life Force above level 10 slightly improves the chance of finding brains after an invasion. Each level adds 2.5% of the original drop chance, up to 25% more at level 20. For example, a 4% chance becomes 5%.",
+      },
+    ],
+  },
+  {
+    id: "combat",
+    label: "Combat",
+    title: "Invasions & Epic Bosses",
+    intro: "Put your harvested zombies to work in live battles for loot, experience, gold, and brains.",
+    sections: [
+      {
+        title: "Raids",
+        body: "Choose an invasion and assemble an army for the fight. Tougher stages bring stronger enemies and better rewards. Fallen zombies are permanently lost, though they may be revived immediately after the battle for the cost of 1 brain.",
+      },
+      {
+        title: "Epic Bosses",
+        body: "Starting at level 24, you can begin limited 14-day boss events from Market → Epic Boss. Boss damage carries between attempts. Harvesting crops during an event provides fight tokens, which allow you to take another attempt at the boss. Defeating the boss provides escalating special rewards, including extremely powerful special zombies. Each boss also has a favourite crop, named on its card — see Favourite Crops below for what planting it does.",
+      },
+      {
+        title: "Favourite Crops",
+        body: "Every Epic Boss has one favourite crop it cannot leave alone. You can see which is which on the boss's card in Market → Epic Boss. A favourite crop does two things, and never both at once. While that boss's event is running, harvesting its favourite crop yields fight tokens more often than any other crop would — about a quarter more — so it is worth keeping some in the ground for the fortnight the event lasts. When no event is running at all, that same harvest instead has a very rare chance of luring its boss onto the farm and starting the event outright, for free, provided you have reached the level that boss unlocks at. Planting is the only thing that steers it: a crop can only ever call its own boss, and a boss you have not unlocked yet will not come. Treat it as a lucky accident rather than a plan — there is nothing to collect and nothing to claim if it does not happen, and the odds are long enough that the surest way to start an event is still to pay for it.",
+      },
+      {
+        title: "Earned Zombies",
+        body: "A zombie you win from a quest, an invasion, or a boss joins the farm right away when there is an open army slot. If your farm is full it waits in Storage → Received instead, and is never lost. Claiming it from there moves it into the Mausoleum, so you will need a Mausoleum with a free space before it can join your roster. The Mausoleum starts with 15 slots and can be upgraded four times — tap the building, or buy the next one from Market → Items → Functional — for five more slots each time.",
+      },
+    ],
+  },
+  {
+    id: "social",
+    label: "Social",
+    title: "Friends & community",
+    intro: "Online Farm adds ways to play alongside other farmers.",
+    sections: [
+      {
+        title: "Friends",
+        body: "Share your friend code with another player to become friends with them. Friends can visit each other’s farms and gift each other brains. A limit of two brains can be gifted per day at no cost to the sender.",
+      },
+      {
+        title: "The Black Market",
+        body: "The Black Market is a new feature in Zombie Farm Reforged, which allows farmers to trade zombies for brains. Farmers may request a specific zombie, or put one of their own zombies up for sale.",
+      },
+      {
+        title: "Discord",
+        body: "Join the community Discord, The Zombie Farm Archive, to ask for help, share feedback, and meet other farmers. This is also a good place to report bugs or request additional features.",
+      },
+    ],
+  },
+  {
+    id: "privacy",
+    label: "Privacy",
+    title: "Your data",
+    intro: "What this game knows about you, who can see it, and how to take it back. The short version: less than you would expect.",
+    sections: [
+      {
+        title: "A Local Farm is completely private",
+        body: "A Local Farm never contacts a server at all. There is no account, no sign-in, and no request of any kind leaves your device — the farm lives in your browser's own storage and nowhere else. Nobody, including us, can see it. The trade is that it is only as safe as the browser holding it, so use Settings to export a backup if it matters to you.",
+      },
+      {
+        title: "Signing in tells us less than you would think",
+        body: "When you sign in with Google, Google hands the game a token that contains an anonymous id number, your email address, and your Google display name. The game reads the id number and deliberately throws the other two away — your email address and your Google name are never stored, never sent anywhere, and never shown to anyone. The id number is meaningless outside this game; it exists only so that signing in again finds the same farm.",
+      },
+      {
+        title: "What is actually on the server",
+        body: "Your account row holds four things: that anonymous id, the name you chose for yourself, your friend code, and when you last played. Alongside it sits your farm — crops, zombies, buildings, quests, invasions, everything you have earned. There is also a list of your signed-in devices, each labelled roughly, like \"Chrome on Windows\", so you can spot a session you do not recognise and end it from the Account menu. No email addresses, no IP addresses, no location, and no real names are stored anywhere.",
+      },
+      {
+        title: "What other farmers can see",
+        body: "The name you choose is the only thing about you that other players see, and it appears in two places: to friends, and on any Black Market post you create, where every farmer browsing the market can read it. Choose it with that in mind. A friend visiting your farm gets a look-only copy that shows the farm, your buildings, your zombies and your Zombie Pot — your gold and brains read as zero, and your quests, invasions, storage and friend list are not sent at all. Nobody can change anything on your farm, ever. You can hand out a new friend code from the Account menu whenever you like, which retires the old one, and you can block another farmer to cut off contact entirely.",
+      },
+      {
+        title: "No ads, no analytics, no tracking",
+        body: "There is no advertising, no analytics, no third-party tracking of any kind, and nothing about you is sold, shared, or handed to anyone. This is not only a promise: the game ships with a browser security policy that permits it to talk to exactly two places — Google's sign-in page and this game's own server — so it could not quietly report to anywhere else even if something in it tried.",
+      },
+      {
+        title: "Crash reports stay on your device",
+        body: "If something goes wrong, the game keeps a short record of it in your browser so you can help us fix it. That record is never sent automatically and never leaves your device on its own. Settings has a Copy Diagnostics button that puts it on your clipboard, and it is entirely up to you whether to paste it into a bug report. It contains no personal information — just the game version, what failed, and what you were doing at the time.",
+      },
+      {
+        title: "Taking your farm, or removing it",
+        body: "Settings can export any farm to a file at any time, which you can keep as a backup or import into a Local Farm on another device. Nothing locks your progress in. If you would rather not be here at all, the Account menu has a Delete button: it asks you twice, and then removes your account and everything attached to it — the farm, the zombies, the friendships, the lot. It is immediate, it is permanent, and nothing is kept back or archived. Signing in afterwards simply starts you a brand-new farm, because there is nothing left to sign in to. A Local Farm has the same button and works the same way, on the save in this browser.",
+      },
+    ],
+  },
+  {
+    id: "project",
+    label: "Project",
+    title: "Open source & credits",
+    intro: "Zombie Farm 2 Reforged is a non-commercial, open-source fan reimplementation built for preservation.",
+    sections: [
+      {
+        title: "GitHub",
+        body: "Read the source, report bugs, browse current gaps, or contribute improvements on GitHub. Feel free to branch off of this repository to make your own version as well.",
+      },
+      {
+        title: "Acknowledgements",
+        body: "Created and maintained by DoctorNerd. Special thanks to Brain for starting and maintaining the Zombie Farm Archive, without which this project would never have existed. Thank you as well to our alpha testers—Dan, Biggoard, SuperKiwi, SpacePerson, and EnchantedKT—for their early feedback and testing.",
+      },
+    ],
+  },
+];

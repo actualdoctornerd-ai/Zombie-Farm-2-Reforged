@@ -18,6 +18,7 @@
 // A mutation may move SEVERAL stats, and may move one DOWN (mutations.ts
 // MutationStats), so an entry carries a list of effects rather than one number, and
 // every one of them is written signed.
+import { t as tr, msg as trMsg } from "../i18n/translate";
 import { BASE } from "../base";
 import {
   mutationBonus, mutationsOf, statEffectsOf,
@@ -181,7 +182,7 @@ export function mutationEntriesFrom(
 /** One effect as the tooltip writes it: always signed, so a penalty reads as a penalty
  *  rather than as a smaller gain. */
 export function mutationEffectText(effect: MutationCardEffect): string {
-  return `${effect.delta >= 0 ? "+" : ""}${effect.delta} ${effect.statLabel}`;
+  return `${effect.delta >= 0 ? "+" : ""}${effect.delta} ${tr(effect.statLabel)}`;
 }
 
 /** The tooltip body for one mutation — the tile itself is unlabelled, so this is where
@@ -194,7 +195,7 @@ export function mutationTipText(entry: MutationCardEntry): string {
       return `<span class="${cls}">${mutationEffectText(effect)}</span>`;
     })
     .join("<br>");
-  return `${lines}<br>${entry.slotLabel} slot`;
+  return `${lines}<br>${trMsg`${tr(entry.slotLabel)} slot`}`;
 }
 
 /** Every mutation name a mask stands for on THIS species, e.g. "Onionhead, Celery-arms".
@@ -209,5 +210,5 @@ export function mutationNames(key: string, mask: number): string[] {
  *  this rather than mutations.ts `mutationLabel`, which knows only the shared
  *  mutation and so calls an Eyebiscus "Carrot-eyes". */
 export function mutationLabelFor(key: string, mask: number): string {
-  return mutationNames(key, mask).join(", ");
+  return mutationNames(key, mask).map(name => tr(name)).join(", ");
 }

@@ -1,3 +1,4 @@
+import { msg as trMsg, t as tr } from "../i18n/translate";
 // Zombie Almanac: the collection ("dex") behind the Zombies menu's second tab.
 // Pure data logic — which species belong in the almanac, how each is obtained,
 // and the lifetime-discovery counter shape persisted in the save. Rendering
@@ -89,26 +90,26 @@ export function obtainHint(def: ZombieDef, sources: ObtainSources): string {
   const source = RAID_BY_ZOMBIE[def.key];
   if (source !== undefined) {
     const raid = sources.raidNameById(source.raidId);
-    const fight = source.elite ? "an elite (Brain Ticket) invasion" : "an invasion";
+    const fight = source.elite ? tr("an elite (Brain Ticket) invasion") : tr("an invasion");
     return raid
-      ? `Rarely found after winning ${fight} of ${raid}.`
-      : `Rarely found after winning ${fight}.`;
+      ? trMsg`Rarely found after winning ${fight} of ${tr(raid)}.`
+      : trMsg`Rarely found after winning ${fight}.`;
   }
   const questId = EPIC_QUEST_BY_ZOMBIE[def.key];
   if (questId !== undefined) {
     const boss = sources.epicBossNameByQuestId(questId);
     return boss
-      ? `Earned by fighting ${boss} during an Epic Boss event.`
-      : "Earned during an Epic Boss event.";
+      ? trMsg`Earned by fighting ${tr(boss)} during an Epic Boss event.`
+      : tr("Earned during an Epic Boss event.");
   }
   if (POT_SPECIALS.has(def.key)) {
-    return `A rare Zombie Pot result: combine two ${def.group} zombies at level ${COMBINE_SPECIAL_LEVEL}+.`;
+    return trMsg`A rare Zombie Pot result: combine two ${tr(def.group)} zombies at level ${COMBINE_SPECIAL_LEVEL}+.`;
   }
   if (!def.rewardOnly && !def.marketHidden) {
-    const price = def.brainsNeeded ? `${def.cost} brains` : `${def.cost} gold`;
-    return `Grow it from a Market gravestone (level ${Math.max(1, def.level)}, ${price}).`;
+    const price = def.brainsNeeded ? trMsg`${def.cost} brains` : trMsg`${def.cost} gold`;
+    return trMsg`Grow it from a Market gravestone (level ${Math.max(1, def.level)}, ${price}).`;
   }
-  return "Obtained from special events.";
+  return tr("Obtained from special events.");
 }
 
 /** Seed the discovery map from an existing roster (first run after the almanac
