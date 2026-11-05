@@ -57,6 +57,54 @@ describe("SaveManager presentation conflicts", () => {
   });
 });
 
+describe("SaveManager presentation rate limit", () => {
+  const onlineManager = () => {
+    const manager = new SaveManager(
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+      new Map(), new Map(), async () => undefined,
+    );
+    const alarm = vi.fn();
+    manager.onStorageError = alarm;
+    return { manager, alarm };
+  };
+
+  it("waits out a 429 quietly, then sends one write without needing another change", async () => {
+    vi.useFakeTimers();
+    try {
+      const { manager, alarm } = onlineManager();
+      const put = vi.spyOn(api, "putPresentationV3").mockReset()
+        .mockRejectedValueOnce(new api.ApiError(429, "rate_limited", { retryAfterMs: 60_000 }))
+        .mockResolvedValueOnce({ version: 2, data: {} });
+      const latest = { camera: { x: 9, y: 9 } };
+      const commit = vi.spyOn(manager as any, "commitPresentation")
+        .mockImplementation(() => void (manager as any).push(latest));
+
+      await (manager as any).push({ camera: { x: 1, y: 1 } });
+      await (manager as any).push({ camera: { x: 2, y: 2 } }); // inside the hold: not sent
+      expect(alarm).not.toHaveBeenCalled();
+      expect(put).toHaveBeenCalledTimes(1);
+      expect((manager as any).presentationDirty).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(commit).toHaveBeenCalledTimes(1);
+      expect(put).toHaveBeenCalledTimes(2);
+      expect(put.mock.calls[1][0].data).toEqual(latest);
+      expect((manager as any).presentationDirty).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still raises the alarm for a write the server really refuses", async () => {
+    const { manager, alarm } = onlineManager();
+    vi.spyOn(api, "putPresentationV3").mockReset()
+      .mockRejectedValueOnce(new api.ApiError(400, "bad_presentation"));
+    await (manager as any).push({ camera: { x: 1, y: 1 } });
+    expect(alarm).toHaveBeenCalledTimes(1);
+    expect((manager as any).presentationHoldUntil).toBe(0);
+  });
+});
+
 describe("SaveManager object layout races", () => {
   it("retains a removed object's position until authoritative settlement", () => {
     const field = {

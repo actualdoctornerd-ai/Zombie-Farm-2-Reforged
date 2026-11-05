@@ -61,6 +61,9 @@ type ObjectLayout = NonNullable<PresentationData["objectLayout"]>[number];
 
 /** Offline builds retain a local full save. Signed-in v3 builds persist only visual
  * presentation; authoritative gameplay is hydrated from the shared bootstrap call. */
+/** The longest a 429 can hold presentation writes: the server's limit window. */
+const PRESENTATION_MAX_HOLD_MS = 60_000;
+
 export class SaveManager {
   /** Background from the latest hydrated save. Main applies this only for the
    * player's own farm, so visiting never overwrites device preferences. */
@@ -71,6 +74,10 @@ export class SaveManager {
   /** One alarm per refusal streak. A rejected presentation is refused on every retry,
    *  and a toast per minute would be noise on top of a fault the player cannot fix. */
   private presentationRefused = false;
+  /** Until when the server has asked us not to write presentation (a 429). Writes in the
+   *  meantime stay dirty and go out together, as one, when it lifts. */
+  private presentationHoldUntil = 0;
+  private presentationHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private pushing = false;
   private pendingPresentation: Record<string, unknown> | null = null;
   private pendingPresentationImmediate = false;
@@ -396,6 +403,11 @@ export class SaveManager {
       this.pendingPresentation = data;
       return;
     }
+    if (Date.now() < this.presentationHoldUntil) {
+      this.presentationDirty = true;
+      this.armPresentationRetry();
+      return;
+    }
     if (this.pushing) { this.pendingPresentation = data; return; }
     this.pushing = true;
     this.lastPresentationCallAt = Date.now();
@@ -409,6 +421,18 @@ export class SaveManager {
       crumb("save:online", `${Math.round(encoded.length / 1024)}kB v${saved.version}`);
     } catch (error) {
       this.presentationDirty = true;
+      // A 429 is the opposite of the refusal below: nothing is wrong with the blob and
+      // waiting clears it. /presentation allows 5 a minute and buying an object alone
+      // spends 2 (see the flushCritical pair in the placement path), so a player buying a
+      // few things in a row lands here. It must not tell them their farm stopped saving,
+      // and must not depend on them changing something else to get the write resent.
+      if (error instanceof api.ApiError && error.status === 429) {
+        const hint = Number((error.body as { retryAfterMs?: unknown } | undefined)?.retryAfterMs);
+        const waitMs = Number.isFinite(hint) && hint > 0 ? Math.min(hint, PRESENTATION_MAX_HOLD_MS) : PRESENTATION_MAX_HOLD_MS;
+        this.presentationHoldUntil = Date.now() + waitMs;
+        crumb("save:deferred", `429 for ${Math.round(waitMs / 1000)}s`);
+        this.armPresentationRetry();
+      } else
       // A REFUSED write (as opposed to a lost one) never clears by retrying: the same
       // blob goes back every minute and is rejected every time. Nothing used to say so
       // — no log, no diagnostic, no word to the player — while names, teams, layouts,
@@ -475,6 +499,16 @@ export class SaveManager {
         } else this.scheduleSave?.();
       }
     }
+  }
+
+  /** Send whatever is current once a rate-limit hold lifts. It serializes afresh, so every
+   *  write that was held collapses into this one. */
+  private armPresentationRetry(): void {
+    if (this.presentationHoldTimer !== null) return;
+    this.presentationHoldTimer = setTimeout(() => {
+      this.presentationHoldTimer = null;
+      if (this.presentationDirty) this.commitPresentation();
+    }, Math.max(0, this.presentationHoldUntil - Date.now()));
   }
 
   /** Fold the tally in an authoritative presentation blob into the live one, and patch
