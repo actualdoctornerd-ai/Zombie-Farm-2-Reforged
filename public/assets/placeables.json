@@ -10985,7 +10985,7 @@
  },
  {
   "key": "storage10",
-  "name": "Zombie Warehouse II",
+  "name": "More Storage",
   "category": "functional",
   "cost": 675000,
   "level": 1,
@@ -11011,7 +11011,7 @@
  },
  {
   "key": "storage11",
-  "name": "Zombie Warehouse III",
+  "name": "More Storage",
   "category": "functional",
   "cost": 825000,
   "level": 1,
@@ -11037,7 +11037,7 @@
  },
  {
   "key": "storage12",
-  "name": "Zombie Warehouse IV",
+  "name": "More Storage",
   "category": "functional",
   "cost": 975000,
   "level": 1,
@@ -11063,7 +11063,7 @@
  },
  {
   "key": "storage13",
-  "name": "Zombie Warehouse V",
+  "name": "More Storage",
   "category": "functional",
   "cost": 1125000,
   "level": 1,
@@ -11089,7 +11089,7 @@
  },
  {
   "key": "storage14",
-  "name": "Zombie Warehouse VI",
+  "name": "More Storage",
   "category": "functional",
   "cost": 1275000,
   "level": 1,
@@ -11115,7 +11115,7 @@
  },
  {
   "key": "storage15",
-  "name": "Zombie Warehouse VII",
+  "name": "More Storage",
   "category": "functional",
   "cost": 1425000,
   "level": 1,
@@ -11141,7 +11141,7 @@
  },
  {
   "key": "storage16",
-  "name": "Zombie Warehouse VIII",
+  "name": "More Storage",
   "category": "functional",
   "cost": 1575000,
   "level": 1,
@@ -11167,7 +11167,7 @@
  },
  {
   "key": "storage17",
-  "name": "Zombie Warehouse IX",
+  "name": "More Storage",
   "category": "functional",
   "cost": 1725000,
   "level": 1,

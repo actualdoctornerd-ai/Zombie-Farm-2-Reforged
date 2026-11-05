@@ -252,8 +252,10 @@ EXTRA_SHED_TIERS = [
     # key, market name, gold cost, item storage slots
     ("storage09", "Zombie Warehouse", 525_000, 72),
 ] + [
-    (f"storage{10 + i}", f"Zombie Warehouse {roman}", 675_000 + i * WAREHOUSE_STEP_COST, 80 + i * 8)
-    for i, roman in enumerate(["II", "III", "IV", "V", "VI", "VII", "VIII", "IX"])
+    # All eight share a Market name on purpose: the Market only ever offers the next
+    # rung, and "Zombie Warehouse II" read as a second building rather than an upgrade.
+    (f"storage{10 + i}", "More Storage", 675_000 + i * WAREHOUSE_STEP_COST, 80 + i * 8)
+    for i in range(8)
 ]
 
 # The Obsidian Grave (see its clone near the end of main()). Level 40 is the first
