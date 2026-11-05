@@ -161,7 +161,7 @@ type RLTier = "RL_AUTH" | "RL_WRITE" | "RL_READ";
  *  Every `max` used here needs a matching `RL_<max>` binding in BOTH wrangler.toml
  *  environments, with period 60 — rateLimitBindings.test.ts fails otherwise. Until
  *  2026-10-31 each tier had ONE binding (60/120/300) and `max` shaped only the D1
- *  fallback, so in prod e.g. /presentation took 120/min, not the 5 written here.
+ *  fallback, so in prod e.g. /presentation took 120/min, not the 5 then written here.
  *  `tier` now only selects the local-test override below.
  *
  *  NOTE: rate limiting is a throttle, never a correctness control — security
@@ -585,8 +585,8 @@ app.use("/session/revoke", rateLimit("RL_WRITE", "session_revoke", 30, 60_000));
 app.use("/session/list", rateLimit("RL_READ", "session_list", 120, 60_000));
 app.use("/bootstrap", rateLimit("RL_READ", "bootstrap_v3", 30, 60_000));
 app.use("/writer/status", rateLimit("RL_READ", "writer_status", 60, 60_000));
-app.use("/commands", rateLimit("RL_WRITE", "commands_v3", 30, 60_000));
-app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 5, 60_000));
+app.use("/commands", rateLimit("RL_WRITE", "commands_v3", 120, 60_000));
+app.use("/presentation", rateLimit("RL_WRITE", "presentation_v3", 120, 60_000));
 // Read on opening the Farm Layouts panel, written on save/overwrite/delete.
 app.use("/farm-layouts", rateLimit("RL_WRITE", "farm_layouts", 30, 60_000));
 app.use("/writer/*", rateLimit("RL_WRITE", "writer_v3", 20, 60_000));

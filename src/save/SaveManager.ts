@@ -422,10 +422,10 @@ export class SaveManager {
     } catch (error) {
       this.presentationDirty = true;
       // A 429 is the opposite of the refusal below: nothing is wrong with the blob and
-      // waiting clears it. /presentation allows 5 a minute and buying an object alone
-      // spends 2 (see the flushCritical pair in the placement path), so a player buying a
-      // few things in a row lands here. It must not tell them their farm stopped saving,
-      // and must not depend on them changing something else to get the write resent.
+      // waiting clears it. The limit is generous, but a buying spree spends fast: each object
+      // costs 2 writes (see the flushCritical pair in the placement path), and a player
+      // who lands here must not be told their farm stopped saving,
+      // or depend on changing something else to get the write resent.
       if (error instanceof api.ApiError && error.status === 429) {
         const hint = Number((error.body as { retryAfterMs?: unknown } | undefined)?.retryAfterMs);
         const waitMs = Number.isFinite(hint) && hint > 0 ? Math.min(hint, PRESENTATION_MAX_HOLD_MS) : PRESENTATION_MAX_HOLD_MS;
