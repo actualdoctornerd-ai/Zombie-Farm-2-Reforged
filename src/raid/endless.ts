@@ -573,7 +573,53 @@ export interface EndlessRunState {
   curses: EndlessCurse[];
 }
 
-export type EndlessBuildBoon = "vanguard" | "rearguard" | "headless-wall" | "garden-focus";
+/** A boon that reshapes the army's stats for the rest of the run (owner, 2026-11-08). General
+ *  ones lift one stat for everyone or every stat for one class. Class ones trade within what
+ *  that class is for, or are plain useful. See ENDLESS_BUILD_BOONS. */
+export type EndlessBuildBoon =
+  | "sharp-teeth" | "thick-skin" | "quick-hands"
+  | "drill-regular" | "drill-girl" | "drill-headless" | "drill-large" | "drill-garden"
+  | "battering-ram" | "bulwark" | "green-thumb" | "brute-force" | "frenzy" | "grit"
+  | "vanguard" | "rearguard";
+
+/** What a build boon does to one zombie: multipliers on its damage (str), health (con),
+ *  attack speed (dex) and heals. */
+type BoonScale = { str?: number; con?: number; dex?: number; heal?: number };
+const classOf = (u: CombatUnit): string => u.group ?? (u.isHeadless ? "Headless" : u.isGarden ? "Garden" : "Regular");
+const forClass = (group: string, scale: BoonScale) => (u: CombatUnit): BoonScale => classOf(u) === group ? scale : {};
+const allStats = (by: number): BoonScale => ({ str: by, con: by, dex: by });
+
+export const ENDLESS_BUILD_BOONS: Readonly<Record<EndlessBuildBoon, {
+  name: string; text: string; scale: (u: CombatUnit, index: number) => BoonScale;
+}>> = {
+  // ---- General: one stat for everyone, or every stat for one class ----
+  "sharp-teeth": { name: "Sharp Teeth", text: "All zombies deal 10% more damage", scale: () => ({ str: 1.1 }) },
+  "thick-skin": { name: "Thick Skin", text: "All zombies get 10% more health", scale: () => ({ con: 1.1 }) },
+  "quick-hands": { name: "Quick Hands", text: "All zombies attack 10% faster", scale: () => ({ dex: 1.1 }) },
+  "drill-regular": { name: "Regular Drills", text: "Regular zombies get 10% more of every stat", scale: forClass("Regular", allStats(1.1)) },
+  "drill-girl": { name: "Girl Power", text: "Girl zombies get 10% more of every stat", scale: forClass("Female", allStats(1.1)) },
+  "drill-headless": { name: "Headless Drills", text: "Headless zombies get 10% more of every stat", scale: forClass("Headless", allStats(1.1)) },
+  "drill-large": { name: "Brute Drills", text: "Brute zombies get 10% more of every stat", scale: forClass("Large", allStats(1.1)) },
+  "drill-garden": { name: "Garden Drills", text: "Garden zombies get 10% more of every stat", scale: forClass("Garden", allStats(1.1)) },
+  // ---- Class: a trade inside what the class is for, or a plain useful lift ----
+  "battering-ram": { name: "Battering Ram", text: "Headless zombies attack 40% faster but have 15% less health", scale: forClass("Headless", { dex: 1.4, con: 0.85 }) },
+  bulwark: { name: "Bulwark", text: "Headless zombies get 25% more health", scale: forClass("Headless", { con: 1.25 }) },
+  "green-thumb": { name: "Green Thumb", text: "Garden zombies heal 50% more", scale: forClass("Garden", { heal: 1.5 }) },
+  "brute-force": { name: "Brute Force", text: "Brute zombies deal 30% more damage but attack 15% slower", scale: forClass("Large", { str: 1.3, dex: 0.85 }) },
+  frenzy: { name: "Frenzy", text: "Girl zombies attack 30% faster but have 15% less health", scale: forClass("Female", { dex: 1.3, con: 0.85 }) },
+  grit: { name: "Grit", text: "Regular zombies get 20% more health but deal 10% less damage", scale: forClass("Regular", { con: 1.2, str: 0.9 }) },
+  // ---- Formation ----
+  vanguard: { name: "Vanguard", text: "Your first 3 zombies get 50% more health, the rest 10% less",
+    scale: (_u, index) => ({ con: index < 3 ? 1.5 : 0.9 }) },
+  // Not a stat change: the zombies behind the front five already swing slower and hit softer
+  // (lineupSpeedBand / lineupDamageBand). Rearguard halves that falloff (BattleSim.speedBand).
+  rearguard: { name: "Rearguard", text: "Zombies behind your front five lose only half as much speed and damage", scale: () => ({}) },
+};
+const BUILD_BOON_IDS = Object.keys(ENDLESS_BUILD_BOONS) as EndlessBuildBoon[];
+export const isEndlessBuildBoon = (kind: unknown): kind is EndlessBuildBoon =>
+  typeof kind === "string" && Object.prototype.hasOwnProperty.call(ENDLESS_BUILD_BOONS, kind);
+/** The most a run's deployment boons may cut the deploy charge by (owner, 2026-11-08). */
+export const ENDLESS_MAX_DEPLOY_REDUCTION = 0.8;
 export type EndlessBoon =
   | { kind: EndlessBuildBoon }
   | { kind: "temporary-zombie"; key: string; name: string }
@@ -592,11 +638,12 @@ export type EndlessCurse =
   | { kind: "enemy-explosion"; chance: number; damagePercent: number }
   | { kind: "enemy-knockback-headless"; chance: number };
 
+/** The draft's pool (plus the week's loaned Special). `damage` stays a valid boon for runs
+ *  that drafted it before 2026-11-08, but Sharp Teeth replaced it in the pool. */
 const BOON_POOL: readonly EndlessBoon[] = [
-  { kind: "damage", percent: 20 },
+  ...BUILD_BOON_IDS.map((kind) => ({ kind })),
   { kind: "deployment", percent: 20 }, { kind: "opening-deploy", count: 3 },
-  { kind: "revive-headless" }, { kind: "vanguard" }, { kind: "rearguard" },
-  { kind: "headless-wall" }, { kind: "garden-focus" },
+  { kind: "revive-headless" },
 ];
 const CURSE_POOL: readonly EndlessCurse[] = [
   { kind: "enemy-health", percent: 20 }, { kind: "enemy-damage", percent: 20 },
@@ -726,30 +773,36 @@ export function applyEndlessBoon(run: EndlessRunState, boon: EndlessBoon): Endle
   switch (boon.kind) {
     case "revive-headless":
       return { ...run, reviveHeadless: true };
-    case "vanguard": case "rearguard": case "headless-wall": case "garden-focus":
+    case "sharp-teeth": case "thick-skin": case "quick-hands":
+    case "drill-regular": case "drill-girl": case "drill-headless": case "drill-large": case "drill-garden":
+    case "battering-ram": case "bulwark": case "green-thumb": case "brute-force": case "frenzy": case "grit":
+    case "vanguard": case "rearguard":
       return { ...run, buildBoons: [...run.buildBoons, boon.kind] };
     case "temporary-zombie":
       return run; // The unit needs the catalog: see endlessFight's endlessApplyBoon.
     case "damage":
       return { ...run, damageBonus: run.damageBonus + Math.max(0, boon.percent) / 100 };
     case "deployment":
-      return { ...run, deploymentSpeedBonus: Math.min(0.8, run.deploymentSpeedBonus + Math.max(0, boon.percent) / 100) };
+      // A cut to the charge time, stacking to ENDLESS_MAX_DEPLOY_REDUCTION and no further.
+      return { ...run, deploymentSpeedBonus: Math.min(ENDLESS_MAX_DEPLOY_REDUCTION, run.deploymentSpeedBonus + Math.max(0, boon.percent) / 100) };
     case "opening-deploy":
       return { ...run, openingDeploy: Math.min(3, run.openingDeploy + Math.max(0, Math.floor(boon.count))) };
   }
 }
 
-/** What the build boons do to one body, given its place in the army's order. */
-function buildBoonScale(run: EndlessRunState, unit: CombatUnit, index: number): { hp: number; damage: number } {
-  let hp = 1;
-  let damage = 1;
+/** What the build boons do to one body, given its place in the army's order. Boons retired
+ *  from the pool (an old run's "headless-wall", "garden-focus") simply do nothing. */
+function buildBoonScale(run: EndlessRunState, unit: CombatUnit, index: number): { hp: number; damage: number; dex: number; heal: number } {
+  const out = { hp: 1, damage: 1, dex: 1, heal: 1 };
   for (const boon of run.buildBoons) {
-    if (boon === "vanguard") hp *= index < 3 ? 1.5 : 0.9;
-    else if (boon === "rearguard") damage *= index >= run.units.length - 5 ? 1.4 : 0.9;
-    else if (boon === "headless-wall") { if (unit.isHeadless) hp *= 1.4; else damage *= 0.9; }
-    else if (boon === "garden-focus") { if (unit.isGarden) hp *= 1.6; else damage *= 0.95; }
+    if (!isEndlessBuildBoon(boon)) continue;
+    const s = ENDLESS_BUILD_BOONS[boon].scale(unit, index);
+    out.damage *= s.str ?? 1;
+    out.hp *= s.con ?? 1;
+    out.dex *= s.dex ?? 1;
+    out.heal *= s.heal ?? 1;
   }
-  return { hp, damage };
+  return out;
 }
 
 /** Apply run damage and build boons to a battle copy of the living party. */
@@ -758,6 +811,11 @@ export function endlessPlayerUnits(run: EndlessRunState): CombatUnit[] {
     if (!u.alive || u.hp <= 0) return [];
     const scale = buildBoonScale(run, u, index);
     const unit = { ...u, attacks: u.attacks.map((a) => ({ ...a, mult: (a.mult ?? 1) * (1 + run.damageBonus) * scale.damage })) };
+    if (scale.dex !== 1) {
+      unit.dex *= scale.dex;
+      unit.attackCooldownMs = Math.max(1, Math.round(unit.attackCooldownMs / scale.dex));
+    }
+    if (scale.heal !== 1) unit.healMult = (unit.healMult ?? 1) * scale.heal;
     if (scale.hp !== 1) {
       const fraction = unit.maxHp > 0 ? unit.hp / unit.maxHp : 1;
       unit.maxHp = Math.max(1, Math.round(unit.maxHp * scale.hp));

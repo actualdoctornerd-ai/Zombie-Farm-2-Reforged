@@ -286,6 +286,11 @@ export interface CombatUnit {
   /** Endless: multiplies a mirroring enemy's mirrored interval, so Heavy Hitters and the
    *  attack-speed curse still reach the pirates, whose own clock never paces them. */
   mirrorPace?: number;
+  /** Endless: the loaned Special. It never waits in the deploy queue: it walks on the moment
+   *  the third of the army's own zombies deploys (BattleSim.releaseLoaned). */
+  loaned?: boolean;
+  /** Endless: multiplies this healer's heals (Green Thumb). 1 everywhere else. */
+  healMult?: number;
   /** This zombie's SPECIES BASE attack cycle in ms: 2 s ÷ its catalog dex, with no
    *  veterancy, mutation, level ramp, ability buff or lineup band on it. `attackCooldownMs`
    *  is what the zombie actually swings at; this is what its BODY would swing at.
@@ -354,9 +359,13 @@ export interface SummonConfig {
  *  BattleSim so they participate in ordinary targeting, damage, death and replay state. */
 export interface EndlessStageMechanics {
   cooldownsMs: Readonly<Record<string, number>>;
-  /** Run boons, consumed by BattleSim only when this Endless context is present. */
+  /** Run boons, consumed by BattleSim only when this Endless context is present.
+   *  `deploymentSpeedBonus` is a REDUCTION of the focus charge time, held at
+   *  ENDLESS_MAX_DEPLOY_REDUCTION (80%) however many deployment boons stack. */
   deploymentSpeedBonus?: number;
   openingDeploy?: number;
+  /** Rearguard: the line's falloff behind the front five (speed and damage) is halved. */
+  rearguard?: boolean;
   /** Basic line enemy moved behind the army by the Ninja smoke bomb. */
   flankerTemplate?: CombatUnit | null;
   /** Reinforcement released by Alien summons or Pirate speed pressure. */

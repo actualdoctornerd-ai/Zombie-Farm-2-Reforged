@@ -6,7 +6,8 @@ import { buildFight } from "./buildFight";
 import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import {
   applyEndlessBoon, applyEndlessOrder, beginEndlessRun, endlessBossDraft, endlessMaxStartTier,
-  endlessPlayerUnits, endlessWavePlan, ENDLESS_MODIFIERS, ENDLESS_TEMPORARY_ZOMBIES, type EndlessModifierId,
+  endlessPlayerUnits, endlessWavePlan, ENDLESS_MAX_DEPLOY_REDUCTION, ENDLESS_MODIFIERS, ENDLESS_TEMPORARY_ZOMBIES,
+  type EndlessBuildBoon, type EndlessModifierId,
 } from "./endless";
 import { endlessApplyBoon, endlessCarryFromSim, endlessFightConfig, endlessSimFor } from "./endlessFight";
 import { endlessExpectedZwamps, endlessLootWeightTotal, endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessLocationZombie } from "./endlessLoot";
@@ -21,6 +22,8 @@ const party = (keys: string[]): CombatUnit[] => buildPlayerUnits(
 );
 const enemy = (key: string) => buildUnitsForKeys([key], null, enemyStats as unknown as Record<string, EnemyStat>, attacks)[0];
 const REGULAR = "ZombieActorRegularTier1";
+const HEADLESS = "ZombieActorHeadlessTier1";
+const GARDEN = "ZombieActorGardenTier1";
 
 describe("Endless modifiers", () => {
   it("never reach the boss", () => {
@@ -43,16 +46,69 @@ describe("Endless modifiers", () => {
 describe("Endless build boons", () => {
   const keys = [REGULAR, REGULAR, REGULAR, REGULAR, REGULAR, REGULAR, REGULAR, REGULAR];
   const base = beginEndlessRun("endless", party(keys));
-  const units = (kind: "vanguard" | "rearguard") => endlessPlayerUnits(applyEndlessBoon(base, { kind }));
+  const units = (kind: EndlessBuildBoon, run = base) => endlessPlayerUnits(applyEndlessBoon(run, { kind }));
 
   it("read the army's order, so reordering changes who gets them", () => {
     const plain = endlessPlayerUnits(base);
     const vanguard = units("vanguard");
     expect(vanguard[0].maxHp).toBeGreaterThan(plain[0].maxHp);
     expect(vanguard[3].maxHp).toBeLessThan(plain[3].maxHp);
-    const rear = units("rearguard");
-    expect(rear[7].attacks[0].mult).toBeGreaterThan(plain[7].attacks[0].mult ?? 1);
-    expect(rear[0].attacks[0].mult).toBeLessThan(plain[0].attacks[0].mult ?? 1);
+  });
+
+  it("halves the back of the line's falloff with Rearguard, rather than trading stats", () => {
+    const run = { ...applyEndlessBoon(base, { kind: "rearguard" }), nextWave: 1 };
+    expect(endlessPlayerUnits(run).map((u) => u.attacks[0].mult)).toEqual(endlessPlayerUnits(base).map((u) => u.attacks[0].mult));
+    expect(endlessFightConfig(run, 45).endlessMechanics?.rearguard).toBe(true);
+    expect(endlessFightConfig({ ...base, nextWave: 1 }, 45).endlessMechanics?.rearguard).toBeFalsy();
+  });
+
+  it("lifts one stat for everyone, or every stat for one class", () => {
+    const mixed = beginEndlessRun("endless", party([REGULAR, HEADLESS, GARDEN]));
+    const plain = endlessPlayerUnits(mixed);
+    const teeth = units("sharp-teeth", mixed);
+    teeth.forEach((u, i) => expect(u.attacks[0].mult).toBeCloseTo((plain[i].attacks[0].mult ?? 1) * 1.1, 6));
+    const quick = units("quick-hands", mixed);
+    quick.forEach((u, i) => expect(u.attackCooldownMs).toBe(Math.round(plain[i].attackCooldownMs / 1.1)));
+    const drill = units("drill-headless", mixed);
+    expect(drill[1].maxHp).toBeGreaterThan(plain[1].maxHp);
+    expect(drill[1].attackCooldownMs).toBeLessThan(plain[1].attackCooldownMs);
+    expect(drill[0].maxHp).toBe(plain[0].maxHp);
+  });
+
+  it("trades within what a class is for", () => {
+    const mixed = beginEndlessRun("endless", party([REGULAR, HEADLESS, GARDEN]));
+    const plain = endlessPlayerUnits(mixed);
+    const ram = units("battering-ram", mixed);
+    expect(ram[1].attackCooldownMs).toBe(Math.round(plain[1].attackCooldownMs / 1.4));
+    expect(ram[1].maxHp).toBeLessThan(plain[1].maxHp);
+    expect(ram[0]).toEqual(plain[0]);
+    expect(units("bulwark", mixed)[1].maxHp).toBe(Math.round(plain[1].maxHp * 1.25));
+    expect(units("green-thumb", mixed)[2].healMult).toBe(1.5);
+    expect(units("green-thumb", mixed)[0].healMult ?? 1).toBe(1);
+  });
+
+  it("caps deployment boons at an 80% cut to the deploy charge", () => {
+    let run = base;
+    for (let i = 0; i < 6; i++) run = applyEndlessBoon(run, { kind: "deployment", percent: 20 });
+    expect(run.deploymentSpeedBonus).toBe(ENDLESS_MAX_DEPLOY_REDUCTION);
+    const sim = endlessSimFor(endlessFightConfig({ ...run, nextWave: 1 }, 45));
+    expect((sim as unknown as { focusChargeMs: number }).focusChargeMs).toBeCloseTo(3600 * 0.2, 6);
+  });
+
+  it("sends the loaned Special in with the army's third deploy, past the queue", () => {
+    const lent = ENDLESS_TEMPORARY_ZOMBIES[0];
+    const run = { ...endlessApplyBoon(base, { kind: "temporary-zombie", key: lent.key, name: lent.name }, 45), nextWave: 1 };
+    const sim = endlessSimFor(endlessFightConfig(run, 45));
+    const players = sim.units.filter((u) => u.team === "player") as unknown as { id: string; state: string }[];
+    const loaned = players.find((u) => u.id.startsWith("temp-"))!;
+    const own = players.filter((u) => u !== loaned);
+    const out = () => own.filter((u) => u.state !== "waiting" && u.state !== "charging").length;
+    let loanedAt = -1;
+    for (let i = 0; i < 4000 && loanedAt < 0; i++) {
+      sim.step(50);
+      if (loaned.state !== "waiting" && loaned.state !== "charging") loanedAt = out();
+    }
+    expect(loanedAt).toBe(3);
   });
 
   it("carries a fight's health as a share, so a boosted body comes back in step", () => {

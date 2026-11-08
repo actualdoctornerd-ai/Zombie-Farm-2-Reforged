@@ -1,4 +1,4 @@
-import { ENDLESS_MODIFIERS, endlessStopLabel, type EndlessStop } from "../../raid/endless";
+import { ENDLESS_BUILD_BOONS, ENDLESS_MODIFIERS, endlessStopLabel, isEndlessBuildBoon, type EndlessStop } from "../../raid/endless";
 import type { Hud } from "../../hud";
 import type { EndlessBossView } from "../../net/api";
 import { openModal } from "../Modal";
@@ -15,16 +15,16 @@ function describeChoice(choice: unknown): string {
   if (!choice || typeof choice !== "object") return String(choice);
   const value = choice as Record<string, unknown>;
   const pct = typeof value.percent === "number" ? ` ${value.percent}%` : "";
+  if (isEndlessBuildBoon(value.kind)) {
+    const boon = ENDLESS_BUILD_BOONS[value.kind];
+    return `${boon.name}: ${boon.text}`;
+  }
   switch (value.kind) {
     case "revive-headless": return "Revive fallen headless zombies after each battle";
     case "damage": return `Zombies deal${pct} more damage`;
-    case "deployment": return `Zombies deploy${pct} faster`;
+    case "deployment": return `Zombies deploy${pct} faster (up to 80% in all)`;
     case "opening-deploy": return `Start with ${value.count} zombies deployed`;
-    case "vanguard": return "Your first 3 zombies get 50% more health, the rest 10% less";
-    case "rearguard": return "Your last 5 zombies deal 40% more damage, the rest 10% less";
-    case "headless-wall": return "Headless zombies get 40% more health, the rest deal 10% less damage";
-    case "garden-focus": return "Garden zombies get 60% more health, the rest deal 5% less damage";
-    case "temporary-zombie": return `${String(value.name)} joins your army for this run`;
+    case "temporary-zombie": return `${String(value.name)} joins your army for this run, deploying with your third zombie`;
     case "enemy-health": return `Enemies have${pct} more health`;
     case "enemy-damage": return `Enemies deal${pct} more damage`;
     case "enemy-attack-speed": return `Enemies attack${pct} faster`;

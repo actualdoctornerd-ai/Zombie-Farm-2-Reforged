@@ -211,16 +211,28 @@ the loot and gold earned so far, Go Home, and a button that opens the ordering s
 - It shows only the zombies brought on the run. Bringing 8 shows those 8. It gives no access to
   the Mausoleum or anything else.
 
-**Boons. Status: built.** Build-changing boons stack and read the army's current order, so
-reordering changes who benefits:
+**Boons. Status: built, reworked 2026-11-08 (owner).** Three of the pool are offered after each
+boss, the same for everyone in a week. They stack, and the formation ones read the army's current
+order, so reordering changes who benefits. Rules: general boons lift one stat for everyone or every
+stat for one class; a class boon's downside hits what that class is for, or there is none; anything
+general that costs something should change something interesting (`ENDLESS_BUILD_BOONS`).
 
 | Boon | Effect |
 |---|---|
+| Sharp Teeth / Thick Skin / Quick Hands | All zombies +10% damage / health / attack speed |
+| Regular Drills, Girl Power, Headless Drills, Brute Drills, Garden Drills | +10% to every stat for that class |
+| Battering Ram | Headless attack 40% faster, 15% less health: a Headless that does real damage |
+| Bulwark | Headless +25% health |
+| Green Thumb | Gardens heal 50% more |
+| Brute Force | Brutes deal 30% more damage, attack 15% slower |
+| Frenzy | Girls attack 30% faster, 15% less health |
+| Grit | Regulars +20% health, 10% less damage |
 | Vanguard | First 3 zombies +50% health, the rest -10% |
-| Rear Guard | Last 5 zombies +40% damage, the rest -10% |
-| Headless Wall | Headless +40% health, the rest -10% damage |
-| Garden Focus | Gardens +60% health, the rest -5% damage |
-| Temporary zombie | A strong Special, chosen by the week's seed, joins at Master veterancy for the run, even above the 20-zombie cap. It is never on the roster or the leaderboard army |
+| Rearguard | Zombies behind the front five lose only half the source's falloff (they swing x1.425 / x2 / x4 slower and hit softer per group of five; Rearguard halves both). A straight stat boost at the back used to be a net loss there |
+| Faster deployment | The deploy charge 20% shorter, stacking to an 80% cut at most |
+| Opening deploy | Start with 3 zombies already out |
+| Revive Headless | Fallen Headless stand up again after every fight |
+| Loaned Special | A strong Special, chosen by the week's seed, joins at Master veterancy for the run, even above the 20-zombie cap. It never queues: it walks on the moment the army's third zombie deploys, so it reinforces rather than clogs. Never on the roster or the leaderboard army |
 
 **Curses** are about choosing the downside that hurts your build least, and pay nothing for now.
 They alter a mechanic and never disable it: shorter stuns, not no stuns.

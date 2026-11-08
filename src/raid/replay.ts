@@ -1293,6 +1293,8 @@ import type { RaidOutcome } from "./types";
 // stuns the first enemy she sees for 2 s. Changes every fight an army with her in it plays.
 // They are her card abilities Petrify (slot 4) and Stone Gaze (slot 3), gated by Life Force.
 // Zwamp Thing counts its mutations twice (mutations.MUTATION_SCALE).
+// Endless only: the loaned Special deploys with the third zombie, deployment boons cut the charge
+// at most 80%, Rearguard halves the line falloff, Green Thumb scales heals (CombatUnit.healMult).
 export const RAID_RULESET_VERSION = 83;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own

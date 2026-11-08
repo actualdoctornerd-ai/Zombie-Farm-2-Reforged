@@ -90,6 +90,7 @@ export function endlessFightConfig(run: EndlessRunState, playerLevel: number): E
   const mechanics = buildEndlessStageMechanics(plan, playerLevel, undefined, run.curses);
   mechanics.deploymentSpeedBonus = run.deploymentSpeedBonus;
   mechanics.openingDeploy = run.openingDeploy;
+  mechanics.rearguard = run.buildBoons.includes("rearguard");
   const waveCadence: WaveCadence = plan.location === "alien"
     ? waveCadenceFor(6)
     : { maxActive: 1, dripMs: 0, openingActive: 1 };
@@ -147,15 +148,16 @@ export function endlessSimFor(config: EndlessFightConfig) {
 
 const ZOMBIES = new Map((zombiesJson as ZombieDef[]).map((z) => [z.key, z]));
 
-/** Apply a chosen boon. A temporary zombie joins at the back of the army at Master veterancy,
- *  for this run only: it is never on the account's roster. */
+/** Apply a chosen boon. A temporary zombie joins the army at Master veterancy for this run
+ *  only (never on the account's roster), and deploys with the army's third zombie. */
 export function endlessApplyBoon(run: EndlessRunState, boon: EndlessBoon, playerLevel: number): EndlessRunState {
   if (boon.kind !== "temporary-zombie") return applyEndlessBoon(run, boon);
   const def = ZOMBIES.get(boon.key);
   if (!def) return run;
   const owned = makeOwned(`temp-${run.units.length}`, def as Parameters<typeof makeOwned>[1], 0, 0, MAX_VET_RANK, 0);
   const [unit] = buildPlayerUnits([owned], { playerLevel, abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, playerLevel) });
-  return unit ? { ...run, units: [...run.units, { ...unit, hp: unit.maxHp, alive: true }] } : run;
+  // Loaned: it skips the deploy queue and walks on with the army's third deploy (BattleSim).
+  return unit ? { ...run, units: [...run.units, { ...unit, hp: unit.maxHp, alive: true, loaned: true }] } : run;
 }
 
 export function endlessCarryFromSim(run: EndlessRunState, sim: ReturnType<typeof endlessSimFor>) {

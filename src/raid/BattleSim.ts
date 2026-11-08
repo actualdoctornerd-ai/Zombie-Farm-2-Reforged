@@ -105,6 +105,10 @@ const CENTER_Y = FIELD_H / 2;
 const ENGAGE = 60; // x-distance at which two units trade blows
 
 const CHARGE_MS = 3600; // focus-bar fill (zombies take a while to get out)
+/** Endless: the most the deployment boons may cut CHARGE_MS by. */
+const MAX_DEPLOY_REDUCTION = 0.8;
+/** Endless: the loaned Special walks on with this many of the army's own deploys. */
+const LOANED_AFTER_DEPLOYS = 3;
 // Focus-bubble minigame thresholds: the fill pauses at 1/4, 2/4, 3/4 (a butterfly
 // distraction) and again at full (a brain, gating the release). Popping a bubble
 // resumes instantly; if the player never taps, it auto-resolves after these
@@ -830,6 +834,10 @@ export interface SimUnit {
   mirrorsOpponentSpeed: boolean;
   /** Endless: multiplies the mirrored interval (CombatUnit.mirrorPace). 1 everywhere else. */
   mirrorPace: number;
+  /** Endless: the loaned Special, released with the army's third deploy (CombatUnit.loaned). */
+  loaned: boolean;
+  /** Endless: heal multiplier (CombatUnit.healMult). 1 everywhere else. */
+  healMult: number;
   /** A zombie's SPECIES BASE cycle in ms (2 s ÷ catalog dex, nothing else applied).
    *  Arrrnold's slam is priced on this rather than on `cooldownMs`; see combatStats. */
   speciesCycleMs: number;
@@ -1196,6 +1204,8 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     staggerMs: 0,
     mirrorsOpponentSpeed: !isPlayer && !!u.mirrorsOpponentSpeed,
     mirrorPace: u.mirrorPace ?? 1,
+    loaned: isPlayer && !!u.loaned,
+    healMult: u.healMult ?? 1,
     speciesCycleMs: u.speciesCycleMs ?? u.attackCooldownMs,
   };
 }
@@ -1473,7 +1483,9 @@ export class BattleSim {
     const ordered = [...enemyUnits].sort((a, b) => Number(a.isBoss) - Number(b.isBoss));
     this.players = playerUnits.map((u, i) => toSim(u, i));
     this.enemies = ordered.map((u, i) => toSim(u, i));
-    this.focusChargeMs = Math.max(1_000, CHARGE_MS / (1 + Math.max(0, endlessMechanics?.deploymentSpeedBonus ?? 0)));
+    // Endless's deployment boons cut the charge time, never by more than 80% (owner, 2026-11-08).
+    this.focusChargeMs = CHARGE_MS *
+      (1 - Math.min(MAX_DEPLOY_REDUCTION, Math.max(0, endlessMechanics?.deploymentSpeedBonus ?? 0)));
     for (const player of this.players.slice(0, Math.max(0, Math.min(3, Math.floor(endlessMechanics?.openingDeploy ?? 0))))) {
       this.releaseCharger(player);
     }
@@ -1692,6 +1704,8 @@ export class BattleSim {
       stunChance: u.stunChance ?? (u.stunInflictMs > 0 ? 1 : 0),
       mirrorsOpponentSpeed: u.mirrorsOpponentSpeed ?? false,
       mirrorPace: u.mirrorPace ?? 1,
+      loaned: !!u.loaned,
+      healMult: u.healMult ?? 1,
     })));
     this.players = this.units.filter((u) => u.team === "player");
     this.enemies = this.units.filter((u) => u.team === "enemy");
@@ -2380,7 +2394,7 @@ export class BattleSim {
         healer.healTimerMs = Math.max(healer.healTimerMs, 250);
         continue;
       }
-      const amount = Math.max(1, Math.round(healer.power * HEAL_POWER_MULT));
+      const amount = Math.max(1, Math.round(healer.power * HEAL_POWER_MULT * healer.healMult));
       // A held cast is BANKED, not dropped: the timer still runs down, then parks at zero
       // until the first gap and fires the moment one opens. Resetting it instead would all
       // but silence a front-line carrier — Heal All is a flat 20-second timer, so it would
@@ -3487,7 +3501,7 @@ export class BattleSim {
   private cycleMs(u: SimUnit, foe: SimUnit | null): number {
     // Slowed (raid 12): the ruling stretches every zombie's attack interval.
     if (u.team === "player") {
-      const cycle = u.cooldownMs * lineupSpeedBand(u.lineupIndex) * this.rulingFx.slow;
+      const cycle = u.cooldownMs * this.speedBand(u) * this.rulingFx.slow;
       return this.raging(u) ? cycle / RAGE_SPEED_MULT : cycle;
     }
     // Do or Die: every enemy at twice its dex, which is half its cycle.
@@ -3502,6 +3516,16 @@ export class BattleSim {
     }
     // A PvP defender's Rage (raid enemies carry no abilities, so this is 1 for every raid).
     return u.cooldownMs / haste / (this.raging(u) ? RAGE_SPEED_MULT : 1);
+  }
+
+  /** The line's slowdown and softening behind the front five, halved by Endless's Rearguard. */
+  private speedBand(u: SimUnit): number {
+    const band = lineupSpeedBand(u.lineupIndex);
+    return this.endlessMechanics?.rearguard ? 1 + (band - 1) / 2 : band;
+  }
+  private damageBand(u: SimUnit): number {
+    const band = lineupDamageBand(u.lineupIndex);
+    return this.endlessMechanics?.rearguard ? 1 - (1 - band) / 2 : band;
   }
 
   /** The deployed zombie furthest forward: the one an arriving enemy meets first. */
@@ -3524,7 +3548,7 @@ export class BattleSim {
     // enemies always hit at band 1.0. See combatStats.lineupDamageBand (ground truth).
     const dmg =
       u.team === "player"
-        ? Math.max(1, Math.round(u.damage * lineupDamageBand(u.lineupIndex) * this.outgoingMult(u)))
+        ? Math.max(1, Math.round(u.damage * this.damageBand(u) * this.outgoingMult(u)))
         // A circus stack hits for as many midgets as are still standing on each other's
         // shoulders. Multiplied here rather than baked into `damage`, because the height
         // changes every time the tower takes a pool's worth and the swing has to follow it
@@ -3552,7 +3576,7 @@ export class BattleSim {
       if (u.abilities.includes("doubleStrike") && this.abilityRoll(u) > 70 && foe.alive) {
         const bonus = Math.max(
           1,
-          Math.round(u.power * 0.25 * lineupDamageBand(u.lineupIndex) * this.outgoingMult(u))
+          Math.round(u.power * 0.25 * this.damageBand(u) * this.outgoingMult(u))
         );
         this.dealDamage(foe, bonus, true);
         this.playerDamage += bonus;
@@ -4170,6 +4194,21 @@ export class BattleSim {
     p.formOrder = this.releaseSeq++; // claim a formation slot on release
     p.distracted = false;
     p.awaitRelease = false;
+    if (!p.loaned && this.ownDeployed() >= LOANED_AFTER_DEPLOYS) this.releaseLoaned();
+  }
+
+  /** How many of the army's own zombies have left the queue (dead ones included). Read off
+   *  the units, not a counter, so a restored snapshot needs nothing extra. */
+  private ownDeployed(): number {
+    return this.players.filter((q) => !q.loaned && q.state !== "waiting" && q.state !== "charging").length;
+  }
+
+  /** Endless's loaned Special skips the line (owner, 2026-11-08): it walks on with the army's
+   *  third deploy, so it is a reinforcement rather than a body clogging the queue. */
+  private releaseLoaned() {
+    for (const q of this.players) {
+      if (q.loaned && q.alive && (q.state === "waiting" || q.state === "charging")) this.releaseCharger(q);
+    }
   }
 
   /** Who the ringmaster's whip strikes (raid 14): the nearest zombie on his LEFT — the healer
@@ -4540,8 +4579,11 @@ export class BattleSim {
 
     const charging = this.players.some((p) => p.alive && p.state === "charging");
     if (!charging) {
-      const next = this.players.find((p) => p.alive && p.state === "waiting");
+      // The loaned Special never queues (releaseLoaned); an army of fewer than three of
+      // its own zombies sends it once the last of them is out.
+      const next = this.players.find((p) => p.alive && p.state === "waiting" && !p.loaned);
       if (next) next.state = "charging";
+      else this.releaseLoaned();
     }
 
     // The reinforcement clock runs on its own regardless of the emerge beat below.
