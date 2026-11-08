@@ -325,6 +325,9 @@ export interface GameplayProjection {
   /** Server-owned: the next zombie harvested takes the mutation of the crop beside it, for
    *  certain (the tutorial's carrot). Absent/false on accounts that predate the rework. */
   tutorialMutation?: boolean;
+  /** Deepest normal-Endless tier cleared: decides the permanent unlocks (raid/endlessPerks.ts).
+   *  Server-owned, written only by Endless boss wins. Absent = none. */
+  endlessBestTier?: number;
   /** Per running Zombie Pot, the parent id that went into SLOT 1 — the slot that decides
    *  the result species. Recorded when the combine starts because the collect command
    *  arrives an hour later from a client that may have rebuilt its job from the roster,

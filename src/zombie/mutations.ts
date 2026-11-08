@@ -427,12 +427,26 @@ export function mutationLabel(mask: number): string {
  *  and opposite places (makeOwned bakes it in, buildPlayerUnits subtracts it to
  *  recover the species' raw stat). Clamping at one end and not the other would make
  *  the two disagree — the floor belongs where a stat becomes combat behaviour. */
-export function mutationBonus(mask: number): { str: number; con: number; dex: number } {
+export function mutationBonus(mask: number, speciesKey?: string): { str: number; con: number; dex: number } {
   const b = { str: 0, con: 0, dex: 0 };
+  const scale = mutationScaleOf(speciesKey);
   for (const m of mutationsOf(mask)) {
-    for (const { stat, amount } of statEffectsOf(m)) b[stat] += amount;
+    for (const { stat, amount } of statEffectsOf(m)) b[stat] += amount * scale;
   }
   return b;
+}
+
+/** Species whose mutations count twice (owner design, Endless Mode rewards). Zwamp Thing
+ *  starts weaker than the late specials and grows into them: fully mutated it fields about
+ *  27 str / 40 con at 3 dex, level with a mutated Video Game Zombie (38 / 47 at 2.1 dex). */
+export const MUTATION_SCALE: Readonly<Record<string, number>> = { ZombieActorZwampThing: 2 };
+
+/** How many times a species counts each mutation's stats: 1 for everyone but the
+ *  MUTATION_SCALE species. Every caller of mutationBonus that knows the species passes
+ *  it, because makeOwned bakes the bonus in and buildPlayerUnits peels it back off: the
+ *  two must agree. */
+export function mutationScaleOf(speciesKey?: string): number {
+  return (speciesKey && MUTATION_SCALE[speciesKey]) || 1;
 }
 
 /**

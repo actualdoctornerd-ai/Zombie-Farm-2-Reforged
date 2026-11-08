@@ -1,10 +1,14 @@
 import type { EndlessLocation, EndlessMode } from "./endless";
+import { ENDLESS_CRYPT_SLOTS, ENDLESS_EXPANSION_SIZE, ENDLESS_PERK_TIER, ENDLESS_SHED_SLOTS, endlessVictoryBrains } from "./endlessPerks";
 
 export type EndlessBossLoot =
   | { kind: "boost"; name: string; key: string; quantity: number }
   | { kind: "item"; name: string; quantity: 1 }
   | { kind: "zombie"; name: string; key: string; quantity: 1 }
-  | { kind: "brains"; name: "Brains"; quantity: number };
+  | { kind: "brains"; name: "Brains"; quantity: number }
+  /** A permanent unlock (raid/endlessPerks.ts). Paying it is recording the cleared tier on
+   *  the account, which the caps, the Market and the fights all read. */
+  | { kind: "perk"; name: string; perk: "crypt" | "shed" | "expansion" | "veterancy"; quantity: 1 };
 
 type Reward = { weight: number; name: string; key?: string; quantity: number };
 const AREA_COSMETICS: Readonly<Record<EndlessLocation, readonly string[]>> = {
@@ -158,13 +162,25 @@ const ZWAMP_THING: EndlessBossLoot = { kind: "zombie", name: "Zwamp Thing", key:
 const MEDUSA: EndlessBossLoot = { kind: "zombie", name: "Medusa Zombie", key: "ZombieActorMedusa", quantity: 1 };
 
 /** What a tier pays the FIRST time an account beats its boss in a mode, on top of that fight's
- *  loot. See docs/ENDLESS_MODE_REWARDS.md: T4-T7's capacity and farm prizes are not built. */
+ *  loot (docs/ENDLESS_MODE_REWARDS.md). T4-T7 are permanent unlocks; from T8 every boss win
+ *  pays brains instead (endlessVictoryBrains), so there is no first-clear prize past T7. */
 export function endlessMilestoneRewards(mode: EndlessMode, tier: number): EndlessBossLoot[] {
   const rewards: EndlessBossLoot[] = [];
   if (tier === 1) rewards.push({ kind: "boost", name: "Brain Ticket", key: "brain_ticket", quantity: 2 });
   if (tier === 2) rewards.push({ kind: "brains", name: "Brains", quantity: 1 });
   if (tier === 3) rewards.push(ZWAMP_THING);
   if (tier === 5 && mode === "nightmare") rewards.push(MEDUSA);
-  if (tier >= 8) rewards.push({ kind: "brains", name: "Brains", quantity: 3 });
+  if (mode === "endless") {
+    if (tier === ENDLESS_PERK_TIER.crypt) rewards.push({ kind: "perk", perk: "crypt", name: `+${ENDLESS_CRYPT_SLOTS} Mausoleum Slots`, quantity: 1 });
+    if (tier === ENDLESS_PERK_TIER.shed) rewards.push({ kind: "perk", perk: "shed", name: `+${ENDLESS_SHED_SLOTS} Shed Slots`, quantity: 1 });
+    if (tier === ENDLESS_PERK_TIER.expansion) rewards.push({ kind: "perk", perk: "expansion", name: `${ENDLESS_EXPANSION_SIZE}×${ENDLESS_EXPANSION_SIZE} Farm Unlocked`, quantity: 1 });
+    if (tier === ENDLESS_PERK_TIER.veterancy) rewards.push({ kind: "perk", perk: "veterancy", name: "Legend Veterancy", quantity: 1 });
+  }
   return rewards;
+}
+
+/** What a boss win at `tier` pays on top of its loot table, every time: brains from T8. */
+export function endlessVictoryRewards(mode: EndlessMode, tier: number): EndlessBossLoot[] {
+  const brains = mode === "endless" ? endlessVictoryBrains(tier) : 0;
+  return brains > 0 ? [{ kind: "brains", name: "Brains", quantity: brains }] : [];
 }

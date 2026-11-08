@@ -1,4 +1,4 @@
-import { ENDLESS_FIGHTS_PER_LOCATION } from "../../raid/endless";
+import { ENDLESS_FIGHTS_PER_LOCATION, endlessModeOpen } from "../../raid/endless";
 import type { Hud } from "../../hud";
 import type { EndlessLeaderboardEntry } from "../../net/api";
 import { mutationLabelFor } from "../../zombie/mutationDisplay";
@@ -166,6 +166,8 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       boardTabs.appendChild(tab);
     }
     modeTabs.replaceChildren();
+    // One open mode needs no mode tabs (Nightmare is held for a later release).
+    modeTabs.hidden = !endlessModeOpen("nightmare");
     for (const [value, label] of [["endless", "Normal"], ["nightmare", "Nightmare"]] as const) {
       const tab = document.createElement("button");
       tab.type = "button";

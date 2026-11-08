@@ -140,6 +140,21 @@ describe("Endless settlement on the real schema", () => {
     expect(raw.prepare("SELECT delta FROM ledger WHERE account_id=? AND reason='endless_milestone'").get(ME)).toMatchObject({ delta: 1 });
   });
 
+  // Strong enough to clear any boss quickly, so a deep tier settles like a shallow one.
+  const titans = () => army().map((u) => ({ ...u, str: u.str * 400, con: u.con * 400, maxHp: u.maxHp * 400, hp: u.maxHp * 400 }));
+  const core = () => JSON.parse((raw.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").get(ME) as { current_json: string }).current_json) as Record<string, unknown>;
+
+  it("unlocks a perk on its first clear by recording the best tier on the core document", async () => {
+    raw.prepare("INSERT INTO endless_progress (account_id,mode,best_tier,updated_at) VALUES (?,'endless',3,0)").run(ME);
+    const fight = seedRun(12, beginEndlessRun("endless", titans(), "9"));
+    const result = await finishEndlessWave(db, ME, winFloor(fight, 12), LATER);
+    expect(result.status).toBe(200);
+    expect(result.body.bossLoot).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "perk", perk: "crypt" })]));
+    expect(core().endlessBestTier).toBe(4);
+    // A perk is not an item: nothing lands in Received for it.
+    expect(Object.keys(received()).some((name) => name.includes("Mausoleum"))).toBe(false);
+  });
+
   it("gives a skipper its chest at its first boss: skipped rolls and milestones", async () => {
     const run = beginEndlessRun("endless", army(), "9", 3);
     const fight = seedRun(9, run);
@@ -178,6 +193,15 @@ describe("Endless settlement on the real schema", () => {
     await abandonEndless(db, ME, SESSION, 96_000);
     expect(await listEndlessLeaderboard(db, "endless", "next-week")).toMatchObject([{ deepest_floor: 3 }]);
     expect(await listEndlessLeaderboard(db, "endless")).toMatchObject([{ deepest_floor: 6 }]);
+  });
+
+  it("starts no Nightmare run while Nightmare is held back", async () => {
+    raw.prepare("UPDATE balances SET xp=9000000 WHERE account_id=?").run(ME);
+    raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
+      VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
+    const started = await startEndless(db, ME, { mode: "nightmare", orderedUnitIds: ["z0"], rulesetVersion: RAID_RULESET_VERSION }, LATER);
+    expect(started).toMatchObject({ status: 404, body: { error: "mode_closed" } });
+    expect(brains()).toBe(5);
   });
 
   it("refuses a starting tier above the account's level", async () => {

@@ -3,7 +3,7 @@ import { buildPlayerUnits } from "../../../src/raid/CombatEngine";
 import {
   applyEndlessCurse, applyEndlessStop, beginEndlessRun,
   applyEndlessOrder, endlessBossDraft, endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
-  ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_UNLOCK_LEVEL,
+  ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_UNLOCK_LEVEL, endlessModeOpen,
   type EndlessBoon, type EndlessCurse, type EndlessMode, type EndlessRunState, type EndlessStop,
 } from "../../../src/raid/endless";
 import {
@@ -20,7 +20,8 @@ import { levelForXp } from "../levels";
 import { recordEndlessLeaderboardStatement, recordEndlessWeeklyStatement, type EndlessLeaderboardArmyMember } from "../db";
 import { MAX_STACK } from "../boostCatalog";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
-import { endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessFloorLoot, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
+import { endlessBestTierOf, endlessMaxVetRankOf } from "../../../src/raid/endlessPerks";
+import { endlessMilestoneRewards, endlessVictoryRewards, rollEndlessBossLoot, rollEndlessFloorLoot, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
 
 const zombies = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
 interface StoredRun {
@@ -158,6 +159,7 @@ export async function startEndless(
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!isMode(body.mode)) return fail(400, "bad_mode");
   const mode = body.mode;
+  if (!endlessModeOpen(mode)) return fail(404, "mode_closed");
   if (body.rulesetVersion !== RAID_RULESET_VERSION) return fail(426, "stale_ruleset");
   if (!Array.isArray(body.orderedUnitIds) || !body.orderedUnitIds.length || body.orderedUnitIds.length > ARMY_CAP ||
       body.orderedUnitIds.some((id) => typeof id !== "string" || !id) ||
@@ -200,6 +202,7 @@ export async function startEndless(
     farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
     farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
     mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
+    maxVetRank: endlessMaxVetRankOf(core),
   });
   const state: RunPayload = { run: beginEndlessRun(mode, playerUnits, endlessWeekSeed(now), startTier), playerLevel: level, durationMs: 0 };
   // A skipped tier's boons and curses are drafted first, one screen each, before any fight.
@@ -307,6 +310,13 @@ export async function finishEndlessWave(
       for (let tier = (progressRow?.best_tier ?? 0) + 1; tier <= plan.tier; tier++) {
         loot.push(...endlessMilestoneRewards(session.mode, tier));
       }
+      loot.push(...endlessVictoryRewards(session.mode, plan.tier));
+      // The permanent unlocks (raid/endlessPerks.ts) all read this one number off the core
+      // document. Recorded on every normal boss win, never lowered, and lifted to the
+      // endless_progress best so an account that cleared tiers before it existed has them.
+      if (session.mode === "endless") {
+        rewardCore.endlessBestTier = Math.max(endlessBestTierOf(rewardCore), progressRow?.best_tier ?? 0, plan.tier);
+      }
     }
     for (const reward of loot) {
       if (reward.kind === "boost") {
@@ -315,6 +325,8 @@ export async function finishEndlessWave(
         rewardCore.storage.received[reward.name] = (rewardCore.storage.received[reward.name] ?? 0) + 1;
       } else if (reward.kind === "brains") {
         brainsEarned += reward.quantity;
+      } else if (reward.kind === "perk") {
+        // Paid by endlessBestTier above.
       } else {
         const marker = encodeReceivedZombie({ id: crypto.randomUUID(), key: reward.key, mutation: 0, invasions: 0 });
         rewardCore.storage.received[marker] = 1;

@@ -160,6 +160,18 @@ EXTRA_SIZE_TIERS = [
      "gold": 1_250_000, "brains": 20},
 ]
 
+# The farm sizes Endless Mode unlocks (src/raid/endlessPerks.ts): still bought, but only
+# for sale once the account has cleared `endlessTier`. Outside check_size_progression on
+# purpose (owner, 2026-10): it costs more than the tier below without scaling as hard.
+# Gated by the unlock, not by level (owner, 2026-11-08): its level is the tier below's,
+# which owning that tier already proves.
+#
+# KEEP IN SYNC with ENDLESS_EXPANSION_SIZE / ENDLESS_PERK_TIER.expansion in endlessPerks.ts.
+ENDLESS_SIZE_TIERS = [
+    {"name": "Gargantuan 'ol Farm", "size": 80, "level": 41,
+     "gold": 4_000_000, "brains": 30, "endlessTier": 6},
+]
+
 # ---- Ground skins ---------------------------------------------------------
 # Ground/climate skins Reforged ADDS beyond the six the source ships. `terrain`
 # must name a row emitted by prep_assets.slice_ground — for a derived skin, a key

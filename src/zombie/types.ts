@@ -74,7 +74,7 @@ export function makeOwned(
     upgradeVariantMutations(def.key, mutation ?? def.mutation ?? 0),
     group === "Headless",
   );
-  const bonus = mutationBonus(mask);
+  const bonus = mutationBonus(mask, def.key);
   return {
     id,
     key: def.key,

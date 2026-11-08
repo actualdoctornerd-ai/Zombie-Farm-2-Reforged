@@ -19,6 +19,7 @@ import { RAID_RULESET_VERSION } from "../raidVerifier";
 import { parseRosterColor, serializeRosterColor } from "./rosterColor";
 import { refreshPeriodicState, xpToNextLevel } from "../../../src/quest/periodic/generate";
 import type { PeriodicQuestState } from "../../../src/quest/periodic/types";
+import { endlessBestTierOf } from "../../../src/raid/endlessPerks";
 
 interface RuntimeRow {
   account_version: number;
@@ -104,6 +105,8 @@ const coreFrom = (state: GameplayProjection) => ({
   zombiePotBought: state.zombiePotBought,
   tutorialRewarded: state.tutorialRewarded,
   tutorialMutation: state.tutorialMutation ?? false,
+  // Written by Endless boss wins (v3/endless.ts), carried through every engine save here.
+  endlessBestTier: state.endlessBestTier ?? 0,
   // Which parent is in slot 1 of each running Pot. It has to outlive the request that
   // started the combine — the collect arrives an hour later — and it deliberately lives
   // HERE rather than in the roster's reservation marker: the marker is projected to
@@ -303,6 +306,7 @@ function project(rows: Awaited<ReturnType<typeof loadRows>>): GameplayProjection
     // Absent from every account created before the tutorial rework: those never get the
     // one-time guaranteed crop mutation.
     tutorialMutation: core.tutorialMutation ?? false,
+    endlessBestTier: endlessBestTierOf(core),
     potSlots: core.potSlots ?? {},
     roster,
     fallen,

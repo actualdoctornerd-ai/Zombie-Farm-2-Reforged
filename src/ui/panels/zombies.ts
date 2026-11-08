@@ -178,7 +178,7 @@ export function buildZombieCard(hud: Hud, info: ZombieInfo, host: HTMLElement): 
   // the per-modifier breakdown. See zombie/statDisplay.statBreakdown.
   const slotUnlocked = (slot: number) => hud.state.abilitySlotUnlocked(slot);
   // Which stats a mutation is boosting — those tiles render green (permanent species bonus).
-  const mutBonus = mutationBonus(info.mutation);
+  const mutBonus = mutationBonus(info.mutation, info.key);
   for (const s of STATS) {
     const bd = statBreakdown(info, s.key, slotUnlocked);
     const boosted = ((mutBonus as Record<string, number>)[s.key] ?? 0) > 0;
@@ -454,7 +454,7 @@ function confirmSellZombie(hud: Hud, info: ZombieInfo, value: number, refresh?: 
 export function openCatalogZombieCard(hud: Hud, card: MenuCard) {
   const zombie = card.zombie;
   if (!zombie) return;
-  const bonus = mutationBonus(zombie.mutation);
+  const bonus = mutationBonus(zombie.mutation, card.cfg.key);
   const info: ZombieInfo = withFarmerBonuses({
     name: card.name, typeName: card.name, key: card.cfg.key,
     group: zombie.group, className: zombie.className, classColor: zombie.classColor,

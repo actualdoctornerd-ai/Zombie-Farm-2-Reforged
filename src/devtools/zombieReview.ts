@@ -649,7 +649,7 @@ function renderStatus() {
   const cell = cells.find((c) => c.entry.key === entry.key);
   const mask = maskFor(entry);
   const label = mutationLabelFor(entry.key, mask) || "none";
-  const bonus = mutationBonus(mask);
+  const bonus = mutationBonus(mask, entry.key);
   const bonusText = `${bonus.str >= 0 ? "+" : ""}${bonus.str} str  ` +
     `${bonus.dex >= 0 ? "+" : ""}${bonus.dex} dex  ${bonus.con >= 0 ? "+" : ""}${bonus.con} con`;
   const parts = model ? model.parts.length : 0;

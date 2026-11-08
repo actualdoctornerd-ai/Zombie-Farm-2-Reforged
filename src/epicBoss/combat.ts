@@ -1,6 +1,7 @@
 import type { GameAssets } from "../assets";
 import { deriveAttackIntervalMs, pickByFrequency } from "../raid/combatStats";
 import { buildPlayerUnits } from "../raid/CombatEngine";
+import { accountMaxVetRank } from "../zombie/traits";
 import type { CombatUnit, RaidDef } from "../raid/types";
 import type { OwnedZombie } from "../zombie/types";
 import { epicBossDamage, epicBossDamageTiming } from "./catalog";
@@ -67,6 +68,7 @@ export function buildEpicBossSetup(
     farmerDexMult: state.farmerZombieDexMult?.() ?? 1,
     mutationStrengthMult: (state.mutationStrengthMult?.() ?? 1) *
       (state.farmerMutationStrengthMult?.() ?? 1),
+    maxVetRank: accountMaxVetRank(),
   });
   const boss: CombatUnit = {
     id: `epic:${run.runId}:${run.level}`,

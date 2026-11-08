@@ -1,4 +1,5 @@
 import { BASE } from "../base";
+import { accountEndlessPerks } from "../raid/endlessPerks";
 // Presentation metadata for the zombie detail card, using the AUTHENTIC game art
 // (tools/prep_zombie_detail.py) and the AUTHENTIC text pulled from the game binary.
 //
@@ -135,6 +136,9 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   support: { label: "Support", effect: "Takes 10% of every blow aimed at the front zombie", desc: "Shoulders some of the front line's punishment", icon: `${AB}ability_tankHitPointsBuff.png` },
   phase: { label: "Phase", effect: "The first time it would fall, it drops to 1 Life and can't be hurt for 3 seconds; once per fight", desc: "Blinks out of the killing blow", icon: `${AB}ability_ressurect.png` },
   teleport: { label: "Teleport", effect: "Appears at its place in the line the moment it deploys, past any wall", desc: "Skips the walk", icon: `${AB}ability_turboSpeed.png` },
+  // Medusa Zombie (owner, 2026-11-05): her two looks, each spent the moment she deploys.
+  stoneGaze: { label: "Stone Gaze", effect: "On deploy, turns the first enemy it sees to stone for 2 seconds", desc: "One look and they freeze", icon: `${AB}ability_stun.png` },
+  petrify: { label: "Petrify", effect: "On deploy, turns a boss on its perch to stone for 5 seconds; a boss can't be frozen again for 20 seconds", desc: "Stops the boss in its tracks", icon: `${AB}ability_block.png` },
 };
 
 // ---------------------------------------------------------------------------
@@ -292,6 +296,10 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorRegularOmegaBoss:  ["buffAllStats", "chivalry",          "rage",       "berserk"],
   ZombieActorRegularMegaBoss:   ["buffAllStats", "chivalry",          "shieldBar",  "support"],
   ZombieActorRegularSecretBoss: ["buffAllStats", "chivalry",          "teleport",   "phase"],
+  // ---- Medusa Zombie (owner, 2026-11-05): a Girl Zombie whose stare does the work ------
+  // Stone Gaze takes Random Stun's slot (it is her stun, sure instead of 4%) and Petrify
+  // takes Double Strike's, so the boss freeze is her capstone at Life Force 4.
+  ZombieActorMedusa:            ["attackSpeedBuff", "grace",          "stoneGaze",  "petrify"],
 };
 
 /** The ability a specific unit has at `tier`: a named-unique override if any,
@@ -310,28 +318,37 @@ export function unitAbilityAt(key: string | undefined, group: string, tier: numb
 // only for units that live through a battle — so invasions == survived invasions
 // today. When permanent casualties + a separate participation counter land, key
 // this off the survivals count specifically.
-export const VET_RANKS = ["Newbie", "Veteran 1", "Veteran 2", "Veteran 3", "Veteran 4", "Master"];
-export const MAX_VET_RANK = VET_RANKS.length - 1; // 5 = Master
+// "Legend" is above the ladder every account has: clearing Endless Tier 7 opens it
+// (raid/endlessPerks.ts), so an account's own ceiling is MAX_VET_RANK + its perk.
+export const VET_RANKS = ["Newbie", "Veteran 1", "Veteran 2", "Veteran 3", "Veteran 4", "Master", "Legend"];
+export const MAX_VET_RANK = 5; // Master: the ceiling every account has
 // Battles (survived invasions) required to REACH each rank — one per battle.
-export const VET_THRESHOLDS = [0, 1, 2, 3, 4, 5];
+export const VET_THRESHOLDS = [0, 1, 2, 3, 4, 5, 6];
+
+/** The signed-in account's veterancy ceiling (client display). Fights pass their own. */
+export function accountMaxVetRank(): number {
+  return MAX_VET_RANK + accountEndlessPerks().vetRanks;
+}
 /** Per-rank stat bonus (+5% of base per rank). */
 export const VET_STAT_STEP = 0.05;
 
-/** Rank level 0..5 from survived-invasion count (highest rank whose threshold is met). */
-export function veterancyLevel(survivals: number): number {
+/** Rank level from survived-invasion count (highest rank whose threshold is met), up to
+ *  `maxRank`: Master (5) for most accounts, Legend (6) past Endless Tier 7. Display reads
+ *  the signed-in account's ceiling; a fight passes the fighting account's explicitly. */
+export function veterancyLevel(survivals: number, maxRank = accountMaxVetRank()): number {
   let level = 0;
-  for (let i = 0; i < VET_THRESHOLDS.length; i++) {
+  for (let i = 0; i < VET_THRESHOLDS.length && i <= maxRank; i++) {
     if (survivals >= VET_THRESHOLDS[i]) level = i;
   }
   return level;
 }
 
 /** Rank name for a survived-invasion count. */
-export function veterancy(survivals: number): string {
-  return VET_RANKS[veterancyLevel(survivals)];
+export function veterancy(survivals: number, maxRank = accountMaxVetRank()): string {
+  return VET_RANKS[veterancyLevel(survivals, maxRank)];
 }
 
-/** All-stats multiplier from veterancy (1.0 at Recruit … 1.20 at Master). */
-export function veterancyMultiplier(survivals: number): number {
-  return 1 + VET_STAT_STEP * veterancyLevel(survivals);
+/** All-stats multiplier from veterancy (1.0 at Newbie … 1.25 at Master, 1.30 at Legend). */
+export function veterancyMultiplier(survivals: number, maxRank = accountMaxVetRank()): number {
+  return 1 + VET_STAT_STEP * veterancyLevel(survivals, maxRank);
 }

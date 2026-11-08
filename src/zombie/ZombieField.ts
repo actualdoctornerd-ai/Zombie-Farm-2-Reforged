@@ -14,6 +14,7 @@ import { newMutationBits } from "./mutationMask";
 import { makeOwned, normalizeZombieName, OwnedZombie, RosterEntry } from "./types";
 import { ZombieUnit } from "./ZombieUnit";
 import { ZombiePot } from "./ZombiePot";
+import { accountEndlessPerks } from "../raid/endlessPerks";
 
 /** Mausoleum storage-slot capacity of the BASE building. Every tier above it is
  *  authored in placeables.json (`zombieSlots`), so the live cap comes from the
@@ -158,7 +159,8 @@ export class ZombieField {
   get mausoleumCap(): number {
     const id = this.field.mausoleumId();
     if (!id) return 0;
-    return this.field.objectDefOf(id)?.zombieSlots ?? MAUSOLEUM_CAP;
+    // Plus Endless Tier 4's slots (raid/endlessPerks.ts; the Worker's placedCapacity agrees).
+    return (this.field.objectDefOf(id)?.zombieSlots ?? MAUSOLEUM_CAP) + accountEndlessPerks().cryptSlots;
   }
   /** Are all Mausoleum slots full? */
   get mausoleumFull(): boolean {

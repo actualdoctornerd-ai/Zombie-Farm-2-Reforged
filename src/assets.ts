@@ -763,6 +763,8 @@ export interface FarmSizeUpgrade {
   brains: number;
   info: string; // "40x40"
   icon: string; // filename under /assets/ui/market/
+  /** For sale only once the account has cleared this Endless tier (raid/endlessPerks.ts). */
+  endlessTier?: number;
 }
 /** A Ground/climate skin: repaints the whole farm's terrain tiles. */
 export interface ClimateUpgrade {

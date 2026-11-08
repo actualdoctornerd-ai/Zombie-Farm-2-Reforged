@@ -103,7 +103,7 @@ export function statBreakdown(
   slotUnlocked: AbilitySlotGate
 ): StatBreakdown {
   const raw = rawStat(z, stat); // already includes the mutation bonus (makeOwned)
-  const mut = stat === "focus" ? 0 : mutationBonus(z.mutation)[stat as "str" | "con" | "dex"];
+  const mut = stat === "focus" ? 0 : mutationBonus(z.mutation, z.key)[stat as "str" | "con" | "dex"];
   const baseRaw = raw - mut;
   const v = veterancyMultiplier(z.invasions);
   const abilities = selfStatAbilities(z, slotUnlocked);
@@ -249,11 +249,11 @@ export interface FarmerStatMults {
  *  way raid/CombatEngine.buildPlayerUnits does: the species stat takes the head
  *  multiplier and the mutation bonus takes the mutation multiplier, so a stat card
  *  shows what this farm fields. */
-export function withFarmerBonuses<T extends { str: number; dex: number; con: number; mutation: number }>(
+export function withFarmerBonuses<T extends { str: number; dex: number; con: number; mutation: number; key?: string }>(
   z: T,
   m: FarmerStatMults,
 ): T {
-  const b = mutationBonus(z.mutation);
+  const b = mutationBonus(z.mutation, z.key);
   return {
     ...z,
     str: (z.str - b.str) * m.str + b.str * m.mutation,

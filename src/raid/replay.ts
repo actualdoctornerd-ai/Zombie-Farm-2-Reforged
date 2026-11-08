@@ -1291,6 +1291,8 @@ import type { RaidOutcome } from "./types";
 // not (no raid enemy carries an ability or a station).
 // 83: Medusa Zombie's deploy powers: she freezes a perched boss for 5 s (20 s lockout) and
 // stuns the first enemy she sees for 2 s. Changes every fight an army with her in it plays.
+// They are her card abilities Petrify (slot 4) and Stone Gaze (slot 3), gated by Life Force.
+// Zwamp Thing counts its mutations twice (mutations.MUTATION_SCALE).
 export const RAID_RULESET_VERSION = 83;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own

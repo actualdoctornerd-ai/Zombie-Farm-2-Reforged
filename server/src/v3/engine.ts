@@ -28,6 +28,7 @@ import { planClaim } from "../storage";
 import { QUEST_DEFINITIONS, QUEST_REWARD } from "../questCatalog";
 import { isHeadlessZombie, legalMutation, zombieSell } from "../rosterCatalog";
 import { climateCost, MAX_FARM_SIZE, nextSize, sizeTier } from "../shopCatalog";
+import { ENDLESS_EXPANSION_SIZE, endlessPerksFor } from "../../../src/raid/endlessPerks";
 import { zombieCropEcon } from "../zombieCropCatalog";
 import {
   activeBonusHeadId, farmerGold, farmerHeadHasEffect, farmerHeadXp, farmerZombieGrowMs,
@@ -243,9 +244,9 @@ const baseMausoleumSlots = mausoleumTiers[0]?.slots ?? 0;
 /** The tier that follows a building with `slots` capacity (undefined at the top). */
 const nextMausoleumTier = (slots: number) => mausoleumTiers.find((tier) => tier.slots > slots);
 /** The Zombie Warehouse's capacity: the sheds above it are its expansion ladder. */
-const WAREHOUSE_SLOTS = 72;
-/** Slots each shed rung adds over the one below it. */
-const SHED_STEP_SLOTS = 8;
+const WAREHOUSE_SLOTS = 80;
+/** Slots each Warehouse expansion rung adds over the one below it (the source sheds below step by 8). */
+const SHED_STEP_SLOTS = 16;
 
 /** The Memorial Statue: the one functional object bought in quantity, sellable, and
  *  able to hold a fallen zombie. Keyed off the catalog so the rule follows the item
@@ -356,7 +357,8 @@ function shedCapacity(state: MutableGameplayState): number {
     if (obj.status !== "placed") continue;
     cap = Math.max(cap, objectRules.get(obj.catalogKey)?.storageSlots ?? 0);
   }
-  return cap;
+  // Endless Tier 5's +16 (raid/endlessPerks.ts), on top of whatever shed stands.
+  return cap + endlessPerksFor(state.endlessBestTier ?? 0).shedSlots;
 }
 
 /** Items currently occupying shed slots (stacked counts, all keys). */
@@ -374,6 +376,9 @@ function placedCapacity(state: MutableGameplayState): { army: number; storage: n
     // separate catalog key worth five more slots); only one can be placed.
     storage = Math.max(storage, rule?.zombieSlots ?? 0);
   }
+  // Endless Tier 4's +8 widens the Mausoleum that stands; with none placed there is still
+  // no crypt to put a zombie in (see the crypt capacity invariant).
+  if (storage > 0) storage += endlessPerksFor(state.endlessBestTier ?? 0).cryptSlots;
   return { army, storage };
 }
 
@@ -1125,7 +1130,7 @@ function applyOne(
           return reject(sequence, "bad_tier");
         }
       }
-      // The Warehouse expansions (above the 72-slot Zombie Warehouse) are a ladder too:
+      // The Warehouse expansions (above the 80-slot Zombie Warehouse) are a ladder too:
       // priced to be climbed, 9.6M for all eight, so each is bought only over the shed
       // one rung below it. Without this an edited client could jump straight from the
       // Warehouse to the top for the price of the last rung. The sheds below keep the
@@ -1358,6 +1363,10 @@ function applyOne(
       const tier = sizeTier(command.size);
       if (!tier || nextSize(state.farmSize) !== command.size) return reject(sequence, "bad_tier");
       if (level < tier.level) return reject(sequence, "locked");
+      // The 80x80 farm is for sale only past Endless Tier 6 (raid/endlessPerks.ts).
+      if (command.size === ENDLESS_EXPANSION_SIZE && !endlessPerksFor(state.endlessBestTier ?? 0).expansion) {
+        return reject(sequence, "locked");
+      }
       const cost = command.currency === "gold" ? tier.gold : tier.brains;
       if (state.balance[command.currency] < cost) return reject(sequence, "insufficient");
       state.balance[command.currency] -= cost;
@@ -1700,6 +1709,7 @@ export function freshGameplayState(): MutableGameplayState {
     zombiePotBought: false,
     tutorialRewarded: false,
     tutorialMutation: false,
+    endlessBestTier: 0,
     potSlots: {},
     raids: { progress: {}, lastRaidAt: 0 },
     epicBoss: null,

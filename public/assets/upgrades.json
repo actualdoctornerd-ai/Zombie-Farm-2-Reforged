@@ -35,6 +35,16 @@
    "brains": 20,
    "info": "70x70",
    "icon": "upgrade_farmsize.png"
+  },
+  {
+   "name": "Gargantuan 'ol Farm",
+   "size": 80,
+   "level": 41,
+   "gold": 4000000,
+   "brains": 30,
+   "info": "80x80",
+   "icon": "upgrade_farmsize.png",
+   "endlessTier": 6
   }
  ],
  "climate": [

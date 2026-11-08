@@ -24,7 +24,8 @@ import { visibleMutations } from "./zombie/mutationVisibility";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { EndlessBossLoot } from "./raid/endlessLoot";
-import { endlessMaxStartTier } from "./raid/endless";
+import { endlessMaxStartTier, endlessModeOpen } from "./raid/endless";
+import { accountEndlessBestTier } from "./raid/endlessPerks";
 import { openEndlessBossScreen, type EndlessBossChoices } from "./ui/panels/endlessBossScreen";
 import type { EndlessBossView } from "./net/api";
 import { lootDropLabel } from "./raid/RaidManager";
@@ -3347,7 +3348,9 @@ export class Hud {
     const owned = u.size <= current;
     const isNext = !!next && u.size === next.size;
     const levelOk = this.state.level >= u.level;
-    const buyable = isNext && levelOk && funds >= price; // next tier, this currency affordable
+    // Endless's farm size waits on its tier as well as the level (raid/endlessPerks.ts).
+    const endlessOk = !u.endlessTier || accountEndlessBestTier() >= u.endlessTier;
+    const buyable = isNext && levelOk && endlessOk && funds >= price; // next tier, this currency affordable
     const locked = !owned && !buyable;
 
     const card = document.createElement("div");
@@ -3372,6 +3375,8 @@ export class Hud {
     cost.className = "mkt-cost";
     if (owned) {
       cost.textContent = "✓ Owned";
+    } else if (!endlessOk) {
+      cost.innerHTML = `🔒 Clear Endless Tier ${u.endlessTier}`;
     } else if (!levelOk) {
       cost.innerHTML = `🔒 Lvl ${u.level}`;
     } else if (!isNext) {
@@ -4853,7 +4858,7 @@ export class Hud {
     const zombie = card?.zombie;
     if (!card || !zombie) return;
     const mask = order.kind === "SELL_ZOMBIE" ? order.mutation ?? 0 : order.mutationRequired ?? 0;
-    const bonus = mutationBonus(mask);
+    const bonus = mutationBonus(mask, card.cfg.key);
     const info: ZombieInfo = withFarmerBonuses({
       name: card.name, typeName: card.name, key: card.cfg.key,
       group: zombie.group, className: zombie.className, classColor: zombie.classColor,
@@ -7153,6 +7158,16 @@ export class Hud {
     const p = document.createElement("p");
     p.textContent = "Face increasingly difficult invasions, with an Epic Boss every third floor. Choose where to go next after each boss. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Each run costs brains; end whenever you like to claim gold for every floor cleared.";
     content.appendChild(p);
+    // The first-clear ladder, ticked off as the account clears it (raid/endlessPerks.ts).
+    const best = accountEndlessBestTier();
+    const ladder = document.createElement("p");
+    ladder.className = "endless-milestones";
+    ladder.textContent = "First clears: " + ([
+      [1, "2 Brain Tickets"], [2, "1 brain"], [3, "Zwamp Thing"], [4, "+8 Mausoleum slots"],
+      [5, "+16 shed slots"], [6, "80×80 farm for sale"], [7, "Legend veterancy"],
+    ] as const).map(([tier, prize]) => `${best >= tier ? "✓ " : ""}T${tier} ${prize}`).join(" · ") +
+      ". From Tier 8, every boss win pays brains: 4, then one more each tier.";
+    content.appendChild(ladder);
     const selected = new Set(party?.orderedSelectedIds.length ? party.orderedSelectedIds : party?.defaultSelectedIds ?? []);
     const max = party?.cap ?? 0;
     const list = document.createElement("div"); list.className = "army-grid"; content.appendChild(list);
@@ -7187,6 +7202,7 @@ export class Hud {
       wrap.appendChild(pick); content.appendChild(wrap);
     }
     for (const [mode, label, level] of [["endless", "Start Endless · 1 brain", 30], ["nightmare", "Start Nightmare · 3 brains", 45]] as const) {
+      if (!endlessModeOpen(mode)) continue;
       const button = document.createElement("button"); button.className = "btn-primary"; button.textContent = label;
       button.disabled = (this.state.level ?? 1) < level || selected.size < (party?.min ?? 1);
       button.onclick = () => { bg.remove(); onStart(mode, [...selected], mode === "endless" ? startTier : 1); }; content.appendChild(button);

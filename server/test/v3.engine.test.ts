@@ -1942,6 +1942,53 @@ describe("protocol v3 command engine", () => {
     expect(fill(withMausoleum("mausoleum4")).results[0]).toMatchObject({ status: "applied" }); // 20
   });
 
+  // Endless's permanent unlocks (src/raid/endlessPerks.ts), read off endlessBestTier.
+  it("widens the standing Mausoleum by 8 past Endless Tier 4, and never conjures one", () => {
+    const fill = (state: MutableGameplayState, stored: number) => {
+      state.zombieMax = 1;
+      state.roster.push({ id: "active", key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: false });
+      for (let i = 0; i < stored; i++) {
+        state.roster.push({ id: `s${i}`, key: "ZombieActorRegularTier1", mutation: 0, invasions: 0, stored: true });
+      }
+      return applyCommandBatch(state, commands({ type: "roster.status", unitId: "active", stored: true }), { now: 1 });
+    };
+    const tier = (state: MutableGameplayState, best: number) => { state.endlessBestTier = best; return state; };
+    expect(fill(tier(withMausoleum("mausoleum3"), 3), 15).results[0]).toMatchObject({ status: "rejected", error: "storage_full" });
+    expect(fill(tier(withMausoleum("mausoleum3"), 4), 22).results[0]).toMatchObject({ status: "applied" }); // 15 + 8
+    expect(fill(tier(withMausoleum("mausoleum3"), 4), 23).results[0]).toMatchObject({ status: "rejected", error: "storage_full" });
+    expect(fill(tier(freshGameplayState(), 9), 0).results[0]).toMatchObject({ status: "rejected" }); // no Mausoleum, no crypt
+  });
+
+  it("adds 16 shed slots past Endless Tier 5", () => {
+    const store = (best: number, quantity: number) => {
+      const state = freshGameplayState();
+      state.endlessBestTier = best;
+      state.storage.received.windmill = 40;
+      return applyCommandBatch(state, commands(
+        { type: "storage.move", itemKey: "windmill", quantity, direction: "store" },
+      ), { now: 1 }).results[0];
+    };
+    expect(store(4, 9)).toMatchObject({ status: "rejected", error: "shed_full" });
+    expect(store(5, 24)).toMatchObject({ status: "applied" }); // 8 + 16
+    expect(store(5, 25)).toMatchObject({ status: "rejected", error: "shed_full" });
+  });
+
+  it("sells the 80x80 farm only past Endless Tier 6", () => {
+    const buy = (best: number) => {
+      const state = freshGameplayState();
+      state.farmSize = 70;
+      state.endlessBestTier = best;
+      state.balance.gold = 10_000_000;
+      state.balance.xp = 99_999_999;
+      return applyCommandBatch(state, commands({ type: "shop.size", size: 80, currency: "gold" }), { now: 1 });
+    };
+    expect(buy(5).results[0]).toMatchObject({ status: "rejected", error: "locked" });
+    const bought = buy(6);
+    expect(bought.results[0]).toMatchObject({ status: "applied" });
+    expect(bought.state.farmSize).toBe(80);
+    expect(bought.state.balance.gold).toBe(6_000_000);
+  });
+
   it("refuses to move a Received zombie into the item shed", () => {
     const marker = encodeReceivedZombie({
       id: "received-zombie", key: "ZombieActorGirlTier1", mutation: 0, invasions: 0,

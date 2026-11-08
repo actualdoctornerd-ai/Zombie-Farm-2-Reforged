@@ -153,8 +153,7 @@ export const DO_OR_DIE_HASTE = 2;
  *  damage a second: pushing on should cost an army that never loses anyone in regulation
  *  (owner, 2026-10-25: retreat, or risk massive losses). */
 export const DO_OR_DIE_DAMAGE = 2;
-/** Medusa Zombie's key, and her two deploy powers. */
-const MEDUSA_KEY = "ZombieActorMedusa";
+/** Medusa Zombie's two deploy powers (abilities stoneGaze and petrify). */
 const MEDUSA_FREEZE_MS = 5_000;
 const MEDUSA_FREEZE_LOCK_MS = 20_000;
 const MEDUSA_GAZE_MS = 2_000;
@@ -4109,12 +4108,13 @@ export class BattleSim {
     return r > clamp(p.focus, 0, 100) / 100;
   }
 
-  /** MEDUSA (owner, 2026-11-05). On deploy she freezes a boss up on its perch, stalling whatever
-   *  it was doing, and gets one look at the first enemy she can see. */
+  /** MEDUSA (owner, 2026-11-05). On deploy Petrify freezes a boss up on its perch, stalling
+   *  whatever it was doing, and Stone Gaze gets one look at the first enemy she can see. Each
+   *  is a card ability, so each opens with its Life Force slot like every other. */
   private medusaDeployed(p: SimUnit) {
-    p.gazeReady = true;
+    p.gazeReady = p.abilities.includes("stoneGaze");
     const boss = this.boss;
-    if (boss && boss.alive && boss.state === "structure" && this.bossFreezeLockMs <= 0) {
+    if (p.abilities.includes("petrify") && boss && boss.alive && boss.state === "structure" && this.bossFreezeLockMs <= 0) {
       this.bossFreezeMs = MEDUSA_FREEZE_MS;
       this.bossFreezeLockMs = MEDUSA_FREEZE_LOCK_MS;
       boss.stoneMs = MEDUSA_FREEZE_MS;
@@ -4166,7 +4166,7 @@ export class BattleSim {
   private releaseCharger(p: SimUnit) {
     p.state = "advance";
     p.teleportPending = p.abilities.includes("teleport");
-    if (p.sourceKey === MEDUSA_KEY) this.medusaDeployed(p);
+    if (p.abilities.includes("stoneGaze") || p.abilities.includes("petrify")) this.medusaDeployed(p);
     p.formOrder = this.releaseSeq++; // claim a formation slot on release
     p.distracted = false;
     p.awaitRelease = false;

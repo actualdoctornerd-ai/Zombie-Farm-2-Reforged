@@ -22,6 +22,17 @@ export const ENDLESS_ENTRY_COST: Readonly<Record<EndlessMode, number>> = {
   endless: 1,
   nightmare: 3,
 };
+/** Nightmare is held for a later release (owner, 2026-11-08): its loot tables are not
+ *  written. Off, no new Nightmare run can start and the client shows no Nightmare button or
+ *  board; a run already under way still finishes. The fights, milestones and Medusa stay in
+ *  the code, so turning it on is this flag plus the loot. */
+export const ENDLESS_NIGHTMARE_LIVE = false;
+
+/** The modes a player can start a run in today. */
+export function endlessModeOpen(mode: EndlessMode): boolean {
+  return mode === "endless" || ENDLESS_NIGHTMARE_LIVE;
+}
+
 export const ENDLESS_UNLOCK_LEVEL: Readonly<Record<EndlessMode, number>> = {
   endless: 30,
   nightmare: 45,

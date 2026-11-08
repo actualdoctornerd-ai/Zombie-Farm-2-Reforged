@@ -14,8 +14,8 @@ describe("shedCapacityOf", () => {
   it("reads the placed shed's own tier", () => {
     expect(shedCapacityOf(["daisy", "storage01"], slotsOf)).toBe(8);
     expect(shedCapacityOf(["daisy", "storage08"], slotsOf)).toBe(64);
-    expect(shedCapacityOf(["storage09"], slotsOf)).toBe(72);
-    expect(shedCapacityOf(["storage17"], slotsOf)).toBe(136);
+    expect(shedCapacityOf(["storage09"], slotsOf)).toBe(80);
+    expect(shedCapacityOf(["storage17"], slotsOf)).toBe(208);
   });
 
   // The bug this replaced: the capacity was a second record of something the farm

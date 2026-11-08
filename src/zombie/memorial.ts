@@ -61,7 +61,7 @@ export function fallenToInfo(
   const tax = classify(fallen.key);
   const group = def?.group ?? tax.group;
   const mask = applyBodyTypeRestriction(fallen.mutation, group === "Headless");
-  const bonus = mutationBonus(mask);
+  const bonus = mutationBonus(mask, fallen.key);
   const typeName = def?.name ?? fallen.key;
   return {
     // Same ladder makeOwned uses for a living unit, so a plaque is never blank.

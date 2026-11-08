@@ -43,6 +43,7 @@ export const SIZE_TIERS: readonly SizeTier[] = [
   { size: 50, gold: 50000, brains: 8, level: 21 },
   { size: 60, gold: 250000, brains: 12, level: 31 },
   { size: 70, gold: 1250000, brains: 20, level: 41 },
+  { size: 80, gold: 4000000, brains: 30, level: 41 },
   // #endregion generated:SIZE_TIERS
 ];
 

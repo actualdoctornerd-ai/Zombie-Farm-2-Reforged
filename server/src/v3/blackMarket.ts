@@ -15,6 +15,7 @@ import type {
   ClaimedUnit,
 } from "../../../src/net/protocol";
 import objectRows from "../../../public/assets/placeables.json";
+import { ENDLESS_CRYPT_SLOTS, ENDLESS_PERK_TIER } from "../../../src/raid/endlessPerks";
 import { SLOTS, SLOT_MASK } from "../../../src/zombie/mutations";
 import { maskIntersect, maskWithout } from "../../../src/zombie/mutationMask";
 import {
@@ -97,8 +98,14 @@ const ARMY_CAP = `(COALESCE((SELECT CAST(json_extract(current_json,'$.zombieMax'
     ${placedObjectCases("armyMax")} ELSE 0 END) ${placedObjects}),0))`;
 /** Storage slots of the placed Mausoleum, by tier. ZERO with none placed — the case
  *  that made a purchase disappear into a crypt the player does not own. */
-const CRYPT_CAP = `COALESCE((SELECT MAX(CASE json_extract(entry.value,'$.catalogKey')
+const CRYPT_BUILDING = `COALESCE((SELECT MAX(CASE json_extract(entry.value,'$.catalogKey')
     ${placedObjectCases("zombieSlots")} ELSE 0 END) ${placedObjects}),0)`;
+/** Plus Endless Tier 4's slots while a Mausoleum stands (raid/endlessPerks.ts; engine.ts
+ *  placedCapacity is the same rule). Binds: crypt objects, account core. */
+const CRYPT_CAP = `(${CRYPT_BUILDING} + CASE WHEN ${CRYPT_BUILDING} > 0 AND
+    COALESCE((SELECT CAST(json_extract(current_json,'$.endlessBestTier') AS INTEGER)
+      FROM gameplay_documents_v3 WHERE account_id=?),0) >= ${ENDLESS_PERK_TIER.crypt}
+    THEN ${ENDLESS_CRYPT_SLOTS} ELSE 0 END)`;
 
 /** Where a claimed zombie lands: the army first, the Mausoleum once it is full.
  *  Binds: active-count, zombieMax, army-objects. */
@@ -111,7 +118,9 @@ const claimDestinationBinds = (accountId: string) => [accountId, accountId, acco
  *  count, crypt objects. */
 const hasRoomSql = `(${ACTIVE_UNITS} < ${ARMY_CAP} OR ${CRYPT_UNITS} < ${CRYPT_CAP})`;
 const hasRoomBinds = (accountId: string) =>
-  [accountId, accountId, accountId, accountId, accountId];
+  // active, zombieMax, army-objects, crypt count, then CRYPT_CAP's three (crypt
+  // objects twice, account core).
+  [accountId, accountId, accountId, accountId, accountId, accountId, accountId];
 
 interface OrderRow {
   id: string;

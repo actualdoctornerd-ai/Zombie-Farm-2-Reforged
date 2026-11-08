@@ -13,7 +13,7 @@
 // deterministic, and close enough for an instant resolve). Each unit attacks the
 // first living enemy on the opposite team; a side loses when all its units die.
 import type { OwnedZombie } from "../zombie/types";
-import { veterancyMultiplier } from "../zombie/traits";
+import { MAX_VET_RANK, veterancyMultiplier } from "../zombie/traits";
 import { mutationBonus } from "../zombie/mutations";
 import { activeAbilities, combatEffect, type AbilitySlotGate } from "../zombie/abilities";
 import { eliteEnemyStat, type EliteProfile } from "./eliteInvasion";
@@ -184,6 +184,10 @@ export function buildPlayerUnits(
     farmerDexMult?: number;
     /** Multiplier for mutation stat bonuses from the Monolith and farmer-head effects. */
     mutationStrengthMult?: number;
+    /** The fighting account's veterancy ceiling: Master (5), Legend (6) past Endless Tier 7
+     *  (raid/endlessPerks.ts). Explicit, never the client's signed-in account, so the Worker
+     *  and the client simulate the same fight. */
+    maxVetRank?: number;
   } = {}
 ): CombatUnit[] {
   // Abilities are off unless the caller supplies the per-slot unlock gate.
@@ -204,12 +208,12 @@ export function buildPlayerUnits(
   const fortitude = auraCount("tankHitPointsBuff");
 
   return rows.map(({ z, keys, eff }) => {
-    const v = veterancyMultiplier(z.invasions);
+    const v = veterancyMultiplier(z.invasions, opts.maxVetRank ?? MAX_VET_RANK);
     const base = z.focus ?? 0;
     // Mutations are the LAST link of the source's stat chain, so peel their original
     // values off the listed stat, then add them back after everything else. The Mutant
     // Monolith and Dino head scale only that final mutation bonus.
-    const rawMutation = mutationBonus(z.mutation);
+    const rawMutation = mutationBonus(z.mutation, z.key);
     const mutationMult = opts.mutationStrengthMult ?? 1;
     const mut = {
       str: rawMutation.str * mutationMult,

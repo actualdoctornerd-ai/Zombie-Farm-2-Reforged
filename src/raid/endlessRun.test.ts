@@ -127,9 +127,13 @@ describe("Endless Zwamp Thing and milestones", () => {
     expect(endlessMilestoneRewards("endless", 1)).toEqual([expect.objectContaining({ key: "brain_ticket", quantity: 2 })]);
     expect(endlessMilestoneRewards("endless", 2)).toEqual([expect.objectContaining({ kind: "brains", quantity: 1 })]);
     expect(endlessMilestoneRewards("endless", 3)).toEqual([expect.objectContaining({ key: "ZombieActorZwampThing" })]);
-    expect(endlessMilestoneRewards("endless", 5)).toEqual([]);
     expect(endlessMilestoneRewards("nightmare", 5)).toEqual([expect.objectContaining({ key: "ZombieActorMedusa" })]);
-    expect(endlessMilestoneRewards("endless", 8)).toEqual([expect.objectContaining({ kind: "brains", quantity: 3 })]);
+    expect(endlessMilestoneRewards("endless", 4)).toEqual([expect.objectContaining({ kind: "perk", perk: "crypt" })]);
+    expect(endlessMilestoneRewards("endless", 5)).toEqual([expect.objectContaining({ kind: "perk", perk: "shed" })]);
+    expect(endlessMilestoneRewards("endless", 6)).toEqual([expect.objectContaining({ kind: "perk", perk: "expansion" })]);
+    expect(endlessMilestoneRewards("endless", 7)).toEqual([expect.objectContaining({ kind: "perk", perk: "veterancy" })]);
+    // Past T7 there is no first-clear prize: every boss win pays brains instead.
+    expect(endlessMilestoneRewards("endless", 8)).toEqual([]);
   });
 });
 
@@ -188,6 +192,25 @@ describe("Medusa", () => {
     other.inside.boss!.state = "structure";
     other.inside.releaseCharger(other.sim.units.find((u) => u.team === "player"));
     expect(other.inside.bossFreezeMs).toBe(0);
+  });
+
+  it("needs her card slots: Stone Gaze opens with slot 3 and Petrify with slot 4", () => {
+    const locked = (open: number) => buildFight({
+      playerUnits: buildPlayerUnits(
+        [makeOwned("m", ZOMBIES.find((z) => z.key === "ZombieActorMedusa") as never, 0, 0, 0, 0)],
+        { abilitySlotUnlocked: (slot) => slot <= open, playerLevel: 45 },
+      ),
+      enemyUnits: [bossUnit()],
+    });
+    for (const [open, freezes] of [[2, false], [3, false], [4, true]] as const) {
+      const sim = locked(open);
+      const inside = sim as unknown as SimInside;
+      inside.boss!.state = "structure";
+      const medusa = sim.units.find((u) => u.team === "player")! as unknown as { gazeReady: boolean };
+      inside.releaseCharger(medusa);
+      expect(inside.bossFreezeMs > 0).toBe(freezes);
+      expect(medusa.gazeReady).toBe(open >= 3);
+    }
   });
 
   it("stuns the first enemy she sees for 2 s, once, and greys it out", () => {

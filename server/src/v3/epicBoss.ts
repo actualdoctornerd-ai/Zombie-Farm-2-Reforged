@@ -24,6 +24,7 @@ import { BRAIN_TICKET_KEY } from "../../../src/raid/eliteInvasion";
 import { RAID_RULESET_VERSION } from "../../../src/raid/replay";
 import { isLiveSessionCollision } from "./liveSessionRace";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
+import { endlessMaxVetRankOf } from "../../../src/raid/endlessPerks";
 
 export interface RunRow {
   run_id: string; boss_id: string; activated_at: number; expires_at: number;
@@ -304,6 +305,7 @@ export async function start(
     farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
     farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
     mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
+    maxVetRank: endlessMaxVetRankOf(core),
   });
   const boss: CombatUnit = {
     id:`epic:${row.run_id}:${row.level}`,sourceKey:`EpicBoss:${def.id}`,team:"enemy",name:def.name,

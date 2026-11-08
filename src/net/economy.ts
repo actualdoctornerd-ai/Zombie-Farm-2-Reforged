@@ -10,6 +10,7 @@ import {
 } from "./protocol";
 import type { RaidOutcome } from "../raid/types";
 import { RAID_RULESET_VERSION } from "../raid/replay";
+import { setAccountEndlessBestTier } from "../raid/endlessPerks";
 import { epicBossRunToClient, serverTimestampToClient } from "./clock";
 
 export const OWNERSHIP_POLL_IDLE_MS = 3 * 60_000;
@@ -1390,6 +1391,8 @@ export class EconomyClient {
     this.adoptBase(gameplay.balance, stampedAt);
     this.serverInv = gameplay.inventory;
     this.state.zombiePotBought = gameplay.zombiePotBought ?? false;
+    // Endless's permanent unlocks: the shed, Mausoleum, Market and veterancy all read it.
+    setAccountEndlessBestTier(gameplay.endlessBestTier ?? 0);
     this.state.syncRaidProgress(gameplay.raids.progress);
     this.state.syncRaidTiers(gameplay.raids.tiers ?? {});
     this.state.syncRaidCooldown(serverTimestampToClient(gameplay.raids.lastRaidAt, serverTime));

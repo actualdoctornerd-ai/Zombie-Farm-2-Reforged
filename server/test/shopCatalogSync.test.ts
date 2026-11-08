@@ -9,6 +9,7 @@
 // missing KEY: `climateCost` returning undefined makes the server answer `bad_climate` for
 // a skin the Market is still offering, so the card is visible, costed, and unbuyable — and
 // nothing logs it as a mismatch because from the server's side it is a well-formed refusal.
+import { ENDLESS_EXPANSION_SIZE } from "../../src/raid/endlessPerks";
 import { describe, expect, it } from "vitest";
 import upgrades from "../../public/assets/upgrades.json";
 import {
@@ -40,7 +41,12 @@ describe("shopCatalog mirrors upgrades.json", () => {
     expect(BASE_FARM_SIZE).toBeLessThan(SIZE_TIERS[0].size);
     for (let i = 1; i < SIZE_TIERS.length; i++) {
       expect(SIZE_TIERS[i].size, `tier ${i}`).toBeGreaterThan(SIZE_TIERS[i - 1].size);
-      expect(SIZE_TIERS[i].level, `tier ${i}`).toBeGreaterThan(SIZE_TIERS[i - 1].level);
+      // The Endless farm size is gated by its unlock, at the level of the tier below.
+      if (SIZE_TIERS[i].size === ENDLESS_EXPANSION_SIZE) {
+        expect(SIZE_TIERS[i].level, `tier ${i}`).toBe(SIZE_TIERS[i - 1].level);
+      } else {
+        expect(SIZE_TIERS[i].level, `tier ${i}`).toBeGreaterThan(SIZE_TIERS[i - 1].level);
+      }
     }
     expect(MAX_FARM_SIZE).toBe(SIZE_TIERS[SIZE_TIERS.length - 1].size);
     expect(isValidSize(BASE_FARM_SIZE)).toBe(true);

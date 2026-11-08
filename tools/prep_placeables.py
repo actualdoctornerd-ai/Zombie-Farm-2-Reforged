@@ -238,10 +238,11 @@ MAUSOLEUM_TIERS = [
 # ---- Extra storage-shed rungs (design override, NOT source data) -------------
 # The source's shed ladder stops at storage08 (McDonnell's Barn, 64 slots), which a
 # long-running farm outgrows with nothing left to spend gold on. These rungs continue
-# the same ladder: +8 slots each. The Warehouse kept the source's roughly x1.5 price
+# the ladder at DOUBLE the source step: +16 slots each (owner 2026-11-08 — the late
+# rungs cost hundreds of thousands, and +8 read as too little for the price). The Warehouse kept the source's roughly x1.5 price
 # step; above it that step would put the last rung near 9M on its own, so the
 # Warehouse expansions (II..IX) climb by a flat +150k instead — 675k up to 1.725M,
-# 9.6M for all eight, stopping at 136 slots the way the Mausoleum stops at 80.
+# 9.6M for all eight, stopping at 208 slots.
 # Priced against prod (2026-11-02): at level 45 the median player holds ~1M gold and
 # 19 of 46 already own the Warehouse. Each clones the top source shed's row, so it
 # reuses that art until it gets its own — only key/name/cost/xp/storageSlots differ.
@@ -250,11 +251,11 @@ EXTRA_SHED_BASE = "storage08"
 WAREHOUSE_STEP_COST = 150_000  # price climb per Warehouse expansion rung
 EXTRA_SHED_TIERS = [
     # key, market name, gold cost, item storage slots
-    ("storage09", "Zombie Warehouse", 525_000, 72),
+    ("storage09", "Zombie Warehouse", 525_000, 80),
 ] + [
     # All eight share a Market name on purpose: the Market only ever offers the next
     # rung, and "Zombie Warehouse II" read as a second building rather than an upgrade.
-    (f"storage{10 + i}", "More Storage", 675_000 + i * WAREHOUSE_STEP_COST, 80 + i * 8)
+    (f"storage{10 + i}", "More Storage", 675_000 + i * WAREHOUSE_STEP_COST, 96 + i * 16)
     for i in range(8)
 ]
 

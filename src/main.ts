@@ -15,6 +15,7 @@ import {
   abilitySlotUnlocked, cropMutationChance, farmLifeForce, harvestFails, zombieHarvestTier,
 } from "./lifeForce";
 import { shedCapacityOf } from "./shedCapacity";
+import { accountEndlessBestTier, accountEndlessPerks, onAccountEndlessPerks } from "./raid/endlessPerks";
 import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
   Field, CARROT, CropConfig, objectFootprint, OBJECT_WASH_MOVE, OBJECT_WASH_STORE, PLOT, savedTurn,
@@ -580,8 +581,10 @@ async function main() {
     state.syncShedCapacity(shedCapacityOf(
       field.placedKeys(),
       (key) => placeCatalog.get(key)?.storageSlots,
-    ));
+    ) + accountEndlessPerks().shedSlots); // Endless Tier 5 (raid/endlessPerks.ts)
   };
+  // Clearing an Endless tier can widen the shed and the Mausoleum on the spot.
+  onAccountEndlessPerks(() => refreshShedCap());
 
   // Placed objects (trees) and the actors share Field.entityLayer so the farmer
   // depth-sorts correctly in front of / behind trees.
@@ -2859,7 +2862,7 @@ async function main() {
       const placed = [...field.placedKeys()];
       state.syncCapacities(
         armyCapacityOf(serverArmyBase, placed, (key) => placeCatalog.get(key)?.armyMax),
-        shedCapacityOf(placed, (key) => placeCatalog.get(key)?.storageSlots),
+        shedCapacityOf(placed, (key) => placeCatalog.get(key)?.storageSlots) + accountEndlessPerks().shedSlots,
       );
       refreshLifeForce();
       return true; // aliases consumed — EconomyClient may drop them
@@ -3725,6 +3728,8 @@ async function main() {
     if (onlineGameplayBlocked()) return false;
     const up = assets.upgrades.mapSize.find((u) => u.size === size);
     if (!up || size <= field.w || state.level < up.level) return false;
+    // Endless's farm size is for sale only past its tier (the Worker refuses it too).
+    if (up.endlessTier && accountEndlessBestTier() < up.endlessTier) return false;
     // Enforce sequential purchase: only the immediate next tier is buyable.
     const nextSize = Math.min(
       ...assets.upgrades.mapSize.filter((u) => u.size > field.w).map((u) => u.size)
@@ -6878,8 +6883,9 @@ async function main() {
 
   // The multi-select sale behind Storage -> Items -> Sell Multiple. Priced and
   // confirmed as ONE act (one dialog, one toast) but submitted as one refund per
-  // copy, because that is what the object service owns: a shed of 72 is well
-  // inside a command batch, so nothing here needs a bulk command.
+  // copy, because that is what the object service owns: even a full 208-slot shed
+  // is split into sendable batches by the command queue, so nothing here needs a
+  // bulk command.
   hud.getStoredSellTotal = (keys) => planShedSale(keys).gold;
   hud.onSellStoredItems = async (keys) => {
     if (onlineGameplayBlocked()) return null;

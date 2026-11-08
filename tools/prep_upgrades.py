@@ -23,7 +23,7 @@ from PIL import Image
 
 import prep_assets
 from reforge_economy import (
-    EXTRA_CLIMATES, EXTRA_SIZE_TIERS, LEVEL_CAP, brain_price,
+    ENDLESS_SIZE_TIERS, EXTRA_CLIMATES, EXTRA_SIZE_TIERS, LEVEL_CAP, brain_price,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -143,6 +143,16 @@ def main():
         })
     map_size.sort(key=lambda m: m["size"])
     check_size_progression(map_size)
+    # Endless's unlocks go on the end, off the progression curve (see reforge_economy).
+    for extra in ENDLESS_SIZE_TIERS:
+        if extra["size"] <= map_size[-1]["size"]:
+            raise ValueError(f"{extra['name']}: an Endless farm size must top the ladder")
+        map_size.append({
+            "name": extra["name"], "size": extra["size"], "level": extra["level"],
+            "gold": extra["gold"], "brains": extra["brains"],
+            "info": f"{extra['size']}x{extra['size']}", "icon": farm_icon,
+            "endlessTier": extra["endlessTier"],
+        })
 
     # --- Climate/ground skins (emitted for later; not wired into UI yet). ---
     # Source terrain tileset (tex0000.png) rows, one block of 5 GIDs per climate,

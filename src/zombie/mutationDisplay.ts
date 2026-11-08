@@ -20,7 +20,7 @@
 // every one of them is written signed.
 import { BASE } from "../base";
 import {
-  mutationBonus, mutationsOf, statEffectsOf,
+  mutationBonus, mutationScaleOf, mutationsOf, statEffectsOf,
   type MutationDef, type Slot, type Stat,
 } from "./mutations";
 import { STATS, displayStat } from "./traits";
@@ -131,14 +131,14 @@ export interface MutationSource {
 export function mutationEntries(z: MutationSource): MutationCardEntry[] {
   const defs = mutationsOf(z.mutation);
   if (!defs.length) return [];
-  const bonus = mutationBonus(z.mutation);
+  const bonus = mutationBonus(z.mutation, z.key);
   // Strip the mutations back off to recover the species' own stats, then re-apply
   // them one at a time so each row reports its marginal, already-rounded gain.
   return mutationEntriesFrom(defs, {
     str: z.str - bonus.str,
     dex: z.dex - bonus.dex,
     con: z.con - bonus.con,
-  }, MUTATION_VARIANTS[z.key]);
+  }, MUTATION_VARIANTS[z.key], mutationScaleOf(z.key));
 }
 
 /** The card rows for an explicit set of mutation defs applied to explicit UNMUTATED
@@ -149,6 +149,7 @@ export function mutationEntriesFrom(
   defs: readonly MutationDef[],
   base: Record<Stat, number>,
   variants?: Record<string, MutationVariant>,
+  scale = 1,
 ): MutationCardEntry[] {
   const applied: Record<Stat, number> = { str: 0, dex: 0, con: 0 };
 
@@ -158,7 +159,7 @@ export function mutationEntriesFrom(
     // halves at the same fidelity as a single-stat one.
     const effects = statEffectsOf(def).map((effect) => {
       const before = displayStat(effect.stat, base[effect.stat] + applied[effect.stat]);
-      applied[effect.stat] += effect.amount;
+      applied[effect.stat] += effect.amount * scale;
       const after = displayStat(effect.stat, base[effect.stat] + applied[effect.stat]);
       return {
         stat: effect.stat,

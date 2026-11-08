@@ -36,6 +36,7 @@ export const ABILITY_KIND: Record<string, AbilityKind> = {
   hitPointsBuff: "self", turboSpeed: "self",
   laserBeam: "self", zomBeam: "self", stun: "self", doubleStrike: "self", unwrapped: "self",
   rage: "self", berserk: "self", shieldBar: "self", teleport: "self", phase: "self",
+  stoneGaze: "self", petrify: "self",
   // team (shown, automatic)
   heal: "team", healAOE: "team", protect: "team", tankHitPointsBuff: "team", ressurect: "team",
   chivalry: "team", grace: "team", lastLaugh: "team", support: "team",

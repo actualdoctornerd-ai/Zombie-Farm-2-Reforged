@@ -8,6 +8,7 @@
 import { GameAssets, zombiePortrait, raidImage, raidRewardImage } from "../assets";
 import { GameState } from "../GameState";
 import { abilitySlotUnlocked, brainDropLifeForceMultiplier } from "../lifeForce";
+import { accountMaxVetRank } from "../zombie/traits";
 import { ZombieField } from "../zombie/ZombieField";
 import { OwnedZombie } from "../zombie/types";
 import { buildPlayerUnits, resolveRaid } from "./CombatEngine";
@@ -687,6 +688,9 @@ export class RaidManager {
         farmerDexMult: this.state.farmerZombieDexMult(),
         mutationStrengthMult: (this.zombies.hasMutantMonolith() ? 1.1 : 1) *
           this.state.farmerMutationStrengthMult(),
+        // Legend veterancy past Endless Tier 7: the Worker reads the same tier off this
+        // account's core document when it verifies the fight.
+        maxVetRank: accountMaxVetRank(),
       }),
       ...composed,
       dice,

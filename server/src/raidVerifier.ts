@@ -57,6 +57,7 @@ import {
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "../../src/raid/dualInvasion";
 import { effectiveUnlockLevel, isPracticeRaid } from "../../src/raid/practice";
+import { endlessMaxVetRankOf } from "../../src/raid/endlessPerks";
 
 export { RAID_RULESET_VERSION };
 export type { RaidReplayInput };
@@ -388,7 +389,7 @@ export async function buildPinnedV3Raid(
   const core = (() => {
     try {
       return JSON.parse(coreRow?.current_json ?? "{}") as
-        { farmerHeadId?: number; farmerBonusHeadId?: number | null };
+        { farmerHeadId?: number; farmerBonusHeadId?: number | null; endlessBestTier?: number };
     } catch { return {}; }
   })();
   // The head supplying bonuses is the pinned one, else whatever is being worn. The
@@ -439,6 +440,8 @@ export async function buildPinnedV3Raid(
         farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
         farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
         mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
+        // Legend veterancy past Endless Tier 7, from this account's own core document.
+        maxVetRank: endlessMaxVetRankOf(core),
       }),
       // Everything below comes from the composer, PINNED rather than recomputed at
       // replay time so the verifier reads back the exact wave, placard rotation, rung
@@ -499,13 +502,15 @@ async function accountFightContext(db: D1Database, accountId: string) {
   const core = (() => {
     try {
       return JSON.parse(coreRow?.current_json ?? "{}") as
-        { farmerHeadId?: number; farmerBonusHeadId?: number | null };
+        { farmerHeadId?: number; farmerBonusHeadId?: number | null; endlessBestTier?: number };
     } catch { return {}; }
   })();
   const bonusHead = activeBonusHeadId(Number(core.farmerHeadId ?? 1), core.farmerBonusHeadId);
   const slotUnlocked = (slot: number): boolean => abilitySlotUnlocked(slot, lifeForce);
   return {
     level, abilitySlotUnlocked: slotUnlocked, bonusHead,
+    // Each side fights at its own veterancy ceiling (Legend past Endless Tier 7).
+    maxVetRank: endlessMaxVetRankOf(core),
     farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
     mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
   };
@@ -611,6 +616,7 @@ export async function buildDefenseSnapshot(
     farmerLifeMult: farmerMultiplier(context.bonusHead, "zombieLife"),
     farmerDexMult: context.farmerDexMult,
     mutationStrengthMult: context.mutationStrengthMult,
+    maxVetRank: context.maxVetRank,
   });
   // MODE decides how the defense is composed AND how it fights. In "formation" the
   // saved loadout narrows the pool (the defender's chosen zombies) and the builder
@@ -691,6 +697,7 @@ export async function buildPinnedPvpRaid(
     farmerLifeMult: farmerMultiplier(attacker.bonusHead, "zombieLife"),
     farmerDexMult: attacker.farmerDexMult,
     mutationStrengthMult: attacker.mutationStrengthMult,
+    maxVetRank: attacker.maxVetRank,
   });
   const enemyUnits = defense.units;
   const attackScore = armyScore(playerUnits);
