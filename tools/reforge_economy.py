@@ -169,7 +169,7 @@ EXTRA_SIZE_TIERS = [
 # KEEP IN SYNC with ENDLESS_EXPANSION_SIZE / ENDLESS_PERK_TIER.expansion in endlessPerks.ts.
 ENDLESS_SIZE_TIERS = [
     {"name": "Gargantuan 'ol Farm", "size": 80, "level": 41,
-     "gold": 4_000_000, "brains": 30, "endlessTier": 6},
+     "gold": 4_000_000, "brains": 30, "endlessTier": 7},
 ]
 
 # ---- Ground skins ---------------------------------------------------------

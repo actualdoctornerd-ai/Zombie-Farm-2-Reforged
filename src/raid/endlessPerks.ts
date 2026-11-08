@@ -3,19 +3,22 @@
 // simulates), keyed off one number: the deepest normal-Endless tier the account has cleared,
 // `endlessBestTier` on the gameplay core document. See docs/ENDLESS_MODE_REWARDS.md.
 //
-//   T4  +8 Mausoleum slots (while a Mausoleum stands; it adds to the building, not a crypt of its own)
-//   T5  +16 shed slots
-//   T6  the 80x80 farm goes on sale
-//   T7  +1 max veterancy: a sixth rank, Legend, one more +5% step (+30% in all, Master +25%)
-//   T8+ brains on every boss win: 4 at T8, 5 at T9, one more each tier (endlessVictoryBrains)
+//   T5  +8 Mausoleum slots (while a Mausoleum stands; it adds to the building, not a crypt of its own)
+//   T6  +16 shed slots
+//   T7  the 80x80 farm goes on sale
+//   T8  +1 max veterancy: a sixth rank, Legend, one more +5% step (+30% in all, Master +25%)
+//   T9+ a 40% chance of brains at each boss win: 4 at T9, 5 at T10, one more each tier
+//
+// T8 is the stretch tier, the last real reward (owner, 2026-11-08: higher tiers are for
+// leaderboard chasers, and this content is in part designed to push people's builds).
 
-export const ENDLESS_PERK_TIER = { crypt: 4, shed: 5, expansion: 6, veterancy: 7 } as const;
+export const ENDLESS_PERK_TIER = { crypt: 5, shed: 6, expansion: 7, veterancy: 8 } as const;
 export const ENDLESS_CRYPT_SLOTS = 8;
 export const ENDLESS_SHED_SLOTS = 16;
 /** The farm size only Endless unlocks (it still has to be bought, like every other size). */
 export const ENDLESS_EXPANSION_SIZE = 80;
 /** The tier from which every boss win pays brains. */
-export const ENDLESS_VICTORY_BRAINS_FROM = 8;
+export const ENDLESS_VICTORY_BRAINS_FROM = 9;
 
 export interface EndlessPerks {
   cryptSlots: number;
@@ -51,8 +54,8 @@ export function endlessMaxVetRankOf(core: unknown): number {
   return BASE_MAX_VET_RANK + endlessPerksFor(endlessBestTierOf(core)).vetRanks;
 }
 
-/** Brains a boss win at `tier` pays, every time: 4 at T8, 5 at T9, and so on. The real
- *  prize that deep is the leaderboard; this keeps the runs paying for themselves. */
+/** Brains a boss win at `tier` pays when its chance comes up (endlessVictoryRewards): 4 at
+ *  T9, 5 at T10, and so on. The real prize that deep is the leaderboard. */
 export function endlessVictoryBrains(tier: number): number {
   return tier >= ENDLESS_VICTORY_BRAINS_FROM ? tier - (ENDLESS_VICTORY_BRAINS_FROM - 4) : 0;
 }

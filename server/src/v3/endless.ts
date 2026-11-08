@@ -3,7 +3,7 @@ import { buildPlayerUnits } from "../../../src/raid/CombatEngine";
 import {
   applyEndlessCurse, applyEndlessStop, beginEndlessRun,
   applyEndlessOrder, endlessBossDraft, endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
-  ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_UNLOCK_LEVEL, endlessModeOpen,
+  ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_UNLOCK_LEVEL, endlessFreeDayStart, endlessModeOpen,
   type EndlessBoon, type EndlessCurse, type EndlessMode, type EndlessRunState, type EndlessStop,
 } from "../../../src/raid/endless";
 import {
@@ -21,7 +21,7 @@ import { recordEndlessLeaderboardStatement, recordEndlessWeeklyStatement, type E
 import { MAX_STACK } from "../boostCatalog";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { endlessBestTierOf, endlessMaxVetRankOf } from "../../../src/raid/endlessPerks";
-import { endlessMilestoneRewards, endlessVictoryRewards, rollEndlessBossLoot, rollEndlessFloorLoot, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
+import { endlessMilestoneRewards, endlessVictoryRewards, rollEndlessBossLoot, rollEndlessFloorLoot, rollEndlessLocationZombie, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
 
 const zombies = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
 interface StoredRun {
@@ -108,15 +108,18 @@ function endlessCredited(deepestFloor: number, startWave: number): boolean {
   return deepestFloor >= firstBossWave(startWave) || (startWave === 1 && deepestFloor > 0);
 }
 
-/** The depth payout for each tier number: 250 gold a floor and 500 for its boss, so a cleared
- *  tier pays 1,000 x its number (T1 1,000, T2 2,000, and so on). Awarded once when a run
- *  ends, based only on fully cleared fights; a skipper's early tiers join in at its first boss. */
+/** The depth payout for each tier number: 625 gold a floor and 1,250 for its boss, so a cleared
+ *  tier pays 2,500 x its number (T1 2,500, T2 5,000, and so on; raised 2.5x on 2026-11-08 to
+ *  carry the steady reward as brains went to chance). Awarded once when a run ends, based only
+ *  on fully cleared fights; a skipper's early tiers join in at its first boss. */
+const ENDLESS_FLOOR_GOLD = 625;
+const ENDLESS_BOSS_GOLD = 1_250;
 function endlessGoldReward(deepestFloor: number, startWave = 1): number {
   let total = 0;
   const first = deepestFloor >= firstBossWave(startWave) ? 1 : startWave;
   for (let wave = first; wave <= Math.max(0, Math.floor(deepestFloor)); wave++) {
     const tier = Math.ceil(wave / ENDLESS_FIGHTS_PER_LOCATION);
-    total += (wave % ENDLESS_FIGHTS_PER_LOCATION === 0 ? 500 : 250) * tier;
+    total += (wave % ENDLESS_FIGHTS_PER_LOCATION === 0 ? ENDLESS_BOSS_GOLD : ENDLESS_FLOOR_GOLD) * tier;
   }
   return total;
 }
@@ -150,6 +153,14 @@ function settleTerminalStatements(
   return statements;
 }
 
+/** Has the account started no normal Endless run since midnight UTC? Its next one is free. */
+async function freeRunAvailable(db: D1Database, accountId: string, now: number): Promise<boolean> {
+  const used = await db.prepare(`SELECT 1 AS used FROM endless_runs_v3
+    WHERE account_id=? AND mode='endless' AND started_at>=? LIMIT 1`)
+    .bind(accountId, endlessFreeDayStart(now)).first<{ used: number }>();
+  return !used;
+}
+
 /** Start an account-owned Endless run. The cost and opening roster are pinned server-side. */
 export async function startEndless(
   db: D1Database,
@@ -165,7 +176,7 @@ export async function startEndless(
       body.orderedUnitIds.some((id) => typeof id !== "string" || !id) ||
       new Set(body.orderedUnitIds).size !== body.orderedUnitIds.length) return fail(400, "bad_roster");
   const ids = body.orderedUnitIds as string[];
-  const [balance, coreRow, roster, liveRaid, liveBoss, liveRun, mutationStrengthMult] = await Promise.all([
+  const [balance, coreRow, roster, liveRaid, liveBoss, liveRun, mutationStrengthMult, freeToday] = await Promise.all([
     db.prepare("SELECT xp,brains FROM balances WHERE account_id=?").bind(accountId).first<{ xp: number; brains: number }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").bind(accountId).first<{ current_json: string }>(),
     db.prepare(`SELECT unit_id,zombie_key,mutation,invasions FROM roster_v3
@@ -175,11 +186,15 @@ export async function startEndless(
     db.prepare("SELECT id FROM epic_boss_sessions_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     db.prepare("SELECT id FROM endless_runs_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     loadMutationStrengthMultiplier(db, accountId),
+    mode === "endless" ? freeRunAvailable(db, accountId, now) : Promise.resolve(false),
   ]);
+  // The day's first normal run is free. Two starts racing for it cannot both land: only one
+  // run may be live at a time (idx_endless_runs_v3_live), and the next start sees this one.
+  const entryCost = freeToday ? 0 : ENDLESS_ENTRY_COST[mode];
   if (!balance || !coreRow) return fail(409, "state_conflict");
   const level = levelForXp(balance.xp);
   if (level < ENDLESS_UNLOCK_LEVEL[mode]) return fail(403, "locked");
-  if (balance.brains < ENDLESS_ENTRY_COST[mode]) return fail(409, "no_brains");
+  if (balance.brains < entryCost) return fail(409, "no_brains");
   if (liveRaid || liveBoss || liveRun) return fail(409, "run_in_progress");
   const startTier = body.startTier === undefined ? 1 : Number(body.startTier);
   if (!Number.isInteger(startTier) || startTier < 1 || startTier > endlessMaxStartTier(mode, level)) return fail(403, "start_tier_locked");
@@ -214,7 +229,7 @@ export async function startEndless(
   try {
     const results = await db.batch([
       db.prepare("UPDATE balances SET brains=brains-? WHERE account_id=? AND brains>=?")
-        .bind(ENDLESS_ENTRY_COST[mode], accountId, ENDLESS_ENTRY_COST[mode]),
+        .bind(entryCost, accountId, entryCost),
       db.prepare(`INSERT INTO endless_runs_v3
         (id,account_id,mode,current_wave,run_state_json,army_json,fight_config_json,ruleset_version,started_at,fight_started_at)
         SELECT ?,?,?,?,?,?,?,?,?,? WHERE changes()=1`)
@@ -225,7 +240,7 @@ export async function startEndless(
     return fail(409, "run_in_progress");
   }
   return { status: 200, body: {
-    ok: true, sessionId, mode, wave: firstWave, brainCost: ENDLESS_ENTRY_COST[mode],
+    ok: true, sessionId, mode, wave: firstWave, brainCost: entryCost, freeRun: freeToday,
     rulesetVersion: RAID_RULESET_VERSION,
     ...(config ? { fight: config } : { stage: "boss-choice", ...bossScreen(mode, state.pendingBossChoice!, state) }),
   } };
@@ -297,20 +312,31 @@ export async function finishEndlessWave(
       return fail(409, "state_conflict");
     }
     if (session.mode === "endless") {
-      loot = plan.bossGate
-        ? rollEndlessBossLoot(plan.tier, plan.location, Math.random(), Math.random(), Math.random())
-        : [rollEndlessFloorLoot(plan.tier, Math.random())];
-      if (plan.bossGate && startWave > 1 && session.current_wave === firstBossWave(startWave)) {
-        for (let tier = 1; tier < plan.tier; tier++) {
-          loot.push(...rollEndlessBossLoot(tier, plan.location, Math.random(), Math.random(), Math.random()));
+      // Zwamp Things this run has paid so far, kept running so T7's guarantee sees them all.
+      let zwamps = payload.lootEarned?.["Zwamp Thing"] ?? 0;
+      const bossRoll = (tier: number) => {
+        const rolled = rollEndlessBossLoot(tier, plan.location, Math.random(), Math.random(), Math.random(), zwamps);
+        zwamps += rolled.filter((r) => r.kind === "zombie" && r.key === "ZombieActorZwampThing").length;
+        return rolled;
+      };
+      if (plan.bossGate) {
+        // A skipper's chest: the skipped tiers' rolls, in order, before this boss's own.
+        if (startWave > 1 && session.current_wave === firstBossWave(startWave)) {
+          for (let tier = 1; tier < plan.tier; tier++) loot.push(...bossRoll(tier));
         }
+        loot.push(...bossRoll(plan.tier));
+      } else {
+        loot = [rollEndlessFloorLoot(plan.tier, Math.random())];
       }
+      // Every win can also turn up the location's own rare zombies, at its invasion's rate.
+      const rare = rollEndlessLocationZombie(plan.location, Math.random(), Math.random());
+      if (rare) loot.push(rare);
     }
     if (plan.bossGate) {
       for (let tier = (progressRow?.best_tier ?? 0) + 1; tier <= plan.tier; tier++) {
         loot.push(...endlessMilestoneRewards(session.mode, tier));
       }
-      loot.push(...endlessVictoryRewards(session.mode, plan.tier));
+      loot.push(...endlessVictoryRewards(session.mode, plan.tier, Math.random()));
       // The permanent unlocks (raid/endlessPerks.ts) all read this one number off the core
       // document. Recorded on every normal boss win, never lowered, and lifted to the
       // endless_progress best so an account that cleared tiers before it existed has them.
@@ -486,10 +512,14 @@ export async function abandonEndless(
 export async function activeEndless(
   db: D1Database,
   accountId: string,
+  now = Date.now(),
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const session = await db.prepare(`SELECT * FROM endless_runs_v3
     WHERE account_id=? AND finished_at IS NULL`).bind(accountId).first<StoredRun>();
-  if (!session) return fail(404, "no_active_run");
+  // No run going: say whether the next one is the day's free one, for the start button.
+  if (!session) {
+    return { status: 404, body: { ok: false, error: "no_active_run", freeRunAvailable: await freeRunAvailable(db, accountId, now) } };
+  }
   const payload = parse<RunPayload>(session.run_state_json, { run: beginEndlessRun(session.mode, []), playerLevel: 30, durationMs: 0 });
   const pendingBossChoice = payload.pendingBossChoice;
   return { status: 200, body: {

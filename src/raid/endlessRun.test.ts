@@ -9,7 +9,7 @@ import {
   endlessPlayerUnits, endlessWavePlan, ENDLESS_MODIFIERS, ENDLESS_TEMPORARY_ZOMBIES, type EndlessModifierId,
 } from "./endless";
 import { endlessApplyBoon, endlessCarryFromSim, endlessFightConfig, endlessSimFor } from "./endlessFight";
-import { endlessMilestoneRewards, rollEndlessBossLoot } from "./endlessLoot";
+import { endlessExpectedZwamps, endlessLootWeightTotal, endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessLocationZombie } from "./endlessLoot";
 import { makeOwned } from "../zombie/types";
 import type { ZombieDef } from "../assets";
 import type { CombatUnit, EnemyStat } from "./types";
@@ -113,27 +113,52 @@ describe("Endless tier skipping", () => {
 });
 
 describe("Endless Zwamp Thing and milestones", () => {
-  const zwamps = (tier: number, swamp: number) =>
-    rollEndlessBossLoot(tier, "farm", 0, 0, swamp).filter((r) => r.name === "Zwamp Thing").length;
-  it("rises from T3 and is guaranteed from T7", () => {
+  const zwamps = (tier: number, swamp: number, soFar = 1) =>
+    rollEndlessBossLoot(tier, "farm", 0, 0, swamp, soFar).filter((r) => r.name === "Zwamp Thing").length;
+  it("rises from T3, gives a run its first at T7, and drops at every boss from T8", () => {
     expect(zwamps(2, 0)).toBe(0);
     expect(zwamps(3, 0.04)).toBe(1);
     expect(zwamps(3, 0.06)).toBe(0);
-    expect(zwamps(6, 0.19)).toBe(1);
-    expect(zwamps(7, 0.99)).toBe(1);
-    expect(zwamps(7, 0.1)).toBe(2);
+    expect(zwamps(6, 0.12)).toBe(1);
+    expect(zwamps(6, 0.13)).toBe(0);
+    expect(zwamps(7, 0.99, 0)).toBe(1); // none yet this run: T7 guarantees one
+    expect(zwamps(7, 0.99, 1)).toBe(0);
+    expect(zwamps(7, 0.1, 1)).toBe(1); // 15% otherwise
+    expect(zwamps(8, 0.99)).toBe(1); // one at every boss from T8, never two
+    expect(zwamps(12, 0)).toBe(1);
+  });
+  it("averages about two by the end of T8 on a repeat run", () => {
+    expect(endlessExpectedZwamps(8)).toBeGreaterThan(1.9);
+    expect(endlessExpectedZwamps(8)).toBeLessThan(2.2);
+  });
+  it("lets each location turn up its own invasion's rare zombies, at that invasion's rate", () => {
+    expect(rollEndlessLocationZombie("pirate", 0.0139, 0)).toMatchObject({ key: "ZombieActorMerZombie" });
+    expect(rollEndlessLocationZombie("pirate", 0.0139, 0.9)).toMatchObject({ key: "ZombieActorPoseidon" });
+    expect(rollEndlessLocationZombie("pirate", 0.0141, 0)).toBeNull();
+    expect(rollEndlessLocationZombie("ninja", 0.0159, 0.5)).toMatchObject({ key: "ZombieActorNinjombie" });
+    expect(rollEndlessLocationZombie("ninja", 0.0159, 0.7)).toMatchObject({ key: "ZombieActorMasterNinjombie" });
+    expect(rollEndlessLocationZombie("alien", 0.0199, 0)).toMatchObject({ key: "ZombieActorZastronaut" });
+    expect(rollEndlessLocationZombie("farm", 0.0099, 0.99)).toMatchObject({ key: "ZombieActorOldMcZombie" });
+    expect(rollEndlessLocationZombie("video-game", 0.0199, 0.1)).toMatchObject({ key: "ZombieActorRegularVideoGame" });
+  });
+  it("keeps every loot row's weights summing to 100", () => {
+    for (const tier of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+      expect(endlessLootWeightTotal("boss", tier), `boss T${tier}`).toBe(100);
+      expect(endlessLootWeightTotal("floor", tier), `floor T${tier}`).toBe(100);
+    }
   });
   it("pays the first clears, with Medusa only on Nightmare", () => {
     expect(endlessMilestoneRewards("endless", 1)).toEqual([expect.objectContaining({ key: "brain_ticket", quantity: 2 })]);
     expect(endlessMilestoneRewards("endless", 2)).toEqual([expect.objectContaining({ kind: "brains", quantity: 1 })]);
     expect(endlessMilestoneRewards("endless", 3)).toEqual([expect.objectContaining({ key: "ZombieActorZwampThing" })]);
     expect(endlessMilestoneRewards("nightmare", 5)).toEqual([expect.objectContaining({ key: "ZombieActorMedusa" })]);
-    expect(endlessMilestoneRewards("endless", 4)).toEqual([expect.objectContaining({ kind: "perk", perk: "crypt" })]);
-    expect(endlessMilestoneRewards("endless", 5)).toEqual([expect.objectContaining({ kind: "perk", perk: "shed" })]);
-    expect(endlessMilestoneRewards("endless", 6)).toEqual([expect.objectContaining({ kind: "perk", perk: "expansion" })]);
-    expect(endlessMilestoneRewards("endless", 7)).toEqual([expect.objectContaining({ kind: "perk", perk: "veterancy" })]);
-    // Past T7 there is no first-clear prize: every boss win pays brains instead.
-    expect(endlessMilestoneRewards("endless", 8)).toEqual([]);
+    expect(endlessMilestoneRewards("endless", 4)).toEqual([expect.objectContaining({ kind: "brains", quantity: 3 })]);
+    expect(endlessMilestoneRewards("endless", 5)).toEqual([expect.objectContaining({ kind: "perk", perk: "crypt" })]);
+    expect(endlessMilestoneRewards("endless", 6)).toEqual([expect.objectContaining({ kind: "perk", perk: "shed" })]);
+    expect(endlessMilestoneRewards("endless", 7)).toEqual([expect.objectContaining({ kind: "perk", perk: "expansion" })]);
+    expect(endlessMilestoneRewards("endless", 8)).toEqual([expect.objectContaining({ kind: "perk", perk: "veterancy" })]);
+    // Past T8 there is no first-clear prize: every boss win pays brains instead.
+    expect(endlessMilestoneRewards("endless", 9)).toEqual([]);
   });
 });
 

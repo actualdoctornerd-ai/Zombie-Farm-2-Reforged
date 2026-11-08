@@ -22,6 +22,14 @@ export const ENDLESS_ENTRY_COST: Readonly<Record<EndlessMode, number>> = {
   endless: 1,
   nightmare: 3,
 };
+/** One free normal Endless run a day (owner, 2026-11-08): the first run an account starts
+ *  after midnight UTC costs nothing. Started is what counts, so a run ended early or lost
+ *  on its first floor still uses the day's free one. */
+const DAY_MS = 86_400_000;
+export function endlessFreeDayStart(now: number): number {
+  return Math.floor(now / DAY_MS) * DAY_MS;
+}
+
 /** Nightmare is held for a later release (owner, 2026-11-08): its loot tables are not
  *  written. Off, no new Nightmare run can start and the client shows no Nightmare button or
  *  board; a run already under way still finishes. The fights, milestones and Medusa stay in

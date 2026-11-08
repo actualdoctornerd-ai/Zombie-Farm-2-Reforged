@@ -15,7 +15,7 @@ import { EXPERT, makePilot } from "../../src/raid/harness/pilots";
 import { RAID_RULESET_VERSION } from "../../src/raid/replay";
 import { makeOwned } from "../../src/zombie/types";
 import type { ZombieDef } from "../../src/assets";
-import { abandonEndless, chooseEndlessBossReward, finishEndlessWave, startEndless } from "../src/v3/endless";
+import { abandonEndless, activeEndless, chooseEndlessBossReward, finishEndlessWave, startEndless } from "../src/v3/endless";
 import { listEndlessLeaderboard } from "../src/db";
 
 const ME = "account-1";
@@ -144,15 +144,15 @@ describe("Endless settlement on the real schema", () => {
   const titans = () => army().map((u) => ({ ...u, str: u.str * 400, con: u.con * 400, maxHp: u.maxHp * 400, hp: u.maxHp * 400 }));
   const core = () => JSON.parse((raw.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").get(ME) as { current_json: string }).current_json) as Record<string, unknown>;
 
-  it("unlocks a perk on its first clear by recording the best tier on the core document", async () => {
+  it("pays T4's 3 brains on its first clear and records the best tier on the core document", async () => {
     raw.prepare("INSERT INTO endless_progress (account_id,mode,best_tier,updated_at) VALUES (?,'endless',3,0)").run(ME);
     const fight = seedRun(12, beginEndlessRun("endless", titans(), "9"));
+    const before = brains();
     const result = await finishEndlessWave(db, ME, winFloor(fight, 12), LATER);
     expect(result.status).toBe(200);
-    expect(result.body.bossLoot).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "perk", perk: "crypt" })]));
+    expect(result.body.bossLoot).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "brains", quantity: 3 })]));
+    expect(brains()).toBe(before + 3);
     expect(core().endlessBestTier).toBe(4);
-    // A perk is not an item: nothing lands in Received for it.
-    expect(Object.keys(received()).some((name) => name.includes("Mausoleum"))).toBe(false);
   });
 
   it("gives a skipper its chest at its first boss: skipped rolls and milestones", async () => {
@@ -173,8 +173,8 @@ describe("Endless settlement on the real schema", () => {
     const run = beginEndlessRun("endless", [], week);
     seedRun(6, run, { wave: 6 });
     const result = await abandonEndless(db, ME, SESSION, 90_000);
-    expect(result.body).toMatchObject({ deepestFloor: 6, gold: 3_000 });
-    expect(gold()).toBe(3_000);
+    expect(result.body).toMatchObject({ deepestFloor: 6, gold: 7_500 });
+    expect(gold()).toBe(7_500);
     expect(await listEndlessLeaderboard(db, "endless")).toMatchObject([{ username: "Grog", deepest_floor: 6 }]);
     expect(await listEndlessLeaderboard(db, "endless", week)).toMatchObject([{ username: "Grog", deepest_floor: 6 }]);
     expect(await listEndlessLeaderboard(db, "endless", "another-week")).toEqual([]);
@@ -204,6 +204,28 @@ describe("Endless settlement on the real schema", () => {
     expect(brains()).toBe(5);
   });
 
+  it("lets the first normal run each day start free, and charges the rest", async () => {
+    raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
+      VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
+    const body = { mode: "endless", orderedUnitIds: ["z0"], rulesetVersion: RAID_RULESET_VERSION };
+    const DAY = 86_400_000;
+    const morning = 10 * DAY + 1_000;
+    expect((await activeEndless(db, ME, morning)).body).toMatchObject({ freeRunAvailable: true });
+    const first = await startEndless(db, ME, body, morning);
+    expect(first.body).toMatchObject({ ok: true, brainCost: 0, freeRun: true });
+    expect(brains()).toBe(5);
+    await abandonEndless(db, ME, first.body.sessionId as string, morning + 1);
+    expect((await activeEndless(db, ME, morning + 2)).body).toMatchObject({ freeRunAvailable: false });
+    const second = await startEndless(db, ME, body, morning + 2);
+    expect(second.body).toMatchObject({ ok: true, brainCost: 1, freeRun: false });
+    expect(brains()).toBe(4);
+    await abandonEndless(db, ME, second.body.sessionId as string, morning + 3);
+    // Midnight UTC hands out the next one.
+    const tomorrow = await startEndless(db, ME, body, 11 * DAY);
+    expect(tomorrow.body).toMatchObject({ ok: true, brainCost: 0, freeRun: true });
+    expect(brains()).toBe(4);
+  });
+
   it("refuses a starting tier above the account's level", async () => {
     raw.prepare("UPDATE balances SET xp=61000 WHERE account_id=?").run(ME);
     raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
@@ -213,6 +235,9 @@ describe("Endless settlement on the real schema", () => {
   });
 
   it("starts a skipped run on its opening draft, charging the entry and holding the fight back", async () => {
+    // Today's free run is already spent, so this one pays its brain.
+    raw.prepare(`INSERT INTO endless_runs_v3 (id,account_id,mode,current_wave,run_state_json,army_json,fight_config_json,ruleset_version,started_at,fight_started_at,finished_at)
+      VALUES ('earlier',?,'endless',1,'{}','[]','{}',?,?,?,?)`).run(ME, RAID_RULESET_VERSION, LATER - 1, LATER - 1, LATER - 1);
     raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
       VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
     const body = { mode: "endless", orderedUnitIds: ["z0"], rulesetVersion: RAID_RULESET_VERSION };

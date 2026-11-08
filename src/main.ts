@@ -5790,10 +5790,12 @@ async function main() {
   const openEndless = async () => {
     if (!onlineFarm) { hud.showToast("Endless Mode requires an online account."); return; }
     let active: Awaited<ReturnType<typeof api.endlessActive>> | null = null;
+    hud.endlessFreeRun = false;
     try { active = await api.endlessActive(); } catch (error) {
       if (!(error instanceof api.ApiError) || error.status !== 404) {
         hud.showToast("Endless Mode is unavailable right now."); return;
       }
+      hud.endlessFreeRun = (error.body as { freeRunAvailable?: unknown } | undefined)?.freeRunAvailable === true;
     }
     const hasActive = !!active?.sessionId && !!active.mode && !!active.wave && !!active.stage;
     endlessSessionId = hasActive ? active!.sessionId! : null;

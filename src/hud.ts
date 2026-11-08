@@ -7116,6 +7116,9 @@ export class Hud {
 
   /** Endless hub: a saved run can resume at its pinned fight or boss draft, or be
    *  ended for its full depth payout. New runs reuse the same ordered army snapshot. */
+  /** The day's free normal Endless run is still unused (set before openEndlessHub). */
+  endlessFreeRun = false;
+
   openEndlessHub(
     active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice"; loot?: EndlessBossLoot[]; stopLabel?: string } | null,
     onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number) => void,
@@ -7156,17 +7159,17 @@ export class Hud {
       return;
     }
     const p = document.createElement("p");
-    p.textContent = "Face increasingly difficult invasions, with an Epic Boss every third floor. Choose where to go next after each boss. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Each run costs brains; end whenever you like to claim gold for every floor cleared.";
+    p.textContent = "Face increasingly difficult invasions, with an Epic Boss every third floor. Choose where to go next after each boss. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Your first run each day is free, and after that each run costs a brain; end whenever you like to claim gold for every floor cleared.";
     content.appendChild(p);
     // The first-clear ladder, ticked off as the account clears it (raid/endlessPerks.ts).
     const best = accountEndlessBestTier();
     const ladder = document.createElement("p");
     ladder.className = "endless-milestones";
     ladder.textContent = "First clears: " + ([
-      [1, "2 Brain Tickets"], [2, "1 brain"], [3, "Zwamp Thing"], [4, "+8 Mausoleum slots"],
-      [5, "+16 shed slots"], [6, "80×80 farm for sale"], [7, "Legend veterancy"],
+      [1, "2 Brain Tickets"], [2, "1 brain"], [3, "Zwamp Thing"], [4, "3 brains"], [5, "+8 Mausoleum slots"],
+      [6, "+16 shed slots"], [7, "80×80 farm for sale"], [8, "Legend veterancy"],
     ] as const).map(([tier, prize]) => `${best >= tier ? "✓ " : ""}T${tier} ${prize}`).join(" · ") +
-      ". From Tier 8, every boss win pays brains: 4, then one more each tier.";
+      ". From Tier 9, every boss win pays brains: 4, then one more each tier.";
     content.appendChild(ladder);
     const selected = new Set(party?.orderedSelectedIds.length ? party.orderedSelectedIds : party?.defaultSelectedIds ?? []);
     const max = party?.cap ?? 0;
@@ -7203,7 +7206,8 @@ export class Hud {
     }
     for (const [mode, label, level] of [["endless", "Start Endless · 1 brain", 30], ["nightmare", "Start Nightmare · 3 brains", 45]] as const) {
       if (!endlessModeOpen(mode)) continue;
-      const button = document.createElement("button"); button.className = "btn-primary"; button.textContent = label;
+      const button = document.createElement("button"); button.className = "btn-primary";
+      button.textContent = mode === "endless" && this.endlessFreeRun ? "Start Endless · Free today" : label;
       button.disabled = (this.state.level ?? 1) < level || selected.size < (party?.min ?? 1);
       button.onclick = () => { bg.remove(); onStart(mode, [...selected], mode === "endless" ? startTier : 1); }; content.appendChild(button);
     }

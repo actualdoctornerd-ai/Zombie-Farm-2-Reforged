@@ -13,13 +13,13 @@ import { MAX_VET_RANK, VET_RANKS, veterancy, veterancyLevel } from "../zombie/tr
 import { makeOwned } from "../zombie/types";
 
 describe("Endless permanent unlocks", () => {
-  it("open one per tier from T4 to T7", () => {
-    expect(endlessPerksFor(3)).toEqual({ cryptSlots: 0, shedSlots: 0, expansion: false, vetRanks: 0 });
-    expect(endlessPerksFor(4)).toEqual({ cryptSlots: 8, shedSlots: 0, expansion: false, vetRanks: 0 });
-    expect(endlessPerksFor(5)).toEqual({ cryptSlots: 8, shedSlots: 16, expansion: false, vetRanks: 0 });
-    expect(endlessPerksFor(6)).toEqual({ cryptSlots: 8, shedSlots: 16, expansion: true, vetRanks: 0 });
-    expect(endlessPerksFor(7)).toEqual({ cryptSlots: 8, shedSlots: 16, expansion: true, vetRanks: 1 });
-    expect(endlessPerksFor(30)).toEqual(endlessPerksFor(7));
+  it("open one per tier from T5 to T8", () => {
+    expect(endlessPerksFor(4)).toEqual({ cryptSlots: 0, shedSlots: 0, expansion: false, vetRanks: 0 });
+    expect(endlessPerksFor(5)).toEqual({ cryptSlots: 8, shedSlots: 0, expansion: false, vetRanks: 0 });
+    expect(endlessPerksFor(6)).toEqual({ cryptSlots: 8, shedSlots: 16, expansion: false, vetRanks: 0 });
+    expect(endlessPerksFor(7)).toEqual({ cryptSlots: 8, shedSlots: 16, expansion: true, vetRanks: 0 });
+    expect(endlessPerksFor(8)).toEqual({ cryptSlots: 8, shedSlots: 16, expansion: true, vetRanks: 1 });
+    expect(endlessPerksFor(30)).toEqual(endlessPerksFor(8));
   });
 
   it("each come as a first-clear reward at its own tier", () => {
@@ -42,25 +42,26 @@ describe("Endless permanent unlocks", () => {
 });
 
 describe("Deep-tier brains", () => {
-  it("pay 4 at T8 and one more each tier, on every boss win", () => {
-    expect([7, 8, 9, 10, 11, 15].map(endlessVictoryBrains)).toEqual([0, 4, 5, 6, 7, 11]);
-    expect(endlessVictoryRewards("endless", 9)).toEqual([{ kind: "brains", name: "Brains", quantity: 5 }]);
-    expect(endlessVictoryRewards("endless", 7)).toEqual([]);
-    expect(endlessVictoryRewards("nightmare", 9)).toEqual([]);
+  it("pay 4 at T9 and one more each tier, on 40% of boss wins", () => {
+    expect([8, 9, 10, 11, 12, 16].map(endlessVictoryBrains)).toEqual([0, 4, 5, 6, 7, 11]);
+    expect(endlessVictoryRewards("endless", 10, 0.39)).toEqual([{ kind: "brains", name: "Brains", quantity: 5 }]);
+    expect(endlessVictoryRewards("endless", 10, 0.41)).toEqual([]);
+    expect(endlessVictoryRewards("endless", 8, 0)).toEqual([]);
+    expect(endlessVictoryRewards("nightmare", 9, 0)).toEqual([]);
   });
 });
 
 describe("Legend veterancy", () => {
   const def = (zombiesJson as ZombieDef[]).find((z) => z.key === "ZombieActorRegularTier1")!;
-  it("is a sixth rank only an account past T7 reaches", () => {
+  it("is a sixth rank only an account past T8 reaches", () => {
     expect(BASE_MAX_VET_RANK).toBe(MAX_VET_RANK);
     expect(VET_RANKS[MAX_VET_RANK + 1]).toBe("Legend");
     expect(veterancyLevel(9, MAX_VET_RANK)).toBe(5);
     expect(veterancyLevel(9, MAX_VET_RANK + 1)).toBe(6);
     expect(veterancy(6, 6)).toBe("Legend");
     expect(veterancyLevel(5, 6)).toBe(5);
-    expect(endlessMaxVetRankOf({ endlessBestTier: 6 })).toBe(5);
-    expect(endlessMaxVetRankOf({ endlessBestTier: 7 })).toBe(6);
+    expect(endlessMaxVetRankOf({ endlessBestTier: 7 })).toBe(5);
+    expect(endlessMaxVetRankOf({ endlessBestTier: 8 })).toBe(6);
   });
 
   it("adds another 5% in battle, and only where the fight says so", () => {
