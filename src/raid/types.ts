@@ -200,6 +200,9 @@ export interface CombatUnit {
   /** The pirate captain's charge-up slam (raid 13 only; see raid/dualInvasion.ts). Absent
    *  everywhere else, which is what keeps every other transcript untouched. */
   charge?: ChargeConfig | null;
+  /** Endless: the share of a stun this enemy shrugs off, shorter stuns and slower poise bars
+   *  alike. 1 is immune. Absent everywhere else. */
+  stunResist?: number;
   /** This enemy is a CIRCUS STACK (raid 14 only): one unit standing in for a tower of
    *  midgets, which climbs another level every `growMs` up to `maxHeight` and fights at
    *  whatever height its remaining hit points still support. Absent everywhere else,
@@ -280,6 +283,9 @@ export interface CombatUnit {
    *  divergent one. Recomputed against the current foe every time it re-arms.
    *  Players: false. */
   mirrorsOpponentSpeed?: boolean;
+  /** Endless: multiplies a mirroring enemy's mirrored interval, so Heavy Hitters and the
+   *  attack-speed curse still reach the pirates, whose own clock never paces them. */
+  mirrorPace?: number;
   /** This zombie's SPECIES BASE attack cycle in ms: 2 s ÷ its catalog dex, with no
    *  veterancy, mutation, level ramp, ability buff or lineup band on it. `attackCooldownMs`
    *  is what the zombie actually swings at; this is what its BODY would swing at.

@@ -1289,7 +1289,9 @@ import type { RaidOutcome } from "./types";
 // Treat, a defenders' own Resurrect backlog, and Rage/Berserk/Shield Bar/Support/Phase. Taps
 // are kept but never fire. Every formation PvP fight replays differently from v81; raids do
 // not (no raid enemy carries an ability or a station).
-export const RAID_RULESET_VERSION = 82;
+// 83: Medusa Zombie's deploy powers: she freezes a perched boss for 5 s (20 s lockout) and
+// stuns the first enemy she sees for 2 s. Changes every fight an army with her in it plays.
+export const RAID_RULESET_VERSION = 83;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
@@ -1311,6 +1313,7 @@ export type RaidReplayInput =
   | { seq: number; tick: number; type: "wallTap"; unitId: string }
   | { seq: number; tick: number; type: "fireTap"; unitId: string }
   | { seq: number; tick: number; type: "turnedTap"; unitId: string }
+  | { seq: number; tick: number; type: "chargeTap"; unitId: string }
   | { seq: number; tick: number; type: "signPick"; offer: number; option: number }
   | { seq: number; tick: number; type: "castCancel"; slot?: number }
   | { seq: number; tick: number; type: "trapezeTap"; unitId: string }
@@ -1425,6 +1428,12 @@ export function advanceRaidSegment(
         if (typeof input.abilityKey !== "string") return { ok: false, error: "illegal_ability" };
         if (!sim.activate(input.abilityKey)) {
           const fatal = refuse("illegal_ability");
+          if (fatal) return fatal;
+        }
+      } else if (input.type === "chargeTap") {
+        if (typeof input.unitId !== "string") return { ok: false, error: "illegal_charge_tap" };
+        if (!sim.tapCharge(input.unitId)) {
+          const fatal = refuse("illegal_charge_tap");
           if (fatal) return fatal;
         }
       } else if (input.type === "wallTap") {

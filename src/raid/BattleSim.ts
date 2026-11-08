@@ -153,6 +153,15 @@ export const DO_OR_DIE_HASTE = 2;
  *  damage a second: pushing on should cost an army that never loses anyone in regulation
  *  (owner, 2026-10-25: retreat, or risk massive losses). */
 export const DO_OR_DIE_DAMAGE = 2;
+/** Medusa Zombie's key, and her two deploy powers. */
+const MEDUSA_KEY = "ZombieActorMedusa";
+const MEDUSA_FREEZE_MS = 5_000;
+const MEDUSA_FREEZE_LOCK_MS = 20_000;
+const MEDUSA_GAZE_MS = 2_000;
+/** How fast Dr. Groundhog's launch throws a zombie down the lane, in points a second. */
+const LAUNCH_SPEED = 900;
+/** A tapped slam never drops below this share of its strength. */
+const CHARGE_TAP_FLOOR = 0.5;
 
 // ---- Front formation (GROUND TRUTH: `-[ZombieActor calculateDestinationPoint]` 0x4c9d4)
 // The army's ORDER *is* the formation — there is no separate layout pass. A zombie's index
@@ -795,6 +804,14 @@ export interface SimUnit {
   // ---- the pirate captain's charge (raid 13; see dualInvasion.ts) ----
   /** The charge this unit carries, or null for everyone else (which is everyone else). */
   chargeCfg: ChargeConfig | null;
+  /** Share of an incoming stun shrugged off (CombatUnit.stunResist). */
+  stunResist: number;
+  /** What's left of a slam after tapping on it (ChargeConfig.tapReduce). 1 = untouched. */
+  chargeTapScale: number;
+  /** Turned to stone by Medusa: greyed out for this long. Purely what the renderer reads. */
+  stoneMs: number;
+  /** A Medusa that has deployed and not yet looked at anything. */
+  gazeReady: boolean;
   /** Wind-up remaining on the charge, ms. 0 = not charging. */
   chargeMs: number;
   /** Poise put into the bar by stuns since this wind-up began, 0..POISE_THRESHOLD. */
@@ -812,6 +829,8 @@ export interface SimUnit {
   staggerMs: number;
   /** Enemy that ignores its dex clock and mirrors its opponent's (both pirates). */
   mirrorsOpponentSpeed: boolean;
+  /** Endless: multiplies the mirrored interval (CombatUnit.mirrorPace). 1 everywhere else. */
+  mirrorPace: number;
   /** A zombie's SPECIES BASE cycle in ms (2 s ÷ catalog dex, nothing else applied).
    *  Arrrnold's slam is priced on this rather than on `cooldownMs`; see combatStats. */
   speciesCycleMs: number;
@@ -941,6 +960,8 @@ export interface BattleSimSnapshot {
   enraged: boolean;
   specialCast: number;
   pendingSpecial: BossSpecial | null;
+  bossFreezeMs: number;
+  bossFreezeLockMs: number;
   /** `bossSummonList` as source keys, in queue order. Replaces the old `summonsLeft`
    *  counter (there is no cap — see the SUMMON notes above). */
   summonQueue?: string[];
@@ -1163,6 +1184,10 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     passedBlockers: [],
     taken: false,
     chargeCfg: u.charge ?? null,
+    stunResist: u.stunResist ?? 0,
+    chargeTapScale: 1,
+    stoneMs: 0,
+    gazeReady: false,
     chargeMs: 0,
     poise: 0,
     chargeRestMs: 0,
@@ -1171,6 +1196,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     chargeSlamSeq: 0,
     staggerMs: 0,
     mirrorsOpponentSpeed: !isPlayer && !!u.mirrorsOpponentSpeed,
+    mirrorPace: u.mirrorPace ?? 1,
     speciesCycleMs: u.speciesCycleMs ?? u.attackCooldownMs,
   };
 }
@@ -1239,6 +1265,10 @@ export class BattleSim {
   private actionCount = 0; // deterministic roll counter
   private specialCast = 0; // wind-up left on the pending special
   private pendingSpecial: BossSpecial | null = null;
+  /** Medusa: the perched boss stands frozen for this long, whatever it was doing. */
+  private bossFreezeMs = 0;
+  /** Medusa: time until the boss can be frozen again, so a line of them cannot lock it. */
+  private bossFreezeLockMs = 0;
   private bossSpecialEffects: { name: string; x: number; y: number }[] = [];
   // ---- the saucer's bubble (raid 15; see dualInvasion.ts) ----
   /** Where in the cycle the saucer is, how much charge is left on the thing it is doing,
@@ -1534,6 +1564,8 @@ export class BattleSim {
       enraged: this._enraged,
       specialCast: this.specialCast,
       pendingSpecial: this.pendingSpecial ? { ...this.pendingSpecial } : null,
+      bossFreezeMs: this.bossFreezeMs,
+      bossFreezeLockMs: this.bossFreezeLockMs,
       summonQueue: [...this.summonQueue],
       dripLeft: this.dripLeft,
       activeTarget: this.activeTarget,
@@ -1612,6 +1644,10 @@ export class BattleSim {
       knockBackSpeed: u.knockBackSpeed ?? 0,
       passedBlockers: [...(u.passedBlockers ?? [])],
       chargeCfg: u.chargeCfg ?? null,
+      stunResist: u.stunResist ?? 0,
+      chargeTapScale: u.chargeTapScale ?? 1,
+      stoneMs: u.stoneMs ?? 0,
+      gazeReady: u.gazeReady ?? false,
       chargeMs: u.chargeMs ?? 0,
       poise: u.poise ?? 0,
       chargeRestMs: u.chargeRestMs ?? 0,
@@ -1656,6 +1692,7 @@ export class BattleSim {
       knockBackChance: u.knockBackChance ?? (u.knockBack ? 1 : 0),
       stunChance: u.stunChance ?? (u.stunInflictMs > 0 ? 1 : 0),
       mirrorsOpponentSpeed: u.mirrorsOpponentSpeed ?? false,
+      mirrorPace: u.mirrorPace ?? 1,
     })));
     this.players = this.units.filter((u) => u.team === "player");
     this.enemies = this.units.filter((u) => u.team === "enemy");
@@ -1686,6 +1723,8 @@ export class BattleSim {
     this._enraged = snapshot.enraged;
     this.specialCast = snapshot.specialCast;
     this.pendingSpecial = snapshot.pendingSpecial ? { ...snapshot.pendingSpecial } : null;
+    this.bossFreezeMs = snapshot.bossFreezeMs ?? 0;
+    this.bossFreezeLockMs = snapshot.bossFreezeLockMs ?? 0;
     // A checkpoint that predates the abductee queue restores the ctor's seed order, which
     // is the same thing a fresh sim would hold — such a snapshot can only exist on a
     // ruleset the session handshake already rejects, so it never reaches a live fight.
@@ -2461,6 +2500,9 @@ export class BattleSim {
     if (!foe.alive) return;
     // Immunity (raid 12): no stun lands, and none feeds a bar either.
     if (this.rulingFx.immune) return;
+    // Endless: fully resistant is the same immunity, partly resistant shortens it below.
+    const resisted = 1 - foe.stunResist;
+    if (resisted <= 0) return;
     // The counter (raid 13, t5+): the ninja boss turns a stun round, doubled, onto the zombie
     // that threw it. Passive procs included — that is the tax on a stun army hitting him.
     const counter = this.duel?.counterStunMult ?? 0;
@@ -2470,7 +2512,7 @@ export class BattleSim {
       return;
     }
     if (foe.chargeMs > 0) {
-      const gain = poiseFor(source);
+      const gain = poiseFor(source) * resisted;
       if (gain > 0) {
         const threshold = foe.chargeCfg?.poiseThreshold ?? POISE_THRESHOLD;
         foe.poise = Math.min(threshold, foe.poise + gain);
@@ -2478,7 +2520,7 @@ export class BattleSim {
       }
       return;
     }
-    foe.stunMs = Math.max(foe.stunMs, ms);
+    foe.stunMs = Math.max(foe.stunMs, ms * resisted);
   }
 
   /** The pirate captain (raid 13), or null on every other fight. */
@@ -2623,7 +2665,7 @@ export class BattleSim {
       const target = this.players
         .filter((p) => p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "dead")
         .sort((a, b) => b.x - a.x)[0];
-      if (target) this.dealEnemyDamage(target, cfg.damage);
+      if (target) this.dealEnemyDamage(target, cfg.damage * u.chargeTapScale);
     } else {
       // Pirate's standard slam hits every deployed zombie; Endless bruisers can opt into
       // a telegraphed single-target hit to produce focused casualties instead of a wipe.
@@ -2635,6 +2677,7 @@ export class BattleSim {
     }
     u.chargeFrac = 0;
     u.poise = 0;
+    u.chargeTapScale = 1;
     u.chargeRestMs = cfg.recoveryMs;
     u.chargeSlamSeq++;
   }
@@ -3450,12 +3493,26 @@ export class BattleSim {
     }
     // Do or Die: every enemy at twice its dex, which is half its cycle.
     const haste = this.doOrDie ? DO_OR_DIE_HASTE : 1;
-    if (u.mirrorsOpponentSpeed && foe && foe.team === "player") {
-      const foeSec = (foe.cooldownMs * lineupSpeedBand(foe.lineupIndex)) / 1000;
-      return (mirrorIntervalSec(u.sourceKey, foeSec, foe.speciesCycleMs / 1000) * 1000) / haste;
+    // Endless primes a mirroring pirate against the zombie it is about to meet, so even its
+    // first swing at a new arrival keeps the mirrored tempo rather than its own dex clock.
+    // Invasions keep the shipped behaviour: the first swing runs on the unit's own clock.
+    const mirrored = foe ?? (u.mirrorsOpponentSpeed && this.endlessMechanics ? this.frontDeployed() : null);
+    if (u.mirrorsOpponentSpeed && mirrored && mirrored.team === "player") {
+      const foeSec = (mirrored.cooldownMs * lineupSpeedBand(mirrored.lineupIndex)) / 1000;
+      return (mirrorIntervalSec(u.sourceKey, foeSec, mirrored.speciesCycleMs / 1000) * 1000 * u.mirrorPace) / haste;
     }
     // A PvP defender's Rage (raid enemies carry no abilities, so this is 1 for every raid).
     return u.cooldownMs / haste / (this.raging(u) ? RAGE_SPEED_MULT : 1);
+  }
+
+  /** The deployed zombie furthest forward: the one an arriving enemy meets first. */
+  private frontDeployed(): SimUnit | null {
+    let best: SimUnit | null = null;
+    for (const p of this.players) {
+      if (!p.alive || p.taken || p.state === "waiting" || p.state === "charging" || p.state === "dead") continue;
+      if (!best || p.x > best.x) best = p;
+    }
+    return best;
   }
 
   /** Land a hit from `u` on `foe` when its clock is ready; else re-arm. An enemy
@@ -4052,10 +4109,64 @@ export class BattleSim {
     return r > clamp(p.focus, 0, 100) / 100;
   }
 
+  /** MEDUSA (owner, 2026-11-05). On deploy she freezes a boss up on its perch, stalling whatever
+   *  it was doing, and gets one look at the first enemy she can see. */
+  private medusaDeployed(p: SimUnit) {
+    p.gazeReady = true;
+    const boss = this.boss;
+    if (boss && boss.alive && boss.state === "structure" && this.bossFreezeLockMs <= 0) {
+      this.bossFreezeMs = MEDUSA_FREEZE_MS;
+      this.bossFreezeLockMs = MEDUSA_FREEZE_LOCK_MS;
+      boss.stoneMs = MEDUSA_FREEZE_MS;
+    }
+  }
+
+  /** Spend each ready Medusa's look on the nearest enemy actually on the field. A perched boss
+   *  is the freeze's business and a foe that shrugs the stun off stays its colour. */
+  private stepMedusa(dtMs: number) {
+    if (this.bossFreezeMs > 0) this.bossFreezeMs = Math.max(0, this.bossFreezeMs - dtMs);
+    if (this.bossFreezeLockMs > 0) this.bossFreezeLockMs = Math.max(0, this.bossFreezeLockMs - dtMs);
+    for (const u of this.units) if (u.stoneMs > 0) u.stoneMs = Math.max(0, u.stoneMs - dtMs);
+    for (const p of this.players) {
+      if (!p.gazeReady || !p.alive) continue;
+      const seen = this.enemies
+        .filter((e) => e.alive && !e.isWall && e.state !== "queued" && e.state !== "structure" && e.state !== "descending" && e.state !== "falling")
+        .sort((a, b) => a.x - b.x)[0];
+      if (!seen) continue;
+      p.gazeReady = false;
+      this.stunEnemy(seen, MEDUSA_GAZE_MS, "medusaGaze", p);
+      if (seen.stunMs > 0) seen.stoneMs = Math.max(seen.stoneMs, seen.stunMs);
+    }
+  }
+
+  /** Dr. Groundhog's launch: the zombie is thrown clear to the back and has to walk in again. */
+  private launchToBack(p: SimUnit) {
+    if (!p.alive || p.taken || p.knockBackSpeed > 0 || p.blastAirMs > 0) return;
+    p.windupKey = null;
+    p.windupMs = 0;
+    p.knockBackToX = Math.min(p.x, CHARGE_X);
+    p.knockBackSpeed = LAUNCH_SPEED;
+    p.formOrder = this.releaseSeq++;
+    p.frontPriority = false;
+    p.inLine = false;
+    p.state = "advance";
+    p.timerMs = this.cycleMs(p, null);
+  }
+
+  /** Tapping a winding-up slam that allows it weakens it (Endless's Dr. Groundhog). */
+  tapCharge(unitId: string): boolean {
+    const foe = this.enemies.find((e) => e.id === unitId);
+    const reduce = foe?.chargeCfg?.tapReduce ?? 0;
+    if (!foe || !foe.alive || reduce <= 0 || foe.chargeMs <= 0 || foe.chargeTapScale <= CHARGE_TAP_FLOOR) return false;
+    foe.chargeTapScale = Math.max(CHARGE_TAP_FLOOR, foe.chargeTapScale - reduce);
+    return true;
+  }
+
   /** Release a fully-charged zombie to advance to the front line. */
   private releaseCharger(p: SimUnit) {
     p.state = "advance";
     p.teleportPending = p.abilities.includes("teleport");
+    if (p.sourceKey === MEDUSA_KEY) this.medusaDeployed(p);
     p.formOrder = this.releaseSeq++; // claim a formation slot on release
     p.distracted = false;
     p.awaitRelease = false;
@@ -4785,6 +4896,7 @@ export class BattleSim {
     // Throws and specials draw from ONE action budget (ground truth: the boss rolls a
     // single weighted pick over `bossActions` per cycle — see stepBossActions).
     this.stepBossActions(dtMs);
+    this.stepMedusa(dtMs);
     this.stepEndlessMechanics(dtMs);
     this.stepGrabbers(dtMs);
     this.stepBigTop(dtMs);
@@ -5238,9 +5350,24 @@ export class BattleSim {
    *  telegraph it (`bossThrowSwing` only winds the arm when a throw is actually next). */
   private stepBossActions(dtMs: number) {
     if (!this.actions.length || !this.bossActive() || !this.anyAlive(this.players)) return;
+    // Frozen by Medusa: everything it was doing simply waits.
+    if (this.bossFreezeMs > 0) return;
+    // In Endless a stun interrupts him: a move mid-cast is lost, and he acts again once free.
+    if (this.endlessMechanics && this.boss && this.boss.stunMs > 0) {
+      if (this.pendingSpecial) {
+        this.actionCd = Math.max(300, this.pendingSpecial.cooldownMs);
+        this.pendingSpecial = null;
+        this.boss.chargeFrac = 0;
+        this.rollNextAction();
+      }
+      return;
+    }
     // A special that is already winding up owns the boss until it lands.
     if (this.pendingSpecial) {
       this.specialCast -= dtMs;
+      if (this.pendingSpecial.name === "launch" && this.boss) {
+        this.boss.chargeFrac = 1 - Math.max(0, this.specialCast) / Math.max(1, this.pendingSpecial.castMs);
+      }
       if (this.specialCast <= 0) {
         const sp = this.pendingSpecial;
         this.runSpecial(sp);
@@ -5449,6 +5576,17 @@ export class BattleSim {
    *  through spawnEnemy; both are capped so the fight still resolves. */
   private runSpecial(sp: BossSpecial) {
     switch (sp.name) {
+      case "launch": {
+        if (this.boss) this.boss.chargeFrac = 0;
+        const target = this.players
+          .filter((p) => p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "dead")
+          .sort((a, b) => b.x - a.x)[0];
+        if (target) {
+          this.dealEnemyDamage(target, sp.damage);
+          this.launchToBack(target);
+        }
+        break;
+      }
       case "alienLaser": {
         // Flat 200 per bolt — a hard constant in the source, not a stat-derived value
         // (`AlienStageBullet collidedWith:` passes the immediate 200.0f to `damage:`).

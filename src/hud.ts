@@ -24,6 +24,9 @@ import { visibleMutations } from "./zombie/mutationVisibility";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { EndlessBossLoot } from "./raid/endlessLoot";
+import { endlessMaxStartTier } from "./raid/endless";
+import { openEndlessBossScreen, type EndlessBossChoices } from "./ui/panels/endlessBossScreen";
+import type { EndlessBossView } from "./net/api";
 import { lootDropLabel } from "./raid/RaidManager";
 import type { ProfileIndex } from "./save/profiles";
 import { canGiftBrain, type Friend } from "./social/friends";
@@ -386,6 +389,13 @@ function giftRewardLabel(reward: GiftReward): string {
 function cropUnlockHtml(names: string[]): string {
   if (!names.length) return "";
   return `<div class="rr-unlock rr-crop-unlock">New crop unlocked: ${names.join(", ")} — plant it from the Market.</div>`;
+}
+
+/** "Insta-Grow ×10, Zwamp Thing" for the Endless loot line. */
+function endlessLootText(loot: readonly EndlessBossLoot[]): string {
+  const totals = new Map<string, number>();
+  for (const item of loot) totals.set(item.name, (totals.get(item.name) ?? 0) + item.quantity);
+  return [...totals].map(([name, quantity]) => `${name}${quantity > 1 ? ` ×${quantity}` : ""}`).join(", ");
 }
 
 export class Hud {
@@ -2231,7 +2241,7 @@ export class Hud {
   /** You + your accepted friends with the numbers the friend leaderboard ranks
    *  (Social → Leaderboard, ui/panels/leaderboard.ts). One server round trip. */
   getFriendLeaderboard: (() => Promise<FriendLeaderboardEntry[]>) | null = null;
-  getEndlessLeaderboard: ((mode: "endless" | "nightmare") => Promise<EndlessLeaderboardEntry[]>) | null = null;
+  getEndlessLeaderboard: ((mode: "endless" | "nightmare", board: "all-time" | "weekly") => Promise<EndlessLeaderboardEntry[]>) | null = null;
   // ---- Invasions panel hooks (online only; see ui/panels/invasions.ts) ----
   /** Whether the deployed Worker accepts friend invasions (bootstrap capability).
    *  The Social hub shows the Invasions entry only when this is true, so the whole
@@ -6625,7 +6635,7 @@ export class Hud {
       card.className = "rd-card";
       const thumb = document.createElement("div"); thumb.className = "rd-thumb";
       const txt = document.createElement("div");
-      txt.innerHTML = `<div class="rd-cn">Endless Mode</div><div class="rd-cl">Harder invasions · Epic Boss every four floors</div>`;
+      txt.innerHTML = `<div class="rd-cn">Endless Mode</div><div class="rd-cl">Harder invasions · Epic Boss every three floors</div>`;
       card.append(thumb, txt);
       card.onclick = () => { close(); this.onOpenEndless?.(); };
       list.prepend(card);
@@ -7102,8 +7112,8 @@ export class Hud {
   /** Endless hub: a saved run can resume at its pinned fight or boss draft, or be
    *  ended for its full depth payout. New runs reuse the same ordered army snapshot. */
   openEndlessHub(
-    active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice" } | null,
-    onStart: (mode: "endless" | "nightmare", orderedIds: string[]) => void,
+    active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice"; loot?: EndlessBossLoot[]; stopLabel?: string } | null,
+    onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number) => void,
     onResume: () => void,
     onEnd: () => void,
   ) {
@@ -7124,8 +7134,13 @@ export class Hud {
     bg.appendChild(panel); this.el.appendChild(bg);
     if (active) {
       const p = document.createElement("p");
-      p.textContent = `${active.mode === "nightmare" ? "Nightmare Endless" : "Endless"} · ${active.stage === "battle" ? `Floor ${active.wave}` : `Floor ${active.wave} boss cleared · choose rewards`}`;
+      p.textContent = `${active.mode === "nightmare" ? "Nightmare Endless" : "Endless"} · ${active.stage === "battle" ? `Floor ${active.wave}${active.stopLabel ? ` · ${active.stopLabel}` : ""}` : `Floor ${active.wave} boss cleared · choose rewards`}`;
       content.appendChild(p);
+      if (active.loot?.length) {
+        const lootNote = document.createElement("p");
+        lootNote.textContent = `Floor loot: ${endlessLootText(active.loot)}`;
+        content.appendChild(lootNote);
+      }
       const resume = document.createElement("button"); resume.className = "btn-primary"; resume.textContent = active.stage === "battle" ? "Resume Run" : "Choose Rewards";
       resume.onclick = () => { bg.remove(); onResume(); }; content.appendChild(resume);
       const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = "End Run and Claim Gold";
@@ -7136,7 +7151,7 @@ export class Hud {
       return;
     }
     const p = document.createElement("p");
-    p.textContent = "Face increasingly difficult invasions, with an Epic Boss every four floors. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Each run costs brains; end whenever you like to claim gold for every floor cleared.";
+    p.textContent = "Face increasingly difficult invasions, with an Epic Boss every third floor. Choose where to go next after each boss. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Each run costs brains; end whenever you like to claim gold for every floor cleared.";
     content.appendChild(p);
     const selected = new Set(party?.orderedSelectedIds.length ? party.orderedSelectedIds : party?.defaultSelectedIds ?? []);
     const max = party?.cap ?? 0;
@@ -7157,65 +7172,29 @@ export class Hud {
     const status = document.createElement("p"); content.appendChild(status);
     const updateStatus = () => { status.textContent = `${selected.size}/${max} zombies selected`; };
     updateStatus();
+    // Strong armies can skip the tiers they would only sweep, one more per 5 levels.
+    const maxStart = endlessMaxStartTier("endless", this.state.level ?? 1);
+    let startTier = 1;
+    if (maxStart > 1) {
+      const wrap = document.createElement("label"); wrap.className = "endless-choice"; wrap.textContent = "Endless starting tier";
+      const pick = document.createElement("select");
+      for (let tier = 1; tier <= maxStart; tier++) {
+        const option = document.createElement("option"); option.value = String(tier);
+        option.textContent = tier === 1 ? "T1" : `T${tier} · draft ${tier - 1} boon${tier > 2 ? "s" : ""} and curse${tier > 2 ? "s" : ""} first`;
+        pick.appendChild(option);
+      }
+      pick.onchange = () => { startTier = Number(pick.value); };
+      wrap.appendChild(pick); content.appendChild(wrap);
+    }
     for (const [mode, label, level] of [["endless", "Start Endless · 1 brain", 30], ["nightmare", "Start Nightmare · 3 brains", 45]] as const) {
       const button = document.createElement("button"); button.className = "btn-primary"; button.textContent = label;
       button.disabled = (this.state.level ?? 1) < level || selected.size < (party?.min ?? 1);
-      button.onclick = () => { bg.remove(); onStart(mode, [...selected]); }; content.appendChild(button);
+      button.onclick = () => { bg.remove(); onStart(mode, [...selected], mode === "endless" ? startTier : 1); }; content.appendChild(button);
     }
   }
 
-  openEndlessBossChoice(
-    draft: { boons: unknown[]; curses: unknown[] },
-    loot: EndlessBossLoot[],
-    onChoose: (boon: unknown, curse: unknown) => void,
-    onEnd: () => void,
-  ) {
-    const bg = document.createElement("div"); bg.className = "panelbg raid-bg";
-    const panel = document.createElement("div"); panel.className = "panel";
-    const title = document.createElement("h2"); title.textContent = "Boss defeated · choose a boon and a curse";
-    panel.appendChild(title);
-    if (loot.length) {
-      const lootNote = document.createElement("p");
-      const totals = new Map<string, number>();
-      for (const item of loot) totals.set(item.name, (totals.get(item.name) ?? 0) + item.quantity);
-      lootNote.textContent = `Boss loot: ${[...totals].map(([name, quantity]) => `${name}${quantity > 1 ? ` ×${quantity}` : ""}`).join(", ")}`;
-      panel.appendChild(lootNote);
-    }
-    const describeChoice = (choice: unknown): string => {
-      if (!choice || typeof choice !== "object") return String(choice);
-      const value = choice as Record<string, unknown>;
-      const pct = typeof value.percent === "number" ? ` ${value.percent}%` : "";
-      switch (value.kind) {
-        case "revive": return `Recover ${value.count} fallen zombies`;
-        case "revive-headless": return "Revive fallen headless zombies after each battle";
-        case "damage": return `Zombies deal${pct} more damage`;
-        case "deployment": return `Zombies deploy${pct} faster`;
-        case "opening-deploy": return `Start with ${value.count} zombies deployed`;
-        case "enemy-health": return `Enemies have${pct} more health`;
-        case "enemy-damage": return `Enemies deal${pct} more damage`;
-        case "enemy-attack-speed": return `Enemies attack${pct} faster`;
-        case "enemy-stun": return "Enemies can stun zombies on hit";
-        case "enemy-explosion": return "Some enemies explode when defeated";
-        case "enemy-knockback-headless": return "Enemies can knock back headless zombies";
-        case "headless-stat": return `Headless zombies have${pct} less ${String(value.stat)} power`;
-        default: return String(value.kind ?? "Choice");
-      }
-    };
-    const select = (label: string, options: unknown[]) => {
-      const wrap = document.createElement("label"); wrap.textContent = label;
-      const el = document.createElement("select");
-      options.forEach((value, index) => { const option = document.createElement("option"); option.value = String(index); option.textContent = describeChoice(value); el.appendChild(option); });
-      wrap.appendChild(el); panel.appendChild(wrap); return el;
-    };
-    const boon = select("Boon", draft.boons); const curse = select("Curse", draft.curses);
-    const choose = document.createElement("button"); choose.className = "btn-primary"; choose.textContent = "Continue";
-    choose.onclick = () => { bg.remove(); onChoose(draft.boons[Number(boon.value)], draft.curses[Number(curse.value)]); };
-    const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = "End Run and Claim Gold";
-    end.onclick = async () => {
-      if (!await this.confirmInGame("End this Endless run?", "You will receive the full gold reward for every floor already cleared.", "End Run")) return;
-      bg.remove(); onEnd();
-    };
-    panel.append(choose, end); bg.appendChild(panel); this.el.appendChild(bg);
+  openEndlessBossChoice(view: EndlessBossView, onChoose: (choices: EndlessBossChoices) => void, onEnd: () => void) {
+    openEndlessBossScreen(this, view, onChoose, onEnd);
   }
 
   openRaidResult(view: RaidResultView, onClose?: () => void) {

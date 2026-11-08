@@ -470,7 +470,7 @@ export function resolveRaid(
     if (u.mirrorsOpponentSpeed && foe) {
       const foeSec = (foe.attackCooldownMs * lineupSpeedBand(lineup.get(foe.id) ?? 0)) / 1000;
       const speciesSec = (foe.speciesCycleMs ?? foe.attackCooldownMs) / 1000;
-      return mirrorIntervalSec(u.sourceKey, foeSec, speciesSec) * 1000;
+      return mirrorIntervalSec(u.sourceKey, foeSec, speciesSec) * 1000 * (u.mirrorPace ?? 1);
     }
     return u.attackCooldownMs;
   };

@@ -1,3 +1,4 @@
+import { ENDLESS_FIGHTS_PER_LOCATION } from "../../raid/endless";
 import type { Hud } from "../../hud";
 import type { EndlessLeaderboardEntry } from "../../net/api";
 import { mutationLabelFor } from "../../zombie/mutationDisplay";
@@ -8,14 +9,6 @@ type Mode = "endless" | "nightmare";
 
 const medal = (rank: number): string =>
   rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
-
-function formatDuration(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainder = seconds % 60;
-  return hours ? `${hours}h ${String(minutes).padStart(2, "0")}m` : `${minutes}m ${String(remainder).padStart(2, "0")}s`;
-}
 
 function friendlySpecies(species: string): string {
   return species.replace(/^ZombieActor/, "").replace(/Actor/g, " ")
@@ -33,7 +26,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
 
   const subtitle = document.createElement("p");
   subtitle.className = "endless-lb-subtitle";
-  subtitle.textContent = "Top 25 personal bests · deepest floor ranks first · time breaks ties";
+  subtitle.textContent = "Top 25 · deepest floor ranks first · first to reach it breaks ties";
   const modeTabs = document.createElement("div");
   modeTabs.className = "endless-lb-tabs";
   const status = document.createElement("div");
@@ -42,9 +35,12 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
   const list = document.createElement("div");
   list.className = "endless-lb-list";
   list.setAttribute("aria-label", "Endless leaderboard entries");
-  panel.append(subtitle, modeTabs, status, list);
+  const boardTabs = document.createElement("div");
+  boardTabs.className = "endless-lb-tabs";
+  panel.append(subtitle, boardTabs, modeTabs, status, list);
 
   let mode: Mode = "endless";
+  let board: "all-time" | "weekly" = "weekly";
   let entries: EndlessLeaderboardEntry[] | null = null;
   let loading = false;
   let failed = false;
@@ -73,7 +69,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
 
     const headings = document.createElement("div");
     headings.className = "endless-lb-headings";
-    headings.innerHTML = "<span>Rank</span><span>Player</span><span>Best</span><span>Time</span><span>Army</span>";
+    headings.innerHTML = "<span>Rank</span><span>Player</span><span>Best</span><span>Army</span>";
     list.appendChild(headings);
 
     for (const entry of entries) {
@@ -91,18 +87,14 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       name.textContent = entry.name.trim() || "Player";
       const depth = document.createElement("span");
       depth.className = "endless-lb-depth";
-      const tier = Math.ceil(Math.max(0, entry.deepestFloor) / 4);
+      const tier = Math.ceil(Math.max(0, entry.deepestFloor) / ENDLESS_FIGHTS_PER_LOCATION);
       depth.textContent = `T${tier} · Floor ${entry.deepestFloor}`;
-      const time = document.createElement("span");
-      time.className = "endless-lb-time";
-      time.textContent = formatDuration(entry.durationMs);
-      time.title = "Run time · tie-breaker";
       const armyToggle = document.createElement("button");
       armyToggle.type = "button";
       armyToggle.className = "endless-lb-army-toggle";
       armyToggle.textContent = `Army (${entry.army.length})`;
       armyToggle.setAttribute("aria-expanded", "false");
-      row.append(rank, name, depth, time, armyToggle);
+      row.append(rank, name, depth, armyToggle);
 
       const army = document.createElement("div");
       army.className = "endless-lb-army";
@@ -146,7 +138,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
     loading = true; failed = false; entries = null;
     renderRows();
     try {
-      entries = await hud.getEndlessLeaderboard?.(mode) ?? [];
+      entries = await hud.getEndlessLeaderboard?.(mode, board) ?? [];
       failed = false;
     } catch {
       failed = true;
@@ -157,6 +149,22 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
   };
 
   const renderTabs = () => {
+    boardTabs.replaceChildren();
+    for (const [value, label] of [["weekly", "This Week"], ["all-time", "All Time"]] as const) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "endless-lb-tab";
+      tab.textContent = label;
+      tab.setAttribute("aria-pressed", String(value === board));
+      if (value === board) tab.classList.add("selected");
+      tab.onclick = () => {
+        if (value === board) return;
+        board = value;
+        renderTabs();
+        void load();
+      };
+      boardTabs.appendChild(tab);
+    }
     modeTabs.replaceChildren();
     for (const [value, label] of [["endless", "Normal"], ["nightmare", "Nightmare"]] as const) {
       const tab = document.createElement("button");

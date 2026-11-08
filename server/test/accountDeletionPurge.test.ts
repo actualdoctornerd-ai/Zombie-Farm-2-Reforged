@@ -133,6 +133,11 @@ function seedAccount(raw: DatabaseSync, account: string, other: string): void {
       const rowId = `${table}:${account}:${n}`;
       if (table === "black_market_orders") {
         Object.assign(row, marketOrder(rowId, variant[0], variant[1]));
+      } else if (table === "endless_weekly_leaderboard") {
+        Object.assign(row, { week: "1", account_id: variant[0], mode: "endless", deepest_floor: 1,
+          duration_ms: 1, army_json: "[]", achieved_at: NOW });
+      } else if (table === "endless_progress") {
+        Object.assign(row, { account_id: variant[0], mode: "endless", best_tier: 1, updated_at: NOW });
       } else if (table === "endless_leaderboard") {
         Object.assign(row, { account_id: variant[0], mode: "endless", deepest_floor: 1,
           duration_ms: 1, army_json: "[]", achieved_at: NOW });

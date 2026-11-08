@@ -40,7 +40,7 @@ const LUMA = [0.299, 0.587, 0.114];
 
 /** The colour matrix every statue shares. Filters are stateless here — the rig is
  *  baked to a texture at build time — so one instance can serve every memorial. */
-function stoneFilter(): ColorMatrixFilter {
+function makeStoneFilter(): ColorMatrixFilter {
   const filter = new ColorMatrixFilter();
   const row = (channel: number): [number, number, number, number, number] => [
     LUMA[0] * LUM_SCALE * channel, LUMA[1] * LUM_SCALE * channel, LUMA[2] * LUM_SCALE * channel,
@@ -53,6 +53,10 @@ function stoneFilter(): ColorMatrixFilter {
   return filter;
 }
 let sharedStone: ColorMatrixFilter | null = null;
+/** The one stone look: the statues', and Medusa's victims in battle. */
+export function stoneFilter(): ColorMatrixFilter {
+  return (sharedStone ??= makeStoneFilter());
+}
 
 /**
  * A carved, unanimated copy of `fallen`, scaled to the size the living zombie was
@@ -78,8 +82,7 @@ export function buildStatueRig(assets: GameAssets, fallen: FallenZombie): Contai
 
   const statue = new Container();
   statue.addChild(rig);
-  sharedStone ??= stoneFilter();
-  statue.filters = [sharedStone];
+  statue.filters = [stoneFilter()];
   statue.cacheAsTexture(true);
   return statue;
 }

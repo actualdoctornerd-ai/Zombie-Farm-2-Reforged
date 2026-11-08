@@ -9,6 +9,7 @@
 // projectiles, phase-2 re-entry, charge bars, distractions, and ability effects
 // are later phases (see IMPLEMENTATION_RAIDS_PLAN.md). Tokens are placeholder
 // portraits, not side-view stage actors.
+import { stoneFilter } from "../zombie/statueRig";
 import { AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import { COUNT_KEY } from "./countSlam";
 import { GameAssets, raidImage, zombiePortrait } from "../assets";
@@ -73,6 +74,7 @@ type RaidInputDraft =
   | { type: "wallTap"; unitId: string }
   | { type: "fireTap"; unitId: string }
   | { type: "turnedTap"; unitId: string }
+  | { type: "chargeTap"; unitId: string }
   | { type: "signPick"; offer: number; option: number }
   | { type: "castCancel"; slot?: number }
   | { type: "trapezeTap"; unitId: string }
@@ -711,6 +713,7 @@ interface Token {
    *  token so the rig settles back to its own scale on the frame the charge ends, rather
    *  than being left inflated by whichever frame last saw it. */
   chargeSwell: number;
+  stoned?: boolean;
   deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
   emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
   // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
@@ -1007,6 +1010,7 @@ export class RaidScene {
       else if (input.type === "wallTap") this.sim.tapWall(input.unitId);
       else if (input.type === "fireTap") this.sim.tapFire(input.unitId);
       else if (input.type === "turnedTap") this.sim.tapTurned(input.unitId);
+      else if (input.type === "chargeTap") this.sim.tapCharge(input.unitId);
       else if (input.type === "signPick") this.sim.pickSign(input.offer, input.option);
       else if (input.type === "castCancel") this.sim.cancelCast(input.slot ?? 0);
       else if (input.type === "trapezeTap") this.sim.tapTrapeze(input.unitId);
@@ -1836,6 +1840,15 @@ export class RaidScene {
       root.on("pointertap", () => {
         if (this.sim.finished || this.playback || !this.canRecordHazardTap()) return;
         if (this.sim.tapWall(u.id)) this.recordInput({ type: "wallTap", unitId: u.id });
+      });
+    }
+    // Endless's Dr. Groundhog: tapping him through a slam's wind-up weakens the slam.
+    if (u.chargeCfg?.tapReduce) {
+      root.eventMode = "static";
+      root.cursor = "pointer";
+      root.on("pointertap", () => {
+        if (this.sim.finished || this.playback || !this.canRecordHazardTap()) return;
+        if (this.sim.tapCharge(u.id)) this.recordInput({ type: "chargeTap", unitId: u.id });
       });
     }
     // A converted PIXEL ZOMBIE is the other fully-simulated tap target. Its body is a
@@ -2840,6 +2853,12 @@ export class RaidScene {
       // forward strike lunge while trading blows — the lunge peaks at the attack's
       // damageTiming so its reach lands with the sim's hit (see EnemyActor).
       if (tok.enemyActor) {
+        // Medusa: stone-grey for as long as her freeze or her stun holds.
+        const stoned = u.stoneMs > 0;
+        if (stoned !== tok.stoned) {
+          tok.stoned = stoned;
+          tok.enemyActor.container.filters = stoned ? [stoneFilter()] : [];
+        }
         // THE CHARGE (raid 13): the pirate captain swells and reddens as his wind-up fills.
         // This is the player's only warning that a slam is coming and their only read on how
         // much time is left to answer it, so both ramp with `chargeFrac` — the colour and

@@ -183,16 +183,59 @@ export interface EndlessLeaderboardRow {
 /** Public top 25, separated by mode. Player ids and account data stay server-side. */
 export async function listEndlessLeaderboard(
   db: D1Database,
-  mode: EndlessLeaderboardMode
+  mode: EndlessLeaderboardMode,
+  week?: string,
 ): Promise<EndlessLeaderboardRow[]> {
+  if (week !== undefined) {
+    const weekly = await db.prepare(
+      `SELECT a.username, l.deepest_floor, l.duration_ms, l.army_json, l.achieved_at
+       FROM endless_weekly_leaderboard l JOIN accounts a ON a.id = l.account_id
+       WHERE l.week = ? AND l.mode = ?
+       ORDER BY l.deepest_floor DESC, l.achieved_at ASC
+       LIMIT 25`
+    ).bind(week, mode).all<EndlessLeaderboardRow>();
+    return weekly.results ?? [];
+  }
   const res = await db.prepare(
     `SELECT a.username, l.deepest_floor, l.duration_ms, l.army_json, l.achieved_at
      FROM endless_leaderboard l JOIN accounts a ON a.id = l.account_id
      WHERE l.mode = ?
-     ORDER BY l.deepest_floor DESC, l.duration_ms ASC, l.achieved_at ASC
+     ORDER BY l.deepest_floor DESC, l.achieved_at ASC
      LIMIT 25`
   ).bind(mode).all<EndlessLeaderboardRow>();
   return res.results ?? [];
+}
+
+/** The same score for its week's board. The week is the one the run started in, because that
+ *  is whose enemies and choices it faced. Keyed off the run row having just finished, so it
+ *  counts whether or not the all-time statement before it changed anything. */
+export function recordEndlessWeeklyStatement(
+  db: D1Database,
+  input: {
+    week: string;
+    accountId: string;
+    mode: EndlessLeaderboardMode;
+    deepestFloor: number;
+    durationMs: number;
+    army: readonly EndlessLeaderboardArmyMember[];
+    achievedAt: number;
+    sessionId: string;
+    finishedAt: number;
+  },
+): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO endless_weekly_leaderboard
+       (week, account_id, mode, deepest_floor, duration_ms, army_json, achieved_at)
+     SELECT ?, ?, ?, ?, ?, ?, ?
+     WHERE EXISTS (SELECT 1 FROM endless_runs_v3 WHERE id = ? AND finished_at = ?)
+     ON CONFLICT(week, account_id, mode) DO UPDATE SET
+       deepest_floor = excluded.deepest_floor,
+       duration_ms = excluded.duration_ms,
+       army_json = excluded.army_json,
+       achieved_at = excluded.achieved_at
+     WHERE excluded.deepest_floor > endless_weekly_leaderboard.deepest_floor`
+  ).bind(input.week, input.accountId, input.mode, input.deepestFloor, input.durationMs,
+    JSON.stringify(input.army), input.achievedAt, input.sessionId, input.finishedAt);
 }
 
 /** Prepare a leaderboard upsert for an atomic batch with its run-completion update.
@@ -221,9 +264,7 @@ export function recordEndlessLeaderboardStatement(
        duration_ms = excluded.duration_ms,
        army_json = excluded.army_json,
        achieved_at = excluded.achieved_at
-     WHERE excluded.deepest_floor > endless_leaderboard.deepest_floor
-        OR (excluded.deepest_floor = endless_leaderboard.deepest_floor
-            AND excluded.duration_ms < endless_leaderboard.duration_ms)`
+     WHERE excluded.deepest_floor > endless_leaderboard.deepest_floor`
   ).bind(input.accountId, input.mode, input.deepestFloor, input.durationMs,
     JSON.stringify(input.army), input.achievedAt);
 }

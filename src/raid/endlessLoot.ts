@@ -1,9 +1,10 @@
-import type { EndlessLocation } from "./endless";
+import type { EndlessLocation, EndlessMode } from "./endless";
 
 export type EndlessBossLoot =
   | { kind: "boost"; name: string; key: string; quantity: number }
   | { kind: "item"; name: string; quantity: 1 }
-  | { kind: "zombie"; name: "Zwamp Thing"; key: "ZombieActorZwampThing"; quantity: 1 };
+  | { kind: "zombie"; name: string; key: string; quantity: 1 }
+  | { kind: "brains"; name: "Brains"; quantity: number };
 
 type Reward = { weight: number; name: string; key?: string; quantity: number };
 const AREA_COSMETICS: Readonly<Record<EndlessLocation, readonly string[]>> = {
@@ -87,6 +88,43 @@ const TABLE: Readonly<Record<number, readonly Reward[]>> = {
   ],
 };
 
+/** One small roll for every ordinary floor won (owner, 2026-11-05: loot across the fights, with
+ *  a bump at the bosses). Smaller bundles than the same tier's boss roll, no cosmetics and no
+ *  Zwamp Thing, which stay boss prizes. Tickets and Dice only start once a run is under way. */
+const FLOOR_TABLE: readonly { fromTier: number; rewards: readonly Reward[] }[] = [
+  { fromTier: 7, rewards: [
+    reward(15, "Insta-Harvest", "insta_harvest", 3), reward(15, "Insta-Plow", "insta_plow", 3),
+    reward(30, "Insta-Grow", "insta_grow", 10), reward(15, "Invasion Voucher", "invasion_voucher"),
+    reward(5, "Concentration", "concentration"), reward(10, "Brain Ticket", "brain_ticket"),
+    reward(10, "Golden Dice", "golden_dice"),
+  ] },
+  { fromTier: 5, rewards: [
+    reward(25, "Insta-Harvest", "insta_harvest", 2), reward(20, "Insta-Plow", "insta_plow", 2),
+    reward(25, "Insta-Grow", "insta_grow", 10), reward(12, "Invasion Voucher", "invasion_voucher"),
+    reward(8, "Concentration", "concentration"), reward(5, "Brain Ticket", "brain_ticket"),
+    reward(5, "Golden Dice", "golden_dice"),
+  ] },
+  { fromTier: 3, rewards: [
+    reward(30, "Insta-Harvest", "insta_harvest", 2), reward(25, "Insta-Plow", "insta_plow", 2),
+    reward(25, "Insta-Grow", "insta_grow", 5), reward(10, "Invasion Voucher", "invasion_voucher"),
+    reward(7, "Concentration", "concentration"), reward(3, "Brain Ticket", "brain_ticket"),
+  ] },
+  { fromTier: 1, rewards: [
+    reward(35, "Insta-Harvest", "insta_harvest", 1), reward(30, "Insta-Plow", "insta_plow", 1),
+    reward(25, "Insta-Grow", "insta_grow", 5), reward(5, "Invasion Voucher", "invasion_voucher"),
+    reward(5, "Concentration", "concentration"),
+  ] },
+];
+
+/** Server-authoritative floor reward. `tier` is the four-fight section being played (1-based). */
+export function rollEndlessFloorLoot(tier: number, roll: number): EndlessBossLoot {
+  const rewards = FLOOR_TABLE.find((band) => tier >= band.fromTier)?.rewards ?? FLOOR_TABLE[FLOOR_TABLE.length - 1].rewards;
+  const r = Math.max(0, Math.min(0.999999999, roll)) * 100;
+  let cumulative = 0;
+  const selected = rewards.find((entry) => (cumulative += entry.weight) > r) ?? rewards[rewards.length - 1];
+  return { kind: "boost", name: selected.name, key: selected.key!, quantity: selected.quantity };
+}
+
 /** Server-authoritative boss reward. T10 and every later tier use the same table row. */
 export function rollEndlessBossLoot(
   tier: number,
@@ -104,14 +142,29 @@ export function rollEndlessBossLoot(
     ? { kind: "boost", name: selected.name, key: selected.key, quantity: selected.quantity }
     : { kind: "item", name: AREA_COSMETICS[location][Math.floor(Math.max(0, Math.min(0.999999999, pick)) * AREA_COSMETICS[location].length)], quantity: 1 };
 
-  // Normal Endless has no Zwamp Thing drops through T5. The compressed T6 maps to
-  // the old T9 20% roll; T7+ retains the guaranteed reward and 25% extra roll.
-  const extraZwamp = (tier === 6 && swampRoll < 0.2) || (tier >= 7 && swampRoll < 0.25);
+  // Rising odds from T3, on top of the first T3 clear's guaranteed one (a milestone), then one
+  // guaranteed per boss from T7 with a chance of a second: about 1.5 across a full T7 run.
+  const swampOdds = tier >= 7 ? 0.25 : tier >= 3 ? 0.05 * (tier - 2) : 0;
+  const extraZwamp = swampRoll < swampOdds;
   const guaranteedZwamp = tier >= 7;
   return [
     main,
-    ...(extraZwamp || guaranteedZwamp
-      ? [{ kind: "zombie" as const, name: "Zwamp Thing" as const, key: "ZombieActorZwampThing" as const, quantity: 1 as const }]
-      : []),
+    ...(extraZwamp ? [ZWAMP_THING] : []),
+    ...(guaranteedZwamp ? [ZWAMP_THING] : []),
   ];
+}
+
+const ZWAMP_THING: EndlessBossLoot = { kind: "zombie", name: "Zwamp Thing", key: "ZombieActorZwampThing", quantity: 1 };
+const MEDUSA: EndlessBossLoot = { kind: "zombie", name: "Medusa Zombie", key: "ZombieActorMedusa", quantity: 1 };
+
+/** What a tier pays the FIRST time an account beats its boss in a mode, on top of that fight's
+ *  loot. See docs/ENDLESS_MODE_REWARDS.md: T4-T7's capacity and farm prizes are not built. */
+export function endlessMilestoneRewards(mode: EndlessMode, tier: number): EndlessBossLoot[] {
+  const rewards: EndlessBossLoot[] = [];
+  if (tier === 1) rewards.push({ kind: "boost", name: "Brain Ticket", key: "brain_ticket", quantity: 2 });
+  if (tier === 2) rewards.push({ kind: "brains", name: "Brains", quantity: 1 });
+  if (tier === 3) rewards.push(ZWAMP_THING);
+  if (tier === 5 && mode === "nightmare") rewards.push(MEDUSA);
+  if (tier >= 8) rewards.push({ kind: "brains", name: "Brains", quantity: 3 });
+  return rewards;
 }

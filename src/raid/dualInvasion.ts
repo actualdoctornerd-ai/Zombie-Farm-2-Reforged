@@ -677,6 +677,8 @@ export const IRON_WILL_POISE = 1.5;
 export const IRON_WILL_DRAIN_PER_SEC = 0.1;
 
 export interface ChargeConfig {
+  /** Endless: each tap on the wind-up takes this share off the slam (BattleSim.tapCharge). */
+  tapReduce?: number;
   /** Wind-up length. */
   windupMs: number;
   /** Pause after a slam OR a broken charge before the next wind-up begins. */

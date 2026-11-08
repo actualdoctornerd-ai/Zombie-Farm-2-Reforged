@@ -1719,7 +1719,7 @@
 #hud .endless-lb-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch; padding: 2px 4px 8px; scrollbar-color: #a8793e #3d2818; }
 #hud .endless-lb-headings, #hud .endless-lb-row { display: grid;
-  grid-template-columns: 56px minmax(120px, 1fr) minmax(145px, auto) minmax(88px, auto) 88px;
+  grid-template-columns: 56px minmax(120px, 1fr) minmax(145px, auto) 88px;
   align-items: center; gap: 8px; }
 #hud .endless-lb-headings { position: sticky; top: 0; z-index: 1; padding: 8px 10px; border-bottom: 1px solid #a8793e;
   background: #3e2818; color: #d6c49f; font: 700 11px system-ui, sans-serif; text-transform: uppercase; letter-spacing: .06em; }
@@ -2700,3 +2700,21 @@
 #hud .dt-die { min-width: 30px; padding: 3px 8px; cursor: pointer; border: 2px solid #1e1207; border-radius: 8px;
   background: #24160a; color: inherit; font: 800 12px system-ui, sans-serif; }
 #hud .dt-die.sel { background: #b8861f; color: #fff; }
+
+/* Endless boss screen and army order. */
+.endless-choice { display: block; margin: 6px 0; font-weight: bold; }
+.endless-choice select { display: block; width: 100%; max-width: 100%; margin-top: 2px; }
+#hud .endless-boss-panel { max-height: 92vh; overflow-y: auto; }
+#hud .endless-boss-earned { font-weight: bold; }
+#hud .endless-choice-heading { margin: 10px 0 4px; font-weight: bold; }
+#hud .endless-choice-option { display: block; width: 100%; margin: 3px 0; padding: 8px 10px; text-align: left;
+  white-space: normal; background: #3a2412; color: #f2e5cb; border: 1px solid #a8793e; border-radius: 6px; font: inherit; cursor: pointer; }
+#hud .endless-choice-option.selected { background: #7a5a22; border-color: #f0c674; }
+#hud .endless-boss-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#hud .endless-boss-actions button, #hud .endless-order-panel > button { padding: 9px 14px; border-radius: 6px; font: inherit; font-weight: bold;
+  background: #3a2412; color: #f2e5cb; border: 1px solid #a8793e; cursor: pointer; }
+#hud .endless-boss-actions .btn-primary, #hud .endless-order-panel > .btn-primary { background: #7a5a22; border-color: #f0c674; }
+#hud .endless-order-list { max-height: 60vh; overflow-y: auto; margin: 8px 0; }
+#hud .endless-order-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+#hud .endless-order-row span { flex: 1; min-width: 0; }
+#hud .endless-order-row button { min-width: 38px; min-height: 34px; }

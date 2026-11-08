@@ -118,6 +118,10 @@ trust one:
 - **Specs for work not yet built**, which describe an intention rather than the code:
   `ENDLESS_MODE_COMBAT_DESIGN.md` (design record for the server-side Endless combat
   profiles and mechanics; the playable run flow and leaderboard are implemented in the client),
+  `ENDLESS_MODE_REWARDS.md` (the owner's Endless reward design; first-clear milestones and Nightmare's
+  rewards are not built),
+  `ENDLESS_MODE_REWARDS.md` (the owner's Endless reward design; first-clear milestones and Nightmare's
+  rewards are not built),
   `POST_45_PROGRESSION.md` (levels 46-50 and the four dual invasions: the invasions are built and
   run as no-reward practice, `DUAL_PRACTICE` in `src/raid/practice.ts`; the rewards and levels
   46-50 are not built). Read it as a plan under

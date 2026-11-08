@@ -57,6 +57,7 @@ import * as v3Raid from "./v3/raid";
 import * as v3EpicBoss from "./v3/epicBoss";
 import * as v3Pvp from "./v3/pvp";
 import * as v3Endless from "./v3/endless";
+import { endlessWeekSeed } from "../../src/raid/endless";
 import {
   PVP_DEFENSE_MODE_DEFAULT, isPvpDefenseMode, type PvpDefenseMode,
 } from "../../src/raid/pvp";
@@ -1816,9 +1817,11 @@ app.get("/leaderboard/endless", async (c) => {
   if (requested !== "endless" && requested !== "nightmare") {
     return c.json({ error: "bad_mode" }, 400);
   }
-  const rows = await db.listEndlessLeaderboard(c.env.DB, requested);
+  const weekly = c.req.query("board") === "weekly";
+  const rows = await db.listEndlessLeaderboard(c.env.DB, requested, weekly ? endlessWeekSeed(Date.now()) : undefined);
   return c.json({
     mode: requested,
+    board: weekly ? "weekly" : "all-time",
     entries: rows.map((row, i) => ({
       rank: i + 1,
       name: row.username ?? "Player",

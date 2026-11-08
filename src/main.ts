@@ -58,7 +58,7 @@ import { RaidManager, RaidResultView, type LootDrop, type RaidSetup } from "./ra
 import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, hasNights, nightLabel, nightPrompt } from "./raid/halloweenNights";
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
-import { endlessWavePlan, type EndlessMode } from "./raid/endless";
+import { endlessStopLabel, type EndlessLocation, type EndlessMode, type EndlessStop } from "./raid/endless";
 import type { EndlessBossLoot } from "./raid/endlessLoot";
 import type { RaidSceneParams } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
@@ -4708,7 +4708,7 @@ async function main() {
   // The friend leaderboard (Social → Leaderboard). A plain passthrough: the panel
   // owns its loading/error states, and the ranking is pure (social/leaderboard.ts).
   hud.getFriendLeaderboard = () => api.getFriendLeaderboard();
-  hud.getEndlessLeaderboard = (mode) => api.getEndlessLeaderboard(mode);
+  hud.getEndlessLeaderboard = (mode, board) => api.getEndlessLeaderboard(mode, board);
   hud.onAddFriendCode = async (code) => {
     try {
       await api.addFriend(code);
@@ -5714,18 +5714,20 @@ async function main() {
       hud.showToast(error instanceof api.ApiError ? `Could not end run: ${error.code}` : "Could not end the Endless run. Reconnect and try again.", 7000);
     }
   };
-  const chooseEndlessBoss = async (draft: { boons: unknown[]; curses: unknown[] }, mode: EndlessMode, loot: EndlessBossLoot[] = []) => {
+  const chooseEndlessBoss = async (view: api.EndlessBossView, mode: EndlessMode) => {
     const sid = endlessSessionId;
     if (!sid) return;
-    hud.openEndlessBossChoice(draft, loot, (boon, curse) => {
-      void api.endlessChooseBossReward(sid, boon, curse).then((result) => {
+    hud.openEndlessBossChoice(view, ({ boon, curse, location, order }) => {
+      void api.endlessChooseBossReward(sid, boon, curse, location, order).then((result) => {
         if (result.fight) launchEndlessFight(sid, result.fight, mode);
-      }).catch((error) => hud.showToast(error instanceof api.ApiError ? `Could not save choices: ${error.code}` : "Could not save the boss choices. Your run is still saved.", 7000));
+        else if (result.bossDraft) void chooseEndlessBoss(result as unknown as api.EndlessBossView, mode);
+      }).catch((error) => hud.showToast(error instanceof api.ApiError ? `Could not save choices: ${error.code}` : "Could not save the boss choices. Your run is still saved."));
     }, () => { void endEndlessRun(); });
   };
+  const stopOf = (fight: Record<string, unknown>) => fight as unknown as EndlessStop;
   const launchEndlessFight = (sessionId: string, rawFight: Record<string, unknown>, mode: EndlessMode) => {
     const wave = Number(rawFight.wave ?? 1);
-    const location = endlessWavePlan(mode, wave).location;
+    const location = rawFight.location as EndlessLocation;
     const raid = assets.raids.find((item) => item.id === endlessLocationRaid[location]) ?? assets.raids[0];
     if (!raid) { hud.showToast("Endless terrain could not be loaded."); return; }
     const config = rawFight as unknown as Omit<RaidSceneParams, "raid" | "assets" | "onFinish">;
@@ -5743,6 +5745,7 @@ async function main() {
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),
       onVictory: () => audio.playRaidVictory(),
+      onDoOrDie: () => audio.enterRaid("enrageBGM.mp3"),
       confirmRetreat: () => hud.confirmInGame("End this Endless run?", "Retreating ends the run. Gold for every cleared floor will be paid.", "End Run"),
       onFinish: (outcome, finalTick, inputs) => {
         void outcome; // The server independently verifies the transcript and determines the result.
@@ -5755,10 +5758,11 @@ async function main() {
               hud.showToast(`Endless run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 8000);
             } else if (result.awaitingBossChoice && result.bossDraft) {
               await economy?.refreshAuthoritative().catch(() => undefined);
-              chooseEndlessBoss(result.bossDraft as { boons: unknown[]; curses: unknown[] }, mode, (result.bossLoot ?? []) as EndlessBossLoot[]);
+              void chooseEndlessBoss(result as unknown as api.EndlessBossView, mode);
             } else if (result.fight) {
+              await economy?.refreshAuthoritative().catch(() => undefined);
               hud.openEndlessHub(
-                { sessionId, mode, wave: Number(result.nextWave ?? wave + 1), stage: "battle" },
+                { sessionId, mode, wave: Number(result.nextWave ?? wave + 1), stage: "battle", loot: (result.floorLoot ?? []) as EndlessBossLoot[], stopLabel: endlessStopLabel(stopOf(result.fight!)) },
                 () => launchEndlessFight(sessionId, result.fight!, mode), () => launchEndlessFight(sessionId, result.fight!, mode), () => { void endEndlessRun(); },
               );
             }
@@ -5790,20 +5794,23 @@ async function main() {
     endlessSessionId = hasActive ? active!.sessionId! : null;
     hud.openEndlessHub(hasActive ? {
       sessionId: active!.sessionId!, mode: active!.mode!, wave: active!.wave!, stage: active!.stage!,
-    } : null, async (mode, ids) => {
+      ...(active!.fight ? { stopLabel: endlessStopLabel(stopOf(active!.fight)) } : {}),
+    } : null, async (mode, ids, startTier) => {
       await economy?.settleBeforeDependency();
       const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
       const settled = reconcilePartySelection(ids, zombies.roster().filter((z) => !z.stored),
         (id) => economy?.authoritativeUnitId(id) ?? id, raids.partyView().cap);
       if (settled.missingIds.length) { hud.showToast(`${settled.missingIds.map((id) => selectedNames.get(id) ?? "A zombie").join(", ")} is no longer available. Choose your army again.`); return; }
       try {
-        const started = await api.endlessStart(mode, settled.ids);
-        if (!started.ok || !started.sessionId || !started.fight) { hud.showToast(`Could not start Endless (${started.error ?? "unknown_error"}).`); return; }
-        launchEndlessFight(started.sessionId, started.fight, mode);
+        const started = await api.endlessStart(mode, settled.ids, startTier);
+        if (!started.ok || !started.sessionId || (!started.fight && !started.bossDraft)) { hud.showToast(`Could not start Endless (${started.error ?? "unknown_error"}).`); return; }
+        endlessSessionId = started.sessionId;
+        if (started.fight) launchEndlessFight(started.sessionId, started.fight, mode);
+        else void chooseEndlessBoss(started as unknown as api.EndlessBossView, mode);
       } catch (error) { hud.showToast(error instanceof api.ApiError ? `Could not start Endless (${error.code}).` : "Could not start Endless."); }
     }, () => {
       if (!active?.sessionId) return;
-      if (active.stage === "boss-choice" && active.bossDraft) chooseEndlessBoss(active.bossDraft as { boons: unknown[]; curses: unknown[] }, active.mode!, (active.bossLoot ?? []) as EndlessBossLoot[]);
+      if (active.stage === "boss-choice" && active.bossDraft) void chooseEndlessBoss(active as unknown as api.EndlessBossView, active.mode!);
       else if (active.fight) launchEndlessFight(active.sessionId!, active.fight, active.mode!);
     }, () => { void endEndlessRun(); });
   };

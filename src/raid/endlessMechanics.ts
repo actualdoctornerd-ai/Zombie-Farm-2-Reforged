@@ -47,7 +47,7 @@ export function buildEndlessStageMechanics(
       ["FarmStageActorLumberjack", 1], ["PirateStageActorSwashbuckler", 4],
       ["VideoGameStageGhostActor", 9],
     ] as const;
-    const [source, sourceRaid] = beamIns[Math.min(beamIns.length - 1, Math.floor((plan.wave - 1) / 4))];
+    const [source, sourceRaid] = beamIns[Math.min(beamIns.length - 1, plan.section)];
     mechanics.reinforcementTemplate = enemyTemplate(source, sourceRaid);
   } else if (plan.location === "video-game") {
     const pixel = turnedUnitFor(9, assets.enemyStats, assets.raidAttacks, {

@@ -84,6 +84,8 @@ export const ACCOUNT_REFERENCES: ReadonlyArray<readonly [string, string, ClearAc
   ["epic_boss_sessions_v3", "account_id"],
   ["endless_leaderboard", "account_id"],
   ["endless_runs_v3", "account_id"],
+  ["endless_weekly_leaderboard", "account_id"],
+  ["endless_progress", "account_id"],
   ["fallen_v3", "account_id"],
   ["farm_documents_v3", "account_id"],
   ["farm_layouts", "account_id"],

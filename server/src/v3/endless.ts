@@ -1,34 +1,28 @@
-import enemyStatsJson from "../../../public/assets/raids/enemy_stats.json";
-import attacksJson from "../../../public/assets/raids/attacks.json";
 import zombiesJson from "../../../public/assets/zombies.json";
-import { buildFight } from "../../../src/raid/buildFight";
-import { buildPlayerUnits, buildUnitsForKeys } from "../../../src/raid/CombatEngine";
+import { buildPlayerUnits } from "../../../src/raid/CombatEngine";
 import {
-  applyEndlessBoon, applyEndlessCurse, applyEndlessEnemyCurses, beginEndlessRun,
-  endlessBossDraft, endlessPlayerUnits, endlessWavePlan, finishEndlessFight,
-  scaleEndlessEnemy, endlessBossMultiplier, ENDLESS_ENTRY_COST, ENDLESS_UNLOCK_LEVEL,
-  type EndlessBoon, type EndlessCurse, type EndlessMode, type EndlessRunState,
+  applyEndlessCurse, applyEndlessStop, beginEndlessRun,
+  applyEndlessOrder, endlessBossDraft, endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
+  ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_UNLOCK_LEVEL,
+  type EndlessBoon, type EndlessCurse, type EndlessMode, type EndlessRunState, type EndlessStop,
 } from "../../../src/raid/endless";
-import { buildEndlessStageMechanics } from "../../../src/raid/endlessMechanics";
-import { waveCadenceFor } from "../../../src/raid/alienStage";
-import { epicBossDamage, epicBossHp, DR_GROUNDHOG, GALACTIC_GROUNDHOG } from "../../../src/epicBoss/catalog";
+import {
+  endlessApplyBoon, endlessCarryFromSim as carryFromSim, endlessFightConfig as fightConfig, endlessSimFor as simFor,
+  type EndlessFightConfig as FightConfig,
+} from "../../../src/raid/endlessFight";
 import { makeOwned, type OwnedZombie } from "../../../src/zombie/types";
 import { loadMutationStrengthMultiplier } from "../raidVerifier";
 import { abilitySlotUnlocked } from "../../../src/lifeForce";
 import { farmerMultiplier, activeBonusHeadId } from "../../../src/farmer";
 import { ARMY_CAP } from "../../../src/raid/RaidCatalog";
 import { replayRaid, RAID_RULESET_VERSION, type RaidReplayInput } from "../../../src/raid/replay";
-import type { AttackDef, BossSpecial, CombatUnit, EnemyStat, EndlessStageMechanics, WaveCadence } from "../../../src/raid/types";
 import { levelForXp } from "../levels";
-import { recordEndlessLeaderboardStatement, type EndlessLeaderboardArmyMember } from "../db";
+import { recordEndlessLeaderboardStatement, recordEndlessWeeklyStatement, type EndlessLeaderboardArmyMember } from "../db";
 import { MAX_STACK } from "../boostCatalog";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
-import { rollEndlessBossLoot, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
+import { endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessFloorLoot, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
 
-const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
-const attacks = attacksJson as Record<string, AttackDef>;
 const zombies = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
-const raidId: Record<string, number> = { farm: 1, ninja: 3, alien: 6, "video-game": 9, pirate: 4 };
 interface StoredRun {
   id: string;
   account_id: string;
@@ -44,26 +38,16 @@ interface StoredRun {
   result_json: string | null;
 }
 
-interface FightConfig {
-  wave: number;
-  playerUnits: CombatUnit[];
-  enemyUnits: CombatUnit[];
-  bossSpecials: BossSpecial[];
-  bossFallsFromSky: boolean;
-  noDistractions: boolean;
-  escapeOnRoundEnd: boolean;
-  roundMs?: number;
-  endlessMechanics: EndlessStageMechanics;
-  waveCadence?: WaveCadence;
-}
-
 interface RunPayload {
   run: EndlessRunState;
   playerLevel: number;
   /** Accumulated combat time, excluding time spent disconnected or on a draft screen. */
   durationMs: number;
-  /** A cleared boss awaiting its durable boon/curse choice. */
-  pendingBossChoice?: { wave: number; loot?: EndlessBossLoot[] };
+  /** A cleared boss awaiting its durable boon/curse choice. `opening`: not a fight at all, but
+   *  the draft standing in for a tier the run skipped. */
+  pendingBossChoice?: { wave: number; loot?: EndlessBossLoot[]; opening?: boolean };
+  /** Everything loot has paid this run, by name, for the boss screen. */
+  lootEarned?: Record<string, number>;
 }
 interface EndlessRewardCore {
   inventory: Record<string, number>;
@@ -87,81 +71,24 @@ function offered<T>(choice: unknown, choices: readonly T[]): choice is T {
   return choices.some((candidate) => stable(candidate) === encoded);
 }
 
-function epicBossUnit(mode: EndlessMode, wave: number, playerLevel: number): { unit: CombatUnit; specials: BossSpecial[]; roundMs: number } {
-  const plan = endlessWavePlan(mode, wave);
-  const def = mode === "nightmare" ? GALACTIC_GROUNDHOG : DR_GROUNDHOG;
-  const bossMultiplier = endlessBossMultiplier(mode, wave);
-  const hp = Math.max(1, Math.round(epicBossHp(def, 1) * plan.healthScale * bossMultiplier));
-  const unit: CombatUnit = {
-    id: `endless-boss-${wave}`, sourceKey: `EpicBoss:${def.id}`, team: "enemy", name: def.name,
-    str: epicBossDamage(def, 1) * plan.damageScale * bossMultiplier, dex: def.unitStats.dex, con: def.unitStats.con,
-    focus: 0, hp, maxHp: hp, attackCooldownMs: Math.max(1, Math.round(1000 / Math.max(0.1, def.unitStats.dex))),
-    attacks: def.unitStats.attacks.map((a) => ({ name: a.name, frequency: a.frequency, mult: a.mult ?? 1 })),
-    isBoss: true, alive: true, isGarden: false, isHeadless: false, abilities: [],
-  };
-  const specials = (def.specials ?? []).map((s) => ({
-    name: s.name, weight: s.weight, castMs: s.castMs, cooldownMs: s.cooldownMs, damage: s.damage * bossMultiplier,
-  }));
-  void playerLevel;
-  return { unit, specials, roundMs: def.fightMs };
+/** The draft a boss screen offers. Derived, never stored: its week and location are already in
+ *  the checkpoint. In an opening draft, only the last screen chooses where the run starts. */
+function draftFor(mode: EndlessMode, pending: NonNullable<RunPayload["pendingBossChoice"]>, run: EndlessRunState) {
+  const withLocations = !pending.opening || pending.wave + ENDLESS_FIGHTS_PER_LOCATION >= run.startWave;
+  return endlessBossDraft(mode, pending.wave, run.weekSeed, run.stop.location, withLocations);
 }
 
-function fightConfig(run: EndlessRunState, playerLevel: number): FightConfig {
-  const plan = endlessWavePlan(run.mode, run.nextWave);
-  const mechanics = buildEndlessStageMechanics(plan, playerLevel, undefined, run.curses);
-  mechanics.deploymentSpeedBonus = run.deploymentSpeedBonus;
-  mechanics.openingDeploy = run.openingDeploy;
-  const waveCadence: WaveCadence = plan.location === "alien"
-    ? waveCadenceFor(6)
-    : { maxActive: plan.pairDeploy ? 2 : 1, dripMs: 0, openingActive: plan.pairDeploy ? 2 : 1 };
-  if (plan.bossGate) {
-    const boss = epicBossUnit(run.mode, plan.wave, playerLevel);
-    return {
-      wave: plan.wave,
-      playerUnits: endlessPlayerUnits(run),
-      enemyUnits: [applyEndlessEnemyCurses(boss.unit, run.curses)],
-      bossSpecials: boss.specials,
-      bossFallsFromSky: true,
-      noDistractions: true,
-      escapeOnRoundEnd: true,
-      roundMs: boss.roundMs,
-      endlessMechanics: mechanics,
-      waveCadence,
-    };
-  }
-  const enemyUnits = buildUnitsForKeys([...plan.enemyKeys], null, enemyStats, attacks, {
-    raidId: raidId[plan.location], playerLevel,
-  }).map((unit) => scaleEndlessEnemy(unit, plan, run.curses));
+/** Everything the boss screen shows. */
+function bossScreen(mode: EndlessMode, pending: NonNullable<RunPayload["pendingBossChoice"]>, payload: RunPayload) {
   return {
-    wave: plan.wave,
-    playerUnits: endlessPlayerUnits(run), enemyUnits, bossSpecials: [],
-    bossFallsFromSky: false, noDistractions: false, escapeOnRoundEnd: false,
-    endlessMechanics: mechanics,
-    waveCadence,
+    bossDraft: draftFor(mode, pending, payload.run),
+    bossLoot: pending.loot ?? [],
+    lootEarned: payload.lootEarned ?? {},
+    goldSoFar: pending.opening ? 0 : endlessGoldReward(pending.wave, payload.run.startWave),
+    army: payload.run.units.map((unit) => ({ id: unit.id, name: unit.name })),
+    opening: !!pending.opening,
+    tier: Math.ceil(pending.wave / ENDLESS_FIGHTS_PER_LOCATION),
   };
-}
-
-function simFor(config: FightConfig) {
-  return buildFight({
-    playerUnits: config.playerUnits,
-    enemyUnits: config.enemyUnits,
-    bossSpecials: config.bossSpecials,
-    bossFallsFromSky: config.bossFallsFromSky,
-    noDistractions: config.noDistractions,
-    escapeOnRoundEnd: config.escapeOnRoundEnd,
-    roundMs: config.roundMs,
-    endlessMechanics: config.endlessMechanics,
-    waveCadence: config.waveCadence,
-  });
-}
-
-function carryFromSim(run: EndlessRunState, sim: ReturnType<typeof simFor>) {
-  const states = new Map(sim.units.filter((unit) => unit.team === "player").map((unit) => [unit.id, unit]));
-  const battleUnits = run.units.map((unit) => {
-    const state = states.get(unit.id);
-    return state ? { ...unit, hp: state.hp, alive: state.alive } : unit;
-  });
-  return finishEndlessFight(run, battleUnits);
 }
 
 function leaderboardArmy(party: readonly OwnedZombie[]): EndlessLeaderboardArmyMember[] {
@@ -172,13 +99,23 @@ function leaderboardArmy(party: readonly OwnedZombie[]): EndlessLeaderboardArmyM
   }));
 }
 
-/** The depth payout is 250 gold per fight per section number: 250/fight in T1,
- *  500/fight in T2, and so on. It is awarded once when a run ends, based only on
- *  fully cleared fights. */
-function endlessGoldReward(deepestFloor: number): number {
+/** A run that skipped tiers has earned nothing for them until it beats its first boss. */
+function firstBossWave(startWave: number): number {
+  return startWave + ENDLESS_FIGHTS_PER_LOCATION - 1;
+}
+function endlessCredited(deepestFloor: number, startWave: number): boolean {
+  return deepestFloor >= firstBossWave(startWave) || (startWave === 1 && deepestFloor > 0);
+}
+
+/** The depth payout for each tier number: 250 gold a floor and 500 for its boss, so a cleared
+ *  tier pays 1,000 x its number (T1 1,000, T2 2,000, and so on). Awarded once when a run
+ *  ends, based only on fully cleared fights; a skipper's early tiers join in at its first boss. */
+function endlessGoldReward(deepestFloor: number, startWave = 1): number {
   let total = 0;
-  for (let wave = 1; wave <= Math.max(0, Math.floor(deepestFloor)); wave++) {
-    total += 250 * Math.ceil(wave / 4);
+  const first = deepestFloor >= firstBossWave(startWave) ? 1 : startWave;
+  for (let wave = first; wave <= Math.max(0, Math.floor(deepestFloor)); wave++) {
+    const tier = Math.ceil(wave / ENDLESS_FIGHTS_PER_LOCATION);
+    total += (wave % ENDLESS_FIGHTS_PER_LOCATION === 0 ? 500 : 250) * tier;
   }
   return total;
 }
@@ -186,13 +123,14 @@ function endlessGoldReward(deepestFloor: number): number {
 function settleTerminalStatements(
   db: D1Database,
   session: StoredRun,
+  run: EndlessRunState,
   deepestFloor: number,
   durationMs: number,
   now: number,
   update: D1PreparedStatement,
 ): D1PreparedStatement[] {
   const statements = [update];
-  const gold = endlessGoldReward(deepestFloor);
+  const gold = endlessGoldReward(deepestFloor, run.startWave);
   if (gold > 0) {
     statements.push(db.prepare(`UPDATE balances SET gold=gold+?
       WHERE account_id=? AND changes()=1`).bind(gold, session.account_id));
@@ -200,10 +138,14 @@ function settleTerminalStatements(
       SELECT ?,?,'gold',?,'endless_depth',? WHERE changes()=1`)
       .bind(`endless:${session.id}:gold`, session.account_id, gold, now));
   }
-  if (deepestFloor > 0) statements.push(recordEndlessLeaderboardStatement(db, {
-    accountId: session.account_id, mode: session.mode, deepestFloor, durationMs,
-    army: parse<EndlessLeaderboardArmyMember[]>(session.army_json, []), achievedAt: now,
-  }, "changes()=1"));
+  if (endlessCredited(deepestFloor, run.startWave)) {
+    const score = {
+      accountId: session.account_id, mode: session.mode, deepestFloor, durationMs,
+      army: parse<EndlessLeaderboardArmyMember[]>(session.army_json, []), achievedAt: now,
+    };
+    statements.push(recordEndlessLeaderboardStatement(db, score, "changes()=1"));
+    statements.push(recordEndlessWeeklyStatement(db, { ...score, week: run.weekSeed, sessionId: session.id, finishedAt: now }));
+  }
   return statements;
 }
 
@@ -211,7 +153,7 @@ function settleTerminalStatements(
 export async function startEndless(
   db: D1Database,
   accountId: string,
-  body: { mode?: unknown; orderedUnitIds?: unknown; rulesetVersion?: unknown },
+  body: { mode?: unknown; orderedUnitIds?: unknown; rulesetVersion?: unknown; startTier?: unknown },
   now: number,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!isMode(body.mode)) return fail(400, "bad_mode");
@@ -237,6 +179,8 @@ export async function startEndless(
   if (level < ENDLESS_UNLOCK_LEVEL[mode]) return fail(403, "locked");
   if (balance.brains < ENDLESS_ENTRY_COST[mode]) return fail(409, "no_brains");
   if (liveRaid || liveBoss || liveRun) return fail(409, "run_in_progress");
+  const startTier = body.startTier === undefined ? 1 : Number(body.startTier);
+  if (!Number.isInteger(startTier) || startTier < 1 || startTier > endlessMaxStartTier(mode, level)) return fail(403, "start_tier_locked");
   const rows = roster.results ?? [];
   const byId = new Map(rows.map((row) => [row.unit_id, row]));
   if (byId.size !== ids.length) return fail(409, "bad_roster");
@@ -257,8 +201,11 @@ export async function startEndless(
     farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
     mutationStrengthMult: mutationStrengthMult * farmerMultiplier(bonusHead, "mutationStrength"),
   });
-  const state: RunPayload = { run: beginEndlessRun(mode, playerUnits), playerLevel: level, durationMs: 0 };
-  const config = fightConfig(state.run, level);
+  const state: RunPayload = { run: beginEndlessRun(mode, playerUnits, endlessWeekSeed(now), startTier), playerLevel: level, durationMs: 0 };
+  // A skipped tier's boons and curses are drafted first, one screen each, before any fight.
+  if (startTier > 1) state.pendingBossChoice = { wave: ENDLESS_FIGHTS_PER_LOCATION, opening: true };
+  const firstWave = state.pendingBossChoice?.wave ?? 1;
+  const config = state.pendingBossChoice ? null : fightConfig(state.run, level);
   const sessionId = crypto.randomUUID();
   const armyJson = JSON.stringify(leaderboardArmy(party));
   try {
@@ -268,15 +215,16 @@ export async function startEndless(
       db.prepare(`INSERT INTO endless_runs_v3
         (id,account_id,mode,current_wave,run_state_json,army_json,fight_config_json,ruleset_version,started_at,fight_started_at)
         SELECT ?,?,?,?,?,?,?,?,?,? WHERE changes()=1`)
-        .bind(sessionId, accountId, mode, 1, JSON.stringify(state), armyJson, JSON.stringify(config), RAID_RULESET_VERSION, now, now),
+        .bind(sessionId, accountId, mode, firstWave, JSON.stringify(state), armyJson, JSON.stringify(config ?? {}), RAID_RULESET_VERSION, now, now),
     ]);
     if (results[0]?.meta?.changes !== 1 || results[1]?.meta?.changes !== 1) return fail(409, "no_brains");
   } catch {
     return fail(409, "run_in_progress");
   }
   return { status: 200, body: {
-    ok: true, sessionId, mode, wave: 1, fight: config, brainCost: ENDLESS_ENTRY_COST[mode],
+    ok: true, sessionId, mode, wave: firstWave, brainCost: ENDLESS_ENTRY_COST[mode],
     rulesetVersion: RAID_RULESET_VERSION,
+    ...(config ? { fight: config } : { stage: "boss-choice", ...bossScreen(mode, state.pendingBossChoice!, state) }),
   } };
 }
 
@@ -306,7 +254,7 @@ export async function finishEndlessWave(
   const verified = replayRaid(sim, Number(body.finalTick), body.inputs as RaidReplayInput[]);
   if (!verified.ok) return fail(422, verified.error);
   const won = verified.outcome.win && !verified.retreated;
-  const plan = endlessWavePlan(session.mode, session.current_wave);
+  const plan = endlessWavePlan(session.mode, session.current_wave, payload.run.stop, payload.run.weekSeed);
   let state = payload.run;
   if (won) {
     state = carryFromSim(state, sim);
@@ -319,39 +267,68 @@ export async function finishEndlessWave(
   const deepestFloor = won ? session.current_wave : session.current_wave - 1;
   const completed = !won;
   const awaitingBossChoice = won && plan.bossGate;
-  let bossLoot: EndlessBossLoot[] = [];
-  let rewardCoreBefore: string | null = null;
+  // Every win pays loot in normal Endless: one small floor roll, or the boss's full roll, and
+  // a skipper's first boss brings the skipped tiers' rolls with it. First-clear milestones pay
+  // in both modes; Nightmare's loot tables are not written yet (docs/ENDLESS_MODE_REWARDS.md).
+  const paysLoot = won && (session.mode === "endless" || plan.bossGate);
+  const [coreRow, progressRow] = paysLoot
+    ? await Promise.all([
+      db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?")
+        .bind(accountId).first<{ current_json: string }>(),
+      plan.bossGate
+        ? db.prepare("SELECT best_tier FROM endless_progress WHERE account_id=? AND mode=?")
+          .bind(accountId, session.mode).first<{ best_tier: number }>()
+        : Promise.resolve(null),
+    ])
+    : [null, null];
+  if (paysLoot && !coreRow) return fail(409, "state_conflict");
+  let loot: EndlessBossLoot[] = [];
   let rewardCore: EndlessRewardCore | null = null;
-  if (awaitingBossChoice && session.mode === "endless") {
-    const coreRow = await db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?")
-      .bind(accountId).first<{ current_json: string }>();
-    if (!coreRow) return fail(409, "state_conflict");
-    rewardCoreBefore = coreRow.current_json;
+  let brainsEarned = 0;
+  const startWave = payload.run.startWave;
+  if (coreRow) {
     try { rewardCore = JSON.parse(coreRow.current_json) as EndlessRewardCore; }
     catch { return fail(409, "state_conflict"); }
     if (!rewardCore || typeof rewardCore !== "object" || !rewardCore.inventory || typeof rewardCore.inventory !== "object" ||
         !rewardCore.storage || typeof rewardCore.storage !== "object" || !rewardCore.storage.received || !rewardCore.storage.stored) {
       return fail(409, "state_conflict");
     }
-    bossLoot = rollEndlessBossLoot(Math.floor(session.current_wave / 4), plan.location,
-      Math.random(), Math.random(), Math.random());
-    for (const reward of bossLoot) {
+    if (session.mode === "endless") {
+      loot = plan.bossGate
+        ? rollEndlessBossLoot(plan.tier, plan.location, Math.random(), Math.random(), Math.random())
+        : [rollEndlessFloorLoot(plan.tier, Math.random())];
+      if (plan.bossGate && startWave > 1 && session.current_wave === firstBossWave(startWave)) {
+        for (let tier = 1; tier < plan.tier; tier++) {
+          loot.push(...rollEndlessBossLoot(tier, plan.location, Math.random(), Math.random(), Math.random()));
+        }
+      }
+    }
+    if (plan.bossGate) {
+      for (let tier = (progressRow?.best_tier ?? 0) + 1; tier <= plan.tier; tier++) {
+        loot.push(...endlessMilestoneRewards(session.mode, tier));
+      }
+    }
+    for (const reward of loot) {
       if (reward.kind === "boost") {
         rewardCore.inventory[reward.key] = Math.min(MAX_STACK, (rewardCore.inventory[reward.key] ?? 0) + reward.quantity);
       } else if (reward.kind === "item") {
         rewardCore.storage.received[reward.name] = (rewardCore.storage.received[reward.name] ?? 0) + 1;
+      } else if (reward.kind === "brains") {
+        brainsEarned += reward.quantity;
       } else {
         const marker = encodeReceivedZombie({ id: crypto.randomUUID(), key: reward.key, mutation: 0, invasions: 0 });
         rewardCore.storage.received[marker] = 1;
       }
     }
   }
+  const lootEarned = { ...(payload.lootEarned ?? {}) };
+  for (const reward of loot) lootEarned[reward.name] = (lootEarned[reward.name] ?? 0) + reward.quantity;
   const result = completed
-    ? { ok: true, runFinished: true, deepestFloor: Math.max(0, deepestFloor), durationMs, gold: endlessGoldReward(deepestFloor), outcome: verified.outcome }
+    ? { ok: true, runFinished: true, deepestFloor: Math.max(0, deepestFloor), durationMs, gold: endlessGoldReward(deepestFloor, startWave), outcome: verified.outcome }
     : null;
   const nextState: RunPayload = awaitingBossChoice
-    ? { run: state, playerLevel: payload.playerLevel, durationMs, pendingBossChoice: { wave: session.current_wave, ...(bossLoot.length ? { loot: bossLoot } : {}) } }
-    : { run: state, playerLevel: payload.playerLevel, durationMs };
+    ? { run: state, playerLevel: payload.playerLevel, durationMs, lootEarned, pendingBossChoice: { wave: session.current_wave, ...(loot.length ? { loot } : {}) } }
+    : { run: state, playerLevel: payload.playerLevel, durationMs, lootEarned };
   const nextConfig = completed || awaitingBossChoice ? null : fightConfig(state, payload.playerLevel);
   const resultJson = JSON.stringify(result);
   const update = db.prepare(`UPDATE endless_runs_v3 SET
@@ -363,17 +340,43 @@ export async function finishEndlessWave(
       session.id, accountId, session.current_wave, session.run_state_json);
   if (completed) {
     const committed = await db.batch(settleTerminalStatements(
-      db, session, deepestFloor, durationMs, now, update,
+      db, session, payload.run, deepestFloor, durationMs, now, update,
     ));
     if (committed[0]?.meta?.changes !== 1) return fail(409, "stale_wave");
-    if (endlessGoldReward(deepestFloor) > 0 && committed[1]?.meta?.changes !== 1) return fail(409, "state_conflict");
-  } else if (awaitingBossChoice && rewardCore && rewardCoreBefore !== null) {
+    if (endlessGoldReward(deepestFloor, startWave) > 0 && committed[1]?.meta?.changes !== 1) return fail(409, "state_conflict");
+  } else if (rewardCore && coreRow) {
+    // Loot first, and the run only advances on top of it: D1 does not roll a batch back for
+    // a statement that matched no rows, so a farm write landing in between must stop both
+    // or the run would move on without its reward. The floor is simply submitted again.
     const coreUpdate = db.prepare(`UPDATE gameplay_documents_v3 SET current_json=?,updated_at=?
       WHERE account_id=? AND current_json=? AND EXISTS (
-        SELECT 1 FROM endless_runs_v3 WHERE id=? AND account_id=? AND current_wave=? AND run_state_json=?
-      )`).bind(JSON.stringify(rewardCore), now, accountId, rewardCoreBefore,
-      session.id, accountId, session.current_wave, JSON.stringify(nextState));
-    const committed = await db.batch([update, coreUpdate]);
+        SELECT 1 FROM endless_runs_v3 WHERE id=? AND account_id=? AND finished_at IS NULL AND current_wave=? AND run_state_json=?
+      )`).bind(JSON.stringify(rewardCore), now, accountId, coreRow.current_json,
+      session.id, accountId, session.current_wave, session.run_state_json);
+    const advance = db.prepare(`UPDATE endless_runs_v3 SET
+        current_wave=?, run_state_json=?, fight_config_json=?, fight_started_at=?
+      WHERE id=? AND account_id=? AND finished_at IS NULL AND current_wave=? AND run_state_json=? AND changes()=1`)
+      .bind(awaitingBossChoice ? session.current_wave : state.nextWave, JSON.stringify(nextState),
+        nextConfig ? JSON.stringify(nextConfig) : session.fight_config_json, now,
+        session.id, accountId, session.current_wave, session.run_state_json);
+    // Everything else keys off the run having really moved on to this very state.
+    const advanced = "EXISTS (SELECT 1 FROM endless_runs_v3 WHERE id=? AND run_state_json=?)";
+    const moved = [session.id, JSON.stringify(nextState)];
+    const statements = [coreUpdate, advance];
+    if (brainsEarned > 0) {
+      statements.push(db.prepare(`UPDATE balances SET brains=brains+? WHERE account_id=? AND ${advanced}`)
+        .bind(brainsEarned, accountId, ...moved));
+      statements.push(db.prepare(`INSERT INTO ledger (id,account_id,currency,delta,reason,created_at)
+        SELECT ?,?,'brains',?,'endless_milestone',? WHERE ${advanced}`)
+        .bind(`endless:${session.id}:brains:${session.current_wave}`, accountId, brainsEarned, now, ...moved));
+    }
+    if (plan.bossGate && plan.tier > (progressRow?.best_tier ?? 0)) {
+      statements.push(db.prepare(`INSERT INTO endless_progress (account_id,mode,best_tier,updated_at)
+        SELECT ?,?,?,? WHERE ${advanced}
+        ON CONFLICT(account_id,mode) DO UPDATE SET best_tier=MAX(best_tier,excluded.best_tier),updated_at=excluded.updated_at`)
+        .bind(accountId, session.mode, plan.tier, now, ...moved));
+    }
+    const committed = await db.batch(statements);
     if (committed[0]?.meta?.changes !== 1 || committed[1]?.meta?.changes !== 1) return fail(409, "state_conflict");
   } else {
     const committed = await update.run();
@@ -381,10 +384,10 @@ export async function finishEndlessWave(
   }
   return { status: 200, body: completed ? result! : awaitingBossChoice ? {
     ok: true, runFinished: false, won: true, clearedWave: session.current_wave,
-    awaitingBossChoice: true, bossDraft: endlessBossDraft(session.mode, session.current_wave), bossLoot,
+    awaitingBossChoice: true, ...bossScreen(session.mode, nextState.pendingBossChoice!, nextState),
   } : {
     ok: true, runFinished: false, won: true, clearedWave: session.current_wave,
-    nextWave: state.nextWave, fight: nextConfig,
+    nextWave: state.nextWave, fight: nextConfig, floorLoot: loot,
   } };
 }
 
@@ -393,7 +396,7 @@ export async function finishEndlessWave(
 export async function chooseEndlessBossReward(
   db: D1Database,
   accountId: string,
-  body: { sessionId?: unknown; boon?: unknown; curse?: unknown },
+  body: { sessionId?: unknown; boon?: unknown; curse?: unknown; location?: unknown; order?: unknown },
   now: number,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (typeof body.sessionId !== "string" || !body.sessionId) return fail(400, "bad_session");
@@ -405,10 +408,31 @@ export async function chooseEndlessBossReward(
   const payload = parse<RunPayload | null>(session.run_state_json, null);
   const pending = payload?.pendingBossChoice;
   if (!payload || !pending || pending.wave !== session.current_wave) return fail(409, "no_boss_choice_pending");
-  const draft = endlessBossDraft(session.mode, pending.wave);
-  if (!offered(body.boon, draft.boons) || !offered(body.curse, draft.curses)) return fail(400, "bad_boss_draft_choice");
-  const run = applyEndlessCurse(applyEndlessBoon(payload.run, body.boon as EndlessBoon), body.curse as EndlessCurse);
-  const nextPayload: RunPayload = { run, playerLevel: payload.playerLevel, durationMs: payload.durationMs ?? 0 };
+  const draft = draftFor(session.mode, pending, payload.run);
+  const locationOffered = draft.locations.length === 0 || offered(body.location, draft.locations);
+  if (!offered(body.boon, draft.boons) || !offered(body.curse, draft.curses) || !locationOffered) {
+    return fail(400, "bad_boss_draft_choice");
+  }
+  let run = applyEndlessCurse(endlessApplyBoon(payload.run, body.boon as EndlessBoon, payload.playerLevel), body.curse as EndlessCurse);
+  if (draft.locations.length) run = applyEndlessStop(run, body.location as EndlessStop);
+  if (body.order !== undefined) {
+    const ordered = applyEndlessOrder(run, body.order);
+    if (!ordered) return fail(400, "bad_army_order");
+    run = ordered;
+  }
+  // More of the opening draft to go: the next skipped tier's screen, and still no fight.
+  const nextOpening = pending.opening ? pending.wave + ENDLESS_FIGHTS_PER_LOCATION : 0;
+  if (nextOpening && nextOpening < run.startWave) {
+    const opening: RunPayload = {
+      ...payload, run, pendingBossChoice: { wave: nextOpening, opening: true },
+    };
+    const step = await db.prepare(`UPDATE endless_runs_v3 SET current_wave=?, run_state_json=?
+      WHERE id=? AND account_id=? AND finished_at IS NULL AND current_wave=?`)
+      .bind(nextOpening, JSON.stringify(opening), session.id, accountId, session.current_wave).run();
+    if (step.meta.changes !== 1) return fail(409, "stale_wave");
+    return { status: 200, body: { ok: true, runFinished: false, stage: "boss-choice", ...bossScreen(session.mode, opening.pendingBossChoice!, opening) } };
+  }
+  const nextPayload: RunPayload = { run, playerLevel: payload.playerLevel, durationMs: payload.durationMs ?? 0, lootEarned: payload.lootEarned ?? {} };
   const fight = fightConfig(run, payload.playerLevel);
   const update = await db.prepare(`UPDATE endless_runs_v3 SET current_wave=?, run_state_json=?,
       fight_config_json=?, fight_started_at=?
@@ -432,14 +456,17 @@ export async function abandonEndless(
   if (!session) return fail(404, "bad_session");
   if (session.finished_at) return { status: 200, body: parse(session.result_json ?? "", { ok: true, runFinished: true }) };
   const payload = parse<RunPayload | null>(session.run_state_json, null);
-  const deepestFloor = payload?.pendingBossChoice?.wave ?? session.current_wave - 1;
+  const pending = payload?.pendingBossChoice;
+  const deepestFloor = pending?.opening ? 0 : pending?.wave ?? session.current_wave - 1;
   const durationMs = Math.max(0, payload?.durationMs ?? 0);
-  const result = { ok: true, runFinished: true, deepestFloor, durationMs, gold: endlessGoldReward(deepestFloor), abandoned: true };
+  const run = payload?.run ?? beginEndlessRun(session.mode, []);
+  const gold = endlessGoldReward(deepestFloor, run.startWave);
+  const result = { ok: true, runFinished: true, deepestFloor, durationMs, gold, abandoned: true };
   const update = db.prepare(`UPDATE endless_runs_v3 SET finished_at=?,result_json=?
     WHERE id=? AND account_id=? AND finished_at IS NULL`).bind(now, JSON.stringify(result), session.id, accountId);
-  const committed = await db.batch(settleTerminalStatements(db, session, deepestFloor, durationMs, now, update));
+  const committed = await db.batch(settleTerminalStatements(db, session, run, deepestFloor, durationMs, now, update));
   if (committed[0]?.meta?.changes !== 1) return fail(409, "run_finished");
-  if (endlessGoldReward(deepestFloor) > 0 && committed[1]?.meta?.changes !== 1) return fail(409, "state_conflict");
+  if (gold > 0 && committed[1]?.meta?.changes !== 1) return fail(409, "state_conflict");
   return { status: 200, body: result };
 }
 
@@ -456,7 +483,7 @@ export async function activeEndless(
   return { status: 200, body: {
     ok: true, sessionId: session.id, mode: session.mode, wave: session.current_wave,
     stage: pendingBossChoice ? "boss-choice" : "battle",
-    ...(pendingBossChoice ? { bossDraft: endlessBossDraft(session.mode, pendingBossChoice.wave), bossLoot: pendingBossChoice.loot ?? [] }
+    ...(pendingBossChoice ? bossScreen(session.mode, pendingBossChoice, payload)
       : { fight: parse(session.fight_config_json, null) }),
     run: payload.run,
   } };

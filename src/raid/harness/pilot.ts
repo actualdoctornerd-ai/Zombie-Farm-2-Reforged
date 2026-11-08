@@ -228,6 +228,7 @@ function apply(sim: BattleSim, action: TranscribedAction): boolean {
     case "wallTap": return sim.tapWall(action.unitId);
     case "fireTap": return sim.tapFire(action.unitId);
     case "turnedTap": return sim.tapTurned(action.unitId);
+    case "chargeTap": return sim.tapCharge(action.unitId);
     case "signPick": return sim.pickSign(action.offer, action.option);
     case "castCancel": return sim.cancelCast(action.slot ?? 0);
     case "trapezeTap": return sim.tapTrapeze(action.unitId);

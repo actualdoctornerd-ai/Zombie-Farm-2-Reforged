@@ -692,9 +692,9 @@ export interface EndlessLeaderboardEntry {
 }
 
 /** Public top-25 personal bests for one Endless ruleset. */
-export const getEndlessLeaderboard = (mode: "endless" | "nightmare") =>
+export const getEndlessLeaderboard = (mode: "endless" | "nightmare", board: "all-time" | "weekly" = "all-time") =>
   req<{ mode: "endless" | "nightmare"; entries: EndlessLeaderboardEntry[] }>(
-    "GET", `/leaderboard/endless?mode=${mode}`,
+    "GET", `/leaderboard/endless?mode=${mode}&board=${board}`,
   ).then((r) => r.entries);
 export const getFriendLeaderboard = () =>
   req<{ entries: FriendLeaderboardEntry[] }>("GET", "/leaderboard/friends")
@@ -890,14 +890,25 @@ export const raidStart = (
     rulesetVersion: RAID_RULESET_VERSION,
   });
 
+/** Everything the Endless boss screen shows, also used for a skipped tier's opening draft. */
+export interface EndlessBossView {
+  bossDraft: { boons: unknown[]; curses: unknown[]; locations: unknown[] };
+  bossLoot: Array<{ kind: string; name: string; quantity: number; key?: string }>;
+  lootEarned: Record<string, number>;
+  goldSoFar: number;
+  army: Array<{ id: string; name: string }>;
+  opening: boolean;
+  tier: number;
+}
+
 /** Start an account-owned Endless run. The returned fight is server-pinned and must
  *  be adopted wholesale by the combat scene. */
-export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: string[]) =>
+export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: string[], startTier = 1) =>
   req<{
     ok: boolean; sessionId?: string; mode?: "endless" | "nightmare"; wave?: number;
     fight?: Record<string, unknown>; brainCost?: number;
-    rulesetVersion?: number; error?: string;
-  }>("POST", "/endless/start", { mode, orderedUnitIds, rulesetVersion: RAID_RULESET_VERSION });
+    rulesetVersion?: number; error?: string; stage?: "battle" | "boss-choice";
+  } & Partial<EndlessBossView>>("POST", "/endless/start", { mode, orderedUnitIds, startTier, rulesetVersion: RAID_RULESET_VERSION });
 
 /** Submit a transcript for one pinned Endless encounter. Boss reward choices are
  *  committed through a separate durable checkpoint after a verified boss win. */
@@ -906,23 +917,22 @@ export const endlessFinish = (
 ) => req<{
   ok: boolean; runFinished: boolean; won?: boolean; clearedWave?: number;
   nextWave?: number; deepestFloor?: number; durationMs?: number; fight?: Record<string, unknown>;
-  awaitingBossChoice?: boolean; bossDraft?: { boons: unknown[]; curses: unknown[] };
-  bossLoot?: Array<{ kind: string; name: string; quantity: number; key?: string }>;
+  awaitingBossChoice?: boolean;
+  floorLoot?: Array<{ kind: string; name: string; quantity: number; key?: string }>;
   gold?: number; abandoned?: boolean; error?: string;
-}>("POST", "/endless/finish", { sessionId, wave, finalTick, inputs });
+} & Partial<EndlessBossView>>("POST", "/endless/finish", { sessionId, wave, finalTick, inputs });
 
 /** Persist a boon and curse selection at a boss checkpoint, then open the next fight. */
-export const endlessChooseBossReward = (sessionId: string, boon: unknown, curse: unknown) =>
-  req<{ ok: boolean; runFinished: boolean; nextWave?: number; fight?: Record<string, unknown>; error?: string }>(
-    "POST", "/endless/choose", { sessionId, boon, curse },
+export const endlessChooseBossReward = (sessionId: string, boon: unknown, curse: unknown, location?: unknown, order?: string[]) =>
+  req<{ ok: boolean; runFinished: boolean; nextWave?: number; fight?: Record<string, unknown>; error?: string } & Partial<EndlessBossView>>(
+    "POST", "/endless/choose", { sessionId, boon, curse, location, order },
   );
 
 /** Resume the server's authoritative battle or pending boss-choice checkpoint after a reload. */
 export const endlessActive = () => req<{
   ok: boolean; sessionId?: string; mode?: "endless" | "nightmare"; wave?: number;
   stage?: "battle" | "boss-choice"; fight?: Record<string, unknown>;
-  bossDraft?: { boons: unknown[]; curses: unknown[] }; bossLoot?: Array<{ kind: string; name: string; quantity: number; key?: string }>; run?: unknown; error?: string;
-}>("GET", "/endless/active");
+} & Partial<EndlessBossView>>("GET", "/endless/active");
 
 /** Close the run at its last fully cleared floor and settle its earned depth gold. */
 export const endlessAbandon = (sessionId: string) => req<{
