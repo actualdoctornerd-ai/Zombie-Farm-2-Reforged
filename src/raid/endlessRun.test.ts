@@ -66,7 +66,7 @@ describe("Endless build boons", () => {
     const mixed = beginEndlessRun("endless", party([REGULAR, HEADLESS, GARDEN]));
     const plain = endlessPlayerUnits(mixed);
     const teeth = units("sharp-teeth", mixed);
-    teeth.forEach((u, i) => expect(u.attacks[0].mult).toBeCloseTo((plain[i].attacks[0].mult ?? 1) * 1.1, 6));
+    teeth.forEach((u, i) => expect(u.str).toBeCloseTo(plain[i].str * 1.1, 6));
     const quick = units("quick-hands", mixed);
     quick.forEach((u, i) => expect(u.attackCooldownMs).toBe(Math.round(plain[i].attackCooldownMs / 1.1)));
     const drill = units("drill-headless", mixed);
@@ -79,12 +79,35 @@ describe("Endless build boons", () => {
     const mixed = beginEndlessRun("endless", party([REGULAR, HEADLESS, GARDEN]));
     const plain = endlessPlayerUnits(mixed);
     const ram = units("battering-ram", mixed);
-    expect(ram[1].attackCooldownMs).toBe(Math.round(plain[1].attackCooldownMs / 1.4));
+    expect(ram[1].dex).toBeCloseTo(plain[1].dex + 2, 6);
+    expect(ram[1].attackCooldownMs).toBe(Math.round(plain[1].attackCooldownMs * plain[1].dex / (plain[1].dex + 2)));
     expect(ram[1].maxHp).toBeLessThan(plain[1].maxHp);
     expect(ram[0]).toEqual(plain[0]);
     expect(units("bulwark", mixed)[1].maxHp).toBe(Math.round(plain[1].maxHp * 1.25));
-    expect(units("green-thumb", mixed)[2].healMult).toBe(1.5);
+    expect(units("green-thumb", mixed)[2].healMult).toBe(1.2);
+    // str is what a healer heals with, so a str boon reaches the heals too.
+    const garden = endlessSimFor(endlessFightConfig({ ...applyEndlessBoon(mixed, { kind: "drill-garden" }), nextWave: 1 }, 45))
+      .units.find((u) => u.team === "player" && (u as unknown as { isGarden: boolean }).isGarden) as unknown as { power: number };
+    const gardenPlain = endlessSimFor(endlessFightConfig({ ...mixed, nextWave: 1 }, 45))
+      .units.find((u) => u.team === "player" && (u as unknown as { isGarden: boolean }).isGarden) as unknown as { power: number };
+    expect(garden.power).toBeCloseTo(gardenPlain.power * 1.1, 6);
     expect(units("green-thumb", mixed)[0].healMult ?? 1).toBe(1);
+  });
+
+  it("keeps boon stats through the sim's team-aura rebuild", () => {
+    const mixed = beginEndlessRun("endless", party([REGULAR, HEADLESS, GARDEN]));
+    type Inside = { units: { team: string; isHeadless: boolean; maxHp: number; cooldownMs: number }[]; refreshTeamAuras(): void };
+    const headless = (run: typeof mixed) => {
+      const sim = endlessSimFor(endlessFightConfig({ ...run, nextWave: 1 }, 45)) as unknown as Inside;
+      sim.refreshTeamAuras();
+      return sim.units.find((u) => u.team === "player" && u.isHeadless)!;
+    };
+    const plain = headless(mixed);
+    const ram = headless(applyEndlessBoon(mixed, { kind: "battering-ram" }));
+    expect(ram.cooldownMs).toBeLessThan(plain.cooldownMs * 0.6);
+    expect(ram.maxHp).toBeCloseTo(plain.maxHp * 0.85, -1);
+    const wall = headless(applyEndlessBoon(mixed, { kind: "bulwark" }));
+    expect(wall.maxHp).toBeCloseTo(plain.maxHp * 1.25, -1);
   });
 
   it("caps deployment boons at an 80% cut to the deploy charge", () => {

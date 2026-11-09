@@ -216,18 +216,20 @@ boss, the same for everyone in a week. They stack, and the formation ones read t
 order, so reordering changes who benefits. Rules: general boons lift one stat for everyone or every
 stat for one class; a class boon's downside hits what that class is for, or there is none; anything
 general that costs something should change something interesting (`ENDLESS_BUILD_BOONS`).
+Boons change the stats themselves, so whatever reads a stat follows: str is every hit and a
+healer's heal, con is health, dex is the attack interval and the walk.
 
 | Boon | Effect |
 |---|---|
-| Sharp Teeth / Thick Skin / Quick Hands | All zombies +10% damage / health / attack speed |
-| Regular Drills, Girl Power, Headless Drills, Brute Drills, Garden Drills | +10% to every stat for that class |
-| Battering Ram | Headless attack 40% faster, 15% less health: a Headless that does real damage |
-| Bulwark | Headless +25% health |
-| Green Thumb | Gardens heal 50% more |
-| Brute Force | Brutes deal 30% more damage, attack 15% slower |
-| Frenzy | Girls attack 30% faster, 15% less health |
-| Grit | Regulars +20% health, 10% less damage |
-| Vanguard | First 3 zombies +50% health, the rest -10% |
+| Sharp Teeth / Thick Skin / Quick Hands | All zombies +10% str / con / dex |
+| Regular Drills, Girl Drills, Headless Drills, Brute Drills, Garden Drills | That class +10% str, con and dex |
+| Battering Ram | Headless +2 dex, -15% con: a Headless that does real damage |
+| Bulwark | Headless +25% con |
+| Green Thumb | Gardens heal 20% more |
+| Brute Force | Brutes +30% str, -15% dex |
+| Frenzy | Girls +30% dex, -15% con |
+| Grit | Regulars +20% con, -10% str |
+| Vanguard | First 3 zombies +50% con, the rest -10% con |
 | Rearguard | Zombies behind the front five lose only half the source's falloff (they swing x1.425 / x2 / x4 slower and hit softer per group of five; Rearguard halves both). A straight stat boost at the back used to be a net loss there |
 | Faster deployment | The deploy charge 20% shorter, stacking to an 80% cut at most |
 | Opening deploy | Start with 3 zombies already out |

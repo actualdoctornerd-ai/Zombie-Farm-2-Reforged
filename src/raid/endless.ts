@@ -582,9 +582,11 @@ export type EndlessBuildBoon =
   | "battering-ram" | "bulwark" | "green-thumb" | "brute-force" | "frenzy" | "grit"
   | "vanguard" | "rearguard";
 
-/** What a build boon does to one zombie: multipliers on its damage (str), health (con),
- *  attack speed (dex) and heals. */
-type BoonScale = { str?: number; con?: number; dex?: number; heal?: number };
+/** What a build boon does to one zombie's STATS (owner, 2026-11-08): multipliers on str, con
+ *  and dex, flat additions after them, and a heal multiplier. Changing the stats themselves means
+ *  everything that reads them follows: str is each hit and a healer's heal, con is health, dex is
+ *  the attack interval and the walk. */
+type BoonScale = { str?: number; con?: number; dex?: number; dexPlus?: number; heal?: number };
 const classOf = (u: CombatUnit): string => u.group ?? (u.isHeadless ? "Headless" : u.isGarden ? "Garden" : "Regular");
 const forClass = (group: string, scale: BoonScale) => (u: CombatUnit): BoonScale => classOf(u) === group ? scale : {};
 const allStats = (by: number): BoonScale => ({ str: by, con: by, dex: by });
@@ -593,23 +595,23 @@ export const ENDLESS_BUILD_BOONS: Readonly<Record<EndlessBuildBoon, {
   name: string; text: string; scale: (u: CombatUnit, index: number) => BoonScale;
 }>> = {
   // ---- General: one stat for everyone, or every stat for one class ----
-  "sharp-teeth": { name: "Sharp Teeth", text: "All zombies deal 10% more damage", scale: () => ({ str: 1.1 }) },
-  "thick-skin": { name: "Thick Skin", text: "All zombies get 10% more health", scale: () => ({ con: 1.1 }) },
-  "quick-hands": { name: "Quick Hands", text: "All zombies attack 10% faster", scale: () => ({ dex: 1.1 }) },
-  "drill-regular": { name: "Regular Drills", text: "Regular zombies get 10% more of every stat", scale: forClass("Regular", allStats(1.1)) },
-  "drill-girl": { name: "Girl Power", text: "Girl zombies get 10% more of every stat", scale: forClass("Female", allStats(1.1)) },
-  "drill-headless": { name: "Headless Drills", text: "Headless zombies get 10% more of every stat", scale: forClass("Headless", allStats(1.1)) },
-  "drill-large": { name: "Brute Drills", text: "Brute zombies get 10% more of every stat", scale: forClass("Large", allStats(1.1)) },
-  "drill-garden": { name: "Garden Drills", text: "Garden zombies get 10% more of every stat", scale: forClass("Garden", allStats(1.1)) },
+  "sharp-teeth": { name: "Sharp Teeth", text: "All zombies +10% str", scale: () => ({ str: 1.1 }) },
+  "thick-skin": { name: "Thick Skin", text: "All zombies +10% con", scale: () => ({ con: 1.1 }) },
+  "quick-hands": { name: "Quick Hands", text: "All zombies +10% dex", scale: () => ({ dex: 1.1 }) },
+  "drill-regular": { name: "Regular Drills", text: "Regular zombies +10% str, con and dex", scale: forClass("Regular", allStats(1.1)) },
+  "drill-girl": { name: "Girl Drills", text: "Girl zombies +10% str, con and dex", scale: forClass("Female", allStats(1.1)) },
+  "drill-headless": { name: "Headless Drills", text: "Headless zombies +10% str, con and dex", scale: forClass("Headless", allStats(1.1)) },
+  "drill-large": { name: "Brute Drills", text: "Brute zombies +10% str, con and dex", scale: forClass("Large", allStats(1.1)) },
+  "drill-garden": { name: "Garden Drills", text: "Garden zombies +10% str, con and dex", scale: forClass("Garden", allStats(1.1)) },
   // ---- Class: a trade inside what the class is for, or a plain useful lift ----
-  "battering-ram": { name: "Battering Ram", text: "Headless zombies attack 40% faster but have 15% less health", scale: forClass("Headless", { dex: 1.4, con: 0.85 }) },
-  bulwark: { name: "Bulwark", text: "Headless zombies get 25% more health", scale: forClass("Headless", { con: 1.25 }) },
-  "green-thumb": { name: "Green Thumb", text: "Garden zombies heal 50% more", scale: forClass("Garden", { heal: 1.5 }) },
-  "brute-force": { name: "Brute Force", text: "Brute zombies deal 30% more damage but attack 15% slower", scale: forClass("Large", { str: 1.3, dex: 0.85 }) },
-  frenzy: { name: "Frenzy", text: "Girl zombies attack 30% faster but have 15% less health", scale: forClass("Female", { dex: 1.3, con: 0.85 }) },
-  grit: { name: "Grit", text: "Regular zombies get 20% more health but deal 10% less damage", scale: forClass("Regular", { con: 1.2, str: 0.9 }) },
+  "battering-ram": { name: "Battering Ram", text: "Headless zombies +2 dex, -15% con", scale: forClass("Headless", { dexPlus: 2, con: 0.85 }) },
+  bulwark: { name: "Bulwark", text: "Headless zombies +25% con", scale: forClass("Headless", { con: 1.25 }) },
+  "green-thumb": { name: "Green Thumb", text: "Garden zombies heal 20% more", scale: forClass("Garden", { heal: 1.2 }) },
+  "brute-force": { name: "Brute Force", text: "Brute zombies +30% str, -15% dex", scale: forClass("Large", { str: 1.3, dex: 0.85 }) },
+  frenzy: { name: "Frenzy", text: "Girl zombies +30% dex, -15% con", scale: forClass("Female", { dex: 1.3, con: 0.85 }) },
+  grit: { name: "Grit", text: "Regular zombies +20% con, -10% str", scale: forClass("Regular", { con: 1.2, str: 0.9 }) },
   // ---- Formation ----
-  vanguard: { name: "Vanguard", text: "Your first 3 zombies get 50% more health, the rest 10% less",
+  vanguard: { name: "Vanguard", text: "Your first 3 zombies +50% con, the rest -10% con",
     scale: (_u, index) => ({ con: index < 3 ? 1.5 : 0.9 }) },
   // Not a stat change: the zombies behind the front five already swing slower and hit softer
   // (lineupSpeedBand / lineupDamageBand). Rearguard halves that falloff (BattleSim.speedBand).
@@ -792,14 +794,15 @@ export function applyEndlessBoon(run: EndlessRunState, boon: EndlessBoon): Endle
 
 /** What the build boons do to one body, given its place in the army's order. Boons retired
  *  from the pool (an old run's "headless-wall", "garden-focus") simply do nothing. */
-function buildBoonScale(run: EndlessRunState, unit: CombatUnit, index: number): { hp: number; damage: number; dex: number; heal: number } {
-  const out = { hp: 1, damage: 1, dex: 1, heal: 1 };
+function buildBoonScale(run: EndlessRunState, unit: CombatUnit, index: number): { str: number; con: number; dex: number; dexPlus: number; heal: number } {
+  const out = { str: 1, con: 1, dex: 1, dexPlus: 0, heal: 1 };
   for (const boon of run.buildBoons) {
     if (!isEndlessBuildBoon(boon)) continue;
     const s = ENDLESS_BUILD_BOONS[boon].scale(unit, index);
-    out.damage *= s.str ?? 1;
-    out.hp *= s.con ?? 1;
+    out.str *= s.str ?? 1;
+    out.con *= s.con ?? 1;
     out.dex *= s.dex ?? 1;
+    out.dexPlus += s.dexPlus ?? 0;
     out.heal *= s.heal ?? 1;
   }
   return out;
@@ -810,17 +813,23 @@ export function endlessPlayerUnits(run: EndlessRunState): CombatUnit[] {
   return run.units.flatMap((u, index) => {
     if (!u.alive || u.hp <= 0) return [];
     const scale = buildBoonScale(run, u, index);
-    const unit = { ...u, attacks: u.attacks.map((a) => ({ ...a, mult: (a.mult ?? 1) * (1 + run.damageBonus) * scale.damage })) };
-    if (scale.dex !== 1) {
-      unit.dex *= scale.dex;
-      unit.attackCooldownMs = Math.max(1, Math.round(unit.attackCooldownMs / scale.dex));
+    // `damageBonus` is the retired +20% damage boon, still honoured for runs that drafted it.
+    const unit = { ...u, attacks: u.attacks.map((a) => ({ ...a, mult: (a.mult ?? 1) * (1 + run.damageBonus) })) };
+    // Boons move the stats themselves (str: hits and heals; con: health; dex: attack
+    // interval and walk), and the derived numbers follow in proportion.
+    unit.str *= scale.str;
+    const dex = Math.max(0.1, unit.dex * scale.dex + scale.dexPlus);
+    if (dex !== unit.dex) {
+      unit.attackCooldownMs = Math.max(1, Math.round(unit.attackCooldownMs * Math.max(0.1, unit.dex) / dex));
+      unit.dex = dex;
     }
     if (scale.heal !== 1) unit.healMult = (unit.healMult ?? 1) * scale.heal;
-    if (scale.hp !== 1) {
+    scaleAuraBase(unit, scale);
+    if (scale.con !== 1) {
       const fraction = unit.maxHp > 0 ? unit.hp / unit.maxHp : 1;
-      unit.maxHp = Math.max(1, Math.round(unit.maxHp * scale.hp));
+      unit.maxHp = Math.max(1, Math.round(unit.maxHp * scale.con));
       unit.hp = Math.max(1, Math.round(unit.maxHp * fraction));
-      unit.con *= scale.hp;
+      unit.con *= scale.con;
     }
     for (const curse of run.curses) {
       if (curse.kind === "headless-stat" && unit.isHeadless) {
@@ -832,8 +841,22 @@ export function endlessPlayerUnits(run: EndlessRunState): CombatUnit[] {
           unit.hp = Math.min(unit.maxHp, Math.round(unit.maxHp * hpRatio));
         }
         if (curse.stat === "dex") unit.attackCooldownMs = Math.max(1, Math.round(unit.attackCooldownMs / ratio));
+        scaleAuraBase(unit, { [curse.stat]: ratio });
       }
     }
     return [unit];
   });
+}
+
+/** The sim rebuilds a zombie's str/con/dex from `teamAuraStats` whenever a team-aura carrier
+ *  deploys or falls (BattleSim.refreshTeamAuras), so a stat change has to land there too or
+ *  the first aura refresh would undo it. */
+function scaleAuraBase(unit: CombatUnit, s: { str?: number; con?: number; dex?: number; dexPlus?: number }): void {
+  if (!unit.teamAuraStats) return;
+  const a = { ...unit.teamAuraStats };
+  const str = s.str ?? 1, con = s.con ?? 1, dex = s.dex ?? 1;
+  a.baseStr *= str; a.strPerCarrier *= str;
+  a.baseCon *= con; a.conPerCarrier *= con;
+  a.baseDex = Math.max(0.1, a.baseDex * dex + (s.dexPlus ?? 0)); a.dexPerCarrier *= dex;
+  unit.teamAuraStats = a;
 }
