@@ -37,12 +37,33 @@ function partyFor(army: Army) {
   return buildPlayerUnits(party, { abilitySlotUnlocked: (slot) => slot >= 1 && slot <= 4, playerLevel: army.level });
 }
 
-/** A sensible player's pick: damage first, then the deployment boons, and the curses that
- *  cost a mixed army least. */
+/** A sensible player's pick for THEIR army (2026-11-08 pool): a class boon is worth what
+ *  share of the army it reaches, a general one a flat amount, the loaned Special most. */
 function boonScore(run: EndlessRunState, b: EndlessBoon): number {
-  return b.kind === "damage" ? 5 : b.kind === "temporary-zombie" ? 5
-    : b.kind === "opening-deploy" ? (run.openingDeploy >= 3 ? 0 : 4)
-    : b.kind === "vanguard" ? 3 : b.kind === "deployment" ? 3 : 1;
+  const n = Math.max(1, run.units.length);
+  const share = (group: string) => run.units.filter((u) => (u.group ?? "") === group).length / n;
+  switch (b.kind) {
+    case "temporary-zombie": return 6;
+    case "opening-deploy": return run.openingDeploy >= 3 ? 0 : 4;
+    case "deployment": return run.deploymentSpeedBonus >= 0.8 ? 0 : 3;
+    case "sharp-teeth": return 4.5;
+    case "thick-skin": case "quick-hands": return 4;
+    case "drill-regular": return 10 * share("Regular");
+    case "drill-girl": return 10 * share("Female");
+    case "drill-headless": return 10 * share("Headless");
+    case "drill-large": return 10 * share("Large");
+    case "drill-garden": return 10 * share("Garden");
+    case "battering-ram": return 12 * share("Headless");
+    case "bulwark": return 9 * share("Headless");
+    case "green-thumb": return share("Garden") > 0 ? 4 : 0;
+    case "brute-force": return 12 * share("Large");
+    case "frenzy": return 12 * share("Female");
+    case "grit": return 8 * share("Regular");
+    case "vanguard": return 3;
+    case "rearguard": return n > 5 ? 3.5 : 0;
+    case "revive-headless": return share("Headless") > 0 ? 2 : 0;
+    case "damage": return 5;
+  }
 }
 const pickBoon = (run: EndlessRunState, boons: EndlessBoon[]) =>
   [...boons].sort((a, b) => boonScore(run, b) - boonScore(run, a))[0];
