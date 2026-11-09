@@ -135,6 +135,19 @@ describe("Endless Mode plan", () => {
     expect(endlessWavePlan("nightmare", 2).bossId).toBeNull();
   });
 
+  it("sizes Alien Landing's swarm at half a solo enemy's base stats, never its boss", () => {
+    const minion = endlessSourceUnit("AlienStageActorMinion")!;
+    const at = (location: "alien" | "farm") => scaleEndlessEnemy(minion, endlessWavePlan("endless", 4, { location, modifier: null }), [], ENDLESS_SHAPES);
+    expect(at("alien").maxHp / at("farm").maxHp).toBeCloseTo(0.5, 2);
+    expect(at("alien").str / at("farm").str).toBeCloseTo(0.5, 6);
+    // Dr. Groundhog fights alone there: the same boss as anywhere else.
+    const boss = (location: "alien" | "farm") => endlessFightConfig(
+      { ...beginEndlessRun("endless", []), nextWave: 12, stop: { location, modifier: null } }, 45,
+    ).enemyUnits.find((u) => u.isBoss)!;
+    expect(boss("alien").maxHp).toBe(boss("farm").maxHp);
+    expect(boss("alien").str).toBe(boss("farm").str);
+  });
+
   it("flattens the ramp after the T7 boss to 1.11x damage and 1.13x health a tier", () => {
     for (const fight of [1, 2, 3]) {
       const t8 = endlessWavePlan("endless", 21 + fight), t9 = endlessWavePlan("endless", 24 + fight);

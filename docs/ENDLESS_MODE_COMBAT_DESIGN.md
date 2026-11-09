@@ -211,6 +211,13 @@ the loot and gold earned so far, Go Home, and a button that opens the ordering s
 - It shows only the zombies brought on the run. Bringing 8 shows those 8. It gives no access to
   the Mausoleum or anything else.
 
+**Alien Landing's swarm. Status: built (owner, 2026-11-08).** Its floors send twenty minions,
+up to six on the field at once. Sized like solo enemies they ended 58-70% of all runs (a fight
+there lost 20-48% of the time against 0-16% elsewhere), so their base stats are half a solo
+enemy's (`ENDLESS_ALIEN_SWARM`, the owner's pick between the measured 45% and 60%). At 45% an Alien
+floor lost 5% at L40-45 and 14% at L30, level with the Ninja Dojo; at 60%, 10% and 26%. Its boss
+is Dr. Groundhog alone and is never scaled down.
+
 **Dr. Groundhog and the late ramp. Status: built (owner, 2026-11-08).** No cliffs. His health
 climbs from 62,648 at T1 to 1,000,000 at T7 in equal x1.59 steps, then with the ordinary health
 ramp; his hit follows the ordinary damage ramp times an extra that builds evenly (x1.20 a tier) to

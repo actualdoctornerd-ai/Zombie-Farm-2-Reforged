@@ -193,6 +193,11 @@ export const ENDLESS_MIRROR_REFERENCE_SEC = 1;
 
 /** Every enemy but the killers, on top of its shape. */
 export const ENDLESS_LINE = { hp: 1.5, damage: 0.95 } as const;
+/** Alien Landing's swarm (owner, 2026-11-08): twenty minions, up to six on the field at once,
+ *  each sized like a solo enemy made it the run-ender everywhere. Its FLOORS' enemies carry
+ *  half base stats (measured through harness/report/endless.report.ts). Its boss is Dr.
+ *  Groundhog alone, built by epicBossUnit, and is never scaled down. */
+export const ENDLESS_ALIEN_SWARM = { hp: 0.5, damage: 0.5 } as const;
 
 /** Bodies on a normal and an advanced floor. They come out one at a time (owner, 2026-11-07):
  *  only Alien, built around a swarm, fields several at once. */
@@ -394,9 +399,10 @@ export function scaleEndlessEnemy(
   const killer = isEndlessKiller(unit.sourceKey);
   const shape = shapes[unit.sourceKey] ?? { damage: 1, hp: 1 };
   const profile = killer ? ENDLESS_KILLER : ENDLESS_LINE;
+  const swarm = plan.location === "alien" && !plan.bossGate ? ENDLESS_ALIEN_SWARM : { hp: 1, damage: 1 };
   const result = { ...unit, attacks: unit.attacks.map((attack) => ({ ...attack })) };
-  const damage = ENDLESS_ENTRY_THREAT_RATING * shape.damage * profile.damage * plan.damageScale;
-  const health = ENDLESS_ENTRY_THREAT_RATING * shape.hp * profile.hp * plan.healthScale;
+  const damage = ENDLESS_ENTRY_THREAT_RATING * shape.damage * profile.damage * swarm.damage * plan.damageScale;
+  const health = ENDLESS_ENTRY_THREAT_RATING * shape.hp * profile.hp * swarm.hp * plan.healthScale;
   // The swing the damage lands on: the source clock, or for a mirroring pirate the
   // reference zombie's mirrored interval.
   const hitSec = unit.mirrorsOpponentSpeed
