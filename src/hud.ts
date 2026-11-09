@@ -7169,7 +7169,7 @@ export class Hud {
       [1, "2 Brain Tickets"], [2, "1 brain"], [3, "Zwamp Thing"], [4, "3 brains"], [5, "+8 Mausoleum slots"],
       [6, "+16 shed slots"], [7, "80×80 farm for sale"], [8, "Legend veterancy"],
     ] as const).map(([tier, prize]) => `${best >= tier ? "✓ " : ""}T${tier} ${prize}`).join(" · ") +
-      ". From Tier 9, every boss win pays brains: 4, then one more each tier.";
+      ". Every deeper tier after that adds 16 more shed slots.";
     content.appendChild(ladder);
     const selected = new Set(party?.orderedSelectedIds.length ? party.orderedSelectedIds : party?.defaultSelectedIds ?? []);
     const max = party?.cap ?? 0;

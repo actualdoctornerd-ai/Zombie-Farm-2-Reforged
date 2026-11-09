@@ -141,7 +141,14 @@ describe("Endless settlement on the real schema", () => {
   });
 
   // Strong enough to clear any boss quickly, so a deep tier settles like a shallow one.
-  const titans = () => army().map((u) => ({ ...u, str: u.str * 400, con: u.con * 400, maxHp: u.maxHp * 400, hp: u.maxHp * 400 }));
+  // The sim rebuilds str/con/dex from teamAuraStats on every aura refresh, so boost that too.
+  const titans = () => army().map((u) => ({
+    ...u, str: u.str * 400, con: u.con * 400, maxHp: u.maxHp * 400, hp: u.maxHp * 400,
+    ...(u.teamAuraStats ? { teamAuraStats: {
+      ...u.teamAuraStats, baseStr: u.teamAuraStats.baseStr * 400, baseCon: u.teamAuraStats.baseCon * 400,
+      strPerCarrier: u.teamAuraStats.strPerCarrier * 400, conPerCarrier: u.teamAuraStats.conPerCarrier * 400,
+    } } : {}),
+  }));
   const core = () => JSON.parse((raw.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").get(ME) as { current_json: string }).current_json) as Record<string, unknown>;
 
   it("pays T4's 3 brains on its first clear and records the best tier on the core document", async () => {

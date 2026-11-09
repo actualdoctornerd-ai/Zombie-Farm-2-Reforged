@@ -211,6 +211,14 @@ the loot and gold earned so far, Go Home, and a button that opens the ordering s
 - It shows only the zombies brought on the run. Bringing 8 shows those 8. It gives no access to
   the Mausoleum or anything else.
 
+**Dr. Groundhog and the late ramp. Status: built (owner, 2026-11-08).** No cliffs. His health
+climbs from 62,648 at T1 to 1,000,000 at T7 in equal x1.59 steps, then with the ordinary health
+ramp; his hit follows the ordinary damage ramp times an extra that builds evenly (x1.20 a tier) to
+3x at T7 and holds. This replaced a 7x hit and 3x health jump at the T7 boss, and the one-tier
+stat pull-back after it that made T8 a copy of T7. Past the T7 boss the ordinary ramp flattens to
+1.11x damage and 1.13x health a tier, so each tier there asks for an army about 25% stronger
+rather than about 60% (`ENDLESS_LATE_*`).
+
 **Boons. Status: built, reworked 2026-11-08 (owner).** Three of the pool are offered after each
 boss, the same for everyone in a week. They stack, and the formation ones read the army's current
 order, so reordering changes who benefits. Rules: general boons lift one stat for everyone or every

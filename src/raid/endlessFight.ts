@@ -15,7 +15,7 @@ import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import { countHitDamage } from "./countSlam";
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import {
-  applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_LATE_BOSS_HP_MULTIPLIER,
+  applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
   endlessBossMultiplier, endlessClockMs, endlessDoOrDieMs, endlessPeerShapes, endlessPlayerUnits, endlessWavePlan,
   finishEndlessFight, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, type EndlessBoon, type EndlessRunState,
 } from "./endless";
@@ -57,8 +57,12 @@ export interface EndlessFightConfig {
 function epicBossUnit(plan: EndlessWavePlan): { unit: CombatUnit; specials: BossSpecial[] } {
   const def = plan.mode === "nightmare" ? GALACTIC_GROUNDHOG : DR_GROUNDHOG;
   const bossMultiplier = endlessBossMultiplier(plan.mode, plan.wave);
-  const hpMultiplier = bossMultiplier > 1 ? ENDLESS_LATE_BOSS_HP_MULTIPLIER : 1;
-  const hp = Math.max(1, Math.round(epicBossHp(def, 1) * plan.healthScale * hpMultiplier * ENDLESS_BOSS_HP_SCALE));
+  // Normal Endless: a smooth climb to 1,000,000 at T7 (endlessBossHp). Nightmare: the ramp.
+  const baseHp = epicBossHp(def, 1) * ENDLESS_BOSS_HP_SCALE;
+  const hp = Math.max(1, Math.round(plan.mode === "endless"
+    ? endlessBossHp(plan.mode, plan.wave, baseHp * endlessWavePlan(plan.mode, ENDLESS_FIGHTS_PER_LOCATION).healthScale,
+      plan.healthScale, endlessWavePlan(plan.mode, 7 * ENDLESS_FIGHTS_PER_LOCATION).healthScale)
+    : baseHp * plan.healthScale));
   const unit: CombatUnit = {
     id: `endless-boss-${plan.wave}`, sourceKey: `EpicBoss:${def.id}`, team: "enemy", name: def.name,
     str: epicBossDamage(def, 1) * plan.damageScale * bossMultiplier, dex: def.unitStats.dex, con: def.unitStats.con,

@@ -236,8 +236,8 @@ describe("Endless Zwamp Thing and milestones", () => {
     expect(endlessMilestoneRewards("endless", 6)).toEqual([expect.objectContaining({ kind: "perk", perk: "shed" })]);
     expect(endlessMilestoneRewards("endless", 7)).toEqual([expect.objectContaining({ kind: "perk", perk: "expansion" })]);
     expect(endlessMilestoneRewards("endless", 8)).toEqual([expect.objectContaining({ kind: "perk", perk: "veterancy" })]);
-    // Past T8 there is no first-clear prize: every boss win pays brains instead.
-    expect(endlessMilestoneRewards("endless", 9)).toEqual([]);
+    // Past T8 every first clear adds 16 more shed slots.
+    expect(endlessMilestoneRewards("endless", 9)).toEqual([expect.objectContaining({ kind: "perk", perk: "shed" })]);
   });
 });
 

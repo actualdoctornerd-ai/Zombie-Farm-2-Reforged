@@ -74,7 +74,7 @@ push people's builds").
 | T6 | +16 shed slots |
 | T7 | The 80x80 farm goes on sale: Gargantuan 'ol Farm, 4,000,000 gold or 30 brains. Gated by the unlock alone: its level is 70x70's (41) |
 | T8 | Legend veterancy: a sixth rank at 6 survived fights, +5% more, so +30% in all (Master is +25%) |
-| T9+ | A 40% chance of brains at every boss win: 4 at T9, 5 at T10, one more each tier |
+| T9+ | +16 more shed slots for each new deepest tier (owner, 2026-11-08: storage, not brains) |
 | Nightmare T5 | Medusa Zombie (Nightmare is held, see below) |
 
 Where each unlock is enforced:

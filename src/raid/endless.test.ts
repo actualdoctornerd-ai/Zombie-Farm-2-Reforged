@@ -135,11 +135,36 @@ describe("Endless Mode plan", () => {
     expect(endlessWavePlan("nightmare", 2).bossId).toBeNull();
   });
 
-  it("ramps normal Endless bosses from the T7 gate without changing Nightmare", () => {
-    expect(endlessBossMultiplier("endless", 18)).toBe(1);
-    expect(endlessBossMultiplier("endless", 21)).toBe(7);
-    expect(endlessBossMultiplier("endless", 24)).toBe(7);
+  it("flattens the ramp after the T7 boss to 1.11x damage and 1.13x health a tier", () => {
+    for (const fight of [1, 2, 3]) {
+      const t8 = endlessWavePlan("endless", 21 + fight), t9 = endlessWavePlan("endless", 24 + fight);
+      expect(t9.damageScale / t8.damageScale).toBeCloseTo(1.11, 6);
+      expect(t9.healthScale / t8.healthScale).toBeCloseTo(1.13, 6);
+    }
+    // The ramp up to the T7 boss is unchanged.
+    expect(endlessWavePlan("endless", 21).damageScale).toBeCloseTo(6.893, 2);
+  });
+
+  it("climbs Dr. Groundhog's hit smoothly to 3x by T7, without changing Nightmare", () => {
+    expect(endlessBossMultiplier("endless", 3)).toBe(1);
+    expect(endlessBossMultiplier("endless", 21)).toBeCloseTo(3, 9);
+    expect(endlessBossMultiplier("endless", 30)).toBeCloseTo(3, 9);
     expect(endlessBossMultiplier("nightmare", 21)).toBe(1);
+    for (let wave = 6; wave <= 21; wave += 3) {
+      const step = endlessBossMultiplier("endless", wave) / endlessBossMultiplier("endless", wave - 3);
+      expect(step).toBeCloseTo(3 ** (1 / 6), 9);
+    }
+  });
+
+  it("climbs Dr. Groundhog's health to 1,000,000 at T7 with no tier more than 1.6x the last", () => {
+    const hp = (wave: number) => endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: wave }, 45)
+      .enemyUnits.find((u) => u.isBoss)!.maxHp;
+    expect(hp(21)).toBe(1_000_000);
+    for (let wave = 6; wave <= 36; wave += 3) {
+      const step = hp(wave) / hp(wave - 3);
+      expect(step, `T${wave / 3}`).toBeGreaterThan(1.1);
+      expect(step, `T${wave / 3}`).toBeLessThan(1.6);
+    }
   });
 
   it("fields more bodies on an advanced floor, and Crowded only adds bodies", () => {

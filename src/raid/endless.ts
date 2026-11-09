@@ -130,14 +130,22 @@ const DEPTH_PER_FIGHT = 4 / 3;
 /** Preserve Nightmare's existing steeper entry multiplier and per-wave rates. */
 export const NIGHTMARE_DAMAGE_STEP = 0.075;
 export const NIGHTMARE_HEALTH_STEP = 0.045;
-/** T7 and later boss gates are 7x stronger after the regular wave stat ramp. */
-export const ENDLESS_LATE_BOSS_MULTIPLIER = 7;
-/** The late gate's health rises less than its hit: a 7x sponge just runs out the clock. */
-export const ENDLESS_LATE_BOSS_HP_MULTIPLIER = 3;
-export const ENDLESS_LATE_BOSS_START_WAVE = 7 * ENDLESS_FIGHTS_PER_LOCATION;
-/** Keep the curve at each post-T7 section one tier behind the raw wave, so T8's stats are
- *  comparable to T7's. Location mechanics still follow their actual section. */
-const ENDLESS_LATE_DEPTH_DELAY = 4;
+/** Dr. Groundhog climbs smoothly (owner, 2026-11-08: no cliff). This replaced a 7x hit and 3x
+ *  health jump at the T7 boss, which also held every later tier's stats one tier back.
+ *
+ *  Health: from his T1 health to ENDLESS_BOSS_HP_AT_T7 in equal steps, x1.59 a tier (doubling
+ *  every tier and a half), then the ordinary health ramp from there.
+ *  Damage: the ordinary damage ramp, times an extra that builds evenly to
+ *  ENDLESS_BOSS_DAMAGE_AT_T7 by T7 and holds there. */
+export const ENDLESS_BOSS_HP_AT_T7 = 1_000_000;
+/** Past the T7 boss the ramp flattens (owner, 2026-11-08): a tier asks for about a 25% stronger
+ *  army (1.11x damage and 1.13x health a tier) instead of about 60%, so a clearly better army
+ *  goes clearly deeper. Rates are per depth; a tier is 4 depth. */
+export const ENDLESS_LATE_RAMP_FROM_WAVE = 7 * ENDLESS_FIGHTS_PER_LOCATION;
+export const ENDLESS_LATE_DAMAGE_PER_TIER = 1.11;
+export const ENDLESS_LATE_HEALTH_PER_TIER = 1.13;
+export const ENDLESS_BOSS_DAMAGE_AT_T7 = 3;
+export const ENDLESS_BOSS_CURVE_TIER = 7;
 
 /** Every Epic Boss's hit points on top of the ramp: he should last about as long as a floor. */
 export const ENDLESS_BOSS_HP_SCALE = 14;
@@ -196,10 +204,22 @@ export function endlessKillerCount(tier: number, locationFight: number): number 
   return tier >= 9 ? 4 : tier >= 7 ? 3 : tier >= 5 ? 2 : tier >= 3 ? 1 : 0;
 }
 
+/** The extra on Dr. Groundhog's hit over the ordinary damage ramp: 1 at T1, building evenly
+ *  (x1.20 a tier) to ENDLESS_BOSS_DAMAGE_AT_T7 at T7 and holding. Nightmare keeps its own. */
 export function endlessBossMultiplier(mode: EndlessMode, wave: number): number {
-  return mode === "endless" && wave >= ENDLESS_LATE_BOSS_START_WAVE
-    ? ENDLESS_LATE_BOSS_MULTIPLIER
-    : 1;
+  if (mode !== "endless") return 1;
+  const tier = Math.ceil(Math.max(1, wave) / ENDLESS_FIGHTS_PER_LOCATION);
+  return ENDLESS_BOSS_DAMAGE_AT_T7 ** ((Math.min(tier, ENDLESS_BOSS_CURVE_TIER) - 1) / (ENDLESS_BOSS_CURVE_TIER - 1));
+}
+
+/** Dr. Groundhog's health at a boss gate. `t1Hp` is his T1 health (base x scale x T1's ramp);
+ *  `healthScale` this gate's ordinary ramp, `t7Scale` the T7 gate's. */
+export function endlessBossHp(mode: EndlessMode, wave: number, t1Hp: number, healthScale: number, t7Scale: number): number {
+  const tier = Math.ceil(Math.max(1, wave) / ENDLESS_FIGHTS_PER_LOCATION);
+  if (mode !== "endless") return t1Hp;
+  const steps = (ENDLESS_BOSS_CURVE_TIER - 1);
+  if (tier <= ENDLESS_BOSS_CURVE_TIER) return t1Hp * (ENDLESS_BOSS_HP_AT_T7 / t1Hp) ** ((tier - 1) / steps);
+  return ENDLESS_BOSS_HP_AT_T7 * healthScale / t7Scale;
 }
 /** The Halloween clock model (owner, 2026-11-05): when the clock runs out the fight is not
  *  lost yet, it goes into Do or Die (BattleSim.armDoOrDie). An Alien section drips its twenty
@@ -511,8 +531,7 @@ export function endlessWavePlan(
   weekSeed = "0",
 ): EndlessWavePlan {
   const wave = Math.max(1, Math.floor(Number.isFinite(waveInput) ? waveInput : 1));
-  const depth = (wave - 1) * DEPTH_PER_FIGHT
-    - (mode === "endless" && wave > ENDLESS_LATE_BOSS_START_WAVE ? ENDLESS_LATE_DEPTH_DELAY : 0);
+  const depth = (wave - 1) * DEPTH_PER_FIGHT;
   const section = Math.floor((wave - 1) / ENDLESS_FIGHTS_PER_LOCATION);
   const tier = section + 1;
   const locationFight = ((wave - 1) % ENDLESS_FIGHTS_PER_LOCATION) + 1;
@@ -527,12 +546,15 @@ export function endlessWavePlan(
   const mechanics = ENDLESS_LOCATION_MECHANICS[location];
   // After tier four, compress raw stat growth so paired enemies and role contrast supply
   // the challenge instead of an increasingly steep stat wall.
+  // Normal Endless flattens once more after the T7 boss (ENDLESS_LATE_*).
+  const lateFrom = mode === "endless" ? (ENDLESS_LATE_RAMP_FROM_WAVE - 1) * DEPTH_PER_FIGHT : Infinity;
   const fastDepth = Math.min(depth, 15);
-  const slowDepth = Math.max(0, depth - 15);
+  const slowDepth = Math.max(0, Math.min(depth, lateFrom) - 15);
+  const lateTiers = Math.max(0, depth - lateFrom) / (ENDLESS_FIGHTS_PER_LOCATION * DEPTH_PER_FIGHT);
   const damageScale = baseDamage * (1 + damageStep) ** fastDepth
-    * (mode === "nightmare" ? 1.035 : 1.05) ** slowDepth;
+    * (mode === "nightmare" ? 1.035 : 1.05) ** slowDepth * ENDLESS_LATE_DAMAGE_PER_TIER ** lateTiers;
   const healthScale = baseHealth * (1 + healthStep) ** fastDepth
-    * (mode === "nightmare" ? 1.025 : 1.07) ** slowDepth;
+    * (mode === "nightmare" ? 1.025 : 1.07) ** slowDepth * ENDLESS_LATE_HEALTH_PER_TIER ** lateTiers;
   const mechanicCooldownScale = mechanics.cadence[locationFight - 1];
   const mechanicCooldownsMs = Object.fromEntries(
     Object.entries(ENDLESS_MECHANIC_BASE_COOLDOWNS_MS[location] ?? {})

@@ -221,8 +221,8 @@ const ZWAMP_THING: EndlessBossLoot = { kind: "zombie", name: "Zwamp Thing", key:
 const MEDUSA: EndlessBossLoot = { kind: "zombie", name: "Medusa Zombie", key: "ZombieActorMedusa", quantity: 1 };
 
 /** What a tier pays the FIRST time an account beats its boss in a mode, on top of that fight's
- *  loot (docs/ENDLESS_MODE_REWARDS.md). T5-T8 are permanent unlocks; from T9 every boss win
- *  pays brains instead (endlessVictoryBrains), so there is no first-clear prize past T8. */
+ *  loot (docs/ENDLESS_MODE_REWARDS.md). T5-T8 are permanent unlocks, and every tier past T8
+ *  adds +16 shed slots the first time it falls. */
 export function endlessMilestoneRewards(mode: EndlessMode, tier: number): EndlessBossLoot[] {
   const rewards: EndlessBossLoot[] = [];
   if (tier === 1) rewards.push({ kind: "boost", name: "Brain Ticket", key: "brain_ticket", quantity: 2 });
@@ -235,12 +235,14 @@ export function endlessMilestoneRewards(mode: EndlessMode, tier: number): Endles
     if (tier === ENDLESS_PERK_TIER.shed) rewards.push({ kind: "perk", perk: "shed", name: `+${ENDLESS_SHED_SLOTS} Shed Slots`, quantity: 1 });
     if (tier === ENDLESS_PERK_TIER.expansion) rewards.push({ kind: "perk", perk: "expansion", name: `${ENDLESS_EXPANSION_SIZE}×${ENDLESS_EXPANSION_SIZE} Farm Unlocked`, quantity: 1 });
     if (tier === ENDLESS_PERK_TIER.veterancy) rewards.push({ kind: "perk", perk: "veterancy", name: "Legend Veterancy", quantity: 1 });
+    // Every new deepest tier past T8: another +16 shed slots (endlessPerksFor counts them).
+    if (tier > ENDLESS_PERK_TIER.veterancy) rewards.push({ kind: "perk", perk: "shed", name: `+${ENDLESS_SHED_SLOTS} Shed Slots`, quantity: 1 });
   }
   return rewards;
 }
 
-/** What a boss win at `tier` may pay on top of its loot table: from T9, a chance of brains
- *  (owner, 2026-11-08: brains less consistent, the depth gold carries the steady payout). */
+/** What a boss win at `tier` may pay on top of its loot table. Nothing since 2026-11-08: the
+ *  T9+ brains became shed slots on each first clear (endlessMilestoneRewards). */
 export const ENDLESS_VICTORY_BRAIN_CHANCE = 0.4;
 export function endlessVictoryRewards(mode: EndlessMode, tier: number, roll: number): EndlessBossLoot[] {
   const brains = mode === "endless" && roll < ENDLESS_VICTORY_BRAIN_CHANCE ? endlessVictoryBrains(tier) : 0;

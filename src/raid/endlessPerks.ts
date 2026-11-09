@@ -7,7 +7,7 @@
 //   T6  +16 shed slots
 //   T7  the 80x80 farm goes on sale
 //   T8  +1 max veterancy: a sixth rank, Legend, one more +5% step (+30% in all, Master +25%)
-//   T9+ a 40% chance of brains at each boss win: 4 at T9, 5 at T10, one more each tier
+//   T9+ +16 more shed slots for each new deepest tier (owner, 2026-11-08: storage, not brains)
 //
 // T8 is the stretch tier, the last real reward (owner, 2026-11-08: higher tiers are for
 // leaderboard chasers, and this content is in part designed to push people's builds).
@@ -32,7 +32,8 @@ export function endlessPerksFor(bestTier: number): EndlessPerks {
   const t = Number.isFinite(bestTier) ? bestTier : 0;
   return {
     cryptSlots: t >= ENDLESS_PERK_TIER.crypt ? ENDLESS_CRYPT_SLOTS : 0,
-    shedSlots: t >= ENDLESS_PERK_TIER.shed ? ENDLESS_SHED_SLOTS : 0,
+    shedSlots: (t >= ENDLESS_PERK_TIER.shed ? ENDLESS_SHED_SLOTS : 0)
+      + ENDLESS_SHED_SLOTS * Math.max(0, t - ENDLESS_PERK_TIER.veterancy),
     expansion: t >= ENDLESS_PERK_TIER.expansion,
     vetRanks: t >= ENDLESS_PERK_TIER.veterancy ? 1 : 0,
   };
@@ -54,10 +55,9 @@ export function endlessMaxVetRankOf(core: unknown): number {
   return BASE_MAX_VET_RANK + endlessPerksFor(endlessBestTierOf(core)).vetRanks;
 }
 
-/** Brains a boss win at `tier` pays when its chance comes up (endlessVictoryRewards): 4 at
- *  T9, 5 at T10, and so on. The real prize that deep is the leaderboard. */
-export function endlessVictoryBrains(tier: number): number {
-  return tier >= ENDLESS_VICTORY_BRAINS_FROM ? tier - (ENDLESS_VICTORY_BRAINS_FROM - 4) : 0;
+/** Retired 2026-11-08 (owner: storage past T8, not brains). Kept so old callers compile. */
+export function endlessVictoryBrains(_tier: number): number {
+  return 0;
 }
 
 // ---- The signed-in account, client side only ------------------------------------------
