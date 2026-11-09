@@ -258,6 +258,17 @@ describe("Endless settlement on the real schema", () => {
     expect(brains()).toBe(4);
   });
 
+  it("starts at a dev-chosen location when the route allows it, and refuses a made-up one", async () => {
+    raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
+      VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
+    const body = { mode: "endless", orderedUnitIds: ["z0"], rulesetVersion: RAID_RULESET_VERSION };
+    expect((await startEndless(db, ME, body, LATER, { startLocation: "moon" })).status).toBe(400);
+    const started = await startEndless(db, ME, body, LATER, { startLocation: "ninja" });
+    expect(started.status).toBe(200);
+    // The client draws the stage from the location (ENDLESS_LOCATION_RAID).
+    expect(started.body.fight).toMatchObject({ location: "ninja" });
+  });
+
   it("refuses a starting tier above the account's level", async () => {
     raw.prepare("UPDATE balances SET xp=61000 WHERE account_id=?").run(ME);
     raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)

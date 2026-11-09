@@ -1418,8 +1418,17 @@ app.post("/raid/revive", async (c) => {
 // transition in v3/endless; clients never submit a floor or army as score data. ----
 app.post("/endless/start", async (c) => {
   if (await mutationsHalted(c)) return c.json({ error: "mutations_disabled" }, 503);
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
-  const result = await v3Endless.startEndless(c.env.DB, c.get("accountId"), body, Date.now());
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
+  // A dev-only starting location (local and staging test runs). It is honoured only where
+  // dev sign-in is: DEV_AUTH=1 plus, on staging, the dev key. Prod has DEV_AUTH unset, so
+  // there it is dropped and logged as a probe.
+  let dev: { startLocation?: unknown } = {};
+  if (body.devStartLocation !== undefined) {
+    const devKey = typeof body.devKey === "string" ? body.devKey : c.req.header("X-Dev-Key");
+    if (c.env.DEV_AUTH === "1" && await devKeyAccepted(c.env, devKey)) dev = { startLocation: body.devStartLocation };
+    else slog("dev_key_rejected", { route: "endless_start" }, "alert");
+  }
+  const result = await v3Endless.startEndless(c.env.DB, c.get("accountId"), body, Date.now(), dev);
   return c.json(result.body, result.status as 200);
 });
 

@@ -3,8 +3,8 @@ import { buildPlayerUnits } from "../../../src/raid/CombatEngine";
 import {
   applyEndlessCurse, applyEndlessStop, beginEndlessRun,
   applyEndlessOrder, endlessBossDraft, endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
-  ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_UNLOCK_LEVEL, endlessFreeDayStart, endlessModeOpen,
-  type EndlessBoon, type EndlessCurse, type EndlessMode, type EndlessRunState, type EndlessStop,
+  ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_LOCATIONS, ENDLESS_UNLOCK_LEVEL, endlessFreeDayStart, endlessModeOpen,
+  type EndlessBoon, type EndlessLocation, type EndlessCurse, type EndlessMode, type EndlessRunState, type EndlessStop,
 } from "../../../src/raid/endless";
 import {
   endlessApplyBoon, endlessCarryFromSim as carryFromSim, endlessFightConfig as fightConfig, endlessSimFor as simFor,
@@ -167,8 +167,14 @@ export async function startEndless(
   accountId: string,
   body: { mode?: unknown; orderedUnitIds?: unknown; rulesetVersion?: unknown; startTier?: unknown },
   now: number,
+  /** Dev servers only (the route checks DEV_AUTH and the dev key): the location the run's
+   *  first floors are fought at, in place of The Farm, so every stage can be looked at
+   *  without playing to it. Never reachable on prod, where DEV_AUTH is unset. */
+  dev: { startLocation?: unknown } = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!isMode(body.mode)) return fail(400, "bad_mode");
+  const devLocation = dev.startLocation;
+  if (devLocation !== undefined && !ENDLESS_LOCATIONS.includes(devLocation as EndlessLocation)) return fail(400, "bad_location");
   const mode = body.mode;
   if (!endlessModeOpen(mode)) return fail(404, "mode_closed");
   if (body.rulesetVersion !== RAID_RULESET_VERSION) return fail(426, "stale_ruleset");
@@ -220,6 +226,7 @@ export async function startEndless(
     maxVetRank: endlessMaxVetRankOf(core),
   });
   const state: RunPayload = { run: beginEndlessRun(mode, playerUnits, endlessWeekSeed(now), startTier), playerLevel: level, durationMs: 0 };
+  if (devLocation !== undefined) state.run.stop = { location: devLocation as EndlessLocation, modifier: null };
   // A skipped tier's boons and curses are drafted first, one screen each, before any fight.
   if (startTier > 1) state.pendingBossChoice = { wave: ENDLESS_FIGHTS_PER_LOCATION, opening: true };
   const firstWave = state.pendingBossChoice?.wave ?? 1;

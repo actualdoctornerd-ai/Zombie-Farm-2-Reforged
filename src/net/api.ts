@@ -903,12 +903,23 @@ export interface EndlessBossView {
 
 /** Start an account-owned Endless run. The returned fight is server-pinned and must
  *  be adopted wholesale by the combat scene. */
-export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: string[], startTier = 1) =>
-  req<{
+export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: string[], startTier = 1) => {
+  // Dev builds only: localStorage "zf2r.dev.endless-location.v1" (farm, ninja, alien,
+  // video-game or pirate) starts the run there. The server honours it only with dev auth.
+  let dev: { devStartLocation?: string; devKey?: string } = {};
+  if (import.meta.env.DEV) {
+    try {
+      const location = localStorage.getItem("zf2r.dev.endless-location.v1");
+      const devKey = localStorage.getItem("zf2r.dev-key.v1");
+      if (location) dev = { devStartLocation: location, ...(devKey ? { devKey } : {}) };
+    } catch { /* no storage */ }
+  }
+  return req<{
     ok: boolean; sessionId?: string; mode?: "endless" | "nightmare"; wave?: number;
     fight?: Record<string, unknown>; brainCost?: number;
     rulesetVersion?: number; error?: string; stage?: "battle" | "boss-choice";
-  } & Partial<EndlessBossView>>("POST", "/endless/start", { mode, orderedUnitIds, startTier, rulesetVersion: RAID_RULESET_VERSION });
+  } & Partial<EndlessBossView>>("POST", "/endless/start", { mode, orderedUnitIds, startTier, rulesetVersion: RAID_RULESET_VERSION, ...dev });
+};
 
 /** Submit a transcript for one pinned Endless encounter. Boss reward choices are
  *  committed through a separate durable checkpoint after a verified boss win. */
