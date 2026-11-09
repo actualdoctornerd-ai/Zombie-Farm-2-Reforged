@@ -5773,6 +5773,12 @@ async function main() {
             }
           }).catch((error) => {
             closeEndlessScene();
+            // An update landed mid-run: this tab fights by the old rules. After a reload the
+            // run resumes from Endless, its floor rebuilt under the new ones (rearmForRuleset).
+            if (error instanceof api.ApiError && error.code === "stale_ruleset") {
+              promptReload("The game has updated. Reload, then resume your run from Endless.");
+              return;
+            }
             hud.showToast(error instanceof api.ApiError ? `Endless result could not be saved (${error.code}). Resume to retry this floor.` : "Endless result could not be saved. Resume to retry this floor.", 8000);
           });
         }, 0);

@@ -438,11 +438,16 @@ export async function chooseEndlessBossReward(
   now: number,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (typeof body.sessionId !== "string" || !body.sessionId) return fail(400, "bad_session");
-  const session = await db.prepare("SELECT * FROM endless_runs_v3 WHERE id=? AND account_id=?")
+  const found = await db.prepare("SELECT * FROM endless_runs_v3 WHERE id=? AND account_id=?")
     .bind(body.sessionId, accountId).first<StoredRun>();
-  if (!session) return fail(404, "bad_session");
+  if (!found) return fail(404, "bad_session");
+  let session = found;
   if (session.finished_at) return fail(409, "run_finished");
-  if (session.ruleset_version !== RAID_RULESET_VERSION) return fail(409, "stale_ruleset");
+  if (session.ruleset_version !== RAID_RULESET_VERSION) {
+    // A boss choice holds no fight, so an update in between costs nothing: carry on.
+    session = await rearmForRuleset(db, session, now);
+    if (session.ruleset_version !== RAID_RULESET_VERSION) return fail(409, "stale_ruleset");
+  }
   const payload = parse<RunPayload | null>(session.run_state_json, null);
   const pending = payload?.pendingBossChoice;
   if (!payload || !pending || pending.wave !== session.current_wave) return fail(409, "no_boss_choice_pending");
@@ -481,6 +486,25 @@ export async function chooseEndlessBossReward(
   return { status: 200, body: { ok: true, runFinished: false, nextWave: run.nextWave, fight } };
 }
 
+/** Carry a live run across a battle-rules update (owner, 2026-11-08: a run must survive the
+ *  game closing, including for an update). A run started under an older RAID_RULESET_VERSION
+ *  used to be refused on every save forever. Now: a pending boss choice simply carries on,
+ *  since it holds no fight, and a floor that was mid-fight is rebuilt from the saved run under
+ *  the current rules and restarted. The army is as it entered that floor; nothing earned is lost.
+ *  Returns the session as it now stands. */
+async function rearmForRuleset(db: D1Database, session: StoredRun, now: number): Promise<StoredRun> {
+  if (session.finished_at || session.ruleset_version === RAID_RULESET_VERSION) return session;
+  const payload = parse<RunPayload | null>(session.run_state_json, null);
+  if (!payload) return session;
+  const fight = payload.pendingBossChoice ? null : fightConfig(payload.run, payload.playerLevel);
+  const fightJson = fight ? JSON.stringify(fight) : session.fight_config_json;
+  const update = await db.prepare(`UPDATE endless_runs_v3 SET ruleset_version=?, fight_config_json=?, fight_started_at=?
+    WHERE id=? AND account_id=? AND finished_at IS NULL AND ruleset_version=?`)
+    .bind(RAID_RULESET_VERSION, fightJson, now, session.id, session.account_id, session.ruleset_version).run();
+  if (update.meta.changes !== 1) return session;
+  return { ...session, ruleset_version: RAID_RULESET_VERSION, fight_config_json: fightJson, fight_started_at: now };
+}
+
 /** A voluntary exit closes the run at the last fully-cleared floor. */
 export async function abandonEndless(
   db: D1Database,
@@ -514,8 +538,10 @@ export async function activeEndless(
   accountId: string,
   now = Date.now(),
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const session = await db.prepare(`SELECT * FROM endless_runs_v3
+  const found = await db.prepare(`SELECT * FROM endless_runs_v3
     WHERE account_id=? AND finished_at IS NULL`).bind(accountId).first<StoredRun>();
+  // Resuming after an update re-arms the run under the current battle rules.
+  const session = found ? await rearmForRuleset(db, found, now) : null;
   // No run going: say whether the next one is the day's free one, for the start button.
   if (!session) {
     return { status: 404, body: { ok: false, error: "no_active_run", freeRunAvailable: await freeRunAvailable(db, accountId, now) } };

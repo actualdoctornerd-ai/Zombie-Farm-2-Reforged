@@ -211,6 +211,31 @@ describe("Endless settlement on the real schema", () => {
     expect(brains()).toBe(5);
   });
 
+  it("resumes a run started before a battle-rules update, rebuilding a mid-fight floor", async () => {
+    seedRun(2, beginEndlessRun("endless", army(), "9"));
+    raw.prepare("UPDATE endless_runs_v3 SET ruleset_version=?, fight_config_json='{}'").run(RAID_RULESET_VERSION - 1);
+    const resumed = await activeEndless(db, ME, LATER);
+    expect(resumed.status).toBe(200);
+    expect(resumed.body).toMatchObject({ stage: "battle", wave: 2 });
+    expect((raw.prepare("SELECT ruleset_version FROM endless_runs_v3").get() as { ruleset_version: number }).ruleset_version).toBe(RAID_RULESET_VERSION);
+    // The rebuilt floor is a real, winnable fight under the current rules.
+    const finish = await finishEndlessWave(db, ME, winFloor(resumed.body.fight, 2), LATER + 600_000);
+    expect(finish.status).toBe(200);
+  });
+
+  it("lets a boss choice made after an update carry straight on", async () => {
+    const run = beginEndlessRun("endless", army(), "9");
+    seedRun(3, run, { wave: 3 });
+    raw.prepare("UPDATE endless_runs_v3 SET ruleset_version=?").run(RAID_RULESET_VERSION - 1);
+    const draft = endlessBossDraft("endless", 3, "9", "farm");
+    const chosen = await chooseEndlessBossReward(db, ME, {
+      sessionId: SESSION, boon: draft.boons[0], curse: draft.curses[0], location: draft.locations[0],
+    }, LATER);
+    expect(chosen.status).toBe(200);
+    expect(chosen.body).toMatchObject({ ok: true, runFinished: false });
+    expect(chosen.body.fight).toBeTruthy();
+  });
+
   it("lets the first normal run each day start free, and charges the rest", async () => {
     raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
       VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
