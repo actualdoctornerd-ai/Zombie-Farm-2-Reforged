@@ -59,7 +59,7 @@ import { RaidManager, RaidResultView, type LootDrop, type RaidSetup } from "./ra
 import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, hasNights, nightLabel, nightPrompt } from "./raid/halloweenNights";
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
-import { endlessStopLabel, type EndlessLocation, type EndlessMode, type EndlessStop } from "./raid/endless";
+import { ENDLESS_LOCATION_NAMES, ENDLESS_MODIFIERS, endlessStopLabel, type EndlessLocation, type EndlessMode, type EndlessStop } from "./raid/endless";
 import type { EndlessBossLoot } from "./raid/endlessLoot";
 import type { RaidSceneParams } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
@@ -5544,6 +5544,12 @@ async function main() {
   // ---- Invasions panel hooks (ui/panels/invasions.ts) ----
   hud.pvpAvailable = () => !!economy?.serverPvpEnabled;
   hud.endlessAvailable = () => !!economy?.serverEndlessEnabled;
+  // The Endless card and tallies borrow the invasion screens' art: Dr. Groundhog's portrait and
+  // the same loot pictures an invasion's result panel shows.
+  hud.endlessPortrait = epicAsset(DR_GROUNDHOG, DR_GROUNDHOG.portrait);
+  hud.endlessLootIcon = (item) => item.kind === "zombie" && item.key ? zombiePortrait(item.key) : raids.lootIconFor(item.name);
+  const endlessLoot = (items: readonly EndlessBossLoot[]) =>
+    items.map((item) => ({ name: item.name, icon: hud.endlessLootIcon?.(item) ?? "", qty: item.quantity }));
   hud.getLastInvadedAt = () => economy?.serverLastInvadedAt ?? null;
   hud.getPlayerLevel = () => state.level;
   // The last of the hooks socialBadges() reads. `onBootstrapped` above covers a
@@ -5753,23 +5759,50 @@ async function main() {
       onDoOrDie: () => audio.enterRaid("enrageBGM.mp3"),
       confirmRetreat: () => hud.confirmInGame("End this Endless run?", "Retreating ends the run. Gold for every cleared floor will be paid.", "End Run"),
       onFinish: (outcome, finalTick, inputs) => {
-        void outcome; // The server independently verifies the transcript and determines the result.
+        // The server independently verifies the transcript and determines the result; the
+        // client's own outcome only supplies the tally's casualty count.
+        const lost = outcome.losses?.length ?? 0;
         setTimeout(() => {
           void api.endlessFinish(sessionId, wave, finalTick, inputs).then(async (result) => {
             closeEndlessScene();
             if (result.runFinished) {
               endlessSessionId = null;
               await economy?.refreshAuthoritative();
-              hud.showToast(`Endless run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 8000);
+              // The end of a run: the invasion result tally, lost.
+              hud.openEndlessTally({
+                title: "Run Over", win: false,
+                rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()]],
+                loot: [], actions: [{ label: "Finish", onClick: () => undefined }],
+              });
             } else if (result.awaitingBossChoice && result.bossDraft) {
               await economy?.refreshAuthoritative().catch(() => undefined);
               void chooseEndlessBoss(result as unknown as api.EndlessBossView, mode);
             } else if (result.fight) {
               await economy?.refreshAuthoritative().catch(() => undefined);
-              hud.openEndlessHub(
-                { sessionId, mode, wave: Number(result.nextWave ?? wave + 1), stage: "battle", loot: (result.floorLoot ?? []) as EndlessBossLoot[], stopLabel: endlessStopLabel(stopOf(result.fight!)) },
-                () => launchEndlessFight(sessionId, result.fight!, mode), () => launchEndlessFight(sessionId, result.fight!, mode), () => { void endEndlessRun(); },
-              );
+              // Between floors: the invasion result tally, with the next floor as its button.
+              const next = Number(result.nextWave ?? wave + 1);
+              hud.openEndlessTally({
+                title: `Floor ${wave} cleared!`, win: true,
+                rows: (() => {
+                  const stop = stopOf(result.fight!);
+                  return [
+                    ["Zombies lost", String(lost)],
+                    [`Floor ${next}`, ENDLESS_LOCATION_NAMES[stop.location]],
+                    ["Modifier", stop.modifier ? ENDLESS_MODIFIERS[stop.modifier].name : "None"],
+                  ] as const;
+                })(),
+                loot: endlessLoot((result.floorLoot ?? []) as EndlessBossLoot[]),
+                actions: [
+                  { label: "Next Floor", onClick: () => launchEndlessFight(sessionId, result.fight!, mode) },
+                  {
+                    label: "Go Home",
+                    onClick: async () => {
+                      if (!await hud.confirmInGame("End this Endless run?", "You keep your loot and receive the full gold reward for every floor already cleared.", "Go Home")) return false;
+                      void endEndlessRun();
+                    },
+                  },
+                ],
+              });
             }
           }).catch((error) => {
             closeEndlessScene();

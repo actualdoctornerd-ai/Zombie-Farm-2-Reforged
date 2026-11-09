@@ -1348,6 +1348,12 @@
   background: linear-gradient(#8ec74f, #5c9a2e); color: #fff; font-weight: 900; font-size: 16px;
   cursor: pointer; text-shadow: 0 1px 1px rgba(0,0,0,.4); }
 #hud .rr-go:hover { filter: brightness(1.08); }
+/* Endless reuses the tally between floors and at each boss: a row of small buttons above the
+   big one, and the boss draft as Invade-list cards under the loot. */
+#hud .rr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 8px 20px 0; }
+#hud .rr-choice-h { font-size: 15px; font-weight: 900; padding: 12px 2px 4px; }
+#hud .rr-choices { display: flex; flex-direction: column; gap: 6px; }
+#hud .raid-res-panel .rd-card { width: 100%; box-sizing: border-box; }
 #hud .revive-bg { position: fixed; inset: 0; z-index: 28; pointer-events: auto;
   background: rgba(20,8,4,.76); display: grid; place-items: center; padding: 18px; }
 #hud .revive-panel { width: min(520px, 94vw); max-height: min(680px, 90vh); overflow: hidden;

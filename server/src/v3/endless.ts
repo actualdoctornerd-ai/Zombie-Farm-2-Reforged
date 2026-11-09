@@ -86,7 +86,7 @@ function bossScreen(mode: EndlessMode, pending: NonNullable<RunPayload["pendingB
     bossLoot: pending.loot ?? [],
     lootEarned: payload.lootEarned ?? {},
     goldSoFar: pending.opening ? 0 : endlessGoldReward(pending.wave, payload.run.startWave),
-    army: payload.run.units.map((unit) => ({ id: unit.id, name: unit.name })),
+    army: payload.run.units.map((unit) => ({ id: unit.id, name: unit.name, key: unit.sourceKey })),
     opening: !!pending.opening,
     tier: Math.ceil(pending.wave / ENDLESS_FIGHTS_PER_LOCATION),
   };

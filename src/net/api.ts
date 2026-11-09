@@ -896,7 +896,7 @@ export interface EndlessBossView {
   bossLoot: Array<{ kind: string; name: string; quantity: number; key?: string }>;
   lootEarned: Record<string, number>;
   goldSoFar: number;
-  army: Array<{ id: string; name: string }>;
+  army: Array<{ id: string; name: string; key?: string }>;
   opening: boolean;
   tier: number;
 }

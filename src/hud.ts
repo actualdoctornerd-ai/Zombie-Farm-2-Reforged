@@ -8,7 +8,7 @@ import { farmerHeadHasEffect, farmerHeadXp } from "./farmer";
 import { CropConfig } from "./Field";
 import { harvestXp } from "./farmRewards";
 import { buyXp } from "./economy";
-import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon, placeablePurchaseLimit } from "./assets";
+import { PlaceableDef, BoostDef, FarmSizeUpgrade, ClimateUpgrade, upgradeIcon, placeablePurchaseLimit, zombiePortrait } from "./assets";
 import type { FarmerBodyDef, FarmerCatalog, FarmerHeadDef, PetCatalog, PetDef } from "./assets";
 import { EPIC_BOSS_FIGHT_BRAIN_COST, type EpicBossPayment } from "./epicBoss/tokens";
 import { AudioManager } from "./audio";
@@ -24,7 +24,7 @@ import { visibleMutations } from "./zombie/mutationVisibility";
 import { QuestView } from "./quest/types";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { EndlessBossLoot } from "./raid/endlessLoot";
-import { endlessMaxStartTier, endlessModeOpen } from "./raid/endless";
+import { ENDLESS_UNLOCK_LEVEL, endlessMaxStartTier } from "./raid/endless";
 import { accountEndlessBestTier } from "./raid/endlessPerks";
 import { openEndlessBossScreen, type EndlessBossChoices } from "./ui/panels/endlessBossScreen";
 import type { EndlessBossView } from "./net/api";
@@ -392,12 +392,6 @@ function cropUnlockHtml(names: string[]): string {
   return `<div class="rr-unlock rr-crop-unlock">New crop unlocked: ${names.join(", ")} — plant it from the Market.</div>`;
 }
 
-/** "Insta-Grow ×10, Zwamp Thing" for the Endless loot line. */
-function endlessLootText(loot: readonly EndlessBossLoot[]): string {
-  const totals = new Map<string, number>();
-  for (const item of loot) totals.set(item.name, (totals.get(item.name) ?? 0) + item.quantity);
-  return [...totals].map(([name, quantity]) => `${name}${quantity > 1 ? ` ×${quantity}` : ""}`).join(", ");
-}
 
 export class Hud {
   mode: Mode = "walk";
@@ -6635,14 +6629,25 @@ export class Hud {
       if (c.id === selId) { card.classList.add("sel"); selCard = card; }
       list.appendChild(card);
     }
+    this.showEndlessDetail = null;
     if (!tutorialRaid && this.onOpenEndless && this.endlessAvailable?.()) {
       const card = document.createElement("button");
       card.className = "rd-card";
       const thumb = document.createElement("div"); thumb.className = "rd-thumb";
+      if (this.endlessPortrait) thumb.style.backgroundImage = `url(${this.endlessPortrait})`;
       const txt = document.createElement("div");
-      txt.innerHTML = `<div class="rd-cn">Endless Mode</div><div class="rd-cl">Harder invasions · Epic Boss every three floors</div>`;
+      txt.innerHTML = `<div class="rd-cn">Endless Mode</div><div class="rd-cl">Endless floors · Epic Boss every third</div>`;
       card.append(thumb, txt);
-      card.onclick = () => { close(); this.onOpenEndless?.(); };
+      const select = () => {
+        for (const el of list.querySelectorAll(".rd-card")) el.classList.remove("sel");
+        card.classList.add("sel");
+        refreshFoot = null;
+        this.renderEndlessDetail(detail, close);
+      };
+      this.showEndlessDetail = () => { if (card.isConnected) select(); };
+      // Draw at once (it says it is checking), then ask the server about a run in progress:
+      // main answers through openEndlessHub, which redraws this pane.
+      card.onclick = () => { this.endlessHub = null; select(); this.onOpenEndless?.(); };
       list.prepend(card);
     }
     if (!tutorialRaid && this.bossActive) {
@@ -6779,35 +6784,7 @@ export class Hud {
     };
 
     for (const z of party.eligible) {
-      const card = document.createElement("div");
-      card.className = "army-card";
-      card.dataset.id = z.id;
-      const por = document.createElement("div");
-      por.className = "army-por";
-      if (z.portrait) por.style.backgroundImage = `url(${z.portrait})`;
-      if (this.zombieMutationPortraitOf) {
-        onFirstVisible(por, () => {
-          void this.zombieMutationPortraitOf?.(
-            z.key, visibleMutations(z.id, z.mutation), z.color, () => por.isConnected,
-          )
-            .then((image) => { if (por.isConnected) por.style.backgroundImage = `url(${image})`; })
-            .catch(() => { /* retain the static species portrait */ });
-        });
-      }
-      const nm = document.createElement("div");
-      nm.className = "army-nm";
-      nm.textContent = z.name;
-      const ty = document.createElement("div");
-      ty.className = "army-ty";
-      ty.textContent = z.typeName;
-      const st = document.createElement("div");
-      st.className = "army-st";
-      // Normalized 0–100 bars with all bonuses folded in: P(ower)/S(peed)/L(ife),
-      // matching the detail card's tiles (see statDisplay.displayTotals).
-      st.textContent = `P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
-      const tick = document.createElement("span");
-      tick.className = "tick"; // order number, filled in by refresh()
-      card.append(tick, por, nm, ty, st);
+      const card = this.armyCard(z);
       card.onclick = () => {
         order = toggleSlot(order, z.id, cap);
         refresh();
@@ -7054,33 +7031,7 @@ export class Hud {
     };
 
     for (const z of party.eligible) {
-      const card = document.createElement("div");
-      card.className = "army-card";
-      card.dataset.id = z.id;
-      const por = document.createElement("div");
-      por.className = "army-por";
-      if (z.portrait) por.style.backgroundImage = `url(${z.portrait})`;
-      if (this.zombieMutationPortraitOf) {
-        onFirstVisible(por, () => {
-          void this.zombieMutationPortraitOf?.(
-            z.key, visibleMutations(z.id, z.mutation), z.color, () => por.isConnected,
-          )
-            .then((image) => { if (por.isConnected) por.style.backgroundImage = `url(${image})`; })
-            .catch(() => { /* retain the static species portrait */ });
-        });
-      }
-      const nm = document.createElement("div");
-      nm.className = "army-nm";
-      nm.textContent = z.name;
-      const ty = document.createElement("div");
-      ty.className = "army-ty";
-      ty.textContent = z.typeName;
-      const st = document.createElement("div");
-      st.className = "army-st";
-      st.textContent = `P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
-      const tick = document.createElement("span");
-      tick.className = "tick";
-      card.append(tick, por, nm, ty, st);
+      const card = this.armyCard(z);
       card.onclick = () => {
         order = toggleSlot(order, z.id, cap);
         refresh();
@@ -7114,10 +7065,23 @@ export class Hud {
     refresh();
   }
 
-  /** Endless hub: a saved run can resume at its pinned fight or boss draft, or be
-   *  ended for its full depth payout. New runs reuse the same ordered army snapshot. */
+  /** Endless hub (owner, 2026-11-08: every Endless screen is a rehash of an existing one).
+   *  Endless is a card in the Invade list like any invasion: this stores what the server said
+   *  about the account's run and shows it in the Invade screen's detail pane. */
   /** The day's free normal Endless run is still unused (set before openEndlessHub). */
   endlessFreeRun = false;
+  /** Dr. Groundhog's portrait, for the Endless card (set by main). */
+  endlessPortrait = "";
+  /** A loot item's picture for the Endless tallies (set by main). */
+  endlessLootIcon: ((item: { name: string; key?: string; kind?: string }) => string) | null = null;
+  private endlessHub: {
+    active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice"; loot?: EndlessBossLoot[]; stopLabel?: string } | null;
+    onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number) => void;
+    onResume: () => void;
+    onEnd: () => void;
+  } | null = null;
+  /** Set while the Invade screen is open: selects the Endless card and draws its detail. */
+  private showEndlessDetail: (() => void) | null = null;
 
   openEndlessHub(
     active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice"; loot?: EndlessBossLoot[]; stopLabel?: string } | null,
@@ -7125,92 +7089,383 @@ export class Hud {
     onResume: () => void,
     onEnd: () => void,
   ) {
-    const party = this.getRaidParty?.();
-    const bg = document.createElement("div"); bg.className = "panelbg raid-bg";
-    const panel = document.createElement("div"); panel.className = "panel";
-    const close = document.createElement("button"); close.className = "panelclose";
-    const closeImg = document.createElement("img"); closeImg.src = UI("button_close.png"); close.appendChild(closeImg);
-    close.onclick = () => bg.remove();
-    panel.appendChild(close);
-    const title = document.createElement("h2"); title.textContent = "Endless Mode"; panel.appendChild(title);
-    const leaderboard = document.createElement("button");
-    leaderboard.className = "btn-secondary endless-lb-open";
-    leaderboard.textContent = "View Leaderboard";
-    leaderboard.onclick = () => openEndlessLeaderboardPanel(this);
-    panel.appendChild(leaderboard);
-    const content = document.createElement("div"); content.className = "rd-detail"; panel.appendChild(content);
-    bg.appendChild(panel); this.el.appendChild(bg);
-    if (active) {
-      const p = document.createElement("p");
-      p.textContent = `${active.mode === "nightmare" ? "Nightmare Endless" : "Endless"} · ${active.stage === "battle" ? `Floor ${active.wave}${active.stopLabel ? ` · ${active.stopLabel}` : ""}` : `Floor ${active.wave} boss cleared · choose rewards`}`;
-      content.appendChild(p);
-      if (active.loot?.length) {
-        const lootNote = document.createElement("p");
-        lootNote.textContent = `Floor loot: ${endlessLootText(active.loot)}`;
-        content.appendChild(lootNote);
-      }
-      const resume = document.createElement("button"); resume.className = "btn-primary"; resume.textContent = active.stage === "battle" ? "Resume Run" : "Choose Rewards";
-      resume.onclick = () => { bg.remove(); onResume(); }; content.appendChild(resume);
-      const end = document.createElement("button"); end.className = "btn-secondary"; end.textContent = "End Run and Claim Gold";
+    this.endlessHub = { active, onStart, onResume, onEnd };
+    if (!this.showEndlessDetail || !document.querySelector("#hud .raid-bg")) this.openRaids();
+    this.showEndlessDetail?.();
+  }
+
+  /** The Invade screen's detail pane for Endless: the same hero, intro, reward rows and
+   *  foot every invasion has. `close` shuts the Invade screen. */
+  private renderEndlessDetail(detail: HTMLElement, close: () => void) {
+    detail.innerHTML = "";
+    const hub = this.endlessHub;
+    const best = accountEndlessBestTier();
+    const hero = document.createElement("div");
+    hero.className = "rd-hero";
+    const por = document.createElement("div");
+    por.className = "rd-portrait";
+    if (this.endlessPortrait) por.style.backgroundImage = `url(${this.endlessPortrait})`;
+    const info = document.createElement("div");
+    info.innerHTML =
+      `<div class="rd-title">Endless Mode</div>` +
+      `<div class="rd-boss">Dr. Groundhog every third floor</div>` +
+      `<div class="rd-meta">Recommended level ${ENDLESS_UNLOCK_LEVEL.endless}+ · ` +
+      `${best ? `Deepest tier cleared: T${best}` : "No tier cleared yet"}</div>`;
+    hero.append(por, info);
+
+    const intro = document.createElement("p");
+    intro.className = "rd-intro";
+    intro.textContent =
+      "Invasion after invasion, harder each floor. Three floors make a tier, and the third is an " +
+      "Epic Boss. After each boss pick a boon, a curse and where to go next. Zombies lost on a run " +
+      "come back when it ends, and you can go home whenever you like.";
+
+    const rewards = document.createElement("div");
+    rewards.className = "rd-drops";
+    const dropRow = (label: string): HTMLElement => {
+      const row = document.createElement("div");
+      row.className = "rd-drop";
+      const k = document.createElement("span");
+      k.className = "rd-drop-k";
+      k.textContent = label;
+      const v = document.createElement("span");
+      v.className = "rd-drop-v";
+      row.append(k, v);
+      rewards.appendChild(row);
+      return v;
+    };
+    const firsts = dropRow("First clears");
+    for (const [tier, prize] of [
+      [1, "2 Brain Tickets"], [2, "1 brain"], [3, "Zwamp Thing"], [4, "3 brains"], [5, "+8 Mausoleum slots"],
+      [6, "+16 shed slots"], [7, "80×80 farm for sale"], [8, "Legend veterancy"], [9, "+16 shed slots a tier"],
+    ] as const) {
+      const chip = document.createElement("span");
+      chip.className = "rd-chip";
+      chip.textContent = `${best >= tier ? "✓ " : ""}T${tier}${tier === 9 ? "+" : ""} ${prize}`;
+      firsts.appendChild(chip);
+    }
+    dropRow("Every win").textContent = "Loot on every floor and a bigger roll at each boss, plus gold for every floor cleared when the run ends";
+    dropRow("Rare zombies").textContent = "Each location can drop its own invasion's rare zombies";
+    dropRow("This week").textContent = "Routes, boons and curses are the same for everyone until Monday";
+
+    const foot = document.createElement("div");
+    foot.className = "rd-foot";
+    const army = document.createElement("div");
+    army.className = "rd-army";
+    const acts = document.createElement("div");
+    acts.className = "rd-acts";
+    const board = document.createElement("button");
+    board.className = "raid-quick";
+    board.textContent = "Leaderboard";
+    board.onclick = () => openEndlessLeaderboardPanel(this);
+    acts.appendChild(board);
+    const run = hub?.active ?? null;
+    if (!hub) {
+      army.textContent = "Checking for a run in progress…";
+    } else if (run) {
+      army.textContent = run.stage === "battle"
+        ? `Run in progress · Floor ${run.wave}${run.stopLabel ? ` · ${run.stopLabel}` : ""}`
+        : `Run in progress · Floor ${run.wave} boss beaten`;
+      const end = document.createElement("button");
+      end.className = "raid-quick";
+      end.textContent = "End Run";
       end.onclick = async () => {
-        if (!await this.confirmInGame("End this Endless run?", "You will receive the full gold reward for every floor already cleared.", "End Run")) return;
-        bg.remove(); onEnd();
-      }; content.appendChild(end);
+        if (!await this.confirmInGame("End this Endless run?", "You keep your loot and receive the full gold reward for every floor already cleared.", "End Run")) return;
+        close();
+        hub.onEnd();
+      };
+      const resume = document.createElement("button");
+      resume.className = "raid-go";
+      resume.textContent = run.stage === "battle" ? "Resume" : "Choose Rewards";
+      resume.onclick = () => { close(); hub.onResume(); };
+      acts.append(end, resume);
+    } else {
+      const level = this.state.level ?? 1;
+      army.className = "rd-army" + (level < ENDLESS_UNLOCK_LEVEL.endless ? " short" : "");
+      army.textContent = level < ENDLESS_UNLOCK_LEVEL.endless
+        ? `Unlocks at level ${ENDLESS_UNLOCK_LEVEL.endless}`
+        : this.endlessFreeRun ? "Your first run today is free" : "1 brain per run · free again tomorrow";
+      const go = document.createElement("button");
+      go.className = "raid-go";
+      go.textContent = "Invade";
+      go.disabled = level < ENDLESS_UNLOCK_LEVEL.endless;
+      go.onclick = () => { close(); this.openEndlessArmy(hub.onStart); };
+      acts.appendChild(go);
+    }
+    foot.append(army, acts);
+    detail.append(hero, intro, rewards, foot);
+  }
+
+  /** One zombie card for the army screens: portrait (with its mutations once visible), name,
+   *  species, the P/S/L bars, and the order badge `refresh` fills in. */
+  private armyCard(z: { id: string; key: string; name: string; typeName: string; portrait?: string; mutation: number;
+    color?: [number, number, number]; dispPower?: number; dispSpeed?: number; dispLife?: number }): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "army-card";
+    card.dataset.id = z.id;
+    const por = document.createElement("div");
+    por.className = "army-por";
+    if (z.portrait) por.style.backgroundImage = `url(${z.portrait})`;
+    if (this.zombieMutationPortraitOf) {
+      onFirstVisible(por, () => {
+        void this.zombieMutationPortraitOf?.(
+          z.key, visibleMutations(z.id, z.mutation), z.color, () => por.isConnected,
+        )
+          .then((image) => { if (por.isConnected) por.style.backgroundImage = `url(${image})`; })
+          .catch(() => { /* retain the static species portrait */ });
+      });
+    }
+    const nm = document.createElement("div");
+    nm.className = "army-nm";
+    nm.textContent = z.name;
+    const ty = document.createElement("div");
+    ty.className = "army-ty";
+    ty.textContent = z.typeName;
+    const st = document.createElement("div");
+    st.className = "army-st";
+    // Normalized 0–100 bars with all bonuses folded in: P(ower)/S(peed)/L(ife),
+    // matching the detail card's tiles (see statDisplay.displayTotals).
+    st.textContent = z.dispPower === undefined ? "" : `P${z.dispPower} S${z.dispSpeed} L${z.dispLife}`;
+    const tick = document.createElement("span");
+    tick.className = "tick"; // order number, filled in by the screen's refresh()
+    card.append(tick, por, nm, ty, st);
+    return card;
+  }
+
+  /** The army screen for a new Endless run: the invasion army screen, with the starting-tier
+   *  buttons where a dual invasion has its tier buttons. */
+  openEndlessArmy(onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number) => void) {
+    document.querySelector("#hud .army-bg")?.remove();
+    const party = this.getRaidParty ? this.getRaidParty() : null;
+    const bg = document.createElement("div");
+    bg.className = "panelbg army-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel";
+    const x = document.createElement("button");
+    x.className = "panelclose";
+    const xi = document.createElement("img");
+    xi.src = UI("button_close.png");
+    x.appendChild(xi);
+    x.onclick = () => bg.remove();
+    panel.appendChild(x);
+    bg.appendChild(panel);
+    bindBackdropDismiss(bg, () => bg.remove());
+    this.el.appendChild(bg);
+    if (!party || !party.eligible.length) {
+      panel.insertAdjacentHTML("beforeend",
+        `<h2>Send your army — Endless Mode</h2><p class="rd-intro">You have no zombies to send. Grow some from zombie crops first.</p>`);
       return;
     }
-    const p = document.createElement("p");
-    p.textContent = "Face increasingly difficult invasions, with an Epic Boss every third floor. Choose where to go next after each boss. Push deeper for better rewards, including a chance to earn Zwamp Thing. Zombies lost during a run return to your roster when it ends. Your first run each day is free, and after that each run costs a brain; end whenever you like to claim gold for every floor cleared.";
-    content.appendChild(p);
-    // The first-clear ladder, ticked off as the account clears it (raid/endlessPerks.ts).
-    const best = accountEndlessBestTier();
-    const ladder = document.createElement("p");
-    ladder.className = "endless-milestones";
-    ladder.textContent = "First clears: " + ([
-      [1, "2 Brain Tickets"], [2, "1 brain"], [3, "Zwamp Thing"], [4, "3 brains"], [5, "+8 Mausoleum slots"],
-      [6, "+16 shed slots"], [7, "80×80 farm for sale"], [8, "Legend veterancy"],
-    ] as const).map(([tier, prize]) => `${best >= tier ? "✓ " : ""}T${tier} ${prize}`).join(" · ") +
-      ". Every deeper tier after that adds 16 more shed slots.";
-    content.appendChild(ladder);
-    const selected = new Set(party?.orderedSelectedIds.length ? party.orderedSelectedIds : party?.defaultSelectedIds ?? []);
-    const max = party?.cap ?? 0;
-    const list = document.createElement("div"); list.className = "army-grid"; content.appendChild(list);
-    for (const zombie of party?.eligible ?? []) {
-      const row = document.createElement("button"); row.className = "rd-card";
-      row.textContent = `${selected.has(zombie.id) ? "✓ " : ""}${zombie.name} · ${zombie.typeName}`;
-      row.onclick = () => {
-        if (selected.has(zombie.id)) selected.delete(zombie.id);
-        else if (selected.size < max) selected.add(zombie.id);
-        updateStatus();
-        list.querySelectorAll("button").forEach((button, i) => {
-          const unit = party?.eligible[i]; if (unit) button.textContent = `${selected.has(unit.id) ? "✓ " : ""}${unit.name} · ${unit.typeName}`;
-        });
-      };
-      list.appendChild(row);
-    }
-    const status = document.createElement("p"); content.appendChild(status);
-    const updateStatus = () => { status.textContent = `${selected.size}/${max} zombies selected`; };
-    updateStatus();
-    // Strong armies can skip the tiers they would only sweep, one more per 5 levels.
-    const maxStart = endlessMaxStartTier("endless", this.state.level ?? 1);
-    let startTier = 1;
-    if (maxStart > 1) {
-      const wrap = document.createElement("label"); wrap.className = "endless-choice"; wrap.textContent = "Endless starting tier";
-      const pick = document.createElement("select");
-      for (let tier = 1; tier <= maxStart; tier++) {
-        const option = document.createElement("option"); option.value = String(tier);
-        option.textContent = tier === 1 ? "T1" : `T${tier} · draft ${tier - 1} boon${tier > 2 ? "s" : ""} and curse${tier > 2 ? "s" : ""} first`;
-        pick.appendChild(option);
+    const wrap = document.createElement("div");
+    wrap.className = "army-wrap";
+    const head = document.createElement("div");
+    head.className = "army-head";
+    const grid = document.createElement("div");
+    grid.className = "army-grid";
+    const foot = document.createElement("div");
+    foot.className = "army-foot";
+    wrap.append(head, grid, foot);
+    panel.appendChild(wrap);
+
+    const cap = party.cap;
+    const min = 1;
+    let order: OrderSlots = [];
+    const start = document.createElement("button");
+    start.className = "raid-go";
+    const refresh = () => {
+      const n = selectedCount(order);
+      head.innerHTML =
+        `<h2>Send your army — Endless Mode</h2>` +
+        `<span class="army-count${n < min ? " short" : ""}">${n}/${cap}</span>`;
+      start.textContent = n < min ? "Pick your army" : `Invade with ${n} · ${this.endlessFreeRun ? "free today" : "1 brain"}`;
+      start.disabled = n < min;
+      for (const el of grid.querySelectorAll<HTMLElement>(".army-card")) {
+        const pos = order.indexOf(el.dataset.id!);
+        el.classList.toggle("sel", pos >= 0);
+        const tick = el.querySelector<HTMLElement>(".tick");
+        if (tick) tick.textContent = pos >= 0 ? String(pos + 1) : "";
       }
-      pick.onchange = () => { startTier = Number(pick.value); };
-      wrap.appendChild(pick); content.appendChild(wrap);
+    };
+    for (const z of party.eligible) {
+      const card = this.armyCard(z);
+      card.onclick = () => { order = toggleSlot(order, z.id, cap); refresh(); };
+      grid.appendChild(card);
     }
-    for (const [mode, label, level] of [["endless", "Start Endless · 1 brain", 30], ["nightmare", "Start Nightmare · 3 brains", 45]] as const) {
-      if (!endlessModeOpen(mode)) continue;
-      const button = document.createElement("button"); button.className = "btn-primary";
-      button.textContent = mode === "endless" && this.endlessFreeRun ? "Start Endless · Free today" : label;
-      button.disabled = (this.state.level ?? 1) < level || selected.size < (party?.min ?? 1);
-      button.onclick = () => { bg.remove(); onStart(mode, [...selected], mode === "endless" ? startTier : 1); }; content.appendChild(button);
+
+    // Starting tier: a dual invasion's tier buttons. A later start drafts the skipped tiers'
+    // boons and curses first and pays their loot at the run's first boss.
+    const maxStart = endlessMaxStartTier("endless", this.state.level ?? 1);
+    let tierChosen = 1;
+    const boostRow = document.createElement("div");
+    boostRow.className = "raid-boosts";
+    const tierWrap = document.createElement("div");
+    tierWrap.className = "raid-tiers";
+    const label = document.createElement("span");
+    label.className = "raid-tier-label";
+    label.textContent = "Start at tier";
+    tierWrap.appendChild(label);
+    const note = document.createElement("div");
+    note.className = "raid-tier-note";
+    const buttons: HTMLButtonElement[] = [];
+    const drawTiers = () => {
+      buttons.forEach((btn, i) => btn.classList.toggle("on", i + 1 === tierChosen));
+      note.textContent = tierChosen === 1
+        ? "Start from the first floor."
+        : `Skip to tier ${tierChosen}: draft ${tierChosen - 1} boon${tierChosen > 2 ? "s" : ""} and curse${tierChosen > 2 ? "s" : ""} first. The skipped tiers pay out when you beat your first boss.`;
+    };
+    for (let tier = 1; tier <= 4; tier++) {
+      const btn = document.createElement("button");
+      btn.className = "raid-tier-btn";
+      btn.textContent = tier > maxStart ? "🔒" : String(tier);
+      btn.disabled = tier > maxStart;
+      btn.title = tier > maxStart ? `Starting at tier ${tier} unlocks at level ${ENDLESS_UNLOCK_LEVEL.endless + (tier - 1) * 5}.` : `Start at tier ${tier}`;
+      btn.onclick = () => { tierChosen = tier; drawTiers(); };
+      buttons.push(btn);
+      tierWrap.appendChild(btn);
     }
+    tierWrap.appendChild(note);
+    drawTiers();
+    boostRow.appendChild(tierWrap);
+    wrap.insertBefore(boostRow, foot);
+
+    const pick = document.createElement("button");
+    pick.className = "raid-quick";
+    pick.textContent = "Pick for me";
+    pick.onclick = () => {
+      order = fillSlots(order, party.orderedSelectedIds, party.eligible.map((z) => z.id), cap);
+      refresh();
+    };
+    start.onclick = () => {
+      const attackOrder = compactOrder(order);
+      if (attackOrder.length < min) return;
+      bg.remove();
+      onStart("endless", attackOrder, tierChosen);
+    };
+    foot.append(pick, start);
+    refresh();
+  }
+
+  /** Reorder a run's army: the invasion army screen over just the zombies on the run. Tap them
+   *  in the order they should attack; Done once every one has a place. */
+  openEndlessOrder(units: readonly { id: string; name: string; key?: string }[], current: readonly string[], onDone: (order: string[]) => void) {
+    document.querySelector("#hud .army-bg")?.remove();
+    const party = this.getRaidParty ? this.getRaidParty() : null;
+    const owned = new Map((party?.eligible ?? []).map((z) => [z.id, z]));
+    const bg = document.createElement("div");
+    bg.className = "panelbg army-bg";
+    const panel = document.createElement("div");
+    panel.className = "panel";
+    const x = document.createElement("button");
+    x.className = "panelclose";
+    const xi = document.createElement("img");
+    xi.src = UI("button_close.png");
+    x.appendChild(xi);
+    x.onclick = () => bg.remove();
+    panel.appendChild(x);
+    bg.appendChild(panel);
+    bindBackdropDismiss(bg, () => bg.remove());
+    this.el.appendChild(bg);
+    const wrap = document.createElement("div");
+    wrap.className = "army-wrap";
+    const head = document.createElement("div");
+    head.className = "army-head";
+    const grid = document.createElement("div");
+    grid.className = "army-grid";
+    const foot = document.createElement("div");
+    foot.className = "army-foot";
+    wrap.append(head, grid, foot);
+    panel.appendChild(wrap);
+    const all = units.map((u) => u.id);
+    const cap = all.length;
+    let order: OrderSlots = [...current];
+    const done = document.createElement("button");
+    done.className = "raid-go";
+    const refresh = () => {
+      const n = selectedCount(order);
+      head.innerHTML = `<h2>Army order</h2><span class="army-count${n < cap ? " short" : ""}">${n}/${cap}</span>`;
+      done.textContent = n < cap ? `Place ${cap - n} more` : "Done";
+      done.disabled = n < cap;
+      for (const el of grid.querySelectorAll<HTMLElement>(".army-card")) {
+        const pos = order.indexOf(el.dataset.id!);
+        el.classList.toggle("sel", pos >= 0);
+        const tick = el.querySelector<HTMLElement>(".tick");
+        if (tick) tick.textContent = pos >= 0 ? String(pos + 1) : "";
+      }
+    };
+    for (const unit of units) {
+      const z = owned.get(unit.id);
+      const card = this.armyCard(z ?? {
+        // The week's loaned Special is not on the roster.
+        id: unit.id, key: unit.key ?? "", name: unit.name, typeName: "Loaned for this run",
+        portrait: unit.key ? zombiePortrait(unit.key) : undefined, mutation: 0,
+      });
+      card.onclick = () => { order = toggleSlot(order, unit.id, cap); refresh(); };
+      grid.appendChild(card);
+    }
+    const pick = document.createElement("button");
+    pick.className = "raid-quick";
+    pick.textContent = "Keep the rest in order";
+    pick.onclick = () => { order = fillSlots(order, [...current], all, cap); refresh(); };
+    done.onclick = () => {
+      const next = compactOrder(order);
+      if (next.length !== cap) return;
+      bg.remove();
+      onDone(next);
+    };
+    const tip = document.createElement("p");
+    tip.className = "rd-intro";
+    tip.textContent = "Tap a zombie to take it out of line, then tap again to give it the next free place.";
+    foot.append(tip, pick, done);
+    refresh();
+  }
+
+  /** The invasion result tally (the panel that slides in from the right), for Endless: the
+   *  floors between fights, the boss screen and the end of a run. `body` goes under the
+   *  rows and loot; the first action is the big button, the rest sit beside it. */
+  openEndlessTally(opts: {
+    title: string; win: boolean; rows: readonly (readonly [string, string])[]; loot: readonly LootDrop[];
+    lootLabel?: string; body?: HTMLElement; actions: readonly { label: string; onClick: () => void | boolean | Promise<void | boolean> }[];
+  }): () => void {
+    document.querySelector("#hud .raid-res-bg.endless-tally")?.remove();
+    const bg = document.createElement("div");
+    bg.className = "raid-res-bg endless-tally";
+    const panel = document.createElement("div");
+    panel.className = "raid-res-panel";
+    const close = () => bg.remove();
+    const title = document.createElement("div");
+    title.className = `rr-title ${opts.win ? "win" : "lose"}`;
+    title.textContent = opts.title;
+    const body = document.createElement("div");
+    body.className = "rr-body";
+    body.innerHTML = opts.rows
+      .map(([label, value]) => `<div class="rr-row"><span class="rr-l">${label}</span><span class="rr-v">${value}</span></div>`)
+      .join("") + (opts.loot.length || opts.lootLabel ? resultLootHtml(opts.loot, opts.lootLabel ?? "Loot") : "");
+    if (opts.body) body.appendChild(opts.body);
+    panel.append(title, body);
+    const [main, ...rest] = opts.actions;
+    if (rest.length) {
+      const row = document.createElement("div");
+      row.className = "rr-actions";
+      for (const action of rest) {
+        const b = document.createElement("button");
+        b.className = "raid-quick";
+        b.textContent = action.label;
+        b.onclick = async () => { if (await action.onClick() !== false) close(); };
+        row.appendChild(b);
+      }
+      panel.appendChild(row);
+    }
+    if (main) {
+      const go = document.createElement("button");
+      go.className = "rr-go";
+      go.textContent = main.label;
+      go.onclick = async () => { if (await main.onClick() !== false) close(); };
+      panel.appendChild(go);
+    }
+    bg.appendChild(panel);
+    this.el.appendChild(bg);
+    requestAnimationFrame(() => panel.classList.add("in"));
+    return close;
   }
 
   openEndlessBossChoice(view: EndlessBossView, onChoose: (choices: EndlessBossChoices) => void, onEnd: () => void) {
@@ -7250,19 +7505,7 @@ export class Hud {
           `<span class="rr-v">${val}${icon}</span></div>`
       )
       .join("");
-    const lootHtml =
-      `<div class="rr-row rr-loot"><span class="rr-l">Loot</span></div>` +
-      (view.loot.length
-        ? `<div class="rr-loot-items">${view.loot
-            .map((l) => {
-              const note = l.note ? `<em class="rr-loot-note">${l.note}</em>` : "";
-              const title = l.note ? `${lootDropLabel(l)} — ${l.note}` : lootDropLabel(l);
-              return l.icon
-                ? `<span class="rr-loot-i" title="${title}"><img src="${l.icon}"><span>${lootDropLabel(l)}</span>${note}</span>`
-                : `<span class="rr-loot-i rr-loot-noimg" title="${title}">${lootDropLabel(l)}${note}</span>`;
-            })
-            .join("")}</div>`
-        : `<div class="rr-loot-none">—</div>`);
+    const lootHtml = resultLootHtml(view.loot, "Loot");
     const extra = view.practice
       ? `<div class="rr-unlock">Practice run — every zombie came home, and nothing was paid or spent.</div>`
       : cropUnlockHtml(view.cropUnlocks ?? []);
@@ -7683,4 +7926,20 @@ function tierLadderList(raidId: number, chosen: number): HTMLElement {
     list.appendChild(item);
   });
   return list;
+}
+
+/** The result tally's loot row: a picture per drop (or a name chip), "—" when empty. */
+function resultLootHtml(loot: readonly LootDrop[], label: string): string {
+  return `<div class="rr-row rr-loot"><span class="rr-l">${label}</span></div>` +
+    (loot.length
+      ? `<div class="rr-loot-items">${loot
+          .map((l) => {
+            const note = l.note ? `<em class="rr-loot-note">${l.note}</em>` : "";
+            const title = l.note ? `${lootDropLabel(l)} — ${l.note}` : lootDropLabel(l);
+            return l.icon
+              ? `<span class="rr-loot-i" title="${title}"><img src="${l.icon}"><span>${lootDropLabel(l)}</span>${note}</span>`
+              : `<span class="rr-loot-i rr-loot-noimg" title="${title}">${lootDropLabel(l)}${note}</span>`;
+          })
+          .join("")}</div>`
+      : `<div class="rr-loot-none">—</div>`);
 }

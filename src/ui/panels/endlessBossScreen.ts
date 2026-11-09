@@ -1,7 +1,14 @@
-import { ENDLESS_BUILD_BOONS, ENDLESS_MODIFIERS, endlessStopLabel, isEndlessBuildBoon, type EndlessStop } from "../../raid/endless";
+// The Endless boss screen (owner, 2026-11-08: every Endless screen is a rehash of an existing
+// one). It is the invasion result tally that slides in from the right: the fight's loot and the
+// run's gold so far, then the boon, curse and next location as Invade-list cards, Continue as
+// the big button, and Reorder Army (the invasion army screen) and Go Home beside it.
+import { ENDLESS_BUILD_BOONS, ENDLESS_LOCATION_NAMES, ENDLESS_MODIFIERS, isEndlessBuildBoon, type EndlessStop } from "../../raid/endless";
+import { ENDLESS_LOCATION_RAID } from "../../raid/endlessLoot";
 import type { Hud } from "../../hud";
 import type { EndlessBossView } from "../../net/api";
-import { openModal } from "../Modal";
+import type { LootDrop } from "../../raid/RaidManager";
+import { ABILITY_POOL } from "../../zombie/traits";
+import { zombiePortrait } from "../../assets";
 
 export interface EndlessBossChoices {
   boon: unknown;
@@ -11,186 +18,162 @@ export interface EndlessBossChoices {
   order?: string[];
 }
 
-function describeChoice(choice: unknown): string {
-  if (!choice || typeof choice !== "object") return String(choice);
-  const value = choice as Record<string, unknown>;
-  const pct = typeof value.percent === "number" ? ` ${value.percent}%` : "";
-  if (isEndlessBuildBoon(value.kind)) {
-    const boon = ENDLESS_BUILD_BOONS[value.kind];
-    return `${boon.name}: ${boon.text}`;
-  }
-  switch (value.kind) {
-    case "revive-headless": return "Revive fallen headless zombies after each battle";
-    case "damage": return `Zombies deal${pct} more damage`;
-    case "deployment": return `Zombies deploy${pct} faster (up to 80% in all)`;
-    case "opening-deploy": return `Start with ${value.count} zombies deployed`;
-    case "temporary-zombie": return `${String(value.name)} joins your army for this run, deploying with your third zombie`;
-    case "enemy-health": return `Enemies have${pct} more health`;
-    case "enemy-damage": return `Enemies deal${pct} more damage`;
-    case "enemy-attack-speed": return `Enemies attack${pct} faster`;
-    case "enemy-stun": return "Enemies can stun zombies on hit";
-    case "enemy-stun-resist": return `Stuns on enemies are${pct} shorter`;
-    case "enemy-explosion": return "Some enemies explode when defeated";
-    case "enemy-knockback-headless": return "Enemies can knock back headless zombies";
-    case "headless-stat": return `Headless zombies have${pct} less ${String(value.stat)} power`;
-    case undefined: {
-      const stop = value as unknown as EndlessStop;
-      return stop.modifier
-        ? `${endlessStopLabel(stop)}: ${ENDLESS_MODIFIERS[stop.modifier].description}`
-        : endlessStopLabel(stop);
-    }
-    default: return String(value.kind ?? "Choice");
-  }
-}
+interface Card { title: string; text: string; icon?: string }
 
-function lootLine(totals: Readonly<Record<string, number>>): string {
-  return Object.entries(totals).map(([name, quantity]) => `${name}${quantity > 1 ? ` ×${quantity}` : ""}`).join(", ");
-}
+const icon = (ability: string): string | undefined => ABILITY_POOL[ability]?.icon;
 
-/** A column of tappable options, one always picked. Full text, so nothing clips on a phone. */
-function optionGroup(host: HTMLElement, label: string, options: readonly unknown[]): () => unknown {
-  const heading = document.createElement("div");
-  heading.className = "endless-choice-heading";
-  heading.textContent = label;
-  host.appendChild(heading);
-  let picked = 0;
-  const rows = options.map((option, index) => {
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "endless-choice-option";
-    row.textContent = describeChoice(option);
-    row.onclick = () => {
-      picked = index;
-      rows.forEach((other, i) => other.classList.toggle("selected", i === picked));
+/** A boon as an Invade-list card: its name, what it does, and the ability art closest to it. */
+function boonCard(choice: Record<string, unknown>): Card {
+  const pct = typeof choice.percent === "number" ? `${choice.percent}%` : "";
+  if (isEndlessBuildBoon(choice.kind)) {
+    const boon = ENDLESS_BUILD_BOONS[choice.kind];
+    const art = choice.kind.startsWith("drill-") ? "buffAllStats"
+      : choice.kind === "sharp-teeth" || choice.kind === "brute-force" ? "powerBuff"
+        : choice.kind === "quick-hands" || choice.kind === "frenzy" || choice.kind === "battering-ram" ? "attackSpeedBuff"
+          : choice.kind === "green-thumb" ? "healAOE"
+            : choice.kind === "vanguard" ? "protect"
+              : choice.kind === "rearguard" ? "tankHitPointsBuff"
+                : "hitPointsBuff";
+    return { title: boon.name, text: boon.text, icon: icon(art) };
+  }
+  switch (choice.kind) {
+    case "revive-headless": return { title: "Second Wind", text: "Fallen Headless zombies stand up again after each battle", icon: icon("ressurect") };
+    case "deployment": return { title: "Quick Release", text: `Zombies deploy ${pct} faster (an 80% cut at most)`, icon: icon("turboSpeed") };
+    case "opening-deploy": return { title: "Head Start", text: `Start every fight with ${String(choice.count)} zombies already out`, icon: icon("attachMini") };
+    case "damage": return { title: "Sharpened", text: `Zombies deal ${pct} more damage`, icon: icon("powerBuff") };
+    case "temporary-zombie": return {
+      title: String(choice.name), text: "Joins your army for this run and walks on with your third zombie",
+      icon: typeof choice.key === "string" ? zombiePortrait(choice.key) : undefined,
     };
-    host.appendChild(row);
-    return row;
-  });
-  rows[0]?.classList.add("selected");
-  return () => options[picked];
+    default: return { title: "Boon", text: String(choice.kind) };
+  }
 }
 
-/** Move the zombies brought on this run around, and nothing else: no roster, no Mausoleum. */
-function openReorder(hud: Hud, army: EndlessBossView["army"], order: string[], onDone: (order: string[]) => void): void {
-  const { panel, close } = openModal({
-    host: hud.el,
-    bgClass: "raid-bg endless-order-bg",
-    panelClass: "endless-order-panel",
-    title: "Army order",
-    replaceSelector: ".endless-order-bg",
-  });
-  const names = new Map(army.map((unit) => [unit.id, unit.name]));
-  const working = [...order];
+/** A curse as a card: what it changes about the enemies, for the rest of the run. */
+function curseCard(choice: Record<string, unknown>): Card {
+  const pct = typeof choice.percent === "number" ? `${choice.percent}%` : "";
+  switch (choice.kind) {
+    case "enemy-health": return { title: "Thick Hides", text: `Enemies have ${pct} more health` };
+    case "enemy-damage": return { title: "Hard Hitters", text: `Enemies deal ${pct} more damage` };
+    case "enemy-attack-speed": return { title: "Frenzied Foes", text: `Enemies attack ${pct} faster` };
+    case "enemy-stun": return { title: "Dazing Blows", text: "Enemy hits can stun a zombie for a moment" };
+    case "enemy-stun-resist": return { title: "Steady Feet", text: `Stuns on enemies wear off ${pct} sooner` };
+    case "enemy-explosion": return { title: "Volatile Remains", text: "Some enemies explode when they fall" };
+    case "enemy-knockback-headless": return { title: "Shoving Match", text: "Enemy hits can knock Headless zombies back" };
+    case "headless-stat": return { title: "Weak Necks", text: `Headless zombies -${pct} ${String(choice.stat)}` };
+    default: return { title: "Curse", text: String(choice.kind) };
+  }
+}
+
+/** One group of choices: a heading and Invade-list cards, one always picked. */
+function cardGroup(host: HTMLElement, heading: string, cards: readonly Card[]): () => number {
+  const h = document.createElement("div");
+  h.className = "rr-choice-h";
+  h.textContent = heading;
   const list = document.createElement("div");
-  list.className = "endless-order-list";
-  const render = () => {
-    list.replaceChildren();
-    working.forEach((id, index) => {
-      const row = document.createElement("div");
-      row.className = "endless-order-row";
-      const name = document.createElement("span");
-      name.textContent = `${index + 1}. ${names.get(id) ?? "Zombie"}`;
-      const move = (label: string, by: number) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = label;
-        button.disabled = index + by < 0 || index + by >= working.length;
-        button.onclick = () => {
-          [working[index], working[index + by]] = [working[index + by], working[index]];
-          render();
-        };
-        return button;
-      };
-      row.append(name, move("▲", -1), move("▼", 1));
-      list.appendChild(row);
-    });
-  };
-  render();
-  const done = document.createElement("button");
-  done.type = "button";
-  done.className = "btn-primary";
-  done.textContent = "Done";
-  done.onclick = () => { onDone(working); close(); };
-  panel.append(list, done);
+  list.className = "rr-choices";
+  let picked = 0;
+  const els = cards.map((card, index) => {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "rd-card";
+    if (card.icon) {
+      const thumb = document.createElement("div");
+      thumb.className = "rd-thumb";
+      thumb.style.backgroundImage = `url(${card.icon})`;
+      el.appendChild(thumb);
+    }
+    const txt = document.createElement("div");
+    const cn = document.createElement("div");
+    cn.className = "rd-cn";
+    cn.textContent = card.title;
+    const cl = document.createElement("div");
+    cl.className = "rd-cl";
+    cl.textContent = card.text;
+    txt.append(cn, cl);
+    el.appendChild(txt);
+    el.onclick = () => {
+      picked = index;
+      els.forEach((other, i) => other.classList.toggle("sel", i === picked));
+    };
+    list.appendChild(el);
+    return el;
+  });
+  els[0]?.classList.add("sel");
+  host.append(h, list);
+  return () => picked;
 }
 
-/** The one screen between tiers: boons, curses, where next, the loot so far and the way home.
- *  The opening draft of a run that skipped tiers uses it too. */
+/** The boss screen. The opening draft of a run that skipped tiers uses it too. */
 export function openEndlessBossScreen(
   hud: Hud,
   view: EndlessBossView,
   onChoose: (choices: EndlessBossChoices) => void,
   onEnd: () => void,
 ): void {
-  const bg = document.createElement("div");
-  bg.className = "panelbg raid-bg";
-  const panel = document.createElement("div");
-  panel.className = "panel endless-boss-panel";
-  const title = document.createElement("h2");
-  title.textContent = view.opening ? `Skipped T${view.tier} · build your run` : `T${view.tier} boss defeated`;
-  panel.appendChild(title);
-
-  if (!view.opening) {
-    const earned = document.createElement("p");
-    earned.className = "endless-boss-earned";
-    const loot = lootLine(view.lootEarned);
-    earned.textContent = `Earned so far: ${view.goldSoFar.toLocaleString()} gold${loot ? `, ${loot}` : ""}`;
-    panel.appendChild(earned);
-    const thisFight = Object.fromEntries(view.bossLoot.map((item) => [item.name, item.quantity]));
-    if (view.bossLoot.length) {
-      const note = document.createElement("p");
-      note.textContent = `From this fight: ${lootLine(thisFight)}`;
-      panel.appendChild(note);
-    }
-  } else {
-    const note = document.createElement("p");
-    note.textContent = "Skipped tiers pay their loot and gold once you beat your first boss.";
-    panel.appendChild(note);
-  }
+  const raidCards = hud.getRaidCards?.() ?? [];
+  const lootIcon = (item: { name: string; key?: string; kind?: string }) => hud.endlessLootIcon?.(item) ?? "";
+  const loot: LootDrop[] = view.bossLoot.map((item) => ({ name: item.name, icon: lootIcon(item), qty: item.quantity }));
 
   const choices = document.createElement("div");
-  choices.className = "endless-boss-choices";
-  panel.appendChild(choices);
-  const boon = optionGroup(choices, "Boon", view.bossDraft.boons);
-  const curse = optionGroup(choices, "Curse", view.bossDraft.curses);
-  const location = view.bossDraft.locations.length ? optionGroup(choices, "Next location", view.bossDraft.locations) : null;
+  const boons = view.bossDraft.boons as Record<string, unknown>[];
+  const curses = view.bossDraft.curses as Record<string, unknown>[];
+  const stops = view.bossDraft.locations as EndlessStop[];
+  const boon = cardGroup(choices, "Choose a boon", boons.map(boonCard));
+  const curse = cardGroup(choices, "Choose a curse", curses.map(curseCard));
+  const where = stops.length ? cardGroup(choices, "Choose where to go next", stops.map((stop) => ({
+    title: ENDLESS_LOCATION_NAMES[stop.location],
+    text: stop.modifier ? `${ENDLESS_MODIFIERS[stop.modifier].name}: ${ENDLESS_MODIFIERS[stop.modifier].description}` : "No modifier",
+    icon: raidCards.find((card) => card.id === ENDLESS_LOCATION_RAID[stop.location])?.portrait,
+  }))) : null;
 
   const startOrder = view.army.map((unit) => unit.id);
   let order = startOrder;
-  const actions = document.createElement("div");
-  actions.className = "endless-boss-actions";
-  const reorder = document.createElement("button");
-  reorder.type = "button";
-  reorder.className = "btn-secondary";
-  reorder.textContent = "Reorder Army";
-  reorder.onclick = () => openReorder(hud, view.army, order, (next) => { order = next; });
-  const go = document.createElement("button");
-  go.type = "button";
-  go.className = "btn-primary";
-  go.textContent = "Continue";
-  go.onclick = () => {
-    bg.remove();
-    const changed = order.some((id, index) => id !== startOrder[index]);
-    onChoose({
-      boon: boon(), curse: curse(),
-      ...(location ? { location: location() } : {}),
-      ...(changed ? { order } : {}),
-    });
-  };
-  const home = document.createElement("button");
-  home.type = "button";
-  home.className = "btn-secondary";
-  home.textContent = "Go Home";
-  home.onclick = async () => {
-    const body = view.opening
-      ? "You skipped ahead and have not beaten a boss yet, so this run pays nothing."
-      : "You keep your loot and receive the full gold reward for every floor already cleared.";
-    if (!await hud.confirmInGame("End this Endless run?", body, "Go Home")) return;
-    bg.remove();
-    onEnd();
-  };
-  actions.append(go, reorder, home);
-  panel.appendChild(actions);
-  bg.appendChild(panel);
-  hud.el.appendChild(bg);
+  // A line under the loot, in the tally's own note style: what the run has banked so far, or
+  // for a skipped tier, when it pays.
+  const earned = Object.entries(view.lootEarned).map(([name, quantity]) => `${name}${quantity > 1 ? ` x${quantity}` : ""}`).join(", ");
+  const note = document.createElement("div");
+  note.className = "rr-unlock";
+  note.textContent = view.opening
+    ? "This tier's loot and gold are paid when you beat your first boss."
+    : earned ? `Loot so far: ${earned}` : "";
+  if (note.textContent) choices.prepend(note);
+  hud.openEndlessTally({
+    title: view.opening ? `Skipped tier ${view.tier}` : `Tier ${view.tier} cleared!`,
+    win: true,
+    rows: view.opening ? [] : [["Gold so far", view.goldSoFar.toLocaleString()]],
+    loot: view.opening ? [] : loot,
+    lootLabel: view.opening ? undefined : "This fight",
+    body: choices,
+    actions: [
+      {
+        label: "Continue",
+        onClick: () => {
+          const changed = order.some((id, index) => id !== startOrder[index]);
+          onChoose({
+            boon: boons[boon()], curse: curses[curse()],
+            ...(where ? { location: stops[where()] } : {}),
+            ...(changed ? { order } : {}),
+          });
+        },
+      },
+      {
+        label: "Reorder Army",
+        onClick: () => {
+          hud.openEndlessOrder(view.army, order, (next) => { order = next; });
+          return false; // the tally stays open under the army screen
+        },
+      },
+      {
+        label: "Go Home",
+        onClick: async () => {
+          const body = view.opening
+            ? "You skipped ahead and have not beaten a boss yet, so this run pays nothing."
+            : "You keep your loot and receive the full gold reward for every floor already cleared.";
+          if (!await hud.confirmInGame("End this Endless run?", body, "Go Home")) return false;
+          onEnd();
+        },
+      },
+    ],
+  });
 }
