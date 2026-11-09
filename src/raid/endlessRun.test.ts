@@ -10,7 +10,8 @@ import {
   type EndlessBuildBoon, type EndlessModifierId,
 } from "./endless";
 import { endlessApplyBoon, endlessCarryFromSim, endlessFightConfig, endlessSimFor } from "./endlessFight";
-import { endlessExpectedZwamps, endlessLootWeightTotal, endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessLocationZombie } from "./endlessLoot";
+import { ENDLESS_LOCATION_RAID, endlessExpectedZwamps, endlessLootWeightTotal, endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessLocationZombie } from "./endlessLoot";
+import raidsJson from "../../public/assets/raids/raids.json";
 import { makeOwned } from "../zombie/types";
 import type { ZombieDef } from "../assets";
 import type { CombatUnit, EnemyStat } from "./types";
@@ -219,6 +220,16 @@ describe("Endless Zwamp Thing and milestones", () => {
     expect(rollEndlessLocationZombie("alien", 0.0199, 0)).toMatchObject({ key: "ZombieActorZastronaut" });
     expect(rollEndlessLocationZombie("farm", 0.0099, 0.99)).toMatchObject({ key: "ZombieActorOldMcZombie" });
     expect(rollEndlessLocationZombie("video-game", 0.0199, 0.1)).toMatchObject({ key: "ZombieActorRegularVideoGame" });
+  });
+  it("draws each location on its own invasion's stage", () => {
+    // The table the client's stage and the server's fight both read. It once swapped raids 3
+    // and 4, so the Ninja Dojo played on the pirate ship and the Pirate Ship in the dojo.
+    const names = new Map((raidsJson as { id: number; name: string }[]).map((r) => [r.id, r.name]));
+    expect(names.get(ENDLESS_LOCATION_RAID.farm)).toMatch(/McDonnell/);
+    expect(names.get(ENDLESS_LOCATION_RAID.ninja)).toMatch(/Ninjas/);
+    expect(names.get(ENDLESS_LOCATION_RAID.pirate)).toMatch(/Pirates/);
+    expect(names.get(ENDLESS_LOCATION_RAID.alien)).toMatch(/Aliens/);
+    expect(names.get(ENDLESS_LOCATION_RAID["video-game"])).toMatch(/Video Games/);
   });
   it("keeps every loot row's weights summing to 100", () => {
     for (const tier of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {

@@ -6,7 +6,7 @@ import { wheelZoomFactor } from "./wheelZoom";
 // blocks — no 'unsafe-eval'). Side-effect import; must run before `new Application()`.
 // pixi.js lists ./lib/unsafe-eval/init.* under "sideEffects", so it survives bundling.
 import "pixi.js/unsafe-eval";
-import { loadAssets, canMirrorObject, turnCount, turnFlip, ensureBackgroundTexture, ensureObjectTexture, ensureObjectTextures, objectAnimFiles, objectSpriteFiles, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, raidRewardImage, purchasableZombies, placeablePurchaseLimit, objectTint, canSellPlaceable } from "./assets";
+import { loadAssets, canMirrorObject, turnCount, turnFlip, ensureBackgroundTexture, ensureObjectTexture, ensureObjectTextures, objectAnimFiles, objectSpriteFiles, PlaceableDef, BoostDef, SEED_FILE, ZombieDef, zombiePortrait, ZOMBIE_STAGES, raidImage, raidRewardImage, purchasableZombies, placeablePurchaseLimit, objectTint, canSellPlaceable } from "./assets";
 import { pickPiece, type PathSpec, type RoadSpec, type SceneryPiece, type SkylineSpec, type SpringSpec, surroundingsTheme, themeObjectFiles } from "./surroundings";
 import { MAX_ZOMBIE_POTS, noRoomForAnother } from "./placementLimit";
 import { armingSurvives } from "./placementArming";
@@ -60,7 +60,8 @@ import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, hasNights, nightLabel
 import { LaunchGate } from "./raid/launchGate";
 import { RaidScene } from "./raid/RaidScene";
 import { ENDLESS_LOCATION_NAMES, ENDLESS_MODIFIERS, endlessStopLabel, type EndlessLocation, type EndlessMode, type EndlessStop } from "./raid/endless";
-import type { EndlessBossLoot } from "./raid/endlessLoot";
+import { ENDLESS_LOCATION_RAID, type EndlessBossLoot } from "./raid/endlessLoot";
+import type { CombatUnit } from "./raid/types";
 import type { RaidSceneParams } from "./raid/RaidScene";
 import { RAID_COOLDOWN_MS, MCDONNELL_ID, CONCENTRATION_KEY } from "./raid/RaidCatalog";
 import { PVP_ARMY_SIZE, PVP_UI_ENABLED, buildPvpRaidDef } from "./raid/pvp";
@@ -5702,9 +5703,10 @@ async function main() {
   };
 
   let endlessSessionId: string | null = null;
-  const endlessLocationRaid: Record<string, number> = {
-    farm: 1, ninja: 3, alien: 6, "video-game": 9, pirate: 4,
-  };
+  // Which invasion's stage, music and art each location borrows (the same table the server
+  // builds the fight from). It once swapped raids 3 and 4, putting the Ninja Dojo on the
+  // pirate ship and the Pirate Ship in the dojo.
+  const endlessLocationRaid = ENDLESS_LOCATION_RAID;
   const closeEndlessScene = () => {
     if (raidScene) { app.stage.removeChild(raidScene.container); raidScene.destroy(); raidScene = null; }
     raidActive = false;
@@ -5720,7 +5722,12 @@ async function main() {
       const result = await api.endlessAbandon(sid);
       endlessSessionId = null;
       await economy?.refreshAuthoritative();
-      hud.showToast(`Run ended at floor ${result.deepestFloor ?? 0}. ${result.gold ?? 0} gold claimed.`, 7000);
+      // Going home ends on the same tally as falling, as a win: the run is banked.
+      hud.openEndlessTally({
+        title: "Home Safe", win: true,
+        rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()]],
+        loot: [], actions: [{ label: "Finish", onClick: () => undefined }],
+      });
     } catch (error) {
       hud.showToast(error instanceof api.ApiError ? `Could not end run: ${error.code}` : "Could not end the Endless run. Reconnect and try again.", 7000);
     }
@@ -5739,8 +5746,23 @@ async function main() {
   const launchEndlessFight = (sessionId: string, rawFight: Record<string, unknown>, mode: EndlessMode) => {
     const wave = Number(rawFight.wave ?? 1);
     const location = rawFight.location as EndlessLocation;
-    const raid = assets.raids.find((item) => item.id === endlessLocationRaid[location]) ?? assets.raids[0];
-    if (!raid) { hud.showToast("Endless terrain could not be loaded."); return; }
+    const stage = assets.raids.find((item) => item.id === endlessLocationRaid[location]) ?? assets.raids[0];
+    if (!stage) { hud.showToast("Endless terrain could not be loaded."); return; }
+    // A boss floor is Dr. Groundhog on the location's stage: he is drawn exactly as in his
+    // own Epic Boss fight (texture, animation strips, portrait, ground offset). Drawing only:
+    // nothing here reaches the sim, which must match the server's (so no engage distance).
+    const bossUnit = (rawFight.enemyUnits as CombatUnit[] | undefined)?.find((unit) => unit.isBoss);
+    const bossDef = bossUnit?.sourceKey.startsWith("EpicBoss:") ? epicBossById(bossUnit.sourceKey.slice("EpicBoss:".length)) : undefined;
+    // The enemy badge names who is fighting: the boss, or the location, never the borrowed
+    // invasion's own boss (a Video Game floor used to read "Zedzox").
+    const raid = { ...stage, bossName: bossDef?.name ?? ENDLESS_LOCATION_NAMES[location] };
+    const bossArt = bossDef ? {
+      bossTexture: epicAsset(bossDef, bossDef.bossTexture),
+      bossPortrait: epicAsset(bossDef, bossDef.portrait),
+      bossAnimations: bossDef.animations,
+      bossImageBase: epicAsset(bossDef, ""),
+      bossGroundOffset: bossDef.reconstructed ? { x: 0, y: 0 } : { x: 32, y: bossDef.id === "loco-locust" ? 8 : 24 },
+    } : { bossPortrait: stage.enemyIcon ? raidImage(stage.enemyIcon) : undefined };
     const config = rawFight as unknown as Omit<RaidSceneParams, "raid" | "assets" | "onFinish">;
     endlessSessionId = sessionId;
     pauseFarmJobs(); raidActive = true; world.visible = false;
@@ -5749,6 +5771,7 @@ async function main() {
     const epoch = launchGate.stamp();
     withBattleLoadTimeout(RaidScene.create(app, {
       ...config,
+      ...bossArt,
       raid,
       assets,
       bossThrow: null,

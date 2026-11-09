@@ -140,6 +140,10 @@ export interface RaidSceneParams {
   bossAnimations?: Record<string, { file: string; cellWidth: number; cellHeight: number; frameCount: number; frameSeconds: number }>;
   bossFallsFromSky?: boolean;
   bossEngageDistance?: number;
+  /** Where the boss's animation sheets load from, when that is not `imageBase`: an Endless
+   *  boss floor draws Dr. Groundhog from his own folder on a location's stage, whose art
+   *  loads from the raid images. */
+  bossImageBase?: string;
   bossGroundOffset?: { x: number; y: number };
   confirmRetreat?: () => Promise<boolean>;
   /** Watch-a-recording mode: the verified transcript is injected at its recorded
@@ -881,6 +885,7 @@ export class RaidScene {
   private fireLayer = new Container();
   private fires = new Map<string, PixelFire>();
   private imageBase: string | null;
+  private bossImageBase: string | null;
   private bossTexture: string;
   private bossPortrait: string;
   private bossAnimationDefs: RaidSceneParams["bossAnimations"];
@@ -1105,6 +1110,7 @@ export class RaidScene {
     this.grabberSprite = params.grabber?.sprite ?? "";
     this.crabSprite = params.crab?.sprite ?? "";
     this.imageBase = params.imageBase ?? null;
+    this.bossImageBase = params.bossImageBase ?? this.imageBase;
     this.bossTexture = params.bossTexture ?? "";
     this.bossPortrait = params.bossPortrait ?? "";
     this.bossAnimationDefs = params.bossAnimations;
@@ -1285,9 +1291,10 @@ export class RaidScene {
     const texCache = new Map<string, Texture | null>();
     await Promise.all(uniq.map(async (url) => texCache.set(url, await loadTex(url))));
     for (const [id, url] of fallbackUrls) this.texByUnit.set(id, texCache.get(url) ?? null);
-    if (this.bossAnimationDefs && this.imageBase) {
+    if (this.bossAnimationDefs && this.bossImageBase) {
+      const base = this.bossImageBase;
       await Promise.all(Object.entries(this.bossAnimationDefs).map(async ([name, def]) => {
-        const sheet = await loadTex(this.imageUrl(def.file));
+        const sheet = await loadTex(`${base}${def.file}`);
         if (!sheet) return;
         const frames: Texture[] = [];
         for (let i = 0; i < def.frameCount; i++) frames.push(new Texture({

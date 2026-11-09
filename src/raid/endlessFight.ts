@@ -20,11 +20,11 @@ import {
   finishEndlessFight, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, type EndlessBoon, type EndlessRunState,
 } from "./endless";
 import { buildEndlessStageMechanics } from "./endlessMechanics";
+import { ENDLESS_LOCATION_RAID } from "./endlessLoot";
 import type { AttackDef, BossSpecial, CombatUnit, EnemyStat, EndlessStageMechanics, WaveCadence } from "./types";
 
 const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
 const attacks = attacksJson as Record<string, AttackDef>;
-const raidId: Record<string, number> = { farm: 1, ninja: 3, alien: 6, "video-game": 9, pirate: 4 };
 
 /** Every Endless enemy as its own invasion authored it: no level pace, no elite profile. */
 export function endlessSourceUnit(key: string): CombatUnit | undefined {
@@ -122,7 +122,7 @@ export function endlessFightConfig(run: EndlessRunState, playerLevel: number): E
   // Built without the player's level: the Farm invasion's level pace speeds its enemies up as
   // a starter raid is out-levelled, which is not Endless's ramp.
   const enemyUnits = buildUnitsForKeys([...plan.enemyKeys], null, enemyStats, attacks, {
-    raidId: raidId[plan.location],
+    raidId: ENDLESS_LOCATION_RAID[plan.location],
   }).map((unit) => scaleEndlessEnemy(unit, plan, run.curses, ENDLESS_SHAPES));
   return {
     wave: plan.wave, ...where,
