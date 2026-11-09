@@ -167,7 +167,8 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
     }
     modeTabs.replaceChildren();
     // One open mode needs no mode tabs (Nightmare is held for a later release).
-    modeTabs.hidden = !endlessModeOpen("nightmare");
+    // An explicit style: the tab row's own CSS display overrides the `hidden` attribute.
+    modeTabs.style.display = endlessModeOpen("nightmare") ? "" : "none";
     for (const [value, label] of [["endless", "Normal"], ["nightmare", "Nightmare"]] as const) {
       const tab = document.createElement("button");
       tab.type = "button";
