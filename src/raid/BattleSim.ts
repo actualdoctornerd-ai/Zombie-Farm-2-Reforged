@@ -1843,7 +1843,22 @@ export class BattleSim {
    *  returns the nearest living enemy at ANY distance — so it answers "yes, there is a
    *  target" for a Garden parked at x=250 and would stop every healer in the game. */
   private healSuppressed(p: SimUnit): boolean {
-    return !p.isGarden && p.state === "fight";
+    // An attacking Garden now fights back against an enemy on top of it (ruleset 83,
+    // owner 2026-11-10), and while it does it holds its heals like any line healer. A
+    // DEFENDING Garden keeps the old exemption, for the reason above.
+    return p.state === "fight" && (!p.isGarden || p.team === "player");
+  }
+
+  /** An enemy close enough to hit this Garden zombie where it stands: a smoke-bomb ninja
+   *  landed on it, or anything else that reached the back. Null when none is in reach. */
+  private gardenAttacker(p: SimUnit): SimUnit | null {
+    let best: SimUnit | null = null;
+    for (const e of this.enemies) {
+      if (!e.alive || e.isWall || e.isTurned || (e.state !== "hold" && e.state !== "fight")) continue;
+      const d = Math.abs(e.x - p.x);
+      if (d <= this.engageDistance + 2 && (!best || d < Math.abs(best.x - p.x))) best = e;
+    }
+    return best;
   }
 
   /** Is another of this zombie's own side deployed AHEAD of it — walking in or fighting?
@@ -2450,6 +2465,10 @@ export class BattleSim {
     // turn to intercept it before resuming the enemy wave.
     const flanker = this.enemies.find((e) => e.alive && e.isFlanker);
     if (flanker && !u.isGarden) return flanker;
+    if (u.isGarden && u.team === "player") {
+      const close = this.gardenAttacker(u);
+      if (close) return close;
+    }
     const wall = this.wallInWay(u);
     if (wall) return wall;
     let best: SimUnit | null = null;
@@ -5141,7 +5160,9 @@ export class BattleSim {
           }
           const atBlockingWall = !!blockingWall &&
             Math.abs(blockingWall.x - p.x) <= this.blockerGap(blockingWall) + 2;
-          if (foe && enemyArrived && (inCombatZone || atBlockingWall)) {
+          // A Garden fights only what is on top of it; otherwise it holds its station.
+          const gardenInReach = p.isGarden && !!foe && Math.abs(foe.x - p.x) <= this.engageDistance + 2;
+          if (foe && enemyArrived && (inCombatZone || atBlockingWall || gardenInReach)) {
             p.state = "fight";
             // A charging zombie makes no normal attacks — it's winding up the big
             // hit; deliver the payoff when the wind-up fills. Otherwise attack.
@@ -5549,7 +5570,9 @@ export class BattleSim {
     const unit = this.enemies.find((e) => e.alive && !e.isBoss && !e.isSummon && !e.isWall && !e.isFlanker &&
       !e.isTurned && (e.state === "hold" || e.state === "fight") && ENDLESS_SMOKE_BOMBERS.has(e.sourceKey));
     if (!unit) return false;
+    // The bomb is for the healers (owner, 2026-11-10): with no Garden out, it waits.
     const target = this.backlineTarget();
+    if (!target?.isGarden) return false;
     unit.isFlanker = true;
     unit.state = "fight";
     unit.x = Math.max(35, target?.x ?? 130);

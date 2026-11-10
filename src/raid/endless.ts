@@ -238,6 +238,11 @@ export const ENDLESS_ALIEN_SWARM = { hp: 0.5, damage: 0.5 } as const;
 /** Bodies on a normal and an advanced floor. They come out one at a time (owner, 2026-11-07):
  *  only Alien, built around a swarm, fields several at once. */
 export const ENDLESS_FLOOR_ENEMIES: readonly [number, number] = [8, 12];
+/** Extra bodies by location. The Farm's farmhands are the weakest crew in the game, so it
+ *  fields more of them to stand with the other locations (owner, 2026-11-10). */
+export const ENDLESS_LOCATION_EXTRA_ENEMIES: Readonly<Partial<Record<EndlessLocation, readonly [number, number]>>> = {
+  farm: [4, 6],
+};
 
 /** Walk-in bosses on a floor (owner, 2026-11-10): floor 1 is just enemies until the sixth
  *  location, floor 2 has its perched boss plus walk-ins from T5. */
@@ -566,7 +571,8 @@ function waveEnemies(plan: Pick<EndlessWavePlan, "wave" | "tier" | "location" | 
   const { wave, tier, location, locationFight, modifier } = plan;
   // Alien keeps the normal invasion's deployment count and timing, whatever the modifier.
   if (location === "alien") return Array.from({ length: 20 }, () => "AlienStageActorMinion");
-  const count = ENDLESS_FLOOR_ENEMIES[locationFight - 1] + (modifier ? ENDLESS_MODIFIERS[modifier].extraEnemies ?? 0 : 0);
+  const count = ENDLESS_FLOOR_ENEMIES[locationFight - 1] + (ENDLESS_LOCATION_EXTRA_ENEMIES[location]?.[locationFight - 1] ?? 0)
+    + (modifier ? ENDLESS_MODIFIERS[modifier].extraEnemies ?? 0 : 0);
   // Local progression keeps each section moving from common foes to its strongest
   // regular mix. Global progression raises the starting tier on later sections.
   const enemyTier = Math.min(ENEMY_BANDS.length, tier + locationFight - 1);

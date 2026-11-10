@@ -98,6 +98,38 @@ describe("Endless Mode plan", () => {
     for (const key of ENDLESS_WALK_IN_POOL.alien) expect(["AlienStageActorBoss", "VideoGameStageBossActor"]).not.toContain(key);
   });
 
+  it("throws the smoke bomb only at a deployed Garden, which fights back and holds its heals", () => {
+    // Unkillable on both sides, so only the bomb and who answers it decide anything.
+    const tough = (u: CombatUnit) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7, teamAuraStats: undefined });
+    const army = (keys: string[]) => buildPlayerUnits(
+      keys.map((key, i) => makeOwned(`z${i}`, (zombiesJson as ZombieDef[]).find((z) => z.key === key)!, 0, 0, 0, 0)),
+      // Unlocked: a Garden is a stationed healer only when it carries its heal.
+      { abilitySlotUnlocked: () => true, playerLevel: 45 },
+    ).map(tough);
+    const fly = (units: CombatUnit[]) => {
+      const config = endlessFightConfig({ ...beginEndlessRun("endless", units), nextWave: 4, stop: at("ninja") }, 45);
+      config.enemyUnits = config.enemyUnits.filter((u) => u.sourceKey === "NinjaStageActorGirl").slice(0, 1).map(tough);
+      expect(config.enemyUnits).toHaveLength(1);
+      const sim = endlessSimFor(config);
+      const internals = sim as unknown as { smokeSeq: number; chargingBubble(): { id: string } | null; popBubble(id: string): boolean };
+      let gardenFought = false;
+      for (let t = 0; t < 60_000 && !sim.finished; t += 50) {
+        const bubble = internals.chargingBubble();
+        if (bubble) internals.popBubble(bubble.id);
+        sim.step(50);
+        const flanker = sim.units.some((u) => u.team === "enemy" && u.isFlanker && u.alive);
+        if (flanker && sim.units.some((u) => u.team === "player" && u.isGarden && u.state === "fight")) gardenFought = true;
+      }
+      return { smokes: internals.smokeSeq, gardenFought };
+    };
+    // No Garden out: no bomb. (The ninja simply fights the line.)
+    expect(fly(army(["ZombieActorHeadlessTier4", "ZombieActorRegularTier4"])).smokes).toBe(0);
+    // A tank in front, Gardens behind: the ninja lands on a Garden, which swings back.
+    const withGardens = fly(army(["ZombieActorHeadlessTier4", "ZombieActorGardenTier4", "ZombieActorGardenTier4"]));
+    expect(withGardens.smokes).toBeGreaterThan(0);
+    expect(withGardens.gardenFought).toBe(true);
+  });
+
   it("beams the walk-in down mid-field, where it must be beaten to clear the floor", () => {
     // One unkillable zombie that never deploys far: the saucer only acts while the army stands.
     const zombie = buildPlayerUnits(Array.from({ length: 6 }, (_, i) => makeOwned(`z${i}`, (zombiesJson as ZombieDef[]).find((z) => z.key.includes("Headless"))!, 0, 0, 0, 0)), { abilitySlotUnlocked: () => false, playerLevel: 45 })
@@ -261,8 +293,11 @@ describe("Endless Mode plan", () => {
   });
 
   it("fields more bodies on an advanced floor, and Crowded only adds bodies", () => {
-    expect(endlessWavePlan("endless", 1).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[0]);
-    expect(endlessWavePlan("endless", 2).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[1]);
+    expect(endlessWavePlan("endless", 1, at("pirate")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[0]);
+    expect(endlessWavePlan("endless", 2, at("pirate")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[1]);
+    // The Farm's weak crew comes in greater numbers.
+    expect(endlessWavePlan("endless", 1, at("farm")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[0] + 4);
+    expect(endlessWavePlan("endless", 2, at("farm")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[1] + 6);
     const plain = endlessWavePlan("endless", 4, at("pirate"));
     const crowded = endlessWavePlan("endless", 4, at("pirate", "crowded"));
     expect(crowded.enemyKeys.length).toBe(plain.enemyKeys.length + (ENDLESS_MODIFIERS.crowded.extraEnemies ?? 0));
