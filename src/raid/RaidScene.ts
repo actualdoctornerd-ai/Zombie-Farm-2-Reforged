@@ -861,6 +861,8 @@ export class RaidScene {
   private wallTemplate: CombatUnit | null; // preloaded so a spawned wall renders as a sprite
   private summon: SummonConfig | null; // alien abductee queue (drives their art preload)
   private turnedTemplate: CombatUnit | null; // pixel zombie (drives its art preload)
+  /** Enemies an Endless floor brings in mid-fight, whose art must be preloaded. */
+  private endlessArrivalKeys: string[] = [];
   private grabberSprite = ""; // Trapeze Artist art (preloaded), "" if this raid has none
   private crabSprite = ""; // Beach crab art (preloaded), "" if this raid has none
   private grabTex: Texture | null = null; // trapeze texture
@@ -1107,6 +1109,13 @@ export class RaidScene {
     this.wallTemplate = params.wallTemplate ?? params.endlessMechanics?.wallTemplate ?? null;
     this.summon = params.summon ?? null;
     this.turnedTemplate = params.turnedTemplate ?? params.endlessMechanics?.turnedTemplate ?? null;
+    // Endless brings enemies in mid-fight too (smoke-bomb flankers, beamed reinforcements and
+    // walk-in bosses); their art is preloaded with the wave's, or they draw as placeholders.
+    const em = params.endlessMechanics;
+    this.endlessArrivalKeys = [
+      em?.flankerTemplate?.sourceKey, em?.reinforcementTemplate?.sourceKey,
+      ...(em?.walkInTemplates ?? []).map((unit) => unit.sourceKey),
+    ].filter((key): key is string => !!key);
     this.grabberSprite = params.grabber?.sprite ?? "";
     this.crabSprite = params.crab?.sprite ?? "";
     this.imageBase = params.imageBase ?? null;
@@ -1213,6 +1222,7 @@ export class RaidScene {
       ...this.sim.units.filter((u) => u.team === "enemy" && !zombieRigEnemy(u)).map((u) => u.sourceKey),
       ...summonKeys,
       ...turnedKeys,
+      ...this.endlessArrivalKeys,
     ])];
     await Promise.all(
       enemyKeys.map(async (k) => {

@@ -169,7 +169,8 @@ export async function startEndless(
   now: number,
   /** Dev servers only (the route checks DEV_AUTH and the dev key): the location the run's
    *  first floors are fought at, in place of The Farm, so every stage can be looked at
-   *  without playing to it. Never reachable on prod, where DEV_AUTH is unset. */
+   *  without playing to it; it also lifts the level's cap on the starting tier. Never
+   *  reachable on prod, where DEV_AUTH is unset. */
   dev: { startLocation?: unknown } = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!isMode(body.mode)) return fail(400, "bad_mode");
@@ -203,7 +204,9 @@ export async function startEndless(
   if (balance.brains < entryCost) return fail(409, "no_brains");
   if (liveRaid || liveBoss || liveRun) return fail(409, "run_in_progress");
   const startTier = body.startTier === undefined ? 1 : Number(body.startTier);
-  if (!Number.isInteger(startTier) || startTier < 1 || startTier > endlessMaxStartTier(mode, level)) return fail(403, "start_tier_locked");
+  // A dev start (dev servers only) may also skip past the level's cap, to test deep tiers.
+  const maxStart = devLocation !== undefined ? 20 : endlessMaxStartTier(mode, level);
+  if (!Number.isInteger(startTier) || startTier < 1 || startTier > maxStart) return fail(403, "start_tier_locked");
   const rows = roster.results ?? [];
   const byId = new Map(rows.map((row) => [row.unit_id, row]));
   if (byId.size !== ids.length) return fail(409, "bad_roster");

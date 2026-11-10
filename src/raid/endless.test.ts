@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import enemyStats from "../../public/assets/raids/enemy_stats.json";
 import attacks from "../../public/assets/raids/attacks.json";
-import { buildUnitsForKeys } from "./CombatEngine";
+import zombiesJson from "../../public/assets/zombies.json";
+import type { ZombieDef } from "../assets";
+import { makeOwned } from "../zombie/types";
+import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import {
-  ENDLESS_ADVANCED_CLOCK_MS, ENDLESS_ALIEN_NORMAL_CLOCK_MS, ENDLESS_BOSS_CLOCK_MS, ENDLESS_DAMAGE_STEP, ENDLESS_ENTRY_COST,
+  ENDLESS_ADVANCED_CLOCK_MS, ENDLESS_ALIEN_NORMAL_CLOCK_MS, ENDLESS_BOSS_CLOCK_MS, ENDLESS_BOSS_DAMAGE,
+  ENDLESS_BEAM_WALK_IN_MS, ENDLESS_BOSS_HP_AT_T1, ENDLESS_BOSS_HP_AT_T7, ENDLESS_BOSS_MOVES, ENDLESS_PERCHED_BOSS, ENDLESS_WALK_IN, ENDLESS_WALK_IN_POOL, ENDLESS_DAMAGE_STEP, ENDLESS_ENTRY_COST,
   ENDLESS_KILLER, ENDLESS_ENTRY_THREAT_RATING, ENDLESS_SHAPE_LIMIT, ENDLESS_FLOOR_ENEMIES, ENDLESS_LINE, ENDLESS_HEALTH_STEP, ENDLESS_LATE_DO_OR_DIE_MS, ENDLESS_LOCATION_MECHANICS,
   ENDLESS_MODIFIERS, ENDLESS_NORMAL_CLOCK_MS, ENDLESS_NORMAL_DO_OR_DIE_MS, ENDLESS_SLAM_SECONDS, ENDLESS_UNLOCK_LEVEL,
   applyEndlessBoon, applyEndlessCurse, applyEndlessStop, beginEndlessRun, carryEndlessArmy, finishEndlessFight, endlessBossDraft,
@@ -11,6 +15,7 @@ import {
   scaleEndlessEnemy, type EndlessLocation, type EndlessModifierId, type EndlessStop,
 } from "./endless";
 import { countHitDamage } from "./countSlam";
+import type { CombatUnit } from "./types";
 import { mirrorIntervalSec } from "./combatStats";
 import { buildFight } from "./buildFight";
 import { ENDLESS_SHAPES, endlessFightConfig, endlessSimFor, endlessSourceUnit } from "./endlessFight";
@@ -38,7 +43,69 @@ describe("Endless Mode plan", () => {
     expect(gate.mechanicCooldownScale).toBeLessThan(middle.mechanicCooldownScale);
     const nextTier = endlessWavePlan("endless", 7, at("alien"));
     expect(nextTier.mechanicCooldownScale).toBe(1);
-    expect(nextTier.mechanicCooldownsMs.laser).toBe(26_000);
+    // The saucer's laser is a boss move: floor 2 only, at that floor's cadence.
+    expect(nextTier.mechanicCooldownsMs.laser).toBeUndefined();
+    expect(endlessWavePlan("endless", 8, at("alien")).mechanicCooldownsMs.laser).toBe(Math.round(26_000 * 0.82));
+  });
+
+  it("runs each tier as enemies, then the location's boss, then Dr. Groundhog", () => {
+    for (const location of ["farm", "ninja", "pirate", "video-game"] as const) {
+      const [one, two, three] = [1, 2, 3].map((wave) => endlessWavePlan("endless", wave, at(location)));
+      expect(one.bossKey, location).toBeNull();
+      expect(two.bossKey, location).toBe(ENDLESS_PERCHED_BOSS[location]);
+      expect(three.bossGate, location).toBe(true);
+      expect(three.bossKey, location).toBeNull();
+      for (const move of ENDLESS_BOSS_MOVES) expect(one.mechanicCooldownsMs[move], `${location} ${move}`).toBeUndefined();
+    }
+    const run = (wave: number, location: EndlessLocation) =>
+      endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: wave, stop: at(location) }, 45);
+    // Floor 2's boss perches at the back and throws his own projectiles.
+    const floor2 = run(2, "pirate");
+    expect(floor2.enemyUnits[floor2.enemyUnits.length - 1]).toMatchObject({ sourceKey: "PirateStageActorBoss", isBoss: true });
+    expect(floor2.bossThrow?.options.map((o) => o.sprite)).toEqual(["parrot.png", "chest.png", "anchor.png"]);
+    expect(run(1, "pirate").bossThrow ?? null).toBeNull();
+    expect(run(1, "pirate").enemyUnits.some((u) => u.isBoss)).toBe(false);
+    // The saucer has no body or throws: its floor 2 is its laser and beam-ins.
+    expect(run(2, "alien").enemyUnits.some((u) => u.isBoss)).toBe(false);
+    expect(endlessWavePlan("endless", 2, at("alien")).mechanicCooldownsMs).toMatchObject({ laser: expect.any(Number), summons: expect.any(Number) });
+  });
+
+  it("sends walk-in bosses from associated invasions: floor 1 from the sixth location, floor 2 from the fifth", () => {
+    const walkIns = (wave: number, location: EndlessLocation) =>
+      endlessWavePlan("endless", wave, at(location)).enemyKeys.filter(isEndlessKiller);
+    expect(walkIns(13, "ninja")).toEqual([]);
+    expect(walkIns(16, "ninja")).toEqual(["PirateStageActorBoss"]);
+    expect(walkIns(14, "pirate")).toEqual(["NinjaStageActorBoss"]);
+    expect(walkIns(17, "video-game")).toEqual(["CircusStageActorBoss"]);
+    for (const key of walkIns(25, "farm")) expect(["CityStageActorBoss", "AlienStageActorBoss"]).toContain(key);
+    expect(walkIns(25, "farm")).toHaveLength(2);
+    // A walk-in is a strong ordinary enemy: no slam, and smaller than the perched boss.
+    const plan = endlessWavePlan("endless", 17, at("ninja"));
+    const config = endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: 17, stop: at("ninja") }, 45);
+    const walkIn = config.enemyUnits.find((u) => u.sourceKey === "PirateStageActorBoss")!;
+    const perched = config.enemyUnits.find((u) => u.isBoss)!;
+    expect(walkIn.charge).toBeFalsy();
+    expect(walkIn.maxHp).toBeLessThan(perched.maxHp);
+    expect(plan.beamedWalkIns).toEqual([]);
+    // Alien Landing's are beamed down by the saucer, never its own boss or Zedzox.
+    const alien = endlessWavePlan("endless", 16, at("alien"));
+    expect(alien.enemyKeys.filter(isEndlessKiller)).toEqual([]);
+    expect(alien.beamedWalkIns).toHaveLength(1);
+    expect(alien.mechanicCooldownsMs["beam-walk-in"]).toBeGreaterThan(0);
+    for (const key of ENDLESS_WALK_IN_POOL.alien) expect(["AlienStageActorBoss", "VideoGameStageBossActor"]).not.toContain(key);
+  });
+
+  it("beams the walk-in down mid-field, where it must be beaten to clear the floor", () => {
+    // One unkillable zombie that never deploys far: the saucer only acts while the army stands.
+    const zombie = buildPlayerUnits(Array.from({ length: 6 }, (_, i) => makeOwned(`z${i}`, (zombiesJson as ZombieDef[]).find((z) => z.key.includes("Headless"))!, 0, 0, 0, 0)), { abilitySlotUnlocked: () => false, playerLevel: 45 })
+      .map((u) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7 }));
+    const config = endlessFightConfig({ ...beginEndlessRun("endless", zombie), nextWave: 16, stop: at("alien") }, 45);
+    expect(config.endlessMechanics.walkInTemplates).toHaveLength(1);
+    const sim = endlessSimFor(config);
+    for (let t = 0; t < ENDLESS_BEAM_WALK_IN_MS + 100; t += 50) sim.step(50);
+    const beamed = sim.units.find((u) => u.team === "enemy" && u.isSummon);
+    expect(beamed?.sourceKey).toBe(config.endlessMechanics.walkInTemplates![0].sourceKey);
+    expect(["hold", "fight"]).toContain(beamed?.state); // standing its ground, or already fighting
   });
 
   it("takes its location and modifier from the stop the player chose, not the wave", () => {
@@ -158,25 +225,35 @@ describe("Endless Mode plan", () => {
     expect(endlessWavePlan("endless", 21).damageScale).toBeCloseTo(6.893, 2);
   });
 
-  it("climbs Dr. Groundhog's hit smoothly to 3x by T7, without changing Nightmare", () => {
-    expect(endlessBossMultiplier("endless", 3)).toBe(1);
-    expect(endlessBossMultiplier("endless", 21)).toBeCloseTo(3, 9);
-    expect(endlessBossMultiplier("endless", 30)).toBeCloseTo(3, 9);
+  it("gives Dr. Groundhog the same extra on his hit at every tier, without changing Nightmare", () => {
+    for (const wave of [3, 12, 21, 30]) expect(endlessBossMultiplier("endless", wave)).toBe(ENDLESS_BOSS_DAMAGE);
     expect(endlessBossMultiplier("nightmare", 21)).toBe(1);
-    for (let wave = 6; wave <= 21; wave += 3) {
-      const step = endlessBossMultiplier("endless", wave) / endlessBossMultiplier("endless", wave - 3);
-      expect(step).toBeCloseTo(3 ** (1 / 6), 9);
+  });
+
+  it("makes Dr. Groundhog out-damage the tier's ordinary enemies", () => {
+    // Damage per second of one hit, the way the floors line up: one enemy at a time. Measured
+    // against floor 1's line, the tier's plain enemies (floor 2 adds the bosses).
+    const dps = (u: CombatUnit) => countHitDamage(u) / (u.attackCooldownMs / 1000);
+    for (let tier = 1; tier <= 12; tier++) {
+      const at = (wave: number) => endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: wave }, 45).enemyUnits;
+      const floor = at(tier * 3 - 2).filter((u) => !isEndlessKiller(u.sourceKey));
+      const floorDps = floor.reduce((sum, u) => sum + dps(u), 0) / floor.length;
+      const boss = at(tier * 3).find((u) => u.isBoss)!;
+      const ratio = dps(boss) / floorDps;
+      expect(ratio, `T${tier}`).toBeGreaterThan(1.1);
+      expect(ratio, `T${tier}`).toBeLessThan(1.8);
     }
   });
 
-  it("climbs Dr. Groundhog's health to 1,000,000 at T7 with no tier more than 1.6x the last", () => {
+  it("climbs Dr. Groundhog's health smoothly to ENDLESS_BOSS_HP_AT_T7, no tier more than 1.75x the last", () => {
     const hp = (wave: number) => endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: wave }, 45)
       .enemyUnits.find((u) => u.isBoss)!.maxHp;
-    expect(hp(21)).toBe(1_000_000);
+    expect(hp(3)).toBe(ENDLESS_BOSS_HP_AT_T1);
+    expect(hp(21)).toBe(ENDLESS_BOSS_HP_AT_T7);
     for (let wave = 6; wave <= 36; wave += 3) {
       const step = hp(wave) / hp(wave - 3);
       expect(step, `T${wave / 3}`).toBeGreaterThan(1.1);
-      expect(step, `T${wave / 3}`).toBeLessThan(1.6);
+      expect(step, `T${wave / 3}`).toBeLessThan(1.75);
     }
   });
 
@@ -285,27 +362,30 @@ describe("Endless Mode plan", () => {
     [key], null, enemyStats as unknown as Record<string, import("./types").EnemyStat>, attacks,
   )[0];
 
-  it("makes the former bosses killers: less health than the line, more damage, and a slam", () => {
+  it("makes a perched boss hit harder than the line and slam, and a walk-in hit harder without one", () => {
     const plan = endlessWavePlan("endless", 8, at("farm"));
-    const scaled = (key: string) => scaleEndlessEnemy(endlessSourceUnit(key)!, plan, [], ENDLESS_SHAPES);
+    const scaled = (key: string, isBoss: boolean) => scaleEndlessEnemy({ ...endlessSourceUnit(key)!, isBoss }, plan, [], ENDLESS_SHAPES);
     const dps = (u: ReturnType<typeof scaled>) => countHitDamage(u) / (u.attackCooldownMs / 1000);
-    const line = scaled("AlienStageActorMinion");
+    const line = scaled("AlienStageActorMinion", false);
     for (const key of ["FarmStageActorBoss", "NinjaStageActorBoss", "VideoGameStageBossActor"]) {
-      const killer = scaled(key);
+      const perched = scaled(key, true);
+      const walkIn = scaled(key, false);
       expect(isEndlessKiller(key)).toBe(true);
-      expect(killer.maxHp).toBeLessThan(line.maxHp);
-      expect(dps(killer)).toBeGreaterThan(dps(line) * ENDLESS_KILLER.damage / 2);
-      expect(killer.charge).toMatchObject({ target: "front-deployed" });
-      expect(killer.charge?.damage).toBeCloseTo(ENDLESS_SLAM_SECONDS * dps(killer), -1);
+      expect(dps(perched)).toBeGreaterThan(dps(line) * ENDLESS_KILLER.damage / 2);
+      expect(dps(walkIn)).toBeGreaterThan(dps(line) * ENDLESS_WALK_IN.damage / 2);
+      expect(walkIn.maxHp).toBeLessThan(perched.maxHp);
+      expect(perched.charge).toMatchObject({ target: "front-deployed" });
+      expect(perched.charge?.damage).toBeCloseTo(ENDLESS_SLAM_SECONDS * dps(perched), -1);
+      expect(walkIn.charge).toBeFalsy();
     }
     // The captain's mirrored blow is his killing move: no second clock on top of it.
     expect(isEndlessKiller("PirateStageActorBoss")).toBe(true);
-    expect(scaled("PirateStageActorBoss").charge).toBeFalsy();
+    expect(scaled("PirateStageActorBoss", true).charge).toBeFalsy();
     expect(scaleEndlessEnemy(enemy("FarmStageActorFarmhand"), plan).charge).toBeFalsy();
-    expect(endlessKillerCount(1, 2)).toBe(0);
-    expect(endlessKillerCount(3, 2)).toBeGreaterThan(0);
-    expect(endlessWavePlan("endless", 8, at("farm")).enemyKeys).toContain("FarmStageActorBoss");
-    expect(endlessWavePlan("endless", 8, at("alien")).enemyKeys).not.toContain("FarmStageActorBoss");
+    expect(endlessKillerCount(5, 1)).toBe(0);
+    expect(endlessKillerCount(6, 1)).toBe(1);
+    expect(endlessKillerCount(4, 2)).toBe(0);
+    expect(endlessKillerCount(5, 2)).toBe(1);
   });
 
   it("applies each modifier's stats", () => {
@@ -325,7 +405,7 @@ describe("Endless Mode plan", () => {
 
   it("makes a slam's damage follow Heavy Hitters", () => {
     const killer = (modifier: EndlessModifierId | null) =>
-      scaleEndlessEnemy(enemy("FarmStageActorBoss"), endlessWavePlan("endless", 8, at("farm", modifier)), [], ENDLESS_SHAPES);
+      scaleEndlessEnemy({ ...enemy("FarmStageActorBoss"), isBoss: true }, endlessWavePlan("endless", 8, at("farm", modifier)), [], ENDLESS_SHAPES);
     expect(killer("heavy-hitters").charge!.damage).toBeCloseTo(killer(null).charge!.damage * 2.5, -1);
   });
 

@@ -19,11 +19,14 @@ function captainSwingGaps(body: string): { gaps: number[]; speciesSec: number } 
   const party = Array.from({ length: 6 }, (_, i) => makeOwned(`z${i}`, def, 0, 0, 0, 0));
   const units = buildPlayerUnits(party, { abilitySlotUnlocked: () => false, playerLevel: 45 })
     .map((u) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7 }));
-  const run = { ...beginEndlessRun("endless", units, "0", 1), nextWave: 13, stop: { location: "pirate" as const, modifier: null } };
+  // The captain walks in at the Ninja Dojo from the sixth location (his own ship perches him).
+  const run = { ...beginEndlessRun("endless", units, "0", 1), nextWave: 16, stop: { location: "ninja" as const, modifier: null } };
   const config = endlessFightConfig(run, 45);
   config.enemyUnits = config.enemyUnits.filter((u) => u.sourceKey === "PirateStageActorBoss").slice(0, 1)
     .map((u) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7 }));
   expect(config.enemyUnits).toHaveLength(1);
+  // Nothing else on the field: the Dojo's smoke bomb would drop a flanker in.
+  config.endlessMechanics = { ...config.endlessMechanics, cooldownsMs: {} };
   const sim = endlessSimFor(config);
   const internals = sim as unknown as { tryAttack(u: { team: string; timerMs: number }, foe: unknown, dt: number): void };
   const original = internals.tryAttack.bind(sim);

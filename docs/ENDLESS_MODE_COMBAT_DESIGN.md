@@ -17,8 +17,7 @@ profiles and still require balance runs.
   valuable and enabling complementary combinations such as a durable frontliner with a
   fragile high-damage partner.
 - After wave 16, flatten the stat ramp to +4% damage and +3% HP per wave in normal Endless
-  (+3.5% and +2.5% in Nightmare). Composition and the 7x normal T7+ boss gate add later
-  difficulty.
+  (+3.5% and +2.5% in Nightmare). Composition adds later difficulty.
 - A close win should sometimes cost two or three zombies. Strong wins can still have no
   casualties, and close losses should sometimes leave survivors. Avoid making outcomes
   collapse into either a perfect army or a full wipe.
@@ -132,10 +131,26 @@ the beam-in selection.
 
 ## Tiers, clocks and overtime
 
-**Status: built.** A tier is three fights at one location: normal, advanced, then the Epic Boss.
+**Status: built.** A tier is three fights at one location (owner, 2026-11-10):
+
+| Floor | What is on it |
+|---|---|
+| 1 | The location's ordinary enemies. No boss, no projectiles, no boss moves. Walk-in bosses join from the sixth location (T6). |
+| 2 | A bigger line, then the location's own invasion boss: perched at the back throwing his own projectiles at his own pace, coming down to fight last, with a slam. His moves (carrot wall, pixel fire, turning zombies, the saucer's laser and beam-ins) happen only here. Walk-ins from T5. |
+| 3 | Dr. Groundhog alone. |
+
+Perched bosses: the Farm Old McDonnell, the Ninja Dojo the Ninja boss, the Pirate Ship the
+captain (8 s throws), Video Game Zedzox. Alien Landing's saucer has no body or throws in its own
+invasion either; its floor 2 is its laser and beam-ins. Throws deal, on average, half a line
+enemy's damage per second (`ENDLESS_THROW_SHARE`), sized with the modifier and curses.
+
+Location traits that are not a boss's moves (the Ninja smoke bomb, the pirates' mirrored speed)
+stay on both floors.
+
 Enemies come out one at a time on every floor except Alien, which is built around its swarm
-(owner, 2026-11-07). Difficulty comes from each enemy's stats instead, scaled as described under "How enemies are scaled". The killers' slam is 6 seconds of their
-damage on the front zombie, and grows with their hit under Heavy Hitters.
+(owner, 2026-11-07). Difficulty comes from each enemy's stats instead, scaled as described under
+"How enemies are scaled". The perched boss's slam is 6 seconds of his damage on the front
+zombie, and grows with his hit under Heavy Hitters.
 
 Endless uses the Halloween clock model. When the clock runs out, the fight goes into Do or Die:
 enemies swing twice as fast and hit twice as hard, and running that out too is a loss. Epic Boss
@@ -148,11 +163,23 @@ gates no longer use their own round timer, so Dr. Groundhog cannot escape or enr
 | Boss gate | 120 s | 60 s | Dr. Groundhog, no modifier | |
 | Alien normal / advanced | 120 s / 150 s | 30 s / 60 s | 20, as authored | as authored |
 
-**Killers.** The former invasion bosses, as ordinary enemies, have less health than the line, a far
-harder hit and the Count's slam: a 3 s telegraphed wind-up, then 3 of their hits on the front
-zombie, with 7 s between slams. Stuns fill a bar that breaks it, and a timed Block reduces it.
-Stun resistance shortens stuns and slows that bar; immunity stops both, leaving Block.
-`endlessKillerCount` sets how many stand on a floor: the place to tune how often fights kill.
+**Walk-in bosses.** Bosses from each location's associated invasions fight in the line as strong
+ordinary enemies: 1.2x a line enemy's health and 1.4x its damage on top of their shape, no throws,
+no slam, no special moves (`ENDLESS_WALK_IN`). The perched boss is 2x and 2x, with the slam
+(`ENDLESS_KILLER`): a 3 s telegraphed wind-up, then 3 of his hits on the front zombie, 7 s apart.
+Stuns fill a bar that breaks it, and a timed Block reduces it.
+
+| Location | Walk-ins (`ENDLESS_WALK_IN_POOL`) |
+|---|---|
+| The Farm | The Lawyer boss, the alien boss |
+| Ninja Dojo | The pirate captain |
+| Pirate Ship | The Ninja boss |
+| Video Game | The Ringmaster |
+| Alien Landing | Beamed down mid-field by the saucer, one every 20 s: any boss but its own and Zedzox |
+
+`endlessKillerCount` sets how many: floor 1 has 1 from T6 and 2 from T9; floor 2 has 1 from T5,
+2 from T7, 3 from T9. A beamed walk-in arrives like an alien invasion's abductee, in a light
+pillar, and stands its ground; it must be beaten to clear the floor.
 
 **Choosing a location. Status: built, in the boss screen.** After each boss, the player chooses
 from two other locations, each with its own modifier. T1 is always the Farm with no modifier.
@@ -180,7 +207,12 @@ moves, so Endless adds one a tier:
 | T2 | Slam: 3 s swell, then 4 of his hits on the front zombie, 9 s between | Stuns break it, a timed Block reduces it, and each tap on him takes 10% off, down to half |
 | T3 | Launch: 1.5 s tell, then the front zombie takes one hit and is thrown to the back, 12 s between | A stun during the tell |
 
-From T7 his hit is 7x and his health 3x. Dual-invasion mechanics are still only an idea.
+Harder hits, less health (owner, 2026-11-10): his hit is 5x the ordinary damage ramp at every
+tier (`ENDLESS_BOSS_DAMAGE`), about 1.2-1.7x a line enemy's damage per second, and his slam is
+1.5 of his hits. His health climbs from 12,000 at T1 to 300,000 at T7 in equal x1.71 steps. His
+fights run 20-55 s instead of 33-80 s and cost about one zombie through the middle tiers, at the
+same depth: L45 clears T7 57% and T8 54% (before: 54% and 53%). A 6.7x hit cost a whole tier of
+depth even with his health cut. Dual-invasion mechanics are still only an idea.
 
 To measure with real armies (`src/raid/harness/report/endless.report.ts`):
 
@@ -218,10 +250,9 @@ enemy's (`ENDLESS_ALIEN_SWARM`, the owner's pick between the measured 45% and 60
 floor lost 5% at L40-45 and 14% at L30, level with the Ninja Dojo; at 60%, 10% and 26%. Its boss
 is Dr. Groundhog alone and is never scaled down.
 
-**Dr. Groundhog and the late ramp. Status: built (owner, 2026-11-08).** No cliffs. His health
-climbs from 62,648 at T1 to 1,000,000 at T7 in equal x1.59 steps, then with the ordinary health
-ramp; his hit follows the ordinary damage ramp times an extra that builds evenly (x1.20 a tier) to
-3x at T7 and holds. This replaced a 7x hit and 3x health jump at the T7 boss, and the one-tier
+**Dr. Groundhog and the late ramp. Status: built (owner, 2026-11-08; his numbers re-cut
+2026-11-10, see "Dr. Groundhog" above).** No cliffs. This replaced a 7x hit and 3x health jump at
+the T7 boss, and the one-tier
 stat pull-back after it that made T8 a copy of T7. Past the T7 boss the ordinary ramp flattens to
 1.11x damage and 1.13x health a tier, so each tier there asks for an army about 25% stronger
 rather than about 60% (`ENDLESS_LATE_*`).

@@ -5508,7 +5508,31 @@ export class BattleSim {
         this.runSpecial({ name: "turnZombie", weight: 1, castMs: 0, damage: 0, cooldownMs: 0 });
       } else if (key === "carrot-wall") {
         this.runSpecial({ name: "wall", weight: 1, castMs: 0, damage: 0, cooldownMs: 0 });
+      } else if (key === "beam-walk-in") {
+        this.endlessBeamWalkIn();
       }
+    }
+  }
+
+  /** Alien Landing's saucer beams its next walk-in boss down mid-field, the way an alien
+   *  invasion's abductee arrives: inside a light pillar (RaidScene draws it for a summon),
+   *  standing its ground as a roadblock. Unlike an abductee it must be beaten to clear the
+   *  floor, which every enemy must (playerWon). The count sent rides the snapshotted timers. */
+  private endlessBeamWalkIn() {
+    const sent = this.endlessMechanicTimers["beam-walk-in:sent"] ?? 0;
+    const template = this.endlessMechanics?.walkInTemplates?.[sent];
+    if (!template) return;
+    this.endlessMechanicTimers["beam-walk-in:sent"] = sent + 1;
+    const boss = this.spawnEnemy(template);
+    boss.isSummon = true;
+    boss.isBlocker = true;
+    boss.state = "hold";
+    boss.x = SUMMON_SPAWN_X;
+    boss.y = CENTER_Y;
+    boss.prevX = boss.x;
+    boss.prevY = boss.y;
+    for (const p of this.players) {
+      if (p.alive && p.x > boss.x + 0.5) p.passedBlockers.push(boss.id);
     }
   }
 

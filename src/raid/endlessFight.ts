@@ -17,11 +17,11 @@ import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import {
   applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
   endlessBossMultiplier, endlessClockMs, endlessDoOrDieMs, endlessPeerShapes, endlessPlayerUnits, endlessWavePlan,
-  finishEndlessFight, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, type EndlessBoon, type EndlessRunState,
+  finishEndlessFight, type EndlessCurse, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, scaleEndlessThrow, type EndlessBoon, type EndlessRunState,
 } from "./endless";
 import { buildEndlessStageMechanics } from "./endlessMechanics";
 import { ENDLESS_LOCATION_RAID } from "./endlessLoot";
-import type { AttackDef, BossSpecial, CombatUnit, EnemyStat, EndlessStageMechanics, WaveCadence } from "./types";
+import type { AttackDef, BossSpecial, BossThrowConfig, CombatUnit, EnemyStat, EndlessStageMechanics, WaveCadence } from "./types";
 
 const enemyStats = enemyStatsJson as Record<string, EnemyStat>;
 const attacks = attacksJson as Record<string, AttackDef>;
@@ -52,6 +52,26 @@ export interface EndlessFightConfig {
   doOrDieMs?: number;
   endlessMechanics: EndlessStageMechanics;
   waveCadence?: WaveCadence;
+  /** The perched location boss's projectiles (ordinary floors); omitted on a run pinned
+   *  before floors had their bosses, and on boss gates and Alien Landing. */
+  bossThrow?: BossThrowConfig | null;
+}
+
+/** Seconds between a perched boss's throws: each invasion's own pace (raids.json throwSpeed;
+ *  the Worker does not bundle raids.json, so the four are written out here). */
+export const ENDLESS_THROW_INTERVAL_S: Readonly<Record<string, number>> = {
+  FarmStageActorBoss: 2, NinjaStageActorBoss: 2, VideoGameStageBossActor: 2, PirateStageActorBoss: 8,
+};
+
+/** A perched boss's throws on this floor: the projectiles from his own boss actions, paced as
+ *  in his invasion, sized by scaleEndlessThrow. */
+export function endlessBossThrow(plan: EndlessWavePlan, curses: readonly EndlessCurse[]): BossThrowConfig | null {
+  if (!plan.bossKey) return null;
+  const options = (enemyStats[plan.bossKey]?.bossActions ?? [])
+    .filter((action) => action.name === "throw" && action.sprite)
+    .map((action) => ({ damage: action.damage ?? 1, weight: action.frequency, sprite: action.sprite!, spriteSize: action.spriteSize ?? 32 }));
+  if (!options.length) return null;
+  return scaleEndlessThrow({ intervalMs: (ENDLESS_THROW_INTERVAL_S[plan.bossKey] ?? 2) * 1000, options }, plan, curses);
 }
 
 function epicBossUnit(plan: EndlessWavePlan): { unit: CombatUnit; specials: BossSpecial[] } {
@@ -121,12 +141,14 @@ export function endlessFightConfig(run: EndlessRunState, playerLevel: number): E
   }
   // Built without the player's level: the Farm invasion's level pace speeds its enemies up as
   // a starter raid is out-levelled, which is not Endless's ramp.
-  const enemyUnits = buildUnitsForKeys([...plan.enemyKeys], null, enemyStats, attacks, {
+  // The location's boss is the last unit, perched and throwing until the line falls.
+  const enemyUnits = buildUnitsForKeys([...plan.enemyKeys], plan.bossKey, enemyStats, attacks, {
     raidId: ENDLESS_LOCATION_RAID[plan.location],
   }).map((unit) => scaleEndlessEnemy(unit, plan, run.curses, ENDLESS_SHAPES));
   return {
     wave: plan.wave, ...where,
     playerUnits: endlessPlayerUnits(run), enemyUnits, bossSpecials: [],
+    bossThrow: endlessBossThrow(plan, run.curses),
     bossFallsFromSky: false, noDistractions: false, escapeOnRoundEnd: false,
     timeLimitMs, doOrDieMs,
     endlessMechanics: mechanics,
@@ -147,6 +169,7 @@ export function endlessSimFor(config: EndlessFightConfig) {
     doOrDieMs: config.doOrDieMs,
     endlessMechanics: config.endlessMechanics,
     waveCadence: config.waveCadence,
+    bossThrow: config.bossThrow ?? null,
   });
 }
 

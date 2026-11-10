@@ -13,7 +13,7 @@ import { countHitDamage, COUNT_SLAM_RECOVERY_MS, COUNT_SLAM_WINDUP_MS } from "./
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import { mirrorIntervalSec } from "./combatStats";
 import { seededRandom } from "./RaidCatalog";
-import type { CombatUnit } from "./types";
+import type { BossThrowConfig, CombatUnit } from "./types";
 
 export type EndlessMode = "endless" | "nightmare";
 export type EndlessLocation = "farm" | "ninja" | "alien" | "video-game" | "pirate";
@@ -108,17 +108,41 @@ export const ENDLESS_SHAPE_LIMIT = 2;
 /** An enemy's damage and health against its invasion's baseline (1 = average). */
 export interface EndlessShape { damage: number; hp: number }
 
-/** The former invasion bosses, on a floor: they are there to kill zombies, while the ordinary
- *  line whittles them down and only occasionally finishes one (owner, 2026-11-05). */
+/** Invasion bosses. On a floor they are either the location's own boss, perched on floor 2
+ *  (ENDLESS_PERCHED_BOSS), or a WALK-IN: a boss from an associated invasion fighting in the
+ *  line as a strong ordinary enemy (owner, 2026-11-10). Their shapes are measured against
+ *  each other, not against a crew. */
 const ENDLESS_KILLER_KEYS: ReadonlySet<string> = new Set([
-  "FarmStageActorBoss", "NinjaStageActorBoss", "VideoGameStageBossActor", "PirateStageActorBoss",
+  "FarmStageActorBoss", "CityStageActorBoss", "PirateStageActorBoss", "NinjaStageActorBoss",
+  "AlienStageActorBoss", "BeachStageActorBoss", "CircusStageActorBoss", "VideoGameStageBossActor",
+  "TreeWorldStageBossActor", "ValentinesDayStageActorBoss", "HalloweenStageActorBoss",
 ]);
 export function isEndlessKiller(sourceKey: string): boolean {
   return ENDLESS_KILLER_KEYS.has(sourceKey);
 }
-/** A killer's damage and health on top of its shape: less health than the line, double the
- *  damage. */
-export const ENDLESS_KILLER = { hp: 0.8, damage: 2 } as const;
+/** The perched floor-2 boss on top of his shape: double a line enemy's damage, more health,
+ *  and a slam (scaleEndlessEnemy). */
+export const ENDLESS_KILLER = { hp: 2, damage: 2 } as const;
+/** A walk-in boss: weaker than a perched boss, stronger than the line, and no slam. */
+export const ENDLESS_WALK_IN = { hp: 1.2, damage: 1.4 } as const;
+
+/** Bosses from each location's associated invasions (the dual invasions' pairs; the Farm also
+ *  gets the alien boss). They walk in late in the line. Alien Landing's are beamed down by
+ *  the saucer instead: any boss but its own and Zedzox. */
+export const ENDLESS_WALK_IN_POOL: Readonly<Record<EndlessLocation, readonly string[]>> = {
+  farm: ["CityStageActorBoss", "AlienStageActorBoss"],
+  ninja: ["PirateStageActorBoss"],
+  pirate: ["NinjaStageActorBoss"],
+  "video-game": ["CircusStageActorBoss"],
+  alien: [
+    "FarmStageActorBoss", "CityStageActorBoss", "PirateStageActorBoss", "NinjaStageActorBoss",
+    "BeachStageActorBoss", "CircusStageActorBoss", "TreeWorldStageBossActor",
+    "ValentinesDayStageActorBoss", "HalloweenStageActorBoss",
+  ],
+};
+/** Seconds into an Alien Landing floor before the saucer beams down its first walk-in boss,
+ *  then between beams. */
+export const ENDLESS_BEAM_WALK_IN_MS = 20_000;
 
 /** Starting points for tuning, not a hard cap: difficulty continues to grow at every
  * wave. `damage` and `health` are applied after the entry threat floor and role band. */
@@ -133,18 +157,28 @@ export const NIGHTMARE_HEALTH_STEP = 0.045;
 /** Dr. Groundhog climbs smoothly (owner, 2026-11-08: no cliff). This replaced a 7x hit and 3x
  *  health jump at the T7 boss, which also held every later tier's stats one tier back.
  *
- *  Health: from his T1 health to ENDLESS_BOSS_HP_AT_T7 in equal steps, x1.59 a tier (doubling
- *  every tier and a half), then the ordinary health ramp from there.
- *  Damage: the ordinary damage ramp, times an extra that builds evenly to
- *  ENDLESS_BOSS_DAMAGE_AT_T7 by T7 and holds there. */
-export const ENDLESS_BOSS_HP_AT_T7 = 1_000_000;
+ *  Health: ENDLESS_BOSS_HP_AT_T1 to ENDLESS_BOSS_HP_AT_T7 in equal steps (x1.71 a tier), then
+ *  the ordinary health ramp from there.
+ *  Damage: the ordinary damage ramp, times ENDLESS_BOSS_DAMAGE at every tier.
+ *
+ *  Harder hits, less health (owner, 2026-11-10): his fights run 20-55 s instead of 33-80 s and
+ *  cost about one zombie through the middle tiers, at the same overall depth (real prod
+ *  armies, expert pilot, 3 weeks: L45 clears T7 57%, T8 54%; before, 54% and 53%). Measured
+ *  through harness/report/endless.report.ts. */
+export const ENDLESS_BOSS_HP_AT_T1 = 12_000;
+export const ENDLESS_BOSS_HP_AT_T7 = 300_000;
 /** Past the T7 boss the ramp flattens (owner, 2026-11-08): a tier asks for about a 25% stronger
  *  army (1.11x damage and 1.13x health a tier) instead of about 60%, so a clearly better army
  *  goes clearly deeper. Rates are per depth; a tier is 4 depth. */
 export const ENDLESS_LATE_RAMP_FROM_WAVE = 7 * ENDLESS_FIGHTS_PER_LOCATION;
 export const ENDLESS_LATE_DAMAGE_PER_TIER = 1.11;
 export const ENDLESS_LATE_HEALTH_PER_TIER = 1.13;
-export const ENDLESS_BOSS_DAMAGE_AT_T7 = 3;
+/** Dr. Groundhog's hit over the ordinary damage ramp (owner, 2026-11-10: he was hitting
+ *  softer than the floors before him). At x5 his damage per second is about 1.2-1.7x a line
+ *  enemy's at every tier. It used to climb from x1 at T1 to x3 at T7, which left him at a
+ *  quarter of a floor enemy's damage at T1 and two thirds of it from T7. x6.7 cost a tier of
+ *  depth even with his health cut. */
+export const ENDLESS_BOSS_DAMAGE = 5;
 export const ENDLESS_BOSS_CURVE_TIER = 7;
 
 /** Every Epic Boss's hit points on top of the ramp: he should last about as long as a floor. */
@@ -152,7 +186,7 @@ export const ENDLESS_BOSS_HP_SCALE = 14;
 /** Dr. Groundhog's Endless moves, added a tier at a time so a boss gate keeps changing. */
 export const ENDLESS_BOSS_SLAM_TIER = 2;
 export const ENDLESS_BOSS_LAUNCH_TIER = 3;
-export const ENDLESS_BOSS_SLAM_MULT = 4;
+export const ENDLESS_BOSS_SLAM_MULT = 1.5;
 /** Each tap on a winding-up slam takes this much off it, down to half. */
 export const ENDLESS_CHARGE_TAP_REDUCE = 0.1;
 
@@ -203,18 +237,18 @@ export const ENDLESS_ALIEN_SWARM = { hp: 0.5, damage: 0.5 } as const;
  *  only Alien, built around a swarm, fields several at once. */
 export const ENDLESS_FLOOR_ENEMIES: readonly [number, number] = [8, 12];
 
-/** Former bosses on a floor: the place to tune how often a fight kills something. */
+/** Walk-in bosses on a floor (owner, 2026-11-10): floor 1 is just enemies until the sixth
+ *  location, floor 2 has its perched boss plus walk-ins from T5. */
 export function endlessKillerCount(tier: number, locationFight: number): number {
-  if (locationFight === 1) return tier >= 9 ? 2 : tier >= 5 ? 1 : 0;
-  return tier >= 9 ? 4 : tier >= 7 ? 3 : tier >= 5 ? 2 : tier >= 3 ? 1 : 0;
+  if (locationFight === 1) return tier >= 9 ? 2 : tier >= 6 ? 1 : 0;
+  return tier >= 9 ? 3 : tier >= 7 ? 2 : tier >= 5 ? 1 : 0;
 }
 
-/** The extra on Dr. Groundhog's hit over the ordinary damage ramp: 1 at T1, building evenly
- *  (x1.20 a tier) to ENDLESS_BOSS_DAMAGE_AT_T7 at T7 and holding. Nightmare keeps its own. */
+/** The extra on Dr. Groundhog's hit over the ordinary damage ramp: ENDLESS_BOSS_DAMAGE at
+ *  every boss gate, so the ramp alone carries him tier to tier. Nightmare keeps its own. */
 export function endlessBossMultiplier(mode: EndlessMode, wave: number): number {
-  if (mode !== "endless") return 1;
-  const tier = Math.ceil(Math.max(1, wave) / ENDLESS_FIGHTS_PER_LOCATION);
-  return ENDLESS_BOSS_DAMAGE_AT_T7 ** ((Math.min(tier, ENDLESS_BOSS_CURVE_TIER) - 1) / (ENDLESS_BOSS_CURVE_TIER - 1));
+  void wave;
+  return mode === "endless" ? ENDLESS_BOSS_DAMAGE : 1;
 }
 
 /** Dr. Groundhog's health at a boss gate. `t1Hp` is his T1 health (base x scale x T1's ramp);
@@ -223,7 +257,8 @@ export function endlessBossHp(mode: EndlessMode, wave: number, t1Hp: number, hea
   const tier = Math.ceil(Math.max(1, wave) / ENDLESS_FIGHTS_PER_LOCATION);
   if (mode !== "endless") return t1Hp;
   const steps = (ENDLESS_BOSS_CURVE_TIER - 1);
-  if (tier <= ENDLESS_BOSS_CURVE_TIER) return t1Hp * (ENDLESS_BOSS_HP_AT_T7 / t1Hp) ** ((tier - 1) / steps);
+  const start = ENDLESS_BOSS_HP_AT_T1;
+  if (tier <= ENDLESS_BOSS_CURVE_TIER) return start * (ENDLESS_BOSS_HP_AT_T7 / start) ** ((tier - 1) / steps);
   return ENDLESS_BOSS_HP_AT_T7 * healthScale / t7Scale;
 }
 /** The Halloween clock model (owner, 2026-11-05): when the clock runs out the fight is not
@@ -273,7 +308,29 @@ export interface EndlessWavePlan {
   /** Absolute environmental mechanic cooldowns after local frequency scaling. */
   mechanicCooldownsMs: Readonly<Record<string, number>>;
   bossId: "dr-groundhog" | "galactic-groundhog" | null;
+  /** The location's own invasion boss, perched at the back of an ordinary floor and throwing
+   *  as in his invasion, then coming down to fight last: floor 2 only. Null at Alien Landing,
+   *  whose saucer acts through its laser and beam-ins (ENDLESS_LOCATION_MECHANICS). */
+  bossKey: string | null;
+  /** Alien Landing's walk-in bosses, beamed down by the saucer one at a time. */
+  beamedWalkIns: readonly string[];
 }
+
+/** The location mechanics that are a boss's own moves: floor 2 only. */
+export const ENDLESS_BOSS_MOVES: ReadonlySet<string> = new Set(["carrot-wall", "laser", "summons", "pixel-fire", "turn-zombie"]);
+
+/** Each location's own invasion boss (owner, 2026-11-10: ordinary floors keep their bosses as
+ *  in the invasions, projectiles and all). */
+export const ENDLESS_PERCHED_BOSS: Readonly<Partial<Record<EndlessLocation, string>>> = {
+  farm: "FarmStageActorBoss",
+  ninja: "NinjaStageActorBoss",
+  "video-game": "VideoGameStageBossActor",
+  pirate: "PirateStageActorBoss",
+};
+
+/** A perched boss's throws, as a share of a line enemy's damage per second: they chip at the
+ *  army all floor long, but the line is still what kills. */
+export const ENDLESS_THROW_SHARE = 0.5;
 
 interface LocationMechanics {
   /** This describes the area's always-on mechanic set. Frequency changes; membership does not. */
@@ -338,7 +395,7 @@ export function endlessInvasionOf(sourceKey: string): string {
 }
 
 /** Every enemy an Endless floor can field. */
-export const ENDLESS_ENEMY_KEYS: readonly string[] = [...new Set([...ENEMY_BANDS.flat(), ...Object.values(LOCATION_POOLS).flat()])];
+export const ENDLESS_ENEMY_KEYS: readonly string[] = [...new Set([...ENEMY_BANDS.flat(), ...Object.values(LOCATION_POOLS).flat(), ...Object.values(ENDLESS_WALK_IN_POOL).flat()])];
 
 /** A source enemy's damage per second, in hit points. A mirroring pirate's is measured
  *  against the reference zombie, since its own clock never paces it. */
@@ -397,8 +454,9 @@ export function scaleEndlessEnemy(
   shapes: Readonly<Record<string, EndlessShape>> = {},
 ): CombatUnit {
   const killer = isEndlessKiller(unit.sourceKey);
+  const perched = killer && unit.isBoss;
   const shape = shapes[unit.sourceKey] ?? { damage: 1, hp: 1 };
-  const profile = killer ? ENDLESS_KILLER : ENDLESS_LINE;
+  const profile = perched ? ENDLESS_KILLER : killer ? ENDLESS_WALK_IN : ENDLESS_LINE;
   const swarm = plan.location === "alien" && !plan.bossGate ? ENDLESS_ALIEN_SWARM : { hp: 1, damage: 1 };
   const result = { ...unit, attacks: unit.attacks.map((attack) => ({ ...attack })) };
   const damage = ENDLESS_ENTRY_THREAT_RATING * shape.damage * profile.damage * swarm.damage * plan.damageScale;
@@ -414,10 +472,11 @@ export function scaleEndlessEnemy(
   result.maxHp = Math.max(1, Math.round(health * 100));
   result.hp = result.maxHp;
   const final = applyEndlessEnemyCurses(applyEndlessModifier(result, plan.modifier), curses);
-  // Priced last: seconds of the killer's base damage, then grown with its HIT as modifiers and
-  // curses left it (Heavy Hitters' slower, 2.5x hits make a 2.5x slam). The pirate captain
-  // carries none: his mirrored blow IS his killing move, and a second clock breaks its tempo.
-  if (killer && !unit.mirrorsOpponentSpeed) {
+  // The perched boss's slam, priced last: seconds of his base damage, then grown with his HIT
+  // as modifiers and curses left it (Heavy Hitters' slower, 2.5x hits make a 2.5x slam). The
+  // pirate captain carries none: his mirrored blow IS his killing move, and a second clock
+  // breaks its tempo. Walk-ins carry none: they are strong ordinary enemies.
+  if (perched && !unit.mirrorsOpponentSpeed) {
     const baseHit = countHitDamage(result);
     const dps = baseHit / (result.attackCooldownMs / 1000);
     final.charge = {
@@ -432,6 +491,24 @@ export function scaleEndlessEnemy(
     };
   }
   return final;
+}
+
+/** A perched boss's throws on this floor: the invasion's own projectiles and their relative
+ *  sizes, resized so that on average they deal ENDLESS_THROW_SHARE of a line enemy's damage
+ *  per second, then the modifier's and curses' damage on top. */
+export function scaleEndlessThrow(
+  thrown: BossThrowConfig, plan: EndlessWavePlan, curses: readonly EndlessCurse[] = [],
+): BossThrowConfig {
+  const weight = thrown.options.reduce((sum, o) => sum + o.weight, 0);
+  const average = thrown.options.reduce((sum, o) => sum + o.weight * o.damage, 0) / Math.max(1e-9, weight);
+  const swarm = plan.location === "alien" ? ENDLESS_ALIEN_SWARM.damage : 1;
+  const lineDps = ENDLESS_ENTRY_THREAT_RATING * ENDLESS_LINE.damage * swarm * plan.damageScale;
+  // A modifier's damage per second (Heavy Hitters' 2.5x hits come half as often).
+  const mod = plan.modifier ? ENDLESS_MODIFIERS[plan.modifier] : null;
+  let extra = (mod?.damage ?? 1) * (mod?.dex ?? 1);
+  for (const curse of curses) if (curse.kind === "enemy-damage") extra *= 1 + curse.percent / 100;
+  const scale = ENDLESS_THROW_SHARE * lineDps * (thrown.intervalMs / 1000) * extra / Math.max(1e-9, average);
+  return { ...thrown, options: thrown.options.map((o) => ({ ...o, damage: Math.max(1, Math.round(o.damage * scale)) })) };
 }
 
 /** What a tier's modifier does to one enemy, Epic Boss included. */
@@ -518,15 +595,19 @@ function waveEnemies(plan: Pick<EndlessWavePlan, "wave" | "tier" | "location" | 
     const [tank, striker] = pair[location] ?? [];
     if (tank && striker) [out[0], out[1]] = [tank, striker];
   }
-  // Former bosses stand late in the queue, so the line has whittled the army down first.
-  // `buildUnitsForKeys` receives them in enemyKeys, not bossKey, so they lose their perched
-  // role and boss action scheduler for these appearances.
-  const killers = endlessKillerCount(tier, locationFight);
-  const killer = LOCATION_POOLS[location].find(isKiller);
-  if (killer) {
-    for (let i = 0; i < killers; i++) out[out.length - 1 - i * 3] = killer;
-  }
+  // Walk-in bosses stand late in the queue, so the line has whittled the army down first.
+  // `buildUnitsForKeys` receives them in enemyKeys, not bossKey: no perch, no boss actions.
+  const walkIns = endlessWalkIns({ wave, tier, location, locationFight, modifier }, weekSeed);
+  walkIns.forEach((key, i) => { out[out.length - 1 - i * 3] = key; });
   return out;
+}
+
+/** This floor's walk-in bosses, drawn from the location's pool. Alien Landing's are not in
+ *  the line: the saucer beams them down (EndlessWavePlan.beamedWalkIns). */
+function endlessWalkIns(plan: Pick<EndlessWavePlan, "wave" | "tier" | "location" | "locationFight" | "modifier">, weekSeed: string): string[] {
+  const pool = ENDLESS_WALK_IN_POOL[plan.location];
+  const random = seededRandom(`endless-walk-in:${weekSeed}:${plan.wave}:${plan.location}:${plan.modifier ?? ""}`);
+  return Array.from({ length: endlessKillerCount(plan.tier, plan.locationFight) }, () => pool[Math.floor(random() * pool.length)]);
 }
 
 /** Build the pure, reproducible plan for one fight in an Endless run. */
@@ -562,16 +643,23 @@ export function endlessWavePlan(
   const healthScale = baseHealth * (1 + healthStep) ** fastDepth
     * (mode === "nightmare" ? 1.025 : 1.07) ** slowDepth * ENDLESS_LATE_HEALTH_PER_TIER ** lateTiers;
   const mechanicCooldownScale = mechanics.cadence[locationFight - 1];
-  const mechanicCooldownsMs = Object.fromEntries(
-    Object.entries(ENDLESS_MECHANIC_BASE_COOLDOWNS_MS[location] ?? {})
+  // A boss's own moves (the carrot wall, pixel fire, turning zombies, the saucer's laser and
+  // beam-ins) belong to floor 2, where he is; floor 1 keeps only the location's trait.
+  const beamed = location === "alien" && !bossGate ? endlessWalkIns({ wave, tier, location, locationFight, modifier }, weekSeed) : [];
+  const mechanicCooldownsMs = Object.fromEntries([
+    ...Object.entries(ENDLESS_MECHANIC_BASE_COOLDOWNS_MS[location] ?? {})
+      .filter(([key]) => locationFight === 2 || !ENDLESS_BOSS_MOVES.has(key))
       .map(([key, cooldown]) => [key, Math.max(1_000, Math.round(cooldown * mechanicCooldownScale))]),
-  );
+    ...(beamed.length ? [["beam-walk-in", ENDLESS_BEAM_WALK_IN_MS]] : []),
+  ]);
   return {
     mode, wave, section, tier, location, modifier, locationFight, bossGate,
     enemyTier: Math.min(ENEMY_BANDS.length, tier + locationFight - 1),
     enemyKeys: bossGate ? [] : waveEnemies({ wave, tier, location, locationFight, modifier }, weekSeed),
     damageScale, healthScale, mechanicCooldownScale, mechanicCooldownsMs,
     bossId: bossGate ? (mode === "nightmare" ? "galactic-groundhog" : "dr-groundhog") : null,
+    bossKey: locationFight === 2 ? ENDLESS_PERCHED_BOSS[location] ?? null : null,
+    beamedWalkIns: beamed,
   };
 }
 

@@ -42,6 +42,10 @@ export function buildEndlessStageMechanics(
       mechanics.wallTemplate = wall;
     }
   } else if (plan.location === "alien") {
+    // Walk-in bosses the saucer beams down, sized as walk-ins (not their own invasion's boss).
+    mechanics.walkInTemplates = plan.beamedWalkIns
+      .map((key) => enemyTemplate(key, 6))
+      .filter((unit): unit is CombatUnit => !!unit);
     const beamIns = [
       ["FarmStageActorFarmhand", 1], ["NinjaStageActorGirl", 3],
       ["FarmStageActorLumberjack", 1], ["PirateStageActorSwashbuckler", 4],

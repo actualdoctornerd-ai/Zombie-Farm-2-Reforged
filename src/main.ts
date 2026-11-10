@@ -5780,7 +5780,8 @@ async function main() {
       ...bossArt,
       raid,
       assets,
-      bossThrow: null,
+      // The perched location boss's projectiles, from the server-pinned fight.
+      bossThrow: config.bossThrow ?? null,
       onStrike: (strike) => audio.fightStrike(strike),
       onBrainRelease: (sourceKey) => audio.brainForZombie(sourceKey),
       onZombieDeploy: (sourceKey) => audio.brainForZombie(sourceKey),

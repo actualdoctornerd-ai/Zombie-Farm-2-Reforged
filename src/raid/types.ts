@@ -374,6 +374,8 @@ export interface EndlessStageMechanics {
   turnedTemplate?: CombatUnit | null;
   /** Carrot wall dropped during the Ninja section. */
   wallTemplate?: CombatUnit | null;
+  /** Alien Landing's walk-in bosses, beamed down one per `beam-walk-in` tick, in order. */
+  walkInTemplates?: CombatUnit[];
 }
 
 /** One entry in a boss's merged action budget. GROUND TRUTH: the source keeps throws and
