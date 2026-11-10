@@ -144,8 +144,8 @@ captain (8 s throws), Video Game Zedzox. Alien Landing's saucer has no body or t
 invasion either; its floor 2 is its laser and beam-ins. Throws deal, on average, half a line
 enemy's damage per second (`ENDLESS_THROW_SHARE`), sized with the modifier and curses.
 
-Location traits that are not a boss's moves (the Ninja smoke bomb, the pirates' mirrored speed)
-stay on floors 1 and 2. Floor 3 runs no location mechanics: Dr. Groundhog fights alone.
+Location traits that are not a boss's moves (the Ninja smoke bomb, Video Game's pixel fire, the
+pirates' mirrored speed) stay on floors 1 and 2. Floor 3 runs no location mechanics: Dr. Groundhog fights alone.
 
 **The smoke bomb (owner, 2026-11-10).** The ninja fighting at the front vanishes in smoke and
 reappears on the rearmost Garden zombie. Its front slot stays empty while it lives, so the
@@ -187,6 +187,15 @@ Stuns fill a bar that breaks it, and a timed Block reduces it.
 (it was the wall at T9 with them from T5 every 20 s). A beamed walk-in arrives like an alien
 invasion's abductee, in a light pillar, and stands its ground; it must be beaten to clear the
 floor.
+
+**Evening the locations out (owner, 2026-11-10).** Measured as the share of visits from T2 on
+that end the run (T1 is always the Farm, where nobody dies, which made it look easy). Video Game
+ended almost none: its floors match the others' health and damage on paper, and its tricks are
+taps a good player answers. Its floor enemies now hit 25% harder (`ENDLESS_LOCATION_STRENGTH`),
+which put it level with the Dojo and the Pirate Ship at L45 (about 9%). Making pixel fire a
+floor-1 trait alone changed nothing. The Farm was tried with 4 / 6 more ordinary enemies and
+taken back out: from T2 on it is already among the hardest. Alien Landing is still the hardest
+(about 20% at L45).
 
 **Enemy health for time pressure (owner, 2026-11-10).** Floor enemies carry about 15% more health
 (line 1.75, walk-in 1.4, perched boss 2.3): run-ending fights reach Do or Die about twice as

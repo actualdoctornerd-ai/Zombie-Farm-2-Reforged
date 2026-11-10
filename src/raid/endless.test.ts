@@ -7,7 +7,7 @@ import { makeOwned } from "../zombie/types";
 import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import {
   ENDLESS_ADVANCED_CLOCK_MS, ENDLESS_ALIEN_NORMAL_CLOCK_MS, ENDLESS_BOSS_CLOCK_MS, ENDLESS_BOSS_DAMAGE,
-  ENDLESS_BEAM_WALK_IN_MS, ENDLESS_BOSS_HP_AT_T1, ENDLESS_BOSS_HP_AT_T7, ENDLESS_BOSS_MOVES, ENDLESS_PERCHED_BOSS, ENDLESS_WALK_IN, ENDLESS_WALK_IN_POOL, ENDLESS_DAMAGE_STEP, ENDLESS_ENTRY_COST,
+  ENDLESS_BEAM_WALK_IN_MS, ENDLESS_LOCATION_STRENGTH, ENDLESS_BOSS_HP_AT_T1, ENDLESS_BOSS_HP_AT_T7, ENDLESS_BOSS_MOVES, ENDLESS_PERCHED_BOSS, ENDLESS_WALK_IN, ENDLESS_WALK_IN_POOL, ENDLESS_DAMAGE_STEP, ENDLESS_ENTRY_COST,
   ENDLESS_KILLER, ENDLESS_ENTRY_THREAT_RATING, ENDLESS_SHAPE_LIMIT, ENDLESS_FLOOR_ENEMIES, ENDLESS_LINE, ENDLESS_HEALTH_STEP, ENDLESS_LATE_DO_OR_DIE_MS, ENDLESS_LOCATION_MECHANICS,
   ENDLESS_MODIFIERS, ENDLESS_NORMAL_CLOCK_MS, ENDLESS_NORMAL_DO_OR_DIE_MS, ENDLESS_SLAM_SECONDS, ENDLESS_UNLOCK_LEVEL,
   applyEndlessBoon, applyEndlessCurse, applyEndlessStop, beginEndlessRun, carryEndlessArmy, finishEndlessFight, endlessBossDraft,
@@ -292,12 +292,19 @@ describe("Endless Mode plan", () => {
     }
   });
 
+  it("hits harder on Video Game floors, but not on its Groundhog floor", () => {
+    const at2 = (location: EndlessLocation, wave: number) =>
+      scaleEndlessEnemy(endlessSourceUnit("NinjaStageActorBoy")!, endlessWavePlan("endless", wave, at(location)), [], ENDLESS_SHAPES);
+    expect(at2("video-game", 4).str / at2("pirate", 4).str).toBeCloseTo(ENDLESS_LOCATION_STRENGTH["video-game"]!.damage, 6);
+    expect(at2("video-game", 4).maxHp).toBe(at2("pirate", 4).maxHp);
+    const boss = (location: EndlessLocation) =>
+      endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: 6, stop: at(location) }, 45).enemyUnits[0];
+    expect(boss("video-game").str).toBe(boss("pirate").str);
+  });
+
   it("fields more bodies on an advanced floor, and Crowded only adds bodies", () => {
     expect(endlessWavePlan("endless", 1, at("pirate")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[0]);
     expect(endlessWavePlan("endless", 2, at("pirate")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[1]);
-    // The Farm's weak crew comes in greater numbers.
-    expect(endlessWavePlan("endless", 1, at("farm")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[0] + 4);
-    expect(endlessWavePlan("endless", 2, at("farm")).enemyKeys).toHaveLength(ENDLESS_FLOOR_ENEMIES[1] + 6);
     const plain = endlessWavePlan("endless", 4, at("pirate"));
     const crowded = endlessWavePlan("endless", 4, at("pirate", "crowded"));
     expect(crowded.enemyKeys.length).toBe(plain.enemyKeys.length + (ENDLESS_MODIFIERS.crowded.extraEnemies ?? 0));

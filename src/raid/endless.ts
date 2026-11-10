@@ -234,15 +234,18 @@ export const ENDLESS_LINE = { hp: 1.75, damage: 0.95 } as const;
  *  half base stats (measured through harness/report/endless.report.ts). Its boss is Dr.
  *  Groundhog alone, built by epicBossUnit, and is never scaled down. */
 export const ENDLESS_ALIEN_SWARM = { hp: 0.5, damage: 0.5 } as const;
+/** Per-location strength on its floors (not Dr. Groundhog), for evening the locations out.
+ *  Video Game's floors ended almost no runs (owner, 2026-11-10). */
+export const ENDLESS_LOCATION_STRENGTH: Readonly<Partial<Record<EndlessLocation, { hp: number; damage: number }>>> = {
+  "video-game": { hp: 1, damage: 1.25 },
+};
 
 /** Bodies on a normal and an advanced floor. They come out one at a time (owner, 2026-11-07):
  *  only Alien, built around a swarm, fields several at once. */
 export const ENDLESS_FLOOR_ENEMIES: readonly [number, number] = [8, 12];
-/** Extra bodies by location. The Farm's farmhands are the weakest crew in the game, so it
- *  fields more of them to stand with the other locations (owner, 2026-11-10). */
-export const ENDLESS_LOCATION_EXTRA_ENEMIES: Readonly<Partial<Record<EndlessLocation, readonly [number, number]>>> = {
-  farm: [4, 6],
-};
+/** Extra bodies by location, on floors 1 and 2. None today: the Farm was tried with 4 / 6
+ *  more (2026-11-10) and taken out, since from T2 on it is already among the hardest. */
+export const ENDLESS_LOCATION_EXTRA_ENEMIES: Readonly<Partial<Record<EndlessLocation, readonly [number, number]>>> = {};
 
 /** Walk-in bosses on a floor (owner, 2026-11-10): floor 1 is just enemies until the sixth
  *  location, floor 2 has its perched boss plus walk-ins from T5. */
@@ -324,7 +327,9 @@ export interface EndlessWavePlan {
 }
 
 /** The location mechanics that are a boss's own moves: floor 2 only. */
-export const ENDLESS_BOSS_MOVES: ReadonlySet<string> = new Set(["carrot-wall", "laser", "summons", "pixel-fire", "turn-zombie"]);
+/** Pixel fire is Video Game's location trait (owner, 2026-11-10: the location needed teeth on
+ *  floor 1 too), the way the smoke bomb is the Dojo's; turning zombies stays Zedzox's own. */
+export const ENDLESS_BOSS_MOVES: ReadonlySet<string> = new Set(["carrot-wall", "laser", "summons", "turn-zombie"]);
 
 /** Each location's own invasion boss (owner, 2026-11-10: ordinary floors keep their bosses as
  *  in the invasions, projectiles and all). */
@@ -464,7 +469,8 @@ export function scaleEndlessEnemy(
   const perched = killer && unit.isBoss;
   const shape = shapes[unit.sourceKey] ?? { damage: 1, hp: 1 };
   const profile = perched ? ENDLESS_KILLER : killer ? ENDLESS_WALK_IN : ENDLESS_LINE;
-  const swarm = plan.location === "alien" && !plan.bossGate ? ENDLESS_ALIEN_SWARM : { hp: 1, damage: 1 };
+  const swarm = plan.location === "alien" && !plan.bossGate ? ENDLESS_ALIEN_SWARM
+    : !plan.bossGate ? ENDLESS_LOCATION_STRENGTH[plan.location] ?? { hp: 1, damage: 1 } : { hp: 1, damage: 1 };
   const result = { ...unit, attacks: unit.attacks.map((attack) => ({ ...attack })) };
   const damage = ENDLESS_ENTRY_THREAT_RATING * shape.damage * profile.damage * swarm.damage * plan.damageScale;
   const health = ENDLESS_ENTRY_THREAT_RATING * shape.hp * profile.hp * swarm.hp * plan.healthScale;
