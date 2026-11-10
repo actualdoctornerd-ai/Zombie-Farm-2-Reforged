@@ -124,8 +124,10 @@ describe("Endless settlement on the real schema", () => {
     const again = seedRun(3, run);
     const repeat = await finishEndlessWave(db, ME, winFloor(again, 3), LATER);
     expect(repeat.status).toBe(200);
-    const names = (repeat.body.bossLoot as { name: string; quantity: number }[]);
-    // A repeat pays only the boss's own single roll now, never the milestone's 2 tickets.
+    // A repeat pays only the boss's own single roll now, never the milestone's 2 tickets. (Any
+    // win may also turn up the location's rare zombie, at random: that one is not counted.)
+    const names = (repeat.body.bossLoot as { name: string; quantity: number; kind?: string }[])
+      .filter((item) => item.kind !== "zombie");
     expect(names).toHaveLength(1);
   });
 
