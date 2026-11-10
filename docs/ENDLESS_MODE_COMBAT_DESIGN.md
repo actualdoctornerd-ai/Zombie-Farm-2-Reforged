@@ -145,7 +145,12 @@ invasion either; its floor 2 is its laser and beam-ins. Throws deal, on average,
 enemy's damage per second (`ENDLESS_THROW_SHARE`), sized with the modifier and curses.
 
 Location traits that are not a boss's moves (the Ninja smoke bomb, the pirates' mirrored speed)
-stay on both floors.
+stay on floors 1 and 2. Floor 3 runs no location mechanics: Dr. Groundhog fights alone.
+
+**The smoke bomb (owner, 2026-11-10).** The ninja fighting at the front vanishes in smoke and
+reappears on the rearmost Garden zombie. Its front slot stays empty while it lives, so the
+zombies that turn back to deal with it are not hit from the front meanwhile. If no ninja is at
+the front, the bomb waits until one is.
 
 Enemies come out one at a time on every floor except Alien, which is built around its swarm
 (owner, 2026-11-07). Difficulty comes from each enemy's stats instead, scaled as described under
@@ -178,8 +183,15 @@ Stuns fill a bar that breaks it, and a timed Block reduces it.
 | Alien Landing | Beamed down mid-field by the saucer, one every 20 s: any boss but its own and Zedzox |
 
 `endlessKillerCount` sets how many: floor 1 has 1 from T6 and 2 from T9; floor 2 has 1 from T5,
-2 from T7, 3 from T9. A beamed walk-in arrives like an alien invasion's abductee, in a light
-pillar, and stands its ground; it must be beaten to clear the floor.
+2 from T7, 3 from T9. Alien Landing's start at T7 on both floors and are beamed one every 30 s
+(it was the wall at T9 with them from T5 every 20 s). A beamed walk-in arrives like an alien
+invasion's abductee, in a light pillar, and stands its ground; it must be beaten to clear the
+floor.
+
+**Enemy health for time pressure (owner, 2026-11-10).** Floor enemies carry about 15% more health
+(line 1.75, walk-in 1.4, perched boss 2.3): run-ending fights reach Do or Die about twice as
+often (7-20%), while runs still end on the clock only 0-3% of the time, so tank builds stay
+viable.
 
 **Choosing a location. Status: built, in the boss screen.** After each boss, the player chooses
 from two other locations, each with its own modifier. T1 is always the Farm with no modifier.
@@ -209,9 +221,9 @@ moves, so Endless adds one a tier:
 
 Harder hits, less health (owner, 2026-11-10): his hit is 5x the ordinary damage ramp at every
 tier (`ENDLESS_BOSS_DAMAGE`), about 1.2-1.7x a line enemy's damage per second, and his slam is
-1.5 of his hits. His health climbs from 12,000 at T1 to 300,000 at T7 in equal x1.71 steps. His
+1.5 of his hits. His health climbs from 15,000 at T1 to 375,000 at T7 in equal x1.71 steps. His
 fights run 20-55 s instead of 33-80 s and cost about one zombie through the middle tiers, at the
-same depth: L45 clears T7 57% and T8 54% (before: 54% and 53%). A 6.7x hit cost a whole tier of
+same depth: L45 cleared T7 57% and T8 54% (before: 54% and 53%); with the 2026-11-10 changes below, 72% and 63%. A 6.7x hit cost a whole tier of
 depth even with his health cut. Dual-invasion mechanics are still only an idea.
 
 To measure with real armies (`src/raid/harness/report/endless.report.ts`):

@@ -122,9 +122,9 @@ export function isEndlessKiller(sourceKey: string): boolean {
 }
 /** The perched floor-2 boss on top of his shape: double a line enemy's damage, more health,
  *  and a slam (scaleEndlessEnemy). */
-export const ENDLESS_KILLER = { hp: 2, damage: 2 } as const;
+export const ENDLESS_KILLER = { hp: 2.3, damage: 2 } as const;
 /** A walk-in boss: weaker than a perched boss, stronger than the line, and no slam. */
-export const ENDLESS_WALK_IN = { hp: 1.2, damage: 1.4 } as const;
+export const ENDLESS_WALK_IN = { hp: 1.4, damage: 1.4 } as const;
 
 /** Bosses from each location's associated invasions (the dual invasions' pairs; the Farm also
  *  gets the alien boss). They walk in late in the line. Alien Landing's are beamed down by
@@ -142,7 +142,9 @@ export const ENDLESS_WALK_IN_POOL: Readonly<Record<EndlessLocation, readonly str
 };
 /** Seconds into an Alien Landing floor before the saucer beams down its first walk-in boss,
  *  then between beams. */
-export const ENDLESS_BEAM_WALK_IN_MS = 20_000;
+export const ENDLESS_BEAM_WALK_IN_MS = 30_000;
+/** Alien Landing's walk-ins begin at T7 on both of its floors. */
+export const ENDLESS_ALIEN_WALK_IN_TIER = 7;
 
 /** Starting points for tuning, not a hard cap: difficulty continues to grow at every
  * wave. `damage` and `health` are applied after the entry threat floor and role band. */
@@ -165,8 +167,8 @@ export const NIGHTMARE_HEALTH_STEP = 0.045;
  *  cost about one zombie through the middle tiers, at the same overall depth (real prod
  *  armies, expert pilot, 3 weeks: L45 clears T7 57%, T8 54%; before, 54% and 53%). Measured
  *  through harness/report/endless.report.ts. */
-export const ENDLESS_BOSS_HP_AT_T1 = 12_000;
-export const ENDLESS_BOSS_HP_AT_T7 = 300_000;
+export const ENDLESS_BOSS_HP_AT_T1 = 15_000;
+export const ENDLESS_BOSS_HP_AT_T7 = 375_000;
 /** Past the T7 boss the ramp flattens (owner, 2026-11-08): a tier asks for about a 25% stronger
  *  army (1.11x damage and 1.13x health a tier) instead of about 60%, so a clearly better army
  *  goes clearly deeper. Rates are per depth; a tier is 4 depth. */
@@ -226,7 +228,7 @@ export const ENDLESS_CHOP_MULT = 2.5;
 export const ENDLESS_MIRROR_REFERENCE_SEC = 1;
 
 /** Every enemy but the killers, on top of its shape. */
-export const ENDLESS_LINE = { hp: 1.5, damage: 0.95 } as const;
+export const ENDLESS_LINE = { hp: 1.75, damage: 0.95 } as const;
 /** Alien Landing's swarm (owner, 2026-11-08): twenty minions, up to six on the field at once,
  *  each sized like a solo enemy made it the run-ender everywhere. Its FLOORS' enemies carry
  *  half base stats (measured through harness/report/endless.report.ts). Its boss is Dr.
@@ -606,6 +608,8 @@ function waveEnemies(plan: Pick<EndlessWavePlan, "wave" | "tier" | "location" | 
  *  the line: the saucer beams them down (EndlessWavePlan.beamedWalkIns). */
 function endlessWalkIns(plan: Pick<EndlessWavePlan, "wave" | "tier" | "location" | "locationFight" | "modifier">, weekSeed: string): string[] {
   const pool = ENDLESS_WALK_IN_POOL[plan.location];
+  // The saucer's beamed walk-ins start later than the others (owner, 2026-11-10).
+  if (plan.location === "alien" && plan.tier < ENDLESS_ALIEN_WALK_IN_TIER) return [];
   const random = seededRandom(`endless-walk-in:${weekSeed}:${plan.wave}:${plan.location}:${plan.modifier ?? ""}`);
   return Array.from({ length: endlessKillerCount(plan.tier, plan.locationFight) }, () => pool[Math.floor(random() * pool.length)]);
 }

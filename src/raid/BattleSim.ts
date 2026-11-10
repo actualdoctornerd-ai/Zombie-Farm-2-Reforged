@@ -499,6 +499,10 @@ const MEGA_SIM_PER_PT_Y = 1 / (320 * 0.00028);
  *  its own half-width (`hpCenterX`) to put the figure here — per unit, because the five
  *  abductees are not the same width and a fixed offset would only centre the widest. */
 const SUMMON_SPAWN_X = 448;
+/** The Endless ninjas who throw the Dojo's smoke bomb, and how soon it is tried again when
+ *  none of them is at the front. */
+const ENDLESS_SMOKE_BOMBERS: ReadonlySet<string> = new Set(["NinjaStageActorGirl", "NinjaStageActorBoy"]);
+const ENDLESS_SMOKE_RETRY_MS = 1_000;
 /** An abductee STANDS where it lands. It never walks, chases or repositions — it holds
  *  dead centre and swings at whatever comes into reach.
  *
@@ -5496,7 +5500,8 @@ export class BattleSim {
       this.endlessMechanicCount++;
       this.actionCount++;
       if (key === "smoke-bomb-teleport") {
-        this.endlessNinjaFlank();
+        // No ninja at the front yet: try again shortly, so the bomb goes off once one is.
+        if (!this.endlessNinjaFlank()) this.endlessMechanicTimers[key] = ENDLESS_SMOKE_RETRY_MS;
       } else if (key === "laser") {
         this.runSpecial({ name: "alienLaser", weight: 1, castMs: 0, damage: ALIEN_LASER_DAMAGE, cooldownMs: 0 });
       } else if (key === "summons") {
@@ -5536,12 +5541,14 @@ export class BattleSim {
     }
   }
 
-  /** A Ninja smoke bomb takes one still-queued basic enemy and beams it into the
-   *  formation's Garden line. */
-  private endlessNinjaFlank() {
-    const unit = this.enemies.find((e) => e.alive && !e.isBoss && !e.isSummon && e.state === "queued")
-      ?? (this.endlessMechanics?.flankerTemplate ? this.spawnEnemy(this.endlessMechanics.flankerTemplate) : null);
-    if (!unit) return;
+  /** A Ninja smoke bomb (owner, 2026-11-10): the ninja fighting at the front vanishes in smoke
+   *  and reappears in the formation's Garden line. Its slot at the front stays empty while it
+   *  lives (it still counts as the one enemy out), so the zombies that turn back to deal with
+   *  it are not hit from the front meanwhile. False when no ninja is at the front. */
+  private endlessNinjaFlank(): boolean {
+    const unit = this.enemies.find((e) => e.alive && !e.isBoss && !e.isSummon && !e.isWall && !e.isFlanker &&
+      !e.isTurned && (e.state === "hold" || e.state === "fight") && ENDLESS_SMOKE_BOMBERS.has(e.sourceKey));
+    if (!unit) return false;
     const target = this.backlineTarget();
     unit.isFlanker = true;
     unit.state = "fight";
@@ -5552,6 +5559,7 @@ export class BattleSim {
     unit.vx = 0;
     unit.vy = 0;
     this.smokeSeq++;
+    return true;
   }
 
   /** Is the boss in its action posture at all?

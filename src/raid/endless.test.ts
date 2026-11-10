@@ -89,8 +89,9 @@ describe("Endless Mode plan", () => {
     expect(walkIn.charge).toBeFalsy();
     expect(walkIn.maxHp).toBeLessThan(perched.maxHp);
     expect(plan.beamedWalkIns).toEqual([]);
-    // Alien Landing's are beamed down by the saucer, never its own boss or Zedzox.
-    const alien = endlessWavePlan("endless", 16, at("alien"));
+    // Alien Landing's are beamed down by the saucer, from T7, never its own boss or Zedzox.
+    expect(endlessWavePlan("endless", 17, at("alien")).beamedWalkIns).toEqual([]);
+    const alien = endlessWavePlan("endless", 19, at("alien"));
     expect(alien.enemyKeys.filter(isEndlessKiller)).toEqual([]);
     expect(alien.beamedWalkIns).toHaveLength(1);
     expect(alien.mechanicCooldownsMs["beam-walk-in"]).toBeGreaterThan(0);
@@ -101,7 +102,7 @@ describe("Endless Mode plan", () => {
     // One unkillable zombie that never deploys far: the saucer only acts while the army stands.
     const zombie = buildPlayerUnits(Array.from({ length: 6 }, (_, i) => makeOwned(`z${i}`, (zombiesJson as ZombieDef[]).find((z) => z.key.includes("Headless"))!, 0, 0, 0, 0)), { abilitySlotUnlocked: () => false, playerLevel: 45 })
       .map((u) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7 }));
-    const config = endlessFightConfig({ ...beginEndlessRun("endless", zombie), nextWave: 16, stop: at("alien") }, 45);
+    const config = endlessFightConfig({ ...beginEndlessRun("endless", zombie), nextWave: 19, stop: at("alien") }, 45);
     expect(config.endlessMechanics.walkInTemplates).toHaveLength(1);
     const sim = endlessSimFor(config);
     for (let t = 0; t < ENDLESS_BEAM_WALK_IN_MS + 100; t += 50) sim.step(50);

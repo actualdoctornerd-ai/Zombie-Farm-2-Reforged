@@ -30,7 +30,6 @@ export function buildEndlessStageMechanics(
 
   const mechanics: EndlessStageMechanics = { cooldownsMs: plan.mechanicCooldownsMs };
   if (plan.location === "ninja") {
-    mechanics.flankerTemplate = enemyTemplate("NinjaStageActorGirl", 3);
     const wall = wallTemplateFor(assets, {
       enemyKeys: [],
       bossKey: "NinjaStageActorBoss",

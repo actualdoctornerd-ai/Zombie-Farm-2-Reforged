@@ -54,7 +54,8 @@ function openDb(): { db: D1Database; raw: DatabaseSync } {
 
 const ZWAMP = (zombiesJson as ZombieDef[]).find((z) => z.key === "ZombieActorZwampThing")!;
 const army = () => buildPlayerUnits(
-  Array.from({ length: 20 }, (_, i) => makeOwned(`z${i}`, ZWAMP, 0, 0, 5, 0)),
+  // Fully mutated (every slot's strongest bit), so it clears the early bosses these tests settle.
+  Array.from({ length: 20 }, (_, i) => makeOwned(`z${i}`, ZWAMP, 0, 0, 5, 63488)),
   { abilitySlotUnlocked: () => true, playerLevel: 45 },
 );
 
