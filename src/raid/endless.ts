@@ -644,11 +644,13 @@ export function endlessWavePlan(
     * (mode === "nightmare" ? 1.025 : 1.07) ** slowDepth * ENDLESS_LATE_HEALTH_PER_TIER ** lateTiers;
   const mechanicCooldownScale = mechanics.cadence[locationFight - 1];
   // A boss's own moves (the carrot wall, pixel fire, turning zombies, the saucer's laser and
-  // beam-ins) belong to floor 2, where he is; floor 1 keeps only the location's trait.
+  // beam-ins) belong to floor 2, where he is; floor 1 keeps only the location's trait (the
+  // Ninja smoke bomb); floor 3 is Dr. Groundhog alone.
   const beamed = location === "alien" && !bossGate ? endlessWalkIns({ wave, tier, location, locationFight, modifier }, weekSeed) : [];
   const mechanicCooldownsMs = Object.fromEntries([
     ...Object.entries(ENDLESS_MECHANIC_BASE_COOLDOWNS_MS[location] ?? {})
-      .filter(([key]) => locationFight === 2 || !ENDLESS_BOSS_MOVES.has(key))
+      // Dr. Groundhog fights alone: no location mechanics on his floor at all.
+      .filter(([key]) => !bossGate && (locationFight === 2 || !ENDLESS_BOSS_MOVES.has(key)))
       .map(([key, cooldown]) => [key, Math.max(1_000, Math.round(cooldown * mechanicCooldownScale))]),
     ...(beamed.length ? [["beam-walk-in", ENDLESS_BEAM_WALK_IN_MS]] : []),
   ]);

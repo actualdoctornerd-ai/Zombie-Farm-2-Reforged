@@ -38,7 +38,8 @@ describe("Endless Mode plan", () => {
       .toEqual(["carrot-wall", "smoke-bomb-teleport"]);
     expect(start.mechanicCooldownScale).toBe(1);
     expect(start.mechanicCooldownsMs["smoke-bomb-teleport"]).toBe(30_000);
-    expect(gate.mechanicCooldownsMs["smoke-bomb-teleport"]).toBe(19_800);
+    expect(middle.mechanicCooldownsMs["smoke-bomb-teleport"]).toBe(Math.round(30_000 * 0.82));
+    expect(gate.mechanicCooldownsMs).toEqual({}); // Dr. Groundhog fights alone
     expect(middle.mechanicCooldownScale).toBeLessThan(start.mechanicCooldownScale);
     expect(gate.mechanicCooldownScale).toBeLessThan(middle.mechanicCooldownScale);
     const nextTier = endlessWavePlan("endless", 7, at("alien"));
@@ -56,6 +57,7 @@ describe("Endless Mode plan", () => {
       expect(three.bossGate, location).toBe(true);
       expect(three.bossKey, location).toBeNull();
       for (const move of ENDLESS_BOSS_MOVES) expect(one.mechanicCooldownsMs[move], `${location} ${move}`).toBeUndefined();
+      expect(three.mechanicCooldownsMs, `${location} Groundhog floor`).toEqual({});
     }
     const run = (wave: number, location: EndlessLocation) =>
       endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: wave, stop: at(location) }, 45);
