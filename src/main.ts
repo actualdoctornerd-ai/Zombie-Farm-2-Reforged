@@ -5843,6 +5843,7 @@ async function main() {
       hud.setBattleLoading(false);
       if (!raidActive || !launchGate.isCurrent(epoch)) return scene.destroy();
       raidScene = scene; app.stage.addChild(scene.container);
+      if (import.meta.env.DEV) (window as unknown as { ZF?: Record<string, unknown> }).ZF!.raidScene = scene;
     }).catch((error) => {
       closeEndlessScene();
       recordDiagnostic({ at: Date.now(), kind: "error", where: "endless-battle", message: error instanceof Error ? error.message : String(error) });
