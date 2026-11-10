@@ -1354,6 +1354,10 @@
 #hud .rr-choice-h { font-size: 15px; font-weight: 900; padding: 12px 2px 4px; }
 #hud .rr-choices { display: flex; flex-direction: column; gap: 6px; }
 #hud .raid-res-panel .rd-card { width: 100%; box-sizing: border-box; }
+/* The Endless tallies run longer than an invasion's (loot, then the boss draft); they still
+   scroll on a short screen, without drawing a scroll bar. */
+#hud .endless-tally .rr-body { scrollbar-width: none; -ms-overflow-style: none; }
+#hud .endless-tally .rr-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
 #hud .revive-bg { position: fixed; inset: 0; z-index: 28; pointer-events: auto;
   background: rgba(20,8,4,.76); display: grid; place-items: center; padding: 18px; }
 #hud .revive-panel { width: min(520px, 94vw); max-height: min(680px, 90vh); overflow: hidden;

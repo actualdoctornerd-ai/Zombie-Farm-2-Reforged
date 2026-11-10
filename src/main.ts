@@ -5715,6 +5715,10 @@ async function main() {
     hud.setRaiding(false);
     audio.exitRaid();
   };
+  // The tallies between floors sit over the stage that was just fought on, like an
+  // invasion's result panel; the stage goes when the player leaves the tally. Safe to call
+  // with no stage up (a run ended from the Endless pane).
+  const leaveEndlessStage = () => { if (raidScene || raidActive) closeEndlessScene(); };
   const endEndlessRun = async () => {
     const sid = endlessSessionId;
     if (!sid) return;
@@ -5726,9 +5730,10 @@ async function main() {
       hud.openEndlessTally({
         title: "Home Safe", win: true,
         rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()]],
-        loot: [], actions: [{ label: "Finish", onClick: () => undefined }],
+        loot: [], actions: [{ label: "Finish", onClick: leaveEndlessStage }],
       });
     } catch (error) {
+      leaveEndlessStage(); // never strand the player on a finished stage with no tally
       hud.showToast(error instanceof api.ApiError ? `Could not end run: ${error.code}` : "Could not end the Endless run. Reconnect and try again.", 7000);
     }
   };
@@ -5744,6 +5749,7 @@ async function main() {
   };
   const stopOf = (fight: Record<string, unknown>) => fight as unknown as EndlessStop;
   const launchEndlessFight = (sessionId: string, rawFight: Record<string, unknown>, mode: EndlessMode) => {
+    leaveEndlessStage(); // the last floor's stage, still up behind its tally
     const wave = Number(rawFight.wave ?? 1);
     const location = rawFight.location as EndlessLocation;
     const stage = assets.raids.find((item) => item.id === endlessLocationRaid[location]) ?? assets.raids[0];
@@ -5787,7 +5793,6 @@ async function main() {
         const lost = outcome.losses?.length ?? 0;
         setTimeout(() => {
           void api.endlessFinish(sessionId, wave, finalTick, inputs).then(async (result) => {
-            closeEndlessScene();
             if (result.runFinished) {
               endlessSessionId = null;
               await economy?.refreshAuthoritative();
@@ -5795,7 +5800,7 @@ async function main() {
               hud.openEndlessTally({
                 title: "Run Over", win: false,
                 rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()]],
-                loot: [], actions: [{ label: "Finish", onClick: () => undefined }],
+                loot: [], actions: [{ label: "Finish", onClick: leaveEndlessStage }],
               });
             } else if (result.awaitingBossChoice && result.bossDraft) {
               await economy?.refreshAuthoritative().catch(() => undefined);
