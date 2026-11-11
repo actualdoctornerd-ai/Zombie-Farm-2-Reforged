@@ -903,7 +903,7 @@ export interface EndlessBossView {
 
 /** Start an account-owned Endless run. The returned fight is server-pinned and must
  *  be adopted wholesale by the combat scene. */
-export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: string[], startTier = 1) => {
+export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: string[], startTier = 1, concentration = false) => {
   // Dev builds only: localStorage "zf2r.dev.endless-location.v1" (farm, ninja, alien,
   // video-game or pirate) starts the run there. The server honours it only with dev auth.
   let dev: { devStartLocation?: string; devKey?: string } = {};
@@ -918,8 +918,15 @@ export const endlessStart = (mode: "endless" | "nightmare", orderedUnitIds: stri
     ok: boolean; sessionId?: string; mode?: "endless" | "nightmare"; wave?: number;
     fight?: Record<string, unknown>; brainCost?: number;
     rulesetVersion?: number; error?: string; stage?: "battle" | "boss-choice";
-  } & Partial<EndlessBossView>>("POST", "/endless/start", { mode, orderedUnitIds, startTier, rulesetVersion: RAID_RULESET_VERSION, ...dev });
+  } & Partial<EndlessBossView>>("POST", "/endless/start", { mode, orderedUnitIds, startTier, ...(concentration ? { concentration: true } : {}), rulesetVersion: RAID_RULESET_VERSION, ...dev });
 };
+
+/** The brain revival an Endless run's end offers: the same shape as an invasion's. */
+export interface EndlessRevivalOffer {
+  sessionId: string;
+  zombies: { id: string; key: string; mutation: number; invasions: number; stored: boolean }[];
+  costPerZombie: 1;
+}
 
 /** Submit a transcript for one pinned Endless encounter. Boss reward choices are
  *  committed through a separate durable checkpoint after a verified boss win. */
@@ -931,8 +938,10 @@ export const endlessFinish = (
   awaitingBossChoice?: boolean;
   floorLoot?: Array<{ kind: string; name: string; quantity: number; key?: string }>;
   gold?: number; abandoned?: boolean; error?: string;
-  /** The run's dead, buried for good when it ends (roster ids). */
+  /** The run's dead, buried when it ends (roster ids). */
   losses?: string[];
+  /** Their brain revival, as after any invasion; resolved through raidRevive. */
+  revival?: EndlessRevivalOffer | null;
 } & Partial<EndlessBossView>>("POST", "/endless/finish", { sessionId, wave, finalTick, inputs });
 
 /** Persist a boon and curse selection at a boss checkpoint, then open the next fight. */
@@ -952,6 +961,7 @@ export const endlessAbandon = (sessionId: string) => req<{
   ok: boolean; runFinished: boolean; deepestFloor?: number; durationMs?: number;
   gold?: number; abandoned?: boolean; error?: string;
   losses?: string[];
+  revival?: EndlessRevivalOffer | null;
 }>("POST", "/endless/abandon", { sessionId });
 /** The server's authoritative raid-finish result: the cooldown clock, the resulting
  *  balance, and the amounts CREDITED this call (0 on a loss / idempotent replay).

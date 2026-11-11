@@ -55,13 +55,26 @@ export const ACTIVE_THEMES: readonly string[] = [EVERGREEN];
 
 /** Invasions that belong to a holiday, by raid id: playable only while their theme is on
  *  ACTIVE_THEMES, on both the client and the server, and left off the invasion list
- *  otherwise. Raid 16 is Halloween (Count von Uberbiss). */
-export const SEASONAL_INVASION_THEMES: Readonly<Record<number, string>> = { 16: "halloween" };
+ *  otherwise. Empty since 2026-11-11 (owner): the Halloween invasion (raid 16, Count von
+ *  Uberbiss) stays year-round, with its rewards cut (halloweenNights.HALLOWEEN_REWARD_SCALE),
+ *  while its decor and Candy Corn stay off sale. Put `16: "halloween"` back to season it. */
+export const SEASONAL_INVASION_THEMES: Readonly<Record<number, string>> = {};
 
 /** Is this invasion in season? Every invasion not tied to a holiday always is. */
 export function invasionInSeason(raidId: number): boolean {
   const theme = SEASONAL_INVASION_THEMES[raidId];
   return !theme || themeAvailable(theme);
+}
+
+/** Quests that can only be done on a holiday invasion, by quest id: off the quest rail (and
+ *  frozen, progress kept) while that invasion is out of season, on the client and the server.
+ *  48 Down for the Count, 49 Six Feet Under (its coffins), 50 Uber Loser: all raid 16. */
+export const SEASONAL_QUEST_INVASIONS: Readonly<Record<string, number>> = { 48: 16, 49: 16, 50: 16 };
+
+/** Is this quest in season? Every quest not tied to a holiday invasion always is. */
+export function questInSeason(questId: string): boolean {
+  const raidId = SEASONAL_QUEST_INVASIONS[questId];
+  return raidId === undefined || invasionInSeason(raidId);
 }
 
 /** This row's label, defaulting to evergreen when the field is absent. */

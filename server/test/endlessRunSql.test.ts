@@ -17,6 +17,7 @@ import { makeOwned } from "../../src/zombie/types";
 import type { ZombieDef } from "../../src/assets";
 import { abandonEndless, activeEndless, chooseEndlessBossReward, finishEndlessWave, startEndless } from "../src/v3/endless";
 import { listEndlessLeaderboard } from "../src/db";
+import { resolveRevival } from "../src/v3/raid";
 
 // The flat 5% brain on every win (rollEndlessBrain) is a Math.random coin flip, so it would
 // make every exact brain total and loot count below fail about one run in twenty. It is
@@ -252,6 +253,28 @@ describe("Endless settlement on the real schema", () => {
     // Settled once: a repeat abandon buries nobody else and changes nothing.
     await abandonEndless(db, ME, SESSION, 91_000);
     expect(rosterIds()).toHaveLength(18);
+  });
+
+  it("offers the run's dead the brain revival an invasion does, and buys them back", async () => {
+    seedRoster(20);
+    raw.prepare("UPDATE balances SET brains=5 WHERE account_id=?").run(ME);
+    const run = beginEndlessRun("endless", army(), "9");
+    seedRun(6, { ...run, units: run.units.map((unit, i) => (i < 2 ? { ...unit, alive: false, hp: 0 } : unit)) }, { wave: 6 });
+    const ended = await abandonEndless(db, ME, SESSION, 90_000);
+    const revival = ended.body.revival as { sessionId: string; zombies: { id: string; key: string; mutation: number }[] };
+    expect(revival.sessionId).toBe(SESSION);
+    expect(revival.zombies.map((z) => z.id)).toEqual(["z0", "z1"]);
+    expect(revival.zombies[0]).toMatchObject({ key: "ZombieActorZwampThing", mutation: 63488 });
+    const revived = await resolveRevival(db, ME, { sessionId: SESSION, reviveIds: ["z1"] }, 95_000);
+    expect(revived.status).toBe(200);
+    expect(revived.body.revivedIds).toEqual(["z1"]);
+    expect(rosterIds()).toContain("z1");
+    expect(rosterIds()).not.toContain("z0");
+    expect(fallenIds()).toEqual(["z0"]);
+    expect((raw.prepare("SELECT brains FROM balances WHERE account_id=?").get(ME) as { brains: number }).brains).toBe(4);
+    // Resolved once: a second answer changes nothing.
+    await resolveRevival(db, ME, { sessionId: SESSION, reviveIds: ["z0"] }, 96_000);
+    expect(rosterIds()).not.toContain("z0");
   });
 
   it("buries everyone a lost floor killed, along with those already down", async () => {

@@ -711,8 +711,12 @@ export interface EndlessRunState {
   damageBonus: number;
   /** Faster zombie release, represented as a run-local percent for the scene layer. */
   deploymentSpeedBonus: number;
-  /** Number of extra units released at the start of each fight (cap 3). */
+  /** Head Start: extra zombies that walk on with each fight's first deploy. Stacks, three a
+   *  pick, to ENDLESS_MAX_OPENING_DEPLOY. */
   openingDeploy: number;
+  /** A Concentration was spent at the start (owner, 2026-11-11): every floor of the run is
+   *  fought concentrated, no focus minigame and no distraction penalty. */
+  concentration?: boolean;
   /** Revive all fallen headless zombies after each fight once this boon is chosen. */
   reviveHeadless: boolean;
   /** Permanent run curses selected at boss gates. */
@@ -768,6 +772,8 @@ export const isEndlessBuildBoon = (kind: unknown): kind is EndlessBuildBoon =>
   typeof kind === "string" && Object.prototype.hasOwnProperty.call(ENDLESS_BUILD_BOONS, kind);
 /** The most a run's deployment boons may cut the deploy charge by (owner, 2026-11-08). */
 export const ENDLESS_MAX_DEPLOY_REDUCTION = 0.8;
+/** Head Start's stack: three picks (BattleSim holds the same ceiling). */
+export const ENDLESS_MAX_OPENING_DEPLOY = 9;
 export type EndlessBoon =
   | { kind: EndlessBuildBoon }
   | { kind: "temporary-zombie"; key: string; name: string }
@@ -854,12 +860,15 @@ export function endlessBossDraft(
 }
 
 /** Begin with a fresh battle copy; account-owned army records remain untouched. */
-export function beginEndlessRun(mode: EndlessMode, party: readonly CombatUnit[], weekSeed = "0", startTier = 1): EndlessRunState {
+export function beginEndlessRun(
+  mode: EndlessMode, party: readonly CombatUnit[], weekSeed = "0", startTier = 1, concentration = false,
+): EndlessRunState {
   const startWave = endlessStartWave(startTier);
   return {
     mode, nextWave: startWave, startWave, buildBoons: [], weekSeed, stop: { ...ENDLESS_FIRST_STOP },
     units: party.map((u) => ({ ...u, attacks: u.attacks.map((a) => ({ ...a })), hp: u.maxHp, alive: true })),
     damageBonus: 0, deploymentSpeedBonus: 0, openingDeploy: 0, reviveHeadless: false, curses: [],
+    ...(concentration ? { concentration: true } : {}),
   };
 }
 
@@ -935,7 +944,8 @@ export function applyEndlessBoon(run: EndlessRunState, boon: EndlessBoon): Endle
       // A cut to the charge time, stacking to ENDLESS_MAX_DEPLOY_REDUCTION and no further.
       return { ...run, deploymentSpeedBonus: Math.min(ENDLESS_MAX_DEPLOY_REDUCTION, run.deploymentSpeedBonus + Math.max(0, boon.percent) / 100) };
     case "opening-deploy":
-      return { ...run, openingDeploy: Math.min(3, run.openingDeploy + Math.max(0, Math.floor(boon.count))) };
+      // Stacks (2026-11-11: a second pick used to do nothing past 3).
+      return { ...run, openingDeploy: Math.min(ENDLESS_MAX_OPENING_DEPLOY, run.openingDeploy + Math.max(0, Math.floor(boon.count))) };
   }
 }
 

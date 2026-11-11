@@ -5719,22 +5719,38 @@ async function main() {
   // invasion's result panel; the stage goes when the player leaves the tally. Safe to call
   // with no stage up (a run ended from the Endless pane).
   const leaveEndlessStage = () => { if (raidScene || raidActive) closeEndlessScene(); };
+  /** A run has ended and the server buried its dead. Their brain revival (2026-11-11: players
+   *  could not buy Endless losses back) is the invasion one, written by the server and popped by
+   *  the refresh's bootstrap (economy.onRaidRevival) over the tally. That pop copies the farm's
+   *  own zombies (names, colours), so they must still be on the roster when it runs: the local
+   *  removal comes after, and only catches whatever the refresh left. */
+  const settleEndlessDead = async (result: { losses?: string[] }) => {
+    try { await economy?.refreshAuthoritative(); } catch { /* the next bootstrap offers it */ }
+    zombies.removeCasualties(result.losses ?? []);
+  };
+  /** Go Home: leave between fights with the run kept exactly where it is. Resume (or Choose
+   *  Rewards) from Endless picks it up again; nothing is paid or ended. End Run is the other
+   *  button. */
+  const goHomeFromEndless = () => {
+    leaveEndlessStage();
+    hud.showToast("Run saved. Resume it from Endless whenever you're ready.", 5000);
+  };
+  const END_RUN_BODY = "This ends the run for good: you keep your loot and the gold for every floor cleared, " +
+    "and the next run starts over and costs its entry again.";
   const endEndlessRun = async () => {
     const sid = endlessSessionId;
     if (!sid) return;
     try {
       const result = await api.endlessAbandon(sid);
       endlessSessionId = null;
-      // The run's dead are gone for good, as on any invasion: the server buried them.
-      const fallen = zombies.removeCasualties(result.losses ?? []);
-      await economy?.refreshAuthoritative();
-      // Going home ends on the same tally as falling, as a win: the run is banked.
+      // Ending a run banks it, on the same tally as falling, as a win.
       hud.openEndlessTally({
-        title: "Home Safe", win: true,
+        title: "Run Ended", win: true,
         rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()],
-          ["Zombies lost", String(fallen.length)]],
+          ["Zombies lost", String(result.losses?.length ?? 0)]],
         loot: [], actions: [{ label: "Finish", onClick: leaveEndlessStage }],
       });
+      await settleEndlessDead(result);
     } catch (error) {
       leaveEndlessStage(); // never strand the player on a finished stage with no tally
       hud.showToast(error instanceof api.ApiError ? `Could not end run: ${error.code}` : "Could not end the Endless run. Reconnect and try again.", 7000);
@@ -5748,7 +5764,7 @@ async function main() {
         if (result.fight) launchEndlessFight(sid, result.fight, mode);
         else if (result.bossDraft) void chooseEndlessBoss(result as unknown as api.EndlessBossView, mode);
       }).catch((error) => hud.showToast(error instanceof api.ApiError ? `Could not save choices: ${error.code}` : "Could not save the boss choices. Your run is still saved."));
-    }, () => { void endEndlessRun(); });
+    }, () => { void endEndlessRun(); }, goHomeFromEndless);
   };
   const stopOf = (fight: Record<string, unknown>) => fight as unknown as EndlessStop;
   const launchEndlessFight = (sessionId: string, rawFight: Record<string, unknown>, mode: EndlessMode) => {
@@ -5799,16 +5815,14 @@ async function main() {
           void api.endlessFinish(sessionId, wave, finalTick, inputs).then(async (result) => {
             if (result.runFinished) {
               endlessSessionId = null;
-              // The run's dead are gone for good, as on any invasion: the server buried them.
-              const fallen = zombies.removeCasualties(result.losses ?? []);
-              await economy?.refreshAuthoritative();
               // The end of a run: the invasion result tally, lost.
               hud.openEndlessTally({
                 title: "Run Over", win: false,
                 rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()],
-                  ["Zombies lost", String(fallen.length)]],
+                  ["Zombies lost", String(result.losses?.length ?? 0)]],
                 loot: [], actions: [{ label: "Finish", onClick: leaveEndlessStage }],
               });
+              await settleEndlessDead(result);
             } else if (result.awaitingBossChoice && result.bossDraft) {
               await economy?.refreshAuthoritative().catch(() => undefined);
               void chooseEndlessBoss(result as unknown as api.EndlessBossView, mode);
@@ -5829,10 +5843,11 @@ async function main() {
                 loot: endlessLoot((result.floorLoot ?? []) as EndlessBossLoot[]),
                 actions: [
                   { label: "Next Floor", onClick: () => launchEndlessFight(sessionId, result.fight!, mode) },
+                  { label: "Go Home", onClick: goHomeFromEndless },
                   {
-                    label: "Go Home",
+                    label: "End Run",
                     onClick: async () => {
-                      if (!await hud.confirmInGame("End this Endless run?", "You keep your loot and receive the full gold reward for every floor already cleared.", "Go Home")) return false;
+                      if (!await hud.confirmInGame("End this Endless run?", END_RUN_BODY, "End Run")) return false;
                       void endEndlessRun();
                     },
                   },
@@ -5877,16 +5892,18 @@ async function main() {
     hud.openEndlessHub(hasActive ? {
       sessionId: active!.sessionId!, mode: active!.mode!, wave: active!.wave!, stage: active!.stage!,
       ...(active!.fight ? { stopLabel: endlessStopLabel(stopOf(active!.fight)) } : {}),
-    } : null, async (mode, ids, startTier) => {
+    } : null, async (mode, ids, startTier, concentration) => {
       await economy?.settleBeforeDependency();
       const selectedNames = new Map(zombies.roster().map((z) => [z.id, z.name]));
       const settled = reconcilePartySelection(ids, zombies.roster().filter((z) => !z.stored),
         (id) => economy?.authoritativeUnitId(id) ?? id, raids.partyView().cap);
       if (settled.missingIds.length) { hud.showToast(`${settled.missingIds.map((id) => selectedNames.get(id) ?? "A zombie").join(", ")} is no longer available. Choose your army again.`); return; }
       try {
-        const started = await api.endlessStart(mode, settled.ids, startTier);
+        const started = await api.endlessStart(mode, settled.ids, startTier, concentration);
         if (!started.ok || !started.sessionId || (!started.fight && !started.bossDraft)) { hud.showToast(`Could not start Endless (${started.error ?? "unknown_error"}).`); return; }
         endlessSessionId = started.sessionId;
+        // The Concentration (and brain) left the server's inventory: show it.
+        if (concentration) void economy?.refreshAuthoritative().catch(() => undefined);
         if (started.fight) launchEndlessFight(started.sessionId, started.fight, mode);
         else void chooseEndlessBoss(started as unknown as api.EndlessBossView, mode);
       } catch (error) { hud.showToast(error instanceof api.ApiError ? `Could not start Endless (${error.code}).` : "Could not start Endless."); }

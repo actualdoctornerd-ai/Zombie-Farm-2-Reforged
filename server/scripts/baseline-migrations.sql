@@ -93,4 +93,6 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
   -- Creates farm_layouts, which schema.sql already declares on a fresh database.
   ('0061_farm_layouts.sql'),
   -- Creates endless_weekly_leaderboard and endless_progress, which schema.sql already declares.
-  ('0062_endless_weekly_and_progress.sql');
+  ('0062_endless_weekly_and_progress.sql'),
+  -- Creates endless_revivals_v3, which schema.sql already declares.
+  ('0063_endless_revivals.sql');

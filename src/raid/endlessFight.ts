@@ -55,6 +55,9 @@ export interface EndlessFightConfig {
   /** The perched location boss's projectiles (ordinary floors); omitted on a run pinned
    *  before floors had their bosses, and on boss gates and Alien Landing. */
   bossThrow?: BossThrowConfig | null;
+  /** The run's Concentration (bought once at the start, good for every floor). Also read by
+   *  RaidScene, which hides the focus minigame. */
+  concentration?: boolean;
 }
 
 /** Seconds between a perched boss's throws: each invasion's own pace (raids.json throwSpeed;
@@ -124,7 +127,7 @@ export function endlessFightConfig(run: EndlessRunState, playerLevel: number): E
     : { maxActive: 1, dripMs: 0, openingActive: 1 };
   const timeLimitMs = endlessClockMs(plan);
   const doOrDieMs = endlessDoOrDieMs(plan);
-  const where = { location: plan.location, modifier: plan.modifier };
+  const where = { location: plan.location, modifier: plan.modifier, ...(run.concentration ? { concentration: true } : {}) };
   if (plan.bossGate) {
     const boss = epicBossUnit(plan);
     return {
@@ -174,6 +177,7 @@ export function endlessSimFor(config: EndlessFightConfig) {
     endlessMechanics: config.endlessMechanics,
     waveCadence: config.waveCadence,
     bossThrow: config.bossThrow ?? null,
+    concentration: config.concentration ?? false,
   });
 }
 

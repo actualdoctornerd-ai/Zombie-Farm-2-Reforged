@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { nightZombieLuck } from "./halloweenNights";
 import {
   DIVER_ZOMBIE_KEY,
   dropsOldMcZombie,
@@ -18,6 +19,9 @@ import {
   ZCARECROW_KEY,
   ELITE_LUCK_FOR_PRIZES,
   HALLOWEEN_RAID_ID,
+  HALLOWEEN_LADDER_RATE,
+  HALLOWEEN_SEVEN_HOUR_LUCK,
+  HALLOWEEN_ZOMBIE_DROP_RATE,
   ZOMBIE_LUCK_DICE_CAP,
   RAID_ZOMBIE_DROPS,
   RAID_ELITE_ZOMBIE_DROPS,
@@ -70,31 +74,42 @@ describe("rare raid zombie drops", () => {
     expect(rollRaidZombieDrop(raidId, true, 0.01)).toBeNull();
   });
 
-  it("pays Halloween's JackoZombie or Zcarecrow at 1%, and the Mummy only on a ticket at 4%", () => {
+  it("pays Halloween's pair at ~0.44% an hour, and the Mummy only on a ticket at 2.5x that", () => {
+    const r = HALLOWEEN_ZOMBIE_DROP_RATE;
+    const mummy = r * 2.5;
     const settle = (elite: boolean, roll: number, baseRoll: number, pickRoll: number, stageLuck = 1) =>
       settleRaidZombieDrop(HALLOWEEN_RAID_ID, elite, {}, { roll, baseRoll, pickRoll, stageLuck,
         luck: elite ? ELITE_BRAIN_LUCK : 1 }).drop?.key ?? null;
-    expect(settle(false, 0.0099, 0.9, 0)).toBe(JACKO_ZOMBIE_KEY);
-    expect(settle(false, 0.0099, 0.9, 0.99)).toBe(ZCARECROW_KEY);
-    expect(settle(false, 0.0101, 0.9, 0)).toBeNull();
+    expect(r).toBeCloseTo(0.00444, 5);
+    expect(settle(false, r - 1e-6, 0.9, 0)).toBe(JACKO_ZOMBIE_KEY);
+    expect(settle(false, r - 1e-6, 0.9, 0.99)).toBe(ZCARECROW_KEY);
+    expect(settle(false, r + 1e-6, 0.9, 0)).toBeNull();
     // An ordinary win never pays the Mummy, however lucky.
     expect(settle(false, 0, 0, 0)).not.toBe(MUMMY_ZOMBIE_KEY);
-    // A ticket: the Mummy at 4%, and the ordinary pair at 4x as well on the second draw.
-    expect(settle(true, 0.0399, 0.9, 0)).toBe(MUMMY_ZOMBIE_KEY);
-    expect(settle(true, 0.0401, 0.9, 0)).toBeNull();
-    expect(settle(true, 0.9, 0.0399, 0.99)).toBe(ZCARECROW_KEY);
-    // The night chain lifts both prizes: night 3 is x2.25.
-    expect(settle(false, 0.0224, 0.9, 0, 2.25)).toBe(JACKO_ZOMBIE_KEY);
-    expect(settle(true, 0.0899, 0.9, 0, 2.25)).toBe(MUMMY_ZOMBIE_KEY);
-    expect(settle(true, 0.0901, 0.9, 0, 2.25)).toBeNull();
+    // A ticket: the Mummy at the promoted 2.5x, the ordinary pair at 4x on the second draw.
+    expect(settle(true, mummy - 1e-6, 0.9, 0)).toBe(MUMMY_ZOMBIE_KEY);
+    expect(settle(true, mummy + 1e-6, 0.9, 0)).toBeNull();
+    expect(settle(true, 0.9, 4 * r - 1e-6, 0.99)).toBe(ZCARECROW_KEY);
+    // The night chain lifts both prizes.
+    expect(settle(false, 2.25 * r - 1e-6, 0.9, 0, 2.25)).toBe(JACKO_ZOMBIE_KEY);
+    expect(settle(true, 2.25 * mummy + 1e-6, 0.9, 0, 2.25)).toBeNull();
+  });
+
+  it("expects as many rare zombies from Hours 1-7 as from five wins of its rung (owner, 2026-11-11)", () => {
+    let luck = 0;
+    for (let hour = 1; hour <= 7; hour++) luck += nightZombieLuck(hour);
+    expect(HALLOWEEN_SEVEN_HOUR_LUCK).toBeCloseTo(luck, 9);
+    expect(HALLOWEEN_ZOMBIE_DROP_RATE * luck).toBeCloseTo(5 * HALLOWEEN_LADDER_RATE, 12);
+    // Elite: seven Elite Hours pay what five promoted rolls at the rung's 2.5x would.
+    expect(RAID_ELITE_ZOMBIE_DROPS[HALLOWEEN_RAID_ID].rate * luck).toBeCloseTo(5 * 2.5 * HALLOWEEN_LADDER_RATE, 12);
   });
 
   it("caps Halloween's prizes per hour: the pair at 15%, the Mummy at 11%, whatever stacks", () => {
-    // Five dice, a ticket and a late night would otherwise be certain.
+    // Five dice, a ticket and a late night would otherwise run past the caps.
     expect(raidZombieDropRate(HALLOWEEN_RAID_ID, 5, ELITE_BRAIN_LUCK, false, 7.6)).toBeCloseTo(0.15, 12);
     expect(raidZombieDropRate(HALLOWEEN_RAID_ID, 5, ELITE_BRAIN_LUCK, true, 7.6)).toBeCloseTo(0.11, 12);
     // Under the caps nothing changes.
-    expect(raidZombieDropRate(HALLOWEEN_RAID_ID, 0, 1, false, 2.25)).toBeCloseTo(0.0225, 12);
+    expect(raidZombieDropRate(HALLOWEEN_RAID_ID, 0, 1, false, 2.25)).toBeCloseTo(2.25 * HALLOWEEN_ZOMBIE_DROP_RATE, 12);
     // Other raids are uncapped.
     expect(raidZombieDropRate(1, 5, ELITE_BRAIN_LUCK)).toBeCloseTo(0.24, 12);
   });
@@ -516,6 +531,8 @@ describe("the rare-zombie rate ladder", () => {
 
   it("keeps every promoted prize inside 3-4.5%", () => {
     for (const [id, drop] of Object.entries(RAID_ELITE_ZOMBIE_DROPS)) {
+      // Halloween's Mummy is an hourly rate that climbs down the night chain (pinned above).
+      if (Number(id) === HALLOWEEN_RAID_ID) continue;
       expect(drop.rate, `raid ${id}`).toBeGreaterThanOrEqual(0.03 - 1e-12);
       // The Boss Zombie's prize is a flat 6% (BOSS_PRIZE_RATE), past the 4.5% band.
       const ceiling = Number(id) === VIDEO_GAMES_RAID_ID ? BOSS_PRIZE_RATE : 0.045;

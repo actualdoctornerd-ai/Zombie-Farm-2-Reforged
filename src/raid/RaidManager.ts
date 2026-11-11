@@ -55,7 +55,7 @@ import {
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
 import { invasionInSeason } from "../decorThemes";
-import { FIRST_NIGHT, clampNight, hasNights, nightBrainLuck, nightGoldShare, nightLabel, nightStage, nightZombieLuck } from "./halloweenNights";
+import { FIRST_NIGHT, clampNight, hasNights, invasionRewardScale, nightBrainLuck, nightGoldShare, nightLabel, nightStage, nightZombieLuck } from "./halloweenNights";
 
 // ---- HUD-facing view models ----
 
@@ -412,9 +412,9 @@ export class RaidManager {
         eliteRecommendedLevel: r.eliteRecommendedLevel,
         unlockLevel: effectiveUnlockLevel(r),
         xp: r.xp,
-        firstClearXp: this.state.hasClearedRaid(String(r.id)) ? 0 : r.xp,
-        repeatXp: repeatInvasionXp(r.id),
-        eliteRepeatXp: repeatInvasionXp(r.id, true),
+        firstClearXp: this.state.hasClearedRaid(String(r.id)) ? 0 : Math.round(r.xp * invasionRewardScale(r.id)),
+        repeatXp: Math.round(repeatInvasionXp(r.id) * invasionRewardScale(r.id)),
+        eliteRepeatXp: Math.round(repeatInvasionXp(r.id, true) * invasionRewardScale(r.id)),
         brainOdds: {
           chance: brainDropChance(r.recommendedLevel, this.cardBrainLuck(r.id)),
           tiers: brainDropTable(r.recommendedLevel, this.cardBrainLuck(r.id)),
@@ -465,8 +465,8 @@ export class RaidManager {
       tiers: r.loot.map((tier) => [...tier]),
       extraRates,
       bundles,
-      bonusGold: r.recommendedLevel * 100, // getBonusGoldLootForStageLevel:
-      winGold: winGold(r),
+      bonusGold: Math.round(r.recommendedLevel * 100 * invasionRewardScale(r.id)), // getBonusGoldLootForStageLevel:
+      winGold: Math.round(winGold(r) * invasionRewardScale(r.id)),
       maxDice: maxLuckTiers(r),
     };
   }
@@ -791,10 +791,10 @@ export class RaidManager {
       // first-time-beaten. Every LATER win pays the small per-raid trickle instead
       // (x4 on a Brain Ticket) — a deliberate divergence, see repeatXp.ts.
       firstClear = wins === 1;
-      xp = invasionWinXp(raid.id, raid.xp, firstClear, elite);
+      xp = Math.round(invasionWinXp(raid.id, raid.xp, firstClear, elite) * invasionRewardScale(raid.id));
       const survivalFrac = party.length ? outcome.survivors.length / party.length : 0;
       // A Halloween hour 2+ pays a share of it, rising each hour (halloweenNights.nightGoldShare).
-      gold = Math.round(winGold(raid, survivalFrac) * nightGoldShare(night));
+      gold = Math.round(winGold(raid, survivalFrac) * nightGoldShare(night) * invasionRewardScale(raid.id));
       // ONLINE: the base win gold + the win's XP (either rule) are SERVER-authoritative
       // — hand them off (main.ts → /raid/finish) instead of crediting locally, so the
       // server prices them and can't be out-fabricated. The figures here are only a
@@ -818,7 +818,7 @@ export class RaidManager {
       if (!serverRewards) {
         const drop = this.rollLoot(raid, dice, wins, night > FIRST_NIGHT, night, elite);
         if (drop === "Bonus Gold") {
-          const bonusGold = raid.recommendedLevel * 100; // getBonusGoldLootForStageLevel:
+          const bonusGold = Math.round(raid.recommendedLevel * 100 * invasionRewardScale(raid.id)); // getBonusGoldLootForStageLevel:
           gold += bonusGold;
           this.state.addGold(bonusGold);
         } else if (drop) {

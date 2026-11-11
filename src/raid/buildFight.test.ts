@@ -103,11 +103,17 @@ describe("buildFight is the only way a fight is assembled", () => {
     });
     const playerStates = (sim: ReturnType<typeof buildFight>) => sim.snapshot().units
       .filter((u) => u.team === "player").map((u) => u.state);
+    // Head Start sends nobody at the bell (2026-11-11): its extras leave WITH the first deploy.
     expect(playerStates(normal)).toEqual(["waiting", "waiting", "waiting"]);
-    expect(playerStates(endless)).toEqual(["advance", "advance", "waiting"]);
-    for (let t = 0; t < 90; t++) { normal.step(50); endless.step(50); }
+    expect(playerStates(endless)).toEqual(["waiting", "waiting", "waiting"]);
+    let together = false;
+    for (let t = 0; t < 90; t++) {
+      normal.step(50); endless.step(50);
+      const states = playerStates(endless);
+      if (states[0] === "advance") { together = states.every((state) => state === "advance"); break; }
+    }
+    expect(together).toBe(true);
     expect(playerStates(normal)[0]).toBe("charging");
-    expect(playerStates(endless)[2]).toBe("advance");
   });
 
   it("passes every constructor parameter, in order, under its own name", () => {

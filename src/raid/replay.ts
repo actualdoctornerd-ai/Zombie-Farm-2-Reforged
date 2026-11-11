@@ -1295,7 +1295,9 @@ import type { RaidOutcome } from "./types";
 // Zwamp Thing counts its mutations twice (mutations.MUTATION_SCALE).
 // Endless only: the loaned Special deploys with the third zombie, deployment boons cut the charge
 // at most 80%, Rearguard halves the line falloff, Green Thumb scales heals (CombatUnit.healMult).
-export const RAID_RULESET_VERSION = 83;
+// 84 (Endless only, 2026-11-11): Head Start's extras deploy WITH the army's first zombie, not
+// at the bell, and stack to 9; a run's Concentration covers every floor. Invasions unchanged.
+export const RAID_RULESET_VERSION = 84;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

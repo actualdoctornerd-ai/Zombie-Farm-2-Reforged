@@ -10,6 +10,7 @@
 // gated on still-unsupported categories (social and photo/camera) simply never
 // advance — dormant, not broken. Epic quests are selected per active boss event.
 import { GameState } from "../GameState";
+import { questInSeason } from "../decorThemes";
 import { QuestBus, QuestEvent } from "./events";
 import { QuestDef, QuestView, RewardType, questBonusRewardInfo, questRewardInfo } from "./types";
 import { QuestSave } from "../save/schema";
@@ -107,6 +108,8 @@ export class QuestSystem {
     // Seasonal (date-gated) and epic-event quests are driven by their own systems,
     // not the normal progression rail.
     if (def.seasonal || (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id)))) return false;
+    // A holiday invasion's quests sit out its off season (decorThemes.questInSeason).
+    if (!questInSeason(id)) return false;
     // Prerequisite must be finished (or finished in preview, online), and the level
     // gate met.
     if (def.prerequisiteQuest >= 0 && !this.completed.has(String(def.prerequisiteQuest)) &&
@@ -144,6 +147,7 @@ export class QuestSystem {
       const def = this.defs.get(id);
       if (!def) continue;
       if (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id))) continue;
+      if (!questInSeason(id)) continue;
       let advanced = false;
       def.requirements.forEach((r, i) => {
         if (counts[i] >= r.countTotal) return;
@@ -259,6 +263,8 @@ export class QuestSystem {
       const def = this.defs.get(id);
       if (!def) continue;
       if (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id))) continue;
+      // Out of season: hidden, not dropped, so its progress is there when the holiday returns.
+      if (!questInSeason(id)) continue;
       if (this.previewCompleted.has(id)) continue; // retired from the rail, pending confirmation
       const displayCounts = this.hooks.authoritative
         ? this.authoritativePreview.get(id) ?? counts

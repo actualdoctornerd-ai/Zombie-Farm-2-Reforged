@@ -1,7 +1,8 @@
 // The Endless boss screen (owner, 2026-11-08: every Endless screen is a rehash of an existing
 // one). It is the invasion result tally that slides in from the right: the fight's loot and the
 // run's gold so far, then the boon, curse and next location as Invade-list cards, Continue as
-// the big button, and Reorder Army (the invasion army screen) and Go Home beside it.
+// the big button, and Reorder Army (the invasion army screen), Go Home (leave, run kept) and
+// End Run (bank it for good) beside it.
 import { ENDLESS_BUILD_BOONS, ENDLESS_LOCATION_NAMES, ENDLESS_MODIFIERS, isEndlessBuildBoon, type EndlessStop } from "../../raid/endless";
 import { ENDLESS_LOCATION_RAID } from "../../raid/endlessLoot";
 import type { Hud } from "../../hud";
@@ -39,7 +40,7 @@ function boonCard(choice: Record<string, unknown>): Card {
   switch (choice.kind) {
     case "revive-headless": return { title: "Second Wind", text: "Fallen Headless zombies stand up again after each battle", icon: icon("ressurect") };
     case "deployment": return { title: "Quick Release", text: `Zombies deploy ${pct} faster (an 80% cut at most)`, icon: icon("turboSpeed") };
-    case "opening-deploy": return { title: "Head Start", text: `Start every fight with ${String(choice.count)} zombies already out`, icon: icon("attachMini") };
+    case "opening-deploy": return { title: "Head Start", text: `${String(choice.count)} more zombies deploy with your first one every fight. Stacks`, icon: icon("attachMini") };
     case "damage": return { title: "Sharpened", text: `Zombies deal ${pct} more damage`, icon: icon("powerBuff") };
     case "temporary-zombie": return {
       title: String(choice.name), text: "Joins your army for this run and walks on with your third zombie",
@@ -119,6 +120,8 @@ export function openEndlessBossScreen(
   view: EndlessBossView,
   onChoose: (choices: EndlessBossChoices) => void,
   onEnd: () => void,
+  /** Leave with the run kept at this boss screen; Choose Rewards in Endless reopens it. */
+  onHome: () => void,
 ): void {
   const raidCards = hud.getRaidCards?.() ?? [];
   const lootIcon = (item: { name: string; key?: string; kind?: string }) => hud.endlessLootIcon?.(item) ?? "";
@@ -183,13 +186,15 @@ export function openEndlessBossScreen(
           return false; // the tally stays open under the army screen
         },
       },
+      { label: "Go Home", onClick: () => { onHome(); } },
       {
-        label: "Go Home",
+        label: "End Run",
         onClick: async () => {
           const body = view.opening
-            ? "You skipped ahead and have not beaten a boss yet, so this run pays nothing."
-            : "You keep your loot and receive the full gold reward for every floor already cleared.";
-          if (!await hud.confirmInGame("End this Endless run?", body, "Go Home")) return false;
+            ? "You skipped ahead and have not beaten a boss yet, so this run pays nothing. The next run starts over and costs its entry again."
+            : "This ends the run for good: you keep your loot and the gold for every floor cleared, " +
+              "and the next run starts over and costs its entry again.";
+          if (!await hud.confirmInGame("End this Endless run?", body, "End Run")) return false;
           onEnd();
         },
       },

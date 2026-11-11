@@ -197,9 +197,15 @@ async function readAll(db: D1Database, accountId: string) {
       .bind(accountId).first<RaidRow>(),
     db.prepare("SELECT last_started_at, progress_json, tier_json FROM raid_state_v3 WHERE account_id = ?")
       .bind(accountId).first<RaidStateRow>(),
-    db.prepare(`SELECT session_id, casualties_json FROM raid_revivals_v3
-      WHERE account_id = ? AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1`)
-      .bind(accountId).first<{ session_id: string; casualties_json: string }>(),
+    // The newest unresolved revival: an invasion's, or an Endless run's end (migration 0063).
+    db.prepare(`SELECT session_id, casualties_json FROM (
+        SELECT session_id, casualties_json, created_at FROM raid_revivals_v3
+          WHERE account_id = ? AND resolved_at IS NULL
+        UNION ALL
+        SELECT session_id, casualties_json, created_at FROM endless_revivals_v3
+          WHERE account_id = ? AND resolved_at IS NULL
+      ) ORDER BY created_at DESC LIMIT 1`)
+      .bind(accountId, accountId).first<{ session_id: string; casualties_json: string }>(),
     db.prepare("SELECT * FROM epic_boss_runs_v3 WHERE account_id = ?")
       .bind(accountId).first<EpicRunRow>(),
   ]);

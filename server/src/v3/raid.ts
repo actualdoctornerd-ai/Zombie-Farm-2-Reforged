@@ -24,7 +24,7 @@ import objectRows from "../../../public/assets/placeables.json";
 import { shouldStoreEpicReward } from "../../../src/epicBoss/rewards";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { isLiveSessionCollision } from "./liveSessionRace";
-import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, clampNight, hasNights, nightBrainLuck, nightGoldShare, nightZombieLuck } from "../../../src/raid/halloweenNights";
+import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, clampNight, hasNights, invasionRewardScale, nightBrainLuck, nightGoldShare, nightZombieLuck } from "../../../src/raid/halloweenNights";
 
 const DEFAULT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 /** How long an invasion session may sit open before it is treated as ABANDONED and
@@ -657,7 +657,9 @@ export async function finishRaid(
   const night = clampNight(boosts.night ?? FIRST_NIGHT);
   // Hours 2+ pay a rising share of the win gold and roll no Bonus Gold (halloweenNights.ts).
   const laterNight = night > FIRST_NIGHT;
-  const baseGold = win ? Math.round(winGold(econ, survivors.length / locked.length) * nightGoldShare(night)) : 0;
+  // Halloween pays a quarter less across the board (invasionRewardScale; 1 elsewhere).
+  const rewardScale = invasionRewardScale(raidId);
+  const baseGold = win ? Math.round(winGold(econ, survivors.length / locked.length) * nightGoldShare(night) * rewardScale) : 0;
   // Elite is read back from the SESSION, not from this request: the ticket was charged
   // and the wave scaled at /raid/start, so that is where the fact lives.
   const eliteLuck = boosts.elite ? ELITE_BRAIN_LUCK : 1;
@@ -665,7 +667,7 @@ export async function finishRaid(
   // per-raid trickle, x4 on a Brain Ticket (repeatXp.ts). Priced here from the raid id
   // and the SESSION's elite flag — never from anything the client sent — so a repeat
   // win cannot be re-billed as a first clear.
-  const xp = win ? invasionWinXp(raidId, econ.xp, firstClear, !!boosts.elite) : 0;
+  const xp = win ? Math.round(invasionWinXp(raidId, econ.xp, firstClear, !!boosts.elite) * rewardScale) : 0;
   const pinnedBrains = Number.isFinite(boosts.brainDrop)
     ? Math.max(0, Math.trunc(boosts.brainDrop as number))
     : null;
@@ -724,7 +726,7 @@ export async function finishRaid(
     const name = statue.drop
       ?? rollLoot(raidId, boosts.dice ?? 0, ownedLootCounter(core.storage, objects), Math.random(), Math.random(), laterNight);
     const grant = resolveLoot(name, econ.recLevel);
-    if (grant.kind === "gold") { lootGold = grant.gold; loot = { name: grant.name, kind: "gold" }; }
+    if (grant.kind === "gold") { lootGold = Math.round(grant.gold * rewardScale); loot = { name: grant.name, kind: "gold" }; }
     else if (grant.kind === "boost") {
       // Bundled drops (Insta-Grow x10) stack in one go, clamped like every other inventory
       // grant so the count stays inside the plausibility bound.
@@ -1030,9 +1032,17 @@ export async function resolveRevival(
   now: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (typeof body.sessionId !== "string" || !body.sessionId) return { status: 400, body: { error: "bad_session" } };
-  const row = await db.prepare(`SELECT casualties_json, revived_json, resolved_at FROM raid_revivals_v3
-    WHERE session_id = ? AND account_id = ?`).bind(body.sessionId, accountId)
-    .first<{ casualties_json: string; revived_json: string | null; resolved_at: number | null }>();
+  type OfferRow = { casualties_json: string; revived_json: string | null; resolved_at: number | null };
+  // An invasion's offer, or the one an Endless run's end writes (migration 0063): the same
+  // shape in two tables, since each session id references its own session table.
+  let table: "raid_revivals_v3" | "endless_revivals_v3" = "raid_revivals_v3";
+  let row = await db.prepare(`SELECT casualties_json, revived_json, resolved_at FROM raid_revivals_v3
+    WHERE session_id = ? AND account_id = ?`).bind(body.sessionId, accountId).first<OfferRow>();
+  if (!row) {
+    table = "endless_revivals_v3";
+    row = await db.prepare(`SELECT casualties_json, revived_json, resolved_at FROM endless_revivals_v3
+      WHERE session_id = ? AND account_id = ?`).bind(body.sessionId, accountId).first<OfferRow>();
+  }
   if (!row) return { status: 404, body: { error: "bad_session" } };
   const casualties = parse<CasualtySnapshot[]>(row.casualties_json, []);
   const requested = Array.isArray(body.reviveIds)
@@ -1053,10 +1063,10 @@ export async function resolveRevival(
   if (balance.brains < cost) return { status: 409, body: { error: "insufficient_brains", balance } };
   const revived = casualties.filter((z) => requested.includes(z.id));
   const resolutionId = crypto.randomUUID();
-  const guard = `EXISTS (SELECT 1 FROM raid_revivals_v3 r
+  const guard = `EXISTS (SELECT 1 FROM ${table} r
     WHERE r.session_id = ? AND r.account_id = ? AND r.resolution_id = ?)`;
   const statements: D1PreparedStatement[] = [
-    db.prepare(`UPDATE raid_revivals_v3 SET revived_json = ?, resolution_id = ?, resolved_at = ?
+    db.prepare(`UPDATE ${table} SET revived_json = ?, resolution_id = ?, resolved_at = ?
       WHERE session_id = ? AND account_id = ? AND resolved_at IS NULL
         AND EXISTS (SELECT 1 FROM balances WHERE account_id = ? AND brains >= ?)`)
       .bind(JSON.stringify(requested), resolutionId, now, body.sessionId, accountId, accountId, cost),

@@ -50,7 +50,7 @@ import {
 import { periodIndex } from "../../../src/quest/periodic/periods";
 import type { PeriodicQuestState } from "../../../src/quest/periodic/types";
 import { objectQuestAliases } from "../../../src/quest/objectVariants";
-import { decorAvailable } from "../../../src/decorThemes";
+import { decorAvailable, questInSeason } from "../../../src/decorThemes";
 import {
   combineSubject, combineSubjectAliases, mutantSubjectIndex, unitQuestSubjects,
   unitSubjectAliases,
@@ -636,7 +636,7 @@ export function applyQuestEvents(
   const changed = new Set<string>();
 
   for (const [id, def] of Object.entries(QUEST_DEFINITIONS)) {
-    if (completed.has(id) || def.seasonal ||
+    if (completed.has(id) || def.seasonal || !questInSeason(id) ||
         (def.epicEvent && (!options.includeEpic || (options.epicQuestIds && !options.epicQuestIds.has(id))))) continue;
     if (def.levelRequired > levelForXp(balance.xp)) continue;
     if (def.prerequisiteQuest >= 0 && !completed.has(String(def.prerequisiteQuest))) continue;

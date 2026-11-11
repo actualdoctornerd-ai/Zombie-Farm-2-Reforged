@@ -110,6 +110,16 @@ export const NIGHT_BRAIN_GROWTH = 1.1;
  *  streak to ~2.2. */
 export const HALLOWEEN_BRAIN_SCALE = 0.294;
 
+/** Halloween's gold, XP, Bonus Gold and brain odds, as a share of what its rung would pay
+ *  (owner, 2026-11-11): cut by a quarter when the invasion went year-round. Rare zombies are
+ *  cut apart, in zombieDrops (HALLOWEEN_ZOMBIE_DROP_RATE). */
+export const HALLOWEEN_REWARD_SCALE = 0.75;
+
+/** The reward scale for a win of `raidId`: HALLOWEEN_REWARD_SCALE on Halloween, else 1. */
+export function invasionRewardScale(raidId: number): number {
+  return raidId === HALLOWEEN_RAID_ID ? HALLOWEEN_REWARD_SCALE : 1;
+}
+
 /** Does this invasion offer further nights? */
 export function hasNights(raidId: number): boolean {
   return raidId === HALLOWEEN_RAID_ID;
@@ -197,7 +207,7 @@ export function nightGoldShare(night: number | undefined): number {
  *  (elite's 4x is applied apart). Every Halloween brain roll goes through this, night 1
  *  included. */
 export function nightBrainLuck(night: number | undefined): number {
-  return HALLOWEEN_BRAIN_SCALE * Math.pow(NIGHT_BRAIN_GROWTH, nightDifficulty(clampNight(night)) - 1);
+  return HALLOWEEN_REWARD_SCALE * HALLOWEEN_BRAIN_SCALE * Math.pow(NIGHT_BRAIN_GROWTH, nightDifficulty(clampNight(night)) - 1);
 }
 
 /** "Hour 3" / "Elite Hour 1". The code says NIGHT throughout; the player sees hours of

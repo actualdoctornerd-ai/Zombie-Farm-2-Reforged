@@ -82,16 +82,30 @@ describe("the shipped catalog's labels", () => {
   });
 });
 
-describe("Halloween is over (owner, 2026-11-10)", () => {
-  it("takes its decor, its seed and its invasion off sale together", async () => {
-    const { ACTIVE_THEMES, invasionInSeason, themeAvailable } = await import("./decorThemes");
+describe("Halloween is over (owner, 2026-11-10), its invasion stays (2026-11-11)", () => {
+  it("keeps its decor and seed off sale, and the invasion and its quests year-round", async () => {
+    const { ACTIVE_THEMES, invasionInSeason, questInSeason, themeAvailable } = await import("./decorThemes");
     const { cropAvailableInMarket } = await import("./marketOrder");
     expect(ACTIVE_THEMES).not.toContain("halloween");
     expect(themeAvailable("halloween")).toBe(false);
     expect(cropAvailableInMarket({ key: "candy_corn", seasonal: true } as never)).toBe(false);
-    expect(invasionInSeason(16)).toBe(false);
-    // Every other invasion is untouched.
+    expect(invasionInSeason(16)).toBe(true);
+    for (const quest of ["48", "49", "50"]) expect(questInSeason(quest)).toBe(true);
     expect(invasionInSeason(1)).toBe(true);
-    expect(invasionInSeason(14)).toBe(true);
+    expect(questInSeason("1")).toBe(true);
+  });
+
+  it("would take a seasoned invasion's quests off the rail with it", async () => {
+    const themes = await import("./decorThemes");
+    const seasonal = themes.SEASONAL_INVASION_THEMES as Record<number, string>;
+    seasonal[16] = "halloween";
+    try {
+      expect(themes.invasionInSeason(16)).toBe(false);
+      expect(themes.questInSeason("48")).toBe(false);
+      expect(themes.questInSeason("50")).toBe(false);
+      expect(themes.questInSeason("16")).toBe(true); // "Looting the Ninjas": raid 4, untouched
+    } finally {
+      delete seasonal[16];
+    }
   });
 });

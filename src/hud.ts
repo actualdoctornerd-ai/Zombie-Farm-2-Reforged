@@ -7084,7 +7084,7 @@ export class Hud {
   endlessLootIcon: ((item: { name: string; key?: string; kind?: string }) => string) | null = null;
   private endlessHub: {
     active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice"; loot?: EndlessBossLoot[]; stopLabel?: string } | null;
-    onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number) => void;
+    onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number, concentration: boolean) => void;
     onResume: () => void;
     onEnd: () => void;
   } | null = null;
@@ -7093,7 +7093,7 @@ export class Hud {
 
   openEndlessHub(
     active: { sessionId: string; mode: "endless" | "nightmare"; wave: number; stage: "battle" | "boss-choice"; loot?: EndlessBossLoot[]; stopLabel?: string } | null,
-    onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number) => void,
+    onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number, concentration: boolean) => void,
     onResume: () => void,
     onEnd: () => void,
   ) {
@@ -7126,7 +7126,8 @@ export class Hud {
     intro.textContent =
       "Invasion after invasion, harder each floor. Three floors make a tier, and the third is an " +
       "Epic Boss. After each boss pick a boon, a curse and where to go next. Zombies lost on a run " +
-      "are gone for good, as on any invasion, and you can go home whenever you like.";
+      "can be revived with brains when it ends, as on any invasion. Go Home between fights to pick " +
+      "the run up later, or End Run to bank it.";
 
     const rewards = document.createElement("div");
     rewards.className = "rd-drops";
@@ -7178,7 +7179,7 @@ export class Hud {
       end.className = "raid-quick";
       end.textContent = "End Run";
       end.onclick = async () => {
-        if (!await this.confirmInGame("End this Endless run?", "You keep your loot and receive the full gold reward for every floor already cleared.", "End Run")) return;
+        if (!await this.confirmInGame("End this Endless run?", "This ends the run for good: you keep your loot and the gold for every floor cleared, and the next run starts over and costs its entry again.", "End Run")) return;
         close();
         hub.onEnd();
       };
@@ -7242,7 +7243,7 @@ export class Hud {
 
   /** The army screen for a new Endless run: the invasion army screen, with the starting-tier
    *  buttons where a dual invasion has its tier buttons. */
-  openEndlessArmy(onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number) => void) {
+  openEndlessArmy(onStart: (mode: "endless" | "nightmare", orderedIds: string[], startTier: number, concentration: boolean) => void) {
     document.querySelector("#hud .army-bg")?.remove();
     const party = this.getRaidParty ? this.getRaidParty() : null;
     const bg = document.createElement("div");
@@ -7334,6 +7335,11 @@ export class Hud {
     tierWrap.appendChild(note);
     drawTiers();
     boostRow.appendChild(tierWrap);
+    // Concentration: one spent at the start covers every floor of the run (owner, 2026-11-11).
+    let useConcentration = false;
+    boostRow.appendChild(concentrateButton(this.getEpicBossConcentration?.() ?? 0,
+      "Spend one Concentration: every floor of this run is fought without the focus minigame.",
+      (on) => { useConcentration = on; }));
     wrap.insertBefore(boostRow, foot);
 
     const pick = document.createElement("button");
@@ -7347,7 +7353,7 @@ export class Hud {
       const attackOrder = compactOrder(order);
       if (attackOrder.length < min) return;
       bg.remove();
-      onStart("endless", attackOrder, tierChosen);
+      onStart("endless", attackOrder, tierChosen, useConcentration);
     };
     foot.append(pick, start);
     refresh();
@@ -7478,8 +7484,10 @@ export class Hud {
     return close;
   }
 
-  openEndlessBossChoice(view: EndlessBossView, onChoose: (choices: EndlessBossChoices) => void, onEnd: () => void) {
-    openEndlessBossScreen(this, view, onChoose, onEnd);
+  openEndlessBossChoice(
+    view: EndlessBossView, onChoose: (choices: EndlessBossChoices) => void, onEnd: () => void, onHome: () => void,
+  ) {
+    openEndlessBossScreen(this, view, onChoose, onEnd, onHome);
   }
 
   openRaidResult(view: RaidResultView, onClose?: () => void) {

@@ -31,7 +31,8 @@ export const OLD_MC_ZOMBIE_RAID_ID = 1;
 //   rec 10  Summer Break      Diver Zombie      1.0%
 //   rec 12  Circus            Zombozo           1.0%   (single prize: x4 on a ticket)
 //   rec 16  Lawyers           Deputy Zombie     1.2%   (Sheriff 3.0% on a ticket)
-//   rec 20  Halloween         Mummy Zombie      1.3%   (seasonal, but a level-20 fight)
+//   rec 20  Halloween         JackoZombie/      ~0.44% an hour, climbing (see HALLOWEEN_ZOMBIE_DROP_RATE:
+//                             Zcarecrow         Hours 1-7 pay what 5 wins at this 1.3% rung do)
 //   rec 21  Pirates           MerZombie         1.4%   (Poseidon 3.5%)
 //   rec 26  Ninjas            Ninjombie         1.6%   (Master Ninjombie 4.0%)
 //   rec 31  Robots            Zombie Bot        1.8%   (Omega Zombie Bot 4.5%)
@@ -80,7 +81,15 @@ export const ZCARECROW_KEY = "ZombieActorLarge2Tier5";
 export const MUMMY_ZOMBIE_KEY = "ZombieActorMummy";
 export const MUMMY_ZOMBIE_NAME = "Mummy Zombie";
 export const HALLOWEEN_RAID_ID = 16;
-export const HALLOWEEN_ZOMBIE_DROP_RATE = pct(1);
+/** Halloween's rung on the ladder, between the Lawyers and the Pirates. */
+export const HALLOWEEN_LADDER_RATE = pct(1.3);
+/** halloweenNights.nightZombieLuck summed over Hours 1-7 (zombieDrops.test pins it: this module
+ *  imports nothing, and halloweenNights imports it). */
+export const HALLOWEEN_SEVEN_HOUR_LUCK = 14.644544970684048;
+/** Hour 1's rate for the JackoZombie/Zcarecrow pair (owner, 2026-11-11, when the invasion went
+ *  year-round): a run of seven hours expects as many rare zombies as five wins of any other
+ *  invasion at its rung, 5 x 1.3% spread along the hours' x1.5 climb. ~0.44% (was 1%). */
+export const HALLOWEEN_ZOMBIE_DROP_RATE = (5 * HALLOWEEN_LADDER_RATE) / HALLOWEEN_SEVEN_HOUR_LUCK;
 /** A Brain Ticket's 4x, kept here so this module imports nothing; zombieDrops.test pins it
  *  to eliteInvasion.ELITE_BRAIN_LUCK. */
 export const ELITE_LUCK_FOR_PRIZES = 4;
@@ -226,7 +235,9 @@ export const RAID_ELITE_ZOMBIE_DROPS: Readonly<Record<number, RaidZombieDrop>> =
   },
   [HALLOWEEN_RAID_ID]: {
     key: MUMMY_ZOMBIE_KEY, name: MUMMY_ZOMBIE_NAME,
-    rate: HALLOWEEN_ZOMBIE_DROP_RATE * ELITE_LUCK_FOR_PRIZES, maxRate: HALLOWEEN_MUMMY_MAX_RATE,
+    // The usual promoted 2.5x (was a Brain Ticket's 4x until 2026-11-11), so seven Elite Hours
+    // expect what five elite wins pay elsewhere.
+    rate: HALLOWEEN_ZOMBIE_DROP_RATE * ELITE_PRIZE_RATE_MULTIPLIER, maxRate: HALLOWEEN_MUMMY_MAX_RATE,
   },
 };
 

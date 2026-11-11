@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import zombiesJson from "../../../../public/assets/zombies.json";
 import { buildPlayerUnits } from "../../CombatEngine";
 import {
-  applyEndlessCurse, applyEndlessStop, beginEndlessRun, endlessMaxStartTier, endlessBossDraft, endlessWavePlan,
+  applyEndlessCurse, ENDLESS_MAX_OPENING_DEPLOY, applyEndlessStop, beginEndlessRun, endlessMaxStartTier, endlessBossDraft, endlessWavePlan,
   ENDLESS_FIGHTS_PER_LOCATION, type EndlessBoon, type EndlessCurse, type EndlessMode, type EndlessRunState,
 } from "../../endless";
 import { endlessApplyBoon, endlessCarryFromSim, endlessFightConfig, endlessSimFor } from "../../endlessFight";
@@ -44,7 +44,7 @@ function boonScore(run: EndlessRunState, b: EndlessBoon): number {
   const share = (group: string) => run.units.filter((u) => (u.group ?? "") === group).length / n;
   switch (b.kind) {
     case "temporary-zombie": return 6;
-    case "opening-deploy": return run.openingDeploy >= 3 ? 0 : 4;
+    case "opening-deploy": return run.openingDeploy >= ENDLESS_MAX_OPENING_DEPLOY ? 0 : 4;
     case "deployment": return run.deploymentSpeedBonus >= 0.8 ? 0 : 3;
     case "sharp-teeth": return 4.5;
     case "thick-skin": case "quick-hands": return 4;

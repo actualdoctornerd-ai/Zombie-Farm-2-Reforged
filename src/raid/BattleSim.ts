@@ -107,6 +107,8 @@ const ENGAGE = 60; // x-distance at which two units trade blows
 const CHARGE_MS = 3600; // focus-bar fill (zombies take a while to get out)
 /** Endless: the most the deployment boons may cut CHARGE_MS by. */
 const MAX_DEPLOY_REDUCTION = 0.8;
+/** Head Start's ceiling: extra zombies that walk on with the army's first deploy (Endless). */
+const MAX_OPENING_ESCORT = 9;
 /** Endless: the loaned Special walks on with this many of the army's own deploys. */
 const LOANED_AFTER_DEPLOYS = 3;
 // Focus-bubble minigame thresholds: the fill pauses at 1/4, 2/4, 3/4 (a butterfly
@@ -1367,6 +1369,9 @@ export class BattleSim {
   private activeTarget = 1;
   /** Endless deployment boon; normal fights retain the authored focus duration. */
   private focusChargeMs = CHARGE_MS;
+  /** Head Start (Endless): how many more of the army leave with its first deploy. Config, so
+   *  a snapshot needs nothing; "first" is read off `releaseSeq`, which it carries. */
+  private openingEscort = 0;
   private engageDistance: number;
   private rowXFit = 1; // fraction of the recovered in-row depth that fits inside contact
   private frontX: number;
@@ -1490,9 +1495,10 @@ export class BattleSim {
     // Endless's deployment boons cut the charge time, never by more than 80% (owner, 2026-11-08).
     this.focusChargeMs = CHARGE_MS *
       (1 - Math.min(MAX_DEPLOY_REDUCTION, Math.max(0, endlessMechanics?.deploymentSpeedBonus ?? 0)));
-    for (const player of this.players.slice(0, Math.max(0, Math.min(3, Math.floor(endlessMechanics?.openingDeploy ?? 0))))) {
-      this.releaseCharger(player);
-    }
+    // Head Start no longer pushes zombies out at the bell (owner, 2026-11-11): its extras walk
+    // on WITH the army's first deploy (releaseCharger), so the opening charge still leaves time
+    // for abilities, a Mini climbing onto a Large first above all.
+    this.openingEscort = Math.max(0, Math.min(MAX_OPENING_ESCORT, Math.floor(endlessMechanics?.openingDeploy ?? 0)));
     for (const e of this.enemies) {
       e.waveBody = !e.isBoss && e.deployAtMs === null && e.deployAtWaveFrac === null && !e.deployWithBoss;
     }
@@ -4217,6 +4223,8 @@ export class BattleSim {
 
   /** Release a fully-charged zombie to advance to the front line. */
   private releaseCharger(p: SimUnit) {
+    // Nothing has claimed a formation slot yet: this is the army's first deploy.
+    const firstDeploy = !p.loaned && this.releaseSeq === 0;
     p.state = "advance";
     p.teleportPending = p.abilities.includes("teleport");
     if (p.abilities.includes("stoneGaze") || p.abilities.includes("petrify")) this.medusaDeployed(p);
@@ -4224,6 +4232,14 @@ export class BattleSim {
     p.distracted = false;
     p.awaitRelease = false;
     if (!p.loaned && this.ownDeployed() >= LOANED_AFTER_DEPLOYS) this.releaseLoaned();
+    if (firstDeploy && this.openingEscort > 0) {
+      // Head Start: the next in line go with it, in queue order. A Mini already riding a
+      // Large is "carried", not queued, and goes with its carrier.
+      const escort = this.players
+        .filter((q) => q !== p && q.alive && !q.loaned && (q.state === "waiting" || q.state === "charging"))
+        .slice(0, this.openingEscort);
+      for (const q of escort) this.releaseCharger(q);
+    }
   }
 
   /** How many of the army's own zombies have left the queue (dead ones included). Read off
