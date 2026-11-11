@@ -5,6 +5,7 @@
 import type { BossThrowConfig, RaidDef, RaidStage } from "./types";
 import { raidBoostBundle } from "./lootBundles";
 import { effectiveUnlockLevel } from "./practice";
+import { invasionInSeason } from "../decorThemes";
 import { deriveMaxHp, levelScaleStat } from "./combatStats";
 
 /** Minimum army to launch an invasion (Help.json: "at least 8, best with 16"). */
@@ -278,12 +279,13 @@ export function power(z: { str: number; dex: number; con: number; focus: number 
 /** A raid is enterable when it has playable stages and the level gate is met. */
 export function isUnlocked(raid: RaidDef, level: number): boolean {
   // Practice (raid/practice.ts) opens the dual invasions early; everything else is authored.
-  return raid.playable && level >= effectiveUnlockLevel(raid);
+  return raid.playable && invasionInSeason(raid.id) && level >= effectiveUnlockLevel(raid);
 }
 
 /** Why the player can't enter a raid ("" when they can). */
 export function lockReason(raid: RaidDef, level: number): string {
   if (!raid.playable) return "Coming soon";
+  if (!invasionInSeason(raid.id)) return "Out of season";
   if (level < effectiveUnlockLevel(raid)) return `Requires level ${effectiveUnlockLevel(raid)}`;
   return "";
 }

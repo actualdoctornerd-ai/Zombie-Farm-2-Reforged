@@ -1,9 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import plants from "../public/assets/plants.json";
 import { ACTIVE_THEMES } from "./decorThemes";
 import {
   compareCropMarketOrder, compareItemMarketOrder, cropAvailableInMarket, SEASONAL_CROP_THEMES,
 } from "./marketOrder";
+
+// These pin Halloween's own rules, so they run with its season on whatever the calendar says
+// (Halloween went off sale 2026-11-10; the switch is decorThemes.ACTIVE_THEMES).
+const halloweenOn = () => {
+  const themes = ACTIVE_THEMES as string[];
+  beforeAll(() => { if (!themes.includes("halloween")) themes.push("halloween"); });
+  afterAll(() => { const at = themes.indexOf("halloween"); if (at >= 0) themes.splice(at, 1); });
+};
+halloweenOn();
 
 describe("crop market ordering", () => {
   it("temporarily removes seasonal crops from purchase surfaces", () => {

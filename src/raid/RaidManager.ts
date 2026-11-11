@@ -54,6 +54,7 @@ import {
   MIN_TIER, raidProfile,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
+import { invasionInSeason } from "../decorThemes";
 import { FIRST_NIGHT, clampNight, hasNights, nightBrainLuck, nightGoldShare, nightLabel, nightStage, nightZombieLuck } from "./halloweenNights";
 
 // ---- HUD-facing view models ----
@@ -400,6 +401,8 @@ export class RaidManager {
   raidCards(): RaidCardView[] {
     const level = this.state.level;
     return this.assets.raids
+      // A holiday invasion leaves the list entirely once its season ends (decorThemes.ts).
+      .filter((r) => invasionInSeason(r.id))
       .map((r) => ({
         id: r.id,
         name: r.name,

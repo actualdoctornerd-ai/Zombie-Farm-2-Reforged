@@ -2,12 +2,21 @@
 // (src/raid/halloweenNights.ts). Run against the real schema in node:sqlite, because the
 // continuation is claimed with json_set / json_extract guards inside one batch, and a
 // guard that SQLite reads differently from what was meant is a silent no-op.
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ACTIVE_THEMES } from "../../src/decorThemes";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { D1Database } from "@cloudflare/workers-types";
 import { startRaid } from "../src/v3/raid";
+// These pin Halloween's own rules, so they run with its season on whatever the calendar says
+// (Halloween went off sale 2026-11-10; the switch is decorThemes.ACTIVE_THEMES).
+const halloweenOn = () => {
+  const themes = ACTIVE_THEMES as string[];
+  beforeAll(() => { if (!themes.includes("halloween")) themes.push("halloween"); });
+  afterAll(() => { const at = themes.indexOf("halloween"); if (at >= 0) themes.splice(at, 1); });
+};
+halloweenOn();
 import { RAID_RULESET_VERSION } from "../src/raidVerifier";
 import { levelForXp } from "../src/levels";
 import { BRAIN_TICKET_KEY } from "../src/boostCatalog";

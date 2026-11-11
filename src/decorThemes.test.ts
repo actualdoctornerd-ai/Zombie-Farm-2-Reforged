@@ -81,3 +81,17 @@ describe("the shipped catalog's labels", () => {
     expect(themeLabel("")).toBe("");
   });
 });
+
+describe("Halloween is over (owner, 2026-11-10)", () => {
+  it("takes its decor, its seed and its invasion off sale together", async () => {
+    const { ACTIVE_THEMES, invasionInSeason, themeAvailable } = await import("./decorThemes");
+    const { cropAvailableInMarket } = await import("./marketOrder");
+    expect(ACTIVE_THEMES).not.toContain("halloween");
+    expect(themeAvailable("halloween")).toBe(false);
+    expect(cropAvailableInMarket({ key: "candy_corn", seasonal: true } as never)).toBe(false);
+    expect(invasionInSeason(16)).toBe(false);
+    // Every other invasion is untouched.
+    expect(invasionInSeason(1)).toBe(true);
+    expect(invasionInSeason(14)).toBe(true);
+  });
+});

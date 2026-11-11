@@ -49,7 +49,20 @@ const THEME_LABELS: Record<string, string> = {
  * Gating applies to BUYING only. An owned seasonal decor still places, stores and
  * re-places whatever the season, so nobody loses a farm they built.
  */
-export const ACTIVE_THEMES: readonly string[] = [EVERGREEN, "halloween"];
+// Halloween ended 2026-11-10 (owner): its decor, Candy Corn and its invasion all went off sale
+// with this one line. Put "halloween" back to bring the whole event back.
+export const ACTIVE_THEMES: readonly string[] = [EVERGREEN];
+
+/** Invasions that belong to a holiday, by raid id: playable only while their theme is on
+ *  ACTIVE_THEMES, on both the client and the server, and left off the invasion list
+ *  otherwise. Raid 16 is Halloween (Count von Uberbiss). */
+export const SEASONAL_INVASION_THEMES: Readonly<Record<number, string>> = { 16: "halloween" };
+
+/** Is this invasion in season? Every invasion not tied to a holiday always is. */
+export function invasionInSeason(raidId: number): boolean {
+  const theme = SEASONAL_INVASION_THEMES[raidId];
+  return !theme || themeAvailable(theme);
+}
 
 /** This row's label, defaulting to evergreen when the field is absent. */
 export function themeOf(def: { theme?: string } | undefined | null): string {

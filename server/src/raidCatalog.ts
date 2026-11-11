@@ -1,4 +1,5 @@
 import { effectiveUnlockLevel } from "../../src/raid/practice";
+import { invasionInSeason } from "../../src/decorThemes";
 // Server-side raid reward economics. Mirrors the reward-relevant fields of
 // public/assets/raids/raids.json and the client's winGold() (src/raid/RaidCatalog.ts),
 // so the SERVER computes the base win gold + first-clear XP instead of trusting the
@@ -75,6 +76,8 @@ export const MAX_RAID_WINS = 100_000;
 export function raidUnlocked(r: RaidEcon, level: number, raidId?: number): boolean {
   // Practice (src/raid/practice.ts) opens the four dual invasions early.
   const unlock = raidId === undefined ? r.unlockLevel : effectiveUnlockLevel({ id: raidId, unlockLevel: r.unlockLevel });
+  // A holiday invasion (Halloween) only opens while its theme is on sale (decorThemes.ts).
+  if (raidId !== undefined && !invasionInSeason(raidId)) return false;
   return r.playable && level >= unlock;
 }
 
