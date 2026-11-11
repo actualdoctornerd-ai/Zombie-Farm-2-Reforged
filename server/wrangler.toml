@@ -136,9 +136,10 @@ simple = { limit = 300, period = 60 }
 
 # Same daily cleanup sweep as prod, on staging's own database. The hourly cron runs
 # the usage breaker, which staging keeps OFF: it reads the whole ACCOUNT's usage, so
-# production's copy already covers staging.
+# production's copy already covers staging. The Monday 06:07 one is the weekly oversight
+# report (src/oversightReport.ts); staging has no email binding, so it only logs counts.
 [triggers]
-crons = ["17 3 * * *", "47 * * * *"]
+crons = ["17 3 * * *", "47 * * * *", "7 6 * * 1"]
 
 # ---- PRODUCTION (--env production only) ------------------------------------
 # Deploy:      npx wrangler deploy --env production   (or `npm run deploy:prod`)
@@ -269,5 +270,16 @@ simple = { limit = 300, period = 60 }
 # and old pending friend requests — keeps D1 small on the free tier. The hourly one
 # (:47) runs the usage breaker. Handler: the `scheduled` export in src/index.ts,
 # which tells them apart by the cron string — keep "17 3 * * *" in step with it.
+# Mondays 06:07 UTC: the weekly oversight report (OVERSIGHT_REPORT_CRON, same file).
 [env.production.triggers]
-crons = ["17 3 * * *", "47 * * * *"]
+crons = ["17 3 * * *", "47 * * * *", "7 6 * * 1"]
+
+# Weekly oversight report email (src/oversightReport.ts). Read-only report on Black
+# Market abuse signals and bot-like play. To turn the email on:
+#   1. npx wrangler email sending enable zombiefarmreforged.com   (adds SPF/DKIM records)
+#   2. uncomment the binding below and set the two vars in [env.production.vars]:
+#        REPORT_EMAIL_TO = "<owner address>"
+#        REPORT_EMAIL_FROM = "reports@zombiefarmreforged.com"
+#   3. deploy. Until then the cron runs and only logs oversight_report_unsent.
+# [[env.production.send_email]]
+# name = "REPORT_EMAIL"

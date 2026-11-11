@@ -64,6 +64,12 @@ export interface Bindings {
   USAGE_BREAKER_TOKEN?: string;
   /** The Cloudflare account the breaker reads usage for. */
   CF_ACCOUNT_ID?: string;
+  /** Weekly oversight report (src/oversightReport.ts). The `send_email` binding plus
+   *  the two addresses; with any of the three missing the report only logs its counts.
+   *  FROM must be on a domain onboarded to Cloudflare Email Sending. */
+  REPORT_EMAIL?: SendEmail;
+  REPORT_EMAIL_TO?: string;
+  REPORT_EMAIL_FROM?: string;
   /** Rate limiters, one per per-minute LIMIT (RL_5, RL_30, RL_300, ...; see
    *  wrangler.toml). A route's `rateLimit(..., max, ...)` uses the binding named for its
    *  `max`, so the number in the code is the number enforced. When a route's binding is

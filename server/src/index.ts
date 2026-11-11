@@ -34,6 +34,7 @@ import {
 } from "./serviceState";
 import { readAnnouncements } from "./announcements";
 import { runUsageBreaker } from "./usageBreaker";
+import { runOversightReport } from "./oversightReport";
 import {
   dayBucket,
   deviceLabel,
@@ -2153,9 +2154,12 @@ async function runCleanup(env: Bindings, now: number): Promise<void> {
   slog("cleanup", { sessions, buckets, requests, raidSessions: raidSessions.meta.changes ?? 0 }, "info");
 }
 
-/** The daily cleanup cron, as written in wrangler.toml [triggers]. Every other cron
- *  (the hourly one) runs only the usage breaker. */
+/** The daily cleanup cron, as written in wrangler.toml [triggers]. Every cron other
+ *  than these two (the hourly one) runs only the usage breaker. */
 const CLEANUP_CRON = "17 3 * * *";
+/** Weekly oversight report (src/oversightReport.ts), Mondays 06:07 UTC. Read-only; it
+ *  emails the owner when the REPORT_EMAIL binding is configured. */
+const OVERSIGHT_REPORT_CRON = "7 6 * * 1";
 
 // Export both the HTTP handler and the cron handler. Cloudflare calls `scheduled`
 // on the wrangler.toml crons; everything else is the Hono app.
@@ -2163,6 +2167,7 @@ export default {
   fetch: (req: Request, env: Bindings, ctx: ExecutionContext) => app.fetch(req, env, ctx),
   scheduled: (event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) => {
     if (event.cron === CLEANUP_CRON) ctx.waitUntil(runCleanup(env, Date.now()));
+    else if (event.cron === OVERSIGHT_REPORT_CRON) ctx.waitUntil(runOversightReport(env, Date.now(), slog).then(() => undefined));
     else ctx.waitUntil(runUsageBreaker(env, Date.now(), slog).then(() => undefined));
   },
 };
