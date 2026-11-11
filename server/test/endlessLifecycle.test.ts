@@ -107,7 +107,7 @@ describe("Endless run checkpoints and early exit", () => {
 
     const result = await abandonEndless(db, "account-1", "endless-session", 90_000);
     expect(result.status).toBe(200);
-    expect(result.body).toMatchObject({ runFinished: true, abandoned: true, deepestFloor: 6, gold: 7_500 });
+    expect(result.body).toMatchObject({ runFinished: true, abandoned: true, deepestFloor: 6, gold: 5_400 });
     expect(batches).toHaveLength(1);
     expect(batches[0].map((statement) => statement.sql)).toEqual(expect.arrayContaining([
       expect.stringContaining("UPDATE balances SET gold=gold+?"),
@@ -221,8 +221,8 @@ describe("Endless run checkpoints and early exit", () => {
     expect(during.batches[0]).toHaveLength(1);
     const floorIn = fakeDb(session(8, { run: { ...run, nextWave: 8 }, playerLevel: 45, durationMs: 0 }));
     const oneFloor = await abandonEndless(floorIn.db, "account-1", "endless-session", 90_000);
-    // It cleared floor 7 itself, worth 250 x T3, and nothing else until a boss falls.
-    expect(oneFloor.body).toMatchObject({ deepestFloor: 7, gold: 1_875 });
+    // It cleared floor 7 itself, worth 450 x T3, and nothing else until a boss falls.
+    expect(oneFloor.body).toMatchObject({ deepestFloor: 7, gold: 1_350 });
     expect(floorIn.batches[0].map((s) => s.sql).join()).not.toContain("endless_leaderboard");
   });
 
@@ -230,7 +230,7 @@ describe("Endless run checkpoints and early exit", () => {
     const run = beginEndlessRun("endless", [], "9", 3);
     const { db, batches } = fakeDb(session(9, { run: { ...run, nextWave: 10 }, playerLevel: 45, durationMs: 0, pendingBossChoice: { wave: 9 } }));
     const result = await abandonEndless(db, "account-1", "endless-session", 90_000);
-    expect(result.body).toMatchObject({ deepestFloor: 9, gold: 15_000 });
+    expect(result.body).toMatchObject({ deepestFloor: 9, gold: 10_800 });
     const sql = batches[0].map((s) => s.sql).join();
     expect(sql).toContain("INSERT INTO endless_leaderboard");
     expect(sql).toContain("INSERT INTO endless_weekly_leaderboard");

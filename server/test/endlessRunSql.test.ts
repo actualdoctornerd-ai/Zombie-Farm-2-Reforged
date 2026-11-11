@@ -207,8 +207,8 @@ describe("Endless settlement on the real schema", () => {
     const run = beginEndlessRun("endless", [], week);
     seedRun(6, run, { wave: 6 });
     const result = await abandonEndless(db, ME, SESSION, 90_000);
-    expect(result.body).toMatchObject({ deepestFloor: 6, gold: 7_500 });
-    expect(gold()).toBe(7_500);
+    expect(result.body).toMatchObject({ deepestFloor: 6, gold: 5_400 });
+    expect(gold()).toBe(5_400);
     expect(await listEndlessLeaderboard(db, "endless")).toMatchObject([{ username: "Grog", deepest_floor: 6 }]);
     expect(await listEndlessLeaderboard(db, "endless", week)).toMatchObject([{ username: "Grog", deepest_floor: 6 }]);
     expect(await listEndlessLeaderboard(db, "endless", "another-week")).toEqual([]);

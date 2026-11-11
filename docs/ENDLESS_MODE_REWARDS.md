@@ -17,9 +17,10 @@ when it ends.
 
 ## Depth gold
 
-**Status: built.** Each cleared floor pays 625 gold x its tier number and each boss 1,250 x, so a
-tier pays 2,500 x its number: 2,500 through T1, 7,500 through T2, 90,000 through T8. Raised 2.5x on
-2026-11-08 (owner: brains less consistent, gold carries the steady payout). Ending early pays in full.
+**Status: built.** Each cleared floor pays 450 gold x its tier number and each boss 900 x, so a
+tier pays 1,800 x its number: 1,800 through T1, 5,400 through T2, 50,400 through T7, 64,800 through
+T8. Cut from 625 / 1,250 on 2026-11-10 (owner: about 100k for a 45-minute run was too much; aim for
+50k at T7). Ending early pays in full.
 
 ## Repeatable loot
 

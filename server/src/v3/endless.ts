@@ -108,12 +108,12 @@ function endlessCredited(deepestFloor: number, startWave: number): boolean {
   return deepestFloor >= firstBossWave(startWave) || (startWave === 1 && deepestFloor > 0);
 }
 
-/** The depth payout for each tier number: 625 gold a floor and 1,250 for its boss, so a cleared
- *  tier pays 2,500 x its number (T1 2,500, T2 5,000, and so on; raised 2.5x on 2026-11-08 to
- *  carry the steady reward as brains went to chance). Awarded once when a run ends, based only
+/** The depth payout for each tier number: 450 gold a floor and 900 for its boss, so a cleared
+ *  tier pays 1,800 x its number (T1 1,800, T2 3,600, and so on; about 50k through T7). Cut from
+ *  625 / 1,250 on 2026-11-10 (owner: 100k for a ~45-minute run was too much). Awarded once when a run ends, based only
  *  on fully cleared fights; a skipper's early tiers join in at its first boss. */
-const ENDLESS_FLOOR_GOLD = 625;
-const ENDLESS_BOSS_GOLD = 1_250;
+const ENDLESS_FLOOR_GOLD = 450;
+const ENDLESS_BOSS_GOLD = 900;
 function endlessGoldReward(deepestFloor: number, startWave = 1): number {
   let total = 0;
   const first = deepestFloor >= firstBossWave(startWave) ? 1 : startWave;
