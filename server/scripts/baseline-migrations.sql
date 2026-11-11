@@ -91,4 +91,6 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
   -- Creates endless_leaderboard, which schema.sql already creates on a fresh database.
   ('0060_endless_leaderboard.sql'),
   -- Creates farm_layouts, which schema.sql already declares on a fresh database.
-  ('0061_farm_layouts.sql');
+  ('0061_farm_layouts.sql'),
+  -- Creates endless_weekly_leaderboard and endless_progress, which schema.sql already declares.
+  ('0062_endless_weekly_and_progress.sql');
