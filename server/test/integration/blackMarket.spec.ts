@@ -101,7 +101,9 @@ describe("Black Market", () => {
     expect(eleventh).toMatchObject({ status: 409, body: { error: "active_post_limit" } });
   });
 
-  it("allows 50 posts per day and explains the daily limit on the 51st", async () => {
+  // Local only: fifty post-and-cancel pairs in a burst trip a deployed Worker's real rate
+  // limiter (429 on the cancels, as intended); the local harness has none to trip.
+  it.skipIf(!!process.env.IT_BASE?.startsWith("https://"))("allows 50 posts per day and explains the daily limit on the 51st", async () => {
     const poster = await signIn(uniqueSub("market-daily-limit"));
     const initial = await bootstrap(poster);
     let expectedAccountVersion = initial.accountVersion;

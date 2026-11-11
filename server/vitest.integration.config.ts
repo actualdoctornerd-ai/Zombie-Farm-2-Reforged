@@ -1,5 +1,9 @@
 import { defineConfig } from "vitest/config";
 
+// A run against a deployed Worker (IT_BASE=https://..., e.g. staging) pays a network round
+// trip per call, so the specs that make dozens of calls in a row need far longer.
+const REMOTE = !!process.env.IT_BASE && !process.env.IT_BASE.startsWith("http://127.0.0.1");
+
 // Integration tests drive a REAL `wrangler dev` Worker (+ local D1) over HTTP.
 //
 // Why not @cloudflare/vitest-pool-workers (the in-process workerd pool)? Its module
@@ -22,8 +26,8 @@ export default defineConfig({
     // raidLoot, raidRewards) were deleted with the v2 routes and their D1 tables; what
     // they uniquely covered on the LIVE surface was ported first (see README.md).
     globalSetup: ["./test/integration/globalSetup.ts"],
-    testTimeout: 20000,
-    hookTimeout: 20000,
+    testTimeout: REMOTE ? 180_000 : 20000,
+    hookTimeout: REMOTE ? 180_000 : 20000,
     fileParallelism: false,
     pool: "threads",
     maxWorkers: 1,

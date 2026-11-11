@@ -175,8 +175,10 @@ describe("raid start — two starts at once", () => {
     // pinned in ../liveSessionRace.test.ts. Local D1 serialises requests closely
     // enough that the tie itself cannot be forced from here — what this proves is
     // that no path answers 500.
+    // Against a deployed Worker the two requests can truly overlap, and the writer lease
+    // turns the loser away first (`operation_in_progress`, retry in 250 ms): also a 409.
     const refused = results.find((r) => r.status === 409)!;
-    expect(["raid_in_progress", "unit_not_owned"]).toContain(refused.body.error);
+    expect(["raid_in_progress", "unit_not_owned", "operation_in_progress"]).toContain(refused.body.error);
 
     // And the one that won is the only live session: a third start is refused too.
     const third = await call<{ error?: string }>("POST", "/raid/start", s.token, body);

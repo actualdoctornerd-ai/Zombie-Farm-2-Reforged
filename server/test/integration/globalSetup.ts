@@ -40,6 +40,10 @@ function stopWorker() {
 }
 
 export async function setup() {
+  // Pointed at a deployed Worker (IT_BASE=https://..., e.g. staging with IT_DEV_KEY): run the
+  // specs against it and boot nothing. This used to boot the local Worker regardless and
+  // overwrite IT_BASE with its address, so a "staging" run quietly tested local code.
+  if (process.env.IT_BASE && !process.env.IT_BASE.startsWith("http://127.0.0.1")) return;
   // Fresh, isolated D1 so tests neither reuse nor delete a developer's local state.
   try {
     rmSync(TEST_STATE, { recursive: true, force: true });
