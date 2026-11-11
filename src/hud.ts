@@ -6631,12 +6631,16 @@ export class Hud {
     }
     this.showEndlessDetail = null;
     if (!tutorialRaid && this.onOpenEndless && this.endlessAvailable?.()) {
+      const unlockAt = ENDLESS_UNLOCK_LEVEL.endless;
+      const open = (this.state.level ?? 1) >= unlockAt;
       const card = document.createElement("button");
-      card.className = "rd-card";
+      card.className = "rd-card" + (open ? "" : " locked");
       const thumb = document.createElement("div"); thumb.className = "rd-thumb";
       if (this.endlessPortrait) thumb.style.backgroundImage = `url(${this.endlessPortrait})`;
       const txt = document.createElement("div");
-      txt.innerHTML = `<div class="rd-cn">Endless Mode</div><div class="rd-cl">Endless floors · Epic Boss every third</div>`;
+      txt.innerHTML = `<div class="rd-cn">Endless Mode</div>` + (open
+        ? `<div class="rd-cl">Endless floors · Epic Boss every third</div>`
+        : `<div class="rd-cl lock">Requires level ${unlockAt}</div>`);
       card.append(thumb, txt);
       const select = () => {
         for (const el of list.querySelectorAll(".rd-card")) el.classList.remove("sel");
@@ -6648,7 +6652,11 @@ export class Hud {
       // Draw at once (it says it is checking), then ask the server about a run in progress:
       // main answers through openEndlessHub, which redraws this pane.
       card.onclick = () => { this.endlessHub = null; select(); this.onOpenEndless?.(); };
-      list.prepend(card);
+      // It sits on the ladder where a level-30 invasion would: after every invasion that
+      // unlocks at or below its level, before the first that unlocks above it.
+      const at = cards.findIndex((c) => c.unlockLevel > unlockAt);
+      const after = at < 0 ? null : list.querySelectorAll(".rd-card")[at] ?? null;
+      list.insertBefore(card, after);
     }
     if (!tutorialRaid && this.bossActive) {
       const epic = this.getEpicBossView?.().find((view) => view.active);
