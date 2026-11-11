@@ -259,9 +259,12 @@ Status: **built** means in the code now. Everything else is agreed direction, no
 
 **Casualties**
 
-- **Built:** every zombie comes back at full health after each boss, by default. The revive boon
-  is gone.
-- Zombies are never lost permanently here, so fights can kill them much more aggressively.
+- **Built (owner, 2026-11-10):** a zombie lost in Endless stays lost for the rest of the run.
+  After each boss the survivors heal to full; the fallen do not come back. This replaced the
+  full revive after every boss: with the difficulty cliff, that revive only ever bought one
+  more location. The Second Wind boon (Headless stand up after each fight) is the one exception.
+- Losses are for the run only: the zombies are never lost from the roster, so fights can still
+  kill them much more aggressively than ordinary invasions.
 
 **The boss screen. Status: built.** One screen shows the boon options, curse options, next location,
 the loot and gold earned so far, Go Home, and a button that opens the ordering screen.

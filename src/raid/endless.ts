@@ -888,9 +888,11 @@ export function carryEndlessArmy(run: EndlessRunState, battleUnits: readonly Com
   };
 }
 
-/** The section gate is the recovery checkpoint: everyone comes back at full health (owner,
- *  2026-11-05), so casualties only weigh on the rest of their own section. Between ordinary
- *  fights, surviving HP and casualties persist. */
+/** The section gate heals the SURVIVORS to full, and nothing more: a zombie lost in Endless
+ *  stays lost for the rest of the run (owner, 2026-11-10, replacing the 2026-11-05 full
+ *  revive). With the difficulty cliff, a revive only ever bought one more location, so
+ *  casualties now carry the whole run. Between ordinary fights, surviving HP persists too.
+ *  The Second Wind boon (`reviveHeadless`) still stands fallen Headless up after each fight. */
 export function finishEndlessFight(
   run: EndlessRunState,
   battleUnits: readonly CombatUnit[],
@@ -901,11 +903,10 @@ export function finishEndlessFight(
   return {
     ...carried,
     nextWave: completedWave + 1,
-    units: bossGate
-      ? carried.units.map((u) => ({ ...u, alive: true, hp: u.maxHp }))
-      : carried.units.map((u) => run.reviveHeadless && u.isHeadless && !u.alive
-        ? { ...u, alive: true, hp: u.maxHp }
-        : u),
+    units: carried.units.map((u) => {
+      if (run.reviveHeadless && u.isHeadless && !u.alive) return { ...u, alive: true, hp: u.maxHp };
+      return bossGate && u.alive ? { ...u, hp: u.maxHp } : u;
+    }),
   };
 }
 

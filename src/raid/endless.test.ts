@@ -506,7 +506,7 @@ describe("Endless Mode plan", () => {
     }
   });
 
-  it("brings the whole army back after a boss, and only after a boss", () => {
+  it("heals the survivors after a boss, and never brings the fallen back", () => {
     const units = buildUnitsForKeys(["FarmStageActorFarmhand", "FarmStageActorFarmhand"], null, enemyStats as never, attacks as never, { raidId: 1 });
     const fallen = (run: ReturnType<typeof beginEndlessRun>) => [
       { ...run.units[0], team: "player" as const, alive: false, hp: 0 },
@@ -518,7 +518,8 @@ describe("Endless Mode plan", () => {
     expect(afterFloor[1].hp).toBeLessThan(afterFloor[1].maxHp);
     const gate = { ...beginEndlessRun("endless", units), nextWave: 3 };
     const afterBoss = finishEndlessFight(gate, fallen(gate)).units;
-    expect(afterBoss.every((u) => u.alive && u.hp === u.maxHp)).toBe(true);
+    expect(afterBoss[0].alive).toBe(false);
+    expect(afterBoss[1].alive && afterBoss[1].hp === afterBoss[1].maxHp).toBe(true);
     expect(carryEndlessArmy(gate, fallen(gate)).units[0].alive).toBe(false);
   });
 
