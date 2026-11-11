@@ -359,12 +359,23 @@ describe("Medusa", () => {
 describe("Dr. Groundhog in Endless", () => {
   const bossAt = (nextWave: number) => endlessFightConfig({ ...beginEndlessRun("endless", party([REGULAR])), nextWave }, 45);
 
-  it("adds a move a tier: bite only, then the slam, then the launch", () => {
+  it("launches the front four from the first meeting, and adds the slam at T2", () => {
     expect(bossAt(3).enemyUnits[0].charge).toBeFalsy();
-    expect(bossAt(3).bossSpecials).toEqual([]);
+    expect(bossAt(3).bossSpecials).toMatchObject([{ name: "launch", targets: 4 }]);
     expect(bossAt(6).enemyUnits[0].charge).toMatchObject({ target: "front-deployed", tapReduce: 0.1 });
-    expect(bossAt(6).bossSpecials).toEqual([]);
     expect(bossAt(9).bossSpecials.map((s) => s.name)).toEqual(["launch"]);
+  });
+
+  it("throws the front four through the air to the back, and leaves the rest", () => {
+    const sim = endlessSimFor(endlessFightConfig({ ...beginEndlessRun("endless", party(Array(6).fill(REGULAR))), nextWave: 3 }, 45));
+    type Z = { id: string; state: string; x: number; knockBackSpeed: number; blastAirMs: number; hp: number; maxHp: number };
+    const zombies = sim.units.filter((u) => u.team === "player") as unknown as Z[];
+    zombies.forEach((z, i) => { z.state = "fight"; z.x = 700 - i * 20; });
+    (sim as unknown as SimInside).runSpecial({ name: "launch", damage: 1, castMs: 0, cooldownMs: 0, weight: 1, targets: 4 });
+    const flying = zombies.filter((z) => z.knockBackSpeed > 0);
+    expect(flying.map((z) => z.x)).toEqual([700, 680, 660, 640]);
+    expect(flying.every((z) => z.blastAirMs > 0 && z.state === "advance" && z.hp < z.maxHp)).toBe(true);
+    expect(zombies.slice(4).every((z) => z.knockBackSpeed === 0 && z.hp === z.maxHp)).toBe(true);
   });
 
   it("weakens a slam by tapping during its wind-up, to half at most, and not otherwise", () => {

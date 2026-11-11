@@ -7424,7 +7424,8 @@ export class Hud {
    *  rows and loot; the first action is the big button, the rest sit beside it. */
   openEndlessTally(opts: {
     title: string; win: boolean; rows: readonly (readonly [string, string])[]; loot: readonly LootDrop[];
-    lootLabel?: string; body?: HTMLElement; actions: readonly { label: string; onClick: () => void | boolean | Promise<void | boolean> }[];
+    lootLabel?: string; body?: HTMLElement;
+    actions: readonly { label: string; onClick: () => void | boolean | Promise<void | boolean>; ref?: (button: HTMLButtonElement) => void }[];
   }): () => void {
     document.querySelector("#hud .raid-res-bg.endless-tally")?.remove();
     const bg = document.createElement("div");
@@ -7460,6 +7461,7 @@ export class Hud {
       go.className = "rr-go";
       go.textContent = main.label;
       go.onclick = async () => { if (await main.onClick() !== false) close(); };
+      main.ref?.(go);
       panel.appendChild(go);
     }
     bg.appendChild(panel);

@@ -4186,9 +4186,15 @@ export class BattleSim {
     }
   }
 
-  /** Dr. Groundhog's launch: the zombie is thrown clear to the back and has to walk in again. */
+  /** Dr. Groundhog's launch: the zombie is thrown clear to the back and has to walk in again.
+   *  It flies there like a projectile (the blast arc), landing as the slide ends. */
   private launchToBack(p: SimUnit) {
     if (!p.alive || p.taken || p.knockBackSpeed > 0 || p.blastAirMs > 0) return;
+    const airMs = Math.max(600, Math.round(Math.abs(p.x - Math.min(p.x, CHARGE_X)) / LAUNCH_SPEED * 1000));
+    p.blastAirMs = airMs;
+    p.blastAirTotalMs = airMs;
+    p.blastAirHeight = p.isHeadless ? 150 : 120;
+    p.blastSpin = (stringSeed(p.id) & 1) === 0 ? 1 : -1;
     p.windupKey = null;
     p.windupMs = 0;
     p.knockBackToX = Math.min(p.x, CHARGE_X);
@@ -5675,10 +5681,12 @@ export class BattleSim {
     switch (sp.name) {
       case "launch": {
         if (this.boss) this.boss.chargeFrac = 0;
-        const target = this.players
+        // The front `targets` deployed zombies (Endless: four), front-most first.
+        const targets = this.players
           .filter((p) => p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "dead")
-          .sort((a, b) => b.x - a.x)[0];
-        if (target) {
+          .sort((a, b) => b.x - a.x || a.formOrder - b.formOrder)
+          .slice(0, Math.max(1, sp.targets ?? 1));
+        for (const target of targets) {
           this.dealEnemyDamage(target, sp.damage);
           this.launchToBack(target);
         }

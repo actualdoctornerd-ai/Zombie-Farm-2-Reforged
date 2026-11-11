@@ -1357,6 +1357,17 @@
 /* The Endless tallies run longer than an invasion's (loot, then the boss draft); they still
    scroll on a short screen, without drawing a scroll bar. */
 #hud .endless-tally .rr-body { scrollbar-width: none; -ms-overflow-style: none; }
+/* The boss screen's picks: the heading names the choice, the chosen card glows and wears a check. */
+#hud .endless-tally .rr-choice-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+#hud .endless-tally .rr-choice-picked { font-size: 12px; font-weight: 800; color: #e2a24a; }
+#hud .endless-tally .rr-choice-picked.done { color: #8fe36b; }
+#hud .endless-tally .rd-card { position: relative; }
+#hud .endless-tally .rd-card.sel { background: #5a3d16; border-color: #ffcf5a;
+  box-shadow: 0 0 0 3px rgba(255,207,90,.7), 0 0 12px rgba(255,207,90,.45); }
+#hud .endless-tally .rd-card.sel::after { content: "¹4"; position: absolute; top: 4px; right: 6px;
+  width: 20px; height: 20px; border-radius: 50%; background: #5fbf3a; color: #fff;
+  font: 900 13px/20px sans-serif; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+#hud .endless-tally .rr-go:disabled { filter: grayscale(.85) brightness(.75); cursor: not-allowed; font-size: 14px; }
 #hud .endless-tally .rr-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
 #hud .revive-bg { position: fixed; inset: 0; z-index: 28; pointer-events: auto;
   background: rgba(20,8,4,.76); display: grid; place-items: center; padding: 18px; }

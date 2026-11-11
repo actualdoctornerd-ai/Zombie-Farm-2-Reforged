@@ -65,14 +65,21 @@ function curseCard(choice: Record<string, unknown>): Card {
   }
 }
 
-/** One group of choices: a heading and Invade-list cards, one always picked. */
-function cardGroup(host: HTMLElement, heading: string, cards: readonly Card[]): () => number {
+/** One group of choices: a heading and Invade-list cards. Nothing is picked until the player
+ *  picks (owner, 2026-11-10: a pre-picked first card read as "nothing taken"); the heading then
+ *  names the pick and the card wears a check. Returns the picked index, -1 for none yet. */
+function cardGroup(host: HTMLElement, heading: string, cards: readonly Card[], onPick: () => void): () => number {
   const h = document.createElement("div");
   h.className = "rr-choice-h";
-  h.textContent = heading;
+  const label = document.createElement("span");
+  label.textContent = heading;
+  const chosen = document.createElement("span");
+  chosen.className = "rr-choice-picked";
+  chosen.textContent = "Not chosen";
+  h.append(label, chosen);
   const list = document.createElement("div");
   list.className = "rr-choices";
-  let picked = 0;
+  let picked = -1;
   const els = cards.map((card, index) => {
     const el = document.createElement("button");
     el.type = "button";
@@ -95,11 +102,13 @@ function cardGroup(host: HTMLElement, heading: string, cards: readonly Card[]): 
     el.onclick = () => {
       picked = index;
       els.forEach((other, i) => other.classList.toggle("sel", i === picked));
+      chosen.textContent = `✔ ${card.title}`;
+      chosen.classList.add("done");
+      onPick();
     };
     list.appendChild(el);
     return el;
   });
-  els[0]?.classList.add("sel");
   host.append(h, list);
   return () => picked;
 }
@@ -119,13 +128,21 @@ export function openEndlessBossScreen(
   const boons = view.bossDraft.boons as Record<string, unknown>[];
   const curses = view.bossDraft.curses as Record<string, unknown>[];
   const stops = view.bossDraft.locations as EndlessStop[];
-  const boon = cardGroup(choices, "Choose a boon", boons.map(boonCard));
-  const curse = cardGroup(choices, "Choose a curse", curses.map(curseCard));
+  // Continue opens only once every group has a pick (owner, 2026-11-10).
+  let go: HTMLButtonElement | null = null;
+  const refresh = () => {
+    const ready = boon() >= 0 && curse() >= 0 && (!where || where() >= 0);
+    if (!go) return;
+    go.disabled = !ready;
+    go.textContent = ready ? "Continue" : where ? "Pick a boon, a curse and a location" : "Pick a boon and a curse";
+  };
+  const boon = cardGroup(choices, "Choose a boon", boons.map(boonCard), () => refresh());
+  const curse = cardGroup(choices, "Choose a curse", curses.map(curseCard), () => refresh());
   const where = stops.length ? cardGroup(choices, "Choose where to go next", stops.map((stop) => ({
     title: ENDLESS_LOCATION_NAMES[stop.location],
     text: stop.modifier ? `${ENDLESS_MODIFIERS[stop.modifier].name}: ${ENDLESS_MODIFIERS[stop.modifier].description}` : "No modifier",
     icon: raidCards.find((card) => card.id === ENDLESS_LOCATION_RAID[stop.location])?.portrait,
-  }))) : null;
+  })), () => refresh()) : null;
 
   const startOrder = view.army.map((unit) => unit.id);
   let order = startOrder;
@@ -148,7 +165,9 @@ export function openEndlessBossScreen(
     actions: [
       {
         label: "Continue",
+        ref: (button) => { go = button; refresh(); },
         onClick: () => {
+          if (boon() < 0 || curse() < 0 || (where && where() < 0)) return false;
           const changed = order.some((id, index) => id !== startOrder[index]);
           onChoose({
             boon: boons[boon()], curse: curses[curse()],

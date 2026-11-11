@@ -225,14 +225,14 @@ it started in. Alien never gets Crowded or Short Clock, because its drip stays a
 Modifiers apply to floors only. The Epic Boss is the same fight wherever he is.
 
 **Dr. Groundhog. Status: built.** His catalog gives him one attack, a melee bite, and no special
-moves, so Endless adds one a tier:
+moves, so Endless adds them:
 
 | From | Move | Answer |
 |---|---|---|
 | T1 | Falls from the sky, then bites | |
 | T1 | A stun interrupts him: a move mid-cast is lost | Any stun |
 | T2 | Slam: 3 s swell, then 4 of his hits on the front zombie, 9 s between | Stuns break it, a timed Block reduces it, and each tap on him takes 10% off, down to half |
-| T3 | Launch: 1.5 s tell, then the front zombie takes one hit and is thrown to the back, 12 s between | A stun during the tell |
+| T1 | Launch (owner, 2026-11-10; was T3 and one zombie): 1.5 s tell, then the front four zombies each take half a hit and fly through the air to the back, 15 s between | A stun during the tell |
 
 Harder hits, less health (owner, 2026-11-10): his hit is 5x the ordinary damage ramp at every
 tier (`ENDLESS_BOSS_DAMAGE`), about 1.2-1.7x a line enemy's damage per second, and his slam is

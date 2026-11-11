@@ -322,6 +322,8 @@ export interface BossSpecial {
   castMs: number; // wind-up before the effect lands
   cooldownMs: number; // recovery before the next special can fire
   damage: number; // effect damage (data value, or a sensible default)
+  /** Endless's Dr. Groundhog launch: how many of the front zombies it throws (default 1). */
+  targets?: number;
 }
 
 /** How a stage feeds its wave onto the field.

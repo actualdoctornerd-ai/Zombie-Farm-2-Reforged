@@ -15,7 +15,7 @@ import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import { countHitDamage } from "./countSlam";
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import {
-  applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
+  applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_LAUNCH_COOLDOWN_MS, ENDLESS_BOSS_LAUNCH_HIT, ENDLESS_BOSS_LAUNCH_TARGETS, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
   endlessBossMultiplier, endlessClockMs, endlessDoOrDieMs, endlessPeerShapes, endlessPlayerUnits, endlessWavePlan,
   finishEndlessFight, type EndlessCurse, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, scaleEndlessThrow, type EndlessBoon, type EndlessRunState,
 } from "./endless";
@@ -93,8 +93,9 @@ function epicBossUnit(plan: EndlessWavePlan): { unit: CombatUnit; specials: Boss
   const specials: BossSpecial[] = (def.specials ?? []).map((s) => ({
     name: s.name, weight: s.weight, castMs: s.castMs, cooldownMs: s.cooldownMs, damage: s.damage * bossMultiplier,
   }));
-  // He comes with only a bite, so Endless gives him a new move a tier: a slam that stuns, a
-  // timed Block or tapping him can answer, then a launch that sends a zombie to the back.
+  // He comes with only a bite, so Endless gives him moves: from the first meeting a launch that
+  // throws the front four to the back, and from T2 a slam that a stun, a timed Block or tapping
+  // him can answer.
   const hit = countHitDamage(unit);
   if (plan.tier >= ENDLESS_BOSS_SLAM_TIER) {
     unit.charge = {
@@ -104,7 +105,10 @@ function epicBossUnit(plan: EndlessWavePlan): { unit: CombatUnit; specials: Boss
     };
   }
   if (plan.tier >= ENDLESS_BOSS_LAUNCH_TIER) {
-    specials.push({ name: "launch", weight: 1, castMs: 1_500, cooldownMs: 12_000, damage: Math.round(hit) });
+    specials.push({
+      name: "launch", weight: 1, castMs: 1_500, cooldownMs: ENDLESS_BOSS_LAUNCH_COOLDOWN_MS,
+      damage: Math.round(ENDLESS_BOSS_LAUNCH_HIT * hit), targets: ENDLESS_BOSS_LAUNCH_TARGETS,
+    });
   }
   return { unit, specials };
 }

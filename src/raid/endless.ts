@@ -187,7 +187,14 @@ export const ENDLESS_BOSS_CURVE_TIER = 7;
 export const ENDLESS_BOSS_HP_SCALE = 14;
 /** Dr. Groundhog's Endless moves, added a tier at a time so a boss gate keeps changing. */
 export const ENDLESS_BOSS_SLAM_TIER = 2;
-export const ENDLESS_BOSS_LAUNCH_TIER = 3;
+/** The launch is his from the first meeting (owner, 2026-11-10: "he is supposed to launch
+ *  zombies"); it used to wait for T3, so a player who wiped before then never saw a move. It
+ *  throws the front ENDLESS_BOSS_LAUNCH_TARGETS zombies through the air to the back, each
+ *  taking ENDLESS_BOSS_LAUNCH_HIT of his hits. */
+export const ENDLESS_BOSS_LAUNCH_TIER = 1;
+export const ENDLESS_BOSS_LAUNCH_TARGETS = 4;
+export const ENDLESS_BOSS_LAUNCH_HIT = 0.5;
+export const ENDLESS_BOSS_LAUNCH_COOLDOWN_MS = 15_000;
 export const ENDLESS_BOSS_SLAM_MULT = 1.5;
 /** Each tap on a winding-up slam takes this much off it, down to half. */
 export const ENDLESS_CHARGE_TAP_REDUCE = 0.1;
