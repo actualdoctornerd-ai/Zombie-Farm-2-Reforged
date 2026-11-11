@@ -2969,8 +2969,10 @@ export class BattleSim {
       case "aoe": {
         // Everything that has left the staging area, at once. Through `dealDamage` so the
         // one-shot floor still applies: this is meant to hurt an army, not delete one.
+        // `onField`, not a hand-written state list: that one let a Mini riding a queued
+        // Large ("carried") take the full blast before it ever deployed.
         for (const p of this.players) {
-          if (!p.alive || p.taken || p.state === "waiting" || p.state === "charging") continue;
+          if (!p.alive || p.taken || !this.onField(p)) continue;
           this.dealDamage(p, cfg.aoeDamage, false);
         }
         break;
@@ -2992,8 +2994,10 @@ export class BattleSim {
       case "stunAll": {
         // Nothing on its own. Everything when a wall is standing, or when the portal just
         // put half the army at the back — which is the overlap the design asked for.
+        // Deployed zombies only. A queued zombie's stun never counts down (only the
+        // deployed branch ticks it), so it used to walk on and serve the whole stun then.
         for (const p of this.players) {
-          if (!p.alive || p.taken) continue;
+          if (!p.alive || p.taken || !this.onField(p)) continue;
           p.stunMs = Math.max(p.stunMs, cfg.stunMs);
         }
         break;
@@ -3303,6 +3307,8 @@ export class BattleSim {
       // has to be excluded by the flag or the enemy team keeps aiming at a unit that is
       // not on the field.
       if (!p.alive || p.taken || p.state === "grabbed") continue;
+      // Never a zombie still in the queue: melee, its stun and shove all aim through here.
+      if (!this.onField(p)) continue;
       if (!pick(p)) continue;
       if (
         !best ||
@@ -3711,6 +3717,8 @@ export class BattleSim {
     // Without it a fast knockback attacker re-parks the point every hit and its victim
     // never lands — which is a compounding buff the source's gate plainly exists to stop.
     if (p.knockBackSpeed > 0 || p.blastAirMs > 0) return false;
+    // A shove sets "advance", so on a queued zombie it would force it onto the field.
+    if (!this.onField(p)) return false;
     p.windupKey = null;
     p.windupMs = 0;
     // Replay-safe stand-in for `arc4random() % 100`: the victim's id and the current tick
@@ -4222,6 +4230,7 @@ export class BattleSim {
    *  It flies there like a projectile (the blast arc), landing as the slide ends. */
   private launchToBack(p: SimUnit) {
     if (!p.alive || p.taken || p.knockBackSpeed > 0 || p.blastAirMs > 0) return;
+    if (!this.onField(p)) return; // never launch (and so deploy) a queued zombie
     const airMs = Math.max(600, Math.round(Math.abs(p.x - Math.min(p.x, CHARGE_X)) / LAUNCH_SPEED * 1000));
     p.blastAirMs = airMs;
     p.blastAirTotalMs = airMs;

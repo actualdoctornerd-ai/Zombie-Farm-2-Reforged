@@ -1315,7 +1315,12 @@ import type { RaidOutcome } from "./types";
 // only zombies out on the field within reach of the body (melee reach + 1.5 depth bands), not
 // every living zombie including the queue. Endless runs holding that curse replay differently
 // from v86.
-export const RAID_RULESET_VERSION = 87;
+// 88 (owner, 2026-11-11: zombies that have not deployed are immune to everything): raid 15's
+// saucer bubble "stunAll" no longer stuns the queue (a queued zombie's stun never ticked down,
+// so it served the whole stun on deploy), and its "aoe" no longer hits a Mini riding a queued
+// Large. Melee targeting, knockback and launch also refuse a queued zombie (no reachable case
+// today). Raid 15 fights at bubble tiers replay differently from v87.
+export const RAID_RULESET_VERSION = 88;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

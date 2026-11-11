@@ -272,6 +272,34 @@ describe("what the casts do", () => {
     expect(sim.units.find((u) => u.id === "z0")!.stunMs).toBeGreaterThan(0);
   });
 
+  // Owner rule: a zombie that has not deployed is immune to everything. The stun used to
+  // land on the whole queue (and keep, since a queued zombie's stun never ticks down), and
+  // the blast reached a Mini riding a still-queued Large.
+  it("leaves the queue alone: no blast, no stun before a zombie deploys", () => {
+    for (const want of ["aoe", "stunAll"]) {
+      const army = Array.from({ length: 20 }, (_, i) => tank(`z${i}`));
+      const sim = bubbleFight(GIANT_BOT_TIER, army);
+      run(sim, 6_000);
+      const queued = () => sim.units.filter((u) => u.team === "player" && u.alive
+        && (u.state === "waiting" || u.state === "charging" || u.state === "carried"));
+      let hit = false;
+      for (let i = 0; i < 8_000 && !hit; i++) {
+        const before = sim.bubbleCast();
+        const waiting = queued().map((u) => ({ u, hp: u.hp }));
+        sim.step(50);
+        if (before?.actions.includes(want as never) && !sim.bubbleCast()) {
+          hit = true;
+          expect(waiting.length, `${want}: someone was still queued`).toBeGreaterThan(0);
+          for (const { u, hp } of waiting) {
+            expect(u.stunMs, `${want} stunned queued ${u.id}`).toBe(0);
+            expect(u.hp, `${want} hurt queued ${u.id}`).toBe(hp);
+          }
+        }
+      }
+      expect(hit, want).toBe(true);
+    }
+  });
+
   it("throws half the line back through the wall with the portal", () => {
     const army = Array.from({ length: 6 }, (_, i) => tank(`z${i}`));
     const sim = bubbleFight(MIN_TIER, army);
