@@ -236,6 +236,9 @@ const SLOT_Y_STEP = SRC_SLOT_Y_STEP * SIM_PER_SOURCE_Y;
  *  `frontX - COMBAT_ZONE_DEPTH`) and so off the alien laser's target list, which is the
  *  property the setback existed to produce. */
 const GARDEN_STATION_X = 250;
+/** How far past melee reach the Volatile Remains blast carries: one and a half depth bands,
+ *  so it catches the front row and the band behind it but never the healers' station. */
+const DEATH_BLAST_REACH = 1.5 * BAND_GAP;
 /** How much wider than the source the rows are drawn. The recovered 4-point row step packs
  *  five zombies into a 16-point ribbon — correct, and the reason the source ships an
  *  explicit per-zombie zOrder rather than sorting on y. Our sprites are drawn larger
@@ -3937,11 +3940,17 @@ export class BattleSim {
       this.freeBozos(foe, 0);
       return;
     }
+    // Volatile Remains (Endless curse): a blast where the enemy fell, not a team-wide hit.
+    // It used to strike every living zombie, including the ones still queued to deploy, so
+    // one pop took a quarter of the team bar off bodies no healer could reach (player
+    // report, 2026-11-11). Now only zombies out on the field and within reach of the body:
+    // the front line and the band behind it. Gardens at their station stay clear.
     if (foe.deathExplosion && this.abilityRoll(foe) < foe.deathExplosion.chance * 100) {
+      const reach = this.engageDistance + DEATH_BLAST_REACH;
       for (const player of this.players) {
-        if (player.alive && !player.taken) {
-          this.dealDamage(player, Math.max(1, Math.round(player.maxHp * foe.deathExplosion.damagePercent / 100)), false);
-        }
+        if (!player.alive || player.taken || !this.onField(player)) continue;
+        if (Math.abs(player.x - foe.x) > reach) continue;
+        this.dealDamage(player, Math.max(1, Math.round(player.maxHp * foe.deathExplosion.damagePercent / 100)), false);
       }
     }
     // Only an enemy reaches here. A downed one opens the gate for the next to emerge.

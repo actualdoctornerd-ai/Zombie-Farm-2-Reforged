@@ -1311,6 +1311,9 @@ import type { RaidOutcome } from "./types";
 // could pick one, the Ninja flank read a rider's stale queue x as the rear and went for it, and
 // a mount counted toward the loaned Special's third-deploy release. Fights with a Mini Buddy
 // mounted against any of those replay differently from v85.
+// Also 86, Endless only: the Volatile Remains curse's death blast hits only zombies out on the
+// field within reach of the body (melee reach + 1.5 depth bands), not every living zombie
+// including the queue. Endless runs holding that curse replay differently from v85.
 export const RAID_RULESET_VERSION = 86;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own

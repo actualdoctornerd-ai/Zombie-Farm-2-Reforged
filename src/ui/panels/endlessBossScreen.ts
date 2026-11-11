@@ -59,7 +59,7 @@ function curseCard(choice: Record<string, unknown>): Card {
     case "enemy-attack-speed": return { title: "Frenzied Foes", text: `Enemies attack ${pct} faster` };
     case "enemy-stun": return { title: "Dazing Blows", text: "Enemy hits can stun a zombie for a moment" };
     case "enemy-stun-resist": return { title: "Steady Feet", text: `Stuns on enemies wear off ${pct} sooner` };
-    case "enemy-explosion": return { title: "Volatile Remains", text: "Some enemies explode when they fall" };
+    case "enemy-explosion": return { title: "Volatile Remains", text: "Some enemies explode when they fall, hurting nearby zombies" };
     case "enemy-knockback-headless": return { title: "Shoving Match", text: "Enemy hits can knock Headless zombies back" };
     case "headless-stat": return { title: "Weak Necks", text: `Headless zombies -${pct} ${String(choice.stat)}` };
     default: return { title: "Curse", text: String(choice.kind) };
