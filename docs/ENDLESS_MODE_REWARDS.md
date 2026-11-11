@@ -12,8 +12,9 @@ today; everything marked **not built** is intent, not behaviour.
    beaten. "Rewards are larger the first time a milestone is reached."
 
 A run costs 1 brain (Nightmare 3), except the first normal run an account starts each day
-(UTC), which is free (owner, 2026-11-08; `endlessFreeDayStart`). Zombies lost in a run come back
-when it ends.
+(UTC), which is free (owner, 2026-11-08; `endlessFreeDayStart`). Zombies lost in a run are gone
+for good, as on any invasion (owner, 2026-11-10): when the run ends, the server buries everyone
+still down (graveyard + roster delete, like an Epic Boss) and the client drops them.
 
 ## Depth gold
 

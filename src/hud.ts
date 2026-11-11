@@ -7126,7 +7126,7 @@ export class Hud {
     intro.textContent =
       "Invasion after invasion, harder each floor. Three floors make a tier, and the third is an " +
       "Epic Boss. After each boss pick a boon, a curse and where to go next. Zombies lost on a run " +
-      "come back when it ends, and you can go home whenever you like.";
+      "are gone for good, as on any invasion, and you can go home whenever you like.";
 
     const rewards = document.createElement("div");
     rewards.className = "rd-drops";

@@ -263,8 +263,10 @@ Status: **built** means in the code now. Everything else is agreed direction, no
   After each boss the survivors heal to full; the fallen do not come back. This replaced the
   full revive after every boss: with the difficulty cliff, that revive only ever bought one
   more location. The Second Wind boon (Headless stand up after each fight) is the one exception.
-- Losses are for the run only: the zombies are never lost from the roster, so fights can still
-  kill them much more aggressively than ordinary invasions.
+- **Losses are permanent (owner, 2026-11-10), as on any invasion.** When the run ends (a lost
+  floor or Go Home), everyone still down is buried: written to the graveyard (fallen_v3) and taken
+  off the roster, the way an Epic Boss settles. A Headless that Second Wind stood back up counts as
+  alive. Until the run ends the fallen stay on the farm (the run holds no roster locks).
 
 **The boss screen. Status: built.** One screen shows the boon options, curse options, next location,
 the loot and gold earned so far, Go Home, and a button that opens the ordering screen.

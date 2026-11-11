@@ -931,6 +931,8 @@ export const endlessFinish = (
   awaitingBossChoice?: boolean;
   floorLoot?: Array<{ kind: string; name: string; quantity: number; key?: string }>;
   gold?: number; abandoned?: boolean; error?: string;
+  /** The run's dead, buried for good when it ends (roster ids). */
+  losses?: string[];
 } & Partial<EndlessBossView>>("POST", "/endless/finish", { sessionId, wave, finalTick, inputs });
 
 /** Persist a boon and curse selection at a boss checkpoint, then open the next fight. */
@@ -949,6 +951,7 @@ export const endlessActive = () => req<{
 export const endlessAbandon = (sessionId: string) => req<{
   ok: boolean; runFinished: boolean; deepestFloor?: number; durationMs?: number;
   gold?: number; abandoned?: boolean; error?: string;
+  losses?: string[];
 }>("POST", "/endless/abandon", { sessionId });
 /** The server's authoritative raid-finish result: the cooldown clock, the resulting
  *  balance, and the amounts CREDITED this call (0 on a loss / idempotent replay).

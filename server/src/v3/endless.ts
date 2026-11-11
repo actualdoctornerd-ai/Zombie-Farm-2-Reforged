@@ -19,6 +19,7 @@ import { replayRaid, RAID_RULESET_VERSION, type RaidReplayInput } from "../../..
 import { levelForXp } from "../levels";
 import { recordEndlessLeaderboardStatement, recordEndlessWeeklyStatement, type EndlessLeaderboardArmyMember } from "../db";
 import { MAX_STACK } from "../boostCatalog";
+import { MEMORIAL_GRAVEYARD_CAP } from "./engine";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { endlessBestTierOf, endlessMaxVetRankOf } from "../../../src/raid/endlessPerks";
 import { endlessMilestoneRewards, endlessVictoryRewards, rollEndlessBossLoot, rollEndlessBrain, rollEndlessFloorLoot, rollEndlessLocationZombie, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
@@ -124,6 +125,59 @@ function endlessGoldReward(deepestFloor: number, startWave = 1): number {
   return total;
 }
 
+/** The run's dead, as roster ids: everyone down in its last saved state, plus anyone the final,
+ *  lost fight killed. A zombie a boon brought back (Second Wind) is alive again and is not here. */
+function endlessLosses(run: EndlessRunState, lastFight?: ReturnType<typeof simFor>): string[] {
+  const fell = new Set(run.units.filter((unit) => !unit.alive).map((unit) => unit.id));
+  for (const unit of lastFight?.units ?? []) {
+    if (unit.team === "player" && !unit.alive && run.units.some((u) => u.id === unit.id)) fell.add(unit.id);
+  }
+  return [...fell];
+}
+
+/** Read the fallen's names while their roster rows (and the layout naming them) still exist. */
+async function fallenNames(db: D1Database, accountId: string, losses: readonly string[]): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  if (!losses.length) return names;
+  const row = await db.prepare("SELECT current_json FROM presentations_v3 WHERE account_id=?")
+    .bind(accountId).first<{ current_json: string }>();
+  const layout = row ? parse<{ rosterLayout?: { id?: unknown; name?: unknown }[] }>(row.current_json, {}).rosterLayout : null;
+  for (const entry of Array.isArray(layout) ? layout : []) {
+    if (typeof entry?.id === "string" && typeof entry.name === "string" && entry.name) names.set(entry.id, entry.name.slice(0, 24));
+  }
+  return names;
+}
+
+/** Bury the run's dead, as an invasion or an Epic Boss does (owner, 2026-11-10: zombies lost in
+ *  Endless stay dead). Each goes to the graveyard (fallen_v3, so a Memorial Statue can carve it)
+ *  and leaves the roster. Guarded on this run having closed with exactly this result, so a
+ *  replayed or raced settlement buries nobody twice; a zombie sold mid-run simply has no row. */
+function buryStatements(
+  db: D1Database, session: StoredRun, losses: readonly string[], names: ReadonlyMap<string, string>,
+  resultJson: string, now: number,
+): D1PreparedStatement[] {
+  if (!losses.length) return [];
+  const guard = "EXISTS(SELECT 1 FROM endless_runs_v3 r WHERE r.id=? AND r.result_json=?)";
+  const accountId = session.account_id;
+  const statements: D1PreparedStatement[] = losses.map((id) => db.prepare(`INSERT INTO fallen_v3
+      (account_id,unit_id,zombie_key,name,mutation,invasions,color,died_at)
+      SELECT account_id,unit_id,zombie_key,?,mutation,invasions,color,? FROM roster_v3
+      WHERE account_id=? AND unit_id=? AND locked_by_raid IS NULL AND ${guard}
+    ON CONFLICT(account_id,unit_id) DO NOTHING`)
+    .bind(names.get(id) ?? null, now, accountId, id, session.id, resultJson));
+  statements.push(db.prepare(`DELETE FROM fallen_v3
+    WHERE account_id=? AND memorial_object_id IS NULL AND unit_id NOT IN (
+      SELECT unit_id FROM fallen_v3 WHERE account_id=? AND memorial_object_id IS NULL
+      ORDER BY COALESCE(released_at,died_at) DESC, unit_id LIMIT ?
+    ) AND ${guard}`)
+    .bind(accountId, accountId, MEMORIAL_GRAVEYARD_CAP, session.id, resultJson));
+  for (const id of losses) {
+    statements.push(db.prepare(`DELETE FROM roster_v3 WHERE account_id=? AND unit_id=? AND locked_by_raid IS NULL AND ${guard}`)
+      .bind(accountId, id, session.id, resultJson));
+  }
+  return statements;
+}
+
 function settleTerminalStatements(
   db: D1Database,
   session: StoredRun,
@@ -132,6 +186,7 @@ function settleTerminalStatements(
   durationMs: number,
   now: number,
   update: D1PreparedStatement,
+  burial: D1PreparedStatement[] = [],
 ): D1PreparedStatement[] {
   const statements = [update];
   const gold = endlessGoldReward(deepestFloor, run.startWave);
@@ -150,6 +205,8 @@ function settleTerminalStatements(
     statements.push(recordEndlessLeaderboardStatement(db, score, "changes()=1"));
     statements.push(recordEndlessWeeklyStatement(db, { ...score, week: run.weekSeed, sessionId: session.id, finishedAt: now }));
   }
+  // Last, so the changes()=1 chain above is untouched; the burial keys off the stored result.
+  statements.push(...burial);
   return statements;
 }
 
@@ -374,8 +431,9 @@ export async function finishEndlessWave(
   }
   const lootEarned = { ...(payload.lootEarned ?? {}) };
   for (const reward of loot) lootEarned[reward.name] = (lootEarned[reward.name] ?? 0) + reward.quantity;
+  const losses = completed ? endlessLosses(payload.run, sim) : [];
   const result = completed
-    ? { ok: true, runFinished: true, deepestFloor: Math.max(0, deepestFloor), durationMs, gold: endlessGoldReward(deepestFloor, startWave), outcome: verified.outcome }
+    ? { ok: true, runFinished: true, deepestFloor: Math.max(0, deepestFloor), durationMs, gold: endlessGoldReward(deepestFloor, startWave), outcome: verified.outcome, losses }
     : null;
   const nextState: RunPayload = awaitingBossChoice
     ? { run: state, playerLevel: payload.playerLevel, durationMs, lootEarned, pendingBossChoice: { wave: session.current_wave, ...(loot.length ? { loot } : {}) } }
@@ -390,8 +448,10 @@ export async function finishEndlessWave(
       completed ? now : null, completed ? resultJson : null,
       session.id, accountId, session.current_wave, session.run_state_json);
   if (completed) {
+    const names = await fallenNames(db, accountId, losses);
     const committed = await db.batch(settleTerminalStatements(
       db, session, payload.run, deepestFloor, durationMs, now, update,
+      buryStatements(db, session, losses, names, resultJson, now),
     ));
     if (committed[0]?.meta?.changes !== 1) return fail(409, "stale_wave");
     if (endlessGoldReward(deepestFloor, startWave) > 0 && committed[1]?.meta?.changes !== 1) return fail(409, "state_conflict");
@@ -536,10 +596,14 @@ export async function abandonEndless(
   const durationMs = Math.max(0, payload?.durationMs ?? 0);
   const run = payload?.run ?? beginEndlessRun(session.mode, []);
   const gold = endlessGoldReward(deepestFloor, run.startWave);
-  const result = { ok: true, runFinished: true, deepestFloor, durationMs, gold, abandoned: true };
+  const losses = endlessLosses(run);
+  const result = { ok: true, runFinished: true, deepestFloor, durationMs, gold, abandoned: true, losses };
+  const resultJson = JSON.stringify(result);
   const update = db.prepare(`UPDATE endless_runs_v3 SET finished_at=?,result_json=?
-    WHERE id=? AND account_id=? AND finished_at IS NULL`).bind(now, JSON.stringify(result), session.id, accountId);
-  const committed = await db.batch(settleTerminalStatements(db, session, run, deepestFloor, durationMs, now, update));
+    WHERE id=? AND account_id=? AND finished_at IS NULL`).bind(now, resultJson, session.id, accountId);
+  const names = await fallenNames(db, accountId, losses);
+  const committed = await db.batch(settleTerminalStatements(db, session, run, deepestFloor, durationMs, now, update,
+    buryStatements(db, session, losses, names, resultJson, now)));
   if (committed[0]?.meta?.changes !== 1) return fail(409, "run_finished");
   if (gold > 0 && committed[1]?.meta?.changes !== 1) return fail(409, "state_conflict");
   return { status: 200, body: result };

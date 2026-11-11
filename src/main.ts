@@ -5725,11 +5725,14 @@ async function main() {
     try {
       const result = await api.endlessAbandon(sid);
       endlessSessionId = null;
+      // The run's dead are gone for good, as on any invasion: the server buried them.
+      const fallen = zombies.removeCasualties(result.losses ?? []);
       await economy?.refreshAuthoritative();
       // Going home ends on the same tally as falling, as a win: the run is banked.
       hud.openEndlessTally({
         title: "Home Safe", win: true,
-        rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()]],
+        rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()],
+          ["Zombies lost", String(fallen.length)]],
         loot: [], actions: [{ label: "Finish", onClick: leaveEndlessStage }],
       });
     } catch (error) {
@@ -5796,11 +5799,14 @@ async function main() {
           void api.endlessFinish(sessionId, wave, finalTick, inputs).then(async (result) => {
             if (result.runFinished) {
               endlessSessionId = null;
+              // The run's dead are gone for good, as on any invasion: the server buried them.
+              const fallen = zombies.removeCasualties(result.losses ?? []);
               await economy?.refreshAuthoritative();
               // The end of a run: the invasion result tally, lost.
               hud.openEndlessTally({
                 title: "Run Over", win: false,
-                rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()]],
+                rows: [["Deepest floor", String(result.deepestFloor ?? 0)], ["Gold claimed", (result.gold ?? 0).toLocaleString()],
+                  ["Zombies lost", String(fallen.length)]],
                 loot: [], actions: [{ label: "Finish", onClick: leaveEndlessStage }],
               });
             } else if (result.awaitingBossChoice && result.bossDraft) {

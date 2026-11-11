@@ -229,6 +229,47 @@ describe("Endless settlement on the real schema", () => {
     expect(await listEndlessLeaderboard(db, "endless")).toMatchObject([{ deepest_floor: 6 }]);
   });
 
+  const seedRoster = (count: number) => {
+    for (let i = 0; i < count; i++) {
+      raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
+        VALUES (?, ?, 'ZombieActorZwampThing', 63488, 5, 0, 0)`).run(ME, `z${i}`);
+    }
+  };
+  const rosterIds = () => (raw.prepare("SELECT unit_id FROM roster_v3 WHERE account_id=? ORDER BY unit_id").all(ME) as { unit_id: string }[]).map((r) => r.unit_id);
+  const fallenIds = () => (raw.prepare("SELECT unit_id FROM fallen_v3 WHERE account_id=? ORDER BY unit_id").all(ME) as { unit_id: string }[]).map((r) => r.unit_id);
+
+  it("buries the run's dead for good when the player goes home", async () => {
+    seedRoster(20);
+    const run = beginEndlessRun("endless", army(), "9");
+    seedRun(6, { ...run, units: run.units.map((unit, i) => (i < 2 ? { ...unit, alive: false, hp: 0 } : unit)) }, { wave: 6 });
+    const result = await abandonEndless(db, ME, SESSION, 90_000);
+    expect(result.status).toBe(200);
+    expect(result.body.losses).toEqual(["z0", "z1"]);
+    expect(fallenIds()).toEqual(["z0", "z1"]);
+    expect(rosterIds()).not.toContain("z0");
+    expect(rosterIds()).not.toContain("z1");
+    expect(rosterIds()).toHaveLength(18);
+    // Settled once: a repeat abandon buries nobody else and changes nothing.
+    await abandonEndless(db, ME, SESSION, 91_000);
+    expect(rosterIds()).toHaveLength(18);
+  });
+
+  it("buries everyone a lost floor killed, along with those already down", async () => {
+    seedRoster(20);
+    // Two zombies left standing, one already down, against a T3 floor: a sure loss.
+    const run = beginEndlessRun("endless", army().slice(0, 3), "9");
+    const fight = seedRun(7, { ...run, units: run.units.map((unit, i) => (i === 0 ? { ...unit, alive: false, hp: 0 } : { ...unit, hp: 1 })) });
+    const flight = flyFight(endlessSimFor(fight as never), makePilot(EXPERT), { seed: "loss" });
+    expect(flight.win).toBe(false);
+    const result = await finishEndlessWave(db, ME, { sessionId: SESSION, wave: 7, finalTick: flight.ticks, inputs: flight.inputs }, LATER);
+    expect(result.body.runFinished).toBe(true);
+    const losses = result.body.losses as string[];
+    expect(losses).toContain("z0");
+    expect(losses.length).toBeGreaterThan(1);
+    expect(fallenIds()).toEqual([...losses].sort());
+    expect(rosterIds()).toHaveLength(20 - losses.length);
+  });
+
   it("starts no Nightmare run while Nightmare is held back", async () => {
     raw.prepare("UPDATE balances SET xp=9000000 WHERE account_id=?").run(ME);
     raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
