@@ -5750,7 +5750,7 @@ async function main() {
         else if (reward.kind === "brains") state.addBrains(reward.quantity, "endless_loot");
         else if (reward.kind === "zombie") {
           // Into Received, as an online run pays it.
-          const mutation = zombieDefs.get(reward.key)?.mutation ?? 0;
+          const mutation = 0; // unmutated, as the Worker pays an online run's
           state.recordZombieDiscovered(reward.key, mutation);
           state.receiveItem(encodeReceivedZombie({ id: crypto.randomUUID(), key: reward.key, mutation, invasions: 0 }));
         }

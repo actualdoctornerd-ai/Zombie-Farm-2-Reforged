@@ -395,8 +395,8 @@ export async function finishEndlessWave(
       revival: endlessRevival(session.id, fallen!.snapshots) }
     : null;
   const nextState: RunPayload = awaitingBossChoice
-    ? { run: state, playerLevel: payload.playerLevel, durationMs, lootEarned, pendingBossChoice: { wave: session.current_wave, ...(loot.length ? { loot } : {}) } }
-    : { run: state, playerLevel: payload.playerLevel, durationMs, lootEarned };
+    ? { run: state, playerLevel: payload.playerLevel, lifeForceLevel: payload.lifeForceLevel, durationMs, lootEarned, pendingBossChoice: { wave: session.current_wave, ...(loot.length ? { loot } : {}) } }
+    : { run: state, playerLevel: payload.playerLevel, lifeForceLevel: payload.lifeForceLevel, durationMs, lootEarned };
   const nextConfig = completed || awaitingBossChoice ? null : fightConfig(state, payload.playerLevel);
   const resultJson = JSON.stringify(result);
   const update = db.prepare(`UPDATE endless_runs_v3 SET
@@ -506,7 +506,7 @@ export async function chooseEndlessBossReward(
     if (step.meta.changes !== 1) return fail(409, "stale_wave");
     return { status: 200, body: { ok: true, runFinished: false, stage: "boss-choice", ...endlessBossScreen(session.mode, opening.pendingBossChoice!, opening) } };
   }
-  const nextPayload: RunPayload = { run, playerLevel: payload.playerLevel, durationMs: payload.durationMs ?? 0, lootEarned: payload.lootEarned ?? {} };
+  const nextPayload: RunPayload = { run, playerLevel: payload.playerLevel, lifeForceLevel: payload.lifeForceLevel, durationMs: payload.durationMs ?? 0, lootEarned: payload.lootEarned ?? {} };
   const fight = fightConfig(run, payload.playerLevel);
   const update = await db.prepare(`UPDATE endless_runs_v3 SET current_wave=?, run_state_json=?,
       fight_config_json=?, fight_started_at=?

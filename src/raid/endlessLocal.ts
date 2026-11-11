@@ -192,8 +192,8 @@ export class EndlessLocalEngine {
     const lootEarned = { ...(payload.lootEarned ?? {}) };
     for (const reward of loot) lootEarned[reward.name] = (lootEarned[reward.name] ?? 0) + reward.quantity;
     const nextPayload: EndlessRunPayload = plan.bossGate
-      ? { run: state, playerLevel: payload.playerLevel, durationMs, lootEarned, pendingBossChoice: { wave: run.currentWave, ...(loot.length ? { loot } : {}) } }
-      : { run: state, playerLevel: payload.playerLevel, durationMs, lootEarned };
+      ? { run: state, playerLevel: payload.playerLevel, lifeForceLevel: payload.lifeForceLevel, durationMs, lootEarned, pendingBossChoice: { wave: run.currentWave, ...(loot.length ? { loot } : {}) } }
+      : { run: state, playerLevel: payload.playerLevel, lifeForceLevel: payload.lifeForceLevel, durationMs, lootEarned };
     const nextFight = plan.bossGate ? null : endlessFightConfig(state, payload.playerLevel);
     const nextRun: EndlessLocalRun = {
       ...run, payload: nextPayload, fight: nextFight,
@@ -234,7 +234,7 @@ export class EndlessLocalEngine {
       this.host.store({ ...save, run: { ...run, currentWave: nextOpening, payload: opening, fight: null } });
       return { ok: true, runFinished: false, stage: "boss-choice" as const, ...endlessBossScreen(run.mode, opening.pendingBossChoice!, opening) };
     }
-    const nextPayload: EndlessRunPayload = { run: state, playerLevel: payload.playerLevel, durationMs: payload.durationMs ?? 0, lootEarned: payload.lootEarned ?? {} };
+    const nextPayload: EndlessRunPayload = { run: state, playerLevel: payload.playerLevel, lifeForceLevel: payload.lifeForceLevel, durationMs: payload.durationMs ?? 0, lootEarned: payload.lootEarned ?? {} };
     const fight = endlessFightConfig(state, payload.playerLevel);
     this.host.store({ ...save, run: { ...run, currentWave: state.nextWave, payload: nextPayload, fight } });
     return { ok: true, runFinished: false, nextWave: state.nextWave, fight: fight as unknown as Record<string, unknown> };

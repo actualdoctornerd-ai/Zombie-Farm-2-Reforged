@@ -98,6 +98,8 @@ describe("local Endless runs", () => {
     expect(f.paid.loot.length).toBeGreaterThan(0);
     expect(f.save().run?.currentWave).toBe(2);
     expect(f.save().run?.fight?.wave).toBe(2);
+    // The Life Force the run started with outlives the fight (a loaned zombie reads it).
+    expect(f.save().run?.payload.lifeForceLevel).toBe(4);
   });
 
   it("opens ability slots by the farm's Life Force, not the player level, and keeps it for loaned zombies", () => {

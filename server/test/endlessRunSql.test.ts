@@ -351,9 +351,12 @@ describe("Endless settlement on the real schema", () => {
   });
 
   it("opens the army's ability slots by the farm's Life Force, not the player level", async () => {
-    raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
-      VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
-    const started = await startEndless(db, ME, { mode: "endless", orderedUnitIds: ["z0"], rulesetVersion: RAID_RULESET_VERSION }, LATER);
+    const ids = Array.from({ length: 20 }, (_, n) => `z${n}`);
+    for (const id of ids) {
+      raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
+        VALUES (?, ?, 'ZombieActorZwampThing', 63488, 5, 0, 0)`).run(ME, id);
+    }
+    const started = await startEndless(db, ME, { mode: "endless", orderedUnitIds: ids, rulesetVersion: RAID_RULESET_VERSION }, LATER);
     expect(started.status).toBe(200);
     const row = raw.prepare("SELECT run_state_json FROM endless_runs_v3 WHERE id=?").get(started.body.sessionId as string) as { run_state_json: string };
     const payload = JSON.parse(row.run_state_json) as { playerLevel: number; lifeForceLevel: number; run: EndlessRunState };
@@ -362,12 +365,17 @@ describe("Endless settlement on the real schema", () => {
     expect(payload.lifeForceLevel).toBeLessThan(4);
     expect(payload.playerLevel).toBeGreaterThanOrEqual(30);
     const gated = (open: number) => buildPlayerUnits(
-      [makeOwned("z0", ZWAMP as never, 0, 0, 0, 0)],
+      [makeOwned("z0", ZWAMP as never, 0, 0, 5, 63488)],
       { abilitySlotUnlocked: (slot) => slot <= open, playerLevel: payload.playerLevel },
     )[0];
     expect(payload.run.units[0].abilities).toEqual(gated(payload.lifeForceLevel).abilities);
     // ...which is a real difference: the old player-level gate opened every slot.
     expect(payload.run.units[0].abilities).not.toEqual(gated(4).abilities);
+    // ...and the run keeps it past its first fight, for a loaned zombie drafted later.
+    const won = await finishEndlessWave(db, ME, { ...winFloor(started.body.fight, 1), sessionId: started.body.sessionId as string }, LATER + 600_000);
+    expect(won.status).toBe(200);
+    const after = raw.prepare("SELECT run_state_json FROM endless_runs_v3 WHERE id=?").get(started.body.sessionId as string) as { run_state_json: string };
+    expect(JSON.parse(after.run_state_json).lifeForceLevel).toBe(payload.lifeForceLevel);
   });
 
   it("never spends Golden Dice or Brain Tickets, even when a start asks to", async () => {
