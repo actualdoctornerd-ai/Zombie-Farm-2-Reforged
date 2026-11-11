@@ -222,6 +222,13 @@ export interface CombatUnit {
   stunChance?: number;
   /** Endless curse proc: damages deployed zombies when this enemy dies. */
   deathExplosion?: { chance: number; damagePercent: number };
+  /** Endless "Dazing Blows": a stun rolled on every hit APART from the enemy's own attack
+   *  effects, so it only ever adds (2026-11-11: it used to ride the shared roll, and on an
+   *  every-hit knockback enemy stunned on every hit). */
+  curseStun?: { chance: number; durationMs: number };
+  /** Endless "Shoving Match": a Headless-only knockback rolled apart from the enemy's own,
+   *  which it never replaces (it used to turn native knockback Headless-only). */
+  curseShoveHeadless?: number;
   knockBackHeadlessOnly?: boolean;
   /** Fraction (0..1) of the attack animation at which the strike connects — Attacks.json
    *  `damageTiming` of the enemy's primary attack (Farmhand poke 0.33, Lumberjack slice

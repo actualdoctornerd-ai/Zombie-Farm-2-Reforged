@@ -256,6 +256,17 @@ Status: **built** means in the code now. Everything else is agreed direction, no
 - The leaderboard should have **weekly and all-time** boards.
 - **Built:** the draft seed is **weekly**, so nobody out-rolls anybody. Everyone sees the same
   options in the same week.
+- **Built (owner, 2026-11-11): no wasted picks.** A drafted boon or curse that would do nothing
+  for this run is re-rolled, up to 3 times, from the week's seed. "Nothing" means one already
+  owned that never stacks (Second Wind, Rearguard, and the curses Dazing Blows, Volatile Remains
+  and Shoving Match) or one at its cap (Quick Release at 80%, Head Start at 9). After three
+  misses the slot falls back to a general stat boon (Sharp Teeth, Thick Skin, Quick Hands or a
+  class Drill), or for a curse to Thick Hides, Hard Hitters or Frenzied Foes
+  (`endlessDraftPickWasted`).
+- **Built (2026-11-11):** Dazing Blows and Shoving Match roll on their own, after the enemy's own
+  attack effects. They used to share that roll, so Dazing Blows stunned on every hit against
+  every-hit knockback enemies, and Shoving Match turned the native knockback of eight enemies
+  into Headless-only.
 
 **Casualties**
 
@@ -263,10 +274,12 @@ Status: **built** means in the code now. Everything else is agreed direction, no
   After each boss the survivors heal to full; the fallen do not come back. This replaced the
   full revive after every boss: with the difficulty cliff, that revive only ever bought one
   more location. The Second Wind boon (Headless stand up after each fight) is the one exception.
-- **Losses are permanent (owner, 2026-11-10), as on any invasion.** When the run ends (a lost
-  floor or Go Home), everyone still down is buried: written to the graveyard (fallen_v3) and taken
-  off the roster, the way an Epic Boss settles. A Headless that Second Wind stood back up counts as
-  alive. Until the run ends the fallen stay on the farm (the run holds no roster locks).
+- **Losses are settled as on any invasion (owner, 2026-11-10; revival 2026-11-11).** When the run
+  ends (a lost floor or End Run), everyone still down is buried: written to the graveyard
+  (fallen_v3) and taken off the roster. The same brain revival an invasion offers follows
+  (endless_revivals_v3, resolved by /raid/revive). A Headless that Second Wind stood back up
+  counts as alive. Until the run ends the fallen stay on the farm (the run holds no roster
+  locks); Go Home leaves the run open.
 
 **The boss screen. Status: built.** One screen shows the boon options, curse options, next location,
 the loot and gold earned so far, Go Home, and a button that opens the ordering screen.
@@ -307,7 +320,7 @@ healer's heal, con is health, dex is the attack interval and the walk.
 | Brute Force | Brutes +30% str, -15% dex |
 | Frenzy | Girls +30% dex, -15% con |
 | Grit | Regulars +20% con, -10% str |
-| Vanguard | First 3 zombies +50% con, the rest -10% con |
+| Vanguard | First 3 living zombies +30% con (owner, 2026-11-11: was +50% / -10% behind, by position counting the dead) |
 | Rearguard | Zombies behind the front five lose only half the source's falloff (they swing x1.425 / x2 / x4 slower and hit softer per group of five; Rearguard halves both). A straight stat boost at the back used to be a net loss there |
 | Faster deployment | The deploy charge 20% shorter, stacking to an 80% cut at most |
 | Opening deploy | Start with 3 zombies already out |

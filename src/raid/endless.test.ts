@@ -13,6 +13,8 @@ import {
   applyEndlessBoon, applyEndlessCurse, applyEndlessStop, beginEndlessRun, carryEndlessArmy, finishEndlessFight, endlessBossDraft,
   endlessBossMultiplier, endlessInvasionOf, endlessSourceDps, isEndlessKiller, endlessKillerCount, endlessLocationOptions, endlessWavePlan, endlessWeekSeed,
   scaleEndlessEnemy, type EndlessLocation, type EndlessModifierId, type EndlessStop,
+  applyEndlessEnemyCurses, endlessDraftPickWasted, ENDLESS_MAX_DEPLOY_REDUCTION, ENDLESS_MAX_OPENING_DEPLOY,
+  type EndlessBoon, type EndlessCurse,
 } from "./endless";
 import { countHitDamage } from "./countSlam";
 import type { CombatUnit } from "./types";
@@ -387,8 +389,27 @@ describe("Endless Mode plan", () => {
     expect(cursed.maxHp).toBeGreaterThan(base.maxHp);
     expect(cursed.str).toBeGreaterThan(base.str);
     expect(cursed.attackCooldownMs).toBeLessThan(base.attackCooldownMs);
-    expect(cursed.stunChance).toBe(0.15);
+    expect(cursed.curseStun).toEqual({ chance: 0.15, durationMs: 900 });
+    expect(cursed.stunChance).toBe(base.stunChance); // the enemy's own stun is untouched
     expect(cursed.deathExplosion).toEqual({ chance: 0.2, damagePercent: 20 });
+  });
+
+  it("only ever adds with Dazing Blows and Shoving Match, never rewriting an enemy's own effects", () => {
+    // The Farm boss knocks back on every hit, at everyone.
+    const boss = buildUnitsForKeys(
+      [], "FarmStageActorBoss", enemyStats as unknown as Record<string, import("./types").EnemyStat>, attacks,
+    ).find((u) => u.isBoss)!;
+    expect(boss.knockBack).toBe(true);
+    const cursed = applyEndlessEnemyCurses(boss, [
+      { kind: "enemy-knockback-headless", chance: 0.25 },
+      { kind: "enemy-stun", chance: 0.15, durationMs: 900 },
+    ]);
+    expect(cursed.knockBack).toBe(true);
+    expect(cursed.knockBackChance).toBe(boss.knockBackChance);
+    expect(cursed.knockBackHeadlessOnly).toBeFalsy();
+    expect(cursed.stunMs ?? 0).toBe(boss.stunMs ?? 0);
+    expect(cursed.curseShoveHeadless).toBe(0.25);
+    expect(cursed.curseStun).toEqual({ chance: 0.15, durationMs: 900 });
   });
 
   it("arms every fight with its clock and overtime, and no boss timer gets in first", () => {
@@ -562,4 +583,58 @@ describe("Endless enemy shapes", () => {
   });
 
 
+});
+
+describe("Endless drafts never offer a pick that would do nothing (owner, 2026-11-11)", () => {
+  const base = beginEndlessRun("endless", [], "9");
+  const maxed = {
+    ...base,
+    reviveHeadless: true,
+    buildBoons: ["rearguard" as const],
+    deploymentSpeedBonus: ENDLESS_MAX_DEPLOY_REDUCTION,
+    openingDeploy: ENDLESS_MAX_OPENING_DEPLOY,
+    curses: [
+      { kind: "enemy-stun", chance: 0.15, durationMs: 900 },
+      { kind: "enemy-explosion", chance: 0.2, damagePercent: 20 },
+      { kind: "enemy-knockback-headless", chance: 0.25 },
+    ] as EndlessCurse[],
+  };
+
+  it("knows which picks are wasted on a run", () => {
+    const boons: EndlessBoon[] = [{ kind: "revive-headless" }, { kind: "rearguard" }, { kind: "deployment", percent: 20 }, { kind: "opening-deploy", count: 3 }];
+    for (const boon of boons) {
+      expect(endlessDraftPickWasted(base, boon), boon.kind).toBe(false);
+      expect(endlessDraftPickWasted(maxed, boon), boon.kind).toBe(true);
+    }
+    for (const curse of maxed.curses) {
+      expect(endlessDraftPickWasted(base, curse), curse.kind).toBe(false);
+      expect(endlessDraftPickWasted(maxed, curse), curse.kind).toBe(true);
+    }
+    // Everything that stacks stays on offer however often it was taken.
+    expect(endlessDraftPickWasted(maxed, { kind: "sharp-teeth" })).toBe(false);
+    expect(endlessDraftPickWasted(maxed, { kind: "enemy-health", percent: 20 })).toBe(false);
+    expect(endlessDraftPickWasted(maxed, { kind: "enemy-stun-resist", percent: 30 })).toBe(false);
+  });
+
+  it("re-rolls wasted picks across many weeks and bosses, deterministically, with no repeats", () => {
+    for (let week = 0; week < 40; week++) {
+      for (const wave of [3, 6, 9, 12]) {
+        const draft = endlessBossDraft("endless", wave, String(week), "farm", true, { ...maxed, weekSeed: String(week) });
+        expect(draft).toEqual(endlessBossDraft("endless", wave, String(week), "farm", true, { ...maxed, weekSeed: String(week) }));
+        for (const pick of [...draft.boons, ...draft.curses]) expect(endlessDraftPickWasted(maxed, pick), pick.kind).toBe(false);
+        expect(draft.boons).toHaveLength(3);
+        expect(draft.curses).toHaveLength(3);
+        expect(new Set(draft.boons.map((b) => JSON.stringify(b))).size).toBe(3);
+        expect(new Set(draft.curses.map((b) => JSON.stringify(b))).size).toBe(3);
+      }
+    }
+  });
+
+  it("leaves a fresh run's draft exactly the weekly one", () => {
+    for (let week = 0; week < 20; week++) {
+      const run = { ...base, weekSeed: String(week) };
+      expect(endlessBossDraft("endless", 3, String(week), "farm", true, run))
+        .toEqual(endlessBossDraft("endless", 3, String(week), "farm", true));
+    }
+  });
 });

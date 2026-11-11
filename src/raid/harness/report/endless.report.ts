@@ -80,7 +80,7 @@ function flyRun(army: Army, mode: EndlessMode, profile: PilotProfile): Floor[] {
   let run = beginEndlessRun(mode, partyFor(army), ENV.ENDLESS_WEEK ?? "0", startTier);
   for (let wave = ENDLESS_FIGHTS_PER_LOCATION; wave < run.startWave; wave += ENDLESS_FIGHTS_PER_LOCATION) {
     const last = wave + ENDLESS_FIGHTS_PER_LOCATION >= run.startWave;
-    const draft = endlessBossDraft(mode, wave, run.weekSeed, run.stop.location, last);
+    const draft = endlessBossDraft(mode, wave, run.weekSeed, run.stop.location, last, run);
     run = applyEndlessCurse(endlessApplyBoon(run, pickBoon(run, draft.boons), army.level), pickCurse(draft.curses));
     if (last) run = applyEndlessStop(run, draft.locations[Number(ENV.ENDLESS_ROUTE ?? 0)] ?? draft.locations[0]);
   }
@@ -103,7 +103,7 @@ function flyRun(army: Army, mode: EndlessMode, profile: PilotProfile): Floor[] {
     if (!f.win) break;
     run = endlessCarryFromSim(run, sim);
     if (boss) {
-      const draft = endlessBossDraft(mode, wave, run.weekSeed, run.stop.location);
+      const draft = endlessBossDraft(mode, wave, run.weekSeed, run.stop.location, true, run);
       // ENDLESS_PICKS: "worst" reverses both preferences, "first" takes the first of each, so
       // the gap between them is how much the boss choices are worth.
       const picks = ENV.ENDLESS_PICKS;

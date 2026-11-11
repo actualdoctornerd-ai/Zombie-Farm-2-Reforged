@@ -52,8 +52,19 @@ describe("Endless build boons", () => {
   it("read the army's order, so reordering changes who gets them", () => {
     const plain = endlessPlayerUnits(base);
     const vanguard = units("vanguard");
-    expect(vanguard[0].maxHp).toBeGreaterThan(plain[0].maxHp);
-    expect(vanguard[3].maxHp).toBeLessThan(plain[3].maxHp);
+    // Owner, 2026-11-11: +30% on the front three, nothing taken from the rest.
+    expect(vanguard[0].maxHp).toBe(Math.round(plain[0].maxHp * 1.3));
+    expect(vanguard[3].maxHp).toBe(plain[3].maxHp);
+  });
+
+  it("gives Vanguard to the front three still standing, not to the dead", () => {
+    const run = applyEndlessBoon(base, { kind: "vanguard" });
+    const frontFell = { ...run, units: run.units.map((u, i) => (i < 2 ? { ...u, alive: false, hp: 0 } : u)) };
+    const plain = endlessPlayerUnits({ ...base, units: frontFell.units });
+    const living = endlessPlayerUnits(frontFell);
+    expect(living).toHaveLength(6);
+    expect(living.slice(0, 3).map((u) => u.maxHp)).toEqual(plain.slice(0, 3).map((u) => Math.round(u.maxHp * 1.3)));
+    expect(living[3].maxHp).toBe(plain[3].maxHp);
   });
 
   it("halves the back of the line's falloff with Rearguard, rather than trading stats", () => {

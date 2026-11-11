@@ -47,7 +47,7 @@ export function endlessDraftFor(
   mode: EndlessMode, pending: NonNullable<EndlessRunPayload["pendingBossChoice"]>, run: EndlessRunState,
 ) {
   const withLocations = !pending.opening || pending.wave + ENDLESS_FIGHTS_PER_LOCATION >= run.startWave;
-  return endlessBossDraft(mode, pending.wave, run.weekSeed, run.stop.location, withLocations);
+  return endlessBossDraft(mode, pending.wave, run.weekSeed, run.stop.location, withLocations, run);
 }
 
 /** Everything the boss screen shows. */

@@ -704,6 +704,10 @@ export interface SimUnit {
   stunChance: number; // …and the same share for the stun.
   deathExplosion: { chance: number; damagePercent: number } | null;
   knockBackHeadlessOnly: boolean;
+  /** Endless curses, each its own roll after the attack's effects (CombatUnit.curseStun). */
+  curseStunChance: number;
+  curseStunMs: number;
+  curseShoveChance: number;
   attackDamageTiming: number; // 0..1 fraction of the swing when it connects (enemy anim)
   isWall: boolean; // boss-summoned blocker (carrotWall / junkWall) — tappable, no attacks
   /** Abducted human beamed in by the alien boss's `summonBoss`. It fights like any other
@@ -1162,6 +1166,9 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     stunChance: isPlayer ? 0 : u.stunChance ?? ((u.stunMs ?? 0) > 0 ? 1 : 0),
     deathExplosion: isPlayer ? null : u.deathExplosion ?? null,
     knockBackHeadlessOnly: !isPlayer && !!u.knockBackHeadlessOnly,
+    curseStunChance: isPlayer ? 0 : u.curseStun?.chance ?? 0,
+    curseStunMs: isPlayer ? 0 : u.curseStun?.durationMs ?? 0,
+    curseShoveChance: isPlayer ? 0 : u.curseShoveHeadless ?? 0,
     attackDamageTiming: u.attackDamageTiming ?? 0.5,
     isWall: false,
     isSummon: false,
@@ -1712,6 +1719,9 @@ export class BattleSim {
       burnAnchorX: u.burnAnchorX ?? u.x,
       knockBackChance: u.knockBackChance ?? (u.knockBack ? 1 : 0),
       stunChance: u.stunChance ?? (u.stunInflictMs > 0 ? 1 : 0),
+      curseStunChance: u.curseStunChance ?? 0,
+      curseStunMs: u.curseStunMs ?? 0,
+      curseShoveChance: u.curseShoveChance ?? 0,
       mirrorsOpponentSpeed: u.mirrorsOpponentSpeed ?? false,
       mirrorPace: u.mirrorPace ?? 1,
       loaned: !!u.loaned,
@@ -3644,6 +3654,13 @@ export class BattleSim {
           foe.stunMs = Math.max(foe.stunMs, u.stunInflictMs);
         }
         if (special && u.knockBack && u.knockBackChance > 0 && (!u.knockBackHeadlessOnly || foe.isHeadless)) this.knockBackZombie(foe);
+        // Endless curses: rolled apart from the attack's own effects, so they only ever add.
+        if (u.curseStunChance > 0 && this.abilityRoll(u) < 100 * u.curseStunChance) {
+          foe.stunMs = Math.max(foe.stunMs, u.curseStunMs);
+        }
+        if (u.curseShoveChance > 0 && foe.isHeadless && this.abilityRoll(u) < 100 * u.curseShoveChance) {
+          this.knockBackZombie(foe);
+        }
       }
     }
   }

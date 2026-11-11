@@ -572,14 +572,16 @@ export function applyEndlessEnemyCurses(unit: CombatUnit, curses: readonly Endle
     } else if (curse.kind === "enemy-stun-resist") {
       result.stunResist = 1 - (1 - (result.stunResist ?? 0)) * (1 - curse.percent / 100);
     } else if (curse.kind === "enemy-stun") {
-      result.stunMs = Math.max(result.stunMs ?? 0, curse.durationMs);
-      result.stunChance = Math.max(result.stunChance ?? 0, curse.chance);
+      // Its own roll (BattleSim), never folded into the enemy's attack effects.
+      result.curseStun = {
+        chance: Math.max(result.curseStun?.chance ?? 0, curse.chance),
+        durationMs: Math.max(result.curseStun?.durationMs ?? 0, curse.durationMs),
+      };
     } else if (curse.kind === "enemy-explosion") {
       result.deathExplosion = { chance: curse.chance, damagePercent: curse.damagePercent };
     } else if (curse.kind === "enemy-knockback-headless") {
-      result.knockBack = true;
-      result.knockBackChance = Math.max(result.knockBackChance ?? 0, curse.chance);
-      result.knockBackHeadlessOnly = true;
+      // Its own roll; the enemy's own knockback is left exactly as it was.
+      result.curseShoveHeadless = Math.max(result.curseShoveHeadless ?? 0, curse.chance);
     }
   }
   return result;
@@ -761,8 +763,10 @@ export const ENDLESS_BUILD_BOONS: Readonly<Record<EndlessBuildBoon, {
   frenzy: { name: "Frenzy", text: "Girl zombies +30% dex, -15% con", scale: forClass("Female", { dex: 1.3, con: 0.85 }) },
   grit: { name: "Grit", text: "Regular zombies +20% con, -10% str", scale: forClass("Regular", { con: 1.2, str: 0.9 }) },
   // ---- Formation ----
-  vanguard: { name: "Vanguard", text: "Your first 3 zombies +50% con, the rest -10% con",
-    scale: (_u, index) => ({ con: index < 3 ? 1.5 : 0.9 }) },
+  // Owner, 2026-11-11: +30%, no penalty behind. `index` counts the LIVING army only, so it
+  // passes to whoever is now at the front (it used to stay with the dead, leaving only -10%).
+  vanguard: { name: "Vanguard", text: "Your first 3 living zombies +30% con",
+    scale: (_u, index) => (index < 3 ? { con: 1.3 } : {}) },
   // Not a stat change: the zombies behind the front five already swing slower and hit softer
   // (lineupSpeedBand / lineupDamageBand). Rearguard halves that falloff (BattleSim.speedBand).
   rearguard: { name: "Rearguard", text: "Zombies behind your front five lose only half as much speed and damage", scale: () => ({}) },
@@ -841,20 +845,64 @@ export interface EndlessBossDraft {
 
 /** Boss reward draft: three unique boons, three unique curses and the routes onward. The same
  *  for everyone in a week, given the same location. */
+/** Draft picks that would do nothing for this run, being already owned or at their cap
+ *  (owner, 2026-11-11): Second Wind, Rearguard, Quick Release at 80%, Head Start at its cap;
+ *  and the three curses that only ever take their strongest copy. Every other boon and curse
+ *  stacks. */
+export function endlessDraftPickWasted(run: EndlessRunState, pick: EndlessBoon | EndlessCurse): boolean {
+  switch (pick.kind) {
+    case "revive-headless": return run.reviveHeadless;
+    case "rearguard": return run.buildBoons.includes("rearguard");
+    case "deployment": return run.deploymentSpeedBonus >= ENDLESS_MAX_DEPLOY_REDUCTION - 1e-9;
+    case "opening-deploy": return run.openingDeploy >= ENDLESS_MAX_OPENING_DEPLOY;
+    case "enemy-stun": case "enemy-explosion": case "enemy-knockback-headless":
+      return run.curses.some((curse) => curse.kind === pick.kind);
+    default: return false;
+  }
+}
+/** Re-rolls a wasted draft slot gets before it falls back. */
+export const ENDLESS_DRAFT_REROLLS = 3;
+/** Where a slot lands after three wasted re-rolls: the general stat boons, and the three plain
+ *  stacking curses. */
+const FALLBACK_BOONS: readonly EndlessBoon[] = (["sharp-teeth", "thick-skin", "quick-hands",
+  "drill-regular", "drill-girl", "drill-headless", "drill-large", "drill-garden"] as const).map((kind) => ({ kind }));
+const FALLBACK_CURSES: readonly EndlessCurse[] = CURSE_POOL.filter((curse) =>
+  curse.kind === "enemy-health" || curse.kind === "enemy-damage" || curse.kind === "enemy-attack-speed");
+
 export function endlessBossDraft(
   mode: EndlessMode,
   bossWave: number,
   weekSeed = "0",
   current: EndlessLocation = ENDLESS_FIRST_LOCATION,
   withLocations = true,
+  /** The run the draft is for. Given, a pick that would do nothing for it is re-rolled (up to
+   *  ENDLESS_DRAFT_REROLLS times, seeded like the draft), then falls back to a stacking option.
+   *  Omitted, the bare weekly draft. */
+  run?: EndlessRunState,
 ): EndlessBossDraft {
   const label = `endless-draft:${weekSeed}:${mode}:${bossWave}`;
-  const select = <T>(pool: readonly T[], name: string): T[] =>
-    seededShuffle(pool, `${label}:${name}`).slice(0, 3).map((item) => ({ ...item }));
+  const select = <T extends EndlessBoon | EndlessCurse>(pool: readonly T[], name: string, fallback: readonly T[]): T[] => {
+    const picks = seededShuffle(pool, `${label}:${name}`).slice(0, 3);
+    if (!run) return picks.map((item) => ({ ...item }));
+    const key = (item: T) => JSON.stringify(item);
+    const offered = new Set<string>();
+    const usable = (item: T) => !endlessDraftPickWasted(run, item) && !offered.has(key(item));
+    return picks.map((first, slot) => {
+      let pick = first;
+      for (let attempt = 1; attempt <= ENDLESS_DRAFT_REROLLS && !usable(pick); attempt++) {
+        pick = pool[Math.floor(seededRandom(`${label}:${name}:reroll:${slot}:${attempt}`)() * pool.length)];
+      }
+      if (!usable(pick)) {
+        pick = seededShuffle(fallback, `${label}:${name}:fallback:${slot}`).find(usable) ?? pick;
+      }
+      offered.add(key(pick));
+      return { ...pick };
+    });
+  };
   const lent = ENDLESS_TEMPORARY_ZOMBIES[Math.floor(seededRandom(`${label}:temporary`)() * ENDLESS_TEMPORARY_ZOMBIES.length)];
   const boons: EndlessBoon[] = [...BOON_POOL, { kind: "temporary-zombie", key: lent.key, name: lent.name }];
   return {
-    boons: select(boons, "boons"), curses: select(CURSE_POOL, "curses"),
+    boons: select(boons, "boons", FALLBACK_BOONS), curses: select(CURSE_POOL, "curses", FALLBACK_CURSES),
     locations: withLocations ? endlessLocationOptions(mode, bossWave, weekSeed, current) : [],
   };
 }
@@ -967,8 +1015,8 @@ function buildBoonScale(run: EndlessRunState, unit: CombatUnit, index: number): 
 
 /** Apply run damage and build boons to a battle copy of the living party. */
 export function endlessPlayerUnits(run: EndlessRunState): CombatUnit[] {
-  return run.units.flatMap((u, index) => {
-    if (!u.alive || u.hp <= 0) return [];
+  // Positions in the army as it now stands: the fallen hold no place (Vanguard reads it).
+  return run.units.filter((u) => u.alive && u.hp > 0).flatMap((u, index) => {
     const scale = buildBoonScale(run, u, index);
     // `damageBonus` is the retired +20% damage boon, still honoured for runs that drafted it.
     const unit = { ...u, attacks: u.attacks.map((a) => ({ ...a, mult: (a.mult ?? 1) * (1 + run.damageBonus) })) };
