@@ -196,14 +196,15 @@ export function lineupSpeedBand(index: number, bypass = false): number {
  *  one and not the other silently un-does the change on the first step of the fight.
  *
  *  Owner, 2026-11-11 (ruleset 85): each other carrier blocks 10% of the damage STILL GETTING
- *  THROUGH, so the shares shrink (10%, 19%, 27.1%, 34.4%, 41% ...) and the total is capped at
- *  80%. It was a flat 20% each to 95%: five carriers shielded everything else from 95% of every
- *  blow, which let a Protect line ignore Endless's whole late damage ramp (Ashena, floor 80). */
+ *  THROUGH, so the shares shrink (10%, 19%, 27.1%, 34.4%, 41% ...), with NO cap (owner: a full
+ *  20-carrier army may invest in it). The army cap bounds it instead: 19 others is 86.5%, and
+ *  95% would need 29. It was a flat 20% each to 95%: five carriers shielded everything else
+ *  from 95% of every blow, which let a Protect line ignore Endless's whole late damage ramp
+ *  (Ashena, floor 80). */
 export const PROTECT_STEP = 0.10;
-export const PROTECT_CAP = 0.80;
 export function protectReduction(carriers: number, isCarrier: boolean): number {
   const others = Math.max(0, carriers - (isCarrier ? 1 : 0));
-  return Math.min(PROTECT_CAP, 1 - (1 - PROTECT_STEP) ** others);
+  return 1 - (1 - PROTECT_STEP) ** others;
 }
 
 export const SCALLYWAG_KEY = "PirateStageActorScallywag";

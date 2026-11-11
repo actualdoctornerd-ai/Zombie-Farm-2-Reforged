@@ -1298,7 +1298,7 @@ import type { RaidOutcome } from "./types";
 // 84 (Endless only, 2026-11-11): Head Start's extras deploy WITH the army's first zombie, not
 // at the bell, and stack to 9; a run's Concentration covers every floor. Invasions unchanged.
 // 85 (owner, 2026-11-11): Protect has diminishing returns. Each OTHER carrier blocks 10% of the
-// damage still getting through (1 - 0.9^n), capped at 80%. It was a flat 20% each, cap 95%.
+// damage still getting through (1 - 0.9^n), uncapped (about 86.5% for a full 20-carrier army). It was a flat 20% each, cap 95%.
 // Also 85, Endless only: a stunned enemy's swing clock PAUSES instead of restarting (any stun
 // used to cost a whole attack cycle, so enough stunners locked an enemy out for a fight), and
 // every Endless enemy shrugs off 1% more of each stun per tier, no cap, stacking with the

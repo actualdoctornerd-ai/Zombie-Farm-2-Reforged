@@ -326,13 +326,17 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
     expect(buffed.damageReduction).toBeCloseTo(0.19);
   });
 
-  it("Protect: each carrier blocks 10% of what still gets through, capped at 80% (owner, ruleset 85)", () => {
+  it("Protect: each carrier blocks 10% of what still gets through, with no cap (owner, ruleset 85)", () => {
     expect(protectReduction(3, false)).toBeCloseTo(0.271);
     expect(protectReduction(5, true)).toBeCloseTo(0.3439); // a carrier: four OTHERS
     expect(protectReduction(5, false)).toBeCloseTo(0.40951);
     expect(protectReduction(15, false)).toBeCloseTo(0.79411);
-    expect(protectReduction(16, false)).toBeCloseTo(0.80); // 1 - 0.9^16 = 81.5%, capped
-    expect(protectReduction(20, true)).toBeCloseTo(0.80);
+    expect(protectReduction(16, false)).toBeCloseTo(0.81470);
+    // A full 20-carrier army: each carrier is covered by its 19 others. No cap, and 95% is
+    // out of reach of any army (it would take 29 others).
+    expect(protectReduction(20, true)).toBeCloseTo(0.86491);
+    expect(protectReduction(29, false)).toBeGreaterThan(0.95);
+    expect(protectReduction(28, false)).toBeLessThan(0.95);
   });
 
   it("Fortitude gives Headless zombies 10% Life", () => {
