@@ -187,10 +187,10 @@ PVP_ENABLED = "1"
 # the shipped barn-doorway wave and stays available as the fallback.
 PVP_DEFENSE_MODE = "formation"
 WRITER_LEASE_MODE = "enforce"
-# Endless Mode: NOT launched. Off, every /endless/* route and the Endless leaderboard
-# answer 404 and the client hides the Endless card (bootstrap `endlessEnabled`).
-# Launching is flipping this to "1" and deploying this Worker -- no client release.
-ENDLESS_ENABLED = "0"
+# Endless Mode: LAUNCHED 2026-11-10. Set "0" and deploy to pull it: every /endless/* route
+# and the Endless leaderboard then answer 404 and the client hides the Endless card
+# (bootstrap `endlessEnabled`). No client release either way.
+ENDLESS_ENABLED = "1"
 # Server-owned raid cooldown in ms. Omit to use the 2h default (see src/index.ts
 # raidCooldownMs). Prod uses the default; local dev sets a small value in .dev.vars.
 # RAID_COOLDOWN_MS = "7200000"
