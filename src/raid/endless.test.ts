@@ -7,7 +7,7 @@ import { makeOwned } from "../zombie/types";
 import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import {
   ENDLESS_ADVANCED_CLOCK_MS, ENDLESS_ALIEN_NORMAL_CLOCK_MS, ENDLESS_BOSS_CLOCK_MS, ENDLESS_BOSS_DAMAGE,
-  ENDLESS_BEAM_WALK_IN_MS, ENDLESS_LOCATION_STRENGTH, ENDLESS_BOSS_HP_AT_T1, ENDLESS_BOSS_HP_AT_T7, ENDLESS_BOSS_MOVES, ENDLESS_PERCHED_BOSS, ENDLESS_WALK_IN, ENDLESS_WALK_IN_POOL, ENDLESS_DAMAGE_STEP, ENDLESS_ENTRY_COST,
+  ENDLESS_BEAM_WALK_IN_MS, ENDLESS_LOCATION_STRENGTH, ENDLESS_ALIEN_SWARM, ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_HP_AT_T1, ENDLESS_BOSS_HP_AT_T7, ENDLESS_BOSS_MOVES, ENDLESS_PERCHED_BOSS, ENDLESS_WALK_IN, ENDLESS_WALK_IN_POOL, ENDLESS_DAMAGE_STEP, ENDLESS_ENTRY_COST,
   ENDLESS_KILLER, ENDLESS_ENTRY_THREAT_RATING, ENDLESS_SHAPE_LIMIT, ENDLESS_FLOOR_ENEMIES, ENDLESS_LINE, ENDLESS_HEALTH_STEP, ENDLESS_LATE_DO_OR_DIE_MS, ENDLESS_LOCATION_MECHANICS,
   ENDLESS_MODIFIERS, ENDLESS_NORMAL_CLOCK_MS, ENDLESS_NORMAL_DO_OR_DIE_MS, ENDLESS_SLAM_SECONDS, ENDLESS_UNLOCK_LEVEL,
   applyEndlessBoon, applyEndlessCurse, applyEndlessStop, beginEndlessRun, carryEndlessArmy, finishEndlessFight, endlessBossDraft,
@@ -237,11 +237,13 @@ describe("Endless Mode plan", () => {
     expect(endlessWavePlan("nightmare", 2).bossId).toBeNull();
   });
 
-  it("sizes Alien Landing's swarm at half a solo enemy's base stats, never its boss", () => {
+  it("sizes Alien Landing's swarm below a solo enemy's base stats, four at a time, never its boss", () => {
     const minion = endlessSourceUnit("AlienStageActorMinion")!;
     const at = (location: "alien" | "farm") => scaleEndlessEnemy(minion, endlessWavePlan("endless", 4, { location, modifier: null }), [], ENDLESS_SHAPES);
-    expect(at("alien").maxHp / at("farm").maxHp).toBeCloseTo(0.5, 2);
-    expect(at("alien").str / at("farm").str).toBeCloseTo(0.5, 6);
+    expect(at("alien").maxHp / at("farm").maxHp).toBeCloseTo(ENDLESS_ALIEN_SWARM.hp, 2);
+    expect(at("alien").str / at("farm").str).toBeCloseTo(ENDLESS_ALIEN_SWARM.damage, 6);
+    expect(endlessFightConfig({ ...beginEndlessRun("endless", []), nextWave: 4, stop: { location: "alien", modifier: null } }, 45)
+      .waveCadence?.maxActive).toBe(ENDLESS_ALIEN_MAX_ACTIVE);
     // Dr. Groundhog fights alone there: the same boss as anywhere else.
     const boss = (location: "alien" | "farm") => endlessFightConfig(
       { ...beginEndlessRun("endless", []), nextWave: 12, stop: { location, modifier: null } }, 45,

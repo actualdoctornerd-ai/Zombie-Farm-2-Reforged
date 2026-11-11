@@ -194,8 +194,14 @@ ended almost none: its floors match the others' health and damage on paper, and 
 taps a good player answers. Its floor enemies now hit 25% harder (`ENDLESS_LOCATION_STRENGTH`),
 which put it level with the Dojo and the Pirate Ship at L45 (about 9%). Making pixel fire a
 floor-1 trait alone changed nothing. The Farm was tried with 4 / 6 more ordinary enemies and
-taken back out: from T2 on it is already among the hardest. Alien Landing is still the hardest
-(about 20% at L45).
+taken back out: from T2 on it is already among the hardest.
+
+Alien Landing ended about 20% of visits at L45 (30% at L35), double the others. Switching off
+the saucer's laser (a flat 200 a bolt, which Endless never scales) or its beam-ins changed
+nothing; the swarm's combined damage was the driver, and its losses gathered on floor 2 at T6 and
+T9. Its swarm now comes out four at a time instead of six, at 0.4 of a solo enemy's damage instead
+of 0.5 (`ENDLESS_ALIEN_MAX_ACTIVE`, `ENDLESS_ALIEN_SWARM`): about 13% at L45 and 20% at L35, each
+change measured alone first (four at a time: 16% / 25%; 0.4 damage: 18% / 21%).
 
 **Enemy health for time pressure (owner, 2026-11-10).** Floor enemies carry about 15% more health
 (line 1.75, walk-in 1.4, perched boss 2.3): run-ending fights reach Do or Die about twice as

@@ -15,7 +15,7 @@ import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import { countHitDamage } from "./countSlam";
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import {
-  applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
+  applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
   endlessBossMultiplier, endlessClockMs, endlessDoOrDieMs, endlessPeerShapes, endlessPlayerUnits, endlessWavePlan,
   finishEndlessFight, type EndlessCurse, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, scaleEndlessThrow, type EndlessBoon, type EndlessRunState,
 } from "./endless";
@@ -116,7 +116,7 @@ export function endlessFightConfig(run: EndlessRunState, playerLevel: number): E
   mechanics.openingDeploy = run.openingDeploy;
   mechanics.rearguard = run.buildBoons.includes("rearguard");
   const waveCadence: WaveCadence = plan.location === "alien"
-    ? waveCadenceFor(6)
+    ? { ...waveCadenceFor(6), maxActive: ENDLESS_ALIEN_MAX_ACTIVE }
     : { maxActive: 1, dripMs: 0, openingActive: 1 };
   const timeLimitMs = endlessClockMs(plan);
   const doOrDieMs = endlessDoOrDieMs(plan);

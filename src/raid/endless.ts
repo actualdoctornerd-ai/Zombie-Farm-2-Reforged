@@ -233,7 +233,12 @@ export const ENDLESS_LINE = { hp: 1.75, damage: 0.95 } as const;
  *  each sized like a solo enemy made it the run-ender everywhere. Its FLOORS' enemies carry
  *  half base stats (measured through harness/report/endless.report.ts). Its boss is Dr.
  *  Groundhog alone, built by epicBossUnit, and is never scaled down. */
-export const ENDLESS_ALIEN_SWARM = { hp: 0.5, damage: 0.5 } as const;
+export const ENDLESS_ALIEN_SWARM = { hp: 0.5, damage: 0.4 } as const;
+/** How many of the swarm are out at once (its own invasion fields six). Owner, 2026-11-10:
+ *  Alien Landing ended about 20% of visits at L45, double the other locations. Its laser
+ *  (a flat 200) and beam-ins barely mattered when switched off; the swarm's combined damage
+ *  did. Four at a time and 0.4 damage brought it to about 13% at L45, 20% at L35. */
+export const ENDLESS_ALIEN_MAX_ACTIVE = 4;
 /** Per-location strength on its floors (not Dr. Groundhog), for evening the locations out.
  *  Video Game's floors ended almost no runs (owner, 2026-11-10). */
 export const ENDLESS_LOCATION_STRENGTH: Readonly<Partial<Record<EndlessLocation, { hp: number; damage: number }>>> = {
