@@ -1,6 +1,6 @@
 import { ENDLESS_FIGHTS_PER_LOCATION, endlessModeOpen } from "../../raid/endless";
 import type { Hud } from "../../hud";
-import type { EndlessLeaderboardBoard, EndlessLeaderboardEntry } from "../../net/api";
+import type { EndlessLeaderboardEntry } from "../../net/api";
 import { mutationLabelFor } from "../../zombie/mutationDisplay";
 import { VET_RANKS } from "../../zombie/traits";
 import { openModal } from "../Modal";
@@ -40,7 +40,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
   panel.append(subtitle, boardTabs, modeTabs, status, list);
 
   let mode: Mode = "endless";
-  let board: EndlessLeaderboardBoard = "weekly";
+  let board: "all-time" | "weekly" = "weekly";
   let entries: EndlessLeaderboardEntry[] | null = null;
   let loading = false;
   let failed = false;
@@ -64,9 +64,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
       list.appendChild(retry);
       return;
     }
-    status.textContent = board === "launch-week"
-      ? "Launch week’s records, set before the November balance changes. Frozen for the history books."
-      : entries.length ? `${entries.length} of 25 records` : "No completed runs yet. Be the first to set a record!";
+    status.textContent = entries.length ? `${entries.length} of 25 records` : "No completed runs yet. Be the first to set a record!";
     if (!entries.length) return;
 
     const headings = document.createElement("div");
@@ -152,7 +150,7 @@ export function openEndlessLeaderboardPanel(hud: Hud): void {
 
   const renderTabs = () => {
     boardTabs.replaceChildren();
-    for (const [value, label] of [["weekly", "This Week"], ["all-time", "All Time"], ["launch-week", "Launch Week"]] as const) {
+    for (const [value, label] of [["weekly", "This Week"], ["all-time", "All Time"]] as const) {
       const tab = document.createElement("button");
       tab.type = "button";
       tab.className = "endless-lb-tab";

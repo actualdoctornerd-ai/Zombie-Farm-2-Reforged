@@ -95,7 +95,4 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES
   -- Creates endless_weekly_leaderboard and endless_progress, which schema.sql already declares.
   ('0062_endless_weekly_and_progress.sql'),
   -- Creates endless_revivals_v3, which schema.sql already declares.
-  ('0063_endless_revivals.sql'),
-  -- Creates endless_leaderboard_seasons (in schema.sql); its launch-week copy and reset have
-  -- nothing to move on a fresh database.
-  ('0064_endless_launch_week_season.sql');
+  ('0063_endless_revivals.sql');

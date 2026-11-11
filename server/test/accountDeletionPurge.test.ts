@@ -141,9 +141,6 @@ function seedAccount(raw: DatabaseSync, account: string, other: string): void {
       } else if (table === "endless_leaderboard") {
         Object.assign(row, { account_id: variant[0], mode: "endless", deepest_floor: 1,
           duration_ms: 1, army_json: "[]", achieved_at: NOW });
-      } else if (table === "endless_leaderboard_seasons") {
-        Object.assign(row, { season: "launch-week", account_id: variant[0], mode: "endless", deepest_floor: 1,
-          duration_ms: 1, army_json: "[]", achieved_at: NOW });
       } else if (table === "endless_runs_v3") {
         Object.assign(row, { id: rowId, account_id: variant[0], mode: "endless", current_wave: 1,
           run_state_json: "{}", army_json: "[]", fight_config_json: "{}", ruleset_version: 1,

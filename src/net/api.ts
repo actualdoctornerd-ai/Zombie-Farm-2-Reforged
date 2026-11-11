@@ -692,9 +692,7 @@ export interface EndlessLeaderboardEntry {
 }
 
 /** Public top-25 personal bests for one Endless ruleset. */
-/** The live boards, plus frozen past seasons (server ENDLESS_LEADERBOARD_SEASONS). */
-export type EndlessLeaderboardBoard = "all-time" | "weekly" | "launch-week";
-export const getEndlessLeaderboard = (mode: "endless" | "nightmare", board: EndlessLeaderboardBoard = "all-time") =>
+export const getEndlessLeaderboard = (mode: "endless" | "nightmare", board: "all-time" | "weekly" = "all-time") =>
   req<{ mode: "endless" | "nightmare"; entries: EndlessLeaderboardEntry[] }>(
     "GET", `/leaderboard/endless?mode=${mode}&board=${board}`,
   ).then((r) => r.entries);
