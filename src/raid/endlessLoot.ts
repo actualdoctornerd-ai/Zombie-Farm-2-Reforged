@@ -171,6 +171,15 @@ export function endlessZwampDrops(tier: number, swampRoll: number, zwampsSoFar: 
   return swampRoll < (ENDLESS_ZWAMP_ODDS[tier] ?? 0);
 }
 
+/** A brain on any normal-Endless win (owner, 2026-11-10): one flat chance on every floor and
+ *  every boss, the same at every tier and location, paid on top of that win's loot. It came
+ *  back in exchange for fallen zombies staying lost for the rest of the run. At 5% a run that
+ *  wins 24 fights (through T8) averages 1.2 brains, about what its entry costs. */
+export const ENDLESS_BRAIN_DROP_CHANCE = 0.05;
+export function rollEndlessBrain(mode: EndlessMode, roll: number): EndlessBossLoot | null {
+  return mode === "endless" && roll < ENDLESS_BRAIN_DROP_CHANCE ? { kind: "brains", name: "Brains", quantity: 1 } : null;
+}
+
 /** The story invasion each Endless location stands in for, for its rare zombies. */
 export const ENDLESS_LOCATION_RAID: Readonly<Record<EndlessLocation, number>> = {
   farm: OLD_MC_ZOMBIE_RAID_ID, ninja: NINJAS_RAID_ID, alien: ALIENS_RAID_ID,

@@ -21,7 +21,7 @@ import { recordEndlessLeaderboardStatement, recordEndlessWeeklyStatement, type E
 import { MAX_STACK } from "../boostCatalog";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { endlessBestTierOf, endlessMaxVetRankOf } from "../../../src/raid/endlessPerks";
-import { endlessMilestoneRewards, endlessVictoryRewards, rollEndlessBossLoot, rollEndlessFloorLoot, rollEndlessLocationZombie, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
+import { endlessMilestoneRewards, endlessVictoryRewards, rollEndlessBossLoot, rollEndlessBrain, rollEndlessFloorLoot, rollEndlessLocationZombie, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
 
 const zombies = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
 interface StoredRun {
@@ -341,6 +341,9 @@ export async function finishEndlessWave(
       // Every win can also turn up the location's own rare zombies, at its invasion's rate.
       const rare = rollEndlessLocationZombie(plan.location, Math.random(), Math.random());
       if (rare) loot.push(rare);
+      // And a flat chance at a brain, the same on every win (owner, 2026-11-10).
+      const brain = rollEndlessBrain(session.mode, Math.random());
+      if (brain) loot.push(brain);
     }
     if (plan.bossGate) {
       for (let tier = (progressRow?.best_tier ?? 0) + 1; tier <= plan.tier; tier++) {

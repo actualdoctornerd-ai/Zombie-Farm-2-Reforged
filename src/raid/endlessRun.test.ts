@@ -10,7 +10,7 @@ import {
   type EndlessBuildBoon, type EndlessModifierId,
 } from "./endless";
 import { endlessApplyBoon, endlessCarryFromSim, endlessFightConfig, endlessSimFor } from "./endlessFight";
-import { ENDLESS_LOCATION_RAID, endlessExpectedZwamps, endlessLootWeightTotal, endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessLocationZombie } from "./endlessLoot";
+import { ENDLESS_BRAIN_DROP_CHANCE, ENDLESS_LOCATION_RAID, endlessExpectedZwamps, endlessLootWeightTotal, endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessBrain, rollEndlessLocationZombie } from "./endlessLoot";
 import raidsJson from "../../public/assets/raids/raids.json";
 import { makeOwned } from "../zombie/types";
 import type { ZombieDef } from "../assets";
@@ -212,6 +212,10 @@ describe("Endless Zwamp Thing and milestones", () => {
     expect(endlessExpectedZwamps(8)).toBeLessThan(2.2);
   });
   it("lets each location turn up its own invasion's rare zombies, at that invasion's rate", () => {
+    // A brain: one flat chance on every normal-Endless win, nothing in Nightmare (no loot yet).
+    expect(rollEndlessBrain("endless", ENDLESS_BRAIN_DROP_CHANCE - 1e-9)).toEqual({ kind: "brains", name: "Brains", quantity: 1 });
+    expect(rollEndlessBrain("endless", ENDLESS_BRAIN_DROP_CHANCE)).toBeNull();
+    expect(rollEndlessBrain("nightmare", 0)).toBeNull();
     expect(rollEndlessLocationZombie("pirate", 0.0139, 0)).toMatchObject({ key: "ZombieActorMerZombie" });
     expect(rollEndlessLocationZombie("pirate", 0.0139, 0.9)).toMatchObject({ key: "ZombieActorPoseidon" });
     expect(rollEndlessLocationZombie("pirate", 0.0141, 0)).toBeNull();

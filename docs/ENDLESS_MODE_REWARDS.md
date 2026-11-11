@@ -55,6 +55,13 @@ invasion zombies, at that invasion's ordinary rate (`rollEndlessLocationZombie`)
 (Zastronaut or Cozmonaut), Video Game 2% (Video Game Zombie or a Boss Zombie colour), the Farm 1%
 (Old McZombie). A hit is the ordinary prize two times in three, the promoted one otherwise.
 
+## Brains on every win
+
+**Status: built (owner, 2026-11-10).** Every normal-Endless win, floor or boss, has a flat 5% chance
+to pay 1 brain on top of its loot, the same at every tier and location (`ENDLESS_BRAIN_DROP_CHANCE`).
+It came back in exchange for fallen zombies staying lost for the rest of the run. A run through T8
+(24 wins) averages 1.2 brains, about its entry cost.
+
 ## First-clear milestones
 
 **Status: built (owner, 2026-11-08).** `endless_progress` tracks each account's best tier per mode,
