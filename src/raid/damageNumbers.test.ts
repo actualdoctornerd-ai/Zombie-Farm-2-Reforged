@@ -91,10 +91,10 @@ describe("damage numbers report the attack, not the health removed", () => {
     // still crossing the zone — before auto-release would have fielded the backer.
     armoured.units.find((u) => u.id === "backer")!.state = "advance";
     runUntilHits(armoured, 1);
-    expect(zombieOf(armoured).damageReduction).toBeCloseTo(0.2, 5); // aura settles on step
+    expect(zombieOf(armoured).damageReduction).toBeCloseTo(0.1, 5); // aura settles on step
     // The published figure is the MITIGATED blow — the number a player should read —
     // not the raw 5000 the enemy swung for.
-    expect(zombieOf(armoured).damageFxTaken).toBeCloseTo(5000 * 0.8, 5);
+    expect(zombieOf(armoured).damageFxTaken).toBeCloseTo(5000 * 0.9, 5);
   });
 
   it("never publishes a hit the fight never applied", () => {

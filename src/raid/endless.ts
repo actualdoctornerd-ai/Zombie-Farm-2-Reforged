@@ -496,7 +496,8 @@ export function scaleEndlessEnemy(
   result.con = health;
   result.maxHp = Math.max(1, Math.round(health * 100));
   result.hp = result.maxHp;
-  const final = applyEndlessEnemyCurses(applyEndlessModifier(result, plan.modifier), curses);
+  const final = applyEndlessDepthStunResist(
+    applyEndlessEnemyCurses(applyEndlessModifier(result, plan.modifier), curses), plan.tier);
   // The perched boss's slam, priced last: seconds of his base damage, then grown with his HIT
   // as modifiers and curses left it (Heavy Hitters' slower, 2.5x hits make a 2.5x slam). The
   // pirate captain carries none: his mirrored blow IS his killing move, and a second clock
@@ -554,6 +555,18 @@ export function applyEndlessModifier(unit: CombatUnit, modifier: EndlessModifier
   }
   if (m.stunResist) result.stunResist = Math.max(result.stunResist ?? 0, m.stunResist);
   return result;
+}
+
+/** Endless enemies shrug off more of every stun the deeper the run goes (owner, 2026-11-11,
+ *  ruleset 85): 1% shorter per tier, no cap ("if people are making it to 25, they deserve that
+ *  debuff"). It stacks multiplicatively with the stun-resist curse and the modifiers. Paired
+ *  with the paused swing clock (BattleSim, `endlessMechanics`), a stun army stays strong deep
+ *  but can no longer lock an enemy out of attacking for a whole fight. */
+export const ENDLESS_STUN_RESIST_PER_TIER = 0.01;
+export function applyEndlessDepthStunResist(unit: CombatUnit, tier: number): CombatUnit {
+  const depth = Math.min(1, Math.max(0, ENDLESS_STUN_RESIST_PER_TIER * tier));
+  if (depth <= 0) return unit;
+  return { ...unit, stunResist: 1 - (1 - (unit.stunResist ?? 0)) * (1 - depth) };
 }
 
 /** Apply run curses to regular enemies or the boss actor after its baseline scaling. */

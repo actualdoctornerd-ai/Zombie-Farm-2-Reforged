@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { resolveRaid, buildEnemyUnits, buildPlayerUnits } from "./CombatEngine";
+import { protectReduction } from "./combatStats";
 import type { CombatUnit } from "./types";
 import type { OwnedZombie } from "../zombie/types";
 import shippedStats from "../../public/assets/raids/enemy_stats.json";
@@ -304,7 +305,7 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
     const regular = owned("regular", "Regular", "Green");
     const headless = owned("protector", "Headless", "Blue");
     const one = buildPlayerUnits([regular, headless], { abilitySlotUnlocked: unlocked });
-    expect(one[0].damageReduction).toBeCloseTo(0.20); // shielded by the carrier
+    expect(one[0].damageReduction).toBeCloseTo(0.10); // shielded by the carrier
     expect(one[1].damageReduction).toBe(0); // …which does not shield itself
 
     // A second carrier shields the first — the case the old exclusion could never reach.
@@ -312,17 +313,26 @@ describe("buildPlayerUnits — binary-authentic zombie abilities", () => {
       [regular, headless, owned("protector-2", "Headless", "Blue")],
       { abilitySlotUnlocked: unlocked }
     );
-    expect(built[0].damageReduction).toBeCloseTo(0.40); // both carriers
-    expect(built[1].damageReduction).toBeCloseTo(0.20); // the other one
-    expect(built[2].damageReduction).toBeCloseTo(0.20);
+    expect(built[0].damageReduction).toBeCloseTo(0.19); // both carriers: 1 - 0.9^2
+    expect(built[1].damageReduction).toBeCloseTo(0.10); // the other one
+    expect(built[2].damageReduction).toBeCloseTo(0.10);
   });
 
-  it("stacks duplicate Protect carriers additively", () => {
+  it("stacks duplicate Protect carriers with diminishing returns", () => {
     const regular = owned("regular", "Regular", "Green");
     const protectA = owned("protector-a", "Headless", "Blue");
     const protectB = owned("protector-b", "Headless", "Blue");
     const [buffed] = buildPlayerUnits([regular, protectA, protectB], { abilitySlotUnlocked: unlocked });
-    expect(buffed.damageReduction).toBeCloseTo(0.40);
+    expect(buffed.damageReduction).toBeCloseTo(0.19);
+  });
+
+  it("Protect: each carrier blocks 10% of what still gets through, capped at 80% (owner, ruleset 85)", () => {
+    expect(protectReduction(3, false)).toBeCloseTo(0.271);
+    expect(protectReduction(5, true)).toBeCloseTo(0.3439); // a carrier: four OTHERS
+    expect(protectReduction(5, false)).toBeCloseTo(0.40951);
+    expect(protectReduction(15, false)).toBeCloseTo(0.79411);
+    expect(protectReduction(16, false)).toBeCloseTo(0.80); // 1 - 0.9^16 = 81.5%, capped
+    expect(protectReduction(20, true)).toBeCloseTo(0.80);
   });
 
   it("Fortitude gives Headless zombies 10% Life", () => {

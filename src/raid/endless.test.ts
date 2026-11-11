@@ -13,7 +13,7 @@ import {
   applyEndlessBoon, applyEndlessCurse, applyEndlessStop, beginEndlessRun, carryEndlessArmy, finishEndlessFight, endlessBossDraft,
   endlessBossMultiplier, endlessInvasionOf, endlessSourceDps, isEndlessKiller, endlessKillerCount, endlessLocationOptions, endlessWavePlan, endlessWeekSeed,
   scaleEndlessEnemy, type EndlessLocation, type EndlessModifierId, type EndlessStop,
-  applyEndlessEnemyCurses, endlessDraftPickWasted, ENDLESS_MAX_DEPLOY_REDUCTION, ENDLESS_MAX_OPENING_DEPLOY,
+  applyEndlessEnemyCurses, applyEndlessDepthStunResist, endlessDraftPickWasted, ENDLESS_MAX_DEPLOY_REDUCTION, ENDLESS_MAX_OPENING_DEPLOY,
   type EndlessBoon, type EndlessCurse,
 } from "./endless";
 import { countHitDamage } from "./countSlam";
@@ -22,6 +22,7 @@ import { mirrorIntervalSec } from "./combatStats";
 import { buildFight } from "./buildFight";
 import { ENDLESS_SHAPES, endlessFightConfig, endlessSimFor, endlessSourceUnit } from "./endlessFight";
 import { rollEndlessBossLoot, rollEndlessFloorLoot } from "./endlessLoot";
+import { buildEndlessStageMechanics } from "./endlessMechanics";
 
 describe("Endless Mode plan", () => {
   it("uses the intended entry gates and brain costs", () => {
@@ -468,7 +469,7 @@ describe("Endless Mode plan", () => {
     expect(under("glass-cannon").maxHp).toBeLessThan(plain.maxHp);
     expect(under("glass-cannon").str).toBeGreaterThan(plain.str);
     expect(under("stun-immune").stunResist).toBe(1);
-    expect(plain.stunResist).toBeUndefined();
+    expect(plain.stunResist).toBeCloseTo(0.02); // wave 4 is tier 2: 1% shorter stuns a tier
   });
 
   it("makes a slam's damage follow Heavy Hitters", () => {
@@ -494,6 +495,40 @@ describe("Endless Mode plan", () => {
     expect(stunned(undefined, true).poise).toBeCloseTo(0.5);
     expect(stunned(0.3, true).poise).toBeCloseTo(0.35);
     expect(stunned(1, true).poise).toBe(0);
+  });
+
+  it("shortens stuns 1% a tier with no cap, stacking with the curse (owner, ruleset 85)", () => {
+    const base = enemy("FarmStageActorFarmhand");
+    expect(applyEndlessDepthStunResist(base, 0).stunResist).toBeUndefined();
+    expect(applyEndlessDepthStunResist(base, 10).stunResist).toBeCloseTo(0.10);
+    expect(applyEndlessDepthStunResist(base, 27).stunResist).toBeCloseTo(0.27);
+    // One stun-resist curse (30%) at T20: 1 - 0.7 x 0.8.
+    expect(applyEndlessDepthStunResist({ ...base, stunResist: 0.3 }, 20).stunResist).toBeCloseTo(0.44);
+    expect(applyEndlessDepthStunResist({ ...base, stunResist: 1 }, 5).stunResist).toBe(1);
+    // The Epic Boss takes it too: his gate is built apart from the floor enemies.
+    const run = { ...beginEndlessRun("endless", [], "2026-W46"), nextWave: 9 };
+    const boss = endlessFightConfig(run, 45).enemyUnits[0];
+    expect(boss.stunResist).toBeCloseTo(0.03);
+  });
+
+  it("pauses a stunned Endless enemy's swing clock instead of restarting it (ruleset 85)", () => {
+    const timerAfterStun = (endless: boolean) => {
+      const plan = endlessWavePlan("endless", 4, at("farm"));
+      const zombie = buildPlayerUnits([makeOwned("z", zombiesJson.find((z) => z.key === "ZombieActorRegularTier1") as unknown as ZombieDef, 0, 0, 0, 0)])[0];
+      const sim = buildFight({
+        playerUnits: [{ ...zombie, con: 1e6, maxHp: 1e8, hp: 1e8 }], enemyUnits: [{ ...enemy("FarmStageActorFarmhand"), maxHp: 1e8, hp: 1e8 }],
+        ...(endless ? { endlessMechanics: buildEndlessStageMechanics(plan, 45) } : {}),
+      });
+      const foe = sim.units.find((u) => u.team === "enemy")! as unknown as { state: string; timerMs: number; stunMs: number };
+      for (let i = 0; i < 2_000 && foe.state !== "fight"; i++) sim.step(50);
+      expect(foe.state).toBe("fight");
+      foe.timerMs = 400;
+      foe.stunMs = 500;
+      for (let i = 0; i < 10; i++) sim.step(50);
+      return foe.timerMs;
+    };
+    expect(timerAfterStun(true)).toBeCloseTo(400, -1); // paused: the swing is still 0.4 s away
+    expect(timerAfterStun(false)).toBeGreaterThan(400); // invasions: the swing starts over
   });
 
   it("pays a small floor roll on every tier, keeping Zwamp Thing and cosmetics for bosses", () => {

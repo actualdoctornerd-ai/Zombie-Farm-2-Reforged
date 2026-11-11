@@ -179,15 +179,19 @@ describe("Halloween nights: the curve, in the sim", () => {
     }
   }, 120_000);
 
-  // Do or Die (ruleset 81) changed this: that army used to clock out of Hour 12 at two
-  // minutes; it now finishes it in the overtime minute (~155 s, all 16 standing; Hour 11
-  // ~133 s). It still cannot do it inside the two-minute clock.
-  it("only gets through Hour 12 in the Do or Die minute", () => {
+  // Do or Die (ruleset 81) let that army finish Hour 12 in the overtime minute (~155 s).
+  // Protect's diminishing returns (ruleset 85, owner: kept game-wide) took that away: its
+  // three carriers shield 19-27% instead of 40-60%, so it now FALLS in the Do or Die minute
+  // (~155 s). Hour 11 is unchanged: won in the overtime minute (~133 s). Measured 2026-11-11.
+  it("gets through Hour 11 only in the Do or Die minute, and falls there in Hour 12", () => {
     for (const seed of [0, 1]) {
-      const flight = fly(12, seed);
-      expect(flight.win).toBe(true);
-      expect(flight.secs).toBeGreaterThan(NIGHT_TIME_LIMIT_MS / 1000);
-      expect(flight.secs).toBeLessThan((NIGHT_TIME_LIMIT_MS + DO_OR_DIE_MS) / 1000);
+      const eleven = fly(11, seed);
+      expect(eleven.win).toBe(true);
+      expect(eleven.secs).toBeGreaterThan(NIGHT_TIME_LIMIT_MS / 1000);
+      expect(eleven.secs).toBeLessThan((NIGHT_TIME_LIMIT_MS + DO_OR_DIE_MS) / 1000);
+      const twelve = fly(12, seed);
+      expect(twelve.win).toBe(false);
+      expect(twelve.secs).toBeGreaterThan(NIGHT_TIME_LIMIT_MS / 1000);
     }
   }, 120_000);
 });

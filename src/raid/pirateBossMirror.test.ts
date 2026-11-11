@@ -163,7 +163,7 @@ describe("Protect covers Headless too", () => {
     tank.state = "advance";
     sim.units.find((u) => u.id === "tank2")!.state = "advance";
     for (let i = 0; i < 40; i++) sim.step(50);
-    expect(tank.damageReduction).toBeCloseTo(0.2);
+    expect(tank.damageReduction).toBeCloseTo(0.1);
   });
 
   it("a lone carrier is still worth nothing to itself", () => {
@@ -174,7 +174,7 @@ describe("Protect covers Headless too", () => {
 
   it("mitigates the slam the front zombie is standing in", () => {
     // A Bombie backed by ONE other Protect carrier — the case the old exclusion could
-    // never reach, and the one that matters: Arrrnold's 5000 lands as 4000.
+    // never reach, and the one that matters: Arrrnold's 5000 lands as 4500.
     const plain = duel(2000);
     swingGaps(plain, 400);
     const bare = plain.units.find((u) => u.id === "p")!;
@@ -185,8 +185,8 @@ describe("Protect covers Headless too", () => {
     swingGaps(shielded, 400);
     const front = shielded.units.find((u) => u.id === "p")!;
 
-    expect(front.damageReduction).toBeCloseTo(0.2);
-    expect(front.damageFxTaken).toBeCloseTo(bare.damageFxTaken * 0.8, 5);
+    expect(front.damageReduction).toBeCloseTo(0.1);
+    expect(front.damageFxTaken).toBeCloseTo(bare.damageFxTaken * 0.9, 5);
   });
 });
 

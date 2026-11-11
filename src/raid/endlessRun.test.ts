@@ -38,7 +38,9 @@ describe("Endless modifiers", () => {
       const plain = endlessFightConfig({ ...run, stop: { location: "pirate", modifier: null } }, 45);
       expect(config.enemyUnits[0].maxHp).toBe(plain.enemyUnits[0].maxHp);
       expect(config.enemyUnits[0].str).toBe(plain.enemyUnits[0].str);
-      expect(config.enemyUnits[0].stunResist).toBeUndefined();
+      // Only the depth's 1%-a-tier stun resist (wave 6 is tier 2): no modifier's on top.
+      expect(config.enemyUnits[0].stunResist).toBe(plain.enemyUnits[0].stunResist);
+      expect(config.enemyUnits[0].stunResist).toBeCloseTo(0.02);
       expect(config.timeLimitMs).toBe(plain.timeLimitMs);
     }
   });

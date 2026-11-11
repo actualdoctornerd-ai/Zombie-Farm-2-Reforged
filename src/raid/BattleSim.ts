@@ -5342,7 +5342,12 @@ export class BattleSim {
       // Stunned (by an Explode) — can't act; hold its attack clock.
       if (e.stunMs > 0) {
         e.stunMs -= dtMs;
-        e.timerMs = this.cycleMs(e, null);
+        // Invasions restart the swing from scratch, so ANY stun, however short, costs a whole
+        // attack cycle — enough stunners lock an enemy out for the entire fight. Endless
+        // (owner, 2026-11-11, ruleset 85) PAUSES the clock instead: a stun costs exactly its
+        // length, so its depth-shortened stuns (ENDLESS_STUN_RESIST_PER_TIER) really are
+        // shorter, and a stun army stays strong without a permanent lock.
+        if (!this.endlessMechanics) e.timerMs = this.cycleMs(e, null);
         continue;
       }
       const foe = this.bigTop && e === this.boss ? this.whipTarget(e) : this.playerInRange(e);

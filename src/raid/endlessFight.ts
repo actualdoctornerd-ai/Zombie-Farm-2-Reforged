@@ -15,7 +15,7 @@ import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import { countHitDamage } from "./countSlam";
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import {
-  applyEndlessBoon, applyEndlessEnemyCurses, ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_LAUNCH_COOLDOWN_MS, ENDLESS_BOSS_LAUNCH_HIT, ENDLESS_BOSS_LAUNCH_TARGETS, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
+  applyEndlessBoon, applyEndlessDepthStunResist, applyEndlessEnemyCurses,ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_LAUNCH_COOLDOWN_MS, ENDLESS_BOSS_LAUNCH_HIT, ENDLESS_BOSS_LAUNCH_TARGETS, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
   endlessBossMultiplier, endlessClockMs, endlessDoOrDieMs, endlessPeerShapes, endlessPlayerUnits, endlessWavePlan,
   finishEndlessFight, type EndlessCurse, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, scaleEndlessThrow, type EndlessBoon, type EndlessRunState,
 } from "./endless";
@@ -133,7 +133,7 @@ export function endlessFightConfig(run: EndlessRunState, playerLevel: number): E
     return {
       wave: plan.wave, ...where,
       playerUnits: endlessPlayerUnits(run),
-      enemyUnits: [applyEndlessEnemyCurses(boss.unit, run.curses)],
+      enemyUnits: [applyEndlessDepthStunResist(applyEndlessEnemyCurses(boss.unit, run.curses), plan.tier)],
       bossSpecials: boss.specials,
       bossFallsFromSky: true,
       noDistractions: true,

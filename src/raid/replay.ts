@@ -1297,7 +1297,15 @@ import type { RaidOutcome } from "./types";
 // at most 80%, Rearguard halves the line falloff, Green Thumb scales heals (CombatUnit.healMult).
 // 84 (Endless only, 2026-11-11): Head Start's extras deploy WITH the army's first zombie, not
 // at the bell, and stack to 9; a run's Concentration covers every floor. Invasions unchanged.
-export const RAID_RULESET_VERSION = 84;
+// 85 (owner, 2026-11-11): Protect has diminishing returns. Each OTHER carrier blocks 10% of the
+// damage still getting through (1 - 0.9^n), capped at 80%. It was a flat 20% each, cap 95%.
+// Also 85, Endless only: a stunned enemy's swing clock PAUSES instead of restarting (any stun
+// used to cost a whole attack cycle, so enough stunners locked an enemy out for a fight), and
+// every Endless enemy shrugs off 1% more of each stun per tier, no cap, stacking with the
+// stun-resist curse (applyEndlessDepthStunResist). Every Endless fight replays differently.
+// Every fight with two or more Protect carriers deployed (invasions, Endless, PvP) replays
+// differently from v84.
+export const RAID_RULESET_VERSION = 85;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
