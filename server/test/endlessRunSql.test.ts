@@ -4,7 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { D1Database } from "@cloudflare/workers-types";
 import zombiesJson from "../../public/assets/zombies.json";
 import { buildPlayerUnits } from "../../src/raid/CombatEngine";
@@ -17,6 +17,19 @@ import { makeOwned } from "../../src/zombie/types";
 import type { ZombieDef } from "../../src/assets";
 import { abandonEndless, activeEndless, chooseEndlessBossReward, finishEndlessWave, startEndless } from "../src/v3/endless";
 import { listEndlessLeaderboard } from "../src/db";
+
+// The flat 5% brain on every win (rollEndlessBrain) is a Math.random coin flip, so it would
+// make every exact brain total and loot count below fail about one run in twenty. It is
+// held off here unless a test forces it on; its odds are pinned in src/raid/endlessRun.test.ts.
+const flatBrain = vi.hoisted(() => ({ force: false }));
+vi.mock("../../src/raid/endlessLoot", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../src/raid/endlessLoot")>();
+  return {
+    ...real,
+    rollEndlessBrain: (mode: Parameters<typeof real.rollEndlessBrain>[0]) =>
+      real.rollEndlessBrain(mode, flatBrain.force ? 0 : 1),
+  };
+});
 
 const ME = "account-1";
 const SESSION = "run-1";
@@ -81,6 +94,7 @@ describe("Endless settlement on the real schema", () => {
   const gold = () => (raw.prepare("SELECT gold FROM balances WHERE account_id=?").get(ME) as { gold: number }).gold;
 
   beforeEach(() => {
+    flatBrain.force = false;
     ({ db, raw } = openDb());
     raw.prepare(`INSERT INTO accounts (id, google_sub, friend_code, created_at, last_online_at, username)
       VALUES (?, 'sub', 'CODE', 0, 0, 'Grog')`).run(ME);
@@ -96,6 +110,16 @@ describe("Endless settlement on the real schema", () => {
     const [loot] = result.body.floorLoot as { key: string; quantity: number }[];
     expect(inventory()[loot.key]).toBe(loot.quantity);
     expect((raw.prepare("SELECT current_wave FROM endless_runs_v3").get() as { current_wave: number }).current_wave).toBe(2);
+  });
+
+  it("pays the flat win brain into the balance alongside the floor's loot", async () => {
+    flatBrain.force = true;
+    const fight = seedRun(1, beginEndlessRun("endless", army(), "9"));
+    const before = brains();
+    const result = await finishEndlessWave(db, ME, winFloor(fight, 1), LATER);
+    expect(result.status).toBe(200);
+    expect(result.body.floorLoot).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "brains", quantity: 1 })]));
+    expect(brains()).toBe(before + 1);
   });
 
   it("neither grants nor advances when a farm save got in first", async () => {
