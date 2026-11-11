@@ -6006,6 +6006,8 @@ async function main() {
   let nightContinue: {
     raidId: number; night: number; sessionId?: string; partyIds: string[]; concentration: boolean;
     elite: boolean; dice: number;
+    /** This launch is already the one retry a failed night gets (see nightLaunchFailed). */
+    retried?: boolean;
   } | null = null;
   // Casualties of a sitting's nights, held back while the chain goes on and offered
   // together once it ends, so a revival dialog never sits on top of the next battle. The
@@ -6082,10 +6084,16 @@ async function main() {
    *  launches straight away. */
   const offerNight = (
     raidId: number, night: number, partyIds: string[], concentration: boolean, elite: boolean, dice: number,
-    sessionId?: string
+    sessionId?: string, retry = false
   ) => {
     if (!partyIds.length || night > MAX_NIGHT) return;
-    const prompt = nightPrompt(night, elite);
+    const prompt = retry
+      ? {
+        title: "The party stalled...",
+        body: `${nightLabel(night, elite)} couldn't start, most likely a connection hiccup. ` +
+          "Your zombies are still waiting and nothing was spent. Try again?",
+      }
+      : nightPrompt(night, elite);
     // Online the server refuses a night started after the window; offline nothing else
     // would, so the prompt itself goes stale.
     const offeredAt = Date.now();
@@ -6100,17 +6108,37 @@ async function main() {
         if (!raidActive) offerRevivals(deferredRevivals.splice(0));
         return;
       }
-      const next = { raidId, night, sessionId, partyIds, concentration, elite, dice };
+      const next = { raidId, night, sessionId, partyIds, concentration, elite, dice, retried: retry };
       if (raidActive && hud.raidResultOpen()) {
         nightContinue = next;
         hud.closeRaidResult();
       } else if (!raidActive) {
+        // Only this launch's own refusal may count as retryable, not one left over from an
+        // earlier invasion (a busy launch gate never reaches launchRaid to clear it).
+        lastLaunchRetryable = false;
         void launchGate.run(async () => launchRaid(raidId, partyIds, nightLaunchOpts(next)), false)
           .then((launched) => {
-            if (!launched) offerRevivals(deferredRevivals.splice(0));
+            if (!launched) nightLaunchFailed(next);
           });
       }
     });
+  };
+  /** A night's launch was refused. A refusal that only means "not right now" (the
+   *  connection dropped, the Worker hiccuped) must not end the chain: the won session it
+   *  continues stays claimable server-side for NIGHT_CONTINUE_WINDOW_MS, so put the same
+   *  night back to the player, once. Anything final (the night passed or was taken, a zombie
+   *  went missing) ends the chain and offers the deferred revivals, as before. */
+  let lastLaunchRetryable = false;
+  const nightLaunchFailed = (next: NonNullable<typeof nightContinue>) => {
+    const retryable = lastLaunchRetryable;
+    lastLaunchRetryable = false;
+    // ONE retry for now: a second failure ends the chain as before.
+    if (retryable && next.sessionId && !next.retried) {
+      offerNight(next.raidId, next.night, next.partyIds, next.concentration, next.elite, next.dice,
+        next.sessionId, true);
+      return;
+    }
+    offerRevivals(deferredRevivals.splice(0));
   };
 
   hud.onLaunchRaid = (raidId, partyIds, opts) =>
@@ -6120,6 +6148,7 @@ async function main() {
     // is on" / "relaunch too soon" check. Everything below it that drops the fence on
     // the live session (raidSessionId, the expiry, setLiveRaid) now only runs for a
     // launch that is actually going ahead.
+    lastLaunchRetryable = false;
     if (raidActive || Date.now() < raidLaunchLockedUntil) return false;
     raidSessionId = null;
     clearRaidExpiry();
@@ -6240,8 +6269,15 @@ async function main() {
             hud.showToast("The game has updated. Reload to keep raiding.", 6000);
             promptReload("The game has updated. Reload to keep raiding.");
           }
-          else hud.showToast("The server could not start that invasion.");
-        } else hud.showToast("Gameplay is paused until the server reconnects.");
+          else hud.showToast(`The server could not start that invasion (${error.code}).`);
+          // A dropped connection, a Worker hiccup or a rate-limit blip refuses nothing for
+          // good: a Halloween night may simply be asked for again (see retryNightLaunch).
+          lastLaunchRetryable = error.status === 0 || error.status >= 500 ||
+            error.code === "state_conflict" || (error.status === 429 && error.code !== "cooldown");
+        } else {
+          hud.showToast("Gameplay is paused until the server reconnects.");
+          lastLaunchRetryable = true;
+        }
         return false;
       }
     }
@@ -6527,9 +6563,10 @@ async function main() {
           if (next) {
             // On into the next night; the revival offer waits for the chain to end. If the
             // launch is refused (the night passed, a zombie went missing), end it here.
+            lastLaunchRetryable = false; // see offerNight: only this launch's refusal counts
             void launchGate.run(async () => launchRaid(next.raidId, next.partyIds, nightLaunchOpts(next)), false)
               .then((launched) => {
-                if (!launched) offerRevivals(deferredRevivals.splice(0));
+                if (!launched) nightLaunchFailed(next);
               });
             return;
           }
