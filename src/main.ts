@@ -15,7 +15,10 @@ import {
   abilitySlotUnlocked, cropMutationChance, farmLifeForce, harvestFails, zombieHarvestTier,
 } from "./lifeForce";
 import { shedCapacityOf } from "./shedCapacity";
-import { accountEndlessBestTier, accountEndlessPerks, onAccountEndlessPerks } from "./raid/endlessPerks";
+import { accountEndlessBestTier, accountEndlessPerks, onAccountEndlessPerks, setAccountEndlessBestTier } from "./raid/endlessPerks";
+import { EndlessLocalEngine, EndlessLocalError } from "./raid/endlessLocal";
+import { buildPlayerUnits } from "./raid/CombatEngine";
+import { accountMaxVetRank } from "./zombie/traits";
 import { objectSkinOptions, resolveObjectSkin } from "./objectSkins";
 import {
   Field, CARROT, CropConfig, objectFootprint, OBJECT_WASH_MOVE, OBJECT_WASH_STORE, PLOT, savedTurn,
@@ -2518,6 +2521,9 @@ async function main() {
         },
       });
     }
+    // A local farm's Endless unlocks (shed, Mausoleum, Legend veterancy) come from its own
+    // save; online the bootstrap sets them. Before the cap repairs below, which read them.
+    if (!onlineFarm) setAccountEndlessBestTier(state.endlessLocal?.bestTier ?? 0);
     // Repair a cap the save disagrees with. A local save carries the number rather
     // than deriving it, so any farm drifted by the old accumulate-as-you-go handling
     // — most visibly a Zombie Monolith standing on the farm whose +4 was never
@@ -5544,7 +5550,9 @@ async function main() {
   };
   // ---- Invasions panel hooks (ui/panels/invasions.ts) ----
   hud.pvpAvailable = () => !!economy?.serverPvpEnabled;
-  hud.endlessAvailable = () => !!economy?.serverEndlessEnabled;
+  // A local farm plays Endless on the device (raid/endlessLocal.ts), unranked.
+  hud.endlessAvailable = () => !onlineFarm || !!economy?.serverEndlessEnabled;
+  hud.endlessLocal = !onlineFarm;
   // The Endless card and tallies borrow the invasion screens' art: Dr. Groundhog's portrait and
   // the same loot pictures an invasion's result panel shows.
   hud.endlessPortrait = epicAsset(DR_GROUNDHOG, DR_GROUNDHOG.portrait);
@@ -5703,6 +5711,77 @@ async function main() {
   };
 
   let endlessSessionId: string | null = null;
+  // A LOCAL farm's runs (raid/endlessLocal.ts): the device plays the Worker's part, with the
+  // same answers, so everything below drives both alike. A local run is never ranked.
+  const endlessLocal = onlineFarm ? null : new EndlessLocalEngine({
+    now: () => Date.now(),
+    random: Math.random,
+    newId: () => crypto.randomUUID(),
+    level: () => state.level,
+    brains: () => state.brains,
+    spendBrains: (n) => state.spendBrains(n, "endless_entry"),
+    concentrations: () => state.boostCount(CONCENTRATION_KEY),
+    useConcentration: () => state.useBoost(CONCENTRATION_KEY),
+    party: (ids) => {
+      const byId = new Map(zombies.roster().filter((z) => !z.stored).map((z) => [z.id, z as OwnedZombie]));
+      const party = ids.map((id) => byId.get(id));
+      return party.every(Boolean) ? party as OwnedZombie[] : null;
+    },
+    // Built as the Worker builds an online run's army (server/src/v3/endless.ts).
+    buildUnits: (party, level) => buildPlayerUnits(party, {
+      playerLevel: level,
+      abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, level),
+      farmerStrengthMult: state.farmerZombieStrengthMult(),
+      farmerLifeMult: state.farmerZombieLifeMult(),
+      farmerDexMult: state.farmerZombieDexMult(),
+      mutationStrengthMult: (zombies.hasMutantMonolith() ? 1.1 : 1) * state.farmerMutationStrengthMult(),
+      maxVetRank: accountMaxVetRank(),
+    }),
+    load: () => state.endlessLocal ?? { bestTier: 0 },
+    store: (save) => {
+      state.endlessLocal = save;
+      setAccountEndlessBestTier(save.bestTier);
+    },
+    payLoot: (loot) => {
+      for (const reward of loot) {
+        if (reward.kind === "boost") state.addBoost(reward.key, reward.quantity);
+        else if (reward.kind === "item") state.receiveItem(reward.name);
+        else if (reward.kind === "brains") state.addBrains(reward.quantity, "endless_loot");
+        else if (reward.kind === "zombie") {
+          // Into Received, as an online run pays it.
+          const mutation = zombieDefs.get(reward.key)?.mutation ?? 0;
+          state.recordZombieDiscovered(reward.key, mutation);
+          state.receiveItem(encodeReceivedZombie({ id: crypto.randomUUID(), key: reward.key, mutation, invasions: 0 }));
+        }
+        // "perk": paid by the best tier the run just stored.
+      }
+    },
+    payGold: (gold) => state.addGold(gold, "endless_depth"),
+  });
+  /** One local engine call, saved at once and refused the way the Worker refuses. */
+  const localEndless = async <T,>(call: (engine: EndlessLocalEngine) => T): Promise<T> => {
+    try {
+      return call(endlessLocal!);
+    } catch (error) {
+      if (error instanceof EndlessLocalError) throw new api.ApiError(error.status, error.code, error.body);
+      throw error;
+    } finally {
+      saveManager.save();
+    }
+  };
+  const endlessApi = endlessLocal ? {
+    start: (mode: EndlessMode, ids: string[], startTier: number, concentration: boolean) =>
+      localEndless((e) => e.start(mode, ids, startTier, concentration)) as ReturnType<typeof api.endlessStart>,
+    finish: (sid: string, wave: number, finalTick: number, inputs: Parameters<typeof api.endlessFinish>[3]) =>
+      localEndless((e) => e.finish(sid, wave, finalTick, inputs as never)) as unknown as ReturnType<typeof api.endlessFinish>,
+    choose: (sid: string, boon: unknown, curse: unknown, location?: unknown, order?: string[]) =>
+      localEndless((e) => e.choose(sid, boon, curse, location, order)) as ReturnType<typeof api.endlessChooseBossReward>,
+    active: () => localEndless((e) => e.active()) as unknown as ReturnType<typeof api.endlessActive>,
+    abandon: (sid: string) => localEndless((e) => e.abandon(sid)) as ReturnType<typeof api.endlessAbandon>,
+  } : {
+    start: api.endlessStart, finish: api.endlessFinish, choose: api.endlessChooseBossReward,
+    active: api.endlessActive, abandon: api.endlessAbandon,
+  };
   // Which invasion's stage, music and art each location borrows (the same table the server
   // builds the fight from). It once swapped raids 3 and 4, putting the Ninja Dojo on the
   // pirate ship and the Pirate Ship in the dojo.
@@ -5725,6 +5804,12 @@ async function main() {
    *  own zombies (names, colours), so they must still be on the roster when it runs: the local
    *  removal comes after, and only catches whatever the refresh left. */
   const settleEndlessDead = async (result: { losses?: string[] }) => {
+    if (endlessLocal) {
+      // A local farm buries its own dead and offers the revival itself, as after an invasion.
+      const fallen = zombies.removeCasualties(result.losses ?? []);
+      offerRevivals([{ casualtyParty: fallen, settlementPromise: null }]);
+      return;
+    }
     try { await economy?.refreshAuthoritative(); } catch { /* the next bootstrap offers it */ }
     zombies.removeCasualties(result.losses ?? []);
   };
@@ -5741,7 +5826,7 @@ async function main() {
     const sid = endlessSessionId;
     if (!sid) return;
     try {
-      const result = await api.endlessAbandon(sid);
+      const result = await endlessApi.abandon(sid);
       endlessSessionId = null;
       // Ending a run banks it, on the same tally as falling, as a win.
       hud.openEndlessTally({
@@ -5760,7 +5845,7 @@ async function main() {
     const sid = endlessSessionId;
     if (!sid) return;
     hud.openEndlessBossChoice(view, ({ boon, curse, location, order }) => {
-      void api.endlessChooseBossReward(sid, boon, curse, location, order).then((result) => {
+      void endlessApi.choose(sid, boon, curse, location, order).then((result) => {
         if (result.fight) launchEndlessFight(sid, result.fight, mode);
         else if (result.bossDraft) void chooseEndlessBoss(result as unknown as api.EndlessBossView, mode);
       }).catch((error) => hud.showToast(error instanceof api.ApiError ? `Could not save choices: ${error.code}` : "Could not save the boss choices. Your run is still saved."));
@@ -5812,7 +5897,7 @@ async function main() {
         // client's own outcome only supplies the tally's casualty count.
         const lost = outcome.losses?.length ?? 0;
         setTimeout(() => {
-          void api.endlessFinish(sessionId, wave, finalTick, inputs).then(async (result) => {
+          void endlessApi.finish(sessionId, wave, finalTick, inputs).then(async (result) => {
             if (result.runFinished) {
               endlessSessionId = null;
               // The end of a run: the invasion result tally, lost.
@@ -5878,10 +5963,9 @@ async function main() {
     });
   };
   const openEndless = async () => {
-    if (!onlineFarm) { hud.showToast("Endless Mode requires an online account."); return; }
-    let active: Awaited<ReturnType<typeof api.endlessActive>> | null = null;
+    let active: Awaited<ReturnType<typeof endlessApi.active>> | null = null;
     hud.endlessFreeRun = false;
-    try { active = await api.endlessActive(); } catch (error) {
+    try { active = await endlessApi.active(); } catch (error) {
       if (!(error instanceof api.ApiError) || error.status !== 404) {
         hud.showToast("Endless Mode is unavailable right now."); return;
       }
@@ -5899,7 +5983,7 @@ async function main() {
         (id) => economy?.authoritativeUnitId(id) ?? id, raids.partyView().cap);
       if (settled.missingIds.length) { hud.showToast(`${settled.missingIds.map((id) => selectedNames.get(id) ?? "A zombie").join(", ")} is no longer available. Choose your army again.`); return; }
       try {
-        const started = await api.endlessStart(mode, settled.ids, startTier, concentration);
+        const started = await endlessApi.start(mode, settled.ids, startTier, concentration);
         if (!started.ok || !started.sessionId || (!started.fight && !started.bossDraft)) { hud.showToast(`Could not start Endless (${started.error ?? "unknown_error"}).`); return; }
         endlessSessionId = started.sessionId;
         // The Concentration (and brain) left the server's inventory: show it.

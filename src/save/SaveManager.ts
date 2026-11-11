@@ -237,6 +237,7 @@ export class SaveManager {
         lastRaidAt: this.state.lastRaidAt, attackOrder: this.state.raidAttackOrder,
         brainDryStreak: this.state.brainDryStreak, zombieDryWins: this.state.zombieDryWins },
       epicBoss: this.state.epicBossRun ?? undefined,
+      ...(this.state.endlessLocal ? { endless: this.state.endlessLocal } : {}),
       social: { friends: this.state.friends },
       tutorial: this.state.tutorial,
       almanac: { discovered: this.state.zombieDiscovered, mutations: this.state.mutationDiscovered },
@@ -730,6 +731,9 @@ export class SaveManager {
         lastRaidAt: serverTimestampToClient(boot.gameplay.raids.lastRaidAt, boot.serverTime, clientTime),
         attackOrder: p.ui?.attackOrder ?? [] },
       epicBoss: epicBossRunToClient(boot.gameplay.epicBoss, boot.serverTime, clientTime) ?? undefined,
+      // The account's Endless best tier, so an Online Farm export imported as a Local Farm
+      // keeps the permanent unlocks it earned (its runs and board entries stay online).
+      ...(boot.gameplay.endlessBestTier ? { endless: { bestTier: boot.gameplay.endlessBestTier } } : {}),
       social: { friends: boot.social.friends.map((friend) => ({ id: friend.accountId, name: friend.name, addedAt: boot.serverTime, giftsSent: 0 })) },
       tutorial: reconcileTutorialCompletion(p.tutorial, boot.gameplay.tutorialRewarded),
       almanac: p.almanac,
@@ -806,6 +810,7 @@ export class SaveManager {
         .map(([id, wins]) => [id, Math.max(0, Math.trunc(Number(wins) || 0))])
     );
     this.state.epicBossRun = data.epicBoss ? { ...data.epicBoss, attackOrder: [...data.epicBoss.attackOrder] } : null;
+    this.state.endlessLocal = data.endless ?? null;
     this.state.friends = (data.social?.friends ?? []).map((friend) => ({ ...friend, giftsSent: friend.giftsSent ?? 0 }));
     this.state.tutorial = data.tutorial;
     // Almanac discovery counts. A save written before the Almanac existed has

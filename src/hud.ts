@@ -2154,6 +2154,8 @@ export class Hud {
   /** Whether Endless Mode is launched (the Worker's bootstrap `endlessEnabled`). The
    *  Invade list shows its card only while this says yes. */
   endlessAvailable: (() => boolean) | null = null;
+  /** A local farm's Endless: played on the device and never ranked, so no Leaderboard. */
+  endlessLocal = false;
   // ---- limited Epic Boss hooks ----
   getEpicBossView: (() => EpicBossMarketView[]) | null = null;
   onActivateEpicBoss: ((bossId: string) => boolean | Promise<boolean>) | null = null;
@@ -7156,6 +7158,7 @@ export class Hud {
     dropRow("Every win").textContent = "Loot on every floor and a bigger roll at each boss, plus gold for every floor cleared when the run ends";
     dropRow("Rare zombies").textContent = "Each location can drop its own invasion's rare zombies";
     dropRow("This week").textContent = "Routes, boons and curses are the same for everyone until Monday";
+    if (this.endlessLocal) dropRow("Leaderboard").textContent = "Local farm runs are not ranked. Play on an Online Farm to climb the boards";
 
     const foot = document.createElement("div");
     foot.className = "rd-foot";
@@ -7167,7 +7170,7 @@ export class Hud {
     board.className = "raid-quick";
     board.textContent = "Leaderboard";
     board.onclick = () => openEndlessLeaderboardPanel(this);
-    acts.appendChild(board);
+    if (!this.endlessLocal) acts.appendChild(board);
     const run = hub?.active ?? null;
     if (!hub) {
       army.textContent = "Checking for a run in progress…";

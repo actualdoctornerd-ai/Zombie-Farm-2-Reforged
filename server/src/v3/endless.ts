@@ -2,7 +2,7 @@ import zombiesJson from "../../../public/assets/zombies.json";
 import { buildPlayerUnits } from "../../../src/raid/CombatEngine";
 import {
   applyEndlessCurse, applyEndlessStop, beginEndlessRun,
-  applyEndlessOrder, endlessBossDraft, endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
+  applyEndlessOrder, endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
   ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_LOCATIONS, ENDLESS_UNLOCK_LEVEL, endlessFreeDayStart, endlessModeOpen,
   type EndlessBoon, type EndlessLocation, type EndlessCurse, type EndlessMode, type EndlessRunState, type EndlessStop,
 } from "../../../src/raid/endless";
@@ -22,7 +22,11 @@ import { CONCENTRATION_KEY, MAX_STACK } from "../boostCatalog";
 import { MEMORIAL_GRAVEYARD_CAP } from "./engine";
 import { encodeReceivedZombie } from "../../../src/zombie/receivedReward";
 import { endlessBestTierOf, endlessMaxVetRankOf } from "../../../src/raid/endlessPerks";
-import { endlessMilestoneRewards, endlessVictoryRewards, rollEndlessBossLoot, rollEndlessBrain, rollEndlessFloorLoot, rollEndlessLocationZombie, type EndlessBossLoot } from "../../../src/raid/endlessLoot";
+import type { EndlessBossLoot } from "../../../src/raid/endlessLoot";
+import {
+  endlessBossScreen, endlessBossWinRewards, endlessCredited, endlessDraftFor,
+  endlessGoldReward, endlessLosses, endlessOffered as offered, rollEndlessWinLoot, type EndlessRunPayload,
+} from "../../../src/raid/endlessRunRules";
 
 const zombies = new Map((zombiesJson as Array<{ key: string }>).map((z) => [z.key, z]));
 interface StoredRun {
@@ -40,17 +44,7 @@ interface StoredRun {
   result_json: string | null;
 }
 
-interface RunPayload {
-  run: EndlessRunState;
-  playerLevel: number;
-  /** Accumulated combat time, excluding time spent disconnected or on a draft screen. */
-  durationMs: number;
-  /** A cleared boss awaiting its durable boon/curse choice. `opening`: not a fight at all, but
-   *  the draft standing in for a tier the run skipped. */
-  pendingBossChoice?: { wave: number; loot?: EndlessBossLoot[]; opening?: boolean };
-  /** Everything loot has paid this run, by name, for the boss screen. */
-  lootEarned?: Record<string, number>;
-}
+type RunPayload = EndlessRunPayload;
 interface EndlessRewardCore {
   inventory: Record<string, number>;
   storage: { received: Record<string, number>; stored: Record<string, number> };
@@ -60,79 +54,12 @@ const parse = <T>(s: string, fallback: T): T => { try { return JSON.parse(s) as 
 const fail = (status: number, error: string) => ({ status, body: { ok: false, error } });
 
 function isMode(mode: unknown): mode is EndlessMode { return mode === "endless" || mode === "nightmare"; }
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, v]) => `${JSON.stringify(key)}:${stable(v)}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-function offered<T>(choice: unknown, choices: readonly T[]): choice is T {
-  const encoded = stable(choice);
-  return choices.some((candidate) => stable(candidate) === encoded);
-}
-
-/** The draft a boss screen offers. Derived, never stored: its week and location are already in
- *  the checkpoint. In an opening draft, only the last screen chooses where the run starts. */
-function draftFor(mode: EndlessMode, pending: NonNullable<RunPayload["pendingBossChoice"]>, run: EndlessRunState) {
-  const withLocations = !pending.opening || pending.wave + ENDLESS_FIGHTS_PER_LOCATION >= run.startWave;
-  return endlessBossDraft(mode, pending.wave, run.weekSeed, run.stop.location, withLocations);
-}
-
-/** Everything the boss screen shows. */
-function bossScreen(mode: EndlessMode, pending: NonNullable<RunPayload["pendingBossChoice"]>, payload: RunPayload) {
-  return {
-    bossDraft: draftFor(mode, pending, payload.run),
-    bossLoot: pending.loot ?? [],
-    lootEarned: payload.lootEarned ?? {},
-    goldSoFar: pending.opening ? 0 : endlessGoldReward(pending.wave, payload.run.startWave),
-    army: payload.run.units.map((unit) => ({ id: unit.id, name: unit.name, key: unit.sourceKey })),
-    opening: !!pending.opening,
-    tier: Math.ceil(pending.wave / ENDLESS_FIGHTS_PER_LOCATION),
-  };
-}
-
 function leaderboardArmy(party: readonly OwnedZombie[]): EndlessLeaderboardArmyMember[] {
   return party.map((unit) => ({
     species: unit.key,
     mutation: unit.mutation,
     veterancy: Math.max(0, Math.min(5, Math.trunc(unit.invasions))),
   }));
-}
-
-/** A run that skipped tiers has earned nothing for them until it beats its first boss. */
-function firstBossWave(startWave: number): number {
-  return startWave + ENDLESS_FIGHTS_PER_LOCATION - 1;
-}
-function endlessCredited(deepestFloor: number, startWave: number): boolean {
-  return deepestFloor >= firstBossWave(startWave) || (startWave === 1 && deepestFloor > 0);
-}
-
-/** The depth payout for each tier number: 450 gold a floor and 900 for its boss, so a cleared
- *  tier pays 1,800 x its number (T1 1,800, T2 3,600, and so on; about 50k through T7). Cut from
- *  625 / 1,250 on 2026-11-10 (owner: 100k for a ~45-minute run was too much). Awarded once when a run ends, based only
- *  on fully cleared fights; a skipper's early tiers join in at its first boss. */
-const ENDLESS_FLOOR_GOLD = 450;
-const ENDLESS_BOSS_GOLD = 900;
-function endlessGoldReward(deepestFloor: number, startWave = 1): number {
-  let total = 0;
-  const first = deepestFloor >= firstBossWave(startWave) ? 1 : startWave;
-  for (let wave = first; wave <= Math.max(0, Math.floor(deepestFloor)); wave++) {
-    const tier = Math.ceil(wave / ENDLESS_FIGHTS_PER_LOCATION);
-    total += (wave % ENDLESS_FIGHTS_PER_LOCATION === 0 ? ENDLESS_BOSS_GOLD : ENDLESS_FLOOR_GOLD) * tier;
-  }
-  return total;
-}
-
-/** The run's dead, as roster ids: everyone down in its last saved state, plus anyone the final,
- *  lost fight killed. A zombie a boon brought back (Second Wind) is alive again and is not here. */
-function endlessLosses(run: EndlessRunState, lastFight?: ReturnType<typeof simFor>): string[] {
-  const fell = new Set(run.units.filter((unit) => !unit.alive).map((unit) => unit.id));
-  for (const unit of lastFight?.units ?? []) {
-    if (unit.team === "player" && !unit.alive && run.units.some((u) => u.id === unit.id)) fell.add(unit.id);
-  }
-  return [...fell];
 }
 
 /** A dead zombie as the revival offer restores it: the roster row's own fields (the same shape
@@ -360,7 +287,7 @@ export async function startEndless(
   return { status: 200, body: {
     ok: true, sessionId, mode, wave: firstWave, brainCost: entryCost, freeRun: freeToday, concentration,
     rulesetVersion: RAID_RULESET_VERSION,
-    ...(config ? { fight: config } : { stage: "boss-choice", ...bossScreen(mode, state.pendingBossChoice!, state) }),
+    ...(config ? { fight: config } : { stage: "boss-choice", ...endlessBossScreen(mode, state.pendingBossChoice!, state) }),
   } };
 }
 
@@ -429,35 +356,11 @@ export async function finishEndlessWave(
         !rewardCore.storage || typeof rewardCore.storage !== "object" || !rewardCore.storage.received || !rewardCore.storage.stored) {
       return fail(409, "state_conflict");
     }
-    if (session.mode === "endless") {
-      // Zwamp Things this run has paid so far, kept running so T7's guarantee sees them all.
-      let zwamps = payload.lootEarned?.["Zwamp Thing"] ?? 0;
-      const bossRoll = (tier: number) => {
-        const rolled = rollEndlessBossLoot(tier, plan.location, Math.random(), Math.random(), Math.random(), zwamps);
-        zwamps += rolled.filter((r) => r.kind === "zombie" && r.key === "ZombieActorZwampThing").length;
-        return rolled;
-      };
-      if (plan.bossGate) {
-        // A skipper's chest: the skipped tiers' rolls, in order, before this boss's own.
-        if (startWave > 1 && session.current_wave === firstBossWave(startWave)) {
-          for (let tier = 1; tier < plan.tier; tier++) loot.push(...bossRoll(tier));
-        }
-        loot.push(...bossRoll(plan.tier));
-      } else {
-        loot = [rollEndlessFloorLoot(plan.tier, Math.random())];
-      }
-      // Every win can also turn up the location's own rare zombies, at its invasion's rate.
-      const rare = rollEndlessLocationZombie(plan.location, Math.random(), Math.random());
-      if (rare) loot.push(rare);
-      // And a flat chance at a brain, the same on every win (owner, 2026-11-10).
-      const brain = rollEndlessBrain(session.mode, Math.random());
-      if (brain) loot.push(brain);
-    }
+    // Zwamp Things this run has paid so far, kept running so T7's guarantee sees them all.
+    loot = rollEndlessWinLoot(session.mode, plan, session.current_wave, startWave,
+      payload.lootEarned?.["Zwamp Thing"] ?? 0, Math.random);
     if (plan.bossGate) {
-      for (let tier = (progressRow?.best_tier ?? 0) + 1; tier <= plan.tier; tier++) {
-        loot.push(...endlessMilestoneRewards(session.mode, tier));
-      }
-      loot.push(...endlessVictoryRewards(session.mode, plan.tier, Math.random()));
+      loot.push(...endlessBossWinRewards(session.mode, plan.tier, progressRow?.best_tier ?? 0, Math.random));
       // The permanent unlocks (raid/endlessPerks.ts) all read this one number off the core
       // document. Recorded on every normal boss win, never lowered, and lifted to the
       // endless_progress best so an account that cleared tiers before it existed has them.
@@ -547,7 +450,7 @@ export async function finishEndlessWave(
   }
   return { status: 200, body: completed ? result! : awaitingBossChoice ? {
     ok: true, runFinished: false, won: true, clearedWave: session.current_wave,
-    awaitingBossChoice: true, ...bossScreen(session.mode, nextState.pendingBossChoice!, nextState),
+    awaitingBossChoice: true, ...endlessBossScreen(session.mode, nextState.pendingBossChoice!, nextState),
   } : {
     ok: true, runFinished: false, won: true, clearedWave: session.current_wave,
     nextWave: state.nextWave, fight: nextConfig, floorLoot: loot,
@@ -576,7 +479,7 @@ export async function chooseEndlessBossReward(
   const payload = parse<RunPayload | null>(session.run_state_json, null);
   const pending = payload?.pendingBossChoice;
   if (!payload || !pending || pending.wave !== session.current_wave) return fail(409, "no_boss_choice_pending");
-  const draft = draftFor(session.mode, pending, payload.run);
+  const draft = endlessDraftFor(session.mode, pending, payload.run);
   const locationOffered = draft.locations.length === 0 || offered(body.location, draft.locations);
   if (!offered(body.boon, draft.boons) || !offered(body.curse, draft.curses) || !locationOffered) {
     return fail(400, "bad_boss_draft_choice");
@@ -598,7 +501,7 @@ export async function chooseEndlessBossReward(
       WHERE id=? AND account_id=? AND finished_at IS NULL AND current_wave=?`)
       .bind(nextOpening, JSON.stringify(opening), session.id, accountId, session.current_wave).run();
     if (step.meta.changes !== 1) return fail(409, "stale_wave");
-    return { status: 200, body: { ok: true, runFinished: false, stage: "boss-choice", ...bossScreen(session.mode, opening.pendingBossChoice!, opening) } };
+    return { status: 200, body: { ok: true, runFinished: false, stage: "boss-choice", ...endlessBossScreen(session.mode, opening.pendingBossChoice!, opening) } };
   }
   const nextPayload: RunPayload = { run, playerLevel: payload.playerLevel, durationMs: payload.durationMs ?? 0, lootEarned: payload.lootEarned ?? {} };
   const fight = fightConfig(run, payload.playerLevel);
@@ -681,7 +584,7 @@ export async function activeEndless(
   return { status: 200, body: {
     ok: true, sessionId: session.id, mode: session.mode, wave: session.current_wave,
     stage: pendingBossChoice ? "boss-choice" : "battle",
-    ...(pendingBossChoice ? bossScreen(session.mode, pendingBossChoice, payload)
+    ...(pendingBossChoice ? endlessBossScreen(session.mode, pendingBossChoice, payload)
       : { fight: parse(session.fight_config_json, null) }),
     run: payload.run,
   } };

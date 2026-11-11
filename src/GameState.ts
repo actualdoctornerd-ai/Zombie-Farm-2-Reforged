@@ -1,6 +1,7 @@
 // Client-side live game state. Persistence may be local-only (localStorage) or
 // synchronized through the online save service (see save/SaveManager). Levels/XP
 // curve is build-verified from PlayerLevels.plist.
+import type { EndlessLocalSave } from "./raid/endlessLocal";
 import { abilitySlotUnlocked, fertilizedCropPayout, lifeForceLevel } from "./lifeForce";
 import { Friend, canGiftBrain, nextFriendId } from "./social/friends";
 import { TutorialSave } from "./save/schema";
@@ -142,6 +143,8 @@ export class GameState {
   zombieTeams: ZombieTeam[] = [];
   // ---- limited Epic Boss run ----
   epicBossRun: EpicBossRun | null = null;
+  /** LOCAL farms only: Endless best tier + run in progress (raid/endlessLocal.ts). */
+  endlessLocal: EndlessLocalSave | null = null;
   // ---- friends (local offline-fallback list) ----
   // The online friend system is server-backed (net/api.ts + HUD): friend codes,
   // server friend lists, and daily brain gifting live on the Worker. This local

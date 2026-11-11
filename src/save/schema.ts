@@ -26,6 +26,7 @@
 import type { Friend } from "../social/friends";
 import type { FarmBackground } from "../prefs";
 import type { EpicBossRun } from "../epicBoss/types";
+import type { EndlessLocalSave } from "../raid/endlessLocal";
 import type { PeriodicQuestState } from "../quest/periodic/types";
 import type { ZombieTeam } from "../zombie/teams";
 import type { FarmStats } from "../stats";
@@ -108,6 +109,9 @@ export interface SaveGame {
   raids?: RaidProgressSave;
   /** Active/completed limited Epic Boss run. Absent in saves created before the feature. */
   epicBoss?: EpicBossRun;
+  /** LOCAL farms only: Endless Mode's best tier and any run in progress (raid/endlessLocal.ts).
+   *  Online the Worker owns both. Absent = never played Endless locally. */
+  endless?: EndlessLocalSave;
   /** Unfinished farmer intents, replayed from elapsed wall time. Online saves keep
    * these in presentation data and revalidate them against server farm state. */
   farmJobs?: FarmJobQueueSave;
