@@ -435,4 +435,24 @@ describe("Dr. Groundhog in Endless", () => {
     inside.stepBossActions(50);
     expect(inside.pendingSpecial).toBeNull();
   });
+
+  it("launches only zombies on the field, never a Mini riding a Large (player report, 2026-11-11)", () => {
+    // A rider is "carried", which the launch used to count as deployed: it threw every Mini off
+    // its carrier while the Large was still in the queue, and they walked in alone to die. A
+    // rider's x is stale (where it stood when picked up), so here it is put furthest forward.
+    const units = party([REGULAR, REGULAR, "ZombieActorLargeTier6", "ZombieActorSmallTier6"]);
+    const sim = endlessSimFor(endlessFightConfig({ ...beginEndlessRun("endless", units), nextWave: 3 }, 45));
+    expect(sim.activate("attachMini")).toBe(true);
+    const [front, second, carrier, rider] = sim.units.filter((u) => u.team === "player");
+    expect(rider.state).toBe("carried");
+    front.state = "fight"; front.x = 500;
+    second.state = "fight"; second.x = 480;
+    rider.x = 900;
+    (sim as unknown as SimInside).runSpecial({ name: "launch", damage: 1, castMs: 0, cooldownMs: 0, weight: 1, targets: 4 });
+    expect([front, second].every((z) => z.blastAirMs > 0)).toBe(true);
+    expect(rider.state).toBe("carried");
+    expect(rider.hp).toBe(rider.maxHp);
+    expect(rider.blastAirMs).toBe(0);
+    expect(carrier.buddyId).toBe(rider.id);
+  });
 });

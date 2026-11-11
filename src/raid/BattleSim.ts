@@ -2715,7 +2715,7 @@ export class BattleSim {
     if (u.chargeMs > 0) return;
     if (cfg.target === "front-deployed") {
       const target = this.players
-        .filter((p) => p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "dead")
+        .filter((p) => p.alive && !p.taken && this.onField(p))
         .sort((a, b) => b.x - a.x)[0];
       if (target) this.dealEnemyDamage(target, cfg.damage * u.chargeTapScale);
     } else {
@@ -2723,7 +2723,7 @@ export class BattleSim {
       // a telegraphed single-target hit to produce focused casualties instead of a wipe.
       for (const p of this.players) {
         if (!p.alive || p.taken) continue;
-        if (p.state === "waiting" || p.state === "charging" || p.state === "dead") continue;
+        if (!this.onField(p)) continue;
         this.dealEnemyDamage(p, cfg.damage);
       }
     }
@@ -3316,7 +3316,7 @@ export class BattleSim {
    *  player brought no Garden zombies, the rear-most deployed zombie takes the hit. */
   private backlineTarget(): SimUnit | null {
     const deployed = this.players.filter((p) =>
-      p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "grabbed"
+      p.alive && !p.taken && this.onField(p) && p.state !== "grabbed"
     );
     const gardens = deployed.filter((p) => p.isGarden);
     const candidates = gardens.length ? gardens : deployed;
@@ -4262,7 +4262,16 @@ export class BattleSim {
   /** How many of the army's own zombies have left the queue (dead ones included). Read off
    *  the units, not a counter, so a restored snapshot needs nothing extra. */
   private ownDeployed(): number {
-    return this.players.filter((q) => !q.loaned && q.state !== "waiting" && q.state !== "charging").length;
+    return this.players.filter((q) => !q.loaned && q.state !== "waiting" && q.state !== "charging" && q.state !== "carried").length;
+  }
+
+  /** Out on the field: deployed and not yet fallen. A Mini riding a Large ("carried") is NOT —
+   *  it has not deployed, and its x is wherever it was standing in the queue when it was picked
+   *  up. Boss moves that pick "deployed" zombies used to include riders: Dr. Groundhog's launch
+   *  threw every rider off its carrier to walk in alone (a player report, 2026-11-11), and the
+   *  Ninja flank, reading the stale x as the rear, went for them first. */
+  private onField(p: SimUnit): boolean {
+    return p.state !== "waiting" && p.state !== "charging" && p.state !== "carried" && p.state !== "dead";
   }
 
   /** Endless's loaned Special skips the line (owner, 2026-11-08): it walks on with the army's
@@ -5721,7 +5730,7 @@ export class BattleSim {
         if (this.boss) this.boss.chargeFrac = 0;
         // The front `targets` deployed zombies (Endless: four), front-most first.
         const targets = this.players
-          .filter((p) => p.alive && !p.taken && p.state !== "waiting" && p.state !== "charging" && p.state !== "dead")
+          .filter((p) => p.alive && !p.taken && this.onField(p))
           .sort((a, b) => b.x - a.x || a.formOrder - b.formOrder)
           .slice(0, Math.max(1, sp.targets ?? 1));
         for (const target of targets) {

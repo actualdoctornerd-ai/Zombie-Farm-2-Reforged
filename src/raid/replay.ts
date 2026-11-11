@@ -1305,7 +1305,13 @@ import type { RaidOutcome } from "./types";
 // stun-resist curse (applyEndlessDepthStunResist). Every Endless fight replays differently.
 // Every fight with two or more Protect carriers deployed (invasions, Endless, PvP) replays
 // differently from v84.
-export const RAID_RULESET_VERSION = 85;
+// 86 (player report, 2026-11-11): a Mini riding a Large ("carried") is not on the field. Boss
+// moves that pick deployed zombies counted riders: Dr. Groundhog's launch threw every rider off
+// its still-queued carrier to walk in alone, the Pirate slam hit them, the front-deployed slam
+// could pick one, the Ninja flank read a rider's stale queue x as the rear and went for it, and
+// a mount counted toward the loaned Special's third-deploy release. Fights with a Mini Buddy
+// mounted against any of those replay differently from v85.
+export const RAID_RULESET_VERSION = 86;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
