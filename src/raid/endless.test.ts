@@ -621,7 +621,14 @@ describe("Endless enemy shapes", () => {
 });
 
 describe("Endless drafts never offer a pick that would do nothing (owner, 2026-11-11)", () => {
-  const base = beginEndlessRun("endless", [], "9");
+  // Only what the draft reads: who is alive, who is Headless, and who can stun.
+  const body = (id: string, isHeadless: boolean, abilities: string[], alive = true) =>
+    ({ id, isHeadless, abilities, alive }) as unknown as CombatUnit;
+  const army = [
+    body("h1", true, ["hitPointsBuff"]), body("h2", true, ["protect"]), body("h3", true, ["block"]),
+    body("s1", false, ["stun", "bashV2"]), body("r1", false, ["grace"]),
+  ];
+  const base = { ...beginEndlessRun("endless", [], "9"), units: army };
   const maxed = {
     ...base,
     reviveHeadless: true,
@@ -649,6 +656,33 @@ describe("Endless drafts never offer a pick that would do nothing (owner, 2026-1
     expect(endlessDraftPickWasted(maxed, { kind: "sharp-teeth" })).toBe(false);
     expect(endlessDraftPickWasted(maxed, { kind: "enemy-health", percent: 20 })).toBe(false);
     expect(endlessDraftPickWasted(maxed, { kind: "enemy-stun-resist", percent: 30 })).toBe(false);
+  });
+
+  it("wastes curses aimed at what the army does not field", () => {
+    const headlessCurse: EndlessCurse = { kind: "headless-stat", stat: "con", percent: 20 };
+    const shove: EndlessCurse = { kind: "enemy-knockback-headless", chance: 0.25 };
+    const resist: EndlessCurse = { kind: "enemy-stun-resist", percent: 30 };
+    for (const curse of [headlessCurse, shove, resist]) expect(endlessDraftPickWasted(base, curse), curse.kind).toBe(false);
+    // Two living Headless (the third fell this run) are not enough to make a Headless curse cost anything.
+    const twoHeadless = { ...base, units: [...army.slice(0, 2), body("h3", true, ["block"], false), ...army.slice(3)] };
+    expect(endlessDraftPickWasted(twoHeadless, headlessCurse)).toBe(true);
+    expect(endlessDraftPickWasted(twoHeadless, shove)).toBe(true);
+    // No stun source anywhere: stun resistance is free.
+    const noStuns = { ...base, units: army.filter((u) => u.id !== "s1") };
+    expect(endlessDraftPickWasted(noStuns, resist)).toBe(true);
+    for (const source of ["stun", "bashV2", "explode", "explodeV2", "attachMini", "stoneGaze"]) {
+      expect(endlessDraftPickWasted({ ...noStuns, units: [...noStuns.units, body("x", false, [source])] }, resist), source).toBe(false);
+    }
+  });
+
+  it("offers the Headless curse against con, the stat a tank lives on", () => {
+    const offered = new Set<string>();
+    for (let week = 0; week < 60; week++) for (const wave of [3, 6, 9]) {
+      for (const curse of endlessBossDraft("endless", wave, String(week)).curses) {
+        if (curse.kind === "headless-stat") offered.add(curse.stat);
+      }
+    }
+    expect([...offered]).toEqual(["con"]);
   });
 
   it("re-rolls wasted picks across many weeks and bosses, deterministically, with no repeats", () => {

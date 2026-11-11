@@ -508,6 +508,19 @@ CREATE TABLE IF NOT EXISTS endless_leaderboard (
 );
 CREATE INDEX IF NOT EXISTS idx_endless_leaderboard_rank
   ON endless_leaderboard(mode, deepest_floor DESC, duration_ms ASC, achieved_at ASC);
+-- Frozen past boards, one row per account per season (see migrations/0064_endless_launch_week_season.sql).
+CREATE TABLE IF NOT EXISTS endless_leaderboard_seasons (
+  season         TEXT    NOT NULL,
+  account_id     TEXT    NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  mode           TEXT    NOT NULL CHECK (mode IN ('endless', 'nightmare')),
+  deepest_floor  INTEGER NOT NULL CHECK (deepest_floor > 0),
+  duration_ms    INTEGER NOT NULL CHECK (duration_ms >= 0),
+  army_json      TEXT    NOT NULL,
+  achieved_at    INTEGER NOT NULL,
+  PRIMARY KEY (season, account_id, mode)
+);
+CREATE INDEX IF NOT EXISTS idx_endless_leaderboard_seasons_rank
+  ON endless_leaderboard_seasons(season, mode, deepest_floor DESC, achieved_at ASC);
 CREATE TABLE IF NOT EXISTS endless_runs_v3 (
   id                TEXT    PRIMARY KEY,
   account_id        TEXT    NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

@@ -77,7 +77,7 @@ describe("Endless run checkpoints and early exit", () => {
     const { db, writes } = fakeDb(session(3, {
       run, playerLevel: 35, durationMs: 21_000, pendingBossChoice: { wave: 3 },
     }));
-    const draft = endlessBossDraft("endless", 3, run.weekSeed, run.stop.location);
+    const draft = endlessBossDraft("endless", 3, run.weekSeed, run.stop.location, true, run);
 
     const result = await chooseEndlessBossReward(db, "account-1", {
       sessionId: "endless-session", boon: draft.boons[0], curse: draft.curses[0], location: draft.locations[1],
@@ -93,7 +93,7 @@ describe("Endless run checkpoints and early exit", () => {
   it("refuses a location the draft did not offer", async () => {
     const run = { ...beginEndlessRun("endless", []), nextWave: 4 };
     const { db } = fakeDb(session(3, { run, playerLevel: 35, durationMs: 0, pendingBossChoice: { wave: 3 } }));
-    const draft = endlessBossDraft("endless", 3, run.weekSeed, run.stop.location);
+    const draft = endlessBossDraft("endless", 3, run.weekSeed, run.stop.location, true, run);
     const result = await chooseEndlessBossReward(db, "account-1", {
       sessionId: "endless-session", boon: draft.boons[0], curse: draft.curses[0], location: { location: "farm", modifier: null },
     }, 40_000);
@@ -180,7 +180,7 @@ describe("Endless run checkpoints and early exit", () => {
 
   it("applies a new army order with the boss choices, and refuses a made-up one", async () => {
     const { run, row } = atBossScreen(3);
-    const draft = endlessBossDraft("endless", 3, run.weekSeed, run.stop.location);
+    const draft = endlessBossDraft("endless", 3, run.weekSeed, run.stop.location, true, run);
     const order = run.units.map((u) => u.id).reverse();
     const choices = { sessionId: "endless-session", boon: draft.boons[0], curse: draft.curses[0], location: draft.locations[0] };
     const bad = await chooseEndlessBossReward(fakeDb(row).db, "account-1", { ...choices, order: [...order.slice(1), "stored-zombie"] }, 40_000);
@@ -195,7 +195,7 @@ describe("Endless run checkpoints and early exit", () => {
   it("drafts each skipped tier in turn, choosing a location only on the last", async () => {
     const run = beginEndlessRun("endless", [], "9", 3);
     const first = fakeDb(session(3, { run, playerLevel: 45, durationMs: 0, pendingBossChoice: { wave: 3, opening: true } }));
-    const step = endlessBossDraft("endless", 3, "9", "farm", false);
+    const step = endlessBossDraft("endless", 3, "9", "farm", false, run);
     expect(step.locations).toEqual([]);
     const result = await chooseEndlessBossReward(first.db, "account-1", {
       sessionId: "endless-session", boon: step.boons[0], curse: step.curses[0],
@@ -203,7 +203,7 @@ describe("Endless run checkpoints and early exit", () => {
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ stage: "boss-choice", opening: true, tier: 2 });
     expect(result.body.fight).toBeUndefined();
-    const last = endlessBossDraft("endless", 6, "9", "farm");
+    const last = endlessBossDraft("endless", 6, "9", "farm", true, run);
     expect((result.body.bossDraft as { locations: unknown[] }).locations).toEqual(last.locations);
     const second = fakeDb(session(6, { run, playerLevel: 45, durationMs: 0, pendingBossChoice: { wave: 6, opening: true } }));
     const final = await chooseEndlessBossReward(second.db, "account-1", {

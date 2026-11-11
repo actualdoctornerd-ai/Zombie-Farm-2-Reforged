@@ -206,6 +206,26 @@ export async function listEndlessLeaderboard(
   return res.results ?? [];
 }
 
+/** The seasons frozen off the live boards, oldest first. Only these names are served. */
+export const ENDLESS_LEADERBOARD_SEASONS = ["launch-week"] as const;
+export type EndlessLeaderboardSeason = (typeof ENDLESS_LEADERBOARD_SEASONS)[number];
+
+/** A frozen season's top 25 (endless_leaderboard_seasons, migration 0064). */
+export async function listEndlessSeasonLeaderboard(
+  db: D1Database,
+  mode: EndlessLeaderboardMode,
+  season: EndlessLeaderboardSeason,
+): Promise<EndlessLeaderboardRow[]> {
+  const res = await db.prepare(
+    `SELECT a.username, l.deepest_floor, l.duration_ms, l.army_json, l.achieved_at
+     FROM endless_leaderboard_seasons l JOIN accounts a ON a.id = l.account_id
+     WHERE l.season = ? AND l.mode = ?
+     ORDER BY l.deepest_floor DESC, l.achieved_at ASC
+     LIMIT 25`
+  ).bind(season, mode).all<EndlessLeaderboardRow>();
+  return res.results ?? [];
+}
+
 /** The same score for its week's board. The week is the one the run started in, because that
  *  is whose enemies and choices it faced. Keyed off the run row having just finished, so it
  *  counts whether or not the all-time statement before it changed anything. */

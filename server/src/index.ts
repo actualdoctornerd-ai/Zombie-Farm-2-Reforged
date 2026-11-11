@@ -1826,11 +1826,20 @@ app.get("/leaderboard/endless", async (c) => {
   if (requested !== "endless" && requested !== "nightmare") {
     return c.json({ error: "bad_mode" }, 400);
   }
-  const weekly = c.req.query("board") === "weekly";
-  const rows = await db.listEndlessLeaderboard(c.env.DB, requested, weekly ? endlessWeekSeed(Date.now()) : undefined);
+  // `board`: "weekly", "all-time" (the default), or a frozen season such as "launch-week".
+  const requestedBoard = c.req.query("board") ?? "all-time";
+  const season = (db.ENDLESS_LEADERBOARD_SEASONS as readonly string[]).includes(requestedBoard)
+    ? requestedBoard as db.EndlessLeaderboardSeason : null;
+  if (!season && requestedBoard !== "weekly" && requestedBoard !== "all-time") {
+    return c.json({ error: "bad_board" }, 400);
+  }
+  const weekly = requestedBoard === "weekly";
+  const rows = season
+    ? await db.listEndlessSeasonLeaderboard(c.env.DB, requested, season)
+    : await db.listEndlessLeaderboard(c.env.DB, requested, weekly ? endlessWeekSeed(Date.now()) : undefined);
   return c.json({
     mode: requested,
-    board: weekly ? "weekly" : "all-time",
+    board: season ?? (weekly ? "weekly" : "all-time"),
     entries: rows.map((row, i) => ({
       rank: i + 1,
       name: row.username ?? "Player",

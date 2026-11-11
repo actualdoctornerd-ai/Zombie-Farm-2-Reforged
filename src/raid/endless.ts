@@ -821,7 +821,9 @@ const CURSE_POOL: readonly EndlessCurse[] = [
   { kind: "enemy-attack-speed", percent: 20 },
   { kind: "enemy-stun", chance: 0.15, durationMs: 900 },
   { kind: "enemy-stun-resist", percent: 30 },
-  { kind: "headless-stat", stat: "str", percent: 20 },
+  // Con, not str (owner, 2026-11-11): Headless are the tanks, so their health is what they are
+  // for and a strength cut barely touched them. Runs that drafted the old str copy keep it.
+  { kind: "headless-stat", stat: "con", percent: 20 },
   { kind: "enemy-explosion", chance: 0.2, damagePercent: 20 },
   { kind: "enemy-knockback-headless", chance: 0.25 },
 ];
@@ -858,18 +860,36 @@ export interface EndlessBossDraft {
 
 /** Boss reward draft: three unique boons, three unique curses and the routes onward. The same
  *  for everyone in a week, given the same location. */
+/** A Headless curse needs this many living Headless in the run's army to count as a real cost
+ *  (owner, 2026-11-11: "no dead curses"). Below it the curse touches one or two of twenty
+ *  zombies, which is how the launch week's deepest runs took eleven of them for free. */
+export const ENDLESS_HEADLESS_CURSE_MIN = 3;
+/** Every way the army can stun an enemy (BattleSim.stunEnemy's callers): the passive Stun,
+ *  Smash, both Explodes, Mini Buddy's landing and Medusa's Stone Gaze. Stun resistance means
+ *  nothing to an army with none of them. */
+export const ENDLESS_STUN_SOURCES: ReadonlySet<string> = new Set(["stun", "bashV2", "explode", "explodeV2", "attachMini", "stoneGaze"]);
+const livingArmy = (run: EndlessRunState) => run.units.filter((u) => u.alive !== false);
+
 /** Draft picks that would do nothing for this run, being already owned or at their cap
  *  (owner, 2026-11-11): Second Wind, Rearguard, Quick Release at 80%, Head Start at its cap;
- *  and the three curses that only ever take their strongest copy. Every other boon and curse
- *  stacks. */
+ *  the three curses that only ever take their strongest copy; and curses aimed at something
+ *  the army does not field: a Headless curse with fewer than ENDLESS_HEADLESS_CURSE_MIN living
+ *  Headless, stun resistance with no stun source at all. Every other boon and curse stacks. */
 export function endlessDraftPickWasted(run: EndlessRunState, pick: EndlessBoon | EndlessCurse): boolean {
   switch (pick.kind) {
     case "revive-headless": return run.reviveHeadless;
     case "rearguard": return run.buildBoons.includes("rearguard");
     case "deployment": return run.deploymentSpeedBonus >= ENDLESS_MAX_DEPLOY_REDUCTION - 1e-9;
     case "opening-deploy": return run.openingDeploy >= ENDLESS_MAX_OPENING_DEPLOY;
-    case "enemy-stun": case "enemy-explosion": case "enemy-knockback-headless":
+    case "enemy-stun": case "enemy-explosion":
       return run.curses.some((curse) => curse.kind === pick.kind);
+    case "enemy-knockback-headless":
+      return run.curses.some((curse) => curse.kind === pick.kind)
+        || livingArmy(run).filter((u) => u.isHeadless).length < ENDLESS_HEADLESS_CURSE_MIN;
+    case "headless-stat":
+      return livingArmy(run).filter((u) => u.isHeadless).length < ENDLESS_HEADLESS_CURSE_MIN;
+    case "enemy-stun-resist":
+      return !livingArmy(run).some((u) => u.abilities?.some((a) => ENDLESS_STUN_SOURCES.has(a)));
     default: return false;
   }
 }

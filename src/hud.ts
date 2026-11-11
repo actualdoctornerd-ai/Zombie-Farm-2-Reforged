@@ -65,7 +65,7 @@ import { PVP_ARMY_SIZE, PVP_MIN_LEVEL, PVP_UI_ENABLED } from "./raid/pvp";
 import { openInvasionsPanel } from "./ui/panels/invasions";
 import { openLeaderboardPanel } from "./ui/panels/leaderboard";
 import { openEndlessLeaderboardPanel } from "./ui/panels/endlessLeaderboard";
-import type { EndlessLeaderboardEntry, FriendLeaderboardEntry } from "./net/api";
+import type { EndlessLeaderboardBoard, EndlessLeaderboardEntry, FriendLeaderboardEntry } from "./net/api";
 import type {
   PvpDefenseInfoView, PvpOverviewView, PvpRewardView, PvpScoutView,
 } from "./ui/panels/invasions";
@@ -2238,7 +2238,7 @@ export class Hud {
   /** You + your accepted friends with the numbers the friend leaderboard ranks
    *  (Social → Leaderboard, ui/panels/leaderboard.ts). One server round trip. */
   getFriendLeaderboard: (() => Promise<FriendLeaderboardEntry[]>) | null = null;
-  getEndlessLeaderboard: ((mode: "endless" | "nightmare", board: "all-time" | "weekly") => Promise<EndlessLeaderboardEntry[]>) | null = null;
+  getEndlessLeaderboard: ((mode: "endless" | "nightmare", board: EndlessLeaderboardBoard) => Promise<EndlessLeaderboardEntry[]>) | null = null;
   // ---- Invasions panel hooks (online only; see ui/panels/invasions.ts) ----
   /** Whether the deployed Worker accepts friend invasions (bootstrap capability).
    *  The Social hub shows the Invasions entry only when this is true, so the whole

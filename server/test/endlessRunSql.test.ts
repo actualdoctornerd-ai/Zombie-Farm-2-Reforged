@@ -319,7 +319,7 @@ describe("Endless settlement on the real schema", () => {
     const run = beginEndlessRun("endless", army(), "9");
     seedRun(3, run, { wave: 3 });
     raw.prepare("UPDATE endless_runs_v3 SET ruleset_version=?").run(RAID_RULESET_VERSION - 1);
-    const draft = endlessBossDraft("endless", 3, "9", "farm");
+    const draft = endlessBossDraft("endless", 3, "9", "farm", true, run);
     const chosen = await chooseEndlessBossReward(db, ME, {
       sessionId: SESSION, boon: draft.boons[0], curse: draft.curses[0], location: draft.locations[0],
     }, LATER);
