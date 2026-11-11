@@ -261,6 +261,27 @@ describe("Endless settlement on the real schema", () => {
     expect(brains()).toBe(4);
   });
 
+  it("never spends Golden Dice or Brain Tickets, even when a start asks to", async () => {
+    // Owner, 2026-11-10: neither boost can be used in Endless. The start takes no boost
+    // fields at all; a client that sends them anyway must not lose (or gain) one.
+    raw.prepare("UPDATE gameplay_documents_v3 SET current_json=? WHERE account_id=?")
+      .run(JSON.stringify({ inventory: { golden_dice: 3, brain_ticket: 2 }, storage: { received: {}, stored: {} } }), ME);
+    raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
+      VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
+    const started = await startEndless(db, ME, {
+      mode: "endless", orderedUnitIds: ["z0"], rulesetVersion: RAID_RULESET_VERSION,
+      dice: 3, goldenDice: 3, brainTicket: true, elite: true,
+    } as never, LATER);
+    expect(started.status).toBe(200);
+    expect(inventory()).toEqual({ golden_dice: 3, brain_ticket: 2 });
+    // The fight is the plain one: nothing about it is elite or dice-boosted.
+    expect(started.body.fight).not.toHaveProperty("elite");
+    expect(started.body.fight).not.toHaveProperty("dice");
+    expect(started.body.fight).not.toHaveProperty("bonusRoll");
+    await abandonEndless(db, ME, started.body.sessionId as string, LATER + 1);
+    expect(inventory()).toEqual({ golden_dice: 3, brain_ticket: 2 });
+  });
+
   it("starts at a dev-chosen location when the route allows it, and refuses a made-up one", async () => {
     raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
       VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
