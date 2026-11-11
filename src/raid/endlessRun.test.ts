@@ -156,6 +156,15 @@ describe("Endless build boons", () => {
     expect(carried.maxHp).toBe(base.units[0].maxHp);
   });
 
+  it("opens a loaned zombie's ability slots by the farm's Life Force, not the player level", () => {
+    const lent = ENDLESS_TEMPORARY_ZOMBIES[0];
+    const boon = { kind: "temporary-zombie" as const, key: lent.key, name: lent.name };
+    const loaned = (lifeForce?: number) => endlessApplyBoon(base, boon, 45, lifeForce).units.slice(-1)[0];
+    // An older run (no Life Force recorded) keeps the player-level gate it started under.
+    expect(loaned()).toEqual(loaned(45));
+    expect(loaned(0)).not.toEqual(loaned(4));
+  });
+
   it("lends a temporary zombie for the run, at the back and off the roster", () => {
     const lent = ENDLESS_TEMPORARY_ZOMBIES[0];
     const run = endlessApplyBoon(base, { kind: "temporary-zombie", key: lent.key, name: lent.name }, 45);

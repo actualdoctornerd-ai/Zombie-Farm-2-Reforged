@@ -11,7 +11,7 @@ import {
   type EndlessFightConfig as FightConfig,
 } from "../../../src/raid/endlessFight";
 import { makeOwned, type OwnedZombie } from "../../../src/zombie/types";
-import { loadMutationStrengthMultiplier } from "../raidVerifier";
+import { loadLifeForceLevel, loadMutationStrengthMultiplier } from "../raidVerifier";
 import { abilitySlotUnlocked } from "../../../src/lifeForce";
 import { farmerMultiplier, activeBonusHeadId } from "../../../src/farmer";
 import { ARMY_CAP } from "../../../src/raid/RaidCatalog";
@@ -200,7 +200,7 @@ export async function startEndless(
       body.orderedUnitIds.some((id) => typeof id !== "string" || !id) ||
       new Set(body.orderedUnitIds).size !== body.orderedUnitIds.length) return fail(400, "bad_roster");
   const ids = body.orderedUnitIds as string[];
-  const [balance, coreRow, roster, liveRaid, liveBoss, liveRun, mutationStrengthMult, freeToday] = await Promise.all([
+  const [balance, coreRow, roster, liveRaid, liveBoss, liveRun, mutationStrengthMult, lifeForceLevel, freeToday] = await Promise.all([
     db.prepare("SELECT xp,brains FROM balances WHERE account_id=?").bind(accountId).first<{ xp: number; brains: number }>(),
     db.prepare("SELECT current_json FROM gameplay_documents_v3 WHERE account_id=?").bind(accountId).first<{ current_json: string }>(),
     db.prepare(`SELECT unit_id,zombie_key,mutation,invasions FROM roster_v3
@@ -210,6 +210,7 @@ export async function startEndless(
     db.prepare("SELECT id FROM epic_boss_sessions_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     db.prepare("SELECT id FROM endless_runs_v3 WHERE account_id=? AND finished_at IS NULL").bind(accountId).first<{ id: string }>(),
     loadMutationStrengthMultiplier(db, accountId),
+    loadLifeForceLevel(db, accountId),
     mode === "endless" ? freeRunAvailable(db, accountId, now) : Promise.resolve(false),
   ]);
   // The day's first normal run is free. Two starts racing for it cannot both land: only one
@@ -243,7 +244,9 @@ export async function startEndless(
   const bonusHead = activeBonusHeadId(farmerHead, core.farmerBonusHeadId as number | null | undefined);
   const playerUnits = buildPlayerUnits(party, {
     playerLevel: level,
-    abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, level),
+    // Ability slots open with the farm's Life Force, exactly as for an invasion (owner,
+    // 2026-11-11). It once passed the player level, which opened every slot from level 30.
+    abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForceLevel),
     farmerStrengthMult: farmerMultiplier(bonusHead, "zombieStrength"),
     farmerLifeMult: farmerMultiplier(bonusHead, "zombieLife"),
     farmerDexMult: farmerMultiplier(bonusHead, "zombieDex"),
@@ -251,7 +254,7 @@ export async function startEndless(
     maxVetRank: endlessMaxVetRankOf(core),
   });
   const state: RunPayload = {
-    run: beginEndlessRun(mode, playerUnits, endlessWeekSeed(now), startTier, concentration), playerLevel: level, durationMs: 0,
+    run: beginEndlessRun(mode, playerUnits, endlessWeekSeed(now), startTier, concentration), playerLevel: level, lifeForceLevel, durationMs: 0,
   };
   if (devLocation !== undefined) state.run.stop = { location: devLocation as EndlessLocation, modifier: null };
   // A skipped tier's boons and curses are drafted first, one screen each, before any fight.
@@ -484,7 +487,7 @@ export async function chooseEndlessBossReward(
   if (!offered(body.boon, draft.boons) || !offered(body.curse, draft.curses) || !locationOffered) {
     return fail(400, "bad_boss_draft_choice");
   }
-  let run = applyEndlessCurse(endlessApplyBoon(payload.run, body.boon as EndlessBoon, payload.playerLevel), body.curse as EndlessCurse);
+  let run = applyEndlessCurse(endlessApplyBoon(payload.run, body.boon as EndlessBoon, payload.playerLevel, payload.lifeForceLevel), body.curse as EndlessCurse);
   if (draft.locations.length) run = applyEndlessStop(run, body.location as EndlessStop);
   if (body.order !== undefined) {
     const ordered = applyEndlessOrder(run, body.order);

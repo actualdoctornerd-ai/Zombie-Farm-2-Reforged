@@ -18,6 +18,7 @@ import type { ZombieDef } from "../../src/assets";
 import { abandonEndless, activeEndless, chooseEndlessBossReward, finishEndlessWave, startEndless } from "../src/v3/endless";
 import { listEndlessLeaderboard } from "../src/db";
 import { resolveRevival } from "../src/v3/raid";
+import { lifeForceLevelOfObjects } from "../src/raidVerifier";
 
 // The flat 5% brain on every win (rollEndlessBrain) is a Math.random coin flip, so it would
 // make every exact brain total and loot count below fail about one run in twenty. It is
@@ -347,6 +348,26 @@ describe("Endless settlement on the real schema", () => {
     const tomorrow = await startEndless(db, ME, body, 11 * DAY);
     expect(tomorrow.body).toMatchObject({ ok: true, brainCost: 0, freeRun: true });
     expect(brains()).toBe(4);
+  });
+
+  it("opens the army's ability slots by the farm's Life Force, not the player level", async () => {
+    raw.prepare(`INSERT INTO roster_v3 (account_id, unit_id, zombie_key, mutation, invasions, stored, created_at)
+      VALUES (?, 'z0', 'ZombieActorZwampThing', 0, 0, 0, 0)`).run(ME);
+    const started = await startEndless(db, ME, { mode: "endless", orderedUnitIds: ["z0"], rulesetVersion: RAID_RULESET_VERSION }, LATER);
+    expect(started.status).toBe(200);
+    const row = raw.prepare("SELECT run_state_json FROM endless_runs_v3 WHERE id=?").get(started.body.sessionId as string) as { run_state_json: string };
+    const payload = JSON.parse(row.run_state_json) as { playerLevel: number; lifeForceLevel: number; run: EndlessRunState };
+    // A farm with nothing placed has the lowest Life Force, however high the account's level.
+    expect(payload.lifeForceLevel).toBe(lifeForceLevelOfObjects(null));
+    expect(payload.lifeForceLevel).toBeLessThan(4);
+    expect(payload.playerLevel).toBeGreaterThanOrEqual(30);
+    const gated = (open: number) => buildPlayerUnits(
+      [makeOwned("z0", ZWAMP as never, 0, 0, 0, 0)],
+      { abilitySlotUnlocked: (slot) => slot <= open, playerLevel: payload.playerLevel },
+    )[0];
+    expect(payload.run.units[0].abilities).toEqual(gated(payload.lifeForceLevel).abilities);
+    // ...which is a real difference: the old player-level gate opened every slot.
+    expect(payload.run.units[0].abilities).not.toEqual(gated(4).abilities);
   });
 
   it("never spends Golden Dice or Brain Tickets, even when a start asks to", async () => {

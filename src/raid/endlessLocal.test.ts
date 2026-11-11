@@ -14,13 +14,14 @@ import { EXPERT, makePilot } from "./harness/pilots";
 const ZOMBIES = zombiesJson as ZombieDef[];
 const STRONG = ZOMBIES.filter((z) => z.key.includes("Tier4") || z.key.includes("Tier5")).slice(0, 12);
 
-function farm(opts: { brains?: number; level?: number; now?: number } = {}) {
+function farm(opts: { brains?: number; level?: number; lifeForce?: number; now?: number } = {}) {
   const roster: OwnedZombie[] = STRONG.map((def, i) => makeOwned(`z${i}`, def as never, 0, 0, 5, 0));
   let save: EndlessLocalSave = { bestTier: 0 };
   const paid = { loot: [] as EndlessBossLoot[], gold: 0 };
   let brains = opts.brains ?? 5;
   let concentration = 1;
   let n = 0;
+  const built: number[] = [];
   const engine = new EndlessLocalEngine({
     now: () => opts.now ?? Date.UTC(2026, 10, 11, 12),
     random: () => 0.5,
@@ -34,13 +35,17 @@ function farm(opts: { brains?: number; level?: number; now?: number } = {}) {
       const found = ids.map((id) => roster.find((z) => z.id === id));
       return found.every(Boolean) ? found as OwnedZombie[] : null;
     },
-    buildUnits: (party, level) => buildPlayerUnits(party, { playerLevel: level, abilitySlotUnlocked: () => true }),
+    lifeForceLevel: () => opts.lifeForce ?? 4,
+    buildUnits: (party, level, lifeForce) => {
+      built.push(lifeForce);
+      return buildPlayerUnits(party, { playerLevel: level, abilitySlotUnlocked: (slot) => slot <= lifeForce });
+    },
     load: () => save,
     store: (next) => { save = next; },
     payLoot: (loot) => paid.loot.push(...loot),
     payGold: (gold) => { paid.gold += gold; },
   });
-  return { engine, paid, roster, save: () => save, brains: () => brains, concentration: () => concentration };
+  return { engine, built, paid, roster, save: () => save, brains: () => brains, concentration: () => concentration };
 }
 
 const ids = (roster: OwnedZombie[]) => roster.map((z) => z.id);
@@ -93,6 +98,13 @@ describe("local Endless runs", () => {
     expect(f.paid.loot.length).toBeGreaterThan(0);
     expect(f.save().run?.currentWave).toBe(2);
     expect(f.save().run?.fight?.wave).toBe(2);
+  });
+
+  it("opens ability slots by the farm's Life Force, not the player level, and keeps it for loaned zombies", () => {
+    const f = farm({ level: 45, lifeForce: 1 });
+    f.engine.start("endless", ids(f.roster));
+    expect(f.built).toEqual([1]);
+    expect(f.save().run?.payload.lifeForceLevel).toBe(1);
   });
 
   it("ending a run pays depth gold once and leaves nothing to resume", () => {

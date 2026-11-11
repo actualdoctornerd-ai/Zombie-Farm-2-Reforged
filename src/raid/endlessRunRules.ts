@@ -18,6 +18,10 @@ import {
 export interface EndlessRunPayload {
   run: EndlessRunState;
   playerLevel: number;
+  /** The farm's Life Force level when the run started: it opens ability slots, for the army
+   *  and for a loaned zombie alike. Absent on runs started before 2026-11-11, which opened
+   *  slots by player level and keep doing so to their end. */
+  lifeForceLevel?: number;
   /** Accumulated combat time, excluding time spent disconnected or on a draft screen. */
   durationMs: number;
   /** A cleared boss awaiting its durable boon/curse choice. `opening`: not a fight at all, but

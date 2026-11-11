@@ -5728,9 +5728,10 @@ async function main() {
       return party.every(Boolean) ? party as OwnedZombie[] : null;
     },
     // Built as the Worker builds an online run's army (server/src/v3/endless.ts).
-    buildUnits: (party, level) => buildPlayerUnits(party, {
+    lifeForceLevel: () => state.lifeForceLevel,
+    buildUnits: (party, level, lifeForceLevel) => buildPlayerUnits(party, {
       playerLevel: level,
-      abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, level),
+      abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForceLevel),
       farmerStrengthMult: state.farmerZombieStrengthMult(),
       farmerLifeMult: state.farmerZombieLifeMult(),
       farmerDexMult: state.farmerZombieDexMult(),

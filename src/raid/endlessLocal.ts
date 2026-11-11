@@ -62,7 +62,11 @@ export interface EndlessLocalHost {
   /** The farm's (not stored) zombies with these ids, in this order; null if any is missing. */
   party(ids: readonly string[]): OwnedZombie[] | null;
   /** Combat units for a party, with the farm's own multipliers and veterancy ceiling. */
-  buildUnits(party: OwnedZombie[], level: number): CombatUnit[];
+  /** The farm's Life Force level: it opens ability slots, as for an invasion. */
+  lifeForceLevel(): number;
+  /** Combat units for a party, with the farm's own multipliers and veterancy ceiling; its
+   *  ability slots open at `lifeForceLevel`. */
+  buildUnits(party: OwnedZombie[], level: number, lifeForceLevel: number): CombatUnit[];
   load(): EndlessLocalSave;
   store(save: EndlessLocalSave): void;
   /** Pay loot as it is won (boosts, items, zombies, brains). */
@@ -114,6 +118,7 @@ export class EndlessLocalEngine {
     const save = this.save();
     if (save.run) throw new EndlessLocalError(409, "run_in_progress");
     const level = this.host.level();
+    const lifeForceLevel = this.host.lifeForceLevel();
     if (level < ENDLESS_UNLOCK_LEVEL[mode]) throw new EndlessLocalError(403, "locked");
     if (!Number.isInteger(startTier) || startTier < 1 || startTier > endlessMaxStartTier(mode, level)) {
       throw new EndlessLocalError(403, "start_tier_locked");
@@ -130,8 +135,8 @@ export class EndlessLocalEngine {
     if (concentration) this.host.useConcentration();
 
     const payload: EndlessRunPayload = {
-      run: beginEndlessRun(mode, this.host.buildUnits(party, level), endlessWeekSeed(now), startTier, concentration),
-      playerLevel: level, durationMs: 0,
+      run: beginEndlessRun(mode, this.host.buildUnits(party, level, lifeForceLevel), endlessWeekSeed(now), startTier, concentration),
+      playerLevel: level, lifeForceLevel, durationMs: 0,
     };
     if (startTier > 1) payload.pendingBossChoice = { wave: ENDLESS_FIGHTS_PER_LOCATION, opening: true };
     const fight = payload.pendingBossChoice ? null : endlessFightConfig(payload.run, level);
@@ -216,7 +221,7 @@ export class EndlessLocalEngine {
     if (!endlessOffered(boon, draft.boons) || !endlessOffered(curse, draft.curses) || !locationOffered) {
       throw new EndlessLocalError(400, "bad_boss_draft_choice");
     }
-    let state = applyEndlessCurse(endlessApplyBoon(payload.run, boon as EndlessBoon, payload.playerLevel), curse as EndlessCurse);
+    let state = applyEndlessCurse(endlessApplyBoon(payload.run, boon as EndlessBoon, payload.playerLevel, payload.lifeForceLevel), curse as EndlessCurse);
     if (draft.locations.length) state = applyEndlessStop(state, location as EndlessStop);
     if (order !== undefined) {
       const ordered = applyEndlessOrder(state, order);

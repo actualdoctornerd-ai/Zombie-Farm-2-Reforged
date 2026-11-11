@@ -184,13 +184,17 @@ export function endlessSimFor(config: EndlessFightConfig) {
 const ZOMBIES = new Map((zombiesJson as ZombieDef[]).map((z) => [z.key, z]));
 
 /** Apply a chosen boon. A temporary zombie joins the army at Master veterancy for this run
- *  only (never on the account's roster), and deploys with the army's third zombie. */
-export function endlessApplyBoon(run: EndlessRunState, boon: EndlessBoon, playerLevel: number): EndlessRunState {
+ *  only (never on the account's roster), and deploys with the army's third zombie. Its ability
+ *  slots open with the farm's Life Force, as the army's do; a run from before that rule passes
+ *  none and keeps the player level it was started under. */
+export function endlessApplyBoon(
+  run: EndlessRunState, boon: EndlessBoon, playerLevel: number, lifeForceLevel: number = playerLevel,
+): EndlessRunState {
   if (boon.kind !== "temporary-zombie") return applyEndlessBoon(run, boon);
   const def = ZOMBIES.get(boon.key);
   if (!def) return run;
   const owned = makeOwned(`temp-${run.units.length}`, def as Parameters<typeof makeOwned>[1], 0, 0, MAX_VET_RANK, 0);
-  const [unit] = buildPlayerUnits([owned], { playerLevel, abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, playerLevel) });
+  const [unit] = buildPlayerUnits([owned], { playerLevel, abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForceLevel) });
   // Loaned: it skips the deploy queue and walks on with the army's third deploy (BattleSim).
   return unit ? { ...run, units: [...run.units, { ...unit, hp: unit.maxHp, alive: true, loaned: true }] } : run;
 }
