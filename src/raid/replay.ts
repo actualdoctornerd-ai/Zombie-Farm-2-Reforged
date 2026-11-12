@@ -1330,11 +1330,11 @@ import type { RaidOutcome } from "./types";
 // (BattleSim.outcome), stands back up at full Life between Endless floors (finishEndlessFight)
 // and is never buried at a run's end (endlessLosses). The fight itself is unchanged; the
 // settlement differs for any army fielding a Green Flower Zombie.
-// 91 (owner, 2026-11-11, player reports): the Video Games ghost hits for 12 str, down from 15.
+// 91 (owner, 2026-11-11, player reports): the Video Games ghost hits for 11 str, down from 15.
 // Ruleset 85's Protect change let it hit through a Protect line far harder, and an army that had
 // cleared elite Video Games ~45 times without a loss lost three carriers on its first run after.
-// Rebuilt from prod, 12 is the smallest cut that clears it lossless for a competent pilot
-// (tools/prep_raids.py UNIT_OVERRIDES). Every fight with a ghost replays differently from v90:
+// Rebuilt from prod, 12 is the smallest cut that clears it lossless for a competent pilot; the
+// owner chose 11 for margin (tools/prep_raids.py UNIT_OVERRIDES). Every fight with a ghost replays differently from v90:
 // raid 9, the Circus & Video Games dual (raid 14), and Endless video-game and alien floors.
 export const RAID_RULESET_VERSION = 91;
 export const RAID_TICK_MS = 50;
