@@ -75,7 +75,8 @@ describe("rosterCatalog", () => {
     expect(blackMarketPurchaseRequirement("ZombieActorLargeTier4")).toEqual({ minLevel: 25 });
     // A special takes its OWN source's unlock level less three, over a level-20 floor, so
     // the authoritative gate matches the lock the client draws on the card.
-    expect(blackMarketPurchaseRequirement("ZombieActorGardenTier3GreenFlower")).toEqual({ minLevel: 20 });
+    // The Green Flower comes from the level-44 Omni-Farmer quest: 44 - 3.
+    expect(blackMarketPurchaseRequirement("ZombieActorGardenTier3GreenFlower")).toEqual({ minLevel: 41 });
     expect(blackMarketPurchaseRequirement("ZombieActorZomBetty")).toEqual({ minLevel: 20 });
     expect(blackMarketPurchaseRequirement("ZombieActorZastronaut")).toEqual({ minLevel: 33 }); // Aliens at 36
     expect(blackMarketPurchaseRequirement("ZombieActorVagabond")).toEqual({ minLevel: 39 }); // Loco Locust at 42

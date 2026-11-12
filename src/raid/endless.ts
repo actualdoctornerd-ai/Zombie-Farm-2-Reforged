@@ -9,6 +9,7 @@
  * or a draft contains comes from the week's seed, so in one week everybody faces the same
  * choices and nobody can out-roll anybody (owner, 2026-11-05).
  */
+import { getsBackUp } from "../zombie/boundlessVitality";
 import { countHitDamage, COUNT_SLAM_RECOVERY_MS, COUNT_SLAM_WINDUP_MS } from "./countSlam";
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import { mirrorIntervalSec } from "./combatStats";
@@ -1002,6 +1003,8 @@ export function finishEndlessFight(
     nextWave: completedWave + 1,
     units: carried.units.map((u) => {
       if (run.reviveHeadless && u.isHeadless && !u.alive) return { ...u, alive: true, hp: u.maxHp };
+      // Boundless Vitality (v90): back up for the next floor, at full Life.
+      if (!u.alive && getsBackUp(u.abilities)) return { ...u, alive: true, hp: u.maxHp };
       return bossGate && u.alive ? { ...u, hp: u.maxHp } : u;
     }),
   };

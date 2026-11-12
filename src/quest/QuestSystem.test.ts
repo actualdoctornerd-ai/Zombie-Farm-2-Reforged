@@ -3,6 +3,7 @@ import { GameState } from "../GameState";
 import { QuestBus, QuestEvent } from "./events";
 import { QuestSystem } from "./QuestSystem";
 import { QuestDef, RewardType } from "./types";
+import { GAUGE_NOTIFICATION } from "./questProgress";
 
 const quest = (): QuestDef => ({
   id: "1",
@@ -438,5 +439,86 @@ describe("a completed quest never stays on the rail", () => {
     (system as any).sweepSatisfied();
 
     expect((system as any).active.has("1")).toBe(false);
+  });
+});
+
+// Omni-Farmer's two new requirement kinds (quest/questProgress.ts) through the engine.
+describe("QuestSystem gauges and sweeps", () => {
+  const omni = (): QuestDef => ({
+    ...quest(),
+    id: "9",
+    levelRequired: 5,
+    requirements: [
+      { notificationID: GAUGE_NOTIFICATION, notificationObject: "", countTotal: 3, text: "Place 3 items", type: 2, sprite: "", gauge: "uniqueItemsPlaced" },
+      { notificationID: QuestEvent.CropHarvested, notificationObject: "Carrots", countTotal: 4, text: "Harvest Carrots", type: 2, sprite: "", sweep: true },
+      { notificationID: QuestEvent.CropHarvested, notificationObject: "Onions", countTotal: 4, text: "Harvest Onions", type: 2, sprite: "", sweep: true },
+    ],
+    sweep: { each: 1, best: 4 },
+  });
+  const setup = (authoritative = false) => {
+    const bus = new QuestBus();
+    const state = new GameState();
+    const gauges = { uniqueItemsPlaced: 0 };
+    const hooks = {
+      authoritative,
+      grantReward: vi.fn(() => authoritative),
+      grantItem: vi.fn(), grantZombie: vi.fn(), completed: vi.fn(), render: vi.fn(),
+      requestAuthoritativeCompletionCheck: vi.fn(),
+      gauges: () => gauges,
+    };
+    const system = new QuestSystem(new Map([["9", omni()]]), state, bus, hooks);
+    system.restore();
+    return { bus, state, gauges, hooks, system };
+  };
+  const reachLevel5 = (state: GameState) => state.addXp(250);
+
+  it("counts harvests only from the moment the quest is received", () => {
+    const { bus, state, system } = setup();
+    bus.post(QuestEvent.CropHarvested, "Carrots"); // level 1: the quest is not out yet
+    expect(system.views()).toEqual([]);
+    reachLevel5(state);
+    bus.post(QuestEvent.CropHarvested, "Carrots");
+    expect(system.serialize().active[0].counts).toEqual([0, 1, 0]);
+  });
+
+  it("completes offline only when the gauge and the sweep hold at the same moment", () => {
+    const { bus, state, gauges, hooks, system } = setup();
+    reachLevel5(state);
+    for (let i = 0; i < 4; i++) bus.post(QuestEvent.CropHarvested, "Carrots");
+    bus.post(QuestEvent.CropHarvested, "Onions");
+    expect(hooks.completed).not.toHaveBeenCalled(); // sweep done, gauge at 0
+    gauges.uniqueItemsPlaced = 3;
+    system.refreshGauges(); // an item placed: what main.ts calls from refreshArmyCap
+    expect(hooks.completed).toHaveBeenCalledTimes(1);
+    expect(system.isCompleted("9")).toBe(true);
+  });
+
+  it("shows the live gauge and the collapsed sweep on the rail", () => {
+    const { bus, state, gauges, system } = setup();
+    reachLevel5(state);
+    gauges.uniqueItemsPlaced = 2;
+    bus.post(QuestEvent.CropHarvested, "Onions");
+    const [view] = system.views();
+    expect(view.objectives.map((o) => [o.text, o.count, o.total])).toEqual([
+      ["Place 3 items", 2, 3],
+      ["Harvest 1 of every crop", 1, 2],
+      ["Harvest 4 of one crop (best: Onions)", 1, 4],
+    ]);
+    expect(view.objectives[1].detail?.map((d) => d.text)).toEqual(["Carrots", "Onions"]);
+  });
+
+  it("online, never celebrates a gauge quest on a local preview — it asks the server instead", () => {
+    const { bus, state, gauges, hooks, system } = setup(true);
+    system.restoreAuthoritative({ completed: [], progress: [] });
+    reachLevel5(state);
+    gauges.uniqueItemsPlaced = 3;
+    for (let i = 0; i < 4; i++) bus.post(QuestEvent.CropHarvested, "Carrots");
+    bus.post(QuestEvent.CropHarvested, "Onions");
+    expect(hooks.completed).not.toHaveBeenCalled();
+    expect(hooks.requestAuthoritativeCompletionCheck).toHaveBeenCalled();
+    expect(system.views()).toHaveLength(1); // still on the rail until the server says so
+    system.applyAuthoritativeChanges([{ questId: "9", counts: [3, 4, 1], completed: true }], true);
+    expect(hooks.completed).toHaveBeenCalledTimes(1);
+    expect(system.isCompleted("9")).toBe(true);
   });
 });

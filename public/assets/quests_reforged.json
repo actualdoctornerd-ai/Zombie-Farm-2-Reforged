@@ -537,5 +537,281 @@
     "seasonalDate": "",
     "removeQuest": false,
     "ignoreCheckQuest": false
+  },
+  "20018": {
+    "id": "20018",
+    "title": "Omni-Farmer",
+    "messageComplete": "Every crop grown, every corner decorated, fifty zombies catalogued. The Market has a bigger farm for you, and a Green Flower Zombie that never stays down.",
+    "tip": "Crops and elite invasions count from the moment this quest appears. Items and Almanac zombies count whenever you reach them. Almanac zombies are the Green, Blue, Red, Silver and Obsidian gravestones plus specials from Epic Bosses, invasions and the Market's special gravestones. Tap the crop line to see each crop.",
+    "sprite": "Icon_Quest_HarvestVegetables.png",
+    "levelRequired": 44,
+    "prerequisiteQuest": -1,
+    "requirements": [
+      {
+        "notificationID": "kQuestGaugeReading",
+        "notificationObject": "",
+        "countTotal": 50,
+        "text": "Have 50 different items placed on your farm",
+        "type": 2,
+        "sprite": "Icon_Quest_Decorating.png",
+        "gauge": "uniqueItemsPlaced"
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Carrots",
+        "countTotal": 500,
+        "text": "Harvest Carrots",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Onions",
+        "countTotal": 500,
+        "text": "Harvest Onions",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Tomatoes",
+        "countTotal": 500,
+        "text": "Harvest Tomatoes",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Turnips",
+        "countTotal": 500,
+        "text": "Harvest Turnips",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Bread Fruit",
+        "countTotal": 500,
+        "text": "Harvest Bread Fruit",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Potatoes",
+        "countTotal": 500,
+        "text": "Harvest Potatoes",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Sampaguita",
+        "countTotal": 500,
+        "text": "Harvest Sampaguita",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Coffee",
+        "countTotal": 500,
+        "text": "Harvest Coffee",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Corn",
+        "countTotal": 500,
+        "text": "Harvest Corn",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Venus Flytrap",
+        "countTotal": 500,
+        "text": "Harvest Venus Flytrap",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Celery",
+        "countTotal": 500,
+        "text": "Harvest Celery",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Spineapple",
+        "countTotal": 500,
+        "text": "Harvest Spineapple",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Broccoli",
+        "countTotal": 500,
+        "text": "Harvest Broccoli",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Garlic",
+        "countTotal": 500,
+        "text": "Harvest Garlic",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Bloodberry",
+        "countTotal": 500,
+        "text": "Harvest Bloodberry",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Cauliflower",
+        "countTotal": 500,
+        "text": "Harvest Cauliflower",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Skellyberry",
+        "countTotal": 500,
+        "text": "Harvest Skellyberry",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Lima Beans",
+        "countTotal": 500,
+        "text": "Harvest Lima Beans",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Sun Glower",
+        "countTotal": 500,
+        "text": "Harvest Sun Glower",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Dragon Fruit",
+        "countTotal": 500,
+        "text": "Harvest Dragon Fruit",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Pumpking",
+        "countTotal": 500,
+        "text": "Harvest Pumpking",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Corpse Flower",
+        "countTotal": 500,
+        "text": "Harvest Corpse Flower",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Meat Flower",
+        "countTotal": 500,
+        "text": "Harvest Meat Flower",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kCropHarvestedNotification",
+        "notificationObject": "Eyebiscus",
+        "countTotal": 500,
+        "text": "Harvest Eyebiscus",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestVegetables.png",
+        "sweep": true
+      },
+      {
+        "notificationID": "kEliteInvasionSuccessfulNotification",
+        "notificationObject": "",
+        "countTotal": 5,
+        "text": "Win 5 elite invasions",
+        "type": 2,
+        "sprite": "Icon_Quest_Invasion.png"
+      },
+      {
+        "notificationID": "kQuestGaugeReading",
+        "notificationObject": "",
+        "countTotal": 50,
+        "text": "Discover 50 zombies in the Almanac",
+        "type": 2,
+        "sprite": "Icon_Quest_HarvestZombies.png",
+        "gauge": "almanacZombies"
+      }
+    ],
+    "sweep": {
+      "each": 5,
+      "best": 500,
+      "eachText": "Harvest 5 of every crop",
+      "bestText": "Harvest 500 of one crop"
+    },
+    "rewardType": 1,
+    "rewardValue": 100000,
+    "rewardUnlock": "the 90\u00d790 farm in the Market",
+    "rewardItems": [
+      {
+        "name": "Green Flower Ticket",
+        "icon": "../boosts/flower_zombie_pot.png"
+      }
+    ],
+    "rewardItem": "",
+    "rewardItemKey": "",
+    "tutorialQuest": false,
+    "epicEvent": false,
+    "seasonal": false,
+    "seasonalDate": "",
+    "removeQuest": false,
+    "ignoreCheckQuest": false
   }
 }

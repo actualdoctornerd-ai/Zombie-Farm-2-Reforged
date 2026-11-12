@@ -35,6 +35,7 @@ const POT_SPECIALS = new Set(Object.values(COMBINE_SPECIAL_BY_GROUP));
 export function isObtainable(def: ZombieDef): boolean {
   return (
     (!def.rewardOnly && !def.marketHidden) ||
+    !!def.ticket || // planted with a quest ticket (the Green Flower, Omni-Farmer)
     POT_SPECIALS.has(def.key) ||
     def.key in EPIC_QUEST_BY_ZOMBIE ||
     def.key in RAID_BY_ZOMBIE
@@ -100,6 +101,9 @@ export function obtainHint(def: ZombieDef, sources: ObtainSources): string {
     return boss
       ? `Earned by fighting ${boss} during an Epic Boss event.`
       : "Earned during an Epic Boss event.";
+  }
+  if (def.ticket) {
+    return "Plant it with the Green Flower Ticket, the Omni-Farmer quest's prize (level 44).";
   }
   if (POT_SPECIALS.has(def.key)) {
     return `A rare Zombie Pot result: combine two ${def.group} zombies at level ${COMBINE_SPECIAL_LEVEL}+.`;

@@ -1,6 +1,7 @@
 // TS mirror of public/assets/quests.json (produced by tools/prep_quests.py from
 // the source Quests.plist). See docs: the quest engine is fully data-driven — each
 // requirement listens to a game notification and counts up to `countTotal`.
+import type { ObjectiveLine, QuestGauge, QuestSweep } from "./questProgress";
 
 /** A single objective within a quest. */
 export interface QuestRequirement {
@@ -16,6 +17,10 @@ export interface QuestRequirement {
   type: number;
   /** Objective icon (atlas frame or loose PNG; optional in the rail). */
   sprite: string;
+  /** A live reading rather than an event tally (see quest/questProgress.ts). */
+  gauge?: QuestGauge;
+  /** A member of the quest's `sweep` (see quest/questProgress.ts). */
+  sweep?: boolean;
 }
 
 /** How a completed quest pays out.
@@ -52,6 +57,14 @@ export interface QuestDef {
    *  exactly what the Reforged achievements want for their hardest rungs. Absent (the
    *  case for all 105 imported quests) means no bonus. */
   rewardBrains?: number;
+  /** Judges the requirements flagged `sweep` together: each >= `each`, one >= `best`. */
+  sweep?: QuestSweep & { eachText?: string; bestText?: string };
+  /** Something completing the quest opens up, shown as an extra reward line. The quest
+   *  grants nothing for it — the gated feature checks the completion itself. */
+  rewardUnlock?: string;
+  /** Items granted ON TOP of the main reward, by display name (resolved like a quest Item
+   *  reward: a boost name lands in the boost inventory). `icon` is under assets/ui. */
+  rewardItems?: { name: string; icon: string }[];
   rewardItem: string;
   rewardItemKey: string;
   tutorialQuest: boolean;
@@ -77,6 +90,16 @@ export function questBonusRewardInfo(def: Pick<QuestDef, "rewardBrains">): Quest
     icon: "topbar_brain_icon.png",
     label: `+${brains} ${brains === 1 ? "Brain" : "Brains"}`,
   };
+}
+
+/** The extra items a quest pays beside its main reward, as display lines. */
+export function questItemRewardsInfo(def: Pick<QuestDef, "rewardItems">): QuestRewardInfo[] {
+  return (def.rewardItems ?? []).map((item) => ({ icon: item.icon, label: item.name }));
+}
+
+/** The "unlocks X" line a quest shows beside its reward, or null. */
+export function questUnlockInfo(def: Pick<QuestDef, "rewardUnlock">): QuestRewardInfo | null {
+  return def.rewardUnlock ? { icon: "market/upgrade_farmsize.png", label: def.rewardUnlock } : null;
 }
 
 /** Convert a quest's encoded reward fields into the text and icon players see. */
@@ -123,6 +146,11 @@ export interface QuestView {
   reward: QuestRewardInfo | null;
   /** Brain bonus paid alongside `reward` (Reforged achievements only). */
   bonus?: QuestRewardInfo | null;
-  /** Per-objective lines with current/target counts and done flag. */
-  objectives: { text: string; count: number; total: number; done: boolean }[];
+  /** What completing it opens up (e.g. the 90x90 farm), if anything. */
+  unlock?: QuestRewardInfo | null;
+  /** Extra items it pays (e.g. the Green Flower Ticket). */
+  items?: QuestRewardInfo[];
+  /** Per-objective lines with current/target counts and done flag. `detail` is a
+   *  breakdown the player taps to see (a sweep's per-crop list). */
+  objectives: ObjectiveLine[];
 }

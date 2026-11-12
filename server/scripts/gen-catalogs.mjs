@@ -218,6 +218,7 @@ const MIRRORS = [
               perPurchase: b.perPurchase,
               level: b.level,
               gift: b.giftZombieKey || undefined,
+              notForSale: b.notForSale || undefined,
             },
           })),
         { order: "source" }

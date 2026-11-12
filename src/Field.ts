@@ -191,6 +191,8 @@ export interface CropConfig {
   unlockGrave?: "Blue" | "Red" | "Silver" | "Obsidian"; // zombie: needs this colored grave placed
   isZombie?: boolean; // harvest leaves a hole (vs. a dirt square)
   isMutant?: boolean; // mutant-tier zombie: grows in half the time with a Mutant Monolith
+  ticket?: string; // boost key spent to plant it (the Green Flower Ticket); listed only while held
+  noInstaGrow?: boolean; // Insta-Grow can't speed it, and no grow speed-up applies
   harvestIcon?: string; // standalone produce art; full stages are farm-only
 }
 
@@ -843,7 +845,7 @@ export class Field {
   // it's a zombie, whether it's ripe, and how much grow time remains. Null when
   // the plot has no crop. Powers the "growing crop" info popup.
   cropInfoAt(col: number, row: number):
-    { name: string; isZombie: boolean; ripe: boolean; remainingMs: number; growMs: number; fertilized: boolean } | null {
+    { name: string; isZombie: boolean; ripe: boolean; remainingMs: number; growMs: number; fertilized: boolean; noInstaGrow: boolean } | null {
     const at = this.plotOriginAt(col, row);
     if (!at) return null;
     const c = this.plots.get(this.key(at.oc, at.or))!.crop;
@@ -855,6 +857,7 @@ export class Field {
       remainingMs: Math.max(0, c.cfg.growMs - c.ageMs),
       growMs: c.cfg.growMs,
       fertilized: !!c.fertilized,
+      noInstaGrow: !!c.cfg.noInstaGrow,
     };
   }
   // A ripe crop that is a zombie (harvesting it would grow an owned unit). Used to
@@ -982,7 +985,7 @@ export class Field {
     if (priority) {
       const at = this.plotOriginAt(priority.col, priority.row);
       const c = at ? this.plots.get(this.key(at.oc, at.or))!.crop : undefined;
-      if (c && c.ageMs < c.cfg.growMs && grown.length < n) {
+      if (c && !c.cfg.noInstaGrow && c.ageMs < c.cfg.growMs && grown.length < n) {
         this.ripenNow(c); // now ripe; the loop below skips it (age >= growMs)
         grown.push({ oc: at!.oc, or: at!.or });
       }
@@ -990,7 +993,7 @@ export class Field {
     for (const p of this.plots.values()) {
       if (grown.length >= n) break;
       const c = p.crop;
-      if (c && c.ageMs < c.cfg.growMs) {
+      if (c && !c.cfg.noInstaGrow && c.ageMs < c.cfg.growMs) {
         this.ripenNow(c);
         grown.push({ oc: p.oc, or: p.or });
       }
@@ -1007,7 +1010,8 @@ export class Field {
     const at = this.plotOriginAt(col, row);
     if (!at) return null;
     const c = this.plots.get(this.key(at.oc, at.or))?.crop;
-    if (!c || c.ageMs >= c.cfg.growMs) return null;
+    // A no-Insta-Grow crop (the Green Flower Zombie) is not a target; the Worker refuses it too.
+    if (!c || c.cfg.noInstaGrow || c.ageMs >= c.cfg.growMs) return null;
     this.ripenNow(c); // now ripe
     this.update(0); // refresh the growth-stage texture to the ripe frame now
     return at;
@@ -1352,7 +1356,7 @@ export class Field {
       oc = at.oc; or = at.or;
       valid = tool === "plant" ? this.canPlant(col, row)
         // Grow tool: only a still-growing crop is a valid target.
-        : tool === "grow" ? (this.hasCrop(col, row) && !this.isRipe(col, row))
+        : tool === "grow" ? (this.hasCrop(col, row) && !this.isRipe(col, row) && !this.cropInfoAt(col, row)?.noInstaGrow)
         : true;
     }
     const c = this.plotCenterOf(oc, or);

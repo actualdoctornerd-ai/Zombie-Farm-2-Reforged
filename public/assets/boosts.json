@@ -103,5 +103,21 @@
   "info": "Invade now, for brains!",
   "flavorText": "Skips the wait AND quadruples the brain and rare-zombie odds \u2014 but the invasion turns ELITE, and elite invasions hit far harder.",
   "icon": "brain_ticket.png"
+ },
+ {
+  "key": "green_flower_ticket",
+  "name": "Green Flower Ticket",
+  "cost": 0,
+  "brainsNeeded": false,
+  "level": 0,
+  "effect": "other",
+  "amount": 0,
+  "perPurchase": 1,
+  "giftZombieKey": "",
+  "usableOnFarm": false,
+  "info": "Plant one Green Flower Zombie!",
+  "flavorText": "The Omni-Farmer's prize. While you hold it, the Green Flower Zombie is in the Market: plant it to spend the ticket. It takes a full day to grow and Insta-Grow can't hurry it, but it can never be lost in battle.",
+  "icon": "flower_zombie_pot.png",
+  "notForSale": true
  }
 ]

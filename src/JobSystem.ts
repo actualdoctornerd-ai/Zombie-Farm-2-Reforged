@@ -136,6 +136,22 @@ export class JobSystem {
     return count;
   }
 
+  /** Ticket plants already queued (or being worked): each has claimed one of the
+   *  tickets still showing in the inventory, which is only spent when the farmer gets
+   *  there. Without this two quick taps queue two Green Flowers on one ticket. */
+  queuedTicketPlants(ticket: string): number {
+    let count = 0;
+    for (const job of this.active ? [this.active, ...this.queue] : this.queue) {
+      if (job.kind === "plant" && job.cfg?.ticket === ticket) count++;
+    }
+    return count;
+  }
+
+  /** Tickets of `ticket` not yet claimed by a queued plant. */
+  ticketsFree(ticket: string): number {
+    return Math.max(0, this.state.boostCount(ticket) - this.queuedTicketPlants(ticket));
+  }
+
   // Gold charged to plow one plot — 0 while a Plowing Monolith is placed.
   private plowCost(): number {
     return this.field.hasPlowFree() ? 0 : PLOW_COST;
@@ -165,6 +181,8 @@ export class JobSystem {
     }
     if (kind === "plant" && cfg) {
       if (this.state.level < cfg.unlockLevel) return false; // not unlocked yet
+      // A ticket zombie needs a ticket nobody in the queue has claimed yet.
+      if (cfg.ticket && this.ticketsFree(cfg.ticket) < 1) return false;
       const funds = cfg.brainsNeeded ? this.state.brains : this.state.gold;
       if (funds < cfg.cost) {
         this.onInsufficientFunds(cfg.brainsNeeded ? "brains" : "gold", cfg.cost);
@@ -573,9 +591,14 @@ export class JobSystem {
       }
     } else if (job.kind === "plant") {
       const baseCfg = job.cfg ?? CARROT;
-      const cfg = baseCfg.isZombie
+      // A no-Insta-Grow zombie takes its full grow time (no farmer speed-up), matching
+      // the Worker's farm.plant.
+      const cfg = baseCfg.isZombie && !baseCfg.noInstaGrow
         ? { ...baseCfg, growMs: this.state.farmerZombieGrowMs(baseCfg.growMs) }
         : baseCfg;
+      // The ticket is spent as the seed goes in (the Worker spends it in farm.plant; an
+      // online inventory refresh then confirms it). Gone since queueing → drop the job.
+      if (cfg.ticket && this.state.boostCount(cfg.ticket) < 1) return true;
       // Planting costs gold — or brains for special zombies (brainsNeeded); XP (and
       // sell value) are awarded on harvest, matching the source economy where the
       // crop's xp is its harvest reward.
@@ -597,6 +620,7 @@ export class JobSystem {
       // every one of those plots back to a fresh timer.
       const plantedAt = online ? Date.now() : (this.replayNow ?? Date.now());
       if (funds >= cfg.cost && this.field.plantAt(job.oc, job.or, cfg, plantedAt)) {
+        if (cfg.ticket) this.state.useBoost(cfg.ticket);
         // Garden zombies fertilize a freshly-planted VEGGIE crop (zombie crops sell
         // for nothing, so they're never fertilized). A hit doubles the harvest.
         // The client owns the roll in both modes so its visual appears immediately.

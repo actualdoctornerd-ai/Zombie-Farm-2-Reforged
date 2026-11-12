@@ -138,6 +138,10 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   teleport: { label: "Teleport", effect: "Appears at its place in the line the moment it deploys, past any wall", desc: "Skips the walk", icon: `${AB}ability_turboSpeed.png` },
   // Medusa Zombie (owner, 2026-11-05): her two looks, each spent the moment she deploys.
   stoneGaze: { label: "Stone Gaze", effect: "On deploy, turns the first enemy it sees to stone for 2 seconds", desc: "One look and they freeze", icon: `${AB}ability_stun.png` },
+  // Green Flower Zombie (owner, 2026-11-11): the Omni-Farmer prize, a garden zombie that
+  // can never be lost. Settled AFTER the fight (BattleSim.outcome, endless.ts), so it
+  // still falls in battle — it just never stays down.
+  boundlessVitality: { label: "Boundless Vitality", effect: "If it falls, it gets back up when the fight is over, between Endless floors too; it is never lost", desc: "Can't stay dead", icon: `${AB}ability_ressurect.png` },
   petrify: { label: "Petrify", effect: "On deploy, turns a boss on its perch to stone for 5 seconds; a boss can't be frozen again for 20 seconds", desc: "Stops the boss in its tracks", icon: `${AB}ability_block.png` },
 };
 
@@ -165,7 +169,7 @@ export const MAX_ABILITY_TIER = 4;
 /** ABILITY_POOL keys grouped by tier. Every pool key appears exactly once. */
 export const ABILITY_TIER: Record<number, string[]> = {
   1: ["buffAllStats", "attackSpeedBuff", "powerBuff", "hitPointsBuff", "heal"],
-  2: ["chivalry", "grace", "attachMini", "protect", "tankHitPointsBuff"],
+  2: ["chivalry", "grace", "attachMini", "protect", "tankHitPointsBuff", "boundlessVitality"],
   3: ["laserBeam", "stun", "explode", "bash", "turboSpeed", "ressurect", "unwrapped", "rage", "shieldBar", "teleport"],
   4: ["zomBeam", "doubleStrike", "explodeV2", "bashV2", "block", "healAOE", "lastLaugh", "berserk", "support", "phase"],
 };
@@ -231,6 +235,9 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorMasterNinjombie:["buffAllStats",   "chivalry",          "turboSpeed", "doubleStrike"],
   ZombieActorProto:          [null,             null,                "ressurect",  "bashV2"],
   ZombieActorZombug:         [null,             null,                "ressurect",  "bashV2"],
+  // Green Flower Zombie (owner, 2026-11-11): the Garden ladder with Boundless Vitality in
+  // place of Fortitude (the Headless aura). Silver class, so all four slots open.
+  ZombieActorGardenTier3GreenFlower: ["heal", "boundlessVitality", "ressurect", "healAOE"],
 
   // ---- The 2026-09-24 reshuffle (docs/ABILITY_IDEAS.md) --------------------------
   // Fifteen prize zombies are group Regular and so ran the IDENTICAL stock ladder

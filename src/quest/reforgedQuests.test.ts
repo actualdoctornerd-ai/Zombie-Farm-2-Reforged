@@ -4,6 +4,8 @@ import { describe, it, expect } from "vitest";
 import imported from "../../public/assets/quests.json";
 import reforged from "../../public/assets/quests_reforged.json";
 import raids from "../../public/assets/raids/raids.json";
+import plants from "../../public/assets/plants.json";
+import { GAUGE_NOTIFICATION } from "./questProgress";
 import { QuestEvent } from "./events";
 import { questBonusRewardInfo, questRewardInfo } from "./types";
 import { ABILITY_SUBJECT, EXPLODED_MINI_SUBJECT } from "../raid/featQuestEvents";
@@ -33,6 +35,13 @@ describe("reforged achievement catalog", () => {
   it("listens only to events that have a live emitter", () => {
     for (const [id, quest] of QUESTS) {
       for (const requirement of quest.requirements) {
+        // A gauge reads the farm instead of listening (quest/questProgress.ts), and must
+        // name a reading that exists.
+        if ((requirement as { gauge?: string }).gauge) {
+          expect(requirement.notificationID, id).toBe(GAUGE_NOTIFICATION);
+          expect(["uniqueItemsPlaced", "almanacZombies"]).toContain((requirement as { gauge?: string }).gauge);
+          continue;
+        }
         expect(LIVE.has(requirement.notificationID), `${id}: ${requirement.notificationID}`).toBe(true);
       }
     }
@@ -41,11 +50,14 @@ describe("reforged achievement catalog", () => {
   it("names only subjects something actually posts", () => {
     const raidNames = new Set((raids as { name: string }[]).map((raid) => raid.name));
     const abilitySubjects = new Set(Object.values(ABILITY_SUBJECT));
+    // A crop harvest posts the plant's display name (server/src/v3/engine.ts harvestPlot).
+    const cropNames = new Set((plants as { name: string }[]).map((plant) => plant.name));
     for (const [id, quest] of QUESTS) {
       for (const requirement of quest.requirements) {
         const subject = requirement.notificationObject;
         if (!subject) continue; // wildcard
         const known =
+          (requirement.notificationID === QuestEvent.CropHarvested && cropNames.has(subject)) ||
           raidNames.has(subject) ||
           abilitySubjects.has(subject) ||
           subject === RARE_INVASION_ZOMBIE_SUBJECT ||
@@ -75,6 +87,9 @@ describe("reforged achievement catalog", () => {
     const withBrains = QUESTS.filter(([, quest]) => (quest as { rewardBrains?: number }).rewardBrains);
     expect(withBrains.length).toBe(6);
     for (const [id, quest] of QUESTS) {
+      // Omni-Farmer is the one exception (owner, 2026-11-11): 100k gold, the 90x90 farm and
+      // the Green Flower Ticket. Pinned in quest/omniFarmer.test.ts.
+      if (id === "20018") continue;
       expect(quest.rewardType, id).toBe(0); // XP
       expect(quest.rewardValue, id).toBeGreaterThan(0);
       const brains = (quest as { rewardBrains?: number }).rewardBrains ?? 0;

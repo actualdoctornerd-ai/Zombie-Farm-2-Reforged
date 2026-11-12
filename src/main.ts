@@ -56,8 +56,10 @@ import { epicBossRunToClient, serverTimestampToClient } from "./net/clock";
 import { QuestBus, QuestEvent } from "./quest/events";
 import { objectQuestAliases } from "./quest/objectVariants";
 import { QuestSystem } from "./quest/QuestSystem";
+import { almanacZombieCount, uniquePlacedItems } from "./quest/questProgress";
+import { omniAlmanacClassifier } from "./quest/omniFarmer";
 import { PeriodicQuestSystem } from "./quest/periodic/PeriodicQuestSystem";
-import { QuestDef, questBonusRewardInfo, questRewardInfo } from "./quest/types";
+import { QuestDef, questBonusRewardInfo, questItemRewardsInfo, questRewardInfo, questUnlockInfo } from "./quest/types";
 import { RaidManager, RaidResultView, type LootDrop, type RaidSetup } from "./raid/RaidManager";
 import { FIRST_NIGHT, MAX_NIGHT, NIGHT_CONTINUE_WINDOW_MS, hasNights, nightLabel, nightPrompt } from "./raid/halloweenNights";
 import { LaunchGate } from "./raid/launchGate";
@@ -379,6 +381,8 @@ async function main() {
       growMs: z.growMs, cost: z.cost, brainsNeeded: z.brainsNeeded, sell: 0, xp: z.xp,
       unlockLevel: z.level, isZombie: true, isMutant: z.category === "mutant",
       unlockGrave: graveNeededFor(z.className) ?? undefined, // Blue/Red/Silver graves gate planting
+      ...(z.ticket ? { ticket: z.ticket } : {}),
+      ...(z.noInstaGrow ? { noInstaGrow: true } : {}),
     };
     catalog.set(cfg.key, cfg);
     return {
@@ -396,7 +400,9 @@ async function main() {
     };
   });
   const purchasableZombieKeys = new Set(purchasableZombies(assets.zombies).map((zombie) => zombie.key));
-  const zombieCards = allZombieCards.filter((card) => purchasableZombieKeys.has(card.cfg.key));
+  // Ticket zombies (the Green Flower) ride along; the HUD lists one only while a ticket
+  // is free (hud.ticketsFree, wired once the JobSystem exists).
+  const zombieCards = allZombieCards.filter((card) => purchasableZombieKeys.has(card.cfg.key) || !!card.cfg.ticket);
   hud.setCatalog(plantCards, zombieCards);
   hud.setBlackMarketCatalog(allZombieCards);
 
@@ -558,6 +564,8 @@ async function main() {
   /** The army base the server last reported. Offline nothing ever reports one, so it
    *  stays at the shipped default — the same number the server derives from. */
   let serverArmyBase = BASE_ARMY_MAX;
+  /** Re-reads the quest gauges; set once the QuestSystem exists (built further down). */
+  let refreshQuestGauges: (() => void) | null = null;
   /** Re-derive the army cap from the objects actually standing on the farm. Every path
    *  that puts a functional object down or takes one away calls this instead of nudging
    *  the number by the def's `armyMax`: a running total only had to miss one branch to
@@ -571,6 +579,7 @@ async function main() {
       (key) => placeCatalog.get(key)?.armyMax,
     ));
     refreshLifeForce(); // every place / store / sell path already lands here
+    refreshQuestGauges?.(); // ...and so does the "items placed" quest gauge
   };
   /** The farm's Life Force, re-derived from the objects standing on it (lifeForce.ts).
    *  Derived like the army cap, so a placement path that forgets to announce itself
@@ -1855,6 +1864,7 @@ async function main() {
     () => zombies.zombieHarvestRoom(),
     zombieHarvestFailsLocally
   );
+  hud.ticketsFree = (ticket) => jobs.ticketsFree(ticket);
 
   // `raidActive` is declared up here (ahead of both the celebration queue and the raid
   // block far below) so every closure that reads it — the tutorial's isRaidActive(),
@@ -1869,11 +1879,15 @@ async function main() {
   const questRewards = (def: QuestDef): QuestReward[] => {
     const reward = questRewardInfo(def);
     const bonus = questBonusRewardInfo(def);
+    const unlock = questUnlockInfo(def);
     return [
       ...(reward ? [{ icon: uiIcon(reward.icon), label: reward.label }] : []),
       // The completion popup lists every line the quest actually paid, so an
       // achievement that hands over a brain as well as XP shows both.
       ...(bonus ? [{ icon: uiIcon(bonus.icon), label: bonus.label }] : []),
+      ...questItemRewardsInfo(def).map((item) => ({ icon: uiIcon(item.icon), label: item.label })),
+      // ...and what it opened up (Omni-Farmer: the 90x90 farm in the Market).
+      ...(unlock ? [{ icon: uiIcon(unlock.icon), label: `Unlocks ${unlock.label}` }] : []),
     ];
   };
   const questCompleteQueue: QuestCompleteView[] = [];
@@ -1952,6 +1966,7 @@ async function main() {
 
   // The data-driven quest engine (all 96 quests from quests.json). Rewards route to
   // GameState / the roster; the HUD rail and the completion popup come from `hud`.
+  const omniAlmanacClass = omniAlmanacClassifier(assets.zombies);
   const quests = new QuestSystem(
     new Map(Object.entries(assets.quests)), state, questBus,
     {
@@ -1969,8 +1984,10 @@ async function main() {
         return true;
       },
       grantItem: (key) => {
-        if (key === "Invasion Voucher") state.addBoost("invasion_voucher");
-        else if (key === "Golden Dice") state.addBoost("golden_dice");
+        // A boost by display name lands in the boost inventory (Invasion Voucher, Golden
+        // Dice, the Green Flower Ticket), mirroring the Worker's grantQuestItem.
+        const boost = assets.boosts.find((b) => b.name === key);
+        if (boost) state.addBoost(boost.key);
         else state.receiveItem(key);
       },
       grantZombie: (key) => { grantEarnedZombie(key); },
@@ -1982,8 +1999,17 @@ async function main() {
         queueMicrotask(() => { void economy?.settleBeforeDependency().catch(() => {}); });
       },
       render: (views) => hud.setQuests(views),
+      // Omni-Farmer's live objectives (quest/questProgress.ts). The Worker reads the
+      // same two numbers from its own object document and the saved Almanac.
+      gauges: () => ({
+        uniqueItemsPlaced: uniquePlacedItems(
+          Array.from(field.placedKeys(), (key) => ({ key, placed: true }))
+        ),
+        almanacZombies: almanacZombieCount(state.zombieDiscovered, omniAlmanacClass),
+      }),
     }
   );
+  refreshQuestGauges = () => { quests.refreshGauges(); };
 
   // Daily / weekly quests. The SAME generator runs on both sides of the build split:
   // offline this object is the authority (it generates the board, counts bus events
@@ -2135,7 +2161,7 @@ async function main() {
       return { kind: "pot", instanceId: objectId };
     const origin = field.plotOriginAt(col, row);
     const crop = origin ? field.cropInfoAt(origin.oc, origin.or) : null;
-    return origin && crop && !crop.ripe ? { kind: "crop", ...origin } : null;
+    return origin && crop && !crop.ripe && !crop.noInstaGrow ? { kind: "crop", ...origin } : null;
   };
 
   // Ripen exactly one resolved crop or active Zombie Pot and spend one use. A stale
@@ -3586,8 +3612,13 @@ async function main() {
   // currently-selected crop. No-op for select/sell.
   const enqueueTool = (col: number, row: number): boolean => {
     if (hud.mode === "till") return jobs.enqueue("till", col, row);
-    if (hud.mode === "plant" && hud.planting)
-      return jobs.enqueue("plant", col, row, hud.planting);
+    if (hud.mode === "plant" && hud.planting) {
+      const cfg = hud.planting;
+      const queued = jobs.enqueue("plant", col, row, cfg);
+      // A ticket zombie plants once per ticket: put the seed bag down with the last one.
+      if (queued && cfg.ticket && jobs.ticketsFree(cfg.ticket) < 1) hud.setPlanting(null);
+      return queued;
+    }
     return false;
   };
 
@@ -3731,12 +3762,16 @@ async function main() {
   // buying either grows the farm, so the other currency's card then reads as owned.
   hud.setUpgrades(assets.upgrades.mapSize);
   hud.getMapSize = () => field.w;
+  hud.isQuestComplete = (id) => quests.isCompleted(id);
+  hud.questTitle = (id) => assets.quests[id]?.title;
   hud.onBuyUpgrade = async (size, currency) => {
     if (onlineGameplayBlocked()) return false;
     const up = assets.upgrades.mapSize.find((u) => u.size === size);
     if (!up || size <= field.w || state.level < up.level) return false;
     // Endless's farm size is for sale only past its tier (the Worker refuses it too).
     if (up.endlessTier && accountEndlessBestTier() < up.endlessTier) return false;
+    // A quest's farm size (Omni-Farmer's 90x90) only once that quest is done; ditto.
+    if (up.quest && !quests.isCompleted(up.quest)) return false;
     // Enforce sequential purchase: only the immediate next tier is buyable.
     const nextSize = Math.min(
       ...assets.upgrades.mapSize.filter((u) => u.size > field.w).map((u) => u.size)
@@ -8202,6 +8237,8 @@ async function main() {
           const onPick = (cfg: CropConfig) => {
             hud.setPlanting(cfg); // keep planting this crop on further taps
             jobs.enqueue("plant", col, row, cfg);
+            // ...unless that was the last ticket for a ticket zombie.
+            if (cfg.ticket && jobs.ticketsFree(cfg.ticket) < 1) hud.setPlanting(null);
           };
           // During the tutorial's plant beats, constrain the menu to the beat's own crop.
           const lockedKey = tutorial.lockedPlantKey(col, row);

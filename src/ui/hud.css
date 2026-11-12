@@ -148,6 +148,17 @@
 #hud .qreward { display: flex; align-items: center; gap: 7px; margin-top: 4px;
   color: #ffe49a; font-size: 15px; font-weight: 800; }
 #hud .qreward img { width: 26px; height: 26px; object-fit: contain; }
+/* An objective with a tap-to-open breakdown (Omni-Farmer's per-crop list). The button
+   inherits the line's own look so it reads as the objective, not as a control. */
+#hud .qobj-toggle { all: unset; cursor: pointer; display: block; color: inherit;
+  font: inherit; text-decoration: underline dotted rgba(244,233,207,.45);
+  text-underline-offset: 3px; }
+#hud .qobj-toggle:focus-visible { outline: 2px solid #ffe49a; outline-offset: 2px; border-radius: 3px; }
+#hud .qobj-detail { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 5px 0 2px 14px; }
+#hud .qobj-chip { font-size: 11px; font-weight: 600; color: #d8ccaa; padding: 2px 7px;
+  border-radius: 9px; background: rgba(0,0,0,.28); white-space: nowrap; }
+#hud .qobj-chip.done { color: #8fdc5a; }
+#hud .qunlock { color: #b8e6ff; }
 /* full quest log */
 #hud .panel.questlog { text-align: left; width: min(460px, 92vw); }
 #hud .qlog-list { margin-top: 8px; max-height: 64vh; overflow-y: auto;
@@ -1150,6 +1161,21 @@
 #hud .crop-grow-label .nm { font-weight: 700; }
 #hud .crop-grow-label .ct { margin-left: 5px; color: #d8bc84; }
 #hud .crop-grow-btn { flex: 0 0 auto; padding: 6px 14px; }
+/* "Can't be Insta-Grown": the Insta-Grow icon greyed with a red X through it (the Green
+   Flower Zombie). Pure CSS, so it needs no art of its own. */
+#hud .no-insta { position: relative; display: inline-flex; flex: 0 0 auto; }
+#hud .no-insta img { filter: grayscale(1) brightness(.85); opacity: .8; object-fit: contain; }
+#hud .no-insta::before, #hud .no-insta::after { content: ""; position: absolute; left: 50%; top: 50%;
+  width: 115%; height: 3px; border-radius: 2px; background: #d8231b;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.75); transform-origin: center; }
+#hud .no-insta::before { transform: translate(-50%, -50%) rotate(45deg); }
+#hud .no-insta::after { transform: translate(-50%, -50%) rotate(-45deg); }
+#hud .no-insta-card { margin-left: 4px; vertical-align: middle; }
+#hud .no-insta-card img { width: 14px; height: 14px; max-height: 14px; }
+#hud .no-insta-card::before, #hud .no-insta-card::after { height: 2px; box-shadow: none; }
+#hud .no-insta-popup img { width: 34px; height: 34px; }
+#hud .crop-grow.blocked .crop-grow-btn { opacity: .55; cursor: not-allowed; }
+#hud .no-insta-note { font-size: 11px; color: #e8a08a; }
 
 /* storage: hint line + filled-slot affordance */
 #hud .st-hint { text-align: center; color: #6e4a1e; font-size: 12px; font-style: italic; margin: 0 0 8px; }

@@ -14,6 +14,10 @@ export interface ZombieCropEcon {
   growMs: number;  // real grow time — server gates harvest against this
   xp: number;      // xp awarded on harvest
   level: number;   // player level required (informational)
+  /** Boost key spent to plant it; farm.plant refuses without one (`no_ticket`). */
+  ticket?: string;
+  /** Insta-Grow refuses it (power.use `no_effect`). */
+  noInstaGrow?: boolean;
 }
 
 import zombieRows from "../../public/assets/zombies.json";
@@ -77,16 +81,20 @@ const LEGACY_ZOMBIE_CROPS: Readonly<Record<string, ZombieCropEcon>> = {
 };
 
 /** Generated at module load from the shared catalog so hidden voucher zombies and
- * event rewards can never drift back into the server's plantable crop surface. */
+ * event rewards can never drift back into the server's plantable crop surface. A row
+ * naming a `ticket` is the one exception: it is plantable, but only by spending that
+ * ticket (farm.plant), which is what keeps it out of reach without one. */
 export const ZOMBIE_CROPS: Readonly<Record<string, ZombieCropEcon>> = Object.fromEntries(
   (zombieRows as Array<{
     key: string; cost: number; brainsNeeded?: boolean; growMs: number; xp: number;
-    level: number; rewardOnly?: boolean; marketHidden?: boolean;
+    level: number; rewardOnly?: boolean; marketHidden?: boolean; ticket?: string; noInstaGrow?: boolean;
   }>)
-    .filter((zombie) => !zombie.rewardOnly && !zombie.marketHidden)
+    .filter((zombie) => !!zombie.ticket || (!zombie.rewardOnly && !zombie.marketHidden))
     .map((zombie) => [zombie.key, {
       cost: zombie.cost, brains: !!zombie.brainsNeeded, growMs: zombie.growMs,
       xp: zombie.xp, level: zombie.level,
+      ...(zombie.ticket ? { ticket: zombie.ticket } : {}),
+      ...(zombie.noInstaGrow ? { noInstaGrow: true } : {}),
     }])
 );
 

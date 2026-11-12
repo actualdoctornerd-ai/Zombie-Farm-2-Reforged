@@ -173,7 +173,9 @@ describe("reshuffled specials (2026-09-24)", () => {
     const holders = Object.entries(SPECIAL_ABILITIES)
       .filter(([, row]) => row.includes("ressurect"))
       .map(([key]) => key);
-    expect(holders.sort()).toEqual(["ZombieActorProto", "ZombieActorZombug"]);
+    // The Green Flower Zombie is a Garden body keeping its group's Resurrect (only its
+    // Fortitude slot is swapped, for Boundless Vitality).
+    expect(holders.sort()).toEqual(["ZombieActorGardenTier3GreenFlower", "ZombieActorProto", "ZombieActorZombug"]);
     expect(GROUP_ABILITIES.Garden).toContain("ressurect");
   });
 });

@@ -319,6 +319,11 @@ export interface ZombieDef {
   specialSprite?: string; // named source zombie rendered from its dedicated sheet
   rewardOnly?: boolean; // earned from an event/quest; never shown as a plantable Market crop
   marketHidden?: boolean; // obtained through a voucher/gift rather than planted directly
+  /** Boost key that must be HELD to plant this zombie; planting spends it. A ticket zombie
+   *  is listed in the Market (and the plot menu) only while one is in stock. */
+  ticket?: string;
+  /** Insta-Grow can't speed this crop up: it takes its full grow time. */
+  noInstaGrow?: boolean;
 }
 
 export const purchasableZombies = (zombies: readonly ZombieDef[]): ZombieDef[] =>
@@ -340,6 +345,9 @@ export interface BoostDef {
   info: string;
   flavorText: string;
   icon: string; // filename under /assets/boosts/
+  /** Never sold: granted only (a quest prize). Hidden from the Market's Boosts tab and the
+   *  Storage "Buy" button; the Worker refuses power.buy for it. */
+  notForSale?: boolean;
 }
 
 // A placeable farm object (tree/decor/functional) from Market + TileProperties.
@@ -765,6 +773,8 @@ export interface FarmSizeUpgrade {
   icon: string; // filename under /assets/ui/market/
   /** For sale only once the account has cleared this Endless tier (raid/endlessPerks.ts). */
   endlessTier?: number;
+  /** For sale only once the account has completed this quest (quest/omniFarmer.ts). */
+  quest?: string;
 }
 /** A Ground/climate skin: repaints the whole farm's terrain tiles. */
 export interface ClimateUpgrade {

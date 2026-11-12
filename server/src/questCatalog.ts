@@ -1,5 +1,6 @@
 import questData from "../../public/assets/quests.json";
 import reforgedQuestData from "../../public/assets/quests_reforged.json";
+import type { QuestGauge, QuestSweep } from "../../src/quest/questProgress";
 
 // Server mirror of public/assets/quests.json reward payouts. GENERATED from that
 // file (96 quests) — KEEP IN SYNC. Only the fields that decide VALUE are mirrored:
@@ -24,6 +25,10 @@ export interface QuestRequirement {
   notificationObject: string;
   countTotal: number;
   type: number;
+  /** A live reading, not an event tally (src/quest/questProgress.ts). */
+  gauge?: QuestGauge;
+  /** A member of the quest's sweep (src/quest/questProgress.ts). */
+  sweep?: boolean;
 }
 
 export interface QuestDefinition extends QuestReward {
@@ -34,6 +39,10 @@ export interface QuestDefinition extends QuestReward {
   tutorialQuest: boolean;
   epicEvent: boolean;
   seasonal: boolean;
+  /** Judges the `sweep` requirements together (src/quest/questProgress.ts). */
+  sweep?: QuestSweep;
+  /** Item names granted on top of the main reward (src/quest/types.ts rewardItems). */
+  rewardItems?: string[];
 }
 
 // The imported catalog plus the Reforged-original achievements. Kept as two files
@@ -42,7 +51,7 @@ export interface QuestDefinition extends QuestReward {
 const RAW_QUESTS = {
   ...(questData as Record<string, unknown>),
   ...(reforgedQuestData as Record<string, unknown>),
-} as Record<string, Omit<QuestDefinition, "rewardItemKey"> & { rewardItemKey?: string; rewardBrains?: number }>;
+} as Record<string, Omit<QuestDefinition, "rewardItemKey" | "rewardItems"> & { rewardItemKey?: string; rewardBrains?: number; sweep?: QuestSweep; rewardItems?: { name: string }[] }>;
 
 /** Full server-owned quest rules. Content categories without a trusted event producer
  * remain dormant even though their definitions are present. */
@@ -61,6 +70,8 @@ export const QUEST_DEFINITIONS: Readonly<Record<string, QuestDefinition>> = Obje
       tutorialQuest: q.tutorialQuest,
       epicEvent: q.epicEvent,
       seasonal: q.seasonal,
+      ...(q.sweep ? { sweep: { each: q.sweep.each, best: q.sweep.best } } : {}),
+      ...(q.rewardItems?.length ? { rewardItems: q.rewardItems.map((item) => item.name) } : {}),
     },
   ])
 );

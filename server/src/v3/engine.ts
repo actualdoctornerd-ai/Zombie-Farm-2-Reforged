@@ -44,6 +44,10 @@ import { bossForFavoriteCrop, luresEpicBoss } from "../../../src/epicBoss/favori
 import { reopenEpicQuests } from "../../../src/epicBoss/rewards";
 import { questSubjectMatches } from "../../../src/quest/matching";
 import {
+  almanacZombieCount, applyGauges, hasGauges, requirementsMet, uniquePlacedItems, type QuestGauges,
+} from "../../../src/quest/questProgress";
+import { OMNI_FARMER_EXPANSION_SIZE, omniAlmanacClassifier, omniFarmerUnlocked } from "../../../src/quest/omniFarmer";
+import {
   applyPeriodicEvents, claimPeriodicQuest, generatePeriodicSet, refreshPeriodicState,
   unlockLevel, xpToNextLevel,
 } from "../../../src/quest/periodic/generate";
@@ -139,6 +143,21 @@ interface ZombieRule extends NamedRule {
 const plantNames = new Map((plantRows as (NamedRule & { key: string })[]).map((r) => [r.key, r.name]));
 const zombieRules = zombieRows as ZombieRule[];
 const zombieNames = new Map(zombieRules.map((r) => [r.key, r.name]));
+const omniAlmanacClass = omniAlmanacClassifier(zombieRules);
+
+/** The gauge readings (src/quest/questProgress.ts) for this account as it stands.
+ *  `almanacDiscovered` is the presentation blob's `almanac.discovered` — client-authored,
+ *  the only place the Almanac lives (see server/src/index.ts). Trusting it here is a
+ *  deliberate, bounded choice: a forged Almanac can only skip one objective of a quest
+ *  whose reward is the RIGHT to buy land at full price, on the forger's own farm. */
+export function questGaugesOf(state: MutableGameplayState, almanacDiscovered: unknown): QuestGauges {
+  return {
+    uniqueItemsPlaced: uniquePlacedItems(state.objects.objects.map((o) => ({
+      key: o.catalogKey, placed: o.status === "placed",
+    }))),
+    almanacZombies: almanacZombieCount(almanacDiscovered, omniAlmanacClass),
+  };
+}
 const zombieMutations = new Map(zombieRules.map((r) => [r.key, r.mutation ?? 0]));
 const zombieRuleByKey = new Map(zombieRules.map((r) => [r.key, r]));
 // Mutation bit -> Market mutant species name, so a zombie that grew its mutation in
@@ -302,6 +321,9 @@ export interface EngineOptions {
    *  the same day. Optional only so the many unit tests that drive the engine directly
    *  need not invent one — every real call site passes the account id. */
   accountId?: string;
+  /** The Almanac discovery map (presentation `almanac.discovered`), read lazily for the
+   *  Omni-Farmer gauge. Absent → no Almanac entries. */
+  almanacDiscovered?: () => unknown;
 }
 
 export interface EngineResult {
@@ -628,19 +650,29 @@ export function applyQuestEvents(
      *  Item rewards stay dormant instead of being granted into nothing. */
     inventory?: Record<string, number>;
     storage?: { received: Record<string, number>; stored: Record<string, number> };
+    /** Live gauge readings. Read lazily — only once a quest with a gauge is eligible —
+     *  because the Almanac half parses the presentation blob. Absent (raids, Epic Boss,
+     *  unit tests), gauge objectives keep their last stored reading. */
+    gauges?: () => QuestGauges;
   } = {}
 ): { questId: string; counts: number[]; completed: boolean }[] {
-  if (!events.length) return [];
+  if (!events.length && !options.gauges) return [];
   const completed = new Set(quests.completed);
   const progress = new Map(quests.progress.map((p) => [p.questId, [...p.counts]]));
   const changed = new Set<string>();
+  let gaugeReadings: QuestGauges | undefined;
 
   for (const [id, def] of Object.entries(QUEST_DEFINITIONS)) {
     if (completed.has(id) || def.seasonal || !questInSeason(id) ||
         (def.epicEvent && (!options.includeEpic || (options.epicQuestIds && !options.epicQuestIds.has(id))))) continue;
     if (def.levelRequired > levelForXp(balance.xp)) continue;
     if (def.prerequisiteQuest >= 0 && !completed.has(String(def.prerequisiteQuest))) continue;
+    const gauged = !!options.gauges && hasGauges(def);
+    // A batch with no events still re-reads the gauges (an object stored or placed
+    // moves one without any notification), but leaves every other quest untouched.
+    if (!events.length && !gauged) continue;
     const counts = progress.get(id) ?? def.requirements.map(() => 0);
+    if (gauged && applyGauges(def, counts, (gaugeReadings ??= options.gauges!()))) changed.add(id);
     for (const event of events) {
       def.requirements.forEach((req, index) => {
         if (req.notificationID !== event.type) return;
@@ -655,7 +687,7 @@ export function applyQuestEvents(
       });
     }
     progress.set(id, counts);
-    if (!def.requirements.every((req, index) => (counts[index] ?? 0) >= req.countTotal)) continue;
+    if (!requirementsMet(def, counts)) continue;
     completed.add(id);
     changed.add(id);
     // Currency and item rewards are catalog-authoritative. Zombie rewards remain
@@ -673,6 +705,10 @@ export function applyQuestEvents(
     // Paid ON TOP of whichever branch above ran. Only the Reforged achievements carry
     // one; every imported quest has it at zero.
     if (def.rewardBrains) balance.brains += def.rewardBrains;
+    // Extra items, likewise on top (Omni-Farmer's Green Flower Ticket).
+    for (const name of def.rewardItems ?? []) {
+      grantQuestItem(name, { inventory: options.inventory, received: options.storage?.received });
+    }
   }
 
   quests.completed = [...completed];
@@ -828,6 +864,11 @@ function applyOne(
       const currency = zombie?.brains ? "brains" : "gold";
       const cost = veg?.cost ?? zombie?.cost ?? 0;
       if (state.balance[currency] < cost) return reject(sequence, "insufficient");
+      // A ticket zombie (the Green Flower, Omni-Farmer's prize) is planted by spending its
+      // ticket. Checked last so a refused plant never costs one.
+      const ticket = zombie?.ticket;
+      if (ticket && (state.inventory[ticket] ?? 0) < 1) return reject(sequence, "no_ticket");
+      if (ticket) state.inventory[ticket] = (state.inventory[ticket] ?? 0) - 1;
       state.balance[currency] -= cost;
       // Roll this on the live client so the actor animation and leaf effect appear
       // immediately. It remains limited to vegetables and the existing 2x payout.
@@ -836,7 +877,12 @@ function applyOne(
         state: "planted",
         cropKey: command.cropKey,
         plantedAt: options.now,
-        growMs: zombie
+        // A no-Insta-Grow zombie takes its full grow time: no farmer or monolith speed-up
+        // either, so "a day" means a day (owner, 2026-11-11). zombieGrowMs in the client's
+        // JobSystem makes the same call.
+        growMs: zombie?.noInstaGrow
+          ? zombie.growMs
+          : zombie
           ? farmerZombieGrowMs(
               zombie.growMs * (hasMutationMonolith(state) && zombieDefaultMutation(command.cropKey) ? 0.5 : 1),
               bonusHeadOf(state)
@@ -904,6 +950,9 @@ function applyOne(
     case "power.buy": {
       const boost = boostEcon(command.key);
       if (!boost) return reject(sequence, "bad_item");
+      // A granted-only item (the Green Flower Ticket) has a zero price, so without this
+      // anyone could stock up on it for free.
+      if (boost.notForSale) return reject(sequence, "not_for_sale");
       if (level < boost.level) return reject(sequence, "locked");
       // `count` packs in one all-or-nothing step: the player can afford and stack
       // every one of them, or none is bought.
@@ -1004,7 +1053,9 @@ function applyOne(
           // small latency grace. Accept a targeted planted crop even if it has just
           // entered that grace window; otherwise a legitimate boost followed by a
           // harvest reports a misleading `no_effect` state-change rollback.
-          if (plot?.state === "planted") {
+          // A no-Insta-Grow crop (the Green Flower Zombie) refuses: `no_effect`, and the
+          // boost is not spent.
+          if (plot?.state === "planted" && !(plot.cropKey && zombieCropEcon(plot.cropKey)?.noInstaGrow)) {
             plot.plantedAt = options.now - plot.growMs;
             effects = 1;
           }
@@ -1367,6 +1418,10 @@ function applyOne(
       if (command.size === ENDLESS_EXPANSION_SIZE && !endlessPerksFor(state.endlessBestTier ?? 0).expansion) {
         return reject(sequence, "locked");
       }
+      // The 90x90 farm is for sale only once Omni-Farmer is complete (quest/omniFarmer.ts).
+      if (command.size === OMNI_FARMER_EXPANSION_SIZE && !omniFarmerUnlocked(state.quests.completed)) {
+        return reject(sequence, "locked");
+      }
       const cost = command.currency === "gold" ? tier.gold : tier.brains;
       if (state.balance[command.currency] < cost) return reject(sequence, "insufficient");
       state.balance[command.currency] -= cost;
@@ -1606,6 +1661,7 @@ export function applyCommandBatch(
     random: options.random ?? Math.random,
     id: options.id ?? (() => crypto.randomUUID()),
     accountId: options.accountId ?? "",
+    almanacDiscovered: options.almanacDiscovered ?? (() => undefined),
   };
   // Roll the daily/weekly sets over BEFORE anything is applied, so this batch counts
   // against today's quests and a claim naming yesterday's finds nothing to pay.
@@ -1654,6 +1710,8 @@ export function applyCommandBatch(
   const questChanges = applyQuestEvents(state.balance, state.quests, events, {
     inventory: state.inventory,
     storage: state.storage,
+    // Read at the END of the batch, so items placed/stored by it are what is judged.
+    gauges: () => questGaugesOf(state, required.almanacDiscovered()),
   });
   // Roll the sets forward a SECOND time, at the level this batch LEFT the player on
   // (quest rewards included). The pre-loop call ran at the level they arrived with,

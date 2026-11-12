@@ -171,7 +171,7 @@ source files that own it — is [docs/FEATURES.md](docs/FEATURES.md); what's *mi
 - **Zombies** — owned roster with per-type rigs, mutations (Zombie Pot combination with
   per-slot bitmask inheritance), veterancy, abilities, teams, a discovery Almanac, and a
   Memorial Statue for the fallen.
-- **Quests** — 123 records: 106 recovered from the original `Quests.plist` plus 17
+- **Quests** — 124 records: 106 recovered from the original `Quests.plist` plus 18
   Reforged-original achievements, on top of a generated daily/weekly objective board.
 - **Raids** — 11 invasions with live battle scenes, recovered enemy rigs and attack
   timelines, permanent casualties with a one-time revival offer, boosts, loot, and elite

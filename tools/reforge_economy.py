@@ -172,6 +172,18 @@ ENDLESS_SIZE_TIERS = [
      "gold": 4_000_000, "brains": 30, "endlessTier": 7},
 ]
 
+# The farm sizes a QUEST unlocks: still bought, but only for sale once the account has
+# completed `quest`. Priced FLAT at the Endless tier's 4M gold / 30 brains rather than
+# scaled (owner, 2026-11-11: "lets not keep the price scaling too much"). Level 44 is the
+# quest's own gate (Omni-Farmer), which completing it already proves.
+#
+# KEEP IN SYNC with OMNI_FARMER_QUEST_ID / OMNI_FARMER_EXPANSION_SIZE in
+# src/quest/omniFarmer.ts.
+QUEST_SIZE_TIERS = [
+    {"name": "Titanic 'ol Farm", "size": 90, "level": 44,
+     "gold": 4_000_000, "brains": 30, "quest": "20018"},
+]
+
 # ---- Ground skins ---------------------------------------------------------
 # Ground/climate skins Reforged ADDS beyond the six the source ships. `terrain`
 # must name a row emitted by prep_assets.slice_ground — for a derived skin, a key

@@ -4,6 +4,7 @@
 // the client's local engine (raid/endlessLocal.ts), which runs a local farm's, so the two
 // can never pay or judge a run differently.
 
+import { getsBackUp } from "../zombie/boundlessVitality";
 import {
   endlessBossDraft, ENDLESS_FIGHTS_PER_LOCATION,
   type EndlessMode, type EndlessRunState, type EndlessWavePlan,
@@ -95,11 +96,13 @@ export function endlessGoldReward(deepestFloor: number, startWave = 1): number {
 }
 
 /** The run's dead, as roster ids: everyone down in its last saved state, plus anyone the final,
- *  lost fight killed. A zombie a boon brought back (Second Wind) is alive again and is not here. */
+ *  lost fight killed. A zombie a boon brought back (Second Wind) is alive again and is not here,
+ *  and a Boundless Vitality zombie (v90) is never here: it gets back up when the run ends. */
 export function endlessLosses(run: EndlessRunState, lastFight?: ReturnType<typeof endlessSimFor>): string[] {
-  const fell = new Set(run.units.filter((unit) => !unit.alive).map((unit) => unit.id));
+  const fell = new Set(run.units.filter((unit) => !unit.alive && !getsBackUp(unit.abilities)).map((unit) => unit.id));
   for (const unit of lastFight?.units ?? []) {
-    if (unit.team === "player" && !unit.alive && run.units.some((u) => u.id === unit.id)) fell.add(unit.id);
+    if (unit.team === "player" && !unit.alive && !getsBackUp(unit.abilities) &&
+        run.units.some((u) => u.id === unit.id)) fell.add(unit.id);
   }
   return [...fell];
 }

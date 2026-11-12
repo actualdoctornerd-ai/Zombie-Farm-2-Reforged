@@ -12,16 +12,24 @@ import {
 import { MAX_FARM_PLOTS, PLOT_SIZE } from "../src/v3/engine";
 import upgrades from "../../public/assets/upgrades.json";
 import { ENDLESS_EXPANSION_SIZE } from "../../src/raid/endlessPerks";
+import { OMNI_FARMER_EXPANSION_SIZE } from "../../src/quest/omniFarmer";
 
 // P16 — server-owned farm-size (a sequential scalar) + climate skins (an owned set).
 // These pure catalog helpers are the price + validity source of truth; the db layer
 // (buySize/buyClimate) leans entirely on them, so a wrong bound here is a real exploit.
 
 describe("shopCatalog — farm size tiers", () => {
-  it("has five ascending tiers with strictly increasing size + gold price", () => {
-    expect(SIZE_TIERS.map((t) => t.size)).toEqual([40, 50, 60, 70, 80]);
+  it("has six ascending tiers with size + price never falling", () => {
+    expect(SIZE_TIERS.map((t) => t.size)).toEqual([40, 50, 60, 70, 80, 90]);
     for (let i = 1; i < SIZE_TIERS.length; i++) {
       expect(SIZE_TIERS[i].size).toBeGreaterThan(SIZE_TIERS[i - 1].size);
+      // The Omni-Farmer 90x90 is priced FLAT at the 80x80's price (owner, 2026-11-11).
+      if (SIZE_TIERS[i].size === OMNI_FARMER_EXPANSION_SIZE) {
+        expect(SIZE_TIERS[i].gold).toBe(SIZE_TIERS[i - 1].gold);
+        expect(SIZE_TIERS[i].brains).toBe(SIZE_TIERS[i - 1].brains);
+        expect(SIZE_TIERS[i].level).toBeGreaterThan(SIZE_TIERS[i - 1].level);
+        continue;
+      }
       expect(SIZE_TIERS[i].gold).toBeGreaterThan(SIZE_TIERS[i - 1].gold);
       expect(SIZE_TIERS[i].brains).toBeGreaterThan(SIZE_TIERS[i - 1].brains);
       if (SIZE_TIERS[i].size === ENDLESS_EXPANSION_SIZE) expect(SIZE_TIERS[i].level).toBe(SIZE_TIERS[i - 1].level);
@@ -37,7 +45,7 @@ describe("shopCatalog — farm size tiers", () => {
   // dearer than 70x70 without the x5, and gated by the unlock rather than a level of its own.
   it("keeps the source progression: +10 size, +10 level, x5 gold, doubling brains", () => {
     const steps: number[] = [];
-    const ladder = SIZE_TIERS.filter((t) => t.size !== ENDLESS_EXPANSION_SIZE);
+    const ladder = SIZE_TIERS.filter((t) => t.size !== ENDLESS_EXPANSION_SIZE && t.size !== OMNI_FARMER_EXPANSION_SIZE);
     for (let i = 1; i < ladder.length; i++) {
       const prev = ladder[i - 1], cur = ladder[i];
       expect(cur.size - prev.size).toBe(10);
@@ -69,7 +77,8 @@ describe("shopCatalog — farm size tiers", () => {
     expect(sizeTier(30)).toBeUndefined(); // base isn't a purchasable tier
     expect(sizeTier(45)).toBeUndefined(); // between tiers
     expect(sizeTier(80)).toMatchObject({ size: 80, gold: 4000000, brains: 30, level: 41 }); // Endless T6, 70x70's level
-    expect(sizeTier(90)).toBeUndefined(); // above max
+    expect(sizeTier(90)).toMatchObject({ size: 90, gold: 4000000, brains: 30, level: 44 }); // Omni-Farmer
+    expect(sizeTier(100)).toBeUndefined(); // above max
     expect(sizeTier(0)).toBeUndefined();
     expect(sizeTier(-40)).toBeUndefined();
     expect(sizeTier(NaN)).toBeUndefined();
@@ -81,7 +90,8 @@ describe("shopCatalog — farm size tiers", () => {
     expect(nextSize(50)).toBe(60);
     expect(nextSize(60)).toBe(70);
     expect(nextSize(70)).toBe(80);
-    expect(nextSize(80)).toBeUndefined(); // already max
+    expect(nextSize(80)).toBe(90);
+    expect(nextSize(90)).toBeUndefined(); // already max
     expect(nextSize(999)).toBeUndefined();
   });
 
@@ -103,7 +113,8 @@ describe("shopCatalog — farm size tiers", () => {
     expect(isValidSize(45)).toBe(false);
     expect(isValidSize(31)).toBe(false);
     expect(isValidSize(80)).toBe(true);
-    expect(isValidSize(90)).toBe(false);
+    expect(isValidSize(90)).toBe(true);
+    expect(isValidSize(100)).toBe(false);
     expect(isValidSize(0)).toBe(false);
   });
 });

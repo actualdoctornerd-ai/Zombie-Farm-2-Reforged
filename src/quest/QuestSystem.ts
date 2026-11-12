@@ -3,8 +3,8 @@
 // requirement dispatches the quest's reward and unlocks any quest gated behind it.
 //
 // Quests activate when their prerequisite is complete AND the player meets the level
-// gate. All 123 shipped quest records load (106 recovered from Quests.plist via quests.json,
-// plus 17 Reforged-original ones from quests_reforged.json — assets.ts merges the two into one
+// gate. All 124 shipped quest records load (106 recovered from Quests.plist via quests.json,
+// plus 18 Reforged-original ones from quests_reforged.json — assets.ts merges the two into one
 // map, ids disjoint by construction); the farm loop, raids/invasions (loot/perfect/success),
 // and the Zombie Pot combiner have live emitters (see LIVE_EVENTS below). Quests
 // gated on still-unsupported categories (social and photo/camera) simply never
@@ -12,7 +12,8 @@
 import { GameState } from "../GameState";
 import { questInSeason } from "../decorThemes";
 import { QuestBus, QuestEvent } from "./events";
-import { QuestDef, QuestView, RewardType, questBonusRewardInfo, questRewardInfo } from "./types";
+import { QuestDef, QuestView, RewardType, questBonusRewardInfo, questItemRewardsInfo, questRewardInfo, questUnlockInfo } from "./types";
+import { applyGauges, hasGauges, objectiveLines, requirementsMet, type QuestGauges } from "./questProgress";
 import { QuestSave } from "../save/schema";
 import { questSubjectMatches } from "./matching";
 
@@ -69,6 +70,9 @@ export interface QuestHooks {
   requestAuthoritativeCompletionCheck?: () => void;
   /** Push the current active-quest views to the HUD rail. */
   render: (views: QuestView[]) => void;
+  /** Live readings for gauge objectives (quest/questProgress.ts): what is on the farm
+   *  right now. Absent → gauge objectives keep their stored counts. */
+  gauges?: () => QuestGauges;
 }
 
 export class QuestSystem {
@@ -96,9 +100,52 @@ export class QuestSystem {
   ) {
     bus.subscribe((nid, object, n, aliases) => this.onEvent(nid, object, n, aliases));
     // Leveling up can satisfy a level gate, so re-check activation on state change.
+    // A state change can also move a gauge (an Almanac discovery emits one).
     this.state.onChange(() => {
-      if (this.tryActivate()) this.hooks.render(this.views());
+      const activated = this.tryActivate();
+      if (!this.refreshGauges() && activated) this.hooks.render(this.views());
     });
+  }
+
+  private liveGauges(): QuestGauges {
+    return this.hooks.gauges?.() ?? {};
+  }
+
+  /** Re-read the gauge objectives (items placed, Almanac entries) against the farm as it
+   *  stands. Call whenever what they measure may have changed; cheap when no active
+   *  quest has a gauge. Offline a gauge reading can finish a quest here. Online the
+   *  server owns completion — it reads the same gauges on its next command batch — so
+   *  this only redraws the rail and asks for that batch to be sent promptly.
+   *  Returns true if it rendered. */
+  refreshGauges(): boolean {
+    let gaugeQuest = false;
+    let changed = false;
+    let satisfied = false;
+    const finished: string[] = [];
+    const gauges = this.liveGauges();
+    for (const [id, counts] of this.active) {
+      const def = this.defs.get(id);
+      if (!def || !hasGauges(def) || this.previewCompleted.has(id)) continue;
+      if (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id))) continue;
+      gaugeQuest = true;
+      if (this.hooks.authoritative) {
+        const preview = (this.authoritativePreview.get(id) ?? counts).slice();
+        applyGauges(def, preview, gauges);
+        if (requirementsMet(def, preview)) satisfied = true;
+        changed = true; // views() re-reads the gauges; cheaper to redraw than to diff
+        continue;
+      }
+      if (applyGauges(def, counts, gauges)) changed = true;
+      if (requirementsMet(def, counts)) finished.push(id);
+    }
+    if (!gaugeQuest) return false;
+    for (const id of finished) this.complete(id);
+    if (satisfied) this.hooks.requestAuthoritativeCompletionCheck?.();
+    if (changed || finished.length) {
+      this.hooks.render(this.views());
+      return true;
+    }
+    return false;
   }
 
   /** Whether a quest is currently eligible to take an active slot. */
@@ -160,7 +207,8 @@ export class QuestSystem {
       });
       if (advanced) {
         dirty = true;
-        if (def.requirements.every((r, i) => counts[i] >= r.countTotal)) finished.push(id);
+        if (hasGauges(def)) applyGauges(def, counts, this.liveGauges());
+        if (requirementsMet(def, counts)) finished.push(id);
       }
     }
     // Complete after the loop so we don't mutate `active` mid-iteration.
@@ -210,7 +258,8 @@ export class QuestSystem {
         const def = this.defs.get(id);
         if (!def) continue;
         if (def.epicEvent && (!this.epicBossActive || !this.epicBossQuestIds.has(id))) continue;
-        if (def.requirements.every((r, i) => (counts[i] ?? 0) >= r.countTotal)) finished.push(id);
+        if (hasGauges(def)) applyGauges(def, counts, this.liveGauges());
+        if (requirementsMet(def, counts)) finished.push(id);
       }
       if (!finished.length) return closedAny;
       closedAny = true;
@@ -248,6 +297,7 @@ export class QuestSystem {
     }
     // Paid on top of whichever reward the switch handled, never instead of it.
     if (def.rewardBrains) this.state.addBrains(def.rewardBrains);
+    for (const item of def.rewardItems ?? []) this.hooks.grantItem(item.name);
   }
 
   /** True if any requirement listens to an event that currently has an emitter. */
@@ -266,9 +316,12 @@ export class QuestSystem {
       // Out of season: hidden, not dropped, so its progress is there when the holiday returns.
       if (!questInSeason(id)) continue;
       if (this.previewCompleted.has(id)) continue; // retired from the rail, pending confirmation
-      const displayCounts = this.hooks.authoritative
+      const displayCounts = (this.hooks.authoritative
         ? this.authoritativePreview.get(id) ?? counts
-        : counts;
+        : counts).slice();
+      // A gauge shows the farm as it stands now, even online where the stored count is
+      // only as fresh as the server's last batch.
+      if (hasGauges(def)) applyGauges(def, displayCounts, this.liveGauges());
       out.push({
         id,
         title: def.title,
@@ -276,12 +329,9 @@ export class QuestSystem {
         tip: def.tip,
         reward: questRewardInfo(def),
         bonus: questBonusRewardInfo(def),
-        objectives: def.requirements.map((r, i) => ({
-          text: r.text,
-          count: displayCounts[i],
-          total: r.countTotal,
-          done: displayCounts[i] >= r.countTotal,
-        })),
+        unlock: questUnlockInfo(def),
+        items: questItemRewardsInfo(def),
+        objectives: objectiveLines(def, displayCounts),
       });
     }
     // Playable first, then by id. The id ordering is also what keeps the four-slot rail
@@ -298,6 +348,11 @@ export class QuestSystem {
 
   get completedCount(): number {
     return this.completed.size;
+  }
+
+  /** Is this quest complete? Online, only once the server has confirmed it. */
+  isCompleted(id: string): boolean {
+    return this.completed.has(id);
   }
 
   /** Apply unconfirmed events to display state only. The authoritative maps and
@@ -325,7 +380,18 @@ export class QuestSystem {
       if (!advanced) continue;
       anyAdvanced = true;
       this.authoritativePreview.set(id, counts);
-      if (def.requirements.every((requirement, index) => counts[index] >= requirement.countTotal)) {
+      const judged = counts.slice();
+      if (hasGauges(def)) applyGauges(def, judged, this.liveGauges());
+      const met = requirementsMet(def, judged);
+      // A quest with a gauge is never celebrated on a local preview: the server judges
+      // the gauge from its own reading (the Almanac reaches it through the presentation
+      // save, which can trail this event), and a celebration it then refuses could not
+      // be repeated when the real completion lands. Ask for the batch, celebrate on it.
+      if (met && hasGauges(def)) {
+        anyCompleted = true;
+        continue;
+      }
+      if (met) {
         // Finished as far as this client can tell: off the rail, successor unlocked,
         // popup once. The server still owns the reward and the durable completion.
         this.previewCompleted.add(id);

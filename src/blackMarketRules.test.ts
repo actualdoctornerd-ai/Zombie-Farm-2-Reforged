@@ -72,12 +72,18 @@ describe("Black Market purchase requirements", () => {
   });
 
   it("uses the stricter requirement for a special colored zombie", () => {
-    // The Green Flower Zombie has no source, so its special gate is the floor's 20 — the
-    // Red gravestone's 15 is the looser of the two and must not win.
+    // ZomBetty has no source, so its special gate is the floor's 20 — a Red gravestone's
+    // 15 is the looser of the two and must not win.
     expect(blackMarketPurchaseLock(
-      { key: "ZombieActorGardenTier3GreenFlower", category: "special", unlockGrave: "Red" },
+      { key: "ZombieActorZomBetty", category: "special", unlockGrave: "Red" },
       19
     )).toMatchObject({ kind: "level", level: 20 });
+    // The Green Flower Zombie comes from the level-44 Omni-Farmer quest: 44 - 3 = 41, well
+    // above its Silver gravestone's 25.
+    expect(blackMarketPurchaseLock(
+      { key: "ZombieActorGardenTier3GreenFlower", category: "special", unlockGrave: "Silver" },
+      40
+    )).toMatchObject({ kind: "level", level: 41 });
     // ...and where the source is the stricter one, a Silver class does not cap it.
     expect(blackMarketPurchaseLock(
       { key: "ZombieActorRegularFinalBoss", category: "special", unlockGrave: "Silver" },

@@ -19,6 +19,13 @@ const boost = (key: string): BoostDef => ({
 });
 
 describe("Storage boost catalog", () => {
+  it("shows a never-sold boost (the Green Flower Ticket) only while one is held", () => {
+    const ticket = { ...boost("ticket"), notForSale: true };
+    expect(storageBoostRows([boost("grow"), ticket], []).map(({ def }) => def.key)).toEqual(["grow"]);
+    expect(storageBoostRows([boost("grow"), ticket], [{ key: "ticket", count: 1 }])
+      .map(({ def, count }) => [def.key, count])).toEqual([["grow", 0], ["ticket", 1]]);
+  });
+
   it("shows every boost and assigns zero to unowned entries", () => {
     const rows = storageBoostRows(
       [boost("grow"), boost("harvest"), boost("dice")],

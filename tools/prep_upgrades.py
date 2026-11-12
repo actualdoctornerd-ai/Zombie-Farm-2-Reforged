@@ -23,7 +23,7 @@ from PIL import Image
 
 import prep_assets
 from reforge_economy import (
-    ENDLESS_SIZE_TIERS, EXTRA_CLIMATES, EXTRA_SIZE_TIERS, LEVEL_CAP, brain_price,
+    ENDLESS_SIZE_TIERS, EXTRA_CLIMATES, EXTRA_SIZE_TIERS, LEVEL_CAP, QUEST_SIZE_TIERS, brain_price,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -152,6 +152,16 @@ def main():
             "gold": extra["gold"], "brains": extra["brains"],
             "info": f"{extra['size']}x{extra['size']}", "icon": farm_icon,
             "endlessTier": extra["endlessTier"],
+        })
+    # Quest unlocks go on after those, likewise off the curve.
+    for extra in QUEST_SIZE_TIERS:
+        if extra["size"] <= map_size[-1]["size"]:
+            raise ValueError(f"{extra['name']}: a quest farm size must top the ladder")
+        map_size.append({
+            "name": extra["name"], "size": extra["size"], "level": extra["level"],
+            "gold": extra["gold"], "brains": extra["brains"],
+            "info": f"{extra['size']}x{extra['size']}", "icon": farm_icon,
+            "quest": extra["quest"],
         })
 
     # --- Climate/ground skins (emitted for later; not wired into UI yet). ---

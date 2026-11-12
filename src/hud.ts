@@ -21,7 +21,8 @@ import {
 import { mutationLabelFor } from "./zombie/mutationDisplay";
 import { maskHas } from "./zombie/mutationMask";
 import { visibleMutations } from "./zombie/mutationVisibility";
-import { QuestView } from "./quest/types";
+import { QuestView, type QuestRewardInfo } from "./quest/types";
+import type { ObjectiveLine } from "./quest/questProgress";
 import type { RaidCardView, RaidPartyView, RaidResultView, RaidLaunchOpts, LootDrop } from "./raid/RaidManager";
 import type { EndlessBossLoot } from "./raid/endlessLoot";
 import { ENDLESS_UNLOCK_LEVEL, endlessMaxStartTier } from "./raid/endless";
@@ -165,6 +166,8 @@ interface MktEntry {
   lifeForce?: number;
   qty?: number; // how many units the listed price buys (boost packs)
   graveNeeded?: "Blue" | "Red" | "Silver" | "Obsidian"; // locked until this colored grave is owned
+  /** Insta-Grow can't speed it (the Green Flower Zombie): a crossed-out Insta-Grow mark. */
+  noInstaGrow?: boolean;
   ownedLimit?: boolean; // "1 per farm" limit reached (gift vouchers) — can't buy
   owned?: boolean;
   equipped?: boolean;
@@ -1069,12 +1072,7 @@ export class Hud {
       title.className = "qlog-title";
       title.innerHTML = `<span>${q.title}</span><span class="qlog-prog">${done}/${q.objectives.length}</span>`;
       body.appendChild(title);
-      for (const o of q.objectives) {
-        const row = document.createElement("div");
-        row.className = "qlog-obj" + (o.done ? " done" : "");
-        row.textContent = `${o.done ? "✓" : "◆"} ${o.text}  (${Math.min(o.count, o.total)}/${o.total})`;
-        body.appendChild(row);
-      }
+      q.objectives.forEach((o, i) => body.appendChild(this.objectiveRow(q.id, i, o, "qlog-obj")));
       if (q.reward) {
         const reward = document.createElement("div");
         reward.className = "qlog-reward";
@@ -1098,6 +1096,8 @@ export class Hud {
         }
         body.appendChild(reward);
       }
+      for (const item of q.items ?? []) body.appendChild(this.questUnlockLine(item, "qlog-reward", "Also"));
+      if (q.unlock) body.appendChild(this.questUnlockLine(q.unlock, "qlog-reward"));
       item.append(img, body);
       list.appendChild(item);
     }
@@ -1124,13 +1124,7 @@ export class Hud {
     const heading = panel.querySelector("h2");
     if (heading) heading.textContent = q.title;
     panel.querySelectorAll(".qobj, .qtip, .qreward-title, .qreward").forEach((node) => node.remove());
-    for (const o of q.objectives) {
-      const row = document.createElement("div");
-      row.className = "qobj" + (o.done ? " done" : "");
-      const mark = o.done ? "✓" : "◆";
-      row.textContent = `${mark} ${o.text}  (${Math.min(o.count, o.total)}/${o.total})`;
-      panel.appendChild(row);
-    }
+    q.objectives.forEach((o, i) => panel.appendChild(this.objectiveRow(q.id, i, o, "qobj")));
     if (q.tip) {
       const tip = document.createElement("p");
       tip.className = "qtip";
@@ -1161,7 +1155,66 @@ export class Hud {
         reward.append(bonusIcon, bonusLabel);
       }
       panel.append(heading, reward);
+      for (const item of q.items ?? []) panel.appendChild(this.questUnlockLine(item, "qreward", "Also"));
+      if (q.unlock) panel.appendChild(this.questUnlockLine(q.unlock, "qreward"));
     }
+  }
+
+  /** Objective breakdowns the player has opened, as `questId:line`. Kept across the
+   *  re-render every quest event triggers, so an open list stays open while it counts. */
+  private expandedObjectives = new Set<string>();
+
+  /** One objective line. A line with a `detail` breakdown (Omni-Farmer's "5 of every
+   *  crop") is a toggle: the 24-crop list stays out of the way until tapped. */
+  private objectiveRow(questId: string, index: number, o: ObjectiveLine, cls: string): HTMLElement {
+    const row = document.createElement("div");
+    row.className = cls + (o.done ? " done" : "");
+    const label = `${o.done ? "✓" : "◆"} ${o.text}  (${Math.min(o.count, o.total)}/${o.total})`;
+    if (!o.detail?.length) {
+      row.textContent = label;
+      return row;
+    }
+    const key = `${questId}:${index}`;
+    const open = this.expandedObjectives.has(key);
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "qobj-toggle";
+    toggle.textContent = `${label} ${open ? "▾" : "▸"}`;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.title = open ? "Hide the list" : "Show each one";
+    toggle.onclick = (event) => {
+      event.stopPropagation();
+      if (open) this.expandedObjectives.delete(key);
+      else this.expandedObjectives.add(key);
+      this.setQuests(this.questViews); // redraws the log and the detail popup alike
+    };
+    row.appendChild(toggle);
+    if (open) {
+      const list = document.createElement("div");
+      list.className = "qobj-detail";
+      for (const d of o.detail) {
+        const chip = document.createElement("span");
+        chip.className = "qobj-chip" + (d.done ? " done" : "");
+        chip.textContent = `${d.done ? "✓ " : ""}${d.text} ${Math.min(d.count, d.total)}/${d.total}`;
+        list.appendChild(chip);
+      }
+      row.appendChild(list);
+    }
+    return row;
+  }
+
+  /** An extra line under a quest's reward: "Unlocks: …" or "Also: <item>". */
+  private questUnlockLine(unlock: QuestRewardInfo, cls: string, prefix = "Unlocks"): HTMLElement {
+    const line = document.createElement("div");
+    line.className = `${cls} qunlock`;
+    const icon = document.createElement("img");
+    icon.src = UI(unlock.icon);
+    icon.alt = "";
+    icon.onerror = () => { icon.style.visibility = "hidden"; };
+    const label = document.createElement("span");
+    label.textContent = `${prefix}: ${unlock.label}`;
+    line.append(icon, label);
+    return line;
   }
 
   setPlayStatus(
@@ -1925,6 +1978,31 @@ export class Hud {
   // ---- Market Upgrade tab: Farm Size (set by main) ----
   /** The farm's current NxN dimension (drives owned/next/locked card states). */
   getMapSize: (() => number) | null = null;
+  /** The Insta-Grow icon with a red X through it: "Insta-Grow can't touch this". Shown on
+   *  a no-Insta-Grow crop's Market card, its plot-menu card and its growing-crop popup. */
+  private noInstaGrowMark(size: "card" | "popup"): HTMLSpanElement {
+    const mark = document.createElement("span");
+    mark.className = `no-insta no-insta-${size}`;
+    mark.title = "Insta-Grow can't speed this up: it takes its full grow time";
+    mark.setAttribute("aria-label", "Can't be Insta-Grown");
+    const icon = document.createElement("img");
+    icon.src = `${BASE}assets/boosts/insta_grow.png`;
+    icon.alt = "";
+    mark.appendChild(icon);
+    return mark;
+  }
+
+  /** Tickets of a boost key not yet claimed by a queued plant (main → JobSystem). A
+   *  ticket zombie (the Green Flower) is listed only while this is above zero. */
+  ticketsFree: ((ticket: string) => number) | null = null;
+  /** Zombie cards to offer right now: a ticket zombie only while a ticket is free. */
+  private plantableZombieCards(): MenuCard[] {
+    return this.zombieCards.filter((c) => !c.cfg.ticket || (this.ticketsFree?.(c.cfg.ticket) ?? 0) > 0);
+  }
+  /** Has the account completed this quest? Gates quest-unlocked farm sizes. */
+  isQuestComplete: ((questId: string) => boolean) | null = null;
+  /** A quest's display title, for "🔒 Complete <title>". */
+  questTitle: ((questId: string) => string | undefined) | null = null;
   /** Buy the farm-size expansion to `size`, paying in the given currency. Returns
    *  true if the purchase went through (charged + field grown); false if gated
    *  (level/funds/out of order). Buying either currency's card grows the farm, which
@@ -2553,9 +2631,10 @@ export class Hud {
           onPick: () => { this.setPlanting(c.cfg); bg.remove(); },
         }));
       if (tab === "Crops" && sub === "Zombies")
-        return this.zombieCards.map((c) => ({
+        return this.plantableZombieCards().map((c) => ({
           name: c.name, portrait: c.portrait, cost: c.cost, level: c.level, brains: c.brains,
           timeLabel: c.timeLabel,
+          noInstaGrow: !!c.cfg.noInstaGrow,
           graveNeeded: c.cfg.unlockGrave,
           description: c.description,
           inspect: () => openCatalogZombieCard(this, c),
@@ -2651,7 +2730,8 @@ export class Hud {
         // — how many uses the listed price buys — not how many you already own; the
         // owned count lives in Storage's Boosts tab, and appending it to the name
         // only put it under the magnifier button.
-        return this.boosts.map((b) => {
+        // A granted-only item (the Green Flower Ticket) is never for sale.
+        return this.boosts.filter((b) => !b.notForSale).map((b) => {
           // Gift vouchers are "1 per farm": lock once you own that zombie or hold
           // the voucher (main supplies the predicate; it spans both Cupid vouchers).
           const ownedLimit = b.effect === "gift" && !!this.giftLimitReached?.(b.key);
@@ -3226,6 +3306,7 @@ export class Hud {
       const t = document.createElement("div");
       t.className = "mkt-time";
       t.innerHTML = `<img src="${UI("icon_time.png")}">${en.timeLabel}`;
+      if (en.noInstaGrow) t.appendChild(this.noInstaGrowMark("card"));
       body.appendChild(t);
     }
     const cost = document.createElement("div");
@@ -3346,7 +3427,9 @@ export class Hud {
     const levelOk = this.state.level >= u.level;
     // Endless's farm size waits on its tier as well as the level (raid/endlessPerks.ts).
     const endlessOk = !u.endlessTier || accountEndlessBestTier() >= u.endlessTier;
-    const buyable = isNext && levelOk && endlessOk && funds >= price; // next tier, this currency affordable
+    // A quest's farm size waits on that quest being complete (quest/omniFarmer.ts).
+    const questOk = !u.quest || !!this.isQuestComplete?.(u.quest);
+    const buyable = isNext && levelOk && endlessOk && questOk && funds >= price; // next tier, this currency affordable
     const locked = !owned && !buyable;
 
     const card = document.createElement("div");
@@ -3373,6 +3456,8 @@ export class Hud {
       cost.textContent = "✓ Owned";
     } else if (!endlessOk) {
       cost.innerHTML = `🔒 Clear Endless Tier ${u.endlessTier}`;
+    } else if (!questOk) {
+      cost.textContent = `🔒 Complete ${this.questTitle?.(u.quest!) ?? "its quest"}`;
     } else if (!levelOk) {
       cost.innerHTML = `🔒 Lvl ${u.level}`;
     } else if (!isNext) {
@@ -3539,7 +3624,7 @@ export class Hud {
         remember("plantmenu.screen", "Zombies");
         remember("plantmenu.cat", zcat);
       }
-      renderList(this.zombieCards.filter((z) => z.category === zcat), `Zombies.${zcat}`);
+      renderList(this.plantableZombieCards().filter((z) => z.category === zcat), `Zombies.${zcat}`);
     };
 
     const screenBtns: Record<string, HTMLButtonElement> = {};
@@ -3648,6 +3733,7 @@ export class Hud {
     }
     const t = document.createElement("span");
     t.innerHTML = `<img src="${UI("icon_time.png")}">${c.timeLabel}`;
+    if (c.cfg.noInstaGrow) t.appendChild(this.noInstaGrowMark("card"));
     right.appendChild(t);
 
     const cost = document.createElement("div");
@@ -5581,7 +5667,7 @@ export class Hud {
    *  not ripen. Their own boost count would be the visitor's, and the tool must
    *  never be equipped on a farm that can't be edited. */
   openCropInfo(
-    getInfo: () => { name: string; isZombie: boolean; ripe: boolean; remainingMs: number } | null,
+    getInfo: () => { name: string; isZombie: boolean; ripe: boolean; remainingMs: number; noInstaGrow?: boolean } | null,
     opts: { readOnly?: boolean } = {}) {
     const first = getInfo();
     if (!first) return;
@@ -5606,7 +5692,22 @@ export class Hud {
     grow.className = "crop-grow";
     let growCount: HTMLSpanElement | undefined;
     let growBtn: HTMLButtonElement | undefined;
-    if (boost) {
+    // A crop Insta-Grow can't touch (the Green Flower Zombie) still shows the row, with
+    // the icon crossed out and the button disabled, so the player sees WHY there is no
+    // shortcut rather than wondering where it went.
+    const blocked = !!first.noInstaGrow;
+    if (boost && blocked) {
+      const label = document.createElement("div");
+      label.className = "crop-grow-label";
+      label.innerHTML = `<span class="nm">${boost.name}</span><br><span class="no-insta-note">Can't speed this zombie up</span>`;
+      const btn = document.createElement("button");
+      btn.className = "zbtn deploy crop-grow-btn";
+      btn.textContent = "Can't use";
+      btn.disabled = true;
+      btn.title = "Insta-Grow can't speed this up: it takes its full grow time";
+      grow.classList.add("blocked");
+      grow.append(this.noInstaGrowMark("popup"), label, btn);
+    } else if (boost) {
       const icon = document.createElement("img");
       icon.src = boost.icon;
       const label = document.createElement("div");
@@ -5668,6 +5769,7 @@ export class Hud {
 
     panel.append(kind, time);
     if (boost) panel.append(grow);
+    if (boost && blocked && first.ripe) grow.style.display = "none"; // nothing left to speed up
   }
 
   // The "Zombies" tab (right bar): the My Zombies roster + the Zombie Almanac

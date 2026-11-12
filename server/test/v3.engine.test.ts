@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { RosterUnitProjection, SequencedCommand } from "../../src/net/protocol";
 import { DR_GROUNDHOG, EPIC_BOSSES } from "../../src/epicBoss/catalog";
 import { XP_THRESHOLDS } from "../src/levels";
@@ -7,6 +7,8 @@ import { combineMasks } from "../../src/zombie/mutations";
 import { encodeReceivedZombie } from "../../src/zombie/receivedReward";
 import { EPIC_PRIZE_SELL, RAID_DROP_SELL } from "../../src/awardSellValue";
 import plantRows from "../../public/assets/plants.json";
+import zombieRows from "../../public/assets/zombies.json";
+import { OMNI_FARMER_QUEST_ID, omniAlmanacClassifier, type AlmanacClassRow } from "../../src/quest/omniFarmer";
 import { CROP_UNLOCKS, PRIZE_CROPS, type CropUnlock } from "../../src/cropUnlocks";
 import {
   applyCommandBatch,
@@ -1987,6 +1989,176 @@ describe("protocol v3 command engine", () => {
     expect(bought.results[0]).toMatchObject({ status: "applied" });
     expect(bought.state.farmSize).toBe(80);
     expect(bought.state.balance.gold).toBe(6_000_000);
+  });
+
+  it("sells the 90x90 farm only once Omni-Farmer is complete", () => {
+    const buy = (questDone: boolean) => {
+      const state = freshGameplayState();
+      state.farmSize = 80;
+      state.balance.gold = 10_000_000;
+      state.balance.xp = 99_999_999;
+      if (questDone) state.quests.completed = [OMNI_FARMER_QUEST_ID];
+      return applyCommandBatch(state, commands({ type: "shop.size", size: 90, currency: "gold" }), { now: 1 });
+    };
+    expect(buy(false).results[0]).toMatchObject({ status: "rejected", error: "locked" });
+    const bought = buy(true);
+    expect(bought.results[0]).toMatchObject({ status: "applied" });
+    expect(bought.state.farmSize).toBe(90);
+    expect(bought.state.balance.gold).toBe(6_000_000);
+  });
+
+  describe("Green Flower Ticket", () => {
+    const GREEN_FLOWER = "ZombieActorGardenTier3GreenFlower";
+    const TICKET = "green_flower_ticket";
+    const plowed = (tickets: number) => {
+      const state = freshGameplayState();
+      state.balance.xp = 193_000; // level 44
+      state.farm.plots["0:0"] = { state: "plowed" };
+      state.farm.plots["4:0"] = { state: "plowed" };
+      if (tickets) state.inventory[TICKET] = tickets;
+      return state;
+    };
+
+    it("plants a Green Flower only by spending the ticket, one per plant", () => {
+      expect(applyCommandBatch(plowed(0), commands({ type: "farm.plant", oc: 0, or: 0, cropKey: GREEN_FLOWER }), { now: 1 })
+        .results[0]).toMatchObject({ status: "rejected", error: "no_ticket" });
+      const one = applyCommandBatch(plowed(1), commands(
+        { type: "farm.plant", oc: 0, or: 0, cropKey: GREEN_FLOWER },
+        { type: "farm.plant", oc: 4, or: 0, cropKey: GREEN_FLOWER },
+      ), { now: 1 });
+      expect(one.results.map((r) => r.status)).toEqual(["applied", "rejected"]);
+      expect(one.results[1]).toMatchObject({ error: "no_ticket" });
+      expect(one.state.inventory[TICKET] ?? 0).toBe(0);
+      const plot = one.state.farm.plots["0:0"];
+      expect(plot).toMatchObject({ state: "planted", cropKey: GREEN_FLOWER });
+    });
+
+    it("takes a full day even with a grow-speed farmer head on", () => {
+      const state = plowed(1);
+      state.farmerHeads.push(13);
+      state.farmerHeadId = 13; // halves ordinary zombie grow time (see the head test above)
+      const planted = applyCommandBatch(state, commands({ type: "farm.plant", oc: 0, or: 0, cropKey: GREEN_FLOWER }), { now: 1 });
+      const plot = planted.state.farm.plots["0:0"];
+      expect(plot.state === "planted" ? plot.growMs : 0).toBe(86_400_000);
+    });
+
+    it("refuses Insta-Grow on a growing Green Flower without spending the boost", () => {
+      const state = plowed(1);
+      state.inventory.insta_grow = 3;
+      const result = applyCommandBatch(state, commands(
+        { type: "farm.plant", oc: 0, or: 0, cropKey: GREEN_FLOWER },
+        { type: "power.use", key: "insta_grow", oc: 0, or: 0 },
+      ), { now: 1 });
+      expect(result.results[1]).toMatchObject({ status: "rejected", error: "no_effect" });
+      expect(result.state.inventory.insta_grow).toBe(3);
+    });
+
+    it("is never for sale, even at its zero price", () => {
+      const result = applyCommandBatch(plowed(0), commands({ type: "power.buy", key: TICKET }), { now: 1 });
+      expect(result.results[0]).toMatchObject({ status: "rejected", error: "not_for_sale" });
+      expect(result.state.inventory[TICKET] ?? 0).toBe(0);
+    });
+
+    it("is part of the Omni-Farmer reward with the 100k gold", () => {
+      const quests = { version: 0, completed: [] as string[], progress: [{
+        questId: OMNI_FARMER_QUEST_ID,
+        counts: QUEST_DEFINITIONS[OMNI_FARMER_QUEST_ID].requirements.map((r) => r.countTotal),
+      }] };
+      const balance = { gold: 0, brains: 0, xp: 193_000 };
+      const inventory: Record<string, number> = {};
+      applyQuestEvents(balance, quests, [{ type: "kEliteInvasionSuccessfulNotification", subject: "Zombies vs Lawyers" }], { inventory });
+      expect(quests.completed).toContain(OMNI_FARMER_QUEST_ID);
+      expect(balance.gold).toBe(100_000);
+      expect(inventory[TICKET]).toBe(1);
+    });
+  });
+
+  describe("Omni-Farmer gauges and sweep", () => {
+    const def = QUEST_DEFINITIONS[OMNI_FARMER_QUEST_ID];
+    const sweepCrops = def.requirements.filter((r) => r.sweep).map((r) => r.notificationObject);
+    const placedObjects = (n: number) => Array.from({ length: n }, (_, i) => ({
+      instanceId: `o${i}`, catalogKey: `decor${i}`, status: "placed" as const,
+    }));
+    const INVASION_WIN = "kEliteInvasionSuccessfulNotification";
+    /** An L44 account whose event objectives are already satisfied: 5 of every crop,
+     *  500 Carrots, `wins` elite invasions won since the quest arrived. */
+    const readyState = (items: number, wins = 5) => {
+      const state = freshGameplayState();
+      state.balance.xp = 193_000; // level 44
+      state.objects.objects = placedObjects(items) as typeof state.objects.objects;
+      state.quests.progress = [{
+        questId: OMNI_FARMER_QUEST_ID,
+        counts: def.requirements.map((r) =>
+          r.gauge ? 0 : r.notificationID === INVASION_WIN ? wins : r.notificationObject === "Carrots" ? 500 : 5),
+      }];
+      return state;
+    };
+
+    it("needs 5 elite invasion wins, counted by the format's wildcard (any invasion)", () => {
+      const invasions = def.requirements.filter((r) => r.notificationID === INVASION_WIN);
+      expect(invasions.map((r) => [r.notificationObject, r.countTotal])).toEqual([["", 5]]);
+      const short = applyCommandBatch(readyState(50, 4), commands({ type: "writer.claim" }), {
+        now: 1, almanacDiscovered: almanac(30, 20),
+      });
+      expect(short.state.quests.completed).not.toContain(OMNI_FARMER_QUEST_ID);
+      // The fifth elite win (as /raid/finish posts it) finishes the quest.
+      const quests = structuredClone(short.state.quests);
+      const balance = { ...short.state.balance };
+      applyQuestEvents(balance, quests, [{ type: INVASION_WIN, subject: "Zombies vs Lawyers" }]);
+      expect(quests.completed).toContain(OMNI_FARMER_QUEST_ID);
+    });
+    const classOf = omniAlmanacClassifier(zombieRows as AlmanacClassRow[]);
+    /** A discovery map holding `basics` basic and `specials` special species. */
+    const almanac = (basics: number, specials: number) => () => Object.fromEntries([
+      ...(zombieRows as { key: string }[]).filter((z) => classOf(z.key) === "basic").slice(0, basics),
+      ...(zombieRows as { key: string }[]).filter((z) => classOf(z.key) === "special").slice(0, specials),
+    ].map((z) => [z.key, 1]));
+
+    it("tracks the 24 non-seasonal crops unlocked by level 44", () => {
+      expect(sweepCrops).toHaveLength(24);
+      expect(sweepCrops).toContain("Eyebiscus");
+      expect(sweepCrops).not.toContain("Heartichoke"); // level 45
+    });
+
+    it("completes on a batch with no quest events once the gauges reach their targets", () => {
+      // A plain writer.claim emits nothing — the gauges are what moves.
+      const short = applyCommandBatch(readyState(49), commands({ type: "writer.claim" }), {
+        now: 1, almanacDiscovered: almanac(30, 20),
+      });
+      expect(short.state.quests.completed).not.toContain(OMNI_FARMER_QUEST_ID);
+      expect(short.state.quests.progress.find((p) => p.questId === OMNI_FARMER_QUEST_ID)?.counts[0]).toBe(49);
+
+      const done = applyCommandBatch(readyState(50), commands({ type: "writer.claim" }), {
+        now: 1, almanacDiscovered: almanac(30, 20),
+      });
+      expect(done.state.quests.completed).toContain(OMNI_FARMER_QUEST_ID);
+      expect(done.questChanges).toContainEqual(expect.objectContaining({ questId: OMNI_FARMER_QUEST_ID, completed: true }));
+    });
+
+    it("needs 50 Almanac zombies in any mix, and never reads the Almanac for an account below 44", () => {
+      for (const [basics, specials] of [[24, 25], [30, 19]]) {
+        const short = applyCommandBatch(readyState(50), commands({ type: "writer.claim" }), {
+          now: 1, almanacDiscovered: almanac(basics, specials),
+        });
+        expect(short.state.quests.completed, `${basics}/${specials}`).not.toContain(OMNI_FARMER_QUEST_ID);
+      }
+
+      const low = readyState(50);
+      low.balance.xp = 0;
+      const read = vi.fn(almanac(30, 20));
+      applyCommandBatch(low, commands({ type: "writer.claim" }), { now: 1, almanacDiscovered: read });
+      expect(read).not.toHaveBeenCalled();
+    });
+
+    it("counts a stored item as not placed, and a copy of an item only once", () => {
+      const state = readyState(50);
+      state.objects.objects[0].status = "stored";
+      state.objects.objects.push({ instanceId: "dup", catalogKey: "decor1", status: "placed" } as typeof state.objects.objects[number]);
+      const result = applyCommandBatch(state, commands({ type: "writer.claim" }), {
+        now: 1, almanacDiscovered: almanac(30, 20),
+      });
+      expect(result.state.quests.completed).not.toContain(OMNI_FARMER_QUEST_ID);
+    });
   });
 
   it("refuses to move a Received zombie into the item shed", () => {

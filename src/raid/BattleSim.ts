@@ -30,6 +30,7 @@
 // the binary): maxHp = con*100 and cadence = attackCooldownMs (2s zombie / 1s enemy ÷ dex)
 // arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult, then the player
 // lineup-depth band (1.0/0.85/0.7/0.55; enemies ×1.0). See combatStats.lineupDamageBand.
+import { getsBackUp } from "../zombie/boundlessVitality";
 import type { BossActionChoice, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, EndlessStageMechanics, GrabberConfig, MegaBotConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { emptyRaidFeats } from "./types";
 import { ACTIVATED_ABILITY, activatedGroupsOf, teamAbilitiesIn } from "../zombie/abilities";
@@ -6750,13 +6751,20 @@ export class BattleSim {
     return this._enraged;
   }
 
-  /** Snapshot the result in the shape the reward pipeline expects. */
+  /** Snapshot the result in the shape the reward pipeline expects.
+   *
+   *  Boundless Vitality (v90) is settled HERE, after the fight is over: a zombie with it
+   *  falls and stays down for the rest of the battle like any other, then is reported as
+   *  a survivor instead of a loss. Every settlement reads this one list — invasions,
+   *  elite and dual fights, Halloween nights, Epic Boss — so it is never buried, gets its
+   *  veterancy and counts toward the win's survivor share. */
   outcome(): RaidOutcome {
+    const standsUp = (u: SimUnit) => u.alive || getsBackUp(u.abilities);
     return {
       win: this.playerWon,
       rounds: this.attacksLanded,
-      survivors: this.players.filter((u) => u.alive).map((u) => u.id),
-      losses: this.players.filter((u) => !u.alive).map((u) => u.id),
+      survivors: this.players.filter(standsUp).map((u) => u.id),
+      losses: this.players.filter((u) => !standsUp(u)).map((u) => u.id),
       // A pixel zombie broken open is a RESCUE, not a kill — it was one of yours. Counting
       // it would put a rescue in the "Enemies Beaten" line on the results panel.
       enemiesBeaten: this.enemies.filter((e) => !e.alive && !e.isTurned).length,

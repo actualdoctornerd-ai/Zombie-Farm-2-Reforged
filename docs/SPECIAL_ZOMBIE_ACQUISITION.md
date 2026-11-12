@@ -1,8 +1,9 @@
 # Special zombie acquisition
 
-The runtime catalog contains 60 zombies in the Special category. 58 have a live
-acquisition route; **Pink Cupid Zombie and Green Flower Zombie have none** (see "Market
-vouchers" below). Epic-event rewards and voucher gifts are deliberately excluded from the
+The runtime catalog contains 60 zombies in the Special category. 59 have a live
+acquisition route; **Pink Cupid Zombie has none** (see "Market vouchers" below). The Green
+Flower Zombie is planted with the Green Flower Ticket, the Omni-Farmer quest's prize (see
+"Quest ticket" below). Epic-event rewards and voucher gifts are deliberately excluded from the
 plantable zombie Market.
 
 The routes below account for all 60: 15 Epic Boss rewards, 5 plantable Market crops,
@@ -102,9 +103,10 @@ no mutation art (the mutation and its stat bonus still apply). Authored in
 
 The original Market sold these as gift boosts, but `tools/prep_boosts.py` skips every
 `gift` boost (the zombies were meant to stay on the ordinary zombie Market) and
-`public/assets/boosts.json` ships only seven consumables, none of them a voucher. So no voucher
-can be bought today. Crazy and Cupid are still plantable (above); **Pink Cupid and Green Flower
-Zombie are `marketHidden`, in no Pot, Epic, invasion or Black Market list, and have no live route.**
+`public/assets/boosts.json` ships no voucher, so no voucher can be bought today. Crazy and
+Cupid are still plantable (above); **Pink Cupid is `marketHidden`, in no Pot, Epic or invasion
+list, and has no live route.** The Green Flower Zombie has one again, through a quest ticket
+rather than its old voucher (below).
 The original table, kept for reference:
 
 | Market item | Zombie |
@@ -116,6 +118,16 @@ The original table, kept for reference:
 
 Each voucher is limited to one owned copy of its exact result. The 2012 gift uses
 the distinct pink Cupid actor, not the ordinary Cupid actor.
+
+## Quest ticket (1)
+
+Completing **Omni-Farmer** (quest 20018, level 44) grants one **Green Flower Ticket**
+(`green_flower_ticket` in boosts.json, `notForSale`: never in the Market, refused by
+`power.buy`). While a ticket is held, the Green Flower Zombie appears in the Market's zombie
+list and the plot plant menu (zombies.json `ticket`); planting it spends the ticket
+(`farm.plant`, `no_ticket` without one). It grows for a full day — Insta-Grow and grow
+speed-ups do not apply (`noInstaGrow`). It is Silver rank and carries **Boundless Vitality**
+in place of Fortitude: it gets back up after every fight and is never lost (ruleset 90).
 
 ### The Boss Zombie's colour variants
 

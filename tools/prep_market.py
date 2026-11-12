@@ -46,6 +46,13 @@ CATMAP = {"zombie": "normal", "special": "special", "mutation": "mutant"}
 # The reforged Market deliberately exposes only this small permanent set of
 # plantable named specials. Other Special-category zombies retain their quest,
 # event, voucher, or collection routes but do not appear as zombie crops.
+GREEN_FLOWER = {
+    "className": "Silver", "classColor": "#cfd4dd", "tier": 4,
+    "str": 5.5, "dex": 2.0, "con": 4.5, "focus": 70.0,
+    "cost": 0, "brainsNeeded": False, "growMs": 86400000,
+    "ticket": "green_flower_ticket", "noInstaGrow": True,
+}
+
 MARKET_SPECIALS = {
     "Bombie",
     "Crazy Zombie",
@@ -507,6 +514,15 @@ def main():
             z["level"] = 20
             z["brainsNeeded"] = True
             z["rewardOnly"] = False
+
+    # The Green Flower Zombie is the Omni-Farmer quest's prize (owner, 2026-11-11): planted
+    # only with the Green Flower Ticket (boosts.json), which is what lists it in the Market.
+    # Silver rank like the Zombee, a little less Constitution, a day to grow and Insta-Grow
+    # can't speed it. Its ability ladder is SPECIAL_ABILITIES in src/zombie/traits.ts.
+    # Applied AFTER the special normalisation above, which would otherwise reset it.
+    for z in zombies:
+        if z["key"] == "ZombieActorGardenTier3GreenFlower":
+            z.update(GREEN_FLOWER)
 
     unknown_specials = set(SPECIAL_STAT_REBALANCE) - {z["key"] for z in zombies}
     if unknown_specials:

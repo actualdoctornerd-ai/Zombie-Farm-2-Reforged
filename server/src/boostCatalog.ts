@@ -3,7 +3,7 @@
 // purchase grants. Consumable boost COUNTS are server-owned (the `inventory` table);
 // the save blob's boost list becomes an ignored cache, like currency.
 //
-// KEEP IN SYNC with boosts.json (7 boosts).
+// KEEP IN SYNC with boosts.json (8 boosts).
 //
 // The table below is GENERATED from that asset: `npm run catalogs` (server/
 // scripts/gen-catalogs.mjs) rewrites the `#region generated:` block, and
@@ -28,6 +28,9 @@ export interface BoostEcon {
   /** Voucher boosts only ("gift" effect): the roster zombie key a use redeems into.
    *  Mirrors boosts.json `giftZombieKey`; every value is a real rosterCatalog key. */
   gift?: string;
+  /** Never sold (boosts.json `notForSale`): power.buy refuses it with `not_for_sale`. It
+   *  reaches an inventory only as a grant — the Green Flower Ticket is a quest prize. */
+  notForSale?: boolean;
 }
 
 export const BOOSTS: Readonly<Record<string, BoostEcon>> = {
@@ -40,6 +43,7 @@ export const BOOSTS: Readonly<Record<string, BoostEcon>> = {
   golden_dice: { cost: 1, brains: true, perPurchase: 1, level: 0 },
   invasion_voucher: { cost: 2000, brains: false, perPurchase: 1, level: 0 },
   brain_ticket: { cost: 10000, brains: false, perPurchase: 1, level: 20 },
+  green_flower_ticket: { cost: 0, brains: false, perPurchase: 1, level: 0, notForSale: true },
   // #endregion generated:BOOSTS
 };
 
@@ -75,6 +79,7 @@ export const BOOST_BY_NAME: Readonly<Record<string, string>> = {
   "Golden Dice": "golden_dice",
   "Invasion Voucher": "invasion_voucher",
   "Brain Ticket": "brain_ticket",
+  "Green Flower Ticket": "green_flower_ticket",
   // #endregion generated:BOOST_BY_NAME
 };
 

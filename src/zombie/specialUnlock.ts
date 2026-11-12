@@ -16,6 +16,8 @@ import { EPIC_BOSSES, epicBossUnlockLevel } from "../epicBoss/catalog";
 import { EPIC_QUEST_ZOMBIE_REWARDS } from "../epicBoss/rewards";
 import { RAID_ZOMBIE_SOURCES } from "../raid/zombieDrops";
 import { COMBINE_SPECIAL_BY_GROUP, COMBINE_SPECIAL_LEVEL } from "./combineSpecies";
+import reforgedQuests from "../../public/assets/quests_reforged.json";
+import { OMNI_FARMER_PRIZE_ZOMBIE, OMNI_FARMER_QUEST_ID } from "../quest/omniFarmer";
 
 /** Player level that unlocks each invasion (raids.json `unlockLevel`, the same field
  *  RaidCatalog.isUnlocked reads). */
@@ -55,6 +57,13 @@ for (const [questId, key] of Object.entries(EPIC_QUEST_ZOMBIE_REWARDS)) {
 
 // Zombie Pot tier-5 promotions — the level at which a combine may promote at all.
 for (const key of Object.values(COMBINE_SPECIAL_BY_GROUP)) noteSource(key, COMBINE_SPECIAL_LEVEL);
+
+// The Green Flower Zombie — planted with the Omni-Farmer quest's ticket, so its source opens
+// at that quest's level (44).
+noteSource(
+  OMNI_FARMER_PRIZE_ZOMBIE,
+  (reforgedQuests as Record<string, { levelRequired: number }>)[OMNI_FARMER_QUEST_ID].levelRequired,
+);
 
 /** The player level at which `key`'s own source opens, or null when nothing in the game
  *  currently grants it (the orphaned seasonal specials, which exist only in old saves

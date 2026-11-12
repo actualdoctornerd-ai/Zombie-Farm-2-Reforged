@@ -1325,7 +1325,12 @@ import type { RaidOutcome } from "./types";
 // A flanking ninja that kills a Garden bombs back to the front (one Garden per bomb), and it
 // lands at a fifth of its damage, ramping to full over 10 s (endlessFlankDamageScale).
 // Ninja-location floors with a Garden deployed replay differently from v88.
-export const RAID_RULESET_VERSION = 89;
+// 90 (owner, 2026-11-11): Boundless Vitality, the Green Flower Zombie's slot-2 ability (in place
+// of Fortitude). A fallen zombie holding it is reported as a SURVIVOR once the fight is over
+// (BattleSim.outcome), stands back up at full Life between Endless floors (finishEndlessFight)
+// and is never buried at a run's end (endlessLosses). The fight itself is unchanged; the
+// settlement differs for any army fielding a Green Flower Zombie.
+export const RAID_RULESET_VERSION = 90;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

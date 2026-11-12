@@ -45,6 +45,16 @@
    "info": "80x80",
    "icon": "upgrade_farmsize.png",
    "endlessTier": 7
+  },
+  {
+   "name": "Titanic 'ol Farm",
+   "size": 90,
+   "level": 44,
+   "gold": 4000000,
+   "brains": 30,
+   "info": "90x90",
+   "icon": "upgrade_farmsize.png",
+   "quest": "20018"
   }
  ],
  "climate": [

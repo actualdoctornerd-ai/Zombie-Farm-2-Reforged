@@ -260,7 +260,7 @@ const GARDEN_TIER: Readonly<Record<string, number>> = {
   ZombieActorGardenTier1: 1,
   ZombieActorGardenTier2: 2,
   ZombieActorGardenTier3: 3,
-  ZombieActorGardenTier3GreenFlower: 3,
+  ZombieActorGardenTier3GreenFlower: 4, // Silver rank since 2026-11-11 (Omni-Farmer prize)
   ZombieActorGardenTier4: 4,
   ZombieActorGardenTier5: 5,
   // The Obsidian Nightshade Zombie, the tier above the Zombee: the top rate.

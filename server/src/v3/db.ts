@@ -482,7 +482,13 @@ export async function applyBatch(
   if (windowCount > 120) return { status: 429, error: "command_rate_limited", body: { retryAfterMs: Math.max(1, windowStart + 60_000 - now) } };
 
   const before = project(rows);
-  const engine = applyCommandBatch(before, body.commands, { now, accountId });
+  // The presentation row is already in hand (readAll); parse it only if the engine asks,
+  // which it does only while a quest with an Almanac gauge is open (Omni-Farmer).
+  const engine = applyCommandBatch(before, body.commands, {
+    now, accountId,
+    almanacDiscovered: () =>
+      parse<{ almanac?: { discovered?: unknown } }>(rows.presentation.current_json, {}).almanac?.discovered,
+  });
   if (engine.farmChanged) engine.state.farm.version++;
   if (engine.objectChanged) engine.state.objects.version++;
   if (engine.questChanged) engine.state.quests.version++;

@@ -66,7 +66,7 @@ REFORGED_EXTRA = [
         "name": "Brain Ticket",
         "cost": 10000,
         "brainsNeeded": False,
-        "level": 0,
+        "level": 20,
         "effect": "other",
         "amount": 0,
         "perPurchase": 1,
@@ -78,6 +78,30 @@ REFORGED_EXTRA = [
             "invasion turns ELITE, and elite invasions hit far harder."
         ),
         "icon": "brain_ticket.png",
+    },
+    # The Omni-Farmer quest's prize (owner, 2026-11-11): never sold (notForSale), granted
+    # by quest 20018. Holding one lists the Green Flower Zombie in the Market; planting it
+    # spends the ticket (server/src/v3/engine.ts farm.plant). The icon is the original
+    # game's own Flower Zombie Pot voucher art, already committed.
+    {
+        "key": "green_flower_ticket",
+        "name": "Green Flower Ticket",
+        "cost": 0,
+        "brainsNeeded": False,
+        "level": 0,
+        "effect": "other",
+        "amount": 0,
+        "perPurchase": 1,
+        "giftZombieKey": "",
+        "usableOnFarm": False,
+        "info": "Plant one Green Flower Zombie!",
+        "flavorText": (
+            "The Omni-Farmer's prize. While you hold it, the Green Flower Zombie is in the "
+            "Market: plant it to spend the ticket. It takes a full day to grow and Insta-Grow "
+            "can't hurry it, but it can never be lost in battle."
+        ),
+        "icon": "flower_zombie_pot.png",
+        "notForSale": True,
     },
 ]
 
