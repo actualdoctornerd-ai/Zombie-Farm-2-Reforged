@@ -20,7 +20,7 @@ import { countHitDamage } from "./countSlam";
 import type { CombatUnit } from "./types";
 import { mirrorIntervalSec } from "./combatStats";
 import { buildFight } from "./buildFight";
-import { ENDLESS_SMOKE_WINDUP_MS } from "./BattleSim";
+import { ENDLESS_FLANK_RAMP_MS, ENDLESS_SMOKE_WINDUP_MS, endlessFlankDamageScale } from "./BattleSim";
 import { ENDLESS_SHAPES, endlessFightConfig, endlessSimFor, endlessSourceUnit } from "./endlessFight";
 import { rollEndlessBossLoot, rollEndlessFloorLoot } from "./endlessLoot";
 import { buildEndlessStageMechanics } from "./endlessMechanics";
@@ -198,6 +198,43 @@ describe("Endless Mode plan", () => {
       }
     }
     expect(returned).toBe(true);
+  });
+
+  it("lands the flanking ninja at a fifth of its damage, ramping to full over 10 s", () => {
+    expect(endlessFlankDamageScale(0)).toBeCloseTo(0.2);
+    expect(endlessFlankDamageScale(ENDLESS_FLANK_RAMP_MS / 2)).toBeCloseTo(0.6);
+    expect(endlessFlankDamageScale(ENDLESS_FLANK_RAMP_MS * 3)).toBe(1);
+    // In a fight: every blow the ninja lands from the backline, against how long it has been there.
+    const tough = (u: CombatUnit) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7, teamAuraStats: undefined });
+    const units = buildPlayerUnits(
+      ["ZombieActorHeadlessTier4", "ZombieActorGardenTier4", "ZombieActorGardenTier4"]
+        .map((key, i) => makeOwned(`z${i}`, (zombiesJson as ZombieDef[]).find((z) => z.key === key)!, 0, 0, 0, 0)),
+      { abilitySlotUnlocked: () => true, playerLevel: 45 },
+    ).map(tough);
+    const config = endlessFightConfig({ ...beginEndlessRun("endless", units), nextWave: 4, stop: at("ninja") }, 45);
+    config.enemyUnits = config.enemyUnits.filter((u) => u.sourceKey === "NinjaStageActorGirl").slice(0, 1).map(tough);
+    const sim = endlessSimFor(config);
+    const internals = sim as unknown as {
+      chargingBubble(): { id: string } | null; popBubble(id: string): boolean;
+      dealEnemyDamage(foe: unknown, dmg: number, shared?: boolean): void;
+    };
+    const ninja = () => sim.units.find((u) => u.team === "enemy")!;
+    const hits: { flankMs: number; dmg: number }[] = [];
+    const real = internals.dealEnemyDamage.bind(sim);
+    internals.dealEnemyDamage = (foe, dmg, shared) => {
+      if (ninja().isFlanker) hits.push({ flankMs: ninja().flankMs, dmg });
+      real(foe, dmg, shared);
+    };
+    for (let t = 0; t < 90_000 && !sim.finished && !(hits.length && hits[hits.length - 1].flankMs > 15_000); t += 50) {
+      const bubble = internals.chargingBubble();
+      if (bubble) internals.popBubble(bubble.id);
+      sim.step(50);
+    }
+    const full = ninja().damage;
+    expect(hits.length).toBeGreaterThan(2);
+    expect(hits[0].dmg / full).toBeLessThan(0.35);
+    for (const h of hits) expect(h.dmg / full, `at ${h.flankMs} ms`).toBeCloseTo(endlessFlankDamageScale(h.flankMs), 1);
+    expect(hits[hits.length - 1].dmg / full).toBeCloseTo(1, 2);
   });
 
   it("beams the walk-in down mid-field, where it must be beaten to clear the floor", () => {

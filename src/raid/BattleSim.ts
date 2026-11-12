@@ -511,6 +511,14 @@ const ENDLESS_SMOKE_RETRY_MS = 1_000;
 /** How long a ninja visibly gathers its smoke before it vanishes (owner, 2026-11-11). It keeps
  *  fighting at the front meanwhile, so killing it in that window stops the bomb. */
 export const ENDLESS_SMOKE_WINDUP_MS = 4_000;
+/** A ninja that has just landed in the backline hits at a fifth of its damage, ramping up to
+ *  full over ENDLESS_FLANK_RAMP_MS (owner, 2026-11-11), so the army has time to turn on it. */
+export const ENDLESS_FLANK_START_DAMAGE = 0.2;
+export const ENDLESS_FLANK_RAMP_MS = 10_000;
+/** The flanking ninja's damage share after `flankMs` in the backline. */
+export function endlessFlankDamageScale(flankMs: number): number {
+  return ENDLESS_FLANK_START_DAMAGE + (1 - ENDLESS_FLANK_START_DAMAGE) * Math.min(1, Math.max(0, flankMs) / ENDLESS_FLANK_RAMP_MS);
+}
 /** An abductee STANDS where it lands. It never walks, chases or repositions — it holds
  *  dead centre and swings at whatever comes into reach.
  *
@@ -726,6 +734,8 @@ export interface SimUnit {
   isFlanker: boolean;
   /** Ms left on a ninja's smoke-bomb wind-up (0: none). RaidScene draws the gathering smoke. */
   smokeWindupMs: number;
+  /** Ms this ninja has spent in the backline since its smoke bomb landed (drives the ramp). */
+  flankMs: number;
   /** A stationary mid-lane ROADBLOCK: something that bars a zombie which has not already
    *  walked past it (see wallInWay). True for a boss wall and for an abductee, false for
    *  everything else — including the converted pixel zombie, which is off-budget like an
@@ -1182,6 +1192,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     isSummon: false,
     isFlanker: false,
     smokeWindupMs: 0,
+    flankMs: 0,
     isBlocker: false,
     stationX: u.stationX ?? null,
     stationY: u.stationY ?? null,
@@ -1723,6 +1734,7 @@ export class BattleSim {
       isTurned: u.isTurned ?? false,
       isFlanker: u.isFlanker ?? false,
       smokeWindupMs: u.smokeWindupMs ?? 0,
+      flankMs: u.flankMs ?? 0,
       turnedFromId: u.turnedFromId ?? null,
       burnMs: u.burnMs ?? 0,
       burnDir: u.burnDir ?? 1,
@@ -3620,7 +3632,9 @@ export class BattleSim {
       // A PvP defender's own damage abilities. Raid enemies carry none, so `mult` is exactly
       // 1 and the swing is untouched for every raid.
       const mult = this.outgoingMult(u);
-      this.dealEnemyDamage(foe, mult === 1 ? dmg : Math.max(1, Math.round(dmg * mult)));
+      // A flanking ninja starts soft and ramps to full (endlessFlankDamageScale).
+      const flank = u.isFlanker ? endlessFlankDamageScale(u.flankMs) : 1;
+      this.dealEnemyDamage(foe, mult === 1 && flank === 1 ? dmg : Math.max(1, Math.round(dmg * mult * flank)));
       if (u.abilities.length) this.defenderSwingProcs(u, foe);
       // One Garden per smoke bomb (owner, 2026-11-11): the flanking ninja that drops a Garden
       // bombs straight back to the front, so a bomb costs at most one healer and a revive can
@@ -5665,6 +5679,7 @@ export class BattleSim {
   /** Count wind-ups down. A ninja that falls, or leaves the front, loses its bomb. */
   private stepSmokeWindups(dtMs: number) {
     for (const e of this.enemies) {
+      if (e.isFlanker && e.alive) e.flankMs += dtMs;
       if (e.smokeWindupMs <= 0) continue;
       if (!this.smokeBomberReady(e)) { e.smokeWindupMs = 0; continue; }
       e.smokeWindupMs = Math.max(0, e.smokeWindupMs - dtMs);
@@ -5675,6 +5690,7 @@ export class BattleSim {
   /** The flanking ninja smokes back to its place at the front after killing a Garden. */
   private endlessNinjaReturn(unit: SimUnit) {
     unit.isFlanker = false;
+    unit.flankMs = 0;
     unit.state = "hold";
     unit.x = this.holdXOf(unit);
     unit.y = CENTER_Y;
@@ -5695,6 +5711,7 @@ export class BattleSim {
     const target = this.backlineTarget();
     if (!target?.isGarden) return false;
     unit.isFlanker = true;
+    unit.flankMs = 0;
     unit.state = "fight";
     unit.x = Math.max(35, target?.x ?? 130);
     unit.y = target?.y ?? CENTER_Y;

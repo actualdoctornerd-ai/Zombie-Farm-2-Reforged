@@ -155,7 +155,9 @@ the front, the bomb waits until one is.
 **Wind-up and one Garden per bomb (owner, 2026-11-11).** The ninja gathers smoke for 4 seconds
 at the front first, still fighting, greying out as the smoke thickens (`ENDLESS_SMOKE_WINDUP_MS`);
 killing it in that window stops the bomb. A ninja that kills a Garden bombs straight back to its
-place at the front, so one bomb costs at most one healer and a revive can undo it. Measured with
+place at the front, so one bomb costs at most one healer and a revive can undo it. In the
+backline it hits at a fifth of its damage at first, ramping to full over 10 seconds
+(`endlessFlankDamageScale`), so the army has time to turn on it. Measured with
 `vitest.smokeprobe.config.ts` (prod armies with Gardens, Ninja floors 1-2, tiers 2-8, expert
 pilot): extra Garden deaths fell by about two thirds at L30, L40 and L45. At T8 floor 1 an L30
 army lost 3.3 Gardens a fight to the bomb before, 0.8 after.
