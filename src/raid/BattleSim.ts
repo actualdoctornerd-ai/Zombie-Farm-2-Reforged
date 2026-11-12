@@ -508,6 +508,9 @@ const SUMMON_SPAWN_X = 448;
  *  none of them is at the front. */
 const ENDLESS_SMOKE_BOMBERS: ReadonlySet<string> = new Set(["NinjaStageActorGirl", "NinjaStageActorBoy"]);
 const ENDLESS_SMOKE_RETRY_MS = 1_000;
+/** How long a ninja visibly gathers its smoke before it vanishes (owner, 2026-11-11). It keeps
+ *  fighting at the front meanwhile, so killing it in that window stops the bomb. */
+export const ENDLESS_SMOKE_WINDUP_MS = 4_000;
 /** An abductee STANDS where it lands. It never walks, chases or repositions — it holds
  *  dead centre and swings at whatever comes into reach.
  *
@@ -721,6 +724,8 @@ export interface SimUnit {
   isSummon: boolean;
   /** Enemy moved to the garden line by Endless Ninja smoke-bomb teleports. */
   isFlanker: boolean;
+  /** Ms left on a ninja's smoke-bomb wind-up (0: none). RaidScene draws the gathering smoke. */
+  smokeWindupMs: number;
   /** A stationary mid-lane ROADBLOCK: something that bars a zombie which has not already
    *  walked past it (see wallInWay). True for a boss wall and for an abductee, false for
    *  everything else — including the converted pixel zombie, which is off-budget like an
@@ -1176,6 +1181,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     isWall: false,
     isSummon: false,
     isFlanker: false,
+    smokeWindupMs: 0,
     isBlocker: false,
     stationX: u.stationX ?? null,
     stationY: u.stationY ?? null,
@@ -1716,6 +1722,7 @@ export class BattleSim {
       // exactly what such a snapshot described.
       isTurned: u.isTurned ?? false,
       isFlanker: u.isFlanker ?? false,
+      smokeWindupMs: u.smokeWindupMs ?? 0,
       turnedFromId: u.turnedFromId ?? null,
       burnMs: u.burnMs ?? 0,
       burnDir: u.burnDir ?? 1,
@@ -3615,6 +3622,10 @@ export class BattleSim {
       const mult = this.outgoingMult(u);
       this.dealEnemyDamage(foe, mult === 1 ? dmg : Math.max(1, Math.round(dmg * mult)));
       if (u.abilities.length) this.defenderSwingProcs(u, foe);
+      // One Garden per smoke bomb (owner, 2026-11-11): the flanking ninja that drops a Garden
+      // bombs straight back to the front, so a bomb costs at most one healer and a revive can
+      // undo it rather than the ninja working down the whole backline.
+      if (u.isFlanker && foe.isGarden && !foe.alive) this.endlessNinjaReturn(u);
     } else {
       this.dealDamage(foe, dmg, true);
       this.playerDamage += dmg;
@@ -5582,6 +5593,7 @@ export class BattleSim {
   private stepEndlessMechanics(dtMs: number) {
     const mechanics = this.endlessMechanics;
     if (!mechanics || !this.anyAlive(this.players)) return;
+    this.stepSmokeWindups(dtMs);
     for (const [key, cooldown] of Object.entries(mechanics.cooldownsMs)) {
       const remaining = (this.endlessMechanicTimers[key] ?? cooldown) - dtMs;
       if (remaining > 0) {
@@ -5593,7 +5605,7 @@ export class BattleSim {
       this.actionCount++;
       if (key === "smoke-bomb-teleport") {
         // No ninja at the front yet: try again shortly, so the bomb goes off once one is.
-        if (!this.endlessNinjaFlank()) this.endlessMechanicTimers[key] = ENDLESS_SMOKE_RETRY_MS;
+        if (!this.endlessNinjaWindup()) this.endlessMechanicTimers[key] = ENDLESS_SMOKE_RETRY_MS;
       } else if (key === "laser") {
         this.runSpecial({ name: "alienLaser", weight: 1, castMs: 0, damage: ALIEN_LASER_DAMAGE, cooldownMs: 0 });
       } else if (key === "summons") {
@@ -5633,15 +5645,53 @@ export class BattleSim {
     }
   }
 
+  /** A ninja able to throw the smoke bomb: fighting at the front, not already flanking. */
+  private smokeBomberReady(e: SimUnit): boolean {
+    return e.alive && !e.isBoss && !e.isSummon && !e.isWall && !e.isFlanker && !e.isTurned &&
+      (e.state === "hold" || e.state === "fight") && ENDLESS_SMOKE_BOMBERS.has(e.sourceKey);
+  }
+
+  /** The bomb's wind-up (owner, 2026-11-11: "a larger wind up"): the ninja at the front gathers
+   *  smoke for ENDLESS_SMOKE_WINDUP_MS, still fighting, then vanishes. False when no ninja is at
+   *  the front or no Garden is out (the bomb is for the healers, owner 2026-11-10). */
+  private endlessNinjaWindup(): boolean {
+    if (this.enemies.some((e) => e.alive && e.smokeWindupMs > 0)) return true;
+    const unit = this.enemies.find((e) => this.smokeBomberReady(e));
+    if (!unit || !this.backlineTarget()?.isGarden) return false;
+    unit.smokeWindupMs = ENDLESS_SMOKE_WINDUP_MS;
+    return true;
+  }
+
+  /** Count wind-ups down. A ninja that falls, or leaves the front, loses its bomb. */
+  private stepSmokeWindups(dtMs: number) {
+    for (const e of this.enemies) {
+      if (e.smokeWindupMs <= 0) continue;
+      if (!this.smokeBomberReady(e)) { e.smokeWindupMs = 0; continue; }
+      e.smokeWindupMs = Math.max(0, e.smokeWindupMs - dtMs);
+      if (e.smokeWindupMs === 0) this.endlessNinjaFlank(e);
+    }
+  }
+
+  /** The flanking ninja smokes back to its place at the front after killing a Garden. */
+  private endlessNinjaReturn(unit: SimUnit) {
+    unit.isFlanker = false;
+    unit.state = "hold";
+    unit.x = this.holdXOf(unit);
+    unit.y = CENTER_Y;
+    unit.prevX = unit.x;
+    unit.prevY = unit.y;
+    unit.vx = 0;
+    unit.vy = 0;
+    unit.timerMs = this.cycleMs(unit, null);
+    this.smokeSeq++;
+  }
+
   /** A Ninja smoke bomb (owner, 2026-11-10): the ninja fighting at the front vanishes in smoke
    *  and reappears in the formation's Garden line. Its slot at the front stays empty while it
    *  lives (it still counts as the one enemy out), so the zombies that turn back to deal with
-   *  it are not hit from the front meanwhile. False when no ninja is at the front. */
-  private endlessNinjaFlank(): boolean {
-    const unit = this.enemies.find((e) => e.alive && !e.isBoss && !e.isSummon && !e.isWall && !e.isFlanker &&
-      !e.isTurned && (e.state === "hold" || e.state === "fight") && ENDLESS_SMOKE_BOMBERS.has(e.sourceKey));
-    if (!unit) return false;
-    // The bomb is for the healers (owner, 2026-11-10): with no Garden out, it waits.
+   *  it are not hit from the front meanwhile. False when the Gardens left the field during the
+   *  wind-up (the bomb fizzles). */
+  private endlessNinjaFlank(unit: SimUnit): boolean {
     const target = this.backlineTarget();
     if (!target?.isGarden) return false;
     unit.isFlanker = true;

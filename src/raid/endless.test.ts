@@ -20,6 +20,7 @@ import { countHitDamage } from "./countSlam";
 import type { CombatUnit } from "./types";
 import { mirrorIntervalSec } from "./combatStats";
 import { buildFight } from "./buildFight";
+import { ENDLESS_SMOKE_WINDUP_MS } from "./BattleSim";
 import { ENDLESS_SHAPES, endlessFightConfig, endlessSimFor, endlessSourceUnit } from "./endlessFight";
 import { rollEndlessBossLoot, rollEndlessFloorLoot } from "./endlessLoot";
 import { buildEndlessStageMechanics } from "./endlessMechanics";
@@ -131,6 +132,72 @@ describe("Endless Mode plan", () => {
     const withGardens = fly(army(["ZombieActorHeadlessTier4", "ZombieActorGardenTier4", "ZombieActorGardenTier4"]));
     expect(withGardens.smokes).toBeGreaterThan(0);
     expect(withGardens.gardenFought).toBe(true);
+  });
+
+  it("winds the smoke bomb up for 4 s at the front, and a ninja killed meanwhile never throws it", () => {
+    const tough = (u: CombatUnit) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7, teamAuraStats: undefined });
+    const units = buildPlayerUnits(
+      ["ZombieActorHeadlessTier4", "ZombieActorGardenTier4", "ZombieActorGardenTier4"]
+        .map((key, i) => makeOwned(`z${i}`, (zombiesJson as ZombieDef[]).find((z) => z.key === key)!, 0, 0, 0, 0)),
+      { abilitySlotUnlocked: () => true, playerLevel: 45 },
+    ).map(tough);
+    const fly = (killDuringWindup: boolean) => {
+      const config = endlessFightConfig({ ...beginEndlessRun("endless", units), nextWave: 4, stop: at("ninja") }, 45);
+      config.enemyUnits = config.enemyUnits.filter((u) => u.sourceKey === "NinjaStageActorGirl").slice(0, 1).map(tough);
+      const sim = endlessSimFor(config);
+      const internals = sim as unknown as { smokeSeq: number; chargingBubble(): { id: string } | null; popBubble(id: string): boolean };
+      let windupStart = -1;
+      let windupMs = 0;
+      for (let t = 0; t < 60_000 && !sim.finished && internals.smokeSeq === 0; t += 50) {
+        const bubble = internals.chargingBubble();
+        if (bubble) internals.popBubble(bubble.id);
+        sim.step(50);
+        const ninja = sim.units.find((u) => u.team === "enemy")!;
+        if (ninja.smokeWindupMs > 0) {
+          if (windupStart < 0) windupStart = t;
+          windupMs = t + 50 - windupStart;
+          expect(ninja.isFlanker, "still at the front while it winds up").toBe(false);
+          if (killDuringWindup) { ninja.hp = 1; (sim as unknown as { dealDamage(u: unknown, d: number, f: boolean): void }).dealDamage(ninja, 10, true); }
+        }
+      }
+      return { smokes: internals.smokeSeq, windupStart, windupMs };
+    };
+    const thrown = fly(false);
+    expect(thrown.windupStart).toBeGreaterThanOrEqual(0);
+    expect(thrown.smokes).toBe(1);
+    expect(thrown.windupMs).toBeGreaterThanOrEqual(ENDLESS_SMOKE_WINDUP_MS - 50);
+    const killed = fly(true);
+    expect(killed.windupStart).toBeGreaterThanOrEqual(0);
+    expect(killed.smokes, "a dead ninja throws nothing").toBe(0);
+  });
+
+  it("kills at most one Garden per smoke bomb, then bombs back to the front", () => {
+    const tough = (u: CombatUnit) => ({ ...u, maxHp: 1e9, hp: 1e9, con: 1e7, teamAuraStats: undefined });
+    const units = buildPlayerUnits(
+      ["ZombieActorHeadlessTier4", "ZombieActorGardenTier4", "ZombieActorGardenTier4"]
+        .map((key, i) => makeOwned(`z${i}`, (zombiesJson as ZombieDef[]).find((z) => z.key === key)!, 0, 0, 0, 0)),
+      { abilitySlotUnlocked: () => true, playerLevel: 45 },
+    ).map((u) => u.isGarden ? { ...u, maxHp: 50, hp: 50, teamAuraStats: undefined } : tough(u));
+    const config = endlessFightConfig({ ...beginEndlessRun("endless", units), nextWave: 4, stop: at("ninja") }, 45);
+    config.enemyUnits = config.enemyUnits.filter((u) => u.sourceKey === "NinjaStageActorGirl").slice(0, 1).map(tough);
+    const sim = endlessSimFor(config);
+    const internals = sim as unknown as { smokeSeq: number; chargingBubble(): { id: string } | null; popBubble(id: string): boolean };
+    const gardensDown = () => sim.units.filter((u) => u.team === "player" && u.isGarden && !u.alive).length;
+    let returned = false;
+    for (let t = 0; t < 90_000 && !sim.finished && !returned; t += 50) {
+      const bubble = internals.chargingBubble();
+      if (bubble) internals.popBubble(bubble.id);
+      const wasFlanking = sim.units.some((u) => u.team === "enemy" && u.isFlanker);
+      sim.step(50);
+      const ninja = sim.units.find((u) => u.team === "enemy")!;
+      if (wasFlanking && !ninja.isFlanker) {
+        returned = true;
+        expect(gardensDown(), "exactly one Garden fell to the bomb").toBe(1);
+        expect(ninja.x, "back at the front").toBeGreaterThan(800);
+        expect(internals.smokeSeq, "a bomb out and a bomb back").toBe(2);
+      }
+    }
+    expect(returned).toBe(true);
   });
 
   it("beams the walk-in down mid-field, where it must be beaten to clear the floor", () => {

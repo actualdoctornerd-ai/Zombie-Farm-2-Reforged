@@ -16,7 +16,7 @@ import { GameAssets, raidImage, zombiePortrait } from "../assets";
 import { isEpicBossKey } from "../epicBoss/combat";
 import { noteAssetFailure } from "../assetFailures";
 import { buildFight } from "./buildFight";
-import { ALIEN_LASER_SPRITE, BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, CHARGE_X, ENEMY_HOLD_X, ENEMY_SPAWN_X, EPIC_BOSS_LAND_MS, FIELD_H, FIELD_W, laserInterval, SimUnit, TELEPORT_PX, THROW_WINDUP_MS } from "./BattleSim";
+import { ALIEN_LASER_SPRITE, BattleSim, BOSS_STRUCT_X, BOSS_STRUCT_Y, CHARGE_X, ENDLESS_SMOKE_WINDUP_MS, ENEMY_HOLD_X, ENEMY_SPAWN_X, EPIC_BOSS_LAND_MS, FIELD_H, FIELD_W, laserInterval, SimUnit, TELEPORT_PX, THROW_WINDUP_MS } from "./BattleSim";
 import { RaidActor } from "./RaidActor";
 import {
   EnemyActor, enemyProceduralPoseIsSourceRotated, type EnemyAttackPose,
@@ -249,6 +249,14 @@ const CHARGE_SWELL = 0.22;
 const CHARGE_SWELL_BY_KEY: Record<string, number> = { [COUNT_KEY]: 0.1 };
 /** White → deep red as a charge fills. Matches hitFlashTint's shape so the two washes read
  *  as the same language: this one just does not fade, it ARRIVES. */
+/** An Endless ninja gathering its smoke bomb greys out toward a dark smoke colour. */
+function smokeTint(frac: number): number {
+  const k = Math.max(0, Math.min(1, frac));
+  const c = Math.round(255 * (1 - 0.6 * k));
+  return (c << 16) | (c << 8) | Math.min(255, c + 12);
+}
+/** One big smoke cloud: several overlapping bursts, so a teleport reads at a glance. */
+const SMOKE_CLOUD_PUFFS = 6;
 function chargeTint(frac: number): number {
   const k = Math.max(0, Math.min(1, frac));
   const g = Math.round(255 * (1 - 0.72 * k));
@@ -718,6 +726,9 @@ interface Token {
    *  than being left inflated by whichever frame last saw it. */
   chargeSwell: number;
   stoned?: boolean;
+  /** Endless smoke-bomb wind-up: seconds to the next wisp, and whether the tint is applied. */
+  smokeWispS?: number;
+  smokeTinted?: boolean;
   deathAnim: number; // seconds since death (-1 while alive); drives the fade+poof
   emerged: boolean; // has this token appeared on-field yet (for the spawn puff)
   // Smash grow/slam (bash family). smashSlam counts down the post-release slam (-1 =
@@ -984,6 +995,10 @@ export class RaidScene {
   private bubbleKey = "";
   /** The last smoke bomb drawn (raid 13's captain entrance and smoke swaps). */
   private smokeSeen = 0;
+  /** Where each winding-up Endless ninja was last drawn, so its vanishing cloud goes there. */
+  private smokeFrom = new Map<string, { x: number; y: number }>();
+  /** Where each flanking Endless ninja was last drawn, for the cloud when it bombs back. */
+  private flankAt = new Map<string, { x: number; y: number }>();
   /** The giant McDonnell bot as raid 15's t5 signal (null below it and on every other raid). */
   private bubbleBotView: { root: Container; head: Sprite; body: Sprite } | null = null;
   private pFace = new Container(); // generic zombie face badge, left of the player bar
@@ -2888,6 +2903,28 @@ export class RaidScene {
             : NO_TINT;
           tok.root.scale.set(szs * (1 + (CHARGE_SWELL_BY_KEY[u.sourceKey] ?? CHARGE_SWELL) * tok.chargeSwell));
         }
+        // THE SMOKE BOMB WIND-UP (Endless ninjas): smoke gathers round the ninja and it greys
+        // out, thicker and faster as the bomb nears, so the player sees it coming for the
+        // whole 4 s. The tint and the wisp rate ARE the timer.
+        if (u.alive && u.smokeWindupMs > 0) {
+          const frac = 1 - u.smokeWindupMs / ENDLESS_SMOKE_WINDUP_MS;
+          tok.enemyActor.container.tint = smokeTint(frac);
+          tok.smokeTinted = true;
+          tok.smokeWispS = (tok.smokeWispS ?? 0) - dtSec;
+          if (tok.smokeWispS <= 0 && this.smokeCfg) {
+            tok.smokeWispS = 0.3 - 0.2 * frac;
+            this.particles.burst(this.smokeCfg, sx + (Math.random() - 0.5) * 40 * szs,
+              sy + tok.topY * (0.15 + Math.random() * 0.7) * szs, 0.25 + 0.5 * frac);
+          }
+          this.smokeFrom.set(u.id, { x: sx, y: sy + tok.topY * 0.5 * szs });
+        } else if (tok.smokeTinted) {
+          tok.smokeTinted = false;
+          tok.smokeWispS = 0;
+          tok.enemyActor.container.tint = NO_TINT;
+          if (!u.isFlanker) this.smokeFrom.delete(u.id);
+        }
+        // Remember where a flanking ninja stands, for the cloud when it bombs back.
+        if (u.alive && u.isFlanker) this.flankAt.set(u.id, { x: sx, y: sy + tok.topY * 0.5 * szs });
         // The Ringmaster's direct hop travels slightly right from the circus car.
         // Using that delta as his facing mirrors the asymmetric rig, leaving his
         // body to the zombies' left and his long whip over the combat origin.
@@ -3309,10 +3346,37 @@ export class RaidScene {
     if (this.sim.smokeSeq !== this.smokeSeen) {
       this.smokeSeen = this.sim.smokeSeq;
       if (this.smokeCfg) {
+        const cloud = (at: { x: number; y: number }) => {
+          const szs = this.sizeScale();
+          for (let i = 0; i < SMOKE_CLOUD_PUFFS; i++) {
+            const a = (i / SMOKE_CLOUD_PUFFS) * Math.PI * 2;
+            this.particles.burst(this.smokeCfg!, at.x + Math.cos(a) * 26 * szs, at.y + Math.sin(a) * 14 * szs, 1.1);
+          }
+        };
         for (const u of this.sim.units) {
+          // A ninja that just bombed BACK to the front (it killed a Garden): a cloud where it
+          // stood in the backline and one where it reappears.
+          const back = !u.isFlanker ? this.flankAt.get(u.id) : undefined;
+          if (back) {
+            this.flankAt.delete(u.id);
+            if (u.alive) {
+              cloud(back);
+              cloud({ x: this.mapX(u.x), y: this.mapY(u.y) - 30 * this.sizeScale() });
+            }
+            continue;
+          }
           if (!u.alive || (!u.chargeCfg && !u.isFlanker && !(u.isBoss && u.team === "enemy"))) continue;
           const tok = this.tokens.get(u.id);
-          if (tok) this.particles.burst(this.smokeCfg, tok.root.x, tok.root.y - 30, 2);
+          if (!tok) continue;
+          const from = u.isFlanker ? this.smokeFrom.get(u.id) : undefined;
+          if (!from) {
+            this.particles.burst(this.smokeCfg, tok.root.x, tok.root.y - 30, 2);
+            continue;
+          }
+          // An Endless ninja's bomb: a full cloud where it vanished AND where it lands.
+          this.smokeFrom.delete(u.id);
+          cloud(from);
+          cloud({ x: this.mapX(u.x), y: this.mapY(u.y) - 30 * this.sizeScale() });
         }
       }
     }

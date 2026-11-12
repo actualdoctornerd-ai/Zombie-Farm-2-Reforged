@@ -152,6 +152,14 @@ reappears on the rearmost Garden zombie. Its front slot stays empty while it liv
 zombies that turn back to deal with it are not hit from the front meanwhile. If no ninja is at
 the front, the bomb waits until one is.
 
+**Wind-up and one Garden per bomb (owner, 2026-11-11).** The ninja gathers smoke for 4 seconds
+at the front first, still fighting, greying out as the smoke thickens (`ENDLESS_SMOKE_WINDUP_MS`);
+killing it in that window stops the bomb. A ninja that kills a Garden bombs straight back to its
+place at the front, so one bomb costs at most one healer and a revive can undo it. Measured with
+`vitest.smokeprobe.config.ts` (prod armies with Gardens, Ninja floors 1-2, tiers 2-8, expert
+pilot): extra Garden deaths fell by about two thirds at L30, L40 and L45. At T8 floor 1 an L30
+army lost 3.3 Gardens a fight to the bomb before, 0.8 after.
+
 Enemies come out one at a time on every floor except Alien, which is built around its swarm
 (owner, 2026-11-07). Difficulty comes from each enemy's stats instead, scaled as described under
 "How enemies are scaled". The perched boss's slam is 6 seconds of his damage on the front

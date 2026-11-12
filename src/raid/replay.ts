@@ -1320,7 +1320,11 @@ import type { RaidOutcome } from "./types";
 // so it served the whole stun on deploy), and its "aoe" no longer hits a Mini riding a queued
 // Large. Melee targeting, knockback and launch also refuse a queued zombie (no reachable case
 // today). Raid 15 fights at bubble tiers replay differently from v87.
-export const RAID_RULESET_VERSION = 88;
+// 89 (owner, 2026-11-11), Endless only: the Ninja smoke bomb winds up for 4 s at the front
+// (ENDLESS_SMOKE_WINDUP_MS) before the ninja vanishes; killing it in that window stops the bomb.
+// A flanking ninja that kills a Garden bombs back to the front (one Garden per bomb).
+// Ninja-location floors with a Garden deployed replay differently from v88.
+export const RAID_RULESET_VERSION = 89;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */
