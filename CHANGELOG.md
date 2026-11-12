@@ -2,6 +2,9 @@
 
 ## Unreleased (working tree)
 
+### The Video Games ghost hits softer (ruleset 91)
+- **The ghost in Zombies vs Video Games now hits for 12 strength, down from 15.** Today's Protect change (each carrier blocks 10% of what still gets through, instead of a flat 20%) let the ghost, the fastest attacker in the wave, hit through a Protect line much harder: a player who had cleared elite Video Games about 45 times without a loss lost three Protect zombies on the first run after it. Their army, rebuilt and replayed, clears without losses again at 12, the smallest cut that does it. The ghost is softer everywhere it appears: the ordinary and elite Video Games invasion, Circus & Video Games, and Endless floors. **Deploy the Worker before the client.**
+
 ### Omni-Farmer, the 90x90 farm and the Green Flower Zombie (ruleset 90)
 - **Omni-Farmer**, a level-44 quest: have 50 different items placed at once, harvest 5 of each of the 24 crops unlocked by level 44 (tap the line for the per-crop list) and 500 of any one crop, win 5 elite invasions, and fill 50 Almanac zombies (basic gravestone zombies plus Epic, invasion and Market specials). Crops and wins count from the moment the quest appears. It pays 100,000 gold and a Green Flower Ticket, and opens the **90x90 Titanic 'ol Farm** in the Market at 4,000,000 gold or 30 brains (after the 80x80).
 - **The Green Flower Ticket** is never sold. While you hold one, the Green Flower Zombie is in the Market and the plot menu; planting it spends the ticket.

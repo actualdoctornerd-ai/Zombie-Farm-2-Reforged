@@ -291,9 +291,18 @@ ATTACK_OVERRIDES = {
 #   because `attackName` is the FIRST entry and the lunge timing is the most frequent
 #   one, so a split would have changed what he looks and sounds like to fix how often he
 #   shoves. CombatEngine prefers an authored share over the derived one.
+# The Video Games ghost, 15 -> 12 str (owner, 2026-11-11, ruleset 91). It attacks half as
+# often again as the knight and monster (dex 3 vs 2), so it is the wave's damage, and the
+# ruleset-85 Protect change (diminishing returns) left it hitting through a Protect line far
+# harder than before: an account that had cleared elite Video Games ~45 times without a loss
+# lost three Protect carriers on its first run after it. Rebuilt from prod and flown 40 times
+# with the COMPETENT pilot, that army loses zombies in 7/40 runs at 15, 1/40 at 12.75 and 0/40
+# at 12, the smallest cut that clears it (under the old Protect it lost nothing at 15). Applies
+# everywhere the ghost fights: raid 9, the Circus & Video Games dual, Endless floors.
 UNIT_OVERRIDES = {
     "AlienStageActorMinion": {"str": 5},
     "VideoGameStageBossActor": {"knockBackChance": 0.2},
+    "VideoGameStageGhostActor": {"str": 12},
 }
 
 # Units a raid SPAWNS but never lists in a stage. `used_units` is walked out of the

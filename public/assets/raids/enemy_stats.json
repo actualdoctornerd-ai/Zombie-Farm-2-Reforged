@@ -867,7 +867,7 @@
   "con": 120,
   "dex": 3,
   "standardGoldLoot": true,
-  "str": 15
+  "str": 12
  },
  "VideoGameStageKnightActor": {
   "attacks": [
