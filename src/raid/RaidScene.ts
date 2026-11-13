@@ -3050,16 +3050,16 @@ export class RaidScene {
           tok.frameActor.sprite.texture = idleFrames[index];
         }
         // Ruleset 92 (videoGameMoves.ts): the gout, the shield slam and Zedzox's magic glow
-        // and swell as they charge, like the rig enemies' charge above; the colour and size
-        // are the player's timer for the stun that cancels a knight's or dragon's move.
+        // as they charge (the knight also swells), like the rig enemies' charge above; the colour
+        // is the player's timer for the stun that cancels a knight's or dragon's move.
         const vgFrac = u.alive ? u.chargeFrac : 0;
         if (vgFrac > 0 || tok.chargeSwell > 0) {
           tok.chargeSwell = vgFrac;
           const kind = u.magicCfg ? "magic" : u.chargeCfg?.effect;
           tok.frameActor.sprite.tint = vgFrac > 0 ? vgChargeTint(kind, vgFrac) : NO_TINT;
-          // The dragon does not grow (owner, 2026-11-13): fire gathers at its mouth instead
-          // (stepVideoGameFx); the knight and Zedzox still swell.
-          tok.root.scale.set(szs * (1 + (kind === "gout" ? 0 : 0.14) * vgFrac));
+          // Only the knight swells. The dragon gathers fire at its mouth and Zedzox swirls
+          // magic above his fist instead (owner, 2026-11-13; stepVideoGameFx).
+          tok.root.scale.set(szs * (1 + (kind === "shieldSlam" ? 0.14 : 0) * vgFrac));
         }
         const seen = tok.frameActor.seenSlamSeq;
         tok.frameActor.seenSlamSeq = u.chargeSlamSeq;
