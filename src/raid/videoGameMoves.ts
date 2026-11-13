@@ -21,6 +21,10 @@
 // modes price off the base Nightshade; and the crew's damage sits at 85% of the first cut
 // (str 13/13/7), which brings a weak 8-zombie elite army flown competently back to the old
 // crew's numbers while a well-flown one does a little better than before.
+// Second pass (owner: knight no knockback, Zedzox no throws; and the moves now wait for
+// contact so they always land): Zedzox's turn and pixel fire keep their old rate (their
+// cooldowns stretched x1.37 now throws no longer share his budget), the crew's damage drops
+// 10% more (11.7/11.7/6.3) and the magic a quarter (300/240).
 //
 // A stun landed during a knight's or dragon's wind-up cancels the move (ChargeConfig
 // .interruptible): the counter-play, and why neither counts as a "charger" to the duel logic.
@@ -63,14 +67,15 @@ export const MAGIC_BEAM_STUN_MS = 0;
  *  Garden a level-43 army fields, as grown (con 16 → 1,600). The same price ordinary and
  *  elite: the elite-priced spells overshot (see TUNED AS SIDEGRADES). */
 export const VG_STAGE_GARDEN_HP = 1_600;
-/** The beam takes a quarter of that Garden (owner, 2026-11-12); the fireball a fifth. */
-export const MAGIC_BEAM_GARDEN_SHARE = 0.25;
-export const MAGIC_FIREBALL_GARDEN_SHARE = 0.2;
+/** The owner asked for a quarter of that Garden; the tune landed at three quarters of that
+ *  (300) once the moves always connected, and the fireball at 240. */
+export const MAGIC_BEAM_GARDEN_SHARE = 0.1875;
+export const MAGIC_FIREBALL_GARDEN_SHARE = 0.15;
 /** Endless prices both spells off Zedzox's own composed hit instead (so floor depth scales
  *  them): this many of his hits. Set so the ordinary raid-9 price comes out the same — his
- *  composed raid-9 hit is 190.8, so 2.1 hits is the 400 beam and 1.68 the 320 fireball. */
-export const MAGIC_BEAM_HITS = 2.1;
-export const MAGIC_FIREBALL_HITS = 1.68;
+ *  composed raid-9 hit is 190.8, so 1.575 hits is the 300 beam and 1.26 the 240 fireball. */
+export const MAGIC_BEAM_HITS = 1.575;
+export const MAGIC_FIREBALL_HITS = 1.26;
 
 export function goutFor(): ChargeConfig {
   return {

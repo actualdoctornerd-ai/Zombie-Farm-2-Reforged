@@ -824,31 +824,15 @@
   "bossActions": [
    {
     "castTime": 3,
+    "cooldownTime": 4.1,
     "frequency": 100,
     "name": "turnZombie"
    },
    {
     "castTime": 2,
+    "cooldownTime": 2.75,
     "frequency": 60,
     "name": "pixelFire"
-   },
-   {
-    "damage": 100,
-    "frequency": 20,
-    "name": "throw",
-    "sprite": "pixel_debris_boulder.png"
-   },
-   {
-    "damage": 100,
-    "frequency": 20,
-    "name": "throw",
-    "sprite": "pixel_debris_fireball.png"
-   },
-   {
-    "damage": 100,
-    "frequency": 20,
-    "name": "throw",
-    "sprite": "pixel_debris_sword.png"
    }
   ],
   "con": 530,
@@ -867,7 +851,7 @@
   "con": 210,
   "dex": 3,
   "standardGoldLoot": true,
-  "str": 7
+  "str": 6.3
  },
  "VideoGameStageKnightActor": {
   "attacks": [
@@ -879,7 +863,8 @@
   "con": 240,
   "dex": 2,
   "standardGoldLoot": true,
-  "str": 13
+  "str": 11.7,
+  "knockBackChance": 0
  },
  "VideoGameStageMonsterActor": {
   "attacks": [
@@ -891,7 +876,7 @@
   "con": 220,
   "dex": 2,
   "standardGoldLoot": true,
-  "str": 13
+  "str": 11.7
  },
  "VideoGameStageZombieActor": {
   "attacks": [

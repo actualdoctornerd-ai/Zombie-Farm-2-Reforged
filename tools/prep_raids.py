@@ -302,18 +302,27 @@ ATTACK_OVERRIDES = {
 # Applies everywhere the ghost fights: raid 9, the Circus & Video Games dual, Endless floors.
 # The Video Games crew, re-balanced (owner, 2026-11-12, ruleset 92): lower damage, much more
 # health, and each unit a move of its own (src/raid/videoGameMoves.ts). Tuned as sidegrades
-# against real elite armies: the crew's str was cut once more to 13/13/7 so a weak army
-# flown competently lands where it did against the old crew. The ghost stays the
+# against real elite armies (str 11.7/11.7/6.3 after two trims), so a weak army flown
+# competently lands about where it did against the old crew. The ghost stays the
 # single-target damage dealer but tankier and softer; Zedzox knocks back far less (his magic
 # is his threat now) and is bulkier once he comes down. Zedzox's ratio to his crew is held
 # where it was on purpose: Endless rebuilds every unit from that ratio (endlessPeerShapes),
 # and moving it would rescale every Endless killer.
 UNIT_OVERRIDES = {
     "AlienStageActorMinion": {"str": 5},
-    "VideoGameStageBossActor": {"str": 4.5, "con": 530, "knockBackChance": 0.05},
-    "VideoGameStageGhostActor": {"str": 7, "con": 210},
-    "VideoGameStageKnightActor": {"str": 13, "con": 240},
-    "VideoGameStageMonsterActor": {"str": 13, "con": 220},
+    # No debris throws any more (owner, 2026-11-12): his turn and pixel fire stay, his magic
+    # is the ranged threat now. A bossActions override replaces the whole list.
+    "VideoGameStageBossActor": {"str": 4.5, "con": 530, "knockBackChance": 0.05,
+                                "bossActions": [
+                                    # Cooldowns stretched x1.37 so the turn and the burn come
+                                    # round as often as they did when throws shared his budget.
+                                    {"castTime": 3, "cooldownTime": 4.1, "frequency": 100, "name": "turnZombie"},
+                                    {"castTime": 2, "cooldownTime": 2.75, "frequency": 60, "name": "pixelFire"},
+                                ]},
+    "VideoGameStageGhostActor": {"str": 6.3, "con": 210},
+    # The knight's shield slam is its control; its ordinary pokes no longer knock back.
+    "VideoGameStageKnightActor": {"str": 11.7, "con": 240, "knockBackChance": 0},
+    "VideoGameStageMonsterActor": {"str": 11.7, "con": 220},
 }
 
 # Units a raid SPAWNS but never lists in a stage. `used_units` is walked out of the

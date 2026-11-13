@@ -227,8 +227,9 @@ const BEAM_FADE_OUT_S = 0.12;
 const BEAM_PULSE_RAD_S = 41;
 // While a beam burns, the impact point smoulders: a small wisp of the stage's own
 // smoke particle (the enemy-death swirlCloudFX) on this cadence, at this scale.
-const BEAM_SMOKE_S = 0.22;
-const BEAM_SMOKE_SCALE = 0.35;
+// Owner, 2026-11-12: smaller and sparser, so a line of lasers no longer fogs the front.
+const BEAM_SMOKE_S = 0.34;
+const BEAM_SMOKE_SCALE = 0.15;
 // The per-hit dust burst a PLAYER zombie throws off as it connects, held back for
 // now: a full army swinging at once turned the frontline into a permanent cloud.
 // Enemy strikes keep theirs — they land one at a time and the puff is what marks
@@ -948,7 +949,7 @@ export class RaidScene {
   private blastFx: { g: Graphics; t: number; scale: number; simple: boolean }[] = [];
   /** Ruleset 92 Video Games effects: gout cones, shield-slam rings, Zedzox's lobbed fireball,
    *  and one per-frame layer (burning zombies; Zedzox's charge orb and sweeping beam). */
-  private vgGoutFx: { g: Graphics; t: number; x: number; y: number }[] = [];
+  private vgGoutFx: { g: Graphics; t: number; x: number; y: number; ground: number; reach: number }[] = [];
   private vgSlamFx: { g: Graphics; t: number; x: number; y: number }[] = [];
   private vgFireballFx: { g: Graphics; t: number; x0: number; y0: number; x1: number; y1: number; hit?: boolean }[] = [];
   private vgLiveG: Graphics | null = null;
@@ -3044,8 +3045,11 @@ export class RaidScene {
         const seen = tok.frameActor.seenSlamSeq;
         tok.frameActor.seenSlamSeq = u.chargeSlamSeq;
         if (seen !== undefined && u.chargeSlamSeq > seen && u.chargeCfg?.effect) {
-          if (u.chargeCfg.effect === "gout") this.spawnGout(tok.root.x, tok.root.y);
-          else this.spawnShieldSlam(tok.root.x, tok.root.y);
+          if (u.chargeCfg.effect === "gout") {
+            const b = tok.root.getBounds();
+            const reachPx = Math.abs(this.mapX(u.x) - this.mapX(u.x - this.sim.frontAreaReach()));
+            this.spawnGout(b.x + b.width * 0.12, b.y + b.height * 0.32, tok.root.y, reachPx);
+          } else this.spawnShieldSlam(tok.root.x, tok.root.y);
         }
       }
 
@@ -3960,9 +3964,9 @@ export class RaidScene {
 
   /** The dragon's gout (ruleset 92): a cone of pixel flame raking the front area from its
    *  mouth (the dragon faces left, its mouth high on that side). */
-  private spawnGout(x: number, y: number) {
-    const s = this.sizeScale();
-    this.vgGoutFx.push({ g: this.addFxGraphics(), t: 0, x: x - 30 * s, y: y - 44 * s });
+  private spawnGout(mouthX: number, mouthY: number, groundY: number, reachPx: number) {
+    this.vgGoutFx.push({ g: this.addFxGraphics(), t: 0, x: mouthX, y: mouthY, ground: groundY, reach: reachPx });
+    this.shakeT = Math.max(this.shakeT, BLAST_SHAKE_S * 0.35);
   }
 
   /** The knight's shield slam (ruleset 92): a steel shockwave along the front, and a jolt. */
@@ -3980,27 +3984,43 @@ export class RaidScene {
     const HEAT = [0xfff7c2, 0xffe066, 0xffb02e, 0xff7a1a, 0xe8432d, 0xa3202a];
     const heat = (k: number) => HEAT[Math.max(0, Math.min(HEAT.length - 1, Math.floor(k * HEAT.length)))];
     // Gout cones: the tip rakes from near the dragon back across the front area.
+    const GOUT_S = 1.3;
     for (const fx of this.vgGoutFx) {
       fx.t += dtSec;
-      const k = Math.min(1, fx.t / 0.9);
-      const reach = (90 + 190 * Math.min(1, k / 0.6)) * s;
-      const alpha = k < 0.75 ? 1 : (1 - k) / 0.25;
-      const groundY = fx.y + 44 * s;
+      const k = Math.min(1, fx.t / GOUT_S);
+      // Rolls out over the first third, holds, gutters out over the last third.
+      // Exactly as far as it burns (BattleSim.frontAreaReach), measured from the dragon.
+      const reach = fx.reach * (0.25 + 0.75 * Math.min(1, k / 0.33));
+      const alpha = k < 0.66 ? 1 : (1 - k) / 0.34;
+      const groundY = fx.ground - 2 * s;
+      const step = Math.max(4, Math.round(6 * s));
       fx.g.clear();
-      for (let i = 0; i <= 26; i++) {
-        const along = i / 26;
+      const N = 30;
+      for (let i = 0; i <= N; i++) {
+        const along = i / N;
         const x = fx.x - reach * along;
-        const yLine = fx.y + (groundY - fx.y) * along * along;
-        const w = (2 + along * 11) * s;
-        const step = Math.max(2, 3 * s);
-        for (let j = -w; j <= w; j += step) {
-          const flick = 0.5 + 0.5 * Math.sin(fx.t * 40 + i * 2.3 + j);
-          px(fx.g, x, yLine + j, step, heat((Math.abs(j) / (w + 1)) * 0.8 + flick * 0.15), alpha);
+        // The flame's spine drops from the mouth to the ground, and the plume billows
+        // UPWARD from there (the ground stops it below), so it reads as a wall of fire.
+        const spine = fx.y + (groundY - fx.y) * Math.min(1, along * 1.4);
+        const up = (10 + along * 46) * s;
+        const down = Math.max(0, Math.min(groundY - spine, (6 + along * 10) * s));
+        for (let j = -up; j <= down; j += step) {
+          const flick = 0.5 + 0.5 * Math.sin(fx.t * 46 + i * 2.1 + j * 0.37);
+          const edge = j < 0 ? -j / (up + 1) : j / (down + 1);
+          if (edge > 0.8 && flick < 0.55) continue; // ragged edges
+          const jitter = (flick - 0.5) * 8 * s;
+          px(fx.g, x + jitter, spine + j, step, heat(edge * 0.8 + flick * 0.18), alpha * (1 - edge * 0.3));
         }
       }
+      // Embers kicked up all along the burning ground.
+      for (let e = 0; e < 28; e++) {
+        const ex = fx.x - reach * (0.25 + 0.75 * ((e * 0.618) % 1));
+        const rise = (fx.t * 1.5 + e * 0.11) % 1;
+        px(fx.g, ex + Math.sin(e * 3.1 + fx.t * 9) * 8 * s, groundY - rise * 60 * s, step, heat(0.25 + rise * 0.65), alpha * (1 - rise));
+      }
     }
-    for (const fx of this.vgGoutFx) if (fx.t >= 0.9) fx.g.destroy();
-    this.vgGoutFx = this.vgGoutFx.filter((f) => f.t < 0.9);
+    for (const fx of this.vgGoutFx) if (fx.t >= GOUT_S) fx.g.destroy();
+    this.vgGoutFx = this.vgGoutFx.filter((f) => f.t < GOUT_S);
     // Shield-slam rings.
     for (const fx of this.vgSlamFx) {
       fx.t += dtSec;
@@ -4065,10 +4085,12 @@ export class RaidScene {
       const tx = this.mapX(front - (front - back) * f);
       const ty = this.mapY(field[0].y);
       const w = s * (0.85 + 0.15 * Math.sin(now * 40));
-      g.moveTo(bx, by).lineTo(tx, ty).stroke({ width: 16 * w, color: 0x8a3dff, alpha: 0.3 })
-        .moveTo(bx, by).lineTo(tx, ty).stroke({ width: 6 * w, color: 0xd9a6ff, alpha: 0.85 })
-        .moveTo(bx, by).lineTo(tx, ty).stroke({ width: 2 * w, color: 0xffffff, alpha: 1 })
-        .circle(tx, ty, 12 * w).fill({ color: 0xb46bff, alpha: 0.6 });
+      g.moveTo(bx, by).lineTo(tx, ty).stroke({ width: 38 * w, color: 0x8a3dff, alpha: 0.28 })
+        .moveTo(bx, by).lineTo(tx, ty).stroke({ width: 18 * w, color: 0xb46bff, alpha: 0.6 })
+        .moveTo(bx, by).lineTo(tx, ty).stroke({ width: 8 * w, color: 0xe6c8ff, alpha: 0.9 })
+        .moveTo(bx, by).lineTo(tx, ty).stroke({ width: 3 * w, color: 0xffffff, alpha: 1 })
+        .circle(tx, ty, 24 * w).fill({ color: 0xb46bff, alpha: 0.55 })
+        .circle(tx, ty, 10 * w).fill({ color: 0xffffff, alpha: 0.8 });
     }
   }
 

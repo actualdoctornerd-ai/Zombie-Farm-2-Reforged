@@ -1341,9 +1341,10 @@ import type { RaidOutcome } from "./types";
 // front area (10% of each zombie's max hit points, then 15% burned over 6 s; no swings for 2 s
 // either side) and repeats it every 12 s; the knight raises its shield for 1.5 s and slams the
 // front area every 10 s (2 s stun, twice its hit); a stun during either wind-up cancels it.
-// Zedzox keeps his moves, knocks back far less (0.05) and, while perched, casts every 8 s after
-// a 3 s charge either a beam sweeping front to back (400) or a fireball on the front group
-// (320, sends it flying). Lower damage and more hit points on every unit (str 13/13/7/4.5, con
+// Zedzox no longer throws debris (his turn and pixel fire keep their old rate), knocks back far
+// less (0.05) and, while perched, casts every 8 s after a 3 s charge either a beam sweeping
+// front to back (300) or a fireball on the front group (240, sends it flying). The knight never
+// knocks back. Lower damage and more hit points on every unit (str 11.7/11.7/6.3/4.5, con
 // 240/220/210/530). Raid 9, the Circus & Video Games dual (raid 14) and Endless video-game and
 // alien floors replay differently from v91.
 export const RAID_RULESET_VERSION = 92;

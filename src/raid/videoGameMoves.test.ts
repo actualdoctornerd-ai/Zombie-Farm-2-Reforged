@@ -10,7 +10,8 @@ import { eliteProfile } from "./eliteInvasion";
 import { fightStage } from "./RaidCatalog";
 import type { CombatUnit, RaidDef } from "./types";
 import {
-  GOUT_BURN_MS, GOUT_BURN_PCT, GOUT_BURST_PCT, GOUT_COOLDOWN_MS, GOUT_WINDUP_MS, MAGIC_CAST_MS,
+  GOUT_BURN_MS, GOUT_BURN_PCT, GOUT_BURST_PCT, GOUT_COOLDOWN_MS, GOUT_WINDUP_MS, MAGIC_BEAM_GARDEN_SHARE,
+  MAGIC_CAST_MS, MAGIC_FIREBALL_GARDEN_SHARE,
   SHIELD_SLAM_STUN_MS, VG_BOSS_KEY, VG_DRAGON_KEY, VG_KNIGHT_KEY, VG_STAGE_GARDEN_HP,
   goutFor, raidMagicFor, shieldSlamFor,
 } from "./videoGameMoves";
@@ -117,7 +118,7 @@ describe("Zedzox's magic", () => {
     expect(b.chargeFrac).toBeGreaterThan(0.9);
     expect(ps.every((p) => p.hp === p.maxHp)).toBe(true);
     run(sim, 2_000);
-    const dmg = VG_STAGE_GARDEN_HP * 0.25;
+    const dmg = VG_STAGE_GARDEN_HP * MAGIC_BEAM_GARDEN_SHARE;
     for (const p of ps) expect(p.maxHp - p.hp).toBeCloseTo(dmg, 0); // the Garden too, exactly once
   });
 
@@ -125,7 +126,7 @@ describe("Zedzox's magic", () => {
     const { sim, ps } = setup(2);
     run(sim, MAGIC_CAST_MS + 100);
     for (const p of ps.slice(0, 3)) {
-      expect(p.maxHp - p.hp).toBeCloseTo(VG_STAGE_GARDEN_HP * 0.2, 0);
+      expect(p.maxHp - p.hp).toBeCloseTo(VG_STAGE_GARDEN_HP * MAGIC_FIREBALL_GARDEN_SHARE, 0);
     }
     expect(ps[3].hp).toBe(ps[3].maxHp); // the Gardens are far behind the front group
   });
@@ -154,8 +155,8 @@ describe("where the moves are attached", () => {
       if (u.sourceKey === VG_DRAGON_KEY) expect(u.charge?.effect).toBe("gout");
       if (u.sourceKey === VG_KNIGHT_KEY) expect(u.charge?.effect).toBe("shieldSlam");
     }
-    expect(ord.find((u) => u.isBoss)!.magic!.beamDamage).toBe(VG_STAGE_GARDEN_HP / 4);
-    expect(eli.find((u) => u.isBoss)!.magic!.beamDamage).toBe(VG_STAGE_GARDEN_HP / 4);
+    expect(ord.find((u) => u.isBoss)!.magic!.beamDamage).toBe(Math.round(VG_STAGE_GARDEN_HP * MAGIC_BEAM_GARDEN_SHARE));
+    expect(eli.find((u) => u.isBoss)!.magic!.beamDamage).toBe(Math.round(VG_STAGE_GARDEN_HP * MAGIC_BEAM_GARDEN_SHARE));
     // The beam stuns nobody: a whole-army stun is what made the first cut too hard.
     expect(ord.find((u) => u.isBoss)!.magic!.beamStunMs).toBe(0);
   });

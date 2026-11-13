@@ -112,7 +112,9 @@ describe("boss projectile scaling", () => {
     // laser, an authored flat 200 that already clears the floor (see below). 12/13/14 are the
     // dual invasions, which inherit the City, Ninja and Circus bosses; 15 is staged as the
     // Aliens and inherits their lack of a throw table for the same reason raid 6 has none.
-    expect(throwers.map((t) => t.raid.id)).toEqual([1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 16]);
+    // Raid 9 (Video Games) dropped out at ruleset 92: Zedzox no longer throws debris; his
+    // magic beam and fireball are his ranged threat now (src/raid/videoGameMoves.ts).
+    expect(throwers.map((t) => t.raid.id)).toEqual([1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14, 16]);
   });
 
   it("mirrors the market's Garden ladder, specials excluded", () => {
@@ -320,14 +322,8 @@ describe("boss projectile scaling", () => {
   });
 
   it("leaves a boss that already hits hard enough exactly as authored", () => {
-    // Zedzox's flat 100s are the hardest-hitting authored throw in the game and clear the
-    // floor for level 43 outright (550 hit points over 7.5 landed throws asks for 73), so
-    // the ladder's top raid is the one the rebalance does not touch at all. The scaling is
-    // a floor, not a re-authoring.
-    const vg = throwers.find((t) => t.raid.id === 9)!;
-    const scaled = fightScaledThrow(vg.authored, vg.raid)!;
-    expect(scaled.options.map((o) => o.damage)).toEqual([100, 100, 100]);
-    // Same for the alien laser, which is why raid 6 needs no throw table to keep up: 200 a
+    // Zedzox's flat 100s used to be the case here; he throws nothing since ruleset 92. The
+    // alien laser, which is why raid 6 needs no throw table to keep up: 200 a
     // bolt against a 550-hit-point Zombee is under three bolts.
     expect(200 * THROW_MIN_LETHAL_HITS).toBeGreaterThan(referenceHealerHp(36));
   });

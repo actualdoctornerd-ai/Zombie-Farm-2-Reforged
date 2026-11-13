@@ -2775,6 +2775,11 @@ export class BattleSim {
     if (u.stunMs > 0) return; // an ordinary stun landed between charges: he is not winding up
     if (u.chargeMs <= 0) {
       if (u.state !== "fight" && u.state !== "hold") return;
+      // A front-area move (the Video Games gout and shield slam, ruleset 92) waits for a zombie
+      // to be in reach: an enemy standing ready with nobody in front of it would otherwise
+      // spend its opening gout, or a slam, on empty ground.
+      if (cfg.target === "front-area" &&
+          this.frontAreaPlayers(u, this.engageDistance + DEATH_BLAST_REACH).length === 0) return;
       u.chargeMs = cfg.windupMs;
       u.poise = 0;
     }
@@ -4214,6 +4219,13 @@ export class BattleSim {
     if (p.dotMs <= 0) { p.dotMs = 0; }
     this.dealEnemyDamage(p, p.dotPerMs * burnt);
     p.struckThisTick = true;
+  }
+
+  /** How far the Video Games front-area moves reach from the enemy (sim units): the front
+   *  line and the band behind it. Read by the renderer so the gout is drawn exactly as long
+   *  as the area it burns. */
+  frontAreaReach(): number {
+    return this.engageDistance + DEATH_BLAST_REACH;
   }
 
   /** Deployed zombies within `reach` of an enemy standing at the front (gout, shield slam). */

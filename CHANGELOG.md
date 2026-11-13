@@ -4,10 +4,10 @@
 
 ### Zombies vs Video Games, re-balanced (ruleset 92)
 - **Every Video Games enemy now has a move of its own**, wherever it fights (Zombies vs Video Games, Circus & Video Games, and Endless):
-  - **The dragon** opens with a gout of flame over the front of your army and repeats it every 12 seconds. It glows orange for 2 seconds first, then everyone in the front area loses 10% of their hit points at once and burns for another 15% over 6 seconds. It does not swing for 2 seconds either side.
-  - **The knight** raises its shield (it glows steel blue) and slams every 10 seconds, stunning everyone in the front area for 2 seconds and hitting them for twice its swing.
+  - **The dragon** opens with a gout of flame over the front of your army and repeats it every 12 seconds. It waits until your army is in reach, glows orange for 2 seconds, then everyone in the front area loses 10% of their hit points at once and burns for another 15% over 6 seconds. It does not swing for 2 seconds either side.
+  - **The knight** raises its shield (it glows steel blue) and slams every 10 seconds once your army is in reach, stunning everyone in the front area for 2 seconds and hitting them for twice its swing. It no longer knocks zombies back.
   - **Stun a knight or the dragon while it winds up** and the move is cancelled.
-  - **Zedzox** keeps turning, burning and throwing, and while he is up on his perch he now charges magic every 8 seconds (glowing violet for 3 seconds): a beam that sweeps from the front of your army all the way back to the Gardens, or a fireball lobbed onto the front group that sends them flying. He knocks zombies back far less when he comes down to fight.
+  - **Zedzox** keeps turning and burning but no longer throws debris, and while he is up on his perch he now charges magic every 8 seconds (glowing violet for 3 seconds): a wide beam that sweeps from the front of your army all the way back to the Gardens (300 per zombie), or a fireball lobbed onto the front group (240) that sends them flying. Laser smoke is smaller. He knocks zombies back far less when he comes down to fight.
 - **Lower damage and much more health across the crew**, so fights run a little longer (about 1 to 1.5 minutes for a level-45 army). Tuned against real armies so the moves are sidegrades: about as hard as before for most players, a little easier for players who answer them well.
 - **Deploy the Worker before the client.**
 
