@@ -257,6 +257,14 @@ function smokeTint(frac: number): number {
 }
 /** One big smoke cloud: several overlapping bursts, so a teleport reads at a glance. */
 const SMOKE_CLOUD_PUFFS = 6;
+/** The Video Games crew's wind-up glow (ruleset 92): orange for the dragon's gout, steel
+ *  blue for the knight's shield, violet for Zedzox's magic. */
+function vgChargeTint(kind: string | undefined, frac: number): number {
+  const k = Math.max(0, Math.min(1, frac));
+  const to = kind === "shieldSlam" ? [140, 190, 255] : kind === "magic" ? [205, 120, 255] : [255, 150, 60];
+  const mix = (c: number) => Math.round(255 + (c - 255) * k);
+  return (mix(to[0]) << 16) | (mix(to[1]) << 8) | mix(to[2]);
+}
 function chargeTint(frac: number): number {
   const k = Math.max(0, Math.min(1, frac));
   const g = Math.round(255 * (1 - 0.72 * k));
@@ -693,6 +701,8 @@ interface Token {
     groundIdle?: Texture[];
     groundAttack?: Texture[];
     time: number;
+    /** The last landed move seen (chargeSlamSeq), so a gout or slam plays its effect once. */
+    seenSlamSeq?: number;
   }; // authentic pre-rendered Video Games frames
   epicActor?: AnimatedSprite;
   epicAnim?: string;
@@ -936,6 +946,12 @@ export class RaidScene {
     smokeS: number; // countdown to the next impact-smoke wisp
   }>();
   private blastFx: { g: Graphics; t: number; scale: number; simple: boolean }[] = [];
+  /** Ruleset 92 Video Games effects: gout cones, shield-slam rings, Zedzox's lobbed fireball,
+   *  and one per-frame layer (burning zombies; Zedzox's charge orb and sweeping beam). */
+  private vgGoutFx: { g: Graphics; t: number; x: number; y: number }[] = [];
+  private vgSlamFx: { g: Graphics; t: number; x: number; y: number }[] = [];
+  private vgFireballFx: { g: Graphics; t: number; x0: number; y0: number; x1: number; y1: number; hit?: boolean }[] = [];
+  private vgLiveG: Graphics | null = null;
   private galacticPortalFx: { g: Graphics; t: number; x: number; y: number; firing: boolean }[] = [];
   private galacticBeamFx: { g: Graphics; t: number; x0: number; y: number; x1: number }[] = [];
   private shakeT = 0; // seconds left in the blast shake (0 = still)
@@ -3015,6 +3031,22 @@ export class RaidScene {
           const index = Math.floor(tok.frameActor.time * 4) % idleFrames.length;
           tok.frameActor.sprite.texture = idleFrames[index];
         }
+        // Ruleset 92 (videoGameMoves.ts): the gout, the shield slam and Zedzox's magic glow
+        // and swell as they charge, like the rig enemies' charge above; the colour and size
+        // are the player's timer for the stun that cancels a knight's or dragon's move.
+        const vgFrac = u.alive ? u.chargeFrac : 0;
+        if (vgFrac > 0 || tok.chargeSwell > 0) {
+          tok.chargeSwell = vgFrac;
+          const kind = u.magicCfg ? "magic" : u.chargeCfg?.effect;
+          tok.frameActor.sprite.tint = vgFrac > 0 ? vgChargeTint(kind, vgFrac) : NO_TINT;
+          tok.root.scale.set(szs * (1 + 0.14 * vgFrac));
+        }
+        const seen = tok.frameActor.seenSlamSeq;
+        tok.frameActor.seenSlamSeq = u.chargeSlamSeq;
+        if (seen !== undefined && u.chargeSlamSeq > seen && u.chargeCfg?.effect) {
+          if (u.chargeCfg.effect === "gout") this.spawnGout(tok.root.x, tok.root.y);
+          else this.spawnShieldSlam(tok.root.x, tok.root.y);
+        }
       }
 
       if (tok.epicActor) {
@@ -3907,6 +3939,139 @@ export class RaidScene {
     this.shakeT = simple ? BLAST_SHAKE_S * 0.8 : BLAST_SHAKE_S;
   }
 
+  /** Where a unit's spell comes from on screen: its drawn token (Zedzox's perch lifts him well
+   *  above his sim position), a little above its feet. */
+  private castPoint(u: { id: string; x: number; y: number }): { x: number; y: number } {
+    const s = this.sizeScale();
+    const tok = this.tokens.get(u.id);
+    if (tok) {
+      const b = tok.root.getBounds();
+      return { x: b.x + b.width * 0.4, y: b.y + b.height * 0.45 };
+    }
+    return { x: this.mapX(u.x), y: this.mapY(u.y) - 30 * s };
+  }
+
+  private addFxGraphics(): Graphics {
+    const g = new Graphics();
+    g.blendMode = "add";
+    this.fxLayer.addChild(g);
+    return g;
+  }
+
+  /** The dragon's gout (ruleset 92): a cone of pixel flame raking the front area from its
+   *  mouth (the dragon faces left, its mouth high on that side). */
+  private spawnGout(x: number, y: number) {
+    const s = this.sizeScale();
+    this.vgGoutFx.push({ g: this.addFxGraphics(), t: 0, x: x - 30 * s, y: y - 44 * s });
+  }
+
+  /** The knight's shield slam (ruleset 92): a steel shockwave along the front, and a jolt. */
+  private spawnShieldSlam(x: number, y: number) {
+    const s = this.sizeScale();
+    this.vgSlamFx.push({ g: this.addFxGraphics(), t: 0, x: x - 70 * s, y });
+    this.shakeT = Math.max(this.shakeT, BLAST_SHAKE_S * 0.5);
+  }
+
+  /** Ruleset 92's Video Games effects, all presentation-only (nothing here feeds the sim). */
+  private stepVideoGameFx(dtSec: number) {
+    const s = this.sizeScale();
+    const px = (g: Graphics, x: number, y: number, size: number, color: number, alpha: number) =>
+      g.rect(Math.round(x), Math.round(y), size, size).fill({ color, alpha });
+    const HEAT = [0xfff7c2, 0xffe066, 0xffb02e, 0xff7a1a, 0xe8432d, 0xa3202a];
+    const heat = (k: number) => HEAT[Math.max(0, Math.min(HEAT.length - 1, Math.floor(k * HEAT.length)))];
+    // Gout cones: the tip rakes from near the dragon back across the front area.
+    for (const fx of this.vgGoutFx) {
+      fx.t += dtSec;
+      const k = Math.min(1, fx.t / 0.9);
+      const reach = (90 + 190 * Math.min(1, k / 0.6)) * s;
+      const alpha = k < 0.75 ? 1 : (1 - k) / 0.25;
+      const groundY = fx.y + 44 * s;
+      fx.g.clear();
+      for (let i = 0; i <= 26; i++) {
+        const along = i / 26;
+        const x = fx.x - reach * along;
+        const yLine = fx.y + (groundY - fx.y) * along * along;
+        const w = (2 + along * 11) * s;
+        const step = Math.max(2, 3 * s);
+        for (let j = -w; j <= w; j += step) {
+          const flick = 0.5 + 0.5 * Math.sin(fx.t * 40 + i * 2.3 + j);
+          px(fx.g, x, yLine + j, step, heat((Math.abs(j) / (w + 1)) * 0.8 + flick * 0.15), alpha);
+        }
+      }
+    }
+    for (const fx of this.vgGoutFx) if (fx.t >= 0.9) fx.g.destroy();
+    this.vgGoutFx = this.vgGoutFx.filter((f) => f.t < 0.9);
+    // Shield-slam rings.
+    for (const fx of this.vgSlamFx) {
+      fx.t += dtSec;
+      const k = Math.min(1, fx.t / 0.5);
+      fx.g.clear()
+        .ellipse(fx.x, fx.y, (20 + 120 * k) * s, (6 + 26 * k) * s)
+        .stroke({ width: 6 * s * (1 - k) + 1, color: 0xcfe3ff, alpha: 1 - k })
+        .ellipse(fx.x, fx.y, (10 + 80 * k) * s, (4 + 16 * k) * s)
+        .stroke({ width: 3 * s, color: 0x7fa8ff, alpha: 0.8 * (1 - k) });
+    }
+    for (const fx of this.vgSlamFx) if (fx.t >= 0.5) fx.g.destroy();
+    this.vgSlamFx = this.vgSlamFx.filter((f) => f.t < 0.5);
+    // Zedzox's fireball: a quick lob, then the explosion where it lands.
+    for (const fx of this.vgFireballFx) {
+      fx.t += dtSec;
+      const k = Math.min(1, fx.t / 0.35);
+      const x = fx.x0 + (fx.x1 - fx.x0) * k;
+      const y = fx.y0 + (fx.y1 - fx.y0) * k - Math.sin(Math.PI * k) * 70 * s;
+      fx.g.clear()
+        .circle(x, y, 9 * s).fill({ color: 0xffb02e, alpha: 0.95 })
+        .circle(x, y, 4 * s).fill({ color: 0xfff7c2, alpha: 1 });
+      if (k >= 1 && !fx.hit) {
+        fx.hit = true;
+        this.spawnExplosion(fx.x1, fx.y1, 1.8, true);
+      }
+    }
+    for (const fx of this.vgFireballFx) if (fx.hit) fx.g.destroy();
+    this.vgFireballFx = this.vgFireballFx.filter((f) => !f.hit);
+    // Live layer: burning zombies, Zedzox's charge orb and his sweeping beam.
+    if (!this.vgLiveG) this.vgLiveG = this.addFxGraphics();
+    const g = this.vgLiveG.clear();
+    const now = performance.now() / 1000;
+    for (const u of this.sim.units) {
+      if (u.team !== "player" || !u.alive || u.dotMs <= 0) continue;
+      const tok = this.tokens.get(u.id);
+      if (!tok) continue;
+      const step = Math.max(2, 3 * s);
+      for (let c = 0; c < 4; c++) {
+        const h = (5 + ((c * 7 + Math.floor(now * 12)) % 6)) * s;
+        for (let r = 0; r < h; r += step) {
+          px(g, tok.root.x - 9 * s + c * 5 * s, tok.root.y - 6 * s - r, step, heat(r / (h + 1)), 0.85);
+        }
+      }
+    }
+    const boss = this.sim.units.find((b) => b.isBoss && b.magicCfg && b.alive);
+    if (!boss || !boss.magicCfg) return;
+    const { x: bx, y: by } = this.castPoint(boss);
+    if (boss.magicCastMs > 0) {
+      const k = boss.chargeFrac;
+      const pulse = 0.8 + 0.2 * Math.sin(now * 18);
+      const col = boss.magicKind === 1 ? 0xb46bff : 0xff8a2a;
+      g.circle(bx, by, (6 + 18 * k) * s * pulse).fill({ color: col, alpha: 0.35 + 0.4 * k })
+        .circle(bx, by, (3 + 8 * k) * s).fill({ color: 0xffffff, alpha: 0.8 });
+    }
+    if (boss.magicSweepMs > 0) {
+      const field = this.sim.units.filter((p) => p.team === "player" && p.alive && !p.taken &&
+        p.state !== "waiting" && p.state !== "charging" && p.state !== "carried" && p.state !== "dead");
+      if (!field.length) return;
+      const front = Math.max(...field.map((p) => p.x));
+      const back = Math.min(...field.map((p) => p.x));
+      const f = 1 - boss.magicSweepMs / Math.max(1, boss.magicCfg.beamSweepMs);
+      const tx = this.mapX(front - (front - back) * f);
+      const ty = this.mapY(field[0].y);
+      const w = s * (0.85 + 0.15 * Math.sin(now * 40));
+      g.moveTo(bx, by).lineTo(tx, ty).stroke({ width: 16 * w, color: 0x8a3dff, alpha: 0.3 })
+        .moveTo(bx, by).lineTo(tx, ty).stroke({ width: 6 * w, color: 0xd9a6ff, alpha: 0.85 })
+        .moveTo(bx, by).lineTo(tx, ty).stroke({ width: 2 * w, color: 0xffffff, alpha: 1 })
+        .circle(tx, ty, 12 * w).fill({ color: 0xb46bff, alpha: 0.6 });
+    }
+  }
+
   /** A purple rift swells through the Galactic Groundhog's long cast and keeps rotating
    *  while its death beam fires. */
   private spawnGalacticPortal(x: number, y: number) {
@@ -4143,6 +4308,7 @@ export class RaidScene {
 
   private stepFx(dtSec: number) {
     this.stepBlasts(dtSec);
+    this.stepVideoGameFx(dtSec);
     this.stepGalacticPortals(dtSec);
     this.stepGalacticBeams(dtSec);
     this.stepDamageNumbers(dtSec);
@@ -4541,6 +4707,14 @@ export class RaidScene {
           if (this.retreatRequested) break;
           this.sim.step(RAID_TICK_MS);
           for (const effect of this.sim.drainBossSpecialEffects()) {
+            if (effect.name === "zedzoxFireball") {
+              const boss = this.sim.units.find((b) => b.isBoss && b.magicCfg);
+              const from = boss ? this.castPoint(boss) : { x: this.mapX(effect.x), y: this.mapY(effect.y) };
+              const bx = from.x, by = from.y;
+              this.vgFireballFx.push({ g: this.addFxGraphics(), t: 0, x0: bx, y0: by, x1: this.mapX(effect.x), y1: this.mapY(effect.y) });
+              this.onStrike?.({ team: "enemy", sfxFile: "explosion.wav" });
+              continue;
+            }
             if (effect.name === "galacticBeamCharge") {
               this.spawnGalacticPortal(this.mapX(effect.x), this.mapY(effect.y) - 36 * this.sizeScale());
             } else if (effect.name === "galacticBeam") {

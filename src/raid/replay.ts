@@ -1336,7 +1336,17 @@ import type { RaidOutcome } from "./types";
 // Rebuilt from prod, 12 is the smallest cut that clears it lossless for a competent pilot; the
 // owner chose 11 for margin (tools/prep_raids.py UNIT_OVERRIDES). Every fight with a ghost replays differently from v90:
 // raid 9, the Circus & Video Games dual (raid 14), and Endless video-game and alien floors.
-export const RAID_RULESET_VERSION = 91;
+// 92 (owner, 2026-11-12): the Video Games crew is re-balanced and each unit has a move of its
+// own (src/raid/videoGameMoves.ts), wherever it fights. The dragon opens with a 2 s gout on the
+// front area (10% of each zombie's max hit points, then 15% burned over 6 s; no swings for 2 s
+// either side) and repeats it every 12 s; the knight raises its shield for 1.5 s and slams the
+// front area every 10 s (2 s stun, twice its hit); a stun during either wind-up cancels it.
+// Zedzox keeps his moves, knocks back far less (0.05) and, while perched, casts every 8 s after
+// a 3 s charge either a beam sweeping front to back (400) or a fireball on the front group
+// (320, sends it flying). Lower damage and more hit points on every unit (str 13/13/7/4.5, con
+// 240/220/210/530). Raid 9, the Circus & Video Games dual (raid 14) and Endless video-game and
+// alien floors replay differently from v91.
+export const RAID_RULESET_VERSION = 92;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

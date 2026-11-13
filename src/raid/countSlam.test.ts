@@ -49,7 +49,9 @@ describe("the Count's slam", () => {
   it("leaves every other invasion alone", () => {
     for (const raid of raids) {
       if (raid.id === HALLOWEEN_RAID_ID || raid.id === 13 || !fightStage(raid, raid.recommendedLevel)) continue;
-      expect(unitsOf(raid.id).some((u) => u.charge), `raid ${raid.id}`).toBe(false);
+      // The Video Games crew carries moves of its own (videoGameMoves.ts), never the Count's slam.
+      const slams = unitsOf(raid.id).filter((u) => u.charge && !u.charge.interruptible);
+      expect(slams.length, `raid ${raid.id}`).toBe(0);
     }
   });
 });

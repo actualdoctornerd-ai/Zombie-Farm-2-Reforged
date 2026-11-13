@@ -31,7 +31,7 @@
 // arrive on the CombatUnit; per-swing damage = finalPower(str*10) * mult, then the player
 // lineup-depth band (1.0/0.85/0.7/0.55; enemies ×1.0). See combatStats.lineupDamageBand.
 import { getsBackUp } from "../zombie/boundlessVitality";
-import type { BossActionChoice, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, EndlessStageMechanics, GrabberConfig, MegaBotConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
+import type { BossActionChoice, BossMagicConfig, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, EndlessStageMechanics, GrabberConfig, MegaBotConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { emptyRaidFeats } from "./types";
 import { ACTIVATED_ABILITY, activatedGroupsOf, teamAbilitiesIn } from "../zombie/abilities";
 import {
@@ -859,6 +859,25 @@ export interface SimUnit {
   chargeSlamSeq: number;
   /** Ms left on a stagger — a broken charge leaves the captain open (raid 13). */
   staggerMs: number;
+  /** Ms of the post-move lockout a channelled charge leaves (ChargeConfig.lockoutMs): no
+   *  ordinary swings until it runs out (the Video Games dragon's 2 s cool-down). */
+  chargeLockMs: number;
+  /** A plain damage-over-time left by a Video Games gout (ruleset 92): Ms left and damage per
+   *  Ms. Unlike pixelFire's burnMs it brings no panic and cannot be tapped out. */
+  dotMs: number;
+  dotPerMs: number;
+  /** Zedzox's magic (CombatUnit.magic, ruleset 92). Null on every other unit. */
+  magicCfg: BossMagicConfig | null;
+  /** Ms until the next charge starts; Ms left on a charge; the spell being charged or
+   *  sweeping (0 none, 1 beam, 2 fireball); casts so far (the beam/fireball pick); Ms left
+   *  on a beam's sweep; ids the current sweep has already hit; bumped per spell landing. */
+  magicCdMs: number;
+  magicCastMs: number;
+  magicKind: 0 | 1 | 2;
+  magicCount: number;
+  magicSweepMs: number;
+  magicHit: string[];
+  magicSeq: number;
   /** Enemy that ignores its dex clock and mirrors its opponent's (both pirates). */
   mirrorsOpponentSpeed: boolean;
   /** Endless: multiplies the mirrored interval (CombatUnit.mirrorPace). 1 everywhere else. */
@@ -1236,6 +1255,17 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     chargeBreakSeq: 0,
     chargeSlamSeq: 0,
     staggerMs: 0,
+    chargeLockMs: 0,
+    dotMs: 0,
+    dotPerMs: 0,
+    magicCfg: u.magic ?? null,
+    magicCdMs: 0,
+    magicCastMs: 0,
+    magicKind: 0,
+    magicCount: 0,
+    magicSweepMs: 0,
+    magicHit: [],
+    magicSeq: 0,
     mirrorsOpponentSpeed: !isPlayer && !!u.mirrorsOpponentSpeed,
     mirrorPace: u.mirrorPace ?? 1,
     loaned: isPlayer && !!u.loaned,
@@ -1704,6 +1734,17 @@ export class BattleSim {
       chargeBreakSeq: u.chargeBreakSeq ?? 0,
       chargeSlamSeq: u.chargeSlamSeq ?? 0,
       staggerMs: u.staggerMs ?? 0,
+      chargeLockMs: u.chargeLockMs ?? 0,
+      dotMs: u.dotMs ?? 0,
+      dotPerMs: u.dotPerMs ?? 0,
+      magicCfg: u.magicCfg ?? null,
+      magicCdMs: u.magicCdMs ?? 0,
+      magicCastMs: u.magicCastMs ?? 0,
+      magicKind: u.magicKind ?? 0,
+      magicCount: u.magicCount ?? 0,
+      magicSweepMs: u.magicSweepMs ?? 0,
+      magicHit: [...(u.magicHit ?? [])],
+      magicSeq: u.magicSeq ?? 0,
       isSummon: u.isSummon ?? false,
       // A checkpoint written before the split cannot reach here — the session handshake
       // rejects its ruleset — so this is the same belt-and-braces default as isTurned
@@ -2586,7 +2627,15 @@ export class BattleSim {
       by.struckThisTick = true;
       return;
     }
-    if (foe.chargeMs > 0) {
+    if (foe.chargeMs > 0 && foe.chargeCfg?.interruptible) {
+      // Video Games moves (ruleset 92): a stun mid-wind-up STOPS the move outright and then
+      // lands as an ordinary stun. The next wind-up waits out the full rest.
+      foe.chargeMs = 0;
+      foe.chargeFrac = 0;
+      foe.poise = 0;
+      foe.chargeRestMs = foe.chargeCfg.recoveryMs;
+      foe.chargeBreakSeq++;
+    } else if (foe.chargeMs > 0) {
       const gain = poiseFor(source) * resisted;
       if (gain > 0) {
         const threshold = foe.chargeCfg?.poiseThreshold ?? POISE_THRESHOLD;
@@ -2718,6 +2767,7 @@ export class BattleSim {
     const cfg = u.chargeCfg;
     if (!cfg || !u.alive) return;
     if (u.staggerMs > 0) u.staggerMs = Math.max(0, u.staggerMs - dtMs);
+    if (u.chargeLockMs > 0) u.chargeLockMs = Math.max(0, u.chargeLockMs - dtMs);
     if (u.chargeRestMs > 0) {
       u.chargeRestMs = Math.max(0, u.chargeRestMs - dtMs);
       return;
@@ -2736,7 +2786,26 @@ export class BattleSim {
       u.poise = Math.max(0, u.poise - (cfg.poiseDrainPerSec * dtMs) / 1000);
     }
     if (u.chargeMs > 0) return;
-    if (cfg.target === "front-deployed") {
+    if (cfg.target === "front-area") {
+      // The Video Games gout and shield slam (ruleset 92): every deployed zombie within reach
+      // of the front, the same reach the Volatile Remains blast uses (the front line and the
+      // band behind it). A flat part, a share of each zombie's OWN hit points, a stun, and
+      // a burn left behind, each optional (ChargeConfig).
+      const reach = this.engageDistance + DEATH_BLAST_REACH;
+      for (const p of this.frontAreaPlayers(u, reach)) {
+        const dmg = cfg.damage * u.chargeTapScale + (cfg.burstPct ?? 0) * p.maxHp;
+        if (dmg > 0) this.dealEnemyDamage(p, dmg);
+        p.struckThisTick = true;
+        if (!p.alive) continue;
+        if (cfg.stunMs && !this.uninterruptible(p)) p.stunMs = Math.max(p.stunMs, cfg.stunMs);
+        if (cfg.burnPct && cfg.burnMs) {
+          // A fresh gout re-lights the burn rather than stacking a second one.
+          p.dotMs = cfg.burnMs;
+          p.dotPerMs = (cfg.burnPct * p.maxHp) / cfg.burnMs;
+        }
+      }
+      u.chargeLockMs = cfg.lockoutMs ?? 0;
+    } else if (cfg.target === "front-deployed") {
       const target = this.players
         .filter((p) => p.alive && !p.taken && this.onField(p))
         .sort((a, b) => b.x - a.x)[0];
@@ -2872,7 +2941,7 @@ export class BattleSim {
     threshold: number;
   } | null {
     for (const e of this.enemies) {
-      if (!e.chargeCfg || !e.alive || e.chargeMs <= 0) continue;
+      if (!e.chargeCfg || e.chargeCfg.interruptible || !e.alive || e.chargeMs <= 0) continue;
       return {
         id: e.id,
         windupMsLeft: e.chargeMs,
@@ -2890,13 +2959,13 @@ export class BattleSim {
    *  the fight is one worth banking for BEFORE the first wind-up — holding Smash back on
    *  a raid that never charges is pure loss. */
   hasCharge(): boolean {
-    return this.enemies.some((e) => !!e.chargeCfg && e.alive);
+    return this.enemies.some((e) => !!e.chargeCfg && !e.chargeCfg.interruptible && e.alive);
   }
 
   /** Whether the charging enemy has actually WALKED ON (raid 13's captain arrives at the
    *  midpoint). A player holding their stuns for him has no reason to hold them before. */
   chargerOnField(): boolean {
-    return this.enemies.some((e) => !!e.chargeCfg && e.alive && e.state !== "queued");
+    return this.enemies.some((e) => !!e.chargeCfg && !e.chargeCfg.interruptible && e.alive && e.state !== "queued");
   }
 
   /** Stop a cast that is charging. `slot` picks which of a dual cast (0 or 1); a single
@@ -4045,6 +4114,7 @@ export class BattleSim {
     defeated.windupMs = 0;
     defeated.stunMs = 0;
     defeated.burnMs = 0; // whatever it died of, it does not come back still alight
+    defeated.dotMs = 0;
     defeated.oneShotProtectionUsed = false;
     // GROUND TRUTH (`-[ZombieActorGarden ressurectZombie:]` 0x7d3c2-0x7d436): the revived
     // actor's whole `abilityList` is walked and EVERY ability carrying `consumable` is
@@ -4135,6 +4205,22 @@ export class BattleSim {
    *
    *  Costed against the tick actually taken rather than a fixed frame, so a 50 ms sim step
    *  and a 16 ms one remove the same HP per second of burn. */
+  /** Tick a gout burn (ruleset 92): flat damage per Ms through the ordinary damage path, so
+   *  armour, Protect and the rest apply. No panic and no tapping, unlike pixelFire. */
+  private stepDot(p: SimUnit, dtMs: number) {
+    if (p.dotMs <= 0) return;
+    const burnt = Math.min(p.dotMs, dtMs);
+    p.dotMs -= dtMs;
+    if (p.dotMs <= 0) { p.dotMs = 0; }
+    this.dealEnemyDamage(p, p.dotPerMs * burnt);
+    p.struckThisTick = true;
+  }
+
+  /** Deployed zombies within `reach` of an enemy standing at the front (gout, shield slam). */
+  private frontAreaPlayers(e: SimUnit, reach: number): SimUnit[] {
+    return this.players.filter((p) => p.alive && !p.taken && this.onField(p) && Math.abs(p.x - e.x) <= reach);
+  }
+
   private stepBurn(p: SimUnit, dtMs: number) {
     if (p.burnMs <= 0) return;
     const burnt = Math.min(p.burnMs, dtMs);
@@ -5053,6 +5139,7 @@ export class BattleSim {
     // Throws and specials draw from ONE action budget (ground truth: the boss rolls a
     // single weighted pick over `bossActions` per cycle — see stepBossActions).
     this.stepBossActions(dtMs);
+    this.stepBossMagic(dtMs);
     this.stepMedusa(dtMs);
     this.stepEndlessMechanics(dtMs);
     this.stepGrabbers(dtMs);
@@ -5081,6 +5168,7 @@ export class BattleSim {
       // client paused while a zombie dangled would run out earlier on the server; ticking
       // it here keeps the burn bit-identical on both sides whatever the hazards do.
       this.stepBurn(p, dtMs);
+      this.stepDot(p, dtMs);
       if (!p.alive) continue; // the burn can be the killing blow
       if (p.blockMs > 0) p.blockMs = Math.max(0, p.blockMs - dtMs);
       if (p.phaseMs > 0) p.phaseMs = Math.max(0, p.phaseMs - dtMs);
@@ -5406,7 +5494,10 @@ export class BattleSim {
       const foe = this.bigTop && e === this.boss ? this.whipTarget(e) : this.playerInRange(e);
       if (foe) {
         e.state = "fight";
-        this.tryAttack(e, foe, dtMs);
+        // A channelled move (the Video Games dragon's gout, ruleset 92): no ordinary swings
+        // while it winds up, nor through its lockout after. It still stands and engages.
+        if (e.chargeCfg?.channel && (e.chargeMs > 0 || e.chargeLockMs > 0)) e.timerMs = this.cycleMs(e, null);
+        else this.tryAttack(e, foe, dtMs);
       } else {
         e.state = "hold";
         e.timerMs = this.cycleMs(e, null);
@@ -5735,6 +5826,86 @@ export class BattleSim {
    *  An Epic Boss is the one exception, and only because it has no perch to be gated on:
    *  it falls onto the lane instead of occupying a state-19 phase, so it keeps its
    *  actions once it has landed. */
+  /** Zedzox's magic (Video Games boss, ruleset 92; CombatUnit.magic). Its own clock beside the
+   *  boss's ordinary actions, which he keeps: only while he is up on his perch with zombies on
+   *  the field, every `everyMs` he charges for `castMs` (glowing, chargeFrac) and then casts
+   *  one of two spells, picked by a deterministic hash of how many he has cast:
+   *    - the BEAM sweeps over `beamSweepMs` from the front of the army to the very back, the
+   *      Gardens' station included, hitting each zombie once for `beamDamage` and a stun;
+   *    - the FIREBALL is lobbed onto the front group (the front line and the band behind it)
+   *      for `blastDamage` each, sending every one of them flying (galacticBlast's knock).
+   *  Medusa's freeze pauses it, and it stops the moment he comes down to fight. */
+  private stepBossMagic(dtMs: number) {
+    const boss = this.boss;
+    const cfg = boss?.magicCfg;
+    if (!boss || !cfg) return;
+    if (this.bossFreezeMs > 0) return;
+    // A beam already sweeping finishes even if the last target walks off it.
+    if (boss.magicSweepMs > 0) {
+      boss.magicSweepMs = Math.max(0, boss.magicSweepMs - dtMs);
+      const onField = this.players.filter((p) => p.alive && !p.taken && this.onField(p));
+      if (onField.length) {
+        const front = Math.max(...onField.map((p) => p.x));
+        const back = Math.min(...onField.map((p) => p.x));
+        const f = cfg.beamSweepMs > 0 ? 1 - boss.magicSweepMs / cfg.beamSweepMs : 1;
+        const sweepX = front - (front - back) * f;
+        for (const p of onField) {
+          if (p.x < sweepX - 0.5 || boss.magicHit.includes(p.id)) continue;
+          boss.magicHit.push(p.id);
+          this.dealEnemyDamage(p, cfg.beamDamage);
+          p.struckThisTick = true;
+          if (p.alive && cfg.beamStunMs > 0 && !this.uninterruptible(p)) p.stunMs = Math.max(p.stunMs, cfg.beamStunMs);
+        }
+      }
+      if (boss.magicSweepMs <= 0) { boss.magicKind = 0; boss.magicHit = []; }
+      return;
+    }
+    const canCast = this.bossCanAct() && boss.state === "structure" &&
+      this.players.some((p) => p.alive && !p.taken && this.onField(p));
+    if (boss.magicCastMs > 0) {
+      if (!canCast) { boss.magicCastMs = 0; boss.magicKind = 0; boss.chargeFrac = 0; return; }
+      boss.magicCastMs = Math.max(0, boss.magicCastMs - dtMs);
+      boss.chargeFrac = cfg.castMs > 0 ? 1 - boss.magicCastMs / cfg.castMs : 1;
+      if (boss.magicCastMs > 0) return;
+      boss.chargeFrac = 0;
+      boss.magicSeq++;
+      boss.magicCdMs = Math.max(0, cfg.everyMs - cfg.castMs);
+      if (boss.magicKind === 1) {
+        boss.magicSweepMs = Math.max(1, cfg.beamSweepMs);
+        boss.magicHit = [];
+        this.bossSpecialEffects.push({ name: "zedzoxBeam", x: boss.x, y: boss.y });
+        return;
+      }
+      // The fireball, lobbed onto the front group.
+      const reach = this.engageDistance + DEATH_BLAST_REACH;
+      const lead = this.frontFighter();
+      const victims = lead
+        ? this.players.filter((p) => p.alive && !p.taken && this.onField(p) && lead.x - p.x <= reach)
+        : [];
+      if (lead) this.bossSpecialEffects.push({ name: "zedzoxFireball", x: lead.x, y: lead.y });
+      for (const v of victims) {
+        this.dealEnemyDamage(v, cfg.blastDamage);
+        v.struckThisTick = true;
+        if (v.alive && this.knockBackZombie(v)) {
+          const airMs = v.isHeadless ? 1650 : 900;
+          v.blastAirMs = airMs;
+          v.blastAirTotalMs = airMs;
+          v.blastAirHeight = v.isHeadless ? 108 : 84;
+          v.blastSpin = (stringSeed(v.id) & 1) === 0 ? 1 : -1;
+        }
+      }
+      boss.magicKind = 0;
+      return;
+    }
+    if (!canCast) return;
+    if (boss.magicCdMs > 0) { boss.magicCdMs = Math.max(0, boss.magicCdMs - dtMs); return; }
+    // Start a charge. A fresh salt pair (61/7) so the pick is independent of every other hash.
+    boss.magicKind = hash(boss.magicCount * 61 + 7) < 0.5 ? 1 : 2;
+    boss.magicCount++;
+    boss.magicCastMs = cfg.castMs;
+    this.bossSpecialEffects.push({ name: boss.magicKind === 1 ? "zedzoxBeamCharge" : "zedzoxFireballCharge", x: boss.x, y: boss.y });
+  }
+
   private bossCanAct(): boolean {
     if (!this.boss || !this.boss.alive) return false;
     // The retreated ninja (raid 13, t9+) sits up top and does nothing until the rest are down.
@@ -5892,6 +6063,7 @@ export class BattleSim {
           victim.windupKey = null;
           victim.windupMs = 0;
           victim.burnMs = 0; // a zombie that is dragged off stops being on fire
+          victim.dotMs = 0;
           victim.struckThisTick = true;
           const turned = this.spawnEnemy(template);
           turned.isSummon = true; // off the wave budget, so it can't hold the descent
@@ -6433,6 +6605,7 @@ export class BattleSim {
     for (const zombie of this.players) {
       if (!zombie.alive || zombie.taken) continue;
       zombie.burnMs = 0; // nobody marches out of a won fight still on fire
+      zombie.dotMs = 0;
       // A shove that was still sliding when the last enemy fell is abandoned where it
       // got to. The slide is only ever ended by `stepKnockBack`, and the simulation
       // stops stepping the moment the fight is decided — so a zombie caught mid-shove

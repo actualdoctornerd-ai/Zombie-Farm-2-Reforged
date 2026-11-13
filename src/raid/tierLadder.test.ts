@@ -28,7 +28,7 @@ const duals = raids.filter((r) => (DUAL_INVASION_IDS as readonly number[]).inclu
 const DUAL_BASE_HP_FOR_TEST: Record<number, { wave: number; boss: number }> = {
   12: { wave: 18_500, boss: 4_500 },
   13: { wave: 46_500, boss: 25_000 },
-  14: { wave: 77_200, boss: 1_500 },
+  14: { wave: 135_200, boss: 1_500 },
   15: { wave: 60_000, boss: 25_000 }, // the alien wave; robots are summoned, not scheduled
 };
 

@@ -257,7 +257,9 @@ const DUAL_BASE_HP: Readonly<Record<number, { wave: number; boss: number }>> = {
   13: { wave: 46_500, boss: 25_000 },  // the Ninja wave
   // The Circus wave. The Ringmaster himself is tiny, which is why his multiplier is the
   // largest in the table.
-  14: { wave: 77_200, boss: 1_500 },
+  // 135,200 since ruleset 92: the Video Games crew's bulkier stats (videoGameMoves.ts) re-weight
+  // the wave, and the rung still lands on the same flat total.
+  14: { wave: 135_200, boss: 1_500 },
   // The alien wave (10 minions) alone. This used to be 409,000 — the alien stage's twenty
   // minions cloned wholesale WITH the robots in the weighted table, four times the whole
   // settle budget. The robots now arrive only when the saucer summons one (capped at one
@@ -691,8 +693,27 @@ export interface ChargeConfig {
   poiseDrainPerSec: number;
   /** A broken charge staggers him for this long, taking STAGGER_DAMAGE_MULT damage. */
   staggerMs: number;
-  /** Endless bruisers can telegraph a single-target hit without changing pirate rules. */
-  target?: "all-deployed" | "front-deployed";
+  /** Endless bruisers can telegraph a single-target hit without changing pirate rules.
+   *  "front-area": every deployed zombie within reach of the front (the Video Games
+   *  dragon's gout and knight's shield slam, ruleset 92). */
+  target?: "all-deployed" | "front-deployed" | "front-area";
+  /** Video Games moves (ruleset 92, src/raid/videoGameMoves.ts) — all optional, so the
+   *  captain's, the Count's and Endless's charges are untouched. */
+  /** What the landing looks like (the renderer picks its effect from this). */
+  effect?: "gout" | "shieldSlam";
+  /** Damage as a share of each hit zombie's OWN max hit points, on top of `damage`. */
+  burstPct?: number;
+  /** A burn left on each hit zombie: this share of its max hit points over `burnMs`. */
+  burnPct?: number;
+  burnMs?: number;
+  /** Stun every hit zombie for this long. */
+  stunMs?: number;
+  /** No ordinary swings while winding up, nor for `lockoutMs` after landing. */
+  channel?: boolean;
+  lockoutMs?: number;
+  /** A stun during the wind-up CANCELS it (the stun lands and the rest restarts) instead
+   *  of feeding a poise bar; such a unit is not a "charger" to the duel logic. */
+  interruptible?: boolean;
 }
 
 /** The charge the pirate captain carries at this rung, or null for an invasion without one. */

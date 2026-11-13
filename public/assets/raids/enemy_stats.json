@@ -51,7 +51,7 @@
     "spriteSize": 64
    },
    {
-    "damage": 0.0,
+    "damage": 0,
     "frequency": 30,
     "name": "throw",
     "sprite": "beach_debris_fishbone.png",
@@ -851,11 +851,11 @@
     "sprite": "pixel_debris_sword.png"
    }
   ],
-  "con": 300,
+  "con": 530,
   "dex": 10,
   "standardBossLoot": true,
-  "str": 6,
-  "knockBackChance": 0.2
+  "str": 4.5,
+  "knockBackChance": 0.05
  },
  "VideoGameStageGhostActor": {
   "attacks": [
@@ -864,10 +864,10 @@
     "name": "VideoGameGhostBite"
    }
   ],
-  "con": 120,
+  "con": 210,
   "dex": 3,
   "standardGoldLoot": true,
-  "str": 11
+  "str": 7
  },
  "VideoGameStageKnightActor": {
   "attacks": [
@@ -876,10 +876,10 @@
     "name": "VideoGameKnightPoke"
    }
   ],
-  "con": 140,
+  "con": 240,
   "dex": 2,
   "standardGoldLoot": true,
-  "str": 20
+  "str": 13
  },
  "VideoGameStageMonsterActor": {
   "attacks": [
@@ -888,10 +888,10 @@
     "name": "VideoGameMonsterFlail"
    }
   ],
-  "con": 120,
+  "con": 220,
   "dex": 2,
   "standardGoldLoot": true,
-  "str": 20
+  "str": 13
  },
  "VideoGameStageZombieActor": {
   "attacks": [

@@ -165,6 +165,22 @@ export interface CombatAttack {
 }
 
 /** A transient combatant used only inside the resolver (never persisted). */
+/** Zedzox's magic (ruleset 92): see CombatUnit.magic. Damage is flat, priced per stage. */
+export interface BossMagicConfig {
+  /** Time between casts, measured from the end of one to the start of the next charge. */
+  everyMs: number;
+  /** The charge-up before the spell lands (he swells and glows). */
+  castMs: number;
+  /** The beam: how long it takes to sweep from the front of the army to the back. */
+  beamSweepMs: number;
+  /** Beam damage to EVERY deployed zombie it passes, Gardens included. */
+  beamDamage: number;
+  /** Each zombie the beam passes is stunned this long. */
+  beamStunMs: number;
+  /** The fireball: damage to every zombie in the front group, which is sent flying. */
+  blastDamage: number;
+}
+
 export interface CombatUnit {
   id: string;
   sourceKey: string;
@@ -200,6 +216,11 @@ export interface CombatUnit {
   /** The pirate captain's charge-up slam (raid 13 only; see raid/dualInvasion.ts). Absent
    *  everywhere else, which is what keeps every other transcript untouched. */
   charge?: ChargeConfig | null;
+  /** Zedzox's magic (Video Games boss, ruleset 92; src/raid/videoGameMoves.ts): while he is
+   *  up on his perch, every `everyMs` he charges for `castMs` and casts EITHER a sweeping
+   *  beam that runs from the front of the army to the Gardens at the back, OR a fireball
+   *  lobbed onto the front group that sends them flying. Absent on every other unit. */
+  magic?: BossMagicConfig | null;
   /** Endless: the share of a stun this enemy shrugs off, shorter stuns and slower poise bars
    *  alike. 1 is immune. Absent everywhere else. */
   stunResist?: number;

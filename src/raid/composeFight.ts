@@ -22,7 +22,8 @@ import {
   abducteesAt, bigTopFor, bubbleFor, duelFor, fightTimeLimitMs, ringmasterDropMs, RINGMASTER_STATION_X, signFor,
   type BigTopConfig, type BubbleConfig, type DuelConfig, type SignConfig,
 } from "./dualInvasion";
-import { eliteBossSpecials, eliteBossThrow, type EliteProfile } from "./eliteInvasion";
+import { eliteBossSpecials, eliteBossThrow, eliteProfile, type EliteProfile } from "./eliteInvasion";
+import { attachVideoGameMoves } from "./videoGameMoves";
 import { attachCountSlam } from "./countSlam";
 import { doOrDieMs, nightTimeLimitMs } from "./halloweenNights";
 import {
@@ -109,6 +110,9 @@ export function composeFight(
   enemyUnits.push(...pirateCaptainFor(assets, raid, tier, elite, playerLevel));
   // Halloween's Count winds up the captain's slam (countSlam.ts).
   attachCountSlam(raid.id, enemyUnits);
+  // The Video Games crew's moves (videoGameMoves.ts, ruleset 92), wherever they fight. Raid 9
+  // always runs a profile (its story one when ordinary), so elite is "not the story profile".
+  attachVideoGameMoves(enemyUnits, { elite: !!elite && elite !== eliteProfile(raid.id, false) });
 
   const dropAtMs = ringmasterDropMs(raid.id, tier);
   return {

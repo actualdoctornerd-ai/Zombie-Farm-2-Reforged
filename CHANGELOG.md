@@ -2,6 +2,15 @@
 
 ## Unreleased (working tree)
 
+### Zombies vs Video Games, re-balanced (ruleset 92)
+- **Every Video Games enemy now has a move of its own**, wherever it fights (Zombies vs Video Games, Circus & Video Games, and Endless):
+  - **The dragon** opens with a gout of flame over the front of your army and repeats it every 12 seconds. It glows orange for 2 seconds first, then everyone in the front area loses 10% of their hit points at once and burns for another 15% over 6 seconds. It does not swing for 2 seconds either side.
+  - **The knight** raises its shield (it glows steel blue) and slams every 10 seconds, stunning everyone in the front area for 2 seconds and hitting them for twice its swing.
+  - **Stun a knight or the dragon while it winds up** and the move is cancelled.
+  - **Zedzox** keeps turning, burning and throwing, and while he is up on his perch he now charges magic every 8 seconds (glowing violet for 3 seconds): a beam that sweeps from the front of your army all the way back to the Gardens, or a fireball lobbed onto the front group that sends them flying. He knocks zombies back far less when he comes down to fight.
+- **Lower damage and much more health across the crew**, so fights run a little longer (about 1 to 1.5 minutes for a level-45 army). Tuned against real armies so the moves are sidegrades: about as hard as before for most players, a little easier for players who answer them well.
+- **Deploy the Worker before the client.**
+
 ### The Video Games ghost hits softer (ruleset 91)
 - **The ghost in Zombies vs Video Games now hits for 11 strength, down from 15.** Today's Protect change (each carrier blocks 10% of what still gets through, instead of a flat 20%) let the ghost, the fastest attacker in the wave, hit through a Protect line much harder: a player who had cleared elite Video Games about 45 times without a loss lost three Protect zombies on the first run after it. Their army, rebuilt and replayed, clears without losses again from 12 down; 11 adds a little margin. The ghost is softer everywhere it appears: the ordinary and elite Video Games invasion, Circus & Video Games, and Endless floors. **Deploy the Worker before the client.**
 

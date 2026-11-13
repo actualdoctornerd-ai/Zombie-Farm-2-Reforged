@@ -9,6 +9,7 @@
  * or a draft contains comes from the week's seed, so in one week everybody faces the same
  * choices and nobody can out-roll anybody (owner, 2026-11-05).
  */
+import { attachVideoGameMove } from "./videoGameMoves";
 import { getsBackUp } from "../zombie/boundlessVitality";
 import { countHitDamage, COUNT_SLAM_RECOVERY_MS, COUNT_SLAM_WINDUP_MS } from "./countSlam";
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
@@ -517,6 +518,9 @@ export function scaleEndlessEnemy(
       poiseThreshold: POISE_THRESHOLD, poiseDrainPerSec: 0, staggerMs: 800, target: "front-deployed",
     };
   }
+  // The Video Games crew's moves (videoGameMoves.ts, ruleset 92), priced off the unit as
+  // Endless scaled it. The perched Zedzox keeps the slam above and gains his magic.
+  attachVideoGameMove(final, { endless: true });
   return final;
 }
 
