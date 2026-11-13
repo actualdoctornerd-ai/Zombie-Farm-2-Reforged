@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+dist
+coverage
+.wrangler
+server/node_modules
+server/.wrangler
+*.log
+.env*
+!.env.production
+!.env.example
+desktop
+launcher
+output
+tmp
+Containerfile
