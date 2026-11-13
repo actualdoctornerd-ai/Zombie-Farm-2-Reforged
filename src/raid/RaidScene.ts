@@ -229,7 +229,20 @@ const BEAM_PULSE_RAD_S = 41;
 // smoke particle (the enemy-death swirlCloudFX) on this cadence, at this scale.
 // Owner, 2026-11-12: smaller and sparser, so a line of lasers no longer fogs the front.
 const BEAM_SMOKE_S = 0.34;
-const BEAM_SMOKE_SCALE = 0.15;
+const BEAM_SMOKE_SCALE = 0.2;
+/** Owner, 2026-11-13: the laser's smoke "a bit more condensed". The stage smoke flings its
+ *  puffs up to ~220 px/s from a 50x70 box, which reads as a fog bank at a laser's tip; this
+ *  keeps the same puff but packs it into a tight curl right at the burn point. */
+function condensedSmoke(cfg: ParticleConfig): ParticleConfig {
+  return {
+    ...cfg,
+    speed: 14, speedVariance: 18,
+    sourcePositionVariancex: 6, sourcePositionVariancey: 5,
+    gravityx: 0, gravityy: -18,
+    startParticleSize: 20, finishParticleSize: 30,
+    startColorAlpha: 0.6,
+  };
+}
 // The per-hit dust burst a PLAYER zombie throws off as it connects, held back for
 // now: a full army swinging at once turned the frontline into a permanent cloud.
 // Enemy strikes keep theirs — they land one at a time and the puff is what marks
@@ -953,6 +966,8 @@ export class RaidScene {
   private vgSlamFx: { g: Graphics; t: number; x: number; y: number }[] = [];
   private vgFireballFx: { g: Graphics; t: number; x0: number; y0: number; x1: number; y1: number; hit?: boolean }[] = [];
   private vgLiveG: Graphics | null = null;
+  /** The dragon's mouth fire, drawn with normal blending: additive orange vanishes on red. */
+  private vgMouthG: Graphics | null = null;
   private galacticPortalFx: { g: Graphics; t: number; x: number; y: number; firing: boolean }[] = [];
   private galacticBeamFx: { g: Graphics; t: number; x0: number; y: number; x1: number }[] = [];
   private shakeT = 0; // seconds left in the blast shake (0 = still)
@@ -978,6 +993,7 @@ export class RaidScene {
   private bashCfg: ParticleConfig | null = null;
   private confettiCfg: ParticleConfig | null = null;
   private smokeCfg: ParticleConfig | null = null; // enemy death poof (source: playDeathEffect → smoke.plist)
+  private beamSmokeCfg: ParticleConfig | null = null; // the same puff, condensed for laser tips
   private healCfg: ParticleConfig | null = null;
   private stunCfg: ParticleConfig | null = null; // stun stars (source: stun.plist / starFX)
   private confettiFired = false;
@@ -1391,6 +1407,7 @@ export class RaidScene {
       loadParticle("healSingle"),
       loadParticle("stun"),
     ]);
+    this.beamSmokeCfg = this.smokeCfg && condensedSmoke(this.smokeCfg);
     for (const opt of this.bossThrow?.options ?? []) {
       if (this.projTex.has(opt.sprite)) continue;
       // A PvP formation defense throws its MINI, so the projectile is drawn from the
@@ -3040,15 +3057,17 @@ export class RaidScene {
           tok.chargeSwell = vgFrac;
           const kind = u.magicCfg ? "magic" : u.chargeCfg?.effect;
           tok.frameActor.sprite.tint = vgFrac > 0 ? vgChargeTint(kind, vgFrac) : NO_TINT;
-          tok.root.scale.set(szs * (1 + 0.14 * vgFrac));
+          // The dragon does not grow (owner, 2026-11-13): fire gathers at its mouth instead
+          // (stepVideoGameFx); the knight and Zedzox still swell.
+          tok.root.scale.set(szs * (1 + (kind === "gout" ? 0 : 0.14) * vgFrac));
         }
         const seen = tok.frameActor.seenSlamSeq;
         tok.frameActor.seenSlamSeq = u.chargeSlamSeq;
         if (seen !== undefined && u.chargeSlamSeq > seen && u.chargeCfg?.effect) {
           if (u.chargeCfg.effect === "gout") {
-            const b = tok.root.getBounds();
+            const m = this.dragonMouth(tok);
             const reachPx = Math.abs(this.mapX(u.x) - this.mapX(u.x - this.sim.frontAreaReach()));
-            this.spawnGout(b.x + b.width * 0.12, b.y + b.height * 0.32, tok.root.y, reachPx);
+            this.spawnGout(m.x, m.y, tok.root.y, reachPx);
           } else this.spawnShieldSlam(tok.root.x, tok.root.y);
         }
       }
@@ -3943,14 +3962,15 @@ export class RaidScene {
     this.shakeT = simple ? BLAST_SHAKE_S * 0.8 : BLAST_SHAKE_S;
   }
 
-  /** Where a unit's spell comes from on screen: its drawn token (Zedzox's perch lifts him well
-   *  above his sim position), a little above its feet. */
+  /** Where Zedzox's spell comes from on screen: the swirl just above his left-hand (screen-left)
+   *  fist, measured off his drawn token (the perch lifts him well above his sim position). The
+   *  fist sits at 12% across and 47% down the token, health bar included. */
   private castPoint(u: { id: string; x: number; y: number }): { x: number; y: number } {
     const s = this.sizeScale();
     const tok = this.tokens.get(u.id);
     if (tok) {
       const b = tok.root.getBounds();
-      return { x: b.x + b.width * 0.4, y: b.y + b.height * 0.45 };
+      return { x: b.x + b.width * 0.12, y: b.y + b.height * 0.47 - 40 * s };
     }
     return { x: this.mapX(u.x), y: this.mapY(u.y) - 30 * s };
   }
@@ -3960,6 +3980,12 @@ export class RaidScene {
     g.blendMode = "add";
     this.fxLayer.addChild(g);
     return g;
+  }
+
+  /** Where the dragon's mouth is on screen (it faces left, its mouth high on that side). */
+  private dragonMouth(tok: { root: Container }): { x: number; y: number } {
+    const b = tok.root.getBounds();
+    return { x: b.x + b.width * 0.12, y: b.y + b.height * 0.32 };
   }
 
   /** The dragon's gout (ruleset 92): a cone of pixel flame raking the front area from its
@@ -4065,15 +4091,63 @@ export class RaidScene {
         }
       }
     }
+    if (!this.vgMouthG) { this.vgMouthG = new Graphics(); this.fxLayer.addChild(this.vgMouthG); }
+    const mg = this.vgMouthG.clear();
+    // The dragon's wind-up: embers spiral in on its mouth and a flame core builds there,
+    // brighter and busier as the gout nears (it no longer swells; owner, 2026-11-13).
+    for (const u of this.sim.units) {
+      if (u.team !== "enemy" || !u.alive || u.chargeCfg?.effect !== "gout" || u.chargeFrac <= 0) continue;
+      const tok = this.tokens.get(u.id);
+      if (!tok) continue;
+      const k = u.chargeFrac;
+      const m = this.dragonMouth(tok);
+      const step = Math.max(3, Math.round(5 * s));
+      const n = Math.round(10 + 30 * k);
+      for (let i = 0; i < n; i++) {
+        const phase = (now * 1.4 + i * 0.137) % 1; // 0 = far out, 1 = at the mouth
+        const a = i * 2.4 + now * (2 + (i % 3));
+        const r = (52 - 46 * phase) * s;
+        px(mg, m.x + Math.cos(a) * r - step / 2, m.y + Math.sin(a) * r * 0.75 - step / 2, step,
+          heat(0.1 + 0.75 * (1 - phase)), Math.min(1, phase * 3));
+      }
+      const core = (5 + 14 * k) * s;
+      for (let dy = -core; dy <= core; dy += step) {
+        for (let dx = -core; dx <= core; dx += step) {
+          const d = Math.hypot(dx, dy) / (core + 1);
+          if (d > 1) continue;
+          const flick = 0.5 + 0.5 * Math.sin(now * 37 + dx * 0.9 + dy * 1.3);
+          if (d > 0.7 && flick < 0.4) continue; // ragged rim
+          px(mg, m.x + dx - step / 2, m.y + dy - step / 2, step, heat(d * 0.75 + flick * 0.2), 0.85 + 0.15 * k);
+        }
+      }
+      // A few licks rising off the top of the gathering fire.
+      for (let f = 0; f < 4; f++) {
+        const rise = (now * 2.2 + f * 0.25) % 1;
+        px(mg, m.x + (f - 1.5) * step * 1.2, m.y - core - rise * 22 * s, step, heat(0.3 + rise * 0.6), (1 - rise) * k);
+      }
+    }
     const boss = this.sim.units.find((b) => b.isBoss && b.magicCfg && b.alive);
     if (!boss || !boss.magicCfg) return;
     const { x: bx, y: by } = this.castPoint(boss);
     if (boss.magicCastMs > 0) {
+      // A little swirl of the spell's colour above his fist (owner, 2026-11-13): three pixel
+      // arms spinning faster and wider as the charge fills, around a bright knot.
       const k = boss.chargeFrac;
-      const pulse = 0.8 + 0.2 * Math.sin(now * 18);
-      const col = boss.magicKind === 1 ? 0xb46bff : 0xff8a2a;
-      g.circle(bx, by, (6 + 18 * k) * s * pulse).fill({ color: col, alpha: 0.35 + 0.4 * k })
-        .circle(bx, by, (3 + 8 * k) * s).fill({ color: 0xffffff, alpha: 0.8 });
+      const pal = boss.magicKind === 1 ? [0x6a2bd9, 0xb46bff, 0xe6c8ff] : [0xd9481f, 0xff8a2a, 0xffe066];
+      const step = Math.max(2, Math.round(4 * s));
+      const spin = now * (5 + 7 * k);
+      const R = (14 + 18 * k) * s;
+      for (let arm = 0; arm < 3; arm++) {
+        for (let j = 0; j < 12; j++) {
+          const t = j / 11; // 0 = the knot, 1 = the arm's tip
+          const a = spin + arm * (Math.PI * 2 / 3) + t * 2.6;
+          const r = R * (0.2 + 0.8 * t);
+          px(g, bx + Math.cos(a) * r - step / 2, by + Math.sin(a) * r * 0.6 - step / 2, step,
+            pal[t < 0.35 ? 2 : t < 0.7 ? 1 : 0], (0.7 + 0.3 * k) * (1 - 0.4 * t));
+        }
+      }
+      g.circle(bx, by, (5 + 5 * k) * s).fill({ color: pal[1], alpha: 0.5 })
+        .circle(bx, by, (2 + 3 * k) * s).fill({ color: 0xffffff, alpha: 0.7 + 0.3 * k });
     }
     if (boss.magicSweepMs > 0) {
       const field = this.sim.units.filter((p) => p.team === "player" && p.alive && !p.taken &&
@@ -4480,10 +4554,10 @@ export class RaidScene {
       // The burn point smoulders: small wisps of the stage's smoke at the impact,
       // centred between the (near-coincident) per-eye strike heights.
       beam.smokeS -= dtSec;
-      if (beam.smokeS <= 0 && this.smokeCfg) {
+      if (beam.smokeS <= 0 && this.beamSmokeCfg) {
         beam.smokeS += BEAM_SMOKE_S;
         const yHit = origins.reduce((sum, o) => sum + o.y, 0) / origins.length;
-        this.particles.burst(this.smokeCfg, xHit, yHit, BEAM_SMOKE_SCALE);
+        this.particles.burst(this.beamSmokeCfg, xHit, yHit, BEAM_SMOKE_SCALE);
       }
     }
   }
