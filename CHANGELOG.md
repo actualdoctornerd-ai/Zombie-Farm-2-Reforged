@@ -2,6 +2,9 @@
 
 ## Unreleased (working tree)
 
+### Elite Video Games, a little easier (ruleset 93)
+- **The elite Zombies vs Video Games crew hits 10% softer.** Measured against every real army of 16 or more zombies: at level 45 about 63-72% of elite runs now clear (was 51-62%) and a run costs one to one and a half zombies fewer; at level 40 it clears 35% (was 27-30%). Zedzox's turn and pixel fire are unchanged, and ordinary Video Games, the Circus & Video Games dual and Endless are untouched. **Deploy the Worker before the client.**
+
 ### Zombies vs Video Games, re-balanced (ruleset 92)
 - **Every Video Games enemy now has a move of its own**, wherever it fights (Zombies vs Video Games, Circus & Video Games, and Endless):
   - **The dragon** opens with a gout of flame over the front of your army and repeats it every 12 seconds. It waits until your army is in reach, glows orange for 2 seconds, then everyone in the front area loses 10% of their hit points at once and burns for another 15% over 6 seconds. It does not swing for 2 seconds either side.

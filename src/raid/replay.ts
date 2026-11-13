@@ -1347,7 +1347,9 @@ import type { RaidOutcome } from "./types";
 // knocks back. Lower damage and more hit points on every unit (str 11.7/11.7/6.3/4.5, con
 // 240/220/210/530). Raid 9, the Circus & Video Games dual (raid 14) and Endless video-game and
 // alien floors replay differently from v91.
-export const RAID_RULESET_VERSION = 92;
+// 93 (owner, 2026-11-13): elite Zombies vs Video Games hits 10% softer (ELITE_BASE[9].str
+// 6.3 -> 5.67); his specials keep their elite damage. Only elite raid 9 replays differently.
+export const RAID_RULESET_VERSION = 93;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

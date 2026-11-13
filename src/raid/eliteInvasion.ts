@@ -403,7 +403,12 @@ const ELITE_BASE: Readonly<Record<number, EliteProfile>> = {
   // hardest elite fight. The independently calibrated projectile step stays unchanged.
   // 9 — Video Games. x3.00. Level 46 puts it in the 5-10 band, the toughest target in the
   // ladder, and it was sitting at 0.3 — the largest gap in the table.
-  9: { str: 6.3, con: 1.48, dex: 1.32, throwDamage: 2.1, throwRate: 1.29, wallHp: 1, specialDamage: 6.3 },
+  // Ruleset 93 (owner, 2026-11-13: "slightly easier on elite across the board", armies of 16+):
+  // str 6.3 -> 5.67 (x0.9). Every real prod party of 16+ in the L40/L45 snapshot gains: L45
+  // win rate 51 -> 63% (competent) and 62 -> 72% (expert), mean losses 9.4 -> 7.9 and 8.0 -> 6.4;
+  // L40 27 -> 35% and 30 -> 36%.
+  // specialDamage stays at 6.3: Zedzox's turn and pixel fire are unchanged.
+  9: { str: 5.67, con: 1.48, dex: 1.32, throwDamage: 2.1, throwRate: 1.29, wallHp: 1, specialDamage: 6.3 },
 
   // 10 / 11 — Tree World and Valentine's Day. Seasonal, no signature mechanic, and the
   // two weakest waves after McDonnell's, so they take the same broad treatment as
