@@ -1,0 +1,797 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>drgroundhog_attack_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{106, 24}, {122, 118}}</string>
+			<key>spriteOffset</key>
+			<string>{-2, -0}</string>
+			<key>spriteSize</key>
+			<string>{122, 118}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 2}, {122, 118}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{108, 26}, {126, 116}}</string>
+			<key>spriteOffset</key>
+			<string>{2, -1}</string>
+			<key>spriteSize</key>
+			<string>{126, 116}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{126, 2}, {126, 116}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{105, 28}, {126, 116}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -3}</string>
+			<key>spriteSize</key>
+			<string>{126, 116}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{254, 2}, {126, 116}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{104, 17}, {126, 126}}</string>
+			<key>spriteOffset</key>
+			<string>{-2, 3}</string>
+			<key>spriteSize</key>
+			<string>{126, 126}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{382, 2}, {126, 126}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{111, 11}, {116, 132}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 6}</string>
+			<key>spriteSize</key>
+			<string>{116, 132}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{510, 2}, {116, 132}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{108, 14}, {114, 130}}</string>
+			<key>spriteOffset</key>
+			<string>{-4, 4}</string>
+			<key>spriteSize</key>
+			<string>{114, 130}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{628, 2}, {114, 130}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{91, 35}, {134, 108}}</string>
+			<key>spriteOffset</key>
+			<string>{-11, -6}</string>
+			<key>spriteSize</key>
+			<string>{134, 108}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{744, 2}, {134, 108}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{74, 31}, {148, 112}}</string>
+			<key>spriteOffset</key>
+			<string>{-21, -4}</string>
+			<key>spriteSize</key>
+			<string>{148, 112}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 136}, {148, 112}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{91, 38}, {130, 106}}</string>
+			<key>spriteOffset</key>
+			<string>{-13, -8}</string>
+			<key>spriteSize</key>
+			<string>{130, 106}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{152, 136}, {130, 106}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr10.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{96, 29}, {130, 114}}</string>
+			<key>spriteOffset</key>
+			<string>{-8, -3}</string>
+			<key>spriteSize</key>
+			<string>{130, 114}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{284, 136}, {130, 114}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr11.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{106, 22}, {120, 122}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -0}</string>
+			<key>spriteSize</key>
+			<string>{120, 122}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{416, 136}, {120, 122}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_attack_fr12.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{105, 22}, {122, 122}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -0}</string>
+			<key>spriteSize</key>
+			<string>{122, 122}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{538, 136}, {122, 122}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_defeat_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{110, 22}, {118, 122}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -0}</string>
+			<key>spriteSize</key>
+			<string>{118, 122}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{662, 136}, {118, 122}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_defeat_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{115, 9}, {116, 134}}</string>
+			<key>spriteOffset</key>
+			<string>{4, 7}</string>
+			<key>spriteSize</key>
+			<string>{116, 134}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{782, 136}, {116, 134}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_defeat_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{103, 9}, {132, 134}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 7}</string>
+			<key>spriteSize</key>
+			<string>{132, 134}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 272}, {132, 134}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_defeat_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{103, 11}, {130, 132}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, 6}</string>
+			<key>spriteSize</key>
+			<string>{130, 132}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{136, 272}, {130, 132}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_defeat_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{103, 11}, {130, 132}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, 6}</string>
+			<key>spriteSize</key>
+			<string>{130, 132}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{268, 272}, {130, 132}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_enter_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{117, 2}, {110, 136}}</string>
+			<key>spriteOffset</key>
+			<string>{3, 13}</string>
+			<key>spriteSize</key>
+			<string>{110, 136}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{400, 272}, {110, 136}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_enter_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{85, 26}, {166, 130}}</string>
+			<key>spriteOffset</key>
+			<string>{-1, -8}</string>
+			<key>spriteSize</key>
+			<string>{166, 130}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{512, 272}, {166, 130}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_enter_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{47, 52}, {246, 110}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -24}</string>
+			<key>spriteSize</key>
+			<string>{246, 110}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{680, 272}, {246, 110}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_enter_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{17, 22}, {304, 142}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -10}</string>
+			<key>spriteSize</key>
+			<string>{304, 142}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 410}, {304, 142}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_enter_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{0, 8}, {338, 156}}</string>
+			<key>spriteOffset</key>
+			<string>{0, -3}</string>
+			<key>spriteSize</key>
+			<string>{338, 156}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{308, 410}, {338, 156}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_enter_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{103, 22}, {124, 122}}</string>
+			<key>spriteOffset</key>
+			<string>{-4, -0}</string>
+			<key>spriteSize</key>
+			<string>{124, 122}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{648, 410}, {124, 122}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_escape_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{105, 21}, {120, 122}}</string>
+			<key>spriteOffset</key>
+			<string>{-4, 1}</string>
+			<key>spriteSize</key>
+			<string>{120, 122}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{774, 410}, {120, 122}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_escape_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{104, 23}, {124, 120}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -0}</string>
+			<key>spriteSize</key>
+			<string>{124, 120}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{896, 410}, {124, 120}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_escape_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{110, 33}, {126, 112}}</string>
+			<key>spriteOffset</key>
+			<string>{4, -6}</string>
+			<key>spriteSize</key>
+			<string>{126, 112}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 568}, {126, 112}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_escape_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{111, 36}, {124, 110}}</string>
+			<key>spriteOffset</key>
+			<string>{4, -8}</string>
+			<key>spriteSize</key>
+			<string>{124, 110}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{130, 568}, {124, 110}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_escape_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{111, 36}, {124, 110}}</string>
+			<key>spriteOffset</key>
+			<string>{4, -8}</string>
+			<key>spriteSize</key>
+			<string>{124, 110}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{256, 568}, {124, 110}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_escape_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{99, 32}, {132, 112}}</string>
+			<key>spriteOffset</key>
+			<string>{-4, -5}</string>
+			<key>spriteSize</key>
+			<string>{132, 112}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{382, 568}, {132, 112}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_escape_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{111, 10}, {118, 134}}</string>
+			<key>spriteOffset</key>
+			<string>{1, 6}</string>
+			<key>spriteSize</key>
+			<string>{118, 134}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{516, 568}, {118, 134}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_fly_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{117, 4}, {108, 126}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 16}</string>
+			<key>spriteSize</key>
+			<string>{108, 126}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{636, 568}, {108, 126}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_fly_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{117, 4}, {108, 126}}</string>
+			<key>spriteOffset</key>
+			<string>{2, 16}</string>
+			<key>spriteSize</key>
+			<string>{108, 126}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{746, 568}, {108, 126}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_fly_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{120, 4}, {104, 126}}</string>
+			<key>spriteOffset</key>
+			<string>{3, 16}</string>
+			<key>spriteSize</key>
+			<string>{104, 126}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{856, 568}, {104, 126}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_idle_fr01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{103, 19}, {124, 126}}</string>
+			<key>spriteOffset</key>
+			<string>{-4, 1}</string>
+			<key>spriteSize</key>
+			<string>{124, 126}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{2, 704}, {124, 126}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_idle_fr02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{105, 23}, {122, 120}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -0}</string>
+			<key>spriteSize</key>
+			<string>{122, 120}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{128, 704}, {122, 120}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_idle_fr03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{105, 24}, {122, 120}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -1}</string>
+			<key>spriteSize</key>
+			<string>{122, 120}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{252, 704}, {122, 120}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_idle_fr04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{108, 27}, {126, 116}}</string>
+			<key>spriteOffset</key>
+			<string>{2, -2}</string>
+			<key>spriteSize</key>
+			<string>{126, 116}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{376, 704}, {126, 116}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_idle_fr05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{111, 25}, {120, 118}}</string>
+			<key>spriteOffset</key>
+			<string>{2, -1}</string>
+			<key>spriteSize</key>
+			<string>{120, 118}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{504, 704}, {120, 118}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_idle_fr06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{107, 22}, {120, 122}}</string>
+			<key>spriteOffset</key>
+			<string>{-2, -0}</string>
+			<key>spriteSize</key>
+			<string>{120, 122}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{626, 704}, {120, 122}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>drgroundhog_idle_fr07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{105, 22}, {122, 122}}</string>
+			<key>spriteOffset</key>
+			<string>{-3, -0}</string>
+			<key>spriteSize</key>
+			<string>{122, 122}</string>
+			<key>spriteSourceSize</key>
+			<string>{338, 166}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{748, 704}, {122, 122}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>drgroundhog.zwd</string>
+		<key>premultipliedAlpha</key>
+		<true/>
+		<key>size</key>
+		<string>{1024, 1024}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>drgroundhog</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<true/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>drgroundhog</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>

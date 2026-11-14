@@ -1,0 +1,155 @@
+{
+ "name": "vagabond_zombie",
+ "neck": {
+  "x": 7,
+  "y": -43
+ },
+ "color": [
+  159,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "Features.png",
+   "group": "head",
+   "px": -6,
+   "py": -68,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 7,
+   "scale": 1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 4,
+   "py": -16,
+   "ax": 0.4431257247924805,
+   "ay": 0.6266295611858368,
+   "z": 3,
+   "scale": 1
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 10,
+   "py": -6,
+   "ax": 0.4642857313156128,
+   "ay": 0.004761874675750732,
+   "z": 2,
+   "scale": 1
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -7,
+   "py": -6,
+   "ax": 0.5669999718666077,
+   "ay": 0.1119047999382019,
+   "z": 1,
+   "scale": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 14,
+   "py": -31,
+   "ax": 0.7174416780471802,
+   "ay": 0.34351176023483276,
+   "z": 8,
+   "scale": 1
+  },
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": -6,
+   "py": -30,
+   "ax": 0.8142856955528259,
+   "ay": 0.3178570866584778,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "UpperTeeth.png",
+   "group": "head",
+   "px": -9,
+   "py": -39,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "LowerTeeth.png",
+   "group": "head",
+   "px": -11,
+   "py": -36,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 6,
+   "scale": 1
+  },
+  {
+   "file": "Scar.png",
+   "group": "head",
+   "px": 14,
+   "py": -69,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "Jaw.png",
+   "group": "head",
+   "px": 7,
+   "py": -42,
+   "ax": 0.8,
+   "ay": 0.050000000000000044,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "Head.png",
+   "group": "head",
+   "px": 7,
+   "py": -43,
+   "ax": 0.72,
+   "ay": 0.8200000000000001,
+   "z": 4,
+   "scale": 1
+  },
+  {
+   "file": "EyeR.png",
+   "group": "head",
+   "px": 2,
+   "py": -59,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "EyeL.png",
+   "group": "head",
+   "px": -24,
+   "py": -58,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "JawFeature.png",
+   "group": "head",
+   "px": -5,
+   "py": -34,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 7,
+   "scale": 1
+  }
+ ]
+}

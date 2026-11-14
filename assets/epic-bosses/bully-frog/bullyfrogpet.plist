@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		<key>bullyfrog_pet_Idle01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{68, 201}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{312, 0}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{32, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{9, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{66, 258}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{31, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{9, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{150, 132}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{30, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{8, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{218, 171}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{29, 30}, {68, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{8, -11}</string>
+			<key>spriteSize</key>
+			<string>{68, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{80, 132}, {68, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{30, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{8, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{176, 0}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{31, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{9, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{244, 0}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{308, 57}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle10.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{134, 189}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_Idle11.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 31}, {64, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{332, 226}, {64, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{286, 114}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{200, 228}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{32, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{9, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{132, 258}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{31, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{9, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{172, 57}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{30, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{8, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{240, 57}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{29, 30}, {68, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{8, -11}</string>
+			<key>spriteSize</key>
+			<string>{68, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 144}, {68, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink07.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{30, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{8, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{218, 114}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink08.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{31, 30}, {66, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{9, -11}</string>
+			<key>spriteSize</key>
+			<string>{66, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 201}, {66, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink09.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{266, 228}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink10.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 30}, {64, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 258}, {64, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_blink11.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 31}, {64, 53}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -11}</string>
+			<key>spriteSize</key>
+			<string>{64, 53}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{286, 171}, {64, 53}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_walk01.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{37, 38}, {60, 45}}</string>
+			<key>spriteOffset</key>
+			<string>{12, -14}</string>
+			<key>spriteSize</key>
+			<string>{60, 45}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{378, 0}, {60, 45}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_walk02.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{33, 31}, {64, 49}}</string>
+			<key>spriteOffset</key>
+			<string>{10, -9}</string>
+			<key>spriteSize</key>
+			<string>{64, 49}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{352, 114}, {64, 49}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_walk03.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{22, 8}, {78, 73}}</string>
+			<key>spriteOffset</key>
+			<string>{6, 2}</string>
+			<key>spriteSize</key>
+			<string>{78, 73}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 69}, {78, 73}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_walk04.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{5, 15}, {102, 67}}</string>
+			<key>spriteOffset</key>
+			<string>{1, -2}</string>
+			<key>spriteSize</key>
+			<string>{102, 67}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{0, 0}, {102, 67}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_walk05.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{8, 23}, {90, 61}}</string>
+			<key>spriteOffset</key>
+			<string>{-2, -7}</string>
+			<key>spriteSize</key>
+			<string>{90, 61}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{80, 69}, {90, 61}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		<key>bullyfrog_pet_walk06.png</key>
+		<dict>
+			<key>aliases</key>
+			<array/>
+			<key>spriteColorRect</key>
+			<string>{{32, 37}, {70, 55}}</string>
+			<key>spriteOffset</key>
+			<string>{12, -18}</string>
+			<key>spriteSize</key>
+			<string>{70, 55}</string>
+			<key>spriteSourceSize</key>
+			<string>{110, 93}</string>
+			<key>spriteTrimmed</key>
+			<true/>
+			<key>textureRect</key>
+			<string>{{104, 0}, {70, 55}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>format</key>
+		<integer>3</integer>
+		<key>name</key>
+		<string>bullyfrogpet</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+		<key>size</key>
+		<string>{512, 512}</string>
+		<key>target</key>
+		<dict>
+			<key>coordinatesFileExtension</key>
+			<string>.plist</string>
+			<key>coordinatesFileName</key>
+			<string>bullyfrogpet</string>
+			<key>name</key>
+			<string>default</string>
+			<key>premultipliedAlpha</key>
+			<false/>
+			<key>textureFileExtension</key>
+			<string>.png</string>
+			<key>textureFileName</key>
+			<string>bullyfrogpet</string>
+		</dict>
+		<key>version</key>
+		<string>1.5.5</string>
+	</dict>
+</dict>
+</plist>

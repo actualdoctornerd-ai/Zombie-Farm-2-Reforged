@@ -1,0 +1,135 @@
+{
+ "name": "madame_zombie",
+ "neck": {
+  "x": 7,
+  "y": -43
+ },
+ "color": [
+  159,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 11,
+   "py": -34,
+   "ax": 0.7914062738418579,
+   "ay": 0.38691526651382446,
+   "z": 7,
+   "scale": 1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 13,
+   "py": -22,
+   "ax": 0.5702492594718933,
+   "ay": 0.3984372615814209,
+   "z": 3,
+   "scale": 1
+  },
+  {
+   "file": "Features.png",
+   "group": "head",
+   "px": 7,
+   "py": -43,
+   "ax": 0.5778246521949768,
+   "ay": 0.9142428487539291,
+   "z": 7,
+   "scale": 1
+  },
+  {
+   "file": "Features2.png",
+   "group": "head",
+   "px": 7,
+   "py": -43,
+   "ax": 2.311079740524292,
+   "ay": 0.8985522985458374,
+   "z": 4,
+   "scale": 1
+  },
+  {
+   "file": "Jaw.png",
+   "group": "head",
+   "px": 7,
+   "py": -42,
+   "ax": 0.8,
+   "ay": 0.050000000000000044,
+   "z": 6,
+   "scale": 1
+  },
+  {
+   "file": "Scar.png",
+   "group": "head",
+   "px": 14,
+   "py": -69,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": 0,
+   "py": -33,
+   "ax": 1.0127205848693848,
+   "ay": 0.0733332633972168,
+   "z": 0,
+   "scale": 1
+  },
+  {
+   "file": "EyeL.png",
+   "group": "head",
+   "px": -24,
+   "py": -58,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "LowerTeeth.png",
+   "group": "head",
+   "px": -11,
+   "py": -36,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 6,
+   "scale": 1
+  },
+  {
+   "file": "Head.png",
+   "group": "head",
+   "px": 7,
+   "py": -43,
+   "ax": 0.72,
+   "ay": 0.8200000000000001,
+   "z": 4,
+   "scale": 1
+  },
+  {
+   "file": "UpperTeeth.png",
+   "group": "head",
+   "px": -9,
+   "py": -39,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  },
+  {
+   "file": "EyeR.png",
+   "group": "head",
+   "px": 2,
+   "py": -59,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 5,
+   "scale": 1
+  }
+ ]
+}
