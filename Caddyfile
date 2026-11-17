@@ -1,0 +1,22 @@
+{
+	# The container terminates HTTP at port 8080, not TLS.
+	auto_https off
+
+	# Keep the admin API disabled. Caddy may log a harmless warning about this.
+	admin off
+
+	# No need to save an adapted configuration on a read-only image.
+	persist_config off
+
+	# HTTP/2 and HTTP/3 require different protocol handling; serve HTTP/1.1 here.
+	servers :8080 {
+		protocols h1
+	}
+}
+
+:8080 {
+	root * /srv
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}

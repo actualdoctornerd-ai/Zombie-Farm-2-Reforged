@@ -21,7 +21,7 @@ function cspPlugin(apiUrl: string): Plugin {
     `object-src 'none'`,
     `script-src 'self' https://accounts.google.com https://www.gstatic.com`,
     `style-src 'self' 'unsafe-inline' https://accounts.google.com`,
-    `img-src 'self' data: https:`,
+    `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
     // `data:` is for PixiJS, not for us. Before loading any texture it probes
     // whether ImageBitmap works inside a worker by fetching a 1x1 data-URL PNG
