@@ -1349,7 +1349,14 @@ import type { RaidOutcome } from "./types";
 // alien floors replay differently from v91.
 // 93 (owner, 2026-11-13): elite Zombies vs Video Games hits 10% softer (ELITE_BASE[9].str
 // 6.3 -> 5.67); his specials keep their elite damage. Only elite raid 9 replays differently.
-export const RAID_RULESET_VERSION = 93;
+// 94 (owner, 2026-11-18, player reports "Green Flower is too weak"): the Green Flower Zombie
+// trades Resurrect + Heal All for Fortitude + Resurrect II (two revives per fight, counted as
+// two Resurrects on the strip). Stats unchanged. Any fight fielding a Green Flower replays
+// differently from v93. Same version: a station Garden is never "in the combat zone" (it fights
+// only an enemy within reach). Epic Boss fights put the zone's back edge behind the Garden
+// station, so every attacking Garden fought the boss from 350 px away and never healed. Epic
+// fights with a Garden replay differently; raids, Endless and PvP are unchanged.
+export const RAID_RULESET_VERSION = 94;
 export const RAID_TICK_MS = 50;
 /** The ORDINARY fight's clock in ticks (four minutes). A fight carries its own
  *  (`BattleSim.timeLimitMs`, six minutes on the dual invasions); `maxTicksFor` reads it. */

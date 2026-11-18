@@ -33,7 +33,7 @@
 import { getsBackUp } from "../zombie/boundlessVitality";
 import type { BossActionChoice, BossMagicConfig, BossSpecial, BossThrowConfig, CombatUnit, CrabConfig, EndlessStageMechanics, GrabberConfig, MegaBotConfig, RaidFeats, RaidOutcome, SummonConfig, WaveCadence } from "./types";
 import { emptyRaidFeats } from "./types";
-import { ACTIVATED_ABILITY, activatedGroupsOf, teamAbilitiesIn } from "../zombie/abilities";
+import { ACTIVATED_ABILITY, activatedGroupsOf, resurrectCharges, teamAbilitiesIn } from "../zombie/abilities";
 import {
   ALIEN_LASER_DAMAGE,
   applyDamage,
@@ -688,7 +688,8 @@ export interface SimUnit {
   explodeFxSeq: number; // increments on the tick this unit blows itself up (renderer trigger)
   abilityRollSeq: number; // replay-safe proc sequence (Block/Stun/Double Strike)
   usedAbilities: string[]; // one-use activated abilities already consumed
-  resurrectUsed: boolean; // one-use automatic Resurrect latch
+  resurrectUsed: boolean; // automatic Resurrect latch: every banked revive is spent
+  resurrectsUsed: number; // revives cast this fight (Resurrect II banks two)
   unwrapUsed: boolean; // Unwrapped spent: the next killing blow is final
   unwrapFxSeq: number; // increments when this unit gets back up from Unwrapped (renderer trigger)
   lastLaughFxSeq: number; // increments when this unit's Last Laugh goes off (renderer trigger)
@@ -1179,6 +1180,7 @@ function toSim(u: CombatUnit, i: number): SimUnit {
     abilityRollSeq: 0,
     usedAbilities: [],
     resurrectUsed: false,
+    resurrectsUsed: 0,
     unwrapUsed: false,
     unwrapFxSeq: 0,
     lastLaughFxSeq: 0,
@@ -1704,6 +1706,7 @@ export class BattleSim {
       blastSpin: u.blastSpin ?? 0,
       usedAbilities: [...(u.usedAbilities ?? [])],
       resurrectUsed: u.resurrectUsed ?? false,
+      resurrectsUsed: u.resurrectsUsed ?? (u.resurrectUsed ? 1 : 0),
       unwrapUsed: u.unwrapUsed ?? false,
       unwrapFxSeq: u.unwrapFxSeq ?? 0,
       lastLaughFxSeq: u.lastLaughFxSeq ?? 0,
@@ -2378,7 +2381,17 @@ export class BattleSim {
    *  strip shows the player. A holder that is dead, waiting at the back, or carried off
    *  projects nothing, exactly like every other team ability. */
   resurrectsLeft(): number {
-    return this.players.filter((p) => this.canResurrect(p)).length;
+    let left = 0;
+    for (const p of this.players) {
+      if (this.canResurrect(p)) left += resurrectCharges(p.abilities) - p.resurrectsUsed;
+    }
+    return left;
+  }
+
+  /** Spend one of a holder's banked revives; the latch closes on the last one. */
+  private spendResurrect(holder: SimUnit): void {
+    holder.resurrectsUsed++;
+    if (holder.resurrectsUsed >= resurrectCharges(holder.abilities)) holder.resurrectUsed = true;
   }
 
   /** GROUND TRUTH (`-[ZombieActorGarden canRez]` 0x7c745): the ability must be `active`
@@ -2397,7 +2410,7 @@ export class BattleSim {
     return (
       p.alive && !p.taken &&
       (p.state === "advance" || p.state === "fight") &&
-      p.abilities.includes("ressurect") && !p.resurrectUsed
+      resurrectCharges(p.abilities) > 0 && !p.resurrectUsed
     );
   }
 
@@ -2438,12 +2451,12 @@ export class BattleSim {
     if (!this.fallenDefenders.length) return cast;
     for (const healer of this.enemies) {
       if (!this.fallenDefenders.length) break;
-      if (!healer.alive || healer.resurrectUsed || !healer.abilities.includes("ressurect")) continue;
+      if (!healer.alive || healer.resurrectUsed || !resurrectCharges(healer.abilities)) continue;
       if (healer.state !== "hold" && healer.state !== "fight") continue;
       const corpseId = this.fallenDefenders.pop()!;
       const corpse = this.enemies.find((e) => e.id === corpseId);
       if (!corpse || corpse.alive) continue;
-      healer.resurrectUsed = true;
+      this.spendResurrect(healer);
       corpse.alive = true;
       corpse.hp = corpse.maxHp;
       corpse.state = "emerging";
@@ -2456,7 +2469,7 @@ export class BattleSim {
       for (const key of corpse.abilities) {
         if (ACTIVATED_ABILITY[key]?.useOnce && !corpse.usedAbilities.includes(key)) corpse.usedAbilities.push(key);
       }
-      if (corpse.abilities.includes("ressurect")) corpse.resurrectUsed = true;
+      if (resurrectCharges(corpse.abilities)) corpse.resurrectUsed = true;
       corpse.healFxSeq++;
       cast.add(healer.id);
     }
@@ -3535,7 +3548,7 @@ export class BattleSim {
       if (!p.alive || p.isTurned || this.bozoIds.includes(p.id)) continue;
       standing = true;
       if (!p.isGarden) return false;
-      if (this.fallen.length && p.abilities.includes("ressurect") && !p.resurrectUsed) return false;
+      if (this.fallen.length && resurrectCharges(p.abilities) && !p.resurrectUsed) return false;
     }
     return standing;
   }
@@ -4081,7 +4094,7 @@ export class BattleSim {
   /** Resurrect is automatic and one-use. A living Garden holder revives the
    *  defeated zombie at full Life and sends it back into formation. */
   private resurrect(healer: SimUnit, defeated: SimUnit): void {
-    healer.resurrectUsed = true;
+    this.spendResurrect(healer);
     const slot = this.fallen.indexOf(defeated.id);
     if (slot >= 0) this.fallen.splice(slot, 1);
     defeated.alive = true;
@@ -4146,7 +4159,7 @@ export class BattleSim {
         defeated.usedAbilities.push(key);
       }
     }
-    if (defeated.abilities.includes("ressurect")) defeated.resurrectUsed = true;
+    if (resurrectCharges(defeated.abilities)) defeated.resurrectUsed = true;
     defeated.healFxSeq++;
   }
 
@@ -5329,7 +5342,12 @@ export class BattleSim {
           // range (the front), so front-row / headless zombies take the hits.
           const foe = this.targetEnemy(p);
           const enemyArrived = !!foe && (foe.state === "hold" || foe.state === "fight");
-          const inCombatZone = p.x >= frontX - COMBAT_ZONE_DEPTH;
+          // A station Garden is never "in the combat zone" — it fights only what is on top of
+          // it (gardenInReach). In an Epic Boss fight the boss holds at EPIC_BOSS_HOLD_X with a
+          // long engage, which puts the zone's back edge (230) BEHIND GARDEN_STATION_X (250):
+          // every Garden stood in "fight" for the whole fight, swinging at a boss 350 px away
+          // and holding its heals (healSuppressed) — player report 2026-11-18, ruleset 94.
+          const inCombatZone = !p.isGarden && p.x >= frontX - COMBAT_ZONE_DEPTH;
           const atSlot = Math.hypot(destinationX - p.x, p.slotY - p.y) <= 2;
           // Arrival. Until now this zombie was ranked behind everyone standing and walked
           // to a place at the tail of the line; from here it holds its real place, by

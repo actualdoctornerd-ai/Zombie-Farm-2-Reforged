@@ -38,7 +38,7 @@ export const ABILITY_KIND: Record<string, AbilityKind> = {
   rage: "self", berserk: "self", shieldBar: "self", teleport: "self", phase: "self",
   stoneGaze: "self", petrify: "self", boundlessVitality: "self",
   // team (shown, automatic)
-  heal: "team", healAOE: "team", protect: "team", tankHitPointsBuff: "team", ressurect: "team",
+  heal: "team", healAOE: "team", protect: "team", tankHitPointsBuff: "team", ressurect: "team", ressurectV2: "team",
   chivalry: "team", grace: "team", lastLaugh: "team", support: "team",
   // activated (shown, tappable — one zombie per tap)
   attachMini: "activated", bash: "activated", bashV2: "activated", block: "activated",
@@ -151,6 +151,7 @@ export const ABILITY_COMBAT: Record<string, AbilityCombatEffect> = {
   bash: {},
   turboSpeed: {},
   ressurect: {},
+  ressurectV2: {},
 
   // ---- Tier 4 (the ".Ver.2" upgrades hit harder) ----
   zomBeam: {},
@@ -272,8 +273,21 @@ export function activatedGroupsOf(keys: string[]): string[][] {
   return groups;
 }
 
+/** Revives a holder banks per fight: Resurrect one, Resurrect II two. */
+export const RESURRECT_CHARGES: Readonly<Record<string, number>> = { ressurect: 1, ressurectV2: 2 };
+
+/** How many revives a unit carrying `keys` banks per fight (0 = not a holder). */
+export function resurrectCharges(keys: readonly string[]): number {
+  let n = 0;
+  for (const k of keys) n = Math.max(n, RESURRECT_CHARGES[k] ?? 0);
+  return n;
+}
+
 /** The team-passive abilities in a set (Heal/Protect/Resurrect/Chivalry/…), for
- *  the battle strip's informational icons. */
+ *  the battle strip's informational icons. Resurrect II shares Resurrect's icon: in
+ *  battle it is two Resurrects, counted on the one "revives left" badge. */
 export function teamAbilitiesIn(keys: string[]): string[] {
-  return keys.filter((k) => ABILITY_KIND[k] === "team");
+  return keys
+    .filter((k) => ABILITY_KIND[k] === "team")
+    .map((k) => (k === "ressurectV2" ? "ressurect" : k));
 }

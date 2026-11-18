@@ -32,7 +32,7 @@ describe("Boundless Vitality", () => {
     const def = (zombiesJson as { key: string; className: string; group: string }[]).find((z) => z.key === GREEN_FLOWER)!;
     expect(def.className).toBe("Silver");
     expect(activeAbilities({ key: GREEN_FLOWER, group: "Garden", className: def.className }, () => true))
-      .toEqual(["heal", BOUNDLESS_VITALITY, "ressurect", "healAOE"]);
+      .toEqual(["heal", BOUNDLESS_VITALITY, "tankHitPointsBuff", "ressurectV2"]);
   });
 
   it("is reported as a survivor, not a loss, when it falls in a fight", () => {

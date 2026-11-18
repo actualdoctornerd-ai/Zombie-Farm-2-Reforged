@@ -10,6 +10,37 @@ const unit = (id: string, team: "player" | "enemy", boss = false): CombatUnit =>
 });
 
 describe("Epic Boss BattleSim mode", () => {
+  // Player reports 2026-11-18 (ruleset 94): Gardens "just keep attacking" the Epic Boss and
+  // never heal. The epic engage put the combat zone's back edge behind the Garden station.
+  it("keeps a station Garden healing, not swinging at a boss across the field", () => {
+    const fighter = unit("fighter", "player");
+    const medic = { ...unit("medic", "player"), isGarden: true, abilities: ["heal"], str: 50, attackCooldownMs: 1_000 };
+    const sim = new BattleSim(
+      [fighter, medic], [unit("boss", "enemy", true)], null, false, [],
+      120_000, null, null, true, true, true, 150,
+    );
+    let settledTicks = 0;
+    let woundedAt = -1;
+    let medicFought = false;
+    let healed = false;
+    for (let i = 0; i < 1600 && !sim.finished && !healed; i++) {
+      sim.step(50);
+      const bubble = sim.chargingBubble();
+      if (bubble) sim.popBubble(bubble.id);
+      const f = sim.units.find((u) => u.id === "fighter")!;
+      const m = sim.units.find((u) => u.id === "medic")!;
+      if (m.state === "fight") medicFought = true;
+      // Wait until the medic has stood at its station for 3 s, then wound the fighter.
+      if (woundedAt < 0) {
+        settledTicks = m.state !== "waiting" && m.state !== "charging" && f.state === "fight" ? settledTicks + 1 : 0;
+        if (settledTicks >= 60) { f.hp = f.maxHp / 2; woundedAt = i; }
+      } else if (f.hp > f.maxHp / 2) healed = true;
+    }
+    expect(woundedAt).toBeGreaterThan(0);
+    expect(medicFought).toBe(false);
+    expect(healed).toBe(true);
+  });
+
   it("starts the zombie waiting crowd close to the left edge", () => {
     const players = Array.from({ length: 8 }, (_, index) => unit(`p${index}`, "player"));
     const sim = new BattleSim(players, [unit("boss", "enemy", true)]);

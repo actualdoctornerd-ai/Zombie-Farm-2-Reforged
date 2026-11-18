@@ -126,6 +126,9 @@ export const ABILITY_POOL: Record<string, AbilityMeta> = {
   block: { label: "Block", effect: "1-second guard for all fielded zombies; 20% per blocker, up to 100%", desc: "Tap to guard all zombies in the battle area. Each active Block zombie adds 20% reduction; 12-second cooldown", icon: `${AB}ability_block.png` },
   healAOE: { label: "Heal All", effect: "50% Power to all injured zombies every 20 seconds", desc: "Heal all zombies every once in awhile", icon: `${AB}ability_healAOE.png` },
   // ---- Prize-only (no group ladder holds these; see SPECIAL_ABILITIES) ----
+  // Green Flower Zombie (owner, 2026-11-18): Resurrect with two charges. In battle it is
+  // simply two Resurrects on one zombie — the strip's Resurrect count goes up by two.
+  ressurectV2: { label: "Resurrect II", effect: "Revives two fallen zombies at full Life, one at a time, per fight; they return with their one-use moves spent", desc: "Resurrect any zombie, twice", icon: `${AB}ability_ressurect.png` },
   unwrapped: { label: "Unwrapped", effect: "The first time it falls, it gets back up at 50% Life; once per fight", desc: "Too stubborn to stay down", icon: `${AB}ability_ressurect.png` },
   lastLaugh: { label: "Treat", effect: "When it falls, every zombie heals 20% of its Life", desc: "Goes out with a treat for everyone", icon: `${AB}ability_healAOE.png` },
   // The Boss Zombie's three colour variants (owner, 2026-10-25): each trades both lasers
@@ -171,7 +174,7 @@ export const ABILITY_TIER: Record<number, string[]> = {
   1: ["buffAllStats", "attackSpeedBuff", "powerBuff", "hitPointsBuff", "heal"],
   2: ["chivalry", "grace", "attachMini", "protect", "tankHitPointsBuff", "boundlessVitality"],
   3: ["laserBeam", "stun", "explode", "bash", "turboSpeed", "ressurect", "unwrapped", "rage", "shieldBar", "teleport"],
-  4: ["zomBeam", "doubleStrike", "explodeV2", "bashV2", "block", "healAOE", "lastLaugh", "berserk", "support", "phase"],
+  4: ["zomBeam", "doubleStrike", "explodeV2", "bashV2", "block", "healAOE", "lastLaugh", "berserk", "support", "phase", "ressurectV2"],
 };
 
 /** The tier an ability belongs to (0 if it isn't assigned to any tier). */
@@ -235,9 +238,11 @@ export const SPECIAL_ABILITIES: Record<string, (string | null)[]> = {
   ZombieActorMasterNinjombie:["buffAllStats",   "chivalry",          "turboSpeed", "doubleStrike"],
   ZombieActorProto:          [null,             null,                "ressurect",  "bashV2"],
   ZombieActorZombug:         [null,             null,                "ressurect",  "bashV2"],
-  // Green Flower Zombie (owner, 2026-11-11): the Garden ladder with Boundless Vitality in
-  // place of Fortitude (the Headless aura). Silver class, so all four slots open.
-  ZombieActorGardenTier3GreenFlower: ["heal", "boundlessVitality", "ressurect", "healAOE"],
+  // Green Flower Zombie (owner, 2026-11-11; reworked 2026-11-18 after "too weak" reports):
+  // Heal, Boundless Vitality, Fortitude (the Headless aura) and Resurrect II in place of the
+  // Garden ladder's Resurrect + Heal All. Boundless Vitality stays in slot 2 — owner ruling
+  // 2026-11-11 that it keeps the Life Force level-2 gate. Stats are unchanged (owner).
+  ZombieActorGardenTier3GreenFlower: ["heal", "boundlessVitality", "tankHitPointsBuff", "ressurectV2"],
 
   // ---- The 2026-09-24 reshuffle (docs/ABILITY_IDEAS.md) --------------------------
   // Fifteen prize zombies are group Regular and so ran the IDENTICAL stock ladder

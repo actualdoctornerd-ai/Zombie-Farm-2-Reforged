@@ -1187,6 +1187,38 @@ describe("lasers, resurrection, and activated attacks", () => {
     expect(sim.resurrectsLeft()).toBe(0); // …and now the safety net is gone
   });
 
+  it("Resurrect II banks two revives on one holder — two Resurrects on the strip", () => {
+    const fighter = unit({ id: "fighter", sourceKey: "ZombieActorRegularTier1", team: "player" });
+    const flower = unit({
+      id: "flower", sourceKey: "ZombieActorGardenTier3GreenFlower", group: "Garden", team: "player",
+      isGarden: true, abilities: ["heal", "ressurectV2"],
+    });
+    const enemy = unit({ id: "enemy", sourceKey: "FarmStageActorFarmhand", team: "enemy" });
+    const sim = new BattleSim([fighter, flower], [enemy], null, true);
+    const f = sim.units.find((u) => u.id === "fighter")!;
+    const g = sim.units.find((u) => u.id === "flower")!;
+    g.state = "advance";
+    expect(sim.resurrectsLeft()).toBe(2);
+    expect(sim.teamAbilityStatus()).toContainEqual({ key: "ressurect", count: 2 });
+    expect(sim.teamAbilityStatus().some((s) => s.key === "ressurectV2")).toBe(false);
+
+    (sim as any).dealDamage(f, f.maxHp, false);
+    sim.step(50);
+    expect(f.alive).toBe(true);
+    expect(g.resurrectUsed).toBe(false);
+    expect(sim.resurrectsLeft()).toBe(1);
+
+    (sim as any).dealDamage(f, f.maxHp, false);
+    sim.step(50);
+    expect(f.alive).toBe(true);
+    expect(g.resurrectUsed).toBe(true);
+    expect(sim.resurrectsLeft()).toBe(0);
+
+    (sim as any).dealDamage(f, f.maxHp, false);
+    sim.step(50);
+    expect(f.alive).toBe(false); // two, and no more
+  });
+
   // ZF2 marks EVERY consumable ability on the revived actor consumed — including tag 29
   // itself, which is what stops two Garden holders from reviving each other for the rest
   // of the fight. `resurrectUsed` is never cleared either way, so an army is bounded at

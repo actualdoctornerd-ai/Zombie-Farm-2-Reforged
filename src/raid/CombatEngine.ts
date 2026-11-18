@@ -262,7 +262,7 @@ export function buildPlayerUnits(
     // a unit that can actually heal or revive stations; the rest fight in the line.
     // Ruleset v40(a) — see replay.ts.
     const supportsFromRear = z.group === "Garden" &&
-      ["heal", "healAOE", "ressurect"].some((ability) => keys.includes(ability));
+      ["heal", "healAOE", "ressurect", "ressurectV2"].some((ability) => keys.includes(ability));
     const u = unit(
       z.id, z.key, "player", z.name,
       str, dex, con, focus,
