@@ -404,6 +404,9 @@ export class Field {
   private cursorRed = new Graphics();
   private cursorLabel!: Text;
   private objGhost = new Sprite(); // placement/move preview
+  // The tiles the ghost would take, one diamond each (green free / red blocked), drawn
+  // under the ghost — player request 2026-11-18: "show how much space it takes up".
+  private footprintGrid = new Graphics();
   private ghostTurnIndex = 0; // current orientation of the placement ghost (see turnArt)
   // What the ghost is previewing, so flipping it in place can re-derive the flat-tile
   // anchor offset (which is not symmetric about the footprint's bottom-center).
@@ -468,7 +471,8 @@ export class Field {
     this.tillSelectionLayer.addChild(this.tillSelection);
     this.objGhost.anchor.set(0.5, 1);
     this.objGhost.visible = false;
-    this.cursor.addChild(this.objGhost);
+    this.footprintGrid.visible = false;
+    this.cursor.addChild(this.footprintGrid, this.objGhost);
     this.cropGroundLayer.sortableChildren = true;
     // NOTE: highlightLayer is intentionally NOT parented here. It must draw ABOVE
     // the entity layer so the green job diamond is not occluded by a ripe crop's
@@ -940,6 +944,7 @@ export class Field {
   setPlotMoveCursor(col: number, row: number, fromOc: number, fromOr: number):
     { oc: number; or: number; valid: boolean } {
     this.objGhost.visible = false; // the plot ghost and the object ghost are exclusive
+    this.footprintGrid.visible = false;
     const { oc, or } = this.originFor(col, row);
     const valid = this.canMovePlotTo(fromOc, fromOr, oc, or);
     const c = this.plotCenterOf(oc, or);
@@ -1339,6 +1344,7 @@ export class Field {
   // "plant"/"remove" act on the plot under the tile; null (select) shows nothing.
   setCursor(col: number, row: number, tool: "till" | "plant" | "remove" | "grow" | null) {
     this.objGhost.visible = false; // farming cursor and object ghost are exclusive
+    this.footprintGrid.visible = false;
     if (tool === null) {
       this.cursor.visible = false;
       return;
@@ -1373,6 +1379,7 @@ export class Field {
   hideCursor() {
     this.cursor.visible = false;
     this.objGhost.visible = false;
+    this.footprintGrid.visible = false;
   }
 
   // ---- placeable objects (trees / decor) ------------------------------------
@@ -2337,8 +2344,28 @@ export class Field {
       valid ? 0x9cffa0 : 0xff8a8a,
     );
     this.objGhost.visible = true;
+    this.drawFootprintGrid(def, flipped, oc, or, ignoreId);
     this.cursor.visible = true;
     return { oc, or, valid };
+  }
+  /** One diamond per tile the object would block (its placement bounds, the same tiles
+   *  canPlaceObject tests): green where the tile is free, red where something already
+   *  stands or the tile is off the farm. */
+  private drawFootprintGrid(def: PlaceableDef, flipped: boolean, oc: number, or: number, ignoreId?: string) {
+    const g = this.footprintGrid;
+    g.clear();
+    const place = this.placementBounds(def, flipped, oc, or);
+    for (let r = place.or; r < place.or + place.h; r++) {
+      for (let c = place.oc; c < place.oc + place.w; c++) {
+        const free = c >= 0 && r >= 0 && c < this.w && r < this.h && !this.tileOccupied(c, r, ignoreId);
+        const color = free ? 0x8df25a : 0xff5a5a;
+        const p = tileCenter(c, r);
+        g.poly([p.x, p.y - HH, p.x + HW, p.y, p.x, p.y + HH, p.x - HW, p.y])
+          .fill({ color, alpha: 0.28 })
+          .stroke({ width: 2, color, alpha: 0.9 });
+      }
+    }
+    g.visible = true;
   }
   // Turn the placement ghost in place — the Rotate control uses this to spin the
   // current preview without waiting for a pointer move. Turning an object transposes
@@ -2360,6 +2387,7 @@ export class Field {
   }
   hideObjectCursor() {
     this.objGhost.visible = false;
+    this.footprintGrid.visible = false;
   }
 
   // ---- persistence ----------------------------------------------------------
