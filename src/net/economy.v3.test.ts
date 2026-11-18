@@ -1086,6 +1086,37 @@ describe("v3 raid dependency ids", () => {
     expect(economy.available).toBe(true);
   });
 
+  // Player reports 2026-11-18: a stale copy that re-took the lease wrote its old layout over
+  // the farm and packed every object it had never seen into the corner.
+  it("reloads instead of re-claiming when another copy saved the farm meanwhile", async () => {
+    const economy = new EconomyClient(new GameState(), "resume-stale-lease");
+    (economy as any).ready = true;
+    (economy as any).queue.disable("offline");
+    const adopt = vi.spyOn(economy as any, "adoptGameplay").mockImplementation(() => {});
+    const availableAgain = vi.fn();
+    const staleResume = vi.fn();
+    economy.onWriterAvailable = availableAgain;
+    economy.onStaleResume = staleResume;
+    economy.isPresentationStale = (version) => version > 3;
+    vi.spyOn(api, "getSession").mockReturnValue({
+      token: "t", accountId: "resume-stale-lease", username: "DoctorNerd", friendCode: "CODE",
+    });
+    vi.spyOn(api, "hasWriterCredential").mockReturnValue(true);
+    vi.spyOn(api, "hasLocalWriterLock").mockReturnValue(true);
+    vi.spyOn(api, "writerStatus").mockResolvedValue({ status: "free", generation: 5, lastActivityAt: 1 });
+    vi.spyOn(api, "acquireWriter").mockResolvedValue(undefined);
+    vi.spyOn(api, "bootstrap").mockResolvedValue(bootstrapFixture({
+      writer: { status: "mine", generation: 6, lastActivityAt: 2 },
+      presentation: { version: 9 },
+    }));
+
+    await (economy as any).checkOwnership();
+
+    expect(staleResume).toHaveBeenCalledOnce();
+    expect(adopt).not.toHaveBeenCalled();
+    expect(availableAgain).not.toHaveBeenCalled();
+  });
+
   it("still gates on a lease a second device actually holds", async () => {
     const economy = new EconomyClient(new GameState(), "resume-contested-lease");
     (economy as any).ready = true;

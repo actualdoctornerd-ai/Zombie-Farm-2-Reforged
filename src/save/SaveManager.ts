@@ -69,6 +69,12 @@ export class SaveManager {
    * player's own farm, so visiting never overwrites device preferences. */
   loadedFarmBackground: SaveGame["farm"]["background"];
   private presentationVersion = 0;
+
+  /** The server's presentation version is ahead of what this document loaded or wrote:
+   *  some other copy of the game saved the farm since. Online only. */
+  isPresentationBehind(serverVersion: number): boolean {
+    return this.mode === "online" && serverVersion > this.presentationVersion;
+  }
   private lastPresentation = "";
   private presentationDirty = false;
   /** One alarm per refusal streak. A rejected presentation is refused on every retry,

@@ -158,6 +158,12 @@ export class EconomyClient {
   /** Fired whenever a bootstrap confirms this tab owns the writer, including recovery. */
   onWriterOwned: (() => void) | null = null;
   onWriterAvailable: (() => void) | null = null;
+  /** True when the server's presentation (the farm layout) is newer than the one this
+   *  document loaded or last wrote — another copy of the game saved in the meantime. */
+  isPresentationStale: ((serverVersion: number) => boolean) | null = null;
+  /** A suspended document woke to a free lease but a NEWER layout: rebuild from the server
+   *  (main reloads the page) rather than reclaim the lease and write its stale farm. */
+  onStaleResume: (() => void) | null = null;
   onCommandRejected: ((command: GameplayCommand | undefined, error: string) => void) | null = null;
   /** Some — not all — of a bulk plow/plant's plots were refused. */
   onBulkFarmPartial: ((plots: number, error: string) => void) | null = null;
@@ -338,6 +344,15 @@ export class EconomyClient {
       await api.acquireWriter(observedGeneration, false);
       let bootstrap = await api.bootstrap(true);
       if (bootstrap.writer.status !== "mine") return false;
+      // Player reports 2026-11-18 ("my decor got smushed into the corner"): an old tab or
+      // backgrounded PWA woke, silently re-took the free lease, re-homed every object it had
+      // never seen onto the first free tiles from (0,0), and its stale layout then won the
+      // presentation write wholesale. A document that missed another copy's saves must
+      // start over from the server instead of writing what it remembers.
+      if (this.onStaleResume && this.isPresentationStale?.(bootstrap.presentation.version)) {
+        this.onStaleResume();
+        return true;
+      }
       // Only now does the raid recovery in the caller's bootstrap become reachable: it
       // no-ops while the lease is unowned. Resend-only — this path exists BECAUSE the
       // document was suspended mid-session, which is precisely when the fight is still

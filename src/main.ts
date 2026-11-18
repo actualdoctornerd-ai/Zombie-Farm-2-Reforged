@@ -3030,6 +3030,13 @@ async function main() {
       hud.setPlayStatus("online", "synced");
       hud.hideWriterLock();
     };
+    economy.isPresentationStale = (version) => saveManager.isPresentationBehind(version);
+    economy.onStaleResume = () => {
+      // Never write from this stale farm: hold saves, then boot fresh from the server.
+      // Pending gameplay commands persist in the command queue and resend after the reload.
+      saveManager.setOnlineWritable(false);
+      window.location.reload();
+    };
     economy.onCommandRejected = (command, error) => {
       // A refused Boss Token grant means the event it belonged to has just ended, and
       // the run projection already carries the correction. There is nothing the player
