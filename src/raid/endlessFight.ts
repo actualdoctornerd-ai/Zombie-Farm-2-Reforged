@@ -15,9 +15,9 @@ import { buildPlayerUnits, buildUnitsForKeys } from "./CombatEngine";
 import { countHitDamage } from "./countSlam";
 import { POISE_THRESHOLD, STAGGER_MS } from "./dualInvasion";
 import {
-  applyEndlessBoon, applyEndlessDepthStunResist, applyEndlessEnemyCurses,ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_LAUNCH_COOLDOWN_MS, ENDLESS_BOSS_LAUNCH_HIT, ENDLESS_BOSS_LAUNCH_TARGETS, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
+  applyEndlessBoon, applyEndlessCurse, applyEndlessOrder, applyEndlessStop, applyEndlessDepthStunResist, applyEndlessEnemyCurses,ENDLESS_ALIEN_MAX_ACTIVE, ENDLESS_BOSS_LAUNCH_COOLDOWN_MS, ENDLESS_BOSS_LAUNCH_HIT, ENDLESS_BOSS_LAUNCH_TARGETS, ENDLESS_BOSS_LAUNCH_TIER, ENDLESS_BOSS_SLAM_MULT, ENDLESS_BOSS_SLAM_TIER, ENDLESS_CHARGE_TAP_REDUCE, ENDLESS_BOSS_HP_SCALE, ENDLESS_FIGHTS_PER_LOCATION, endlessBossHp,
   endlessBossMultiplier, endlessClockMs, endlessDoOrDieMs, endlessPeerShapes, endlessPlayerUnits, endlessWavePlan,
-  finishEndlessFight, type EndlessCurse, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, scaleEndlessThrow, type EndlessBoon, type EndlessRunState,
+  finishEndlessFight, type EndlessCurse, type EndlessLocation, type EndlessModifierId, type EndlessWavePlan, scaleEndlessEnemy, scaleEndlessThrow, type EndlessBoon, type EndlessRunState, type EndlessStop,
 } from "./endless";
 import { buildEndlessStageMechanics } from "./endlessMechanics";
 import { ENDLESS_LOCATION_RAID } from "./endlessLoot";
@@ -197,6 +197,28 @@ export function endlessApplyBoon(
   const [unit] = buildPlayerUnits([owned], { playerLevel, abilitySlotUnlocked: (slot) => abilitySlotUnlocked(slot, lifeForceLevel) });
   // Loaned: it skips the deploy queue and walks on with the army's third deploy (BattleSim).
   return unit ? { ...run, units: [...run.units, { ...unit, hp: unit.maxHp, alive: true, loaned: true }] } : run;
+}
+
+/** Apply one boss screen's choices — shared by the Worker and the local engine so the two
+ *  can't drift. The ORDER is applied first, to the army the player was shown and reordered:
+ *  a temporary-zombie boon adds a unit, and checking the reorder against that bigger roster
+ *  rejected every "loan a zombie + reorder" screen with bad_army_order (player report
+ *  2026-11-18). The loaned zombie joins at the tail; it skips the deploy queue anyway.
+ *  Null = the order is not exactly the run's army. */
+export function endlessApplyBossChoices(
+  run: EndlessRunState,
+  choices: { boon: EndlessBoon; curse: EndlessCurse; stop?: EndlessStop; order?: unknown },
+  playerLevel: number, lifeForceLevel?: number,
+): EndlessRunState | null {
+  let state = run;
+  if (choices.order !== undefined) {
+    const ordered = applyEndlessOrder(state, choices.order);
+    if (!ordered) return null;
+    state = ordered;
+  }
+  state = applyEndlessCurse(endlessApplyBoon(state, choices.boon, playerLevel, lifeForceLevel ?? playerLevel), choices.curse);
+  if (choices.stop) state = applyEndlessStop(state, choices.stop);
+  return state;
 }
 
 export function endlessCarryFromSim(run: EndlessRunState, sim: ReturnType<typeof endlessSimFor>) {

@@ -1,13 +1,13 @@
 import zombiesJson from "../../../public/assets/zombies.json";
 import { buildPlayerUnits } from "../../../src/raid/CombatEngine";
 import {
-  applyEndlessCurse, applyEndlessStop, beginEndlessRun,
-  applyEndlessOrder, endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
+  beginEndlessRun,
+  endlessMaxStartTier, endlessWavePlan, endlessWeekSeed,
   ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_LOCATIONS, ENDLESS_UNLOCK_LEVEL, endlessFreeDayStart, endlessModeOpen,
   type EndlessBoon, type EndlessLocation, type EndlessCurse, type EndlessMode, type EndlessRunState, type EndlessStop,
 } from "../../../src/raid/endless";
 import {
-  endlessApplyBoon, endlessCarryFromSim as carryFromSim, endlessFightConfig as fightConfig, endlessSimFor as simFor,
+  endlessApplyBossChoices, endlessCarryFromSim as carryFromSim, endlessFightConfig as fightConfig, endlessSimFor as simFor,
   type EndlessFightConfig as FightConfig,
 } from "../../../src/raid/endlessFight";
 import { makeOwned, type OwnedZombie } from "../../../src/zombie/types";
@@ -487,13 +487,11 @@ export async function chooseEndlessBossReward(
   if (!offered(body.boon, draft.boons) || !offered(body.curse, draft.curses) || !locationOffered) {
     return fail(400, "bad_boss_draft_choice");
   }
-  let run = applyEndlessCurse(endlessApplyBoon(payload.run, body.boon as EndlessBoon, payload.playerLevel, payload.lifeForceLevel), body.curse as EndlessCurse);
-  if (draft.locations.length) run = applyEndlessStop(run, body.location as EndlessStop);
-  if (body.order !== undefined) {
-    const ordered = applyEndlessOrder(run, body.order);
-    if (!ordered) return fail(400, "bad_army_order");
-    run = ordered;
-  }
+  const run = endlessApplyBossChoices(payload.run, {
+    boon: body.boon as EndlessBoon, curse: body.curse as EndlessCurse,
+    stop: draft.locations.length ? body.location as EndlessStop : undefined, order: body.order,
+  }, payload.playerLevel, payload.lifeForceLevel);
+  if (!run) return fail(400, "bad_army_order");
   // More of the opening draft to go: the next skipped tier's screen, and still no fight.
   const nextOpening = pending.opening ? pending.wave + ENDLESS_FIGHTS_PER_LOCATION : 0;
   if (nextOpening && nextOpening < run.startWave) {

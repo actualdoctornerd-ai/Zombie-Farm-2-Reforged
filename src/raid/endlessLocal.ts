@@ -12,13 +12,13 @@
 import type { OwnedZombie } from "../zombie/types";
 import type { CombatUnit } from "./types";
 import {
-  applyEndlessCurse, applyEndlessOrder, applyEndlessStop, beginEndlessRun, endlessFreeDayStart,
+  beginEndlessRun, endlessFreeDayStart,
   endlessMaxStartTier, endlessModeOpen, endlessWavePlan, endlessWeekSeed,
   ENDLESS_ENTRY_COST, ENDLESS_FIGHTS_PER_LOCATION, ENDLESS_UNLOCK_LEVEL,
   type EndlessBoon, type EndlessCurse, type EndlessMode, type EndlessStop,
 } from "./endless";
 import {
-  endlessApplyBoon, endlessCarryFromSim, endlessFightConfig, endlessSimFor, type EndlessFightConfig,
+  endlessApplyBossChoices, endlessCarryFromSim, endlessFightConfig, endlessSimFor, type EndlessFightConfig,
 } from "./endlessFight";
 import type { EndlessBossLoot } from "./endlessLoot";
 import {
@@ -221,13 +221,11 @@ export class EndlessLocalEngine {
     if (!endlessOffered(boon, draft.boons) || !endlessOffered(curse, draft.curses) || !locationOffered) {
       throw new EndlessLocalError(400, "bad_boss_draft_choice");
     }
-    let state = applyEndlessCurse(endlessApplyBoon(payload.run, boon as EndlessBoon, payload.playerLevel, payload.lifeForceLevel), curse as EndlessCurse);
-    if (draft.locations.length) state = applyEndlessStop(state, location as EndlessStop);
-    if (order !== undefined) {
-      const ordered = applyEndlessOrder(state, order);
-      if (!ordered) throw new EndlessLocalError(400, "bad_army_order");
-      state = ordered;
-    }
+    const state = endlessApplyBossChoices(payload.run, {
+      boon: boon as EndlessBoon, curse: curse as EndlessCurse,
+      stop: draft.locations.length ? location as EndlessStop : undefined, order,
+    }, payload.playerLevel, payload.lifeForceLevel);
+    if (!state) throw new EndlessLocalError(400, "bad_army_order");
     const nextOpening = pending.opening ? pending.wave + ENDLESS_FIGHTS_PER_LOCATION : 0;
     if (nextOpening && nextOpening < state.startWave) {
       const opening: EndlessRunPayload = { ...payload, run: state, pendingBossChoice: { wave: nextOpening, opening: true } };

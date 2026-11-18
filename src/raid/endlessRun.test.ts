@@ -9,7 +9,7 @@ import {
   endlessPlayerUnits, endlessWavePlan, ENDLESS_MAX_DEPLOY_REDUCTION, ENDLESS_MODIFIERS, ENDLESS_TEMPORARY_ZOMBIES,
   type EndlessBuildBoon, type EndlessModifierId,
 } from "./endless";
-import { endlessApplyBoon, endlessCarryFromSim, endlessFightConfig, endlessSimFor } from "./endlessFight";
+import { endlessApplyBoon, endlessApplyBossChoices, endlessCarryFromSim, endlessFightConfig, endlessSimFor } from "./endlessFight";
 import { ENDLESS_BRAIN_DROP_CHANCE, ENDLESS_LOCATION_RAID, endlessExpectedZwamps, endlessLootWeightTotal, endlessMilestoneRewards, rollEndlessBossLoot, rollEndlessBrain, rollEndlessLocationZombie } from "./endlessLoot";
 import raidsJson from "../../public/assets/raids/raids.json";
 import { makeOwned } from "../zombie/types";
@@ -165,6 +165,18 @@ describe("Endless build boons", () => {
     // An older run (no Life Force recorded) keeps the player-level gate it started under.
     expect(loaned()).toEqual(loaned(45));
     expect(loaned(0)).not.toEqual(loaned(4));
+  });
+
+  it("takes a reorder together with a loaned zombie, in either click order (player report 2026-11-18)", () => {
+    const lent = ENDLESS_TEMPORARY_ZOMBIES[0];
+    const boon = { kind: "temporary-zombie" as const, key: lent.key, name: lent.name };
+    const curse = endlessBossDraft("endless", 3, base.weekSeed, base.stop.location, true, base).curses[0];
+    const order = base.units.map((u) => u.id).reverse();
+    const run = endlessApplyBossChoices(base, { boon, curse, order }, 45);
+    expect(run).not.toBeNull();
+    expect(run!.units.map((u) => u.id)).toEqual([...order, `temp-${base.units.length}`]);
+    // An order that isn't exactly the army the player saw is still refused.
+    expect(endlessApplyBossChoices(base, { boon, curse, order: [...order, "temp-99"] }, 45)).toBeNull();
   });
 
   it("lends a temporary zombie for the run, at the back and off the roster", () => {
