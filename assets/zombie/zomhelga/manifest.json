@@ -1,0 +1,85 @@
+{
+ "name": "zomhelga",
+ "neck": {
+  "x": 7,
+  "y": -36
+ },
+ "color": [
+  159,
+  255,
+  95
+ ],
+ "floatingHead": false,
+ "parts": [
+  {
+   "file": "ArmB.png",
+   "group": "root",
+   "px": -3,
+   "py": -25,
+   "ax": 0.9633331298828125,
+   "ay": 0.44594627618789673,
+   "z": -4,
+   "scale": 1
+  },
+  {
+   "file": "Features.png",
+   "group": "head",
+   "px": -26,
+   "py": -45,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": -5,
+   "scale": 1
+  },
+  {
+   "file": "Features2.png",
+   "group": "head",
+   "px": 0,
+   "py": -58,
+   "ax": 0.5,
+   "ay": 0.5,
+   "z": 7,
+   "scale": 1
+  },
+  {
+   "file": "ArmF.png",
+   "group": "root",
+   "px": 9,
+   "py": -28,
+   "ax": 0.7202463448047638,
+   "ay": 0.45941805839538574,
+   "z": 7,
+   "scale": 1
+  },
+  {
+   "file": "Body.png",
+   "group": "root",
+   "px": 10,
+   "py": -13,
+   "ax": 0.6054774392396212,
+   "ay": 0.6636694967746735,
+   "z": -2,
+   "scale": 1
+  },
+  {
+   "file": "FootB.png",
+   "group": "footB",
+   "px": -1,
+   "py": -8,
+   "ax": 0.502467155456543,
+   "ay": 0.22289669513702393,
+   "z": -4,
+   "scale": 1
+  },
+  {
+   "file": "FootF.png",
+   "group": "footF",
+   "px": 16,
+   "py": -8,
+   "ax": 0.8476561903953552,
+   "ay": 0.1832331418991089,
+   "z": -4,
+   "scale": 1
+  }
+ ]
+}
